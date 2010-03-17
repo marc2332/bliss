@@ -61,6 +61,7 @@ public:
     mode         _mode;
   };
 public:
+  //function to apply a palette on Data
   template<class IN> static void map_on_min_max_val(const IN *data,unsigned int *anImagePt,
 						    int column,int row,Palette &aPalette,
 						    mapping_meth aMeth,
@@ -77,5 +78,74 @@ public:
 				     int column,int row,
 				     Palette&,mapping_meth,
 				     IN dataMin,IN dataMax);
+
+  // function to transform raw video format into rgb(32bits BGRA8888) image
+  class Scaling
+  {
+  public:
+    friend class LUT;
+    struct luma;
+
+    enum image_type {UNDEF,
+		     Y8,	// monochrome 8bits
+		     Y16,	// monochrome 16bits
+		     Y32,	// monochrome 32bits
+		     Y64,	// monochrome 64bits
+		     I420,	// YVU 8bits
+		     RGB555,
+		     RGB565,
+		     RGB24,
+		     RGB32,
+		     BGR24,
+		     BGR32,
+		     BAYER_RG8,	// BAYER RG 8bits (prosilica)
+		     BAYER_RG16, // BAYER RG 16bits (prosilica)
+		     BAYER_BG8,	// BAYER BG 8bits (basler)
+		     BAYER_BG16, // BAYER BG 16bits (basler)
+		     YUV411,
+		     YUV422,
+		     YUV444};
+
+    enum mode {UNACTIVE,QUICK,ACCURATE,COLOR_MAPPED};
+    
+    Scaling();
+    ~Scaling();
+
+    void current_type(image_type &aType) const;
+    void min_max_mapping(double &minVal,double &maxVal) const;
+    
+    void set_custom_mapping(double minVal,double maxVal);
+    
+    void get_mode(mode&) const;
+    void set_mode(mode);
+
+    void fill_palette(LUT::Palette::palette_type);
+    
+    void set_palette_mapping_meth(LUT::mapping_meth);
+
+    void autoscale_min_max(const unsigned char *data,int column,int row,
+			   image_type aType);
+
+    void autoscale_plus_minus_sigma(const unsigned char *data,int column,int row,
+				    image_type aType,double aSigmaFactor);
+
+  private:
+    mutable pthread_mutex_t _lock;
+    double	            _minValue,_maxValue;	// min max
+    luma		   *_Luma;
+    mode		    _mode;
+
+    void _get_minmax_and_mode(double &minVal,double &maxVal,
+			      mode &aMode);
+  };
+
+  static bool raw_video_2_image(const unsigned char *data,unsigned int *anImagePt,
+				int column,int row,
+				LUT::Scaling::image_type anImageType,
+				Scaling &aScaling);
+
+  static unsigned char* raw_video_2_luma(const unsigned char *data,
+					 int column,int row,
+					 LUT::Scaling::image_type anImageType);
 };
 #endif

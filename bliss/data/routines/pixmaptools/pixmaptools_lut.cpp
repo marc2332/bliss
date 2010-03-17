@@ -1,5 +1,41 @@
 #include "pixmaptools_lut.h"
-#include <math.h>
+#include <cmath>
+#include <iostream>
+
+template<class IN> static void _find_min_max(const IN *aData,int aNbValue,IN &dataMin,IN &dataMax);
+template<class IN> static void _find_minpos_max(const IN *aData,int aNbValue,IN &dataMin,IN &dataMax);
+template<class IN,class MIN_MAX_TYPE> 
+static void _get_average_std(const IN *aData,int aNbValue,
+    MIN_MAX_TYPE &anAverage,MIN_MAX_TYPE &aStd);
+
+template<class IN> static void _linear_data_map(const IN *data,
+    unsigned int *anImagePt,int column,int line,
+    unsigned int *palette,double A,double B,
+    IN dataMin,IN dataMax) throw();
+template<> void _linear_data_map(unsigned short const *data,
+    unsigned int *anImagePt,int column,int line,
+    unsigned int *palette,double,double,
+    unsigned short dataMin,unsigned short dataMax) throw();
+template<> void _linear_data_map(const short *data,
+    unsigned int *anImagePt,int column,int line,
+    unsigned int *palette,double,double,
+    short dataMin,short dataMax) throw();
+template<> void _linear_data_map(const char *data,
+    unsigned int *anImagePt,int column,int line,
+    unsigned int *palette,double,double,
+    char dataMin,char dataMax) throw();
+template<> void _linear_data_map(unsigned char const *data,
+    unsigned int *anImagePt,int column,int line,
+    unsigned int *palette,double,double,
+    unsigned char dataMin,unsigned char dataMax) throw();
+template<class IN> static void _log_data_map(const IN *data,
+    unsigned int *anImagePt,int column,int line,
+    unsigned int *aPalette,double A,double B,
+    IN dataMin,IN dataMax) throw();
+template<class IN> static void _log_data_map_shift(const IN *data,
+    unsigned int *anImagePt,int column,int line,
+    unsigned int *aPalette,double A,double B,
+    IN dataMin,IN dataMax,IN shift) throw();
 
 struct LUT::XServer_Info {
   int byte_order;
@@ -22,29 +58,30 @@ struct lutConfiguration
 {
   lutConfiguration()
   {
-    LUT::XServer_Info &Xservinfo = _config[LUT::Palette::RGBX];
-    Xservinfo.pixel_size = 4;
+    LUT::XServer_Info *Xservinfo = &_config[LUT::Palette::RGBX];
+    Xservinfo->pixel_size = 4;
     short aVal = 1;
-    Xservinfo.byte_order = *((char*)&aVal) ? LUT::Palette::LSB : LUT::Palette::MSB;
-    Xservinfo.rshift = 0,Xservinfo.rbit = 8;
+    Xservinfo->byte_order = *((char*)&aVal) ? LUT::Palette::LSB : LUT::Palette::MSB;
+    Xservinfo->rshift = 0,Xservinfo->rbit = 8;
 
-    Xservinfo.gshift = 8,Xservinfo.gbit = 8;
+    Xservinfo->gshift = 8,Xservinfo->gbit = 8;
 
-    Xservinfo.bshift = 16,Xservinfo.bbit = 8;
+    Xservinfo->bshift = 16,Xservinfo->bbit = 8;
 
-    Xservinfo.ashift = 24,Xservinfo.abit = 8;
+    Xservinfo->ashift = 24,Xservinfo->abit = 8;
 
-    Xservinfo = _config[LUT::Palette::BGRX];
-    Xservinfo.pixel_size = 4;
-    Xservinfo.byte_order = *((char*)&aVal) ? LUT::Palette::LSB : LUT::Palette::MSB;
+    Xservinfo = &_config[LUT::Palette::BGRX];
+    Xservinfo->pixel_size = 4;
+    Xservinfo->byte_order = *((char*)&aVal) ? LUT::Palette::LSB : LUT::Palette::MSB;
 
-    Xservinfo.ashift = 24,Xservinfo.abit = 8;
+    Xservinfo->ashift = 24,Xservinfo->abit = 8;
 
-    Xservinfo.rshift = 16,Xservinfo.rbit = 8;
+    Xservinfo->rshift = 16,Xservinfo->rbit = 8;
 
-    Xservinfo.gshift = 8,Xservinfo.gbit = 8;
+    Xservinfo->gshift = 8,Xservinfo->gbit = 8;
 
-    Xservinfo.bshift = 0,Xservinfo.bbit = 8;
+    Xservinfo->bshift = 0,Xservinfo->bbit = 8;
+
     double *aPt = _logCache;
     for(int i = 0;i < 0x10000;++i,++aPt)
       *aPt = log10(i);
@@ -56,6 +93,7 @@ struct lutConfiguration
 };
 
 static lutConfiguration theLutConfiguration;
+
 
 typedef union {
   struct {
@@ -335,7 +373,7 @@ template<class IN> void LUT::map_on_plus_minus_sigma(const IN *data,unsigned int
 						     double aSigmaFactor,
 						     IN &dataMinUse4LookUp,IN &dataMaxUse4LookUp)
 {
-  IN anAverage,aStd;
+  double anAverage,aStd;
   IN dataMin,dataMax;
   if(aMeth != LOG)
     _find_min_max(data,column * row,dataMin,dataMax);
@@ -353,15 +391,16 @@ template<class IN> void LUT::map_on_plus_minus_sigma(const IN *data,unsigned int
 }
 /** @brief calculate the average and the standard deviation
  */
-template<class IN> static void _get_average_std(const IN *aData,int aNbValue,IN &anAverage,IN &aStd) 
+template<class IN,class MIN_MAX_TYPE> 
+static void _get_average_std(const IN *aData,int aNbValue,
+			     MIN_MAX_TYPE &anAverage,MIN_MAX_TYPE &aStd) 
 {
   const IN *aTmpPt = aData;
   double aSum = 0.;
   for(int i = 0;i < aNbValue;++i,++aTmpPt)
     aSum += *aTmpPt;
   double localAverage = aSum / aNbValue;
-  anAverage = (IN)localAverage;
-
+  anAverage = (MIN_MAX_TYPE)localAverage;
   //STD
   aTmpPt = aData;
   aSum = 0.;
@@ -372,7 +411,41 @@ template<class IN> static void _get_average_std(const IN *aData,int aNbValue,IN 
       aSum += diff;
     }
   aSum /= aNbValue;
-  aStd = (IN) sqrt(aSum);
+  aStd = (MIN_MAX_TYPE) sqrt(aSum);
+}
+
+/** @brief calculate the average and the standard deviation
+ */
+template<class IN,class MIN_MAX_TYPE> 
+static void _get_average_std_min_max(const IN *aData,int aNbValue,
+				     MIN_MAX_TYPE &anAverage,MIN_MAX_TYPE &aStd,
+				     IN &minVal,IN &maxVal) 
+{
+  const IN *aTmpPt = aData;
+  minVal = maxVal = *aData;
+
+  double aSum = 0.;
+  for(int i = 0;i < aNbValue;++i,++aTmpPt)
+    {
+      aSum += *aTmpPt;
+      if(*aTmpPt > maxVal)
+	maxVal = *aTmpPt;
+      else if(*aTmpPt < minVal)
+	minVal = *aTmpPt;
+    }
+  double localAverage = aSum / aNbValue;
+  anAverage = (MIN_MAX_TYPE)localAverage;
+  //STD
+  aTmpPt = aData;
+  aSum = 0.;
+  for(int i = 0;i < aNbValue;++i,++aTmpPt)
+    {
+      double diff = *aTmpPt - localAverage;
+      diff *= diff;
+      aSum += diff;
+    }
+  aSum /= aNbValue;
+  aStd = (MIN_MAX_TYPE) sqrt(aSum);
 }
 /** @brief transform <b>data</b> to an image using the palette an dataMin and dataMax given in args
  *  
@@ -617,26 +690,1191 @@ template<class IN> static void _log_data_map_shift(const IN *data,unsigned int *
     }
 }
 
-static  __attribute__ ((used)) void init_template()
+#define INIT_TEMPLATE(TYPE) \
+    template void LUT::map_on_min_max_val(const TYPE *, unsigned int *, int, int, \
+                                          LUT::Palette &, LUT::mapping_meth, TYPE &, TYPE &); \
+    template void LUT::map_on_plus_minus_sigma(const TYPE *,unsigned int *, int, int, LUT::Palette &, \
+					       LUT::mapping_meth, double, TYPE &, TYPE &);
+
+INIT_TEMPLATE(char)
+INIT_TEMPLATE(unsigned char)
+
+INIT_TEMPLATE(short)
+INIT_TEMPLATE(unsigned short)
+
+INIT_TEMPLATE(int)
+INIT_TEMPLATE(unsigned int)
+
+INIT_TEMPLATE(long)
+INIT_TEMPLATE(unsigned long)
+
+INIT_TEMPLATE(float)
+INIT_TEMPLATE(double)
+
+//inline function for video scaling
+inline void _alloc(unsigned char* &lumaPt,int column,int line,int depth)
 {
-#define INIT_MAP(TYPE)							\
-  {									\
-    TYPE aMin,aMax;							\
-    unsigned int *anImagePt = NULL;					\
-    LUT::map_on_min_max_val((TYPE*)aBuffer,anImagePt,0,0,palette,LUT::LINEAR,aMin,aMax); \
-    LUT::map_on_plus_minus_sigma((TYPE*)aBuffer,anImagePt,0,0,palette,LUT::LINEAR,3.,aMin,aMax); \
+  int aSize = column * line * depth;
+  if(posix_memalign((void**)(&lumaPt),16,aSize))
+    std::cerr << "Can't allocate memory" << std::endl;
+}
+
+inline void _get_linear_factor(float mValue,float MValue,
+			       float mapmin,float mapmax,
+			       float &A,float &B)
+{
+  int minValue = int(mValue),maxValue = int(MValue);
+  if(maxValue - minValue)
+    {
+      A = (mapmax - mapmin) / (MValue - mValue);
+      B = mapmin - ((mapmax - mapmin) * mValue) / (MValue-mValue);
+    }
+  else
+    {
+      A = 1.;
+      B = 0.;
+    }
+}
+inline void _rgb555_2_luma(const unsigned char *data,unsigned char *luma,
+			   int column,int row)
+{
+  for(int aSize = column * row;aSize;--aSize,data += 2,++luma)
+    {
+      unsigned char red = (data[0] & 0x7c) >> 2;
+      unsigned char green = ((data[0] & 0x03) << 3)  + ((data[1] & 0xe0) >> 5);
+      unsigned char blue = data[1] & 0x1f;
+      *luma = ((66 * red + 129 * green + 25 * blue) + 128) >> 8;
+    }
+}
+inline void _rgb555_2_image(const unsigned char *data,
+			    unsigned int *anImagePt,
+			    int column,int row,
+			    float minValue,float maxValue,
+			    bool scalingFlag)
+{
+  if(scalingFlag)
+    {
+      float A, B;
+      _get_linear_factor(minValue,maxValue,0.,219.,A,B);
+  
+      for(int aSize = column * row;aSize;--aSize,data += 2,++anImagePt)
+	{
+	  int red = int(((data[0] & 0x7c) >> 2) * A + B);
+	  int green = int((((data[0] & 0x03) << 3)  + ((data[1] & 0xe0) >> 5)) * A + B);
+	  int blue = int((data[1] & 0x1f) * A + B);
+
+	  if(red > 255) red = 255;
+	  else if(red < 0) red = 0;
+
+	  if(green > 255) green = 255;
+	  else if(green < 0) green = 0;
+
+	  if(blue > 255) blue = 255;
+	  else if(blue < 0) blue = 0;
+
+	  *anImagePt = 0xff000000 | (red << 16) | (green << 8) | blue;
+	}
+    }
+  else
+    {
+      for(int aSize = column * row;aSize;--aSize,data += 2,++anImagePt)
+	{
+	  unsigned int red = (data[0] & 0x7c) >> 2;
+	  unsigned int green = ((data[0] & 0x03) << 3)  + ((data[1] & 0xe0) >> 5);
+	  unsigned int blue = data[1] & 0x1f;
+	  
+	  *anImagePt = 0xff000000 | (red << 16) | (green << 8) | blue;
+	}
+    }
+}
+
+inline void _rgb565_2_luma(const unsigned char *data,unsigned char *luma,
+			   int column,int row)
+{
+  for(int aSize = column * row;aSize;--aSize,data += 2,++luma)
+    {
+      unsigned char red = (data[0] & 0xf8) >> 3;
+      unsigned char green = ((data[0] & 0x07) << 3)  + ((data[1] & 0xe0) >> 5);
+      unsigned char blue = data[1] & 0x1f;
+      *luma = ((66 * red + 129 * green + 25 * blue) + 128) >> 8;
+    }
+}
+inline void _rgb565_2_image(const unsigned char *data,
+			    unsigned int *anImagePt,
+			    int column,int row,
+			    float minValue,float maxValue,
+			    bool scalingFlag)
+{
+  if(scalingFlag)
+    {
+      float A, B;
+      _get_linear_factor(minValue,maxValue,0.,219.,A,B);
+  
+      for(int aSize = column * row;aSize;--aSize,data += 2,++anImagePt)
+	{
+	  int red = int(((data[0] & 0xf8) >> 3) * A + B);
+	  int green = int((((data[0] & 0x07) << 3)  + ((data[1] & 0xe0) >> 5)) * A + B);
+	  int blue = int((data[1] & 0x1f) * A + B);
+
+	  if(red > 255) red = 255;
+	  else if(red < 0) red = 0;
+
+	  if(green > 255) green = 255;
+	  else if(green < 0) green = 0;
+
+	  if(blue > 255) blue = 255;
+	  else if(blue < 0) blue = 0;
+
+	  *anImagePt = 0xff000000 | (red << 16) | (green << 8) | blue;
+	}
+    }
+  else
+    {
+      for(int aSize = column * row;aSize;--aSize,data += 2,++anImagePt)
+	{
+	  unsigned int red = (data[0] & 0xf8) >> 3;
+	  unsigned int green = ((data[0] & 0x07) << 3)  + ((data[1] & 0xe0) >> 5);
+	  unsigned int blue = data[1] & 0x1f;
+	  
+	  *anImagePt = 0xff000000 | (red << 16) | (green << 8) | blue;
+	}
+    }
+}
+inline void _rgb_2_luma(const unsigned char *data,unsigned char *luma,
+			int column,int row,int bandes)
+{
+  for(int aSize = column * row;aSize;--aSize,data += bandes,++luma)
+    *luma = ((66 * data[0] + 129 * data[1] + 25 * data[2]) + 128) >> 8;
+}
+
+inline void _rgb_2_image(const unsigned char *data,
+			 unsigned int *anImagePt,
+			 int column,int row,
+			 float mValue,float MValue,
+			 int bandes,
+			 bool scalingFlag)
+{
+  if(scalingFlag)
+    {
+      float A,B;
+      _get_linear_factor(mValue,MValue,0.,219.,A,B);
+      for(int aSize = column * row;aSize;--aSize,data += bandes,++anImagePt)
+	{
+	  int red = int(data[0] * A + B);
+	  int green = int(data[1] * A + B);
+	  int blue = int(data[2] * A + B);
+
+	  if(red > 255) red = 255;
+	  else if(red < 0) red = 0;
+
+	  if(green > 255) green = 255;
+	  else if(green < 0) green = 0;
+
+	  if(blue > 255) blue = 255;
+	  else if(blue < 0) blue = 0;
+
+	  *anImagePt = 0xff000000 | (red << 16) | (green << 8) | blue;
+	}
+    }
+  else
+    {
+      for(int aSize = column * row;aSize;--aSize,data += bandes,++anImagePt)
+	*anImagePt = 0xff000000 | (data[0] << 16) | (data[1] << 16) | data[2] << 8;
+    }
+}
+inline void _bgr_2_luma(const unsigned char *data,unsigned char *luma,
+			int column,int row,int bandes)
+{
+  for(int aSize = column * row;aSize;--aSize,data += bandes,++luma)
+    *luma = ((25 * data[0] + 129 * data[1] + 66 * data[2]) + 128) >> 8;
+}
+
+inline void _bgr_2_image(const unsigned char *data,
+			 unsigned int *anImagePt,
+			 int column,int row,
+			 float mValue,float MValue,
+			 int bandes,
+			 bool scalingFlag)
+{
+  if(scalingFlag)
+    {
+      float A,B;
+      _get_linear_factor(mValue,MValue,0.,219.,A,B);
+      for(int aSize = column * row;aSize;--aSize,data += bandes,++anImagePt)
+	{
+	  int red = int(data[0] * A + B);
+	  int green = int(data[1] * A + B);
+	  int blue = int(data[2] * A + B);
+
+	  if(red > 255) red = 255;
+	  else if(red < 0) red = 0;
+
+	  if(green > 255) green = 255;
+	  else if(green < 0) green = 0;
+
+	  if(blue > 255) blue = 255;
+	  else if(blue < 0) blue = 0;
+
+	  *anImagePt = 0xff000000 | (red << 16) | (green << 8) | blue;
+	}
+    }
+  else
+    {
+      for(int aSize = column * row;aSize;--aSize,data += bandes,++anImagePt)
+	*anImagePt = 0xff000000 | (data[3] << 16) | (data[1] << 8) | data[0];
+    }
+}
+
+template<class IN>
+inline void _bayer_2_luma(const IN* bayer0,IN* luma,
+			  int column,int row,int blue,int start_with_green)
+{
+  int luma_step = column * sizeof(IN);
+  int bayer_step = column;
+  IN *luma0 = (IN*)luma;
+  memset( luma0, 0, luma_step);
+  memset( luma0 + (row - 1)*column, 0, luma_step);
+  luma0 += column + 1;
+  row -= 2;
+  column -= 2;
+
+  for( ; row > 0;--row,bayer0 += bayer_step, luma0 += bayer_step )
+    {
+      int t0, t1;
+      const IN* bayer = bayer0;
+      IN* dst = luma0;
+      const IN* bayer_end = bayer + column;
+
+      dst[-1] = 0;
+      if(column <= 0 )
+	continue;
+      dst[column] = 0;
+
+      if( start_with_green )
+        {
+	  t0 = (bayer[1] + bayer[bayer_step*2+1] + 1) >> 1;
+	  t1 = (bayer[bayer_step] + bayer[bayer_step+2] + 1) >> 1;
+	  if(blue < -1)
+	    *dst = (bayer[bayer_step+1] * 150 + t0 * 29 + t1 * 76) >> 8;
+	  else
+	    *dst = (bayer[bayer_step+1] * 150 + t1 * 29 + t0 * 76) >> 8;
+	  ++bayer;
+	  ++dst;
+        }
+
+      if( blue > 0 )
+        {
+	  for( ; bayer <= bayer_end - 2; bayer += 2)
+            {
+	      t0 = (bayer[0] + bayer[2] + bayer[bayer_step*2] +
+		    bayer[bayer_step*2+2] + 2) >> 2;
+	      t1 = (bayer[1] + bayer[bayer_step] +
+		    bayer[bayer_step+2] + bayer[bayer_step*2+1]+2) >> 2;
+	      *dst = (t0 * 76 + t1 * 150 + bayer[bayer_step+1] * 29) >> 8;
+	      ++dst;
+
+	      t0 = (bayer[2] + bayer[bayer_step*2+2] + 1) >> 1;
+	      t1 = (bayer[bayer_step+1] + bayer[bayer_step+3] + 1) >> 1;
+	      *dst = (t0 * 76 + bayer[bayer_step+2] * 150 + t1 * 29) >> 8;
+	      ++dst;
+            }
+        }
+      else
+        {
+	  for( ; bayer <= bayer_end - 2; bayer += 2)
+            {
+	      t0 = (bayer[0] + bayer[2] + bayer[bayer_step*2] +
+		    bayer[bayer_step*2+2] + 2) >> 2;
+	      t1 = (bayer[1] + bayer[bayer_step] +
+		    bayer[bayer_step+2] + bayer[bayer_step*2+1]+2) >> 2;
+	      *dst = (t0 * 29 + t1 * 150 + bayer[bayer_step+1] * 76) >> 8;
+	      ++dst;
+
+	      t0 = (bayer[2] + bayer[bayer_step*2+2] + 1) >> 1;
+	      t1 = (bayer[bayer_step+1] + bayer[bayer_step+3] + 1) >> 1;
+	      *dst = (t0 * 29 + bayer[bayer_step+2] * 150 + t1 * 76) >> 8;
+	      ++dst;
+            }
+        }
+
+      if( bayer < bayer_end )
+        {
+	  t0 = (bayer[0] + bayer[2] + bayer[bayer_step*2] +
+		bayer[bayer_step*2+2] + 2) >> 2;
+	  t1 = (bayer[1] + bayer[bayer_step] +
+		bayer[bayer_step+2] + bayer[bayer_step*2+1]+2) >> 2;
+	  if(blue > 0)
+	    *dst = (t0 * 76 + t1 * 150 +  bayer[bayer_step+1] * 29) >> 8;
+	  else
+	    *dst = (t0 * 29 + t1 * 150 +  bayer[bayer_step+1] * 76) >> 8;
+	  ++bayer;
+	  ++dst;
+        }
+
+      blue = -blue;
+      start_with_green = !start_with_green;
+    }
+}
+
+template<class IN>
+inline void _bayer_rg_2_luma(const IN* bayer0,IN* luma,
+			     int column,int row)
+{
+  _bayer_2_luma(bayer0,luma,column,row,1,0);
+}
+
+template<class IN>
+inline void _bayer_bg_2_luma(const IN* bayer0,IN* luma,
+			     int column,int row)
+{
+  _bayer_2_luma(bayer0,luma,column,row,-1,0);
+}
+
+#define SCALE()					\
+  if(active)					\
+    {						\
+      int T0,T1,T2;				\
+      T0 = t0 * A + B;				\
+      T1 = t1 * A + B;				\
+      T2 = t2 * A + B;				\
+      if(T0 > 255 || T1 > 255 || T2 > 255)	\
+	{					\
+	  if(T0 > T1 && T0 > T2)		\
+	    {					\
+	      double nA = (255. - B) / t0;	\
+	      T0 = 255;				\
+	      T1 = t1 * nA + B;			\
+	      T2 = t2 * nA + B;			\
+	    }					\
+	  else if(T1 > T2)			\
+	    {					\
+	      double nA = (255. - B) / t1;	\
+	      T1 = 255;				\
+	      T0 = t0 * nA + B;			\
+	      T2 = t2 * nA + B;			\
+	    }					\
+	  else					\
+	    {					\
+	      double nA = (255. - B) / t2;	\
+	      T2 = 255;				\
+	      T0 = t0 * nA + B;			\
+	      T1 = t1 * nA + B;			\
+	    }					\
+	}					\
+      if(T0 < 0) T0 = 0;			\
+      if(T1 < 0) T1 = 0;			\
+      if(T2 < 0) T2 = 0;			\
+      t0 = T0,t1 = T1,t2 = T2;			\
+    }
+
+/** @brief interpolation taken from opencv (icvBayer2BGR_8u_C1C3R in cvcolor.cpp)
+ */
+template<class IN>
+ void _bayer_quick_interpol(const IN *bayer0,
+			    void *anImagePt,int column,int row,
+			    bool active,int blue,int start_with_green,
+			    float A = -1.,float B = -.1)
+{
+  unsigned char ALPHA = 255;
+  int dst_step = 4 * column;
+  int bayer_step = column;
+  unsigned char *dst0 = (unsigned char*)anImagePt;
+  memset( dst0, 0, dst_step);
+  memset( dst0 + (row - 1)*dst_step, 0, dst_step);
+  dst0 += dst_step + 4 + 1;
+  row -= 2;
+  column -= 2;
+
+  for( ; row > 0;--row,bayer0 += bayer_step, dst0 += dst_step )
+    {
+      int t0, t1, t2;
+      const IN* bayer = bayer0;
+      unsigned char* dst = dst0;
+      const IN* bayer_end = bayer + column;
+
+      dst[2] = ALPHA;
+      dst[-5] = dst[-4] = dst[-3] = dst[dst_step-1] =
+	dst[dst_step] = dst[dst_step+1] = 0;
+      dst[dst_step+2] = ALPHA;
+
+      if(column <= 0 )
+	continue;
+
+      if( start_with_green )
+        {
+	  t0 = (bayer[1] + bayer[bayer_step*2+1] + 1) >> 1;
+	  t1 = (bayer[bayer_step] + bayer[bayer_step+2] + 1) >> 1;
+	  t2 = bayer[bayer_step+1];
+	  SCALE();
+
+	  dst[blue] = uchar(t0);
+	  dst[0] = uchar(t2);
+	  dst[-blue] = uchar(t1);
+	  dst[2] = ALPHA;
+	  bayer++;
+	  dst += 4;
+        }
+
+      if( blue > 0 )
+        {
+	  for( ; bayer <= bayer_end - 2; bayer += 2, dst += 8 )
+            {
+	      t0 = (bayer[0] + bayer[2] + bayer[bayer_step*2] +
+		    bayer[bayer_step*2+2] + 2) >> 2;
+	      t1 = (bayer[1] + bayer[bayer_step] +
+		    bayer[bayer_step+2] + bayer[bayer_step*2+1]+2) >> 2;
+	      t2 = uchar(bayer[bayer_step+1]);
+	      SCALE();
+
+	      dst[-1] = uchar(t2); //blue
+	      dst[0] = uchar(t1); //green
+	      dst[1] = uchar(t0); //red
+	      dst[2] = ALPHA;
+
+	      t0 = (bayer[2] + bayer[bayer_step*2+2] + 1) >> 1;
+	      t1 = (bayer[bayer_step+1] + bayer[bayer_step+3] + 1) >> 1;
+	      t2 = bayer[bayer_step+2];
+	      SCALE();
+
+	      dst[3] = uchar(t1);
+	      dst[4] = uchar(t2);
+	      dst[5] = uchar(t0);
+	      dst[6] = ALPHA;
+            }
+        }
+      else
+        {
+	  for( ; bayer <= bayer_end - 2; bayer += 2, dst += 8 )
+            {
+	      t0 = (bayer[0] + bayer[2] + bayer[bayer_step*2] +
+		    bayer[bayer_step*2+2] + 2) >> 2;
+	      t1 = (bayer[1] + bayer[bayer_step] +
+		    bayer[bayer_step+2] + bayer[bayer_step*2+1]+2) >> 2;
+	      t2 = bayer[bayer_step+1];
+	      SCALE();
+
+	      dst[-1] = uchar(t0);
+	      dst[0] = uchar(t1);
+	      dst[1] = uchar(t2);
+	      dst[2] = ALPHA;
+
+	      t0 = (bayer[2] + bayer[bayer_step*2+2] + 1) >> 1;
+	      t1 = (bayer[bayer_step+1] + bayer[bayer_step+3] + 1) >> 1;
+	      t2 = bayer[bayer_step+2];
+	      SCALE();
+
+	      dst[3] = uchar(t0);
+	      dst[4] = uchar(t2);
+	      dst[5] = uchar(t1);
+	      dst[6] = ALPHA;
+            }
+        }
+
+      if( bayer < bayer_end )
+        {
+	  t0 = (bayer[0] + bayer[2] + bayer[bayer_step*2] +
+		bayer[bayer_step*2+2] + 2) >> 2;
+	  t1 = (bayer[1] + bayer[bayer_step] +
+		bayer[bayer_step+2] + bayer[bayer_step*2+1]+2) >> 2;
+	  t2 = bayer[bayer_step+1];
+	  SCALE();
+
+	  dst[blue] = uchar(t0);
+	  dst[0] = uchar(t1);
+	  dst[-blue] = uchar(t2);
+	  dst[2] = ALPHA;
+	  bayer++;
+	  dst += 4;
+        }
+
+      blue = -blue;
+      start_with_green = !start_with_green;
+    }
+}
+template<class IN>
+inline void _bayer_rg_quick_interpol(const IN *bayer0,
+				     void *anImagePt,int column,int row,
+				     bool active,float A = -1.,float B = -.1)
+{
+  _bayer_quick_interpol(bayer0,anImagePt,column,row,active,1,0,A,B);
+}
+
+template<class IN>
+inline void _bayer_bg_quick_interpol(const IN *bayer0,
+				     void *anImagePt,int column,int row,
+				     bool active,float A = -1.,float B = -.1)
+{
+  _bayer_quick_interpol(bayer0,anImagePt,column,row,active,-1,0,A,B);
+}
+
+
+template<class IN>
+inline void _bayer_rg_2_image(const IN *bayer0,
+			      unsigned int *anImagePt,int column,int row,
+			      float minValue,float maxValue,
+			      LUT::Scaling::mode aMode)
+
+{
+  if(aMode == LUT::Scaling::UNACTIVE)
+    {
+      /* when need to shrink data
+	 shitty fallback should be changed */
+      if(sizeof(IN) > 1)
+	{
+	  IN mValue,MValue;
+	  _find_min_max(bayer0,column * row,mValue,MValue);
+	  int n,nbshift;
+	  for(n = 1,nbshift = 0;n < MValue;n <<= 1,++nbshift);
+	  nbshift -= 8;
+	  uchar *bayer;
+	  _alloc(bayer,column,row,1);
+	  uchar *endbayer = bayer + (column * row);
+	  for(uchar *pt = bayer;pt != endbayer;++pt,++bayer0)
+	    *pt = uchar(*bayer0 >> nbshift);
+	  _bayer_rg_quick_interpol((uchar*)bayer,anImagePt,column,row,false);
+	  free(bayer);
+	}
+      else
+	_bayer_rg_quick_interpol(bayer0,anImagePt,column,row,false);
+    }
+  else
+    {
+      float A,B;
+      _get_linear_factor(minValue,maxValue,0.,255.,A,B);
+      if(aMode == LUT::Scaling::QUICK)
+	_bayer_rg_quick_interpol(bayer0,anImagePt,column,row,true,A,B);
+      else			// @todo should be change to an other algo!!!!
+	_bayer_rg_quick_interpol(bayer0,anImagePt,column,row,true,A,B);
+    }
+}
+
+template<class IN>
+inline void _bayer_bg_2_image(const IN *bayer0,
+			      unsigned int *anImagePt,int column,int row,
+			      float minValue,float maxValue,
+			      LUT::Scaling::mode aMode)
+
+{
+  if(aMode == LUT::Scaling::UNACTIVE)
+    {
+      /* when need to shrink data
+	 shitty fallback should be changed */
+      if(sizeof(IN) > 1)
+	{
+	  IN mValue,MValue;
+	  _find_min_max(bayer0,column * row,mValue,MValue);
+	  int n,nbshift;
+	  for(n = 1,nbshift = 0;n < MValue;n <<= 1,++nbshift);
+	  nbshift -= 8;
+	  uchar *bayer;
+	  _alloc(bayer,column,row,1);
+	  uchar *endbayer = bayer + (column * row);
+	  for(uchar *pt = bayer;pt != endbayer;++pt,++bayer0)
+	    *pt = uchar(*bayer0 >> nbshift);
+	  _bayer_bg_quick_interpol((uchar*)bayer,anImagePt,column,row,false);
+	  free(bayer);
+	}
+      else
+	_bayer_bg_quick_interpol(bayer0,anImagePt,column,row,false);
+    }
+  else
+    {
+      float A,B;
+      _get_linear_factor(minValue,maxValue,0.,255.,A,B);
+      if(aMode == LUT::Scaling::QUICK)
+	_bayer_bg_quick_interpol(bayer0,anImagePt,column,row,true,A,B);
+      else			// @todo should be change to an other algo!!!!
+	_bayer_bg_quick_interpol(bayer0,anImagePt,column,row,true,A,B);
+    }
+}
+
+inline void _i420_2_image(const unsigned char* data,
+			 unsigned int *anImagePt,
+			 int column,int row,
+			 float minValue,float maxValue,
+			 bool scalingFlag)
+{
+#define _I420_YUV_SCALING_BRGA(yPt,imagePt)		\
+  y = A * *yPt + B;					\
+  if(y > 255) y = 255;					\
+  else if(y < 0) y = 0;					\
+							\
+  red = y + redChro;					\
+  if(red > 255) red = 255;				\
+  else if(red < 0) red = 0;				\
+							\
+  green = y + greenChro;				\
+  if(green  > 255) green = 255;				\
+  else if(green < 0) green = 0;				\
+							\
+  blue = y + blueChro;					\
+  if(blue > 255) blue = 255;				\
+  else if(blue < 0) blue = 0;				     \
+							     \
+  *imagePt = 0xff000000 | (red << 16) | (green << 8) | blue; \
+  ++imagePt,++yPt; 
+  
+#define _I420_YUV_BRGA(yPt,imagePt)			\
+  red = *yPt + redChro;					\
+  if(red > 255) red = 255;				\
+  else if(red < 0) red = 0;				\
+							\
+  green = *yPt + greenChro;				\
+  if(green  > 255) green = 255;				\
+  else if(green < 0) green = 0;				\
+							\
+  blue = *yPt + blueChro;				\
+  if(blue > 255) blue = 255;				\
+  else if(blue < 0) blue = 0;				     \
+							     \
+  *imagePt = 0xff000000 | (red << 16) | (green << 8) | blue; \
+  ++imagePt,++yPt; 
+
+  
+  int aNbPixel = column * row;
+  const unsigned char *U = data + aNbPixel;
+  const unsigned char *V = U + (aNbPixel >> 2);
+  const unsigned char *Yline1 = data;
+  const unsigned char *Yline2 = data + column;
+  unsigned int *anImageLine2Pt = anImagePt + column;
+  if(scalingFlag)
+    {
+      float A, B;
+      if(maxValue - minValue)
+	{
+	  A = (235 - 16) / (maxValue - minValue);
+	  B = 16 - ((235 - 16) * minValue) / (maxValue - minValue);
+	}
+      else
+	{
+	  A = 1.;
+	  B = 0.;
+	}
+      for(int rowid = 0;rowid < row;rowid += 2)
+	{
+	  for(int columnid = 0;columnid < column;
+	      columnid += 2,++V,++U)
+	    {
+	      int redChro = 1.403f * (*V -128);
+	      int greenChro = -0.714f * (*V - 128) -0.344f * (*U - 128);
+	      int blueChro = 1.773f * (*U - 128);
+	      int y,red,green,blue;
+	      _I420_YUV_SCALING_BRGA(Yline1,anImagePt);
+	      _I420_YUV_SCALING_BRGA(Yline1,anImagePt);
+	      _I420_YUV_SCALING_BRGA(Yline2,anImageLine2Pt);
+	      _I420_YUV_SCALING_BRGA(Yline2,anImageLine2Pt);
+	    }
+	  Yline1 = Yline2; Yline2 = Yline1 + column;
+	  anImagePt = anImageLine2Pt; anImageLine2Pt = anImagePt + column;
+	}
+    }
+  else
+    {
+      for(int rowid = 0;rowid < row;rowid += 2)
+	{
+	  for(int columnid = 0;columnid < column;
+	      columnid += 2,++V,++U)
+	    {
+	      int redChro = 1.403f * (*V -128);
+	      int greenChro = -0.714f * (*V - 128) -0.344f * (*U - 128);
+	      int blueChro = 1.773f * (*U - 128);
+	      int red,green,blue;
+	      _I420_YUV_BRGA(Yline1,anImagePt);
+	      _I420_YUV_BRGA(Yline1,anImagePt);
+	      _I420_YUV_BRGA(Yline2,anImageLine2Pt);
+	      _I420_YUV_BRGA(Yline2,anImageLine2Pt);
+	    }
+	  Yline1 = Yline2; Yline2 = Yline1 + column;
+	  anImagePt = anImageLine2Pt; anImageLine2Pt = anImagePt + column;
+	}
+    }
+}
+
+inline unsigned char* _calculate_luma(const unsigned char *data,
+				      int column,int row,LUT::Scaling::image_type aType)
+{
+  unsigned char *lumaPt = NULL;
+  //creation of luma data if need
+  switch(aType)
+    {
+    case LUT::Scaling::RGB555:
+      _alloc(lumaPt,column,row,1);
+      _rgb555_2_luma(data,lumaPt,column,row);
+      break;
+    case LUT::Scaling::RGB565:
+      _alloc(lumaPt,column,row,1);
+      _rgb565_2_luma(data,lumaPt,column,row);
+      break;
+    case LUT::Scaling::RGB24:
+      _alloc(lumaPt,column,row,1);
+      _rgb_2_luma(data,lumaPt,column,row,3);
+      break;
+    case LUT::Scaling::RGB32:
+      _alloc(lumaPt,column,row,1);
+      _rgb_2_luma(data,lumaPt,column,row,4);
+      break;
+    case LUT::Scaling::BGR24:
+      _alloc(lumaPt,column,row,1);
+      _bgr_2_luma(data,lumaPt,column,row,3);
+      break;
+    case LUT::Scaling::BGR32:
+      _alloc(lumaPt,column,row,1);
+      _bgr_2_luma(data,lumaPt,column,row,4);
+      break;
+    case LUT::Scaling::BAYER_RG8:
+      _alloc(lumaPt,column,row,1);
+      _bayer_rg_2_luma(data,lumaPt,column,row);
+      break;
+    case LUT::Scaling::BAYER_RG16:
+      _alloc(lumaPt,column,row,2);
+      _bayer_rg_2_luma((unsigned short*)data,(unsigned short*)lumaPt,column,row);
+      break;
+    case LUT::Scaling::BAYER_BG8:
+      _alloc(lumaPt,column,row,1);
+      _bayer_bg_2_luma(data,lumaPt,column,row);
+      break;
+    case LUT::Scaling::BAYER_BG16:
+      _alloc(lumaPt,column,row,2);
+      _bayer_bg_2_luma((unsigned short*)data,(unsigned short*)lumaPt,column,row);
+      break;
+    default:
+      break;
+    }
+  return lumaPt;
+}
+  //Local lock
+class _Lock
+{
+public:
+  _Lock(pthread_mutex_t *aMutex,bool lockFlag = true) :
+    _mutex(aMutex),_locked(false)
+  {
+    if(lockFlag)
+      lock();
   }
-  LUT::Palette palette = LUT::Palette();
-  char *aBuffer = new char[16];
-  INIT_MAP(char);
-  INIT_MAP(unsigned char);
-  INIT_MAP(short);
-  INIT_MAP(unsigned short);
-  INIT_MAP(int);
-  INIT_MAP(unsigned int);
-  INIT_MAP(long);
-  INIT_MAP(unsigned long);
-  INIT_MAP(float);
-  INIT_MAP(double);
-  delete [] aBuffer;
+  ~_Lock() {unlock();}
+
+  inline void lock() 
+  {
+    if(!_locked)
+      while(pthread_mutex_lock(_mutex));
+    _locked = true;
+  }
+  
+  inline void unlock()
+  {
+    if(_locked)
+      {
+	_locked = false;
+	pthread_mutex_unlock(_mutex);
+      }
+  }
+private:
+  pthread_mutex_t *_mutex;
+  bool		  _locked;
+};
+  //Luma class
+struct LUT::Scaling::luma
+{
+  luma() : 
+    _type(LUT::Scaling::UNDEF),
+    _palette(LUT::Palette::GREYSCALE)
+  {
+    _palette_mapping_meth = LUT::LINEAR;
+  }
+
+  ~luma()
+  {
+   
+  }
+  
+	       
+  LUT::Scaling::image_type _type;
+
+  LUT::mapping_meth	   _palette_mapping_meth;
+  LUT::Palette		   _palette;
+};
+
+
+  //Scaling class
+LUT::Scaling::Scaling() : 
+  _minValue(-1.),_maxValue(-1.),
+  _mode(UNACTIVE)
+{
+  pthread_mutex_init(&_lock,NULL);
+  _Luma = new LUT::Scaling::luma();
+}
+
+LUT::Scaling::~Scaling()
+{
+  pthread_mutex_destroy(&_lock);
+}
+
+void LUT::Scaling::current_type(Scaling::image_type &aType) const
+{ 
+  _Lock aLock(&_lock);
+  aType = _Luma->_type;
+}
+
+void LUT::Scaling::min_max_mapping(double &minVal,double &maxVal) const
+{
+  _Lock aLock(&_lock);
+  minVal = _minValue, maxVal = _maxValue;
+}
+
+void LUT::Scaling::set_custom_mapping(double minVal,double maxVal)
+{
+  _Lock aLock(&_lock);
+  _minValue = minVal,_maxValue = maxVal;
+  _Luma->_type = UNDEF;
+  if(_mode == UNACTIVE) _mode = QUICK;
+}
+
+void LUT::Scaling::get_mode(LUT::Scaling::mode &aMode) const
+{
+  _Lock aLock(&_lock);
+  aMode = _mode;
+}
+
+void LUT::Scaling::set_mode(LUT::Scaling::mode aMode)
+{
+  _Lock aLock(&_lock);
+  _mode = aMode;
+}
+
+void LUT::Scaling::fill_palette(LUT::Palette::palette_type aType)
+{
+  _Luma->_palette.fillPalette(aType);
+}
+
+void LUT::Scaling::set_palette_mapping_meth(LUT::mapping_meth meth)
+{
+  _Luma->_palette_mapping_meth = meth;
+}
+
+void LUT::Scaling::autoscale_min_max(const unsigned char *data,
+				     int column,int row,image_type aType)
+{
+  unsigned char *lumaPt = _calculate_luma(data,column,row,aType);
+  //find min max
+  int minVal = -1,maxVal = -1;
+  switch(aType)
+    {
+    case LUT::Scaling::YUV411:
+    case LUT::Scaling::YUV422:
+    case LUT::Scaling::YUV444:
+    case LUT::Scaling::I420: 
+    case LUT::Scaling::Y8:
+      {
+	unsigned char localCharMin,localCharMax;
+	_find_min_max(data,column * row,localCharMin,localCharMax);
+	minVal = localCharMin,maxVal = localCharMax;
+      }
+      break;
+    case LUT::Scaling::Y16:
+      {
+	unsigned short localShortMin,localShortMax;
+	_find_min_max((unsigned short*)data,column * row,localShortMin,localShortMax);
+	minVal = localShortMin,maxVal = localShortMax;
+      }
+      break;
+    case LUT::Scaling::Y32:
+      {
+	unsigned int localIntMin,localIntMax;
+	_find_min_max((unsigned int*)data,column * row,localIntMin,localIntMax);
+	minVal = localIntMin,maxVal = localIntMax;
+      }
+      break;
+    case LUT::Scaling::Y64:
+      {
+	unsigned long long localLongLongMin,localLongLongMax;
+	_find_min_max((unsigned long long*)data,column * row,localLongLongMin,localLongLongMax);
+	minVal = localLongLongMin,maxVal = localLongLongMax;
+      }
+      break;
+    case LUT::Scaling::RGB555:
+    case LUT::Scaling::RGB565:
+    case LUT::Scaling::RGB24:
+    case LUT::Scaling::RGB32:
+    case LUT::Scaling::BGR24:
+    case LUT::Scaling::BGR32:
+    case LUT::Scaling::BAYER_RG8:
+    case LUT::Scaling::BAYER_BG8:
+      {
+	unsigned char localCharMin,localCharMax;
+	_find_min_max(lumaPt,column * row,localCharMin,localCharMax);
+	minVal = localCharMin,maxVal = localCharMax;
+      }
+      break;
+    case LUT::Scaling::BAYER_RG16:
+    case LUT::Scaling::BAYER_BG16:
+      {
+	unsigned short localMin,localMax;
+	_find_min_max((unsigned short*)lumaPt,column * row,localMin,localMax);
+	minVal = int(localMin),maxVal = int(localMax);
+      }
+      break;
+    default:
+      break;
+    }
+
+  if(lumaPt) free(lumaPt);
+
+  _Lock aLock(&_lock);
+  _minValue = minVal,_maxValue = maxVal;
+  if(_mode == LUT::Scaling::UNACTIVE)
+    _mode = LUT::Scaling::QUICK;
+}
+
+void LUT::Scaling::autoscale_plus_minus_sigma(const unsigned char *data,int column,int row,
+					      image_type aType,
+					      double aSigmaFactor)
+{
+  unsigned char *lumaPt = _calculate_luma(data,column,row,aType);
+  double meanValue = -1.,std = 1.;
+  double minVal = 0.,maxVal = 0.;
+  switch(aType)
+    {
+    case LUT::Scaling::YUV411:
+    case LUT::Scaling::YUV422:
+    case LUT::Scaling::YUV444:
+    case LUT::Scaling::I420: 
+    case LUT::Scaling::Y8:
+      {
+	uchar localMin,localMax;
+	_get_average_std_min_max(data,column * row,meanValue,std,localMin,localMax);
+	minVal = localMin,maxVal = localMax;
+      }
+      break;
+    case LUT::Scaling::Y16:
+      {
+	unsigned short localMin,localMax;
+	_get_average_std_min_max((unsigned short*)data,column * row,meanValue,std,localMin,localMax);
+	minVal = localMin,maxVal = localMax;
+      }
+      break;
+
+    case LUT::Scaling::RGB555:
+    case LUT::Scaling::RGB565:
+    case LUT::Scaling::RGB24:
+    case LUT::Scaling::RGB32:
+    case LUT::Scaling::BGR24:
+    case LUT::Scaling::BGR32:
+    case LUT::Scaling::BAYER_RG8:
+    case LUT::Scaling::BAYER_BG8:
+      {
+	uchar localMin,localMax;
+	_get_average_std_min_max(lumaPt,column * row,meanValue,std,localMin,localMax);
+	minVal = localMin,maxVal = localMax;
+      }
+      break;
+    case LUT::Scaling::BAYER_RG16:
+    case LUT::Scaling::BAYER_BG16:
+      {
+	unsigned short localMin,localMax;
+	_get_average_std_min_max((unsigned short*)lumaPt,column * row,meanValue,std,localMin,localMax);
+	minVal = localMin,maxVal = localMax;
+      }
+      break;
+    default:
+      break;
+    }
+  if(lumaPt) free(lumaPt);
+    
+  _Lock aLock(&_lock);
+  _minValue = meanValue - aSigmaFactor * std,_maxValue = meanValue + aSigmaFactor * std;
+  if(_minValue < minVal) _minValue = minVal;
+  if(_maxValue > maxVal) _maxValue = maxVal;
+  if(_mode == LUT::Scaling::UNACTIVE)
+    _mode = LUT::Scaling::QUICK;
+}
+
+void LUT::Scaling::_get_minmax_and_mode(double &minVal,double &maxVal,
+					mode &aMode)
+{
+  _Lock aLock(&_lock);
+  minVal = _minValue,maxVal = _maxValue;
+  aMode = _mode;
+}
+/** @brief tranform raw video image to BGRA image.
+ *  Scaling instance has to be set with the same type of data.
+ *  @see Scaling::autoscale_min_max
+ *  @see Scaling::autoscale_plus_minus_sigma
+ *  @see Scaling::set_custom_mapping
+ */
+bool LUT::raw_video_2_image(const unsigned char *data,unsigned int *anImagePt,
+			    int column,int row,
+			    LUT::Scaling::image_type anImageType,Scaling &aScaling)
+{
+  double minValue,maxValue;
+  LUT::Scaling::mode aMode;
+  aScaling._get_minmax_and_mode(minValue,maxValue,aMode);
+  if(minValue < 0) minValue = 0;
+
+  switch(anImageType)
+    {
+    case LUT::Scaling::Y8:
+      if(aMode == LUT::Scaling::UNACTIVE)
+	{
+	  for(int aNbPixel = column * row;aNbPixel;--aNbPixel,++data,++anImagePt)
+	    *anImagePt = 0xff000000 | (*data << 16) | (*data << 8) | *data;
+	}
+      else
+	LUT::map(data,anImagePt,column,row,aScaling._Luma->_palette,
+		 aScaling._Luma->_palette_mapping_meth,uchar(minValue),uchar(maxValue));
+      break;
+    case LUT::Scaling::Y16:
+      if(aMode == LUT::Scaling::UNACTIVE)
+	{
+	  const unsigned short *pixelPt = (const unsigned short*)data;
+	  for(int aNbPixel = column * row;aNbPixel;--aNbPixel,++pixelPt,++anImagePt)
+	    {
+	      int aValue = *pixelPt >> 8;
+	      *anImagePt = 0xff000000 | (aValue << 16) | (aValue << 8) | aValue;
+	    }
+	}
+      else
+	LUT::map((unsigned short*)data,anImagePt,column,row,aScaling._Luma->_palette,
+		 aScaling._Luma->_palette_mapping_meth,(unsigned short)minValue,(unsigned short)maxValue);
+      break;
+    case LUT::Scaling::I420:
+      if(aMode == LUT::Scaling::COLOR_MAPPED)
+	LUT::map(data,anImagePt,column,row,aScaling._Luma->_palette,
+		 aScaling._Luma->_palette_mapping_meth,uchar(minValue),uchar(maxValue));
+      else
+	_i420_2_image(data,anImagePt,column,row,minValue,maxValue,
+		      aMode != LUT::Scaling::UNACTIVE);
+      break;
+    case LUT::Scaling::RGB555:
+      _rgb555_2_image(data,
+		      anImagePt,column,row,minValue,maxValue,
+		      aMode != LUT::Scaling::UNACTIVE);
+      break;
+    case LUT::Scaling::RGB565: 
+      _rgb565_2_image(data,anImagePt,column,row,minValue,maxValue,
+		      aMode != LUT::Scaling::UNACTIVE);
+      break;
+    case LUT::Scaling::RGB24:
+      _rgb_2_image(data,anImagePt,column,row,minValue,maxValue,3,
+		   aMode != LUT::Scaling::UNACTIVE);
+      break;
+    case LUT::Scaling::RGB32:
+      _rgb_2_image(data,anImagePt,column,row,minValue,maxValue,4,
+		   aMode != LUT::Scaling::UNACTIVE);
+      break;
+    case LUT::Scaling::BGR24:
+      _bgr_2_image(data,anImagePt,column,row,minValue,maxValue,3,
+		   aMode != LUT::Scaling::UNACTIVE);
+      break;
+    case LUT::Scaling::BGR32: 
+      _bgr_2_image(data,anImagePt,column,row,minValue,maxValue,4,
+		   aMode != LUT::Scaling::UNACTIVE);
+      break;
+    case LUT::Scaling::BAYER_RG8:
+      if(aMode == LUT::Scaling::COLOR_MAPPED)
+	{
+	  unsigned char* luma = _calculate_luma(data,column,row,anImageType);
+	  if(minValue < 0) 
+	    minValue = 0;
+	  LUT::map(luma,anImagePt,column,row,aScaling._Luma->_palette,
+		   aScaling._Luma->_palette_mapping_meth,uchar(minValue),uchar(maxValue));
+	  free(luma);
+	}
+      else
+	_bayer_rg_2_image(data,
+			  anImagePt,column,row,minValue,maxValue,
+			  aMode);
+      break;
+    case LUT::Scaling::BAYER_BG8:
+      if(aMode == LUT::Scaling::COLOR_MAPPED)
+	{
+	  unsigned char* luma = _calculate_luma(data,column,row,anImageType);
+	  if(minValue < 0) 
+	    minValue = 0;
+	  LUT::map(luma,anImagePt,column,row,aScaling._Luma->_palette,
+		   aScaling._Luma->_palette_mapping_meth,uchar(minValue),uchar(maxValue));
+	  free(luma);
+	}
+      else
+	_bayer_bg_2_image(data,
+			  anImagePt,column,row,minValue,maxValue,
+			  aMode);
+      break;
+    case LUT::Scaling::BAYER_RG16:
+      if(aMode == LUT::Scaling::COLOR_MAPPED)
+	{
+	  unsigned char* luma = _calculate_luma(data,column,row,anImageType);
+	  LUT::map((unsigned short*)luma,anImagePt,column,row,aScaling._Luma->_palette,
+		   aScaling._Luma->_palette_mapping_meth,
+		   (unsigned short)minValue,(unsigned short)maxValue);
+	  free(luma);
+	}
+      else
+	_bayer_rg_2_image((const unsigned short*)data,
+			  anImagePt,column,row,minValue,maxValue,
+			  aMode);
+      break;
+    case LUT::Scaling::BAYER_BG16:
+      if(aMode == LUT::Scaling::COLOR_MAPPED)
+	{
+	  unsigned char* luma = _calculate_luma(data,column,row,anImageType);
+	  LUT::map((unsigned short*)luma,anImagePt,column,row,aScaling._Luma->_palette,
+		   aScaling._Luma->_palette_mapping_meth,
+		   (unsigned short)minValue,(unsigned short)maxValue);
+	  free(luma);
+	}
+      else
+	_bayer_bg_2_image((const unsigned short*)data,
+			  anImagePt,column,row,minValue,maxValue,
+			  aMode);
+      break;
+    default:
+      return false;
+    }
+  
+  return true;
+}
+
+unsigned char* LUT::raw_video_2_luma(const unsigned char *data,
+				     int column,int row,
+				     LUT::Scaling::image_type anImageType)
+{
+  unsigned char *lumaPt = NULL;
+  switch(anImageType)
+    {
+    case LUT::Scaling::YUV411:
+    case LUT::Scaling::YUV422:
+    case LUT::Scaling::YUV444:
+    case LUT::Scaling::I420: 
+    case LUT::Scaling::Y8:
+      {
+	int aSize = column * row;
+	_alloc(lumaPt,column,row,1);
+	memcpy(lumaPt,data,aSize);
+      }
+      break;
+    case LUT::Scaling::Y16:
+      {
+	int aSize = column * row << 1;
+	_alloc(lumaPt,column,row,2);
+	memcpy(lumaPt,data,aSize);
+      }
+      break;
+
+    case LUT::Scaling::RGB555:
+    case LUT::Scaling::RGB565:
+    case LUT::Scaling::RGB24:
+    case LUT::Scaling::RGB32:
+    case LUT::Scaling::BGR24:
+    case LUT::Scaling::BGR32:
+    case LUT::Scaling::BAYER_RG8:
+    case LUT::Scaling::BAYER_RG16:
+    case LUT::Scaling::BAYER_BG8:
+    case LUT::Scaling::BAYER_BG16:
+      lumaPt = _calculate_luma(data,column,row,anImageType);
+      break;
+    default:
+      break;
+    }
+  return lumaPt;
 }

@@ -302,7 +302,7 @@ void IO::createShmSegment(int size)
   }
 
   d->shminfo->shmaddr = (char *) shmat(d->shminfo->shmid, 0, 0);
-  if (d->shminfo->shmaddr < 0) {
+  if (d->shminfo->shmaddr == (char*)-1) {
     std::cerr << "" << ID << ": Could not attach sysv shared memory segment" << std::endl;
     m_bShm = false;
     shmctl(d->shminfo->shmid, IPC_RMID, 0);

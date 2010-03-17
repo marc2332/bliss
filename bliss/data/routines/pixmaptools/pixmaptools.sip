@@ -225,6 +225,55 @@ template<class IN> void _create_palette_from_data(unsigned int *aDestPalette,con
 		     double R1,double G1,double B1,
 		     double R2,double G2,double B2) throw(LutError);
   };
+  class Scaling
+  {
+%TypeHeaderCode
+#include <pixmaptools_lut.h>
+%End
+  public:
+    enum image_type {UNDEF,
+		     Y8,	// monochrome 8bits
+		     Y16,	// monochrome 16bits
+		     Y32,	// monochrome 32bits
+		     Y64,	// monochrome 64bits
+		     I420,	// YVU 8bits
+		     RGB555,
+		     RGB565,
+		     RGB24,
+		     RGB32,
+		     BGR24,
+		     BGR32,
+		     BAYER_RG8,	// BAYER RG 8bits (prosilica)
+		     BAYER_RG16, // BAYER RG 16bits (prosilica)
+		     BAYER_BG8,	// BAYER BG 8bits (basler)
+		     BAYER_BG16, // BAYER BG 16bits (basler)
+		     YUV411,
+		     YUV422,
+		     YUV444};
+
+    enum mode {UNACTIVE,QUICK,ACCURATE,COLOR_MAPPED};
+    
+    Scaling();
+    ~Scaling();
+
+    void current_type(LUT::Scaling::image_type &aType /Out/) const;
+    void min_max_mapping(double &minVal /Out/,double &maxVal /Out/) const;
+    
+    void set_custom_mapping(double minVal,double maxVal);
+    
+    void get_mode(LUT::Scaling::mode& /Out/) const;
+    void set_mode(LUT::Scaling::mode);
+
+    void fill_palette(LUT::Palette::palette_type);
+    
+    void set_palette_mapping_meth(LUT::mapping_meth);
+
+    void autoscale_min_max(const unsigned char *data,int column,int row,
+			   LUT::Scaling::image_type aType);
+
+    void autoscale_plus_minus_sigma(const unsigned char *data,int column,int row,
+				    LUT::Scaling::image_type aType,double aSigmaFactor);
+   };
 %TypeCode
 #define PY_ARRAY_UNIQUE_SYMBOL _PixmapNumpyArray
 #define NO_IMPORT_ARRAY
@@ -369,7 +418,7 @@ MAP_FUNCTION
 #endif
 #define MAP_IMAGE(TYPE)\
  TYPE aMin,aMax;\
- npy_intp dims[] = {row << 2,column};\
+ npy_intp dims[] = {npy_intp(row << 2),npy_intp(column)};\
  aRImage = PyArray_SimpleNew(2,dims,NPY_UBYTE); \
  Py_BEGIN_ALLOW_THREADS;\
  LUT::map_on_min_max_val<TYPE>((TYPE*)src->data,(unsigned int*)PyArray_DATA(aRImage),column,row,*a1,a2,aMin,aMax);\
@@ -385,7 +434,7 @@ MAP_FUNCTION
 #define MAP_IMAGE(TYPE)\
  TYPE aMin = (TYPE)a3;\
  TYPE aMax = (TYPE)a4;\
- npy_intp dims[] = {row << 2,column};\
+ npy_intp dims[] = {npy_intp(row << 2),npy_intp(column)};\
  aRImage = PyArray_SimpleNew(2,dims,NPY_UBYTE); \
  Py_BEGIN_ALLOW_THREADS;\
  LUT::map<TYPE>((TYPE*)src->data,(unsigned int*)PyArray_DATA(aRImage),column,row,*a1,a2,aMin,aMax);\
@@ -393,6 +442,58 @@ MAP_FUNCTION
 MAP_FUNCTION
 %End
 
+static SIP_PYTUPLE raw_video_2_image(const unsigned char *data,int column,int row,
+				     LUT::Scaling::image_type anImageType,
+				     LUT::Scaling &aScaling);
+%MethodCode
+ bool aReturnFlag;
+ QImage aMappedImage(a1,a2,QImage::Format_ARGB32);
+ Py_BEGIN_ALLOW_THREADS;
+ aReturnFlag = LUT::raw_video_2_image(a0,(unsigned int*)aMappedImage.bits(),a1,a2,
+			       	      a3,*a4);
+ Py_END_ALLOW_THREADS;
+ PyObject *aRImage = sipConvertFromNewInstance(new QImage(aMappedImage),sipClass_QImage,NULL);
+ sipRes = Py_BuildValue("(O,N))",aReturnFlag ? Py_True : Py_False,aRImage);
+%End
+
+static SIP_PYOBJECT raw_video_2_luma(const unsigned char *data,int column,int row,
+				     LUT::Scaling::image_type anImageType);
+%MethodCode
+unsigned char* luma = NULL;
+Py_BEGIN_ALLOW_THREADS;
+luma = LUT::raw_video_2_luma(a0,a1,a2,a3);
+Py_END_ALLOW_THREADS;
+npy_intp dims[] = {npy_intp(a2),npy_intp(a1)};
+if(luma)
+  {
+    switch(a3)
+      {
+      case LUT::Scaling::Y8: 
+      case LUT::Scaling::RGB555: 
+      case LUT::Scaling::RGB565: 
+      case LUT::Scaling::RGB24: 
+      case LUT::Scaling::RGB32: 
+      case LUT::Scaling::BGR24: 
+      case LUT::Scaling::BGR32: 
+      case LUT::Scaling::BAYER_RG8: 
+      case LUT::Scaling::YUV411: 
+      case LUT::Scaling::YUV422: 
+      case LUT::Scaling::YUV444: 
+	sipRes = PyArray_SimpleNewFromData(2,dims,NPY_UBYTE,luma);break;
+      case LUT::Scaling::Y16: 
+      case LUT::Scaling::BAYER_RG16: 
+	sipRes = PyArray_SimpleNewFromData(2,dims,NPY_USHORT,luma);break;
+      case LUT::Scaling::Y32:
+	sipRes = PyArray_SimpleNewFromData(2,dims,NPY_INT32,luma);break;
+      default:
+	sipRes = NULL;
+      }
+    if(sipRes)
+      ((PyArrayObject*)sipRes)->flags |= NPY_OWNDATA;
+  }
+else
+sipRes = NULL;
+%End
 };
 class LutError
 {
@@ -423,14 +524,14 @@ inline void _histo_full(IN* data,int nbElem,NPY_TYPES type,PyObject* &Y,PyObject
   Py_BEGIN_ALLOW_THREADS;
   Stat::histo_full<IN>(data,nbElem,vectorY,vectorX);
   Py_END_ALLOW_THREADS;
-  npy_intp ydims[] = {vectorY.size()};
+  npy_intp ydims[] = {npy_intp(vectorY.size())};
   Y = PyArray_SimpleNew(1,ydims,NPY_INT);
   typename std::vector<int>::iterator i = vectorY.begin();
   for(int * Ydata = (int*)((PyArrayObject*)Y)->data;
       i != vectorY.end();++i,++Ydata)
     *Ydata = *i;
 
-  npy_intp xdims[] = {vectorX.size()};
+  npy_intp xdims[] = {npy_intp(vectorX.size())};
   X = PyArray_SimpleNew(1,xdims,type);
   typename std::vector<IN>::iterator j = vectorX.begin();
   for(IN *Xdata = (IN*)((PyArrayObject*)X)->data;
@@ -447,14 +548,14 @@ inline void _histo(IN* data,int nbElem,NPY_TYPES type,PyObject* &Y,PyObject* &X,
   Py_BEGIN_ALLOW_THREADS;
   Stat::histo<IN>(data,nbElem,vectorY,vectorX,bins,aMinVal,aMaxVal);
   Py_END_ALLOW_THREADS;
-  npy_intp ydims[] = {vectorY.size()};
+  npy_intp ydims[] = {npy_intp(vectorY.size())};
   Y = PyArray_SimpleNew(1,ydims,NPY_INT);
   typename std::vector<int>::iterator i = vectorY.begin();
   for(int * Ydata = (int*)((PyArrayObject*)Y)->data;
       i != vectorY.end();++i,++Ydata)
     *Ydata = *i;
 
-  npy_intp xdims[] = {vectorX.size()};
+  npy_intp xdims[] = {npy_intp(vectorX.size())};
   X = PyArray_SimpleNew(1,xdims,type);
   typename std::vector<IN>::iterator j = vectorX.begin();
   for(IN *Xdata = (IN*)((PyArrayObject*)X)->data;

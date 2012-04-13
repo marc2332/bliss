@@ -32,7 +32,10 @@ class Multiplexer(PyTango.Device_4Impl) :
 
     def switch(self,values) :
         self.__multiplexer.switch(*values)
-        
+
+    def getPossibleOutputValues(self,output_key) :
+        return self.__multiplexer.getPossibleValues(output_key)
+    
 class MultiplexerClass(PyTango.DeviceClass) :
     #    Class Properties
     class_property_list = {
@@ -51,6 +54,9 @@ class MultiplexerClass(PyTango.DeviceClass) :
         'switch':
         [[PyTango.DevVarStringArray,"output_key input_key"],
          [PyTango.DevVoid,""]],
+        'getPossibleOutputValues':
+        [[PyTango.DevString,"output_key"],
+         [PyTango.DevVarStringArray,"possible output values"]],
         }
 
     #    Attribute definitions

@@ -1,0 +1,314 @@
+from serial import Serial
+import ConfigDict
+import os
+import struct
+
+PROGRAM_BASE_PATH='/users/blissadm/local/isg/opiom'
+
+class OpiomComm:
+    FSIZE = 256
+
+    def __init__(self,serial=0,program='',**keys) :
+        self.__ser = Serial(serial)
+        self.__ser.flushInput()
+        self.__ser.timeout = 1
+        self.__program = program
+        msg = self.comm("?VER")
+        if not msg.startswith('OPIOM') :
+            raise IOError("No opiom connected at %s" % serial)
+        self.comm("MODE normal")
+        
+    def __repr__(self) :
+        return "Opiom : %s with program %s" % (self.__ser,self.__program)
+    
+    def info(self) :
+        return self.comm("?INFO")
+
+    def prog(self) :
+        info = self.info()
+        for line in info.split('\n') :
+            if line.startswith('PLD prog:') :
+                return line.split(':')[1].strip('\n\t ')
+            
+    def error(self) :
+        return self.comm("?ERR")
+
+    def registers(self) :
+        self._ask_register_values()
+        return self._read_register_values()
+
+    def _ask_register_values(self) :
+        self._write("?IM")
+        self._write("?IMA")
+
+    def _read_register_values(self) :
+        return {'IM':int(self._read(),base=16),'IMA':int(self._read(),base=16)}
+
+    def inputs_stat(self) :
+        self._write("?I")
+        self._write("?IB")
+        input_front = int(self._read(),base=16)
+        input_back = int(self._read(),base=16)
+
+        self._display_bits('I',input_front)
+        self._display_bits('IB',input_back)
+
+    def outputs_stat(self) :
+        self._write("?O")
+        self._write("?OB")
+        output_front = int(self._read(),base=16)
+        output_back = int(self._read(),base=16)
+
+        self._display_bits('O',output_front)
+        self._display_bits('OB',output_back)
+        
+    def _write(self,msg) :
+        msg += '\r\n'
+        self.__ser.write(msg)
+
+    def raw_write(self,msg) :
+        self.__ser.write(msg)
+
+    def raw_bin_write(self,binmsg):
+        nb_block = len(binmsg) / self.FSIZE
+        nb_bytes = len(binmsg) % self.FSIZE
+        lrc = (nb_bytes + nb_block + sum([ord(x) for x in binmsg])) & 0xff
+        rawMsg = struct.pack('BBB%dsBB' % len(binmsg),0xff,nb_block,nb_bytes,
+                             binmsg,lrc,13)
+        self.__ser.write(rawMsg)
+        
+    def _read(self) :
+        msg = self.__ser.readline()
+        if msg.startswith('$') :
+            msgLine = []
+            while 1:
+                msgPart = self.__ser.readline()
+                if not msgPart or msgPart.startswith('$') :
+                    break
+                msgLine.append(msgPart.strip('\n\r'))
+            return '\n'.join(msgLine)
+        return msg.strip('\r\n')
+
+    def comm_ack(self,msg) :
+        return self.comm('#' + msg)
+        
+    def comm(self,msg) :
+        self._write(msg)
+        if msg.startswith('?') or msg.startswith('#') :
+            return self._read()
+
+    def load_program(self) :
+        pldid = self.comm("?PLDID")
+        file_pldid,file_project = self._getFilePLDIDandPROJECT()
+        if file_pldid and file_pldid != pldid:
+            print "Load program:",self.__program
+            srcsz = int(self.comm("?SRCSZ").split()[0])
+            offsets,opmfile = self._getoffset()
+            if((offsets["src_c"] - offsets["src_cc"]) < srcsz) :
+                SRCST = offsets["src_cc"]
+                srcsz = offsets["src_c"] - offsets["src_cc"]
+            else:
+                SRCST = offsets["src_c"]
+                srcsz = offsets["jed"] - offsets["src_c"]
+            binsz = offsets['size'] - offsets['jed']
+
+            
+            sendarray = opmfile[SRCST:SRCST+srcsz]
+            sendarray += opmfile[offsets["jed"]:]
+
+            if self.comm_ack("MODE program") != "OK" :
+                raise IOError("Can't program opiom %s" % str(self))
+                        
+            if self.comm_ack('PROG %d %d %d %d "%s"' % (binsz,srcsz,self.FSIZE,
+                                                        int(file_pldid),
+                                                        file_project)) != "OK" :
+                self.comm("MODE normal")
+                raise IOError("Can't start programming opiom %s" % str(self))
+
+            for frame_n,index in enumerate(range(0,len(sendarray),self.FSIZE)) :
+                self.raw_write("#*FRM %d\r" % frame_n)
+                self.raw_bin_write(sendarray[index:index+self.FSIZE])
+                answer = self._read()
+                if(answer != "OK") : break
+            
+
+    def _display_bits(self,prefix,bits) :
+        for i in range(1,9) :
+            print "%s%d\t" % (prefix,i),
+        print
+        for i in range(8):
+            if((bits >> i) & 0x1) :
+                print "1\t",
+            else:
+                print "0\t",
+                
+        print
+    
+    def _getoffset(self) :
+        f = file(os.path.join(PROGRAM_BASE_PATH,self.__program + '.opm'))
+        line = f.readline()
+        f.seek(0)
+        opmfile = f.read() 
+        size = f.tell()
+        header,src,src_cc,src_c,jed = struct.unpack('<5H',line[3:13])
+        return {'header' : header,'src' : src,
+                'src_cc': src_cc,'src_c' : src_c,
+                'jed' :jed,'size':size},opmfile
+
+    def _getFilePLDIDandPROJECT(self) :
+        TOKEN = '#pldid#'
+        PROJECT_TOKEN= '#project#'
+        
+        f = file(os.path.join(PROGRAM_BASE_PATH,self.__program + '.opm'))
+        begin = -1
+        for line in f:
+            begin = line.find(TOKEN)
+            if begin > -1:
+                break
+        if begin > -1 :
+            subline = line[begin + len(TOKEN):]
+            end = subline.find(TOKEN)
+            pldid = subline[:end]
+
+            begin = line.find(PROJECT_TOKEN)
+            subline = line[begin + len(PROJECT_TOKEN):]
+            project = subline[:subline.find(PROJECT_TOKEN)]
+            return pldid,project
+        
+class Output:
+    class Node:
+        def __init__(self,opiomId,register,shift,mask,value,parentNode) :
+            self.__opiomId = opiomId
+            self.__register = register.upper()
+            shift = int(shift)
+            self.__mask = int(mask,16) << shift
+            self.__value = int(value) << shift
+            self.__parent = parentNode
+
+        def switch(self,opioms) :
+            if self.__parent:
+                self.__parent.switch(opioms)
+                
+            op = opioms[self.__opiomId]
+            cmd = '%s 0x%x 0x%x' % (self.__register,self.__value,self.__mask)
+            op.comm(cmd)
+
+        def isActive(self,opiom_registers) :
+            activeFlag = True
+            if self.__parent:
+                activeFlag = self.__parent.isActive(opiom_registers)
+
+            registerValue = opiom_registers[self.__opiomId][self.__register]
+            return activeFlag and ((registerValue & self.__mask) == self.__value)
+        
+    def __init__(self,multiplex,name='',**keys) :
+        self.__multiplex = multiplex
+        self.__name = name
+        self.__nodes = {}
+        self.__build_values(**keys)
+
+    def name(self) :
+        return self.__name
+    
+    def getSwitchList(self) :
+        return self.__nodes.keys()
+
+    def switch(self,switchValue) :
+        switchValue = switchValue.upper()
+        try:
+            node = self.__nodes[switchValue]
+        except KeyError:
+            raise ValueError(switchValue)
+
+        node.switch(self.__multiplex._opioms)
+
+    def getStat(self,opiom_register) :
+        for key,node in self.__nodes.iteritems() :
+            if node.isActive(opiom_register) :
+                return key
+    
+    def __build_values(self,opiomId = 0,register = '',shift = '0',
+                       mask = '0',chained_value = '0',parentNode = None,**configDict) :
+        for key,values in configDict.iteritems() :
+            key = key.upper()
+            if key.startswith('OPIOM') :
+                if register:
+                    nextParentNode = Output.Node(opiomId,register,shift,
+                                             mask,chained_value,parentNode)
+                else:
+                    nextParentNode = parentNode
+                self.__build_values(opiomId = getOpiomId(key),parentNode = nextParentNode,**values)
+            else:
+                self.__nodes[key] = Output.Node(opiomId,register,shift,mask,
+                                                values,parentNode)
+class Multiplexer:
+    def __init__(self,configFile) :
+        self._opioms = {}
+        self.__outputs = {}
+        
+        config = ConfigDict.ConfigDict(filelist=[configFile])
+        for key,value in config.iteritems() :
+            key = key.upper()
+            if key.startswith('OPIOM') :
+                self._opioms[getOpiomId(key)] = OpiomComm(**value)
+            else:
+                self.__outputs[key] = Output(self,**value)
+
+    def getOutputList(self) :
+        return self.__outputs.keys()
+
+    def getPossibleValues(self,output_key) :
+        output_key = output_key.upper()
+        return self.__outputs[output_key].getSwitchList()
+
+    def getKeyAndName(self) :
+        return dict([(key,output.name()) for key,output in self.__outputs.iteritems()])
+    
+    def getName(self,output_key) :
+        output_key = output_key.upper()
+        return self.__outputs[output_key].name()
+    
+    def switch(self,output_key,input_key):
+        output_key = output_key.upper()
+        input_key = input_key.upper()
+        try:
+            output = self.__outputs[output_key]
+        except KeyError:
+            raise ValueError("Multiplexer don't have the ouput %s" % output_key)
+        else:
+            try:
+                output.switch(input_key)
+            except ValueError,err:
+                raise ValueError("%s is not available for output %s" % (str(err),output_key))
+
+    def getOutputStat(self,output_key) :
+        output_key = output_key.upper()
+        output = self.__outputs[output_key]
+        opiomRegister = {}
+        for opiomId,comm in self._opioms.iteritems() :
+            comm._ask_register_values()
+        for opiomId,comm in self._opioms.iteritems() :
+            opiomRegister[opiomId] = comm._read_register_values()
+        
+        return output.getStat(opiomRegister)
+        
+    def getGlobalStat(self) :
+        opiomRegister = {}
+        for opiomId,comm in self._opioms.iteritems() :
+            comm._ask_register_values()
+        for opiomId,comm in self._opioms.iteritems() :
+            opiomRegister[opiomId] = comm._read_register_values()
+        outputStat = {}
+        for key,output in self.__outputs.iteritems() :
+            outputStat[key] = output.getStat(opiomRegister)
+        return outputStat
+    
+def getOpiomId(opiomKey) :
+    try:
+        return int(opiomKey[5:])
+    except ValueError:
+        return 0
+
+
+m = Multiplexer('opiom.config')
+m._opioms[1].load_program()

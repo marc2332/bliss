@@ -302,13 +302,18 @@ class Multiplexer:
         for key,output in self.__outputs.iteritems() :
             outputStat[key] = output.getStat(opiomRegister)
         return outputStat
-    
+
+    def load_program(self) :
+        for opiom in self._opioms.values() :
+            opiom.load_program()
+
 def getOpiomId(opiomKey) :
     try:
         return int(opiomKey[5:])
     except ValueError:
         return 0
 
+if __name__ == '__main__':
+    m = Multiplexer('example.config')
+    print m.getGlobalStat()
 
-m = Multiplexer('opiom.config')
-m._opioms[1].load_program()

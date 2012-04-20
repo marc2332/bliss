@@ -245,6 +245,7 @@ class Multiplexer:
     def __init__(self,configFile) :
         self._opioms = {}
         self.__outputs = {}
+        self.__stat = {}
         
         config = ConfigDict.ConfigDict(filelist=[configFile])
         for key,value in config.iteritems() :
@@ -291,7 +292,26 @@ class Multiplexer:
             opiomRegister[opiomId] = comm._read_register_values()
         
         return output.getStat(opiomRegister)
-        
+
+    def storeCurrentStat(self,name) :
+        opiomRegister = {}
+        for opiomId,comm in self._opioms.iteritems() :
+            comm._ask_register_values()
+        for opiomId,comm in self._opioms.iteritems() :
+            opiomRegister[opiomId] = comm._read_register_values()
+
+        self.__stat[name] = opiomRegister
+
+    def restoreStat(self,name) :
+        try:
+            opiomRegister = self.__stat[name]
+        except KeyError:
+             raise ValueError("Multiplexer don't have the stat %s" % name)
+
+        for opiomId,reg in opiomRegister.iteritems() :
+            for regName,value in reg.iteritems() :
+                self._opioms[opiomId].comm("%s 0x%x" % (regName,value))
+                 
     def getGlobalStat(self) :
         opiomRegister = {}
         for opiomId,comm in self._opioms.iteritems() :

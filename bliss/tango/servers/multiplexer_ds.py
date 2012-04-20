@@ -35,7 +35,13 @@ class Multiplexer(PyTango.Device_4Impl) :
 
     def getPossibleOutputValues(self,output_key) :
         return self.__multiplexer.getPossibleValues(output_key)
-    
+
+    def storeCurrentStat(self,stat) :
+        self.__multiplexer.storeCurrentStat(stat)
+
+    def restoreStat(self,stat) :
+        self.__multiplexer.restoreStat(stat)
+        
 class MultiplexerClass(PyTango.DeviceClass) :
     #    Class Properties
     class_property_list = {
@@ -57,6 +63,12 @@ class MultiplexerClass(PyTango.DeviceClass) :
         'getPossibleOutputValues':
         [[PyTango.DevString,"output_key"],
          [PyTango.DevVarStringArray,"possible output values"]],
+        'storeCurrentStat':
+        [[PyTango.DevString,"stat"],
+         [PyTango.DevVoid,'']],
+        'restoreStat':
+        [[PyTango.DevString,"stat"],
+         [PyTango.DevVoid,'']],
         }
 
     #    Attribute definitions

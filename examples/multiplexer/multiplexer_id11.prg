@@ -43,19 +43,19 @@ wire BOOST_MOT1,BOOST_MOT2,BOOST_MOT3,BOOST_MOT4;
 
 assign ATRIG   			= I1;   		// Input from Musst ATRIG.
 assign BTRIG     		= I2;   		// Input from Musst BTRIG
-assign COUNTERS_IN    		= I3;   		// Input from COUNTER card.
-assign BOOST_MOT1  		= I4;   		// Boost/Move motor 1
-assign STEP_MOT1     		= I5;   		// Step motor 1
-assign BOOST_MOT2 		= I6;   		// Boost/Move from motor2.
-assign SOR_CAM1 		= I7;   		// SOR camera 1
-assign SHUTTER_CAM1 		= I8;   		// shutter cam 1
+assign SOR_CAM1 		= I3;   		// SOR camera 1
+assign SHUTTER_CAM1 		= I4;   		// shutter cam 1
+assign SOR_CAM2 		= I5;			// SOR camera 2
+assign SHUTTER_CAM2 		= I6;	  		// shutter camera 2
+assign BOOST_MOT1  		= I7;   		// Boost/Move motor 1
+assign BOOST_MOT2 		= I8;   		// Boost/Move from motor2.
 
-assign BOOST_MOT3 		= IB1;  		// Boost from motor3.
-assign STEP_MOT3 		= IB2;  		// step from motor3.
-assign BOOST_MOT4 		= IB3;  		// Boost from motor4.
-assign STEP_MOT4 		= IB4;  		// Vstep from motor4.
-assign SOR_CAM2 		= IB5;  		// SOR camera 2
-assign SHUTTER_CAM2 		= IB6;  		// shutter camera 2
+assign STEP_MOT1     		= IB1;   		// Step motor 1
+assign BOOST_MOT3 		= IB2;  		// Boost from motor3.
+assign STEP_MOT3 		= IB3;  		// step from motor3.
+assign BOOST_MOT4 		= IB4;  		// Boost from motor4.
+assign STEP_MOT4 		= IB5;  		// Vstep from motor4.
+assign COUNTERS_IN    		= IB6;   		// Input from COUNTER card.
 assign SOR_CAM3 		= IB7;  		// SOR camera 3
 assign SHUTTER_CAM3 		= IB8;  		// shutter camera 3
 

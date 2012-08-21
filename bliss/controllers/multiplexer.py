@@ -185,13 +185,16 @@ class Output:
             self.__value = int(value) << shift
             self.__parent = parentNode
 
-        def switch(self,opioms) :
+        def switch(self,opioms,synchronous) :
             if self.__parent:
-                self.__parent.switch(opioms)
+                self.__parent.switch(opioms,False)
                 
             op = opioms[self.__opiomId]
             cmd = '%s 0x%x 0x%x' % (self.__register,self.__value,self.__mask)
-            op.comm(cmd)
+            if synchronous:
+                op.comm_ack(cmd)
+            else:
+                op.comm(cmd)
 
         def isActive(self,opiom_registers) :
             activeFlag = True
@@ -213,14 +216,14 @@ class Output:
     def getSwitchList(self) :
         return self.__nodes.keys()
 
-    def switch(self,switchValue) :
+    def switch(self,switchValue,synchronous) :
         switchValue = switchValue.upper()
         try:
             node = self.__nodes[switchValue]
         except KeyError:
             raise ValueError(switchValue)
 
-        node.switch(self.__multiplex._opioms)
+        node.switch(self.__multiplex._opioms,synchronous)
 
     def getStat(self,opiom_register) :
         for key,node in self.__nodes.iteritems() :
@@ -242,11 +245,11 @@ class Output:
                 self.__nodes[key] = Output.Node(opiomId,register,shift,mask,
                                                 values,parentNode)
 class Multiplexer:
+    SAVED_STATS_KEY = "saved stats"
     def __init__(self,configFile) :
         self._opioms = {}
         self.__outputs = {}
-        self.__stat = {}
-        
+
         config = ConfigDict.ConfigDict(filelist=[configFile])
         for key,value in config.iteritems() :
             key = key.upper()
@@ -255,6 +258,21 @@ class Multiplexer:
             else:
                 self.__outputs[key] = Output(self,**value)
 
+        baspath,configFilename = os.path.split(configFile)
+        basefilename,ext = os.path.splitext(configFilename)
+        self.__statFilePath = os.path.join(baspath,"%s_saves_stats%s" % (basefilename,ext))
+        statConfig = ConfigDict.ConfigDict(filelist=[self.__statFilePath])
+        self.__stat = {}
+        for statname,d in statConfig.get(self.SAVED_STATS_KEY,{}).iteritems() :
+            tmpDict = {}
+            for opiomId,registerValues in d.iteritems():
+                try:
+                    opiomId = int(opiomId)
+                except:
+                    continue
+                tmpDict[opiomId] = registerValues
+            self.__stat[statname] = tmpDict
+        
     def getOutputList(self) :
         return self.__outputs.keys()
 
@@ -269,7 +287,7 @@ class Multiplexer:
         output_key = output_key.upper()
         return self.__outputs[output_key].name()
     
-    def switch(self,output_key,input_key):
+    def switch(self,output_key,input_key,synchronous = False):
         output_key = output_key.upper()
         input_key = input_key.upper()
         try:
@@ -278,10 +296,22 @@ class Multiplexer:
             raise ValueError("Multiplexer don't have the ouput %s" % output_key)
         else:
             try:
-                output.switch(input_key)
+                output.switch(input_key,synchronous)
             except ValueError,err:
                 raise ValueError("%s is not available for output %s" % (str(err),output_key))
 
+    def raw_com(self,message,opiomId = 1,synchronous = False) :
+        opiomId = int(opiomId)
+        try:
+            opiom = self._opioms[opiomId]
+        except KeyError:
+            raise ValueError("Multiplexer don't have opiom with %d id" % opiomId)
+
+        if synchronous:
+            return opiom.comm_ack(message)
+        else:
+            return opiom.comm(message)
+    
     def getOutputStat(self,output_key) :
         output_key = output_key.upper()
         output = self.__outputs[output_key]
@@ -301,7 +331,8 @@ class Multiplexer:
             opiomRegister[opiomId] = comm._read_register_values()
 
         self.__stat[name] = opiomRegister
-
+        self.__saveStats()
+        
     def restoreStat(self,name) :
         try:
             opiomRegister = self.__stat[name]
@@ -311,7 +342,29 @@ class Multiplexer:
         for opiomId,reg in opiomRegister.iteritems() :
             for regName,value in reg.iteritems() :
                 self._opioms[opiomId].comm("%s 0x%x" % (regName,value))
-                 
+
+    def rmStat(self,name) :
+        try:
+            self.__stat.pop(name)
+        except KeyError:
+            raise ValueError("Multiplexer don't have the stat %s" % name)
+
+        self.__saveStats(False)
+
+    def getSavedStats(self) :
+        return self.__stat.keys()
+
+    def __saveStats(self,update = True) :
+        statConfig = ConfigDict.ConfigDict(filelist=[self.__statFilePath])
+        if update:
+            try:
+                statConfig[self.SAVED_STATS_KEY].update(self.__stat)
+            except KeyError:
+                statConfig[self.SAVED_STATS_KEY] = self.__stat
+        else:
+            statConfig[self.SAVED_STATS_KEY] = self.__stat
+        statConfig.write(self.__statFilePath)
+
     def getGlobalStat(self) :
         opiomRegister = {}
         for opiomId,comm in self._opioms.iteritems() :

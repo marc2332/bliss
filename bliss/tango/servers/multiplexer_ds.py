@@ -33,14 +33,26 @@ class Multiplexer(PyTango.Device_4Impl) :
     def switch(self,values) :
         self.__multiplexer.switch(*values)
 
+    def raw_com(self,values):
+        return self.__multiplexer.raw_com(*values) or ""
+    
     def getPossibleOutputValues(self,output_key) :
         return self.__multiplexer.getPossibleValues(output_key)
 
+    def getOutputStat(self,output_key) :
+        return self.__multiplexer.getOutputStat(output_key)
+    
     def storeCurrentStat(self,stat) :
         self.__multiplexer.storeCurrentStat(stat)
 
     def restoreStat(self,stat) :
         self.__multiplexer.restoreStat(stat)
+
+    def getSavedStats(self):
+        return self.__multiplexer.getSavedStats()
+
+    def removedSavedStat(self,stat) :
+        self.__multiplexer.rmStat(stat)
         
 class MultiplexerClass(PyTango.DeviceClass) :
     #    Class Properties
@@ -58,11 +70,23 @@ class MultiplexerClass(PyTango.DeviceClass) :
     #    Command definitions
     cmd_list = {
         'switch':
-        [[PyTango.DevVarStringArray,"output_key input_key"],
+        [[PyTango.DevVarStringArray,"output_key input_key synchronous"],
          [PyTango.DevVoid,""]],
+        'raw_com':
+        [[PyTango.DevVarStringArray,"message opiomId synchronous"],
+         [PyTango.DevString,"result"]],
         'getPossibleOutputValues':
         [[PyTango.DevString,"output_key"],
          [PyTango.DevVarStringArray,"possible output values"]],
+        'getOutputStat':
+        [[PyTango.DevString,"output_key"],
+         [PyTango.DevString,"output_value"]],
+        'getSavedStats':
+        [[PyTango.DevVoid,""],
+         [PyTango.DevVarStringArray,"saved stats"]],
+        'removedSavedStat':
+        [[PyTango.DevString,"stat"],
+         [PyTango.DevVoid,""]],
         'storeCurrentStat':
         [[PyTango.DevString,"stat"],
          [PyTango.DevVoid,'']],

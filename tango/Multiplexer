@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+. blissrc
+
+bash_path=${BLISSADM}/server/src/Mutliplexer_src
+cd $bash_path
+exec python Multiplexer.py $*

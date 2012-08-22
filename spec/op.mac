@@ -1,0 +1,217 @@
+#%IU% (tangourl)
+#%MDESC%
+# Basic setup
+#
+def opsetup '{
+  if($# < 1)
+  {
+   print "Usage: $0 TANGO_URL\n"
+   exit
+  }
+  global OP_SERVER_URL
+  OP_SERVER_URL = "$1"
+}'
+#%IU% (output name,output val)
+#%MDESC%
+# Switch an output to an other value
+#
+def opset '{
+  if($# == 0)
+  {
+    _op_printlist();
+  }
+  else if($# == 1)
+  {
+    _op_printpossiblelist("$1")
+  }
+  else
+  {
+    _op_switch("$1","$2")
+  }
+}'
+
+#%IU% (output name)
+#%MDESC%
+# get the output stat
+#
+def opget '{
+  if($# == 0)
+  {
+    _op_printlist()
+  }
+  else
+  {
+   print _op_get_status("$1")
+  }
+}'
+#%IU% (output name)
+#%MDESC%
+# display a menu
+#
+def opmenu '{
+  local option nl output_status[] nbResult i
+  option = 1
+  while(option != "quit")
+  {
+    tty_cntl("cl")
+    nl = 0
+    tty_move(0,nl++,"Multiplexer Status:")
+    nl++
+    tty_cntl("so")
+    tty_cntl("md")
+    tty_move(4,nl,"Output name")
+    tty_move(32,nl++,"Output status")
+    tty_cntl("se")
+    tty_cntl("me")
+
+    nbResult = tango_get(OP_SERVER_URL,"outputs_status",output_status)
+    for(i = 0;i < nbResult;i += 2)
+    {
+      tty_move(0,nl,sprintf("%d)",i / 2))
+      tty_move(4,nl,output_status[i])
+      tty_move(32,nl++,output_status[i+1])
+    }
+    ++nl
+    tty_move(0,nl++,"a) Save this stat")
+    tty_move(0,nl++,"b) Restore a stat")
+    tty_move(0,nl++,"c) Remove a stat")
+
+    option= getval("\n\n\tSwitch outputs  ---> ", "quit")
+    if(option != "quit")
+    {
+      if(option == "a")
+      {
+	option = getval("\nWhat\'s the name of this state?","default")
+	tango_io(OP_SERVER_URL,"storeCurrentStat",option)
+      }
+      else if(option == "b" || option == "c")
+      {
+	nbResult = tango_io(OP_SERVER_URL,"getSavedStats",output_status)
+	if(!nbResult)
+	{
+	 tty_cntl("cl")
+	 tty_move(0,0,"No stat was saved!")
+	 getval("")
+	}
+	else
+	{
+	  if(nbResult == 1)
+	  {
+	    if(option == "b")
+	      tango_io(OP_SERVER_URL,"restoreStat",output_status[0])
+	    else
+	      tango_io(OP_SERVER_URL,"removedSavedStat",output_status[0])
+	  }
+	  else
+	  {
+	    local suboption
+	    nl = nl + 2
+	    if(option == "b")
+	      tty_move(0,nl++,"Restore stat:")
+	    else
+	      tty_move(0,nl++,"Remove stat:")
+
+            for(i = 0;i < nbResult;++i)
+	    {
+	      tty_move(0,nl,sprintf("%d)",i))
+	      tty_move(4,nl++,output_status[i])
+	    }
+	    suboption = getval("\n\n\tOption ---> ","do nothing")
+	    if(suboption != "do nothing")
+	   {
+	    optionVal = int(suboption)
+	    if(optionVal >= 0 && optionVal < nbResult)
+	    {
+	      if(option == "b")
+	        tango_io(OP_SERVER_URL,"restoreStat",output_status[optionVal])
+	      else
+	        tango_io(OP_SERVER_URL,"removedSavedStat",output_status[optionVal])
+	    }
+	   }
+	  }
+	}
+      }
+      else
+      {
+	local optionVal
+	optionVal = int(option)
+	if(optionVal < nbResult / 2 && optionVal >= 0)
+	{
+	  local output_name
+	  output_name = output_status[optionVal * 2]
+	  nbResult = tango_io(OP_SERVER_URL,"getPossibleOutputValues",output_name,output_status)
+	  if(nbResult == 2)
+	  {
+	    local currentOutputStatus
+	    currentOutputStatus = tango_io(OP_SERVER_URL,"getOutputStat",output_name)
+	    for(i = 0;i < nbResult;++i)
+	    {
+	     if(output_status[i] != currentOutputStatus)
+	     {
+	       local switchArr[]
+	       switchArr[0] = output_name
+	       switchArr[1] = output_status[i]
+	       tango_io(OP_SERVER_URL,"switch",switchArr)
+	       break
+	     }
+	   }
+	  }
+	  else
+	  {
+	    tty_cntl("cl")
+	    nl = 0
+	    tty_move(0,nl++,sprintf("Switch output %s to :",output_name))
+	    ++nl
+	    for(i = 0;i < nbResult;++i)
+	    {
+	      tty_move(0,nl,sprintf("%d)",i))
+	      tty_move(4,nl++,output_status[i])
+	    }
+	    option = getval("\n\n\tOption ---> ", "don\'t switch")
+	    if(option != "don\'t switch")
+	    {
+	      optionVal = int(option)
+	      if(optionVal < nbResult && optionVal >= 0)
+	      {
+		local switchArr[]
+		switchArr[0] = output_name
+		switchArr[1] = output_status[optionVal]
+		tango_io(OP_SERVER_URL,"switch",switchArr)
+	      }
+	    }
+	  }
+	}
+      }
+    }
+  }
+}'
+
+def _op_printlist() '{
+  local tmpArray[],nbVal,i
+  nbVal = tango_get(OP_SERVER_URL,"outputs",tmpArray)
+  for(i = 0;i < nbVal;++i)
+  {
+    print tmpArray[i]
+  }
+}'
+
+def _op_get_status(output) '{
+  return tango_io(OP_SERVER_URL,"getOutputStat",output)
+}'
+
+def _op_printpossiblelist(output_name) '{
+  local tmpArr[],nbVal,i
+  nbVal = tango_io(OP_SERVER_URL,"getPossibleOutputValues",output_name,tmpArr)
+  for(i = 0;i < nbVal;++i)
+  {
+   print tmpArr[i] 
+  }
+}'
+
+def _op_switch(output_name,output_val,synchronous) '{
+  local tmpArr[]
+  tmpArr[0] = output_name
+  tmpArr[1] = output_val
+  tmpArr[2] = synchronous
+  tango_io(OP_SERVER_URL,"switch",tmpArr)
+}'

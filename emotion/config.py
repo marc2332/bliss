@@ -4,7 +4,7 @@ import os
 from .motor import Motor, MotorGroup
 
 CONTROLLER_MODULES_PATH = [os.path.join(os.path.dirname(__file__), "controllers")]
-AXIS_CLASSES_PATH = []
+AXIS_MODULES_PATH = []
 CONFIG_TREE = None
 CONTROLLERS = {}
 AXES = {}
@@ -113,7 +113,7 @@ def load_axes(config_node):
       if axis_class is None:
         axis_class = Motor
       else:
-        axis_module = _get_module(axis_class, AXIS_CLASSES_PATH)
+        axis_module = _get_module(axis_class, AXIS_MODULES_PATH)
         try:
           axis_class = getattr(axis_module, axis_class)
         except:

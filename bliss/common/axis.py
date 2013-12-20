@@ -2,7 +2,7 @@ from bliss.common.task_utils import *
 
 READY, MOVING = ("READY", "MOVING")
 
-class Motor:
+class Axis:
   def __init__(self, controller, config):
     self.__controller = controller
     self.__config = config
@@ -34,7 +34,7 @@ class Motor:
     else:
       return gevent.spawn(self.__controller.wait)
 
-class MotorGroup:
+class Group:
   def __init__(self, name, config):
     self.__name = name
 

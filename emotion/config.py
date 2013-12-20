@@ -1,7 +1,7 @@
 import xml.etree.cElementTree as ElementTree
 import sys
 import os
-from .motor import Motor, MotorGroup
+from .axis import Axis, Group
 
 CONTROLLER_MODULES_PATH = [os.path.join(os.path.dirname(__file__), "controllers")]
 AXIS_MODULES_PATH = []
@@ -100,7 +100,7 @@ def _load_config():
     group_name = group_node.get('name')
     if group_name is None:
       raise RuntimeError("%s: group with no name" % group_node)
-    GROUPS[group_name] = Item(group_name, "group", MotorGroup, group_node)
+    GROUPS[group_name] = Item(group_name, "group", Group, group_node)
 
 def load_axes(config_node):
     """Return list of (axis name, axis_class, axis_config_node)"""
@@ -111,7 +111,7 @@ def load_axes(config_node):
         raise RuntimeError("%s: configuration for axis does not have a name" % config_node)
       axis_class = axis_config.get("class")
       if axis_class is None:
-        axis_class = Motor
+        axis_class = Axis
       else:
         axis_module = _get_module(axis_class, AXIS_MODULES_PATH)
         try:

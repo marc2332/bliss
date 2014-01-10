@@ -48,10 +48,11 @@ class Socket:
         self._fd.connect((local_host,local_port))
         self._fd.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         self._connected = True
-        self._host = host
-        self._port = port
+        self._host = local_host
+        self._port = local_port
         self._data = ''
         self._raw_read_task = gevent.spawn(self._raw_read)
+        return True
 
     def close(self) :
         if self._connected:
@@ -128,9 +129,10 @@ class Socket:
     
     @try_connect
     def write_readline(self,msg,write_synchro = None,eol = None,timeout = None):
-        self._fd.sendall(msg,timeout=timeout)
-        if write_synchro:write_synchro.notify()
-        return self.readline(eol=eol,timeout=timeout)
+        with gevent.Timeout(timeout or self._timeout, RuntimeError("write_readline timed out")):
+            self._fd.sendall(msg)
+            if write_synchro:write_synchro.notify()
+            return self.readline(eol=eol,timeout=timeout)
 
     def flush(self) :
         self._data = ''

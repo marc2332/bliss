@@ -17,10 +17,15 @@ class Item:
     self.instance = None
     self.cfg_type = cfg_type
     self.cfg = cfg
-    
+
   def get_instance(self):
     if self.instance is None:
       self.instance = self.klass(self.name, self.cfg)
+
+      # Push config from XML file into axes settings.
+      for axis_name, axis in self.instance.axes.iteritems():
+        self.instance.set_from_config(axis, axis.config)
+
     return self.instance
 
 class ConfigNode:
@@ -42,7 +47,7 @@ class ControllerConfigNode(ConfigNode):
     for controller_name, controller_cfg_item in CONTROLLERS.iteritems():
        if controller_cfg_item.cfg==self:
           return controller_cfg_item.axes
-  
+
 
 def _get_module(module_name, path_list):
   try:
@@ -80,10 +85,10 @@ def _load_config():
     controller_name = controller_config.get("name")
     controller_class_name = controller_config.get("class")
     if controller_name is None:
-      controller_name = "%s_%d" % (controller_class_name, id(controller_config))  
-    
+      controller_name = "%s_%d" % (controller_class_name, id(controller_config))
+
     controller_module = _get_module(controller_class_name, CONTROLLER_MODULES_PATH)
-   
+
     try:
       controller_class = getattr(controller_module, controller_class_name.title())
     except:
@@ -94,6 +99,7 @@ def _load_config():
         AXES[axis_name] = controller_name
       new_config_item = Item(controller_name, 'controller', controller_class, ControllerConfigNode(controller_config))
       new_config_item.axes = controller_axes
+
       CONTROLLERS[controller_name] = new_config_item
 
   for group_node in CONFIG_TREE.findall("group"):
@@ -121,7 +127,7 @@ def load_axes(config_node):
       axes.append((axis_name, axis_class, ConfigNode(axis_config)))
     return axes
 
-def get_axis(axis_name): 
+def get_axis(axis_name):
     try:
       controller_name = AXES[axis_name]
     except KeyError:
@@ -133,14 +139,17 @@ def get_axis(axis_name):
         raise RuntimeError("no controller can be found for axis '%s`" % axis_name)
 
     controller_instance = controller.get_instance()
-    
-    return controller_instance.axes.get(axis_name)
+
+    axis = controller_instance.axes.get(axis_name)
+    controller_instance.initialize_axis(axis)
+
+    return axis
 
 def get_group(group_name):
   try:
     group = GROUPS[group_name]
   except KeyError:
     raise RuntimeError("no group '%s` in config" % group_name)
-  
+
   return group.get_instance()
 

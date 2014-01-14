@@ -2,7 +2,7 @@ import gevent
 import gevent.event
 from bliss.common.task_utils import task
 from bliss.controllers.motor_settings import AxisSettings
-from bliss.common.motor import MOVING, READY
+from bliss.common.axis import MOVING, READY
 from bliss.common import event
 
 class Controller:
@@ -16,10 +16,10 @@ class Controller:
     self.axis_settings.state_updated_callback = self.state_changed_event
 
     for axis_name, axis_class, axis_config in self.__config.controller_axes():
-      new_axis = axis_class(self, axis_config) 
+      new_axis = axis_class(self, axis_config)
       self._axes[axis_name]=new_axis
       self._is_moving[new_axis]=gevent.event.Event()
-      
+
   @property
   def axes(self):
     return self._axes
@@ -32,27 +32,31 @@ class Controller:
   def config(self):
     return self.__config
 
+  def initialize_axis(self, axis):
+    raise NotImplementedError
+
   def state_changed_event(self, axis, new_state):
     event = self._is_moving[axis]
     if new_state == MOVING:
       event.set()
     else:
-      event.clear()  
+      event.clear()
 
   def prepare_move(self, axis, target_pos):
     if self._move_tasks.get(axis) and not self._move_tasks[axis].ready():
       raise RuntimeError("axis '%s` is busy" % axis)
-    self._move_tasks[axis] = self._move(axis, 
-                                        self.read_position(axis), 
-                                        target_pos, start=False)
+    self._move_tasks[axis] = self._move(axis,
+                                        target_pos,
+                                        target_pos-self.read_position(axis),
+                                        start=False)
 
   def start_move(self):
     for axis, move_task in self._move_tasks.iteritems():
       move_task.link(lambda _: self._move_tasks.pop(axis))
-      move_task.start() 
+      move_task.start()
 
   @task
-  def _move(self, axis, start_pos, final_pos):
+  def _move(self, axis, target_pos, delta):
     raise NotImplementedError
 
   def wait_is_moving(self, axis):
@@ -74,7 +78,7 @@ class Controller:
 
   def _update(self, axis, setting_name, value):
     self.axis_settings.set(axis, setting_name, value)
-    event.send(axis, setting_name, self.axis_settings.get(axis, setting_name))  
+    event.send(axis, setting_name, self.axis_settings.get(axis, setting_name))
 
   def read_position(self, axis):
     raise NotImplementedError
@@ -85,4 +89,4 @@ class Controller:
   def read_state(self, axis):
     raise NotImplementedError
 
-  
+

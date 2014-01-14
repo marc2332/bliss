@@ -15,8 +15,8 @@ class Axis:
   def config(self):
     return self.__config
 
-  def position(self):
-    return self.__controller.read_position(self)
+  def position(self, measured=False):
+    return self.__controller.read_position(self, measured)
 
   def velocity(self):
     return self.__controller.read_velocity(self)

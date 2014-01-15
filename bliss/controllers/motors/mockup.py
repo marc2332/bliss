@@ -6,8 +6,8 @@ import math
 import time
 
 class Mockup(Controller):
-  def __init__(self, name, config):
-    Controller.__init__(self, name, config)
+  def __init__(self, name, config, axes):
+    Controller.__init__(self, name, config, axes)
 
     # Access to the config.
     self.config.get_property("host")

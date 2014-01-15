@@ -1,25 +1,35 @@
 import gevent
 import gevent.event
+import functools
 from bliss.common.task_utils import task
 from bliss.controllers.motor_settings import AxisSettings
 from bliss.common.axis import MOVING, READY
 from bliss.common import event
 
 class Controller:
-  def __init__(self, name, config):
+  def __init__(self, name, config, axes):
     self.__name = name
     self.__config = config
-    self.__initialized_axes = dict()
+    self.__initialized_axis = dict()
     self._axes = dict()
     self._move_tasks = dict()
     self._is_moving = dict()
+
     self.axis_settings = AxisSettings()
     self.axis_settings.state_updated_callback = self.state_changed_event
 
-    for axis_name, axis_class, axis_config in self.__config.controller_axes():
-      new_axis = axis_class(self, axis_config)
-      self._axes[axis_name]=new_axis
-      self._is_moving[new_axis]=gevent.event.Event()
+    for axis_name, axis_class, axis_config in axes:
+        axis = axis_class(self, axis_config)
+        self._axes[axis_name] = axis
+        self._is_moving[axis] = gevent.event.Event()
+        self.__initialized_axis[axis] = False
+ 
+        # push config from XML file into axes settings.
+        self.axis_settings.set_from_config(axis, axis.config)
+
+        # install axis.settings set/get methods
+        axis.settings.set = functools.partial(self.axis_settings.set, axis)
+        axis.settings.get = functools.partial(self.axis_settings.get, axis)
 
   @property
   def axes(self):
@@ -33,11 +43,14 @@ class Controller:
   def config(self):
     return self.__config
 
-  def set_initialized(self, axis, initialized=True):
-    self.__initialized_axes[axis]=initialized
+  def get_axis(self, axis_name):
+    axis = self._axes[axis_name]
 
-  def initialized(self, axis):
-    return self.__initialized_axes.setdefault(axis, False)
+    if not self.__initialized_axis[axis]:
+      self.initialize_axis(axis)
+      self.__initialized_axis[axis] = True
+
+    return axis
 
   def initialize_axis(self, axis):
     raise NotImplementedError

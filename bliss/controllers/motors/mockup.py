@@ -15,16 +15,19 @@ class Mockup(Controller):
     # Add a "channel" paramter to axes.
     # Check that <channel> is really an integer.
     self.axis_settings.add('channel', int)
-
     self.axis_settings.add('init_count', int)
 
+  def initialize(self):
+    # hardware initialization
     for axis_name, axis in self.axes.iteritems():
-      self.axis_settings.set(axis, 'position', random.randint(0,360))
-      self.axis_settings.set(axis, 'state', READY)
-      self.axis_settings.set(axis, 'init_count', 0)
+      axis.settings.set('init_count', 0)
 
   def initialize_axis(self, axis):
-    self.axis_settings.set(axis, 'init_count',self.axis_settings.get(axis, "init_count")+1)   
+    axis.settings.set('position', random.randint(0,360))
+    axis.settings.set('state', READY)
+
+    # this is to test axis are initialized only once
+    axis.settings.set('init_count', axis.settings.get('init_count')+1)
 
   @task
   def _move(self, axis, target_pos, delta):
@@ -51,10 +54,10 @@ class Mockup(Controller):
       self.update_position(axis, target_pos)
 
   def read_position(self, axis, measured=False):
-    return self.axis_settings.get(axis, "position")
+    return axis.settings.get('position')
 
   def read_velocity(self, axis):
-    return self.axis_settings.get(axis, "velocity")
+    return axis.settings.get('velocity')
 
   def read_state(self, axis):
-    return self.axis_settings.get(axis, "state")
+    return axis.settings.get('state')

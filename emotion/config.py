@@ -3,6 +3,7 @@ import sys
 import os
 from .controller import Controller
 from .axis import Axis, Group
+import functools
 
 CONTROLLER_MODULES_PATH = [os.path.join(os.path.dirname(__file__), "controllers")]
 AXIS_MODULES_PATH = []
@@ -24,9 +25,15 @@ class Item:
       self.instance = self.klass(self.name, self.cfg)
 
       if isinstance(self.instance, Controller):
-        # push config from XML file into axes settings.
         for axis_name, axis in self.instance.axes.iteritems():
+          # push config from XML file into axes settings.
           self.instance.axis_settings.set_from_config(axis, axis.config)
+
+          # configure axis.settings set/get
+          axis.settings.set = functools.partial(self.instance.axis_settings.set, axis)
+          axis.settings.get = functools.partial(self.instance.axis_settings.get, axis)
+
+        self.instance.initialize()
 
     return self.instance
 

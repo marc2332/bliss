@@ -2,10 +2,18 @@ from bliss.common.task_utils import *
 
 READY, MOVING = ("READY", "MOVING")
 
+
 class Axis:
+  class Settings:
+    def set(*args, **kwargs):
+      pass
+    def get(*args, **kwargs):
+      pass
+
   def __init__(self, controller, config):
     self.__controller = controller
     self.__config = config
+    self.__settings = Axis.Settings()
 
   @property
   def controller(self):
@@ -14,6 +22,10 @@ class Axis:
   @property
   def config(self):
     return self.__config
+
+  @property
+  def settings(self):
+    return self.__settings
 
   def position(self, measured=False):
     return self.__controller.read_position(self, measured)

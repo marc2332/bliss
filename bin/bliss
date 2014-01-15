@@ -14,9 +14,6 @@ except ImportError:
   # compatibility with IPython 0.13
   from IPython.frontend.terminal.interactiveshell import TerminalInteractiveShell
 
-import gevent
-from gevent import monkey; monkey.patch_all(thread=False)
-
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import bliss
 

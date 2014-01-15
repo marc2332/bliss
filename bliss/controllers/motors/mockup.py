@@ -1,5 +1,5 @@
 from bliss.controllers.motor import Controller
-from bliss.common.motor import READY, MOVING
+from bliss.common.axis import READY, MOVING
 from bliss.common.task_utils import task, error_cleanup, cleanup
 import random
 import math

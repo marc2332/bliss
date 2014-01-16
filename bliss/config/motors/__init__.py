@@ -1,4 +1,3 @@
-import functools
 import sys
 import os
 from bliss.controllers.motor import Controller
@@ -12,22 +11,6 @@ AXIS_MODULES_PATH = []
 CONTROLLERS = {}
 CONTROLLER_BY_AXIS = {} 
 GROUPS = {}
-
-
-class ConfigItem:
-  def __init__(self, name, klass, cfg):
-    self.name = name
-    self.klass = klass
-    self.instance = None
-    self.cfg = cfg
-
-  def get_instance(self):
-    if self.instance is None:
-      self.instance = self.create_object()
-    return self.instance
-      
-  def create_object(self):
-    return self.klass(self.name, self.cfg)
 
 
 def _get_module(module_name, path_list):

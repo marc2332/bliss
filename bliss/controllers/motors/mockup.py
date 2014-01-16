@@ -10,7 +10,7 @@ class Mockup(Controller):
     Controller.__init__(self, name, config, axes)
 
     # Access to the config.
-    self.config.get_property("host")
+    self.get_property("host")
 
     # Add a "channel" paramter to axes.
     # Check that <channel> is really an integer.

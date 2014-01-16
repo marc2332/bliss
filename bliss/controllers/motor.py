@@ -43,6 +43,13 @@ class Controller:
   def config(self):
     return self.__config
 
+  def get_property(self, property_name, converter=str):
+     property_attrs = self.__config.get(property_name)
+     if property_attrs is not None:
+       return converter(property_attrs.get("value"))
+     else:
+       raise KeyError("no property '%s` in config" % property_name)
+
   def get_axis(self, axis_name):
     axis = self._axes[axis_name]
 

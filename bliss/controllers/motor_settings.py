@@ -24,7 +24,7 @@ class AxisSettings:
   def set_from_config(self, axis, axis_config):
     for setting_name in self.setting_names:
       try:
-        self.set(axis, setting_name, axis_config.get_property(setting_name))
+        self.set(axis, setting_name, axis_config[setting_name].get('value'))
       except KeyError:
         continue
 

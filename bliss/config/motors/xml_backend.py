@@ -47,13 +47,6 @@ class XmlDictConfig(dict):
             else:
                 self.update({element.tag: element.text})
 
-    def get_property(self, name, converter=str):
-     property_attrs = self.get(name)
-     if property_attrs is not None:
-       return converter(property_attrs.get("value"))
-     else:
-       raise KeyError("no property '%s` in config node" % name)
-
 def load_cfg_fromstring(config_xml):
   return _load_config(ElementTree.fromstring(config_xml))
 
@@ -75,7 +68,7 @@ def _load_config(config_tree):
     group_name = group_node.get('name')
     if group_name is None:
       raise RuntimeError("%s: group with no name" % group_node)
-    add_group(group_name, group_node)
+    add_group(group_name, XmlDictConfig(group_node))
 
 def load_axes(config_node):
     """Return list of (axis name, axis_class_name, axis_config_node)"""

@@ -43,6 +43,9 @@ class Controller:
   def config(self):
     return self.__config
 
+  def finalize(self):
+    pass
+
   def get_property(self, property_name, converter=str):
      property_attrs = self.__config.get(property_name)
      if property_attrs is not None:

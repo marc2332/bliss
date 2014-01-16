@@ -58,8 +58,12 @@ def add_controller(controller_name, controller_config, controller_class, control
   global CONTROLLERS
   global CONTROLLER_BY_AXIS
 
+  if controller_name in CONTROLLERS:
+    CONTROLLERS[controller_name]["object"].finalize()
+    del CONTROLLERS[controller_name]
+
   axes = []
-  for axis_name, axis_class_name, axis_config in controller_axes: 
+  for axis_name, axis_class_name, axis_config in controller_axes:
     if axis_class_name is None:
       axis_class = Axis
     else:

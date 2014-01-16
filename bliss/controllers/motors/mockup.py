@@ -9,6 +9,8 @@ class Mockup(Controller):
   def __init__(self, name, config, axes):
     Controller.__init__(self, name, config, axes)
 
+    self._axis_moves = {}
+
     # Access to the config.
     self.get_property("host")
 
@@ -24,40 +26,46 @@ class Mockup(Controller):
 
   def initialize_axis(self, axis):
     axis.settings.set('position', random.randint(0,360))
-    axis.settings.set('state', READY)
+    self._axis_moves[axis] = { "end_t": 0, "end_pos": axis.settings.get('position') }
 
     # this is to test axis are initialized only once
     axis.settings.set('init_count', axis.settings.get('init_count')+1)
 
-  @task
-  def _move(self, axis, target_pos, delta):
-    v = self.read_velocity(axis)
-    d = math.copysign(1, delta)
+  def prepare_move(self, axis, target_pos, delta):
     pos = self.read_position(axis)
+    self._axis_moves[axis] = { "start_pos": pos,
+                               "delta": delta,
+                               "end_pos": target_pos }
+
+  def start_move(self, axis):
+    v = self.read_velocity(axis)
     t0 = time.time()
-    end_t = t0 + math.fabs(delta)/float(v)
-
-    def move_cleanup():
-      self.update_state(axis, READY)
-
-    with cleanup(move_cleanup):
-      self.update_state(axis, MOVING)
-      while True:
-        t = time.time()
-        if t < end_t:
-          dt = t - t0
-          pos += d*dt*v 
-          self.update_position(axis, pos)
-          time.sleep(0.01) 
-        else:
-          break
-      self.update_position(axis, target_pos)
+    delta = self._axis_moves[axis]["delta"]
+    d = math.copysign(1, delta)
+    end_t = t0 + math.fabs(delta/float(v))
+    self._axis_moves[axis].update({ "end_t": end_t, "t0": t0 })
 
   def read_position(self, axis, measured=False):
-    return axis.settings.get('position')
+    if self._axis_moves[axis]["end_t"]:
+      # motor is moving
+      t = time.time()
+      v = self.read_velocity(axis)
+      d = math.copysign(1, self._axis_moves[axis]["delta"])
+      dt = t - self._axis_moves[axis]["t0"]
+      pos = self._axis_moves[axis]["start_pos"] + d*dt*v
+      return pos
+    else:
+      return self._axis_moves[axis]["end_pos"]
 
   def read_velocity(self, axis):
     return axis.settings.get('velocity')
 
   def read_state(self, axis):
-    return axis.settings.get('state')
+    if self._axis_moves[axis]["end_t"] > time.time():
+      return MOVING
+    else:
+      return READY
+
+  def stop(self, axis):
+    print 'stop is called'
+    self._axis_moves[axis]["end_t"]=0

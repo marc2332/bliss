@@ -7,6 +7,7 @@ class AxisSettings:
                            "position": float }
     self.axis_settings_dict = dict()
     self.axis_settings_class = None
+    self.state_updated_callback = None
 
   def add(self, setting_name, convert_func):
     self.setting_names.append(setting_name)

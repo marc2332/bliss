@@ -64,5 +64,13 @@ class TestMockupController(unittest.TestCase):
         robz = bliss.get_axis("robz")
         self.assertEqual(robz.settings.get("init_count"), 1)
 
+    def test_stop(self):
+        robz = bliss.get_axis('robz')
+        self.assertEqual(robz.state(), "READY")
+        move_greenlet=robz.move(180, wait=False)
+        self.assertEqual(robz.state(), "MOVING")
+        robz.stop()
+        self.assertEqual(robz.state(), "READY")
+
 if __name__ == '__main__':
     unittest.main()

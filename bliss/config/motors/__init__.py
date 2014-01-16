@@ -33,9 +33,12 @@ def get_controller_class(controller_class_name, controller_modules_path=CONTROLL
   controller_module = _get_module(controller_class_name, controller_modules_path)
 
   try:
-    controller_class = getattr(controller_module, controller_class_name.title())
+    controller_class = getattr(controller_module, controller_class_name)
   except:
-    raise RuntimeError("could not find class '%s` in module '%s`" % (controller_class_name, controller_module))
+    try:
+      controller_class = getattr(controller_module, controller_class_name.title())
+    except:
+      raise RuntimeError("could not find class '%s` in module '%s`" % (controller_class_name, controller_module))
   else:
     return controller_class
 

@@ -5,7 +5,7 @@ from bliss.common.axis import Axis, Group
 
 BACKEND = 'xml'
 
-CONTROLLER_MODULES_PATH = [os.path.join(os.path.dirname(__file__), "..", "controllers")]
+CONTROLLER_MODULES_PATH = [os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "controllers"))]
 AXIS_MODULES_PATH = []
 
 CONTROLLERS = {}
@@ -39,8 +39,8 @@ def get_controller_class(controller_class_name, controller_modules_path=CONTROLL
       controller_class = getattr(controller_module, controller_class_name.title())
     except:
       raise RuntimeError("could not find class '%s` in module '%s`" % (controller_class_name, controller_module))
-  else:
-    return controller_class
+
+  return controller_class
 
 
 def get_axis_class(axis_class_name, axis_modules_path=AXIS_MODULES_PATH):

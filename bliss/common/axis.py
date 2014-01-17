@@ -12,11 +12,16 @@ class Axis:
     def get(*args, **kwargs):
       pass
 
-  def __init__(self, controller, config):
+  def __init__(self, name, controller, config):
+    self.__name = name
     self.__controller = controller
     self.__config = config
     self.__settings = Axis.Settings()
     self.__move_task = None
+
+  @property
+  def name(self):
+    return self.__name
 
   @property
   def controller(self):

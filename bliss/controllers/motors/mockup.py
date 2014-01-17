@@ -25,8 +25,7 @@ class Mockup(Controller):
       axis.settings.set('init_count', 0)
 
   def initialize_axis(self, axis):
-    axis.settings.set('position', random.randint(0,360))
-    self._axis_moves[axis] = { "end_t": 0, "end_pos": axis.settings.get('position') }
+    self._axis_moves[axis] = { "end_t": 0, "end_pos": random.randint(0,360) }
 
     # this is to test axis are initialized only once
     axis.settings.set('init_count', axis.settings.get('init_count')+1)
@@ -41,8 +40,7 @@ class Mockup(Controller):
     v = self.read_velocity(axis)
     t0 = time.time()
     delta = self._axis_moves[axis]["delta"]
-    d = math.copysign(1, delta)
-    end_t = t0 + math.fabs(delta/float(v))
+    end_t = t0 + math.fabs(delta)/float(v)
     self._axis_moves[axis].update({ "end_t": end_t, "t0": t0 })
 
   def read_position(self, axis, measured=False):
@@ -64,6 +62,7 @@ class Mockup(Controller):
     if self._axis_moves[axis]["end_t"] > time.time():
       return MOVING
     else:
+      self._axis_moves[axis]["end_t"]=0
       return READY
 
   def stop(self, axis):

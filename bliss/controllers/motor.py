@@ -15,10 +15,10 @@ class Controller:
     self.axis_settings = AxisSettings()
 
     for axis_name, axis_class, axis_config in axes:
-        axis = axis_class(self, axis_config)
+        axis = axis_class(axis_name, self, axis_config)
         self._axes[axis_name] = axis
         self.__initialized_axis[axis] = False
- 
+
         # push config from XML file into axes settings.
         self.axis_settings.set_from_config(axis, axis.config)
 

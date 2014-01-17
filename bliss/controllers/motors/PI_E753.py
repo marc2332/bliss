@@ -23,35 +23,42 @@ class PI_E753(Controller):
 
   # Init of each axis.
   def initialize_axis(self, axis):
-    self.read_position(axis)
+    # Enables closed-loop
+    self.sock.write("SVO 1 1\n")
 
-  @task
-  def _move(self, axis, target_pos, delta):
-    pass
-#    def move_cleanup():
-#      # trucs a faire en cas de cleanup...
-#      self.update_position(axis, self.read_position(axis))
-#      self.update_state(axis, READY)
-#
-#    with cleanup(move_cleanup):
-#      self.update_state(axis, MOVING)
-#
-#      self.sock.write("MV %s"%target_pos)
-#
-#      while self.sock.write_read("ST?") == "MOVING":
-#        time.sleep(0.01)
-#        self.update_position(axis, self.read_position(axis))
-
-  def read_position(self, axis, measured=False):
-    return self._get_pos(axis, measured)
+  def read_position(self, measured=False):
+    return self._get_pos(measured)
 
   def read_velocity(self, axis):
     return self.axis_settings.get(axis, "velocity")
 
   def read_state(self, axis):
-    return self.axis_settings.get(axis, "state")
+    if self._get_closed_loop_status():
+      if self._get_on_target_status():
+        return READY
+      else:
+        return MOVING
+    else:
+      raise RuntimeError("closed loop disabled")
 
-  def _get_pos(self, axis, measured=False):
+  def prepare_move(self, axis, target_pos, delta):
+    self._target_pos = target_pos
+
+  def start_move(self, axis):
+    self.sock.write("MOV 1 %g\n"%self._target_pos)
+
+  def stop(self, axis):
+    # to check : copy of current position into target position ???
+    self.sock.write("STP\n")
+
+
+
+  '''
+  E753 specific communication
+  '''
+
+
+  def _get_pos(self, measured=False):
     if measured:
       _ans = self.sock.write_readline("POS?\n")
     else:
@@ -61,26 +68,10 @@ class PI_E753(Controller):
     # "\n" removed by tcp lib.
     _pos = float(_ans[2:])
 
-    axis.settings.set("position", _pos)
-    # to move to eMotion layer (cf axis)
-    self.update_position(axis, _pos)
     return _pos
 
   def _get_identifier(self):
     return self.sock.write_readline("IDN?\n")
-
-  def _move_to_pos(self, axis, pos):
-    self.sock.write("MOV 1 %g\n"%pos)
-    # no update position : done in movement loop ?
-    # return ?
-
-  def _get_status(self):
-
-    if self._get_closed_loop_status():
-      return self._get_on_target_status()
-    else:
-      # print "closed loop disabled"
-      pass
 
   def _get_closed_loop_status(self):
     _ans = self.sock.write_readline("SVO?\n")
@@ -116,19 +107,19 @@ class PI_E753(Controller):
       ("Setpoint Position          ", "MOV?\n"),
       ("Position low limit         ", "SPA? 1 0x07000000\n"),
       ("Position High limit        ", "SPA? 1 0x07000001\n"),
-      ("ADC value of analog input  ", "TAD?\n"),
       ("Velocity                   ", "VEL?\n"),
       ("On target                  ", "ONT?\n"),
-      ("target tolerance           ", "SPA? 1 0X07000900?\n"),
-      ("Sensor Offset              ", "SPA? 1 0x02000200?\n"),
-      ("Sensor Gain                ", "SPA? 1 0x02000300?\n"),
+      ("target tolerance           ", "SPA? 1 0X07000900\n"),
+      ("Sensor Offset              ", "SPA? 1 0x02000200\n"),
+      ("Sensor Gain                ", "SPA? 1 0x02000300\n"),
       ("Motion status              ", "#5\n"),
       ("Closed loop status         ", "SVO?\n"),
-      ("Analog Setpoints           ", "TSP?\n"),
       ("Auto Zero Calibration ?    ", "ATZ?\n"),
       ("Low  Voltage Limit         ", "SPA? 1 0x07000A00\n"),
       ("High Voltage Limit         ", "SPA? 1 0x07000A01\n")
     ]
+
+    self.sock.flush()
 
     _txt = ""
 
@@ -136,5 +127,11 @@ class PI_E753(Controller):
       _txt = _txt + "    %s %s\n"%(i[0],
                         self.sock.write_readline(i[1]))
 
+    self.sock.write("TAD?\n")
+    _txt = _txt + "    %s   %s \n"%("ADC value of analog input",
+                                    self.sock.raw_read())
+
     return _txt
+
+
 

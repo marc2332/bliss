@@ -58,3 +58,23 @@ if __name__ == '__main__':
     unittest.main()
 
 
+'''
+Interactive test :
+
+load_cfg_fromstring("""<config>
+  <controller class="PI_E753" name="testid16">
+    <host value="e753id16ni-mlm"/>
+    <axis name="pz">
+    </axis>
+  </controller>
+</config>
+""")
+
+a=get_axis("pz")
+
+print a.controller.sock.write_readline("IDN?\n")
+print a.controller._get_infos()
+
+
+
+'''

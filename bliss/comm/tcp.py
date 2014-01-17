@@ -2,6 +2,19 @@ import gevent
 from gevent import socket,select,event
 import time
 
+
+"""
+connect
+close
+raw_read
+read
+readline
+write
+write_read
+write_readline
+flush
+"""
+
 def try_connect(fu) :
     def rfunc(self,*args,**kwarg) :
         write_func = fu.func_name.startswith('write')
@@ -20,7 +33,7 @@ def try_connect(fu) :
     return rfunc
 
 class Socket:
-    def __init__(self,host,port,
+    def __init__(self, host, port,
                  eol='\n',      # end of line for each rx message
                  timeout=5.,    # default timeout for read write
                  ) :
@@ -118,21 +131,21 @@ class Socket:
         return msg
 
     @try_connect
-    def write(self,msg,timeout=None) :
-        self._fd.sendall(msg,timeout=timeout)
+    def write(self, msg, timeout=None) :
+        self._fd.sendall(msg)
 
     @try_connect
     def write_read(self,msg,write_synchro = None,size=1,timeout=None) :
         self._fd.sendall(msg)
         if write_synchro: write_synchro.notify()
-        return self.read(size=size,timeout=timeout)
-    
+        return self.read(size=size, timeout=timeout)
+
     @try_connect
     def write_readline(self,msg,write_synchro = None,eol = None,timeout = None):
         with gevent.Timeout(timeout or self._timeout, RuntimeError("write_readline timed out")):
             self._fd.sendall(msg)
             if write_synchro:write_synchro.notify()
-            return self.readline(eol=eol,timeout=timeout)
+            return self.readline(eol=eol, timeout=timeout)
 
     def flush(self) :
         self._data = ''

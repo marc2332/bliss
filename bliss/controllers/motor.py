@@ -1,6 +1,7 @@
 import gevent
 import gevent.event
 import functools
+from bliss.config.motors.static import StaticConfig
 from bliss.common.task_utils import task
 from bliss.controllers.motor_settings import AxisSettings
 from bliss.common.axis import MOVING, READY
@@ -8,7 +9,7 @@ from bliss.common.axis import MOVING, READY
 class Controller(object):
   def __init__(self, name, config, axes):
     self.__name = name
-    self.__config = config
+    self.__config = StaticConfig(config)
     self.__initialized_axis = dict()
     self._axes = dict()
 
@@ -20,7 +21,7 @@ class Controller(object):
         self.__initialized_axis[axis] = False
 
         # push config from XML file into axes settings.
-        self.axis_settings.set_from_config(axis, axis.config)
+        #self.axis_settings.set_from_config(axis, axis.config)
 
         # install axis.settings set/get methods
         axis.settings.set = functools.partial(self.axis_settings.set, axis)
@@ -40,13 +41,6 @@ class Controller(object):
 
   def finalize(self):
     pass
-
-  def get_property(self, property_name, converter=str):
-     property_attrs = self.__config.get(property_name)
-     if property_attrs is not None:
-       return converter(property_attrs.get("value"))
-     else:
-       raise KeyError("no property '%s` in config" % property_name)
 
   def get_axis(self, axis_name):
     axis = self._axes[axis_name]

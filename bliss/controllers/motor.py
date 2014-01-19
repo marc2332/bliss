@@ -5,7 +5,7 @@ from bliss.common.task_utils import task
 from bliss.controllers.motor_settings import AxisSettings
 from bliss.common.axis import MOVING, READY
 
-class Controller:
+class Controller(object):
   def __init__(self, name, config, axes):
     self.__name = name
     self.__config = config

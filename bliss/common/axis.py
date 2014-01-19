@@ -5,7 +5,7 @@ import time
 
 READY, MOVING = ("READY", "MOVING")
 
-class Axis:
+class Axis(object):
   class Settings:
     def set(*args, **kwargs):
       pass
@@ -100,7 +100,7 @@ class Axis:
        self.__move_task.join()
 
 
-class Group:
+class Group(object):
   def __init__(self, name, config):
     self.__name = name
 

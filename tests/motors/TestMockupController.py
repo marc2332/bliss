@@ -1,10 +1,12 @@
 import unittest
+import time
 import sys
 import os
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import bliss
+from bliss.common.axis import Axis
 
 config_xml = """
 <config>
@@ -12,7 +14,6 @@ config_xml = """
     <host value="mydummyhost1"/>
     <port value="5000"/>
     <axis name="robz">
-      <channel value="1"/>
       <!-- degrees per second -->
       <velocity value="100"/>
     </axis>
@@ -20,9 +21,9 @@ config_xml = """
   <controller class="mockup">
     <host value="mydummyhost2"/>
     <port value="5000"/>
-    <axis name="roby">
-      <channel value="1"/>
-      <velocity value="100"/>
+    <axis name="roby" class="MockupAxis">
+      <velocity value="500"/>
+      <backlash value="2"/>
     </axis>
   </controller>
   <group name="group1">
@@ -31,6 +32,22 @@ config_xml = """
   </group>
 </config>
 """
+
+### THIS IS FOR TESTING SPECIFIC FEATURES OF AXIS OBJECTS
+class MockupAxis(Axis):
+  def __init__(self, *args, **kwargs):
+    Axis.__init__(self, *args, **kwargs)
+
+  def _handle_move(self, target_pos, delta, backlash=0):
+    self.backlash_move = target_pos if backlash else 0
+    return Axis._handle_move(self, target_pos, delta, backlash)
+
+class mockup_axis_module:
+  def __getattr__(self, attr):
+    return MockupAxis
+
+sys.modules["MockupAxis"] = mockup_axis_module()
+###
 
 class TestMockupController(unittest.TestCase):
     def setUp(self):
@@ -71,6 +88,27 @@ class TestMockupController(unittest.TestCase):
         self.assertEqual(robz.state(), "MOVING")
         robz.stop()
         self.assertEqual(robz.state(), "READY")
+
+    def test_backlash(self):
+        roby = bliss.get_axis("roby")
+        self.assertEqual(roby.state(), "READY")
+        roby.move(0)
+        move_greenlet=roby.move(-180, wait=False)
+        time.sleep(0)
+        self.assertEqual(roby.backlash_move, -182)
+        move_greenlet.join()
+        self.assertEqual(roby.position(), -180)
+       
+    def test_backlash2(self):
+        roby = bliss.get_axis("roby")
+        self.assertEqual(roby.state(), "READY")
+        roby.move(0)
+        move_greenlet=roby.move(180, wait=False)
+        time.sleep(0)
+        self.assertEqual(roby.backlash_move, 0)
+        move_greenlet.join()
+        self.assertEqual(roby.position(), 180)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -55,7 +55,7 @@ class Controller(object):
     raise NotImplementedError
 
   def prepare_move(self, axis, target_pos, delta):
-    raise NotImplementedError
+    return
 
   def start_move(self, axis, target_pos, delta):
     raise NotImplementedError

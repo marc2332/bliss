@@ -50,11 +50,19 @@ class Axis(object):
     return self.__move_task is not None and not self.__move_task.ready()
 
 
+  def step_size(self):
+    return self.config.get("step_size", float, 1)
+
   def position(self):
     if self.is_moving():
       return self.__settings.get("position")
-    # really read from hw
-    return self.__controller.read_position(self)
+    else:
+      # really read from hw
+      return self._position()
+
+
+  def _position(self):
+    return self.__controller.read_position(self) / self.step_size()
 
 
   def state(self):
@@ -70,7 +78,7 @@ class Axis(object):
 
   def _handle_move(self, target_pos, delta, backlash=0):
     def update_settings():
-       pos = self.__controller.read_position(self)
+       pos = self._position()
        self.settings.set("position", pos)
        event.send(self, "position", pos) 
        state = self.__controller.read_state(self)
@@ -95,14 +103,12 @@ class Axis(object):
           self._handle_move(final_pos, backlash)
     
 
-  def prepare_move(self, target_pos):
-    step_size = self.config.get("step_size", float, 1)
-
+  def prepare_move(self, user_target_pos):
     initial_pos      = self.position()
     # all positions are converted to controller units
-    backlash         = self.config.get("backlash", float, 0) / step_size
-    delta            = (target_pos - initial_pos) / step_size
-    target_pos       = target_pos / step_size
+    backlash         = self.config.get("backlash", float, 0) * self.step_size()
+    delta            = (user_target_pos - initial_pos) * self.step_size()
+    target_pos       = user_target_pos * self.step_size()
     
     if backlash:
       if cmp(delta, 0) != cmp(backlash, 0):

@@ -12,17 +12,18 @@ class Mockup(Controller):
     self._axis_moves = {}
 
     # Access to the config.
-    self.get_property("host")
+    self.config.get("host")
 
-    # Add a "channel" paramter to axes.
-    # Check that <channel> is really an integer.
-    self.axis_settings.add('channel', int)
+    # add a setting of type 'int'
+    # velocity is automatically added
     self.axis_settings.add('init_count', int)
 
   def initialize(self):
     # hardware initialization
     for axis_name, axis in self.axes.iteritems():
       axis.settings.set('init_count', 0)
+      # set initial speed
+      axis.settings.set('velocity', axis.config.get("velocity", float))
 
   def initialize_axis(self, axis):
     self._axis_moves[axis] = { "end_t": 0, "end_pos": random.randint(0,360) }
@@ -66,5 +67,4 @@ class Mockup(Controller):
       return READY
 
   def stop(self, axis):
-    print 'stop is called'
     self._axis_moves[axis]["end_t"]=0

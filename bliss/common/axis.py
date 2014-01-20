@@ -1,11 +1,12 @@
 from bliss.common.task_utils import *
 from bliss.common import event
+from bliss.config.motors.static import StaticConfig
 import functools
 import time
 
 READY, MOVING = ("READY", "MOVING")
 
-class Axis:
+class Axis(object):
   class Settings:
     def set(*args, **kwargs):
       pass
@@ -15,7 +16,7 @@ class Axis:
   def __init__(self, name, controller, config):
     self.__name = name
     self.__controller = controller
-    self.__config = config
+    self.__config = StaticConfig(config)
     self.__settings = Axis.Settings()
     self.__move_task = None
 
@@ -102,12 +103,15 @@ class Axis:
        self.__move_task.join()
 
 
-class Group:
+class Group(object):
   def __init__(self, name, config):
     self.__name = name
+    self.__config = StaticConfig(config)
 
   @property
   def name(self):
     return self.__name
 
-
+  @property
+  def config(self):
+    return self.__config

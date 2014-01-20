@@ -1,6 +1,5 @@
 import sys
 import os
-from bliss.controllers.motor import Controller
 from bliss.common.axis import Axis, Group
 
 BACKEND = 'xml'
@@ -124,3 +123,4 @@ def load_cfg_fromstring(config_str):
   if BACKEND == 'xml':
     from bliss.config.motors.xml_backend import load_cfg_fromstring
     return load_cfg_fromstring(config_str)
+

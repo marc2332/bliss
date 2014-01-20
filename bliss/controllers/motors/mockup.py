@@ -18,6 +18,7 @@ class Mockup(Controller):
     # velocity is automatically added
     self.axis_settings.add('init_count', int)
 
+
   def initialize(self):
     # hardware initialization
     for axis_name, axis in self.axes.iteritems():
@@ -25,11 +26,13 @@ class Mockup(Controller):
       # set initial speed
       axis.settings.set('velocity', axis.config.get("velocity", float))
 
+
   def initialize_axis(self, axis):
     self._axis_moves[axis] = { "end_t": 0, "end_pos": random.randint(0,360) }
 
     # this is to test axis are initialized only once
     axis.settings.set('init_count', axis.settings.get('init_count')+1)
+
 
   def prepare_move(self, axis, target_pos, delta):
     pos = self.read_position(axis)
@@ -37,12 +40,14 @@ class Mockup(Controller):
                                "delta": delta,
                                "end_pos": target_pos }
 
-  def start_move(self, axis):
+
+  def start_move(self, axis, target_pos, delta):
     v = self.read_velocity(axis)
     t0 = time.time()
     delta = self._axis_moves[axis]["delta"]
     end_t = t0 + math.fabs(delta)/float(v)
     self._axis_moves[axis].update({ "end_t": end_t, "t0": t0 })
+
 
   def read_position(self, axis, measured=False):
     if self._axis_moves[axis]["end_t"]:
@@ -55,6 +60,7 @@ class Mockup(Controller):
       return pos
     else:
       return self._axis_moves[axis]["end_pos"]
+
 
   def read_velocity(self, axis):
     return axis.settings.get('velocity')

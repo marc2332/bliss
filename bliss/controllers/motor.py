@@ -63,7 +63,7 @@ class Controller:
   def prepare_move(self, axis, target_pos, delta):
     raise NotImplementedError
 
-  def start_move(self, axis):
+  def start_move(self, axis, target_pos, delta):
     raise NotImplementedError
 
   def stop(self, axis):

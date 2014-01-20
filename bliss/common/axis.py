@@ -79,13 +79,15 @@ class Axis:
     if initial_state != READY:
       raise RuntimeError, "motor %s state is %r" % (self.name, initial_state)
 
-    initial_pos = self.position()
-    self.__controller.prepare_move(self, target_pos, target_pos-initial_pos)
+    initial_pos      = self.position()
+    delta            = target_pos - initial_pos
+    self.__controller.prepare_move(self, target_pos, delta)
+    return initial_pos, target_pos, delta
  
   def move(self, target_pos, wait=True):
-    self.prepare_move(target_pos)
+    initial_pos, target_pos, delta = self.prepare_move(target_pos)
 
-    self.__controller.start_move(self)
+    self.__controller.start_move(self, target_pos, delta)
     
     self.__move_task = gevent.spawn(self._handle_move)
 

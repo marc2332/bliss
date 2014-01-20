@@ -43,7 +43,7 @@ def get_controller_class(controller_class_name, controller_modules_path=CONTROLL
 
 
 def get_axis_class(axis_class_name, axis_modules_path=AXIS_MODULES_PATH):
-  axis_module = _get_module(axis_class, axis_modules_path)
+  axis_module = _get_module(axis_class_name, axis_modules_path)
 
   try:
     axis_class = getattr(axis_module, axis_class_name)

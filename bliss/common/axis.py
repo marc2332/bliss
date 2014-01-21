@@ -3,6 +3,7 @@ from bliss.common import event
 from bliss.config.motors.static import StaticConfig
 import functools
 import time
+import pdb
 
 READY, MOVING = ("READY", "MOVING")
 
@@ -125,6 +126,13 @@ class Axis(object):
 
     return target_pos, delta, backlash
 
+
+  def prepare_rmove(self, user_delta_pos):
+    user_initial_pos = self.position() 
+    user_target_pos  = user_initial_pos + user_delta_pos
+
+    return self.prepare_move(user_target_pos)
+
  
   def move(self, user_target_pos, wait=True):
     initial_state = self.state()
@@ -132,6 +140,23 @@ class Axis(object):
       raise RuntimeError, "motor %s state is %r" % (self.name, initial_state)
 
     target_pos, delta, backlash = self.prepare_move(user_target_pos)
+
+    self.__controller.start_move(self, target_pos, delta)
+    
+    self.__move_task = gevent.spawn(self._handle_move, target_pos, delta, backlash)
+
+    if wait: 
+      self.__move_task.get()
+    else:
+      return self.__move_task
+
+ 
+  def rmove(self, user_delta_pos, wait=True):
+    initial_state = self.state()
+    if initial_state != READY:
+      raise RuntimeError, "motor %s state is %r" % (self.name, initial_state)
+
+    target_pos, delta, backlash = self.prepare_rmove(user_delta_pos)
 
     self.__controller.start_move(self, target_pos, delta)
     

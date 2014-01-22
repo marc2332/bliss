@@ -59,10 +59,8 @@ class wrap_errors(object):
         try:
             return func(*args, **kwargs)
         except:
-            exc, value, tb = sys.exc_info()
-            if exc is not greenlet.GreenletExit:
-                sys.excepthook(exc, value, tb)
-            return TaskException(exc, value, tb)
+            #sys.excepthook(*sys.exc_info())
+            return TaskException(*sys.exc_info())
 
     def __str__(self):
         return str(self.func)
@@ -75,6 +73,10 @@ class wrap_errors(object):
 
 def task(func):
     def start_task(*args, **kwargs):
+        #if args and type(args[0]) == types.InstanceType:
+        #  logging.debug("Starting %s%s", func.__name__, args[1:])
+        #else:
+        #  logging.debug("Starting %s%s", func.__name__, args)
         try:
           wait = kwargs["wait"]
         except KeyError:
@@ -87,39 +89,26 @@ def task(func):
           timeout = None 
         else:
           del kwargs["timeout"]
-        try:
-          start = kwargs["start"]
-        except KeyError:
-          start = True
-        else:
-          del kwargs["start"]
 
         try:
-            if start:
-              t = gevent.spawn(wrap_errors(func), *args, **kwargs)
-            else:
-              t = gevent.Greenlet(wrap_errors(func), *args, **kwargs)
-              wait = False
- 
+            t = gevent.spawn(wrap_errors(func), *args, **kwargs)
+               
+            t._get = t.get
+            def special_get(self, *args, **kwargs):
+                try:
+                    ret = self._get(*args, **kwargs)
+                    if isinstance(ret, TaskException):
+                      raise ret.exception, ret.error_string, ret.tb
+                    else:
+                      return ret
+                except KeyboardInterrupt:
+                    t.kill(KeyboardInterrupt)
+            setattr(t, "get", types.MethodType(special_get, t)) 
+
             if wait:
-                ret = t.get(timeout = timeout)
-                if isinstance(ret, TaskException):
-                  sys.excepthook(ret.exception, ret.error_string, ret.tb)
-                  raise ret.exception, ret.error_string
-                else:
-                  return ret
-            else:           
-                t._get = t.get
-                def special_get(self, *args, **kwargs):
-                  ret = self._get(*args, **kwargs)
-                  if isinstance(ret, TaskException):
-                    sys.excepthook(ret.exception, ret.error_string, ret.tb)
-                    raise ret.exception, ret.error_string
-                  else:
-                    return ret
-                setattr(t, "get", types.MethodType(special_get, t)) 
-                
-                return t
+              return t.get(timeout=timeout)
+            else:
+              return t
         except:
             t.kill()
             raise

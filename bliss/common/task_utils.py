@@ -1,7 +1,6 @@
 import sys
 import types
 import gevent
-import greenlet
 
 class cleanup:
   def __init__(self,*args,**keys):
@@ -59,7 +58,6 @@ class wrap_errors(object):
         try:
             return func(*args, **kwargs)
         except:
-            #sys.excepthook(*sys.exc_info())
             return TaskException(*sys.exc_info())
 
     def __str__(self):
@@ -73,10 +71,6 @@ class wrap_errors(object):
 
 def task(func):
     def start_task(*args, **kwargs):
-        #if args and type(args[0]) == types.InstanceType:
-        #  logging.debug("Starting %s%s", func.__name__, args[1:])
-        #else:
-        #  logging.debug("Starting %s%s", func.__name__, args)
         try:
           wait = kwargs["wait"]
         except KeyError:

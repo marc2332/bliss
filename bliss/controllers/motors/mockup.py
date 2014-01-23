@@ -69,4 +69,5 @@ class Mockup(Controller):
       return READY
 
   def stop(self, axis):
+    self._axis_moves[axis]["end_pos"]=self.read_position(axis)
     self._axis_moves[axis]["end_t"]=0

@@ -1,9 +1,7 @@
 from bliss.common.task_utils import *
 from bliss.common import event
 from bliss.config.motors.static import StaticConfig
-import functools
 import time
-import pdb
 
 READY, MOVING = ("READY", "MOVING")
 
@@ -20,7 +18,8 @@ class Axis(object):
     self.__controller = controller
     self.__config = StaticConfig(config)
     self.__settings = Axis.Settings()
-    self.__move_task = None
+    #self.__move_task = None
+    self.__is_moving = False
 
 
   @property
@@ -43,19 +42,21 @@ class Axis(object):
     return self.__settings
 
 
+  @property
+  def is_moving(self):
+    return self.__is_moving
+
+
   def measured_position(self):
     return self.__controller.read_position(self, measured=True)
-
-
-  def is_moving(self):
-    return self.__move_task is not None and not self.__move_task.ready()
 
 
   def step_size(self):
     return self.config.get("step_size", float, 1)
 
+
   def position(self):
-    if self.is_moving():
+    if self.is_moving:
       return self.__settings.get("position")
     else:
       # really read from hw
@@ -67,7 +68,7 @@ class Axis(object):
 
 
   def state(self):
-    if self.is_moving():
+    if self.is_moving:
       return MOVING
     # really read from hw
     return self.__controller.read_state(self)
@@ -88,7 +89,7 @@ class Axis(object):
        return state
 
     with cleanup(update_settings):
-      with error_cleanup(functools.partial(self.__controller.stop, self)):
+      with error_cleanup(self.stop):
         while True: 
           state = update_settings()
           if state != MOVING:
@@ -104,8 +105,10 @@ class Axis(object):
           self._handle_move(final_pos, backlash)
     
 
-  def prepare_move(self, user_target_pos):
+  def prepare_move(self, user_target_pos, relative=False):
     initial_pos      = self.position()
+    if relative:
+      user_target_pos += initial_pos
     # all positions are converted to controller units
     backlash         = self.config.get("backlash", float, 0) * self.step_size()
     delta            = (user_target_pos - initial_pos) * self.step_size()
@@ -127,51 +130,38 @@ class Axis(object):
     return target_pos, delta, backlash
 
 
-  def prepare_rmove(self, user_delta_pos):
-    user_initial_pos = self.position() 
-    user_target_pos  = user_initial_pos + user_delta_pos
-
-    return self.prepare_move(user_target_pos)
-
- 
-  def move(self, user_target_pos, wait=True):
+  @task
+  def move(self, user_target_pos, wait=True, relative=False):
     initial_state = self.state()
     if initial_state != READY:
       raise RuntimeError, "motor %s state is %r" % (self.name, initial_state)
 
-    target_pos, delta, backlash = self.prepare_move(user_target_pos)
+    target_pos, delta, backlash = self.prepare_move(user_target_pos, relative)
 
     self.__controller.start_move(self, target_pos, delta)
-    
-    self.__move_task = gevent.spawn(self._handle_move, target_pos, delta, backlash)
 
-    if wait: 
-      self.__move_task.get()
-    else:
-      return self.__move_task
+    try:
+      self.__is_moving = True
+      
+      self._handle_move(target_pos, delta, backlash)
+    finally:
+      self.__is_moving = False
+
+    #self.__move_task = gevent.spawn(self._handle_move, target_pos, delta, backlash)
+
+    #if wait: 
+    #  self.__move_task.get()
+    #else:
+    #  return self.__move_task
 
  
   def rmove(self, user_delta_pos, wait=True):
-    initial_state = self.state()
-    if initial_state != READY:
-      raise RuntimeError, "motor %s state is %r" % (self.name, initial_state)
-
-    target_pos, delta, backlash = self.prepare_rmove(user_delta_pos)
-
-    self.__controller.start_move(self, target_pos, delta)
-    
-    self.__move_task = gevent.spawn(self._handle_move, target_pos, delta, backlash)
-
-    if wait: 
-      self.__move_task.get()
-    else:
-      return self.__move_task
+    return self.move(user_delta_pos, wait, relative=True)
 
 
   def stop(self):
-    if self.is_moving():
+    if self.is_moving:
        self.__controller.stop(self)
-       self.__move_task.join()
 
 
 class Group(object):

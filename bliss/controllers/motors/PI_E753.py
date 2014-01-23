@@ -12,7 +12,7 @@ class PI_E753(Controller):
   def __init__(self, name, config, axes):
     Controller.__init__(self, name, config, axes)
 
-    self.host = self.get_property("host")
+    self.host = self.config.get("host")
 
   # Init of controller.
   def initialize(self):
@@ -21,16 +21,20 @@ class PI_E753(Controller):
   def finalize(self):
     self.sock.close()
 
+
   # Init of each axis.
   def initialize_axis(self, axis):
     # Enables closed-loop
     self.sock.write("SVO 1 1\n")
 
-  def read_position(self, measured=False):
+
+  def read_position(self, axis, measured=False):
     return self._get_pos(measured)
+
 
   def read_velocity(self, axis):
     return self.axis_settings.get(axis, "velocity")
+
 
   def read_state(self, axis):
     if self._get_closed_loop_status():
@@ -41,11 +45,14 @@ class PI_E753(Controller):
     else:
       raise RuntimeError("closed loop disabled")
 
+
   def prepare_move(self, axis, target_pos, delta):
     self._target_pos = target_pos
 
-  def start_move(self, axis):
+
+  def start_move(self, axis, target_pos, delta):
     self.sock.write("MOV 1 %g\n"%self._target_pos)
+
 
   def stop(self, axis):
     # to check : copy of current position into target position ???
@@ -99,6 +106,12 @@ class PI_E753(Controller):
 
     return (_error_number, _error_str)
 
+  def _stop(self):
+    self.sock.write("STP\n")
+
+  def _set_velocity(self, velocity):
+    self.sock.write("VEL 1 %f\n"%velocity)
+
   def _get_infos(self):
     _infos = [
       ("identifier                 ", "IDN?\n"),
@@ -127,9 +140,15 @@ class PI_E753(Controller):
       _txt = _txt + "    %s %s\n"%(i[0],
                         self.sock.write_readline(i[1]))
 
-    self.sock.write("TAD?\n")
-    _txt = _txt + "    %s   %s \n"%("ADC value of analog input",
-                                    self.sock.raw_read())
+
+    _txt = _txt + "    %s  \n%s\n"%("Communication parameters",
+                                    "\n".join(self.sock.write_readlines("IFC?\n", 5)))
+
+    _txt = _txt + "    %s  \n%s\n"%("Analog setpoints",
+                                    "\n".join(self.sock.write_readlines("TSP?\n", 2)))
+    _txt = _txt + "    %s  \n%s\n"%("ADC value of analog input",
+                                    "\n".join(self.sock.write_readlines("TAD?\n", 2)))
+
 
     return _txt
 

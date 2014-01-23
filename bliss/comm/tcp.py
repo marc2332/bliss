@@ -111,7 +111,7 @@ class Socket:
         return msg
 
     @try_connect
-    def readline(self,eol = None,timeout=None) :
+    def readline(self, eol = None, timeout=None) :
         local_timeout = timeout or self._timeout
         local_eol = eol or self._eol
         start_time = time.time()
@@ -141,11 +141,33 @@ class Socket:
         return self.read(size=size, timeout=timeout)
 
     @try_connect
-    def write_readline(self,msg,write_synchro = None,eol = None,timeout = None):
+    def write_readline(self, msg, write_synchro = None, eol = None, timeout = None):
         with gevent.Timeout(timeout or self._timeout, RuntimeError("write_readline timed out")):
             self._fd.sendall(msg)
             if write_synchro:write_synchro.notify()
             return self.readline(eol=eol, timeout=timeout)
+
+    @try_connect
+    def write_readlines(self, msg, nb_lines, write_synchro = None, eol = None, timeout = None):
+        with gevent.Timeout(timeout or self._timeout, RuntimeError("write_readline timed out")):
+            self._fd.sendall(msg)
+            if write_synchro:
+                write_synchro.notify()
+
+            start_time = time.time()
+            str_list = []
+            for ii in range(nb_lines):
+                str_list.append(self.readline(eol=eol, timeout=timeout))
+
+                # Reduces timeout by duration of previous readline command.
+                if timeout:
+                    timeout = timeout - (time.time() - start_time)
+                    if timeout < 0:
+                        timeout = 0
+
+                start_time = time.time()
+
+            return str_list
 
     def flush(self) :
         self._data = ''

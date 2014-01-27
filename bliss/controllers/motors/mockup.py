@@ -37,7 +37,7 @@ class Mockup(Controller):
   def start_move(self, axis, target_pos, delta):
     t0 = time.time()
     pos = self.read_position(axis)
-    v = self.read_velocity(axis)*axis.step_size()
+    v = self.velocity(axis)*axis.step_size()
     self._axis_moves[axis] = { "start_pos": pos,
                                "delta": delta,
                                "end_pos": target_pos,
@@ -45,11 +45,12 @@ class Mockup(Controller):
                                "t0": t0 }
 
 
+
   def read_position(self, axis, measured=False):
     if self._axis_moves[axis]["end_t"]:
       # motor is moving
       t = time.time()
-      v = self.read_velocity(axis)*axis.step_size()
+      v = self.velocity(axis)*axis.step_size()
       d = math.copysign(1, self._axis_moves[axis]["delta"])
       dt = t - self._axis_moves[axis]["t0"]
       pos = self._axis_moves[axis]["start_pos"] + d*dt*v
@@ -58,7 +59,9 @@ class Mockup(Controller):
       return self._axis_moves[axis]["end_pos"]
 
 
-  def read_velocity(self, axis):
+  def velocity(self, axis, new_velocity=None):
+    if new_velocity != None:
+      axis.settings.set('velocity', new_velocity)
     return axis.settings.get('velocity')
 
   def read_state(self, axis):

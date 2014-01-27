@@ -74,8 +74,8 @@ class Axis(object):
     return self.__controller.read_state(self)
 
 
-  def velocity(self):
-    return self.__controller.read_velocity(self)
+  def velocity(self, new_velocity=None):
+    return self.__controller.velocity(self, new_velocity=None)
 
 
   def _handle_move(self, target_pos, delta, backlash=0):

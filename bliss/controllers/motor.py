@@ -66,7 +66,7 @@ class Controller(object):
   def read_position(self, axis, measured=False):
     raise NotImplementedError
 
-  def read_velocity(self, axis):
+  def velocity(self, axis, new_velocity=None):
     raise NotImplementedError
 
   def read_state(self, axis):

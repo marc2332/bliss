@@ -18,8 +18,8 @@ class Axis(object):
     self.__controller = controller
     self.__config = StaticConfig(config)
     self.__settings = Axis.Settings()
-    #self.__move_task = None
-    self.__is_moving = False
+    self.__move_done = gevent.event.Event()
+    self.__move_done.set()
 
 
   @property
@@ -44,7 +44,7 @@ class Axis(object):
 
   @property
   def is_moving(self):
-    return self.__is_moving
+    return not self.__move_done.is_set()
 
 
   def measured_position(self):
@@ -89,7 +89,6 @@ class Axis(object):
        return state
 
     with cleanup(update_settings):
-      with error_cleanup(self.stop):
         while True: 
           state = update_settings()
           if state != MOVING:
@@ -103,7 +102,7 @@ class Axis(object):
           self.__controller.prepare_move(self, final_pos, backlash)
           self.__controller.start_move(self, final_pos, backlash)
           self._handle_move(final_pos, backlash)
-    
+
 
   def prepare_move(self, user_target_pos, relative=False):
     initial_pos      = self.position()
@@ -130,7 +129,10 @@ class Axis(object):
     return target_pos, delta, backlash
 
 
-  @task
+  def _set_move_done(self, move_task):
+    self.__move_done.set()
+
+
   def move(self, user_target_pos, wait=True, relative=False):
     initial_state = self.state()
     if initial_state != READY:
@@ -138,30 +140,37 @@ class Axis(object):
 
     target_pos, delta, backlash = self.prepare_move(user_target_pos, relative)
 
-    self.__controller.start_move(self, target_pos, delta)
+    self.__move_done.clear()
 
-    try:
-      self.__is_moving = True
-      
+    move_task = self._do_move(target_pos, delta, backlash, wait=False)
+    move_task.link(self._set_move_done)
+
+    if wait:
+      move_task.get()
+    else:
+      return move_task
+
+
+  @task
+  def _do_move(self, target_pos, delta, backlash, wait=True):
+    with error_cleanup(self.stop):
+      self.__controller.start_move(self, target_pos, delta)
+
       self._handle_move(target_pos, delta, backlash)
-    finally:
-      self.__is_moving = False
-
-    #self.__move_task = gevent.spawn(self._handle_move, target_pos, delta, backlash)
-
-    #if wait: 
-    #  self.__move_task.get()
-    #else:
-    #  return self.__move_task
 
  
   def rmove(self, user_delta_pos, wait=True):
     return self.move(user_delta_pos, wait, relative=True)
 
 
+  def wait_move(self):
+    self.__move_done.wait()
+
+
   def stop(self):
     if self.is_moving:
        self.__controller.stop(self)
+       self.wait_move()
 
 
 class Group(object):

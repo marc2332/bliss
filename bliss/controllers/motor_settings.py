@@ -1,7 +1,7 @@
 class AxisSettings:
   def __init__(self):
-    self.setting_names = ["velocity"]
-    self.convert_funcs = { "velocity": float }
+    self.setting_names = ["velocity", "position"]
+    self.convert_funcs = { "velocity": float, "position": float }
     self.axis_settings_dict = dict()
     self.axis_settings_class = None
     #self.state_updated_callback = None

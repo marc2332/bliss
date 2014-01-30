@@ -1,18 +1,23 @@
 from gevent import _threading
-import gevent
 import gevent.event
-import signal
 import os
 import sys
 import time
-import weakref
 import atexit
+import types
+import gevent
+import functools
 
-inq = _threading.Queue()  # = real Queue.Queue()
-outq = _threading.Queue()
+main_queue = _threading.Queue()
 objects_thread = None
-exported_objects = weakref.WeakValueDictionary()
 read_event_watcher = None
+objs = {}
+stop_event = gevent.event.Event()
+
+if not hasattr(gevent, "wait"):
+  def gevent_wait(timeout=None):
+    return gevent.run(timeout)
+  gevent.wait=gevent_wait
 
 class CallException:
   def __init__(self, exception, error_string, tb):
@@ -22,83 +27,99 @@ class CallException:
 
 def terminate_thread():
   if read_event_watcher:
-    outq.put(("exit", None, None))
-    read_event_watcher.send()
+    threadSafeRequest('exit')()
+    objects_thread.join()
 
 atexit.register(terminate_thread)
 
-def process_requests(inq, outq):
-  stop_event = gevent.event.Event()
-  gevent.signal(signal.SIGINT, stop_event.set)
-  devices = {}
+def deal_with_job(req, args, kwargs):
+    if req.method == "new":
+      klass = args[0]
+      args = args[1:]
+      new_obj = klass(*args, **kwargs)
+      queue = _threading.Queue()
+      watcher = gevent.get_hub().loop.async()
+      watcher.start(functools.partial(read_from_queue, queue))
+      objs[id(new_obj)]={ "queue":queue, "watcher":watcher, "obj":new_obj }
 
-  def deal_with_job(job, args, kwargs):
-    if job == "new":
-      obj = args[0]
-      devices[id(obj)] = obj
-      inq.put(id(obj))
-    elif job == "exit":
+      req.set_result(new_obj)
+    elif req.method == "exit":
       stop_event.set()
     else:
-      # job==method name to call
-      device = devices[args[0]]
-      method = getattr(device, job)
+      obj = objs[req.obj_id]["obj"]
+      method = getattr(obj, req.method)
 
       try:
-        result = method(*args[1:], **kwargs)
+        result = method(*args, **kwargs)
       except:
         exception, error_string, tb = sys.exc_info()
         result = CallException(exception, error_string, tb)
 
-      inq.put(result)
+      req.set_result(result)
 
-  def read_from_queue():
-    job, args, kwargs = outq.get()
-    gevent.spawn(deal_with_job, job, args, kwargs)
+def read_from_queue(queue):
+    req, args, kwargs = queue.get() 
+    gevent.spawn(deal_with_job, req, args, kwargs)
 
+def process_requests(main_queue):
   global read_event_watcher
-  read_event_watcher = gevent.get_hub().loop.async()
-  read_event_watcher.start(read_from_queue)
+  read_event_watcher = gevent.get_hub().loop.async() 
+  read_event_watcher.start(functools.partial(read_from_queue, main_queue))
 
   while not stop_event.is_set():
     gevent.wait(timeout=1)
 
-class call_from_main:
-  def __init__(self, obj_id, method):
+class threadSafeRequest:
+  def __init__(self, method, obj_id=None):
     self.obj_id = obj_id
     self.method = method
+    self.queue = main_queue
+    self.done_event = _threading.Event()
+    self.result = None
+    
   def __call__(self, *args, **kwargs):
-    outq.put((self.method, [self.obj_id] + list(args), kwargs))
-    read_event_watcher.send()
-    result = inq.get()
-    if isinstance(result, CallException):
-      raise result.error_string, None, result.tb
-    return result
+    try:
+      queue = objs[self.obj_id]["queue"]
+      watcher = objs[self.obj_id]["watcher"]
+    except KeyError:
+      queue = main_queue
+      watcher = read_event_watcher
 
-class ObjectProxy:
-  def __init__(self, obj_id,):
-    self.obj_id = obj_id
+    queue.put((self, args, kwargs))
+    watcher.send()
+    self.done_event.wait()
+
+    if isinstance(self.result, CallException):
+      raise self.result.error_string, None, self.result.tb
+    return self.result
+  
+  def set_result(self, res):
+    self.result = res
+    self.done_event.set()
+
+class objectProxy:
+  @staticmethod
+  def exit():
+    threadSafeRequest('exit')()
+
+  def __init__(self, obj):
+    self.obj_id = id(obj)
 
   def __getattr__(self, attr):
-    # TODO: replace getattr by proper introspection
+    # to do: replace getattr by proper introspection
     # to make a real proxy
-    if attr.startswith("__"):
-      raise AttributeError, attr
-    return call_from_main(self.obj_id, attr)
+    return threadSafeRequest(attr, self.obj_id)
 
-def wrap(obj):
-  """Wrap object instance in a proxy, object is transferred to a separate thread"""
+def get_proxy(object_class, *args, **kwargs):
+  """Instanciate new object from given class in a separate thread"""
   global objects_thread
 
   if objects_thread is None:
-    objects_thread = _threading.start_new_thread(process_requests, (inq, outq)) #(target=process_requests, args=(inq, outq,))
-    #objects_thread.daemon = True
-    #objects_thread.start()
-    time.sleep(0.1)  # dummy way of synchronizing with thread start
+    objects_thread = _threading.start_new_thread(process_requests, (main_queue,))
+  
+  time.sleep(0.1) #dummy way of synchronizing with thread start
 
-  outq.put(("new", (obj,), ()))
-  read_event_watcher.send()
-  obj_id = inq.get()
-  new_object = ObjectProxy(obj_id)
-  exported_objects[obj_id] = new_object
-  return new_object
+  new_obj_request = threadSafeRequest('new')
+  new_obj = new_obj_request(object_class, *args, **kwargs)
+  proxy = objectProxy(new_obj)
+  return proxy

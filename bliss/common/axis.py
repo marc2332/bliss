@@ -48,23 +48,23 @@ class Axis(object):
 
 
   def measured_position(self):
-    return self.__controller.read_position(self, measured=True)
+    return self.__controller.position(self, new_pos=None, measured=True)
 
 
   def step_size(self):
     return self.config.get("step_size", float, 1)
 
 
-  def position(self):
+  def position(self, new_pos=None, measured=False):
     if self.is_moving:
       return self.__settings.get("position")
     else:
       # really read from hw
-      return self._position()
+      return self._position(new_pos, measured)
 
 
-  def _position(self):
-    return self.__controller.read_position(self) / self.step_size()
+  def _position(self, new_pos=None, measured=False):
+    return self.__controller.position(self, new_pos, measured)/self.step_size()
 
 
   def state(self):

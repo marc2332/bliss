@@ -42,7 +42,7 @@ class Mockup(Controller):
   '''
   def start_move(self, axis, target_pos, delta):
     t0 = time.time()
-    pos = self.read_position(axis)
+    pos = self.position(axis)
     v = self.velocity(axis)*axis.step_size()
     self._axis_moves[axis] = { "start_pos": pos,
                                "delta": delta,
@@ -53,7 +53,7 @@ class Mockup(Controller):
 
   '''
   '''
-  def read_position(self, axis, measured=False):
+  def position(self, axis, new_position=None, measured=False):
     if self._axis_moves[axis]["end_t"]:
       # motor is moving
       t = time.time()
@@ -89,7 +89,7 @@ class Mockup(Controller):
   '''
   '''
   def stop(self, axis):
-    self._axis_moves[axis]["end_pos"]=self.read_position(axis)
+    self._axis_moves[axis]["end_pos"]=self.position(axis)
     self._axis_moves[axis]["end_t"]=0
 
 

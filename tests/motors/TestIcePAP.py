@@ -20,7 +20,8 @@ import bliss
 IcePAP specific library
 """
 sys.path.insert(0, os.path.abspath("/segfs/bliss/source/hardware/IcePAP/client/python/"))
-import icepap.lib
+
+#import icepap.lib
 
 
 
@@ -32,7 +33,7 @@ config_xml = """
 <config>
   <controller class="IcePAP" name="test">
     <host value="%s"/>
-    <libdebug value="3"/>
+    <libdebug value="1"/>
     <axis name="mymot">
       <address   value="%s"/>
       <step_size value="2000"/>
@@ -88,8 +89,9 @@ class TestIcePAPController(unittest.TestCase):
   def test_axis_move(self):
     mymot = bliss.get_axis("mymot")
     pos   = mymot.position()
-    mymot.controller._set_lib_verbose_level(3)
+    mymot.controller._set_lib_verbose(3)
     mymot.move(pos+0.1)
+    mymot.controller._set_lib_verbose(1)
 
   def test_axis_move_backlash(self):
     mymot = bliss.get_axis("mymot")

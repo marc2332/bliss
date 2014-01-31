@@ -19,7 +19,7 @@ import icepap.lib
 import random
 import math
 import time
-
+import pdb
 
 
 class IcePAP(Controller):
@@ -44,7 +44,7 @@ class IcePAP(Controller):
       self.libdebug = 1
 
     # Create an IcePAP lib object to access the MASTER
-    self.libdevice = icepap.lib.Device(self.host, "verb=%d"%self.libdebug)
+    self.libdevice = icepap.lib.System(self.host, "verb=%d"%self.libdebug)
 
     # Create an IcePAP lib object as default group
     self.libgroup  = icepap.lib.Group("default")
@@ -89,7 +89,7 @@ class IcePAP(Controller):
     return pos_stps
 
 
-  def read_velocity(self, axis):
+  def velocity(self, axis):
     """Returns axis current velocity in user units per seconds"""
 
     """    
@@ -133,9 +133,9 @@ class IcePAP(Controller):
     """Stops as fast as possible an axis motion, emergency stop"""
 
 
-  def _set_lib_verbose_level(self, val): 
+  def _set_lib_verbose(self, val): 
     """Change IcePAP library verbose level"""
-    self.libdevice.set_verbose_level(val)
+    self.libdevice.set_verbose(val)
 
 
 

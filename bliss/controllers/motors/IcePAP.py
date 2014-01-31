@@ -85,20 +85,27 @@ class IcePAP(Controller):
 
 
 
-  def read_position(self, axis):
+  def position(self, axis, new_position=None, measured=False):
     """Returns axis position in motor units"""
 
-    # The axis can only be accessed through a group in IcePAP lib
-    # Use the default group
+    # Optionnal new position to set
+    if new_position:
+      pass
+
+    # Always return the current position
     pos_stps = self.libgroup.pos([axis.libaxis])[axis.libaxis]
 
-    # Position unit convertion
     return pos_stps
 
 
-  def velocity(self, axis):
+  def velocity(self, axis, new_velocity=None):
     """Returns axis current velocity in user units per seconds"""
 
+    # Optionnal new velocity to set
+    if new_velocity:
+      pass
+
+    # Always return the current velocity
     """    
     # TODO
     return self.axis_settings.get(axis, "velocity")

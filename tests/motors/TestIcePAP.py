@@ -72,7 +72,7 @@ class TestIcePAPController(unittest.TestCase):
     mymot = bliss.get_axis("mymot")
     pos   = mymot.position()
 
-  def test_get_id(self):
+  def test_axis_get_id(self):
     mymot = bliss.get_axis("mymot")
     self.assertTrue(re.match(r"[a-f0-9A-F]{4}.[a-f0-9A-F]{4}.[a-f0-9A-F]{4}",\
 		             mymot.get_identifier()))
@@ -88,9 +88,9 @@ class TestIcePAPController(unittest.TestCase):
   def test_axis_move(self):
     mymot = bliss.get_axis("mymot")
     pos   = mymot.position()
-    mymot.controller._set_lib_verbose(3)
+    #mymot.controller._set_lib_verbose(3)
     mymot.move(pos+0.1)
-    mymot.controller._set_lib_verbose(1)
+    #mymot.controller._set_lib_verbose(1)
 
   def test_axis_move_backlash(self):
     mymot = bliss.get_axis("mymot")

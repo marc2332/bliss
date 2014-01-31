@@ -2,8 +2,10 @@
 Bliss generic library
 """
 from bliss.controllers.motor import Controller
+from bliss.controllers.motor import add_axis_method
 from bliss.common.axis import READY, MOVING
 from bliss.common.task_utils import task, error_cleanup, cleanup
+
 
 
 
@@ -77,6 +79,11 @@ class IcePAP(Controller):
     # Add the axis to the default IcePAP lib group 
     self.libgroup.add_axis(axis.libaxis)
 
+    # Add new axis oject methods
+    add_axis_method(axis, self.get_identifier)
+
+
+
 
   def read_position(self, axis):
     """Returns axis position in motor units"""
@@ -138,4 +145,7 @@ class IcePAP(Controller):
     self.libdevice.set_verbose(val)
 
 
+  def get_identifier(self, axis):
+    """Returns the unique string identifier of the specified axis"""
+    return self.libgroup.command("?ID", [axis.libaxis])[axis.libaxis]
 

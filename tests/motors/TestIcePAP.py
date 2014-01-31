@@ -2,7 +2,7 @@ import unittest
 import sys
 import os
 import optparse
-
+import re
 
 
 
@@ -72,11 +72,10 @@ class TestIcePAPController(unittest.TestCase):
     mymot = bliss.get_axis("mymot")
     pos   = mymot.position()
 
-  """
   def test_get_id(self):
     mymot = bliss.get_axis("mymot")
-    print "\"mymot\" ID:", mymot.controller._get_identifier()
-  """
+    self.assertTrue(re.match(r"[a-f0-9A-F]{4}.[a-f0-9A-F]{4}.[a-f0-9A-F]{4}",\
+		             mymot.get_identifier()))
 
   def test_axis_state(self):
     mymot = bliss.get_axis("mymot")
@@ -101,6 +100,9 @@ class TestIcePAPController(unittest.TestCase):
   def test_axis_rmove(self):
     mymot = bliss.get_axis("mymot")
     mymot.rmove(0.1)
+
+
+
 
 
 """

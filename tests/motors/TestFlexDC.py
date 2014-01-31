@@ -44,7 +44,7 @@ class TestFlexDCController(unittest.TestCase):
         fd = bliss.get_axis("fd")
         print "FlexDC ID :", fd.controller._get_id(fd.channel)
 
-    def test_get_velocity(self):
+    def test_velocity(self):
         fd = bliss.get_axis("fd")
         print "FlexDC valocity :", fd.velocity()
 

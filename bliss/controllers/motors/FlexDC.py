@@ -46,10 +46,10 @@ class FlexDC(Controller):
     # ( 1 -> repetitive motion )
     print self._flexdc_query("%sSM=0"%axis.channel)
 
-    # Defines smoothing 4
+    # Defines smoothing 4.
     print self._flexdc_query("%sWW=4"%axis.channel)
 
-    # Check if closed loop parameters have been set
+    # Checks if closed loop parameters have been set.
     _ans = self._flexdc_query("%sTT"%axis.channel)
     if _ans == "0":
       print "Missing closed loop param TT (Target Time)!!"
@@ -65,8 +65,12 @@ class FlexDC(Controller):
     return _pos
 
 
-  def read_velocity(self, axis):
-    _velocity = self._flexdc_query("%sSP"%axis.channel)
+  def velocity(self, axis, new_velocity=None):
+    if new_velocity:
+      self._flexdc_query("%sSP=%d"%(axis.channel, new_velocity))
+    else:
+      _velocity = self._flexdc_query("%sSP"%axis.channel)
+
     return _velocity
 
 

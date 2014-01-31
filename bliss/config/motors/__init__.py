@@ -104,6 +104,14 @@ def get_axis(axis_name):
     return axis
 
 
+def axis_names_list():
+  return CONTROLLER_BY_AXIS.keys()
+
+
+def group_names_list():
+  return GROUPS.keys()
+
+
 def get_group(group_name):
   try:
     group = GROUPS[group_name]

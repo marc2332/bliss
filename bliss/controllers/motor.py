@@ -1,3 +1,4 @@
+import types
 import gevent
 import gevent.event
 import functools
@@ -5,6 +6,13 @@ from bliss.config.motors.static import StaticConfig
 from bliss.common.task_utils import task
 from bliss.controllers.motor_settings import AxisSettings
 from bliss.common.axis import MOVING, READY
+
+
+def add_method(self, method, name=None):
+     if name is None:
+         name = method.func_name
+     setattr(self, name, types.MethodType(method, self))
+
 
 class Controller(object):
   def __init__(self, name, config, axes):

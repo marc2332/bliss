@@ -1,10 +1,45 @@
 #!/usr/bin/env python
 # -*- coding:utf-8 -*- 
 import bliss
+import bliss.config.motors as bliss_config
 import PyTango
 import traceback
 import TgGevent
 import sys
+
+class BlissAxisManager(PyTango.Device_4Impl):
+    def __init__(self, cl, name):
+        PyTango.Device_4Impl.__init__(self,cl,name)
+        self.debug_stream("In __init__()")
+        self.init_device()
+
+    def delete_device(self):
+        self.debug_stream("In delete_device()")
+
+    def init_device(self):
+        self.debug_stream("In init_device()")
+        self.get_device_properties(self.get_device_class())
+
+        try:
+            bliss.load_cfg(self.config_file)
+        except:
+            self.set_status(traceback.format_exc())
+
+
+class BlissAxisManagerClass(PyTango.DeviceClass):
+    #    Class Properties
+    class_property_list = {
+        }
+
+    #    Device Properties
+    device_property_list = {
+        'config_file':
+            [PyTango.DevString,
+            "Path to the configuration file",
+            [] ],
+        }
+
+ 
 ## Device States Description
 ## ON : The motor powered on and is ready to move.
 ## MOVING : The motor is moving
@@ -13,10 +48,12 @@ import sys
 ##         a limit switch.
 ## OFF : The power on the moror drive is switched off.
 ## DISABLE : The motor is in slave mode and disabled for normal use
-
 class BlissAxis(PyTango.Device_4Impl):
     def __init__(self,cl, name):
         PyTango.Device_4Impl.__init__(self,cl,name)
+
+        self._axis_name = name.split('/')[-1]
+
         self.debug_stream("In __init__()")
         self.init_device()
         
@@ -28,8 +65,7 @@ class BlissAxis(PyTango.Device_4Impl):
         self.get_device_properties(self.get_device_class())
 
         try:
-            bliss.load_cfg(self.config_file)
-            self.axis = TgGevent.get_proxy(bliss.get_axis, self.axis_name)
+            self.axis = TgGevent.get_proxy(bliss.get_axis, self._axis_name)
         except:
             self.set_status(traceback.format_exc())
          
@@ -239,14 +275,6 @@ class BlissAxisClass(PyTango.DeviceClass):
 
     #    Device Properties
     device_property_list = {
-        'config_file':
-            [PyTango.DevString,
-            "Path to the configuration file",
-            [] ],
-        'axis_name':
-            [PyTango.DevString,
-            "axis name in config file",
-            [] ],
         }
 
     #    Command definitions
@@ -412,15 +440,43 @@ class BlissAxisClass(PyTango.DeviceClass):
         }
 
 
+def get_sub_devices() :
+    className2deviceName = {}
+    #get sub devices
+    fullpathExecName = sys.argv[0]
+    execName = os.path.split(fullpathExecName)[-1]
+    execName = os.path.splitext(execName)[0]
+    personalName = '/'.join([execName,sys.argv[1]])
+    dataBase = PyTango.Database()
+    result = dataBase.get_device_class_list(personalName)
+    for i in range(len(result.value_string) / 2) :
+        class_name = result.value_string[i * 2]
+        deviceName = result.value_string[i * 2 + 1]
+        className2deviceName[deviceName] = class_name
+    return className2deviceName
+
+
 def main():
     try:
         py = PyTango.Util(sys.argv)
-        py.add_class(BlissAxisClass,BlissAxis,'BlissAxis')
+        py.add_class(BlissClass,Bliss,'Bliss')
+        py.add_TgClass(BlissAxisClass, BlissAxis, 'BlissAxis')
 
         U = PyTango.Util.instance()
-        U.server_init()
-        U.server_run()
 
+        U.server_init()
+
+        bliss_admin_device_name = get_sub_devices().get('BlissAxisManager')
+        if bliss_admin_device_name:
+          blname, server_name, device_name = bliss_admin_device_name.split('/')
+
+          for axis_name in bliss_config.axis_names_list():
+            device_name = '/'.join((blname, 
+                                    '%s_%s' % (server_name, device_name), 
+                                    axis_name))
+            U.create_device('BlissAxis', device_name)
+
+        U.server_run()
     except PyTango.DevFailed,e:
         print '-------> Received a DevFailed exception:',e
     except Exception,e:

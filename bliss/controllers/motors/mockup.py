@@ -19,6 +19,8 @@ class Mockup(Controller):
     self.axis_settings.add('init_count', int)
 
 
+  '''
+  '''
   def initialize(self):
     # hardware initialization
     for axis_name, axis in self.axes.iteritems():
@@ -27,6 +29,8 @@ class Mockup(Controller):
       axis.settings.set('velocity', axis.config.get("velocity", float))
 
 
+  '''
+  '''
   def initialize_axis(self, axis):
     self._axis_moves[axis] = { "end_t": 0, "end_pos": random.randint(0,360) }
 
@@ -34,6 +38,8 @@ class Mockup(Controller):
     axis.settings.set('init_count', axis.settings.get('init_count')+1)
 
 
+  '''
+  '''
   def start_move(self, axis, target_pos, delta):
     t0 = time.time()
     pos = self.read_position(axis)
@@ -45,7 +51,8 @@ class Mockup(Controller):
                                "t0": t0 }
 
 
-
+  '''
+  '''
   def read_position(self, axis, measured=False):
     if self._axis_moves[axis]["end_t"]:
       # motor is moving
@@ -59,11 +66,18 @@ class Mockup(Controller):
       return self._axis_moves[axis]["end_pos"]
 
 
+  '''
+  '''
   def velocity(self, axis, new_velocity=None):
-    if new_velocity != None:
+    if new_velocity:
       axis.settings.set('velocity', new_velocity)
+
+    # Always return velocity. 
     return axis.settings.get('velocity')
 
+
+  '''
+  '''
   def read_state(self, axis):
     if self._axis_moves[axis]["end_t"] > time.time():
       return MOVING
@@ -71,6 +85,11 @@ class Mockup(Controller):
       self._axis_moves[axis]["end_t"]=0
       return READY
 
+
+  '''
+  '''
   def stop(self, axis):
     self._axis_moves[axis]["end_pos"]=self.read_position(axis)
     self._axis_moves[axis]["end_t"]=0
+
+

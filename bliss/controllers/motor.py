@@ -8,15 +8,12 @@ from bliss.controllers.motor_settings import AxisSettings
 from bliss.common.axis import MOVING, READY
 
 
-def add_method(self, method, name=None):
+def add_axis_method(axis_object, method, name=None, args=[]):
      if name is None:
          name = method.im_func.func_name
-     setattr(self, name, types.MethodType(method.im_func, self))
-
-def add_method_partial(self, method, name=None, args=[]):
-     if name is None:
-         name = method.im_func.func_name
-     setattr(self, name, types.MethodType(functools.partial(method.im_func, *args), self))
+     def call(self, *args, **kwargs):
+	 return method.im_func(method.im_self, *args, **kwargs)
+     setattr(axis_object, name, types.MethodType(functools.partial(call, *([axis_object]+args)), axis_object))
 
 
 class Controller(object):

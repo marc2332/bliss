@@ -10,8 +10,13 @@ from bliss.common.axis import MOVING, READY
 
 def add_method(self, method, name=None):
      if name is None:
-         name = method.func_name
-     setattr(self, name, types.MethodType(method, self))
+         name = method.im_func.func_name
+     setattr(self, name, types.MethodType(method.im_func, self))
+
+def add_method_partial(self, method, name=None, args=[]):
+     if name is None:
+         name = method.im_func.func_name
+     setattr(self, name, types.MethodType(functools.partial(method.im_func, *args), self))
 
 
 class Controller(object):

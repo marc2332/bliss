@@ -40,6 +40,12 @@ class Mockup(Controller):
 
   '''
   '''
+  def prepare_move(self, axis):
+    pass
+
+
+  '''
+  '''
   def start_move(self, axis, target_pos, delta):
     t0 = time.time()
     pos = self.position(axis)
@@ -52,6 +58,8 @@ class Mockup(Controller):
 
 
   '''
+  If new_position is passed : ???
+  else returns the position (measured or desired) taken from controller in steps.
   '''
   def position(self, axis, new_position=None, measured=False):
     if self._axis_moves[axis]["end_t"]:
@@ -72,7 +80,7 @@ class Mockup(Controller):
     if new_velocity:
       axis.settings.set('velocity', new_velocity)
 
-    # Always return velocity. 
+    # Always return velocity.
     return axis.settings.get('velocity')
 
 
@@ -87,9 +95,10 @@ class Mockup(Controller):
 
 
   '''
+  Must send a command to the controller to abort the motion of given axis.
   '''
   def stop(self, axis):
-    self._axis_moves[axis]["end_pos"]=self.position(axis)
-    self._axis_moves[axis]["end_t"]=0
+    self._axis_moves[axis]["end_pos"] = self.position(axis)
+    self._axis_moves[axis]["end_t"]   = 0
 
 

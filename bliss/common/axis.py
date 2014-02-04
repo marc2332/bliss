@@ -1,9 +1,8 @@
 from bliss.common.task_utils import *
-from bliss.common import event
 from bliss.config.motors.static import StaticConfig
 import time
 
-READY, MOVING = ("READY", "MOVING")
+READY, MOVING, FAULT = ("READY", "MOVING", "FAULT")
 
 class Axis(object):
   class Settings:
@@ -82,10 +81,8 @@ class Axis(object):
     def update_settings():
        pos = self._position()
        self.settings.set("position", pos)
-       event.send(self, "position", pos) 
-       state = self.__controller.read_state(self)
+       state = self.__controller.state(self)
        self.settings.set("state", state)
-       event.send(self, "state", state)
        return state
 
     with cleanup(update_settings):

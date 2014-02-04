@@ -3,7 +3,7 @@ from bliss.common import event
 from bliss.config.motors.static import StaticConfig
 import time
 
-READY, MOVING = ("READY", "MOVING")
+READY, MOVING, UNKNOWN = ("READY", "MOVING", "UNKNOWN")
 
 class Axis(object):
   class Settings:
@@ -75,7 +75,11 @@ class Axis(object):
 
 
   def velocity(self, new_velocity=None):
-    return self.__controller.velocity(self, new_velocity=None)
+    return self.__controller.velocity(self, new_velocity)
+
+
+  def acctime(self, new_acctime=None):
+    return self.__controller.acctime(self, new_acctime)
 
 
   def _handle_move(self, target_pos, delta, backlash=0):

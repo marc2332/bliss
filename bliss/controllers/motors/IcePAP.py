@@ -90,7 +90,9 @@ class IcePAP(Controller):
 
     # Optionnal new position to set
     if new_position:
-      pass
+      l = icepap.lib.PosList()
+      l[axis.libaxis] = new_position
+      self.libgroup.pos(l)
 
     # Always return the current position
     pos_stps = self.libgroup.pos(axis.libaxis)

@@ -72,6 +72,11 @@ class TestIcePAPController(unittest.TestCase):
     mymot = bliss.get_axis("mymot")
     pos   = mymot.position()
 
+  def test_set_position(self):
+    mymot = bliss.get_axis("mymot")
+    pos   = 2 # given in mm
+    self.assertEqual(mymot.position(pos), pos)
+
   def test_axis_get_id(self):
     mymot = bliss.get_axis("mymot")
     self.assertTrue(re.match(r"[a-f0-9A-F]{4}.[a-f0-9A-F]{4}.[a-f0-9A-F]{4}",\

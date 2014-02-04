@@ -5,8 +5,9 @@ import functools
 from bliss.config.motors.static import StaticConfig
 from bliss.common.task_utils import task
 from bliss.controllers.motor_settings import AxisSettings
-from bliss.common.axis import MOVING, READY
-
+from bliss.common.axis import MOVING, READY, FAULT
+from bliss.common import event
+from bliss.config.motors import get_axis
 
 def add_axis_method(axis_object, method, name=None, args=[]):
      if name is None:
@@ -22,16 +23,18 @@ class Controller(object):
     self.__config = StaticConfig(config)
     self.__initialized_axis = dict()
     self._axes = dict()
+    self._tagged = dict()
 
     self.axis_settings = AxisSettings()
 
     for axis_name, axis_class, axis_config in axes:
         axis = axis_class(axis_name, self, axis_config)
         self._axes[axis_name] = axis
+        axis_tags = axis_config.get('tags')
+        if axis_tags:
+          for tag in axis_tags.split():
+            self._tagged.setdefault(tag, []).append(axis_name)
         self.__initialized_axis[axis] = False
-
-        # push config from XML file into axes settings.
-        #self.axis_settings.set_from_config(axis, axis.config)
 
         # install axis.settings set/get methods
         axis.settings.set = functools.partial(self.axis_settings.set, axis)
@@ -86,3 +89,87 @@ class Controller(object):
     raise NotImplementedError
 
 
+class CalcController(Controller):
+  def __init__(self, *args, **kwargs):
+    Controller.__init__(self, *args, **kwargs)
+  
+    self.axis_settings.add('state',str)
+
+    # should this go to 'initialize()' ?
+    self.reals = []
+    for real_axis_name in self._tagged['real']:
+      real_axis = get_axis(real_axis_name)
+      self.axes[real_axis_name] = real_axis
+      self.reals.append(real_axis)
+      event.connect(real_axis, 'position', self._calc_from_real)
+      event.connect(real_axis, 'state', self._update_state_from_real)
+    self.pseudos = [axis for axis_name, axis in self.axes.iteritems() if axis not in self.reals]
+
+  def _calc_from_real(self, *args, **kwargs):
+    real_positions = dict()
+    for tag, axis_name in self._tagged.iteritems():
+      if len(axis_name) > 1:
+        continue
+      axis = self.axes[axis_name[0]]
+      if axis in self.reals:
+        real_positions[tag] = axis.position()
+
+    new_positions = self.calc_from_real(real_positions)
+
+    for tagged_axis_name, position in new_positions.iteritems():
+      axis = self.axes[self._tagged[tagged_axis_name][0]]
+      if axis in self.pseudos:
+        self.position(axis, position)
+      else:
+        raise RuntimeError("cannot assign position to real motor")
+
+  def calc_from_real(self, real_positions):
+    """Return a dict { pseudo motor tag: new position, ... }"""
+    raise NotImplementedError
+
+  def _update_state_from_real(self, *args, **kwargs):
+    real_states = list()
+    for tag, axis_name in self._tagged.iteritems():
+      if len(axis_name) > 1:
+        continue
+      axis = self.axes[axis_name[0]]
+      if axis in self.reals:
+        real_states.append(axis.state())
+
+    if any([state == MOVING for state in real_states]):
+      for axis in self.pseudos:
+        self.state(axis, MOVING)   
+    elif all([state == READY for state in real_states]):
+      for axis in self.pseudos:
+        self.state(axis, READY)
+    else:
+      self.state(axis, FAULT) 
+
+  def initialize_axis(self, axis):
+    if axis in self.pseudos:
+        self._calc_from_real()
+        self._update_state_from_real()
+
+  def prepare_move(self, axis, target_pos, delta):
+    pass
+
+  def start_move(self, axis, target_pos, delta):
+    pass
+
+  def stop(self, axis):
+    [axis.stop() for axis in self.reals]
+
+  def position(self, axis, new_pos=None, measured=False):
+    if new_pos is not None:
+      axis.settings.set('position', new_pos)
+    else:
+      return axis.settings.get('position')
+
+  def velocity(self, axis, new_velocity=None):
+    pass
+
+  def state(self, axis, new_state=None):
+    if new_state is not None:
+      axis.settings.set('state', new_state)
+    else:
+      return axis.settings.get('state')

@@ -64,7 +64,11 @@ class Axis(object):
 
 
   def _position(self, new_pos=None, measured=False):
-    return self.__controller.position(self, new_pos, measured)/self.step_size()
+    if new_pos:
+      new_pos_stps = new_pos*self.step_size()
+    else: 
+      new_pos_stps = None
+    return self.__controller.position(self, new_pos_stps, measured)/self.step_size()
 
 
   def state(self):

@@ -56,25 +56,34 @@ class Axis(object):
 
   def position(self, new_pos=None, measured=False):
     if self.is_moving:
+      if new_pos is not None:
+        raise RuntimeError("Can't set axis position while it is moving")
       return self.__settings.get("position")
     else:
-      # really read from hw
-      return self._position(new_pos, measured)
+      if new_pos is not None:
+        self._position(new_pos)
+        self.settings.set("position", new_pos)
+      else:
+        # really read from hw
+        return self._position()
 
 
   def _position(self, new_pos=None, measured=False):
-    return self.__controller.position(self, new_pos, measured)/self.step_size()
+    if new_pos is None:
+      return self.__controller.position(self, new_pos, measured)/self.step_size()
+    else:
+      self.__controller.position(self, new_pos*self.step_size())
 
 
   def state(self):
     if self.is_moving:
       return MOVING
     # really read from hw
-    return self.__controller.read_state(self)
+    return self.__controller.state(self)
 
 
   def velocity(self, new_velocity=None):
-    return self.__controller.velocity(self, new_velocity=None)
+    return self.__controller.velocity(self, new_velocity)
 
 
   def _handle_move(self, target_pos, delta, backlash=0):

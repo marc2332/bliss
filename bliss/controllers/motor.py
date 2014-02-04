@@ -49,6 +49,9 @@ class Controller(object):
   def config(self):
     return self.__config
 
+  def initialize(self):
+    pass
+
   def finalize(self):
     pass
 
@@ -79,7 +82,7 @@ class Controller(object):
   def velocity(self, axis, new_velocity=None):
     raise NotImplementedError
 
-  def read_state(self, axis):
+  def state(self, axis):
     raise NotImplementedError
 
 

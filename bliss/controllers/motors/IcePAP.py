@@ -112,7 +112,7 @@ class IcePAP(Controller):
     """    
 
 
-  def read_state(self, axis):
+  def state(self, axis):
     """Returns the current axis state"""
 
     # The axis can only be accessed through a group in IcePAP lib

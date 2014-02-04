@@ -120,6 +120,13 @@ class TestMockupController(unittest.TestCase):
         self.assertEqual(roby.state(), "READY")
         self.assertEqual(roby.target_pos, roby.step_size()*180)
 
+    def test_axis_set_pos(self):
+        roby = bliss.get_axis("roby")
+        roby.position(0)
+        self.assertEqual(roby.position(), 0)
+        roby.position(10)
+        self.assertEqual(roby.position(), 10)
+
 
 if __name__ == '__main__':
     unittest.main()

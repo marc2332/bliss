@@ -72,10 +72,33 @@ class TestIcePAPController(unittest.TestCase):
     mymot = bliss.get_axis("mymot")
     pos   = mymot.position()
 
+  def test_set_position(self):
+    mymot = bliss.get_axis("mymot")
+    pos   = 2 # given in mm
+    self.assertEqual(mymot.position(pos), pos)
+
   def test_axis_get_id(self):
     mymot = bliss.get_axis("mymot")
     self.assertTrue(re.match(r"[a-f0-9A-F]{4}.[a-f0-9A-F]{4}.[a-f0-9A-F]{4}",\
 		             mymot.get_identifier()))
+
+  def test_get_velocity(self):
+    mymot = bliss.get_axis("mymot")
+    vel   = mymot.velocity()
+
+  def test_set_velocity(self):
+    mymot = bliss.get_axis("mymot")
+    vel   = 5000
+    self.assertEqual(mymot.velocity(vel), vel)
+
+  def test_get_acctime(self):
+    mymot = bliss.get_axis("mymot")
+    acc   = mymot.acctime()
+
+  def test_set_acctime(self):
+    mymot = bliss.get_axis("mymot")
+    acc   = 0.250
+    self.assertEqual(mymot.acctime(acc), acc)
 
   def test_axis_state(self):
     mymot = bliss.get_axis("mymot")

@@ -3,7 +3,7 @@ Bliss generic library
 """
 from bliss.controllers.motor import Controller
 from bliss.controllers.motor import add_axis_method
-from bliss.common.axis import READY, MOVING
+from bliss.common.axis import READY, MOVING, UNKNOWN
 from bliss.common.task_utils import task, error_cleanup, cleanup
 
 
@@ -90,10 +90,12 @@ class IcePAP(Controller):
 
     # Optionnal new position to set
     if new_position:
-      pass
+      l = icepap.lib.PosList()
+      l[axis.libaxis] = new_position
+      self.libgroup.pos(l)
 
     # Always return the current position
-    pos_stps = self.libgroup.pos([axis.libaxis])[axis.libaxis]
+    pos_stps = self.libgroup.pos(axis.libaxis)
 
     return pos_stps
 
@@ -103,13 +105,26 @@ class IcePAP(Controller):
 
     # Optionnal new velocity to set
     if new_velocity:
-      pass
+      l = icepap.lib.VelList()
+      l[axis.libaxis] = new_velocity
+      self.libgroup.velocity(l)
 
     # Always return the current velocity
-    """    
-    # TODO
-    return self.axis_settings.get(axis, "velocity")
-    """    
+    return self.libgroup.velocity(axis.libaxis)
+
+
+  def acctime(self, axis, new_acctime=None):
+    """Returns axis current acceleratin time in seconds"""
+
+    # Optionnal new acceleration time to set
+    if new_acctime:
+      l = icepap.lib.AcctimeList()
+      l[axis.libaxis] = new_acctime
+      self.libgroup.acctime(l)
+
+    # Always return the current velocity
+    return self.libgroup.acctime(axis.libaxis)
+
 
 
   def state(self, axis):
@@ -117,14 +132,16 @@ class IcePAP(Controller):
 
     # The axis can only be accessed through a group in IcePAP lib
     # Use the default group
-    status = self.libgroup.status([axis.libaxis])[axis.libaxis]
+    status = self.libgroup.status(axis.libaxis)
 
     # Convert status formats
-    if(icepap.lib.status_moving(status)):
+    if(icepap.lib.status_ismoving(status)):
       return MOVING
+    if(icepap.lib.status_isready(status)):
+      return READY
 
-    # TODO: check that instead of considering it as a default
-    return READY
+    # Abnormal end
+    return UNKNOWN
 
 
   def prepare_move(self, axis, target_pos, delta):
@@ -140,7 +157,7 @@ class IcePAP(Controller):
 
   def stop(self, axis):
     """Stops smoothly an axis motion"""
-    self.libgroup.stop([axis.libaxis])
+    self.libgroup.stop(axis.libaxis)
 
 
   def abort(self, axis):
@@ -154,5 +171,5 @@ class IcePAP(Controller):
 
   def get_identifier(self, axis):
     """Returns the unique string identifier of the specified axis"""
-    return self.libgroup.command("?ID", [axis.libaxis])[axis.libaxis]
+    return self.libgroup.command("?ID", axis.libaxis)
 

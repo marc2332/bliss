@@ -5,9 +5,10 @@ import functools
 from bliss.config.motors.static import StaticConfig
 from bliss.common.task_utils import task
 from bliss.controllers.motor_settings import AxisSettings
-from bliss.common.axis import MOVING, READY, FAULT
-from bliss.common import event
+from bliss.common.axis import MOVING, READY, FAULT, UNKNOWN
 from bliss.config.motors import get_axis
+from bliss.common import event
+
 
 def add_axis_method(axis_object, method, name=None, args=[]):
      if name is None:
@@ -86,6 +87,9 @@ class Controller(object):
     raise NotImplementedError
 
   def state(self, axis):
+    raise NotImplementedError
+
+  def acctime(self, axis, new_acctime=None):
     raise NotImplementedError
 
 

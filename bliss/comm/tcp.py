@@ -77,58 +77,43 @@ class Socket:
 
     @try_connect
     def raw_read(self,maxsize = None,timeout = None) :
-        local_timeout = timeout or self._timeout
-        start_time = time.time()
+      with gevent.Timeout(timeout or self._timeout, RuntimeError("raw_read timeout on socket(%s, %d)" % (self._host, self._port))):
         while not self._data:
-            if not self._event.wait(local_timeout) :
-                raise RuntimeError("raw_read timeout on socket (%s,%d)" % 
-                                   (self._host,self._port))
-            elapsed_time = time.time() - start_time
-            local_timeout -= elapsed_time
+            self._event.wait()
             self._event.clear()
-        if maxsize:
-            msg = self._data[:maxsize]
-            self._data = self._data[maxsize + 1:]
-        else:
-            msg = self._data
-            self._data = ''
-        return msg
+      if maxsize:
+          msg = self._data[:maxsize]
+          self._data = self._data[maxsize + 1:]
+      else:
+          msg = self._data
+          self._data = ''
+      return msg
 
     @try_connect
     def read(self,size=1,timeout=None):
-        local_timeout = timeout or self._timeout
-        start_time = time.time()
+      with gevent.Timeout(timeout or self._timeout, RuntimeError("read timeout on socket(%s, %d)" % (self._host, self._port))):
         while len(self._data) < size:
-            if not self._event.wait(local_timeout):
-                raise RuntimeError("read timeout on socket (%s,%d)" % 
-                                   (self._host,self._port))
-            elapsed_time = time.time() - start_time
-            local_timeout -= elapsed_time
-            if local_timeout < 0: local_timeout = 0.
+            self._event.wait()
             self._event.clear()
-        msg = self._data[:size]
-        self._data = self._data[size + 1:]
-        return msg
+      msg = self._data[:size]
+      self._data = self._data[size + 1:]
+      return msg
 
     @try_connect
     def readline(self, eol = None, timeout=None) :
-        local_timeout = timeout or self._timeout
+      with gevent.Timeout(timeout or self._timeout, RuntimeError("readline timeout on socket(%s, %d)" % (self._host, self._port))):
+        #local_timeout = timeout or self._timeout
         local_eol = eol or self._eol
-        start_time = time.time()
+        #start_time = time.time()
         eol_pos = self._data.find(local_eol)
         while eol_pos == -1:
-            if not self._event.wait(local_timeout):
-                raise RuntimeError("readline timeout on socket (%s,%d)" % 
-                                   (self._host,self._port))
-            elapsed_time = time.time() - start_time
-            local_timeout -= elapsed_time
-            if local_timeout < 0: local_timeout = 0.
-            eol_pos = self._data.find(local_eol)
+            self._event.wait()
             self._event.clear()
+            eol_pos = self._data.find(local_eol)
 
-        msg = self._data[:eol_pos]
-        self._data = self._data[eol_pos + 1:]
-        return msg
+      msg = self._data[:eol_pos]
+      self._data = self._data[eol_pos + 1:]
+      return msg
 
     @try_connect
     def write(self, msg, timeout=None) :
@@ -181,7 +166,8 @@ class Socket:
                     self._event.set()
                 else:
                     break
-        except: pass
+        except: 
+            pass
         finally:
             self._connected = False
             self._fd.close()

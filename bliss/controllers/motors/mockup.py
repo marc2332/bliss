@@ -40,12 +40,6 @@ class Mockup(Controller):
 
   '''
   '''
-  def prepare_move(self, axis):
-    pass
-
-
-  '''
-  '''
   def start_move(self, axis, target_pos, delta):
     t0 = time.time()
     pos = self.position(axis)
@@ -58,10 +52,15 @@ class Mockup(Controller):
 
 
   '''
-  If new_position is passed : ???
+  If new_position is passed, set the axis to this position
   else returns the position (measured or desired) taken from controller in steps.
   '''
   def position(self, axis, new_position=None, measured=False):
+    if new_position is not None:
+      self._axis_moves[axis]["end_pos"]=new_position
+      self._axis_moves[axis]["end_t"]=0
+      return
+
     if self._axis_moves[axis]["end_t"]:
       # motor is moving
       t = time.time()
@@ -86,7 +85,7 @@ class Mockup(Controller):
 
   '''
   '''
-  def read_state(self, axis):
+  def state(self, axis):
     if self._axis_moves[axis]["end_t"] > time.time():
       return MOVING
     else:

@@ -34,7 +34,10 @@ class PI_E753(Controller):
     # Enables the closed-loop.
     self.sock.write("SVO 1 1\n")
 
-  def read_position(self, axis, measured=False):
+  def position(self, axis, new_position=None, measured=False):
+    if new_position is not None:
+       return
+
     if measured:
       _ans = self._get_pos()
     else:
@@ -45,7 +48,7 @@ class PI_E753(Controller):
   def read_velocity(self, axis):
     return self.axis_settings.get(axis, "velocity")
 
-  def read_state(self, axis):
+  def state(self, axis):
     if self._get_closed_loop_status():
       if self._get_on_target_status():
         return READY
@@ -162,7 +165,6 @@ class PI_E753(Controller):
     for i in _infos:
       _txt = _txt + "    %s %s\n"%(i[0],
                         self.sock.write_readline(i[1]))
-
 
     _txt = _txt + "    %s  \n%s\n"%("Communication parameters",
                                     "\n".join(self.sock.write_readlines("IFC?\n", 5)))

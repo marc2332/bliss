@@ -68,7 +68,8 @@ def add_controller(controller_name, controller_config, controller_class, control
     else:
       axis_class = get_axis_class(axis_class_name)
     axes.append((axis_name, axis_class, axis_config))
-    CONTROLLER_BY_AXIS[axis_name]=controller_name
+    if not axis_name in CONTROLLER_BY_AXIS:
+      CONTROLLER_BY_AXIS[axis_name]=controller_name
 
   CONTROLLERS[controller_name] = { "object": controller_class(controller_name, controller_config, axes),
                                    "initialized": False }

@@ -92,11 +92,8 @@ class FlexDC(Controller):
     # Velocity
     self._flexdc_query("%sSP=%d"%(axis.channel, axis.velocity))
 
-
   def position(self, axis, new_position=None, measured=False):
-    if new_position:
-      pass
-    else:
+    if new_position is None:
       if measured:
         # position in steps
         # PS : sensor position
@@ -122,8 +119,8 @@ class FlexDC(Controller):
     return _velocity
 
 
-  def read_state(self, axis):
-    _ret = 0
+  def state(self, axis):
+    ret = 0
     sta = 0
 
     # Motion Status : MS command
@@ -141,7 +138,7 @@ class FlexDC(Controller):
     else:
       _ret = READY
 
-    print "FLEXDC read_state :", _ret
+    print "FLEXDC state :", _ret
     return _ret
 
 

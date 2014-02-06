@@ -6,7 +6,9 @@ Code is very similar to the same kind of hook for Qt4... (see file included in I
 
 Author: Matias Guijarro
 """
+import sys
 import gevent
+from gevent import select
 from IPython.core.interactiveshell import InteractiveShell
 from IPython.lib.inputhook import allow_CTRL_C, ignore_CTRL_C, stdin_ready
 from IPython.lib.inputhook import InputHookManager
@@ -35,9 +37,7 @@ def create_inputhook_gevent(mgr):
         """
         try:
             ignore_CTRL_C()
-            gevent.sleep(0.01)
-            while not stdin_ready():
-                gevent.sleep(0.05)
+            select.select([sys.stdin], [], [])
         except:
             ignore_CTRL_C()
             from traceback import print_exc

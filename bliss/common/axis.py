@@ -61,18 +61,16 @@ class Axis(object):
       return self.__settings.get("position")
     else:
       if new_pos is not None:
-        self._position(new_pos)
         self.settings.set("position", new_pos)
-      else:
-        # really read from hw
-        return self._position()
+      return  self._position(new_pos)
 
 
   def _position(self, new_pos=None, measured=False):
     if new_pos is None:
-      return self.__controller.position(self, new_pos, measured)/self.step_size()
+      new_pos_stps = None
     else:
-      self.__controller.position(self, new_pos*self.step_size())
+      new_pos_stps = new_pos*self.step_size()
+    return self.__controller.position(self, new_pos_stps, measured)/self.step_size()
 
 
   def state(self):

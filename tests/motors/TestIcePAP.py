@@ -74,7 +74,7 @@ class TestIcePAPController(unittest.TestCase):
 
   def test_set_position(self):
     mymot = bliss.get_axis("mymot")
-    pos   = 2 # given in mm
+    pos   = 2.0 # given in mm
     self.assertEqual(mymot.position(pos), pos)
 
   def test_axis_get_id(self):
@@ -123,7 +123,6 @@ class TestIcePAPController(unittest.TestCase):
   def test_axis_rmove(self):
     mymot = bliss.get_axis("mymot")
     mymot.rmove(0.1)
-
 
 
 

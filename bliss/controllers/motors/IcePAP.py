@@ -61,7 +61,7 @@ class IcePAP(Controller):
       pass
 
     # Close IcePAP lib socket/threads
-    #self.libdevice.close()
+    self.libdevice.close()
 
 
   def initialize_axis(self, axis):
@@ -78,6 +78,9 @@ class IcePAP(Controller):
 
     # Add the axis to the default IcePAP lib group 
     self.libgroup.add_axis(axis.libaxis)
+
+    # Initialiaze hardware
+    self.libgroup.set_power(icepap.lib.ON, axis.libaxis)
 
     # Add new axis oject methods
     add_axis_method(axis, self.get_identifier)

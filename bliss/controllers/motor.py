@@ -66,6 +66,18 @@ class Controller(object):
       self.initialize_axis(axis)
       self.__initialized_axis[axis] = True
 
+      # Handle optional operation parameters from config
+      try:
+        axis.velocity(axis.config.get("velocity"))
+      except:
+        pass
+
+      # Handle optional operation parameters from config
+      try:
+        axis.acctime(axis.config.get("acctime"))
+      except:
+        pass
+
     return axis
 
   def initialize_axis(self, axis):

@@ -25,6 +25,7 @@ config_xml = """
       <velocity value="500"/>
       <backlash value="2"/>
       <step_size value="10"/>
+      <velocity  value="2500"/>
     </axis>
   </controller>
   <group name="group1">
@@ -129,8 +130,10 @@ class TestMockupController(unittest.TestCase):
 
     def test_axis_set_velocity(self):
         roby = bliss.get_axis("roby")
-        vel   = 5000
+        org  = roby.velocity()
+        vel  = 5000
         self.assertEqual(roby.velocity(vel), vel)
+        roby.velocity(org)
 
     def test_axis_set_acctime(self):
         roby = bliss.get_axis("roby")
@@ -140,6 +143,10 @@ class TestMockupController(unittest.TestCase):
     def test_axis_custom_method(self):
         roby = bliss.get_axis("roby")
         self.assertEqual(roby.get_identifier(), roby.name)
+
+    def test_axis_config_velocity(self):
+        roby = bliss.get_axis("roby")
+        self.assertEqual(roby.velocity(), roby.config.get("velocity", int))
 
 if __name__ == '__main__':
     unittest.main()

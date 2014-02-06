@@ -38,6 +38,7 @@ config_xml = """
       <address   value="%s"/>
       <step_size value="2000"/>
       <backlash  value="0.01"/>
+      <velocity  value="2500"/>
     </axis>
   </controller>
 </config>
@@ -123,7 +124,6 @@ class TestIcePAPController(unittest.TestCase):
   def test_axis_rmove(self):
     mymot = bliss.get_axis("mymot")
     mymot.rmove(0.1)
-
 
 
 

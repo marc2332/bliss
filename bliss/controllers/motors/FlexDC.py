@@ -167,7 +167,6 @@ class FlexDC(Controller):
 
     # Adds ACK character:
     _cmd = _cmd + "Z"
-    print id(self.sock)
     _ans = self.sock.write_readline(_cmd, eol=">" )
     if self.sock.raw_read(1) != "Z":
       print "missing ack character ???"

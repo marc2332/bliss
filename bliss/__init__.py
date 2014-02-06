@@ -1,7 +1,7 @@
 from __future__ import division
 
 from gevent import monkey
-monkey.patch_all()
+monkey.patch_all(thread=False)
 
 from bliss.controllers.motor import Controller, CalcController
 from bliss.common.task_utils import *

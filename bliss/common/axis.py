@@ -1,9 +1,8 @@
 from bliss.common.task_utils import *
-from bliss.common import event
 from bliss.config.motors.static import StaticConfig
 import time
 
-READY, MOVING = ("READY", "MOVING")
+READY, MOVING, FAULT, UNKNOWN = ("READY", "MOVING", "FAULT", "UNKNOWN")
 
 class Axis(object):
   class Settings:
@@ -57,35 +56,44 @@ class Axis(object):
 
   def position(self, new_pos=None, measured=False):
     if self.is_moving:
+      if new_pos is not None:
+        raise RuntimeError("Can't set axis position while it is moving")
       return self.__settings.get("position")
     else:
-      # really read from hw
-      return self._position(new_pos, measured)
+      if new_pos is not None:
+        self.settings.set("position", new_pos)
+      return  self._position(new_pos)
 
 
   def _position(self, new_pos=None, measured=False):
-    return self.__controller.position(self, new_pos, measured)/self.step_size()
+    if new_pos is None:
+      new_pos_stps = None
+    else:
+      new_pos_stps = new_pos*self.step_size()
+    return self.__controller.position(self, new_pos_stps, measured)/self.step_size()
 
 
   def state(self):
     if self.is_moving:
       return MOVING
     # really read from hw
-    return self.__controller.read_state(self)
+    return self.__controller.state(self)
 
 
   def velocity(self, new_velocity=None):
-    return self.__controller.velocity(self, new_velocity=None)
+    return self.__controller.velocity(self, new_velocity)
+
+
+  def acctime(self, new_acctime=None):
+    return self.__controller.acctime(self, new_acctime)
 
 
   def _handle_move(self, target_pos, delta, backlash=0):
     def update_settings():
        pos = self._position()
        self.settings.set("position", pos)
-       event.send(self, "position", pos) 
-       state = self.__controller.read_state(self)
+       state = self.__controller.state(self)
        self.settings.set("state", state)
-       event.send(self, "state", state)
        return state
 
     with cleanup(update_settings):

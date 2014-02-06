@@ -1,3 +1,5 @@
+from bliss.common import event
+
 class AxisSettings:
   def __init__(self):
     self.setting_names = ["velocity", "position"]
@@ -14,6 +16,7 @@ class AxisSettings:
     settings = self.axis_settings_dict.setdefault(axis, dict(zip(self.setting_names, (None,)*len(self.setting_names))))
     convert_func = self.convert_funcs.get(setting_name, str)
     settings[setting_name]=convert_func(value)
+    event.send(axis, setting_name, settings[setting_name])
 
     #if setting_name == "state":
     #  if callable(self.state_updated_callback):

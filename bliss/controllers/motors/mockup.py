@@ -1,6 +1,7 @@
 from bliss.controllers.motor import Controller
 from bliss.common.axis import READY, MOVING
 from bliss.common.task_utils import task, error_cleanup, cleanup
+from bliss.controllers.motor import add_axis_method
 import random
 import math
 import time
@@ -37,11 +38,8 @@ class Mockup(Controller):
     # this is to test axis are initialized only once
     axis.settings.set('init_count', axis.settings.get('init_count')+1)
 
-
-  '''
-  '''
-  def prepare_move(self, axis):
-    pass
+    # Add new axis oject methods
+    add_axis_method(axis, self.get_identifier)
 
 
   '''
@@ -58,10 +56,18 @@ class Mockup(Controller):
 
 
   '''
-  If new_position is passed : ???
-  else returns the position (measured or desired) taken from controller in steps.
+  If new_position is passed, set the axis to this position.
+  Always return the position (measured or desired) taken from controller 
+  in steps.
   '''
   def position(self, axis, new_position=None, measured=False):
+
+
+    if new_position is not None:
+      self._axis_moves[axis]["end_pos"]=new_position
+      self._axis_moves[axis]["end_t"]=0
+
+    # Always return retun position
     if self._axis_moves[axis]["end_t"]:
       # motor is moving
       t = time.time()
@@ -75,18 +81,34 @@ class Mockup(Controller):
 
 
   '''
+  If new_velocity is passed, set the axis velocity to this value.
+  Always return the current velocity taken from controller 
+  in steps/sec.
   '''
   def velocity(self, axis, new_velocity=None):
-    if new_velocity:
+    if new_velocity is not None:
       axis.settings.set('velocity', new_velocity)
 
     # Always return velocity.
-    return axis.settings.get('velocity')
+    return int(axis.settings.get('velocity'))
+
+
+  '''
+  If new_acctime is passed, set the axis acceleration time to this value.
+  Always return the current acceleration time taken from controller 
+  in seconds.
+  '''
+  def acctime(self, axis, new_acctime=None):
+    if new_acctime is not None:
+      axis.settings.set('acctime', new_acctime)
+
+    # Always return acceleration time.
+    return float(axis.settings.get('acctime'))
 
 
   '''
   '''
-  def read_state(self, axis):
+  def state(self, axis):
     if self._axis_moves[axis]["end_t"] > time.time():
       return MOVING
     else:
@@ -102,3 +124,8 @@ class Mockup(Controller):
     self._axis_moves[axis]["end_t"]   = 0
 
 
+  '''
+  Custom axis method returning the current name of the axis
+  '''
+  def get_identifier(self, axis):
+    return axis.name

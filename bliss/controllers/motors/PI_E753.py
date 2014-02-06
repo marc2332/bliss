@@ -36,7 +36,7 @@ class PI_E753(Controller):
 
   def position(self, axis, new_position=None, measured=False):
     if new_position is not None:
-       return
+       pass
 
     if measured:
       _ans = self._get_pos()
@@ -45,8 +45,13 @@ class PI_E753(Controller):
 
     return _ans
 
-  def read_velocity(self, axis):
+
+  def velocity(self, axis, new_velocity=None):
+    if new_velocity is not None:
+      pass
+    
     return self.axis_settings.get(axis, "velocity")
+
 
   def state(self, axis):
     if self._get_closed_loop_status():

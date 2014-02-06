@@ -20,8 +20,6 @@ NOT DONE :
 """
 
 
-
-
 class FlexDC(Controller):
   def __init__(self, name, config, axes):
     Controller.__init__(self, name, config, axes)
@@ -105,8 +103,10 @@ class FlexDC(Controller):
         # DP : desired position
         # When an axis is in motion, DP holds the real time servo
         #  loop control reference position
+        t0=time.time()
         _pos = int(self._flexdc_query("%sDP"%axis.channel))
-        print "FLEXDC setpoint position :", _pos
+        t1=time.time() - t0
+        print "FLEXDC setpoint position : %g (took %gs)"%(_pos, t1)
         return _pos
 
 
@@ -167,6 +167,7 @@ class FlexDC(Controller):
 
     # Adds ACK character:
     _cmd = _cmd + "Z"
+    print id(self.sock)
     _ans = self.sock.write_readline(_cmd, eol=">" )
     if self.sock.raw_read(1) != "Z":
       print "missing ack character ???"

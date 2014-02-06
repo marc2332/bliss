@@ -12,7 +12,7 @@ config_xml = """
     <host value="flexdcnina"/>
     <axis name="fd">
       <channel       value="X"/>
-      <step_size     value="2000"/>
+      <step_size     value="13111"/>
       <target_radius value="20"/>
       <target_time   value="10"/>
       <smoothing     value="4"/>
@@ -52,7 +52,7 @@ class TestFlexDCController(unittest.TestCase):
 
     def test_velocity(self):
         fd = bliss.get_axis("fd")
-        print "FlexDC valocity :", fd.velocity()
+        print "FlexDC velocity :", fd.controller.velocity(fd)
 
     def test_get_info(self):
         fd = bliss.get_axis("fd")
@@ -77,7 +77,7 @@ if __name__ == '__main__':
 
 
 '''
-NA Interactive test :
+NINA Interactive test :
 
 load_cfg_fromstring("""<config>
   <controller class="FlexDC" name="id16phn">
@@ -103,6 +103,5 @@ print a.get_info()
 
 print a.controller
 
-# print a.controller.sock.write_readline("\n")
 
 '''

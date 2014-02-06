@@ -127,6 +127,19 @@ class TestMockupController(unittest.TestCase):
         roby.position(10)
         self.assertEqual(roby.position(), 10)
 
+    def test_axis_set_velocity(self):
+        roby = bliss.get_axis("roby")
+        vel   = 5000
+        self.assertEqual(roby.velocity(vel), vel)
+
+    def test_axis_set_acctime(self):
+        roby = bliss.get_axis("roby")
+        acc   = 0.250
+        self.assertEqual(roby.acctime(acc), acc)
+
+    def test_axis_custom_method(self):
+        roby = bliss.get_axis("roby")
+        self.assertEqual(roby.get_identifier(), roby.name)
 
 if __name__ == '__main__':
     unittest.main()

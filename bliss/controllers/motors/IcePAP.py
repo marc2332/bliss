@@ -92,7 +92,7 @@ class IcePAP(Controller):
     """Returns axis position in motor units"""
 
     # Optionnal new position to set
-    if new_position:
+    if new_position is not None:
       l = icepap.lib.PosList()
       l[axis.libaxis] = new_position
       self.libgroup.pos(l)
@@ -107,7 +107,7 @@ class IcePAP(Controller):
     """Returns axis current velocity in user units per seconds"""
 
     # Optionnal new velocity to set
-    if new_velocity:
+    if new_velocity is not None:
       l = icepap.lib.VelList()
       l[axis.libaxis] = new_velocity
       self.libgroup.velocity(l)
@@ -120,7 +120,7 @@ class IcePAP(Controller):
     """Returns axis current acceleratin time in seconds"""
 
     # Optionnal new acceleration time to set
-    if new_acctime:
+    if new_acctime is not None:
       l = icepap.lib.AcctimeList()
       l[axis.libaxis] = new_acctime
       self.libgroup.acctime(l)

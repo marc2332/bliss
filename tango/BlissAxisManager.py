@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding:utf-8 -*- 
+# -*- coding:utf-8 -*-
 import bliss
 import bliss.config.motors as bliss_config
 import PyTango
@@ -27,6 +27,8 @@ class BlissAxisManager(PyTango.Device_4Impl):
             self.set_status(traceback.format_exc())
 
 
+
+
 class BlissAxisManagerClass(PyTango.DeviceClass):
     #    Class Properties
     class_property_list = {
@@ -40,7 +42,7 @@ class BlissAxisManagerClass(PyTango.DeviceClass):
             [] ],
         }
 
- 
+
 ## Device States Description
 ## ON : The motor powered on and is ready to move.
 ## MOVING : The motor is moving
@@ -57,7 +59,7 @@ class BlissAxis(PyTango.Device_4Impl):
 
         self.debug_stream("In __init__()")
         self.init_device()
-        
+
     def delete_device(self):
         self.debug_stream("In delete_device()")
 
@@ -69,11 +71,12 @@ class BlissAxis(PyTango.Device_4Impl):
             self.axis = TgGevent.get_proxy(bliss.get_axis, self._axis_name)
         except:
             self.set_status(traceback.format_exc())
-         
+
         """
         self.attr_Steps_per_unit_read = 0.0
         self.attr_Steps_read = 0
         self.attr_Position_read = 0.0
+        self.attr_Measured_Position_read = 0.0
         self.attr_Acceleration_read = 0.0
         self.attr_Velocity_read = 0.0
         self.attr_Backlash_read = 0.0
@@ -88,7 +91,7 @@ class BlissAxis(PyTango.Device_4Impl):
 
     def dev_state(self):
         """ This command gets the device state (stored in its device_state data member) and returns it to the caller.
-        
+
         :param : none
         :type: PyTango.DevVoid
         :return: Device state
@@ -112,162 +115,183 @@ class BlissAxis(PyTango.Device_4Impl):
             PyTango.Device_4Impl.dev_state(self)
         return self.get_state()
 
-    
+
     def read_Steps_per_unit(self, attr):
         self.debug_stream("In read_Steps_per_unit()")
         attr.set_value(self.attr_Steps_per_unit_read)
-        
+
     def write_Steps_per_unit(self, attr):
         self.debug_stream("In write_Steps_per_unit()")
         data=attr.get_write_value()
-        
+
+
     def read_Steps(self, attr):
         self.debug_stream("In read_Steps()")
         attr.set_value(self.attr_Steps_read)
-        
+
     def write_Steps(self, attr):
         self.debug_stream("In write_Steps()")
         data=attr.get_write_value()
-        
+
+
     def read_Position(self, attr):
         self.debug_stream("In read_Position()")
+        print "In read_Position()..."
+        print attr.get_write_value()
+        attr.set_write_value(self.axis.position())
         attr.set_value(self.axis.position())
-        
+
     def write_Position(self, attr):
         self.debug_stream("In write_Position()")
         self.axis.move(attr.get_write_value(), wait=False)
-        
+
+
+    def read_Measured_Position(self, attr):
+        self.debug_stream("In read_Measured_Position()")
+        attr.set_value(self.attr_Measured_Position_read)
+
+
     def read_Acceleration(self, attr):
         self.debug_stream("In read_Acceleration()")
         attr.set_value(self.attr_Acceleration_read)
-        
+
     def write_Acceleration(self, attr):
         self.debug_stream("In write_Acceleration()")
         data=attr.get_write_value()
-        
+
+
     def read_Velocity(self, attr):
         self.debug_stream("In read_Velocity()")
         attr.set_value(self.attr_Velocity_read)
-        
+
     def write_Velocity(self, attr):
         self.debug_stream("In write_Velocity()")
         data=attr.get_write_value()
-        
+
+
     def read_Backlash(self, attr):
         self.debug_stream("In read_Backlash()")
         attr.set_value(self.attr_Backlash_read)
-        
+
     def write_Backlash(self, attr):
         self.debug_stream("In write_Backlash()")
         data=attr.get_write_value()
-        
+
+
     def read_Home_position(self, attr):
         self.debug_stream("In read_Home_position()")
         attr.set_value(self.attr_Home_position_read)
-        
+
     def write_Home_position(self, attr):
         self.debug_stream("In write_Home_position()")
         data=attr.get_write_value()
-        
+
+
     def read_HardLimitLow(self, attr):
         self.debug_stream("In read_HardLimitLow()")
         attr.set_value(self.attr_HardLimitLow_read)
-        
+
     def read_HardLimitHigh(self, attr):
         self.debug_stream("In read_HardLimitHigh()")
         attr.set_value(self.attr_HardLimitHigh_read)
-        
+
+
     def read_PresetPosition(self, attr):
         self.debug_stream("In read_PresetPosition()")
         attr.set_value(self.attr_PresetPosition_read)
-        
+
     def write_PresetPosition(self, attr):
         self.debug_stream("In write_PresetPosition()")
         data=attr.get_write_value()
-        
+
+
     def read_FirstVelocity(self, attr):
         self.debug_stream("In read_FirstVelocity()")
         attr.set_value(self.attr_FirstVelocity_read)
-        
+
     def write_FirstVelocity(self, attr):
         self.debug_stream("In write_FirstVelocity()")
         data=attr.get_write_value()
-        
+
+
     def read_Home_side(self, attr):
         self.debug_stream("In read_Home_side()")
         attr.set_value(self.attr_Home_side_read)
-        
+
+
     def read_StepSize(self, attr):
         self.debug_stream("In read_StepSize()")
         attr.set_value(self.attr_StepSize_read)
-        
+
     def write_StepSize(self, attr):
         self.debug_stream("In write_StepSize()")
         data=attr.get_write_value()
-            
+
+
     def read_attr_hardware(self, data):
         self.debug_stream("In read_attr_hardware()")
+
 
     #-----------------------------------------------------------------------------
     #    Motor command methods
     #-----------------------------------------------------------------------------
     def On(self):
         """ Enable power on motor
-        
-        :param : 
+
+        :param :
         :type: PyTango.DevVoid
-        :return: 
+        :return:
         :rtype: PyTango.DevVoid """
         self.debug_stream("In On()")
-        
+
     def Off(self):
         """ Desable power on motor
-        
-        :param : 
+
+        :param :
         :type: PyTango.DevVoid
-        :return: 
+        :return:
         :rtype: PyTango.DevVoid """
         self.debug_stream("In Off()")
-        
+
     def GoHome(self):
         """ Move the motor to the home position given by a home switch.
-        
-        :param : 
+
+        :param :
         :type: PyTango.DevVoid
-        :return: 
+        :return:
         :rtype: PyTango.DevVoid """
         self.debug_stream("In GoHome()")
-        
+
     def Abort(self):
         """ Stop immediately the motor
-        
-        :param : 
+
+        :param :
         :type: PyTango.DevVoid
-        :return: 
+        :return:
         :rtype: PyTango.DevVoid """
         self.debug_stream("In Abort()")
         self.axis.stop()
-        
+
     def StepUp(self):
         """ perform a relative motion of ``stepSize`` in the forward direction.
          StepSize is defined as an attribute of the device.
-        
-        :param : 
+
+        :param :
         :type: PyTango.DevVoid
-        :return: 
+        :return:
         :rtype: PyTango.DevVoid """
         self.debug_stream("In StepUp()")
-        
+
     def StepDown(self):
         """ perform a relative motion of ``stepSize`` in the backward direction.
          StepSize is defined as an attribute of the device.
-        
-        :param : 
+
+        :param :
         :type: PyTango.DevVoid
-        :return: 
+        :return:
         :rtype: PyTango.DevVoid """
         self.debug_stream("In StepDown()")
-        
+
 
 class BlissAxisClass(PyTango.DeviceClass):
     #    Class Properties
@@ -333,7 +357,17 @@ class BlissAxisClass(PyTango.DeviceClass):
                 'label': "position",
                 'unit': "mm",
                 'format': "%7.3f",
-                'description': "The actual motor position.",
+                'description': "The desired motor position.",
+            } ],
+        'Measured_Position':
+            [[PyTango.DevDouble,
+            PyTango.SCALAR,
+            PyTango.READ],
+            {
+                'label': "position",
+                'unit': "mm",
+                'format': "%7.3f",
+                'description': "The measured motor position.",
             } ],
         'Acceleration':
             [[PyTango.DevDouble,
@@ -342,7 +376,7 @@ class BlissAxisClass(PyTango.DeviceClass):
             {
                 'label': "Acceleration",
                 'unit': "units/s^2",
-                'format': "%.3f",
+                'format': "%6.3f",
                 'description': "The acceleration of the motor.",
                 'Display level': PyTango.DispLevel.EXPERT,
                 'Memorized':"true"
@@ -354,7 +388,7 @@ class BlissAxisClass(PyTango.DeviceClass):
             {
                 'label': "Velocity",
                 'unit': "units/s",
-                'format': "%.3f",
+                'format': "%6.3f",
                 'description': "The constant velocity of the motor.",
                 'Display level': PyTango.DispLevel.EXPERT,
                 'Memorized':"true"
@@ -404,7 +438,7 @@ class BlissAxisClass(PyTango.DeviceClass):
             {
                 'label': "Preset Position",
                 'unit': "mm",
-                'format': "%.3f",
+                'format': "%6.3f",
                 'description': "preset the position in the step counter",
                 'Display level': PyTango.DispLevel.EXPERT,
             } ],
@@ -415,7 +449,7 @@ class BlissAxisClass(PyTango.DeviceClass):
             {
                 'label': "first step velocity",
                 'unit': "units/s",
-                'format': "%.3f",
+                'format': "%6.3f",
                 'description': "number of unit/s for the first step and for the move reference",
                 'Display level': PyTango.DispLevel.EXPERT,
                 'Memorized':"true"
@@ -433,7 +467,7 @@ class BlissAxisClass(PyTango.DeviceClass):
             PyTango.READ_WRITE],
             {
                 'unit': "mm",
-                'format': "%.3f",
+                'format': "%6.3f",
                 'description': "Size of the relative step performed by the StepUp and StepDown commands.\nThe StepSize is expressed in physical unit.",
                 'Display level': PyTango.DispLevel.EXPERT,
                 'Memorized':"true"
@@ -472,12 +506,13 @@ def main():
           blname, server_name, device_name = bliss_admin_device_name.split('/')
 
           for axis_name in bliss_config.axis_names_list():
-            device_name = '/'.join((blname, 
-                                    '%s_%s' % (server_name, device_name), 
+            device_name = '/'.join((blname,
+                                    '%s_%s' % (server_name, device_name),
                                     axis_name))
             U.create_device('BlissAxis', device_name)
 
         U.server_run()
+
     except PyTango.DevFailed,e:
         print '-------> Received a DevFailed exception:',e
     except Exception,e:

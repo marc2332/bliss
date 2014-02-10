@@ -54,6 +54,7 @@ class IcePAP(Controller):
 
   def finalize(self):
     """Controller no more needed"""	  
+    #import pdb;pdb.set_trace()
     # Remove any group in the IcePAP lib
     try:
       self.libgroup.delete()
@@ -105,6 +106,7 @@ class IcePAP(Controller):
 
   def velocity(self, axis, new_velocity=None):
     """Returns axis current velocity in user units per seconds"""
+
 
     # Optionnal new velocity to set
     if new_velocity is not None:

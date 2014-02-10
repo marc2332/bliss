@@ -3,6 +3,7 @@ import sys
 import os
 import optparse
 import re
+import signal
 
 
 
@@ -55,6 +56,18 @@ address  = ""
 
 
 """
+"""
+def signal_handler(signal, frame):
+  print "\nAbort request taken into account\n"
+  finalize()
+
+def finalize():
+  mymot = bliss.get_axis("mymot")
+  mymot.controller.finalize()
+
+
+
+"""
 UnitTest list of tests
 """
 class TestIcePAPController(unittest.TestCase):
@@ -64,6 +77,10 @@ class TestIcePAPController(unittest.TestCase):
   # called for each test
   def setUp(self):
     bliss.load_cfg_fromstring(config_xml%(hostname, address))
+  
+  # called at the end of each individual test
+  def tearDown(self):
+    pass
 
   def test_get_axis(self):
     mymot = bliss.get_axis("mymot")
@@ -125,8 +142,6 @@ class TestIcePAPController(unittest.TestCase):
     mymot = bliss.get_axis("mymot")
     mymot.rmove(0.1)
 
-
-
 """
 Main entry point
 """
@@ -150,6 +165,9 @@ if __name__ == '__main__':
   # Avoid interaction of our arguments with unittest class
   del sys.argv[1:]
 
+  # Intercept the <ctrl-c> to get out of infinite loops
+  signal.signal(signal.SIGINT, signal_handler)
+
   # Launch the tests sequence
   print "\nTesting IcePAP control on system \"%s\"\n"%hostname
   print "\n".rjust(70,"-")
@@ -164,4 +182,6 @@ if __name__ == '__main__':
   # NOTE: unittest.main(verbosity=2) not supported under Python 2.6
   suite  = loader.loadTestsFromTestCase(TestIcePAPController)
   unittest.TextTestRunner(verbosity=3).run(suite)
- 
+
+  # normal end
+  finalize()

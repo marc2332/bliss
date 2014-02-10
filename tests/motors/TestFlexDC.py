@@ -1,3 +1,7 @@
+"""
+Unittest for FlexDC controller in bliss library.
+"""
+
 import unittest
 import sys
 import os

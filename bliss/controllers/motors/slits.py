@@ -14,4 +14,6 @@ class Slits(CalcController):
 
   
   def prepare_move(self, axis, position, delta):
-    pass
+    if axis.match_tag("hoffset"):
+      pass
+

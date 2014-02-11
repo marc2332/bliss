@@ -66,6 +66,12 @@ class TestSlits(unittest.TestCase):
         controller = bliss.config.motors["test"]["object"]
         self.assertEquals(controller._tagged["real"], ["s1f", "s1b", "s1u", "s1d"])
 
+    def testMatchTag(self):
+        self.assertTrue(bliss.get_axis("s1ho").match_tag("hoffset"))
+        self.assertFalse(bliss.get_axis("s1ho").match_tag("vgap"))
+        self.assertFalse(bliss.get_axis("s1vg").match_tag("real"))
+
+
     def testRealsList(self):
         controller = bliss.config.motors["test"]["object"]
         self.assertEquals(len(controller.reals), 4)

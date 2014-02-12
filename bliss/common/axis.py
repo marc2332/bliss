@@ -4,6 +4,7 @@ import time
 
 READY, MOVING, FAULT, UNKNOWN = ("READY", "MOVING", "FAULT", "UNKNOWN")
 
+
 class Axis(object):
   class Settings:
     def set(*args, **kwargs):
@@ -179,6 +180,21 @@ class Axis(object):
     if self.is_moving:
        self.__controller.stop(self)
        self.wait_move()
+
+
+class AxisRef(object):
+  def __init__(self, name, _, config):
+    self.__name = name
+    self.__config = config
+    self.settings = Axis.Settings()
+
+  @property
+  def name(self):
+    return self.__name
+
+  @property
+  def config(self):
+    return self.__config
 
 
 class Group(object):

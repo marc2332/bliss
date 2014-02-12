@@ -5,7 +5,7 @@ import functools
 from bliss.config.motors.static import StaticConfig
 from bliss.common.task_utils import task
 from bliss.controllers.motor_settings import AxisSettings
-from bliss.common.axis import MOVING, READY, FAULT, UNKNOWN
+from bliss.common.axis import AxisRef, MOVING, READY, FAULT, UNKNOWN
 from bliss.config.motors import get_axis
 from bliss.common import event
 
@@ -34,7 +34,7 @@ class Controller(object):
         axis_tags = axis_config.get('tags')
         if axis_tags:
           for tag in axis_tags.split():
-            self._tagged.setdefault(tag, []).append(axis_name)
+            self._tagged.setdefault(tag, []).append(axis) #_name)
         self.__initialized_axis[axis] = False
 
         # install axis.settings set/get methods
@@ -52,6 +52,23 @@ class Controller(object):
   @property
   def config(self):
     return self.__config
+
+  def _update_refs(self):
+    for axis in self.axes.itervalues():
+      if not isinstance(axis, AxisRef):
+        continue 
+      referenced_axis = get_axis(axis.name)
+      self.axes[axis.name]=referenced_axis
+      self.__initialized_axis[referenced_axis] = True
+      for tag, axis_list in self._tagged.iteritems():
+        try:
+          i = axis_list.index(axis)
+        except ValueError:
+          continue 
+        else:
+          axis_list[i] = referenced_axis
+          referenced_axis.controller._tagged.setdefault(tag,[]).append(referenced_axis)
+      
 
   def initialize(self):
     pass
@@ -109,13 +126,11 @@ class CalcController(Controller):
   def __init__(self, *args, **kwargs):
     Controller.__init__(self, *args, **kwargs)
   
-    self.axis_settings.add('state',str)
-
-    # should this go to 'initialize()' ?
+  def _update_refs(self):
+    Controller._update_refs(self)
+ 
     self.reals = []
-    for real_axis_name in self._tagged['real']:
-      real_axis = get_axis(real_axis_name)
-      self.axes[real_axis_name] = real_axis
+    for real_axis in self._tagged['real']:
       self.reals.append(real_axis)
       event.connect(real_axis, 'position', self._calc_from_real)
       event.connect(real_axis, 'state', self._update_state_from_real)
@@ -123,17 +138,17 @@ class CalcController(Controller):
 
   def _calc_from_real(self, *args, **kwargs):
     real_positions = dict()
-    for tag, axis_name in self._tagged.iteritems():
-      if len(axis_name) > 1:
+    for tag, axis_list in self._tagged.iteritems():
+      if len(axis_list) > 1:
         continue
-      axis = self.axes[axis_name[0]]
+      axis = axis_list[0]
       if axis in self.reals:
         real_positions[tag] = axis.position()
 
     new_positions = self.calc_from_real(real_positions)
 
     for tagged_axis_name, position in new_positions.iteritems():
-      axis = self.axes[self._tagged[tagged_axis_name][0]]
+      axis = self._tagged[tagged_axis_name][0]
       if axis in self.pseudos:
         self.position(axis, position)
       else:
@@ -145,10 +160,10 @@ class CalcController(Controller):
 
   def _update_state_from_real(self, *args, **kwargs):
     real_states = list()
-    for tag, axis_name in self._tagged.iteritems():
-      if len(axis_name) > 1:
+    for tag, axis_list in self._tagged.iteritems():
+      if len(axis_list) > 1:
         continue
-      axis = self.axes[axis_name[0]]
+      axis = axis_list[0]
       if axis in self.reals:
         real_states.append(axis.state())
 

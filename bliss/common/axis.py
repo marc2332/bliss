@@ -62,19 +62,15 @@ class Axis(object):
     if self.is_moving:
       if new_pos is not None:
         raise RuntimeError("Can't set axis position while it is moving")
-      return self.__settings.get("position")
+      return self.settings.get("position")
     else:
-      if new_pos is not None:
-        self.settings.set("position", new_pos)
-      return  self._position(new_pos)
-
+      pos = self._position(new_pos)
+      if new_pos is not None:     
+        self.settings.set("position", pos)
+      return pos
 
   def _position(self, new_pos=None, measured=False):
-    if new_pos is None:
-      new_pos_stps = None
-    else:
-      new_pos_stps = new_pos*self.step_size()
-    return self.__controller.position(self, new_pos_stps, measured)/self.step_size()
+    return self.__controller.position(self, new_pos*self.step_size() if new_pos is not None else None, measured)/self.step_size()
 
 
   def state(self):

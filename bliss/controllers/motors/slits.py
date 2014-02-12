@@ -12,8 +12,7 @@ class Slits(CalcController):
              "voffset": (positions_dict["up"] - positions_dict["down"]) / 2.0,
              "vgap": positions_dict["up"] + positions_dict["down"] }
 
-  
   def prepare_move(self, axis, position, delta):
-    if axis.match_tag("hoffset"):
-      pass
+    if axis.has_tag("hoffset"):
+      import pdb;pdb.set_trace()
 

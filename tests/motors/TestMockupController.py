@@ -123,7 +123,7 @@ class TestMockupController(unittest.TestCase):
 
     def test_axis_set_pos(self):
         roby = bliss.get_axis("roby")
-        roby.position(0)
+        self.assertEqual(roby.position(0), 0)
         self.assertEqual(roby.position(), 0)
         roby.position(10)
         self.assertEqual(roby.position(), 10)

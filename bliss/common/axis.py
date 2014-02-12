@@ -47,8 +47,13 @@ class Axis(object):
     return not self.__move_done.is_set()
 
 
-  def match_tag(self, tag):
-    return any([self.name in axis_names for t, axis_names in self.__controller._tagged.iteritems() if t==tag])
+  def has_tag(self, tag):
+    for t, axis_list in self.__controller._tagged.iteritems():
+      if t!=tag:
+        continue
+      if self.name in [axis.name for axis in axis_list]:
+        return True
+    return False
 
 
   def measured_position(self):

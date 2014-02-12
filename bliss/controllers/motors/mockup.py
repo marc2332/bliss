@@ -61,13 +61,11 @@ class Mockup(Controller):
   in steps.
   '''
   def position(self, axis, new_position=None, measured=False):
-
-
     if new_position is not None:
       self._axis_moves[axis]["end_pos"]=new_position
       self._axis_moves[axis]["end_t"]=0
 
-    # Always return retun position
+    # Always return position
     if self._axis_moves[axis]["end_t"]:
       # motor is moving
       t = time.time()

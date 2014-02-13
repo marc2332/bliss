@@ -45,7 +45,8 @@ class FlexDC(Controller):
     axis.smoothing     = axis.config.get("smoothing", int)
     axis.acceleration  = axis.config.get("acceleration", int)
     axis.deceleration  = axis.config.get("deceleration", int)
-    axis.velocity      = axis.config.get("velocity", int)
+
+    axis.settings.set('velocity', axis.config.get("velocity", float))
 
     add_axis_method(axis, self.get_id)
     add_axis_method(axis, self.get_info)
@@ -90,39 +91,40 @@ class FlexDC(Controller):
     self._flexdc_query("%sAD=%d"%(axis.channel, axis.deceleration))
 
     # Velocity
-    self._flexdc_query("%sSP=%d"%(axis.channel, axis.velocity))
+    self._flexdc_query("%sSP=%s"%(axis.channel, axis.velocity()))
 
   def position(self, axis, new_position=None, measured=False):
     if new_position is None:
       if measured:
-        # position in steps
-        # PS : sensor position
+        ''' position in steps
+            PS : sensor position
+        '''
         _pos = int(self._flexdc_query("%sPS"%axis.channel))
-        print "FLEXDC measured position :", _pos
+        # print "FLEXDC measured position :", _pos
         return _pos
       else:
-        # position in steps
-        # DP : desired position
-        # When an axis is in motion, DP holds the real time servo
-        #  loop control reference position
-        t0=time.time()
+        ''' position in steps
+            DP : desired position
+            When an axis is in motion, DP holds the real time servo
+            loop control reference position
+        '''
         _pos = int(self._flexdc_query("%sDP"%axis.channel))
-        t1=time.time() - t0
-        print "FLEXDC setpoint position : %g (took %gs)"%(_pos, t1)
+        # print "FLEXDC setpoint position : %g"%(_pos)
         return _pos
 
 
   def velocity(self, axis, new_velocity=None):
-    if new_velocity:
-      self._flexdc_query("%sSP=%d"%(axis.channel, new_velocity))
-    else:
+    if new_velocity is None:
       _velocity = self._flexdc_query("%sSP"%axis.channel)
+    else:
+      self._flexdc_query("%sSP=%d"%(axis.channel, new_velocity))
+      _velocity = new_velocity
 
     return _velocity
 
 
   def state(self, axis):
-    ret = 0
+    _ret = 0
     sta = 0
 
     # Motion Status : MS command
@@ -157,23 +159,24 @@ class FlexDC(Controller):
     _ans = self._flexdc_query("%sST"%axis.channel)
 
 
-  """
-  FlexDC specific communication.
-  """
+  '''
+  FlexDC specific.
+  '''
 
   # 
   def _flexdc_query(self, cmd):
     # Adds "\r" at end of command.
-    # TODO : test if not needed
+    # TODO : test if already present ?
     _cmd = cmd + "\r"
 
     # Adds ACK character:
     _cmd = _cmd + "Z"
     _ans = self.sock.write_readline(_cmd, eol=">" )
     if self.sock.raw_read(1) != "Z":
-      print "missing ack character ???"
+      print "missing ack character ??? return of cmd \"%s\". "%cmd
     return _ans
 
+  # 
   def get_id(self, axis):
     _cmd = "%sVR"%axis.channel
     return self._flexdc_query(_cmd)

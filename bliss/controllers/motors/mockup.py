@@ -15,12 +15,13 @@ class Mockup(Controller):
     # Access to the config.
     self.config.get("host")
 
-    # add a setting of type 'int'
-    # velocity is automatically added
+    # add a setting name 'init_count' of type 'int'
     self.axis_settings.add('init_count', int)
 
+    # Settings of xml config like "velocity" are automatically added.
 
   '''
+  Controller initialization actions.
   '''
   def initialize(self):
     # hardware initialization
@@ -31,6 +32,7 @@ class Mockup(Controller):
 
 
   '''
+  Axes initialization actions.
   '''
   def initialize_axis(self, axis):
     self._axis_moves[axis] = { "end_t": 0, "end_pos": random.randint(0,360) }
@@ -40,6 +42,13 @@ class Mockup(Controller):
 
     # Add new axis oject method.
     add_axis_method(axis, self.get_identifier)
+
+
+  '''
+  Actions to perform at controller closing.
+  '''
+  def finalize(self):
+    pass
 
 
   '''

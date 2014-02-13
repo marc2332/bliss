@@ -22,7 +22,6 @@ config_xml = """
     <host value="mydummyhost2"/>
     <port value="5000"/>
     <axis name="roby" class="MockupAxis">
-      <velocity value="500"/>
       <backlash value="2"/>
       <step_size value="10"/>
       <velocity  value="2500"/>

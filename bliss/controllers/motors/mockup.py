@@ -38,7 +38,7 @@ class Mockup(Controller):
     # this is to test axis are initialized only once
     axis.settings.set('init_count', axis.settings.get('init_count')+1)
 
-    # Add new axis oject methods
+    # Add new axis oject method.
     add_axis_method(axis, self.get_identifier)
 
 

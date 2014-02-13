@@ -28,9 +28,11 @@ class FlexDC(Controller):
 
   # Init of controller.
   def initialize(self):
+    print "FLEXDC CONTROLLER initialize"
     self.sock = tcp.Socket(self.host, 4000)
 
   def finalize(self):
+    print "FLEXDC CONTROLLER finalize"
     self.sock.close()
 
   # Init of each axis.
@@ -56,12 +58,12 @@ class FlexDC(Controller):
     # 0 -> point to point
     # ( 1 -> jogging ;  2 -> position based gearing  )
     # ( 5 -> position based ECAM ;  8 -> Step command (no profile) )
-    print self._flexdc_query("%sMM=0"%axis.channel)
+    self._flexdc_query("%sMM=0"%axis.channel)
 
     # Special motion mode attribute parameter
     # 0 -> no special mode
     # ( 1 -> repetitive motion )
-    print self._flexdc_query("%sSM=0"%axis.channel)
+    self._flexdc_query("%sSM=0"%axis.channel)
 
     # Defines smoothing (typically 4).
     self._flexdc_query("%sWW=%d"%(axis.channel, axis.smoothing))

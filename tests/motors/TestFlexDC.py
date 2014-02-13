@@ -5,6 +5,7 @@ Unittest for FlexDC controller in bliss library.
 import unittest
 import sys
 import os
+import time
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -64,8 +65,9 @@ class TestFlexDCController(unittest.TestCase):
 
     # called at end of each test
     def tearDown(self):
-        fd = bliss.get_axis("fd")
-        fd.controller.sock.close()
+        # Little wait time to let time to flexdc controller to
+        # close peacefully its sockets...
+        time.sleep(0.05)
 
 #    def test_axis_move(self):
 #        fd = bliss.get_axis("fd")

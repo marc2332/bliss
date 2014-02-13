@@ -1,6 +1,6 @@
 import sys
 import os
-from bliss.common.axis import Axis, Group
+from bliss.common.axis import Axis, AxisRef, Group
 
 BACKEND = 'xml'
 
@@ -54,24 +54,24 @@ def get_axis_class(axis_class_name, axis_modules_path=AXIS_MODULES_PATH):
 
 
 def add_controller(controller_name, controller_config, controller_class, controller_axes):
-  global CONTROLLERS
-  global CONTROLLER_BY_AXIS
-
-  if controller_name in CONTROLLERS:
-    CONTROLLERS[controller_name]["object"].finalize()
-    del CONTROLLERS[controller_name]
-
   axes = []
   for axis_name, axis_class_name, axis_config in controller_axes:
-    if axis_class_name is None:
-      axis_class = Axis
-    else:
-      axis_class = get_axis_class(axis_class_name)
-    axes.append((axis_name, axis_class, axis_config))
-    if not axis_name in CONTROLLER_BY_AXIS:
+    if not CONTROLLER_BY_AXIS.get(axis_name):
+      # new axis
       CONTROLLER_BY_AXIS[axis_name]=controller_name
+   
+      if axis_class_name is None:
+        axis_class = Axis
+      else:
+        axis_class = get_axis_class(axis_class_name)
 
-  CONTROLLERS[controller_name] = { "object": controller_class(controller_name, controller_config, axes),
+      axes.append((axis_name, axis_class, axis_config))
+    else:
+      # existing axis
+      axes.append((axis_name, AxisRef, axis_config))
+ 
+  controller = controller_class(controller_name, controller_config, axes) 
+  CONTROLLERS[controller_name] = { "object": controller,
                                    "initialized": False }
 
 
@@ -94,9 +94,10 @@ def get_axis(axis_name):
     try:
       controller_instance = controller["object"]
     except KeyError:
-      raise RuntimeError("could not get controller for axis '%s`" % axis_name)
+      raise RuntimeError("could not get controller instance for axis '%s`" % axis_name)
     
     if not controller["initialized"]:
+      controller_instance._update_refs()
       controller_instance.initialize()
       controller["initialized"] = True
 
@@ -122,13 +123,24 @@ def get_group(group_name):
   return group["object"]
 
 
+def clear_cfg():
+  global CONTROLLERS
+  global CONTROLLER_BY_AXIS
+
+  for controller_name, controller in CONTROLLERS.iteritems():
+      controller["object"].finalize()
+  CONTROLLERS = {}
+  CONTROLLER_BY_AXIS = {} 
+ 
 def load_cfg(filename):
+  clear_cfg()
   if BACKEND == 'xml':
     from bliss.config.motors.xml_backend import load_cfg
     return load_cfg(filename)
 
 
 def load_cfg_fromstring(config_str):
+  clear_cfg()
   if BACKEND == 'xml':
     from bliss.config.motors.xml_backend import load_cfg_fromstring
     return load_cfg_fromstring(config_str)

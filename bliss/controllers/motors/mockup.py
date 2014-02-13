@@ -38,7 +38,7 @@ class Mockup(Controller):
     # this is to test axis are initialized only once
     axis.settings.set('init_count', axis.settings.get('init_count')+1)
 
-    # Add new axis oject methods
+    # Add new axis oject method.
     add_axis_method(axis, self.get_identifier)
 
 
@@ -61,13 +61,11 @@ class Mockup(Controller):
   in steps.
   '''
   def position(self, axis, new_position=None, measured=False):
-
-
     if new_position is not None:
       self._axis_moves[axis]["end_pos"]=new_position
       self._axis_moves[axis]["end_t"]=0
 
-    # Always return retun position
+    # Always return position
     if self._axis_moves[axis]["end_t"]:
       # motor is moving
       t = time.time()

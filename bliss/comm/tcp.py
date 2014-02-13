@@ -69,6 +69,7 @@ class Socket:
 
     def close(self) :
         if self._connected:
+            self._fd.shutdown(socket.SHUT_RDWR)
             self._fd.close()
             if self._raw_read_task:
                 self._raw_read_task.join()

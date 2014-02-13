@@ -4,6 +4,7 @@ import time
 
 READY, MOVING, FAULT, UNKNOWN = ("READY", "MOVING", "FAULT", "UNKNOWN")
 
+
 class Axis(object):
   class Settings:
     def set(*args, **kwargs):
@@ -46,6 +47,15 @@ class Axis(object):
     return not self.__move_done.is_set()
 
 
+  def has_tag(self, tag):
+    for t, axis_list in self.__controller._tagged.iteritems():
+      if t!=tag:
+        continue
+      if self.name in [axis.name for axis in axis_list]:
+        return True
+    return False
+
+
   def measured_position(self):
     return self.__controller.position(self, new_pos=None, measured=True)
 
@@ -58,19 +68,15 @@ class Axis(object):
     if self.is_moving:
       if new_pos is not None:
         raise RuntimeError("Can't set axis position while it is moving")
-      return self.__settings.get("position")
+      return self.settings.get("position")
     else:
-      if new_pos is not None:
-        self.settings.set("position", new_pos)
-      return  self._position(new_pos)
-
+      pos = self._position(new_pos)
+      if new_pos is not None:     
+        self.settings.set("position", pos)
+      return pos
 
   def _position(self, new_pos=None, measured=False):
-    if new_pos is None:
-      new_pos_stps = None
-    else:
-      new_pos_stps = new_pos*self.step_size()
-    return self.__controller.position(self, new_pos_stps, measured)/self.step_size()
+    return self.__controller.position(self, new_pos*self.step_size() if new_pos is not None else None, measured)/self.step_size()
 
 
   def state(self):
@@ -179,6 +185,21 @@ class Axis(object):
     if self.is_moving:
        self.__controller.stop(self)
        self.wait_move()
+
+
+class AxisRef(object):
+  def __init__(self, name, _, config):
+    self.__name = name
+    self.__config = config
+    self.settings = Axis.Settings()
+
+  @property
+  def name(self):
+    return self.__name
+
+  @property
+  def config(self):
+    return self.__config
 
 
 class Group(object):

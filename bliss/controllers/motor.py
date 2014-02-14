@@ -68,7 +68,7 @@ class Controller(object):
         else:
           axis_list[i] = referenced_axis
           referenced_axis.controller._tagged.setdefault(tag,[]).append(referenced_axis)
-      
+
 
   def initialize(self):
     pass
@@ -85,15 +85,18 @@ class Controller(object):
 
       # Handle optional operation parameters from config
       try:
-        axis.velocity(axis.config.get("velocity"))
+        _vel = axis.config.get("velocity", float)
       except:
         pass
+      else:
+        axis.velocity(_vel)
 
-      # Handle optional operation parameters from config
       try:
-        axis.acctime(axis.config.get("acctime"))
+        _acctime = axis.config.get("acctime", float)
       except:
         pass
+      else:
+        axis.acctime(_acctime)
 
     return axis
 

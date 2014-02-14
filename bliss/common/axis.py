@@ -71,7 +71,7 @@ class Axis(object):
       return self.settings.get("position")
     else:
       pos = self._position(new_pos)
-      if new_pos is not None:     
+      if new_pos is not None:
         self.settings.set("position", pos)
       return pos
 
@@ -87,11 +87,15 @@ class Axis(object):
 
 
   def velocity(self, new_velocity=None):
-    return self.__controller.velocity(self, new_velocity)
+    _vel = self.__controller.velocity(self, new_velocity)
+    self.settings.set("velocity", _vel)
+    return _vel
 
 
   def acctime(self, new_acctime=None):
-    return self.__controller.acctime(self, new_acctime)
+    _acctime = self.__controller.acctime(self, new_acctime)
+    self.settings.set("acctime", _acctime)
+    return _acctime
 
 
   def _handle_move(self, target_pos, delta, backlash=0):
@@ -103,7 +107,7 @@ class Axis(object):
        return state
 
     with cleanup(update_settings):
-        while True: 
+        while True:
           state = update_settings()
           if state != MOVING:
             break
@@ -126,7 +130,7 @@ class Axis(object):
     backlash         = self.config.get("backlash", float, 0) * self.step_size()
     delta            = (user_target_pos - initial_pos) * self.step_size()
     target_pos       = user_target_pos * self.step_size()
-    
+
     if backlash:
       if cmp(delta, 0) != cmp(backlash, 0):
         # move and backlash are not in the same direction;
@@ -137,7 +141,7 @@ class Axis(object):
       else:
         # don't do backlash correction
         backlash = 0
-    
+
     self.__controller.prepare_move(self, target_pos, delta)
 
     return target_pos, delta, backlash
@@ -172,7 +176,7 @@ class Axis(object):
 
       self._handle_move(target_pos, delta, backlash)
 
- 
+
   def rmove(self, user_delta_pos, wait=True):
     return self.move(user_delta_pos, wait, relative=True)
 

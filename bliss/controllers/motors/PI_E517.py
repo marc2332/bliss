@@ -79,6 +79,22 @@ class PI_E517(Controller):
   E517 specific communication
   """
 
+
+  def _send(self, axis, cmd):
+    _chan = axis.channel
+    _cmd = cmd + "\n"
+    print "Send %s to %s"%(cmd, _chan)
+    _ans = self.sock.write_readline()
+
+    return _ans
+
+  def _send_no_ans(self, axis, cmd):
+    _chan = axis.channel
+    _cmd = cmd + "\n"
+    print "Send %s to %s"%(cmd, _chan)
+    self.sock.write(_cmd)
+
+
   def _get_pos(self):
     '''
     Returns real position read by capcitive captor.

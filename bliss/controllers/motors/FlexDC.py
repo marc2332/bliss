@@ -28,16 +28,16 @@ class FlexDC(Controller):
 
   # Init of controller.
   def initialize(self):
-    print "FLEXDC CONTROLLER initialize"
+    # print "FLEXDC CONTROLLER initialize"
     self.sock = tcp.Socket(self.host, 4000)
 
   def finalize(self):
-    print "FLEXDC CONTROLLER finalize"
+    # print "FLEXDC CONTROLLER finalize"
     self.sock.close()
 
   # Init of each axis.
   def initialize_axis(self, axis):
-    print "FLEXDC initialize_axis"
+    # print "FLEXDC initialize_axis"
 
     axis.channel       = axis.config.get("channel")
     axis.target_radius = axis.config.get("target_radius", int)
@@ -46,7 +46,9 @@ class FlexDC(Controller):
     axis.acceleration  = axis.config.get("acceleration", int)
     axis.deceleration  = axis.config.get("deceleration", int)
 
-    axis.settings.set('velocity', axis.config.get("velocity", float))
+    # should be automatic ?
+    # axis.settings.set('velocity', axis.config.get("velocity", float))
+
 
     add_axis_method(axis, self.get_id)
     add_axis_method(axis, self.get_info)
@@ -88,10 +90,10 @@ class FlexDC(Controller):
     self._flexdc_query("%sAC=%d"%(axis.channel, axis.acceleration))
 
     # Deceleration
-    self._flexdc_query("%sAD=%d"%(axis.channel, axis.deceleration))
+    self._flexdc_query("%sDC=%d"%(axis.channel, axis.deceleration))
 
-    # Velocity
-    self._flexdc_query("%sSP=%s"%(axis.channel, axis.velocity()))
+    print "FLEXDC end of initialize_axis"
+
 
   def position(self, axis, new_position=None, measured=False):
     if new_position is None:
@@ -115,8 +117,10 @@ class FlexDC(Controller):
 
   def velocity(self, axis, new_velocity=None):
     if new_velocity is None:
-      _velocity = self._flexdc_query("%sSP"%axis.channel)
+      print "FLEXDC read velocity"
+      _velocity = float(self._flexdc_query("%sSP"%axis.channel))
     else:
+      print "FLEXDC write velocity (%g)"%new_velocity
       self._flexdc_query("%sSP=%d"%(axis.channel, new_velocity))
       _velocity = new_velocity
 
@@ -142,20 +146,20 @@ class FlexDC(Controller):
     else:
       _ret = READY
 
-    print "FLEXDC state :", _ret
+    #print "FLEXDC state :", _ret
     return _ret
 
 
   def prepare_move(self, axis, target_pos, delta):
-    print "FLEXDC prepare_move, target_pos=", target_pos
+    #print "FLEXDC prepare_move, target_pos=", target_pos
     self._flexdc_query("%sAP=%d"%(axis.channel, int(target_pos)))
 
   def start_move(self, axis, target_pos, delta):
-    print "FLEXDC start_move, target_pos=", target_pos
+    #print "FLEXDC start_move, target_pos=", target_pos
     self._flexdc_query("%sBG"%axis.channel)
 
   def stop(self, axis):
-    print "FLEXDC stop"
+    #print "FLEXDC stop"
     _ans = self._flexdc_query("%sST"%axis.channel)
 
 

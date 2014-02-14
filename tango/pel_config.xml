@@ -7,9 +7,9 @@
       <target_radius value="20"/>
       <target_time   value="10"/>
       <smoothing     value="4"/>
-      <acceleration  value="1000"/>
-      <deceleration  value="1000"/>
-      <velocity      value="1000"/>
+      <acceleration  value="1111"/>
+      <deceleration  value="1010"/>
+      <velocity      value="1234"/>
     </axis>
   </controller>
 </config>

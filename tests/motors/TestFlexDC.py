@@ -21,9 +21,9 @@ config_xml = """
       <target_radius value="20"/>
       <target_time   value="10"/>
       <smoothing     value="4"/>
-      <acceleration  value="1000"/>
-      <deceleration  value="1000"/>
-      <velocity      value="1000"/>
+      <acceleration  value="1111"/>
+      <deceleration  value="1010"/>
+      <velocity      value="1234"/>
     </axis>
   </controller>
 </config>
@@ -57,7 +57,9 @@ class TestFlexDCController(unittest.TestCase):
 
     def test_velocity(self):
         fd = bliss.get_axis("fd")
-        print "FlexDC velocity :", fd.velocity()
+        _read_vel = fd.velocity()
+        print "FlexDC read velocity :",  _read_vel
+        self.assertEqual(_read_vel, 1234)
 
     def test_get_info(self):
         fd = bliss.get_axis("fd")
@@ -94,9 +96,9 @@ load_cfg_fromstring("""<config>
       <target_radius value="20"/>
       <target_time   value="10"/>
       <smoothing     value="4"/>
-      <acceleration  value="1000"/>
-      <deceleration  value="1000"/>
-      <velocity      value="1000"/>
+      <acceleration  value="1111"/>
+      <deceleration  value="1010"/>
+      <velocity      value="1234"/>
     </axis>
   </controller>
 </config>

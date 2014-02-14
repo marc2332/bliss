@@ -9,8 +9,27 @@ import bliss
 config_xml = """
 <config>
   <controller class="PI_E517" name="testid16">
-    <host value="e517id16ni-mlm"/>
+    <host value="e517pela"/>
+    <axis name="px">
+      <channel       value="1"/>
+      <chan_letter   value="A"/>
+      <acceleration  value="123"/>
+      <deceleration  value="321"/>
+      <velocity      value="432"/>
+    </axis>
+    <axis name="py">
+      <channel       value="2"/>
+      <chan_letter   value="B"/>
+      <acceleration  value="123"/>
+      <deceleration  value="321"/>
+      <velocity      value="432"/>
+    </axis>
     <axis name="pz">
+      <channel       value="3"/>
+      <chan_letter   value="C"/>
+      <acceleration  value="123"/>
+      <deceleration  value="321"/>
+      <velocity      value="432"/>
     </axis>
   </controller>
 </config>
@@ -61,41 +80,37 @@ if __name__ == '__main__':
 '''
 NI Interactive test :
 
-load_cfg_fromstring("""<config>
+load_cfg_fromstring("""
+<config>
   <controller class="PI_E517" name="testid16">
-    <host value="e517id16ni-mlm"/>
+    <host value="e517pela"/>
+    <axis name="px">
+      <channel       value="1"/>
+      <acceleration  value="123"/>
+      <deceleration  value="321"/>
+      <velocity      value="432"/>
+    </axis>
+    <axis name="py">
+      <channel       value="2"/>
+      <acceleration  value="123"/>
+      <deceleration  value="321"/>
+      <velocity      value="432"/>
+    </axis>
     <axis name="pz">
+      <channel       value="3"/>
+      <acceleration  value="123"/>
+      <deceleration  value="321"/>
+      <velocity      value="432"/>
     </axis>
   </controller>
 </config>
 """)
 
-a=get_axis("pz")
-
-print a.controller.sock.write_readline("IDN?\n")
-print a.controller._get_infos()
-
-
-
-'''
-
-'''
-NA Interactive test :
-
-load_cfg_fromstring("""<config>
-  <controller class="PI_E517" name="testid16">
-    <host value="e517id16na-dmir"/>
-    <axis name="pz">
-    </axis>
-  </controller>
-</config>
-""")
-
-a=get_axis("pz")
-
-print a.controller.sock.write_readline("IDN?\n")
-print a.controller._get_infos()
+a=get_axis("px")
+b=get_axis("py")
+c=get_axis("pz")
 
 
 
 '''
+

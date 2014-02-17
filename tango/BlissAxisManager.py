@@ -106,6 +106,9 @@ class BlissAxis(PyTango.Device_4Impl):
                 attr = self.get_device_attr().get_attr_by_name("Velocity")
                 attr.set_write_value(float(self.axis.velocity()))
 
+                attr = self.get_device_attr().get_attr_by_name("Acceleration")
+                attr.set_write_value(float(self.axis.acceleration()))
+
                 self.once = True
             except:
                 print "ERROR : Cannot set one of attributs write value."
@@ -181,14 +184,22 @@ class BlissAxis(PyTango.Device_4Impl):
 
 
     def read_Acceleration(self, attr):
-        self.debug_stream("In read_Acceleration()")
-        attr.set_value(self.attr_Acceleration_read)
+        try:
+            _acc = self.axis.acceleration()
+            self.debug_stream("In read_Acceleration(%f)"%float(_acc))
+            attr.set_value(_acc)
+        except:
+            traceback.print_exc()
+            raise
 
     def write_Acceleration(self, attr):
-        data=attr.get_write_value()
-        self.debug_stream("In write_Acceleration(%f)"%float(data))
-
-
+        try:
+            data=float(attr.get_write_value())
+            self.debug_stream("In write_Acceleration(%f)"%data)
+            self.axis.acceleration(data)
+        except:
+            traceback.print_exc()
+            raise
 
 
     def read_AccTime(self, attr):
@@ -427,7 +438,7 @@ class BlissAxisClass(PyTango.DeviceClass):
             {
                 'label': "Acceleration",
                 'unit': "units/s^2",
-                'format': "%6.3f",
+                'format': "%10.3f",
                 'description': "The acceleration of the motor.",
                 'Display level': PyTango.DispLevel.EXPERT,
                 'Memorized':"true"
@@ -501,7 +512,7 @@ class BlissAxisClass(PyTango.DeviceClass):
             {
                 'label': "Preset Position",
                 'unit': "mm",
-                'format': "%6.3f",
+                'format': "%10.3f",
                 'description': "preset the position in the step counter",
                 'Display level': PyTango.DispLevel.EXPERT,
             } ],
@@ -512,7 +523,7 @@ class BlissAxisClass(PyTango.DeviceClass):
             {
                 'label': "first step velocity",
                 'unit': "units/s",
-                'format': "%6.3f",
+                'format': "%10.3f",
                 'description': "number of unit/s for the first step and for the move reference",
                 'Display level': PyTango.DispLevel.EXPERT,
                 'Memorized':"true"
@@ -530,7 +541,7 @@ class BlissAxisClass(PyTango.DeviceClass):
             PyTango.READ_WRITE],
             {
                 'unit': "mm",
-                'format': "%6.3f",
+                'format': "%10.3f",
                 'description': "Size of the relative step performed by the StepUp and StepDown commands.\nThe StepSize is expressed in physical unit.",
                 'Display level': PyTango.DispLevel.EXPERT,
                 'Memorized':"true"

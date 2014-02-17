@@ -24,7 +24,11 @@ class FlexDC(Controller):
   def __init__(self, name, config, axes):
     Controller.__init__(self, name, config, axes)
 
+    # Gets host from xml config.
     self.host = self.config.get("host")
+
+    # Adds acceleration as a setting.
+    self.axis_settings.add('acceleration', float)
 
   # Init of controller.
   def initialize(self):
@@ -43,16 +47,14 @@ class FlexDC(Controller):
     axis.target_radius = axis.config.get("target_radius", int)
     axis.target_time   = axis.config.get("target_time", int)
     axis.smoothing     = axis.config.get("smoothing", int)
-    axis.acceleration  = axis.config.get("acceleration", int)
+    #axis.acceleration  = axis.config.get("acceleration", int)
     axis.deceleration  = axis.config.get("deceleration", int)
 
-    # should be automatic ?
-    # axis.settings.set('velocity', axis.config.get("velocity", float))
-
+    axis.settings.set('acceleration', axis.config.get("acceleration", float))
 
     add_axis_method(axis, self.get_id)
     add_axis_method(axis, self.get_info)
-
+    add_axis_method(axis, self.acceleration)
 
     # Enabling servo mode.
     self._flexdc_query("%sMO=1"%axis.channel)
@@ -86,13 +88,15 @@ class FlexDC(Controller):
     if _ans == "0":
       print "Missing closed loop param TR (Target Radius)!!"
 
-    # Acceleration
-    self._flexdc_query("%sAC=%d"%(axis.channel, axis.acceleration))
+    # Set config acceleration to the controller.
+    self._flexdc_query("%sAC=%d"%(axis.channel, axis.settings.get("acceleration")))
 
-    # Deceleration
+    # Set config deceleration to the controller.
     self._flexdc_query("%sDC=%d"%(axis.channel, axis.deceleration))
 
-    print "FLEXDC end of initialize_axis"
+    # Config velocity is automatically set.
+
+    # print "FLEXDC end of initialize_axis"
 
 
   def position(self, axis, new_position=None, measured=False):
@@ -167,10 +171,26 @@ class FlexDC(Controller):
   FlexDC specific.
   '''
 
+  def acceleration(self, axis, new_acc=None):
+    if new_acc is None:
+      # read from controller or cache ???
+      # ...controller
+      print "bliss read Acceleration"
+      _acc = self._flexdc_query("%sAC"%axis.channel)
+      axis.settings.set("acceleration", _acc)
+    else:
+      print "bliss write Acceleration", new_acc
+      self._flexdc_query("%sAC=%d"%(axis.channel, new_acc))
+      axis.settings.set("acceleration", new_acc)
+
+    return axis.settings.get("acceleration")
+
   # 
   def _flexdc_query(self, cmd):
     # Adds "\r" at end of command.
     # TODO : test if already present ?
+
+    print "SENDING : ",cmd
     _cmd = cmd + "\r"
 
     # Adds ACK character:

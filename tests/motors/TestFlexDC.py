@@ -61,6 +61,12 @@ class TestFlexDCController(unittest.TestCase):
         print "FlexDC read velocity :",  _read_vel
         self.assertEqual(_read_vel, 1234)
 
+    def test_acceleration(self):
+        fd = bliss.get_axis("fd")
+        _read_acc = fd.settings.get("acceleration")
+        print "FlexDC read acceleration :",  _read_acc
+        self.assertEqual(_read_acc, 1111)
+
     def test_get_info(self):
         fd = bliss.get_axis("fd")
         print "FlexDC INFOS :\n", fd.get_info()

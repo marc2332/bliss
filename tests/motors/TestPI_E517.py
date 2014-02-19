@@ -45,23 +45,18 @@ class TestPI_E517Controller(unittest.TestCase):
         pz = bliss.get_axis("pz")
         print "E517 IDN :", pz.get_id()
 
+    def test_get_position(self):
+        pz = bliss.get_axis("pz")
+        print "E517 pz position :", pz.position()
 
-#     def test_get_axis(self):
-#         pz = bliss.get_axis("pz")
-#         self.assertTrue(pz)
-# 
-#     def test_controller_from_axis(self):
-#         pz = bliss.get_axis("pz")
-#         self.assertEqual(pz.controller.name, "testid16")
-# 
-#     def test_get_position(self):
-#         pz = bliss.get_axis("pz")
-#         print "E517 position :", pz.position()
-# 
-# 
-#     def test_get_infos(self):
-#         pz = bliss.get_axis("pz")
-#         print "E517 INFOS :\n", pz.controller._get_infos()
+    def test_get_axis(self):
+        pz = bliss.get_axis("pz")
+        self.assertTrue(pz)
+
+    def test_get_infos(self):
+        pz = bliss.get_axis("pz")
+        print "E517 INFOS :\n", pz.get_infos()
+
 
 #    # called at end of each test
 #    def tearDown(self):

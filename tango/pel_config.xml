@@ -3,9 +3,9 @@
     <host value="flexdcnina"/>
     <axis name="fd">
       <channel       value="X"/>
-      <step_size     value="13111"/>
-      <target_radius value="20"/>
-      <target_time   value="10"/>
+      <step_size     value="13111.11"/>
+      <target_radius value="10"/>
+      <target_time   value="20"/>
       <smoothing     value="4"/>
       <acceleration  value="1111"/>
       <deceleration  value="1010"/>

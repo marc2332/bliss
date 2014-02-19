@@ -103,26 +103,26 @@ class FlexDC(Controller):
     if new_position is None:
       if measured:
         ''' position in steps
-            PS : sensor position
+            PS : Position from Sensor
         '''
         _pos = int(self._flexdc_query("%sPS"%axis.channel))
-        # print "FLEXDC measured position :", _pos
+        print "FLEXDC measured position :", _pos
         return _pos
       else:
         ''' position in steps
-            DP : desired position
+            DP : Desired Position
             When an axis is in motion, DP holds the real time servo
             loop control reference position
         '''
         _pos = int(self._flexdc_query("%sDP"%axis.channel))
-        # print "FLEXDC setpoint position : %g"%(_pos)
+        print "FLEXDC setpoint position (steps) : %d"%(_pos)
         return _pos
 
 
   def velocity(self, axis, new_velocity=None):
     if new_velocity is None:
-      print "FLEXDC read velocity"
       _velocity = float(self._flexdc_query("%sSP"%axis.channel))
+      print "FLEXDC read velocity", _velocity
     else:
       print "FLEXDC write velocity (%g)"%new_velocity
       self._flexdc_query("%sSP=%d"%(axis.channel, new_velocity))
@@ -190,7 +190,7 @@ class FlexDC(Controller):
     # Adds "\r" at end of command.
     # TODO : test if already present ?
 
-    print "SENDING : ",cmd
+    # print "SENDING : ",cmd
     _cmd = cmd + "\r"
 
     # Adds ACK character:

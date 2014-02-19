@@ -593,7 +593,7 @@ def main():
     try:
         delete_bliss_axes()
     except:
-        print "can not delete bliss axes ??"
+        print "can not delete bliss axes."
 
     try:
         py = PyTango.Util(sys.argv)
@@ -615,12 +615,12 @@ def main():
                                     '%s_%s' % (server_name, device_name),
                                     axis_name))
 
+            print "creating %s"%device_name
             U.create_device('BlissAxis', device_name)
         else:
           print "No bliss supervisor ???"
 
         U.server_run()
-
 
 
     except PyTango.DevFailed,e:

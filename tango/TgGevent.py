@@ -47,13 +47,17 @@ def deal_with_job(req, args, kwargs):
       stop_event.set()
     else:
       obj = objs[req.obj_id]["obj"]
-      method = getattr(obj, req.method)
-
       try:
-        result = method(*args, **kwargs)
-      except:
+        method = getattr(obj, req.method)
+      except AttributeError:
         exception, error_string, tb = sys.exc_info()
         result = CallException(exception, error_string, tb)
+      else:
+        try:
+          result = method(*args, **kwargs)
+        except:
+          exception, error_string, tb = sys.exc_info()
+          result = CallException(exception, error_string, tb)
 
       req.set_result(result)
 

@@ -33,7 +33,7 @@ class FlexDC(Controller):
   # Init of controller.
   def initialize(self):
     # print "FLEXDC CONTROLLER initialize"
-    self.sock = tcp.Socket(self.host, 4000)
+    self.sock = tcp.Command(self.host, 4000)
 
   def finalize(self):
     # print "FLEXDC CONTROLLER finalize"
@@ -115,7 +115,7 @@ class FlexDC(Controller):
             loop control reference position
         '''
         _pos = int(self._flexdc_query("%sDP"%axis.channel))
-        print "FLEXDC setpoint position (steps) : %d"%(_pos)
+        print "FLEXDC setpoint position : %g"%(_pos)
         return _pos
 
 
@@ -175,12 +175,12 @@ class FlexDC(Controller):
     if new_acc is None:
       # read from controller or cache ???
       # ...controller
-      print "bliss read Acceleration"
       _acc = self._flexdc_query("%sAC"%axis.channel)
+      print "bliss read Acceleration", _acc
       axis.settings.set("acceleration", _acc)
     else:
-      print "bliss write Acceleration", new_acc
       self._flexdc_query("%sAC=%d"%(axis.channel, new_acc))
+      print "bliss write Acceleration", new_acc
       axis.settings.set("acceleration", new_acc)
 
     return axis.settings.get("acceleration")
@@ -195,9 +195,9 @@ class FlexDC(Controller):
 
     # Adds ACK character:
     _cmd = _cmd + "Z"
-    _ans = self.sock.write_readline(_cmd, eol=">" )
-    if self.sock.raw_read(1) != "Z":
-      print "missing ack character ??? return of cmd \"%s\". "%cmd
+    _ans = self.sock.write_readline(_cmd, eol=">Z" )
+    #if self.sock.read(1) != "Z":
+    #  print "missing ack character ??? return of cmd \"%s\". "%cmd
     return _ans
 
   # 

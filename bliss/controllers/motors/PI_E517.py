@@ -24,7 +24,7 @@ class PI_E517(Controller):
 
   # Init of controller.
   def initialize(self):
-    self.sock = tcp.Socket(self.host, 50000)
+    self.sock = tcp.Command(self.host, 50000)
 
   def finalize(self):
     self.sock.close()

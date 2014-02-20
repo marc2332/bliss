@@ -111,6 +111,48 @@ class TestTcpComm(unittest.TestCase):
         for t in tasks:
             t.join(3)
         
+
+    def test_connect_socket(self):
+        s = tcp.Socket("127.0.0.1", self.server_socket_port)
+        self.assertTrue(s.connect())
+
+    def test_write_read_n_bytes_socket(self):
+        s = tcp.Socket("127.0.0.1", self.server_socket_port)
+        data = s.write_read("A"*1024, size=1024)
+        self.assertEqual(len(data), 1024)
+    
+    def test_write_readline_socket(self):
+        s = tcp.Socket("127.0.0.1", self.server_socket_port)
+        msg = "HELLO\nWORLD\n"
+        s.write(msg)
+        self.assertEqual(s.readline(), "HELLO")
+        self.assertEqual(s.readline(), "WORLD")
+      
+    def test_write_readline2_socket(self):
+        s = tcp.Socket("127.0.0.1", self.server_socket_port)
+        self.assertEqual(s.write_readline("HELLO\n"), "HELLO")
+        self.assertEqual(s.write_readline("WORLD\n"), "WORLD")
+
+    def test_write_readlines_socket(self):
+        s = tcp.Socket("127.0.0.1", self.server_socket_port)
+        self.assertEqual(s.write_readlines("HELLO\nWORLD\n", 2), ["HELLO", "WORLD"])
+ 
+    def test_readline_timeout_socket(self):
+        s = tcp.Socket("127.0.0.1", self.server_socket_port)
+        t0 = time.time()
+        try:
+          s.readline(timeout=1)
+        except RuntimeError:
+          t = time.time()-t0
+          self.assertTrue(t-1 < 0.1)
+
+    def test_tryconnect_socket(self):
+        s = tcp.Socket("127.0.0.1", self.server_socket_port)
+        s.connect()
+        s.close()
+        self.assertEqual(s.write_read("X"), "X")
+
+
     @classmethod
     def tearDownClass(cls):
         server_p.terminate()

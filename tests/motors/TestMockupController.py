@@ -39,10 +39,10 @@ class MockupAxis(Axis):
   def __init__(self, *args, **kwargs):
     Axis.__init__(self, *args, **kwargs)
 
-  def _handle_move(self, target_pos, delta, backlash=0):
-    self.target_pos = target_pos
-    self.backlash_move = target_pos/self.step_size() if backlash else 0
-    return Axis._handle_move(self, target_pos, delta, backlash)
+  def _handle_move(self, motion):
+    self.target_pos = motion.target_pos
+    self.backlash_move = motion.target_pos/self.step_size() if motion.backlash else 0
+    return Axis._handle_move(self, motion)
 
 class mockup_axis_module:
   def __getattr__(self, attr):

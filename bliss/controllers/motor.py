@@ -103,10 +103,13 @@ class Controller(object):
   def initialize_axis(self, axis):
     raise NotImplementedError
 
-  def prepare_move(self, axis, target_pos, delta):
-    return
+  def prepare_move(self, motion): #axis, target_pos, delta):
+    return 
 
-  def start_move(self, axis, target_pos, delta):
+  def start_one(self, motion):
+    raise NotImplementedError
+
+  def start_all(self, *motion_list):
     raise NotImplementedError
 
   def stop(self, axis):
@@ -184,10 +187,30 @@ class CalcController(Controller):
         self._calc_from_real()
         self._update_state_from_real()
 
-  def prepare_move(self, axis, target_pos, delta):
-    pass
+  def prepare_move(self, motion):
+    positions_dict = dict()
+    axis_tag = None
+    for tag, axis_list in self._tagged.iteritems():
+      if len(axis_list) > 1:
+        continue
+      x = axis_list[0]
+      if x in self.pseudos:
+        if x == motion.axis:
+          axis_tag = tag
+          positions_dict[tag]=target_pos
+        else:
+          positions_dict[tag]=x.position()
+    
+    prepared_moves = self.calc_to_real(axis_tag, positions_dict)    
+    for axis_tag, target_pos in prepared_moves.iteritems():
+      real_axis = self._tagged[axis_tag][0]
+      motion = Motion(real_axis, target_pos, target_pos-real_axis.position())
+      real_axis.controller.prepare_move(motion)
 
-  def start_move(self, axis, target_pos, delta):
+  def calc_to_real(self, axis_tag, positions_dict):
+    raise NotImplementedError
+
+  def start_one(self, motion):
     pass
 
   def stop(self, axis):

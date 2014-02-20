@@ -5,6 +5,18 @@ import time
 READY, MOVING, FAULT, UNKNOWN = ("READY", "MOVING", "FAULT", "UNKNOWN")
 
 
+class Motion(object):
+  def __init__(self, axis, target_pos, delta):
+    self.__axis = axis
+    self.target_pos = target_pos
+    self.delta = delta
+    self.backlash = 0
+
+  @property
+  def axis(self):
+    return self.__axis
+
+
 class Axis(object):
   class Settings:
     def set(*args, **kwargs):
@@ -75,6 +87,7 @@ class Axis(object):
         self.settings.set("position", pos)
       return pos
 
+
   def _position(self, new_pos=None, measured=False):
     return self.__controller.position(self, new_pos*self.step_size() if new_pos is not None else None, measured)/self.step_size()
 
@@ -98,7 +111,7 @@ class Axis(object):
     return _acctime
 
 
-  def _handle_move(self, target_pos, delta, backlash=0):
+  def _handle_move(self, motion):
     def update_settings():
        pos = self._position()
        self.settings.set("position", pos)
@@ -113,13 +126,14 @@ class Axis(object):
             break
           time.sleep(0.02)
 
-        if backlash:
+        if motion.backlash:
           # axis has moved to target pos - backlash;
           # now do the final motion to reach original target
-          final_pos = target_pos + backlash
-          self.__controller.prepare_move(self, final_pos, backlash)
-          self.__controller.start_move(self, final_pos, backlash)
-          self._handle_move(final_pos, backlash)
+          final_pos = motion.target_pos + motion.backlash
+          backlash_motion = Motion(self, final_pos, motion.backlash) 
+          self.__controller.prepare_move(backlash_motion)
+          self.__controller.start_one(backlash_motion)
+          self._handle_move(backlash_motion)
 
 
   def prepare_move(self, user_target_pos, relative=False):
@@ -142,9 +156,11 @@ class Axis(object):
         # don't do backlash correction
         backlash = 0
 
-    self.__controller.prepare_move(self, target_pos, delta)
+    motion = Motion(self, target_pos, delta)
+    motion.backlash = backlash
+    self.__controller.prepare_move(motion)
 
-    return target_pos, delta, backlash
+    return motion
 
 
   def _set_move_done(self, move_task):
@@ -156,11 +172,11 @@ class Axis(object):
     if initial_state != READY:
       raise RuntimeError, "motor %s state is %r" % (self.name, initial_state)
 
-    target_pos, delta, backlash = self.prepare_move(user_target_pos, relative)
+    motion = self.prepare_move(user_target_pos, relative)
 
     self.__move_done.clear()
 
-    move_task = self._do_move(target_pos, delta, backlash, wait=False)
+    move_task = self._do_move(motion, wait=False)
     move_task.link(self._set_move_done)
 
     if wait:
@@ -170,12 +186,11 @@ class Axis(object):
 
 
   @task
-  def _do_move(self, target_pos, delta, backlash, wait=True):
+  def _do_move(self, motion, wait=True):
     with error_cleanup(self.stop):
-      self.__controller.start_move(self, target_pos, delta)
+      self.__controller.start_one(motion)
 
-      self._handle_move(target_pos, delta, backlash)
-
+      self._handle_move(motion)
 
   def rmove(self, user_delta_pos, wait=True):
     return self.move(user_delta_pos, wait, relative=True)

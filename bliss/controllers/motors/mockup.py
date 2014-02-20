@@ -53,14 +53,15 @@ class Mockup(Controller):
 
   '''
   '''
-  def start_move(self, axis, target_pos, delta):
+  def start_one(self, motion):
+    axis = motion.axis
     t0 = time.time()
     pos = self.position(axis)
     v = self.velocity(axis)*axis.step_size()
     self._axis_moves[axis] = { "start_pos": pos,
-                               "delta": delta,
-                               "end_pos": target_pos,
-                               "end_t": t0 + math.fabs(delta)/float(v),
+                               "delta": motion.delta,
+                               "end_pos": motion.target_pos,
+                               "end_t": t0 + math.fabs(motion.delta)/float(v),
                                "t0": t0 }
 
 

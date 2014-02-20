@@ -20,6 +20,11 @@ class cleanup:
         except:
           sys.excepthook(exc_type, value, traceback)
           continue
+      # the previous try..except is resetting exception,
+      # so re-raise it from here
+      if exc_type is not None:
+        raise exc_type, value, traceback
+
 
 class error_cleanup:
   def __init__(self,*args,**keys):
@@ -30,15 +35,20 @@ class error_cleanup:
     pass
 
   def __exit__(self, exc_type, value, traceback):
-    if exc_type is not None and self.error_funcs:
-      for error_func in self.error_funcs:
-        if not callable(error_func):
-          continue
-        try:
-          error_func(**self.keys)
-        except:
-          sys.excepthook(exc_type, value, traceback)
-          continue
+    if exc_type is not None:
+      if self.error_funcs:
+        for error_func in self.error_funcs:
+          if not callable(error_func):
+            continue
+          return
+          try:
+            error_func(**self.keys)
+          except:
+            sys.excepthook(*sys.exc_info())
+            continue
+        # the previous try..except is resetting exception,
+        # so re-raise it from here
+        raise exc_type, value, traceback
 
 class TaskException:
     def __init__(self, exception, error_string, tb):
@@ -69,6 +79,11 @@ class wrap_errors(object):
     def __getattr__(self, item):
         return getattr(self.func, item)
 
+#def task_done(task):
+#    ret = task._get()
+#    if isinstance(ret, TaskException):
+#      sys.excepthook(ret.exception, ret.error_string, ret.tb)
+
 def task(func):
     def start_task(*args, **kwargs):
         try:
@@ -86,9 +101,11 @@ def task(func):
 
         try:
             t = gevent.spawn(wrap_errors(func), *args, **kwargs)
-               
+            #t.link(task_done)
+   
             t._get = t.get
             def special_get(self, *args, **kwargs):
+                #self.unlink(task_done)
                 try:
                     ret = self._get(*args, **kwargs)
                     if isinstance(ret, TaskException):

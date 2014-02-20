@@ -192,6 +192,7 @@ class Axis(object):
 
       self._handle_move(motion)
 
+
   def rmove(self, user_delta_pos, wait=True):
     return self.move(user_delta_pos, wait, relative=True)
 

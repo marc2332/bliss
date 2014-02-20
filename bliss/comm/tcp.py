@@ -127,29 +127,33 @@ class Command:
         return msg
 
     @try_connect
-    def write(self, msg, timeout=None,transaction = None) :
+    def _write(self, msg, timeout=None,transaction = None,create_transaction = True) :
         with self._lock:
-            if transaction is None:
+            if transaction is None and create_transaction:
                 transaction = self.new_transaction()
             self._fd.sendall(msg)
         return transaction
+
+    def write(self,msg,timeout=None) :
+        return self._write(msg,timeout=timeout,create_transaction = False)
+
     @try_connect
     def write_read(self,msg,write_synchro = None,size=1,timeout=None) :
-        transaction = self.write(msg)
+        transaction = self._write(msg)
         if write_synchro: write_synchro.notify()
         return self._read(size=size, timeout=timeout,transaction = transaction)
 
     @try_connect
     def write_readline(self, msg, write_synchro = None, eol = None, timeout = None):
         with gevent.Timeout(timeout or self._timeout, RuntimeError("write_readline timed out")):
-            transaction = self.write(msg)
+            transaction = self._write(msg)
             if write_synchro:write_synchro.notify()
             return self._readline(eol=eol, timeout=timeout,transaction = transaction)
 
     @try_connect
     def write_readlines(self, msg, nb_lines, write_synchro = None, eol = None, timeout = None):
         with gevent.Timeout(timeout or self._timeout, RuntimeError("write_readline timed out")):
-            transaction = self.write(msg)
+            transaction = self._write(msg)
 
             if write_synchro:
                 write_synchro.notify()

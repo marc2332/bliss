@@ -54,7 +54,7 @@ class TestTcpComm(unittest.TestCase):
     def test_write_readline(self):
         s = tcp.Command("127.0.0.1", self.server_socket_port)
         msg = "HELLO\nWORLD\n"
-        transaction = s.write(msg)
+        transaction = s._write(msg)
         self.assertEqual(s._readline(transaction,clear_transaction=False), "HELLO")
         self.assertEqual(s._readline(transaction), "WORLD")
       
@@ -93,7 +93,7 @@ class TestTcpComm(unittest.TestCase):
         def task_with_exception(msg,i) :
             msg += '_exception'
             try:
-                transaction = s.write(msg)
+                transaction = s._write(msg)
                 s._readline(transaction,timeout=0.01,eol = '\r',
                            clear_transaction = False)
             except RuntimeError: # timeout

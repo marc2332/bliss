@@ -154,13 +154,13 @@ class FlexDC(Controller):
     return _ret
 
 
-  def prepare_move(self, axis, target_pos, delta):
+  def prepare_move(self, motion): #axis, target_pos, delta):
     #print "FLEXDC prepare_move, target_pos=", target_pos
-    self._flexdc_query("%sAP=%d"%(axis.channel, int(target_pos)))
+    self._flexdc_query("%sAP=%d"%(motion.axis.channel, int(motion.target_pos)))
 
-  def start_move(self, axis, target_pos, delta):
-    #print "FLEXDC start_move, target_pos=", target_pos
-    self._flexdc_query("%sBG"%axis.channel)
+  def start_one(self, motion): #axis, target_pos, delta):
+    #print "FLEXDC start_move, target_pos=", motion.target_pos
+    self._flexdc_query("%sBG"%motion.axis.channel)
 
   def stop(self, axis):
     #print "FLEXDC stop"

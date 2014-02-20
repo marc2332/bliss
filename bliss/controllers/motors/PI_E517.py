@@ -71,11 +71,11 @@ class PI_E517(Controller):
       raise RuntimeError("closed loop disabled")
 
 
-  def prepare_move(self, axis, target_pos, delta):
-    self._target_pos = target_pos
+  def prepare_move(self, motion):
+    self._target_pos = motion.target_pos
 
 
-  def start_move(self, axis, target_pos, delta):
+  def start_one(self, motion): #axis, target_pos, delta):
     self.sock.write("MOV 1 %g\n"%self._target_pos)
 
 

@@ -149,14 +149,14 @@ class IcePAP(Controller):
     return UNKNOWN
 
 
-  def prepare_move(self, axis, target_pos, delta):
+  def prepare_move(self, motion):
     """Called once before an axis motion, positions in motor units"""
+    pass
 
-
-  def start_move(self, axis, target_pos, delta):
+  def start_one(self, motion):
     """Launch an axis moition, returns immediately, positions in motor units"""
     target_positions = icepap.lib.PosList()
-    target_positions[axis.libaxis] = target_pos
+    target_positions[motion.axis.libaxis] = motion.target_pos
     self.libgroup.move(target_positions)
 
 

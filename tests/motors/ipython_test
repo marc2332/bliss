@@ -1,0 +1,32 @@
+
+sys.path.insert(0, "/users/blissadm/bliss/")
+sys.path.insert(0, "/users/blissadm/bliss/tango/")
+import unittest, sys, os, time, bliss, bliss.common.axis,  bliss.config.motors, PyTango, traceback, TgGevent, sys
+
+
+bliss.load_cfg_fromstring("""
+<config>
+  <controller class="PI_E517" name="testid16">
+    <host value="e517pela"/>
+    <axis name="px">
+      <channel       value="1"/>
+      <chan_letter   value="A"/>
+      <velocity      value="12"/>
+    </axis>
+    <axis name="py">
+      <channel       value="2"/>
+      <chan_letter   value="B"/>
+      <velocity      value="12"/>
+    </axis>
+    <axis name="pz">
+      <channel       value="3"/>
+      <chan_letter   value="C"/>
+      <velocity      value="12"/>
+    </axis>
+  </controller>
+</config>
+""")
+
+
+
+

@@ -33,7 +33,7 @@ class FlexDC(Controller):
   # Init of controller.
   def initialize(self):
     # print "FLEXDC CONTROLLER initialize"
-    self.sock = tcp.Command(self.host, 4000)
+    self.sock = tcp.Socket(self.host, 4000)
 
   def finalize(self):
     # print "FLEXDC CONTROLLER finalize"
@@ -55,6 +55,7 @@ class FlexDC(Controller):
     add_axis_method(axis, self.get_id)
     add_axis_method(axis, self.get_info)
     add_axis_method(axis, self.acceleration)
+    add_axis_method(axis, self.steps_per_unit)
 
     # Enabling servo mode.
     self._flexdc_query("%sMO=1"%axis.channel)
@@ -106,7 +107,7 @@ class FlexDC(Controller):
             PS : Position from Sensor
         '''
         _pos = int(self._flexdc_query("%sPS"%axis.channel))
-        print "FLEXDC measured position :", _pos
+        print "FLEXDC *measured* position (in steps) :", _pos
         return _pos
       else:
         ''' position in steps
@@ -115,7 +116,7 @@ class FlexDC(Controller):
             loop control reference position
         '''
         _pos = int(self._flexdc_query("%sDP"%axis.channel))
-        print "FLEXDC setpoint position : %g"%(_pos)
+        print "FLEXDC *setpoint* position (in steps) : %g"%(_pos)
         return _pos
 
 
@@ -184,6 +185,13 @@ class FlexDC(Controller):
       axis.settings.set("acceleration", new_acc)
 
     return axis.settings.get("acceleration")
+
+
+  def steps_per_unit(self, axis, new_step_per_unit=None):
+    if new_step_per_unit is None:
+      return float(axis.config.get("step_size"))
+    else:
+      print "steps_per_unit writing is not (yet?) implemented."
 
   # 
   def _flexdc_query(self, cmd):

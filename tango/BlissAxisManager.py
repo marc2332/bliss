@@ -100,18 +100,40 @@ class BlissAxis(PyTango.Device_4Impl):
         if not self.once:
             try:
                 # Initialises "set" value of attributes.
+
+                # Position
                 attr = self.get_device_attr().get_attr_by_name("Position")
                 attr.set_write_value(self.axis.position())
 
+                # Velocity
                 attr = self.get_device_attr().get_attr_by_name("Velocity")
                 attr.set_write_value(float(self.axis.velocity()))
 
+                # Acceleration
                 try:
                     _acc = self.axis.acceleration()
                     attr = self.get_device_attr().get_attr_by_name("Acceleration")
                     attr.set_write_value(float(_acc))
                 except:
                     print "No acceleration for axis %s"%self._axis_name
+
+                # Steps_per_unit
+                try:
+                    _spu = float(self.axis.steps_per_unit())
+                    attr = self.get_device_attr().get_attr_by_name("Steps_per_unit")
+                    attr.set_write_value(_spu)
+                except:
+                    print "No Step per unit method for axis %s"%self._axis_name
+
+                # Steps
+                try:
+                    _steps = int(round(self.axis.position() * _spu))
+                    attr = self.get_device_attr().get_attr_by_name("Steps")
+                    attr.set_write_value(_steps)
+                except:
+                    print "No Steps per unit method ? for axis %s"%self._axis_name
+
+
 
             except:
                 print "ERROR : Cannot set one of attributs write value."
@@ -150,20 +172,23 @@ class BlissAxis(PyTango.Device_4Impl):
 
     def read_Steps_per_unit(self, attr):
         self.debug_stream("In read_Steps_per_unit()")
-        attr.set_value(self.attr_Steps_per_unit_read)
+        attr.set_value(self.axis.steps_per_unit())
 
     def write_Steps_per_unit(self, attr):
         self.debug_stream("In write_Steps_per_unit()")
         data=attr.get_write_value()
+        print "not implemented"
 
 
     def read_Steps(self, attr):
         self.debug_stream("In read_Steps()")
-        attr.set_value(self.attr_Steps_read)
+        _spu = float(self.axis.steps_per_unit())
+        _steps = _spu * self.axis.position()
+        attr.set_value(int(round(_steps)))
 
-    def write_Steps(self, attr):
-        self.debug_stream("In write_Steps()")
-        data=attr.get_write_value()
+#    def write_Steps(self, attr):
+#        self.debug_stream("In write_Steps()")
+#        data=attr.get_write_value()
 
 
     def read_Position(self, attr):
@@ -195,7 +220,7 @@ class BlissAxis(PyTango.Device_4Impl):
             self.debug_stream("In read_Acceleration(%f)"%float(_acc))
             attr.set_value(_acc)
         except:
-            print "unable to read Acceleration"
+            print "unable to read Acceleration for this axis"
             traceback.print_exc()
             raise
 
@@ -206,7 +231,7 @@ class BlissAxis(PyTango.Device_4Impl):
             self.debug_stream("In write_Acceleration(%f)"%data)
             self.axis.acceleration(data)
         except:
-            print "unable to write Acceleration"
+            print "unable to write Acceleration for this axis"
             traceback.print_exc()
             raise
 
@@ -292,11 +317,11 @@ class BlissAxis(PyTango.Device_4Impl):
 
     def read_StepSize(self, attr):
         self.debug_stream("In read_StepSize()")
-        attr.set_value(self.attr_StepSize_read)
+        attr.set_value(self.axis.step_size())
 
-    def write_StepSize(self, attr):
-        self.debug_stream("In write_StepSize()")
-        data=attr.get_write_value()
+#    def write_StepSize(self, attr):
+#        self.debug_stream("In write_StepSize()")
+#        print "cannot set step_size"
 
 
     def read_attr_hardware(self, data):
@@ -401,33 +426,35 @@ class BlissAxisClass(PyTango.DeviceClass):
         'Steps_per_unit':
             [[PyTango.DevDouble,
             PyTango.SCALAR,
-            PyTango.READ_WRITE],
+           #PyTango.READ_WRITE],
+            PyTango.READ],
             {
                 'label': "Steps per mm",
                 'unit': "steps/mm",
                 'format': "%7.1f",
                 'Display level': PyTango.DispLevel.EXPERT,
-                'Memorized':"true"
+                #'Memorized':"true"
             } ],
         'Steps':
             [[PyTango.DevLong,
             PyTango.SCALAR,
-            PyTango.READ_WRITE],
+           #PyTango.READ_WRITE],
+            PyTango.READ],
             {
                 'label': "Steps",
                 'unit': "steps",
                 'format': "%6d",
                 'description': "number of steps in the step counter\n",
-                'Memorized':"true"
+                #'Memorized':"true"
             } ],
         'Position':
             [[PyTango.DevDouble,
             PyTango.SCALAR,
             PyTango.READ_WRITE],
             {
-                'label': "position",
+                'label': "Position",
                 'unit': "mm",
-                'format': "%7.3f",
+                'format': "%10.3f",
                 'description': "The desired motor position.",
             } ],
         'Measured_Position':
@@ -435,9 +462,9 @@ class BlissAxisClass(PyTango.DeviceClass):
             PyTango.SCALAR,
             PyTango.READ],
             {
-                'label': "position",
+                'label': "Measured position",
                 'unit': "mm",
-                'format': "%7.3f",
+                'format': "%10.3f",
                 'description': "The measured motor position.",
             } ],
         'Acceleration':
@@ -547,13 +574,12 @@ class BlissAxisClass(PyTango.DeviceClass):
         'StepSize':
             [[PyTango.DevDouble,
             PyTango.SCALAR,
-            PyTango.READ_WRITE],
+            PyTango.READ],
             {
                 'unit': "mm",
                 'format': "%10.3f",
                 'description': "Size of the relative step performed by the StepUp and StepDown commands.\nThe StepSize is expressed in physical unit.",
                 'Display level': PyTango.DispLevel.EXPERT,
-                'Memorized':"true"
             } ],
         }
 

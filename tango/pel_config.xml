@@ -12,5 +12,26 @@
       <velocity      value="1234"/>
     </axis>
   </controller>
+  <controller class="PI_E517" name="testid16">
+    <host value="e517pela"/>
+    <axis name="px">
+      <channel       value="1"/>
+      <chan_letter   value="A"/>
+      <velocity      value="12"/>
+      <step_size     value="1"/>
+    </axis>
+    <axis name="py">
+      <channel       value="2"/>
+      <chan_letter   value="B"/>
+      <velocity      value="12"/>
+      <step_size     value="1"/>
+    </axis>
+    <axis name="pz">
+      <channel       value="3"/>
+      <chan_letter   value="C"/>
+      <velocity      value="12"/>
+      <step_size     value="1"/>
+    </axis>
+  </controller>
 </config>
 

@@ -23,7 +23,7 @@ class PI_E753(Controller):
 
   # Init of controller.
   def initialize(self):
-    self.sock = tcp.Command(self.host, 50000)
+    self.sock = tcp.Socket(self.host, 50000)
 
   def finalize(self):
     self.sock.close()
@@ -31,8 +31,12 @@ class PI_E753(Controller):
 
   # Init of each axis.
   def initialize_axis(self, axis):
+
+    add_axis_method(axis, self.steps_per_unit)
+
     # Enables the closed-loop.
     self.sock.write("SVO 1 1\n")
+
 
   def position(self, axis, new_position=None, measured=False):
     if new_position is not None:
@@ -79,6 +83,12 @@ class PI_E753(Controller):
   """
   E753 specific communication
   """
+
+  def steps_per_unit(self, axis, new_step_per_unit=None):
+    if new_step_per_unit is None:
+      return float(axis.config.get("step_size"))
+    else:
+      print "steps_per_unit writing is not (yet?) implemented."
 
   def _get_pos(self):
     '''

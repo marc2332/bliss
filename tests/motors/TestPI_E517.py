@@ -1,6 +1,7 @@
 import unittest
 import sys
 import os
+import time
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -13,23 +14,17 @@ config_xml = """
     <axis name="px">
       <channel       value="1"/>
       <chan_letter   value="A"/>
-      <acceleration  value="123"/>
-      <deceleration  value="321"/>
-      <velocity      value="432"/>
+      <velocity      value="12"/>
     </axis>
     <axis name="py">
       <channel       value="2"/>
       <chan_letter   value="B"/>
-      <acceleration  value="123"/>
-      <deceleration  value="321"/>
-      <velocity      value="432"/>
+      <velocity      value="12"/>
     </axis>
     <axis name="pz">
       <channel       value="3"/>
       <chan_letter   value="C"/>
-      <acceleration  value="123"/>
-      <deceleration  value="321"/>
-      <velocity      value="432"/>
+      <velocity      value="12"/>
     </axis>
   </controller>
 </config>
@@ -53,14 +48,31 @@ class TestPI_E517Controller(unittest.TestCase):
         pz = bliss.get_axis("pz")
         self.assertTrue(pz)
 
+    def test_get_state(self):
+        pz = bliss.get_axis("pz")
+        print "E517 pz state:", pz.state()
+
     def test_get_infos(self):
         pz = bliss.get_axis("pz")
         print "E517 INFOS :\n", pz.get_infos()
 
+    def test_get_voltage(self):
+        pz = bliss.get_axis("pz")
+        print "E517 pz output voltage :", pz.controller._get_voltage(pz)
 
-#    # called at end of each test
-#    def tearDown(self):
-#        self.pz.controller.sock.close()
+    def test_get_closed_loop_status(self):
+        pz = bliss.get_axis("pz")
+        print "E517 pz closed loop enabled :", pz.controller._get_closed_loop_status(pz)
+
+    def test_get_on_target_status(self):
+        pz = bliss.get_axis("pz")
+        print "E517 pz on target :", pz.controller._get_on_target_status(pz)
+
+    # called at end of each test
+    def tearDown(self):
+        # Little wait time to let time to PI controller to
+        # close peacefully its sockets...
+        time.sleep(0.2)
 
 #     def test_axis_move(self):
 #         pz = bliss.get_axis("pz")
@@ -83,21 +95,18 @@ load_cfg_fromstring("""
     <host value="e517pela"/>
     <axis name="px">
       <channel       value="1"/>
-      <acceleration  value="123"/>
-      <deceleration  value="321"/>
-      <velocity      value="432"/>
+      <chan_letter   value="A"/>
+      <velocity      value="12"/>
     </axis>
     <axis name="py">
       <channel       value="2"/>
-      <acceleration  value="123"/>
-      <deceleration  value="321"/>
-      <velocity      value="432"/>
+      <chan_letter   value="B"/>
+      <velocity      value="12"/>
     </axis>
     <axis name="pz">
       <channel       value="3"/>
-      <acceleration  value="123"/>
-      <deceleration  value="321"/>
-      <velocity      value="432"/>
+      <chan_letter   value="C"/>
+      <velocity      value="12"/>
     </axis>
   </controller>
 </config>

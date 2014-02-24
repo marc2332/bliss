@@ -1,4 +1,13 @@
 <config>
+  <controller class="mockup" name="matias">
+    <host value="mydummyhost1"/>
+    <port value="5000"/>
+    <axis name="m0">
+      <channel value="1"/>
+      <!-- degrees per second -->
+      <velocity value="30"/>
+    </axis>
+  </controller>
   <controller class="FlexDC" name="id16phn">
     <host value="flexdcnina"/>
     <axis name="fd">

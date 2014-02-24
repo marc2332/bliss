@@ -1,0 +1,271 @@
+#%TITLE% tango_mot.mac
+#%NAME%
+#  TANGO_MOT.MAC
+#%CATEGORY%
+# motion macro-motor tango
+#%DESCRIPTION% tango_mot macros allow to configure a SPEC hardware
+# macro-motor to be used to interface a tango motor device server.
+#%EXAMPLE%
+#%DL%
+#%SETUP%
+#  All configuration is done in spec config.
+#%UL%
+#%LI%
+#%XUL%
+
+
+
+# Configuration example:
+
+# Motor and Counter Device Configuration (Not CAMAC)
+#
+# MOTORS   DEVICE                   ADDR  <>MODE  NUM           <>TYPE
+#    YES   tango_mot   pel/bliss_00/fd            1     Macro Motors
+#     NO
+
+# Number: <>Controller        0:    NONE   1: MAC_MOT
+# Unit/[Module/]Channel                           0/0
+# Name                             dummy          fdc
+# Mnemonic                         dummy          fdc
+
+
+
+
+######################################################################
+######################################################################
+######################################################################
+###########################                ###########################
+###########################  Macro motors  ###########################
+###########################                ###########################
+######################################################################
+######################################################################
+######################################################################
+
+need spec_utils
+need hg
+
+# Messages styles configuration.
+hg_config_style("tango_mot",  1, 2, 3)
+hg_config_indent("tango_mot", 0, 0, 0)
+hg_config_headers("tango_mot", "TANGO_MOT", "TANGO_MOT", "TANGO_MOT")
+hg_generate("tango_mot")
+
+
+#%IU%
+#%MDESC%
+#    Called on reconfig.
+def tango_mot_config(motnum, type, unit, module, channel) '{
+
+    if((motnum == "..") && (type == "ctrl")) {
+        # Check that the Tango DS is running
+        if(!ds_is_responsive(tango_mot_ADDR)) {
+            attr_error_head
+            tango_mot_err(sprintf("%s unresponsive -> disabling motor controller.", \
+                                  tango_mot_ADDR))
+            return ".error."
+        }
+        else{
+            tango_mot_msg(sprintf(" ok DS %s is responding", tango_mot_ADDR))
+        }
+        return
+    }
+
+    if(type == "mot") {
+        local _mot_mne _step_size
+
+        _mot_mne = motor_mne(motnum)
+        _ds_name = tango_mot_ADDR
+
+        # Registers Tango DS name in parameters of the motor.
+        tango_mot_dbg(sprintf("Registering DS name : \"%s\" for motor \"%s\"", \
+                             _ds_name, _mot_mne))
+        # GNARKKK cannot use tango_mot_ADDR here directly...
+        motor_par(motnum, "dev_name", _ds_name, "add")
+
+        tango_mot_msg(sprintf(" Motor %s linked to DS : %s ", \
+               _mot_mne, _ds_name))
+    }
+}'
+
+
+
+#%IU% (motnum, key, action, p1, p2)
+#%MDESC%
+#    The hmacmot_par function is called when various motor parameters
+# are set and when the motor_par() function is used to retrieve a
+# user-defined parameter.
+# * <motnum> : motor number
+# * <key>    : parameter name
+# * <action> : "get" / "set"
+# * <p1>     :
+# * <p2>     :
+def tango_mot_par(motnum, key, action, p1, p2) '{
+    local _msg
+
+    _msg = sprintf ("tango_mot_par(motnum=%s key=\"%s\", action=\"%s\", p1=\"%s\", p2=\"%s\"", \
+                    motnum, key, action, p1, p2)
+    tango_mot_dbg(_msg)
+
+    if (action=="get") {
+        tango_mot_dbg("get")
+    }
+    else if (action == "set"){
+        tango_mot_dbg("set")
+    }
+    else{
+        tango_mot_dbg(sprintf ("tango_mot_par()--action \"%s\" is not recognized.", action))
+
+    }
+}'
+
+
+
+#%IU%
+#%MDESC%
+#
+def tango_mot_cmd(motnum, cmd, p1, p2) '{
+
+    local _mot_mne  _dev  _attr  _step_size  _cmd
+
+    _mot_mne = motor_mne(motnum)
+
+    tango_mot_dbg(sprintf ("tango_mot_cmd(motnum=%s cmd=%s p1=%s p2=%s)", motnum, cmd, p1, p2))
+
+    if(motnum == ".."){
+        # <cmd> command applying to all motors.
+    }
+    else{
+        # <cmd> command applies to individual motor.
+
+        _dev = motor_par(motnum, "dev_name")
+        # tango_mot_dbg(sprintf( "_dev=%s", _dev))
+
+        # "position" must return dial position
+        # in prefered units( ex : deg, mm, um)
+        # parameters: none
+        if (cmd == "position") {
+            local _pos
+
+            _attr =  "position"
+            _pos = tango_get(_dev, _attr)
+            if (TANGO_ERR){
+                tty_cntl("md")
+                print "\n TANGO_MOT_ERROR " _mot_mne  " " _dev  "/"  _attr
+                printf ("TANGO_ERR_MSG = \"%s\" \n\n", TANGO_ERR)
+                print TANGO_ERR_STACK
+                tty_cntl("me")
+                exit
+            }
+
+            _step_size = motor_par(motnum, "step_size")
+            _steps = _pos * _step_size
+            tango_mot_dbg(sprintf( "pos=%s  ss=%s steps=%s", _pos , _step_size, _steps))
+
+            return (_pos)
+        }
+
+        # "get_status" called during the motion, must return a bit mask
+        # bits meaning: 0 if motor idle
+        #               2 if motor moving
+        #               4 if negative limit on
+        #               8 if positive limit on
+        if (cmd == "get_status"){
+            local _state
+            local _ret
+
+            _cmd = "State"
+            _state = tango_io(_dev, _cmd)
+            if (TANGO_ERR){
+                tty_cntl("md")
+                print "\n TANGO_MOT_ERROR " _mot_mne  " " _dev  "/"  _cmd
+                printf ("TANGO_ERR_MSG = \"%s\" \n\n", TANGO_ERR)
+                print TANGO_ERR_STACK
+                tty_cntl("me")
+                exit
+            }
+
+            tango_mot_dbg(sprintf( "State=%s  (%s)" , _state, tango_state_to_str(_state)))
+
+            # tango_state : -1   "FAULT"
+            # tango_state : 0    "ON"
+            # tango_state : 1    "OFF"
+            # tango_state : 2    "CLOSED"  (or CLOSE?)
+            # tango_state : 3    "OPEN"
+            # tango_state : 4    "INSERT"
+            # tango_state : 5    "EXTRACT"
+            # tango_state : 6    "MOVING"
+            # tango_state : 7    "STANDBY"
+            # tango_state : 8    "FAULT"
+            # tango_state : 9    "INIT"
+            # tango_state : 10   "RUNNING"
+            # tango_state : 11   "ALARM"
+            # tango_state : 12   "DISABLED" (or DISABLE?)
+            # tango_state : 13   "UNKNOWN"
+
+
+            # MOVING
+            if (_state == 6) {
+                _ret |= 2
+                return _ret
+            }
+
+            # FAULT
+# ???       # PC: problem with SyncAxis, acceleration is wrong; causes Fault State while moving
+# ???       # We do not care; this is anyway a provisional solution
+#            if (_state == 8) {
+#                _ret |= 2
+#                return _ret
+#            }
+
+            return 0
+        }
+
+        #-------------------------------------
+        # "start_one"
+        # parameters: p2 is relative motion, p1 is absolute requested position
+        if (cmd == "start_one") {
+
+            _attr = "position"
+            tango_put(_dev, _attr, p1)
+
+            if (TANGO_ERR){
+                tty_cntl("md")
+                print "\n TANGO_MOT_ERROR " _mot_mne  " " _dev  "/"  _attr
+                printf ("TANGO_ERR_MSG = \"%s\" \n\n", TANGO_ERR)
+                print TANGO_ERR_STACK
+                tty_cntl("me")
+                exit
+            }
+        }
+
+        #-------------------------------------
+        # "set_position" called on "set_dial motor newpos"
+        # parameters: p1 is the new position
+        #
+        # PC: this does not change the dial value, it will move to position p1
+        # We don not want set_dial to be used on Tango motors
+        if (cmd == "set_position") {
+            tango_mot_err("Changing dial value is not allowed")
+        }
+
+        # "abort_one" called on <Ctrl-C>
+        if (cmd == "abort_one") {
+            _cmd = "Abort"
+            tango_io(_dev, _cmd)
+
+            if (TANGO_ERR){
+                tty_cntl("md")
+                print "\n TANGO_MOT_ERROR " _mot_mne  " " _dev  "/"  _cmd
+                printf ("TANGO_ERR_MSG = \"%s\" \n\n", TANGO_ERR)
+                print TANGO_ERR_STACK
+                tty_cntl("me")
+                exit
+            }
+        }
+    }
+}'
+
+#%MACROS%
+#%IMACROS%
+#%AUTHOR%  Cyril Guilloud - BLISS - 2014
+

@@ -22,7 +22,7 @@ class BlissAxisManager(PyTango.Device_4Impl):
         self.get_device_properties(self.get_device_class())
 
         try:
-            bliss.load_cfg(self.config_file)
+            TgGevent.execute(bliss.load_cfg, self.config_file)
         except:
             self.set_state(PyTango.DevState.FAULT)
             self.set_status(traceback.format_exc())

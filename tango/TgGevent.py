@@ -5,7 +5,7 @@ import atexit
 import gevent
 import functools
 
-main_queue= _threading.Queue()
+main_queue = _threading.Queue()
 gevent_thread_lock = _threading.Lock()
 gevent_thread_started = _threading.Event()
 gevent_thread = None

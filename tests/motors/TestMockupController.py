@@ -3,7 +3,12 @@ import time
 import sys
 import os
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.insert(
+    0,
+    os.path.abspath(
+        os.path.join(
+            os.path.dirname(__file__),
+            "..")))
 
 import bliss
 from bliss.common.axis import Axis
@@ -34,31 +39,39 @@ config_xml = """
 </config>
 """
 
-### THIS IS FOR TESTING SPECIFIC FEATURES OF AXIS OBJECTS
-class MockupAxis(Axis):
-  def __init__(self, *args, **kwargs):
-    Axis.__init__(self, *args, **kwargs)
+# THIS IS FOR TESTING SPECIFIC FEATURES OF AXIS OBJECTS
 
-  def _handle_move(self, motion):
-    self.target_pos = motion.target_pos
-    self.backlash_move = motion.target_pos/self.step_size() if motion.backlash else 0
-    return Axis._handle_move(self, motion)
+
+class MockupAxis(Axis):
+
+    def __init__(self, *args, **kwargs):
+        Axis.__init__(self, *args, **kwargs)
+
+    def _handle_move(self, motion):
+        self.target_pos = motion.target_pos
+        self.backlash_move = motion.target_pos / \
+            self.step_size() if motion.backlash else 0
+        return Axis._handle_move(self, motion)
+
 
 class mockup_axis_module:
-  def __getattr__(self, attr):
-    return MockupAxis
+
+    def __getattr__(self, attr):
+        return MockupAxis
 
 sys.modules["MockupAxis"] = mockup_axis_module()
 ###
 
+
 class TestMockupController(unittest.TestCase):
+
     def setUp(self):
         bliss.load_cfg_fromstring(config_xml)
 
     def test_get_axis(self):
         robz = bliss.get_axis("robz")
-        self.assertTrue(robz)    
-    
+        self.assertTrue(robz)
+
     def test_property_setting(self):
         robz = bliss.get_axis("robz")
         self.assertEqual(robz.velocity(), 100)
@@ -74,7 +87,7 @@ class TestMockupController(unittest.TestCase):
     def test_axis_move(self):
         robz = bliss.get_axis("robz")
         self.assertEqual(robz.state(), "READY")
-        move_greenlet=robz.move(180, wait=False)
+        move_greenlet = robz.move(180, wait=False)
         self.assertEqual(robz.state(), "MOVING")
         move_greenlet.join()
         self.assertEqual(robz.state(), "READY")
@@ -86,7 +99,7 @@ class TestMockupController(unittest.TestCase):
     def test_stop(self):
         robz = bliss.get_axis('robz')
         self.assertEqual(robz.state(), "READY")
-        move_greenlet=robz.move(180, wait=False)
+        move_greenlet = robz.move(180, wait=False)
         self.assertEqual(robz.state(), "MOVING")
         robz.stop()
         self.assertEqual(robz.state(), "READY")
@@ -95,17 +108,17 @@ class TestMockupController(unittest.TestCase):
         roby = bliss.get_axis("roby")
         self.assertEqual(roby.state(), "READY")
         roby.move(0)
-        move_greenlet=roby.move(-180, wait=False)
+        move_greenlet = roby.move(-180, wait=False)
         time.sleep(0)
         self.assertEqual(roby.backlash_move, -182)
         move_greenlet.join()
         self.assertEqual(roby.position(), -180)
-       
+
     def test_backlash2(self):
         roby = bliss.get_axis("roby")
         self.assertEqual(roby.state(), "READY")
         roby.move(0)
-        move_greenlet=roby.move(180, wait=False)
+        move_greenlet = roby.move(180, wait=False)
         time.sleep(0)
         self.assertEqual(roby.backlash_move, 0)
         move_greenlet.join()
@@ -114,11 +127,11 @@ class TestMockupController(unittest.TestCase):
     def test_axis_stepsize(self):
         roby = bliss.get_axis("roby")
         self.assertEqual(roby.state(), "READY")
-        move_greenlet=roby.move(180, wait=False)
+        move_greenlet = roby.move(180, wait=False)
         self.assertEqual(roby.state(), "MOVING")
         move_greenlet.join()
         self.assertEqual(roby.state(), "READY")
-        self.assertEqual(roby.target_pos, roby.step_size()*180)
+        self.assertEqual(roby.target_pos, roby.step_size() * 180)
 
     def test_axis_set_pos(self):
         roby = bliss.get_axis("roby")
@@ -129,14 +142,14 @@ class TestMockupController(unittest.TestCase):
 
     def test_axis_set_velocity(self):
         roby = bliss.get_axis("roby")
-        org  = roby.velocity()
-        vel  = 5000
+        org = roby.velocity()
+        vel = 5000
         self.assertEqual(roby.velocity(vel), vel)
         roby.velocity(org)
 
     def test_axis_set_acctime(self):
         roby = bliss.get_axis("roby")
-        acc   = 0.250
+        acc = 0.250
         self.assertEqual(roby.acctime(acc), acc)
 
     def test_axis_custom_method(self):

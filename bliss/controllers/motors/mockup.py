@@ -1,139 +1,149 @@
 from bliss.controllers.motor import Controller
 from bliss.common.axis import READY, MOVING
-from bliss.common.task_utils import task, error_cleanup, cleanup
 from bliss.controllers.motor import add_axis_method
 import random
 import math
 import time
 
+
 class Mockup(Controller):
-  def __init__(self, name, config, axes):
-    Controller.__init__(self, name, config, axes)
 
-    self._axis_moves = {}
+    def __init__(self, name, config, axes):
+        Controller.__init__(self, name, config, axes)
 
-    # Access to the config.
-    self.config.get("host")
+        self._axis_moves = {}
 
-    # add a setting name 'init_count' of type 'int'
-    self.axis_settings.add('init_count', int)
+        # Access to the config.
+        self.config.get("host")
 
-    # Settings of xml config like "velocity" are automatically added.
+        # add a setting name 'init_count' of type 'int'
+        self.axis_settings.add('init_count', int)
 
-  '''
-  Controller initialization actions.
-  '''
-  def initialize(self):
-    # hardware initialization
-    for axis_name, axis in self.axes.iteritems():
-      axis.settings.set('init_count', 0)
-      # set initial speed
-      axis.settings.set('velocity', axis.config.get("velocity", float))
+        # Settings of xml config like "velocity" are automatically added.
 
+    '''
+    Controller initialization actions.
+    '''
 
-  '''
-  Axes initialization actions.
-  '''
-  def initialize_axis(self, axis):
-    self._axis_moves[axis] = { "end_t": 0, "end_pos": random.randint(0,360) }
+    def initialize(self):
+        # hardware initialization
+        for axis_name, axis in self.axes.iteritems():
+            axis.settings.set('init_count', 0)
+            # set initial speed
+            axis.settings.set('velocity', axis.config.get("velocity", float))
 
-    # this is to test axis are initialized only once
-    axis.settings.set('init_count', axis.settings.get('init_count')+1)
+    '''
+    Axes initialization actions.
+    '''
 
-    # Add new axis oject method.
-    add_axis_method(axis, self.get_identifier)
+    def initialize_axis(self, axis):
+        self._axis_moves[axis] = {
+            "end_t": 0,
+            "end_pos": random.randint(
+                0,
+                360)}
 
+        # this is to test axis are initialized only once
+        axis.settings.set('init_count', axis.settings.get('init_count') + 1)
 
-  '''
-  Actions to perform at controller closing.
-  '''
-  def finalize(self):
-    pass
+        # Add new axis oject method.
+        add_axis_method(axis, self.get_identifier)
 
+    '''
+    Actions to perform at controller closing.
+    '''
 
-  '''
-  '''
-  def start_one(self, motion):
-    axis = motion.axis
-    t0 = time.time()
-    pos = self.position(axis)
-    v = self.velocity(axis)*axis.step_size()
-    self._axis_moves[axis] = { "start_pos": pos,
-                               "delta": motion.delta,
-                               "end_pos": motion.target_pos,
-                               "end_t": t0 + math.fabs(motion.delta)/float(v),
-                               "t0": t0 }
+    def finalize(self):
+        pass
 
+    '''
+    '''
 
-  '''
-  If new_position is passed, set the axis to this position.
-  Always return the position (measured or desired) taken from controller 
-  in steps.
-  '''
-  def position(self, axis, new_position=None, measured=False):
-    if new_position is not None:
-      self._axis_moves[axis]["end_pos"]=new_position
-      self._axis_moves[axis]["end_t"]=0
+    def start_one(self, motion):
+        axis = motion.axis
+        t0 = time.time()
+        pos = self.position(axis)
+        v = self.velocity(axis) * axis.step_size()
+        self._axis_moves[axis] = {
+            "start_pos": pos,
+            "delta": motion.delta,
+            "end_pos": motion.target_pos,
+            "end_t": t0 +
+            math.fabs(
+                motion.delta) /
+            float(v),
+            "t0": t0}
 
-    # Always return position
-    if self._axis_moves[axis]["end_t"]:
-      # motor is moving
-      t = time.time()
-      v = self.velocity(axis)*axis.step_size()
-      d = math.copysign(1, self._axis_moves[axis]["delta"])
-      dt = t - self._axis_moves[axis]["t0"]
-      pos = self._axis_moves[axis]["start_pos"] + d*dt*v
-      return pos
-    else:
-      return self._axis_moves[axis]["end_pos"]
+    '''
+    If new_position is passed, set the axis to this position.
+    Always return the position (measured or desired) taken from controller
+    in steps.
+    '''
 
+    def position(self, axis, new_position=None, measured=False):
+        if new_position is not None:
+            self._axis_moves[axis]["end_pos"] = new_position
+            self._axis_moves[axis]["end_t"] = 0
 
-  '''
-  If new_velocity is passed, set the axis velocity to this value.
-  Always return the current velocity taken from controller 
-  in steps/sec.
-  '''
-  def velocity(self, axis, new_velocity=None):
-    if new_velocity is not None:
-      axis.settings.set('velocity', new_velocity)
+        # Always return position
+        if self._axis_moves[axis]["end_t"]:
+            # motor is moving
+            t = time.time()
+            v = self.velocity(axis) * axis.step_size()
+            d = math.copysign(1, self._axis_moves[axis]["delta"])
+            dt = t - self._axis_moves[axis]["t0"]
+            pos = self._axis_moves[axis]["start_pos"] + d * dt * v
+            return pos
+        else:
+            return self._axis_moves[axis]["end_pos"]
 
-    # Always return velocity.
-    return int(axis.settings.get('velocity'))
+    '''
+    If new_velocity is passed, set the axis velocity to this value.
+    Always return the current velocity taken from controller
+    in steps/sec.
+    '''
 
+    def velocity(self, axis, new_velocity=None):
+        if new_velocity is not None:
+            axis.settings.set('velocity', new_velocity)
 
-  '''
-  If new_acctime is passed, set the axis acceleration time to this value.
-  Always return the current acceleration time taken from controller 
-  in seconds.
-  '''
-  def acctime(self, axis, new_acctime=None):
-    if new_acctime is not None:
-      axis.settings.set('acctime', new_acctime)
+        # Always return velocity.
+        return int(axis.settings.get('velocity'))
 
-    # Always return acceleration time.
-    return float(axis.settings.get('acctime'))
+    '''
+    If new_acctime is passed, set the axis acceleration time to this value.
+    Always return the current acceleration time taken from controller
+    in seconds.
+    '''
 
+    def acctime(self, axis, new_acctime=None):
+        if new_acctime is not None:
+            axis.settings.set('acctime', new_acctime)
 
-  '''
-  '''
-  def state(self, axis):
-    if self._axis_moves[axis]["end_t"] > time.time():
-      return MOVING
-    else:
-      self._axis_moves[axis]["end_t"]=0
-      return READY
+        # Always return acceleration time.
+        return float(axis.settings.get('acctime'))
 
+    '''
+    '''
 
-  '''
-  Must send a command to the controller to abort the motion of given axis.
-  '''
-  def stop(self, axis):
-    self._axis_moves[axis]["end_pos"] = self.position(axis)
-    self._axis_moves[axis]["end_t"]   = 0
+    def state(self, axis):
+        if self._axis_moves[axis]["end_t"] > time.time():
+            return MOVING
+        else:
+            self._axis_moves[axis]["end_t"] = 0
+            return READY
 
+    '''
+    Must send a command to the controller to abort the motion of given axis.
+    '''
 
-  '''
-  Custom axis method returning the current name of the axis
-  '''
-  def get_identifier(self, axis):
-    return axis.name
+    def stop(self, axis):
+        self._axis_moves[axis]["end_pos"] = self.position(axis)
+        self._axis_moves[axis]["end_t"] = 0
+
+    '''
+    Custom axis method returning the current name of the axis
+    '''
+
+    def get_identifier(self, axis):
+        return axis.name

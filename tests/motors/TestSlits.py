@@ -1,9 +1,13 @@
 import unittest
-import time
 import sys
 import os
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.insert(
+    0,
+    os.path.abspath(
+        os.path.join(
+            os.path.dirname(__file__),
+            "..")))
 
 import bliss
 from bliss.common.axis import Axis
@@ -46,34 +50,37 @@ config_xml = """
 </config>
 """
 
+
 class TestSlits(unittest.TestCase):
+
     def setUp(self):
         bliss.load_cfg_fromstring(config_xml)
 
     def testTags(self):
         s1ho = bliss.get_axis("s1ho")
         controller = s1ho.controller
-        for tag, axis_name in {"front":"s1f",
+        for tag, axis_name in {"front": "s1f",
                                "back": "s1b",
                                "up": "s1u",
                                "down": "s1d",
                                "hgap": "s1hg",
                                "hoffset": "s1ho",
                                "vgap": "s1vg",
-                               "voffset": "s1vo" }.iteritems():
-          self.assertEquals(controller._tagged[tag][0].name, axis_name)
-                   
+                               "voffset": "s1vo"}.iteritems():
+            self.assertEquals(controller._tagged[tag][0].name, axis_name)
+
     def testRealTags(self):
         s1ho = bliss.get_axis("s1ho")
         controller = s1ho.controller
-        self.assertEquals([x.name for x in controller._tagged["real"]], ["s1f", "s1b", "s1u", "s1d"])
+        self.assertEquals(
+            [x.name for x in controller._tagged["real"]],
+            ["s1f", "s1b", "s1u", "s1d"])
 
     def testHasTag(self):
         self.assertTrue(bliss.get_axis("s1ho").has_tag("hoffset"))
         self.assertFalse(bliss.get_axis("s1ho").has_tag("vgap"))
         self.assertFalse(bliss.get_axis("s1vg").has_tag("real"))
         self.assertTrue(bliss.get_axis("s1u").has_tag("real"))
-
 
     def testRealsList(self):
         s1ho = bliss.get_axis("s1ho")
@@ -88,7 +95,7 @@ class TestSlits(unittest.TestCase):
         self.assertTrue(all([isinstance(x, Axis) for x in controller.pseudos]))
 
     def testPseudoAxisAreExported(self):
-        self.assertTrue(all((bliss.get_axis("s1vg"), 
+        self.assertTrue(all((bliss.get_axis("s1vg"),
                              bliss.get_axis("s1vo"),
                              bliss.get_axis("s1hg"),
                              bliss.get_axis("s1ho"))))
@@ -104,8 +111,9 @@ class TestSlits(unittest.TestCase):
     def testPseudoAxisState(self):
         self.testPseudoAxisAreExported()
         controller = bliss.config.motors["test"]["object"]
-        self.assertTrue(all([axis.state()=='READY' for axis in controller.pseudos]))
-       
+        self.assertTrue(
+            all([axis.state() == 'READY' for axis in controller.pseudos]))
+
     def testPseudoAxisPosition(self):
         self.testPseudoAxisAreExported()
         controller = bliss.config.motors["test"]["object"]

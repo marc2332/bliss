@@ -3,7 +3,12 @@ import sys
 import os
 import time
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.insert(
+    0,
+    os.path.abspath(
+        os.path.join(
+            os.path.dirname(__file__),
+            "..")))
 
 import bliss
 
@@ -29,6 +34,7 @@ config_xml = """
   </controller>
 </config>
 """
+
 
 class TestPI_E517Controller(unittest.TestCase):
 
@@ -62,7 +68,8 @@ class TestPI_E517Controller(unittest.TestCase):
 
     def test_get_closed_loop_status(self):
         pz = bliss.get_axis("pz")
-        print "E517 pz closed loop enabled :", pz.controller._get_closed_loop_status(pz)
+        print "E517 pz closed loop enabled :", \
+              pz.controller._get_closed_loop_status(pz)
 
     def test_get_on_target_status(self):
         pz = bliss.get_axis("pz")
@@ -119,4 +126,3 @@ c=get_axis("pz")
 
 
 '''
-

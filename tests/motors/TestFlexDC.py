@@ -7,7 +7,12 @@ import sys
 import os
 import time
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.insert(
+    0,
+    os.path.abspath(
+        os.path.join(
+            os.path.dirname(__file__),
+            "..")))
 
 import bliss
 
@@ -28,6 +33,7 @@ config_xml = """
   </controller>
 </config>
 """
+
 
 class TestFlexDCController(unittest.TestCase):
 
@@ -58,13 +64,13 @@ class TestFlexDCController(unittest.TestCase):
     def test_velocity(self):
         fd = bliss.get_axis("fd")
         _read_vel = fd.velocity()
-        print "FlexDC read velocity :",  _read_vel
+        print "FlexDC read velocity :", _read_vel
         self.assertEqual(_read_vel, 1234)
 
     def test_acceleration(self):
         fd = bliss.get_axis("fd")
         _read_acc = fd.settings.get("acceleration")
-        print "FlexDC read acceleration :",  _read_acc
+        print "FlexDC read acceleration :", _read_acc
         self.assertEqual(_read_acc, 1111)
 
     def test_get_info(self):
@@ -87,7 +93,6 @@ class TestFlexDCController(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-
 
 
 '''

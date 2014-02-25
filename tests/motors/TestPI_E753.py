@@ -2,7 +2,12 @@ import unittest
 import sys
 import os
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.insert(
+    0,
+    os.path.abspath(
+        os.path.join(
+            os.path.dirname(__file__),
+            "..")))
 
 import bliss
 
@@ -15,6 +20,7 @@ config_xml = """
   </controller>
 </config>
 """
+
 
 class TestPI_E753Controller(unittest.TestCase):
 
@@ -42,7 +48,7 @@ class TestPI_E753Controller(unittest.TestCase):
         pz = bliss.get_axis("pz")
         print "E753 INFOS :\n", pz.controller._get_infos()
 
-#    # called at end of each test
+# called at end of each test
 #    def tearDown(self):
 #        self.pz.controller.sock.close()
 

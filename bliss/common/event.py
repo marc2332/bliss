@@ -17,6 +17,8 @@ import sys
 # the behaviour we want ; it's not because a receiver doesn't handle a
 # signal properly that the whole chain should stop
 robustapply._robust_apply = robustapply.robust_apply
+
+
 def __my_robust_apply(*args, **kwargs):
     try:
         return robustapply._robust_apply(*args, **kwargs)
@@ -29,9 +31,10 @@ else:
 del louie
 del __my_robust_apply
 
+
 def send(sender, signal, *args, **kwargs):
     dispatcher.send(signal, sender, *args, **kwargs)
 
+
 def connect(sender, signal, callback):
     dispatcher.connect(callback, signal, sender)
- 

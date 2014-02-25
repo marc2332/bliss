@@ -143,24 +143,24 @@ class PI_E753(Controller):
         Can be helpful to tune the device.
         '''
         _infos = [
-            ("Identifier                                 ", "IDN?\n"),
-            ("Com level                                    ", "CCL?\n"),
-            ("Real Position                            ", "POS?\n"),
-            ("Setpoint Position                    ", "MOV?\n"),
-            ("Position low limit                 ", "SPA? 1 0x07000000\n"),
-            ("Position High limit                ", "SPA? 1 0x07000001\n"),
-            ("Velocity                                     ", "VEL?\n"),
-            ("On target                                    ", "ONT?\n"),
-            ("Target tolerance                     ", "SPA? 1 0X07000900\n"),
-            ("Settling time                        ", "SPA? 1 0X07000901\n"),
-            ("Sensor Offset                        ", "SPA? 1 0x02000200\n"),
-            ("Sensor Gain                          ", "SPA? 1 0x02000300\n"),
-            ("Motion status                        ", "#5\n"),
-            ("Closed loop status                 ", "SVO?\n"),
-            ("Auto Zero Calibration ?        ", "ATZ?\n"),
-            ("Analog input setpoint            ", "AOS?\n"),
-            ("Low    Voltage Limit                 ", "SPA? 1 0x07000A00\n"),
-            ("High Voltage Limit                 ", "SPA? 1 0x07000A01\n")
+            ("Identifier                 ", "IDN?\n"),
+            ("Com level                  ", "CCL?\n"),
+            ("Real Position              ", "POS?\n"),
+            ("Setpoint Position          ", "MOV?\n"),
+            ("Position low limit         ", "SPA? 1 0x07000000\n"),
+            ("Position High limit        ", "SPA? 1 0x07000001\n"),
+            ("Velocity                   ", "VEL?\n"),
+            ("On target                  ", "ONT?\n"),
+            ("Target tolerance           ", "SPA? 1 0X07000900\n"),
+            ("Settling time              ", "SPA? 1 0X07000901\n"),
+            ("Sensor Offset              ", "SPA? 1 0x02000200\n"),
+            ("Sensor Gain                ", "SPA? 1 0x02000300\n"),
+            ("Motion status              ", "#5\n"),
+            ("Closed loop status         ", "SVO?\n"),
+            ("Auto Zero Calibration ?    ", "ATZ?\n"),
+            ("Analog input setpoint      ", "AOS?\n"),
+            ("Low    Voltage Limit       ", "SPA? 1 0x07000A00\n"),
+            ("High Voltage Limit         ", "SPA? 1 0x07000A01\n")
         ]
 
         _txt = ""

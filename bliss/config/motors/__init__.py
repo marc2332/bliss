@@ -1,6 +1,7 @@
 import sys
 import os
-from bliss.common.axis import Axis, AxisRef, Group
+from bliss.common.axis import Axis, AxisRef
+from bliss.controllers.motor_group import Group
 
 BACKEND = 'xml'
 
@@ -71,9 +72,9 @@ def get_axis_class(axis_class_name, axis_modules_path=AXIS_MODULES_PATH):
 def add_controller(
         controller_name,
         controller_config,
-        controller_class,
-        controller_axes):
-    axes = []
+        controller_axes,
+        controller_class):
+    axes = list()
     for axis_name, axis_class_name, axis_config in controller_axes:
         if not CONTROLLER_BY_AXIS.get(axis_name):
             # new axis
@@ -94,9 +95,17 @@ def add_controller(
                                     "initialized": False}
 
 
-def add_group(group_name, group_config, group_class=Group):
-    global GROUPS
-    GROUPS[group_name] = {"object": group_class(group_name, group_config)}
+def add_group(group_name, group_config, group_axes, group_class=Group):
+    axes = list()
+    for axis_name, axis_class_name, axis_config in group_axes:
+      if CONTROLLER_BY_AXIS.get(axis_name):
+        # existing axis, good
+        axes.append((axis_name, axis_config))
+
+    GROUPS[group_name] = {"object": group_class(group_name, 
+                                                group_config,
+                                                axes),
+                          "initialized": False }
 
 
 def get_axis(axis_name):
@@ -143,7 +152,13 @@ def get_group(group_name):
     except KeyError:
         raise RuntimeError("no group '%s` in config" % group_name)
 
-    return group["object"]
+    group_instance = group["object"]
+
+    if not group["initialized"]:
+        group_instance._update_refs()
+        group["initialized"] = True
+
+    return group_instance
 
 
 def clear_cfg():

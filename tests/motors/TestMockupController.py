@@ -1,4 +1,5 @@
 import unittest
+import gevent
 import time
 import sys
 import os
@@ -32,10 +33,6 @@ config_xml = """
       <velocity  value="2500"/>
     </axis>
   </controller>
-  <group name="group1">
-    <axis name="robz"/>
-    <axis name="roby"/>
-  </group>
 </config>
 """
 
@@ -67,7 +64,7 @@ class TestMockupController(unittest.TestCase):
 
     def setUp(self):
         bliss.load_cfg_fromstring(config_xml)
-
+    
     def test_get_axis(self):
         robz = bliss.get_axis("robz")
         self.assertTrue(robz)
@@ -79,10 +76,6 @@ class TestMockupController(unittest.TestCase):
     def test_controller_from_axis(self):
         robz = bliss.get_axis("robz")
         self.assertEqual(robz.controller.name, "test")
-
-    def test_group_creation(self):
-        grp = bliss.get_group("group1")
-        self.assertTrue(grp)
 
     def test_axis_move(self):
         robz = bliss.get_axis("robz")
@@ -159,6 +152,16 @@ class TestMockupController(unittest.TestCase):
     def test_axis_config_velocity(self):
         roby = bliss.get_axis("roby")
         self.assertEqual(roby.velocity(), roby.config.get("velocity", int))
+    
+    def test_ctrlc(self):
+        robz = bliss.get_axis("robz")
+        final_pos = robz.position()+100
+        move_greenlet = robz.move(final_pos, wait=False)
+        self.assertEqual(robz.state(), "MOVING")
+        gevent.sleep(0.5)
+        move_greenlet.kill(KeyboardInterrupt)
+        self.assertEqual(robz.state(), "READY")
+        self.assertTrue(robz.position() < final_pos)
 
 if __name__ == '__main__':
     unittest.main()

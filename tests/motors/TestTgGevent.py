@@ -59,7 +59,6 @@ class TestThread(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        print 'hello'
         TgGevent.execute("exit")
 
 if __name__ == '__main__':

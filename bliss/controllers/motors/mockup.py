@@ -56,12 +56,14 @@ class Mockup(Controller):
     def finalize(self):
         pass
 
-    '''
-    '''
-
-    def start_one(self, motion):
-        axis = motion.axis
+    def start_all(self, *motion_list):
         t0 = time.time()
+        for motion in motion_list:
+          self.start_one(motion, t0=t0)
+
+    def start_one(self, motion, t0=None):
+        axis = motion.axis
+        t0 = t0 or time.time()
         pos = self.position(axis)
         v = self.velocity(axis) * axis.step_size()
         self._axis_moves[axis] = {

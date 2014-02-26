@@ -72,14 +72,14 @@ def _load_config(config_tree):
         add_controller(
             controller_name,
             XmlDictConfig(controller_config),
-            controller_class,
-            load_axes(controller_config))
+            load_axes(controller_config),
+            controller_class)
 
     for group_node in config_tree.findall("group"):
         group_name = group_node.get('name')
         if group_name is None:
             raise RuntimeError("%s: group with no name" % group_node)
-        add_group(group_name, XmlDictConfig(group_node))
+        add_group(group_name, XmlDictConfig(group_node), load_axes(group_node))
 
 
 def load_axes(config_node):

@@ -188,10 +188,10 @@ class Axis(object):
     def wait_move(self):
         self.__move_done.wait()
 
-    def stop(self):
+    def stop(self): 
         if self.is_moving:
-            self.__controller.stop(self)
-            self.wait_move()
+            self.__controller.stop(self) 
+            self.__move_done.set()
 
 
 class AxisRef(object):
@@ -200,21 +200,6 @@ class AxisRef(object):
         self.__name = name
         self.__config = config
         self.settings = Axis.Settings()
-
-    @property
-    def name(self):
-        return self.__name
-
-    @property
-    def config(self):
-        return self.__config
-
-
-class Group(object):
-
-    def __init__(self, name, config):
-        self.__name = name
-        self.__config = StaticConfig(config)
 
     @property
     def name(self):

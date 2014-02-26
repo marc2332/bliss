@@ -15,8 +15,6 @@ class cleanup:
     def __exit__(self, exc_type, value, traceback):
         if self.cleanup_funcs:
             for cleanup_func in self.cleanup_funcs:
-                if not callable(cleanup_func):
-                    continue
                 try:
                     cleanup_func(**self.keys)
                 except:
@@ -41,9 +39,6 @@ class error_cleanup:
         if exc_type is not None:
             if self.error_funcs:
                 for error_func in self.error_funcs:
-                    if not callable(error_func):
-                        continue
-                    return
                     try:
                         error_func(**self.keys)
                     except:

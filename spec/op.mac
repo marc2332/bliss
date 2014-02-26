@@ -2,7 +2,7 @@
 #%MDESC%
 # Basic setup
 #
-def opsetup '{
+def opsetupmux '{
   if($# < 1)
   {
    print "Usage: $0 TANGO_URL\n"

@@ -11,7 +11,6 @@ wire [2:0]SEL_SHUTTER;
 reg ITRIG;
 wire [1:0]SEL_ITRIG;
 reg STEP_OUT;
-wire [1:0]SEL_STEP_OUT;
 // MUSST outputs -> OPIOM inputs
 wire ATRIG;
 wire BTRIG;
@@ -21,7 +20,6 @@ wire TRIG_IN,MUSST_TRIG;
 //COUNTER
 wire COUNTERS_IN;
 reg COUNTERS_OUT;
-wire SEL_COUNTERS_CARD;
 
 // MCA DETECTORS;
 wire TRIG_OUT_MCA1;
@@ -39,6 +37,12 @@ wire STEP_MOT1,STEP_MOT3,STEP_MOT4;
 reg BOOST_OUT;
 wire BOOST_MOT1,BOOST_MOT2,BOOST_MOT3,BOOST_MOT4;
 
+//Clock
+
+reg   [7:0]CLK_64K;
+reg   [2:0]TIMER_PHOTONIC;
+wire  CLK_62K5;
+reg  TRIG_PHOTONIC;
 /////////////////////////////////
 
 assign ATRIG   			= I1;   		// Input from Musst ATRIG.
@@ -165,6 +169,27 @@ assign TRIG_OUT_MCA1 = SEL_MCA1 ? TRIG_IN : 1'b0;
 ////////////////////////////////////////////////////////////////////////////////
 assign TRIG_OUT_CAM1 = SEL_CAM1 ? TRIG_IN : 1'b0;
 assign TRIG_OUT_CAM2 = SEL_CAM2 ? TRIG_IN : 1'b0;
-assign TRIG_OUT_CAM3 = SEL_CAM3 ? TRIG_IN : 1'b0;
-assign TRIG_OUT_CAM4 = SEL_CAM4 ? TRIG_IN : 1'b0;
+assign TRIG_OUT_CAM3 = SEL_CAM3 ? TRIG_PHOTONIC : 1'b0;
+assign TRIG_OUT_CAM4 = SEL_CAM4 ? TRIG_PHOTONIC : 1'b0;
    
+always @(posedge CLK16)
+   CLK_64K <= CLK_64K + 1;
+
+
+assign CLK_62K5 = CLK_64K[7];
+
+always @(posedge TRIG_IN or posedge CLK_62K5)
+  begin
+     if(TRIG_IN)
+       TIMER_PHOTONIC <= 3'b111;
+     else
+       TIMER_PHOTONIC<= TIMER_PHOTONIC - 1;
+  end
+
+always @(posedge TRIG_IN or negedge CLK_62K5)
+  begin
+     if(TRIG_IN)
+       TRIG_PHOTONIC = 1'b1;
+     eles if(TIMER_PHOTONIC == 3'b000)
+       TRIG_PHOTONIC = 1'b0;
+  end

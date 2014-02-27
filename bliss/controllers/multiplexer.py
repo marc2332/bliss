@@ -3,7 +3,7 @@ import ConfigDict
 import os
 import struct
 
-PROGRAM_BASE_PATH='/users/blissadm/local/isg/opiom'
+OPIOM_BASE_PATH='/users/blissadm/local/isg/opiom'
 
 class OpiomComm:
     FSIZE = 256
@@ -13,6 +13,7 @@ class OpiomComm:
         self.__ser.flushInput()
         self.__ser.timeout = 1
         self.__program = program
+        self.__debug = False
         msg = self.comm("?VER")
         if not msg.startswith('OPIOM') :
             raise IOError("No opiom connected at %s" % serial)
@@ -20,9 +21,22 @@ class OpiomComm:
         
     def __repr__(self) :
         return "Opiom : %s with program %s" % (self.__ser,self.__program)
-    
+   
+    def setDebug(self, flag) :
+        self.__debug = flag is True 
+
+    def getDebug(self):
+        return self.__debug
+
+    def __debugMsg(self, wr, msg):
+        if self.__debug:
+            print "%-5.5s on %s > %s"%(wr, self.__ser.name, msg)
+
     def info(self) :
         return self.comm("?INFO")
+
+    def source(self) :
+        return self.comm("?SRC")
 
     def prog(self) :
         info = self.info()
@@ -63,6 +77,7 @@ class OpiomComm:
         self._display_bits('OB',output_back)
         
     def _write(self,msg) :
+        self.__debugMsg("Write", msg)
         msg += '\r\n'
         self.__ser.write(msg)
 
@@ -85,8 +100,10 @@ class OpiomComm:
                 msgPart = self.__ser.readline()
                 if not msgPart or msgPart.startswith('$') :
                     break
+                self.__debugMsg("Read", msgPart.strip('\n\r'))
                 msgLine.append(msgPart.strip('\n\r'))
             return '\n'.join(msgLine)
+        self.__debugMsg("Read", msg.strip('\n\r'))
         return msg.strip('\r\n')
 
     def comm_ack(self,msg) :
@@ -145,8 +162,8 @@ class OpiomComm:
         print
     
     def _getoffset(self) :
-        f = file(os.path.join(PROGRAM_BASE_PATH,self.__program + '.opm'))
-        line = f.readline()
+        f = file(os.path.join(OPIOM_BASE_PATH,self.__program + '.opm'))
+        line = f.read(14)
         f.seek(0)
         opmfile = f.read() 
         size = f.tell()
@@ -159,7 +176,7 @@ class OpiomComm:
         TOKEN = '#pldid#'
         PROJECT_TOKEN= '#project#'
         
-        f = file(os.path.join(PROGRAM_BASE_PATH,self.__program + '.opm'))
+        f = file(os.path.join(OPIOM_BASE_PATH,self.__program + '.opm'))
         begin = -1
         for line in f:
             begin = line.find(TOKEN)
@@ -250,7 +267,12 @@ class Multiplexer:
         self._opioms = {}
         self.__outputs = {}
 
-        config = ConfigDict.ConfigDict(filelist=[configFile])
+        if not os.path.isfile(configFile):
+            self.__configFilePath= "%s/%s"%(OPIOM_BASE_PATH, configFile)
+        else:
+            self.__configFilePath= configFile
+            
+        config = ConfigDict.ConfigDict(filelist=[self.__configFilePath])
         for key,value in config.iteritems() :
             key = key.upper()
             if key.startswith('OPIOM') :
@@ -258,9 +280,9 @@ class Multiplexer:
             else:
                 self.__outputs[key] = Output(self,**value)
 
-        baspath,configFilename = os.path.split(configFile)
+        basepath,configFilename = os.path.split(self.__configFilePath)
         basefilename,ext = os.path.splitext(configFilename)
-        self.__statFilePath = os.path.join(baspath,"%s_saves_stats%s" % (basefilename,ext))
+        self.__statFilePath = os.path.join(basepath,"%s_saved_stats%s" % (basefilename,ext))
         statConfig = ConfigDict.ConfigDict(filelist=[self.__statFilePath])
         self.__stat = {}
         for statname,d in statConfig.get(self.SAVED_STATS_KEY,{}).iteritems() :
@@ -272,7 +294,19 @@ class Multiplexer:
                     continue
                 tmpDict[opiomId] = registerValues
             self.__stat[statname] = tmpDict
-        
+        self.__debug= False
+
+    def setDebug(self, flag):
+        self.__debug= flag is True
+        for opiom in self._opioms.itervalues():
+            opiom.setDebug(self.__debug)
+
+    def getDebug(self):
+        return self.__debug
+    
+    def getConfigPath(self) :
+        return [self.__configFilePath, self.__statFilePath]
+
     def getOutputList(self) :
         return self.__outputs.keys()
 
@@ -290,6 +324,8 @@ class Multiplexer:
     def switch(self,output_key,input_key,synchronous = False):
         output_key = output_key.upper()
         input_key = input_key.upper()
+        if self.__debug:
+            print "Multiplexer.switch %s to %s"%(output_key, input_key)
         try:
             output = self.__outputs[output_key]
         except KeyError:
@@ -314,6 +350,8 @@ class Multiplexer:
     
     def getOutputStat(self,output_key) :
         output_key = output_key.upper()
+        if self.__debug:
+            print "Multiplexer.getOutputStat %s"%output_key
         output = self.__outputs[output_key]
         opiomRegister = {}
         for opiomId,comm in self._opioms.iteritems() :
@@ -366,6 +404,8 @@ class Multiplexer:
         statConfig.write(self.__statFilePath)
 
     def getGlobalStat(self) :
+        if self.__debug:
+            print "Multiplexer.getGlobalStat"
         opiomRegister = {}
         for opiomId,comm in self._opioms.iteritems() :
             comm._ask_register_values()
@@ -380,6 +420,23 @@ class Multiplexer:
         for opiom in self._opioms.values() :
             opiom.load_program()
 
+    def getOpiomProg(self) :
+        progs= {}
+        for opiomId,comm in self._opioms.iteritems() :
+            progs[opiomId]= comm.prog()
+        return progs
+
+    def dumpOpiomSource(self, opiomId) :
+        try:
+            com= self._opioms[opiomId]
+        except KeyError:
+            raise ValueError("Multiplexer do not have opiomId %d" % opiomId)
+
+        print "OPIOMID:", opiomId
+        print "Prog.Source:"
+        print com.source()
+        print "End of Prog.Source."
+        
 def getOpiomId(opiomKey) :
     try:
         return int(opiomKey[5:])

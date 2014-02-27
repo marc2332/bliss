@@ -30,6 +30,24 @@ class Multiplexer(PyTango.Device_4Impl) :
             returnList.extend(item)
         attr.set_value(returnList)
 
+    def read_config_path(self,attr) :
+        attr.set_value(self.__multiplexer.getConfigPath())
+        
+
+    def read_opiom_prog(self,attr) :
+        returnList = []
+        print self.__multiplexer.getOpiomProg()
+        for id,val in self.__multiplexer.getOpiomProg().iteritems():
+            returnList.append("%d : %s"%(id,val))
+        attr.set_value(returnList)
+
+    def read_debug(self,attr) :
+        attr.set_value(self.__multiplexer.getDebug())
+
+    def write_debug(self,attr) :
+        data= attr.get_write_value()
+        self.__multiplexer.setDebug(data)
+
     def switch(self,values) :
         self.__multiplexer.switch(*values)
 
@@ -51,8 +69,12 @@ class Multiplexer(PyTango.Device_4Impl) :
     def getSavedStats(self):
         return self.__multiplexer.getSavedStats()
 
-    def removedSavedStat(self,stat) :
+    def removeSavedStat(self,stat) :
         self.__multiplexer.rmStat(stat)
+
+    def dumpOpiomSource(self,opiomId) :
+        self.__multiplexer.dumpOpiomSource(opiomId)
+
         
 class MultiplexerClass(PyTango.DeviceClass) :
     #    Class Properties
@@ -84,15 +106,18 @@ class MultiplexerClass(PyTango.DeviceClass) :
         'getSavedStats':
         [[PyTango.DevVoid,""],
          [PyTango.DevVarStringArray,"saved stats"]],
-        'removedSavedStat':
-        [[PyTango.DevString,"stat"],
+        'removeSavedStat':
+        [[PyTango.DevString,"stat_name"],
          [PyTango.DevVoid,""]],
         'storeCurrentStat':
-        [[PyTango.DevString,"stat"],
+        [[PyTango.DevString,"stat_name"],
          [PyTango.DevVoid,'']],
         'restoreStat':
-        [[PyTango.DevString,"stat"],
+        [[PyTango.DevString,"stat_name"],
          [PyTango.DevVoid,'']],
+        'dumpOpiomSource':
+        [[PyTango.DevShort,"opiomid"],
+         [PyTango.DevVoid,'']]
         }
 
     #    Attribute definitions
@@ -109,6 +134,18 @@ class MultiplexerClass(PyTango.DeviceClass) :
         [[PyTango.DevString,
           PyTango.SPECTRUM,
           PyTango.READ,2048]],
+        'config_path' :
+        [[PyTango.DevString,
+          PyTango.SPECTRUM,
+          PyTango.READ,2]],
+        'opiom_prog' :
+        [[PyTango.DevString,
+          PyTango.SPECTRUM,
+          PyTango.READ,32]],
+        'debug' :
+        [[PyTango.DevBoolean,
+          PyTango.SCALAR,
+          PyTango.READ_WRITE]],
         }
  
     

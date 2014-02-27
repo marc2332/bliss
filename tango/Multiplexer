@@ -2,6 +2,6 @@
 
 . blissrc
 
-bash_path=${BLISSADM}/server/src/Mutliplexer_src
+bash_path=${BLISSADM}/server/src/Multiplexer_src
 cd $bash_path
 exec python Multiplexer.py $*

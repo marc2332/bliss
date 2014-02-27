@@ -98,14 +98,14 @@ def add_controller(
 def add_group(group_name, group_config, group_axes, group_class=Group):
     axes = list()
     for axis_name, axis_class_name, axis_config in group_axes:
-      if CONTROLLER_BY_AXIS.get(axis_name):
+        if CONTROLLER_BY_AXIS.get(axis_name):
         # existing axis, good
-        axes.append((axis_name, axis_config))
+            axes.append((axis_name, axis_config))
 
-    GROUPS[group_name] = {"object": group_class(group_name, 
+    GROUPS[group_name] = {"object": group_class(group_name,
                                                 group_config,
                                                 axes),
-                          "initialized": False }
+                          "initialized": False}
 
 
 def get_axis(axis_name):

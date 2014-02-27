@@ -11,7 +11,6 @@ sys.path.insert(
             "..")))
 
 import bliss
-from bliss.controllers.motor_group import Group
 
 config_xml = """
 <config>
@@ -64,13 +63,16 @@ class TestGroup(unittest.TestCase):
 
         target_robz = robz_pos + 50
         target_roby = roby_pos + 50
-        
-        move_greenlet = grp.move(robz=target_robz, roby=target_roby, wait=False)
-         
+
+        move_greenlet = grp.move(
+            robz=target_robz,
+            roby=target_roby,
+            wait=False)
+
         self.assertEqual(grp.state(), "MOVING")
         self.assertEqual(robz.state(), "MOVING")
         self.assertEqual(roby.state(), "MOVING")
-        
+
         move_greenlet.join()
 
         self.assertEqual(robz.state(), "READY")
@@ -82,7 +84,7 @@ class TestGroup(unittest.TestCase):
         roby = bliss.get_axis("roby")
         robz = bliss.get_axis("robz")
         self.assertEqual(robz.state(), "READY")
-        move_greenlet = grp.move(robz=0, roby=0, wait=False)
+        grp.move(robz=0, roby=0, wait=False)
         self.assertEqual(grp.state(), "MOVING")
         grp.stop()
         self.assertEqual(grp.state(), "READY")
@@ -100,7 +102,14 @@ class TestGroup(unittest.TestCase):
         self.assertEqual(grp.state(), "READY")
         self.assertEqual(robz.state(), "READY")
         self.assertEqual(roby.state(), "READY")
- 
+
+    def test_position_reading(self):
+        grp = bliss.get_group("group1")
+        positions_dict = grp.position()
+        for axis_name, axis_pos in positions_dict.iteritems():
+          group_axis = bliss.get_axis(axis_name)
+          self.assertEqual(group_axis.position(), axis_pos) 
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -188,9 +188,9 @@ class Axis(object):
     def wait_move(self):
         self.__move_done.wait()
 
-    def stop(self): 
+    def stop(self):
         if self.is_moving:
-            self.__controller.stop(self) 
+            self.__controller.stop(self)
             self.__move_done.set()
 
 

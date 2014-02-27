@@ -59,7 +59,7 @@ class Mockup(Controller):
     def start_all(self, *motion_list):
         t0 = time.time()
         for motion in motion_list:
-          self.start_one(motion, t0=t0)
+            self.start_one(motion, t0=t0)
 
     def start_one(self, motion, t0=None):
         axis = motion.axis

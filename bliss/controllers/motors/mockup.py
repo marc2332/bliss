@@ -143,6 +143,11 @@ class Mockup(Controller):
         self._axis_moves[axis]["end_pos"] = self.position(axis)
         self._axis_moves[axis]["end_t"] = 0
 
+    def stop_all(self):
+        for axis, axis_move in self._axis_moves.iteritems():
+            axis_move["end_pos"] = self.position(axis)
+            axis_move["end_t"] = 0
+
     '''
     Custom axis method returning the current name of the axis
     '''

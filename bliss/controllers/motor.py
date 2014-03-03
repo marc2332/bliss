@@ -2,7 +2,7 @@ import types
 import functools
 from bliss.config.motors.static import StaticConfig
 from bliss.controllers.motor_settings import AxisSettings
-from bliss.common.axis import Motion, AxisRef, MOVING, READY, FAULT, UNKNOWN
+from .axis import Motion, AxisRef, MOVING, READY, FAULT
 from bliss.config.motors import get_axis
 from bliss.common import event
 
@@ -114,6 +114,9 @@ class Controller(object):
         raise NotImplementedError
 
     def stop(self, axis):
+        raise NotImplementedError
+
+    def stop_all(self):
         raise NotImplementedError
 
     def position(self, axis, new_pos=None, measured=False):

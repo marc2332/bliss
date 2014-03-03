@@ -17,6 +17,7 @@ class Group(object):
         self.__name = name
         self.__config = StaticConfig(config)
         self._axes = dict()
+        self._motions_dict = dict()
 
         for axis_name, axis_config in axes:
             axis = AxisRef(axis_name, self, axis_config)
@@ -56,8 +57,17 @@ class Group(object):
             return UNKNOWN
 
     def stop(self):
-        for axis in self.axes.itervalues():
-            axis.stop()
+        try:
+            for controller, motions in self._motions_dict.iteritems():
+                try:
+                    controller.stop_all()
+                except NotImplementedError:
+                    for motion in motions:
+                        motion.axis.stop()
+            for controller, motions in self._motions_dict.iteritems():
+                [motion.axis.wait_move() for motion in motions]
+        finally:
+            self._reset_motions_dict()
 
     def position(self):
         positions_dict = dict()
@@ -80,10 +90,15 @@ class Group(object):
         kwargs["relative"] = True
         return self.move(*args, **kwargs)
 
+    def _reset_motions_dict(self):
+        self._motions_dict = dict()
+
     def move(self, *args, **kwargs):
         initial_state = self.state()
         if initial_state != READY:
             raise RuntimeError("all motors are not ready")
+
+        self._reset_motions_dict()
 
         try:
             wait = kwargs['wait']
@@ -106,9 +121,8 @@ class Group(object):
             for axis, target_pos in grouped(args, 2):
                 axis_name_pos_dict[axis] = target_pos
 
-        motions_dict = dict()
         for axis, target_pos in axis_name_pos_dict.iteritems():
-            motions_dict.setdefault(
+            self._motions_dict.setdefault(
                 axis.controller,
                 []).append(
                 axis.prepare_move(
@@ -117,7 +131,7 @@ class Group(object):
             axis._Axis__move_done.clear()
 
         all_motions = []
-        for controller, motions in motions_dict.iteritems():
+        for controller, motions in self._motions_dict.iteritems():
             try:
                 controller.start_all(*motions)
             except NotImplementedError:

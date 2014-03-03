@@ -1,8 +1,14 @@
 import gevent
+import itertools
 from bliss.common.task_utils import *
 from bliss.config.motors.static import StaticConfig
-import types
 from bliss.common.axis import AxisRef, READY, MOVING, FAULT, UNKNOWN
+
+
+def grouped(iterable, n):
+    """s -> (s0,s1,s2,...sn-1), (sn,sn+1,sn+2,...s2n-1),
+            (s2n,s2n+1,s2n+2,...s3n-1), ..."""
+    return itertools.izip(*[iter(iterable)] * n)
 
 
 class Group(object):
@@ -56,8 +62,8 @@ class Group(object):
     def position(self):
         positions_dict = dict()
         for axis in self.axes.itervalues():
-          positions_dict[axis.name]=axis.position()
-        return positions_dict    
+            positions_dict[self._axes[axis.name]] = axis.position()
+        return positions_dict
 
     @task
     def _handle_move(self, motions):
@@ -92,22 +98,16 @@ class Group(object):
         else:
             del kwargs['relative']
 
-        axis_name_pos_dict = kwargs
+        axis_name_pos_dict = dict()
 
-        if len(args) > 1:
-            raise RuntimeError("Too many arguments")
-        elif len(args) == 1:
-            if isinstance(args[0], types.DictType):
-                axis_name_pos_dict.update(args[0])
-            else:
-                raise ValueError(
-                    "Dictionary { axis_name: target_pos } is expected")
+        if len(args) == 1:
+            axis_name_pos_dict.update(args[0])
+        else:
+            for axis, target_pos in grouped(args, 2):
+                axis_name_pos_dict[axis] = target_pos
 
         motions_dict = dict()
-        for axis_name, target_pos in axis_name_pos_dict.iteritems():
-            if not axis_name in self._axes:
-                continue
-            axis = self._axes[axis_name]
+        for axis, target_pos in axis_name_pos_dict.iteritems():
             motions_dict.setdefault(
                 axis.controller,
                 []).append(

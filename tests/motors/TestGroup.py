@@ -65,8 +65,8 @@ class TestGroup(unittest.TestCase):
         target_roby = roby_pos + 50
 
         move_greenlet = grp.move(
-            robz=target_robz,
-            roby=target_roby,
+            robz, target_robz,
+            roby, target_roby,
             wait=False)
 
         self.assertEqual(grp.state(), "MOVING")
@@ -84,7 +84,7 @@ class TestGroup(unittest.TestCase):
         roby = bliss.get_axis("roby")
         robz = bliss.get_axis("robz")
         self.assertEqual(robz.state(), "READY")
-        grp.move(robz=0, roby=0, wait=False)
+        grp.move({robz: 0, roby: 0}, wait=False)
         self.assertEqual(grp.state(), "MOVING")
         grp.stop()
         self.assertEqual(grp.state(), "READY")
@@ -96,7 +96,7 @@ class TestGroup(unittest.TestCase):
         roby = bliss.get_axis("roby")
         robz = bliss.get_axis("robz")
         self.assertEqual(robz.state(), "READY")
-        move_greenlet = grp.move(robz=0, roby=0, wait=False)
+        move_greenlet = grp.move({robz: 0, roby: 0}, wait=False)
         time.sleep(0.01)
         move_greenlet.kill()
         self.assertEqual(grp.state(), "READY")
@@ -106,9 +106,10 @@ class TestGroup(unittest.TestCase):
     def test_position_reading(self):
         grp = bliss.get_group("group1")
         positions_dict = grp.position()
-        for axis_name, axis_pos in positions_dict.iteritems():
-          group_axis = bliss.get_axis(axis_name)
-          self.assertEqual(group_axis.position(), axis_pos) 
+        for axis, axis_pos in positions_dict.iteritems():
+            group_axis = bliss.get_axis(axis.name)
+            self.assertEqual(axis, group_axis)
+            self.assertEqual(axis.position(), axis_pos)
 
 
 if __name__ == '__main__':

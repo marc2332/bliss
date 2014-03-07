@@ -60,7 +60,7 @@ class Group(object):
         try:
             for controller, motions in self._motions_dict.iteritems():
                 try:
-                    controller.stop_all()
+                    controller.stop_all(*motions)
                 except NotImplementedError:
                     for motion in motions:
                         motion.axis.stop()

@@ -4,6 +4,7 @@ import os
 import optparse
 import re
 import signal
+import pdb
 
 
 """
@@ -34,16 +35,19 @@ Example of Bliss configuration
 """
 config_xml = """
 <config>
-  <controller class="IcePAP" name="test">
-    <host value="%s"/>
-    <libdebug value="1"/>
-    <axis name="mymot">
-      <address   value="%s"/>
-      <step_size value="2000"/>
-      <backlash  value="0.01"/>
-      <velocity  value="2500"/>
-    </axis>
-  </controller>
+    <controller class="IcePAP" name="test">
+        <host value="%s"/>
+        <libdebug value="1"/>
+        <axis name="mymot">
+            <address   value="%s"/>
+            <step_size value="2000"/>
+            <backlash  value="0.01"/>
+            <velocity  value="2500"/>
+        </axis>
+    </controller>
+    <group name="eh1">
+        <axis name="mymot"/>
+    </group>
 </config>
 """
 
@@ -62,6 +66,7 @@ address = ""
 def signal_handler(signal, frame):
     print "\nAbort request taken into account\n"
     finalize()
+    sys.exit(-1)
 
 
 def finalize():
@@ -86,15 +91,15 @@ class TestIcePAPController(unittest.TestCase):
     def tearDown(self):
         pass
 
-    def test_get_axis(self):
+    def test_axis_creation(self):
         mymot = bliss.get_axis("mymot")
         self.assertTrue(mymot)
 
-    def test_get_position(self):
+    def test_axis_get_position(self):
         mymot = bliss.get_axis("mymot")
         pos = mymot.position()
 
-    def test_set_position(self):
+    def test_axis_set_position(self):
         mymot = bliss.get_axis("mymot")
         pos = 2.0  # given in mm
         self.assertEqual(mymot.position(pos), pos)
@@ -106,20 +111,20 @@ class TestIcePAPController(unittest.TestCase):
                 r"[a-f0-9A-F]{4}.[a-f0-9A-F]{4}.[a-f0-9A-F]{4}",
                 mymot.get_identifier()))
 
-    def test_get_velocity(self):
+    def test_axis_get_velocity(self):
         mymot = bliss.get_axis("mymot")
         vel = mymot.velocity()
 
-    def test_set_velocity(self):
+    def test_axis_set_velocity(self):
         mymot = bliss.get_axis("mymot")
         vel = 5000
         self.assertEqual(mymot.velocity(vel), vel)
 
-    def test_get_acctime(self):
+    def test_axis_get_acctime(self):
         mymot = bliss.get_axis("mymot")
         acc = mymot.acctime()
 
-    def test_set_acctime(self):
+    def test_axis_set_acctime(self):
         mymot = bliss.get_axis("mymot")
         acc = 0.250
         self.assertEqual(mymot.acctime(acc), acc)
@@ -135,9 +140,7 @@ class TestIcePAPController(unittest.TestCase):
     def test_axis_move(self):
         mymot = bliss.get_axis("mymot")
         pos = mymot.position()
-        # mymot.controller._set_lib_verbose(3)
-        mymot.move(pos + 0.1)
-        # mymot.controller._set_lib_verbose(1)
+        mymot.move(pos + 0.1) # waits for the end of motion
 
     def test_axis_move_backlash(self):
         mymot = bliss.get_axis("mymot")
@@ -148,13 +151,45 @@ class TestIcePAPController(unittest.TestCase):
         mymot = bliss.get_axis("mymot")
         mymot.rmove(0.1)
 
+    def test_group_creation(self):
+        mygrp = bliss.get_group("eh1")
+        self.assertTrue(mygrp)
+
+    def test_group_get_position(self):
+        mygrp = bliss.get_group("eh1")
+        #mymot.controller.log_level(3)
+        pos_list = mygrp.position()
+        #mymot.controller.log_level(3)
+        for axis in pos_list:
+            self.assertEqual(axis.position(), pos_list[axis])
+
+    def test_group_move(self):
+        mygrp = bliss.get_group("eh1")
+        mymot = bliss.get_axis("mymot")
+        pos_list = mygrp.position()
+        pos_list[mymot] += 0.1
+        mygrp.move(pos_list) # waits for the end of motions
+        self.assertEqual(mygrp.state(), "READY")
+
+    def test_group_stop(self):
+        mygrp = bliss.get_group("eh1")
+        mymot = bliss.get_axis("mymot")
+        pos_list = mygrp.position()
+        pos_list[mymot] -= 0.1
+        mymot.controller.log_level(bliss.common.log.INFO)
+        mygrp.move(pos_list, wait=False) 
+        mygrp.stop() # waits for the end of motions
+        mymot.controller.log_level(bliss.common.log.ERROR)
+        self.assertEqual(mygrp.state(), "READY")
+
+
 """
 Main entry point
 """
 if __name__ == '__main__':
 
     # Get arguments
-    usage = "Usage: %prog [options] hostname motor_address"
+    usage = "Usage: %prog hostname motor_address"
     parser = optparse.OptionParser(usage)
     argv = sys.argv
     (settings, args) = parser.parse_args(argv)
@@ -166,7 +201,7 @@ if __name__ == '__main__':
 
     # Mandatory argument is the IcePAP hostname
     hostname = args[1]
-    address = args[2]
+    address  = args[2]
 
     # Avoid interaction of our arguments with unittest class
     del sys.argv[1:]

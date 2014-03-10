@@ -27,16 +27,20 @@ class PI_E517(Controller):
 
     # Init of each axis.
     def initialize_axis(self, axis):
-        # ONL ?
-
-        # Enables the closed-loop.
-        # self.sock.write("SVO 1 1\n")
-        axis.channel = axis.config.get("channel")
+        axis.channel = axis.config.get("channel", int)
         axis.chan_letter = axis.config.get("chan_letter")
 
         add_axis_method(axis, self.get_id)
         add_axis_method(axis, self.get_infos)
         add_axis_method(axis, self.steps_per_unit)
+
+        # Enables the closed-loop.
+        # self.sock.write("SVO 1 1\n")
+
+        # Switch piezo to ONLINE mode so that axis motion can be
+        # caused by move commands.
+        self.send_no_ans(axis, "ONL %d 1" % axis.channel )
+
 
     def position(self, axis, new_position=None, measured=False):
         if new_position is None:

@@ -1,0 +1,7 @@
+<config>
+  <controller class="PI_E753" name="testid16">
+    <host value="e753id16ni-mlm"/>
+    <axis name="pz">
+    </axis>
+  </controller>
+</config>

@@ -45,10 +45,13 @@ class PI_E753(Controller):
         return _ans
 
     def velocity(self, axis, new_velocity=None):
-        if new_velocity is not None:
-            pass
+        if new_velocity is None:
+            _velocity = self._get_velocity(axis)
+        else:
+            self._set_velocity(new_velocity)
+            _velocity = new_velocity
 
-        return self.axis_settings.get(axis, "velocity")
+        return _velocity
 
     def state(self, axis):
         if self._get_closed_loop_status():
@@ -77,6 +80,15 @@ class PI_E753(Controller):
             return float(axis.config.get("step_size"))
         else:
             print "steps_per_unit writing is not (yet?) implemented."
+
+    def _get_velocity(self, axis):
+        '''
+        Returns velocity taken from controller.
+        '''
+        _ans = self.sock.write_readline("VEL?\n")
+        _velocity = float(_ans[2:])
+
+        return _velocity
 
     def _get_pos(self):
         '''

@@ -178,7 +178,8 @@ class PI_E517(Controller):
         Returns Closed loop status (Servo state) (SVO? command)
         -> True/False
         '''
-        _ans = self.send(axis, "SVO? %s" % axis.channel)
+        _ans = self.send(axis, "SVO? %s" % axis.chan_letter)
+        print "_ans=", _ans
         _status = float(_ans[2:])
 
         if _status == 1:

@@ -2,11 +2,12 @@
 
 import os
 import sys
-sys.path.insert(0, "/users/blissadm/bliss")
-sys.path.insert(0, "/users/blissadm/bliss/tango")
 
-#os.environ["TANGO_HOST"]="lpellab:20000"
+EMOTION_PATH = os.path.join(os.environ["HOME"], "bliss")
+
+sys.path.insert(0, EMOTION_PATH)
+sys.path.insert(0, os.path.join(EMOTION_PATH, "tango"))
 
 sys.argv[0]="Bliss"
-execfile("/users/blissadm/bliss/tango/BlissAxisManager.py")
+execfile(os.path.join(EMOTION_PATH, "tango", "BlissAxisManager.py"))
 

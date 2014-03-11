@@ -54,7 +54,7 @@ class TestLogging(unittest.TestCase):
 
     def test_error(self):
         log.level(log.ERROR)
-        with wrapped_stderr() as stderr:
+        with wrapped_stderr():
             self.assertRaises(RuntimeError, log.error, "an error to log")
 
     def test_info(self):
@@ -64,11 +64,34 @@ class TestLogging(unittest.TestCase):
         output = stdout.getvalue()
         self.assertEquals(
             output,
-            "INFO : test\n")
-
+            "INFO: test\n")
 
     def test_level(self):
         self.assertEquals(log.level(log.INFO), log.INFO)
+
+    def test_exception(self):
+        try:
+            raise RuntimeError("BLA")
+        except:
+            with wrapped_stderr() as stderr:
+                log.exception("excepted exception", raise_exception=False)
+        output = stderr.getvalue()
+        self.assertEquals(
+            output,
+            """ERROR: excepted exception
+Traceback (most recent call last):
+  File "TestLogging.py", line 74, in test_exception
+    raise RuntimeError("BLA")
+RuntimeError: BLA
+""")
+
+    def test_exception2(self):
+        try:
+            raise ValueError
+        except:
+            self.assertRaises(ValueError, log.exception, "expected exception")
+            return
+        self.assertTrue(False)
 
 if __name__ == '__main__':
     unittest.main()

@@ -3,6 +3,8 @@ from logging import getLevelName
 from traceback import extract_stack as tb_extract_stack
 import sys
 
+NOTSET
+
 
 def _caller(up=1):
     """Return (file, line, func, text) of caller's caller"""
@@ -18,6 +20,7 @@ def _caller(up=1):
 # By default only print errors
 _log_level = ERROR
 
+
 def level(level=None):
     """Change the current debug level and always return the current level"""
     global _log_level
@@ -28,6 +31,7 @@ def level(level=None):
         _log_level = level
 
     return _log_level
+
 
 def log(level, msg):
     """Handle log messages"""
@@ -50,6 +54,17 @@ def error(error_msg, raise_exception=True, exception=RuntimeError):
     finally:
         if raise_exception:
             raise exception(error_msg)
+
+
+def exception(error_msg, raise_exception=True):
+    """Exception messages, showing full traceback"""
+    exc_info = sys.exc_info()
+    if exc_info == (None, None, None):
+        return error(error_msg, raise_exception=raise_exception)
+    log(ERROR, error_msg)
+    sys.excepthook(*exc_info)
+    if raise_exception:
+        raise exc_info[0], exc_info[1], exc_info[2]
 
 
 def info(info_msg):

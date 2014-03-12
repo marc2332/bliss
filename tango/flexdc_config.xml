@@ -1,15 +1,15 @@
 <config>
   <controller class="FlexDC" name="id16phn">
     <host value="flexdcnina"/>
-    <axis name="fd">
+    <axis name="srot">
       <channel       value="X"/>
       <step_size     value="13111.11"/>
       <target_radius value="10"/>
       <target_time   value="20"/>
       <smoothing     value="4"/>
-      <acceleration  value="1111"/>
-      <deceleration  value="1010"/>
-      <velocity      value="1234"/>
+      <acceleration  value="398400"/>
+      <deceleration  value="398400"/>
+      <velocity      value="13111"/>
     </axis>
   </controller>
 </config>

@@ -172,6 +172,7 @@ class BlissAxis(PyTango.Device_4Impl):
                 self.set_state(PyTango.DevState.MOVING)
             else:
                 self.set_state(PyTango.DevState.FAULT)
+                self.set_status("BlissAxisManager axis not READY nor MOVING...")
         except:
             self.set_state(PyTango.DevState.FAULT)
             self.set_status(traceback.format_exc())

@@ -2,7 +2,8 @@
 """
 gevent's inputhook support function
 
-Code is very similar to the same kind of hook for Qt4... (see file included in IPython)
+Code is very similar to the same kind of hook for Qt4...
+(see file included in IPython)
 
 Author: Matias Guijarro
 """
@@ -13,6 +14,7 @@ from IPython.core.interactiveshell import InteractiveShell
 from IPython.lib.inputhook import allow_CTRL_C, ignore_CTRL_C, stdin_ready
 from IPython.lib.inputhook import InputHookManager
 
+
 def create_inputhook_gevent(mgr):
     """Create an input hook for running the gevent event loop.
 
@@ -22,7 +24,7 @@ def create_inputhook_gevent(mgr):
 
     Returns
     -------
-    An inputhook 
+    An inputhook
     """
 
     # Re-use previously created inputhook if any
@@ -58,7 +60,7 @@ def create_inputhook_gevent(mgr):
 
     return inputhook_gevent
 
+
 def enable_gevent():
     mgr = InputHookManager()
     mgr.set_inputhook(create_inputhook_gevent(mgr))
-

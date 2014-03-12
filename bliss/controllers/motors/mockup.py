@@ -87,7 +87,6 @@ class Mockup(Controller):
             self._axis_moves[axis]["end_pos"] = new_pos
             self._axis_moves[axis]["end_t"] = 0
 
-
         if measured:
             return -1.2345
         else:

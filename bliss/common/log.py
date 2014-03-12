@@ -98,4 +98,3 @@ def debug(debug_msg):
 #
 # Levels are ordered the following way:
 # DEBUG < INFO < WARN < ERROR < FATAL < OFF
-

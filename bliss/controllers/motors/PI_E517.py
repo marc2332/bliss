@@ -39,7 +39,7 @@ class PI_E517(Controller):
 
         # Switch piezo to ONLINE mode so that axis motion can be
         # caused by move commands.
-        self.send_no_ans(axis, "ONL %d 1" % axis.channel )
+        self.send_no_ans(axis, "ONL %d 1" % axis.channel)
 
         self.closed_loop = self._get_closed_loop_status(axis)
 

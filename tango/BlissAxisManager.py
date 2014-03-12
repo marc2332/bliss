@@ -188,7 +188,7 @@ class BlissAxis(PyTango.Device_4Impl):
 
     def write_Steps_per_unit(self, attr):
         self.debug_stream("In write_Steps_per_unit()")
-        data = attr.get_write_value()
+        # data = attr.get_write_value()
         bliss.common.log.debug("Not implemented")
 
     def read_Steps(self, attr):
@@ -253,7 +253,7 @@ class BlissAxis(PyTango.Device_4Impl):
 
     def write_Backlash(self, attr):
         self.debug_stream("In write_Backlash()")
-        data = attr.get_write_value()
+        #data = attr.get_write_value()
 
     def read_Home_position(self, attr):
         self.debug_stream("In read_Home_position()")
@@ -261,7 +261,7 @@ class BlissAxis(PyTango.Device_4Impl):
 
     def write_Home_position(self, attr):
         self.debug_stream("In write_Home_position()")
-        data = attr.get_write_value()
+        #data = attr.get_write_value()
 
     def read_HardLimitLow(self, attr):
         self.debug_stream("In read_HardLimitLow()")
@@ -277,7 +277,7 @@ class BlissAxis(PyTango.Device_4Impl):
 
     def write_PresetPosition(self, attr):
         self.debug_stream("In write_PresetPosition()")
-        data = attr.get_write_value()
+        # data = attr.get_write_value()
 
     def read_FirstVelocity(self, attr):
         self.debug_stream("In read_FirstVelocity()")
@@ -285,7 +285,7 @@ class BlissAxis(PyTango.Device_4Impl):
 
     def write_FirstVelocity(self, attr):
         self.debug_stream("In write_FirstVelocity()")
-        data = attr.get_write_value()
+        # data = attr.get_write_value()
 
     def read_Home_side(self, attr):
         self.debug_stream("In read_Home_side()")
@@ -596,7 +596,7 @@ def delete_bliss_axes():
 
     bliss_axis_device_names = get_devices_from_server().get('BlissAxis')
 
-    for _axis_device_name in get_devices_from_server()["BlissAxis"]:
+    for _axis_device_name in bliss_axis_device_names:
         bliss.common.log.info(
             "Deleting existing BlissAxisManager axis: %s" %
             _axis_device_name)

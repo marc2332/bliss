@@ -15,13 +15,15 @@ pi_gcs_errors = {
     2: "Unknown command",
     3: "Command length out of limits or command buffer overrun",
     4: "Error while scanning",
-    5: "Unallowable move attempted on unreferenced axis,\nor move attempted with servo off",
+    5: "Unallowable move attempted on unreferenced axis,\nor move attempted \
+    with servo off",
     6: "Parameter for SGA not valid",
     7: "Position out of limits",
     8: "Velocity out of limits",
     9: "Attempt to set pivot point while U,V and W not all 0",
     10: "Controller was stopped by command",
-    11: "Parameter for SST or for one of the embedded scan algorithms out of range",
+    11: "Parameter for SST or for one of the embedded scan algorithms out\
+    of range",
     12: "Invalid axis combination for fast scan",
     13: "Parameter for NAV out of range",
     14: "Invalid analog channel",
@@ -53,7 +55,8 @@ pi_gcs_errors = {
     40: "No joystick configured",
     41: "Invalid axis for electronic gearing, axis can not be slave",
     42: "Position of slave axis is out of range",
-    43: "Slave axis cannot be commanded directly when electronic gearing is enabled",
+    43: "Slave axis cannot be commanded directly when electronic gearing \
+    is enabled",
     44: "Calibration of joystick failed",
     45: "Referencing failed",
     46: "OPM (Optical Power Meter) missing",
@@ -81,12 +84,16 @@ pi_gcs_errors = {
     68: "Not enough memory available for DDL table; DDL can not be started",
     69: "Time delay larger than DDL table; DDL can not be started",
     70: "The requested arrays have different lengths; query them separately",
-    71: "Attempt to restart the generator while it is running in single step mode",
-    72: "Motion commands and wave generator activation are not \nallowed when analog target is active",
+    71: "Attempt to restart the generator while it is running in single \
+    step mode",
+    72: "Motion commands and wave generator activation are not \nallowed \
+    when analog target is active",
     73: "Motion commands are not allowed when wave generator is active",
-    74: "No sensor channel or no piezo channel connected to \nselected axis (sensor and piezo matrix)",
+    74: "No sensor channel or no piezo channel connected to \nselected \
+    axis (sensor and piezo matrix)",
     75: "Generator started (WGO) without having selected a wave table (WSL).",
-    76: "Interface buffer did overrun and command couldn't be received correctly",
+    76: "Interface buffer did overrun and command couldn't be received \
+    correctly",
     77: "Data Record Table does not hold enough recorded data",
     78: "Data Record Table is not configured for recording",
     79: "Open-loop commands (SVA, SVR) are not allowed when servo is on",
@@ -100,11 +107,15 @@ pi_gcs_errors = {
     87: "Joystick unknown",
     88: "Move without referenced stage",
     89: "Command not allowed in current motion mode",
-    90: "No tracing possible while digital IOs are used on \nthis HW revision. Reconnect to switch operation mode.",
+    90: "No tracing possible while digital IOs are used on \nthis HW revision.\
+    Reconnect to switch operation mode.",
     91: "Move not possible, would cause collision",
-    92: "Stage is not capable of following the master. Check the gear ratio(SRA).",
-    93: "This command is not allowed while the affected axis \nor its master is in motion.",
-    94: "Servo cannot be switched on when open-loop joystick control is enabled.",
+    92: "Stage is not capable of following the master. Check the gear \
+    ratio(SRA).",
+    93: "This command is not allowed while the affected axis \nor its \
+    master is in motion.",
+    94: "Servo cannot be switched on when open-loop joystick control \
+    is enabled.",
     95: "This parameter cannot be changed in current servo mode.",
     96: "Unknown stage name",
     100: "PI LabVIEW driver reports error. See source control for details.",
@@ -124,7 +135,8 @@ pi_gcs_errors = {
     213: "VEL command not allowed in DTR Command Mode",
     214: "Position calculations failed",
     215: "The connection between controller and stage may be broken",
-    216: "The connected stage has driven into a limit switch,\ncall CLR to resume operation",
+    216: "The connected stage has driven into a limit switch,\ncall CLR to \
+    resume operation",
     217: "Strut test command failed because of an unexpected strut stop",
     218: "While MOV! is running position can only be estimated!",
     219: "Position was calculated during MOV motion",
@@ -152,10 +164,12 @@ pi_gcs_errors = {
     405: "Wave parameter out of range",
     406: "WGO command bit not supported",
     500: "The \"red knob\" is still set and disables system",
-    501: "The \"red knob\" was activated and still disables system - reanimation required",
+    501: "The \"red knob\" was activated and still disables system -\
+    reanimation required",
     502: "Position consistency check failed",
     503: "Hardware collision sensor(s) are activated",
-    504: "Strut following error occurred, e.g. caused by overload or encoder failure",
+    504: "Strut following error occurred, e.g. caused by overload or encoder\
+    failure",
     555: "BasMac: unknown controller error",
     601: "not enough memory",
     602: "hardware voltage error",
@@ -165,13 +179,17 @@ pi_gcs_errors = {
     1002: "Macro recording not activated",
     1003: "Invalid parameter for MAC",
     1004: "PI internal error code 1004",
-    1005: "Controller is busy with some lengthy operation\n(e.g. reference move, fast scan algorithm)",
+    1005: "Controller is busy with some lengthy operation\n(e.g. reference\
+    move, fast scan algorithm)",
     1006: "Invalid identifier (invalid special characters, ...)",
     1007: "Variable or argument not defined",
     1008: "Controller is (already) running a macro",
-    1009: "Invalid or missing operator for condition.\nCheck necessary spaces around operator.",
-    1063: "User Profile Mode: Command is not allowed, \ncheck for required preparatory commands",
-    1064: "User Profile Mode: First target position in User Profile\nis too far from current position",
+    1009: "Invalid or missing operator for condition.\nCheck necessary\
+    spaces around operator.",
+    1063: "User Profile Mode: Command is not allowed, \ncheck for required\
+    preparatory commands",
+    1064: "User Profile Mode: First target position in User Profile\nis too\
+    far from current position",
     1065: "Controller is (already) in User Profile Mode",
     1066: "User Profile Mode: Block or Data Set index out of allowed range",
     1071: "User Profile Mode: Out of memory",
@@ -189,7 +207,8 @@ pi_gcs_errors = {
     4008: "FW Parameter CRC wrong",
     4009: "FW CRC wrong",
     5000: "PicoCompensation scan data is not valid",
-    5001: "PicoCompensation is running, some actions can not be \nexecuted during scanning/recording",
+    5001: "PicoCompensation is running, some actions can not be \nexecuted\
+    during scanning/recording",
     5002: "Given axis can not be defined as PPC axis",
     5003: "Defined scan area is larger than the travel range",
     5004: "Given PicoCompensation type is not defined",
@@ -230,7 +249,8 @@ pi_gcs_errors = {
     -27: "IEEE488: SRQ remains asserted",
     -28: "IEEE488: Return buffer full",
     -29: "IEEE488: Address or board locked",
-    -30: "RS-232: 5 data bits with 2 stop bits is an invalid \ncombination, as is 6, 7, or 8 data bits with 1.5 stop bits",
+    -30: "RS-232: 5 data bits with 2 stop bits is an invalid \ncombination,\
+    as is 6, 7, or 8 data bits with 1.5 stop bits",
     -31: "RS-232: Error configuring the COM port",
     -32: "Error dealing with internal system resources (events, threads, ...)",
     -33: "A DLL or one of the required functions could not be loaded",
@@ -266,17 +286,22 @@ pi_gcs_errors = {
     -1002: "Number for NAV out of range--must be in [1,10000]",
     -1003: "Invalid value for SGA--must be one of 1, 10, 100, 1000",
     -1004: "Controller sent unexpected response",
-    -1005: "No manual control pad installed, calls to SMA and \nrelated commands are not allowed",
+    -1005: "No manual control pad installed, calls to SMA and \nrelated\
+    commands are not allowed",
     -1006: "Invalid number for manual control pad knob",
     -1007: "Axis not currently controlled by a manual control pad",
-    -1008: "Controller is busy with some lengthy operation (e.g. reference move, fast scan algorithm)",
+    -1008: "Controller is busy with some lengthy operation (e.g. reference\
+    move, fast scan algorithm)",
     -1009: "Internal error--could not start thread",
-    -1010: "Controller is (already) in macro mode--command not valid in macro mode",
-    -1011: "Controller not in macro mode--command not valid unless macro mode active",
+    -1010: "Controller is (already) in macro mode--command not valid in\
+    macro mode",
+    -1011: "Controller not in macro mode--command not valid unless macro\
+    mode active",
     -1012: "Could not open file to write or read macro",
     -1013: "No macro with given name on controller, or macro is empty",
     -1014: "Internal error in macro editor",
-    -1015: "One or more arguments given to function is invalid \n(empty string, index out of range, ...)",
+    -1015: "One or more arguments given to function is invalid \n(empty\
+    string, index out of range, ...)",
     -1016: "Axis identifier is already in use by a connected stage",
     -1017: "Invalid axis identifier",
     -1018: "Could not access array data in COM server",
@@ -295,14 +320,17 @@ pi_gcs_errors = {
     -1031: "The WGWaveEditor DLL function was not found at startup",
     -1032: "The user cancelled a dialog",
     -1033: "Error from C-844 Controller",
-    -1034: "DLL necessary to call function not loaded, or function not found in DLL",
+    -1034: "DLL necessary to call function not loaded, or function not \
+    found in DLL",
     -1035: "The open parameter file is protected and cannot be edited",
     -1036: "There is no parameter file open",
     -1037: "Selected stage does not exist",
-    -1038: "There is already a parameter file open. Close it before opening a new file",
+    -1038: "There is already a parameter file open. Close it before opening \
+    a new file",
     -1039: "Could not open parameter file",
     -1040: "The version of the connected controller is invalid",
-    -1041: "Parameter could not be set with SPA--parameter not defined for this controller!",
+    -1041: "Parameter could not be set with SPA--parameter not defined for \
+    this controller!",
     -1042: "The maximum number of wave definitions has been exceeded",
     -1043: "The maximum number of wave generators has been exceeded",
     -1044: "No wave defined for specified axis",
@@ -311,35 +339,52 @@ pi_gcs_errors = {
     -1047: "Could not find parameter set required by frequency relation",
     -1048: "Command ID given to SPP or SPP? is not valid",
     -1049: "A stage name given to CST is not unique",
-    -1050: "A uuencoded file transferred did not start with 'begin' \n followed by the proper filename",
+    -1050: "A uuencoded file transferred did not start with 'begin' \nfollowed\
+    by the proper filename",
     -1051: "Could not create/read file on host PC",
     -1052: "Checksum error when transferring a file to/from the controller",
-    -1053: "The PiStages.dat database could not be found.\nThis file is required to connect a stage with the CST command",
+    -1053: "The PiStages.dat database could not be found.\nThis file is \
+    required to connect a stage with the CST command",
     -1054: "No wave being output to specified axis",
     -1055: "Invalid password",
-    -1056: "Error during communication with OPM (Optical Power Meter),\nmaybe no OPM connected",
-    -1057: "WaveEditor: Error during wave creation, incorrect number of parameters",
+    -1056: "Error during communication with OPM (Optical Power Meter),\n\
+    maybe no OPM connected",
+    -1057: "WaveEditor: Error during wave creation, incorrect number of\
+    parameters",
     -1058: "WaveEditor: Frequency out of range",
-    -1059: "WaveEditor: Error during wave creation, incorrect index for integer parameter",
-    -1060: "WaveEditor: Error during wave creation, incorrect index \nfor floating point parameter",
+    -1059: "WaveEditor: Error during wave creation, incorrect index for\
+    integer parameter",
+    -1060: "WaveEditor: Error during wave creation, incorrect index \nfor \
+    floating point parameter",
     -1061: "WaveEditor: Error during wave creation, could not calculate value",
     -1062: "WaveEditor: Graph display component not installed",
-    -1063: "User Profile Mode: Command is not allowed, check for \nrequired preparatory commands",
-    -1064: "User Profile Mode: First target position in User Profile\nis too far from current position",
+    -1063: "User Profile Mode: Command is not allowed, check for \nrequired\
+    preparatory commands",
+    -1064: "User Profile Mode: First target position in User Profile\nis too\
+    far from current position",
     -1065: "Controller is (already) in User Profile Mode",
     -1066: "User Profile Mode: Block or Data Set index out of allowed range",
     -1067: "ProfileGenerator: No profile has been created yet",
-    -1068: "ProfileGenerator: Generated profile exceeds limits of one or both axes",
-    -1069: "ProfileGenerator: Unknown parameter ID in Set/Get Parameter command",
+    -1068: "ProfileGenerator: Generated profile exceeds limits of one or both\
+    axes",
+    -1069: "ProfileGenerator: Unknown parameter ID in Set/Get Parameter\
+    command",
     -1070: "ProfileGenerator: Parameter out of allowed range",
     -1071: "User Profile Mode: Out of memory",
     -1072: "User Profile Mode: Cluster is not assigned to this axis",
     -1073: "Unknown cluster identifier",
-    -1074: "The installed device driver doesn't match the required version.\nPlease see the documentation to determine the required device driver version.",
-    -1075: "The library used doesn't match the required version.\nPlease see the documentation to determine the required library version.",
-    -1076: "The interface is currently locked by another function.\nPlease try again later.",
-    -1077: "Version of parameter DAT file does not match the required version.\nCurrent files are available at www.pi.ws.",
-    -1078: "Cannot write to parameter DAT file to store user defined stage type.",
-    -1079: "Cannot create parameter DAT file to store user defined stage type.",
+    -1074: "The installed device driver doesn't match the required version.\n\
+    Please see the documentation to determine the required \
+    device driver version.",
+    -1075: "The library used doesn't match the required version.\nPlease see\
+    the documentation to determine the required library version.",
+    -1076: "The interface is currently locked by another function.\nPlease\
+    try again later.",
+    -1077: "Version of parameter DAT file does not match the required \
+    version.\nCurrent files are available at www.pi.ws.",
+    -1078: "Cannot write to parameter DAT file to store user defined\
+    stage type.",
+    -1079: "Cannot create parameter DAT file to store user defined stage \
+    type.",
     -1080: "Parameter DAT file does not have correct revision.",
     -1081: "User stages DAT file does not have correct revision."}

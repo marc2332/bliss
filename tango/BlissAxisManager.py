@@ -682,7 +682,10 @@ def main():
                 except PyTango.DevFailed:
                     pass
         else:
-            bliss.common.log.error("No bliss supervisor device")
+            # Do not raise exception to be able to use
+            # Jive device creation wizard.
+            bliss.common.log.error("No bliss supervisor device",
+                              raise_exception=False)
     except PyTango.DevFailed, e:
         bliss.common.log.exception(
             "Error in devices initialization",

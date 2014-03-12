@@ -210,7 +210,7 @@ class BlissAxis(PyTango.Device_4Impl):
 
     def read_Measured_Position(self, attr):
         self.debug_stream("In read_Measured_Position()")
-        attr.set_value(self.attr_Measured_Position_read)
+        attr.set_value(self.axis.measured_position())
 
     def read_Acceleration(self, attr):
         try:

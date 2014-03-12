@@ -96,8 +96,8 @@ class FlexDC(Controller):
 
         # print "FLEXDC end of initialize_axis"
 
-    def position(self, axis, new_position=None, measured=False):
-        if new_position is None:
+    def position(self, axis, new_pos=None, measured=False):
+        if new_pos is None:
             if measured:
                 ''' position in steps
                         PS : Position from Sensor

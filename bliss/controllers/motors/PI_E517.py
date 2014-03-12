@@ -42,8 +42,8 @@ class PI_E517(Controller):
         self.send_no_ans(axis, "ONL %d 1" % axis.channel )
 
 
-    def position(self, axis, new_position=None, measured=False):
-        if new_position is None:
+    def position(self, axis, new_pos=None, measured=False):
+        if new_pos is None:
             if measured:
                 _pos = self._get_pos(axis)
                 print "PI_E517 position measured read : ", _pos

@@ -33,8 +33,8 @@ class PI_E753(Controller):
         # Enables the closed-loop.
         self.sock.write("SVO 1 1\n")
 
-    def position(self, axis, new_position=None, measured=False):
-        if new_position is not None:
+    def position(self, axis, new_pos=None, measured=False):
+        if new_pos is not None:
             pass
 
         if measured:

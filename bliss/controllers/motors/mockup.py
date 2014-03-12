@@ -77,27 +77,31 @@ class Mockup(Controller):
             "t0": t0}
 
     '''
-    If new_position is passed, set the axis to this position.
+    If new_pos is passed, set the axis to this position.
     Always return the position (measured or desired) taken from controller
     in steps.
     '''
 
-    def position(self, axis, new_position=None, measured=False):
-        if new_position is not None:
-            self._axis_moves[axis]["end_pos"] = new_position
+    def position(self, axis, new_pos=None, measured=False):
+        if new_pos is not None:
+            self._axis_moves[axis]["end_pos"] = new_pos
             self._axis_moves[axis]["end_t"] = 0
 
-        # Always return position
-        if self._axis_moves[axis]["end_t"]:
-            # motor is moving
-            t = time.time()
-            v = self.velocity(axis) * axis.step_size()
-            d = math.copysign(1, self._axis_moves[axis]["delta"])
-            dt = t - self._axis_moves[axis]["t0"]
-            pos = self._axis_moves[axis]["start_pos"] + d * dt * v
-            return pos
+
+        if measured:
+            return -1.2345
         else:
-            return self._axis_moves[axis]["end_pos"]
+            # Always return position
+            if self._axis_moves[axis]["end_t"]:
+                # motor is moving
+                t = time.time()
+                v = self.velocity(axis) * axis.step_size()
+                d = math.copysign(1, self._axis_moves[axis]["delta"])
+                dt = t - self._axis_moves[axis]["t0"]
+                pos = self._axis_moves[axis]["start_pos"] + d * dt * v
+                return pos
+            else:
+                return self._axis_moves[axis]["end_pos"]
 
     '''
     If new_velocity is passed, set the axis velocity to this value.

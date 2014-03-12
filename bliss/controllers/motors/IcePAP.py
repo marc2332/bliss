@@ -88,14 +88,14 @@ class IcePAP(Controller):
         # Add new axis oject methods
         add_axis_method(axis, self.get_identifier)
 
-    def position(self, axis, new_position=None, measured=False):
+    def position(self, axis, new_pos=None, measured=False):
         """Returns axis position in motor units"""
         self.log_info("position() called for axis \"%s\""%axis.name)
 
         # Optionnal new position to set
-        if new_position is not None:
+        if new_pos is not None:
             l = icepap.lib.PosList()
-            l[axis.libaxis] = new_position
+            l[axis.libaxis] = new_pos
             self.libgroup.pos(l)
 
         # Always return the current position

@@ -145,6 +145,12 @@ class TestMockupController(unittest.TestCase):
         acc = 0.250
         self.assertEqual(roby.acctime(acc), acc)
 
+    def test_axis_get_measured_position(self):
+        roby = bliss.get_axis("roby")
+        _meas_pos = -1.2345
+        self.assertEqual(roby.measured_position(), _meas_pos)
+
+
     def test_axis_custom_method(self):
         roby = bliss.get_axis("roby")
         self.assertEqual(roby.get_identifier(), roby.name)

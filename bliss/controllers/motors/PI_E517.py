@@ -41,17 +41,24 @@ class PI_E517(Controller):
         # caused by move commands.
         self.send_no_ans(axis, "ONL %d 1" % axis.channel )
 
+        self.closed_loop = self._get_closed_loop_status(axis)
 
     def position(self, axis, new_pos=None, measured=False):
         if new_pos is None:
             if measured:
-                _pos = self._get_pos(axis)
+                if self.closed_loop:
+                    _pos = self._get_pos(axis)
+                else:
+                    _pos = self._get_voltage(axis)
                 print "PI_E517 position measured read : ", _pos
+
             else:
                 _pos = self._get_target_pos(axis)
                 print "PI_E517 position setpoint read : ", _pos
 
             return _pos
+        else:
+            print "OOOOOOOOOHHHHHHHHHHHHHHH"
 
     def velocity(self, axis, new_velocity=None):
         print "PI-E517 velocity()"
@@ -68,23 +75,30 @@ class PI_E517(Controller):
 
     def state(self, axis):
         if self._get_closed_loop_status(axis):
-            print "CL is active"
+            # print "CL is active"
+            self.closed_loop = True
             if self._get_on_target_status(axis):
                 return READY
             else:
                 return MOVING
         else:
-            print "CL is not active"
-            pass
+            # print "CL is not active"
+            self.closed_loop = False
+            return READY
             #raise RuntimeError("closed loop disabled")
 
     def prepare_move(self, motion):
         pass
 
     def start_one(self, motion):
-        # NB : must be in closed loop
-        self.send_no_ans(motion.axis, "MOV %s %g" %
-                         (motion.axis.chan_letter, motion.target_pos))
+        if self.closed_loop:
+            # Command in position.
+            self.send_no_ans(motion.axis, "MOV %s %g" %
+                             (motion.axis.chan_letter, motion.target_pos))
+        else:
+            # Command in voltage.
+            self.send_no_ans(motion.axis, "SVA %s %g" %
+                             (motion.axis.chan_letter, motion.target_pos))
 
     def stop(self, axis):
         # HLT -> stop smoothly
@@ -149,7 +163,7 @@ class PI_E517(Controller):
 
     def _get_pos(self, axis):
         '''
-        Returns real position (POS? command) read by capacitive captor.
+        Returns real position (POS? command) read by capacitive sensor.
         '''
         _ans = self.send(axis, "POS? %s" % axis.chan_letter)
         _pos = float(_ans[2:])
@@ -158,9 +172,13 @@ class PI_E517(Controller):
 
     def _get_target_pos(self, axis):
         '''
-        Returns last target position (MOV? command) (setpoint value).
+        Returns last target position (MOV?/SVA? command) (setpoint value).
         '''
-        _ans = self.send(axis, "MOV? %s" % axis.chan_letter)
+        if self.closed_loop:
+            _ans = self.send(axis, "MOV? %s" % axis.chan_letter)
+        else:
+            _ans = self.send(axis, "SVA? %s" % axis.chan_letter)
+
         _pos = float(_ans[2:])
 
         return _pos
@@ -179,7 +197,6 @@ class PI_E517(Controller):
         -> True/False
         '''
         _ans = self.send(axis, "SVO? %s" % axis.chan_letter)
-        print "_ans=", _ans
         _status = float(_ans[2:])
 
         if _status == 1:

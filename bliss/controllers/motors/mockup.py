@@ -39,9 +39,7 @@ class Mockup(Controller):
     def initialize_axis(self, axis):
         self._axis_moves[axis] = {
             "end_t": 0,
-            "end_pos": random.randint(
-                0,
-                360)}
+            "end_pos": 30}
 
         # this is to test axis are initialized only once
         axis.settings.set('init_count', axis.settings.get('init_count') + 1)
@@ -113,7 +111,7 @@ class Mockup(Controller):
             axis.settings.set('velocity', new_velocity)
 
         # Always return velocity.
-        return int(axis.settings.get('velocity'))
+        return float(axis.settings.get('velocity'))
 
     '''
     If new_acctime is passed, set the axis acceleration time to this value.

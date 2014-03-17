@@ -100,29 +100,51 @@ load_cfg_fromstring("""
 <config>
   <controller class="PI_E517" name="testid16">
     <host value="e517pela"/>
-    <axis name="px">
+    <axis name="p4">
       <channel       value="1"/>
       <chan_letter   value="A"/>
-      <velocity      value="12"/>
     </axis>
-    <axis name="py">
+    <axis name="p5">
       <channel       value="2"/>
       <chan_letter   value="B"/>
-      <velocity      value="12"/>
     </axis>
-    <axis name="pz">
+    <axis name="p6">
       <channel       value="3"/>
       <chan_letter   value="C"/>
-      <velocity      value="12"/>
     </axis>
   </controller>
 </config>
 """)
 
-a=get_axis("px")
-b=get_axis("py")
-c=get_axis("pz")
+d=get_axis("p4")
+e=get_axis("p5")
+f=get_axis("p6")
 
+
+load_cfg_fromstring("""
+<config>
+  <controller class="PI_E517" name="testid16">
+    <host value="e517pelb"/>
+    <axis name="p1">
+      <channel       value="1"/>
+      <chan_letter   value="A"/>
+    </axis>
+    <axis name="p2">
+      <channel       value="2"/>
+      <chan_letter   value="B"/>
+    </axis>
+    <axis name="p3">
+      <channel       value="3"/>
+      <chan_letter   value="C"/>
+    </axis>
+  </controller>
+</config>
+""")
+
+
+a=get_axis("p1")
+b=get_axis("p2")
+c=get_axis("p3")
 
 
 '''

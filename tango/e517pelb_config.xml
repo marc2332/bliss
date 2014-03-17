@@ -1,22 +1,22 @@
 <config>
   <controller class="PI_E517" name="id16pelb">
     <host value="e517pelb"/>
-    <axis name="p4">
+    <axis name="p1">
       <channel       value="1"/>
       <chan_letter   value="A"/>
-      <velocity      value="12"/>
+      <velocity      value="10"/>
       <step_size     value="1"/>
     </axis>
-    <axis name="p5">
+    <axis name="p2">
       <channel       value="2"/>
       <chan_letter   value="B"/>
-      <velocity      value="12"/>
+      <velocity      value="10"/>
       <step_size     value="1"/>
     </axis>
-    <axis name="p6">
+    <axis name="p3">
       <channel       value="3"/>
       <chan_letter   value="C"/>
-      <velocity      value="12"/>
+      <velocity      value="10"/>
       <step_size     value="1"/>
     </axis>
   </controller>

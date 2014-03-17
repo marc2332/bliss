@@ -46,10 +46,10 @@ class PI_E517(Controller):
     def position(self, axis, new_pos=None, measured=False):
         if new_pos is None:
             if measured:
-                if self.closed_loop:
-                    _pos = self._get_pos(axis)
-                else:
-                    _pos = self._get_voltage(axis)
+                #                if self.closed_loop:
+                _pos = self._get_pos(axis)
+                #                else:
+                #                   _pos = self._get_voltage(axis)
                 print "PI_E517 position measured read : ", _pos
 
             else:
@@ -224,7 +224,7 @@ class PI_E517(Controller):
         return self.send(axis, "*IDN?\n")
 
     def _get_error(self, axis):
-        _error_number = self.send("ERR?\n")
+        _error_number = self.send(axis, "ERR?\n")
         _error_str = pi_gcs.get_error_str(_error_number)
 
         return (_error_number, _error_str)
@@ -264,6 +264,12 @@ class PI_E517(Controller):
             ("Osensor                    ", "SPA? %s 0x02000200" %
              axis.channel),
             ("Ksensor                    ", "SPA? %s 0x02000300" %
+             axis.channel),
+            ("Digital filter type        ", "SPA? %s 0x05000000" %
+             axis.channel),
+            ("Digital filter Bandwidth   ", "SPA? %s 0x05000001" %
+             axis.channel),
+            ("Digital filter order       ", "SPA? %s 0x05000002" %
              axis.channel),
         ]
 

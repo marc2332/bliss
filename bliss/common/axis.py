@@ -106,17 +106,20 @@ class Axis(object):
 
     def _handle_move(self, motion):
         def update_settings():
-            pos = self._position()
-            self.settings.set("position", pos)
             state = self.__controller.state(self)
             self.settings.set("state", state)
+            pos = self._position()
+            self.settings.set("position", pos)
             return state
 
         with cleanup(update_settings):
             while True:
-                state = update_settings()
+                state = self.__controller.state(self)
+                self.settings.set("state", state)
                 if state != MOVING:
                     break
+                pos = self._position()
+                self.settings.set("position", pos)
                 time.sleep(0.02)
 
             if motion.backlash:
@@ -165,6 +168,7 @@ class Axis(object):
 
         motion = self.prepare_move(user_target_pos, relative)
 
+        # indicates that axis is MOVING.
         self.__move_done.clear()
 
         move_task = self._do_move(motion, wait=False)

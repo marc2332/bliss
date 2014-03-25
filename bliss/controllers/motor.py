@@ -1,8 +1,9 @@
+
 import types
 import functools
 from bliss.config.motors.static import StaticConfig
 from bliss.controllers.motor_settings import AxisSettings
-from .axis import Motion, AxisRef, MOVING, READY, FAULT
+from bliss.common.axis import Motion, AxisRef, MOVING, READY, FAULT
 from bliss.config.motors import get_axis
 from bliss.common import event
 

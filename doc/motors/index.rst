@@ -19,6 +19,7 @@ Contents:
    log
    event
    settings
+   communication
 
 
 Indices and tables

@@ -120,16 +120,25 @@ class Controller(object):
     def stop_all(self):
         raise NotImplementedError
 
-    def position(self, axis, new_pos=None, measured=False):
-        raise NotImplementedError
-
-    def velocity(self, axis, new_velocity=None):
-        raise NotImplementedError
-
     def state(self, axis):
         raise NotImplementedError
 
-    def acctime(self, axis, new_acctime=None):
+    def read_position(self, axis, measured=False):
+        raise NotImplementedError
+
+    def set_position(self, axis, new_position):
+        raise NotImplementedError
+
+    def read_velocity(self, axis):
+        raise NotImplementedError
+
+    def set_velocity(self, axis, new_velocity):
+        raise NotImplementedError
+
+    def read_acctime(self, axis):
+        raise NotImplementedError
+
+    def set_acctime(self, axis, new_acctime):
         raise NotImplementedError
 
 
@@ -228,14 +237,11 @@ class CalcController(Controller):
     def stop(self, axis):
         [real_axis.stop() for real_axis in self.reals]
 
-    def position(self, axis, new_pos=None, measured=False):
-        if new_pos is not None:
-            axis.settings.set('position', new_pos)
-        else:
-            return axis.settings.get('position')
+    def read_position(self, axis, measured=False):
+        return axis.settings.get('position')
 
-    def velocity(self, axis, new_velocity=None):
-        pass
+    def set_position(self, axis, new_pos):
+        axis.settings.set('position', new_pos)
 
     def state(self, axis, new_state=None):
         if new_state is not None:

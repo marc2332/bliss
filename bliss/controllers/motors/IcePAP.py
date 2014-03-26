@@ -22,6 +22,7 @@ Global resources
 """
 _ICEPAP_TAB = "IcePAP: "
 
+
 class IcePAP(Controller):
 
     """Implement IcePAP stepper motor controller access"""
@@ -68,7 +69,7 @@ class IcePAP(Controller):
 
     def initialize_axis(self, axis):
         """Axis initialization"""
-        self.log_info("initialize_axis() called for axis \"%s\""%axis.name)
+        self.log_info("initialize_axis() called for axis \"%s\"" % axis.name)
 
         # Get axis config from bliss config
         axis.address = axis.config.get("address", int)
@@ -88,60 +89,51 @@ class IcePAP(Controller):
         # Add new axis oject methods
         add_axis_method(axis, self.get_identifier)
 
-    def position(self, axis, new_pos=None, measured=False):
+    def read_position(self, axis, measured=False):
         """Returns axis position in motor units"""
-        self.log_info("position() called for axis \"%s\""%axis.name)
+        self.log_info("position() called for axis \"%s\"" % axis.name)
+        return self.libgroup.pos(axis.libaxis)
 
-        # Optionnal new position to set
-        if new_pos is not None:
-            l = icepap.lib.PosList()
-            l[axis.libaxis] = new_pos
-            self.libgroup.pos(l)
+    def set_position(self, axis, new_pos):
+        l = icepap.lib.PosList()
+        l[axis.libaxis] = new_pos
+        self.libgroup.pos(l)
+        return self.read_position(axis)
 
-        # Always return the current position
-        pos_stps = self.libgroup.pos(axis.libaxis)
-
-        return pos_stps
-
-    def velocity(self, axis, new_velocity=None):
+    def read_velocity(self, axis):
         """Returns axis current velocity in user units per seconds"""
-        try:
-            s = "%f"%new_velocity
-        except:
-            s = ""
-        self.log_info("velocity(%s) called for axis \"%s\""% 
-            (s, axis.name))
-
-        # Optionnal new velocity to set
-        if new_velocity is not None:
-            l = icepap.lib.VelList()
-            l[axis.libaxis] = new_velocity
-            self.libgroup.velocity(l)
-
-        # Always return the current velocity
         return self.libgroup.velocity(axis.libaxis)
 
-    def acctime(self, axis, new_acctime=None):
-        """Returns axis current acceleratin time in seconds"""
-        try:
-            s = "%f"%new_acctime
-        except:
-            s = ""
-        self.log_info("acctime(%s) called for axis \"%s\""% 
-            (s, axis.name))
+    def set_velocity(self, axis, new_velocity):
+        s = "%f" % new_velocity
+        self.log_info("set_velocity(%s) called for axis \"%s\"" %
+                      (s, axis.name))
 
-        # Optionnal new acceleration time to set
-        if new_acctime is not None:
-            l = icepap.lib.AcctimeList()
-            l[axis.libaxis] = new_acctime
-            self.libgroup.acctime(l)
+        l = icepap.lib.VelList()
+        l[axis.libaxis] = new_velocity
+        self.libgroup.velocity(l)
 
         # Always return the current velocity
+        return self.read_velocity(axis)
+
+    def read_acctime(self, axis):
+        """Returns axis current acceleratin time in seconds"""
         return self.libgroup.acctime(axis.libaxis)
+
+    def set_acctime(self, axis, new_acctime):
+        s = "%f" % new_acctime
+        self.log_info("set_acctime(%s) called for axis \"%s\"" %
+                      (s, axis.name))
+
+        l = icepap.lib.AcctimeList()
+        l[axis.libaxis] = new_acctime
+        self.libgroup.acctime(l)
+
+        return self.read_acctime(axis)
 
     def state(self, axis):
         """Returns the current axis state"""
-        self.log_info("state() called for axis \"%s\""%axis.name)
+        self.log_info("state() called for axis \"%s\"" % axis.name)
 
         # The axis can only be accessed through a group in IcePAP lib
         # Use the default group
@@ -161,7 +153,8 @@ class IcePAP(Controller):
         Called once before a single axis motion,
         positions in motor units
         """
-        self.log_info("prepare_move() called for axis \"%s\""%motion.axis.name)
+        self.log_info("prepare_move() called for axis \"%s\"" %
+                      motion.axis.name)
         pass
 
     def start_one(self, motion):
@@ -170,7 +163,7 @@ class IcePAP(Controller):
         returns immediately,
         positions in motor units
         """
-        self.log_info("start_one() called for axis \"%s\""%motion.axis.name)
+        self.log_info("start_one() called for axis \"%s\"" % motion.axis.name)
         target_positions = icepap.lib.PosList()
         target_positions[motion.axis.libaxis] = motion.target_pos
         self.libgroup.move(target_positions)
@@ -189,7 +182,7 @@ class IcePAP(Controller):
 
     def stop(self, axis):
         """Stops smoothly an axis motion"""
-        self.log_info("stop() called for axis \"%s\""%axis.name)
+        self.log_info("stop() called for axis \"%s\"" % axis.name)
         self.libgroup.stop(axis.libaxis)
 
     def stop_all(self, *motion_list):
@@ -211,34 +204,23 @@ class IcePAP(Controller):
         #   NOTSET ==  0 == 0 == DBG_NONE
         #   DEBUG  == 10 == 4 == DBG_DATA
         #   INFO   == 20 == 2 == DBG_TRACE
-        #   WARNING== 30 == 
+        #   WARNING== 30 ==
         #   ERROR  == 40 == 1 == DBG_ERROR
-        #   CRITIC == 50 ==  
+        #   CRITIC == 50 ==
         #
-        val = { 
-                log.NOTSET:0,
-                log.DEBUG :4,
-                log.INFO  :2,
-                log.ERROR :1,
-                }[lvl]
-        """
-        try:
-            val = { 
-                log.NOTSET:0,
-                log.DEBUG :4,
-                log.INFO  :2,
-                log.ERROR :1,
-                }[lvl]
-        except:
-            val = 1;
-        """
+        val = {
+            log.NOTSET: 0,
+            log.DEBUG: 4,
+            log.INFO: 2,
+            log.ERROR: 1,
+        }[lvl]
 
         # Change in the IcePAP library
         self.libdevice.set_verbose(val)
 
         # Always return the current eMotion level
-        self.log_info("log_level(%s) called, lib(%d)"%
-            (log.getLevelName(lvl), val))
+        self.log_info("log_level(%s) called, lib(%d)" %
+                      (log.getLevelName(lvl), val))
         return log.level()
 
     def log_error(self, msg):
@@ -249,11 +231,7 @@ class IcePAP(Controller):
         """Logging method"""
         log.info(_ICEPAP_TAB + msg)
 
-    def log_error(self, msg):
-        """Logging method"""
-        log.error(_ICEPAP_TAB + msg)
-
     def get_identifier(self, axis):
         """Returns the unique string identifier of the specified axis"""
-        self.log_info("get_identifier() called for axis \"%s\""%axis.name)
+        self.log_info("get_identifier() called for axis \"%s\"" % axis.name)
         return self.libgroup.command("?ID", axis.libaxis)

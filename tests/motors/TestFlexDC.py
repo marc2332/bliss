@@ -101,19 +101,22 @@ NINA Interactive test :
 load_cfg_fromstring("""<config>
   <controller class="FlexDC" name="id16phn">
     <host value="flexdcnina"/>
-    <axis name="fd">
+    <axis name="srot">
       <channel       value="X"/>
-      <step_size     value="13111"/>
-      <target_radius value="20"/>
-      <target_time   value="10"/>
+      <step_size     value="13111.11"/>
+      <target_radius value="10"/>
+      <target_time   value="20"/>
+      <min_dead_zone value="4"/>
+      <max_dead_zone value="10"/>
       <smoothing     value="4"/>
-      <acceleration  value="1111"/>
-      <deceleration  value="1010"/>
-      <velocity      value="1234"/>
+      <acceleration  value="398400"/>
+      <deceleration  value="398400"/>
+      <velocity      value="13111"/>
     </axis>
   </controller>
 </config>
-""");  a=get_axis("fd")  ; print a.state()
+""");
+a=get_axis("srot")  ; print a.state()
 
 
 print a.get_id()

@@ -1,3 +1,5 @@
+import time
+
 from bliss.controllers.motor import Controller
 from bliss.controllers.motor import add_axis_method
 from bliss.common.axis import READY, MOVING
@@ -41,21 +43,19 @@ class PI_E517(Controller):
         # caused by move commands.
         self.send_no_ans(axis, "ONL %d 1" % axis.channel)
 
+
+        # VCO for velocity control mode ?
+        # self.send_no_ans(axis, "VCO %d 1" % axis.channel)
+
+
         self.closed_loop = self._get_closed_loop_status(axis)
 
     def position(self, axis, new_pos=None, measured=False):
         if new_pos is None:
             if measured:
-                #                if self.closed_loop:
                 _pos = self._get_pos(axis)
-                #                else:
-                #                   _pos = self._get_voltage(axis)
-                print "PI_E517 position measured read : ", _pos
-
             else:
                 _pos = self._get_target_pos(axis)
-                print "PI_E517 position setpoint read : ", _pos
-
             return _pos
         else:
             print "OOOOOOOOOHHHHHHHHHHHHHHH"
@@ -74,16 +74,15 @@ class PI_E517(Controller):
         return _velocity
 
     def state(self, axis):
-        if self._get_closed_loop_status(axis):
+        # if self._get_closed_loop_status(axis):
+        if self.closed_loop:
             # print "CL is active"
-            self.closed_loop = True
             if self._get_on_target_status(axis):
                 return READY
             else:
                 return MOVING
         else:
             # print "CL is not active"
-            self.closed_loop = False
             return READY
             #raise RuntimeError("closed loop disabled")
 
@@ -127,11 +126,15 @@ class PI_E517(Controller):
         Adds the terminator character : "\\n".
         Returns the 1-line answer received from the controller.
         '''
-        #_chan = axis.channel
         _cmd = cmd + "\n"
-        # print "Sends %s to %s" % (repr(_cmd), _chan)
+        _t0 = time.time()
+
+        #PC
+        _ans = "toto"
         _ans = self.sock.write_readline(_cmd)
-        # print "Received %s from %s" % (repr(_ans), _chan)
+        _duration = time.time() - _t0
+        if _duration > 0.005:
+            print "E517 Received %s from Send %s (duration : %g ms) " % (repr(_ans), _cmd, _duration * 1000)
 
         return _ans
 
@@ -143,9 +146,7 @@ class PI_E517(Controller):
         Adds the terminator character : "\\n".
         Returns nothing.
         '''
-        _chan = axis.channel
         _cmd = cmd + "\n"
-        print "Sends (no ans) %s to %s" % (repr(_cmd), _chan)
         self.sock.write(_cmd)
 
     def _get_velocity(self, axis):
@@ -177,10 +178,10 @@ class PI_E517(Controller):
         if self.closed_loop:
             _ans = self.send(axis, "MOV? %s" % axis.chan_letter)
         else:
-            _ans = self.send(axis, "SVA? %s" % axis.chan_letter)
-
+            #PC to avoid updating in loop before target is reached
+            #_ans = self.send(axis, "SVA? %s" % axis.chan_letter)
+            _ans = self.send(axis, "VOL? %s" % axis.channel)
         _pos = float(_ans[2:])
-
         return _pos
 
     def _get_voltage(self, axis):
@@ -188,7 +189,7 @@ class PI_E517(Controller):
         Returns Voltage Of Output Signal Channel (VOL? command)
         '''
         _ans = self.send(axis, "VOL? %s" % axis.channel)
-        _vol = float(_ans[2:])
+        _vol = float(_ans.split("=+")[-1])
         return _vol
 
     def _get_closed_loop_status(self, axis):
@@ -216,6 +217,7 @@ class PI_E517(Controller):
             return True
         else:
             return False
+
 
     def get_id(self, axis):
         '''

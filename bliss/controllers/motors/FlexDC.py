@@ -167,6 +167,16 @@ class FlexDC(Controller):
         # print "FLEXDC stop"
         self._flexdc_query("%sST" % axis.channel)
 
+    def home_search(self, axis):
+        '''
+        start home search.
+        '''
+        _home_cmd = "%sQE,#HINX_X" % axis.channel
+        _ans = self._flexdc_query(_home_cmd)
+
+    def home_search_done(self, axis):
+        return self.flexdc_in_target(axis)
+
     '''
     FlexDC specific.
     '''
@@ -221,12 +231,6 @@ class FlexDC(Controller):
             _cmd = "%s%s" % (axis.channel, param)
             return self._flexdc_query(_cmd)
 
-    def flexdc_home(self, axis):
-        '''
-        Homing command
-        '''
-        _cmd = "%sQE,#HINX_X" % axis.channel
-        self._flexdc_query(_cmd)
 
     def flexdc_in_target(self, axis):
         '''

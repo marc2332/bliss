@@ -41,6 +41,8 @@ class FlexDC(Controller):
         axis.channel = axis.config.get("channel")
         axis.target_radius = axis.config.get("target_radius", int)
         axis.target_time = axis.config.get("target_time", int)
+        axis.min_dead_zone = axis.config.get("min_dead_zone", int)
+        axis.max_dead_zone = axis.config.get("max_dead_zone", int)
         axis.smoothing = axis.config.get("smoothing", int)
         #axis.acceleration = axis.config.get("acceleration", int)
         axis.deceleration = axis.config.get("deceleration", int)
@@ -85,6 +87,12 @@ class FlexDC(Controller):
         if _ans == "0":
             print "Missing closed loop param TR (Target Radius)!!"
 
+        # Minimum dead zone
+        self.flexdc_parameter(axis, "CA[36]", axis.min_dead_zone)
+
+        # Maximum dead zone
+        self.flexdc_parameter(axis, "CA[37]", axis.max_dead_zone)
+
         # Set config acceleration to the controller.
         self._flexdc_query("%sAC=%d" % (axis.channel,
                                         axis.settings.get("acceleration")))
@@ -103,7 +111,7 @@ class FlexDC(Controller):
                         PS : Position from Sensor
                 '''
                 _pos = int(self._flexdc_query("%sPS" % axis.channel))
-                print "FLEXDC *measured* position (in steps) :", _pos
+                #print "FLEXDC *measured* position (in steps) :", _pos
                 return _pos
             else:
                 ''' position in steps
@@ -112,15 +120,15 @@ class FlexDC(Controller):
                         loop control reference position
                 '''
                 _pos = int(self._flexdc_query("%sDP" % axis.channel))
-                print "FLEXDC *setpoint* position (in steps) : %g" % (_pos)
+                #print "FLEXDC *setpoint* position (in steps) : %g" % (_pos)
                 return _pos
 
     def velocity(self, axis, new_velocity=None):
         if new_velocity is None:
             _velocity = float(self._flexdc_query("%sSP" % axis.channel))
-            print "FLEXDC read velocity", _velocity
+            #print "FLEXDC read velocity", _velocity
         else:
-            print "FLEXDC write velocity (%g)" % new_velocity
+            #print "FLEXDC write velocity (%g)" % new_velocity
             self._flexdc_query("%sSP=%d" % (axis.channel, new_velocity))
             _velocity = new_velocity
 
@@ -169,11 +177,11 @@ class FlexDC(Controller):
             # read from controller or cache ???
             # ...controller
             _acc = self._flexdc_query("%sAC" % axis.channel)
-            print "bliss read Acceleration", _acc
+            #print "bliss read Acceleration", _acc
             axis.settings.set("acceleration", _acc)
         else:
             self._flexdc_query("%sAC=%d" % (axis.channel, new_acc))
-            print "bliss write Acceleration", new_acc
+            #print "bliss write Acceleration", new_acc
             axis.settings.set("acceleration", new_acc)
 
         return axis.settings.get("acceleration")

@@ -15,6 +15,7 @@ Thu 13 Feb 2014 15:51:41
 
 
 class PI_E517(Controller):
+
     def __init__(self, name, config, axes):
         Controller.__init__(self, name, config, axes)
 
@@ -50,28 +51,30 @@ class PI_E517(Controller):
 
         self.closed_loop = self._get_closed_loop_status(axis)
 
-    def position(self, axis, new_pos=None, measured=False):
-        if new_pos is None:
-            if measured:
-                _pos = self._get_pos(axis)
-            else:
-                _pos = self._get_target_pos(axis)
-            return _pos
+    def read_position(self, axis, measured=False):
+        if measured:
+            #                if self.closed_loop:
+            _pos = self._get_pos(axis)
+            #                else:
+            #                   _pos = self._get_voltage(axis)
+            print "PI_E517 position measured read : ", _pos
         else:
-            print "OOOOOOOOOHHHHHHHHHHHHHHH"
+            _pos = self._get_target_pos(axis)
+            print "PI_E517 position setpoint read : ", _pos
 
-    def velocity(self, axis, new_velocity=None):
-        print "PI-E517 velocity()"
-        if new_velocity is None:
-            _velocity = self._get_velocity(axis)
-            print "PI_E517 velocity read : ", _velocity
-        else:
-            self.send_no_ans(axis, "VEL %s %f" %
-                             (axis.chan_letter, new_velocity))
-            print "PI_E517 velocity wrotten : ", new_velocity
-            _velocity = new_velocity
+        return _pos
 
+    def read_velocity(self, axis):
+        print "PI-E517 read_velocity()"
+        _velocity = self._get_velocity(axis)
+        print "PI_E517 velocity read : ", _velocity
         return _velocity
+
+    def set_velocity(self, axis, new_velocity):
+        self.send_no_ans(axis, "VEL %s %f" %
+                         (axis.chan_letter, new_velocity))
+        print "PI_E517 velocity wrotten : ", new_velocity
+        return self.read_velocity(axis)
 
     def state(self, axis):
         # if self._get_closed_loop_status(axis):

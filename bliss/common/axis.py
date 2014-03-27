@@ -1,3 +1,4 @@
+
 from bliss.common.task_utils import *
 from bliss.config.motors.static import StaticConfig
 import time
@@ -65,7 +66,7 @@ class Axis(object):
         return False
 
     def measured_position(self):
-        return self.__controller.position(self, new_pos=None, measured=True)
+        return self.__controller.read_position(self, measured=True)
 
     def step_size(self):
         return self.config.get("step_size", float, 1)
@@ -84,9 +85,10 @@ class Axis(object):
 
     def _position(self, new_pos=None, measured=False):
         new_pos = new_pos * self.step_size() if new_pos is not None else None
-        return self.__controller.position(self,
-                                          new_pos,
-                                          measured) / self.step_size()
+        if new_pos is not None:
+            return self.__controller.set_position(self, new_pos) / self.step_size()
+        else:
+            return self.__controller.read_position(self, measured) / self.step_size()
 
     def state(self):
         if self.is_moving:
@@ -95,12 +97,18 @@ class Axis(object):
         return self.__controller.state(self)
 
     def velocity(self, new_velocity=None):
-        _vel = self.__controller.velocity(self, new_velocity)
+        if new_velocity is not None:
+            _vel = self.__controller.set_velocity(self, new_velocity)
+        else:
+            _vel = self.__controller.read_velocity(self)
         self.settings.set("velocity", _vel)
         return _vel
 
     def acctime(self, new_acctime=None):
-        _acctime = self.__controller.acctime(self, new_acctime)
+        if new_acctime is not None:
+            _acctime = self.__controller.set_acctime(self, new_acctime)
+        else:
+            _acctime = self.__controller.read_acctime(self)
         self.settings.set("acctime", _acctime)
         return _acctime
 

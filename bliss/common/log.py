@@ -3,7 +3,9 @@ from logging import getLevelName
 from traceback import extract_stack as tb_extract_stack
 import sys
 
+# this is to make flake8 happy
 NOTSET
+###
 
 
 def _caller(up=1):
@@ -88,7 +90,7 @@ def debug(debug_msg):
 #   ERROR  == 40 | 1 == DBG_ERROR | ERROR
 #   CRITIC == 50 |                | FATAL
 
-# # tango log levels :
+# tango log levels :
 # OFF:   Nothing is logged
 # FATAL: A fatal error occurred. The process is about to abort
 # ERROR: An (unrecoverable) error occurred but the process is still alive

@@ -142,3 +142,7 @@ class Group(object):
                 all_motions.extend(motions)
 
         return self._handle_move(all_motions, wait=wait)
+
+    def wait_move(self):
+        for axis in self._axes.itervalues():
+            axis.wait_move()

@@ -16,6 +16,7 @@ NOT DONE :
 
 
 class FlexDC(Controller):
+
     def __init__(self, name, config, axes):
         Controller.__init__(self, name, config, axes)
 
@@ -104,35 +105,33 @@ class FlexDC(Controller):
 
         # print "FLEXDC end of initialize_axis"
 
-    def position(self, axis, new_pos=None, measured=False):
-        if new_pos is None:
-            if measured:
-                ''' position in steps
-                        PS : Position from Sensor
-                '''
-                _pos = int(self._flexdc_query("%sPS" % axis.channel))
-                #print "FLEXDC *measured* position (in steps) :", _pos
-                return _pos
-            else:
-                ''' position in steps
-                        DP : Desired Position
-                        When an axis is in motion, DP holds the real time servo
-                        loop control reference position
-                '''
-                _pos = int(self._flexdc_query("%sDP" % axis.channel))
-                #print "FLEXDC *setpoint* position (in steps) : %g" % (_pos)
-                return _pos
-
-    def velocity(self, axis, new_velocity=None):
-        if new_velocity is None:
-            _velocity = float(self._flexdc_query("%sSP" % axis.channel))
-            #print "FLEXDC read velocity", _velocity
+    def read_position(self, axis, measured=False):
+        if measured:
+            ''' position in steps
+                    PS : Position from Sensor
+            '''
+            _pos = int(self._flexdc_query("%sPS" % axis.channel))
+            print "FLEXDC *measured* position (in steps) :", _pos
+            return _pos
         else:
-            #print "FLEXDC write velocity (%g)" % new_velocity
-            self._flexdc_query("%sSP=%d" % (axis.channel, new_velocity))
-            _velocity = new_velocity
+            ''' position in steps
+                    DP : Desired Position
+                    When an axis is in motion, DP holds the real time servo
+                    loop control reference position
+            '''
+            _pos = int(self._flexdc_query("%sDP" % axis.channel))
+            print "FLEXDC *setpoint* position (in steps) : %g" % (_pos)
+            return _pos
 
+    def read_velocity(self, axis):
+        _velocity = float(self._flexdc_query("%sSP" % axis.channel))
+        print "FLEXDC read velocity", _velocity
         return _velocity
+
+    def set_velocity(self, axis, new_velocity):
+        print "FLEXDC write velocity (%g)" % new_velocity
+        self._flexdc_query("%sSP=%d" % (axis.channel, new_velocity))
+        return self.read_velocity(axis)
 
     def state(self, axis):
         _ret = 0
@@ -152,20 +151,20 @@ class FlexDC(Controller):
         else:
             _ret = READY
 
-        #print "FLEXDC state :", _ret
+        # print "FLEXDC state :", _ret
         return _ret
 
     def prepare_move(self, motion):
-        #print "FLEXDC prepare_move, target_pos=", target_pos
+        # print "FLEXDC prepare_move, target_pos=", target_pos
         self._flexdc_query("%sAP=%d" % (motion.axis.channel,
                                         int(motion.target_pos)))
 
     def start_one(self, motion):
-        #print "FLEXDC start_move, target_pos=", motion.target_pos
+        # print "FLEXDC start_move, target_pos=", motion.target_pos
         self._flexdc_query("%sBG" % motion.axis.channel)
 
     def stop(self, axis):
-        #print "FLEXDC stop"
+        # print "FLEXDC stop"
         self._flexdc_query("%sST" % axis.channel)
 
     '''
@@ -202,7 +201,7 @@ class FlexDC(Controller):
         # Adds ACK character:
         _cmd = _cmd + "Z"
         _ans = self.sock.write_readline(_cmd, eol=">Z")
-        #if self.sock.read(1) != "Z":
+        # if self.sock.read(1) != "Z":
         #    print "missing ack character ??? return of cmd \"%s\". "%cmd
         return _ans
 
@@ -252,12 +251,12 @@ class FlexDC(Controller):
 
         _reasons = [
             ("EM_IN_MOTION", "In motion, or After Boot up."),
-            ("EM_NORMAL",    "Last Motion ended Normally."),
-            ("EM_FLS",       "Last Motion ended due to Hardware FLS."),
-            ("EM_RLS",       "Last Motion ended due to Hardware RLS."),
-            ("EM_HL",        "Last Motion ended due to Software HL."),
-            ("EM_LL",        "Last Motion ended due to Software LL."),
-            ("EM_MF",        "Last Motion ended due to Motor Fault (see MF)."),
+            ("EM_NORMAL", "Last Motion ended Normally."),
+            ("EM_FLS", "Last Motion ended due to Hardware FLS."),
+            ("EM_RLS", "Last Motion ended due to Hardware RLS."),
+            ("EM_HL", "Last Motion ended due to Software HL."),
+            ("EM_LL", "Last Motion ended due to Software LL."),
+            ("EM_MF", "Last Motion ended due to Motor Fault (see MF)."),
             ("EM_USER_STOP", "Last Motion ended due to User Stop (ST or AB)."),
             ("EM_MOTOR_OFF", "Last Motion ended due to Motor OFF (MO=0)."),
             ("EM_BAD_PROFILE_PARAM",
@@ -274,59 +273,59 @@ class FlexDC(Controller):
         # list of commands and descriptions
         _infos = [
 
-            ("VR,0",      "VR,0"),
-            ("VR,1",      "VR,1"),
-            ("VR,2",      "VR,2"),
-            ("VR,3",      "VR,3"),
-            ("VR,4",      "VR,4"),
-            ("VR,5",      "VR,5"),
-            ("VR,6",      "VR,6"),
+            ("VR,0", "VR,0"),
+            ("VR,1", "VR,1"),
+            ("VR,2", "VR,2"),
+            ("VR,3", "VR,3"),
+            ("VR,4", "VR,4"),
+            ("VR,5", "VR,5"),
+            ("VR,6", "VR,6"),
 
-            ("AC",      "Acceleration"),
-            ("AD",      "Analog Input Dead Band"),
-            ("AF",      "Analog Input Gain Factor"),
-            ("AG",      "Analog Input Gain"),
-            ("AI",      "Analog Input Value"),
-            ("AP",      "Next Absolute Position Target"),
-            ("AS",      "Analog Input Offset"),
-            ("CA[36]",      "Min dead zone"),
-            ("CA[37]",      "Max dead zone"),
-            ("CA[33]",      "Dead zone bit#1"),
-            ("CG",      "Axis Configuration"),
-            ("DC",      "Deceleration"),
-            ("DL",      "Limit deceleration"),
-            ("DO",      "DAC Analog Offset"),
-            ("DP",      "Desired Position"),
-            ("EM",      "Last end of motion reason"),
-            ("ER",      "Maximum Position Error Limit"),
-            ("HL",      "High soft limit"),
-            ("IS",      "Integral Saturation Limit"),
-            ("KD[1]",      "PIV Differential Gain"),
-            ("KD[2]",      "PIV Differential Gain (Scheduling)"),
-            ("KI[1]",      "PIV Integral Gain"),
-            ("KI[2]",      "PIV Integral Gain (Scheduling)"),
-            ("KP[1]",      "PIV Proportional Gain"),
-            ("KP[2]",      "PIV Proportional Gain (Scheduling)"),
-            ("LL",      "Low  soft limit"),
-            ("ME",      "Master Encoder Axis Definition"),
-            ("MF",      "Motor Fault Reason"),
-            ("MM",      "Motion mode"),
-            ("MO",      "Motor On"),
-            ("MS",      "Motion Status"),
-            ("NC",      "No Control (Enable open loop)"),
-            ("PE",      "Position Error"),
-            ("PO",      "PIV Output"),
-            ("PS",      "Encoder Position Value"),
-            ("RP",      "Next Relative Position Target"),
-            ("SM",      "Special motion mode"),
-            ("SP",      "Velocity"),
-            ("SR",      "Status Register"),
-            ("TC",      "Torque (open loop) Command"),
-            ("TL",      "Torque Limit"),
-            ("TR",      "Target Radius"),
-            ("TT",      "Target Time"),
-            ("VL",      "Actual Velocity"),   # Is this true?
-            ("WW",      "Smoothing")]
+            ("AC", "Acceleration"),
+            ("AD", "Analog Input Dead Band"),
+            ("AF", "Analog Input Gain Factor"),
+            ("AG", "Analog Input Gain"),
+            ("AI", "Analog Input Value"),
+            ("AP", "Next Absolute Position Target"),
+            ("AS", "Analog Input Offset"),
+            ("CA[36]", "Min dead zone"),
+            ("CA[37]", "Max dead zone"),
+            ("CA[33]", "Dead zone bit#1"),
+            ("CG", "Axis Configuration"),
+            ("DC", "Deceleration"),
+            ("DL", "Limit deceleration"),
+            ("DO", "DAC Analog Offset"),
+            ("DP", "Desired Position"),
+            ("EM", "Last end of motion reason"),
+            ("ER", "Maximum Position Error Limit"),
+            ("HL", "High soft limit"),
+            ("IS", "Integral Saturation Limit"),
+            ("KD[1]", "PIV Differential Gain"),
+            ("KD[2]", "PIV Differential Gain (Scheduling)"),
+            ("KI[1]", "PIV Integral Gain"),
+            ("KI[2]", "PIV Integral Gain (Scheduling)"),
+            ("KP[1]", "PIV Proportional Gain"),
+            ("KP[2]", "PIV Proportional Gain (Scheduling)"),
+            ("LL", "Low soft limit"),
+            ("ME", "Master Encoder Axis Definition"),
+            ("MF", "Motor Fault Reason"),
+            ("MM", "Motion mode"),
+            ("MO", "Motor On"),
+            ("MS", "Motion Status"),
+            ("NC", "No Control (Enable open loop)"),
+            ("PE", "Position Error"),
+            ("PO", "PIV Output"),
+            ("PS", "Encoder Position Value"),
+            ("RP", "Next Relative Position Target"),
+            ("SM", "Special motion mode"),
+            ("SP", "Velocity"),
+            ("SR", "Status Register"),
+            ("TC", "Torque (open loop) Command"),
+            ("TL", "Torque Limit"),
+            ("TR", "Target Radius"),
+            ("TT", "Target Time"),
+            ("VL", "Actual Velocity"),   # Is this true?
+            ("WW", "Smoothing")]
 
         _txt = ""
         for i in _infos:

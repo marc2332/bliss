@@ -13,6 +13,7 @@ Cyril Guilloud ESRF BLISS January 2014
 
 
 class PI_E753(Controller):
+
     def __init__(self, name, config, axes):
         Controller.__init__(self, name, config, axes)
 
@@ -34,10 +35,7 @@ class PI_E753(Controller):
         # Enables the closed-loop.
         self.sock.write("SVO 1 1\n")
 
-    def position(self, axis, new_pos=None, measured=False):
-        if new_pos is not None:
-            pass
-
+    def read_position(self, axis, measured=False):
         if measured:
             _ans = self._get_pos()
         else:
@@ -45,14 +43,12 @@ class PI_E753(Controller):
 
         return _ans
 
-    def velocity(self, axis, new_velocity=None):
-        if new_velocity is None:
-            _velocity = self._get_velocity(axis)
-        else:
-            self._set_velocity(new_velocity)
-            _velocity = new_velocity
+    def read_velocity(self, axis):
+        return self._get_velocity(axis)
 
-        return _velocity
+    def set_velocity(self, axis, new_velocity):
+        self._set_velocity(new_velocity)
+        return self.read_velocity(axis)
 
     def state(self, axis):
         if self._get_closed_loop_status():
@@ -76,6 +72,7 @@ class PI_E753(Controller):
     """
     E753 specific communication
     """
+
     def steps_per_unit(self, axis, new_step_per_unit=None):
         if new_step_per_unit is None:
             return float(axis.config.get("step_size"))

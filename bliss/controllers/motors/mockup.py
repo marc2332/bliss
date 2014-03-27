@@ -1,7 +1,6 @@
 from bliss.controllers.motor import Controller
 from bliss.common.axis import READY, MOVING
 from bliss.controllers.motor import add_axis_method
-import random
 import math
 import time
 
@@ -62,8 +61,8 @@ class Mockup(Controller):
     def start_one(self, motion, t0=None):
         axis = motion.axis
         t0 = t0 or time.time()
-        pos = self.position(axis)
-        v = self.velocity(axis) * axis.step_size()
+        pos = self.read_position(axis)
+        v = self.read_velocity(axis) * axis.step_size()
         self._axis_moves[axis] = {
             "start_pos": pos,
             "delta": motion.delta,
@@ -75,16 +74,11 @@ class Mockup(Controller):
             "t0": t0}
 
     '''
-    If new_pos is passed, set the axis to this position.
     Always return the position (measured or desired) taken from controller
     in steps.
     '''
 
-    def position(self, axis, new_pos=None, measured=False):
-        if new_pos is not None:
-            self._axis_moves[axis]["end_pos"] = new_pos
-            self._axis_moves[axis]["end_t"] = 0
-
+    def read_position(self, axis, measured=False):
         if measured:
             return -1.2345
         else:
@@ -92,7 +86,7 @@ class Mockup(Controller):
             if self._axis_moves[axis]["end_t"]:
                 # motor is moving
                 t = time.time()
-                v = self.velocity(axis) * axis.step_size()
+                v = self.read_velocity(axis) * axis.step_size()
                 d = math.copysign(1, self._axis_moves[axis]["delta"])
                 dt = t - self._axis_moves[axis]["t0"]
                 pos = self._axis_moves[axis]["start_pos"] + d * dt * v
@@ -100,31 +94,34 @@ class Mockup(Controller):
             else:
                 return self._axis_moves[axis]["end_pos"]
 
+    def set_position(self, axis, new_pos):
+        self._axis_moves[axis]["end_pos"] = new_pos
+        self._axis_moves[axis]["end_t"] = 0
+        return new_pos
+
     '''
-    If new_velocity is passed, set the axis velocity to this value.
     Always return the current velocity taken from controller
     in steps/sec.
     '''
 
-    def velocity(self, axis, new_velocity=None):
-        if new_velocity is not None:
-            axis.settings.set('velocity', new_velocity)
-
-        # Always return velocity.
+    def read_velocity(self, axis):
         return float(axis.settings.get('velocity'))
 
+    def set_velocity(self, axis, new_velocity):
+        axis.settings.set('velocity', new_velocity)
+        return new_velocity
+
     '''
-    If new_acctime is passed, set the axis acceleration time to this value.
     Always return the current acceleration time taken from controller
     in seconds.
     '''
 
-    def acctime(self, axis, new_acctime=None):
-        if new_acctime is not None:
-            axis.settings.set('acctime', new_acctime)
-
-        # Always return acceleration time.
+    def read_acctime(self, axis):
         return float(axis.settings.get('acctime'))
+
+    def set_acctime(self, axis, new_acctime):
+        axis.settings.set('acctime', new_acctime)
+        return new_acctime
 
     '''
     '''
@@ -141,13 +138,13 @@ class Mockup(Controller):
     '''
 
     def stop(self, axis):
-        self._axis_moves[axis]["end_pos"] = self.position(axis)
+        self._axis_moves[axis]["end_pos"] = self.read_position(axis)
         self._axis_moves[axis]["end_t"] = 0
 
     def stop_all(self, *motion_list):
         for motion in motion_list:
             axis = motion.axis
-            self._axis_moves[axis]["end_pos"] = self.position(axis)
+            self._axis_moves[axis]["end_pos"] = self.read_position(axis)
             self._axis_moves[axis]["end_t"] = 0
 
     '''

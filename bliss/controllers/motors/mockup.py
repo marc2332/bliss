@@ -147,6 +147,18 @@ class Mockup(Controller):
             self._axis_moves[axis]["end_pos"] = self.read_position(axis)
             self._axis_moves[axis]["end_t"] = 0
 
+    def home_search(self, axis):
+        self._axis_moves[axis]["end_pos"] = 0
+        self._axis_moves[axis]["end_t"] = 0
+        self._axis_moves[axis]["home_search_start_time"] = time.time()
+
+#    def home_set_hardware_position(self, axis, home_pos):
+#        raise NotImplementedError
+
+    def home_search_done(self, axis):
+        return (time.time() - self._axis_moves[axis]["home_search_start_time"]) > 2
+
+
     '''
     Custom axis method returning the current name of the axis
     '''

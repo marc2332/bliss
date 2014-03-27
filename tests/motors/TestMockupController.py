@@ -169,6 +169,15 @@ class TestMockupController(unittest.TestCase):
         roby = bliss.get_axis("roby")
         self.assertEqual(roby.velocity(), roby.config.get("velocity", int))
 
+    def test_home_search(self):
+        roby = bliss.get_axis("roby")
+        self.assertEqual(roby.state(), 'READY')
+        roby.home(38930, wait=False)
+        self.assertEqual(roby.state(), 'MOVING')
+        roby.wait_move()
+        self.assertEqual(roby.state(), 'READY')
+        self.assertEqual(roby.position(), 38930)
+
     def test_ctrlc(self):
         robz = bliss.get_axis("robz")
         final_pos = robz.position() + 100

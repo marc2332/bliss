@@ -123,6 +123,15 @@ class Controller(object):
     def state(self, axis):
         raise NotImplementedError
 
+    def home_search(self, axis):
+        raise NotImplementedError
+
+    def home_set_hardware_position(self, axis, home_pos):
+        raise NotImplementedError
+
+    def home_search_done(self, axis):
+        raise NotImplementedError
+
     def read_position(self, axis, measured=False):
         raise NotImplementedError
 

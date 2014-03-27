@@ -168,11 +168,14 @@ class Axis(object):
     def _set_move_done(self, move_task):
         self.__move_done.set()
 
-    def move(self, user_target_pos, wait=True, relative=False):
+    def _check_ready(self):
         initial_state = self.state()
         if initial_state != READY:
             raise RuntimeError("motor %s state is \
                                 %r" % (self.name, initial_state))
+
+    def move(self, user_target_pos, wait=True, relative=False):
+        self._check_ready()
 
         motion = self.prepare_move(user_target_pos, relative)
 
@@ -204,6 +207,39 @@ class Axis(object):
         if self.is_moving:
             self.__controller.stop(self)
             self.__move_done.set()
+
+    def home(self, home_pos=None, wait=True):
+        self._check_ready()
+
+        self.__move_done.clear()
+
+        home_task = self._do_home(home_pos, wait=False)
+        home_task.link(self._set_move_done)
+
+        if wait:
+            home_task.get()
+        else:
+            return home_task
+
+    @task
+    def _do_home(self, home_pos):
+        with error_cleanup(self.stop):
+
+            # flag "must the position to be set ?"
+            _set_pos = False
+
+            if home_pos is not None:
+                try:
+                    self.__controller.home_set_hardware_position(self, home_pos)
+                except NotImplementedError:
+                    _set_pos = True
+
+            self.__controller.home_search(self)
+            while not self.__controller.home_search_done(self):
+                time.sleep(0.02)
+
+            if _set_pos:
+                self._position(home_pos)
 
 
 class AxisRef(object):

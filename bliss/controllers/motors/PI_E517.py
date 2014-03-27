@@ -31,7 +31,7 @@ class PI_E517(Controller):
         axis.chan_letter = axis.config.get("chan_letter")
 
         add_axis_method(axis, self.get_id)
-        add_axis_method(axis, self.get_infos)
+        add_axis_method(axis, self.get_info)
         add_axis_method(axis, self.steps_per_unit)
 
         # Enables the closed-loop.
@@ -239,7 +239,7 @@ class PI_E517(Controller):
     Returns a set of usefull information about controller.
     Can be helpful to tune the device.
     '''
-    def get_infos(self, axis):
+    def get_info(self, axis):
         _infos = [
             ("Identifier                 ", "*IDN?"),
             ("Serial Number              ", "SSN?"),

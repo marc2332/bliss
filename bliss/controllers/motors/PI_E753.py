@@ -29,6 +29,7 @@ class PI_E753(Controller):
     def initialize_axis(self, axis):
 
         add_axis_method(axis, self.steps_per_unit)
+        add_axis_method(axis, self.get_info)
 
         # Enables the closed-loop.
         self.sock.write("SVO 1 1\n")
@@ -149,7 +150,7 @@ class PI_E753(Controller):
     def _set_velocity(self, velocity):
         self.sock.write("VEL 1 %f\n" % velocity)
 
-    def _get_infos(self):
+    def get_info(self):
         '''
         Returns a set of usefull information about controller.
         Can be helpful to tune the device.

@@ -218,6 +218,21 @@ class PI_E517(Controller):
         else:
             return False
 
+    def _activate_threshold_trigger(self, axis, min, max):
+        """
+        CTO  {<TrigOutID> <CTOPam> <Value>}
+          <TrigOutID> : {1, 2, 3}
+          <CTOPam> : 3: trigger mode
+                     5: min threshold
+                     6: max threshold
+          <Value> : {0, 2, 3, 4}
+               0 : 
+               2 : 
+               3 : 
+               4 : 
+        """
+
+        _cmd = "CTO %d " % (axis.channel)
 
     def get_id(self, axis):
         '''

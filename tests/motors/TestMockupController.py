@@ -85,6 +85,17 @@ class TestMockupController(unittest.TestCase):
         move_greenlet.join()
         self.assertEqual(robz.state(), "READY")
 
+    def test_axis_multiple_move(self):
+        robz = bliss.get_axis("robz")
+
+        for i in range(250):
+            self.assertEqual(robz.state(), "READY")
+            move_greenlet = robz.move(180, wait=False)
+            self.assertEqual(robz.state(), "MOVING")
+            move_greenlet.join()
+            self.assertEqual(robz.state(), "READY")
+            time.sleep(0.0001)
+
     def test_axis_init(self):
         robz = bliss.get_axis("robz")
         self.assertEqual(robz.settings.get("init_count"), 1)

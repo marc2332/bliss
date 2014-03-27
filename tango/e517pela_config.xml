@@ -1,6 +1,6 @@
 <config>
   <controller class="PI_E517" name="id16pela">
-    <host value="e517pela"/>
+    <host value="192.168.167.10"/>
     <axis name="p4">
       <channel       value="1"/>
       <chan_letter   value="A"/>

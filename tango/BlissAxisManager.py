@@ -8,7 +8,7 @@ import traceback
 import TgGevent
 import sys
 import os
-
+import time
 
 class BlissAxisManager(PyTango.Device_4Impl):
 
@@ -61,7 +61,7 @@ class BlissAxis(PyTango.Device_4Impl):
         PyTango.Device_4Impl.__init__(self, cl, name)
 
         self._axis_name = name.split('/')[-1]
-
+        self._ds_name = name
         self.debug_stream("In __init__()")
         self.init_device()
 
@@ -79,6 +79,8 @@ class BlissAxis(PyTango.Device_4Impl):
 
         self.once = False
 
+        self._init_time = time.time()
+        self._t = time.time()
         """
         self.attr_Steps_per_unit_read = 0.0
         self.attr_Steps_read = 0
@@ -204,7 +206,12 @@ class BlissAxis(PyTango.Device_4Impl):
 
     def read_Position(self, attr):
         self.debug_stream("In read_Position()")
+        _t = time.time()
         attr.set_value(self.axis.position())
+        _duration = time.time() - _t
+        if _duration > 0.05:
+            print "{%s} read_Position : duration seems too long : %5.3g ms" % \
+            (self._ds_name, _duration*1000)
 
     def write_Position(self, attr):
         '''
@@ -212,11 +219,19 @@ class BlissAxis(PyTango.Device_4Impl):
         NB : take care to call WaitMove before sending another movement
         '''
         self.debug_stream("In write_Position()")
-        self.axis.move(attr.get_write_value(), wait=False)
+        #self.axis.move(attr.get_write_value(), wait=False)
+        #self.axis.move(attr.get_write_value(), wait=True)
+        self.axis.move(attr.get_write_value(), wait=self.write_position_wait)
 
     def read_Measured_Position(self, attr):
         self.debug_stream("In read_Measured_Position()")
+        _t = time.time()
         attr.set_value(self.axis.measured_position())
+        _duration = time.time() - _t
+
+        if _duration > 0.01:
+            print "{%s} read_Measured_Position : duration seems too long : %5.3g ms" % \
+            (self._ds_name, _duration*1000)
 
     def read_Acceleration(self, attr):
         try:
@@ -393,6 +408,10 @@ class BlissAxisClass(PyTango.DeviceClass):
 
     #    Device Properties
     device_property_list = {
+        'write_position_wait':
+        [PyTango.DevBoolean,
+         "Write position waits for end of motion",
+         False],
     }
 
     #    Command definitions
@@ -709,6 +728,7 @@ def main():
                                         axis_name))
 
                 try:
+                    print "Creating %s" % device_name
                     bliss.common.log.info("Creating %s" % device_name)
                     U.create_device('BlissAxis', device_name)
                 except PyTango.DevFailed:

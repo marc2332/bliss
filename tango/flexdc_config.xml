@@ -4,8 +4,10 @@
     <axis name="srot">
       <channel       value="X"/>
       <step_size     value="13111.11"/>
-      <target_radius value="10"/>
+      <target_radius value="100"/>
       <target_time   value="20"/>
+      <min_dead_zone value="40"/>
+      <max_dead_zone value="100"/>
       <smoothing     value="4"/>
       <acceleration  value="398400"/>
       <deceleration  value="398400"/>

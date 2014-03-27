@@ -64,7 +64,7 @@ class TestGroup(unittest.TestCase):
         target_robz = robz_pos + 50
         target_roby = roby_pos + 50
 
-        move_greenlet = grp.move(
+        grp.move(
             robz, target_robz,
             roby, target_roby,
             wait=False)
@@ -73,7 +73,7 @@ class TestGroup(unittest.TestCase):
         self.assertEqual(robz.state(), "MOVING")
         self.assertEqual(roby.state(), "MOVING")
 
-        move_greenlet.join()
+        grp.wait_move()
 
         self.assertEqual(robz.state(), "READY")
         self.assertEqual(roby.state(), "READY")

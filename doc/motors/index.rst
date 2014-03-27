@@ -16,6 +16,7 @@ Contents:
    axis
    group
    controller
+   controller_plugins
    log
    event
    settings

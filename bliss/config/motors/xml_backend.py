@@ -52,10 +52,26 @@ class XmlDictConfig(dict):
 
 
 def load_cfg_fromstring(config_xml):
+    """Load configuration from xml string
+
+    Args:
+        config_xml (str): string holding xml representation of config
+
+    Returns:
+        None
+    """
     return _load_config(ElementTree.fromstring(config_xml))
 
 
 def load_cfg(config_file):
+    """Load configuration from xml file
+
+    Args:
+        config_file (str): full path to configuration file
+
+    Returns:
+        None
+    """
     return _load_config(ElementTree.parse(config_file))
 
 

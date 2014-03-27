@@ -3,6 +3,6 @@
 FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -e '\.py$')
 
 if [ -n "$FILES" ]; then
-    flake8 --ignore=F403 --max-line-length=105 $FILES
+    flake8 --ignore=F403 --max-line-length=115 $FILES
 fi
 

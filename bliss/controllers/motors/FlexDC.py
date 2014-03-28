@@ -172,15 +172,15 @@ class FlexDC(Controller):
         start home search.
         '''
         _home_cmd = "%sQE,#HINX_X" % axis.channel
-        _ans = self._flexdc_query(_home_cmd)
+        self._flexdc_query(_home_cmd)
 
-    def home_search_done(self, axis):
-        _home_query_cmd ="%sQF1" % axis.channel
+    def home_state(self, axis):
+        _home_query_cmd = "%sQF1" % axis.channel
         _ans = self._flexdc_query(_home_query_cmd)
         if _ans == "1":
-            return False
+            return MOVING
         else:
-            return True
+            return READY
 
     '''
     FlexDC specific.
@@ -191,11 +191,11 @@ class FlexDC(Controller):
             # read from controller or cache ???
             # ...controller
             _acc = self._flexdc_query("%sAC" % axis.channel)
-            #print "bliss read Acceleration", _acc
+            # print "bliss read Acceleration", _acc
             axis.settings.set("acceleration", _acc)
         else:
             self._flexdc_query("%sAC=%d" % (axis.channel, new_acc))
-            #print "bliss write Acceleration", new_acc
+            # print "bliss write Acceleration", new_acc
             axis.settings.set("acceleration", new_acc)
 
         return axis.settings.get("acceleration")
@@ -235,7 +235,6 @@ class FlexDC(Controller):
         else:
             _cmd = "%s%s" % (axis.channel, param)
             return self._flexdc_query(_cmd)
-
 
     def flexdc_in_target(self, axis):
         '''

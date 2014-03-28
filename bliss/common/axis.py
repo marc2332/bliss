@@ -238,8 +238,8 @@ class Axis(object):
             while not self.__controller.home_search_done(self):
                 time.sleep(0.02)
 
-            if _set_pos:
-                self._position(home_pos)
+        if _set_pos:
+            self._position(home_pos)
 
 
 class AxisRef(object):

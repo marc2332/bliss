@@ -94,10 +94,10 @@ class Mockup(Controller):
             else:
                 return self._axis_moves[axis]["end_pos"]
 
-    def set_position(self, axis, new_pos):
-        self._axis_moves[axis]["end_pos"] = new_pos
-        self._axis_moves[axis]["end_t"] = 0
-        return new_pos
+    #def set_position(self, axis, new_pos):
+    #    self._axis_moves[axis]["end_pos"] = new_pos
+    #    self._axis_moves[axis]["end_t"] = 0
+    #    return new_pos
 
     '''
     Always return the current velocity taken from controller
@@ -157,7 +157,6 @@ class Mockup(Controller):
 
     def home_search_done(self, axis):
         return (time.time() - self._axis_moves[axis]["home_search_start_time"]) > 2
-
 
     '''
     Custom axis method returning the current name of the axis

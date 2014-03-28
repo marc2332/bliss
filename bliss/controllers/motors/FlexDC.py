@@ -175,7 +175,12 @@ class FlexDC(Controller):
         _ans = self._flexdc_query(_home_cmd)
 
     def home_search_done(self, axis):
-        return self.flexdc_in_target(axis)
+        _home_query_cmd ="%sQF1" % axis.channel
+        _ans = self._flexdc_query(_home_query_cmd)
+        if _ans == "1":
+            return False
+        else:
+            return True
 
     '''
     FlexDC specific.

@@ -244,7 +244,11 @@ class Axis(object):
                     _set_pos = True
 
             self.__controller.home_search(self)
-            while not self.__controller.home_search_done(self):
+            while True:
+                state = self.__controller.home_state(self)
+                self.settings.set("state", state)
+                if state != MOVING:
+                    break
                 time.sleep(0.02)
 
             if _set_pos:

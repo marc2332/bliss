@@ -36,6 +36,7 @@ class Axis(object):
         self.__settings = Axis.Settings()
         self.__move_done = gevent.event.Event()
         self.__move_done.set()
+        self.__offset = 0
 
     @property
     def name(self):
@@ -56,6 +57,10 @@ class Axis(object):
     @property
     def is_moving(self):
         return not self.__move_done.is_set()
+
+    @property
+    def offset(self):
+        return self.__offset
 
     def has_tag(self, tag):
         for t, axis_list in self.__controller._tagged.iteritems():
@@ -86,9 +91,13 @@ class Axis(object):
     def _position(self, new_pos=None, measured=False):
         new_pos = new_pos * self.step_size() if new_pos is not None else None
         if new_pos is not None:
-            return self.__controller.set_position(self, new_pos) / self.step_size()
+            try:
+                return self.__controller.set_position(self, new_pos) / self.step_size()
+            except NotImplementedError:
+                self.__offset = (self.__controller.read_position(self) - new_pos) / self.step_size()
+                return self.position()
         else:
-            return self.__controller.read_position(self, measured) / self.step_size()
+            return (self.__controller.read_position(self, measured) / self.step_size()) - self.__offset
 
     def state(self):
         if self.is_moving:
@@ -146,7 +155,7 @@ class Axis(object):
         # all positions are converted to controller units
         backlash = self.config.get("backlash", float, 0) * self.step_size()
         delta = (user_target_pos - initial_pos) * self.step_size()
-        target_pos = user_target_pos * self.step_size()
+        target_pos = (user_target_pos + self.__offset) * self.step_size()
 
         if backlash:
             if cmp(delta, 0) != cmp(backlash, 0):
@@ -235,7 +244,11 @@ class Axis(object):
                     _set_pos = True
 
             self.__controller.home_search(self)
-            while not self.__controller.home_search_done(self):
+            while True:
+                state = self.__controller.home_state(self)
+                self.settings.set("state", state)
+                if state != MOVING:
+                    break
                 time.sleep(0.02)
 
         if _set_pos:

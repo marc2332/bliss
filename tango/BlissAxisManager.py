@@ -81,6 +81,8 @@ class BlissAxis(PyTango.Device_4Impl):
 
         self._init_time = time.time()
         self._t = time.time()
+
+        self.attr_Home_position_read = 0.0
         """
         self.attr_Steps_per_unit_read = 0.0
         self.attr_Steps_read = 0
@@ -88,7 +90,6 @@ class BlissAxis(PyTango.Device_4Impl):
         self.attr_Measured_Position_read = 0.0
         self.attr_Acceleration_read = 0.0
         self.attr_Backlash_read = 0.0
-        self.attr_Home_position_read = 0.0
         self.attr_HardLimitLow_read = False
         self.attr_HardLimitHigh_read = False
         self.attr_PresetPosition_read = 0.0
@@ -280,6 +281,7 @@ class BlissAxis(PyTango.Device_4Impl):
 
     def write_Home_position(self, attr):
         self.debug_stream("In write_Home_position()")
+        data = float(attr.get_write_value())
         self.attr_Home_position_read = data
 
     def read_HardLimitLow(self, attr):

@@ -21,15 +21,28 @@ class PI_E517(Controller):
 
         self.host = self.config.get("host")
 
-    # Init of controller.
     def initialize(self):
+        """
+        Opens a single socket for all 3 axes.
+        """
         self.sock = tcp.Socket(self.host, 50000)
 
     def finalize(self):
+        """
+        Closes the controller socket.
+        """
         self.sock.close()
 
-    # Init of each axis.
     def initialize_axis(self, axis):
+        """
+        Switches piezo to ONLINE mode so that axis motion can be caused
+        by move commands.
+
+        Args:
+            - <axis>
+        Returns:
+            - None
+        """
         axis.channel = axis.config.get("channel", int)
         axis.chan_letter = axis.config.get("chan_letter")
 
@@ -40,23 +53,28 @@ class PI_E517(Controller):
         # Enables the closed-loop.
         # self.sock.write("SVO 1 1\n")
 
-        # Switch piezo to ONLINE mode so that axis motion can be
-        # caused by move commands.
         self.send_no_ans(axis, "ONL %d 1" % axis.channel)
-
 
         # VCO for velocity control mode ?
         # self.send_no_ans(axis, "VCO %d 1" % axis.channel)
 
-
+        # Updates cached value of closed loop status.
         self.closed_loop = self._get_closed_loop_status(axis)
 
     def read_position(self, axis, measured=False):
+        """
+        Returns position's setpoint or measured position.
+        Setpoint position is MOV? of VOL? depending on closed-loop
+        mode is ON or OFF.
+
+        Args:
+            - <axis> : bliss axis.
+            - [<measured>] : boolean : if True, function returns measured position.
+        Returns:
+            - <position> : float : piezo position in Micro-meters or in Volts.
+        """
         if measured:
-            #                if self.closed_loop:
             _pos = self._get_pos(axis)
-            #                else:
-            #                   _pos = self._get_voltage(axis)
             print "PI_E517 position measured read : ", _pos
         else:
             _pos = self._get_target_pos(axis)
@@ -65,9 +83,18 @@ class PI_E517(Controller):
         return _pos
 
     def read_velocity(self, axis):
-        print "PI-E517 read_velocity()"
-        _velocity = self._get_velocity(axis)
-        print "PI_E517 velocity read : ", _velocity
+        """
+        Args:
+            - <axis> : Bliss axis object.
+        Returns:
+            - <velocity> : float
+        """
+        _ans = self.send(axis, "VEL? %s" % axis.chan_letter)
+        # _ans should looks like "A=+0012.0000"
+        # removes 'X=' prefix
+        _velocity = float(_ans[2:])
+
+        print "PI_E517 read_velocity  : ", _velocity
         return _velocity
 
     def set_velocity(self, axis, new_velocity):
@@ -90,9 +117,30 @@ class PI_E517(Controller):
             #raise RuntimeError("closed loop disabled")
 
     def prepare_move(self, motion):
+        """
+        - TODO for multiple move...
+
+        Args:
+            - <motion> : Bliss motion object.
+
+        Returns:
+            -
+
+        Raises:
+            - ?
+        """
         pass
 
     def start_one(self, motion):
+        """
+        - Sends 'MOV' or 'SVA' depending on closed loop mode.
+
+        Args:
+            - <motion> : Bliss motion object.
+
+        Returns:
+            - None
+        """
         if self.closed_loop:
             # Command in position.
             self.send_no_ans(motion.axis, "MOV %s %g" %
@@ -103,11 +151,22 @@ class PI_E517(Controller):
                              (motion.axis.chan_letter, motion.target_pos))
 
     def stop(self, axis):
-        # HLT -> stop smoothly
-        # STP -> stop asap
-        # 24    -> stop asap
+        """
+        * HLT -> stop smoothly
+        * STP -> stop asap
+        * 24    -> stop asap
+        * to check : copy of current position into target position ???
 
-        # to check : copy of current position into target position ???
+        Args:
+            - <axis> : Bliss axis object.
+
+        Returns:
+            -
+
+        Raises:
+            - ?
+        """
+
 
         self.send_no_ans(axis, "HLT %s" % axis.chan_letter)
 
@@ -116,19 +175,42 @@ class PI_E517(Controller):
     """
 
     def steps_per_unit(self, axis, new_step_per_unit=None):
+        """
+        - 
+
+        Args:
+            - <axis> : Bliss axis object.
+            - [<new_step_per_unit>] : float : 
+
+        Returns:
+            -
+
+        Raises:
+            - ?
+        """
         if new_step_per_unit is None:
             return float(axis.config.get("step_size"))
         else:
             print "steps_per_unit writing is not (yet?) implemented."
 
     def send(self, axis, cmd):
-        '''
-        Sends command <cmd> to the PI E517 controller.
-        Channel is defined in  <cmd>.
-        <axis> is passed for debugging purposes.
-        Adds the terminator character : "\\n".
-        Returns the 1-line answer received from the controller.
-        '''
+        """
+        - Adds the 'newline' terminator character : "\\\\n"
+        - Sends command <cmd> to the PI E517 controller.
+        - Channel is defined in <cmd>.
+        - <axis> is passed for debugging purposes.
+        - Returns answer from controller.
+
+        Args:
+            - <axis> : passed for debugging purposes.
+            - <cmd> : GCS command to send to controller (Channel is already mentionned  in <cmd>).
+
+        Returns:
+            - 1-line answer received from the controller (without "\\\\n" terminator).
+
+        Raises:
+            ?
+        """
         _cmd = cmd + "\n"
         _t0 = time.time()
 
@@ -142,42 +224,52 @@ class PI_E517(Controller):
         return _ans
 
     def send_no_ans(self, axis, cmd):
-        '''
-        Sends command <cmd> to the PI E517 controller.
-        Channel is defined in  <cmd>.
-        <axis> is passed for debugging purposes.
-        Adds the terminator character : "\\n".
-        Returns nothing.
-        '''
+        """
+        - Adds the 'newline' terminator character : "\\\\n"
+        - Sends command <cmd> to the PI E517 controller.
+        - Channel is defined in <cmd>.
+        - <axis> is passed for debugging purposes.
+        - Used for answer-less commands, then returns nothing.
+
+        Args:
+            - <axis> : 
+            - <cmd> : 
+
+        Returns:
+            - None
+
+        Raises:
+            ?
+        """
         _cmd = cmd + "\n"
         self.sock.write(_cmd)
 
-    def _get_velocity(self, axis):
-        '''
-        Returns velocity taken from controller.
-        '''
-        _ans = self.send(axis, "VEL? %s" % axis.chan_letter)
-        # _ans should looks like "A=+0012.0000"
-        # "\n" removed by tcp lib.
-
-        # removes 'X=' prefix
-        _velocity = float(_ans[2:])
-
-        return _velocity
-
     def _get_pos(self, axis):
-        '''
-        Returns real position (POS? command) read by capacitive sensor.
-        '''
+        """
+        Args:
+            - <axis> : 
+        Returns:
+            - <position> Returns real position (POS? command) read by capacitive sensor.
+
+        Raises:
+            ?
+        """
         _ans = self.send(axis, "POS? %s" % axis.chan_letter)
         _pos = float(_ans[2:])
 
         return _pos
 
     def _get_target_pos(self, axis):
-        '''
-        Returns last target position (MOV?/SVA? command) (setpoint value).
-        '''
+        """
+        Returns last target position (MOV?/SVA?/VOL? command) (setpoint value).
+
+        Args:
+            - <>
+        Returns:
+            - 
+        Raises:
+            ?
+        """
         if self.closed_loop:
             _ans = self.send(axis, "MOV? %s" % axis.chan_letter)
         else:
@@ -188,18 +280,18 @@ class PI_E517(Controller):
         return _pos
 
     def _get_voltage(self, axis):
-        '''
+        """
         Returns Voltage Of Output Signal Channel (VOL? command)
-        '''
+        """
         _ans = self.send(axis, "VOL? %s" % axis.channel)
         _vol = float(_ans.split("=+")[-1])
         return _vol
 
     def _get_closed_loop_status(self, axis):
-        '''
+        """
         Returns Closed loop status (Servo state) (SVO? command)
         -> True/False
-        '''
+        """
         _ans = self.send(axis, "SVO? %s" % axis.chan_letter)
         _status = float(_ans[2:])
 
@@ -209,10 +301,20 @@ class PI_E517(Controller):
             return False
 
     def _get_on_target_status(self, axis):
-        '''
+        """
+        - 
+
+        Args:
+            - <>
+        Returns:
+            -
+        Raises:
+            - ?
+        """
+        """
         Returns On Target status (ONT? command).
         True/False
-        '''
+        """
         _ans = self.send(axis, "ONT? %s" % axis.chan_letter)
         _status = float(_ans[2:])
 
@@ -221,45 +323,60 @@ class PI_E517(Controller):
         else:
             return False
 
-    def _activate_threshold_trigger(self, axis, min, max):
+    def activate_threshold_trigger(self, axis, min, max):
         """
         CTO  {<TrigOutID> <CTOPam> <Value>}
-          <TrigOutID> : {1, 2, 3}
-          <CTOPam> : 3: trigger mode
-                     5: min threshold
-                     6: max threshold
-          <Value> : {0, 2, 3, 4}
-               0 : 
-               2 : 
-               3 : 
-               4 : 
+         - <TrigOutID> : {1, 2, 3}
+         - <CTOPam> :
+             - 3: trigger mode
+             - 5: min threshold
+             - 6: max threshold
+         - <Value> : {0, 2, 3, 4}
+             - 0 : 
+             - 2 : 
+             - 3 : 
+             - 4 : 
+ 
+        Args:
+            - <>
+        Returns:
+            -
+        Raises:
+            ?
         """
 
         _cmd = "CTO %d " % (axis.channel)
 
     def get_id(self, axis):
-        '''
-        Returns Identification information (*IDN? command).
-        '''
+        """
+        Returns Identification information (\*IDN? command).
+        """
         return self.send(axis, "*IDN?\n")
 
-    def _get_error(self, axis):
+    def get_error(self, axis):
         _error_number = self.send(axis, "ERR?\n")
         _error_str = pi_gcs.get_error_str(_error_number)
 
         return (_error_number, _error_str)
 
     def _stop(self):
-        '''
+        """
         Sends a stop to the controller (STP command).
-        '''
+        """
         self.sock.write("STP\n")
 
-    '''
-    Returns a set of usefull information about controller.
-    Can be helpful to tune the device.
-    '''
     def get_info(self, axis):
+        """
+        Returns a set of usefull information about controller.
+        Helpful to tune the device.
+
+        Args:
+            <axis> : bliss axis
+        Returns:
+            None
+        Raises:
+            ?
+        """
         _infos = [
             ("Identifier                 ", "*IDN?"),
             ("Serial Number              ", "SSN?"),

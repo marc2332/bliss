@@ -1,6 +1,7 @@
 import unittest
 import sys
 import os
+import time
 
 sys.path.insert(
     0,
@@ -48,9 +49,11 @@ class TestPI_E753Controller(unittest.TestCase):
         pz = bliss.get_axis("pz")
         print "E753 INFOS :\n", pz.controller._get_info()
 
-# called at end of each test
-#    def tearDown(self):
-#        self.pz.controller.sock.close()
+    # called at end of each test
+    def tearDown(self):
+        # Little wait time to let time to PI controller to
+        # close peacefully its sockets ???
+        time.sleep(0.05)
 
 #     def test_axis_move(self):
 #         pz = bliss.get_axis("pz")
@@ -79,7 +82,7 @@ load_cfg_fromstring("""<config>
 a=get_axis("pz")
 
 print a.controller.sock.write_readline("IDN?\n")
-print a.controller._get_infos()
+print a.controller._get_info()
 
 
 
@@ -100,7 +103,7 @@ load_cfg_fromstring("""<config>
 a=get_axis("pz")
 
 print a.controller.sock.write_readline("IDN?\n")
-print a.controller._get_infos()
+print a.controller._get_info()
 
 
 

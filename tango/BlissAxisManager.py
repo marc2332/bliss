@@ -18,11 +18,11 @@ class BlissAxisManager(PyTango.Device_4Impl):
         self.init_device()
 
     def delete_device(self):
-        self.debug_stream("In delete_device()")
-        # must call finalize of controller ?
+        self.debug_stream("In delete_device() of controller")
+
 
     def init_device(self):
-        self.debug_stream("In init_device()")
+        self.debug_stream("In init_device() of controller")
         self.get_device_properties(self.get_device_class())
 
         try:
@@ -66,11 +66,20 @@ class BlissAxis(PyTango.Device_4Impl):
         self.init_device()
 
     def delete_device(self):
-        self.debug_stream("In delete_device()")
+        self.debug_stream("In delete_device() of axis")
 
     def init_device(self):
-        self.debug_stream("In init_device()")
+        self.debug_stream("In init_device() of axis")
         self.get_device_properties(self.get_device_class())
+
+        # -v1
+        self.info_stream("INFO STREAM ON ++++++++++++++++++++++++++")
+        self.warn_stream("WARN STREAM ON ++++++++++++++++++++++++++")
+        self.error_stream("ERROR STREAM ON ++++++++++++++++++++++++++")
+        self.fatal_stream("FATAL STREAM ON ++++++++++++++++++++++++++")
+
+        # -v3 (-v == -v4)
+        self.debug_stream("DEBUG STREAM ON ++++++++++++++++++++++++++")
 
         try:
             self.axis = TgGevent.get_proxy(bliss.get_axis, self._axis_name)
@@ -239,7 +248,8 @@ class BlissAxis(PyTango.Device_4Impl):
             self.debug_stream("In read_Acceleration(%f)" % float(_acc))
             attr.set_value(_acc)
         except:
-            bliss.common.log.exception("Unable to read acceleration for this axis")
+            # bliss.common.log.exception("Unable to read acceleration for this axis")
+            pass
 
     def write_Acceleration(self, attr):
         try:
@@ -750,3 +760,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+

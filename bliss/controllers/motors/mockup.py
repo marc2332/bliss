@@ -155,8 +155,8 @@ class Mockup(Controller):
 #    def home_set_hardware_position(self, axis, home_pos):
 #        raise NotImplementedError
 
-    def home_search_done(self, axis):
-        return (time.time() - self._axis_moves[axis]["home_search_start_time"]) > 2
+    def home_state(self, axis):
+        return READY if (time.time() - self._axis_moves[axis]["home_search_start_time"]) > 2 else MOVING
 
     '''
     Custom axis method returning the current name of the axis

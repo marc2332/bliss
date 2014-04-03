@@ -198,7 +198,7 @@ class CalcController(Controller):
 
     def _update_state_from_real(self, *args, **kwargs):
         for axis in self.pseudos:
-          self.state(axis, self._reals_group.state())
+            self.state(axis, self._reals_group.state())
 
     def initialize_axis(self, axis):
         if axis in self.pseudos:
@@ -222,8 +222,8 @@ class CalcController(Controller):
         move_dict = dict()
         for axis_tag, target_pos in self.calc_to_real(axis_tag, positions_dict).iteritems():
             real_axis = self._tagged[axis_tag][0]
-            move_dict[real_axis]=target_pos
-        self._reals_group.move(move_dict, wait=False)            
+            move_dict[real_axis] = target_pos
+        self._reals_group.move(move_dict, wait=False)
 
     def calc_to_real(self, axis_tag, positions_dict):
         raise NotImplementedError

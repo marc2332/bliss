@@ -81,6 +81,7 @@ class TestMockupController(unittest.TestCase):
         robz = bliss.get_axis("robz")
         self.assertEqual(robz.state(), "READY")
         move_greenlet = robz.move(180, wait=False)
+        self.assertNotEqual(robz.position(), None)
         self.assertEqual(robz.state(), "MOVING")
         move_greenlet.join()
         self.assertEqual(robz.state(), "READY")

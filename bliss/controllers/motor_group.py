@@ -19,11 +19,12 @@ def Group(*args, **kwargs):
             g = _Group(id(args), {}, [])
             axes = {}
             for axis in args[0]:
-                 if not isinstance(axis, Axis):
-                     raise ValueError("invalid axis %r" % axis)
-                 axes[axis.name]=axis 
+                if not isinstance(axis, Axis):
+                    raise ValueError("invalid axis %r" % axis)
+                axes[axis.name] = axis
             g._axes.update(axes)
             return g
+
 
 class _Group(object):
 

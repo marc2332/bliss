@@ -302,3 +302,16 @@ def load_cfg_fromstring(config_str):
     if BACKEND == 'xml':
         from bliss.config.motors.xml_backend import load_cfg_fromstring
         return load_cfg_fromstring(config_str)
+
+
+def write_setting(axis, setting_name, setting_value):
+    if BACKEND == 'xml':
+        from bliss.config.motors.xml_backend import write_setting
+        return write_setting(
+            axis.config.config_dict, setting_name, setting_value)
+
+
+def commit_settings(axis):
+    if BACKEND == 'xml':
+        from bliss.config.motors.xml_backend import commit_settings
+        commit_settings(axis.config.config_dict)

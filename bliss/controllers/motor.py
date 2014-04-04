@@ -197,8 +197,9 @@ class CalcController(Controller):
         raise NotImplementedError
 
     def _update_state_from_real(self, *args, **kwargs):
+        state = self._reals_group.state()
         for axis in self.pseudos:
-            self.state(axis, self._reals_group.state())
+            axis.settings.set("state", state)
 
     def initialize_axis(self, axis):
         if axis in self.pseudos:
@@ -229,7 +230,7 @@ class CalcController(Controller):
         raise NotImplementedError
 
     def stop(self, axis):
-        [real_axis.stop() for real_axis in self.reals]
+        self._reals_group.stop()
 
     def read_position(self, axis, measured=False):
         return axis.settings.get('position')
@@ -238,7 +239,4 @@ class CalcController(Controller):
         axis.settings.set('position', new_pos)
 
     def state(self, axis, new_state=None):
-        if new_state is not None:
-            axis.settings.set('state', new_state)
-        else:
-            return axis.settings.get('state')
+        return self._reals_group.state()

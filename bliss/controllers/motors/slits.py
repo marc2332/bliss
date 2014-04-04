@@ -24,20 +24,15 @@ class Slits(CalcController):
     def calc_to_real(self, axis_tag, positions_dict):
         if axis_tag in ("hoffset", "hgap"):
             return {
-                "back": (
-                    positions_dict["hoffset"] /
-                    2.0) +
-                positions_dict["hgap"],
+                "back": (positions_dict["hgap"] / 2.0) + positions_dict["hoffset"],
                 "front": (
-                    positions_dict["hgap"] /
-                    2.0) -
-                positions_dict["hoffset"]}
+                    positions_dict["hgap"] / 2.0) - positions_dict["hoffset"]}
         elif axis_tag in ("voffset", "vgap"):
             return {
                 "up": (
-                    positions_dict["voffset"] /
+                    positions_dict["vgap"] /
                     2.0) +
-                positions_dict["vgap"],
+                positions_dict["voffset"],
                 "down": (
                     positions_dict["vgap"] /
                     2.0) -

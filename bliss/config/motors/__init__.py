@@ -1,6 +1,7 @@
 
 import sys
 import os
+from bliss.common import event
 from bliss.common.axis import Axis, AxisRef
 from bliss.controllers.motor_group import Group
 
@@ -209,6 +210,7 @@ def get_axis(axis_name):
         controller["initialized"] = True
 
     axis = controller_instance.get_axis(axis_name)
+    event.connect(axis, "write_setting", write_setting)
 
     return axis
 

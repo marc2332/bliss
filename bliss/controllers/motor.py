@@ -2,7 +2,7 @@
 import types
 import functools
 from bliss.config.motors.static import StaticConfig
-from bliss.controllers.motor_settings import AxisSettings
+from bliss.controllers.motor_settings import ControllerAxisSettings
 from bliss.common.axis import AxisRef
 from bliss.controllers.motor_group import Group
 from bliss.config.motors import get_axis
@@ -28,7 +28,7 @@ class Controller(object):
         self._axes = dict()
         self._tagged = dict()
 
-        self.axis_settings = AxisSettings()
+        self.axis_settings = ControllerAxisSettings()
 
         for axis_name, axis_class, axis_config in axes:
             axis = axis_class(axis_name, self, axis_config)
@@ -38,10 +38,6 @@ class Controller(object):
                 for tag in axis_tags.split():
                     self._tagged.setdefault(tag, []).append(axis)  # _name)
             self.__initialized_axis[axis] = False
-
-            # install axis.settings set/get methods
-            axis.settings.set = functools.partial(self.axis_settings.set, axis)
-            axis.settings.get = functools.partial(self.axis_settings.get, axis)
 
     @property
     def axes(self):

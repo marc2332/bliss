@@ -82,21 +82,21 @@ class Controller(object):
             self.initialize_axis(axis)
             self.__initialized_axis[axis] = True
 
-            # Handle optional operation parameters from config
-            try:
-                _vel = axis.config.get("velocity", float)
-            except:
-                pass
-            else:
-                axis.velocity(_vel)
+            # load settings
+            axis.settings.load_from_config()
 
-            try:
-                _acctime = axis.config.get("acctime", float)
-            except:
-                pass
-            else:
-                axis.acctime(_acctime)
-
+            # apply settings or config parameters
+            for setting_name in ('velocity', 'acctime'):
+                value = axis.settings.get(setting_name)
+                if value is None:
+                    try:
+                        value = axis.config.get(setting_name, float)
+                    except:
+                        continue
+                    
+                meth = getattr(axis, setting_name)
+                meth(value)
+  
         return axis
 
     def initialize_axis(self, axis):

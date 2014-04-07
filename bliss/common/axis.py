@@ -76,12 +76,16 @@ class Axis(object):
     def step_size(self):
         return self.config.get("step_size", float, 1)
 
-    def position(self, new_pos=None, measured=False):
+    def position(self, new_pos=None):
         if self.is_moving:
             if new_pos is not None:
                 raise RuntimeError("Can't set axis position \
                                     while it is moving")
-            return self.settings.get("position")
+            pos = self.settings.get("position")
+            if pos is None:
+                pos = self._position()
+                self.settings.set("position", pos)
+            return pos
         else:
             pos = self._position(new_pos)
             if new_pos is not None:

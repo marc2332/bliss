@@ -2,7 +2,7 @@ import gevent
 import itertools
 from bliss.common.task_utils import *
 from bliss.config.motors.static import StaticConfig
-from bliss.common.axis import AxisRef, READY, MOVING, FAULT, UNKNOWN
+from bliss.common.axis import Axis, AxisRef, READY, MOVING, FAULT, UNKNOWN
 
 
 def grouped(iterable, n):
@@ -11,7 +11,22 @@ def grouped(iterable, n):
     return itertools.izip(*[iter(iterable)] * n)
 
 
-class Group(object):
+def Group(*args, **kwargs):
+    if len(args) == 3:
+        return _Group(*args)
+    else:
+        if len(args) == 1:
+            g = _Group(id(args), {}, [])
+            axes = {}
+            for axis in args[0]:
+                if not isinstance(axis, Axis):
+                    raise ValueError("invalid axis %r" % axis)
+                axes[axis.name] = axis
+            g._axes.update(axes)
+            return g
+
+
+class _Group(object):
 
     def __init__(self, name, config, axes):
         self.__name = name
@@ -72,7 +87,7 @@ class Group(object):
     def position(self):
         positions_dict = dict()
         for axis in self.axes.itervalues():
-            positions_dict[self._axes[axis.name]] = axis.position()
+            positions_dict[axis] = axis.position()
         return positions_dict
 
     @task
@@ -113,15 +128,15 @@ class Group(object):
         else:
             del kwargs['relative']
 
-        axis_name_pos_dict = dict()
+        axis_pos_dict = dict()
 
         if len(args) == 1:
-            axis_name_pos_dict.update(args[0])
+            axis_pos_dict.update(args[0])
         else:
             for axis, target_pos in grouped(args, 2):
-                axis_name_pos_dict[axis] = target_pos
+                axis_pos_dict[axis] = target_pos
 
-        for axis, target_pos in axis_name_pos_dict.iteritems():
+        for axis, target_pos in axis_pos_dict.iteritems():
             self._motions_dict.setdefault(
                 axis.controller,
                 []).append(

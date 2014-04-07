@@ -1,4 +1,7 @@
 from bliss.common import event
+from bliss.config.motors import write_setting, commit_settings
+
+commit_settings
 
 
 class AxisSettings:
@@ -11,7 +14,6 @@ class AxisSettings:
             "state": str}
         self.axis_settings_dict = dict()
         self.axis_settings_class = None
-        #self.state_updated_callback = None
 
     def add(self, setting_name, convert_func):
         self.setting_names.append(setting_name)
@@ -23,6 +25,9 @@ class AxisSettings:
             dict(zip(self.setting_names, (None,) * len(self.setting_names))))
         convert_func = self.convert_funcs.get(setting_name, str)
         settings[setting_name] = convert_func(value)
+
+        write_setting(axis, setting_name, settings[setting_name])
+
         event.send(axis, setting_name, settings[setting_name])
 
     def get(self, axis, setting_name):

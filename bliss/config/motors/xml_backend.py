@@ -22,6 +22,8 @@ class XmlListConfig(list):
 class XmlDictConfig(dict):
 
     def __init__(self, parent_element):
+        self.parent_element = parent_element
+
         if parent_element.items():
             self.update(dict(parent_element.items()))
         for element in parent_element:
@@ -72,10 +74,11 @@ def load_cfg(config_file):
     Returns:
         None
     """
-    return _load_config(ElementTree.parse(config_file))
+    return _load_config(ElementTree.parse(config_file), config_file)
 
 
-def _load_config(config_tree):
+def _load_config(config_tree, config_file=None):
+
     for controller_config in config_tree.findall("controller"):
         controller_name = controller_config.get("name")
         controller_class_name = controller_config.get("class")
@@ -85,20 +88,27 @@ def _load_config(config_tree):
 
         controller_class = get_controller_class(controller_class_name)
 
+        config = XmlDictConfig(controller_config)
+        config.config_file = config_file
+        config.root = config_tree
+
         add_controller(
             controller_name,
-            XmlDictConfig(controller_config),
-            load_axes(controller_config),
+            config,
+            load_axes(controller_config, config_tree, config_file),
             controller_class)
 
     for group_node in config_tree.findall("group"):
         group_name = group_node.get('name')
         if group_name is None:
             raise RuntimeError("%s: group with no name" % group_node)
-        add_group(group_name, XmlDictConfig(group_node), load_axes(group_node))
+        config = XmlDictConfig(group_node)
+        config.config_file = config_file
+        config.root = config_tree
+        add_group(group_name, config, load_axes(group_node))
 
 
-def load_axes(config_node):
+def load_axes(config_node, config_tree=None, config_file=None):
     """Return list of (axis name, axis_class_name, axis_config_node)"""
     axes = []
     for axis_config in config_node.findall('axis'):
@@ -108,5 +118,29 @@ def load_axes(config_node):
                 "%s: configuration for axis does not have a name" %
                 config_node)
         axis_class_name = axis_config.get("class")
-        axes.append((axis_name, axis_class_name, XmlDictConfig(axis_config)))
+        config = XmlDictConfig(axis_config)
+        config.config_file = config_file
+        config.root = config_tree
+        axes.append((axis_name, axis_class_name, config))
     return axes
+
+
+def write_setting(config_dict, setting_name, setting_value):
+    config_node = config_dict.parent_element
+
+    setting_node = config_node.find("settings")
+    if setting_node is None:
+        setting_node = ElementTree.SubElement(config_node, "settings")
+    setting_element = setting_node.find(setting_name)
+    if setting_element is None:
+        setting_element = ElementTree.SubElement(
+            setting_node, setting_name, {"value": str(setting_value)})
+    else:
+        setting_element.set("value", str(setting_value))
+
+
+def commit_settings(config_dict):
+    if config_dict.config_file is not None:
+        config_dict.root.write(config_dict.config_file)
+    else:
+        ElementTree.dump(config_dict.root)

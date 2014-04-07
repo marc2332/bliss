@@ -195,7 +195,7 @@ class CalcController(Controller):
     def _update_state_from_real(self, *args, **kwargs):
         state = self._reals_group.state()
         for axis in self.pseudos:
-            axis.settings.set("state", state)
+            axis.settings.set("state", state, write=False)
 
     def initialize_axis(self, axis):
         if axis in self.pseudos:

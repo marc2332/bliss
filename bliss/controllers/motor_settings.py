@@ -34,10 +34,12 @@ class ControllerAxisSettings:
 
     def load_from_config(self, axis):
         for setting_name in self.setting_names:
-            if setting_name in ("state","position"):
+            if setting_name in ("state", "position"):
                 continue
             try:
-                setting_value = axis.config.config_dict["settings"].get(setting_name)
+                setting_value = axis.config.config_dict[
+                    "settings"].get(
+                    setting_name)
             except KeyError:
                 # no settings in config.
                 return
@@ -55,7 +57,7 @@ class ControllerAxisSettings:
         convert_func = self.convert_funcs.get(setting_name, str)
         setting_value = convert_func(value)
         settings[setting_name] = setting_value
-        return setting_value 
+        return setting_value
 
     def set(self, axis, setting_name, value, write=True):
         setting_value = self._set_setting(axis, setting_name, value)
@@ -84,5 +86,5 @@ class AxisSettings:
             self.__axis, setting_name)
 
     def load_from_config(self):
-        return self.__axis.controller.axis_settings.load_from_config(self.__axis)
-
+        return self.__axis.controller.axis_settings.load_from_config(
+            self.__axis)

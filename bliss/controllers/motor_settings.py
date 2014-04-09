@@ -16,11 +16,12 @@ def write_settings():
 class ControllerAxisSettings:
 
     def __init__(self):
-        self.setting_names = ["velocity", "position", "state"]
+        self.setting_names = ["velocity", "position", "state", "offset"]
         self.convert_funcs = {
             "velocity": float,
             "position": float,
-            "state": str}
+            "state": str,
+            "offset": float }
         self.axis_settings_dict = dict()
 
         global SETTINGS_WRITER_THREAD
@@ -45,7 +46,7 @@ class ControllerAxisSettings:
                 return
             if setting_value is None:
                 continue
-            self._set_setting(axis, setting_name, setting_value)
+            self._set_setting(axis, setting_name, setting_value["value"])
 
     def _settings(self, axis):
         return self.axis_settings_dict.setdefault(

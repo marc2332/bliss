@@ -1,7 +1,6 @@
 import tempfile
 import xml.etree.cElementTree as ElementTree
 import unittest
-import gevent
 import time
 import sys
 import os
@@ -36,6 +35,7 @@ config_xml = """<config>
 </config>
 """
 
+
 class TestSettings(unittest.TestCase):
 
     def setUp(self):
@@ -48,7 +48,8 @@ class TestSettings(unittest.TestCase):
         robz = bliss.get_axis("robz")
         robz.settings.set("init_count", 10)
         self.assertEquals(robz.settings.get("init_count"), 10)
-        time.sleep(1) #this is to "synchronize" with the settings writing thread
+        # this is to "synchronize" with the settings writing thread
+        time.sleep(1)
         config_tree = ElementTree.parse(self.cfg_file.name)
         for axis_node in config_tree.findall("axis"):
             if axis_node.get("name") == "robz":

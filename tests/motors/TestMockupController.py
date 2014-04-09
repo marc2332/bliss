@@ -178,6 +178,7 @@ class TestMockupController(unittest.TestCase):
         roby.wait_move()
         self.assertEqual(roby.state(), 'READY')
         self.assertEqual(roby.position(), 38930)
+        self.assertEqual(roby.offset, -38930)
 
     def test_ctrlc(self):
         robz = bliss.get_axis("robz")

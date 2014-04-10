@@ -81,6 +81,7 @@ class TestMockupController(unittest.TestCase):
         robz = bliss.get_axis("robz")
         self.assertEqual(robz.state(), "READY")
         move_greenlet = robz.move(180, wait=False)
+        self.assertNotEqual(robz.position(), None)
         self.assertEqual(robz.state(), "MOVING")
         move_greenlet.join()
         self.assertEqual(robz.state(), "READY")
@@ -177,6 +178,7 @@ class TestMockupController(unittest.TestCase):
         roby.wait_move()
         self.assertEqual(roby.state(), 'READY')
         self.assertEqual(roby.position(), 38930)
+        self.assertEqual(roby.offset, -38930)
 
     def test_ctrlc(self):
         robz = bliss.get_axis("robz")

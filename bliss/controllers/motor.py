@@ -2,8 +2,9 @@
 import types
 import functools
 from bliss.config.motors.static import StaticConfig
-from bliss.controllers.motor_settings import AxisSettings
-from bliss.common.axis import Motion, AxisRef, MOVING, READY, FAULT
+from bliss.controllers.motor_settings import ControllerAxisSettings
+from bliss.common.axis import AxisRef
+from bliss.controllers.motor_group import Group
 from bliss.config.motors import get_axis
 from bliss.common import event
 
@@ -27,7 +28,7 @@ class Controller(object):
         self._axes = dict()
         self._tagged = dict()
 
-        self.axis_settings = AxisSettings()
+        self.axis_settings = ControllerAxisSettings()
 
         for axis_name, axis_class, axis_config in axes:
             axis = axis_class(axis_name, self, axis_config)
@@ -37,10 +38,6 @@ class Controller(object):
                 for tag in axis_tags.split():
                     self._tagged.setdefault(tag, []).append(axis)  # _name)
             self.__initialized_axis[axis] = False
-
-            # install axis.settings set/get methods
-            axis.settings.set = functools.partial(self.axis_settings.set, axis)
-            axis.settings.get = functools.partial(self.axis_settings.get, axis)
 
     @property
     def axes(self):
@@ -85,21 +82,21 @@ class Controller(object):
             self.initialize_axis(axis)
             self.__initialized_axis[axis] = True
 
-            # Handle optional operation parameters from config
-            try:
-                _vel = axis.config.get("velocity", float)
-            except:
-                pass
-            else:
-                axis.velocity(_vel)
+            # load settings
+            axis.settings.load_from_config()
 
-            try:
-                _acctime = axis.config.get("acctime", float)
-            except:
-                pass
-            else:
-                axis.acctime(_acctime)
-
+            # apply settings or config parameters
+            for setting_name in ('velocity', 'acctime'):
+                value = axis.settings.get(setting_name)
+                if value is None:
+                    try:
+                        value = axis.config.get(setting_name, float)
+                    except:
+                        continue
+                    
+                meth = getattr(axis, setting_name)
+                meth(value)
+  
         return axis
 
     def initialize_axis(self, axis):
@@ -156,6 +153,8 @@ class CalcController(Controller):
     def __init__(self, *args, **kwargs):
         Controller.__init__(self, *args, **kwargs)
 
+        self._reals_group = None
+
     def _update_refs(self):
         Controller._update_refs(self)
 
@@ -164,25 +163,28 @@ class CalcController(Controller):
             self.reals.append(real_axis)
             event.connect(real_axis, 'position', self._calc_from_real)
             event.connect(real_axis, 'state', self._update_state_from_real)
+        self._reals_group = Group(self.reals)
         self.pseudos = [
             axis for axis_name,
             axis in self.axes.iteritems() if axis not in self.reals]
 
     def _calc_from_real(self, *args, **kwargs):
-        real_positions = dict()
+        real_positions = self._reals_group.position()
+
         for tag, axis_list in self._tagged.iteritems():
             if len(axis_list) > 1:
                 continue
             axis = axis_list[0]
             if axis in self.reals:
-                real_positions[tag] = axis.position()
+                real_positions[tag] = real_positions[axis]
+                del real_positions[axis]
 
         new_positions = self.calc_from_real(real_positions)
 
         for tagged_axis_name, position in new_positions.iteritems():
             axis = self._tagged[tagged_axis_name][0]
             if axis in self.pseudos:
-                self.position(axis, position)
+                self.set_position(axis, position)
             else:
                 raise RuntimeError("cannot assign position to real motor")
 
@@ -191,29 +193,16 @@ class CalcController(Controller):
         raise NotImplementedError
 
     def _update_state_from_real(self, *args, **kwargs):
-        real_states = list()
-        for tag, axis_list in self._tagged.iteritems():
-            if len(axis_list) > 1:
-                continue
-            axis = axis_list[0]
-            if axis in self.reals:
-                real_states.append(axis.state())
-
-        if any([state == MOVING for state in real_states]):
-            for axis in self.pseudos:
-                self.state(axis, MOVING)
-        elif all([state == READY for state in real_states]):
-            for axis in self.pseudos:
-                self.state(axis, READY)
-        else:
-            self.state(axis, FAULT)
+        state = self._reals_group.state()
+        for axis in self.pseudos:
+            axis.settings.set("state", state, write=False)
 
     def initialize_axis(self, axis):
         if axis in self.pseudos:
             self._calc_from_real()
             self._update_state_from_real()
 
-    def prepare_move(self, motion):
+    def start_one(self, motion):
         positions_dict = dict()
         axis_tag = None
         for tag, axis_list in self._tagged.iteritems():
@@ -227,24 +216,17 @@ class CalcController(Controller):
                 else:
                     positions_dict[tag] = x.position()
 
-        prepared_moves = self.calc_to_real(axis_tag, positions_dict)
-        for axis_tag, target_pos in prepared_moves.iteritems():
+        move_dict = dict()
+        for axis_tag, target_pos in self.calc_to_real(axis_tag, positions_dict).iteritems():
             real_axis = self._tagged[axis_tag][0]
-            motion = Motion(
-                real_axis,
-                target_pos,
-                target_pos -
-                real_axis.position())
-            real_axis.controller.prepare_move(motion)
+            move_dict[real_axis] = target_pos
+        self._reals_group.move(move_dict, wait=False)
 
     def calc_to_real(self, axis_tag, positions_dict):
         raise NotImplementedError
 
-    def start_one(self, motion):
-        pass
-
     def stop(self, axis):
-        [real_axis.stop() for real_axis in self.reals]
+        self._reals_group.stop()
 
     def read_position(self, axis, measured=False):
         return axis.settings.get('position')
@@ -253,7 +235,4 @@ class CalcController(Controller):
         axis.settings.set('position', new_pos)
 
     def state(self, axis, new_state=None):
-        if new_state is not None:
-            axis.settings.set('state', new_state)
-        else:
-            return axis.settings.get('state')
+        return self._reals_group.state()

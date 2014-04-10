@@ -1,6 +1,7 @@
 
 from bliss.common.task_utils import *
 from bliss.config.motors.static import StaticConfig
+from bliss.controllers.motor_settings import AxisSettings
 import time
 
 READY, MOVING, FAULT, UNKNOWN = ("READY", "MOVING", "FAULT", "UNKNOWN")
@@ -21,22 +22,14 @@ class Motion(object):
 
 class Axis(object):
 
-    class Settings:
-
-        def set(*args, **kwargs):
-            pass
-
-        def get(*args, **kwargs):
-            pass
-
     def __init__(self, name, controller, config):
         self.__name = name
         self.__controller = controller
         self.__config = StaticConfig(config)
-        self.__settings = Axis.Settings()
+        self.__settings = AxisSettings(self)
+        self.__settings.set("offset", 0)
         self.__move_done = gevent.event.Event()
         self.__move_done.set()
-        self.__offset = 0
 
     @property
     def name(self):
@@ -60,7 +53,7 @@ class Axis(object):
 
     @property
     def offset(self):
-        return self.__offset
+        return self.__settings.get("offset")
 
     def has_tag(self, tag):
         for t, axis_list in self.__controller._tagged.iteritems():
@@ -76,12 +69,16 @@ class Axis(object):
     def step_size(self):
         return self.config.get("step_size", float, 1)
 
-    def position(self, new_pos=None, measured=False):
+    def position(self, new_pos=None):
         if self.is_moving:
             if new_pos is not None:
                 raise RuntimeError("Can't set axis position \
                                     while it is moving")
-            return self.settings.get("position")
+            pos = self.settings.get("position")
+            if pos is None:
+                pos = self._position()
+                self.settings.set("position", pos)
+            return pos
         else:
             pos = self._position(new_pos)
             if new_pos is not None:
@@ -94,10 +91,10 @@ class Axis(object):
             try:
                 return self.__controller.set_position(self, new_pos) / self.step_size()
             except NotImplementedError:
-                self.__offset = (self.__controller.read_position(self) - new_pos) / self.step_size()
+                self.__settings.set("offset", (self.__controller.read_position(self) - new_pos) / self.step_size())
                 return self.position()
         else:
-            return (self.__controller.read_position(self, measured) / self.step_size()) - self.__offset
+            return (self.__controller.read_position(self, measured) / self.step_size()) - self.offset
 
     def state(self):
         if self.is_moving:
@@ -124,7 +121,7 @@ class Axis(object):
     def _handle_move(self, motion):
         def update_settings():
             state = self.__controller.state(self)
-            self.settings.set("state", state)
+            self.settings.set("state", state, write=False)
             pos = self._position()
             self.settings.set("position", pos)
             return state
@@ -132,11 +129,11 @@ class Axis(object):
         with cleanup(update_settings):
             while True:
                 state = self.__controller.state(self)
-                self.settings.set("state", state)
+                self.settings.set("state", state, write=False)
                 if state != MOVING:
                     break
                 pos = self._position()
-                self.settings.set("position", pos)
+                self.settings.set("position", pos, write=False)
                 time.sleep(0.02)
 
             if motion.backlash:
@@ -155,7 +152,7 @@ class Axis(object):
         # all positions are converted to controller units
         backlash = self.config.get("backlash", float, 0) * self.step_size()
         delta = (user_target_pos - initial_pos) * self.step_size()
-        target_pos = (user_target_pos + self.__offset) * self.step_size()
+        target_pos = (user_target_pos + self.offset) * self.step_size()
 
         if backlash:
             if cmp(delta, 0) != cmp(backlash, 0):
@@ -246,7 +243,7 @@ class Axis(object):
             self.__controller.home_search(self)
             while True:
                 state = self.__controller.home_state(self)
-                self.settings.set("state", state)
+                self.settings.set("state", state, write=False)
                 if state != MOVING:
                     break
                 time.sleep(0.02)
@@ -260,7 +257,7 @@ class AxisRef(object):
     def __init__(self, name, _, config):
         self.__name = name
         self.__config = config
-        self.settings = Axis.Settings()
+        self.settings = AxisSettings(None)
 
     @property
     def name(self):

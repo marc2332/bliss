@@ -10,7 +10,7 @@ sys.path.insert(
             "..")))
 
 import bliss
-from bliss.common.axis import Axis
+from bliss.common.axis import Axis, READY
 
 config_xml = """
 <config>
@@ -22,7 +22,7 @@ config_xml = """
     </axis>
     <axis name="s1f">
       <velocity value="500"/>
-      <step_size value="10"/>
+      <step_size value="-10"/>
     </axis>
     <axis name="s1b">
       <velocity value="500"/>
@@ -30,7 +30,7 @@ config_xml = """
     </axis>
     <axis name="s1u">
       <velocity value="500"/>
-      <step_size value="10"/>
+      <step_size value="-10"/>
     </axis>
     <axis name="s1d">
       <velocity value="500"/>
@@ -116,7 +116,6 @@ class TestSlits(unittest.TestCase):
 
     def testPseudoAxisPosition(self):
         self.testPseudoAxisAreExported()
-        controller = bliss.config.motors["test"]["object"]
         s1f = bliss.get_axis("s1f")
         s1b = bliss.get_axis("s1b")
         s1u = bliss.get_axis("s1u")
@@ -132,7 +131,25 @@ class TestSlits(unittest.TestCase):
 
     def testPseudoAxisMove(self):
         hoffset = bliss.get_axis("s1ho")
+        s1b = bliss.get_axis("s1b")
+        s1f = bliss.get_axis("s1f")
+        s1hg = bliss.get_axis("s1hg")
+        hgap = s1hg.position()
+        """ "back": (
+                    positions_dict["hoffset"] /
+                    2.0) +
+                positions_dict["hgap"],
+                "front": (
+                    positions_dict["hgap"] /
+                    2.0) -
+                positions_dict["hoffset"]}
+        """
         hoffset.move(2)
+        self.assertEquals(s1b.state(), READY)
+        self.assertEquals(s1f.state(), READY)
+        self.assertEquals(hgap, s1hg.position())
+        self.assertEquals(s1b.position(), 2 + (hgap / 2.0))
+        self.assertEquals(s1f.position(), (hgap / 2.0) - 2)
 
 if __name__ == '__main__':
     unittest.main()

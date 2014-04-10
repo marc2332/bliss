@@ -128,7 +128,8 @@ class Socket:
 
     @try_connect_socket
     def write(self, msg, timeout=None):
-        self._fd.sendall(msg)
+        with self._lock:
+            self._fd.sendall(msg)
 
     @try_connect_socket
     def write_read(self, msg, write_synchro=None, size=1, timeout=None):

@@ -1,0 +1,18 @@
+<config>
+  <controller class="PM206" name="id16pm206">
+    <host value="pm206id16ni1"/>
+    <axis name="pm1">
+      <channel            value="1"/>
+      <steps_per_unit     value="65536"/>
+      <stop_range         value="10"/>
+      <encoder_direction  value="1"/>
+      <minimum_speed      value="2"/>
+      <maximum_speed      value="32"/>
+      <velocity           value="30"/>
+    </axis>
+    <axis name="pm2">
+      <channel       value="2"/>
+    </axis>
+  </controller>
+</config>
+

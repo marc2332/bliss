@@ -1,7 +1,7 @@
 <config>
   <controller class="PI_E753" name="testid16">
-    <host value="e753id16ni-mlm"/>
+    <host value="e753id16ni-mlm" />
     <axis name="mlm-pz">
-    </axis>
+    <settings><velocity value="598.999977" /></settings></axis>
   </controller>
 </config>

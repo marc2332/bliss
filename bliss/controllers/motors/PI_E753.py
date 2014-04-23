@@ -184,7 +184,7 @@ class PI_E753(Controller):
                 print "%d POS = %s" % (ii, _ans_pos)
             ii=ii+1
 
-    def _get_info(self):
+    def get_info(self):
         '''
         Returns a set of usefull information about controller.
         Can be helpful to tune the device.

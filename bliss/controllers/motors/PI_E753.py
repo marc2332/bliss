@@ -184,10 +184,17 @@ class PI_E753(Controller):
                 print "%d POS = %s" % (ii, _ans_pos)
             ii=ii+1
 
-    def get_info(self):
+    def get_info(self, axis):
         '''
         Returns a set of usefull information about controller.
-        Can be helpful to tune the device.
+        Helpful to tune the device.
+
+        Args:
+            <axis> : bliss axis
+        Returns:
+            None
+        Raises:
+            ?
         '''
         _infos = [
             ("Identifier                 ", "IDN?\n"),

@@ -143,4 +143,4 @@ def commit_settings(config_dict):
     if config_dict.config_file is not None:
         config_dict.root.write(config_dict.config_file)
     else:
-        ElementTree.dump(config_dict.root)
+        pass  # ElementTree.dump(config_dict.root)

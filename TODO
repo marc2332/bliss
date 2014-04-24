@@ -1,0 +1,22 @@
+TODO list
+---------
+
+* acceleration
+    (all the discussion Manu had with EP)
+    => in controllers, set_acceleration/get_acceleration
+    => in axis, acceleration([new_acceleration])
+    => set_acceleration_mode: acctime or time/sec-2
+    => "get_acceleration_steps": returns the encoder/motor acceleration ramp in "steps" (or "units" ?)
+
+* Tango
+    => clean all Steps* attributes
+    => Steps_per_unit, Backlash, Home_position: should it be in config xml instead of being memorized ?
+    => remove FirstVelocity
+    => remove "memorized" flag on attributes and test Bliss settings
+
+* limits
+    => software ones: low, high; take backlash into account!
+    => make sure motion stops with an error when hitting a hard limit
+
+* continue documentation
+

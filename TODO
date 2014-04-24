@@ -15,7 +15,6 @@ TODO list
     => remove "memorized" flag on attributes and test Bliss settings
 
 * limits
-    => software ones: low, high; take backlash into account!
     => make sure motion stops with an error when hitting a hard limit
 
 * continue documentation

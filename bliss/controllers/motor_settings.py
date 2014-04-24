@@ -21,7 +21,9 @@ class ControllerAxisSettings:
             "velocity": float,
             "position": float,
             "state": str,
-            "offset": float}
+            "offset": float,
+            "low_limit": float,
+            "high_limit": float}
         self.axis_settings_dict = dict()
 
         global SETTINGS_WRITER_THREAD

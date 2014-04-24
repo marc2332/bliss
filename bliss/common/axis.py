@@ -28,6 +28,8 @@ class Axis(object):
         self.__config = StaticConfig(config)
         self.__settings = AxisSettings(self)
         self.__settings.set("offset", 0)
+        self.__settings.set("low_limit", -1E9)
+        self.__settings.set("high_limit", 1E9)
         self.__move_done = gevent.event.Event()
         self.__move_done.set()
 
@@ -89,9 +91,13 @@ class Axis(object):
         new_pos = new_pos * self.step_size() if new_pos is not None else None
         if new_pos is not None:
             try:
-                return self.__controller.set_position(self, new_pos) / self.step_size()
+                return self.__controller.set_position(
+                    self, new_pos) / self.step_size()
             except NotImplementedError:
-                self.__settings.set("offset", (self.__controller.read_position(self) - new_pos) / self.step_size())
+                self.__settings.set(
+                    "offset",
+                    (self.__controller.read_position(self) - new_pos) / self.
+                    step_size())
                 return self.position()
         else:
             return (self.__controller.read_position(self, measured) / self.step_size()) - self.offset
@@ -117,6 +123,13 @@ class Axis(object):
             _acctime = self.__controller.read_acctime(self)
         self.settings.set("acctime", _acctime)
         return _acctime
+
+    def limits(self, low_limit=None, high_limit=None):
+        if low_limit is not None:
+            self.settings.set("low_limit", low_limit)
+        if high_limit is not None:
+            self.settings.set("high_limit", high_limit)
+        return self.settings.get('low_limit'), self.settings.get('high_limit')
 
     def _handle_move(self, motion):
         def update_settings():
@@ -149,8 +162,9 @@ class Axis(object):
         initial_pos = self.position()
         if relative:
             user_target_pos += initial_pos
+        user_backlash = self.config.get("backlash", float, 0)
         # all positions are converted to controller units
-        backlash = self.config.get("backlash", float, 0) * self.step_size()
+        backlash = user_backlash * self.step_size()
         delta = (user_target_pos - initial_pos) * self.step_size()
         target_pos = (user_target_pos + self.offset) * self.step_size()
 
@@ -165,8 +179,26 @@ class Axis(object):
                 # don't do backlash correction
                 backlash = 0
 
+        # check software limits
+        user_high_limit = self.settings.get("high_limit")
+        user_low_limit = self.settings.get("low_limit")
+        high_limit = user_high_limit * self.step_size()
+        low_limit = user_low_limit * self.step_size()
+        backlash_str = " (with %f backlash)" % user_backlash if backlash else ""
+        if user_low_limit is not None:
+            if target_pos < low_limit:
+                raise ValueError(
+                    "Move to `%f'%s would go below low limit (%f)" %
+                    (user_target_pos, backlash_str, user_low_limit))
+        if user_high_limit is not None:
+            if target_pos > high_limit:
+                raise ValueError(
+                    "Move to `%f' %s would go beyond high limit (%f)" %
+                    (user_target_pos, backlash_str, user_high_limit))
+
         motion = Motion(self, target_pos, delta)
         motion.backlash = backlash
+
         self.__controller.prepare_move(motion)
 
         return motion
@@ -236,7 +268,8 @@ class Axis(object):
 
             if home_pos is not None:
                 try:
-                    self.__controller.home_set_hardware_position(self, home_pos)
+                    self.__controller.home_set_hardware_position(
+                        self, home_pos)
                 except NotImplementedError:
                     _set_pos = True
 

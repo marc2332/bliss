@@ -86,17 +86,26 @@ class Controller(object):
             axis.settings.load_from_config()
 
             # apply settings or config parameters
-            for setting_name in ('velocity', 'acctime'):
-                value = axis.settings.get(setting_name)
+            def get_setting_or_config_value(name, converter=float):
+                value = axis.settings.get(name)
                 if value is None:
                     try:
-                        value = axis.config.get(setting_name, float)
+                        value = axis.config.get(name, converter)
                     except:
-                        continue
-                    
+                        pass
+                return value
+
+            for setting_name in ('velocity', 'acctime'):
+                value = get_setting_or_config_value(setting_name)
+                if value is None:
+                    continue
                 meth = getattr(axis, setting_name)
                 meth(value)
-  
+
+            low_limit = get_setting_or_config_value("low_limit")
+            high_limit = get_setting_or_config_value("high_limit")
+            axis.limits(low_limit, high_limit)
+
         return axis
 
     def initialize_axis(self, axis):

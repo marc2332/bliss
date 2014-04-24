@@ -118,6 +118,9 @@ class TestMockupController(unittest.TestCase):
         self.assertEqual(roby.backlash_move, -182)
         move_greenlet.join()
         self.assertEqual(roby.position(), -180)
+        roby.move(-179)
+        roby.limits(-181, 180)
+        self.assertRaises(ValueError, roby.move, -180)
 
     def test_backlash2(self):
         roby = bliss.get_axis("roby")
@@ -189,6 +192,18 @@ class TestMockupController(unittest.TestCase):
         move_greenlet.kill(KeyboardInterrupt)
         self.assertEqual(robz.state(), "READY")
         self.assertTrue(robz.position() < final_pos)
+
+    def test_limits(self):
+        robz = bliss.get_axis("robz")
+        low_limit = robz.position() - 1
+        high_limit = robz.position() + 1
+        robz.limits(low_limit, high_limit)
+        self.assertEquals(robz.limits(), (low_limit, high_limit))
+        self.assertRaises(ValueError, robz.move, robz.position() + 1.1)
+        self.assertRaises(ValueError, robz.move, robz.position() - 1.1)
+        robz.limits(-1E9, 1E9)
+        robz.rmove(1)
+        robz.rmove(-2)
 
 if __name__ == '__main__':
     unittest.main()

@@ -1,4 +1,5 @@
 from gevent import _threading
+import threading
 import gevent.event
 import sys
 import atexit
@@ -9,6 +10,7 @@ main_queue = _threading.Queue()
 gevent_thread_lock = _threading.Lock()
 gevent_thread_started = _threading.Event()
 gevent_thread = None
+GEVENT_THREAD_ID = None
 read_event_watcher = None
 objs = {}
 stop_event = gevent.event.Event()
@@ -79,6 +81,9 @@ def read_from_queue(queue):
 
 
 def process_requests(main_queue):
+    global GEVENT_THREAD_ID
+    GEVENT_THREAD_ID = id(threading.current_thread())
+
     global read_event_watcher
     read_event_watcher = gevent.get_hub().loop.async()
     read_event_watcher.start(functools.partial(read_from_queue, main_queue))
@@ -100,10 +105,12 @@ class threadSafeRequest:
         self.result = None
 
     def __call__(self, *args, **kwargs):
-        self.queue.put((self, args, kwargs))
-        self.watcher.send()
-        self.done_event.wait()
-
+        if id(threading.current_thread()) != GEVENT_THREAD_ID:
+            self.queue.put((self, args, kwargs))
+            self.watcher.send()
+            self.done_event.wait()
+        else:
+            deal_with_job(self, args, kwargs)
         if isinstance(self.result, CallException):
             raise self.result.error_string, None, self.result.tb
         return self.result

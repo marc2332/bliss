@@ -13,6 +13,7 @@ TODO list
     => Steps_per_unit, Backlash, Home_position: should it be in config xml instead of being memorized ?
     => remove FirstVelocity
     => remove "memorized" flag on attributes and test Bliss settings
+    => add Group device
 
 * limits
     => make sure motion stops with an error when hitting a hard limit

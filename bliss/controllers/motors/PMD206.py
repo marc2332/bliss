@@ -92,12 +92,12 @@ class PMD206(Controller):
         # Enables the closed-loop.
         # self.send(axis, "CM=0")
 
-    # int_to_hex :  int("41a", 16)
-    # hex_to_int :  hex(1050)[2:]
+    # int_to_hex : int("41a", 16)
+    # hex_to_int : hex(1050)[2:]
 
     def read_position(self, axis, measured=False):
         """
-        Returns position's setpoint or measured position.
+        Returns position's setpoint or measured position (in encoder counts).
 
         Args:
             - <axis> : bliss axis.
@@ -112,58 +112,62 @@ class PMD206(Controller):
         if measured:
             _ans = self.send(axis, "MP?")
             _pos = int(_ans[8:], 16)
-            pmd206_debug("PMD206 position measured read : %d (_ans=%s)" % (_pos, _ans))
+            pmd206_debug("PMD206 position measured (encoder value) read : %d (_ans=%s)" % (_pos, _ans))
         else:
             _ans = self.send(axis, "TP?")
             _pos = int(_ans[8:], 16)
-            pmd206_debug("PMD206 position setpoint read : %d (_ans=%s)" % (_pos, _ans))
+            pmd206_debug("PMD206 position setpoint (encoder counts) read : %d (_ans=%s)" % (_pos, _ans))
 
         return _pos
 
     def read_velocity(self, axis):
         """
-        Speed ramp up in target mode - wfm-steps per second per millisecond
-
         Args:
             - <axis> : Bliss axis object.
         Returns:
             - <velocity> : float
         """
-        _ans = self.send(axis, "CP?9")
-        #                           123456789
-        # _ans should looks like : 'PM11CP?9:00000030'
-        # Removes 9 firsts characters.
-        _velocity = int(_ans[9:], 16)
-
-        # Test velocity to be in good range ?
-        if _velocity < 1:
-            _velocity = 1
-
-        if _velocity > 50:
-            _velocity = 50
-
-            # etc ?
+        _velocity = 1
 
         pmd206_debug("read_velocity : %d" % _velocity)
         return _velocity
 
     def set_velocity(self, axis, new_velocity):
-
-        # !!!! must be converted  ?
-        # _nv = hex(new_velocity)[2:]
-
-        _nv = 30
-        self.send(axis, "CP=9,%d" % _nv)
-
+        _nv = new_velocity
         pmd206_debug("velocity wrotten : %d " % _nv)
 
         return self.read_velocity(axis)
 
+
+    def read_acctime(self, axis):
+        #_ans = self.send(axis, "CP?9")
+        #                           123456789
+        # _ans should looks like : 'PM11CP?9:00000030'
+        # Removes 9 firsts characters.
+        #_acceleration = int(_ans[9:], 16)
+
+        return float(axis.settings.get('acctime'))
+
+
+    def set_acctime(self, axis, new_acctime):
+        # !!!! must be converted  ?
+        # _nacc = hex(new_acctime)[2:]
+        #_nacc = 30
+        #self.send(axis, "CP=9,%d" % _nacc)
+
+        axis.settings.set('acctime', new_acctime)
+        return new_acctime
+
+    """
+    STATUS
+    """
     def pmd206_get_status(self, axis):
         '''
         Sends status command (CS?) and puts results (hexa strings) in :
         - self._ctrl_status
         - self._axes_status[1..6]
+
+        Raises ?
 
         '''
         # broadcast command -> returns status of all 6 axis
@@ -195,8 +199,8 @@ class PMD206(Controller):
 
         for _c in self._controller_error_codes:
             if _s & _c[0]:
-                print _c[1]
-                _status.append(_c[1]+"\n")
+                # print _c[1]
+                _status = _status + (_c[1]+"\n")
 
         return _status
 
@@ -209,15 +213,15 @@ class PMD206(Controller):
 
         for _c in self._motor_error_codes:
             if _s & _c[0]:
-                print _c[1]
-                _status.append(_c[1]+"\n")
+                # print _c[1]
+                _status = _status + (_c[1]+"\n")
 
         return _status
 
     def motor_state(self, axis):
         _s = int(self._axes_status[axis.channel], 16)
 
-        pmd206_debug("axis %d status : %s" % (axis.channel, self._axis_status))
+        pmd206_debug("axis %d status : %s" % (axis.channel, self._axes_status[axis.channel]))
 
         if _s & 0x01:
             # motor is running
@@ -229,7 +233,7 @@ class PMD206(Controller):
             return READY
 
     def state(self, axis):
-        # Read status fronm controller.
+        # Read status from controller.
         self.pmd206_get_status(axis)
 
         return self.motor_state(axis)
@@ -240,6 +244,10 @@ class PMD206(Controller):
         '''
         return self.get_controller_status() + "\n\n" + self.get_motor_status(axis)
 
+
+    """
+    Movements
+    """
     def prepare_move(self, motion):
         """
         - TODO for multiple move...
@@ -265,8 +273,8 @@ class PMD206(Controller):
         Returns:
             - None
         """
-        pass
-        # self.send(axis, "TP=%s" %  hex(motion.target_pos)[2:])
+        _enc_target = hex(motion.target_pos)[2:]
+        self.send(axis, "TP=%s" % _enc_target)
 
     def stop(self, axis):
         """
@@ -300,6 +308,7 @@ class PMD206(Controller):
             return float(axis.config.get("step_size"))
         else:
             print "steps_per_unit writing is not (yet?) implemented."
+
 
     """
     PMD206 specific communication
@@ -340,9 +349,9 @@ class PMD206(Controller):
                 print "oh oh "
 
         _duration = time.time() - _t0
-        if _duration > 0.005:
+        if _duration > 0.006:
             print "PMD206 Received %s from Send %s (duration : %g ms) " % \
-                  (repr(_ans), _cmd, _duration * 1000)
+                  (repr(_ans), repr(_cmd), _duration * 1000)
 
         return _ans
 
@@ -427,8 +436,15 @@ class PMD206(Controller):
 
         _txt = ""
 
+        self.pmd206_get_status(axis)
+        _mot_status = self.get_controller_status()
+        _axis_status = self.get_motor_status(axis)
+
         for i in _infos:
             _txt = _txt + "    %s %s\n" % \
                 (i[0], self.send(axis, i[1]))
+        _txt = _txt + "    motor status : %s" % _mot_status
+        _txt = _txt + "    axis status : %s" % _axis_status
+
 
         return _txt

@@ -1,5 +1,6 @@
 import gevent
 from gevent import socket, select, lock, event
+import tcp
 
 import re
 import struct
@@ -320,15 +321,38 @@ class RFC2217(_BaseSerial):
                 if telnet_cmd.data:
                     self._socket.send(telnet_cmd.data)
                     telnet_cmd.data = ''
-                else:
-                    break
+                break
 
     def close(self):
         self._socket.close()
 
+class SER2NET(RFC2217):
+    def __init__(self,cnt,**keys) :
+        port = keys.pop('port')
+        port_parse = re.compile('^(ser2net://)?([^:/]+?):([0-9]+)(.+)$')
+        match = port_parse.match(port)
+        if match is None:
+            raise RuntimeError('SER2NET: port is not a valid url (%s)' % port)
+        comm = tcp.Command(match.group(2),int(match.group(3)),eol='\n\r->')
+        msg = 'showshortport\n\r'
+        rx = comm.write_readline(msg)
+        msg_pos = rx.find(msg)
+        rx = rx[msg_pos + len(msg):]
+        parameters = [re.split('[ ]{2,}',l) for l in rx.split('\n\r')]
+        port_parse = re.compile('.+?%s$' % match.group(4))
+        rfc2217_port = None
+        for p in parameters:
+            if port_parse.match(p[2]):
+                rfc2217_port = int(p[0])
+                break
+        if rfc2217_port is None:
+            raise RuntimeError('SER2NET: port %s is not found on server' % match.group(4))
         
+        keys['port'] = 'rfc2217://%s:%d' % (match.group(2),rfc2217_port)
+        RFC2217.__init__(self,cnt,**keys)
+
 class Serial:
-    LOCAL,RFC2217 = range(2)
+    LOCAL,RFC2217,SER2NET = range(3)
 
     def __init__(self,port=None, 
                  baudrate=9600,
@@ -370,6 +394,8 @@ class Serial:
             serial_type = self._check_type()
             if serial_type == self.RFC2217:
                 self._raw_handler = RFC2217(self,**self._serial_kwargs)
+            elif serial_type == self.SER2NET:
+                self._raw_handler = SER2NET(self,**self._serial_kwargs)
             else:                   # LOCAL
                 self._raw_handler = LocalSerial(self,**self._serial_kwargs)
         
@@ -428,5 +454,7 @@ class Serial:
         port = self._serial_kwargs.get('port','')
         if port.lower().startswith("rfc2217://"):
             return self.RFC2217
+        elif port.lower().startswith("ser2net://"):
+            return self.SER2NET
         else:
             return self.LOCAL

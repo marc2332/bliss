@@ -39,10 +39,10 @@ config_xml = """
         <host value="%s"/>
         <libdebug value="1"/>
         <axis name="mymot">
-            <address   value="%s"/>
-            <step_size value="2000"/>
-            <backlash  value="0.01"/>
-            <velocity  value="2500"/>
+            <address        value="%s"/>
+            <steps_per_unit value="2000"/>
+            <backlash       value="0.01"/>
+            <velocity       value="2500"/>
         </axis>
     </controller>
     <group name="eh1">

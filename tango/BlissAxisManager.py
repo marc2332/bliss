@@ -324,7 +324,7 @@ class BlissAxis(PyTango.Device_4Impl):
 
     def read_StepSize(self, attr):
         self.debug_stream("In read_StepSize()")
-        attr.set_value(self.axis.step_size())
+        attr.set_value(self.attr_StepSize_read)
 
     def read_attr_hardware(self, data):
         pass
@@ -460,7 +460,6 @@ class BlissAxisClass(PyTango.DeviceClass):
         'Steps_per_unit':
         [[PyTango.DevDouble,
           PyTango.SCALAR,
-          # PyTango.READ_WRITE],
           PyTango.READ],
          {
              'label': "Steps per mm",
@@ -472,7 +471,6 @@ class BlissAxisClass(PyTango.DeviceClass):
         'Steps':
         [[PyTango.DevLong,
           PyTango.SCALAR,
-          # PyTango.READ_WRITE],
           PyTango.READ],
          {
              'label': "Steps",
@@ -610,7 +608,7 @@ class BlissAxisClass(PyTango.DeviceClass):
         'StepSize':
         [[PyTango.DevDouble,
           PyTango.SCALAR,
-          PyTango.READ],
+          PyTango.READ_WRITE],
          {
              'unit': "mm",
              'format': "%10.3f",

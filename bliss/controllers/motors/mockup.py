@@ -4,6 +4,22 @@ from bliss.controllers.motor import add_axis_method
 import math
 import time
 
+"""
+mockup.py : a mockup controller for bliss.
+To be used as skeleton to write bliss plugin controller.
+"""
+
+def mockup_err(msg):
+    log.error("[MOCKUP] " + msg)
+
+
+def mockup_info(msg):
+    log.info("[MOCKUP] " + msg)
+
+
+def mockup_debug(msg):
+    log.debug("[MOCKUP] " + msg)
+
 
 class Mockup(Controller):
 
@@ -62,7 +78,7 @@ class Mockup(Controller):
         axis = motion.axis
         t0 = t0 or time.time()
         pos = self.read_position(axis)
-        v = self.read_velocity(axis) * axis.step_size()
+        v = self.read_velocity(axis) * axis.steps_per_unit()
         self._axis_moves[axis] = {
             "start_pos": pos,
             "delta": motion.delta,
@@ -86,7 +102,7 @@ class Mockup(Controller):
             if self._axis_moves[axis]["end_t"]:
                 # motor is moving
                 t = time.time()
-                v = self.read_velocity(axis) * axis.step_size()
+                v = self.read_velocity(axis) * axis.steps_per_unit()
                 d = math.copysign(1, self._axis_moves[axis]["delta"])
                 dt = t - self._axis_moves[axis]["t0"]
                 pos = self._axis_moves[axis]["start_pos"] + d * dt * v

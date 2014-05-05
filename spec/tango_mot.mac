@@ -71,7 +71,7 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
     }
 
     if(type == "mot") {
-        local _mot_mne _step_size
+        local _mot_mne _ds_name
 
         _mot_mne = motor_mne(motnum)
         _ds_name = tango_mot_ADDR
@@ -79,6 +79,7 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
         # Registers Tango DS name in parameters of the motor.
         tango_mot_dbg(sprintf("Registering DS name : \"%s\" for motor \"%s\"", \
                              _ds_name, _mot_mne))
+
         # GNARKKK cannot use tango_mot_ADDR here directly...
         motor_par(motnum, "dev_name", _ds_name, "add")
 
@@ -125,7 +126,7 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
 #
 def tango_mot_cmd(motnum, cmd, p1, p2) '{
 
-    local _mot_mne  _dev  _attr  _step_size  _cmd
+    local _mot_mne  _dev  _attr  _step_size  _steps  _cmd
 
     _mot_mne = motor_mne(motnum)
 

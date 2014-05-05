@@ -30,7 +30,7 @@ config_xml = """
     <port value="5000"/>
     <axis name="roby">
       <backlash value="2"/>
-      <step_size value="10"/>
+      <steps_per_unit value="10"/>
       <velocity  value="2500"/>
     </axis>
   </controller>

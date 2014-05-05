@@ -22,19 +22,19 @@ config_xml = """
     </axis>
     <axis name="s1f">
       <velocity value="500"/>
-      <step_size value="-10"/>
+      <steps_per_unit value="-10"/>
     </axis>
     <axis name="s1b">
       <velocity value="500"/>
-      <step_size value="10"/>
+      <steps_per_unit value="10"/>
     </axis>
     <axis name="s1u">
       <velocity value="500"/>
-      <step_size value="-10"/>
+      <steps_per_unit value="-10"/>
     </axis>
     <axis name="s1d">
       <velocity value="500"/>
-      <step_size value="10"/>
+      <steps_per_unit value="10"/>
     </axis>
   </controller>
   <controller class="slits" name="test">

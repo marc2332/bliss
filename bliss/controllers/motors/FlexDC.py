@@ -202,7 +202,7 @@ class FlexDC(Controller):
 
     def steps_per_unit(self, axis, new_step_per_unit=None):
         if new_step_per_unit is None:
-            return float(axis.config.get("step_size"))
+            return float(axis.config.get("steps_per_unit"))
         else:
             print "steps_per_unit writing is not (yet?) implemented."
 

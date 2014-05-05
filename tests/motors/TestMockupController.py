@@ -29,7 +29,7 @@ config_xml = """
     <port value="5000"/>
     <axis name="roby" class="MockupAxis">
       <backlash value="2"/>
-      <step_size value="10"/>
+      <steps_per_unit value="10"/>
       <velocity  value="2500"/>
     </axis>
   </controller>
@@ -47,7 +47,7 @@ class MockupAxis(Axis):
     def _handle_move(self, motion):
         self.target_pos = motion.target_pos
         self.backlash_move = motion.target_pos / \
-            self.step_size() if motion.backlash else 0
+            self.steps_per_unit() if motion.backlash else 0
         return Axis._handle_move(self, motion)
 
 
@@ -132,14 +132,14 @@ class TestMockupController(unittest.TestCase):
         move_greenlet.join()
         self.assertEqual(roby.position(), 180)
 
-    def test_axis_stepsize(self):
+    def test_axis_steps_per_unit(self):
         roby = bliss.get_axis("roby")
         self.assertEqual(roby.state(), "READY")
         move_greenlet = roby.move(180, wait=False)
         self.assertEqual(roby.state(), "MOVING")
         move_greenlet.join()
         self.assertEqual(roby.state(), "READY")
-        self.assertEqual(roby.target_pos, roby.step_size() * 180)
+        self.assertEqual(roby.target_pos, roby.steps_per_unit() * 180)
 
     def test_axis_set_pos(self):
         roby = bliss.get_axis("roby")

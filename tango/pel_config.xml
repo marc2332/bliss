@@ -11,35 +11,35 @@
   <controller class="FlexDC" name="id16phn">
     <host value="flexdcnina"/>
     <axis name="fd">
-      <channel       value="X"/>
-      <step_size     value="13111.11"/>
-      <target_radius value="10"/>
-      <target_time   value="20"/>
-      <smoothing     value="4"/>
-      <acceleration  value="1111"/>
-      <deceleration  value="1010"/>
-      <velocity      value="1234"/>
+      <channel        value="X"/>
+      <steps_per_unit value="13111.11"/>
+      <target_radius  value="10"/>
+      <target_time    value="20"/>
+      <smoothing      value="4"/>
+      <acceleration   value="1111"/>
+      <deceleration   value="1010"/>
+      <velocity       value="1234"/>
     </axis>
   </controller>
   <controller class="PI_E517" name="testid16">
     <host value="e517pela"/>
     <axis name="px">
-      <channel       value="1"/>
-      <chan_letter   value="A"/>
-      <velocity      value="12"/>
-      <step_size     value="1"/>
+      <channel        value="1"/>
+      <chan_letter    value="A"/>
+      <velocity       value="12"/>
+      <steps_per_unit value="1"/>
     </axis>
     <axis name="py">
-      <channel       value="2"/>
-      <chan_letter   value="B"/>
-      <velocity      value="12"/>
-      <step_size     value="1"/>
+      <channel        value="2"/>
+      <chan_letter    value="B"/>
+      <velocity       value="12"/>
+      <steps_per_unit value="1"/>
     </axis>
     <axis name="pz">
-      <channel       value="3"/>
-      <chan_letter   value="C"/>
-      <velocity      value="12"/>
-      <step_size     value="1"/>
+      <channel        value="3"/>
+      <chan_letter    value="C"/>
+      <velocity       value="12"/>
+      <steps_per_unit value="1"/>
     </axis>
   </controller>
 </config>

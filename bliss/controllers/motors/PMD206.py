@@ -290,25 +290,6 @@ class PMD206(Controller):
         """
         self.send(axis, "CS=0")
 
-    def steps_per_unit(self, axis, new_step_per_unit=None):
-        """
-        -
-
-        Args:
-            - <axis> : Bliss axis object.
-            - [<new_step_per_unit>] : float :
-
-        Returns:
-            -
-
-        Raises:
-            - ?
-        """
-        if new_step_per_unit is None:
-            return float(axis.config.get("step_size"))
-        else:
-            print "steps_per_unit writing is not (yet?) implemented."
-
 
     """
     PMD206 specific communication

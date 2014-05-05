@@ -68,8 +68,11 @@ class Axis(object):
     def measured_position(self):
         return self.__controller.read_position(self, measured=True)
 
-    def step_size(self):
-        return self.config.get("step_size", float, 1)
+    def steps_per_unit(self):
+        """
+        Returns 'steps_per_unit' config value (float).
+        """
+        return self.config.get("steps_per_unit", float, 1)
 
     def position(self, new_pos=None):
         if self.is_moving:
@@ -88,19 +91,17 @@ class Axis(object):
             return pos
 
     def _position(self, new_pos=None, measured=False):
-        new_pos = new_pos * self.step_size() if new_pos is not None else None
+        new_pos = new_pos * self.steps_per_unit() if new_pos is not None else None
         if new_pos is not None:
             try:
-                return self.__controller.set_position(
-                    self, new_pos) / self.step_size()
+                return self.__controller.set_position(self, new_pos) / self.steps_per_unit()
             except NotImplementedError:
                 self.__settings.set(
                     "offset",
-                    (self.__controller.read_position(self) - new_pos) / self.
-                    step_size())
+                    (self.__controller.read_position(self) - new_pos) / self.steps_per_unit())
                 return self.position()
         else:
-            return (self.__controller.read_position(self, measured) / self.step_size()) - self.offset
+            return (self.__controller.read_position(self, measured) / self.steps_per_unit()) - self.offset
 
     def state(self):
         if self.is_moving:
@@ -164,9 +165,9 @@ class Axis(object):
             user_target_pos += initial_pos
         user_backlash = self.config.get("backlash", float, 0)
         # all positions are converted to controller units
-        backlash = user_backlash * self.step_size()
-        delta = (user_target_pos - initial_pos) * self.step_size()
-        target_pos = (user_target_pos + self.offset) * self.step_size()
+        backlash = user_backlash * self.steps_per_unit()
+        delta = (user_target_pos - initial_pos) * self.steps_per_unit()
+        target_pos = (user_target_pos + self.offset) * self.steps_per_unit()
 
         if backlash:
             if cmp(delta, 0) != cmp(backlash, 0):
@@ -182,8 +183,8 @@ class Axis(object):
         # check software limits
         user_high_limit = self.settings.get("high_limit")
         user_low_limit = self.settings.get("low_limit")
-        high_limit = user_high_limit * self.step_size()
-        low_limit = user_low_limit * self.step_size()
+        high_limit = user_high_limit * self.steps_per_unit()
+        low_limit = user_low_limit * self.steps_per_unit()
         backlash_str = " (with %f backlash)" % user_backlash if backlash else ""
         if user_low_limit is not None:
             if target_pos < low_limit:

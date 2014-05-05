@@ -47,7 +47,6 @@ class PI_E753(Controller):
     # Init of each axis.
     def initialize_axis(self, axis):
         e753_debug("axis initialization")
-        add_axis_method(axis, self.steps_per_unit)
         add_axis_method(axis, self.get_info)
 
         # Enables the closed-loop.
@@ -94,12 +93,6 @@ class PI_E753(Controller):
     """
     E753 specific communication
     """
-
-    def steps_per_unit(self, axis, new_step_per_unit=None):
-        if new_step_per_unit is None:
-            return float(axis.config.get("step_size"))
-        else:
-            e753_info("steps_per_unit writing is not (yet?) implemented.")
 
     def _get_velocity(self, axis):
         '''

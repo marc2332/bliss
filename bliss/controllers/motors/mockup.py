@@ -34,6 +34,7 @@ class Mockup(Controller):
         # add a setting name 'init_count' of type 'int'
         self.axis_settings.add('init_count', int)
 
+        # ????
         # Settings of xml config like "velocity" are automatically added.
 
     '''
@@ -114,16 +115,25 @@ class Mockup(Controller):
     #    self._axis_moves[axis]["end_t"] = 0
     #    return new_pos
 
-    '''
-    Always return the current velocity taken from controller
-    in steps/sec.
-    '''
+
 
     def read_velocity(self, axis):
-        return float(axis.settings.get('velocity'))
+        '''
+        Returns the current velocity taken from controller
+        in motor units.
+        '''
+        _user_velocity = axis.settings.get('velocity')
+        _mot_velocity = _user_velocity * axis.steps_per_unit()
+        return float(_mot_velocity)
 
     def set_velocity(self, axis, new_velocity):
-        axis.settings.set('velocity', new_velocity)
+        '''
+        <new_velocity> is in motor units
+        Returns velocity in motor units.
+        '''
+        _user_velocity = new_velocity / axis.steps_per_unit()
+        axis.settings.set('velocity', _user_velocity)
+
         return new_velocity
 
     '''

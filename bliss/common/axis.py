@@ -129,11 +129,17 @@ class Axis(object):
         new_velocity is in user units per seconds.
         """
         if new_velocity is not None:
-            _vel = self.__controller.set_velocity(self, new_velocity * self.steps_per_unit())
+            # Converts into motor units to change velocity of axis.
+            _mot_vel = self.__controller.set_velocity(self, new_velocity * self.steps_per_unit())
+            _user_vel = new_velocity
         else:
-            _vel = self.__controller.read_velocity(self) / self.steps_per_unit()
-        self.settings.set("velocity", _vel)
-        return _vel
+            # Returns velocity read from motor axis.
+            _user_vel = self.__controller.read_velocity(self) / self.steps_per_unit()
+
+        # Stores velocity in user-units
+        self.settings.set("velocity", _user_vel)
+
+        return _user_vel
 
     def acctime(self, new_acctime=None):
         '''

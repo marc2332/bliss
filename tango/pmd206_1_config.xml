@@ -1,0 +1,21 @@
+<config>
+  <controller class="PMD206" name="id16pmd2061">
+    <host value="pmd206id16ni1" />
+    <axis name="sz1">
+      <channel value="1" />
+      <steps_per_unit value="200000" />
+    <settings><low_limit value="-1000000000.0" /><high_limit value="1000000000.0" /></settings></axis>
+    <axis name="sz2">
+      <channel value="2" />
+      <steps_per_unit value="200000" />
+    <settings><low_limit value="-1000000000.0" /><high_limit value="1000000000.0" /></settings></axis>
+    <axis name="sz3">
+      <channel value="3" />
+      <steps_per_unit value="200000" />
+    <settings><low_limit value="-1000000000.0" /><high_limit value="1000000000.0" /></settings></axis>
+    <axis name="sy">
+      <channel value="4" />
+      <steps_per_unit value="200000" />
+    <settings><low_limit value="-1000000000.0" /><high_limit value="1000000000.0" /></settings></axis>
+  </controller>
+</config>

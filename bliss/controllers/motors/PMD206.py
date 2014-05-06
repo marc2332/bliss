@@ -90,7 +90,6 @@ class PMD206(Controller):
 
     def initialize_axis(self, axis):
         """
-
         Args:
             - <axis>
         Returns:
@@ -128,7 +127,7 @@ class PMD206(Controller):
         if measured:
             _ans = self.send(axis, "MP?")
             _pos = hex_to_int(_ans[8:])
-            pmd206_debug("PMD206 position measured (encoder value) read : %d (_ans=%s)" % (_pos, _ans))
+            pmd206_debug("PMD206 position measured (encoder counts) read : %d (_ans=%s)" % (_pos, _ans))
         else:
             _ans = self.send(axis, "TP?")
             _pos = hex_to_int(_ans[8:])
@@ -141,7 +140,7 @@ class PMD206(Controller):
         Args:
             - <axis> : Bliss axis object.
         Returns:
-            - <velocity> : float
+            - <velocity> : float : velocity in motor-units
         """
         _velocity = 1
 
@@ -149,8 +148,12 @@ class PMD206(Controller):
         return _velocity
 
     def set_velocity(self, axis, new_velocity):
+        '''
+        <new_velocity> is in motor units. (encoder steps)
+        Returns velocity in motor units.
+        '''
         _nv = new_velocity
-        pmd206_debug("velocity wrotten : %d " % _nv)
+        pmd206_debug("velocity NOT wrotten : %d " % _nv)
 
         return self.read_velocity(axis)
 

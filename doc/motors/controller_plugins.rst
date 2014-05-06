@@ -12,3 +12,4 @@ Contents:
    FlexDC_controller
    IcePAP_controller
    PI_E753_controller
+   PMD206_controller

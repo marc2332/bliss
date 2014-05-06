@@ -102,6 +102,7 @@ class IcePAP(Controller):
 
     def read_velocity(self, axis):
         """Returns axis current velocity in user units per seconds"""
+#         ??? ca serai pas mieux en motor units ? (steps/s)
         return self.libgroup.velocity(axis.libaxis)
 
     def set_velocity(self, axis, new_velocity):

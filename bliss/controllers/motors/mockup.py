@@ -89,12 +89,11 @@ class Mockup(Controller):
             float(v),
             "t0": t0}
 
-    '''
-    Always return the position (measured or desired) taken from controller
-    in steps.
-    '''
-
     def read_position(self, axis, measured=False):
+        '''
+        Returns the position (measured or desired) taken from controller
+        in controller unit (steps).
+        '''
         if measured:
             return -1.2345
         else:

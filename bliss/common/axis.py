@@ -65,16 +65,23 @@ class Axis(object):
                 return True
         return False
 
-    def measured_position(self):
-        return self.__controller.read_position(self, measured=True)
-
     def steps_per_unit(self):
         """
         Returns 'steps_per_unit' config value (float).
         """
         return self.config.get("steps_per_unit", float, 1)
 
+    def measured_position(self):
+        """
+        Returns a value in user units.
+        """
+        return self.__controller.read_position(self, measured=True) / self.steps_per_unit()
+
     def position(self, new_pos=None):
+        """
+        new_pos is in user units.
+        Returns a value in user units.
+        """
         if self.is_moving:
             if new_pos is not None:
                 raise RuntimeError("Can't set axis position \
@@ -91,14 +98,22 @@ class Axis(object):
             return pos
 
     def _position(self, new_pos=None, measured=False):
-        new_pos = new_pos * self.steps_per_unit() if new_pos is not None else None
-        if new_pos is not None:
+        '''
+        new_pos is in user units.
+        _new_pos is in motor units.
+        Returns a value in user units.
+        '''
+        _new_pos = new_pos * self.steps_per_unit() if new_pos is not None else None
+
+        if _new_pos is not None:
             try:
-                return self.__controller.set_position(self, new_pos) / self.steps_per_unit()
+                # Sends a value in motor units to the controller
+                # but returns a user-units value.
+                return self.__controller.set_position(self, _new_pos) / self.steps_per_unit()
             except NotImplementedError:
                 self.__settings.set(
                     "offset",
-                    (self.__controller.read_position(self) - new_pos) / self.steps_per_unit())
+                    (self.__controller.read_position(self) - _new_pos) / self.steps_per_unit())
                 return self.position()
         else:
             return (self.__controller.read_position(self, measured) / self.steps_per_unit()) - self.offset
@@ -110,14 +125,20 @@ class Axis(object):
         return self.__controller.state(self)
 
     def velocity(self, new_velocity=None):
+        """
+        new_velocity is in user units per seconds.
+        """
         if new_velocity is not None:
-            _vel = self.__controller.set_velocity(self, new_velocity)
+            _vel = self.__controller.set_velocity(self, new_velocity * self.steps_per_unit())
         else:
-            _vel = self.__controller.read_velocity(self)
+            _vel = self.__controller.read_velocity(self) / self.steps_per_unit()
         self.settings.set("velocity", _vel)
         return _vel
 
     def acctime(self, new_acctime=None):
+        '''
+        new_acctime is in seconds.
+        '''
         if new_acctime is not None:
             _acctime = self.__controller.set_acctime(self, new_acctime)
         else:
@@ -126,6 +147,9 @@ class Axis(object):
         return _acctime
 
     def limits(self, low_limit=None, high_limit=None):
+        '''
+        limits are in user units.
+        '''
         if low_limit is not None:
             self.settings.set("low_limit", low_limit)
         if high_limit is not None:

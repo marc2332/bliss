@@ -181,8 +181,8 @@ class Axis(object):
                 backlash = 0
 
         # check software limits
-        user_high_limit = self.settings.get("high_limit")
-        user_low_limit = self.settings.get("low_limit")
+        user_high_limit = float(self.settings.get("high_limit"))
+        user_low_limit = float(self.settings.get("low_limit"))
         high_limit = user_high_limit * self.steps_per_unit()
         low_limit = user_low_limit * self.steps_per_unit()
         backlash_str = " (with %f backlash)" % user_backlash if backlash else ""

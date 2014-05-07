@@ -14,6 +14,16 @@ Thu 13 Feb 2014 15:51:41
 """
 
 
+def e517_err(msg):
+    log.error("[PI_E517] " + msg)
+
+def e517_info(msg):
+    log.info("[PI_E517] " + msg)
+
+def e517_debug(msg):
+    log.debug("[PI_E517] " + msg)
+
+
 class PI_E517(Controller):
 
     def __init__(self, name, config, axes):
@@ -64,7 +74,8 @@ class PI_E517(Controller):
     def read_position(self, axis, measured=False):
         """
         Returns position's setpoint or measured position.
-        Setpoint position is MOV? of VOL? depending on closed-loop
+        Measured position command is POS?
+        Setpoint position is MOV? of VOL? or SVA? depending on closed-loop
         mode is ON or OFF.
 
         Args:
@@ -75,10 +86,10 @@ class PI_E517(Controller):
         """
         if measured:
             _pos = self._get_pos(axis)
-            print "PI_E517 position measured read : ", _pos
+            e517_debug("position measured read : %g" % _pos)
         else:
             _pos = self._get_target_pos(axis)
-            print "PI_E517 position setpoint read : ", _pos
+            e517_debug("position setpoint read : %g" % _pos)
 
         return _pos
 
@@ -94,27 +105,26 @@ class PI_E517(Controller):
         # removes 'X=' prefix
         _velocity = float(_ans[2:])
 
-        print "PI_E517 read_velocity  : ", _velocity
+        e517_debug("read_velocity : %g " % _velocity)
         return _velocity
 
     def set_velocity(self, axis, new_velocity):
         self.send_no_ans(axis, "VEL %s %f" %
                          (axis.chan_letter, new_velocity))
-        print "PI_E517 velocity wrotten : ", new_velocity
+        e517_debug( "velocity set : %g" % new_velocity)
         return self.read_velocity(axis)
 
     def state(self, axis):
         # if self._get_closed_loop_status(axis):
         if self.closed_loop:
-            # print "CL is active"
+            e517_debug("CLOSED-LOOP is active")
             if self._get_on_target_status(axis):
                 return READY
             else:
                 return MOVING
         else:
-            # print "CL is not active"
+            e517_debug("CLOSED-LOOP is not active")
             return READY
-            #raise RuntimeError("closed loop disabled")
 
     def prepare_move(self, motion):
         """
@@ -174,13 +184,13 @@ class PI_E517(Controller):
     E517 specific communication
     """
 
-    def steps_per_unit(self, axis, new_step_per_unit=None):
+    def steps_per_unit(self, axis, new_steps_per_unit=None):
         """
         - 
 
         Args:
             - <axis> : Bliss axis object.
-            - [<new_step_per_unit>] : float : 
+            - [<new_steps_per_unit>] : float : 
 
         Returns:
             -
@@ -188,7 +198,7 @@ class PI_E517(Controller):
         Raises:
             - ?
         """
-        if new_step_per_unit is None:
+        if new_steps_per_unit is None:
             return float(axis.config.get("steps_per_unit"))
         else:
             print "steps_per_unit writing is not (yet?) implemented."

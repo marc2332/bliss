@@ -1,4 +1,4 @@
-from bliss.controllers.motor import Controller
+from bliss.controllers.motor import Controller; from bliss.common import log
 from bliss.common.axis import READY, MOVING
 from bliss.controllers.motor import add_axis_method
 import math

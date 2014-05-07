@@ -487,7 +487,6 @@ class BlissAxisClass(PyTango.DeviceClass):
              'unit': "steps/mm",
              'format': "%7.1f",
              'Display level': PyTango.DispLevel.EXPERT,
-             #'Memorized':"true"
          }],
         'Steps':
         [[PyTango.DevLong,
@@ -498,7 +497,6 @@ class BlissAxisClass(PyTango.DeviceClass):
              'unit': "steps",
              'format': "%6d",
              'description': "number of steps in the step counter\n",
-             #'Memorized':"true"
          }],
         'Position':
         [[PyTango.DevDouble,

@@ -272,7 +272,9 @@ class PI_E517(Controller):
     def _get_target_pos(self, axis):
         """
         Returns last target position (MOV?/SVA?/VOL? command) (setpoint value).
-
+            - SVA? : Query the commanded output voltage (voltage setpoint).
+            - VOL? : Query the current output voltage (real voltage).
+            - MOV? : Returns the last valid commanded target position.
         Args:
             - <>
         Returns:
@@ -283,9 +285,7 @@ class PI_E517(Controller):
         if self.closed_loop:
             _ans = self.send(axis, "MOV? %s" % axis.chan_letter)
         else:
-            #PC to avoid updating in loop before target is reached
-            #_ans = self.send(axis, "SVA? %s" % axis.chan_letter)
-            _ans = self.send(axis, "VOL? %s" % axis.channel)
+            _ans = self.send(axis, "SVA? %s" % axis.chan_letter)
         _pos = float(_ans[2:])
         return _pos
 

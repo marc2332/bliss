@@ -1,4 +1,4 @@
-from bliss.controllers.motor import Controller
+from bliss.controllers.motor import Controller; from bliss.common import log
 from bliss.controllers.motor import add_axis_method
 from bliss.common.axis import READY, MOVING
 
@@ -159,13 +159,13 @@ class FlexDC(Controller):
         return _ret
 
     def prepare_move(self, motion):
-        flexdc_debug("prepare_move, motion.target_pos=%f" % motion.target_pos)
+        flexdc_debug("prepare_move, motion.target_pos=%g" % motion.target_pos)
         # Prepare axis movement.
         self._flexdc_query("%sAP=%d" % (motion.axis.channel,
                                         int(motion.target_pos)))
 
     def start_one(self, motion):
-        flexdc_debug("start_one, motion.target_pos=" % motion.target_pos)
+        flexdc_debug("start_one, motion.target_pos=%g" % motion.target_pos)
         # Start prepared movement.
         self._flexdc_query("%sBG" % motion.axis.channel)
 

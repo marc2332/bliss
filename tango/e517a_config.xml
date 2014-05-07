@@ -1,0 +1,23 @@
+<config>
+  <controller class="PI_E517" name="e517a">
+    <host value="192.168.167.10" />
+    <axis name="p4">
+      <channel value="1" />
+      <chan_letter value="A" />
+      <velocity value="10" />
+      <steps_per_unit value="1" />
+    <settings><velocity value="10.0" /><position value="40.5181" /><low_limit value="-1000000000.0" /><high_limit value="1000000000.0" /></settings></axis>
+    <axis name="p5">
+      <channel value="2" />
+      <chan_letter value="B" />
+      <velocity value="10" />
+      <steps_per_unit value="1" />
+    <settings><velocity value="10.0" /><position value="38.1865" /><low_limit value="-1000000000.0" /><high_limit value="1000000000.0" /></settings></axis>
+    <axis name="p6">
+      <channel value="3" />
+      <chan_letter value="C" />
+      <velocity value="10" />
+      <steps_per_unit value="1" />
+    <settings><velocity value="10.0" /><position value="46.2901" /><low_limit value="-1000000000.0" /><high_limit value="1000000000.0" /></settings></axis>
+  </controller>
+</config>

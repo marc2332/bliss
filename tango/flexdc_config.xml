@@ -1,18 +1,17 @@
 <config>
   <controller class="FlexDC" name="id16phn">
-    <host value="flexdcnina"/>
+    <host value="flexdcnina" />
     <axis name="srot">
-      <channel        value="X"/>
-      <steps_per_unit value="13111.11"/>
-      <target_radius  value="100"/>
-      <target_time    value="20"/>
-      <min_dead_zone  value="40"/>
-      <max_dead_zone  value="100"/>
-      <smoothing      value="4"/>
-      <acceleration   value="398400"/>
-      <deceleration   value="398400"/>
-      <velocity       value="13111"/>
-    </axis>
+      <channel value="X" />
+      <steps_per_unit value="13111.11" />
+      <target_radius value="100" />
+      <target_time value="20" />
+      <min_dead_zone value="40" />
+      <max_dead_zone value="100" />
+      <smoothing value="4" />
+      <acceleration value="398400" />
+      <deceleration value="398400" />
+      <velocity value="1.0" />
+    <settings><velocity value="0.999991610169" /><acceleration value="398400.0" /><position value="1.53099165517" /><low_limit value="-1000000000.0" /><high_limit value="1000000000.0" /></settings></axis>
   </controller>
 </config>
-

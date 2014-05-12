@@ -4,3 +4,11 @@ build
 *.swp
 doc/_build
 .coverage
+
+
+# Do not track config files :
+tango/*.xml
+# except tests :
+!test_config.xml
+!cyril_config.xml
+

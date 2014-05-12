@@ -241,7 +241,6 @@ class PMD206(Controller):
 
         pmd206_debug("axis %d status : %s" % (axis.channel, self._axes_status[axis.channel]))
 
-        # we don't care of errors.
         # running means position is corrected, related to closed loop
         # we just check if target position was reached
         if _s & 0x04:

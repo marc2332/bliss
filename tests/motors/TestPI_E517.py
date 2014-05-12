@@ -258,23 +258,29 @@ f=get_axis("p6")
 
 load_cfg_fromstring("""
 <config>
-  <controller class="PI_E517" name="testid16b">
-    <host value="192.168.16b.10"/>
+  <controller class="PI_E517" name="e517b">
+    <host value="192.168.168.10" />
     <axis name="p1">
-      <channel       value="1"/>
-      <chan_letter   value="A"/>
-    </axis>
+      <channel value="1" />
+      <chan_letter value="A" />
+      <velocity value="10" />
+      <steps_per_unit value="1" />
+    <settings><velocity value="10.0" /><position value="20.3624" /><low_limit value="-1000000000.0" /><high_limit value="1000000000.0" /></settings></axis>
     <axis name="p2">
-      <channel       value="2"/>
-      <chan_letter   value="B"/>
-    </axis>
+      <channel value="2" />
+      <chan_letter value="B" />
+      <velocity value="10" />
+      <steps_per_unit value="1" />
+    <settings><velocity value="10.0" /><position value="38.3457" /><low_limit value="-1000000000.0" /><high_limit value="1000000000.0" /></settings></axis>
     <axis name="p3">
-      <channel       value="3"/>
-      <chan_letter   value="C"/>
-    </axis>
+      <channel value="3" />
+      <chan_letter value="C" />
+      <velocity value="10" />
+      <steps_per_unit value="1" />
+    <settings><velocity value="10.0" /><position value="-0.3161" /><low_limit value="-1000000000.0" /><high_limit value="1000000000.0" /></settings></axis>
   </controller>
 </config>
-""")
+""") ; 
 
 
 a=get_axis("p1")

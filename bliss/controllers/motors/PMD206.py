@@ -241,13 +241,21 @@ class PMD206(Controller):
 
         pmd206_debug("axis %d status : %s" % (axis.channel, self._axes_status[axis.channel]))
 
-        # we don't care of errors.
         # running means position is corrected, related to closed loop
         # we just check if target position was reached
-        if _s & 0x04:
-            return READY
+
+        if _s & 0x8:
+            # closed loop
+            if _s & 0x04:
+                return READY
+            else:
+                return MOVING
         else:
-            return MOVING
+            # open loop
+            if _s & 0x1:
+                return MOVING
+            else:
+                return READY
 
     def state(self, axis):
         # Read status from controller.
@@ -319,8 +327,18 @@ class PMD206(Controller):
         Raises:
             ?
         """
-        _prefix = "PM%d%d" % (1, axis.channel)
+        # PC: don't know how to send a broadcast command to controller, not axis
+        # intercept it here ...
+        # put 0 instead of channel 
+        broadcast_command = cmd[:4] in ["CC=4", "CC=5"]    
+        if broadcast_command:
+            print "BROADCAST COMMAND "
+            _prefix = "PM%d%d" % (1, 0)
+        else:
+            _prefix = "PM%d%d" % (1, axis.channel)
+
         _cmd = _prefix + cmd + "\r"
+
         _t0 = time.time()
 
         _ans = self.sock.write_readline(_cmd, eol='\r')
@@ -434,7 +452,7 @@ class PMD206(Controller):
                 (i[0], self.send(axis, i[1]))
         _txt = _txt + "    ctrl status : %s" % _ctrl_status
         _txt = _txt + "    axis status : %s" % _axis_status
-        _txt = _txt + "     IP address : %s" % get_ip(axis)
+        _txt = _txt + "     IP address : %s" % self.get_ip(axis)
 
         return _txt
 

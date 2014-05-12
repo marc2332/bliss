@@ -1,7 +1,0 @@
-<config>
-  <controller class="PI_E753" name="testid16">
-    <host value="e753id16ni-mlm" />
-    <axis name="mlm-pz">
-    <settings><velocity value="598.999977" /><low_limit value="-1000000000.0" /><high_limit value="1000000000.0" /><position value="34.000001" /></settings></axis>
-  </controller>
-</config>

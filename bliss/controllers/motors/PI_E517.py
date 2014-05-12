@@ -1,6 +1,6 @@
 import time
 
-from bliss.controllers.motor import Controller
+from bliss.controllers.motor import Controller; from bliss.common import log
 from bliss.controllers.motor import add_axis_method
 from bliss.common.axis import READY, MOVING
 
@@ -59,6 +59,7 @@ class PI_E517(Controller):
         add_axis_method(axis, self.get_id)
         add_axis_method(axis, self.get_info)
         add_axis_method(axis, self.steps_per_unit)
+        add_axis_method(axis, self.raw_com)
 
         # Enables the closed-loop.
         # self.sock.write("SVO 1 1\n")
@@ -202,6 +203,9 @@ class PI_E517(Controller):
             return float(axis.config.get("steps_per_unit"))
         else:
             print "steps_per_unit writing is not (yet?) implemented."
+
+    def raw_com(self, axis, cmd):
+        return self.send(axis, cmd)
 
     def send(self, axis, cmd):
         """

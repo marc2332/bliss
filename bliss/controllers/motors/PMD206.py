@@ -7,38 +7,56 @@ from bliss.common.axis import READY, MOVING, FAULT
 from bliss.comm import tcp
 
 """
-Bliss controller for PiezoMotor PMD206 piezo motor controller.
-Ethernet
-Cyril Guilloud ESRF BLISS
-Thu 10 Apr 2014 09:18:51
+- Bliss controller for PiezoMotor PMD206 piezo motor controller.
+- Ethernet
+- Cyril Guilloud ESRF BLISS
+- Thu 10 Apr 2014 09:18:51
 """
+
 
 def pmd206_err(msg):
     log.error("[PMD206] " + msg)
 
+
 def pmd206_info(msg):
     log.info("[PMD206] " + msg)
+
 
 def pmd206_debug(msg):
     log.debug("[PMD206] " + msg)
 
-# int_to_hex : hex(1050)[2:]
-# hex_to_int : int("41a", 16)
+
 def int_to_hex(dec_val):
+    """
+    Conversion function to code PMD206 messages.
+    - ex : hex(1050)[2:] = "41a"
+    - ex : hex(-3 + pow(2, 32))[2:] = "fffffffd"
+    """
     if dec_val < 0:
-        return hex(dec_val+pow(2,32))[2:]
+        return hex(dec_val + pow(2, 32))[2:]
     else:
         return hex(dec_val)[2:]
 
-def hex_to_int(hex_val):
 
+def hex_to_int(hex_val):
+    """
+    Conversion function to decode PMD206 messages.
+    - ex : int("41a", 16)- pow(2, 32) = 1050
+    - ex : int("ffffffff", 16)  - pow(2, 32)  = -1
+    """
     if int(hex_val, 16) > pow(2, 31):
-        return  int(hex_val, 16) - pow(2, 32)
+        return int(hex_val, 16) - pow(2, 32)
     else:
-        return  int(hex_val, 16)
+        return int(hex_val, 16)
 
 
 class PMD206(Controller):
+    """
+    - Bliss controller for PiezoMotor PMD206 piezo motor controller.
+    - Ethernet
+    - Cyril Guilloud ESRF BLISS
+    - Thu 10 Apr 2014 09:18:51
+    """
     def __init__(self, name, config, axes):
         Controller.__init__(self, name, config, axes)
 
@@ -105,10 +123,9 @@ class PMD206(Controller):
         self.pmd206_get_status(axis)
         _hex_status_string = self._axes_status[axis.channel]
         _status = hex_to_int(_hex_status_string)
-        if _status & 0x20 :
+        if _status & 0x20:
             pmd206_info("Motor is parked. I unpark it")
             self.unpark_motor(axis)
-
 
     def read_position(self, axis, measured=False):
         """
@@ -148,17 +165,19 @@ class PMD206(Controller):
         return _velocity
 
     def set_velocity(self, axis, new_velocity):
-        '''
+        """
         <new_velocity> is in motor units. (encoder steps)
         Returns velocity in motor units.
-        '''
+        """
         _nv = new_velocity
         pmd206_debug("velocity NOT wrotten : %d " % _nv)
 
         return self.read_velocity(axis)
 
-
     def read_acctime(self, axis):
+        """
+        Returns acceleration time in seconds.
+        """
         #_ans = self.send(axis, "CP?9")
         #                           123456789
         # _ans should looks like : 'PM11CP?9:00000030'
@@ -180,14 +199,12 @@ class PMD206(Controller):
     STATUS
     """
     def pmd206_get_status(self, axis):
-        '''
+        """
         Sends status command (CS?) and puts results (hexa strings) in :
         - self._ctrl_status
         - self._axes_status[1..6]
-
-        Raises ?
-
-        '''
+        Must be called before get_controller_status and get_motor_status.
+        """
         # broadcast command -> returns status of all 6 axis
         # _ans should looks like : 'PM11CS?:0100,20,20,20,20,20,20'
 
@@ -209,9 +226,9 @@ class PMD206(Controller):
         pmd206_debug("mot6 status : %s" % self._axes_status[6])
 
     def get_controller_status(self):
-        '''
+        """
         Returns a string build with all status of controller.
-        '''
+        """
         _s = hex_to_int(self._ctrl_status)
         _status = ""
 
@@ -223,9 +240,9 @@ class PMD206(Controller):
         return _status
 
     def get_motor_status(self, axis):
-        '''
+        """
         Returns a string build with all status of motor <axis>.
-        '''
+        """
         _s = hex_to_int(self._axes_status[axis.channel])
         _status = ""
 
@@ -258,18 +275,19 @@ class PMD206(Controller):
                 return READY
 
     def state(self, axis):
-        # Read status from controller.
-        # no way to read only single axis.
+        """
+        Read status from controller.
+        No way to read only single axis.
+        """
         self.pmd206_get_status(axis)
 
         return self.motor_state(axis)
 
     def status(self, axis):
-        '''
+        """
         Returns a string composed by controller and motor status string.
-        '''
+        """
         return self.get_controller_status() + "\n\n" + self.get_motor_status(axis)
-
 
     """
     Movements
@@ -298,11 +316,11 @@ class PMD206(Controller):
     def stop(self, axis):
         """
         Stops all axis motions sending CS=0 command.
+
         Args:
             - <axis> : Bliss axis object.
         """
         self.send(axis, "CS=0")
-
 
     """
     PMD206 specific communication
@@ -329,8 +347,8 @@ class PMD206(Controller):
         """
         # PC: don't know how to send a broadcast command to controller, not axis
         # intercept it here ...
-        # put 0 instead of channel 
-        broadcast_command = cmd[:4] in ["CC=4", "CC=5"]    
+        # put 0 instead of channel
+        broadcast_command = cmd[:4] in ["CC=4", "CC=5"]
         if broadcast_command:
             print "BROADCAST COMMAND "
             _prefix = "PM%d%d" % (1, 0)
@@ -364,16 +382,10 @@ class PMD206(Controller):
     def get_error(self, axis):
         pass
 
-    def print_error(err):
-        (_err_code, _pos, _ascii, _errstr) = err.split('=')[1].split(',')
-        print "---------ERROR--------------"
-        print " code   =", _err_code
-        print " pos    =", _pos
-        print " ascii  =", _ascii
-        print " string =", _errstr
-        print "----------------------------"
-
     def do_homing(self, axis, freq, max_steps, max_counts, first_dir):
+        """
+        Sends HO command.
+        """
         self.send("HO=%d,%d,%d,%d,%d,%d" % (freq, max_steps, max_counts,
                                             first_dir, max_steps, max_counts))
 
@@ -396,9 +408,15 @@ class PMD206(Controller):
         print _home_status_table
 
     def park_motor(self, axis):
+        """
+        Parks axis motor.
+        """
         self.send(axis, "CC=1")
 
     def unpark_motor(self, axis):
+        """
+        Unpark axis motor (mandatory before moving).
+        """
         self.send(axis, "CC=0")
 
     def get_info(self, axis):
@@ -457,8 +475,15 @@ class PMD206(Controller):
         return _txt
 
     def get_ip(self, axis):
+        """
+        Returns IP address as a 4 decimal numbers string.
+        """
         _ans = self.send(axis, "IP?")
         return ".".join(map(str, map(hex_to_int, _ans.split(':')[1].split(',')[0:4])))
 
     def raw_com(self, axis, cmd):
-         return self.send(axis, cmd)
+        """
+        Sends <cmd> to <axis>.
+        """
+        return self.send(axis, cmd)
+

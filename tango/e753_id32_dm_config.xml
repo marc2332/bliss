@@ -1,7 +1,0 @@
-<config>
-  <controller class="PI_E753" name="id32dm">
-    <host value="e753id32-dm"/>
-    <axis name="dmpi">
-    </axis>
-  </controller>
-</config>

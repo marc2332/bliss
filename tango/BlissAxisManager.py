@@ -223,10 +223,10 @@ class BlissAxis(PyTango.Device_4Impl):
             (self._ds_name, _duration*1000)
 
     def write_Position(self, attr):
-        '''
+        """
         Sends movement command to BlissAxisManager axis.
         NB : take care to call WaitMove before sending another movement
-        '''
+        """
         self.debug_stream("In write_Position()")
         #self.axis.move(attr.get_write_value(), wait=False)
         #self.axis.move(attr.get_write_value(), wait=True)
@@ -458,19 +458,17 @@ class BlissAxisClass(PyTango.DeviceClass):
          [PyTango.DevVoid, "none"]],
         'StepUp':
         [[PyTango.DevVoid, "none"],
-         [PyTango.DevVoid, "none"]],
+         [PyTango.DevVoid, "none"],{ 'Display level': PyTango.DispLevel.EXPERT,}],
         'StepDown':
         [[PyTango.DevVoid, "none"],
-         [PyTango.DevVoid, "none"]],
+         [PyTango.DevVoid, "none"],{ 'Display level': PyTango.DispLevel.EXPERT,}],
         'GetInfo':
         [[PyTango.DevVoid, "none"],
          [PyTango.DevString, "Info string returned by the axis"]],
         'RawCom':
         [[PyTango.DevString, "Raw command to be send to the axis. Be carefull!"],
          [PyTango.DevString, "Answer provided by the axis"],
-        {
-            'Display level': PyTango.DispLevel.EXPERT,
-        }],
+         { 'Display level': PyTango.DispLevel.EXPERT, } ],
         'WaitMove':
         [[PyTango.DevVoid, "none"],
          [PyTango.DevVoid, "none"]],
@@ -528,7 +526,6 @@ class BlissAxisClass(PyTango.DeviceClass):
              'format': "%10.3f",
              'description': "The acceleration of the motor.",
              'Display level': PyTango.DispLevel.EXPERT,
-             'Memorized': "true"
          }],
         'AccTime':
         [[PyTango.DevDouble,

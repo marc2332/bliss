@@ -25,10 +25,12 @@ config_xml = """
       <steps_per_unit value="13111"/>
       <target_radius  value="20"/>
       <target_time    value="10"/>
+      <min_dead_zone value="40" />
+      <max_dead_zone value="100" />
       <smoothing      value="4"/>
-      <acceleration   value="1111"/>
-      <deceleration   value="1010"/>
-      <velocity       value="1234"/>
+      <acceleration   value="3"/>
+      <deceleration   value="2"/>
+      <velocity       value="1.2"/>
     </axis>
   </controller>
 </config>
@@ -65,13 +67,13 @@ class TestFlexDCController(unittest.TestCase):
         fd = bliss.get_axis("fd")
         _read_vel = fd.velocity()
         print "FlexDC read velocity :", _read_vel
-        self.assertEqual(_read_vel, 1234)
+        self.assertAlmostEqual(_read_vel, 1.2, places=3)
 
     def test_acceleration(self):
         fd = bliss.get_axis("fd")
         _read_acc = fd.settings.get("acceleration")
         print "FlexDC read acceleration :", _read_acc
-        self.assertEqual(_read_acc, 1111)
+        self.assertEqual(_read_acc, 3)
 
     def test_get_info(self):
         fd = bliss.get_axis("fd")

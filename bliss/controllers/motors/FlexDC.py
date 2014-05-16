@@ -202,21 +202,33 @@ class FlexDC(Controller):
         Flexdc works in steps/s2
         <new_acc> is in user-unit/s2
         """
-        _spu = self.steps_per_unit()
+        _spu = axis.steps_per_unit()
 
         if new_acc is None:
             """ Reads acceleration from flexdc in steps/s2"""
-            _acc_spss = float(self._flexdc_query("%sAC" % axis.channel))
-            _acc = _acc_spss / _spu
-            flexdc_debug("bliss read Acceleration : _acc=%g spu=%g _acc_spss=%g " % (_acc, _spu, _acc_spss))
-            axis.settings.set("acceleration", _acc)
+            try:
+                _acc_spss = float(self._flexdc_query("%sAC" % axis.channel))
+                _acc = _acc_spss / _spu
+                flexdc_debug("bliss read Acceleration : _acc=%g spu=%g _acc_spss=%g " % (_acc, _spu, _acc_spss))
+                axis.settings.set("acceleration", _acc)
+            except:
+                print "marche pas pas"
+                sys.excepthook(sys.exc_info()[0],
+                               sys.exc_info()[1],
+                               sys.exc_info()[2])
         else:
             """ Set acceleration """
-            _new_acc_spss = new_acc * _spu
-            self._flexdc_query("%sAC=%d" % (axis.channel, _new_acc_spss))
-            flexdc_debug( "bliss write Acceleration : new_acc=%g, _spu=%g, _new_acc_spss=%g" % (new_acc, _spu, _new_acc_spss))
-            # Settings work in user-unit/s2
-            axis.settings.set("acceleration", new_acc)
+            try:
+                _new_acc_spss = new_acc * _spu
+                self._flexdc_query("%sAC=%d" % (axis.channel, _new_acc_spss))
+                flexdc_debug( "bliss write Acceleration : new_acc=%g, _spu=%g, _new_acc_spss=%g" % (new_acc, _spu, _new_acc_spss))
+                # Settings work in user-unit/s2
+                axis.settings.set("acceleration", new_acc)
+            except:
+                print "marche pas"
+                sys.excepthook(sys.exc_info()[0],
+                               sys.exc_info()[1],
+                               sys.exc_info()[2])
 
         return axis.settings.get("acceleration")
 

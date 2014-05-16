@@ -110,19 +110,19 @@ class FlexDC(Controller):
         # Config velocity is automatically set.
 
     def read_position(self, axis, measured=False):
+        """
+        Returns position's setpoint or measured position (in steps).
+        """
         if measured:
-            ''' position in steps
-                    PS : Position from Sensor
-            '''
+            """ PS : Position from Sensor """
             _pos = int(self._flexdc_query("%sPS" % axis.channel))
             flexdc_debug("FLEXDC *measured* position (in steps) : %d" % _pos)
             return _pos
         else:
-            ''' position in steps
-                    DP : Desired Position
-                    When an axis is in motion, DP holds the real time servo
-                    loop control reference position
-            '''
+            """ DP : Desired Position
+                When an axis is in motion, DP holds the real time servo
+                loop control reference position
+            """
             _pos = int(self._flexdc_query("%sDP" % axis.channel))
             flexdc_debug("FLEXDC *setpoint* position (in steps) : %d" % _pos)
             return _pos
@@ -174,9 +174,9 @@ class FlexDC(Controller):
         self._flexdc_query("%sST" % axis.channel)
 
     def home_search(self, axis):
-        '''
+        """
         start home search.
-        '''
+        """
         _home_cmd = "%sQE,#HINX_X" % axis.channel
         self._flexdc_query(_home_cmd)
 
@@ -188,22 +188,34 @@ class FlexDC(Controller):
         else:
             return READY
 
-    '''
+    """
     FlexDC specific.
-    '''
+    """
 
     def raw_com(self, axis, cmd):
         _cmd = "%s%s" % (axis.channel, cmd)
         return self._flexdc_query(_cmd)
 
     def acceleration(self, axis, new_acc=None):
+        """
+        Read / Write acceleration.
+        Flexdc works in steps/s2
+        <new_acc> is in user-unit/s2
+        """
+        _spu = self.steps_per_unit()
+
         if new_acc is None:
-            _acc = float(self._flexdc_query("%sAC" % axis.channel))
-            flexdc_debug("bliss read Acceleration : %g" % _acc)
+            """ Reads acceleration from flexdc in steps/s2"""
+            _acc_spss = float(self._flexdc_query("%sAC" % axis.channel))
+            _acc = _acc_spss / _spu
+            flexdc_debug("bliss read Acceleration : _acc=%g spu=%g _acc_spss=%g " % (_acc, _spu, _acc_spss))
             axis.settings.set("acceleration", _acc)
         else:
-            self._flexdc_query("%sAC=%d" % (axis.channel, new_acc))
-            flexdc_debug( "bliss write Acceleration : %g" % new_acc)
+            """ Set acceleration """
+            _new_acc_spss = new_acc * _spu
+            self._flexdc_query("%sAC=%d" % (axis.channel, _new_acc_spss))
+            flexdc_debug( "bliss write Acceleration : new_acc=%g, _spu=%g, _new_acc_spss=%g" % (new_acc, _spu, _new_acc_spss))
+            # Settings work in user-unit/s2
             axis.settings.set("acceleration", new_acc)
 
         return axis.settings.get("acceleration")
@@ -225,9 +237,9 @@ class FlexDC(Controller):
         return self._flexdc_query(_cmd)
 
     def flexdc_parameter(self, axis, param, value=None):
-        '''
+        """
         SET / GET parameter
-        '''
+        """
         if value:
             _cmd = "%s%s=%d" % (axis.channel, param, value)
             self._flexdc_query(_cmd)
@@ -237,9 +249,9 @@ class FlexDC(Controller):
             return self._flexdc_query(_cmd)
 
     def flexdc_in_target(self, axis):
-        '''
+        """
         In Traget : Status register bit 6
-        '''
+        """
         _cmd = "%sSR" % axis.channel
         _ans = int(self._flexdc_query(_cmd))
 
@@ -250,10 +262,10 @@ class FlexDC(Controller):
             return False
 
     def flexdc_em(self, axis):
-        '''
+        """
         EM : End of motion status.
         Returns a 2-uple of strings (EM CODE, Description).
-        '''
+        """
         _cmd = "%sEM" % axis.channel
         _ans = int(self._flexdc_query(_cmd))
 
@@ -274,10 +286,10 @@ class FlexDC(Controller):
         return _reasons[_ans]
 
     def get_info(self, axis):
-        '''
+        """
         Returns information about controller.
         Can be helpful to tune the device.
-        '''
+        """
         # list of commands and descriptions
         _infos = [
 

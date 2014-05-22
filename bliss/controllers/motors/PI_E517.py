@@ -45,7 +45,9 @@ class PI_E517(Controller):
 
     def initialize_axis(self, axis):
         """
-        Switches piezo to ONLINE mode so that axis motion can be caused
+        - Reads specific config
+        - Adds specific methods
+        - Switches piezo to ONLINE mode so that axis motion can be caused
         by move commands.
 
         Args:
@@ -58,8 +60,10 @@ class PI_E517(Controller):
 
         add_axis_method(axis, self.get_id)
         add_axis_method(axis, self.get_info)
-        add_axis_method(axis, self.steps_per_unit)
         add_axis_method(axis, self.raw_com)
+        add_axis_method(axis, self.enable_gate)
+
+        self._gate_enabled = True
 
         # Enables the closed-loop.
         # self.sock.write("SVO 1 1\n")
@@ -182,27 +186,8 @@ class PI_E517(Controller):
         self.send_no_ans(axis, "HLT %s" % axis.chan_letter)
 
     """
-    E517 specific communication
+    E517 specific
     """
-
-    def steps_per_unit(self, axis, new_steps_per_unit=None):
-        """
-        - 
-
-        Args:
-            - <axis> : Bliss axis object.
-            - [<new_steps_per_unit>] : float : 
-
-        Returns:
-            -
-
-        Raises:
-            - ?
-        """
-        if new_steps_per_unit is None:
-            return float(axis.config.get("steps_per_unit"))
-        else:
-            print "steps_per_unit writing is not (yet?) implemented."
 
     def raw_com(self, axis, cmd):
         return self.send(axis, cmd)
@@ -337,29 +322,39 @@ class PI_E517(Controller):
         else:
             return False
 
-    def activate_threshold_trigger(self, axis, min, max):
+    def enable_gate(self, axis):
+
+    def gate_on(self, axis, state):
         """
-        CTO  {<TrigOutID> <CTOPam> <Value>}
+        CTO  [<TrigOutID> <CTOPam> <Value>]+
          - <TrigOutID> : {1, 2, 3}
          - <CTOPam> :
              - 3: trigger mode
+                      - <Value> : {0, 2, 3, 4}
+                      - 0 : position distance
+                      - 2 : OnTarget
+                      - 3 : MinMaxThreshold   <----
+                      - 4 : Wave Generator
              - 5: min threshold
              - 6: max threshold
-         - <Value> : {0, 2, 3, 4}
-             - 0 : 
-             - 2 : 
-             - 3 : 
-             - 4 : 
- 
+             - 7: polarity : 0 / 1
+
+        ex : CTO 1 3 3   1 5 0   1 6 100   1 7 1
+
         Args:
-            - <>
+            - <state> : True / False
         Returns:
             -
         Raises:
             ?
         """
 
-        _cmd = "CTO %d " % (axis.channel)
+        if state:
+            _cmd = "CTO %d 3 3 1 5 0 1 6 100 1 7 1" % (axis.channel)
+        else:
+            _cmd = "CTO %d 3 3 1 5 0 1 6 100 1 7 0" % (axis.channel)
+
+        self.send_no_ans(axis, _cmd)
 
     def get_id(self, axis):
         """

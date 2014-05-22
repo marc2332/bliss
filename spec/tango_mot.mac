@@ -65,7 +65,7 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
             return ".error."
         }
         else{
-            tango_mot_msg(sprintf(" ok DS %s is responding", tango_mot_ADDR))
+            tango_mot_msg(sprintf("DS %s is responding", tango_mot_ADDR))
         }
         return
     }
@@ -83,11 +83,98 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
         # GNARKKK cannot use tango_mot_ADDR here directly...
         motor_par(motnum, "dev_name", _ds_name, "add")
 
-        tango_mot_msg(sprintf(" Motor %s linked to DS : %s ", \
-               _mot_mne, _ds_name))
+        # STEPS PER UNIT
+        spec_par("modify_step_size", 1)
+        _steps_per_unit = tango_mot_get_attr(motnum, "steps_per_unit")
+        tango_mot_dbg(sprintf("Setting step_size to %g\n", _steps_per_unit))
+        motor_par(motnum, "step_size", _steps_per_unit)
+        spec_par("modify_step_size", 0)
+
+        # VELOCITY / ACCELERATION
+        local _velo _velo_steps _use_spec_config
+        local _acc _acc_time _acc_time_ms
+
+        # 2 modes for acceleration / velocity
+        # use_spec_config = 0 (default) : values are read from DS and set to spec internals
+        # use_spec_config = 1 : use values from spec config and write it to DS
+        # use_spec_config can be added in optionnal motor parameters in config
+
+        _use_spec_config= motor_par(motnum, "use_spec_config")
+        tango_mot_dbg(sprintf("Use %s values for velocity/acceleration \n", _use_spec_config?"SPEC":"SERVER"))
+        
+        if (_use_spec_config==1) {
+            tango_mot_msg(sprintf("Motor %s : use acc/velocity from spec config", _mot_mne))
+
+            # --- write spec config values to the server
+            _velo_steps = motor_par(motnum, "velocity")
+            tango_mot_par(motnum, "set", "velocity", _velo_steps)
+
+            _acc_time_ms = motor_par(motnum, "acceleration")
+            tango_mot_par(motnum, "set", "acceleration", _acc_time_ms)
+
+        } else {
+
+            # we only need to set spec internals (no write to DS)
+            # to inform macro func tango_mot_par to not set acc/velo to DS
+            # we use this [in_config] motor_par flag
+
+            motor_par(motnum, "in_config", 1, "add")
+
+            # --- read values from server and sets spec internals
+            _velo = tango_mot_get_attr(motnum, "velocity")
+            _velo_steps = _velo * _steps_per_unit
+            tango_mot_dbg(sprintf("_velo=%g  _velo_steps=%g \n", _velo, _velo_steps))
+            motor_par(motnum, "velocity", _velo_steps)
+
+            _acc = tango_mot_get_attr(motnum, "acceleration")
+            _acc_time = _velo / _acc
+            _acc_time_ms = _acc_time * 1000
+
+            tango_mot_dbg(sprintf("_acc=%g  _acc_time=%g  _acc_time_ms=%g  \n", _acc, _acc_time, _acc_time_ms))
+            motor_par(motnum, "acceleration", _acc_time_ms)
+
+            # unset [in_config] flag, so motor_par set by user works
+            motor_par(motnum, "in_config", 0)
+        }
+
+        tango_mot_msg(sprintf("Motor %s linked to DS : %s ", _mot_mne, _ds_name))
     }
 }'
 
+
+def tango_mot_get_attr(motnum, attr_name) {
+    local _attr_val _dev _mot_mne
+    _dev = motor_par (motnum, "dev_name")
+    _mot_mne = motor_mne(motnum)
+
+    _attr_val = tango_get(_dev, attr_name)
+    if (TANGO_ERR){
+        _tango_mot_error_stack(_mot_mne, _dev, attr_name)
+         exit
+    }
+    return _attr_val
+}
+
+def tango_mot_set_attr(motnum, attr_name, attr_value) {
+    local _dev _mot_mne
+    _dev = motor_par (motnum, "dev_name")
+    _mot_mne = motor_mne(motnum)
+
+    tango_put(_dev, attr_name, attr_value)
+    if (TANGO_ERR){
+        _tango_mot_error_stack(_mot_mne, _dev, attr_name)
+        exit
+     }
+}
+
+
+def _tango_mot_error_stack(motmne, devname, attr_cmd) '{
+    tty_cntl("md")
+    print "\n TANGO_MOT_ERROR " motmne " " devname  "/"  attr_cmd
+    printf ("TANGO_ERR_MSG = \"%s\" \n\n", TANGO_ERR)
+    print TANGO_ERR_STACK
+    tty_cntl("me")
+}'
 
 
 #%IU% (motnum, key, action, p1, p2)
@@ -101,21 +188,73 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
 # * <p1>     :
 # * <p2>     :
 def tango_mot_par(motnum, key, action, p1, p2) '{
-    local _msg
+    local _msg _mot_mne _dev _attr
 
-    _msg = sprintf ("tango_mot_par(motnum=%s key=\"%s\", action=\"%s\", p1=\"%s\", p2=\"%s\"", \
+    _mot_mne = motor_mne(motnum)
+    _dev = motor_par(motnum, "dev_name")
+    _msg = sprintf ("tango_mot_par(motnum=%s key=\"%s\", action=\"%s\", p1=\"%s\", p2=\"%s\")", \
                     motnum, key, action, p1, p2)
     tango_mot_dbg(_msg)
 
     if (action=="get") {
-        tango_mot_dbg("get")
+
+        if (key == "acceleration"){
+            print "OHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH acc"
+        }
+        else if (key == "slew_rate" || key == "velocity") {
+            print "OHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH velocity"
+        }
+        else if ( key == "step_size"){
+            print "OHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH step_size"
+        }
     }
     else if (action == "set"){
-        tango_mot_dbg("set")
+
+        if (key == "acceleration"){
+
+            if (motor_par(motnum, "in_config") == 1) {
+                tango_mot_dbg("set acceleration : no write to DS while in_config")
+                return
+            }
+
+            tango_mot_dbg("set acceleration")
+
+            local _acc _acc_time _acc_time_ms _velocity
+
+            # re-read real velocity
+            _velocity = tango_mot_get_attr(motnum, "velocity")
+
+            _attr =  "acceleration"
+            _acc_time_ms  = p1
+            _acc_time = _acc_time_ms / 1000
+
+            _acc = _velocity / _acc_time
+
+            tango_mot_dbg(sprintf("_velocity=%g  _acc_time=%g  _acc=%g \n", _velocity, _acc_time, _acc))
+            tango_mot_set_attr(motnum, "acceleration", _acc)
+        }
+        else if (key == "slew_rate" || key == "velocity") {
+
+            if (motor_par(motnum, "in_config") == 1) {
+                tango_mot_dbg("set velocity : no write to DS while in_config")
+                return
+            }
+
+            tango_mot_dbg("set slew_rate / velocity")
+
+            local _velo_steps _steps_per_unit _velo
+
+            _attr =  "velocity"
+            _velo_steps  = p1
+            _steps_per_unit = motor_par(motnum, "step_size")
+            _velo = _velo_steps / _steps_per_unit
+
+            tango_mot_dbg(sprintf("_velo_steps=%g  _steps_per_unit=%g  _velo=%g \n", _velo_steps, _steps_per_unit, _velo))
+            tango_mot_set_attr(motnum, "velocity", _velo)
+        }
     }
     else{
         tango_mot_dbg(sprintf ("tango_mot_par()--action \"%s\" is not recognized.", action))
-
     }
 }'
 
@@ -150,11 +289,7 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
             _attr =  "position"
             _pos = tango_get(_dev, _attr)
             if (TANGO_ERR){
-                tty_cntl("md")
-                print "\n TANGO_MOT_ERROR " _mot_mne  " " _dev  "/"  _attr
-                printf ("TANGO_ERR_MSG = \"%s\" \n\n", TANGO_ERR)
-                print TANGO_ERR_STACK
-                tty_cntl("me")
+                _tango_mot_error_stack(_mot_mne, _dev, _attr)
                 exit
             }
 
@@ -177,11 +312,7 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
             _cmd = "State"
             _state = tango_io(_dev, _cmd)
             if (TANGO_ERR){
-                tty_cntl("md")
-                print "\n TANGO_MOT_ERROR " _mot_mne  " " _dev  "/"  _cmd
-                printf ("TANGO_ERR_MSG = \"%s\" \n\n", TANGO_ERR)
-                print TANGO_ERR_STACK
-                tty_cntl("me")
+                _tango_mot_error_stack(_mot_mne, _dev, _attr)
                 exit
             }
 
@@ -202,7 +333,6 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
             # tango_state : 11   "ALARM"
             # tango_state : 12   "DISABLED" (or DISABLE?)
             # tango_state : 13   "UNKNOWN"
-
 
             # MOVING
             if (_state == 6) {
@@ -230,11 +360,7 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
             tango_put(_dev, _attr, p1)
 
             if (TANGO_ERR){
-                tty_cntl("md")
-                print "\n TANGO_MOT_ERROR " _mot_mne  " " _dev  "/"  _attr
-                printf ("TANGO_ERR_MSG = \"%s\" \n\n", TANGO_ERR)
-                print TANGO_ERR_STACK
-                tty_cntl("me")
+                _tango_mot_error_stack(_mot_mne, _dev, _attr)
                 exit
             }
         }
@@ -255,11 +381,7 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
             tango_io(_dev, _cmd)
 
             if (TANGO_ERR){
-                tty_cntl("md")
-                print "\n TANGO_MOT_ERROR " _mot_mne  " " _dev  "/"  _cmd
-                printf ("TANGO_ERR_MSG = \"%s\" \n\n", TANGO_ERR)
-                print TANGO_ERR_STACK
-                tty_cntl("me")
+                _tango_mot_error_stack(_mot_mne, _dev, _cmd)
                 exit
             }
         }

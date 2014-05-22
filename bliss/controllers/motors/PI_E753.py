@@ -95,18 +95,18 @@ class PI_E753(Controller):
     """
 
     def _get_velocity(self, axis):
-        '''
+        """
         Returns velocity taken from controller.
-        '''
+        """
         _ans = self.sock.write_readline("VEL?\n")
         _velocity = float(_ans[2:])
 
         return _velocity
 
     def _get_pos(self):
-        '''
+        """
         Returns real position read by capcitive captor.
-        '''
+        """
         _ans = self.sock.write_readline("POS?\n")
 
         # _ans should looks like "1=-8.45709419e+01\n"
@@ -116,9 +116,9 @@ class PI_E753(Controller):
         return _pos
 
     def _get_target_pos(self):
-        '''
+        """
         Returns last target position (setpoint value).
-        '''
+        """
         _ans = self.sock.write_readline("MOV?\n")
 
         # _ans should looks like "1=-8.45709419e+01\n"
@@ -178,7 +178,7 @@ class PI_E753(Controller):
             ii=ii+1
 
     def get_info(self, axis):
-        '''
+        """
         Returns a set of usefull information about controller.
         Helpful to tune the device.
 
@@ -188,7 +188,7 @@ class PI_E753(Controller):
             None
         Raises:
             ?
-        '''
+        """
         _infos = [
             ("Identifier                 ", "IDN?\n"),
             ("Com level                  ", "CCL?\n"),

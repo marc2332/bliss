@@ -37,9 +37,9 @@ class Mockup(Controller):
         # ????
         # Settings of xml config like "velocity" are automatically added.
 
-    '''
+    """
     Controller initialization actions.
-    '''
+    """
 
     def initialize(self):
         # hardware initialization
@@ -48,9 +48,9 @@ class Mockup(Controller):
             # set initial speed
             axis.settings.set('velocity', axis.config.get("velocity", float))
 
-    '''
+    """
     Axes initialization actions.
-    '''
+    """
 
     def initialize_axis(self, axis):
         self._axis_moves[axis] = {
@@ -63,9 +63,9 @@ class Mockup(Controller):
         # Add new axis oject method.
         add_axis_method(axis, self.get_identifier)
 
-    '''
+    """
     Actions to perform at controller closing.
-    '''
+    """
 
     def finalize(self):
         pass
@@ -91,10 +91,10 @@ class Mockup(Controller):
             "t0": t0}
 
     def read_position(self, axis, measured=False):
-        '''
+        """
         Returns the position (measured or desired) taken from controller
         in controller unit (steps).
-        '''
+        """
         if measured:
             return -1.2345
         else:
@@ -118,28 +118,28 @@ class Mockup(Controller):
 
 
     def read_velocity(self, axis):
-        '''
+        """
         Returns the current velocity taken from controller
         in motor units.
-        '''
+        """
         _user_velocity = axis.settings.get('velocity')
         _mot_velocity = _user_velocity * axis.steps_per_unit()
         return float(_mot_velocity)
 
     def set_velocity(self, axis, new_velocity):
-        '''
+        """
         <new_velocity> is in motor units
         Returns velocity in motor units.
-        '''
+        """
         _user_velocity = new_velocity / axis.steps_per_unit()
         axis.settings.set('velocity', _user_velocity)
 
         return new_velocity
 
-    '''
+    """
     Always return the current acceleration time taken from controller
     in seconds.
-    '''
+    """
 
     def read_acctime(self, axis):
         return float(axis.settings.get('acctime'))
@@ -148,8 +148,8 @@ class Mockup(Controller):
         axis.settings.set('acctime', new_acctime)
         return new_acctime
 
-    '''
-    '''
+    """
+    """
 
     def state(self, axis):
         if self._axis_moves[axis]["end_t"] > time.time():
@@ -158,9 +158,9 @@ class Mockup(Controller):
             self._axis_moves[axis]["end_t"] = 0
             return READY
 
-    '''
+    """
     Must send a command to the controller to abort the motion of given axis.
-    '''
+    """
 
     def stop(self, axis):
         self._axis_moves[axis]["end_pos"] = self.read_position(axis)
@@ -183,9 +183,9 @@ class Mockup(Controller):
     def home_state(self, axis):
         return READY if (time.time() - self._axis_moves[axis]["home_search_start_time"]) > 2 else MOVING
 
-    '''
+    """
     Custom axis method returning the current name of the axis
-    '''
+    """
 
     def get_identifier(self, axis):
         return axis.name

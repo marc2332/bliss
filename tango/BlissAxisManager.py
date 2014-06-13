@@ -347,15 +347,28 @@ class BlissAxis(PyTango.Device_4Impl):
         :return:
         :rtype: PyTango.DevVoid """
         self.debug_stream("In On()")
+        self.axis.on()
+
+        if self.axis.state() == "READY":
+            self.set_state(PyTango.DevState.ON)
+        else:
+            self.set_state(PyTango.DevState.FAULT)
+            self.set_status("ON command was not executed as expected.")
 
     def Off(self):
-        """ Desable power on motor
+        """ Disable power on motor
 
         :param :
         :type: PyTango.DevVoid
         :return:
         :rtype: PyTango.DevVoid """
         self.debug_stream("In Off()")
+        self.axis.off()
+        if self.axis.state() == "OFF":
+            self.set_state(PyTango.DevState.OFF)
+        else:
+            self.set_state(PyTango.DevState.FAULT)
+            self.set_status("OFF command was not executed as expected.")
 
     def GoHome(self):
         """ Move the motor to the home position given by a home switch.

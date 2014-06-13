@@ -138,7 +138,7 @@ class Axis(object):
         """
         if new_velocity is not None:
             # Converts into motor units to change velocity of axis.
-            _mot_vel = self.__controller.set_velocity(self, new_velocity * self.steps_per_unit())
+            self.__controller.set_velocity(self, new_velocity * self.steps_per_unit())
             _user_vel = new_velocity
         else:
             # Returns velocity read from motor axis.
@@ -223,6 +223,8 @@ class Axis(object):
         user_low_limit = float(self.settings.get("low_limit"))
         high_limit = user_high_limit * self.steps_per_unit()
         low_limit = user_low_limit * self.steps_per_unit()
+        if self.steps_per_unit() < 0:
+            high_limit, low_limit = low_limit, high_limit
         backlash_str = " (with %f backlash)" % user_backlash if backlash else ""
         if user_low_limit is not None:
             if target_pos < low_limit:

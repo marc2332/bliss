@@ -150,6 +150,12 @@ class Controller(object):
     def set_velocity(self, axis, new_velocity):
         raise NotImplementedError
 
+    def axis_on(self, axis):
+        raise NotImplementedError
+
+    def axis_off(self, axis):
+        raise NotImplementedError
+
     def read_acctime(self, axis):
         raise NotImplementedError
 

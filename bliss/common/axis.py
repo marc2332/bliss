@@ -65,6 +65,14 @@ class Axis(object):
                 return True
         return False
 
+    def on(self):
+        print "axis.py : on"
+        self.__controller.on(self)
+
+    def off(self):
+        print "axis.py: OFF"
+        self.__controller.off(self)
+
     def steps_per_unit(self):
         """
         Returns 'steps_per_unit' config value (float).
@@ -98,11 +106,11 @@ class Axis(object):
             return pos
 
     def _position(self, new_pos=None, measured=False):
-        '''
+        """
         new_pos is in user units.
         _new_pos is in motor units.
         Returns a value in user units.
-        '''
+        """
         _new_pos = new_pos * self.steps_per_unit() if new_pos is not None else None
 
         if _new_pos is not None:
@@ -142,9 +150,9 @@ class Axis(object):
         return _user_vel
 
     def acctime(self, new_acctime=None):
-        '''
+        """
         new_acctime is in seconds.
-        '''
+        """
         if new_acctime is not None:
             _acctime = self.__controller.set_acctime(self, new_acctime)
         else:
@@ -153,9 +161,9 @@ class Axis(object):
         return _acctime
 
     def limits(self, low_limit=None, high_limit=None):
-        '''
+        """
         limits are in user units.
-        '''
+        """
         if low_limit is not None:
             self.settings.set("low_limit", low_limit)
         if high_limit is not None:

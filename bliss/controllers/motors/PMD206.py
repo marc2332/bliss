@@ -73,10 +73,10 @@ class PMD206(Controller):
             (0x40, "Parity or frame error RS422 sensor UART. Check cable/termination"),
             (0x20, "Wrong data format on external sensor (RS422 or TCP/IP)"),
             (0x10, "External sensor not detected (RS422 and TCP/IP)"),
-            (0x8, "Problem with UART on host. Check cable and termination"),
-            (0x4, "Host command error - driver board (e.g. buffer overrun)"),
-            (0x2, "300 ms command timeout ocurred"),
-            (0x1, "Command execution gave a warning"),
+            (0x08, "Problem with UART on host. Check cable and termination"),
+            (0x04, "Host command error - driver board (e.g. buffer overrun)"),
+            (0x02, "300 ms command timeout ocurred"),
+            (0x01, "Command execution gave a warning"),
             ]
 
         self._motor_error_codes = [
@@ -126,6 +126,14 @@ class PMD206(Controller):
         if _status & 0x20:
             pmd206_info("Motor is parked. I unpark it")
             self.unpark_motor(axis)
+
+    def on(self, axis):
+        print "dozijng ON : unpark axis %s." % axis.name
+        self.unpark_motor(axis)
+
+    def off(self, axis):
+        print "dzoing OFF : park axis %s." % axis.name
+        self.park_motor(axis)
 
     def read_position(self, axis, measured=False):
         """
@@ -261,18 +269,28 @@ class PMD206(Controller):
         # running means position is corrected, related to closed loop
         # we just check if target position was reached
 
-        if _s & 0x8:
-            # closed loop
-            if _s & 0x04:
+        if self.s_is_closed_loop(_s):
+            if self.s_is_position_reached(_s):
                 return READY
             else:
                 return MOVING
         else:
-            # open loop
-            if _s & 0x1:
+            if self.s_is_moving(_s):
                 return MOVING
             else:
                 return READY
+
+    def s_is_moving(self, status):
+        return status & 0x1
+
+    def s_is_closed_loop(self, status):
+        return status & 0x08
+
+    def s_is_position_reached(self, status):
+        return status & 0x04
+
+    def s_is_parked(self, status):
+        return status & 0x20
 
     def state(self, axis):
         """

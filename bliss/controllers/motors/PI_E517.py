@@ -323,6 +323,7 @@ class PI_E517(Controller):
             return False
 
     def enable_gate(self, axis):
+        pass
 
     def gate_on(self, axis, state):
         """

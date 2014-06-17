@@ -2,7 +2,7 @@ import time
 
 from bliss.controllers.motor import Controller; from bliss.common import log
 from bliss.controllers.motor import add_axis_method
-from bliss.common.axis import READY, MOVING, FAULT
+from bliss.common.axis import READY, MOVING, FAULT, OFF
 
 from bliss.comm import tcp
 
@@ -127,11 +127,11 @@ class PMD206(Controller):
             pmd206_info("Motor is parked. I unpark it")
             self.unpark_motor(axis)
 
-    def on(self, axis):
+    def set_on(self, axis):
         print "dozijng ON : unpark axis %s." % axis.name
         self.unpark_motor(axis)
 
-    def off(self, axis):
+    def set_off(self, axis):
         print "dzoing OFF : park axis %s." % axis.name
         self.park_motor(axis)
 
@@ -266,9 +266,11 @@ class PMD206(Controller):
 
         pmd206_debug("axis %d status : %s" % (axis.channel, self._axes_status[axis.channel]))
 
+        if self.s_is_parked(_s):
+            return OFF
+
         # running means position is corrected, related to closed loop
         # we just check if target position was reached
-
         if self.s_is_closed_loop(_s):
             if self.s_is_position_reached(_s):
                 return READY

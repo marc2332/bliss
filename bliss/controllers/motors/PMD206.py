@@ -2,7 +2,7 @@ import time
 
 from bliss.controllers.motor import Controller; from bliss.common import log
 from bliss.controllers.motor import add_axis_method
-from bliss.common.axis import READY, MOVING, FAULT, OFF
+from bliss.common.axis import READY, MOVING, OFF
 
 from bliss.comm import tcp
 
@@ -51,12 +51,14 @@ def hex_to_int(hex_val):
 
 
 class PMD206(Controller):
+
     """
     - Bliss controller for PiezoMotor PMD206 piezo motor controller.
     - Ethernet
     - Cyril Guilloud ESRF BLISS
     - Thu 10 Apr 2014 09:18:51
     """
+
     def __init__(self, name, config, axes):
         Controller.__init__(self, name, config, axes)
 
@@ -77,7 +79,7 @@ class PMD206(Controller):
             (0x04, "Host command error - driver board (e.g. buffer overrun)"),
             (0x02, "300 ms command timeout ocurred"),
             (0x01, "Command execution gave a warning"),
-            ]
+        ]
 
         self._motor_error_codes = [
             (0x80, "48V low or other critical error, motor is stopped"),
@@ -90,7 +92,7 @@ class PMD206(Controller):
             Also set during parking/unparking. "),
             (0x2, "Motor direction"),
             (0x1, "Motor is running"),
-            ]
+        ]
 
         self.host = self.config.get("host")
 
@@ -152,11 +154,13 @@ class PMD206(Controller):
         if measured:
             _ans = self.send(axis, "MP?")
             _pos = hex_to_int(_ans[8:])
-            pmd206_debug("PMD206 position measured (encoder counts) read : %d (_ans=%s)" % (_pos, _ans))
+            pmd206_debug(
+                "PMD206 position measured (encoder counts) read : %d (_ans=%s)" % (_pos, _ans))
         else:
             _ans = self.send(axis, "TP?")
             _pos = hex_to_int(_ans[8:])
-            pmd206_debug("PMD206 position setpoint (encoder counts) read : %d (_ans=%s)" % (_pos, _ans))
+            pmd206_debug(
+                "PMD206 position setpoint (encoder counts) read : %d (_ans=%s)" % (_pos, _ans))
 
         return _pos
 
@@ -206,6 +210,7 @@ class PMD206(Controller):
     """
     STATUS
     """
+
     def pmd206_get_status(self, axis):
         """
         Sends status command (CS?) and puts results (hexa strings) in :
@@ -243,7 +248,7 @@ class PMD206(Controller):
         for _c in self._controller_error_codes:
             if _s & _c[0]:
                 # print _c[1]
-                _status = _status + (_c[1]+"\n")
+                _status = _status + (_c[1] + "\n")
 
         return _status
 
@@ -257,14 +262,16 @@ class PMD206(Controller):
         for _c in self._motor_error_codes:
             if _s & _c[0]:
                 # print _c[1]
-                _status = _status + (_c[1]+"\n")
+                _status = _status + (_c[1] + "\n")
 
         return _status
 
     def motor_state(self, axis):
         _s = hex_to_int(self._axes_status[axis.channel])
 
-        pmd206_debug("axis %d status : %s" % (axis.channel, self._axes_status[axis.channel]))
+        pmd206_debug(
+            "axis %d status : %s" %
+            (axis.channel, self._axes_status[axis.channel]))
 
         if self.s_is_parked(_s):
             return OFF
@@ -312,6 +319,7 @@ class PMD206(Controller):
     """
     Movements
     """
+
     def prepare_move(self, motion):
         """
         - TODO for multiple move...
@@ -345,6 +353,7 @@ class PMD206(Controller):
     """
     PMD206 specific communication
     """
+
     def send(self, axis, cmd):
         """
         - Adds 'CP<x><y>' prefix
@@ -424,7 +433,7 @@ class PMD206(Controller):
             ('02', "index not found"),
             ('01', "index was found"),
             ('00', "not started")
-            ]
+        ]
         print _home_status_table
 
     def park_motor(self, axis):
@@ -499,11 +508,11 @@ class PMD206(Controller):
         Returns IP address as a 4 decimal numbers string.
         """
         _ans = self.send(axis, "IP?")
-        return ".".join(map(str, map(hex_to_int, _ans.split(':')[1].split(',')[0:4])))
+        return ".".join(
+            map(str, map(hex_to_int, _ans.split(':')[1].split(',')[0: 4])))
 
     def raw_com(self, axis, cmd):
         """
         Sends <cmd> to <axis>.
         """
         return self.send(axis, cmd)
-

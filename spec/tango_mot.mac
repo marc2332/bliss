@@ -127,7 +127,10 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
             motor_par(motnum, "velocity", _velo_steps)
 
             _acc = tango_mot_get_attr(motnum, "acceleration")
-            _acc_time = _velo / _acc
+            if (_acc != 0)
+                _acc_time = _velo / _acc
+            else
+                _acc_time = -1
             _acc_time_ms = _acc_time * 1000
 
             tango_mot_dbg(sprintf("_acc=%g  _acc_time=%g  _acc_time_ms=%g  \n", _acc, _acc_time, _acc_time_ms))
@@ -247,7 +250,7 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
             _attr =  "velocity"
             _velo_steps  = p1
             _steps_per_unit = motor_par(motnum, "step_size")
-            _velo = _velo_steps / _steps_per_unit
+            _velo = _velo_steps / fabs(_steps_per_unit)
 
             tango_mot_dbg(sprintf("_velo_steps=%g  _steps_per_unit=%g  _velo=%g \n", _velo_steps, _steps_per_unit, _velo))
             tango_mot_set_attr(motnum, "velocity", _velo)

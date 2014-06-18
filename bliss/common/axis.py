@@ -4,7 +4,8 @@ from bliss.config.motors.static import StaticConfig
 from bliss.controllers.motor_settings import AxisSettings
 import time
 
-READY, MOVING, FAULT, UNKNOWN = ("READY", "MOVING", "FAULT", "UNKNOWN")
+READY, MOVING, FAULT, UNKNOWN, OFF = (
+    "READY", "MOVING", "FAULT", "UNKNOWN", "OFF")
 
 
 class Motion(object):
@@ -66,12 +67,20 @@ class Axis(object):
         return False
 
     def on(self):
-        print "axis.py : on"
-        self.__controller.on(self)
+        if self.is_moving:
+            return
+
+        self.__controller.set_on(self)
+        state = self.__controller.state(self)
+        self.settings.set("state", state, write=False)
 
     def off(self):
-        print "axis.py: OFF"
-        self.__controller.off(self)
+        if self.is_moving:
+            raise RuntimeError("Can't set power off while axis is moving")
+
+        self.__controller.set_off(self)
+        state = self.__controller.state(self)
+        self.settings.set("state", state, write=False)
 
     def steps_per_unit(self):
         """
@@ -83,7 +92,8 @@ class Axis(object):
         """
         Returns a value in user units.
         """
-        return self.__controller.read_position(self, measured=True) / self.steps_per_unit()
+        return self.__controller.read_position(
+            self, measured=True) / self.steps_per_unit()
 
     def position(self, new_pos=None):
         """
@@ -111,17 +121,20 @@ class Axis(object):
         _new_pos is in motor units.
         Returns a value in user units.
         """
-        _new_pos = new_pos * self.steps_per_unit() if new_pos is not None else None
+        _new_pos = new_pos * \
+            self.steps_per_unit() if new_pos is not None else None
 
         if _new_pos is not None:
             try:
                 # Sends a value in motor units to the controller
                 # but returns a user-units value.
-                return self.__controller.set_position(self, _new_pos) / self.steps_per_unit()
+                return self.__controller.set_position(
+                    self, _new_pos) / self.steps_per_unit()
             except NotImplementedError:
                 self.__settings.set(
                     "offset",
-                    (self.__controller.read_position(self) - _new_pos) / self.steps_per_unit())
+                    (self.__controller.read_position(self) - _new_pos) / self.
+                    steps_per_unit())
                 return self.position()
         else:
             return (self.__controller.read_position(self, measured) / self.steps_per_unit()) - self.offset
@@ -138,11 +151,13 @@ class Axis(object):
         """
         if new_velocity is not None:
             # Converts into motor units to change velocity of axis.
-            self.__controller.set_velocity(self, new_velocity * self.steps_per_unit())
+            self.__controller.set_velocity(
+                self, new_velocity * self.steps_per_unit())
             _user_vel = new_velocity
         else:
             # Returns velocity read from motor axis.
-            _user_vel = self.__controller.read_velocity(self) / self.steps_per_unit()
+            _user_vel = self.__controller.read_velocity(
+                self) / self.steps_per_unit()
 
         # Stores velocity in user-units
         self.settings.set("velocity", _user_vel)

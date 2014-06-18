@@ -15,7 +15,10 @@
    id="svg2"
    version="1.1"
    inkscape:version="0.48.3.1 r9886"
-   sodipodi:docname="emotion_layout.svg">
+   sodipodi:docname="emotion_layout.svg"
+   inkscape:export-filename="/mntdirect/_bliss/users/guilloud/emotion/doc/presentations/images/emotion_layout.png"
+   inkscape:export-xdpi="102.71"
+   inkscape:export-ydpi="102.71">
   <defs
      id="defs4">
     <linearGradient
@@ -311,16 +314,6 @@
     </linearGradient>
     <linearGradient
        inkscape:collect="always"
-       xlink:href="#linearGradient4697"
-       id="linearGradient4711"
-       gradientUnits="userSpaceOnUse"
-       gradientTransform="translate(-179.91479,54.000021)"
-       x1="880"
-       y1="902.36212"
-       x2="880"
-       y2="562.36212" />
-    <linearGradient
-       inkscape:collect="always"
        xlink:href="#linearGradient4409-3-9"
        id="linearGradient4415-4-3"
        x1="302.7489"
@@ -538,15 +531,6 @@
          offset="1"
          id="stop4413-5-6-9" />
     </linearGradient>
-    <filter
-       inkscape:collect="always"
-       id="filter4337-0-6-5"
-       color-interpolation-filters="sRGB">
-      <feGaussianBlur
-         inkscape:collect="always"
-         stdDeviation="0.225"
-         id="feGaussianBlur4339-2-1-45" />
-    </filter>
     <linearGradient
        inkscape:collect="always"
        xlink:href="#linearGradient4401-7-4-3"
@@ -736,6 +720,89 @@
          offset="1"
          id="stop3952-5-1-6-9-9" />
     </linearGradient>
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient4697"
+       id="linearGradient3216"
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="translate(-179.91479,54.000021)"
+       x1="880"
+       y1="902.36212"
+       x2="880"
+       y2="562.36212" />
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient4409-3-9-2-6-0"
+       id="linearGradient4415-4-3-9-0-6"
+       x1="302.7489"
+       y1="704.14661"
+       x2="302.7489"
+       y2="683.35193"
+       gradientUnits="userSpaceOnUse" />
+    <linearGradient
+       inkscape:collect="always"
+       id="linearGradient4409-3-9-2-6-0">
+      <stop
+         style="stop-color:#000000;stop-opacity:1;"
+         offset="0"
+         id="stop4411-2-7-6-0-9" />
+      <stop
+         style="stop-color:#000000;stop-opacity:0;"
+         offset="1"
+         id="stop4413-5-6-2-6-5" />
+    </linearGradient>
+    <filter
+       inkscape:collect="always"
+       id="filter4337-0-6-7-3-7"
+       color-interpolation-filters="sRGB">
+      <feGaussianBlur
+         inkscape:collect="always"
+         stdDeviation="0.225"
+         id="feGaussianBlur4339-2-1-4-9-8" />
+    </filter>
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient4401-7-4-0-5-0"
+       id="linearGradient4461-9-7-5-6-1"
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="translate(-13.695068,-1.2802318)"
+       x1="455"
+       y1="762.36212"
+       x2="455"
+       y2="717.36212" />
+    <linearGradient
+       inkscape:collect="always"
+       id="linearGradient4401-7-4-0-5-0">
+      <stop
+         style="stop-color:#ff4a00;stop-opacity:1;"
+         offset="0"
+         id="stop4403-9-4-6-8-9" />
+      <stop
+         style="stop-color:#ff4a00;stop-opacity:0;"
+         offset="1"
+         id="stop4405-7-3-6-2-2" />
+    </linearGradient>
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient3948-2-8-7-3-9-3"
+       id="linearGradient4459-2-2-2-4-0"
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="matrix(2.3329274,0,0,2.1640143,-238.56113,-815.66004)"
+       x1="295"
+       y1="727.36218"
+       x2="295"
+       y2="722.36218" />
+    <linearGradient
+       id="linearGradient3948-2-8-7-3-9-3">
+      <stop
+         style="stop-color:#000000;stop-opacity:1;"
+         offset="0"
+         id="stop3950-8-7-6-4-3-8" />
+      <stop
+         style="stop-color:#000000;stop-opacity:0;"
+         offset="1"
+         id="stop3952-5-1-6-9-9-5" />
+    </linearGradient>
   </defs>
   <sodipodi:namedview
      id="base"
@@ -744,16 +811,16 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="1.4"
-     inkscape:cx="515.16884"
-     inkscape:cy="248.36641"
+     inkscape:zoom="0.7"
+     inkscape:cx="581.62846"
+     inkscape:cy="427.1522"
      inkscape:document-units="px"
-     inkscape:current-layer="layer1"
+     inkscape:current-layer="g4705"
      showgrid="true"
      inkscape:window-width="1651"
      inkscape:window-height="1110"
-     inkscape:window-x="114"
-     inkscape:window-y="34"
+     inkscape:window-x="237"
+     inkscape:window-y="46"
      inkscape:window-maximized="0">
     <inkscape:grid
        type="xygrid"
@@ -780,74 +847,54 @@
      inkscape:groupmode="layer"
      id="layer1"
      transform="translate(0,-308.26766)">
-    <text
-       xml:space="preserve"
-       style="font-size:26.96261024px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:100%;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
-       x="134.8365"
-       y="490.45102"
-       id="text3779-7"
-       sodipodi:linespacing="100%"
-       transform="scale(1.0382945,0.96311789)"><tspan
-         sodipodi:role="line"
-         id="tspan3781-0"
-         x="134.8365"
-         y="490.45102">Library clients</tspan></text>
-    <text
-       xml:space="preserve"
-       style="font-size:26.96261024px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:100%;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
-       x="202.25476"
-       y="760.40759"
-       id="text3779-72"
-       sodipodi:linespacing="100%"
-       transform="scale(1.0382945,0.96311789)"><tspan
-         sodipodi:role="line"
-         x="202.25476"
-         y="760.40759"
-         id="tspan3871">Controller</tspan><tspan
-         sodipodi:role="line"
-         x="202.25476"
-         y="787.37018"
-         id="tspan4101"> plugins</tspan></text>
     <g
        id="g4705"
        transform="translate(-3.9994156,-36.000133)">
-      <rect
-         ry="20.000021"
-         rx="19.914795"
-         y="612.36212"
-         x="450.08521"
-         height="346.24228"
-         width="489.91476"
-         id="rect4099-2"
-         style="opacity:0.90909095;fill:#ff1600;fill-opacity:1;stroke:#ff0003;stroke-width:1.12344205;stroke-linecap:butt;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;stroke-dashoffset:0" />
-      <rect
-         ry="20.000021"
-         rx="19.914795"
-         y="612.36212"
-         x="450.08521"
-         height="346.24228"
-         width="489.91476"
-         id="rect4099-2-8"
-         style="opacity:0.90909095;fill:url(#linearGradient4711);fill-opacity:1;stroke:#ff0003;stroke-width:1.12344205;stroke-linecap:butt;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;stroke-dashoffset:0" />
+      <g
+         id="g3212"
+         transform="matrix(1.0081635,0,0,1.2303529,-3.6742671,-141.05939)">
+        <rect
+           style="opacity:0.90909095;fill:#ff1600;fill-opacity:1;stroke:#ff0003;stroke-width:1.12344205;stroke-linecap:butt;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;stroke-dashoffset:0"
+           id="rect4099-2"
+           width="489.91476"
+           height="346.24228"
+           x="450.08521"
+           y="612.36212"
+           rx="19.914795"
+           ry="20.000021" />
+        <rect
+           style="opacity:0.90909095;fill:url(#linearGradient3216);fill-opacity:1;stroke:#ff0003;stroke-width:1.12344205;stroke-linecap:butt;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;stroke-dashoffset:0"
+           id="rect4099-2-8"
+           width="489.91476"
+           height="346.24228"
+           x="450.08521"
+           y="612.36212"
+           rx="19.914795"
+           ry="20.000021" />
+      </g>
       <text
          transform="scale(1.0382945,0.96311789)"
          sodipodi:linespacing="100%"
          id="text3779-3"
-         y="766.63751"
-         x="533.56677"
-         style="font-size:72px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;text-align:start;line-height:100%;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#ffffff;fill-opacity:1;stroke:none;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans Bold"
+         y="797.78632"
+         x="697.29681"
+         style="font-size:72px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;text-align:center;line-height:100%;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:middle;fill:#ffffff;fill-opacity:1;stroke:none;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans Bold"
          xml:space="preserve"><tspan
            id="tspan3896"
-           y="766.63751"
-           x="533.56677"
+           y="797.78632"
+           x="697.29681"
            sodipodi:role="line">Emotion</tspan><tspan
-           y="838.63751"
-           x="533.56677"
+           y="869.78632"
+           x="697.29681"
            sodipodi:role="line"
-           id="tspan4976"> Library</tspan></text>
+           id="tspan3318">python</tspan><tspan
+           y="941.78632"
+           x="697.29681"
+           sodipodi:role="line"
+           id="tspan4976">Library</tspan></text>
     </g>
     <g
-       transform="translate(-14.59796,-105.31837)"
+       transform="translate(-17.695081,-105.31837)"
        id="g4451-1">
       <g
          id="g4463-9">
@@ -903,7 +950,7 @@
       </g>
     </g>
     <g
-       transform="translate(-14.59796,-47.818373)"
+       transform="translate(-17.695081,-47.818373)"
        id="g4451-1-7">
       <g
          id="g4463-9-7">
@@ -960,7 +1007,7 @@
     </g>
     <g
        id="g4888"
-       transform="translate(20,-20.00001)">
+       transform="matrix(1.8933332,0,0,1.9230763,-481.73325,-487.87246)">
       <rect
          ry="10"
          rx="25"
@@ -983,26 +1030,26 @@
          transform="scale(1.0382945,0.96311789)"
          sodipodi:linespacing="100%"
          id="text3779-0"
-         y="492.52762"
-         x="495.04257"
+         y="496.84692"
+         x="479.04941"
          style="font-size:26.96261024px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;text-align:start;line-height:100%;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#ffffff;fill-opacity:1;stroke:none;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans Bold"
          xml:space="preserve"><tspan
-           y="492.52762"
-           x="495.04257"
+           y="496.84692"
+           x="479.04941"
            id="tspan3781-9"
-           sodipodi:role="line">Tango</tspan><tspan
+           sodipodi:role="line">PyTango</tspan><tspan
            id="tspan4815"
-           y="519.49023"
-           x="495.04257"
+           y="523.80951"
+           x="479.04941"
            sodipodi:role="line">Device</tspan><tspan
            id="tspan4817"
-           y="546.45282"
-           x="495.04257"
+           y="550.77209"
+           x="479.04941"
            sodipodi:role="line">Server</tspan></text>
     </g>
     <g
        id="g4888-2"
-       transform="translate(320,-19.999979)">
+       transform="matrix(1.2352941,0,0,1.4166661,198.82348,-208.15044)">
       <g
          id="g4969"
          transform="translate(-39.999956,-10.000127)">
@@ -1043,7 +1090,7 @@
       </g>
     </g>
     <g
-       transform="translate(-14.59796,9.6816267)"
+       transform="translate(-17.695081,9.6816267)"
        id="g4451-1-7-0">
       <g
          id="g4463-9-7-5">
@@ -1099,7 +1146,7 @@
       </g>
     </g>
     <g
-       transform="translate(-14.59796,124.68163)"
+       transform="translate(-17.695081,204.99997)"
        id="g4451-1-7-7">
       <g
          id="g4463-9-7-6">
@@ -1155,7 +1202,7 @@
       </g>
     </g>
     <g
-       transform="translate(-14.59796,67.181627)"
+       transform="translate(-17.695081,67.181627)"
        id="g4451-1-7-0-0">
       <g
          id="g4463-9-7-5-6">
@@ -1208,6 +1255,62 @@
              x="385.82306"
              y="776.31256"
              id="tspan4101-9-5-1-6-1">PI e753</tspan></text>
+      </g>
+    </g>
+    <g
+       transform="translate(-17.695081,122.18159)"
+       id="g4451-1-7-0-0-5">
+      <g
+         id="g4463-9-7-5-6-8">
+        <rect
+           style="opacity:0.90909095;fill:#ffffff;fill-opacity:1;fill-rule:nonzero;stroke:none"
+           id="rect3946-1-1-0-6-4-2-1-1"
+           width="163.30492"
+           height="43.280285"
+           x="367.69507"
+           y="716.08191"
+           ry="4.3280287"
+           rx="4.6658549" />
+        <rect
+           style="opacity:0.90909095;fill:url(#linearGradient4415-4-3-9-0-6);fill-opacity:1;fill-rule:nonzero;stroke:none;filter:url(#filter4337-0-6-7-3-7)"
+           id="rect3946-1-0-0-3-1-6-9"
+           width="70"
+           height="20"
+           x="260.6109"
+           y="683.35193"
+           ry="2"
+           rx="2"
+           transform="matrix(2.3329274,0,0,-2.1640143,-240.29123,2239.4258)" />
+        <rect
+           style="fill:url(#linearGradient4461-9-7-5-6-1);fill-opacity:1;fill-rule:nonzero;stroke:none"
+           id="rect3946-1-3-2-8-9-0"
+           width="163.30492"
+           height="43.280285"
+           x="368"
+           y="716.08185"
+           ry="4.3280287"
+           rx="4.6658549" />
+        <rect
+           style="opacity:0.90909095;fill:url(#linearGradient4459-2-2-2-4-0);fill-opacity:1;fill-rule:nonzero;stroke:none"
+           id="rect3946-1-1-8-5-7-9-2"
+           width="163"
+           height="44.280293"
+           x="368"
+           y="715.08185"
+           ry="4.3280287"
+           rx="4.6658549" />
+        <text
+           xml:space="preserve"
+           style="font-size:26.96261024px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;text-align:start;line-height:100%;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#ffffff;fill-opacity:1;stroke:none;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans Bold"
+           x="370.41318"
+           y="773.71686"
+           id="text3779-72-3-4-3-8-8-7"
+           sodipodi:linespacing="100%"
+           transform="scale(1.0382945,0.96311789)"><tspan
+             sodipodi:role="line"
+             x="370.41318"
+             y="773.71686"
+             id="tspan4101-9-5-1-6-1-4">PMD206</tspan></text>
       </g>
     </g>
   </g>

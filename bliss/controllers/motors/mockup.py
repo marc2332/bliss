@@ -1,5 +1,5 @@
 from bliss.controllers.motor import Controller; from bliss.common import log
-from bliss.common.axis import READY, MOVING
+from bliss.common.axis import READY, MOVING, OFF
 from bliss.controllers.motor import add_axis_method
 import math
 import time
@@ -8,6 +8,7 @@ import time
 mockup.py : a mockup controller for bliss.
 To be used as skeleton to write bliss plugin controller.
 """
+
 
 def mockup_err(msg):
     log.error("[MOCKUP] " + msg)
@@ -110,12 +111,10 @@ class Mockup(Controller):
             else:
                 return self._axis_moves[axis]["end_pos"]
 
-    #def set_position(self, axis, new_pos):
+    # def set_position(self, axis, new_pos):
     #    self._axis_moves[axis]["end_pos"] = new_pos
     #    self._axis_moves[axis]["end_t"] = 0
     #    return new_pos
-
-
 
     def read_velocity(self, axis):
         """
@@ -148,10 +147,18 @@ class Mockup(Controller):
         axis.settings.set('acctime', new_acctime)
         return new_acctime
 
+    def set_on(self, axis):
+        self._axis_moves[axis]["on"] = True
+
+    def set_off(self, axis):
+        self._axis_moves[axis]["on"] = False
+
     """
     """
 
     def state(self, axis):
+        if not self._axis_moves[axis].get("on", True):
+            return OFF
         if self._axis_moves[axis]["end_t"] > time.time():
             return MOVING
         else:
@@ -181,7 +188,8 @@ class Mockup(Controller):
 #        raise NotImplementedError
 
     def home_state(self, axis):
-        return READY if (time.time() - self._axis_moves[axis]["home_search_start_time"]) > 2 else MOVING
+        return READY if(time.time() - self._axis_moves[axis]
+                        ["home_search_start_time"]) > 2 else MOVING
 
     """
     Custom axis method returning the current name of the axis

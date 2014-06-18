@@ -206,5 +206,22 @@ class TestMockupController(unittest.TestCase):
         robz.rmove(1)
         robz.rmove(-2)
 
+    def test_on_off(self):
+        robz = bliss.get_axis("robz")
+        robz.position(0)
+        robz.off()
+        self.assertEquals(robz.state(), "OFF")
+        self.assertRaises(RuntimeError, robz.move, 1)
+        robz.on()
+        self.assertEquals(robz.state(), "READY")
+        robz.move(1)
+        self.assertEquals(robz.position(), 1)
+        robz.move(2, wait=False)
+        self.assertRaises(RuntimeError, robz.off)
+        robz.wait_move()
+        robz.off()
+        self.assertEquals(robz.state(), "OFF")
+
+
 if __name__ == '__main__':
     unittest.main()

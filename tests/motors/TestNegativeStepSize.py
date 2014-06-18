@@ -56,23 +56,6 @@ class TestMockupController(unittest.TestCase):
     def setUp(self):
         bliss.load_cfg_fromstring(config_xml)
 
-    def test_axis_move(self):
-        roby = bliss.get_axis("roby")
-        self.assertEqual(roby.state(), "READY")
-        move_greenlet = roby.move(180, wait=False)
-        self.assertNotEqual(roby.position(), None)
-        self.assertEqual(roby.state(), "MOVING")
-        move_greenlet.join()
-        self.assertEqual(roby.state(), "READY")
-
-    def test_stop(self):
-        roby = bliss.get_axis('roby')
-        self.assertEqual(roby.state(), "READY")
-        roby.move(180, wait=False)
-        self.assertEqual(roby.state(), "MOVING")
-        roby.stop()
-        self.assertEqual(roby.state(), "READY")
-
     def test_backlash(self):
         roby = bliss.get_axis("roby")
         self.assertEqual(roby.state(), "READY")
@@ -112,31 +95,10 @@ class TestMockupController(unittest.TestCase):
         roby.position(10)
         self.assertEqual(roby.position(), 10)
 
-    def test_axis_set_velocity(self):
-        roby = bliss.get_axis("roby")
-        org = roby.velocity()
-        # vel is in user-unit per seconds.
-        vel = 5000
-        self.assertEqual(roby.velocity(vel), vel)
-        roby.velocity(org)
-
-    def test_axis_set_acctime(self):
-        roby = bliss.get_axis("roby")
-        acc = 0.250
-        self.assertEqual(roby.acctime(acc), acc)
-
     def test_axis_get_measured_position(self):
         roby = bliss.get_axis("roby")
         _meas_pos = -1.2345 / roby.steps_per_unit()
         self.assertAlmostEqual(roby.measured_position(), _meas_pos, places=9, msg=None)
-
-    def test_axis_custom_method(self):
-        roby = bliss.get_axis("roby")
-        self.assertEqual(roby.get_identifier(), roby.name)
-
-    def test_axis_config_velocity(self):
-        roby = bliss.get_axis("roby")
-        self.assertEqual(roby.velocity(), roby.config.get("velocity", int))
 
     def test_home_search(self):
         roby = bliss.get_axis("roby")
@@ -159,6 +121,20 @@ class TestMockupController(unittest.TestCase):
         roby.limits(-1E9, 1E9)
         roby.rmove(1)
         roby.rmove(-2)
+
+    def test_rmove(self):
+        roby = bliss.get_axis("roby")
+        roby.position(-1)
+        roby.rmove(2)
+        self.assertEquals(roby.position(), 1)
+        roby.rmove(-2)
+        self.assertEquals(roby.position(), -1)
+        roby.position(1)
+        roby.rmove(2)
+        self.assertEquals(roby.position(), 3)
+        roby.rmove(-2)
+        self.assertEquals(roby.position(), 1)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -23,11 +23,11 @@ import bliss
 """
 IcePAP specific library
 """
+"""
 sys.path.insert(
     0,
     os.path.abspath("/segfs/bliss/source/hardware/IcePAP/client/python/"))
-
-#import icepap.lib
+"""
 
 
 """

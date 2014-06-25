@@ -1,1 +1,8 @@
 bliss
+
+use :
+   make install
+to create links to use bliss in a standard bliss computer.
+
+Authors : M.Guijarro C.Guilloud M.Perez (BLISS 2014)
+

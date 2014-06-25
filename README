@@ -1,8 +1,13 @@
 bliss
 
 use :
-   make install
-to create links to use bliss in a standard bliss computer.
+
+make install
+   to create links to use bliss in a standard bliss computer.
+
+make doc 
+   to build the documentation
+
 
 Authors : M.Guijarro C.Guilloud M.Perez (BLISS 2014)
 

@@ -1,12 +1,14 @@
-bliss
-
-use :
+--------======== E-Motion  ==========-----------
 
 make install
    to create links to use bliss in a standard bliss computer.
 
 make doc 
    to build the documentation
+
+make clean
+   to remove links and temporary files
+
 
 
 Authors : M.Guijarro C.Guilloud M.Perez (BLISS 2014)

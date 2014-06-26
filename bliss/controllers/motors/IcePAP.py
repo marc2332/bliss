@@ -46,7 +46,7 @@ class IcePAP(Controller):
         self.log_info("initialize() called")
 
         # Get controller config from bliss config
-        # Mandatory parameters
+        # Mandatory parameters (port number is not needed)
         self.host = self.config.get("host")
 
         # Optional parameters
@@ -82,6 +82,7 @@ class IcePAP(Controller):
         self.log_info("initialize_axis() called for axis \"%s\"" % axis.name)
 
         # Get axis config from bliss config
+        # address form is XY : X=rack {0..?} Y=driver {1..8}
         axis.address = axis.config.get("address", int)
 
         # Create an IcePAP lib axis object

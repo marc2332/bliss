@@ -1,3 +1,4 @@
+import re
 import gevent
 from gevent import socket, event, queue, lock
 import time
@@ -390,3 +391,23 @@ class Command:
         data_queue = queue.Queue()
         self._transaction_list.append(data_queue)
         return data_queue
+
+class Tcp(object):
+    SOCKET,COMMAND = range(2)
+    
+    def __new__(cls,url = None,**keys) :
+        if url.lower().startswith('command://') :
+            parse = re.compile('^(command://)([^:/]+?):([0-9]+)$')
+            match = parse.match(url)
+            if match is None:
+                raise RuntimeError('Command: url is not valid (%s)' % url)
+            host,port = match.group(2),int(match.group(3))
+            return Command(host,port,**keys)
+        else:
+            parse = re.compile('^(socket://)?([^:/]+?):([0-9]+)$')
+            match = parse.match(url)
+            if match is None:
+                raise RuntimeError('Socket: url is not valid (%s)' % url)
+            host,port = match.group(2),int(match.group(3))
+            return Socket(host,port,**keys)
+

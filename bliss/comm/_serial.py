@@ -53,7 +53,7 @@ class _BaseSerial:
                 self._event.wait()
                 self._event.clear()
         msg = self._data[:size]
-        self._data = self._data[size + 1:]
+        self._data = self._data[size:]
         return msg
     
     def write(self,msg,timeout) :
@@ -72,7 +72,7 @@ class _BaseSerial:
                 self._event.clear()
         if maxsize:
             msg = self._data[:maxsize]
-            self._data = self._data[maxsize + 1:]
+            self._data = self._data[maxsize:]
         else:
             msg = self._data
             self._data = ''

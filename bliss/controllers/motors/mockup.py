@@ -13,14 +13,11 @@ To be used as skeleton to write bliss plugin controller.
 def mockup_err(msg):
     log.error("[MOCKUP] " + msg)
 
-
 def mockup_info(msg):
     log.info("[MOCKUP] " + msg)
 
-
 def mockup_debug(msg):
     log.debug("[MOCKUP] " + msg)
-
 
 class Mockup(Controller):
 
@@ -62,8 +59,12 @@ class Mockup(Controller):
         axis.settings.set('init_count', axis.settings.get('init_count') + 1)
 
         # Add new axis oject method.
-        add_axis_method(axis, self.get_identifier)
-
+        add_axis_method(axis, self.custom_park, tango_types=("Void", "Void"))
+        add_axis_method(axis, self.custom_get_forty_two, tango_types=("Void", "Long"))
+        add_axis_method(axis, self.custom_get_twice, tango_types=("Long", "Long"))
+        add_axis_method(axis, self.custom_get_chapi, tango_types=("String", "String"))
+        add_axis_method(axis, self.custom_send_command, tango_types=("String", "Void"))
+ 
     """
     Actions to perform at controller closing.
     """
@@ -194,6 +195,28 @@ class Mockup(Controller):
     """
     Custom axis method returning the current name of the axis
     """
+    # VOID VOID
+    def custom_park(self, axis):
+        print "parking"
 
-    def get_identifier(self, axis):
-        return axis.name
+    # VOID LONG
+    def custom_get_forty_two(self, axis):
+        return 42
+
+    # LONG LONG
+    def custom_get_twice(self, axis, LongValue):
+        return LongValue * 2
+
+    # STRING STRING
+    def custom_get_chapi(self, axis, value):
+        if value == "chapi":
+            return "chapo"
+        elif value == "titi":
+            return "toto"
+        else:
+            return "bla"
+
+    # STRING VOID
+    def custom_send_command(self, axis, value):
+        print "command=", value
+

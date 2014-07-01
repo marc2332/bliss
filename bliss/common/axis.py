@@ -33,6 +33,7 @@ class Axis(object):
         self.__settings.set("high_limit", 1E9)
         self.__move_done = gevent.event.Event()
         self.__move_done.set()
+        self.__custom_methods_list = list()
 
     @property
     def name(self):
@@ -65,6 +66,12 @@ class Axis(object):
             if self.name in [axis.name for axis in axis_list]:
                 return True
         return False
+
+    def add_custom_method_in_list(self, method, name, ttypes):
+        self.__custom_methods_list.append((method, name, ttypes))
+
+    def get_custom_methods_list(self):
+        return self.__custom_methods_list
 
     def on(self):
         if self.is_moving:

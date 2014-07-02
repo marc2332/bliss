@@ -9,7 +9,7 @@ import sys
 import pdb
 
 # DEEP modules
-import deep.log as log
+from . import log 
 
 # Get python modules to communicate with an DEEP device
 from sockdeep import SockDeep

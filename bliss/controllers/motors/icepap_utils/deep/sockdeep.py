@@ -9,7 +9,7 @@ import pdb
 import numpy
 
 # DEEP modules
-import deep.log as log
+from . import log
 
 
 

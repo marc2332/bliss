@@ -41,6 +41,8 @@ class IcePAP(Controller):
         """Contructor"""
         Controller.__init__(self, name, config, axes)
 
+        self.libdevice = None
+
     def initialize(self):
         """Controller initialization"""
         self.log_info("initialize() called")
@@ -75,7 +77,9 @@ class IcePAP(Controller):
             pass
 
         # Close IcePAP lib socket/threads
-        self.libdevice.close()
+        if self.libdevice is not None:
+            self.libdevice.close()
+        
 
     def initialize_axis(self, axis):
         """Axis initialization"""
@@ -165,8 +169,8 @@ class IcePAP(Controller):
         Called once before a single axis motion,
         positions in motor units
         """
-        self.log_info("prepare_move() called for axis \"%s\"" %
-                      motion.axis.name)
+        self.log_info("prepare_move() called for axis %r: moving to %f (controller unit)" %
+                      (motion.axis.name, motion.target_pos))
         pass
 
     def start_one(self, motion):

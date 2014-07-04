@@ -13,14 +13,8 @@ import sys
 #-------------------------------------------------------------------------
 # Specific modules than must be in the PYTHONPATH
 #
-try:
-    import deep.device 
-    import deep.log 
-except ImportError:
-    print 'ERROR: module "deep" not found'
-    print 'HINT : add to your PYTHONPATH the location of this module'
-    sys.exit(-1)
-   
+from .deep.device import DeepDevice
+from .deep import log as deep_log 
 
 #-------------------------------------------------------------------------
 # Constant defintions
@@ -301,7 +295,7 @@ class System():
         if hostname not in _known_devices:
             # Mandatory libdeep argument for IcePAP devices
             argin_str   = ' '.join(["mode=icepap"]+[flags])
-            deepdevice  = deep.device.DeepDevice(hostname, argin_str)
+            deepdevice  = DeepDevice(hostname, argin_str)
 
             # Save communication payload doing the hypothesis that all
             # axis of an IcePAP device have the same firmare version
@@ -313,7 +307,7 @@ class System():
         # Object initialization
         self._hostname   = hostname
         self._deepdevice = _known_devices[hostname]
-        self._verbose    = deep.log.DBG_ERROR
+        self._verbose    = deep_log.DBG_ERROR
 
     def close(self):
         """Close communication links"""

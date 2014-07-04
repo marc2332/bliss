@@ -7,9 +7,10 @@ import time
 import numpy
 import sys
 import pdb
+from threading import Lock #import gevent
 
 # DEEP modules
-import deep.log as log
+from . import log 
 
 # Get python modules to communicate with an DEEP device
 from sockdeep import SockDeep
@@ -100,7 +101,6 @@ class DeepDevice(object):
 
       else:
         self._syntax_error("unknown option: \"%s\""%argin)
-
 
     log.trace("object created, device: \"%s\""%dev)
     if self._icepapmode:
@@ -506,7 +506,7 @@ class DeepDevice(object):
 
   #
   #
-  def __command(self, str_cmd, in_data = None, chkanswer = False):
+  def __command(self, str_cmd, in_data = None, chkanswer = False, lock=Lock()):
 
     # remove any useless ending white spaces and eols
     cmd = str_cmd.strip(" \n\r") 
@@ -518,39 +518,38 @@ class DeepDevice(object):
     # by default no binary data returned
     ans_data = None
 
-    # minimum check if binary download is requested
-    if in_data == None:
-      if "bin" in cmd_type and not "req" in cmd_type:
-        self._syntax_error("binary data is missing")
-      else:
-        self.__wr(cmd)
-    else:
-      if not "bin" in cmd_type:
-        self._syntax_error("downloading binary with a non binary command")
-      elif "req" in cmd_type:
-        self._syntax_error("downloading binary with a query binary command")
-      else:
-        self.__wr_bin(cmd, in_data)
-        if "ack" in cmd_type:
-          self.comm_dev.set_timeout(COMM_LONG_TIMEOUT)
+    with lock:
+              #     minimum check if binary download is requested
+	    if in_data == None:
+	      if "bin" in cmd_type and not "req" in cmd_type:
+		self._syntax_error("binary data is missing")
+	      else:
+		self.__wr(cmd)
+	    else:
+	      if not "bin" in cmd_type:
+		self._syntax_error("downloading binary with a non binary command")
+	      elif "req" in cmd_type:
+		self._syntax_error("downloading binary with a query binary command")
+	      else:
+		self.__wr_bin(cmd, in_data)
+		if "ack" in cmd_type:
+		  self.comm_dev.set_timeout(COMM_LONG_TIMEOUT)
 
-    if "req" in cmd_type or "ack" in cmd_type:
-      ans = self.__rd_ascii(prefix)
-      if chkanswer:
-        if ans.startswith("ERROR"):
-           raise DeviceError(self, ans.replace("ERROR ", "", 1))
+	    if "req" in cmd_type or "ack" in cmd_type:
+	      ans = self.__rd_ascii(prefix)
+	      if chkanswer:
+		if ans.startswith("ERROR"):
+		   raise DeviceError(self, ans.replace("ERROR ", "", 1))
 
-      if "bin" in cmd_type:
-        if "req" in cmd_type:
-          ans_data = self.__rd_bin()
-          return ans, ans_data
-        else:
-          self.comm_dev.set_timeout()
-          return ans
-      else:
-        return ans
-
-
+	      if "bin" in cmd_type:
+		if "req" in cmd_type:
+		  ans_data = self.__rd_bin()
+		  return ans, ans_data
+		else:
+		  self.comm_dev.set_timeout()
+		  return ans
+	      else:
+		return ans
 
   #
   #

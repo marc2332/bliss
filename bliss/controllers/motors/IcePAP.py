@@ -8,24 +8,11 @@ from bliss.controllers.motor import Controller; from bliss.common import log
 from bliss.controllers.motor import add_axis_method
 from bliss.common.axis import READY, MOVING, UNKNOWN
 
-
-"""
-IcePAP specific library
-"""
-sys.path.insert(
-    0,
-    os.path.abspath(
-        os.path.join(
-        os.path.dirname(__file__),
-        "./icepap_utils")))
-
-import icepap.lib
-
-
 """
 Extra modules
 """
 #import pdb
+from icepap_utils import lib 
 
 """
 Global resources
@@ -40,6 +27,8 @@ class IcePAP(Controller):
     def __init__(self, name, config, axes):
         """Contructor"""
         Controller.__init__(self, name, config, axes)
+
+        self.libdevice = None
 
     def initialize(self):
         """Controller initialization"""
@@ -56,13 +45,13 @@ class IcePAP(Controller):
             self.libdebug = 1
 
         # Create an IcePAP lib object to access the MASTER
-        self.libdevice = icepap.lib.System(
+        self.libdevice = lib.System(
             self.host,
             "verb=%d" %
             self.libdebug)
 
         # Create an IcePAP lib object as default group
-        self.libgroup = icepap.lib.Group("default")
+        self.libgroup = lib.Group("default")
 
     def finalize(self):
         """Controller no more needed"""
@@ -75,7 +64,9 @@ class IcePAP(Controller):
             pass
 
         # Close IcePAP lib socket/threads
-        self.libdevice.close()
+        if self.libdevice is not None:
+            self.libdevice.close()
+        
 
     def initialize_axis(self, axis):
         """Axis initialization"""
@@ -89,13 +80,13 @@ class IcePAP(Controller):
         device = self.libdevice
         address = axis.address
         name = axis.name
-        axis.libaxis = icepap.lib.Axis(device, address, name)
+        axis.libaxis = lib.Axis(device, address, name)
 
         # Add the axis to the default IcePAP lib group
         self.libgroup.add_axis(axis.libaxis)
 
         # Initialiaze hardware
-        self.libgroup.set_power(icepap.lib.ON, axis.libaxis)
+        self.libgroup.set_power(lib.ON, axis.libaxis)
 
         # Add new axis oject methods
         add_axis_method(axis, self.get_identifier)
@@ -106,7 +97,7 @@ class IcePAP(Controller):
         return self.libgroup.pos(axis.libaxis)
 
     def set_position(self, axis, new_pos):
-        l = icepap.lib.PosList()
+        l = lib.PosList()
         l[axis.libaxis] = new_pos
         self.libgroup.pos(l)
         return self.read_position(axis)
@@ -121,7 +112,7 @@ class IcePAP(Controller):
         self.log_info("set_velocity(%s) called for axis \"%s\"" %
                       (s, axis.name))
 
-        l = icepap.lib.VelList()
+        l = lib.VelList()
         l[axis.libaxis] = new_velocity
         self.libgroup.velocity(l)
 
@@ -137,7 +128,7 @@ class IcePAP(Controller):
         self.log_info("set_acctime(%s) called for axis \"%s\"" %
                       (s, axis.name))
 
-        l = icepap.lib.AcctimeList()
+        l = lib.AcctimeList()
         l[axis.libaxis] = new_acctime
         self.libgroup.acctime(l)
 
@@ -152,9 +143,9 @@ class IcePAP(Controller):
         status = self.libgroup.status(axis.libaxis)
 
         # Convert status formats
-        if(icepap.lib.status_ismoving(status)):
+        if(lib.status_ismoving(status)):
             return MOVING
-        if(icepap.lib.status_isready(status)):
+        if(lib.status_isready(status)):
             return READY
 
         # Abnormal end
@@ -165,8 +156,8 @@ class IcePAP(Controller):
         Called once before a single axis motion,
         positions in motor units
         """
-        self.log_info("prepare_move() called for axis \"%s\"" %
-                      motion.axis.name)
+        self.log_info("prepare_move() called for axis %r: moving to %f (controller unit)" %
+                      (motion.axis.name, motion.target_pos))
         pass
 
     def start_one(self, motion):
@@ -176,7 +167,7 @@ class IcePAP(Controller):
         positions in motor units
         """
         self.log_info("start_one() called for axis \"%s\"" % motion.axis.name)
-        target_positions = icepap.lib.PosList()
+        target_positions = lib.PosList()
         target_positions[motion.axis.libaxis] = motion.target_pos
         self.libgroup.move(target_positions)
 
@@ -187,7 +178,7 @@ class IcePAP(Controller):
         positions in motor units
         """
         self.log_info("start_all() called")
-        target_positions = icepap.lib.PosList()
+        target_positions = lib.PosList()
         for motion in motion_list:
             target_positions[motion.axis.libaxis] = motion.target_pos
         self.libgroup.move(target_positions)

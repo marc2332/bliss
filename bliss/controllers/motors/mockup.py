@@ -41,7 +41,6 @@ class Mockup(Controller):
     """
     Controller initialization actions.
     """
-
     def initialize(self):
         # hardware initialization
         for axis_name, axis in self.axes.iteritems():
@@ -52,7 +51,6 @@ class Mockup(Controller):
     """
     Axes initialization actions.
     """
-
     def initialize_axis(self, axis):
         self._axis_moves[axis] = {
             "end_t": 0,
@@ -62,12 +60,15 @@ class Mockup(Controller):
         axis.settings.set('init_count', axis.settings.get('init_count') + 1)
 
         # Add new axis oject method.
-        add_axis_method(axis, self.get_identifier)
+        add_axis_method(axis, self.custom_park, types_info=(None, None))
+        add_axis_method(axis, self.custom_get_forty_two, types_info=(None, int))
+        add_axis_method(axis, self.custom_get_twice, types_info=(int, int))
+        add_axis_method(axis, self.custom_get_chapi, types_info=(str, str))
+        add_axis_method(axis, self.custom_send_command, types_info=(str, None))
 
     """
     Actions to perform at controller closing.
     """
-
     def finalize(self):
         pass
 
@@ -194,6 +195,27 @@ class Mockup(Controller):
     """
     Custom axis method returning the current name of the axis
     """
+    # VOID VOID
+    def custom_park(self, axis):
+        print "parking"
 
-    def get_identifier(self, axis):
-        return axis.name
+    # VOID LONG
+    def custom_get_forty_two(self, axis):
+        return 42
+
+    # LONG LONG
+    def custom_get_twice(self, axis, LongValue):
+        return LongValue * 2
+
+    # STRING STRING
+    def custom_get_chapi(self, axis, value):
+        if value == "chapi":
+            return "chapo"
+        elif value == "titi":
+            return "toto"
+        else:
+            return "bla"
+
+    # STRING VOID
+    def custom_send_command(self, axis, value):
+        print "command=", value

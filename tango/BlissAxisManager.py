@@ -9,6 +9,8 @@ import TgGevent
 import sys
 import os
 import time
+import types
+
 
 class BlissAxisManager(PyTango.Device_4Impl):
 
@@ -20,16 +22,9 @@ class BlissAxisManager(PyTango.Device_4Impl):
     def delete_device(self):
         self.debug_stream("In delete_device() of controller")
 
-
     def init_device(self):
         self.debug_stream("In init_device() of controller")
         self.get_device_properties(self.get_device_class())
-
-        try:
-            TgGevent.execute(bliss.load_cfg, self.config_file)
-        except:
-            self.set_state(PyTango.DevState.FAULT)
-            self.set_status(traceback.format_exc())
 
 
 class BlissAxisManagerClass(PyTango.DeviceClass):
@@ -85,6 +80,8 @@ class BlissAxis(PyTango.Device_4Impl):
             self.axis = TgGevent.get_proxy(bliss.get_axis, self._axis_name)
         except:
             self.set_status(traceback.format_exc())
+
+        self.debug_stream("axis found : %s" % self._axis_name)
 
         self.once = False
 
@@ -220,7 +217,7 @@ class BlissAxis(PyTango.Device_4Impl):
         _duration = time.time() - _t
         if _duration > 0.05:
             print "{%s} read_Position : duration seems too long : %5.3g ms" % \
-            (self._ds_name, _duration*1000)
+                (self._ds_name, _duration * 1000)
 
     def write_Position(self, attr):
         """
@@ -241,7 +238,7 @@ class BlissAxis(PyTango.Device_4Impl):
 
         if _duration > 0.01:
             print "{%s} read_Measured_Position : duration seems too long : %5.3g ms" % \
-            (self._ds_name, _duration*1000)
+                (self._ds_name, _duration * 1000)
 
     def read_Acceleration(self, attr):
         try:
@@ -443,6 +440,7 @@ class BlissAxis(PyTango.Device_4Impl):
         self.debug_stream("In WaitMove()")
         return self.axis.wait_move()
 
+
 class BlissAxisClass(PyTango.DeviceClass):
     #    Class Properties
     class_property_list = {
@@ -472,17 +470,17 @@ class BlissAxisClass(PyTango.DeviceClass):
          [PyTango.DevVoid, "none"]],
         'StepUp':
         [[PyTango.DevVoid, "none"],
-         [PyTango.DevVoid, "none"],{ 'Display level': PyTango.DispLevel.EXPERT,}],
+         [PyTango.DevVoid, "none"], {'Display level': PyTango.DispLevel.EXPERT, }],
         'StepDown':
         [[PyTango.DevVoid, "none"],
-         [PyTango.DevVoid, "none"],{ 'Display level': PyTango.DispLevel.EXPERT,}],
+         [PyTango.DevVoid, "none"], {'Display level': PyTango.DispLevel.EXPERT, }],
         'GetInfo':
         [[PyTango.DevVoid, "none"],
          [PyTango.DevString, "Info string returned by the axis"]],
         'RawCom':
         [[PyTango.DevString, "Raw command to be send to the axis. Be carefull!"],
          [PyTango.DevString, "Answer provided by the axis"],
-         { 'Display level': PyTango.DispLevel.EXPERT, } ],
+         {'Display level': PyTango.DispLevel.EXPERT, }],
         'WaitMove':
         [[PyTango.DevVoid, "none"],
          [PyTango.DevVoid, "none"]],
@@ -698,8 +696,6 @@ def delete_unused_bliss_axes():
     """
     Removes BlissAxisManager axes that are not running.
     """
-    db = PyTango.Database()
-
     # get BlissAxis (only from current instance).
     bliss_axis_device_names = get_devices_from_server().get('BlissAxis')
     bliss.common.log.info("Axes: %r" % bliss_axis_device_names)
@@ -707,8 +703,6 @@ def delete_unused_bliss_axes():
 
 def main():
     try:
-        # Too brutal...
-        # delete_bliss_axes()
         delete_unused_bliss_axes()
     except:
         bliss.common.log.error(
@@ -727,7 +721,7 @@ def main():
             elif len(log_param) > 1:
                 tango_log_level = 4
             else:
-                print "ERROR LOG LEVEL"
+                print "BlissAxisManager.py - ERROR LOG LEVEL"
 
             if tango_log_level == 1:
                 bliss.common.log.level(40)
@@ -743,14 +737,52 @@ def main():
 
         bliss.common.log.info("tango log level=%d" % tango_log_level)
 
-        # what is the diff : add_class add_TgClass ?
-        py.add_class(BlissClass, Bliss, 'Bliss')
-        py.add_TgClass(BlissAxisClass, BlissAxis, 'BlissAxis')
+        db = py.instance().get_database()
+        device_list = get_devices_from_server().get('BlissAxisManager')
+        _device = device_list[0]
+        print "BlissAxisManager.py - Found device : ", _device
+        _config_file = db.get_device_property(
+            _device, "config_file")[
+            "config_file"][
+            0]
+        print "BlissAxisManager.py - config file: ", _config_file
+
+        py.add_class(BlissAxisManagerClass, BlissAxisManager)
+        py.add_class(BlissAxisClass, BlissAxis)
 
         U = PyTango.Util.instance()
+
+        TgGevent.execute(bliss.load_cfg, _config_file)
+
+        # Get axis names defined in config file.
+        axis_names = bliss_config.axis_names_list()
+        print "axis names:", axis_names
+
+        # Takes the 1st one.
+        axis_name = axis_names[0]
+        _axis = TgGevent.get_proxy(bliss.get_axis, axis_name)
+
+        # Search for custom commands.
+        _cmd_list = _axis.get_custom_methods_list()
+        print "BlissAxisManager.py - '%s' custom commands:" % axis_name
+
+        types_conv_tab = {
+            None: PyTango.DevVoid, str: PyTango.DevString, int: PyTango.
+            DevLong, float: PyTango.DevDouble}
+
+        # Adds custom methods:
+        for (fname, (t1, t2)) in _cmd_list:
+            print "   ", fname
+            setattr(BlissAxis, fname, types.MethodType(
+                getattr(_axis, fname), BlissAxis))
+            tin = types_conv_tab[t1]
+            tout = types_conv_tab[t2]
+            BlissAxisClass.cmd_list.update({fname: [[tin, ""], [tout, ""]]})
+
         U.server_init()
 
-    except PyTango.DevFailed, e:
+    except PyTango.DevFailed:
+        print traceback.format_exc()
         bliss.common.log.exception(
             "Error in server initialization",
             raise_exception=False)
@@ -769,17 +801,20 @@ def main():
                                         axis_name))
 
                 try:
-                    print "Creating %s" % device_name
+                    print "BlissAxisManager.py - Creating %s" % device_name
                     bliss.common.log.info("Creating %s" % device_name)
                     U.create_device('BlissAxis', device_name)
                 except PyTango.DevFailed:
+                    # print traceback.format_exc()
                     pass
         else:
             # Do not raise exception to be able to use
             # Jive device creation wizard.
+            print "-----------"
             bliss.common.log.error("No bliss supervisor device",
                               raise_exception=False)
-    except PyTango.DevFailed, e:
+    except PyTango.DevFailed:
+        print traceback.format_exc()
         bliss.common.log.exception(
             "Error in devices initialization",
             raise_exception=False)
@@ -789,4 +824,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

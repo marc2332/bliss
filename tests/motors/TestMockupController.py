@@ -166,10 +166,6 @@ class TestMockupController(unittest.TestCase):
         _meas_pos = -1.2345 / roby.steps_per_unit()
         self.assertAlmostEqual(roby.measured_position(), _meas_pos, places=9, msg=None)
 
-    def test_axis_custom_method(self):
-        roby = bliss.get_axis("roby")
-        self.assertEqual(roby.get_identifier(), roby.name)
-
     def test_axis_config_velocity(self):
         roby = bliss.get_axis("roby")
         self.assertEqual(roby.velocity(), roby.config.get("velocity", int))

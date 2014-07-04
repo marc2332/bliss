@@ -59,6 +59,11 @@ class Axis(object):
     def offset(self):
         return self.__settings.get("offset")
 
+    @property
+    def custom_methods_list(self):
+        # return a copy of the custom methods list
+        return self.__custom_methods_list[:]
+
     def has_tag(self, tag):
         for t, axis_list in self.__controller._tagged.iteritems():
             if t != tag:
@@ -67,11 +72,9 @@ class Axis(object):
                 return True
         return False
 
-    def add_custom_method_in_list(self, method, name, ttypes):
-        self.__custom_methods_list.append((method, name, ttypes))
-
-    def get_custom_methods_list(self):
-        return self.__custom_methods_list
+    def _add_custom_method(self, method, name, types_info=(None, None)):
+        setattr(self, name, method)
+        self.__custom_methods_list.append((name, types_info))
 
     def on(self):
         if self.is_moving:

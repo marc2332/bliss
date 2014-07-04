@@ -13,11 +13,14 @@ To be used as skeleton to write bliss plugin controller.
 def mockup_err(msg):
     log.error("[MOCKUP] " + msg)
 
+
 def mockup_info(msg):
     log.info("[MOCKUP] " + msg)
 
+
 def mockup_debug(msg):
     log.debug("[MOCKUP] " + msg)
+
 
 class Mockup(Controller):
 
@@ -38,7 +41,6 @@ class Mockup(Controller):
     """
     Controller initialization actions.
     """
-
     def initialize(self):
         # hardware initialization
         for axis_name, axis in self.axes.iteritems():
@@ -49,7 +51,6 @@ class Mockup(Controller):
     """
     Axes initialization actions.
     """
-
     def initialize_axis(self, axis):
         self._axis_moves[axis] = {
             "end_t": 0,
@@ -59,16 +60,15 @@ class Mockup(Controller):
         axis.settings.set('init_count', axis.settings.get('init_count') + 1)
 
         # Add new axis oject method.
-        add_axis_method(axis, self.custom_park, tango_types=("Void", "Void"))
-        add_axis_method(axis, self.custom_get_forty_two, tango_types=("Void", "Long"))
-        add_axis_method(axis, self.custom_get_twice, tango_types=("Long", "Long"))
-        add_axis_method(axis, self.custom_get_chapi, tango_types=("String", "String"))
-        add_axis_method(axis, self.custom_send_command, tango_types=("String", "Void"))
- 
+        add_axis_method(axis, self.custom_park, types_info=(None, None))
+        add_axis_method(axis, self.custom_get_forty_two, types_info=(None, int))
+        add_axis_method(axis, self.custom_get_twice, types_info=(int, int))
+        add_axis_method(axis, self.custom_get_chapi, types_info=(str, str))
+        add_axis_method(axis, self.custom_send_command, types_info=(str, None))
+
     """
     Actions to perform at controller closing.
     """
-
     def finalize(self):
         pass
 
@@ -219,4 +219,3 @@ class Mockup(Controller):
     # STRING VOID
     def custom_send_command(self, axis, value):
         print "command=", value
-

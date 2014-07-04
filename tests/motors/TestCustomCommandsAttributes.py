@@ -1,6 +1,4 @@
 import unittest
-import gevent
-import time
 import sys
 import os
 
@@ -71,7 +69,7 @@ class TestMockupController(unittest.TestCase):
     def test_get_custom_methods_list(self):
         robz = bliss.get_axis("robz")
         print "\ncustom functions :"
-        for (fff, fname, ttypes) in robz.get_custom_methods_list():
+        for (fff, fname) in robz.custom_methods_list:
             print "   ", fname
 
     def test_custom_park(self):
@@ -84,12 +82,12 @@ class TestMockupController(unittest.TestCase):
 
     def test_custom_get_twice(self):
         robz = bliss.get_axis("robz")
-        self.assertEqual (robz.custom_get_twice(42), 84)
+        self.assertEqual(robz.custom_get_twice(42), 84)
 
     def test_custom_get_chapi(self):
         robz = bliss.get_axis("robz")
         self.assertEqual(robz.custom_get_chapi("chapi"), "chapo")
-        self.assertEqual(robz.custom_get_chapi("titi"),  "toto")
+        self.assertEqual(robz.custom_get_chapi("titi"), "toto")
         self.assertEqual(robz.custom_get_chapi("roooh"), "bla")
 
     def test_custom_send_command(self):

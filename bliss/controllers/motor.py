@@ -9,19 +9,15 @@ from bliss.config.motors import get_axis
 from bliss.common import event
 
 
-def add_axis_method(axis_object, method, tango_types=None, name=None, args=[]):
+def add_axis_method(axis_object, method, name=None, args=[], types_info=(None, None)):
     if name is None:
         name = method.im_func.func_name
 
     def call(self, *args, **kwargs):
         return method.im_func(method.im_self, *args, **kwargs)
 
-    setattr(axis_object, name, types.MethodType(
-        functools.partial(call, *([axis_object] + args)), axis_object))
-
-    axis_object.add_custom_method_in_list(
-        types.MethodType( functools.partial(call, *([axis_object] + args)), axis_object),
-        name, tango_types)
+    axis_object._add_custom_method(types.MethodType(
+        functools.partial(call, *([axis_object] + args)), axis_object), name, types_info)
 
 
 class Controller(object):

@@ -763,7 +763,7 @@ def main():
         _axis = TgGevent.get_proxy(bliss.get_axis, axis_name)
 
         # Search for custom commands.
-        _cmd_list = _axis.get_custom_methods_list()
+        _cmd_list = _axis.custom_methods_list()
         print "BlissAxisManager.py - '%s' custom commands:" % axis_name
 
         types_conv_tab = {

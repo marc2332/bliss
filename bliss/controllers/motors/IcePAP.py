@@ -23,6 +23,7 @@ _ICEPAP_TAB = "IcePAP: "
 class IcePAP(Controller):
 
     """Implement IcePAP stepper motor controller access"""
+    default_group = None
 
     def __init__(self, name, config, axes):
         """Contructor"""
@@ -51,7 +52,10 @@ class IcePAP(Controller):
             self.libdebug)
 
         # Create an IcePAP lib object as default group
-        self.libgroup = lib.Group("default")
+        if IcePAP.default_group is None:
+            IcePAP.default_group = lib.Group("default")
+        self.libgroup = IcePAP.default_group
+
 
     def finalize(self):
         """Controller no more needed"""

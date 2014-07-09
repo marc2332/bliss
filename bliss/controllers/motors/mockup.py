@@ -65,6 +65,7 @@ class Mockup(Controller):
         add_axis_method(axis, self.custom_get_twice, types_info=(int, int))
         add_axis_method(axis, self.custom_get_chapi, types_info=(str, str))
         add_axis_method(axis, self.custom_send_command, types_info=(str, None))
+        add_axis_method(axis, self.custom_command_no_types)
 
     """
     Actions to perform at controller closing.
@@ -219,3 +220,6 @@ class Mockup(Controller):
     # STRING VOID
     def custom_send_command(self, axis, value):
         print "command=", value
+
+    def custom_command_no_types(self, axis):
+        print "print with no types"

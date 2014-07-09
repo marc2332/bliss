@@ -7,6 +7,27 @@ import sys
 NOTSET
 ###
 
+# LOG LEVELS :
+#      eMotion   |     IcePAP     |  Tango
+#------------------------------------------
+#   NOTSET ==  0 | 0 == DBG_NONE  | OFF
+#   DEBUG  == 10 | 4 == DBG_DATA  | DEBUG
+#   INFO   == 20 | 2 == DBG_TRACE | INFO
+#   WARNING== 30 |                | WARN
+#   ERROR  == 40 | 1 == DBG_ERROR | ERROR
+#   CRITIC == 50 |                | FATAL
+
+# tango log levels :
+# OFF:   Nothing is logged
+# FATAL: A fatal error occurred. The process is about to abort
+# ERROR: An (unrecoverable) error occurred but the process is still alive
+# WARN:  An error occurred but could be recovered locally
+# INFO:  Provides information on important actions performed
+# DEBUG: Generates detailed info describing internal behavior of a device
+#
+# Levels are ordered the following way:
+# DEBUG < INFO < WARN < ERROR < FATAL < OFF
+
 
 def _caller(up=1):
     """Return (file, line, func, text) of caller's caller"""
@@ -79,24 +100,3 @@ def debug(debug_msg):
     filename, lineno, func_name, _ = _caller()
     msg = "%s ('%s`, line %d): %s" % (func_name, filename, lineno, debug_msg)
     return log(DEBUG, msg)
-
-# LOG LEVELS :
-#      eMotion   |     IcePAP     |  Tango
-#------------------------------------------
-#   NOTSET ==  0 | 0 == DBG_NONE  | OFF
-#   DEBUG  == 10 | 4 == DBG_DATA  | DEBUG
-#   INFO   == 20 | 2 == DBG_TRACE | INFO
-#   WARNING== 30 |                | WARN
-#   ERROR  == 40 | 1 == DBG_ERROR | ERROR
-#   CRITIC == 50 |                | FATAL
-
-# tango log levels :
-# OFF:   Nothing is logged
-# FATAL: A fatal error occurred. The process is about to abort
-# ERROR: An (unrecoverable) error occurred but the process is still alive
-# WARN:  An error occurred but could be recovered locally
-# INFO:  Provides information on important actions performed
-# DEBUG: Generates detailed info describing internal behavior of a device
-#
-# Levels are ordered the following way:
-# DEBUG < INFO < WARN < ERROR < FATAL < OFF

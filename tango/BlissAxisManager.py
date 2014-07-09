@@ -12,6 +12,22 @@ import time
 import types
 
 
+def E_error(msg, raise_exception=True, exception=RuntimeError):
+    bliss.common.log.error("[BlissDS] " + msg, raise_exception, exception)
+
+
+def E_info(msg):
+    bliss.common.log.info("[BlissDS] " + msg)
+
+
+def E_debug(msg):
+    bliss.common.log.debug("[BlissDS] " + msg)
+
+
+def E_exception(msg):
+    bliss.common.log.exception("[BlissDS] " + msg)
+
+
 class BlissAxisManager(PyTango.Device_4Impl):
 
     def __init__(self, cl, name):
@@ -90,8 +106,8 @@ class BlissAxis(PyTango.Device_4Impl):
 
         self.attr_Home_position_read = 0.0
         self.attr_StepSize_read = 0.0
-        """
         self.attr_Steps_per_unit_read = 0.0
+        """
         self.attr_Steps_read = 0
         self.attr_Position_read = 0.0
         self.attr_Measured_Position_read = 0.0
@@ -120,43 +136,8 @@ class BlissAxis(PyTango.Device_4Impl):
                 # Velocity
                 attr = self.get_device_attr().get_attr_by_name("Velocity")
                 attr.set_write_value(self.axis.velocity())
-
-                # Acceleration
-                try:
-                    _acc = self.axis.acceleration()
-                    attr = self.get_device_attr().get_attr_by_name(
-                        "Acceleration")
-                    attr.set_write_value(float(_acc))
-                except:
-                    bliss.common.log.error(
-                        "No acceleration for axis %s" %
-                        self._axis_name,
-                        raise_exception=False)
-
-                # Steps_per_unit
-                try:
-                    _spu = float(self.axis.steps_per_unit())
-                    attr = self.get_device_attr().get_attr_by_name(
-                        "Steps_per_unit")
-                    attr.set_write_value(_spu)
-                except:
-                    bliss.common.log.error(
-                        "No steps per unit for axis %s" %
-                        self._axis_name,
-                        raise_exception=False)
-
-                # Steps
-                try:
-                    _steps = int(round(self.axis.position() * _spu))
-                    attr = self.get_device_attr().get_attr_by_name("Steps")
-                    attr.set_write_value(_steps)
-                except:
-                    bliss.common.log.error(
-                        "No steps defined for axis %s" %
-                        self._axis_name,
-                        raise_exception=False)
             except:
-                bliss.common.log.exception(
+                E_exception(
                     "Cannot set one of the attributes write value")
             finally:
                 self.once = True
@@ -198,7 +179,7 @@ class BlissAxis(PyTango.Device_4Impl):
     def write_Steps_per_unit(self, attr):
         self.debug_stream("In write_Steps_per_unit()")
         # data = attr.get_write_value()
-        bliss.common.log.debug("Not implemented")
+        E_debug("Not implemented")
 
     def read_Steps(self, attr):
         self.debug_stream("In read_Steps()")
@@ -246,7 +227,7 @@ class BlissAxis(PyTango.Device_4Impl):
             self.debug_stream("In read_Acceleration(%f)" % float(_acc))
             attr.set_value(_acc)
         except:
-            # bliss.common.log.exception("Unable to read acceleration for this axis")
+            # E_exception("Unable to read acceleration for this axis")
             pass
 
     def write_Acceleration(self, attr):
@@ -255,7 +236,7 @@ class BlissAxis(PyTango.Device_4Impl):
             self.debug_stream("In write_Acceleration(%f)" % data)
             self.axis.acceleration(data)
         except:
-            bliss.common.log.exception("Unable to write acceleration for this axis")
+            E_exception("Unable to write acceleration for this axis")
 
     def read_AccTime(self, attr):
         self.debug_stream("In read_AccTime()")
@@ -493,10 +474,10 @@ class BlissAxisClass(PyTango.DeviceClass):
           PyTango.SCALAR,
           PyTango.READ],
          {
-             'label': "Steps per mm",
-             'unit': "steps/mm",
+             'label': "Steps per user unit",
+             'unit': "steps/uu",
              'format': "%7.1f",
-             'Display level': PyTango.DispLevel.EXPERT,
+             # 'Display level': PyTango.DispLevel.EXPERT,
          }],
         'Steps':
         [[PyTango.DevLong,
@@ -514,9 +495,9 @@ class BlissAxisClass(PyTango.DeviceClass):
           PyTango.READ_WRITE],
          {
              'label': "Position",
-             'unit': "mm",
+             'unit': "uu",
              'format': "%10.3f",
-             'description': "The desired motor position.",
+             'description': "The desired motor position in user units.",
          }],
         'Measured_Position':
         [[PyTango.DevDouble,
@@ -524,9 +505,9 @@ class BlissAxisClass(PyTango.DeviceClass):
           PyTango.READ],
          {
              'label': "Measured position",
-             'unit': "mm",
+             'unit': "uu",
              'format': "%10.3f",
-             'description': "The measured motor position.",
+             'description': "The measured motor position in user units.",
          }],
         'Acceleration':
         [[PyTango.DevDouble,
@@ -549,7 +530,6 @@ class BlissAxisClass(PyTango.DeviceClass):
              'format': "%10.6f",
              'description': "The acceleration time of the motor.",
              'Display level': PyTango.DispLevel.EXPERT,
-             'Memorized': "true"
          }],
         'Velocity':
         [[PyTango.DevDouble,
@@ -561,7 +541,6 @@ class BlissAxisClass(PyTango.DeviceClass):
              'format': "%10.3f",
              'description': "The constant velocity of the motor.",
              #                'Display level': PyTango.DispLevel.EXPERT,
-             'Memorized': "true"
          }],
         'Backlash':
         [[PyTango.DevDouble,
@@ -569,11 +548,10 @@ class BlissAxisClass(PyTango.DeviceClass):
           PyTango.READ_WRITE],
          {
              'label': "Backlash",
-             'unit': "mm",
+             'unit': "uu",
              'format': "%5.3f",
              'description': "Backlash to be applied to each motor movement",
              'Display level': PyTango.DispLevel.EXPERT,
-             'Memorized': "true"
          }],
         'Home_position':
         [[PyTango.DevDouble,
@@ -581,11 +559,10 @@ class BlissAxisClass(PyTango.DeviceClass):
           PyTango.READ_WRITE],
          {
              'label': "Home position",
-             'unit': "mm",
+             'unit': "uu",
              'format': "%7.3f",
              'description': "Position of the home switch",
              'Display level': PyTango.DispLevel.EXPERT,
-             'Memorized': "true"
          }],
         'HardLimitLow':
         [[PyTango.DevBoolean,
@@ -607,7 +584,7 @@ class BlissAxisClass(PyTango.DeviceClass):
           PyTango.READ_WRITE],
          {
              'label': "Preset Position",
-             'unit': "mm",
+             'unit': "uu",
              'format': "%10.3f",
              'description': "preset the position in the step counter",
              'Display level': PyTango.DispLevel.EXPERT,
@@ -623,7 +600,6 @@ class BlissAxisClass(PyTango.DeviceClass):
              'description': "number of unit/s for the first step and for \
              the move reference",
              'Display level': PyTango.DispLevel.EXPERT,
-             'Memorized': "true"
          }],
         'Home_side':
         [[PyTango.DevBoolean,
@@ -638,7 +614,7 @@ class BlissAxisClass(PyTango.DeviceClass):
           PyTango.SCALAR,
           PyTango.READ_WRITE],
          {
-             'unit': "mm",
+             'unit': "uu",
              'format': "%10.3f",
              'description': "Size of the relative step performed by the \
              StepUp and StepDown commands.\nThe StepSize\
@@ -686,7 +662,7 @@ def delete_bliss_axes():
     bliss_axis_device_names = get_devices_from_server().get('BlissAxis')
 
     for _axis_device_name in bliss_axis_device_names:
-        bliss.common.log.info(
+        E_info(
             "Deleting existing BlissAxisManager axis: %s" %
             _axis_device_name)
         db.delete_device(_axis_device_name)
@@ -698,14 +674,14 @@ def delete_unused_bliss_axes():
     """
     # get BlissAxis (only from current instance).
     bliss_axis_device_names = get_devices_from_server().get('BlissAxis')
-    bliss.common.log.info("Axes: %r" % bliss_axis_device_names)
+    E_info("Axes: %r" % bliss_axis_device_names)
 
 
 def main():
     try:
         delete_unused_bliss_axes()
     except:
-        bliss.common.log.error(
+        E_error(
             "Cannot delete unused bliss axes.",
             raise_exception=False)
 
@@ -732,20 +708,24 @@ def main():
             else:
                 bliss.common.log.level(10)
         else:
-            bliss.common.log.level(50)
+            # by default : show INFO
+            bliss.common.log.level(20)
             tango_log_level = 0
 
-        bliss.common.log.info("tango log level=%d" % tango_log_level)
+        E_info("tango log level=%d" % tango_log_level)
+        E_debug("BlissAxisManager.py debug message")
+        E_error("BlissAxisManager.py error message", raise_exception=False)
 
+        # Searches for bliss devices defined in tango database.
         db = py.instance().get_database()
         device_list = get_devices_from_server().get('BlissAxisManager')
         _device = device_list[0]
-        print "BlissAxisManager.py - Found device : ", _device
+        E_debug("BlissAxisManager.py - Found device : %s" % _device)
         _config_file = db.get_device_property(
             _device, "config_file")[
             "config_file"][
             0]
-        print "BlissAxisManager.py - config file: ", _config_file
+        E_info("BlissAxisManager.py - config file : %s" % _config_file)
 
         py.add_class(BlissAxisManagerClass, BlissAxisManager)
         py.add_class(BlissAxisClass, BlissAxis)
@@ -756,34 +736,38 @@ def main():
 
         # Get axis names defined in config file.
         axis_names = bliss_config.axis_names_list()
-        print "axis names:", axis_names
+        E_debug("axis names list : %s" % axis_names)
 
-        # Takes the 1st one.
+        # Takes one axis...
         axis_name = axis_names[0]
         _axis = TgGevent.get_proxy(bliss.get_axis, axis_name)
 
-        # Search for custom commands.
-        _cmd_list = _axis.get_custom_methods_list()
-        print "BlissAxisManager.py - '%s' custom commands:" % axis_name
-
         types_conv_tab = {
-            None: PyTango.DevVoid, str: PyTango.DevString, int: PyTango.
-            DevLong, float: PyTango.DevDouble}
+            None: PyTango.DevVoid,
+            str: PyTango.DevString,
+            int: PyTango.DevLong,
+            float: PyTango.DevDouble}
 
-        # Adds custom methods:
+        # Search and adds custom commands.
+        _cmd_list = _axis.custom_methods_list()
+        E_debug("BlissAxisManager.py - '%s' custom commands:" % axis_name)
         for (fname, (t1, t2)) in _cmd_list:
-            print "   ", fname
-            setattr(BlissAxis, fname, types.MethodType(
-                getattr(_axis, fname), BlissAxis))
+            # adding a method should be like that but does not work :(
+            # setattr(BlissAxis, fname, types.MethodType(getattr(_axis, fname), None, BlissAxis) )
+
+            # ugly verison by CG... MG has not benn involved in such crappy code (but it works:))
+            setattr(BlissAxis, fname, getattr(_axis, fname))
+
             tin = types_conv_tab[t1]
             tout = types_conv_tab[t2]
             BlissAxisClass.cmd_list.update({fname: [[tin, ""], [tout, ""]]})
+            E_debug("   %s (in: %s, %s) (out: %s, %s)" % (fname, t1, tin, t2, tout))
 
         U.server_init()
 
     except PyTango.DevFailed:
         print traceback.format_exc()
-        bliss.common.log.exception(
+        E_exception(
             "Error in server initialization",
             raise_exception=False)
         sys.exit(0)
@@ -801,8 +785,7 @@ def main():
                                         axis_name))
 
                 try:
-                    print "BlissAxisManager.py - Creating %s" % device_name
-                    bliss.common.log.info("Creating %s" % device_name)
+                    E_debug("BlissAxisManager.py - Creating %s" % device_name)
                     U.create_device('BlissAxis', device_name)
                 except PyTango.DevFailed:
                     # print traceback.format_exc()
@@ -810,12 +793,11 @@ def main():
         else:
             # Do not raise exception to be able to use
             # Jive device creation wizard.
-            print "-----------"
-            bliss.common.log.error("No bliss supervisor device",
+            E_error("No bliss supervisor device",
                               raise_exception=False)
     except PyTango.DevFailed:
         print traceback.format_exc()
-        bliss.common.log.exception(
+        E_exception(
             "Error in devices initialization",
             raise_exception=False)
         sys.exit(0)

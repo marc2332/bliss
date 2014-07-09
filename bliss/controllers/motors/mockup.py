@@ -65,6 +65,7 @@ class Mockup(Controller):
         add_axis_method(axis, self.custom_get_twice, types_info=(int, int))
         add_axis_method(axis, self.custom_get_chapi, types_info=(str, str))
         add_axis_method(axis, self.custom_send_command, types_info=(str, None))
+        add_axis_method(axis, self.custom_command_no_types)
 
     """
     Actions to perform at controller closing.
@@ -81,7 +82,7 @@ class Mockup(Controller):
         axis = motion.axis
         t0 = t0 or time.time()
         pos = self.read_position(axis)
-        v = self.read_velocity(axis) * axis.steps_per_unit()
+        v = self.read_velocity(axis) * abs(axis.steps_per_unit())
         self._axis_moves[axis] = {
             "start_pos": pos,
             "delta": motion.delta,
@@ -104,7 +105,7 @@ class Mockup(Controller):
             if self._axis_moves[axis]["end_t"]:
                 # motor is moving
                 t = time.time()
-                v = self.read_velocity(axis) * axis.steps_per_unit()
+                v = self.read_velocity(axis) * abs(axis.steps_per_unit())
                 d = math.copysign(1, self._axis_moves[axis]["delta"])
                 dt = t - self._axis_moves[axis]["t0"]
                 pos = self._axis_moves[axis]["start_pos"] + d * dt * v
@@ -123,7 +124,7 @@ class Mockup(Controller):
         in motor units.
         """
         _user_velocity = axis.settings.get('velocity')
-        _mot_velocity = _user_velocity * axis.steps_per_unit()
+        _mot_velocity = _user_velocity * abs(axis.steps_per_unit())
         return float(_mot_velocity)
 
     def set_velocity(self, axis, new_velocity):
@@ -131,7 +132,7 @@ class Mockup(Controller):
         <new_velocity> is in motor units
         Returns velocity in motor units.
         """
-        _user_velocity = new_velocity / axis.steps_per_unit()
+        _user_velocity = new_velocity / abs(axis.steps_per_unit())
         axis.settings.set('velocity', _user_velocity)
 
         return new_velocity
@@ -219,3 +220,6 @@ class Mockup(Controller):
     # STRING VOID
     def custom_send_command(self, axis, value):
         print "command=", value
+
+    def custom_command_no_types(self, axis):
+        print "print with no types"

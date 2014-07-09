@@ -40,7 +40,9 @@ def deal_with_job(req, args, kwargs):
     def run(req, fn, args, kwargs):
         try:
             result = fn(*args, **kwargs)
-        except:
+        except TypeError:
+            result = fn
+        except:  
             exception, error_string, tb = sys.exc_info()
             result = CallException(exception, error_string, tb)
         req.set_result(result)

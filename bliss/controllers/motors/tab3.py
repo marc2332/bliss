@@ -10,6 +10,58 @@ d1: distance between 2 back legs
 d2: distance between front leg and middle point between back legs
 d3: (depends on geometry) distance between front leg and reference height point
 geometry: number 0..7
+
+
+Example configuration (from ID30):
+==================================
+<config>
+  <controller class="IcePAP">
+    <host value="iceid305" />
+    <libdebug value="1" />
+    <axis name="tz1">
+      <address value="34" />
+      <steps_per_unit value="52500" />
+      <backlash value="0.1" />
+      <velocity value="6000" />
+    </axis>
+    <axis name="tz2">
+      <address value="35" />
+      <steps_per_unit value="52500" />
+      <backlash value="0.1" />
+      <velocity value="6000" />
+    </axis>
+    <axis name="tz3">
+      <address value="36" />
+      <steps_per_unit value="52500" />
+      <backlash value="0.1" />
+      <velocity value="6000" />
+    </axis>
+    <axis name="tyf">
+      <address value="37" />
+      <steps_per_unit value="100000" />
+      <backlash value="0.1" />
+      <velocity value="8000" />
+    </axis>
+    <axis name="tyb">
+      <address value="38" />
+      <steps_per_unit value="100000" />
+      <backlash value="0.1" />
+      <velocity value="8000" />
+    </axis>
+  </controller>
+  <controller class="tab3">
+    <axis name="tz2" tags="real back1" />
+    <axis name="tz3" tags="real back2" />
+    <axis name="tz1" tags="real front" />
+    <axis name="thgt" tags="z"/>
+    <axis name="txtilt" tags="xtilt"/>
+    <axis name="tytilt" tags="ytilt"/>
+    <geometry value="5" />
+    <d1 value="1140" />
+    <d2 value="1714" />
+    <d3 value="675" />
+  </controller>
+</config>
 """
 from bliss.controllers.motor import CalcController
 import math

@@ -252,3 +252,11 @@ class CalcController(Controller):
 
     def state(self, axis, new_state=None):
         return self._reals_group.state()
+
+    def read_velocity(self, axis):
+        # no better idea...
+        return 0
+
+    def set_velocity(self, axis, new_velocity):
+        return new_velocity
+

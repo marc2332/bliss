@@ -782,10 +782,14 @@ def main():
                 device_name = '/'.join((blname,
                                         '%s_%s' % (server_name, device_number),
                                         axis_name))
-                
+                try:
+                    db.get_device_alias(axis_name)
+                    alias = None
+                except PyTango.DevFailed:
+                    alias = axis_name
                 try:
                     E_debug("BlissAxisManager.py - Creating %s" % device_name)
-                    U.create_device('BlissAxis', device_name)
+                    U.create_device('BlissAxis', device_name, alias=alias)
                 except PyTango.DevFailed:
                     # print traceback.format_exc()
                     pass

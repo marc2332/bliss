@@ -719,49 +719,58 @@ def main():
         # Searches for bliss devices defined in tango database.
         db = py.instance().get_database()
         device_list = get_devices_from_server().get('BlissAxisManager')
-        _device = device_list[0]
-        E_debug("BlissAxisManager.py - Found device : %s" % _device)
-        _config_file = db.get_device_property(
-            _device, "config_file")[
-            "config_file"][
-            0]
-        E_info("BlissAxisManager.py - config file : %s" % _config_file)
+
+        if device_list is not None:
+            _device = device_list[0]
+            E_debug("BlissAxisManager.py - Found device : %s" % _device)
+            _config_file = db.get_device_property(
+                _device, "config_file")[
+                "config_file"][
+                0]
+            E_info("BlissAxisManager.py - config file : %s" % _config_file)
+            first_run = False
+        else:
+            print "[FIRST RUN] New server never started ? -> no database entry..."
+            print "[FIRST RUN] NO CUSTOM COMANDS :( "
+            print "[FIRST RUN] Restart DS to havec CUSTOM COMMANDS"
+            first_run = True
 
         py.add_class(BlissAxisManagerClass, BlissAxisManager)
         py.add_class(BlissAxisClass, BlissAxis)
 
         U = PyTango.Util.instance()
 
-        TgGevent.execute(bliss.load_cfg, _config_file)
+        if not first_run:
+            TgGevent.execute(bliss.load_cfg, _config_file)
 
-        # Get axis names defined in config file.
-        axis_names = bliss_config.axis_names_list()
-        E_debug("axis names list : %s" % axis_names)
+            # Get axis names defined in config file.
+            axis_names = bliss_config.axis_names_list()
+            E_debug("axis names list : %s" % axis_names)
 
-        # Takes one axis...
-        axis_name = axis_names[0]
-        _axis = TgGevent.get_proxy(bliss.get_axis, axis_name)
+            # Takes one axis...
+            axis_name = axis_names[0]
+            _axis = TgGevent.get_proxy(bliss.get_axis, axis_name)
 
-        types_conv_tab = {
-            None: PyTango.DevVoid,
-            str: PyTango.DevString,
-            int: PyTango.DevLong,
-            float: PyTango.DevDouble}
+            types_conv_tab = {
+                None: PyTango.DevVoid,
+                str: PyTango.DevString,
+                int: PyTango.DevLong,
+                float: PyTango.DevDouble}
 
-        # Search and adds custom commands.
-        _cmd_list = _axis.custom_methods_list()
-        E_debug("BlissAxisManager.py - '%s' custom commands:" % axis_name)
-        for (fname, (t1, t2)) in _cmd_list:
-            # adding a method should be like that but does not work :(
-            # setattr(BlissAxis, fname, types.MethodType(getattr(_axis, fname), None, BlissAxis) )
+            # Search and adds custom commands.
+            _cmd_list = _axis.custom_methods_list()
+            E_debug("BlissAxisManager.py - '%s' custom commands:" % axis_name)
+            for (fname, (t1, t2)) in _cmd_list:
+                # adding a method should be like that but does not work :(
+                # setattr(BlissAxis, fname, types.MethodType(getattr(_axis, fname), None, BlissAxis) )
 
-            # ugly verison by CG... MG has not benn involved in such crappy code (but it works:))
-            setattr(BlissAxis, fname, getattr(_axis, fname))
+                # ugly verison by CG... MG has not benn involved in such crappy code (but it works:))
+                setattr(BlissAxis, fname, getattr(_axis, fname))
 
-            tin = types_conv_tab[t1]
-            tout = types_conv_tab[t2]
-            BlissAxisClass.cmd_list.update({fname: [[tin, ""], [tout, ""]]})
-            E_debug("   %s (in: %s, %s) (out: %s, %s)" % (fname, t1, tin, t2, tout))
+                tin = types_conv_tab[t1]
+                tout = types_conv_tab[t2]
+                BlissAxisClass.cmd_list.update({fname: [[tin, ""], [tout, ""]]})
+                E_debug("   %s (in: %s, %s) (out: %s, %s)" % (fname, t1, tin, t2, tout))
 
         U.server_init()
 

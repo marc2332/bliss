@@ -113,17 +113,17 @@ class TestGroup(unittest.TestCase):
             self.assertEqual(axis.position(), axis_pos)
 
     def test_move_done_event(self):
-        res={"ok":False}
+        res = {"ok": False}
+
         def callback(move_done, res=res):
-          if move_done:
-            res["ok"]=True
-        grp=bliss.get_group('group1')
+            if move_done:
+                res["ok"] = True
+        grp = bliss.get_group('group1')
         roby = bliss.get_axis("roby")
         robz = bliss.get_axis("robz")
         event.connect(grp, "move_done", callback)
         grp.rmove({robz: 2, roby: 3})
         self.assertEquals(res["ok"], True)
-
 
 
 if __name__ == '__main__':

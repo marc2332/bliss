@@ -30,7 +30,7 @@ class Mockup(Controller):
         self._axis_moves = {}
 
         # Access to the config.
-        self.config.get("host")
+        # self.config.get("host")
 
         # add a setting name 'init_count' of type 'int'
         self.axis_settings.add('init_count', int)

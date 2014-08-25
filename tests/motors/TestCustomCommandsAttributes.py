@@ -69,8 +69,8 @@ class TestMockupController(unittest.TestCase):
     def test_get_custom_methods_list(self):
         robz = bliss.get_axis("robz")
         print "\ncustom functions :"
-        for (fff, fname) in robz.custom_methods_list:
-            print "   ", fname
+        for (fname, types) in robz.custom_methods_list:
+            print fname, types
 
     def test_custom_park(self):
         robz = bliss.get_axis("robz")
@@ -78,7 +78,7 @@ class TestMockupController(unittest.TestCase):
 
     def test_custom_get_forty_two(self):
         robz = bliss.get_axis("robz")
-        robz.custom_get_forty_two()
+        print robz.custom_get_forty_two()
 
     def test_custom_get_twice(self):
         robz = bliss.get_axis("robz")
@@ -92,7 +92,7 @@ class TestMockupController(unittest.TestCase):
 
     def test_custom_send_command(self):
         robz = bliss.get_axis("robz")
-        robz.custom_send_command("SALUT")
+        robz.custom_send_command("SALUT sent")
 
 
 if __name__ == '__main__':

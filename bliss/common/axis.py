@@ -1,11 +1,25 @@
 
+import bliss
 from bliss.common.task_utils import *
 from bliss.config.motors.static import StaticConfig
 from bliss.controllers.motor_settings import AxisSettings
+from bliss.common import event
 import time
 
 READY, MOVING, FAULT, UNKNOWN, OFF = (
     "READY", "MOVING", "FAULT", "UNKNOWN", "OFF")
+
+
+def axis_err(msg):
+    bliss.common.log.error("[AXIS] " + msg)
+
+
+def axis_info(msg):
+    bliss.common.log.info("[AXIS] " + msg)
+
+
+def axis_debug(msg):
+    bliss.common.log.debug("[AXIS] " + msg)
 
 
 class Motion(object):
@@ -147,7 +161,8 @@ class Axis(object):
                     steps_per_unit())
                 return self.position()
         else:
-            return (self.__controller.read_position(self, measured) / self.steps_per_unit()) - self.offset
+            return (self.__controller.read_position(self, measured) /
+                    self.steps_per_unit()) - self.offset
 
     def state(self):
         if self.is_moving:
@@ -215,7 +230,8 @@ class Axis(object):
 
             if motion.backlash:
                 # axis has moved to target pos - backlash;
-                # now do the final motion to reach original target
+                # now do the final motion (backlash) to reach original target.
+                axis_debug("doing backlash (%g)" % motion.backlash)
                 final_pos = motion.target_pos + motion.backlash
                 backlash_motion = Motion(self, final_pos, motion.backlash)
                 self.__controller.prepare_move(backlash_motion)
@@ -224,6 +240,8 @@ class Axis(object):
 
     def prepare_move(self, user_target_pos, relative=False):
         initial_pos = self.position()
+        axis_debug("prepare_move : user_target_pos=%g intitial_pos=%g relative=%s" %
+                   (user_target_pos, initial_pos, relative))
         if relative:
             user_target_pos += initial_pos
         user_backlash = self.config.get("backlash", float, 0)
@@ -271,6 +289,7 @@ class Axis(object):
 
     def _set_move_done(self, move_task):
         self.__move_done.set()
+        event.send(self, "move_done", True)
 
     def _check_ready(self):
         initial_state = self.state()
@@ -285,6 +304,7 @@ class Axis(object):
 
         # indicates that axis is MOVING.
         self.__move_done.clear()
+        event.send(self, "move_done", False)
 
         move_task = self._do_move(motion, wait=False)
         move_task.link(self._set_move_done)

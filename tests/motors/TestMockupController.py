@@ -1,5 +1,6 @@
 import unittest
 import gevent
+import gevent.event
 import time
 import sys
 import os
@@ -13,6 +14,7 @@ sys.path.insert(
 
 import bliss
 from bliss.common.axis import Axis
+from bliss.common import event
 
 config_xml = """
 <config>
@@ -76,6 +78,33 @@ class TestMockupController(unittest.TestCase):
     def test_controller_from_axis(self):
         robz = bliss.get_axis("robz")
         self.assertEqual(robz.controller.name, "test")
+
+    def test_state_callback(self):
+        e = gevent.event.AsyncResult()
+
+        def callback(state, old={}):
+            if old.get("state") == state:
+                return
+            old["state"] = state
+            e.set(state)
+        robz = bliss.get_axis("robz")
+        event.connect(robz, "state", callback)
+        robz.rmove(10, wait=False)
+        self.assertEqual(e.get(), "MOVING")
+        e = gevent.event.AsyncResult()
+        self.assertEqual(e.get(), "READY")
+
+    def test_move_done_event(self):
+        res = {"ok": False}
+
+        def callback(move_done, res=res):
+            if move_done:
+                res["ok"] = True
+        robz = bliss.get_axis('robz')
+        event.connect(robz, "move_done", callback)
+        robz.rmove(10)
+        robz.wait_move()
+        self.assertEquals(res["ok"], True)
 
     def test_axis_move(self):
         robz = bliss.get_axis("robz")
@@ -164,7 +193,8 @@ class TestMockupController(unittest.TestCase):
     def test_axis_get_measured_position(self):
         roby = bliss.get_axis("roby")
         _meas_pos = -1.2345 / roby.steps_per_unit()
-        self.assertAlmostEqual(roby.measured_position(), _meas_pos, places=9, msg=None)
+        self.assertAlmostEqual(
+            roby.measured_position(), _meas_pos, places=9, msg=None)
 
     def test_axis_config_velocity(self):
         roby = bliss.get_axis("roby")

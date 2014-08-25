@@ -3,7 +3,7 @@ import itertools
 from bliss.common.task_utils import *
 from bliss.config.motors.static import StaticConfig
 from bliss.common.axis import Axis, AxisRef, READY, MOVING, FAULT, UNKNOWN
-
+from bliss.common import event
 
 def grouped(iterable, n):
     """s -> (s0,s1,s2,...sn-1), (sn,sn+1,sn+2,...s2n-1),
@@ -92,14 +92,18 @@ class _Group(object):
 
     @task
     def _handle_move(self, motions):
+        event.send(self, "move_done", False)
         move_tasks = []
-        with error_cleanup(self.stop):
-            for motion in motions:
-                move_task = gevent.spawn(motion.axis._handle_move, motion)
-                move_task.link(motion.axis._set_move_done)
-                move_tasks.append(move_task)
-            for move_task in gevent.iwait(move_tasks):
-                move_task.get()
+        try:
+            with error_cleanup(self.stop):
+                for motion in motions:
+                    move_task = gevent.spawn(motion.axis._handle_move, motion)
+                    move_task.link(motion.axis._set_move_done)
+                    move_tasks.append(move_task)
+                for move_task in gevent.iwait(move_tasks):
+                    move_task.get()
+        finally:
+            event.send(self, "move_done", True)
 
     def rmove(self, *args, **kwargs):
         kwargs["relative"] = True

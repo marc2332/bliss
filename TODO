@@ -23,9 +23,3 @@ TODO list
 
 * continue documentation
 
-DONE
-----
-* Tango
-    => remove FirstVelocity
-    => remove StepSize / StepUp / StepDown
-

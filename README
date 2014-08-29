@@ -1,16 +1,8 @@
 --------======== E-Motion  ==========-----------
 
-make install
-   to create links to use bliss in a standard bliss computer.
+"Esrf Motion" Is a generic motor control framework.
 
-make doc 
-   to build the documentation
+Authors : M.Guijarro, C.Guilloud and M.Perez (BLISS 2014)
 
-make clean
-   to remove links and temporary files
-
-
-Authors : M.Guijarro C.Guilloud M.Perez (BLISS 2014)
-
-Thanks to all BLISS group.
+Thanks to all the BLISS group.
 

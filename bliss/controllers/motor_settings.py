@@ -5,23 +5,30 @@ import atexit
 
 SETTINGS_WRITER_THREAD = None
 SETTINGS_WRITER_QUEUE = _threading.Queue()
+SETTINGS_WRITER_WATCHER = _threading.Event()
+SETTINGS_WRITER_WATCHER.set()
+
 
 def wait_settings_writing():
-    SETTINGS_WRITER_QUEUE.put((None,None,None))
+    SETTINGS_WRITER_QUEUE.put((None, None, None))
     SETTINGS_WRITER_WATCHER.wait()
 
 atexit.register(wait_settings_writing)
 
+
 def write_settings():
     global SETTINGS_WRITER_WATCHER
-    SETTINGS_WRITER_WATCHER = _threading.Event()
-    while True:
-        axis, setting_name, value = SETTINGS_WRITER_QUEUE.get()
-        if axis is None:
-          break
-        event.send(
-            axis, "write_setting", axis.config, setting_name, value, True)
-    SETTINGS_WRITER_WATCHER.set() 
+    SETTINGS_WRITER_WATCHER.clear()
+    try:
+        while True:
+            axis, setting_name, value = SETTINGS_WRITER_QUEUE.get()
+            if axis is None:
+                break
+            event.send(
+                axis, "write_setting", axis.config, setting_name, value, True)
+    finally:
+        SETTINGS_WRITER_WATCHER.set()
+
 
 class ControllerAxisSettings:
 

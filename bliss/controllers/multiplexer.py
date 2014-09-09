@@ -1,4 +1,4 @@
-from serial import Serial
+from serial import serial_for_url
 import ConfigDict
 import os
 import struct
@@ -9,7 +9,7 @@ class OpiomComm:
     FSIZE = 256
 
     def __init__(self,serial=0,program='',**keys) :
-        self.__ser = Serial(serial)
+        self.__ser = serial_for_url(serial)
         self.__ser.flushInput()
         self.__ser.timeout = 1
         self.__program = program

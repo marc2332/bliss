@@ -240,6 +240,8 @@ class Axis(object):
 
     def prepare_move(self, user_target_pos, relative=False):
         initial_pos = self.position()
+        if abs(user_target_pos - initial_pos) < 1E-6:
+            return
         axis_debug("prepare_move : user_target_pos=%g intitial_pos=%g relative=%s" %
                    (user_target_pos, initial_pos, relative))
         if relative:
@@ -316,6 +318,8 @@ class Axis(object):
 
     @task
     def _do_move(self, motion, wait=True):
+        if motion is None:
+            return
         with error_cleanup(self.stop):
             self.__controller.start_one(motion)
 

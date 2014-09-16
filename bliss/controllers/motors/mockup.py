@@ -9,6 +9,27 @@ mockup.py : a mockup controller for bliss.
 To be used as skeleton to write bliss plugin controller.
 """
 
+"""
+config :
+ 'velocity' in unit/s
+ 'acctime' in s
+ 'steps_per_unit' in unit^-1  (default 1)
+ 'backlash' in unit
+"""
+
+config_xml = """
+<config>
+  <controller class="mockup">
+    <axis name="robx" class="MockupAxis">
+      <velocity  value="1"/>
+      <acctime value="0.333"/>
+      <steps_per_unit value="10"/>
+      <backlash value="2"/>
+    </axis>
+  </controller>
+</config>
+"""
+
 
 def mockup_err(msg):
     log.error("[MOCKUP] " + msg)
@@ -30,13 +51,13 @@ class Mockup(Controller):
         self._axis_moves = {}
 
         # Access to the config.
-        self.config.get("host")
+        try:
+            self.config.get("host")
+        except:
+            mockup_debug("no 'host' defined in config for %s" % name)
 
-        # add a setting name 'init_count' of type 'int'
+        # Adds a Mockup specific setting named 'init_count' of type 'int'
         self.axis_settings.add('init_count', int)
-
-        # ????
-        # Settings of xml config like "velocity" are automatically added.
 
     """
     Controller initialization actions.
@@ -143,7 +164,10 @@ class Mockup(Controller):
     """
 
     def read_acctime(self, axis):
-        return float(axis.settings.get('acctime'))
+        _acctime =  float(axis.settings.get('acctime'))
+
+        mockup_debug("readd acctime : %g" % _acctime)
+        return _acctime
 
     def set_acctime(self, axis, new_acctime):
         axis.settings.set('acctime', new_acctime)

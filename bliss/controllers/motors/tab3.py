@@ -66,6 +66,7 @@ Example configuration (from ID30):
 from bliss.controllers.motor import CalcController
 import math
 
+
 class tab3(CalcController):
 
     def __init__(self, *args, **kwargs):
@@ -78,7 +79,8 @@ class tab3(CalcController):
             self.d3 = self.config.get("d3", float)
 
     def calc_from_real(self, positions_dict):
-        xtilt = math.atan((positions_dict["back2"] - positions_dict["back1"]) / self.d1)
+        xtilt = math.atan(
+            (positions_dict["back2"] - positions_dict["back1"]) / self.d1)
         if self.geometry in (1, 2):
             back = positions_dict["back1"]
         else:
@@ -87,8 +89,8 @@ class tab3(CalcController):
         if self.geometry in (2, 6):
             xtilt, ytilt = map(math.degrees, (xtilt, ytilt))
         else:
-            xtilt = 1000*xtilt
-            ytilt = 1000*ytilt
+            xtilt = 1000 * xtilt
+            ytilt = 1000 * ytilt
         back = (positions_dict["back1"] + positions_dict["back2"]) / 2
         front = positions_dict["front"]
         if self.geometry == 1:
@@ -100,21 +102,21 @@ class tab3(CalcController):
         else:
             back = (positions_dict["back1"] + positions_dict["back2"]) / 2
         if self.geometry == 5:
-            z = front + ((back-front) * self.d3 / self.d2)
+            z = front + ((back - front) * self.d3 / self.d2)
         else:
             z = (front + back) / 2
 
-        return { "z": z,
-                 "xtilt": xtilt,
-                 "ytilt": ytilt }
+        return {"z": z,
+                "xtilt": xtilt,
+                "ytilt": ytilt}
 
     def calc_to_real(self, axis_tag, positions_dict):
         if self.geometry in (2, 6):
             xtan = math.tan(math.radians(positions_dict["xtilt"]))
             ytan = math.tan(math.radians(positions_dict["ytilt"]))
         else:
-            xtan = math.tan(positions_dict["xtilt"]/1000)
-            ytan = math.tan(positions_dict["ytilt"]/1000)
+            xtan = math.tan(positions_dict["xtilt"] / 1000)
+            ytan = math.tan(positions_dict["ytilt"] / 1000)
         d1 = self.d1 / 2
         if self.geometry in (3, 6):
             d3 = self.d2
@@ -125,14 +127,14 @@ class tab3(CalcController):
         else:
             d3 = self.d2 / 2
             dback = d3
-        
+
         if self.geometry == 4:
             front = positions_dict["z"] + (d3 * ytan)
         elif self.geometry == 1:
             front = positions_dict["z"] + (d3 * ytan) - (d1 * xtan)
         else:
             front = positions_dict["z"] - (d3 * ytan)
-        
+
         if self.geometry in (1, 4):
             sign = -1
         else:
@@ -142,7 +144,7 @@ class tab3(CalcController):
         else:
             back1 = positions_dict["z"] - (d1 * xtan) + (sign * dback * ytan)
         back2 = positions_dict["z"] + (d1 * xtan) + (sign * dback * ytan)
-        
-        return { "back1": back1, 
-                 "back2": back2, 
-                 "front": front }
+
+        return {"back1": back1,
+                "back2": back2,
+                "front": front}

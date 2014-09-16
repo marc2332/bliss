@@ -21,6 +21,7 @@ doc:
 	cd doc/motors
 	make html
 
+
 # Removes links
 clean:
 	rm -rf *.pyc *~

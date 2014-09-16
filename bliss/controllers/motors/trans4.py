@@ -83,13 +83,13 @@ Example configuration (from ID22):
 from bliss.controllers.motor import CalcController
 import math
 
+
 class trans4(CalcController):
 
     def __init__(self, *args, **kwargs):
         CalcController.__init__(self, *args, **kwargs)
 
         self.d1 = self.config.get("d1", float)
-
 
     def calc_from_real(self, positions_dict):
         d1 = self.d1
@@ -99,14 +99,14 @@ class trans4(CalcController):
         m4 = positions_dict["m4"]
 
         ty = ((m3 - m4) - (m1 - m2)) / 4
-        tz =  (m1 + m2 + m3 + m4) / 2
+        tz = (m1 + m2 + m3 + m4) / 2
         thetay = ((m3 + m4) - (m1 + m2)) / (2 * d1)
         thetaz = ((m1 - m2) + (m3 - m4)) / (4 * d1)
 
-        _virt_dict =  { "thetay" : thetay,
-                        "thetaz" : thetaz,
-                        "ty" : ty,
-                        "tz" : tz }
+        _virt_dict = {"thetay": thetay,
+                      "thetaz": thetaz,
+                      "ty": ty,
+                      "tz": tz}
 
         print _virt_dict
 
@@ -124,17 +124,15 @@ class trans4(CalcController):
         thetay = positions_dict["thetay"]
         thetaz = positions_dict["thetaz"]
 
+        m1 = 0.5 * tz - ty + d1 * thetaz - 0.5 * d1 * thetay
+        m2 = 0.5 * tz + ty - d1 * thetaz - 0.5 * d1 * thetay
+        m3 = 0.5 * tz + ty + d1 * thetaz + 0.5 * d1 * thetay
+        m4 = 0.5 * tz - ty - d1 * thetaz + 0.5 * d1 * thetay
 
-
-        m1 = 0.5 * tz  -  ty  +  d1 * thetaz  -  0.5 * d1 * thetay
-        m2 = 0.5 * tz  +  ty  -  d1 * thetaz  -  0.5 * d1 * thetay
-        m3 = 0.5 * tz  +  ty  +  d1 * thetaz  +  0.5 * d1 * thetay
-        m4 = 0.5 * tz  -  ty  -  d1 * thetaz  +  0.5 * d1 * thetay
-
-        _real_dict = { "m1": m1,
-                       "m2": m2,
-                       "m3": m3,
-                       "m4": m4 }
+        _real_dict = {"m1": m1,
+                      "m2": m2,
+                      "m3": m3,
+                      "m4": m4}
 
         print _real_dict
 

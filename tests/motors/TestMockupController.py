@@ -46,6 +46,10 @@ class MockupAxis(Axis):
     def __init__(self, *args, **kwargs):
         Axis.__init__(self, *args, **kwargs)
 
+    def prepare_move(self, *args, **kwargs):
+        self.backlash_move = 0
+        return Axis.prepare_move(self, *args, **kwargs)
+
     def _handle_move(self, motion):
         self.target_pos = motion.target_pos
         self.backlash_move = motion.target_pos / \
@@ -160,6 +164,16 @@ class TestMockupController(unittest.TestCase):
         self.assertEqual(roby.backlash_move, 0)
         move_greenlet.join()
         self.assertEqual(roby.position(), 180)
+
+    def test_backlash3(self):
+        roby = bliss.get_axis("roby")
+        self.assertEqual(roby.state(), "READY")
+        roby.position(1)
+        self.assertEqual(roby.position(), 1)
+        roby.move(1, wait=False)
+        time.sleep(0)
+        self.assertEqual(roby.backlash_move, 0)
+        self.assertEqual(roby.position(), 1)
 
     def test_axis_steps_per_unit(self):
         roby = bliss.get_axis("roby")

@@ -12,22 +12,24 @@ from bliss.controllers.motor import add_axis_method
 import math
 
 # GLOBAL VARIABLES
-HC = 1.2398418743309972e-06 # eV * m
-ALAT_SI = 5.431065 # Ang at 25C
-ALAT_GE = 5.6579060 # Ang at 25C
+HC = 1.2398418743309972e-06  # eV * m
+ALAT_SI = 5.431065   # Ang at 25C
+ALAT_GE = 5.6579060  # Ang at 25C
 
-# === START USER SETTINGS ===
-CRYST_MAT = 'Si'    # or 'Ge' : analyser crystal material
-CRYST_HKL = [4,4,4] # analyser crystal reflection [h,k,l]
-CRYST_ALPHA = 0.0   # miscut angle in degrees
-CRYST_R = 1000.     # analyser bending radius in mm (=2*Rm)
-# === END USER SETTINGS ===
+# === USER SETTINGS ===
+CRYST_MAT = 'Si'     # or 'Ge' : analyser crystal material
+CRYST_HKL = [4, 4, 4]  # analyser crystal reflection [h,k,l]
+CRYST_ALPHA = 0.0    # miscut angle in degrees
+CRYST_R = 1000.      # analyser bending radius in mm (=2*Rm)
+
 
 def spectro_eh1_err(msg):
     log.error("[SPECTRO_EH1] " + msg)
 
+
 def spectro_eh1_info(msg):
     log.info("[SPECTRO_EH1] " + msg)
+
 
 def spectro_eh1_debug(msg):
     log.debug("[SPECTRO_EH1] " + msg)
@@ -36,35 +38,41 @@ def spectro_eh1_debug(msg):
 ### UTILITY FUNCTIONS ###
 def kev2wlen(energy):
     """ convert photon energy (E, keV) to wavelength ($\lambda$, \AA$^{-1}$)"""
-    return ( HC / energy ) * 1e7
+    return((HC / energy) * 1e7)
+
 
 def wlen2kev(wlen):
     """ convert photon wavelength ($\lambda$, \AA$^{-1}$) to energy (E, keV)"""
-    return ( HC / wlen ) * 1e7
+    return (HC / wlen) * 1e7
+
 
 def sqrt1over(d2m):
     if (d2m == 0):
         return 0
     else:
-        return math.sqrt( 1 / d2m )
+        return math.sqrt(1 / d2m)
+
 
 def d_cubic(a, hkl):
     """d-spacing for a cubic lattice"""
     h, k, l = hkl[0], hkl[1], hkl[2]
-    d2m = (h**2 + k**2 + l**2) / a**2
+    d2m = (h ** 2 + k ** 2 + l ** 2) / a ** 2
     return sqrt1over(d2m)
+
 
 def theta_b(ene, d):
     """Bragg angle (rad) given energy (keV) and d-spacing (\AA)"""
     if not (d == 0):
-        return math.asin( ( kev2wlen(ene) ) / ( 2 * d ) )
+        return math.asin((kev2wlen(ene)) / (2 * d))
     else:
         print("ERROR: d-spacing is 0")
         return
 
+
 def bragg_kev(theta, d):
     """energy (keV) given Bragg angle (deg) and d-spacing (\AA)"""
-    return wlen2kev( 2 * d * math.sin(math.radians(theta)) )
+    return wlen2kev(2 * d * math.sin(math.radians(theta)))
+
 
 def get_dspacing(mat, hkl):
     """get d-spacing for given crystal material and reflection (hkl)"""
@@ -76,6 +84,7 @@ def get_dspacing(mat, hkl):
         print("ERROR: available materials -> 'Si' 'Ge'")
         dspacing = 0
     return dspacing
+
 
 ### CALC FUNCTIONS ###
 # these functions could be inside the class, but I prefer to keep them
@@ -99,12 +108,12 @@ def ene2mots(energy, mat=None, hkl=None, r=None, alpha=None, pp=False):
     q0 = r * math.sin(rthetab - ralpha)
 
     atheh1 = math.degrees(rthetab)
-    axeh1  = p0
+    axeh1 = p0
     dtheh1 = 2 * math.degrees(rthetab)
-    dxeh1  = p0 + q0 * math.cos(2*rthetab)
-    dyeh1  = q0 * math.sin(2*rthetab)
+    dxeh1 = p0 + q0 * math.cos(2 * rthetab)
+    dyeh1 = q0 * math.sin(2 * rthetab)
 
-    _mot_list  = [atheh1, axeh1, dtheh1, dxeh1, dyeh1]
+    _mot_list = [atheh1, axeh1, dtheh1, dxeh1, dyeh1]
 
     if pp:
         #pretty print (=for humans)
@@ -115,7 +124,8 @@ def ene2mots(energy, mat=None, hkl=None, r=None, alpha=None, pp=False):
     else:
         return _mot_list
 
-def mots2steps (mot_list, conv_list=None, pp=True):
+
+def mots2steps(mot_list, conv_list=None, pp=True):
     """converts the motors real positions to steps using a conversion list"""
 
     if conv_list is None:
@@ -123,8 +133,9 @@ def mots2steps (mot_list, conv_list=None, pp=True):
         conv_list = [5000.0, 4000.0, 1000.0, 2000.0, 2000.0]
 
     _step_list = list()
-    for m,s in zip(mot_list, conv_list):
-        _step_list.append(m*s)
+
+    for m, s in zip(mot_list, conv_list):
+        _step_list.append(m * s)
 
     if pp:
         #pretty print (=for humans)
@@ -161,20 +172,21 @@ class spectro_eh1_test(CalcController):
     def calc_from_real(self, positions_dict):
         """calculates the energy pseudo from the real position of atheh1"""
         thetab = positions_dict["m1"]
-        if thetab == 0: thetab = 0.0001
+        if thetab == 0:
+            thetab = 0.0001
         xes_en_eh1 = bragg_kev(thetab, get_dspacing(CRYST_MAT, CRYST_HKL))
-        _virt_dict =  { "xes_en_eh1" : xes_en_eh1}
+        _virt_dict = {"xes_en_eh1": xes_en_eh1}
         return _virt_dict
 
     def calc_to_real(self, axis_tag, positions_dict):
         """returns real motors positions (as a dictionary) given virtual"""
         xes_en_eh1 = positions_dict["xes_en_eh1"]
         _mot_list = ene2mots(xes_en_eh1, pp=False)
-        _real_dict = { "m1": _mot_list[0],
-                       "m2": _mot_list[1],
-                       "m3": _mot_list[2],
-                       "m4": _mot_list[3],
-                       "m5": _mot_list[4] }
+        _real_dict = {"m1": _mot_list[0],
+                      "m2": _mot_list[1],
+                      "m3": _mot_list[2],
+                      "m4": _mot_list[3],
+                      "m5": _mot_list[4]}
 
         return _real_dict
 

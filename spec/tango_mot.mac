@@ -84,11 +84,9 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
         motor_par(motnum, "dev_name", _ds_name, "add")
 
         # STEPS PER UNIT
-        spec_par("modify_step_size", 1)
-        _steps_per_unit = tango_mot_get_attr(motnum, "steps_per_unit")
-        tango_mot_dbg(sprintf("Setting step_size to %g\n", _steps_per_unit))
-        motor_par(motnum, "step_size", _steps_per_unit)
-        spec_par("modify_step_size", 0)
+        # The step_size SPEC value is only used to define the
+        # granularity of the movement. We do not use it to convert
+        # movements.
 
         # VELOCITY / ACCELERATION
         local _velo _velo_steps _use_spec_config
@@ -298,7 +296,7 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
 
             _step_size = motor_par(motnum, "step_size")
             _steps = _pos * _step_size
-            tango_mot_dbg(sprintf( "pos=%s  ss=%s steps=%s", _pos , _step_size, _steps))
+            tango_mot_dbg(sprintf( "cmd=position mot=%s pos=%s  ss=%s steps=%s", _mot_mne, _pos , _step_size, _steps))
 
             return (_pos)
         }

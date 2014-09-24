@@ -2,6 +2,7 @@ from logging import ERROR, INFO, DEBUG, NOTSET
 from logging import getLevelName
 from traceback import extract_stack as tb_extract_stack
 import sys
+import time
 
 # this is to make flake8 happy
 NOTSET
@@ -28,6 +29,7 @@ NOTSET
 # Levels are ordered the following way:
 # DEBUG < INFO < WARN < ERROR < FATAL < OFF
 
+time0 = time.time()
 
 def _caller(up=1):
     """Return (file, line, func, text) of caller's caller"""
@@ -98,5 +100,15 @@ def info(info_msg):
 def debug(debug_msg):
     """Handle debug messages and add them calling information"""
     filename, lineno, func_name, _ = _caller()
-    msg = "%s ('%s`, line %d): %s" % (func_name, filename, lineno, debug_msg)
-    return log(DEBUG, msg)
+
+    # Reduces displayed path : starts with "bliss/".
+    path = filename.split("/")
+    while path[0] != "bliss":
+        path = path[1:]
+
+    short_filename = "%s" % "/".join(path)
+    msg = "%.3f %s() (%s, l.%d): %s" % (time.time()-time0 , func_name, short_filename, lineno, debug_msg)
+    ret =  log(DEBUG, msg)
+    sys.stdout.flush()
+    return ret
+

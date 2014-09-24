@@ -103,7 +103,7 @@ class Mockup(Controller):
         axis = motion.axis
         t0 = t0 or time.time()
         pos = self.read_position(axis)
-        v = self.read_velocity(axis) * abs(axis.steps_per_unit())
+        v = self.read_velocity(axis)
         self._axis_moves[axis] = {
             "start_pos": pos,
             "delta": motion.delta,
@@ -126,7 +126,7 @@ class Mockup(Controller):
             if self._axis_moves[axis]["end_t"]:
                 # motor is moving
                 t = time.time()
-                v = self.read_velocity(axis) * abs(axis.steps_per_unit())
+                v = self.read_velocity(axis)
                 d = math.copysign(1, self._axis_moves[axis]["delta"])
                 dt = t - self._axis_moves[axis]["t0"]
                 pos = self._axis_moves[axis]["start_pos"] + d * dt * v

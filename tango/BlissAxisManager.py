@@ -737,7 +737,7 @@ def main():
             first_run = True
 
         py.add_class(BlissAxisManagerClass, BlissAxisManager)
-        py.add_class(BlissAxisClass, BlissAxis)
+        # py.add_class(BlissAxisClass, BlissAxis)
 
         if not first_run:
             TgGevent.execute(bliss.load_cfg, _config_file)
@@ -746,31 +746,39 @@ def main():
             axis_names = bliss_config.axis_names_list()
             E_debug("axis names list : %s" % axis_names)
 
-            # Takes one axis...
-            axis_name = axis_names[0]
-            _axis = TgGevent.get_proxy(bliss.get_axis, axis_name)
+            for axis_name in axis_names:
+                _axis = TgGevent.get_proxy(bliss.get_axis, axis_name)
 
-            types_conv_tab = {
-                None: PyTango.DevVoid,
-                str: PyTango.DevString,
-                int: PyTango.DevLong,
-                float: PyTango.DevDouble}
+                new_axis_class_class = types.ClassType("BlissAxisClass_%s" % axis_name, (BlissAxisClass,), {})
+                new_axis_class = types.ClassType("BlissAxis_%s" % axis_name, (BlissAxis,), {}) 
 
-            # Search and adds custom commands.
-            _cmd_list = _axis.custom_methods_list()
-            E_debug("BlissAxisManager.py - '%s' custom commands:" % axis_name)
-            for (fname, (t1, t2)) in _cmd_list:
-                # adding a method should be like that but does not work :(
-                # setattr(BlissAxis, fname, types.MethodType(getattr(_axis, fname), None, BlissAxis) )
+                elog.debug("================ axis %s =========" % axis_name)
 
-                # ugly verison by CG...
-                # NOTE: MG has not benn involved in such crappy code (but it quite works :) )
-                setattr(BlissAxis, fname, getattr(_axis, fname))
+                types_conv_tab = {
+                    None: PyTango.DevVoid,
+                    str: PyTango.DevString,
+                    int: PyTango.DevLong,
+                    float: PyTango.DevDouble}
 
-                tin = types_conv_tab[t1]
-                tout = types_conv_tab[t2]
-                BlissAxisClass.cmd_list.update({fname: [[tin, ""], [tout, ""]]})
-                E_debug("   %s (in: %s, %s) (out: %s, %s)" % (fname, t1, tin, t2, tout))
+                # Search and adds custom commands.
+                _cmd_list = _axis.custom_methods_list()
+                elog.debug("'%s' custom commands:" % axis_name)
+
+                new_axis_class_class.cmd_list = dict(BlissAxisClass.cmd_list)
+
+                for (fname, (t1, t2)) in _cmd_list:
+                    # ugly verison by CG...
+                    # NOTE: MG has not benn involved in such crappy code (but it quite works :) )
+                    setattr(new_axis_class, fname, getattr(_axis, fname))
+
+                    tin = types_conv_tab[t1]
+                    tout = types_conv_tab[t2]
+
+                    new_axis_class_class.cmd_list.update({fname: [[tin, ""], [tout, ""]]})
+
+                    elog.debug("   %s (in: %s, %s) (out: %s, %s)" % (fname, t1, tin, t2, tout))
+
+                py.add_class(new_axis_class_class, new_axis_class)
 
 
         U.server_init()
@@ -796,6 +804,9 @@ def main():
                 try:
                     E_debug("Creating %s" % device_name)
                     U.create_device('BlissAxis', device_name)
+
+                    U.create_device("BlissAxis_%s" % axis_name, device_name)
+
                 except PyTango.DevFailed:
                     # print traceback.format_exc()
                     pass

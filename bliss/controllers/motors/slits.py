@@ -1,10 +1,20 @@
 from bliss.controllers.motor import CalcController
+from bliss.controllers.motor import add_axis_method
 
 
 class Slits(CalcController):
 
     def __init__(self, *args, **kwargs):
         CalcController.__init__(self, *args, **kwargs)
+
+
+    def initialize_axis(self, axis):
+        CalcController.initialize_axis(self, axis)
+
+        add_axis_method(axis, self.command_perso)
+
+    def command_perso(self, axis):
+        pass
 
     def calc_from_real(self, positions_dict):
         return {

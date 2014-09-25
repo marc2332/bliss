@@ -32,7 +32,7 @@ class TestSimplest(unittest.TestCase):
     def setUp(self):
         bliss.load_cfg_fromstring(config_xml)
 
-    def testPosition(self):
+    def testMoveReal(self):
         m1 = bliss.get_axis("m1")
         m0 = bliss.get_axis("m0")
         p1 = m1.position()
@@ -44,6 +44,17 @@ class TestSimplest(unittest.TestCase):
         self.assertEquals(p0, m0.position())
         self.assertEquals(m1.position(), p1)
 
+    def testMovePseudo(self):
+        m1 = bliss.get_axis("m1")
+        m0 = bliss.get_axis("m0")
+        p1 = m1.position()
+        p0 = m0.position()
+        m1.rmove(2)
+        self.assertEquals(p1 + 2, m1.position())
+        self.assertEquals(m0.position(), p0 + 1)
+        m1.rmove(-2)
+        self.assertEquals(p0, m0.position())
+        self.assertEquals(m1.position(), p1)
 
 if __name__ == '__main__':
     unittest.main()

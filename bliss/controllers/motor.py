@@ -9,15 +9,17 @@ from bliss.config.motors import get_axis
 from bliss.common import event
 
 
-def add_axis_method(axis_object, method, name=None, args=[], types_info=(None, None)):
+def add_axis_method(
+        axis_object, method, name=None, args=[], types_info=(None, None)):
     if name is None:
         name = method.im_func.func_name
 
     def call(self, *args, **kwargs):
         return method.im_func(method.im_self, *args, **kwargs)
 
-    axis_object._add_custom_method(types.MethodType(
-        functools.partial(call, *([axis_object] + args)), axis_object), name, types_info)
+    axis_object._add_custom_method(
+        types.MethodType(functools.partial(call, *([axis_object] + args)),
+                         axis_object), name, types_info)
 
 
 class Controller(object):
@@ -176,6 +178,10 @@ class CalcController(Controller):
 
         self.reals = []
         for real_axis in self._tagged['real']:
+            # check if real axis is really from another controller
+            if real_axis.controller == self:
+                raise RuntimeError(
+                    "Real axis '%s` doesn't exist" % real_axis.name)
             self.reals.append(real_axis)
             event.connect(real_axis, 'position', self._calc_from_real)
             event.connect(real_axis, 'state', self._update_state_from_real)
@@ -185,15 +191,16 @@ class CalcController(Controller):
             axis in self.axes.iteritems() if axis not in self.reals]
 
     def _calc_from_real(self, *args, **kwargs):
-        real_positions = self._reals_group.position()
+        real_positions_by_axis = self._reals_group.position()
+        real_positions = dict()
 
         for tag, axis_list in self._tagged.iteritems():
             if len(axis_list) > 1:
                 continue
             axis = axis_list[0]
+
             if axis in self.reals:
-                real_positions[tag] = real_positions[axis]
-                del real_positions[axis]
+                real_positions[tag] = real_positions_by_axis[axis]
 
         new_positions = self.calc_from_real(real_positions)
 
@@ -259,4 +266,3 @@ class CalcController(Controller):
 
     def set_velocity(self, axis, new_velocity):
         return new_velocity
-

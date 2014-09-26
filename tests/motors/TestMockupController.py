@@ -4,6 +4,7 @@ import gevent.event
 import time
 import sys
 import os
+import math
 
 sys.path.insert(
     0,
@@ -31,7 +32,7 @@ config_xml = """
     <port value="5000"/>
     <axis name="roby" class="MockupAxis">
       <backlash value="2"/>
-      <steps_per_unit value="10"/>
+      <steps_per_unit value="10000"/>
       <velocity  value="2500"/>
     </axis>
   </controller>
@@ -204,11 +205,26 @@ class TestMockupController(unittest.TestCase):
         acc = 0.250
         self.assertEqual(roby.acctime(acc), acc)
 
+    def test_axis_set_simulated_measured(self):
+        roby = bliss.get_axis("roby")
+        self.assertRaises(ValueError, roby.custom_simulate_measured, 'bidon')
+
+    def test_axis_get_noisy_measured_position(self):
+        roby = bliss.get_axis("roby")
+        roby.custom_set_measured_noise(0.0)
+        _meas_pos = roby.measured_position()
+        roby.custom_set_measured_noise(0.1)
+        self.failIf(
+            math.fabs(_meas_pos - roby.measured_position()) > 0.1)
+        roby.custom_set_measured_noise(0.0)
+
     def test_axis_get_measured_position(self):
         roby = bliss.get_axis("roby")
-        _meas_pos = -1.2345 / roby.steps_per_unit()
+        roby.custom_simulate_measured(True)
+        _meas_pos = -1.2345
         self.assertAlmostEqual(
-            roby.measured_position(), _meas_pos, places=9, msg=None)
+            roby.measured_position(), _meas_pos, places=4, msg=None)
+        roby.custom_simulate_measured(False)
 
     def test_axis_config_velocity(self):
         roby = bliss.get_axis("roby")

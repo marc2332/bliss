@@ -1,0 +1,20 @@
+<config>
+  <controller class="mockup">
+    <host value="iceid263" />
+    <libdebug value="1" />
+    <axis name="mock1">
+      <steps_per_unit value="1" />
+      <backlash value="0.1" />
+      <velocity value="100" />
+    </axis>
+  </controller>
+  <controller class="simpliest">
+    <axis name="mock1" tags="real m0" />
+    <axis name="motcalc1" tags="m1"></axis>
+  </controller>
+  <controller class="simpliest2">
+    <axis name="motcalc1" tags="real mA" />
+    <axis name="motcalccalc1" tags="mB"></axis>
+  </controller>
+</config>
+

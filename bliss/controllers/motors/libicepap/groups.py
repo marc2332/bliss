@@ -5,42 +5,22 @@
 # Standard modules
 #
 import string
-import numpy
-import sys
-#import pdb
 
 
 #-------------------------------------------------------------------------
-# Specific modules than must be in the PYTHONPATH
+# Library modules
 #
-from .deep.device import DeepDevice
-from .deep import log as deep_log 
+import globals
+import axis  as libaxis
+import types as libtypes
+
+
 
 #-------------------------------------------------------------------------
 # Constant defintions
 #
-AXISNAME_FROM_DSP  = "__use_dsp_name"
-AXISNAME_AUTO      = "__use_automatic_naming"
-
-EXCLUSIVE          = "mode=exclusive"
-READONLY           = "mode=readonly"
-DONTMOVE           = "mode=dontmove"
-
-DEBUG1             = "verb=1"
-DEBUG2             = "verb=2"
-DEBUG3             = "verb=3"
-
 ON                 = True
 OFF                = False
-
-
-#-------------------------------------------------------------------------
-# Module resources
-#
-_known_devices     = {}
-_known_commandlist = {}
-_known_groups      = {}
-_known_axis        = {}
 
 
 #-------------------------------------------------------------------------
@@ -55,66 +35,9 @@ def group_to_name(grp):
 
 def name_to_group(name):
     try:
-        return _known_groups[name]
+        return globals._known_groups[name]
     except:
         raise ValueError("invalid group name \"%s\""%name)
-
-
-def axis_to_name(axis):
-    try:
-        return axis.name()
-    except:
-        raise ValueError("invalid axis object")
-
-
-def name_to_axis(name):
-    try:
-        return _known_axis[name]
-    except:
-        raise ValueError("invalid axis name \"%s\""%name)
-
-
-def addr_to_axis(argin, addr):
-    """Returns the axis object corresponding the system:addr given
-    The IcePAP system can be specified with its hostname or an object
-    """
-
-    # The system could be specified as an object or a hostname string
-    if isinstance(argin, basestring):
-        return hostname_to_axis(argin, addr)
-    else:
-        return system_to_axis(argin, addr)
-
-
-def hostname_to_axis(hostname, addr):
-    # Look for a matching axis in the global library resource
-    try:
-        for name in _known_axis:
-            axis = name_to_axis(name)
-            if axis.system().hostname() == hostname:
-                if axis.address() == addr:
-                    return axis
-    except:
-        raise ValueError("invalid axis address")
-
-    # Abnormal end
-    raise ValueError("axis not found")
-
-
-def system_to_axis(system, addr):
-    # Look for a matching axis in the global library resource
-    try:
-        for name in _known_axis:
-            axis = name_to_axis(name)
-            if axis.system() == system:
-                if axis.address() == addr:
-                    return axis
-    except:
-        raise ValueError("invalid axis address")
-
-    # Abnormal end
-    raise ValueError("axis not found")
-
 
 #-------------------------------------------------------------------------
 # Inteface function
@@ -140,200 +63,11 @@ def group_move(grp, target_positions):
         raise ValueError("invalid group object")
 
 
-def axis_status(axis):
-    try:
-        return axis.status()
-    except:
-        raise ValueError("invalid axis object")
-
-
-def axis_pos(axis):
-    try:
-        return axis.pos()
-    except:
-        raise ValueError("invalid axis object")
-
-
-def axis_move(axis, tarposition):
-    try:
-        return axis.move(tarposition)
-    except:
-        raise ValueError("invalid axis object")
-
-
-
-#-------------------------------------------------------------------------
-# Inteface function
-#
 def group_command(grp, str_cmd, in_data=None):
     try:
         return grp.command(str_cmd, in_data)
     except:
         raise ValueError("invalid group object")
-
-
-def axis_command(axis, str_cmd, in_data=None):
-    try:
-        return axis.command(str_cmd, in_data)
-    except:
-        raise ValueError("invalid axis object")
-
-
-
-#-------------------------------------------------------------------------
-# Inteface function
-#
-def status_ismoving(stat):
-    """Returns True if the axis status given indicates a motion"""
-
-    # From IcePAP documentation:
-    #   -the MOVING   (10) goes down at the end of the trajectory
-    #   -the SETTLING (11) goes down at the end of close loop algorythm
-    if (stat & (1<<10)) or (stat & (1<<11)):
-        return True
-
-    # During a HOMING sequence, several motions take place,
-    # therefore the MOVING/SETTLING pair can be unset. But the READY remains
-    # unset during all the HOMING sequence. To distinguish a non READY axis
-    # due to error condition from moving condition, the POWER bit
-    # must also be checked
-    #   -the READY    (09) goes down on error or moving
-    #   -the POWERON  (23) goes down on error
-    if (not (stat & (1<<9))) and (stat & (1<<23)):
-        return True
-
-    # Any motion in progress
-    return False
-
-
-def status_isready(stat):
-    """
-    Returns True if the axis status given indicates 
-    that the axis is ready to move
-    """
-
-    return ((stat & (1<<9)) != 0)
-
-
-def status_lowlim(stat):
-    """
-    Returns True if the axis status given indicates 
-    a low limitswitch active
-    """
-
-    return ((stat & (1<<19)) != 0)
-
-
-def status_highlim(stat):
-    """
-    Returns True if the axis status given indicates 
-    a high limitswitch active
-    """
-
-    return ((stat & (1<<18)) != 0)
-
-
-
-#-------------------------------------------------------------------------
-# Inteface function
-#
-def _parse_flags(flags):
-    """
-    Parse the string with syntax "param=value..." and 
-    returns a dictionary
-    """
-
-    ret = {}
-    ret["exclusive"] = False
-    ret["dontmove"]  = False
-    ret["readonly"]  = False
-    try:
-        argins = string.split(string.lower(flags))
-    except:
-        return ret
-
-    for argin in argins:
-        try:
-            opt, val = string.split(argin, "=")
-        except:
-            raise ValueError("invalid option: \"%s\""%argin)
-        if opt.startswith("mode"):
-            ret["exclusive"] = ("mode=%s"%val == EXCLUSIVE)
-            ret["dontmove"]  = ("mode=%s"%val == DONTMOVE)
-            ret["readonly"]  = ("mode=%s"%val == READONLY)
-
-    return ret
-
-
-
-
-#-------------------------------------------------------------------------
-# Class definition
-#
-class System():
-    """Handle connection to an IcePAP device
-
-    d = System("iceid241")
-    d = System("iceid241", DEBUG1)
-
-    d.command("IPMASK","255.255.255.0")
-    print d.ackcommand("IPMASK","255.255.255.0")
-    print d.command("?VER")
-
-    print d.hostname()
-
-    """
-
-    def __init__(self, hostname, flags=""):
-        """
-        Get a connection to an IcePAP device identified with its hostname
-        """
-
-        # Save socket connections by keeping a non duplicated list
-        # of DeepDevice objects. Therefore this class can not inherit
-        # directly from DeepDevice one.
-        if hostname not in _known_devices:
-            # Mandatory libdeep argument for IcePAP devices
-            argin_str   = ' '.join(["mode=icepap"]+[flags])
-            deepdevice  = DeepDevice(hostname, argin_str)
-
-            # Save communication payload doing the hypothesis that all
-            # axis of an IcePAP device have the same firmare version
-            _known_commandlist[hostname] = deepdevice.getcommandlist()
-
-            # Library global resource
-            _known_devices[hostname] = deepdevice
-
-        # Object initialization
-        self._hostname   = hostname
-        self._deepdevice = _known_devices[hostname]
-        self._verbose    = deep_log.DBG_ERROR
-
-    def close(self):
-        """Close communication links"""
-        self._deepdevice.close()
-        del _known_devices[self._hostname]
-
-    def set_verbose(self, val):
-        """Change the verbose level"""
-        self._verbose = val
-        self._deepdevice.set_verbose(val)
-
-    def get_verbose(self):
-        """Returns the current verbose level"""
-        return self._verbose
-
-    def hostname(self):
-        """Returns the IcePAP system hostname"""
-        return self._hostname 
-
-    def command(self, str_cmd, in_data=None):
-        """Send a command to the IcePAP system"""
-        return self._deepdevice.command(str_cmd, in_data)
-
-    def ackcommand(self, str_cmd, in_data=None):
-        """Send a command with acknowledge to the IcePAP system"""
-        return self._deepdevice.ackcommand(str_cmd, in_data)
 
 
 
@@ -415,7 +149,7 @@ class Group(object):
             raise ValueError("already defined group name \"%s\""%(name))
 
         # Parse flags and get a dictionnary of booleans
-        self._flags     = _parse_flags(flags)
+        self._flags     = libaxis._parse_flags(flags)
 
         # A group can be created empty
         self._axis_list = []
@@ -430,7 +164,7 @@ class Group(object):
 
         # Update the library global resource
         #_known_groups[name] = weakref.ref(self,tagada)
-        _known_groups[name] = self
+        globals._known_groups[name] = self
    
 
     def ___del__(self):
@@ -451,7 +185,7 @@ class Group(object):
 
         # Update the library global resource
         try:
-            del _known_groups[self._name]
+            del globals._known_groups[self._name]
         except:
             pass
 
@@ -507,7 +241,7 @@ class Group(object):
             return self._axis_list
 
         # Supports a single axis argument
-        if isinstance(argin, Axis):
+        if isinstance(argin, libaxis.Axis):
             axis_list = [argin]
         else:
             axis_list = argin
@@ -548,11 +282,11 @@ class Group(object):
             cmds[system] += " %s"%(axis.address())
             
             # Append set values for each axis if they have been given
-            if isinstance(axis_list, PosList):
+            if isinstance(axis_list, libtypes.PosList):
                 cmds[system] += " %ld"%(axis_list[axis])
-            elif isinstance(axis_list, VelList):
+            elif isinstance(axis_list, libtypes.VelList):
                 cmds[system] += " %ld"%(axis_list[axis])
-            elif isinstance(axis_list, AcctimeList):
+            elif isinstance(axis_list, libtypes.AcctimeList):
                 cmds[system] += " %f"%(axis_list[axis])
             # For non supported list type, ignore set values given
             else:
@@ -614,12 +348,12 @@ class Group(object):
         axis_list = self._check_axislist(axes)
 
         # Serialize the command on each axis
-        ret = AnswerList()
+        ret = libtypes.AnswerList()
         for axis in axis_list:
             ret[axis] = axis.command(str_cmd)
 
         # For a single axis request, return a single value rather than a list
-        if isinstance(axes, Axis):
+        if isinstance(axes, libaxis.Axis):
             return ret[axes]
 
         # Normal end
@@ -646,12 +380,12 @@ class Group(object):
         axis_list = self._check_axislist(axes)
 
         # Serialize the command on each axis
-        ret = AnswerList()
+        ret = libtypes.AnswerList()
         for axis in axis_list:
             ret[axis] = axis.ackcommand(str_cmd)
 
         # For a single axis request, return a single value rather than a list
-        if isinstance(axes, Axis):
+        if isinstance(axes, libaxis.Axis):
             return ret[axes]
 
         # Normal end
@@ -684,12 +418,12 @@ class Group(object):
             stats[dev] = string.split(rets[dev])
 
         # Resort status per axis
-        ret = StatusList()
+        ret = libtypes.StatusList()
         for axis in axis_list:
             ret[axis] = int(stats[axis.system()][idx[axis]], 16)
 
         # For a single axis request, return a single value rather than a list
-        if isinstance(axes, Axis):
+        if isinstance(axes, libaxis.Axis):
             return ret[axes]
 
         # Normal end
@@ -704,7 +438,7 @@ class Group(object):
 
         # Check each axis
         for axis in stats:
-            if status_ismoving(stats[axis]):
+            if libaxis.status_ismoving(stats[axis]):
                 return True
 
         # None axis is moving
@@ -727,7 +461,7 @@ class Group(object):
         axis_list = self._check_axislist(axes)
 
         # Set the new positions if given
-        if isinstance(axes, PosList):
+        if isinstance(axes, libtypes.PosList):
             cmds, idx = self._prepare_syscommands(axes, "POS")
             for dev in cmds:
                 dev.command(cmds[dev])
@@ -746,12 +480,12 @@ class Group(object):
             pos[dev] = string.split(rets[dev])
 
         # Resort positions per axis
-        ret = PosList()
+        ret = libtypes.PosList()
         for axis in axis_list:
             ret[axis] = pos[axis.system()][idx[axis]]
 
         # For a single axis request, return a single value rather than a list
-        if isinstance(axes, Axis):
+        if isinstance(axes, libaxis.Axis):
             return ret[axes]
 
         # Normal end
@@ -774,7 +508,7 @@ class Group(object):
         axis_list = self._check_axislist(axes)
 
         # Set the new velocities if given
-        if isinstance(axes, VelList):
+        if isinstance(axes, libtypes.VelList):
             cmds, idx = self._prepare_syscommands(axes, "VELOCITY")
             for dev in cmds:
                 dev.command(cmds[dev])
@@ -793,12 +527,12 @@ class Group(object):
             vel[dev] = string.split(rets[dev])
 
         # Resort positions per axis
-        ret = VelList()
+        ret = libtypes.VelList()
         for axis in axis_list:
             ret[axis] = vel[axis.system()][idx[axis]]
 
         # For a single axis request, return a single value rather than a list
-        if isinstance(axes, Axis):
+        if isinstance(axes, libaxis.Axis):
             return ret[axes]
 
         # Normal end
@@ -821,7 +555,7 @@ class Group(object):
         axis_list = self._check_axislist(axes)
 
         # Set the new acceleration times if given
-        if isinstance(axes, AcctimeList):
+        if isinstance(axes, libtypes.AcctimeList):
             cmds, idx = self._prepare_syscommands(axes, "ACCTIME")
             for dev in cmds:
                 dev.command(cmds[dev])
@@ -840,12 +574,12 @@ class Group(object):
             acc[dev] = string.split(rets[dev])
 
         # Resort positions per axis
-        ret = AcctimeList()
+        ret = libtypes.AcctimeList()
         for axis in axis_list:
             ret[axis] = acc[axis.system()][idx[axis]]
 
         # For a single axis request, return a single value rather than a list
-        if isinstance(axes, Axis):
+        if isinstance(axes, libaxis.Axis):
             return ret[axes]
 
         # Normal end
@@ -958,12 +692,12 @@ class Group(object):
             stat[dev] = string.split(rets[dev])
 
         # Resort positions per axis
-        ret = AnswerList()
+        ret = libtypes.AnswerList()
         for axis in axis_list:
             ret[axis] = stat[axis.system()][idx[axis]]
 
         # For a single axis request, return a single value rather than a list
-        if isinstance(axes, Axis):
+        if isinstance(axes, libaxis.Axis):
             return ret[axes]
 
         # Normal end
@@ -1021,421 +755,3 @@ class Group(object):
 
 
 
-
-#-------------------------------------------------------------------------
-# Class definition
-#
-class Axis(object):
-    """Icepap axis object"""
-
-
-    def __init__(self, device, address, name="", flags=""):
-        """Identifies an axis with its address within the IcePAP device"""
-
-        # Get access to the system
-        try:
-            hostname = device.hostname()
-        except:
-            raise ValueError("invalid device object")
-        self._system  = device
-
-        # Parse flags
-        self._flags   = _parse_flags(flags)
-
-        # The exclusive mode should be defined at group level only
-        if self._flags["exclusive"]:
-            raise ValueError("invalid option: \"%s\""%EXCLUSIVE)
-
-        # TODO: implement an automatic naming from DSP or automatic
-        self._name       = name
-        self._address    = address
-        self._addrprefix = str(address) + ":"
-
-        # By default not a member of a group
-        self._flags["exclusive"] = False
-        self._used_in_groups     = []
-
-        #
-        self._commands = _known_commandlist[hostname] 
-          
-        # Update the library global resource
-        _known_axis[self._name] = self
-
-
-    def name(self):
-        return(self._name)
-
-    def address(self):
-        return(self._address)
-
-    def system(self):
-        return(self._system)
-
-    def groups(self):
-        return self._used_in_groups
-
-    def info(self):
-        """Returns a string with axis identification information"""
-        ret  = ''
-        ret += "axis: \"%s\" "%(self.name())
-        ret += "system: \"%s\" "%(self.system().hostname())
-        ret += "address: \"%s\" "%(self.address())
-        return ret
-
-    def diagnostic(self):
-        """Returns a string with axis diagnostic information"""
-        ret  = ''
-        ret += 'WARNING: %s\n'%self.command("?WARNING")
-        ret += 'ALARM  : %s\n'%self.command("?ALARM")
-        ll   = string.split(self.command("?ISG ?PWRINFO"), '\n')
-        ret += 'PWRINFO: '
-        for l in ll:
-            ret += l + '\n         '
-        return ret
-
-    def is_exclusive(self):
-        return(self._flags["exclusive"])
-
-    def _append_group(self, group, flags):
-        self._used_in_groups.append(group)
-
-        # TODO: handle group flags overwrite rules
-        for param in flags.keys():
-            if flags[param]:
-                self._flags[param] = True
-
-    def _getcommandlist(self):
-        answ = self.command("?HELP").splitlines()
-        answ = [s for line in answ for s in line.split()]
-        return answ
-
-    def set_debug_mode(self, dbgmode):
-        self._system.set_debug_mode(dbgmode)
-
-    def is_valid_command(self, comm):
-        return comm.split()[0].upper() in self._commands
-
-    def command(self, str_cmd, in_data=None):
-
-        # Minimum check on command syntax
-        str_cmd = string.strip(str_cmd)
-        if str_cmd[0] == "#":
-            return self.ackcommand(str_cmd, in_data)
-        else:
-            return self._system.command(self._addrprefix + str_cmd, in_data)
-
-    def ackcommand(self, str_cmd, in_data=None):
-        # Minimum check on command syntax
-        str_cmd = string.strip(str_cmd)
-        if str_cmd[0] == "#":
-            str_cmd = str_cmd[1:] 
-        return self._system.ackcommand(self._addrprefix + str_cmd, in_data)
-
-    def status(self):
-        pass
-
-    def pos(self):
-        pass
-
-    def move(self):
-        pass
-
-
-
-#-------------------------------------------------------------------------
-# Class definition
-#
-class AxisList(list):
-    """List of axis objects
-
-    l=AxisList(axis1, axis2)
-    l=AxisList()
- 
-    l.append(axis3)
-    print l.axis_names()
-
-    """
-
-    def __init__(self, *args):
-        """Standard list construcor"""
-
-        # Will raise an exception if axis is a wrong object
-        for axis in args:
-            axis_to_name(axis)
-
-        # Let the underlying list class do the job
-        super(AxisList, self).__init__(args)
-
-    def append(self, axis):
-        """Append an axis"""
-
-        # Will raise an exception if axis is a wrong object
-        axis_to_name(axis)
-
-        # Let the underlying list class do the job
-        list.append(self, axis)
-
-    def axis_names(self):
-        """Returns a list of the axis names currently in the dictionary"""
-        return [axis.name() for axis in list(self)]
-
-
-
-#-------------------------------------------------------------------------
-# Class definition
-#
-class PosList(dict):
-    """List of axis/position pairs
-
-    l=PosList([axis1, 100.1])
-    l=PosList()
-
-    l[axis1] = 100.1
-    l[axis2] = 200.2
-  
-    l.clear()
-    print l.axis_names()
-
-    print l.axis_str(axis1)
-    print l.all_axis_str()
-
-    """
-
-    def __init__(self, *args):
-        """Standard dictionary construcor"""
-
-        # Will raise an exception if axis is a wrong object
-        for axis, position in args:
-            axis_to_name(axis)
-        
-        # Let the underlying dictionnary class do the job
-        super(PosList, self).__init__(args)
-
-    def __setitem__(self, axis, pos):
-        """Append a pair of axis/position"""
-
-        # Will raise an exception if axis is a wrong object
-        axis_to_name(axis)
-
-        # Let the underlying dictionnary class do the job
-        dict.__setitem__(self, axis, numpy.double(pos))
-
-    def axis_names(self):
-        """Returns a list of the axis names currently in the dictionary"""
-        return [axis.name() for axis in dict.keys(self)]
-
-    def axis_str(self, axis):
-        """Returns a string with axis name and position"""
-
-        # Convert postions from float to int just for display
-        return "%s:%ld"%(axis.name(), self[axis])
-
-    def all_axis_str(self):
-        """Returns a string with all axis names and position"""
-        return ' '.join([self.axis_str(a) for a in dict.keys(self)])
-
-
-
-#-------------------------------------------------------------------------
-# Class definition
-#
-class VelList(dict):
-    """List of axis/velocity pairs
-
-    l=VelList([axis1, 2000])
-    l=VelList()
-
-    l[axis1] = 2000
-  
-    l.clear()
-    print l.axis_names()
-
-    print l.axis_str(axis1)
-    print l.all_axis_str()
-
-    """
-
-    def __init__(self, *args):
-        """Standard dictionary construcor"""
-
-        # Will raise an exception if axis is a wrong object
-        for axis, velocity in args:
-            axis_to_name(axis)
-        
-        # Let the underlying dictionnary class do the job
-        super(VelList, self).__init__(args)
-
-    def __setitem__(self, axis, vel):
-        """Append a pair of axis/velocity"""
-
-        # Will raise an exception if axis is a wrong object
-        axis_to_name(axis)
-
-        # Let the underlying dictionnary class do the job
-        # Warning: the velocity returned by IcePAP can be in scientific 
-        # notation which is not readable with pure int()
-        dict.__setitem__(self, axis, int(float(vel)))
-
-    def axis_names(self):
-        """Returns a list of the axis names currently in the dictionary"""
-        return [axis.name() for axis in dict.keys(self)]
-
-    def axis_str(self, axis):
-        """Returns a string with axis name and velocity"""
-        return "%s:%ld"%(axis.name(), self[axis])
-
-    def all_axis_str(self):
-        """Returns a string with all axis names and velocities"""
-        return ' '.join([self.axis_str(a) for a in dict.keys(self)])
-
-
-
-
-#-------------------------------------------------------------------------
-# Class definition
-#
-class AcctimeList(dict):
-    """List of axis/acceleration time pairs
-
-    l=AcctimeList([axis1, 0.125])
-    l=AcctimeList()
-
-    l[axis1] = 0.125
-  
-    l.clear()
-    print l.axis_names()
-
-    print l.axis_str(axis1)
-    print l.all_axis_str()
-
-    """
-
-    def __init__(self, *args):
-        """Standard dictionary construcor"""
-
-        # Will raise an exception if axis is a wrong object
-        for axis, acctime in args:
-            axis_to_name(axis)
-        
-        # Let the underlying dictionnary class do the job
-        super(AcctimeList, self).__init__(args)
-
-    def __setitem__(self, axis, acctime):
-        """Append a pair of axis/acceleration time"""
-
-        # Will raise an exception if axis is a wrong object
-        axis_to_name(axis)
-
-        # Let the underlying dictionnary class do the job
-        dict.__setitem__(self, axis, numpy.double(acctime))
-
-    def axis_names(self):
-        """Returns a list of the axis names currently in the dictionary"""
-        return [axis.name() for axis in dict.keys(self)]
-
-    def axis_str(self, axis):
-        """Returns a string with axis name and acceleration time"""
-        return "%s:%f"%(axis.name(), self[axis])
-
-    def all_axis_str(self):
-        """Returns a string with all axis names and acceleration times"""
-        return ' '.join([self.axis_str(a) for a in dict.keys(self)])
-
-
-
-#-------------------------------------------------------------------------
-# Class definition
-#
-class StatusList(dict):
-    """List of axis/status pairs
-
-    l=StatusList([axis1, 0xaabbccdd])
-    l=StatusList()
-
-    l[axis1] = 0xaabbccdd
-    l[axis2] = 0xdefecada
-  
-    print l.axis_hex(axis2)
-    print l.all_axis_hex()
-
-    """
-
-    def __init__(self, *args):
-        """Standard dictionary construcor"""
-
-        # Will raise an exception if axis is a wrong object
-        for axis, status in args:
-            axis_to_name(axis)
-        
-        # Let the underlying dictionnary class do the job
-        super(StatusList, self).__init__(args)
-
-    def __setitem__(self, axis, sta):
-        """Append a pair of axis/status"""
-
-        # Will raise an exception if axis is a wrong object
-        axis_to_name(axis)
-
-        # Let the underlying dictionnary class do the job
-        dict.__setitem__(self, axis, numpy.uint32(sta))
-
-    def axis_names(self):
-        """Returns a list of the axis names currently in the dictionary"""
-        return [axis.name() for axis in dict.keys(self)]
-
-    def axis_hex(self, axis):
-        """Returns a string with axis name and hexadecimal status"""
-        return "%s:0x%08x"%(axis.name(), self[axis])
-
-    def all_axis_hex(self):
-        """Returns a string with all axis names and hexadecimal status"""
-        return ' '.join([self.axis_hex(a) for a in dict.keys(self)])
-
-
-
-#-------------------------------------------------------------------------
-# Class definition
-#
-class AnswerList(dict):
-    """List of axis/string pairs 
-
-    l=AnswerList()
-
-    l[axis1] = "blabla"
-    l = g.command("?ID")
-    
-    print l.axis_str(axis2)
-    print l.all_axis_str()
-
-    """
-
-    def __init__(self, *args):
-        """Standard dictionary construcor"""
-
-        # Will raise an exception if axis is a wrong object
-        for axis, str in args:
-            axis_to_name(axis)
-
-        # Let the underlying dictionnary class do the job
-        super(AnswerList, self).__init__(args)
-
-    def __setitem__(self, axis, str):
-        """Append a pair of axis/string"""
-
-        # Will raise an exception if axis is a wrong object
-        axis_to_name(axis)
-
-        # Let the underlying dictionnary class do the job
-        dict.__setitem__(self, axis, str)
-
-    def axis_names(self):
-        """Returns a list of the axis names currently in the dictionary"""
-        return [axis.name() for axis in dict.keys(self)]
-
-    def axis_str(self, axis):
-        """Returns a string with axis name and string"""
-        return "%s:%s"%(axis.name(), self[axis])
-
-    def all_axis_str(self):
-        """Returns a string with all axis names and strings"""
-        return ' '.join([self.axis_str(a) for a in dict.keys(self)])

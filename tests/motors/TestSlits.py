@@ -180,7 +180,7 @@ class TestSlits(unittest.TestCase):
         s1hg.move(hgap)
 
         # scan the slits under the motors resolution
-        ho_step = (1.0/s1b.steps_per_unit()) / 10.0
+        ho_step = (1.0/s1b.steps_per_unit) / 10.0
         for i in range(100):
             s1ho.rmove(ho_step)
 

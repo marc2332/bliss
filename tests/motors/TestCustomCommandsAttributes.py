@@ -10,7 +10,6 @@ sys.path.insert(
             "..")))
 
 import bliss
-from bliss.common.axis import Axis
 
 config_xml = """
 <config>
@@ -25,7 +24,7 @@ config_xml = """
   <controller class="mockup">
     <host value="mydummyhost2"/>
     <port value="5000"/>
-    <axis name="roby" class="MockupAxis">
+    <axis name="roby">
       <backlash value="2"/>
       <steps_per_unit value="10"/>
       <velocity  value="2500"/>
@@ -33,29 +32,6 @@ config_xml = """
   </controller>
 </config>
 """
-
-# THIS IS FOR TESTING SPECIFIC FEATURES OF AXIS OBJECTS
-
-
-class MockupAxis(Axis):
-
-    def __init__(self, *args, **kwargs):
-        Axis.__init__(self, *args, **kwargs)
-
-    def _handle_move(self, motion):
-        self.target_pos = motion.target_pos
-        self.backlash_move = motion.target_pos / \
-            self.steps_per_unit() if motion.backlash else 0
-        return Axis._handle_move(self, motion)
-
-
-class mockup_axis_module:
-
-    def __getattr__(self, attr):
-        return MockupAxis
-
-sys.modules["MockupAxis"] = mockup_axis_module()
-
 
 class TestMockupController(unittest.TestCase):
 

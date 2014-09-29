@@ -5,7 +5,7 @@ from bliss.controllers.motor import add_axis_method
 import math
 import time
 
-import PyTango
+from PyTango.gevent import AttributeProxy
 
 """
 SetPoint.py : a 'setpoint' controller for bliss.
@@ -28,7 +28,7 @@ class setpoint(Controller):
         # add a setting name 'init_count' of type 'int'
         self.axis_settings.add('init_count', int)
 
-        self._target_attribute = PyTango.AttributeProxy(_attribute_name)
+        self._target_attribute = AttributeProxy(_attribute_name)
 
     """
     Controller initialization actions.
@@ -72,7 +72,7 @@ class setpoint(Controller):
         axis = motion.axis
         t0 = t0 or time.time()
         pos = self.read_position(axis)
-        v = self.read_velocity(axis) * axis.steps_per_unit()
+        v = self.read_velocity(axis) * axis.steps_per_unit
         self._axis_moves[axis] = {
             "start_pos": pos,
             "delta": motion.delta,
@@ -95,7 +95,7 @@ class setpoint(Controller):
             if self._axis_moves[axis]["end_t"]:
                 # motor is moving
                 t = time.time()
-                v = self.read_velocity(axis) * axis.steps_per_unit()
+                v = self.read_velocity(axis) * axis.steps_per_unit
                 d = math.copysign(1, self._axis_moves[axis]["delta"])
                 dt = t - self._axis_moves[axis]["t0"]
                 pos = self._axis_moves[axis]["start_pos"] + d * dt * v
@@ -116,7 +116,7 @@ class setpoint(Controller):
         in motor units.
         """
         _user_velocity = axis.settings.get('velocity')
-        _mot_velocity = _user_velocity * axis.steps_per_unit()
+        _mot_velocity = _user_velocity * axis.steps_per_unit
         return float(_mot_velocity)
 
     def set_velocity(self, axis, new_velocity):
@@ -124,7 +124,7 @@ class setpoint(Controller):
         <new_velocity> is in motor units
         Returns velocity in motor units.
         """
-        _user_velocity = new_velocity / axis.steps_per_unit()
+        _user_velocity = new_velocity / axis.steps_per_unit
         axis.settings.set('velocity', _user_velocity)
 
         return new_velocity

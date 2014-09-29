@@ -115,7 +115,7 @@ class Mockup(Controller):
 
         # handle rough simulated position for unit tests mainly
         if measured and self._axis_moves[axis]["measured_simul"]:
-            return int(round(-1.2345 * axis.steps_per_unit()))
+            return int(round(-1.2345 * axis.steps_per_unit))
 
         # handle read out during a motion
         if self._axis_moves[axis]["end_t"]:
@@ -133,7 +133,7 @@ class Mockup(Controller):
             noise_mm = random.uniform(
                 -self._axis_moves[axis]["measured_noise"],
                 self._axis_moves[axis]["measured_noise"])
-            noise_stps = noise_mm * axis.steps_per_unit()
+            noise_stps = noise_mm * axis.steps_per_unit
             pos += noise_stps
 
         # always return position
@@ -145,7 +145,7 @@ class Mockup(Controller):
         in motor units.
         """
         _user_velocity = axis.settings.get('velocity')
-        _mot_velocity = _user_velocity * abs(axis.steps_per_unit())
+        _mot_velocity = _user_velocity * abs(axis.steps_per_unit)
         return float(_mot_velocity)
 
     def set_velocity(self, axis, new_velocity):
@@ -153,7 +153,7 @@ class Mockup(Controller):
         <new_velocity> is in motor units
         Returns velocity in motor units.
         """
-        _user_velocity = new_velocity / abs(axis.steps_per_unit())
+        _user_velocity = new_velocity / abs(axis.steps_per_unit)
         axis.settings.set('velocity', _user_velocity)
 
         return new_velocity

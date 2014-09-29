@@ -1,5 +1,4 @@
-from bliss.controllers.motor import Controller
-from bliss.common import log as elog
+from bliss.controllers.motor import Controller; from bliss.common import log
 from bliss.common.axis import READY, MOVING, OFF
 from bliss.controllers.motor import add_axis_method
 import math
@@ -7,8 +6,7 @@ import time
 import random
 
 """
-mockup.py : a mockup controller for bliss.
-To be used as skeleton to write bliss plugin controller.
+PJ31.py : a Hybrid...  controller for bliss.
 """
 
 """
@@ -21,8 +19,8 @@ config :
 
 config_xml = """
 <config>
-  <controller class="mockup">
-    <axis name="robx" class="MockupAxis">
+  <controller class="PJ31">
+    <axis name="robx" class="PJ31axis">
       <velocity  value="1"/>
       <acctime value="0.333"/>
       <steps_per_unit value="10"/>
@@ -32,8 +30,11 @@ config_xml = """
 </config>
 """
 
+import bliss.common.log as elog
 
-class Mockup(Controller):
+
+class PJ31(Controller):
+
     def __init__(self, name, config, axes):
         Controller.__init__(self, name, config, axes)
 
@@ -72,25 +73,22 @@ class Mockup(Controller):
         axis.settings.set('init_count', axis.settings.get('init_count') + 1)
 
         # Add new axis oject method.
-        add_axis_method(axis, self.custom_park, types_info=(None, None))
-        add_axis_method(axis, self.custom_get_forty_two, types_info=(None, int))
-        add_axis_method(axis, self.custom_get_twice, types_info=(int, int))
-        add_axis_method(axis, self.custom_get_chapi, types_info=(str, str))
-        add_axis_method(axis, self.custom_send_command, types_info=(str, None))
-        add_axis_method(axis, self.custom_command_no_types)
-        add_axis_method(axis, self.custom_simulate_measured, types_info=(bool, None))
-        add_axis_method(axis, self.custom_set_measured_noise, types_info=(float, None))
+        #   add_axis_method(axis, self.custom_park, types_info=(None, None))
+        #   add_axis_method(axis, self.custom_get_forty_two, types_info=(None, int))
+        #   add_axis_method(axis, self.custom_get_twice, types_info=(int, int))
+        #   add_axis_method(axis, self.custom_get_chapi, types_info=(str, str))
+        #   add_axis_method(axis, self.custom_send_command, types_info=(str, None))
+        #   add_axis_method(axis, self.custom_command_no_types)
+        #   add_axis_method(axis, self.custom_simulate_measured,
+        #       types_info=(bool, None))
+        #   add_axis_method(axis, self.custom_set_measured_noise,
+        #       types_info=(float, None))
 
     """
     Actions to perform at controller closing.
     """
     def finalize(self):
         pass
-
-    def start_all(self, *motion_list):
-        t0 = time.time()
-        for motion in motion_list:
-            self.start_one(motion, t0=t0)
 
     def start_one(self, motion, t0=None):
         axis = motion.axis
@@ -115,7 +113,7 @@ class Mockup(Controller):
 
         # handle rough simulated position for unit tests mainly
         if measured and self._axis_moves[axis]["measured_simul"]:
-            return int(round(-1.2345 * axis.steps_per_unit))
+            return int(round(-1.2345 * axis.steps_per_unit()))
 
         # handle read out during a motion
         if self._axis_moves[axis]["end_t"]:
@@ -133,7 +131,7 @@ class Mockup(Controller):
             noise_mm = random.uniform(
                 -self._axis_moves[axis]["measured_noise"],
                 self._axis_moves[axis]["measured_noise"])
-            noise_stps = noise_mm * axis.steps_per_unit
+            noise_stps = noise_mm * axis.steps_per_unit()
             pos += noise_stps
 
         # always return position
@@ -145,7 +143,7 @@ class Mockup(Controller):
         in motor units.
         """
         _user_velocity = axis.settings.get('velocity')
-        _mot_velocity = _user_velocity * abs(axis.steps_per_unit)
+        _mot_velocity = _user_velocity * abs(axis.steps_per_unit())
         return float(_mot_velocity)
 
     def set_velocity(self, axis, new_velocity):
@@ -153,7 +151,7 @@ class Mockup(Controller):
         <new_velocity> is in motor units
         Returns velocity in motor units.
         """
-        _user_velocity = new_velocity / abs(axis.steps_per_unit)
+        _user_velocity = new_velocity / abs(axis.steps_per_unit())
         axis.settings.set('velocity', _user_velocity)
 
         return new_velocity
@@ -194,6 +192,7 @@ class Mockup(Controller):
     """
     Must send a command to the controller to abort the motion of given axis.
     """
+
     def stop(self, axis):
         self._axis_moves[axis]["end_pos"] = self.read_position(axis)
         self._axis_moves[axis]["end_t"] = 0

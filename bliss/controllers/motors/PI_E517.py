@@ -1,6 +1,7 @@
 import time
 
-from bliss.controllers.motor import Controller; from bliss.common import log
+from bliss.controllers.motor import Controller
+from bliss.common import log as elog
 from bliss.controllers.motor import add_axis_method
 from bliss.common.axis import READY, MOVING
 
@@ -12,16 +13,6 @@ Bliss controller for ethernet PI E517 piezo controller.
 Cyril Guilloud ESRF BLISS
 Thu 13 Feb 2014 15:51:41
 """
-
-
-def e517_err(msg):
-    log.error("[PI_E517] " + msg)
-
-def e517_info(msg):
-    log.info("[PI_E517] " + msg)
-
-def e517_debug(msg):
-    log.debug("[PI_E517] " + msg)
 
 
 class PI_E517(Controller):
@@ -91,10 +82,10 @@ class PI_E517(Controller):
         """
         if measured:
             _pos = self._get_pos(axis)
-            e517_debug("position measured read : %g" % _pos)
+            elog.debug("position measured read : %g" % _pos)
         else:
             _pos = self._get_target_pos(axis)
-            e517_debug("position setpoint read : %g" % _pos)
+            elog.debug("position setpoint read : %g" % _pos)
 
         return _pos
 
@@ -110,25 +101,25 @@ class PI_E517(Controller):
         # removes 'X=' prefix
         _velocity = float(_ans[2:])
 
-        e517_debug("read_velocity : %g " % _velocity)
+        elog.debug("read_velocity : %g " % _velocity)
         return _velocity
 
     def set_velocity(self, axis, new_velocity):
         self.send_no_ans(axis, "VEL %s %f" %
                          (axis.chan_letter, new_velocity))
-        e517_debug( "velocity set : %g" % new_velocity)
+        elog.debug("velocity set : %g" % new_velocity)
         return self.read_velocity(axis)
 
     def state(self, axis):
         # if self._get_closed_loop_status(axis):
         if self.closed_loop:
-            e517_debug("CLOSED-LOOP is active")
+            elog.debug("CLOSED-LOOP is active")
             if self._get_on_target_status(axis):
                 return READY
             else:
                 return MOVING
         else:
-            e517_debug("CLOSED-LOOP is not active")
+            elog.debug("CLOSED-LOOP is not active")
             return READY
 
     def prepare_move(self, motion):
@@ -171,18 +162,7 @@ class PI_E517(Controller):
         * STP -> stop asap
         * 24    -> stop asap
         * to check : copy of current position into target position ???
-
-        Args:
-            - <axis> : Bliss axis object.
-
-        Returns:
-            -
-
-        Raises:
-            - ?
         """
-
-
         self.send_no_ans(axis, "HLT %s" % axis.chan_letter)
 
     """
@@ -213,7 +193,7 @@ class PI_E517(Controller):
         _cmd = cmd + "\n"
         _t0 = time.time()
 
-        #PC
+        # PC
         _ans = "toto"
         _ans = self.sock.write_readline(_cmd)
         _duration = time.time() - _t0
@@ -231,8 +211,8 @@ class PI_E517(Controller):
         - Used for answer-less commands, then returns nothing.
 
         Args:
-            - <axis> : 
-            - <cmd> : 
+            - <axis> :
+            - <cmd> :
 
         Returns:
             - None
@@ -246,7 +226,7 @@ class PI_E517(Controller):
     def _get_pos(self, axis):
         """
         Args:
-            - <axis> : 
+            - <axis> :
         Returns:
             - <position> Returns real position (POS? command) read by capacitive sensor.
 
@@ -267,7 +247,7 @@ class PI_E517(Controller):
         Args:
             - <>
         Returns:
-            - 
+            -
         Raises:
             ?
         """
@@ -301,7 +281,7 @@ class PI_E517(Controller):
 
     def _get_on_target_status(self, axis):
         """
-        - 
+        -
 
         Args:
             - <>

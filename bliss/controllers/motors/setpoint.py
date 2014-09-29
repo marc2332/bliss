@@ -4,7 +4,7 @@ from bliss.controllers.motor import add_axis_method
 import math
 import time
 
-import PyTango
+from PyTango.gevent import AttributeProxy
 
 """
 SetPoint.py : a 'setpoint' controller for bliss.
@@ -39,7 +39,7 @@ class setpoint(Controller):
         # add a setting name 'init_count' of type 'int'
         self.axis_settings.add('init_count', int)
 
-        self._target_attribute = PyTango.AttributeProxy(_attribute_name)
+        self._target_attribute = AttributeProxy(_attribute_name)
 
     """
     Controller initialization actions.

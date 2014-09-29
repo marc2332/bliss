@@ -1,14 +1,15 @@
 <config>
   <controller class="mockup">
-    <axis name="m0">
+    <libdebug value="1" />
+    <axis name="mock1">
       <steps_per_unit value="1" />
       <backlash value="0.1" />
       <velocity value="100" />
     </axis>
   </controller>
   <controller class="simpliest">
-    <axis name="tfm1" tags="real m0" />
-    <axis name="m1" tags="m1" />
+    <axis name="mock1" tags="real m0" />
+    <axis name="motcalc1" tags="m1"></axis>
   </controller>
 </config>
 

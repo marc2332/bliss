@@ -3,6 +3,7 @@ from bliss.common.axis import READY, MOVING, OFF
 from bliss.controllers.motor import add_axis_method
 import math
 import time
+import random
 
 """
 mockup.py : a mockup controller for bliss.
@@ -74,6 +75,8 @@ class Mockup(Controller):
     """
     def initialize_axis(self, axis):
         self._axis_moves[axis] = {
+            "measured_simul": False,
+            "measured_noise": 0.0,
             "end_t": 0,
             "end_pos": 30}
 
@@ -87,6 +90,10 @@ class Mockup(Controller):
         add_axis_method(axis, self.custom_get_chapi, types_info=(str, str))
         add_axis_method(axis, self.custom_send_command, types_info=(str, None))
         add_axis_method(axis, self.custom_command_no_types)
+        add_axis_method(axis, self.custom_simulate_measured, 
+            types_info=(bool, None))
+        add_axis_method(axis, self.custom_set_measured_noise, 
+            types_info=(float, None))
 
     """
     Actions to perform at controller closing.
@@ -119,20 +126,33 @@ class Mockup(Controller):
         Returns the position (measured or desired) taken from controller
         in controller unit (steps).
         """
-        if measured:
-            return -1.2345
+
+        # handle rough simulated position for unit tests mainly
+        if measured and self._axis_moves[axis]["measured_simul"]:
+            return int(round(-1.2345 * axis.steps_per_unit()))
+
+        # handle read out during a motion
+        if self._axis_moves[axis]["end_t"]:
+            # motor is moving
+            t = time.time()
+            v = self.read_velocity(axis)
+            d = math.copysign(1, self._axis_moves[axis]["delta"])
+            dt = t - self._axis_moves[axis]["t0"]
+            pos = self._axis_moves[axis]["start_pos"] + d * dt * v
         else:
-            # Always return position
-            if self._axis_moves[axis]["end_t"]:
-                # motor is moving
-                t = time.time()
-                v = self.read_velocity(axis)
-                d = math.copysign(1, self._axis_moves[axis]["delta"])
-                dt = t - self._axis_moves[axis]["t0"]
-                pos = self._axis_moves[axis]["start_pos"] + d * dt * v
-                return pos
-            else:
-                return self._axis_moves[axis]["end_pos"]
+            pos = self._axis_moves[axis]["end_pos"]
+
+        # simulate noisy encoder
+        if measured and (self._axis_moves[axis]["measured_noise"] != 0.0):
+            noise_mm  = random.uniform(
+                            -self._axis_moves[axis]["measured_noise"],
+                            self._axis_moves[axis]["measured_noise"])
+            noise_stps = noise_mm * axis.steps_per_unit()
+            pos += noise_stps
+
+        # always return position
+        return int(round(pos))
+
 
     # def set_position(self, axis, new_pos):
     #    self._axis_moves[axis]["end_pos"] = new_pos
@@ -247,3 +267,23 @@ class Mockup(Controller):
 
     def custom_command_no_types(self, axis):
         print "print with no types"
+
+
+
+
+    def custom_simulate_measured(self, axis, flag):
+        """
+        Custom axis method to emulated measured position
+        """
+        if type(flag) != bool:
+            raise ValueError('argin must be boolean')
+        self._axis_moves[axis]["measured_simul"] = flag
+
+
+    def custom_set_measured_noise(self, axis, noise):
+        """
+        Custom axis method to add a random noise, given in user units,
+        to measured positions. Set noise value to 0 to have a measured
+        position equal to target position.
+        """
+        self._axis_moves[axis]["measured_noise"] = noise

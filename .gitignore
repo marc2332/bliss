@@ -11,4 +11,6 @@ tango/*.xml
 # except tests :
 !test_config.xml
 !cyril_config.xml
+!simpliest_config.xml
+!double_simpliest_config.xml
 

@@ -163,9 +163,28 @@ class TestSlits(unittest.TestCase):
         s1ho.move(2)
         self.assertEquals(s1b.state(), READY)
         self.assertEquals(s1f.state(), READY)
-        self.assertAlmostEquals(hgap, s1hg.position(), places=6)
+        self.assertAlmostEquals(hgap, s1hg.position(), places=4)
         self.assertEquals(s1b.position(), 2 + (hgap / 2.0))
         self.assertEquals(s1f.position(), (hgap / 2.0) - 2)
+
+    def testPseudoAxisScan(self):
+        s1ho = bliss.get_axis("s1ho")
+        s1b  = bliss.get_axis("s1b")
+        s1f  = bliss.get_axis("s1f")
+        s1hg = bliss.get_axis("s1hg")
+
+        s1f.move(0)
+        s1b.move(0)
+
+        hgap = 0.5
+        s1hg.move(hgap)
+
+        # scan the slits under the motors resolution
+        ho_step = (1.0/s1b.steps_per_unit()) / 10.0
+        for i in range(100):
+            s1ho.rmove(ho_step)
+
+        self.assertAlmostEquals(hgap, s1hg.position(), places=4)
 
 if __name__ == '__main__':
     unittest.main()

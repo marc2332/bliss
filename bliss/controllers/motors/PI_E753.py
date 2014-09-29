@@ -1,23 +1,19 @@
-from bliss.controllers.motor import Controller; from bliss.common import log
+from bliss.controllers.motor import Controller
+from bliss.common import log as elog
 from bliss.controllers.motor import add_axis_method
 from bliss.common.axis import READY, MOVING
 
 import pi_gcs
 from bliss.comm import tcp
 
+import sys
+import time
+
 """
 Bliss controller for ethernet PI E753 piezo controller.
 Cyril Guilloud ESRF BLISS January 2014
 """
 
-def e753_err(msg):
-    log.error("[E753] " + msg)
-
-def e753_info(msg):
-    log.info("[E753] " + msg)
-
-def e753_debug(msg):
-    log.debug("[E753] " + msg)
 
 class PI_E753(Controller):
 
@@ -31,8 +27,8 @@ class PI_E753(Controller):
 
     # Init of controller.
     def initialize(self):
-        e753_debug("initialization")
-        e753_info("initialization")
+        elog.debug("initialization")
+        elog.info("initialization")
 
         self.sock = tcp.Socket(self.host, 50000)
 
@@ -46,7 +42,7 @@ class PI_E753(Controller):
 
     # Init of each axis.
     def initialize_axis(self, axis):
-        e753_debug("axis initialization")
+        elog.debug("axis initialization")
         add_axis_method(axis, self.get_info)
 
         # Enables the closed-loop.
@@ -55,10 +51,10 @@ class PI_E753(Controller):
     def read_position(self, axis, measured=False):
         if measured:
             _ans = self._get_pos()
-            e753_debug("read_position measured = %f" % _ans)
+            elog.debug("read_position measured = %f" % _ans)
         else:
             _ans = self._get_target_pos()
-            e753_debug("read_position = %f" % _ans)
+            elog.debug("read_position = %f" % _ans)
 
         return _ans
 
@@ -66,7 +62,7 @@ class PI_E753(Controller):
         return self._get_velocity(axis)
 
     def set_velocity(self, axis, new_velocity):
-        e753_debug("set_velocity new_velocity = %f" % new_velocity)
+        elog.debug("set_velocity new_velocity = %f" % new_velocity)
         self.sock.write("VEL 1 %f\n" % new_velocity)
         return self.read_velocity(axis)
 
@@ -83,7 +79,7 @@ class PI_E753(Controller):
         self._target_pos = motion.target_pos
 
     def start_one(self, motion):
-        e753_debug("start_one target_pos = %f" % self._target_pos)
+        elog.debug("start_one target_pos = %f" % self._target_pos)
         self.sock.write("MOV 1 %g\n" % self._target_pos)
 
     def stop(self, axis):
@@ -160,22 +156,21 @@ class PI_E753(Controller):
         self.sock.write("STP\n")
 
     def _test_melange(self, sleep_time=0.1):
-        import sys, time
         ii = 0
         _vel0 = self.sock.write_readline("VEL?\n")
         _ans_pos0 = self.sock.write_readline("POS?\n")[2:]
-        _pos0 = int(round(float(_ans_pos0),2))
+        _pos0 = int(round(float(_ans_pos0), 2))
         while True:
             time.sleep(sleep_time)
             sys.stdout.write(".")
             _vel = self.sock.write_readline("VEL?\n")
             _ans_pos = self.sock.write_readline("POS?\n")[2:]
-            _pos = int(round(float(_ans_pos),2))
+            _pos = int(round(float(_ans_pos), 2))
             if _vel != _vel0:
                 print "%d VEL = %s " % (ii, _vel)
             if abs(_pos - _pos0) > 1:
                 print "%d POS = %s" % (ii, _ans_pos)
-            ii=ii+1
+            ii = ii + 1
 
     def get_info(self, axis):
         """

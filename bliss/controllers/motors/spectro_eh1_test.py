@@ -5,37 +5,27 @@ Bliss controller for  5-motors spectrometer test bench in EH1
 (ID26)
 
 """
-### IMPORTS ###
-from bliss.controllers.motor import CalcController; from bliss.common import log
+# IMPORTS #
+from bliss.controllers.motor import CalcController
+from bliss.common import log as elog
 from bliss.controllers.motor import add_axis_method
 
 import math
 
-# GLOBAL VARIABLES
+# GLOBAL VARIABLES #
 HC = 1.2398418743309972e-06  # eV * m
 ALAT_SI = 5.431065   # Ang at 25C
 ALAT_GE = 5.6579060  # Ang at 25C
 
-# === USER SETTINGS ===
-CRYST_MAT = 'Si'     # or 'Ge' : analyser crystal material
+# USER SETTINGS #
+CRYST_MAT = 'Si'       # or 'Ge' : analyser crystal material
 CRYST_HKL = [4, 4, 4]  # analyser crystal reflection [h,k,l]
-CRYST_ALPHA = 0.0    # miscut angle in degrees
-CRYST_R = 1000.      # analyser bending radius in mm (=2*Rm)
+CRYST_ALPHA = 0.0      # miscut angle in degrees
+CRYST_R = 1000.        # analyser bending radius in mm (=2*Rm)
 
 
-def spectro_eh1_err(msg):
-    log.error("[SPECTRO_EH1] " + msg)
 
-
-def spectro_eh1_info(msg):
-    log.info("[SPECTRO_EH1] " + msg)
-
-
-def spectro_eh1_debug(msg):
-    log.debug("[SPECTRO_EH1] " + msg)
-
-
-### UTILITY FUNCTIONS ###
+# UTILITY FUNCTIONS #
 def kev2wlen(energy):
     """ convert photon energy (E, keV) to wavelength ($\lambda$, \AA$^{-1}$)"""
     return((HC / energy) * 1e7)
@@ -86,7 +76,7 @@ def get_dspacing(mat, hkl):
     return dspacing
 
 
-### CALC FUNCTIONS ###
+# CALC FUNCTIONS #
 # these functions could be inside the class, but I prefer to keep them
 # outside to run/check in IPython
 def ene2mots(energy, mat=None, hkl=None, r=None, alpha=None, pp=False):
@@ -116,7 +106,7 @@ def ene2mots(energy, mat=None, hkl=None, r=None, alpha=None, pp=False):
     _mot_list = [atheh1, axeh1, dtheh1, dxeh1, dyeh1]
 
     if pp:
-        #pretty print (=for humans)
+        # pretty print (= for humans)
         _tmpl_head = "MOT: {0:=^10} {1:=^10} {2:=^10} {3:=^10} {4:=^10}"
         _tmpl_data = "POS: {0:^ 10.4f} {1:^ 10.4f} {2:^ 10.4f} {3:^ 10.4f} {4:^ 10.4f}"
         print(_tmpl_head.format('ath', 'ax', 'dth', 'dx', 'dy'))
@@ -138,7 +128,7 @@ def mots2steps(mot_list, conv_list=None, pp=True):
         _step_list.append(m * s)
 
     if pp:
-        #pretty print (=for humans)
+        # pretty print (=for humans)
         _tmpl_head = "MOT: {0:=^10} {1:=^10} {2:=^10} {3:=^10} {4:=^10}"
         _tmpl_data = "POS: {0:^ 10.4f} {1:^ 10.4f} {2:^ 10.4f} {3:^ 10.4f} {4:^ 10.4f}"
         _tmpl_step = "STP: {0:^ 10.0f} {1:^ 10.0f} {2:^ 10.0f} {3:^ 10.0f} {4:^ 10.0f}"
@@ -149,7 +139,7 @@ def mots2steps(mot_list, conv_list=None, pp=True):
         return _step_list
 
 
-### CLASS ###
+# CLASS #
 class spectro_eh1_test(CalcController):
 
     def __init__(self, *args, **kwargs):
@@ -190,6 +180,6 @@ class spectro_eh1_test(CalcController):
 
         return _real_dict
 
-### FOR TESTS ###
+# FOR TESTS #
 if __name__ == '__main__':
     pass

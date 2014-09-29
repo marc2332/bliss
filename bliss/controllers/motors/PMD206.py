@@ -1,6 +1,7 @@
 import time
 
-from bliss.controllers.motor import Controller; from bliss.common import log
+from bliss.controllers.motor import Controller
+from bliss.common import log as elog
 from bliss.controllers.motor import add_axis_method
 from bliss.common.axis import READY, MOVING, OFF
 
@@ -12,18 +13,6 @@ from bliss.comm import tcp
 - Cyril Guilloud ESRF BLISS
 - Thu 10 Apr 2014 09:18:51
 """
-
-
-def pmd206_err(msg):
-    log.error("[PMD206] " + msg)
-
-
-def pmd206_info(msg):
-    log.info("[PMD206] " + msg)
-
-
-def pmd206_debug(msg):
-    log.debug("[PMD206] " + msg)
 
 
 def int_to_hex(dec_val):
@@ -126,7 +115,7 @@ class PMD206(Controller):
         _hex_status_string = self._axes_status[axis.channel]
         _status = hex_to_int(_hex_status_string)
         if _status & 0x20:
-            pmd206_info("Motor is parked. I unpark it")
+            elog.info("Motor is parked. I unpark it")
             self.unpark_motor(axis)
 
     def set_on(self, axis):
@@ -154,12 +143,12 @@ class PMD206(Controller):
         if measured:
             _ans = self.send(axis, "MP?")
             _pos = hex_to_int(_ans[8:])
-            pmd206_debug(
+            elog.debug(
                 "PMD206 position measured (encoder counts) read : %d (_ans=%s)" % (_pos, _ans))
         else:
             _ans = self.send(axis, "TP?")
             _pos = hex_to_int(_ans[8:])
-            pmd206_debug(
+            elog.debug(
                 "PMD206 position setpoint (encoder counts) read : %d (_ans=%s)" % (_pos, _ans))
 
         return _pos
@@ -173,7 +162,7 @@ class PMD206(Controller):
         """
         _velocity = 1
 
-        pmd206_debug("read_velocity : %d" % _velocity)
+        elog.debug("read_velocity : %d" % _velocity)
         return _velocity
 
     def set_velocity(self, axis, new_velocity):
@@ -182,7 +171,7 @@ class PMD206(Controller):
         Returns velocity in motor units.
         """
         _nv = new_velocity
-        pmd206_debug("velocity NOT wrotten : %d " % _nv)
+        elog.debug("velocity NOT wrotten : %d " % _nv)
 
         return self.read_velocity(axis)
 
@@ -190,19 +179,19 @@ class PMD206(Controller):
         """
         Returns acceleration time in seconds.
         """
-        #_ans = self.send(axis, "CP?9")
+        # _ans = self.send(axis, "CP?9")
         #                           123456789
         # _ans should looks like : 'PM11CP?9:00000030'
         # Removes 9 firsts characters.
-        #_acceleration = hex_to_int(_ans[9:])
+        # _acceleration = hex_to_int(_ans[9:])
 
         return float(axis.settings.get('acctime'))
 
     def set_acctime(self, axis, new_acctime):
         # !!!! must be converted  ?
         # _nacc = int_to_hex(new_acctime)
-        #_nacc = 30
-        #self.send(axis, "CP=9,%d" % _nacc)
+        # _nacc = 30
+        # self.send(axis, "CP=9,%d" % _nacc)
 
         axis.settings.set('acctime', new_acctime)
         return new_acctime
@@ -230,13 +219,13 @@ class PMD206(Controller):
          self._axes_status[3], self._axes_status[4], self._axes_status[5],
          self._axes_status[6]) = _ans.split(':')[1].split(',')
 
-        pmd206_debug("ctrl status : %s" % self._ctrl_status)
-        pmd206_debug("mot1 status : %s" % self._axes_status[1])
-        pmd206_debug("mot2 status : %s" % self._axes_status[2])
-        pmd206_debug("mot3 status : %s" % self._axes_status[3])
-        pmd206_debug("mot4 status : %s" % self._axes_status[4])
-        pmd206_debug("mot5 status : %s" % self._axes_status[5])
-        pmd206_debug("mot6 status : %s" % self._axes_status[6])
+        elog.debug("ctrl status : %s" % self._ctrl_status)
+        elog.debug("mot1 status : %s" % self._axes_status[1])
+        elog.debug("mot2 status : %s" % self._axes_status[2])
+        elog.debug("mot3 status : %s" % self._axes_status[3])
+        elog.debug("mot4 status : %s" % self._axes_status[4])
+        elog.debug("mot5 status : %s" % self._axes_status[5])
+        elog.debug("mot6 status : %s" % self._axes_status[6])
 
     def get_controller_status(self):
         """
@@ -269,7 +258,7 @@ class PMD206(Controller):
     def motor_state(self, axis):
         _s = hex_to_int(self._axes_status[axis.channel])
 
-        pmd206_debug(
+        elog.debug(
             "axis %d status : %s" %
             (axis.channel, self._axes_status[axis.channel]))
 

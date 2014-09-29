@@ -75,7 +75,6 @@ class TestNewFocus(unittest.TestCase):
         a1 = bliss.get_axis("a1")
         a2 = bliss.get_axis("a2")
         p1 = a1.position()
-        print "!"*20, p1       
         p2 = a2.position()
         a1.rmove(0.1, wait=False)
         try:
@@ -83,16 +82,13 @@ class TestNewFocus(unittest.TestCase):
         except:
           pass
         a1.wait_move()
-        print "!"*20, a1.position()       
         a2.wait_move()
         self.assertEquals(a1.position(), p1+0.1)
         self.assertEquals(a2.position(), p2+0.1) 
-        #a1.rmove(-0.1, wait=False)
-        #a2.rmove(-0.1, wait=False)
-        #a1.wait_move()
-        #a2.wait_move()
-        #self.assertEquals(a1.position(), p1)
-        #self.assertEquals(a2.position(), p2) 
+        a1.rmove(-0.1)
+        a2.rmove(-0.1)
+        self.assertEquals(a1.position(), p1)
+        self.assertEquals(a2.position(), p2) 
     """
 if __name__ == '__main__':
     unittest.main()

@@ -202,7 +202,7 @@ class FlexDC(Controller):
         Flexdc works in steps/s2
         <new_acc> is in user-unit/s2
         """
-        _spu = axis.steps_per_unit()
+        _spu = axis.steps_per_unit
 
         if new_acc is None:
             """ Reads acceleration from flexdc in steps/s2"""

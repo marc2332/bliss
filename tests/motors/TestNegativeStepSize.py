@@ -38,7 +38,7 @@ class MockupAxis(Axis):
     def _handle_move(self, motion):
         self.target_pos = motion.target_pos
         self.backlash_move = motion.target_pos / \
-            self.steps_per_unit() if motion.backlash else 0
+            self.steps_per_unit if motion.backlash else 0
         return Axis._handle_move(self, motion)
 
 
@@ -86,7 +86,7 @@ class TestMockupController(unittest.TestCase):
         self.assertEqual(roby.state(), "MOVING")
         move_greenlet.join()
         self.assertEqual(roby.state(), "READY")
-        self.assertEqual(roby.target_pos, roby.steps_per_unit() * 180)
+        self.assertEqual(roby.target_pos, roby.steps_per_unit * 180)
 
     def test_axis_set_pos(self):
         roby = bliss.get_axis("roby")
@@ -97,7 +97,7 @@ class TestMockupController(unittest.TestCase):
 
     def test_axis_get_measured_position(self):
         roby = bliss.get_axis("roby")
-        _meas_pos = -1.2345 / roby.steps_per_unit()
+        _meas_pos = -1.2345 / roby.steps_per_unit
         self.assertAlmostEqual(roby.measured_position(), _meas_pos, places=9, msg=None)
 
     def test_home_search(self):

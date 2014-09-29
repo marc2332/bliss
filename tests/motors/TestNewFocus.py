@@ -28,6 +28,7 @@ config_xml = """
       <channel value="1"/>
       <steps_per_unit value="50"/>
       <velocity value="10" />
+      <settings><low_limit value="-1000000000.0" /><high_limit value="1000000000.0" /><position value="-0.2" /><velocity value="10.0" /><offset value="0.2"/></settings>
     </axis>
   </controller>
 </config>
@@ -50,7 +51,6 @@ class TestNewFocus(unittest.TestCase):
     """
     def testPosition(self):
         a1 = bliss.get_axis("a1")
-        import pdb;pdb.set_trace()
         p0 = a1.position()
         target = p0+0.1
         a1.move(target)
@@ -60,6 +60,7 @@ class TestNewFocus(unittest.TestCase):
 
         a2 = bliss.get_axis("a2")
 	p0 = a2.position()
+        self.assertEquals(p0, -0.2)
 	target = p0+0.1
 	a2.move(target)
 	self.assertEquals(a2.position(), target)

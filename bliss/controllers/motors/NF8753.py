@@ -41,7 +41,6 @@ class NF8753(Controller):
     def initialize_axis(self, axis):
         axis.driver = axis.config.get("driver", str)
         axis.channel = axis.config.get("channel", int)
-        axis.position(axis.settings.get("position") or 0)
         
         event.connect(axis, "move_done", self._axis_move_done)
         self._write_no_reply(axis, "JOF")

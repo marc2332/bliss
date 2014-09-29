@@ -22,19 +22,19 @@ config_xml = """
     </axis>
     <axis name="s1f">
       <velocity value="500"/>
-      <steps_per_unit value="-10"/>
+      <steps_per_unit value="-1000"/>
     </axis>
     <axis name="s1b">
       <velocity value="500"/>
-      <steps_per_unit value="10"/>
+      <steps_per_unit value="1000"/>
     </axis>
     <axis name="s1u">
       <velocity value="500"/>
-      <steps_per_unit value="-10"/>
+      <steps_per_unit value="-1000"/>
     </axis>
     <axis name="s1d">
       <velocity value="500"/>
-      <steps_per_unit value="10"/>
+      <steps_per_unit value="1000"/>
     </axis>
   </controller>
   <controller class="slits" name="test">
@@ -130,10 +130,26 @@ class TestSlits(unittest.TestCase):
         self.assertEquals(bliss.get_axis("s1ho").position(), 0.5)
 
     def testPseudoAxisMove(self):
-        hoffset = bliss.get_axis("s1ho")
-        s1b = bliss.get_axis("s1b")
-        s1f = bliss.get_axis("s1f")
+        s1b  = bliss.get_axis("s1b")
+        s1f  = bliss.get_axis("s1f")
         s1hg = bliss.get_axis("s1hg")
+
+        s1f.move(0)
+        s1b.move(0)
+
+        hgap = 0.5
+        s1hg.move(hgap)
+        self.assertAlmostEquals(hgap, s1hg.position(), places=6)
+
+    def testPseudoAxisMove2(self):
+        s1ho = bliss.get_axis("s1ho")
+        s1b  = bliss.get_axis("s1b")
+        s1f  = bliss.get_axis("s1f")
+        s1hg = bliss.get_axis("s1hg")
+
+        s1f.move(0)
+        s1b.move(0)
+        s1hg.move(.5)
         hgap = s1hg.position()
         """ "back": (
                     positions_dict["hoffset"] /
@@ -144,10 +160,10 @@ class TestSlits(unittest.TestCase):
                     2.0) -
                 positions_dict["hoffset"]}
         """
-        hoffset.move(2)
+        s1ho.move(2)
         self.assertEquals(s1b.state(), READY)
         self.assertEquals(s1f.state(), READY)
-        self.assertEquals(hgap, s1hg.position())
+        self.assertAlmostEquals(hgap, s1hg.position(), places=6)
         self.assertEquals(s1b.position(), 2 + (hgap / 2.0))
         self.assertEquals(s1f.position(), (hgap / 2.0) - 2)
 

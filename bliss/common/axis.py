@@ -296,12 +296,14 @@ class Axis(object):
     def _check_ready(self):
         initial_state = self.state()
         if initial_state != READY:
-            raise RuntimeError("motor %s state is \
+            raise RuntimeError("axis %s state is \
                                 %r" % (self.name, initial_state))
 
     def move(self, user_target_pos, wait=True, relative=False):
+        if self.__controller.is_busy():
+            raise RuntimeError("axis %s: controller is busy" % self.name)
         self._check_ready()
-
+ 
         motion = self.prepare_move(user_target_pos, relative)
 
         # indicates that axis is MOVING.

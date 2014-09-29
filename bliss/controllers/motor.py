@@ -114,7 +114,10 @@ class Controller(object):
     def initialize_axis(self, axis):
         raise NotImplementedError
 
-    def prepare_move(self, motion):  # axis, target_pos, delta):
+    def is_busy(self):
+        return False
+
+    def prepare_move(self, motion): 
         return
 
     def start_one(self, motion):

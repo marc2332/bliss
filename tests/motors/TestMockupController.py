@@ -23,6 +23,7 @@ config_xml = """
     <host value="mydummyhost1"/>
     <port value="5000"/>
     <axis name="robz">
+      <steps_per_unit value="10000"/>
       <!-- degrees per second -->
       <velocity value="100"/>
     </axis>
@@ -278,7 +279,7 @@ class TestMockupController(unittest.TestCase):
         robz.on()
         self.assertEquals(robz.state(), "READY")
         robz.move(1)
-        self.assertEquals(robz.position(), 1)
+        self.assertAlmostEquals(robz.position(), 1, places=5)
         robz.move(2, wait=False)
         self.assertRaises(RuntimeError, robz.off)
         robz.wait_move()

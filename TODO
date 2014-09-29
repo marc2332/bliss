@@ -1,6 +1,22 @@
 TODO list
 ---------
 
+
+* unittest improvement:
+    => replace all position tests by assertAlmostEquals()
+    => if possible use the decimal places according to motor step_per_unit
+
+* slits calculation controller:
+    => have only a pair of blades instead of two
+
+* calculation controller:
+    => bliss ask motion on all virtual calculated motors of the same
+       calculation controller (cf avoid slit drift)
+
+* bliss alarm mechanism:
+    => discrepancy between measured and target position
+    => to be define
+
 * acceleration
     (all the discussion Manu had with EP)
     => in controllers, set_acceleration/get_acceleration

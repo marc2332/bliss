@@ -98,6 +98,13 @@ class TestMockupController(unittest.TestCase):
         e = gevent.event.AsyncResult()
         self.assertEqual(e.get(), "READY")
 
+    def test_rmove(self):
+        robz = bliss.get_axis('robz')
+        robz.move(0)
+        robz.rmove(0.1)
+        robz.rmove(0.1)
+        self.assertEquals(robz.position(), 0.2)
+
     def test_move_done_event(self):
         res = {"ok": False}
 

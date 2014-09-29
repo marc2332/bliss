@@ -240,12 +240,12 @@ class Axis(object):
 
     def prepare_move(self, user_target_pos, relative=False):
         initial_pos = self.position()
-        if abs(user_target_pos - initial_pos) < 1E-6:
-            return
         axis_debug("prepare_move : user_target_pos=%g intitial_pos=%g relative=%s" %
                    (user_target_pos, initial_pos, relative))
         if relative:
             user_target_pos += initial_pos
+        if abs(user_target_pos - initial_pos) < 1E-6:
+            return
         user_backlash = self.config.get("backlash", float, 0)
         # all positions are converted to controller units
         backlash = user_backlash * self.steps_per_unit()

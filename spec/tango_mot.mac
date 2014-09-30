@@ -13,21 +13,31 @@
 #%LI%
 #%XUL%
 
-
-
 # Configuration example:
+# Controller :
 
-# Motor and Counter Device Configuration (Not CAMAC)
-#
-# MOTORS   DEVICE                   ADDR  <>MODE  NUM           <>TYPE
-#    YES   tango_mot   pel/bliss_00/fd            1     Macro Motors
-#     NO
+## Motor and Counter Device Configuration (Not CAMAC)
+##
+## MOTORS   DEVICE                   ADDR  <>MODE  NUM           <>TYPE
+##    YES   tango_mot    idXX/bliss/exp            1     Macro Motors
+##     NO
 
-# Number: <>Controller        0:    NONE   1: MAC_MOT
-# Unit/[Module/]Channel                           0/0
-# Name                             dummy          fdc
-# Mnemonic                         dummy          fdc
+# Axis :
 
+## Number: <>Controller        0:    NONE   1: MAC_MOT
+## Unit/[Module/]Channel                           0/0
+## Name                             dummy          fdc
+## Mnemonic                         dummy          fdc
+
+# To select axis: use custom parameter "axis_name"
+
+# To choose to use spec configuration parameters: set "use_spec_config" to 1
+
+## Custom Parameters for Motor "ma" (ma)               2/2 configured
+##
+## NAME                      VALUE
+## axis_name                 roba
+## use_spec_config           1
 
 
 
@@ -57,9 +67,8 @@ hg_generate("tango_mot")
 def tango_mot_config(motnum, type, unit, module, channel) '{
 
     if((motnum == "..") && (type == "ctrl")) {
-        # Check that the Tango DS is running
+        # Checks that Tango DS is running
         if(!ds_is_responsive(tango_mot_ADDR)) {
-            attr_error_head
             tango_mot_err(sprintf("%s unresponsive -> disabling motor controller.", \
                                   tango_mot_ADDR))
             return ".error."
@@ -71,17 +80,28 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
     }
 
     if(type == "mot") {
-        local _mot_mne _ds_name
+        local _mot_mne  _ctrl_ds_name  _axis_ds_name
 
         _mot_mne = motor_mne(motnum)
-        _ds_name = tango_mot_ADDR
+
+        _ctrl_ds_name = tango_mot_ADDR
+        print "CTRL DS NAME = " _ctrl_ds_name
+        local TTT[]
+        split(_ctrl_ds_name, TTT, "/")
+
+        _axis_name = motor_par(motnum, "axis_name")
+        print "AXIS NAME = " _axis_name
+
+        _axis_ds_name = sprintf("%s/bliss_%s/%s", TTT[0], TTT[2], _axis_name)
+
+        print "AXIS DS NAME = " _axis_ds_name
 
         # Registers Tango DS name in parameters of the motor.
         tango_mot_dbg(sprintf("Registering DS name : \"%s\" for motor \"%s\"", \
-                             _ds_name, _mot_mne))
+                             _axis_ds_name, _mot_mne))
 
         # GNARKKK cannot use tango_mot_ADDR here directly...
-        motor_par(motnum, "dev_name", _ds_name, "add")
+        motor_par(motnum, "dev_name", _axis_ds_name, "add")
 
         # STEPS PER UNIT
         # The step_size SPEC value is only used to define the
@@ -99,7 +119,7 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
 
         _use_spec_config= motor_par(motnum, "use_spec_config")
         tango_mot_dbg(sprintf("Use %s values for velocity/acceleration \n", _use_spec_config?"SPEC":"SERVER"))
-        
+
         if (_use_spec_config==1) {
             tango_mot_msg(sprintf("Motor %s : use acc/velocity from spec config", _mot_mne))
 
@@ -125,10 +145,13 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
             motor_par(motnum, "velocity", _velo_steps)
 
             _acc = tango_mot_get_attr(motnum, "acceleration")
-            if (_acc != 0)
+            if (_acc != 0){
                 _acc_time = _velo / _acc
-            else
+            }
+            else{
                 _acc_time = -1
+            }
+
             _acc_time_ms = _acc_time * 1000
 
             tango_mot_dbg(sprintf("_acc=%g  _acc_time=%g  _acc_time_ms=%g  \n", _acc, _acc_time, _acc_time_ms))
@@ -138,7 +161,7 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
             motor_par(motnum, "in_config", 0)
         }
 
-        tango_mot_msg(sprintf("Motor %s linked to DS : %s ", _mot_mne, _ds_name))
+        tango_mot_msg(sprintf("Motor %s linked to DS : %s ", _mot_mne, _axis_ds_name))
     }
 }'
 
@@ -229,7 +252,12 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
             _acc_time_ms  = p1
             _acc_time = _acc_time_ms / 1000
 
-            _acc = _velocity / _acc_time
+            if (_acc_time == 0){
+                tango_mot_err("_acc_time ==0")
+            }
+            else{
+                _acc = _velocity / _acc_time
+            }
 
             tango_mot_dbg(sprintf("_velocity=%g  _acc_time=%g  _acc=%g \n", _velocity, _acc_time, _acc))
             tango_mot_set_attr(motnum, "acceleration", _acc)
@@ -248,7 +276,14 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
             _attr =  "velocity"
             _velo_steps  = p1
             _steps_per_unit = motor_par(motnum, "step_size")
-            _velo = _velo_steps / fabs(_steps_per_unit)
+
+            if (_steps_per_unit == 0){
+                tango_mot_err("_steps_per_unit == 0")
+            }
+            else{
+                _velo = _velo_steps / fabs(_steps_per_unit)
+            }
+
 
             tango_mot_dbg(sprintf("_velo_steps=%g  _steps_per_unit=%g  _velo=%g \n", _velo_steps, _steps_per_unit, _velo))
             tango_mot_set_attr(motnum, "velocity", _velo)

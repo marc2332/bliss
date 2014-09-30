@@ -13,6 +13,7 @@ import types
 
 import bliss.common.log as elog
 
+
 class BlissAxisManager(PyTango.Device_4Impl):
 
     def __init__(self, cl, name):
@@ -137,7 +138,7 @@ class BlissAxis(PyTango.Device_4Impl):
         :rtype: PyTango.CmdArgType.DevState """
         self.debug_stream("In dev_state()")
         argout = PyTango.DevState.UNKNOWN
-        #----- PROTECTED REGION ID(TOTO.State) ENABLED START -----#
+        # ----- PROTECTED REGION ID(TOTO.State) ENABLED START -----#
 
         try:
             _state = self.axis.state()
@@ -192,8 +193,8 @@ class BlissAxis(PyTango.Device_4Impl):
         self.write_position_wait is a device property (False by default).
         """
         self.debug_stream("In write_Position()")
-        #self.axis.move(attr.get_write_value(), wait=False)
-        #self.axis.move(attr.get_write_value(), wait=True)
+        # self.axis.move(attr.get_write_value(), wait=False)
+        # self.axis.move(attr.get_write_value(), wait=True)
         self.axis.move(attr.get_write_value(), wait=self.write_position_wait)
 
     def read_Measured_Position(self, attr):
@@ -247,7 +248,7 @@ class BlissAxis(PyTango.Device_4Impl):
 
     def write_Backlash(self, attr):
         self.debug_stream("In write_Backlash()")
-        #data = attr.get_write_value()
+        # data = attr.get_write_value()
 
     def read_Home_position(self, attr):
         self.debug_stream("In read_Home_position()")
@@ -300,9 +301,9 @@ class BlissAxis(PyTango.Device_4Impl):
         pass
         # self.debug_stream("In read_attr_hardware()")
 
-    #-------------------------------------------------------------------------
-    #    Motor command methods
-    #-------------------------------------------------------------------------
+    """
+    Motor command methods
+    """
     def On(self):
         """ Enable power on motor
 
@@ -463,7 +464,7 @@ class BlissAxisClass(PyTango.DeviceClass):
              'unit': "steps/uu",
              'format': "%7.1f",
              # 'Display level': PyTango.DispLevel.EXPERT,
-         }],
+        }],
         'Steps':
         [[PyTango.DevLong,
           PyTango.SCALAR,
@@ -473,7 +474,7 @@ class BlissAxisClass(PyTango.DeviceClass):
              'unit': "steps",
              'format': "%6d",
              'description': "number of steps in the step counter\n",
-         }],
+        }],
         'Position':
         [[PyTango.DevDouble,
           PyTango.SCALAR,
@@ -483,7 +484,7 @@ class BlissAxisClass(PyTango.DeviceClass):
              'unit': "uu",
              'format': "%10.3f",
              'description': "The desired motor position in user units.",
-         }],
+        }],
         'Measured_Position':
         [[PyTango.DevDouble,
           PyTango.SCALAR,
@@ -493,7 +494,7 @@ class BlissAxisClass(PyTango.DeviceClass):
              'unit': "uu",
              'format': "%10.3f",
              'description': "The measured motor position in user units.",
-         }],
+        }],
         'Acceleration':
         [[PyTango.DevDouble,
           PyTango.SCALAR,
@@ -504,7 +505,7 @@ class BlissAxisClass(PyTango.DeviceClass):
              'format': "%10.3f",
              'description': "The acceleration of the motor.",
              'Display level': PyTango.DispLevel.EXPERT,
-         }],
+        }],
         'AccTime':
         [[PyTango.DevDouble,
           PyTango.SCALAR,
@@ -515,7 +516,7 @@ class BlissAxisClass(PyTango.DeviceClass):
              'format': "%10.6f",
              'description': "The acceleration time of the motor.",
              'Display level': PyTango.DispLevel.EXPERT,
-         }],
+        }],
         'Velocity':
         [[PyTango.DevDouble,
           PyTango.SCALAR,
@@ -526,7 +527,7 @@ class BlissAxisClass(PyTango.DeviceClass):
              'format': "%10.3f",
              'description': "The constant velocity of the motor.",
              #                'Display level': PyTango.DispLevel.EXPERT,
-         }],
+        }],
         'Backlash':
         [[PyTango.DevDouble,
           PyTango.SCALAR,
@@ -537,7 +538,7 @@ class BlissAxisClass(PyTango.DeviceClass):
              'format': "%5.3f",
              'description': "Backlash to be applied to each motor movement",
              'Display level': PyTango.DispLevel.EXPERT,
-         }],
+        }],
         'Home_position':
         [[PyTango.DevDouble,
           PyTango.SCALAR,
@@ -548,21 +549,21 @@ class BlissAxisClass(PyTango.DeviceClass):
              'format': "%7.3f",
              'description': "Position of the home switch",
              'Display level': PyTango.DispLevel.EXPERT,
-         }],
+        }],
         'HardLimitLow':
         [[PyTango.DevBoolean,
           PyTango.SCALAR,
           PyTango.READ],
          {
              'label': "low limit switch state",
-         }],
+        }],
         'HardLimitHigh':
         [[PyTango.DevBoolean,
           PyTango.SCALAR,
           PyTango.READ],
          {
              'label': "up limit switch state",
-         }],
+        }],
         'PresetPosition':
         [[PyTango.DevDouble,
           PyTango.SCALAR,
@@ -573,7 +574,7 @@ class BlissAxisClass(PyTango.DeviceClass):
              'format': "%10.3f",
              'description': "preset the position in the step counter",
              'Display level': PyTango.DispLevel.EXPERT,
-         }],
+        }],
         'FirstVelocity':
         [[PyTango.DevDouble,
           PyTango.SCALAR,
@@ -585,7 +586,7 @@ class BlissAxisClass(PyTango.DeviceClass):
              'description': "number of unit/s for the first step and for \
              the move reference",
              'Display level': PyTango.DispLevel.EXPERT,
-         }],
+        }],
         'Home_side':
         [[PyTango.DevBoolean,
           PyTango.SCALAR,
@@ -593,7 +594,7 @@ class BlissAxisClass(PyTango.DeviceClass):
          {
              'description': "indicates if the axis is below or above \
              the position of the home switch",
-         }],
+        }],
         'StepSize':
         [[PyTango.DevDouble,
           PyTango.SCALAR,
@@ -605,7 +606,7 @@ class BlissAxisClass(PyTango.DeviceClass):
              StepUp and StepDown commands.\nThe StepSize\
              is expressed in physical unit.",
              'Display level': PyTango.DispLevel.EXPERT,
-         }],
+        }],
     }
 
 
@@ -618,7 +619,7 @@ def get_devices_from_server():
     db = PyTango.Database()
     result = db.get_device_class_list(personalName)
 
-    #"result" is :  DbDatum[
+    # "result" is :  DbDatum[
     #    name = 'server'
     # value_string = ['dserver/BlissAxisManager/cyril', 'DServer',
     # 'pel/bliss/00', 'Bliss', 'pel/bliss_00/fd', 'BlissAxis']]
@@ -648,7 +649,7 @@ def delete_bliss_axes():
 
     for _axis_device_name in bliss_axis_device_names:
         elog.info("Deleting existing BlissAxisManager axis: %s" %
-               _axis_device_name)
+                  _axis_device_name)
         db.delete_device(_axis_device_name)
 
 
@@ -696,9 +697,9 @@ def main():
             elog.level(20)
             tango_log_level = 0
 
-        #elog.info("tango log level=%d" % tango_log_level)
-        #elog.debug("BlissAxisManager.py debug message")
-        #elog.error("BlissAxisManager.py error message", raise_exception=False)
+        # elog.info("tango log level=%d" % tango_log_level)
+        # elog.debug("BlissAxisManager.py debug message")
+        # elog.error("BlissAxisManager.py error message", raise_exception=False)
 
         # Searches for bliss devices defined in tango database.
         U = PyTango.Util.instance()
@@ -712,27 +713,31 @@ def main():
             elog.info("BlissAxisManager.py - config file : %s" % _config_file)
             first_run = False
         else:
-            elog.error("[FIRST RUN] New server never started ? -> no database entry...", raise_exception= False)
-            elog.error("[FIRST RUN] NO CUSTOM COMANDS :( ", raise_exception= False)
-            elog.error("[FIRST RUN] Restart DS to havec CUSTOM COMMANDS", raise_exception= False)
+            elog.error("[FIRST RUN] New server never started ? -> no database entry...", raise_exception=False)
+            elog.error("[FIRST RUN] NO CUSTOM COMANDS :( ", raise_exception=False)
+            elog.error("[FIRST RUN] Restart DS to havec CUSTOM COMMANDS", raise_exception=False)
             first_run = True
 
         py.add_class(BlissAxisManagerClass, BlissAxisManager)
         # py.add_class(BlissAxisClass, BlissAxis)
 
         if not first_run:
-            TgGevent.execute(bliss.load_cfg, _config_file)
+            try:
+                TgGevent.execute(bliss.load_cfg, _config_file)
+            except:
+                elog.error("error (not present or syntax error?) in reading config file : %s" %
+                           _config_file, raise_exception=False)
+                sys.exit(-1)
 
             # Get axis names defined in config file.
             axis_names = bliss_config.axis_names_list()
             elog.debug("axis names list : %s" % axis_names)
 
-
             for axis_name in axis_names:
                 _axis = TgGevent.get_proxy(bliss.get_axis, axis_name)
 
                 new_axis_class_class = types.ClassType("BlissAxisClass_%s" % axis_name, (BlissAxisClass,), {})
-                new_axis_class = types.ClassType("BlissAxis_%s" % axis_name, (BlissAxis,), {}) 
+                new_axis_class = types.ClassType("BlissAxis_%s" % axis_name, (BlissAxis,), {})
 
                 elog.debug("================ axis %s =========" % axis_name)
 
@@ -740,7 +745,8 @@ def main():
                     None: PyTango.DevVoid,
                     str: PyTango.DevString,
                     int: PyTango.DevLong,
-                    float: PyTango.DevDouble}
+                    float: PyTango.DevDouble,
+                    bool: PyTango.DevBoolean}
 
                 # Search and adds custom commands.
                 _cmd_list = _axis.custom_methods_list()
@@ -761,7 +767,6 @@ def main():
                     elog.debug("   %s (in: %s, %s) (out: %s, %s)" % (fname, t1, tin, t2, tout))
 
                 py.add_class(new_axis_class_class, new_axis_class)
-
 
         U.server_init()
 
@@ -803,7 +808,8 @@ def main():
             # Do not raise exception to be able to use
             # Jive device creation wizard.
             elog.error("No bliss supervisor device",
-                              raise_exception=False)
+                       raise_exception=False)
+
     except PyTango.DevFailed:
         print traceback.format_exc()
         elog.exception(

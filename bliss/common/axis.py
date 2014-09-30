@@ -150,17 +150,22 @@ class Axis(object):
             try:
                 # Sends a value in motor units to the controller
                 # but returns a user-units value.
-                return self.__controller.set_position(
-                    self, _new_pos) / self.steps_per_unit
+                return self.__controller.set_position(self, _new_pos) / self.steps_per_unit
             except NotImplementedError:
-                self.__settings.set(
-                    "offset",
-                    (self.__controller.read_position(self) - _new_pos) / self.
-                    steps_per_unit)
+                try:
+                    curr_pos = self.__controller.read_position(self)
+                except NotImplementedError:
+                    # this controller does not have a 'position'
+                    # (e.g like some piezo controllers)
+                    curr_pos = 0
+                self.__settings.set("offset", (_new_pos - curr_pos) / self.steps_per_unit)
                 return self.position()
         else:
-            return (self.__controller.read_position(self, measured) /
-                    self.steps_per_unit) - self.offset
+            try:
+                curr_pos = self.__controller.read_position(self, measured)
+            except NotImplementedError:
+                curr_pos = 0
+            return (curr_pos / self.steps_per_unit) + self.offset
 
     def state(self):
         if self.is_moving:
@@ -248,7 +253,7 @@ class Axis(object):
         # all positions are converted to controller units
         backlash = user_backlash * self.steps_per_unit
         delta = (user_target_pos - initial_pos) * self.steps_per_unit
-        target_pos = (user_target_pos + self.offset) * self.steps_per_unit
+        target_pos = (user_target_pos - self.offset) * self.steps_per_unit
 
         if backlash:
             if cmp(delta, 0) != cmp(backlash, 0):

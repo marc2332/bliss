@@ -270,7 +270,7 @@ def clear_cfg():
     CONTROLLER_BY_AXIS = {}
 
 
-def load_cfg(filename):
+def load_cfg(filename, clear=True):
     """Load configuration from file
 
     Configuration is cleared first (calls :func:`clear_cfg`)
@@ -284,13 +284,14 @@ def load_cfg(filename):
     Returns:
         None
     """
-    clear_cfg()
+    if clear:
+        clear_cfg()
     if BACKEND == 'xml':
         from bliss.config.motors.xml_backend import load_cfg
         return load_cfg(filename)
 
 
-def load_cfg_fromstring(config_str):
+def load_cfg_fromstring(config_str, clear=True):
     """Load configuration from string
 
     Configuration is cleared first (calls :func:`clear_cfg`)
@@ -304,7 +305,8 @@ def load_cfg_fromstring(config_str):
     Returns:
         None
     """
-    clear_cfg()
+    if clear:
+        clear_cfg()
     if BACKEND == 'xml':
         from bliss.config.motors.xml_backend import load_cfg_fromstring
         return load_cfg_fromstring(config_str)

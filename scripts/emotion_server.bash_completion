@@ -1,0 +1,25 @@
+# bash completion for bliss_server
+
+# COMPREPLY: an array containing possible completions as a result of your function
+# COMP_WORDS: an array containing individual command arguments typed so far
+# COMP_CWORD: the index of the command argument containing the current cursor position
+# COMP_LINE: the current command line
+
+_bliss_server()
+{
+
+. blissrc
+
+PERS_NAMES=$(mysql --silent -u blissadm -pspec92 -h piano -e"use tango; select member from device where class='Bliss' ;")
+
+# PERS_NAMES=$(exec python /users/blissadm/python/bliss_modules/bliss/tango/bliss_server -? 2>&1 | grep -v 'instance_name' | grep -v 'Instance')
+
+# find curent word tried to complete:
+local cur=${COMP_WORDS[COMP_CWORD]}
+
+# return matching list.
+COMPREPLY=( $(compgen -W "${PERS_NAMES}" -- $cur) )
+
+}
+complete -F _bliss_server bliss_server
+

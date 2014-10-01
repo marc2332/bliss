@@ -11,7 +11,7 @@ from bliss.comm import tcp
 from bliss.common import event
 import gevent.lock
 
-DELAY = 0.02  # delay between 2 commands
+DELAY = 0.02 #delay between 2 commands
 
 
 class NF8753(Controller):
@@ -20,7 +20,7 @@ class NF8753(Controller):
         Controller.__init__(self, name, config, axes)
 
         self.host = self.config.get("host")
-        self._current_selected_channel = None
+        self.__current_selected_channel = None
         self.lock = gevent.lock.RLock()
         self.__busy = False
 
@@ -30,47 +30,39 @@ class NF8753(Controller):
             raise RuntimeError("Uncompatible closed-loop driver detected in daisy chain")
 
     def finalize(self):
-        """
-        Closes the controller socket.
-        """
         self.sock.close()
         # this controller can't reconnect immediately
         # after socket is disconnected, so we put a delay here to make sure
         # socket is really closed on the controller side
-        time.sleep(DELAY)
+        time.sleep(5*DELAY)
 
     def initialize_axis(self, axis):
         axis.driver = axis.config.get("driver", str)
         axis.channel = axis.config.get("channel", int)
+        axis.accumulator = None
 
         event.connect(axis, "move_done", self._axis_move_done)
-        self._write_no_reply(axis, "JOF")
-        self._write_no_reply(axis, "MON")
 
-    def read_position(self, axis, measured=False):
-        # position is relative to current client connection,
-        # and in case of 8753 it is just a counter of relative
-        # moves
-        _pos = self._write_read(axis, "POS %s" % axis.driver)
-        return float(_pos)
+        #self._write_no_reply(axis, "JOF") #, raw=True)
+        self._write_no_reply(axis, "MON %s" % axis.driver)
 
     def _select_channel(self, axis):
         change_channel = "CHL %s=%d" % (axis.driver, axis.channel)
-        if change_channel != self._current_selected_channel:
-            self._current_selected_channel = change_channel
+        if change_channel != self.__current_selected_channel:
+            self.__current_selected_channel = change_channel
             self._write_no_reply(None, change_channel)
 
     def _write_no_reply(self, axis, cmd_string):
         with self.lock:
-            if not cmd_string.endswith('\n'):
-                cmd_string += '\n'
+            if not cmd_string.endswith('\r\n'):
+                cmd_string += '\r\n'
             if axis is not None:
                 self._select_channel(axis)
-            print 'sending', cmd_string
+            #print 'sending', cmd_string
             self.sock.write_readline(cmd_string, eol='>')
             time.sleep(DELAY)
 
-    def _write_read(self, axis, cmd_string, eol='\r\n', raw=False):
+    def _write_read(self, axis, cmd_string, eol='\r\n>', raw=False):
         with self.lock:
             if not cmd_string.endswith('\r\n'):
                 cmd_string += '\r\n'
@@ -78,22 +70,22 @@ class NF8753(Controller):
             if axis is not None:
                 self._select_channel(axis)
 
-            print 'sending', cmd_string, 'waiting for reply...'
+            #print 'sending', cmd_string, 'waiting for reply...'
             ans = self.sock.write_readline(cmd_string, eol=eol)
             time.sleep(DELAY)
-            print 'reply=', ans
+            #print 'reply=', ans
 
             ans = ans.replace(">", "")
             if raw:
                 return ans
             else:
-                return ans.split("=")[1].split("\r\n")[0]
+                return ans.split("=")[1].split("\r\n>")[0]
 
     def read_velocity(self, axis):
         return int(self._write_read(axis, "VEL %s %d" % (axis.driver, axis.channel)))
 
     def set_velocity(self, axis, new_velocity):
-        self._write_no_reply(axis, "VEL %s %d=%d" % (axis.driver, axis.channel, new_velocity))
+        #self._write_no_reply(axis, "VEL %s %s=%d" % (axis.driver, axis.channel, new_velocity))
         return self.read_velocity(axis)
 
     def state(self, axis):
@@ -111,15 +103,20 @@ class NF8753(Controller):
 
     def prepare_move(self, motion):
         self.__busy = True
+        self.__moving_axis = motion.axis
+        if self.__moving_axis.accumulator is None:
+            self.__moving_axis.accumulator = self.__moving_axis.settings.get("offset")*self.__moving_axis.steps_per_unit
+        self.__moving_axis.accumulator += motion.delta
 
     def _axis_move_done(self, done):
         if done:
-            print ">" * 10, "AXIS MOVE DONE"
-            self.__busy = False
-
+          #print ">"*10, "AXIS MOVE DONE"
+          self.__busy = False
+          self.__moving_axis.position(self.__moving_axis.accumulator / self.__moving_axis.steps_per_unit)
+ 
     def start_one(self, motion):
-        print "in motion start_one for axis", motion.axis.name
-        self._write_no_reply(motion.axis, "ABS %s=%d G" % (motion.axis.driver, motion.target_pos))
+        #print "in motion start_one for axis", motion.axis.name
+        self._write_no_reply(motion.axis, "REL %s=%d G" % (motion.axis.driver, motion.delta))
 
     def stop(self, axis):
         self._write_no_reply(axis, "HAL")

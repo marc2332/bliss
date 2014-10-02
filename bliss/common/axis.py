@@ -311,10 +311,19 @@ class Axis(object):
 
         # indicates that axis is MOVING.
         self.__move_done.clear()
-        event.send(self, "move_done", False)
+        move_task = None
 
-        move_task = self._do_move(motion, wait=False)
-        move_task.link(self._set_move_done)
+        try:
+            event.send(self, "move_done", False)
+            move_task = self._do_move(motion, wait=False)
+        except:
+            self._set_move_done(None)
+            if move_task:
+                move_task.get()
+            else:
+                raise
+        else:
+            move_task.link(self._set_move_done)
 
         if wait:
             move_task.get()

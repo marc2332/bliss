@@ -92,9 +92,9 @@ class _Group(object):
 
     @task
     def _handle_move(self, motions):
-        event.send(self, "move_done", False)
         move_tasks = []
         try:
+            event.send(self, "move_done", False)
             with error_cleanup(self.stop):
                 for motion in motions:
                     move_task = gevent.spawn(motion.axis._handle_move, motion)

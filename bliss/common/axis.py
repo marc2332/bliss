@@ -194,7 +194,7 @@ class Axis(object):
 
     def acctime(self, new_acctime=None):
         """
-        new_acctime is in seconds.
+        <new_acctime> given in seconds.
         """
         if new_acctime is not None:
             _acctime = self.__controller.set_acctime(self, new_acctime)
@@ -205,7 +205,7 @@ class Axis(object):
 
     def limits(self, low_limit=None, high_limit=None):
         """
-        limits are in user units.
+        <low_limit> and <high_limit> given in user units.
         """
         if low_limit is not None:
             self.settings.set("low_limit", low_limit)

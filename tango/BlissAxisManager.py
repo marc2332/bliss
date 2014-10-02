@@ -93,11 +93,12 @@ class BlissAxis(PyTango.Device_4Impl):
         self.attr_Home_position_read = 0.0
         self.attr_StepSize_read = 0.0
         self.attr_Steps_per_unit_read = 0.0
+        self.attr_Acceleration_read = 0.0
+
         """
         self.attr_Steps_read = 0
         self.attr_Position_read = 0.0
         self.attr_Measured_Position_read = 0.0
-        self.attr_Acceleration_read = 0.0
         self.attr_Backlash_read = 0.0
         self.attr_HardLimitLow_read = False
         self.attr_HardLimitHigh_read = False
@@ -213,8 +214,8 @@ class BlissAxis(PyTango.Device_4Impl):
             self.debug_stream("In read_Acceleration(%f)" % float(_acc))
             attr.set_value(_acc)
         except:
-            # elog.exception("Unable to read acceleration for this axis")
-            pass
+            elog.error("Unable to read acceleration for axis %s" % self.axis.name(),
+                       raise_exception=False)
 
     def write_Acceleration(self, attr):
         try:
@@ -222,15 +223,26 @@ class BlissAxis(PyTango.Device_4Impl):
             self.debug_stream("In write_Acceleration(%f)" % data)
             self.axis.acceleration(data)
         except:
-            elog.exception("Unable to write acceleration for this axis")
+            elog.error("Unable to write acceleration (%g uu/s2) for axis %s" % (data, self.axis.name()),
+                       raise_exception = False)
 
     def read_AccTime(self, attr):
-        self.debug_stream("In read_AccTime()")
-        attr.set_value(self.attr_AccTime_read)
+        try:
+            self.debug_stream("In read_AccTime()")
+            _acc_time = self.axis.acctime()
+            self.debug_stream("In read_AccTime(%f)" % float(_acc_time))
+            attr.set_value(_acc_time)
+        except:
+            elog.exception("Unable to read acc_time for axis %s" % self.axis.name())
 
     def write_AccTime(self, attr):
-        data = attr.get_write_value()
-        self.debug_stream("In write_AccTime(%f)" % float(data))
+        try:
+            data = float(attr.get_write_value())
+            self.axis.acctime(data)
+            self.debug_stream("In write_AccTime(%f)" % float(data))
+        except:
+            elog.exception("Unable to write acc_time (%g s) for axis %s" % (data, self.axis.name()))
+
 
     def read_Velocity(self, attr):
         _vel = self.axis.velocity()

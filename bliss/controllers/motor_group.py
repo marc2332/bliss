@@ -141,13 +141,12 @@ class _Group(object):
                 axis_pos_dict[axis] = target_pos
 
         for axis, target_pos in axis_pos_dict.iteritems():
-            self._motions_dict.setdefault(
-                axis.controller,
-                []).append(
-                axis.prepare_move(
-                    target_pos,
-                    relative=relative))
-            axis._Axis__move_done.clear()
+            motion = axis.prepare_move(target_pos, relative=relative)
+            if motion is not None:
+                # motion can be None if axis is not supposed to move,
+                # let's filter it
+                self._motions_dict.setdefault(axis.controller, []).append(motion)
+                axis._Axis__move_done.clear()
 
         all_motions = []
         for controller, motions in self._motions_dict.iteritems():

@@ -125,6 +125,20 @@ class TestGroup(unittest.TestCase):
         grp.rmove({robz: 2, roby: 3})
         self.assertEquals(res["ok"], True)
 
+    def test_static_move(self):
+        grp = bliss.get_group("group1")
+        grp.move(grp.position())
+        
+          
+    def test_static_move(self):
+        grp = bliss.get_group("group1")
+        roby = bliss.get_axis("roby")
+        robz = bliss.get_axis("robz")
+        p0 = grp.position()
+        grp.rmove({ robz: 0, roby: 1})
+        self.assertEquals(grp.position()[robz], p0[robz])
+        self.assertEquals(grp.position()[roby], p0[roby]+1)
+
 
 if __name__ == '__main__':
     unittest.main()

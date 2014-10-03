@@ -224,7 +224,7 @@ class BlissAxis(PyTango.Device_4Impl):
             self.axis.acceleration(data)
         except:
             elog.error("Unable to write acceleration (%g uu/s2) for axis %s" % (data, self.axis.name()),
-                       raise_exception = False)
+                       raise_exception=False)
 
     def read_AccTime(self, attr):
         try:
@@ -242,7 +242,6 @@ class BlissAxis(PyTango.Device_4Impl):
             self.debug_stream("In write_AccTime(%f)" % float(data))
         except:
             elog.exception("Unable to write acc_time (%g s) for axis %s" % (data, self.axis.name()))
-
 
     def read_Velocity(self, attr):
         _vel = self.axis.velocity()

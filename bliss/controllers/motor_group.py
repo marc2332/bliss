@@ -79,8 +79,9 @@ class _Group(object):
                 except NotImplementedError:
                     for motion in motions:
                         motion.axis.stop()
-            for controller, motions in self._motions_dict.iteritems():
-                [motion.axis.wait_move() for motion in motions]
+                else:
+                    for motion in motions:
+                        motion.axis._set_move_done(None)
         finally:
             self._reset_motions_dict()
 

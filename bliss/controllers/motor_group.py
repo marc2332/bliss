@@ -5,6 +5,7 @@ from bliss.config.motors.static import StaticConfig
 from bliss.common.axis import Axis, AxisRef, READY, MOVING, FAULT, UNKNOWN
 from bliss.common import event
 
+
 def grouped(iterable, n):
     """s -> (s0,s1,s2,...sn-1), (sn,sn+1,sn+2,...s2n-1),
             (s2n,s2n+1,s2n+2,...s3n-1), ..."""
@@ -99,6 +100,7 @@ class _Group(object):
             with error_cleanup(self.stop):
                 for motion in motions:
                     move_task = gevent.spawn(motion.axis._handle_move, motion)
+                    motion.axis._Axis__move_task = move_task
                     move_task.link(motion.axis._set_move_done)
                     move_tasks.append(move_task)
                 for move_task in gevent.iwait(move_tasks):
@@ -146,11 +148,13 @@ class _Group(object):
             if motion is not None:
                 # motion can be None if axis is not supposed to move,
                 # let's filter it
-                self._motions_dict.setdefault(axis.controller, []).append(motion)
+                self._motions_dict.setdefault(
+                    axis.controller, []).append(
+                    motion)
                 axis._Axis__move_done.clear()
- 
+
         all_motions = []
-        try: 
+        try:
             for controller, motions in self._motions_dict.iteritems():
                 try:
                     controller.start_all(*motions)
@@ -165,7 +169,7 @@ class _Group(object):
             # let's stop everything and re-raise the exception
             self.stop()
             raise
-      
+
         return self._handle_move(all_motions, wait=wait)
 
     def wait_move(self):

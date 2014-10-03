@@ -54,12 +54,12 @@ BIN_64 = 8
 #
 #
 #
-class DeviceError(IOError):
+class DeviceError(Exception):
 
   #
   #
   def __init__(self, device, message):
-	  IOError.__init__(self, device.hostname() + ': ' + message) 
+	  Exception.__init__(self, device.hostname() + ': ' + message) 
 
 
 

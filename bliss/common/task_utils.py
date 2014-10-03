@@ -109,15 +109,19 @@ def task(func):
             t._get = t.get
 
             def special_get(self, *args, **kwargs):
-                # self.unlink(task_done)
-                try:
-                    ret = self._get(*args, **kwargs)
-                    if isinstance(ret, TaskException):
-                        raise ret.exception, ret.error_string, ret.tb
-                    else:
-                        return ret
-                except KeyboardInterrupt:
-                    t.kill(KeyboardInterrupt)
+                #try:
+                #    ret = self._get(*args, **kwargs)
+                #    if isinstance(ret, TaskException):
+                #        raise ret.exception, ret.error_string, ret.tb
+                #    else:
+                #        return ret
+                #except KeyboardInterrupt:
+                #    t.kill(KeyboardInterrupt)
+                ret = self._get(*args, **kwargs)
+                if isinstance(ret, TaskException):
+                    raise ret.exception, ret.error_string, ret.tb
+                else:
+                    return ret
             setattr(t, "get", types.MethodType(special_get, t))
 
             if wait:

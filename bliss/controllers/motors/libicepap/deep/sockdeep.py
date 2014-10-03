@@ -78,9 +78,12 @@ class listenerThread(threading.Thread):
 
       # blocking call until there is something to read
       log.async("waiting for...")
-      readable, writable, exceptional = \
-        select.select(self.inputs, self.outputs, self.inputs, timeout)
-      
+      try:
+        readable, writable, exceptional = \
+          select.select(self.inputs, self.outputs, self.inputs, timeout)
+      except KeyboardInterrupt:
+        raise
+
       # ensure that there is something received
       if len(readable) == 0:
         continue
@@ -173,6 +176,8 @@ class listenerThread(threading.Thread):
       
       except socket.timeout:
         continue
+      except KeyboardInterrupt:
+        raise
 
     # abnormal end of the thread
     log.async("finishing thread")
@@ -325,7 +330,7 @@ class SockDeep:
   #
   def flush(self):
     #print "flushing..."
-    self.host_socket.sendall("\n")
+    self.host_socket.sendall("#\n")
     # the socket timeout is handled by the listening thread
     #self.host_socket.settimeout(0.2)
     try:

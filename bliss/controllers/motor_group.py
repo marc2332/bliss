@@ -148,18 +148,24 @@ class _Group(object):
                 # let's filter it
                 self._motions_dict.setdefault(axis.controller, []).append(motion)
                 axis._Axis__move_done.clear()
-
+ 
         all_motions = []
-        for controller, motions in self._motions_dict.iteritems():
-            try:
-                controller.start_all(*motions)
-            except NotImplementedError:
-                for motion in motions:
-                    controller.start_one(motion)
-                    all_motions.append(motion)
-            else:
-                all_motions.extend(motions)
-
+        try: 
+            for controller, motions in self._motions_dict.iteritems():
+                try:
+                    controller.start_all(*motions)
+                except NotImplementedError:
+                    for motion in motions:
+                        controller.start_one(motion)
+                        all_motions.append(motion)
+                else:
+                    all_motions.extend(motions)
+        except:
+            # if something wrong happens when starting motions,
+            # let's stop everything and re-raise the exception
+            self.stop()
+            raise
+      
         return self._handle_move(all_motions, wait=wait)
 
     def wait_move(self):

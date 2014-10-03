@@ -5,6 +5,8 @@ from bliss.config.motors.static import StaticConfig
 from bliss.controllers.motor_settings import AxisSettings
 from bliss.common import event
 import time
+import gevent
+import signal
 
 READY, MOVING, FAULT, UNKNOWN, OFF = (
     "READY", "MOVING", "FAULT", "UNKNOWN", "OFF")
@@ -48,6 +50,8 @@ class Axis(object):
         self.__move_done = gevent.event.Event()
         self.__move_done.set()
         self.__custom_methods_list = list()
+        self.__move_task = None
+        self.__sigint_handler = gevent.signal(signal.SIGINT, self._handle_sigint)
 
     @property
     def name(self):
@@ -241,6 +245,10 @@ class Axis(object):
                 self.__controller.start_one(backlash_motion)
                 self._handle_move(backlash_motion)
 
+    def _handle_sigint(self):
+        if self.is_moving:
+            self.__move_task.kill(KeyboardInterrupt)
+
     def prepare_move(self, user_target_pos, relative=False):
         initial_pos = self.position()
         axis_debug("prepare_move : user_target_pos=%g intitial_pos=%g relative=%s" %
@@ -306,29 +314,26 @@ class Axis(object):
         if self.__controller.is_busy():
             raise RuntimeError("axis %s: controller is busy" % self.name)
         self._check_ready()
- 
+
         motion = self.prepare_move(user_target_pos, relative)
 
         # indicates that axis is MOVING.
         self.__move_done.clear()
-        move_task = None
+        self.__move_task = None
 
         try:
             event.send(self, "move_done", False)
-            move_task = self._do_move(motion, wait=False)
+            self.__move_task = self._do_move(motion, wait=False)
         except:
             self._set_move_done(None)
-            if move_task:
-                move_task.get()
-            else:
-                raise
+            raise
         else:
-            move_task.link(self._set_move_done)
+            self.__move_task.link(self._set_move_done)
 
         if wait:
-            move_task.get()
+            self.__move_task.get()
         else:
-            return move_task
+            return self.__move_task
 
     @task
     def _do_move(self, motion, wait=True):

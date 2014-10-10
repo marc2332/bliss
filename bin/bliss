@@ -1,0 +1,37 @@
+#!/usr/bin/env python
+import sys
+import os
+
+try:
+  import sqlite3
+except ImportError:
+  print "failed to import sqlite3"
+  import pysqlite2.dbapi2 as sqlite3
+  sys.modules["sqlite3"]=sqlite3
+
+try:
+  from IPython.terminal.interactiveshell import TerminalInteractiveShell
+except ImportError:
+  # compatibility with IPython 0.13
+  from IPython.frontend.terminal.interactiveshell import TerminalInteractiveShell
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+import bliss
+
+user_ns = { "load_cfg": bliss.load_cfg,
+            "load_cfg_fromstring": bliss.load_cfg_fromstring,
+            "get_axis": bliss.get_axis,
+            "get_group": bliss.get_group,
+            "sys": sys,
+            "os": os }
+ 
+#user_ns.update(objects)
+
+shell = TerminalInteractiveShell(user_ns=user_ns) 
+
+from bliss.shell.ipython import inputhookgevent
+
+inputhookgevent.enable_gevent()
+
+shell.mainloop() 
+

@@ -1,0 +1,7 @@
+*.pyc
+*~
+build
+*.swp
+doc/_build
+.coverage
+

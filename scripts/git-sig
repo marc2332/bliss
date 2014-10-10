@@ -1,0 +1,12 @@
+
+# git script to set user.name config in local git depot.
+
+HOSTNAME=`hostname`
+SIG="$1@$HOSTNAME"
+CURRENT_PATH=`pwd`
+
+echo "Now git will use \"$SIG\" to commit in $CURRENT_PATH"
+
+git config  user.name "$SIG"
+
+

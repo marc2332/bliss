@@ -20,7 +20,8 @@ config_xml = """
     <port value="5000"/>
     <axis name="roby" class="MockupAxis">
       <backlash value="2"/>
-      <steps_per_unit value="-10"/>
+      <steps_per_unit value="10"/>
+      <sign>-1</sign>
       <velocity  value="2500"/>
     </axis>
   </controller>
@@ -94,11 +95,6 @@ class TestMockupController(unittest.TestCase):
         self.assertEqual(roby.position(), 0)
         roby.position(10)
         self.assertEqual(roby.position(), 10)
-
-    def test_axis_get_measured_position(self):
-        roby = bliss.get_axis("roby")
-        _meas_pos = -1.2345 / roby.steps_per_unit
-        self.assertAlmostEqual(roby.measured_position(), _meas_pos, places=9, msg=None)
 
     def test_home_search(self):
         roby = bliss.get_axis("roby")

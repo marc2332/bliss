@@ -165,7 +165,7 @@ class Axis(object):
                     # this controller does not have a 'position'
                     # (e.g like some piezo controllers)
                     curr_pos = 0
-                self.__settings.set("offset", new_pos - curr_pos)
+                self.__settings.set("offset", new_pos - self.sign*curr_pos)
                 return self.position()
             else:
                 self.__settings.set("offset", 0)

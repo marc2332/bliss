@@ -262,14 +262,15 @@ class Axis(object):
         return (position - self.offset)/self.sign
 
     def prepare_move(self, user_target_pos, relative=False):
-        dial_initial_pos = self.user2dial(self.position())
-        dial_target_pos = self.user2dial(user_target_pos)
-        axis_debug("prepare_move : user_target_pos=%g dial_target_pos=%g dial_intial_pos=%g relative=%s" %
-                   (user_target_pos, dial_target_pos, dial_initial_pos, relative))
+        user_initial_pos = self.position()
+        dial_initial_pos = self.user2dial(user_initial_pos)
         if relative:
-            dial_target_pos += dial_initial_pos
+            user_target_pos += user_initial_pos
+        dial_target_pos = self.user2dial(user_target_pos)
         if abs(dial_target_pos - dial_initial_pos) < 1E-6:
             return
+        axis_debug("prepare_move : user_target_pos=%g dial_target_pos=%g dial_intial_pos=%g relative=%s" %
+                   (user_target_pos, dial_target_pos, dial_initial_pos, relative))
         user_backlash = self.config.get("backlash", float, 0)
         # all positions are converted to controller units
         backlash = user_backlash * self.steps_per_unit

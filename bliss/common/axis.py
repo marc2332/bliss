@@ -49,7 +49,6 @@ class Axis(object):
             raise RuntimeError("Axis %s, invalid steps per unit: should always be positive, set 'sign` to -1 to make backward direction moves" % name)
         self.__settings = AxisSettings(self) 
         self.__settings.set("offset", 0)
-        self.__settings.set("sign", 1)
         self.__settings.set("low_limit", -1E9)
         self.__settings.set("high_limit", 1E9)
         self.__move_done = gevent.event.Event()
@@ -84,7 +83,7 @@ class Axis(object):
 
     @property
     def sign(self):
-        return self.__settings.get("sign")
+        return self.config.get("sign", int, 1)
 
     @property
     def steps_per_unit(self):

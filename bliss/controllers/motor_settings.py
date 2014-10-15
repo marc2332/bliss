@@ -33,13 +33,12 @@ def write_settings():
 class ControllerAxisSettings:
 
     def __init__(self):
-        self.setting_names = ["velocity", "position", "state", "offset", "sign"]
+        self.setting_names = ["velocity", "position", "state", "offset"]
         self.convert_funcs = {
             "velocity": float,
             "position": float,
             "state": str,
             "offset": float,
-            "sign": int,
             "low_limit": float,
             "high_limit": float}
         self.axis_settings_dict = dict()

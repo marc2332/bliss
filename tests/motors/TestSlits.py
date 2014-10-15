@@ -25,7 +25,7 @@ config_xml = """
     <axis name="s1f">
       <velocity value="500"/>
       <steps_per_unit value="1000"/>
-      <sign>-1</sign>
+      <sign value="-1"/>
     </axis>
     <axis name="s1b">
       <velocity value="500"/>
@@ -34,7 +34,7 @@ config_xml = """
     <axis name="s1u">
       <velocity value="500"/>
       <steps_per_unit value="1000"/>
-      <sign>-1</sign> 
+      <sign value="-1"/> 
     </axis>
     <axis name="s1d">
       <velocity value="500"/>

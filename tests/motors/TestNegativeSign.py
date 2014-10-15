@@ -21,7 +21,7 @@ config_xml = """
     <axis name="roby" class="MockupAxis">
       <backlash value="2"/>
       <steps_per_unit value="10"/>
-      <sign>-1</sign>
+      <sign value="-1"/>
       <velocity  value="2500"/>
     </axis>
   </controller>
@@ -56,29 +56,28 @@ class TestMockupController(unittest.TestCase):
 
     def setUp(self):
         bliss.load_cfg_fromstring(config_xml)
-
+    
     def test_backlash(self):
         roby = bliss.get_axis("roby")
         self.assertEqual(roby.state(), "READY")
         roby.move(0)
-        move_greenlet = roby.move(-180, wait=False)
+        move_greenlet = roby.move(-10, wait=False)
         time.sleep(0)
-        self.assertEqual(roby.backlash_move, -182)
+        self.assertEqual(roby.backlash_move, 0)
         move_greenlet.join()
-        self.assertEqual(roby.position(), -180)
-        roby.move(-179)
-        roby.limits(-181, 180)
-        self.assertRaises(ValueError, roby.move, -180)
+        self.assertEqual(roby.position(), -10)
+        roby.limits(-10, 9)
+        self.assertRaises(ValueError, roby.move, 8)
 
     def test_backlash2(self):
         roby = bliss.get_axis("roby")
         self.assertEqual(roby.state(), "READY")
         roby.move(0)
-        move_greenlet = roby.move(180, wait=False)
+        move_greenlet = roby.move(10, wait=False)
         time.sleep(0)
-        self.assertEqual(roby.backlash_move, 0)
+        self.assertEqual(roby.backlash_move, -12)
         move_greenlet.join()
-        self.assertEqual(roby.position(), 180)
+        self.assertEqual(roby.position(), 10)
 
     def test_axis_steps_per_unit(self):
         roby = bliss.get_axis("roby")
@@ -87,7 +86,7 @@ class TestMockupController(unittest.TestCase):
         self.assertEqual(roby.state(), "MOVING")
         move_greenlet.join()
         self.assertEqual(roby.state(), "READY")
-        self.assertEqual(roby.target_pos, roby.steps_per_unit * 180)
+        self.assertEqual(roby.target_pos, roby.sign * roby.steps_per_unit * 180)
 
     def test_axis_set_pos(self):
         roby = bliss.get_axis("roby")
@@ -117,10 +116,11 @@ class TestMockupController(unittest.TestCase):
         roby.limits(-1E9, 1E9)
         roby.rmove(1)
         roby.rmove(-2)
-
+    
     def test_rmove(self):
         roby = bliss.get_axis("roby")
         roby.position(-1)
+        self.assertEquals(roby.sign, -1)
         roby.rmove(2)
         self.assertEquals(roby.position(), 1)
         roby.rmove(-2)

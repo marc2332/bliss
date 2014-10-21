@@ -44,9 +44,6 @@ class Axis(object):
         self.__name = name
         self.__controller = controller
         self.__config = StaticConfig(config)
-        # check to prevent negative steps per unit
-        if self.steps_per_unit < 0:
-            raise RuntimeError("Axis %s, invalid steps per unit: should always be positive, set 'sign` to -1 to make backward direction moves" % name)
         self.__settings = AxisSettings(self) 
         self.__settings.set("offset", 0)
         self.__settings.set("low_limit", -1E9)
@@ -126,8 +123,30 @@ class Axis(object):
         """
         Returns a value in user units.
         """
-        return self.__controller.read_position(
-            self, measured=True) / self.steps_per_unit
+        return self.__controller.read_position(self, measured=True) / self.steps_per_unit
+
+    def dial(self, new_dial=None):
+        """
+        Returns current dial position, or set new dial if 'new_dial' argument is provided
+        """
+        if self.is_moving:
+            if new_dial is not None:
+                raise RuntimeError("Can't set axis position \
+                                    while it is moving")
+ 
+        if new_dial is not None:
+            user_pos = self.position()
+
+            # Sends a value in motor units to the controller
+            # but returns a user-units value.
+            curr_pos = self.__controller.set_position(self, new_dial * self.steps_per_unit) / self.steps_per_unit
+
+            # do not change user pos (update offset)
+            self.position(user_pos)
+
+            return curr_pos
+        else:
+            return self.user2dial(self.position())
 
     def position(self, new_pos=None):
         """
@@ -155,21 +174,13 @@ class Axis(object):
         """
         if new_pos is not None:
             try:
-                # Sends a value in motor units to the controller
-                # but returns a user-units value.
-                curr_pos = self.__controller.set_position(self, new_pos * self.steps_per_unit) / self.steps_per_unit
+                curr_pos = self.__controller.read_position(self) / self.steps_per_unit
             except NotImplementedError:
-                try:
-                    curr_pos = self.__controller.read_position(self) / self.steps_per_unit
-                except NotImplementedError:
-                    # this controller does not have a 'position'
-                    # (e.g like some piezo controllers)
-                    curr_pos = 0
-                self.__settings.set("offset", new_pos - self.sign*curr_pos)
-                return self.position()
-            else:
-                self.__settings.set("offset", 0)
-                return self.dial2user(curr_pos)
+                # this controller does not have a 'position'
+                # (e.g like some piezo controllers)
+                curr_pos = 0
+            self.__settings.set("offset", new_pos - self.sign*curr_pos)
+            return self.position()
         else:
             try:
                 curr_pos = self.__controller.read_position(self) / self.steps_per_unit
@@ -190,12 +201,12 @@ class Axis(object):
         if new_velocity is not None:
             # Converts into motor units to change velocity of axis.
             self.__controller.set_velocity(
-                self, new_velocity * self.steps_per_unit)
+                self, new_velocity * abs(self.steps_per_unit))
             _user_vel = new_velocity
         else:
             # Returns velocity read from motor axis.
             _user_vel = self.__controller.read_velocity(
-                self) / self.steps_per_unit
+                self) / abs(self.steps_per_unit)
 
         # Stores velocity in user-units
         self.settings.set("velocity", _user_vel)
@@ -293,7 +304,7 @@ class Axis(object):
         user_low_limit = self.dial2user(float(self.settings.get("low_limit")))
         high_limit = user_high_limit * self.steps_per_unit
         low_limit = user_low_limit * self.steps_per_unit 
-        if self.sign < 0:
+        if high_limit < low_limit:
             high_limit, low_limit = low_limit, high_limit
         backlash_str = " (with %f backlash)" % user_backlash if backlash else ""
         if user_low_limit is not None:

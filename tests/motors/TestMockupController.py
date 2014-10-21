@@ -289,7 +289,20 @@ class TestMockupController(unittest.TestCase):
         robz.wait_move()
         robz.off()
         self.assertEquals(robz.state(), "OFF")
-    
+
+    def test_dial(self):
+        robz = bliss.get_axis("robz")
+        robz.move(0)
+        robz.position(1)
+        self.assertEquals(robz.dial(), 0)
+        self.assertEquals(robz.position(), 1)
+        robz.position(robz.dial())
+        self.assertEquals(robz.position(), 0)
+        robz.dial(1)
+        self.assertEquals(robz.dial(), 1)
+        self.assertEquals(robz.position(), 0)
+       
+ 
 
 if __name__ == '__main__':
     unittest.main()

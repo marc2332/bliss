@@ -216,6 +216,12 @@ class Mockup(Controller):
         return READY if(time.time() - self._axis_moves[axis]
                         ["home_search_start_time"]) > 2 else MOVING
 
+
+    def set_position(self, axis, pos):
+        self._axis_moves[axis]["end_pos"]=pos
+        self._axis_moves[axis]["end_t"] = 0
+        return pos
+
     """
     Custom axis method returning the current name of the axis
     """

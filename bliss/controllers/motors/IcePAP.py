@@ -91,7 +91,12 @@ class IcePAP(Controller):
         self.libgroup.add_axis(axis.libaxis)
 
         # Initialiaze hardware
-        self.libgroup.set_power(libicepap.ON, axis.libaxis)
+        # if set_power fails, display exception but let axis
+        # be created properly
+        try:
+            self.libgroup.set_power(libicepap.ON, axis.libaxis)
+        except:
+            sys.excepthook(*sys.exc_info())
 
         # Add new axis oject methods
         add_axis_method(axis, self.get_identifier)

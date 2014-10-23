@@ -11,7 +11,8 @@ import sys
 import gevent
 from gevent import select
 from IPython.core.interactiveshell import InteractiveShell
-from IPython.lib.inputhook import InputHookManager
+from IPython.lib.inputhook import InputHookManager, allow_CTRL_C
+import signal
 
 
 def create_inputhook_gevent(mgr):
@@ -36,13 +37,13 @@ def create_inputhook_gevent(mgr):
     def inputhook_gevent():
         """PyOS_InputHook python hook for Gevent.
         """
+        allow_CTRL_C()
+
         try:
             select.select([sys.stdin], [], [])
         except:
             from traceback import print_exc
             print_exc()
-            #print("Got exception from inputhook_gevent, unregistering.")
-            #mgr.clear_inputhook()
         finally:
             pass
         return 0

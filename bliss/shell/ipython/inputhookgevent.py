@@ -12,7 +12,6 @@ import gevent
 from gevent import select
 from IPython.core.interactiveshell import InteractiveShell
 from IPython.lib.inputhook import InputHookManager, allow_CTRL_C
-import signal
 
 
 def create_inputhook_gevent(mgr):
@@ -44,8 +43,7 @@ def create_inputhook_gevent(mgr):
         except:
             from traceback import print_exc
             print_exc()
-        finally:
-            pass
+
         return 0
 
     def preprompthook_gevent(ishell):

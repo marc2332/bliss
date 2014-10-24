@@ -96,7 +96,7 @@ def process_requests(main_queue):
         gevent.wait(timeout=1)
 
 
-class threadSafeRequest:
+class threadSafeRequest(object):
 
     def __init__(self, method, obj_id=None, queue=None, watcher=None):
         self.obj_id = obj_id

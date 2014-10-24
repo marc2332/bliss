@@ -1,6 +1,8 @@
 import sys
 import types
 import gevent
+import signal
+import functools
 
 
 class cleanup:
@@ -81,10 +83,23 @@ class wrap_errors(object):
     def __getattr__(self, item):
         return getattr(self.func, item)
 
-# def task_done(task):
-#    ret = task._get()
-#    if isinstance(ret, TaskException):
-#      sys.excepthook(ret.exception, ret.error_string, ret.tb)
+
+def kill_with_kbint(g):
+    g.kill(KeyboardInterrupt)
+    
+
+def special_get(self, *args, **kwargs):
+    sigint_handler = gevent.signal(signal.SIGINT, functools.partial(kill_with_kbint, self)) 
+
+    try:
+        ret = self._get(*args, **kwargs)
+    finally:
+        sigint_handler.cancel()
+
+    if isinstance(ret, TaskException):
+        raise ret.exception, ret.error_string, ret.tb
+    else:
+        return ret
 
 
 def task(func):
@@ -102,26 +117,10 @@ def task(func):
         else:
             del kwargs["timeout"]
 
+        t = gevent.spawn(wrap_errors(func), *args, **kwargs)
+        t._get = t.get
+
         try:
-            t = gevent.spawn(wrap_errors(func), *args, **kwargs)
-            # t.link(task_done)
-
-            t._get = t.get
-
-            def special_get(self, *args, **kwargs):
-                #try:
-                #    ret = self._get(*args, **kwargs)
-                #    if isinstance(ret, TaskException):
-                #        raise ret.exception, ret.error_string, ret.tb
-                #    else:
-                #        return ret
-                #except KeyboardInterrupt:
-                #    t.kill(KeyboardInterrupt)
-                ret = self._get(*args, **kwargs)
-                if isinstance(ret, TaskException):
-                    raise ret.exception, ret.error_string, ret.tb
-                else:
-                    return ret
             setattr(t, "get", types.MethodType(special_get, t))
 
             if wait:

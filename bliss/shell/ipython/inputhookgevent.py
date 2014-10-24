@@ -11,8 +11,7 @@ import sys
 import gevent
 from gevent import select
 from IPython.core.interactiveshell import InteractiveShell
-from IPython.lib.inputhook import allow_CTRL_C, ignore_CTRL_C, stdin_ready
-from IPython.lib.inputhook import InputHookManager
+from IPython.lib.inputhook import InputHookManager, allow_CTRL_C
 
 
 def create_inputhook_gevent(mgr):
@@ -37,17 +36,14 @@ def create_inputhook_gevent(mgr):
     def inputhook_gevent():
         """PyOS_InputHook python hook for Gevent.
         """
+        allow_CTRL_C()
+
         try:
-            ignore_CTRL_C()
             select.select([sys.stdin], [], [])
         except:
-            ignore_CTRL_C()
             from traceback import print_exc
             print_exc()
-            #print("Got exception from inputhook_gevent, unregistering.")
-            #mgr.clear_inputhook()
-        finally:
-            allow_CTRL_C()
+
         return 0
 
     def preprompthook_gevent(ishell):

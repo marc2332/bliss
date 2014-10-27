@@ -398,15 +398,26 @@ class BlissAxis(PyTango.Device_4Impl):
         self.debug_stream("In GetInfo()")
         return self.axis.get_info()
 
-    def RawCom(self, argin):
-        """ send a raw command to the axis. Be carefull!
+    def RawWrite(self, argin):
+        """ Sends a raw command to the axis. Be carefull!
 
         :param argin: String with command
         :type: PyTango.DevString
-        :return:
+        :return: None
+        """
+        self.debug_stream("In RawWrite()")
+        return self.axis.raw_write(argin)
+
+    def RawWriteRead(self, argin):
+        """ Sends a raw command to the axis and read the result.
+        Be carefull!
+
+        :param argin: String with command
+        :type: PyTango.DevString
+        :return: answer from controller.
         :rtype: PyTango.DevString """
-        self.debug_stream("In RawCom()")
-        return self.axis.raw_com(argin)
+        self.debug_stream("In RawWriteRead()")
+        return self.axis.raw_write_read(argin)
 
     def WaitMove(self):
         """ Waits end of last motion
@@ -455,9 +466,13 @@ class BlissAxisClass(PyTango.DeviceClass):
         'GetInfo':
         [[PyTango.DevVoid, "none"],
          [PyTango.DevString, "Info string returned by the axis"]],
-        'RawCom':
+        'RawWrite':
         [[PyTango.DevString, "Raw command to be send to the axis. Be carefull!"],
-         [PyTango.DevString, "Answer provided by the axis"],
+         [PyTango.DevVoid, "No answer"],
+         {'Display level': PyTango.DispLevel.EXPERT, }],
+        'RawWriteRead':
+        [[PyTango.DevString, "Raw command to be send to the axis. Be carefull!"],
+         [PyTango.DevString, "Answer returned by the controller"],
          {'Display level': PyTango.DispLevel.EXPERT, }],
         'WaitMove':
         [[PyTango.DevVoid, "none"],

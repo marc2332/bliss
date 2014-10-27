@@ -216,6 +216,15 @@ class Mockup(Controller):
         return READY if(time.time() - self._axis_moves[axis]
                         ["home_search_start_time"]) > 2 else MOVING
 
+    def get_info(self, axis):
+        return "turlututu chapo pointu : %s" % axis.name
+
+    def raw_write(self, axis, com):
+        print ("raw_write:  com = %s" % com)
+
+    def raw_write_read(self, axis, com):
+        return com + ">-<" + com
+
     """
     Custom axis method returning the current name of the axis
     """

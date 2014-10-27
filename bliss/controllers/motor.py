@@ -135,6 +135,15 @@ class Controller(object):
     def state(self, axis):
         raise NotImplementedError
 
+    def get_info(self, axis):
+        raise NotImplementedError
+
+    def raw_write(self, axis, com):
+        raise NotImplementedError
+
+    def raw_write_read(self, axis, com):
+        raise NotImplementedError
+
     def home_search(self, axis):
         raise NotImplementedError
 

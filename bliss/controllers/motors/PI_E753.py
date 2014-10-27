@@ -43,7 +43,6 @@ class PI_E753(Controller):
     # Init of each axis.
     def initialize_axis(self, axis):
         elog.debug("axis initialization")
-        add_axis_method(axis, self.get_info)
 
         # Enables the closed-loop.
         self.sock.write("SVO 1 1\n")
@@ -85,6 +84,12 @@ class PI_E753(Controller):
     def stop(self, axis):
         # to check : copy of current position into target position ???
         self.sock.write("STP\n")
+
+    def raw_write(self, axis, com):
+        self.sock.write("%s\n" % com)
+
+    def raw_write_read(self, axis, com):
+        return self.sock.write_read("%s\n" % com)
 
     """
     E753 specific communication
@@ -222,5 +227,8 @@ class PI_E753(Controller):
         _txt = _txt + "        %s    \n%s\n" %   \
             ("ADC value of analog input",
              "\n".join(self.sock.write_readlines("TAD?\n", 2)))
+
+####  TAD[1]==131071  => broken cable ??
+# 131071 = pow(2,17)-1
 
         return _txt

@@ -49,11 +49,10 @@ class PI_E517(Controller):
         axis.channel = axis.config.get("channel", int)
         axis.chan_letter = axis.config.get("chan_letter")
 
-        add_axis_method(axis, self.get_id)
-        add_axis_method(axis, self.get_info)
-        add_axis_method(axis, self.raw_com)
-        add_axis_method(axis, self.enable_gate)
+        add_axis_method(axis, self.get_id, types_info=(None, str))
 
+
+        add_axis_method(axis, self.set_gate, types_info=(bool, None))
         self._gate_enabled = True
 
         # Enables the closed-loop.
@@ -165,13 +164,18 @@ class PI_E517(Controller):
         """
         self.send_no_ans(axis, "HLT %s" % axis.chan_letter)
 
+        # self.sock.write("STP\n")
+
+    def raw_write(self, axis, cmd):
+        self.send(axis, cmd)
+
+    def raw_write_read(self, axis, cmd):
+        return self.send(axis, cmd)
+
+
     """
     E517 specific
     """
-
-    def raw_com(self, axis, cmd):
-        return self.send(axis, cmd)
-
     def send(self, axis, cmd):
         """
         - Adds the 'newline' terminator character : "\\\\n"
@@ -206,19 +210,9 @@ class PI_E517(Controller):
         """
         - Adds the 'newline' terminator character : "\\\\n"
         - Sends command <cmd> to the PI E517 controller.
-        - Channel is defined in <cmd>.
+        - Channel is already defined in <cmd>.
         - <axis> is passed for debugging purposes.
         - Used for answer-less commands, then returns nothing.
-
-        Args:
-            - <axis> :
-            - <cmd> :
-
-        Returns:
-            - None
-
-        Raises:
-            ?
         """
         _cmd = cmd + "\n"
         self.sock.write(_cmd)
@@ -281,17 +275,7 @@ class PI_E517(Controller):
 
     def _get_on_target_status(self, axis):
         """
-        -
-
-        Args:
-            - <>
-        Returns:
-            -
-        Raises:
-            - ?
-        """
-        """
-        Returns On Target status (ONT? command).
+        Returns << On Target >> status (ONT? command).
         True/False
         """
         _ans = self.send(axis, "ONT? %s" % axis.chan_letter)
@@ -302,10 +286,7 @@ class PI_E517(Controller):
         else:
             return False
 
-    def enable_gate(self, axis):
-        pass
-
-    def gate_on(self, axis, state):
+    def set_gate(self, axis, state):
         """
         CTO  [<TrigOutID> <CTOPam> <Value>]+
          - <TrigOutID> : {1, 2, 3}
@@ -348,12 +329,6 @@ class PI_E517(Controller):
         _error_str = pi_gcs.get_error_str(_error_number)
 
         return (_error_number, _error_str)
-
-    def _stop(self):
-        """
-        Sends a stop to the controller (STP command).
-        """
-        self.sock.write("STP\n")
 
     def get_info(self, axis):
         """

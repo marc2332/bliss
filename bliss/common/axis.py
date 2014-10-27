@@ -175,6 +175,15 @@ class Axis(object):
         # really read from hw
         return self.__controller.state(self)
 
+    def get_info(self):
+        return self.__controller.get_info(self)
+
+    def raw_write(self, com):
+        self.__controller.raw_write(self, com)
+
+    def raw_write_read(self, com):
+        return self.__controller.raw_write_read(self, com)
+
     def velocity(self, new_velocity=None):
         """
         new_velocity is in user units per seconds.

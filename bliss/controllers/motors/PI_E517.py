@@ -51,6 +51,11 @@ class PI_E517(Controller):
 
         add_axis_method(axis, self.get_id, types_info=(None, str))
 
+        add_axis_method(axis, self.open_loop, types_info=(str, None))
+        add_axis_method(axis, self.close_loop, types_info=(str, None))
+
+        add_axis_method(axis, self.activate_dco, types_info=(str, None))
+        add_axis_method(axis, self.desactivate_dco, types_info=(str, None))
 
         add_axis_method(axis, self.set_gate, types_info=(bool, None))
         self._gate_enabled = True
@@ -251,6 +256,23 @@ class PI_E517(Controller):
             _ans = self.send(axis, "SVA? %s" % axis.chan_letter)
         _pos = float(_ans[2:])
         return _pos
+
+
+    def open_loop(self, axis):
+        self.send(axis, "SVO %s 0" % axis.chan_letter)
+
+    def close_loop(self, axis):
+        self.send(axis, "SVO %s 1" % axis.chan_letter)
+
+    """
+    DCO Drift Compensation Offset.
+    """
+    def activate_dco(self, axis):
+        self.send(axis, "DCO %s 1" % axis.chan_letter)
+
+    def desactivate_dco(self, axis):
+        self.send(axis, "DCO %s 0" % axis.chan_letter)
+
 
     def _get_voltage(self, axis):
         """

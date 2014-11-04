@@ -42,7 +42,7 @@ class Axis(object):
         self.__name = name
         self.__controller = controller
         self.__config = StaticConfig(config)
-        self.__settings = AxisSettings(self)
+        self.__settings = AxisSettings(self) 
         self.__settings.set("offset", 0)
         self.__settings.set("low_limit", -1E9)
         self.__settings.set("high_limit", 1E9)
@@ -74,6 +74,10 @@ class Axis(object):
     @property
     def offset(self):
         return self.__settings.get("offset")
+
+    @property
+    def sign(self):
+        return self.config.get("sign", int, 1)
 
     @property
     def steps_per_unit(self):
@@ -116,8 +120,30 @@ class Axis(object):
         """
         Returns a value in user units.
         """
-        return self.__controller.read_position(
-            self, measured=True) / self.steps_per_unit
+        return self.__controller.read_position(self, measured=True) / self.steps_per_unit
+
+    def dial(self, new_dial=None):
+        """
+        Returns current dial position, or set new dial if 'new_dial' argument is provided
+        """
+        if self.is_moving:
+            if new_dial is not None:
+                raise RuntimeError("Can't set axis position \
+                                    while it is moving")
+ 
+        if new_dial is not None:
+            user_pos = self.position()
+
+            # Sends a value in motor units to the controller
+            # but returns a user-units value.
+            curr_pos = self.__controller.set_position(self, new_dial * self.steps_per_unit) / self.steps_per_unit
+
+            # do not change user pos (update offset)
+            self.position(user_pos)
+
+            return curr_pos
+        else:
+            return self.user2dial(self.position())
 
     def position(self, new_pos=None):
         """
@@ -132,42 +158,32 @@ class Axis(object):
             if pos is None:
                 pos = self._position()
                 self.settings.set("position", pos)
-            return pos
         else:
             pos = self._position(new_pos)
             if new_pos is not None:
                 self.settings.set("position", pos)
-            return pos
+        return pos
 
-    def _position(self, new_pos=None, measured=False):
+    def _position(self, new_pos=None):
         """
         new_pos is in user units.
-        _new_pos is in motor units.
         Returns a value in user units.
         """
-        _new_pos = new_pos * \
-            self.steps_per_unit if new_pos is not None else None
-
-        if _new_pos is not None:
+        if new_pos is not None:
             try:
-                # Sends a value in motor units to the controller
-                # but returns a user-units value.
-                return self.__controller.set_position(self, _new_pos) / self.steps_per_unit
+                curr_pos = self.__controller.read_position(self) / self.steps_per_unit
             except NotImplementedError:
-                try:
-                    curr_pos = self.__controller.read_position(self)
-                except NotImplementedError:
-                    # this controller does not have a 'position'
-                    # (e.g like some piezo controllers)
-                    curr_pos = 0
-                self.__settings.set("offset", (_new_pos - curr_pos) / self.steps_per_unit)
-                return self.position()
+                # this controller does not have a 'position'
+                # (e.g like some piezo controllers)
+                curr_pos = 0
+            self.__settings.set("offset", new_pos - self.sign*curr_pos)
+            return self.position()
         else:
             try:
-                curr_pos = self.__controller.read_position(self, measured)
+                curr_pos = self.__controller.read_position(self) / self.steps_per_unit
             except NotImplementedError:
                 curr_pos = 0
-            return (curr_pos / self.steps_per_unit) + self.offset
+            return self.dial2user(curr_pos)
 
     def state(self):
         if self.is_moving:
@@ -256,19 +272,27 @@ class Axis(object):
         if self.is_moving:
             self.__move_task.kill(KeyboardInterrupt)
 
+    def dial2user(self, position):
+        return (self.sign*position) + self.offset
+
+    def user2dial(self, position):
+        return (position - self.offset)/self.sign
+
     def prepare_move(self, user_target_pos, relative=False):
-        initial_pos = self.position()
-        axis_debug("prepare_move : user_target_pos=%g intitial_pos=%g relative=%s" %
-                   (user_target_pos, initial_pos, relative))
+        user_initial_pos = self.position()
+        dial_initial_pos = self.user2dial(user_initial_pos)
         if relative:
-            user_target_pos += initial_pos
-        if abs(user_target_pos - initial_pos) < 1E-6:
+            user_target_pos += user_initial_pos
+        dial_target_pos = self.user2dial(user_target_pos)
+        if abs(dial_target_pos - dial_initial_pos) < 1E-6:
             return
+        axis_debug("prepare_move : user_target_pos=%g dial_target_pos=%g dial_intial_pos=%g relative=%s" %
+                   (user_target_pos, dial_target_pos, dial_initial_pos, relative))
         user_backlash = self.config.get("backlash", float, 0)
         # all positions are converted to controller units
         backlash = user_backlash * self.steps_per_unit
-        delta = (user_target_pos - initial_pos) * self.steps_per_unit
-        target_pos = (user_target_pos - self.offset) * self.steps_per_unit
+        delta = (dial_target_pos - dial_initial_pos) * self.steps_per_unit
+        target_pos = dial_target_pos * self.steps_per_unit
 
         if backlash:
             if cmp(delta, 0) != cmp(backlash, 0):
@@ -282,11 +306,11 @@ class Axis(object):
                 backlash = 0
 
         # check software limits
-        user_high_limit = float(self.settings.get("high_limit"))
-        user_low_limit = float(self.settings.get("low_limit"))
+        user_high_limit = self.dial2user(float(self.settings.get("high_limit")))
+        user_low_limit = self.dial2user(float(self.settings.get("low_limit")))
         high_limit = user_high_limit * self.steps_per_unit
-        low_limit = user_low_limit * self.steps_per_unit
-        if self.steps_per_unit < 0:
+        low_limit = user_low_limit * self.steps_per_unit 
+        if high_limit < low_limit:
             high_limit, low_limit = low_limit, high_limit
         backlash_str = " (with %f backlash)" % user_backlash if backlash else ""
         if user_low_limit is not None:

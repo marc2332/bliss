@@ -214,6 +214,18 @@ class Axis(object):
         self.settings.set("acctime", _acctime)
         return _acctime
 
+    def acceleration(self, new_acc=None):
+        """
+        <new_acc> given in user_units/s2.
+        """
+        if new_acc is not None:
+            _acceleration = self.__controller.set_acceleration(self, new_acc)
+        else:
+            _acceleration = self.__controller.read_acceleration(self)
+        self.settings.set("acceleration", _acceleration)
+
+        return _acceleration
+
     def limits(self, low_limit=None, high_limit=None):
         """
         <low_limit> and <high_limit> given in user units.

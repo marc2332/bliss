@@ -177,6 +177,12 @@ class Controller(object):
     def set_acctime(self, axis, new_acctime):
         raise NotImplementedError
 
+    def read_acceleration(self, axis):
+        raise NotImplementedError
+
+    def set_acceleration(self, axis, new_acc):
+        raise NotImplementedError
+
 
 class CalcController(Controller):
 

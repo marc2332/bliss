@@ -97,7 +97,7 @@ class Mockup(Controller):
         t0 = t0 or time.time()
         pos = self.read_position(axis)
         v = self.read_velocity(axis)
-        self._axis_moves[axis] = {
+        self._axis_moves[axis].update( {
             "start_pos": pos,
             "delta": motion.delta,
             "end_pos": motion.target_pos,
@@ -105,7 +105,7 @@ class Mockup(Controller):
             math.fabs(
                 motion.delta) /
             float(v),
-            "t0": t0}
+            "t0": t0})
 
     def read_position(self, axis, measured=False):
         """

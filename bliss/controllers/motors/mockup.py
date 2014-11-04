@@ -235,6 +235,11 @@ class Mockup(Controller):
     def raw_write_read(self, axis, com):
         return com + ">-<" + com
 
+    def set_position(self, axis, pos):
+        self._axis_moves[axis]["end_pos"]=pos
+        self._axis_moves[axis]["end_t"] = 0
+        return pos
+
     """
     Custom axis method returning the current name of the axis
     """

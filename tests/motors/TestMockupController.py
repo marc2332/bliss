@@ -16,6 +16,9 @@ sys.path.insert(
 import bliss
 from bliss.common.axis import Axis
 from bliss.common import event
+from bliss.common import log
+
+#log.level(log.DEBUG)
 
 config_xml = """
 <config>
@@ -72,7 +75,7 @@ class TestMockupController(unittest.TestCase):
 
     def setUp(self):
         bliss.load_cfg_fromstring(config_xml)
-
+    
     def test_get_axis(self):
         robz = bliss.get_axis("robz")
         self.assertTrue(robz)
@@ -99,14 +102,15 @@ class TestMockupController(unittest.TestCase):
         self.assertEqual(e.get(), "MOVING")
         e = gevent.event.AsyncResult()
         self.assertEqual(e.get(), "READY")
-
+    
     def test_rmove(self):
         robz = bliss.get_axis('robz')
         robz.move(0)
+        self.assertAlmostEquals(robz.position(), 0, places=5)
         robz.rmove(0.1)
         robz.rmove(0.1)
-        self.assertEquals(robz.position(), 0.2)
-
+        self.assertAlmostEquals(robz.position(), 0.2, places=5)
+    
     def test_move_done_event(self):
         res = {"ok": False}
 
@@ -118,7 +122,7 @@ class TestMockupController(unittest.TestCase):
         robz.rmove(10)
         robz.wait_move()
         self.assertEquals(res["ok"], True)
-
+    
     def test_axis_move(self):
         robz = bliss.get_axis("robz")
         self.assertEqual(robz.state(), "READY")
@@ -127,7 +131,7 @@ class TestMockupController(unittest.TestCase):
         self.assertEqual(robz.state(), "MOVING")
         move_greenlet.join()
         self.assertEqual(robz.state(), "READY")
-
+    
     def test_axis_multiple_move(self):
         robz = bliss.get_axis("robz")
 
@@ -155,24 +159,24 @@ class TestMockupController(unittest.TestCase):
         roby = bliss.get_axis("roby")
         self.assertEqual(roby.state(), "READY")
         roby.move(0)
-        move_greenlet = roby.move(-180, wait=False)
+        move_greenlet = roby.move(-10, wait=False)
         time.sleep(0)
-        self.assertEqual(roby.backlash_move, -182)
+        self.assertEqual(roby.backlash_move, -12)
         move_greenlet.join()
-        self.assertEqual(roby.position(), -180)
-        roby.move(-179)
-        roby.limits(-181, 180)
-        self.assertRaises(ValueError, roby.move, -180)
+        self.assertEqual(roby.position(), -10)
+        roby.move(-9)
+        roby.limits(-11, 10)
+        self.assertRaises(ValueError, roby.move, -10)
 
     def test_backlash2(self):
         roby = bliss.get_axis("roby")
         self.assertEqual(roby.state(), "READY")
         roby.move(0)
-        move_greenlet = roby.move(180, wait=False)
+        move_greenlet = roby.move(10, wait=False)
         time.sleep(0)
         self.assertEqual(roby.backlash_move, 0)
         move_greenlet.join()
-        self.assertEqual(roby.position(), 180)
+        self.assertEqual(roby.position(), 10)
 
     def test_backlash3(self):
         roby = bliss.get_axis("roby")
@@ -195,10 +199,10 @@ class TestMockupController(unittest.TestCase):
 
     def test_axis_set_pos(self):
         roby = bliss.get_axis("roby")
-        self.assertEqual(roby.position(0), 0)
-        self.assertEqual(roby.position(), 0)
+        self.assertAlmostEqual(roby.position(0), 0, places=3)
+        self.assertAlmostEqual(roby.position(), 0,places=3)
         roby.position(10)
-        self.assertEqual(roby.position(), 10)
+        self.assertAlmostEqual(roby.position(), 10,places=3)
 
     def test_axis_set_velocity(self):
         roby = bliss.get_axis("roby")
@@ -269,7 +273,7 @@ class TestMockupController(unittest.TestCase):
         robz.limits(-1E9, 1E9)
         robz.rmove(1)
         robz.rmove(-2)
-
+    
     def test_on_off(self):
         robz = bliss.get_axis("robz")
         robz.position(0)
@@ -286,6 +290,19 @@ class TestMockupController(unittest.TestCase):
         robz.off()
         self.assertEquals(robz.state(), "OFF")
 
+    def test_dial(self):
+        robz = bliss.get_axis("robz")
+        robz.move(0)
+        robz.position(1)
+        self.assertEquals(robz.dial(), 0)
+        self.assertEquals(robz.position(), 1)
+        robz.position(robz.dial())
+        self.assertEquals(robz.position(), 0)
+        robz.dial(1)
+        self.assertEquals(robz.dial(), 1)
+        self.assertEquals(robz.position(), 0)
+       
+ 
 
 if __name__ == '__main__':
     unittest.main()

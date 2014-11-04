@@ -13,7 +13,6 @@ from gevent import select
 from IPython.core.interactiveshell import InteractiveShell
 from IPython.lib.inputhook import InputHookManager, allow_CTRL_C
 
-
 def create_inputhook_gevent(mgr):
     """Create an input hook for running the gevent event loop.
 
@@ -43,7 +42,6 @@ def create_inputhook_gevent(mgr):
         except:
             from traceback import print_exc
             print_exc()
-
         return 0
 
     def preprompthook_gevent(ishell):

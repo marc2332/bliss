@@ -1,0 +1,19 @@
+Backlash
+--------
+sign -1, moving positive
+
+=> move -2050 steps + 50 backlash
+
+sign -1, moving negative
+
+=> move 2000 steps
+
+sign 1, moving positive
+
+=> move 2000 steps
+
+sign 1, moving negative
+
+=> move -2050 steps + 50 backlash
+
+

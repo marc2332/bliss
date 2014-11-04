@@ -11,6 +11,8 @@ sys.path.insert(
 
 import bliss
 from bliss.common.axis import Axis, READY
+#from bliss.common import log
+#log.level(log.DEBUG)
 
 config_xml = """
 <config>
@@ -22,7 +24,8 @@ config_xml = """
     </axis>
     <axis name="s1f">
       <velocity value="500"/>
-      <steps_per_unit value="-1000"/>
+      <steps_per_unit value="1000"/>
+      <sign value="-1"/>
     </axis>
     <axis name="s1b">
       <velocity value="500"/>
@@ -30,7 +33,8 @@ config_xml = """
     </axis>
     <axis name="s1u">
       <velocity value="500"/>
-      <steps_per_unit value="-1000"/>
+      <steps_per_unit value="1000"/>
+      <sign value="-1"/> 
     </axis>
     <axis name="s1d">
       <velocity value="500"/>
@@ -55,7 +59,7 @@ class TestSlits(unittest.TestCase):
 
     def setUp(self):
         bliss.load_cfg_fromstring(config_xml)
-
+        
     def testTags(self):
         s1ho = bliss.get_axis("s1ho")
         controller = s1ho.controller
@@ -151,15 +155,6 @@ class TestSlits(unittest.TestCase):
         s1b.move(0)
         s1hg.move(.5)
         hgap = s1hg.position()
-        """ "back": (
-                    positions_dict["hoffset"] /
-                    2.0) +
-                positions_dict["hgap"],
-                "front": (
-                    positions_dict["hgap"] /
-                    2.0) -
-                positions_dict["hoffset"]}
-        """
         s1ho.move(2)
         self.assertEquals(s1b.state(), READY)
         self.assertEquals(s1f.state(), READY)
@@ -185,6 +180,26 @@ class TestSlits(unittest.TestCase):
             s1ho.rmove(ho_step)
 
         self.assertAlmostEquals(hgap, s1hg.position(), places=4)
+     
+    def testSetPosition(self):
+        s1ho = bliss.get_axis("s1ho")
+        s1b  = bliss.get_axis("s1b")
+        s1f  = bliss.get_axis("s1f")
+        s1hg = bliss.get_axis("s1hg")
+        s1b.move(0); s1f.move(0);     
+        s1hg.move(4)
+        self.assertAlmostEquals(2, s1b.position(), places=4)
+        self.assertAlmostEquals(2, s1f.position(), places=4)
+        self.assertAlmostEquals(0, s1ho.position(), places=4)
+        s1hg.position(0)
+        s1hg.move(1)
+        self.assertAlmostEquals(2.5, s1b.position(), places=4)
+        self.assertAlmostEquals(2.5, s1f.position(), places=4)
+        self.assertAlmostEquals(1, s1hg.position(), places=4)
+        self.assertAlmostEquals(0, s1ho.position(), places=4)
+
+
+
 
 if __name__ == '__main__':
     unittest.main()

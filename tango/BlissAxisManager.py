@@ -197,7 +197,23 @@ class BlissAxis(PyTango.Device_4Impl):
         self.debug_stream("In write_Position()")
         # self.axis.move(attr.get_write_value(), wait=False)
         # self.axis.move(attr.get_write_value(), wait=True)
+
+        self.set_state(PyTango.DevState.MOVING)
         self.axis.move(attr.get_write_value(), wait=self.write_position_wait)
+        self.set_state(PyTango.DevState.ON)
+
+    def is_Position_allowed(self, req_type):
+        try:
+            if req_type == PyTango.AttReqType.WRITE_REQ:
+                if self.get_state() == "MOVING":
+                    return False
+                else:
+                    return True
+            else:
+                return True
+        except:
+            print traceback.format_exc()
+
 
     def read_Measured_Position(self, attr):
         self.debug_stream("In read_Measured_Position()")

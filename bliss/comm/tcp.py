@@ -105,7 +105,7 @@ class Socket:
                 self._event.wait()
                 self._event.clear()
         msg = self._data[:size]
-        self._data = self._data[size + 1:]
+        self._data = self._data[size:]
         return msg
 
     @try_connect_socket

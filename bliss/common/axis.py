@@ -217,6 +217,11 @@ class Axis(object):
         # Stores velocity in user-units
         self.settings.set("velocity", _user_vel)
 
+        if new_velocity is not None:
+            # if acctime was set, recalculate acceleration
+            if self.settings.get("acctime") is not None:
+                self.acctime(self.settings.get("acctime"))
+
         return _user_vel
 
     def acctime(self, new_acctime=None):
@@ -224,10 +229,19 @@ class Axis(object):
         <new_acctime> given in seconds.
         """
         if new_acctime is not None:
-            _acctime = self.__controller.set_acctime(self, new_acctime)
-        else:
+            try:
+                self.__controller.set_acctime(self, new_acctime)
+            except NotImplementedError:
+                # use acceleration
+                acc = self.velocity() / new_acctime
+                self.acceleration(acc)
+        try:
             _acctime = self.__controller.read_acctime(self)
-        self.settings.set("acctime", _acctime)
+        except NotImplementedError:
+            # calculate it from acceleration and velocity
+            _acctime = self.velocity() / self.acceleration()
+        if new_acctime is not None: 
+            self.settings.set("acctime", _acctime)
         return _acctime
 
     def acceleration(self, new_acc=None):
@@ -235,11 +249,10 @@ class Axis(object):
         <new_acc> given in user_units/s2.
         """
         if new_acc is not None:
-            _acceleration = self.__controller.set_acceleration(self, new_acc)
-        else:
-            _acceleration = self.__controller.read_acceleration(self)
-        self.settings.set("acceleration", _acceleration)
-
+            self.__controller.set_acceleration(self, new_acc*abs(self.steps_per_unit))
+        _acceleration = self.__controller.read_acceleration(self) / abs(self.steps_per_unit)
+        if new_acc is not None:
+            self.settings.set("acceleration", _acceleration)
         return _acceleration
 
     def limits(self, low_limit=None, high_limit=None):

@@ -171,7 +171,6 @@ class Mockup(Controller):
 
     def set_acctime(self, axis, new_acctime):
         axis.settings.set('acctime', new_acctime)
-        return new_acctime
 
     def read_acceleration(self, axis):
         _acctime = float(axis.settings.get('acctime'))
@@ -181,7 +180,6 @@ class Mockup(Controller):
 
     def set_acceleration(self, axis, new_acceleration):
         axis.settings.set('acceleration', new_acceleration)
-        return new_acceleration
 
     def set_on(self, axis):
         self._axis_moves[axis]["on"] = True

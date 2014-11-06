@@ -252,7 +252,11 @@ class Axis(object):
             self.__controller.set_acceleration(self, new_acc*abs(self.steps_per_unit))
         _acceleration = self.__controller.read_acceleration(self) / abs(self.steps_per_unit)
         if new_acc is not None:
-            self.settings.set("acceleration", _acceleration)
+            if self.settings.get("acctime") is None:
+                # if the acceleration change comes from acctime,
+                # do not store acceleration setting
+                # (can't have both !)
+                self.settings.set("acceleration", _acceleration)
         return _acceleration
 
     def limits(self, low_limit=None, high_limit=None):

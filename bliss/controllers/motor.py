@@ -98,7 +98,7 @@ class Controller(object):
                         pass
                 return value
 
-            for setting_name in ('velocity', 'acctime'):
+            for setting_name in ('velocity', 'acctime', 'acceleration'):
                 value = get_setting_or_config_value(setting_name)
                 if value is None:
                     continue

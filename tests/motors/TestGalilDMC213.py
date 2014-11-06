@@ -58,7 +58,6 @@ class TestGalilDMC213(unittest.TestCase):
         self.assertTrue(dt < 1.4)
           
 
-    """
     def testHomeSearch(self):
         o = bliss.get_axis("omega")
         o.home()
@@ -68,7 +67,6 @@ class TestGalilDMC213(unittest.TestCase):
         p = o.position()
         o.rmove(10)
         self.assertAlmostEquals(o.position(), p+10, places=3)
-    """
  
 if __name__ == '__main__':
     unittest.main()

@@ -22,7 +22,8 @@ config_xml = """
     <axis name="omega">
       <channel value="A"/>
       <steps_per_unit value="-12800"/>
-      <velocity value="1664000"/>
+      <velocity value="50"/>
+      <acctime value="0.125"/>
     </axis>
   </controller>
 </config>
@@ -34,26 +35,40 @@ class TestGalilDMC213(unittest.TestCase):
     def setUp(self):
         bliss.load_cfg_fromstring(config_xml)
    
-    """ 
     def testCommunication(self):
         o = bliss.get_axis("omega")
         self.assertEquals(o.controller._galil_query("MG 1+3"), "4.0000")
         self.assertRaises(RuntimeError, o.controller._galil_query, "BLA")
         self.assertTrue(o.controller._galil_query(chr(18)+chr(22)).startswith("DMC2112"))
-    
-    def testStatus(self):
-        pass
-   
+  
+    def testVelocity(self):
+        o = bliss.get_axis("omega")
+        self.assertEquals(o.velocity(), 50) 
+        self.assertEquals(o.acceleration(), 50/0.125)
+        t0 = time.time()
+        o.rmove(100)
+        dt = time.time()-t0
+        self.assertTrue(dt < 2.4)
+        o.velocity(100)
+        self.assertEquals(o.acceleration(), 100/0.125)
+        self.assertEquals(o.acctime(), 0.125)
+        t0 = time.time()
+        o.rmove(-100)
+        dt = time.time() - t0
+        self.assertTrue(dt < 1.4)
+          
+
+    """
     def testHomeSearch(self):
         o = bliss.get_axis("omega")
         o.home()
-
-    """ 
+    
     def testPosition(self):
         o = bliss.get_axis("omega")
         p = o.position()
         o.rmove(10)
         self.assertAlmostEquals(o.position(), p+10, places=3)
-    
+    """
+ 
 if __name__ == '__main__':
     unittest.main()

@@ -6,6 +6,7 @@ from bliss.common import log as elog
 from bliss.controllers.motor import add_axis_method
 from bliss.common.axis import READY, MOVING
 from bliss.comm import tcp
+from gevent import lock
 
 SERVO = 1
 INV_SERVO = -1
@@ -28,7 +29,8 @@ class GalilDMC213(Controller):
         Controller.__init__(self, name, config, axes)
 
         self.host = self.config.get("host")
-
+        self.socket_lock = lock.Semaphore()
+ 
     def initialize(self):
         self.sock = tcp.Socket(self.host, 23)
         # perform hw reset
@@ -112,11 +114,20 @@ class GalilDMC213(Controller):
         """
         return float(self._galil_query("TP %s" % axis.channel))
 
+    def set_acceleration(self, axis, new_acc):
+        padding = ","*(ord(axis.channel)-ord('A'))
+        self._galil_query("AC%s%.4f" % (padding, new_acc))
+        self._galil_query("DC%s%.4f" % (padding, new_acc))
+
+    def read_acceleration(self, axis):
+        return int(self._galil_query("AC%s=?" % axis.channel))
+
     def read_velocity(self, axis):
-        pass
+        return int(self._galil_query("SP%s=?" % axis.channel))
 
     def set_velocity(self, axis, new_velocity):
-        pass
+        padding = ","*(ord(axis.channel)-ord('A'))
+        self._galil_query("SP%s%.4f" % (padding, new_velocity))
         return self.read_velocity(axis)
 
     def set_off(self, axis):
@@ -146,8 +157,7 @@ class GalilDMC213(Controller):
         self._galil_query("BG%s" % motion.axis.channel)
 
     def stop(self, axis):
-        self._galil_query("ST %s" % motion.axis.channel)
-
+        self._galil_query("ST %s" % axis.channel)
 
     def home_search(self, axis):
         """
@@ -169,20 +179,21 @@ class GalilDMC213(Controller):
         if not cmd.endswith(";"):
           cmd += ";"
 
-        elog.debug("SENDING: %r" % cmd)
+        with self.socket_lock:
+          elog.debug("SENDING: %r" % cmd)
 
-        ans = self.sock.write_read(cmd,size=1)
-        while ans[-1].isspace():
-          ans += self.sock.read(size=1)
-        print 'RECV',repr(ans),'!'
-        if ans == '?':
-          raise RuntimeError("Invalid command") 
-        elif ':' in ans:
-          # command without return
-          return
-        else:
-          ans += self.sock.readline(eol="\r\n:")
+          ans = self.sock.write_read(cmd,size=1)
+          while ans[-1].isspace():
+            ans += self.sock.read(size=1)
+          print 'RECV',repr(ans),'!'
+          if ans == '?':
+            raise RuntimeError("Invalid command") 
+          elif ':' in ans:
+            # command without return
+            return
+          else:
+            ans += self.sock.readline(eol="\r\n:")
 
-        elog.debug("RECEIVED: %r" % ans)
+          elog.debug("RECEIVED: %r" % ans)
 
         return ans.strip()

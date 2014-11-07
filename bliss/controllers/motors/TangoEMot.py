@@ -46,9 +46,9 @@ class TangoEMot(Controller):
         in *controller unit* (steps for example).
         """
         if measured:
-            return self.axis_proxy.position * abs(axis.steps_per_unit)
+            return self.axis_proxy.position * axis.steps_per_unit
         else:
-            return self.axis_proxy.Measured_Position * abs(axis.steps_per_unit)
+            return self.axis_proxy.Measured_Position * axis.steps_per_unit
 
     def read_velocity(self, axis):
         _vel = self.axis_proxy.velocity * abs(axis.steps_per_unit)
@@ -90,7 +90,7 @@ class TangoEMot(Controller):
         returns immediately,
         positions in motor units
         """
-        self.axis_proxy.position = float(motion.target_pos / abs(self._spu))
+        self.axis_proxy.position = float(motion.target_pos / self._spu)
 
     def stop(self, axis):
         self.axis_proxy.Abort()

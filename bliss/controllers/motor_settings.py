@@ -33,14 +33,16 @@ def write_settings():
 class ControllerAxisSettings:
 
     def __init__(self):
-        self.setting_names = ["velocity", "position", "state", "offset"]
+        self.setting_names = ["velocity", "position", "state", "offset", "acctime", "acceleration"]
         self.convert_funcs = {
             "velocity": float,
             "position": float,
             "state": str,
             "offset": float,
             "low_limit": float,
-            "high_limit": float}
+            "high_limit": float,
+            "acctime": float,
+            "acceleration": float }
         self.axis_settings_dict = dict()
 
         global SETTINGS_WRITER_THREAD

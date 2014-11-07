@@ -6,6 +6,8 @@ from bliss.common.axis import READY, MOVING
 from PyTango.gevent import DeviceProxy
 from PyTango import DevState
 
+import traceback
+
 """
 Bliss controller tango bliss motor
 TangoEMot
@@ -24,7 +26,7 @@ class TangoEMot(Controller):
         self.ds_name = self.config.get("ds_name")
 
         # tests if DS is responding.
-        
+
 
     def initialize(self):
         pass
@@ -35,20 +37,25 @@ class TangoEMot(Controller):
     def initialize_axis(self, axis):
         self.axis_proxy = DeviceProxy(self.ds_name)
 
+        self._spu = self.axis_proxy.steps_per_unit
+        axis.config.config_dict.update( { "steps_per_unit": {"value": self._spu } } )
+
     def read_position(self, axis, measured=False):
         """
-        Returns position's setpoint or measured position.
+        Returns the position (measured or desired) taken from controller
+        in *controller unit* (steps for example).
         """
         if measured:
-            return self.axis_proxy.position
+            return self.axis_proxy.position * abs(axis.steps_per_unit)
         else:
-            return self.axis_proxy.Measured_Position
+            return self.axis_proxy.Measured_Position * abs(axis.steps_per_unit)
 
     def read_velocity(self, axis):
-        return self.axis_proxy.velocity
+        _vel = self.axis_proxy.velocity * abs(axis.steps_per_unit)
+        return _vel
 
     def set_velocity(self, axis, new_velocity):
-        self.axis_proxy.velocity = new_velocity
+        self.axis_proxy.velocity = new_velocity / abs(axis.steps_per_unit)
         return new_velocity
 
     def read_acctime(self, axis):
@@ -78,7 +85,12 @@ class TangoEMot(Controller):
         pass
 
     def start_one(self, motion):
-        self.axis_proxy.position = motion.target_pos
+        """
+        Called on a single axis motion,
+        returns immediately,
+        positions in motor units
+        """
+        self.axis_proxy.position = float(motion.target_pos / abs(self._spu))
 
     def stop(self, axis):
         self.axis_proxy.Abort()

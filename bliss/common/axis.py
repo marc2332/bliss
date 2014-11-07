@@ -217,11 +217,6 @@ class Axis(object):
         # Stores velocity in user-units
         self.settings.set("velocity", _user_vel)
 
-        if new_velocity is not None:
-            # if acctime was set, recalculate acceleration
-            if self.settings.get("acctime") is not None:
-                self.acctime(self.settings.get("acctime"))
-
         return _user_vel
 
     def acctime(self, new_acctime=None):
@@ -229,20 +224,9 @@ class Axis(object):
         <new_acctime> given in seconds.
         """
         if new_acctime is not None:
-            try:
-                self.__controller.set_acctime(self, new_acctime)
-            except NotImplementedError:
-                # use acceleration
-                acc = self.velocity() / new_acctime
-                self.acceleration(acc)
-        try:
-            _acctime = self.__controller.read_acctime(self)
-        except NotImplementedError:
-            # calculate it from acceleration and velocity
-            _acctime = self.velocity() / self.acceleration()
-        if new_acctime is not None: 
-            self.settings.set("acctime", _acctime)
-        return _acctime
+            acc = self.velocity() / new_acctime
+            self.acceleration(acc)
+        return self.velocity() / self.acceleration()
 
     def acceleration(self, new_acc=None):
         """
@@ -252,11 +236,7 @@ class Axis(object):
             self.__controller.set_acceleration(self, new_acc*abs(self.steps_per_unit))
         _acceleration = self.__controller.read_acceleration(self) / abs(self.steps_per_unit)
         if new_acc is not None:
-            if self.settings.get("acctime") is None:
-                # if the acceleration change comes from acctime,
-                # do not store acceleration setting
-                # (can't have both !)
-                self.settings.set("acceleration", _acceleration)
+            self.settings.set("acceleration", _acceleration)
         return _acceleration
 
     def limits(self, low_limit=None, high_limit=None):

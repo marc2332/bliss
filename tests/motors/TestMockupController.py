@@ -29,6 +29,7 @@ config_xml = """
       <steps_per_unit value="10000"/>
       <!-- degrees per second -->
       <velocity value="100"/>
+      <acceleration value="3"/>
     </axis>
   </controller>
   <controller class="mockup">
@@ -75,7 +76,7 @@ class TestMockupController(unittest.TestCase):
 
     def setUp(self):
         bliss.load_cfg_fromstring(config_xml)
-    
+       
     def test_get_axis(self):
         robz = bliss.get_axis("robz")
         self.assertTrue(robz)
@@ -87,7 +88,20 @@ class TestMockupController(unittest.TestCase):
     def test_controller_from_axis(self):
         robz = bliss.get_axis("robz")
         self.assertEqual(robz.controller.name, "test")
-
+    
+    def test_acceleration(self):
+        robz = bliss.get_axis("robz")
+        acc = robz.acceleration()
+        self.assertEquals(robz.acctime(), robz.velocity()/robz.acceleration())
+        v = robz.velocity()/2.0
+        robz.velocity(v)
+        self.assertEquals(robz.acceleration(), acc)
+        self.assertEquals(robz.acctime(), v/acc)
+        robz.acctime(0.03)
+        self.assertEquals(robz.acceleration(), v/0.03)
+        robz.acceleration(acc)
+        self.assertEquals(robz.acctime(), v/acc)
+ 
     def test_state_callback(self):
         e = gevent.event.AsyncResult()
 
@@ -301,8 +315,6 @@ class TestMockupController(unittest.TestCase):
         robz.dial(1)
         self.assertEquals(robz.dial(), 1)
         self.assertEquals(robz.position(), 0)
-       
- 
 
 if __name__ == '__main__':
     unittest.main()

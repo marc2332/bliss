@@ -200,6 +200,11 @@ class Mockup(Controller):
         return READY if(time.time() - self._axis_moves[axis]
                         ["home_search_start_time"]) > 2 else MOVING
 
+    def limit_search(self, axis, limit):
+        self._axis_moves[axis]["end_pos"] = 1E6 if limit > 0 else -1E6
+        self._axis_moves[axis]["end_pos"] *= axis.steps_per_unit
+        self._axis_moves[axis]["end_t"] = time.time() + 2
+
     def get_info(self, axis):
         return "turlututu chapo pointu : %s" % axis.name
 
@@ -260,3 +265,4 @@ class Mockup(Controller):
         position equal to target position.
         """
         self._axis_moves[axis]["measured_noise"] = noise
+

@@ -446,8 +446,47 @@ class Axis(object):
                     break
                 time.sleep(0.02)
 
+    def hw_limit(self, limit, lim_pos=None, wait=True):
+        """Go to a hardware limit
+
+        Parameters:
+            limit   - integer, positive means "positive limit"
+            lim_pos - if not None, set position to lim_pos once limit is reached
+            wait    - boolean, wait for completion (default is to wait)
+        """
+        limit = int(limit)
+        self._check_ready()
+        _set_pos = False
+        if lim_pos is not None:
+          lim_pos = float(lim_pos)
+          _set_pos = True
+
+        self.__move_done.clear()
+
+        lim_search_task = self._do_limit_search(limit, wait=False)
+        lim_search_task._being_waited = wait
+        lim_search_task.link(self._set_move_done)
         if _set_pos:
-            self._position(home_pos)
+            def set_pos(g, lim_pos=lim_pos):
+                self.dial(lim_pos)
+                self.position(lim_pos) 
+            lim_search_task.link(set_pos)
+
+        if wait:
+            lim_search_task.get()
+        else:
+            return lim_search_task
+
+    @task
+    def _do_limit_search(self, limit):
+        with error_cleanup(self.stop):
+            self.__controller.limit_search(self, limit)
+            while True:
+                state = self.__controller.state(self)
+                self.settings.set("state", state, write=False)
+                if state != MOVING:
+                    break
+                time.sleep(0.02)
 
 
 class AxisRef(object):

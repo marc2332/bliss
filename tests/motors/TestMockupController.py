@@ -264,7 +264,7 @@ class TestMockupController(unittest.TestCase):
         roby.wait_move()
         self.assertEqual(roby.state(), 'READY')
         self.assertEqual(roby.position(), 38930)
-        self.assertEqual(roby.offset, 38930)
+        self.assertEqual(roby.offset, 0)
 
     def test_ctrlc(self):
         robz = bliss.get_axis("robz")
@@ -315,6 +315,21 @@ class TestMockupController(unittest.TestCase):
         robz.dial(1)
         self.assertEquals(robz.dial(), 1)
         self.assertEquals(robz.position(), 0)
+        robz.dial(2)
+        robz.position(2)
+        self.assertEquals(robz.dial(), 2)
+        self.assertEquals(robz.position(), 2)
 
+ 
+    def test_limit_search(self):
+        robz = bliss.get_axis("robz")
+        robz.hw_limit(1)
+        self.assertEquals(robz.dial(), 1E6)
+        robz.hw_limit(-1)
+        self.assertEquals(robz.dial(), -1E6)
+        robz.hw_limit(1, 10)
+        self.assertEquals(robz.dial(), 10)
+        self.assertEquals(robz.position(), 10)
+ 
 if __name__ == '__main__':
     unittest.main()

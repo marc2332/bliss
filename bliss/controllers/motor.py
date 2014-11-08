@@ -156,6 +156,9 @@ class Controller(object):
     def home_state(self, axis):
         raise NotImplementedError
 
+    def limit_search(self, limit):
+        raise NotImplementedError
+
     def read_position(self, axis, measured=False):
         raise NotImplementedError
 

@@ -139,9 +139,9 @@ class Axis(object):
             curr_pos = self.__controller.set_position(self, new_dial * self.steps_per_unit) / self.steps_per_unit
 
             # do not change user pos (update offset)
-            self.position(user_pos)
+            self._position(user_pos)
 
-            return curr_pos
+            return curr_pos 
         else:
             return self.user2dial(self.position())
 

@@ -343,6 +343,11 @@ class Axis(object):
     def _set_move_done(self, move_task):
         self.__move_done.set()
         event.send(self, "move_done", True)
+        if move_task is not None and not move_task._being_waited:
+            try:
+                move_task.get()
+            except:
+                sys.excepthook(*sys.exc_info())
 
     def _check_ready(self):
         initial_state = self.state()
@@ -363,11 +368,12 @@ class Axis(object):
 
         try:
             event.send(self, "move_done", False)
-            self.__move_task = self._do_move(motion, wait=False)
+            self.__move_task = self._do_move(motion, wait=False) 
         except:
             self._set_move_done(None)
             raise
         else:
+            self.__move_task._being_waited = wait
             self.__move_task.link(self._set_move_done)
 
         if wait:
@@ -398,10 +404,31 @@ class Axis(object):
     def home(self, home_pos=None, wait=True):
         self._check_ready()
 
+        # flag "must the position to be set ?"
+        _set_pos = False
+
+        if home_pos is not None:
+            try:
+                self.__controller.home_set_hardware_position(
+                        self, home_pos)
+            except NotImplementedError:
+                _set_pos = True
+
         self.__move_done.clear()
 
-        home_task = self._do_home(home_pos, wait=False)
+        home_task = self._do_home(wait=False)
+        home_task._being_waited = wait
         home_task.link(self._set_move_done)
+        if _set_pos:
+            # it is not possible to change position
+            # while axis has a moving state,
+            # so we register a callback to be executed
+            # *after* _set_move_done.
+            def set_pos(g, home_pos=home_pos):
+                import pdb;pdb.set_trace()
+                self.dial(home_pos)
+                self.position(home_pos)
+            home_task.link(set_pos)
 
         if wait:
             home_task.get()
@@ -409,19 +436,8 @@ class Axis(object):
             return home_task
 
     @task
-    def _do_home(self, home_pos):
+    def _do_home(self):
         with error_cleanup(self.stop):
-
-            # flag "must the position to be set ?"
-            _set_pos = False
-
-            if home_pos is not None:
-                try:
-                    self.__controller.home_set_hardware_position(
-                        self, home_pos)
-                except NotImplementedError:
-                    _set_pos = True
-
             self.__controller.home_search(self)
             while True:
                 state = self.__controller.home_state(self)

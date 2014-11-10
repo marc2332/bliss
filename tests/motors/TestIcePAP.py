@@ -4,6 +4,7 @@ import os
 import optparse
 import re
 import signal
+import gevent
 import pdb
 
 
@@ -43,10 +44,18 @@ config_xml = """
             <steps_per_unit value="2000"/>
             <backlash       value="0.01"/>
             <velocity       value="2500"/>
+            <encoder_steps_per_unit value="1000"/>
+        </axis>
+        <axis name="mymot2">
+            <address        value="%s"/>
+            <steps_per_unit value="2000"/>
+            <backlash       value="0.01"/>
+            <velocity       value="2500"/>
         </axis>
     </controller>
     <group name="eh1">
         <axis name="mymot"/>
+        <axis name="mymot2"/>
     </group>
 </config>
 """
@@ -56,22 +65,29 @@ config_xml = """
 Global resources, yes, I know it's bad
 """
 hostname = ""
-address = ""
-
+address  = ""
+address2 = ""
 
 """
 """
 
 
-def signal_handler(signal, frame):
+#def signal_handler(signal, frame):
+def signal_handler(*args):
     print "\nAbort request taken into account\n"
     finalize()
-    sys.exit(-1)
+
+    # needed to stop unittest sequence of tests
+    #raise KeyboardInterrupt()
 
 
 def finalize():
     mymot = bliss.get_axis("mymot")
+    #mymot.controller.log_level(bliss.common.log.INFO)
+
+    # needed to stop threads of Deep module
     mymot.controller.finalize()
+
 
 
 """
@@ -82,10 +98,11 @@ UnitTest list of tests
 class TestIcePAPController(unittest.TestCase):
     global hostname
     global address
+    global address2
 
     # called for each test
     def setUp(self):
-        bliss.load_cfg_fromstring(config_xml % (hostname, address))
+        bliss.load_cfg_fromstring(config_xml % (hostname, address, address2))
 
     # called at the end of each individual test
     def tearDown(self):
@@ -94,6 +111,33 @@ class TestIcePAPController(unittest.TestCase):
     def test_axis_creation(self):
         mymot = bliss.get_axis("mymot")
         self.assertTrue(mymot)
+
+    def test_ctrlc(self):
+        mymot = bliss.get_axis("mymot")
+        #mymot.controller.log_level(bliss.common.log.INFO)
+        move_greenlet = mymot.rmove(1000, wait=False)
+        self.assertEqual(mymot.state(), "MOVING")
+        gevent.sleep(0.1)
+        move_greenlet.kill(KeyboardInterrupt)
+        gevent.sleep(0.2)
+        self.assertEqual(mymot.state(), "READY")
+        #mymot.controller.log_level(bliss.common.log.ERROR)
+
+    def test_group_ctrlc(self):
+        mygrp = bliss.get_group("eh1")
+        mymot = bliss.get_axis("mymot")
+        mymot2= bliss.get_axis("mymot2")
+        #mymot.controller.log_level(bliss.common.log.INFO)
+        for i in range(10):
+            move_greenlet = mygrp.rmove(mymot, 1000, mymot2,1000, wait=False)
+            self.assertEqual(mygrp.state(), "MOVING")
+            gevent.sleep(0.1)
+            move_greenlet.kill(KeyboardInterrupt)
+            gevent.sleep(0.5)
+            self.assertEqual(mymot.state(), "READY")
+            self.assertEqual(mymot2.state(), "READY")
+            self.assertEqual(mygrp.state(), "READY")
+        #mymot.controller.log_level(bliss.common.log.ERROR)
 
     def test_axis_get_position(self):
         mymot = bliss.get_axis("mymot")
@@ -176,10 +220,10 @@ class TestIcePAPController(unittest.TestCase):
         mymot = bliss.get_axis("mymot")
         pos_list = mygrp.position()
         pos_list[mymot] -= 0.1
-        mymot.controller.log_level(bliss.common.log.INFO)
+        #mymot.controller.log_level(bliss.common.log.INFO)
         mygrp.move(pos_list, wait=False) 
         mygrp.stop() # waits for the end of motions
-        mymot.controller.log_level(bliss.common.log.ERROR)
+        #mymot.controller.log_level(bliss.common.log.ERROR)
         self.assertEqual(mygrp.state(), "READY")
 
 
@@ -189,25 +233,27 @@ Main entry point
 if __name__ == '__main__':
 
     # Get arguments
-    usage = "Usage: %prog hostname motor_address"
+    usage  = "Usage  : %prog hostname motor_address motor_address\n"
+    usage += "Example: python %prog iceeu2 2 3"
     parser = optparse.OptionParser(usage)
     argv = sys.argv
     (settings, args) = parser.parse_args(argv)
 
     # Minimum check on arguements
-    if len(args) <= 2:
+    if len(args) <= 3:
         parser.error("Missing mandatory IcePAP hostname and motor address")
         sys.exit(-1)
 
     # Mandatory argument is the IcePAP hostname
     hostname = args[1]
     address  = args[2]
+    address2 = args[3]
 
     # Avoid interaction of our arguments with unittest class
     del sys.argv[1:]
 
     # Intercept the <ctrl-c> to get out of infinite loops
-    signal.signal(signal.SIGINT, signal_handler)
+    gevent.signal(signal.SIGINT, signal_handler)
 
     # Launch the tests sequence
     print "\nTesting IcePAP control on system \"%s\"\n" % hostname
@@ -221,7 +267,7 @@ if __name__ == '__main__':
     loader.sortTestMethodsUsing = lncmp
 
     # NOTE: unittest.main(verbosity=2) not supported under Python 2.6
-    suite = loader.loadTestsFromTestCase(TestIcePAPController)
+    suite  = loader.loadTestsFromTestCase(TestIcePAPController)
     unittest.TextTestRunner(verbosity=3).run(suite)
 
     # normal end

@@ -425,7 +425,6 @@ class Axis(object):
             # so we register a callback to be executed
             # *after* _set_move_done.
             def set_pos(g, home_pos=home_pos):
-                import pdb;pdb.set_trace()
                 self.dial(home_pos)
                 self.position(home_pos)
             home_task.link(set_pos)

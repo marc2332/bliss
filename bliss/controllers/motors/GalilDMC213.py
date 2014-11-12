@@ -112,7 +112,10 @@ class GalilDMC213(Controller):
         """
         Returns position's setpoint or measured position (in steps).
         """
-        return float(self._galil_query("TP %s" % axis.channel))
+        if measured:
+            return float(self._galil_query("TD %s" % axis.channel))
+        else:
+            return float(self._galil_query("TP %s" % axis.channel))
 
     def set_acceleration(self, axis, new_acc):
         padding = ","*(ord(axis.channel)-ord('A'))

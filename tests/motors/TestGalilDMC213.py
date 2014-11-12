@@ -23,7 +23,8 @@ config_xml = """
       <channel value="A"/>
       <steps_per_unit value="-12800"/>
       <velocity value="50"/>
-      <acctime value="0.125"/>
+      <acceleration value="400"/>
+      <encoder_steps_per_unit value=""/>
     </axis>
   </controller>
 </config>
@@ -40,18 +41,19 @@ class TestGalilDMC213(unittest.TestCase):
         self.assertEquals(o.controller._galil_query("MG 1+3"), "4.0000")
         self.assertRaises(RuntimeError, o.controller._galil_query, "BLA")
         self.assertTrue(o.controller._galil_query(chr(18)+chr(22)).startswith("DMC2112"))
-  
+    
     def testVelocity(self):
         o = bliss.get_axis("omega")
         self.assertEquals(o.velocity(), 50) 
-        self.assertEquals(o.acceleration(), 50/0.125)
+        self.assertEquals(o.acceleration(), 400)
+        self.assertEquals(o.acctime(), 0.125)
         t0 = time.time()
         o.rmove(100)
         dt = time.time()-t0
         self.assertTrue(dt < 2.4)
         o.velocity(100)
-        self.assertEquals(o.acceleration(), 100/0.125)
-        self.assertEquals(o.acctime(), 0.125)
+        o.acctime(0.125)
+        self.assertEquals(o.acceleration(), o.velocity()/o.acctime())
         t0 = time.time()
         o.rmove(-100)
         dt = time.time() - t0
@@ -67,6 +69,13 @@ class TestGalilDMC213(unittest.TestCase):
         p = o.position()
         o.rmove(10)
         self.assertAlmostEquals(o.position(), p+10, places=3)
+    """
+    def testEncoder(self):
+        o = bliss.get_axis("omega")
+        p = o.measured_position()
+        o.rmove(10)
+        self.assertAlmostEquals(o.measured_position(), p+10, places=3)
+    """    
  
 if __name__ == '__main__':
     unittest.main()

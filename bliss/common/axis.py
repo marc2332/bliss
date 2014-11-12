@@ -84,6 +84,10 @@ class Axis(object):
         return self.config.get("steps_per_unit", float, 1)
 
     @property
+    def encoder_steps_per_unit(self):
+        return self.config.get("encoder_steps_per_unit", float, self.steps_per_unit)
+
+    @property
     def custom_methods_list(self):
         # return a copy of the custom methods list
         return self.__custom_methods_list[:]
@@ -120,7 +124,10 @@ class Axis(object):
         """
         Returns a value in user units.
         """
-        return self.__controller.read_position(self, measured=True) / self.steps_per_unit
+        return self.dial2user(self.dial_measured_position())
+
+    def dial_measured_position(self):
+        return self.__controller.read_position(self, measured=True) / self.encoder_steps_per_unit
 
     def dial(self, new_dial=None):
         """

@@ -113,11 +113,12 @@ class IcePAP(Controller):
         return self.read_position(axis)
 
     def read_velocity(self, axis):
-        """Returns axis current velocity in user units per seconds"""
-#         ??? ca serai pas mieux en motor units ? (steps/s)
+        """Returns axis current velocity in user units/sec"""
+        #TODO: wouldn't be better in steps/s ?
         return self.libgroup.velocity(axis.libaxis)
 
     def set_velocity(self, axis, new_velocity):
+        """Set axis velocity given in units/sec"""
         s = "%f" % new_velocity
         self.log_info("set_velocity(%s) called for axis \"%s\"" %
                       (s, axis.name))
@@ -129,11 +130,20 @@ class IcePAP(Controller):
         # Always return the current velocity
         return self.read_velocity(axis)
 
-    def read_acctime(self, axis):
-        """Returns axis current acceleratin time in seconds"""
-        return self.libgroup.acctime(axis.libaxis)
+    def read_acceleration(self, axis):
+        """Returns axis current acceleration in steps/sec2"""
+        acctime  = self.libgroup.acctime(axis.libaxis)
+        velocity = self.read_velocity(axis)
+        return velocity/acctime
 
-    def set_acctime(self, axis, new_acctime):
+    def set_acceleration(self, axis, new_acc):
+        """Set axis acceleration given in steps/sec2"""
+        s = "%f" % new_acc
+        self.log_info("set_acceleration(%s) called for axis \"%s\"" %
+                      (s, axis.name))
+
+        velocity     = self.read_velocity(axis)
+        new_acctime  = velocity/new_acc
         s = "%f" % new_acctime
         self.log_info("set_acctime(%s) called for axis \"%s\"" %
                       (s, axis.name))
@@ -142,7 +152,7 @@ class IcePAP(Controller):
         l[axis.libaxis] = new_acctime
         self.libgroup.acctime(l)
 
-        return self.read_acctime(axis)
+        return self.read_acceleration(axis)
 
     def state(self, axis):
         """Returns the current axis state"""

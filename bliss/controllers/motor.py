@@ -101,7 +101,7 @@ class Controller(object):
                         pass
                 return value
 
-            for setting_name in ('velocity', 'acctime', 'acceleration'):
+            for setting_name in ('velocity', 'acceleration'):
                 value = get_setting_or_config_value(setting_name)
                 if value is None:
                     continue
@@ -156,6 +156,9 @@ class Controller(object):
     def home_state(self, axis):
         raise NotImplementedError
 
+    def limit_search(self, limit):
+        raise NotImplementedError
+
     def read_position(self, axis, measured=False):
         raise NotImplementedError
 
@@ -172,12 +175,6 @@ class Controller(object):
         raise NotImplementedError
 
     def set_off(self, axis):
-        raise NotImplementedError
-
-    def read_acctime(self, axis):
-        raise NotImplementedError
-
-    def set_acctime(self, axis, new_acctime):
         raise NotImplementedError
 
     def read_acceleration(self, axis):

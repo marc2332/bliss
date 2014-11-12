@@ -24,7 +24,7 @@ config_xml = """
   <controller class="mockup">
     <axis name="robx" class="MockupAxis">
       <velocity  value="1"/>
-      <acctime value="0.333"/>
+      <acceleration value="3"/>
       <steps_per_unit value="10"/>
       <backlash value="2"/>
     </axis>
@@ -55,8 +55,6 @@ class Mockup(Controller):
         # hardware initialization
         for axis_name, axis in self.axes.iteritems():
             axis.settings.set('init_count', 0)
-            # set initial speed
-            axis.settings.set('velocity', axis.config.get("velocity", float))
 
     """
     Axes initialization actions.
@@ -144,42 +142,20 @@ class Mockup(Controller):
         Returns the current velocity taken from controller
         in motor units.
         """
-        _user_velocity = axis.settings.get('velocity')
-        _mot_velocity = _user_velocity * abs(axis.steps_per_unit)
-        return float(_mot_velocity)
+        return axis.__vel
 
     def set_velocity(self, axis, new_velocity):
         """
         <new_velocity> is in motor units
         Returns velocity in motor units.
         """
-        _user_velocity = new_velocity / abs(axis.steps_per_unit)
-        axis.settings.set('velocity', _user_velocity)
-
-        return new_velocity
-
-    """
-    Always return the current acceleration time taken from controller
-    in seconds.
-    """
-
-    def read_acctime(self, axis):
-        _acctime = float(axis.settings.get('acctime'))
-
-        elog.debug("readd acctime : %g" % _acctime)
-        return _acctime
-
-    def set_acctime(self, axis, new_acctime):
-        axis.settings.set('acctime', new_acctime)
+        axis.__vel = new_velocity
 
     def read_acceleration(self, axis):
-        _acctime = float(axis.settings.get('acctime'))
-        _velocity = float(axis.settings.get('velocity'))
-        _acceleration = _velocity / _acctime
-        return _acceleration
+        return axis.__acc
 
     def set_acceleration(self, axis, new_acceleration):
-        axis.settings.set('acceleration', new_acceleration)
+        axis.__acc = new_acceleration
 
     def set_on(self, axis):
         self._axis_moves[axis]["on"] = True
@@ -223,6 +199,11 @@ class Mockup(Controller):
     def home_state(self, axis):
         return READY if(time.time() - self._axis_moves[axis]
                         ["home_search_start_time"]) > 2 else MOVING
+
+    def limit_search(self, axis, limit):
+        self._axis_moves[axis]["end_pos"] = 1E6 if limit > 0 else -1E6
+        self._axis_moves[axis]["end_pos"] *= axis.steps_per_unit
+        self._axis_moves[axis]["end_t"] = time.time() + 2
 
     def get_info(self, axis):
         return "turlututu chapo pointu : %s" % axis.name
@@ -284,3 +265,4 @@ class Mockup(Controller):
         position equal to target position.
         """
         self._axis_moves[axis]["measured_noise"] = noise
+

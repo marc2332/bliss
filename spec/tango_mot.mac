@@ -425,7 +425,7 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
 
 # Macros to read/write Tango attributes with tango errror management.
 
-def tango_mot_get_attr(motnum, attr_name) {
+def tango_mot_get_attr(motnum, attr_name) '{
     local _attr_val _dev _mot_mne
     _dev = motor_par (motnum, "dev_name")
     _mot_mne = motor_mne(motnum)
@@ -436,9 +436,9 @@ def tango_mot_get_attr(motnum, attr_name) {
         exit
     }
     return _attr_val
-}
+}'
 
-def tango_mot_set_attr(motnum, attr_name, attr_value) {
+def tango_mot_set_attr(motnum, attr_name, attr_value) '{
     local _dev _mot_mne
     _dev = motor_par (motnum, "dev_name")
     _mot_mne = motor_mne(motnum)
@@ -448,7 +448,7 @@ def tango_mot_set_attr(motnum, attr_name, attr_value) {
         _tango_mot_error_stack(_mot_mne, _dev, attr_name)
         exit
     }
-}
+}'
 
 def _tango_mot_error_stack(motmne, devname, attr_cmd) '{
     tty_cntl("md")

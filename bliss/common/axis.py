@@ -139,9 +139,9 @@ class Axis(object):
             curr_pos = self.__controller.set_position(self, new_dial * self.steps_per_unit) / self.steps_per_unit
 
             # do not change user pos (update offset)
-            self.position(user_pos)
+            self._position(user_pos)
 
-            return curr_pos
+            return curr_pos 
         else:
             return self.user2dial(self.position())
 
@@ -217,11 +217,6 @@ class Axis(object):
         # Stores velocity in user-units
         self.settings.set("velocity", _user_vel)
 
-        if new_velocity is not None:
-            # if acctime was set, recalculate acceleration
-            if self.settings.get("acctime") is not None:
-                self.acctime(self.settings.get("acctime"))
-
         return _user_vel
 
     def acctime(self, new_acctime=None):
@@ -229,20 +224,9 @@ class Axis(object):
         <new_acctime> given in seconds.
         """
         if new_acctime is not None:
-            try:
-                self.__controller.set_acctime(self, new_acctime)
-            except NotImplementedError:
-                # use acceleration
-                acc = self.velocity() / new_acctime
-                self.acceleration(acc)
-        try:
-            _acctime = self.__controller.read_acctime(self)
-        except NotImplementedError:
-            # calculate it from acceleration and velocity
-            _acctime = self.velocity() / self.acceleration()
-        if new_acctime is not None: 
-            self.settings.set("acctime", _acctime)
-        return _acctime
+            acc = self.velocity() / new_acctime
+            self.acceleration(acc)
+        return self.velocity() / self.acceleration()
 
     def acceleration(self, new_acc=None):
         """
@@ -252,11 +236,7 @@ class Axis(object):
             self.__controller.set_acceleration(self, new_acc*abs(self.steps_per_unit))
         _acceleration = self.__controller.read_acceleration(self) / abs(self.steps_per_unit)
         if new_acc is not None:
-            if self.settings.get("acctime") is None:
-                # if the acceleration change comes from acctime,
-                # do not store acceleration setting
-                # (can't have both !)
-                self.settings.set("acceleration", _acceleration)
+            self.settings.set("acceleration", _acceleration)
         return _acceleration
 
     def limits(self, low_limit=None, high_limit=None):
@@ -363,6 +343,11 @@ class Axis(object):
     def _set_move_done(self, move_task):
         self.__move_done.set()
         event.send(self, "move_done", True)
+        if move_task is not None and not move_task._being_waited:
+            try:
+                move_task.get()
+            except:
+                sys.excepthook(*sys.exc_info())
 
     def _check_ready(self):
         initial_state = self.state()
@@ -383,11 +368,12 @@ class Axis(object):
 
         try:
             event.send(self, "move_done", False)
-            self.__move_task = self._do_move(motion, wait=False)
+            self.__move_task = self._do_move(motion, wait=False) 
         except:
             self._set_move_done(None)
             raise
         else:
+            self.__move_task._being_waited = wait
             self.__move_task.link(self._set_move_done)
 
         if wait:
@@ -418,10 +404,30 @@ class Axis(object):
     def home(self, home_pos=None, wait=True):
         self._check_ready()
 
+        # flag "must the position to be set ?"
+        _set_pos = False
+
+        if home_pos is not None:
+            try:
+                self.__controller.home_set_hardware_position(
+                        self, home_pos)
+            except NotImplementedError:
+                _set_pos = True
+
         self.__move_done.clear()
 
-        home_task = self._do_home(home_pos, wait=False)
+        home_task = self._do_home(wait=False)
+        home_task._being_waited = wait
         home_task.link(self._set_move_done)
+        if _set_pos:
+            # it is not possible to change position
+            # while axis has a moving state,
+            # so we register a callback to be executed
+            # *after* _set_move_done.
+            def set_pos(g, home_pos=home_pos):
+                self.dial(home_pos)
+                self.position(home_pos)
+            home_task.link(set_pos)
 
         if wait:
             home_task.get()
@@ -429,19 +435,8 @@ class Axis(object):
             return home_task
 
     @task
-    def _do_home(self, home_pos):
+    def _do_home(self):
         with error_cleanup(self.stop):
-
-            # flag "must the position to be set ?"
-            _set_pos = False
-
-            if home_pos is not None:
-                try:
-                    self.__controller.home_set_hardware_position(
-                        self, home_pos)
-                except NotImplementedError:
-                    _set_pos = True
-
             self.__controller.home_search(self)
             while True:
                 state = self.__controller.home_state(self)
@@ -450,8 +445,47 @@ class Axis(object):
                     break
                 time.sleep(0.02)
 
+    def hw_limit(self, limit, lim_pos=None, wait=True):
+        """Go to a hardware limit
+
+        Parameters:
+            limit   - integer, positive means "positive limit"
+            lim_pos - if not None, set position to lim_pos once limit is reached
+            wait    - boolean, wait for completion (default is to wait)
+        """
+        limit = int(limit)
+        self._check_ready()
+        _set_pos = False
+        if lim_pos is not None:
+          lim_pos = float(lim_pos)
+          _set_pos = True
+
+        self.__move_done.clear()
+
+        lim_search_task = self._do_limit_search(limit, wait=False)
+        lim_search_task._being_waited = wait
+        lim_search_task.link(self._set_move_done)
         if _set_pos:
-            self._position(home_pos)
+            def set_pos(g, lim_pos=lim_pos):
+                self.dial(lim_pos)
+                self.position(lim_pos) 
+            lim_search_task.link(set_pos)
+
+        if wait:
+            lim_search_task.get()
+        else:
+            return lim_search_task
+
+    @task
+    def _do_limit_search(self, limit):
+        with error_cleanup(self.stop):
+            self.__controller.limit_search(self, limit)
+            while True:
+                state = self.__controller.state(self)
+                self.settings.set("state", state, write=False)
+                if state != MOVING:
+                    break
+                time.sleep(0.02)
 
 
 class AxisRef(object):

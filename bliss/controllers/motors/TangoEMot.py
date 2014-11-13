@@ -37,8 +37,7 @@ class TangoEMot(Controller):
     def initialize_axis(self, axis):
         self.axis_proxy = DeviceProxy(self.ds_name)
 
-        self._spu = self.axis_proxy.steps_per_unit
-        axis.config.config_dict.update( { "steps_per_unit": {"value": self._spu } } )
+        axis.config.config_dict.update( { "steps_per_unit": {"value": self.axis_proxy.steps_per_unit } } )
         axis.config.config_dict.update( { "acceleration": {"value": self.axis_proxy.ReadConfig("acceleration") } })
         axis.config.config_dict.update( { "velocity": {"value": self.axis_proxy.ReadConfig("velocity") } })
 
@@ -68,10 +67,10 @@ class TangoEMot(Controller):
         return new_acc_time
 
     def read_acceleration(self, axis):
-        return self.axis_proxy.acceleration
+        return self.axis_proxy.acceleration * abs(axis.steps_per_unit)
 
     def set_acceleration(self, axis, new_acceleration):
-        self.axis_proxy.acceleration = new_acceleration
+        self.axis_proxy.acceleration = new_acceleration / abs(axis.steps_per_unit)
         return new_acceleration
 
     def state(self, axis):
@@ -92,7 +91,7 @@ class TangoEMot(Controller):
         returns immediately,
         positions in motor units
         """
-        self.axis_proxy.position = float(motion.target_pos / self._spu)
+        self.axis_proxy.position = float(motion.target_pos / motion.axis.steps_per_unit)
 
     def stop(self, axis):
         self.axis_proxy.Abort()

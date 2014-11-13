@@ -99,6 +99,7 @@ class TestMockupController(unittest.TestCase):
         self.assertEquals(robz.acctime(), v/acc)
         robz.acctime(0.03)
         self.assertEquals(robz.acceleration(), v/0.03)
+        self.assertEquals(robz.acceleration(from_config=True), 3)
         robz.acceleration(acc)
         self.assertEquals(robz.acctime(), v/acc)
  
@@ -225,6 +226,7 @@ class TestMockupController(unittest.TestCase):
         vel = 5000
         self.assertEqual(roby.velocity(vel), vel)
         roby.velocity(org)
+        self.assertEqual(roby.velocity(from_config=True), 2500)
 
     def test_axis_set_acctime(self):
         roby = bliss.get_axis("roby")

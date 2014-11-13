@@ -57,21 +57,18 @@ class TangoEMot(Controller):
 
     def set_velocity(self, axis, new_velocity):
         self.axis_proxy.velocity = new_velocity / abs(axis.steps_per_unit)
-        return new_velocity
 
     def read_acctime(self, axis):
         return self.axis_proxy.acctime
 
     def set_acctime(self, axis, new_acc_time):
         self.axis_proxy.acctime = new_acc_time
-        return new_acc_time
 
     def read_acceleration(self, axis):
         return self.axis_proxy.acceleration * abs(axis.steps_per_unit)
 
     def set_acceleration(self, axis, new_acceleration):
         self.axis_proxy.acceleration = new_acceleration / abs(axis.steps_per_unit)
-        return new_acceleration
 
     def state(self, axis):
         _state = self.axis_proxy.state()
@@ -100,4 +97,5 @@ class TangoEMot(Controller):
         self.axis_proxy.GoHome()
 
     def home_state(self, axis):
-        return READY
+        return self.state(axis)
+

@@ -207,10 +207,13 @@ class Axis(object):
     def raw_write_read(self, com):
         return self.__controller.raw_write_read(self, com)
 
-    def velocity(self, new_velocity=None):
+    def velocity(self, new_velocity=None, from_config=False):
         """
         new_velocity is in user units per seconds.
         """
+        if from_config:
+            return self.config.get("velocity", float)
+
         if new_velocity is not None:
             # Converts into motor units to change velocity of axis.
             self.__controller.set_velocity(
@@ -226,19 +229,23 @@ class Axis(object):
 
         return _user_vel
 
-    def acctime(self, new_acctime=None):
+    def acctime(self, new_acctime=None, from_config=False):
         """
         <new_acctime> given in seconds.
         """
+        if from_config:
+            return self.velocity(from_config=True)/self.acceleration(from_config=True)
         if new_acctime is not None:
             acc = self.velocity() / new_acctime
             self.acceleration(acc)
         return self.velocity() / self.acceleration()
 
-    def acceleration(self, new_acc=None):
+    def acceleration(self, new_acc=None, from_config=False):
         """
         <new_acc> given in user_units/s2.
         """
+        if from_config:
+            return self.config.get("acceleration", float)
         if new_acc is not None:
             self.__controller.set_acceleration(self, new_acc*abs(self.steps_per_unit))
         _acceleration = self.__controller.read_acceleration(self) / abs(self.steps_per_unit)

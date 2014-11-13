@@ -39,6 +39,8 @@ class TangoEMot(Controller):
 
         self._spu = self.axis_proxy.steps_per_unit
         axis.config.config_dict.update( { "steps_per_unit": {"value": self._spu } } )
+        axis.config.config_dict.update( { "acceleration": {"value": self.axis_proxy.ReadConfig("acceleration") })
+        axis.config.config_dict.update( { "velocity": {"value": self.axis_proxy.ReadConfig("velocity") })
 
     def read_position(self, axis, measured=False):
         """

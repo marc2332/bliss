@@ -420,7 +420,7 @@ class BlissAxis(PyTango.Device_4Impl):
         return self.axis.get_info()
 
     def ReadConfig(self, argin):
-        return str(getattr(self.axis, argin)(from_config=True))
+        return self.axis.config().get(argin)
 
     def RawWrite(self, argin):
         """ Sends a raw command to the axis. Be carefull!

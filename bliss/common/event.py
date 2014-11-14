@@ -34,9 +34,9 @@ if not hasattr(robustapply, "_robust_apply"):
     del __my_robust_apply
 
 
-    def send(sender, signal, *args, **kwargs):
-        dispatcher.send(signal, sender, *args, **kwargs)
+def send(sender, signal, *args, **kwargs):
+    dispatcher.send(signal, sender, *args, **kwargs)
 
 
-    def connect(sender, signal, callback):
-        dispatcher.connect(callback, signal, sender)
+def connect(sender, signal, callback):
+    dispatcher.connect(callback, signal, sender)

@@ -18,7 +18,7 @@ AXIS_MODULES_PATH = []
 CONTROLLERS = {}
 CONTROLLER_BY_AXIS = {}
 GROUPS = {}
-
+LOADED_FILES = set()
 
 def _get_module(module_name, path_list):
     try:
@@ -263,11 +263,13 @@ def clear_cfg():
     """
     global CONTROLLERS
     global CONTROLLER_BY_AXIS
+    global LOADED_FILES
 
     for controller_name, controller in CONTROLLERS.iteritems():
         controller["object"].finalize()
     CONTROLLERS = {}
     CONTROLLER_BY_AXIS = {}
+    LOADED_FILES = set()
 
 
 def load_cfg(filename, clear=True):
@@ -284,11 +286,20 @@ def load_cfg(filename, clear=True):
     Returns:
         None
     """
+    filename = os.path.abspath(filename)
+
     if clear:
         clear_cfg()
+    if filename in LOADED_FILES:
+        return
     if BACKEND == 'xml':
         from bliss.config.motors.xml_backend import load_cfg
-        return load_cfg(filename)
+        try:
+            load_cfg(filename)
+        except:
+            raise
+        else:
+            LOADED_FILES.add(filename)
 
 
 def load_cfg_fromstring(config_str, clear=True):

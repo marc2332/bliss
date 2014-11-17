@@ -216,6 +216,33 @@ class IcePAP(Controller):
             axis_list.append(motion.axis.libaxis)
         self.libgroup.stop(axis_list)
 
+    def home_search(self, axis):
+        """Launch a homing sequence"""
+        # TODO: MP17Nov14: missing argin on which home+/home- to look for
+        cmd = "HOME +1"
+        # TODO: MP17Nov14: missing argin on position to set at home
+        # TODO: MP17Nov14: missing home search in IcePAP library
+        self.libgroup.ackcommand(cmd, axis.libaxis)
+
+    def home_state(self, axis):
+        """Returns the current axis state while homing"""
+        return self.state(axis)
+
+    def limit_search(self, axis, limit):
+        """
+        Launch a limitswitch search sequence
+        the sign of the argin gives the search direction
+        """
+        cmd = "SRCH"
+        if limit>0:
+            cmd += " LIM+"
+        else:
+            cmd += " LIM-"
+        
+        # TODO: MP17Nov14: missing limit search in IcePAP library
+        self.libgroup.ackcommand(cmd, axis.libaxis)
+
+
     def log_level(self, lvl):
         """Changes IcePAP and eMotion libraries verbose level"""
 

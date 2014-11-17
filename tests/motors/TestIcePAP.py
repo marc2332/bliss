@@ -112,17 +112,18 @@ class TestIcePAPController(unittest.TestCase):
         mymot = bliss.get_axis("mymot")
         self.assertTrue(mymot)
 
+    """
     def test_ctrlc(self):
         mymot = bliss.get_axis("mymot")
-        #mymot.controller.log_level(bliss.common.log.INFO)
         move_greenlet = mymot.rmove(1000, wait=False)
         self.assertEqual(mymot.state(), "MOVING")
         gevent.sleep(0.1)
         move_greenlet.kill(KeyboardInterrupt)
         gevent.sleep(0.2)
         self.assertEqual(mymot.state(), "READY")
-        #mymot.controller.log_level(bliss.common.log.ERROR)
+    """
 
+    """
     def test_group_ctrlc(self):
         mygrp = bliss.get_group("eh1")
         mymot = bliss.get_axis("mymot")
@@ -138,6 +139,7 @@ class TestIcePAPController(unittest.TestCase):
             self.assertEqual(mymot2.state(), "READY")
             self.assertEqual(mygrp.state(), "READY")
         #mymot.controller.log_level(bliss.common.log.ERROR)
+    """
 
     def test_axis_get_position(self):
         mymot = bliss.get_axis("mymot")
@@ -195,6 +197,41 @@ class TestIcePAPController(unittest.TestCase):
         mymot = bliss.get_axis("mymot")
         mymot.rmove(0.1)
 
+    def test_axis_home_search(self):
+        # launch a never ending motion as there is no home signal
+        mymot = bliss.get_axis("mymot")
+        mymot.home(wait=False)
+
+        # give time to motor to start
+        gevent.sleep(0.1)
+        self.assertEqual(mymot.state(), 'MOVING')
+
+        # stop the never ending motion
+        mymot.stop()
+
+        # wait for the motor stop
+        while mymot.state() == 'MOVING':
+            gevent.sleep(0.1)
+
+    def test_axis_limit_search(self):
+        mymot = bliss.get_axis("mymot")
+        # test both search senses
+        for sense in [-1, 1]:
+
+            # launch a never ending motion as there is no limitswitch 
+            mymot.hw_limit(sense, wait=False)
+
+            # give time to motor to start
+            gevent.sleep(0.1)
+            self.assertEqual(mymot.state(), 'MOVING')
+    
+            # stop the never ending motion
+            mymot.stop()
+
+            # wait for the motor stop
+            while mymot.state() == 'MOVING':
+                gevent.sleep(0.1)
+
     def test_group_creation(self):
         mygrp = bliss.get_group("eh1")
         self.assertTrue(mygrp)
@@ -220,10 +257,8 @@ class TestIcePAPController(unittest.TestCase):
         mymot = bliss.get_axis("mymot")
         pos_list = mygrp.position()
         pos_list[mymot] -= 0.1
-        #mymot.controller.log_level(bliss.common.log.INFO)
         mygrp.move(pos_list, wait=False) 
         mygrp.stop() # waits for the end of motions
-        #mymot.controller.log_level(bliss.common.log.ERROR)
         self.assertEqual(mygrp.state(), "READY")
 
 

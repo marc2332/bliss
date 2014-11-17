@@ -33,7 +33,7 @@ def write_settings():
 class ControllerAxisSettings:
 
     def __init__(self):
-        self.setting_names = ["velocity", "position", "state", "offset", "acceleration"]
+        self.setting_names = ["velocity", "position", "state", "offset", "acceleration", "low_limit", "high_limit"]
         self.convert_funcs = {
             "velocity": float,
             "position": float,

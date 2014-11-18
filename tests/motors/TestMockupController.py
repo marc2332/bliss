@@ -30,6 +30,8 @@ config_xml = """
       <!-- degrees per second -->
       <velocity value="100"/>
       <acceleration value="3"/>
+      <low_limit value="-1000"/>
+      <high_limit value="1E9"/>
     </axis>
   </controller>
   <controller class="mockup">
@@ -183,6 +185,13 @@ class TestMockupController(unittest.TestCase):
         roby.limits(-11, 10)
         self.assertRaises(ValueError, roby.move, -10)
 
+    def test_limits2(self):
+        robz = bliss.get_axis("robz")
+        self.assertEquals(robz.limits(), (-1000,1E9))
+        roby = bliss.get_axis("roby")
+        self.assertEquals(roby.limits(), (None,None))
+        self.assertRaises(ValueError, robz.move, -1001)
+        
     def test_backlash2(self):
         roby = bliss.get_axis("roby")
         self.assertEqual(roby.state(), "READY")

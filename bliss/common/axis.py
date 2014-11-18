@@ -143,7 +143,13 @@ class Axis(object):
 
             # Sends a value in motor units to the controller
             # but returns a user-units value.
-            curr_pos = self.__controller.set_position(self, new_dial * self.steps_per_unit) / self.steps_per_unit
+            try:
+                curr_pos = self.__controller.set_position(self, new_dial * self.steps_per_unit) / self.steps_per_unit
+            except NotImplementedError:
+                try:
+                    curr_pos = self.__controller.read_position(self) / self.steps_per_unit
+                except NotImplementedError:
+                    curr_pos = 0
 
             # do not change user pos (update offset)
             self._position(user_pos)

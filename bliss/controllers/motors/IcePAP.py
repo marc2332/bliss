@@ -1,5 +1,7 @@
 import sys
 import os
+#TODO: MG18Nov14: needed by change in limit_search, to be removed
+import time
 
 """
 Bliss generic library
@@ -241,6 +243,8 @@ class IcePAP(Controller):
         
         # TODO: MP17Nov14: missing limit search in IcePAP library
         self.libgroup.ackcommand(cmd, axis.libaxis)
+        # TODO: MG18Nov14: remove this sleep (state is not immediately MOVING)
+        time.sleep(0.1)
 
 
     def log_level(self, lvl):

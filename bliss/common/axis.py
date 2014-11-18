@@ -44,8 +44,6 @@ class Axis(object):
         self.__config = StaticConfig(config)
         self.__settings = AxisSettings(self) 
         self.__settings.set("offset", 0)
-        self.__settings.set("low_limit", -1E9)
-        self.__settings.set("high_limit", 1E9)
         self.__move_done = gevent.event.Event()
         self.__move_done.set()
         self.__custom_methods_list = list()
@@ -335,12 +333,16 @@ class Axis(object):
                 backlash = 0
 
         # check software limits
-        user_high_limit = self.dial2user(float(self.settings.get("high_limit")))
-        user_low_limit = self.dial2user(float(self.settings.get("low_limit")))
-        high_limit = user_high_limit * self.steps_per_unit
-        low_limit = user_low_limit * self.steps_per_unit 
-        if high_limit < low_limit:
-            high_limit, low_limit = low_limit, high_limit
+        if not None in self.limits():
+          user_high_limit = self.dial2user(float(self.settings.get("high_limit")))
+          user_low_limit = self.dial2user(float(self.settings.get("low_limit")))
+          high_limit = user_high_limit * self.steps_per_unit
+          low_limit = user_low_limit * self.steps_per_unit 
+          if high_limit < low_limit:
+              high_limit, low_limit = low_limit, high_limit
+        else:
+          user_low_limit = None
+          user_high_limit = None
         backlash_str = " (with %f backlash)" % user_backlash if backlash else ""
         if user_low_limit is not None:
             if target_pos < low_limit:

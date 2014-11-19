@@ -101,6 +101,7 @@ class _Group(object):
                 for motion in motions:
                     move_task = gevent.spawn(motion.axis._handle_move, motion)
                     motion.axis._Axis__move_task = move_task
+                    move_task._being_waited = True
                     move_task.link(motion.axis._set_move_done)
                     move_tasks.append(move_task)
                 for move_task in gevent.iwait(move_tasks):

@@ -65,8 +65,9 @@ class System():
 
     def close(self):
         """Close communication links"""
-        self._deepdevice.close()
-        del globals._known_devices[self._hostname]
+        if self._hostname in globals._known_devices:
+            self._deepdevice.close()
+            del globals._known_devices[self._hostname]
 
     def set_verbose(self, val):
         """Change the verbose level"""

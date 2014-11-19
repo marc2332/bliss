@@ -36,8 +36,9 @@ class TangoEMot(Controller):
     def initialize_axis(self, axis):
         self.axis_proxy = DeviceProxy(self.ds_name)
 
-        self._spu = self.axis_proxy.steps_per_unit
-        axis.config.config_dict.update({"steps_per_unit": {"value": self._spu}})
+        axis.config.config_dict.update({"steps_per_unit": {"value": self.axis_proxy.steps_per_unit}})
+        axis.config.config_dict.update({"acceleration": {"value": self.axis_proxy.ReadConfig("acceleration")}})
+        axis.config.config_dict.update({"velocity": {"value": self.axis_proxy.ReadConfig("velocity")}})
 
     def read_position(self, axis, measured=False):
         """
@@ -55,21 +56,18 @@ class TangoEMot(Controller):
 
     def set_velocity(self, axis, new_velocity):
         self.axis_proxy.velocity = new_velocity / abs(axis.steps_per_unit)
-        return new_velocity
 
     def read_acctime(self, axis):
         return self.axis_proxy.acctime
 
     def set_acctime(self, axis, new_acc_time):
         self.axis_proxy.acctime = new_acc_time
-        return new_acc_time
 
     def read_acceleration(self, axis):
-        return self.axis_proxy.acceleration
+        return self.axis_proxy.acceleration * abs(axis.steps_per_unit)
 
     def set_acceleration(self, axis, new_acceleration):
-        self.axis_proxy.acceleration = new_acceleration
-        return new_acceleration
+        self.axis_proxy.acceleration = new_acceleration / abs(axis.steps_per_unit)
 
     def state(self, axis):
         _state = self.axis_proxy.state()
@@ -89,7 +87,7 @@ class TangoEMot(Controller):
         returns immediately,
         positions in motor units
         """
-        self.axis_proxy.position = float(motion.target_pos / self._spu)
+        self.axis_proxy.position = float(motion.target_pos / motion.axis.steps_per_unit)
 
     def stop(self, axis):
         self.axis_proxy.Abort()
@@ -98,4 +96,4 @@ class TangoEMot(Controller):
         self.axis_proxy.GoHome()
 
     def home_state(self, axis):
-        return READY
+        return self.state(axis)

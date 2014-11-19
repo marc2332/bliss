@@ -58,7 +58,6 @@ class PI_E517(Controller):
         add_axis_method(axis, self.desactivate_dco, types_info=(str, None))
 
         add_axis_method(axis, self.set_gate, types_info=(bool, None))
-        self._gate_enabled = True
 
         # Enables the closed-loop.
         # self.sock.write("SVO 1 1\n")
@@ -177,7 +176,6 @@ class PI_E517(Controller):
     def raw_write_read(self, axis, cmd):
         return self.send(axis, cmd)
 
-
     """
     E517 specific
     """
@@ -257,7 +255,6 @@ class PI_E517(Controller):
         _pos = float(_ans[2:])
         return _pos
 
-
     def open_loop(self, axis):
         self.send(axis, "SVO %s 0" % axis.chan_letter)
 
@@ -272,7 +269,6 @@ class PI_E517(Controller):
 
     def desactivate_dco(self, axis):
         self.send(axis, "DCO %s 0" % axis.chan_letter)
-
 
     def _get_voltage(self, axis):
         """

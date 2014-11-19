@@ -228,7 +228,7 @@ class PI_E753(Controller):
             ("ADC value of analog input",
              "\n".join(self.sock.write_readlines("TAD?\n", 2)))
 
-####  TAD[1]==131071  => broken cable ??
+# ###  TAD[1]==131071  => broken cable ??
 # 131071 = pow(2,17)-1
 
         return _txt

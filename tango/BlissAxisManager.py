@@ -181,7 +181,11 @@ class BlissAxis(PyTango.Device_4Impl):
     def read_Position(self, attr):
         self.debug_stream("In read_Position()")
         _t = time.time()
+
         attr.set_value(self.axis.position())
+        # Updates "Write value" of Position attribute
+        attr.set_write_value(self.axis.position())
+
         _duration = time.time() - _t
         if _duration > 0.05:
             print "{%s} read_Position : duration seems too long : %5.3g ms" % \

@@ -62,12 +62,12 @@ class VSCANNER(Controller):
         if ini_pos < 0 :
             elog.info("reseting VSCANNER negative position to 0 !!")
             _cmd = "V%s 0" % (axis.chan_letter)
-            self.send(axis, _cmd)
+            self.send_no_ans(axis, _cmd)
 
         if ini_pos > 10 :
             elog.info("reseting VSCANNER >10-position to 10 !!")
             _cmd = "V%s 10" % (axis.chan_letter)
-            self.send(axis, _cmd)
+            self.send_no_ans(axis, _cmd)
 
         # ???
         # self.send(axis, "NOECHO")
@@ -148,7 +148,7 @@ class VSCANNER(Controller):
             return FAULT
 
     def prepare_move(self, motion):
-        _velocity = motion.axis.config.get("velocity")
+        _velocity = float(motion.axis.config.get("velocity"))
         if _velocity == 0:
             elog.debug ("immediate move")
         else:
@@ -186,13 +186,13 @@ class VSCANNER(Controller):
         Returns:
             - None
         """
-        _velocity = motion.axis.config.get("velocity")
+        _velocity = float(motion.axis.config.get("velocity"))
         if _velocity == 0:
-            # Immediate move.
+            elog.debug ("immediate move")
             _cmd = "V%s %s" % (motion.axis.chan_letter, motion.target_pos)
-            self.send(motion.axis, _cmd)
+            self.send_no_ans(motion.axis, _cmd)
         else:
-            # SCAN move
+            elog.debug("SCAN move")
             _cmd = "START 1 NORET"
             elog.debug ("_cmd_START=%s" % _cmd)
             self.send_no_ans(motion.axis, _cmd)

@@ -1,6 +1,6 @@
 import yaml
 
-def load_cfg_file(filename):
+def load_cfg(filename):
     with open(filename, 'r') as f:
         return yaml.load(f)
 

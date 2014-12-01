@@ -1,7 +1,6 @@
 
 import types
 import functools
-from bliss.config.motors.static import StaticConfig
 from bliss.controllers.motor_settings import ControllerAxisSettings
 from bliss.common.axis import AxisRef
 from bliss.controllers.motor_group import Group
@@ -26,6 +25,7 @@ class Controller(object):
 
     def __init__(self, name, config, axes):
         self.__name = name
+        from bliss.config.motors import StaticConfig
         self.__config = StaticConfig(config)
         self.__initialized_axis = dict()
         self._axes = dict()

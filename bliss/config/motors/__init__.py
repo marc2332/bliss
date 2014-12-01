@@ -294,12 +294,14 @@ def load_cfg(filename, clear=True):
         return
     if BACKEND == 'xml':
         from bliss.config.motors.xml_backend import load_cfg
-        try:
-            load_cfg(filename)
-        except:
-            raise
-        else:
-            LOADED_FILES.add(filename)
+    elif BACKEND == 'beacon':
+        from bliss.config.motors.beacon_backend import load_cfg
+    try:
+        load_cfg(filename)
+    except:
+        raise
+    else:
+        LOADED_FILES.add(filename)
 
 
 def load_cfg_fromstring(config_str, clear=True):
@@ -320,19 +322,61 @@ def load_cfg_fromstring(config_str, clear=True):
         clear_cfg()
     if BACKEND == 'xml':
         from bliss.config.motors.xml_backend import load_cfg_fromstring
-        return load_cfg_fromstring(config_str)
+    elif BACKEND == 'beacon':
+        from bliss.config.motors.beacon_backend import load_cfg_fromstring
+    return load_cfg_fromstring(config_str)
 
 
 def write_setting(axis_config, setting_name, setting_value, commit=True):
     if BACKEND == 'xml':
         from bliss.config.motors.xml_backend import write_setting
-        write_setting(
-            axis_config.config_dict, setting_name, setting_value)
-        if commit:
-            commit_settings(axis_config)
+    elif BACKEND == 'beacon':
+        from bliss.config.motors.beacon_backend import write_setting
 
+    write_setting(
+        axis_config.config_dict, setting_name, setting_value)
+    if commit:
+        commit_settings(axis_config)
 
 def commit_settings(axis_config):
     if BACKEND == 'xml':
         from bliss.config.motors.xml_backend import commit_settings
-        commit_settings(axis_config.config_dict)
+    elif BACKEND == 'beacon':
+        from bliss.config.motors.beacon_backend import commit_settings
+    commit_settings(axis_config.config_dict)
+
+def get_axis_setting(axis, setting_name):
+    """Get setting value from axis and setting name
+
+    Args:
+        axis:
+           Axis object (Axis object)
+        
+        setting_name (str):
+            Setting name
+
+    Returns:
+        Setting value, or None if setting has never been set
+
+    Raises:
+        RuntimeError if settings does not exist for axis 
+    """
+    if BACKEND == 'xml':
+        try:
+            setting_value = axis.config.config_dict["settings"].get("setting_name")
+        except KeyError:
+            raise RuntimeError
+        else:
+            return setting_value["value"]
+    elif BACKEND == 'beacon':
+        from bliss.config.motors.beacon_backend import get_axis_setting
+        return get_axis_setting(axis, setting_name)
+
+
+def StaticConfig(*args, **kwargs):
+    if BACKEND == 'xml':
+      from bliss.config.motors.xml_backend import StaticConfig
+      return StaticConfig(*args, **kwargs)  
+    elif BACKEND == 'beacon':
+      from bliss.config.motors.beacon_backend import StaticConfig
+      return StaticConfig(*args, **kwargs)  

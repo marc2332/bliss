@@ -17,8 +17,8 @@ This can be used to interface a motor instanciated on a remote
 computer.
 """
 
-class TangoEMot(Controller):
 
+class TangoEMot(Controller):
     def __init__(self, name, config, axes):
         Controller.__init__(self, name, config, axes)
 
@@ -26,7 +26,6 @@ class TangoEMot(Controller):
         self.ds_name = self.config.get("ds_name")
 
         # tests if DS is responding.
-
 
     def initialize(self):
         pass
@@ -37,9 +36,9 @@ class TangoEMot(Controller):
     def initialize_axis(self, axis):
         self.axis_proxy = DeviceProxy(self.ds_name)
 
-        axis.config.config_dict.update( { "steps_per_unit": {"value": self.axis_proxy.steps_per_unit } } )
-        axis.config.config_dict.update( { "acceleration": {"value": self.axis_proxy.ReadConfig("acceleration") } })
-        axis.config.config_dict.update( { "velocity": {"value": self.axis_proxy.ReadConfig("velocity") } })
+        axis.config.config_dict.update({"steps_per_unit": {"value": self.axis_proxy.steps_per_unit}})
+        axis.config.config_dict.update({"acceleration": {"value": self.axis_proxy.ReadConfig("acceleration")}})
+        axis.config.config_dict.update({"velocity": {"value": self.axis_proxy.ReadConfig("velocity")}})
 
     def read_position(self, axis, measured=False):
         """
@@ -98,4 +97,3 @@ class TangoEMot(Controller):
 
     def home_state(self, axis):
         return self.state(axis)
-

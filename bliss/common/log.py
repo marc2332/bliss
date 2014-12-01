@@ -8,6 +8,15 @@ import time
 NOTSET
 ###
 
+class bcolors:
+    PINK = '\033[95m'
+    BLUE   = '\033[94m'
+    YELLOW = '\033[93m'
+    GREEN  = '\033[92m'
+    RED    = '\033[91m'
+    ENDC   = '\033[0m'
+
+
 # LOG LEVELS :
 #      eMotion   |     IcePAP     |  Tango
 #------------------------------------------
@@ -107,7 +116,11 @@ def debug(debug_msg):
         path = path[1:]
 
     short_filename = "%s" % "/".join(path)
+    short_filename = bcolors.BLUE + short_filename + bcolors.ENDC
+    debug_msg = bcolors.PINK + debug_msg + bcolors.ENDC
     msg = "%.3f %s() (%s, l.%d): %s" % (time.time()-time0 , func_name, short_filename, lineno, debug_msg)
+
+
     ret =  log(DEBUG, msg)
     sys.stdout.flush()
     return ret

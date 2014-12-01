@@ -153,7 +153,6 @@ class BlissAxis(PyTango.Device_4Impl):
             self.set_state(PyTango.DevState.FAULT)
             self.set_status(traceback.format_exc())
 
-
         if argout != PyTango.DevState.ALARM:
             PyTango.Device_4Impl.dev_state(self)
 
@@ -186,7 +185,16 @@ class BlissAxis(PyTango.Device_4Impl):
         else:
             quality = PyTango.AttrQuality.ATTR_VALID
         _t = time.time()
+
+        # updates value of "position" attribute.
+        attr.set_value(self.axis.position())
+
+        # Updates "Write value" of Position attribute.
+        attr.set_write_value(self.axis.position())
+
+        # ???
         attr.set_value_date_quality(self.axis.position(), time.time(), quality)
+
         _duration = time.time() - _t
         if _duration > 0.05:
             print "{%s} read_Position : duration seems too long : %5.3g ms" % \
@@ -217,7 +225,6 @@ class BlissAxis(PyTango.Device_4Impl):
                 return True
         except:
             print traceback.format_exc()
-
 
     def read_Measured_Position(self, attr):
         self.debug_stream("In read_Measured_Position()")

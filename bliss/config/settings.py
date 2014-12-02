@@ -1,17 +1,10 @@
-from .conductor import client
+from .conductor.client import Client
 import weakref
 import pickle
 import redis
 
-_cache = None
-
 def get_cache():
-    global _cache
-    #TODO: what happens if Redis gets disconnected?
-    if _cache is None:
-        host, port = client.Client.get_cache_address()
-        _cache = redis.Redis(host=host, port=port, db=0)
-    return _cache
+    return Client.get_cache(db=0)
 
 def boolify(s,**keys):
     if s == 'True' or s == 'true':

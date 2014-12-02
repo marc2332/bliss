@@ -3,6 +3,7 @@ import os
 import gevent
 from gevent import socket,select,event,queue
 from . import protocol
+import redis
 
 try:
     import posix_ipc
@@ -137,14 +138,24 @@ class Connection(object) :
             self._cnx.sendall(protocol.message(protocol.UNLOCK,msg))
 
     @check_connect
-    def get_redis_connection(self) :
-        with gevent.Timeout(1,RuntimeError("Can't get redis connection information")):
-            while self._redis_host is None:
-                self._g_event.clear()
-                self._fd.sendall(protocol.message(protocol.REDIS_QUERY))
-                self._g_event.wait()
+    def get_redis_connection_addtess(self) :
+        if self._redis_host is None:
+            with gevent.Timeout(1,RuntimeError("Can't get redis connection information")):
+                while self._redis_host is None:
+                    self._g_event.clear()
+                    self._fd.sendall(protocol.message(protocol.REDIS_QUERY))
+                    self._g_event.wait()
 
         return self._redis_host,self._redis_port
+
+    @check_connect
+    def get_redis_connection(self,db=0):
+        cnx = self._redis_connection.get(db)
+        if cnx is None :
+            host,port = self.get_redis_connection_addtess()
+            cnx = redis.Redis(host=host,port=port,db=db)
+            self._redis_connection[db] = cnx
+        return cnx
 
     def _lock_mgt(self,fd,messageType,message):
         if messageType == protocol.LOCK_OK_REPLY:
@@ -230,6 +241,12 @@ class Connection(object) :
     def _clean(self) :
         self._redis_host = None
         self._redis_port = None
+        try:
+            for db,redis_cnx in self._redis_connection.iteritems():
+                redis_cnx.disconnect()
+        except:
+            pass
+        self._redis_connection = {}
 
 _default_connection = Connection()
 
@@ -245,4 +262,7 @@ class Client(object):
         _default_connection.unlock(devices_name,**params)
     @staticmethod
     def get_cache_address():
-        return _default_connection.get_redis_connection()
+        return _default_connection.get_redis_connection_addtess()
+    @staticmethod
+    def get_cache(db=0):
+        return _default_connection.get_redis_connection(db=db)

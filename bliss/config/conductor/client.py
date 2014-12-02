@@ -66,13 +66,38 @@ class Connection(object) :
                     pass
                 cnt._pending_lock[self._msg] = pm
 
+    class WaitingQueue(object):
+        def __init__(self,cnt) :
+            self._cnt = weakref.ref(cnt)
+            self._message_key = cnt._message_key
+            cnt._message_key += 1
+            self._queue = queue.Queue()
+
+        def message_key(self) :
+            return self._message_key
+
+        def get(self) :
+            return self._queue.get()
+
+        def __enter__(self) :
+            cnt = self._cnt()
+            cnt._message_queue[self._message_key] = self._queue
+            return self
+
+        def __exit__(self,*args) :
+            cnt = self._cnt()
+            cnt._message_queue.pop(self._message_key,None)
 
     def __init__(self,host=None,port=None) :
         self._socket = None
+        if host is None:
+            host = os.environ.get("BEACON_HOST",None)
         self._host = host
         self._port = port
         self._pending_lock = {}
         self._g_event = event.Event()
+        self._message_key = 0
+        self._message_queue = {}
         self._clean()
         self._fd = None
         self._cnx = None
@@ -97,14 +122,24 @@ class Connection(object) :
                 udp.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
                 udp.bind(("",protocol.DEFAULT_UDP_CLIENT_PORT))
                 udp.sendto('Hello',('255.255.255.255',protocol.DEFAULT_UDP_SERVER_PORT))
-                rlist,_,_ = select.select([udp],[],[],10.)
-                if not rlist:
-                    raise ConnectionExeption("Could not find the conductor")
-                else:
-                    msg,address = udp.recvfrom(8192)
-                    host,port = msg.split('|')
-                    port = int(port)
-
+                timeout = 10.
+                while 1:
+                    rlist,_,_ = select.select([udp],[],[],timeout)
+                    if not rlist:
+                        if port is None:
+                            raise ConnectionExeption("Could not find the conductor")
+                        else:
+                            break
+                    else:
+                        msg,address = udp.recvfrom(8192)
+                        host,port = msg.split('|')
+                        port = int(port)
+                        if self._host is not None and host != self._host:
+                            host,port = None,None
+                            timeout = 1.
+                        else:
+                            break
+                            
             self._fd = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
             self._fd.setsockopt(socket.IPPROTO_TCP,socket.TCP_NODELAY,1)
             self._fd.connect((host,port))
@@ -157,6 +192,18 @@ class Connection(object) :
             self._redis_connection[db] = cnx
         return cnx
 
+    @check_connect
+    def get_config_file(self,file_path,timeout = 10.) :
+        with gevent.Timeout(timeout,RuntimeError("Can't get configuration file")):
+            with self.WaitingQueue(self) as wq:
+                msg = '%s|%s' % (wq.message_key(),file_path)
+                self._fd.sendall(protocol.message(protocol.CONFIG_GET_FILE,msg))
+                value = wq.get()
+                if isinstance(value,RuntimeError):
+                    raise value
+                else:
+                    return value
+
     def _lock_mgt(self,fd,messageType,message):
         if messageType == protocol.LOCK_OK_REPLY:
             events = self._pending_lock.get(message,[])
@@ -179,27 +226,41 @@ class Connection(object) :
             mq_pipe = None
             while(1):
                 raw_data = self._fd.recv(16 * 1024)
-                if raw_data:
-                    data = '%s%s' % (data,raw_data)
-                    while data:
-                        try:
-                            messageType,message,data = protocol.unpack_message(data)
-                            #print 'rx',messageType
-                            if self._lock_mgt(self._fd,messageType,message):
-                                continue
-                            elif messageType == protocol.REDIS_QUERY_ANSWER:
-                                self._redis_host,self._redis_port = message.split(':')
-                                self._g_event.set()
-                            elif messageType == protocol.POSIX_MQ_OK:
-                                self._cnx = _PosixQueue(*message.split('|'))
-                                self._cnx.sendall(protocol.message(protocol.POSIX_MQ_OPENED))
-                                mq_pipe,wp = os.pipe()
-                                gevent.spawn(self._mq_read,self._cnx,wp)
-                                self._g_event.set()
-                            elif messageType == protocol.POSIX_MQ_FAILED:
-                                self._g_event.set()
-                        except ValueError:
-                            pass
+                if not raw_data: break
+                data = '%s%s' % (data,raw_data)
+                while data:
+                    try:
+                        messageType,message,data = protocol.unpack_message(data)
+                        #print 'rx',messageType
+                        if self._lock_mgt(self._fd,messageType,message):
+                            continue
+                        elif messageType == protocol.CONFIG_GET_FILE_OK:
+                            pos = message.find('|')
+                            if pos < 0: continue
+                            message_key,value = message[:pos],message[pos + 1:]
+                            message_key = int(message_key)
+                            queue = self._message_queue.get(message_key)
+                            if queue is not None: queue.put(value)
+                        elif messageType == protocol.CONFIG_GET_FILE_FAILED:
+                            pos = message.find('|')
+                            if pos < 0: continue
+                            message_key,value = message[:pos],message[pos + 1:]
+                            message_key = int(message_key)
+                            queue = self._message_queue.get(message_key)
+                            if queue is not None: queue.put(RuntimeError(value))
+                        elif messageType == protocol.REDIS_QUERY_ANSWER:
+                            self._redis_host,self._redis_port = message.split(':')
+                            self._g_event.set()
+                        elif messageType == protocol.POSIX_MQ_OK:
+                            self._cnx = _PosixQueue(*message.split('|'))
+                            self._cnx.sendall(protocol.message(protocol.POSIX_MQ_OPENED))
+                            mq_pipe,wp = os.pipe()
+                            gevent.spawn(self._mq_read,self._cnx,wp)
+                            self._g_event.set()
+                        elif messageType == protocol.POSIX_MQ_FAILED:
+                            self._g_event.set()
+                    except ValueError:
+                        pass
         except socket.error:
             pass
         except:
@@ -266,3 +327,6 @@ class Client(object):
     @staticmethod
     def get_cache(db=0):
         return _default_connection.get_redis_connection(db=db)
+    @staticmethod
+    def get_config_file(file_path) :
+        return _default_connection.get_config_file(file_path)

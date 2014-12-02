@@ -18,6 +18,8 @@ CONFIG = 1
 
 (POSIX_MQ_QUERY,POSIX_MQ_OK,POSIX_MQ_FAILED,POSIX_MQ_OPENED) = (40,41,42,43)
 
+(CONFIG_GET_FILE,CONFIG_GET_FILE_FAILED,CONFIG_GET_FILE_OK) = (50,51,52)
+
 def message(cmd, contents = ''):
   return '%s%s' % (struct.pack('<ii', cmd, len(contents)),contents)
 

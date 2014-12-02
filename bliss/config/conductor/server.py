@@ -125,6 +125,21 @@ def _clean(client):
 def _send_redis_info(client_id):
     client_id.sendall(protocol.message(protocol.REDIS_QUERY_ANSWER,
                                     '%s:%d' % (socket.gethostname(),_options.redis_port)))
+
+def _send_config_file(client_id,message):
+    try:
+        message_key,file_path = message.split('|')
+    except ValueError:          # message is bad, skip it
+        return
+    file_path = file_path.replace('../','') # prevent going up
+    full_path = os.path.join(_options.db_path,file_path)
+    try:
+        with open(full_path) as f:
+            buffer = f.read()
+            client_id.sendall(protocol.message(protocol.CONFIG_GET_FILE_OK,'%s|%s' % (message_key,buffer)))
+    except IOError:
+        client_id.sendall(protocol.message(protocol.CONFIG_GET_FILE_FAILED,"%s|File doesn't exist" % (message_key)))
+
 def _send_posix_mq_connection(client_id,client_hostname):
     ok_flag = False
     try:
@@ -200,6 +215,8 @@ def _client_rx(client):
                                 else:
                                     raise RuntimeError("Client didn't send open message before timeout")
                                 r_listen.insert(0,posix_queue.mqd)
+                        elif messageType == protocol.CONFIG_GET_FILE:
+                            _send_config_file(c_id,message)
                         else:
                             _send_unknow_message(c_id)
                     except ValueError:
@@ -229,8 +246,8 @@ def _client_rx(client):
 
 def main():
     parser = argparse.ArgumentParser()
-    #parser.add_argument("--db_path",dest="db_path",default="./db",
-    #                    help="database path")
+    parser.add_argument("--db_path",dest="db_path",default="./db",
+                        help="database path")
     parser.add_argument("--redis_port",dest="redis_port",default=6379,type=int,
                         help="redis connection port")
     parser.add_argument("--posix_queue",dest="posix_queue",type=int,default=1,

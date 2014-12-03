@@ -48,6 +48,7 @@ class listenerThread(threading.Thread):
     self.outputs     = []
     self.fifoin      = fifoin
     self.piper       = piper
+    self.daemon      = True
 
 
   # ------------------------------------------------------------------------

@@ -46,8 +46,18 @@ def read_decorator(func) :
             elif isinstance(value,dict) :
                 for k,v in value.iteritems():
                     value[k] = self._read_type_conversion(v)
+                if hasattr(self,'default_values') and isinstance(self.default_values,dict):
+                    tmp = dict(self._default_values)
+                    tmp.update(value)
+                    value = tmp
             else:
                 value = self._read_type_conversion(value)
+        if value is None:
+            if hasattr(self,'_default_value'):
+                value = self._default_value
+            elif(hasattr(self,'_default_values') and 
+                 hasattr(self._default_values,'get')):
+                value = self._default_values.get(args[0])
         return value
     return _read
 
@@ -83,13 +93,15 @@ def write_decorator(func) :
 class SimpleSetting(object) :
     def __init__(self,name,connection = None,
                  read_type_conversion = auto_conversion,
-                 write_type_conversion = None) :
+                 write_type_conversion = None,
+                 default_value = None) :
         if connection is None:
             connection = get_cache()
         self._cnx = weakref.ref(connection)
         self._name = name
         self._read_type_conversion = read_type_conversion
         self._write_type_conversion = write_type_conversion
+        self._default_value = default_value
 
     @read_decorator
     def get(self) :
@@ -107,7 +119,7 @@ class SimpleSetting(object) :
 
     def __add__(self,other) :
         value = self.get()
-        if isinstance(other,SimpleSetting.Proxy):
+        if isinstance(other,SimpleSetting):
             other = other.get()
         return value + other
 
@@ -151,17 +163,19 @@ class SimpleSetting(object) :
     def __repr__(self):
         cnx = self._cnx()
         value = cnx.get(self._name)
-        return '<SimpleSetting.Proxy name=%s value=%s>' % (self._name,value)
+        return '<SimpleSetting name=%s value=%s>' % (self._name,value)
 
 class SimpleSettingProp(object) :
     def __init__(self,name,connection = None,
                  read_type_conversion = auto_conversion,
                  write_type_conversion = None,
+                 default_value = None,
                  use_object_name = True) :
         self._name = name
         self._cnx = connection or get_cache()
         self._read_type_conversion = read_type_conversion
         self._write_type_conversion = write_type_conversion
+        self._default_value = default_value
         self._use_object_name = use_object_name
 
     def __get__(self,obj,type = None) :
@@ -169,12 +183,13 @@ class SimpleSettingProp(object) :
             name = obj.name + ':' + self._name
         else:
             name = self._name
-        return SimpleSetting.(name,self._cnx,
-                              self._read_type_conversion,
-                              self._write_type_conversion)
+        return SimpleSetting(name,self._cnx,
+                             self._read_type_conversion,
+                             self._write_type_conversion,
+                             self._default_value)
 
     def __set__(self,obj,value) :
-        if isinstance(value,SimpleSetting.Proxy): return
+        if isinstance(value,SimpleSetting): return
 
         if self._use_object_name:
             name = obj.name + ':' + self._name
@@ -268,7 +283,7 @@ class QueueSetting(object):
     def __repr__(self) :
         cnx = self._cnx()
         value = cnx.lrange(self._name,0,-1)
-        return '<QueueSetting.Proxy name=%s value=%s>' % (self._name,value)
+        return '<QueueSetting name=%s value=%s>' % (self._name,value)
 
     def __iadd__(self,other):
         self.extend(other)
@@ -276,13 +291,27 @@ class QueueSetting(object):
 
     def __getitem__(self,ran) :
         if isinstance(ran,slice):
-            i,j = ran.start,ran.stop
+            i = ran.start is not None and ran.start or 0
+            j = ran.stop is not None and ran.stop or -1
         elif isinstance(ran,int):
             i = j = ran
         else:
             raise TypeError('indices must be integers')
-        return self.get(first = i,last = j)
+        value = self.get(first = i,last = j)
+        if value is None:
+            raise StopIteration
+        else:
+            return value
 
+    def __iter__(self) :
+        cnx = self._cnx()
+        lsize = cnx.llen(self._name)
+        for first in xrange(0,lsize,1024) :
+            last = first + 1024
+            if last >= lsize: last = -1
+            for value in self.get(first,last):
+                yield value
+        
     def __setitem__(self,ran,value):
         if isinstance(ran,slice) :
             for i,v in zip(range(ran.start,ran.stop),value) :
@@ -315,7 +344,7 @@ class QueueSettingProp(object):
                             self._write_type_conversion)
 
     def __set__(self,obj,values) :
-        if isinstance(values,QueueSetting.Proxy): return
+        if isinstance(values,QueueSetting): return
 
         if self._use_object_name:
             name = obj.name + ':' + self._name
@@ -330,18 +359,24 @@ class QueueSettingProp(object):
 class HashSetting(object):
     def __init__(self,name,connection=None,
                  read_type_conversion=auto_conversion,
-                 write_type_conversion=None):
+                 write_type_conversion=None,
+                 default_values = {}):
         if connection is None:
             connection = get_cache()
         self._cnx = weakref.ref(connection)
         self._name = name
         self._read_type_conversion = read_type_conversion
         self._write_type_conversion = write_type_conversion
+        self._default_values = default_values
 
     def __repr__(self) :
         cnx = self._cnx()
         value = cnx.hgetall(self._name)
         return '<HashSetting name=%s value=%s>' % (self._name,value)
+    
+    def __delitem__(self,key) :
+        cnx = self._cnx()
+        cnx.hdel(self._name,key)
 
     def __len__(self) :
         cnx = self._cnx()
@@ -372,13 +407,10 @@ class HashSetting(object):
         return cnx.hgetall(self._name)
     
     def keys(self) :
-        cnx = self._cnx()
-        return cnx.hkeys(self._name)
+        return list(self.iterkeys())
 
-    @read_decorator
     def values(self) :
-        cnx = self._cnx()
-        return cnx.hvals(self._name)
+        return list(self.itervalues())
 
     def clear(self) :
         cnx = self._cnx()
@@ -410,39 +442,33 @@ class HashSetting(object):
     
     def has_key(self,key) :
         cnx = self._cnx()
-        return cnx.hexists(self._name,key)
+        return cnx.hexists(self._name,key) or self._default_values.has_key(key)
     
     def iterkeys(self):
-        cnx = self._cnx()
-        next_id = 0
-        while True:
-            next_id,pd = cnx.hscan(self._name,next_id)
-            for k in pd.iterkeys() :
-                yield k
-            if next_id == '0':
-                break
-    
+        for k,v in self.iteritems():
+            yield k
+
     def itervalues(self):
-        cnx = self._cnx()
-        next_id = 0
-        while True:
-            next_id,pd = cnx.hscan(self._name,next_id)
-            for v in pd.itervalues():
-                yield v
-            if next_id == '0':
-                break
+        for k,v in self.iteritems():
+            yield v
 
     def iteritems(self) :
         cnx = self._cnx()
         next_id = 0
+        seen_keys = set()
         while True:
             next_id,pd = cnx.hscan(self._name,next_id)
             for k,v in pd.iteritems():
                 if self._read_type_conversion:
                     v = self._read_type_conversion(v)
+                seen_keys.add(k)
                 yield k,v
-            if next_id == '0':
+            if not next_id or next_id is '0':
                 break
+
+        for k,v in self._default_values.iteritems():
+            if k in seen_keys: continue
+            yield k,v
 
     def __getitem__(self,key):
         value = self.get(key)
@@ -452,6 +478,9 @@ class HashSetting(object):
 
     def __setitem__(self,key,value) :
         cnx = self._cnx()
+        if value is None:
+            cnx.hdel(self._name,key)
+            return
         if self._write_type_conversion:
             value = self._write_type_conversion(value)
         cnx.hset(self._name,key,value)
@@ -460,11 +489,13 @@ class HashSettingProp(object):
     def __init__(self,name,connection = None,
                  read_type_conversion = auto_conversion,
                  write_type_conversion = None,
+                 default_values = {},
                  use_object_name = True) :
         self._name = name
         self._cnx = connection or get_cache()
         self._read_type_conversion = read_type_conversion
         self._write_type_conversion = write_type_conversion
+        self._default_values = default_values
         self._use_object_name = use_object_name
 
     def __get__(self,obj,type = None):
@@ -475,7 +506,8 @@ class HashSettingProp(object):
     
         return HashSetting(name,self._cnx,
                            self._read_type_conversion,
-                           self._write_type_conversion)
+                           self._write_type_conversion,
+                           self._default_values)
 
     def __set__(self,obj,values) :
         if self._use_object_name:
@@ -483,17 +515,19 @@ class HashSettingProp(object):
         else:
             name = self._name
 
-        if isinstance(values,HashSetting.Proxy): return
+        if isinstance(values,HashSetting): return
 
-        proxy = HashSetting.Proxy(name,self._cnx,
-                                  self._read_type_conversion,
-                                  self._write_type_conversion)
+        proxy = HashSetting(name,self._cnx,
+                            self._read_type_conversion,
+                            self._write_type_conversion,
+                            self._default_values)
         proxy.set(values)
     
     def get_proxy(self) :
         return HashSetting(self._name,self._cnx,
                            self._read_type_conversion,
-                           self._write_type_conversion)
+                           self._write_type_conversion,
+                           self._default_values)
 #helper
 
 def _change_to_obj_marchaling(keys) :

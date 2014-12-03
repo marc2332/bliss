@@ -61,11 +61,11 @@ class XXX(Controller):
         """
 
     def set_velocity(self, axis, new_velocity):
-
+        pass
 
     def state(self, axis):
-        _ans = ???
-        if _ans == ???:
+        _ans = "whatever"
+        if _ans == "moving":
             return MOVING
         else:
             return READY
@@ -76,7 +76,7 @@ class XXX(Controller):
     def start_one(self, motion):
         """
         """
-        _cmd =
+        _cmd = ""
         self.send(motion.axis, _cmd)
 
     def stop(self, axis):

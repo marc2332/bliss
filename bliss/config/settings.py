@@ -227,6 +227,10 @@ class QueueSetting(object):
         cnx = self._cnx()
         cnx.rpush(self._name,value)
 
+    def clear(self):
+        cnx = self._cnx()
+        cnx.delete(self._name)
+
     @write_decorator
     def prepend(self,value) :
         cnx = self._cnx()

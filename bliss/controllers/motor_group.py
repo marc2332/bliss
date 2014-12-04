@@ -1,7 +1,6 @@
 import gevent
 import itertools
 from bliss.common.task_utils import *
-from bliss.config.motors.static import StaticConfig
 from bliss.common.axis import Axis, AxisRef, READY, MOVING, FAULT, UNKNOWN
 from bliss.common import event
 
@@ -31,6 +30,7 @@ class _Group(object):
 
     def __init__(self, name, config, axes):
         self.__name = name
+        from bliss.config.motors import StaticConfig
         self.__config = StaticConfig(config)
         self._axes = dict()
         self._motions_dict = dict()

@@ -2,7 +2,6 @@
 import bliss
 from bliss.common import log as elog
 from bliss.common.task_utils import *
-from bliss.config.motors.static import StaticConfig
 from bliss.controllers.motor_settings import AxisSettings
 from bliss.common import event
 import time
@@ -29,6 +28,7 @@ class Axis(object):
     def __init__(self, name, controller, config):
         self.__name = name
         self.__controller = controller
+        from bliss.config.motors import StaticConfig
         self.__config = StaticConfig(config)
         self.__settings = AxisSettings(self) 
         self.__settings.set("offset", 0)

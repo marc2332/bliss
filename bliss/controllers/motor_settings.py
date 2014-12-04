@@ -1,19 +1,19 @@
 
 from bliss.common import event
 from gevent import _threading
+import gevent.queue
+import gevent.event
+import gevent
 import atexit
 
 SETTINGS_WRITER_THREAD = None
-SETTINGS_WRITER_QUEUE = _threading.Queue()
-SETTINGS_WRITER_WATCHER = _threading.Event()
-SETTINGS_WRITER_WATCHER.set()
+SETTINGS_WRITER_QUEUE = None 
+SETTINGS_WRITER_WATCHER = None 
 
 
 def wait_settings_writing():
     SETTINGS_WRITER_QUEUE.put((None, None, None))
     SETTINGS_WRITER_WATCHER.wait()
-
-atexit.register(wait_settings_writing)
 
 
 def write_settings():
@@ -44,29 +44,45 @@ class ControllerAxisSettings:
             "acceleration": float }
         self.axis_settings_dict = dict()
 
-        global SETTINGS_WRITER_THREAD
-        if SETTINGS_WRITER_THREAD is None:
-            SETTINGS_WRITER_THREAD = _threading.start_new_thread(
-                write_settings, ())
+        from bliss.config import motors as config
+        if config.BACKEND == 'xml':
+            global SETTINGS_WRITER_THREAD
+            global SETTINGS_WRITER_QUEUE
+            global SETTINGS_WRITER_WATCHER
+            SETTINGS_WRITER_QUEUE = _threading.Queue()
+            SETTINGS_WRITER_WATCHER = _threading.Event()
+            SETTINGS_WRITER_WATCHER.set()
+            atexit.register(wait_settings_writing)
+            if SETTINGS_WRITER_THREAD is None:
+                SETTINGS_WRITER_THREAD = _threading.start_new_thread(
+                    write_settings, ())
+        else:
+            global SETTINGS_WRITER_THREAD
+            global SETTINGS_WRITER_QUEUE
+            global SETTINGS_WRITER_WATCHER
+            SETTINGS_WRITER_QUEUE = gevent.queue.Queue()
+            SETTINGS_WRITER_WATCHER = gevent.event.Event()
+            SETTINGS_WRITER_WATCHER.set()
+            if SETTINGS_WRITER_THREAD is None:
+                SETTINGS_WRITER_THREAD = gevent.spawn(write_settings)
 
     def add(self, setting_name, convert_func=str):
         self.setting_names.append(setting_name)
         self.convert_funcs[setting_name] = convert_func
 
     def load_from_config(self, axis):
+        from bliss.config import motors as config
         for setting_name in self.setting_names:
             if setting_name in ("state", "position"):
                 continue
             try:
-                setting_value = axis.config.config_dict[
-                    "settings"].get(
-                    setting_name)
-            except KeyError:
+                setting_value = config.get_axis_setting(axis, setting_name)
+            except RuntimeError:
                 # no settings in config.
                 return
             if setting_value is None:
                 continue
-            self._set_setting(axis, setting_name, setting_value["value"])
+            self._set_setting(axis, setting_name, setting_value)
 
     def _settings(self, axis):
         return self.axis_settings_dict.setdefault(

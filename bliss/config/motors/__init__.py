@@ -292,13 +292,13 @@ def load_cfg(filename, clear=True):
     Returns:
         None
     """
-    filename = os.path.abspath(filename)
 
     if clear:
         clear_cfg()
     if filename in LOADED_FILES:
         return
     if BACKEND == 'xml':
+        filename = os.path.abspath(filename)
         from bliss.config.motors.xml_backend import load_cfg
     elif BACKEND == 'beacon':
         from bliss.config.motors.beacon_backend import load_cfg

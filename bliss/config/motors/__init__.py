@@ -20,6 +20,12 @@ CONTROLLER_BY_AXIS = {}
 GROUPS = {}
 LOADED_FILES = set()
 
+def set_backend(backend):
+    global BACKEND
+    if not BACKEND in ("xml", "beacon"):
+        raise RuntimeError("Unknown backend '%s`" % backend)
+    BACKEND = backend
+
 def _get_module(module_name, path_list):
     try:
         module = sys.modules[module_name]

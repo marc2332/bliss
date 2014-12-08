@@ -156,11 +156,13 @@ class Axis(object):
             pos = self.settings.get("position")
             if pos is None:
                 pos = self._position()
-                self.settings.set("position", pos)
+                self.settings.set("position", self.user2dial(pos))
+            else:
+                pos = self.dial2user(pos)
         else:
             pos = self._position(new_pos)
             if new_pos is not None:
-                self.settings.set("position", pos)
+                self.settings.set("position", self.user2dial(pos))
         return pos
 
     def _position(self, new_pos=None):
@@ -265,7 +267,7 @@ class Axis(object):
             state = self.__controller.state(self)
             self.settings.set("state", state, write=False)
             pos = self._position()
-            self.settings.set("position", pos)
+            self.settings.set("position", self.user2dial(pos))
             return state
 
         with cleanup(update_settings):
@@ -274,7 +276,7 @@ class Axis(object):
                 self.settings.set("state", state, write=False)
                 if state != MOVING:
                     break
-                pos = self._position()
+                pos = self.user2dial(self._position())
                 self.settings.set("position", pos, write=False)
                 time.sleep(0.02)
 

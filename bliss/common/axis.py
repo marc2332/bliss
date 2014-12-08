@@ -176,6 +176,10 @@ class Axis(object):
                 # (e.g like some piezo controllers)
                 curr_pos = 0
             self.__settings.set("offset", new_pos - self.sign*curr_pos)
+            # update limits
+            ll, hl = self.limits()
+            self.limits(ll+self.offset if ll is not None else ll, hl+self.offset if hl is not None else hl)
+
             return self.position()
         else:
             try:

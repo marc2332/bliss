@@ -329,11 +329,10 @@ class Axis(object):
                 backlash = 0
 
         # check software limits
-        if not None in self.limits():
-          user_high_limit = self.dial2user(float(self.settings.get("high_limit")))
-          user_low_limit = self.dial2user(float(self.settings.get("low_limit")))
-          high_limit = user_high_limit * self.steps_per_unit
-          low_limit = user_low_limit * self.steps_per_unit 
+        user_low_limit, user_high_limit = self.limits()
+        if not None in (user_low_limit, user_high_limit):
+          high_limit = self.user2dial(user_high_limit) * self.steps_per_unit
+          low_limit = self.user2dial(user_low_limit) * self.steps_per_unit 
           if high_limit < low_limit:
               high_limit, low_limit = low_limit, high_limit
         else:

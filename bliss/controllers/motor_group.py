@@ -92,6 +92,12 @@ class _Group(object):
             positions_dict[axis] = axis.position()
         return positions_dict
 
+    def dial(self):
+        positions_dict = dict()
+        for axis in self.axes.itervalues():
+            positions_dict[axis] = axis.dial()
+        return positions_dict
+
     @task
     def _handle_move(self, motions):
         move_tasks = []

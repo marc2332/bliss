@@ -49,20 +49,21 @@ class ControllerAxisSettings:
         global SETTINGS_WRITER_THREAD
         global SETTINGS_WRITER_QUEUE
         global SETTINGS_WRITER_WATCHER
-        if config.BACKEND == 'xml':
-            SETTINGS_WRITER_QUEUE = _threading.Queue()
-            SETTINGS_WRITER_WATCHER = _threading.Event()
-            SETTINGS_WRITER_WATCHER.set()
-            atexit.register(wait_settings_writing)
-            if SETTINGS_WRITER_THREAD is None:
-                SETTINGS_WRITER_THREAD = _threading.start_new_thread(
-                    write_settings, ())
-        else:
-            SETTINGS_WRITER_QUEUE = gevent.queue.Queue()
-            SETTINGS_WRITER_WATCHER = gevent.event.Event()
-            SETTINGS_WRITER_WATCHER.set()
-            if SETTINGS_WRITER_THREAD is None:
-                SETTINGS_WRITER_THREAD = gevent.spawn(write_settings)
+        if SETTINGS_WRITER_THREAD is None:
+            if config.BACKEND == 'xml': 
+                SETTINGS_WRITER_QUEUE = _threading.Queue()
+                SETTINGS_WRITER_WATCHER = _threading.Event()
+                SETTINGS_WRITER_WATCHER.set()
+                atexit.register(wait_settings_writing)
+                if SETTINGS_WRITER_THREAD is None:
+                   SETTINGS_WRITER_THREAD = _threading.start_new_thread(
+                        write_settings, ())
+            else:
+                SETTINGS_WRITER_QUEUE = gevent.queue.Queue()
+                SETTINGS_WRITER_WATCHER = gevent.event.Event()
+                SETTINGS_WRITER_WATCHER.set()
+                if SETTINGS_WRITER_THREAD is None:
+                    SETTINGS_WRITER_THREAD = gevent.spawn(write_settings)
 
     def add(self, setting_name, convert_func=str):
         self.setting_names.append(setting_name)

@@ -225,7 +225,8 @@ class CalcController(Controller):
         for tagged_axis_name, position in new_positions.iteritems():
             axis = self._tagged[tagged_axis_name][0]
             if axis in self.pseudos:
-                axis.settings.set("position", position) #axis.dial2user(position))
+                axis.settings.set("dial_position", position) 
+                axis.settings.set("position", axis.dial2user(position))
             else:
                 raise RuntimeError("cannot assign position to real motor")
 
@@ -270,13 +271,8 @@ class CalcController(Controller):
         self._reals_group.stop()
 
     def read_position(self, axis, measured=False):
-        return axis.settings.get("position") #axis.user2dial(axis.settings.get('position'))
+        return axis.settings.get("dial_position") 
 
-    """
-    def set_position(self, axis, new_pos):
-        axis.settings.set('position', new_pos)
-        return new_pos
-    """
     def state(self, axis, new_state=None):
         return self._reals_group.state()
 

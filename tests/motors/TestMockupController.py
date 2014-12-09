@@ -78,7 +78,7 @@ class TestMockupController(unittest.TestCase):
 
     def setUp(self):
         bliss.load_cfg_fromstring(config_xml)
-       
+    
     def test_get_axis(self):
         robz = bliss.get_axis("robz")
         self.assertTrue(robz)
@@ -119,7 +119,22 @@ class TestMockupController(unittest.TestCase):
         self.assertEqual(e.get(), "MOVING")
         e = gevent.event.AsyncResult()
         self.assertEqual(e.get(), "READY")
-    
+     
+    def test_position_callback(self):
+        storage={"last_pos":None, "last_dial_pos":None}
+        def callback(pos,old=storage):
+          old["last_pos"]=pos
+        def dial_callback(pos,old=storage):
+          old["last_dial_pos"]=pos
+        robz = bliss.get_axis("robz")
+        event.connect(robz, "position", callback)
+        event.connect(robz, "dial_position", dial_callback)
+        robz.position(1)
+        pos = robz.position()
+        robz.rmove(1)
+        self.assertEquals(storage["last_pos"], pos+1)
+        self.assertEquals(storage["last_dial_pos"], robz.user2dial(pos+1))
+     
     def test_rmove(self):
         robz = bliss.get_axis('robz')
         robz.move(0)

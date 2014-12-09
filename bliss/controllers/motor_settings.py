@@ -95,6 +95,10 @@ class ControllerAxisSettings:
         return setting_value
 
     def set(self, axis, setting_name, value, write=True):
+        old_value = self.get(axis, setting_name)
+        if value == old_value:
+            return
+
         setting_value = self._set_setting(axis, setting_name, value)
 
         if write:

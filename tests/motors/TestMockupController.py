@@ -107,19 +107,26 @@ class TestMockupController(unittest.TestCase):
  
     def test_state_callback(self):
         e = gevent.event.AsyncResult()
-
-        def callback(state, old={}):
-            if old.get("state") == state:
-                return
+        old={"state":None}
+        def callback(state, old=old): #{}):
+            #if old.get("state") == state:
+            #    return
             old["state"] = state
-            e.set(state)
+            #e.set(state)
         robz = bliss.get_axis("robz")
         event.connect(robz, "state", callback)
         robz.rmove(10, wait=False)
+        while old["state"]=="MOVING":
+            time.sleep(0)
+        robz.state()
+        self.assertEqual(robz.state(), "READY")
+        """
         self.assertEqual(e.get(), "MOVING")
+        self.assertEqual(robz.state(), "MOVING")
         e = gevent.event.AsyncResult()
         self.assertEqual(e.get(), "READY")
-     
+        """     
+
     def test_position_callback(self):
         storage={"last_pos":None, "last_dial_pos":None}
         def callback(pos,old=storage):
@@ -353,7 +360,6 @@ class TestMockupController(unittest.TestCase):
         self.assertEquals(robz.dial(), 2)
         self.assertEquals(robz.position(), 2)
 
- 
     def test_limit_search(self):
         robz = bliss.get_axis("robz")
         robz.hw_limit(1)

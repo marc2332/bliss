@@ -264,22 +264,16 @@ class Axis(object):
 
     def _handle_move(self, motion):
         def update_settings():
-            state = self.__controller.state(self)
-            self.settings.set("state", state, write=False)
             pos = self._position()
             self.settings.set("dial_position", self.user2dial(pos))
             self.settings.set("position", pos)
-            return state
 
         with cleanup(update_settings):
             while True:
                 state = self.__controller.state(self)
-                self.settings.set("state", state, write=False)
                 if state != MOVING:
                     break
-                pos = self._position()
-                self.settings.set("position", pos, write=False)
-                self.settings.set("dial_position", self.user2dial(pos), write=False)
+                update_settings()
                 time.sleep(0.02)
 
             if motion.backlash:
@@ -361,9 +355,15 @@ class Axis(object):
 
         return motion
 
+    def _set_moving_state(self):
+        self.__move_done.clear()
+        self.settings.set("state", MOVING, write=False)
+
     def _set_move_done(self, move_task):
         self.__move_done.set()
         event.send(self, "move_done", True)
+        self.settings.set("state", self.state(), write=False)
+ 
         if move_task is not None and not move_task._being_waited:
             try:
                 move_task.get()
@@ -383,8 +383,7 @@ class Axis(object):
 
         motion = self.prepare_move(user_target_pos, relative)
 
-        # indicates that axis is MOVING.
-        self.__move_done.clear()
+        self._set_moving_state()
         self.__move_task = None
 
         try:
@@ -435,7 +434,7 @@ class Axis(object):
             except NotImplementedError:
                 _set_pos = True
 
-        self.__move_done.clear()
+        self._set_moving_state()
 
         home_task = self._do_home(wait=False)
         home_task._being_waited = wait
@@ -461,7 +460,6 @@ class Axis(object):
             self.__controller.home_search(self)
             while True:
                 state = self.__controller.home_state(self)
-                self.settings.set("state", state, write=False)
                 if state != MOVING:
                     break
                 time.sleep(0.02)
@@ -481,7 +479,7 @@ class Axis(object):
           lim_pos = float(lim_pos)
           _set_pos = True
 
-        self.__move_done.clear()
+        self._set_moving_state()
 
         lim_search_task = self._do_limit_search(limit, wait=False)
         lim_search_task._being_waited = wait
@@ -503,7 +501,6 @@ class Axis(object):
             self.__controller.limit_search(self, limit)
             while True:
                 state = self.__controller.state(self)
-                self.settings.set("state", state, write=False)
                 if state != MOVING:
                     break
                 time.sleep(0.02)

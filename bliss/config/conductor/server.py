@@ -175,7 +175,11 @@ def _client_rx(client):
             r,_,_ = select.select(r_listen,[],[])
             for fd in r:
                 if fd == client: # tcp
-                    raw_data = client.recv(16 * 1024)
+                    try:
+                        raw_data = client.recv(16 * 1024)
+                    except:
+                        raw_data = None
+
                     if raw_data:
                         tcp_data = '%s%s' % (tcp_data,raw_data)
                     else:

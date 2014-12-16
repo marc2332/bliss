@@ -352,3 +352,7 @@ class Client(object):
     @staticmethod
     def get_config_file(file_path) :
         return _default_connection.get_config_file(file_path)
+    @staticmethod
+    def get_config_db_files(base_path='',timeout=30.):
+        path2files = _default_connection.get_config_db(base_path=base_path,timeout=timeout)
+        return path2files

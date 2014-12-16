@@ -140,6 +140,30 @@ def _send_config_file(client_id,message):
     except IOError:
         client_id.sendall(protocol.message(protocol.CONFIG_GET_FILE_FAILED,"%s|File doesn't exist" % (message_key)))
 
+def _send_config_db_files(client_id,message):
+    try:
+        message_key,sub_path = message.split('|')
+    except ValueError:          # message is bad, skip it
+        return
+    sub_path = sub_path.replace('../','') # prevent going up
+    look_path = sub_path and os.path.join(_options.db_path,sub_path) or _options.db_path
+    try:
+        for root,dirs,files in os.walk(look_path):
+            for filename in files:
+                basename,ext = os.path.splitext(filename)
+                if ext == '.yml':
+                    full_path = os.path.join(root,filename)
+                    rel_path = full_path[len(_options.db_path) + 1:]
+                    with file(full_path) as f:
+                        raw_buffer = f.read()
+                        msg = protocol.message(protocol.CONFIG_DB_FILE_RX,'%s|%s|%s' % (message_key,rel_path,raw_buffer))
+                        client_id.sendall(msg)
+    except:
+        import traceback
+        traceback.print_exc()
+    finally:
+        client_id.sendall(protocol.message(protocol.CONFIG_DB_END,"%s|" % (message_key)))
+
 def _send_posix_mq_connection(client_id,client_hostname):
     ok_flag = False
     try:
@@ -221,6 +245,8 @@ def _client_rx(client):
                                 r_listen.insert(0,posix_queue.mqd)
                         elif messageType == protocol.CONFIG_GET_FILE:
                             _send_config_file(c_id,message)
+                        elif messageType == protocol.CONFIG_GET_DB_BASE_PATH:
+                            _send_config_db_files(c_id,message)
                         else:
                             _send_unknow_message(c_id)
                     except ValueError:

@@ -20,6 +20,8 @@ CONFIG = 1
 
 (CONFIG_GET_FILE,CONFIG_GET_FILE_FAILED,CONFIG_GET_FILE_OK) = (50,51,52)
 
+(CONFIG_GET_DB_BASE_PATH,CONFIG_DB_FILE_RX,CONFIG_DB_END) = (60,61,62)
+
 def message(cmd, contents = ''):
   return '%s%s' % (struct.pack('<ii', cmd, len(contents)),contents)
 

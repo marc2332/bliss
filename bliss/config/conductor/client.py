@@ -1,5 +1,5 @@
 import weakref
-import os
+import os,sys
 import gevent
 from gevent import socket,select,event,queue
 from . import protocol
@@ -69,7 +69,7 @@ class Connection(object) :
     class WaitingQueue(object):
         def __init__(self,cnt) :
             self._cnt = weakref.ref(cnt)
-            self._message_key = cnt._message_key
+            self._message_key = str(cnt._message_key)
             cnt._message_key += 1
             self._queue = queue.Queue()
 
@@ -78,6 +78,9 @@ class Connection(object) :
 
         def get(self) :
             return self._queue.get()
+
+        def queue(self) :
+            return self._queue
 
         def __enter__(self) :
             cnt = self._cnt()
@@ -203,6 +206,18 @@ class Connection(object) :
                     raise value
                 else:
                     return value
+    @check_connect
+    def get_config_db(self,base_path='',timeout = 30.):
+        return_files = []
+        with gevent.Timeout(timeout,RuntimeError("Can't get configuration file")):
+            with self.WaitingQueue(self) as wq:
+                msg = '%s|%s' % (wq.message_key(),base_path)
+                self._fd.sendall(protocol.message(protocol.CONFIG_GET_DB_BASE_PATH,msg))
+                for rx_msg in wq.queue():
+                    file_path,file_value = self._get_msg_key(rx_msg)
+                    if file_path is None : continue
+                    return_files.append((file_path,file_value))
+        return return_files
 
     def _lock_mgt(self,fd,messageType,message):
         if messageType == protocol.LOCK_OK_REPLY:
@@ -220,6 +235,11 @@ class Connection(object) :
             return True
         return False
 
+    def _get_msg_key(self,message) :
+        pos = message.find('|')
+        if pos < 0: return None,None
+        return message[:pos],message[pos + 1:]
+
     def _raw_read(self) :
         try:
             data = ''
@@ -231,23 +251,25 @@ class Connection(object) :
                 while data:
                     try:
                         messageType,message,data = protocol.unpack_message(data)
+                    except ValueError:
+                        break
+                    try:
                         #print 'rx',messageType
                         if self._lock_mgt(self._fd,messageType,message):
                             continue
-                        elif messageType == protocol.CONFIG_GET_FILE_OK:
-                            pos = message.find('|')
-                            if pos < 0: continue
-                            message_key,value = message[:pos],message[pos + 1:]
-                            message_key = int(message_key)
+                        elif(messageType == protocol.CONFIG_GET_FILE_OK or
+                             messageType == protocol.CONFIG_DB_FILE_RX):
+                            message_key,value = self._get_msg_key(message)
                             queue = self._message_queue.get(message_key)
                             if queue is not None: queue.put(value)
                         elif messageType == protocol.CONFIG_GET_FILE_FAILED:
-                            pos = message.find('|')
-                            if pos < 0: continue
-                            message_key,value = message[:pos],message[pos + 1:]
-                            message_key = int(message_key)
+                            message_key,value = self._get_msg_key(message)
                             queue = self._message_queue.get(message_key)
                             if queue is not None: queue.put(RuntimeError(value))
+                        elif messageType == protocol.CONFIG_DB_END:
+                            message_key,value = self._get_msg_key(message)
+                            queue = self._message_queue.get(message_key)
+                            if queue is not None: queue.put(StopIteration)
                         elif messageType == protocol.REDIS_QUERY_ANSWER:
                             self._redis_host,self._redis_port = message.split(':')
                             self._g_event.set()
@@ -259,8 +281,8 @@ class Connection(object) :
                             self._g_event.set()
                         elif messageType == protocol.POSIX_MQ_FAILED:
                             self._g_event.set()
-                    except ValueError:
-                        pass
+                    except:
+                        sys.excepthook(*sys.exc_info())
         except socket.error:
             pass
         except:

@@ -11,27 +11,45 @@
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/4.8.0/codemirror.min.css" type="text/css" media="screen"></link>
         <script language="JavaScript" type="text/javascript" src="js/shell.js"></script>
         <style>
-          .cmdline_font
+          .cmdline-font
           {
             font-family: monospace;
-            font-size: 100%
+            font-size: 100%;
+          }
+          .completion-list
+          {
+            font-family: monospace;
+            font-size: 100%;
+            width: 99%;
+            margin: 0;
+            padding: 0;
+          }
+          .completion-item
+          {
+            float: left;
+            display: inline;
+            margin: 5px;
+            font-family: monospace;
+            font-size: 100%;
+          }
+          .completion-item-selected
+          {
+            float: left;
+            display: inline;
+            margin: 5px;
+            background-color: #cccccc;
+            font-family: inherit;
+            font-size: inherit;
+            color: white;
           }
         </style>
 </head>
 <body>
-        <div class="ui-layout-center" id="shell_output_container">
+        <div class="ui-layout-center">
+          <div id="shell_output"></div>
 	</div>
         <div class="ui-layout-south">
-          <div style="width:100%; display:table; ">
-            <div style="display:table-row;"></div>
-            <div style="display:table-row;" id="cmdline_row">
-              <label style="display:table-cell; width:1%" class="cmdline_font">&gt;&nbsp;</label>
-              <input id="shell_cmdline" style="width:99%; border:none; display:table-cell;" class="cmdline_font"></input>
-            </div>
-            <div style="display:none;" id="code_row">
-              <textarea style="width:99%; display:table-cell;"></textarea>
-            </div>
-          </div>
+          <div id="shell_cmdline" style="width:100%;"></div>
           <div id="log_messages">
             <h3>Log messages</h3>
             <div id="logger"></div>
@@ -41,7 +59,7 @@
 	<script type="text/javascript" charset="utf-8">
             $(document).ready(function() {
                 $('body').layout({ applyDefaultStyles: true });
-                $('#shell_cmdline').focus();
+                var shell = new Shell("shell_cmdline", "shell_output");
                 /*$('#code_row').css("display","table-row");
                 $('#cmdline_row').css("display","none");*/
 	    });

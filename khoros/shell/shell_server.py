@@ -30,13 +30,13 @@ def export(name, obj):
 class GreenletStdout:
   def write(self, output):
     # find right client id depending on greenlet
-    for client_id, greenlet in CODE_EXECUTION.iteritems():
+    for session_id, greenlet in CODE_EXECUTION.iteritems():
       if greenlet == gevent.getcurrent():
         break
     else:
         return
 
-    OUTPUT[client_id].put(output)
+    OUTPUT[session_id].put(output)
 
 
 # patch socket module;
@@ -101,14 +101,14 @@ class InteractiveInterpreter(code.InteractiveInterpreter):
     finally:
       self.at_prompt = True
 
-def MyLogHandler(client_id):
+def MyLogHandler(session_id):
   try:
-    log_handler = LOG[client_id]
+    log_handler = LOG[session_id]
   except KeyError:
     log_handler = _MyLogHandler()
     log_handler.setLevel(logging.DEBUG)
     logging.getLogger().addHandler(log_handler)
-    LOG[client_id]=log_handler
+    LOG[session_id]=log_handler
 
   return log_handler
   
@@ -120,24 +120,28 @@ class _MyLogHandler(logging.Handler):
   def emit(self, record):
     self.queue.put(record.getMessage()) 
 
-@bottle.route("/output_request")
-def send_output():
-  client_id = bottle.request.GET["client_id"]
-  try:
-    output = OUTPUT[client_id].get()
-  except KeyError:
-    # an old client was waiting for us
-    OUTPUT.setdefault(client_id, gevent.queue.Queue())
-    return json.dumps("")
- 
-  if output == "\n":
-    return json.dumps("")
-  return json.dumps(output)
+@bottle.route("/output_stream/<session_id>")
+def send_output(session_id):
+  bottle.response.content_type = 'text/event-stream'
+  bottle.response.add_header("Connection", "keep-alive")
+  bottle.response.add_header("Cache-control", "no-cache, must-revalidate")
+
+  while True:
+    try:
+      output = OUTPUT[session_id].get()
+    except KeyError:
+      # an old client was waiting for us
+      OUTPUT.setdefault(session_id, gevent.queue.Queue())
+      yield "data: \n\n"
+      continue
+    else:
+      output.rstrip()
+      yield "data: "+output+"\n\n";
 
 @bottle.route("/log_msg_request")
 def send_log():
-  client_id = bottle.request.GET["client_id"]
-  return json.dumps(MyLogHandler(client_id).queue.get())
+  session_id = bottle.request.GET["session_id"]
+  return json.dumps(MyLogHandler(session_id).queue.get())
 
 @bottle.get("/completion_request")
 def send_completion():
@@ -174,16 +178,14 @@ def send_completion():
       cmd = text
   return json.dumps({ "possibilities":possibilities, "cmd": cmd })
   """
-@bottle.get("/abort")
-def abort_execution():
-  client_id = bottle.request.GET["client_id"]
-  CODE_EXECUTION[client_id].kill(exception=KeyboardInterrupt, block=True)
+@bottle.get("/abort/<session_id>")
+def abort_execution(session_id):
+  CODE_EXECUTION[session_id].kill(exception=KeyboardInterrupt, block=True)
  
-@bottle.get("/command")
-def execute_command():
-  client_id = bottle.request.GET["client_id"]
+@bottle.get("/command/<session_id>")
+def execute_command(session_id):
   code = bottle.request.GET["code"]
-  output_queue = OUTPUT[client_id]
+  output_queue = OUTPUT[session_id]
 
   try:
     python_code_to_execute = str(code).strip()+"\n"
@@ -193,12 +195,12 @@ def execute_command():
   if len(python_code_to_execute) == 0:
     return json.dumps({"error":""})
   else:
-    sys.__stdout__.write("storing command %r for history for client %s\n" % (python_code_to_execute, client_id))
-    HISTORY.setdefault(client_id, []).append(python_code_to_execute)
-    CODE_EXECUTION[client_id] = gevent.spawn(do_execute, python_code_to_execute) 
-    res = CODE_EXECUTION[client_id].get()
-    while output_queue.qsize()>0:
-      time.sleep(0.01) #let time for output to be flushed
+    sys.__stdout__.write("storing command %r for history for client %s\n" % (python_code_to_execute, session_id))
+    HISTORY.setdefault(session_id, []).append(python_code_to_execute)
+    CODE_EXECUTION[session_id] = gevent.spawn(do_execute, python_code_to_execute) 
+    res = CODE_EXECUTION[session_id].get()
+    #while output_queue.qsize()>0:
+    #  time.sleep(0.01) #let time for output to be flushed
     return json.dumps(res)
 
 def do_execute(python_code_to_execute):
@@ -217,14 +219,15 @@ def do_execute(python_code_to_execute):
   finally:
       sys.stdout = sys.__stdout__ 
 
+@bottle.route('/session')
+def return_session_id(session={"id": 0}):
+  session["id"]+=1;
+  return json.dumps({ "session_id": session["id"] });
+
 @bottle.route('/')
 def main():
   contents = file(os.path.join(ROOT_PATH, "shell.html"), "r")
   return contents.read()
-  """client_id = str(id(contents))
-  OUTPUT.setdefault(client_id, gevent.queue.Queue())
-  return contents.read() % id(contents) 
-  """
 
 @bottle.route("/<url:path>")
 def serve_static_file(url):

@@ -136,7 +136,9 @@ def send_output(session_id):
       continue
     else:
       output.rstrip()
-      yield "data: "+output+"\n\n";
+      for line in output.split("\n"):
+        yield "data: %s\n" % line
+      yield "data: \n\n"
 
 @bottle.route("/log_msg_request")
 def send_log():

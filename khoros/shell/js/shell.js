@@ -42,6 +42,9 @@ function Shell(cmdline_div_id, shell_output_div_id) {
     this.completion = false;
     this.completion_selected_item_text = '';
     this.session_id = this.get_session_id();
+    this.history = JSON.parse(localStorage.getItem(this.session_id+"_shell_commands"));
+    if (! this.history) 
+        this.history = [];
     this.output_stream = new EventSource('output_stream/'+this.session_id);
     this.output_stream.addEventListener('message', $.proxy(function(e) { this.display_output(e.data); }, this), false);
 
@@ -165,6 +168,10 @@ Shell.prototype = {
     },
 
     execute: function(cmd, multiline) {
+        /* save history */
+        this.history.push(cmd);
+        localStorage[this.session_id+"_shell_commands"] = JSON.stringify(this.history);
+
     $.ajax({
         error: function(XMLHttpRequest, textStatus, errorThrown) {},
         url: 'command/'+this.session_id,
@@ -238,5 +245,7 @@ abort: function() {
         dataType: 'json'
     });
 }
+        // scroll to bottom
+        this.output_div[0].scrollIntoView(false);
 
 };

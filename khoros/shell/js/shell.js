@@ -35,7 +35,7 @@ function Shell(cmdline_div_id, shell_output_div_id) {
     table.append(this.editor_row);
     $('#' + cmdline_div_id).append(table);
 
-    this.output_div = $("#"+shell_output_div_id);
+    this.output_div = $("#" + shell_output_div_id);
     this.output_div.addClass("code-font");
 
     this.executing = false;
@@ -45,8 +45,12 @@ function Shell(cmdline_div_id, shell_output_div_id) {
     this.history = JSON.parse(localStorage.getItem(this.session_id+"_shell_commands"));
     if (! this.history) 
         this.history = [];
-    this.output_stream = new EventSource('output_stream/'+this.session_id);
-    this.output_stream.addEventListener('message', $.proxy(function(e) { this.display_output(e.data); }, this), false);
+ 
+    /* connect to output stream, to get commands output */
+    this.output_stream = new EventSource('output_stream/' + this.session_id);
+    this.output_stream.addEventListener('message', $.proxy(function(e) {
+        this.display_output(e.data);
+    }, this), false);
 
     /*
        this is just for escaping text into valid HTML
@@ -58,7 +62,7 @@ function Shell(cmdline_div_id, shell_output_div_id) {
 
     /* 
        jquery override 'this', that's just crazy!
-       let methods having the proper 'this' 
+       let methods have the proper 'this' 
     */
     this._cmdline_handle_keydown = $.proxy(this._cmdline_handle_keydown, this);
     this._cmdline_handle_keypress = $.proxy(this._cmdline_handle_keypress, this);
@@ -66,43 +70,42 @@ function Shell(cmdline_div_id, shell_output_div_id) {
     this.cmdline.keypress(this._cmdline_handle_keypress);
     this.cmdline.keydown(this._cmdline_handle_keydown);
     this.cmdline.focus();
-
-    
 };
 
 Shell.prototype = {
     get_session_id: function() {
-      var id;
-      $.ajax({ url: "session",
-               dataType: "json",
-               async: false,
-               success: $.proxy(function(data, status, jqxhr) {
-                 id = data.session_id;   
-               }, this)
-             });
-      return id;
+        var id;
+        $.ajax({
+            url: "session",
+            dataType: "json",
+            async: false,
+            success: $.proxy(function(data, status, jqxhr) {
+                id = data.session_id;
+            }, this)
+        });
+        return id;
     },
 
     _select_completion_item: function(next_item) {
-       var completion_items = this.completion_list.children();
-       var selected_item_index = 0;
-       var selected_item = null;
+        var completion_items = this.completion_list.children();
+        var selected_item_index = 0;
+        var selected_item = null;
 
-       completion_items.each(function(i, j) {
-           if ($(this).hasClass("completion-item-selected")) {
+        completion_items.each(function(i, j) {
+            if ($(this).hasClass("completion-item-selected")) {
                 selected_item_index = i;
                 $(this).removeClass("completion-item-selected");
-           }
-           $(this).addClass("completion-item");
-       });
-       selected_item_index = selected_item_index + next_item;
-       if (selected_item_index < 0)
-           selected_item_index = 0; 
-       if (selected_item_index >= completion_items.length) 
-           selected_item_index = 0;
-       selected_item = $(completion_items[selected_item_index]);       
-       selected_item.addClass("completion-item-selected");
-       this.completion_selected_item_text = selected_item.text();
+            }
+            $(this).addClass("completion-item");
+        });
+        selected_item_index = selected_item_index + next_item;
+        if (selected_item_index < 0)
+            selected_item_index = 0;
+        if (selected_item_index >= completion_items.length)
+            selected_item_index = 0;
+        selected_item = $(completion_items[selected_item_index]);
+        selected_item.addClass("completion-item-selected");
+        this.completion_selected_item_text = selected_item.text();
     },
 
     _cmdline_handle_keydown: function(e) {
@@ -135,10 +138,10 @@ Shell.prototype = {
                         }
 
                         this.completion_list.append($.parseHTML("<li class='" + klass + "'>BLA" + (i + 1) + "</li>"));
-                     }
-                     this.completion = true;
-                 }
-             }
+                    }
+                    this.completion = true;
+                }
+            }
         }
     },
 
@@ -152,15 +155,15 @@ Shell.prototype = {
             } else {
                 if (e.which == 13) {
                     if (this.completion) {
-                      e.preventDefault();
-                      alert(this.completion_selected_item_text); 
+                        e.preventDefault();
+                        alert(this.completion_selected_item_text);
                     } else {
-                      this.executing = true;
-                      var code = this.cmdline.val();
-                      this.cmdline.val('');
-                      this.output_div.append($("<p>&gt;&nbsp;<i>"+this._html_escape(code)+"</i></p>"));
-                      this.execute(code);
-                      
+                        this.executing = true;
+                        var code = this.cmdline.val();
+                        this.cmdline.val('');
+                        this.output_div.append($("<p>&gt;&nbsp;<i>" + this._html_escape(code) + "</i></p>"));
+                        this.execute(code);
+
                     }
                 }
             }
@@ -172,80 +175,81 @@ Shell.prototype = {
         this.history.push(cmd);
         localStorage[this.session_id+"_shell_commands"] = JSON.stringify(this.history);
 
-    $.ajax({
-        error: function(XMLHttpRequest, textStatus, errorThrown) {},
-        url: 'command/'+this.session_id,
-        type: 'GET',
-        success: $.proxy(function(res) {
-            if (res.error.length > 0) {
-                if (res.error == "EOF") {
-                    /*
-                    term.pause();
-                    term_div.append("<textarea id='editor'>" + res.input + "</textarea>");
-                    var editor = CodeMirror.fromTextArea(document.getElementById("editor"), {
-                        lineNumbers: true,
-                        mode: {
-                            name: "text/x-cython",
-                            version: 2,
-                        },
-                        autofocus: true
-                    });
-                    editor.execCommand("goDocEnd");
-                    term_div.append("<button id='exec_code' type='button'>Execute</button><button id='close_code' type='button'>Close</button>");
-                    $("#close_code").click(function() {
-                        editor.toTextArea();
-                        $("#editor").remove();
-                        $("#exec_code").remove();
-                        $("#close_code").remove();
-                        createTerminal(term_div, term.session_id, true);
-                    });
-                    $("#exec_code").click(function() {
-                        editor.toTextArea();
-                        var code_text = $("#editor").val();
-                        $("#editor").remove();
-                        $("#exec_code").remove();
-                        $("#close_code").remove();
-                        createTerminal(term_div, term.session_id, true);
-                        term.echo(code_text);
-                        fireOffCmd(code_text, true);
-                    });*/
-                    return;
-                } else {
-                    this.display_output(res.error, true);
+        /* make remote call */
+        $.ajax({
+            error: function(XMLHttpRequest, textStatus, errorThrown) {},
+            url: 'command/' + this.session_id,
+            type: 'GET',
+            success: $.proxy(function(res) {
+                if (res.error.length > 0) {
+                    if (res.error == "EOF") {
+                        /*
+                        term.pause();
+                        term_div.append("<textarea id='editor'>" + res.input + "</textarea>");
+                        var editor = CodeMirror.fromTextArea(document.getElementById("editor"), {
+                            lineNumbers: true,
+                            mode: {
+                                name: "text/x-cython",
+                                version: 2,
+                            },
+                            autofocus: true
+                        });
+                        editor.execCommand("goDocEnd");
+                        term_div.append("<button id='exec_code' type='button'>Execute</button><button id='close_code' type='button'>Close</button>");
+                        $("#close_code").click(function() {
+                            editor.toTextArea();
+                            $("#editor").remove();
+                            $("#exec_code").remove();
+                            $("#close_code").remove();
+                            createTerminal(term_div, term.session_id, true);
+                        });
+                        $("#exec_code").click(function() {
+                            editor.toTextArea();
+                            var code_text = $("#editor").val();
+                            $("#editor").remove();
+                            $("#exec_code").remove();
+                            $("#close_code").remove();
+                            createTerminal(term_div, term.session_id, true);
+                            term.echo(code_text);
+                            fireOffCmd(code_text, true);
+                        });*/
+                        return;
+                    } else {
+                        this.display_output(res.error, true);
+                    }
                 }
-            }
-            this.executing = false;
-        }, this),
-        data: {
-            "code": cmd,
-            "multiline": multiline
-        },
-        dataType: 'json'
-    });
-},
+                this.executing = false;
+            }, this),
+            data: {
+                "code": cmd,
+                "multiline": multiline
+            },
+            dataType: 'json'
+        });
+    },
 
-_html_escape: function(text) {
-    this.DOMtext.nodeValue = text;
-    return this.DOMnative.innerHTML; 
-},
+    _html_escape: function(text) {
+        this.DOMtext.nodeValue = text;
+        return this.DOMnative.innerHTML;
+    },
 
-display_output: function(output, error) {
-       if (error) {
-         this.output_div.append($('<pre><font color="red">'+this._html_escape(output)+'</font></pre>'));
-       } else {
-         this.output_div.append($('<pre>'+this._html_escape(output)+'</pre>'));
-       }
-},
-
-abort: function() {
-    $.ajax({
-        url: 'abort/'+this.session_id,
-        type: 'GET',
-        async: false,
-        dataType: 'json'
-    });
-}
+    display_output: function(output, error) {
+        if (error) {
+            this.output_div.append($('<pre><font color="red">' + this._html_escape(output) + '</font></pre>'));
+        } else {
+            this.output_div.append($('<pre>' + this._html_escape(output) + '</pre>'));
+        }
         // scroll to bottom
         this.output_div[0].scrollIntoView(false);
+    },
+
+    abort: function() {
+        $.ajax({
+            url: 'abort/' + this.session_id,
+            type: 'GET',
+            async: false,
+            dataType: 'json'
+        });
+    }
 
 };

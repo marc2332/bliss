@@ -39,8 +39,9 @@ function Shell(cmdline_div_id, shell_output_div_id) {
     this.output_div.addClass("code-font");
 
     this.executing = false;
-    this.completion = false;
+    this.completion_mode = false;
     this.completion_selected_item_text = '';
+    this._completions = [];
     this.session_id = this.get_session_id();
     this.history = JSON.parse(localStorage.getItem(this.session_id+"_shell_commands"));
     if (! this.history) 
@@ -117,29 +118,32 @@ Shell.prototype = {
             }
             $(this).addClass("completion-item");
         });
-        selected_item_index = selected_item_index + next_item;
-        if (selected_item_index < 0)
-            selected_item_index = 0;
-        if (selected_item_index >= completion_items.length)
-            selected_item_index = 0;
+        selected_item_index = (selected_item_index + next_item) % completion_items.length;
         selected_item = $(completion_items[selected_item_index]);
         selected_item.addClass("completion-item-selected");
         this.completion_selected_item_text = selected_item.text();
+        this._do_complete(selected_item_index);
     },
 
-    _do_complete: function(completion) {
-        var cmdline_text = this.cmdline.val();
-        var selstart = this.cmdline[0].selectionStart;
-        this.cmdline.val(cmdline_text.substr(0,selstart) + completion + cmdline_text.substr(selstart));
+    _do_complete: function(completion_index) {
+        if (this._completions.length == 0) return;
+        var completion = this._completions[completion_index];
+        this.cmdline.val(this.current_command.substr(0,this._completion_start) + completion + this.current_command.substr(this._completion_start));
     },
 
     _cmdline_handle_keydown: function(e) {
         if (!this.executing) {
-            if (this.completion) {
-                if (e.which === 27) {
-                    this.completion = false;
-                    this.completion_list.empty();
-                } else if (e.which == 37) {
+            if (this.completion_mode) {
+                if ((e.which == 38) || (e.which == 40)) {
+                    /*
+                       do not allow up/down arrow keys in
+                       completion mode, since it would exit
+                       completion mode - it's too easy
+                       to press them by mistake
+                       while navigating through propositions
+                    */
+                    e.preventDefault();
+		} else if (e.which == 37) {
                     // key left
                     e.preventDefault();
                     this._select_completion_item(-1);
@@ -147,6 +151,10 @@ Shell.prototype = {
                     // key right
                     e.preventDefault();
                     this._select_completion_item(+1);
+                } else {
+		    if ((e.which === 27) || (e.which == 13)) { e.preventDefault(); }
+                    this.completion_mode = false;
+		    this.completion_list.empty();
                 }
             } else {
                 if (e.which === 38) {
@@ -163,18 +171,18 @@ Shell.prototype = {
                         this.cmdline.val(this.history[this.history_index]);
                 } else if (e.which == 9) {
                     e.preventDefault();
-                    completion_ret = this.completion_request(this.cmdline.val(), this.cmdline[0].selectionStart);
-                    var completion_list = completion_ret.possibilities;
-                    
-                    if (completion_list.length == 1) {
-                          this._do_complete(completion_ret.completions[0]);
-                    } else {
-                       this.completion_list.append($.parseHTML("<li class='completion-item-selected'>" + completion_list[0] + "</li>"));
-                       for (var i = 1; i < completion_list.length; i++) {
-                          this.completion_list.append($.parseHTML("<li class='completion-item'>" + completion_list[i] + "</li>"));
-                       }
-                       this.completion = true;
+                    this.current_command = this.cmdline.val();
+                    this._completion_start = this.cmdline[0].selectionStart;
+                    completion_ret = this.completion_request(this.current_command, this._completion_start);
+                    this._completions = completion_ret.completions;
+		    var completion_list = completion_ret.possibilities;
+
+                    for (var i = 0; i < completion_list.length; i++) {
+                        this.completion_list.append($.parseHTML("<li class='completion-item'>" + completion_list[i] + "</li>"));
                     }
+
+		    this._select_completion_item(0);
+                    this.completion_mode = true;
                 } else {
                     this.history_index = this.history.length;
                     this.current_command = this.cmdline.val();
@@ -192,16 +200,14 @@ Shell.prototype = {
                 e.preventDefault();
             } else {
                 if (e.which == 13) {
-                    if (this.completion) {
+                    if (this.completion_mode) {
                         e.preventDefault();
-                        alert(this.completion_selected_item_text);
                     } else {
                         this.executing = true;
                         var code = this.cmdline.val();
                         this.cmdline.val('');
                         this.output_div.append($("<p>&gt;&nbsp;<i>" + this._html_escape(code) + "</i></p>"));
                         this.execute(code);
-
                     }
                 }
             }

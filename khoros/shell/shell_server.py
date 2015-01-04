@@ -54,7 +54,6 @@ class InteractiveInterpreter(code.InteractiveInterpreter):
     code.InteractiveInterpreter.__init__(self, globals_dict)
 
     self.at_prompt = True
-    #self.completer = rlcompleter.Completer(globals_dict)
     self.error = cStringIO.StringIO()
 
   def write(self, data):

@@ -45,8 +45,13 @@ function Shell(cmdline_div_id, shell_output_div_id) {
     this.history = JSON.parse(localStorage.getItem(this.session_id+"_shell_commands"));
     if (! this.history) 
         this.history = [];
+    this.history_index = 0;
+    this.current_command = "";
  
-    /* connect to output stream, to get commands output */
+    /* 
+       connect to output stream, 
+       to get output from server
+    */
     this.output_stream = new EventSource('output_stream/' + this.session_id);
     this.output_stream.addEventListener('message', $.proxy(function(e) {
         this.display_output(e.data);
@@ -86,6 +91,20 @@ Shell.prototype = {
         return id;
     },
 
+    completion_request: function(text, index) {
+        var completion_return;
+        $.ajax({
+            url:"completion_request",
+            dataType:"json",
+            data: { "text": text, "index": index },
+            async: false,
+            success: $.proxy(function(data, status, jqxhr) {
+              completion_return = data;
+            }, this)
+        });
+        return completion_return;
+    },
+
     _select_completion_item: function(next_item) {
         var completion_items = this.completion_list.children();
         var selected_item_index = 0;
@@ -108,6 +127,12 @@ Shell.prototype = {
         this.completion_selected_item_text = selected_item.text();
     },
 
+    _do_complete: function(completion) {
+        var cmdline_text = this.cmdline.val();
+        var selstart = this.cmdline[0].selectionStart;
+        this.cmdline.val(cmdline_text.substr(0,selstart) + completion + cmdline_text.substr(selstart));
+    },
+
     _cmdline_handle_keydown: function(e) {
         if (!this.executing) {
             if (this.completion) {
@@ -125,21 +150,34 @@ Shell.prototype = {
                 }
             } else {
                 if (e.which === 38) {
-                    alert("KEY UP");
+                    this.history_index--;
+                    if (this.history_index <= 0) {
+                        this.cmdline.val(this.current_command);
+                    } else
+                        this.cmdline.val(this.history[this.history_index]);
                 } else if (e.which == 40) {
-                    alert("KEY DOWN");
+                    this.history_index++;
+                    if (this.history_index >= this.history.length) {
+                        this.cmdline.val(this.current_command);
+                    } else
+                        this.cmdline.val(this.history[this.history_index]);
                 } else if (e.which == 9) {
                     e.preventDefault();
-                    for (var i = 0; i < 50; i++) {
-                        if (i == 0) {
-                            klass = 'completion-item-selected';
-                        } else {
-                            klass = 'completion-item';
-                        }
-
-                        this.completion_list.append($.parseHTML("<li class='" + klass + "'>BLA" + (i + 1) + "</li>"));
+                    completion_ret = this.completion_request(this.cmdline.val(), this.cmdline[0].selectionStart);
+                    var completion_list = completion_ret.possibilities;
+                    
+                    if (completion_list.length == 1) {
+                          this._do_complete(completion_ret.completions[0]);
+                    } else {
+                       this.completion_list.append($.parseHTML("<li class='completion-item-selected'>" + completion_list[0] + "</li>"));
+                       for (var i = 1; i < completion_list.length; i++) {
+                          this.completion_list.append($.parseHTML("<li class='completion-item'>" + completion_list[i] + "</li>"));
+                       }
+                       this.completion = true;
                     }
-                    this.completion = true;
+                } else {
+                    this.history_index = this.history.length;
+                    this.current_command = this.cmdline.val();
                 }
             }
         }
@@ -173,6 +211,7 @@ Shell.prototype = {
     execute: function(cmd, multiline) {
         /* save history */
         this.history.push(cmd);
+        this.history_index = this.history.length;
         localStorage[this.session_id+"_shell_commands"] = JSON.stringify(this.history);
 
         /* make remote call */

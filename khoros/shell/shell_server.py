@@ -16,7 +16,6 @@ import traceback
 import cStringIO
 import json
 
-HISTORY = {}
 LOG = {}
 OUTPUT = {}
 CODE_EXECUTION = {}
@@ -67,7 +66,6 @@ class InteractiveInterpreter(code.InteractiveInterpreter):
     except KeyboardInterrupt:
       self.showtraceback()
     except SystemExit:
-      # maybe a self.showtraceback() would be good?
       raise
     except:
       self.showtraceback()
@@ -148,38 +146,11 @@ def send_log():
 @bottle.get("/completion_request")
 def send_completion():
   text = bottle.request.GET["text"]
-  """tmp = filter(None, re.split(r'[ ;]', text))
-  if len(tmp) > 0:
-    text = tmp[-1]
-  else:
-    text = ""
-  completion_start_index = text.rfind(text)
-  """
-  script = jedi.Script(text, 1, len(text))
-  completions = script.completions()
-  if len(completions) == 1:
-    cmd = completions[0].complete
-  else:
-    cmd = text
-  import pdb;pdb.set_trace() 
-  return json.dumps({ "possibilities": [x.complete for x in script.completions()], "cmd": cmd })
-  """possibilities = []
-  i = 0
-  while True:
-    possibility = INTERPRETER.completer.complete(text, i)
-    if possibility is None:
-      break
-    else:
-      if len(possibilities) > 0 and possibility == possibilities[0]:
-        break
-      possibilities.append(possibility)
-    i += 1
-    if len(possibilities) == 1:
-      cmd = text[:completion_start_index]+possibilities[0]
-    else:
-      cmd = text
-  return json.dumps({ "possibilities":possibilities, "cmd": cmd })
-  """
+  completion_start_index = int(bottle.request.GET["index"])
+  completion_obj = jedi.Interpreter(text, [INTERPRETER.locals], line=1, column=completion_start_index)
+  completions = completion_obj.completions()
+  return json.dumps({ "possibilities": [x.name for x in completions], "completions": [x.complete for x in completions] })
+
 @bottle.get("/abort/<session_id>")
 def abort_execution(session_id):
   CODE_EXECUTION[session_id].kill(exception=KeyboardInterrupt, block=True)
@@ -197,12 +168,8 @@ def execute_command(session_id):
   if len(python_code_to_execute) == 0:
     return json.dumps({"error":""})
   else:
-    sys.__stdout__.write("storing command %r for history for client %s\n" % (python_code_to_execute, session_id))
-    HISTORY.setdefault(session_id, []).append(python_code_to_execute)
     CODE_EXECUTION[session_id] = gevent.spawn(do_execute, python_code_to_execute) 
     res = CODE_EXECUTION[session_id].get()
-    #while output_queue.qsize()>0:
-    #  time.sleep(0.01) #let time for output to be flushed
     return json.dumps(res)
 
 def do_execute(python_code_to_execute):

@@ -55,7 +55,10 @@ function Shell(cmdline_div_id, shell_output_div_id) {
     */
     this.output_stream = new EventSource('output_stream/' + this.session_id);
     this.output_stream.addEventListener('message', $.proxy(function(e) {
-        this.display_output(e.data);
+        if (e.data) {
+            var output = JSON.parse(e.data);
+            this.display_output(output); 
+        }
     }, this), false);
 
     /*
@@ -282,7 +285,9 @@ Shell.prototype = {
         if (error) {
             this.output_div.append($('<pre><font color="red">' + this._html_escape(output) + '</font></pre>'));
         } else {
-            this.output_div.append($('<pre>' + this._html_escape(output) + '</pre>'));
+            if (output != '\n') {
+              this.output_div.append($('<pre>'+this._html_escape(output)+'</pre>'));
+            }
         }
         // scroll to bottom
         this.output_div[0].scrollIntoView(false);

@@ -68,9 +68,6 @@ class InteractiveInterpreter(code.InteractiveInterpreter):
       raise
     except:
       self.showtraceback()
-    else:
-      if code.softspace(sys.stdout, 0):
-         print
 
   def compile_and_run(self, python_code_to_execute, dontcompile=False):
     code_obj = None
@@ -122,21 +119,28 @@ def send_output(session_id):
   bottle.response.content_type = 'text/event-stream'
   bottle.response.add_header("Connection", "keep-alive")
   bottle.response.add_header("Cache-control", "no-cache, must-revalidate")
+  output = ""
 
   while True:
     try:
-      output = OUTPUT[session_id].get()
+      output += OUTPUT[session_id].get(timeout=0.05)
     except KeyError:
       # an old client was waiting for us
       OUTPUT.setdefault(session_id, gevent.queue.Queue())
       yield "data: \n\n"
       continue
+    except gevent.queue.Empty:
+      if output:
+        yield "data: "+json.dumps(output)+"\n\n"
+        output = ""
     else:
-      output.rstrip()
-      for line in output.split("\n"):
-        yield "data: %s\n" % line
-      yield "data: \n\n"
-
+      if not output.endswith("\n"):
+        continue
+      output.strip();
+      #print "yielding", json.dumps(output)
+      yield "data: "+json.dumps(output)+"\n\n"
+      output = ""
+      
 @bottle.route("/log_msg_request")
 def send_log():
   session_id = bottle.request.GET["session_id"]

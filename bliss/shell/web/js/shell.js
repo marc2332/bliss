@@ -23,7 +23,7 @@ function Shell(cmdline_div_id, shell_output_div_id) {
     var cmdline_row = $($.parseHTML('<div style="display:table-row;"></div>'));
     cmdline_row.appendTo(table);
     cmdline_row.append($('<label style="display:table-cell; width:1%;" class="code-font">&gt;&nbsp;</label>'));
-    this.cmdline = $('<input style="width:99%; border:none; display:table-cell;" class="code-font"></input>');
+    this.cmdline = $('<input style="width:99%; border:none; display:table-cell;" class="code-font" autofocus></input>');
     this.cmdline.appendTo(cmdline_row);
     this.completion_row = $('<div style="display:table-row;"><label style="display:table-cell"></label></div>');
     this.completion_list = $('<ul style="display:table-cell;" class="completion-list"></ul>');
@@ -43,12 +43,12 @@ function Shell(cmdline_div_id, shell_output_div_id) {
     this.completion_selected_item_text = '';
     this._completions = [];
     this.session_id = this.get_session_id();
-    this.history = JSON.parse(localStorage.getItem(this.session_id+"_shell_commands"));
-    if (! this.history) 
+    this.history = JSON.parse(localStorage.getItem(this.session_id + "_shell_commands"));
+    if (!this.history)
         this.history = [];
     this.history_index = 0;
     this.current_command = "";
- 
+
     /* 
        connect to output stream, 
        to get output from server
@@ -57,7 +57,7 @@ function Shell(cmdline_div_id, shell_output_div_id) {
     this.output_stream.addEventListener('message', $.proxy(function(e) {
         if (e.data) {
             var output = JSON.parse(e.data);
-            this.display_output(output); 
+            this.display_output(output);
         }
     }, this), false);
 
@@ -78,7 +78,6 @@ function Shell(cmdline_div_id, shell_output_div_id) {
 
     this.cmdline.keypress(this._cmdline_handle_keypress);
     this.cmdline.keydown(this._cmdline_handle_keydown);
-    this.cmdline.focus();
 };
 
 Shell.prototype = {
@@ -98,12 +97,15 @@ Shell.prototype = {
     completion_request: function(text, index) {
         var completion_return;
         $.ajax({
-            url:"completion_request",
-            dataType:"json",
-            data: { "text": text, "index": index },
+            url: "completion_request",
+            dataType: "json",
+            data: {
+                "text": text,
+                "index": index
+            },
             async: false,
             success: $.proxy(function(data, status, jqxhr) {
-              completion_return = data;
+                completion_return = data;
             }, this)
         });
         return completion_return;
@@ -121,7 +123,11 @@ Shell.prototype = {
             }
             $(this).addClass("completion-item");
         });
-        selected_item_index = (selected_item_index + next_item) % completion_items.length;
+        if (next_item < 0) {
+            selected_item_index = 0;
+        } else {
+            selected_item_index = (selected_item_index + next_item) % completion_items.length;
+        }
         selected_item = $(completion_items[selected_item_index]);
         selected_item.addClass("completion-item-selected");
         this.completion_selected_item_text = selected_item.text();
@@ -131,7 +137,16 @@ Shell.prototype = {
     _do_complete: function(completion_index) {
         if (this._completions.length == 0) return;
         var completion = this._completions[completion_index];
-        this.cmdline.val(this.current_command.substr(0,this._completion_start) + completion + this.current_command.substr(this._completion_start));
+        this.cmdline.val(this.current_command.substr(0, this._completion_start) + completion + this.current_command.substr(this._completion_start));
+        this.cmdline[0].selectionStart = this._completion_start+completion.length;
+        this.cmdline[0].selectionEnd = this.cmdline[0].selectionStart;
+    },
+
+    _cmdline_focus: function() {
+        var $cmdline = this.cmdline;
+        setTimeout(function() { 
+          $cmdline.focus();
+        }, 10);
     },
 
     _cmdline_handle_keydown: function(e) {
@@ -146,7 +161,7 @@ Shell.prototype = {
                        while navigating through propositions
                     */
                     e.preventDefault();
-		} else if (e.which == 37) {
+                } else if (e.which == 37) {
                     // key left
                     e.preventDefault();
                     this._select_completion_item(-1);
@@ -155,9 +170,11 @@ Shell.prototype = {
                     e.preventDefault();
                     this._select_completion_item(+1);
                 } else {
-		    if ((e.which === 27) || (e.which == 13)) { e.preventDefault(); }
                     this.completion_mode = false;
-		    this.completion_list.empty();
+                    this.completion_list.empty();
+                    if ((e.which === 27) || (e.which == 13)) {
+                        e.preventDefault();
+                    }
                 }
             } else {
                 if (e.which === 38) {
@@ -178,14 +195,15 @@ Shell.prototype = {
                     this._completion_start = this.cmdline[0].selectionStart;
                     completion_ret = this.completion_request(this.current_command, this._completion_start);
                     this._completions = completion_ret.completions;
-		    var completion_list = completion_ret.possibilities;
+                    var completion_list = completion_ret.possibilities;
 
                     for (var i = 0; i < completion_list.length; i++) {
                         this.completion_list.append($.parseHTML("<li class='completion-item'>" + completion_list[i] + "</li>"));
                     }
 
-		    this._select_completion_item(0);
+                    this._select_completion_item(0);
                     this.completion_mode = true;
+                    this._cmdline_focus();
                 } else {
                     this.history_index = this.history.length;
                     this.current_command = this.cmdline.val();
@@ -221,7 +239,7 @@ Shell.prototype = {
         /* save history */
         this.history.push(cmd);
         this.history_index = this.history.length;
-        localStorage[this.session_id+"_shell_commands"] = JSON.stringify(this.history);
+        localStorage[this.session_id + "_shell_commands"] = JSON.stringify(this.history);
 
         /* make remote call */
         $.ajax({
@@ -286,7 +304,7 @@ Shell.prototype = {
             this.output_div.append($('<pre><font color="red">' + this._html_escape(output) + '</font></pre>'));
         } else {
             if (output != '\n') {
-              this.output_div.append($('<pre>'+this._html_escape(output)+'</pre>'));
+                this.output_div.append($('<pre>' + this._html_escape(output) + '</pre>'));
             }
         }
         // scroll to bottom

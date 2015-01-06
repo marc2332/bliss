@@ -4,17 +4,22 @@ import sys
 import optparse
 import gevent
 import gevent.queue
+import gevent.event
 import gevent.monkey
 import bottle
 import socket
 import time
-import gevent
 import logging
 import code
 import jedi
-import traceback
 import cStringIO
 import json
+#import redis
+import inspect
+from bliss.common.event import **
+from bliss.common import data_manager
+from bliss.common import scans
+from bliss.common import task_utils
 
 LOG = {}
 OUTPUT = {}
@@ -22,9 +27,11 @@ CODE_EXECUTION = {}
 ROOT_PATH = os.path.dirname(os.path.abspath(__file__))
 INTERPRETER = None
 INTERPRETER_GLOBALS = {}
+NEW_SCAN = gevent.event.AsyncResult()
 
-def export(name, obj):
-  INTERPRETER_GLOBALS[name]=obj
+#add scan and task functions
+for module in (scans, task_utils):
+    INTERPRETER_GLOBALS.update(dict([(x,y) for x,y in module.__dict__.iteritems() if inspect.isfunction(y)]))
 
 class GreenletStdout:
   def write(self, output):
@@ -37,7 +44,6 @@ class GreenletStdout:
 
     OUTPUT[session_id].put(output)
 
-
 # patch socket module;
 # by default bottle doesn't set address as reusable
 # and there is no option to do it...
@@ -46,6 +52,17 @@ def my_socket_bind(self, *args, **kwargs):
   self.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
   return socket.socket._bind(self, *args, **kwargs)
 socket.socket.bind = my_socket_bind
+
+"""
+def scan_listener(redis_host, redis_port):
+  r = redis.StrictRedis(host=redis_host, port=redis_port, db=0)
+  p = r.pubsub()
+  p.psubscribe("khoros.scans.*")
+  while True:
+      for new_scan in p.listen():
+          print "<<<<NEW MSG FROM REDIS>>>>",new_scan
+          NEW_SCAN.set(new_scan)
+"""
 
 class InteractiveInterpreter(code.InteractiveInterpreter):
   def __init__(self, globals_dict=None):
@@ -205,9 +222,18 @@ def main():
 def serve_static_file(url):
   return bottle.static_file(url, os.path.dirname(__file__))
 
-def serve_forever(port=None):
+def new_scan_callback(scan_id, filename, *args):
+  NEW_SCAN.set(scan_id)
+
+def serve_forever(port=None): #, redis="localhost:6379"):
   gevent.monkey.patch_all()
+
+  dispatcher.connect(new_scan_callback, "scan_new", data_manager.DataManager())
+
+  #redis_host, redis_port = redis.split(":")
+  #gevent.spawn(scan_listener, redis_host, int(redis_port))
   bottle.run(server="gevent", host="0.0.0.0", port=port)
+  
 
 def set_interpreter(interpreter_object):
   global INTERPRETER
@@ -215,11 +241,13 @@ def set_interpreter(interpreter_object):
 
 
 if __name__=="__main__":
-    usage = "usage: \%prog [-p<port>]"
+    usage = "usage: \%prog [-p<port>] [-r<redis host:port>]"
     
     parser = optparse.OptionParser(usage)
     parser.add_option('-p', '--port', dest='port', type='int',
                       help='Port to listen on (default 8099)', default=8099, action='store')
+    #parser.add_option('-r', '--redis', dest='redis', type='string',
+    #                  help='Redis server and port number (default localhost:6379)', default="localhost:6379", action='store')
     
     options, args = parser.parse_args()
 
@@ -227,5 +255,5 @@ if __name__=="__main__":
     logging.getLogger().setLevel(logging.DEBUG)
 
     set_interpreter(InteractiveInterpreter())
-    serve_forever(options.port)
+    serve_forever(options.port) #, options.redis)
     

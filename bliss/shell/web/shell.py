@@ -282,6 +282,12 @@ def set_interpreter(interpreter_object):
     INTERPRETER = interpreter_object
 
 
+def load_setup_file(setup_file):
+    setup_file_path = os.path.abspath(setup_file)
+    if os.path.isfile(setup_file_path):
+        execfile(setup_file_path, INTERPRETER_GLOBALS)
+
+
 if __name__ == "__main__":
     usage = "usage: \%prog [-p<port>] [-r<redis host:port>]"
 
@@ -302,6 +308,6 @@ if __name__ == "__main__":
 
     set_interpreter(InteractiveInterpreter())
 
-    execfile(os.path.abspath(options.setup_file), INTERPRETER_GLOBALS)
+    load_setup_file(options.setup_file)
 
     serve_forever(options.port)  # , options.redis)

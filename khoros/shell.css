@@ -1,0 +1,36 @@
+          .code-font
+          {
+            font-family: monospace;
+            font-size: 100%;
+          }
+          .completion-list
+          {
+            font-family: monospace;
+            font-size: 100%;
+            width: 99%;
+            margin: 0;
+            padding: 0;
+          }
+          .completion-item
+          {
+            float: left;
+            display: inline;
+            margin: 5px;
+            font-family: monospace;
+            font-size: 100%;
+          }
+          .completion-item-selected
+          {
+            float: left;
+            display: inline;
+            margin: 5px;
+            background-color: #cccccc;
+            font-family: inherit;
+            font-size: inherit;
+            color: white;
+          }
+          .cmdline-executing
+          {
+              background-color: #cccccc;
+          }
+

@@ -27,7 +27,6 @@ CODE_EXECUTION = {}
 ROOT_PATH = os.path.dirname(os.path.abspath(__file__))
 INTERPRETER = None
 INTERPRETER_GLOBALS = {}
-NEW_SCAN = gevent.event.AsyncResult()
 
 # add scan and task functions
 for module in (scans, task_utils):
@@ -265,12 +264,21 @@ def new_scan_callback(
          "scan_actuators": scan_actuators, "npoints": npoints,
          "counters": counters_list})
 
+def update_scan_callback(scan_id, values):
+    output_queue().put({"scan_id": scan_id, "values":values})
+
+def scan_end_callback(scan_id):
+    output_queue().put({"scan_id":scan_id})
 
 def serve_forever(port=None):  # , redis="localhost:6379"):
     gevent.monkey.patch_all()
 
     dispatcher.connect(
         new_scan_callback, "scan_new", data_manager.DataManager())
+    dispatcher.connect(
+        update_scan_callback, "scan_data", data_manager.DataManager())
+    dispatcher.connect(
+        scan_end_callback, "scan_end", data_manager.DataManager())
 
     #redis_host, redis_port = redis.split(":")
     #gevent.spawn(scan_listener, redis_host, int(redis_port))

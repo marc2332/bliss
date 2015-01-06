@@ -20,11 +20,11 @@ var askForLogMessages = function() {
 
 function Shell(cmdline_div_id, shell_output_div_id) {
     var table = $('<div style="width:100%; display:table;"></div>');
-    var cmdline_row = $($.parseHTML('<div style="display:table-row;"></div>'));
-    cmdline_row.appendTo(table);
-    cmdline_row.append($('<label style="display:table-cell; width:1%;" class="code-font">&gt;&nbsp;</label>'));
+    this.cmdline_row = $($.parseHTML('<div style="display:table-row;"></div>'));
+    this.cmdline_row.appendTo(table);
+    this.cmdline_row.append($('<label style="display:table-cell; width:1%;" class="code-font">&gt;&nbsp;</label>'));
     this.cmdline = $('<input style="width:99%; border:none; display:table-cell;" class="code-font" autofocus></input>');
-    this.cmdline.appendTo(cmdline_row);
+    this.cmdline.appendTo(this.cmdline_row);
     this.completion_row = $('<div style="display:table-row;"><label style="display:table-cell"></label></div>');
     this.completion_list = $('<ul style="display:table-cell;" class="completion-list"></ul>');
     this.completion_list.appendTo(this.completion_row);
@@ -48,6 +48,7 @@ function Shell(cmdline_div_id, shell_output_div_id) {
         this.history = [];
     this.history_index = this.history.length;
     this.current_command = "";
+    this.plot = {};
 
     /* 
        connect to output stream, 
@@ -218,10 +219,19 @@ Shell.prototype = {
         }
     },
 
+    set_executing: function(executing) {
+        this.executing = executing
+        if (executing) {
+            this.cmdline.addClass("cmdline-executing");
+        } else {
+            this.cmdline.removeClass("cmdline-executing");
+        }
+    },
+
     _cmdline_handle_keypress: function(e) {
         if (e.ctrlKey && e.which === 99) {
-            this.executing = false;
-            alert("CTRL-C");
+            this.send_abort();
+            this.set_executing(false);
         } else {
             if (this.executing) {
                 e.preventDefault();
@@ -230,18 +240,21 @@ Shell.prototype = {
                     if (this.completion_mode) {
                         e.preventDefault();
                     } else {
-                        this.executing = true;
-                        var code = this.cmdline.val();
-                        this.cmdline.val('');
-                        this.output_div.append($("<p>&gt;&nbsp;<i>" + this._html_escape(code) + "</i></p>"));
-                        this.execute(code);
+                        this.execute(this.cmdline.val());
                     }
                 }
             }
         }
     },
 
-    execute: function(cmd, multiline) {
+    execute: function(code) {
+        this.set_executing(true);
+        this.cmdline.val('');
+        this.output_div.append($("<pre>&gt;&nbsp;<i>" + this._html_escape(code) + "</i></pre>"));
+        this._execute(code);
+    },
+
+    _execute: function(cmd) {
         /* save history */
         this.history.push(cmd);
         this.history_index = this.history.length;
@@ -255,46 +268,51 @@ Shell.prototype = {
             success: $.proxy(function(res) {
                 if (res.error.length > 0) {
                     if (res.error == "EOF") {
-                        /*
-                        term.pause();
-                        term_div.append("<textarea id='editor'>" + res.input + "</textarea>");
-                        var editor = CodeMirror.fromTextArea(document.getElementById("editor"), {
+                        /* erase last added echo output */
+                        this.output_div.children().last().remove();
+
+                        var cmdline = this.cmdline;
+                        var editor_row = this.editor_row;
+                        editor_row.css("display", "table-row");
+                        var cmdline_row = this.cmdline_row;
+                        cmdline_row.css("display", "none"); 
+                        var editor_area = this.editor_area;
+                        editor_area.val(res.input);
+                        var execute = $.proxy(this.execute, this);
+
+                        var editor = CodeMirror.fromTextArea(editor_area[0], {
                             lineNumbers: true,
                             mode: {
                                 name: "text/x-cython",
                                 version: 2,
                             },
-                            autofocus: true
+                            autofocus: true,
+                            extraKeys: { 'Ctrl-Enter': function() { 
+                                              editor.toTextArea();
+                                              var code_text = editor_area.val();
+                                              editor_row.css("display","none");
+                                              cmdline_row.css("display", "table-row");
+                                              execute(code_text);
+                                          },
+                                         'Esc': function() { 
+                                              editor.toTextArea(); 
+                                              editor_row.css("display","none");
+                                              cmdline_row.css("display", "table-row");
+                                              cmdline.focus();
+                                          } 
+                                       }
                         });
+                            
                         editor.execCommand("goDocEnd");
-                        term_div.append("<button id='exec_code' type='button'>Execute</button><button id='close_code' type='button'>Close</button>");
-                        $("#close_code").click(function() {
-                            editor.toTextArea();
-                            $("#editor").remove();
-                            $("#exec_code").remove();
-                            $("#close_code").remove();
-                            createTerminal(term_div, term.session_id, true);
-                        });
-                        $("#exec_code").click(function() {
-                            editor.toTextArea();
-                            var code_text = $("#editor").val();
-                            $("#editor").remove();
-                            $("#exec_code").remove();
-                            $("#close_code").remove();
-                            createTerminal(term_div, term.session_id, true);
-                            term.echo(code_text);
-                            fireOffCmd(code_text, true);
-                        });*/
-                        return;
                     } else {
                         this.display_output(res.error, true);
                     }
                 }
-                this.executing = false;
+                this.set_executing(false);
+                this.cmdline.focus();
             }, this),
             data: {
                 "code": cmd,
-                "multiline": multiline
             },
             dataType: 'json'
         });
@@ -318,14 +336,33 @@ Shell.prototype = {
     },
 
     display_plot: function(data) {
-        this.output_div.append($('<div></div>'));
-        var plot_div = this.output_div.children().last(); 
-        new_plot = new Dygraph(plot_div[0], "Date,Temperature\n"+"2008-05-07,75\n" +
-    "2008-05-08,70\n" +
-    "2008-05-09,80\n");
+        if (this.plot[data.scan_id]) {
+            /* update existing plot */
+            var plot = this.plot[data.scan_id];
+            if (data.values) {
+                plot.data.push(data.values);
+                if (plot.obj) {
+                    plot.obj.updateOptions({'file': plot.data});
+                } else {
+                    plot.obj = new Dygraph(plot.div, plot.data, { title: plot.title, labels: plot.labels, legend:"always" });
+                }
+            } else {
+               /* end of scan, free memory */
+               delete this.plot[data.scan_id];
+            }
+        } else {
+            /* create new plot */
+            this.output_div.append($('<div></div>'));
+            var plot_div = this.output_div.children().last()[0]; 
+            this.plot[data.scan_id] = { "div": plot_div, 
+                                        "data": [], 
+                                        "obj": null, 
+                                        "title": data.filename, 
+                                        "labels": [ data.scan_actuators[0] ].concat(data.counters) };
+        }
     },
 
-    abort: function() {
+    send_abort: function() {
         $.ajax({
             url: 'abort/' + this.session_id,
             type: 'GET',

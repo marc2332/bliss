@@ -3,13 +3,11 @@
 import os
 import sys
 
-os.path.join(os.environ["HOME"], "bliss")
-
-sys.argv[0]="Bliss"
+sys.argv[0] = "Bliss"
 
 if len(sys.argv) == 1:
-    # no args ? -> I add "-?"
+    # no args ? -> I add "-?" to show defined instances.
     sys.argv.append("-?")
 
-execfile(os.path.join(os.environ["HOME"], "server/src", "BlissAxisManager.py"))
+execfile("/users/blissadm/server/src/BlissAxisManager.py")
 

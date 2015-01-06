@@ -46,7 +46,7 @@ function Shell(cmdline_div_id, shell_output_div_id) {
     this.history = JSON.parse(localStorage.getItem(this.session_id + "_shell_commands"));
     if (!this.history)
         this.history = [];
-    this.history_index = 0;
+    this.history_index = this.history.length;
     this.current_command = "";
 
     /* 
@@ -57,7 +57,11 @@ function Shell(cmdline_div_id, shell_output_div_id) {
     this.output_stream.addEventListener('message', $.proxy(function(e) {
         if (e.data) {
             var output = JSON.parse(e.data);
-            this.display_output(output);
+            if (output.type == 'plot') {
+                this.display_plot(output.data);
+            } else {
+                this.display_output(output.data);
+            }
         }
     }, this), false);
 
@@ -180,12 +184,14 @@ Shell.prototype = {
                 if (e.which === 38) {
                     this.history_index--;
                     if (this.history_index <= 0) {
+                        this.history_index = 0;
                         this.cmdline.val(this.current_command);
                     } else
                         this.cmdline.val(this.history[this.history_index]);
                 } else if (e.which == 40) {
                     this.history_index++;
                     if (this.history_index >= this.history.length) {
+                        this.history_index = this.history.length;
                         this.cmdline.val(this.current_command);
                     } else
                         this.cmdline.val(this.history[this.history_index]);
@@ -309,6 +315,14 @@ Shell.prototype = {
         }
         // scroll to bottom
         this.output_div[0].scrollIntoView(false);
+    },
+
+    display_plot: function(data) {
+        this.output_div.append($('<div></div>'));
+        var plot_div = this.output_div.children().last(); 
+        new_plot = new Dygraph(plot_div[0], "Date,Temperature\n"+"2008-05-07,75\n" +
+    "2008-05-08,70\n" +
+    "2008-05-09,80\n");
     },
 
     abort: function() {

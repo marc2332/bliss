@@ -86,10 +86,11 @@ class wrap_errors(object):
 
 def kill_with_kbint(g):
     g.kill(KeyboardInterrupt)
-    
+
 
 def special_get(self, *args, **kwargs):
-    sigint_handler = gevent.signal(signal.SIGINT, functools.partial(kill_with_kbint, self)) 
+    sigint_handler = gevent.signal(
+        signal.SIGINT, functools.partial(kill_with_kbint, self))
 
     try:
         ret = self._get(*args, **kwargs)

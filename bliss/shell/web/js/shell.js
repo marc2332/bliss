@@ -55,7 +55,7 @@ function Shell(cmdline_div_id, shell_output_div_id) {
        to get output from server
     */
     this.output_stream = new EventSource('output_stream/' + this.session_id);
-    this.output_stream.addEventListener('message', $.proxy(function(e) {
+    this.output_stream.onmessage = $.proxy(function(e) {
         if (e.data) {
             var output = JSON.parse(e.data);
             if (output.type == 'plot') {
@@ -64,7 +64,7 @@ function Shell(cmdline_div_id, shell_output_div_id) {
                 this.display_output(output.data);
             }
         }
-    }, this), false);
+    }, this);
 
     /*
        this is just for escaping text into valid HTML
@@ -230,8 +230,8 @@ Shell.prototype = {
 
     _cmdline_handle_keypress: function(e) {
         if (e.ctrlKey && e.which === 99) {
+            e.preventDefault();
             this.send_abort();
-            this.set_executing(false);
         } else {
             if (this.executing) {
                 e.preventDefault();
@@ -327,9 +327,10 @@ Shell.prototype = {
         if (error) {
             this.output_div.append($('<pre><font color="red">' + this._html_escape(output) + '</font></pre>'));
         } else {
-            if (output != '\n') {
-                this.output_div.append($('<pre>' + this._html_escape(output) + '</pre>'));
-            }
+            var output_pre = $('<pre></pre>');
+            output_pre.text(output); 
+            output_pre.css({ display: "inline" });
+            this.output_div.append(output_pre);
         }
         // scroll to bottom
         this.output_div[0].scrollIntoView(false);
@@ -363,11 +364,13 @@ Shell.prototype = {
     },
 
     send_abort: function() {
+        var clear_executing = function() { this.set_executing(false); };
+
         $.ajax({
             url: 'abort/' + this.session_id,
             type: 'GET',
-            async: false,
-            dataType: 'json'
+            dataType: 'json',
+            success: clear_executing 
         });
     }
 

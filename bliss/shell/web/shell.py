@@ -155,13 +155,14 @@ def send_output(session_id):
     bottle.response.add_header("Cache-control", "no-cache, must-revalidate")
     output_text = ""
 
+    OUTPUT[session_id] = gevent.queue.Queue()
+
+    # this is to initialize connection, something has to be sent
+    yield "data: \n\n" 
+
     while True:
         try:
             output = OUTPUT[session_id].get(timeout=0.05)
-        except KeyError:
-            OUTPUT.setdefault(session_id, gevent.queue.Queue())
-            yield "data: \n\n"
-            continue
         except gevent.queue.Empty:
             if output_text:
                 yield "data: " + json.dumps({"type": "text", "data": output_text}) + "\n\n"
@@ -174,9 +175,7 @@ def send_output(session_id):
                 continue
             if not output_text.endswith("\n"):
                 continue
-            output_text.strip()
-            # print "yielding", json.dumps(output)
-            yield "data: " + json.dumps({"type": "text", "data": output_text}) + "\n\n"
+            yield "data: " + json.dumps({"type": "text", "data": output_text }) + "\n\n"
             output_text = ""
 
 

@@ -4,6 +4,13 @@ import os
 from bliss.common import event
 from bliss.common.axis import Axis, AxisRef
 from bliss.controllers.motor_group import Group
+try:
+    from bliss.config.static import get_config as beacon_get_config
+except ImportError:
+    def beacon_get_config(*args):
+        raise RuntimeError("Beacon is not imported")
+
+BEACON_CONFIG = None
 
 BACKEND = 'xml'
 
@@ -151,7 +158,7 @@ def add_controller(
 
 
 def get_axis(axis_name):
-    """Get axis from loaded configuration
+    """Get axis from loaded configuration or from Beacon
 
     If needed, instanciates the controller of the axis and initializes it.
 
@@ -165,6 +172,16 @@ def get_axis(axis_name):
     Raises:
         RuntimeError
     """
+    if not LOADED_FILES:
+        set_backend('beacon')
+        global BEACON_CONFIG
+        if BEACON_CONFIG is None:
+            BEACON_CONFIG = beacon_get_config() 
+        o = BEACON_CONFIG.get(axis_name)
+        if not isinstance(o, Axis):
+            raise AttributeError("'%s` is not an axis" % axis_name)
+        return o
+ 
     try:
         controller_name = CONTROLLER_BY_AXIS[axis_name]
     except KeyError:

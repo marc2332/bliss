@@ -1,0 +1,50 @@
+    -
+        class: mockup
+        axes:
+            -
+                name: m0
+                velocity: 500
+            -
+                name: s1f
+                velocity: 500
+                steps_per_unit: -1000
+            -
+                name: s1b
+                velocity: 500
+                steps_per_unit: 1000
+            -
+                name: s1u
+                velocity: 500
+                steps_per_unit: -1000
+            -
+                name: s1d
+                velocity: 500
+                steps_per_unit: 1000
+    -
+        class: slits
+        axes:
+            - 
+                name: $s1f
+                tags: real front
+            - 
+                name: $s1b
+                tags: real back
+            - 
+                name: $s1u
+                tags: real up
+            - 
+                name: $s1d
+                tags: real down
+            - 
+                name: s1vg
+                tags: vgap
+            - 
+                name: s1vo
+                tags: voffset
+            - 
+                name: s1hg
+                tags: hgap
+            - 
+                name: s1ho
+                tags: hoffset
+

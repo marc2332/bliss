@@ -1,0 +1,21 @@
+    -
+        class: mockup
+        name: test
+        axes:
+            -
+                name: robz
+                velocity: 100
+                acceleration: 3
+                steps_per_unit: 10000
+                low_limit: -1000
+                high_limit: 1E9
+    -
+        class: mockup
+        axes:
+            - 
+                name: roby
+                class: MockupAxis
+                backlash: 2
+                steps_per_unit: 10000
+                velocity: 2500
+

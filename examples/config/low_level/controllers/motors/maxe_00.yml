@@ -1,0 +1,16 @@
+name : maxe_00
+class : maxe
+uri : taco://basil/id23/maxevpap/00
+axis : 
+-
+    name : psf
+    channel : 1
+    steps : 1000
+-
+    name : psu
+    channel : 2
+    steps : 20000
+-
+    name : psd
+    channel : 3
+    steps : 20000

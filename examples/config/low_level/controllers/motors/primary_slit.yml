@@ -1,0 +1,21 @@
+name: pslits
+class: slit
+left_motor: psb
+right_motor: psf
+up_motor: psu
+down_motor: psd
+tagada: "super mario"
+#primary slits horizontal offset
+axis:
+ -
+    name:psho
+    role:hoffset
+ -
+    name:pshg
+    role:hgap
+ -
+    name:psvo
+    role:voffset
+ -
+    name:psvg
+    role :vgap

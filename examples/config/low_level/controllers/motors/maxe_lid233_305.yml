@@ -1,0 +1,16 @@
+name : "maxe_305"
+class : "maxe"
+uri : "taco://basil/id23/maxevpap/305"
+axis :
+-
+    name : zoom_eh2
+    channel : 2
+    steps : 260 
+-
+    name : sampy_eh2
+    channel : 1
+    steps : -7340
+-
+    name : sampx_eh2
+    channel : 0
+    steps : 7340

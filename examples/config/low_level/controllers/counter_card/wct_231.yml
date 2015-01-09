@@ -1,0 +1,29 @@
+name: wct_231
+class: vct6
+uri : taco://deino/id14/vct6_test
+items :
+-
+    type: timer
+    name: t
+    channel: 1
+    scale_factor: 1000000
+-
+    type: sensor
+    name: dwb
+    channel : 3
+    scale_factor : 1000
+-
+    type: "sensor"
+    name: dm1
+    channel: 4
+    scale_factor: 1000
+-
+    type: sensor
+    name: "dm2"
+    channel: 5
+    scale_factor: 1000
+-
+    type: sensor
+    name: "dm2"
+    channel: 6
+    scale_factor: 1000

@@ -1,0 +1,11 @@
+    class: mockup
+    name: test
+    host: mydummyhost1
+    port: 5000
+    axes:
+        - 
+            name: mock_0
+            velocity: 2500
+            steps_per_unit: 10000
+            acceleration: 3
+

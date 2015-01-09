@@ -1,5 +1,5 @@
 import xml.etree.cElementTree as ElementTree
-from . import get_controller_class, add_controller, add_group
+from . import get_controller_class, add_controller
 
 
 class XmlListConfig(list):

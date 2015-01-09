@@ -213,3 +213,8 @@ class Config(object):
                 parent[key] = self._pars_list(value,parent)
             else:
                 parent[key] = value
+
+    def _clear_instances(self):
+        self._name2instance = dict()
+        self._name2cache = dict()
+

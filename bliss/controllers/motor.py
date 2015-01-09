@@ -55,9 +55,15 @@ class Controller(object):
         return self.__config
 
     def _update_refs(self):
-        for axis in self.axes.itervalues():
-            if not isinstance(axis, AxisRef):
-                continue
+        for tag, axis_list in self._tagged.iteritems():
+            for i, axis in enumerate(axis_list):
+                if not isinstance(axis, AxisRef):
+                    continue  
+                referenced_axis = get_axis(axis.name)
+                self.axes[axis.name]=referenced_axis
+                axis_list[i]=referenced_axis
+	        referenced_axis.controller._tagged.setdefault(tag,[]).append(referenced_axis)
+	"""
             referenced_axis = get_axis(axis.name)
             self.axes[axis.name] = referenced_axis
             self.__initialized_axis[referenced_axis] = True
@@ -71,6 +77,7 @@ class Controller(object):
                     referenced_axis.controller._tagged.setdefault(
                         tag,
                         []).append(referenced_axis)
+	"""
 
     def initialize(self):
         pass

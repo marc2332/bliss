@@ -172,14 +172,14 @@ def get_axis(axis_name):
     Raises:
         RuntimeError
     """
-    if not LOADED_FILES:
-        set_backend('beacon')
+    if BACKEND=='beacon':
         global BEACON_CONFIG
         if BEACON_CONFIG is None:
             BEACON_CONFIG = beacon_get_config() 
         o = BEACON_CONFIG.get(axis_name)
         if not isinstance(o, Axis):
             raise AttributeError("'%s` is not an axis" % axis_name)
+	event.connect(o, "write_setting", write_setting)
         return o
  
     try:
@@ -217,15 +217,20 @@ def clear_cfg():
 
     Remove all controllers; :func:`bliss.controllers.motor.finalize` is called on each one.
     """
-    global CONTROLLERS
-    global CONTROLLER_BY_AXIS
-    global LOADED_FILES
+    if BACKEND == 'beacon':
+        global BEACON_CONFIG
+        if BEACON_CONFIG is not None:
+            BEACON_CONFIG._clear_instances()
+    else:
+        global CONTROLLERS
+        global CONTROLLER_BY_AXIS
+        global LOADED_FILES
 
-    for controller_name, controller in CONTROLLERS.iteritems():
-        controller["object"].finalize()
-    CONTROLLERS = {}
-    CONTROLLER_BY_AXIS = {}
-    LOADED_FILES = set()
+        for controller_name, controller in CONTROLLERS.iteritems():
+             controller["object"].finalize()
+        CONTROLLERS = {}
+        CONTROLLER_BY_AXIS = {}
+        LOADED_FILES = set()
 
 
 def load_cfg(filename, clear=True):

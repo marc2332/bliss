@@ -212,6 +212,11 @@ def get_axis(axis_name):
     return axis
 
 
+def axis_names_list():
+    """Return list of all Axis objects names in loaded configuration"""
+    return CONTROLLER_BY_AXIS.keys()
+
+
 def clear_cfg():
     """Clear configuration
 

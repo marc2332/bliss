@@ -6,7 +6,7 @@ import gevent
 from gevent import select,socket
 
 from . import protocol
-
+from .. import redis as redis_conf
 try:
     import posix_ipc
 except ImportError:
@@ -318,8 +318,9 @@ def main():
 
     #start redis
     rp,wp = os.pipe()
-    redis_process = subprocess.Popen(['redis-server','--port','%d' % _options.redis_port],
-                                     stdout=wp,stderr=subprocess.STDOUT)
+    redis_process = subprocess.Popen(['redis-server',redis_conf.get_redis_config_path(),
+                                      '--port','%d' % _options.redis_port],
+                                     stdout=wp,stderr=subprocess.STDOUT,cwd=_options.db_path)
 
     try:
         while True:

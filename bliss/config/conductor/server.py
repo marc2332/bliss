@@ -285,6 +285,9 @@ def main():
     global _options
     _options = parser.parse_args()
     
+    # pimp my path
+    _options.db_path = os.path.abspath(os.path.expanduser(_options.db_path))
+ 
     #posix queues
     if not _options.posix_queue:
         global posix_ipc

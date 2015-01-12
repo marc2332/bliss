@@ -98,6 +98,7 @@ def _load_config(config_tree, config_file=None):
             load_axes(controller_config, config_tree, config_file),
             controller_class)
 
+    """
     for group_node in config_tree.findall("group"):
         group_name = group_node.get('name')
         if group_name is None:
@@ -106,7 +107,7 @@ def _load_config(config_tree, config_file=None):
         config.config_file = config_file
         config.root = config_tree
         add_group(group_name, config, load_axes(group_node))
-
+    """
 
 def load_axes(config_node, config_tree=None, config_file=None):
     """Return list of (axis name, axis_class_name, axis_config_node)"""

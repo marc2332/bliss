@@ -296,7 +296,7 @@ def load_setup_file(setup_file):
 
 
 if __name__ == "__main__":
-    usage = "usage: \%prog [-p<port>] [-r<redis host:port>]"
+    usage = "usage: \%prog [-p<port>]" #[-r<redis host:port>]"
 
     parser = optparse.OptionParser(usage)
     parser.add_option(

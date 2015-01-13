@@ -1,0 +1,24 @@
+#!/usr/bin/env python
+
+import optparse
+import logging
+from bliss.shell.web import shell
+
+usage = "usage: \%prog [-p<port>] [-s<setup file>]" 
+parser = optparse.OptionParser(usage)
+parser.add_option(
+     '-p', '--port', dest='port', type='int',
+     help='Port to listen on (default 8099)', default=8099, action='store')
+parser.add_option('-s', '--setup-file', dest='setup_file', type='string',
+                  help='Setup file', default="", action='store')
+options, args = parser.parse_args()
+
+logging.basicConfig()
+logging.getLogger().setLevel(logging.DEBUG)
+
+interpreter = shell.InteractiveInterpreter()
+
+shell.set_interpreter(interpreter)
+shell.load_setup_file(options.setup_file)
+shell.serve_forever(options.port) 
+

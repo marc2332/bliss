@@ -36,6 +36,7 @@ class Axis(object):
         self.__move_done.set()
         self.__custom_methods_list = list()
         self.__move_task = None
+        self.__set_position = None
 
     @property
     def name(self):
@@ -106,6 +107,9 @@ class Axis(object):
         state = self.__controller.state(self)
         self.settings.set("state", state, write=False)
 
+    def set_position(self):
+        return self.__set_position
+
     def measured_position(self):
         """
         Returns a value in user units.
@@ -171,6 +175,8 @@ class Axis(object):
         Returns a value in user units.
         """
         if new_pos is not None:
+            self.__set_position = new_pos
+
             try:
                 curr_pos = self.__controller.read_position(self) / self.steps_per_unit
             except NotImplementedError:
@@ -297,11 +303,14 @@ class Axis(object):
         return (position - self.offset)/self.sign
 
     def prepare_move(self, user_target_pos, relative=False):
-        user_initial_pos = self.position()
-        dial_initial_pos = self.user2dial(user_initial_pos)
         if relative:
-            user_target_pos += user_initial_pos
+             user_initial_pos = self.__set_position if self.__set_position is not None else self.position()
+             user_target_pos += user_initial_pos
+        else:
+             user_initial_pos = self.position()
+        dial_initial_pos = self.user2dial(user_initial_pos)
         dial_target_pos = self.user2dial(user_target_pos)
+        self.__set_position = user_target_pos
         if abs(dial_target_pos - dial_initial_pos) < 1E-6:
             return
 
@@ -419,6 +428,7 @@ class Axis(object):
     def stop(self):
         if self.is_moving:
             self.__controller.stop(self)
+            self.__set_position = None
             self.__move_done.set()
 
     def home(self, home_pos=None, wait=True):

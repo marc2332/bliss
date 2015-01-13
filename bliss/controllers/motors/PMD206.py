@@ -106,17 +106,17 @@ class PMD206(Controller):
         """
         axis.channel = axis.config.get("channel", int)
 
-        add_axis_method(axis, self.get_info)
         add_axis_method(axis, self.raw_com)
 
-        # unpark the axis motor if needed
-        # status bit 0x20 : "Motor is parked"
-        self.pmd206_get_status(axis)
-        _hex_status_string = self._axes_status[axis.channel]
-        _status = hex_to_int(_hex_status_string)
-        if _status & 0x20:
-            elog.info("Motor is parked. I unpark it")
-            self.unpark_motor(axis)
+        # unpark is not automatic...
+        # # unpark the axis motor if needed
+        # # status bit 0x20 : "Motor is parked"
+        # self.pmd206_get_status(axis)
+        # _hex_status_string = self._axes_status[axis.channel]
+        # _status = hex_to_int(_hex_status_string)
+        # if _status & 0x20:
+        #     elog.info("Motor is parked. I unpark it")
+        #     self.unpark_motor(axis)
 
     def set_on(self, axis):
         print "dozijng ON : unpark axis %s." % axis.name

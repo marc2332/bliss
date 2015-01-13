@@ -1,6 +1,6 @@
 from bliss.config import static
 from bliss.config import settings
-from . import get_controller_class, get_axis_class, add_controller, set_backend, Axis, AxisRef
+from . import get_controller_class, get_axis_class, add_controller, set_backend, Axis, AxisRef, CONTROLLER_BY_AXIS
 
 def create_objects_from_config_node(node):
     set_backend("beacon")
@@ -19,6 +19,7 @@ def create_objects_from_config_node(node):
     axes_names = list()
     for axis_config in controller_config.get('axes'):
         axis_name = axis_config.get("name")
+        CONTROLLER_BY_AXIS[axis_name] = controller_name
 	if axis_name.startswith("$"):
 	    axis_class = AxisRef
 	    axis_name = axis_name.lstrip('$')

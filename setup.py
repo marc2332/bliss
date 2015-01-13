@@ -6,4 +6,5 @@ setup(name="beacon", version="0.1",
       package_dir={"bliss": "bliss"},
       packages=["beacon", "beacon.conductor",
                 "bliss.config.plugins","bliss.config.redis"],
-      package_data={'beacon.redis':['redis.conf']})
+      package_data={'beacon.redis':['redis.conf']},
+      scripts=["bin/beacon-server"])

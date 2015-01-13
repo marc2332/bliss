@@ -19,20 +19,18 @@ def get_config(base_path='',timeout=30.):
 class Config(object):
     NAME_KEY = 'name'
     USER_TAG_KEY = 'user_tag'
-    NAMESPACE_CONVERSION = {}
 
     class Node(dict):
-        def __init__(self,parent = None,namespace = None,filename = None) :
+        def __init__(self,parent = None, filename = None) :
             super(Config.Node, self).__init__()
             self._parent = parent
             self._filename = filename
-            self._namespace = namespace
 
         def __repr__(self) :
             value = super(Config.Node,self).__repr__()
-            return 'filename:<%s>,namespace:<%s>,%s' % (self.get_filename(),
-                                                        self.get_namespace(),
-                                                        value)
+            return 'filename:<%s>,plugin:<%s>,%s' % (self.get_filename(),
+                                                     self.get_plugin(),
+                                                     value)
 
         def get_filename(self) :
             _,filename = self.get_node_filename()
@@ -46,19 +44,18 @@ class Config(object):
             else:
                 return None,None
 
-        def get_namespace(self) :
-            _,namespace = self.get_node_namespace()
-            return namespace
-
-        def get_node_namespace(self) :
-            if self._namespace is not None:
-                return self,self._namespace
-            elif self._parent is not None:
-                return self._parent.get_node_namespace()
+        def get_plugin(self) :
+            """Return plugin name"""
+            plugin = self.get("plugin")
+            if plugin is None:
+              if self._parent is not None:
+                  return self._parent.get_plugin()
+              else:
+                  return None
             else:
-                return None,None
+                return plugin
 
-        def get_parent(self) :
+        def get_parent(self):
             return self._parent
 
     def __init__(self,path2file):
@@ -70,9 +67,9 @@ class Config(object):
 
         for path,file_content in path2file:
             base_path,file_name = os.path.split(path)
-            path_node,namespace = self._get_or_create_path_node(base_path,file_name)
+            path_node, last_node_name = self._get_or_create_path_node(base_path,file_name)
             d = yaml.load(file_content)
-            parent = self.Node(path_node,namespace,path)
+            parent = self.Node(path_node,path)
             if isinstance(d, list):
                 child_list = self._pars_list(d,parent)
 		parent[id(child_list)] = child_list
@@ -80,18 +77,38 @@ class Config(object):
                 self._pars(d,parent)
             self._create_index(parent)
             
-            children = path_node.get(namespace)
+            children = path_node.get(last_node_name)
             
             if isinstance(children,list):
                 children.append(parent)
             elif children is not None:
-                path_node[namespace] = [children,parent]
+                path_node[last_node_name] = [children,parent]
             else:
-                path_node[namespace] = parent
+                path_node[last_node_name] = parent
 
     @property
     def names_list(self):
         return self._name2node.keys()
+
+    def _get_or_create_path_node(self,base_path,file_name):
+        path = os.path.normpath(base_path)
+        sp_path = path.split(os.path.sep)
+        if file_name.startswith('__root__'): sp_path.pop(-1)
+        node = self._root_node
+        for p in sp_path[:-1]:
+            try:
+                child = node.get(p)
+            except AttributeError: # in case of file split
+                for subnode in node:
+                    file_name = subnode.get_filename()
+                    if file_name.find(p) > -1:
+                        child = subnode
+                        break
+            if child is None:
+                child = self.Node()
+                node[p] = child
+            node = child
+        return node, sp_path[-1]
 
     ##@brief return the config node with it's name
     #
@@ -108,8 +125,7 @@ class Config(object):
             config_node = self.get_config(name)
             if config_node is None:
                 raise RuntimeError("Object %s doesn't exist in config")
-            namespace = config_node.get_namespace()
-            module_name = self.NAMESPACE_CONVERSION.get(namespace,namespace)
+            module_name = config_node.get_plugin()
             try:
                 m = __import__('bliss.config.plugins.%s' % (module_name),None,None,
                                'bliss.config.plugins.%s' % (module_name))
@@ -144,29 +160,6 @@ class Config(object):
                 else:
                     self._name2instance[name]=instance_object
         return instance_object
-
-    def _get_or_create_path_node(self,base_path,file_name):
-        path = os.path.normpath(base_path)
-        sp_path = path.split(os.path.sep)
-        if file_name.startswith('__root__'): sp_path.pop(-1)
-        node = self._root_node
-        has_namespace = True
-        for p in sp_path[:-1]:
-            try:
-                child = node.get(p)
-                has_namespace = True
-            except AttributeError: # in case of file split
-                for subnode in node:
-                    file_name = subnode.get_filename()
-                    if file_name.find(p) > -1:
-                        child = subnode
-                        has_namespace = False
-                        break
-            if child is None:
-                child = self.Node()
-                node[p] = child
-            node = child
-        return node,has_namespace and sp_path[-1] or None
 
     def _create_index(self,node) :
         name = node.get(self.NAME_KEY)

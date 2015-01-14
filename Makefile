@@ -11,6 +11,7 @@ MOD_PATH=${BLISSADM_PATH}/python/bliss_modules
 
 CONFIG_PATH=${BLISSADM_PATH}/local/userconf/bliss
 
+
 DEV_PATH=${PWD}
 
 # "Distribution" installation.
@@ -20,10 +21,7 @@ install:
 	python setup.py install
 
         # config dir and template files.
-	mkdir -p ${CONFIG_PATH}
 	mkdir -p ${CONFIG_PATH}; chmod 777 ${CONFIG_PATH}
-	cp --backup=simple --suffix=.bup config/*.xml ${CONFIG_PATH}
-	cp --backup=simple --suffix=.bup config/*.yml ${CONFIG_PATH}
 
         # tango server and startup-script
 	cp --backup=simple --suffix=.bup tango/bliss_server ${BLISSADM_PATH}/server/src/bliss_server

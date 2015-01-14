@@ -200,33 +200,46 @@ class Axis(object):
     def get_info(self):
         return self.__controller.get_info(self)
 
-    def raw_write(self, com):
-        self.__controller.raw_write(self, com)
-
-    def raw_write_read(self, com):
-        return self.__controller.raw_write_read(self, com)
-
     def velocity(self, new_velocity=None, from_config=False):
         """
-        new_velocity is in user units per seconds.
+        <new_velocity> is given in user units per seconds.
         """
         if from_config:
             return self.config.get("velocity", float)
 
         if new_velocity is not None:
-            # Converts into motor units to change velocity of axis.
+            # Write -> Converts into motor units to change velocity of axis."
             self.__controller.set_velocity(
                 self, new_velocity * abs(self.steps_per_unit))
             _user_vel = new_velocity
         else:
-            # Returns velocity read from motor axis.
-            _user_vel = self.__controller.read_velocity(
-                self) / abs(self.steps_per_unit)
+            # Read -> Returns velocity read from motor axis.
+            _user_vel = self.__controller.read_velocity(self) / abs(self.steps_per_unit)
 
-        # Stores velocity in user-units
+        # In all cases, stores velocity in settings in uu/s
         self.settings.set("velocity", _user_vel)
 
         return _user_vel
+
+    def acceleration(self, new_acc=None, from_config=False):
+        """
+        <new_acc> is given in user_units/s2.
+        """
+        if from_config:
+            return self.config.get("acceleration", float)
+
+        if new_acc is not None:
+            # W => Converts into motor units to change acceleration of axis.
+            self.__controller.set_acceleration(self, new_acc*abs(self.steps_per_unit))
+
+        # R/W : read acceleration from controller
+        _acceleration = self.__controller.read_acceleration(self) / abs(self.steps_per_unit)
+
+        if new_acc is not None:
+            # W => save acceleration in settings in uu/s2
+            self.settings.set("acceleration", _acceleration)
+
+        return _acceleration
 
     def acctime(self, new_acctime=None, from_config=False):
         """
@@ -234,23 +247,13 @@ class Axis(object):
         """
         if from_config:
             return self.velocity(from_config=True)/self.acceleration(from_config=True)
+
         if new_acctime is not None:
+            # W => Converts acctime into acceleration.
             acc = self.velocity() / new_acctime
             self.acceleration(acc)
-        return self.velocity() / self.acceleration()
 
-    def acceleration(self, new_acc=None, from_config=False):
-        """
-        <new_acc> given in user_units/s2.
-        """
-        if from_config:
-            return self.config.get("acceleration", float)
-        if new_acc is not None:
-            self.__controller.set_acceleration(self, new_acc*abs(self.steps_per_unit))
-        _acceleration = self.__controller.read_acceleration(self) / abs(self.steps_per_unit)
-        if new_acc is not None:
-            self.settings.set("acceleration", _acceleration)
-        return _acceleration
+        return self.velocity() / self.acceleration()
 
     def limits(self, low_limit=None, high_limit=None):
         """

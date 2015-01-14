@@ -28,7 +28,7 @@ class Config(object):
 
         def __repr__(self) :
             value = super(Config.Node,self).__repr__()
-            return 'filename:<%s>,plugin:<%s>,%s' % (self.get_filename(),
+            return 'filename:<%s>,plugin:%r,%s' % (self.get_filename(),
                                                      self.get_plugin(),
                                                      value)
 
@@ -58,10 +58,10 @@ class Config(object):
         def get_parent(self):
             return self._parent
 
-    def __init__(self,path2file):
+    def __init__(self, path2file):
         self._name2node = weakref.WeakValueDictionary()
         self._usertag2node = {}
-        self._root_node = self.Node()
+        self._root_node = Config.Node()
         self._name2instance = {}
         self._name2cache = {}
 
@@ -69,7 +69,7 @@ class Config(object):
             base_path,file_name = os.path.split(path)
             path_node, last_node_name = self._get_or_create_path_node(base_path,file_name)
             d = yaml.load(file_content)
-            parent = self.Node(path_node,path)
+            parent = Config.Node(path_node,path)
             if isinstance(d, list):
                 child_list = self._pars_list(d,parent)
 		parent[id(child_list)] = child_list
@@ -105,7 +105,7 @@ class Config(object):
                         child = subnode
                         break
             if child is None:
-                child = self.Node()
+                child = Config.Node()
                 node[p] = child
             node = child
         return node, sp_path[-1]
@@ -125,40 +125,31 @@ class Config(object):
             config_node = self.get_config(name)
             if config_node is None:
                 raise RuntimeError("Object %s doesn't exist in config")
+
             module_name = config_node.get_plugin()
+
+            m = __import__('bliss.config.plugins.%s' % (module_name),fromlist=[None])
+
             try:
-                m = __import__('bliss.config.plugins.%s' % (module_name),None,None,
-                               'bliss.config.plugins.%s' % (module_name))
-            except ImportError:
-                raise RuntimeError("Couldn't import plugins.%s" % module_name)
+                cache_func = getattr(m,'create_object_from_cache')
+            except AttributeError: 
+                func = getattr(m,'create_objects_from_config_node')
+                name2itemsAndname2itemcache = func(config_node)
+                if len(name2itemsAndname2itemcache) == 2:
+                    name2items = name2itemsAndname2itemcache[0]
+                    name2itemcache = name2itemsAndname2itemcache[1]
+                    self._name2cache.update(name2itemcache)
+                else:
+                    name2items = name2itemsAndname2itemcache
+
+                self._name2instance.update(name2items)
+                instance_object = name2items.get(name)
             else:
-                try:
-                    cache_func = getattr(m,'create_object_from_cache')
-                except AttributeError: 
-                    pass
-                else:
-                    cache_object = self._name2cache.pop(name,None)
-                    if cache_object is not None:
-                        instance_object = cache_func(name,cache_object)
+                cache_object = self._name2cache.pop(name,None)
+                if cache_object is not None:
+                    instance_object = cache_func(name,cache_object)
+                    self._name2instance[name] = instance_object
 
-                if instance_object is None:
-                    try:
-                        func = getattr(m,'create_objects_from_config_node')
-                    except AttributeError:
-                        raise RuntimeError("Module %s doesn't have create_objects_from_config_node function" % module)
-                    else:
-                        name2itemsAndname2itemcache = func(config_node)
-                        if len(name2itemsAndname2itemcache) == 2:
-                            name2items = name2itemsAndname2itemcache[0]
-                            name2itemcache = name2itemsAndname2itemcache[1]
-                            self._name2cache.update(name2itemcache)
-                        else:
-                            name2items = name2itemsAndname2itemcache
-
-                        instance_object = name2items.get(name)
-                        self._name2instance.update(name2items)
-                else:
-                    self._name2instance[name]=instance_object
         return instance_object
 
     def _create_index(self,node) :
@@ -184,7 +175,7 @@ class Config(object):
         r_list = []
         for value in l:
             if isinstance(value,dict):
-                node = self.Node(parent = parent)
+                node = Config.Node(parent = parent)
                 self._pars(value,node)
                 self._create_index(node)
                 r_list.append(node)
@@ -198,7 +189,7 @@ class Config(object):
     def _pars(self,d,parent) :
         for key,value in d.iteritems():
             if isinstance(value,dict):
-                node = self.Node(parent = parent)
+                node = Config.Node(parent = parent)
                 self._pars(value,node)
                 self._create_index(node)
                 parent[key] = node

@@ -108,12 +108,18 @@ Shell.prototype = {
                 "text": text,
                 "index": index
             },
-            async: false,
-            success: $.proxy(function(data, status, jqxhr) {
-                completion_return = data;
+            success: $.proxy(function(completion_ret, status, jqxhr) {
+                this._completions = completion_ret.completions;
+                var completion_list = completion_ret.possibilities;
+
+                for (var i = 0; i < completion_list.length; i++) {
+                    this.completion_list.append($.parseHTML("<li class='completion-item'>" + completion_list[i] + "</li>"));
+                }
+
+                this._select_completion_item(0);
+                this.cmdline.focus();
             }, this)
         });
-        return completion_return;
     },
 
     _select_completion_item: function(next_item) {
@@ -145,13 +151,6 @@ Shell.prototype = {
         this.cmdline.val(this.current_command.substr(0, this._completion_start) + completion + this.current_command.substr(this._completion_start));
         this.cmdline[0].selectionStart = this._completion_start+completion.length;
         this.cmdline[0].selectionEnd = this.cmdline[0].selectionStart;
-    },
-
-    _cmdline_focus: function() {
-        var $cmdline = this.cmdline;
-        setTimeout(function() { 
-          $cmdline.focus();
-        }, 10);
     },
 
     _cmdline_handle_keydown: function(e) {
@@ -200,17 +199,8 @@ Shell.prototype = {
                     e.preventDefault();
                     this.current_command = this.cmdline.val();
                     this._completion_start = this.cmdline[0].selectionStart;
-                    completion_ret = this.completion_request(this.current_command, this._completion_start);
-                    this._completions = completion_ret.completions;
-                    var completion_list = completion_ret.possibilities;
-
-                    for (var i = 0; i < completion_list.length; i++) {
-                        this.completion_list.append($.parseHTML("<li class='completion-item'>" + completion_list[i] + "</li>"));
-                    }
-
-                    this._select_completion_item(0);
                     this.completion_mode = true;
-                    this._cmdline_focus();
+                    this.completion_request(this.current_command, this._completion_start);
                 } else {
                     this.history_index = this.history.length;
                     this.current_command = this.cmdline.val();

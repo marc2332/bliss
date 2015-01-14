@@ -349,5 +349,11 @@ class TestMockupController(unittest.TestCase):
         self.assertEquals(robz.dial(), 10)
         self.assertEquals(robz.position(), 10)
 
+    def test_config_axis_names(self):
+        from bliss.config.motors import config
+        axes = config.axis_names_list()     
+        self.assertTrue("robz" in axes)
+        self.assertTrue("roby" in axes) 
+
 if __name__ == '__main__':
     unittest.main()

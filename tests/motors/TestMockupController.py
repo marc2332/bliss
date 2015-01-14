@@ -49,6 +49,11 @@ config_xml = """
       <velocity  value="25"/>
       <acceleration value="5"/>
     </axis>
+    <axis name="m0">
+      <steps_per_unit value="1"/>
+      <velocity  value="1000"/>
+      <acceleration value="1"/>
+    </axis>
   </controller>
 </config>
 """
@@ -384,6 +389,31 @@ class TestMockupController(unittest.TestCase):
         robz.hw_limit(1, 10)
         self.assertEquals(robz.dial(), 10)
         self.assertEquals(robz.position(), 10)
+
+    def test_set_position(self):
+        m0 = bliss.get_axis("m0")
+        m0.position(0)
+        self.assertEquals(m0.position(), m0.set_position())
+        m0.rmove(0.1)
+        self.assertEquals(m0.position(), 0)
+        self.assertEquals(m0.set_position(), 0.1)
+        for i in range(9):
+            m0.rmove(0.1)
+        self.assertAlmostEqual(m0.set_position(), 1.0)
+        self.assertAlmostEqual(m0.position(), m0.set_position())
+        m0.move(0.4)
+        self.assertEquals(m0.set_position(), 0.4)
+        self.assertEquals(m0.position(), 0)
+        m0.rmove(0.6)
+        self.assertAlmostEqual(m0.set_position(), 1)
+        self.assertAlmostEqual(m0.position(), m0.set_position())
+        move_greenlet = m0.move(2, wait=False)
+        time.sleep(0.01)
+        move_greenlet.kill(KeyboardInterrupt)
+        self.assertEquals(m0.set_position(), None)
+        m0.move(1)
+        self.assertEquals(m0.set_position(), 1)
+         
 
 if __name__ == '__main__':
     unittest.main()

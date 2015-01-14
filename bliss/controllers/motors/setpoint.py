@@ -5,13 +5,32 @@ from bliss.controllers.motor import add_axis_method
 import math
 import time
 
+import gevent.event
+from bliss.common import event
+
 from PyTango.gevent import AttributeProxy
+from PyTango.gevent import DeviceProxy
 
 """
-SetPoint.py : a 'setpoint' controller for bliss.
-It is a close copy of mockup controller.
-To drive a setpoint as an bliss motor.
-Used as rampe generator for hexapiezo for example.
+setpoint.py : 'setpoint' EMotion controller is a close copy of mockup
+controller to drive a tango attributes as an bliss motor. It is used
+as rampe generator for hexapiezo for example.
+"""
+
+"""
+<config>
+  <controller class="setpoint" name="test">
+    <port value="5000" />
+    <target_ds value="id16ni/HpzLoop/1" />
+    <target_attribute value="Ty" />
+    <gating_ds value="id16ni/bliss_e517b/p1" />
+    <axis name="sp1">
+      <velocity value="1" />
+      <acceleration value="0" />
+      <steps_per_unit value="1" />
+    </axis>
+  </controller>
+</config>
 """
 
 
@@ -22,13 +41,36 @@ class setpoint(Controller):
 
         self._axis_moves = {}
 
-        # Access to the config.
-        _attribute_name = self.config.get("target_attribute")
+        # config
+        _target_attribute_name = self.config.get("target_attribute")
+        _gating_ds = self.config.get("gating_ds")
 
         # add a setting name 'init_count' of type 'int'
         self.axis_settings.add('init_count', int)
 
-        self._target_attribute = AttributeProxy(_attribute_name)
+        self.target_attribute = AttributeProxy(_target_attribute_name)
+
+        # External DS to use for gating.
+        # ex: PI-E517 for zap of HPZ.
+        if _gating_ds is not None:
+            self.gating_ds = DeviceProxy(_gating_ds)
+            self.external_gating = True
+        else:
+            # No external gating by default.
+            self.external_gating = False
+
+        # _pos0 must be in controller unit.
+        self._pos0 = self.target_attribute.read().value * self.factor
+        print "initial position : %g CU" % self._pos0
+
+    def move_done_event_received(self, state):
+        if self.external_gating:
+            if state:
+                print "movement is finished"
+                self.target_gating_device.SetGate(0)
+            else:
+                print "movement is starting"
+                self.target_gating_device.SetGate(1)
 
     """
     Controller initialization actions.
@@ -48,13 +90,13 @@ class setpoint(Controller):
     def initialize_axis(self, axis):
         self._axis_moves[axis] = {
             "end_t": 0,
-            "end_pos": 30}
+            "end_pos": self._pos0}
 
-        # this is to test axis are initialized only once
+        # To test that axes are initialized only once.
         axis.settings.set('init_count', axis.settings.get('init_count') + 1)
 
-        # Add new axis oject method.
-        add_axis_method(axis, self.get_identifier)
+        # "end of move" event
+        event.connect(axis, "move_done", self.move_done_event_received)
 
     """
     Actions to perform at controller closing.
@@ -72,6 +114,7 @@ class setpoint(Controller):
         axis = motion.axis
         t0 = t0 or time.time()
         pos = self.read_position(axis)
+
         v = self.read_velocity(axis) * axis.steps_per_unit
         self._axis_moves[axis] = {
             "start_pos": pos,
@@ -89,7 +132,7 @@ class setpoint(Controller):
         in controller unit (steps).
         """
         if measured:
-            return -1.2345
+            return self.target_attribute.read().value * self.factor
         else:
             # Always return position
             if self._axis_moves[axis]["end_t"]:
@@ -101,13 +144,13 @@ class setpoint(Controller):
                 pos = self._axis_moves[axis]["start_pos"] + d * dt * v
                 print "pos=", pos
 
-                self._target_attribute.write(pos)
+                self.target_attribute.write(pos)
 
                 return pos
             else:
                 _end_pos = self._axis_moves[axis]["end_pos"]
 
-                self._target_attribute.write(_end_pos)
+                self.target_attribute.write(_end_pos)
                 return _end_pos
 
     def read_velocity(self, axis):
@@ -175,10 +218,3 @@ class setpoint(Controller):
 
     def home_state(self, axis):
         return READY if (time.time() - self._axis_moves[axis]["home_search_start_time"]) > 2 else MOVING
-
-    """
-    Custom axis method returning the current name of the axis
-    """
-
-    def get_identifier(self, axis):
-        return axis.name

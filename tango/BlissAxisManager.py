@@ -491,9 +491,6 @@ class BlissAxis(PyTango.Device_4Impl):
         self.debug_stream("In GetInfo()")
         return self.axis.get_info()
 
-    def ReadConfig(self, argin):
-        return self.axis.config().get(argin)
-
     def RawWrite(self, argin):
         """ Sends a raw command to the axis. Be carefull!
 
@@ -502,7 +499,7 @@ class BlissAxis(PyTango.Device_4Impl):
         :return: None
         """
         self.debug_stream("In RawWrite()")
-        return self.axis.raw_write(argin)
+        return self.axis.controller.raw_write(sel.axis, argin)
 
     def RawWriteRead(self, argin):
         """ Sends a raw command to the axis and read the result.
@@ -513,7 +510,7 @@ class BlissAxis(PyTango.Device_4Impl):
         :return: answer from controller.
         :rtype: PyTango.DevString """
         self.debug_stream("In RawWriteRead()")
-        return self.axis.raw_write_read(argin)
+        return self.axis.controller.raw_write_read(self.axis, argin)
 
     def WaitMove(self):
         """ Waits end of last motion
@@ -524,6 +521,16 @@ class BlissAxis(PyTango.Device_4Impl):
         :rtype: PyTango.DevVoid """
         self.debug_stream("In WaitMove()")
         return self.axis.wait_move()
+
+    def ReadConfig(self, argin):
+        return self.axis.config().get(argin)
+
+    def SetGate(self, argin):
+        """
+        Activate or de-activate gate of this axis.
+        """
+        self.debug_stream("In SetGate(%s)" % argin)
+        return self.axis.set_gate(argin)
 
 
 class BlissAxisClass(PyTango.DeviceClass):
@@ -575,7 +582,10 @@ class BlissAxisClass(PyTango.DeviceClass):
          [PyTango.DevVoid, "none"]],
         'ReadConfig':
         [[PyTango.DevString, "Parameter name"],
-         [PyTango.DevString, "Configuration value"]]
+         [PyTango.DevString, "Configuration value"]],
+        'SetGate':
+        [[PyTango.DevLong, "state of the gate 0/1"],
+         [PyTango.DevVoid, ""]]
     }
 
     #    Attribute definitions

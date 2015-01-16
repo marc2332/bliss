@@ -1,0 +1,17 @@
+-
+    name: wcid30q
+    class: wago
+    controller_ip: 160.103.50.53
+    mapping:
+        -
+            type: 750-517
+            logical_names: _,_
+        -
+            type: 750-469
+            logical_names: th_311_in, th_311_out
+        -
+            type: 750-469
+            logical_names: th_111_in, th_111_out
+        -
+            type: 750-469
+            logical_names: th_mask, _

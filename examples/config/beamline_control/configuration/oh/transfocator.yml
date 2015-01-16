@@ -1,0 +1,5 @@
+name: tfmad
+class: transfocator
+controller_ip: 160.103.50.57
+lenses: 7
+pinhole: 2

@@ -177,21 +177,17 @@ class BlissAxis(PyTango.Device_4Impl):
         # here instead of in init_device due to (Py?)Tango bug :
         # device does not really exist in init_device... (Cyril)
         if not self.once:
-            try:
-                # Initialises "set values" of attributes.
+            # Initialises "set values" of attributes.
 
-                # Position
-                attr = self.get_device_attr().get_attr_by_name("Position")
-                attr.set_write_value(self.axis.position())
+            # Position
+            attr = self.get_device_attr().get_attr_by_name("Position")
+            attr.set_write_value(self.axis.position())
 
-                # Velocity
-                attr = self.get_device_attr().get_attr_by_name("Velocity")
-                attr.set_write_value(self.axis.velocity())
-            except:
-                elog.exception(
-                    "Cannot set one of the attributes write value")
-            finally:
-                self.once = True
+            # Velocity
+            attr = self.get_device_attr().get_attr_by_name("Velocity")
+            attr.set_write_value(self.axis.velocity())
+
+            self.once = True
 
     def dev_state(self):
         """ This command gets the device state (stored in its device_state

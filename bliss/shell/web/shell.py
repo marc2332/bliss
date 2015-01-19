@@ -1,6 +1,8 @@
 import os
 import re
 import sys
+import ast
+import inspect
 import optparse
 import gevent
 import gevent.queue
@@ -27,6 +29,7 @@ CODE_EXECUTION = {}
 ROOT_PATH = os.path.dirname(os.path.abspath(__file__))
 INTERPRETER = None
 INTERPRETER_GLOBALS = {}
+jedi.settings.case_insensitive_completion = False
 
 # add scan and task functions
 for module in (scans, task_utils):
@@ -83,7 +86,6 @@ class InteractiveInterpreter(code.InteractiveInterpreter):
             globals_dict = INTERPRETER_GLOBALS  # globals()
         code.InteractiveInterpreter.__init__(self, globals_dict)
 
-        self.at_prompt = True
         self.error = cStringIO.StringIO()
 
     def write(self, data):
@@ -101,29 +103,25 @@ class InteractiveInterpreter(code.InteractiveInterpreter):
 
     def compile_and_run(self, python_code_to_execute, dontcompile=False):
         code_obj = None
-        self.at_prompt = False
 
-        try:
-            if dontcompile:
-                self.runcode(python_code_to_execute)
+        if dontcompile:
+            self.runcode(python_code_to_execute)
+        else:
+            try:
+                code_obj = code.compile_command(python_code_to_execute)
+            except SyntaxError, exc_instance:
+                raise RuntimeError, str(exc_instance)
             else:
-                try:
-                    code_obj = code.compile_command(python_code_to_execute)
-                except SyntaxError, exc_instance:
-                    raise RuntimeError, str(exc_instance)
+                if code_obj is None:
+                    # input is incomplete
+                    raise EOFError
                 else:
-                    if code_obj is None:
-                        # input is incomplete
-                        raise EOFError
-                    else:
-                        self.runcode(code_obj)
+                    self.runcode(code_obj)
 
-                        if self.error.tell() > 0:
-                            error_string = self.error.getvalue()
-                            self.error = cStringIO.StringIO()
-                            raise RuntimeError, error_string
-        finally:
-            self.at_prompt = True
+                    if self.error.tell() > 0:
+                        error_string = self.error.getvalue()
+                        self.error = cStringIO.StringIO()
+                        raise RuntimeError, error_string
 
 
 def MyLogHandler(session_id):
@@ -221,7 +219,6 @@ def execute_command(session_id):
         res = CODE_EXECUTION[session_id].get()
         return json.dumps(res)
 
-
 def do_execute(python_code_to_execute):
     try:
         sys.stdout = GreenletStdout()
@@ -238,6 +235,26 @@ def do_execute(python_code_to_execute):
     finally:
         sys.stdout = sys.__stdout__
 
+
+@bottle.get("/args_request")
+def get_func_args():
+    code = bottle.request.GET["code"]
+    try:
+        ast_node = ast.parse(code)
+    except:
+        return {"func": False}
+    
+    if isinstance(ast_node.body[-1], ast.Expr):
+        expr = code[ast_node.body[-1].col_offset:]
+        try:
+            x = eval(expr, INTERPRETER.locals)
+        except:
+            return {"func": False}
+        
+        if inspect.isfunction(x):
+          return {"func": True, "func_name":expr, "args": inspect.formatargspec(*inspect.getargspec(x)) }
+
+    return {"func": False}
 
 @bottle.route('/session')
 def return_session_id(session={"id": 0}):

@@ -327,7 +327,7 @@ class BlissAxis(PyTango.Device_4Impl):
             self.debug_stream("In read_AccTime(%f)" % float(_acc_time))
             attr.set_value(_acc_time)
         except:
-            elog.exception("Unable to read acc_time for axis %s" % self.axis.name())
+            elog.error("Unable to read acc_time for axis %s" % self.axis.name())
 
     def write_AccTime(self, attr):
         try:
@@ -335,7 +335,7 @@ class BlissAxis(PyTango.Device_4Impl):
             self.axis.acctime(data)
             self.debug_stream("In write_AccTime(%f)" % float(data))
         except:
-            elog.exception("Unable to write acc_time (%g s) for axis %s" % (data, self.axis.name()))
+            elog.error("Unable to write acc_time (%g s) for axis %s" % (data, self.axis.name()))
 
     def read_Velocity(self, attr):
         _vel = self.axis.velocity()
@@ -500,7 +500,8 @@ class BlissAxis(PyTango.Device_4Impl):
         :return: None
         """
         self.debug_stream("In RawWrite()")
-        return self.axis.controller.raw_write(sel.axis, argin)
+
+        return self.kontroler.raw_write(argin)
 
     def RawWriteRead(self, argin):
         """ Sends a raw command to the axis and read the result.
@@ -512,12 +513,7 @@ class BlissAxis(PyTango.Device_4Impl):
         :rtype: PyTango.DevString """
         self.debug_stream("In RawWriteRead()")
 
-        print "ARGIN=" , argin
-        print "K=" , self.kontroler
-        _ans = self.kontroler.raw_write_read(argin)
-
-        print "hans=" ,  _ans
-        return _ans
+        return self.kontroler.raw_write_read(argin)
 
     def WaitMove(self):
         """ Waits end of last motion
@@ -537,6 +533,7 @@ class BlissAxis(PyTango.Device_4Impl):
         Activate or de-activate gate of this axis.
         """
         self.debug_stream("In SetGate(%s)" % argin)
+
         return self.axis.set_gate(argin)
 
 

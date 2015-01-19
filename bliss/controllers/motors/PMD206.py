@@ -106,9 +106,7 @@ class PMD206(Controller):
         """
         axis.channel = axis.config.get("channel", int)
 
-        add_axis_method(axis, self.get_info)
         add_axis_method(axis, self.raw_com)
-
 
     def set_on(self, axis):
         print "dozijng ON : unpark axis %s." % axis.name

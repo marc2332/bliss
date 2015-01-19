@@ -36,6 +36,7 @@ class Axis(object):
         self.__move_done.set()
         self.__custom_methods_list = list()
         self.__move_task = None
+        self.__set_position = None
 
     @property
     def name(self):
@@ -106,6 +107,9 @@ class Axis(object):
         state = self.__controller.state(self)
         self.settings.set("state", state, write=False)
 
+    def set_position(self):
+        return self.__set_position
+
     def measured_position(self):
         """
         Returns a value in user units.
@@ -171,6 +175,8 @@ class Axis(object):
         Returns a value in user units.
         """
         if new_pos is not None:
+            self.__set_position = new_pos
+
             try:
                 curr_pos = self.__controller.read_position(self) / self.steps_per_unit
             except NotImplementedError:
@@ -200,33 +206,46 @@ class Axis(object):
     def get_info(self):
         return self.__controller.get_info(self)
 
-    def raw_write(self, com):
-        self.__controller.raw_write(self, com)
-
-    def raw_write_read(self, com):
-        return self.__controller.raw_write_read(self, com)
-
     def velocity(self, new_velocity=None, from_config=False):
         """
-        new_velocity is in user units per seconds.
+        <new_velocity> is given in user units per seconds.
         """
         if from_config:
             return self.config.get("velocity", float)
 
         if new_velocity is not None:
-            # Converts into motor units to change velocity of axis.
+            # Write -> Converts into motor units to change velocity of axis."
             self.__controller.set_velocity(
                 self, new_velocity * abs(self.steps_per_unit))
             _user_vel = new_velocity
         else:
-            # Returns velocity read from motor axis.
-            _user_vel = self.__controller.read_velocity(
-                self) / abs(self.steps_per_unit)
+            # Read -> Returns velocity read from motor axis.
+            _user_vel = self.__controller.read_velocity(self) / abs(self.steps_per_unit)
 
-        # Stores velocity in user-units
+        # In all cases, stores velocity in settings in uu/s
         self.settings.set("velocity", _user_vel)
 
         return _user_vel
+
+    def acceleration(self, new_acc=None, from_config=False):
+        """
+        <new_acc> is given in user_units/s2.
+        """
+        if from_config:
+            return self.config.get("acceleration", float)
+
+        if new_acc is not None:
+            # W => Converts into motor units to change acceleration of axis.
+            self.__controller.set_acceleration(self, new_acc*abs(self.steps_per_unit))
+
+        # R/W : read acceleration from controller
+        _acceleration = self.__controller.read_acceleration(self) / abs(self.steps_per_unit)
+
+        if new_acc is not None:
+            # W => save acceleration in settings in uu/s2
+            self.settings.set("acceleration", _acceleration)
+
+        return _acceleration
 
     def acctime(self, new_acctime=None, from_config=False):
         """
@@ -234,23 +253,13 @@ class Axis(object):
         """
         if from_config:
             return self.velocity(from_config=True)/self.acceleration(from_config=True)
+
         if new_acctime is not None:
+            # W => Converts acctime into acceleration.
             acc = self.velocity() / new_acctime
             self.acceleration(acc)
-        return self.velocity() / self.acceleration()
 
-    def acceleration(self, new_acc=None, from_config=False):
-        """
-        <new_acc> given in user_units/s2.
-        """
-        if from_config:
-            return self.config.get("acceleration", float)
-        if new_acc is not None:
-            self.__controller.set_acceleration(self, new_acc*abs(self.steps_per_unit))
-        _acceleration = self.__controller.read_acceleration(self) / abs(self.steps_per_unit)
-        if new_acc is not None:
-            self.settings.set("acceleration", _acceleration)
-        return _acceleration
+        return self.velocity() / self.acceleration()
 
     def limits(self, low_limit=None, high_limit=None):
         """
@@ -297,11 +306,14 @@ class Axis(object):
         return (position - self.offset)/self.sign
 
     def prepare_move(self, user_target_pos, relative=False):
-        user_initial_pos = self.position()
-        dial_initial_pos = self.user2dial(user_initial_pos)
         if relative:
-            user_target_pos += user_initial_pos
+             user_initial_pos = self.__set_position if self.__set_position is not None else self.position()
+             user_target_pos += user_initial_pos
+        else:
+             user_initial_pos = self.position()
+        dial_initial_pos = self.user2dial(user_initial_pos)
         dial_target_pos = self.user2dial(user_target_pos)
+        self.__set_position = user_target_pos
         if abs(dial_target_pos - dial_initial_pos) < 1E-6:
             return
 
@@ -419,6 +431,7 @@ class Axis(object):
     def stop(self):
         if self.is_moving:
             self.__controller.stop(self)
+            self.__set_position = None
             self.__move_done.set()
 
     def home(self, home_pos=None, wait=True):

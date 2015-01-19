@@ -4,6 +4,13 @@ import os
 from bliss.common import event
 from bliss.common.axis import Axis, AxisRef
 from bliss.controllers.motor_group import Group
+try:
+    from bliss.config.static import get_config as beacon_get_config
+except ImportError:
+    def beacon_get_config(*args):
+        raise RuntimeError("Beacon is not imported")
+
+BEACON_CONFIG = None
 
 BACKEND = 'xml'
 
@@ -17,7 +24,6 @@ AXIS_MODULES_PATH = []
 
 CONTROLLERS = {}
 CONTROLLER_BY_AXIS = {}
-GROUPS = {}
 LOADED_FILES = set()
 
 def set_backend(backend):
@@ -151,37 +157,8 @@ def add_controller(
                                     "initialized": False}
 
 
-def add_group(group_name, group_config, group_axes, group_class=Group):
-    """Instanciate a Group object from configuration, and store it in the global
-    GROUPS dictionary
-
-    Args:
-        group_name (str):
-            Group name, has to be unique
-        group_config (dict):
-            Dictionary containing the configuration of the group
-        group_axes (list):
-            A list of tuples (axis_name, axis_class, axis_config) for each axis in group
-        group_class (class object):
-            Defaults to :class:`bliss.common.group.Group`
-
-    Returns:
-        None
-    """
-    axes = list()
-    for axis_name, axis_class_name, axis_config in group_axes:
-        if CONTROLLER_BY_AXIS.get(axis_name):
-            # existing axis, good
-            axes.append((axis_name, axis_config))
-
-    GROUPS[group_name] = {"object": group_class(group_name,
-                                                group_config,
-                                                axes),
-                          "initialized": False}
-
-
 def get_axis(axis_name):
-    """Get axis from loaded configuration
+    """Get axis from loaded configuration or from Beacon
 
     If needed, instanciates the controller of the axis and initializes it.
 
@@ -195,6 +172,16 @@ def get_axis(axis_name):
     Raises:
         RuntimeError
     """
+    if BACKEND=='beacon':
+        global BEACON_CONFIG
+        if BEACON_CONFIG is None:
+            BEACON_CONFIG = beacon_get_config() 
+        o = BEACON_CONFIG.get(axis_name)
+        if not isinstance(o, Axis):
+            raise AttributeError("'%s` is not an axis" % axis_name)
+	event.connect(o, "write_setting", write_setting)
+        return o
+ 
     try:
         controller_name = CONTROLLER_BY_AXIS[axis_name]
     except KeyError:
@@ -230,52 +217,25 @@ def axis_names_list():
     return CONTROLLER_BY_AXIS.keys()
 
 
-def group_names_list():
-    """Return list of all Group objects names in loaded configuration"""
-    return GROUPS.keys()
-
-
-def get_group(group_name):
-    """Get group object from loaded configuration
-
-    Args:
-        group_name (str):
-            Group name
-
-    Returns:
-        :class:`bliss.common.group.Group` object
-
-    Raises:
-        RuntimeError
-    """
-    try:
-        group = GROUPS[group_name]
-    except KeyError:
-        raise RuntimeError("no group '%s` in config" % group_name)
-
-    group_instance = group["object"]
-
-    if not group["initialized"]:
-        group_instance._update_refs()
-        group["initialized"] = True
-
-    return group_instance
-
-
 def clear_cfg():
     """Clear configuration
 
     Remove all controllers; :func:`bliss.controllers.motor.finalize` is called on each one.
     """
-    global CONTROLLERS
-    global CONTROLLER_BY_AXIS
-    global LOADED_FILES
+    if BACKEND == 'beacon':
+        global BEACON_CONFIG
+        if BEACON_CONFIG is not None:
+            BEACON_CONFIG._clear_instances()
+    else:
+        global CONTROLLERS
+        global CONTROLLER_BY_AXIS
+        global LOADED_FILES
 
-    for controller_name, controller in CONTROLLERS.iteritems():
-        controller["object"].finalize()
-    CONTROLLERS = {}
-    CONTROLLER_BY_AXIS = {}
-    LOADED_FILES = set()
+        for controller_name, controller in CONTROLLERS.iteritems():
+             controller["object"].finalize()
+        CONTROLLERS = {}
+        CONTROLLER_BY_AXIS = {}
+        LOADED_FILES = set()
 
 
 def load_cfg(filename, clear=True):

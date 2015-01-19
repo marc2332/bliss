@@ -7,6 +7,7 @@ from bliss.common.axis import READY, MOVING
 
 import pi_gcs
 from bliss.comm import tcp
+from bliss.common import event
 
 """
 Bliss controller for ethernet PI E517 piezo controller.
@@ -19,8 +20,18 @@ class PI_E517(Controller):
 
     def __init__(self, name, config, axes):
         Controller.__init__(self, name, config, axes)
-
         self.host = self.config.get("host")
+
+    def move_done_event_received(self, state):
+        if self.auto_gate_enabled:
+            if state is True:
+                print "movement is finished"
+                self._set_gate(0)
+                elog.debug("mvt finished, gate set to 0")
+            else:
+                print "movement is starting"
+                self._set_gate(1)
+                elog.debug("mvt started, gate set to 1")
 
     def initialize(self):
         """
@@ -51,13 +62,30 @@ class PI_E517(Controller):
 
         add_axis_method(axis, self.get_id, types_info=(None, str))
 
+        '''Closed loop'''
         add_axis_method(axis, self.open_loop, types_info=(str, None))
         add_axis_method(axis, self.close_loop, types_info=(str, None))
 
+        '''DCO'''
         add_axis_method(axis, self.activate_dco, types_info=(str, None))
         add_axis_method(axis, self.desactivate_dco, types_info=(str, None))
 
+        '''GATE'''
+        # to enable automatic gating (ex: zap)
+        add_axis_method(axis, self.enable_auto_gate, types_info=(bool, None))
+
+        # to trig gate from external device (ex: HPZ with setpoint controller)
         add_axis_method(axis, self.set_gate, types_info=(bool, None))
+
+        if axis.channel == 1:
+            self.gate_axis = axis
+            self.ctrl_axis = axis
+
+        # NO automatic gating by default.
+        self.auto_gate_enabled = False
+
+        '''end of move event'''
+        event.connect(axis, "move_done", self.move_done_event_received)
 
         # Enables the closed-loop.
         # self.sock.write("SVO 1 1\n")
@@ -170,15 +198,19 @@ class PI_E517(Controller):
 
         # self.sock.write("STP\n")
 
-    def raw_write(self, axis, cmd):
-        self.send(axis, cmd)
-
-    def raw_write_read(self, axis, cmd):
-        return self.send(axis, cmd)
-
     """
-    E517 specific
+    Communication
     """
+
+    def raw_write(self, cmd):
+        self.send_no_ans(self.ctrl_axis, cmd)
+
+#    def raw_write_read(self, cmd):
+#        return self.send(self.ctrl_axis, cmd)
+
+    def raw_write_read(self,  cmd):
+        return self.send(self.ctrl_axis, cmd)
+
     def send(self, axis, cmd):
         """
         - Adds the 'newline' terminator character : "\\\\n"
@@ -194,8 +226,6 @@ class PI_E517(Controller):
         Returns:
             - 1-line answer received from the controller (without "\\\\n" terminator).
 
-        Raises:
-            ?
         """
         _cmd = cmd + "\n"
         _t0 = time.time()
@@ -215,10 +245,14 @@ class PI_E517(Controller):
         - Sends command <cmd> to the PI E517 controller.
         - Channel is already defined in <cmd>.
         - <axis> is passed for debugging purposes.
-        - Used for answer-less commands, then returns nothing.
+        - Used for answer-less commands, thus returns nothing.
         """
         _cmd = cmd + "\n"
         self.sock.write(_cmd)
+
+    """
+    E517 specific
+    """
 
     def _get_pos(self, axis):
         """
@@ -262,13 +296,17 @@ class PI_E517(Controller):
         self.send(axis, "SVO %s 1" % axis.chan_letter)
 
     """
-    DCO Drift Compensation Offset.
+    DCO : Drift Compensation Offset.
     """
     def activate_dco(self, axis):
         self.send(axis, "DCO %s 1" % axis.chan_letter)
 
     def desactivate_dco(self, axis):
         self.send(axis, "DCO %s 0" % axis.chan_letter)
+
+    """
+    Voltage commands
+    """
 
     def _get_voltage(self, axis):
         """
@@ -304,7 +342,27 @@ class PI_E517(Controller):
         else:
             return False
 
+    def enable_auto_gate(self, axis, value):
+        if value:
+            # auto gating
+            self.auto_gate_enabled = True
+            self.gate_axis = axis
+            print "enable_gate ", value, "fro axis.channel ", axis.channel
+        else:
+            self.auto_gate_enabled = False
+
+            # for external gating
+            self.gate_axis = 1
+
     def set_gate(self, axis, state):
+        """
+        Method to wrap '_set_gate' to be exported to device server.
+        <axis> parameter is requiered.
+        """
+        self.gate_axis = axis
+        self._set_gate(state)
+
+    def _set_gate(self, state):
         """
         CTO  [<TrigOutID> <CTOPam> <Value>]+
          - <TrigOutID> : {1, 2, 3}
@@ -329,12 +387,14 @@ class PI_E517(Controller):
             ?
         """
 
-        if state:
-            _cmd = "CTO %d 3 3 1 5 0 1 6 100 1 7 1" % (axis.channel)
-        else:
-            _cmd = "CTO %d 3 3 1 5 0 1 6 100 1 7 0" % (axis.channel)
+        print "gate axis channel =", self.gate_axis.channel
 
-        self.send_no_ans(axis, _cmd)
+        if state:
+            _cmd = "CTO %d 3 3 1 5 0 1 6 100 1 7 1" % (self.gate_axis.channel)
+        else:
+            _cmd = "CTO %d 3 3 1 5 0 1 6 100 1 7 0" % (self.gate_axis.channel)
+
+        self.send_no_ans(self.gate_axis, _cmd)
 
     def get_id(self, axis):
         """

@@ -1,7 +1,47 @@
 from bliss.config import static
 from bliss.config import settings
-from . import get_controller_class, add_controller, add_group
+from . import get_controller_class, get_axis_class, add_controller, set_backend, Axis, AxisRef, CONTROLLER_BY_AXIS
 
+def create_objects_from_config_node(node):
+    set_backend("beacon")
+
+    name = node.get('name')
+    controller_config = node.get_parent()
+   
+    controller_class_name = controller_config.get('class')
+    controller_name = controller_config.get('name')
+    if controller_name is None:
+            controller_name = "%s_%d" % (
+                controller_class_name, id(controller_config))
+
+    controller_class = get_controller_class(controller_class_name)
+    axes = list()
+    axes_names = list()
+    for axis_config in controller_config.get('axes'):
+        axis_name = axis_config.get("name")
+        CONTROLLER_BY_AXIS[axis_name] = controller_name
+	if axis_name.startswith("$"):
+	    axis_class = AxisRef
+	    axis_name = axis_name.lstrip('$')
+	else:
+	    axis_class_name = axis_config.get("class")
+	    if axis_class_name is None:
+		axis_class = Axis
+	    else:
+		axis_class = get_axis_class(axis_class_name)
+        axes.append((axis_name, axis_class, axis_config))
+        if axis_name != name:
+            axes_names.append(axis_name)
+
+    controller = controller_class(controller_name, controller_config, axes)
+    controller._update_refs()
+    controller.initialize()
+    axis = controller.get_axis(name)
+    cache_dict = dict(zip(axes_names, [controller]*len(axes_names)))
+    return {name: axis}, cache_dict    
+
+def create_object_from_cache(name, controller):
+    return controller.get_axis(name)
 
 def load_cfg_fromstring(config_yaml):
     """Load configuration from yaml string

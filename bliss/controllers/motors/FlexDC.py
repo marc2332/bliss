@@ -50,7 +50,6 @@ class FlexDC(Controller):
                           axis.config.get("acceleration", float))
 
         add_axis_method(axis, self.get_id)
-        add_axis_method(axis, self.get_info)
         add_axis_method(axis, self.raw_com)
         add_axis_method(axis, self.acceleration)
 

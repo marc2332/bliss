@@ -14,7 +14,7 @@ To be used as skeleton to write bliss plugin controller.
 """
 config :
  'velocity' in unit/s
- 'acctime' in s
+ 'acceleration' in unit/s^2
  'steps_per_unit' in unit^-1  (default 1)
  'backlash' in unit
 """
@@ -95,7 +95,7 @@ class Mockup(Controller):
         t0 = t0 or time.time()
         pos = self.read_position(axis)
         v = self.read_velocity(axis)
-        self._axis_moves[axis].update( {
+        self._axis_moves[axis].update({
             "start_pos": pos,
             "delta": motion.delta,
             "end_pos": motion.target_pos,
@@ -137,6 +137,9 @@ class Mockup(Controller):
         # always return position
         return int(round(pos))
 
+    """
+    VELOCITY
+    """
     def read_velocity(self, axis):
         """
         Returns the current velocity taken from controller
@@ -147,16 +150,21 @@ class Mockup(Controller):
     def set_velocity(self, axis, new_velocity):
         """
         <new_velocity> is in motor units
-        Returns velocity in motor units.
         """
         axis.__vel = new_velocity
 
+    """
+    ACCELERATION
+    """
     def read_acceleration(self, axis):
         return axis.__acc
 
     def set_acceleration(self, axis, new_acceleration):
         axis.__acc = new_acceleration
 
+    """
+    ON / OFF
+    """
     def set_on(self, axis):
         self._axis_moves[axis]["on"] = True
 
@@ -165,7 +173,6 @@ class Mockup(Controller):
 
     """
     """
-
     def state(self, axis):
         if not self._axis_moves[axis].get("on", True):
             return OFF
@@ -215,7 +222,7 @@ class Mockup(Controller):
         return com + ">-<" + com
 
     def set_position(self, axis, pos):
-        self._axis_moves[axis]["end_pos"]=pos
+        self._axis_moves[axis]["end_pos"] = pos
         self._axis_moves[axis]["end_t"] = 0
         return pos
 
@@ -265,4 +272,3 @@ class Mockup(Controller):
         position equal to target position.
         """
         self._axis_moves[axis]["measured_noise"] = noise
-

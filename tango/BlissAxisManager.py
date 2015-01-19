@@ -143,6 +143,7 @@ class BlissAxis(PyTango.Device_4Impl):
 
         try:
             self.axis = TgGevent.get_proxy(bliss.get_axis, self._axis_name)
+            self.kontroler = TgGevent.get_proxy(self.axis.controller)
         except:
             self.set_status(traceback.format_exc())
 
@@ -510,7 +511,13 @@ class BlissAxis(PyTango.Device_4Impl):
         :return: answer from controller.
         :rtype: PyTango.DevString """
         self.debug_stream("In RawWriteRead()")
-        return self.axis.controller.raw_write_read(self.axis, argin)
+
+        print "ARGIN=" , argin
+        print "K=" , self.kontroler
+        _ans = self.kontroler.raw_write_read(argin)
+
+        print "hans=" ,  _ans
+        return _ans
 
     def WaitMove(self):
         """ Waits end of last motion

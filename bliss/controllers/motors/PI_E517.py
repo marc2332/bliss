@@ -26,11 +26,11 @@ class PI_E517(Controller):
         if self.auto_gate_enabled:
             if state is True:
                 print "movement is finished"
-                self.set_gate(0)
+                self._set_gate(0)
                 elog.debug("mvt finished, gate set to 0")
             else:
                 print "movement is starting"
-                self.set_gate(1)
+                self._set_gate(1)
                 elog.debug("mvt started, gate set to 1")
 
     def initialize(self):
@@ -76,6 +76,10 @@ class PI_E517(Controller):
 
         # to trig gate from external device (ex: HPZ with setpoint controller)
         add_axis_method(axis, self.set_gate, types_info=(bool, None))
+
+        if axis.channel == 1:
+            self.gate_axis = axis
+            self.ctrl_axis = axis
 
         # NO automatic gating by default.
         self.auto_gate_enabled = False
@@ -198,11 +202,14 @@ class PI_E517(Controller):
     Communication
     """
 
-    def raw_write(self, axis, cmd):
-        self.send_no_ans(axis, cmd)
+    def raw_write(self, cmd):
+        self.send_no_ans(self.ctrl_axis, cmd)
 
-    def raw_write_read(self, axis, cmd):
-        return self.send(axis, cmd)
+#    def raw_write_read(self, cmd):
+#        return self.send(self.ctrl_axis, cmd)
+
+    def raw_write_read(self,  cmd):
+        return self.send(self.ctrl_axis, cmd)
 
     def send(self, axis, cmd):
         """
@@ -387,7 +394,7 @@ class PI_E517(Controller):
         else:
             _cmd = "CTO %d 3 3 1 5 0 1 6 100 1 7 0" % (self.gate_axis.channel)
 
-        self.send_no_ans(axis, _cmd)
+        self.send_no_ans(self.gate_axis, _cmd)
 
     def get_id(self, axis):
         """

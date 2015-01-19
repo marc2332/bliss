@@ -106,7 +106,10 @@ class PMD206(Controller):
         """
         axis.channel = axis.config.get("channel", int)
 
-        add_axis_method(axis, self.raw_com)
+        # Stores one axis to talk to the controller.
+        if axis.channel == 1:
+            print "AX CH =", axis.channel
+            self.ctrl_axis = axis
 
     def set_on(self, axis):
         print "dozijng ON : unpark axis %s." % axis.name
@@ -503,8 +506,11 @@ class PMD206(Controller):
         return ".".join(
             map(str, map(hex_to_int, _ans.split(':')[1].split(',')[0: 4])))
 
-    def raw_com(self, axis, cmd):
-        """
-        Sends <cmd> to <axis>.
-        """
-        return self.send(axis, cmd)
+    def raw_write(self, cmd):
+        # no send_no_ans?
+        # self.send_no_ans(self.ctrl_axis, cmd)
+        pass
+
+    def raw_write_read(self,  cmd):
+        return self.send(self.ctrl_axis, cmd)
+

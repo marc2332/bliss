@@ -38,6 +38,10 @@ class FlexDC(Controller):
     def initialize_axis(self, axis):
 
         axis.channel = axis.config.get("channel")
+
+        if axis.channel == "X":
+            self.ctrl_axis = axis
+
         axis.target_radius = axis.config.get("target_radius", int)
         axis.target_time = axis.config.get("target_time", int)
         axis.min_dead_zone = axis.config.get("min_dead_zone", int)
@@ -50,7 +54,6 @@ class FlexDC(Controller):
                           axis.config.get("acceleration", float))
 
         add_axis_method(axis, self.get_id)
-        add_axis_method(axis, self.raw_com)
         add_axis_method(axis, self.acceleration)
 
         # Enabling servo mode.
@@ -183,8 +186,8 @@ class FlexDC(Controller):
     FlexDC specific.
     """
 
-    def raw_com(self, axis, cmd):
-        _cmd = "%s%s" % (axis.channel, cmd)
+    def raw_write_read(self, cmd):
+        _cmd = "%s%s" % (self.ctrl_axis.channel, cmd)
         return self._flexdc_query(_cmd)
 
     def acceleration(self, axis, new_acc=None):

@@ -281,6 +281,7 @@ Shell.prototype = {
             type: 'GET',
             success: $.proxy(function(res) {
                 this.set_executing(false);
+                res=jQuery.parseJSON(res);
                 if (res.error.length > 0) {
                     if (res.error == "EOF") {
                         /* erase last added echo output */

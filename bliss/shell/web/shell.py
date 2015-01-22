@@ -94,8 +94,6 @@ class InteractiveInterpreter(code.InteractiveInterpreter):
     def runcode(self, c):
         try:
             exec c in self.locals
-        except KeyboardInterrupt:
-            self.showtraceback()
         except SystemExit:
             raise
         except:

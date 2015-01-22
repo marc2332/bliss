@@ -1,23 +1,29 @@
-from bliss.common.task_utils import *
+from bliss.common.task_utils import cleanup, error_cleanup, task
 import time
+import gevent
 import PyTango.gevent
 
-class Counter:
+
+class BpmCounter:
    def __init__(self, parent, name, index):
      self.parent = parent
      self.index = index
      self.name = parent.name + "." + name
 
-   def read(self, exp_time):
+   def read(self, exp_time=None):
      if not self.parent.acquisition_event.is_set():
        self.parent.acquisition_event.wait()
+       data = self.parent.last_acq
      else:
-       self.parent.read(exp_time)
-     return self.parent.last_acq[self.index]
+       data = self.parent.read(exp_time)
+     return data[self.index]
+
 
 class tango_bpm(object):
    def __init__(self, name, config):
-       tango_uri = config.attrib["uri"]
+       self.name = name
+
+       tango_uri = config.get("uri")
 
        self.__control = PyTango.gevent.DeviceProxy(tango_uri)
        self.__acquisition_event = gevent.event.Event()
@@ -26,15 +32,15 @@ class tango_bpm(object):
       
    @property
    def x(self):
-     return Counter(self, "x", 2)
+     return BpmCounter(self, "x", 2)
 
    @property
    def y(self):
-     return Counter(self, "y", 3)
+     return BpmCounter(self, "y", 3)
 
    @property
    def intensity(self):
-     return Counter(self, "intensity", 1)
+     return BpmCounter(self, "intensity", 1)
 
    @property
    def acquisition_event(self):
@@ -44,11 +50,13 @@ class tango_bpm(object):
    def last_acq(self):
      return self.__last_acq
 
-   def read(self, exp_time):
+   def read(self, exp_time=None):
      try:
        self.__acquisition_event.clear()
-       self.__control.ExposureTime = exp_time
+       if exp_time is not None:
+           self.__control.ExposureTime = exp_time
        self.__last_acq = self.__control.GetPosition()
+       return self.__last_acq[:]
      finally:
        self.__acquisition_event.set()
 

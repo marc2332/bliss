@@ -71,16 +71,24 @@ def log(level, msg):
     """Handle log messages"""
     global _log_level
 
-    if level < _log_level:
+    if level == NOTSET or level < _log_level:
         return
     level_name = getLevelName(level)
     output = "%s: %s\n" % (level_name, msg)
     if level >= ERROR:
-        sys.stderr.write(output)
-        sys.stderr.flush()
+        error_output(output)
     else:
-        sys.stdout.write(output)
-        sys.stdout.flush()
+        log_output(output)
+
+
+def error_output(msg):
+    sys.stderr.write(msg)
+    sys.stderr.flush()
+
+
+def log_output(msg):
+    sys.stdout.write(msg)
+    sys.stdout.flush()
 
 
 def error(error_msg, raise_exception=True, exception=RuntimeError):

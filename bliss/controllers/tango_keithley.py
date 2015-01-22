@@ -1,7 +1,7 @@
 from bliss.common.task_utils import cleanup, error_cleanup, task
 import PyTango.gevent
 
-class keithley:
+class tango_keithley:
    def __init__(self, name, config):
        self.name = name
        tango_uri = config["uri"]

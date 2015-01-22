@@ -81,14 +81,14 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
             return ".error."
         }
         else{
-            tango_mot_msg(sprintf("DS %s is responding", tango_mot_ADDR))
+            tango_mot_msg(sprintf("EMotion Controller %s is responding", tango_mot_ADDR))
         }
         return
     }
 
     if(type == "mot") {
         local _mot_mne  _ctrl_ds_name  _axis_ds_name  _axis_name
-        local TTT[]
+        local TTT[]  _msg
 
         _mot_mne = motor_mne(motnum)
 
@@ -99,12 +99,32 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
 
         _axis_name = motor_par(motnum, "axis_name")
 
+        if (_axis_name == 0){
+            _axis_name = _mot_mne
+            _msg = sprintf("motor %d : parameter \"axis_name\" is empty (will use mnemonic : %s).", \
+                           motnum, _mot_mne )
+            tango_mot_msg(_msg)
+        }
+        else{
+            tango_mot_dbg(sprintf("axis_name = %s", _axis_name))
+        }
+
+
         if (split(_ctrl_ds_name, TTT, "/") == 3){
             _axis_ds_name = sprintf("%s/bliss_%s/%s", TTT[0], TTT[2], _axis_name)
             tango_mot_dbg(sprintf("AXIS DS NAME = %s", _axis_ds_name))
         }
         else{
             tango_mot_err(sprintf("wrong Tango DS name in ADDR field ?", tango_mot_ADDR ))
+            return ".error."
+        }
+
+
+        if (ds_is_responsive(_axis_ds_name)){
+            tango_mot_msg(sprintf("Motor %s linked to DS : %s ", _mot_mne, _axis_ds_name))
+        }
+        else{
+            tango_mot_err(sprintf("Axis %s is not responding", _axis_ds_name))
             return ".error."
         }
 
@@ -180,7 +200,6 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
             motor_par(motnum, "in_config", 0)
         }
 
-        tango_mot_msg(sprintf("Motor %s linked to DS : %s ", _mot_mne, _axis_ds_name))
     }
 }'
 

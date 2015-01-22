@@ -13,6 +13,13 @@ import types
 
 import bliss.common.log as elog
 
+class bcolors:
+    PINK = '\033[95m'
+    BLUE   = '\033[94m'
+    YELLOW = '\033[93m'
+    GREEN  = '\033[92m'
+    RED    = '\033[91m'
+    ENDC   = '\033[0m'
 
 class BlissAxisManager(PyTango.Device_4Impl):
 
@@ -171,13 +178,22 @@ class BlissAxis(PyTango.Device_4Impl):
         self.attr_Home_side_read = False
         """
 
+        """
+        Display get_info message
+        """
+        elog.info("BlissAxisManager Axis " + bcolors.PINK + self._ds_name+ bcolors.ENDC + " initialized")
+        elog.info("    %s" % self.axis.get_info())
+        elog.info("-----------------------------")
+
     def always_executed_hook(self):
-        #self.debug_stream("In always_excuted_hook()")
+        # self.debug_stream("In always_excuted_hook()")
 
         # here instead of in init_device due to (Py?)Tango bug :
         # device does not really exist in init_device... (Cyril)
         if not self.once:
-            # Initialises "set values" of attributes.
+            """
+            Initialises 'set values' of attributes.
+            """
 
             # Position
             attr = self.get_device_attr().get_attr_by_name("Position")
@@ -186,8 +202,8 @@ class BlissAxis(PyTango.Device_4Impl):
             # Velocity
             attr = self.get_device_attr().get_attr_by_name("Velocity")
             attr.set_write_value(self.axis.velocity())
-
             self.once = True
+
 
     def dev_state(self):
         """ This command gets the device state (stored in its device_state
@@ -846,6 +862,7 @@ def main():
             elog.debug("BlissAxisManager.py - Found device : %s" % _device)
             _config_file = db.get_device_property(_device, "config_file")["config_file"][0]
             elog.info("BlissAxisManager.py - config file : %s" % _config_file)
+            elog.info("-----------------------------")
             first_run = False
         else:
             elog.error("[FIRST RUN] New server never started ? -> no database entry...", raise_exception=False)

@@ -33,4 +33,12 @@
           {
               background-color: #cccccc;
           }
+          .hint
+          {
+              text-align:center;
+              font-size:x-small;
+              font-family: monospace;
+              font-style: italic;
+              color: grey;
+          }
 

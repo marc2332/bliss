@@ -20,12 +20,16 @@ var askForLogMessages = function() {
 
 function Shell(cmdline_div_id, shell_output_div_id) {
     var table = $('<div style="width:100%; display:table;"></div>');
+    this.hint_row = $($.parseHTML('<div style="display:table-row;"><label style="display:table-cell; width:1%;">&nbsp;</label></div>'));
+    this.hint_row.appendTo(table);
+    this.hint = $('<label class="hint" style="display:table-cell;"></label>');
+    this.hint.appendTo(this.hint_row);
     this.cmdline_row = $($.parseHTML('<div style="display:table-row;"></div>'));
     this.cmdline_row.appendTo(table);
     this.cmdline_row.append($('<label style="display:table-cell; width:1%;" class="code-font">&gt;&nbsp;</label>'));
     this.cmdline = $('<input style="width:99%; border:none; display:table-cell;" class="code-font" autofocus></input>');
     this.cmdline.appendTo(this.cmdline_row);
-    this.completion_row = $('<div style="display:table-row;"><label style="display:table-cell"></label></div>');
+    this.completion_row = $('<div style="display:table-row;"><label style="display:table-cell;"></label></div>');
     this.completion_list = $('<ul style="display:table-cell;" class="completion-list"></ul>');
     this.completion_list.appendTo(this.completion_row);
     table.append(this.completion_row);
@@ -232,7 +236,22 @@ Shell.prototype = {
                     } else {
                         this.execute(this.cmdline.val());
                     }
-                }
+                } else if (e.which == 40) {
+                    // open parenthesis
+                    var code = this.cmdline.val().substr(0,this.cmdline[0].selectionStart);
+                    $.ajax({
+                        url: "args_request",
+                        dataType: "json",
+                        data: {
+                            "code": code,
+                        },
+                        success: $.proxy(function(ret, status, jqxhr) {
+                            if (ret.func) {
+                                this.hint.text(ret.func_name+ret.args); //alert(ret.args);
+                            }
+                        }, this)
+                   });
+		}
             }
         }
     },

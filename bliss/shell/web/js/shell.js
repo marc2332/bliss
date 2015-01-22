@@ -273,10 +273,11 @@ Shell.prototype = {
 
         /* make remote call */
         $.ajax({
-            error: function(XMLHttpRequest, textStatus, errorThrown) {},
+            error: function(XMLHttpRequest, textStatus, errorThrown) { alert(textStatus); },
             url: 'command/' + this.session_id,
             type: 'GET',
             success: $.proxy(function(res) {
+                this.set_executing(false);
                 if (res.error.length > 0) {
                     if (res.error == "EOF") {
                         /* erase last added echo output */
@@ -319,13 +320,11 @@ Shell.prototype = {
                         this.display_output(res.error, true);
                     }
                 }
-                this.set_executing(false);
                 this.cmdline.focus();
             }, this),
             data: {
                 "code": cmd,
             },
-            dataType: 'json'
         });
     },
 

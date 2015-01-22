@@ -251,8 +251,15 @@ def get_func_args():
         except:
             return {"func": False}
         
-        if inspect.isfunction(x):
-          return {"func": True, "func_name":expr, "args": inspect.formatargspec(*inspect.getargspec(x)) }
+        if callable(x):
+          if inspect.isfunction(x):
+              args = inspect.formatargspec(*inspect.getargspec(x))
+          elif inspect.ismethod(x):
+              argspec = inspect.getargspec(x)
+              args = inspect.formatargspec(argspec.args[1:],*argspec[1:])
+          else:
+              return {"func": False}
+          return {"func": True, "func_name":expr, "args": args }
 
     return {"func": False}
 

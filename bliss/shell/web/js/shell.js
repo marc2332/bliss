@@ -273,7 +273,10 @@ Shell.prototype = {
 
         /* make remote call */
         $.ajax({
-            error: function(XMLHttpRequest, textStatus, errorThrown) { alert(textStatus); },
+            error: function(XMLHttpRequest, textStatus, errorThrown) { 
+                this.set_executing(false);
+                alert(textStatus); 
+            },
             url: 'command/' + this.session_id,
             type: 'GET',
             success: $.proxy(function(res) {
@@ -374,13 +377,10 @@ Shell.prototype = {
     },
 
     send_abort: function() {
-        var clear_executing = function() { this.set_executing(false); };
-
         $.ajax({
             url: 'abort/' + this.session_id,
             type: 'GET',
-            dataType: 'json',
-            success: clear_executing 
+            success: function() {}
         });
     }
 

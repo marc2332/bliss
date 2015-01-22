@@ -41,7 +41,7 @@ class Mockup(Controller):
 
         # Access to the config.
         try:
-            self.config.get("host")
+            self.host = self.config.get("host")
         except:
             elog.debug("no 'host' defined in config for %s" % name)
 
@@ -213,7 +213,7 @@ class Mockup(Controller):
         self._axis_moves[axis]["end_t"] = time.time() + 2
 
     def get_info(self, axis):
-        return "turlututu chapo pointu : %s" % axis.name
+        return "turlututu chapo pointu : %s (host=%s)" % (axis.name, self.host)
 
     def raw_write(self, axis, com):
         print ("raw_write:  com = %s" % com)

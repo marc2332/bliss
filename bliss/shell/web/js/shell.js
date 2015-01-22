@@ -225,7 +225,9 @@ Shell.prototype = {
     _cmdline_handle_keypress: function(e) {
         if (e.ctrlKey && e.which === 99) {
             e.preventDefault();
-            this.send_abort();
+            if (this.executing) {
+                this.send_abort();
+            }
         } else {
             if (this.executing) {
                 e.preventDefault();

@@ -394,9 +394,10 @@ Shell.prototype = {
             }
         } else {
             /* create new plot */
-            this.output_div.append($('<div></div>'));
-            var plot_div = this.output_div.children().last()[0]; 
-            this.plot[data.scan_id] = { "div": plot_div, 
+            this.output_div.append($('<div class="ui-widget-content" style="width:640px; height:480px;"></div>'));
+            var plot_div = this.output_div.children().last();
+            plot_div.resizable(); //why this doesn't work???
+            this.plot[data.scan_id] = { "div": plot_div[0], 
                                         "data": [], 
                                         "obj": null, 
                                         "title": data.filename, 

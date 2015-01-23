@@ -152,14 +152,13 @@ def d2scan(
     return scandat
 
 
-def timescan(*counters, **kwargs):
+def timescan(count_time, *counters, **kwargs):
     save_flag = kwargs.get("save", True)
     raw_data = []
 
     dm = DataManager()
     filename = kwargs.get("filename", SCANFILE)
 
-    count_time = kwargs.get("count_time", 1)
     sleep_time = kwargs.get("sleep_time", 0)
     npoints = kwargs.get("npoints", 0)
 

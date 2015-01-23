@@ -70,7 +70,7 @@ class Scan:
         dispatcher.send(
             "scan_new", DataManager(),
             id(self),
-            filename if save_flag else None, [m.name for m in scan_actuators],
+            filename if save_flag else None, 'Time' if scan_actuators=='time' else [m.name for m in scan_actuators],
             npoints, [c.name for c in counters_list])
 
     def add(self, values_list):

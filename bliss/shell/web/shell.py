@@ -322,6 +322,9 @@ def load_setup_file(setup_file):
     SETUP_FILE = setup_file
     setup_file_path = os.path.abspath(setup_file)
     if os.path.isfile(setup_file_path):
+        setup_file_dir = os.path.dirname(setup_file_path)
+        if not setup_file_dir in sys.path:
+            sys.path.insert(0, setup_file_dir)
         execfile(setup_file_path, INTERPRETER_GLOBALS)
 
 

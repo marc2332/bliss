@@ -84,9 +84,11 @@ function Shell(cmdline_div_id, shell_output_div_id) {
     */
     this._cmdline_handle_keydown = $.proxy(this._cmdline_handle_keydown, this);
     this._cmdline_handle_keypress = $.proxy(this._cmdline_handle_keypress, this);
+    this._cmdline_handle_keyup = $.proxy(this._cmdline_handle_keyup, this);
 
     this.cmdline.keypress(this._cmdline_handle_keypress);
     this.cmdline.keydown(this._cmdline_handle_keydown);
+    this.cmdline.keyup(this._cmdline_handle_keyup);
 };
 
 Shell.prototype = {
@@ -103,8 +105,7 @@ Shell.prototype = {
         return id;
     },
 
-    completion_request: function(text, index) {
-        var completion_return;
+    completion_request: function(text, index, dont_select_completion) {
         $.ajax({
             url: "completion_request",
             dataType: "json",
@@ -120,7 +121,8 @@ Shell.prototype = {
                     this.completion_list.append($.parseHTML("<li class='completion-item'>" + completion_list[i] + "</li>"));
                 }
 
-                this._select_completion_item(0);
+                if (! dont_select_completion) { this._select_completion_item(0); }
+
                 this.cmdline.focus();
             }, this)
         });
@@ -155,6 +157,7 @@ Shell.prototype = {
         this.cmdline.val(this.current_command.substr(0, this._completion_start) + completion + this.current_command.substr(this._completion_start));
         this.cmdline[0].selectionStart = this._completion_start+completion.length;
         this.cmdline[0].selectionEnd = this.cmdline[0].selectionStart;
+        this.cmdline.focus();
     },
 
     _cmdline_handle_keydown: function(e) {
@@ -173,16 +176,19 @@ Shell.prototype = {
                     // key left
                     e.preventDefault();
                     this._select_completion_item(-1);
+                    this.cmdline.focus();
                 } else if (e.which == 39) {
                     // key right
                     e.preventDefault();
                     this._select_completion_item(+1);
+                    this.cmdline.focus();
                 } else {
                     this.completion_mode = false;
                     this.completion_list.empty();
                     if ((e.which === 27) || (e.which == 13)) {
                         e.preventDefault();
                     }
+                    this.cmdline.focus();
                 }
             } else {
                 if (e.which === 38) {
@@ -212,6 +218,17 @@ Shell.prototype = {
             }
         }
     },
+
+    _cmdline_handle_keyup: function(e) {
+        if (!this.executing) {
+            if (!this.completion_mode) {
+                if (e.which == 190) {
+                    this.current_command = this.cmdline.val();
+                    this._completion_start = this.cmdline[0].selectionStart;
+                    this.completion_mode = true;
+                    this.completion_request(this.current_command, this._completion_start, true);
+                }
+    }}},
 
     set_executing: function(executing) {
         this.executing = executing
@@ -253,7 +270,15 @@ Shell.prototype = {
                             }
                         }, this)
                    });
-		}
+		} else if (e.which == 190) {
+                    // period '.'
+                    if (! this.completion_mode) {
+                       this.current_command = this.cmdline.val();
+                    this._completion_start = this.cmdline[0].selectionStart;
+                    this.completion_mode = true;
+                    this.completion_request(this.current_command, this._completion_start, true);
+                    } 
+                }
             }
         }
     },
@@ -263,6 +288,8 @@ Shell.prototype = {
         this.cmdline.val('');
         this.output_div.append($("<pre>&gt;&nbsp;<i>" + this._html_escape(code) + "</i></pre>"));
         this._execute(code);
+        // scroll to bottom
+        this.output_div[0].scrollIntoView(false);
     },
 
     _execute: function(cmd) {

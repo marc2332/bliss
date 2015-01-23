@@ -29,6 +29,7 @@ CODE_EXECUTION = {}
 ROOT_PATH = os.path.dirname(os.path.abspath(__file__))
 INTERPRETER = None
 INTERPRETER_GLOBALS = {}
+SETUP_FILE = None
 jedi.settings.case_insensitive_completion = False
 
 # add scan and task functions
@@ -37,6 +38,11 @@ for module in (scans, task_utils):
         dict(
             [(x, y) for x, y in module.__dict__.iteritems()
              if inspect.isfunction(y)]))
+
+def resetup():
+    if SETUP_FILE is not None:
+        load_setup_file(SETUP_FILE)
+INTERPRETER_GLOBALS["resetup"]=resetup
 
 
 def output_queue():
@@ -312,6 +318,8 @@ def set_interpreter(interpreter_object):
 
 
 def load_setup_file(setup_file):
+    global SETUP_FILE
+    SETUP_FILE = setup_file
     setup_file_path = os.path.abspath(setup_file)
     if os.path.isfile(setup_file_path):
         execfile(setup_file_path, INTERPRETER_GLOBALS)

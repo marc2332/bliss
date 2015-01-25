@@ -47,6 +47,12 @@ def init_scans_callbacks(output_queue):
         output_queue.put({"scan_id": scan_id, "values":values})
     def scan_end_callback(scan_id):
         output_queue.put({"scan_id":scan_id})
+
+    # keep callbacks references
+    output_queue.new_scan_callback = new_scan_callback
+    output_queue.update_scan_callback = update_scan_callback
+    output_queue.scan_end_callback = scan_end_callback
+
     dispatcher.connect(
         new_scan_callback, "scan_new", data_manager.DataManager())
     dispatcher.connect(

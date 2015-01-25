@@ -90,6 +90,11 @@ function Shell(cmdline_div_id, shell_output_div_id) {
     this.cmdline.keydown(this._cmdline_handle_keydown);
     this.cmdline.keyup(this._cmdline_handle_keyup);
 
+    /*
+       ask to run initialization script, using the special
+       command "__INIT_SCRIPT__", don't keep history and
+       consider EOF as an error
+    */
     this.set_executing(true);
     this._execute("__INIT_SCRIPT__", true, true);
 };
@@ -393,15 +398,18 @@ Shell.prototype = {
                 } else {
                     plot.obj = new Dygraph(plot.div, plot.data, { title: plot.title, labels: plot.labels, legend:"always" });
                 }
+                plot.div.addEventListener("mouseup", function(e) {
+                     plot.obj.resize();
+                });
             } else {
                /* end of scan, free memory */
                delete this.plot[data.scan_id];
             }
         } else {
             /* create new plot */
-            this.output_div.append($('<div class="ui-widget-content" style="width:640px; height:480px;"></div>'));
+            this.output_div.append($('<div class="ui-widget-content" style="width:640px; height:480px; resize:both; overflow: auto;"></div>'));
             var plot_div = this.output_div.children().last();
-            plot_div.resizable(); //why this doesn't work???
+            //plot_div.resizable(); this doesn't work... why?
             this.plot[data.scan_id] = { "div": plot_div[0], 
                                         "data": [], 
                                         "obj": null, 

@@ -13,11 +13,13 @@
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/4.8.0/codemirror.min.css" type="text/css" media="screen"></link>
         <script language="JavaScript" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/dygraph/1.1.0/dygraph-combined.js"></script>
         <script language="JavaScript" type="text/javascript" src="js/shell.js"></script>
+        <script language="JavaScript" type="text/javascript" src="js/control_panel.js"></script>
         <link rel="stylesheet" href="shell.css"></link>
 </head>
 <body>
-        <div class="ui-layout-center">
-          <div id="shell_output"></div>
+        <div class="ui-layout-center" id="main">
+          <div id="shell_output" class="ui-layout-center"></div>
+          <div id="right_panel" class="ui-layout-east"></div>
 	</div>
         <div class="ui-layout-south">
           <div id="shell_cmdline" style="width:100%;"></div>
@@ -30,7 +32,9 @@
 	<script type="text/javascript" charset="utf-8">
             $(document).ready(function() {
                 $('body').layout({ applyDefaultStyles: true });
+                $('#main').layout({ applyDefaultStyles: true });
                 var shell = new Shell("shell_cmdline", "shell_output");
+                var control_panel = new ControlPanel("right_panel", shell.session_id);
 	    });
 	</script>
 </body>

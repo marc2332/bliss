@@ -66,6 +66,19 @@ def send_output(session_id):
         output_text = ""
 
 
+@bottle.route("/control_panel_events/<session_id:int>")
+def send_output(session_id):
+    bottle.response.content_type = 'text/event-stream'
+    bottle.response.add_header("Connection", "keep-alive")
+    bottle.response.add_header("Cache-control", "no-cache, must-revalidate")
+
+    # this is to initialize connection, something has to be sent
+    yield "data: \n\n"
+    
+    while True:
+        time.sleep(30)
+
+
 #@bottle.route("/log_msg_request")
 #def send_log():
 #    session_id = bottle.request.GET["session_id"]
@@ -134,6 +147,12 @@ def return_session_id(session={"id": 0}):
     assert(OUTPUT_QUEUE[session["id"]].get() == "ack")
      
     return {"session_id": session["id"]}
+
+
+@bottle.route("/motors_names/<session_id:int>")
+def return_motors_names(session_id):
+    motors_list = execute_cmd(session_id, "motors_list", None)
+    return motors_list
 
 
 @bottle.route('/')

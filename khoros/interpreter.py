@@ -15,7 +15,6 @@ from bliss.common.event import dispatcher
 from bliss.common import data_manager
 jedi.settings.case_insensitive_completion = False
 
-
 class Stdout:
 
     def __init__(self, queue):
@@ -133,7 +132,15 @@ def start_interpreter(input_queue, output_queue, globals_dict=None, init_script=
         if action == "syn":
             output_queue.put("ack")
             continue
-        if action == "execute":
+        elif action == "motors_list":
+            motors_list = []
+            for x in i.locals.itervalues():
+                try:
+                    motors_list.append({ "name": x.name, "state": x.state(), "pos": x.position() })
+                except AttributeError:
+                    continue
+            output_queue.put(StopIteration(motors_list))
+        elif action == "execute":
             code = _[0]
             try:
                 i.compile_and_run(code)

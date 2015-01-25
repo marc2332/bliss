@@ -107,7 +107,7 @@ Shell.prototype = {
 
     completion_request: function(text, index, dont_select_completion) {
         $.ajax({
-            url: "completion_request",
+            url: "completion_request/"+this.session_id,
             dataType: "json",
             data: {
                 "text": text,
@@ -259,7 +259,7 @@ Shell.prototype = {
                     // open parenthesis
                     var code = this.cmdline.val().substr(0,this.cmdline[0].selectionStart);
                     $.ajax({
-                        url: "args_request",
+                        url: "args_request/"+this.session_id,
                         dataType: "json",
                         data: {
                             "code": code,
@@ -306,9 +306,9 @@ Shell.prototype = {
             },
             url: 'command/' + this.session_id,
             type: 'GET',
+            dataType: 'json',
             success: $.proxy(function(res) {
                 this.set_executing(false);
-                res=jQuery.parseJSON(res);
                 if (res.error.length > 0) {
                     if (res.error == "EOF") {
                         /* erase last added echo output */

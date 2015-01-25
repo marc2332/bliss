@@ -111,7 +111,7 @@ def start_interpreter(input_queue, output_queue, globals_dict=None, init_script=
     init_scans_callbacks(output_queue)
 
     def resetup(setup_file=None):
-        setup_file = i.locals["SETUP_FILE"] if setup_file is None else setup_file
+        setup_file = i.locals.get("SETUP_FILE") if setup_file is None else setup_file
         if setup_file is not None:
             i.locals["SETUP_FILE"] = setup_file
             setup_file_path = os.path.abspath(os.path.expanduser(setup_file))

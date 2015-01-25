@@ -21,6 +21,7 @@ EXECUTION_QUEUE = dict()
 OUTPUT_QUEUE = dict()
 INTERPRETER = dict()
 RESULT = dict()
+OUTPUT_STREAM_READY = dict()
 INIT_SCRIPT = ""
 
 # patch socket module;
@@ -43,8 +44,8 @@ def send_output(session_id):
 
     # this is to initialize connection, something has to be sent
     yield "data: \n\n" 
-    
- 
+    OUTPUT_STREAM_READY[session_id].set()
+
     while True:
         output = None
         with gevent.Timeout(0.05, False) as t:
@@ -72,6 +73,7 @@ def send_output(session_id):
 
 
 def execute_cmd(session_id, action, *args):
+    OUTPUT_STREAM_READY[session_id].wait()
     RESULT[session_id] = gevent.event.AsyncResult()
     EXECUTION_QUEUE[session_id].put((action, args))
     return RESULT[session_id].get()
@@ -94,6 +96,8 @@ def abort_execution(session_id):
 @bottle.get("/command/<session_id:int>")
 def execute_command(session_id):
     code = bottle.request.GET["code"]
+    if code == "__INIT_SCRIPT__":
+        code = INIT_SCRIPT
 
     try:
         python_code_to_execute = str(code).strip() + "\n"
@@ -122,9 +126,13 @@ def return_session_id(session={"id": 0}):
     session["id"] += 1
     cmds_queue,EXECUTION_QUEUE[session["id"]] = gipc.pipe()
     OUTPUT_QUEUE[session["id"]], output_queue = gipc.pipe()
+    OUTPUT_STREAM_READY[session["id"]] = gevent.event.Event()
     RESULT[session["id"]]=gevent.event.AsyncResult()
     INTERPRETER[session["id"]] = gipc.start_process(interpreter.start_interpreter,
-                                                    args=(cmds_queue, output_queue, GLOBALS, INIT_SCRIPT))
+                                                    args=(cmds_queue, output_queue, GLOBALS))
+    EXECUTION_QUEUE[session["id"]].put(("syn", (None,)))
+    assert(OUTPUT_QUEUE[session["id"]].get() == "ack")
+     
     return {"session_id": session["id"]}
 
 

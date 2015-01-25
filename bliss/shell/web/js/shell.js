@@ -89,6 +89,9 @@ function Shell(cmdline_div_id, shell_output_div_id) {
     this.cmdline.keypress(this._cmdline_handle_keypress);
     this.cmdline.keydown(this._cmdline_handle_keydown);
     this.cmdline.keyup(this._cmdline_handle_keyup);
+
+    this.set_executing(true);
+    this._execute("__INIT_SCRIPT__", true, true);
 };
 
 Shell.prototype = {
@@ -292,11 +295,13 @@ Shell.prototype = {
         this.output_div[0].scrollIntoView(false);
     },
 
-    _execute: function(cmd) {
+    _execute: function(cmd, dont_save_history, eof_error) {
         /* save history */
-        this.history.push(cmd);
-        this.history_index = this.history.length;
-        localStorage[this.session_id + "_shell_commands"] = JSON.stringify(this.history);
+        if (! dont_save_history) {
+	    this.history.push(cmd);
+            this.history_index = this.history.length;
+            localStorage[this.session_id + "_shell_commands"] = JSON.stringify(this.history);
+        }
 
         /* make remote call */
         $.ajax({
@@ -310,7 +315,7 @@ Shell.prototype = {
             success: $.proxy(function(res) {
                 this.set_executing(false);
                 if (res.error.length > 0) {
-                    if (res.error == "EOF") {
+                    if ((! eof_error) && (res.error == "EOF")) {
                         /* erase last added echo output */
                         this.output_div.children().last().remove();
 

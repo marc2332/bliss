@@ -123,13 +123,10 @@ def start_interpreter(input_queue, output_queue, globals_dict=None, init_script=
     i.locals["resetup"] = resetup
 
     while True:
-        if init_script:
-            time.sleep(0)
-            action = "execute"
-            _ = (init_script,)
-            init_script = ""
-        else:
-            action, _ = input_queue.get()
+        action, _ = input_queue.get()
+        if action == "syn":
+            output_queue.put("ack")
+            continue
         if action == "execute":
             code = _[0]
             try:

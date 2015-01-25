@@ -1,0 +1,31 @@
+          .control-panel-item-ready
+          {
+            float: left;
+            display: inline;
+            margin: 5px;
+            background-color: #00cccc;
+            border-radius: inherit;
+            font-family: inherit;
+            font-size: inherit;
+          }
+          .control-panel-item-moving
+          {
+            float: left;
+            display: inline;
+            margin: 5px;
+            background-color: #cccc00;
+            border-radius: inherit;
+            font-family: inherit;
+            font-size: inherit;
+          }
+          .control-panel-item
+          {
+            float: left;
+            display: inline;
+            margin: 5px;
+            font-family: monospace;
+            background-color: #cccccc;
+            border-radius: 15px;
+            font-size: 100%;
+          }
+

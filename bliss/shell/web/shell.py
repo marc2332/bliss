@@ -15,7 +15,7 @@ import bliss.shell.interpreter as interpreter
 import gipc
 import signal
 
-LOG = {}
+#LOG = {}
 GLOBALS = {}
 EXECUTION_QUEUE = dict()
 OUTPUT_QUEUE = dict()
@@ -23,6 +23,7 @@ INTERPRETER = dict()
 RESULT = dict()
 OUTPUT_STREAM_READY = dict()
 INIT_SCRIPT = ""
+SESSION_INIT = dict()
 
 # patch socket module;
 # by default bottle doesn't set address as reusable
@@ -110,7 +111,11 @@ def abort_execution(session_id):
 def execute_command(session_id):
     code = bottle.request.GET["code"]
     if code == "__INIT_SCRIPT__":
-        code = INIT_SCRIPT
+        if not SESSION_INIT.get(session_id):
+            SESSION_INIT[session_id]=True
+            code = INIT_SCRIPT
+        else:
+            code = ""
 
     try:
         python_code_to_execute = str(code).strip() + "\n"
@@ -152,7 +157,8 @@ def return_session_id(session={"id": 0}):
 @bottle.route("/motors_names/<session_id:int>")
 def return_motors_names(session_id):
     motors_list = execute_cmd(session_id, "motors_list", None)
-    return motors_list
+    print motors_list
+    return { "motors": motors_list }
 
 
 @bottle.route('/')

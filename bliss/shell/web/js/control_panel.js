@@ -33,9 +33,20 @@ function ControlPanel(div_id, session_id) {
         type: 'GET',
         dataType: 'json',
         success: $.proxy(function(res) {
-            for (var i=0; i<res.length; i++) {
-                this.motors_list.append($.parseHTML("<li class='control_panel_motor'>" + res[i].name + "</li>")); 
-                this.motors[res[i].name]={ dom_item: this.motors_list.children().last(), state: res[i].state, pos: res[i].pos };
+            var motors = res.motors;
+            for (var i=0; i<motors.length; i++) {
+                var name = motors[i].name;
+                var pos = motors[i].pos;
+                var state = motors[i].state;
+                var item_text = name + ": " + pos;
+                var dom_item = $("<li class='control-panel-item'>" + item_text + "</li>");
+                this.motors_list.append(dom_item); 
+                if (state == "READY") {
+                    dom_item.addClass("control-panel-item-ready");
+                } else if (state == "MOVING") {
+                    dom_item.addClass("control-panel-item-moving");
+                }
+                this.motors[name]={ dom_item: dom_item, state: state, pos: pos };
             }            
         }, this)
     }); 

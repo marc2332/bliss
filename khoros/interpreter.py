@@ -79,6 +79,8 @@ class InteractiveInterpreter(code.InteractiveInterpreter):
                 exec c in self.locals
         except SystemExit:
             raise
+        except KeyboardInterrupt:
+            self.error.write("KeyboardInterrupt")
         except:
             self.showtraceback()
 

@@ -70,8 +70,8 @@ def send_output(session_id):
                 continue
             if not output_text.endswith("\n"):
                 continue
-        yield "data: " + json.dumps({"type": "text", "data": output_text }) + "\n\n"
-        output_text = ""
+            yield "data: " + json.dumps({"type": "text", "data": output_text }) + "\n\n"
+            output_text = ""
 
 
 @bottle.route("/control_panel_events/<session_id:int>")

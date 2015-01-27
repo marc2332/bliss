@@ -139,8 +139,7 @@ def start_interpreter(input_queue, output_queue, globals_dict=None, init_script=
                     motors_list.append({ "name": x.name, "state": x.state(), "pos": x.position() })
                 except AttributeError:
                     continue
-            motors_list = [{"name":"roby", "state":"READY", "pos":12.466},
-                           {"name":"robz", "state":"MOVING", "pos":1.34577}]
+            print motors_list
             output_queue.put(StopIteration(motors_list))
         elif action == "execute":
             code = _[0]

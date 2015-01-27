@@ -115,7 +115,7 @@ Shell.prototype = {
 
     completion_request: function(text, index, dont_select_completion) {
         $.ajax({
-            url: "completion_request/"+this.session_id,
+            url: "completion_request/" + this.session_id,
             dataType: "json",
             data: {
                 "text": text,
@@ -124,11 +124,11 @@ Shell.prototype = {
             success: $.proxy(function(completion_ret, status, jqxhr) {
                 this._completions = [];
                 var completion_list = [];
- 
+
                 // filter underscores & private methods
                 for (var i = 0; i < completion_ret.possibilities.length; i++) {
                     var c = completion_ret.possibilities[i];
-                    if (c.substr(0,1)!='_') {
+                    if (c.substr(0, 1) != '_') {
                         completion_list.push(c);
                         this._completions.push(completion_ret.completions[i]);
                     }
@@ -137,7 +137,9 @@ Shell.prototype = {
                     this.completion_list.append($.parseHTML("<li class='completion-item'>" + completion_list[i] + "</li>"));
                 }
 
-                if (! dont_select_completion) { this._select_completion_item(0); }
+                if (!dont_select_completion) {
+                    this._select_completion_item(0);
+                }
 
                 this.cmdline.focus();
             }, this)
@@ -171,7 +173,7 @@ Shell.prototype = {
         if (this._completions.length == 0) return;
         var completion = this._completions[completion_index];
         this.cmdline.val(this.current_command.substr(0, this._completion_start) + completion + this.current_command.substr(this._completion_start));
-        this.cmdline[0].selectionStart = this._completion_start+completion.length;
+        this.cmdline[0].selectionStart = this._completion_start + completion.length;
         this.cmdline[0].selectionEnd = this.cmdline[0].selectionStart;
         this.cmdline.focus();
     },
@@ -244,7 +246,9 @@ Shell.prototype = {
                     this.completion_mode = true;
                     this.completion_request(this.current_command, this._completion_start, true);
                 }
-    }}},
+            }
+        }
+    },
 
     set_executing: function(executing) {
         this.executing = executing
@@ -274,27 +278,27 @@ Shell.prototype = {
                     }
                 } else if (e.which == 40) {
                     // open parenthesis
-                    var code = this.cmdline.val().substr(0,this.cmdline[0].selectionStart);
+                    var code = this.cmdline.val().substr(0, this.cmdline[0].selectionStart);
                     $.ajax({
-                        url: "args_request/"+this.session_id,
+                        url: "args_request/" + this.session_id,
                         dataType: "json",
                         data: {
                             "code": code,
                         },
                         success: $.proxy(function(ret, status, jqxhr) {
                             if (ret.func) {
-                                this.hint.text(ret.func_name+ret.args); //alert(ret.args);
+                                this.hint.text(ret.func_name + ret.args); //alert(ret.args);
                             }
                         }, this)
-                   });
-		} else if (e.which == 190) {
+                    });
+                } else if (e.which == 190) {
                     // period '.'
-                    if (! this.completion_mode) {
-                       this.current_command = this.cmdline.val();
-                    this._completion_start = this.cmdline[0].selectionStart;
-                    this.completion_mode = true;
-                    this.completion_request(this.current_command, this._completion_start, true);
-                    } 
+                    if (!this.completion_mode) {
+                        this.current_command = this.cmdline.val();
+                        this._completion_start = this.cmdline[0].selectionStart;
+                        this.completion_mode = true;
+                        this.completion_request(this.current_command, this._completion_start, true);
+                    }
                 }
             }
         }
@@ -318,21 +322,21 @@ Shell.prototype = {
 
     _execute: function(cmd, dont_save_history, eof_error, synchronous_call) {
         /* save history */
-        if (! dont_save_history) {
-	    this.history.push(cmd);
+        if (!dont_save_history) {
+            this.history.push(cmd);
             this.history_index = this.history.length;
             localStorage[this.session_id + "_shell_commands"] = JSON.stringify(this.history);
         }
 
         if (synchronous_call == undefined) {
             synchronous_call = true;
-        }      
-  
+        }
+
         /* make remote call */
         $.ajax({
-            error: function(XMLHttpRequest, textStatus, errorThrown) { 
+            error: function(XMLHttpRequest, textStatus, errorThrown) {
                 this.set_executing(false);
-                alert(textStatus); 
+                alert(textStatus);
             },
             url: 'command/' + this.session_id,
             type: 'GET',
@@ -341,7 +345,7 @@ Shell.prototype = {
             success: $.proxy(function(res) {
                 this.set_executing(false);
                 if (res.error.length > 0) {
-                    if ((! eof_error) && (res.error == "EOF")) {
+                    if ((!eof_error) && (res.error == "EOF")) {
                         /* erase last added echo output */
                         this.output_div.children().last().remove();
 
@@ -349,7 +353,7 @@ Shell.prototype = {
                         var editor_row = this.editor_row;
                         editor_row.css("display", "table-row");
                         var cmdline_row = this.cmdline_row;
-                        cmdline_row.css("display", "none"); 
+                        cmdline_row.css("display", "none");
                         var editor_area = this.editor_area;
                         editor_area.val(res.input);
                         var execute = $.proxy(this.execute, this);
@@ -361,22 +365,23 @@ Shell.prototype = {
                                 version: 2,
                             },
                             autofocus: true,
-                            extraKeys: { 'Ctrl-Enter': function() { 
-                                              editor.toTextArea();
-                                              var code_text = editor_area.val();
-                                              editor_row.css("display","none");
-                                              cmdline_row.css("display", "table-row");
-                                              execute(code_text);
-                                          },
-                                         'Esc': function() { 
-                                              editor.toTextArea(); 
-                                              editor_row.css("display","none");
-                                              cmdline_row.css("display", "table-row");
-                                              cmdline.focus();
-                                          } 
-                                       }
+                            extraKeys: {
+                                'Ctrl-Enter': function() {
+                                    editor.toTextArea();
+                                    var code_text = editor_area.val();
+                                    editor_row.css("display", "none");
+                                    cmdline_row.css("display", "table-row");
+                                    execute(code_text);
+                                },
+                                'Esc': function() {
+                                    editor.toTextArea();
+                                    editor_row.css("display", "none");
+                                    cmdline_row.css("display", "table-row");
+                                    cmdline.focus();
+                                }
+                            }
                         });
-                            
+
                         editor.execCommand("goDocEnd");
                     } else {
                         this.display_output(res.error, true);
@@ -402,8 +407,10 @@ Shell.prototype = {
             this.output_div.append(last_element);
         } else {
             var output_pre = $('<pre></pre>');
-            output_pre.text(output); 
-            output_pre.css({ display: "inline" });
+            output_pre.text(output);
+            output_pre.css({
+                display: "inline"
+            });
             this.output_div.append(output_pre);
         }
         this.scrollToBottom(this.output_div);
@@ -416,16 +423,22 @@ Shell.prototype = {
             if (data.values) {
                 plot.data.push(data.values);
                 if (plot.obj) {
-                    plot.obj.updateOptions({'file': plot.data});
+                    plot.obj.updateOptions({
+                        'file': plot.data
+                    });
                 } else {
-                    plot.obj = new Dygraph(plot.div, plot.data, { title: plot.title, labels: plot.labels, legend:"always" });
+                    plot.obj = new Dygraph(plot.div, plot.data, {
+                        title: plot.title,
+                        labels: plot.labels,
+                        legend: "always"
+                    });
+                    plot.div.addEventListener("mouseup", function(e) {
+                        plot.obj.resize();
+                    });
                 }
-                plot.div.addEventListener("mouseup", function(e) {
-                     plot.obj.resize();
-                });
             } else {
-               /* end of scan, free memory */
-               delete this.plot[data.scan_id];
+                /* end of scan, free memory */
+                delete this.plot[data.scan_id];
             }
         } else {
             /* create new plot */

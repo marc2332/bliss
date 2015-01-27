@@ -17,10 +17,10 @@ function ControlPanel(div_id, session_id) {
             this.update_display(output.data);
         }
     }, this);
-   
+
     /*
        get motors names, and populate list
-    */ 
+    */
     $.ajax({
         error: function(XMLHttpRequest, textStatus, errorThrown) {
             alert(textStatus);
@@ -30,18 +30,22 @@ function ControlPanel(div_id, session_id) {
         dataType: 'json',
         success: $.proxy(function(res) {
             var motors = res.motors;
-            for (var i=0; i<motors.length; i++) {
+            for (var i = 0; i < motors.length; i++) {
                 var name = motors[i].name;
                 var pos = motors[i].pos;
                 var state = motors[i].state;
                 var dom_item = $("<li></li>");
                 dom_item.addClass("control-panel-item");
                 this.update_item(dom_item, name, pos, state);
-                this.motors_list.append(dom_item); 
-                this.motors[name]={ dom_item: dom_item, state: state, pos: pos };
-            }            
+                this.motors_list.append(dom_item);
+                this.motors[name] = {
+                    dom_item: dom_item,
+                    state: state,
+                    pos: pos
+                };
+            }
         }, this)
-    }); 
+    });
 };
 
 ControlPanel.prototype = {
@@ -58,7 +62,7 @@ ControlPanel.prototype = {
             } else if (state == "FAULT") {
                 dom_item.addClass("control-panel-item-fault");
             }
-        }    
+        }
     },
     update_display: function(data) {
         var dom_item = this.motors[data.name].dom_item

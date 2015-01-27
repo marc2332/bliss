@@ -3,6 +3,7 @@ function ControlPanel(div_id, session_id) {
     this.session_id = session_id;
 
     this.motors_div = $('<div style="width:100%;"></div>');
+    this.motors_div.append($('<span class="control-panel-header">Motors</span>'));
     this.motors_list = $('<ul class="items-list"></ul>');
     this.motors_div.append(this.motors_list);
     $('#' + div_id).append(this.motors_div);

@@ -37,4 +37,14 @@
             border-radius: 15px;
             font-size: 100%;
           }
+          .control-panel-header
+          {
+            float:left;
+            width: 100%;
+            display: block;
+            font-family: monospace;
+            background-color: #cccccc;
+            font-size: 100%;
+            font-variant: small-caps;
+          }
 

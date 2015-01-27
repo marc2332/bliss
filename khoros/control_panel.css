@@ -3,7 +3,7 @@
             float: left;
             display: inline;
             margin: 5px;
-            background-color: #00cccc;
+            background-color: #bcf5a9;
             border-radius: inherit;
             font-family: inherit;
             font-size: inherit;
@@ -13,7 +13,7 @@
             float: left;
             display: inline;
             margin: 5px;
-            background-color: #cccc00;
+            background-color: #f2f5a9;
             border-radius: inherit;
             font-family: inherit;
             font-size: inherit;
@@ -24,7 +24,6 @@
             display: inline;
             margin: 5px;
             font-family: monospace;
-            background-color: #cccccc;
             border-radius: 15px;
             font-size: 100%;
           }

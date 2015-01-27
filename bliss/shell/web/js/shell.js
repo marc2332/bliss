@@ -426,10 +426,15 @@ Shell.prototype = {
                         'file': plot.data
                     });
                 } else {
+                    var fs = parseInt(this.cmdline.css("font-size"));
                     plot.obj = new Dygraph(plot.div, plot.data, {
                         title: plot.title,
+                        titleHeight: 2*fs,
                         labels: plot.labels,
-                        legend: "always"
+                        legend: "always",
+                        axisLabelFontSize: fs,
+                        xLabelHeight: fs,
+                        yLabelWidth: fs
                     });
                     plot.div.addEventListener("mouseup", function(e) {
                         plot.obj.resize();

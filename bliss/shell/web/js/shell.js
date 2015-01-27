@@ -96,7 +96,7 @@ function Shell(cmdline_div_id, shell_output_div_id) {
        consider EOF as an error
     */
     this.set_executing(true);
-    this._execute("__INIT_SCRIPT__", true, true);
+    this._execute("__INIT_SCRIPT__", true, true, false);
 };
 
 Shell.prototype = {
@@ -122,9 +122,17 @@ Shell.prototype = {
                 "index": index
             },
             success: $.proxy(function(completion_ret, status, jqxhr) {
-                this._completions = completion_ret.completions;
-                var completion_list = completion_ret.possibilities;
-
+                this._completions = [];
+                var completion_list = [];
+ 
+                // filter underscores & private methods
+                for (var i = 0; i < completion_ret.possibilities.length; i++) {
+                    var c = completion_ret.possibilities[i];
+                    if (c.substr(0,1)!='_') {
+                        completion_list.push(c);
+                        this._completions.push(c);
+                    }
+                }
                 for (var i = 0; i < completion_list.length; i++) {
                     this.completion_list.append($.parseHTML("<li class='completion-item'>" + completion_list[i] + "</li>"));
                 }
@@ -300,7 +308,7 @@ Shell.prototype = {
         this.output_div[0].scrollIntoView(false);
     },
 
-    _execute: function(cmd, dont_save_history, eof_error) {
+    _execute: function(cmd, dont_save_history, eof_error, synchronous_call) {
         /* save history */
         if (! dont_save_history) {
 	    this.history.push(cmd);
@@ -308,6 +316,10 @@ Shell.prototype = {
             localStorage[this.session_id + "_shell_commands"] = JSON.stringify(this.history);
         }
 
+        if (synchronous_call == undefined) {
+            synchronous_call = true;
+        }      
+  
         /* make remote call */
         $.ajax({
             error: function(XMLHttpRequest, textStatus, errorThrown) { 
@@ -317,6 +329,7 @@ Shell.prototype = {
             url: 'command/' + this.session_id,
             type: 'GET',
             dataType: 'json',
+            async: synchronous_call,
             success: $.proxy(function(res) {
                 this.set_executing(false);
                 if (res.error.length > 0) {

@@ -13,6 +13,10 @@ def set_scanfile(filename):
     SCANFILE = filename
 
 
+def scanfile():
+    return SCANFILE
+
+
 def ascan(motor, start, stop, npoints, count_time, *counters, **kwargs):
     save_flag = kwargs.get("save", True)
     raw_data = []
@@ -162,7 +166,7 @@ def timescan(count_time, *counters, **kwargs):
     sleep_time = kwargs.get("sleep_time", 0)
     npoints = kwargs.get("npoints", 0)
 
-    logging.getLogger().info("Doing timescan ")
+    logging.getLogger().info("Doing timescan")
     scan = dm.new_timescan(filename, counters)
 
     def scan_cleanup():

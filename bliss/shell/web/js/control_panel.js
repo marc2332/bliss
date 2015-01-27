@@ -2,7 +2,7 @@ function ControlPanel(div_id, session_id) {
     this.motors = {};
     this.session_id = session_id;
 
-    this.motors_div = $('<div></div>');
+    this.motors_div = $('<div style="width:100%;"></div>');
     this.motors_list = $('<ul></ul>');
     this.motors_div.append(this.motors_list);
     $('#' + div_id).append(this.motors_div);
@@ -39,8 +39,9 @@ function ControlPanel(div_id, session_id) {
                 var pos = motors[i].pos;
                 var state = motors[i].state;
                 var item_text = name + ": " + pos;
-                var dom_item = $("<li class='control-panel-item'>" + item_text + "</li>");
+                var dom_item = $("<li>" + item_text + "</li>");
                 this.motors_list.append(dom_item); 
+                dom_item.addClass("control-panel-item");
                 if (state == "READY") {
                     dom_item.addClass("control-panel-item-ready");
                 } else if (state == "MOVING") {

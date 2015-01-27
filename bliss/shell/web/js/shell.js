@@ -300,14 +300,20 @@ Shell.prototype = {
         }
     },
 
+    scrollToBottom: function(jq_div) {
+        console.log("in scroll to bottom");
+        var sHeight = jq_div[0].scrollHeight;
+        //Scrolling the element to the sHeight
+        jq_div.scrollTop(sHeight);
+    },
+
     execute: function(code) {
         this.set_executing(true);
         this.cmdline.val('');
         var last_element = $("<pre>&gt;&nbsp;<i>" + this._html_escape(code) + "</i></pre>");
         this.output_div.append(last_element);
+        this.scrollToBottom(this.output_div);
         this._execute(code);
-        //this.output_div.scrollTop()+ this.output_div.height();
-        this.output_div.scroll(last_element.offset().top);
     },
 
     _execute: function(cmd, dont_save_history, eof_error, synchronous_call) {
@@ -399,9 +405,8 @@ Shell.prototype = {
             output_pre.text(output); 
             output_pre.css({ display: "inline" });
             this.output_div.append(output_pre);
-            last_element = output_pre;
         }
-        this.output_div.scroll(last_element.offset().top); //+last_element.position().height);
+        this.scrollToBottom(this.output_div);
     },
 
     display_plot: function(data) {
@@ -427,13 +432,14 @@ Shell.prototype = {
             var plot_div = $('<div class="ui-widget-content" style="width:640px; height:480px; resize:both; overflow: auto;"></div>');
             //plot_div.resizable(); this doesn't work... why?
             this.output_div.append(plot_div);
-            this.output_div.scroll(plot_div.offset().top); 
-            this.output_div.scrollTop()+ this.output_div.height();
-            this.plot[data.scan_id] = { "div": plot_div[0], 
-                                        "data": [], 
-                                        "obj": null, 
-                                        "title": data.filename, 
-                                        "labels": [ data.scan_actuators[0] ].concat(data.counters) };
+            this.scrollToBottom(this.output_div);
+            this.plot[data.scan_id] = {
+                "div": plot_div[0],
+                "data": [],
+                "obj": null,
+                "title": data.filename,
+                "labels": [data.scan_actuators[0]].concat(data.counters)
+            };
         }
     },
 

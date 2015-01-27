@@ -22,7 +22,7 @@
           <div id="shell_output" class="ui-layout-center"></div>
           <div id="right_panel" class="ui-layout-east"></div>
 	</div>
-        <div class="ui-layout-south">
+        <div class="ui-layout-north">
           <div id="shell_cmdline" style="width:100%;"></div>
           <!--<div id="log_messages">
             <h3>Log messages</h3>
@@ -32,8 +32,12 @@
  
 	<script type="text/javascript" charset="utf-8">
             $(document).ready(function() {
-                $('body').layout({ applyDefaultStyles: true });
+                layout = $('body').layout({ applyDefaultStyles: true });
                 $('#main').layout({ applyDefaultStyles: true });
+                var cmdline_height = 36; //document.getElementById("shell_cmdline").clientHeight;
+		layout.options.north.minSize = 3*cmdline_height;
+                layout.options.north.maxSize = 6*cmdline_height; 
+                layout.resizeAll();
                 var shell = new Shell("shell_cmdline", "shell_output");
                 var control_panel = new ControlPanel("right_panel", shell.session_id);
 	    });

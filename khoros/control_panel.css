@@ -18,6 +18,16 @@
             font-family: inherit;
             font-size: inherit;
           }
+          .control-panel-item-fault
+          {
+            float: left;
+            display: inline;
+            margin: 5px;
+            background-color: #fa5858;
+            border-radius: inherit;
+            font-family: inherit;
+            font-size: inherit;
+          }
           .control-panel-item
           {
             float: left;

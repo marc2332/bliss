@@ -116,6 +116,7 @@ def start_interpreter(input_queue, output_queue, globals_dict=None, init_script=
     i = InteractiveInterpreter(output_queue, globals_dict)
     
     init_scans_callbacks(output_queue)
+    output_queue.motor_callbacks = dict()
 
     def resetup(setup_file=None):
         setup_file = i.locals.get("SETUP_FILE") if setup_file is None else setup_file
@@ -138,9 +139,20 @@ def start_interpreter(input_queue, output_queue, globals_dict=None, init_script=
             motors_list = []
             for x in i.locals.itervalues():
                 try:
-                    motors_list.append({ "name": x.name, "state": x.state(), "pos": x.position() })
+                    pos = "%.3f" % x.position()
+                    motors_list.append({ "name": x.name, "state": x.state(), "pos": pos })
                 except AttributeError:
                     continue
+                else:
+                    def state_updated(state, name=x.name):
+                        output_queue.put({"name":name, "state": state})
+                    def position_updated(pos, name=x.name):
+                        pos = "%.3f" % pos
+                        output_queue.put({"name":name, "position":pos})
+                    output_queue.motor_callbacks[x.name]=(state_updated, position_updated) 
+                    dispatcher.connect(state_updated, "state", x)
+                    dispatcher.connect(position_updated, "position", x)
+            motors_list = sorted(motors_list, cmp=lambda x,y: cmp(x["name"],y["name"]))
             print motors_list
             output_queue.put(StopIteration(motors_list))
         elif action == "execute":

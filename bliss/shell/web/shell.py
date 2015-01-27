@@ -3,6 +3,7 @@ import sys
 import optparse
 import gevent
 import gevent.event
+import gevent.queue
 import gevent.monkey
 gevent.monkey.patch_all()
 import bottle
@@ -19,6 +20,7 @@ import signal
 GLOBALS = {}
 EXECUTION_QUEUE = dict()
 OUTPUT_QUEUE = dict()
+CONTROL_PANEL_QUEUE = dict()
 INTERPRETER = dict()
 RESULT = dict()
 OUTPUT_STREAM_READY = dict()
@@ -58,8 +60,13 @@ def send_output(session_id):
                 continue
             if isinstance(output, str):
                 output_text += output
+            elif isinstance(output, dict):
+                if 'scan_id' in output:
+                    yield "data: " + json.dumps({"type": "plot", "data": output}) + "\n\n"
+                else:
+                    CONTROL_PANEL_QUEUE[session_id].put(output)
+                continue
             else:
-                yield "data: " + json.dumps({"type": "plot", "data": output}) + "\n\n"
                 continue
             if not output_text.endswith("\n"):
                 continue
@@ -77,7 +84,8 @@ def send_output(session_id):
     yield "data: \n\n"
     
     while True:
-        time.sleep(30)
+        data = CONTROL_PANEL_QUEUE[session_id].get()
+        yield "data: " + json.dumps({"type": "control_panel_motor", "data":data}) + "\n\n"
 
 
 #@bottle.route("/log_msg_request")
@@ -144,6 +152,7 @@ def return_session_id(session={"id": 0}):
     session["id"] += 1
     cmds_queue,EXECUTION_QUEUE[session["id"]] = gipc.pipe()
     OUTPUT_QUEUE[session["id"]], output_queue = gipc.pipe()
+    CONTROL_PANEL_QUEUE[session["id"]]=gevent.queue.Queue()
     OUTPUT_STREAM_READY[session["id"]] = gevent.event.Event()
     RESULT[session["id"]]=gevent.event.AsyncResult()
     INTERPRETER[session["id"]] = gipc.start_process(interpreter.start_interpreter,

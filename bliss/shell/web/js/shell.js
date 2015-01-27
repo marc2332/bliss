@@ -30,7 +30,7 @@ function Shell(cmdline_div_id, shell_output_div_id) {
     this.cmdline = $('<input style="width:99%; border:none; display:table-cell;" class="code-font" autofocus></input>');
     this.cmdline.appendTo(this.cmdline_row);
     this.completion_row = $('<div style="display:table-row;"><label style="display:table-cell;"></label></div>');
-    this.completion_list = $('<ul style="display:table-cell;" class="completion-list"></ul>');
+    this.completion_list = $('<ul style="display:table-cell;" class="items-list"></ul>');
     this.completion_list.appendTo(this.completion_row);
     table.append(this.completion_row);
     this.editor_row = $($.parseHTML('<div style="display:none;"></div>'));
@@ -266,6 +266,7 @@ Shell.prototype = {
                 e.preventDefault();
             } else {
                 if (e.which == 13) {
+                    this.hint.text("");
                     if (this.completion_mode) {
                         e.preventDefault();
                     } else {
@@ -302,10 +303,11 @@ Shell.prototype = {
     execute: function(code) {
         this.set_executing(true);
         this.cmdline.val('');
-        this.output_div.append($("<pre>&gt;&nbsp;<i>" + this._html_escape(code) + "</i></pre>"));
+        var last_element = $("<pre>&gt;&nbsp;<i>" + this._html_escape(code) + "</i></pre>");
+        this.output_div.append(last_element);
         this._execute(code);
-        // scroll to bottom
-        this.output_div[0].scrollIntoView(false);
+        //this.output_div.scrollTop()+ this.output_div.height();
+        this.output_div.scroll(last_element.offset().top);
     },
 
     _execute: function(cmd, dont_save_history, eof_error, synchronous_call) {
@@ -388,16 +390,18 @@ Shell.prototype = {
     },
 
     display_output: function(output, error) {
+        var last_element;
         if (error) {
-            this.output_div.append($('<pre><font color="red">' + this._html_escape(output) + '</font></pre>'));
+            last_element = $('<pre><font color="red">' + this._html_escape(output) + '</font></pre>');
+            this.output_div.append(last_element);
         } else {
             var output_pre = $('<pre></pre>');
             output_pre.text(output); 
             output_pre.css({ display: "inline" });
             this.output_div.append(output_pre);
+            last_element = output_pre;
         }
-        // scroll to bottom
-        this.output_div[0].scrollIntoView(false);
+        this.output_div.scroll(last_element.offset().top); //+last_element.position().height);
     },
 
     display_plot: function(data) {
@@ -420,9 +424,11 @@ Shell.prototype = {
             }
         } else {
             /* create new plot */
-            this.output_div.append($('<div class="ui-widget-content" style="width:640px; height:480px; resize:both; overflow: auto;"></div>'));
-            var plot_div = this.output_div.children().last();
+            var plot_div = $('<div class="ui-widget-content" style="width:640px; height:480px; resize:both; overflow: auto;"></div>');
             //plot_div.resizable(); this doesn't work... why?
+            this.output_div.append(plot_div);
+            this.output_div.scroll(plot_div.offset().top); 
+            this.output_div.scrollTop()+ this.output_div.height();
             this.plot[data.scan_id] = { "div": plot_div[0], 
                                         "data": [], 
                                         "obj": null, 

@@ -130,7 +130,7 @@ Shell.prototype = {
                     var c = completion_ret.possibilities[i];
                     if (c.substr(0,1)!='_') {
                         completion_list.push(c);
-                        this._completions.push(c);
+                        this._completions.push(completion_ret.completions[i]);
                     }
                 }
                 for (var i = 0; i < completion_list.length; i++) {

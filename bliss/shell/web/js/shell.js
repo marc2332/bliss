@@ -305,7 +305,6 @@ Shell.prototype = {
     },
 
     scrollToBottom: function(jq_div) {
-        console.log("in scroll to bottom");
         var sHeight = jq_div[0].scrollHeight;
         //Scrolling the element to the sHeight
         jq_div.scrollTop(sHeight);

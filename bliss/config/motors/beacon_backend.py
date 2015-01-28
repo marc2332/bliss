@@ -6,7 +6,7 @@ def create_objects_from_config_node(node):
     set_backend("beacon")
 
     name = node.get('name')
-    controller_config = node.get_parent()
+    controller_config = node.parent
    
     controller_class_name = controller_config.get('class')
     controller_name = controller_config.get('name')

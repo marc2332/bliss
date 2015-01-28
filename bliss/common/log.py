@@ -71,14 +71,24 @@ def log(level, msg):
     """Handle log messages"""
     global _log_level
 
-    if level < _log_level:
+    if level == NOTSET or level < _log_level:
         return
     level_name = getLevelName(level)
     output = "%s: %s\n" % (level_name, msg)
     if level >= ERROR:
-        sys.stderr.write(output)
+        error_output(output)
     else:
-        sys.stdout.write(output)
+        log_output(output)
+
+
+def error_output(msg):
+    sys.stderr.write(msg)
+    sys.stderr.flush()
+
+
+def log_output(msg):
+    sys.stdout.write(msg)
+    sys.stdout.flush()
 
 
 def error(error_msg, raise_exception=True, exception=RuntimeError):
@@ -122,8 +132,6 @@ def debug(debug_msg):
     debug_msg = bcolors.PINK + debug_msg + bcolors.ENDC
     msg = "%.3f %s() (%s, l.%d): %s" % (time.time()-time0 , func_name, short_filename, lineno, debug_msg)
 
-
     ret =  log(DEBUG, msg)
-    sys.stdout.flush()
     return ret
 

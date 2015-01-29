@@ -5,18 +5,22 @@ import PyTango.gevent
 
 
 class BpmCounter:
-   def __init__(self, parent, name, index):
+   def __init__(self, parent, name, index=None):
      self.parent = parent
      self.index = index
+     self._name = name
      self.name = parent.name + "." + name
 
    def read(self, exp_time=None):
-     if not self.parent.acquisition_event.is_set():
-       self.parent.acquisition_event.wait()
-       data = self.parent.last_acq
+     if self.index is None:
+       return getattr(self.parent, self._name)()
      else:
-       data = self.parent.read(exp_time)
-     return data[self.index]
+       if not self.parent.acquisition_event.is_set():
+         self.parent.acquisition_event.wait()
+         data = self.parent.last_acq
+       else:
+         data = self.parent.read(exp_time)
+       return data[self.index]
 
 
 class tango_bpm(object):
@@ -43,6 +47,10 @@ class tango_bpm(object):
      return BpmCounter(self, "intensity", 1)
 
    @property
+   def diode_current(self):
+     return BpmCounter(self, "_read_diode_current")
+
+   @property
    def acquisition_event(self):
      return self.__acquisition_event
 
@@ -59,6 +67,12 @@ class tango_bpm(object):
        return self.__last_acq[:]
      finally:
        self.__acquisition_event.set()
+
+   def _read_diode_current(self):
+     return self.__control.DiodeCurrent
+
+   def set_diode_range(self, range):
+     self.__control.DiodeRange = range
 
    def is_acquiring(self):
      return str(self.__control.State()) == 'MOVING'

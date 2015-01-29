@@ -105,12 +105,14 @@ def a2scan(
         logging.getLogger().info(
             "Returning motor %s to %f and motor %s to %f" %
             (motor1.name, start_pos1, motor2.name, start_pos2))
-        motor1.move(start_pos1)
+        motor1.move(start_pos1,wait=False)
         motor2.move(start_pos2)
+        motor1.wait_move()
         scan.end()
 
-    motor1.move(start1)
+    motor1.move(start1,wait=False)
     motor2.move(start2)
+    motor1.wait_move()
     ipoint = 0
     countlabellen = len("{0:d}".format(npoints))
     countformatstr = "{0:" + "{0:d}".format(countlabellen) + "d}"
@@ -121,9 +123,8 @@ def a2scan(
         for ii in range(npoints):
             ipoint = ipoint + 1
             motor1.move(s1[ii], wait=False)
-            motor2.move(s2[ii], wait=False)
+            motor2.move(s2[ii])
             motor1.wait_move()
-            motor2.wait_move()
 
             acquisitions = []
             values = [m.position() for m in (motor1, motor2)]

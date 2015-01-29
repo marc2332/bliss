@@ -47,6 +47,8 @@ class Undulator(Controller):
     def __init__(self, name, config, axes):
         Controller.__init__(self, name, config, axes)
 
+        self.axis_info = dict()
+
         try:
             self.ds_name = self.config.get("ds_name")
         except:
@@ -63,16 +65,12 @@ class Undulator(Controller):
     Axes initialization actions.
     """
     def initialize_axis(self, axis):
-        self.attr_pos_name = self.ds_name + "/" + axis.config.get("attribute_position", str)
-        self.attr_vel_name = self.ds_name + "/" + axis.config.get("attribute_velocity", str)
-        self.attr_acc_name = self.ds_name + "/" + axis.config.get("attribute_acceleration", str)
-
-        print "self.attr_acc_name=%s" % self.attr_acc_name
-
-
-        self.attr_position = AttributeProxy(self.attr_pos_name)
-        self.attr_velocity = AttributeProxy(self.attr_vel_name)
-        self.attr_acceleration = AttributeProxy(self.attr_acc_name)
+        attr_pos_name = axis.config.get("attribute_position", str)
+        attr_vel_name = axis.config.get("attribute_velocity", str)
+        attr_acc_name = axis.config.get("attribute_acceleration", str)
+        self.axis_info[axis]={"attr_pos_name": attr_pos_name,
+                              "attr_vel_name":attr_vel_name,
+                              "attr_acc_name":attr_acc_name}
         elog.debug("axis initilized--------------------------")
 
     """
@@ -81,15 +79,21 @@ class Undulator(Controller):
     def finalize(self):
         pass
 
-    def start_one(self, motion, t0=None):
-        self.attr_position = float(motion.target_pos / motion.axis.steps_per_unit)
+    def _set_attribute(self, axis, attribute_name, value):
+        self.device.write_attribute(self.axis_info[axis][attribute_name], value)
 
+    def _get_attribute(self, axis, attribute_name):
+        return self.device.read_attribute(self.axis_info[axis][attribute_name]).value
+
+    def start_one(self, motion, t0=None):
+        self._set_attribute(motion.axis,"attr_pos_name", float(motion.target_pos / motion.axis.steps_per_unit))
+     
     def read_position(self, axis, measured=False):
         """
         Returns the position (measured or desired) taken from controller
         in controller unit (steps).
         """
-        return self.attr_position.read().value
+        return self._get_attribute(axis, "attr_pos_name")
 
     """
     VELOCITY
@@ -99,26 +103,25 @@ class Undulator(Controller):
         Returns the current velocity taken from controller
         in motor units.
         """
-        return self.attr_velocity.read().value
+        return self._get_attribute(axis, "attr_vel_name")
+       
 
     def set_velocity(self, axis, new_velocity):
         """
         <new_velocity> is in motor units
         """
-        print "set_velocity to ", new_velocity
-        # self.attr_velocity = new_velocity
+        self._set_attribute(axis, "attr_vel_name", new_velocity)
+        
 
     """
     ACCELERATION
     """
     def read_acceleration(self, axis):
-        return self.attr_acceleration.read().value
-
+        return self._get_attribute(axis, "attr_acc_name")
+        
     def set_acceleration(self, axis, new_acceleration):
-        print "Set acceleration to ", new_acceleration
-        # self.attr_acceleration = new_acceleration
-
-
+        self._set_attribute(axis, "attr_acc_name", new_acceleration)
+      
     """
     STATE
     """
@@ -141,9 +144,7 @@ class Undulator(Controller):
     def stop_all(self, *motion_list):
         self.device.abort()
 
-
     def get_info(self, axis):
-
         info_str = ""
         info_str = "DEVICE SERVER : %s \n" % self.ds_name
         info_str += self.ds.state() +"\n"

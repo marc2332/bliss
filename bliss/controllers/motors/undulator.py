@@ -63,13 +63,17 @@ class Undulator(Controller):
     Axes initialization actions.
     """
     def initialize_axis(self, axis):
-        self.attr_pos_name = self.ds_name + "/" self.config.get("attribute_position")
-        self.attr_vel_name = self.ds_name + "/" self.config.get("attribute_velocity")
-        self.attr_acc_name = self.ds_name + "/" self.config.get("attribute_acceleration")
+        self.attr_pos_name = self.ds_name + "/" + axis.config.get("attribute_position", str)
+        self.attr_vel_name = self.ds_name + "/" + axis.config.get("attribute_velocity", str)
+        self.attr_acc_name = self.ds_name + "/" + axis.config.get("attribute_acceleration", str)
+
+        print "self.attr_acc_name=%s" % self.attr_acc_name
+
 
         self.attr_position = AttributeProxy(self.attr_pos_name)
         self.attr_velocity = AttributeProxy(self.attr_vel_name)
         self.attr_acceleration = AttributeProxy(self.attr_acc_name)
+        elog.debug("axis initilized--------------------------")
 
     """
     Actions to perform at controller closing.
@@ -85,7 +89,7 @@ class Undulator(Controller):
         Returns the position (measured or desired) taken from controller
         in controller unit (steps).
         """
-        return self.attr_position
+        return self.attr_position.read().value
 
     """
     VELOCITY
@@ -95,7 +99,7 @@ class Undulator(Controller):
         Returns the current velocity taken from controller
         in motor units.
         """
-        return self.attr_velocity
+        return self.attr_velocity.read().value
 
     def set_velocity(self, axis, new_velocity):
         """
@@ -108,7 +112,7 @@ class Undulator(Controller):
     ACCELERATION
     """
     def read_acceleration(self, axis):
-        return self.attr_acceleration
+        return self.attr_acceleration.read().value
 
     def set_acceleration(self, axis, new_acceleration):
         print "Set acceleration to ", new_acceleration

@@ -1,4 +1,4 @@
-from bliss.config import static
+#from bliss.config import static
 from bliss.config import settings
 from . import get_controller_class, get_axis_class, add_controller, set_backend, Axis, AxisRef, CONTROLLER_BY_AXIS
 
@@ -29,9 +29,9 @@ def create_objects_from_config_node(node):
 		axis_class = Axis
 	    else:
 		axis_class = get_axis_class(axis_class_name)
+            if axis_name != name:
+                axes_names.append(axis_name)
         axes.append((axis_name, axis_class, axis_config))
-        if axis_name != name:
-            axes_names.append(axis_name)
 
     controller = controller_class(controller_name, controller_config, axes)
     controller._update_refs()

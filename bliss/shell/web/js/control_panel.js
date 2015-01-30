@@ -11,7 +11,7 @@ function ControlPanel(div_id, session_id) {
     /* 
        connect to control panel events stream 
     */
-    this.output_stream = new EventSource('control_panel_events/' + this.session_id);
+    this.output_stream = new EventSource(this.session_id+'/control_panel_events');
     this.output_stream.onmessage = $.proxy(function(e) {
         if (e.data) {
             var output = JSON.parse(e.data);
@@ -26,7 +26,7 @@ function ControlPanel(div_id, session_id) {
         error: function(XMLHttpRequest, textStatus, errorThrown) {
             alert(textStatus);
         },
-        url: 'motors_names/' + this.session_id,
+        url: this.session_id+'/motors_names',
         type: 'GET',
         dataType: 'json',
         success: $.proxy(function(res) {

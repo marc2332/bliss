@@ -38,7 +38,7 @@ def my_socket_bind(self, *args, **kwargs):
 socket.socket.bind = my_socket_bind
 
 
-@bottle.route("/output_stream/<session_id:int>")
+@bottle.route("/<session_id:int>/output_stream")
 def send_output(session_id):
     bottle.response.content_type = 'text/event-stream'
     bottle.response.add_header("Connection", "keep-alive")
@@ -74,7 +74,7 @@ def send_output(session_id):
             output_text = ""
 
 
-@bottle.route("/control_panel_events/<session_id:int>")
+@bottle.route("/<session_id:int>/control_panel_events")
 def send_output(session_id):
     bottle.response.content_type = 'text/event-stream'
     bottle.response.add_header("Connection", "keep-alive")
@@ -101,7 +101,7 @@ def execute_cmd(session_id, action, *args):
     return RESULT[session_id].get()
 
 
-@bottle.get("/completion_request/<session_id:int>")
+@bottle.get("/<session_id:int>/completion_request")
 def send_completion(session_id):
     text = bottle.request.GET["text"]
     completion_start_index = int(bottle.request.GET["index"])
@@ -110,12 +110,12 @@ def send_completion(session_id):
             "completions": completions }
 
 
-@bottle.get("/abort/<session_id:int>")
+@bottle.get("/<session_id:int>/abort")
 def abort_execution(session_id):
     os.kill(INTERPRETER[session_id].pid, signal.SIGINT)
 
 
-@bottle.get("/command/<session_id:int>")
+@bottle.get("/<session_id:int>/command")
 def execute_command(session_id):
     code = bottle.request.GET["code"]
     if code == "__INIT_SCRIPT__":
@@ -141,29 +141,30 @@ def execute_command(session_id):
             return {"error":""}
 
 
-@bottle.get("/args_request/<session_id:int>")
+@bottle.get("/<session_id:int>/args_request")
 def get_func_args(session_id):
     code = bottle.request.GET["code"]
     return execute_cmd(session_id, "get_function_args", str(code))
     
 
-@bottle.route('/session')
-def return_session_id(session={"id": 0}):
-    session["id"] += 1
-    cmds_queue,EXECUTION_QUEUE[session["id"]] = gipc.pipe()
-    OUTPUT_QUEUE[session["id"]], output_queue = gipc.pipe()
-    CONTROL_PANEL_QUEUE[session["id"]]=gevent.queue.Queue()
-    OUTPUT_STREAM_READY[session["id"]] = gevent.event.Event()
-    RESULT[session["id"]]=gevent.event.AsyncResult()
-    INTERPRETER[session["id"]] = gipc.start_process(interpreter.start_interpreter,
-                                                    args=(cmds_queue, output_queue, GLOBALS))
-    EXECUTION_QUEUE[session["id"]].put(("syn", (None,)))
-    assert(OUTPUT_QUEUE[session["id"]].get() == "ack")
-     
-    return {"session_id": session["id"]}
+@bottle.route('/<session_id:int>')
+def open_session(session_id):
+    cmds_queue,EXECUTION_QUEUE[session_id] = gipc.pipe()
+    OUTPUT_QUEUE[session_id], output_queue = gipc.pipe()
+    CONTROL_PANEL_QUEUE[session_id]=gevent.queue.Queue()
+    OUTPUT_STREAM_READY[session_id] = gevent.event.Event()
+    RESULT[session_id]=gevent.event.AsyncResult()
+    INTERPRETER[session_id] = gipc.start_process(interpreter.start_interpreter,
+                                                 args=(cmds_queue, output_queue, GLOBALS))
+    EXECUTION_QUEUE[session_id].put(("syn", (None,)))
+    assert(OUTPUT_QUEUE[session_id].get() == "ack")
+    
+    root_path = os.path.dirname(os.path.abspath(__file__))
+    contents = file(os.path.join(root_path, "shell.html"), "r")
+    return contents.read()
 
 
-@bottle.route("/motors_names/<session_id:int>")
+@bottle.route("/<session_id:int>/motors_names")
 def return_motors_names(session_id):
     motors_list = execute_cmd(session_id, "motors_list", None)
     print motors_list
@@ -172,9 +173,7 @@ def return_motors_names(session_id):
 
 @bottle.route('/')
 def main():
-    root_path = os.path.dirname(os.path.abspath(__file__))
-    contents = file(os.path.join(root_path, "shell.html"), "r")
-    return contents.read()
+    bottle.redirect("/1")
 
 
 @bottle.route("/<url:path>")

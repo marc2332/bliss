@@ -58,7 +58,7 @@ function Shell(cmdline_div_id, shell_output_div_id) {
        connect to output stream, 
        to get output from server
     */
-    this.output_stream = new EventSource('output_stream/' + this.session_id);
+    this.output_stream = new EventSource(this.session_id+'/output_stream');
     this.output_stream.onmessage = $.proxy(function(e) {
         if (e.data) {
             var output = JSON.parse(e.data);
@@ -101,21 +101,13 @@ function Shell(cmdline_div_id, shell_output_div_id) {
 
 Shell.prototype = {
     get_session_id: function() {
-        var id;
-        $.ajax({
-            url: "session",
-            dataType: "json",
-            async: false,
-            success: $.proxy(function(data, status, jqxhr) {
-                id = data.session_id;
-            }, this)
-        });
-        return id;
+        var url = document.URL;
+        return url.substr(url.lastIndexOf('/') + 1)
     },
 
     completion_request: function(text, index, dont_select_completion) {
         $.ajax({
-            url: "completion_request/" + this.session_id,
+            url: this.session_id+"/completion_request",
             dataType: "json",
             data: {
                 "text": text,
@@ -280,7 +272,7 @@ Shell.prototype = {
                     // open parenthesis
                     var code = this.cmdline.val().substr(0, this.cmdline[0].selectionStart);
                     $.ajax({
-                        url: "args_request/" + this.session_id,
+                        url: this.session_id+"/args_request",
                         dataType: "json",
                         data: {
                             "code": code,
@@ -337,7 +329,7 @@ Shell.prototype = {
                 this.set_executing(false);
                 alert(textStatus);
             },
-            url: 'command/' + this.session_id,
+            url: this.session_id+'/command',
             type: 'GET',
             dataType: 'json',
             async: synchronous_call,
@@ -462,7 +454,7 @@ Shell.prototype = {
 
     send_abort: function() {
         $.ajax({
-            url: 'abort/' + this.session_id,
+            url: this.session_id+'/abort',
             type: 'GET',
             success: function() {}
         });

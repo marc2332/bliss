@@ -171,7 +171,6 @@ Shell.prototype = {
     },
 
     _cmdline_handle_keydown: function(e) {
-        if (!this.executing) {
             if (this.completion_mode) {
                 if ((e.which == 38) || (e.which == 40)) {
                     /*
@@ -226,11 +225,9 @@ Shell.prototype = {
                     this.current_command = this.cmdline.val();
                 }
             }
-        }
     },
 
     _cmdline_handle_keyup: function(e) {
-        if (!this.executing) {
             if (!this.completion_mode) {
                 if (e.which == 190) {
                     this.current_command = this.cmdline.val();
@@ -239,7 +236,6 @@ Shell.prototype = {
                     this.completion_request(this.current_command, this._completion_start, true);
                 }
             }
-        }
     },
 
     set_executing: function(executing) {
@@ -258,16 +254,16 @@ Shell.prototype = {
                 this.send_abort();
             }
         } else {
-            if (this.executing) {
-                e.preventDefault();
-            } else {
                 if (e.which == 13) {
-                    this.hint.text("");
-                    if (this.completion_mode) {
-                        e.preventDefault();
-                    } else {
-                        this.execute(this.cmdline.val());
-                    }
+                    if (this.executing) { e.preventDefault(); } 
+                    else {
+                      this.hint.text("");
+                      if (this.completion_mode) {
+                          e.preventDefault();
+                      } else {
+                          this.execute(this.cmdline.val());
+                      }
+                    } 
                 } else if (e.which == 40) {
                     // open parenthesis
                     var code = this.cmdline.val().substr(0, this.cmdline[0].selectionStart);
@@ -292,7 +288,6 @@ Shell.prototype = {
                         this.completion_request(this.current_command, this._completion_start, true);
                     }
                 }
-            }
         }
     },
 

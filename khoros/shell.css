@@ -31,7 +31,7 @@
           }
           .cmdline-executing
           {
-              background-color: #cccccc;
+              box-shadow: 0 0 3px #0000cc;
           }
           .hint
           {

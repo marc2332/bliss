@@ -10,6 +10,7 @@ import cStringIO
 import inspect
 import signal
 import thread
+import gevent
 from contextlib import contextmanager
 from bliss.common.event import dispatcher
 from bliss.common import data_manager
@@ -69,9 +70,16 @@ class InteractiveInterpreter(code.InteractiveInterpreter):
 
         self.error = cStringIO.StringIO()
         self.output = Stdout(output_queue)
+        self.executed_greenlet = None
 
     def write(self, data):
         self.error.write(data)
+
+    def kill(self, exception):
+        if self.executed_greenlet and not self.executed_greenlet.ready():
+            self.executed_greenlet.kill(exception)
+            return True
+        return False
 
     def runcode(self, c):
         try:
@@ -103,17 +111,22 @@ class InteractiveInterpreter(code.InteractiveInterpreter):
                     self.error = cStringIO.StringIO()
                     raise RuntimeError(error_string)
 
+    def execute(self, python_code_to_execute):
+        self.executed_greenlet = gevent.spawn(self.compile_and_run, python_code_to_execute)
+        return self.executed_greenlet.get()
+
 
 def start_interpreter(input_queue, output_queue, globals_dict=None, init_script=""):
     # undo thread module monkey-patching
     reload(thread)
 
-    # restore default SIGINT behaviour
-    def raise_kb_interrupt(sig, frame):
-        raise KeyboardInterrupt
-    signal.signal(signal.SIGINT, raise_kb_interrupt)
-
     i = InteractiveInterpreter(output_queue, globals_dict)
+    
+    # restore default SIGINT behaviour
+    def raise_kb_interrupt(interpreter=i):
+        if not interpreter.kill(KeyboardInterrupt): 
+            raise KeyboardInterrupt
+    gevent.signal(signal.SIGINT, raise_kb_interrupt)
     
     init_scans_callbacks(output_queue)
     output_queue.motor_callbacks = dict()
@@ -158,7 +171,7 @@ def start_interpreter(input_queue, output_queue, globals_dict=None, init_script=
         elif action == "execute":
             code = _[0]
             try:
-                i.compile_and_run(code)
+                i.execute(code)
             except EOFError:
                 output_queue.put(StopIteration(EOFError()))
             except RuntimeError, error_string:

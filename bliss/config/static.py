@@ -269,9 +269,14 @@ class Config(object):
 
             m = __import__('bliss.config.plugins.%s' % (module_name),fromlist=[None])
 
-            try:
-                cache_func = getattr(m,'create_object_from_cache')
-            except AttributeError: 
+            if hasattr(m, "create_object_from_cache"):
+                cache_object = self._name2cache.pop(name,None)
+                if cache_object is not None:
+                    cache_func = getattr(m,'create_object_from_cache')
+                    instance_object = cache_func(name, cache_object)
+                    self._name2instance[name] = instance_object
+                
+            if instance_object is None:
                 func = getattr(m,'create_objects_from_config_node')
                 name2itemsAndname2itemcache = func(config_node)
                 if len(name2itemsAndname2itemcache) == 2:
@@ -280,14 +285,8 @@ class Config(object):
                     self._name2cache.update(name2itemcache)
                 else:
                     name2items = name2itemsAndname2itemcache
-
                 self._name2instance.update(name2items)
                 instance_object = name2items.get(name)
-            else:
-                cache_object = self._name2cache.pop(name,None)
-                if cache_object is not None:
-                    instance_object = cache_func(name,cache_object)
-                    self._name2instance[name] = instance_object
 
         return instance_object
 

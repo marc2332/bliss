@@ -151,10 +151,9 @@ def d2scan(
     oldpos1 = motor1.position()
     oldpos2 = motor2.position()
 
-    scandat = a2scan(
-        motor1, oldpos1 + start1, oldpos1_stop1, motor2, oldpos2 + start2,
+    return a2scan(
+        motor1, oldpos1 + start1, oldpos1+stop1, motor2, oldpos2 + start2,
         oldpos2 + stop2, npoints, count_time, *counters, **kwargs)
-    return scandat
 
 
 def timescan(count_time, *counters, **kwargs):

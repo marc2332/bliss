@@ -43,9 +43,9 @@ class TestGroup(unittest.TestCase):
 
     def setUp(self):
         bliss.load_cfg_fromstring(config_xml)
-        self.grp = bliss.Group([bliss.get_axis("robz"),
+        self.grp = bliss.Group(bliss.get_axis("robz"),
                                   bliss.get_axis("robz2"),
-                                  bliss.get_axis("roby")])
+                                  bliss.get_axis("roby"))
 
     def test_group_creation(self):
         self.assertTrue(self.grp)

@@ -5,15 +5,14 @@ import PyTango.gevent
 
 
 class BpmCounter:
-   def __init__(self, parent, name, index=None):
+   def __init__(self, parent, name, index):
      self.parent = parent
      self.index = index
-     self._name = name
      self.name = parent.name + "." + name
 
    def read(self, exp_time=None):
-     if self.index is None:
-       return getattr(self.parent, self._name)()
+     if isinstance(self.index, str):
+       return getattr(self.parent, self.index)(exp_time)
      else:
        if not self.parent.acquisition_event.is_set():
          self.parent.acquisition_event.wait()
@@ -48,7 +47,7 @@ class tango_bpm(object):
 
    @property
    def diode_current(self):
-     return BpmCounter(self, "_read_diode_current")
+     return BpmCounter(self, "diode_current", "_read_diode_current")
 
    @property
    def acquisition_event(self):
@@ -68,7 +67,7 @@ class tango_bpm(object):
      finally:
        self.__acquisition_event.set()
 
-   def _read_diode_current(self):
+   def _read_diode_current(self, exp_time=None):
      return self.__control.DiodeCurrent
 
    def set_diode_range(self, range):

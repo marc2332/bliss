@@ -3,6 +3,8 @@ import yaml
 import weakref
 from .conductor.client import Client
 
+CONFIG = None
+
 def load_cfg(filename):
     cfg_string = Client.get_config_file(filename)
     return yaml.load(cfg_string)
@@ -11,10 +13,10 @@ def load_cfg_fromstring(cfg_string):
    return yaml.load(cfg_string)
 
 def get_config(base_path='',timeout=30.):
-    path2file = Client.get_config_db_files(base_path = base_path,
-                                           timeout = timeout)
-    config = Config(path2file)
-    return config
+    global CONFIG
+    if CONFIG is None:
+        CONFIG = Config(base_path, timeout)
+    return CONFIG
 
 class Config(object):
     NAME_KEY = 'name'
@@ -109,7 +111,7 @@ class Config(object):
                                                    self.get("plugin"),
                                                    value)
 
-    def __init__(self, path2file):
+    def __init__(self, base_path, timeout=30):
         self._name2node = weakref.WeakValueDictionary()
         self._usertag2node = {}
         self._root_node = Config.Node(self)
@@ -117,7 +119,19 @@ class Config(object):
         self._name2cache = {}
         self._node2file = weakref.WeakKeyDictionary()
         self._file2node = {}
-        
+        self._base_path = base_path
+       
+        self.reload(timeout=timeout)
+
+    def reload(self, base_path=None, timeout=30):
+        if base_path is None:
+            base_path = self._base_path
+
+        self._clear_instances()
+
+        path2file = Client.get_config_db_files(base_path = base_path,
+                                               timeout = timeout)
+
         for path, file_content in path2file:
             base_path, file_name = os.path.split(path)
             fs_node, fs_key = self._get_or_create_path_node(base_path)

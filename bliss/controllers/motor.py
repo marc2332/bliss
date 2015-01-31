@@ -210,7 +210,7 @@ class CalcController(Controller):
             self.reals.append(real_axis)
             event.connect(real_axis, 'position', self._calc_from_real)
             event.connect(real_axis, 'state', self._update_state_from_real)
-        self._reals_group = Group(self.reals)
+        self._reals_group = Group(*self.reals)
         self.pseudos = [
             axis for axis_name,
             axis in self.axes.iteritems() if axis not in self.reals]

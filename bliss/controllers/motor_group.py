@@ -11,19 +11,18 @@ def grouped(iterable, n):
     return itertools.izip(*[iter(iterable)] * n)
 
 
-def Group(*args, **kwargs):
-    if len(args) == 3:
-        return _Group(*args)
-    else:
-        if len(args) == 1:
-            g = _Group(id(args), {}, [])
-            axes = {}
-            for axis in args[0]:
-                if not isinstance(axis, Axis):
-                    raise ValueError("invalid axis %r" % axis)
-                axes[axis.name] = axis
-            g._axes.update(axes)
-            return g
+def createGroupFromConfig(name, config, axes):
+    return _Group(name, config, axes)
+
+def Group(*axes_list):
+    axes = dict()
+    g = _Group(id(axes), {}, [])
+    for axis in axes_list:
+        if not isinstance(axis, Axis):
+            raise ValueError("invalid axis %r" % axis)
+        axes[axis.name] = axis
+    g._axes.update(axes)
+    return g
 
 
 class _Group(object):

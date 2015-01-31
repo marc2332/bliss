@@ -6,7 +6,7 @@ import time
 import logging
 
 SCANFILE = "/dev/null"
-
+LAST_SCAN_DATA = None
 
 def set_scanfile(filename):
     global SCANFILE
@@ -15,6 +15,10 @@ def set_scanfile(filename):
 
 def scanfile():
     return SCANFILE
+
+
+def last_scan_data():
+    return LAST_SCAN_DATA
 
 
 def ascan(motor, start, stop, npoints, count_time, *counters, **kwargs):
@@ -70,18 +74,16 @@ def ascan(motor, start, stop, npoints, count_time, *counters, **kwargs):
 
     data = numpy.array(raw_data, numpy.float)
     data.shape = (len(raw_data), len(counters) + 1)
-    return data
 
+    global LAST_SCAN_DATA
+    LAST_SCAN_DATA = data
 
 def dscan(motor, start, stop, npoints, count_time, *counters, **kwargs):
 
     oldpos = motor.position()
-    scandat = ascan(
+    return ascan(
         motor, oldpos + start, oldpos + stop, npoints, count_time, *counters, **
         kwargs)
-
-    return scandat
-
 
 def a2scan(
         motor1, start1, stop1, motor2, start2, stop2, npoints, count_time, *
@@ -141,7 +143,9 @@ def a2scan(
 
     data = numpy.array(raw_data, numpy.float)
     data.shape = (len(raw_data), len(counters) + 2)
-    return data
+
+    global LAST_SCAN_DATA
+    LAST_SCAN_DATA = data
 
 
 def d2scan(
@@ -195,4 +199,6 @@ def timescan(count_time, *counters, **kwargs):
 
     data = numpy.array(raw_data, numpy.float)
     data.shape = (len(raw_data), len(counters) + 1)
-    return data
+    
+    global LAST_SCAN_DATA
+    LAST_SCAN_DATA = data

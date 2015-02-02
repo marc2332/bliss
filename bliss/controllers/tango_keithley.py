@@ -1,9 +1,10 @@
 from bliss.common.task_utils import cleanup, error_cleanup, task
+from bliss.common.measurement import CounterBase
 import PyTango.gevent
 
-class tango_keithley:
+class tango_keithley(CounterBase):
    def __init__(self, name, config):
-       self.name = name
+       CounterBase.__init__(self, name)
        tango_uri = config["uri"]
        self.__control = PyTango.gevent.DeviceProxy(tango_uri)
 

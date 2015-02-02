@@ -1,14 +1,15 @@
 from bliss.common.task_utils import cleanup, error_cleanup, task
+from bliss.common.measurement import CounterBase
 import time
 import gevent
 import PyTango.gevent
 
 
-class BpmCounter:
+class BpmCounter(CounterBase):
    def __init__(self, parent, name, index):
+     CounterBase.__init__(self, parent.name+'.'+name)
      self.parent = parent
      self.index = index
-     self.name = parent.name + "." + name
 
    def read(self, exp_time=None):
      if isinstance(self.index, str):
@@ -32,7 +33,7 @@ class tango_bpm(object):
        self.__acquisition_event = gevent.event.Event()
        self.__acquisition_event.set()
        self.__last_acq = None
-      
+
    @property
    def x(self):
      return BpmCounter(self, "x", 2)

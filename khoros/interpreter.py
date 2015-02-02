@@ -14,6 +14,7 @@ import gevent
 from contextlib import contextmanager
 from bliss.common.event import dispatcher
 from bliss.common import data_manager
+from bliss.config.static import MOTORS, COUNTERS
 jedi.settings.case_insensitive_completion = False
 
 class Stdout:
@@ -150,13 +151,11 @@ def start_interpreter(input_queue, output_queue, globals_dict=None, init_script=
             continue
         elif action == "motors_list":
             motors_list = []
-            for x in i.locals.itervalues():
-                try:
+            
+            for name, x in i.locals.iteritems():
+                if name in MOTORS:
                     pos = "%.3f" % x.position()
                     motors_list.append({ "name": x.name, "state": x.state(), "pos": pos })
-                except AttributeError:
-                    continue
-                else:
                     def state_updated(state, name=x.name):
                         output_queue.put({"name":name, "state": state})
                     def position_updated(pos, name=x.name):

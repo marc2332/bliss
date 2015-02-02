@@ -130,7 +130,7 @@ class Connection(object) :
                     rlist,_,_ = select.select([udp],[],[],timeout)
                     if not rlist:
                         if port is None:
-                            raise ConnectionExeption("Could not find the conductor")
+                            raise ConnectionException("Could not find the conductor")
                         else:
                             break
                     else:

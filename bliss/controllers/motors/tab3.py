@@ -9,7 +9,8 @@ ytilt: alias for calculated vertical tilt axis
 d1: distance between 2 back legs
 d2: distance between front leg and middle point between back legs
 d3: (depends on geometry) distance between front leg and reference height point
-geometry: number 0..7
+d4: (depends on geometry) distance between back1 leg and reference height point
+geometry: number 0..8
 
 
 Example configuration (from ID30):
@@ -75,33 +76,39 @@ class tab3(CalcController):
         self.geometry = self.config.get("geometry", int)
         self.d1 = self.config.get("d1", float)
         self.d2 = self.config.get("d2", float)
-        if self.geometry == 5:
+        try:
+            self.d4 =  self.config.get("d4", float)
+        except:
+            self.d4 = self.d1/2
+        if self.geometry in (5, 8):
             self.d3 = self.config.get("d3", float)
 
     def calc_from_real(self, positions_dict):
-        xtilt = math.atan(
-            (positions_dict["back2"] - positions_dict["back1"]) / self.d1)
+        front = positions_dict["front"]
+
         if self.geometry in (1, 2):
             back = positions_dict["back1"]
         else:
-            back = (positions_dict["back1"] + positions_dict["back2"]) / 2
+            back = positions_dict["back1"] + (self.d4/self.d1) * \
+                (positions_dict["back1"] - positions_dict["back2"])
+
+        xtilt = math.atan(
+            (positions_dict["back2"] - positions_dict["back1"]) / self.d1)
+
         ytilt = math.atan((back - positions_dict["front"]) / self.d2)
+
         if self.geometry in (2, 6):
             xtilt, ytilt = map(math.degrees, (xtilt, ytilt))
         else:
             xtilt = 1000 * xtilt
             ytilt = 1000 * ytilt
-        back = (positions_dict["back1"] + positions_dict["back2"]) / 2
-        front = positions_dict["front"]
+
         if self.geometry == 1:
             back = positions_dict["back2"]
-        elif self.geometry == 2:
-            back = positions_dict["back1"]
         elif self.geometry in (3, 6):
             front = back
-        else:
-            back = (positions_dict["back1"] + positions_dict["back2"]) / 2
-        if self.geometry == 5:
+
+        if self.geometry in (5, 8):
             z = front + ((back - front) * self.d3 / self.d2)
         else:
             z = (front + back) / 2
@@ -117,11 +124,12 @@ class tab3(CalcController):
         else:
             xtan = math.tan(positions_dict["xtilt"] / 1000)
             ytan = math.tan(positions_dict["ytilt"] / 1000)
-        d1 = self.d1 / 2
+
+        d1 = self.d1 - self.d4
         if self.geometry in (3, 6):
             d3 = self.d2
             dback = 0
-        elif self.geometry == 5:
+        elif self.geometry in (5, 8):
             d3 = self.d3
             dback = self.d2 - self.d3
         else:
@@ -142,7 +150,7 @@ class tab3(CalcController):
         if self.geometry == 2:
             back1 = positions_dict["z"] + (dback * ytan)
         else:
-            back1 = positions_dict["z"] - (d1 * xtan) + (sign * dback * ytan)
+            back1 = positions_dict["z"] - (self.d4 * xtan) + (sign * dback * ytan)
         back2 = positions_dict["z"] + (d1 * xtan) + (sign * dback * ytan)
 
         return {"back1": back1,

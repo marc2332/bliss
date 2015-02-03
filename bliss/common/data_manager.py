@@ -27,25 +27,24 @@ class ScanFile:
         self.file_obj = file(filename, "a+")
 
     def write_header(self, scan_actuators, counters_list):
+        motors_str = "  ".join([m.name for m in scan_actuators])
+        cnt_str = "  ".join([c.name for c in counters_list])
         self.file_obj.write(
-            "\n#S %d\n#D %s\n" %
-            (self.scan_n, datetime.datetime.now().strftime(
+            "\n#S %d ascan %s\n#D %s\n" %
+            (self.scan_n, motors_str, datetime.datetime.now().strftime(
                 "%a %b %d %H:%M:%S %Y")))
-        self.file_obj.write("#N %d\n" % len(counters_list))
-        motors = "  ".join([m.name for m in scan_actuators])
-        self.file_obj.write(
-            "#L %s  %s\n" %
-            (motors, "  ".join([c.name for c in counters_list])))
+        self.file_obj.write("#N %d\n" % (len(scan_actuators) +len(counters_list)))
+        self.file_obj.write("#L %s  %s\n" % (motors_str, cnt_str))
         self.file_obj.flush()
 
     def write_timeheader(self, counters_list):
+        cnt_str = "  ".join([c.name for c in counters_list])
         self.file_obj.write(
-            "\n#S %d\n#D %s\n" %
-            (self.scan_n, datetime.datetime.now().strftime(
+            "\n#S %d  timescan  %s\n#D %s\n" %
+            (self.scan_n, cnt_str, datetime.datetime.now().strftime(
                 "%a %b %d %H:%M:%S %Y")))
-        self.file_obj.write("#N %d\n" % len(counters_list))
-        self.file_obj.write("#L Time  %s\n" %
-                            ("  ".join([c.name for c in counters_list])))
+        self.file_obj.write("#N %d\n" % (len(counters_list)+1))
+        self.file_obj.write("#L Time  %s\n" % cnt_str)
 
     def write(self, data):
         self.file_obj.write(data)

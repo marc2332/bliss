@@ -54,8 +54,6 @@ def ascan(motor, start, stop, npoints, count_time, *counters, **kwargs):
                 ipoint) + "/" + "{0:3d}".format(npoints) + ")"
             countlabel = "(" + countformatstr.format(
                 ipoint) + "/" + countformatstr.format(npoints) + ")"
-            # print "  ", countlabel, "moving", motor.name, "to",
-            # '{0:+.6f}'.format(position), ":",
             motor.move(float(position))
 
             acquisitions = []

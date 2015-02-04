@@ -14,7 +14,7 @@ import gevent
 from contextlib import contextmanager
 from bliss.common.event import dispatcher
 from bliss.common import data_manager
-from bliss.config.static import MOTORS, COUNTERS
+from bliss.config import static as beacon_static
 jedi.settings.case_insensitive_completion = False
 
 class Stdout:
@@ -118,24 +118,36 @@ class InteractiveInterpreter(code.InteractiveInterpreter):
         return self.executed_greenlet.get()
 
 
-def start_interpreter(input_queue, output_queue, globals_list=None, init_script=""):
-    # undo thread module monkey-patching
-    reload(thread)
-
-    # load globals
+def load_globals(globals_list):
     globals_dict = dict()
     if globals_list is not None:
         for g in globals_list:
-          print g
           if isinstance(g, str):
-            module = __import__(g, globals(), locals(), [None])
-            globals_dict.update(dict([(x,y) for x,y in module.__dict__.iteritems() if inspect.isfunction(y)]))
+            try:
+                module = __import__(g, globals(), locals(), [None])
+            except ImportError:
+                sys.excepthook(*sys.exc_info())
+                continue
+            else:
+                globals_dict.update(dict([(x,y) for x,y in module.__dict__.iteritems() if inspect.isfunction(y)]))
           elif isinstance(g, dict):
             for module_name, flist in g.iteritems():
-              module = __import__(module_name, globals(), locals(), [None])
-              for fname in flist:
-                  globals_dict[fname]=getattr(module, fname)
+              try:
+                  module = __import__(module_name, globals(), locals(), [None])
+                  for fname in flist:
+                      globals_dict[fname]=getattr(module, fname)
+              except (ImportError, AttributeError):
+                  sys.excepthook(*sys.exc_info())
+                  continue
+    return globals_dict
 
+
+def start(input_queue, output_queue, globals_list=None, init_script=""):
+    # undo thread module monkey-patching
+    #reload(thread)
+
+    globals_dict = load_globals(globals_list)
+                  
     i = InteractiveInterpreter(output_queue, globals_dict)
     
     # restore default SIGINT behaviour
@@ -166,9 +178,9 @@ def start_interpreter(input_queue, output_queue, globals_list=None, init_script=
             continue
         elif action == "motors_list":
             motors_list = []
-            
+           
             for name, x in i.locals.iteritems():
-                if name in MOTORS:
+                if name in beacon_static.MOTORS:
                     pos = "%.3f" % x.position()
                     motors_list.append({ "name": x.name, "state": x.state(), "pos": pos })
                     def state_updated(state, name=x.name):
@@ -205,7 +217,6 @@ def start_interpreter(input_queue, output_queue, globals_list=None, init_script=
         elif action == "get_function_args":
             code = _[0]
             try:
-                print code
                 ast_node = ast.parse(code)
             except:
                 output_queue.put(StopIteration({"func": False}))
@@ -229,3 +240,4 @@ def start_interpreter(input_queue, output_queue, globals_list=None, init_script=
                             output_queue.put(StopIteration({"func": True, "func_name":expr, "args": args }))
                         else:
                             output_queue.put(StopIteration({"func": False}))
+

@@ -66,6 +66,7 @@ class InteractiveInterpreter(code.InteractiveInterpreter):
     def __init__(self, output_queue, globals_dict=None):
         if globals_dict is None:
             globals_dict = dict()
+ 
         code.InteractiveInterpreter.__init__(self, globals_dict)
 
         self.error = cStringIO.StringIO()
@@ -116,9 +117,23 @@ class InteractiveInterpreter(code.InteractiveInterpreter):
         return self.executed_greenlet.get()
 
 
-def start_interpreter(input_queue, output_queue, globals_dict=None, init_script=""):
+def start_interpreter(input_queue, output_queue, globals_list=None, init_script=""):
     # undo thread module monkey-patching
     reload(thread)
+
+    # load globals
+    globals_dict = dict()
+    if globals_list is not None:
+        for g in globals_list:
+          print g
+          if isinstance(g, str):
+            module = __import__(g, globals(), locals(), [None])
+            globals_dict.update(dict([(x,y) for x,y in module.__dict__.iteritems() if inspect.isfunction(y)]))
+          elif isinstance(g, dict):
+            for module_name, flist in g.iteritems():
+              module = __import__(module_name, globals(), locals(), [None])
+              for fname in flist:
+                  globals_dict[fname]=getattr(module, fname)
 
     i = InteractiveInterpreter(output_queue, globals_dict)
     

@@ -4,17 +4,6 @@ import optparse
 import logging
 import inspect
 from bliss.shell.web import shell
-from bliss.common import scans
-from bliss.common import task_utils
-
-# add scan and task functions to global namespace
-shell.GLOBALS.update({ "task": task_utils.task, 
-                       "cleanup": task_utils.cleanup, 
-                       "error_cleanup": task_utils.error_cleanup})
-for module in (scans, ):
-    shell.GLOBALS.update(dict(
-            [(x, y) for x, y in module.__dict__.iteritems()
-             if inspect.isfunction(y)]))
 
 usage = "usage: \%prog [-p<port>] [-s<setup file>]" 
 parser = optparse.OptionParser(usage)
@@ -28,6 +17,7 @@ options, args = parser.parse_args()
 logging.basicConfig()
 logging.getLogger().setLevel(logging.DEBUG)
 
+shell.set_globals("khoros.core.scans", {"khoros.core.task_utils":["task", "cleanup", "error_cleanup"]})
 shell.set_init_script("resetup(%r);" % options.setup_file)
 shell.serve_forever(options.port) 
 

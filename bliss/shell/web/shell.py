@@ -38,6 +38,11 @@ def my_socket_bind(self, *args, **kwargs):
 socket.socket.bind = my_socket_bind
 
 
+def set_globals(*globals_list): 
+    global GLOBALS
+    GLOBALS = globals_list
+
+
 @bottle.route("/<session_id:int>/output_stream")
 def send_output(session_id):
     bottle.response.content_type = 'text/event-stream'

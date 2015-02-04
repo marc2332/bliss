@@ -12,7 +12,7 @@ def load_cfg(filename):
 def load_cfg_fromstring(cfg_string):
    return yaml.load(cfg_string)
 
-def get_config(base_path='',timeout=30.):
+def get_config(base_path='',timeout=3.):
     global CONFIG
     if CONFIG is None:
         CONFIG = Config(base_path, timeout)
@@ -111,7 +111,7 @@ class Config(object):
                                                    self.get("plugin"),
                                                    value)
 
-    def __init__(self, base_path, timeout=30):
+    def __init__(self, base_path, timeout=3):
         self._name2node = weakref.WeakValueDictionary()
         self._usertag2node = {}
         self._root_node = Config.Node(self)
@@ -123,7 +123,7 @@ class Config(object):
        
         self.reload(timeout=timeout)
 
-    def reload(self, base_path=None, timeout=30):
+    def reload(self, base_path=None, timeout=3):
         if base_path is None:
             base_path = self._base_path
 

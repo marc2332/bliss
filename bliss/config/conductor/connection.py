@@ -92,7 +92,6 @@ class Connection(object) :
 
     def __init__(self,host=None,port=6379):
         self._socket = None
-        import pdb;pdb.set_trace()
         if host is None:
             host = os.environ.get("BEACON_HOST",None)
         self._host = host

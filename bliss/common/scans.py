@@ -2,6 +2,7 @@ from bliss.common.task_utils import *
 import numpy
 import gevent
 from bliss.common.data_manager import DataManager
+from bliss.controllers.motor_group import Group
 import time
 import logging
 
@@ -100,19 +101,16 @@ def a2scan(
     scan = dm.new_scan(filename, motors, npoints, counters, save_flag)
     start_pos1 = motor1.position()
     start_pos2 = motor2.position()
+    motor_group = Group(motor1, motor2)
 
     def scan_cleanup():
         logging.getLogger().info(
             "Returning motor %s to %f and motor %s to %f" %
             (motor1.name, start_pos1, motor2.name, start_pos2))
-        motor1.move(start_pos1,wait=False)
-        motor2.move(start_pos2)
-        motor1.wait_move()
+        motor_group.move(motor1, start_pos1, motor2, start_pos2)
         scan.end()
 
-    motor1.move(start1,wait=False)
-    motor2.move(start2)
-    motor1.wait_move()
+    motor_group.move(motor1, start1, motor2, start2)
     ipoint = 0
     countlabellen = len("{0:d}".format(npoints))
     countformatstr = "{0:" + "{0:d}".format(countlabellen) + "d}"
@@ -122,9 +120,7 @@ def a2scan(
     with error_cleanup(scan_cleanup):
         for ii in range(npoints):
             ipoint = ipoint + 1
-            motor1.move(s1[ii], wait=False)
-            motor2.move(s2[ii])
-            motor1.wait_move()
+            motor_group.move(motor1, s1[ii], motor2, s2[ii])
 
             acquisitions = []
             values = [m.position() for m in (motor1, motor2)]

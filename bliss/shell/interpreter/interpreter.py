@@ -144,7 +144,7 @@ def load_globals(globals_list):
 
 def start(input_queue, output_queue, globals_list=None, init_script=""):
     # undo thread module monkey-patching
-    #reload(thread)
+    reload(thread)
 
     globals_dict = load_globals(globals_list)
                   

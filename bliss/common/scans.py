@@ -163,6 +163,8 @@ def timescan(count_time, *counters, **kwargs):
 
     sleep_time = kwargs.get("sleep_time", 0)
     npoints = kwargs.get("npoints", 0)
+    if max(count_time, sleep_time) == 0:
+        raise RuntimeError("Either sleep or count time has to be specified.")
 
     logging.getLogger().info("Doing timescan")
     scan = dm.new_timescan(filename, counters)

@@ -1,10 +1,10 @@
-from .conductor.client import Client
+from .conductor import client
 import weakref
 import pickle
 import redis
 
 def get_cache():
-    return Client.get_cache(db=0)
+    return client.get_cache(db=0)
 
 def boolify(s,**keys):
     if s == 'True' or s == 'true':

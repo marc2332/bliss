@@ -1,12 +1,12 @@
 import os
 import yaml
 import weakref
-from .conductor.client import Client
+from .conductor import client
 
 CONFIG = None
 
 def load_cfg(filename):
-    cfg_string = Client.get_config_file(filename)
+    cfg_string = client.get_config_file(filename)
     return yaml.load(cfg_string)
 
 def load_cfg_fromstring(cfg_string):
@@ -129,7 +129,7 @@ class Config(object):
 
         self._clear_instances()
 
-        path2file = Client.get_config_db_files(base_path = base_path,
+        path2file = client.get_config_db_files(base_path = base_path,
                                                timeout = timeout)
 
         for path, file_content in path2file:

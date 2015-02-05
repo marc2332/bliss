@@ -4,6 +4,8 @@ import weakref
 from .conductor import client
 
 CONFIG = None
+MOTORS = set()
+COUNTERS = set()
 
 def load_cfg(filename):
     cfg_string = client.get_config_file(filename)
@@ -17,6 +19,12 @@ def get_config(base_path='',timeout=3.):
     if CONFIG is None:
         CONFIG = Config(base_path, timeout)
     return CONFIG
+
+def register_motor(name):
+    MOTORS.add(name)
+
+def register_counter(name):
+    COUNTERS.add(name)
 
 class Config(object):
     NAME_KEY = 'name'

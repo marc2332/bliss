@@ -90,10 +90,15 @@ class Connection(object) :
             cnt = self._cnt()
             cnt._message_queue.pop(self._message_key,None)
 
-    def __init__(self,host=None,port=6379):
+    def __init__(self,host=None,port=None):
         self._socket = None
         if host is None:
-            host = os.environ.get("BEACON_HOST",None)
+            beacon_host = os.environ.get("BEACON_HOST")
+            if beacon_host is not None and ':' in beacon_host:
+                host, port = beacon_host.split(":")
+                port = int(port)
+            else:
+                host = beacon_host
         self._host = host
         self._port = port
         self._pending_lock = {}
@@ -134,9 +139,13 @@ class Connection(object) :
                             break
                     else:
                         msg,address = udp.recvfrom(8192)
-                        host,port = msg.split('|')
+                        host,port = msg.split('|') 
                         port = int(port)
-                        if self._host is not None and host != self._host:
+			if self._host == 'localhost':
+			    localhost = socket.gethostname()
+			    if localhost == host:
+				break	
+                        elif self._host is not None and host != self._host:
                             host,port = None,None
                             timeout = 1.
                         else:

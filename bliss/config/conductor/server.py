@@ -282,6 +282,8 @@ def main():
                         help="redis connection port")
     parser.add_argument("--posix_queue",dest="posix_queue",type=int,default=1,
                         help="enable/disable posix_queue connection")
+    parser.add_argument("--port",dest="port",type=int,default=0,
+                        help="server port (default to 0: take a free port)")
     global _options
     _options = parser.parse_args()
     
@@ -303,18 +305,9 @@ def main():
     connectedFlag = False
     tcp = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
     tcp.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
-    for port_number in range(protocol.DEFAULT_TCP_START,protocol.DEFAULT_TCP_END):
-        try:
-            tcp.bind(("",port_number))
-            connectedFlag = True
-            break
-        except socket.error:
-            continue
-
-    if connectedFlag:
-        tcp.listen(512)        # limit to 512 clients
-    else:
-        raise RuntimeError("Can't start server")
+    tcp.bind(("",_options.port))
+    port = tcp.getsockname()[1]
+    tcp.listen(512)        # limit to 512 clients
 
     #start redis
     rp,wp = os.pipe()
@@ -323,28 +316,30 @@ def main():
                                      stdout=wp,stderr=subprocess.STDOUT,cwd=_options.db_path)
 
     try:
-        while True:
-            rlist,_,_ = select.select([udp,tcp,rp],[],[],-1)
-            for s in rlist:
-                if s == udp:
-                    buff,address = udp.recvfrom(8192)
-                    if buff.find('Hello') > -1:
-                        udp.sendto('%s|%d' % (socket.gethostname(),port_number),address)
+      while True:
+        rlist,_,_ = select.select([udp,tcp,rp],[],[],-1)
+            
+        for s in rlist:
+            if s == udp:
+                buff,address = udp.recvfrom(8192)
+                if buff.find('Hello') > -1:
+                    udp.sendto('%s|%d' % (socket.gethostname(),port),address)
 
-                if s == tcp:
-                    newSocket, addr = tcp.accept()
-                    newSocket.setsockopt(socket.IPPROTO_TCP,socket.TCP_NODELAY,1)
+            if s == tcp:
+                newSocket, addr = tcp.accept()
+                newSocket.setsockopt(socket.IPPROTO_TCP,socket.TCP_NODELAY,1)
 
-                    gevent.spawn(_client_rx,newSocket)
+                gevent.spawn(_client_rx,newSocket)
 
-                if s == rp:
-                    msg = os.read(rp,8192)
-                    print '[REDIS]: %s' % msg
-                    break
+            if s == rp:
+                msg = os.read(rp,8192)
+                print '[REDIS]: %s' % msg
+                break
     except KeyboardInterrupt:
-        pass
+       pass
     finally:
-        redis_process.terminate()
+      redis_process.terminate()
+
     
 if __name__ == "__main__" and __package__ is None:
     main()

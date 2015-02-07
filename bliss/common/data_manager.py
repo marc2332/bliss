@@ -1,9 +1,9 @@
 from bliss.common.event import *
 import datetime
 import os
+import numpy
 
 DM = None
-
 
 def DataManager():
     global DM
@@ -59,6 +59,8 @@ class Scan:
 
     def __init__(
             self, filename, scan_actuators, npoints, counters_list, save_flag):
+        self.n_cols = len(counters_list)+len(scan_actuators)
+        self.raw_data = []
         self.save_flag = save_flag
         if self.save_flag:
             self.scanfile = ScanFile(filename)
@@ -73,13 +75,21 @@ class Scan:
             npoints, [c.name for c in counters_list])
 
     def add(self, values_list):
+        self.raw_data.append(values_list)
+
         if self.save_flag:
             self.scanfile.write("%s\n" % (" ".join(map(str, values_list))))
         dispatcher.send("scan_data", DataManager(), id(self), values_list)
 
     def end(self):
+        data = numpy.array(self.raw_data, numpy.float)
+        data.shape = (len(self.raw_data), self.n_cols)
+        self.raw_data = []
+        DataManager()._last_scan_data = data
+
         if self.save_flag:
             self.scanfile.close()
+
         dispatcher.send("scan_end", DataManager(), id(self))
 
 
@@ -87,16 +97,20 @@ class Timescan(Scan):
 
     def __init__(self, filename, counters_list, save_flag):
         Scan.__init__(self, filename, 'time', None, counters_list, save_flag)
+        self.n_cols = len(counters_list)+1
 
 
-class _DataManager:
+class _DataManager(object):
 
     def __init__(self):
-        pass
+        self._last_scan_data = None
 
-    def new_scan(
-            self, filename, motor, npoints, counters_list, save_flag=True):
+    def new_scan(self, filename, motor, npoints, counters_list, save_flag=True):
         return Scan(filename, motor, npoints, counters_list, save_flag)
 
     def new_timescan(self, filename, counters_list, save_flag=True):
         return Timescan(filename, counters_list, save_flag)
+
+    def last_scan_data(self):
+        return self._last_scan_data
+        

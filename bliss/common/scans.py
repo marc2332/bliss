@@ -7,7 +7,6 @@ import time
 import logging
 
 SCANFILE = "/dev/null"
-LAST_SCAN_DATA = None
 
 def set_scanfile(filename):
     global SCANFILE
@@ -19,12 +18,11 @@ def scanfile():
 
 
 def last_scan_data():
-    return LAST_SCAN_DATA
+    return DataManager().last_scan_data()
 
 
 def ascan(motor, start, stop, npoints, count_time, *counters, **kwargs):
     save_flag = kwargs.get("save", True)
-    raw_data = []
 
     dm = DataManager()
 
@@ -41,14 +39,14 @@ def ascan(motor, start, stop, npoints, count_time, *counters, **kwargs):
     def scan_cleanup():
         print "Returning motor %s to %f" % (motor.name, start_pos)
         motor.move(start_pos)
-        scan.end()
 
     motor.move(start)
     ipoint = 0
     countlabellen = len("{0:d}".format(npoints))
     countformatstr = "{0:" + "{0:d}".format(countlabellen) + "d}"
 
-    with error_cleanup(scan_cleanup):
+    with cleanup(scan.end):
+      with error_cleanup(scan_cleanup):
         for position in numpy.linspace(start, stop, npoints):
             ipoint = ipoint + 1
             countlabel = "(" + "{0:3d}".format(
@@ -65,17 +63,9 @@ def ascan(motor, start, stop, npoints, count_time, *counters, **kwargs):
             gevent.joinall(acquisitions)
 
             values.extend([a.get() for a in acquisitions])
-            raw_data.append(values)
             # print values
             scan.add(values)
 
-    scan.end()
-
-    data = numpy.array(raw_data, numpy.float)
-    data.shape = (len(raw_data), len(counters) + 1)
-
-    global LAST_SCAN_DATA
-    LAST_SCAN_DATA = data
 
 def dscan(motor, start, stop, npoints, count_time, *counters, **kwargs):
 
@@ -88,7 +78,6 @@ def a2scan(
         motor1, start1, stop1, motor2, start2, stop2, npoints, count_time, *
         counters, **kwargs):
     save_flag = kwargs.get("save", True)
-    raw_data = []
 
     dm = DataManager()
     filename = kwargs.get("filename", SCANFILE)
@@ -108,7 +97,6 @@ def a2scan(
             "Returning motor %s to %f and motor %s to %f" %
             (motor1.name, start_pos1, motor2.name, start_pos2))
         motor_group.move(motor1, start_pos1, motor2, start_pos2)
-        scan.end()
 
     motor_group.move(motor1, start1, motor2, start2)
     ipoint = 0
@@ -117,7 +105,8 @@ def a2scan(
 
     s1 = numpy.linspace(start1, stop1, npoints)
     s2 = numpy.linspace(start2, stop2, npoints)
-    with error_cleanup(scan_cleanup):
+    with cleanup(scan.end):
+      with error_cleanup(scan_cleanup):
         for ii in range(npoints):
             ipoint = ipoint + 1
             motor_group.move(motor1, s1[ii], motor2, s2[ii])
@@ -129,18 +118,8 @@ def a2scan(
 
             gevent.joinall(acquisitions)
             values.extend([a.get() for a in acquisitions])
-            raw_data.append(values)
             # print values
             scan.add(values)
-
-    scan.end()
-
-    data = numpy.array(raw_data, numpy.float)
-    data.shape = (len(raw_data), len(counters) + 2)
-
-    global LAST_SCAN_DATA
-    LAST_SCAN_DATA = data
-
 
 def d2scan(
         motor1, start1, stop1, motor2, start2, stop2, npoints, count_time, *
@@ -156,7 +135,6 @@ def d2scan(
 
 def timescan(count_time, *counters, **kwargs):
     save_flag = kwargs.get("save", True)
-    raw_data = []
 
     dm = DataManager()
     filename = kwargs.get("filename", SCANFILE)
@@ -169,11 +147,8 @@ def timescan(count_time, *counters, **kwargs):
     logging.getLogger().info("Doing timescan")
     scan = dm.new_timescan(filename, counters)
 
-    def scan_cleanup():
-        scan.end()
-
     t0 = time.time()
-    with error_cleanup(scan_cleanup):
+    with cleanup(scan.end):
         while True:
             acquisitions = []
             tt = time.time() - t0
@@ -184,17 +159,8 @@ def timescan(count_time, *counters, **kwargs):
             gevent.joinall(acquisitions)
 
             values.extend([a.get() for a in acquisitions])
-            raw_data.append(values)
             scan.add(values)
             npoints -= 1
             if npoints == 0:
                 break
             time.sleep(sleep_time)
-
-    scan.end()
-
-    data = numpy.array(raw_data, numpy.float)
-    data.shape = (len(raw_data), len(counters) + 1)
-    
-    global LAST_SCAN_DATA
-    LAST_SCAN_DATA = data

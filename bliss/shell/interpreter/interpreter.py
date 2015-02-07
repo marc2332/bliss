@@ -229,14 +229,24 @@ def start(input_queue, output_queue, globals_list=None, init_script=""):
                         output_queue.put(StopIteration({"func": False}))
                     else:
                         if callable(x):
-                            if inspect.isfunction(x):
-                                args = inspect.formatargspec(*inspect.getargspec(x))
-                            elif inspect.ismethod(x):
-                                argspec = inspect.getargspec(x)
-                                args = inspect.formatargspec(argspec.args[1:],*argspec[1:])
+                            try:
+                                x.__call__
+                            except AttributeError:
+                                if inspect.isfunction(x):
+                                    args = inspect.formatargspec(*inspect.getargspec(x))
+                                elif inspect.ismethod(x):
+                                    argspec = inspect.getargspec(x)
+                                    args = inspect.formatargspec(argspec.args[1:],*argspec[1:])
+                                else:
+                                    output_queue.put(StopIteration({"func": False}))
+                                    continue
                             else:
                                 output_queue.put(StopIteration({"func": False}))
                                 continue
+                                # like a method
+                                #argspec = inspect.getargspec(x.__call__)
+                                #args = inspect.formatargspec(argspec.args[1:],*argspec[1:])
+                            #print {"func": True, "func_name":expr, "args": args }
                             output_queue.put(StopIteration({"func": True, "func_name":expr, "args": args }))
                         else:
                             output_queue.put(StopIteration({"func": False}))

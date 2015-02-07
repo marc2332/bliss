@@ -10,5 +10,6 @@ class transfocator:
        pinhole = int(config["pinhole"])
 
        self.__control = tf_control.TfControl(wago_ip, lenses, pinhole, 3) # 3s. exec timeout
+       self.__control.connect()
        wrapper.wrap_methods(self.__control, self)
 

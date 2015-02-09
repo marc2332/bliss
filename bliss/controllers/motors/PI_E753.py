@@ -1,7 +1,7 @@
 from bliss.controllers.motor import Controller
 from bliss.common import log as elog
 from bliss.controllers.motor import add_axis_method
-from bliss.common.axis import READY, MOVING
+from bliss.common.axis import AxisState
 
 import pi_gcs
 from bliss.comm import tcp
@@ -68,9 +68,9 @@ class PI_E753(Controller):
     def state(self, axis):
         if self._get_closed_loop_status():
             if self._get_on_target_status():
-                return READY
+                return AxisState("READY")
             else:
-                return MOVING
+                return AxisState("MOVING")
         else:
             raise RuntimeError("closed loop disabled")
 

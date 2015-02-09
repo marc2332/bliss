@@ -4,7 +4,7 @@ Bliss controller for ethernet Galil DC controller.
 from bliss.controllers.motor import Controller
 from bliss.common import log as elog
 from bliss.controllers.motor import add_axis_method
-from bliss.common.axis import READY, MOVING
+from bliss.common.axis import AxisState
 from bliss.comm import tcp
 from gevent import lock
 
@@ -142,16 +142,16 @@ class GalilDMC213(Controller):
     def state(self, axis):
         sta = int(self._galil_query("TS%s" % axis.channel))
         if sta & (1<<7):
-          return MOVING
-        """
+          return AxisState("MOVING")
+        '''
         elif sta & (1<<6):
           # on limit
           return
         elif sta & (1<<5):
           # motor off
-          return READY
-        """
-        return READY  
+          return AxisState("READY")
+        '''
+        return AxisState("READY")
 
     def prepare_move(self, motion):
         self._galil_query("PA%s=%d" % (motion.axis.channel, motion.target_pos))

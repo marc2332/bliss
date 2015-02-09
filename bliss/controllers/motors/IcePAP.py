@@ -8,7 +8,7 @@ Bliss generic library
 """
 from bliss.controllers.motor import Controller; from bliss.common import log
 from bliss.controllers.motor import add_axis_method
-from bliss.common.axis import READY, MOVING, UNKNOWN
+from bliss.common.axis import AxisState
 
 """
 Extra modules
@@ -166,12 +166,12 @@ class IcePAP(Controller):
 
         # Convert status formats
         if(libicepap.status_ismoving(status)):
-            return MOVING
+            return AxisState("MOVING")
         if(libicepap.status_isready(status)):
-            return READY
+            return AxisState("READY")
 
         # Abnormal end
-        return UNKNOWN
+        return AxisState("FAULT")
 
     def prepare_move(self, motion):
         """

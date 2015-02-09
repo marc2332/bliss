@@ -1,7 +1,7 @@
 import gevent
 import itertools
 from bliss.common.task_utils import *
-from bliss.common.axis import Axis, AxisRef, READY, MOVING, FAULT, UNKNOWN
+from .axis import Axis, AxisRef, AxisState
 from bliss.common import event
 
 
@@ -13,6 +13,7 @@ def grouped(iterable, n):
 
 def createGroupFromConfig(name, config, axes):
     return _Group(name, config, axes)
+
 
 def Group(*axes_list):
     axes = dict()
@@ -62,14 +63,12 @@ class _Group(object):
 
     def state(self):
         states = [axis.state() for axis in self._axes.itervalues()]
-        if any([state == MOVING for state in states]):
-            return MOVING
-        if all([state == READY for state in states]):
-            return READY
-        if any([state == FAULT for state in states]):
-            return FAULT
-        else:
-            return UNKNOWN
+
+        if any([state.MOVING for state in states]):
+            return AxisState("MOVING")
+
+        if all([state.READY for state in states]):
+            return AxisState("READY")
 
     def stop(self):
         try:
@@ -123,7 +122,7 @@ class _Group(object):
 
     def move(self, *args, **kwargs):
         initial_state = self.state()
-        if initial_state != READY:
+        if not initial_state.READY:
             raise RuntimeError("all motors are not ready")
 
         self._reset_motions_dict()

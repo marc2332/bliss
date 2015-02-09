@@ -1,6 +1,6 @@
 from bliss.controllers.motor import Controller
 from bliss.common import log as elog
-from bliss.common.axis import READY, MOVING, OFF
+from bliss.common.axis import AxisState
 from bliss.controllers.motor import add_axis_method
 import math
 import time
@@ -38,6 +38,9 @@ class Mockup(Controller):
         Controller.__init__(self, name, config, axes)
 
         self._axis_moves = {}
+        self._hw_status = AxisState("READY")
+
+        self._hw_status.create_state("PARKED", "mot au parking")
 
         # Access to the config.
         try:
@@ -121,7 +124,7 @@ class Mockup(Controller):
             t = time.time()
             v = self.read_velocity(axis)
             d = math.copysign(1, self._axis_moves[axis]["delta"])
-            dt = t - self._axis_moves[axis]["t0"]
+            dt = t - self._axis_moves[axis]["t0"] # t0=time at start_one.
             pos = self._axis_moves[axis]["start_pos"] + d * dt * v
         else:
             pos = self._axis_moves[axis]["end_pos"]
@@ -166,21 +169,26 @@ class Mockup(Controller):
     ON / OFF
     """
     def set_on(self, axis):
-        self._axis_moves[axis]["on"] = True
+        self._hw_status = "READY"
 
     def set_off(self, axis):
-        self._axis_moves[axis]["on"] = False
+        self._hw_status = "OFF"
 
     """
+    STATE
     """
     def state(self, axis):
-        if not self._axis_moves[axis].get("on", True):
-            return OFF
+        if self._hw_status == "PARKED":
+            return AxisState("PARKED")
+
+        if self._hw_status == "OFF":
+            return AxisState("OFF")
+
         if self._axis_moves[axis]["end_t"] > time.time():
-            return MOVING
+            return AxisState("MOVING")
         else:
             self._axis_moves[axis]["end_t"] = 0
-            return READY
+            return AxisState("READY")
 
     """
     Must send a command to the controller to abort the motion of given axis.
@@ -204,8 +212,8 @@ class Mockup(Controller):
 #        raise NotImplementedError
 
     def home_state(self, axis):
-        return READY if(time.time() - self._axis_moves[axis]
-                        ["home_search_start_time"]) > 2 else MOVING
+        return AxisState("READY") if(time.time() - self._axis_moves[axis]
+                        ["home_search_start_time"]) > 2 else AxisState("MOVING")
 
     def limit_search(self, axis, limit):
         self._axis_moves[axis]["end_pos"] = 1E6 if limit > 0 else -1E6
@@ -232,6 +240,8 @@ class Mockup(Controller):
     # VOID VOID
     def custom_park(self, axis):
         print "parking"
+        self._hw_status.clear()
+        self._hw_status.set("PARKED")
 
     # VOID LONG
     def custom_get_forty_two(self, axis):

@@ -1,8 +1,7 @@
 from bliss.controllers.motor import Controller
 from bliss.common import log as elog
 from bliss.controllers.motor import add_axis_method
-from bliss.common.axis import READY, MOVING
-
+from bliss.common.axis import AxisState
 from bliss.comm import tcp
 
 
@@ -145,9 +144,9 @@ class FlexDC(Controller):
         _ansMS = int(self._flexdc_query("%sMS" % axis.channel))
 
         if(_ansMS & 0x01):
-            _ret = MOVING
+            _ret = AxisState("MOVING")
         else:
-            _ret = READY
+            _ret = AxisState("READY")
 
         elog.debug("state : %s" % _ret)
         return _ret
@@ -178,9 +177,9 @@ class FlexDC(Controller):
         _home_query_cmd = "%sQF1" % axis.channel
         _ans = self._flexdc_query(_home_query_cmd)
         if _ans == "1":
-            return MOVING
+            return AxisState("MOVING")
         else:
-            return READY
+            return AxisState("READY")
 
     """
     FlexDC specific.

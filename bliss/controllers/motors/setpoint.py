@@ -1,6 +1,6 @@
 from bliss.controllers.motor import Controller
 from bliss.common import log as elog
-from bliss.common.axis import READY, MOVING
+from bliss.common.axis import AxisState
 from bliss.controllers.motor import add_axis_method
 import math
 import time
@@ -189,10 +189,10 @@ class setpoint(Controller):
 
     def state(self, axis):
         if self._axis_moves[axis]["end_t"] > time.time():
-            return MOVING
+            return AxisState("MOVING")
         else:
             self._axis_moves[axis]["end_t"] = 0
-            return READY
+            return AxisState("READY")
 
     """
     Must send a command to the controller to abort the motion of given axis.
@@ -217,4 +217,7 @@ class setpoint(Controller):
 #        raise NotImplementedError
 
     def home_state(self, axis):
-        return READY if (time.time() - self._axis_moves[axis]["home_search_start_time"]) > 2 else MOVING
+        if (time.time() - self._axis_moves[axis]["home_search_start_time"]) > 2:
+            return AxisState("READY")
+        else:
+            return AxisState("MOVING")

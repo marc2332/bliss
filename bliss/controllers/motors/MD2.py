@@ -5,7 +5,6 @@ protocol for communication.
 from bliss.controllers.motor import Controller
 from bliss.common import log as elog
 from bliss.controllers.motor import add_axis_method
-from bliss.common.axis import READY, MOVING
 
 from bliss.comm.Exporter import ExporterChannel
 from bliss.comm.Exporter import ExporterCommand
@@ -22,7 +21,6 @@ class MD2(Controller):
         self.addr_dict["port"] = int(port)
         self.pos_attr_suffix = "Position"
         self.state_cmd = "getMotorState"
-        
 
     def initialize(self):
         """
@@ -32,7 +30,6 @@ class MD2(Controller):
 
     def initialize_axis(self, axis):
         axis.root_name = axis.config.get("root_name")
-
 
     def read_position(self, axis, measured=False):
         """

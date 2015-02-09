@@ -1,5 +1,5 @@
 from bliss.controllers.motor import Controller; from bliss.common import log
-from bliss.common.axis import READY, MOVING, OFF
+from bliss.common.axis import AxisState
 from bliss.controllers.motor import add_axis_method
 import math
 import time
@@ -182,12 +182,12 @@ class PJ31(Controller):
 
     def state(self, axis):
         if not self._axis_moves[axis].get("on", True):
-            return OFF
+            return AxisState("OFF")
         if self._axis_moves[axis]["end_t"] > time.time():
-            return MOVING
+            return AxisState("MOVING")
         else:
             self._axis_moves[axis]["end_t"] = 0
-            return READY
+            return AxisState("READY")
 
     """
     Must send a command to the controller to abort the motion of given axis.
@@ -212,8 +212,8 @@ class PJ31(Controller):
 #        raise NotImplementedError
 
     def home_state(self, axis):
-        return READY if(time.time() - self._axis_moves[axis]
-                        ["home_search_start_time"]) > 2 else MOVING
+        return AxisState("READY") if(time.time() - self._axis_moves[axis]
+                        ["home_search_start_time"]) > 2 else AxisState("MOVING")
 
     """
     Custom axis method returning the current name of the axis

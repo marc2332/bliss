@@ -1,6 +1,6 @@
 from bliss.controllers.motor import Controller
 from bliss.common import log as elog
-from bliss.common.axis import READY, MOVING, OFF
+from bliss.common.axis import AxisState
 from bliss.controllers.motor import add_axis_method
 
 from PyTango.gevent import DeviceProxy
@@ -87,7 +87,7 @@ class Undulator(Controller):
 
     def start_one(self, motion, t0=None):
         self._set_attribute(motion.axis,"attr_pos_name", float(motion.target_pos / motion.axis.steps_per_unit))
-     
+
     def read_position(self, axis, measured=False):
         """
         Returns the position (measured or desired) taken from controller
@@ -104,24 +104,24 @@ class Undulator(Controller):
         in motor units.
         """
         return self._get_attribute(axis, "attr_vel_name")
-       
+
 
     def set_velocity(self, axis, new_velocity):
         """
         <new_velocity> is in motor units
         """
         self._set_attribute(axis, "attr_vel_name", new_velocity)
-        
+
 
     """
     ACCELERATION
     """
     def read_acceleration(self, axis):
         return self._get_attribute(axis, "attr_acc_name")
-        
+
     def set_acceleration(self, axis, new_acceleration):
         self._set_attribute(axis, "attr_acc_name", new_acceleration)
-      
+
     """
     STATE
     """
@@ -129,11 +129,11 @@ class Undulator(Controller):
         _state = self.device.state()
 
         if _state == DevState.ON:
-            return READY
+            return AxisState("READY")
         elif _state == DevState.MOVING:
-            return MOVING
+            return AxisState("MOVING")
         else:
-            return READY
+            return AxisState("READY")
 
     """
     Must send a command to the controller to abort the motion of given axis.

@@ -1,7 +1,7 @@
 from bliss.controllers.motor import Controller
 from bliss.common import log as elog
 from bliss.controllers.motor import add_axis_method
-from bliss.common.axis import READY, MOVING
+from bliss.common.axis import AxisState
 
 from PyTango.gevent import DeviceProxy
 from PyTango import DevState
@@ -72,11 +72,11 @@ class TangoEMot(Controller):
     def state(self, axis):
         _state = self.axis_proxy.state()
         if _state == DevState.ON:
-            return READY
+            return AxisState("READY")
         elif _state == DevState.MOVING:
-            return MOVING
+            return AxisState("MOVING")
         else:
-            return READY
+            return AxisState("READY")
 
     def prepare_move(self, motion):
         pass

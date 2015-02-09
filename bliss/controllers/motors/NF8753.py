@@ -6,7 +6,7 @@ import time
 
 from bliss.controllers.motor import Controller; from bliss.common import log
 from bliss.controllers.motor import add_axis_method
-from bliss.common.axis import READY, MOVING
+from bliss.common.axis import AxisState
 from bliss.comm import tcp
 from bliss.common import event
 import gevent.lock
@@ -94,9 +94,9 @@ class NF8753(Controller):
             if line.startswith(axis.driver):
                 status_byte = int(line.split("=")[-1], 16)
                 if status_byte & 0x0000001:
-                    return MOVING
+                    return AxisState("MOVING")
                 else:
-                    return READY
+                    return AxisState("READY")
 
     def is_busy(self):
         return self.__busy

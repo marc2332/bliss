@@ -4,7 +4,7 @@ import serial
 from bliss.controllers.motor import Controller
 from bliss.common import log as elog
 from bliss.controllers.motor import add_axis_method
-from bliss.common.axis import READY, MOVING
+from bliss.common.axis import AxisState
 
 
 """
@@ -66,9 +66,9 @@ class XXX(Controller):
     def state(self, axis):
         _ans = "whatever"
         if _ans == "moving":
-            return MOVING
+            return AxisState("MOVING")
         else:
-            return READY
+            return AxisState("READY")
 
     def prepare_move(self, motion):
         pass

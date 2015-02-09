@@ -7,8 +7,9 @@ from bliss.common import event
 import time
 import gevent
 
-READY, MOVING, FAULT, UNKNOWN, OFF = (
-    "READY", "MOVING", "FAULT", "UNKNOWN", "OFF")
+import re
+import types
+
 
 class Motion(object):
 
@@ -30,7 +31,7 @@ class Axis(object):
         self.__controller = controller
         from bliss.config.motors import StaticConfig
         self.__config = StaticConfig(config)
-        self.__settings = AxisSettings(self) 
+        self.__settings = AxisSettings(self)
         self.__settings.set("offset", 0)
         self.__move_done = gevent.event.Event()
         self.__move_done.set()
@@ -127,7 +128,7 @@ class Axis(object):
             if new_dial is not None:
                 raise RuntimeError("Can't set axis position \
                                     while it is moving")
- 
+
         if new_dial is not None:
             user_pos = self.position()
 
@@ -144,7 +145,7 @@ class Axis(object):
             # do not change user pos (update offset)
             self._position(user_pos)
 
-            return curr_pos 
+            return curr_pos
         else:
             return self.user2dial(self.position())
 
@@ -183,10 +184,10 @@ class Axis(object):
                 # this controller does not have a 'position'
                 # (e.g like some piezo controllers)
                 curr_pos = 0
-            self.__settings.set("offset", new_pos - self.sign*curr_pos)
+            self.__settings.set("offset", new_pos - self.sign * curr_pos)
             # update limits
             ll, hl = self.limits()
-            self.limits(ll+self.offset if ll is not None else ll, hl+self.offset if hl is not None else hl)
+            self.limits(ll + self.offset if ll is not None else ll, hl + self.offset if hl is not None else hl)
 
             return self.position()
         else:
@@ -199,7 +200,7 @@ class Axis(object):
 
     def state(self):
         if self.is_moving:
-            return MOVING
+            return AxisState("MOVING")
         # really read from hw
         return self.__controller.state(self)
 
@@ -236,7 +237,7 @@ class Axis(object):
 
         if new_acc is not None:
             # W => Converts into motor units to change acceleration of axis.
-            self.__controller.set_acceleration(self, new_acc*abs(self.steps_per_unit))
+            self.__controller.set_acceleration(self, new_acc * abs(self.steps_per_unit))
 
         # R/W : read acceleration from controller
         _acceleration = self.__controller.read_acceleration(self) / abs(self.steps_per_unit)
@@ -252,7 +253,7 @@ class Axis(object):
         <new_acctime> given in seconds.
         """
         if from_config:
-            return self.velocity(from_config=True)/self.acceleration(from_config=True)
+            return self.velocity(from_config=True) / self.acceleration(from_config=True)
 
         if new_acctime is not None:
             # W => Converts acctime into acceleration.
@@ -280,7 +281,7 @@ class Axis(object):
         with cleanup(update_settings):
             while True:
                 state = self.__controller.state(self)
-                if state != MOVING:
+                if state != "MOVING":
                     break
                 update_settings()
                 time.sleep(0.02)
@@ -300,17 +301,17 @@ class Axis(object):
             self.__move_task.kill(KeyboardInterrupt)
 
     def dial2user(self, position):
-        return (self.sign*position) + self.offset
+        return (self.sign * position) + self.offset
 
     def user2dial(self, position):
-        return (position - self.offset)/self.sign
+        return (position - self.offset) / self.sign
 
     def prepare_move(self, user_target_pos, relative=False):
         if relative:
-             user_initial_pos = self.__set_position if self.__set_position is not None else self.position()
-             user_target_pos += user_initial_pos
+            user_initial_pos = self.__set_position if self.__set_position is not None else self.position()
+            user_target_pos += user_initial_pos
         else:
-             user_initial_pos = self.position()
+            user_initial_pos = self.position()
         dial_initial_pos = self.user2dial(user_initial_pos)
         dial_target_pos = self.user2dial(user_target_pos)
         self.__set_position = user_target_pos
@@ -341,13 +342,13 @@ class Axis(object):
         # check software limits
         user_low_limit, user_high_limit = self.limits()
         if not None in (user_low_limit, user_high_limit):
-          high_limit = self.user2dial(user_high_limit) * self.steps_per_unit
-          low_limit = self.user2dial(user_low_limit) * self.steps_per_unit 
-          if high_limit < low_limit:
-              high_limit, low_limit = low_limit, high_limit
+            high_limit = self.user2dial(user_high_limit) * self.steps_per_unit
+            low_limit = self.user2dial(user_low_limit) * self.steps_per_unit
+            if high_limit < low_limit:
+                high_limit, low_limit = low_limit, high_limit
         else:
-          user_low_limit = None
-          user_high_limit = None
+            user_low_limit = None
+            user_high_limit = None
         backlash_str = " (with %f backlash)" % user_backlash if backlash else ""
         if user_low_limit is not None:
             if target_pos < low_limit:
@@ -369,13 +370,13 @@ class Axis(object):
 
     def _set_moving_state(self):
         self.__move_done.clear()
-        self.settings.set("state", MOVING, write=False)
+        self.settings.set("state", "MOVING", write=False)
 
     def _set_move_done(self, move_task):
         self.__move_done.set()
         event.send(self, "move_done", True)
         self.settings.set("state", self.state(), write=False)
- 
+
         if move_task is not None and not move_task._being_waited:
             try:
                 move_task.get()
@@ -384,7 +385,7 @@ class Axis(object):
 
     def _check_ready(self):
         initial_state = self.state()
-        if initial_state != READY:
+        if initial_state != "READY":
             raise RuntimeError("axis %s state is \
                                 %r" % (self.name, initial_state))
 
@@ -400,7 +401,7 @@ class Axis(object):
 
         try:
             event.send(self, "move_done", False)
-            self.__move_task = self._do_move(motion, wait=False) 
+            self.__move_task = self._do_move(motion, wait=False)
         except:
             self._set_move_done(None)
             raise
@@ -443,7 +444,7 @@ class Axis(object):
         if home_pos is not None:
             try:
                 self.__controller.home_set_hardware_position(
-                        self, home_pos)
+                    self, home_pos)
             except NotImplementedError:
                 _set_pos = True
 
@@ -473,7 +474,7 @@ class Axis(object):
             self.__controller.home_search(self)
             while True:
                 state = self.__controller.home_state(self)
-                if state != MOVING:
+                if state != "MOVING":
                     break
                 time.sleep(0.02)
 
@@ -489,8 +490,8 @@ class Axis(object):
         self._check_ready()
         _set_pos = False
         if lim_pos is not None:
-          lim_pos = float(lim_pos)
-          _set_pos = True
+            lim_pos = float(lim_pos)
+            _set_pos = True
 
         self._set_moving_state()
 
@@ -500,7 +501,7 @@ class Axis(object):
         if _set_pos:
             def set_pos(g, lim_pos=lim_pos):
                 self.dial(lim_pos)
-                self.position(lim_pos) 
+                self.position(lim_pos)
             lim_search_task.link(set_pos)
 
         if wait:
@@ -514,7 +515,7 @@ class Axis(object):
             self.__controller.limit_search(self, limit)
             while True:
                 state = self.__controller.state(self)
-                if state != MOVING:
+                if state != "MOVING":
                     break
                 time.sleep(0.02)
 
@@ -533,3 +534,177 @@ class AxisRef(object):
     @property
     def config(self):
         return self.__config
+
+
+def add_property(inst, name, method):
+    '''
+    Adds a property to a class instance.
+    Property must be added to the CLASS.
+    '''
+    cls = type(inst)
+
+    if not hasattr(cls, '__perinstance'):
+        cls = type(cls.__name__, (cls,), {})
+        cls.__perinstance = True
+        inst.__class__ = cls
+
+    setattr(cls, name, property(method))
+
+
+class AxisState(object):
+
+    STATE_VALIDATOR = re.compile("^[A-Z]+$")
+
+    """
+    Standard states:
+      MOVING : 'Axis is moving'
+      READY  : 'Axis is ready to be moved (not moving ?)'
+      FAULT  : 'Error from controller'
+      LIMPOS : 'Hardware high limit active'
+      LIMNEG : 'Hardware low limit active'
+      HOME   : 'Home signal active'
+      OFF    : 'Axis is disabled (must be enabled to move (not ready ?))'
+    """
+
+    @property
+    def READY(self):
+        return "READY" in self._current_states
+
+    @property
+    def MOVING(self):
+        return "MOVING" in self._current_states
+
+    @property
+    def FAULT(self):
+        return "FAULT" in self._current_states
+
+    @property
+    def LIMPOS(self):
+        return "LIMPOS" in self._current_states
+
+    @property
+    def LIMNEG(self):
+        return "LIMNEG" in self._current_states
+
+    @property
+    def OFF(self):
+        return "OFF" in self._current_states
+
+    @property
+    def HOME(self):
+        return "HOME" in self._current_states
+
+    def __init__(self, *states):
+        """
+        <*states> : can be one or many string or tuple of strings (state, description)
+        """
+
+        # set of active states.
+        self._current_states = set()
+
+        # set of defined/created states.
+        self._axis_states = set(["READY", "MOVING", "FAULT", "LIMPOS", "LIMNEG", "HOME", "OFF"])
+
+        # dict of descriptions of states.
+        self._state_desc = {"READY" : "Axis is READY",
+                            "MOVING": "Axis is MOVING",
+                            "FAULT" : "Error from controller",
+                            "LIMPOS": "Hardware high limit active",
+                            "LIMNEG": "Hardware low limit active",
+                            "HOME"  : "Home signal active",
+                            "OFF"   : "Axis is disabled (must be enabled to move (not ready ?))"
+                            }
+
+        for state in states:
+            if isinstance(state, tuple):
+                self.create_state(*state)
+                self.set(state[0])
+            else:
+                self.create_state(state)
+                self.set(state)
+
+    def states_list(self):
+        """
+        Returns a list of available/created states for this axis.
+        """
+        return list(self._axis_states)
+
+    def _check_state_name(self, state_name):
+        if not isinstance(state_name, str) or not AxisState.STATE_VALIDATOR.match(state_name):
+            print "state_name=", state_name
+            raise ValueError(
+                "Invalid state : a state must be a string containing only block letters")
+
+    def create_state(self, state_name, state_desc=None):
+        # Raises ValueError if state_name is invalid.
+        self._check_state_name(state_name)
+
+        if state_name in self._axis_states:
+            # state already exists...
+            # (READY and MOVING are already in _axis_states)
+            pass
+        else:
+            self._axis_states.add(state_name)
+            # new description is put in dict.
+            if state_desc is None:
+                self._state_desc[state_name] = "Axis is %s" % state_name
+            else:
+                self._state_desc[state_name] = state_desc
+
+            # Makes state accessible via a class property.
+            add_property(self, state_name, lambda _: state_name in self._current_states)
+
+    """
+    Flags ON a given state.
+    ??? what about other states : clear other states ???  -> MG : no
+    ??? how to flag OFF ???-> no : on en cree un nouveau.
+    """
+    def set(self, state_name):
+        if state_name in self._axis_states:
+            self._current_states.add(state_name)
+
+            # Mutual exclusion of READY and MOVING
+            if state_name == "READY":
+                if self.MOVING:
+                    self._current_states.remove("MOVING")
+            if state_name == "MOVING":
+                if self.READY:
+                    self._current_states.remove("READY")
+
+            # Other constraints ?
+
+        else:
+            raise ValueError("state %s does not exist" % state_name)
+
+    def clear(self):
+        # Flags all states off.
+        self._current_states = set()
+
+    def current_states(self):
+        """
+        Returns a string of current states.
+        """
+        states = [
+            "%s%s" % (state, " (%s)" % self._state_desc[state] if self._state_desc.get(state) else "")
+            for state in map(str, list(self._current_states))]
+
+        if len(states) == 0:
+            return "UNKNOWN"
+
+        return " | ".join(states)
+
+    """
+    Cannonical python class methods.
+    """
+    def __str__(self):
+        return self.current_states()
+
+    def __eq__(self, other):
+        if isinstance(other, str):
+            state = self.current_states()
+            return other in state
+        return NotImplemented
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+

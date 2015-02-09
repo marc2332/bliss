@@ -4,7 +4,7 @@ import serial
 from bliss.controllers.motor import Controller
 from bliss.common import log as elog
 from bliss.controllers.motor import add_axis_method
-from bliss.common.axis import READY, MOVING, FAULT
+from bliss.common.axis import AxisState
 
 
 """
@@ -135,17 +135,17 @@ class VSCANNER(Controller):
     def state(self, axis):
         _ans = self.send(axis, "?STATE")
         if _ans == "READY":
-            return READY
+            return AxisState("READY")
         elif _ans == "LWAITING":
-            return MOVING
+            return AxisState("MOVING")
         elif _ans == "LRUNNING":
-            return MOVING
+            return AxisState("MOVING")
         elif _ans == "PWAITING":
-            return MOVING
+            return AxisState("MOVING")
         elif _ans == "PRUNNING":
-            return MOVING
+            return AxisState("MOVING")
         else:
-            return FAULT
+            return AxisState("FAULT")
 
     def prepare_move(self, motion):
         _velocity = float(motion.axis.config.get("velocity"))

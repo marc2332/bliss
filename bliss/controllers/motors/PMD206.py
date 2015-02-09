@@ -3,7 +3,7 @@ import time
 from bliss.controllers.motor import Controller
 from bliss.common import log as elog
 from bliss.controllers.motor import add_axis_method
-from bliss.common.axis import READY, MOVING, OFF
+from bliss.common.axis import AxisState
 
 from bliss.comm import tcp
 
@@ -256,20 +256,20 @@ class PMD206(Controller):
             (axis.channel, self._axes_status[axis.channel]))
 
         if self.s_is_parked(_s):
-            return OFF
+            return AxisState("OFF")
 
         # running means position is corrected, related to closed loop
         # we just check if target position was reached
         if self.s_is_closed_loop(_s):
             if self.s_is_position_reached(_s):
-                return READY
+                return AxisState("READY")
             else:
-                return MOVING
+                return AxisState("MOVING")
         else:
             if self.s_is_moving(_s):
-                return MOVING
+                return AxisState("MOVING")
             else:
-                return READY
+                return AxisState("READY")
 
     def s_is_moving(self, status):
         return status & 0x1

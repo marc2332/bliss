@@ -58,12 +58,12 @@ class Controller(object):
         for tag, axis_list in self._tagged.iteritems():
             for i, axis in enumerate(axis_list):
                 if not isinstance(axis, AxisRef):
-                    continue  
+                    continue
                 referenced_axis = get_axis(axis.name)
-                self.axes[axis.name]=referenced_axis
-                axis_list[i]=referenced_axis
-	        referenced_axis.controller._tagged.setdefault(tag,[]).append(referenced_axis)
-	"""
+                self.axes[axis.name] = referenced_axis
+                axis_list[i] = referenced_axis
+                referenced_axis.controller._tagged.setdefault(tag, []).append(referenced_axis)
+        """
             referenced_axis = get_axis(axis.name)
             self.axes[axis.name] = referenced_axis
             self.__initialized_axis[referenced_axis] = True
@@ -77,7 +77,7 @@ class Controller(object):
                     referenced_axis.controller._tagged.setdefault(
                         tag,
                         []).append(referenced_axis)
-	"""
+        """
 
     def initialize(self):
         pass
@@ -127,7 +127,7 @@ class Controller(object):
     def is_busy(self):
         return False
 
-    def prepare_move(self, motion): 
+    def prepare_move(self, motion):
         return
 
     def start_one(self, motion):
@@ -232,7 +232,7 @@ class CalcController(Controller):
         for tagged_axis_name, position in new_positions.iteritems():
             axis = self._tagged[tagged_axis_name][0]
             if axis in self.pseudos:
-                axis.settings.set("dial_position", position) 
+                axis.settings.set("dial_position", position)
                 axis.settings.set("position", axis.dial2user(position))
             else:
                 raise RuntimeError("cannot assign position to real motor")
@@ -278,7 +278,7 @@ class CalcController(Controller):
         self._reals_group.stop()
 
     def read_position(self, axis, measured=False):
-        return axis.settings.get("dial_position") 
+        return axis.settings.get("dial_position")
 
     def state(self, axis, new_state=None):
         return self._reals_group.state()

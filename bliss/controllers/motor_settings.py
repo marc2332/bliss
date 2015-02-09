@@ -7,8 +7,8 @@ import gevent
 import atexit
 
 SETTINGS_WRITER_THREAD = None
-SETTINGS_WRITER_QUEUE = None 
-SETTINGS_WRITER_WATCHER = None 
+SETTINGS_WRITER_QUEUE = None
+SETTINGS_WRITER_WATCHER = None
 
 
 def wait_settings_writing():
@@ -34,7 +34,8 @@ def write_settings():
 class ControllerAxisSettings:
 
     def __init__(self):
-        self.setting_names = ["velocity", "position", "dial_position", "state", "offset", "acceleration", "low_limit", "high_limit"]
+        self.setting_names = ["velocity", "position", "dial_position", "state",
+                              "offset", "acceleration", "low_limit", "high_limit"]
         self.convert_funcs = {
             "velocity": float,
             "position": float,
@@ -43,7 +44,7 @@ class ControllerAxisSettings:
             "offset": float,
             "low_limit": float,
             "high_limit": float,
-            "acceleration": float }
+            "acceleration": float}
         self.axis_settings_dict = dict()
 
         from bliss.config import motors as config
@@ -51,13 +52,13 @@ class ControllerAxisSettings:
         global SETTINGS_WRITER_QUEUE
         global SETTINGS_WRITER_WATCHER
         if SETTINGS_WRITER_THREAD is None:
-            if config.BACKEND == 'xml': 
+            if config.BACKEND == 'xml':
                 SETTINGS_WRITER_QUEUE = _threading.Queue()
                 SETTINGS_WRITER_WATCHER = _threading.Event()
                 SETTINGS_WRITER_WATCHER.set()
                 atexit.register(wait_settings_writing)
                 if SETTINGS_WRITER_THREAD is None:
-                   SETTINGS_WRITER_THREAD = _threading.start_new_thread(
+                    SETTINGS_WRITER_THREAD = _threading.start_new_thread(
                         write_settings, ())
             else:
                 SETTINGS_WRITER_QUEUE = gevent.queue.Queue()

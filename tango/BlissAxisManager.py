@@ -199,6 +199,8 @@ class BlissAxis(PyTango.Device_4Impl):
             Initialises 'set values' of attributes.
             """
 
+            print "Initialises 'set values' of attributes."
+
             # Position
             attr = self.get_device_attr().get_attr_by_name("Position")
             attr.set_write_value(self.axis.position())
@@ -273,7 +275,8 @@ class BlissAxis(PyTango.Device_4Impl):
         attr.set_value(self.axis.position())
 
         # Updates "Write value" of Position attribute.
-        attr.set_write_value(self.axis.position())
+        # why ???  write value must not change
+        # attr.set_write_value(self.axis.position())
 
         # ???
         attr.set_value_date_quality(self.axis.position(), time.time(), quality)

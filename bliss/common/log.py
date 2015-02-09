@@ -40,6 +40,7 @@ class bcolors:
 
 time0 = time.time()
 
+
 def _caller(up=1):
     """Return (file, line, func, text) of caller's caller"""
     try:
@@ -130,8 +131,7 @@ def debug(debug_msg):
     short_filename = "%s" % "/".join(path)
     short_filename = bcolors.BLUE + short_filename + bcolors.ENDC
     debug_msg = bcolors.PINK + debug_msg + bcolors.ENDC
-    msg = "%.3f %s() (%s, l.%d): %s" % (time.time()-time0 , func_name, short_filename, lineno, debug_msg)
+    msg = "%.3f %s() (%s, l.%d): %s" % (time.time()-time0, func_name, short_filename, lineno, debug_msg)
 
     ret =  log(DEBUG, msg)
     return ret
-

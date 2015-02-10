@@ -164,11 +164,25 @@ class IcePAP(Controller):
         # Use the default group
         status = self.libgroup.status(axis.libaxis)
 
-        # Convert status formats
+        _state = AxisState("")
+
+        """
+        Convert status from icepaplib to bliss format.
+        """
         if(libicepap.status_ismoving(status)):
-            return AxisState("MOVING")
+            _state.set("MOVING")
+            return _state
+
         if(libicepap.status_isready(status)):
-            return AxisState("READY")
+            _state.set("READY")
+
+            if(libicepap.status_lowlim(status)):
+                _state.set("LIMNEG")
+
+            if(libicepap.status_highlim(status)):
+                _state.set("LIMPOS")
+
+            return _state
 
         # Abnormal end
         return AxisState("FAULT")

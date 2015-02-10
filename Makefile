@@ -24,10 +24,13 @@ install:
 	mkdir -p ${CONFIG_PATH}; chmod 777 ${CONFIG_PATH}
 
         # tango server and startup-script
+        # oups : faire un test...
 	cp --backup=simple --suffix=.bup tango/bliss_server ${BLISSADM_PATH}/server/src/bliss_server
 
+        # oups : faire un test...
 	cp --backup=simple --suffix=.bup tango/BlissAxisManager.py ${BLISSADM_PATH}/server/src/BlissAxisManager.py
 
+        # oups : faire un test...
 	cp --backup=simple --suffix=.bup tango/TgGevent.py ${BLISSADM_PATH}/server/src/TgGevent.py
 
         # Spec macros

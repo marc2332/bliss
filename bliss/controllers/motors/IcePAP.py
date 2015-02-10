@@ -164,7 +164,7 @@ class IcePAP(Controller):
         # Use the default group
         status = self.libgroup.status(axis.libaxis)
 
-        _state = AxisState("")
+        _state = AxisState()
 
         """
         Convert status from icepaplib to bliss format.

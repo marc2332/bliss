@@ -126,6 +126,24 @@ def init(input_queue, output_queue):
 
     return i
 
+def convert_state_from_emotion(state):
+    if state is None:
+        return "UNKNOWN"
+    if state.MOVING:  
+        return "MOVING"
+    elif state.HOME:
+        return "HOME"
+    elif state.LIMPOS:
+        return "ONLIMIT"
+    elif state.LIMNEG:
+        return "ONLIMIT"
+    elif state.FAULT:
+        return "FAULT"
+    elif state.READY:
+        return "READY"
+    else:
+        return "UNKNOWN"
+    
 def start(input_queue, output_queue, i):
     # restore default SIGINT behaviour
     def raise_kb_interrupt(interpreter=i):
@@ -159,9 +177,10 @@ def start(input_queue, output_queue, i):
               for name, x in i.locals.iteritems():
                 if name in beacon_static.MOTORS:
                     pos = "%.3f" % x.position()
-                    motors_list.append({ "name": x.name, "state": x.state(), "pos": pos })
+                    state = convert_state_from_emotion(x.state())
+                    motors_list.append({ "name": x.name, "state": state, "pos": pos })
                     def state_updated(state, name=x.name):
-                        output_queue.put({"name":name, "state": state})
+                        output_queue.put({"name":name, "state": convert_state_from_emotion(state)})
                     def position_updated(pos, name=x.name):
                         pos = "%.3f" % pos
                         output_queue.put({"name":name, "position":pos})

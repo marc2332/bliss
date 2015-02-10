@@ -28,6 +28,26 @@
             font-family: inherit;
             font-size: inherit;
           }
+	  .control-panel-item-home
+          {
+            float: left;
+            display: inline;
+            margin: 5px;
+            background-color: #01a9db;
+            border-radius: inherit;
+            font-family: inherit;
+            font-size: inherit;
+          }
+	  .control-panel-item-onlimit
+          {
+            float: left;
+            display: inline;
+            margin: 5px;
+            background-color: #d358f7;
+            border-radius: inherit;
+            font-family: inherit;
+            font-size: inherit;
+          }
           .control-panel-item
           {
             float: left;

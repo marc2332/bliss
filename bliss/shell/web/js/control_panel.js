@@ -55,13 +55,17 @@ ControlPanel.prototype = {
             dom_item.text(name + ": " + label);
         }
         if (state != undefined) {
-            dom_item.removeClass("control-panel-item-ready control-panel-item-moving control-panel-item-fault");
+            dom_item.removeClass("control-panel-item-ready control-panel-item-moving control-panel-item-fault control-panel-item-home control-panel-item-onlimit");
             if (state == "READY") {
                 dom_item.addClass("control-panel-item-ready");
             } else if (state == "MOVING") {
                 dom_item.addClass("control-panel-item-moving");
             } else if (state == "FAULT") {
                 dom_item.addClass("control-panel-item-fault");
+            } else if (state == "ONLIMIT") {
+                dom_item.addClass("control-panel-item-onlimit");
+            } else if (state == "HOME") {
+                dom_item.addClass("control-panel-item-home");
             }
         }
     },

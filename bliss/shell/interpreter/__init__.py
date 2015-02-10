@@ -1,4 +1,16 @@
-def start_interpreter(input_queue, output_queue, globals_list=None, init_script=""):
+from types import ModuleType
+import sys
+
+def start_interpreter(input_queue, output_queue):
     interpreter = __import__("interpreter", globals(), locals(), [])
-    return interpreter.start(input_queue, output_queue, globals_list, init_script)
+
+    i = interpreter.init(input_queue, output_queue)
+  
+    globals_module = ModuleType("globals")
+    sys.modules["khoros.interpreter"].globals = globals_module
+    sys.modules["khoros.interpreter.globals"] = globals_module 
+
+    i.locals = globals_module.__dict__
+
+    return interpreter.start(input_queue, output_queue, i)
 

@@ -17,7 +17,6 @@ import gipc
 import signal
 
 #LOG = {}
-GLOBALS = {}
 EXECUTION_QUEUE = dict()
 OUTPUT_QUEUE = dict()
 CONTROL_PANEL_QUEUE = dict()
@@ -36,11 +35,6 @@ def my_socket_bind(self, *args, **kwargs):
     self.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     return socket.socket._bind(self, *args, **kwargs)
 socket.socket.bind = my_socket_bind
-
-
-def set_globals(*globals_list): 
-    global GLOBALS
-    GLOBALS = globals_list
 
 
 @bottle.route("/<session_id:int>/output_stream")
@@ -160,7 +154,7 @@ def open_session(session_id):
     OUTPUT_STREAM_READY[session_id] = gevent.event.Event()
     RESULT[session_id]=gevent.event.AsyncResult()
     INTERPRETER[session_id] = gipc.start_process(interpreter.start_interpreter,
-                                                 args=(cmds_queue, output_queue, GLOBALS))
+                                                 args=(cmds_queue, output_queue))
     EXECUTION_QUEUE[session_id].put(("syn", (None,)))
     assert(OUTPUT_QUEUE[session_id].get() == "ack")
     

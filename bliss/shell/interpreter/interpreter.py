@@ -64,11 +64,8 @@ def init_scans_callbacks(output_queue):
 
 class InteractiveInterpreter(code.InteractiveInterpreter):
 
-    def __init__(self, output_queue, globals_dict=None):
-        if globals_dict is None:
-            globals_dict = dict()
- 
-        code.InteractiveInterpreter.__init__(self, globals_dict)
+    def __init__(self, output_queue):
+        code.InteractiveInterpreter.__init__(self) #, globals_dict)
 
         self.error = cStringIO.StringIO()
         self.output = Stdout(output_queue)
@@ -118,44 +115,21 @@ class InteractiveInterpreter(code.InteractiveInterpreter):
         return self.executed_greenlet.get()
 
 
-def load_globals(globals_list):
-    globals_dict = dict()
-    if globals_list is not None:
-        for g in globals_list:
-          if isinstance(g, str):
-            try:
-                module = __import__(g, globals(), locals(), [None])
-            except ImportError:
-                sys.excepthook(*sys.exc_info())
-                continue
-            else:
-                globals_dict.update(dict([(x,y) for x,y in module.__dict__.iteritems() if inspect.isfunction(y)]))
-          elif isinstance(g, dict):
-            for module_name, flist in g.iteritems():
-              try:
-                  module = __import__(module_name, globals(), locals(), [None])
-                  for fname in flist:
-                      globals_dict[fname]=getattr(module, fname)
-              except (ImportError, AttributeError):
-                  sys.excepthook(*sys.exc_info())
-                  continue
-    return globals_dict
-
-
-def start(input_queue, output_queue, globals_list=None, init_script=""):
+def init(input_queue, output_queue):
     # undo thread module monkey-patching
     reload(thread)
 
-    globals_dict = load_globals(globals_list)
-                  
-    i = InteractiveInterpreter(output_queue, globals_dict)
-    
+    i = InteractiveInterpreter(output_queue)
+
+    return i
+
+def start(input_queue, output_queue, i):
     # restore default SIGINT behaviour
     def raise_kb_interrupt(interpreter=i):
-        if not interpreter.kill(KeyboardInterrupt): 
+        if not interpreter.kill(KeyboardInterrupt):
             raise KeyboardInterrupt
     gevent.signal(signal.SIGINT, raise_kb_interrupt)
-    
+
     init_scans_callbacks(output_queue)
     output_queue.motor_callbacks = dict()
 

@@ -18,23 +18,31 @@ class TestStates(unittest.TestCase):
         pass
 
     def test_states(self):
+        # empty state
+        s = AxisState()
+        self.assertEquals(s, "UNKNOWN")
 
-        s = AxisState("MOVING")
+        # moving
+        s.set("MOVING")
         self.assertEquals(s, "MOVING")
 
-        s.create_state("PARKED", "c'est ma place !!")
-        s.set("PARKED")
-        self.assertTrue(s.PARKED)
-        self.assertEquals(s, "PARKED")
-
+        # moving => not ready
         self.assertFalse(s.READY)
+
+        # now ready but no more moving
         s.set("READY")
         self.assertTrue(s.READY)
         self.assertFalse(s.MOVING)
 
-        self.assertEquals(s, "READY")
+        # custom state
+        s.create_state("PARKED", "c'est ma place !!")
+        s.set("PARKED")
+        self.assertTrue(s.PARKED)
+        # still ready
+        self.assertTrue(s.READY)
         self.assertEquals(s, "PARKED")
 
+        # Prints string of states.
         print s.current_states()
 
         # bad name for a state

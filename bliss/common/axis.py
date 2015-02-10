@@ -631,7 +631,7 @@ class AxisState(object):
 
     def _check_state_name(self, state_name):
         if not isinstance(state_name, str) or not AxisState.STATE_VALIDATOR.match(state_name):
-            print "state_name=", state_name
+            print "Bad state name : >>>>", state_name , "<<<<"
             raise ValueError(
                 "Invalid state : a state must be a string containing only block letters")
 

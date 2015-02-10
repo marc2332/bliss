@@ -227,13 +227,13 @@ class BlissAxis(PyTango.Device_4Impl):
 
             if _state.READY:
                 self.set_state(PyTango.DevState.ON)
-                self.set_status("ready")
             elif _state.MOVING:
                 self.set_state(PyTango.DevState.MOVING)
-                self.set_status("moving")
             else:
                 self.set_state(PyTango.DevState.FAULT)
-                self.set_status("BlissAxisManager axis not READY nor MOVING...")
+
+            self.set_status(_state.current_states())
+
         except:
             self.set_state(PyTango.DevState.FAULT)
             self.set_status(traceback.format_exc())
@@ -954,7 +954,8 @@ def main():
                     U.create_device("BlissAxis_%s" % axis_name, device_name)
 
                 except PyTango.DevFailed:
-                    print traceback.format_exc()
+                    # print traceback.format_exc()
+                    elog.debug("Device %s already defined in Tango database" % device_name)
                     pass
 
                 # If axis name is not already a tango alias,

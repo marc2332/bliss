@@ -182,6 +182,9 @@ class IcePAP(Controller):
             if(libicepap.status_highlim(status)):
                 _state.set("LIMPOS")
 
+            if(libicepap.status_home(status)):
+                _state.set("HOME")
+
             return _state
 
         # Abnormal end

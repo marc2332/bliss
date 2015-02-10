@@ -14,7 +14,10 @@ import gevent
 from contextlib import contextmanager
 from bliss.common.event import dispatcher
 from bliss.common import data_manager
-from bliss.config import static as beacon_static
+try:
+    from bliss.config import static as beacon_static
+except:
+    beacon_static = None
 jedi.settings.case_insensitive_completion = False
 
 class Stdout:
@@ -152,8 +155,8 @@ def start(input_queue, output_queue, i):
             continue
         elif action == "motors_list":
             motors_list = []
-           
-            for name, x in i.locals.iteritems():
+            if beacon_static:
+              for name, x in i.locals.iteritems():
                 if name in beacon_static.MOTORS:
                     pos = "%.3f" % x.position()
                     motors_list.append({ "name": x.name, "state": x.state(), "pos": pos })

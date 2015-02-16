@@ -30,6 +30,8 @@ def write_settings():
     finally:
         SETTINGS_WRITER_WATCHER.set()
 
+def NoConversion(x):
+    return x
 
 class ControllerAxisSettings:
 

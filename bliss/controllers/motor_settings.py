@@ -40,7 +40,7 @@ class ControllerAxisSettings:
             "velocity": float,
             "position": float,
             "dial_position": float,
-            "state": str,
+            "state": None,
             "offset": float,
             "low_limit": float,
             "high_limit": float,
@@ -92,8 +92,12 @@ class ControllerAxisSettings:
 
     def _set_setting(self, axis, setting_name, value):
         settings = self._settings(axis)
-        convert_func = self.convert_funcs.get(setting_name, str)
-        setting_value = convert_func(value)
+        try:
+            convert_func = self.convert_funcs[setting_name]
+        except KeyError:
+            setting_value = value
+        else:
+            setting_value = convert_func(value)
         settings[setting_name] = setting_value
         return setting_value
 

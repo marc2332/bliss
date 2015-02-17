@@ -2,18 +2,23 @@
           {
             float: left;
             display: inline;
-            margin: 5px;
-            background-color: #bcf5a9;
+            background-color: #d1ff50;
+	    border: 3px #d1ff50;
+	    border-left: 5px #d1ff50;
+	    border-right: 5px #d1ff50;
             border-radius: inherit;
             font-family: inherit;
             font-size: inherit;
+
           }
           .control-panel-item-moving
           {
             float: left;
             display: inline;
-            margin: 5px;
-            background-color: #f2f5a9;
+            background-color: #f7d872;
+	    border: 3px #f7d872;
+	    border-left: 5px #f7d872;
+	    border-right: 5px #f7d872;
             border-radius: inherit;
             font-family: inherit;
             font-size: inherit;
@@ -22,8 +27,10 @@
           {
             float: left;
             display: inline;
-            margin: 5px;
             background-color: #fa5858;
+	    border: 3px solid #fa5858;
+	    border-left: 5px #fa5858;
+	    border-right: 5px #fa5858;
             border-radius: inherit;
             font-family: inherit;
             font-size: inherit;
@@ -32,8 +39,10 @@
           {
             float: left;
             display: inline;
-            margin: 5px;
-            background-color: #01a9db;
+            background-color: #88a0ff;
+	    border: 3px solid #88a0ff;
+	    border-left: 5px #88a0ff;
+	    border-right: 5px #88a0ff;
             border-radius: inherit;
             font-family: inherit;
             font-size: inherit;
@@ -42,8 +51,10 @@
           {
             float: left;
             display: inline;
-            margin: 5px;
-            background-color: #d358f7;
+            background-color: #b088ff;
+	    border: 3px #b088ff;
+	    border-left: 5px #b088ff;
+	    border-right: 5px #b088ff;
             border-radius: inherit;
             font-family: inherit;
             font-size: inherit;
@@ -52,9 +63,10 @@
           {
             float: left;
             display: inline;
-            margin: 5px;
+            margin: 3px;
+	    border-style: solid;
             font-family: monospace;
-            border-radius: 15px;
+            border-radius: 5px;
             font-size: 100%;
           }
           .control-panel-header
@@ -64,7 +76,10 @@
             display: block;
             font-family: monospace;
             background-color: #cccccc;
-            font-size: 100%;
-            font-variant: small-caps;
+            font-size: 140%;
+            font-variant: all-small-caps;
+	    font-weight: bold;
+	    text-align: center;
+	    margin: 3px;
           }
 

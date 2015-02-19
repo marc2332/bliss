@@ -295,12 +295,12 @@ class Config(object):
                 cache_object = self._name2cache.pop(name,None)
                 if cache_object is not None:
                     cache_func = getattr(m,'create_object_from_cache')
-                    instance_object = cache_func(name, cache_object)
+                    instance_object = cache_func(self, name, cache_object)
                     self._name2instance[name] = instance_object
                 
             if instance_object is None:
                 func = getattr(m,'create_objects_from_config_node')
-                name2itemsAndname2itemcache = func(config_node)
+                name2itemsAndname2itemcache = func(self, config_node)
                 if len(name2itemsAndname2itemcache) == 2:
                     name2items = name2itemsAndname2itemcache[0]
                     name2itemcache = name2itemsAndname2itemcache[1]

@@ -32,7 +32,7 @@ def create_objects_from_config_node(config, node):
             if axis_name != name:
                 axes_names.append(axis_name)
         axes.append((axis_name, axis_class, axis_config))
-        static.register_motor(axis_name)
+        #static.register_motor(axis_name)
 
     controller = controller_class(controller_name, controller_config, axes)
     controller._update_refs()

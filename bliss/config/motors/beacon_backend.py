@@ -1,8 +1,8 @@
-#from bliss.config import static
+from bliss.config import static
 from bliss.config import settings
 from . import get_controller_class, get_axis_class, add_controller, set_backend, Axis, AxisRef, CONTROLLER_BY_AXIS
 
-def create_objects_from_config_node(node):
+def create_objects_from_config_node(config, node):
     set_backend("beacon")
 
     name = node.get('name')
@@ -32,6 +32,7 @@ def create_objects_from_config_node(node):
             if axis_name != name:
                 axes_names.append(axis_name)
         axes.append((axis_name, axis_class, axis_config))
+        static.register_motor(axis_name)
 
     controller = controller_class(controller_name, controller_config, axes)
     controller._update_refs()
@@ -40,7 +41,7 @@ def create_objects_from_config_node(node):
     cache_dict = dict(zip(axes_names, [controller]*len(axes_names)))
     return {name: axis}, cache_dict    
 
-def create_object_from_cache(name, controller):
+def create_object_from_cache(config, name, controller):
     return controller.get_axis(name)
 
 def load_cfg_fromstring(config_yaml):

@@ -8,12 +8,14 @@ import code
 import jedi
 import cStringIO
 import inspect
+import pprint
 import signal
 import thread
 import gevent
 from contextlib import contextmanager
 from bliss.common.event import dispatcher
 from bliss.common import data_manager
+from bliss.common import measurement
 try:
     from bliss.config import static as beacon_static
 except:
@@ -143,7 +145,56 @@ def convert_state_from_emotion(state):
         return "READY"
     else:
         return "UNKNOWN"
-    
+
+
+def get_objects_by_type(objects_dict):
+    motors = list()
+    counters = list()
+    inout = list()
+    openclose = list()
+
+    if beacon_static:
+        cfg = beacon_static.get_config()
+    else:
+        cfg = None
+
+    for name, obj in objects_dict.iteritems():
+        # is it a motor?
+        if cfg:
+            cfg_node = cfg.get_config(name)
+            if cfg_node.plugin == 'emotion':
+                motors.append(name)
+                continue
+        if all((inspect.ismethod(getattr(obj, 'move',None)),
+                inspect.ismethod(getattr(obj, 'state',None)),
+                inspect.ismethod(getattr(obj, 'position', None)))):
+                motors.append(name)
+
+        # is it a counter?
+        if isinstance(obj, measurement.CounterBase):
+            counters.append(name)
+            continue
+        else:
+            #if inspect.ismethod(getattr(obj, "read")):
+            #    counters.append(name) 
+            for member_name, member in obj.__dict__.iteritems():
+                if isinstance(member, measurement.CounterBase):
+                    counters.append("%s.%s" % (name, member_name))
+        
+        # has it in/out capability?
+        if any((inspect.ismethod(getattr(obj, "set_in", None)),
+                inspect.ismethod(getattr(obj, "in", None)))) and
+           any((inspect.ismethod(getattr(obj, "set_out", None)),
+                inspect.ismethod(getattr(obj, "out", None)))):
+            inout.append(name)
+
+        # has it open/close capability?
+        if all((inspect.ismethod(getattr(obj, "open", None)),
+                inspect.ismethod(getattr(obj, "close", None)))):
+            openclose.append(name)
+
+    return { "motors": motors, "counters": counters, "inout": inout, "openclose": openclose }
+
 def start(input_queue, output_queue, i):
     # restore default SIGINT behaviour
     def raise_kb_interrupt(interpreter=i):
@@ -172,23 +223,9 @@ def start(input_queue, output_queue, i):
             output_queue.put("ack")
             continue
         elif action == "motors_list":
-            motors_list = []
-            if beacon_static:
-              for name, x in i.locals.iteritems():
-                if name in beacon_static.MOTORS:
-                    pos = "%.3f" % x.position()
-                    state = convert_state_from_emotion(x.state())
-                    motors_list.append({ "name": x.name, "state": state, "pos": pos })
-                    def state_updated(state, name=x.name):
-                        output_queue.put({"name":name, "state": convert_state_from_emotion(state)})
-                    def position_updated(pos, name=x.name):
-                        pos = "%.3f" % pos
-                        output_queue.put({"name":name, "position":pos})
-                    output_queue.motor_callbacks[x.name]=(state_updated, position_updated) 
-                    dispatcher.connect(state_updated, "state", x)
-                    dispatcher.connect(position_updated, "position", x)
-            motors_list = sorted(motors_list, cmp=lambda x,y: cmp(x["name"],y["name"]))
-            print motors_list
+            objects_by_type = get_objects_by_type(i.locals)
+            pprint.pprint(objects_by_type)
+            motors_list = objects_by_type["motors"]
             output_queue.put(StopIteration(motors_list))
         elif action == "execute":
             code = _[0]

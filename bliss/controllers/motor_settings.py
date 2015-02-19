@@ -92,12 +92,11 @@ class ControllerAxisSettings:
 
     def _set_setting(self, axis, setting_name, value):
         settings = self._settings(axis)
-        try:
-            convert_func = self.convert_funcs[setting_name]
-        except KeyError:
-            setting_value = value
-        else:
+        convert_func = self.convert_funcs.get(setting_name)
+        if convert_func is not None:
             setting_value = convert_func(value)
+        else:
+            setting_value = value
         settings[setting_name] = setting_value
         return setting_value
 

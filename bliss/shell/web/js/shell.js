@@ -300,9 +300,12 @@ Shell.prototype = {
     execute: function(code) {
         this.set_executing(true);
         this.cmdline.val('');
-        var last_element = $("<pre>&gt;&nbsp;<i>" + this._html_escape(code) + "</i></pre>");
-        this.output_div.append(last_element);
-        this.scrollToBottom(this.output_div);
+        this.last_output_div = $("<div></div>");
+        this.output_div.prepend(this.last_output_div);
+        this.last_output_div.append($("<pre>&gt;&nbsp;<i>" + this._html_escape(code) + "</i></pre>"));
+        //var last_element = $("<pre>&gt;&nbsp;<i>" + this._html_escape(code) + "</i></pre>");
+        //this.output_div.append(last_element);
+        //this.scrollToBottom(this.output_div);
         this._execute(code);
     },
 
@@ -390,16 +393,16 @@ Shell.prototype = {
         var last_element;
         if (error) {
             last_element = $('<pre><font color="red">' + this._html_escape(output) + '</font></pre>');
-            this.output_div.append(last_element);
+            this.last_output_div.append(last_element);
         } else {
             var output_pre = $('<pre></pre>');
             output_pre.text(output);
             output_pre.css({
                 display: "inline"
             });
-            this.output_div.append(output_pre);
+            this.last_output_div.append(output_pre);
         }
-        this.scrollToBottom(this.output_div);
+        //this.scrollToBottom(this.output_div);
     },
 
     display_plot: function(data) {
@@ -435,8 +438,8 @@ Shell.prototype = {
             /* create new plot */
             var plot_div = $('<div class="ui-widget-content" style="width:640px; height:480px; resize:both; overflow: auto;"></div>');
             //plot_div.resizable(); this doesn't work... why?
-            this.output_div.append(plot_div);
-            this.scrollToBottom(this.output_div);
+            this.last_output_div.append(plot_div);
+            //this.scrollToBottom(this.output_div);
             this.plot[data.scan_id] = {
                 "div": plot_div[0],
                 "data": [],

@@ -148,10 +148,10 @@ def convert_state_from_emotion(state):
 
 
 def get_objects_by_type(objects_dict):
-    motors = list()
-    counters = list()
-    inout = list()
-    openclose = list()
+    motors = dict()
+    counters = dict()
+    inout = dict()
+    openclose = dict()
 
     if beacon_static:
         cfg = beacon_static.get_config()
@@ -160,38 +160,43 @@ def get_objects_by_type(objects_dict):
 
     for name, obj in objects_dict.iteritems():
         # is it a motor?
-        if cfg:
-            cfg_node = cfg.get_config(name)
-            if cfg_node.plugin == 'emotion':
-                motors.append(name)
-                continue
+        #if cfg:
+        #    cfg_node = cfg.get_config(name)
+        #    if cfg_node.plugin == 'emotion':
+        #        motors.append(name)
+        #        continue
         if all((inspect.ismethod(getattr(obj, 'move',None)),
                 inspect.ismethod(getattr(obj, 'state',None)),
                 inspect.ismethod(getattr(obj, 'position', None)))):
-                motors.append(name)
+                motors[name]=obj
 
         # is it a counter?
         if isinstance(obj, measurement.CounterBase):
-            counters.append(name)
+            counters[name]=obj
             continue
         else:
             #if inspect.ismethod(getattr(obj, "read")):
-            #    counters.append(name) 
-            for member_name, member in obj.__dict__.iteritems():
-                if isinstance(member, measurement.CounterBase):
-                    counters.append("%s.%s" % (name, member_name))
+            #    counters[name]=obj 
+            try:
+                obj_dict = obj.__dict__
+            except AttributeError:
+                pass
+            else:
+                for member_name, member in obj.__dict__.iteritems():
+                    if isinstance(member, measurement.CounterBase):
+                        counters["%s.%s" % (name, member_name)]=member
         
         # has it in/out capability?
         if any((inspect.ismethod(getattr(obj, "set_in", None)),
-                inspect.ismethod(getattr(obj, "in", None)))) and
+                inspect.ismethod(getattr(obj, "in", None)))) and \
            any((inspect.ismethod(getattr(obj, "set_out", None)),
                 inspect.ismethod(getattr(obj, "out", None)))):
-            inout.append(name)
+            inout[name]=obj
 
         # has it open/close capability?
         if all((inspect.ismethod(getattr(obj, "open", None)),
                 inspect.ismethod(getattr(obj, "close", None)))):
-            openclose.append(name)
+            openclose[name]=obj
 
     return { "motors": motors, "counters": counters, "inout": inout, "openclose": openclose }
 
@@ -225,7 +230,21 @@ def start(input_queue, output_queue, i):
         elif action == "motors_list":
             objects_by_type = get_objects_by_type(i.locals)
             pprint.pprint(objects_by_type)
-            motors_list = objects_by_type["motors"]
+            motors_list = list()
+            motors = objects_by_type["motors"]
+            for name, x in motors.iteritems():
+                pos = "%.3f" % x.position()
+                state = convert_state_from_emotion(x.state())
+                motors_list.append({ "name": x.name, "state": state, "pos": pos })
+                def state_updated(state, name=x.name):
+                    output_queue.put({"name":name, "state": convert_state_from_emotion(state)})
+                def position_updated(pos, name=x.name):
+                    pos = "%.3f" % pos
+                    output_queue.put({"name":name, "position":pos})
+                output_queue.motor_callbacks[x.name]=(state_updated, position_updated) 
+                dispatcher.connect(state_updated, "state", x)
+                dispatcher.connect(position_updated, "position", x)
+            motors_list = sorted(motors_list, cmp=lambda x,y: cmp(x["name"],y["name"]))
             output_queue.put(StopIteration(motors_list))
         elif action == "execute":
             code = _[0]

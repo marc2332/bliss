@@ -16,10 +16,10 @@ from contextlib import contextmanager
 from bliss.common.event import dispatcher
 from bliss.common import data_manager
 from bliss.common import measurement
-try:
-    from bliss.config import static as beacon_static
-except:
-    beacon_static = None
+#try:
+#    from bliss.config import static as beacon_static
+#except:
+#    beacon_static = None
 jedi.settings.case_insensitive_completion = False
 
 class Stdout:
@@ -55,9 +55,9 @@ def init_scans_callbacks(output_queue):
         output_queue.put({"scan_id":scan_id})
 
     # keep callbacks references
-    output_queue.new_scan_callback = new_scan_callback
-    output_queue.update_scan_callback = update_scan_callback
-    output_queue.scan_end_callback = scan_end_callback
+    output_queue.callbacks["scans"]["new"] = new_scan_callback
+    output_queue.callbacks["scans"]["update"] = update_scan_callback
+    output_queue.callbacks["scans"]["end"] = scan_end_callback
 
     dispatcher.connect(
         new_scan_callback, "scan_new", data_manager.DataManager())
@@ -128,24 +128,31 @@ def init(input_queue, output_queue):
 
     return i
 
-def convert_state_from_emotion(state):
+def convert_state(state):
     if state is None:
         return "UNKNOWN"
-    if state.MOVING:  
+    # in case of emotion state, state is *not* a string,
+    # but comparison works like with a string
+    if state == "MOVING":  
         return "MOVING"
-    elif state.HOME:
+    elif state == "HOME":
         return "HOME"
-    elif state.LIMPOS:
+    elif state == "LIMPOS":
         return "ONLIMIT"
-    elif state.LIMNEG:
+    elif state == "LIMNEG":
         return "ONLIMIT"
-    elif state.FAULT:
+    elif state == "FAULT":
         return "FAULT"
-    elif state.READY:
+    elif state == "READY":
         return "READY"
     else:
-        return "UNKNOWN"
+        if isinstance(state, str):
+            return state.upper()
+        else:
+            return "UNKNOWN"
 
+def has_method(obj, all_or_any, *method_names):
+    return all_or_any((inspect.ismethod(getattr(obj, m, None)) for m in method_names))
 
 def get_objects_by_type(objects_dict):
     motors = dict()
@@ -153,27 +160,26 @@ def get_objects_by_type(objects_dict):
     inout = dict()
     openclose = dict()
 
-    if beacon_static:
-        cfg = beacon_static.get_config()
-    else:
-        cfg = None
+    #if beacon_static:
+    #    cfg = beacon_static.get_config()
+    #else:
+    #    cfg = None
 
     for name, obj in objects_dict.iteritems():
+        if inspect.isclass(obj):
+            continue
         # is it a motor?
         #if cfg:
         #    cfg_node = cfg.get_config(name)
         #    if cfg_node.plugin == 'emotion':
         #        motors.append(name)
         #        continue
-        if all((inspect.ismethod(getattr(obj, 'move',None)),
-                inspect.ismethod(getattr(obj, 'state',None)),
-                inspect.ismethod(getattr(obj, 'position', None)))):
-                motors[name]=obj
+        if has_method(obj, all, "move", "state", "position"):
+            motors[name]=obj
 
         # is it a counter?
         if isinstance(obj, measurement.CounterBase):
             counters[name]=obj
-            continue
         else:
             #if inspect.ismethod(getattr(obj, "read")):
             #    counters[name]=obj 
@@ -182,20 +188,18 @@ def get_objects_by_type(objects_dict):
             except AttributeError:
                 pass
             else:
-                for member_name, member in obj.__dict__.iteritems():
+                for member_name, member in obj_dict.iteritems():
                     if isinstance(member, measurement.CounterBase):
                         counters["%s.%s" % (name, member_name)]=member
         
         # has it in/out capability?
-        if any((inspect.ismethod(getattr(obj, "set_in", None)),
-                inspect.ismethod(getattr(obj, "in", None)))) and \
-           any((inspect.ismethod(getattr(obj, "set_out", None)),
-                inspect.ismethod(getattr(obj, "out", None)))):
+        if has_method(obj, all, "state") and \
+                has_method(obj, any, "set_in", "in") and \
+                has_method(obj, any, "set_out", "out"):
             inout[name]=obj
 
         # has it open/close capability?
-        if all((inspect.ismethod(getattr(obj, "open", None)),
-                inspect.ismethod(getattr(obj, "close", None)))):
+        if has_method(obj, all, "open", "close", "state"):
             openclose[name]=obj
 
     return { "motors": motors, "counters": counters, "inout": inout, "openclose": openclose }
@@ -207,8 +211,11 @@ def start(input_queue, output_queue, i):
             raise KeyboardInterrupt
     gevent.signal(signal.SIGINT, raise_kb_interrupt)
 
+    output_queue.callbacks = { "motor": dict(),
+                               "scans": dict(),
+                               "inout": dict(),
+                               "openclose": dict() }
     init_scans_callbacks(output_queue)
-    output_queue.motor_callbacks = dict()
 
     def resetup(setup_file=None):
         setup_file = i.locals.get("SETUP_FILE") if setup_file is None else setup_file
@@ -227,25 +234,44 @@ def start(input_queue, output_queue, i):
         if action == "syn":
             output_queue.put("ack")
             continue
-        elif action == "motors_list":
+        elif action == "objects_list":
             objects_by_type = get_objects_by_type(i.locals)
             pprint.pprint(objects_by_type)
+
             motors_list = list()
-            motors = objects_by_type["motors"]
-            for name, x in motors.iteritems():
-                pos = "%.3f" % x.position()
-                state = convert_state_from_emotion(x.state())
-                motors_list.append({ "name": x.name, "state": state, "pos": pos })
-                def state_updated(state, name=x.name):
-                    output_queue.put({"name":name, "state": convert_state_from_emotion(state)})
-                def position_updated(pos, name=x.name):
+            for name, m in objects_by_type["motors"].iteritems():
+                pos = "%.3f" % m.position()
+                state = convert_state(m.state())
+                motors_list.append({ "name": m.name, "state": state, "pos": pos })
+                def state_updated(state, name=name):
+                    output_queue.put({"name":name, "state": convert_state(state)})
+                def position_updated(pos, name=name):
                     pos = "%.3f" % pos
                     output_queue.put({"name":name, "position":pos})
-                output_queue.motor_callbacks[x.name]=(state_updated, position_updated) 
-                dispatcher.connect(state_updated, "state", x)
-                dispatcher.connect(position_updated, "position", x)
+                output_queue.callbacks["motor"][name]=(state_updated, position_updated) 
+                dispatcher.connect(state_updated, "state", m)
+                dispatcher.connect(position_updated, "position", m)
             motors_list = sorted(motors_list, cmp=lambda x,y: cmp(x["name"],y["name"]))
-            output_queue.put(StopIteration(motors_list))
+
+            counters_list = list()
+            for name, cnt in objects_by_type["counters"].iteritems():
+                counters_list.append({"name":name})
+
+            inout_list = list()
+            for name, obj in objects_by_type["inout"].iteritems():
+                state = obj.state()
+                inout_list.append({"name": name, "state": convert_state(state)})
+                def state_updated(state, name=name):
+                    output_queue.put({"name": name, "state": convert_state(state)})
+                output_queue.callbacks["inout"][name]=state_updated
+                dispatcher.connect(state_updated, "state", obj)
+            inout_list = sorted(inout_list, cmp=lambda x,y: cmp(x["name"],y["name"]))
+  
+            openclose_list = list()
+            for name, obj in objects_by_type["openclose"].iteritems():
+                openclose_list.append({"name": name})
+
+            output_queue.put(StopIteration({ "motors": motors_list, "counters": counters_list, "inout": inout_list, "openclose": openclose_list }))
         elif action == "execute":
             code = _[0]
             try:

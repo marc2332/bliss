@@ -163,11 +163,9 @@ def open_session(session_id):
     return contents.read()
 
 
-@bottle.route("/<session_id:int>/motors_names")
+@bottle.route("/<session_id:int>/objects_names")
 def return_motors_names(session_id):
-    motors_list = execute_cmd(session_id, "motors_list", None)
-    print motors_list
-    return { "motors": motors_list }
+    return execute_cmd(session_id, "objects_list", None)
 
 
 @bottle.route('/')

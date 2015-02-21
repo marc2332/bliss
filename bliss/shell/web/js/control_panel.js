@@ -26,7 +26,7 @@ function ControlPanel(div_id, session_id) {
         error: function(XMLHttpRequest, textStatus, errorThrown) {
             alert(textStatus);
         },
-        url: this.session_id+'/motors_names',
+        url: this.session_id+'/objects_names',
         type: 'GET',
         dataType: 'json',
         success: $.proxy(function(res) {

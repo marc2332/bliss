@@ -31,7 +31,7 @@
           }
           .cmdline-executing
           {
-              box-shadow: 0 0 3px #0000cc;
+              box-shadow: 0 0 2px #0000cc;
           }
           .hint
           {
@@ -40,5 +40,10 @@
               font-family: monospace;
               font-style: italic;
               color: grey;
+          }
+          .output-executing
+          {
+              box-shadow: 0 0 2px #0000cc;
+	      background-color: #E0F8F7;
           }
 

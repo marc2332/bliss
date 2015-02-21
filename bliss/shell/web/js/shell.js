@@ -41,6 +41,7 @@ function Shell(cmdline_div_id, shell_output_div_id) {
 
     this.output_div = $("#" + shell_output_div_id);
     this.output_div.addClass("code-font");
+    this.last_output_div = null;
 
     this.executing = false;
     this.completion_mode = false;
@@ -244,6 +245,7 @@ Shell.prototype = {
             this.cmdline.addClass("cmdline-executing");
         } else {
             this.cmdline.removeClass("cmdline-executing");
+            this.last_output_div.removeClass("output-executing");
         }
     },
 
@@ -300,12 +302,17 @@ Shell.prototype = {
     execute: function(code) {
         this.set_executing(true);
         this.cmdline.val('');
+        if (this.last_output_div) { 
+            this.last_output_div.removeClass("output-executing");
+        }
         this.last_output_div = $("<div></div>");
         this.output_div.prepend(this.last_output_div);
         this.last_output_div.append($("<pre>&gt;&nbsp;<i>" + this._html_escape(code) + "</i></pre>"));
         //var last_element = $("<pre>&gt;&nbsp;<i>" + this._html_escape(code) + "</i></pre>");
         //this.output_div.append(last_element);
         //this.scrollToBottom(this.output_div);
+        this.last_output_div.addClass("output-executing");
+        this.output_div.scrollTop(0);
         this._execute(code);
     },
 
@@ -402,6 +409,7 @@ Shell.prototype = {
             });
             this.last_output_div.append(output_pre);
         }
+        this.output_div.scrollTop(0);
         //this.scrollToBottom(this.output_div);
     },
 
@@ -439,6 +447,7 @@ Shell.prototype = {
             var plot_div = $('<div class="ui-widget-content" style="width:640px; height:480px; resize:both; overflow: auto;"></div>');
             //plot_div.resizable(); this doesn't work... why?
             this.last_output_div.append(plot_div);
+            this.output_div.scrollTop(0);
             //this.scrollToBottom(this.output_div);
             this.plot[data.scan_id] = {
                 "div": plot_div[0],

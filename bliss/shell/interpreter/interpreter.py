@@ -318,14 +318,13 @@ def start(input_queue, output_queue, i):
                                 else:
                                     output_queue.put(StopIteration({"func": False}))
                                     continue
+                                output_queue.put(StopIteration({"func": True, "func_name":expr, "args": args }))
                             else:
                                 output_queue.put(StopIteration({"func": False}))
                                 continue
                                 # like a method
                                 #argspec = inspect.getargspec(x.__call__)
                                 #args = inspect.formatargspec(argspec.args[1:],*argspec[1:])
-                            #print {"func": True, "func_name":expr, "args": args }
-                            output_queue.put(StopIteration({"func": True, "func_name":expr, "args": args }))
                         else:
                             output_queue.put(StopIteration({"func": False}))
 

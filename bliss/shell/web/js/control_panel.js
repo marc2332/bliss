@@ -1,12 +1,16 @@
 function ControlPanel(div_id, session_id) {
     this.motors = {};
+    this.actuators = {};
     this.session_id = session_id;
 
     this.motors_div = $('<div style="width:100%;"></div>');
     this.motors_div.append($('<span class="control-panel-header">Motors</span>'));
+    this.actuators_div = $('<div style="width:100%;"></div>');
+    this.actuators_div.append($('<span class="control-panel-header">Actuators</span>'));
     this.motors_list = $('<ul class="items-list"></ul>');
     this.motors_div.append(this.motors_list);
     $('#' + div_id).append(this.motors_div);
+    $('#' + div_id).append(this.actuators_div);
 
     /* 
        connect to control panel events stream 
@@ -44,7 +48,20 @@ function ControlPanel(div_id, session_id) {
                     state: state,
                     pos: pos
                 };
-            }
+            };
+
+            var inout = res.inout;
+            for (var i = 0; i < inout.length; i++) {
+                var name = inout[i].name;
+                var state = inout[i].state;
+                var dom_item = $("<div><label><input type='checkbox'></input>"+state+"</label><label><input type='checkbox'></input>BLA</label></div>");
+                dom_item.buttonset();
+                this.actuators_div.append(dom_item);
+                this.actuators[name] = {
+                    dom_item: dom_item,
+                    state: state
+                };
+            };
         }, this)
     });
 };

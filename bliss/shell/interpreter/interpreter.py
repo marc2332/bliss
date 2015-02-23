@@ -115,9 +115,12 @@ class InteractiveInterpreter(code.InteractiveInterpreter):
                     self.error = cStringIO.StringIO()
                     raise RuntimeError(error_string)
 
-    def execute(self, python_code_to_execute):
+    def execute(self, python_code_to_execute, wait=True):
         self.executed_greenlet = gevent.spawn(self.compile_and_run, python_code_to_execute)
-        return self.executed_greenlet.get()
+        if wait:
+            return self.executed_greenlet.get()
+        else:
+            return self.executed_greenlet
 
 
 def init(input_queue, output_queue):
@@ -274,6 +277,7 @@ def start(input_queue, output_queue, i):
             output_queue.put(StopIteration({ "motors": motors_list, "counters": counters_list, "inout": inout_list, "openclose": openclose_list }))
         elif action == "execute":
             code = _[0]
+            """
             try:
                 i.execute(code)
             except EOFError:
@@ -283,6 +287,17 @@ def start(input_queue, output_queue, i):
                 output_queue.put(StopIteration(RuntimeError(error_string)))
             else:           
                 output_queue.put(StopIteration(None))
+            """
+            def execution_done(executed_greenlet):
+                try:
+                    res = executed_greenlet.get()
+                except EOFError:
+                    output_queue.put(StopIteration(EOFError()))
+                except RuntimeError, error_string: 
+                    output_queue.put(StopIteration(RuntimeError(error_string)))
+                else:
+                    output_queue.put(StopIteration(None))
+            i.execute(code, wait=False).link(execution_done)
         elif action == "complete":
             text, completion_start_index = _
             completion_obj = jedi.Interpreter(text, [i.locals], line=1, column=completion_start_index)

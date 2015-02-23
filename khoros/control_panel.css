@@ -3,12 +3,7 @@
             float: left;
             display: inline-block;
             background-color: #d1ff50;
-	    border: 3px #d1ff50;
-	    border-left: 5px #d1ff50;
-	    border-right: 5px #d1ff50;
-            border-radius: inherit;
-            font-family: inherit;
-            font-size: inherit;
+	    border: 3px solid #d1ff50 !important;
 
           }
           .control-panel-item-moving
@@ -16,55 +11,35 @@
             float: left;
             display: inline-block;
             background-color: #f7d872;
-	    border: 3px #f7d872;
-	    border-left: 5px #f7d872;
-	    border-right: 5px #f7d872;
-            border-radius: inherit;
-            font-family: inherit;
-            font-size: inherit;
+	    border: 3px solid #f7d872 !important;
           }
           .control-panel-item-fault
           {
             float: left;
             display: inline-block;
             background-color: #fa5858;
-	    border: 3px solid #fa5858;
-	    border-left: 5px #fa5858;
-	    border-right: 5px #fa5858;
-            border-radius: inherit;
-            font-family: inherit;
-            font-size: inherit;
+	    border: 3px solid #fa5858 !important;
           }
 	  .control-panel-item-home
           {
             float: left;
             display: inline-block;
             background-color: #88a0ff;
-	    border: 3px solid #88a0ff;
-	    border-left: 5px #88a0ff;
-	    border-right: 5px #88a0ff;
-            border-radius: inherit;
-            font-family: inherit;
-            font-size: inherit;
+	    border: 3px solid #88a0ff !important;
           }
 	  .control-panel-item-onlimit
           {
             float: left;
             display: inline-block;
             background-color: #b088ff;
-	    border: 3px #b088ff;
-	    border-left: 5px #b088ff;
-	    border-right: 5px #b088ff;
-            border-radius: inherit;
-            font-family: inherit;
-            font-size: inherit;
+	    border: 3px solid #b088ff !important;
           }
           .control-panel-item
           {
             float: left;
             display: inline-block;
             margin: 3px;
-	    border-style: solid;
+	    border: 1px solid #cccccc;
             font-family: monospace;
             border-radius: 5px;
             font-size: 100%;

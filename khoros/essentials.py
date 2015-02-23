@@ -1,6 +1,5 @@
 from bliss.common.scans import *
 from bliss.common.task_utils import task, cleanup, error_cleanup
-from bliss.common.event import dispatcher
 
 def load_config():
     import sys
@@ -21,6 +20,8 @@ def load_config():
 
 class InOut:
   def __init__(self, set_in=None, set_out=None, is_in=None, is_out=None, state=None):
+    self.__gevent = __import__("gevent")
+    self.__dispatcher = __import__("khoros.core.dispatcher", fromlist=[None]).dispatcher
     self.__set_in = set_in
     self.__set_out = set_out
     self.__is_in = is_in
@@ -29,14 +30,30 @@ class InOut:
     self.__out = None
     self.__state = state
 
-  def set_in(self):
-    self.__in = self.__set_in()
-    dispatcher.send("state", self, "IN" if self.__in else "OUT")
-    return self.__in
-  def set_out(self):
-    self.__out = self.__set_out()
-    dispatcher.send("state", self, "OUT" if self.__out else "IN")
-    return self.__out
+  def set_in(self,timeout=5):
+    try:
+        with self.__gevent.Timeout(timeout):
+            while True:
+                self.__in = self.__set_in()
+                if self.is_in():
+                    break
+                else:
+                    self.__gevent.sleep(0.5)
+        return self.__in
+    finally:
+        self.__dispatcher.send("state", self, "IN" if self.__in else "OUT")
+  def set_out(self, timeout=5):
+    try:
+        with self.__gevent.Timeout(timeout):
+            while True:
+                self.__out = self.__set_out()
+                if self.is_out():
+                    break
+                else:
+                    self.__gevent.sleep(0.5)
+        return self.__out
+    finally:
+        self.__dispatcher.send("state", self, "OUT" if self.__out else "IN")
   def is_in(self):
     if self.__is_in is not None:
       return self.__is_in()

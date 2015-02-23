@@ -237,7 +237,14 @@ def start(input_queue, output_queue, i):
         if action == "syn":
             output_queue.put("ack")
             continue
-        elif action == "objects_list":
+        elif action == "control_panel":
+            object_name, method_name = _
+            obj = i.locals.get(object_name)
+            if obj is not None:
+                method = getattr(obj, method_name)
+                if callable(method):
+                    gevent.spawn(method)
+        elif action == "get_objects":
             objects_by_type = get_objects_by_type(i.locals)
             pprint.pprint(objects_by_type)
 
@@ -245,7 +252,7 @@ def start(input_queue, output_queue, i):
             for name, m in objects_by_type["motors"].iteritems():
                 pos = "%.3f" % m.position()
                 state = convert_state(m.state())
-                motors_list.append({ "name": m.name, "state": state, "pos": pos })
+                motors_list.append({ "name": m.name, "state": state, "position": pos })
                 def state_updated(state, name=name):
                     output_queue.put({"name":name, "state": convert_state(state)})
                 def position_updated(pos, name=name):

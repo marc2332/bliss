@@ -86,6 +86,10 @@ def send_output(session_id):
         data = CONTROL_PANEL_QUEUE[session_id].get()
         yield "data: " + json.dumps({"type": "control_panel_motor", "data":data}) + "\n\n"
 
+@bottle.route("/<session_id:int>/control_panel/run/<object_name>/<method_name>")
+def action_from_control_panel(session_id, object_name, method_name):
+    EXECUTION_QUEUE[session_id].put(("control_panel", (object_name, method_name)))   
+
 
 #@bottle.route("/log_msg_request")
 #def send_log():
@@ -163,9 +167,9 @@ def open_session(session_id):
     return contents.read()
 
 
-@bottle.route("/<session_id:int>/objects_names")
+@bottle.route("/<session_id:int>/objects")
 def return_motors_names(session_id):
-    return execute_cmd(session_id, "objects_list", None)
+    return execute_cmd(session_id, "get_objects", None)
 
 
 @bottle.route('/')

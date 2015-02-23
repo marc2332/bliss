@@ -9,6 +9,8 @@ function ControlPanel(div_id, session_id) {
     this.actuators_div.append($('<span class="control-panel-header">Actuators</span>'));
     this.motors_list = $('<ul class="items-list"></ul>');
     this.motors_div.append(this.motors_list);
+    this.actuators_list = $('<ul class="items-list"></ul>');
+    this.actuators_div.append(this.actuators_list);
     $('#' + div_id).append(this.motors_div);
     $('#' + div_id).append(this.actuators_div);
 
@@ -24,71 +26,118 @@ function ControlPanel(div_id, session_id) {
     }, this);
 
     /*
-       get motors names, and populate list
+       get objects, and populate lists
     */
     $.ajax({
         error: function(XMLHttpRequest, textStatus, errorThrown) {
             alert(textStatus);
         },
-        url: this.session_id+'/objects_names',
+        url: this.session_id+'/objects',
         type: 'GET',
         dataType: 'json',
         success: $.proxy(function(res) {
             var motors = res.motors;
             for (var i = 0; i < motors.length; i++) {
                 var name = motors[i].name;
-                var pos = motors[i].pos;
+                var pos = motors[i].position;
                 var state = motors[i].state;
                 var dom_item = $("<li></li>");
                 dom_item.addClass("control-panel-item");
-                this.update_item(dom_item, name, pos, state);
                 this.motors_list.append(dom_item);
                 this.motors[name] = {
+                    name: name,
                     dom_item: dom_item,
                     state: state,
-                    pos: pos
+                    position: pos
                 };
+                this.update_motor(this.motors[name]);
             };
 
             var inout = res.inout;
             for (var i = 0; i < inout.length; i++) {
+                var session_id = this.session_id;
                 var name = inout[i].name;
                 var state = inout[i].state;
-                var dom_item = $("<div><label><input type='checkbox'></input>"+state+"</label><label><input type='checkbox'></input>BLA</label></div>");
-                dom_item.buttonset();
-                this.actuators_div.append(dom_item);
+                var dom_item = $("<li></li>");
+                dom_item.addClass("control-panel-item");
+                var in_button = $("<span>&nbsp;In&nbsp;</span>");
+                in_button.addClass("control-panel-toggle");
+                var out_button = in_button.clone();
+                out_button.html("&nbsp;Out&nbsp;");
+                in_button.click(function() {
+                    $.ajax({ url: session_id+"/control_panel/run/"+name+"/set_in",
+                             type: 'GET',
+                             dataType: 'json'});
+                });
+                out_button.click(function() {
+                    $.ajax({ url: session_id+"/control_panel/run/"+name+"/set_out",
+                             type: 'GET',
+                             dataType: 'json'});
+                });
+       	        dom_item.html(name + "&nbsp;");
+                dom_item.append(out_button);
+                dom_item.append(in_button); 
+                this.actuators_list.append(dom_item);
                 this.actuators[name] = {
+                    name: name,
                     dom_item: dom_item,
+                    in_button: in_button,
+                    out_button: out_button,
                     state: state
                 };
+                this.update_inout(this.actuators[name]); 
             };
         }, this)
     });
 };
 
 ControlPanel.prototype = {
-    update_item: function(dom_item, name, label, state) {
-        if (label != undefined) {
-            dom_item.text(name + ": " + label);
+    update_motor: function(motor) { 
+        var name = motor.name;
+        var state = motor.state;
+        var pos = motor.position;
+        var dom_item = motor.dom_item;
+
+        if (pos != undefined) {
+            dom_item.html(name + "&nbsp;" + pos);
         }
-        if (state != undefined) {
-            dom_item.removeClass("control-panel-item-ready control-panel-item-moving control-panel-item-fault control-panel-item-home control-panel-item-onlimit");
-            if (state == "READY") {
-                dom_item.addClass("control-panel-item-ready");
-            } else if (state == "MOVING") {
-                dom_item.addClass("control-panel-item-moving");
-            } else if (state == "FAULT") {
-                dom_item.addClass("control-panel-item-fault");
-            } else if (state == "ONLIMIT") {
-                dom_item.addClass("control-panel-item-onlimit");
-            } else if (state == "HOME") {
-                dom_item.addClass("control-panel-item-home");
-            }
+        dom_item.removeClass("control-panel-item-ready control-panel-item-moving control-panel-item-fault control-panel-item-home control-panel-item-onlimit");
+        if (state == "READY") {
+            dom_item.addClass("control-panel-item-ready");
+        } else if (state == "MOVING") {
+            dom_item.addClass("control-panel-item-moving");
+        } else if (state == "FAULT") {
+            dom_item.addClass("control-panel-item-fault");
+        } else if (state == "ONLIMIT") {
+            dom_item.addClass("control-panel-item-onlimit");
+        } else if (state == "HOME") {
+            dom_item.addClass("control-panel-item-home");
+        }
+    },
+    update_inout: function(actuator) {
+        var state = actuator.state;
+        var in_button = actuator.in_button;
+        var out_button = actuator.out_button;
+        in_button.removeClass("control-panel-toggle-pressed");
+        out_button.removeClass("control-panel-toggle-pressed");
+
+        if (state == "IN") {
+            in_button.addClass("control-panel-toggle-pressed");
+        } else if (state == "OUT") {
+            out_button.addClass("control-panel-toggle-pressed");
         }
     },
     update_display: function(data) {
-        var dom_item = this.motors[data.name].dom_item
-        this.update_item(dom_item, data.name, data.position, data.state);
+        var lists = [this.motors, this.actuators];
+        var update_funcs = [this.update_motor, this.update_inout];
+        
+        for (var i=0; i<lists.length; i++) {
+            var obj = lists[i][data.name];
+            if (obj) {
+                $.extend(obj, data);
+                update_funcs[i](obj);
+                break;    
+            }
+        }
     },
-
 };

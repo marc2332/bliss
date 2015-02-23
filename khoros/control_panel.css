@@ -69,6 +69,16 @@
             border-radius: 5px;
             font-size: 100%;
           }
+          .control-panel-toggle {
+            float: right;
+            display: inline-block;
+            background-color: #efefef;
+            cursor: pointer; 
+          }
+          .control-panel-toggle-pressed {
+            background-color: #404040;
+            color: #F7F7F7;
+          }
           .control-panel-header
           {
             float:left;

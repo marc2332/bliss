@@ -32,12 +32,8 @@
  
 	<script type="text/javascript" charset="utf-8">
             $(document).ready(function() {
-                layout = $('body').layout({ applyDefaultStyles: true });
-                $('#main').layout({ applyDefaultStyles: true });
-                var cmdline_height = 36; //document.getElementById("shell_cmdline").clientHeight;
-		layout.options.north.minSize = 3*cmdline_height;
-                layout.options.north.maxSize = 6*cmdline_height; 
-                layout.resizeAll();
+                layout = $('body').layout({ applyDefaultStyles: true, north__size: "15%" });
+                $('#main').layout({ applyDefaultStyles: true, east__size: "33%" });
                 var shell = new Shell("shell_cmdline", "shell_output");
                 var control_panel = new ControlPanel("right_panel", shell.session_id);
 	    });

@@ -197,8 +197,8 @@ def get_objects_by_type(objects_dict):
         
         # has it in/out capability?
         if has_method(obj, all, "state") and \
-                has_method(obj, any, "set_in", "in") and \
-                has_method(obj, any, "set_out", "out"):
+                has_method(obj, any, "set_in") and \
+                has_method(obj, any, "set_out"):
             inout[name]=obj
 
         # has it open/close capability?
@@ -250,8 +250,12 @@ def start(input_queue, output_queue, i):
 
             motors_list = list()
             for name, m in objects_by_type["motors"].iteritems():
-                pos = "%.3f" % m.position()
-                state = convert_state(m.state())
+		try:
+		    pos = "%.3f" % m.position()
+		    state = convert_state(m.state())
+		except:
+		    pos = None
+		    state = None
                 motors_list.append({ "name": m.name, "state": state, "position": pos })
                 def state_updated(state, name=name):
                     output_queue.put({"name":name, "state": convert_state(state)})
@@ -269,7 +273,10 @@ def start(input_queue, output_queue, i):
 
             inout_list = list()
             for name, obj in objects_by_type["inout"].iteritems():
-                state = obj.state()
+		try:
+		    state = obj.state()
+		except:
+		    state = None
                 inout_list.append({"name": name, "state": convert_state(state)})
                 def state_updated(state, name=name):
                     output_queue.put({"name": name, "state": convert_state(state)})
@@ -279,7 +286,16 @@ def start(input_queue, output_queue, i):
   
             openclose_list = list()
             for name, obj in objects_by_type["openclose"].iteritems():
-                openclose_list.append({"name": name})
+		try:
+		    state = obj.state()
+		except:
+		    state = None
+		openclose_list.append({"name": name, "state": convert_state(state) })
+		def state_updated(state, name=name):
+		    output_queue.put({"name":name, "state":convert_state(state)})
+		output_queue.callbacks["openclose"][name]=state_updated
+		dispatcher.connect(state_updated, "state", obj)
+	    openclose_list = sorted(openclose_list, cmp=lambda x,y: cmp(x["name"],y["name"]))
 
             output_queue.put(StopIteration({ "motors": motors_list, "counters": counters_list, "inout": inout_list, "openclose": openclose_list }))
         elif action == "execute":

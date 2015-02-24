@@ -75,6 +75,7 @@ ControlPanel.prototype = {
                 for (var i = 0; i<counters.length; i++) {
                    var name = counters[i].name;
                    var dom_item = $("<li></li>");
+                   dom_item.html("&nbsp;" + name + "&nbsp;");
                    dom_item.addClass("control-panel-item");
                    this.counters_list.append(dom_item);               
                 }
@@ -119,32 +120,33 @@ ControlPanel.prototype = {
                     }
                     var dom_item = this.add_item_with_buttons(this.shutters, name, "Open", "open", "Close", "close");
                     this.shutters_list.append(dom_item);
-                    this.update_inout(this.actuators[name]);
+                    this.update_shutter(this.shutters[name]);
                 }
             }, this)
         });
     },
 
     add_item_with_buttons: function(obj_dict, name, label1, cmd1, label2, cmd2) {
+        var session_id = this.session_id;
         var dom_item = $("<li></li>");
         dom_item.addClass("control-panel-item");
-        var in_button = $("<span>&nbsp;" + label1 + "&nbsp;</span>");
-        in_button.addClass("control-panel-toggle");
-        var out_button = in_button.clone();
-        out_button.html("&nbsp;Out&nbsp;");
-        in_button.click(function() {
-            $.get(this.session_id + "/control_panel/run/" + name + "/" + cmd1);
+        var btn1 = $("<span>&nbsp;" + label1 + "&nbsp;</span>");
+        btn1.addClass("control-panel-toggle");
+        var btn2 = btn1.clone();
+        btn2.html("&nbsp;" + label2 + "&nbsp;");
+        btn1.click(function() {
+            $.get(session_id + "/control_panel/run/" + name + "/" + cmd1);
         });
-        out_button.click(function() {
-            $.get(this.session_id + "/control_panel/run/" + name + "/" + cmd2);
+        btn2.click(function() {
+            $.get(session_id + "/control_panel/run/" + name + "/" + cmd2);
         });
         dom_item.html(name + "&nbsp;");
-        dom_item.append(out_button);
-        dom_item.append(in_button);
+        dom_item.append(btn2);
+        dom_item.append(btn1);
         var obj = obj_dict[name];
         obj.dom_item = dom_item;
-        obj.in_button = in_button;
-        obj.out_button = out_button;
+        obj.btn1 = btn1;
+        obj.btn2 = btn2;
         return (dom_item);
     },
 
@@ -154,9 +156,8 @@ ControlPanel.prototype = {
         var pos = motor.position;
         var dom_item = motor.dom_item;
 
-        if (pos != undefined) {
-            dom_item.html(name + "&nbsp;" + pos);
-        }
+        dom_item.html(name + "&nbsp;" + pos);
+        
         dom_item.removeClass("control-panel-item-ready control-panel-item-moving control-panel-item-fault control-panel-item-home control-panel-item-onlimit");
         if (state == "READY") {
             dom_item.addClass("control-panel-item-ready");
@@ -173,29 +174,29 @@ ControlPanel.prototype = {
 
     update_inout: function(actuator) {
         var state = actuator.state;
-        var in_button = actuator.in_button;
-        var out_button = actuator.out_button;
-        in_button.removeClass("control-panel-toggle-pressed");
-        out_button.removeClass("control-panel-toggle-pressed");
+        var btn1 = actuator.btn1;
+        var btn2 = actuator.btn2;
+        btn1.removeClass("control-panel-toggle-pressed");
+        btn2.removeClass("control-panel-toggle-pressed");
 
         if (state == "IN") {
-            in_button.addClass("control-panel-toggle-pressed");
+            btn1.addClass("control-panel-toggle-pressed");
         } else if (state == "OUT") {
-            out_button.addClass("control-panel-toggle-pressed");
+            btn2.addClass("control-panel-toggle-pressed");
         }
     },
 
     update_shutter: function(shutter) {
         var state = shutter.state;
-        var open_button = shutter.in_button;
-        var close_button = shutter.out_button;
-        in_button.removeClass("control-panel-toggle-pressed");
-        out_button.removeClass("control-panel-toggle-pressed");
+        var btn1 = shutter.btn1;
+        var btn2 = shutter.btn2;
+        btn1.removeClass("control-panel-toggle-pressed");
+        btn2.removeClass("control-panel-toggle-pressed");
 
         if (state == "OPENED") {
-            in_button.addClass("control-panel-toggle-pressed");
+            btn1.addClass("control-panel-toggle-pressed");
         } else if (state == "CLOSED") {
-            out_button.addClass("control-panel-toggle-pressed");
+            btn2.addClass("control-panel-toggle-pressed");
         }
     },
 

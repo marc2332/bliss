@@ -18,42 +18,45 @@ def load_config():
             setattr(globals, item_name, o)
             del o
 
-class InOut:
-  def __init__(self, set_in=None, set_out=None, is_in=None, is_out=None, state=None):
+class Actuator:
+  def __init__(self, set_in=None, set_out=None, is_in=None, is_out=None):
     self.__gevent = __import__("gevent")
     self.__dispatcher = __import__("khoros.core.dispatcher", fromlist=[None]).dispatcher
     self.__set_in = set_in
     self.__set_out = set_out
     self.__is_in = is_in
     self.__is_out = is_out
-    self.__in = None
-    self.__out = None
-    self.__state = state
+    self.__in = False
+    self.__out = False
 
   def set_in(self,timeout=5):
+    # this is to know which command was asked for,
+    # in case we don't have a return (no 'self.__is_in' or out)
+    self.__in = True
+    self.__out = False
     try:
         with self.__gevent.Timeout(timeout):
             while True:
-                self.__in = self.__set_in()
+                self.__set_in()
                 if self.is_in():
                     break
                 else:
                     self.__gevent.sleep(0.5)
-        return self.__in
     finally:
-        self.__dispatcher.send("state", self, "IN" if self.__in else "OUT")
+        self.__dispatcher.send("state", self, self.state())
   def set_out(self, timeout=5):
+    self.__out = True
+    self.__in = False
     try:
         with self.__gevent.Timeout(timeout):
             while True:
-                self.__out = self.__set_out()
+                self.__set_out()
                 if self.is_out():
                     break
                 else:
                     self.__gevent.sleep(0.5)
-        return self.__out
     finally:
-        self.__dispatcher.send("state", self, "OUT" if self.__out else "IN")
+        self.__dispatcher.send("state", self, self.state())
   def is_in(self):
     if self.__is_in is not None:
       return self.__is_in()
@@ -71,10 +74,60 @@ class InOut:
       else:
         return self.__out
   def state(self):
-    if self.__state is not None:
-      return self.__state()
-    else:
-      if self.__in is None and self.__out is None:
-        return "UNKNOWN"
+      state = ""
+      if self.is_in():
+          state += "IN"
+      if self.is_out():
+          state += "OUT"
+      if not state or state == "INOUT":
+          return "UNKNOWN"
+      return state
+
+class Shutter:
+  def __init__(self, open=None, close=None, state=None):
+    self.__gevent = __import__("gevent")
+    self.__dispatcher = __import__("khoros.core.dispatcher", fromlist=[None]).dispatcher
+    self.__open = open
+    self.__close = close
+    self.__state = state
+    self.__opened = False
+    self.__closed = False
+
+  def open(self,timeout=5):
+    # this is to know which command was asked for,
+    # in case we don't have a return
+    self.__opened = True
+    self.__closed = False
+    try:
+        with self.__gevent.Timeout(timeout):
+            while True:
+                self.__open()
+                if self.state() == 'OPENED':
+                    break
+                else:
+                    self.__gevent.sleep(0.5)
+    finally:
+        self.__dispatcher.send("state", self, self.state())
+  def close(self, timeout=5):
+    self.__opened = False
+    self.__closed = True
+    try:
+        with self.__gevent.Timeout(timeout):
+            while True:
+                self.__close()
+		if self.state() == 'CLOSED':
+                    break
+                else:
+                    self.__gevent.sleep(0.5)
+    finally:
+        self.__dispatcher.send("state", self, self.state())
+  def state(self):
+      if self.__state is not None:
+	  return self.__state()
       else:
-        return "IN" if self.is_in() else "OUT"
+	  if self.__opened:
+	      return "OPENED"
+	  elif self.__closed:
+	      return "CLOSED"
+	  else:
+	      return "UNKNOWN"

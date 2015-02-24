@@ -346,24 +346,16 @@ def start(input_queue, output_queue, i):
                         output_queue.put(StopIteration({"func": False}))
                     else:
                         if callable(x):
-                            try:
-                                x.__call__
-                            except AttributeError:
-                                if inspect.isfunction(x):
-                                    args = inspect.formatargspec(*inspect.getargspec(x))
-                                elif inspect.ismethod(x):
-                                    argspec = inspect.getargspec(x)
-                                    args = inspect.formatargspec(argspec.args[1:],*argspec[1:])
-                                else:
-                                    output_queue.put(StopIteration({"func": False}))
-                                    continue
-                                output_queue.put(StopIteration({"func": True, "func_name":expr, "args": args }))
+                            if inspect.isfunction(x):
+                                args = inspect.formatargspec(*inspect.getargspec(x))
+                            elif inspect.ismethod(x):
+                                argspec = inspect.getargspec(x)
+                                args = inspect.formatargspec(argspec.args[1:],*argspec[1:])
                             else:
-                                output_queue.put(StopIteration({"func": False}))
-                                continue
-                                # like a method
-                                #argspec = inspect.getargspec(x.__call__)
-                                #args = inspect.formatargspec(argspec.args[1:],*argspec[1:])
+                                # an instance with __call__ ?
+                                argspec = inspect.getargspec(x.__call__)
+                                args = inspect.formatargspec(argspec.args[1:],*argspec[1:])
+                            output_queue.put(StopIteration({"func": True, "func_name":expr, "args": args }))
                         else:
                             output_queue.put(StopIteration({"func": False}))
 

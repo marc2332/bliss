@@ -35,10 +35,10 @@ class fshutter:
       self.enastate = None
        
 
-   def status(self):
+   def state(self):
       enastate = self.enastate
       if self.musst:
-         return "CLOSED" if self.musst.putget("?VAL CH1") == 0 else "OPEN"
+         return "CLOSED" if self.musst.putget("?VAL CH1") == 0 else "OPENED"
       else:
          if enastate:
             self.disable()
@@ -46,7 +46,7 @@ class fshutter:
             if self.fshutter_mot.state().HOME:
                if enastate:
                   self.enable(self.icepap_steps)
-               return "OPEN"
+               return "OPENED"
             else:
                if enastate:
                   self.enable(self.icepap_steps)
@@ -66,49 +66,49 @@ class fshutter:
       if self.musst:
          btrig = self.musst.putget("?BTRIG")
          self.musst.putget("#BTRIG %d" % (1-btrig))
-         dispatcher.send('status', self, 'MOVING')
+         dispatcher.send('state', self, 'MOVING')
          while self.fshutter_mot.state().MOVING:
             time.sleep(0.01)
 
    def msopen(self):
-      status = self.status()
-      if status == "CLOSED":
+      state = self.state()
+      if state == "CLOSED":
          # already closed 
          return
       self._toggle_state()
 
    def msclose(self):
-      status = self.status()
-      if status == "OPEN":
+      state = self.state()
+      if state == "OPENED":
          # already open 
          return
       self._toggle_state()
 
    def open(self):
-      status = self.status()
-      print "shutter status is %s" % status
+      state = self.state()
+      print "shutter is %s" % state
 
-      if status == "OPEN":
+      if state == "OPENED":
          # already open 
          return
        
       self._toggle_state_icepap()
-      new_status = self.status()
-      dispatcher.send('status', self, new_status)
-      print "now is %s" % new_status
+      new_state = self.state()
+      dispatcher.send('state', self, new_state)
+      print "now is %s" % new_state
 
    def close(self):
-      status = self.status()
-      print "shutter status is %s" % status
+      state = self.state()
+      print "shutter state is %s" % state
 
-      if status == "CLOSED":
+      if state == "CLOSED":
          # already closed
          return
 
       self._toggle_state_icepap()
-      new_status = self.status()
-      dispatcher.send('status', self, new_status)
-      print "now is %s" % new_status
+      new_state = self.state()
+      dispatcher.send('state', self, new_state)
+      print "now is %s" % new_state
 
    def _icepap_query(self, cmd_str):
       """Send directly to Icepap controller"""
@@ -150,4 +150,6 @@ class fshutter:
          if self.musst:
             self.musst.putget("#ABORT")
             self.musst.putget("#CH CH1 0")
+      
+       dispatcher.send('state', self, self.state())
 

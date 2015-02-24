@@ -61,6 +61,7 @@ ControlPanel.prototype = {
 
         this.get_objects();
     },
+
     get_objects: function() {
         $.ajax({
             error: function(XMLHttpRequest, textStatus, errorThrown) {
@@ -70,7 +71,6 @@ ControlPanel.prototype = {
             type: 'GET',
             dataType: 'json',
             success: $.proxy(function(res) {
-                /*
                 var counters = res.counters;
                 for (var i = 0; i<counters.length; i++) {
                    var name = counters[i].name;
@@ -121,32 +121,31 @@ ControlPanel.prototype = {
                     this.shutters_list.append(dom_item);
                     this.update_inout(this.actuators[name]);
                 }
-                */
-            }, this);
+            }, this)
         });
     },
 
     add_item_with_buttons: function(obj_dict, name, label1, cmd1, label2, cmd2) {
-                    var dom_item = $("<li></li>");
-                    dom_item.addClass("control-panel-item");
-                    var in_button = $("<span>&nbsp;"+label1+"&nbsp;</span>");
-                    in_button.addClass("control-panel-toggle");
-                    var out_button = in_button.clone();
-                    out_button.html("&nbsp;Out&nbsp;");
-                    in_button.click(function() { 
-                        $.get(this.session_id+"/control_panel/run/" + name + "/"+cmd1); 
-                    });
-                    out_button.click(function() {
-                        $.get(this.session_id+"/control_panel/run/" + name + "/"+cmd2);
-                    });
-                    dom_item.html(name + "&nbsp;");
-                    dom_item.append(out_button);
-                    dom_item.append(in_button);
-                    var obj = obj_dict[name];
-                    obj.dom_item = dom_item;
-                    obj.in_button = in_button;
-                    obj.out_button = out_button;
-        return(dom_item);
+        var dom_item = $("<li></li>");
+        dom_item.addClass("control-panel-item");
+        var in_button = $("<span>&nbsp;" + label1 + "&nbsp;</span>");
+        in_button.addClass("control-panel-toggle");
+        var out_button = in_button.clone();
+        out_button.html("&nbsp;Out&nbsp;");
+        in_button.click(function() {
+            $.get(this.session_id + "/control_panel/run/" + name + "/" + cmd1);
+        });
+        out_button.click(function() {
+            $.get(this.session_id + "/control_panel/run/" + name + "/" + cmd2);
+        });
+        dom_item.html(name + "&nbsp;");
+        dom_item.append(out_button);
+        dom_item.append(in_button);
+        var obj = obj_dict[name];
+        obj.dom_item = dom_item;
+        obj.in_button = in_button;
+        obj.out_button = out_button;
+        return (dom_item);
     },
 
     update_motor: function(motor) {
@@ -212,5 +211,5 @@ ControlPanel.prototype = {
                 break;
             }
         }
-    },
+    }
 };

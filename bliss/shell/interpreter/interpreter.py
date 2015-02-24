@@ -186,11 +186,12 @@ def get_objects_by_type(objects_dict):
         else:
             #if inspect.ismethod(getattr(obj, "read")):
             #    counters[name]=obj 
-            try:
+            if not inspect.ismodule(obj):
+              try:
                 obj_dict = obj.__dict__
-            except AttributeError:
+              except AttributeError:
                 pass
-            else:
+              else:
                 for member_name, member in obj_dict.iteritems():
                     if isinstance(member, measurement.CounterBase):
                         counters["%s.%s" % (name, member_name)]=member

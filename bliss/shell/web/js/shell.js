@@ -41,7 +41,8 @@ function Shell(cmdline_div_id, shell_output_div_id) {
 
     this.output_div = $("#" + shell_output_div_id);
     this.output_div.addClass("code-font");
-    this.last_output_div = null;
+    this.last_output_div = $("<div></div>");
+    this.output_div.prepend(this.last_output_div);
 
     this.executing = false;
     this.completion_mode = false;

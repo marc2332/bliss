@@ -76,6 +76,7 @@ class fshutter:
          # already closed 
          return
       self._toggle_state()
+      dispatcher.send('state', self, self.state())
 
    def msclose(self):
       state = self.state()
@@ -83,6 +84,7 @@ class fshutter:
          # already open 
          return
       self._toggle_state()
+      dispatcher.send('state', self, self.state())
 
    def open(self):
       state = self.state()

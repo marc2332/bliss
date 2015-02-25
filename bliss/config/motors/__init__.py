@@ -328,10 +328,13 @@ def get_axis_setting(axis, setting_name):
     """
     if BACKEND == 'xml':
         try:
-            setting_value = axis.config.config_dict["settings"].get(setting_name)
+            settings = axis.config.config_dict["settings"]
         except KeyError:
             raise RuntimeError
         else:
+            setting_value = settings.get(setting_name)
+            if setting_value is None:
+                setting_value = axis.config.config_dict.get(setting_name)
             return setting_value["value"] if setting_value else None
     elif BACKEND == 'beacon':
         from bliss.config.motors.beacon_backend import get_axis_setting

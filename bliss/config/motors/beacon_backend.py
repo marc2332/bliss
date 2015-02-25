@@ -125,8 +125,12 @@ def commit_settings(config_dict):
 def get_axis_setting(axis, setting_name):
     hash_setting = settings.HashSetting("axis.%s" % axis.name)
     if len(hash_setting) == 0:
-      raise RuntimeError("No setting for axis %s" % axis.name)
-    return hash_setting.get(setting_name)
+      try:
+          return axis.config.get(setting_name)
+      except:
+          return None
+    else:
+        return hash_setting.get(setting_name)
 
 
 class StaticConfig(object):

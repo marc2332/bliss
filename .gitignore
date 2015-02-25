@@ -5,3 +5,9 @@ build
 doc/_build
 .coverage
 
+# for eclipse users
+.settings/
+.project
+.pydevproject
+
+

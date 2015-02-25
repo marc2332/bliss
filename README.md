@@ -49,7 +49,7 @@ Special controllers:
 *setpoint.py   Tango attribute as a simple motor (allows scans and ramps)
 *mockup.py     Test and demonstration controller
 *simpliest.py  Minimal controller example
-*PJ31.py       PiezoJack (combination of stepper and pizeo)
+*PJ31.py       PiezoJack (combination of stepper and pizeo 712)
 
 Calculational controllers
 *spectro_eh1_test.py  new ID26 spectrometer prototype

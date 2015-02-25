@@ -1,6 +1,7 @@
 from bliss.config import static
 from bliss.config import settings
-from . import get_controller_class, get_axis_class, add_controller, set_backend, Axis, AxisRef, CONTROLLER_BY_AXIS
+from bliss.common import event
+from . import get_controller_class, get_axis_class, add_controller, set_backend, Axis, AxisRef, CONTROLLER_BY_AXIS, write_setting as config_write_setting
 
 def create_objects_from_config_node(config, node):
     set_backend("beacon")
@@ -38,11 +39,14 @@ def create_objects_from_config_node(config, node):
     controller._update_refs()
     controller.initialize()
     axis = controller.get_axis(name)
+    event.connect(axis, "write_setting", config_write_setting)
     cache_dict = dict(zip(axes_names, [controller]*len(axes_names)))
     return {name: axis}, cache_dict    
 
 def create_object_from_cache(config, name, controller):
-    return controller.get_axis(name)
+    axis = controller.get_axis(name)
+    event.connect(axis, "write_setting", config_write_setting)
+    return axis
 
 def load_cfg_fromstring(config_yaml):
     """Load configuration from yaml string

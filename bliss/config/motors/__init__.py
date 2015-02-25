@@ -178,7 +178,6 @@ def get_axis(axis_name):
         o = BEACON_CONFIG.get(axis_name)
         if not isinstance(o, Axis):
             raise AttributeError("'%s` is not an axis" % axis_name)
-	event.connect(o, "write_setting", write_setting)
         return o
  
     try:

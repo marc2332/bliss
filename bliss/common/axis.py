@@ -387,7 +387,7 @@ class Axis(object):
         initial_state = self.state()
         if initial_state != "READY":
             raise RuntimeError("axis %s state is \
-                                %r" % (self.name, initial_state))
+                                %r" % (self.name, str(initial_state)))
 
     def move(self, user_target_pos, wait=True, relative=False):
         if self.__controller.is_busy():

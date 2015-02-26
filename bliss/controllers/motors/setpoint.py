@@ -75,13 +75,8 @@ class setpoint(Controller):
     """
     Controller initialization actions.
     """
-
     def initialize(self):
-        # hardware initialization
-        for axis_name, axis in self.axes.iteritems():
-            axis.settings.set('init_count', 0)
-            # set initial speed
-            axis.settings.set('velocity', axis.config.get("velocity", float))
+        pass
 
     """
     Axes initialization actions.
@@ -92,8 +87,6 @@ class setpoint(Controller):
             "end_t": 0,
             "end_pos": self._pos0}
 
-        # To test that axes are initialized only once.
-        axis.settings.set('init_count', axis.settings.get('init_count') + 1)
 
         # "end of move" event
         event.connect(axis, "move_done", self.move_done_event_received)

@@ -21,18 +21,16 @@ as rampe generator for hexapiezo for example.
 <config>
   <controller class="setpoint" name="test">
     <port value="5000" />
-    <target_ds value="id16ni/HpzLoop/1" />
-    <target_attribute value="Ty" />
+    <target_attribute value="id16ni/HpzLoop/1/Ty" />
     <gating_ds value="id16ni/bliss_e517b/p1" />
     <axis name="sp1">
       <velocity value="1" />
-      <acceleration value="0" />
+      <acceleration value="1" />
       <steps_per_unit value="1" />
     </axis>
   </controller>
 </config>
 """
-
 
 class setpoint(Controller):
 
@@ -41,14 +39,16 @@ class setpoint(Controller):
 
         self._axis_moves = {}
 
+        self.factor = 1
+
         # config
         _target_attribute_name = self.config.get("target_attribute")
         _gating_ds = self.config.get("gating_ds")
 
-        # add a setting name 'init_count' of type 'int'
-        self.axis_settings.add('init_count', int)
-
-        self.target_attribute = AttributeProxy(_target_attribute_name)
+        try:
+            self.target_attribute = AttributeProxy(_target_attribute_name)
+        except:
+            elog.error( "Unable to connect to attrtribute %s " % _target_attribute_name)
 
         # External DS to use for gating.
         # ex: PI-E517 for zap of HPZ.

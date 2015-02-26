@@ -182,34 +182,27 @@ class BlissAxis(PyTango.Device_4Impl):
         self.attr_Home_side_read = False
         """
 
-        """
-        Display get_info message
-        """
-        # elog.info("    %s" % self.axis.get_info())
-        elog.info("BlissAxisManager Axis " + bcolors.PINK + self._ds_name+ bcolors.ENDC + " initialized")
-        elog.info("----------II-------------------")
 
     def always_executed_hook(self):
-        # self.debug_stream("In always_excuted_hook()")
 
         # here instead of in init_device due to (Py?)Tango bug :
         # device does not really exist in init_device... (Cyril)
         if not self.once:
-            """
-            Initialises 'set values' of attributes.
-            """
+            try:
+                # Initialises "set values" of attributes.
 
-            print "Initialises 'set values' of attributes."
+                # Position
+                attr = self.get_device_attr().get_attr_by_name("Position")
+                attr.set_write_value(self.axis.position())
 
-            # Position
-            attr = self.get_device_attr().get_attr_by_name("Position")
-            attr.set_write_value(self.axis.position())
-
-            # Velocity
-            attr = self.get_device_attr().get_attr_by_name("Velocity")
-            attr.set_write_value(self.axis.velocity())
-            self.once = True
-
+                # Velocity
+                attr = self.get_device_attr().get_attr_by_name("Velocity")
+                attr.set_write_value(self.axis.velocity())
+            except:
+                elog.exception(
+                    "Cannot set one of the attributes write value")
+            finally:
+                self.once = True
 
     def dev_state(self):
         """ This command gets the device state (stored in its device_state
@@ -271,19 +264,20 @@ class BlissAxis(PyTango.Device_4Impl):
             quality = PyTango.AttrQuality.ATTR_VALID
         _t = time.time()
 
+        _pos = self.axis.position()
+
         # updates value of "position" attribute.
-        attr.set_value(self.axis.position())
+        attr.set_value(_pos)
 
         # Updates "Write value" of Position attribute.
-        # why ???  write value must not change
-        # attr.set_write_value(self.axis.position())
+        attr.set_write_value(_pos)
 
         # ???
-        attr.set_value_date_quality(self.axis.position(), time.time(), quality)
+        attr.set_value_date_quality(_pos, time.time(), quality)
 
         _duration = time.time() - _t
         if _duration > 0.05:
-            print "{%s} read_Position : duration seems too long : %5.3g ms" % \
+            print "BlissAxisManager.py : {%s} read_Position : duration seems too long : %5.3g ms" % \
                 (self._ds_name, _duration * 1000)
 
     def write_Position(self, attr):

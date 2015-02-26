@@ -98,7 +98,7 @@ class PI_E517(Controller):
         # Updates cached value of closed loop status.
         self.closed_loop = self._get_closed_loop_status(axis)
 
-    def read_position(self, axis, measured=False):
+    def read_position(self, axis, measured=False, last_read=[{"t":time.time(),"pos":[None,None,None]},{"t":time.time(),"pos":[None,None,None]}]):
         """
         Returns position's setpoint or measured position.
         Measured position command is POS?
@@ -111,14 +111,30 @@ class PI_E517(Controller):
         Returns:
             - <position> : float : piezo position in Micro-meters or in Volts.
         """
-        if measured:
-            _pos = self._get_pos(axis)
-            elog.debug("position measured read : %g" % _pos)
-        else:
-            _pos = self._get_target_pos(axis)
-            elog.debug("position setpoint read : %g" % _pos)
+        cache = last_read[1 if measured else 0]
 
-        return _pos
+        if measured:
+            if time.time()-cache["t"] < 0.005:
+                #print "encache meas %f" % time.time()
+                _pos = cache["pos"]
+            else:
+                #print "PAS encache meas %f" % time.time()
+                _pos = self._get_pos(axis)
+                cache["pos"]=_pos
+                cache["t"]=time.time()
+            elog.debug("position measured read : %r" % _pos)
+        else:
+            if time.time()-cache["t"] < 0.005:
+                #print "encache not meas %f" % time.time()
+                _pos = cache["pos"]
+            else:
+                #print "PAS encache not meas %f" % time.time()
+                _pos = self._get_target_pos(axis)
+                cache["pos"]=_pos
+                cache["t"]=time.time()
+            elog.debug("position setpoint read : %r" % _pos)
+
+        return _pos[axis.channel-1]
 
     def read_velocity(self, axis):
         """
@@ -141,10 +157,18 @@ class PI_E517(Controller):
         elog.debug("velocity set : %g" % new_velocity)
         return self.read_velocity(axis)
 
+#     def read_acceleration(self, axis):
+#         """Returns axis current acceleration in steps/sec2"""
+#         return 1
+#
+#     def set_acceleration(self, axis, new_acc):
+#         """Set axis acceleration given in steps/sec2"""
+#         pass
+
     def state(self, axis):
         # if self._get_closed_loop_status(axis):
         if self.closed_loop:
-            elog.debug("CLOSED-LOOP is active")
+            #elog.debug("CLOSED-LOOP is active")
             if self._get_on_target_status(axis):
                 return AxisState("READY")
             else:
@@ -263,9 +287,11 @@ class PI_E517(Controller):
         Raises:
             ?
         """
-        _ans = self.send(axis, "POS? %s" % axis.chan_letter)
-        _pos = float(_ans[2:])
-
+        #_ans = self.send(axis, "POS? %s" % axis.chan_letter)
+        #_pos = float(_ans[2:])
+        _ans = self.sock.write_readlines("POS?\n", 3)
+        _pos = map(float, [x[2:] for x in _ans])
+ 
         return _pos
 
     def _get_target_pos(self, axis):
@@ -282,10 +308,13 @@ class PI_E517(Controller):
             ?
         """
         if self.closed_loop:
-            _ans = self.send(axis, "MOV? %s" % axis.chan_letter)
+            #_ans = self.send(axis, "MOV? %s" % axis.chan_letter)
+            _ans = self.sock.write_readlines("MOV?\n", 3)
         else:
-            _ans = self.send(axis, "SVA? %s" % axis.chan_letter)
-        _pos = float(_ans[2:])
+            #_ans = self.send(axis, "SVA? %s" % axis.chan_letter)
+            _ans = self.sock.write_readlines("SVA?\n",3)
+        #_pos = float(_ans[2:])
+        _pos = map(float, [x[2:] for x in _ans])
         return _pos
 
     def open_loop(self, axis):

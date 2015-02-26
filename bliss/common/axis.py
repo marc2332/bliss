@@ -154,6 +154,7 @@ class Axis(object):
         new_pos is in user units.
         Returns a value in user units.
         """
+        elog.debug("axis.py : position(new_pos=%r)" % new_pos)
         if self.is_moving:
             if new_pos is not None:
                 raise RuntimeError("Can't set axis position \
@@ -225,7 +226,6 @@ class Axis(object):
 
         # In all cases, stores velocity in settings in uu/s
         self.settings.set("velocity", _user_vel)
-
         return _user_vel
 
     def acceleration(self, new_acc=None, from_config=False):
@@ -239,8 +239,9 @@ class Axis(object):
             # W => Converts into motor units to change acceleration of axis.
             self.__controller.set_acceleration(self, new_acc * abs(self.steps_per_unit))
 
-        # R/W : read acceleration from controller
-        _acceleration = self.__controller.read_acceleration(self) / abs(self.steps_per_unit)
+        # R or W : read acceleration from controller
+        _ctrl_acc = self.__controller.read_acceleration(self)
+        _acceleration = _ctrl_acc / abs(self.steps_per_unit)
 
         if new_acc is not None:
             # W => save acceleration in settings in uu/s2

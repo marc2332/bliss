@@ -25,11 +25,11 @@ class PI_E517(Controller):
     def move_done_event_received(self, state):
         if self.auto_gate_enabled:
             if state is True:
-                print "movement is finished"
+                elog.info("PI_E517.py : movement is finished")
                 self._set_gate(0)
                 elog.debug("mvt finished, gate set to 0")
             else:
-                print "movement is starting"
+                elog.info("PI_E517.py : movement is starting")
                 self._set_gate(1)
                 elog.debug("mvt started, gate set to 1")
 
@@ -235,8 +235,7 @@ class PI_E517(Controller):
         _ans = self.sock.write_readline(_cmd)
         _duration = time.time() - _t0
         if _duration > 0.005:
-            print "E517 Received %s from Send %s (duration : %g ms) " % (repr(_ans), _cmd, _duration * 1000)
-
+            elog.info("PI_E517.py : Received %r from Send %s (duration : %g ms) " % (_ans, _cmd, _duration * 1000))
         return _ans
 
     def send_no_ans(self, axis, cmd):
@@ -347,7 +346,7 @@ class PI_E517(Controller):
             # auto gating
             self.auto_gate_enabled = True
             self.gate_axis = axis
-            print "enable_gate ", value, "fro axis.channel ", axis.channel
+            elog.info("PI_E517.py : enable_gate " + value + "fro axis.channel " + axis.channel)
         else:
             self.auto_gate_enabled = False
 
@@ -386,9 +385,6 @@ class PI_E517(Controller):
         Raises:
             ?
         """
-
-        print "gate axis channel =", self.gate_axis.channel
-
         if state:
             _cmd = "CTO %d 3 3 1 5 0 1 6 100 1 7 1" % (self.gate_axis.channel)
         else:

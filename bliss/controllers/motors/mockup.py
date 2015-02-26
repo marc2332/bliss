@@ -160,9 +160,15 @@ class Mockup(Controller):
     ACCELERATION
     """
     def read_acceleration(self, axis):
+        """
+        must return acceleration in controller units / s2
+        """
         return axis.__acc
 
     def set_acceleration(self, axis, new_acceleration):
+        """
+        <new_acceleration> is in controller units / s2
+        """
         axis.__acc = new_acceleration
 
     """

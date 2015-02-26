@@ -870,7 +870,6 @@ def main():
             elog.debug("BlissAxisManager.py - Found device : %s" % _device)
             _config_file = db.get_device_property(_device, "config_file")["config_file"][0]
             elog.info("BlissAxisManager.py - config file : %s" % _config_file)
-            elog.info("-------------++----------------")
             first_run = False
         else:
             elog.error("[FIRST RUN] New server never started ? -> no database entry...", raise_exception=False)

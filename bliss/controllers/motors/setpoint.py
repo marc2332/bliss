@@ -55,22 +55,23 @@ class setpoint(Controller):
         if _gating_ds is not None:
             self.gating_ds = DeviceProxy(_gating_ds)
             self.external_gating = True
+            elog.info("external gating True ; gating ds= %s " % _gating_ds)
         else:
             # No external gating by default.
             self.external_gating = False
 
         # _pos0 must be in controller unit.
         self._pos0 = self.target_attribute.read().value * self.factor
-        print "initial position : %g CU" % self._pos0
+        elog.info("initial position : %g CU" % self._pos0)
 
     def move_done_event_received(self, state):
         if self.external_gating:
             if state:
-                print "movement is finished"
-                self.target_gating_device.SetGate(0)
+                elog.debug("movement is finished  %f" % time.time())
+                self.gating_ds.SetGate(False)
             else:
-                print "movement is starting"
-                self.target_gating_device.SetGate(1)
+                elog.debug("movement is starting  %f" % time.time())
+                self.gating_ds.SetGate(True)
 
     """
     Controller initialization actions.
@@ -135,13 +136,12 @@ class setpoint(Controller):
                 d = math.copysign(1, self._axis_moves[axis]["delta"])
                 dt = t - self._axis_moves[axis]["t0"]
                 pos = self._axis_moves[axis]["start_pos"] + d * dt * v
-                print "pos=", pos
 
                 self.target_attribute.write(pos)
 
                 return pos
             else:
-                _end_pos = self._axis_moves[axis]["end_pos"]
+                _end_pos = self._axis_moves[axis]["end_pos"] / axis.steps_per_unit
 
                 self.target_attribute.write(_end_pos)
                 return _end_pos
@@ -164,6 +164,12 @@ class setpoint(Controller):
         axis.settings.set('velocity', _user_velocity)
 
         return new_velocity
+
+    def read_acceleration(self, axis):
+        return 1
+
+    def set_acceleration(self, axis, new_acc):
+        pass
 
     """
     Always return the current acceleration time taken from controller

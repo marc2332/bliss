@@ -913,16 +913,15 @@ def main():
 
                 new_axis_class_class.cmd_list = dict(BlissAxisClass.cmd_list)
 
-                for (fname, (t1, t2), tango_type, attr_name) in _cmd_list:
-                    if tango_type == "command":
-                        setattr(new_axis_class, fname, getattr(_axis, fname))
+                for (fname, (t1, t2)) in _cmd_list:
+                    setattr(new_axis_class, fname, getattr(_axis, fname))
 
-                        tin = types_conv_tab[t1]
-                        tout = types_conv_tab[t2]
+                    tin = types_conv_tab[t1]
+                    tout = types_conv_tab[t2]
 
-                        new_axis_class_class.cmd_list.update({fname: [[tin, ""], [tout, ""]]})
+                    new_axis_class_class.cmd_list.update({fname: [[tin, ""], [tout, ""]]})
 
-                        elog.debug("   %s (in: %s, %s) (out: %s, %s)" % (fname, t1, tin, t2, tout))
+                    elog.debug("   %s (in: %s, %s) (out: %s, %s)" % (fname, t1, tin, t2, tout))
 
                 """
                 SETTINGS AS ATTRIBUTES.

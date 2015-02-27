@@ -11,7 +11,6 @@ Cyril Guilloud ESRF BLISS January 2014
 
 NOT DONE :
 *Dead band
-
 """
 
 
@@ -44,7 +43,6 @@ class FlexDC(Controller):
         axis.max_dead_zone = axis.config.get("max_dead_zone", int)
         axis.smoothing = axis.config.get("smoothing", int)
         axis.deceleration = axis.config.get("deceleration", float)
-
 
         add_axis_method(axis, self.get_id)
 
@@ -85,7 +83,6 @@ class FlexDC(Controller):
 
         # Maximum dead zone
         self.flexdc_parameter(axis, "CA[37]", axis.max_dead_zone)
-
 
     def read_position(self, axis, measured=False):
         """
@@ -179,7 +176,7 @@ class FlexDC(Controller):
         returns acceleration read from flexdc controller in steps/s2
         """
         _acc_spss = float(self._flexdc_query("%sAC" % axis.channel))
-        elog.debug("read Acceleration : _acc_spss=%g " %  _acc_spss)
+        elog.debug("read Acceleration : _acc_spss=%g " % _acc_spss)
         return _acc_spss
 
     def set_acceleration(self, axis, new_acc):

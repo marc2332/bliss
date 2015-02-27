@@ -77,9 +77,9 @@ class tab3(CalcController):
         self.d1 = self.config.get("d1", float)
         self.d2 = self.config.get("d2", float)
         try:
-            self.d4 =  self.config.get("d4", float)
+            self.d4 = self.config.get("d4", float)
         except:
-            self.d4 = self.d1/2
+            self.d4 = self.d1 / 2
         if self.geometry in (5, 8):
             self.d3 = self.config.get("d3", float)
 
@@ -89,7 +89,7 @@ class tab3(CalcController):
         if self.geometry in (1, 2):
             back = positions_dict["back1"]
         else:
-            back = positions_dict["back1"] + (self.d4/self.d1) * \
+            back = positions_dict["back1"] + (self.d4 / self.d1) * \
                 (positions_dict["back1"] - positions_dict["back2"])
 
         xtilt = math.atan(

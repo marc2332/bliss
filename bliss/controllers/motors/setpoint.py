@@ -32,6 +32,7 @@ as rampe generator for hexapiezo for example.
 </config>
 """
 
+
 class setpoint(Controller):
 
     def __init__(self, name, config, axes):
@@ -48,7 +49,7 @@ class setpoint(Controller):
         try:
             self.target_attribute = AttributeProxy(_target_attribute_name)
         except:
-            elog.error( "Unable to connect to attrtribute %s " % _target_attribute_name)
+            elog.error("Unable to connect to attrtribute %s " % _target_attribute_name)
 
         # External DS to use for gating.
         # ex: PI-E517 for zap of HPZ.
@@ -62,7 +63,7 @@ class setpoint(Controller):
 
         # _pos0 must be in controller unit.
         self._pos0 = self.target_attribute.read().value * self.factor
-        elog.info("initial position : %g CU" % self._pos0)
+        elog.info("initial position : %g (Ctrl. Unit)" % self._pos0)
 
     def move_done_event_received(self, state):
         if self.external_gating:
@@ -87,7 +88,6 @@ class setpoint(Controller):
         self._axis_moves[axis] = {
             "end_t": 0,
             "end_pos": self._pos0}
-
 
         # "end of move" event
         event.connect(axis, "move_done", self.move_done_event_received)

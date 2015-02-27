@@ -8,18 +8,19 @@ import time
 NOTSET
 ###
 
+
 class bcolors:
     PINK = '\033[95m'
-    BLUE   = '\033[94m'
+    BLUE = '\033[94m'
     YELLOW = '\033[93m'
-    GREEN  = '\033[92m'
-    RED    = '\033[91m'
-    ENDC   = '\033[0m'
+    GREEN = '\033[92m'
+    RED = '\033[91m'
+    ENDC = '\033[0m'
 
 
 # LOG LEVELS :
 #      eMotion   |     IcePAP     |  Tango
-#------------------------------------------
+# ------------------------------------------
 #   NOTSET ==  0 | 0 == DBG_NONE  | OFF
 #   DEBUG  == 10 | 4 == DBG_DATA  | DEBUG
 #   INFO   == 20 | 2 == DBG_TRACE | INFO
@@ -131,7 +132,7 @@ def debug(debug_msg):
     short_filename = "%s" % "/".join(path)
     short_filename = bcolors.BLUE + short_filename + bcolors.ENDC
     debug_msg = bcolors.PINK + debug_msg + bcolors.ENDC
-    msg = "%.3f %s() (%s, l.%d): %s" % (time.time()-time0, func_name, short_filename, lineno, debug_msg)
+    msg = "%.3f %s() (%s, l.%d): %s" % (time.time() - time0, func_name, short_filename, lineno, debug_msg)
 
-    ret =  log(DEBUG, msg)
+    ret = log(DEBUG, msg)
     return ret

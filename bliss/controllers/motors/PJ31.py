@@ -212,8 +212,10 @@ class PJ31(Controller):
 #        raise NotImplementedError
 
     def home_state(self, axis):
-        return AxisState("READY") if(time.time() - self._axis_moves[axis]
-                        ["home_search_start_time"]) > 2 else AxisState("MOVING")
+        if(time.time() - self._axis_moves[axis]["home_search_start_time"]) > 2:
+            return AxisState("READY")
+        else:
+            return AxisState("MOVING")
 
     """
     Custom axis method returning the current name of the axis

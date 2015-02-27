@@ -7,14 +7,14 @@ Bliss controller fo 4-motors Q-Sys support table for transfocators.
 
 dh dr ur uh : aliases for real motors
               dh = downstream hall
-              dr = downstream ring 
-              ur = upstream ring 
+              dr = downstream ring
+              ur = upstream ring
               uh = upstream hall
 ty tz thetay thetaz : aliases for calculated/virtual motors
-	      ty = alias for calculated y translation
-	      tz = alias for calculated z translation
+              ty = alias for calculated y translation
+              tz = alias for calculated z translation
               thetay = alias for calculated y rotation
-	      thetaz = alias for calculated z rotation
+              thetaz = alias for calculated z rotation
 
 d1 : half distance in x direction (in mm) between the two moving blocks.
 d3 : distance in z direction (in mm) between pivot plane and the top plate.
@@ -90,94 +90,88 @@ Example configuration (from ID22):
 from bliss.controllers.motor import CalcController
 import math
 
-class trans4(CalcController):
 
+class trans4(CalcController):
     def __init__(self, *args, **kwargs):
         CalcController.__init__(self, *args, **kwargs)
 
         self.d1 = self.config.get("d1", float)
         self.d3 = self.config.get("d3", float)
 
-
     def calc_from_real(self, positions_dict):
         '''
         Returns calculated/virtual motor positions (as a dictionary) given real ones.
-	Units:
-	    Distances d1 and d3, real motors positions and calculated/virtual z and y
-	    motor positions are in millimeters.
-	    Calculated/virtual rotation around y and z axis are first calculated 
-	    in radians and then transformed into degrees for the dictionnary 
-	    returned by this function.
+        Units:
+            Distances d1 and d3, real motors positions and calculated/virtual z and y
+            motor positions are in millimeters.
+            Calculated/virtual rotation around y and z axis are first calculated
+            in radians and then transformed into degrees for the dictionnary
+            returned by this function.
         '''
         d1 = self.d1
-        #d3 = self.d3
+        # d3 = self.d3
         dh = positions_dict["dh"]
         dr = positions_dict["dr"]
         ur = positions_dict["ur"]
         uh = positions_dict["uh"]
 
-	# Modif 04.Nov.2014
+        # Modif 04.Nov.2014
         ty = ((ur - uh) - (dh - dr)) / 4
-        #tz = ((dh + dr + ur + uh) / 4) + d3
+        # tz = ((dh + dr + ur + uh) / 4) + d3
         tz = (dh + dr + ur + uh) / 4
-	thetay = ((ur + uh) - (dh + dr)) / (4 * d1)
+        thetay = ((ur + uh) - (dh + dr)) / (4 * d1)
         thetaz = ((dh - dr) + (ur - uh)) / (4 * d1)
 
-	# Angles (thetay and thetaz) are in radians.
-	# Must transform angles into degrees before the values are returned
-	# to the user.
-	thetay = thetay*(180./math.pi)
-	thetaz = thetaz*(180./math.pi)
+        # Angles (thetay and thetaz) are in radians.
+        # Must transform angles into degrees before the values are returned
+        # to the user.
+        thetay = thetay * (180.0 / math.pi)
+        thetaz = thetaz * (180.0 / math.pi)
 
-        _virt_dict =  { "thetay" : thetay,
-                        "thetaz" : thetaz,
-                        "ty" : ty,
-                        "tz" : tz }
+        _virt_dict = {"thetay": thetay,
+                      "thetaz": thetaz,
+                      "ty": ty,
+                      "tz": tz}
 
-        #print _virt_dict
+        # print _virt_dict
         return _virt_dict
 
     def calc_to_real(self, axis_tag, positions_dict):
         '''
         Returns real motors positions (as a dictionary) given virtual ones.
-	Units:
-	    Distances d1 and d3, real motors positions and calculated/virtual z and y
-	    motor positions are in millimeters.
-	    Rotation around Y-axis(thetay) and Z-axis(thetaz) are in degrees and must
-	    be first transformed into radians before being used in formulas which calculate
-	    real motor positions from the calculated/virtual motor positions.
+        Units:
+        Distances d1 and d3, real motors positions and calculated/virtual z and y
+        motor positions are in millimeters.
+        Rotation around Y-axis(thetay) and Z-axis(thetaz) are in degrees and must
+        be first transformed into radians before being used in formulas which calculate
+        real motor positions from the calculated/virtual motor positions.
         '''
 
         d1 = self.d1
-        #d3 = self.d3
+        # d3 = self.d3
         ty = positions_dict["ty"]
         tz = positions_dict["tz"]
         thetay = positions_dict["thetay"]
         thetaz = positions_dict["thetaz"]
 
-	# Angles (thetay and thetaz) are in degrees.
-	# Must transform them into radians since radians are expected in formulas below 
-	thetay = thetay*(math.pi/180.)
-	thetaz = thetaz*(math.pi/180.)
+        # Angles (thetay and thetaz) are in degrees.
+        # Must transform them into radians since
+        # radians are expected in formulas below
+        thetay = thetay * (math.pi / 180.0)
+        thetaz = thetaz * (math.pi / 180.0)
 
-	# Modif 04.Nov.2014
-        #dh = tz  -  ty  +  d1 * thetaz  -  d1 * thetay - d3
-        #dr = tz  +  ty  -  d1 * thetaz  -  d1 * thetay - d3
-        #ur = tz  +  ty  +  d1 * thetaz  +  d1 * thetay - d3
-        #uh = tz  -  ty  -  d1 * thetaz  +  d1 * thetay - d3
-        dh = tz  -  ty  +  d1 * thetaz  -  d1 * thetay
-        dr = tz  +  ty  -  d1 * thetaz  -  d1 * thetay
-        ur = tz  +  ty  +  d1 * thetaz  +  d1 * thetay
-        uh = tz  -  ty  -  d1 * thetaz  +  d1 * thetay
+        dh = tz - ty + d1 * thetaz - d1 * thetay
+        dr = tz + ty - d1 * thetaz - d1 * thetay
+        ur = tz + ty + d1 * thetaz + d1 * thetay
+        uh = tz - ty - d1 * thetaz + d1 * thetay
 
-        _real_dict = { "dh": dh,
-                       "dr": dr,
-                       "ur": ur,
-                       "uh": uh }
+        _real_dict = {"dh": dh,
+                      "dr": dr,
+                      "ur": ur,
+                      "uh": uh}
 
-        #print _real_dict
+        # print _real_dict
         return _real_dict
-
 
     def read_acctime(self, axis):
         return 0
@@ -190,4 +184,3 @@ class trans4(CalcController):
 
     def set_acceleration(self, axis, new_acc):
         print "not implemented. "
-

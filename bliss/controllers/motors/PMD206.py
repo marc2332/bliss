@@ -330,7 +330,6 @@ class PMD206(Controller):
 #            elog.info("Motor is parked. I unpark it")
 #            self.unpark_motor(motion.axis)
 
-
         # print "targetpos=", motion.target_pos
         _enc_target = int_to_hex(int(motion.target_pos))
         # print "_enc_target=", _enc_target
@@ -511,6 +510,5 @@ class PMD206(Controller):
         # self.send_no_ans(self.ctrl_axis, cmd)
         pass
 
-    def raw_write_read(self,  cmd):
+    def raw_write_read(self, cmd):
         return self.send(self.ctrl_axis, cmd)
-

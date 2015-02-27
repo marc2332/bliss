@@ -39,7 +39,6 @@ class VSCANNER(Controller):
             self._status = "communication error : no VSCANNER found on serial \"%s\"" % self.serial_line
             elog.debug(self._status)
 
-
     def finalize(self):
         """
         Closes the serial object.
@@ -56,15 +55,15 @@ class VSCANNER(Controller):
 
         add_axis_method(axis, self.get_id, types_info=(None, str))
 
-        axis.config.config_dict.update( { "steps_per_unit": {"value": axis.config.get("steps_per_unit") } } )
+        axis.config.config_dict.update({"steps_per_unit": {"value": axis.config.get("steps_per_unit")}})
 
         ini_pos = self.read_position(axis)
-        if ini_pos < 0 :
+        if ini_pos < 0:
             elog.info("reseting VSCANNER negative position to 0 !!")
             _cmd = "V%s 0" % (axis.chan_letter)
             self.send_no_ans(axis, _cmd)
 
-        if ini_pos > 10 :
+        if ini_pos > 10:
             elog.info("reseting VSCANNER >10-position to 10 !!")
             _cmd = "V%s 10" % (axis.chan_letter)
             self.send_no_ans(axis, _cmd)
@@ -110,7 +109,7 @@ class VSCANNER(Controller):
         _ans = _ans[1:][:-1]
 
         # (_vel, _line_waiting) = map(float, _ans.split())
-        _float_ans =  map(float, _ans.split())
+        _float_ans = map(float, _ans.split())
         if len(_float_ans) == 1:
             _vel = _float_ans[0]
         elif len(_float_ans) == 2:
@@ -121,7 +120,7 @@ class VSCANNER(Controller):
         #     V/s = V/ms * 1000
         _velocity = _vel * 1000
 
-        elog.debug("read_velocity : %g " %  _velocity)
+        elog.debug("read_velocity : %g " % _velocity)
         return _velocity
 
     def set_velocity(self, axis, new_velocity):
@@ -150,9 +149,9 @@ class VSCANNER(Controller):
     def prepare_move(self, motion):
         _velocity = float(motion.axis.config.get("velocity"))
         if _velocity == 0:
-            elog.debug ("immediate move")
+            elog.debug("immediate move")
         else:
-            elog.debug ("scan move")
+            elog.debug("scan move")
 
             if motion.axis.chan_letter == "X":
                 scan_val1 = motion.delta
@@ -164,19 +163,18 @@ class VSCANNER(Controller):
                 print "ERRORR"
 
             number_of_pixel = 1
-            line_mode = "C" # mode continuous (S for stepping)
+            line_mode = "C"  # mode continuous (S for stepping)
             _cmd = "LINE %g %g %d %s" % (scan_val1, scan_val2, number_of_pixel, line_mode)
-            elog.debug ("_cmd_LINE=%s" % _cmd)
+            elog.debug("_cmd_LINE=%s" % _cmd)
             self.send_no_ans(motion.axis, _cmd)
 
             _cmd = "SCAN 0 0 1 U"
-            elog.debug ("_cmd_SCAN=%s" % _cmd)
+            elog.debug("_cmd_SCAN=%s" % _cmd)
             self.send_no_ans(motion.axis, _cmd)
 
             _cmd = "PSHAPE ALL"
-            elog.debug ("_cmd_PSHAPE=%s" % _cmd)
+            elog.debug("_cmd_PSHAPE=%s" % _cmd)
             self.send_no_ans(motion.axis, _cmd)
-
 
     def start_one(self, motion):
         """
@@ -188,13 +186,13 @@ class VSCANNER(Controller):
         """
         _velocity = float(motion.axis.config.get("velocity"))
         if _velocity == 0:
-            elog.debug ("immediate move")
+            elog.debug("immediate move")
             _cmd = "V%s %s" % (motion.axis.chan_letter, motion.target_pos)
             self.send_no_ans(motion.axis, _cmd)
         else:
             elog.debug("SCAN move")
             _cmd = "START 1 NORET"
-            elog.debug ("_cmd_START=%s" % _cmd)
+            elog.debug("_cmd_START=%s" % _cmd)
             self.send_no_ans(motion.axis, _cmd)
 
     def start_all(self, *motion_list):
@@ -217,7 +215,6 @@ class VSCANNER(Controller):
         _ans = self.serial.readlines()
         return _ans
 
-
     def get_id(self, axis):
         """
         Returns firmware version.
@@ -238,18 +235,17 @@ class VSCANNER(Controller):
 
         _txt = ""
         _txt = _txt + "###############################\n"
-        _txt = _txt + "firmware version   : " + self.send(axis, "?VER")  + "\n"
+        _txt = _txt + "firmware version   : " + self.send(axis, "?VER") + "\n"
         _txt = _txt + "output voltage     : " + self.send(axis, "?VXY") + "\n"
         _txt = _txt + "unit state         : " + self.send(axis, "?STATE") + "\n"
         _txt = _txt + "###############################\n"
         self.send_no_ans(axis, "?INFO")
-        _txt = _txt + "    %s  \n%s\n" % \
-            ("Communication parameters", " ".join(self.serial.readlines() )   )
+        _txt = _txt + "    %s  \n%s\n" % ("Communication parameters",
+                                          " ".join(self.serial.readlines()))
 
         _txt = _txt + "###############################\n"
 
         return _txt
-
 
     """
     VSCANNER Com
@@ -290,4 +286,3 @@ class VSCANNER(Controller):
         elog.debug("cmd=\"%s\" " % cmd)
         _cmd = cmd + "\r\n"
         self.serial.write(_cmd)
-

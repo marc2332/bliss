@@ -146,3 +146,7 @@ class AxisSettings:
     def load_from_config(self):
         return self.__axis.controller.axis_settings.load_from_config(
             self.__axis)
+
+    def __iter__(self):
+        for name in self.__axis.controller.axis_settings.setting_names:
+            yield name

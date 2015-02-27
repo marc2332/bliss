@@ -893,8 +893,6 @@ def main():
                 new_axis_class_class = types.ClassType("BlissAxisClass_%s" % axis_name, (BlissAxisClass,), {})
                 new_axis_class = types.ClassType("BlissAxis_%s" % axis_name, (BlissAxis,), {})
 
-                elog.debug("================ axis %s =========" % axis_name)
-
                 types_conv_tab = {
                     None: PyTango.DevVoid,
                     str: PyTango.DevString,
@@ -902,24 +900,75 @@ def main():
                     float: PyTango.DevDouble,
                     bool: PyTango.DevBoolean}
 
+                """
+                CUSTOM COMMANDS
+                """
                 # Search and adds custom commands.
                 _cmd_list = _axis.custom_methods_list()
                 elog.debug("'%s' custom commands:" % axis_name)
 
                 new_axis_class_class.cmd_list = dict(BlissAxisClass.cmd_list)
 
-                for (fname, (t1, t2)) in _cmd_list:
-                    # ugly verison by CG...
-                    # NOTE: MG has not benn involved in such crappy code (but it works :) )
-                    setattr(new_axis_class, fname, getattr(_axis, fname))
+                for (fname, (t1, t2), tango_type, attr_name) in _cmd_list:
+                    if tango_type == "command":
+                        setattr(new_axis_class, fname, getattr(_axis, fname))
 
-                    tin = types_conv_tab[t1]
-                    tout = types_conv_tab[t2]
+                        tin = types_conv_tab[t1]
+                        tout = types_conv_tab[t2]
 
-                    new_axis_class_class.cmd_list.update({fname: [[tin, ""], [tout, ""]]})
+                        new_axis_class_class.cmd_list.update({fname: [[tin, ""], [tout, ""]]})
 
-                    elog.debug("   %s (in: %s, %s) (out: %s, %s)" % (fname, t1, tin, t2, tout))
+                        elog.debug("   %s (in: %s, %s) (out: %s, %s)" % (fname, t1, tin, t2, tout))
 
+                """
+                SETTINGS AS ATTRIBUTES.
+                """
+                elog.debug(" BlissAxisManager.py ----------------  SETTINGS  -------------------------")
+
+                new_axis_class_class.attr_list = dict(BlissAxisClass.attr_list)
+
+                for setting_name in _axis.settings():
+                    if setting_name in ["velocity", "position", "dial_position", "state",
+                                        "offset", "low_limit", "high_limit", "acceleration"]:
+                        elog.debug(" BlissAxisManager.py -- std SETTING %s " % (setting_name))
+                    else:
+                        _attr_name = setting_name
+                        _setting_type = _axis.controller().axis_settings.convert_funcs[_attr_name]
+                        _attr_type = types_conv_tab[_setting_type]
+                        elog.debug(" BlissAxisManager.py -- adds SETTING %s as %s attribute" % (setting_name, _attr_type))
+
+                        # Updates Attributes list.
+                        new_axis_class_class.attr_list.update({_attr_name:
+                                                               [[_attr_type,
+                                                                 PyTango._PyTango.AttrDataFormat.SCALAR,
+                                                                 PyTango._PyTango.AttrWriteType.READ_WRITE], {
+                            'Display level': PyTango._PyTango.DispLevel.OPERATOR,
+                            'format': '%10.3f',
+                            'description': '%s : u 2' % _attr_name,
+                            'unit': 'user units/s^2',
+                            'label': _attr_name
+                            }]})
+
+                        # Creates functions to read and write settings.
+                        def read_custattr(self, attr, _axis=_axis, _attr_name=_attr_name):
+                            _val = _axis.get_setting(_attr_name)
+                            print "in read_%s %s (%s)" % (_attr_name, _val, _axis.name())
+                            attr.set_value(_val)
+                        new_read_attr_method = types.MethodType(read_custattr, new_axis_class,
+                                                                new_axis_class.__class__)
+                        setattr(new_axis_class, "read_%s" % _attr_name, new_read_attr_method)
+
+                        def write_custattr(self, attr, _axis=_axis, _attr_name=_attr_name):
+                            data = attr.get_write_value()
+                            print "in write_%s %s (%s)" % (_attr_name, data, _axis.name())
+                            _axis.set_setting(_attr_name, data)
+
+                        new_write_attr_method = types.MethodType(write_custattr, new_axis_class,
+                                                                 new_axis_class.__class__)
+                        setattr(new_axis_class, "write_%s" % _attr_name, new_write_attr_method)
+
+                # End of custom command and settings
+                # Adds new Axis specific class.
                 py.add_class(new_axis_class_class, new_axis_class)
 
         U.server_init()

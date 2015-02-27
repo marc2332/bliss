@@ -80,6 +80,12 @@ class Axis(object):
         # return a copy of the custom methods list
         return self.__custom_methods_list[:]
 
+    def set_setting(self, *args):
+        self.settings.set(*args)
+
+    def get_setting(self, *args):
+        return self.settings.get(*args)
+
     def has_tag(self, tag):
         for t, axis_list in self.__controller._tagged.iteritems():
             if t != tag:

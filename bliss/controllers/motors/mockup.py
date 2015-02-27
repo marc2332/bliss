@@ -48,8 +48,11 @@ class Mockup(Controller):
         except:
             elog.debug("no 'host' defined in config for %s" % name)
 
-        # Adds a Mockup specific setting named 'init_count' of type 'int'
+        # Adds Mockup-specific settings.
         self.axis_settings.add('init_count', int)
+        self.axis_settings.add('atrubi', float)
+        self.axis_settings.add('round_earth', bool)
+        self.axis_settings.add('geocentrisme', bool)
 
     """
     Controller initialization actions.
@@ -58,6 +61,9 @@ class Mockup(Controller):
         # hardware initialization
         for axis_name, axis in self.axes.iteritems():
             axis.settings.set('init_count', 0)
+            axis.settings.set('atrubi', 777)
+            axis.settings.set('round_earth', True)
+            axis.settings.set('geocentrisme', False)
 
     """
     Axes initialization actions.
@@ -72,7 +78,7 @@ class Mockup(Controller):
         # this is to test axis are initialized only once
         axis.settings.set('init_count', axis.settings.get('init_count') + 1)
 
-        # Add new axis oject method.
+        # Add new axis oject methods as tango commands.
         add_axis_method(axis, self.custom_park, types_info=(None, None))
         add_axis_method(axis, self.custom_get_forty_two, types_info=(None, int))
         add_axis_method(axis, self.custom_get_twice, types_info=(int, int))

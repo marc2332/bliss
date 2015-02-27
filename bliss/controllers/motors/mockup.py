@@ -130,7 +130,7 @@ class Mockup(Controller):
             t = time.time()
             v = self.read_velocity(axis)
             d = math.copysign(1, self._axis_moves[axis]["delta"])
-            dt = t - self._axis_moves[axis]["t0"] # t0=time at start_one.
+            dt = t - self._axis_moves[axis]["t0"]  # t0=time at start_one.
             pos = self._axis_moves[axis]["start_pos"] + d * dt * v
         else:
             pos = self._axis_moves[axis]["end_pos"]
@@ -224,8 +224,10 @@ class Mockup(Controller):
 #        raise NotImplementedError
 
     def home_state(self, axis):
-        return AxisState("READY") if(time.time() - self._axis_moves[axis]
-                        ["home_search_start_time"]) > 2 else AxisState("MOVING")
+        if(time.time() - self._axis_moves[axis]["home_search_start_time"]) > 2:
+            return AxisState("READY")
+        else:
+            return AxisState("MOVING")
 
     def limit_search(self, axis, limit):
         self._axis_moves[axis]["end_pos"] = 1E6 if limit > 0 else -1E6
@@ -247,7 +249,7 @@ class Mockup(Controller):
         return pos
 
     """
-    Custom axis method returning the current name of the axis
+    Custom axis methods
     """
     # VOID VOID
     def custom_park(self, axis):

@@ -141,7 +141,8 @@ class Axis(object):
             # Sends a value in motor units to the controller
             # but returns a user-units value.
             try:
-                curr_pos = self.__controller.set_position(self, new_dial * self.steps_per_unit) / self.steps_per_unit
+                _pos = self.__controller.set_position(self, new_dial * self.steps_per_unit)
+                curr_pos = _pos / self.steps_per_unit
             except NotImplementedError:
                 try:
                     curr_pos = self.__controller.read_position(self) / self.steps_per_unit
@@ -325,8 +326,10 @@ class Axis(object):
         if abs(dial_target_pos - dial_initial_pos) < 1E-6:
             return
 
-        elog.debug("prepare_move : user_initial_pos=%g user_target_pos=%g dial_target_pos=%g dial_intial_pos=%g relative=%s" %
-                   (user_initial_pos, user_target_pos, dial_target_pos, dial_initial_pos, relative))
+        elog.debug("prepare_move : user_initial_pos=%g user_target_pos=%g" %
+                   (user_initial_pos, user_target_pos) +
+                   "  dial_target_pos=%g dial_intial_pos=%g relative=%s" %
+                   (dial_target_pos, dial_initial_pos, relative))
 
         user_backlash = self.config.get("backlash", float, 0)
         # all positions are converted to controller units
@@ -547,6 +550,7 @@ def add_property(inst, name, method):
     '''
     Adds a property to a class instance.
     Property must be added to the CLASS.
+    Used by AxisState to create states.
     '''
     cls = type(inst)
 
@@ -638,7 +642,7 @@ class AxisState(object):
 
     def _check_state_name(self, state_name):
         if not isinstance(state_name, str) or not AxisState.STATE_VALIDATOR.match(state_name):
-            print "Bad state name : >>>>", state_name , "<<<<"
+            print "Bad state name : >>>>", state_name, "<<<<"
             raise ValueError(
                 "Invalid state : a state must be a string containing only block letters")
 
@@ -714,4 +718,3 @@ class AxisState(object):
 
     def __ne__(self, other):
         return not self.__eq__(other)
-

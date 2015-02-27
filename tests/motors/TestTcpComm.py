@@ -117,8 +117,8 @@ class TestTcpComm(unittest.TestCase):
 
         tasks = []
         for i, msg in enumerate(['HELLO', 'WORLD', 'HOUPPI',
-                                'tagada', 'super', 'mario',
-                                'ludgi']):
+                                 'tagada', 'super', 'mario',
+                                 'ludgi']):
             tasks.append(gevent.spawn(task_function, msg, i))
             if i % 2:
                 tasks.append(gevent.spawn(task_with_exception, msg, i))

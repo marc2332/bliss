@@ -34,6 +34,7 @@ config_xml = """
 </config>
 """
 
+
 class Test_VSCANNER_Controller(unittest.TestCase):
 
     # called for each test
@@ -50,7 +51,7 @@ class Test_VSCANNER_Controller(unittest.TestCase):
     def test_get_id(self):
         print "################### get_velocity ###############"
         px = bliss.get_axis("px")
-        _vel =  px.velocity()
+        _vel = px.velocity()
         print "px velocity: ", _vel
 
     def test_get_chan(self):
@@ -66,7 +67,6 @@ class Test_VSCANNER_Controller(unittest.TestCase):
         print "VSCANNER px position :", px.position()
         py = bliss.get_axis("py")
         print "VSCANNER py position :", py.position()
-
 
     def test_get_state(self):
         print "################### get_state ###############"
@@ -85,11 +85,11 @@ class Test_VSCANNER_Controller(unittest.TestCase):
         px = bliss.get_axis("px")
         _pos = px.position()
         print "VSCANNER px.position = %g" % _pos
-        if _pos < 88 :
+        if _pos < 88:
             _new_pos = _pos + 11.11
         else:
             _new_pos = 0
-        print "VSCANNER move to ",  _new_pos
+        print "VSCANNER move to ", _new_pos
         px.move(_new_pos)
         print "VSCANNER new pos : ", px.position()
 
@@ -115,11 +115,9 @@ load_cfg_fromstring("""
     </axis>
   </controller>
 </config>
-""") ; 
-
+""");
 
 a=get_axis("p1")
 b=get_axis("p2")
-
 
 '''

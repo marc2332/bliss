@@ -110,7 +110,7 @@ class BlissAxisManagerClass(PyTango.DeviceClass):
         'config_file':
         [PyTango.DevString,
          "Path to the configuration file",
-         []],
+         ["/users/blissadm/local/userconf/bliss/XXX.xml"]],
     }
 
 

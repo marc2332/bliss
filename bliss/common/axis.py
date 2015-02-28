@@ -80,6 +80,12 @@ class Axis(object):
         # return a copy of the custom methods list
         return self.__custom_methods_list[:]
 
+    def set_setting(self, *args):
+        self.settings.set(*args)
+
+    def get_setting(self, *args):
+        return self.settings.get(*args)
+
     def has_tag(self, tag):
         for t, axis_list in self.__controller._tagged.iteritems():
             if t != tag:
@@ -135,7 +141,8 @@ class Axis(object):
             # Sends a value in motor units to the controller
             # but returns a user-units value.
             try:
-                curr_pos = self.__controller.set_position(self, new_dial * self.steps_per_unit) / self.steps_per_unit
+                _pos = self.__controller.set_position(self, new_dial * self.steps_per_unit)
+                curr_pos = _pos / self.steps_per_unit
             except NotImplementedError:
                 try:
                     curr_pos = self.__controller.read_position(self) / self.steps_per_unit
@@ -154,6 +161,7 @@ class Axis(object):
         new_pos is in user units.
         Returns a value in user units.
         """
+        elog.debug("axis.py : position(new_pos=%r)" % new_pos)
         if self.is_moving:
             if new_pos is not None:
                 raise RuntimeError("Can't set axis position \
@@ -225,7 +233,6 @@ class Axis(object):
 
         # In all cases, stores velocity in settings in uu/s
         self.settings.set("velocity", _user_vel)
-
         return _user_vel
 
     def acceleration(self, new_acc=None, from_config=False):
@@ -239,8 +246,9 @@ class Axis(object):
             # W => Converts into motor units to change acceleration of axis.
             self.__controller.set_acceleration(self, new_acc * abs(self.steps_per_unit))
 
-        # R/W : read acceleration from controller
-        _acceleration = self.__controller.read_acceleration(self) / abs(self.steps_per_unit)
+        # R or W : read acceleration from controller
+        _ctrl_acc = self.__controller.read_acceleration(self)
+        _acceleration = _ctrl_acc / abs(self.steps_per_unit)
 
         if new_acc is not None:
             # W => save acceleration in settings in uu/s2
@@ -318,8 +326,10 @@ class Axis(object):
         if abs(dial_target_pos - dial_initial_pos) < 1E-6:
             return
 
-        elog.debug("prepare_move : user_initial_pos=%g user_target_pos=%g dial_target_pos=%g dial_intial_pos=%g relative=%s" %
-                   (user_initial_pos, user_target_pos, dial_target_pos, dial_initial_pos, relative))
+        elog.debug("prepare_move : user_initial_pos=%g user_target_pos=%g" %
+                   (user_initial_pos, user_target_pos) +
+                   "  dial_target_pos=%g dial_intial_pos=%g relative=%s" %
+                   (dial_target_pos, dial_initial_pos, relative))
 
         user_backlash = self.config.get("backlash", float, 0)
         # all positions are converted to controller units
@@ -543,6 +553,7 @@ def add_property(inst, name, method):
     '''
     Adds a property to a class instance.
     Property must be added to the CLASS.
+    Used by AxisState to create states.
     '''
     cls = type(inst)
 
@@ -709,4 +720,3 @@ class AxisState(object):
 
     def __ne__(self, other):
         return not self.__eq__(other)
-

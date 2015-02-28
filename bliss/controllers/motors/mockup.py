@@ -48,8 +48,11 @@ class Mockup(Controller):
         except:
             elog.debug("no 'host' defined in config for %s" % name)
 
-        # Adds a Mockup specific setting named 'init_count' of type 'int'
+        # Adds Mockup-specific settings.
         self.axis_settings.add('init_count', int)
+        self.axis_settings.add('atrubi', float)
+        self.axis_settings.add('round_earth', bool)
+        self.axis_settings.add('geocentrisme', bool)
 
     """
     Controller initialization actions.
@@ -58,6 +61,9 @@ class Mockup(Controller):
         # hardware initialization
         for axis_name, axis in self.axes.iteritems():
             axis.settings.set('init_count', 0)
+            axis.settings.set('atrubi', 777)
+            axis.settings.set('round_earth', True)
+            axis.settings.set('geocentrisme', False)
 
     """
     Axes initialization actions.
@@ -72,7 +78,7 @@ class Mockup(Controller):
         # this is to test axis are initialized only once
         axis.settings.set('init_count', axis.settings.get('init_count') + 1)
 
-        # Add new axis oject method.
+        # Add new axis oject methods as tango commands.
         add_axis_method(axis, self.custom_park, types_info=(None, None))
         add_axis_method(axis, self.custom_get_forty_two, types_info=(None, int))
         add_axis_method(axis, self.custom_get_twice, types_info=(int, int))
@@ -124,7 +130,7 @@ class Mockup(Controller):
             t = time.time()
             v = self.read_velocity(axis)
             d = math.copysign(1, self._axis_moves[axis]["delta"])
-            dt = t - self._axis_moves[axis]["t0"] # t0=time at start_one.
+            dt = t - self._axis_moves[axis]["t0"]  # t0=time at start_one.
             pos = self._axis_moves[axis]["start_pos"] + d * dt * v
         else:
             pos = self._axis_moves[axis]["end_pos"]
@@ -160,9 +166,15 @@ class Mockup(Controller):
     ACCELERATION
     """
     def read_acceleration(self, axis):
+        """
+        must return acceleration in controller units / s2
+        """
         return axis.__acc
 
     def set_acceleration(self, axis, new_acceleration):
+        """
+        <new_acceleration> is in controller units / s2
+        """
         axis.__acc = new_acceleration
 
     """
@@ -212,8 +224,10 @@ class Mockup(Controller):
 #        raise NotImplementedError
 
     def home_state(self, axis):
-        return AxisState("READY") if(time.time() - self._axis_moves[axis]
-                        ["home_search_start_time"]) > 2 else AxisState("MOVING")
+        if(time.time() - self._axis_moves[axis]["home_search_start_time"]) > 2:
+            return AxisState("READY")
+        else:
+            return AxisState("MOVING")
 
     def limit_search(self, axis, limit):
         self._axis_moves[axis]["end_pos"] = 1E6 if limit > 0 else -1E6
@@ -235,7 +249,7 @@ class Mockup(Controller):
         return pos
 
     """
-    Custom axis method returning the current name of the axis
+    Custom axis methods
     """
     # VOID VOID
     def custom_park(self, axis):

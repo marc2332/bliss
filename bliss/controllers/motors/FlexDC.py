@@ -11,7 +11,6 @@ Cyril Guilloud ESRF BLISS January 2014
 
 NOT DONE :
 *Dead band
-
 """
 
 
@@ -22,9 +21,6 @@ class FlexDC(Controller):
 
         # Gets host from xml config.
         self.host = self.config.get("host")
-
-        # Adds acceleration as a setting.
-        self.axis_settings.add('acceleration', float)
 
     # Init of controller.
     def initialize(self):
@@ -46,14 +42,9 @@ class FlexDC(Controller):
         axis.min_dead_zone = axis.config.get("min_dead_zone", int)
         axis.max_dead_zone = axis.config.get("max_dead_zone", int)
         axis.smoothing = axis.config.get("smoothing", int)
-        # axis.acceleration = axis.config.get("acceleration", int)
-        axis.deceleration = axis.config.get("deceleration", int)
-
-        axis.settings.set('acceleration',
-                          axis.config.get("acceleration", float))
+        axis.deceleration = axis.config.get("deceleration", float)
 
         add_axis_method(axis, self.get_id)
-        add_axis_method(axis, self.acceleration)
 
         # Enabling servo mode.
         self._flexdc_query("%sMO=1" % axis.channel)
@@ -92,15 +83,6 @@ class FlexDC(Controller):
 
         # Maximum dead zone
         self.flexdc_parameter(axis, "CA[37]", axis.max_dead_zone)
-
-        # Set config acceleration to the controller.
-        self._flexdc_query("%sAC=%d" % (axis.channel,
-                                        axis.settings.get("acceleration")))
-
-        # Set config deceleration to the controller.
-        self._flexdc_query("%sDC=%d" % (axis.channel, axis.deceleration))
-
-        # Config velocity is automatically set.
 
     def read_position(self, axis, measured=False):
         """
@@ -189,42 +171,22 @@ class FlexDC(Controller):
         _cmd = "%s%s" % (self.ctrl_axis.channel, cmd)
         return self._flexdc_query(_cmd)
 
-    def acceleration(self, axis, new_acc=None):
+    def read_acceleration(self, axis):
         """
-        Read / Write acceleration.
+        returns acceleration read from flexdc controller in steps/s2
+        """
+        _acc_spss = float(self._flexdc_query("%sAC" % axis.channel))
+        elog.debug("read Acceleration : _acc_spss=%g " % _acc_spss)
+        return _acc_spss
+
+    def set_acceleration(self, axis, new_acc):
+        """
+        Writes acceleration.
+        <new_acc> is in steps/s2
         Flexdc works in steps/s2
-        <new_acc> is in user-unit/s2
         """
-        _spu = axis.steps_per_unit
-
-        if new_acc is None:
-            """ Reads acceleration from flexdc in steps/s2"""
-            try:
-                _acc_spss = float(self._flexdc_query("%sAC" % axis.channel))
-                _acc = _acc_spss / _spu
-                elog.debug("read Acceleration : _acc=%g spu=%g _acc_spss=%g " %
-                           (_acc, _spu, _acc_spss))
-                axis.settings.set("acceleration", _acc)
-            except:
-                print "marche pas pas"
-                sys.excepthook(sys.exc_info()[0],
-                               sys.exc_info()[1],
-                               sys.exc_info()[2])
-        else:
-            """ Set acceleration """
-            try:
-                _new_acc_spss = new_acc * _spu
-                self._flexdc_query("%sAC=%d" % (axis.channel, _new_acc_spss))
-                elog.debug("write Acceleration : new_acc=%g, _spu=%g, _new_acc_spss=%g" %
-                           (new_acc, _spu, _new_acc_spss))
-                # Settings work in user-unit/s2
-                axis.settings.set("acceleration", new_acc)
-            except:
-                print "marche pas"
-                sys.excepthook(sys.exc_info()[0],
-                               sys.exc_info()[1],
-                               sys.exc_info()[2])
-
+        self._flexdc_query("%sAC=%d" % (axis.channel, new_acc))
+        elog.debug("write Acceleration : new_acc=%g" % new_acc)
         return axis.settings.get("acceleration")
 
     def _flexdc_query(self, cmd):

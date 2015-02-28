@@ -24,7 +24,6 @@ CRYST_ALPHA = 0.0      # miscut angle in degrees
 CRYST_R = 1000.        # analyser bending radius in mm (=2*Rm)
 
 
-
 # UTILITY FUNCTIONS #
 def kev2wlen(energy):
     """ convert photon energy (E, keV) to wavelength ($\lambda$, \AA$^{-1}$)"""

@@ -21,12 +21,11 @@ as rampe generator for hexapiezo for example.
 <config>
   <controller class="setpoint" name="test">
     <port value="5000" />
-    <target_ds value="id16ni/HpzLoop/1" />
-    <target_attribute value="Ty" />
+    <target_attribute value="id16ni/HpzLoop/1/Ty" />
     <gating_ds value="id16ni/bliss_e517b/p1" />
     <axis name="sp1">
       <velocity value="1" />
-      <acceleration value="0" />
+      <acceleration value="1" />
       <steps_per_unit value="1" />
     </axis>
   </controller>
@@ -41,47 +40,45 @@ class setpoint(Controller):
 
         self._axis_moves = {}
 
+        self.factor = 1
+
         # config
         _target_attribute_name = self.config.get("target_attribute")
         _gating_ds = self.config.get("gating_ds")
 
-        # add a setting name 'init_count' of type 'int'
-        self.axis_settings.add('init_count', int)
-
-        self.target_attribute = AttributeProxy(_target_attribute_name)
+        try:
+            self.target_attribute = AttributeProxy(_target_attribute_name)
+        except:
+            elog.error("Unable to connect to attrtribute %s " % _target_attribute_name)
 
         # External DS to use for gating.
         # ex: PI-E517 for zap of HPZ.
         if _gating_ds is not None:
             self.gating_ds = DeviceProxy(_gating_ds)
             self.external_gating = True
+            elog.info("external gating True ; gating ds= %s " % _gating_ds)
         else:
             # No external gating by default.
             self.external_gating = False
 
         # _pos0 must be in controller unit.
         self._pos0 = self.target_attribute.read().value * self.factor
-        print "initial position : %g CU" % self._pos0
+        elog.info("initial position : %g (Ctrl. Unit)" % self._pos0)
 
     def move_done_event_received(self, state):
         if self.external_gating:
             if state:
-                print "movement is finished"
-                self.target_gating_device.SetGate(0)
+                elog.debug("movement is finished  %f" % time.time())
+                self.gating_ds.SetGate(False)
             else:
-                print "movement is starting"
-                self.target_gating_device.SetGate(1)
+                elog.debug("movement is starting  %f" % time.time())
+                self.gating_ds.SetGate(True)
 
     """
     Controller initialization actions.
     """
-
     def initialize(self):
-        # hardware initialization
-        for axis_name, axis in self.axes.iteritems():
-            axis.settings.set('init_count', 0)
-            # set initial speed
-            axis.settings.set('velocity', axis.config.get("velocity", float))
+        pass
 
     """
     Axes initialization actions.
@@ -91,9 +88,6 @@ class setpoint(Controller):
         self._axis_moves[axis] = {
             "end_t": 0,
             "end_pos": self._pos0}
-
-        # To test that axes are initialized only once.
-        axis.settings.set('init_count', axis.settings.get('init_count') + 1)
 
         # "end of move" event
         event.connect(axis, "move_done", self.move_done_event_received)
@@ -142,13 +136,12 @@ class setpoint(Controller):
                 d = math.copysign(1, self._axis_moves[axis]["delta"])
                 dt = t - self._axis_moves[axis]["t0"]
                 pos = self._axis_moves[axis]["start_pos"] + d * dt * v
-                print "pos=", pos
 
                 self.target_attribute.write(pos)
 
                 return pos
             else:
-                _end_pos = self._axis_moves[axis]["end_pos"]
+                _end_pos = self._axis_moves[axis]["end_pos"] / axis.steps_per_unit
 
                 self.target_attribute.write(_end_pos)
                 return _end_pos
@@ -171,6 +164,12 @@ class setpoint(Controller):
         axis.settings.set('velocity', _user_velocity)
 
         return new_velocity
+
+    def read_acceleration(self, axis):
+        return 1
+
+    def set_acceleration(self, axis, new_acc):
+        pass
 
     """
     Always return the current acceleration time taken from controller

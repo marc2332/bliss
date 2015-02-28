@@ -12,6 +12,7 @@
 """
 from bliss.controllers.motor import CalcController; from bliss.common import log
 
+
 class kb(CalcController):
 
     def __init__(self, *args, **kwargs):
@@ -31,5 +32,5 @@ class kb(CalcController):
 
     def calc_to_real(self, axis_tag, positions_dict):
         d = positions_dict["trans"] * 1000.0 / self.distance
-        return { "rot": positions_dict["tilt"] + d,
-                 "erot": -d }
+        return {"rot": positions_dict["tilt"] + d,
+                "erot": -d}

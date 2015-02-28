@@ -1,5 +1,4 @@
 
-
 """
 Bliss Calculational controller to folllow beam trajectory
 real motors : Sx Sy Sz
@@ -13,11 +12,6 @@ from bliss.common import log as elog
 from bliss.controllers.motor import add_axis_method
 
 import math
-
-# GLOBAL VARIABLES #
-
-
-# CALC FUNCTIONS #
 
 
 class id16beam(CalcController):
@@ -34,7 +28,6 @@ class id16beam(CalcController):
 #         print "initialize_axis"
 #
 #         # add_axis_method(axis, self.set_CRYST_R, types_info=(int, int))
-
 
     def calc_from_real(self, positions_dict):
         """calculates the energy pseudo from the real position of atheh1"""

@@ -25,11 +25,11 @@ class PI_E517(Controller):
     def move_done_event_received(self, state):
         if self.auto_gate_enabled:
             if state is True:
-                print "movement is finished"
+                elog.info("PI_E517.py : movement is finished")
                 self._set_gate(0)
                 elog.debug("mvt finished, gate set to 0")
             else:
-                print "movement is starting"
+                elog.info("PI_E517.py : movement is starting")
                 self._set_gate(1)
                 elog.debug("mvt started, gate set to 1")
 
@@ -98,7 +98,9 @@ class PI_E517(Controller):
         # Updates cached value of closed loop status.
         self.closed_loop = self._get_closed_loop_status(axis)
 
-    def read_position(self, axis, measured=False):
+    def read_position(self, axis, measured=False,
+                      last_read=[{"t": time.time(), "pos": [None, None, None]},
+                                 {"t": time.time(), "pos": [None, None, None]}]):
         """
         Returns position's setpoint or measured position.
         Measured position command is POS?
@@ -111,14 +113,30 @@ class PI_E517(Controller):
         Returns:
             - <position> : float : piezo position in Micro-meters or in Volts.
         """
-        if measured:
-            _pos = self._get_pos(axis)
-            elog.debug("position measured read : %g" % _pos)
-        else:
-            _pos = self._get_target_pos(axis)
-            elog.debug("position setpoint read : %g" % _pos)
+        cache = last_read[1 if measured else 0]
 
-        return _pos
+        if measured:
+            if time.time() - cache["t"] < 0.005:
+                # print "encache meas %f" % time.time()
+                _pos = cache["pos"]
+            else:
+                # print "PAS encache meas %f" % time.time()
+                _pos = self._get_pos(axis)
+                cache["pos"] = _pos
+                cache["t"] = time.time()
+            elog.debug("position measured read : %r" % _pos)
+        else:
+            if time.time() - cache["t"] < 0.005:
+                # print "encache not meas %f" % time.time()
+                _pos = cache["pos"]
+            else:
+                # print "PAS encache not meas %f" % time.time()
+                _pos = self._get_target_pos(axis)
+                cache["pos"] = _pos
+                cache["t"] = time.time()
+            elog.debug("position setpoint read : %r" % _pos)
+
+        return _pos[axis.channel - 1]
 
     def read_velocity(self, axis):
         """
@@ -141,10 +159,18 @@ class PI_E517(Controller):
         elog.debug("velocity set : %g" % new_velocity)
         return self.read_velocity(axis)
 
+#     def read_acceleration(self, axis):
+#         """Returns axis current acceleration in steps/sec2"""
+#         return 1
+#
+#     def set_acceleration(self, axis, new_acc):
+#         """Set axis acceleration given in steps/sec2"""
+#         pass
+
     def state(self, axis):
         # if self._get_closed_loop_status(axis):
         if self.closed_loop:
-            elog.debug("CLOSED-LOOP is active")
+            # elog.debug("CLOSED-LOOP is active")
             if self._get_on_target_status(axis):
                 return AxisState("READY")
             else:
@@ -208,7 +234,7 @@ class PI_E517(Controller):
 #    def raw_write_read(self, cmd):
 #        return self.send(self.ctrl_axis, cmd)
 
-    def raw_write_read(self,  cmd):
+    def raw_write_read(self, cmd):
         return self.send(self.ctrl_axis, cmd)
 
     def send(self, axis, cmd):
@@ -235,8 +261,7 @@ class PI_E517(Controller):
         _ans = self.sock.write_readline(_cmd)
         _duration = time.time() - _t0
         if _duration > 0.005:
-            print "E517 Received %s from Send %s (duration : %g ms) " % (repr(_ans), _cmd, _duration * 1000)
-
+            elog.info("PI_E517.py : Received %r from Send %s (duration : %g ms) " % (_ans, _cmd, _duration * 1000))
         return _ans
 
     def send_no_ans(self, axis, cmd):
@@ -264,8 +289,10 @@ class PI_E517(Controller):
         Raises:
             ?
         """
-        _ans = self.send(axis, "POS? %s" % axis.chan_letter)
-        _pos = float(_ans[2:])
+        # _ans = self.send(axis, "POS? %s" % axis.chan_letter)
+        # _pos = float(_ans[2:])
+        _ans = self.sock.write_readlines("POS?\n", 3)
+        _pos = map(float, [x[2:] for x in _ans])
 
         return _pos
 
@@ -283,10 +310,13 @@ class PI_E517(Controller):
             ?
         """
         if self.closed_loop:
-            _ans = self.send(axis, "MOV? %s" % axis.chan_letter)
+            # _ans = self.send(axis, "MOV? %s" % axis.chan_letter)
+            _ans = self.sock.write_readlines("MOV?\n", 3)
         else:
-            _ans = self.send(axis, "SVA? %s" % axis.chan_letter)
-        _pos = float(_ans[2:])
+            # _ans = self.send(axis, "SVA? %s" % axis.chan_letter)
+            _ans = self.sock.write_readlines("SVA?\n", 3)
+        # _pos = float(_ans[2:])
+        _pos = map(float, [x[2:] for x in _ans])
         return _pos
 
     def open_loop(self, axis):
@@ -347,7 +377,7 @@ class PI_E517(Controller):
             # auto gating
             self.auto_gate_enabled = True
             self.gate_axis = axis
-            print "enable_gate ", value, "fro axis.channel ", axis.channel
+            elog.info("PI_E517.py : enable_gate " + value + "fro axis.channel " + axis.channel)
         else:
             self.auto_gate_enabled = False
 
@@ -386,9 +416,6 @@ class PI_E517(Controller):
         Raises:
             ?
         """
-
-        print "gate axis channel =", self.gate_axis.channel
-
         if state:
             _cmd = "CTO %d 3 3 1 5 0 1 6 100 1 7 1" % (self.gate_axis.channel)
         else:

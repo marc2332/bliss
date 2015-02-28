@@ -39,4 +39,3 @@ class MD2(Controller):
             return float(self._galil_query("TD %s" % axis.channel))
         else:
             return float(self._galil_query("TP %s" % axis.channel))
-

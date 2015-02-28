@@ -6,8 +6,6 @@ import time
 sys.path.insert(0, os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..")))
 
-
-
 import bliss
 import bliss.common.log as elog
 
@@ -34,4 +32,3 @@ while True:
         print ii
         time.sleep(0.4)
         my_axis.move(ii)
-

@@ -68,9 +68,9 @@ class Undulator(Controller):
         attr_pos_name = axis.config.get("attribute_position", str)
         attr_vel_name = axis.config.get("attribute_velocity", str)
         attr_acc_name = axis.config.get("attribute_acceleration", str)
-        self.axis_info[axis]={"attr_pos_name": attr_pos_name,
-                              "attr_vel_name":attr_vel_name,
-                              "attr_acc_name":attr_acc_name}
+        self.axis_info[axis] = {"attr_pos_name": attr_pos_name,
+                                "attr_vel_name": attr_vel_name,
+                                "attr_acc_name": attr_acc_name}
         elog.debug("axis initilized--------------------------")
 
     """
@@ -86,7 +86,8 @@ class Undulator(Controller):
         return self.device.read_attribute(self.axis_info[axis][attribute_name]).value
 
     def start_one(self, motion, t0=None):
-        self._set_attribute(motion.axis,"attr_pos_name", float(motion.target_pos / motion.axis.steps_per_unit))
+        self._set_attribute(motion.axis, "attr_pos_name",
+                            float(motion.target_pos / motion.axis.steps_per_unit))
 
     def read_position(self, axis, measured=False):
         """
@@ -105,13 +106,11 @@ class Undulator(Controller):
         """
         return self._get_attribute(axis, "attr_vel_name")
 
-
     def set_velocity(self, axis, new_velocity):
         """
         <new_velocity> is in motor units
         """
         self._set_attribute(axis, "attr_vel_name", new_velocity)
-
 
     """
     ACCELERATION
@@ -147,11 +146,10 @@ class Undulator(Controller):
     def get_info(self, axis):
         info_str = ""
         info_str = "DEVICE SERVER : %s \n" % self.ds_name
-        info_str += self.ds.state() +"\n"
+        info_str += self.ds.state() + "\n"
         info_str += "status=\"%s\"\n" % str(self.ds.status()).strip()
         info_str += "state=%s\n" % self.ds.state()
         info_str += "mode=%s\n" % str(self.ds.mode)
         info_str += ("undu states= %s" % " ".join(map(str, self.ds.UndulatorStates)))
 
         return info_str
-

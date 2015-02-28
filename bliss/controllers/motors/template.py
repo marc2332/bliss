@@ -51,7 +51,6 @@ class XXX(Controller):
         else:
             raise NotImplementedError
 
-
     def read_velocity(self, axis):
         """
         Args:
@@ -91,7 +90,6 @@ class XXX(Controller):
         _ans = self.serial.readlines()
         return _ans
 
-
     def get_id(self, axis):
         """
         Returns firmware version.
@@ -106,7 +104,6 @@ class XXX(Controller):
         _txt = ""
 
         return _txt
-
 
     """
     VSCANNER Com

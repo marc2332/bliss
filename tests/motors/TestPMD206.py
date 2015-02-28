@@ -101,8 +101,6 @@ if __name__ == '__main__':
     unittest.main()
 
 
-
-
 '''
 # interactive test:
 
@@ -158,6 +156,4 @@ print int(p.controller.send(p, "MP?")[8:], 16)
 print p.controller.send(p, "CS?")
 # PM16CS?:0100,20,20,20,20,20,20
 
-
 '''
-

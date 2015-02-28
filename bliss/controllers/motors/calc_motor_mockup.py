@@ -11,7 +11,7 @@ Example of the config file:
 controller:
     class: calc_motor_mockup
     axes:
-        -   
+        -
             name: $real_motor_name
             tags: real real_mot
         -
@@ -19,6 +19,7 @@ controller:
             tags: calc_mot
             s_param: 2 #this is optional
 """
+
 from bliss.controllers.motor import CalcController; from bliss.common import event
 
 
@@ -27,7 +28,7 @@ class calc_motor_mockup(CalcController):
         CalcController.__init__(self, *args, **kwargs)
 
         self.axis_settings.add("s_param", float)
-        
+
     def initialize_axis(self, axis):
         CalcController.initialize_axis(self, axis)
         event.connect(axis, "s_param", self._calc_from_real)
@@ -48,13 +49,15 @@ class calc_motor_mockup(CalcController):
     def calc_from_real(self, positions_dict):
         calc_mot_axis = self._tagged["calc_mot"][0]
         s_param = calc_mot_axis.settings.get("s_param")
-        #this formula is just an example
-        calc_pos = s_param*positions_dict["real_mot"])
+        # this formula is just an example
+        calc_pos = s_param * positions_dict["real_mot"]
+
         return {"calc_mot": calc_pos}
 
     def calc_to_real(self, axis_tag, positions_dict):
         calc_mot_axis = self._tagged["calc_mot"][0]
         s_param = calc_mot_axis.settings.get("s_param")
-        #this formula is just an example
-        real_pos = positions_dict["calc_mot"]/s_param
+        # this formula is just an example
+        real_pos = positions_dict["calc_mot"] / s_param
+
         return {"real_mot": real_pos}

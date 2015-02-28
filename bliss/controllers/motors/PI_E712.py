@@ -8,10 +8,11 @@ from bliss.common.axis import READY, MOVING
 import pi_gcs
 from bliss.comm import tcp
 
+
 """
-Bliss controller for ethernet PI E712 piezo controller. 
+Bliss controller for ethernet PI E712 piezo controller.
 Copied from the preliminary E517 controller.
-Programmed keeping in mind, that we might have a PI controller class, which could 
+Programmed keeping in mind, that we might have a PI controller class, which could
 be inherited to the E517, E712 etc.
 
 Holger Witsch ESRF BLISS
@@ -28,7 +29,6 @@ config example:
     </axis>
   </controller>
 </config>
-
 """
 
 
@@ -71,22 +71,22 @@ class PI_E712(Controller):
         """
         axis.channel = axis.config.get("channel", int)
 
-        add_axis_method(axis, self.get_id, name = "GetId", types_info = (None, str))
-        add_axis_method(axis, self.get_info, name = "GetInfo", types_info = (None, str))
-        add_axis_method(axis, self.raw_com, name = "RawCom", types_info = (str, str))
+        add_axis_method(axis, self.get_id, name="GetId", types_info=(None, str))
+        add_axis_method(axis, self.get_info, name="GetInfo", types_info=(None, str))
+        add_axis_method(axis, self.raw_com, name="RawCom", types_info=(str, str))
 
-        add_axis_method(axis, self.check_power_cut, name = "CheckPowerCut", types_info = (None, None))
-        add_axis_method(axis, self._get_tns, name = "Get_TNS", types_info = (None, float))
-        add_axis_method(axis, self._get_offset, name = "Get_Offset", types_info = (None, float))
-        add_axis_method(axis, self._put_offset, name = "Put_Offset", types_info = (float, None))
-        add_axis_method(axis, self._get_tad, name = "Get_TAD", types_info = (None, float))
-        add_axis_method(axis, self._get_closed_loop_status, name = "Get_Closed_Loop_Status", types_info = (None, bool))
-        add_axis_method(axis, self._set_closed_loop, name = "Set_Closed_Loop", types_info = (bool, None))
-        add_axis_method(axis, self._get_on_target_status, name = "Get_On_Target_Status", types_info = (None, bool))
+        add_axis_method(axis, self.check_power_cut, name="CheckPowerCut", types_info=(None, None))
+        add_axis_method(axis, self._get_tns, name="Get_TNS", types_info=(None, float))
+        add_axis_method(axis, self._get_offset, name="Get_Offset", types_info=(None, float))
+        add_axis_method(axis, self._put_offset, name="Put_Offset", types_info=(float, None))
+        add_axis_method(axis, self._get_tad, name="Get_TAD", types_info=(None, float))
+        add_axis_method(axis, self._get_closed_loop_status, name="Get_Closed_Loop_Status", types_info=(None, bool))
+        add_axis_method(axis, self._set_closed_loop, name="Set_Closed_Loop", types_info=(bool, None))
+        add_axis_method(axis, self._get_on_target_status, name="Get_On_Target_Status", types_info=(None, bool))
 
         try:
             axis.paranoia_mode = axis.config.get("paranoia_mode")  # check error after each command
-        except KeyError :
+        except KeyError:
             axis.paranoia_mode = False
 
         self._gate_enabled = False
@@ -95,7 +95,7 @@ class PI_E712(Controller):
         axis.closed_loop = self._get_closed_loop_status(axis)
         self.check_power_cut(axis)
 
-    def read_position(self, axis, measured = False):
+    def read_position(self, axis, measured=False):
         """
         Returns position's setpoint or measured position.
         Measured position command is POS?
@@ -212,12 +212,8 @@ class PI_E712(Controller):
         Args:
             - <axis> : passed for debugging purposes.
             - <cmd> : GCS command to send to controller (Channel is already mentionned  in <cmd>).
-
         Returns:
             - 1-line answer received from the controller (without "\\\\n" terminator).
-
-        Raises:
-            - 
         """
         _cmd = cmd + "\n"
         _t0 = time.time()
@@ -227,7 +223,8 @@ class PI_E712(Controller):
         _ans = self.sock.write_readline(_cmd)
         _duration = time.time() - _t0
         if _duration > 0.05:
-            print "%s Received %s from Send \"%s\" (duration : %g ms) " % (self.cname, repr(_ans), _cmd.rstrip(), _duration * 1000)
+            print "%s Received %s from Send \"%s\" (duration : %g ms) " % (
+                self.cname, repr(_ans), _cmd.rstrip(), _duration * 1000)
 
         _ans = self.sock.write_readline(_cmd)
 
@@ -258,7 +255,6 @@ class PI_E712(Controller):
         self.sock.write(_cmd)
         if axis is not None and axis.paranoia_mode:
             self.get_error()  # should raise exc.
-
 
     def _get_pos(self, axis):
         """
@@ -302,7 +298,7 @@ class PI_E712(Controller):
         _vol = float(_ans.split("=+")[-1])
         return _vol
 
-    def _set_closed_loop(self, axis, onoff = True):
+    def _set_closed_loop(self, axis, onoff=True):
         """
         Sets Closed loop status (Servo state) (SVO command)
         """
@@ -393,7 +389,7 @@ class PI_E712(Controller):
         _duration = time.time() - _t0
         if _duration > 0.005:
             print "%s Received %s from Send %s (duration : %g ms) " % \
-                    (self.cname, repr(_error_number), "ERR?", _duration * 1000)
+                  (self.cname, repr(_error_number), "ERR?", _duration * 1000)
 
         _error_str = pi_gcs.get_error_str(_error_number)
 
@@ -453,18 +449,11 @@ class PI_E712(Controller):
         _txt = ""
 
         for i in _infos:
-            _txt = _txt + "    %s %s\n" % \
-                (i[0], self.send(axis, i[1]))
+            _txt = _txt + "    %s %s\n" % (i[0], self.send(axis, i[1]))
 
-        _txt = _txt + "    %s  \n%s\n" % \
-            ("\nCommunication parameters",
-            "\n".join(self.sock.write_readlines("IFC?\n", 5)))
+        _txt = _txt + "    %s  \n%s\n" % ("\nCommunication parameters",
+                                          "\n".join(self.sock.write_readlines("IFC?\n", 5)))
 
-        """ my e712 didn't answer anything here
-#         _txt = _txt + "    %s  \n%s\n" % \
-#             ("\nFirmware version",
-#                 "\n".join(self.sock.write_readlines("VER?\n", 1)))
-        """
         return _txt
 
     def check_power_cut(self, axis):

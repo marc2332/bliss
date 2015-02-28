@@ -1,5 +1,6 @@
 import sys
 import os
+import gevent
 #TODO: MG18Nov14: needed by change in limit_search, to be removed
 import time
 
@@ -226,6 +227,11 @@ class IcePAP(Controller):
         """Stops smoothly an axis motion"""
         self.log_info("stop() called for axis \"%s\"" % axis.name)
         self.libgroup.stop(axis.libaxis)
+        # MG28Fev15: wait until axis is really stopped
+        acctime = self.libgroup.acctime(axis.libaxis)
+        with gevent.Timeout(3*acctime):
+          while self.state(axis) == 'MOVING':
+              gevent.sleep(acctime)
 
     def stop_all(self, *motion_list):
         """Stops smoothly all the moving axis given"""
@@ -234,6 +240,7 @@ class IcePAP(Controller):
         for motion in motion_list:
             axis_list.append(motion.axis.libaxis)
         self.libgroup.stop(axis_list)
+        # TODO: MG28Fev15: wait for axes to be really stopped
 
     def home_search(self, axis):
         """Launch a homing sequence"""

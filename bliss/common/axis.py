@@ -376,6 +376,7 @@ class Axis(object):
         self.__move_done.set()
         event.send(self, "move_done", True)
         self.settings.set("state", self.state(), write=False)
+        self.settings.set("position", self.position(), write=False)
 
         if move_task is not None and not move_task._being_waited:
             try:
@@ -431,9 +432,11 @@ class Axis(object):
 
     def stop(self):
         if self.is_moving:
-            self.__controller.stop(self)
             self.__set_position = None
-            self.__move_done.set()
+            try:
+                self.__controller.stop(self)
+            finally:
+                self.__move_done.set()
 
     def home(self, home_pos=None, wait=True):
         self._check_ready()
@@ -631,7 +634,6 @@ class AxisState(object):
 
     def _check_state_name(self, state_name):
         if not isinstance(state_name, str) or not AxisState.STATE_VALIDATOR.match(state_name):
-            print "Bad state name : >>>>", state_name , "<<<<"
             raise ValueError(
                 "Invalid state : a state must be a string containing only block letters")
 

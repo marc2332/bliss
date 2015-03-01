@@ -1,12 +1,10 @@
 
-import bliss
 from bliss.common import log as elog
 from bliss.common.task_utils import *
 from bliss.controllers.motor_settings import AxisSettings
 from bliss.common import event
 import time
 import gevent
-
 import re
 import types
 

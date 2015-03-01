@@ -279,28 +279,24 @@ class Axis(object):
         return self.settings.get('low_limit'), self.settings.get('high_limit')
 
     def _handle_move(self, motion):
-        def update_settings():
+        while True:
+            state = self.__controller.state(self)
+            if state != "MOVING":
+                break
             pos = self._position()
             self.settings.set("dial_position", self.user2dial(pos))
             self.settings.set("position", pos)
+            time.sleep(0.02)
 
-        with cleanup(update_settings):
-            while True:
-                state = self.__controller.state(self)
-                if state != "MOVING":
-                    break
-                update_settings()
-                time.sleep(0.02)
-
-            if motion.backlash:
-                # axis has moved to target pos - backlash;
-                # now do the final motion (backlash) to reach original target.
-                elog.debug("doing backlash (%g)" % motion.backlash)
-                final_pos = motion.target_pos + motion.backlash
-                backlash_motion = Motion(self, final_pos, motion.backlash)
-                self.__controller.prepare_move(backlash_motion)
-                self.__controller.start_one(backlash_motion)
-                self._handle_move(backlash_motion)
+        if motion.backlash:
+            # axis has moved to target pos - backlash;
+            # now do the final motion (backlash) to reach original target.
+            elog.debug("doing backlash (%g)" % motion.backlash)
+            final_pos = motion.target_pos + motion.backlash
+            backlash_motion = Motion(self, final_pos, motion.backlash)
+            self.__controller.prepare_move(backlash_motion)
+            self.__controller.start_one(backlash_motion)
+            self._handle_move(backlash_motion)
 
     def _handle_sigint(self):
         if self.is_moving:
@@ -384,7 +380,9 @@ class Axis(object):
         self.__move_done.set()
         event.send(self, "move_done", True)
         self.settings.set("state", self.state(), write=False)
-        self.settings.set("position", self.position(), write=False)
+        pos = self._position()
+        self.settings.set("dial_position", self.user2dial(pos))
+        self.settings.set("position", pos)
 
         if move_task is not None and not move_task._being_waited:
             try:

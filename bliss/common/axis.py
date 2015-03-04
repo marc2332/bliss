@@ -388,6 +388,8 @@ class Axis(object):
         if move_task is not None and not move_task._being_waited:
             try:
                 move_task.get()
+            except gevent.GreenletExit:
+                pass 
             except:
                 sys.excepthook(*sys.exc_info())
 

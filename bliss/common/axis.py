@@ -420,9 +420,7 @@ class Axis(object):
             self.__move_task.link(self._set_move_done)
 
         if wait:
-            self.__move_task.get()
-        else:
-            return self.__move_task
+            self.wait_move()
 
     @task
     def _do_move(self, motion, wait=True):

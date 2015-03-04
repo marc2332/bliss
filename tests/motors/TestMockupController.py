@@ -190,10 +190,10 @@ class TestMockupController(unittest.TestCase):
     def test_axis_move(self):
         robz = bliss.get_axis("robz")
         self.assertEqual(robz.state(), "READY")
-        move_greenlet = robz.move(180, wait=False)
+        robz.move(180, wait=False)
         self.assertNotEqual(robz.position(), None)
         self.assertEqual(robz.state(), "MOVING")
-        move_greenlet.join()
+        robz.wait_move() 
         self.assertEqual(robz.state(), "READY")
 
     def test_axis_multiple_move(self):
@@ -201,9 +201,9 @@ class TestMockupController(unittest.TestCase):
 
         for i in range(250):
             self.assertEqual(robz.state(), "READY")
-            move_greenlet = robz.move(180, wait=False)
+            robz.move(180, wait=False)
             self.assertEqual(robz.state(), "MOVING")
-            move_greenlet.join()
+            robz.wait_move() 
             self.assertEqual(robz.state(), "READY")
             time.sleep(0.0001)
 
@@ -219,14 +219,25 @@ class TestMockupController(unittest.TestCase):
         robz.stop()
         self.assertEqual(robz.state(), "READY")
 
+    def test_asynchronous_stop(self):
+        robz = bliss.get_axis('robz')
+        self.assertEqual(robz.state(), "READY")
+        robz.move(180, wait=False)
+        self.assertEqual(robz.state(), "MOVING")
+        robz.stop(block=False)
+        self.assertEqual(robz.state(), "MOVING")
+        robz.wait_move()
+        self.assertEqual(robz.state(), "READY")
+        self.assertNotEqual(robz.position(), 180)
+
     def test_backlash(self):
         roby = bliss.get_axis("roby")
         self.assertEqual(roby.state(), "READY")
         roby.move(0)
-        move_greenlet = roby.move(-10, wait=False)
+        roby.move(-10, wait=False)
         time.sleep(0)
         self.assertEqual(roby.backlash_move, -12)
-        move_greenlet.join()
+        roby.wait_move() 
         self.assertEqual(roby.position(), -10)
         roby.move(-9)
         roby.limits(-11, 10)
@@ -250,10 +261,10 @@ class TestMockupController(unittest.TestCase):
         roby = bliss.get_axis("roby")
         self.assertEqual(roby.state(), "READY")
         roby.move(0)
-        move_greenlet = roby.move(10, wait=False)
+        roby.move(10, wait=False)
         time.sleep(0)
         self.assertEqual(roby.backlash_move, 0)
-        move_greenlet.join()
+        roby.wait_move() 
         self.assertEqual(roby.position(), 10)
 
     def test_backlash3(self):
@@ -269,9 +280,9 @@ class TestMockupController(unittest.TestCase):
     def test_axis_steps_per_unit(self):
         roby = bliss.get_axis("roby")
         self.assertEqual(roby.state(), "READY")
-        move_greenlet = roby.move(180, wait=False)
+        roby.move(180, wait=False)
         self.assertEqual(roby.state(), "MOVING")
-        move_greenlet.join()
+        roby.wait_move() 
         self.assertEqual(roby.state(), "READY")
         self.assertEqual(roby.target_pos, roby.steps_per_unit * 180)
 
@@ -329,10 +340,11 @@ class TestMockupController(unittest.TestCase):
     def test_ctrlc(self):
         robz = bliss.get_axis("robz")
         final_pos = robz.position() + 100
-        move_greenlet = robz.move(final_pos, wait=False)
+        robz.move(final_pos, wait=False)
         self.assertEqual(robz.state(), "MOVING")
         gevent.sleep(0.5)
-        move_greenlet.kill(KeyboardInterrupt)
+        robz._Axis__move_task.kill(KeyboardInterrupt)
+        robz.wait_move()
         self.assertEqual(robz.state(), "READY")
         self.assertTrue(robz.position() < final_pos)
 
@@ -407,13 +419,16 @@ class TestMockupController(unittest.TestCase):
         m0.rmove(0.6)
         self.assertAlmostEqual(m0.set_position(), 1)
         self.assertAlmostEqual(m0.position(), m0.set_position())
-        move_greenlet = m0.move(2, wait=False)
+        m0.move(2, wait=False)
         time.sleep(0.01)
-        move_greenlet.kill(KeyboardInterrupt)
+        m0._Axis__move_task.kill(KeyboardInterrupt)
+        m0.wait_move()
         self.assertEquals(m0.set_position(), None)
         m0.move(1)
         self.assertEquals(m0.set_position(), 1)
          
 
 if __name__ == '__main__':
-    unittest.main()
+    suite = unittest.TestLoader().loadTestsFromTestCase(TestMockupController)
+    unittest.TextTestRunner(verbosity=2).run(suite)
+    #unittest.main()

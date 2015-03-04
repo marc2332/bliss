@@ -16,14 +16,16 @@ class OpiomComm:
         self.__debug = False
         msg = self.comm("?VER")
         if not msg.startswith('OPIOM') :
-            raise IOError("No opiom connected at %s" % serial)
+            msg = self.comm("?VER")
+            if not msg.startswith('OPIOM') :
+                raise IOError("No opiom connected at %s" % serial)
         self.comm("MODE normal")
-        
+
     def __repr__(self) :
         return "Opiom : %s with program %s" % (self.__ser,self.__program)
-   
+
     def setDebug(self, flag) :
-        self.__debug = flag is True 
+        self.__debug = flag is True
 
     def getDebug(self):
         return self.__debug
@@ -43,7 +45,7 @@ class OpiomComm:
         for line in info.split('\n') :
             if line.startswith('PLD prog:') :
                 return line.split(':')[1].strip('\n\t ')
-            
+
     def error(self) :
         return self.comm("?ERR")
 
@@ -75,7 +77,7 @@ class OpiomComm:
 
         self._display_bits('O',output_front)
         self._display_bits('OB',output_back)
-        
+
     def _write(self,msg) :
         self.__debugMsg("Write", msg)
         msg += '\r\n'
@@ -91,7 +93,7 @@ class OpiomComm:
         rawMsg = struct.pack('BBB%dsBB' % len(binmsg),0xff,nb_block,nb_bytes,
                              binmsg,lrc,13)
         self.__ser.write(rawMsg)
-        
+
     def _read(self) :
         msg = self.__ser.readline()
         if msg.startswith('$') :
@@ -108,7 +110,7 @@ class OpiomComm:
 
     def comm_ack(self,msg) :
         return self.comm('#' + msg)
-        
+
     def comm(self,msg) :
         self._write(msg)
         if msg.startswith('?') or msg.startswith('#') :
@@ -129,13 +131,13 @@ class OpiomComm:
                 srcsz = offsets["jed"] - offsets["src_c"]
             binsz = offsets['size'] - offsets['jed']
 
-            
+
             sendarray = opmfile[SRCST:SRCST+srcsz]
             sendarray += opmfile[offsets["jed"]:]
 
             if self.comm_ack("MODE program") != "OK" :
                 raise IOError("Can't program opiom %s" % str(self))
-                        
+
             if self.comm_ack('PROG %d %d %d %d "%s"' % (binsz,srcsz,self.FSIZE,
                                                         int(file_pldid),
                                                         file_project)) != "OK" :
@@ -147,7 +149,7 @@ class OpiomComm:
                 self.raw_bin_write(sendarray[index:index+self.FSIZE])
                 answer = self._read()
                 if(answer != "OK") : break
-            
+
 
     def _display_bits(self,prefix,bits) :
         for i in range(1,9) :
@@ -158,14 +160,14 @@ class OpiomComm:
                 print "1\t",
             else:
                 print "0\t",
-                
+
         print
-    
+
     def _getoffset(self) :
         f = file(os.path.join(OPIOM_BASE_PATH,self.__program + '.opm'))
         line = f.read(14)
         f.seek(0)
-        opmfile = f.read() 
+        opmfile = f.read()
         size = f.tell()
         header,src,src_cc,src_c,jed = struct.unpack('<5H',line[3:13])
         return {'header' : header,'src' : src,
@@ -175,7 +177,7 @@ class OpiomComm:
     def _getFilePLDIDandPROJECT(self) :
         TOKEN = '#pldid#'
         PROJECT_TOKEN= '#project#'
-        
+
         f = file(os.path.join(OPIOM_BASE_PATH,self.__program + '.opm'))
         begin = -1
         for line in f:
@@ -191,7 +193,7 @@ class OpiomComm:
             subline = line[begin + len(PROJECT_TOKEN):]
             project = subline[:subline.find(PROJECT_TOKEN)]
             return pldid,project
-        
+
 class Output:
     class Node:
         def __init__(self,opiomId,register,shift,mask,value,parentNode) :
@@ -205,7 +207,7 @@ class Output:
         def switch(self,opioms,synchronous) :
             if self.__parent:
                 self.__parent.switch(opioms,False)
-                
+
             op = opioms[self.__opiomId]
             cmd = '%s 0x%x 0x%x' % (self.__register,self.__value,self.__mask)
             if synchronous:
@@ -220,7 +222,7 @@ class Output:
 
             registerValue = opiom_registers[self.__opiomId][self.__register]
             return activeFlag and ((registerValue & self.__mask) == self.__value)
-        
+
     def __init__(self,multiplex,name='',**keys) :
         self.__multiplex = multiplex
         self.__name = name
@@ -229,7 +231,7 @@ class Output:
 
     def name(self) :
         return self.__name
-    
+
     def getSwitchList(self) :
         return self.__nodes.keys()
 
@@ -246,7 +248,7 @@ class Output:
         for key,node in self.__nodes.iteritems() :
             if node.isActive(opiom_register) :
                 return key
-    
+
     def __build_values(self,opiomId = 0,register = '',shift = '0',
                        mask = '0',chained_value = '0',parentNode = None,**configDict) :
         for key,values in configDict.iteritems() :
@@ -271,7 +273,7 @@ class Multiplexer:
             self.__configFilePath= "%s/%s"%(OPIOM_BASE_PATH, configFile)
         else:
             self.__configFilePath= configFile
-            
+
         config = ConfigDict.ConfigDict(filelist=[self.__configFilePath])
         for key,value in config.iteritems() :
             key = key.upper()
@@ -303,7 +305,7 @@ class Multiplexer:
 
     def getDebug(self):
         return self.__debug
-    
+
     def getConfigPath(self) :
         return [self.__configFilePath, self.__statFilePath]
 
@@ -316,11 +318,11 @@ class Multiplexer:
 
     def getKeyAndName(self) :
         return dict([(key,output.name()) for key,output in self.__outputs.iteritems()])
-    
+
     def getName(self,output_key) :
         output_key = output_key.upper()
         return self.__outputs[output_key].name()
-    
+
     def switch(self,output_key,input_key,synchronous = False):
         output_key = output_key.upper()
         input_key = input_key.upper()
@@ -347,7 +349,7 @@ class Multiplexer:
             return opiom.comm_ack(message)
         else:
             return opiom.comm(message)
-    
+
     def getOutputStat(self,output_key) :
         output_key = output_key.upper()
         if self.__debug:
@@ -358,7 +360,7 @@ class Multiplexer:
             comm._ask_register_values()
         for opiomId,comm in self._opioms.iteritems() :
             opiomRegister[opiomId] = comm._read_register_values()
-        
+
         return output.getStat(opiomRegister)
 
     def storeCurrentStat(self,name) :
@@ -370,7 +372,7 @@ class Multiplexer:
 
         self.__stat[name] = opiomRegister
         self.__saveStats()
-        
+
     def restoreStat(self,name) :
         try:
             opiomRegister = self.__stat[name]
@@ -436,7 +438,7 @@ class Multiplexer:
         print "Prog.Source:"
         print com.source()
         print "End of Prog.Source."
-        
+
 def getOpiomId(opiomKey) :
     try:
         return int(opiomKey[5:])

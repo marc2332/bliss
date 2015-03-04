@@ -304,7 +304,7 @@ class Axis(object):
 
     def _handle_sigint(self):
         if self.is_moving:
-            self.__move_task.kill(KeyboardInterrupt)
+            self.stop(KeyboardInterrupt)
 
     def dial2user(self, position):
         return (self.sign * position) + self.offset

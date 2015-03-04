@@ -32,7 +32,7 @@ config_xml = """
     <axis name="roby">
       <backlash value="2"/>
       <steps_per_unit value="10"/>
-      <velocity  value="2500"/>
+      <velocity  value="200"/>
     </axis>
   </controller>
 </config>
@@ -46,10 +46,10 @@ class TestGroup(unittest.TestCase):
         self.grp = bliss.Group(bliss.get_axis("robz"),
                                   bliss.get_axis("robz2"),
                                   bliss.get_axis("roby"))
-
+   
     def test_group_creation(self):
         self.assertTrue(self.grp)
-
+    
     def test_group_move(self):
         robz = bliss.get_axis("robz")
         robz_pos = robz.position()
@@ -83,6 +83,7 @@ class TestGroup(unittest.TestCase):
         self.grp.move({robz: 0, roby: 0}, wait=False)
         self.assertEqual(self.grp.state(), "MOVING")
         self.grp.stop()
+        print ">"*20
         self.assertEqual(self.grp.state(), "READY")
         self.assertEqual(robz.state(), "READY")
         self.assertEqual(roby.state(), "READY")
@@ -91,9 +92,10 @@ class TestGroup(unittest.TestCase):
         roby = bliss.get_axis("roby")
         robz = bliss.get_axis("robz")
         self.assertEqual(robz.state(), "READY")
-        move_greenlet = self.grp.move({robz: 0, roby: 0}, wait=False)
+        self.grp.move({robz: 0, roby: 0}, wait=False)
         time.sleep(0.01)
-        move_greenlet.kill()
+        self.grp._Group__move_task.kill()
+        self.grp.wait_move()
         self.assertEqual(self.grp.state(), "READY")
         self.assertEqual(robz.state(), "READY")
         self.assertEqual(roby.state(), "READY")
@@ -119,7 +121,6 @@ class TestGroup(unittest.TestCase):
 
     def test_static_move(self):
         self.grp.move(self.grp.position())
-        
           
     def test_static_move(self):
         roby = bliss.get_axis("roby")
@@ -128,7 +129,6 @@ class TestGroup(unittest.TestCase):
         self.grp.rmove({ robz: 0, roby: 1})
         self.assertEquals(self.grp.position()[robz], p0[robz])
         self.assertEquals(self.grp.position()[roby], p0[roby]+1)
-
 
 if __name__ == '__main__':
     unittest.main()

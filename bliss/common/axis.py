@@ -428,7 +428,8 @@ class Axis(object):
     def _do_move(self, motion, wait=True):
         if motion is None:
             return
-        with error_cleanup(self.stop):
+        
+        with error_cleanup(self._do_stop):
             self.__controller.start_one(motion)
 
             self._handle_move(motion)

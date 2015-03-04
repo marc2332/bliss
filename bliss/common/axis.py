@@ -278,14 +278,18 @@ class Axis(object):
             self.settings.set("high_limit", high_limit)
         return self.settings.get('low_limit'), self.settings.get('high_limit')
 
+    def _update_settings(self, state=None):
+        self.settings.set("state", state if state is not None else self.state(), write=False)
+        pos = self._position()
+        self.settings.set("dial_position", self.user2dial(pos))
+        self.settings.set("position", pos)
+
     def _handle_move(self, motion):
         while True:
             state = self.__controller.state(self)
             if state != "MOVING":
                 break
-            pos = self._position()
-            self.settings.set("dial_position", self.user2dial(pos))
-            self.settings.set("position", pos)
+            self._update_settings(state)
             time.sleep(0.02)
 
         if motion.backlash:
@@ -379,10 +383,7 @@ class Axis(object):
     def _set_move_done(self, move_task):
         self.__move_done.set()
         event.send(self, "move_done", True)
-        self.settings.set("state", self.state(), write=False)
-        pos = self._position()
-        self.settings.set("dial_position", self.user2dial(pos))
-        self.settings.set("position", pos)
+        self._update_settings()
 
         if move_task is not None and not move_task._being_waited:
             try:

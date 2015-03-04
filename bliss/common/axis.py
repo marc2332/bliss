@@ -437,13 +437,23 @@ class Axis(object):
     def wait_move(self):
         self.__move_done.wait()
 
-    def stop(self):
+    def _do_stop(self):
+        self.__set_position = None
+
+        self.__controller.stop(self)
+
+        while True:
+             state = self.__controller.state(self)
+             if state != "MOVING":
+                 break
+             self._update_settings(state)
+             time.sleep(0.02)       
+
+    def stop(self, exception=gevent.GreenletExit, block=True):
         if self.is_moving:
-            self.__set_position = None
-            try:
-                self.__controller.stop(self)
-            finally:
-                self.__move_done.set()
+            self.__move_task.kill(exception, block=False)
+            if block:
+                self.wait_move()
 
     def home(self, home_pos=None, wait=True):
         self._check_ready()

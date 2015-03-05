@@ -445,10 +445,10 @@ class Axis(object):
              self._update_settings(state)
              time.sleep(0.02)       
 
-    def stop(self, exception=gevent.GreenletExit, block=True):
+    def stop(self, exception=gevent.GreenletExit, wait=True):
         if self.is_moving:
             self.__move_task.kill(exception, block=False)
-            if block:
+            if wait:
                 self.wait_move()
 
     def home(self, home_pos=None, wait=True):

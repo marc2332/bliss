@@ -224,7 +224,7 @@ class TestMockupController(unittest.TestCase):
         self.assertEqual(robz.state(), "READY")
         robz.move(180, wait=False)
         self.assertEqual(robz.state(), "MOVING")
-        robz.stop(block=False)
+        robz.stop(wait=False)
         self.assertEqual(robz.state(), "MOVING")
         robz.wait_move()
         self.assertEqual(robz.state(), "READY")

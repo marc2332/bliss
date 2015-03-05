@@ -73,10 +73,10 @@ class _Group(object):
 
         return AxisState("READY")
 
-    def stop(self, exception=gevent.GreenletExit, block=True):
+    def stop(self, exception=gevent.GreenletExit, wait=True):
         if self.is_moving:
             self.__move_task.kill(exception, block=False)
-            if block:
+            if wait:
                 self.wait_move()
 
     def _do_stop(self):
@@ -88,7 +88,7 @@ class _Group(object):
             except NotImplementedError:
                 pass
             for motion in motions:
-                motion.axis.stop(block=False)
+                motion.axis.stop(wait=False)
         for motion in all_motions:
             motion.axis.wait_move()
 

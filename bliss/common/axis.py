@@ -412,6 +412,7 @@ class Axis(object):
         self.__move_task = self._do_move(motion, wait=False)
         self.__move_task._being_waited = wait
         self.__move_task.link(self._set_move_done)
+        gevent.sleep(0)
 
         if wait:
             self.wait_move()

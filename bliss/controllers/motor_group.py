@@ -193,6 +193,7 @@ class _Group(object):
         self.__move_done.clear() 
         self.__move_task = self._do_move(self._motions_dict, wait=False)
         self.__move_task.link(self._set_move_done)
+        gevent.sleep(0)
  
         if wait:
             self.wait_move()

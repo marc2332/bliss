@@ -65,11 +65,9 @@ class _Group(object):
 
     def state(self):
         if self.is_moving:
-            print 'is_moving'
             return AxisState("MOVING")
 
         states = [axis.state() for axis in self._axes.itervalues()]
-        print 'states',states
         if any([state.MOVING for state in states]):
             return AxisState("MOVING")
 
@@ -77,12 +75,9 @@ class _Group(object):
 
     def stop(self, exception=gevent.GreenletExit, block=True):
         if self.is_moving:
-            print 'kill'
             self.__move_task.kill(exception, block=False)
             if block:
-                print 'waiting'
                 self.wait_move()
-                print 'done'
 
     def _do_stop(self):
         all_motions = []

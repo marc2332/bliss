@@ -83,7 +83,6 @@ class TestGroup(unittest.TestCase):
         self.grp.move({robz: 0, roby: 0}, wait=False)
         self.assertEqual(self.grp.state(), "MOVING")
         self.grp.stop()
-        print ">"*20
         self.assertEqual(self.grp.state(), "READY")
         self.assertEqual(robz.state(), "READY")
         self.assertEqual(roby.state(), "READY")

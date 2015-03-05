@@ -63,12 +63,12 @@ class PI_E517(Controller):
         add_axis_method(axis, self.get_id, types_info=(None, str))
 
         '''Closed loop'''
-        add_axis_method(axis, self.open_loop, types_info=(str, None))
-        add_axis_method(axis, self.close_loop, types_info=(str, None))
+        add_axis_method(axis, self.open_loop, types_info=(None, None))
+        add_axis_method(axis, self.close_loop, types_info=(None, None))
 
         '''DCO'''
-        add_axis_method(axis, self.activate_dco, types_info=(str, None))
-        add_axis_method(axis, self.desactivate_dco, types_info=(str, None))
+        add_axis_method(axis, self.activate_dco, types_info=(None, None))
+        add_axis_method(axis, self.desactivate_dco, types_info=(None, None))
 
         '''GATE'''
         # to enable automatic gating (ex: zap)
@@ -320,19 +320,19 @@ class PI_E517(Controller):
         return _pos
 
     def open_loop(self, axis):
-        self.send(axis, "SVO %s 0" % axis.chan_letter)
+        self.send_no_ans(axis, "SVO %s 0" % axis.chan_letter)
 
     def close_loop(self, axis):
-        self.send(axis, "SVO %s 1" % axis.chan_letter)
+        self.send_no_ans(axis, "SVO %s 1" % axis.chan_letter)
 
     """
     DCO : Drift Compensation Offset.
     """
     def activate_dco(self, axis):
-        self.send(axis, "DCO %s 1" % axis.chan_letter)
+        self.send_no_ans(axis, "DCO %s 1" % axis.chan_letter)
 
     def desactivate_dco(self, axis):
-        self.send(axis, "DCO %s 0" % axis.chan_letter)
+        self.send_no_ans(axis, "DCO %s 0" % axis.chan_letter)
 
     """
     Voltage commands
@@ -427,10 +427,10 @@ class PI_E517(Controller):
         """
         Returns Identification information (\*IDN? command).
         """
-        return self.send(axis, "*IDN?\n")
+        return self.send(axis, "*IDN?")
 
     def get_error(self, axis):
-        _error_number = self.send(axis, "ERR?\n")
+        _error_number = self.send(axis, "ERR?")
         _error_str = pi_gcs.get_error_str(_error_number)
 
         return (_error_number, _error_str)

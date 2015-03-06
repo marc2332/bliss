@@ -6,6 +6,24 @@ front: alias for real front leg axis
 ttrans: translation calculated axis alias
 trot: rotation calculated axis alias
 d: distance between the 2 actuators
+
+
+
+
+
+
+         ^  ttrans
+         |                    \
+         |                     \
+----------------------    trot ^\
+    ^         ^             __/__\
+    |         |
+    |         |
+    |<---d--->|
+    |         |
+   back      front
+
+
 """
 from bliss.controllers.motor import CalcController
 import math

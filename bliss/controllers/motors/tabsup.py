@@ -8,10 +8,6 @@ trot: rotation calculated axis alias
 d: distance between the 2 actuators
 
 
-
-
-
-
          ^  ttrans
          |                    \
          |                     \

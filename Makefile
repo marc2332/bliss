@@ -28,6 +28,7 @@ install:
 	mkdir -p ${CONFIG_PATH}; chmod 777 ${CONFIG_PATH}
 
         ####  tango server and startup-script
+	mkdir -p ${BLISSADM_PATH}/server/src
 	cp --backup=simple --suffix=.bup tango/bliss_server ${BLISSADM_PATH}/server/src/bliss_server
 
 	cp --backup=simple --suffix=.bup tango/BlissAxisManager.py ${BLISSADM_PATH}/server/src/BlissAxisManager.py

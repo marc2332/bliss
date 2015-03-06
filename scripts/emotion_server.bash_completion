@@ -10,10 +10,10 @@ _bliss_server()
 
 . blissrc
 
-# TANGO_HOST
-TH=???
+#
+TH=$(echo ${TANGO_HOST} | awk '{split($0,a,":"); print a[1]}')
 
-PERS_NAMES=$(mysql --silent -u blissadm -pspec92 -h $TH -e"use tango; select member from device where class='Bliss' ;")
+PERS_NAMES=$(mysql --silent -u blissadm -pspec92 -h ${TH} -e"use tango; select member from device where class='Bliss' ;")
 
 # PERS_NAMES=$(exec python /users/blissadm/python/bliss_modules/bliss/tango/bliss_server -? 2>&1 | grep -v 'instance_name' | grep -v 'Instance')
 

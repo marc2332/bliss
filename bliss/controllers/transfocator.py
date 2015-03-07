@@ -1,6 +1,6 @@
 from bliss.common.task_utils import *
 from bliss.common import dispatcher
-from bliss.common import wrapper
+from bliss.common.utils import wrap_methods
 import tf_control
 
 class transfocator:
@@ -11,5 +11,5 @@ class transfocator:
 
        self.__control = tf_control.TfControl(wago_ip, lenses, pinhole, 3) # 3s. exec timeout
        self.__control.connect()
-       wrapper.wrap_methods(self.__control, self)
+       wrap_methods(self.__control, self)
 

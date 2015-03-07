@@ -172,11 +172,6 @@ def get_objects_by_type(objects_dict):
         if inspect.isclass(obj):
             continue
         # is it a motor?
-        #if cfg:
-        #    cfg_node = cfg.get_config(name)
-        #    if cfg_node.plugin == 'emotion':
-        #        motors.append(name)
-        #        continue
         if has_method(obj, all, "move", "state", "position"):
             motors[name]=obj
 
@@ -184,8 +179,6 @@ def get_objects_by_type(objects_dict):
         if isinstance(obj, measurement.CounterBase):
             counters[name]=obj
         else:
-            #if inspect.ismethod(getattr(obj, "read")):
-            #    counters[name]=obj 
             if not inspect.ismodule(obj):
               try:
                 obj_dict = obj.__dict__
@@ -201,6 +194,13 @@ def get_objects_by_type(objects_dict):
                 has_method(obj, any, "set_in") and \
                 has_method(obj, any, "set_out"):
             inout[name]=obj
+        if not inspect.ismodule(obj):
+            for member_name, member in inspect.getmembers(obj):
+                if isinstance(getattr(obj.__class__, member_name, None), property):
+                    if has_method(member, all, "state") and \
+                            has_method(member, any, "set_in") and \
+                            has_method(member, any, "set_out"):
+                        inout["%s.%s" % (name, member_name)]=member
 
         # has it open/close capability?
         if has_method(obj, all, "open", "close", "state"):
@@ -240,7 +240,10 @@ def start(input_queue, output_queue, i):
             continue
         elif action == "control_panel":
             object_name, method_name = _
-            obj = i.locals.get(object_name)
+            namespace = i.locals
+            for name in object_name.split('.'):
+                obj = namespace.get(name)
+                namespace = dict(inspect.getmembers(obj))
             if obj is not None:
                 method = getattr(obj, method_name)
                 if callable(method):
@@ -346,16 +349,18 @@ def start(input_queue, output_queue, i):
                         output_queue.put(StopIteration({"func": False}))
                     else:
                         if callable(x):
-                            if inspect.isfunction(x):
-                                args = inspect.formatargspec(*inspect.getargspec(x))
-                            elif inspect.ismethod(x):
-                                argspec = inspect.getargspec(x)
-                                args = inspect.formatargspec(argspec.args[1:],*argspec[1:])
+                            try:
+                              if inspect.isfunction(x):
+                                  args = inspect.formatargspec(*inspect.getargspec(x))
+                              elif inspect.ismethod(x):
+                                  argspec = inspect.getargspec(x)
+                                  args = inspect.formatargspec(argspec.args[1:],*argspec[1:])
+                              else:
+                                  raise TypeError
+                            except TypeError:
+                              output_queue.put(StopIteration({"func": False}))
                             else:
-                                # an instance with __call__ ?
-                                argspec = inspect.getargspec(x.__call__)
-                                args = inspect.formatargspec(argspec.args[1:],*argspec[1:])
-                            output_queue.put(StopIteration({"func": True, "func_name":expr, "args": args }))
+                              output_queue.put(StopIteration({"func": True, "func_name":expr, "args": args }))
                         else:
                             output_queue.put(StopIteration({"func": False}))
 

@@ -1,5 +1,7 @@
 from bliss.common.task_utils import cleanup, error_cleanup, task
+from bliss.common.utils import add_property
 from bliss.common.measurement import CounterBase
+from bliss.common import Actuator
 import time
 import gevent
 import PyTango.gevent
@@ -28,11 +30,28 @@ class tango_bpm(object):
        self.name = name
 
        tango_uri = config.get("uri")
+       foil_actuator_name = config.get("foil_name")
 
        self.__control = PyTango.gevent.DeviceProxy(tango_uri)
        self.__acquisition_event = gevent.event.Event()
        self.__acquisition_event.set()
        self.__last_acq = None
+       self.__diode_actuator = Actuator(self.__control.In, 
+                                        self.__control.Out,
+                                        lambda: self.__control.YagStatus == "in",
+                                        lambda: self.__control.YagStatus == "out")
+       self.__foil_actuator  = Actuator(self.__control.FoilIn,
+                                        self.__control.FoilOut,
+                                        lambda: self.__control.FoilStatus == "in",
+                                        lambda: self.__control.FoilStatus == "out")
+       self.__led_actuator  = Actuator(self.__control.LedOn,
+                                        self.__control.LedOff,
+                                        lambda: self.__control.LedStatus > 0)
+       def foil_actuator(*args):
+           return self.__foil_actuator
+       if not foil_actuator_name:
+           foil_actuator_name = 'foil'
+       add_property(self, foil_actuator_name, foil_actuator)
 
    @property
    def x(self):
@@ -58,6 +77,14 @@ class tango_bpm(object):
    def last_acq(self):
      return self.__last_acq
 
+   @property
+   def diode(self):
+     return self.__diode_actuator
+
+   @property
+   def led(self):
+     return self.__led_actuator
+
    def read(self, exp_time=None):
      try:
        self.__acquisition_event.clear()
@@ -82,31 +109,3 @@ class tango_bpm(object):
 
    def stop(self):
      return self.__control.Stop()      
-
-   def set_in(self):
-     return self.__control.In()
-
-   def set_out(self):
-     return self.__control.Out()
-
-   def is_in(self):
-     return self.__control.YagStatus == "in"
-
-   def foil_in(self):
-     return self.__control.FoilIn()
-
-   def foil_out(self):
-     return self.__control.FoilOut()
-
-   def is_foil_in(self):
-     return self.__control.FoilStatus == "in"
-
-   def led_on(self):
-     return self.__control.LedOn()
-
-   def led_off(self):
-     return self.__control.LedOff()
-
-   def is_led_on(self):
-     return self.__control.LedStatus > 0
-   

@@ -1,5 +1,5 @@
 from bliss.common.task_utils import *
-from bliss.common import wrapper
+from bliss.common.utils import wrap_methods
 import inspect
 from PyTransmission import matt_control
 import types
@@ -42,4 +42,4 @@ class transmission:
       self.__control = matt_control.MattControl(wago_ip, nb_filter, energy, att_type, wago_alternate, stat_m, ctrl_m,datafile)
 
       self.__control.connect()
-      wrapper.wrap_methods(self.__control, self)
+      wrap_methods(self.__control, self)

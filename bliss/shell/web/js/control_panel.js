@@ -3,6 +3,7 @@ function ControlPanel(div_id, session_id) {
     this.actuators = {};
     this.shutters = {};
     this.session_id = session_id;
+    this.client_uuid = readCookie("khoros_client_id");
 
     this.refresh_btn = $("<button style='width:100%;'>Refresh</button>").button();
     this.refresh_btn = $("<button>Refresh</button>");
@@ -35,7 +36,7 @@ function ControlPanel(div_id, session_id) {
     /* 
        connect to control panel events stream 
     */
-    this.output_stream = new EventSource(this.session_id + '/control_panel_events');
+    this.output_stream = new EventSource(this.session_id + '/control_panel_events/'+this.client_uuid);
     this.output_stream.onmessage = $.proxy(function(e) {
         if (e.data) {
             var output = JSON.parse(e.data);

@@ -26,16 +26,18 @@ class Stdout:
 
     def __init__(self, queue):
         self.queue = queue
+        self.client_uuid = None
 
     def flush(self):
         pass
 
     def write(self, output):
-        self.queue.put(output)        
+        self.queue.put((self.client_uuid, output))        
 
 
 @contextmanager
-def stdout_redirected(new_stdout):
+def stdout_redirected(client_uuid, new_stdout):
+    new_stdout.client_uuid = client_uuid
     save_stdout = sys.stdout
     sys.stdout = new_stdout
     try:
@@ -46,13 +48,13 @@ def stdout_redirected(new_stdout):
 
 def init_scans_callbacks(output_queue):
     def new_scan_callback(scan_id, filename, scan_actuators, npoints, counters_list):
-        output_queue.put({"scan_id": scan_id, "filename": filename,
+        output_queue.put((None,{"scan_id": scan_id, "filename": filename,
                           "scan_actuators": scan_actuators, "npoints": npoints,
-                          "counters": counters_list})
+                          "counters": counters_list}))
     def update_scan_callback(scan_id, values):
-        output_queue.put({"scan_id": scan_id, "values":values})
+        output_queue.put((None,{"scan_id": scan_id, "values":values}))
     def scan_end_callback(scan_id):
-        output_queue.put({"scan_id":scan_id})
+        output_queue.put((None,{"scan_id":scan_id}))
 
     # keep callbacks references
     output_queue.callbacks["scans"]["new"] = new_scan_callback
@@ -85,9 +87,9 @@ class InteractiveInterpreter(code.InteractiveInterpreter):
             return True
         return False
 
-    def runcode(self, c):
+    def runcode(self, client_uuid, c):
         try:
-            with stdout_redirected(self.output):
+            with stdout_redirected(client_uuid, self.output):
                 exec c in self.locals
         except SystemExit:
             raise
@@ -96,7 +98,7 @@ class InteractiveInterpreter(code.InteractiveInterpreter):
         except:
             self.showtraceback()
 
-    def compile_and_run(self, python_code_to_execute):
+    def compile_and_run(self, client_uuid, python_code_to_execute):
         code_obj = None
 
         try:
@@ -108,15 +110,15 @@ class InteractiveInterpreter(code.InteractiveInterpreter):
                 # input is incomplete
                 raise EOFError
             else:
-                self.runcode(code_obj)
+                self.runcode(client_uuid, code_obj)
                 
                 if self.error.tell() > 0:
                     error_string = self.error.getvalue()
                     self.error = cStringIO.StringIO()
                     raise RuntimeError(error_string)
 
-    def execute(self, python_code_to_execute, wait=True):
-        self.executed_greenlet = gevent.spawn(self.compile_and_run, python_code_to_execute)
+    def execute(self, client_uuid, python_code_to_execute, wait=True):
+        self.executed_greenlet = gevent.spawn(self.compile_and_run, client_uuid, python_code_to_execute)
         if wait:
             return self.executed_greenlet.get()
         else:
@@ -234,7 +236,7 @@ def start(input_queue, output_queue, i):
     i.locals["resetup"] = resetup
 
     while True:
-        action, _ = input_queue.get()
+        client_uuid, action, _ = input_queue.get()
         if action == "syn":
             output_queue.put("ack")
             continue
@@ -262,10 +264,10 @@ def start(input_queue, output_queue, i):
 		    state = None
                 motors_list.append({ "name": m.name, "state": state, "position": pos })
                 def state_updated(state, name=name):
-                    output_queue.put({"name":name, "state": convert_state(state)})
-                def position_updated(pos, name=name):
+                    output_queue.put((None, { "name":name, "state": convert_state(state)}))
+                def position_updated(pos, name=name, client_uuid=client_uuid):
                     pos = "%.3f" % pos
-                    output_queue.put({"name":name, "position":pos})
+                    output_queue.put((None, {"name":name, "position":pos}))
                 output_queue.callbacks["motor"][name]=(state_updated, position_updated) 
                 dispatcher.connect(state_updated, "state", m)
                 dispatcher.connect(position_updated, "position", m)
@@ -283,7 +285,7 @@ def start(input_queue, output_queue, i):
 		    state = None
                 inout_list.append({"name": name, "state": convert_state(state)})
                 def state_updated(state, name=name):
-                    output_queue.put({"name": name, "state": convert_state(state)})
+                    output_queue.put((None, {"name": name, "state": convert_state(state)}))
                 output_queue.callbacks["inout"][name]=state_updated
                 dispatcher.connect(state_updated, "state", obj)
             inout_list = sorted(inout_list, cmp=lambda x,y: cmp(x["name"],y["name"]))
@@ -296,12 +298,12 @@ def start(input_queue, output_queue, i):
 		    state = None
 		openclose_list.append({"name": name, "state": convert_state(state) })
 		def state_updated(state, name=name):
-		    output_queue.put({"name":name, "state":convert_state(state)})
+		    output_queue.put((None, {"name":name, "state":convert_state(state)}))
 		output_queue.callbacks["openclose"][name]=state_updated
 		dispatcher.connect(state_updated, "state", obj)
 	    openclose_list = sorted(openclose_list, cmp=lambda x,y: cmp(x["name"],y["name"]))
 
-            output_queue.put(StopIteration({ "motors": motors_list, "counters": counters_list, "inout": inout_list, "openclose": openclose_list }))
+            output_queue.put((None, StopIteration({ "motors": motors_list, "counters": counters_list, "inout": inout_list, "openclose": openclose_list })))
         elif action == "execute":
             code = _[0]
             """
@@ -315,16 +317,16 @@ def start(input_queue, output_queue, i):
             else:           
                 output_queue.put(StopIteration(None))
             """
-            def execution_done(executed_greenlet):
+            def execution_done(executed_greenlet, client_uuid=client_uuid):
                 try:
                     res = executed_greenlet.get()
                 except EOFError:
-                    output_queue.put(StopIteration(EOFError()))
+                    output_queue.put((client_uuid, StopIteration(EOFError())))
                 except RuntimeError, error_string: 
-                    output_queue.put(StopIteration(RuntimeError(error_string)))
+                    output_queue.put((client_uuid, StopIteration(RuntimeError(error_string))))
                 else:
-                    output_queue.put(StopIteration(None))
-            i.execute(code, wait=False).link(execution_done)
+                    output_queue.put((client_uuid, StopIteration(None)))
+            i.execute(client_uuid, code, wait=False).link(execution_done)
         elif action == "complete":
             text, completion_start_index = _
             completion_obj = jedi.Interpreter(text, [i.locals], line=1, column=completion_start_index)
@@ -333,20 +335,20 @@ def start(input_queue, output_queue, i):
             for x in completion_obj.completions():
                 possibilities.append(x.name)
                 completions.append(x.complete)
-            output_queue.put(StopIteration((possibilities, completions)))
+            output_queue.put((client_uuid, StopIteration((possibilities, completions))))
         elif action == "get_function_args":
             code = _[0]
             try:
                 ast_node = ast.parse(code)
             except:
-                output_queue.put(StopIteration({"func": False}))
+                output_queue.put((client_uuid, StopIteration({"func": False})))
             else:
                 if isinstance(ast_node.body[-1], ast.Expr):
                     expr = code[ast_node.body[-1].col_offset:]
                     try:
                         x = eval(expr, i.locals)
                     except:
-                        output_queue.put(StopIteration({"func": False}))
+                        output_queue.put((client_uuid, StopIteration({"func": False})))
                     else:
                         if callable(x):
                             try:
@@ -358,9 +360,9 @@ def start(input_queue, output_queue, i):
                               else:
                                   raise TypeError
                             except TypeError:
-                              output_queue.put(StopIteration({"func": False}))
+                              output_queue.put((client_uuid, StopIteration({"func": False})))
                             else:
-                              output_queue.put(StopIteration({"func": True, "func_name":expr, "args": args }))
+                              output_queue.put((client_uuid, StopIteration({"func": True, "func_name":expr, "args": args })))
                         else:
-                            output_queue.put(StopIteration({"func": False}))
+                            output_queue.put((client_uuid, StopIteration({"func": False})))
 

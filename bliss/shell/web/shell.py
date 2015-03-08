@@ -15,6 +15,7 @@ import json
 import bliss.shell.interpreter as interpreter
 import gipc
 import signal
+import uuid
 
 #LOG = {}
 EXECUTION_QUEUE = dict()
@@ -22,7 +23,6 @@ OUTPUT_QUEUE = dict()
 CONTROL_PANEL_QUEUE = dict()
 INTERPRETER = dict()
 RESULT = dict()
-OUTPUT_STREAM_READY = dict()
 INIT_SCRIPT = ""
 SESSION_INIT = dict()
 
@@ -37,25 +37,47 @@ def my_socket_bind(self, *args, **kwargs):
 socket.socket.bind = my_socket_bind
 
 
-@bottle.route("/<session_id:int>/output_stream")
-def send_output(session_id):
+def handle_output(session_id, q):
+    while True:
+        aa=q.get()
+        print aa
+        client_uuid, output = aa #q.get()
+        
+        if client_uuid is None:
+            # broadcast to all clients
+            for client_uuid, per_client_queue in OUTPUT_QUEUE[session_id].iteritems():
+                print "dispatching output to", client_uuid
+                per_client_queue.put(output)
+        else:
+            OUTPUT_QUEUE[session_id][client_uuid].put(output)
+
+
+@bottle.route("/<session_id:int>/output_stream/<client_uuid>")
+def send_output(session_id, client_uuid):
     bottle.response.content_type = 'text/event-stream'
     bottle.response.add_header("Connection", "keep-alive")
     bottle.response.add_header("Cache-control", "no-cache, must-revalidate")
     output_text = ""
 
+    if OUTPUT_QUEUE.get(session_id) is None:
+        # browser tries to (re)connect but we don't know this session
+        bottle.response.status = 404
+        raise StopIteration
+
+    q = OUTPUT_QUEUE[session_id][client_uuid]
+    
     # this is to initialize connection, something has to be sent
-    yield "data: \n\n" 
-    OUTPUT_STREAM_READY[session_id].set()
+    yield "data: \n\n"
 
     while True:
-        output = None
-        with gevent.Timeout(0.05, False) as t:
-            output = OUTPUT_QUEUE[session_id].get(timeout=t)
-        
+        #output = None
+        #with gevent.Timeout(0.05, False) as t:
+        #    output = OUTPUT_QUEUE[session_id].get(timeout=t)
+        output = q.get()        
+
         if output:
             if isinstance(output, StopIteration):
-                RESULT[session_id].set(output.args[0])
+                RESULT[session_id][client_uuid].set(output.args[0])
                 continue
             if isinstance(output, str):
                 output_text += output
@@ -67,23 +89,30 @@ def send_output(session_id):
                 continue
             else:
                 continue
-            if not output_text.endswith("\n"):
-                continue
+            #if not output_text.endswith("\n"):
+            #    continue
             yield "data: " + json.dumps({"type": "text", "data": output_text }) + "\n\n"
             output_text = ""
 
 
-@bottle.route("/<session_id:int>/control_panel_events")
-def send_output(session_id):
+@bottle.route("/<session_id:int>/control_panel_events/<client_uuid>")
+def send_control_panel_events(session_id, client_uuid):
     bottle.response.content_type = 'text/event-stream'
     bottle.response.add_header("Connection", "keep-alive")
     bottle.response.add_header("Cache-control", "no-cache, must-revalidate")
+
+    if CONTROL_PANEL_QUEUE.get(session_id) is None:
+        # browser tries to (re)connect but we don't know this session
+        bottle.response.status = 404
+        raise StopIteration
+
+    q = CONTROL_PANEL_QUEUE[session_id][client_id]
 
     # this is to initialize connection, something has to be sent
     yield "data: \n\n"
     
     while True:
-        data = CONTROL_PANEL_QUEUE[session_id].get()
+        data = q.get()
         yield "data: " + json.dumps({"type": "control_panel_motor", "data":data}) + "\n\n"
 
 @bottle.route("/<session_id:int>/control_panel/run/<object_name>/<method_name>")
@@ -97,18 +126,20 @@ def action_from_control_panel(session_id, object_name, method_name):
 #    return json.dumps(MyLogHandler(session_id).queue.get())
 
 
-def execute_cmd(session_id, action, *args):
-    OUTPUT_STREAM_READY[session_id].wait()
-    RESULT[session_id] = gevent.event.AsyncResult()
-    EXECUTION_QUEUE[session_id].put((action, args))
-    return RESULT[session_id].get()
+def execute_cmd(session_id, client_uuid, action, *args):
+    res = gevent.event.AsyncResult()
+    res.client_uuid = client_uuid
+    RESULT[session_id][client_uuid] = res
+    EXECUTION_QUEUE[session_id].put((client_uuid, action, args))
+    return res.get()
 
 
 @bottle.get("/<session_id:int>/completion_request")
 def send_completion(session_id):
+    client_uuid = bottle.request.GET["client_uuid"]
     text = bottle.request.GET["text"]
     completion_start_index = int(bottle.request.GET["index"])
-    possibilities, completions = execute_cmd(session_id, "complete", text, completion_start_index)
+    possibilities, completions = execute_cmd(session_id, client_uuid, "complete", text, completion_start_index)
     return {"possibilities": possibilities,
             "completions": completions }
 
@@ -120,6 +151,7 @@ def abort_execution(session_id):
 
 @bottle.get("/<session_id:int>/command")
 def execute_command(session_id):
+    client_uuid = bottle.request.GET["client_uuid"]
     code = bottle.request.GET["code"]
     if code == "__INIT_SCRIPT__":
         if not SESSION_INIT.get(session_id):
@@ -133,7 +165,7 @@ def execute_command(session_id):
     except UnicodeEncodeError, err_msg:
         return {"error": str(err_msg)}
     else:
-        res = execute_cmd(session_id, "execute", python_code_to_execute)
+        res = execute_cmd(session_id, client_uuid, "execute", python_code_to_execute)
         if isinstance(res, EOFError):
             return {"error": "EOF", "input": python_code_to_execute}
         elif isinstance(res, RuntimeError):
@@ -146,30 +178,43 @@ def execute_command(session_id):
 
 @bottle.get("/<session_id:int>/args_request")
 def get_func_args(session_id):
+    client_id = bottle.request.GET["client_uuid"]
     code = bottle.request.GET["code"]
-    return execute_cmd(session_id, "get_function_args", str(code))
+    return execute_cmd(session_id, client_id, "get_function_args", str(code))
     
 
 @bottle.route('/<session_id:int>')
 def open_session(session_id):
-    cmds_queue,EXECUTION_QUEUE[session_id] = gipc.pipe()
-    OUTPUT_QUEUE[session_id], output_queue = gipc.pipe()
-    CONTROL_PANEL_QUEUE[session_id]=gevent.queue.Queue()
-    OUTPUT_STREAM_READY[session_id] = gevent.event.Event()
-    RESULT[session_id]=gevent.event.AsyncResult()
-    INTERPRETER[session_id] = gipc.start_process(interpreter.start_interpreter,
-                                                 args=(cmds_queue, output_queue))
-    EXECUTION_QUEUE[session_id].put(("syn", (None,)))
-    assert(OUTPUT_QUEUE[session_id].get() == "ack")
+    client_id = str(uuid.uuid1())
+
+    if not session_id in INTERPRETER:
+        cmds_queue,EXECUTION_QUEUE[session_id] = gipc.pipe()
+        output_queue_from_interpreter, output_queue = gipc.pipe()
+        RESULT[session_id] = dict()
+        INTERPRETER[session_id] = gipc.start_process(interpreter.start_interpreter,
+                                                     args=(cmds_queue, output_queue))
+        EXECUTION_QUEUE[session_id].put((None, "syn", (None,)))
+        output_queue_from_interpreter.get() #ack
     
+        OUTPUT_QUEUE[session_id] = dict()
+        CONTROL_PANEL_QUEUE[session_id] = dict()
+        gevent.spawn(handle_output, session_id, output_queue_from_interpreter)
+    
+    RESULT[session_id][client_id] = gevent.event.AsyncResult()
+    OUTPUT_QUEUE[session_id][client_id] = gevent.queue.Queue()
+    CONTROL_PANEL_QUEUE[session_id][client_id] = gevent.queue.Queue()
+
     root_path = os.path.dirname(os.path.abspath(__file__))
     contents = file(os.path.join(root_path, "shell.html"), "r")
+
+    bottle.response.set_header("Set-Cookie", "khoros_client_id=%s" % client_id)
+
     return contents.read()
 
 
 @bottle.route("/<session_id:int>/objects")
-def return_motors_names(session_id):
-    return execute_cmd(session_id, "get_objects", None)
+def return_objects_names(session_id):
+    return execute_cmd(session_id, None, "get_objects", None)
 
 
 @bottle.route('/')

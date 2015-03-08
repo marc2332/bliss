@@ -16,7 +16,28 @@ var askForLogMessages = function() {
         dataType: 'json'
     });
 }
+
+function generateUUID() {
+    var d = performance.now();
+    var uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        var r = (d + Math.random()*16)%16 | 0;
+        d = Math.floor(d/16);
+        return (c=='x' ? r : (r&0x3|0x8)).toString(16);
+    });
+    return uuid;
+};
 */
+
+function readCookie(name) {
+    var nameEQ = name + "=";
+    var ca = document.cookie.split(';');
+    for (var i = 0; i < ca.length; i++) {
+        var c = ca[i];
+        while (c.charAt(0) == ' ') c = c.substring(1, c.length);
+        if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length, c.length);
+    }
+    return null;
+}
 
 function Shell(cmdline_div_id, shell_output_div_id) {
     var table = $('<div style="width:100%; display:table;"></div>');
@@ -44,6 +65,7 @@ function Shell(cmdline_div_id, shell_output_div_id) {
     this.last_output_div = $("<div></div>");
     this.output_div.prepend(this.last_output_div);
 
+    this.client_uuid = readCookie("khoros_client_id");
     this.executing = false;
     this.completion_mode = false;
     this.completion_selected_item_text = '';
@@ -60,7 +82,7 @@ function Shell(cmdline_div_id, shell_output_div_id) {
        connect to output stream, 
        to get output from server
     */
-    this.output_stream = new EventSource(this.session_id+'/output_stream');
+    this.output_stream = new EventSource(this.session_id+'/output_stream/'+this.client_uuid);
     this.output_stream.onmessage = $.proxy(function(e) {
         if (e.data) {
             var output = JSON.parse(e.data);
@@ -112,6 +134,7 @@ Shell.prototype = {
             url: this.session_id+"/completion_request",
             dataType: "json",
             data: {
+		"client_uuid": this.client_uuid,
                 "text": text,
                 "index": index
             },
@@ -274,6 +297,7 @@ Shell.prototype = {
                         url: this.session_id+"/args_request",
                         dataType: "json",
                         data: {
+			    "client_uuid": this.client_uuid,
                             "code": code,
                         },
                         success: $.proxy(function(ret, status, jqxhr) {
@@ -387,6 +411,7 @@ Shell.prototype = {
                 this.cmdline.focus();
             }, this),
             data: {
+		"client_uuid": this.client_uuid,
                 "code": cmd,
             },
         });

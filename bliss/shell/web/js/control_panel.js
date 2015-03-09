@@ -1,9 +1,9 @@
-function ControlPanel(div_id, session_id) {
+function ControlPanel(div_id, session_id, client_uuid) {
     this.motors = {};
     this.actuators = {};
     this.shutters = {};
     this.session_id = session_id;
-    this.client_uuid = readCookie("khoros_client_id");
+    this.client_uuid = client_uuid; //readCookie("khoros_client_id");
 
     this.refresh_btn = $("<button style='width:100%;'>Refresh</button>").button();
     this.refresh_btn = $("<button>Refresh</button>");

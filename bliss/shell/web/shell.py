@@ -16,6 +16,7 @@ import bliss.shell.interpreter as interpreter
 import gipc
 import signal
 import uuid
+from jinja2 import Template
 
 #LOG = {}
 EXECUTION_QUEUE = dict()
@@ -39,9 +40,7 @@ socket.socket.bind = my_socket_bind
 
 def handle_output(session_id, q):
     while True:
-        aa=q.get()
-        print aa
-        client_uuid, output = aa #q.get()
+        client_uuid, output = q.get()
         
         if client_uuid is None:
             # broadcast to all clients
@@ -49,7 +48,10 @@ def handle_output(session_id, q):
                 print "dispatching output to", client_uuid
                 per_client_queue.put(output)
         else:
-            OUTPUT_QUEUE[session_id][client_uuid].put(output)
+            try:
+                OUTPUT_QUEUE[session_id][client_uuid].put(output)
+            except KeyError:
+                continue
 
 
 @bottle.route("/<session_id:int>/output_stream/<client_uuid>")
@@ -106,7 +108,7 @@ def send_control_panel_events(session_id, client_uuid):
         bottle.response.status = 404
         raise StopIteration
 
-    q = CONTROL_PANEL_QUEUE[session_id][client_id]
+    q = CONTROL_PANEL_QUEUE[session_id][client_uuid]
 
     # this is to initialize connection, something has to be sent
     yield "data: \n\n"
@@ -117,7 +119,7 @@ def send_control_panel_events(session_id, client_uuid):
 
 @bottle.route("/<session_id:int>/control_panel/run/<object_name>/<method_name>")
 def action_from_control_panel(session_id, object_name, method_name):
-    EXECUTION_QUEUE[session_id].put(("control_panel", (object_name, method_name)))   
+    EXECUTION_QUEUE[session_id].put((None, "control_panel", (object_name, method_name)))   
 
 
 #@bottle.route("/log_msg_request")
@@ -127,6 +129,7 @@ def action_from_control_panel(session_id, object_name, method_name):
 
 
 def execute_cmd(session_id, client_uuid, action, *args):
+    print 'in execute_cmd:', action, args
     res = gevent.event.AsyncResult()
     res.client_uuid = client_uuid
     RESULT[session_id][client_uuid] = res
@@ -153,13 +156,13 @@ def abort_execution(session_id):
 def execute_command(session_id):
     client_uuid = bottle.request.GET["client_uuid"]
     code = bottle.request.GET["code"]
-    if code == "__INIT_SCRIPT__":
-        if not SESSION_INIT.get(session_id):
-            SESSION_INIT[session_id]=True
-            code = INIT_SCRIPT
-        else:
-            code = ""
+    if not code:
+        return {"error": ""}
 
+    return _execute_command(code, client_uuid, session_id)
+
+
+def _execute_command(code, client_uuid, session_id):
     try:
         python_code_to_execute = str(code).strip() + "\n"
     except UnicodeEncodeError, err_msg:
@@ -183,6 +186,18 @@ def get_func_args(session_id):
     return execute_cmd(session_id, client_id, "get_function_args", str(code))
     
 
+@bottle.route('/<session_id:int>/setup')
+def setup(session_id):
+    client_uuid = bottle.request.GET["client_uuid"]
+    force = bottle.request.GET["force"]
+
+    if force or SESSION_INIT.get(session_id) is None:
+        SESSION_INIT[session_id] = True
+        return _execute_command("resetup()\n", client_uuid, session_id)
+    else:
+        return {"error":""}
+	
+
 @bottle.route('/<session_id:int>')
 def open_session(session_id):
     client_id = str(uuid.uuid1())
@@ -202,14 +217,14 @@ def open_session(session_id):
     
     RESULT[session_id][client_id] = gevent.event.AsyncResult()
     OUTPUT_QUEUE[session_id][client_id] = gevent.queue.Queue()
+    RESULT[session_id]["setup_"+client_id] = gevent.event.AsyncResult()
+    OUTPUT_QUEUE[session_id]["setup_"+client_id] = gevent.queue.Queue()
     CONTROL_PANEL_QUEUE[session_id][client_id] = gevent.queue.Queue()
 
     root_path = os.path.dirname(os.path.abspath(__file__))
     contents = file(os.path.join(root_path, "shell.html"), "r")
-
-    bottle.response.set_header("Set-Cookie", "khoros_client_id=%s" % client_id)
-
-    return contents.read()
+    template = Template(contents.read())
+    return template.render(client_uuid=repr(client_id))
 
 
 @bottle.route("/<session_id:int>/objects")

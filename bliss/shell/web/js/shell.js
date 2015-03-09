@@ -39,7 +39,7 @@ function readCookie(name) {
     return null;
 }
 
-function Shell(cmdline_div_id, shell_output_div_id) {
+function Shell(cmdline_div_id, shell_output_div_id, client_uuid) {
     var table = $('<div style="width:100%; display:table;"></div>');
     this.hint_row = $($.parseHTML('<div style="display:table-row;"><label style="display:table-cell; width:1%;">&nbsp;</label></div>'));
     this.hint_row.appendTo(table);
@@ -65,7 +65,7 @@ function Shell(cmdline_div_id, shell_output_div_id) {
     this.last_output_div = $("<div></div>");
     this.output_div.prepend(this.last_output_div);
 
-    this.client_uuid = readCookie("khoros_client_id");
+    this.client_uuid = client_uuid; //readCookie("khoros_client_id");
     this.executing = false;
     this.completion_mode = false;
     this.completion_selected_item_text = '';
@@ -120,7 +120,7 @@ function Shell(cmdline_div_id, shell_output_div_id) {
        consider EOF as an error
     */
     this.set_executing(true);
-    this._execute("__INIT_SCRIPT__", true, true, false);
+    this._execute_setup();
 };
 
 Shell.prototype = {
@@ -341,7 +341,16 @@ Shell.prototype = {
         this._execute(code);
     },
 
-    _execute: function(cmd, dont_save_history, eof_error, synchronous_call) {
+    _execute_setup: function(force) {
+        if (force == undefined) { force = false; }
+
+        return this._execute("setup", force, true, false);
+    },
+
+    _execute: function(cmd, dont_save_history, eof_error, synchronous_call, custom_data) {
+        var url = this.session_id+'/command';
+        var data = { "client_uuid": this.client_uuid };
+
         /* save history */
         if (!dont_save_history) {
             this.history.push(cmd);
@@ -353,13 +362,20 @@ Shell.prototype = {
             synchronous_call = true;
         }
 
+        if (cmd == "setup") {
+            url = this.session_id + '/setup';
+            data["force"] = dont_save_history;
+        } else {
+            data["code"]=cmd;
+        }
+
         /* make remote call */
         $.ajax({
             error: function(XMLHttpRequest, textStatus, errorThrown) {
                 this.set_executing(false);
                 alert(textStatus);
             },
-            url: this.session_id+'/command',
+            url: url,
             type: 'GET',
             dataType: 'json',
             async: synchronous_call,
@@ -410,10 +426,7 @@ Shell.prototype = {
                 }
                 this.cmdline.focus();
             }, this),
-            data: {
-		"client_uuid": this.client_uuid,
-                "code": cmd,
-            },
+            data: data
         });
     },
 

@@ -19,7 +19,16 @@
 </head>
 <body>
         <div class="ui-layout-center" id="main">
-          <div id="shell_output" class="ui-layout-center"></div>
+          <div class="ui-layout-center" id="tabs">
+             <ul>
+                 <li><a href="#tab_setup">Setup</a></li>
+                 <li><a href="#shell_output">Shell output</a></li>
+                 <li><a href="#tab_log_messages">Log</a></li>
+             </ul>
+             <div id="tab_setup"></div>
+             <div id="shell_output"></div>
+             <div id="tab_log_messages"></div>
+          </div>
           <div id="right_panel" class="ui-layout-east"></div>
 	</div>
         <div class="ui-layout-north">
@@ -31,11 +40,13 @@
         </div>       
  
 	<script type="text/javascript" charset="utf-8">
+            var client_uuid = {{ client_uuid }};
             $(document).ready(function() {
                 layout = $('body').layout({ applyDefaultStyles: true, north__size: "15%" });
                 $('#main').layout({ applyDefaultStyles: true, east__size: "33%" });
-                var shell = new Shell("shell_cmdline", "shell_output");
-                var control_panel = new ControlPanel("right_panel", shell.session_id);
+                $("#tabs").tabs({active: 1});
+                var shell = new Shell("shell_cmdline", "shell_output", client_uuid);
+                var control_panel = new ControlPanel("right_panel", shell.session_id, client_uuid);
 	    });
 	</script>
 </body>

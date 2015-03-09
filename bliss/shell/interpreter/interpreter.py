@@ -46,15 +46,15 @@ def stdout_redirected(client_uuid, new_stdout):
         sys.stdout = save_stdout
 
 
-def init_scans_callbacks(output_queue):
+def init_scans_callbacks(interpreter, output_queue):
     def new_scan_callback(scan_id, filename, scan_actuators, npoints, counters_list):
-        output_queue.put((None,{"scan_id": scan_id, "filename": filename,
+        output_queue.put((interpreter.get_last_client_uuid(), {"scan_id": scan_id, "filename": filename,
                           "scan_actuators": scan_actuators, "npoints": npoints,
                           "counters": counters_list}))
     def update_scan_callback(scan_id, values):
-        output_queue.put((None,{"scan_id": scan_id, "values":values}))
+        output_queue.put((interpreter.get_last_client_uuid(), {"scan_id": scan_id, "values":values}))
     def scan_end_callback(scan_id):
-        output_queue.put((None,{"scan_id":scan_id}))
+        output_queue.put((interpreter.get_last_client_uuid(), {"scan_id":scan_id}))
 
     # keep callbacks references
     output_queue.callbacks["scans"]["new"] = new_scan_callback
@@ -119,11 +119,17 @@ class InteractiveInterpreter(code.InteractiveInterpreter):
 
     def execute(self, client_uuid, python_code_to_execute, wait=True):
         self.executed_greenlet = gevent.spawn(self.compile_and_run, client_uuid, python_code_to_execute)
+        self.executed_greenlet.client_uuid = client_uuid
         if wait:
             return self.executed_greenlet.get()
         else:
+            gevent.sleep(0)
             return self.executed_greenlet
 
+    def get_last_client_uuid(self):
+        if self.executed_greenlet and not self.executed_greenlet.ready():
+            return self.executed_greenlet.client_uuid
+        
 
 def init(input_queue, output_queue):
     # undo thread module monkey-patching
@@ -221,7 +227,7 @@ def start(input_queue, output_queue, i):
                                "scans": dict(),
                                "inout": dict(),
                                "openclose": dict() }
-    init_scans_callbacks(output_queue)
+    init_scans_callbacks(i, output_queue)
 
     def resetup(setup_file=None):
         setup_file = i.locals.get("SETUP_FILE") if setup_file is None else setup_file
@@ -306,18 +312,13 @@ def start(input_queue, output_queue, i):
             output_queue.put((None, StopIteration({ "motors": motors_list, "counters": counters_list, "inout": inout_list, "openclose": openclose_list })))
         elif action == "execute":
             code = _[0]
-            """
-            try:
-                i.execute(code)
-            except EOFError:
-                output_queue.put(StopIteration(EOFError()))
-            except RuntimeError, error_string:
-                print error_string
-                output_queue.put(StopIteration(RuntimeError(error_string)))
-            else:           
-                output_queue.put(StopIteration(None))
-            """
-            def execution_done(executed_greenlet, client_uuid=client_uuid):
+
+            if client_uuid is not None:
+                if i.executed_greenlet and not i.executed_greenlet.ready():
+                     output_queue.put((client_uuid, StopIteration(RuntimeError("Server is busy."))))
+                     continue
+
+            def execution_done(executed_greenlet, output_queue=output_queue, client_uuid=client_uuid):
                 try:
                     res = executed_greenlet.get()
                 except EOFError:
@@ -326,6 +327,7 @@ def start(input_queue, output_queue, i):
                     output_queue.put((client_uuid, StopIteration(RuntimeError(error_string))))
                 else:
                     output_queue.put((client_uuid, StopIteration(None)))
+
             i.execute(client_uuid, code, wait=False).link(execution_done)
         elif action == "complete":
             text, completion_start_index = _

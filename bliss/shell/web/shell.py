@@ -88,7 +88,6 @@ def send_output(session_id, client_uuid):
             elif isinstance(output, str):
                 yield "data: " + json.dumps({"type": "text", "data": output }) + "\n\n"
             elif isinstance(output, dict):
-                print 'yielding', output
                 if 'scan_id' in output:
                     yield "data: " + json.dumps({"type": "plot", "data": output}) + "\n\n"
                 elif output.get('type')=='setup':

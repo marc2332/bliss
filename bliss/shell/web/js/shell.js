@@ -39,7 +39,7 @@ function readCookie(name) {
     return null;
 }
 
-function Shell(cmdline_div_id, shell_output_div_id, client_uuid) {
+function Shell(client_uuid, cmdline_div_id, shell_output_div_id, setup_div_id) {
     var table = $('<div style="width:100%; display:table;"></div>');
     this.hint_row = $($.parseHTML('<div style="display:table-row;"><label style="display:table-cell; width:1%;">&nbsp;</label></div>'));
     this.hint_row.appendTo(table);
@@ -65,6 +65,18 @@ function Shell(cmdline_div_id, shell_output_div_id, client_uuid) {
     this.last_output_div = $("<div></div>");
     this.output_div.prepend(this.last_output_div);
 
+    this.setup_div = $("#" + setup_div_id);
+    this.setup_div.addClass("code-font");
+    this.setup_output_div = $("</div></div>");
+    var resetup_btn = $("<button>Resetup</button>");
+    resetup_btn.button().css("font-size", "0.8em");
+    resetup_btn.on("click", $.proxy(function() { this.execute_setup(true) }, this));
+    this.setup_div.append(resetup_btn);
+    var new_setup_div = $("<div></div>");
+    this.setup_div.append(new_setup_div);
+    this.setup_div = new_setup_div;
+    this.setup_div.append(this.setup_output_div);
+ 
     this.client_uuid = client_uuid; //readCookie("khoros_client_id");
     this.executing = false;
     this.completion_mode = false;

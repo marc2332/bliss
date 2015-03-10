@@ -45,8 +45,8 @@
                 layout = $('body').layout({ applyDefaultStyles: true, north__size: "15%" });
                 $('#main').layout({ applyDefaultStyles: true, east__size: "33%" });
                 $("#tabs").tabs({active: 1});
-                var shell = new Shell("shell_cmdline", "shell_output", client_uuid);
-                var control_panel = new ControlPanel("right_panel", shell.session_id, client_uuid);
+                var shell = new Shell(client_uuid, "shell_cmdline", "shell_output", "tab_setup");
+                var control_panel = new ControlPanel(shell.session_id, client_uuid, "right_panel");
 	    });
 	</script>
 </body>

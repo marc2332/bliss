@@ -239,6 +239,10 @@ def return_objects_names(session_id):
     return interpreter_exec(session_id, client_uuid, "get_objects", None)
 
 
+@bottle.route("/<session_id:int>/synoptic")
+def return_synoptic_svg(session_id):
+    return bottle.static_file("id30b_layout.svg", os.environ["HOME"])
+
 @bottle.route('/')
 def main():
     bottle.redirect("/1")

@@ -1,3 +1,11 @@
+function Synoptic(control_panel, div_id) {
+    this.control_panel = control_panel;
+
+    var svg = $("<svg></svg>");
+    $("#"+div_id).append(svg);
+    svg.load(this.control_panel.session_id+"/synoptic");
+};
+
 function ControlPanel(session_id, client_uuid, div_id) {
     this.motors = {};
     this.actuators = {};

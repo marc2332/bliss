@@ -19,6 +19,9 @@
 </head>
 <body>
         <div class="ui-layout-center" id="main">
+          <div class="ui-layout-north">
+          <div id="shell_cmdline" style="width: 100%;"></div>
+          </div>
           <div class="ui-layout-center" id="tabs">
              <ul>
                  <li><a href="#tab_setup">Setup</a></li>
@@ -32,7 +35,7 @@
           <div id="right_panel" class="ui-layout-east"></div>
 	</div>
         <div class="ui-layout-north">
-          <div id="shell_cmdline" style="width:100%;"></div>
+          <div id="synoptic" style="width:100%;"></div>
           <!--<div id="log_messages">
             <h3>Log messages</h3>
             <div id="logger"></div>
@@ -47,6 +50,7 @@
                 $("#tabs").tabs({active: 1});
                 var shell = new Shell(client_uuid, "shell_cmdline", "shell_output", "tab_setup");
                 var control_panel = new ControlPanel(shell.session_id, client_uuid, "right_panel");
+                var synoptic = new Synoptic(control_panel, "synoptic");
 	    });
 	</script>
 </body>

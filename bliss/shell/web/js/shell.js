@@ -465,7 +465,7 @@ Shell.prototype = {
             output_div.append(last_element);
         } else {
             var output_pre = $('<pre></pre>');
-            output_pre.text(this._html_escape(output));
+            output_pre.text(output);
             output_pre.css({ display: "inline" });
             output_div.append(output_pre);
         }

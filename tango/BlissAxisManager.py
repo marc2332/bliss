@@ -313,7 +313,7 @@ class BlissAxis(PyTango.Device_4Impl):
         _duration = time.time() - _t
 
         if _duration > 0.01:
-            print "{%s} read_Measured_Position : duration seems too long : %5.3g ms" % \
+            print "BlissAxisManager.py : {%s} read_Measured_Position : duration seems too long : %5.3g ms" % \
                 (self._ds_name, _duration * 1000)
 
     def read_Acceleration(self, attr):
@@ -322,7 +322,7 @@ class BlissAxis(PyTango.Device_4Impl):
             self.debug_stream("In read_Acceleration(%f)" % float(_acc))
             attr.set_value(_acc)
         except:
-            elog.error("Unable to read acceleration for axis %s" % self.axis.name(),
+            elog.error("BlissAxisManager.py : Unable to read acceleration for axis %s" % self.axis.name(),
                        raise_exception=False)
 
     def write_Acceleration(self, attr):
@@ -331,7 +331,7 @@ class BlissAxis(PyTango.Device_4Impl):
             self.debug_stream("In write_Acceleration(%f)" % data)
             self.axis.acceleration(data)
         except:
-            elog.error("Unable to write acceleration (%g uu/s2) for axis %s" % (data, self.axis.name()),
+            elog.error("BlissAxisManager.py : Unable to write acceleration (%g uu/s2) for axis %s" % (data, self.axis.name()),
                        raise_exception=False)
 
     def read_AccTime(self, attr):
@@ -341,7 +341,7 @@ class BlissAxis(PyTango.Device_4Impl):
             self.debug_stream("In read_AccTime(%f)" % float(_acc_time))
             attr.set_value(_acc_time)
         except:
-            elog.error("Unable to read acc_time for axis %s" % self.axis.name())
+            elog.error("BlissAxisManager.py : Unable to read acc_time for axis %s" % self.axis.name())
 
     def write_AccTime(self, attr):
         try:
@@ -349,7 +349,7 @@ class BlissAxis(PyTango.Device_4Impl):
             self.axis.acctime(data)
             self.debug_stream("In write_AccTime(%f)" % float(data))
         except:
-            elog.error("Unable to write acc_time (%g s) for axis %s" % (data, self.axis.name()))
+            elog.error("BlissAxisManager.py : Unable to write acc_time (%g s) for axis %s" % (data, self.axis.name()))
 
     def read_Velocity(self, attr):
         _vel = self.axis.velocity()

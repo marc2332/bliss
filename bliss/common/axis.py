@@ -244,12 +244,16 @@ class Axis(object):
             # W => Converts into motor units to change acceleration of axis.
             self.__controller.set_acceleration(self, new_acc * abs(self.steps_per_unit))
 
-        # R or W : read acceleration from controller
-        _ctrl_acc = self.__controller.read_acceleration(self)
+        # Both R or W : Reads acceleration from controller.
+        try:
+            _ctrl_acc = self.__controller.read_acceleration(self)
+        except NotImplementedError:
+            elog.info("EMotion : axis.py : acceleration is not implemented for this controller.")
+
         _acceleration = _ctrl_acc / abs(self.steps_per_unit)
 
         if new_acc is not None:
-            # W => save acceleration in settings in uu/s2
+            # W => save acceleration in settings in uu/s2.
             self.settings.set("acceleration", _acceleration)
 
         return _acceleration

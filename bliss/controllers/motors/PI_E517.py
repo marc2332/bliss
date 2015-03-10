@@ -159,13 +159,13 @@ class PI_E517(Controller):
         elog.debug("velocity set : %g" % new_velocity)
         return self.read_velocity(axis)
 
-#     def read_acceleration(self, axis):
-#         """Returns axis current acceleration in steps/sec2"""
-#         return 1
-#
-#     def set_acceleration(self, axis, new_acc):
-#         """Set axis acceleration given in steps/sec2"""
-#         pass
+    def read_acceleration(self, axis):
+        """Returns axis current acceleration in steps/sec2"""
+        return 1
+
+    def set_acceleration(self, axis, new_acc):
+        """Set axis acceleration given in steps/sec2"""
+        pass
 
     def state(self, axis):
         # if self._get_closed_loop_status(axis):

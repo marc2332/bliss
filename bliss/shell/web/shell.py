@@ -24,7 +24,7 @@ OUTPUT_QUEUE = dict()
 CONTROL_PANEL_QUEUE = dict()
 INTERPRETER = dict()
 RESULT = dict()
-INIT_SCRIPT = ""
+SETUP_FILE = ""
 SESSION_INIT = dict()
 
 # patch socket module;
@@ -44,9 +44,17 @@ def handle_output(session_id, q):
         
         if client_uuid is None:
             # broadcast to all clients
+            print 'broadcast to all clients', output
             for client_uuid, per_client_queue in OUTPUT_QUEUE[session_id].iteritems():
-                print "dispatching output to", client_uuid
+                print "  - dispatching output to", client_uuid
                 per_client_queue.put(output)
+        elif 'setup' in client_uuid:
+            tag, client_uuid = client_uuid
+
+            if isinstance(output, str):
+                output = { "type": "setup", "data": output }
+
+            OUTPUT_QUEUE[session_id][client_uuid].put(output)
         else:
             try:
                 OUTPUT_QUEUE[session_id][client_uuid].put(output)
@@ -59,7 +67,7 @@ def send_output(session_id, client_uuid):
     bottle.response.content_type = 'text/event-stream'
     bottle.response.add_header("Connection", "keep-alive")
     bottle.response.add_header("Cache-control", "no-cache, must-revalidate")
-    output_text = ""
+    #output_text = ""
 
     if OUTPUT_QUEUE.get(session_id) is None:
         # browser tries to (re)connect but we don't know this session
@@ -80,21 +88,22 @@ def send_output(session_id, client_uuid):
         if output:
             if isinstance(output, StopIteration):
                 RESULT[session_id][client_uuid].set(output.args[0])
-                continue
-            if isinstance(output, str):
-                output_text += output
+            elif isinstance(output, str):
+                yield "data: " + json.dumps({"type": "text", "data": output }) + "\n\n"
+                #output_text += output
             elif isinstance(output, dict):
+                print 'yielding', output
                 if 'scan_id' in output:
                     yield "data: " + json.dumps({"type": "plot", "data": output}) + "\n\n"
+                elif output.get('type')=='setup':
+                    yield "data: " + json.dumps(output) + "\n\n"
                 else:
                     CONTROL_PANEL_QUEUE[session_id].put(output)
-                continue
             else:
                 continue
             #if not output_text.endswith("\n"):
             #    continue
-            yield "data: " + json.dumps({"type": "text", "data": output_text }) + "\n\n"
-            output_text = ""
+            #output_text = ""
 
 
 @bottle.route("/<session_id:int>/control_panel_events/<client_uuid>")
@@ -128,11 +137,16 @@ def action_from_control_panel(session_id, object_name, method_name):
 #    return json.dumps(MyLogHandler(session_id).queue.get())
 
 
-def execute_cmd(session_id, client_uuid, action, *args):
-    print 'in execute_cmd:', action, args
+def interpreter_exec(session_id, client_uuid, action, *args):
+    print 'in interpreter_exec:', action, args
     res = gevent.event.AsyncResult()
-    res.client_uuid = client_uuid
-    RESULT[session_id][client_uuid] = res
+    #res.client_uuid = client_uuid
+    if isinstance(client_uuid, tuple):
+        tag, uuid = client_uuid
+    else:
+        uuid = client_uuid
+
+    RESULT[session_id][uuid] = res
     EXECUTION_QUEUE[session_id].put((client_uuid, action, args))
     return res.get()
 
@@ -142,7 +156,7 @@ def send_completion(session_id):
     client_uuid = bottle.request.GET["client_uuid"]
     text = bottle.request.GET["text"]
     completion_start_index = int(bottle.request.GET["index"])
-    possibilities, completions = execute_cmd(session_id, client_uuid, "complete", text, completion_start_index)
+    possibilities, completions = interpreter_exec(session_id, client_uuid, "complete", text, completion_start_index)
     return {"possibilities": possibilities,
             "completions": completions }
 
@@ -168,7 +182,7 @@ def _execute_command(code, client_uuid, session_id):
     except UnicodeEncodeError, err_msg:
         return {"error": str(err_msg)}
     else:
-        res = execute_cmd(session_id, client_uuid, "execute", python_code_to_execute)
+        res = interpreter_exec(session_id, client_uuid, "execute", python_code_to_execute)
         if isinstance(res, EOFError):
             return {"error": "EOF", "input": python_code_to_execute}
         elif isinstance(res, RuntimeError):
@@ -183,17 +197,17 @@ def _execute_command(code, client_uuid, session_id):
 def get_func_args(session_id):
     client_id = bottle.request.GET["client_uuid"]
     code = bottle.request.GET["code"]
-    return execute_cmd(session_id, client_id, "get_function_args", str(code))
+    return interpreter_exec(session_id, client_id, "get_function_args", str(code))
     
 
 @bottle.route('/<session_id:int>/setup')
 def setup(session_id):
     client_uuid = bottle.request.GET["client_uuid"]
-    force = bottle.request.GET["force"]
+    force = bottle.request.GET["force"]=='true'
 
     if force or SESSION_INIT.get(session_id) is None:
         SESSION_INIT[session_id] = True
-        return _execute_command("resetup()\n", client_uuid, session_id)
+        return _execute_command("resetup(%r)\n" % SETUP_FILE, ("setup", client_uuid), session_id)
     else:
         return {"error":""}
 	
@@ -217,8 +231,6 @@ def open_session(session_id):
     
     RESULT[session_id][client_id] = gevent.event.AsyncResult()
     OUTPUT_QUEUE[session_id][client_id] = gevent.queue.Queue()
-    RESULT[session_id]["setup_"+client_id] = gevent.event.AsyncResult()
-    OUTPUT_QUEUE[session_id]["setup_"+client_id] = gevent.queue.Queue()
     CONTROL_PANEL_QUEUE[session_id][client_id] = gevent.queue.Queue()
 
     root_path = os.path.dirname(os.path.abspath(__file__))
@@ -229,7 +241,7 @@ def open_session(session_id):
 
 @bottle.route("/<session_id:int>/objects")
 def return_objects_names(session_id):
-    return execute_cmd(session_id, None, "get_objects", None)
+    return interpreter_exec(session_id, None, "get_objects", None)
 
 
 @bottle.route('/')
@@ -242,9 +254,9 @@ def serve_static_file(url):
     return bottle.static_file(url, os.path.dirname(__file__))
 
 
-def set_init_script(script):
-    global INIT_SCRIPT
-    INIT_SCRIPT = script
+def set_setup_file(setup_file):
+    global SETUP_FILE
+    SETUP_FILE = setup_file
 
 
 def serve_forever(port=None):

@@ -17,6 +17,6 @@ options, args = parser.parse_args()
 logging.basicConfig()
 logging.getLogger().setLevel(logging.DEBUG)
 
-shell.set_init_script("resetup(%r);" % options.setup_file)
+shell.set_setup_file(options.setup_file) 
 shell.serve_forever(options.port) 
 

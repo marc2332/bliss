@@ -6,14 +6,14 @@ import gevent.event
 import gevent.queue
 import gevent.monkey
 gevent.monkey.patch_all()
+import gipc
+import bliss.shell.interpreter as interpreter
 import bottle
 import socket
 import time
 import logging
 import cStringIO
 import json
-import bliss.shell.interpreter as interpreter
-import gipc
 import signal
 import uuid
 from jinja2 import Template
@@ -173,10 +173,10 @@ def execute_command(session_id):
     if not code:
         return {"error": ""}
 
-    return _execute_command(code, client_uuid, session_id)
+    return _execute_command(session_id, client_uuid, code)
 
 
-def _execute_command(code, client_uuid, session_id):
+def _execute_command(session_id, client_uuid, code):
     try:
         python_code_to_execute = str(code).strip() + "\n"
     except UnicodeEncodeError, err_msg:
@@ -207,7 +207,7 @@ def setup(session_id):
 
     if force or SESSION_INIT.get(session_id) is None:
         SESSION_INIT[session_id] = True
-        return _execute_command("resetup(%r)\n" % SETUP_FILE, ("setup", client_uuid), session_id)
+        return _execute_command(session_id, ("setup", client_uuid), "resetup(%r)\n" % SETUP_FILE)
     else:
         return {"error":""}
 	

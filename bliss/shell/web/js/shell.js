@@ -26,7 +26,6 @@ function generateUUID() {
     });
     return uuid;
 };
-*/
 
 function readCookie(name) {
     var nameEQ = name + "=";
@@ -38,6 +37,7 @@ function readCookie(name) {
     }
     return null;
 }
+*/
 
 function Shell(client_uuid, cmdline_div_id, shell_output_div_id, setup_div_id) {
     var table = $('<div style="width:100%; display:table;"></div>');
@@ -100,6 +100,8 @@ function Shell(client_uuid, cmdline_div_id, shell_output_div_id, setup_div_id) {
             var output = JSON.parse(e.data);
             if (output.type == 'plot') {
                 this.display_plot(output.data);
+            } else if (output.type == 'setup') {
+                this.display_output(output.data, false, this.setup_output_div);
             } else {
                 this.display_output(output.data);
             }
@@ -127,12 +129,11 @@ function Shell(client_uuid, cmdline_div_id, shell_output_div_id, setup_div_id) {
     this.cmdline.keyup(this._cmdline_handle_keyup);
 
     /*
-       ask to run initialization script, using the special
-       command "__INIT_SCRIPT__", don't keep history and
-       consider EOF as an error
+       ask to run initialization script, don't keep history
+       and consider EOF as an error
     */
     this.set_executing(true);
-    this._execute_setup();
+    this.execute_setup();
 };
 
 Shell.prototype = {
@@ -330,11 +331,11 @@ Shell.prototype = {
         }
     },
 
-    scrollToBottom: function(jq_div) {
+    /*scrollToBottom: function(jq_div) {
         var sHeight = jq_div[0].scrollHeight;
         //Scrolling the element to the sHeight
         jq_div.scrollTop(sHeight);
-    },
+    },*/
 
     execute: function(code) {
         this.set_executing(true);
@@ -345,26 +346,30 @@ Shell.prototype = {
         this.last_output_div = $("<div></div>");
         this.output_div.prepend(this.last_output_div);
         this.last_output_div.append($("<pre>&gt;&nbsp;<i>" + this._html_escape(code) + "</i></pre>"));
-        //var last_element = $("<pre>&gt;&nbsp;<i>" + this._html_escape(code) + "</i></pre>");
-        //this.output_div.append(last_element);
-        //this.scrollToBottom(this.output_div);
         this.last_output_div.addClass("output-executing");
         this.output_div.scrollTop(0);
+
         this._execute(code);
     },
 
-    _execute_setup: function(force) {
+    execute_setup: function(force) {
         if (force == undefined) { force = false; }
 
-        return this._execute("setup", force, true, false);
+        this.setup_output_div = $("<div></div>");
+        this.setup_div.prepend(this.setup_output_div);
+        //this.setup_div.prepend($("<pre>"+moment().format("dddd, MMMM Do YYYY, hh:mm:ss")+"&gt;&nbsp;<i>Executing setup...</i></pre><hr>"));
+        this.setup_div.prepend($("<hr>"));
+
+        this._execute("setup", force, true, false);
     },
 
-    _execute: function(cmd, dont_save_history, eof_error, synchronous_call, custom_data) {
+    _execute: function(cmd, save_history, eof_error, synchronous_call) {
         var url = this.session_id+'/command';
         var data = { "client_uuid": this.client_uuid };
 
         /* save history */
-        if (!dont_save_history) {
+        if (save_history == undefined) { save_history = true; }
+        if (save_history) {
             this.history.push(cmd);
             this.history_index = this.history.length;
             localStorage[this.session_id + "_shell_commands"] = JSON.stringify(this.history);
@@ -376,17 +381,17 @@ Shell.prototype = {
 
         if (cmd == "setup") {
             url = this.session_id + '/setup';
-            data["force"] = dont_save_history;
+            data["force"] = save_history;
         } else {
-            data["code"]=cmd;
+            data["code"] = cmd;
         }
 
         /* make remote call */
         $.ajax({
-            error: function(XMLHttpRequest, textStatus, errorThrown) {
+            error: $.proxy(function(XMLHttpRequest, textStatus, errorThrown) {
                 this.set_executing(false);
                 alert(textStatus);
-            },
+            }, this),
             url: url,
             type: 'GET',
             dataType: 'json',
@@ -410,7 +415,7 @@ Shell.prototype = {
                         var editor = CodeMirror.fromTextArea(editor_area[0], {
                             lineNumbers: true,
                             mode: {
-                                name: "text/x-cython",
+                                name: "text/x-python",
                                 version: 2,
                             },
                             autofocus: true,
@@ -433,7 +438,12 @@ Shell.prototype = {
 
                         editor.execCommand("goDocEnd");
                     } else {
-                        this.display_output(res.error, true);
+                        var that = this;
+                        if (cmd=='setup') {
+                            window.setTimeout(function() {that.display_output(res.error, true, that.setup_output_div)}, 100);
+                        } else {
+                            window.setTimeout(function() {that.display_output(res.error, true)}, 100);
+                        }
                     }
                 }
                 this.cmdline.focus();
@@ -447,20 +457,19 @@ Shell.prototype = {
         return this.DOMnative.innerHTML;
     },
 
-    display_output: function(output, error) {
-        var last_element;
+    display_output: function(output, error, output_div) {
+        if (output_div == undefined) { output_div = this.last_output_div };
+
         if (error) {
-            last_element = $('<pre><font color="red">' + this._html_escape(output) + '</font></pre>');
-            this.last_output_div.append(last_element);
+            var last_element = $('<pre><font color="red">' + this._html_escape(output) + '</font></pre>');
+            output_div.append(last_element);
         } else {
             var output_pre = $('<pre></pre>');
-            output_pre.text(output);
-            output_pre.css({
-                display: "inline"
-            });
-            this.last_output_div.append(output_pre);
+            output_pre.text(this._html_escape(output));
+            output_pre.css({ display: "inline" });
+            output_div.append(output_pre);
         }
-        this.output_div.scrollTop(0);
+        output_div.parent().scrollTop(0);
         //this.scrollToBottom(this.output_div);
     },
 

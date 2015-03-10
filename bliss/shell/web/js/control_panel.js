@@ -70,6 +70,7 @@ ControlPanel.prototype = {
             url: this.session_id + '/objects',
             type: 'GET',
             dataType: 'json',
+            data: { client_uuid: this.client_uuid },
             success: $.proxy(function(res) {
                 var counters = res.counters;
                 for (var i = 0; i<counters.length; i++) {

@@ -48,6 +48,7 @@ def handle_output(session_id, q):
             for client_uuid, per_client_queue in OUTPUT_QUEUE[session_id].iteritems():
                 print "  - dispatching output to", client_uuid
                 per_client_queue.put(output)
+                gevent.sleep(0)
         elif 'setup' in client_uuid:
             tag, client_uuid = client_uuid
 
@@ -67,7 +68,6 @@ def send_output(session_id, client_uuid):
     bottle.response.content_type = 'text/event-stream'
     bottle.response.add_header("Connection", "keep-alive")
     bottle.response.add_header("Cache-control", "no-cache, must-revalidate")
-    #output_text = ""
 
     if OUTPUT_QUEUE.get(session_id) is None:
         # browser tries to (re)connect but we don't know this session
@@ -80,9 +80,6 @@ def send_output(session_id, client_uuid):
     yield "data: \n\n"
 
     while True:
-        #output = None
-        #with gevent.Timeout(0.05, False) as t:
-        #    output = OUTPUT_QUEUE[session_id].get(timeout=t)
         output = q.get()        
 
         if output:
@@ -90,7 +87,6 @@ def send_output(session_id, client_uuid):
                 RESULT[session_id][client_uuid].set(output.args[0])
             elif isinstance(output, str):
                 yield "data: " + json.dumps({"type": "text", "data": output }) + "\n\n"
-                #output_text += output
             elif isinstance(output, dict):
                 print 'yielding', output
                 if 'scan_id' in output:
@@ -98,12 +94,9 @@ def send_output(session_id, client_uuid):
                 elif output.get('type')=='setup':
                     yield "data: " + json.dumps(output) + "\n\n"
                 else:
-                    CONTROL_PANEL_QUEUE[session_id].put(output)
+                    CONTROL_PANEL_QUEUE[session_id][client_uuid].put(output)
             else:
                 continue
-            #if not output_text.endswith("\n"):
-            #    continue
-            #output_text = ""
 
 
 @bottle.route("/<session_id:int>/control_panel_events/<client_uuid>")
@@ -125,6 +118,8 @@ def send_control_panel_events(session_id, client_uuid):
     while True:
         data = q.get()
         yield "data: " + json.dumps({"type": "control_panel_motor", "data":data}) + "\n\n"
+        gevent.sleep(0)
+
 
 @bottle.route("/<session_id:int>/control_panel/run/<object_name>/<method_name>")
 def action_from_control_panel(session_id, object_name, method_name):
@@ -140,7 +135,6 @@ def action_from_control_panel(session_id, object_name, method_name):
 def interpreter_exec(session_id, client_uuid, action, *args):
     print 'in interpreter_exec:', action, args
     res = gevent.event.AsyncResult()
-    #res.client_uuid = client_uuid
     if isinstance(client_uuid, tuple):
         tag, uuid = client_uuid
     else:
@@ -241,7 +235,9 @@ def open_session(session_id):
 
 @bottle.route("/<session_id:int>/objects")
 def return_objects_names(session_id):
-    return interpreter_exec(session_id, None, "get_objects", None)
+    client_uuid = bottle.request.GET["client_uuid"]
+
+    return interpreter_exec(session_id, client_uuid, "get_objects", None)
 
 
 @bottle.route('/')

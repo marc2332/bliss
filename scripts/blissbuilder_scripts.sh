@@ -41,17 +41,24 @@ PreInstall() {
 
     cd /tmp
     rm -rf /tmp/bliss/
-    $GIT clone git@gitlab.esrf.fr:bliss/bliss.git
+
+    echo "unset http_proxy to allow http cloning"
+    unset http_proxy
+    $GIT clone http://gitlab.esrf.fr/bliss/bliss.git
+
+    # $GIT clone git@gitlab.esrf.fr:bliss/bliss.git
+
     cd bliss
 
     #  "a new hope" tag
     # $GIT checkout 1.5
 
-    # "Python Strikes Back" tag
+    echo "get Python Strikes Back 1.6 tag"
     $GIT checkout 1.6
 
     # will install in /users/blissadm/python/bliss_modules/bliss/
     # python setup.py install
+    echo "make install..."
     make install
 
 }

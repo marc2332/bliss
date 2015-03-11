@@ -243,7 +243,6 @@ def start(input_queue, output_queue, i):
 
     while True:
         client_uuid, action, _ = input_queue.get()
-        sys.__stdout__.write("INCOMING %s %s %r\n" % (client_uuid, action, _))
         if action == "syn":
             output_queue.put("ack")
             continue

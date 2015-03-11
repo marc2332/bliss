@@ -194,4 +194,9 @@ class _Group(object):
             self.wait_move()
 
     def wait_move(self):
-        self.__move_done.wait()
+        try:
+            self.__move_done.wait()
+        except:
+            self.stop()
+            raise
+

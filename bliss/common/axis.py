@@ -435,7 +435,11 @@ class Axis(object):
         return self.move(user_delta_pos, wait, relative=True)
 
     def wait_move(self):
-        self.__move_done.wait()
+        try:
+            self.__move_done.wait()
+        except:
+            self.stop()
+            raise
 
     def _do_stop(self):
         self.__set_position = None

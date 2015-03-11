@@ -426,7 +426,19 @@ class TestMockupController(unittest.TestCase):
         self.assertEquals(m0.set_position(), None)
         m0.move(1)
         self.assertEquals(m0.set_position(), 1)
-         
+    
+    def test_interrupted_waitmove(self):
+        m0 = bliss.get_axis("m0")
+        m0.position(0)
+        m0.move(100,wait=False)
+        waitmove = gevent.spawn(m0.wait_move)
+        time.sleep(0.01)
+        try:
+            waitmove.kill(KeyboardInterrupt)
+        except:
+            self.assertEquals(m0.state(), "READY")
+
+     
 
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(TestMockupController)

@@ -1,22 +1,4 @@
 /*
-var askForLogMessages = function() {
-    $.ajax({
-        error: function(XMLHttpRequest, textStatus, errorThrown) {},
-        url: 'log_msg_request',
-        type: 'GET',
-        success: function(msg) {
-            jQuery("#logger:first").append("<p>" + msg + "</p>");
-        },
-        complete: function() {
-            askForLogMessages();
-        },
-        data: {
-            "client_id": term.session_id
-        },
-        dataType: 'json'
-    });
-}
-
 function generateUUID() {
     var d = performance.now();
     var uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -39,7 +21,7 @@ function readCookie(name) {
 }
 */
 
-function Shell(client_uuid, cmdline_div_id, shell_output_div_id, setup_div_id) {
+function Shell(client_uuid, cmdline_div_id, shell_output_div_id, setup_div_id, log_div_id) {
     var table = $('<div style="width:100%; display:table;"></div>');
     this.hint_row = $($.parseHTML('<div style="display:table-row;"><label style="display:table-cell; width:1%;">&nbsp;</label></div>'));
     this.hint_row.appendTo(table);
@@ -76,8 +58,19 @@ function Shell(client_uuid, cmdline_div_id, shell_output_div_id, setup_div_id) {
     this.setup_div.append(new_setup_div);
     this.setup_div = new_setup_div;
     this.setup_div.append(this.setup_output_div);
+
+    this.logging_div = $("#" + log_div_id);
+    this.logging_div.addClass("code-font");
+    var clear_btn = $("<button>Clear</button>");
+    clear_btn.button().css("font-size", "0.8em");
+    clear_btn.on("click", $.proxy(function() { this.logging_div.empty(); }, this));
+    this.logging_div.append(clear_btn);
+    var new_logging_div = $("<div></div>");
+    this.logging_div.append($("<hr>"));
+    this.logging_div.append(new_logging_div);
+    this.logging_div = new_logging_div;
  
-    this.client_uuid = client_uuid; //readCookie("khoros_client_id");
+    this.client_uuid = client_uuid;
     this.executing = false;
     this.completion_mode = false;
     this.completion_selected_item_text = '';
@@ -99,10 +92,14 @@ function Shell(client_uuid, cmdline_div_id, shell_output_div_id, setup_div_id) {
         if (e.data) {
             var output = JSON.parse(e.data);
             if (output.type == 'plot') {
+                this.output_div.parent().tabs("option", "active", 1);
                 this.display_plot(output.data);
             } else if (output.type == 'setup') {
-                this.display_output(output.data, false, this.setup_output_div);
+                this.display_output(output.data, 'auto', this.setup_output_div);
+            } else if (output.type == 'log') {
+                this.display_log(output.data);
             } else {
+                this.output_div.parent().tabs("option", "active", 1);
                 this.display_output(output.data);
             }
         }
@@ -440,9 +437,9 @@ Shell.prototype = {
                     } else {
                         var that = this;
                         if (cmd=='setup') {
-                            window.setTimeout(function() {that.display_output(res.error, true, that.setup_output_div)}, 100);
+                            window.setTimeout(function() {that.display_output(res.error, 'red', that.setup_output_div)}, 100);
                         } else {
-                            window.setTimeout(function() {that.display_output(res.error, true)}, 100);
+                            window.setTimeout(function() {that.display_output(res.error, 'red')}, 100);
                         }
                     }
                 }
@@ -457,11 +454,12 @@ Shell.prototype = {
         return this.DOMnative.innerHTML;
     },
 
-    display_output: function(output, error, output_div) {
+    display_output: function(output, color, output_div) {
         if (output_div == undefined) { output_div = this.last_output_div };
+        if (color == undefined) { color = "auto"; };
 
-        if (error) {
-            var last_element = $('<pre><font color="red">' + this._html_escape(output) + '</font></pre>');
+        if (color != 'auto') {
+            var last_element = $('<pre><font color="'+color+'">' + this._html_escape(output) + '</font></pre>');
             output_div.append(last_element);
         } else {
             var output_pre = $('<pre></pre>');
@@ -517,6 +515,21 @@ Shell.prototype = {
                 "labels": [data.scan_actuators[0]].concat(data.counters)
             };
         }
+    },
+
+    display_log: function(data) {
+        this.logging_output_div = $("<div></div>");
+        this.logging_div.prepend(this.logging_output_div);
+        if (data.level == "DEBUG") {
+            color = "green";
+        } else if (data.level == "INFO") {
+            color = "blue";
+        } else if (data.level == "WARNING") {
+            color = "orange";
+        } else {
+            color = "red";
+        }
+        this.display_output(data.message, color, this.logging_output_div);
     },
 
     send_abort: function() {

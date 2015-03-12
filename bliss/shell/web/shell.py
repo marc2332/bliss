@@ -18,7 +18,6 @@ import signal
 import uuid
 from jinja2 import Template
 
-#LOG = {}
 EXECUTION_QUEUE = dict()
 OUTPUT_QUEUE = dict()
 CONTROL_PANEL_QUEUE = dict()
@@ -91,6 +90,8 @@ def send_output(session_id, client_uuid):
                 if 'scan_id' in output:
                     yield "data: " + json.dumps({"type": "plot", "data": output}) + "\n\n"
                 elif output.get('type')=='setup':
+                    yield "data: " + json.dumps(output) + "\n\n"
+                elif output.get('type')=='log':
                     yield "data: " + json.dumps(output) + "\n\n"
                 else:
                     CONTROL_PANEL_QUEUE[session_id][client_uuid].put(output)

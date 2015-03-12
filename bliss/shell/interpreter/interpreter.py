@@ -12,6 +12,7 @@ import pprint
 import signal
 import thread
 import gevent
+import logging
 from contextlib import contextmanager
 from bliss.common.event import dispatcher
 from bliss.common import data_manager
@@ -21,6 +22,17 @@ from bliss.common import measurement
 #except:
 #    beacon_static = None
 jedi.settings.case_insensitive_completion = False
+
+class LogHandler(logging.Handler):
+
+    def __init__(self, queue):
+        logging.Handler.__init__(self)
+
+        self.queue = queue
+
+    def emit(self, record):
+        self.queue.put((None, {"type":"log", "data": { "message": self.format(record), "level": record.levelname }}))
+    
 
 class Stdout:
 
@@ -241,6 +253,11 @@ def start(input_queue, output_queue, i):
                 execfile(setup_file_path, i.locals)
     i.locals["resetup"] = resetup
 
+    root_logger = logging.getLogger()
+    custom_log_handler = LogHandler(output_queue) 
+    custom_log_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+    root_logger.addHandler(custom_log_handler)
+ 
     while True:
         client_uuid, action, _ = input_queue.get()
         if action == "syn":

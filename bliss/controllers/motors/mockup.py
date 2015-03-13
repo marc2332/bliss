@@ -216,8 +216,11 @@ class Mockup(Controller):
             self._axis_moves[axis]["end_t"] = 0
 
     def home_search(self, axis):
+        self._axis_moves[axis]["start_pos"] = self._axis_moves[axis]["end_pos"]
         self._axis_moves[axis]["end_pos"] = 0
+        self._axis_moves[axis]["delta"] = 0
         self._axis_moves[axis]["end_t"] = 0
+        self._axis_moves[axis]["t0"] = time.time()
         self._axis_moves[axis]["home_search_start_time"] = time.time()
 
 #    def home_set_hardware_position(self, axis, home_pos):
@@ -230,9 +233,12 @@ class Mockup(Controller):
             return AxisState("MOVING")
 
     def limit_search(self, axis, limit):
+        self._axis_moves[axis]["start_pos"] = self._axis_moves[axis]["end_pos"]
         self._axis_moves[axis]["end_pos"] = 1E6 if limit > 0 else -1E6
+        self._axis_moves[axis]["delta"] = self._axis_moves[axis]["end_pos"] #this is just for direction sign
         self._axis_moves[axis]["end_pos"] *= axis.steps_per_unit
         self._axis_moves[axis]["end_t"] = time.time() + 2
+        self._axis_moves[axis]["t0"] = time.time()
 
     def get_info(self, axis):
         return "turlututu chapo pointu : %s (host=%s)" % (axis.name, self.host)

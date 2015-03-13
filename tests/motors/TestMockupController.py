@@ -230,6 +230,26 @@ class TestMockupController(unittest.TestCase):
         self.assertEqual(robz.state(), "READY")
         self.assertNotEqual(robz.position(), 180)
 
+    def test_home_stop(self):
+        robz = bliss.get_axis('robz')
+        self.assertEqual(robz.state(), "READY")
+        robz.home(wait=False)
+        gevent.sleep(0.1)
+        self.assertEqual(robz.state(), 'MOVING')
+        robz.stop()
+        robz.wait_move() 
+        self.assertEqual(robz.state(), "READY")
+
+    def test_limit_search_stop(self):
+        robz = bliss.get_axis('robz')
+        self.assertEqual(robz.state(), "READY")
+        robz.hw_limit(1, wait=False)
+        gevent.sleep(0.1)
+        self.assertEqual(robz.state(), 'MOVING')
+        robz.stop()
+        robz.wait_move()
+        self.assertEqual(robz.state(), "READY")
+
     def test_backlash(self):
         roby = bliss.get_axis("roby")
         self.assertEqual(roby.state(), "READY")

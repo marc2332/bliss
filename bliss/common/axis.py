@@ -474,9 +474,9 @@ class Axis(object):
 
         self._set_moving_state()
 
-        home_task = self._do_home(wait=False)
-        home_task._being_waited = wait
-        home_task.link(self._set_move_done)
+        self.__move_task = self._do_home(wait=False)
+        self.__move_task._being_waited = wait
+        self.__move_task.link(self._set_move_done)
         if _set_pos:
             # it is not possible to change position
             # while axis has a moving state,
@@ -485,16 +485,15 @@ class Axis(object):
             def set_pos(g, home_pos=home_pos):
                 self.dial(home_pos)
                 self.position(home_pos)
-            home_task.link(set_pos)
+            self.__move_task.link(set_pos)
+        gevent.sleep(0)
 
         if wait:
-            home_task.get()
-        else:
-            return home_task
+            self.wait_move()
 
     @task
     def _do_home(self):
-        with error_cleanup(self.stop):
+        with error_cleanup(self._do_stop):
             self.__controller.home_search(self)
             while True:
                 state = self.__controller.home_state(self)
@@ -519,23 +518,22 @@ class Axis(object):
 
         self._set_moving_state()
 
-        lim_search_task = self._do_limit_search(limit, wait=False)
-        lim_search_task._being_waited = wait
-        lim_search_task.link(self._set_move_done)
+        self.__move_task = self._do_limit_search(limit, wait=False)
+        self.__move_task._being_waited = wait
+        self.__move_task.link(self._set_move_done)
         if _set_pos:
             def set_pos(g, lim_pos=lim_pos):
                 self.dial(lim_pos)
                 self.position(lim_pos)
-            lim_search_task.link(set_pos)
+            self.__move_task.link(set_pos)
+        gevent.sleep(0)
 
         if wait:
-            lim_search_task.get()
-        else:
-            return lim_search_task
+            self.wait_move()
 
     @task
     def _do_limit_search(self, limit):
-        with error_cleanup(self.stop):
+        with error_cleanup(self._do_stop):
             self.__controller.limit_search(self, limit)
             while True:
                 state = self.__controller.state(self)

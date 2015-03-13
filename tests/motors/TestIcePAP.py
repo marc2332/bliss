@@ -53,10 +53,6 @@ config_xml = """
             <velocity       value="2500"/>
         </axis>
     </controller>
-    <group name="eh1">
-        <axis name="mymot"/>
-        <axis name="mymot2"/>
-    </group>
 </config>
 """
 
@@ -233,11 +229,19 @@ class TestIcePAPController(unittest.TestCase):
                 gevent.sleep(0.1)
 
     def test_group_creation(self):
-        mygrp = bliss.get_group("eh1")
+        # group creation
+        mymot = bliss.get_axis("mymot")
+        mymot2= bliss.get_axis("mymot2")
+        mygrp = bliss.Group(mymot, mymot2)
+
         self.assertTrue(mygrp)
 
     def test_group_get_position(self):
-        mygrp = bliss.get_group("eh1")
+        # group creation
+        mymot = bliss.get_axis("mymot")
+        mymot2= bliss.get_axis("mymot2")
+        mygrp = bliss.Group(mymot, mymot2)
+
         #mymot.controller.log_level(3)
         pos_list = mygrp.position()
         #mymot.controller.log_level(3)
@@ -245,20 +249,32 @@ class TestIcePAPController(unittest.TestCase):
             self.assertEqual(axis.position(), pos_list[axis])
 
     def test_group_move(self):
-        mygrp = bliss.get_group("eh1")
+        # group creation
         mymot = bliss.get_axis("mymot")
+        mymot2= bliss.get_axis("mymot2")
+        mygrp = bliss.Group(mymot, mymot2)
+
         pos_list = mygrp.position()
         pos_list[mymot] += 0.1
-        mygrp.move(pos_list) # waits for the end of motions
+
+        # waits for the end of motions
+        mygrp.move(pos_list) 
         self.assertEqual(mygrp.state(), "READY")
 
     def test_group_stop(self):
-        mygrp = bliss.get_group("eh1")
+        # group creation
         mymot = bliss.get_axis("mymot")
+        mymot2= bliss.get_axis("mymot2")
+        mygrp = bliss.Group(mymot, mymot2)
+
         pos_list = mygrp.position()
         pos_list[mymot] -= 0.1
+
+        # non blocking call
         mygrp.move(pos_list, wait=False) 
-        mygrp.stop() # waits for the end of motions
+
+        # waits for the end of motions
+        mygrp.stop() 
         self.assertEqual(mygrp.state(), "READY")
 
 

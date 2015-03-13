@@ -248,8 +248,6 @@ class TestMockupController(unittest.TestCase):
         self.assertEqual(robz.state(), 'MOVING')
         robz.stop()
         robz.wait_move()
-        gevent.sleep(0.1)
-        print str(robz.state())
         self.assertEqual(robz.state(), "READY")
 
     def test_backlash(self):

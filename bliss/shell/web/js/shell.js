@@ -43,6 +43,8 @@ function Shell(client_uuid, cmdline_div_id, shell_output_div_id, setup_div_id, l
     $('#' + cmdline_div_id).append(table);
 
     this.output_div = $("#" + shell_output_div_id);
+    this.output_div.css("overflow", "auto");
+    this.output_div.css("height", "100%");
     this.output_div.addClass("code-font");
     this.last_output_div = $("<div></div>");
     this.output_div.prepend(this.last_output_div);
@@ -56,6 +58,8 @@ function Shell(client_uuid, cmdline_div_id, shell_output_div_id, setup_div_id, l
     this.setup_div.append(resetup_btn);
     var new_setup_div = $("<div></div>");
     this.setup_div.append(new_setup_div);
+    this.setup_div.css("overflow", "auto");
+    this.setup_div.css("height", "100%");
     this.setup_div = new_setup_div;
     this.setup_div.append(this.setup_output_div);
 
@@ -69,6 +73,8 @@ function Shell(client_uuid, cmdline_div_id, shell_output_div_id, setup_div_id, l
     this.logging_div.append($("<hr>"));
     this.logging_div.append(new_logging_div);
     this.logging_div = new_logging_div;
+    this.logging_div.css("overflow", "auto");
+    this.logging_div.css("height", "100%");
  
     this.client_uuid = client_uuid;
     this.executing = false;
@@ -104,14 +110,6 @@ function Shell(client_uuid, cmdline_div_id, shell_output_div_id, setup_div_id, l
             }
         }
     }, this);
-
-    /*
-       this is just for escaping text into valid HTML
-       (see _html_escape function)
-    */
-    this.DOMtext = document.createTextNode("text");
-    this.DOMnative = document.createElement("span");
-    this.DOMnative.appendChild(this.DOMtext);
 
     /* 
        jquery override 'this', that's just crazy!
@@ -342,7 +340,13 @@ Shell.prototype = {
         }
         this.last_output_div = $("<div></div>");
         this.output_div.prepend(this.last_output_div);
-        this.last_output_div.append($("<pre>&gt;&nbsp;<i>" + this._html_escape(code) + "</i></pre>"));
+        var pre = $("<pre></pre>");
+        pre.html("&gt;&nbsp;");
+        var i = $("<i></i>");
+        i.text(code);
+        pre.append(i);
+        this.last_output_div.append(pre);
+        //this.last_output_div.append($("<pre>&gt;&nbsp;<i>" + this._html_escape(code) + "</i></pre>"));
         this.last_output_div.addClass("output-executing");
         this.output_div.scrollTop(0);
 
@@ -449,24 +453,16 @@ Shell.prototype = {
         });
     },
 
-    _html_escape: function(text) {
-        this.DOMtext.nodeValue = text;
-        return this.DOMnative.innerHTML;
-    },
-
     display_output: function(output, color, output_div) {
         if (output_div == undefined) { output_div = this.last_output_div };
         if (color == undefined) { color = "auto"; };
 
-        if (color != 'auto') {
-            var last_element = $('<pre><font color="'+color+'">' + this._html_escape(output) + '</font></pre>');
-            output_div.append(last_element);
-        } else {
-            var output_pre = $('<pre></pre>');
-            output_pre.text(output);
-            output_pre.css({ display: "inline" });
-            output_div.append(output_pre);
-        }
+        var pre = $("<pre></pre>");
+        pre.css("margin", "0px");
+        if (color != "auto") { pre.css("color", color); }
+        pre.css("display", "inline");
+        pre.text(output);
+        output_div.append(pre);
         output_div.parent().scrollTop(0);
         //this.scrollToBottom(this.output_div);
     },

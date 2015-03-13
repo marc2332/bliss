@@ -44,8 +44,10 @@
             var client_uuid = {{ client_uuid }};
             $(document).ready(function() {
                 layout = $('body').layout({ applyDefaultStyles: true, north__size: "15%" });
-                $('#main').layout({ applyDefaultStyles: true, east__size: "33%" });
+                $('#main').layout({ applyDefaultStyles: false, east__size: "33%" });
                 $("#tabs").tabs({active: 1});
+                $("#tabs").css("overflow", "hidden");
+                $("#tabs").css("height", "100%");
                 var shell = new Shell(client_uuid, "shell_cmdline", "shell_output", "tab_setup", "tab_log_messages");
                 var control_panel = new ControlPanel(shell.session_id, client_uuid, "right_panel");
                 var synoptic = new Synoptic(control_panel, "synoptic_container");

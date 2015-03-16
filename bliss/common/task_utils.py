@@ -20,12 +20,10 @@ class cleanup:
                 try:
                     cleanup_func(**self.keys)
                 except:
-                    sys.excepthook(exc_type, value, traceback)
+                    sys.excepthook(*sys.exc_info())
                     continue
-            # the previous try..except is resetting exception,
-            # so re-raise it from here
-            if exc_type is not None:
-                raise exc_type, value, traceback
+        if exc_type is not None:
+            raise exc_type, value, traceback
 
 
 class error_cleanup:

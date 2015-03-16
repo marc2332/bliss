@@ -3,6 +3,8 @@ import sys
 import os
 from bliss.common import event
 from bliss.common.axis import Axis, AxisRef
+from bliss.common.encoder import Encoder
+
 try:
     from bliss.config.static import get_config as beacon_get_config
 except ImportError:
@@ -20,9 +22,11 @@ CONTROLLER_MODULES_PATH = [
             "..",
             "..","controllers","motors"))]
 AXIS_MODULES_PATH = []
+ENCODER_MODULES_PATH = []
 
 CONTROLLERS = {}
 CONTROLLER_BY_AXIS = {}
+CONTROLLER_BY_ENCODER = {}
 LOADED_FILES = set()
 
 def set_backend(backend):
@@ -99,22 +103,29 @@ def get_axis_class(axis_class_name, axis_modules_path=AXIS_MODULES_PATH):
     Raises:
         RuntimeError
     """
-    axis_module = _get_module(axis_class_name, axis_modules_path)
+    return _get_class(axis_class_name, axis_modules_path)
+
+def get_encoder_class(encoder_class_name, encoder_modules_path=ENCODER_MODULES_PATH):
+    return _get_class(encoder_class_name, encoder_modules_path)
+
+def _get_class(class_name, modules_path):
+    module = _get_module(class_name, modules_path)
 
     try:
-        axis_class = getattr(axis_module, axis_class_name)
+        klass = getattr(module, class_name)
     except:
         raise RuntimeError(
             "could not find class '%s` in module '%s`" %
-            (axis_class_name, axis_module))
+            (class_name, module))
     else:
-        return axis_class
+        return klass
 
 
 def add_controller(
         controller_name,
         controller_config,
         controller_axes,
+        controller_encoders,
         controller_class):
     """Instanciate a controller object from configuration, and store it in the global CONTROLLERS dictionary
 
@@ -125,6 +136,8 @@ def add_controller(
             Dictionary containing the configuration of the controller
         controller_axes (list):
             A list of tuples (axis_name, axis_class_name, axis_config) for each axis in controller
+        controller_encoders (list):
+            A list of tuples (encoder_name, encoder_class_name, encoder_config) for each encoder in controller
         controller_class (class object):
             Controller class
 
@@ -145,13 +158,26 @@ def add_controller(
             axes.append((axis_name, axis_class, axis_config))
         else:
             # existing axis
-            # the next test is to check if the class is a CalcController without importing the module...
-            if any(['CalcController' in base_class_name for base_class_name in map(str, controller_class.__bases__)]):
-                axes.append((axis_name, AxisRef, axis_config))
-            else:
-                raise RuntimeError("Duplicated axis in config: %r" % axis_name)
+            # TODO: check for duplicated axis
+            axes.append((axis_name, AxisRef, axis_config))
 
-    controller = controller_class(controller_name, controller_config, axes)
+    encoders = list()
+    for encoder_name, encoder_class_name, encoder_config in controller_encoders:
+        if not CONTROLLER_BY_ENCODER.get(encoder_name):
+            # new encoder
+            CONTROLLER_BY_ENCODER[encoder_name] = controller_name
+
+            if encoder_class_name is None:
+                encoder_class = Encoder
+            else:
+                encoder_class = get_encoder_class(encoder_class_name)
+
+            encoders.append((encoder_name, encoder_class, encoder_config))
+        else:
+            # existing axis
+            raise RuntimeError("Duplicated encoder '%s`" % encoder_name)
+
+    controller = controller_class(controller_name, controller_config, axes, encoders)
     CONTROLLERS[controller_name] = {"object": controller,
                                     "initialized": False}
 
@@ -215,6 +241,41 @@ def axis_names_list():
     return CONTROLLER_BY_AXIS.keys()
 
 
+def get_encoder(encoder_name):
+    if BACKEND == 'beacon':
+        global BEACON_CONFIG
+        if BEACON_CONFIG is None:
+            BEACON_CONFIG = beacon_get_config()
+        o = BEACON_CONFIG.get(encoder_name)
+        if not isinstance(o, Encoder):
+            raise AttributeError("'%s` is not an encoder" % encoder_name)
+        return o
+
+    try:
+        controller_name = CONTROLLER_BY_ENCODER[encoder_name]
+    except KeyError:
+        raise RuntimeError("no encoder '%s` in config" % encoder_name)
+    else:
+        try:
+            controller = CONTROLLERS[controller_name]
+        except KeyError:
+            raise RuntimeError("no controller can be found for encoder '%s`" % encoder_name)
+
+    try:
+        controller_instance = controller["object"]
+    except KeyError:
+        raise RuntimeError("could not get controller instance for encoder '%s`" % encoder_name)
+
+    if not controller["initialized"]:
+        controller_instance._update_refs()
+        controller_instance.initialize()
+        controller["initialized"] = True
+
+    encoder = controller_instance.get_encoder(encoder_name)
+    
+    return encoder
+   
+
 def clear_cfg():
     """Clear configuration
 
@@ -227,12 +288,14 @@ def clear_cfg():
     else:
         global CONTROLLERS
         global CONTROLLER_BY_AXIS
+        global CONTROLLER_BY_ENCODER
         global LOADED_FILES
 
         for controller_name, controller in CONTROLLERS.iteritems():
              controller["object"].finalize()
         CONTROLLERS = {}
         CONTROLLER_BY_AXIS = {}
+        CONTROLLER_BY_ENCODER = {}
         LOADED_FILES = set()
 
 

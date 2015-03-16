@@ -23,12 +23,14 @@ def add_axis_method(axis_object, method, name=None, args=[], types_info=(None, N
 
 class Controller(object):
 
-    def __init__(self, name, config, axes):
+    def __init__(self, name, config, axes, encoders):
         self.__name = name
         from bliss.config.motors import StaticConfig
         self.__config = StaticConfig(config)
         self.__initialized_axis = dict()
         self._axes = dict()
+        self._encoders = dict()
+        self.__initialized_encoder = dict()
         self._tagged = dict()
 
         self.axis_settings = ControllerAxisSettings()
@@ -41,6 +43,11 @@ class Controller(object):
                 for tag in axis_tags.split():
                     self._tagged.setdefault(tag, []).append(axis)  # _name)
             self.__initialized_axis[axis] = False
+        for encoder_name, encoder_class, encoder_config in encoders:
+            encoder = encoder_class(encoder_name, self, encoder_config)
+            self._encoders[encoder_name] = encoder
+            self.__initialized_encoder[encoder] = False
+
 
     @property
     def axes(self):
@@ -124,6 +131,18 @@ class Controller(object):
     def initialize_axis(self, axis):
         raise NotImplementedError
 
+    def get_encoder(self, encoder_name):
+        encoder = self._encoders[encoder_name]
+
+        if not self.__initialized_encoder[encoder]:
+            self.initialize_encoder(encoder)
+            self.__initialized_encoder[encoder] = True
+
+        return encoder
+
+    def initialize_encoder(self, encoder):
+        raise NotImplementedError
+
     def is_busy(self):
         return False
 
@@ -172,6 +191,12 @@ class Controller(object):
     def set_position(self, axis, new_position):
         raise NotImplementedError
 
+    def read_encoder(self, encoder):
+        raise NotImplementedError
+
+    def set_encoder(self, encoder, new_value):
+        raise NotImplementedError
+  
     def read_velocity(self, axis):
         raise NotImplementedError
 

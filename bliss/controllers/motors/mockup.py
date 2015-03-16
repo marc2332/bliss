@@ -34,10 +34,12 @@ config_xml = """
 
 
 class Mockup(Controller):
-    def __init__(self, name, config, axes):
-        Controller.__init__(self, name, config, axes)
+    def __init__(self, name, config, axes, encoders):
+        Controller.__init__(self, name, config, axes, encoders)
 
         self._axis_moves = {}
+        self.__encoders = {}
+
         self._hw_status = AxisState("READY")
 
         self._hw_status.create_state("PARKED", "mot au parking")
@@ -87,6 +89,9 @@ class Mockup(Controller):
         add_axis_method(axis, self.custom_command_no_types)
         add_axis_method(axis, self.custom_simulate_measured, types_info=(bool, None))
         add_axis_method(axis, self.custom_set_measured_noise, types_info=(float, None))
+
+    def initialize_encoder(self, encoder):
+        self.__encoders.setdefault(encoder, {})["steps"]=12345
 
     """
     Actions to perform at controller closing.
@@ -145,6 +150,13 @@ class Mockup(Controller):
 
         # always return position
         return int(round(pos))
+
+    def read_encoder(self, encoder):
+        return self.__encoders[encoder]["steps"]
+
+    def set_encoder(self, encoder, encoder_steps):
+        self.__encoders[encoder]["steps"]=encoder_steps
+
 
     """
     VELOCITY

@@ -96,6 +96,7 @@ def _load_config(config_tree, config_file=None):
             controller_name,
             config,
             load_axes(controller_config, config_tree, config_file),
+            load_encoders(controller_config, config_tree, config_file),
             controller_class)
 
     """
@@ -109,21 +110,30 @@ def _load_config(config_tree, config_file=None):
         add_group(group_name, config, load_axes(group_node))
     """
 
-def load_axes(config_node, config_tree=None, config_file=None):
-    """Return list of (axis name, axis_class_name, axis_config_node)"""
-    axes = []
-    for axis_config in config_node.findall('axis'):
-        axis_name = axis_config.get("name")
-        if axis_name is None:
+def _load_objects(object_tag, config_node, config_tree, config_file):
+    objects = []
+    for object_config in config_node.findall(object_tag):
+        object_name = object_config.get("name")
+        if object_name is None:
             raise RuntimeError(
-                "%s: configuration for axis does not have a name" %
-                config_node)
-        axis_class_name = axis_config.get("class")
-        config = XmlDictConfig(axis_config)
+                "%s: configuration for %s does not have a name" %
+                config_node, object_tag)
+        object_class_name = object_config.get("class")
+        config = XmlDictConfig(object_config)
         config.config_file = config_file
         config.root = config_tree
-        axes.append((axis_name, axis_class_name, config))
-    return axes
+        objects.append((object_name, object_class_name, config))
+    return objects
+
+
+def load_axes(config_node, config_tree=None, config_file=None):
+    """Return list of (axis name, axis_class_name, axis_config_node)"""
+    return _load_objects("axis", config_node, config_tree, config_file)
+
+
+def load_encoders(config_node, config_tree=None, config_file=None):
+    """Return list of (encoder name, encoder_class_name, encoder_config_node)"""
+    return _load_objects("encoder", config_node, config_tree, config_file)
 
 
 def write_setting(config_dict, setting_name, setting_value):
@@ -168,7 +178,10 @@ class StaticConfig(object):
         """
         property_attrs = self.config_dict.get(property_name)
         if property_attrs is not None:
-            return converter(property_attrs.get("value"))
+            try:
+                return converter(property_attrs.get("value"))
+            except AttributeError:
+                return converter(property_attrs)
         else:
             if default is not None:
                 return default

@@ -69,9 +69,23 @@ class Axis(object):
     def steps_per_unit(self):
         return self.config.get("steps_per_unit", float, 1)
 
+    """
+    TODO ?
     @property
     def encoder_steps_per_unit(self):
         return self.config.get("encoder_steps_per_unit", float, self.steps_per_unit)
+    """
+
+    @property
+    def encoder(self):
+        try:
+             encoder_name = self.config.get("encoder")
+        except KeyError:
+             return None
+        else:
+            from bliss.config.motors import get_encoder 
+            return get_encoder(encoder_name)
+ 
 
     @property
     def custom_methods_list(self):
@@ -421,6 +435,12 @@ class Axis(object):
         if wait:
             self.wait_move()
 
+    def _do_encoder_reading(self):
+        enc_dial = self.encoder.read()
+        curr_pos = self.user2dial(self._position())
+        if abs(curr_pos - enc_dial) > self.encoder.tolerance:
+            raise RuntimeError("'%s` didn't reach final position." % self.name)
+
     @task
     def _do_move(self, motion, wait=True):
         if motion is None:
@@ -431,15 +451,23 @@ class Axis(object):
 
             self._handle_move(motion)
 
+        if self.encoder is not None:
+            self._do_encoder_reading()
+
     def rmove(self, user_delta_pos, wait=True):
         return self.move(user_delta_pos, wait, relative=True)
 
     def wait_move(self):
         try:
             self.__move_done.wait()
-        except:
+        except KeyboardInterrupt:
             self.stop()
             raise
+        else:
+            try:
+                return self.__move_task.get()
+            except (KeyboardInterrupt, gevent.GreenletExit):
+                pass
 
     def _do_stop(self):
         self.__set_position = None
@@ -452,6 +480,8 @@ class Axis(object):
                  break
              self._update_settings(state)
              time.sleep(0.02)       
+        if self.encoder is not None:
+            self._do_encoder_reading()
 
     def stop(self, exception=gevent.GreenletExit, wait=True):
         if self.is_moving:

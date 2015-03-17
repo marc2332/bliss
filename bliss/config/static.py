@@ -270,6 +270,8 @@ class Config(object):
     ##@brief return the config node with it's name
     #
     def get_config(self, name):
+        # '$' means the item is a reference
+        name = name.lstrip('$')
         return self._name2node.get(name)
 
     ##@brief return an instance with it's name

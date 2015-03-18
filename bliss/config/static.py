@@ -1,6 +1,9 @@
 import os
 import yaml
 import weakref
+if not hasattr(weakref, "WeakSet"):
+    import weakrefset
+    weakref.WeakSet = weakrefset.WeakSet
 from .conductor import client
 
 CONFIG = None

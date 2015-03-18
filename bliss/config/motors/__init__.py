@@ -5,9 +5,9 @@ from bliss.common import event
 from bliss.common.axis import Axis, AxisRef
 try:
     from bliss.config.static import get_config as beacon_get_config
-except ImportError:
+except ImportError, why:
     def beacon_get_config(*args):
-        raise RuntimeError("Beacon is not imported")
+        raise RuntimeError("Beacon is not imported: %r" % why)
 
 BEACON_CONFIG = None
 

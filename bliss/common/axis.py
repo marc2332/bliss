@@ -306,10 +306,13 @@ class Axis(object):
         while True:
             state = self.__controller.state(self)
             if state != "MOVING":
+                if state == 'LIMPOS' or state == 'LIMNEG':
+                  self._update_settings(state)
+                  raise RuntimeError(str(state))
                 break
             self._update_settings(state)
             time.sleep(0.02)
-
+        
         if motion.backlash:
             # axis has moved to target pos - backlash;
             # now do the final motion (backlash) to reach original target.
@@ -474,12 +477,17 @@ class Axis(object):
 
         self.__controller.stop(self)
 
+        # for some reason, _handle_move cannot be called !
+        # Python bug? Weird...       
         while True:
-             state = self.__controller.state(self)
-             if state != "MOVING":
-                 break
-             self._update_settings(state)
-             time.sleep(0.02)       
+            state = self.__controller.state(self)
+            if state != "MOVING":
+                if state == 'LIMPOS' or state == 'LIMNEG':
+                  self._update_settings(state)
+                  raise RuntimeError(str(state))
+                break
+            self._update_settings(state)
+            time.sleep(0.02)
         if self.encoder is not None:
             self._do_encoder_reading()
 

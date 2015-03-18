@@ -145,11 +145,7 @@ def add_controller(
             axes.append((axis_name, axis_class, axis_config))
         else:
             # existing axis
-            # the next test is to check if the class is a CalcController without importing the module...
-            if any(['CalcController' in base_class_name for base_class_name in map(str, controller_class.__bases__)]):
-                axes.append((axis_name, AxisRef, axis_config))
-            else:
-                raise RuntimeError("Duplicated axis in config: %r" % axis_name)
+            axes.append((axis_name, AxisRef, axis_config))
 
     controller = controller_class(controller_name, controller_config, axes)
     CONTROLLERS[controller_name] = {"object": controller,

@@ -292,10 +292,13 @@ class Axis(object):
         while True:
             state = self.__controller.state(self)
             if state != "MOVING":
+                if state == 'LIMPOS' or state == 'LIMNEG':
+                  self._update_settings(state)
+                  raise RuntimeError(str(state))
                 break
             self._update_settings(state)
             time.sleep(0.02)
-
+        
         if motion.backlash:
             # axis has moved to target pos - backlash;
             # now do the final motion (backlash) to reach original target.
@@ -440,6 +443,10 @@ class Axis(object):
         except:
             self.stop()
             raise
+        try:
+            return self.__move_task.get()
+        except (KeyboardInterrupt, gevent.GreenletExit):
+            pass
 
     def _do_stop(self):
         self.__set_position = None

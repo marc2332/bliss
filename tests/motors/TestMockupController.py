@@ -458,7 +458,18 @@ class TestMockupController(unittest.TestCase):
         except:
             self.assertEquals(m0.state(), "READY")
 
-     
+    def test_hardware_limits(self):
+        m = bliss.get_axis("roby")
+        m.dial(0);m.position(0)
+        m.controller.set_hw_limit(m, -2,2)
+        self.assertRaises(RuntimeError, m.move, 3)
+        self.assertEquals(m.position(), 2)
+        # move hit limit because of backlash
+        self.assertRaises(RuntimeError, m.move, 0)
+        m.move(1)
+        self.assertEquals(m.position(), 1)
+        self.assertRaises(RuntimeError, m.move, -3)
+        self.assertEquals(m.position(), -2)
 
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(TestMockupController)

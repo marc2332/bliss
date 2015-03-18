@@ -39,6 +39,7 @@ class Mockup(Controller):
 
         self._axis_moves = {}
         self._hw_status = AxisState("READY")
+        self.__hw_limit = (None, None)
 
         self._hw_status.create_state("PARKED", "mot au parking")
 
@@ -94,6 +95,20 @@ class Mockup(Controller):
     def finalize(self):
         pass
 
+    def set_hw_limit(self, axis, low_limit, high_limit):
+        if low_limit is not None:
+            ll= axis.user2dial(low_limit)*axis.steps_per_unit
+        else:
+            ll = None
+        if high_limit is not None:
+            hl = axis.user2dial(high_limit)*axis.steps_per_unit
+        else:
+            hl = None
+        if hl is not None and hl < ll:
+          self.__hw_limit = (hl, ll)
+        else:
+          self.__hw_limit = (ll, hl)
+
     def start_all(self, *motion_list):
         t0 = time.time()
         for motion in motion_list:
@@ -104,6 +119,15 @@ class Mockup(Controller):
         t0 = t0 or time.time()
         pos = self.read_position(axis)
         v = self.read_velocity(axis)
+        ll, hl = self.__hw_limit
+        if hl is not None and motion.target_pos > hl:
+            d=hl-motion.target_pos
+            motion.delta -= d
+            motion.target_pos = hl
+        if ll is not None and motion.target_pos < ll:
+            d=ll-motion.target_pos
+            motion.delta -= d
+            motion.target_pos = ll
         self._axis_moves[axis].update({
             "start_pos": pos,
             "delta": motion.delta,
@@ -186,6 +210,16 @@ class Mockup(Controller):
     def set_off(self, axis):
         self._hw_status = "OFF"
 
+    
+    def _check_hw_limits(self, axis):
+        ll, hl = self.__hw_limit
+        pos = self.read_position(axis)
+        if ll is not None and pos <= ll:
+            return AxisState("READY", "LIMNEG")
+        elif hl is not None and pos >= hl:
+            return AxisState("READY", "LIMPOS")
+        return AxisState("READY")
+
     """
     STATE
     """
@@ -197,11 +231,11 @@ class Mockup(Controller):
             return AxisState("OFF")
 
         if self._axis_moves[axis]["end_t"] > time.time():
-            return AxisState("MOVING")
+           return AxisState("MOVING")
         else:
-            self._axis_moves[axis]["end_t"] = 0
-            return AxisState("READY")
-
+           self._axis_moves[axis]["end_t"]=0
+           return self._check_hw_limits(axis)
+ 
     """
     Must send a command to the controller to abort the motion of given axis.
     """

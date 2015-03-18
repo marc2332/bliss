@@ -453,12 +453,18 @@ class Axis(object):
 
         self.__controller.stop(self)
 
+        # for some reason, _handle_move cannot be called !
+        # Python bug? Weird...       
         while True:
-             state = self.__controller.state(self)
-             if state != "MOVING":
-                 break
-             self._update_settings(state)
-             time.sleep(0.02)       
+            state = self.__controller.state(self)
+            if state != "MOVING":
+                if state == 'LIMPOS' or state == 'LIMNEG':
+                  self._update_settings(state)
+                  raise RuntimeError(str(state))
+                break
+            self._update_settings(state)
+            time.sleep(0.02)
+        
 
     def stop(self, exception=gevent.GreenletExit, wait=True):
         if self.is_moving:

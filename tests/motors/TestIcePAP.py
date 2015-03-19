@@ -43,14 +43,14 @@ config_xml = """
             <address        value="%s"/>
             <steps_per_unit value="2000"/>
             <backlash       value="0.01"/>
-            <velocity       value="2500"/>
+            <velocity       value="2500"/>   // unit is mm/sec
             <encoder_steps_per_unit value="1000"/>
         </axis>
         <axis name="mymot2">
             <address        value="%s"/>
             <steps_per_unit value="2000"/>
             <backlash       value="0.01"/>
-            <velocity       value="2500"/>
+            <velocity       value="2500"/>   // unit is mm/sec
         </axis>
     </controller>
 </config>

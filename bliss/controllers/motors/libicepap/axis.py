@@ -109,10 +109,21 @@ def status_ismoving(stat):
     # Any motion in progress
     return False
 
+def status_set_ismoving(stat, val=True):
+    return status_set_bit(stat, 10, val)
+
+def status_set_isready(stat, val=True):
+    return status_set_bit(stat,  9, val)
+
+def status_set_bit(stat, bit, val):
+    if val:
+        return (stat |  (1<<bit)) & ((1<<32)-1)
+    else:
+        return (stat & ~(1<<bit)) & ((1<<32)-1)
 
 def status_isready(stat):
     """
-    Returns True if the axis status given indicates
+    Returns True if the axis status given indicates 
     that the axis is ready to move
     """
 
@@ -121,7 +132,7 @@ def status_isready(stat):
 
 def status_lowlim(stat):
     """
-    Returns True if the axis status given indicates
+    Returns True if the axis status given indicates 
     a low limitswitch active
     """
 
@@ -144,6 +155,8 @@ def status_home(stat):
     """
 
     return ((stat & (1<<20)) != 0)
+
+
 
 #-------------------------------------------------------------------------
 # Inteface function
@@ -212,8 +225,8 @@ class Axis(object):
         self._used_in_groups     = []
 
         #
-        self._commands = globals._known_commandlist[hostname]
-
+        self._commands = globals._known_commandlist[hostname] 
+          
         # Update the library global resource
         globals._known_axis[self._name] = self
 
@@ -284,7 +297,7 @@ class Axis(object):
         # Minimum check on command syntax
         str_cmd = string.strip(str_cmd)
         if str_cmd[0] == "#":
-            str_cmd = str_cmd[1:]
+            str_cmd = str_cmd[1:] 
         return self._system.ackcommand(self._addrprefix + str_cmd, in_data)
 
     def status(self):
@@ -303,7 +316,7 @@ class Axis(object):
 #
 def _parse_flags(flags):
     """
-    Parse the string with syntax "param=value..." and
+    Parse the string with syntax "param=value..." and 
     returns a dictionary
     """
 

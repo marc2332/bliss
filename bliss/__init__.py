@@ -1,3 +1,6 @@
+import os
+import sys
+
 SETUP_FILE = None
 SYNOPTIC_FILE = None
 

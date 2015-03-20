@@ -17,6 +17,7 @@ import json
 import signal
 import uuid
 from jinja2 import Template
+import bliss
 
 EXECUTION_QUEUE = dict()
 OUTPUT_QUEUE = dict()
@@ -200,7 +201,7 @@ def setup(session_id):
 
     if force or SESSION_INIT.get(session_id) is None:
         SESSION_INIT[session_id] = True
-        return _execute_command(session_id, ("setup", client_uuid), "resetup(%r)\n" % SETUP_FILE)
+        return _execute_command(session_id, ("setup", client_uuid), "resetup()\n")
     else:
         return {"error":""}
 	
@@ -241,7 +242,7 @@ def return_objects_names(session_id):
 
 @bottle.route("/<session_id:int>/synoptic")
 def return_synoptic_svg(session_id):
-    return bottle.static_file("id30b_layout.svg", os.environ["HOME"])
+    return bottle.static_file(khoros.SYNOPTIC_FILE, os.environ["HOME"])
 
 @bottle.route('/')
 def main():

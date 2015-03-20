@@ -2,7 +2,6 @@
 import os
 import optparse
 import logging
-import inspect
 import bliss
 from bliss.shell.web import shell
 
@@ -13,7 +12,7 @@ parser.add_option(
      help='Port to listen on (default 8099)', default=8099, action='store')
 parser.add_option('-s', '--setup-file', dest='setup_file', type='string',
                   help='Setup file', default=None, action='store')
-parser.add_option('-p', '--synoptic-panel', dest='syn_panel', type='string',
+parser.add_option('-y', '--synoptic-panel', dest='syn_panel', type='string',
                   help='Synoptic panel HTML file', default=None, action='store')
 options, args = parser.parse_args()
 

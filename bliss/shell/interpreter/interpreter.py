@@ -13,6 +13,7 @@ import signal
 import thread
 import gevent
 import logging
+import functools
 from contextlib import contextmanager
 from bliss import SETUP_FILE, setup
 from bliss.common.event import dispatcher

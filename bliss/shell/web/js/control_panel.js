@@ -1,9 +1,54 @@
 function Synoptic(control_panel, div_id) {
     this.control_panel = control_panel;
 
-    var svg = $("<svg></svg>");
-    $("#"+div_id).append(svg);
-    svg.load(this.control_panel.session_id+"/synoptic");
+    this.top_div = $("<table style='background: #ffff00; width:100%; height:10%'></table>");
+    this.bottom_div = this.top_div.clone();
+    this.bottom_div.css("background", "#00ffff");
+    this.bottom_div.css("table-layout", "fixed");
+
+    $("#"+div_id).load(this.control_panel.session_id+"/synoptic", $.proxy(function() {
+      parent_div = $("#"+div_id);
+      var svg = parent_div.find("svg");
+      svg.css("height", "80%");
+      svg.css("width", "100%");
+
+      parent_div.prepend(this.top_div);
+      parent_div.append(this.bottom_div);
+      var self = this;
+      window.addResizeListener(this.bottom_div[0], function() { self.rearrange(); }); 
+      //var rect = document.getElementById("wbv").getBoundingClientRect();
+      
+      /*var newlbl = $("<span>Hello</span>");
+      newlbl.css("position", "absolute");
+      newlbl.css("left", rect.x+"px");
+      newlbl.css("top", rect.bottom+5+"px");
+      $(this).append(newlbl);
+      */
+
+    }, this));
+};
+
+Synoptic.prototype = {
+
+    rearrange: function() {
+        this.bottom_div.empty();
+        var tr = $("<tr></tr>");
+        this.bottom_div.append(tr);
+        this.top_div.parent().find("svg g").each(function() { 
+            var id = $(this)[0].id;
+            if (id != '') {
+                tr.append($("<td>"+id+"</td>"));
+            }
+        });
+         
+        var rect = document.getElementById("wbv").getBoundingClientRect();
+        var ul = this.control_panel.motors_list;
+        ul.css("position", "absolute");
+        ul.css("left", rect.x);
+        ul.css("width", rect.width);
+        ul.css("height", "auto");
+        this.bottom_div.append(ul);
+    }
 };
 
 function ControlPanel(session_id, client_uuid, div_id) {
@@ -11,7 +56,7 @@ function ControlPanel(session_id, client_uuid, div_id) {
     this.actuators = {};
     this.shutters = {};
     this.session_id = session_id;
-    this.client_uuid = client_uuid; //readCookie("khoros_client_id");
+    this.client_uuid = client_uuid;
 
     this.refresh_btn = $("<button>Refresh</button>");
     this.refresh_btn.css("width", "100%");

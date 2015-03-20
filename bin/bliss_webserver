@@ -3,6 +3,7 @@ import os
 import optparse
 import logging
 import inspect
+import bliss
 from bliss.shell.web import shell
 
 usage = "usage: \%prog [-p<port>] [-s<setup file>]" 
@@ -12,11 +13,15 @@ parser.add_option(
      help='Port to listen on (default 8099)', default=8099, action='store')
 parser.add_option('-s', '--setup-file', dest='setup_file', type='string',
                   help='Setup file', default=None, action='store')
+parser.add_option('-p', '--synoptic-panel', dest='syn_panel', type='string',
+                  help='Synoptic panel HTML file', default=None, action='store')
 options, args = parser.parse_args()
 
 logging.basicConfig()
 logging.getLogger().setLevel(logging.DEBUG)
 
-shell.set_setup_file(options.setup_file) 
+khoros.set_setup_file(options.setup_file) 
+khoros.set_synoptic_file(options.syn_panel)
+
 shell.serve_forever(options.port) 
 

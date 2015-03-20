@@ -23,7 +23,6 @@ OUTPUT_QUEUE = dict()
 CONTROL_PANEL_QUEUE = dict()
 INTERPRETER = dict()
 RESULT = dict()
-SETUP_FILE = ""
 SESSION_INIT = dict()
 
 # patch socket module;
@@ -252,11 +251,6 @@ def main():
 @bottle.route("/<url:path>")
 def serve_static_file(url):
     return bottle.static_file(url, os.path.dirname(__file__))
-
-
-def set_setup_file(setup_file):
-    global SETUP_FILE
-    SETUP_FILE = setup_file
 
 
 def serve_forever(port=None):

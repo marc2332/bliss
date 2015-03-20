@@ -14,6 +14,7 @@ import thread
 import gevent
 import logging
 from contextlib import contextmanager
+from bliss import SETUP_FILE, setup
 from bliss.common.event import dispatcher
 from bliss.common import data_manager
 from bliss.common import measurement
@@ -241,17 +242,8 @@ def start(input_queue, output_queue, i):
                                "openclose": dict() }
     init_scans_callbacks(i, output_queue)
 
-    def resetup(setup_file=None):
-        setup_file = i.locals.get("SETUP_FILE") if setup_file is None else setup_file
-        if setup_file is not None:
-            i.locals["SETUP_FILE"] = setup_file
-            setup_file_path = os.path.abspath(os.path.expanduser(setup_file))
-            if os.path.isfile(setup_file_path):
-                setup_file_dir = os.path.dirname(setup_file_path)
-                if not setup_file_dir in sys.path:
-                    sys.path.insert(0, setup_file_dir)
-                execfile(setup_file_path, i.locals)
-    i.locals["resetup"] = resetup
+    i.locals["resetup"] = functools.partial(setup, env_dict=i.locals)
+    i.locals["SETUP_FILE"] = SETUP_FILE
 
     root_logger = logging.getLogger()
     custom_log_handler = LogHandler(output_queue) 

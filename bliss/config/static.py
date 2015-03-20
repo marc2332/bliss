@@ -196,13 +196,6 @@ class Config(object):
                                                    value)
 
     def __init__(self, base_path, timeout=3):
-        self._name2node = weakref.WeakValueDictionary()
-        self._usertag2node = {}
-        self._root_node = Config.Node(self)
-        self._name2instance = {}
-        self._name2cache = {}
-        self._node2file = weakref.WeakKeyDictionary()
-        self._file2node = {}
         self._base_path = base_path
        
         self.reload(timeout=timeout)
@@ -210,6 +203,12 @@ class Config(object):
     def reload(self, base_path=None, timeout=3):
         if base_path is None:
             base_path = self._base_path
+
+        self._name2node = weakref.WeakValueDictionary()
+        self._usertag2node = {}
+        self._root_node = Config.Node(self)
+        self._node2file = weakref.WeakKeyDictionary()
+        self._file2node = {}
 
         self._clear_instances()
 

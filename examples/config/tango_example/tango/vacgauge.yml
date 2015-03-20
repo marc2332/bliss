@@ -1,0 +1,12 @@
+server: VacGaugeServer
+personal_name: id30gauges
+name: tango_gauges
+device:
+  -
+    class: BalzersGauge
+    tango_name: id30/v-balzpen/01
+    properties:
+      FilterTime: fast
+      GaugeName: A1
+      GazFactor: 1.0
+      Tpg300DeviceName: id30/v-tpg300/01_11

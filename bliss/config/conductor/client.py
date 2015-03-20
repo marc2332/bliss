@@ -47,3 +47,6 @@ def get_config_db_files(base_path='',timeout=3., connection=None):
     path2files = connection.get_config_db(base_path=base_path,timeout=timeout)
     return path2files
 
+@check_connection
+def set_config_db_file(filepath,content,timeout=3.,connection = None):
+    connection.set_config_db_file(filepath,content,timeout=timeout)

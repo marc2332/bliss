@@ -164,6 +164,31 @@ def _send_config_db_files(client_id,message):
     finally:
         client_id.sendall(protocol.message(protocol.CONFIG_DB_END,"%s|" % (message_key)))
 
+def _write_config_db_file(client_id,message):
+    first_pos = message.find('|')
+    second_pos = message.find('|',first_pos + 1)
+
+    if first_pos < 0 or second_pos < 0: # message malformed
+        msg = protocol.message(protocol.CONFIG_SET_DB_FILE_FAILED,
+                               '%s|%s' % (message_key,'Message malformed'))
+        client_id.sendall(msg)
+        return   
+
+    message_key = message[:first_pos]
+    file_path = message[first_pos + 1:second_pos]
+    content = message[second_pos + 1:]
+    file_path = file_path.replace('../','') # prevent going up
+    full_path = os.path.join(_options.db_path,file_path)
+    try:
+        with file(full_path,'w') as f:
+            f.write(content)
+            msg = protocol.message(protocol.CONFIG_SET_DB_FILE_OK,'%s|0' % message_key)
+            client_id.sendall(msg)
+    except:
+        msg = protocol.message(protocol.CONFIG_SET_DB_FILE_FAILED,
+                               '%s|%s' % (message_key,traceback.format_exc()))
+        client_id.sendall(msg)
+
 def _send_posix_mq_connection(client_id,client_hostname):
     ok_flag = False
     try:
@@ -247,6 +272,8 @@ def _client_rx(client):
                             _send_config_file(c_id,message)
                         elif messageType == protocol.CONFIG_GET_DB_BASE_PATH:
                             _send_config_db_files(c_id,message)
+                        elif messageType == protocol.CONFIG_SET_DB_FILE:
+                            _write_config_db_file(c_id,message)
                         else:
                             _send_unknow_message(c_id)
                     except ValueError:

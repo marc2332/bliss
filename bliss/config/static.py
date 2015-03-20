@@ -79,6 +79,37 @@ class Config(object):
         def pprint(self,indent=1, depth = None) :
             self._pprint(self,0,indent,0,depth)
         
+        def save(self) :
+            parent,filename = self.get_node_filename()
+            if filename is None: return # Memory
+            save_file_tree =  self._get_save_dict(parent,filename)
+            file_content = yaml.dump(save_file_tree,default_flow_style=False)
+            cfg = self._config()
+            cfg.set_config_db_file(filename,file_content)
+
+        def _get_save_dict(self,src_node,filename):
+            return_dict = {}
+            for key,values in src_node.iteritems():
+                if isinstance(values,Config.Node) :
+                    if values.filename != filename: continue
+                    return_dict[key] = self._get_save_dict(values,filename)
+                elif isinstance(values,list):
+                    child_list = self._get_save_list(values,filename)
+                    if child_list:
+                        return_dict[key] = child_list
+                else:
+                    return_dict[key] = values
+            return return_dict
+        
+        def _get_save_list(self,l,filename):
+            return_list = []
+            for v in l:
+                if isinstance(v,Config.Node) :
+                    if v.filename != filename: break
+                    return_list.append(self._get_save_dict(v,filename))
+                else:
+                    return_list.append(v)
+            return return_list
         @staticmethod
         def _pprint(node,cur_indet,indent,cur_depth,depth) :
             cfg = node._config()
@@ -223,6 +254,10 @@ class Config(object):
     @property
     def root(self):
         return self._root_node
+
+    def set_config_db_file(self,filename,content) :
+        full_filename = os.path.join(self._base_path,filename)
+        client.set_config_db_file(full_filename,content)
 
     def _create_file_index(self,node,filename) :
         if filename:

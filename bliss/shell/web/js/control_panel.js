@@ -1,53 +1,95 @@
 function Synoptic(control_panel, div_id) {
     this.control_panel = control_panel;
 
-    this.top_div = $("<table style='background: #ffff00; width:100%; height:10%'></table>");
+    this.top_div = $("<table style='background: #ffff00; width:100%; height:10%; table-layout: fixed'></table>");
+    this.top_div.append($("<colgroup></colgroup>"));
     this.bottom_div = this.top_div.clone();
     this.bottom_div.css("background", "#00ffff");
-    this.bottom_div.css("table-layout", "fixed");
+    this.bottom_div.css("border","1px solid black");
+    this.bottom_div.append($("<colgroup></colgroup>"));
 
     $("#"+div_id).load(this.control_panel.session_id+"/synoptic", $.proxy(function() {
       parent_div = $("#"+div_id);
       var svg = parent_div.find("svg");
-      svg.css("height", "80%");
+      this.svg = svg[0];
+      svg.css("height", "75%");
       svg.css("width", "100%");
 
       parent_div.prepend(this.top_div);
       parent_div.append(this.bottom_div);
-      var self = this;
-      window.addResizeListener(this.bottom_div[0], function() { self.rearrange(); }); 
-      //var rect = document.getElementById("wbv").getBoundingClientRect();
-      
-      /*var newlbl = $("<span>Hello</span>");
-      newlbl.css("position", "absolute");
-      newlbl.css("left", rect.x+"px");
-      newlbl.css("top", rect.bottom+5+"px");
-      $(this).append(newlbl);
-      */
 
+      var tr = $("<tr></tr>");
+      var tr2 = $("<tr></tr>");
+      var self = this;
+      this.bottom_div.append(tr);
+      this.top_div.append(tr2);
+      this.get_cols().each(function() { 
+          var col_id = $(this)[0].id;
+          if (col_id != '') {
+              var col = $("<td></td>");
+              col.css("border", "1px solid black");
+              col.append(self.control_panel.motors_list.clone());
+              tr.append(col);
+              tr2.append(col.clone());
+              tr.append($("<td></td>"));
+              tr2.append($("<td></td>"));
+          }
+      });
+      
+      window.addResizeListener(parent_div[0], function() { self.rearrange(); }); 
+
+      this.rearrange();
     }, this));
 };
 
 Synoptic.prototype = {
 
-    rearrange: function() {
-        this.bottom_div.empty();
-        var tr = $("<tr></tr>");
-        this.bottom_div.append(tr);
-        this.top_div.parent().find("svg g").each(function() { 
-            var id = $(this)[0].id;
-            if (id != '') {
-                tr.append($("<td>"+id+"</td>"));
-            }
+    get_cols: function() {
+        var cols = $(this.svg).find("g").sort(function(a,b) { 
+             var a_rect = $(a)[0].getBoundingClientRect();
+             var b_rect = $(b)[0].getBoundingClientRect();
+             return a_rect.left-b_rect.left
         });
-         
-        var rect = document.getElementById("wbv").getBoundingClientRect();
-        var ul = this.control_panel.motors_list;
-        ul.css("position", "absolute");
-        ul.css("left", rect.x);
-        ul.css("width", rect.width);
-        ul.css("height", "auto");
-        this.bottom_div.append(ul);
+        return cols; 
+    },
+
+    rearrange: function() {
+        var colgroup = $(this.bottom_div.find("colgroup")[0]);
+        var colgroup2 = $(this.top_div.find("colgroup")[0]);
+        colgroup.empty();
+        colgroup2.empty();
+
+        var width = 0;
+        var x = 0;
+        var cols = this.get_cols();
+        for (var i=0; i<cols.length; i++) {
+             var col = $(cols[i])[0]; 
+             var g_rect = col.getBoundingClientRect();
+             if (g_rect.width > width) { 
+                 x = g_rect.left;
+                 width = g_rect.width; 
+             }
+             if (col.id != '') {
+               var new_col = $("<col>");
+               new_col.css("width", g_rect.width);
+               colgroup.append(new_col);
+               colgroup2.append(new_col.clone());
+               if (i<cols.length-1) {
+                   var new_col = $("<col>");
+                   next_g_rect = $(cols[i+1])[0].getBoundingClientRect();
+                   new_col.css("width", next_g_rect.left-g_rect.right);
+                   colgroup.append(new_col);
+                   colgroup2.append(new_col.clone());
+               }
+             }
+        };
+     
+        this.bottom_div.css("width", width);
+        this.bottom_div.css("position", "relative"); 
+        this.bottom_div.css("left", x);
+        this.top_div.css("width", width);
+        this.top_div.css("position", "relative"); 
+        this.top_div.css("left", x);
     }
 };
 

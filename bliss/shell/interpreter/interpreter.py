@@ -15,7 +15,7 @@ import gevent
 import logging
 import functools
 from contextlib import contextmanager
-from bliss import SETUP_FILE, setup
+from bliss import setup
 from bliss.common.event import dispatcher
 from bliss.common import data_manager
 from bliss.common import measurement
@@ -179,6 +179,28 @@ def convert_state(state):
 def has_method(obj, all_or_any, *method_names):
     return all_or_any((inspect.ismethod(getattr(obj, m, None)) for m in method_names))
 
+def get_object_type(obj):
+    if inspect.isclass(obj):
+        return
+ 
+    # is it a motor?
+    if has_method(obj, all, "move", "state", "position"):
+        return "motor"
+
+    # is it a counter?
+    if isinstance(obj, measurement.CounterBase):
+        return "counter" 
+
+    # has it in/out capability?
+    if has_method(obj, all, "state") and \
+            has_method(obj, any, "set_in") and \
+            has_method(obj, any, "set_out"):
+        return "inout"        
+
+    # has it open/close capability?
+    if has_method(obj, all, "open", "close", "state"):
+        return "openclose"
+
 def get_objects_by_type(objects_dict):
     motors = dict()
     counters = dict()
@@ -230,7 +252,7 @@ def get_objects_by_type(objects_dict):
 
     return { "motors": motors, "counters": counters, "inout": inout, "openclose": openclose }
 
-def start(input_queue, output_queue, i):
+def start(setup_file, input_queue, output_queue, i):
     # restore default SIGINT behaviour
     def raise_kb_interrupt(interpreter=i):
         if not interpreter.kill(KeyboardInterrupt):
@@ -244,7 +266,7 @@ def start(input_queue, output_queue, i):
     init_scans_callbacks(i, output_queue)
 
     i.locals["resetup"] = functools.partial(setup, env_dict=i.locals)
-    i.locals["SETUP_FILE"] = SETUP_FILE
+    i.locals["SETUP_FILE"] = setup_file
 
     root_logger = logging.getLogger()
     custom_log_handler = LogHandler(output_queue) 
@@ -266,6 +288,53 @@ def start(input_queue, output_queue, i):
                 method = getattr(obj, method_name)
                 if callable(method):
                     gevent.spawn(method)
+        elif action == "get_object":
+            object_name = _[0]
+            object_dict = dict()
+            namespace = i.locals
+            for name in object_name.split('.'):
+                obj = namespace.get(name)
+                namespace = dict(inspect.getmembers(obj))
+            if obj is not None:
+                object_dict["type"] = get_object_type(obj)
+            if object_dict["type"] == "motor":
+                m = obj
+                try:
+                    pos = "%.3f" % m.position()
+                    state = convert_state(m.state())
+                except:
+                    pos = None
+                    state = None
+                object_dict.update({"state": state, "position": pos})
+                def state_updated(state, name=name):
+                    output_queue.put((None, { "name":name, "state": convert_state(state)}))
+                def position_updated(pos, name=name, client_uuid=client_uuid):
+                    pos = "%.3f" % pos
+                    output_queue.put((None, {"name":name, "position":pos}))
+                output_queue.callbacks["motor"][name]=(state_updated, position_updated) 
+                dispatcher.connect(state_updated, "state", m)
+                dispatcher.connect(position_updated, "position", m)
+            elif object_dict["type"] == "inout":
+                try:
+                    state = obj.state()
+                except:
+                    state = None
+                object_dict.update({"state": convert_state(state)})
+                def state_updated(state, name=name):
+                    output_queue.put((None, {"name": name, "state": convert_state(state)}))
+                output_queue.callbacks["inout"][name]=state_updated
+                dispatcher.connect(state_updated, "state", obj)
+            elif object_dict["type"] == "openclose":
+		try:
+		    state = obj.state()
+		except:
+		    state = None
+		object_dict.update({ "state": convert_state(state) })
+		def state_updated(state, name=name):
+		    output_queue.put((None, {"name":name, "state":convert_state(state)}))
+		output_queue.callbacks["openclose"][name]=state_updated
+		dispatcher.connect(state_updated, "state", obj)
+            output_queue.put((None, StopIteration(object_dict)))  
         elif action == "get_objects":
             objects_by_type = get_objects_by_type(i.locals)
             pprint.pprint(objects_by_type)

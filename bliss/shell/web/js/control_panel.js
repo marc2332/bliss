@@ -7,11 +7,12 @@ function Synoptic(control_panel, div_id) {
     this.bottom_div.css("background", "#00ffff");
     this.bottom_div.css("border","1px solid black");
     this.bottom_div.append($("<colgroup></colgroup>"));
+    this.synoptic_div = $("<div></div");
 
-    setTimeout($.proxy(function() { $("#"+div_id).load(this.control_panel.session_id+"/synoptic", $.proxy(function() {
+    setTimeout($.proxy(function() { this.parent_div.load(this.control_panel.session_id+"/synoptic", $.proxy(function() {
       var svg = this.parent_div.find("svg");
       this.svg = svg[0];
-      svg.css("height", "75%");
+      svg.css("height", this.parent_div.height()*0.8);
       svg.css("width", "100%");
 
       this.parent_div.prepend(this.top_div);
@@ -35,8 +36,20 @@ function Synoptic(control_panel, div_id) {
           }
       });
       
-      window.addResizeListener(this.parent_div[0], function() { self.rearrange(); }); 
+      //window.addResizeListener(this.parent_div[0], function() { self.rearrange(); }); 
       this.rearrange();
+
+      $.ajax({
+            error: function(XMLHttpRequest, textStatus, errorThrown) {
+                alert(textStatus);
+            },
+            url: self.control_panel.session_id + '/synoptic/objects',
+            type: 'GET',
+            dataType: 'json',
+            data: { client_uuid: self.control_panel.client_uuid },
+            success: function(res) {
+                console.log(res);
+            }});
     }, this)) }, this), 1000);
 };
 
@@ -88,8 +101,6 @@ Synoptic.prototype = {
         this.top_div.css("width", width);
         this.top_div.css("position", "relative"); 
         this.top_div.css("left", x);
-
-        //$("body").layout().sizePane("north", this.bottom_div.height()+this.top_div.height()+$(this.svg).height()); 
     }
 };
 
@@ -125,7 +136,8 @@ function ControlPanel(session_id, client_uuid, div_id) {
     $('#' + div_id).append(this.actuators_div);
     $('#' + div_id).append(this.shutters_div);
 
-    this.refresh_btn.click($.proxy(this.refresh, this));
+    
+this.refresh_btn.click($.proxy(this.refresh, this));
 
     /* 
        connect to control panel events stream 

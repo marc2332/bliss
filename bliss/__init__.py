@@ -1,18 +1,30 @@
 import os
 import sys
+import yaml
 
-SETUP_FILE = None
-SYNOPTIC_FILE = None
-
-
-def set_synoptic_file(synoptic_html_file):
-    global SYNOPTIC_FILE
-    SYNOPTIC_FILE = os.path.abspath(synoptic_html_file)
+SETUP_FILE = dict()
+SYNOPTIC = dict()
 
 
-def set_setup_file(setup_file):
+def set_synoptic_file(session_id, synoptic_svg_file, synoptic_elements):
+    global SYNOPTIC
+    s = SYNOPTIC.setdefault(session_id, dict())
+    s["file"] = os.path.abspath(os.path.expanduser(synoptic_svg_file))
+    s["elements"] = synoptic_elements
+
+
+def set_setup_file(session_id, setup_file):
     global SETUP_FILE
-    SETUP_FILE = setup_file
+    SETUP_FILE[session_id] = setup_file
+
+
+def read_config(config_file):
+    with file(config_file, "r") as f:
+        cfg = yaml.load(f.read())
+
+        for session_id in cfg.iterkeys():
+            set_setup_file(session_id, os.path.join(os.path.dirname(config_file), cfg[session_id]["setup-file"]))
+            set_synoptic_file(session_id, os.path.join(os.path.dirname(config_file), cfg[session_id]["synoptic"]["svg-file"]), cfg[session_id]["synoptic"]["elements"])
 
 
 def setup(setup_file=None, env_dict=None):

@@ -215,7 +215,7 @@ def open_session(session_id):
         output_queue_from_interpreter, output_queue = gipc.pipe()
         RESULT[session_id] = dict()
         INTERPRETER[session_id] = gipc.start_process(interpreter.start_interpreter,
-                                                     args=(cmds_queue, output_queue))
+                                                     args=(khoros.SETUP_FILE.get(session_id), cmds_queue, output_queue))
         EXECUTION_QUEUE[session_id].put((None, "syn", (None,)))
         output_queue_from_interpreter.get() #ack
     
@@ -242,8 +242,28 @@ def return_objects_names(session_id):
 
 @bottle.route("/<session_id:int>/synoptic")
 def return_synoptic_svg(session_id):
-    with file(khoros.SYNOPTIC_FILE) as f:
+    with file(khoros.SYNOPTIC[session_id]["file"]) as f:
         return f.read()
+
+@bottle.route("/<session_id:int>/synoptic/objects")
+def return_synoptic_objects(session_id):
+    client_uuid = bottle.request.GET["client_uuid"]
+    objects = dict()
+
+    elements = khoros.SYNOPTIC[session_id]["elements"] 
+    
+    for elt in elements:
+        d = { 'top': [], 'bottom': []}
+        objects[elt["svg-id"]] = d
+        for x in ("top", "bottom"):
+          xx = elt.get(x, "")
+          if xx:
+              for obj_name in xx.split():
+                obj = interpreter_exec(session_id, client_uuid, "get_object", obj_name)
+                obj["name"]=obj_name
+                d[x].append(obj)
+    return objects        
+ 
 
 @bottle.route('/')
 def main():
@@ -258,21 +278,3 @@ def serve_static_file(url):
 def serve_forever(port=None):
     bottle.run(server="gevent", host="0.0.0.0", port=port)
 
-
-
-if __name__ == "__main__":
-    usage = "usage: \%prog [-p<port>]" #[-r<redis host:port>]"
-
-    parser = optparse.OptionParser(usage)
-    parser.add_option(
-        '-p', '--port', dest='port', type='int',
-        help='Port to listen on (default 8099)', default=8099, action='store')
-    # parser.add_option('-r', '--redis', dest='redis', type='string',
-    # help='Redis server and port number (default localhost:6379)',
-    # default="localhost:6379", action='store')
-    options, args = parser.parse_args()
-
-    logging.basicConfig()
-    logging.getLogger().setLevel(logging.DEBUG)
-
-    serve_forever(options.port)  # , options.redis)

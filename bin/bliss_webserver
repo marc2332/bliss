@@ -10,17 +10,14 @@ parser = optparse.OptionParser(usage)
 parser.add_option(
      '-p', '--port', dest='port', type='int',
      help='Port to listen on (default 8099)', default=8099, action='store')
-parser.add_option('-s', '--setup-file', dest='setup_file', type='string',
-                  help='Setup file', default=None, action='store')
-parser.add_option('-y', '--synoptic-panel', dest='syn_panel', type='string',
-                  help='Synoptic panel HTML file', default=None, action='store')
+parser.add_option('-c', '--config-file', dest='config_file', type='string',
+                  help='Configuration file', default=None, action='store')
 options, args = parser.parse_args()
 
 logging.basicConfig()
 logging.getLogger().setLevel(logging.DEBUG)
 
-khoros.set_setup_file(options.setup_file) 
-khoros.set_synoptic_file(options.syn_panel)
+khoros.read_config(options.config_file)
 
 shell.serve_forever(options.port) 
 

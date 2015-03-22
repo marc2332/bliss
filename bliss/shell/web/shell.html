@@ -19,11 +19,10 @@
         <link rel="stylesheet" href="control_panel.css"></link>
 </head>
 <body>
-        <div class="ui-layout-center" id="main">
-          <div class="ui-layout-north">
-          <div id="shell_cmdline" style="width: 100%;"></div>
-          </div>
-          <div class="ui-layout-center" id="tabs">
+        <div class="ui-layout-center">
+          <div id="synoptic_container"></div>
+          <div id="shell_cmdline" style="margin-bottom: 10px"></div>
+          <div id="tabs">
              <ul>
                  <li><a href="#tab_setup">Setup</a></li>
                  <li><a href="#shell_output">Shell output</a></li>
@@ -35,17 +34,11 @@
           </div>
           <div id="right_panel" class="ui-layout-east"></div>
 	</div>
-        <div class="ui-layout-north">
-          <div id="synoptic_container" style="width: 100%;">
-               
-          </div>
-        </div>       
  
 	<script type="text/javascript" charset="utf-8">
             var client_uuid = {{ client_uuid }};
             $(document).ready(function() {
-                layout = $('body').layout({ applyDefaultStyles: true, north__size: "15%" });
-                $('#main').layout({ applyDefaultStyles: false, east__size: "33%" });
+                layout = $('body').layout({ applyDefaultStyles: false, east__size: "33%" });
                 $("#tabs").tabs({active: 1});
                 $("#tabs").css("overflow", "hidden");
                 $("#tabs").css("height", "100%");

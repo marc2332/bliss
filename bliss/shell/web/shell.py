@@ -242,7 +242,8 @@ def return_objects_names(session_id):
 
 @bottle.route("/<session_id:int>/synoptic")
 def return_synoptic_svg(session_id):
-    return bottle.static_file(khoros.SYNOPTIC_FILE, os.environ["HOME"])
+    with file(khoros.SYNOPTIC_FILE) as f:
+        return f.read()
 
 @bottle.route('/')
 def main():

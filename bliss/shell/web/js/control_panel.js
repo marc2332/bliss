@@ -1,6 +1,6 @@
 function Synoptic(control_panel, div_id) {
     this.control_panel = control_panel;
-
+    this.parent_div = $(document.getElementById(div_id));
     this.top_div = $("<table style='background: #ffff00; width:100%; height:10%; table-layout: fixed'></table>");
     this.top_div.append($("<colgroup></colgroup>"));
     this.bottom_div = this.top_div.clone();
@@ -8,15 +8,14 @@ function Synoptic(control_panel, div_id) {
     this.bottom_div.css("border","1px solid black");
     this.bottom_div.append($("<colgroup></colgroup>"));
 
-    $("#"+div_id).load(this.control_panel.session_id+"/synoptic", $.proxy(function() {
-      parent_div = $("#"+div_id);
-      var svg = parent_div.find("svg");
+    setTimeout($.proxy(function() { $("#"+div_id).load(this.control_panel.session_id+"/synoptic", $.proxy(function() {
+      var svg = this.parent_div.find("svg");
       this.svg = svg[0];
       svg.css("height", "75%");
       svg.css("width", "100%");
 
-      parent_div.prepend(this.top_div);
-      parent_div.append(this.bottom_div);
+      this.parent_div.prepend(this.top_div);
+      this.parent_div.append(this.bottom_div);
 
       var tr = $("<tr></tr>");
       var tr2 = $("<tr></tr>");
@@ -36,10 +35,9 @@ function Synoptic(control_panel, div_id) {
           }
       });
       
-      window.addResizeListener(parent_div[0], function() { self.rearrange(); }); 
-
+      window.addResizeListener(this.parent_div[0], function() { self.rearrange(); }); 
       this.rearrange();
-    }, this));
+    }, this)) }, this), 1000);
 };
 
 Synoptic.prototype = {
@@ -90,6 +88,8 @@ Synoptic.prototype = {
         this.top_div.css("width", width);
         this.top_div.css("position", "relative"); 
         this.top_div.css("left", x);
+
+        //$("body").layout().sizePane("north", this.bottom_div.height()+this.top_div.height()+$(this.svg).height()); 
     }
 };
 

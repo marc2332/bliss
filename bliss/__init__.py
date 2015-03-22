@@ -7,7 +7,7 @@ SYNOPTIC_FILE = None
 
 def set_synoptic_file(synoptic_html_file):
     global SYNOPTIC_FILE
-    SYNOPTIC_FILE = synoptic_html_file
+    SYNOPTIC_FILE = os.path.abspath(synoptic_html_file)
 
 
 def set_setup_file(setup_file):

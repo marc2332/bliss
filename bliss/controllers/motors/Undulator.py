@@ -89,9 +89,9 @@ class Undulator(Controller):
         self._set_attribute(motion.axis, "attr_pos_name",
                             float(motion.target_pos / motion.axis.steps_per_unit))
 
-    def read_position(self, axis, measured=False):
+    def read_position(self, axis):
         """
-        Returns the position (measured or desired) taken from controller
+        Returns the position taken from controller
         in controller unit (steps).
         """
         return self._get_attribute(axis, "attr_pos_name")

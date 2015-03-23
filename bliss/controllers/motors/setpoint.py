@@ -120,31 +120,31 @@ class setpoint(Controller):
             float(v),
             "t0": t0}
 
-    def read_position(self, axis, measured=False):
+    def read_position(self, axis):
         """
-        Returns the position (measured or desired) taken from controller
+        Returns the position taken from controller
         in controller unit (steps).
         """
-        if measured:
-            return self.target_attribute.read().value * self.factor
+        # Always return position
+        if self._axis_moves[axis]["end_t"]:
+            # motor is moving
+            t = time.time()
+            v = self.read_velocity(axis) * axis.steps_per_unit
+            d = math.copysign(1, self._axis_moves[axis]["delta"])
+            dt = t - self._axis_moves[axis]["t0"]
+            pos = self._axis_moves[axis]["start_pos"] + d * dt * v
+
+            self.target_attribute.write(pos)
+
+            return pos
         else:
-            # Always return position
-            if self._axis_moves[axis]["end_t"]:
-                # motor is moving
-                t = time.time()
-                v = self.read_velocity(axis) * axis.steps_per_unit
-                d = math.copysign(1, self._axis_moves[axis]["delta"])
-                dt = t - self._axis_moves[axis]["t0"]
-                pos = self._axis_moves[axis]["start_pos"] + d * dt * v
+            _end_pos = self._axis_moves[axis]["end_pos"] / axis.steps_per_unit
 
-                self.target_attribute.write(pos)
+            self.target_attribute.write(_end_pos)
+            return _end_pos
 
-                return pos
-            else:
-                _end_pos = self._axis_moves[axis]["end_pos"] / axis.steps_per_unit
-
-                self.target_attribute.write(_end_pos)
-                return _end_pos
+    def read_encoder(self, encoder):
+        return self.target_attribute.read().value * self.factor
 
     def read_velocity(self, axis):
         """

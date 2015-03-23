@@ -40,15 +40,20 @@ class TangoEMot(Controller):
         axis.config.config_dict.update({"acceleration": {"value": self.axis_proxy.ReadConfig("acceleration")}})
         axis.config.config_dict.update({"velocity": {"value": self.axis_proxy.ReadConfig("velocity")}})
 
-    def read_position(self, axis, measured=False):
+    def initialize_encoder(self, encoder):
+        self.encoder_proxy = DeviceProxy(self.ds_name)
+
+        encoder.config.config_dict.update({"steps_per_unit": {"value": self.encoder_proxy.steps_per_unit}})
+
+    def read_position(self, axis):
         """
         Returns the position (measured or desired) taken from controller
         in *controller unit* (steps for example).
         """
-        if measured:
-            return self.axis_proxy.position * axis.steps_per_unit
-        else:
-            return self.axis_proxy.Measured_Position * axis.steps_per_unit
+        return self.axis_proxy.position * axis.steps_per_unit
+
+    def read_encoder(self, encoder):
+        return self.encoder_proxy.Measured_Position * encoder.steps_per_unit
 
     def read_velocity(self, axis):
         _vel = self.axis_proxy.velocity * abs(axis.steps_per_unit)

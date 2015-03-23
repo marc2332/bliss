@@ -69,13 +69,6 @@ class Axis(object):
     def steps_per_unit(self):
         return self.config.get("steps_per_unit", float, 1)
 
-    """
-    TODO ?
-    @property
-    def encoder_steps_per_unit(self):
-        return self.config.get("encoder_steps_per_unit", float, self.steps_per_unit)
-    """
-
     @property
     def encoder(self):
         try:
@@ -85,7 +78,6 @@ class Axis(object):
         else:
             from bliss.config.motors import get_encoder 
             return get_encoder(encoder_name)
- 
 
     @property
     def custom_methods_list(self):
@@ -131,12 +123,15 @@ class Axis(object):
 
     def measured_position(self):
         """
-        Returns a value in user units.
+        Returns the encoder value in user units.
         """
         return self.dial2user(self.dial_measured_position())
 
     def dial_measured_position(self):
-        return self.__controller.read_position(self, measured=True) / self.encoder_steps_per_unit
+        """
+        Returns the dial encoder position.
+        """
+        return self.__controller.read_encoder(self.encoder) / self.encoder.steps_per_unit
 
     def dial(self, new_dial=None):
         """

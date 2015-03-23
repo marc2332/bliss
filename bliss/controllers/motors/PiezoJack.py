@@ -84,7 +84,7 @@ class PiezoJack(Controller):
         elog.debug("axis name %s" % axis.name)
         elog.debug("tagged axes are: %s, %s" % (self.piezo, self.icepap))
 
-    def read_position(self, axis, measured = False):
+    def read_position(self, axis):
         """
         Returns position
 
@@ -272,7 +272,7 @@ class PiezoJack(Controller):
             """
             offset = self.piezo._get_offset()
             elog.debug("offset: %s" % offset)
-            measured_pos = self.piezo.position(measured = True)
+            measured_pos = self.piezo.measured_position()
 
             offset -= measured_pos - self._PiezoSize.middle
             self._put_offset(offset)
@@ -280,7 +280,7 @@ class PiezoJack(Controller):
             position = self.piezo.position()
             self.piezo.Set_Closed_Loop(True)
 
-            measured_pos = self.piezo.position(measured = True)
+            measured_pos = self.piezo.measured_position()
             elog.debug("new offset : %s with: %s and sva: %s" % (offset, position, measured_pos))
 
             self.piezo.move(self._PiezoSize.middle)

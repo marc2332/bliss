@@ -18,8 +18,8 @@ Thu 13 Feb 2014 15:51:41
 
 class PI_E517(Controller):
 
-    def __init__(self, name, config, axes):
-        Controller.__init__(self, name, config, axes)
+    def __init__(self, name, config, axes, encoders):
+        Controller.__init__(self, name, config, axes, encoders)
         self.host = self.config.get("host")
 
     def move_done_event_received(self, state):
@@ -98,43 +98,48 @@ class PI_E517(Controller):
         # Updates cached value of closed loop status.
         self.closed_loop = self._get_closed_loop_status(axis)
 
-    def read_position(self, axis, measured=False,
-                      last_read=[{"t": time.time(), "pos": [None, None, None]},
-                                 {"t": time.time(), "pos": [None, None, None]}]):
+
+    def initialize_encoder(self, encoder):
+        pass
+
+    def read_position(self, axis, last_read={"t": time.time(), "pos": [None, None, None]}):
         """
-        Returns position's setpoint or measured position.
-        Measured position command is POS?
+        Returns position's setpoint.
         Setpoint position is MOV? of VOL? or SVA? depending on closed-loop
         mode is ON or OFF.
 
         Args:
             - <axis> : bliss axis.
-            - [<measured>] : boolean : if True, function returns measured position.
         Returns:
             - <position> : float : piezo position in Micro-meters or in Volts.
         """
-        cache = last_read[1 if measured else 0]
+        cache = last_read
 
-        if measured:
-            if time.time() - cache["t"] < 0.005:
-                # print "encache meas %f" % time.time()
-                _pos = cache["pos"]
-            else:
-                # print "PAS encache meas %f" % time.time()
-                _pos = self._get_pos(axis)
-                cache["pos"] = _pos
-                cache["t"] = time.time()
-            elog.debug("position measured read : %r" % _pos)
+        if time.time() - cache["t"] < 0.005:
+            # print "en cache not meas %f" % time.time()
+            _pos = cache["pos"]
         else:
-            if time.time() - cache["t"] < 0.005:
-                # print "encache not meas %f" % time.time()
-                _pos = cache["pos"]
-            else:
-                # print "PAS encache not meas %f" % time.time()
-                _pos = self._get_target_pos(axis)
-                cache["pos"] = _pos
-                cache["t"] = time.time()
-            elog.debug("position setpoint read : %r" % _pos)
+            # print "PAS encache not meas %f" % time.time()
+            _pos = self._get_target_pos(axis)
+            cache["pos"] = _pos
+            cache["t"] = time.time()
+        elog.debug("position setpoint read : %r" % _pos)
+
+        return _pos[axis.channel - 1]
+
+    def read_encoder(self, encoder, last_read={"t": time.time(), "pos": [None, None, None]}):
+
+        cache = last_read
+
+        if time.time() - cache["t"] < 0.005:
+            # print "encache meas %f" % time.time()
+            _pos = cache["pos"]
+        else:
+            # print "PAS encache meas %f" % time.time()
+            _pos = self._get_pos(axis)
+            cache["pos"] = _pos
+            cache["t"] = time.time()
+        elog.debug("position measured read : %r" % _pos)
 
         return _pos[axis.channel - 1]
 

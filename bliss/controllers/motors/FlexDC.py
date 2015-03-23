@@ -84,23 +84,26 @@ class FlexDC(Controller):
         # Maximum dead zone
         self.flexdc_parameter(axis, "CA[37]", axis.max_dead_zone)
 
-    def read_position(self, axis, measured=False):
+    def initialize_encoder(self, encoder):
+        encoder.channel = encoder.config.get("channel")
+
+    def read_position(self, axis):
         """
         Returns position's setpoint or measured position (in steps).
         """
-        if measured:
-            """ PS : Position from Sensor """
-            _pos = int(self._flexdc_query("%sPS" % axis.channel))
-            elog.debug("FLEXDC *measured* position (in steps) : %d" % _pos)
-            return _pos
-        else:
-            """ DP : Desired Position
-                When an axis is in motion, DP holds the real time servo
-                loop control reference position
-            """
-            _pos = int(self._flexdc_query("%sDP" % axis.channel))
-            elog.debug("FLEXDC *setpoint* position (in steps) : %d" % _pos)
-            return _pos
+        """ DP : Desired Position
+        When an axis is in motion, DP holds the real time servo
+        loop control reference position
+        """
+        _pos = int(self._flexdc_query("%sDP" % axis.channel))
+        elog.debug("FLEXDC *setpoint* position (in steps) : %d" % _pos)
+        return _pos
+
+    def read_encoder(self, encoder):
+        """ PS : Position from Sensor """
+        _pos = int(self._flexdc_query("%sPS" % encoder.channel))
+        elog.debug("FLEXDC *measured* position (in steps) : %d" % _pos)
+        return _pos
 
     def read_velocity(self, axis):
         _velocity = float(self._flexdc_query("%sSP" % axis.channel))

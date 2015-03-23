@@ -68,6 +68,7 @@ class Mockup(Controller):
             axis.settings.set('round_earth', True)
             axis.settings.set('geocentrisme', False)
 
+
     """
     Axes initialization actions.
     """
@@ -88,11 +89,17 @@ class Mockup(Controller):
         add_axis_method(axis, self.custom_get_chapi, types_info=(str, str))
         add_axis_method(axis, self.custom_send_command, types_info=(str, None))
         add_axis_method(axis, self.custom_command_no_types)
-        add_axis_method(axis, self.custom_simulate_measured, types_info=(bool, None))
+
+        # ???
         add_axis_method(axis, self.custom_set_measured_noise, types_info=(float, None))
 
+        if axis.encoder:
+            self.__encoders.setdefault(axis.encoder, {})["axis"] = axis
+
+
     def initialize_encoder(self, encoder):
-        self.__encoders.setdefault(encoder, {})["steps"]=12345
+        self.__encoders.setdefault(encoder, {})["measured_noise"] = 0.0
+        self.__encoders[encoder]["steps"] = None
 
     """
     Actions to perform at controller closing.
@@ -143,15 +150,11 @@ class Mockup(Controller):
             float(v),
             "t0": t0})
 
-    def read_position(self, axis, measured=False):
+    def read_position(self, axis):
         """
         Returns the position (measured or desired) taken from controller
         in controller unit (steps).
         """
-
-        # handle rough simulated position for unit tests mainly
-        if measured and self._axis_moves[axis]["measured_simul"]:
-            return int(round(-1.2345 * axis.steps_per_unit))
 
         # handle read out during a motion
         if self._axis_moves[axis]["end_t"]:
@@ -164,18 +167,32 @@ class Mockup(Controller):
         else:
             pos = self._axis_moves[axis]["end_pos"]
 
-        # simulate noisy encoder
-        if measured and (self._axis_moves[axis]["measured_noise"] != 0.0):
-            noise_mm = random.uniform(
-                -self._axis_moves[axis]["measured_noise"],
-                self._axis_moves[axis]["measured_noise"])
-            noise_stps = noise_mm * axis.steps_per_unit
-            pos += noise_stps
-
         # always return position
         return int(round(pos))
 
     def read_encoder(self, encoder):
+        """
+        returns encoder position.
+        unit : 'encoder steps'
+        """
+
+        axis = self.__encoders[encoder]["axis"]
+
+        if self.__encoders[encoder]["measured_noise"] != 0.0:
+            # Simulates noisy encoder.
+            amplitude = self.__encoders[encoder]["measured_noise"]
+            noise_mm = random.uniform(-amplitude, amplitude)
+
+            _pos = self.read_position(axis) / axis.steps_per_unit
+            _pos += noise_mm
+
+            self.__encoders[encoder]["steps"] = _pos * encoder.steps_per_unit
+
+        else:
+            # "Perfect encoder"
+            if self.__encoders[encoder]["steps"] is None:
+                self.__encoders[encoder]["steps"] = self.read_position(axis) / axis.steps_per_unit
+
         return self.__encoders[encoder]["steps"]
 
     def set_encoder(self, encoder, encoder_steps):
@@ -333,18 +350,15 @@ class Mockup(Controller):
     def custom_command_no_types(self, axis):
         print "print with no types"
 
-    def custom_simulate_measured(self, axis, flag):
-        """
-        Custom axis method to emulated measured position
-        """
-        if type(flag) != bool:
-            raise ValueError('argin must be boolean')
-        self._axis_moves[axis]["measured_simul"] = flag
-
     def custom_set_measured_noise(self, axis, noise):
         """
         Custom axis method to add a random noise, given in user units,
         to measured positions. Set noise value to 0 to have a measured
         position equal to target position.
+        By the way we add a ref to the coresponding axis.
         """
-        self._axis_moves[axis]["measured_noise"] = noise
+        self.__encoders[axis.encoder]["measured_noise"] = noise
+        self.__encoders[axis.encoder]["axis"] = axis
+
+
+

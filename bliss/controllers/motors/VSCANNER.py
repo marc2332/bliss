@@ -71,12 +71,10 @@ class VSCANNER(Controller):
         # ???
         # self.send(axis, "NOECHO")
 
-    def read_position(self, axis, measured=False):
+    def read_position(self, axis):
         """
-        * Returns position's setpoint or measured position in controller
-        units (Volts)
+        * Returns position's setpoint in controller units (Volts)
         * Setpoint position (in Volts) command is ?VX or ?VY
-        * Measured ???
 
         Args:
             - <axis> : bliss axis.
@@ -85,14 +83,12 @@ class VSCANNER(Controller):
         Returns:
             - <position> : float : axis setpoint in Volts.
         """
-        if measured:
-            raise NotImplementedError
-        else:
-            _cmd = "?V%s\r\n" % axis.chan_letter
-            _ans = self.send(axis, _cmd)
-            # elog.debug("_ans =%s" % _ans)
-            _pos = float(_ans)
-            elog.debug("position=%f" % _pos)
+        _cmd = "?V%s\r\n" % axis.chan_letter
+        _ans = self.send(axis, _cmd)
+        # elog.debug("_ans =%s" % _ans)
+        _pos = float(_ans)
+        elog.debug("position=%f" % _pos)
+
         return _pos
 
     def read_velocity(self, axis):

@@ -30,7 +30,7 @@ class GalilDMC213(Controller):
 
         self.host = self.config.get("host")
         self.socket_lock = lock.Semaphore()
- 
+
     def initialize(self):
         self.sock = tcp.Socket(self.host, 23)
         # perform hw reset
@@ -40,8 +40,8 @@ class GalilDMC213(Controller):
         # set vector time constant (motion smoothing)
         self._galil_query("VT 1.0")
         # configure switches and latch polarity
-        self._galil_query("CN %d,%d,%d" % (LOW_LEVEL, HIGH_LEVEL, HIGH_LEVEL)) 
-        
+        self._galil_query("CN %d,%d,%d" % (LOW_LEVEL, HIGH_LEVEL, HIGH_LEVEL))
+
     def finalize(self):
         self.sock.close()
 
@@ -49,7 +49,7 @@ class GalilDMC213(Controller):
         axis.channel = axis.config.get("channel")
         if not axis.channel in "ABCDEFGH":
           raise RuntimeError("Invalid channel, should be one of: A,B,C,D,E,F,G,H")
- 
+
         axis_type = axis.config.get("type", int, default=SERVO)
         axis_vect_acc = axis.config.get("vect_acceleration", int, default=262144)
         axis_vect_dec = axis.config.get("vect_deceleration", int, default=262144)
@@ -95,27 +95,31 @@ class GalilDMC213(Controller):
         # set speed
         self._galil_query("SP%s=%d" % (axis.channel, axis_slewrate))
         # set on/off error
-        #self._galil_query("OE%s=%d" % (axis.channel, axis_onoff)) 
+        #self._galil_query("OE%s=%d" % (axis.channel, axis_onoff))
         # set error limit
-        self._galil_query("ER%s=%d" % (axis.channel, axis_error_limit)) 
+        self._galil_query("ER%s=%d" % (axis.channel, axis_error_limit))
         # set cmd offset
-        self._galil_query("OF%s=%f" % (axis.channel, axis_cmd_offset)) 
+        self._galil_query("OF%s=%f" % (axis.channel, axis_cmd_offset))
         # set torque limit
-        self._galil_query("TL%s=%f" % (axis.channel, axis_torque_limit)) 
+        self._galil_query("TL%s=%f" % (axis.channel, axis_torque_limit))
         # start motor (power on)
         self._galil_query("SH%s" % axis.channel)
         # set on/off error to ENABLED
         self._galil_query("OE%s=1" % axis.channel)
- 
 
-    def read_position(self, axis, measured=False):
+    def initialize_encoder(self, encoder):
+        encoder.channel = encoder.config.get("channel")
+        if not encoder.channel in "ABCDEFGH":
+          raise RuntimeError("Invalid encoder channel, should be one of: A,B,C,D,E,F,G,H")
+
+    def read_position(self, axis):
         """
         Returns position's setpoint or measured position (in steps).
         """
-        if measured:
-            return float(self._galil_query("TD %s" % axis.channel))
-        else:
-            return float(self._galil_query("TP %s" % axis.channel))
+        return float(self._galil_query("TP %s" % axis.channel))
+
+    def read_encoder(self, encoder):
+        return float(self._galil_query("TD %s" % encoder.channel))
 
     def set_acceleration(self, axis, new_acc):
         padding = ","*(ord(axis.channel)-ord('A'))
@@ -190,7 +194,7 @@ class GalilDMC213(Controller):
             ans += self.sock.read(size=1)
           print 'RECV',repr(ans),'!'
           if ans == '?':
-            raise RuntimeError("Invalid command") 
+            raise RuntimeError("Invalid command")
           elif ':' in ans:
             # command without return
             return

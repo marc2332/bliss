@@ -103,10 +103,19 @@ class IcePAP(Controller):
         # Add new axis oject methods
         add_axis_method(axis, self.get_identifier)
 
-    def read_position(self, axis, measured=False):
+
+    def initialize_encoder(self, encoder):
+        encoder.address = encoder.config.get("address", int)
+
+        # bla bla truc
+
+    def read_position(self, axis):
         """Returns axis position in motor units"""
         self.log_info("position() called for axis \"%s\"" % axis.name)
         return self.libgroup.pos(axis.libaxis)
+
+    #def read_encoder(self, encoder):
+    #
 
     def set_position(self, axis, new_pos):
         l = libicepap.PosList()

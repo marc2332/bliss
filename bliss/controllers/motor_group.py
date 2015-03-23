@@ -107,6 +107,8 @@ class _Group(object):
     def single_axis_move_task(self, motion):
         with error_cleanup(motion.axis._do_stop):
             motion.axis._handle_move(motion)
+        if motion.axis.encoder is not None:
+            motion.axis._do_encoder_reading()
 
     def _handle_move(self, motions):
         move_tasks = []
@@ -196,7 +198,12 @@ class _Group(object):
     def wait_move(self):
         try:
             self.__move_done.wait()
-        except:
+        except KeyboardInterrupt:
             self.stop()
             raise
+        else:
+            try:
+                return self.__move_task.get()
+            except (KeyboardInterrupt, gevent.GreenletExit):
+                pass
 

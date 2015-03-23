@@ -95,27 +95,34 @@ class PI_E712(Controller):
         axis.closed_loop = self._get_closed_loop_status(axis)
         self.check_power_cut(axis)
 
-    def read_position(self, axis, measured=False):
+
+    def initialize_encoder(self, encoder):
+        try:
+            encoder.paranoia_mode = encoder.config.get("paranoia_mode")  # check error after each command
+        except KeyError:
+            encoder.paranoia_mode = False
+
+    def read_position(self, axis):
         """
-        Returns position's setpoint or measured position.
-        Measured position command is POS?
+        Returns position's setpoint.
         Setpoint position is MOV? of VOL? or SVA? depending on closed-loop
         mode is ON or OFF.
 
         Args:
             - <axis> : bliss axis.
-            - [<measured>] : boolean : if True, function returns measured position.
         Returns:
             - <position> : float : piezo position in Micro-meters or in Volts.
         """
-        if measured:
-            _pos = self._get_pos(axis)
-            elog.debug("position measured read : %g" % _pos)
-        else:
-            _pos = self._get_target_pos(axis)
-            elog.debug("position setpoint read : %g" % _pos)
+        _pos = self._get_target_pos(axis)
+        elog.debug("position setpoint read : %g" % _pos)
 
         return _pos
+
+    def read_encoder(self, encoder):
+        _pos = self._get_pos(encoder)
+        elog.debug("position measured read : %g" % _pos)
+        return _pos
+
 
     def read_velocity(self, axis):
         """
@@ -256,17 +263,17 @@ class PI_E712(Controller):
         if axis is not None and axis.paranoia_mode:
             self.get_error()  # should raise exc.
 
-    def _get_pos(self, axis):
+    def _get_pos(self, encoder):
         """
         Args:
-            - <axis> :
+            - <encoder> :
         Returns:
             - <position> Returns real position (POS? command) read by capacitive sensor.
 
         Raises:
             ?
         """
-        _ans = self.send(axis, "POS? %s" % axis.channel)
+        _ans = self.send(encoder, "POS? %s" % encoder.channel)
         _pos = float(_ans[2:])
 
         return _pos

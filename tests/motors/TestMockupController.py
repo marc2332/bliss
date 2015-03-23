@@ -322,27 +322,6 @@ class TestMockupController(unittest.TestCase):
         roby.velocity(org)
         self.assertEqual(roby.velocity(from_config=True), 2500)
 
-    def test_axis_set_simulated_measured(self):
-        roby = bliss.get_axis("roby")
-        self.assertRaises(ValueError, roby.custom_simulate_measured, 'bidon')
-
-    def test_axis_get_noisy_measured_position(self):
-        roby = bliss.get_axis("roby")
-        roby.custom_set_measured_noise(0.0)
-        _meas_pos = roby.measured_position()
-        roby.custom_set_measured_noise(0.1)
-        self.failIf(
-            math.fabs(_meas_pos - roby.measured_position()) > 0.1)
-        roby.custom_set_measured_noise(0.0)
-
-    def test_axis_get_measured_position(self):
-        roby = bliss.get_axis("roby")
-        roby.custom_simulate_measured(True)
-        _meas_pos = -1.2345
-        self.assertAlmostEqual(
-            roby.measured_position(), _meas_pos, places=4, msg=None)
-        roby.custom_simulate_measured(False)
-
     def test_axis_config_velocity(self):
         roby = bliss.get_axis("roby")
         self.assertEqual(roby.velocity(), roby.config.get("velocity", int))

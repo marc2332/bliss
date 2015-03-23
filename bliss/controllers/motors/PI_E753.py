@@ -47,14 +47,14 @@ class PI_E753(Controller):
         # Enables the closed-loop.
         self.sock.write("SVO 1 1\n")
 
-    def read_position(self, axis, measured=False):
-        if measured:
-            _ans = self._get_pos()
-            elog.debug("read_position measured = %f" % _ans)
-        else:
-            _ans = self._get_target_pos()
-            elog.debug("read_position = %f" % _ans)
+    def read_position(self, axis):
+        _ans = self._get_target_pos()
+        elog.debug("read_position = %f" % _ans)
+        return _ans
 
+    def read_encoder(self, encoder):
+        _ans = self._get_pos()
+        elog.debug("read_position measured = %f" % _ans)
         return _ans
 
     def read_velocity(self, axis):

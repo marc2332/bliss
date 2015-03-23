@@ -111,6 +111,9 @@ class PMD206(Controller):
             print "AX CH =", axis.channel
             self.ctrl_axis = axis
 
+    def initialize_encoder(self, encoder):
+        encoder.channel = encoder.config.get("channel", int)
+
     def set_on(self, axis):
         print "dozijng ON : unpark axis %s." % axis.name
         self.unpark_motor(axis)
@@ -119,30 +122,30 @@ class PMD206(Controller):
         print "dzoing OFF : park axis %s." % axis.name
         self.park_motor(axis)
 
-    def read_position(self, axis, measured=False):
+    def read_position(self, axis):
         """
-        Returns position's setpoint or measured position (in encoder counts).
+        Returns position's setpoint (in encoder counts).
 
         Args:
             - <axis> : bliss axis.
-            - [<measured>] : boolean : if True, function returns measured position
-              otherwise returns last target position.
         Returns:
             - <position> : float :
         """
         #                      1234567812345678
         # example of answer : 'PM11MP?:fffffff6'
+        _ans = self.send(axis, "TP?")
+        _pos = hex_to_int(_ans[8:])
+        elog.debug(
+            "PMD206 position setpoint (encoder counts) read : %d (_ans=%s)" % (_pos, _ans))
 
-        if measured:
-            _ans = self.send(axis, "MP?")
-            _pos = hex_to_int(_ans[8:])
-            elog.debug(
-                "PMD206 position measured (encoder counts) read : %d (_ans=%s)" % (_pos, _ans))
-        else:
-            _ans = self.send(axis, "TP?")
-            _pos = hex_to_int(_ans[8:])
-            elog.debug(
-                "PMD206 position setpoint (encoder counts) read : %d (_ans=%s)" % (_pos, _ans))
+        return _pos
+
+    def read_encoder(self, encoder):
+
+        _ans = self.send(encoder, "MP?")
+        _pos = hex_to_int(_ans[8:])
+        elog.debug(
+            "PMD206 position measured (encoder counts) read : %d (_ans=%s)" % (_pos, _ans))
 
         return _pos
 

@@ -35,7 +35,7 @@ class XXX(Controller):
         Adds specific methods
         """
 
-    def read_position(self, axis, measured=False):
+    def read_position(self, axis):
         """
         Returns position's setpoint or measured position.
 
@@ -46,10 +46,10 @@ class XXX(Controller):
         Returns:
             - <position> : float : axis setpoint in ???.
         """
-        if measured:
-            raise NotImplementedError
-        else:
-            raise NotImplementedError
+        raise NotImplementedError
+
+    def read_encoder(self, encoder):
+        raise NotImplementedError
 
     def read_velocity(self, axis):
         """

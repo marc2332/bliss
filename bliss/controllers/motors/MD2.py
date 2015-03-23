@@ -31,11 +31,5 @@ class MD2(Controller):
     def initialize_axis(self, axis):
         axis.root_name = axis.config.get("root_name")
 
-    def read_position(self, axis, measured=False):
-        """
-        Returns position's setpoint or measured position (in steps).
-        """
-        if measured:
-            return float(self._galil_query("TD %s" % axis.channel))
-        else:
-            return float(self._galil_query("TP %s" % axis.channel))
+    def read_position(self, axis):
+        return

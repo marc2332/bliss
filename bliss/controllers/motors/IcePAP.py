@@ -26,11 +26,12 @@ _ICEPAP_TAB = "IcePAP: "
 class IcePAP(Controller):
 
     """Implement IcePAP stepper motor controller access"""
-    default_group = None
+    default_group    = None
+    default_groupenc = None
 
-    def __init__(self, name, config, axes):
+    def __init__(self, name, config, axes, encoders):
         """Contructor"""
-        Controller.__init__(self, name, config, axes)
+        Controller.__init__(self, name, config, axes, encoders)
 
         self.libdevice = None
 
@@ -59,14 +60,19 @@ class IcePAP(Controller):
             IcePAP.default_group = libicepap.Group("default")
         self.libgroup = IcePAP.default_group
 
+        # Create an IcePAP lib object as default group for encoders
+        if IcePAP.default_groupenc is None:
+            IcePAP.default_groupenc = libicepap.Group("default_enc")
+        self.libgroupenc = IcePAP.default_groupenc
 
     def finalize(self):
         """Controller no more needed"""
         self.log_info("finalize() called")
-        #import pdb;pdb.set_trace()
+
         # Remove any group in the IcePAP lib
         try:
             self.libgroup.delete()
+            self.libgroupenc.delete()
         except:
             pass
 
@@ -104,20 +110,13 @@ class IcePAP(Controller):
         add_axis_method(axis, self.get_identifier)
 
 
-    def initialize_encoder(self, encoder):
-        encoder.address = encoder.config.get("address", int)
-
-        # bla bla truc
-
     def read_position(self, axis):
         """Returns axis position in motor units"""
         self.log_info("position() called for axis \"%s\"" % axis.name)
         return self.libgroup.pos(axis.libaxis)
 
-    #def read_encoder(self, encoder):
-    #
-
     def set_position(self, axis, new_pos):
+        """Set axis position to a new value given in motor units"""
         l = libicepap.PosList()
         l[axis.libaxis] = new_pos
         self.libgroup.pos(l)
@@ -272,6 +271,53 @@ class IcePAP(Controller):
         # TODO: MG18Nov14: remove this sleep (state is not immediately MOVING)
         time.sleep(0.1)
 
+    def initialize_encoder(self, encoder):
+        """Encoder initialization"""
+        self.log_info("initialize_encoder() called for axis %r" % encoder.name)
+
+        # Get axis config from bliss config
+        # address form is XY : X=rack {0..?} Y=driver {1..8}
+        encoder.address = encoder.config.get("address", int)
+
+        # TODO:
+        # Get optional encoder input to read
+        #enctype = encoder.config.get("type")
+        # TODO:
+        # check encoder input names: ENCIN, ABSENC, INPOS, MOTOR
+        encoder.enctype = "ENCIN"
+
+        # Create an IcePAP lib axis object for each encoder
+        # as there is no encoder objects in the lib
+        device  = self.libdevice
+        address = encoder.address
+        name    = encoder.name
+        encoder.libaxis = libicepap.Axis(device, address, name)
+
+        # Add the axis to the default IcePAP lib group
+        self.libgroupenc.add_axis(encoder.libaxis)
+
+    def read_encoder(self, encoder):
+        """Returns encoder position in encoder units"""
+        self.log_info("read_encoder() called for encoder %r" % encoder.name)
+
+        # Prepare the command to acces directly the encoder input
+        cmd = ' '.join(['?ENC', encoder.enctype])
+        ret = self.libgroupenc.command(cmd, encoder.libaxis)
+
+        # Return encoder steps
+        return int(ret)
+
+    def set_encoder(self, encoder, steps):
+        """Set encoder position to a new value given in encoder units"""
+        self.log_info("set_encoder(%f) called for encoder %r" % 
+            (steps, encoder.name))
+
+        # Prepare the command to acces directly the encoder input
+        cmd = ' '.join(['ENC', encoder.enctype, '%d'%steps])
+        self.libgroupenc.ackcommand(cmd, encoder.libaxis)
+
+        # No need to return the current encoder position
+        return
 
     def log_level(self, lvl):
         """Changes IcePAP and eMotion libraries verbose level"""

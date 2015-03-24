@@ -39,24 +39,23 @@ config_xml = """
     <controller class="IcePAP" name="test">
         <host value="%s"/>
         <libdebug value="1"/>
+        <encoder name="myenc">
+            <address        value="%s"/>
+            <steps_per_unit value="1000"/>
+        </encoder>
         <axis name="mymot">
             <address        value="%s"/>
             <steps_per_unit value="2000"/>
             <backlash       value="0.01"/>
-            <velocity       value="2500"/>
-            <encoder_steps_per_unit value="1000"/>
+            <velocity       value="2500"/>   // unit is mm/sec
         </axis>
         <axis name="mymot2">
             <address        value="%s"/>
             <steps_per_unit value="2000"/>
             <backlash       value="0.01"/>
-            <velocity       value="2500"/>
+            <velocity       value="2500"/>   // unit is mm/sec
         </axis>
     </controller>
-    <group name="eh1">
-        <axis name="mymot"/>
-        <axis name="mymot2"/>
-    </group>
 </config>
 """
 
@@ -102,7 +101,8 @@ class TestIcePAPController(unittest.TestCase):
 
     # called for each test
     def setUp(self):
-        bliss.load_cfg_fromstring(config_xml % (hostname, address, address2))
+        bliss.load_cfg_fromstring(config_xml % 
+            (hostname, address, address, address2))
 
     # called at the end of each individual test
     def tearDown(self):
@@ -233,11 +233,19 @@ class TestIcePAPController(unittest.TestCase):
                 gevent.sleep(0.1)
 
     def test_group_creation(self):
-        mygrp = bliss.get_group("eh1")
+        # group creation
+        mymot = bliss.get_axis("mymot")
+        mymot2= bliss.get_axis("mymot2")
+        mygrp = bliss.Group(mymot, mymot2)
+
         self.assertTrue(mygrp)
 
     def test_group_get_position(self):
-        mygrp = bliss.get_group("eh1")
+        # group creation
+        mymot = bliss.get_axis("mymot")
+        mymot2= bliss.get_axis("mymot2")
+        mygrp = bliss.Group(mymot, mymot2)
+
         #mymot.controller.log_level(3)
         pos_list = mygrp.position()
         #mymot.controller.log_level(3)
@@ -245,22 +253,46 @@ class TestIcePAPController(unittest.TestCase):
             self.assertEqual(axis.position(), pos_list[axis])
 
     def test_group_move(self):
-        mygrp = bliss.get_group("eh1")
+        # group creation
         mymot = bliss.get_axis("mymot")
+        mymot2= bliss.get_axis("mymot2")
+        mygrp = bliss.Group(mymot, mymot2)
+
         pos_list = mygrp.position()
         pos_list[mymot] += 0.1
-        mygrp.move(pos_list) # waits for the end of motions
+
+        # waits for the end of motions
+        mygrp.move(pos_list) 
         self.assertEqual(mygrp.state(), "READY")
 
     def test_group_stop(self):
-        mygrp = bliss.get_group("eh1")
+        # group creation
         mymot = bliss.get_axis("mymot")
+        mymot2= bliss.get_axis("mymot2")
+        mygrp = bliss.Group(mymot, mymot2)
+
         pos_list = mygrp.position()
         pos_list[mymot] -= 0.1
+
+        # non blocking call
         mygrp.move(pos_list, wait=False) 
-        mygrp.stop() # waits for the end of motions
+
+        # waits for the end of motions
+        mygrp.stop() 
         self.assertEqual(mygrp.state(), "READY")
 
+    def test_encoder_creation(self):
+        myenc = bliss.get_encoder("myenc")
+        self.assertTrue(myenc)
+
+    def test_encoder_get_position(self):
+        myenc = bliss.get_encoder("myenc")
+        pos = myenc.read()
+
+    def test_encoder_set_position(self):
+        myenc = bliss.get_encoder("myenc")
+        pos = 2.0  # given in mm
+        self.assertEqual(myenc.set(pos), pos)
 
 """
 Main entry point

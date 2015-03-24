@@ -13,10 +13,10 @@
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/4.8.0/codemirror.min.css" type="text/css" media="screen"></link>
         <script language="JavaScript" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/dygraph/1.1.0/dygraph-combined.js"></script>
         <script language="JavaScript" type="text/javascript" src="js/shell.js"></script>
-        <script language="JavaScript" type="text/javascript" src="js/control_panel.js"></script>
-        <script language="JavaScript" type="text/javascript" src="js/resize_mon.js"></script>
+        <script language="JavaScript" type="text/javascript" src="js/synoptic.js"></script>
+        <!--<script language="JavaScript" type="text/javascript" src="js/resize_mon.js"></script>-->
         <link rel="stylesheet" href="shell.css"></link>
-        <link rel="stylesheet" href="control_panel.css"></link>
+        <link rel="stylesheet" href="synoptic.css"></link>
 </head>
 <body>
        <div class="ui-layout-north">
@@ -45,8 +45,8 @@
                 $("#tabs").css("overflow", "hidden");
                 $("#tabs").css("height", "100%");
                 var shell = new Shell(client_uuid, "shell_cmdline", "shell_output", "tab_setup", "tab_log_messages");
-                var control_panel = new ControlPanel(shell.session_id, client_uuid, "right_panel");
-                var synoptic = new Synoptic(control_panel, "synoptic_container");
+                //var control_panel = new ControlPanel(shell.session_id, client_uuid, "right_panel");
+                var synoptic = new Synoptic(shell.session_id, client_uuid, "synoptic_container");
 	    });
 	</script>
 </body>

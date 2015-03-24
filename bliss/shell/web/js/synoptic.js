@@ -3,22 +3,23 @@ function Synoptic(session_id, client_uuid, div_id) {
     this.motors = {};
     this.actuators = {};
     this.shutters = {};
-  
+
     this.session_id = session_id;
     this.client_uuid = client_uuid;
     this.parent_div = $(document.getElementById(div_id));
-    this.top_div = $("<table style='background: #ffff00; width:100%; height:10%; table-layout: fixed'></table>");
+    //this.top_div = $("<table style='background: #ffff00; width:100%; height:10%; table-layout: fixed'></table>");
+    this.top_div = $("<table style='width:100%; height:10%; table-layout: fixed'></table>");
     this.top_div.append($("<colgroup></colgroup>"));
     this.bottom_div = this.top_div.clone();
-    this.bottom_div.css("background", "#00ffff");
-    this.bottom_div.css("border","1px solid black");
+    //this.bottom_div.css("background", "#00ffff");
+    //this.bottom_div.css("border", "1px solid black");
     this.bottom_div.append($("<colgroup></colgroup>"));
     this.synoptic_div = $("<div></div>");
-    
+
     /* 
        connect to control panel events stream 
     */
-    this.output_stream = new EventSource(this.session_id + '/control_panel_events/'+this.client_uuid);
+    this.output_stream = new EventSource(this.session_id + '/control_panel_events/' + this.client_uuid);
     this.output_stream.onmessage = $.proxy(function(e) {
         if (e.data) {
             var output = JSON.parse(e.data);
@@ -26,121 +27,122 @@ function Synoptic(session_id, client_uuid, div_id) {
         }
     }, this);
 
-    this.parent_div.load(this.session_id+"/synoptic", $.proxy(function() {
-      var svg = this.parent_div.find("svg");
-      this.svg = svg[0];
-      svg.css("height", this.parent_div.height()*0.8);
-      svg.css("width", "100%");
+    this.parent_div.load(this.session_id + "/synoptic", $.proxy(function() {
+        var svg = this.parent_div.find("svg");
+        this.svg = svg[0];
+        svg.css("height", this.parent_div.height() * 0.8);
+        svg.css("width", "100%");
 
-      this.parent_div.prepend(this.top_div);
-      this.parent_div.append(this.bottom_div);
+        this.parent_div.prepend(this.top_div);
+        this.parent_div.append(this.bottom_div);
 
-      var tr = $("<tr></tr>");
-      var tr2 = $("<tr></tr>");
-      var self = this;
-      this.bottom_div.append(tr);
-      this.top_div.append(tr2);
-      this.get_cols().each(function() { 
-          var col_id = $(this)[0].id;
-          if (col_id != '') {
-              var col = $("<td></td>");
-              var ul = $("<ul></ul>");
-              ul.addClass("items-list");
-              ul.attr("id", col_id+"__top");
-              col.css("border", "1px solid black");
-              col.append(ul);
-              tr.append(col);
-              var col2 = col.clone();
-              col2.find("ul").attr("id", col_id+"__bottom");
-              tr2.append(col2);
-              tr.append($("<td></td>"));
-              tr2.append($("<td></td>"));
-          }
-      });
-      
-      this.rearrange();
+        var tr = $("<tr></tr>");
+        var tr2 = $("<tr></tr>");
+        var self = this;
+        this.bottom_div.append(tr);
+        this.top_div.append(tr2);
+        this.get_cols().each(function() {
+            var col_id = $(this)[0].id;
+            if (col_id != '') {
+                var col = $("<td></td>");
+                var ul = $("<ul></ul>");
+                ul.addClass("items-list");
+                ul.attr("id", col_id + "__top");
+                //col.css("border", "1px solid black");
+                col.append(ul);
+                tr.append(col);
+                var col2 = col.clone();
+                col2.find("ul").attr("id", col_id + "__bottom");
+                tr2.append(col2);
+                tr.append($("<td></td>"));
+                tr2.append($("<td></td>"));
+            }
+        });
 
-    }, this));
+        this.rearrange();
 
-    $.ajax({
+        $.ajax({
             error: function(XMLHttpRequest, textStatus, errorThrown) {
                 alert(textStatus);
             },
             url: this.session_id + '/synoptic/objects',
             type: 'GET',
             dataType: 'json',
-            data: { client_uuid: this.client_uuid },
+            data: {
+                client_uuid: this.client_uuid
+            },
             success: $.proxy(function(res) {
                 this.display_objects(res);
             }, this)
-   });
+        });
+    }, this));
 };
 
 Synoptic.prototype = {
 
     get_cols: function() {
-        var cols = $(this.svg).find("g").sort(function(a,b) { 
-             var a_rect = $(a)[0].getBoundingClientRect();
-             var b_rect = $(b)[0].getBoundingClientRect();
-             return a_rect.left-b_rect.left
+        var cols = $(this.svg).find("g").sort(function(a, b) {
+            var a_rect = $(a)[0].getBoundingClientRect();
+            var b_rect = $(b)[0].getBoundingClientRect();
+            return a_rect.left - b_rect.left
         });
-        return cols; 
+        return cols;
     },
 
     add_object: function(group_name, where, obj) {
-        var container = $("#"+group_name+"__"+where)
+        var container = $("#" + group_name + "__" + where)
         if (obj.type == 'counter') {
-                  var dom_item = $("<li></li>");
-                  dom_item.html("&nbsp;" + obj.name + "&nbsp;");
-                  dom_item.addClass("control-panel-item");
-                  container.append(dom_item);
-                  this.counters_list.append(dom_item);
-              } else if (obj.type == 'motor') {
-                  var name = obj.name;
-                  var pos = obj.position;
-                  var state = obj.state;
-                  var dom_item = $("<li></li>");
-                  dom_item.addClass("control-panel-item");
-                  container.append(dom_item);
-                  this.motors[name] = {
-                      name: name,
-                      dom_item: dom_item,
-                      state: state,
-                      position: pos
-                  }
-                  this.update_motor(this.motors[name]);
-              } else if (obj.type == 'actuator') {
-                  var name = obj.name;
-                  var state = obj.state;
-                  this.actuators[name] = {
-                      name: name,
-                      state: state
-                  }
-                  var dom_item = this.add_item_with_buttons(this.actuators, name, "In", "set_in", "Out", "set_out");
-                  container.append(dom_item);
-                  this.update_inout(this.actuators[name]);
-              } else if (obj.type == 'shutter') {
-                  var name = obj.name;
-                  var state = obj.state;
-                    this.shutters[name] = {
-                        name: name,
-                        state: state
-                    }
-                    var dom_item = this.add_item_with_buttons(this.shutters, name, "Open", "open", "Close", "close");
-                    container.append(dom_item);
-                    this.update_shutter(this.shutters[name]);
-              }
+            var dom_item = $("<li></li>");
+            dom_item.html("&nbsp;" + obj.name + "&nbsp;");
+            dom_item.addClass("control-panel-item");
+            container.append(dom_item);
+            this.counters_list.append(dom_item);
+        } else if (obj.type == 'motor') {
+            var name = obj.name;
+            var pos = obj.position;
+            var state = obj.state;
+            var dom_item = $("<li></li>");
+            dom_item.addClass("control-panel-item");
+            container.append(dom_item);
+            this.motors[name] = {
+                name: name,
+                dom_item: dom_item,
+                state: state,
+                position: pos
+            }
+            this.update_motor(this.motors[name]);
+        } else if (obj.type == 'actuator') {
+            var name = obj.name;
+            var state = obj.state;
+            this.actuators[name] = {
+                name: name,
+                state: state
+            }
+            var dom_item = this.add_item_with_buttons(this.actuators, name, "In", "set_in", "Out", "set_out");
+            container.append(dom_item);
+            this.update_inout(this.actuators[name]);
+        } else if (obj.type == 'shutter') {
+            var name = obj.name;
+            var state = obj.state;
+            this.shutters[name] = {
+                name: name,
+                state: state
+            }
+            var dom_item = this.add_item_with_buttons(this.shutters, name, "Open", "open", "Close", "close");
+            container.append(dom_item);
+            this.update_shutter(this.shutters[name]);
+        }
     },
 
     display_objects: function(objects_by_svg_group) {
-        for (var group_name in objects_by_svg_group) { 
-            for (var i=0; i<objects_by_svg_group[group_name].top.length; i++) {
-              var obj = objects_by_svg_group[group_name].top[i]
-              this.add_object(group_name, 'top', obj);
+        for (var group_name in objects_by_svg_group) {
+            for (var i = 0; i < objects_by_svg_group[group_name].top.length; i++) {
+                var obj = objects_by_svg_group[group_name].top[i]
+                this.add_object(group_name, 'top', obj);
             }
-            for (var i=0; i<objects_by_svg_group[group_name].bottom.length; i++) {
-              var obj = objects_by_svg_group[group_name].bottom[i]
-              this.add_object(group_name, 'bottom', obj);
+            for (var i = 0; i < objects_by_svg_group[group_name].bottom.length; i++) {
+                var obj = objects_by_svg_group[group_name].bottom[i]
+                this.add_object(group_name, 'bottom', obj);
             }
         }
     },
@@ -154,33 +156,33 @@ Synoptic.prototype = {
         var width = 0;
         var x = 0;
         var cols = this.get_cols();
-        for (var i=0; i<cols.length; i++) {
-            var col = $(cols[i])[0]; 
+        for (var i = 0; i < cols.length; i++) {
+            var col = $(cols[i])[0];
             var g_rect = col.getBoundingClientRect();
-            if (g_rect.width > width) { 
-               x = g_rect.left;
-               width = g_rect.width; 
+            if (g_rect.width > width) {
+                x = g_rect.left;
+                width = g_rect.width;
             }
             if (col.id != '') {
-               var new_col = $("<col>");
-               new_col.css("width", g_rect.width);
-               colgroup.append(new_col);
-               colgroup2.append(new_col.clone());
-               if (i<cols.length-1) {
-                   var new_col = $("<col>");
-                   next_g_rect = $(cols[i+1])[0].getBoundingClientRect();
-                   new_col.css("width", next_g_rect.left-g_rect.right);
-                   colgroup.append(new_col);
-                   colgroup2.append(new_col.clone());
-              }
+                var new_col = $("<col>");
+                new_col.css("width", g_rect.width);
+                colgroup.append(new_col);
+                colgroup2.append(new_col.clone());
+                if (i < cols.length - 1) {
+                    var new_col = $("<col>");
+                    next_g_rect = $(cols[i + 1])[0].getBoundingClientRect();
+                    new_col.css("width", next_g_rect.left - g_rect.right);
+                    colgroup.append(new_col);
+                    colgroup2.append(new_col.clone());
+                }
             }
         };
-     
+
         this.bottom_div.css("width", width);
-        this.bottom_div.css("position", "relative"); 
+        this.bottom_div.css("position", "relative");
         this.bottom_div.css("left", x);
         this.top_div.css("width", width);
-        this.top_div.css("position", "relative"); 
+        this.top_div.css("position", "relative");
         this.top_div.css("left", x);
     },
 
@@ -215,7 +217,7 @@ Synoptic.prototype = {
         var dom_item = motor.dom_item;
 
         dom_item.html(name + "&nbsp;" + pos);
-        
+
         dom_item.removeClass("control-panel-item-ready control-panel-item-moving control-panel-item-fault control-panel-item-home control-panel-item-onlimit");
         if (state == "READY") {
             dom_item.addClass("control-panel-item-ready");

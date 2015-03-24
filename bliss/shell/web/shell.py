@@ -262,6 +262,7 @@ def return_synoptic_objects(session_id):
                 obj = interpreter_exec(session_id, client_uuid, "get_object", obj_name)
                 obj["name"]=obj_name
                 d[x].append(obj)
+    print objects
     return objects        
  
 

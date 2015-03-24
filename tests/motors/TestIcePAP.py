@@ -37,24 +37,30 @@ Example of Bliss configuration
 config_xml = """
 <config>
     <controller class="IcePAP" name="test">
+
         <host value="%s"/>
         <libdebug value="1"/>
-        <encoder name="myenc">
-            <address        value="%s"/>
-            <steps_per_unit value="1000"/>
-        </encoder>
+
         <axis name="mymot">
             <address        value="%s"/>
             <steps_per_unit value="2000"/>
             <backlash       value="0.01"/>
             <velocity       value="2500"/>   // unit is mm/sec
         </axis>
+
         <axis name="mymot2">
             <address        value="%s"/>
             <steps_per_unit value="2000"/>
             <backlash       value="0.01"/>
             <velocity       value="2500"/>   // unit is mm/sec
         </axis>
+
+        <encoder name="myenc">
+            <address        value="%s"/>
+            <type           value="encin"/>  // optional
+            <steps_per_unit value="1000"/>
+        </encoder>
+
     </controller>
 </config>
 """
@@ -102,7 +108,7 @@ class TestIcePAPController(unittest.TestCase):
     # called for each test
     def setUp(self):
         bliss.load_cfg_fromstring(config_xml % 
-            (hostname, address, address, address2))
+            (hostname, address, address2, address))
 
     # called at the end of each individual test
     def tearDown(self):
@@ -287,7 +293,9 @@ class TestIcePAPController(unittest.TestCase):
 
     def test_encoder_get_position(self):
         myenc = bliss.get_encoder("myenc")
+        #myenc.controller.log_level(bliss.common.log.INFO)
         pos = myenc.read()
+        #myenc.controller.log_level(bliss.common.log.ERROR)
 
     def test_encoder_set_position(self):
         myenc = bliss.get_encoder("myenc")

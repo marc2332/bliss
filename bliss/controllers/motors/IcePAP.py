@@ -1,5 +1,6 @@
 import sys
 import os
+import string
 #TODO: MG18Nov14: needed by change in limit_search, to be removed
 import time
 
@@ -279,12 +280,16 @@ class IcePAP(Controller):
         # address form is XY : X=rack {0..?} Y=driver {1..8}
         encoder.address = encoder.config.get("address", int)
 
-        # TODO:
         # Get optional encoder input to read
-        #enctype = encoder.config.get("type")
-        # TODO:
-        # check encoder input names: ENCIN, ABSENC, INPOS, MOTOR
-        encoder.enctype = "ENCIN"
+        try:
+            enctype = string.upper(encoder.config.get("type"))
+        except:
+            enctype = "ENCIN"
+
+        # Minium check on encoder input
+        if enctype not in ['ENCIN', 'ABSENC', 'INPOS', 'MOTOR']:
+            raise ValueError('Invalid encoder type')
+        encoder.enctype = enctype
 
         # Create an IcePAP lib axis object for each encoder
         # as there is no encoder objects in the lib

@@ -128,7 +128,7 @@ function Shell(client_uuid, cmdline_div_id, shell_output_div_id, setup_div_id, l
        and consider EOF as an error
     */
     this.set_executing(true);
-    this.execute_setup();
+    this.setup = this.execute_setup();
 };
 
 Shell.prototype = {
@@ -361,10 +361,10 @@ Shell.prototype = {
         //this.setup_div.prepend($("<pre>"+moment().format("dddd, MMMM Do YYYY, hh:mm:ss")+"&gt;&nbsp;<i>Executing setup...</i></pre><hr>"));
         this.setup_div.prepend($("<hr>"));
 
-        this._execute("setup", force, true, false);
+        return this._execute("setup", force, true);
     },
 
-    _execute: function(cmd, save_history, eof_error, synchronous_call) {
+    _execute: function(cmd, save_history, eof_error) {
         var url = this.session_id+'/command';
         var data = { "client_uuid": this.client_uuid };
 
@@ -376,10 +376,6 @@ Shell.prototype = {
             localStorage[this.session_id + "_shell_commands"] = JSON.stringify(this.history);
         }
 
-        if (synchronous_call == undefined) {
-            synchronous_call = true;
-        }
-
         if (cmd == "setup") {
             url = this.session_id + '/setup';
             data["force"] = save_history;
@@ -388,7 +384,7 @@ Shell.prototype = {
         }
 
         /* make remote call */
-        $.ajax({
+        return $.ajax({
             error: $.proxy(function(XMLHttpRequest, textStatus, errorThrown) {
                 this.set_executing(false);
                 alert(textStatus);
@@ -396,7 +392,6 @@ Shell.prototype = {
             url: url,
             type: 'GET',
             dataType: 'json',
-            async: synchronous_call,
             success: $.proxy(function(res) {
                 this.set_executing(false);
                 if (res.error.length > 0) {

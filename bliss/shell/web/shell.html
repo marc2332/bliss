@@ -45,8 +45,9 @@
                 $("#tabs").css("overflow", "hidden");
                 $("#tabs").css("height", "100%");
                 var shell = new Shell(client_uuid, "shell_cmdline", "shell_output", "tab_setup", "tab_log_messages");
-                //var control_panel = new ControlPanel(shell.session_id, client_uuid, "right_panel");
                 var synoptic = new Synoptic(shell.session_id, client_uuid, "synoptic_container");
+                $.when(shell.setup).done(function() { synoptic.load_objects(); });
+                //var control_panel = new ControlPanel(shell.session_id, client_uuid, "right_panel");
 	    });
 	</script>
 </body>

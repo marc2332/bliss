@@ -15,7 +15,7 @@ def set_synoptic_file(session_id, synoptic_svg_file, synoptic_elements):
 
 def set_setup_file(session_id, setup_file):
     global SETUP_FILE
-    SETUP_FILE[session_id] = setup_file
+    SETUP_FILE[session_id] = os.path.abspath(os.path.expanduser(setup_file))
 
 
 def read_config(config_file):
@@ -23,8 +23,8 @@ def read_config(config_file):
         cfg = yaml.load(f.read())
 
         for session_id in cfg.iterkeys():
-            set_setup_file(session_id, os.path.join(os.path.dirname(config_file), cfg[session_id]["setup-file"]))
-            set_synoptic_file(session_id, os.path.join(os.path.dirname(config_file), cfg[session_id]["synoptic"]["svg-file"]), cfg[session_id]["synoptic"]["elements"])
+            set_setup_file(session_id, cfg[session_id]["setup-file"])
+            set_synoptic_file(session_id, cfg[session_id]["synoptic"]["svg-file"], cfg[session_id]["synoptic"]["elements"])
 
 
 def setup(setup_file=None, env_dict=None):

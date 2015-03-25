@@ -1,5 +1,4 @@
 function Synoptic(session_id, client_uuid, div_id) {
-    this.counters_list = {};
     this.motors = {};
     this.actuators = {};
     this.shutters = {};
@@ -39,8 +38,8 @@ function Synoptic(session_id, client_uuid, div_id) {
         var tr = $("<tr></tr>");
         var tr2 = $("<tr></tr>");
         var self = this;
-        this.bottom_div.append(tr);
-        this.top_div.append(tr2);
+        this.top_div.append(tr);
+        this.bottom_div.append(tr2);
         this.get_cols().each(function() {
             var col_id = $(this)[0].id;
             if (col_id != '') {
@@ -60,21 +59,6 @@ function Synoptic(session_id, client_uuid, div_id) {
         });
 
         this.rearrange();
-
-        $.ajax({
-            error: function(XMLHttpRequest, textStatus, errorThrown) {
-                alert(textStatus);
-            },
-            url: this.session_id + '/synoptic/objects',
-            type: 'GET',
-            dataType: 'json',
-            data: {
-                client_uuid: this.client_uuid
-            },
-            success: $.proxy(function(res) {
-                this.display_objects(res);
-            }, this)
-        });
     }, this));
 };
 
@@ -89,6 +73,32 @@ Synoptic.prototype = {
         return cols;
     },
 
+    load_objects: function() {
+        $.ajax({
+            error: function(XMLHttpRequest, textStatus, errorThrown) {
+                alert(textStatus);
+            },
+            url: this.session_id + '/synoptic/objects',
+            type: 'GET',
+            dataType: 'json',
+            data: {
+                client_uuid: this.client_uuid
+            },
+            success: $.proxy(function(objects_by_svg_group) {
+                 for (var group_name in objects_by_svg_group) {
+                     for (var i = 0; i < objects_by_svg_group[group_name].top.length; i++) {
+                         var obj = objects_by_svg_group[group_name].top[i]
+                         this.add_object(group_name, 'top', obj);
+                     }
+                     for (var i = 0; i < objects_by_svg_group[group_name].bottom.length; i++) {
+                         var obj = objects_by_svg_group[group_name].bottom[i]
+                         this.add_object(group_name, 'bottom', obj);
+                     }
+                 }
+           }, this)
+        });
+    },
+
     add_object: function(group_name, where, obj) {
         var container = $("#" + group_name + "__" + where)
         if (obj.type == 'counter') {
@@ -96,7 +106,6 @@ Synoptic.prototype = {
             dom_item.html("&nbsp;" + obj.name + "&nbsp;");
             dom_item.addClass("control-panel-item");
             container.append(dom_item);
-            this.counters_list.append(dom_item);
         } else if (obj.type == 'motor') {
             var name = obj.name;
             var pos = obj.position;
@@ -131,19 +140,6 @@ Synoptic.prototype = {
             var dom_item = this.add_item_with_buttons(this.shutters, name, "Open", "open", "Close", "close");
             container.append(dom_item);
             this.update_shutter(this.shutters[name]);
-        }
-    },
-
-    display_objects: function(objects_by_svg_group) {
-        for (var group_name in objects_by_svg_group) {
-            for (var i = 0; i < objects_by_svg_group[group_name].top.length; i++) {
-                var obj = objects_by_svg_group[group_name].top[i]
-                this.add_object(group_name, 'top', obj);
-            }
-            for (var i = 0; i < objects_by_svg_group[group_name].bottom.length; i++) {
-                var obj = objects_by_svg_group[group_name].bottom[i]
-                this.add_object(group_name, 'bottom', obj);
-            }
         }
     },
 

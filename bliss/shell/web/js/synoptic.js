@@ -6,13 +6,13 @@ function Synoptic(session_id, client_uuid, div_id) {
     this.session_id = session_id;
     this.client_uuid = client_uuid;
     this.parent_div = $(document.getElementById(div_id));
-    //this.top_div = $("<table style='background: #ffff00; width:100%; height:10%; table-layout: fixed'></table>");
-    this.top_div = $("<table style='width:100%; height:10%; table-layout: fixed'></table>");
-    this.top_div.append($("<colgroup></colgroup>"));
+    this.top_div = $("<div style='background: #ffff00;'></div>");
+    this.top_div.css("border", "1px solid black");
+    this.top_div.css("display", "table");
+    this.top_div.css("table-layout", "fixed");
+    this.top_div.css("width", "100%");
     this.bottom_div = this.top_div.clone();
-    //this.bottom_div.css("background", "#00ffff");
-    //this.bottom_div.css("border", "1px solid black");
-    this.bottom_div.append($("<colgroup></colgroup>"));
+    this.bottom_div.css("background", "#00ffff");
     this.synoptic_div = $("<div></div>");
 
     /* 
@@ -30,34 +30,44 @@ function Synoptic(session_id, client_uuid, div_id) {
         var svg = this.parent_div.find("svg");
         this.svg = svg[0];
         svg.css("height", this.parent_div.height() * 0.8);
-        svg.css("width", "100%");
+        //svg.css("width", "100%");
+        svg.css("display", "block");
+        svg.css("margin", "auto");
 
+        var self = this;
+        /*svg.mousewheel(function(event) {
+            console.log(event.deltaX, event.deltaY, event.deltaFactor);
+            $(self.svg).css("height", $(self.svg).css("height")+event.deltaFactor);
+            self.rearrange();    
+        });
+        */
         this.parent_div.prepend(this.top_div);
         this.parent_div.append(this.bottom_div);
 
-        var tr = $("<tr></tr>");
-        var tr2 = $("<tr></tr>");
-        var self = this;
-        this.top_div.append(tr);
-        this.bottom_div.append(tr2);
+        this.top_div.append($("<div style='display:table-cell;'></div>"));
+        this.bottom_div.append($("<div style='display:table-cell;'></div>"));
         this.get_cols().each(function() {
-            var col_id = $(this)[0].id;
-            if (col_id != '') {
-                var col = $("<td></td>");
-                var ul = $("<ul></ul>");
-                ul.addClass("items-list");
-                ul.attr("id", col_id + "__top");
-                //col.css("border", "1px solid black");
-                col.append(ul);
-                tr.append(col);
-                var col2 = col.clone();
-                col2.find("ul").attr("id", col_id + "__bottom");
-                tr2.append(col2);
-                tr.append($("<td></td>"));
-                tr2.append($("<td></td>"));
-            }
-        });
+            var col_id = this.id;
+            var ul = $("<ul></ul>");
+            ul.addClass("items-list");
+            ul.attr("id", col_id + "__top");
+            ul.css("border", "1px solid black");
+            ul.css("display", "table-cell");
+            ul.css("vertical-align", "bottom");
+            self.top_div.append(ul);
+            var ul2 = ul.clone();
+            ul2.attr("id", col_id + "__bottom");
+            ul2.css("vertical-align", "top");
+            self.bottom_div.append(ul2);
 
+            spacer = $("<div></div>");
+            spacer.css("border", "1px solid black");
+            spacer.css("display", "table-cell");
+            self.top_div.append(spacer);
+            self.bottom_div.append(spacer.clone());
+        });
+        this.top_div.append($("<div style='display:table-cell;'></div>"));
+        this.bottom_div.append($("<div style='display:table-cell;'></div>"));
         this.rearrange();
     }, this));
 };
@@ -69,6 +79,8 @@ Synoptic.prototype = {
             var a_rect = $(a)[0].getBoundingClientRect();
             var b_rect = $(b)[0].getBoundingClientRect();
             return a_rect.left - b_rect.left
+        }).filter(function(i,elt) {
+            return /^g[0-9]+$/.test(this.id) === false; 
         });
         return cols;
     },
@@ -144,42 +156,23 @@ Synoptic.prototype = {
     },
 
     rearrange: function() {
-        var colgroup = $(this.bottom_div.find("colgroup")[0]);
-        var colgroup2 = $(this.top_div.find("colgroup")[0]);
-        colgroup.empty();
-        colgroup2.empty();
-
-        var width = 0;
-        var x = 0;
-        var cols = this.get_cols();
+        var cols = this.get_cols(); 
+        var x = cols[0].getBoundingClientRect().left;
+        
+        $("#"+cols[0].id+"__top").prev().css("width", x); 
+        $("#"+cols[0].id+"__bottom").prev().css("width", x); 
         for (var i = 0; i < cols.length; i++) {
-            var col = $(cols[i])[0];
+            var col = cols[i];
             var g_rect = col.getBoundingClientRect();
-            if (g_rect.width > width) {
-                x = g_rect.left;
-                width = g_rect.width;
+            $("#"+col.id+"__top").css("width", g_rect.width);
+            $("#"+col.id+"__bottom").css("width", g_rect.width);
+            if (i < (cols.length - 1)) {
+                var next_g_rect = cols[i+1].getBoundingClientRect();
+                var spacer_width = next_g_rect.left-g_rect.right;
+                $("#"+col.id+"__top").next().css("width", spacer_width);
+                $("#"+col.id+"__bottom").next().css("width", spacer_width); 
             }
-            if (col.id != '') {
-                var new_col = $("<col>");
-                new_col.css("width", g_rect.width);
-                colgroup.append(new_col);
-                colgroup2.append(new_col.clone());
-                if (i < cols.length - 1) {
-                    var new_col = $("<col>");
-                    next_g_rect = $(cols[i + 1])[0].getBoundingClientRect();
-                    new_col.css("width", next_g_rect.left - g_rect.right);
-                    colgroup.append(new_col);
-                    colgroup2.append(new_col.clone());
-                }
-            }
-        };
-
-        this.bottom_div.css("width", width);
-        this.bottom_div.css("position", "relative");
-        this.bottom_div.css("left", x);
-        this.top_div.css("width", width);
-        this.top_div.css("position", "relative");
-        this.top_div.css("left", x);
+        }; 
     },
 
     add_item_with_buttons: function(obj_dict, name, label1, cmd1, label2, cmd2) {

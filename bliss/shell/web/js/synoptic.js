@@ -6,13 +6,14 @@ function Synoptic(session_id, client_uuid, div_id) {
     this.session_id = session_id;
     this.client_uuid = client_uuid;
     this.parent_div = $(document.getElementById(div_id));
-    this.top_div = $("<div style='background: #ffff00;'></div>");
-    this.top_div.css("border", "1px solid black");
+    this.top_div = $("<div></div>");
+    //this.top_div.css("background", "#ffff00");
+    //this.top_div.css("border", "1px solid black");
     this.top_div.css("display", "table");
     this.top_div.css("table-layout", "fixed");
     this.top_div.css("width", "100%");
     this.bottom_div = this.top_div.clone();
-    this.bottom_div.css("background", "#00ffff");
+    //this.bottom_div.css("background", "#00ffff");
     this.synoptic_div = $("<div></div>");
 
     /* 
@@ -30,7 +31,6 @@ function Synoptic(session_id, client_uuid, div_id) {
         var svg = this.parent_div.find("svg");
         this.svg = svg[0];
         svg.css("height", this.parent_div.height() * 0.8);
-        //svg.css("width", "100%");
         svg.css("display", "block");
         svg.css("margin", "auto");
 
@@ -51,7 +51,7 @@ function Synoptic(session_id, client_uuid, div_id) {
             var ul = $("<ul></ul>");
             ul.addClass("items-list");
             ul.attr("id", col_id + "__top");
-            ul.css("border", "1px solid black");
+            //ul.css("border", "1px solid black");
             ul.css("display", "table-cell");
             ul.css("vertical-align", "bottom");
             self.top_div.append(ul);

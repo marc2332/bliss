@@ -235,6 +235,7 @@ class CalcController(Controller):
             self.reals.append(real_axis)
             event.connect(real_axis, 'position', self._calc_from_real)
             event.connect(real_axis, 'state', self._update_state_from_real)
+            event.connect(real_axis, "move_done", self._real_move_done)
         self._reals_group = Group(*self.reals)
         self.pseudos = [
             axis for axis_name,
@@ -270,6 +271,15 @@ class CalcController(Controller):
         state = self._reals_group.state()
         for axis in self.pseudos:
             axis.settings.set("state", state, write=False)
+
+    def _real_move_done(self, done):
+        if done:
+            for axis in self.pseudos:
+                if axis.encoder:
+                    # check position and raise RuntimeError if encoder
+                    # position doesn't correspond to axis position
+                    # (MAXE_E)
+                    axis._do_encoder_reading()
 
     def initialize_axis(self, axis):
         if axis in self.pseudos:

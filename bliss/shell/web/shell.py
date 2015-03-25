@@ -17,6 +17,7 @@ import json
 import signal
 import uuid
 from jinja2 import Template
+import yaml
 import bliss
 
 EXECUTION_QUEUE = dict()
@@ -25,6 +26,8 @@ CONTROL_PANEL_QUEUE = dict()
 INTERPRETER = dict()
 RESULT = dict()
 SESSION_INIT = dict()
+SETUP_FILE = dict()
+SYNOPTIC = dict()
 
 # patch socket module;
 # by default bottle doesn't set address as reusable
@@ -35,6 +38,27 @@ def my_socket_bind(self, *args, **kwargs):
     self.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     return socket.socket._bind(self, *args, **kwargs)
 socket.socket.bind = my_socket_bind
+
+
+def set_synoptic_file(session_id, synoptic_svg_file, synoptic_elements):
+    global SYNOPTIC
+    s = SYNOPTIC.setdefault(session_id, dict())
+    s["file"] = os.path.abspath(os.path.expanduser(synoptic_svg_file))
+    s["elements"] = synoptic_elements
+
+
+def set_setup_file(session_id, setup_file):
+    global SETUP_FILE
+    SETUP_FILE[session_id] = os.path.abspath(os.path.expanduser(setup_file))
+
+
+def read_config(config_file):
+    with file(config_file, "r") as f:
+        cfg = yaml.load(f.read())
+
+        for session_id in cfg.iterkeys():
+            set_setup_file(session_id, cfg[session_id]["setup-file"])
+            set_synoptic_file(session_id, cfg[session_id]["synoptic"]["svg-file"], cfg[session_id]["synoptic"]["elements"])
 
 
 def handle_output(session_id, q):
@@ -215,7 +239,7 @@ def open_session(session_id):
         output_queue_from_interpreter, output_queue = gipc.pipe()
         RESULT[session_id] = dict()
         INTERPRETER[session_id] = gipc.start_process(interpreter.start_interpreter,
-                                                     args=(khoros.SETUP_FILE.get(session_id), cmds_queue, output_queue))
+                                                     args=(SETUP_FILE.get(session_id), cmds_queue, output_queue))
         EXECUTION_QUEUE[session_id].put((None, "syn", (None,)))
         output_queue_from_interpreter.get() #ack
     
@@ -242,7 +266,7 @@ def return_objects_names(session_id):
 
 @bottle.route("/<session_id:int>/synoptic")
 def return_synoptic_svg(session_id):
-    with file(khoros.SYNOPTIC[session_id]["file"]) as f:
+    with file(SYNOPTIC[session_id]["file"]) as f:
         return f.read()
 
 @bottle.route("/<session_id:int>/synoptic/objects")
@@ -250,7 +274,7 @@ def return_synoptic_objects(session_id):
     client_uuid = bottle.request.GET["client_uuid"]
     objects = dict()
 
-    elements = khoros.SYNOPTIC[session_id]["elements"] 
+    elements = SYNOPTIC[session_id]["elements"] 
     
     for elt in elements:
         d = { 'top': [], 'bottom': []}

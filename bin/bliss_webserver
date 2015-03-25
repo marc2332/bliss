@@ -17,7 +17,6 @@ options, args = parser.parse_args()
 logging.basicConfig()
 logging.getLogger().setLevel(logging.DEBUG)
 
-khoros.read_config(options.config_file)
-
+shell.read_config(options.config_file)
 shell.serve_forever(options.port) 
 

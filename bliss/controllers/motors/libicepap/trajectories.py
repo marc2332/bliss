@@ -216,8 +216,8 @@ class Trajectory(object):
         self._axis_list   = []
         self._loaded      = {}
         self._sync        = {}
-        self._acctime     = 0.0
-        self._velocity    = 0.0
+        self._acctime     = 0.1
+        self._velocity    = 1.0
 
 
         # TODO: remove previous vdata from memory

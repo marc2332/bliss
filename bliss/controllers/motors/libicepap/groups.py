@@ -39,6 +39,10 @@ def name_to_group(name):
     except:
         raise ValueError("invalid group name \"%s\""%name)
 
+def group_exists(name):
+    return name in globals._known_groups
+
+
 #-------------------------------------------------------------------------
 # Inteface function
 #

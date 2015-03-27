@@ -190,16 +190,15 @@ class BlissAxis(PyTango.Device_4Impl):
         if not self.once:
             try:
                 # Initialises "set values" of attributes.
-
                 # Position
                 attr = self.get_device_attr().get_attr_by_name("Position")
                 attr.set_write_value(self.axis.position())
-
+                
                 # Velocity
                 attr = self.get_device_attr().get_attr_by_name("Velocity")
                 attr.set_write_value(self.axis.velocity())
             except:
-                elog.exception(
+                elog.info(
                     "Cannot set one of the attributes write value")
             finally:
                 self.once = True
@@ -902,7 +901,12 @@ def main():
                     str: PyTango.DevString,
                     int: PyTango.DevLong,
                     float: PyTango.DevDouble,
-                    bool: PyTango.DevBoolean}
+                    bool: PyTango.DevBoolean,
+                    "float_array": PyTango.DevVarFloatArray,
+                    "double_array": PyTango.DevVarDoubleArray,
+                    "long_array": PyTango.DevVarLongArray,
+                    "string_array": PyTango.DevVarStringArray
+                }
 
                 """
                 CUSTOM COMMANDS

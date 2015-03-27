@@ -67,6 +67,7 @@ config_xml = """
 
 
 """
+            <acceleration   value="4"/>    // unit is par/sec2
 Global resources, yes, I know it's bad
 """
 hostname = ""
@@ -267,7 +268,7 @@ class TestIcePAPController(unittest.TestCase):
 
     def test_get_parameter_acctime_empty(self):
         mypar = bliss.get_axis("mypar")
-        vel = mypar.velocity()
+        vel = mypar.acctime()
 
     def test_get_parameter_acctime(self):
         mypar = bliss.get_axis("mypar")

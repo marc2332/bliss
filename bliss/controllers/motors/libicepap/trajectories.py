@@ -299,6 +299,14 @@ class Trajectory(object):
         # By default set parameter velocity on all axes
         axis_list = self._check_axislist()
 
+        # If a trajectory has not been loaded yet, there is
+        # no sense to request velocity/acctime to the DSP
+        # but emulate anyway an answer for library clients 
+        # not aware of this non sense.
+        axis = axis_list[0]
+        if self._sync[axis] == False:
+            return self._velocity
+
         # Prepare the systems commands
         cmd  = "?PARVEL"
         cmds = {}
@@ -387,6 +395,14 @@ class Trajectory(object):
 
         # By default set parameter acceleration on all axes
         axis_list = self._check_axislist()
+
+        # If a trajectory has not been loaded yet, there is
+        # no sense to request velocity/acctime to the DSP
+        # but emulate anyway an answer for library clients 
+        # not aware of this non sense.
+        axis = axis_list[0]
+        if self._sync[axis] == False:
+            return self._acctime
 
         # Prepare the systems commands
         cmd  = "?PARACCT"

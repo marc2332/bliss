@@ -25,9 +25,9 @@ class IcePAPTraj(Controller):
     """Implement IcePAP stepper motor controller access"""
     default_group = None
 
-    def __init__(self, name, config, axes):
+    def __init__(self, name, config, axes, encoders):
         """Contructor"""
-        Controller.__init__(self, name, config, axes)
+        Controller.__init__(self, name, config, axes, encoders)
 
         # Records the list of axes
         self.axes_names = []

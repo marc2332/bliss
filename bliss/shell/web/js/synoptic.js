@@ -16,17 +16,6 @@ function Synoptic(session_id, client_uuid, div_id) {
     //this.bottom_div.css("background", "#00ffff");
     this.synoptic_div = $("<div></div>");
 
-    /* 
-       connect to control panel events stream 
-    */
-    this.output_stream = new EventSource(this.session_id + '/control_panel_events/' + this.client_uuid);
-    this.output_stream.onmessage = $.proxy(function(e) {
-        if (e.data) {
-            var output = JSON.parse(e.data);
-            this.update_display(output.data);
-        }
-    }, this);
-
     this.parent_div.load(this.session_id + "/synoptic", $.proxy(function() {
         var svg = this.parent_div.find("svg");
         this.svg = svg[0];
@@ -83,6 +72,10 @@ Synoptic.prototype = {
             return /^g[0-9]+$/.test(this.id) === false; 
         });
         return cols;
+    },
+
+    handle_data_event: function(data) {
+        this.update_display(data);
     },
 
     load_objects: function() {

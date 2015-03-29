@@ -278,7 +278,7 @@ def start(setup_file, input_queue, output_queue, i):
         if action == "syn":
             output_queue.put("ack")
             continue
-        elif action == "control_panel":
+        elif action == "synoptic":
             object_name, method_name = _
             namespace = i.locals
             for name in object_name.split('.'):

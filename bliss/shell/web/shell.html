@@ -46,8 +46,18 @@
                 $("#tabs").css("height", "100%");
                 var shell = new Shell(client_uuid, "shell_cmdline", "shell_output", "tab_setup", "tab_log_messages");
                 var synoptic = new Synoptic(shell.session_id, client_uuid, "synoptic_container");
+                var output_stream = new EventSource(shell.session_id+'/output_stream/'+client_uuid);
+                output_stream.onmessage = function(e) {
+                    if (e.data) {
+                        var data = JSON.parse(e.data);
+                        if (data.type == 'synoptic') {
+                            synoptic.handle_data_event(data.data);
+                        } else {
+                            shell.handle_output_event(data.data);
+                        }
+                    }
+                };
                 $.when(shell.setup).done(function() { synoptic.load_objects(); });
-                //var control_panel = new ControlPanel(shell.session_id, client_uuid, "right_panel");
 	    });
 	</script>
 </body>

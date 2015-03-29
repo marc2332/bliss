@@ -22,7 +22,6 @@ import bliss
 
 EXECUTION_QUEUE = dict()
 OUTPUT_QUEUE = dict()
-CONTROL_PANEL_QUEUE = dict()
 INTERPRETER = dict()
 RESULT = dict()
 SESSION_INIT = dict()
@@ -57,8 +56,14 @@ def read_config(config_file):
         cfg = yaml.load(f.read())
 
         for session_id in cfg.iterkeys():
-            set_setup_file(session_id, cfg[session_id]["setup-file"])
-            set_synoptic_file(session_id, cfg[session_id]["synoptic"]["svg-file"], cfg[session_id]["synoptic"]["elements"])
+            setup_file = cfg[session_id]["setup-file"]
+            if not os.path.isabs(setup_file):
+                setup_file = os.path.join(os.path.dirname(config_file), setup_file)
+            set_setup_file(session_id, setup_file)
+            synoptic_file = cfg[session_id]["synoptic"]["svg-file"]
+            if not os.path.isabs(synoptic_file):
+                synoptic_file = os.path.join(os.path.dirname(config_file), synoptic_file)
+            set_synoptic_file(session_id, synoptic_file, cfg[session_id]["synoptic"]["elements"])
 
 
 def handle_output(session_id, q):
@@ -109,46 +114,22 @@ def send_output(session_id, client_uuid):
             if isinstance(output, StopIteration):
                 RESULT[session_id][client_uuid].set(output.args[0])
             elif isinstance(output, str):
-                yield "data: " + json.dumps({"type": "text", "data": output }) + "\n\n"
+                yield "data: " + json.dumps({"type":"output", "data": {"type": "text", "data": output }}) + "\n\n"
             elif isinstance(output, dict):
                 if 'scan_id' in output:
-                    yield "data: " + json.dumps({"type": "plot", "data": output}) + "\n\n"
+                    yield "data: " + json.dumps({"type":"output", "data": {"type": "plot", "data": output}}) + "\n\n"
                 elif output.get('type')=='setup':
-                    yield "data: " + json.dumps(output) + "\n\n"
+                    yield "data: " + json.dumps({"type":"output", "data": output}) + "\n\n"
                 elif output.get('type')=='log':
-                    yield "data: " + json.dumps(output) + "\n\n"
+                    yield "data: " + json.dumps({"type":"output", "data":output}) + "\n\n"
                 else:
-                    CONTROL_PANEL_QUEUE[session_id][client_uuid].put(output)
+                    yield "data: " + json.dumps({"type":"synoptic", "data": output}) + "\n\n"
             else:
                 continue
 
-
-@bottle.route("/<session_id:int>/control_panel_events/<client_uuid>")
-def send_control_panel_events(session_id, client_uuid):
-    bottle.response.content_type = 'text/event-stream'
-    bottle.response.add_header("Connection", "keep-alive")
-    bottle.response.add_header("Cache-control", "no-cache, must-revalidate")
-
-    if CONTROL_PANEL_QUEUE.get(session_id) is None:
-        # browser tries to (re)connect but we don't know this session
-        bottle.response.status = 404
-        raise StopIteration
-
-    q = CONTROL_PANEL_QUEUE[session_id][client_uuid]
-
-    # this is to initialize connection, something has to be sent
-    yield "data: \n\n"
-    
-    while True:
-        data = q.get()
-        yield "data: " + json.dumps({"type": "control_panel_motor", "data":data}) + "\n\n"
-        gevent.sleep(0)
-
-
-@bottle.route("/<session_id:int>/control_panel/run/<object_name>/<method_name>")
-def action_from_control_panel(session_id, object_name, method_name):
-    EXECUTION_QUEUE[session_id].put((None, "control_panel", (object_name, method_name)))   
-
+@bottle.route("/<session_id:int>/synoptic/run/<object_name>/<method_name>")
+def action_from_synoptic(session_id, object_name, method_name):
+    EXECUTION_QUEUE[session_id].put((None, "synoptic", (object_name, method_name)))   
 
 #@bottle.route("/log_msg_request")
 #def send_log():
@@ -244,12 +225,10 @@ def open_session(session_id):
         output_queue_from_interpreter.get() #ack
     
         OUTPUT_QUEUE[session_id] = dict()
-        CONTROL_PANEL_QUEUE[session_id] = dict()
         gevent.spawn(handle_output, session_id, output_queue_from_interpreter)
     
     RESULT[session_id][client_id] = gevent.event.AsyncResult()
     OUTPUT_QUEUE[session_id][client_id] = gevent.queue.Queue()
-    CONTROL_PANEL_QUEUE[session_id][client_id] = gevent.queue.Queue()
 
     root_path = os.path.dirname(os.path.abspath(__file__))
     contents = file(os.path.join(root_path, "shell.html"), "r")

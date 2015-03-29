@@ -90,28 +90,6 @@ function Shell(client_uuid, cmdline_div_id, shell_output_div_id, setup_div_id, l
     this.plot = {};
 
     /* 
-       connect to output stream, 
-       to get output from server
-    */
-    this.output_stream = new EventSource(this.session_id+'/output_stream/'+this.client_uuid);
-    this.output_stream.onmessage = $.proxy(function(e) {
-        if (e.data) {
-            var output = JSON.parse(e.data);
-            if (output.type == 'plot') {
-                this.output_div.parent().tabs("option", "active", 1);
-                this.display_plot(output.data);
-            } else if (output.type == 'setup') {
-                this.display_output(output.data, 'auto', this.setup_output_div);
-            } else if (output.type == 'log') {
-                this.display_log(output.data);
-            } else {
-                this.output_div.parent().tabs("option", "active", 1);
-                this.display_output(output.data);
-            }
-        }
-    }, this);
-
-    /* 
        jquery override 'this', that's just crazy!
        let methods have the proper 'this' 
     */
@@ -135,6 +113,20 @@ Shell.prototype = {
     get_session_id: function() {
         var url = document.URL;
         return url.substr(url.lastIndexOf('/') + 1)
+    },
+
+    handle_output_event: function(output) {
+        if (output.type == 'plot') {
+            this.output_div.parent().tabs("option", "active", 1);
+            this.display_plot(output.data);
+        } else if (output.type == 'setup') {
+            this.display_output(output.data, 'auto', this.setup_output_div);
+        } else if (output.type == 'log') {
+            this.display_log(output.data);
+        } else {
+            this.output_div.parent().tabs("option", "active", 1);
+            this.display_output(output.data);
+        }
     },
 
     completion_request: function(text, index, dont_select_completion) {

@@ -177,10 +177,10 @@ Synoptic.prototype = {
         var btn2 = btn1.clone();
         btn2.html("&nbsp;" + label2 + "&nbsp;");
         btn1.click(function() {
-            $.get(session_id + "/control_panel/run/" + name + "/" + cmd1);
+            $.get(session_id + "/synoptic/run/" + name + "/" + cmd1);
         });
         btn2.click(function() {
-            $.get(session_id + "/control_panel/run/" + name + "/" + cmd2);
+            $.get(session_id + "/synoptic/run/" + name + "/" + cmd2);
         });
         dom_item.html(name + "&nbsp;");
         dom_item.append(btn2);

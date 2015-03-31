@@ -1,5 +1,8 @@
 import os
 import sys
+from bliss.common.scans import *
+from bliss.common.task_utils import task, cleanup, error_cleanup
+from bliss import setup_globals
 
 def setup(setup_file=None, env_dict=None):
     if env_dict: 
@@ -15,3 +18,19 @@ def setup(setup_file=None, env_dict=None):
         execfile(setup_file_path, env_dict or globals())
     else:
         raise RuntimeError("No setup file.")
+
+def load_config():
+    from bliss.config import static
+
+    cfg = static.get_config()
+
+    for item_name in cfg.names_list:
+        print "Initializing '%s`" % item_name
+        try:
+            o = cfg.get(item_name)
+        except:
+            sys.excepthook(*sys.exc_info())
+        else:
+            setattr(setup_globals, item_name, o)
+            del o
+

@@ -35,7 +35,7 @@ def create_objects_from_config_node(config, node):
         axes.append((axis_name, axis_class, axis_config))
         #static.register_motor(axis_name)
 
-    controller = controller_class(controller_name, controller_config, axes)
+    controller = controller_class(controller_name, controller_config, axes, [])
     controller._update_refs()
     controller.initialize()
     axis = controller.get_axis(name)

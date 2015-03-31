@@ -44,8 +44,8 @@ config_xml = '''
 
 
 class Undulator(Controller):
-    def __init__(self, name, config, axes):
-        Controller.__init__(self, name, config, axes)
+    def __init__(self, name, config, axes, encoders):
+        Controller.__init__(self, name, config, axes, encoders)
 
         self.axis_info = dict()
 

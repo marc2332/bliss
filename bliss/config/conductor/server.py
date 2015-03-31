@@ -1,9 +1,16 @@
 import os
+import sys
 import argparse
 import weakref
 import subprocess
 import gevent
 from gevent import select,socket
+
+def start_database_ds(tango_port = 20000,personal_name='2',debug_level = 0):
+    from PyTango.databaseds import database
+    argv = debug_level and ['-l',str(debug_level)] or []
+    argv.extend(['--db_access','beacon','2','-ORBendPoint','giop:tcp::%s' % tango_port])
+    database.main(argv=argv)
 
 from . import protocol
 from .. import redis as redis_conf
@@ -311,6 +318,10 @@ def main():
                         help="enable/disable posix_queue connection")
     parser.add_argument("--port",dest="port",type=int,default=0,
                         help="server port (default to 0: take a free port)")
+    parser.add_argument("--tango_port",dest="tango_port",type=int,default=0,
+                        help="tango server port (default to 0: disable)")
+    parser.add_argument("--tango_debug_level",dest="tango_debug_level",type=int,default=0,
+                        help="tango debug level (default to 0: WARNING,1:INFO,2:DEBUG)")
     global _options
     _options = parser.parse_args()
     
@@ -336,15 +347,37 @@ def main():
     port = tcp.getsockname()[1]
     tcp.listen(512)        # limit to 512 clients
 
+    #Tango databaseds
+    print '[TANGO] Database started on port:',_options.tango_port
+    if _options.tango_port > 0:
+        tango_rp,tango_wp = os.pipe()
+        child_pid = os.fork()
+        if child_pid == 0:
+            os.close(tango_rp)
+            os.dup2(tango_wp,sys.stdout.fileno())
+            os.dup2(tango_wp,sys.stderr.fileno())
+            os.close(tango_wp)
+            start_database_ds(tango_port = _options.tango_port,debug_level = _options.tango_debug_level)
+            sys.exit(0)
+        else:
+            os.close(tango_wp)
+    else:
+        tango_rp = None
+
     #start redis
     rp,wp = os.pipe()
     redis_process = subprocess.Popen(['redis-server',redis_conf.get_redis_config_path(),
                                       '--port','%d' % _options.redis_port],
                                      stdout=wp,stderr=subprocess.STDOUT,cwd=_options.db_path)
-
+            
     try:
+      fd_list = [udp,tcp,rp]
+      if tango_rp:
+          fd_list.append(tango_rp)
+      msg_prefix = {tango_rp:'[TANGO]',
+                    rp:'[REDIS]'}
       while True:
-        rlist,_,_ = select.select([udp,tcp,rp],[],[],-1)
+        rlist,_,_ = select.select(fd_list,[],[],-1)
             
         for s in rlist:
             if s == udp:
@@ -352,15 +385,20 @@ def main():
                 if buff.find('Hello') > -1:
                     udp.sendto('%s|%d' % (socket.gethostname(),port),address)
 
-            if s == tcp:
+            elif s == tcp:
                 newSocket, addr = tcp.accept()
                 newSocket.setsockopt(socket.IPPROTO_TCP,socket.TCP_NODELAY,1)
 
                 gevent.spawn(_client_rx,newSocket)
 
-            if s == rp:
-                msg = os.read(rp,8192)
-                print '[REDIS]: %s' % msg
+            else:
+                msg = os.read(s,8192)
+                if msg:
+                    print '%s: %s' % (msg_prefix.get(s,'[DEFAULT]'),msg)
+                else:
+                    fd_list.remove(tango_rp)
+                    os.close(tango_rp)
+                    print '%s: Warning Database exit' % (msg_prefix.get(s,'[DEFAULT]'))
                 break
     except KeyboardInterrupt:
        pass

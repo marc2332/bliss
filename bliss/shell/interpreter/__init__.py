@@ -13,7 +13,7 @@ def start_interpreter(setup_file, input_queue, output_queue):
 
     i.locals = globals_module.__dict__
     """
-    i.locals = setup_globals.__dict__.copy()
+    i.locals = setup_globals.__dict__ #.copy()
 
     return interpreter.start(setup_file, input_queue, output_queue, i)
 

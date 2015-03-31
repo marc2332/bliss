@@ -19,10 +19,6 @@ from bliss import setup
 from bliss.common.event import dispatcher
 from bliss.common import data_manager
 from bliss.common import measurement
-#try:
-#    from bliss.config import static as beacon_static
-#except:
-#    beacon_static = None
 jedi.settings.case_insensitive_completion = False
 
 class LogHandler(logging.Handler):

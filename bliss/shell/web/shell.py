@@ -278,6 +278,12 @@ def main():
     bottle.redirect("/1")
 
 
+@bottle.route("/js/<url:path>")
+def serve_static_file(url):
+    return bottle.static_file(url, os.path.join(os.path.dirname(__file__), 'js'))
+@bottle.route("/css/<url:path>")
+def serve_static_file(url):
+    return bottle.static_file(url, os.path.join(os.path.dirname(__file__),'css'))
 @bottle.route("/<url:path>")
 def serve_static_file(url):
     return bottle.static_file(url, os.path.dirname(__file__))

@@ -35,7 +35,7 @@ def setup(setup_file=None, env_dict=None, verbose=True):
                 else:
                     env_dict = globals()
 
-            _load_config(env_dict) 
+            _load_config(env_dict,verbose) 
 
             try:
                 execfile(setup_file_path, env_dict) #setup_globals.__dict__) 
@@ -61,6 +61,6 @@ def _load_config(env_dict, verbose=True):
             sys.excepthook(*sys.exc_info())
         else:
             env_dict[item_name] = o
-            #setattr(setup_globals, item_name, o)
+            setattr(setup_globals, item_name, o)
             del o
 

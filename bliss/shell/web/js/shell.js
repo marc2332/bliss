@@ -44,7 +44,6 @@ function Shell(client_uuid, cmdline_div_id, shell_output_div_id, setup_div_id, l
 
     this.output_div = $("#" + shell_output_div_id);
     this.output_div.css("overflow", "auto");
-    this.output_div.css("height", "100%");
     this.output_div.addClass("code-font");
     this.last_output_div = $("<div></div>");
     this.output_div.prepend(this.last_output_div);
@@ -59,7 +58,6 @@ function Shell(client_uuid, cmdline_div_id, shell_output_div_id, setup_div_id, l
     var new_setup_div = $("<div></div>");
     this.setup_div.append(new_setup_div);
     this.setup_div.css("overflow", "auto");
-    this.setup_div.css("height", "100%");
     this.setup_div = new_setup_div;
     this.setup_div.append(this.setup_output_div);
 
@@ -74,7 +72,6 @@ function Shell(client_uuid, cmdline_div_id, shell_output_div_id, setup_div_id, l
     this.logging_div.append(new_logging_div);
     this.logging_div = new_logging_div;
     this.logging_div.css("overflow", "auto");
-    this.logging_div.css("height", "100%");
  
     this.client_uuid = client_uuid;
     this.executing = false;
@@ -154,6 +151,8 @@ Shell.prototype = {
                     this.completion_list.append($.parseHTML("<li class='completion-item'>" + completion_list[i] + "</li>"));
                 }
 
+                $("body").layout().resizeAll();
+
                 if (!dont_select_completion) {
                     this._select_completion_item(0);
                 }
@@ -219,6 +218,7 @@ Shell.prototype = {
                 } else {
                     this.completion_mode = false;
                     this.completion_list.empty();
+                    $("body").layout().resizeAll();
                     if ((e.which === 27) || (e.which == 13)) {
                         e.preventDefault();
                     }

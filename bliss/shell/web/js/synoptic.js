@@ -50,7 +50,7 @@ function Synoptic(session_id, client_uuid, div_id) {
             self.bottom_div.append(ul2);
 
             spacer = $("<div></div>");
-            spacer.css("border", "1px solid black");
+            spacer.css("border", "1px solid white");
             spacer.css("display", "table-cell");
             self.top_div.append(spacer);
             self.bottom_div.append(spacer.clone());

@@ -1,7 +1,7 @@
 1:
     setup-file: ./test_setup.py
     synoptic:
-        svg-file: ./id30_oh3.svg
+        svg-file: ./id30_layout.svg
         elements:
            -
               svg-id: wbv
@@ -31,4 +31,8 @@
               svg-id: safety_shutter
               top:
               bottom: safshut
-          
+           -
+              svg-id: sslits2
+              top: m1
+              bottom:
+ 

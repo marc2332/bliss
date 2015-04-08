@@ -49,9 +49,12 @@ def setup(setup_file=None, env_dict=None, verbose=True):
     raise RuntimeError("No setup file.")
 
 def _load_config(env_dict, verbose=True):
-
-    cfg = static.get_config()
-
+    try:
+        cfg = static.get_config()
+    except:
+        sys.excepthook(*sys.exc_info())
+        return        
+ 
     for item_name in cfg.names_list:
         if verbose:
             print "Initializing '%s`" % item_name

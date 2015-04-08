@@ -12,8 +12,8 @@ from bliss.comm.Exporter import ExporterCommand
 
 class MD2(Controller):
 
-    def __init__(self, name, config, axes):
-        Controller.__init__(self, name, config, axes)
+    def __init__(self, name, config, axes, encoders):
+        Controller.__init__(self, name, config, axes, encoders)
 
         self.addr_dict = []
         host, port = self.config.get("exporter_address").split(":")

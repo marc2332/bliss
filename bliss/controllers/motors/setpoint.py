@@ -35,8 +35,8 @@ as rampe generator for hexapiezo for example.
 
 class setpoint(Controller):
 
-    def __init__(self, name, config, axes):
-        Controller.__init__(self, name, config, axes)
+    def __init__(self, name, config, axes, encoders):
+        Controller.__init__(self, name, config, axes, encoders)
 
         self._axis_moves = {}
 

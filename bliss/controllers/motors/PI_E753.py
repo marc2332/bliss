@@ -17,8 +17,8 @@ Cyril Guilloud ESRF BLISS January 2014
 
 class PI_E753(Controller):
 
-    def __init__(self, name, config, axes):
-        Controller.__init__(self, name, config, axes)
+    def __init__(self, name, config, axes, encoders):
+        Controller.__init__(self, name, config, axes, encoders)
 
         self.host = self.config.get("host")
 

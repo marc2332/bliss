@@ -14,8 +14,8 @@ Bliss controller for XXX.
 
 class XXX(Controller):
 
-    def __init__(self, name, config, axes):
-        Controller.__init__(self, name, config, axes)
+    def __init__(self, name, config, axes, encoders):
+        Controller.__init__(self, name, config, axes, encoders)
 
         # self.com = self.config.get("com")
 

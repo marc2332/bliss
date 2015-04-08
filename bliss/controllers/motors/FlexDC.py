@@ -16,8 +16,8 @@ NOT DONE :
 
 class FlexDC(Controller):
 
-    def __init__(self, name, config, axes):
-        Controller.__init__(self, name, config, axes)
+    def __init__(self, name, config, axes, encoders):
+        Controller.__init__(self, name, config, axes, encoders)
 
         # Gets host from xml config.
         self.host = self.config.get("host")

@@ -35,8 +35,8 @@ class PiezoSize():
 
 class PiezoJack(Controller):
 
-    def __init__(self, name, config, axes):
-        Controller.__init__(self, name, config, axes)
+    def __init__(self, name, config, axes, encoders):
+        Controller.__init__(self, name, config, axes, encoders)
 
         self._state = READY
         self.TADmin = self.config.get("TADmin", int, default = 150000)

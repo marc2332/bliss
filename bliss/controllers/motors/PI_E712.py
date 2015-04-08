@@ -34,8 +34,8 @@ config example:
 
 class PI_E712(Controller):
 
-    def __init__(self, name, config, axes):
-        Controller.__init__(self, name, config, axes)
+    def __init__(self, name, config, axes, encoders):
+        Controller.__init__(self, name, config, axes, encoders)
 
         self.host = self.config.get("host")
         self.cname = "E712"

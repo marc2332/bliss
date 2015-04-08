@@ -22,42 +22,9 @@ function Synoptic(session_id, client_uuid, div_id) {
         svg.css("height", this.parent_div.height() * 0.8);
         svg.css("display", "block");
         svg.css("margin", "auto");
-
-        var self = this;
-        /*svg.mousewheel(function(event) {
-            console.log(event.deltaX, event.deltaY, event.deltaFactor);
-            $(self.svg).css("height", $(self.svg).css("height")+event.deltaFactor);
-            self.rearrange();    
-        });
-        */
+        this.svg.onload = this.initialize();
         this.parent_div.prepend(this.top_div);
         this.parent_div.append(this.bottom_div);
-
-        this.top_div.append($("<div style='display:table-cell;'></div>"));
-        this.bottom_div.append($("<div style='display:table-cell;'></div>"));
-        this.get_cols().each(function() {
-            var col_id = this.id;
-            var ul = $("<ul></ul>");
-            ul.addClass("items-list");
-            ul.attr("id", col_id + "__top");
-            //ul.css("border", "1px solid black");
-            ul.css("display", "table-cell");
-            ul.css("vertical-align", "bottom");
-            self.top_div.append(ul);
-            var ul2 = ul.clone();
-            ul2.attr("id", col_id + "__bottom");
-            ul2.css("vertical-align", "top");
-            self.bottom_div.append(ul2);
-
-            spacer = $("<div></div>");
-            spacer.css("border", "1px solid white");
-            spacer.css("display", "table-cell");
-            self.top_div.append(spacer);
-            self.bottom_div.append(spacer.clone());
-        });
-        this.top_div.append($("<div style='display:table-cell;'></div>"));
-        this.bottom_div.append($("<div style='display:table-cell;'></div>"));
-        this.rearrange();
     }, this));
 };
 
@@ -70,7 +37,10 @@ Synoptic.prototype = {
             return a_rect.left - b_rect.left
         }).filter(function(i,elt) {
             return /^g[0-9]+$/.test(this.id) === false; 
+        }).each(function() {
+            console.log(this);
         });
+        
         return cols;
     },
 
@@ -148,7 +118,41 @@ Synoptic.prototype = {
         }
     },
 
-    rearrange: function() {
+    initialize: function() {
+        alert("BLA");
+        var self = this;
+        /*svg.mousewheel(function(event) {
+            console.log(event.deltaX, event.deltaY, event.deltaFactor);
+            $(self.svg).css("height", $(self.svg).css("height")+event.deltaFactor);
+            self.rearrange();
+        });
+        */
+
+        this.top_div.append($("<div style='display:table-cell;'></div>"));
+        this.bottom_div.append($("<div style='display:table-cell;'></div>"));
+        this.get_cols().each(function() {
+            var col_id = this.id;
+            var ul = $("<ul></ul>");
+            ul.addClass("items-list");
+            ul.attr("id", col_id + "__top");
+            //ul.css("border", "1px solid black");
+            ul.css("display", "table-cell");
+            ul.css("vertical-align", "bottom");
+            self.top_div.append(ul);
+            var ul2 = ul.clone();
+            ul2.attr("id", col_id + "__bottom");
+            ul2.css("vertical-align", "top");
+            self.bottom_div.append(ul2);
+
+            spacer = $("<div></div>");
+            spacer.css("border", "1px solid white");
+            spacer.css("display", "table-cell");
+            self.top_div.append(spacer);
+            self.bottom_div.append(spacer.clone());
+        });
+        this.top_div.append($("<div style='display:table-cell;'></div>"));
+        this.bottom_div.append($("<div style='display:table-cell;'></div>"));
+
         var cols = this.get_cols(); 
         var x = cols[0].getBoundingClientRect().left;
         

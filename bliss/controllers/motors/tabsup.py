@@ -32,9 +32,14 @@ class tabsup(CalcController):
         self.d = self.config.get("d", float)
 
     def calc_from_real(self, positions_dict):
-        return {"ttrans": positions_dict["front"],
-                "trot": (math.atan(positions_dict["back"] - positions_dict["front"]) / self.d) * 1000}
+        return {"ttrans": positions_dict["front"] }
+        #        "trot": (math.atan(positions_dict["back"] - positions_dict["front"]) / self.d) * 1000}
 
     def calc_to_real(self, axis_tag, positions_dict):
-        return {"back": positions_dict["ttrans"] + self.d * math.tan(positions_dict["trot"] / 1000.0),
-                "front": positions_dict["ttrans"]}
+        current_ttrans = self._tagged["ttrans"][0].position()
+        current_front = self._tagged["front"][0].position()
+        current_back = self._tagged["back"][0].position()
+        delta = positions_dict["ttrans"] - current_ttrans
+        return { "back": current_back + delta, "front": current_front + delta }
+        #return {"back": positions_dict["ttrans"] + self.d * math.tan(positions_dict["trot"] / 1000.0),
+        #        "front": positions_dict["ttrans"]}

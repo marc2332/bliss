@@ -16,8 +16,8 @@ DELAY = 0.02  # delay between 2 commands
 
 class NF8753(Controller):
 
-    def __init__(self, name, config, axes):
-        Controller.__init__(self, name, config, axes)
+    def __init__(self, name, config, axes, encoders):
+        Controller.__init__(self, name, config, axes, encoders)
 
         self.host = self.config.get("host")
         self.__current_selected_channel = None

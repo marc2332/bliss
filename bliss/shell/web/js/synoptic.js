@@ -119,7 +119,6 @@ Synoptic.prototype = {
     },
 
     initialize: function() {
-        alert("BLA");
         var self = this;
         /*svg.mousewheel(function(event) {
             console.log(event.deltaX, event.deltaY, event.deltaFactor);

@@ -20,9 +20,9 @@ function Synoptic(session_id, client_uuid, div_id) {
         svg.css("height", this.parent_div.height() * 0.8);
         svg.css("display", "block");
         svg.css("margin", "auto");
-        this.svg.onload = this.initialize();
         this.parent_div.prepend(this.top_div);
         this.parent_div.append(this.bottom_div);
+        this.svg.onload = this.initialize();
     }, this));
 };
 

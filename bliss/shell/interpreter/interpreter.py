@@ -49,11 +49,14 @@ class Stdout:
 def stdout_redirected(client_uuid, new_stdout):
     new_stdout.client_uuid = client_uuid
     save_stdout = sys.stdout
+    save_stderr = sys.stderr
     sys.stdout = new_stdout
+    sys.stderr = new_stdout
     try:
         yield None
     finally:
         sys.stdout = save_stdout
+        sys.stderr = save_stderr
 
 
 def init_scans_callbacks(interpreter, output_queue):

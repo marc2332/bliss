@@ -49,7 +49,7 @@ def try_open(fu) :
 
 class Gpib:
     ENET = range(1)
-    READ_BLOCK_SIZE = 8192
+    READ_BLOCK_SIZE = 64 * 1024
 
     def __init__(self,url = None,pad = 0,sad = 0,timeout = 13,
                  eot = 1,eos = '\n') :
@@ -74,7 +74,7 @@ class Gpib:
 
     @try_open
     def raw_read(self,maxsize = None,timeout = None):
-        size_to_read = maxsize or 1
+        size_to_read = maxsize or self.READ_BLOCK_SIZE
         return self._raw_handler.ibrd(size_to_read)
 
     @try_open

@@ -9,7 +9,7 @@ from gevent import select,socket
 def start_database_ds(tango_port = 20000,personal_name='2',debug_level = 0):
     from PyTango.databaseds import database
     argv = debug_level and ['-l',str(debug_level)] or []
-    argv.extend(['--db_access','beacon','2','-ORBendPoint','giop:tcp::%s' % tango_port])
+    argv.extend(['--db_access','beacon','--port',str(tango_port),'2'])
     database.main(argv=argv)
 
 from . import protocol

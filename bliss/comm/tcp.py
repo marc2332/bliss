@@ -74,7 +74,10 @@ class Socket:
 
     def close(self):
         if self._connected:
-            self._fd.shutdown(socket.SHUT_RDWR)
+            try:
+                self._fd.shutdown(socket.SHUT_RDWR)
+            except:             # probably closed one the server side
+                pass
             self._fd.close()
             if self._raw_read_task:
                 self._raw_read_task.join()
@@ -272,7 +275,10 @@ class Command:
 
     def close(self):
         if self._connected:
-            self._fd.shutdown(socket.SHUT_RDWR)
+            try:
+                self._fd.shutdown(socket.SHUT_RDWR)
+            except:             # probably closed one the server side
+                pass
             self._fd.close()
             if self._raw_read_task:
                 self._raw_read_task.join()

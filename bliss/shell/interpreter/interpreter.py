@@ -49,11 +49,14 @@ class Stdout:
 def stdout_redirected(client_uuid, new_stdout):
     new_stdout.client_uuid = client_uuid
     save_stdout = sys.stdout
+    save_stderr = sys.stderr
     sys.stdout = new_stdout
+    sys.stderr = new_stdout
     try:
         yield None
     finally:
         sys.stdout = save_stdout
+        sys.stderr = save_stderr
 
 
 def init_scans_callbacks(interpreter, output_queue):
@@ -302,12 +305,12 @@ def start(setup_file, input_queue, output_queue, i):
                         pos = None
                         state = None
                     object_dict.update({"state": state, "position": pos})
-                    def state_updated(state, name=name):
+                    def state_updated(state, name=object_name):
                         output_queue.put((None, { "name":name, "state": convert_state(state)}))
-                    def position_updated(pos, name=name, client_uuid=client_uuid):
+                    def position_updated(pos, name=object_name, client_uuid=client_uuid):
                         pos = "%.3f" % pos
                         output_queue.put((None, {"name":name, "position":pos}))
-                    output_queue.callbacks["motor"][name]=(state_updated, position_updated) 
+                    output_queue.callbacks["motor"][object_name]=(state_updated, position_updated) 
                     dispatcher.connect(state_updated, "state", m)
                     dispatcher.connect(position_updated, "position", m)
                 elif object_dict["type"] == "actuator":
@@ -316,9 +319,9 @@ def start(setup_file, input_queue, output_queue, i):
                     except:
                         state = None
                     object_dict.update({"state": convert_state(state)})
-                    def state_updated(state, name=name):
+                    def state_updated(state, name=object_name):
                         output_queue.put((None, {"name": name, "state": convert_state(state)}))
-                    output_queue.callbacks["actuator"][name]=state_updated
+                    output_queue.callbacks["actuator"][object_name]=state_updated
                     dispatcher.connect(state_updated, "state", obj)
                 elif object_dict["type"] == "shutter":
         		try:
@@ -326,9 +329,9 @@ def start(setup_file, input_queue, output_queue, i):
         		except:
         		    state = None
         		object_dict.update({ "state": convert_state(state) })
-        		def state_updated(state, name=name):
+        		def state_updated(state, name=object_name):
         		    output_queue.put((None, {"name":name, "state":convert_state(state)}))
-        		output_queue.callbacks["shutter"][name]=state_updated
+        		output_queue.callbacks["shutter"][object_name]=state_updated
         		dispatcher.connect(state_updated, "state", obj)
             output_queue.put((None, StopIteration(object_dict)))  
         elif action == "get_objects":

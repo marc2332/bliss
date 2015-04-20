@@ -1,8 +1,22 @@
 from bliss.common.task_utils import *
 from bliss.common.utils import wrap_methods
+from bliss import setup_globals
 import inspect
 from PyTransmission import matt_control
 import types
+
+class Energy:
+   def __init__(self, energy):
+      self.__energy = energy
+      if isinstance(energy, float):
+          self.tunable = False
+      else:
+          self.tunable = True
+   def read(self):
+      if self.tunable:
+          return self.__energy.position()
+      else:
+          return self.__energy
 
 class transmission:
    def __init__(self, name, config):
@@ -10,10 +24,10 @@ class transmission:
       nb_filter = config["nb_filter"]
       try:
          #fixed energy
-         energy = config["energy"]
+         self.energy = Energy(float(config["energy"]))
       except:
-         #tunable energy
-         energy = 0
+         #tunable energy: energy motor is expected
+         self.energy = Energy(getattr(setup_globals, config["energy"]))
       try:
           #attenuator type (0,1 or 2, default is 0)
           att_type = config["att_type"]
@@ -39,7 +53,16 @@ class transmission:
       except:
          datafile=None
 
-      self.__control = matt_control.MattControl(wago_ip, nb_filter, energy, att_type, wago_alternate, stat_m, ctrl_m,datafile)
+      self.__control = matt_control.MattControl(wago_ip, nb_filter, self.energy.read(), att_type, wago_alternate, stat_m, ctrl_m, datafile)
 
       self.__control.connect()
       wrap_methods(self.__control, self)
+
+   def transmission_get(self):
+      self.__control.set_energy(self.energy.read())
+      return self.__control.transmission_get()
+
+   def transmission_set(self, transmission):
+      self.__control.set_energy(self.energy.read())
+      return self.__control.transmission_set(transmission)
+   

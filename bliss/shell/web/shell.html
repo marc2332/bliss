@@ -57,7 +57,7 @@
                 $(".ui-tabs-panel").css("margin","10");
                 $(".ui-tabs-panel").css("padding","0");
                 $(".ui-tabs-panel").css("height","calc(100% - "+(tabs_nav_height+20)+"px)");
-                $.when(shell.setup).done(function() { synoptic.load_objects(); });
+                $.when(shell.setup, synoptic.initialize()).done(function() { synoptic.load_objects(); });
 	    });
 	</script>
 </body>

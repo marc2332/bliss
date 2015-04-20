@@ -14,16 +14,6 @@ function Synoptic(session_id, client_uuid, div_id) {
     //this.bottom_div.css("background", "#00ffff");
     this.synoptic_div = $("<div></div>");
 
-    this.parent_div.load(this.session_id + "/synoptic", $.proxy(function() {
-        var svg = this.parent_div.find("svg");
-        this.svg = svg[0];
-        svg.css("height", this.parent_div.height() * 0.8);
-        svg.css("display", "block");
-        svg.css("margin", "auto");
-        this.parent_div.prepend(this.top_div);
-        this.parent_div.append(this.bottom_div);
-        this.svg.onload = this.initialize();
-    }, this));
 };
 
 Synoptic.prototype = {
@@ -116,31 +106,47 @@ Synoptic.prototype = {
 
     initialize: function() {
         var self = this;
+        return $.Deferred(function(deferred) {
+            self.parent_div.load(self.session_id + "/synoptic", $.proxy(function() {
+            var svg = this.parent_div.find("svg");
+            this.svg = svg[0];
+            svg.css("height", this.parent_div.height() * 0.8);
+            svg.css("display", "block");
+            svg.css("margin", "auto");
+            this.parent_div.prepend(this.top_div);
+            this.parent_div.append(this.bottom_div);
+    
+            var self = this;
+    
+            this.get_cols().each(function() {
+                var col_id = this.id;
+                var ul = $("<ul></ul>");
+                ul.addClass("items-list");
+                ul.attr("id", col_id + "__top");
+                //ul.css("border", "1px solid black");
+                //ul.css("vertical-align", "bottom");
+                ul.css("position", "absolute");
+                ul.css("display", "inline-block");
+                var g_rect = this.getBoundingClientRect();
+                ul.css("left", g_rect.left);
+                ul.css("width", g_rect.width);
+                self.top_div.append(ul);
+                var ul2 = ul.clone();
+                ul2.attr("id", col_id + "__bottom");
+                //ul2.css("vertical-align", "top");
+                self.bottom_div.append(ul2);
+            });
+
+            deferred.resolve();
+        }, self));
+
         /*svg.mousewheel(function(event) {
             console.log(event.deltaX, event.deltaY, event.deltaFactor);
             $(self.svg).css("height", $(self.svg).css("height")+event.deltaFactor);
             self.rearrange();
         });
         */
-
-        this.get_cols().each(function() {
-            var col_id = this.id;
-            var ul = $("<ul></ul>");
-            ul.addClass("items-list");
-            ul.attr("id", col_id + "__top");
-            //ul.css("border", "1px solid black");
-            //ul.css("vertical-align", "bottom");
-            ul.css("position", "absolute");
-            ul.css("display", "inline-block");
-            var g_rect = this.getBoundingClientRect();
-            ul.css("left", g_rect.left);
-            ul.css("width", g_rect.width);
-            self.top_div.append(ul);
-            var ul2 = ul.clone();
-            ul2.attr("id", col_id + "__bottom");
-            //ul2.css("vertical-align", "top");
-            self.bottom_div.append(ul2);
-        });
+      });
     },
 
     add_item_with_buttons: function(obj_dict, name, label1, cmd1, label2, cmd2) {

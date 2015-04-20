@@ -3,22 +3,23 @@ from bliss.common.event import dispatcher
 
 class Actuator:
   def __init__(self, set_in=None, set_out=None, is_in=None, is_out=None):
-    self.__set_in = set_in
-    self.__set_out = set_out
-    self.__is_in = is_in
-    self.__is_out = is_out
     self.__in = False
     self.__out = False
+    if any((set_in,set_out,is_in,is_out)):
+      self._set_in = set_in
+      self._set_out = set_out
+      self._is_in = is_in
+      self._is_out = is_out
 
   def set_in(self,timeout=5):
     # this is to know which command was asked for,
-    # in case we don't have a return (no 'self.__is_in' or out)
+    # in case we don't have a return (no 'self._is_in' or out)
     self.__in = True
     self.__out = False
     try:
         with gevent.Timeout(timeout):
             while True:
-                self.__set_in()
+                self._set_in()
                 if self.is_in():
                     break
                 else:
@@ -31,7 +32,7 @@ class Actuator:
     try:
         with gevent.Timeout(timeout):
             while True:
-                self.__set_out()
+                self._set_out()
                 if self.is_out():
                     break
                 else:
@@ -39,19 +40,19 @@ class Actuator:
     finally:
         dispatcher.send("state", self, self.state())
   def is_in(self):
-    if self.__is_in is not None:
-      return self.__is_in()
+    if self._is_in is not None:
+      return self._is_in()
     else:
-      if self.__is_out is not None:  
-        return not self.__is_out()
+      if self._is_out is not None:  
+        return not self._is_out()
       else:
         return self.__in
   def is_out(self):
-    if self.__is_out is not None:
-      return self.__is_out()
+    if self._is_out is not None:
+      return self._is_out()
     else:
-      if self.__is_in is not None:
-        return not self.__is_in()
+      if self._is_in is not None:
+        return not self._is_in()
       else:
         return self.__out
   def state(self):

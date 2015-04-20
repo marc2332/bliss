@@ -1,6 +1,5 @@
 from bliss.common.task_utils import *
 from bliss.common.utils import wrap_methods
-from bliss import setup_globals
 import inspect
 from PyTransmission import matt_control
 import types
@@ -27,7 +26,7 @@ class transmission:
          self.energy = Energy(float(config["energy"]))
       except:
          #tunable energy: energy motor is expected
-         self.energy = Energy(getattr(setup_globals, config["energy"]))
+         self.energy = Energy(config["energy"])
       try:
           #attenuator type (0,1 or 2, default is 0)
           att_type = config["att_type"]

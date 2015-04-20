@@ -152,6 +152,8 @@ class fshutter:
          if self.musst:
             self.musst.putget("#ABORT")
             self.musst.putget("#CH CH1 0")
-      
+         time.sleep(1)
+         self.close()
+
        dispatcher.send('state', self, self.state())
 

@@ -268,12 +268,6 @@ class BlissAxis(PyTango.Device_4Impl):
         # updates value of "position" attribute.
         attr.set_value(_pos)
 
-        # Updates "Write value" of Position attribute.
-        attr.set_write_value(_pos)
-
-        # ???
-        attr.set_value_date_quality(_pos, time.time(), quality)
-
         _duration = time.time() - _t
         if _duration > 0.05:
             print "BlissAxisManager.py : {%s} read_Position : duration seems too long : %5.3g ms" % \

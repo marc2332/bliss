@@ -268,12 +268,6 @@ class BlissAxis(PyTango.Device_4Impl):
         # updates value of "position" attribute.
         attr.set_value(_pos)
 
-        # Updates "Write value" of Position attribute.
-        attr.set_write_value(_pos)
-
-        # ???
-        attr.set_value_date_quality(_pos, time.time(), quality)
-
         _duration = time.time() - _t
         if _duration > 0.05:
             print "BlissAxisManager.py : {%s} read_Position : duration seems too long : %5.3g ms" % \
@@ -473,8 +467,18 @@ class BlissAxis(PyTango.Device_4Impl):
         self.debug_stream("In Abort()")
         self.axis.stop()
 
+    def Stop(self):
+        """ Stop gently the motor
+
+        :param :
+        :type: PyTango.DevVoid
+        :return:
+        :rtype: PyTango.DevVoid """
+        self.debug_stream("In Stop()")
+        self.axis.stop()
+
     def StepUp(self):
-        """ perform a relative motion of ``stepSize`` in the forward
+        """ Performs a relative motion of ``stepSize`` in the forward
          direction.  StepSize is defined as an attribute of the
          device.
 
@@ -482,10 +486,11 @@ class BlissAxis(PyTango.Device_4Impl):
         :type: PyTango.DevVoid
         :return:
         :rtype: PyTango.DevVoid """
-        self.debug_stream("In StepUp()")
+        self.debug_stream("In StepUp(); stepsize=%f" % self.attr_StepSize_read)
+        self.axis.rmove(self.attr_StepSize_read, wait=self.write_position_wait)
 
     def StepDown(self):
-        """ perform a relative motion of ``stepSize`` in the backward
+        """ Performs a relative motion of ``stepSize`` in the backward
          direction.  StepSize is defined as an attribute of the
          device.
 
@@ -493,7 +498,8 @@ class BlissAxis(PyTango.Device_4Impl):
         :type: PyTango.DevVoid
         :return:
         :rtype: PyTango.DevVoid """
-        self.debug_stream("In StepDown()")
+        self.debug_stream("In StepDown(); stepsize=%f" % self.attr_StepSize_read)
+        self.axis.rmove(-self.attr_StepSize_read, wait=self.write_position_wait)
 
     def GetInfo(self):
         """ provide information about the axis.
@@ -575,6 +581,9 @@ class BlissAxisClass(PyTango.DeviceClass):
         [[PyTango.DevVoid, "none"],
          [PyTango.DevVoid, "none"]],
         'Abort':
+        [[PyTango.DevVoid, "none"],
+         [PyTango.DevVoid, "none"]],
+        'Stop':
         [[PyTango.DevVoid, "none"],
          [PyTango.DevVoid, "none"]],
         'StepUp':
@@ -902,6 +911,11 @@ def main():
                     int: PyTango.DevLong,
                     float: PyTango.DevDouble,
                     bool: PyTango.DevBoolean,
+                    "str": PyTango.DevString,
+                    "int": PyTango.DevLong,
+                    "float": PyTango.DevDouble,
+                    "bool": PyTango.DevBoolean,
+                    "None": PyTango.DevVoid,
                     "float_array": PyTango.DevVarFloatArray,
                     "double_array": PyTango.DevVarDoubleArray,
                     "long_array": PyTango.DevVarLongArray,

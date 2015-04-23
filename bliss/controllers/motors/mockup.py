@@ -83,15 +83,14 @@ class Mockup(Controller):
         axis.settings.set('init_count', axis.settings.get('init_count') + 1)
 
         # Add new axis oject methods as tango commands.
-        add_axis_method(axis, self.custom_park, types_info=(None, None))
-        add_axis_method(axis, self.custom_get_forty_two, types_info=(None, int))
-        add_axis_method(axis, self.custom_get_twice, types_info=(int, int))
-        add_axis_method(axis, self.custom_get_chapi, types_info=(str, str))
-        add_axis_method(axis, self.custom_send_command, types_info=(str, None))
-        add_axis_method(axis, self.custom_command_no_types)
+        add_axis_method(axis, self.custom_park, types_info=("None", "None"))
+        add_axis_method(axis, self.custom_get_forty_two, types_info=("None", "int"))
+        add_axis_method(axis, self.custom_get_twice, types_info=("int", "int"))
+        add_axis_method(axis, self.custom_get_chapi, types_info=("str", "str"))
+        add_axis_method(axis, self.custom_send_command, types_info=("str", "None"))
+        add_axis_method(axis, self.custom_command_no_types, types_info=("None", "None"))
+        add_axis_method(axis, self.custom_set_measured_noise, types_info=("float", "None"))
 
-        # ???
-        add_axis_method(axis, self.custom_set_measured_noise, types_info=(float, None))
 
         if axis.encoder:
             self.__encoders.setdefault(axis.encoder, {})["axis"] = axis

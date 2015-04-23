@@ -70,10 +70,12 @@ class ExporterClient(StandardClient):
     def execute(self,method,pars=None,timeout=-1):
         cmd=CMD_SYNC_CALL + " " + method + " "
         if pars is not None:
-            for par in pars:
-                if type(par) is list or  type(par) is tuple:
+            if type(pars) is list or  type(pars) is tuple:
+                for par in pars:
                     par=self.createArrayParameter(par)
                 cmd += (str(par) + PARAMETER_SEPARATOR)
+            else:
+                cmd += str(pars)
         ret = self.sendReceive(cmd,timeout)
         return self.__processReturn(ret)
 

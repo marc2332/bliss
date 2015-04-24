@@ -2,12 +2,19 @@ from .conductor import client
 import nanomsg
 import cPickle
 import socket
+import atexit
 from gevent import select
 # always use real threading module
 from gevent import _threading as threading
 import gevent
 import weakref
-import atexit
+# use safe reference module from dispatcher
+# (either louie -the new project- or pydispatch)
+try:
+    from louie import saferef
+except ImportError:
+    from pydispatch import saferef
+    saferef.safe_ref = saferef.safeRef
 
 CHANNELS = dict()
 BUS = weakref.WeakValueDictionary()
@@ -62,6 +69,7 @@ def receive_channels_values():
                     else:
                         # simple assignment is atomic 
                         channel._value = value
+                        channel._update_watcher.send()
 
 
 def _clean_redis(redis, channels_bus, channels_respondent):
@@ -147,6 +155,9 @@ class _Bus(object):
 class _Channel(object):
     def __init__(self, bus_id, name, redis):
         self._name = name
+        self._update_watcher = gevent.get_hub().loop.async()
+        self._update_watcher.start(self._fire_notification_callbacks)
+        self._callback_refs = set()
 
         self._bus = BUS.get(bus_id)
         if self._bus is None:
@@ -169,6 +180,29 @@ class _Channel(object):
     def value(self, new_value):
         self._value = new_value
         self._bus.set_value(self.name, new_value) 
+
+    def register_callback(self, callback):
+        if callable(callback):
+            cb_ref = saferef.safe_ref(callback)
+            self._callback_refs.add(cb_ref)
+
+    def unregister_callback(self, callback):
+        cb_ref = saferef.safe_ref(callback)
+        try:
+            self._callback_refs.remove(cb_ref)
+        except:
+            return
+
+    def _fire_notification_callbacks(self):
+        for cb_ref in self._callback_refs:
+            cb = cb_ref()
+            if cb is not None:
+                try:
+                    cb(self.value)
+                except:
+                    # display exception, but do not stop
+                    # executing callbacks
+                    sys.excepthook(*sys.exc_info())
 
 
 def Channel(name, redis=None):

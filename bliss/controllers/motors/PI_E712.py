@@ -3,11 +3,10 @@ import time
 from bliss.controllers.motor import Controller
 from bliss.common import log as elog
 from bliss.controllers.motor import add_axis_method
-from bliss.common.axis import READY, MOVING
+from bliss.common.axis import AxisState
 
 import pi_gcs
 from bliss.comm import tcp
-
 
 """
 Bliss controller for ethernet PI E712 piezo controller.
@@ -29,6 +28,7 @@ config example:
     </axis>
   </controller>
 </config>
+
 """
 
 
@@ -39,6 +39,8 @@ class PI_E712(Controller):
 
         self.host = self.config.get("host")
         self.cname = "E712"
+        self.__encoders = {}
+
 
     def initialize(self):
         """
@@ -64,6 +66,9 @@ class PI_E712(Controller):
         Returns:
             - None
         """
+        self._hw_status = AxisState("READY")
+
+
         """ Documentation uses the word AxisID instead of channel
             Note: any function used as axis method must accept axis as an argument! Otherwise
                   you will see:
@@ -71,22 +76,23 @@ class PI_E712(Controller):
         """
         axis.channel = axis.config.get("channel", int)
 
-        add_axis_method(axis, self.get_id, name="GetId", types_info=(None, str))
-        add_axis_method(axis, self.get_info, name="GetInfo", types_info=(None, str))
-        add_axis_method(axis, self.raw_com, name="RawCom", types_info=(str, str))
+        add_axis_method(axis, self.get_id, name = "GetId", types_info = (None, str))
+        add_axis_method(axis, self.get_info, name = "GetInfo", types_info = (None, str))
+        add_axis_method(axis, self.raw_com, name = "RawCom", types_info = (str, str))
 
-        add_axis_method(axis, self.check_power_cut, name="CheckPowerCut", types_info=(None, None))
-        add_axis_method(axis, self._get_tns, name="Get_TNS", types_info=(None, float))
-        add_axis_method(axis, self._get_offset, name="Get_Offset", types_info=(None, float))
-        add_axis_method(axis, self._put_offset, name="Put_Offset", types_info=(float, None))
-        add_axis_method(axis, self._get_tad, name="Get_TAD", types_info=(None, float))
-        add_axis_method(axis, self._get_closed_loop_status, name="Get_Closed_Loop_Status", types_info=(None, bool))
-        add_axis_method(axis, self._set_closed_loop, name="Set_Closed_Loop", types_info=(bool, None))
-        add_axis_method(axis, self._get_on_target_status, name="Get_On_Target_Status", types_info=(None, bool))
+        add_axis_method(axis, self.check_power_cut, name = "CheckPowerCut", types_info = (None, None))
+        add_axis_method(axis, self._get_tns, name = "Get_TNS", types_info = (None, float))
+        add_axis_method(axis, self._get_tsp, name = "Get_TSP", types_info = (None, float))
+        add_axis_method(axis, self._get_offset, name = "Get_Offset", types_info = (None, float))
+        add_axis_method(axis, self._put_offset, name = "Put_Offset", types_info = (float, None))
+        add_axis_method(axis, self._get_tad, name = "Get_TAD", types_info = (None, float))
+        add_axis_method(axis, self._get_closed_loop_status, name = "Get_Closed_Loop_Status", types_info = (None, bool))
+        add_axis_method(axis, self._set_closed_loop, name = "Set_Closed_Loop", types_info = (bool, None))
+        add_axis_method(axis, self._get_on_target_status, name = "Get_On_Target_Status", types_info = (None, bool))
 
         try:
             axis.paranoia_mode = axis.config.get("paranoia_mode")  # check error after each command
-        except KeyError:
+        except KeyError :
             axis.paranoia_mode = False
 
         self._gate_enabled = False
@@ -95,21 +101,24 @@ class PI_E712(Controller):
         axis.closed_loop = self._get_closed_loop_status(axis)
         self.check_power_cut(axis)
 
+        if axis.encoder:
+            self.__encoders.setdefault(axis.encoder, {})["axis"] = axis
+
 
     def initialize_encoder(self, encoder):
-        try:
-            encoder.paranoia_mode = encoder.config.get("paranoia_mode")  # check error after each command
-        except KeyError:
-            encoder.paranoia_mode = False
+        self.__encoders.setdefault(encoder, {})["measured_noise"] = 0.0
+        self.__encoders[encoder]["steps"] = None
 
     def read_position(self, axis):
         """
-        Returns position's setpoint.
+        Returns position's setpoint or measured position.
+        Measured position command is POS?
         Setpoint position is MOV? of VOL? or SVA? depending on closed-loop
         mode is ON or OFF.
 
         Args:
             - <axis> : bliss axis.
+            - [<measured>] : boolean : if True, function returns measured position.
         Returns:
             - <position> : float : piezo position in Micro-meters or in Volts.
         """
@@ -119,10 +128,12 @@ class PI_E712(Controller):
         return _pos
 
     def read_encoder(self, encoder):
-        _pos = self._get_pos(encoder)
-        elog.debug("position measured read : %g" % _pos)
-        return _pos
+        axis = self.__encoders[encoder]["axis"]
 
+        elog.debug("read_encoder measured = %r" % encoder)
+        _ans = self._get_pos(axis)
+        elog.debug("read_encoder measured = %r" % _ans)
+        return _ans
 
     def read_velocity(self, axis):
         """
@@ -150,12 +161,12 @@ class PI_E712(Controller):
         if axis.closed_loop:
             elog.debug("CLOSED-LOOP on axis %s is True" % axis.name)
             if self._get_on_target_status(axis):
-                return READY
+                return AxisState("READY")
             else:
-                return MOVING
+                return AxisState("MOVING")
         else:
             elog.debug("CLOSED-LOOP is False")
-            return READY
+            return AxisState("READY")
 
     def prepare_move(self, motion):
         """
@@ -219,8 +230,12 @@ class PI_E712(Controller):
         Args:
             - <axis> : passed for debugging purposes.
             - <cmd> : GCS command to send to controller (Channel is already mentionned  in <cmd>).
+
         Returns:
             - 1-line answer received from the controller (without "\\\\n" terminator).
+
+        Raises:
+            -
         """
         _cmd = cmd + "\n"
         _t0 = time.time()
@@ -230,10 +245,10 @@ class PI_E712(Controller):
         _ans = self.sock.write_readline(_cmd)
         _duration = time.time() - _t0
         if _duration > 0.05:
-            print "%s Received %s from Send \"%s\" (duration : %g ms) " % (
-                self.cname, repr(_ans), _cmd.rstrip(), _duration * 1000)
+            print "%s Received %s from Send \"%s\" (duration : %g ms) " % (self.cname, repr(_ans), _cmd.rstrip(), _duration * 1000)
 
         _ans = self.sock.write_readline(_cmd)
+
 
         if axis is not None and axis.paranoia_mode:
             self.get_error()  # should raise exc.
@@ -263,17 +278,18 @@ class PI_E712(Controller):
         if axis is not None and axis.paranoia_mode:
             self.get_error()  # should raise exc.
 
-    def _get_pos(self, encoder):
+
+    def _get_pos(self, axis):
         """
         Args:
-            - <encoder> :
+            - <axis> :
         Returns:
             - <position> Returns real position (POS? command) read by capacitive sensor.
 
         Raises:
             ?
         """
-        _ans = self.send(encoder, "POS? %s" % encoder.channel)
+        _ans = self.send(axis, "POS? %s" % axis.channel)
         _pos = float(_ans[2:])
 
         return _pos
@@ -305,16 +321,12 @@ class PI_E712(Controller):
         _vol = float(_ans.split("=+")[-1])
         return _vol
 
-    def _set_closed_loop(self, axis, onoff=True):
+    def _set_closed_loop(self, axis, onoff = True):
         """
         Sets Closed loop status (Servo state) (SVO command)
         """
         axis.closed_loop = onoff
-        if onoff:
-            onoff = 1
-        else:
-            onoff = 0
-        self.send_no_ans(axis, "SVO %s %s" % (axis.channel, onoff))
+        self.send_no_ans(axis, "SVO %s %d" % (axis.channel, onoff))
 
     def _get_closed_loop_status(self, axis):
         """
@@ -322,7 +334,7 @@ class PI_E712(Controller):
         -> True/False
         """
         _ans = self.send(axis, "SVO? %s" % axis.channel)
-        _status = float(_ans[2:])
+        _status = int(_ans[2:])
 
         if _status == 1:
             return True
@@ -394,9 +406,9 @@ class PI_E712(Controller):
         _t0 = time.time()
         _error_number = self.sock.write_readline("ERR?\n")
         _duration = time.time() - _t0
-        if _duration > 0.005:
-            print "%s Received %s from Send %s (duration : %g ms) " % \
-                  (self.cname, repr(_error_number), "ERR?", _duration * 1000)
+        #if _duration > 0.005:
+            #print "%s Received %s from Send %s (duration : %g ms) " % \
+                    #(self.cname, repr(_error_number), "ERR?", _duration * 1000)
 
         _error_str = pi_gcs.get_error_str(_error_number)
 
@@ -456,11 +468,18 @@ class PI_E712(Controller):
         _txt = ""
 
         for i in _infos:
-            _txt = _txt + "    %s %s\n" % (i[0], self.send(axis, i[1]))
+            _txt = _txt + "    %s %s\n" % \
+                (i[0], self.send(axis, i[1]))
 
-        _txt = _txt + "    %s  \n%s\n" % ("\nCommunication parameters",
-                                          "\n".join(self.sock.write_readlines("IFC?\n", 5)))
+        _txt = _txt + "    %s  \n%s\n" % \
+            ("\nCommunication parameters",
+            "\n".join(self.sock.write_readlines("IFC?\n", 5)))
 
+        """ my e712 didn't answer anything here
+#         _txt = _txt + "    %s  \n%s\n" % \
+#             ("\nFirmware version",
+#                 "\n".join(self.sock.write_readlines("VER?\n", 1)))
+        """
         return _txt
 
     def check_power_cut(self, axis):
@@ -476,6 +495,14 @@ class PI_E712(Controller):
     def _get_tns(self, axis):
         """Get Normalized Input Signal Value"""
         _ans = self.send(axis, "TNS? %s" % axis.channel)
+        elog.debug("TNS? %s" % _ans)
+        _ans = float(_ans[2:])
+        return _ans
+
+    def _get_tsp(self, axis):
+        """Get Input Signal Position Value"""
+        _ans = self.send(axis, "TSP? %s" % axis.channel)
+        elog.debug("TSP? %s" % _ans)
         _ans = float(_ans[2:])
         return _ans
 

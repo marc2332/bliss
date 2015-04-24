@@ -37,38 +37,41 @@ import bliss
 
 xml_config = """
 <config>
-    <!--<controller class="mockup"> -->  
+
     <controller class="PI_E712">
         <host value="id31pie712a" />
         <axis name="e712">
-            <channel value="1" />
-            <paranoia_mode value = "1" />
-            <!-- <velocity value="100"/>  only needed for mockup-->
-        </axis>
+        <channel value="1" />
+        <paranoia_mode value="0" />
+        <encoder name="e712enc">
+          <steps_per_unit value="1"/>
+          <tolerance value="0.001"/>
+        </encoder>
+
+       <settings><dial_position value="9.49507999" /><position value="9.49507999" /><velocity value="2500.0" /></settings></axis>
     </controller>
-    <!--controller class="mockup">--> 
+
     <controller class="IcePAP">
-        <host value="iceilab"/>
-        <!--<libdebug value="1"/>-->
-        <axis name="ujackpz">
-            <address        value="08"/>
-            <steps_per_unit value="100"/> <!-- 100 steps for 1 um-->
-<!--            <backlash       value="0.01"/>
-            <velocity       value="2500"/>-->
-        </axis>
+        <host value="iceilab" />
+
+        <axis name="icepap">
+            <address value="08" />
+            <steps_per_unit value="100" />
+            <backlash value="15" />
+            <high_limit value="1000000000.0" />
+            <low_limit value="-70" />
+        <settings><velocity value="40.0" /><dial_position value="30.9" /><position value="30.9" /><high_limit value="1000000000.0" /><low_limit value="-70.0" /></settings></axis>
     </controller>
     <controller class="PiezoJack">
-        <!-- value to which the piezo is set after icepap move-->
-        <SetPiezo      value="7.5"/>
-        <!-- The band in which the piezo alone moves
-             e.g. value=11 => from 2 to 13 -->
-        <PiezoLength   value="15"/>
-        <PiezoBand     value="11"/>
-        <factor        value="1.759"/>
-        <offset        value="249.4"/>
-        <axis name="bender" />
-        <axis name="e712"    tags="piezo" />
-        <axis name="ujackpz" tags="icepap" />
+
+        <PiezoLength value="15" />
+        <SetPiezo value="7.5" />
+
+        <PiezoBand value="11" />
+
+        <axis name="bender"><settings><velocity value="40.0" /><dial_position value="26.7984104203" /><position value="26.7984104203" /></settings></axis>
+        <axis name="e712" tags="piezo" />
+        <axis name="icepap" tags="icepap" />
     </controller>
 </config>
 """

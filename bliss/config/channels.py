@@ -48,6 +48,7 @@ class NotInitialized(object):
 
 def receive_channels_values():
     while True:
+        # .keys() is atomic (takes GIL)
         fds = BUS_BY_FD.keys()
         readable_fds, _, _ = select.select(fds, [], [], 1)
         for fd in readable_fds:
@@ -95,6 +96,9 @@ class _Bus(object):
         channels_bus_list = redis.smembers("channels_bus")
         for remote_bus in channels_bus_list:
             self._bus_socket.connect(remote_bus)
+
+        gevent.sleep(0.1) # arggghhh
+
         # add socket to the set of channels bus sockets
         bus_addr = "tcp://%s:%d" % (socket.getfqdn(), bus_socket_port_number)
         redis.sadd("channels_bus", bus_addr)
@@ -157,7 +161,7 @@ class _Bus(object):
 
 
 class _Channel(object):
-    def __init__(self, bus_id, name, redis):
+    def __init__(self, bus_id, name, value, redis):
         self._name = name
         self._update_watcher = gevent.get_hub().loop.async()
         self._update_watcher.start(self._fire_notification_callbacks)
@@ -168,7 +172,10 @@ class _Channel(object):
             self._bus = _Bus(bus_id, redis) 
             BUS[bus_id] = self._bus
 
-        self._value = self._bus.get_channel_value(self.name, redis) 
+        if value == NotInitialized():
+            self._value = self._bus.get_channel_value(self.name, redis) 
+        else:
+            self.value = value
 
         CHANNELS.setdefault(bus_id, weakref.WeakValueDictionary())[self.name] = self
 
@@ -209,15 +216,18 @@ class _Channel(object):
                     sys.excepthook(*sys.exc_info())
 
 
-def Channel(name, redis=None):
+def Channel(name, value=NotInitialized(), redis=None):
     if redis is None:
             redis = client.get_cache()
     redis_connection = redis.connection_pool.get_connection("")
     bus_id = (redis_connection.host, redis_connection.port, redis_connection.db)
 
     try:
-        return CHANNELS[bus_id][name]
+        chan = CHANNELS[bus_id][name]
+        if value != NotInitialized():
+            chan.value = value
+        return chan
     except KeyError:
-        return _Channel(bus_id, name, redis)
+        return _Channel(bus_id, name, value, redis)
 
 

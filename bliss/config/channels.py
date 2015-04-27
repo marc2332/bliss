@@ -40,6 +40,10 @@ def get_free_port():
 class NotInitialized(object):
     def __repr__(self):
         return "NotInitialized"
+    def __eq__(self, other):
+        if isinstance(other, NotInitialized):
+            return True
+        return False
 
 
 def receive_channels_values():

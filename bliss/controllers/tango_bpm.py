@@ -36,22 +36,39 @@ class tango_bpm(object):
        self.__acquisition_event = gevent.event.Event()
        self.__acquisition_event.set()
        self.__last_acq = None
-       self.__diode_actuator = Actuator(self.__control.In, 
-                                        self.__control.Out,
-                                        lambda: self.__control.YagStatus == "in",
-                                        lambda: self.__control.YagStatus == "out")
-       self.__foil_actuator  = Actuator(self.__control.FoilIn,
-                                        self.__control.FoilOut,
-                                        lambda: self.__control.FoilStatus == "in",
-                                        lambda: self.__control.FoilStatus == "out")
-       self.__led_actuator  = Actuator(self.__control.LedOn,
-                                        self.__control.LedOff,
-                                        lambda: self.__control.LedStatus > 0)
-       def foil_actuator(*args):
-           return self.__foil_actuator
-       if not foil_actuator_name:
-           foil_actuator_name = 'foil'
-       add_property(self, foil_actuator_name, foil_actuator)
+       self.__diode_actuator = None
+       self.__led_actuator = None
+       self.__foil_actuator  = None
+
+       bpm_properties = self.__control.get_property_list('*')
+
+       if 'wago_ip' in bpm_properties:
+           self.__diode_actuator = Actuator(self.__control.In, 
+                                            self.__control.Out,
+                                            lambda: self.__control.YagStatus == "in",
+                                            lambda: self.__control.YagStatus == "out")
+           self.__led_actuator  = Actuator(self.__control.LedOn,
+                                           self.__control.LedOff,
+                                           lambda: self.__control.LedStatus > 0)
+           def diode_current(*args):
+               return BpmCounter(self, "diode_current", "_read_diode_current")
+           add_property(self, "diode_current", diode_current)
+           def diode_actuator(*args):
+               return self.__diode_actuator
+           add_property(self, "diode", diode_actuator)
+           def led_actuator(*args):
+               return self.__led_actuator
+           add_property(self, "led", led_actuator)
+       if 'has_foils' in bpm_properties:
+           self.__foil_actuator  = Actuator(self.__control.FoilIn,
+                                            self.__control.FoilOut,
+                                            lambda: self.__control.FoilStatus == "in",
+                                            lambda: self.__control.FoilStatus == "out")
+           def foil_actuator(*args):
+               return self.__foil_actuator
+           if not foil_actuator_name:
+               foil_actuator_name = 'foil'
+           add_property(self, foil_actuator_name, foil_actuator)
 
    @property
    def x(self):
@@ -65,9 +82,6 @@ class tango_bpm(object):
    def intensity(self):
      return BpmCounter(self, "intensity", 1)
 
-   @property
-   def diode_current(self):
-     return BpmCounter(self, "diode_current", "_read_diode_current")
 
    @property
    def acquisition_event(self):
@@ -76,14 +90,6 @@ class tango_bpm(object):
    @property
    def last_acq(self):
      return self.__last_acq
-
-   @property
-   def diode(self):
-     return self.__diode_actuator
-
-   @property
-   def led(self):
-     return self.__led_actuator
 
    def read(self, exp_time=None):
      try:

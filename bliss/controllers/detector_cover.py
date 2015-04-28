@@ -10,10 +10,10 @@ class detector_cover(Actuator):
        self.key_cmd = config['cover_cmd']
 
    def _set_in(self):
-       self.wago.set(self.key_cmd, 1)
+       self.wago.set(self.key_cmd, 0)
 
    def _set_out(self):
-       self.wago.set(self.key_cmd, 0)
+       self.wago.set(self.key_cmd, 1)
 
    def _is_in(self):
        return self.wago.get(self.key_in)

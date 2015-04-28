@@ -223,6 +223,10 @@ class CalcController(Controller):
 
         self._reals_group = None
 
+    def initialize(self):
+        for axis in self.pseudos:
+            self.get_axis(axis.name)
+
     def _update_refs(self):
         Controller._update_refs(self)
 

@@ -1,6 +1,6 @@
 from bliss.common.task_utils import cleanup, error_cleanup, task
 from bliss.common.utils import add_property
-from bliss.common.measurement import CounterBase
+from bliss.common.measurement import CounterBase, AverageMeasurement
 from bliss.common import Actuator
 import time
 import gevent
@@ -102,7 +102,10 @@ class tango_bpm(object):
        self.__acquisition_event.set()
 
    def _read_diode_current(self, exp_time=None):
-     return self.__control.DiodeCurrent
+     meas = AverageMeasurement()
+     for reading in meas(exp_time):
+         reading.value = self.__control.DiodeCurrent
+     return meas.average
 
    def set_diode_range(self, range):
      self.__control.DiodeRange = range

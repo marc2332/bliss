@@ -54,6 +54,8 @@ def _load_config(env_dict, verbose=True):
     except:
         sys.excepthook(*sys.exc_info())
         return        
+
+    cfg.reload()
  
     for item_name in cfg.names_list:
         if verbose:

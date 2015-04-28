@@ -1,0 +1,273 @@
+/* -*- mode: C++; coding: utf-8 -*- */
+
+/****************************************************************************
+ *                                                                          *
+ * ESRF C208/P201 Userland C++ interface                                    *
+ *                                                                          *
+ * Copyright © 2014 Helmholtz-Zentrum Dresden Rossendorf                    *
+ * Christian Böhme <c.boehme@hzdr.de>                                       *
+ *                                                                          *
+ * This program is free software: you can redistribute it and/or modify     *
+ * it under the terms of the GNU General Public License as published by     *
+ * the Free Software Foundation, either version 3 of the License, or        *
+ * (at your option) any later version.                                      *
+ *                                                                          *
+ * This program is distributed in the hope that it will be useful,          *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of           *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the            *
+ * GNU General Public License for more details.                             *
+ *                                                                          *
+ * You should have received a copy of the GNU General Public License        *
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.    *
+ *                                                                          *
+ ****************************************************************************/
+
+#if !defined ESRF_CT2
+#define ESRF_CT2
+
+#include <unistd.h>                 // ::pread(2), ::pwrite(2)
+
+#include <cstddef>                  // std::size_t
+
+#include <esrf/ct2.h>
+
+
+namespace esrf {
+  namespace ct2 {
+
+enum rspc_name { rf_1, rf_2 };
+enum dev_class { ct2, c208, p201 };
+
+// the general template
+template < dev_class c, rspc_name f, ct2_reg_dist_t r, bool rd, bool wr >
+struct register_definition;
+
+// the general template
+template < rspc_name f, ct2_reg_dist_t r, bool rd, bool wr >
+struct register_transfer;
+
+// read transfer
+template < rspc_name f, ct2_reg_dist_t r >
+struct register_transfer<f, r, true, false> {
+
+  register_transfer( ct2_reg_t & _reg ) : reg(_reg) {}
+
+  bool operator () ( int fd )
+  {
+    std::size_t offset = ( f == rf_1 ? (CT2_RW_R1_OFF + r) : (CT2_RW_R2_OFF + r) );
+
+    if ( ::pread(fd, &reg, 1, offset) != 1 )
+      return false;
+
+    return true;
+  }
+
+private:
+
+  ct2_reg_t &         reg;
+};
+
+// write transfer
+template < rspc_name f, ct2_reg_dist_t r >
+struct register_transfer<f, r, false, true> {
+
+  register_transfer( const ct2_reg_t & _reg ) : reg(_reg) {}
+
+  bool operator () ( int fd )
+  {
+    std::size_t offset = ( f == rf_1 ? (CT2_RW_R1_OFF + r) : (CT2_RW_R2_OFF + r) );
+
+    if ( ::pwrite(fd, &reg, 1, offset) != 1 )
+      return false;
+
+    return true;
+  }
+
+private:
+
+  const ct2_reg_t &   reg;
+};
+
+
+template < dev_class c, rspc_name f, ct2_reg_dist_t r, bool rd >
+register_transfer<f, r, false, true> operator << ( register_definition<c, f, r, rd, true> n, const ct2_reg_t & v )
+{
+  register_transfer<f, r, false, true> op(v);
+
+  return op;
+}
+
+template < dev_class c, rspc_name f, ct2_reg_dist_t r, bool wr >
+register_transfer<f, r, true, false> operator >> ( register_definition<c, f, r, true, wr> n, ct2_reg_t & v )
+{
+  register_transfer<f, r, true, false> op(v);
+
+  return op;
+}
+
+template < rspc_name f, ct2_reg_dist_t r, bool rd, bool wr >
+bool execute( int fd, register_transfer<f, r, rd, wr> op )
+{
+  return op(fd);
+}
+
+
+template < dev_class c, rspc_name f, ct2_reg_dist_t r, bool wr >
+std::size_t r_reg_off( register_definition<c, f, r, true, wr> n )
+{
+  return (f == rf_1 ? (CT2_RW_R1_OFF + r) : (CT2_RW_R2_OFF + r));
+}
+
+template < dev_class c, rspc_name f, ct2_reg_dist_t r, bool rd >
+std::size_t w_reg_off( register_definition<c, f, r, rd, true> n )
+{
+  return (f == rf_1 ? (CT2_RW_R1_OFF + r) : (CT2_RW_R2_OFF + r));
+}
+
+template < dev_class c, rspc_name f, ct2_reg_dist_t r >
+std::size_t rw_reg_off( register_definition<c, f, r, true, true> n )
+{
+  return (f == rf_1 ? (CT2_RW_R1_OFF + r) : (CT2_RW_R2_OFF + r));
+}
+
+
+
+
+#define DEFINE_REG(ct2, spc, reg, rd, wr)                                                                             \
+template < > struct register_definition<ct2, rf_ ## spc, ct2_reg_offset(spc, ct2 ## _ ## reg), rd, wr> {};            \
+typedef register_definition<ct2, rf_ ## spc, ct2_reg_offset(spc, ct2 ## _ ## reg), rd, wr> ct2 ## _ ## reg ## _type
+
+#define DEFINE_VREG(ct2, spc, rbn, rd, wr, idx, sfx)                                                                                  \
+template < > struct register_definition<ct2, rf_ ## spc, ct2_reg_offset(spc, ct2 ## _ ## rbn[idx]), rd, wr> {};                       \
+typedef register_definition<ct2, rf_ ## spc, ct2_reg_offset(spc, ct2 ## _ ## rbn[idx]), rd, wr> ct2 ## _ ## rbn ## _ ## sfx ## _type
+
+//           c    r  name                   r      w     i   s
+//           l    e                         e      r     n   u
+//           a    g                         a      i     d   f
+//           s    s                         d      t     e   f
+//           s    p                                e     x   i
+//                c                                          x
+
+DEFINE_REG (ct2,  1, com_gene,            true,  true         );
+DEFINE_REG (ct2,  1, ctrl_gene,           true,  false        );
+DEFINE_REG (c208, 1, temps,               true,  false        );
+DEFINE_REG (ct2,  1, niveau_out,          true,  true         );
+DEFINE_REG (ct2,  1, adapt_50,            true,  true         );
+DEFINE_REG (ct2,  1, soft_out,            true,  true         );
+DEFINE_REG (ct2,  1, rd_in_out,           true,  false        );
+DEFINE_REG (ct2,  1, rd_ctrl_cmpt,        true,  false        );
+DEFINE_REG (ct2,  1, cmd_dma,             true,  true         );
+DEFINE_REG (ct2,  1, ctrl_fifo_dma,       true,  false        );
+DEFINE_VREG(ct2,  1, source_it,           true,  true,   0,  a);
+DEFINE_VREG(ct2,  1, source_it,           true,  true,   1,  b);
+DEFINE_REG (p201, 1, niveau_in,           true,  true         );
+DEFINE_VREG(ct2,  1, rd_cmpt,             true,  false,  0,  1);
+// ...
+DEFINE_VREG(ct2,  1, rd_cmpt,             true,  false, 11, 12);
+DEFINE_VREG(ct2,  1, rd_latch_cmpt,       true,  false,  0,  1);
+// ...
+DEFINE_VREG(ct2,  1, rd_latch_cmpt,       true,  false, 11, 12);
+DEFINE_REG (p201, 1, test_reg,            true,  true         );
+
+DEFINE_VREG(ct2,  2, sel_filtre_input,    true,  true,   0,  a);
+DEFINE_VREG(ct2,  2, sel_filtre_input,    true,  true,   1,  b);
+DEFINE_VREG(c208, 2, sel_filtre_output,   true,  true,   0,  a);
+DEFINE_VREG(c208, 2, sel_filtre_output,   true,  true,   1,  b);
+DEFINE_VREG(c208, 2, sel_filtre_output,   true,  true,   2,  c);
+DEFINE_REG (p201, 2, sel_filtre_output,   true,  true         );
+DEFINE_VREG(c208, 2, sel_source_output,   true,  true,   0,  a);
+DEFINE_VREG(c208, 2, sel_source_output,   true,  true,   1,  b);
+DEFINE_VREG(c208, 2, sel_source_output,   true,  true,   2,  c);
+DEFINE_REG (p201, 2, sel_source_output,   true,  true         );
+DEFINE_VREG(ct2,  2, sel_latch,           true,  true,   0,  a);
+DEFINE_VREG(ct2,  2, sel_latch,           true,  true,   1,  b);
+DEFINE_VREG(ct2,  2, sel_latch,           true,  true,   2,  c);
+DEFINE_VREG(ct2,  2, sel_latch,           true,  true,   3,  d);
+DEFINE_VREG(ct2,  2, sel_latch,           true,  true,   4,  e);
+DEFINE_VREG(ct2,  2, sel_latch,           true,  true,   5,  f);
+DEFINE_VREG(ct2,  2, conf_cmpt,           true,  true,   0,  1);
+DEFINE_VREG(ct2,  2, conf_cmpt,           true,  true,   1,  2);
+DEFINE_VREG(ct2,  2, conf_cmpt,           true,  true,   2,  3);
+// ...
+DEFINE_VREG(ct2,  2, conf_cmpt,           true,  true,  10, 11);
+DEFINE_VREG(ct2,  2, conf_cmpt,           true,  true,  11, 12);
+DEFINE_REG (ct2,  2, soft_enable_disable, false, true         );
+DEFINE_REG (ct2,  2, soft_start_stop,     false, true         );
+DEFINE_REG (ct2,  2, soft_latch,          false, true         );
+DEFINE_VREG(ct2,  2, compare_cmpt,        true,  true,   0,  1);
+// ...
+DEFINE_VREG(ct2,  2, compare_cmpt,        true,  true,  10, 11);
+DEFINE_VREG(ct2,  2, compare_cmpt,        true,  true,  11, 12);
+
+
+#define DEFINE_MEMBER(ct2, rbn)     static const ct2 ## _ ## rbn ## _type rbn
+
+struct ct2 {
+
+  DEFINE_MEMBER(ct2, com_gene);
+  DEFINE_MEMBER(ct2, ctrl_gene);
+
+  DEFINE_MEMBER(ct2, niveau_out);
+  DEFINE_MEMBER(ct2, adapt_50);
+  DEFINE_MEMBER(ct2, soft_out);
+  DEFINE_MEMBER(ct2, rd_in_out);
+  DEFINE_MEMBER(ct2, rd_ctrl_cmpt);
+  DEFINE_MEMBER(ct2, cmd_dma);
+  DEFINE_MEMBER(ct2, ctrl_fifo_dma);
+  DEFINE_MEMBER(ct2, source_it_a);
+  DEFINE_MEMBER(ct2, source_it_b);
+
+  DEFINE_MEMBER(ct2, rd_cmpt_1);
+  // ...
+  DEFINE_MEMBER(ct2, rd_cmpt_12);
+  DEFINE_MEMBER(ct2, rd_latch_cmpt_1);
+  // ...
+  DEFINE_MEMBER(ct2, rd_latch_cmpt_12);
+
+  DEFINE_MEMBER(ct2, sel_filtre_input_a);
+  DEFINE_MEMBER(ct2, sel_filtre_input_b);
+
+  DEFINE_MEMBER(ct2, sel_latch_a);
+  DEFINE_MEMBER(ct2, sel_latch_b);
+  // ...
+  DEFINE_MEMBER(ct2, sel_latch_f);
+  DEFINE_MEMBER(ct2, conf_cmpt_1);
+  DEFINE_MEMBER(ct2, conf_cmpt_2);
+  DEFINE_MEMBER(ct2, conf_cmpt_3);
+  // ...
+  DEFINE_MEMBER(ct2, conf_cmpt_11);
+  DEFINE_MEMBER(ct2, conf_cmpt_12);
+  DEFINE_MEMBER(ct2, soft_enable_disable);
+  DEFINE_MEMBER(ct2, soft_start_stop);
+  DEFINE_MEMBER(ct2, soft_latch);
+  DEFINE_MEMBER(ct2, compare_cmpt_1);
+  // ...
+  DEFINE_MEMBER(ct2, compare_cmpt_11);
+  DEFINE_MEMBER(ct2, compare_cmpt_12);
+};
+
+struct c208 : public ct2 {
+
+  DEFINE_MEMBER(c208, temps);
+
+  DEFINE_MEMBER(c208, sel_filtre_output_a);
+  DEFINE_MEMBER(c208, sel_filtre_output_b);
+  DEFINE_MEMBER(c208, sel_filtre_output_c);
+  DEFINE_MEMBER(c208, sel_source_output_a);
+  DEFINE_MEMBER(c208, sel_source_output_b);
+  DEFINE_MEMBER(c208, sel_source_output_c);
+};
+
+struct p201 : public ct2 {
+
+  DEFINE_MEMBER(p201, niveau_in);
+  DEFINE_MEMBER(p201, test_reg);
+
+  DEFINE_MEMBER(p201, sel_filtre_output);
+  DEFINE_MEMBER(p201, sel_source_output);
+};
+
+  }     // namespace ct2
+}       // namespace esrf
+
+#endif  // ESRF_CT2

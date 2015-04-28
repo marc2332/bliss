@@ -1,0 +1,152 @@
+/* -*- mode: C++; coding: utf-8 -*- */
+
+/****************************************************************************
+ *                                                                          *
+ * verbose ESRF C208/P201 register transfers                                *
+ *                                                                          *
+ * Copyright © 2014 Helmholtz-Zentrum Dresden Rossendorf                    *
+ * Christian Böhme <c.boehme@hzdr.de>                                       *
+ *                                                                          *
+ * This program is free software: you can redistribute it and/or modify     *
+ * it under the terms of the GNU General Public License as published by     *
+ * the Free Software Foundation, either version 3 of the License, or        *
+ * (at your option) any later version.                                      *
+ *                                                                          *
+ * This program is distributed in the hope that it will be useful,          *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of           *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the            *
+ * GNU General Public License for more details.                             *
+ *                                                                          *
+ * You should have received a copy of the GNU General Public License        *
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.    *
+ *                                                                          *
+ ****************************************************************************/
+
+#include <unistd.h>           // ::pread(2), ::pwrite(2)
+
+#include <cstdint>
+#include <cstdio>
+#include <cstring>
+#include <cerrno>
+
+#include <iostream>
+
+#include <esrf/ct2>
+
+
+bool rread( int fd, ct2_reg_t & reg, std::size_t offset, const char * rn )
+{
+  reg = 0;
+  if ( ::pread(fd, &reg, 1, offset) != 1 ) {
+    std::cerr << "pread(" << rn << "): " << std::strerror(errno) << std::endl;
+    goto fail;
+  }
+
+  std::printf("%s => %08xh\n", rn, reg);
+
+  return true;
+
+fail:
+
+  std::printf("(read)\n");
+
+  return false;
+}
+
+bool rwrite_rb( int fd, ct2_reg_t & reg, std::size_t offset, const char * rn )
+{
+  const char *  step = "";
+
+
+  std::printf("%08xh => %s ", reg, rn);
+
+  if ( ::pwrite(fd, &reg, 1, offset) != 1 ) {
+    std::cerr << "pwrite(" << rn << "): " << std::strerror(errno) << std::endl;
+    step = "write";
+    goto fail;
+  }
+
+  reg = 0;
+  if ( ::pread(fd, &reg, 1, offset) != 1 ) {
+    std::cerr << "pread(" << rn << "): " << std::strerror(errno) << std::endl;
+    step = "read";
+    goto fail;
+  }
+
+  std::printf("=> %08xh\n", reg);
+
+  return true;
+
+fail:
+
+  std::printf("(%s)\n", step);
+
+  return false;
+}
+
+bool edc( int fd, ct2_reg_t & reg )
+{
+  const char *  step = "";
+
+
+  std::printf("%08xh => ct2::soft_enable_disable", reg);
+
+  if ( !esrf::ct2::execute(fd, (esrf::ct2::ct2::soft_enable_disable << reg)) ) {
+    std::cerr << "ct2::soft_enable_disable <<: " << std::strerror(errno) << std::endl;
+    step = "<<";
+    goto fail;
+  }
+
+  reg = 0;
+  if ( !esrf::ct2::execute(fd, (esrf::ct2::ct2::rd_ctrl_cmpt >> reg)) ) {
+    std::cerr << "ct2::rd_ctrl_cmpt >>: " << std::strerror(errno) << std::endl;
+    step = "ct2::rd_ctrl_cmpt >>";
+    goto fail;
+  }
+
+  std::printf("|ct2::rd_ctrl_cmpt => %08xh\n", reg);
+
+  return true;
+
+fail:
+
+  std::printf(" (%s)\n", step);
+
+  return false;
+}
+
+bool ssc( int fd, ct2_reg_t & reg )
+{
+  const char *  step = "";
+
+
+  std::printf("%08xh => ct2::soft_start_stop", reg);
+
+  if ( !esrf::ct2::execute(fd, (esrf::ct2::ct2::soft_start_stop << reg)) ) {
+    std::cerr << "ct2::soft_start_stop <<: " << std::strerror(errno) << std::endl;
+    step = "<<";
+    goto fail;
+  }
+
+  reg = 0;
+  if ( !esrf::ct2::execute(fd, (esrf::ct2::ct2::rd_ctrl_cmpt >> reg)) ) {
+    std::cerr << "ct2::rd_ctrl_cmpt >>: " << std::strerror(errno) << std::endl;
+    step = "ct2::rd_ctrl_cmpt >>";
+    goto fail;
+  }
+
+  std::printf("|ct2::rd_ctrl_cmpt => %08x\n", reg);
+
+  return true;
+
+fail:
+
+  std::printf(" (%s)\n", step);
+
+  return false;
+}
+
+
+#define rd(fd, rn, robj)      rread((fd), (robj), r_reg_off(rn), # rn)
+#define wrb(fd, rn, robj)     rwrite_rb((fd), (robj), rw_reg_off(rn), # rn)
+

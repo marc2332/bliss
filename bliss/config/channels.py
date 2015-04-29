@@ -50,7 +50,7 @@ def receive_channels_values():
     while True:
         # .keys() is atomic (takes GIL)
         fds = BUS_BY_FD.keys()
-        readable_fds, _, _ = select.select(fds, [], [], 1)
+        readable_fds, _, _ = select.select(fds, [], [])
         for fd in readable_fds:
             try:
                 bus = BUS_BY_FD[fd]

@@ -1,15 +1,18 @@
+import os
 from distutils.core import setup
+
+def get_packages_path():
+    packages_path = ['bliss']
+    for sub_package in [x for x in os.listdir('bliss') if os.path.isdir(os.path.join('bliss',x))]:
+        full_package_path = os.path.join('bliss',sub_package)
+        packages_path.extend((x[0] for x in os.walk(full_package_path)))
+    return packages_path
 
 setup(name="bliss", version="0.1",
       description="BeamLine Instrumentation Support Software",
       author="BCU (ESRF)",
       package_dir={"bliss": "bliss"},
-      packages=['bliss', 'bliss.acquisition', 'bliss.comm', 'bliss.comm.embl', 'bliss.comm.gpib', 'bliss.common',
-                'bliss.config', 'bliss.config.conductor', 'bliss.config.conductor.web',
-                'bliss.config.motors', 'bliss.config.plugins', 'bliss.config.redis',
-                'bliss.controllers', 'bliss.controllers.motors', 'bliss.controllers.motors.libicepap',
-                'bliss.controllers.motors.libicepap.deep', "bliss.data", 
-                "bliss.shell", "bliss.shell.interpreter", "bliss.shell.web", "bliss.shell.interpreter", "bliss.shell.ipython"],
+      packages=get_packages_path(),
       package_data={"bliss.config.redis": ["redis.conf"],
                     "bliss.config.plugins": ["*.html"],
                     "bliss.config.conductor.web": ["*.html",

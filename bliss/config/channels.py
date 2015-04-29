@@ -20,7 +20,8 @@ CHANNELS = dict()
 BUS = weakref.WeakValueDictionary()
 BUS_BY_FD = dict()
 RECEIVER_THREAD = None
-
+CHANNELS_BUS = 'channels_bus'
+CHANNELS_RESPONDENT = 'channels_respondent'
 
 # clumsy way of getting free port number
 # I hate this but I don't know how to do
@@ -78,9 +79,8 @@ def receive_channels_values():
 
 
 def _clean_redis(redis, channels_bus, channels_respondent):
-    redis.srem("channels_bus", channels_bus)
-    redis.srem("channels_respondent", channels_respondent)
-
+    redis.srem(CHANNELS_BUS, channels_bus)
+    redis.srem(CHANNELS_RESPONDENT, channels_respondent)
 
 class _Bus(object):
     def __init__(self, bus_id, redis):   
@@ -93,7 +93,7 @@ class _Bus(object):
         self._bus_socket.bind("tcp://*:%d" % bus_socket_port_number)
         BUS_BY_FD[self.recv_fd] = self
         # connect to other bus sockets     
-        channels_bus_list = redis.smembers("channels_bus")
+        channels_bus_list = redis.smembers(CHANNELS_BUS)
         for remote_bus in channels_bus_list:
             self._bus_socket.connect(remote_bus)
 
@@ -101,7 +101,7 @@ class _Bus(object):
 
         # add socket to the set of channels bus sockets
         bus_addr = "tcp://%s:%d" % (socket.getfqdn(), bus_socket_port_number)
-        redis.sadd("channels_bus", bus_addr)
+        redis.sadd(CHANNELS_BUS, bus_addr)
         
         # respondent socket is used to reply to survey requests 
         respondent_socket_port_number = get_free_port()
@@ -109,7 +109,7 @@ class _Bus(object):
         BUS_BY_FD[self._respondent_socket.recv_fd] = self
         # add surveyor socket in list
         respondent_addr = "tcp://%s:%d" % (socket.getfqdn(), respondent_socket_port_number)
-        redis.sadd("channels_respondent", respondent_addr)
+        redis.sadd(CHANNELS_RESPONDENT, respondent_addr)
 
         atexit.register(_clean_redis, redis, bus_addr, respondent_addr)
             
@@ -140,7 +140,7 @@ class _Bus(object):
         # ask for channel value to all respondents
         s = nanomsg.Socket(nanomsg.SURVEYOR)
 
-        respondent_list = redis.smembers("channels_respondent")
+        respondent_list = redis.smembers(CHANNELS_RESPONDENT)
         for respondent in respondent_list:
             s.connect(respondent) 
 

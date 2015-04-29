@@ -23,17 +23,20 @@ RECEIVER_THREAD = None
 CHANNELS_BUS = 'channels_bus'
 CHANNELS_RESPONDENT = 'channels_respondent'
 
-# clumsy way of getting free port number
-# I hate this but I don't know how to do
-# better...
-# nanomsg doesn't have the possibility to
-# bind to any free port, we *have* to provide
-# a free one
-def get_free_port():
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.bind(('', 0))
-    free_port_number = s.getsockname()[1]
-    s.close()
+# getting the first free port available in range 30000-40000
+def get_free_port(redis,channel_key):
+    for port_number in xrange(30000,40000) :
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.bind(('', port_number))
+            free_port_number = s.getsockname()[1]
+            url = "tcp://%s:%d" % (socket.getfqdn(), free_port_number)
+            if redis.sadd(channel_key,url) == 1: # the port is not used
+                break
+        finally:
+            s.close()
+    else:
+        return -1
 
     return free_port_number
 
@@ -89,7 +92,7 @@ class _Bus(object):
         self._bus_socket = nanomsg.Socket(nanomsg.BUS)
         self._respondent_socket = nanomsg.Socket(nanomsg.RESPONDENT)
 
-        bus_socket_port_number = get_free_port()
+        bus_socket_port_number = get_free_port(redis,CHANNELS_BUS)
         self._bus_socket.bind("tcp://*:%d" % bus_socket_port_number)
         BUS_BY_FD[self.recv_fd] = self
         # connect to other bus sockets     
@@ -98,18 +101,11 @@ class _Bus(object):
             self._bus_socket.connect(remote_bus)
 
         gevent.sleep(0.1) # arggghhh
-
-        # add socket to the set of channels bus sockets
-        bus_addr = "tcp://%s:%d" % (socket.getfqdn(), bus_socket_port_number)
-        redis.sadd(CHANNELS_BUS, bus_addr)
         
         # respondent socket is used to reply to survey requests 
-        respondent_socket_port_number = get_free_port()
+        respondent_socket_port_number = get_free_port(redis,CHANNELS_RESPONDENT)
         self._respondent_socket.bind("tcp://*:%d" % respondent_socket_port_number)
         BUS_BY_FD[self._respondent_socket.recv_fd] = self
-        # add surveyor socket in list
-        respondent_addr = "tcp://%s:%d" % (socket.getfqdn(), respondent_socket_port_number)
-        redis.sadd(CHANNELS_RESPONDENT, respondent_addr)
 
         atexit.register(_clean_redis, redis, bus_addr, respondent_addr)
             

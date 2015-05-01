@@ -33,7 +33,7 @@
           }
           .cmdline-executing
           {
-              box-shadow: 0 0 2px #0000cc;
+	      background-color: #E0F8F7;
           }
           .hint
           {
@@ -46,7 +46,6 @@
           }
           .output-executing
           {
-              box-shadow: 0 0 2px #0000cc;
 	      background-color: #E0F8F7;
           }
 

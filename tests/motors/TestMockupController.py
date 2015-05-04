@@ -422,7 +422,6 @@ class TestMockupController(unittest.TestCase):
         time.sleep(0.01)
         m0._Axis__move_task.kill(KeyboardInterrupt)
         m0.wait_move()
-        self.assertEquals(m0.set_position(), None)
         m0.move(1)
         self.assertEquals(m0.set_position(), 1)
     

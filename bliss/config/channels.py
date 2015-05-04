@@ -15,6 +15,7 @@ try:
 except ImportError:
     from pydispatch import saferef
     saferef.safe_ref = saferef.safeRef
+import sys
 
 CHANNELS = dict()
 BUS = weakref.WeakValueDictionary()

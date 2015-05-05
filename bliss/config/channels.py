@@ -222,6 +222,7 @@ def Channel(name, value=NotInitialized(), redis=None):
             redis = client.get_cache()
     redis_connection = redis.connection_pool.get_connection("")
     bus_id = (redis_connection.host, redis_connection.port, redis_connection.db)
+    redis.connection_pool.release(redis_connection)
 
     try:
         chan = CHANNELS[bus_id][name]

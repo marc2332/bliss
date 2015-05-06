@@ -461,9 +461,8 @@ Shell.prototype = {
                         xLabelHeight: fs,
                         yLabelWidth: fs
                     });
-                    plot.div.addEventListener("mouseup", function(e) {
-                        plot.obj.resize();
-                    });
+                    var plot_div = $(plot.div).parent();
+                    plot_div.on("resizestop", function() { plot.obj.resize(); });
                 }
             } else {
                 /* end of scan, free memory */
@@ -471,13 +470,15 @@ Shell.prototype = {
             }
         } else {
             /* create new plot */
-            var plot_div = $('<div class="ui-widget-content" style="width:640px; height:480px; resize:both; overflow: auto;"></div>');
-            //plot_div.resizable(); this doesn't work... why?
+            var plot_div = $('<div class="ui-widget-content" style="width:640px; height:480px; overflow: hidden"></div>');
+            var inner_plot_div = $('<div style="margin: 5px; width:95%; height: 95%;"></div>');
+            plot_div.append(inner_plot_div);
+            plot_div.resizable({handles: "se"});
             this.last_output_div.append(plot_div);
             this.output_div.scrollTop(0);
             //this.scrollToBottom(this.output_div);
             this.plot[data.scan_id] = {
-                "div": plot_div[0],
+                "div": inner_plot_div[0],
                 "data": [],
                 "obj": null,
                 "title": data.filename,

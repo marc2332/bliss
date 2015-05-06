@@ -96,9 +96,8 @@ class MD2S:
         #get the image size and camera calibration
         img_width = self.sample_video_device.image_width
         img_height = self.sample_video_device.image_height
-        px_mm_y = 1000000.0*self._exporter.readProperty("CoaxCamScaleX")
-        px_mm_z =  1000000.0*self._exporter.readProperty("CoaxCamScaleY")
-        #px_mm_y, px_mm_z = self.get_cameracalibration()
+
+        px_mm_y, px_mm_z = self.get_cameracalibration()
 
         def restore_table(saved_pos=(self.thgt, self.thgt.position(), self.ttrans,self.ttrans.position(), self.tyb, self.tyb.position())):
             logging.getLogger().info("Restoring table:", saved_pos)
@@ -110,8 +109,6 @@ class MD2S:
         def do_centrebeam():
             with error_cleanup(restore_att):
                 self.fshut.open()
-                #if self.fshut.state() is not OPENED:
-                #    return
                 
             with cleanup(restore_live):
                 self.sample_video_device.video_live=False
@@ -129,7 +126,6 @@ class MD2S:
             with error_cleanup(restore_table):
                 print "moving ttrans by", -dy
                 print "moving thgt by", -dz
-                #self._simultaneous_rmove(self.thgt, -dz)
                 self._simultaneous_rmove(self.thgt, -dz, self.ttrans, -dy, self.tyb, -dy)
             return dy, dz
 

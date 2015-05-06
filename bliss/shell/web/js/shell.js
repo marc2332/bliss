@@ -270,8 +270,8 @@ Shell.prototype = {
             });
         });
         mousetrap.bind(".", function() {
-            self.current_command = self.cmdline.val();
-            self._completion_start = self.cmdline[0].selectionStart;
+            self.current_command = self.cmdline.val()+'.';
+            self._completion_start = self.cmdline[0].selectionStart+1;
             self.completion_mode = true;
             self.completion_request(self.current_command, self._completion_start, true);
         });

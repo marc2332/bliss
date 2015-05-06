@@ -134,7 +134,7 @@ def commit_settings(config_dict):
 
 
 def setting_update_from_channel(value, setting_name=None, axis=None):
-    axis.settings.set(setting_name, value, write=False)
+    axis.settings.set(setting_name, value, write=False, from_channel=True)
 
 
 def get_axis_setting(axis, setting_name):

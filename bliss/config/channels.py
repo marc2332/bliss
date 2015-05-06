@@ -220,9 +220,7 @@ class _Channel(object):
 def Channel(name, value=NotInitialized(), redis=None):
     if redis is None:
             redis = client.get_cache()
-    redis_connection = redis.connection_pool.get_connection("")
-    bus_id = (redis_connection.host, redis_connection.port, redis_connection.db)
-    redis.connection_pool.release(redis_connection)
+    bus_id = (redis.connection_pool.connection_kwargs['host'], redis.connection_pool.connection_kwargs['port'], redis.connection_pool.connection_kwargs['db'])
 
     try:
         chan = CHANNELS[bus_id][name]

@@ -36,6 +36,7 @@ class _Group(object):
         self._motions_dict = dict()
         self.__move_done = gevent.event.Event()
         self.__move_done.set()
+        self.__move_task = None
 
         for axis_name, axis_config in axes:
             axis = AxisRef(axis_name, self, axis_config)
@@ -203,7 +204,8 @@ class _Group(object):
             raise
         else:
             try:
-                return self.__move_task.get()
+                if self.__move_task is not None:
+                    return self.__move_task.get()
             except (KeyboardInterrupt, gevent.GreenletExit):
                 pass
 

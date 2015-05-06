@@ -466,7 +466,8 @@ class Axis(object):
             raise
         else:
             try:
-                return self.__move_task.get()
+                if self.__move_task is not None:
+                    return self.__move_task.get()
             except (KeyboardInterrupt, gevent.GreenletExit):
                 pass
 

@@ -111,7 +111,7 @@ class Axis(object):
 
         self.__controller.set_on(self)
         state = self.__controller.state(self)
-        self.settings.set("state", state, write=False)
+        self.settings.set("state", state)
 
     def off(self):
         if self.is_moving:
@@ -119,7 +119,7 @@ class Axis(object):
 
         self.__controller.set_off(self)
         state = self.__controller.state(self)
-        self.settings.set("state", state, write=False)
+        self.settings.set("state", state)
 
     def set_position(self):
         return self.__set_position if self.__set_position is not None else self.position()
@@ -296,7 +296,7 @@ class Axis(object):
         return self.settings.get('low_limit'), self.settings.get('high_limit')
 
     def _update_settings(self, state=None):
-        self.settings.set("state", state if state is not None else self.state(), write=False)
+        self.settings.set("state", state if state is not None else self.state())
         pos = self._position()
         self.settings.set("dial_position", self.user2dial(pos))
         self.settings.set("position", pos)
@@ -397,7 +397,7 @@ class Axis(object):
 
     def _set_moving_state(self):
         self.__move_done.clear()
-        self.settings.set("state", AxisState("MOVING"), write=False)
+        self.settings.set("state", AxisState("MOVING"))
         event.send(self, "move_done", False)
 
     def _set_move_done(self, move_task):

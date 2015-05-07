@@ -43,12 +43,20 @@ def deal_with_job(req, args, kwargs):
         except:
             exception, error_string, tb = sys.exc_info()
             result = CallException(exception, error_string, tb)
+
         req.set_result(result)
 
     if req.method == "new":
         klass = args[0]
         args = args[1:]
-        new_obj = klass(*args, **kwargs)
+        try:
+            new_obj = klass(*args, **kwargs)
+        except:
+            exception, error_string, tb = sys.exc_info()
+            result = CallException(exception, error_string, tb)
+            req.set_result(result)
+            return
+
         queue = _threading.Queue()
         watcher = gevent.get_hub().loop.async()
         watcher.start(functools.partial(read_from_queue, queue))

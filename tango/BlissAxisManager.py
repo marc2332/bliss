@@ -310,39 +310,26 @@ class BlissAxis(PyTango.Device_4Impl):
                 (self._ds_name, _duration * 1000)
 
     def read_Acceleration(self, attr):
-        try:
-            _acc = self.axis.acceleration()
-            self.debug_stream("In read_Acceleration(%f)" % float(_acc))
-            attr.set_value(_acc)
-        except:
-            elog.error("BlissAxisManager.py : Unable to read acceleration for axis %s" % self.axis.name(),
-                       raise_exception=False)
+        _acc = self.axis.acceleration()
+        self.debug_stream("In read_Acceleration(%f)" % float(_acc))
+        attr.set_value(_acc)
+
 
     def write_Acceleration(self, attr):
-        try:
-            data = float(attr.get_write_value())
-            self.debug_stream("In write_Acceleration(%f)" % data)
-            self.axis.acceleration(data)
-        except:
-            elog.error("BlissAxisManager.py : Unable to write acceleration (%g uu/s2) for axis %s" % (data, self.axis.name()),
-                       raise_exception=False)
+        data = float(attr.get_write_value())
+        self.debug_stream("In write_Acceleration(%f)" % data)
+        self.axis.acceleration(data)
 
     def read_AccTime(self, attr):
-        try:
-            self.debug_stream("In read_AccTime()")
-            _acc_time = self.axis.acctime()
-            self.debug_stream("In read_AccTime(%f)" % float(_acc_time))
-            attr.set_value(_acc_time)
-        except:
-            elog.error("BlissAxisManager.py : Unable to read acc_time for axis %s" % self.axis.name())
+        self.debug_stream("In read_AccTime()")
+        _acc_time = self.axis.acctime()
+        self.debug_stream("In read_AccTime(%f)" % float(_acc_time))
+        attr.set_value(_acc_time)
 
     def write_AccTime(self, attr):
-        try:
-            data = float(attr.get_write_value())
-            self.axis.acctime(data)
-            self.debug_stream("In write_AccTime(%f)" % float(data))
-        except:
-            elog.error("BlissAxisManager.py : Unable to write acc_time (%g s) for axis %s" % (data, self.axis.name()))
+        data = float(attr.get_write_value())
+        self.axis.acctime(data)
+        self.debug_stream("In write_AccTime(%f)" % float(data))
 
     def read_Velocity(self, attr):
         _vel = self.axis.velocity()

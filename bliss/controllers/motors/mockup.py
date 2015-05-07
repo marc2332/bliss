@@ -68,6 +68,8 @@ class Mockup(Controller):
             axis.settings.set('round_earth', True)
             axis.settings.set('geocentrisme', False)
 
+            axis.__vel = None
+            axis.__acc = None
 
     """
     Axes initialization actions.

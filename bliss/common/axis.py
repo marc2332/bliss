@@ -251,14 +251,17 @@ class Axis(object):
             return self.config.get("acceleration", float)
 
         if new_acc is not None:
-            # W => Converts into motor units to change acceleration of axis.
-            self.__controller.set_acceleration(self, new_acc * abs(self.steps_per_unit))
+            try:
+                # W => Converts into motor units to change acceleration of axis.
+                self.__controller.set_acceleration(self, new_acc * abs(self.steps_per_unit))
+            except NotImplementedError:
+                elog.error("EMotion/axis.py : acceleration W is not implemented for this controller.")
 
         # Both R or W : Reads acceleration from controller.
         try:
             _ctrl_acc = self.__controller.read_acceleration(self)
         except NotImplementedError:
-            elog.info("EMotion : axis.py : acceleration is not implemented for this controller.")
+            elog.error("EMotion/axis.py : acceleration R W is not implemented for this controller.")
 
         _acceleration = _ctrl_acc / abs(self.steps_per_unit)
 
@@ -276,11 +279,19 @@ class Axis(object):
             return self.velocity(from_config=True) / self.acceleration(from_config=True)
 
         if new_acctime is not None:
-            # W => Converts acctime into acceleration.
-            acc = self.velocity() / new_acctime
-            self.acceleration(acc)
+            try:
+                # W => Converts acctime into acceleration.
+                acc = self.velocity() / new_acctime
+                self.acceleration(acc)
+            except NotImplementedError:
+                elog.error("EMotion/axis.py : acceleration is not implemented for this controller.")
 
-        return self.velocity() / self.acceleration()
+        try:
+            _acctime = self.velocity() / self.acceleration()
+        except NotImplementedError:
+            elog.error("EMotion/axis.py : acceleration is not implemented for this controller.")
+
+        return _acctime
 
     def limits(self, low_limit=None, high_limit=None):
         """
@@ -444,7 +455,7 @@ class Axis(object):
     def _do_move(self, motion, wait=True):
         if motion is None:
             return
-        
+
         with error_cleanup(self._do_stop):
             self.__controller.start_one(motion)
 

@@ -2,7 +2,7 @@ import re
 import gevent
 from gevent import socket, event, queue, lock
 import time
-
+import logging
 
 """
 connect
@@ -51,10 +51,13 @@ class Socket:
         self._event = event.Event()
         self._raw_read_task = None
         self._lock = lock.Semaphore()
+        self._logger = logging.getLogger(self.__class__.__name__)
+        self._debug = self._logger.debug
 
     def connect(self, host=None, port=None):
         local_host = host or self._host
         local_port = port or self._port
+        self._debug("connect(host=%s,port=%d)",local_host,local_port)
 
         if self._connected:
             self._fd.close()
@@ -133,12 +136,12 @@ class Socket:
     @try_connect_socket
     def write(self, msg, timeout=None):
         with self._lock:
-            self._fd.sendall(msg)
+            self._sendall(msg)
 
     @try_connect_socket
     def write_read(self, msg, write_synchro=None, size=1, timeout=None):
         with self._lock:
-            self._fd.sendall(msg)
+            self._sendall(msg)
             if write_synchro:
                 write_synchro.notify()
             return self.read(size=size, timeout=timeout)
@@ -148,7 +151,7 @@ class Socket:
         with self._lock:
             with gevent.Timeout(timeout or self._timeout,
                                 RuntimeError("write_readline timed out")):
-                self._fd.sendall(msg)
+                self._sendall(msg)
                 if write_synchro:
                     write_synchro.notify()
                 return self.readline(eol=eol, timeout=timeout)
@@ -159,7 +162,7 @@ class Socket:
         with self._lock:
             with gevent.Timeout(timeout or self._timeout,
                                 RuntimeError("write_readline timed out")):
-                self._fd.sendall(msg)
+                self._sendall(msg)
                 if write_synchro:
                     write_synchro.notify()
 
@@ -180,11 +183,19 @@ class Socket:
 
     def flush(self):
         self._data = ''
+    
+    def _sendall(self,data) :
+        if logging.getLogger().isEnabledFor(logging.DEBUG):
+            self._debug("Tx: %s %s",data,['0x%.2x' % ord(x) for x in data])
+        self._fd.sendall(data)
 
     def _raw_read(self):
         try:
             while(1):
                 raw_data = self._fd.recv(16 * 1024)
+                if logging.getLogger().isEnabledFor(logging.DEBUG):
+                    self._debug("Rx: %s %s",raw_data,
+                                ['0x%.2x' % ord(x) for x in raw_data])
                 if raw_data:
                     self._data += raw_data
                     self._event.set()
@@ -257,6 +268,8 @@ class Command:
         self._raw_read_task = None
         self._transaction_list = []
         self._lock = lock.Semaphore()
+        self._logger = logging.getLogger(self.__class__.__name__)
+        self._debug = self._logger.debug
 
     def connect(self, host=None, port=None):
         local_host = host or self._host
@@ -325,6 +338,8 @@ class Command:
         with self._lock:
             if transaction is None and create_transaction:
                 transaction = self.new_transaction()
+            if logging.getLogger().isEnabledFor(logging.DEBUG):
+                self._debug("Tx: %s %s",msg,['0x%x' % ord(x) for x in msg])
             self._fd.sendall(msg)
         return transaction
 

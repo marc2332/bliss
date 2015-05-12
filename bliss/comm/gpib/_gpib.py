@@ -1,4 +1,5 @@
 import re
+import logging
 import gevent
 from gevent import lock
 from .libnienet import EnetSocket
@@ -65,6 +66,8 @@ class Gpib:
         self._timeout = timeout
         self._lock = lock.Semaphore()
         self._raw_handler = None
+        self._logger = logging.getLogger(self.__class__.__name__)
+        self._debug = self._logger.debug
 
     def open(self) :
         if self._raw_handler is None:

@@ -126,7 +126,7 @@ class Controller(object):
                 except NotImplementedError:
                     #print "<config_param> seems not supported by your controller."
                     #print "  no [read|set]_<config_param> method."
-                    print "%s not implemented in your controller." % config_param
+                    #print "%s not implemented in your controller." % config_param
                     pass
                 else:
                     mandatory_config_list.append(config_param)
@@ -134,7 +134,7 @@ class Controller(object):
             for setting_name in mandatory_config_list:
                 value = get_setting_or_config_value(setting_name)
                 if value is None:
-                    raise RuntimeError("%s is missing in configuration." % setting_name)
+                    raise RuntimeError("%s is missing in configuration for axis '%s`." % (setting_name, axis.name))
                 meth = getattr(axis, setting_name)
                 meth(value)
 
@@ -338,9 +338,17 @@ class CalcController(Controller):
     def state(self, axis, new_state=None):
         return self._reals_group.state()
 
+    """
     def read_velocity(self, axis):
         # no better idea...
         return 0
 
     def set_velocity(self, axis, new_velocity):
         return new_velocity
+
+    def read_acceleration(self,axis):
+        return 0
+
+    def set_acceleration(self, axis, new_acc):
+        return 0
+    """

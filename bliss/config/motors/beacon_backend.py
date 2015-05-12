@@ -1,7 +1,9 @@
 from bliss.config import static
 from bliss.config import settings
+from bliss.config import channels
 from bliss.common import event
 from . import get_controller_class, get_axis_class, add_controller, set_backend, Axis, AxisRef, CONTROLLER_BY_AXIS, write_setting as config_write_setting
+import functools
 
 def create_objects_from_config_node(config, node):
     set_backend("beacon")
@@ -40,6 +42,7 @@ def create_objects_from_config_node(config, node):
     controller.initialize()
     axis = controller.get_axis(name)
     event.connect(axis, "write_setting", config_write_setting)
+
     cache_dict = dict(zip(axes_names, [controller]*len(axes_names)))
     return {name: axis}, cache_dict    
 
@@ -122,19 +125,41 @@ def write_setting(config_dict, setting_name, setting_value):
     hash_setting = settings.HashSetting("axis.%s" % axis_name)
     hash_setting[setting_name] = setting_value
 
+    print 'writing', setting_name, setting_value
+    channels.Channel("axis.%s.%s" % (axis_name, setting_name), setting_value)
+
 
 def commit_settings(config_dict):
     return 
+
+
+def setting_update_from_channel(value, setting_name=None, axis=None):
+    axis.settings.set(setting_name, value, write=False, from_channel=True)
+
 
 def get_axis_setting(axis, setting_name):
     hash_setting = settings.HashSetting("axis.%s" % axis.name)
     if len(hash_setting) == 0:
       try:
-          return axis.config.get(setting_name)
+          setting_value = axis.config.get(setting_name)
       except:
           return None
     else:
-        return hash_setting.get(setting_name)
+        setting_value = hash_setting.get(setting_name)
+
+    if not hasattr(axis, "_beacon_channels"):
+        axis._beacon_channels = dict()
+    if setting_name in axis._beacon_channels:
+        axis._beacon_channels[setting_name].value = setting_value
+    else:
+        chan_name = "axis.%s.%s" % (axis.name, setting_name)
+        chan = channels.Channel(chan_name, setting_value)
+        axis._beacon_channels[setting_name] = chan
+        cb = functools.partial(setting_update_from_channel, setting_name=setting_name, axis=axis) 
+        axis._beacon_channels.setdefault("callbacks", dict())[setting_name] = cb
+        chan.register_callback(cb)
+    
+    return setting_value
 
 
 class StaticConfig(object):

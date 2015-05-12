@@ -172,16 +172,20 @@ class Axis(object):
         Returns a value in user units.
         """
         elog.debug("axis.py : position(new_pos=%r)" % new_pos)
-        if self.is_moving:
-            if new_pos is not None:
+        if new_pos is None:
+            pos = self.settings.get_from_channel("position")
+            if pos is None:
+                if self.is_moving:
+                    pos = self.settings.get("position")
+                else:
+                    # read from hw
+                    pos = self._position()
+                    self.settings.set("position", pos)
+                    self.settings.set("dial_position", self.user2dial(pos))
+        else:
+            if self.is_moving:
                 raise RuntimeError("Can't set axis position \
                                     while it is moving")
-            pos = self.settings.get("position")
-            if pos is None:
-                pos = self._position()
-                self.settings.set("position", pos)
-                self.settings.set("dial_position", self.user2dial(pos))
-        else:
             pos = self._position(new_pos)
             if new_pos is not None:
                 self.settings.set("position", pos)
@@ -219,8 +223,12 @@ class Axis(object):
     def state(self):
         if self.is_moving:
             return AxisState("MOVING")
-        # really read from hw
-        return self.__controller.state(self)
+        state = self.settings.get_from_channel('state')
+        if state is None:
+            # really read from hw
+            return self.__controller.state(self)
+        else:
+            return state
 
     def get_info(self):
         return self.__controller.get_info(self)
@@ -239,7 +247,9 @@ class Axis(object):
             _user_vel = new_velocity
         else:
             # Read -> Returns velocity read from motor axis.
-            _user_vel = self.__controller.read_velocity(self) / abs(self.steps_per_unit)
+            _user_vel = self.settings.get_from_channel('velocity')
+            if _user_vel is None: 
+                _user_vel = self.__controller.read_velocity(self) / abs(self.steps_per_unit)
 
         # In all cases, stores velocity in settings in uu/s
         self.settings.set("velocity", _user_vel)
@@ -258,6 +268,10 @@ class Axis(object):
                 self.__controller.set_acceleration(self, new_acc * abs(self.steps_per_unit))
             except NotImplementedError:
                 elog.error("EMotion/axis.py : acceleration W is not implemented for this controller.")
+        else:
+            _acceleration = self.settings.get_from_channel('acceleration')
+            if _acceleration is not None:
+                return _acceleration
 
         # Both R or W : Reads acceleration from controller.
         try:
@@ -769,6 +783,8 @@ class AxisState(object):
         return self.current_states()
 
     def __eq__(self, other):
+        if isinstance(other, AxisState):
+            other = str(other)
         if isinstance(other, str):
             state = self.current_states()
             return other in state

@@ -136,6 +136,7 @@ class AxisSettings:
 
     def set(self, setting_name, value, write=True, from_channel=False):
         self.__from_channel[setting_name]=from_channel
+        print self, 'set', setting_name, value, repr(value)
         return self.__axis.controller.axis_settings.set(
             self.__axis, setting_name, value, write)
 

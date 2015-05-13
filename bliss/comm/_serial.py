@@ -5,12 +5,16 @@ import tcp
 import re
 import struct
 import serial
-from serial import rfc2217
-#import all rfc2217 protol keys in this module
-key_match = re.compile('^[A-Z_]+$')
-pro_keys_dict = dict([(x,rfc2217.__dict__[x]) for x in dir(rfc2217) if key_match.match(x)])
-globals().update(pro_keys_dict)
-from serial.rfc2217 import TelnetOption,TelnetSubnegotiation,RFC2217_PARITY_MAP,RFC2217_STOPBIT_MAP
+try:
+    from serial import rfc2217
+except ImportError:
+    pass
+else:
+    #import all rfc2217 protol keys in this module
+    key_match = re.compile('^[A-Z_]+$')
+    pro_keys_dict = dict([(x,rfc2217.__dict__[x]) for x in dir(rfc2217) if key_match.match(x)])
+    globals().update(pro_keys_dict)
+    from serial.rfc2217 import TelnetOption,TelnetSubnegotiation,RFC2217_PARITY_MAP,RFC2217_STOPBIT_MAP
 
 import weakref
 import os

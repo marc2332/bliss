@@ -127,6 +127,17 @@ class Gpib:
             if write_synchro: write_synchro.notify()
             return self._readline(eol)
 
+    @try_open
+    def write_readlines(self,msg,nb_lines,write_synchro = None,
+                        eol = None,timeout = None):
+        with self._lock:
+            self._raw_handler.ibwrt(msg)
+            if write_synchro: write_synchro.notify()
+            r_lines = []
+            for i in range(nb_lines):
+                r_lines.append(self._readline(eol))
+        return r_lines
+    
     def flush(self) :
         self._raw_handler = None
 

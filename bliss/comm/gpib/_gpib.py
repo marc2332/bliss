@@ -98,7 +98,10 @@ class Gpib:
         timeout_errmsg = "timeout on gpib(%s,%d)" % (url,pad)
         with gevent.Timeout(self._timeout,RuntimeError(timeout_errmsg)):
             data += self._raw_handler.ibrd(self.READ_BLOCK_SIZE)
-            eol_pos = local_eol and data.find(local_eol) or len(data)
+            if local_eol is None:
+                eol_pos = len(data)
+            else:
+                eol_pos = data.find(local_eol)
             while eol_pos == -1:
                 data += self._raw_handler.ibrd(self.READ_BLOCK_SIZE)
                 eol_pos = data.find(local_eol)

@@ -66,6 +66,8 @@ class PI_E712(Controller):
         Returns:
             - None
         """
+        elog.info("initialize_axis() called for axis %r" % axis.name)
+
         self._hw_status = AxisState("READY")
 
 
@@ -88,7 +90,8 @@ class PI_E712(Controller):
         add_axis_method(axis, self._get_tad, name = "Get_TAD", types_info = (None, float))
         add_axis_method(axis, self._get_closed_loop_status, name = "Get_Closed_Loop_Status", types_info = (None, bool))
         add_axis_method(axis, self._set_closed_loop, name = "Set_Closed_Loop", types_info = (bool, None))
-        add_axis_method(axis, self._get_on_target_status, name = "Get_On_Target_Status", types_info = (None, bool))
+        #add_axis_method(axis, self._get_on_target_status, name = "Get_On_Target_Status", types_info = (None, bool))
+        add_axis_method(axis, self._get_pos, name = "Get_Pos", types_info = (None, float))
 
         try:
             axis.paranoia_mode = axis.config.get("paranoia_mode")  # check error after each command
@@ -101,13 +104,17 @@ class PI_E712(Controller):
         axis.closed_loop = self._get_closed_loop_status(axis)
         self.check_power_cut(axis)
 
-        if axis.encoder:
-            self.__encoders.setdefault(axis.encoder, {})["axis"] = axis
+        elog.debug("axis = %r" % axis.name)
+        #elog.debug("axis.encoder = %r" % axis.encoder)
+        #if axis.encoder:
+            #elog.debug("axis = %r" % axis)
+
+            #self.__encoders.setdefault(axis.encoder, {})["axis"] = axis
 
 
-    def initialize_encoder(self, encoder):
-        self.__encoders.setdefault(encoder, {})["measured_noise"] = 0.0
-        self.__encoders[encoder]["steps"] = None
+    #def initialize_encoder(self, encoder):
+        #self.__encoders.setdefault(encoder, {})["measured_noise"] = 0.0
+        #self.__encoders[encoder]["steps"] = None
 
     def read_position(self, axis):
         """
@@ -127,13 +134,13 @@ class PI_E712(Controller):
 
         return _pos
 
-    def read_encoder(self, encoder):
-        axis = self.__encoders[encoder]["axis"]
+#   def read_encoder(self, encoder):
+#       axis = self.__encoders[encoder]["axis"]
 
-        elog.debug("read_encoder measured = %r" % encoder)
-        _ans = self._get_pos(axis)
-        elog.debug("read_encoder measured = %r" % _ans)
-        return _ans
+#       elog.debug("read_encoder measured = %r" % encoder)
+#       _ans = self._get_pos(axis)
+#       elog.debug("read_encoder measured = %r" % _ans)
+#       return _ans
 
     def read_velocity(self, axis):
         """
@@ -158,14 +165,15 @@ class PI_E712(Controller):
 
     def state(self, axis):
         # if self._get_closed_loop_status(axis):
-        if axis.closed_loop:
-            elog.debug("CLOSED-LOOP on axis %s is True" % axis.name)
-            if self._get_on_target_status(axis):
-                return AxisState("READY")
-            else:
-                return AxisState("MOVING")
-        else:
-            elog.debug("CLOSED-LOOP is False")
+#        elog.debug("axis.closed_loop is %s" % axis.closed_loop)
+#        if axis.closed_loop:
+#            elog.debug("CLOSED-LOOP on axis %s is True" % axis.name)
+#            if self._get_on_target_status(axis):
+#                return AxisState("READY")
+#            else:
+#                return AxisState("MOVING")
+#        else:
+#            elog.debug("CLOSED-LOOP is False")
             return AxisState("READY")
 
     def prepare_move(self, motion):
@@ -181,6 +189,7 @@ class PI_E712(Controller):
         Raises:
             - ?
         """
+        elog.debug("pass")
         pass
 
     def start_one(self, motion):
@@ -197,9 +206,14 @@ class PI_E712(Controller):
             # Command in position.
             self.send_no_ans(motion.axis, "MOV %s %g" %
                              (motion.axis.channel, motion.target_pos))
+            elog.debug("Command to piezo MOV %s %g"%
+                             (motion.axis.channel, motion.target_pos))
+
         else:
             # Command in voltage.
             self.send_no_ans(motion.axis, "SVA %s %g" %
+                             (motion.axis.channel, motion.target_pos))
+            elog.debug("Command to piezo SVA %s %g"%
                              (motion.axis.channel, motion.target_pos))
 
     def stop(self, axis):
@@ -318,7 +332,7 @@ class PI_E712(Controller):
         Returns Voltage Of Output Signal Channel (VOL? command)
         """
         _ans = self.send(axis, "VOL? %s" % axis.channel)
-        _vol = float(_ans.split("=+")[-1])
+        _vol = float(_ans.split("=")[-1])
         return _vol
 
     def _set_closed_loop(self, axis, onoff = True):
@@ -327,6 +341,8 @@ class PI_E712(Controller):
         """
         axis.closed_loop = onoff
         self.send_no_ans(axis, "SVO %s %d" % (axis.channel, onoff))
+        elog.debug("Piezo Servo %r" % onoff)
+
 
     def _get_closed_loop_status(self, axis):
         """
@@ -493,10 +509,13 @@ class PI_E712(Controller):
             self.send_no_ans(None, "CCL 1 advanced")
 
     def _get_tns(self, axis):
-        """Get Normalized Input Signal Value"""
-        _ans = self.send(axis, "TNS? %s" % axis.channel)
+        """Get Normalized Input Signal Value. Loop 10 times to straighten out noise"""
+        accu = 0
+        for _ in range(10):
+            _ans = self.send(axis, "TNS? %s" % axis.channel)
+            accu += float(_ans[2:])
+        _ans = accu / 10
         elog.debug("TNS? %s" % _ans)
-        _ans = float(_ans[2:])
         return _ans
 
     def _get_tsp(self, axis):

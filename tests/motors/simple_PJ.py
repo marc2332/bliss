@@ -40,15 +40,19 @@ xml_config = """
 
     <controller class="PI_E712">
         <host value="id31pie712a" />
-        <axis name="e712">
-        <channel value="1" />
-        <paranoia_mode value="0" />
+<!--
         <encoder name="e712enc">
           <steps_per_unit value="1"/>
           <tolerance value="0.001"/>
         </encoder>
+        <axis name="e712" encoder="e712enc">
+-->
+        <axis name="e712">
+        <channel value="1" />
+        <paranoia_mode value="0" />
 
-       <settings><dial_position value="9.49507999" /><position value="9.49507999" /><velocity value="2500.0" /></settings></axis>
+       <settings><dial_position value="9.49507999" /><position value="9.49507999" /><velocity value="2500.0" /></settings>
+       </axis>
     </controller>
 
     <controller class="IcePAP">
@@ -96,7 +100,17 @@ print "relative move by :", how_much
 raw_input('Press enter to continue: ')
 
 my_axis.rmove(how_much)
-print "position:", my_axis.position()
+
+new_pos = my_axis.position()
+print "position:", new_pos
+
+
+if abs(x - new_pos) < .5:
+    print """
+It is likely that your movement hasn't worked, because the PiezoJack.py method _do_move
+is still a greenlet, as it should be for the use as device server. However simple_PJ.py
+doesn't work as such. One needs to comment out the @task around line 244.
+"""
 
 # print "measured position:", my_axis.measured_position()
 # print "getinfo:", my_axis.GetInfo()
@@ -104,7 +118,5 @@ print "position:", my_axis.position()
 
 # print "selftest:"
 # my_axis.selftest()
-print "getinfo :"
-my_axis.GetInfo()
 
 sys.exit()

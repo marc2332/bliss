@@ -86,17 +86,8 @@ function Shell(client_uuid, cmdline_div_id, shell_output_div_id, setup_div_id, l
     this.current_command = "";
     this.plot = {};
 
-    /* 
-       jquery override 'this', that's just crazy!
-       let methods have the proper 'this' 
-    */
-    this._cmdline_handle_keydown = $.proxy(this._cmdline_handle_keydown, this);
-    this._cmdline_handle_keypress = $.proxy(this._cmdline_handle_keypress, this);
-    this._cmdline_handle_keyup = $.proxy(this._cmdline_handle_keyup, this);
-
-    this.cmdline.keypress(this._cmdline_handle_keypress);
-    this.cmdline.keydown(this._cmdline_handle_keydown);
-    this.cmdline.keyup(this._cmdline_handle_keyup);
+    this.mousetrap = new Mousetrap(this.cmdline[0]); 
+    this.bind_keys(this.mousetrap);
 
     /*
        ask to run initialization script, don't keep history
@@ -194,73 +185,113 @@ Shell.prototype = {
         this.cmdline.focus();
     },
 
-    _cmdline_handle_keydown: function(e) {
-            if (this.completion_mode) {
-                if ((e.which == 38) || (e.which == 40)) {
-                    /*
-                       do not allow up/down arrow keys in
-                       completion mode, since it would exit
-                       completion mode - it's too easy
-                       to press them by mistake
-                       while navigating through propositions
-                    */
-                    e.preventDefault();
-                } else if (e.which == 37) {
-                    // key left
-                    e.preventDefault();
-                    this._select_completion_item(-1);
-                    this.cmdline.focus();
-                } else if (e.which == 39) {
-                    // key right
-                    e.preventDefault();
-                    this._select_completion_item(+1);
-                    this.cmdline.focus();
-                } else {
-                    this.completion_mode = false;
-                    this.completion_list.empty();
-                    $("body").layout().resizeAll();
-                    if ((e.which === 27) || (e.which == 13)) {
-                        e.preventDefault();
-                    }
-                    this.cmdline.focus();
-                }
+    bind_keys: function(mousetrap) {
+        var self = this;
+        mousetrap.bind("up", function() {
+            if (! self.completion_mode) {
+                self.history_index--;
+                if (self.history_index <= 0) {
+                    self.history_index = 0;
+                    self.cmdline.val(self.current_command);
+                } else
+                    self.cmdline.val(self.history[self.history_index]);
+            }
+            return false;
+        });
+        mousetrap.bind("down", function() {
+            if (! self.completion_mode) {
+                self.history_index++;
+                if (self.history_index >= self.history.length) {
+                    self.history_index = self.history.length;
+                    self.cmdline.val(self.current_command);
+                } else
+                    self.cmdline.val(self.history[self.history_index]);
+            }
+            return false; 
+        });
+        mousetrap.bind("left", function() {
+            if (self.completion_mode) {
+                self._select_completion_item(-1);
+                self.cmdline.focus();
+                return false;
+            }
+        }); 
+        mousetrap.bind("right", function() {
+            if (self.completion_mode) {
+                self._select_completion_item(+1);
+                self.cmdline.focus();
+                return false;
+            }
+        });
+        mousetrap.bind("esc", function() {
+            if (self.completion_mode) {
+                self.completion_mode = false;
+                self.completion_list.empty();
+                $("body").layout().resizeAll();
+                self.cmdline.focus();
+                return false;
+            }
+        });
+        mousetrap.bind("enter", function() {
+            if (self.completion_mode) {
+                self.completion_mode = false;
+                self.completion_list.empty();
+                $("body").layout().resizeAll();
+                self.cmdline.focus();
+                return false;
+            } else if (self.executing) {
+                return false;
             } else {
-                if (e.which === 38) {
-                    this.history_index--;
-                    if (this.history_index <= 0) {
-                        this.history_index = 0;
-                        this.cmdline.val(this.current_command);
-                    } else
-                        this.cmdline.val(this.history[this.history_index]);
-                } else if (e.which == 40) {
-                    this.history_index++;
-                    if (this.history_index >= this.history.length) {
-                        this.history_index = this.history.length;
-                        this.cmdline.val(this.current_command);
-                    } else
-                        this.cmdline.val(this.history[this.history_index]);
-                } else if (e.which == 9) {
-                    e.preventDefault();
-                    this.current_command = this.cmdline.val();
-                    this._completion_start = this.cmdline[0].selectionStart;
-                    this.completion_mode = true;
-                    this.completion_request(this.current_command, this._completion_start);
-                } else {
-                    this.history_index = this.history.length;
-                    this.current_command = this.cmdline.val();
-                }
+                self.hint.text("");
+                self.execute(self.cmdline.val());
+            };
+        });
+        mousetrap.bind("ctrl+c", function() {
+            if (self.executing) {
+                self.send_abort();
+                return false;
             }
-    },
-
-    _cmdline_handle_keyup: function(e) {
-            if (!this.completion_mode) {
-                if (e.which == 190) {
-                    this.current_command = this.cmdline.val();
-                    this._completion_start = this.cmdline[0].selectionStart;
-                    this.completion_mode = true;
-                    this.completion_request(this.current_command, this._completion_start, true);
-                }
+        });
+        mousetrap.bind("(", function() {
+            // open parenthesis
+            var code = self.cmdline.val().substr(0, self.cmdline[0].selectionStart);
+            $.ajax({
+                    url: self.session_id+"/args_request",
+                    dataType: "json",
+                    data: {
+                        "client_uuid": self.client_uuid,
+                        "code": code,
+                    },
+                    success: $.proxy(function(ret, status, jqxhr) {
+                       if (ret.func) {
+                           self.hint.text(ret.func_name + ret.args); //alert(ret.args);
+                       }
+                    }, self)
+            });
+        });
+        mousetrap.bind(".", function() {
+            self.current_command = self.cmdline.val()+'.';
+            self._completion_start = self.cmdline[0].selectionStart+1;
+            self.completion_mode = true;
+            self.completion_request(self.current_command, self._completion_start, true);
+        });
+        mousetrap.bind("tab", function() {
+            self.current_command = self.cmdline.val();
+            self._completion_start = self.cmdline[0].selectionStart;
+            self.completion_mode = true;
+            self.completion_request(self.current_command, self._completion_start);
+            return false;
+        });
+        mousetrap.bind("*", function() {
+            if (self.completion_mode) {
+                self.completion_mode = false;
+                self.completion_list.empty();
+                $("body").layout().resizeAll();
+                self.cmdline.focus();
             }
+            self.history_index = self.history.length;
+            self.current_command = self.cmdline.val();
+        });
     },
 
     set_executing: function(executing) {
@@ -270,51 +301,6 @@ Shell.prototype = {
         } else {
             this.cmdline.removeClass("cmdline-executing");
             this.last_output_div.removeClass("output-executing");
-        }
-    },
-
-    _cmdline_handle_keypress: function(e) {
-        if (e.ctrlKey && e.which === 99) {
-            e.preventDefault();
-            if (this.executing) {
-                this.send_abort();
-            }
-        } else {
-                if (e.which == 13) {
-                    if (this.executing) { e.preventDefault(); } 
-                    else {
-                      this.hint.text("");
-                      if (this.completion_mode) {
-                          e.preventDefault();
-                      } else {
-                          this.execute(this.cmdline.val());
-                      }
-                    } 
-                } else if (e.which == 40) {
-                    // open parenthesis
-                    var code = this.cmdline.val().substr(0, this.cmdline[0].selectionStart);
-                    $.ajax({
-                        url: this.session_id+"/args_request",
-                        dataType: "json",
-                        data: {
-			    "client_uuid": this.client_uuid,
-                            "code": code,
-                        },
-                        success: $.proxy(function(ret, status, jqxhr) {
-                            if (ret.func) {
-                                this.hint.text(ret.func_name + ret.args); //alert(ret.args);
-                            }
-                        }, this)
-                    });
-                } else if (e.which == 190) {
-                    // period '.'
-                    if (!this.completion_mode) {
-                        this.current_command = this.cmdline.val();
-                        this._completion_start = this.cmdline[0].selectionStart;
-                        this.completion_mode = true;
-                        this.completion_request(this.current_command, this._completion_start, true);
-                    }
-                }
         }
     },
 
@@ -475,9 +461,8 @@ Shell.prototype = {
                         xLabelHeight: fs,
                         yLabelWidth: fs
                     });
-                    plot.div.addEventListener("mouseup", function(e) {
-                        plot.obj.resize();
-                    });
+                    var plot_div = $(plot.div).parent();
+                    plot_div.on("resizestop", function() { plot.obj.resize(); });
                 }
             } else {
                 /* end of scan, free memory */
@@ -485,13 +470,15 @@ Shell.prototype = {
             }
         } else {
             /* create new plot */
-            var plot_div = $('<div class="ui-widget-content" style="width:640px; height:480px; resize:both; overflow: auto;"></div>');
-            //plot_div.resizable(); this doesn't work... why?
+            var plot_div = $('<div class="ui-widget-content" style="width:640px; height:480px; overflow: hidden"></div>');
+            var inner_plot_div = $('<div style="margin: 5px; width:95%; height: 95%;"></div>');
+            plot_div.append(inner_plot_div);
+            plot_div.resizable({handles: "se"});
             this.last_output_div.append(plot_div);
             this.output_div.scrollTop(0);
             //this.scrollToBottom(this.output_div);
             this.plot[data.scan_id] = {
-                "div": plot_div[0],
+                "div": inner_plot_div[0],
                 "data": [],
                 "obj": null,
                 "title": data.filename,

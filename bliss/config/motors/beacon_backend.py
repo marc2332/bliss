@@ -4,6 +4,7 @@ from bliss.config import channels
 from bliss.common import event
 from . import get_controller_class, get_axis_class, add_controller, set_backend, Axis, AxisRef, CONTROLLER_BY_AXIS, write_setting as config_write_setting
 import functools
+import gevent
 
 def create_objects_from_config_node(config, node):
     set_backend("beacon")
@@ -145,20 +146,22 @@ def get_axis_setting(axis, setting_name):
           setting_value = axis.config.get(setting_name)
       except:
           return None
+      else:
+          # write setting
+          hash_setting[setting_name] = setting_value
     else:
         setting_value = hash_setting.get(setting_name)
 
     if not hasattr(axis, "_beacon_channels"):
         axis._beacon_channels = dict()
-    if setting_name in axis._beacon_channels:
-        axis._beacon_channels[setting_name].value = setting_value
-    else:
+    #if setting_name in axis._beacon_channels:
+    #    axis._beacon_channels[setting_name].value = setting_value
+    if not setting_name in axis._beacon_channels:
         chan_name = "axis.%s.%s" % (axis.name, setting_name)
-        chan = channels.Channel(chan_name, setting_value)
-        axis._beacon_channels[setting_name] = chan
         cb = functools.partial(setting_update_from_channel, setting_name=setting_name, axis=axis) 
-        axis._beacon_channels.setdefault("callbacks", dict())[setting_name] = cb
-        chan.register_callback(cb)
+        chan = channels.Channel(chan_name, setting_value, callback=cb)
+        axis._beacon_channels[setting_name] = chan
+        #axis._beacon_channels.setdefault("callbacks", dict())[setting_name] = cb
     
     return setting_value
 

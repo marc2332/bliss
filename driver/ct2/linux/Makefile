@@ -52,14 +52,18 @@ EXTRA_CFLAGS                +=  -I$(CT2_HZDR_INC_PATH)
 
 ifeq ($(CT2_MAKE_DEBUG_VERSION), yes)
 EXTRA_CFLAGS                +=  -D CT2_DEBUG
-else ifneq ($(CT2_MAKE_DEBUG_VERSION), no)
+else 
+ifneq ($(CT2_MAKE_DEBUG_VERSION), no)
     $(error CT2_MAKE_DEBUG_VERSION can hold either "yes" or "no")
+endif
 endif
 
 ifeq ($(CT2_MAP_IOPORTS_TO_IOMEM), yes)
 EXTRA_CFLAGS                +=  -D CT2_MAP_IOPORTS_TO_IOMEM
-else ifneq ($(CT2_MAP_IOPORTS_TO_IOMEM), no)
+else 
+ifneq ($(CT2_MAP_IOPORTS_TO_IOMEM), no)
     $(error CT2_MAP_IOPORTS_TO_IOMEM can hold either "yes" or "no")
+endif
 endif
 
 

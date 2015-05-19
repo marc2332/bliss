@@ -215,7 +215,7 @@ int read_BitFile(FILE *fp, u8 *buffer, int *count)
  *
  */
 
-void create_Array(char *bitfile, char *buffer, int count, FILE *fp)
+void create_Array(char *bitfile, u8 *buffer, int count, FILE *fp)
 {
         u8  *p;
 	char arrname[MAXPATHLEN];
@@ -253,7 +253,7 @@ int main(int argc, char *argv[]) {
 	char    interm[MAXPATHLEN];
 	u8      *buffer;
 	FILE    *fpin, *fpout;
-	int     file_size;
+	u32     file_size;
 	int     count;
 	int     ret = 0;
 
@@ -337,4 +337,3 @@ int main(int argc, char *argv[]) {
 
 	return 0;
 }
-

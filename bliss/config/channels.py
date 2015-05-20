@@ -316,8 +316,8 @@ class _Channel(object):
 def Channel(name, value=NotInitialized(), callback=None, wait=True, timeout=1, redis=None):
     if redis is None:
             redis = client.get_cache()
-    redis_connection = redis.connection_pool.get_connection("")
-    bus_id = (redis_connection.host, redis_connection.port, redis_connection.db)
+    redis_connection_args = redis.connection_pool.connection_kwargs
+    bus_id = (redis_connection_args['host'], redis_connection_args['port'], redis_connection_args['db'])
 
     try:
         chan = CHANNELS[bus_id][name]

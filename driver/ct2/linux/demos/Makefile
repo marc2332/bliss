@@ -20,7 +20,8 @@
 #                                                                           #
 #############################################################################
 
-LINUX_SRC       ?=  /lib/modules/2.6.32-5-amd64/source
+TARGET_KERN     :=  $(shell uname -r)
+LINUX_SRC       ?=  /lib/modules/$(TARGET_KERN)/source
 KMOD_ROOT       ?=  ..
 
 
@@ -35,7 +36,7 @@ LD              =   $(CXX)
 
 INC_DIRS        =   -I $(LINUX_SRC)/include \
                     -I $(KMOD_ROOT) \
-                    -I $(KMOD_ROOT)/public \
+                    -I $(KMOD_ROOT)/lib/include \
                     -I .
 
 LIB_DIRS        =

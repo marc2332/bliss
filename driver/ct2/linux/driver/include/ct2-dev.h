@@ -35,7 +35,7 @@
 #include <linux/types.h>            // bool, dev_t, size_t, uint8_t
 #include <linux/workqueue.h>        // struct work_struct
 
-#include "public/esrf/ct2.h"        // ct2_reg_t
+#include "esrf/ct2.h"               // ct2_reg_t
 #include "ct2-param.h"              // ct2_in_fifo_(type|...)
 #include "ct2-dcc.h"                // struct ct2_dcc
 

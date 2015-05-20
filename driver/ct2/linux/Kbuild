@@ -20,48 +20,36 @@
 #                                                                           #
 #############################################################################
 
-MAKE_CWD                    :=  $(shell pwd)
+##############################################################################
+#                            BUILD OPTIONS BEGIN                             #
+##############################################################################
 
-CT2_DRIVER_PATH             :=  driver
-CT2_DRIVER_SRC_PATH         :=  $(CT2_DRIVER_PATH)/src
+CT2_MAKE_DEBUG_VERSION      ?=  yes
+CT2_MAP_IOPORTS_TO_IOMEM    ?=  no
 
-CT2_LIB_PATH                :=  lib
-CT2_LIB_INC_PATH            :=  $(CT2_LIB_PATH)/include
-CT2_LIB_SRC_PATH            :=  $(CT2_LIB_PATH)/src
+##############################################################################
+#                             BUILD OPTIONS END                              #
+##############################################################################
 
-CT2_TOOLS_PATH              :=  tools
-CT2_BIN_PATH                :=  bin
+NAME                        :=  ct2
+obj-m                       :=  $(NAME).o
+ct2-y                       :=  driver/src/$(NAME).o
+ccflags-y                   :=  -I$(src)/driver/include
+ccflags-y                   +=  -I$(src)/lib/include
+ccflags-y                   +=  -Wfatal-errors
 
-ifndef KERNEL_SOURCES
-ifndef TARGET_KERN
-TARGET_KERN                 :=  $(shell uname -r)
+ifeq ($(CT2_MAKE_DEBUG_VERSION), yes)
+EXTRA_CFLAGS                +=  -D CT2_DEBUG
+else 
+ifneq ($(CT2_MAKE_DEBUG_VERSION), no)
+    $(error CT2_MAKE_DEBUG_VERSION can hold either "yes" or "no")
 endif
-KERNEL_SOURCES              =   /lib/modules/$(TARGET_KERN)/build
 endif
 
-MAKE_CMD                    =   $(MAKE) -C $(KERNEL_SOURCES) M=$(MAKE_CWD)
-
-
-all     :   kmod
-
-
-init    :
-	mkdir -p $(CT2_BIN_PATH)
-
-
-kmod    : init c208_bit.c p201_bit.c
-	$(MAKE_CMD) modules
-
-
-clean   :
-	$(MAKE_CMD) clean
-	rm -f $(CT2_BIN_PATH)/*.o $(CT2_DRIVER_SRC_PATH)/*_bit.c 
-	rm -f $(CT2_BIN_PATH)/bit2arr
-
-
-%_bit.c :   $(CT2_TOOLS_PATH)/%.bit bit2arr
-	$(CT2_BIN_PATH)/bit2arr $< $(CT2_DRIVER_SRC_PATH)/$@ > /dev/null
-
-
-bit2arr:   $(CT2_TOOLS_PATH)/bit2arr.c
-	$(CC) $(LDFLAGS) -o $(CT2_BIN_PATH)/$@ $^
+ifeq ($(CT2_MAP_IOPORTS_TO_IOMEM), yes)
+EXTRA_CFLAGS                +=  -D CT2_MAP_IOPORTS_TO_IOMEM
+else 
+ifneq ($(CT2_MAP_IOPORTS_TO_IOMEM), no)
+    $(error CT2_MAP_IOPORTS_TO_IOMEM can hold either "yes" or "no")
+endif
+endif

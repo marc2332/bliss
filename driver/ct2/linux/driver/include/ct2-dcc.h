@@ -36,7 +36,7 @@
 #include <hzdr/fwf/linux/dl_list.h>     // hfl_dl_(list_elem_type|list_elem_init)
 #include <hzdr/fwf/linux/type_casts.h>  // hfl_const_cast()
 
-#include "public/esrf/ct2.h"            // struct ct2_in
+#include "esrf/ct2.h"                   // struct ct2_in
 #include "ct2-param.h"                  // ct2_in_fifo_(type|append_nf|fillpoint)
 
 

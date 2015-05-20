@@ -32,7 +32,7 @@
 
 #include <hzdr/fwf/linux/serialise.h>   // hfl_serialise(_c)()
 
-#include "public/esrf/ct2.h"            // ct2_reg_t, ct2_reg_dist_t, struct ct2_in
+#include "esrf/ct2.h"                   // ct2_reg_t, ct2_reg_dist_t, struct ct2_in
 
 
 /*--------------------------------------------------------------------------*

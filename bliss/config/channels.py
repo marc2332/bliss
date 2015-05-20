@@ -29,18 +29,26 @@ SURVEYORS = dict()
 RECEIVER_THREAD = None
 THREAD_ENDED = threading.Event()
 
-# clumsy way of getting free port number
-# I hate this but I don't know how to do
-# better...
-# nanomsg doesn't have the possibility to
-# bind to any free port, we *have* to provide
-# a free one
-def get_free_port():
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.bind(('', 0))
-    free_port_number = s.getsockname()[1]
-    s.close()
+CHANNELS_BUS = 'channels_bus'
+CHANNELS_RESPONDENT = 'channels_respondent'
 
+# getting the first free port available in range 30000-40000
+def get_free_port(redis,channel_key):
+    for port_number in xrange(30000,40000) :
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            try:
+                s.bind(('', port_number))
+            except:
+                continue
+            free_port_number = s.getsockname()[1]
+            url = "tcp://%s:%d" % (socket.getfqdn(), free_port_number)
+            if redis.sadd(channel_key,url) == 1: # the port is not used
+                break
+        finally:
+            s.close()
+    else:
+        raise RuntimeError("No free TCP port in range (30000,40000)")
     return free_port_number
 
 
@@ -138,9 +146,8 @@ def receive_channels_values():
 
 
 def _clean_redis(redis, channels_bus, channels_respondent):
-    redis.srem("channels_bus", channels_bus)
-    redis.srem("channels_respondent", channels_respondent)
-
+    redis.srem(CHANNELS_BUS, channels_bus)
+    redis.srem(CHANNELS_RESPONDENT, channels_respondent)
 
 def stop_receiver_thread():
     if RECEIVER_THREAD is not None:
@@ -150,28 +157,27 @@ def stop_receiver_thread():
          
 
 class _Bus(object):
-    def __init__(self, bus_id, channels_bus_list):   
+    def __init__(self, redis, bus_id, channels_bus_list):   
         self._id = bus_id
 
         # create sockets
         self._bus_socket = nanomsg.Socket(nanomsg.BUS)
         self._respondent_socket = nanomsg.Socket(nanomsg.RESPONDENT)
 
-        bus_socket_port_number = get_free_port()
+        bus_socket_port_number = get_free_port(redis,CHANNELS_BUS)
         self._bus_socket.bind("tcp://*:%d" % bus_socket_port_number)
         BUS_BY_FD[self.recv_fd] = self
         # connect to other bus sockets     
         for remote_bus in channels_bus_list:
             self._bus_socket.connect(remote_bus)
-
         self.__bus_addr = "tcp://%s:%d" % (socket.getfqdn(), bus_socket_port_number)
-        
+
         # respondent socket is used to reply to survey requests 
-        respondent_socket_port_number = get_free_port()
+        respondent_socket_port_number = get_free_port(redis,CHANNELS_RESPONDENT)
         self._respondent_socket.bind("tcp://*:%d" % respondent_socket_port_number)
         BUS_BY_FD[self._respondent_socket.recv_fd] = self
         self.__bus_respondent_addr = "tcp://%s:%d" % (socket.getfqdn(), respondent_socket_port_number)
-            
+
         # receiver thread takes care of dispatching received values to right channels
         global RECEIVER_THREAD
         if RECEIVER_THREAD is None:
@@ -237,13 +243,9 @@ class _Channel(object):
 
         self._bus = BUS.get(bus_id)
         if self._bus is None:
-            channels_bus_list = redis.smembers("channels_bus")
-            self._bus = _Bus(bus_id, channels_bus_list) 
+            channels_bus_list = redis.smembers(CHANNELS_BUS)
+            self._bus = _Bus(redis, bus_id, channels_bus_list) 
             BUS[bus_id] = self._bus
-            # add socket to the set of channels bus sockets
-            redis.sadd("channels_bus", self._bus.addr)
-            # add socket to the set of channels respondent sockets
-            redis.sadd("channels_respondent", self._bus.respondent_addr)
             # remove addresses in redis at exit
             atexit.register(_clean_redis, redis, self._bus.addr, self._bus.respondent_addr)
             

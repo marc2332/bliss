@@ -177,6 +177,9 @@ class _Bus(object):
         self._respondent_socket.bind("tcp://*:%d" % respondent_socket_port_number)
         BUS_BY_FD[self._respondent_socket.recv_fd] = self
         self.__bus_respondent_addr = "tcp://%s:%d" % (socket.getfqdn(), respondent_socket_port_number)
+        
+        # remove addresses in redis at exit
+        atexit.register(_clean_redis, redis, self.addr, self.respondent_addr)
 
         # receiver thread takes care of dispatching received values to right channels
         global RECEIVER_THREAD
@@ -246,8 +249,6 @@ class _Channel(object):
             channels_bus_list = redis.smembers(CHANNELS_BUS)
             self._bus = _Bus(redis, bus_id, channels_bus_list) 
             BUS[bus_id] = self._bus
-            # remove addresses in redis at exit
-            atexit.register(_clean_redis, redis, self._bus.addr, self._bus.respondent_addr)
             
     @property
     def name(self):
@@ -269,6 +270,7 @@ class _Channel(object):
         self._initialized_event.clear()
 
         s = nanomsg.Socket(nanomsg.SURVEYOR)
+        s.survey_sent = None
         s.set_int_option(nanomsg.SURVEYOR, nanomsg.SURVEYOR_DEADLINE, 1000)
 
         # ask for channel value to all respondents
@@ -280,7 +282,6 @@ class _Channel(object):
  
         SURVEYORS[s.send_fd] = (self._bus.id, self.name, s)
         SURVEYORS[s.recv_fd] = (self._bus.id, self.name, s)
-        s.survey_sent = None
 
         WAKE_UP_SOCKET_W.send('!')
 

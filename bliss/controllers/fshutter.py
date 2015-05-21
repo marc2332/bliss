@@ -33,6 +33,7 @@ class fshutter:
       self.shift = config["shift"]/self.fshutter_mot.steps_per_unit
 
       self.enastate = None
+      self.state()
        
 
    def state(self):

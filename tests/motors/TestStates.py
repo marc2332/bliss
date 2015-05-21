@@ -54,10 +54,26 @@ class TestStates(unittest.TestCase):
     def test_desc(self):
         s = AxisState(("KAPUT", "auff"), "LIMNEG", "READY")
         self.assertTrue(s.READY)
-        print s.current_states()
         self.assertEquals(s._state_desc["KAPUT"], "auff")
         self.assertEquals(s._state_desc["LIMNEG"], "Hardware low limit active")
 
+    def test_from_current_states_str(self):
+        s = AxisState(("KAPUT", "auff"), "LIMNEG", "READY")
+        states_str = s.current_states()
+        t = AxisState(states_str)
+        self.assertTrue(t.READY)
+        self.assertEquals(t._state_desc["KAPUT"], "auff")
+        self.assertEquals(t._state_desc["LIMNEG"], "Hardware low limit active")
+        self.assertEquals(s.current_states(), t.current_states())
+        u = AxisState()
+        v = AxisState(u.current_states())
+        self.assertEquals(u.current_states(), v.current_states())
+
+    def test_state_from_state(self):
+        s = AxisState("READY")
+        t = AxisState(s)
+        self.assertEquals(s.current_states(), t.current_states())
+       
 
 if __name__ == '__main__':
     unittest.main()

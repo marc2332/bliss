@@ -685,7 +685,7 @@ class AxisState(object):
         """
 
         # set of active states.
-        self._current_states = set()
+        self._current_states = list()
 
         # set of defined/created states.
         self._axis_states = set(["READY", "MOVING", "FAULT", "LIMPOS", "LIMNEG", "HOME", "OFF"])
@@ -705,8 +705,9 @@ class AxisState(object):
                 self.create_state(*state)
                 self.set(state[0])
             else:
-                self.create_state(state)
-                self.set(state)
+                if isinstance(state, AxisState):
+                    state = state.current_states()
+                self._set_state_from_string(state)
 
     def states_list(self):
         """
@@ -717,17 +718,15 @@ class AxisState(object):
     def _check_state_name(self, state_name):
         if not isinstance(state_name, str) or not AxisState.STATE_VALIDATOR.match(state_name):
             raise ValueError(
-                "Invalid state : a state must be a string containing only block letters")
+                "Invalid state: a state must be a string containing only block letters")
 
     def create_state(self, state_name, state_desc=None):
         # Raises ValueError if state_name is invalid.
         self._check_state_name(state_name)
+        if state_desc is not None and '|' in state_desc:
+            raise ValueError("Invalid state: description contains invalid character '|'")
 
-        if state_name in self._axis_states:
-            # state already exists...
-            # (READY and MOVING are already in _axis_states)
-            pass
-        else:
+        if not state_name in self._axis_states:
             self._axis_states.add(state_name)
             # new description is put in dict.
             if state_desc is None:
@@ -745,18 +744,16 @@ class AxisState(object):
     """
     def set(self, state_name):
         if state_name in self._axis_states:
-            self._current_states.add(state_name)
+            if not state_name in self._current_states:
+                self._current_states.append(state_name)
 
-            # Mutual exclusion of READY and MOVING
-            if state_name == "READY":
-                if self.MOVING:
-                    self._current_states.remove("MOVING")
-            if state_name == "MOVING":
-                if self.READY:
-                    self._current_states.remove("READY")
-
-            # Other constraints ?
-
+                # Mutual exclusion of READY and MOVING
+                if state_name == "READY":
+                    if self.MOVING:
+                        self._current_states.remove("MOVING")
+                if state_name == "MOVING":
+                    if self.READY:
+                        self._current_states.remove("READY")
         else:
             raise ValueError("state %s does not exist" % state_name)
 
@@ -777,9 +774,23 @@ class AxisState(object):
 
         return " | ".join(states)
 
-    """
-    Cannonical python class methods.
-    """
+    def _set_state_from_string(self, state):
+        # is state_name a full list of states returned by self.current_states() ?
+        # (copy constructor)
+        if '(' in state:
+            full_states = [s.strip() for s in state.split('|')]
+            p = re.compile('^([A-Z]+)\s\((.+)\)$')
+            for full_state in full_states:
+                m = p.match(full_state)
+                state = m.group(1)
+                desc = m.group(2)
+                self.create_state(state, desc)
+                self.set(state)
+        else:
+            if state != 'UNKNOWN':
+                self.create_state(state)
+                self.set(state)
+
     def __str__(self):
         return self.current_states()
 

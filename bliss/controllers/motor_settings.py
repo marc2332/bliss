@@ -38,11 +38,12 @@ class ControllerAxisSettings:
     def __init__(self):
         self.setting_names = ["velocity", "position", "dial_position", "state",
                               "offset", "acceleration", "low_limit", "high_limit"]
+        from bliss.common import axis
         self.convert_funcs = {
             "velocity": float,
             "position": float,
             "dial_position": float,
-            "state": None,
+            "state": axis.AxisState,
             "offset": float,
             "low_limit": float,
             "high_limit": float,
@@ -136,7 +137,6 @@ class AxisSettings:
 
     def set(self, setting_name, value, write=True, from_channel=False):
         self.__from_channel[setting_name]=from_channel
-        print self, 'set', setting_name, value, repr(value)
         return self.__axis.controller.axis_settings.set(
             self.__axis, setting_name, value, write)
 

@@ -34,7 +34,6 @@ class Axis(object):
         self.__move_done.set()
         self.__custom_methods_list = list()
         self.__move_task = None
-        self.__set_position = None
 
     @property
     def name(self):
@@ -122,7 +121,11 @@ class Axis(object):
         self.settings.set("state", state)
 
     def _set_position(self):
-        return self.__set_position if self.__set_position is not None else self.position()
+        sp = self.settings.get("_set_position")
+        if sp is None:
+          sp = self.position()
+          self.settings.set("_set_position", sp)
+        return sp
 
     def measured_position(self):
         """
@@ -198,7 +201,7 @@ class Axis(object):
         Returns a value in user units.
         """
         if new_pos is not None:
-            self.__set_position = new_pos
+            self.settings.set("__set_position", new_pos)
 
             try:
                 curr_pos = self.__controller.read_position(self) / self.steps_per_unit
@@ -363,7 +366,7 @@ class Axis(object):
             user_initial_pos = self.position()
         dial_initial_pos = self.user2dial(user_initial_pos)
         dial_target_pos = self.user2dial(user_target_pos)
-        self.__set_position = user_target_pos
+        self.settings.set("_set_position", user_target_pos)
         if abs(dial_target_pos - dial_initial_pos) < 1E-6:
             return
 
@@ -497,8 +500,6 @@ class Axis(object):
                 pass
 
     def _do_stop(self):
-        self.__set_position = None
-
         self.__controller.stop(self)
 
         # for some reason, _handle_move cannot be called !
@@ -512,6 +513,9 @@ class Axis(object):
                 break
             self._update_settings(state)
             time.sleep(0.02)
+
+        self.settings.set("_set_position", self.position())
+
         if self.encoder is not None:
             self._do_encoder_reading()
 

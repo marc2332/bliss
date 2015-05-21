@@ -386,7 +386,7 @@ class PI_E517(Controller):
         else:
             self.auto_gate_enabled = False
 
-            # for external gating
+            # To keep external gating possible.
             self.gate_axis = 1
 
     def set_gate(self, axis, state):

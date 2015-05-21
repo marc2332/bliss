@@ -19,8 +19,6 @@ class MD2S:
         self._sample_video_server = config.get("sample_video_server")
         self.thgt = config.get("thgt")
         self.ttrans = config.get("ttrans")
-        self.tyb = config.get("tyb")
-        self.fshut= config.get("fshut")
         self.transmission = config.get("transmission")
         self.detcover = config.get("detcover")
 
@@ -99,7 +97,7 @@ class MD2S:
 
         px_mm_y, px_mm_z = self.get_cameracalibration()
 
-        def restore_table(saved_pos=(self.thgt, self.thgt.position(), self.ttrans,self.ttrans.position(), self.tyb, self.tyb.position())):
+        def restore_table(saved_pos=(self.thgt, self.thgt.position(), self.ttrans,self.ttrans.position())):
             logging.getLogger().info("Restoring table:", saved_pos)
             self._simultaneous_move(*saved_pos)
 
@@ -108,7 +106,7 @@ class MD2S:
 
         def do_centrebeam():
             with error_cleanup(restore_att):
-                self.fshut.open()
+                self._exporter.writeProperty("FastShutterIsOpen", "true")
                 
             with cleanup(restore_live):
                 self.sample_video_device.video_live=False
@@ -126,7 +124,7 @@ class MD2S:
             with error_cleanup(restore_table):
                 print "moving ttrans by", -dy
                 print "moving thgt by", -dz
-                self._simultaneous_rmove(self.thgt, -dz, self.ttrans, -dy, self.tyb, -dy)
+                self._simultaneous_rmove(self.thgt, -dz, self.ttrans, -dy)
             return dy, dz
 
         with cleanup(restore_att):
@@ -137,5 +135,10 @@ class MD2S:
                 dy, dz = do_centrebeam()
                 if abs(dy) < 0.001 and abs(dz) < 0.001:
                     break
-            self.fshut.close()
+            self._exporter.writeProperty("FastShutterIsOpen", "false")
 
+    def msopen(self):
+        self._exporter.writeProperty("FastShutterIsOpen", "true")
+
+    def msclose(self):
+        self._exporter.writeProperty("FastShutterIsOpen", "false")

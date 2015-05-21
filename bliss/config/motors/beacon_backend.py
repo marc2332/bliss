@@ -126,7 +126,6 @@ def write_setting(config_dict, setting_name, setting_value):
     hash_setting = settings.HashSetting("axis.%s" % axis_name)
     hash_setting[setting_name] = setting_value
 
-    print 'writing', setting_name, setting_value
     channels.Channel("axis.%s.%s" % (axis_name, setting_name), setting_value)
 
 
@@ -135,34 +134,48 @@ def commit_settings(config_dict):
 
 
 def setting_update_from_channel(value, setting_name=None, axis=None):
-    print 'callback from channel', value, setting_name, axis
     axis.settings.set(setting_name, value, write=False, from_channel=True)
+
+
+def get_from_config(axis, setting_name):
+    try:
+        return axis.config.get(setting_name)
+    except KeyError:
+        return
 
 
 def get_axis_setting(axis, setting_name):
     hash_setting = settings.HashSetting("axis.%s" % axis.name)
     if len(hash_setting) == 0:
-      try:
-          setting_value = axis.config.get(setting_name)
-      except:
-          return None
-      else:
-          # write setting
-          hash_setting[setting_name] = setting_value
+        # there is no setting value in cache
+        setting_value = get_from_config(axis, setting_name)
+        if setting_value is not None:
+            # write setting to cache
+            hash_setting[setting_name] = setting_value
     else:
         setting_value = hash_setting.get(setting_name)
+        if setting_value is None:
+            # take setting value from config
+            setting_value = get_from_config(axis, setting_name)
+            if setting_value is not None:
+                # write setting to cache
+                hash_setting[setting_name] = setting_value
 
-    if not hasattr(axis, "_beacon_channels"):
-        axis._beacon_channels = dict()
-    #if setting_name in axis._beacon_channels:
-    #    axis._beacon_channels[setting_name].value = setting_value
-    if not setting_name in axis._beacon_channels:
-        chan_name = "axis.%s.%s" % (axis.name, setting_name)
-        cb = functools.partial(setting_update_from_channel, setting_name=setting_name, axis=axis) 
-        chan = channels.Channel(chan_name, setting_value, callback=cb)
-        axis._beacon_channels[setting_name] = chan
-        #axis._beacon_channels.setdefault("callbacks", dict())[setting_name] = cb
-    
+    try:
+        beacon_channels = axis._beacon_channels
+    except AttributeError:
+        beacon_channels = dict()
+        axis._beacon_channels = beacon_channels
+    else:
+        if not setting_name in beacon_channels:
+            chan_name = "axis.%s.%s" % (axis.name, setting_name)
+            cb = functools.partial(setting_update_from_channel, setting_name=setting_name, axis=axis) 
+            if setting_value is None:
+                chan = channels.Channel(chan_name, callback=cb, wait=False) 
+            else:
+                chan = channels.Channel(chan_name, setting_value, callback=cb) 
+            beacon_channels[setting_name] = chan
+
     return setting_value
 
 

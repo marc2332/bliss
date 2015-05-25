@@ -395,14 +395,18 @@ class Axis(object):
 
         # check software limits
         user_low_limit, user_high_limit = self.limits()
-        if not None in (user_low_limit, user_high_limit):
-            high_limit = self.user2dial(user_high_limit) * self.steps_per_unit
+        if user_low_limit is not None:
             low_limit = self.user2dial(user_low_limit) * self.steps_per_unit
-            if high_limit < low_limit:
-                high_limit, low_limit = low_limit, high_limit
         else:
-            user_low_limit = None
-            user_high_limit = None
+            low_limit = None
+        if user_high_limit is not None: 
+            high_limit = self.user2dial(user_high_limit) * self.steps_per_unit
+        else:
+            high_limit = None
+        if high_limit is not None and high_limit < low_limit:
+            high_limit, low_limit = low_limit, high_limit
+            user_high_limit, user_low_limit = user_low_limit, user_high_limit
+
         backlash_str = " (with %f backlash)" % user_backlash if backlash else ""
         if user_low_limit is not None:
             if target_pos < low_limit:

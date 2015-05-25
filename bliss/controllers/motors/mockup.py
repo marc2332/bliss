@@ -79,7 +79,7 @@ class Mockup(Controller):
             "measured_simul": False,
             "measured_noise": 0.0,
             "end_t": 0,
-            "end_pos": 30}
+            "end_pos": 0}
 
         # this is to test axis are initialized only once
         axis.settings.set('init_count', axis.settings.get('init_count') + 1)

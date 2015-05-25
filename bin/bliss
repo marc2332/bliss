@@ -22,6 +22,7 @@ import bliss
 user_ns = {"load_cfg": bliss.load_cfg,
            "load_cfg_fromstring": bliss.load_cfg_fromstring,
            "get_axis": bliss.get_axis,
+           "Group": bliss.Group,
            "sys": sys,
            "os": os}
 

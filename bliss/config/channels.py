@@ -299,6 +299,8 @@ class _Channel(object):
 
     def _fire_notification_callbacks(self):
         self._initialized_event.set()
+        if self.value == NotInitialized():
+            return
         for cb_ref in self._callback_refs:
             cb = cb_ref()
             if cb is not None:
@@ -330,6 +332,7 @@ def Channel(name, value=NotInitialized(), callback=None, wait=True, timeout=1, r
     else:
         # set value for channel, and notify peers
         chan.value = value
+        chan._fire_notification_callbacks()
 
     CHANNELS.setdefault(bus_id, weakref.WeakValueDictionary())[name] = chan
     

@@ -63,7 +63,7 @@ class setpoint(Controller):
 
         # _pos0 must be in controller unit.
         self._pos0 = self.target_attribute.read().value * self.factor
-        elog.info("initial position : %g (Ctrl. Unit)" % self._pos0)
+        elog.info("initial position : %g (in ctrl units)" % self._pos0)
 
     def move_done_event_received(self, state):
         if self.external_gating:

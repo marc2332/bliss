@@ -434,15 +434,16 @@ class Axis(object):
     def _set_move_done(self, move_task):
         self.__move_done.set()
         event.send(self, "move_done", True)
-        self._update_settings()
 
-        if move_task is not None and not move_task._being_waited:
-            try:
-                move_task.get()
-            except gevent.GreenletExit:
-                pass 
-            except:
-                sys.excepthook(*sys.exc_info())
+        if move_task is not None:
+            self._update_settings()
+            if not move_task._being_waited:
+                try:
+                    move_task.get()
+                except gevent.GreenletExit:
+                    pass 
+                except:
+                    sys.excepthook(*sys.exc_info())
 
     def _check_ready(self):
         initial_state = self.state()

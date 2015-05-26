@@ -135,6 +135,12 @@ def commit_settings(config_dict):
 
 def setting_update_from_channel(value, setting_name=None, axis=None):
     axis.settings.set(setting_name, value, write=False, from_channel=True)
+    if setting_name == 'state':
+        if 'MOVING' in str(value):
+            axis._set_moving_state()
+        else:
+            if axis.is_moving:
+                axis._set_move_done(None)
 
 
 def get_from_config(axis, setting_name):

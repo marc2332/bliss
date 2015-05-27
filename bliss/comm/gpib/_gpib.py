@@ -26,6 +26,9 @@ class Enet(EnetSocket):
                        sad = self._gpib_kwargs.get('sad'),
                        tmo = self._gpib_kwargs.get('timeout'))
 
+    def close(self) :
+        self._sock.close()
+        
     def _open(self) :
         pass
 
@@ -40,7 +43,6 @@ class Enet(EnetSocket):
 def try_open(fu) :
     def rfunc(self,*args,**keys) :
         self.open()
-        self._raw_handler.init()
         timeout = keys.get('timeout')
         if timeout and self._timeout != timeout:
             self._raw_handler.ibtmo(timeout)
@@ -74,7 +76,13 @@ class Gpib:
             gpib_type = self._check_type()
             if gpib_type == self.ENET:
                 self._raw_handler = Enet(self,**self._gpib_kwargs)
+                self._raw_handler.init()
 
+    def close(self) :
+        if self._raw_handler is not None:
+            self._raw_handler.close()
+            self._raw_handler = None
+            
     @try_open
     def raw_read(self,maxsize = None,timeout = None):
         size_to_read = maxsize or self.READ_BLOCK_SIZE
@@ -112,6 +120,9 @@ class Gpib:
         with self._lock:
             return self._raw_handler.ibwrt(msg)
 
+    def _write(self,msg) :
+        return self._raw_handler.ibwrt(msg)
+    
     @try_open
     def write_read(self,msg,write_synchro = None,size = 1,timeout = None) :
         with self._lock:

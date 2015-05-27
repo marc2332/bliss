@@ -24,7 +24,7 @@ class Enet(EnetSocket):
             self._sock.connect()
             self.ibdev(pad = self._gpib_kwargs.get('pad'),
                        sad = self._gpib_kwargs.get('sad'),
-                       tmo = self._gpib_kwargs.get('timeout'))
+                       tmo = self._gpib_kwargs.get('tmo'))
 
     def close(self) :
         self._sock.close()
@@ -54,13 +54,14 @@ class Gpib:
     ENET = range(1)
     READ_BLOCK_SIZE = 64 * 1024
 
-    def __init__(self,url = None,pad = 0,sad = 0,timeout = 13,
+    def __init__(self,url = None,pad = 0,sad = 0,timeout = 1.,tmo = 13,
                  eot = 1,eos = '\n') :
         
         self._gpib_kwargs = {
             'url'     : url,
             'pad'     : pad,
             'sad'     : sad,
+            'tmo'     : tmo,
             'timeout' : timeout,
             'eos'     : eos}
         

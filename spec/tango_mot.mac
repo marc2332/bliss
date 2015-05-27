@@ -61,6 +61,64 @@ hg_config_headers("tango_mot", "TANGO_MOT", "TANGO_MOT", "TANGO_MOT")
 hg_generate("tango_mot")
 
 
+def bliss_get_axes() '{
+    local TTT[]
+
+    tango_io("id26/bliss/cyrtest", "GetAxisList", TTT)
+
+}'
+
+
+def bliss_get_custom_commands(mot_name) '{
+
+    local ccList[]
+
+    tango_io(motor_par(mot_name, "dev_name"), "GetCustomCommandList", ccList)
+
+    local _fct_name _cmd_string _tin _tout   _reste _length
+
+    printf("-------- custom commands for %s --------\n", mot_name)
+    for (ii in ccList) {
+        _cmd_string = ccList[ii]
+
+        # example :
+        # ["custom_set_measured_noise", ["float", "None"]]
+
+        _length = length(_cmd_string)
+        _fct_name = substr(_cmd_string, 3, index(_cmd_string, ",")-4)
+        # _fct_name = custom_set_measured_noise
+        # print _fct_name
+
+        _fct_length = index(_cmd_string, ",")+2
+        _reste = substr(_cmd_string, _fct_length  , _length-_fct_length )
+        # _reste = ["custom_set_measured_noise", ["float", "None"]]
+        # print _reste
+
+        local uuu[]
+        split(_reste, uuu, ", ")
+        _tin = string_remove_last_N_chars(substr(uuu[0], 3), 1)
+        _tout = string_remove_last_N_chars(substr(uuu[1], 2), 2)
+
+        printf("%s(%s) --> %s \n", _fct_name, _tin, _tout)
+
+    }
+}'
+
+
+def bliss_put_traj() '{
+
+    float array tp[5][100]
+
+    array_op("fill", tp, 1,2)
+    tango_put("id26/bliss_cyrtest/roba/trajpar", tp)
+
+#36.CYRIL> p motor_par("roba", "dev_name")
+#id26/bliss_cyrtest/roba
+
+}'
+
+
+
 #%IU%
 #%MDESC%
 #    Called on reconfig.

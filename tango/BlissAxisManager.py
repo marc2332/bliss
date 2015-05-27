@@ -12,7 +12,7 @@ import sys
 import time
 import traceback
 import types
-
+import json
 
 class bcolors:
     PINK = '\033[95m'
@@ -24,13 +24,14 @@ class bcolors:
 
 
 class BlissAxisManager(PyTango.Device_4Impl):
+    axis_dev_list = None
+    axis_dev_names = None
 
     def __init__(self, cl, name):
         PyTango.Device_4Impl.__init__(self, cl, name)
         self.debug_stream("In __init__() of controller")
         self.init_device()
 
-        self.axis_dev_list = None
 
     def delete_device(self):
         self.debug_stream("In delete_device() of controller")
@@ -38,6 +39,7 @@ class BlissAxisManager(PyTango.Device_4Impl):
     def init_device(self):
         self.debug_stream("In init_device() of controller")
         self.get_device_properties(self.get_device_class())
+
 
     def dev_state(self):
         """ This command gets the device state (stored in its device_state
@@ -97,6 +99,28 @@ class BlissAxisManager(PyTango.Device_4Impl):
         return self.get_state()
 
 
+    def GetAxisList(self):
+        """
+        Returns the list of BlissAxisManager axes of this device.
+        """
+        argout = list()
+
+        U = PyTango.Util.instance()
+        dev_list = U.get_device_list("*")
+        # Creates the list of BlissAxis devices names.
+        if self.axis_dev_names is None:
+            self.axis_dev_names = list()
+            for dev in dev_list:
+                dev_name = dev.get_name()
+                if "bliss_" in dev_name:
+                    self.axis_dev_names.append(dev_name)
+
+        print "axes list : ", self.axis_dev_names
+
+        for _axis in self.axis_dev_names:
+            argout.append(_axis)
+        return argout
+
 class BlissAxisManagerClass(PyTango.DeviceClass):
 
     #    Class Properties
@@ -111,6 +135,12 @@ class BlissAxisManagerClass(PyTango.DeviceClass):
          ["/users/blissadm/local/userconf/bliss/XXX.xml"]],
     }
 
+    #    Command definitions
+    cmd_list = {
+        'GetAxisList':
+        [[PyTango.DevVoid, "none"],
+         [PyTango.DevVarStringArray, "List of axis"]]
+    }
 
 # Device States Description
 # ON : The motor powered on and is ready to move.
@@ -179,6 +209,8 @@ class BlissAxis(PyTango.Device_4Impl):
         self.attr_FirstVelocity_read = 0.0
         self.attr_Home_side_read = False
         """
+
+        self.attr_trajpar_read = [[0.0]]
 
         # elog.info("    %s" % self.axis.get_info())
         elog.info(" BlissAxisManager.py Axis " + bcolors.PINK + self._ds_name + bcolors.ENDC + " initialized")
@@ -549,6 +581,30 @@ class BlissAxis(PyTango.Device_4Impl):
 
         return self.axis.set_gate(argin)
 
+    def GetCustomCommandList(self):
+        """
+        Returns the list of custom commands.
+        JSON format.
+        """
+        _cmd_list = self.axis.custom_methods_list()
+
+        argout = list()
+
+        for _cmd in _cmd_list:
+            argout.append( json.dumps(_cmd))
+
+        return argout
+
+
+    def read_trajpar(self, attr):
+        self.debug_stream("In read_trajpar()")
+        attr.set_value(self.attr_trajpar_read)
+
+    def write_trajpar(self, attr):
+        self.debug_stream("In write_trajpar()")
+        data = attr.get_write_value()
+
+
 
 class BlissAxisClass(PyTango.DeviceClass):
     #    Class Properties
@@ -605,7 +661,10 @@ class BlissAxisClass(PyTango.DeviceClass):
          [PyTango.DevString, "Configuration value"]],
         'SetGate':
         [[PyTango.DevLong, "state of the gate 0/1"],
-         [PyTango.DevVoid, ""]]
+         [PyTango.DevVoid, ""]],
+        'GetCustomCommandList':
+        [[PyTango.DevVoid, ""],
+         [PyTango.DevVarStringArray, "List of axis custom commands"]]
     }
 
     #    Attribute definitions
@@ -762,6 +821,10 @@ class BlissAxisClass(PyTango.DeviceClass):
              is expressed in physical unit.",
              'Display level': PyTango.DispLevel.EXPERT,
         }],
+        'trajpar':
+        [[PyTango.DevFloat,
+          PyTango.IMAGE,
+          PyTango.READ_WRITE, 1000, 5]],
     }
 
 
@@ -894,7 +957,12 @@ def main():
             elog.debug("axis names list : %s" % axis_names)
 
             for axis_name in axis_names:
-                _axis = TgGevent.get_proxy(bliss.get_axis, axis_name)
+                elog.debug("BlissAxisManager.py : _____________ axis %s _____________" % axis_name)
+                try:
+                    _axis = TgGevent.get_proxy(bliss.get_axis, axis_name)
+                except:
+                    print traceback.format_exc()
+                    sys.exit(-1)
 
                 new_axis_class_class = types.ClassType("BlissAxisClass_%s" % axis_name, (BlissAxisClass,), {})
                 new_axis_class = types.ClassType("BlissAxis_%s" % axis_name, (BlissAxis,), {})
@@ -938,7 +1006,7 @@ def main():
                 """
                 SETTINGS AS ATTRIBUTES.
                 """
-                elog.debug(" BlissAxisManager.py ----------------  SETTINGS  -------------------------")
+                elog.debug(" BlissAxisManager.py : %s : -------------- SETTINGS -----------------" % axis_name)
 
                 new_axis_class_class.attr_list = dict(BlissAxisClass.attr_list)
 
@@ -983,9 +1051,11 @@ def main():
                         setattr(new_axis_class, "write_%s" % _attr_name, new_write_attr_method)
 
                 # End of custom command and settings
-                # Adds new Axis specific class.
+                elog.debug("BlissAxisManager.py : Adds new Axis specific class.")
                 py.add_class(new_axis_class_class, new_axis_class)
+                elog.debug("BlissAxisManager.py : Class added.")
 
+        elog.debug("BlissAxisManager.py : intitialize server.")
         U.server_init()
 
     except PyTango.DevFailed:

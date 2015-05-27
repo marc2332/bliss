@@ -118,6 +118,31 @@ def bliss_put_traj() '{
 }'
 
 
+def econfig '{
+    local _nb_param  _device_name  _axis_name
+
+    _nb_param = $#
+
+    _axis_name = "$1"
+    _device_name = motor_par(_axis_name, "dev_name")
+
+    if (_nb_param == 2 && ("$2" == "expert")){
+        printf("Launching expert GUI for Bliss axis \"%s\" (device=\"%s\")\n", _axis_name,  _device_name)
+        _cmd = sprintf("/users/blissadm/bin/atkpanel -expert %s  >/dev/null 2>&1 &", _device_name)
+    }
+    else{
+        printf("Launching GUI for Bliss axis \"%s\" (device=\"%s\")\n", _axis_name,  _device_name)
+        _cmd = sprintf("/users/blissadm/bin/atkpanel %s  >/dev/null 2>&1 & ", _device_name)
+    }
+
+    unix(_cmd)
+}'
+
+def eeconfig '{
+    econfig "$1" "expert"
+}'
+
+
 
 #%IU%
 #%MDESC%

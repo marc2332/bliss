@@ -7,7 +7,6 @@ ttrans: translation calculated axis alias
 trot: rotation calculated axis alias
 d: distance between the 2 actuators
 
-
          ^  ttrans
          |                    \
          |                     \
@@ -18,7 +17,6 @@ d: distance between the 2 actuators
     |<---d--->|
     |         |
    back      front
-
 
 """
 from bliss.controllers.motor import CalcController
@@ -32,9 +30,13 @@ class tabsup(CalcController):
         self.d = self.config.get("d", float)
 
     def calc_from_real(self, positions_dict):
-        return {"ttrans": (positions_dict["front"] + positions_dict["back"])/2.0,
-                "trot": math.degrees((math.atan(positions_dict["back"] - positions_dict["front"]) / self.d * 1000)) }
+        front, back = positions_dict["front"], positions_dict["back"]
+        return {"ttrans": (front + back) / 2.,
+                "trot": math.degrees(math.atan(float(front - back) / self.d)) }
 
     def calc_to_real(self, axis_tag, positions_dict):
-        return {"back": positions_dict["ttrans"] + self.d * math.tan(math.radians(positions_dict["trot"] / 1000.0)),
-                "front": positions_dict["ttrans"]}
+        ttrans, trot = positions_dict["ttrans"], positions_dict["trot"]
+        d2_tg = self.d / 2. * math.tan(math.radians(trot))
+        return {"back": ttrans - d2_tg,
+                "front": ttrans + d2_tg }
+

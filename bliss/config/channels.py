@@ -332,7 +332,7 @@ def Channel(name, value=NotInitialized(), callback=None, wait=True, timeout=1, r
     else:
         # set value for channel, and notify peers
         chan.value = value
-        chan._fire_notification_callbacks()
+        #chan._fire_notification_callbacks()
 
     CHANNELS.setdefault(bus_id, weakref.WeakValueDictionary())[name] = chan
     

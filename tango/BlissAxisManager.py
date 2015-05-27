@@ -868,8 +868,6 @@ def main():
             elog.info(" BlissAxisManager.py - BlissAxisManager device : %s" % _device)
             _config_file = db.get_device_property(_device, "config_file")["config_file"][0]
 
-            elog.info(" BlissAxisManager.py - config file : " + bcolors.PINK + _config_file + bcolors.ENDC)
-
             first_run = False
         else:
             elog.error("[FIRST RUN] New server never started ? -> no database entry...", raise_exception=False)
@@ -882,6 +880,7 @@ def main():
 
         if not first_run:
             if _config_file:
+                elog.info(" BlissAxisManager.py - config file : " + bcolors.PINK + _config_file + bcolors.ENDC)
                 try:
                     TgGevent.execute(bliss.load_cfg, _config_file)
                 except:
@@ -893,10 +892,11 @@ def main():
                     # Get axis names defined in config file.
                     axis_names = bliss_config.axis_names_list()
             else:
-                # Get axis names from property (= use beacon to get axis objects)
+                elog.info(" BlissAxisManager.py - " + bcolors.PINK + "beacon config" + bcolors.ENDC)
+                # Get axes names from property (= use beacon to get axis objects)
                 bliss_config.BACKEND = "beacon"
                 axis_names = db.get_device_property(_device, "axes")["axes"][0].split()
-     
+
             elog.debug("axis names list : %s" % axis_names)
 
             for axis_name in axis_names:

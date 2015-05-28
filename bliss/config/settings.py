@@ -390,9 +390,12 @@ class HashSetting(object):
         return ttl_func(self._cnx(),self._name,value)
 
     @read_decorator
-    def get(self,key) :
+    def get(self,key,default = None) :
         cnx = self._cnx()
-        return cnx.hget(self._name,key)
+        return_val = cnx.hget(self._name,key)
+        if return_val is None:
+            return_val = default
+        return return_val
 
     @read_decorator
     def pop(self,key) :

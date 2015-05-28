@@ -1,0 +1,17 @@
+name: prosilica_md2s
+LimaCameraType: Prosilica
+camera:
+  cam_ip_address: 169.254.1.2
+tango:
+  server: LimaCCDs
+  personal_name: id30b_sample
+  name: tango_prosilica_md2s
+  device:
+    -
+      tango_name: id30/limaprosilica/id30b_sample
+      class: Prosilica
+      properties: $prosilica_md2s/camera
+    -
+      tango_name: id30/limaccd/id30b_sample
+      class: LimaCCDs
+      properties: $prosilica_md2s

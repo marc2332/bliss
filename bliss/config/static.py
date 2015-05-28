@@ -6,14 +6,58 @@ if not hasattr(weakref, "WeakSet"):
     weakref.WeakSet = weakrefset.WeakSet
 from .conductor import client
 
+try:
+    from ruamel import yaml as ordered_yaml
+    from _ordereddict import ordereddict
+    NodeDict = ordereddict
+    class RoundTripRepresenter(ordered_yaml.representer.RoundTripRepresenter):
+        def __init__(self,*args,**keys):
+            ordered_yaml.representer.RoundTripRepresenter.__init__(self,*args,**keys)
+        def represent_ordereddict(self, data):
+            return self.represent_mapping(u'tag:yaml.org,2002:map', data)
+
+    RoundTripRepresenter.add_representer(ordereddict,
+                                         RoundTripRepresenter.represent_ordereddict)
+
+    class RoundTripDumper(ordered_yaml.emitter.Emitter,
+                          ordered_yaml.serializer.Serializer,
+                          RoundTripRepresenter,
+                          ordered_yaml.resolver.Resolver):
+        def __init__(self,stream,
+                     default_style=None, default_flow_style=None,
+                     canonical=None, indent=None, width=None,
+                     allow_unicode=None, line_break=None,
+                     encoding=None, explicit_start=None, explicit_end=None,
+                     version=None, tags=None):
+            ordered_yaml.emitter.Emitter.__init__(self, stream, canonical=canonical,
+                                                  indent=indent, width=width,
+                                                  allow_unicode=allow_unicode, line_break=line_break)
+            ordered_yaml.serializer.Serializer.__init__(self, encoding=encoding,
+                                                     explicit_start=explicit_start,
+                                                     explicit_end=explicit_end,
+                                                     version=version, tags=tags)
+            RoundTripRepresenter.__init__(self, default_style=default_style,
+                                          default_flow_style=default_flow_style)
+            ordered_yaml.resolver.Resolver.__init__(self)
+
+except ImportError:
+    ordered_yaml = None
+    NodeDict = dict
+
 CONFIG = None
 
 def load_cfg(filename):
     cfg_string = client.get_config_file(filename)
-    return yaml.load(cfg_string)
+    if ordered_yaml:
+        return ordered_yaml.load(cfg_string,ordered_yaml.RoundTripLoader)
+    else:
+        return yaml.load(cfg_string)
 
 def load_cfg_fromstring(cfg_string):
-   return yaml.load(cfg_string)
+    if ordered_yaml:
+        return ordered_yaml.load(cfg_string,ordered_yaml.RoundTripLoader)
+    else:
+        return yaml.load(cfg_string)
 
 def get_config(base_path='',timeout=3.):
     global CONFIG
@@ -26,9 +70,9 @@ class Config(object):
     NAME_KEY = 'name'
     USER_TAG_KEY = 'user_tag'
 
-    class Node(dict):
+    class Node(NodeDict):
         def __init__(self,config,parent = None,filename = None) :
-            dict.__init__(self)
+            NodeDict.__init__(self)
             self._parent = parent
             self._config = weakref.ref(config)
             config._create_file_index(self,filename)
@@ -79,6 +123,42 @@ class Config(object):
         def pprint(self,indent=1, depth = None) :
             self._pprint(self,0,indent,0,depth)
         
+        def save(self) :
+            parent,filename = self.get_node_filename()
+            if filename is None: return # Memory
+            save_file_tree =  self._get_save_dict(parent,filename)
+            if ordered_yaml:
+                file_content = ordered_yaml.dump(save_file_tree,
+                                                 Dumper=RoundTripDumper,
+                                                 default_flow_style=False)
+            else:
+                file_content = yaml.dump(save_file_tree,default_flow_style=False)
+            cfg = self._config()
+            cfg.set_config_db_file(filename,file_content)
+
+        def _get_save_dict(self,src_node,filename):
+            return_dict = NodeDict()
+            for key,values in src_node.iteritems():
+                if isinstance(values,Config.Node) :
+                    if values.filename != filename: continue
+                    return_dict[key] = self._get_save_dict(values,filename)
+                elif isinstance(values,list):
+                    child_list = self._get_save_list(values,filename)
+                    if child_list:
+                        return_dict[key] = child_list
+                else:
+                    return_dict[key] = values
+            return return_dict
+        
+        def _get_save_list(self,l,filename):
+            return_list = []
+            for v in l:
+                if isinstance(v,Config.Node) :
+                    if v.filename != filename: break
+                    return_list.append(self._get_save_dict(v,filename))
+                else:
+                    return_list.append(v)
+            return return_list
         @staticmethod
         def _pprint(node,cur_indet,indent,cur_depth,depth) :
             cfg = node._config()
@@ -116,13 +196,6 @@ class Config(object):
                                                    value)
 
     def __init__(self, base_path, timeout=3):
-        self._name2node = weakref.WeakValueDictionary()
-        self._usertag2node = {}
-        self._root_node = Config.Node(self)
-        self._name2instance = {}
-        self._name2cache = {}
-        self._node2file = weakref.WeakKeyDictionary()
-        self._file2node = {}
         self._base_path = base_path
        
         self.reload(timeout=timeout)
@@ -130,6 +203,12 @@ class Config(object):
     def reload(self, base_path=None, timeout=3):
         if base_path is None:
             base_path = self._base_path
+
+        self._name2node = weakref.WeakValueDictionary()
+        self._usertag2node = {}
+        self._root_node = Config.Node(self)
+        self._node2file = weakref.WeakKeyDictionary()
+        self._file2node = {}
 
         self._clear_instances()
 
@@ -140,7 +219,11 @@ class Config(object):
             base_path, file_name = os.path.split(path)
             fs_node, fs_key = self._get_or_create_path_node(base_path)
 
-            d = yaml.load(file_content)
+            if ordered_yaml:
+                d = ordered_yaml.load(file_content,ordered_yaml.RoundTripLoader)
+            else:
+                d = yaml.load(file_content)
+
             is_init_file = False
             if file_name.startswith('__init__'):
                 _,last_path = os.path.split(base_path)
@@ -224,6 +307,10 @@ class Config(object):
     def root(self):
         return self._root_node
 
+    def set_config_db_file(self,filename,content) :
+        full_filename = os.path.join(self._base_path,filename)
+        client.set_config_db_file(full_filename,content)
+
     def _create_file_index(self,node,filename) :
         if filename:
             self._node2file[node] = filename
@@ -270,6 +357,8 @@ class Config(object):
     ##@brief return the config node with it's name
     #
     def get_config(self, name):
+        # '$' means the item is a reference
+        name = name.lstrip('$')
         return self._name2node.get(name)
 
     ##@brief return an instance with it's name
@@ -284,9 +373,9 @@ class Config(object):
                 raise RuntimeError("Object '%s` doesn't exist in config" % name)
 
             module_name = config_node.plugin
-
+            if module_name is None:
+                module_name = "default"
             m = __import__('bliss.config.plugins.%s' % (module_name),fromlist=[None])
-
             if hasattr(m, "create_object_from_cache"):
                 cache_object = self._name2cache.pop(name,None)
                 if cache_object is not None:

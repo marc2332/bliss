@@ -1,0 +1,8 @@
+server: emotion
+personal_name: id30a3
+device:
+  -
+    class: Emotion
+    tango_name: id30/emotion/id30a3
+    properties:
+      config_file: /users/blissadm/local/beamline_configuration/eh/motors/

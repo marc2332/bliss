@@ -1,0 +1,12 @@
+server: LimaCCDs
+personal_name: seb
+device:
+  -
+    tango_name: id00/limaccd/seb
+    class: LimaCCDs
+    properties:
+      LimaCameraType: Simulator
+  -
+    tango_name: id00/simulator/seb
+    class: Simulator
+    

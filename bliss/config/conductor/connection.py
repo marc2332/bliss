@@ -227,6 +227,15 @@ class Connection(object) :
                     return_files.append((file_path,file_value))
         return return_files
 
+    @check_connect
+    def set_config_db_file(self,file_path,content,timeout = 30.):
+        with gevent.Timeout(timeout,RuntimeError("Can't set config file")):
+            with self.WaitingQueue(self) as wq:
+                msg = '%s|%s|%s' % (wq.message_key(),file_path,content)
+                self._fd.sendall(protocol.message(protocol.CONFIG_SET_DB_FILE,msg))
+                for rx_msg in wq.queue():
+                    raise rx_msg
+
     def _lock_mgt(self,fd,messageType,message):
         if messageType == protocol.LOCK_OK_REPLY:
             events = self._pending_lock.get(message,[])
@@ -270,11 +279,13 @@ class Connection(object) :
                             message_key,value = self._get_msg_key(message)
                             queue = self._message_queue.get(message_key)
                             if queue is not None: queue.put(value)
-                        elif messageType == protocol.CONFIG_GET_FILE_FAILED:
+                        elif(messageType == protocol.CONFIG_GET_FILE_FAILED or
+                             messageType == protocol.CONFIG_SET_DB_FILE_FAILED):
                             message_key,value = self._get_msg_key(message)
                             queue = self._message_queue.get(message_key)
                             if queue is not None: queue.put(RuntimeError(value))
-                        elif messageType == protocol.CONFIG_DB_END:
+                        elif(messageType == protocol.CONFIG_DB_END or
+                             messageType == protocol.CONFIG_SET_DB_FILE_OK):
                             message_key,value = self._get_msg_key(message)
                             queue = self._message_queue.get(message_key)
                             if queue is not None: queue.put(StopIteration)

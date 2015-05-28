@@ -281,7 +281,7 @@ class Config(object):
         if instance_object is None: # we will create it
             config_node = self.get_config(name)
             if config_node is None:
-                raise RuntimeError("Object %s doesn't exist in config")
+                raise RuntimeError("Object '%s` doesn't exist in config" % name)
 
             module_name = config_node.plugin
 

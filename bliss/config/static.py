@@ -370,12 +370,12 @@ class Config(object):
         if instance_object is None: # we will create it
             config_node = self.get_config(name)
             if config_node is None:
-                raise RuntimeError("Object %s doesn't exist in config")
+                raise RuntimeError("Object '%s` doesn't exist in config" % name)
 
             module_name = config_node.plugin
-
+            if module_name is None:
+                module_name = "default"
             m = __import__('bliss.config.plugins.%s' % (module_name),fromlist=[None])
-
             if hasattr(m, "create_object_from_cache"):
                 cache_object = self._name2cache.pop(name,None)
                 if cache_object is not None:

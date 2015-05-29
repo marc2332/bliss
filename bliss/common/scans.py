@@ -70,9 +70,8 @@ def ascan(motor, start, stop, npoints, count_time, *counters, **kwargs):
 def dscan(motor, start, stop, npoints, count_time, *counters, **kwargs):
 
     oldpos = motor.position()
-    return ascan(
-        motor, oldpos + start, oldpos + stop, npoints, count_time, *counters, **
-        kwargs)
+    ascan(motor, oldpos + start, oldpos + stop, npoints, count_time, *counters, **kwargs)
+    motor.move(oldpos)
 
 def a2scan(
         motor1, start1, stop1, motor2, start2, stop2, npoints, count_time, *
@@ -128,9 +127,12 @@ def d2scan(
     oldpos1 = motor1.position()
     oldpos2 = motor2.position()
 
-    return a2scan(
+    a2scan(
         motor1, oldpos1 + start1, oldpos1+stop1, motor2, oldpos2 + start2,
         oldpos2 + stop2, npoints, count_time, *counters, **kwargs)
+
+    motor1.move(oldpos1)
+    motor2.move(oldpos2)
 
 
 def timescan(count_time, *counters, **kwargs):

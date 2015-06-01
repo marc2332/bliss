@@ -108,7 +108,7 @@ class IcePAP(Controller):
             sys.excepthook(*sys.exc_info())
 
         # Add new axis oject methods
-        add_axis_method(axis, self.get_identifier)
+        add_axis_method(axis, self.get_identifier, types_info=("None", "str"))
 
 
     def read_position(self, axis):

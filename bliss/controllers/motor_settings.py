@@ -24,11 +24,11 @@ def write_settings():
 
     try:
         while True:
-            axis, setting_name, value = SETTINGS_WRITER_QUEUE.get()
+            axis, setting_name, value, write_flag = SETTINGS_WRITER_QUEUE.get()
             if axis is None:
                 break
             event.send(
-                axis, "write_setting", axis.config, setting_name, value, True)
+                axis, "write_setting", axis.config, setting_name, value, write_flag)
     finally:
         SETTINGS_WRITER_WATCHER.set()
 
@@ -119,9 +119,8 @@ class ControllerAxisSettings:
             return
 
         setting_value = self._set_setting(axis, setting_name, value)
-
-        if write:
-            SETTINGS_WRITER_QUEUE.put((axis, setting_name, setting_value))
+ 
+        SETTINGS_WRITER_QUEUE.put((axis, setting_name, setting_value, write))
 
         event.send(axis, setting_name, setting_value)
 

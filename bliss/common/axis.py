@@ -412,7 +412,7 @@ class Axis(object):
 
     def _set_moving_state(self):
         self.__move_done.clear()
-        self.settings.set("state", AxisState("MOVING"))
+        self.settings.set("state", AxisState("MOVING"), write=False)
         event.send(self, "move_done", False)
 
     def _set_move_done(self, move_task):

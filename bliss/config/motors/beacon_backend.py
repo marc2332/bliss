@@ -120,17 +120,14 @@ def load_axes(config_node):
     return axes
 
 
-def write_setting(config_dict, setting_name, setting_value):
+def write_setting(config_dict, setting_name, setting_value, write):
     axis_name = config_dict["name"]
     
-    hash_setting = settings.HashSetting("axis.%s" % axis_name)
-    hash_setting[setting_name] = setting_value
-
     channels.Channel("axis.%s.%s" % (axis_name, setting_name), setting_value)
-
-
-def commit_settings(config_dict):
-    return 
+   
+    if write: 
+        hash_setting = settings.HashSetting("axis.%s" % axis_name)
+        hash_setting[setting_name] = setting_value
 
 
 def setting_update_from_channel(value, setting_name=None, axis=None):

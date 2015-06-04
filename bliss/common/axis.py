@@ -299,9 +299,7 @@ class Axis(object):
 
     def _update_settings(self, state=None):
         self.settings.set("state", state if state is not None else self.state(), write=False)
-        pos = self._position()
-        self.settings.set("dial_position", self.user2dial(pos),write=False)
-        self.settings.set("position", pos, write=False)
+        self._position()
 
     def _handle_move(self, motion):
         while True:

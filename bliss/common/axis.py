@@ -170,49 +170,43 @@ class Axis(object):
         Returns a value in user units.
         """
         elog.debug("axis.py : position(new_pos=%r)" % new_pos)
-        if self.is_moving:
-            if new_pos is not None:
+        if new_pos is not None:
+            if self.is_moving:
                 raise RuntimeError("Can't set axis position \
                                     while it is moving")
+            pos = self._position(new_pos)
+        else:
             pos = self.settings.get("position")
             if pos is None:
                 pos = self._position()
-                self.settings.set("position", pos)
-                self.settings.set("dial_position", self.user2dial(pos))
-        else:
-            pos = self._position(new_pos)
-            if new_pos is not None:
-                self.settings.set("position", pos)
-                self.settings.set("dial_position", self.user2dial(pos))
         return pos
+
+    def _hw_position(self):
+        try:
+            curr_pos = self.__controller.read_position(self) / self.steps_per_unit
+        except NotImplementedError:
+            # this controller does not have a 'position'
+            # (e.g like some piezo controllers)
+            curr_pos = 0
+        return curr_pos
 
     def _position(self, new_pos=None):
         """
         new_pos is in user units.
         Returns a value in user units.
         """
+        dial_pos = self._hw_position() 
         if new_pos is not None:
             self.__set_position = new_pos
-
-            try:
-                curr_pos = self.__controller.read_position(self) / self.steps_per_unit
-            except NotImplementedError:
-                # this controller does not have a 'position'
-                # (e.g like some piezo controllers)
-                curr_pos = 0
-            self.__settings.set("offset", new_pos - self.sign * curr_pos)
+            self.__settings.set("offset", new_pos - self.sign * dial_pos)
             # update limits
             ll, hl = self.limits()
             self.limits(ll + self.offset if ll is not None else ll, hl + self.offset if hl is not None else hl)
+            
+        self.__settings.set("position", self.dial2user(dial_pos), write=False)
+        self.__settings.set("dial_position", dial_pos, write=False)
 
-            return self.position()
-        else:
-            try:
-                curr_pos = self.__controller.read_position(self) / self.steps_per_unit
-            except NotImplementedError:
-                curr_pos = 0
-            elog.debug("curr_pos=%g" % curr_pos)
-            return self.dial2user(curr_pos)
+        return self.position()
 
     def state(self):
         if self.is_moving:
@@ -305,9 +299,7 @@ class Axis(object):
 
     def _update_settings(self, state=None):
         self.settings.set("state", state if state is not None else self.state(), write=False)
-        pos = self._position()
-        self.settings.set("dial_position", self.user2dial(pos))
-        self.settings.set("position", pos)
+        self._position()
 
     def _handle_move(self, motion):
         while True:

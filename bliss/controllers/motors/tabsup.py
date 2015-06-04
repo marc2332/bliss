@@ -3,23 +3,24 @@ Table support Bliss controller
 
 back: alias for real back leg axis
 front: alias for real front leg axis
-ttrans: translation calculated axis alias
-trot: rotation calculated axis alias
-d: distance between the 2 actuators
+ttrans: Y-axis translation calculated axis alias
+trot: Z-axis rotation calculated axis alias
 
+
+Top view (S=sample position):
 
          ^  ttrans
-         |                    \
-         |                     \
-----------------------    trot ^\
-    ^         ^             __/__\
-    |         |
-    |         |
-    |<---d--->|
-    |         |
-   back      front
-
-
+         |                            \
+         |                             \
+------------------------------    trot ^\
+    ^                  ^            __/__\
+    |          S<-d1-> |
+    |             ^    |
+    |<---d2--->   |    |
+   ^|             |d5  |
+ d4||             |    |
+   -|             -    |
+  back(tyb)      front(tyf)
 """
 from bliss.controllers.motor import CalcController
 import math
@@ -29,12 +30,23 @@ class tabsup(CalcController):
     def __init__(self, *args, **kwargs):
         CalcController.__init__(self, *args, **kwargs)
 
-        self.d = self.config.get("d", float)
+        self.d1 = self.config.get("d1", float)
+        self.d2 = self.config.get("d2", float)
 
     def calc_from_real(self, positions_dict):
-        return {"ttrans": (positions_dict["front"] + positions_dict["back"])/2.0,
-                "trot": math.degrees((math.atan(positions_dict["back"] - positions_dict["front"]) / self.d * 1000)) }
+        tyf = positions_dict["front"]
+        tyb = positions_dict["back"]
+        d1 = self.d1
+        d2 = self.d2
+
+        return {"ttrans": (d1*tyb+d2*tyf)/(d1+d2),
+                "trot": math.degrees(math.atan((tyf-tyb)/(d1+d2))) }
 
     def calc_to_real(self, axis_tag, positions_dict):
-        return {"back": positions_dict["ttrans"] + self.d * math.tan(math.radians(positions_dict["trot"] / 1000.0)),
-                "front": positions_dict["ttrans"]}
+        ttrans = positions_dict["ttrans"]
+        trot = positions_dict["trot"]
+        d1 = self.d1
+        d2 = self.d2
+
+        return {"back": ttrans - d2*math.tan(math.radians(trot)),
+                "front": ttrans + d1*math.tan(math.radians(trot)) }

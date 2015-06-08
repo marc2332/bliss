@@ -438,10 +438,8 @@ class Axis(object):
 
         motion = self.prepare_move(user_target_pos, relative)
 
-        self._set_moving_state()
-        self.__move_task = None
-
         self.__move_task = self._do_move(motion, wait=False)
+        self._set_moving_state()
         self.__move_task._being_waited = wait
         self.__move_task.link(self._set_move_done)
         gevent.sleep(0)
@@ -521,9 +519,8 @@ class Axis(object):
             except NotImplementedError:
                 _set_pos = True
 
-        self._set_moving_state()
-
         self.__move_task = self._do_home(wait=False)
+        self._set_moving_state()
         self.__move_task._being_waited = wait
         self.__move_task.link(self._set_move_done)
         if _set_pos:
@@ -565,9 +562,9 @@ class Axis(object):
             lim_pos = float(lim_pos)
             _set_pos = True
 
-        self._set_moving_state()
 
         self.__move_task = self._do_limit_search(limit, wait=False)
+        self._set_moving_state()
         self.__move_task._being_waited = wait
         self.__move_task.link(self._set_move_done)
         if _set_pos:

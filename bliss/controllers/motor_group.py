@@ -141,7 +141,8 @@ class _Group(object):
                 except NotImplementedError:
                     for motion in motions:
                         controller.start_one(motion)
-
+                for motion in motions:
+                    motion.axis._set_moving_state()
             self._handle_move(all_motions)
 
     def _set_move_done(self, move_task):
@@ -192,7 +193,6 @@ class _Group(object):
                 self._motions_dict.setdefault(
                     axis.controller, []).append(
                     motion)
-                axis._set_moving_state()
 
         self.__move_done.clear() 
         self.__move_task = self._do_move(self._motions_dict, wait=False)

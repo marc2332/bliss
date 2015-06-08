@@ -142,13 +142,21 @@ class _Group(object):
                 except NotImplementedError:
                     for motion in motions:
                         controller.start_one(motion)
-
+                for motion in motions:
+                    motion.axis._set_moving_state()
             self._handle_move(all_motions)
 
     def _set_move_done(self, move_task):
         self._reset_motions_dict()
         event.send(self, "move_done", True)
         self.__move_done.set()
+        if move_task is not None and not move_task._being_waited:
+            try:
+                move_task.get()
+            except gevent.GreenletExit:
+                pass
+            except:
+                sys.excepthook(*sys.exc_info())
 
     def move(self, *args, **kwargs):
         initial_state = self.state()
@@ -186,10 +194,10 @@ class _Group(object):
                 self._motions_dict.setdefault(
                     axis.controller, []).append(
                     motion)
-                axis._set_moving_state()
 
         self.__move_done.clear() 
         self.__move_task = self._do_move(self._motions_dict, wait=False)
+        self.__move_task._being_waited = wait
         self.__move_task.link(self._set_move_done)
         gevent.sleep(0)
  

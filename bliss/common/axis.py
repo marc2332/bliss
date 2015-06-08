@@ -470,6 +470,8 @@ class Axis(object):
         return self.move(user_delta_pos, wait, relative=True)
 
     def wait_move(self):
+        if not self.is_moving:
+            return
         try:
             self.__move_done.wait()
         except KeyboardInterrupt:

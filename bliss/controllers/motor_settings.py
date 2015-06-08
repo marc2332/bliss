@@ -14,7 +14,7 @@ SETTINGS_WRITER_WATCHER = None
 
 def wait_settings_writing():
     if SETTINGS_WRITER_QUEUE:
-        SETTINGS_WRITER_QUEUE.put((None, None, None))
+        SETTINGS_WRITER_QUEUE.put((None, None, None, None))
         SETTINGS_WRITER_WATCHER.wait()
 
 

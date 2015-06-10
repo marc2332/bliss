@@ -132,5 +132,35 @@ class TestGroup(unittest.TestCase):
         self.assertEquals(self.grp.position()[robz], p0[robz])
         self.assertEquals(self.grp.position()[roby], p0[roby]+1)
 
+    def test_bad_startone(self):
+        roby = bliss.get_axis("roby")
+        robz = bliss.get_axis("roby")
+        roby.dial(0); roby.position(0)
+        robz.dial(0); robz.position(0)
+        try:
+            roby.controller.set_error(True) 
+            self.assertRaises(RuntimeError, self.grp.move, { robz: 1, roby: 2 }) 
+            self.assertEquals(self.grp.state(), "READY")
+            self.assertEquals(roby.position(), 0)
+            self.assertEquals(robz.position(), 0)
+        finally:
+            roby.controller.set_error(False)
+
+    def test_bad_startall(self):
+        robz = bliss.get_axis("robz")
+        robz2 = bliss.get_axis("robz2")
+        robz2.dial(0); robz2.position(0)
+        robz.dial(0); robz.position(0)
+        grp = bliss.Group(robz, robz2)
+        try:
+            robz.controller.set_error(True)
+            self.assertRaises(RuntimeError, grp.move, { robz: 1, robz2: 2})
+            self.assertEquals(grp.state(), "READY")
+            self.assertEquals(robz2.position(), 0)
+            self.assertEquals(robz.position(), 0)
+        finally:
+            robz.controller.set_error(False) 
+
+
 if __name__ == '__main__':
     unittest.main()

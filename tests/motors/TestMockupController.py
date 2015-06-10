@@ -449,6 +449,17 @@ class TestMockupController(unittest.TestCase):
         self.assertRaises(RuntimeError, m.move, -3)
         self.assertEquals(m.position(), -2)
 
+    def test_bad_start(self):
+        m = bliss.get_axis("roby")
+        m.dial(0); m.position(0)
+        try:
+            m.controller.set_error(True)
+            self.assertRaises(RuntimeError, m.move, 1)
+            self.assertEquals(m.state(), "READY")
+            self.assertEquals(m.position(), 0)
+        finally:
+            m.controller.set_error(False)     
+
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(TestMockupController)
     unittest.TextTestRunner(verbosity=2).run(suite)

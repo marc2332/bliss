@@ -42,6 +42,7 @@ class Mockup(Controller):
         self._axis_moves = {}
         self.__encoders = {}
 
+        self.__error_mode = False
         self._hw_status = AxisState("READY")
         self.__hw_limit = (None, None)
 
@@ -132,11 +133,15 @@ class Mockup(Controller):
           self.__hw_limit = (ll, hl)
 
     def start_all(self, *motion_list):
+        if self.__error_mode:
+            raise RuntimeError("Cannot start because error mode is set")
         t0 = time.time()
         for motion in motion_list:
             self.start_one(motion, t0=t0)
 
     def start_one(self, motion, t0=None):
+        if self.__error_mode:
+            raise RuntimeError("Cannot start because error mode is set")
         axis = motion.axis
         t0 = t0 or time.time()
         pos = self.read_position(axis)
@@ -370,5 +375,7 @@ class Mockup(Controller):
         self.__encoders[axis.encoder]["measured_noise"] = noise
         self.__encoders[axis.encoder]["axis"] = axis
 
+    def set_error(self, error_mode):
+        self.__error_mode = error_mode
 
 

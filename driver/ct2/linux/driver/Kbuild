@@ -33,9 +33,9 @@ CT2_MAP_IOPORTS_TO_IOMEM    ?=  no
 
 NAME                        :=  ct2
 obj-m                       :=  $(NAME).o
-ct2-y                       :=  driver/src/$(NAME).o
-ccflags-y                   :=  -I$(src)/driver/include
-ccflags-y                   +=  -I$(src)/lib/include
+ct2-y                       :=  src/$(NAME).o
+ccflags-y                   :=  -I$(src)/include
+ccflags-y                   +=  -I$(src)/../lib/include
 ccflags-y                   +=  -Wfatal-errors
 
 ifeq ($(CT2_MAKE_DEBUG_VERSION), yes)

@@ -2,8 +2,7 @@
 
 #############################################################################
 #                                                                           #
-# Copyright © 2013-2014 Helmholtz-Zentrum Dresden Rossendorf                #
-# Christian Böhme <c.boehme@hzdr.de>                                        #
+# Copyright © 2015 ESRF                                                     #
 #                                                                           #
 # This program is free software: you can redistribute it and/or modify      #
 # it under the terms of the GNU General Public License as published by      #
@@ -22,30 +21,26 @@
 
 MAKE_CWD                    :=  $(shell pwd)
 
-CT2_LIB_PATH                :=  lib
-CT2_LIB_INC_PATH            :=  $(CT2_LIB_PATH)/include
-CT2_LIB_SRC_PATH            :=  $(CT2_LIB_PATH)/src
+CT2_DRIVER_SRC_PATH         :=  src
 
-CT2_TOOLS_PATH              :=  tools
+CT2_TOOLS_PATH              :=  ../tools
 
+ifndef KERNEL_SOURCES
+ifndef TARGET_KERN
+TARGET_KERN                 :=  $(shell uname -r)
+endif
+KERNEL_SOURCES              =   /lib/modules/$(TARGET_KERN)/build
+endif
 
-all     :   bit2arr kmod examples
+MAKE_CMD                    =   $(MAKE) -C $(KERNEL_SOURCES) M=$(MAKE_CWD)
 
+all     :   kmod
 
-kmod    :
-	make -C driver
+kmod    :   c208_bit.c p201_bit.c
+	$(MAKE_CMD) modules
 
+%_bit.c :   $(CT2_TOOLS_PATH)/%.bit
+	$(CT2_TOOLS_PATH)/bit2arr $< $(CT2_DRIVER_SRC_PATH)/$@ > /dev/null
 
 clean   :
-	make -C driver clean
-	make -C examples clean
-	rm -f $(CT2_TOOLS_PATH)/*.o $(CT2_DRIVER_SRC_PATH)/*_bit.c 
-	rm -f $(CT2_TOOLS_PATH)/bit2arr
-
-
-bit2arr :  $(CT2_TOOLS_PATH)/bit2arr.c
-	$(CC) $(LDFLAGS) -o $(CT2_TOOLS_PATH)/$@ $^
-
-
-examples:
-	make -C examples
+	$(MAKE_CMD) clean

@@ -343,11 +343,15 @@ class Axis(object):
         return (position - self.offset) / self.sign
 
     def prepare_move(self, user_target_pos, relative=False):
+        user_initial_dial_pos = self.dial()
+        hw_pos = self._hw_position()
+        if abs(user_initial_dial_pos - hw_pos) > 1E-4:
+            raise RuntimeError("Discrepancy between dial (%f) and controller position (%f), aborting" % (user_initial_dial_pos, hw_pos))
         if relative:
             user_initial_pos = self._set_position()
             user_target_pos += user_initial_pos
         else:
-            user_initial_pos = self.position()
+            user_initial_pos = self.dial2user(user_initial_dial_pos)
         dial_initial_pos = self.user2dial(user_initial_pos)
         dial_target_pos = self.user2dial(user_target_pos)
         self.settings.set("_set_position", user_target_pos)

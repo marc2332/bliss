@@ -206,7 +206,7 @@ class Axis(object):
             self.limits(ll + self.offset if ll is not None else ll, hl + self.offset if hl is not None else hl)
             
         self.__settings.set("position", self.dial2user(dial_pos), write=False)
-        self.__settings.set("dial_position", dial_pos, write=False)
+        self.__settings.set("dial_position", dial_pos) #, write=False)
 
         return self.position()
 

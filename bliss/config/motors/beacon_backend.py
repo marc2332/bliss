@@ -169,15 +169,15 @@ def get_axis_setting(axis, setting_name):
     except AttributeError:
         beacon_channels = dict()
         axis._beacon_channels = beacon_channels
-    else:
-        if not setting_name in beacon_channels:
-            chan_name = "axis.%s.%s" % (axis.name, setting_name)
-            cb = functools.partial(setting_update_from_channel, setting_name=setting_name, axis=axis) 
-            if setting_value is None:
-                chan = channels.Channel(chan_name, callback=cb, wait=False) 
-            else:
-                chan = channels.Channel(chan_name, setting_value, callback=cb) 
-            beacon_channels[setting_name] = chan
+    
+    if not setting_name in beacon_channels:
+        chan_name = "axis.%s.%s" % (axis.name, setting_name)
+        cb = functools.partial(setting_update_from_channel, setting_name=setting_name, axis=axis) 
+        if setting_value is None:
+            chan = channels.Channel(chan_name, callback=cb, wait=False) 
+        else:
+            chan = channels.Channel(chan_name, setting_value, callback=cb) 
+        beacon_channels[setting_name] = chan
 
     return setting_value
 

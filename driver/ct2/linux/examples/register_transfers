@@ -33,7 +33,7 @@
 
 #include <esrf/ct2>
 
-
+inline
 bool rread( int fd, ct2_reg_t & reg, std::size_t offset, const char * rn )
 {
   reg = 0;
@@ -53,6 +53,7 @@ fail:
   return false;
 }
 
+inline
 bool rwrite_rb( int fd, ct2_reg_t & reg, std::size_t offset, const char * rn )
 {
   const char *  step = "";
@@ -84,6 +85,7 @@ fail:
   return false;
 }
 
+inline
 bool edc( int fd, ct2_reg_t & reg )
 {
   const char *  step = "";
@@ -115,6 +117,7 @@ fail:
   return false;
 }
 
+inline
 bool ssc( int fd, ct2_reg_t & reg )
 {
   const char *  step = "";

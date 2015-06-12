@@ -131,8 +131,12 @@ class BlissAxisManagerClass(PyTango.DeviceClass):
     device_property_list = {
         'config_file':
         [PyTango.DevString,
-         "Path to the configuration file",
+         "( Deprecated ? ) Path to the XML configuration file (XML only)",
          ["/users/blissadm/local/userconf/bliss/XXX.xml"]],
+        'axes':
+        [PyTango.DevString,
+         "List of axes to instanciate (BEACON only)",
+         ["mot1 mot2 mot3"]],
     }
 
     #    Command definitions
@@ -929,7 +933,11 @@ def main():
         if device_list is not None:
             _device = device_list[0]
             elog.info(" BlissAxisManager.py - BlissAxisManager device : %s" % _device)
-            _config_file = db.get_device_property(_device, "config_file")["config_file"][0]
+            try:
+                _config_file = db.get_device_property(_device, "config_file")["config_file"][0]
+            except:
+                elog.info(" BlissAxisManager.py - 'config_file' property not present ?")
+                _config_file = None
 
             first_run = False
         else:
@@ -942,7 +950,7 @@ def main():
         # py.add_class(BlissAxisClass, BlissAxis)
 
         if not first_run:
-            if _config_file:
+            if _config_file is not None:
                 elog.info(" BlissAxisManager.py - config file : " + bcolors.PINK + _config_file + bcolors.ENDC)
                 try:
                     TgGevent.execute(bliss.load_cfg, _config_file)

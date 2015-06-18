@@ -7,7 +7,7 @@ Control Unit by Matias Guijarro, Cyril Guilloud and Manuel Perez.
 EMotion provides uniform Python objects and a full set of standard
 features on top of motor controllers plugins.
 
-Bliss is built around simple concepts:
+EMotion is built around simple concepts:
 * Configuration
 * Controller
 * Axis

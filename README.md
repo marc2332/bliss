@@ -1,4 +1,4 @@
-bliss: ESRF Motion control library
+EMotion: ESRF Motion control library
 ====================================
 
 EMotion is a Python package developed at the ESRF within the Beamline

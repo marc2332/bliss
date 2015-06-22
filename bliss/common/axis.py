@@ -72,6 +72,10 @@ class Axis(object):
         return self.config.get("steps_per_unit", float, 1)
 
     @property
+    def tolerance(self):
+        return self.config.get("tolerance", float, 1E-4)
+
+    @property
     def encoder(self):
         try:
              encoder_name = self.config.get("encoder")
@@ -345,7 +349,7 @@ class Axis(object):
     def prepare_move(self, user_target_pos, relative=False):
         user_initial_dial_pos = self.dial()
         hw_pos = self._hw_position()
-        if abs(user_initial_dial_pos - hw_pos) > 1E-4:
+        if abs(user_initial_dial_pos - hw_pos) > self.tolerance:
             raise RuntimeError("Discrepancy between dial (%f) and controller position (%f), aborting" % (user_initial_dial_pos, hw_pos))
         if relative:
             user_initial_pos = self._set_position()

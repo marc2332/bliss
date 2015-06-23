@@ -115,23 +115,6 @@ class PiezoJack(Controller):
             print("error in reading PJ position")
             sys.excepthook(*sys.exc_info())
 
-    def read_velocity(self, axis):
-        """ this controller doesn't have a velocity"""
-        _velocity = self.icepap.velocity()
-        return _velocity
-
-    def set_velocity(self, axis, new_velocity):
-        self.icepap.velocity(new_velocity)
-        return None
-
-    def read_acceleration(self, axis):
-        """Returns axis current acceleration in steps/sec2"""
-        return 0
-
-    def set_acceleration(self, axis, new_acc):
-        """Set axis acceleration given in steps/sec2"""
-        pass
-
     def read_offset(self, axis):
         """Returns offset (used by position calculation"""
         return self.offset

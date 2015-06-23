@@ -80,7 +80,6 @@ class PI_E712(Controller):
         axis.channel = axis.config.get("channel", int)
 
         add_axis_method(axis, self.get_id, name = "GetId", types_info = (None, str))
-        add_axis_method(axis, self.get_info, name = "GetInfo", types_info = (None, str))
         add_axis_method(axis, self.raw_com, name = "RawCom", types_info = (str, str))
 
         add_axis_method(axis, self.check_power_cut, name = "CheckPowerCut", types_info = (None, None))

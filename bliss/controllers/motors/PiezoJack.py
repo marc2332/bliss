@@ -137,8 +137,25 @@ class PiezoJack(Controller):
         return self.offset
 
     def set_offset(self, axis, new_offset):
-        """Set axis acceleration given in steps/sec2"""
+        """Set offset (used by position calculation"""
+
         self.offset = new_offset
+
+        # Force to re-read position
+        self.sync(axis)
+
+    def read_factor(self, axis):
+        """Returns factor (used by position calculation"""
+        return self.factor
+
+    def set_factor(self, axis, new_factor):
+        """Set factor (used by position calculation"""
+
+        self.factor = new_factor
+
+        # Force to re-read position to make sure calculated position
+        # takes factor into account.
+        self.sync(axis)
 
     def state(self, axis):
         if self.piezo.controller.name.startswith("mockup"):

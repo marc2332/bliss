@@ -26,12 +26,12 @@ Still in progess, please be patient
 class PiezoSize():
 
     def __init__(self, length, band):
-        self.length = length
-        self.band = band
-        self.middle = self.length / 2
-        self.low = self.middle - (self.band / 2)
-        self.high = self.middle + (self.band / 2)
-        self.initial_position = 50
+        self.length = length                      # microns (15)
+        self.band = band                          # microns (4)
+        self.middle = self.length / 2             # microns
+        self.low = self.middle - (self.band / 2)  # microns
+        self.high = self.middle + (self.band / 2) # microns
+        self.initial_voltage = 50                 # Volt
 
 
 class PiezoJack(Controller):

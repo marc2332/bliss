@@ -242,36 +242,36 @@ TAD is %s""" % tad)
             ?
         """
         elog.info("PiezoJack: get_info")
+        _info_str = "---------PiezoJack: get_info----------\n"
 
         if not self.piezo.controller.name.startswith("mockup"):
             #             elog.info("PiezoJack::get_info: ICEPAP Identifier: " % self.icepap.get_identifier())
             #             elog.info("PiezoJack::get_info: Piezo Info:" % self.piezo.GetInfo())
 
-            elog.info("icepap position  : %s" % self.icepap.position())
+            _info_str += "icepap position  : %s\n" % self.icepap.position()
             closed_loop = self.piezo.Get_Closed_Loop_Status()
-            elog.info("piezo closed loop: %s" % closed_loop)
+            _info_str += "piezo closed loop: %s\n" % closed_loop
 
-            elog.info("piezo tns        : %s" % self.piezo.Get_TNS())
-            elog.info("piezo offset     : %s" % self.piezo.Get_Offset())
-            elog.info("piezo abs pos    : %s" % self.bender_abs_pos())
+            _info_str += "piezo tns        : %s\n" % self.piezo.Get_TNS()
+            _info_str += "piezo offset     : %s\n" % self.piezo.Get_Offset()
 
-            elog.info("piezo POS?       : %s" % self.piezo.position())
+            _info_str += "piezo POS?       : %s\n" % self.piezo.Get_Pos()
 
-            elog.info("piezo instance   : %s" % self.piezo.name)
+            _info_str += "piezo instance   : %s\n" % self.piezo.name
 
             if closed_loop:
-                elog.info("piezo MOV?       : %s" % self.piezo.position())
+                _info_str += "piezo MOV?       : %s\n" % self.piezo.position()
                 self.piezo.Set_Closed_Loop(onoff = False)
-                elog.info("piezo SVA?       : %s" % self.piezo.position())
+                _info_str += "piezo SVA?       : %s\n" % self.piezo.position()
                 self.piezo.Set_Closed_Loop(onoff = True)
             else:
                 self.piezo.Set_Closed_Loop(onoff = True)
-                elog.info("piezo MOV?       : %s" % self.piezo.position())
+                _info_str += "piezo MOV?       : %s\n" % self.piezo.position()
                 self.piezo.Set_Closed_Loop(onoff = False)
-                elog.info("piezo SVA?       : %s" % self.piezo.position())
+                _info_str += "piezo SVA?       : %s\n" % self.piezo.position()
+        _info_str += "--------------------------------------\n"
 
-    def bender_abs_pos(self):
-        return self.piezo.Get_TNS() * self.factor + self.offset
+        return _info_str
 
     @task
     def _do_move(self, motion, wait = False):

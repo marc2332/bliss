@@ -40,12 +40,10 @@ class PI_E712(Controller):
 
         self.host = self.config.get("host")
         self.cname = "E712"
-        self.__encoders = {}
-
 
     def initialize(self):
         """
-        Opens a single socket for all 3 axes.
+        Controller intialization : opens a single socket for all 3 axes.
         """
         self.sock = tcp.Socket(self.host, 50000)
 
@@ -53,7 +51,8 @@ class PI_E712(Controller):
         """
         Closes the controller socket.
         """
-        self.sock.close()
+        if self.sock:
+            self.sock.close()
 
     def initialize_axis(self, axis):
         """
@@ -79,7 +78,6 @@ class PI_E712(Controller):
         """
         axis.channel = axis.config.get("channel", int)
 
-        add_axis_method(axis, self.get_id, name = "GetId", types_info = (None, str))
         add_axis_method(axis, self.raw_com, name = "RawCom", types_info = (str, str))
 
         add_axis_method(axis, self.check_power_cut, name = "CheckPowerCut", types_info = (None, None))
@@ -109,12 +107,6 @@ class PI_E712(Controller):
         #if axis.encoder:
             #elog.debug("axis = %r" % axis)
 
-            #self.__encoders.setdefault(axis.encoder, {})["axis"] = axis
-
-
-    #def initialize_encoder(self, encoder):
-        #self.__encoders.setdefault(encoder, {})["measured_noise"] = 0.0
-        #self.__encoders[encoder]["steps"] = None
 
     def read_position(self, axis):
         """
@@ -142,12 +134,9 @@ class PI_E712(Controller):
 #       elog.debug("read_encoder measured = %r" % _ans)
 #       return _ans
 
+    """ VELOCITY """
     def read_velocity(self, axis):
         """
-        Args:
-            - <axis> : Bliss axis object.
-        Returns:
-            - <velocity> : float
         """
         _ans = self.send(axis, "VEL? %s" % axis.channel)
         # _ans should look like "A=+0012.0000"
@@ -163,6 +152,7 @@ class PI_E712(Controller):
         elog.debug("velocity set : %g" % new_velocity)
         return self.read_velocity(axis)
 
+    """ STATE """
     def state(self, axis):
         # if self._get_closed_loop_status(axis):
 #        elog.debug("axis.closed_loop is %s" % axis.closed_loop)
@@ -174,21 +164,13 @@ class PI_E712(Controller):
 #                return AxisState("MOVING")
 #        else:
 #            elog.debug("CLOSED-LOOP is False")
-            return AxisState("READY")
 
+
+        # ok for open loop mode...
+        return AxisState("READY")
+
+    """ MOVEMENTS """
     def prepare_move(self, motion):
-        """
-        - TODO for multiple move...
-
-        Args:
-            - <motion> : Bliss motion object.
-
-        Returns:
-            -
-
-        Raises:
-            - ?
-        """
         elog.debug("pass")
         pass
 
@@ -221,14 +203,28 @@ class PI_E712(Controller):
         * HLT -> stop smoothly
         * STP -> stop asap
         * 24    -> stop asap
-        * to check : copy of current position into target position ???
         """
-        self.send_no_ans(axis, "HLT %s" % axis.channel)
+        elog.debug("Stopping Piezo by opening loop")
+        self._set_closed_loop(self, axis, False)
+        #self.send_no_ans(axis, "SVO %s" % axis.channel)
+
+    """ RAW COMMANDS """
+    def raw_write(self, axis, com):
+        self.sock.write("%s\n" % com)
+
+    def raw_write_read(self, axis, com):
+        return self.sock.write_read("%s\n" % com)
+
+    def get_identifier(self, axis):
+        """
+        Returns Identification information (\*IDN? command).
+        """
+        return self.send(axis, "*IDN?\n")
+
 
     """
     E712 specific
     """
-
     def raw_com(self, axis, cmd):
         return self.send(axis, cmd)
 
@@ -298,7 +294,7 @@ class PI_E712(Controller):
         Args:
             - <axis> :
         Returns:
-            - <position> Returns real position (POS? command) read by capacitive sensor.
+            - <position> Returns real position (POS? command) 
 
         Raises:
             ?
@@ -310,23 +306,23 @@ class PI_E712(Controller):
 
     def _get_target_pos(self, axis):
         """
-        Returns last target position (MOV?/SVA? command) (setpoint value).
-            - SVA? : Query the commanded output voltage (voltage setpoint).
-            - MOV? : Returns the last valid commanded target position.
-        Args:
-            - <>
-        Returns:
-            -
-        Raises:
-            ?
+        Returns last valid position setpoint ('MOV?' command).
         """
         _ans = self.send(axis, "MOV? %s" % axis.channel)
         _pos = float(_ans[2:])
         return _pos
 
+    def _get_target_voltage(self, axis):
+        """
+        Returns last valid voltage setpoint ('SVA?' command).
+        """
+        _ans = self.send(axis, "SVA? %s" % axis.channel)
+        _pos = float(_ans[2:])
+        return _pos
+
     def _get_voltage(self, axis):
         """
-        Returns Voltage Of Output Signal Channel (VOL? command)
+        Returns Read Voltage Of Output Signal Channel (VOL? command)
         """
         _ans = self.send(axis, "VOL? %s" % axis.channel)
         _vol = float(_ans.split("=")[-1])
@@ -408,12 +404,6 @@ class PI_E712(Controller):
             _cmd = "CTO %d 3 3 1 5 0 1 6 100 1 7 0" % (axis.channel)
 
         self.send_no_ans(axis, _cmd)
-
-    def get_id(self, axis):
-        """
-        Returns Identification information (\*IDN? command).
-        """
-        return self.send(axis, "*IDN?\n")
 
     def get_error(self):
         _t0 = time.time()

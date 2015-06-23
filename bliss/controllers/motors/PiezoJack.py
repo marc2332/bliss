@@ -229,7 +229,7 @@ TAD is %s""" % tad)
 
         if not self.piezo.controller.name.startswith("mockup"):
             #             elog.info("PiezoJack::get_info: ICEPAP Identifier: " % self.icepap.get_identifier())
-            #             elog.info("PiezoJack::get_info: Piezo Info:" % self.piezo.GetInfo())
+            #             elog.info("PiezoJack::get_info: Piezo Info:" % self.piezo.get_info())
 
             _info_str += "icepap position  : %s\n" % self.icepap.position()
             closed_loop = self.piezo.Get_Closed_Loop_Status()

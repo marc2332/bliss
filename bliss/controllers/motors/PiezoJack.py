@@ -381,6 +381,8 @@ TAD is %s""" % tad)
             current_position = self.bender_abs_pos()
             elog.debug("bender abs pos: %s" % (current_position))
 
+    def sync(self, axis):
+        axis._position()
         self._hw_status.set("READY")
 
     def selftest(self, axis):

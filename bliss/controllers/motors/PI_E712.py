@@ -25,6 +25,7 @@ config example:
     <!-- unnecessary, as the port is always 50000-->
     <axis name="e712">
       <channel value="1" />
+      <velocity value="1" />
     </axis>
   </controller>
 </config>
@@ -79,7 +80,6 @@ class PI_E712(Controller):
         axis.channel = axis.config.get("channel", int)
 
         add_axis_method(axis, self.get_id, name = "GetId", types_info = (None, str))
-        add_axis_method(axis, self.get_info, name = "GetInfo", types_info = (None, str))
         add_axis_method(axis, self.raw_com, name = "RawCom", types_info = (str, str))
 
         add_axis_method(axis, self.check_power_cut, name = "CheckPowerCut", types_info = (None, None))
@@ -320,10 +320,7 @@ class PI_E712(Controller):
         Raises:
             ?
         """
-        if axis.closed_loop:
-            _ans = self.send(axis, "MOV? %s" % axis.channel)
-        else:
-            _ans = self.send(axis, "SVA? %s" % axis.channel)
+        _ans = self.send(axis, "MOV? %s" % axis.channel)
         _pos = float(_ans[2:])
         return _pos
 
@@ -430,12 +427,6 @@ class PI_E712(Controller):
 
         return (_error_number, _error_str)
 
-    def _stop(self):
-        """
-        Sends a stop to the controller (STP command).
-        """
-        self.sock.write("STP\n")
-
     def get_info(self, axis):
         """
         Returns a set of useful information about controller.
@@ -513,10 +504,12 @@ class PI_E712(Controller):
         accu = 0
         for _ in range(10):
             _ans = self.send(axis, "TNS? %s" % axis.channel)
-            accu += float(_ans[2:])
-        _ans = accu / 10
-        elog.debug("TNS? %s" % _ans)
-        return _ans
+            #elog.debug("TNS? %d : %r" % (axis.channel, _ans))
+            if _ans != '0':
+                accu += float(_ans[2:])
+                accu /= 2
+        elog.debug("TNS? %r" % accu)
+        return accu
 
     def _get_tsp(self, axis):
         """Get Input Signal Position Value"""

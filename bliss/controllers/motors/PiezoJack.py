@@ -408,7 +408,6 @@ TAD is %s""" % tad)
 
     def sync(self, axis):
         axis._position()
-        self._hw_status.set("READY")
 
     def selftest(self, axis):
         # testing if in the right zone of the cap sensor

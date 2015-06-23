@@ -427,12 +427,6 @@ class PI_E712(Controller):
 
         return (_error_number, _error_str)
 
-    def _stop(self):
-        """
-        Sends a stop to the controller (STP command).
-        """
-        self.sock.write("STP\n")
-
     def get_info(self, axis):
         """
         Returns a set of useful information about controller.

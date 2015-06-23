@@ -92,7 +92,7 @@ class PiezoJack(Controller):
         add_axis_method(axis, self.set_factor, name = "SetFactor", types_info = (float, None))
         add_axis_method(axis, self.sync, name = "sync", types_info = (None, None))
 
-    def read_position(self, axis, measured = False):
+    def read_position(self, axis):
         """
         Returns position
 
@@ -101,23 +101,19 @@ class PiezoJack(Controller):
         Returns:
             - <position> : float : system position in micron
         """
-        tns = self.piezo.Get_TNS()
-        _pos = tns * self.factor + self.offset
-        elog.debug("returned position %r" % _pos)
-        return _pos
 
-    #def read_encoder(self, encoder):
-        #"""Returns encoder position in encoder units"""
-        #elog.info("called for encoder %r" % encoder.name)
+        print ("---------------########### in read_position-------")
 
-        #return None
+        try:
+            tns = self.piezo.Get_TNS()
 
-    def set_encoder(self, encoder, steps):
-        """Set encoder position to a new value given in encoder units"""
-        elog.info("set_encoder(%f) called for encoder %r" %
-            (steps, encoder.name))
-        # No need to return the current encoder position
-        return
+            # conversion to microns (factor=1.75 offset=-400)
+            _pos = tns * self.factor + self.offset
+            elog.debug("returned position %r" % _pos)
+            return _pos
+        except:
+            print("error in reading PJ position")
+            sys.excepthook(*sys.exc_info())
 
     def read_velocity(self, axis):
         """ this controller doesn't have a velocity"""
@@ -160,8 +156,10 @@ class PiezoJack(Controller):
             -
 
         Raises:
-            - RuntimeError("The capacitive sensor is not in its right area of function")
+            - RuntimeError('The capacitive sensor is not in its right area of function')
         """
+        self.sync(self.piezo)
+        self.sync(self.icepap)
 
         if self.piezo.controller.name.startswith("mockup"):
             self.piezo.custom_get_chapi("titi")
@@ -174,7 +172,7 @@ class PiezoJack(Controller):
         elog.debug("TAD : %s, %s, %s" % (tad, self.TADmax, self.TADmin))
         if self.TADmax < tad or tad < self.TADmin:
             #            raise RuntimeError("The capacitive sensor is not in its area of linear function")
-            elog.error("""
+            elog.info("""
 ##########################################################################
 #####   The capacitive sensor is not in its area of linear function  #####
 ##########################################################################

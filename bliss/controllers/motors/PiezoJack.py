@@ -55,7 +55,7 @@ class PiezoJack(Controller):
         # from Leo Rousset
         self.factor = self.config.get("factor", float, default = 1.92782,)
         # dto. but this is depending on the installation
-        self.offset = self.config.get("offset", float, default = -125.194)
+        self.offset = self.config.get("offset", float, default = 0)
 
         # setting it to self.factor is setting it to 1 micro tolerance
         self.tns_allowed_divergence = self.config.get("tns_allowed_divergence", float, default = self.factor)

@@ -25,6 +25,7 @@ config example:
     <!-- unnecessary, as the port is always 50000-->
     <axis name="e712">
       <channel value="1" />
+      <velocity value="1" />
     </axis>
   </controller>
 </config>

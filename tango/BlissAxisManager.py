@@ -14,6 +14,11 @@ import traceback
 import types
 import json
 
+try:
+    from bliss.config.conductor.connection import ConnectionException
+except:
+    print "beacon not installed ?"
+
 class bcolors:
     PINK = '\033[95m'
     BLUE = '\033[94m'
@@ -974,6 +979,9 @@ def main():
                 elog.debug("BlissAxisManager.py : _____________ axis %s _____________" % axis_name)
                 try:
                     _axis = TgGevent.get_proxy(bliss.get_axis, axis_name)
+                except ConnectionException:
+                    elog.error("beacon_server seems not running")
+                    sys.exit(-1)
                 except:
                     print traceback.format_exc()
                     sys.exit(-1)

@@ -274,7 +274,7 @@ TAD is %s""" % tad)
         return _info_str
 
     @task
-    def _do_move(self, motion, wait = False):
+    def _do_move(self, motion):
         """
         executive movement method, will be non blocking
 
@@ -285,72 +285,84 @@ TAD is %s""" % tad)
         piezo work in microns.
         """
 
-        self._hw_status.set("MOVING")
-
         """ check if icepap needs moving
             if the new position is outside the piezo's travel range.
             Need to know the POS?
         """
-        elog.debug("Read position!")
-        pos = self.piezo.position()
-        elog.debug("Position is %s" % pos)
-        new_pos = pos + motion.delta
-        elog.debug("New position should be %s" % new_pos)
+        pos = self.piezo.Get_Pos()   # "POS?"
+        elog.debug("real Position is %s" % pos)
 
-        # at the first movement after a ds restart, the POS? might be way off, check it
-        # this is outside min and max
-        if pos >= self._PiezoSize.high and \
+        # at the first movement after a ds restart, the POS? might be
+        # way off, check if this is outside min and max
+        if pos >= self._PiezoSize.high or \
                 pos <= self._PiezoSize.low:
             # open the loop, so that the piezo won't break
             self.piezo.Set_Closed_Loop(False)
-            elog.debug("Piezo was out of range. Opened loop")
+            # we are out of the controller range, so let's correct the
+            # 712 offset.
+            # Move is in volt, since loop is opened
+            self.piezo.move(50)
+            self.piezo.Put_Offset(self.piezo.Get_Offset()-self.piezo.Get_Pos()+ self._PiezoSize.middle)
+            self.piezo.Set_Closed_Loop(True)
+            time.sleep(self._piezo_settle_sleep)
+        
+        pos = self.piezo.Get_Pos()
+        new_pos = pos + motion.delta
+        elog.debug("New position should be %s" % new_pos)
 
-        # now check if new position is within the range of the piezo
-        elif new_pos <= self._PiezoSize.high and \
-                new_pos >= self._PiezoSize.low:
-            # can't move without loop closed
+        # Now check if new position is within the range of the piezo.
+        if new_pos <= self._PiezoSize.high and \
+                 new_pos >= self._PiezoSize.low:
+            #### PIEZO ONLY MOVE  ####
+
+            # can't move in open loop.
             self.piezo.Set_Closed_Loop(True)
 
-            self.piezo.rmove(motion.delta)
+            self.piezo.move(new_pos)
 
             time.sleep(self._piezo_settle_sleep)
 
             elog.debug("New piezo position given by controller: %s" % self.piezo.position())
         else:
-            elog.debug("----------------------------> ICEPAP needs moving!")
+            #### ICEPAP MOVE  ####
+            elog.debug("ICEPAP needs moving!")
             before = self.icepap.position()
 
-            # new position's TAD value
+            # new position's TNS value
             current_tns = self.piezo.Get_TNS()
+
             new_tns = current_tns + motion.delta / self.factor
+            elog.debug("self.factor is %r" % self.factor)
+            elog.debug("----------------------------> new_tns should be %r" % new_tns)
 
-            self.piezo.move(self._PiezoSize.middle)
-            time.sleep(self._piezo_settle_sleep)
-
+            # Open the loop
             self.piezo.Set_Closed_Loop(False)
 
-            motion.delta *= 0.98
+            # place icepap just under the requested position, so we can
+            # make a positive (i.e. no backlash) movement to get closer.
+            motion.delta -= 3
             elog.debug("ICEPAP before RMOVE! motion.delta = %r" % (motion.delta))
             self.icepap.rmove(motion.delta)  # here we use the common unit, should work!
             elog.debug("ICEPAP after  RMOVE!")
 
-            time.sleep(self._piezo_settle_sleep)
+            # time.sleep(self._piezo_settle_sleep)
 
-            # when closed_loop is off, it should set volts
-            self.piezo.move(self._PiezoSize.initial_position)
+            # when closed_loop is off, controller set volts
+            self.sync(self.piezo)
+            self.piezo.move(self._PiezoSize.initial_voltage)
             elog.debug("AFTER Piezo Move")
             time.sleep(self._piezo_settle_sleep * 3)
 
+            # Try to move close to the new calculated TNS.
             for _ in range(self._icepap_retries):
                 current_tns = self.piezo.Get_TNS()
-                newtnsdelta = new_tns - current_tns
-                if abs(newtnsdelta) < self.tns_allowed_divergence:
+                elog.debug("----------------------------     new_tns      ------------------> %r" % (new_tns))
+                elog.debug("---------------------------- LOOP current_tns ------------------> %r" % (current_tns))
+                if abs(new_tns - current_tns) < self.tns_allowed_divergence:
                     break
 
-                icepap_rmove = newtnsdelta * self.factor
-                elog.debug("---------------------------- LOOP current_tns ----------------> %r" % (current_tns))
-                elog.debug("---------------------------- LOOP newtnsdelta ----------------> %r" % (newtnsdelta))
-                self.icepap.rmove(icepap_rmove)
+                icepap_move = (new_tns - current_tns) * self.factor 
+                self.icepap.rmove(icepap_move)
 
             after = self.icepap.position()
             elog.debug("icepap pos after: %s, delta: %s" % (after, after - before))
@@ -360,26 +372,39 @@ TAD is %s""" % tad)
 
             first set the new offset
             """
+            # old offset
             offset = self.piezo.Get_Offset()
             elog.debug("offset: %s" % offset)
 
-            # this reads voltage as servo is not on!
             pos = self.piezo.Get_Pos()
             elog.debug("POS? %s" % pos)
 
-            offset -= pos - self._PiezoSize.middle
+            # recalculate offset
+            offset -= (pos - self._PiezoSize.middle)  # microns
             self.piezo.Put_Offset(offset)
 
+            # print new values for info.
             offset = self.piezo.Get_Offset()
-            elog.debug("offset: %s" % offset)
-
-            pos = self.piezo.position()  # POS?
+            pos = self.piezo.Get_Pos()
             elog.debug("new offset : %s with pos: %s" % (offset, pos))
 
             self.piezo.Set_Closed_Loop(True)
 
-            current_position = self.bender_abs_pos()
-            elog.debug("bender abs pos: %s" % (current_position))
+            time.sleep(self._piezo_settle_sleep)
+
+            pos = self.piezo._position()  # "POS?" + cache update.
+
+            for _ in range(self._icepap_retries):
+                current_tns = self.piezo.Get_TNS()
+                elog.debug("---PIEZO--------------------     new_tns      ------------------> %r" % (new_tns))
+                elog.debug("---PIEZO-------------------- LOOP current_tns ------------------> %r" % (current_tns))
+                if abs(new_tns - current_tns) < self.tns_allowed_divergence:
+                    break
+
+                piezo_move = new_tns * self.factor
+                self.piezo.move(piezo_move)
+                time.sleep(self._piezo_settle_sleep)
+
 
     def sync(self, axis):
         axis._position()

@@ -46,8 +46,8 @@ class PiezoJack(Controller):
         self.offset = 0
         self.__move_task = None
 
-        length = self.config.get("PiezoLength", float, 15)
-        band = self.config.get("PiezoBand", float, 4)
+        length = self.config.get("PiezoLength", float, 15)  # microns
+        band = self.config.get("PiezoBand", float, 4)       # microns
         self._PiezoSize = PiezoSize(length, band)
         self._piezo_settle_sleep = 1  # seconds
         self._icepap_retries = 4

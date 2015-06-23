@@ -44,6 +44,7 @@ class PiezoJack(Controller):
 
         self.factor = 0
         self.offset = 0
+        self.__move_task = None
 
         length = self.config.get("PiezoLength", float, 15)
         band = self.config.get("PiezoBand", float, 4)
@@ -66,6 +67,7 @@ class PiezoJack(Controller):
     def initialize(self):
         self.piezo = self._tagged["piezo"][0]
         self.icepap = self._tagged["icepap"][0]
+        self._hw_status  =  self.icepap.state()
 
     def finalize(self):
         pass
@@ -186,16 +188,27 @@ TAD is %s""" % tad)
         # TODO: Are we sure the icepap calculates in um, because the
               piezo and this server do. To be checked.
         """
-        self._do_move(motion, wait = False)
+        if self.__move_task is None or self.__move_task.ready():
+            self._hw_status = AxisState("MOVING")
+            self._move_task = self._do_move(motion, wait = False)
+            self._move_task.link(self._move_done)
+        else:
+            raise RuntimeError("cannot move, previous task is not finished")
+
+    def _move_done(self, task):
+        self._hw_status = AxisState("READY")
+
+        try:
+            #import pdb; pdb.set_trace()
+            task.get()
+        except:
+            sys.excepthook(*sys.exc_info())
 
     def stop(self, axis):
         """
         what's to do in case of an interrupt
         """
-        self.icepap.stop()
-        self.piezo.stop()
-        time.sleep(self._piezo_settle_sleep)
-        self.piezo.Set_Closed_Loop(False)
+        self._move_task.kill()
 
     def get_info(self, axis):
         """

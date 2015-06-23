@@ -320,10 +320,7 @@ class PI_E712(Controller):
         Raises:
             ?
         """
-        if axis.closed_loop:
-            _ans = self.send(axis, "MOV? %s" % axis.channel)
-        else:
-            _ans = self.send(axis, "SVA? %s" % axis.channel)
+        _ans = self.send(axis, "MOV? %s" % axis.channel)
         _pos = float(_ans[2:])
         return _pos
 

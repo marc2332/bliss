@@ -513,10 +513,12 @@ class PI_E712(Controller):
         accu = 0
         for _ in range(10):
             _ans = self.send(axis, "TNS? %s" % axis.channel)
-            accu += float(_ans[2:])
-        _ans = accu / 10
-        elog.debug("TNS? %s" % _ans)
-        return _ans
+            #elog.debug("TNS? %d : %r" % (axis.channel, _ans))
+            if _ans != '0':
+                accu += float(_ans[2:])
+                accu /= 2
+        elog.debug("TNS? %r" % accu)
+        return accu
 
     def _get_tsp(self, axis):
         """Get Input Signal Position Value"""

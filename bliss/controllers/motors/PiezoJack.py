@@ -102,7 +102,7 @@ class PiezoJack(Controller):
             - <position> : float : system position in micron
         """
 
-        print ("---------------########### in read_position-------")
+        print "---------------########### in read_position-------"
 
         try:
             tns = self.piezo.Get_TNS()
@@ -112,7 +112,7 @@ class PiezoJack(Controller):
             elog.debug("returned position %r" % _pos)
             return _pos
         except:
-            print("error in reading PJ position")
+            print "error in reading PJ position"
             sys.excepthook(*sys.exc_info())
 
     def read_offset(self, axis):
@@ -391,63 +391,4 @@ TAD is %s""" % tad)
 
     def sync(self, axis):
         axis._position()
-
-    def selftest(self, axis):
-        # testing if in the right zone of the cap sensor
-        tad = self.piezo.Get_TAD()
-        print("TAD : %s, %s, %s" % (tad, self.TADmax, self.TADmin))
-        if self.TADmax < tad or tad < self.TADmin:
-            print ("The capacitive sensor is not in its area of linear function: %s" % tad)
-        else:
-            print("TAD: %s" % tad)
-
-        how_much = 80
-
-        # calculate a vague destination TAD to see if we're in the linear function of the device
-        dest_tad = tad + how_much / 7.063955e-04
-        if dest_tad > self.TADmax:
-            print("Destination TAD would be close to %d" % dest_tad)
-            print("better move some in negative direction.")
-            return
-
-        preset = icepap_position_before = self.icepap.position()
-
-        ice1 = self.icepap.position()
-        tns1 = self.piezo.Get_TNS()
-        tsp1 = self.piezo.Get_TSP()
-        tad1 = self.piezo.Get_TAD()
-
-        self.icepap.rmove(how_much)
-        time.sleep(1)
-        tad = self.piezo.Get_TAD()
-        print("second TAD : %s" % (tad))
-
-        ice2 = self.icepap.position()
-        tns2 = self.piezo.Get_TNS()
-        tsp2 = self.piezo.Get_TSP()
-        tad2 = self.piezo.Get_TAD()
-
-        self.icepap.rmove(-how_much)
-        time.sleep(1)
-
-        print("\n\nICEPAP before: %s" % (icepap_position_before))
-        print("ICEPAP there : %s, TAD %s, TNS %s, TSP: %s" % (ice1, tad1, tns1, tsp1))
-        print("ICEPAP after : %s, TAD %s, TNS %s, TSP: %s" % (ice2, tad2, tns2, tsp2))
-
-        print("\nTNS positions:\n")
-        print("there:  %s" % tns1)
-        print("after:  %s" % tns2)
-
-        factor = (ice2 - ice1) / (tns2 - tns1)
-        offset = ice1 - (ice2 - ice1) / (tns2 - tns1) * tns1
-        print("factor and offset should be: %g, %g \n" % (factor, offset))
-        print("the offset could be %f, if tns1 should be zero" % (offset - preset))
-
-        print("factor and offset with TAD: %e, %g" % ((ice2 - ice1) / (tad2 - tad1), ice1 - (ice2 - ice1) / (tad2 - tad1) * tad1))
-        print("factor and offset with TSP: %g, %g" % ((ice2 - ice1) / (tsp2 - tsp1), ice1 - (ice2 - ice1) / (tsp2 - tsp1) * tsp1))
-
-        print("\nCalculated positions:\n")
-        print("before: %f" % (tns1 * factor + offset))
-        print("there:  %f" % (tns1 * factor + offset))
-        print("after:  %f" % (tns2 * factor + offset))
 

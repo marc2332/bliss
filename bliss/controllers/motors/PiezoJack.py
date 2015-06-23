@@ -84,9 +84,13 @@ class PiezoJack(Controller):
         Returns:
             - None
         """
-        add_axis_method(axis, self.get_info, name = "GetInfo", types_info = (None, str))
-        add_axis_method(axis, self.selftest, name = "selftest", types_info = (None, None))
 
+        add_axis_method(axis, self.read_offset, name = "ReadOffset", types_info = (None, float))
+        add_axis_method(axis, self.set_offset, name = "SetOffset", types_info = (float, None))
+
+        add_axis_method(axis, self.read_factor, name = "ReadFactor", types_info = (None, float))
+        add_axis_method(axis, self.set_factor, name = "SetFactor", types_info = (float, None))
+        add_axis_method(axis, self.sync, name = "sync", types_info = (None, None))
 
     def read_position(self, axis, measured = False):
         """

@@ -60,10 +60,14 @@ def read_config(config_file):
             if not os.path.isabs(setup_file):
                 setup_file = os.path.join(os.path.dirname(os.path.abspath(config_file)), setup_file)
             set_setup_file(session_id, setup_file)
-            synoptic_file = cfg[session_id]["synoptic"]["svg-file"]
-            if not os.path.isabs(synoptic_file):
-                synoptic_file = os.path.join(os.path.dirname(os.path.abspath(config_file)), synoptic_file)
-            set_synoptic_file(session_id, synoptic_file, cfg[session_id]["synoptic"]["elements"])
+            try:
+                synoptic_file = cfg[session_id]["synoptic"]["svg-file"]
+            except KeyError:
+                sys.excepthook(*sys.exc_info())
+            else:
+                if not os.path.isabs(synoptic_file):
+                    synoptic_file = os.path.join(os.path.dirname(os.path.abspath(config_file)), synoptic_file)
+                set_synoptic_file(session_id, synoptic_file, cfg[session_id]["synoptic"]["elements"])
 
 
 def handle_output(session_id, q):

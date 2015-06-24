@@ -237,14 +237,11 @@ Shell.prototype = {
                 self.completion_mode = false;
                 self.completion_list.empty();
                 $("body").layout().resizeAll();
-                self.cmdline.focus();
-                return false;
             } else if (self.executing) {
                 return false;
-            } else {
-                self.hint.text("");
-                self.execute(self.cmdline.val());
             }
+            self.hint.text("");
+            self.execute(self.cmdline.val());
         });
         mousetrap.bind("ctrl+c", function() {
             if (self.executing) {

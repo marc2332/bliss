@@ -53,7 +53,7 @@ function Shell(client_uuid, cmdline_div_id, shell_output_div_id, setup_div_id, l
     this.setup_output_div = $("</div></div>");
     var resetup_btn = $("<button>Resetup</button>");
     resetup_btn.button().css("font-size", "0.8em");
-    resetup_btn.on("click", $.proxy(function() { this.execute_setup(true) }, this));
+    resetup_btn.on("click", $.proxy(function() { this.execute_setup(true); }, this));
     this.setup_div.append(resetup_btn);
     var new_setup_div = $("<div></div>");
     this.setup_div.append(new_setup_div);
@@ -95,12 +95,12 @@ function Shell(client_uuid, cmdline_div_id, shell_output_div_id, setup_div_id, l
     */
     this.set_executing(true);
     this.setup = this.execute_setup();
-};
+}
 
 Shell.prototype = {
     get_session_id: function() {
         var url = document.URL;
-        return url.substr(url.lastIndexOf('/') + 1)
+        return url.substr(url.lastIndexOf('/') + 1);
     },
 
     handle_output_event: function(output) {
@@ -138,7 +138,7 @@ Shell.prototype = {
                         this._completions.push(completion_ret.completions[i]);
                     }
                 }
-                for (var i = 0; i < completion_list.length; i++) {
+                for (i = 0; i < completion_list.length; i++) {
                     this.completion_list.append($.parseHTML("<li class='completion-item'>" + completion_list[i] + "</li>"));
                 }
 
@@ -158,7 +158,7 @@ Shell.prototype = {
         var selected_item_index = 0;
         var selected_item = null;
 
-        completion_items.each(function(i, j) {
+        completion_items.each(function(i, _) {
             if ($(this).hasClass("completion-item-selected")) {
                 selected_item_index = i;
                 $(this).removeClass("completion-item-selected");
@@ -177,7 +177,7 @@ Shell.prototype = {
     },
 
     _do_complete: function(completion_index) {
-        if (this._completions.length == 0) return;
+        if (this._completions.length === 0) return;
         var completion = this._completions[completion_index];
         this.cmdline.val(this.current_command.substr(0, this._completion_start) + completion + this.current_command.substr(this._completion_start));
         this.cmdline[0].selectionStart = this._completion_start + completion.length;
@@ -244,7 +244,7 @@ Shell.prototype = {
             } else {
                 self.hint.text("");
                 self.execute(self.cmdline.val());
-            };
+            }
         });
         mousetrap.bind("ctrl+c", function() {
             if (self.executing) {
@@ -295,7 +295,7 @@ Shell.prototype = {
     },
 
     set_executing: function(executing) {
-        this.executing = executing
+        this.executing = executing;
         if (executing) {
             this.cmdline.addClass("cmdline-executing");
         } else {
@@ -332,7 +332,7 @@ Shell.prototype = {
     },
 
     execute_setup: function(force) {
-        if (force == undefined) { force = false; }
+        if (force === undefined) { force = false; }
 
         this.setup_output_div = $("<div></div>");
         this.setup_div.prepend(this.setup_output_div);
@@ -347,7 +347,7 @@ Shell.prototype = {
         var data = { "client_uuid": this.client_uuid };
 
         /* save history */
-        if (save_history == undefined) { save_history = true; }
+        if (save_history === undefined) { save_history = true; }
         if (save_history) {
             this.history.push(cmd);
             this.history_index = this.history.length;
@@ -356,9 +356,9 @@ Shell.prototype = {
 
         if (cmd == "setup") {
             url = this.session_id + '/setup';
-            data["force"] = save_history;
+            data.force = save_history;
         } else {
-            data["code"] = cmd;
+            data.code = cmd;
         }
 
         /* make remote call */
@@ -414,9 +414,9 @@ Shell.prototype = {
                     } else {
                         var that = this;
                         if (cmd=='setup') {
-                            window.setTimeout(function() {that.display_output(res.error, 'red', that.setup_output_div)}, 100);
+                            window.setTimeout(function() { that.display_output(res.error, 'red', that.setup_output_div); }, 100);
                         } else {
-                            window.setTimeout(function() {that.display_output(res.error, 'red')}, 100);
+                            window.setTimeout(function() { that.display_output(res.error, 'red'); }, 100);
                         }
                     }
                 }
@@ -427,8 +427,8 @@ Shell.prototype = {
     },
 
     display_output: function(output, color, output_div) {
-        if (output_div == undefined) { output_div = this.last_output_div };
-        if (color == undefined) { color = "auto"; };
+        if (output_div === undefined) { output_div = this.last_output_div; }
+        if (color === undefined) { color = "auto"; }
 
         var pre = $("<pre></pre>");
         pre.css("margin", "0px");
@@ -488,6 +488,7 @@ Shell.prototype = {
     },
 
     display_log: function(data) {
+        var color = "red";
         this.logging_output_div = $("<div></div>");
         this.logging_div.prepend(this.logging_output_div);
         if (data.level == "DEBUG") {
@@ -496,8 +497,6 @@ Shell.prototype = {
             color = "blue";
         } else if (data.level == "WARNING") {
             color = "orange";
-        } else {
-            color = "red";
         }
         this.display_output(data.message, color, this.logging_output_div);
     },

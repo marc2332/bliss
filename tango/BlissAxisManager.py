@@ -208,12 +208,14 @@ class BlissAxis(PyTango.Device_4Impl):
         self.attr_Acceleration_read = 1.0
         self.attr_HardLimitLow_read = False
         self.attr_HardLimitHigh_read = False
+        self.attr_Backlash_read = 0.0
+        self.attr_Offset_read = 0.0
+        self.attr_Tolerance_read = 0.0
 
         """
         self.attr_Steps_read = 0
         self.attr_Position_read = 0.0
         self.attr_Measured_Position_read = 0.0
-        self.attr_Backlash_read = 0.0
         self.attr_PresetPosition_read = 0.0
         self.attr_FirstVelocity_read = 0.0
         self.attr_Home_side_read = False
@@ -387,11 +389,34 @@ class BlissAxis(PyTango.Device_4Impl):
 
     def read_Backlash(self, attr):
         self.debug_stream("In read_Backlash()")
+        self.attr_Backlash_read = self.axis.backlash()
         attr.set_value(self.attr_Backlash_read)
 
-    def write_Backlash(self, attr):
-        self.debug_stream("In write_Backlash()")
-        # data = attr.get_write_value()
+#    def write_Backlash(self, attr):
+#        self.debug_stream("In write_Backlash()")
+#        data = attr.get_write_value()
+#        self.debug_stream("write backlash %s" % data)
+
+    def read_Offset(self, attr):
+        self.debug_stream("In read_Offset()")
+        self.attr_Offset_read = self.axis.offset()
+        attr.set_value(self.attr_Offset_read)
+
+#    def write_Offset(self, attr):
+#        self.debug_stream("In write_Offset()")
+#        data = attr.get_write_value()
+#        self.debug_stream("write offset %s" % data)
+#        self.axis.offset(data)
+
+    def read_Tolerance(self, attr):
+        self.debug_stream("In read_Tolerance()")
+        self.attr_Tolerance_read = self.axis.tolerance()
+        attr.set_value(self.attr_Tolerance_read)
+
+    def write_Tolerance(self, attr):
+        self.debug_stream("In write_Tolerance()")
+        data = attr.get_write_value()
+        self.debug_stream("write tolerance %s" % data)
 
     def read_Home_position(self, attr):
         self.debug_stream("In read_Home_position()")
@@ -754,13 +779,35 @@ class BlissAxisClass(PyTango.DeviceClass):
         'Backlash':
         [[PyTango.DevDouble,
           PyTango.SCALAR,
-          PyTango.READ_WRITE],
+          PyTango.READ],
          {
              'label': "Backlash",
              'unit': "uu",
              'format': "%5.3f",
              'description': "Backlash to be applied to each motor movement",
-             'Display level': PyTango.DispLevel.EXPERT,
+             #'Display level': PyTango.DispLevel.EXPERT,
+        }],
+        'Offset':
+        [[PyTango.DevDouble,
+          PyTango.SCALAR,
+          PyTango.READ],
+         {
+             'label': "Offset",
+             'unit': "uu",
+             'format': "%7.5f",
+             'description': "Offset between dial and user",
+             #'Display level': PyTango.DispLevel.EXPERT,
+        }],
+        'Tolerance':
+        [[PyTango.DevDouble,
+          PyTango.SCALAR,
+          PyTango.READ],
+         {
+             'label': "Tolerance",
+             'unit': "uu",
+             'format': "%7.5f",
+             'description': "Tolerance between dial and user",
+             #'Display level': PyTango.DispLevel.EXPERT,
         }],
         'Home_position':
         [[PyTango.DevDouble,

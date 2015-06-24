@@ -61,7 +61,11 @@ class Axis(object):
         if offset is None:
             offset = 0
             self.__settings.set('offset', 0)
-        return offset 
+        return offset
+
+    @property
+    def backlash(self):
+        return self.config.get("backlash", float, 0)
 
     @property
     def sign(self):
@@ -82,7 +86,7 @@ class Axis(object):
         except KeyError:
              return None
         else:
-            from bliss.config.motors import get_encoder 
+            from bliss.config.motors import get_encoder
             return get_encoder(encoder_name)
 
     @property
@@ -201,14 +205,14 @@ class Axis(object):
         new_pos is in user units.
         Returns a value in user units.
         """
-        dial_pos = self._hw_position() 
+        dial_pos = self._hw_position()
         if new_pos is not None:
             self.__set_position = new_pos
             self.__settings.set("offset", new_pos - self.sign * dial_pos)
             # update limits
             ll, hl = self.limits()
             self.limits(ll + self.offset if ll is not None else ll, hl + self.offset if hl is not None else hl)
-            
+
         self.__settings.set("position", self.dial2user(dial_pos), write=False)
         self.__settings.set("dial_position", dial_pos) #, write=False)
 
@@ -241,7 +245,7 @@ class Axis(object):
         else:
             # Read -> Returns velocity read from motor axis.
             _user_vel = self.settings.get_from_channel('velocity')
-            if _user_vel is None: 
+            if _user_vel is None:
                 _user_vel = self.__controller.read_velocity(self) / abs(self.steps_per_unit)
 
         # In all cases, stores velocity in settings in uu/s
@@ -326,7 +330,7 @@ class Axis(object):
                 break
             self._update_settings(state)
             time.sleep(0.02)
-        
+
         if motion.backlash:
             # axis has moved to target pos - backlash;
             # now do the final motion (backlash) to reach original target.
@@ -391,7 +395,7 @@ class Axis(object):
             low_limit = self.user2dial(user_low_limit) * self.steps_per_unit
         else:
             low_limit = None
-        if user_high_limit is not None: 
+        if user_high_limit is not None:
             high_limit = self.user2dial(user_high_limit) * self.steps_per_unit
         else:
             high_limit = None
@@ -432,7 +436,7 @@ class Axis(object):
                 try:
                     move_task.get()
                 except gevent.GreenletExit:
-                    pass 
+                    pass
                 except:
                     sys.excepthook(*sys.exc_info())
         event.send(self, "move_done", True)
@@ -500,7 +504,7 @@ class Axis(object):
         self.__controller.stop(self)
 
         # for some reason, _handle_move cannot be called !
-        # Python bug? Weird...       
+        # Python bug? Weird...
         while True:
             state = self.__controller.state(self)
             if state != "MOVING":

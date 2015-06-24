@@ -8,6 +8,9 @@
 #------------------------------------------------------------------------
 
 
+# sh script
+
+
 #__PRE_INST__
 #------------------------------------------------------------------------
 # This is called BEFORE the files being delivered,
@@ -52,9 +55,11 @@ PreInstall() {
 
     #  "a new hope" tag
     # $GIT checkout 1.5
+    #echo "get Python Strikes Back 1.6 tag"
+    #$GIT checkout 1.6
 
-    echo "get Python Strikes Back 1.6 tag"
-    $GIT checkout 1.6
+    echo "get The Control Awakens (1.8) tag"
+    $GIT checkout 1.8
 
     # will install in /users/blissadm/python/bliss_modules/bliss/
     # python setup.py install

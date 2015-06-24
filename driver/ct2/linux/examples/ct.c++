@@ -81,39 +81,97 @@ int main ( int argc, char ** argv )
   // 0. board init
 
   // internal clock 40 Mhz
-  reg = CT2_COM_GENE_CLOCK_AT_40_MHz;
+  reg = CT2_COM_GENE_CLOCK_AT_100_MHz;
   
   if ( !wrb(device_fd, ct2::com_gene, reg) )
     return 4;  
 
-  // 1. Configure channel 10 as master: output, counter 10 gate out, TTL
+  // 1. Configure channel 10 as GATE-OUT: output, counter 10 gate out, TTL
 
   // output 10 TTL enable
   reg = 1 << 9;
 
   if ( !wrb(device_fd, ct2::niveau_out, reg) )
-    return 4;  
+    return 5;  
   
   // no 50 ohm adapter
   reg = 0x3FF; 
   if ( !wrb(device_fd, ct2::adapt_50, reg) )
-    return 4;  
+    return 6;  
 
   // channel 9 and 10: no filter, no polarity
   reg = 0;
   if ( !wrb(device_fd, p201::sel_filtre_output, reg) )
-    return 4;  
+    return 7;  
 
   // channel 10 output: counter 10 gate envelop
   reg = 0x70 << 8;
   if ( !wrb(device_fd, p201::sel_source_output, reg) )
-    return 4;  
+    return 8;  
 
-  
+  // 2. Counter 10 as master
 
-  // Internal clock to 1 Mhz [1us]
-  
-  
+  // Internal clock to 1 Mhz [1us], Gate=1, Soft Start, HardStop on CMP, 
+  // Reset on Hard/SoftStop, Stop on HardStop
+  reg = 0x03 | (0 << 7) | (0 << 13) | (0x52 << 20) | (1 << 30) | (1 << 31);
+  if ( !wrb(device_fd, p201::conf_cmpt_10, reg) )
+    return 9;  
+
+  // Latch on Counter 10 HardStop 
+  reg = (0x200 << 16);
+  if ( !wrb(device_fd, p201::sel_latch_e, reg) )
+    return 10;  
+
+  // Counter 10 will count 1 sec
+  reg = 1000 * 1000;
+  if ( !wrb(device_fd, p201::compare_cmpt_10, reg) )
+    return 11;  
+
+  ct2_reg_t count, latch, status;
+  unsigned retries;
+
+  retries = 0;
+  do {
+    // SoftStart on Counter 10
+    reg = 0x200;
+    if ( !wr(device_fd, p201::soft_start_stop, reg) )
+      return 12;  
+
+    if ( !rd(device_fd, p201::rd_ctrl_cmpt, status) )
+      return 12;  
+
+    // Verify on Counter 10
+    retries++;
+  } while ((status & (0x200 << 16)) == 0);
+
+  printf("Started after %d start(s)\n", retries);
+
+  while (1) {
+    if ( ::pread(device_fd, &count, 1, r_reg_off(p201::rd_cmpt_10)) != 1 )
+      return 13;  
+
+    if ( ::pread(device_fd, &latch, 1, r_reg_off(p201::rd_latch_cmpt_10)) != 1 )
+      return 14;  
+
+    if ( ::pread(device_fd, &status, 1, r_reg_off(p201::rd_ctrl_cmpt)) != 1 )
+      return 15;  
+
+    bool end = ((status & (0x200 << 16)) == 0);
+    if (end)
+      break;
+    printf("%010u   %010u    0x%08x\r", count, latch, status);
+
+  }
+
+  printf("\n%010u   %010u    0x%08x\n", count, latch, status);
+
+  // SoftDisable on Counter 10
+  reg = (0x200 << 16);
+  if ( !wr(device_fd, p201::soft_enable_disable, reg) )
+    return 16;  
+
+  if ( !rd(device_fd, p201::rd_ctrl_cmpt, status) )
+    return 17;  
 
   return 0;
 }

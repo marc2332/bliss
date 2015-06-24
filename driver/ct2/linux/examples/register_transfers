@@ -54,6 +54,25 @@ fail:
 }
 
 inline
+bool rwrite( int fd, ct2_reg_t & reg, std::size_t offset, const char * rn )
+{
+  std::printf("%08xh => %s\n", reg, rn);
+
+  if ( ::pwrite(fd, &reg, 1, offset) != 1 ) {
+    std::cerr << "pwrite(" << rn << "): " << std::strerror(errno) << std::endl;
+    goto fail;
+  }
+
+  return true;
+
+fail:
+
+  std::printf("(write)\n");
+
+  return false;
+}
+
+inline
 bool rwrite_rb( int fd, ct2_reg_t & reg, std::size_t offset, const char * rn )
 {
   const char *  step = "";
@@ -151,5 +170,6 @@ fail:
 
 
 #define rd(fd, rn, robj)      rread((fd), (robj), r_reg_off(rn), # rn)
+#define wr(fd, rn, robj)      rwrite((fd), (robj), w_reg_off(rn), # rn)
 #define wrb(fd, rn, robj)     rwrite_rb((fd), (robj), rw_reg_off(rn), # rn)
 

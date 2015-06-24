@@ -162,10 +162,28 @@ DEFINE_VREG(ct2,  1, source_it,           true,  true,   0,  a);
 DEFINE_VREG(ct2,  1, source_it,           true,  true,   1,  b);
 DEFINE_REG (p201, 1, niveau_in,           true,  true         );
 DEFINE_VREG(ct2,  1, rd_cmpt,             true,  false,  0,  1);
-// ...
+DEFINE_VREG(ct2,  1, rd_cmpt,             true,  false,  1,  2);
+DEFINE_VREG(ct2,  1, rd_cmpt,             true,  false,  2,  3);
+DEFINE_VREG(ct2,  1, rd_cmpt,             true,  false,  3,  4);
+DEFINE_VREG(ct2,  1, rd_cmpt,             true,  false,  4,  5);
+DEFINE_VREG(ct2,  1, rd_cmpt,             true,  false,  5,  6);
+DEFINE_VREG(ct2,  1, rd_cmpt,             true,  false,  6,  7);
+DEFINE_VREG(ct2,  1, rd_cmpt,             true,  false,  7,  8);
+DEFINE_VREG(ct2,  1, rd_cmpt,             true,  false,  8,  9);
+DEFINE_VREG(ct2,  1, rd_cmpt,             true,  false,  9, 10);
+DEFINE_VREG(ct2,  1, rd_cmpt,             true,  false, 10, 11);
 DEFINE_VREG(ct2,  1, rd_cmpt,             true,  false, 11, 12);
 DEFINE_VREG(ct2,  1, rd_latch_cmpt,       true,  false,  0,  1);
-// ...
+DEFINE_VREG(ct2,  1, rd_latch_cmpt,       true,  false,  1,  2);
+DEFINE_VREG(ct2,  1, rd_latch_cmpt,       true,  false,  2,  3);
+DEFINE_VREG(ct2,  1, rd_latch_cmpt,       true,  false,  3,  4);
+DEFINE_VREG(ct2,  1, rd_latch_cmpt,       true,  false,  4,  5);
+DEFINE_VREG(ct2,  1, rd_latch_cmpt,       true,  false,  5,  6);
+DEFINE_VREG(ct2,  1, rd_latch_cmpt,       true,  false,  6,  7);
+DEFINE_VREG(ct2,  1, rd_latch_cmpt,       true,  false,  7,  8);
+DEFINE_VREG(ct2,  1, rd_latch_cmpt,       true,  false,  8,  9);
+DEFINE_VREG(ct2,  1, rd_latch_cmpt,       true,  false,  9, 10);
+DEFINE_VREG(ct2,  1, rd_latch_cmpt,       true,  false, 10, 11);
 DEFINE_VREG(ct2,  1, rd_latch_cmpt,       true,  false, 11, 12);
 DEFINE_REG (p201, 1, test_reg,            true,  true         );
 
@@ -188,14 +206,28 @@ DEFINE_VREG(ct2,  2, sel_latch,           true,  true,   5,  f);
 DEFINE_VREG(ct2,  2, conf_cmpt,           true,  true,   0,  1);
 DEFINE_VREG(ct2,  2, conf_cmpt,           true,  true,   1,  2);
 DEFINE_VREG(ct2,  2, conf_cmpt,           true,  true,   2,  3);
-// ...
+DEFINE_VREG(ct2,  2, conf_cmpt,           true,  true,   3,  4);
+DEFINE_VREG(ct2,  2, conf_cmpt,           true,  true,   4,  5);
+DEFINE_VREG(ct2,  2, conf_cmpt,           true,  true,   5,  6);
+DEFINE_VREG(ct2,  2, conf_cmpt,           true,  true,   6,  7);
+DEFINE_VREG(ct2,  2, conf_cmpt,           true,  true,   7,  8);
+DEFINE_VREG(ct2,  2, conf_cmpt,           true,  true,   8,  9);
+DEFINE_VREG(ct2,  2, conf_cmpt,           true,  true,   9, 10);
 DEFINE_VREG(ct2,  2, conf_cmpt,           true,  true,  10, 11);
 DEFINE_VREG(ct2,  2, conf_cmpt,           true,  true,  11, 12);
 DEFINE_REG (ct2,  2, soft_enable_disable, false, true         );
 DEFINE_REG (ct2,  2, soft_start_stop,     false, true         );
 DEFINE_REG (ct2,  2, soft_latch,          false, true         );
 DEFINE_VREG(ct2,  2, compare_cmpt,        true,  true,   0,  1);
-// ...
+DEFINE_VREG(ct2,  2, compare_cmpt,        true,  true,   1,  2);
+DEFINE_VREG(ct2,  2, compare_cmpt,        true,  true,   2,  3);
+DEFINE_VREG(ct2,  2, compare_cmpt,        true,  true,   3,  4);
+DEFINE_VREG(ct2,  2, compare_cmpt,        true,  true,   4,  5);
+DEFINE_VREG(ct2,  2, compare_cmpt,        true,  true,   5,  6);
+DEFINE_VREG(ct2,  2, compare_cmpt,        true,  true,   6,  7);
+DEFINE_VREG(ct2,  2, compare_cmpt,        true,  true,   7,  8);
+DEFINE_VREG(ct2,  2, compare_cmpt,        true,  true,   8,  9);
+DEFINE_VREG(ct2,  2, compare_cmpt,        true,  true,   9, 10);
 DEFINE_VREG(ct2,  2, compare_cmpt,        true,  true,  10, 11);
 DEFINE_VREG(ct2,  2, compare_cmpt,        true,  true,  11, 12);
 
@@ -218,10 +250,28 @@ struct ct2 {
   DEFINE_MEMBER(ct2, source_it_b);
 
   DEFINE_MEMBER(ct2, rd_cmpt_1);
-  // ...
+  DEFINE_MEMBER(ct2, rd_cmpt_2);
+  DEFINE_MEMBER(ct2, rd_cmpt_3);
+  DEFINE_MEMBER(ct2, rd_cmpt_4);
+  DEFINE_MEMBER(ct2, rd_cmpt_5);
+  DEFINE_MEMBER(ct2, rd_cmpt_6);
+  DEFINE_MEMBER(ct2, rd_cmpt_7);
+  DEFINE_MEMBER(ct2, rd_cmpt_8);
+  DEFINE_MEMBER(ct2, rd_cmpt_9);
+  DEFINE_MEMBER(ct2, rd_cmpt_10);
+  DEFINE_MEMBER(ct2, rd_cmpt_11);
   DEFINE_MEMBER(ct2, rd_cmpt_12);
   DEFINE_MEMBER(ct2, rd_latch_cmpt_1);
-  // ...
+  DEFINE_MEMBER(ct2, rd_latch_cmpt_2);
+  DEFINE_MEMBER(ct2, rd_latch_cmpt_3);
+  DEFINE_MEMBER(ct2, rd_latch_cmpt_4);
+  DEFINE_MEMBER(ct2, rd_latch_cmpt_5);
+  DEFINE_MEMBER(ct2, rd_latch_cmpt_6);
+  DEFINE_MEMBER(ct2, rd_latch_cmpt_7);
+  DEFINE_MEMBER(ct2, rd_latch_cmpt_8);
+  DEFINE_MEMBER(ct2, rd_latch_cmpt_9);
+  DEFINE_MEMBER(ct2, rd_latch_cmpt_10);
+  DEFINE_MEMBER(ct2, rd_latch_cmpt_11);
   DEFINE_MEMBER(ct2, rd_latch_cmpt_12);
 
   DEFINE_MEMBER(ct2, sel_filtre_input_a);
@@ -229,19 +279,35 @@ struct ct2 {
 
   DEFINE_MEMBER(ct2, sel_latch_a);
   DEFINE_MEMBER(ct2, sel_latch_b);
-  // ...
+  DEFINE_MEMBER(ct2, sel_latch_c);
+  DEFINE_MEMBER(ct2, sel_latch_d);
+  DEFINE_MEMBER(ct2, sel_latch_e);
   DEFINE_MEMBER(ct2, sel_latch_f);
   DEFINE_MEMBER(ct2, conf_cmpt_1);
   DEFINE_MEMBER(ct2, conf_cmpt_2);
   DEFINE_MEMBER(ct2, conf_cmpt_3);
-  // ...
+  DEFINE_MEMBER(ct2, conf_cmpt_4);
+  DEFINE_MEMBER(ct2, conf_cmpt_5);
+  DEFINE_MEMBER(ct2, conf_cmpt_6);
+  DEFINE_MEMBER(ct2, conf_cmpt_7);
+  DEFINE_MEMBER(ct2, conf_cmpt_8);
+  DEFINE_MEMBER(ct2, conf_cmpt_9);
+  DEFINE_MEMBER(ct2, conf_cmpt_10);
   DEFINE_MEMBER(ct2, conf_cmpt_11);
   DEFINE_MEMBER(ct2, conf_cmpt_12);
   DEFINE_MEMBER(ct2, soft_enable_disable);
   DEFINE_MEMBER(ct2, soft_start_stop);
   DEFINE_MEMBER(ct2, soft_latch);
   DEFINE_MEMBER(ct2, compare_cmpt_1);
-  // ...
+  DEFINE_MEMBER(ct2, compare_cmpt_2);
+  DEFINE_MEMBER(ct2, compare_cmpt_3);
+  DEFINE_MEMBER(ct2, compare_cmpt_4);
+  DEFINE_MEMBER(ct2, compare_cmpt_5);
+  DEFINE_MEMBER(ct2, compare_cmpt_6);
+  DEFINE_MEMBER(ct2, compare_cmpt_7);
+  DEFINE_MEMBER(ct2, compare_cmpt_8);
+  DEFINE_MEMBER(ct2, compare_cmpt_9);
+  DEFINE_MEMBER(ct2, compare_cmpt_10);
   DEFINE_MEMBER(ct2, compare_cmpt_11);
   DEFINE_MEMBER(ct2, compare_cmpt_12);
 };

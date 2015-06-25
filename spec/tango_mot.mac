@@ -213,7 +213,7 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
         }
 
         # Checks that Tango DS is running
-        if(!ds_is_responsive(tango_mot_ADDR)) {
+        if(!ds_is_tango(tango_mot_ADDR)) {
             tango_mot_err(sprintf("%s unresponsive -> disabling motor controller.", \
                                   tango_mot_ADDR))
             return ".error."
@@ -258,7 +258,7 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
         }
 
 
-        if (ds_is_responsive(_axis_ds_name)){
+        if (ds_is_tango(_axis_ds_name)){
             tango_mot_msg(sprintf("Motor %s linked to DS : %s ", _mot_mne, _axis_ds_name))
         }
         else{

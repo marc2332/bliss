@@ -19,6 +19,9 @@ try:
 except:
     print "beacon not installed ?"
 
+    class ConnectionException(Exception):
+        pass
+
 class bcolors:
     PINK = '\033[95m'
     BLUE = '\033[94m'

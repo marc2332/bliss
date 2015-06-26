@@ -65,13 +65,13 @@ def _lock(client_id,prio,lock_obj,raw_message) :
             break
 
     if all_free:
-        stollen_lock = {}
+        stolen_lock = {}
         for obj in lock_obj:
             socket_id,compteur,lock_prio = _lock_object.get(obj,(client_id,0,prio))
             if socket_id != client_id: # still lock
-                pre_obj = stollen_lock.get(socket_id,None)
+                pre_obj = stolen_lock.get(socket_id,None)
                 if pre_obj is None:
-                    stollen_lock[socket_id] = [obj]
+                    stolen_lock[socket_id] = [obj]
                 else:
                     pre_obj.append(obj)
                 _lock_object[obj] = (client_id,1,prio)
@@ -82,7 +82,7 @@ def _lock(client_id,prio,lock_obj,raw_message) :
                 new_prio = lock_prio > prio and lock_prio or prio
                 _lock_object[obj] = (client_id,compteur,new_prio)
 
-        for client,objects in stollen_lock.iteritems():
+        for client,objects in stolen_lock.iteritems():
             client.sendall(protocol.message(protocol.LOCK_STOLLEN,'|'.join(objects)))
 
         obj_already_locked = _client_to_object.get(client_id,set())
@@ -177,7 +177,7 @@ def _write_config_db_file(client_id,message):
 
     if first_pos < 0 or second_pos < 0: # message malformed
         msg = protocol.message(protocol.CONFIG_SET_DB_FILE_FAILED,
-                               '%s|%s' % (message_key,'Message malformed'))
+                               '%s|%s' % (message_key,'Malformed message'))
         client_id.sendall(msg)
         return   
 
@@ -348,8 +348,8 @@ def main():
     tcp.listen(512)        # limit to 512 clients
 
     #Tango databaseds
-    print '[TANGO] Database started on port:',_options.tango_port
     if _options.tango_port > 0:
+        print '[TANGO] Database started on port:',_options.tango_port
         tango_rp,tango_wp = os.pipe()
         child_pid = os.fork()
         if child_pid == 0:

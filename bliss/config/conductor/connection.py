@@ -305,8 +305,7 @@ class Connection(object) :
         except socket.error:
             pass
         except:
-            import traceback
-            traceback.print_exc()
+            sys.excepthook(*sys.exc_info())
         finally:
             if self._fd:
                 self._fd.close()
@@ -334,8 +333,7 @@ class Connection(object) :
                             except ValueError:
                                 pass
         except:
-            import traceback
-            traceback.print_exc()
+            sys.excepthook(*sys.exc_info())
         finally:
             queue.close()
             os.close(pipe)

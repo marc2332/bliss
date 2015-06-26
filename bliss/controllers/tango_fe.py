@@ -1,5 +1,5 @@
 from bliss.common.task_utils import cleanup, error_cleanup, task
-from bliss.common.measurement import CounterBase, AverageMeasurement
+from bliss.common.measurement import CounterBase
 import PyTango.gevent
 import time
 

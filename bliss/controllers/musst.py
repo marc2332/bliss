@@ -13,6 +13,10 @@ class musst:
        self.gpib_ip = config["gpib"]
        self.gpib_pad = config["address"]
        self.gpib_device = None
+       try:
+           self.prg_root = config["musst_prg_root"]
+       except:
+           self.prg_root = None
        self.lock = gevent.lock.Semaphore()
 
    def putget(self, comm, ack=False):
@@ -48,6 +52,14 @@ class musst:
        with self.lock:
          self.gpib_device = gpib.Gpib(self.gpib_ip, pad=self.gpib_pad)
        #assert(self.putget("?VER")=='MUSST 01.00a')
+
+   def upload_file(self, fname, prg_root=None):
+       if prg_root:
+           oscil_program = open(os.path.join(prg_root, fname))
+       else:
+           oscil_program = fname
+
+       self.upload_program(oscil_program.read())
 
    def upload_program(self, program_data):
        self.putget("#CLEAR")

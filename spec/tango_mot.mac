@@ -567,12 +567,22 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
         # "start_one"
         # parameters: p2 is relative motion, p1 is absolute requested position
         if (cmd == "start_one") {
+            local _ret
 
             _attr = "position"
-            tango_put(_dev, _attr, p1)
+            TANGO_ERR = -1
+            _ret = tango_put(_dev, _attr, p1)
 
-            if (TANGO_ERR){
-                _tango_mot_error_stack(_mot_mne, _dev, _attr)
+            # the exception error stack is not returned by TANGO API
+            # therefore print motor status instead. Anyway, this will be more
+            # useful for the user than the stack itself.
+            if(_ret) {
+                local _msg
+
+                _msg = sprintf("Unable to launch motion on motor %s", _mot_mne)
+                tango_mot_err(_msg)
+                tango_mot_print_status(motnum)
+                #_tango_mot_error_stack(_mot_mne, _dev, _attr)
                 exit
             }
         }

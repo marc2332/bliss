@@ -514,6 +514,14 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
         if (cmd == "get_status"){
             local _state  _ret  _cmd
 
+            _ret = 0
+            if(tango_mot_get_attr(motnum, "HardLimitHigh")) {
+                _ret |= 8
+            }
+            if(tango_mot_get_attr(motnum, "HardLimitLow")) {
+                _ret |= 4
+            }
+
             _cmd = "State"
             _state = tango_io(_dev, _cmd)
             if (TANGO_ERR){
@@ -542,7 +550,6 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
             # MOVING
             if (_state == 6) {
                 _ret |= 2
-                return _ret
             }
 
             # FAULT
@@ -553,7 +560,7 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
 #                return _ret
 #            }
 
-            return 0
+            return _ret
         }
 
         #-------------------------------------

@@ -84,7 +84,7 @@ def _lock(client_id,prio,lock_obj,raw_message) :
                 _lock_object[obj] = (client_id,compteur,new_prio)
 
         for client,objects in stolen_lock.iteritems():
-            client.sendall(protocol.message(protocol.LOCK_STOLLEN,'|'.join(objects)))
+            client.sendall(protocol.message(protocol.LOCK_STOLEN,'|'.join(objects)))
 
         obj_already_locked = _client_to_object.get(client_id,set())
         _client_to_object[client_id] = set(lock_obj).union(obj_already_locked)

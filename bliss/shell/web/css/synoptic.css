@@ -40,9 +40,9 @@
             display: inline-block;
             margin: 3px;
 	    border: 1px solid #cccccc;
-            font-family: monospace;
+            font-family: helvetica;
             border-radius: 5px;
-            font-size: 100%;
+            font-size: x-small;
           }
           .control-panel-toggle {
             float: right;

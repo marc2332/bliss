@@ -4,8 +4,11 @@ import argparse
 import weakref
 import subprocess
 import gevent
+from gevent import monkey; monkey.patch_all()
+import socket
+import select
 import signal
-from gevent import select, socket
+import traceback
 
 def start_database_ds(tango_port = 20000,personal_name='2',debug_level = 0):
     from PyTango.databaseds import database
@@ -167,8 +170,7 @@ def _send_config_db_files(client_id,message):
                         msg = protocol.message(protocol.CONFIG_DB_FILE_RX,'%s|%s|%s' % (message_key,rel_path,raw_buffer))
                         client_id.sendall(msg)
     except:
-        import traceback
-        traceback.print_exc()
+        sys.excepthook(*sys.exc_info())
     finally:
         client_id.sendall(protocol.message(protocol.CONFIG_DB_END,"%s|" % (message_key)))
 
@@ -209,8 +211,7 @@ def _send_posix_mq_connection(client_id,client_hostname):
                 mq_name = new_mq.names()
                 ok_flag = True
     except:
-        import traceback
-        traceback.print_exc()
+        sys.excepthook(*sys.exc_info())
     finally:
         if ok_flag:
             client_id.sendall(protocol.message(protocol.POSIX_MQ_OK,'|'.join(mq_name)))
@@ -285,12 +286,10 @@ def _client_rx(client):
                         else:
                             _send_unknow_message(c_id)
                     except ValueError:
-                        import traceback
-                        traceback.print_exc()
+                        sys.excepthook(*sys.exc_info())
                         break
                     except:
-                        import traceback
-                        traceback.print_exc()
+                        sys.excepthook(*sys.exc_info())
                         print 'Error with client id %s, close it' % client
                         raise
 
@@ -299,9 +298,7 @@ def _client_rx(client):
                 else:
                     posix_queue_data = data
     except:
-        import traceback
-        traceback.print_exc()
-        pass
+        sys.excepthook(*sys.exc_info())
     finally:
         _clean(client)
         client.close()

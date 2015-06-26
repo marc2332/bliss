@@ -21,6 +21,7 @@ class MD2S:
         self.ttrans = config.get("ttrans")
         self.transmission = config.get("transmission")
         self.detcover = config.get("detcover")
+        self.safshut = config.get("safety_shutter")
 
     def get_hwstate(self):
         return self._exporter.readProperty("HardwareState")
@@ -76,12 +77,22 @@ class MD2S:
         return [axis.wait_move() for axis in axis_list]
 
     def centrebeam(self):
+        #stop the procedure if hutch not searched
+        stat = self.safshut.get_state()
+        if  stat == 'DISABLE':
+            raise RuntimeError("Hutch not searched")
+        else:
+            self.safshut.open()
         #prepare to see the beam
         self.set_phase("BeamLocation", wait=True, timeout=100)
         self._exporter.writeProperty("CapillaryPosition", "OFF")
         self._wait_ready(20)
         app = self._exporter.readProperty("AperturePosition")
         self._exporter.writeProperty("AperturePosition", "OFF")
+        self._wait_ready(20)
+        #get the current zoom position and move zoom to 3
+        curr_zoom = self._exporter.readProperty("CoaxialCameraZoomValue")
+        self._exporter.writeProperty("CoaxialCameraZoomValue", 3)
         self._wait_ready(20)
 
         #set the camera to read one image
@@ -103,6 +114,8 @@ class MD2S:
 
         def restore_att(old_transmission=self.transmission.transmission_get()):
             self.transmission.transmission_set(old_transmission)
+            self._exporter.writeProperty("CoaxialCameraZoomValue", curr_zoom)
+            self._wait_ready(20)
 
         def do_centrebeam():
             with error_cleanup(restore_att):
@@ -110,8 +123,10 @@ class MD2S:
                 
             with cleanup(restore_live):
                 self.sample_video_device.video_live=False
+                time.sleep(0.1)
                 res = self.bv_device.GetPosition()
       
+            print res
             by = res[2]
             bz = res[3]
             if -1 in (by, bz):
@@ -131,7 +146,7 @@ class MD2S:
             self.transmission.transmission_set(3)
             self.detcover.set_in()
  
-            for i in range(5):
+            for i in range(7):
                 dy, dz = do_centrebeam()
                 if abs(dy) < 0.001 and abs(dz) < 0.001:
                     break
@@ -142,3 +157,14 @@ class MD2S:
 
     def msclose(self):
         self._exporter.writeProperty("FastShutterIsOpen", "false")
+
+    def fldetin(self):
+        self._exporter.writeProperty("FluoDetectorIsBack", "false")
+
+    def fldetout(self):
+        self._exporter.writeProperty("FluoDetectorIsBack", "true")
+
+    def fldetstate(self):
+        self._exporter.readProperty("FluoDetectorIsBack")
+
+

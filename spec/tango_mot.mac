@@ -274,6 +274,26 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
         motor_par(motnum, "ctrl_dev_name", tango_mot_ADDR, "add")
         motor_par(motnum, "dev_name", _axis_ds_name, "add")
 
+
+        # query Bliss DS to know the state of the axis
+        local _state  
+        _state = tango_io(_axis_ds_name, "State")
+        if (TANGO_ERR){
+            _tango_mot_error_stack(_mot_mne, _dev, _attr)
+            return ".error."
+        }
+
+        # Disables motor if not ready.
+        if (_state != 0){
+            _msg = sprintf("Motor %s is not ready, disabling it !!!", _mot_mne)
+            tango_mot_err(_msg)
+            motor_par(motnum ,"disable", 1)
+
+            tango_mot_print_status(motnum)
+
+            return ".error."
+        }
+
         # STEPS PER UNIT
         # The step_size SPEC value is only used to define the
         # granularity of the movement. We do not use it to convert
@@ -573,6 +593,21 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
     }
 }'
 
+def tango_mot_print_status(motnum) '{
+    local _status tt[] i
+    local _axis_ds_name 
+    local _mot_mne
+
+    _mot_mne = motor_mne(motnum)
+    _axis_ds_name = motor_par(motnum, "dev_name")
+    _status = tango_io(_axis_ds_name, "Status")
+    split(_status, tt, " | ")
+    _msg = sprintf("Current motor %s status:\n", _mot_mne)
+    for(i in tt) {
+        _msg = sprintf("%s\t%s\n", _msg, tt[i])
+    }
+    tango_mot_msg(_msg)
+}'
 
 
 ######################################################################

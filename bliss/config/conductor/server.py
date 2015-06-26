@@ -45,6 +45,15 @@ else:
             for i in xrange(0,len(msg),max_message_size):
                 self._wqueue.send(msg[i:i+max_message_size])
 
+try:
+    import flask
+except ImportError:
+    print "flask cannot be imported: web application won't be available"
+else:
+    from gevent.wsgi import WSGIServer
+    from werkzeug.debug import DebuggedApplication
+    from .config_app import web_app
+
 _options = None
 _lock_object = {}
 _client_to_object = weakref.WeakKeyDictionary()
@@ -324,6 +333,8 @@ def main():
                         help="tango server port (default to 0: disable)")
     parser.add_argument("--tango_debug_level",dest="tango_debug_level",type=int,default=0,
                         help="tango debug level (default to 0: WARNING,1:INFO,2:DEBUG)")
+    parser.add_argument("--webapp_port",dest="webapp_port",type=int,default=0,
+                        help="web server port (default to 0: disable)")
     global _options
     _options = parser.parse_args()
 
@@ -352,6 +363,14 @@ def main():
     tcp.bind(("",_options.port))
     port = tcp.getsockname()[1]
     tcp.listen(512)        # limit to 512 clients
+
+    #web application
+    if _options.webapp_port > 0:
+        print "Web application sitting on port:",_options.webapp_port
+        web_app.debug = True
+        web_app.beacon_port = _options.port
+        http_server = WSGIServer(('', _options.webapp_port), DebuggedApplication(web_app, evalex=True))
+        gevent.spawn(http_server.serve_forever) 
 
     #Tango databaseds
     if _options.tango_port > 0:

@@ -48,7 +48,8 @@ else:
 try:
     import flask
 except ImportError:
-    print "flask cannot be imported: web application won't be available"
+    flask = None
+    print "[WEB] flask cannot be imported: web application won't be available"
 else:
     from gevent.wsgi import WSGIServer
     from werkzeug.debug import DebuggedApplication
@@ -365,8 +366,8 @@ def main():
     tcp.listen(512)        # limit to 512 clients
 
     #web application
-    if _options.webapp_port > 0:
-        print "Web application sitting on port:",_options.webapp_port
+    if flask and _options.webapp_port > 0:
+        print "[WEB] Web application sitting on port:",_options.webapp_port
         web_app.debug = True
         web_app.beacon_port = _options.port
         http_server = WSGIServer(('', _options.webapp_port), DebuggedApplication(web_app, evalex=True))

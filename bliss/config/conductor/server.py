@@ -53,7 +53,7 @@ except ImportError:
 else:
     from gevent.wsgi import WSGIServer
     from werkzeug.debug import DebuggedApplication
-    from .config_app import web_app
+    from .web.config_app import web_app
 
 _options = None
 _lock_object = {}
@@ -367,7 +367,7 @@ def main():
 
     #web application
     if flask and _options.webapp_port > 0:
-        print "[WEB] Web application sitting on port:",_options.webapp_port
+        print "[WEB] Web application sitting on port:", _options.webapp_port
         web_app.debug = True
         web_app.beacon_port = _options.port
         http_server = WSGIServer(('', _options.webapp_port), DebuggedApplication(web_app, evalex=True))

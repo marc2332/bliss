@@ -274,6 +274,9 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
         motor_par(motnum, "ctrl_dev_name", tango_mot_ADDR, "add")
         motor_par(motnum, "dev_name", _axis_ds_name, "add")
 
+        # Try to switch power on
+        TANGO_ERR = -1
+        tango_io(_axis_ds_name, "On")
 
         # query Bliss DS to know the state of the axis
         local _state  
@@ -381,6 +384,29 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
     _msg = sprintf ("---tango_mot_par(motnum=%s key=\"%s\", action=\"%s\", p1=\"%s\", p2=\"%s\")", \
                     motnum, key, action, p1, p2)
     tango_mot_dbg(_msg)
+ 
+    
+    # return the list of non standard motor parameters implemented
+    if ( key=="?" && action=="get") {
+        return("power")
+    }
+
+    # control motor power
+    if (key == "power") {
+        local _axis_ds_name
+        local _state
+
+        _axis_ds_name = motor_par(motnum, "dev_name")
+        if (action == "set") {
+            # Try to switch power on or off according to argin given
+            TANGO_ERR = -1
+            tango_io(_axis_ds_name, (p1==1?"On":"Off"))
+        }
+      
+        # in any case, returns the current state (0 == ON)
+        _state = tango_io(_axis_ds_name, "State")
+        return (_state == 0)
+    }
 
     if (action=="get") {
 

@@ -104,7 +104,7 @@ class ControllerAxisSettings:
         if convert_func is not None:
             try:
                 setting_value = convert_func(value)
-            except ValueError:
+            except (TypeError, ValueError):
                 setting_value = None
         else:
             setting_value = value

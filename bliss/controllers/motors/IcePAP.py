@@ -120,6 +120,13 @@ class IcePAP(Controller):
         # Add new axis oject methods
         add_axis_method(axis, self.get_identifier, types_info=("None", "str"))
 
+    def set_on(self, axis):
+        """Switch power on"""
+        self.libgroup.set_power(libicepap.ON, axis.libaxis)
+
+    def set_off(self, axis):
+        """Switch power off"""
+        self.libgroup.set_power(libicepap.OFF, axis.libaxis)
 
     def read_position(self, axis):
         """Returns axis position in motor units"""

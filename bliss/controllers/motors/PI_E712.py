@@ -3,11 +3,10 @@ import time
 from bliss.controllers.motor import Controller
 from bliss.common import log as elog
 from bliss.controllers.motor import add_axis_method
-from bliss.common.axis import READY, MOVING
+from bliss.common.axis import AxisState
 
 import pi_gcs
 from bliss.comm import tcp
-
 
 """
 Bliss controller for ethernet PI E712 piezo controller.
@@ -26,9 +25,11 @@ config example:
     <!-- unnecessary, as the port is always 50000-->
     <axis name="e712">
       <channel value="1" />
+      <velocity value="1" />
     </axis>
   </controller>
 </config>
+
 """
 
 
@@ -42,7 +43,7 @@ class PI_E712(Controller):
 
     def initialize(self):
         """
-        Opens a single socket for all 3 axes.
+        Controller intialization : opens a single socket for all 3 axes.
         """
         self.sock = tcp.Socket(self.host, 50000)
 
@@ -50,7 +51,8 @@ class PI_E712(Controller):
         """
         Closes the controller socket.
         """
-        self.sock.close()
+        if self.sock:
+            self.sock.close()
 
     def initialize_axis(self, axis):
         """
@@ -64,6 +66,11 @@ class PI_E712(Controller):
         Returns:
             - None
         """
+        elog.info("initialize_axis() called for axis %r" % axis.name)
+
+        self._hw_status = AxisState("READY")
+
+
         """ Documentation uses the word AxisID instead of channel
             Note: any function used as axis method must accept axis as an argument! Otherwise
                   you will see:
@@ -71,22 +78,22 @@ class PI_E712(Controller):
         """
         axis.channel = axis.config.get("channel", int)
 
-        add_axis_method(axis, self.get_id, name="GetId", types_info=(None, str))
-        add_axis_method(axis, self.get_info, name="GetInfo", types_info=(None, str))
-        add_axis_method(axis, self.raw_com, name="RawCom", types_info=(str, str))
+        add_axis_method(axis, self.raw_com, name = "RawCom", types_info = (str, str))
 
-        add_axis_method(axis, self.check_power_cut, name="CheckPowerCut", types_info=(None, None))
-        add_axis_method(axis, self._get_tns, name="Get_TNS", types_info=(None, float))
-        add_axis_method(axis, self._get_offset, name="Get_Offset", types_info=(None, float))
-        add_axis_method(axis, self._put_offset, name="Put_Offset", types_info=(float, None))
-        add_axis_method(axis, self._get_tad, name="Get_TAD", types_info=(None, float))
-        add_axis_method(axis, self._get_closed_loop_status, name="Get_Closed_Loop_Status", types_info=(None, bool))
-        add_axis_method(axis, self._set_closed_loop, name="Set_Closed_Loop", types_info=(bool, None))
-        add_axis_method(axis, self._get_on_target_status, name="Get_On_Target_Status", types_info=(None, bool))
+        add_axis_method(axis, self.check_power_cut, name = "CheckPowerCut", types_info = (None, None))
+        add_axis_method(axis, self._get_tns, name = "Get_TNS", types_info = (None, float))
+        add_axis_method(axis, self._get_tsp, name = "Get_TSP", types_info = (None, float))
+        add_axis_method(axis, self._get_offset, name = "Get_Offset", types_info = (None, float))
+        add_axis_method(axis, self._put_offset, name = "Put_Offset", types_info = (float, None))
+        add_axis_method(axis, self._get_tad, name = "Get_TAD", types_info = (None, float))
+        add_axis_method(axis, self._get_closed_loop_status, name = "Get_Closed_Loop_Status", types_info = (None, bool))
+        add_axis_method(axis, self._set_closed_loop, name = "Set_Closed_Loop", types_info = (bool, None))
+        #add_axis_method(axis, self._get_on_target_status, name = "Get_On_Target_Status", types_info = (None, bool))
+        add_axis_method(axis, self._get_pos, name = "Get_Pos", types_info = (None, float))
 
         try:
             axis.paranoia_mode = axis.config.get("paranoia_mode")  # check error after each command
-        except KeyError:
+        except KeyError :
             axis.paranoia_mode = False
 
         self._gate_enabled = False
@@ -95,21 +102,22 @@ class PI_E712(Controller):
         axis.closed_loop = self._get_closed_loop_status(axis)
         self.check_power_cut(axis)
 
+        elog.debug("axis = %r" % axis.name)
+        #elog.debug("axis.encoder = %r" % axis.encoder)
+        #if axis.encoder:
+            #elog.debug("axis = %r" % axis)
 
-    def initialize_encoder(self, encoder):
-        try:
-            encoder.paranoia_mode = encoder.config.get("paranoia_mode")  # check error after each command
-        except KeyError:
-            encoder.paranoia_mode = False
 
     def read_position(self, axis):
         """
-        Returns position's setpoint.
+        Returns position's setpoint or measured position.
+        Measured position command is POS?
         Setpoint position is MOV? of VOL? or SVA? depending on closed-loop
         mode is ON or OFF.
 
         Args:
             - <axis> : bliss axis.
+            - [<measured>] : boolean : if True, function returns measured position.
         Returns:
             - <position> : float : piezo position in Micro-meters or in Volts.
         """
@@ -118,18 +126,17 @@ class PI_E712(Controller):
 
         return _pos
 
-    def read_encoder(self, encoder):
-        _pos = self._get_pos(encoder)
-        elog.debug("position measured read : %g" % _pos)
-        return _pos
+#   def read_encoder(self, encoder):
+#       axis = self.__encoders[encoder]["axis"]
 
+#       elog.debug("read_encoder measured = %r" % encoder)
+#       _ans = self._get_pos(axis)
+#       elog.debug("read_encoder measured = %r" % _ans)
+#       return _ans
 
+    """ VELOCITY """
     def read_velocity(self, axis):
         """
-        Args:
-            - <axis> : Bliss axis object.
-        Returns:
-            - <velocity> : float
         """
         _ans = self.send(axis, "VEL? %s" % axis.channel)
         # _ans should look like "A=+0012.0000"
@@ -145,31 +152,26 @@ class PI_E712(Controller):
         elog.debug("velocity set : %g" % new_velocity)
         return self.read_velocity(axis)
 
+    """ STATE """
     def state(self, axis):
         # if self._get_closed_loop_status(axis):
-        if axis.closed_loop:
-            elog.debug("CLOSED-LOOP on axis %s is True" % axis.name)
-            if self._get_on_target_status(axis):
-                return READY
-            else:
-                return MOVING
-        else:
-            elog.debug("CLOSED-LOOP is False")
-            return READY
+#        elog.debug("axis.closed_loop is %s" % axis.closed_loop)
+#        if axis.closed_loop:
+#            elog.debug("CLOSED-LOOP on axis %s is True" % axis.name)
+#            if self._get_on_target_status(axis):
+#                return AxisState("READY")
+#            else:
+#                return AxisState("MOVING")
+#        else:
+#            elog.debug("CLOSED-LOOP is False")
 
+
+        # ok for open loop mode...
+        return AxisState("READY")
+
+    """ MOVEMENTS """
     def prepare_move(self, motion):
-        """
-        - TODO for multiple move...
-
-        Args:
-            - <motion> : Bliss motion object.
-
-        Returns:
-            -
-
-        Raises:
-            - ?
-        """
+        elog.debug("pass")
         pass
 
     def start_one(self, motion):
@@ -186,9 +188,14 @@ class PI_E712(Controller):
             # Command in position.
             self.send_no_ans(motion.axis, "MOV %s %g" %
                              (motion.axis.channel, motion.target_pos))
+            elog.debug("Command to piezo MOV %s %g"%
+                             (motion.axis.channel, motion.target_pos))
+
         else:
             # Command in voltage.
             self.send_no_ans(motion.axis, "SVA %s %g" %
+                             (motion.axis.channel, motion.target_pos))
+            elog.debug("Command to piezo SVA %s %g"%
                              (motion.axis.channel, motion.target_pos))
 
     def stop(self, axis):
@@ -196,14 +203,28 @@ class PI_E712(Controller):
         * HLT -> stop smoothly
         * STP -> stop asap
         * 24    -> stop asap
-        * to check : copy of current position into target position ???
         """
-        self.send_no_ans(axis, "HLT %s" % axis.channel)
+        elog.debug("Stopping Piezo by opening loop")
+        self._set_closed_loop(self, axis, False)
+        #self.send_no_ans(axis, "SVO %s" % axis.channel)
+
+    """ RAW COMMANDS """
+    def raw_write(self, axis, com):
+        self.sock.write("%s\n" % com)
+
+    def raw_write_read(self, axis, com):
+        return self.sock.write_read("%s\n" % com)
+
+    def get_identifier(self, axis):
+        """
+        Returns Identification information (\*IDN? command).
+        """
+        return self.send(axis, "*IDN?\n")
+
 
     """
     E712 specific
     """
-
     def raw_com(self, axis, cmd):
         return self.send(axis, cmd)
 
@@ -219,8 +240,12 @@ class PI_E712(Controller):
         Args:
             - <axis> : passed for debugging purposes.
             - <cmd> : GCS command to send to controller (Channel is already mentionned  in <cmd>).
+
         Returns:
             - 1-line answer received from the controller (without "\\\\n" terminator).
+
+        Raises:
+            -
         """
         _cmd = cmd + "\n"
         _t0 = time.time()
@@ -230,10 +255,10 @@ class PI_E712(Controller):
         _ans = self.sock.write_readline(_cmd)
         _duration = time.time() - _t0
         if _duration > 0.05:
-            print "%s Received %s from Send \"%s\" (duration : %g ms) " % (
-                self.cname, repr(_ans), _cmd.rstrip(), _duration * 1000)
+            print "%s Received %s from Send \"%s\" (duration : %g ms) " % (self.cname, repr(_ans), _cmd.rstrip(), _duration * 1000)
 
         _ans = self.sock.write_readline(_cmd)
+
 
         if axis is not None and axis.paranoia_mode:
             self.get_error()  # should raise exc.
@@ -263,58 +288,54 @@ class PI_E712(Controller):
         if axis is not None and axis.paranoia_mode:
             self.get_error()  # should raise exc.
 
-    def _get_pos(self, encoder):
+
+    def _get_pos(self, axis):
         """
         Args:
-            - <encoder> :
+            - <axis> :
         Returns:
-            - <position> Returns real position (POS? command) read by capacitive sensor.
+            - <position> Returns real position (POS? command) 
 
         Raises:
             ?
         """
-        _ans = self.send(encoder, "POS? %s" % encoder.channel)
+        _ans = self.send(axis, "POS? %s" % axis.channel)
         _pos = float(_ans[2:])
 
         return _pos
 
     def _get_target_pos(self, axis):
         """
-        Returns last target position (MOV?/SVA? command) (setpoint value).
-            - SVA? : Query the commanded output voltage (voltage setpoint).
-            - MOV? : Returns the last valid commanded target position.
-        Args:
-            - <>
-        Returns:
-            -
-        Raises:
-            ?
+        Returns last valid position setpoint ('MOV?' command).
         """
-        if axis.closed_loop:
-            _ans = self.send(axis, "MOV? %s" % axis.channel)
-        else:
-            _ans = self.send(axis, "SVA? %s" % axis.channel)
+        _ans = self.send(axis, "MOV? %s" % axis.channel)
+        _pos = float(_ans[2:])
+        return _pos
+
+    def _get_target_voltage(self, axis):
+        """
+        Returns last valid voltage setpoint ('SVA?' command).
+        """
+        _ans = self.send(axis, "SVA? %s" % axis.channel)
         _pos = float(_ans[2:])
         return _pos
 
     def _get_voltage(self, axis):
         """
-        Returns Voltage Of Output Signal Channel (VOL? command)
+        Returns Read Voltage Of Output Signal Channel (VOL? command)
         """
         _ans = self.send(axis, "VOL? %s" % axis.channel)
-        _vol = float(_ans.split("=+")[-1])
+        _vol = float(_ans.split("=")[-1])
         return _vol
 
-    def _set_closed_loop(self, axis, onoff=True):
+    def _set_closed_loop(self, axis, onoff = True):
         """
         Sets Closed loop status (Servo state) (SVO command)
         """
         axis.closed_loop = onoff
-        if onoff:
-            onoff = 1
-        else:
-            onoff = 0
-        self.send_no_ans(axis, "SVO %s %s" % (axis.channel, onoff))
+        self.send_no_ans(axis, "SVO %s %d" % (axis.channel, onoff))
+        elog.debug("Piezo Servo %r" % onoff)
+
 
     def _get_closed_loop_status(self, axis):
         """
@@ -322,7 +343,7 @@ class PI_E712(Controller):
         -> True/False
         """
         _ans = self.send(axis, "SVO? %s" % axis.channel)
-        _status = float(_ans[2:])
+        _status = int(_ans[2:])
 
         if _status == 1:
             return True
@@ -384,29 +405,17 @@ class PI_E712(Controller):
 
         self.send_no_ans(axis, _cmd)
 
-    def get_id(self, axis):
-        """
-        Returns Identification information (\*IDN? command).
-        """
-        return self.send(axis, "*IDN?\n")
-
     def get_error(self):
         _t0 = time.time()
         _error_number = self.sock.write_readline("ERR?\n")
         _duration = time.time() - _t0
-        if _duration > 0.005:
-            print "%s Received %s from Send %s (duration : %g ms) " % \
-                  (self.cname, repr(_error_number), "ERR?", _duration * 1000)
+        #if _duration > 0.005:
+            #print "%s Received %s from Send %s (duration : %g ms) " % \
+                    #(self.cname, repr(_error_number), "ERR?", _duration * 1000)
 
         _error_str = pi_gcs.get_error_str(_error_number)
 
         return (_error_number, _error_str)
-
-    def _stop(self):
-        """
-        Sends a stop to the controller (STP command).
-        """
-        self.sock.write("STP\n")
 
     def get_info(self, axis):
         """
@@ -456,11 +465,18 @@ class PI_E712(Controller):
         _txt = ""
 
         for i in _infos:
-            _txt = _txt + "    %s %s\n" % (i[0], self.send(axis, i[1]))
+            _txt = _txt + "    %s %s\n" % \
+                (i[0], self.send(axis, i[1]))
 
-        _txt = _txt + "    %s  \n%s\n" % ("\nCommunication parameters",
-                                          "\n".join(self.sock.write_readlines("IFC?\n", 5)))
+        _txt = _txt + "    %s  \n%s\n" % \
+            ("\nCommunication parameters",
+            "\n".join(self.sock.write_readlines("IFC?\n", 5)))
 
+        """ my e712 didn't answer anything here
+#         _txt = _txt + "    %s  \n%s\n" % \
+#             ("\nFirmware version",
+#                 "\n".join(self.sock.write_readlines("VER?\n", 1)))
+        """
         return _txt
 
     def check_power_cut(self, axis):
@@ -474,8 +490,21 @@ class PI_E712(Controller):
             self.send_no_ans(None, "CCL 1 advanced")
 
     def _get_tns(self, axis):
-        """Get Normalized Input Signal Value"""
-        _ans = self.send(axis, "TNS? %s" % axis.channel)
+        """Get Normalized Input Signal Value. Loop 10 times to straighten out noise"""
+        accu = 0
+        for _ in range(10):
+            _ans = self.send(axis, "TNS? %s" % axis.channel)
+            #elog.debug("TNS? %d : %r" % (axis.channel, _ans))
+            if _ans != '0':
+                accu += float(_ans[2:])
+                accu /= 2
+        elog.debug("TNS? %r" % accu)
+        return accu
+
+    def _get_tsp(self, axis):
+        """Get Input Signal Position Value"""
+        _ans = self.send(axis, "TSP? %s" % axis.channel)
+        elog.debug("TSP? %s" % _ans)
         _ans = float(_ans[2:])
         return _ans
 

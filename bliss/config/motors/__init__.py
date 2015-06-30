@@ -354,23 +354,14 @@ def load_cfg_fromstring(config_str, clear=True):
     return load_cfg_fromstring(config_str)
 
 
-def write_setting(axis_config, setting_name, setting_value, commit=True):
+def write_setting(axis_config, setting_name, setting_value, write):
     if BACKEND == 'xml':
         from bliss.config.motors.xml_backend import write_setting
     elif BACKEND == 'beacon':
         from bliss.config.motors.beacon_backend import write_setting
 
     write_setting(
-        axis_config.config_dict, setting_name, setting_value)
-    if commit:
-        commit_settings(axis_config)
-
-def commit_settings(axis_config):
-    if BACKEND == 'xml':
-        from bliss.config.motors.xml_backend import commit_settings
-    elif BACKEND == 'beacon':
-        from bliss.config.motors.beacon_backend import commit_settings
-    commit_settings(axis_config.config_dict)
+        axis_config.config_dict, setting_name, setting_value, write)
 
 def get_axis_setting(axis, setting_name):
     """Get setting value from axis and setting name

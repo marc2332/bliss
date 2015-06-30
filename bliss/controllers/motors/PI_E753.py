@@ -11,7 +11,18 @@ import time
 
 """
 Bliss controller for ethernet PI E753 piezo controller.
-Cyril Guilloud ESRF BLISS January 2014
+Cyril Guilloud ESRF BLISS  2014-2015
+
+<config>
+  <controller class="PI_E753" name="idXX_machintruc">
+    <host value="192.168.2.10" />
+    <axis name="mirror_piezo">
+       <steps_per_unit value="1" />
+       <velocity value="1" />
+    </axis>
+  </controller>
+</config>
+
 """
 
 
@@ -21,19 +32,22 @@ class PI_E753(Controller):
         Controller.__init__(self, name, config, axes, encoders)
 
         self.host = self.config.get("host")
+        self.cname = "E753"
 
     def __del__(self):
         print "PI_E753 DESTRUCTORRRRRR******+++++++++++++++++++++++++++++++++"
 
     # Init of controller.
     def initialize(self):
-        elog.debug("initialization")
-        elog.info("initialization")
-
+        """
+        Controller intialization : opens a single socket for all 3 axes.
+        """
         self.sock = tcp.Socket(self.host, 50000)
 
     def finalize(self):
-        print "PI_E753 controller finalization**********************************"
+        """
+        Closes the controller socket.
+        """
         # not called at end of device server ??? :(
         # called on a new axis creation ???
 
@@ -57,6 +71,7 @@ class PI_E753(Controller):
         elog.debug("read_position measured = %f" % _ans)
         return _ans
 
+    """ VELOCITY """
     def read_velocity(self, axis):
         return self._get_velocity(axis)
 
@@ -65,6 +80,7 @@ class PI_E753(Controller):
         self.sock.write("VEL 1 %f\n" % new_velocity)
         return self.read_velocity(axis)
 
+    """ STATE """
     def state(self, axis):
         if self._get_closed_loop_status():
             if self._get_on_target_status():
@@ -74,6 +90,7 @@ class PI_E753(Controller):
         else:
             raise RuntimeError("closed loop disabled")
 
+    """ MOVEMENTS """
     def prepare_move(self, motion):
         self._target_pos = motion.target_pos
 
@@ -85,14 +102,18 @@ class PI_E753(Controller):
         # to check : copy of current position into target position ???
         self.sock.write("STP\n")
 
+    """ RAW COMMANDS """
     def raw_write(self, axis, com):
         self.sock.write("%s\n" % com)
 
     def raw_write_read(self, axis, com):
         return self.sock.write_read("%s\n" % com)
 
+    def get_identifier(self, axis):
+        return self.sock.write_readline("IDN?\n")
+
     """
-    E753 specific communication
+    E753 specific
     """
 
     def _get_velocity(self, axis):
@@ -127,9 +148,6 @@ class PI_E753(Controller):
         _pos = float(_ans[2:])
 
         return _pos
-
-    def _get_identifier(self):
-        return self.sock.write_readline("IDN?\n")
 
     def _get_closed_loop_status(self):
         _ans = self.sock.write_readline("SVO?\n")

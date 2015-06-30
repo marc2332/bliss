@@ -1,13 +1,13 @@
-bliss: ESRF Motion control library
+EMotion: ESRF Motion control library
 ====================================
 
-Bliss is a Python package developed at the ESRF within the Beamline
+EMotion is a Python package developed at the ESRF within the Beamline
 Control Unit by Matias Guijarro, Cyril Guilloud and Manuel Perez.
 
-Bliss provides uniform Python objects and a full set of standard
+EMotion provides uniform Python objects and a full set of standard
 features on top of motor controllers plugins.
 
-Bliss is built around simple concepts:
+EMotion is built around simple concepts:
 * Configuration
 * Controller
 * Axis

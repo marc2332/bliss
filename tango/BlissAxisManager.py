@@ -12,7 +12,12 @@ import sys
 import time
 import traceback
 import types
+import json
 
+try:
+    from bliss.config.conductor.connection import ConnectionException
+except:
+    print "beacon not installed ?"
 
 class bcolors:
     PINK = '\033[95m'
@@ -24,13 +29,14 @@ class bcolors:
 
 
 class BlissAxisManager(PyTango.Device_4Impl):
+    axis_dev_list = None
+    axis_dev_names = None
 
     def __init__(self, cl, name):
         PyTango.Device_4Impl.__init__(self, cl, name)
         self.debug_stream("In __init__() of controller")
         self.init_device()
 
-        self.axis_dev_list = None
 
     def delete_device(self):
         self.debug_stream("In delete_device() of controller")
@@ -38,6 +44,7 @@ class BlissAxisManager(PyTango.Device_4Impl):
     def init_device(self):
         self.debug_stream("In init_device() of controller")
         self.get_device_properties(self.get_device_class())
+
 
     def dev_state(self):
         """ This command gets the device state (stored in its device_state
@@ -97,6 +104,28 @@ class BlissAxisManager(PyTango.Device_4Impl):
         return self.get_state()
 
 
+    def GetAxisList(self):
+        """
+        Returns the list of BlissAxisManager axes of this device.
+        """
+        argout = list()
+
+        U = PyTango.Util.instance()
+        dev_list = U.get_device_list("*")
+        # Creates the list of BlissAxis devices names.
+        if self.axis_dev_names is None:
+            self.axis_dev_names = list()
+            for dev in dev_list:
+                dev_name = dev.get_name()
+                if "bliss_" in dev_name:
+                    self.axis_dev_names.append(dev_name)
+
+        print "axes list : ", self.axis_dev_names
+
+        for _axis in self.axis_dev_names:
+            argout.append(_axis)
+        return argout
+
 class BlissAxisManagerClass(PyTango.DeviceClass):
 
     #    Class Properties
@@ -107,10 +136,20 @@ class BlissAxisManagerClass(PyTango.DeviceClass):
     device_property_list = {
         'config_file':
         [PyTango.DevString,
-         "Path to the configuration file",
-         ["/users/blissadm/local/userconf/bliss/XXX.xml"]],
+         "( Deprecated ? ) Path to the XML configuration file\n  ---->XML only \n --->let empty if you want to use Beacon) ",
+        [["/users/blissadm/local/userconf/bliss/XXX.xml"]]],
+        'axes':
+        [PyTango.DevString,
+         "List of axes to instanciate \n ---> BEACON only \n let empty to use XML config file (only if you know what you are doing...).",
+         [["mot1 mot2 mot3"]]],
     }
 
+    #    Command definitions
+    cmd_list = {
+        'GetAxisList':
+        [[PyTango.DevVoid, "none"],
+         [PyTango.DevVarStringArray, "List of axis"]]
+    }
 
 # Device States Description
 # ON : The motor powered on and is ready to move.
@@ -167,18 +206,24 @@ class BlissAxis(PyTango.Device_4Impl):
         self.attr_StepSize_read = 0.0
         self.attr_Steps_per_unit_read = 0.0
         self.attr_Acceleration_read = 1.0
+        self.attr_HardLimitLow_read = False
+        self.attr_HardLimitHigh_read = False
+        self.attr_Backlash_read = 0.0
+        self.attr_Offset_read = 0.0
+        self.attr_Tolerance_read = 0.0
 
         """
         self.attr_Steps_read = 0
         self.attr_Position_read = 0.0
         self.attr_Measured_Position_read = 0.0
-        self.attr_Backlash_read = 0.0
-        self.attr_HardLimitLow_read = False
-        self.attr_HardLimitHigh_read = False
         self.attr_PresetPosition_read = 0.0
         self.attr_FirstVelocity_read = 0.0
         self.attr_Home_side_read = False
         """
+
+        self.attr_trajpar_read = [[0.0]]
+
+        self.dev_state()
 
         # elog.info("    %s" % self.axis.get_info())
         elog.info(" BlissAxisManager.py Axis " + bcolors.PINK + self._ds_name + bcolors.ENDC + " initialized")
@@ -193,7 +238,7 @@ class BlissAxis(PyTango.Device_4Impl):
                 # Position
                 attr = self.get_device_attr().get_attr_by_name("Position")
                 attr.set_write_value(self.axis.position())
-                
+
                 # Velocity
                 attr = self.get_device_attr().get_attr_by_name("Velocity")
                 attr.set_write_value(self.axis.velocity())
@@ -202,6 +247,7 @@ class BlissAxis(PyTango.Device_4Impl):
                     "Cannot set one of the attributes write value")
             finally:
                 self.once = True
+
 
     def dev_state(self):
         """ This command gets the device state (stored in its device_state
@@ -225,6 +271,9 @@ class BlissAxis(PyTango.Device_4Impl):
                 self.set_state(PyTango.DevState.FAULT)
 
             self.set_status(_state.current_states())
+
+            self.attr_HardLimitLow_read = _state.LIMNEG
+            self.attr_HardLimitHigh_read = _state.LIMPOS
 
         except:
             self.set_state(PyTango.DevState.FAULT)
@@ -297,7 +346,7 @@ class BlissAxis(PyTango.Device_4Impl):
             else:
                 return True
         except:
-            print traceback.format_exc()
+            sys.excepthook(*sys.exc_info())
 
     def read_Measured_Position(self, attr):
         self.debug_stream("In read_Measured_Position()")
@@ -343,11 +392,34 @@ class BlissAxis(PyTango.Device_4Impl):
 
     def read_Backlash(self, attr):
         self.debug_stream("In read_Backlash()")
+        self.attr_Backlash_read = self.axis.backlash()
         attr.set_value(self.attr_Backlash_read)
 
-    def write_Backlash(self, attr):
-        self.debug_stream("In write_Backlash()")
-        # data = attr.get_write_value()
+#    def write_Backlash(self, attr):
+#        self.debug_stream("In write_Backlash()")
+#        data = attr.get_write_value()
+#        self.debug_stream("write backlash %s" % data)
+
+    def read_Offset(self, attr):
+        self.debug_stream("In read_Offset()")
+        self.attr_Offset_read = self.axis.offset()
+        attr.set_value(self.attr_Offset_read)
+
+#    def write_Offset(self, attr):
+#        self.debug_stream("In write_Offset()")
+#        data = attr.get_write_value()
+#        self.debug_stream("write offset %s" % data)
+#        self.axis.offset(data)
+
+    def read_Tolerance(self, attr):
+        self.debug_stream("In read_Tolerance()")
+        self.attr_Tolerance_read = self.axis.tolerance()
+        attr.set_value(self.attr_Tolerance_read)
+
+    def write_Tolerance(self, attr):
+        self.debug_stream("In write_Tolerance()")
+        data = attr.get_write_value()
+        self.debug_stream("write tolerance %s" % data)
 
     def read_Home_position(self, attr):
         self.debug_stream("In read_Home_position()")
@@ -359,11 +431,15 @@ class BlissAxis(PyTango.Device_4Impl):
         self.attr_Home_position_read = data
 
     def read_HardLimitLow(self, attr):
-        # self.debug_stream("In read_HardLimitLow()")
+        self.debug_stream("In read_HardLimitLow()")
+        # Update state and return cached value.
+        self.dev_state()
         attr.set_value(self.attr_HardLimitLow_read)
 
     def read_HardLimitHigh(self, attr):
-        # self.debug_stream("In read_HardLimitHigh()")
+        self.debug_stream("In read_HardLimitHigh()")
+        # Update state and return cached value.
+        self.dev_state()
         attr.set_value(self.attr_HardLimitHigh_read)
 
     def read_PresetPosition(self, attr):
@@ -542,6 +618,30 @@ class BlissAxis(PyTango.Device_4Impl):
 
         return self.axis.set_gate(argin)
 
+    def GetCustomCommandList(self):
+        """
+        Returns the list of custom commands.
+        JSON format.
+        """
+        _cmd_list = self.axis.custom_methods_list()
+
+        argout = list()
+
+        for _cmd in _cmd_list:
+            argout.append( json.dumps(_cmd))
+
+        return argout
+
+
+    def read_trajpar(self, attr):
+        self.debug_stream("In read_trajpar()")
+        attr.set_value(self.attr_trajpar_read)
+
+    def write_trajpar(self, attr):
+        self.debug_stream("In write_trajpar()")
+        data = attr.get_write_value()
+
+
 
 class BlissAxisClass(PyTango.DeviceClass):
     #    Class Properties
@@ -598,7 +698,10 @@ class BlissAxisClass(PyTango.DeviceClass):
          [PyTango.DevString, "Configuration value"]],
         'SetGate':
         [[PyTango.DevLong, "state of the gate 0/1"],
-         [PyTango.DevVoid, ""]]
+         [PyTango.DevVoid, ""]],
+        'GetCustomCommandList':
+        [[PyTango.DevVoid, ""],
+         [PyTango.DevVarStringArray, "List of axis custom commands"]]
     }
 
     #    Attribute definitions
@@ -679,13 +782,35 @@ class BlissAxisClass(PyTango.DeviceClass):
         'Backlash':
         [[PyTango.DevDouble,
           PyTango.SCALAR,
-          PyTango.READ_WRITE],
+          PyTango.READ],
          {
              'label': "Backlash",
              'unit': "uu",
              'format': "%5.3f",
              'description': "Backlash to be applied to each motor movement",
-             'Display level': PyTango.DispLevel.EXPERT,
+             #'Display level': PyTango.DispLevel.EXPERT,
+        }],
+        'Offset':
+        [[PyTango.DevDouble,
+          PyTango.SCALAR,
+          PyTango.READ],
+         {
+             'label': "Offset",
+             'unit': "uu",
+             'format': "%7.5f",
+             'description': "Offset between dial and user",
+             #'Display level': PyTango.DispLevel.EXPERT,
+        }],
+        'Tolerance':
+        [[PyTango.DevDouble,
+          PyTango.SCALAR,
+          PyTango.READ],
+         {
+             'label': "Tolerance",
+             'unit': "uu",
+             'format': "%7.5f",
+             'description': "Tolerance between dial and user",
+             #'Display level': PyTango.DispLevel.EXPERT,
         }],
         'Home_position':
         [[PyTango.DevDouble,
@@ -755,6 +880,10 @@ class BlissAxisClass(PyTango.DeviceClass):
              is expressed in physical unit.",
              'Display level': PyTango.DispLevel.EXPERT,
         }],
+        'trajpar':
+        [[PyTango.DevFloat,
+          PyTango.IMAGE,
+          PyTango.READ_WRITE, 1000, 5]],
     }
 
 
@@ -859,9 +988,11 @@ def main():
         if device_list is not None:
             _device = device_list[0]
             elog.info(" BlissAxisManager.py - BlissAxisManager device : %s" % _device)
-            _config_file = db.get_device_property(_device, "config_file")["config_file"][0]
-
-            elog.info(" BlissAxisManager.py - config file : " + bcolors.PINK + _config_file + bcolors.ENDC)
+            try:
+                _config_file = db.get_device_property(_device, "config_file")["config_file"][0]
+            except:
+                elog.info(" BlissAxisManager.py - 'config_file' property not present ?")
+                _config_file = None
 
             first_run = False
         else:
@@ -874,20 +1005,36 @@ def main():
         # py.add_class(BlissAxisClass, BlissAxis)
 
         if not first_run:
-            try:
-                TgGevent.execute(bliss.load_cfg, _config_file)
-            except:
-                elog.error("error (not present or syntax error?) in reading config file : %s" %
-                           _config_file, raise_exception=False)
-                print traceback.format_exc()
-                sys.exit(-1)
+            if _config_file is not None:
+                elog.info(" BlissAxisManager.py - config file : " + bcolors.PINK + _config_file + bcolors.ENDC)
+                try:
+                    TgGevent.execute(bliss.load_cfg, _config_file)
+                except:
+                    elog.error("error (not present or syntax error?) in reading config file : %s" %
+                               _config_file, raise_exception=False)
+                    sys.excepthook(*sys.exc_info())
+                    sys.exit(-1)
+                else:
+                    # Get axis names defined in config file.
+                    axis_names = bliss_config.axis_names_list()
+            else:
+                elog.info(" BlissAxisManager.py - " + bcolors.PINK + "beacon config" + bcolors.ENDC)
+                # Get axes names from property (= use beacon to get axis objects)
+                bliss_config.BACKEND = "beacon"
+                axis_names = db.get_device_property(_device, "axes")["axes"][0].split()
 
-            # Get axis names defined in config file.
-            axis_names = bliss_config.axis_names_list()
             elog.debug("axis names list : %s" % axis_names)
 
             for axis_name in axis_names:
-                _axis = TgGevent.get_proxy(bliss.get_axis, axis_name)
+                elog.debug("BlissAxisManager.py : _____________ axis %s _____________" % axis_name)
+                try:
+                    _axis = TgGevent.get_proxy(bliss.get_axis, axis_name)
+                except ConnectionException:
+                    elog.error("beacon_server seems not running")
+                    sys.exit(-1)
+                except:
+                    print traceback.format_exc()
+                    sys.exit(-1)
 
                 new_axis_class_class = types.ClassType("BlissAxisClass_%s" % axis_name, (BlissAxisClass,), {})
                 new_axis_class = types.ClassType("BlissAxis_%s" % axis_name, (BlissAxis,), {})
@@ -931,13 +1078,13 @@ def main():
                 """
                 SETTINGS AS ATTRIBUTES.
                 """
-                elog.debug(" BlissAxisManager.py ----------------  SETTINGS  -------------------------")
+                elog.debug(" BlissAxisManager.py : %s : -------------- SETTINGS -----------------" % axis_name)
 
                 new_axis_class_class.attr_list = dict(BlissAxisClass.attr_list)
 
                 for setting_name in _axis.settings():
                     if setting_name in ["velocity", "position", "dial_position", "state",
-                                        "offset", "low_limit", "high_limit", "acceleration"]:
+                                        "offset", "low_limit", "high_limit", "acceleration", "_set_position"]:
                         elog.debug(" BlissAxisManager.py -- std SETTING %s " % (setting_name))
                     else:
                         _attr_name = setting_name
@@ -976,9 +1123,11 @@ def main():
                         setattr(new_axis_class, "write_%s" % _attr_name, new_write_attr_method)
 
                 # End of custom command and settings
-                # Adds new Axis specific class.
+                elog.debug("BlissAxisManager.py : Adds new Axis specific class.")
                 py.add_class(new_axis_class_class, new_axis_class)
+                elog.debug("BlissAxisManager.py : Class added.")
 
+        elog.debug("BlissAxisManager.py : intitialize server.")
         U.server_init()
 
     except PyTango.DevFailed:

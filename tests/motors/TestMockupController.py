@@ -404,27 +404,26 @@ class TestMockupController(unittest.TestCase):
     def test_set_position(self):
         m0 = bliss.get_axis("m0")
         m0.position(0)
-        self.assertEquals(m0.position(), m0.set_position())
+        self.assertEquals(m0.position(), m0._set_position())
         m0.rmove(0.1)
         self.assertEquals(m0.position(), 0)
-        self.assertEquals(m0.set_position(), 0.1)
+        self.assertEquals(m0._set_position(), 0.1)
         for i in range(9):
             m0.rmove(0.1)
-        self.assertAlmostEqual(m0.set_position(), 1.0)
-        self.assertAlmostEqual(m0.position(), m0.set_position())
+        self.assertAlmostEqual(m0._set_position(), 1.0)
+        self.assertAlmostEqual(m0.position(), m0._set_position())
         m0.move(0.4)
-        self.assertEquals(m0.set_position(), 0.4)
+        self.assertEquals(m0._set_position(), 0.4)
         self.assertEquals(m0.position(), 0)
         m0.rmove(0.6)
-        self.assertAlmostEqual(m0.set_position(), 1)
-        self.assertAlmostEqual(m0.position(), m0.set_position())
+        self.assertAlmostEqual(m0._set_position(), 1)
+        self.assertAlmostEqual(m0.position(), m0._set_position())
         m0.move(2, wait=False)
         time.sleep(0.01)
         m0._Axis__move_task.kill(KeyboardInterrupt)
         m0.wait_move()
-        self.assertEquals(m0.set_position(), None)
         m0.move(1)
-        self.assertEquals(m0.set_position(), 1)
+        self.assertEquals(m0._set_position(), 1)
     
     def test_interrupted_waitmove(self):
         m0 = bliss.get_axis("m0")
@@ -449,6 +448,17 @@ class TestMockupController(unittest.TestCase):
         self.assertEquals(m.position(), 1)
         self.assertRaises(RuntimeError, m.move, -3)
         self.assertEquals(m.position(), -2)
+
+    def test_bad_start(self):
+        m = bliss.get_axis("roby")
+        m.dial(0); m.position(0)
+        try:
+            m.controller.set_error(True)
+            self.assertRaises(RuntimeError, m.move, 1)
+            self.assertEquals(m.state(), "READY")
+            self.assertEquals(m.position(), 0)
+        finally:
+            m.controller.set_error(False)     
 
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(TestMockupController)

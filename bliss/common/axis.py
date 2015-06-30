@@ -30,12 +30,10 @@ class Axis(object):
         from bliss.config.motors import StaticConfig
         self.__config = StaticConfig(config)
         self.__settings = AxisSettings(self)
-        self.__settings.set("offset", 0)
         self.__move_done = gevent.event.Event()
         self.__move_done.set()
         self.__custom_methods_list = list()
         self.__move_task = None
-        self.__set_position = None
 
     @property
     def name(self):
@@ -59,7 +57,15 @@ class Axis(object):
 
     @property
     def offset(self):
-        return self.__settings.get("offset")
+        offset = self.__settings.get("offset")
+        if offset is None:
+            offset = 0
+            self.__settings.set('offset', 0)
+        return offset
+
+    @property
+    def backlash(self):
+        return self.config.get("backlash", float, 0)
 
     @property
     def sign(self):
@@ -70,13 +76,17 @@ class Axis(object):
         return self.config.get("steps_per_unit", float, 1)
 
     @property
+    def tolerance(self):
+        return self.config.get("tolerance", float, 1E-4)
+
+    @property
     def encoder(self):
         try:
              encoder_name = self.config.get("encoder")
         except KeyError:
              return None
         else:
-            from bliss.config.motors import get_encoder 
+            from bliss.config.motors import get_encoder
             return get_encoder(encoder_name)
 
     @property
@@ -108,7 +118,7 @@ class Axis(object):
 
         self.__controller.set_on(self)
         state = self.__controller.state(self)
-        self.settings.set("state", state, write=False)
+        self.settings.set("state", state)
 
     def off(self):
         if self.is_moving:
@@ -116,11 +126,14 @@ class Axis(object):
 
         self.__controller.set_off(self)
         state = self.__controller.state(self)
-        self.settings.set("state", state, write=False)
+        self.settings.set("state", state)
 
-    def set_position(self):
-        return self.__set_position if self.__set_position is not None else self.position()
-
+    def _set_position(self):
+        sp = self.settings.get("_set_position")
+        if sp is None:
+          sp = self.position()
+          self.settings.set("_set_position", sp)
+        return sp
 
     def measured_position(self):
         """
@@ -152,10 +165,7 @@ class Axis(object):
                 _pos = self.__controller.set_position(self, new_dial * self.steps_per_unit)
                 curr_pos = _pos / self.steps_per_unit
             except NotImplementedError:
-                try:
-                    curr_pos = self.__controller.read_position(self) / self.steps_per_unit
-                except NotImplementedError:
-                    curr_pos = 0
+                curr_pos = self._hw_position()
 
             # do not change user pos (update offset)
             self._position(user_pos)
@@ -170,55 +180,52 @@ class Axis(object):
         Returns a value in user units.
         """
         elog.debug("axis.py : position(new_pos=%r)" % new_pos)
-        if self.is_moving:
-            if new_pos is not None:
+        if new_pos is not None:
+            if self.is_moving:
                 raise RuntimeError("Can't set axis position \
                                     while it is moving")
+            pos = self._position(new_pos)
+        else:
             pos = self.settings.get("position")
             if pos is None:
                 pos = self._position()
-                self.settings.set("position", pos)
-                self.settings.set("dial_position", self.user2dial(pos))
-        else:
-            pos = self._position(new_pos)
-            if new_pos is not None:
-                self.settings.set("position", pos)
-                self.settings.set("dial_position", self.user2dial(pos))
         return pos
+
+    def _hw_position(self):
+        try:
+            curr_pos = self.__controller.read_position(self) / self.steps_per_unit
+        except NotImplementedError:
+            # this controller does not have a 'position'
+            # (e.g like some piezo controllers)
+            curr_pos = 0
+        return curr_pos
 
     def _position(self, new_pos=None):
         """
         new_pos is in user units.
         Returns a value in user units.
         """
+        dial_pos = self._hw_position()
         if new_pos is not None:
             self.__set_position = new_pos
-
-            try:
-                curr_pos = self.__controller.read_position(self) / self.steps_per_unit
-            except NotImplementedError:
-                # this controller does not have a 'position'
-                # (e.g like some piezo controllers)
-                curr_pos = 0
-            self.__settings.set("offset", new_pos - self.sign * curr_pos)
+            self.__settings.set("offset", new_pos - self.sign * dial_pos)
             # update limits
             ll, hl = self.limits()
             self.limits(ll + self.offset if ll is not None else ll, hl + self.offset if hl is not None else hl)
 
-            return self.position()
-        else:
-            try:
-                curr_pos = self.__controller.read_position(self) / self.steps_per_unit
-            except NotImplementedError:
-                curr_pos = 0
-            elog.debug("curr_pos=%g" % curr_pos)
-            return self.dial2user(curr_pos)
+        self.__settings.set("position", self.dial2user(dial_pos), write=False)
+        self.__settings.set("dial_position", dial_pos) #, write=False)
+
+        return self.position()
 
     def state(self):
         if self.is_moving:
             return AxisState("MOVING")
-        # really read from hw
-        return self.__controller.state(self)
+        state = self.settings.get_from_channel('state')
+        if state is None:
+            # really read from hw
+            state = self.__controller.state(self)
+        return state
 
     def get_info(self):
         return self.__controller.get_info(self)
@@ -237,7 +244,9 @@ class Axis(object):
             _user_vel = new_velocity
         else:
             # Read -> Returns velocity read from motor axis.
-            _user_vel = self.__controller.read_velocity(self) / abs(self.steps_per_unit)
+            _user_vel = self.settings.get_from_channel('velocity')
+            if _user_vel is None:
+                _user_vel = self.__controller.read_velocity(self) / abs(self.steps_per_unit)
 
         # In all cases, stores velocity in settings in uu/s
         self.settings.set("velocity", _user_vel)
@@ -256,6 +265,10 @@ class Axis(object):
                 self.__controller.set_acceleration(self, new_acc * abs(self.steps_per_unit))
             except NotImplementedError:
                 elog.error("EMotion/axis.py : acceleration W is not implemented for this controller.")
+        else:
+            _acceleration = self.settings.get_from_channel('acceleration')
+            if _acceleration is not None:
+                return _acceleration
 
         # Both R or W : Reads acceleration from controller.
         try:
@@ -305,9 +318,7 @@ class Axis(object):
 
     def _update_settings(self, state=None):
         self.settings.set("state", state if state is not None else self.state(), write=False)
-        pos = self._position()
-        self.settings.set("dial_position", self.user2dial(pos))
-        self.settings.set("position", pos)
+        self._position()
 
     def _handle_move(self, motion):
         while True:
@@ -319,7 +330,7 @@ class Axis(object):
                 break
             self._update_settings(state)
             time.sleep(0.02)
-        
+
         if motion.backlash:
             # axis has moved to target pos - backlash;
             # now do the final motion (backlash) to reach original target.
@@ -340,14 +351,18 @@ class Axis(object):
         return (position - self.offset) / self.sign
 
     def prepare_move(self, user_target_pos, relative=False):
+        user_initial_dial_pos = self.dial()
+        hw_pos = self._hw_position()
+        if abs(user_initial_dial_pos - hw_pos) > self.tolerance:
+            raise RuntimeError("Discrepancy between dial (%f) and controller position (%f), aborting" % (user_initial_dial_pos, hw_pos))
         if relative:
-            user_initial_pos = self.set_position()
+            user_initial_pos = self._set_position()
             user_target_pos += user_initial_pos
         else:
-            user_initial_pos = self.position()
+            user_initial_pos = self.dial2user(user_initial_dial_pos)
         dial_initial_pos = self.user2dial(user_initial_pos)
         dial_target_pos = self.user2dial(user_target_pos)
-        self.__set_position = user_target_pos
+        self.settings.set("_set_position", user_target_pos)
         if abs(dial_target_pos - dial_initial_pos) < 1E-6:
             return
 
@@ -376,14 +391,18 @@ class Axis(object):
 
         # check software limits
         user_low_limit, user_high_limit = self.limits()
-        if not None in (user_low_limit, user_high_limit):
-            high_limit = self.user2dial(user_high_limit) * self.steps_per_unit
+        if user_low_limit is not None:
             low_limit = self.user2dial(user_low_limit) * self.steps_per_unit
-            if high_limit < low_limit:
-                high_limit, low_limit = low_limit, high_limit
         else:
-            user_low_limit = None
-            user_high_limit = None
+            low_limit = None
+        if user_high_limit is not None:
+            high_limit = self.user2dial(user_high_limit) * self.steps_per_unit
+        else:
+            high_limit = None
+        if high_limit is not None and high_limit < low_limit:
+            high_limit, low_limit = low_limit, high_limit
+            user_high_limit, user_low_limit = user_low_limit, user_high_limit
+
         backlash_str = " (with %f backlash)" % user_backlash if backlash else ""
         if user_low_limit is not None:
             if target_pos < low_limit:
@@ -410,16 +429,17 @@ class Axis(object):
 
     def _set_move_done(self, move_task):
         self.__move_done.set()
-        event.send(self, "move_done", True)
-        self._update_settings()
 
-        if move_task is not None and not move_task._being_waited:
-            try:
-                move_task.get()
-            except gevent.GreenletExit:
-                pass 
-            except:
-                sys.excepthook(*sys.exc_info())
+        if move_task is not None:
+            self._update_settings()
+            if not move_task._being_waited:
+                try:
+                    move_task.get()
+                except gevent.GreenletExit:
+                    pass
+                except:
+                    sys.excepthook(*sys.exc_info())
+        event.send(self, "move_done", True)
 
     def _check_ready(self):
         initial_state = self.state()
@@ -434,10 +454,8 @@ class Axis(object):
 
         motion = self.prepare_move(user_target_pos, relative)
 
-        self._set_moving_state()
-        self.__move_task = None
-
         self.__move_task = self._do_move(motion, wait=False)
+        self._set_moving_state()
         self.__move_task._being_waited = wait
         self.__move_task.link(self._set_move_done)
         gevent.sleep(0)
@@ -468,6 +486,8 @@ class Axis(object):
         return self.move(user_delta_pos, wait, relative=True)
 
     def wait_move(self):
+        if not self.is_moving:
+            return
         try:
             self.__move_done.wait()
         except KeyboardInterrupt:
@@ -475,17 +495,16 @@ class Axis(object):
             raise
         else:
             try:
-                return self.__move_task.get()
+                if self.__move_task is not None:
+                    return self.__move_task.get()
             except (KeyboardInterrupt, gevent.GreenletExit):
                 pass
 
     def _do_stop(self):
-        self.__set_position = None
-
         self.__controller.stop(self)
 
         # for some reason, _handle_move cannot be called !
-        # Python bug? Weird...       
+        # Python bug? Weird...
         while True:
             state = self.__controller.state(self)
             if state != "MOVING":
@@ -495,6 +514,9 @@ class Axis(object):
                 break
             self._update_settings(state)
             time.sleep(0.02)
+
+        self.settings.set("_set_position", self.position())
+
         if self.encoder is not None:
             self._do_encoder_reading()
 
@@ -517,9 +539,8 @@ class Axis(object):
             except NotImplementedError:
                 _set_pos = True
 
-        self._set_moving_state()
-
         self.__move_task = self._do_home(wait=False)
+        self._set_moving_state()
         self.__move_task._being_waited = wait
         self.__move_task.link(self._set_move_done)
         if _set_pos:
@@ -561,9 +582,9 @@ class Axis(object):
             lim_pos = float(lim_pos)
             _set_pos = True
 
-        self._set_moving_state()
 
         self.__move_task = self._do_limit_search(limit, wait=False)
+        self._set_moving_state()
         self.__move_task._being_waited = wait
         self.__move_task.link(self._set_move_done)
         if _set_pos:
@@ -668,7 +689,7 @@ class AxisState(object):
         """
 
         # set of active states.
-        self._current_states = set()
+        self._current_states = list()
 
         # set of defined/created states.
         self._axis_states = set(["READY", "MOVING", "FAULT", "LIMPOS", "LIMNEG", "HOME", "OFF"])
@@ -688,8 +709,9 @@ class AxisState(object):
                 self.create_state(*state)
                 self.set(state[0])
             else:
-                self.create_state(state)
-                self.set(state)
+                if isinstance(state, AxisState):
+                    state = state.current_states()
+                self._set_state_from_string(state)
 
     def states_list(self):
         """
@@ -700,17 +722,15 @@ class AxisState(object):
     def _check_state_name(self, state_name):
         if not isinstance(state_name, str) or not AxisState.STATE_VALIDATOR.match(state_name):
             raise ValueError(
-                "Invalid state : a state must be a string containing only block letters")
+                "Invalid state: a state must be a string containing only block letters")
 
     def create_state(self, state_name, state_desc=None):
         # Raises ValueError if state_name is invalid.
         self._check_state_name(state_name)
+        if state_desc is not None and '|' in state_desc:
+            raise ValueError("Invalid state: description contains invalid character '|'")
 
-        if state_name in self._axis_states:
-            # state already exists...
-            # (READY and MOVING are already in _axis_states)
-            pass
-        else:
+        if not state_name in self._axis_states:
             self._axis_states.add(state_name)
             # new description is put in dict.
             if state_desc is None:
@@ -728,18 +748,16 @@ class AxisState(object):
     """
     def set(self, state_name):
         if state_name in self._axis_states:
-            self._current_states.add(state_name)
+            if not state_name in self._current_states:
+                self._current_states.append(state_name)
 
-            # Mutual exclusion of READY and MOVING
-            if state_name == "READY":
-                if self.MOVING:
-                    self._current_states.remove("MOVING")
-            if state_name == "MOVING":
-                if self.READY:
-                    self._current_states.remove("READY")
-
-            # Other constraints ?
-
+                # Mutual exclusion of READY and MOVING
+                if state_name == "READY":
+                    if self.MOVING:
+                        self._current_states.remove("MOVING")
+                if state_name == "MOVING":
+                    if self.READY:
+                        self._current_states.remove("READY")
         else:
             raise ValueError("state %s does not exist" % state_name)
 
@@ -760,13 +778,29 @@ class AxisState(object):
 
         return " | ".join(states)
 
-    """
-    Cannonical python class methods.
-    """
+    def _set_state_from_string(self, state):
+        # is state_name a full list of states returned by self.current_states() ?
+        # (copy constructor)
+        if '(' in state:
+            full_states = [s.strip() for s in state.split('|')]
+            p = re.compile('^([A-Z]+)\s\((.+)\)$')
+            for full_state in full_states:
+                m = p.match(full_state)
+                state = m.group(1)
+                desc = m.group(2)
+                self.create_state(state, desc)
+                self.set(state)
+        else:
+            if state != 'UNKNOWN':
+                self.create_state(state)
+                self.set(state)
+
     def __str__(self):
         return self.current_states()
 
     def __eq__(self, other):
+        if isinstance(other, AxisState):
+            other = str(other)
         if isinstance(other, str):
             state = self.current_states()
             return other in state

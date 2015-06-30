@@ -136,7 +136,7 @@ def load_encoders(config_node, config_tree=None, config_file=None):
     return _load_objects("encoder", config_node, config_tree, config_file)
 
 
-def write_setting(config_dict, setting_name, setting_value):
+def write_setting(config_dict, setting_name, setting_value, write):
     config_node = config_dict.parent_element
 
     setting_node = config_node.find("settings")
@@ -149,12 +149,11 @@ def write_setting(config_dict, setting_name, setting_value):
     else:
         setting_element.set("value", str(setting_value))
 
-
-def commit_settings(config_dict):
-    if config_dict.config_file is not None:
-        config_dict.root.write(config_dict.config_file)
-    else:
-        pass  # ElementTree.dump(config_dict.root)
+    if write:
+        if config_dict.config_file is not None:
+            config_dict.root.write(config_dict.config_file)
+        else:
+            pass  # ElementTree.dump(config_dict.root)
 
 
 class StaticConfig(object):

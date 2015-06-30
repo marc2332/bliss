@@ -61,6 +61,144 @@ hg_config_headers("tango_mot", "TANGO_MOT", "TANGO_MOT", "TANGO_MOT")
 hg_generate("tango_mot")
 
 
+def bliss_get_axes(mot_name) '{
+    local  TTT[]
+
+    # Do not remove the following line...
+    TTT[0] = TTT[0]
+
+    tango_io(motor_par(mot_name, "ctrl_dev_name"), "GetAxisList", TTT)
+
+    return TTT
+}'
+
+
+def bliss_get_custom_commands(mot_name) '{
+
+    local ccList[]
+    local commands_names_list[]
+
+    commands_names_list[0] = 0
+
+    tango_io(motor_par(mot_name, "dev_name"), "GetCustomCommandList", ccList)
+
+
+    for (ii in ccList) {
+        local _fct_name  _cmd_string  _tin  _tout  _reste  _length
+        local _cmd
+
+        _cmd_string = ccList[ii]
+
+        # example :
+        # ["custom_set_measured_noise", ["float", "None"]]
+
+        _length = length(_cmd_string)
+        _fct_name = substr(_cmd_string, 3, index(_cmd_string, ",")-4)
+        # _fct_name = custom_set_measured_noise
+        # print _fct_name
+
+        _fct_length = index(_cmd_string, ",")+2
+        _reste = substr(_cmd_string, _fct_length  , _length-_fct_length )
+        # _reste = ["custom_set_measured_noise", ["float", "None"]]
+        # print _reste
+
+        local uuu[]
+        split(_reste, uuu, ", ")
+        _tin = string_remove_last_N_chars(substr(uuu[0], 3), 1)
+        _tout = string_remove_last_N_chars(substr(uuu[1], 2), 2)
+
+        printf("%s(%s) --> %s \n", _fct_name, _tin, _tout)
+        commands_names_list[ii] = _fct_name
+
+
+        if(_tin=="None" && _tout=="None"){
+            _cmd = sprintf("rdef bliss_%s(mot_name) \\\'{     \n\
+    tango_io(motor_par(mot_name, \"dev_name\"), \"%s\")                                  \n\
+}\\\'       \
+          ", _fct_name, _fct_name)
+
+            eval(_cmd)
+        }
+        else if(_tout=="None"){
+            _cmd = sprintf("rdef bliss_%s(mot_name, argin) \\\'{     \n\
+    tango_io(motor_par(mot_name, \"dev_name\"), \"%s\", argin)                                  \n\
+}\\\'       \
+          ", _fct_name, _fct_name)
+
+            eval(_cmd)
+        }
+        else if(_tin == "None"){
+            _cmd = sprintf("rdef bliss_%s(mot_name) \\\'{     \n\
+    return tango_io(motor_par(mot_name, \"dev_name\"), \"%s\")                                  \n\
+}\\\'       \
+          ", _fct_name, _fct_name)
+
+            eval(_cmd)
+        }
+        else{
+            _cmd = sprintf("rdef bliss_%s(mot_name, argin) \\\'{     \n\
+    return tango_io(motor_par(mot_name, \"dev_name\"), \"%s\", argin)                                  \n\
+}\\\'       \
+          ", _fct_name, _fct_name)
+
+            eval(_cmd)
+        }
+
+    }
+
+
+}'
+
+
+
+
+def bliss_put_traj(mot_name) '{
+    local _traj_attr
+
+    float array tp[5][100]
+    array_op("fill", tp, 1,2)
+
+    _traj_attr = sprintf("%s/trajpar", motor_par(mot_name, "dev_name"))
+    tango_put(_traj_attr, tp)
+
+}'
+
+
+#%UU% <motor_name> [<mode>]
+#%MDESC%
+#    Launches atkpanel GUI on the device of motor <motor_name>.
+# Use expert mode if <mode> is "expert".
+def econfig '{
+    local _nb_param  _device_name  _axis_name
+
+    _nb_param = $#
+
+    _axis_name = "$1"
+    _device_name = motor_par(_axis_name, "dev_name")
+
+    if (_nb_param == 2 && ("$2" == "expert")){
+        printf("Launching expert GUI for Bliss axis \"%s\" (device=\"%s\")\n", _axis_name,  _device_name)
+        _cmd = sprintf("/users/blissadm/bin/atkpanel -expert %s  >/dev/null 2>&1 &", _device_name)
+    }
+    else{
+        printf("Launching GUI for Bliss axis \"%s\" (device=\"%s\")\n", _axis_name,  _device_name)
+        _cmd = sprintf("/users/blissadm/bin/atkpanel %s  >/dev/null 2>&1 & ", _device_name)
+    }
+
+    unix(_cmd)
+}'
+
+
+#%UU% <motor_name>
+#%MDESC%
+#    Launches atkpanel GUI in expert mode on the device of motor
+# <motor_name>.
+def eeconfig '{
+    econfig "$1" "expert"
+}'
+
+
+
 #%IU%
 #%MDESC%
 #    Called on reconfig.
@@ -133,6 +271,7 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
                              _axis_ds_name, _mot_mne))
 
         # Cannot use tango_mot_ADDR here directly...
+        motor_par(motnum, "ctrl_dev_name", tango_mot_ADDR, "add")
         motor_par(motnum, "dev_name", _axis_ds_name, "add")
 
         # STEPS PER UNIT

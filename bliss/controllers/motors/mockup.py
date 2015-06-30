@@ -1,10 +1,12 @@
 from bliss.controllers.motor import Controller
 from bliss.common import log as elog
 from bliss.common.axis import AxisState
+from bliss.common import event
 from bliss.controllers.motor import add_axis_method
 import math
 import time
 import random
+import functools
 
 """
 mockup.py : a mockup controller for bliss.
@@ -40,6 +42,7 @@ class Mockup(Controller):
         self._axis_moves = {}
         self.__encoders = {}
 
+        self.__error_mode = False
         self._hw_status = AxisState("READY")
         self.__hw_limit = (None, None)
 
@@ -75,11 +78,18 @@ class Mockup(Controller):
     Axes initialization actions.
     """
     def initialize_axis(self, axis):
+        def set_pos(move_done, axis=axis):
+            if move_done:
+                self.set_position(axis, axis.dial()*axis.steps_per_unit)
+
         self._axis_moves[axis] = {
             "measured_simul": False,
             "measured_noise": 0.0,
             "end_t": 0,
-            "end_pos": 30}
+            "end_pos": 0,
+            "move_done_cb": set_pos }
+
+        event.connect(axis, "move_done", set_pos)
 
         # this is to test axis are initialized only once
         axis.settings.set('init_count', axis.settings.get('init_count') + 1)
@@ -123,11 +133,15 @@ class Mockup(Controller):
           self.__hw_limit = (ll, hl)
 
     def start_all(self, *motion_list):
+        if self.__error_mode:
+            raise RuntimeError("Cannot start because error mode is set")
         t0 = time.time()
         for motion in motion_list:
             self.start_one(motion, t0=t0)
 
     def start_one(self, motion, t0=None):
+        if self.__error_mode:
+            raise RuntimeError("Cannot start because error mode is set")
         axis = motion.axis
         t0 = t0 or time.time()
         pos = self.read_position(axis)
@@ -361,5 +375,7 @@ class Mockup(Controller):
         self.__encoders[axis.encoder]["measured_noise"] = noise
         self.__encoders[axis.encoder]["axis"] = axis
 
+    def set_error(self, error_mode):
+        self.__error_mode = error_mode
 
 

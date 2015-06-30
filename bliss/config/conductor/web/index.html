@@ -1,82 +1,119 @@
 <html>
   <head>
-	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+	<meta http-equiv="Content-Type" content="text/html" charset="utf-8" />
 	<title>Beacon configuration application</title>
+
+	<!-- JQuery -->
         <script language="JavaScript" type="text/javascript" src="js/jquery-2.1.3.min.js"></script>
-        <script language="JavaScript" type="text/javascript" src="js/jquery-ui.min.js"></script>
-        <script language="JavaScript" type="text/javascript" src="js/jquery.layout.min.js"></script>
-        <script language="JavaScript" type="text/javascript" src="js/jstree.min.js"></script>
 
-        <link rel="stylesheet" href="css/jquery-ui/jquery-ui.min.css"></link>
-        <link rel="stylesheet" href="css/layout-default.min.css"></link>
-        <link rel="stylesheet" href="css/jstree/style.min.css"></link>
-
+	<!-- Bootstrap -->
 	<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
         <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css"></link>
+	<link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
+
+	<!-- JQuery UI -->
+	<!-- <script language="JavaScript" type="text/javascript" src="js/jquery-ui.min.js"></script> -->
+	<!-- <link rel="stylesheet" href="css/jquery-ui/jquery-ui.min.css"></link> -->
+
+	<!-- JQuery layout -->
+	<!-- <script language="JavaScript" type="text/javascript" src="js/jquery.layout.min.js"></script> -->
+	<!-- <link rel="stylesheet" href="css/layout-default.min.css"></link> -->
+
+	<!-- jsTree -->
+        <script language="JavaScript" type="text/javascript" src="js/jstree.min.js"></script>
+	<link rel="stylesheet" href="css/jstree/style.min.css"></link>
+
         <script src="js/config_app.js"></script>
+        <link rel="stylesheet" href="css/config_app.css"></link>
+
+	<style>
+	  .panel_left  { float:left; padding: 2px;}
+	  .panel_right { overflow: hidden; padding: 2px; }
+
+	  .panel-body { padding: 5px; }
+	</style>
   </head>
   <body>
-    <div class="ui-layout-north">
-       <div class="btn-group" role="group" aria-label="global manipulation">
-	 <button type="button" class="btn btn-default" id="reload_config"  aria-label="reload config">
-	   <span class="glyphicon glyphicon-refresh"></span>
-	 </button>
-       </div>
-    </div>
-    <div class="ui-layout-west">
-      <div class="btn-group" role="group" aria-label="Item manipulation">
-	<div class="btn-group" role="group">
-	  <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown"
-		    aria-haspopup="true" aria-expanded="false" aria-label="add item" id="add_item">
-	    <span class="glyphicon glyphicon-asterisk" aria-hidden="true"></span>
-	    <span class="caret"></span>
-	  </button>
-	  <ul class="dropdown-menu" aria-labelledby="add_item">
-	    <li><a href="#">Add object</a></li>
-	    <li><a href="#">Add file</a></li>
-	    <li><a href="#">Add folder</a></li>
-	  </ul>
-	</div>
-	<button type="button" class="btn btn-default" id="clone_item"  aria-label="clone item">
-	  <span class="glyphicon glyphicon-duplicate"></span>
-	</button>
-	<button type="button" class="btn btn-default" id="remove_item" aria-label="remove item">
-	  <span class="glyphicon glyphicon-remove"></span>
+    <!-- Main toolbar -->
+    <div class="btn-toolbar" role="toolbar" id="main_toolbar" aria-label="main toolbar">
+      <div class="btn-group" role="group" aria-label="global fucntionality">
+	<button type="button" class="btn btn-default" id="reload_config"
+		data-loading-text="Reloading...">
+	  Reload config
+	  <span class="glyphicon glyphicon-refresh"></span>
 	</button>
       </div>
-      <div id="tree"></div>
     </div>
-    <div class="ui-layout-center">
-      <div id="edit_panel"></div>
+
+    <!-- Main content -->
+    <div>
+
+      <!-- Tree panel (left panel) -->
+      <div id="tree_panel" class="panel_left">
+	<!-- Tree toolbar -->
+	<div class="panel panel-default">
+	  <div class="panel-body">
+	    <div class="btn-toolbar" role="toolbar" id="tree_toolbar" aria-label="tree toolbar">
+	      <div class="btn-group" role="group" aria-label="item edition">
+		<div class="btn-group" role="group">
+		  <button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown"
+			  aria-haspopup="true" aria-expanded="false" id="add_item">
+		    Add...
+		    <span class="caret"></span>
+		    <span class="glyphicon glyphicon-plus"></span>
+		  </button>
+		  <ul class="dropdown-menu">
+		    <li><a href="#">Folder</a></li>
+		    <li><a href="#">File</a></li>
+		    <li><a href="#">Item</a></li>
+		  </ul>
+		</div>
+		<button type="button" class="btn btn-primary" id="remove_item">
+		  Remove
+		  <span class="glyphicon glyphicon-remove"></span>
+		</button>
+		<button type="button" class="btn btn-primary" id="clone_item">
+		  Clone
+		  <span class="glyphicon glyphicon-duplicate"></span>
+		</button>
+	      </div>
+	    </div>
+
+	    <div style="height:10px;"></div>
+
+	    <!-- Tree -->
+	    <div id="tree"></div>
+	  </div>
+	</div>
+      </div>
+
+      <!-- Edit panel (right panel) -->
+      <div id="edit_panel" class="panel_right" style="visibility:hidden">
+	<div class="panel panel-default">
+	  <div class="panel-heading">
+	    <h3 id="edit_form_title" class="panel-title"></h3>
+	  </div>
+	  <div id="edit_form" class="panel-body"></div>
+      </div>
     </div>
     <script>
       $(function() {
-          $("body").layout({ applyDefaultStyles: false, west__size: '30%' });
-          var tree = $("#tree")
+        var tree = $("#tree")
 
-          populate_tree(tree);
+        populate_tree(tree);
 
-          tree.bind("select_node.jstree", function(ev, data) {
-            var node_name = data.node.text;
-
-            $.get("objects/"+node_name, function(data) {
-              $("#edit_panel").empty();
-              var form = $("<form></form>");
-              $("#edit_panel").append(form);
-              $.each(data, function(key, value) {
-                var label = $("<label></label>");
-                label.html(key);
-                var input_field = $("<input></input>");
-                input_field.attr("class", "form-control");
-                input_field.attr("placeholder", key);
-                input_field.attr("value", value);
-                input_field.attr("type", "text");
-                form.append(label);
-                form.append(input_field);
-                form.append("<br>");
-              });
-            }, "json");
-         });
+        $("#reload_config").on("click", function() {
+          var btn = $(this).button('loading');
+          request = $.ajax({
+            url : "config/reload",
+            success: function() {
+              tree.jstree("destroy");
+              populate_tree(tree);
+            }});
+          request.always(function() {
+            btn.button('reset');
+          });
+        });
       });
     </script>
   </body>

@@ -463,6 +463,16 @@ class TestMockupController(unittest.TestCase):
         self.assertEquals(m.velocity(from_config=True), 3) 
         self.assertEquals(m.acceleration(from_config=True), 10)
 
+    def test_apply_config(self):
+        m = bliss.get_axis("roby")
+        m.velocity(3)
+        m.acceleration(10)
+        m.limits(0,10)
+        m.apply_config()
+        self.assertEquals(m.velocity(), 2500)        
+        self.assertEquals(m.acceleration(), 4)        
+        self.assertEquals(m.limits(), (None,None))
+
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(TestMockupController)
     unittest.TextTestRunner(verbosity=2).run(suite)

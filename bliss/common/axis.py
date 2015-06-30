@@ -264,22 +264,15 @@ class Axis(object):
             return self.config.get("acceleration", float)
 
         if new_acc is not None:
-            try:
-                # W => Converts into motor units to change acceleration of axis.
-                self.__controller.set_acceleration(self, new_acc * abs(self.steps_per_unit))
-            except NotImplementedError:
-                elog.error("EMotion/axis.py : acceleration W is not implemented for this controller.")
+            # Converts into motor units to change acceleration of axis.
+            self.__controller.set_acceleration(self, new_acc * abs(self.steps_per_unit))
         else:
             _acceleration = self.settings.get_from_channel('acceleration')
             if _acceleration is not None:
                 return _acceleration
 
         # Both R or W : Reads acceleration from controller.
-        try:
-            _ctrl_acc = self.__controller.read_acceleration(self)
-        except NotImplementedError:
-            elog.error("EMotion/axis.py : acceleration R W is not implemented for this controller.")
-
+        _ctrl_acc = self.__controller.read_acceleration(self)
         _acceleration = _ctrl_acc / abs(self.steps_per_unit)
 
         if new_acc is not None:
@@ -296,17 +289,11 @@ class Axis(object):
             return self.velocity(from_config=True) / self.acceleration(from_config=True)
 
         if new_acctime is not None:
-            try:
-                # W => Converts acctime into acceleration.
-                acc = self.velocity() / new_acctime
-                self.acceleration(acc)
-            except NotImplementedError:
-                elog.error("EMotion/axis.py : acceleration is not implemented for this controller.")
+            # Converts acctime into acceleration.
+            acc = self.velocity() / new_acctime
+            self.acceleration(acc)
 
-        try:
-            _acctime = self.velocity() / self.acceleration()
-        except NotImplementedError:
-            elog.error("EMotion/axis.py : acceleration is not implemented for this controller.")
+        _acctime = self.velocity() / self.acceleration()
 
         return _acctime
 

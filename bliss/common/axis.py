@@ -607,6 +607,18 @@ class Axis(object):
                     break
                 time.sleep(0.02)
 
+    def settings_to_config(self, velocity=True, acceleration=True, limits=True):
+        if velocity:
+            self.__config.set('velocity', self.velocity())
+        if acceleration:
+            self.__config.set('acceleration', self.acceleration())
+        if limits:
+            ll, hl = self.limits()
+            self.__config.set('low_limit', ll)
+            self.__config.set('high_limit', hl)
+        if any((velocity, acceleration, limits)):
+            self.__config.save()
+
 
 class AxisRef(object):
 

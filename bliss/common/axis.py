@@ -9,6 +9,10 @@ import re
 import types
 
 
+class Null(object):
+    __slots__ = []
+
+
 class Motion(object):
 
     def __init__(self, axis, target_pos, delta):
@@ -306,13 +310,23 @@ class Axis(object):
 
         return _acctime
 
-    def limits(self, low_limit=None, high_limit=None):
+    def limits(self, low_limit=Null(), high_limit=Null(), from_config=False):
         """
         <low_limit> and <high_limit> given in user units.
         """
-        if low_limit is not None:
+        if from_config:
+            try:
+                ll = self.config.get("low_limit")
+            except KeyError:
+                ll = None
+            try:
+                hl = self.config.get("high_limit")
+            except KeyError:
+                hl = None
+            return (ll, hl)
+        if not isinstance(low_limit, Null):
             self.settings.set("low_limit", low_limit)
-        if high_limit is not None:
+        if not isinstance(high_limit, Null):
             self.settings.set("high_limit", high_limit)
         return self.settings.get('low_limit'), self.settings.get('high_limit')
 

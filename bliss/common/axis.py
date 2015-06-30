@@ -132,6 +132,12 @@ class Axis(object):
         state = self.__controller.state(self)
         self.settings.set("state", state)
 
+    def reset(self):
+        if self.is_moving:
+            raise RuntimeError("Can't set power off while axis is moving")
+        self.__controller.finalize_axis(self)
+        self.__controller._initialize_axis(self)
+
     def _set_position(self):
         sp = self.settings.get("_set_position")
         if sp is None:

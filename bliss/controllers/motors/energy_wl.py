@@ -1,10 +1,14 @@
 """
 Energy/wavelength Bliss controller
+Calculate energy [keV] / wavelength [Å] from angle or
+angle [deg] from energy [keV], using the Bragg´s law
 
 monoang: alias for the real monochromator motor
 energy: energy calculated axis alias
 wavelength: wavelength calculated axis alias
 dspace: monochromator crystal d-spacing
+
+Antonia Beteva ESRF BCU
 """
 
 from bliss.controllers.motor import CalcController; from bliss.common import event

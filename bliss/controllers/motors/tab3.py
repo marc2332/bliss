@@ -1,5 +1,6 @@
 """
 3-legs table Bliss controller
+All distances and motor positions are in mm
 
 back1, back2: aliases for real back legs axes
 front: alias for real front leg axis
@@ -63,6 +64,8 @@ Example configuration (from ID30):
     <d3 value="675" />
   </controller>
 </config>
+
+Antonia Beteva ESRF BCU
 """
 from bliss.controllers.motor import CalcController
 import math

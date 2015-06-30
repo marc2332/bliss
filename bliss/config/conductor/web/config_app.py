@@ -7,15 +7,16 @@ from ... import static
 
 web_app = flask.Flask(__name__)
 beacon_port = None
-beacon_conn = None
-cfg = None
 
-def init():
-  global beacon_conn
-  global cfg
-  beacon_conn = connection.Connection('localhost', beacon_port)
-  client._default_connection = beacon_conn
-  cfg = static.get_config()
+def get_config():
+  global __config
+  try:
+    return __config
+  except NameError:
+    beacon_conn = connection.Connection('localhost', beacon_port)
+    client._default_connection = beacon_conn
+    __config = static.get_config()
+  return __config
 
 @web_app.route("/")
 def index():
@@ -27,16 +28,15 @@ def static_file(dir, filename):
 
 @web_app.route("/db_files")
 def db_files():
-  if cfg is None:
-    init()
+  cfg = get_config()
+
   db_files, _ = zip(*client.get_config_db_files())
 
   return flask.json.dumps(db_files)
 
 @web_app.route("/objects/")
 def objects():
-  if cfg is None:
-    init()
+  cfg = get_config()
 
   db_files, _ = map(list, zip(*client.get_config_db_files()))
 
@@ -57,9 +57,12 @@ def objects():
 
 @web_app.route("/objects/<name>")
 def get_object_config(name):
-  if cfg is None:
-    init()
-
+  cfg = get_config()
   result = cfg.get_config(name)
-
   return flask.json.dumps(result)
+
+@web_app.route("/config/reload")
+def reload_config():
+  cfg = get_config()
+  cfg.reload()
+  return ""

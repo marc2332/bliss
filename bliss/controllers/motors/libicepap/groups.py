@@ -434,6 +434,62 @@ class Group(object):
         return ret
 
 
+    def warning(self, axes=None):
+        """
+        Returns a list of axis/warning conditions pairs
+        for all group axes or for a given subset list of axes.
+
+        A warning condition is a string with multiple CR separated lines.
+
+        Supports also to get a single axis as argument, it will then
+        return a single value instead of a list.
+        """
+
+        # Get the list of axis, by default use all group axis
+        axis_list = self._check_axislist(axes)
+
+        # Get unsorted axis status
+        # No system command available, therefore interogate axis per axis
+        warns = {}
+        for axis in axis_list:
+            warns[axis] = axis.ackcommand("?WARNING")
+
+        # For a single axis request, return a single value rather than a list
+        if isinstance(axes, libaxis.Axis):
+            return warns[axes]
+
+        # Normal end
+        return warns
+
+
+    def alarm(self, axes=None):
+        """
+        Returns a list of axis/alarm conditions pairs
+        for all group axes or for a given subset list of axes.
+
+        An alarm condition is a string with multiple CR separated lines.
+
+        Supports also to get a single axis as argument, it will then
+        return a single value instead of a list.
+        """
+
+        # Get the list of axis, by default use all group axis
+        axis_list = self._check_axislist(axes)
+
+        # Get unsorted axis status
+        # No system command available, therefore interogate axis per axis
+        alarms = {}
+        for axis in axis_list:
+            alarms[axis] = axis.ackcommand("?ALARM")
+
+        # For a single axis request, return a single value rather than a list
+        if isinstance(axes, libaxis.Axis):
+            return alarms[axes]
+
+        # Normal end
+        return alarms
+
+
     def ismoving(self, axis_list=None):
         """Returns true if at least one axis is moving"""
 

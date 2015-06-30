@@ -126,7 +126,6 @@ def status_isready(stat):
     Returns True if the axis status given indicates 
     that the axis is ready to move
     """
-
     return ((stat & (1<<9)) != 0)
 
 
@@ -135,7 +134,6 @@ def status_lowlim(stat):
     Returns True if the axis status given indicates 
     a low limitswitch active
     """
-
     return ((stat & (1<<19)) != 0)
 
 
@@ -144,7 +142,6 @@ def status_highlim(stat):
     Returns True if the axis status given indicates
     a high limitswitch active
     """
-
     return ((stat & (1<<18)) != 0)
 
 
@@ -153,9 +150,75 @@ def status_home(stat):
     Returns True if the axis status given indicates
     a HOME switch active
     """
-
     return ((stat & (1<<20)) != 0)
 
+
+def status_warning(stat):
+    """
+    Returns True if the axis status given indicates 
+    a warning condition
+    """
+    return ((stat & (1<<13)) != 0)
+
+def status_ispoweron(stat):
+    """
+    Returns True if the axis status given indicates 
+    that the axis is powered
+    """
+    return ((stat & (1<<23)) != 0)
+
+STATUS_DISCODE_STR = {
+    0 : 'POWERENA',
+    1 : 'NOTACTIVE',
+    2 : 'ALARM',
+    3 : 'REMRACKDIS',
+    4 : 'LOCRACKDIS',
+    5 : 'REMAXISDIS',
+    6 : 'LOCAXISDIS',
+    7 : 'SOFTDIS'
+}
+STATUS_DISCODE_DSC = {
+    0 : 'power enabled',
+    1 : 'axis configured as not active',
+    2 : 'alarm condition',
+    3 : 'remote rack disable input signal',
+    4 : 'local rack disable switch',
+    5 : 'remote axis disable input signal',
+    6 : 'local axis disable switch',
+    7 : 'software disable'
+}
+def status_get_disable(stat):
+    """
+    Returns from the given axis status,
+    the discable code, a short string, a description string
+    or None if no disable condition is active
+    """
+    dis = (stat >> 4) & 7
+    if dis == 0:
+        return None, None, None
+    return dis, STATUS_DISCODE_STR[dis], STATUS_DISCODE_DSC[dis]
+
+STATUS_MODCODE_STR = {
+    0 : 'OPER',
+    1 : 'PROG',
+    2 : 'TEST',
+    3 : 'FAIL'
+}
+STATUS_MODCODE_DSC = {
+    0 : 'operation mode',
+    1 : 'programmation mode',
+    2 : 'test mode',
+    3 : 'fail mode'
+}
+def status_get_mode(stat):
+    """
+    Returns from the given axis status,
+    the mode code, a short string, a description string
+    """
+    cod = (stat >> 2) & 3
+    if cod == 0:
+        return None, None, None
+    return dis, STATUS_MODCODE_STR[cod], STATUS_MODCODE_DSC[cod]
 
 
 #-------------------------------------------------------------------------

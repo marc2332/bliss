@@ -99,10 +99,10 @@ class Controller(object):
         axis = self._axes[axis_name]
 
         if not self.__initialized_axis[axis]:
-            self.initialize_axis(axis)
             # load settings
             axis.settings.load_from_config()
 
+            self.initialize_axis(axis)
             self.__initialized_axis[axis] = True
 
             # apply settings or config parameters

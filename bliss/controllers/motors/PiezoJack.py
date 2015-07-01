@@ -101,9 +101,6 @@ class PiezoJack(Controller):
         Returns:
             - <position> : float : system position in micron
         """
-
-        print "---------------########### in read_position-------"
-
         try:
             tns = self.piezo.Get_TNS()
 
@@ -292,6 +289,8 @@ TAD is %s""" % tad)
         pos = self.piezo.Get_Pos()
         new_pos = pos + motion.delta
         elog.debug("New position should be %s" % new_pos)
+        current_tns = self.piezo.Get_TNS()
+        new_tns = current_tns + motion.delta / self.factor
 
         # Now check if new position is within the range of the piezo.
         if new_pos <= self._PiezoSize.high and \
@@ -302,8 +301,19 @@ TAD is %s""" % tad)
             self.piezo.Set_Closed_Loop(True)
 
             self.piezo.move(new_pos)
-
+            pos = self.piezo._position()  # "POS?" + cache update.
             time.sleep(self._piezo_settle_sleep)
+
+            for _ in range(self._icepap_retries):
+                current_tns = self.piezo.Get_TNS()
+                elog.debug("---PIEZO-------------------- new_tns     ------------------> %r" % (new_tns))
+                elog.debug("---PIEZO-------------------- current_tns ------------------> %r" % (current_tns))
+                if abs(new_tns - current_tns) < self.tns_allowed_divergence / 8:
+                    break
+
+                piezo_rmove = (new_tns - current_tns) * self.factor
+                self.piezo.rmove(piezo_rmove)
+                time.sleep(self._piezo_settle_sleep)
 
             elog.debug("New piezo position given by controller: %s" % self.piezo.position())
         else:
@@ -314,7 +324,6 @@ TAD is %s""" % tad)
             # new position's TNS value
             current_tns = self.piezo.Get_TNS()
 
-            new_tns = current_tns + motion.delta / self.factor
             elog.debug("self.factor is %r" % self.factor)
             elog.debug("----------------------------> new_tns should be %r" % new_tns)
 
@@ -339,8 +348,8 @@ TAD is %s""" % tad)
             # Try to move close to the new calculated TNS.
             for _ in range(self._icepap_retries):
                 current_tns = self.piezo.Get_TNS()
-                elog.debug("----------------------------     new_tns      ------------------> %r" % (new_tns))
-                elog.debug("---------------------------- LOOP current_tns ------------------> %r" % (current_tns))
+                elog.debug("--ICEPAP-------------------- new_tns     ------------------> %r" % (new_tns))
+                elog.debug("--ICEPAP-------------------- current_tns ------------------> %r" % (current_tns))
                 if abs(new_tns - current_tns) < self.tns_allowed_divergence:
                     break
 
@@ -376,16 +385,18 @@ TAD is %s""" % tad)
             time.sleep(self._piezo_settle_sleep)
 
             pos = self.piezo._position()  # "POS?" + cache update.
+            self.piezo.move(self._PiezoSize.middle)
+            pos = self.piezo._position()  # "POS?" + cache update.
 
             for _ in range(self._icepap_retries):
                 current_tns = self.piezo.Get_TNS()
-                elog.debug("---PIEZO--------------------     new_tns      ------------------> %r" % (new_tns))
-                elog.debug("---PIEZO-------------------- LOOP current_tns ------------------> %r" % (current_tns))
-                if abs(new_tns - current_tns) < self.tns_allowed_divergence:
+                elog.debug("---PIEZO-------------------- new_tns     ------------------> %r" % (new_tns))
+                elog.debug("---PIEZO-------------------- current_tns ------------------> %r" % (current_tns))
+                if abs(new_tns - current_tns) < self.tns_allowed_divergence / 8:
                     break
 
-                piezo_move = new_tns * self.factor
-                self.piezo.move(piezo_move)
+                piezo_rmove = (new_tns - current_tns) * self.factor
+                self.piezo.rmove(piezo_rmove)
                 time.sleep(self._piezo_settle_sleep)
 
 

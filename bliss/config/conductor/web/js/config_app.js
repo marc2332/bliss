@@ -65,7 +65,6 @@ function init_tree(tree) {
           input_field.attr("type", "text");
           form.append(label);
           form.append(input_field);
-          form.append("<br>");
         });
       } else {
         $("#edit_form_title").parent().attr("style", "visibility: hidden");

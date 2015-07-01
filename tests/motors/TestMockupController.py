@@ -118,12 +118,6 @@ class TestMockupController(unittest.TestCase):
             time.sleep(0)
         robz.state()
         self.assertEqual(robz.state(), "READY")
-        """
-        self.assertEqual(e.get(), "MOVING")
-        self.assertEqual(robz.state(), "MOVING")
-        e = gevent.event.AsyncResult()
-        self.assertEqual(e.get(), "READY")
-        """
 
     def test_position_callback(self):
         storage={"last_pos":None, "last_dial_pos":None}
@@ -459,6 +453,25 @@ class TestMockupController(unittest.TestCase):
             self.assertEquals(m.position(), 0)
         finally:
             m.controller.set_error(False)     
+    def test_settings_to_config(self):
+        m = bliss.get_axis("roby")
+        m.velocity(3)
+        m.acceleration(10)
+        self.assertEquals(m.velocity(from_config=True), 2500) 
+        self.assertEquals(m.acceleration(from_config=True), 4)
+        m.settings_to_config()
+        self.assertEquals(m.velocity(from_config=True), 3) 
+        self.assertEquals(m.acceleration(from_config=True), 10)
+
+    def test_apply_config(self):
+        m = bliss.get_axis("roby")
+        m.velocity(3)
+        m.acceleration(10)
+        m.limits(0,10)
+        m.apply_config()
+        self.assertEquals(m.velocity(), 2500)        
+        self.assertEquals(m.acceleration(), 4)        
+        self.assertEquals(m.limits(), (None,None))
 
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(TestMockupController)

@@ -210,3 +210,9 @@ class StaticConfig(object):
 
             raise KeyError("no property '%s` in config" % property_name)
 
+
+    def set(self, property_name, value):
+        self.config_dict[property_name] = value
+   
+    def save(self):
+        self.config_dict.save()

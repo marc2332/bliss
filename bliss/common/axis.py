@@ -9,6 +9,10 @@ import re
 import types
 
 
+class Null(object):
+    __slots__ = []
+
+
 class Motion(object):
 
     def __init__(self, axis, target_pos, delta):
@@ -127,6 +131,12 @@ class Axis(object):
         self.__controller.set_off(self)
         state = self.__controller.state(self)
         self.settings.set("state", state)
+
+    def reset(self):
+        if self.is_moving:
+            raise RuntimeError("Can't set power off while axis is moving")
+        self.__controller.finalize_axis(self)
+        self.__controller._initialize_axis(self)
 
     def _set_position(self):
         sp = self.settings.get("_set_position")
@@ -260,22 +270,15 @@ class Axis(object):
             return self.config.get("acceleration", float)
 
         if new_acc is not None:
-            try:
-                # W => Converts into motor units to change acceleration of axis.
-                self.__controller.set_acceleration(self, new_acc * abs(self.steps_per_unit))
-            except NotImplementedError:
-                elog.error("EMotion/axis.py : acceleration W is not implemented for this controller.")
+            # Converts into motor units to change acceleration of axis.
+            self.__controller.set_acceleration(self, new_acc * abs(self.steps_per_unit))
         else:
             _acceleration = self.settings.get_from_channel('acceleration')
             if _acceleration is not None:
                 return _acceleration
 
         # Both R or W : Reads acceleration from controller.
-        try:
-            _ctrl_acc = self.__controller.read_acceleration(self)
-        except NotImplementedError:
-            elog.error("EMotion/axis.py : acceleration R W is not implemented for this controller.")
-
+        _ctrl_acc = self.__controller.read_acceleration(self)
         _acceleration = _ctrl_acc / abs(self.steps_per_unit)
 
         if new_acc is not None:
@@ -292,27 +295,31 @@ class Axis(object):
             return self.velocity(from_config=True) / self.acceleration(from_config=True)
 
         if new_acctime is not None:
-            try:
-                # W => Converts acctime into acceleration.
-                acc = self.velocity() / new_acctime
-                self.acceleration(acc)
-            except NotImplementedError:
-                elog.error("EMotion/axis.py : acceleration is not implemented for this controller.")
+            # Converts acctime into acceleration.
+            acc = self.velocity() / new_acctime
+            self.acceleration(acc)
 
-        try:
-            _acctime = self.velocity() / self.acceleration()
-        except NotImplementedError:
-            elog.error("EMotion/axis.py : acceleration is not implemented for this controller.")
+        _acctime = self.velocity() / self.acceleration()
 
         return _acctime
 
-    def limits(self, low_limit=None, high_limit=None):
+    def limits(self, low_limit=Null(), high_limit=Null(), from_config=False):
         """
         <low_limit> and <high_limit> given in user units.
         """
-        if low_limit is not None:
+        if from_config:
+            try:
+                ll = self.config.get("low_limit")
+            except KeyError:
+                ll = None
+            try:
+                hl = self.config.get("high_limit")
+            except KeyError:
+                hl = None
+            return (ll, hl)
+        if not isinstance(low_limit, Null):
             self.settings.set("low_limit", low_limit)
-        if high_limit is not None:
+        if not isinstance(high_limit, Null):
             self.settings.set("high_limit", high_limit)
         return self.settings.get('low_limit'), self.settings.get('high_limit')
 
@@ -606,6 +613,26 @@ class Axis(object):
                 if state != "MOVING":
                     break
                 time.sleep(0.02)
+
+    def settings_to_config(self, velocity=True, acceleration=True, limits=True):
+        if velocity:
+            self.__config.set('velocity', self.velocity())
+        if acceleration:
+            self.__config.set('acceleration', self.acceleration())
+        if limits:
+            ll, hl = self.limits()
+            self.__config.set('low_limit', ll)
+            self.__config.set('high_limit', hl)
+        if any((velocity, acceleration, limits)):
+            self.__config.save()
+
+    def apply_config(self, velocity=True, acceleration=True, limits=True):
+        if velocity:
+            self.velocity(self.velocity(from_config=True))
+        if acceleration:
+            self.acceleration(self.acceleration(from_config=True))
+        if limits:
+            self.limits(*self.limits(from_config=True))
 
 
 class AxisRef(object):

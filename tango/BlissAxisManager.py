@@ -1084,7 +1084,7 @@ def main():
 
                 for setting_name in _axis.settings():
                     if setting_name in ["velocity", "position", "dial_position", "state",
-                                        "offset", "low_limit", "high_limit", "acceleration"]:
+                                        "offset", "low_limit", "high_limit", "acceleration", "_set_position"]:
                         elog.debug(" BlissAxisManager.py -- std SETTING %s " % (setting_name))
                     else:
                         _attr_name = setting_name

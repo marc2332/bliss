@@ -151,10 +151,11 @@ def write_setting(config_dict, setting_name, setting_value, write):
 
     if write:
         if config_dict.config_file is not None:
-            config_dict.root.write(config_dict.config_file)
+            tree = ElementTree.ElementTree(config_dict.root)
+            tree.write(config_dict.config_file)
         else:
-            pass  # ElementTree.dump(config_dict.root)
-
+            #print ElementTree.tostring(config_dict.root)
+            pass
 
 class StaticConfig(object):
 
@@ -186,4 +187,20 @@ class StaticConfig(object):
                 return default
 
             raise KeyError("no property '%s` in config" % property_name)
+
+
+    def set(self, property_name, value):
+        property_attrs = self.config_dict.get(property_name)
+        if property_attrs is not None and value is not None:
+            property_attrs['value'] = str(value)
+            property_node = self.config_dict.parent_element.findall(property_name)[0]
+            property_node.set("value", str(value))
+    
+    def save(self):
+        if self.config_dict.config_file is not None:
+            tree = ElementTree.ElementTree(self.config_dict.root)
+            tree.write(self.config_dict.config_file)
+        else:
+            pass #print ElementTree.tostring(self.config_dict.root)
+      
 

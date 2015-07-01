@@ -80,9 +80,8 @@ class MD2M:
         pass
 
     def _reset_axes_settings(self, *axes):
-        for axis in axes: 
-            axis.velocity(axis.velocity(from_config=True))
-            axis.acceleration(axis.acceleration(from_config=True))
+        for axis in axes:
+            axis.apply_config() 
 
     def translation_table_init(self):
         print 'Doing translation table init.'
@@ -93,6 +92,7 @@ class MD2M:
         [axis.wait_move() for axis in table_axes]
         # WHY is this needed? return from hw_limit can leave motor in MOVING state
         self._wait_ready(*table_axes)
+        self._reset_axes_settings(*table_axes)
         self._simultaneous_move(self.phix, 0, self.phiy, 0, self.phiz, 0)    
         self.phiy.position(22)
         print '  done.'
@@ -105,6 +105,7 @@ class MD2M:
         [axis.hw_limit(-1, self.init_offsets[axis.name], wait=False) for axis in table_axes]
         [axis.wait_move() for axis in table_axes]
         self._wait_ready(*table_axes)
+        self._reset_axes_settings(*table_axes)
         self._simultaneous_move(self.sampx, 0, self.sampy, 0)
         print '  done.'
 

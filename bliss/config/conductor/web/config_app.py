@@ -1,9 +1,11 @@
 import flask
 import flask.json
 import os
+import pkgutil
 from .. import client
 from .. import connection
 from ... import static
+from ... import plugins
 
 web_app = flask.Flask(__name__)
 beacon_port = None
@@ -58,11 +60,23 @@ def objects():
 @web_app.route("/objects/<name>")
 def get_object_config(name):
   cfg = get_config()
-  result = cfg.get_config(name)
-  return flask.json.dumps(result)
+  obj_cfg = cfg.get_config(name)
+  if obj_cfg is None:
+      return ""
+  if obj_cfg.plugin != "default":
+      m = __import__('beacon.plugins.%s' % obj_cfg.plugin, fromlist=[None])
+      return flask.json.dumps({"html": m.get_html(obj_cfg)}) 
+  else:
+      return flask.json.dumps(obj_cfg)
 
 @web_app.route("/config/reload")
 def reload_config():
   cfg = get_config()
   cfg.reload()
   return ""
+
+@web_app.route("/plugins")
+def list_plugins():
+  pkgpath = os.path.dirname(plugins.__file__)
+  return flask.json.dumps([name for _,name,_ in pkgutil.iter_modules([pkgpath])])
+

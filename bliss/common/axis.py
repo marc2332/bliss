@@ -438,7 +438,6 @@ class Axis(object):
         self.__move_done.set()
 
         if move_task is not None:
-            self._update_settings()
             if not move_task._being_waited:
                 try:
                     move_task.get()
@@ -446,6 +445,7 @@ class Axis(object):
                     pass
                 except:
                     sys.excepthook(*sys.exc_info())
+            self._update_settings()
         event.send(self, "move_done", True)
 
     def _check_ready(self):

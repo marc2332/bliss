@@ -1,13 +1,9 @@
 import time
 from PyTango.gevent import DeviceProxy
 from bliss.common.task_utils import *
+from bliss.common.utils import grouped
 from bliss.comm.Exporter import *
-import itertools
 import logging
-
-def grouped(iterable, n):
-    "s -> (s0,s1,s2,...sn-1), (sn,sn+1,sn+2,...s2n-1), (s2n,s2n+1,s2n+2,...s3n-1), ..."
-    return itertools.izip(*[iter(iterable)]*n)
 
 class MD2S:
     def __init__(self, name, config):

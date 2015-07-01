@@ -127,6 +127,7 @@ Shell.prototype = {
                 "index": index
             },
             success: $.proxy(function(completion_ret, status, jqxhr) {
+                this.completion_list.empty();
                 this._completions = [];
                 var completion_list = [];
 

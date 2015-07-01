@@ -1,0 +1,85 @@
+<form class="form-horizontal">
+<fieldset>
+
+<!-- Form Name -->
+<legend>{{ name }}</legend>
+
+<!-- Select Basic -->
+<div class="form-group">
+  <label class="col-md-4 control-label" for="selectbasic">Controller</label>
+  <div class="col-md-4">
+    <select id="selectbasic" name="selectbasic" class="form-control">
+      {% for c in controllers %}
+        <option {{ "selected" if c.class == controller }}>{{c.class}}</option>
+      {% endfor %}
+    </select>
+  </div>
+</div>
+
+<!-- Text input-->
+<div class="form-group">
+  <label class="col-md-4 control-label" for="steps_per_unit">Steps per unit</label>  
+  <div class="col-md-4">
+  <input id="steps_per_unit" name="steps_per_unit" placeholder="{{ steps_per_unit }}" class="form-control input-md" required="" type="text">
+    
+  </div>
+</div>
+
+<!-- Appended Input-->
+<div class="form-group">
+  <label class="col-md-4 control-label" for="velocity">Velocity</label>
+  <div class="col-md-4">
+    <div class="input-group">
+      <input id="velocity" name="velocity" class="form-control" placeholder="{{ velocity }}" required="" type="text">
+      <span class="input-group-addon">units.s<sup>-1</sup></span>
+    </div>
+    
+  </div>
+</div>
+<!-- Appended Input-->
+<div class="form-group">
+  <label class="col-md-4 control-label" for="acceleration">Acceleration</label>
+  <div class="col-md-4">
+    <div class="input-group">
+      <input id="acceleration" name="acceleration" class="form-control" placeholder="{{ acceleration }}" required="" type="text">
+      <span class="input-group-addon">units.s<sup>-2</sup></span>
+    </div>
+    
+  </div>
+</div>
+<!-- Appended Input-->
+<div class="form-group">
+  <label class="col-md-4 control-label" for="backlash">Backlash</label>
+  <div class="col-md-4">
+    <div class="input-group">
+      <input id="backlash" name="backlash" class="form-control" placeholder="{{ backlash }}" type="text">
+      <span class="input-group-addon">units</span>
+    </div>
+    
+  </div>
+</div>
+<!-- Appended Input-->
+<div class="form-group">
+  <label class="col-md-4 control-label" for="low_limit">Low limit</label>
+  <div class="col-md-4">
+    <div class="input-group">
+      <input id="low_limit" name="low_limit" class="form-control" placeholder="{{ low_limit }}" type="text">
+      <span class="input-group-addon">units</span>
+    </div>
+    
+  </div>
+</div>
+<!-- Appended Input-->
+<div class="form-group">
+  <label class="col-md-4 control-label" for="high_limit">High limit</label>
+  <div class="col-md-4">
+    <div class="input-group">
+      <input id="high_limit" name="high_limit" class="form-control" placeholder="{{ high_limit }}" type="text">
+      <span class="input-group-addon">units</span>
+    </div>
+    
+  </div>
+</div>
+</fieldset>
+</form>
+

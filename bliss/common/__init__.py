@@ -11,7 +11,7 @@ class Actuator:
       self._is_in = is_in
       self._is_out = is_out
 
-  def set_in(self,timeout=5):
+  def set_in(self,timeout=8):
     # this is to know which command was asked for,
     # in case we don't have a return (no 'self._is_in' or out)
     self.__in = True
@@ -26,7 +26,7 @@ class Actuator:
                     gevent.sleep(0.5)
     finally:
         dispatcher.send("state", self, self.state())
-  def set_out(self, timeout=5):
+  def set_out(self, timeout=8):
     self.__out = True
     self.__in = False
     try:

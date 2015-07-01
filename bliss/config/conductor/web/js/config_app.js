@@ -50,21 +50,27 @@ function init_tree(tree) {
       $("#edit_panel").attr("style", "visibility: hidden");
     }
     else {
-      $("#edit_form_title").html(data.name)
-      var form = $("<form></form>");
-      $("#edit_form").html(form);
-      $.each(data, function(key, value) {
-        var label = $("<label></label>");
-        label.html(key);
-        var input_field = $("<input></input>");
-        input_field.attr("class", "form-control");
-        input_field.attr("placeholder", key);
-        input_field.attr("value", value);
-        input_field.attr("type", "text");
-        form.append(label);
-        form.append(input_field);
-        form.append("<br>");
-      });
+      if (data.html === undefined) {
+        $("#edit_form_title").html(data.name)
+        $("#edit_form_title").parent().attr("style", "visibility: visible");
+        var form = $("<form></form>");
+        $("#edit_form").html(form);
+        $.each(data, function(key, value) {
+          var label = $("<label></label>");
+          label.html(key);
+          var input_field = $("<input></input>");
+          input_field.attr("class", "form-control");
+          input_field.attr("placeholder", key);
+          input_field.attr("value", value);
+          input_field.attr("type", "text");
+          form.append(label);
+          form.append(input_field);
+          form.append("<br>");
+        });
+      } else {
+        $("#edit_form_title").parent().attr("style", "visibility: hidden");
+        $("#edit_form").html(data.html);
+      }
       $("#edit_panel").attr("style", "visibility: visible");
     }
     }, "json");

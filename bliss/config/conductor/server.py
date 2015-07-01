@@ -4,7 +4,8 @@ import argparse
 import weakref
 import subprocess
 import gevent
-from gevent import select,socket
+import signal
+from gevent import select, socket
 
 def start_database_ds(tango_port = 20000,personal_name='2',debug_level = 0):
     from PyTango.databaseds import database
@@ -32,7 +33,7 @@ else:
         def close(self) :
             posix_ipc.MessageQueue.close(self)
             self._wqueue.close()
-            
+
         def names(self):
             return self._wqueue.name,self.name
 
@@ -65,13 +66,13 @@ def _lock(client_id,prio,lock_obj,raw_message) :
             break
 
     if all_free:
-        stollen_lock = {}
+        stolen_lock = {}
         for obj in lock_obj:
             socket_id,compteur,lock_prio = _lock_object.get(obj,(client_id,0,prio))
             if socket_id != client_id: # still lock
-                pre_obj = stollen_lock.get(socket_id,None)
+                pre_obj = stolen_lock.get(socket_id,None)
                 if pre_obj is None:
-                    stollen_lock[socket_id] = [obj]
+                    stolen_lock[socket_id] = [obj]
                 else:
                     pre_obj.append(obj)
                 _lock_object[obj] = (client_id,1,prio)
@@ -82,16 +83,16 @@ def _lock(client_id,prio,lock_obj,raw_message) :
                 new_prio = lock_prio > prio and lock_prio or prio
                 _lock_object[obj] = (client_id,compteur,new_prio)
 
-        for client,objects in stollen_lock.iteritems():
-            client.sendall(protocol.message(protocol.LOCK_STOLLEN,'|'.join(objects)))
+        for client,objects in stolen_lock.iteritems():
+            client.sendall(protocol.message(protocol.LOCK_STOLEN,'|'.join(objects)))
 
         obj_already_locked = _client_to_object.get(client_id,set())
         _client_to_object[client_id] = set(lock_obj).union(obj_already_locked)
-        
+
         client_id.sendall(protocol.message(protocol.LOCK_OK_REPLY,raw_message))
     else:
         _waiting_lock[client_id] = lock_obj
-    
+
 #    print '_lock_object',_lock_object
 
 def _unlock(client_id,priority,unlock_obj) :
@@ -177,9 +178,9 @@ def _write_config_db_file(client_id,message):
 
     if first_pos < 0 or second_pos < 0: # message malformed
         msg = protocol.message(protocol.CONFIG_SET_DB_FILE_FAILED,
-                               '%s|%s' % (message_key,'Message malformed'))
+                               '%s|%s' % (message_key,'Malformed message'))
         client_id.sendall(msg)
-        return   
+        return
 
     message_key = message[:first_pos]
     file_path = message[first_pos + 1:second_pos]
@@ -199,7 +200,7 @@ def _write_config_db_file(client_id,message):
 def _send_posix_mq_connection(client_id,client_hostname):
     ok_flag = False
     try:
-        if(posix_ipc is not None and 
+        if(posix_ipc is not None and
            not isinstance(client_id,posix_ipc.MessageQueue)):
             if client_hostname == socket.gethostname(): # same host
                 #open a message queue
@@ -292,7 +293,7 @@ def _client_rx(client):
                         traceback.print_exc()
                         print 'Error with client id %s, close it' % client
                         raise
-                
+
                 if fd == client:
                     tcp_data = data
                 else:
@@ -307,6 +308,10 @@ def _client_rx(client):
         if posix_queue:
             posix_queue.close()
             _clean(posix_queue)
+
+def sigterm_handler(_signo, _stack_frame):
+    # On signal received, close the signal pipe to do a clean exit.
+    os.close(sig_write)
 
 def main():
     parser = argparse.ArgumentParser()
@@ -324,10 +329,14 @@ def main():
                         help="tango debug level (default to 0: WARNING,1:INFO,2:DEBUG)")
     global _options
     _options = parser.parse_args()
-    
+
+    # Binds system signals.
+    signal.signal(signal.SIGTERM, sigterm_handler)
+    signal.signal(signal.SIGINT, sigterm_handler)
+
     # pimp my path
     _options.db_path = os.path.abspath(os.path.expanduser(_options.db_path))
- 
+
     #posix queues
     if not _options.posix_queue:
         global posix_ipc
@@ -348,8 +357,8 @@ def main():
     tcp.listen(512)        # limit to 512 clients
 
     #Tango databaseds
-    print '[TANGO] Database started on port:',_options.tango_port
     if _options.tango_port > 0:
+        print '[TANGO] Database started on port:',_options.tango_port
         tango_rp,tango_wp = os.pipe()
         child_pid = os.fork()
         if child_pid == 0:
@@ -369,16 +378,22 @@ def main():
     redis_process = subprocess.Popen(['redis-server',redis_conf.get_redis_config_path(),
                                       '--port','%d' % _options.redis_port],
                                      stdout=wp,stderr=subprocess.STDOUT,cwd=_options.db_path)
-            
+    # signal pipe
+    global sig_write
+    sig_read, sig_write = os.pipe()
+
     try:
-      fd_list = [udp,tcp,rp]
+      fd_list = [udp,tcp,rp,sig_read]
       if tango_rp:
           fd_list.append(tango_rp)
       msg_prefix = {tango_rp:'[TANGO]',
                     rp:'[REDIS]'}
-      while True:
+
+      bosse = True
+
+      while bosse:
         rlist,_,_ = select.select(fd_list,[],[],-1)
-            
+
         for s in rlist:
             if s == udp:
                 buff,address = udp.recvfrom(8192)
@@ -391,6 +406,9 @@ def main():
 
                 gevent.spawn(_client_rx,newSocket)
 
+            elif s == sig_read:
+                bosse = False
+                break
             else:
                 msg = os.read(s,8192)
                 if msg:
@@ -401,10 +419,9 @@ def main():
                     print '%s: Warning Database exit' % (msg_prefix.get(s,'[DEFAULT]'))
                 break
     except KeyboardInterrupt:
-       pass
+        pass
     finally:
-      redis_process.terminate()
+        redis_process.terminate()
 
-    
 if __name__ == "__main__" and __package__ is None:
     main()

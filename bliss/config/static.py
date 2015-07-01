@@ -104,11 +104,11 @@ class Config(object):
             else:
                 return plugin
 
-        def get_node_filename(self) :
+        def get_node_filename(self):
             config = self._config()
             filename = config._node2file.get(self)
             if filename is not None:
-                return self,filename
+                return self, filename
             elif self._parent is not None:
                 return self._parent.get_node_filename()
             else:
@@ -190,9 +190,9 @@ class Config(object):
         def __repr__(self):
             config = self._config()
             value = dict.__repr__(self)
-            filename = config._node2file.get(self)
-            return 'filename:<%s>,plugin:%r,%s' % (filename,
-                                                   self.get("plugin"),
+            #filename = config._node2file.get(self)
+            return 'filename:<%s>,plugin:%r,%s' % (self.filename,
+                                                   self.plugin, #self.get("plugin"),
                                                    value)
 
     def __init__(self, base_path, timeout=3):

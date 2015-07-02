@@ -301,7 +301,7 @@ class IcePAP(Controller):
 
     def home_state(self, axis):
         """Returns the current axis state while homing"""
-        return self.icestate(axis)
+        return self.state(axis)
 
     def limit_search(self, axis, limit):
         """

@@ -388,7 +388,7 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
     
     # return the list of non standard motor parameters implemented
     if ( key=="?" && action=="get") {
-        return("power, status")
+        return("power, axisstatus")
     }
 
     # control motor power
@@ -419,7 +419,7 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
         else if ( key == "step_size"){
             print "OHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH step_size"
         }
-        else if ( key == "status"){
+        else if ( key == "axisstatus"){
             return (tango_mot_status(motnum))
         }
     }

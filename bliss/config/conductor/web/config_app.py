@@ -1,7 +1,10 @@
+import os
+import sys
+import pkgutil
+
 import flask
 import flask.json
-import os
-import pkgutil
+
 from .. import client
 from .. import connection
 from ... import static
@@ -64,8 +67,15 @@ def get_object_config(name):
   if obj_cfg is None:
       return ""
   if obj_cfg.plugin != "default":
-      m = __import__('beacon.plugins.%s' % obj_cfg.plugin, fromlist=[None])
+    try:
+      mod_name = 'bliss.config.plugins.%s' % obj_cfg.plugin
+      m = __import__(mod_name, fromlist=[None])
+      print mod_name
       return flask.json.dumps({"html": m.get_html(obj_cfg)}) 
+    except ImportError:
+      # plugin has an error
+      sys.excepthook(*sys.exc_info())
+      return flask.json.dumps(obj_cfg)
   else:
       return flask.json.dumps(obj_cfg)
 

@@ -214,12 +214,12 @@ class BlissAxis(PyTango.Device_4Impl):
         self.attr_Backlash_read = 0.0
         self.attr_Offset_read = 0.0
         self.attr_Tolerance_read = 0.0
+        self.attr_PresetPosition_read = 0.0
 
         """
         self.attr_Steps_read = 0
         self.attr_Position_read = 0.0
         self.attr_Measured_Position_read = 0.0
-        self.attr_PresetPosition_read = 0.0
         self.attr_FirstVelocity_read = 0.0
         self.attr_Home_side_read = False
         """
@@ -459,8 +459,15 @@ class BlissAxis(PyTango.Device_4Impl):
         attr.set_value(self.attr_PresetPosition_read)
 
     def write_PresetPosition(self, attr):
-        self.debug_stream("In write_PresetPosition()")
-        # data = attr.get_write_value()
+        data = float(attr.get_write_value())
+        self.debug_stream("In write_PresetPosition(%g)" % data)
+        self.attr_PresetPosition_read = data
+        # NOTE MP: if using TANGO DS let's consider that there is
+        # a smart client out there who is handling the user/offset.
+        # Therefore don't the user position/offset of EMotion.
+        # Which means: always keep dial position == user position
+        self.axis.dial(data)
+        self.axis.position(data)
 
     def read_FirstVelocity(self, attr):
         self.debug_stream("In read_FirstVelocity()")

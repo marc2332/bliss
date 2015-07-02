@@ -618,12 +618,11 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
 
         #-------------------------------------
         # "set_position" called on "set_dial motor newpos"
-        # parameters: p1 is the new position
+        # parameters: p1 is the new position in user units
         #
-        # PC: this does not change the dial value, it will move to position p1
-        # We don not want set_dial to be used on Tango motors
         if (cmd == "set_position") {
-            tango_mot_err("Changing dial value is not allowed")
+            tango_mot_dbg(sprintf("new dial position in user units: %g", p1))
+            tango_mot_set_attr(motnum, "presetposition", p1)
         }
 
         # "abort_one" called on <Ctrl-C>

@@ -362,6 +362,18 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
             motor_par(motnum, "in_config", 0)
         }
 
+        # handle the specific case of the backlash 
+        # which  can not be set in EMotion.
+        # therefore the flag use_spec_config can not
+        # be used neither.
+        spec_bk = motor_par(motnum, "backlash")
+        emot_bk = tango_mot_get_attr(motnum, "backlash")
+        if((emot_bk != 0) && (spec_bk != 0)) {
+            _msg = sprintf("Motor %s has backlash in SPEC and in EMotion, disabling it!!!", _mot_mne)
+            tango_mot_err(_msg)
+            motor_par(motnum ,"disable", 1)
+            return ".error."
+        }
     }
 }'
 

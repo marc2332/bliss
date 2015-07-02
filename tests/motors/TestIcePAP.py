@@ -5,7 +5,6 @@ import optparse
 import re
 import signal
 import gevent
-import pdb
 
 
 """
@@ -119,7 +118,6 @@ class TestIcePAPController(unittest.TestCase):
     def test_axis_creation(self):
         mymot = bliss.get_axis("mymot")
         self.assertTrue(mymot)
-        import pdb;pdb.set_trace()
 
     """
     def test_ctrlc(self):

@@ -388,7 +388,7 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
     
     # return the list of non standard motor parameters implemented
     if ( key=="?" && action=="get") {
-        return("power")
+        return("power, status")
     }
 
     # control motor power
@@ -418,6 +418,9 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
         }
         else if ( key == "step_size"){
             print "OHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH step_size"
+        }
+        else if ( key == "status"){
+            return (tango_mot_status(motnum))
         }
     }
     else if (action == "set"){
@@ -599,7 +602,7 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
             TANGO_ERR = -1
             _ret = tango_put(_dev, _attr, p1)
 
-            # the exception error stack is not returned by TANGO API
+            # MP: the exception error stack is not returned by TANGO API
             # therefore print motor status instead. Anyway, this will be more
             # useful for the user than the stack itself.
             if(_ret) {
@@ -637,6 +640,10 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
 }'
 
 def tango_mot_print_status(motnum) '{
+    tango_mot_msg(tango_mot_status(motnum))
+}'
+
+def tango_mot_status(motnum) '{
     local _status tt[] i
     local _axis_ds_name 
     local _mot_mne
@@ -649,7 +656,7 @@ def tango_mot_print_status(motnum) '{
     for(i in tt) {
         _msg = sprintf("%s\t%s\n", _msg, tt[i])
     }
-    tango_mot_msg(_msg)
+    return(_msg)
 }'
 
 

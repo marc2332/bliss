@@ -75,6 +75,10 @@ class IcePAP(Controller):
             self.icestate.create_state(
                 libicepap.STATUS_MODCODE_STR[code],
                 libicepap.STATUS_MODCODE_DSC[code])
+        for code in libicepap.STATUS_STOPCODE_STR:
+            self.icestate.create_state(
+                libicepap.STATUS_STOPCODE_STR[code],
+                libicepap.STATUS_STOPCODE_DSC[code])
 
     def finalize(self):
         """Controller no more needed"""
@@ -207,6 +211,10 @@ class IcePAP(Controller):
         modcod, modstr, moddsc = libicepap.status_get_mode(status)
         if modcod != None:
             self.icestate.set(modstr)
+
+        sccod, scstr, scdsc = libicepap.status_get_stopcode(status)
+        if sccod != None:
+            self.icestate.set(scstr)
 
         if(libicepap.status_isready(status)):
             self.icestate.set("READY")

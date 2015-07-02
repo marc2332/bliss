@@ -642,7 +642,7 @@ def add_property(inst, name, method):
 
 class AxisState(object):
 
-    STATE_VALIDATOR = re.compile("^[A-Z]+$")
+    STATE_VALIDATOR = re.compile("^[A-Z0-9]+$")
 
     """
     Standard states:

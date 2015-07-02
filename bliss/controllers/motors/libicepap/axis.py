@@ -213,12 +213,61 @@ STATUS_MODCODE_DSC = {
 def status_get_mode(stat):
     """
     Returns from the given axis status,
-    the mode code, a short string, a description string
+    the mode code, a short string, a description string.
+    or None to indicate the normal case
     """
     cod = (stat >> 2) & 3
+
     if cod == 0:
         return None, None, None
-    return dis, STATUS_MODCODE_STR[cod], STATUS_MODCODE_DSC[cod]
+    return cod, STATUS_MODCODE_STR[cod], STATUS_MODCODE_DSC[cod]
+
+STATUS_STOPCODE_STR = {
+    0  : 'SCEOM',
+    1  : 'SCSTOP',
+    2  : 'SCABORT',
+    3  : 'SCLIMPOS',
+    4  : 'SCLINNEG',
+    5  : 'SCSETTLINGTO',
+    6  : 'SCAXISDIS',
+    7  : 'SCBIT7',
+    8  : 'SCINTFAIL',
+    9  : 'SCMOTFAIL',
+    10 : 'SCPOWEROVL',
+    11 : 'SCHEATOVL',
+    12 : 'SCCLERROR',
+    13 : 'SCCENCERROR',
+    14 : 'SCBIT14',
+    15 : 'SCEXTALARM'
+}
+STATUS_STOPCODE_DSC = {
+    0  : 'end of movement',
+    1  : 'last motion was stopped',
+    2  : 'last motion was aborted',
+    3  : 'positive limitswitch reached',
+    4  : 'negative limitswitch reached',
+    5  : 'settling timeout',
+    6  : 'axis disabled (no alarm)',
+    7  : 'n/a',
+    8  : 'internal failure',
+    9  : 'motor failure',
+    10 : 'power overload',
+    11 : 'driver overheating',
+    12 : 'closed loop error',
+    13 : 'control encoder error',
+    14 : 'n/a',
+    15 : 'external alarm'
+}
+def status_get_stopcode(stat):
+    """
+    Returns from the given axis status,
+    the last motion stop code, a short string, a description string
+    or None to indicate the normal case
+    """
+    cod = (stat >> 14) & 15
+    if cod == 0:
+        return None, None, None
+    return cod, STATUS_STOPCODE_STR[cod], STATUS_STOPCODE_DSC[cod]
 
 
 #-------------------------------------------------------------------------

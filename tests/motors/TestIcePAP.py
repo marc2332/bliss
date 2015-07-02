@@ -46,6 +46,7 @@ config_xml = """
             <steps_per_unit value="2000"/>
             <backlash       value="0.01"/>
             <velocity       value="2500"/>   // unit is mm/sec
+            <acceleration   value="10"/>     // unit is mm/sec2
         </axis>
 
         <axis name="mymot2">
@@ -53,6 +54,7 @@ config_xml = """
             <steps_per_unit value="2000"/>
             <backlash       value="0.01"/>
             <velocity       value="2500"/>   // unit is mm/sec
+            <acceleration   value="10"/>     // unit is mm/sec2
         </axis>
 
         <encoder name="myenc">
@@ -117,6 +119,7 @@ class TestIcePAPController(unittest.TestCase):
     def test_axis_creation(self):
         mymot = bliss.get_axis("mymot")
         self.assertTrue(mymot)
+        import pdb;pdb.set_trace()
 
     """
     def test_ctrlc(self):

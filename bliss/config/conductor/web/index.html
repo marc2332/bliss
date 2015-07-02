@@ -31,7 +31,8 @@
 	  .panel_right { overflow: hidden; padding: 2px; }
 
 	  <!-- compact bootstrap panels and forms -->
-	  .panel-body { padding: 5px; }
+	  .panel-body { padding: 4px; }
+	  .edit-form { padding: 4px; }
 	  .form-control { padding: 4px 4px; }
 	</style>
   </head>
@@ -39,7 +40,7 @@
     <!-- Main toolbar -->
     <div class="btn-toolbar" role="toolbar" id="main_toolbar" aria-label="main toolbar">
       <div class="btn-group" role="group" aria-label="global fucntionality">
-	<button type="button" class="btn btn-default" id="reload_config"
+	<button type="button" class="btn btn-primary" id="reload_config"
 		data-loading-text="Reloading...">
 	  Reload config
 	  <span class="glyphicon glyphicon-refresh"></span>
@@ -92,9 +93,6 @@
       <!-- Edit panel (right panel) -->
       <div id="edit_panel" class="panel_right" style="visibility:hidden">
 	<div class="panel panel-default">
-	  <div class="panel-heading">
-	    <h3 id="edit_form_title" class="panel-title"></h3>
-	  </div>
 	  <div id="edit_form" class="panel-body"></div>
       </div>
     </div>

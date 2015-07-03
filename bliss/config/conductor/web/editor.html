@@ -1,0 +1,48 @@
+<style type="text/css" media="screen">
+  #yaml_editor { 
+    min-width: 200px;
+    min-height: 300px;
+  }
+</style>
+
+<div class="btn-toolbar" role="toolbar" id="main_toolbar" aria-label="main toolbar">
+  <div class="btn-group" role="group" aria-label="global fucntionality">
+    <button type="button" class="btn btn-primary disabled" id="save_editor_changes">
+      Save
+      <span class="glyphicon glyphicon-save"></span>
+    </button>
+    <button type="button" class="btn btn-primary disabled" id="save_reload_editor_changes">
+      Save & Reload
+      <span class="glyphicon glyphicon-save"></span>
+    </button>
+    <button type="button" class="btn btn-primary disabled" id="revert_editor_changes">
+      Revert
+      <span class="glyphicon glyphicon-chevron-up"></span>
+    </button>
+
+  </div>
+</div>
+
+<div style="height:10px;"></div>
+
+<div id="yaml_editor">{{ content }}</div>
+
+<script>
+  configure_yaml_editor("yaml_editor", "{{ name }}");
+</script>
+
+<!--
+<form class="form-horizontal">
+
+  <fieldset>
+
+    <legend>{{ name }}</legend>
+    
+    <div class="form-group">
+      
+      <textarea class="form-control yaml">{{ content }}</textarea>
+    </div>
+  </fieldset>
+  
+</form>
+-->

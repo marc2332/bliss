@@ -23,6 +23,7 @@
         <script language="JavaScript" type="text/javascript" src="js/jstree.min.js"></script>
 	<link rel="stylesheet" href="css/jstree/style.min.css"></link>
 
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.1.9/ace.js" ></script>
         <script src="js/config_app.js"></script>
         <link rel="stylesheet" href="css/config_app.css"></link>
 
@@ -35,8 +36,10 @@
 	  .edit-form { padding: 4px; }
 	  .form-control { padding: 4px 4px; }
 	</style>
+
   </head>
   <body>
+
     <!-- Main toolbar -->
     <div class="btn-toolbar" role="toolbar" id="main_toolbar" aria-label="main toolbar">
       <div class="btn-group" role="group" aria-label="global fucntionality">
@@ -93,6 +96,9 @@
       <!-- Edit panel (right panel) -->
       <div id="edit_panel" class="panel_right" style="visibility:hidden">
 	<div class="panel panel-default">
+	  <div class="panel-heading">
+	    <h3 id="edit_form_title" class="panel-title"></h3>
+	  </div>
 	  <div id="edit_form" class="panel-body"></div>
       </div>
     </div>

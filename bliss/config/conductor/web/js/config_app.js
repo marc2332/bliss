@@ -16,9 +16,10 @@ function populate_tree(container) {
         if (key.match("yml$")=="yml") {
  	   new_node.icon = "glyphicon glyphicon-file";
 	   new_node.data.type = "yml";
+	   new_node.data.path = value[0];
         }
 
-        fill_node(value, new_node.children, level + 1);
+        fill_node(value[1], new_node.children, level + 1);
 
         if (new_node.icon === undefined) {
            if (new_node.children.length > 0) {
@@ -41,39 +42,7 @@ function populate_tree(container) {
 }
 
 function init_tree(tree) {
-  tree.bind("select_node.jstree", function(ev, data) {
-  var node_name = data.node.text;
-
-  $.get("objects/"+node_name, function(data) {
-    $("#edit_form").empty();
-    if (data === null) {
-      $("#edit_panel").attr("style", "visibility: hidden");
-    }
-    else {
-      if (data.html === undefined) {
-        $("#edit_form_title").html(data.name)
-        $("#edit_form_title").parent().attr("style", "visibility: visible");
-        var form = $("<form></form>");
-        $("#edit_form").html(form);
-        $.each(data, function(key, value) {
-          var label = $("<label></label>");
-          label.html(key);
-          var input_field = $("<input></input>");
-          input_field.attr("class", "form-control");
-          input_field.attr("placeholder", key);
-          input_field.attr("value", value);
-          input_field.attr("type", "text");
-          form.append(label);
-          form.append(input_field);
-        });
-      } else {
-        $("#edit_form_title").parent().attr("style", "visibility: hidden");
-        $("#edit_form").html(data.html);
-      }
-      $("#edit_panel").attr("style", "visibility: visible");
-    }
-    }, "json");
-  });
+  tree.bind("select_node.jstree", on_node_selected);
 
   tree.bind("select_node.jstree", function(node, data) {
     if (data.node.data.type != 'item') {
@@ -83,4 +52,107 @@ function init_tree(tree) {
       $("#clone_item").removeClass("disabled");
     }
   });
+}
+
+function on_node_selected(ev, data) {
+  var node_type = data.node.data.type
+  if (node_type === 'yml') {
+    on_yml_node_selected(ev, data);
+  }
+  else if (node_type === 'item') {
+    on_item_node_selected(ev, data);
+  }
+}
+
+function on_yml_node_selected(ev, data) {
+  $.get("db_file_editor/"+data.node.data.path, function(data) {
+    $("#edit_form").empty();
+    $("#edit_form_title").html(data.name);
+    $("#edit_form_title").parent().attr("style", "visibility: visible");
+    if (data.html === undefined) {
+      var form = $("<form></form>");
+      form.addClass("form-group");
+      $("#edit_form").html(form);
+      var text_area = $("<textarea></textarea>");
+      text_area.addClass("yaml");
+      text_area.addClass("form-control");
+      var content = data.content;
+      text_area.val(content);
+      form.append(text_area);
+    }
+    else {
+      $("#edit_form").html(data.html);
+    }
+    $("#edit_panel").attr("style", "visibility: visible");
+  }, "json");
+}
+
+function on_item_node_selected(ev, data) {
+  var node_name = data.node.text;
+
+  $.get("objects/"+node_name, function(data) {
+    $("#edit_form").empty();
+    if (data === null) {
+      $("#edit_panel").attr("style", "visibility: hidden");
+    }
+    else {
+      $("#edit_form_title").html(data.name)
+      $("#edit_form_title").parent().attr("style", "visibility: visible");
+      if (data.html === undefined) {
+        var form = $("<form></form>");
+        form.addClass("form-group");
+        $("#edit_form").html(form);
+        $.each(data, function(key, value) {
+          var label = $("<label></label>");
+          label.html(key);
+          var input_field = $("<input></input>");
+          input_field.addClass("form-control");
+          input_field.attr("placeholder", key);
+          input_field.attr("value", value);
+          input_field.attr("type", "text");
+          form.append(label);
+          form.append(input_field);
+        });
+      } else {
+        $("#edit_form").html(data.html);
+      }
+      $("#edit_panel").attr("style", "visibility: visible");
+    }
+  }, "json");
+}
+
+function configure_yaml_editor(tag_name, file_name) {
+    var yaml_editor = ace.edit(tag_name);
+    var session = yaml_editor.getSession();
+    session.setMode("ace/mode/yaml");
+    session.setTabSize(4);
+    yaml_editor.setHighlightActiveLine(true);
+    yaml_editor.setReadOnly(false);
+    yaml_editor.setShowPrintMargin(false);
+
+    yaml_editor.getSession().on('change', function(e) {
+	$("#save_editor_changes").button().removeClass("disabled");
+	$("#save_reload_editor_changes").button().removeClass("disabled");
+	$("#revert_editor_changes").button().removeClass("disabled");
+    });
+
+    $("#save_editor_changes").on("click", function() {
+	$.get("db_file/" + file_name, yaml_editor.getValue()).done(
+	      function(data) { alert("File saved!");
+	      });
+/*
+	var req = $.ajax({
+	    url: "db_file/" + file_name,
+	    type: "put",
+            data: yaml_editor.getValue(),
+	    success: function(response) { alert("File saved!"); },
+	});
+*/
+    });
+
+    $("#revert_editor_changes").on("click", function() {
+	$.get("db_file/" + file_name, function(data) {
+            yaml_editor.setValue(data.content);
+        }, "json");
+    });
 }

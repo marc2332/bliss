@@ -14,7 +14,7 @@ __KNOWN_CONTROLLER_PARAMS = ("name", "class", "plugin", "axes")
 __controllers_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                   "controllers")
 
-def get_environment():
+def get_jinja2():
     global __environment
     try:
         return __environment
@@ -36,8 +36,8 @@ def get_axis_html(cfg):
     vars = dict(cfg.items())
 
     filename = ctrl_class + "_axis.html"
-    html_template = get_environment().select_template([filename,
-                                                       "base_axis.html"])
+    html_template = get_jinja2().select_template([filename,
+                                                  "base_axis.html"])
 
     extra_params = []
     for key, value in vars.items():
@@ -63,8 +63,8 @@ def get_ctrl_html(cfg):
     ctrl_class = cfg.get("class")
     vars = dict(cfg.items())
 
-    html_template = get_environment().select_template([ctrl_class + ".html",
-                                                       "base_controller.html"])
+    html_template = get_jinja2().select_template([ctrl_class + ".html",
+                                                  "base_controller.html"])
 
     extra_params = []
     for key, value in vars.items():

@@ -167,4 +167,17 @@ class MD2S:
     def fldetstate(self):
         self._exporter.readProperty("FluoDetectorIsBack")
 
+    def microdiff_init(self,wait=True):
+        self._exporter.execute("startHomingAll")
+        if wait:
+            self._wait_ready(20)
+    
+    def phi_init(self,wait=True):
+        self._exporter.execute("startHomingMotor", "Omega")
+        if wait:
+            self._wait_ready(10)
 
+    def zoom_init(self,wait=True):
+        self._exporter.execute("startHomingMotor", "Zoom")
+        if wait:
+            self._wait_ready(10)

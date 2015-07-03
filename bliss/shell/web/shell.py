@@ -72,7 +72,10 @@ def read_config(config_file):
 
 def handle_output(session_id, q):
     while True:
-        client_uuid, output = q.get()
+        try:
+            client_uuid, output = q.get()
+        except EOFError:
+            break
         
         if client_uuid is None:
             # broadcast to all clients

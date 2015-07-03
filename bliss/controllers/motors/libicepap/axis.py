@@ -103,8 +103,11 @@ def status_ismoving(stat):
     # must also be checked
     #   -the READY    (09) goes down on error or moving
     #   -the POWERON  (23) goes down on error
-    if (not (stat & (1<<9))) and (stat & (1<<23)):
-        return True
+
+    # MP: in shutter mode, this is confusing because the READY remains
+    # unset as soon as the axis is switched to shutter
+    #if (not (stat & (1<<9))) and (stat & (1<<23)):
+    #    return True
 
     # Any motion in progress
     return False

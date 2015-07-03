@@ -238,6 +238,8 @@ class Config(object):
                 is_init_file = not last_path.startswith('@')
 
             if is_init_file:
+                if d is None:
+                    continue
                 if not fs_key:
                     parents = self._root_node
                 else:

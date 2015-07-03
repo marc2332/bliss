@@ -5,50 +5,40 @@
 # motion macro-motor tango
 #%DESCRIPTION% tango_mot macros allow to configure a SPEC hardware
 # macro-motor to be used to interface a tango motor device server.
-#%EXAMPLE%
-#%DL%
 #%SETUP%
-#  All configuration is done in spec config.
-#%UL%
-#%LI%
-#%XUL%
-
+#  All configuration is done in spec config.%BR%
+#
 # Configuration example:
 # Controller :
-
-## Motor and Counter Device Configuration (Not CAMAC)
-##
-## MOTORS   DEVICE                   ADDR  <>MODE  NUM           <>TYPE
-##    YES   tango_mot    idXX/bliss/exp            1     Macro Motors
-##     NO
-
+#
+# Motor and Counter Device Configuration (Not CAMAC)
+#
+#MOTORS\0\0\0DEVICE\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0ADDR\0\0<>MODE\0\0NUM\0\0\0\0\0\0\0<>TYPE
+#\0\0\0YES\0\0\0tango_mot\0idXX/bliss/exp\0\0\0\0\0\0\0\0\0\0\0\01\0Macro\0Motors
+#\0\0\0\0NO
+#%BR%
 # Axis :
-
-## Number: <>Controller        0:    NONE   1: MAC_MOT
-## Unit/[Module/]Channel                           0/0
-## Name                             dummy          fdc
-## Mnemonic                         dummy          fdc
-
+#
+#Number:\0<>Controller\0\0\0\0\0\0\0\00:\0\0\0\0NONE\0\0\0\01:\0MAC_MOT\0\0\0\0\0\0\0\0\0\0\0\0\0
+#Unit/[Module/]Channel\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\00/0\0\0\0\0\0\0\0\0\0\0\0\0
+#Name\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0unused\0\0\0\0\0\0\0\0\0\0\0fdc\0\0\0\0\0\0\0\0
+#Mnemonic\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0unused\0\0\0\0\0\0\0\0\0\0\0fdc\0\0\0\0\0\0\0\0\0\0
+#
 # To select axis: use custom parameter "axis_name"
-
+#
 # To choose to use spec configuration parameters: set "use_spec_config" to 1
-
-## Custom Parameters for Motor "ma" (ma)               2/2 configured
-##
-## NAME                      VALUE
-## axis_name                 roba
-## use_spec_config           1
-
-
+#
+# Custom Parameters for Motor "ma" (ma)
+#
+#NAME\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0VALUE\0\0\0\0\0\0\0\0\0\0\0\0
+#axis_name\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0roba\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0
+#use_spec_config\0\0\0\0\0\0\0\0\0\0\01\0\0\0\0\0\0\0\0\0\0\0\0
+#
+#$Revision: Holger`s corrected version $
+#%END%
 
 ######################################################################
-######################################################################
-######################################################################
-###########################                ###########################
 ###########################  Macro motors  ###########################
-###########################                ###########################
-######################################################################
-######################################################################
 ######################################################################
 
 need spec_utils
@@ -68,6 +58,7 @@ def bliss_get_axes(mot_name) '{
     TTT[0] = TTT[0]
 
     tango_io(motor_par(mot_name, "ctrl_dev_name"), "GetAxisList", TTT)
+
 
     return TTT
 }'
@@ -166,8 +157,8 @@ def bliss_put_traj(mot_name) '{
 
 #%UU% <motor_name> [<mode>]
 #%MDESC%
-#    Launches atkpanel GUI on the device of motor <motor_name>.
-# Use expert mode if <mode> is "expert".
+#Launches atkpanel GUI on the device of motor <motor_name>.
+#Use expert mode if <mode> is "expert".
 def econfig '{
     local _nb_param  _device_name  _axis_name
 
@@ -191,8 +182,8 @@ def econfig '{
 
 #%UU% <motor_name>
 #%MDESC%
-#    Launches atkpanel GUI in expert mode on the device of motor
-# <motor_name>.
+#Launches atkpanel GUI in expert mode on the device of motor
+#<motor_name>.
 def eeconfig '{
     econfig "$1" "expert"
 }'
@@ -201,7 +192,7 @@ def eeconfig '{
 
 #%IU%
 #%MDESC%
-#    Called on reconfig.
+#Called on config/reconfig 
 def tango_mot_config(motnum, type, unit, module, channel) '{
 
     if((motnum == "..") && (type == "ctrl")) {
@@ -212,14 +203,23 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
             return ".error."
         }
 
+<<<<<<< HEAD
+        # Checks that Tango DS is running, however ds_is_reponsive provokes undesired
+        # error messages, use ds_is_tango
+=======
         # Checks that Tango DS is running
+<<<<<<< HEAD
+>>>>>>> ac096e4afc9e2d3349544fb546151820b45e6ad6
+=======
+>>>>>>> ac096e4afc9e2d3349544fb546151820b45e6ad6
         if(!ds_is_tango(tango_mot_ADDR)) {
             tango_mot_err(sprintf("%s unresponsive -> disabling motor controller.", \
                                   tango_mot_ADDR))
             return ".error."
         }
-        else{
-            tango_mot_msg(sprintf("EMotion Controller %s is responding", tango_mot_ADDR))
+#	Users should be alerted, when it fails, not when it works
+#        else{
+#            tango_mot_msg(sprintf("EMotion Controller %s is responding", tango_mot_ADDR))
         }
         return
     }
@@ -247,9 +247,10 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
             tango_mot_dbg(sprintf("axis_name = %s", _axis_name))
         }
 
-
         if (split(_ctrl_ds_name, TTT, "/") == 3){
-            _axis_ds_name = sprintf("%s/bliss_%s/%s", TTT[0], TTT[2], _axis_name)
+            # doesn`t work !
+            #_axis_ds_name = sprintf("%s/bliss_%s/%s", TTT[0], TTT[2], _axis_name)
+            _axis_ds_name = sprintf("%s/%s_%s/%s", TTT[0], TTT[1], TTT[2], _axis_name)
             tango_mot_dbg(sprintf("AXIS DS NAME = %s", _axis_ds_name))
         }
         else{
@@ -257,14 +258,23 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
             return ".error."
         }
 
+<<<<<<< HEAD
+	# ds_is_reponsive provokes undesired error messages, use ds_is_tango
+        if (!ds_is_tango(_axis_ds_name)){
+=======
 
         if (ds_is_tango(_axis_ds_name)){
             tango_mot_msg(sprintf("Motor %s linked to DS : %s ", _mot_mne, _axis_ds_name))
         }
         else{
+>>>>>>> ac096e4afc9e2d3349544fb546151820b45e6ad6
             tango_mot_err(sprintf("Axis %s is not responding", _axis_ds_name))
             return ".error."
         }
+	# else{
+        # Users should be alerted, when it fails, not when it works
+        #    tango_mot_msg(sprintf("Motor %s linked to DS : %s ", _mot_mne, _axis_ds_name))
+        #}
 
         # Registers axis Tango DS name in parameters of the motor.
         tango_mot_dbg(sprintf("Registering DS name : \"%s\" for motor \"%s\"", \
@@ -379,15 +389,17 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
 
 
 #%IU% (motnum, key, action, p1, p2)
-#%MDESC%
-#    The hmacmot_par function is called when various motor parameters
-# are set and when the motor_par() function is used to retrieve a
-# user-defined parameter.
-# * <motnum> : motor number
-# * <key>    : parameter name
-# * <action> : "set" / "get"
-# * <p1>     :
-# * <p2>     :
+#%MDESC%The hmacmot_par function is called when various motor parameters
+#are set and when the motor_par() function is used to retrieve a
+#user-defined parameter.
+#%DL%
+#%UL%
+#%LI%<motnum> : motor number
+#%LI%<key>    : parameter name
+#%LI%<action> : "set" / "get"
+#%LI%<p1>     :
+#%LI%<p2>     :
+#%XUL%
 def tango_mot_par(motnum, key, action, p1, p2) '{
     local _msg _mot_mne
 
@@ -510,7 +522,6 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
 
 #%IU%
 #%MDESC%
-#
 def tango_mot_cmd(motnum, cmd, p1, p2) '{
 
     local _mot_mne  _dev  _attr  _step_size  _steps  _cmd
@@ -717,4 +728,3 @@ def _tango_mot_error_stack(motmne, devname, attr_cmd) '{
 #%MACROS%
 #%IMACROS%
 #%AUTHOR%  Cyril Guilloud - BLISS - 2014
-

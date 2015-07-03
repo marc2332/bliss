@@ -669,7 +669,7 @@ def add_property(inst, name, method):
 
 class AxisState(object):
 
-    STATE_VALIDATOR = re.compile("^[A-Z]+$")
+    STATE_VALIDATOR = re.compile("^[A-Z0-9]+$")
 
     """
     Standard states:
@@ -790,7 +790,7 @@ class AxisState(object):
 
     def clear(self):
         # Flags all states off.
-        self._current_states = set()
+        self._current_states = list()
 
     def current_states(self):
         """

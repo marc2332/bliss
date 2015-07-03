@@ -126,7 +126,6 @@ def status_isready(stat):
     Returns True if the axis status given indicates 
     that the axis is ready to move
     """
-
     return ((stat & (1<<9)) != 0)
 
 
@@ -135,7 +134,6 @@ def status_lowlim(stat):
     Returns True if the axis status given indicates 
     a low limitswitch active
     """
-
     return ((stat & (1<<19)) != 0)
 
 
@@ -144,7 +142,6 @@ def status_highlim(stat):
     Returns True if the axis status given indicates
     a high limitswitch active
     """
-
     return ((stat & (1<<18)) != 0)
 
 
@@ -153,9 +150,124 @@ def status_home(stat):
     Returns True if the axis status given indicates
     a HOME switch active
     """
-
     return ((stat & (1<<20)) != 0)
 
+
+def status_warning(stat):
+    """
+    Returns True if the axis status given indicates 
+    a warning condition
+    """
+    return ((stat & (1<<13)) != 0)
+
+def status_ispoweron(stat):
+    """
+    Returns True if the axis status given indicates 
+    that the axis is powered
+    """
+    return ((stat & (1<<23)) != 0)
+
+STATUS_DISCODE_STR = {
+    0 : 'POWERENA',
+    1 : 'NOTACTIVE',
+    2 : 'ALARM',
+    3 : 'REMRACKDIS',
+    4 : 'LOCRACKDIS',
+    5 : 'REMAXISDIS',
+    6 : 'LOCAXISDIS',
+    7 : 'SOFTDIS'
+}
+STATUS_DISCODE_DSC = {
+    0 : 'power enabled',
+    1 : 'axis configured as not active',
+    2 : 'alarm condition',
+    3 : 'remote rack disable input signal',
+    4 : 'local rack disable switch',
+    5 : 'remote axis disable input signal',
+    6 : 'local axis disable switch',
+    7 : 'software disable'
+}
+def status_get_disable(stat):
+    """
+    Returns from the given axis status,
+    the discable code, a short string, a description string
+    or None if no disable condition is active
+    """
+    dis = (stat >> 4) & 7
+    if dis == 0:
+        return None, None, None
+    return dis, STATUS_DISCODE_STR[dis], STATUS_DISCODE_DSC[dis]
+
+STATUS_MODCODE_STR = {
+    0 : 'OPER',
+    1 : 'PROG',
+    2 : 'TEST',
+    3 : 'FAIL'
+}
+STATUS_MODCODE_DSC = {
+    0 : 'operation mode',
+    1 : 'programmation mode',
+    2 : 'test mode',
+    3 : 'fail mode'
+}
+def status_get_mode(stat):
+    """
+    Returns from the given axis status,
+    the mode code, a short string, a description string.
+    or None to indicate the normal case
+    """
+    cod = (stat >> 2) & 3
+
+    if cod == 0:
+        return None, None, None
+    return cod, STATUS_MODCODE_STR[cod], STATUS_MODCODE_DSC[cod]
+
+STATUS_STOPCODE_STR = {
+    0  : 'SCEOM',
+    1  : 'SCSTOP',
+    2  : 'SCABORT',
+    3  : 'SCLIMPOS',
+    4  : 'SCLINNEG',
+    5  : 'SCSETTLINGTO',
+    6  : 'SCAXISDIS',
+    7  : 'SCBIT7',
+    8  : 'SCINTFAIL',
+    9  : 'SCMOTFAIL',
+    10 : 'SCPOWEROVL',
+    11 : 'SCHEATOVL',
+    12 : 'SCCLERROR',
+    13 : 'SCCENCERROR',
+    14 : 'SCBIT14',
+    15 : 'SCEXTALARM'
+}
+STATUS_STOPCODE_DSC = {
+    0  : 'end of movement',
+    1  : 'last motion was stopped',
+    2  : 'last motion was aborted',
+    3  : 'positive limitswitch reached',
+    4  : 'negative limitswitch reached',
+    5  : 'settling timeout',
+    6  : 'axis disabled (no alarm)',
+    7  : 'n/a',
+    8  : 'internal failure',
+    9  : 'motor failure',
+    10 : 'power overload',
+    11 : 'driver overheating',
+    12 : 'closed loop error',
+    13 : 'control encoder error',
+    14 : 'n/a',
+    15 : 'external alarm'
+}
+def status_get_stopcode(stat):
+    """
+    Returns from the given axis status,
+    the last motion stop code, a short string, a description string
+    or None to indicate the normal case
+    """
+    cod = (stat >> 14) & 15
+    if cod == 0:
+        return None, None, None
+    return cod, STATUS_STOPCODE_STR[cod], STATUS_STOPCODE_DSC[cod]
 
 
 #-------------------------------------------------------------------------

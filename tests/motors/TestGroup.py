@@ -78,7 +78,7 @@ class TestGroup(unittest.TestCase):
         self.assertEqual(robz.state(), "READY")
         self.assertEqual(roby.state(), "READY")
         self.assertEqual(self.grp.state(), "READY")
-
+    
     def test_stop(self):
         roby = bliss.get_axis("roby")
         robz = bliss.get_axis("robz")
@@ -89,26 +89,26 @@ class TestGroup(unittest.TestCase):
         self.assertEqual(self.grp.state(), "READY")
         self.assertEqual(robz.state(), "READY")
         self.assertEqual(roby.state(), "READY")
-
+     
     def test_ctrlc(self):
         roby = bliss.get_axis("roby")
         robz = bliss.get_axis("robz")
         self.assertEqual(robz.state(), "READY")
-        self.grp.move({robz: 0, roby: 0}, wait=False)
+        self.grp.rmove({robz: -10, roby: -10}, wait=False)
         time.sleep(0.01)
-        self.grp._Group__move_task.kill()
-        self.grp.wait_move()
+        self.grp._Group__move_task.kill(KeyboardInterrupt, block=False)
+        self.assertRaises(KeyboardInterrupt, self.grp.wait_move)
         self.assertEqual(self.grp.state(), "READY")
         self.assertEqual(robz.state(), "READY")
         self.assertEqual(roby.state(), "READY")
-
+    
     def test_position_reading(self):
         positions_dict = self.grp.position()
         for axis, axis_pos in positions_dict.iteritems():
             group_axis = bliss.get_axis(axis.name)
             self.assertEqual(axis, group_axis)
             self.assertEqual(axis.position(), axis_pos)
-
+    
     def test_move_done_event(self):
         res = {"ok": False}
 
@@ -116,10 +116,14 @@ class TestGroup(unittest.TestCase):
             if move_done:
                 res["ok"] = True
         roby = bliss.get_axis("roby")
+        roby_pos = roby.position()
         robz = bliss.get_axis("robz")
+        robz_pos = robz.position()
         event.connect(self.grp, "move_done", callback)
         self.grp.rmove({robz: 2, roby: 3})
         self.assertEquals(res["ok"], True)
+        self.assertEquals(robz.position(), robz_pos+2)
+        self.assertEquals(roby.position(), roby_pos+3)
 
     def test_static_move(self):
         self.grp.move(self.grp.position())
@@ -131,7 +135,7 @@ class TestGroup(unittest.TestCase):
         self.grp.rmove({ robz: 0, roby: 1})
         self.assertEquals(self.grp.position()[robz], p0[robz])
         self.assertEquals(self.grp.position()[roby], p0[roby]+1)
-
+    
     def test_bad_startone(self):
         roby = bliss.get_axis("roby")
         robz = bliss.get_axis("roby")

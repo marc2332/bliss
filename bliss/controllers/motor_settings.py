@@ -123,9 +123,10 @@ class ControllerAxisSettings:
 
         setting_value = self._set_setting(axis, setting_name, value)
  
-        SETTINGS_WRITER_QUEUE.put((axis, setting_name, setting_value, write))
-
-        event.send(axis, setting_name, setting_value)
+        try:
+            event.send(axis, setting_name, setting_value)
+        finally:
+            SETTINGS_WRITER_QUEUE.put((axis, setting_name, setting_value, write))
 
     def get(self, axis, setting_name):
         settings = self._settings(axis)

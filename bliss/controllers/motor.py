@@ -244,6 +244,7 @@ class CalcController(Controller):
         Controller.__init__(self, *args, **kwargs)
 
         self._reals_group = None
+        self._write_settings = False
 
     def initialize(self):
         for axis in self.pseudos:
@@ -261,8 +262,8 @@ class CalcController(Controller):
             self.reals.append(real_axis)
             event.connect(real_axis, 'position', self._calc_from_real)
             event.connect(real_axis, 'state', self._update_state_from_real)
-            event.connect(real_axis, "move_done", self._real_move_done)
         self._reals_group = Group(*self.reals)
+        event.connect(self._reals_group, 'move_done', self._real_move_done)
         self.pseudos = [
             axis for axis_name,
             axis in self.axes.iteritems() if axis not in self.reals]
@@ -284,8 +285,8 @@ class CalcController(Controller):
         for tagged_axis_name, position in new_positions.iteritems():
             axis = self._tagged[tagged_axis_name][0]
             if axis in self.pseudos:
-                axis.settings.set("dial_position", position)
-                axis.settings.set("position", axis.dial2user(position))
+                axis.settings.set("dial_position", position, write=self._write_settings)
+                axis.settings.set("position", axis.dial2user(position), write=False)
             else:
                 raise RuntimeError("cannot assign position to real motor")
 
@@ -300,6 +301,7 @@ class CalcController(Controller):
 
     def _real_move_done(self, done):
         if done:
+            self._write_settings = False
             for axis in self.pseudos:
                 if axis.encoder:
                     # check position and raise RuntimeError if encoder
@@ -330,6 +332,7 @@ class CalcController(Controller):
         for axis_tag, target_pos in self.calc_to_real(axis_tag, positions_dict).iteritems():
             real_axis = self._tagged[axis_tag][0]
             move_dict[real_axis] = target_pos
+        self._write_settings = True
         self._reals_group.move(move_dict, wait=False)
 
     def calc_to_real(self, axis_tag, positions_dict):
@@ -343,18 +346,3 @@ class CalcController(Controller):
 
     def state(self, axis, new_state=None):
         return self._reals_group.state()
-
-    """
-    def read_velocity(self, axis):
-        # no better idea...
-        return 0
-
-    def set_velocity(self, axis, new_velocity):
-        return new_velocity
-
-    def read_acceleration(self,axis):
-        return 0
-
-    def set_acceleration(self, axis, new_acc):
-        return 0
-    """

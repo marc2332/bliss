@@ -228,10 +228,14 @@ class Axis(object):
 
         return self.position()
 
-    def state(self):
-        if self.is_moving:
-            return AxisState("MOVING")
-        state = self.settings.get_from_channel('state')
+    def state(self, read_hw=False):
+        if read_hw:
+            state = None
+        else:
+            if self.is_moving:
+                return AxisState("MOVING")
+            state = self.settings.get_from_channel('state')
+       
         if state is None:
             # really read from hw
             state = self.__controller.state(self)
@@ -449,7 +453,7 @@ class Axis(object):
         event.send(self, "move_done", True)
 
     def _check_ready(self):
-        initial_state = self.state()
+        initial_state = self.state(read_hw=True)
         if initial_state != "READY":
             raise RuntimeError("axis %s state is \
                                 %r" % (self.name, str(initial_state)))

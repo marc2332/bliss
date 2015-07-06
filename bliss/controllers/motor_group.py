@@ -68,7 +68,7 @@ class _Group(object):
         if self.is_moving:
             return AxisState("MOVING")
 
-        states = [axis.state() for axis in self._axes.itervalues()]
+        states = [axis.state(read_hw=True) for axis in self._axes.itervalues()]
         if any([state.MOVING for state in states]):
             return AxisState("MOVING")
 

@@ -95,57 +95,63 @@ class Controller(object):
     def finalize(self):
         pass
 
+    def _initialize_axis(self, axis):
+        axis.settings.load_from_config()
+
+        self.initialize_axis(axis)
+        self.__initialized_axis[axis] = True
+
+        # apply settings or config parameters
+        def get_setting_or_config_value(name, converter=float):
+            value = axis.settings.get(name)
+            if value is None:
+                try:
+                    value = axis.config.get(name, converter)
+                except:
+                    # print "no config value for %s " % name
+                    return None
+            return value
+
+        mandatory_config_list = list()
+
+        for config_param in ['velocity', 'acceleration']:
+            # Try to execute read_<config_name> to check if controller support it.
+            reading_function = getattr(axis.controller, "read_%s" % config_param)
+            try:
+                reading_function(axis)
+            except NotImplementedError:
+                pass
+            else:
+                mandatory_config_list.append(config_param)
+
+        for setting_name in mandatory_config_list:
+            value = get_setting_or_config_value(setting_name)
+            if value is None:
+                raise RuntimeError("%s is missing in configuration for axis '%s`." % (setting_name, axis.name))
+            meth = getattr(axis, setting_name)
+            meth(value)
+
+        low_limit = get_setting_or_config_value("low_limit")
+        high_limit = get_setting_or_config_value("high_limit")
+        axis.limits(low_limit, high_limit)
+ 
+
     def get_axis(self, axis_name):
         axis = self._axes[axis_name]
 
         if not self.__initialized_axis[axis]:
-            # load settings
-            axis.settings.load_from_config()
-
-            self.initialize_axis(axis)
-            self.__initialized_axis[axis] = True
-
-            # apply settings or config parameters
-            def get_setting_or_config_value(name, converter=float):
-                value = axis.settings.get(name)
-                if value is None:
-                    try:
-                        value = axis.config.get(name, converter)
-                    except:
-                        # print "no config value for %s " % name
-                        return None
-                return value
-
-            mandatory_config_list = list()
-
-            for config_param in ['velocity', 'acceleration']:
-                # Try to execute read_<config_name> to check if controller support it.
-                reading_function = getattr(axis.controller, "read_%s" % config_param)
-                try:
-                    reading_function(axis)
-                except NotImplementedError:
-                    #print "<config_param> seems not supported by your controller."
-                    #print "  no [read|set]_<config_param> method."
-                    #print "%s not implemented in your controller." % config_param
-                    pass
-                else:
-                    mandatory_config_list.append(config_param)
-
-            for setting_name in mandatory_config_list:
-                value = get_setting_or_config_value(setting_name)
-                if value is None:
-                    raise RuntimeError("%s is missing in configuration for axis '%s`." % (setting_name, axis.name))
-                meth = getattr(axis, setting_name)
-                meth(value)
-
-            low_limit = get_setting_or_config_value("low_limit")
-            high_limit = get_setting_or_config_value("high_limit")
-            axis.limits(low_limit, high_limit)
+            self._initialize_axis(axis)
 
         return axis
 
+
     def initialize_axis(self, axis):
         raise NotImplementedError
+
+    
+    def finalize_axis(self, axis):
+        raise NotImplementedError
+
 
     def get_encoder(self, encoder_name):
         encoder = self._encoders[encoder_name]

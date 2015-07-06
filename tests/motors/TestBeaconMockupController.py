@@ -144,10 +144,10 @@ class TestMockupController(unittest.TestCase):
     def test_axis_move(self):
         robz = bliss.get_axis("robz")
         self.assertEqual(robz.state(), "READY")
-        move_greenlet = robz.move(180, wait=False)
+        robz.move(180, wait=False)
         self.assertNotEqual(robz.position(), None)
         self.assertEqual(robz.state(), "MOVING")
-        move_greenlet.join()
+        robz.wait_move()
         self.assertEqual(robz.state(), "READY")
     
     def test_axis_multiple_move(self):
@@ -155,9 +155,9 @@ class TestMockupController(unittest.TestCase):
 
         for i in range(250):
             self.assertEqual(robz.state(), "READY")
-            move_greenlet = robz.move(180, wait=False)
+            robz.move(180, wait=False)
             self.assertEqual(robz.state(), "MOVING")
-            move_greenlet.join()
+            robz.wait_move()
             self.assertEqual(robz.state(), "READY")
             time.sleep(0.0001)
 
@@ -177,10 +177,10 @@ class TestMockupController(unittest.TestCase):
         roby = bliss.get_axis("roby")
         self.assertEqual(roby.state(), "READY")
         roby.move(0)
-        move_greenlet = roby.move(-10, wait=False)
+        roby.move(-10, wait=False)
         time.sleep(0)
         self.assertEqual(roby.backlash_move, -12)
-        move_greenlet.join()
+        roby.wait_move()
         self.assertEqual(roby.position(), -10)
         roby.move(-9)
         roby.limits(-11, 10)
@@ -204,10 +204,10 @@ class TestMockupController(unittest.TestCase):
         roby = bliss.get_axis("roby")
         self.assertEqual(roby.state(), "READY")
         roby.move(0)
-        move_greenlet = roby.move(10, wait=False)
+        roby.move(10, wait=False)
         time.sleep(0)
         self.assertEqual(roby.backlash_move, 0)
-        move_greenlet.join()
+        roby.wait_move()
         self.assertEqual(roby.position(), 10)
 
     def test_backlash3(self):
@@ -223,9 +223,9 @@ class TestMockupController(unittest.TestCase):
     def test_axis_steps_per_unit(self):
         roby = bliss.get_axis("roby")
         self.assertEqual(roby.state(), "READY")
-        move_greenlet = roby.move(180, wait=False)
+        roby.move(180, wait=False)
         self.assertEqual(roby.state(), "MOVING")
-        move_greenlet.join()
+        roby.wait_move()
         self.assertEqual(roby.state(), "READY")
         self.assertEqual(roby.target_pos, roby.steps_per_unit * 180)
 
@@ -288,10 +288,10 @@ class TestMockupController(unittest.TestCase):
     def test_ctrlc(self):
         robz = bliss.get_axis("robz")
         final_pos = robz.position() + 100
-        move_greenlet = robz.move(final_pos, wait=False)
+        robz.move(final_pos, wait=False)
         self.assertEqual(robz.state(), "MOVING")
         gevent.sleep(0.5)
-        move_greenlet.kill(KeyboardInterrupt)
+        robz.stop() #kill(KeyboardInterrupt)
         self.assertEqual(robz.state(), "READY")
         self.assertTrue(robz.position() < final_pos)
 
@@ -354,6 +354,19 @@ class TestMockupController(unittest.TestCase):
         axes = config.axis_names_list()     
         self.assertTrue("robz" in axes)
         self.assertTrue("roby" in axes) 
+    def test_settings_to_config(self):
+        m = bliss.get_axis("roby")
+        m.velocity(3)
+        m.acceleration(10)
+        self.assertEquals(m.velocity(from_config=True), 2500) 
+        self.assertEquals(m.acceleration(from_config=True), 4)
+        m.settings_to_config()
+        self.assertEquals(m.velocity(from_config=True), 3) 
+        self.assertEquals(m.acceleration(from_config=True), 10)
+        m.velocity(2500)
+        m.acceleration(4)
+        m.settings_to_config()
+
 
 if __name__ == '__main__':
     unittest.main()

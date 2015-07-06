@@ -102,7 +102,10 @@ class ControllerAxisSettings:
         settings = self._settings(axis)
         convert_func = self.convert_funcs.get(setting_name)
         if convert_func is not None:
-            setting_value = convert_func(value)
+            try:
+                setting_value = convert_func(value)
+            except (TypeError, ValueError):
+                setting_value = None
         else:
             setting_value = value
         settings[setting_name] = setting_value

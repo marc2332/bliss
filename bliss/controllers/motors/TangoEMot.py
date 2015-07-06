@@ -36,9 +36,9 @@ class TangoEMot(Controller):
     def initialize_axis(self, axis):
         self.axis_proxy = DeviceProxy(self.ds_name)
 
-        axis.config.config_dict.update({"steps_per_unit": {"value": self.axis_proxy.steps_per_unit}})
-        axis.config.config_dict.update({"acceleration": {"value": self.axis_proxy.ReadConfig("acceleration")}})
-        axis.config.config_dict.update({"velocity": {"value": self.axis_proxy.ReadConfig("velocity")}})
+        axis.config.set("steps_per_unit", self.axis_proxy.steps_per_unit)
+        axis.config.set("acceleration", self.axis_proxy.ReadConfig("acceleration"))
+        axis.config.set("velocity", self.axis_proxy.ReadConfig("velocity"))
 
     def initialize_encoder(self, encoder):
         self.encoder_proxy = DeviceProxy(self.ds_name)

@@ -112,15 +112,13 @@ class _Group(object):
             motion.axis._do_encoder_reading()
 
     def _handle_move(self, motions):
-        move_tasks = []
         for motion in motions:
             move_task = gevent.spawn(self.single_axis_move_task, motion)
             motion.axis._Axis__move_task = move_task
             move_task._being_waited = True
             move_task.link(motion.axis._set_move_done)
-            move_tasks.append(move_task)
-        for move_task in gevent.iwait(move_tasks):
-            move_task.get()
+        for motion in motions:
+            motion.axis.wait_move()
 
     def rmove(self, *args, **kwargs):
         kwargs["relative"] = True
@@ -148,15 +146,18 @@ class _Group(object):
 
     def _set_move_done(self, move_task):
         self._reset_motions_dict()
-        event.send(self, "move_done", True)
+
+        if move_task is not None:
+            if not move_task._being_waited:
+                try:
+                    move_task.get()
+                except gevent.GreenletExit:
+                    pass
+                except:
+                    sys.excepthook(*sys.exc_info())
+
         self.__move_done.set()
-        if move_task is not None and not move_task._being_waited:
-            try:
-                move_task.get()
-            except gevent.GreenletExit:
-                pass
-            except:
-                sys.excepthook(*sys.exc_info())
+        event.send(self, "move_done", True)
 
     def move(self, *args, **kwargs):
         initial_state = self.state()
@@ -205,15 +206,12 @@ class _Group(object):
             self.wait_move()
 
     def wait_move(self):
-        try:
+        if not self.is_moving:
+            return
+        self.__move_task._being_waited = True
+        with error_cleanup(self.stop):
             self.__move_done.wait()
-        except KeyboardInterrupt:
-            self.stop()
-            raise
-        else:
-            try:
-                if self.__move_task is not None:
-                    return self.__move_task.get()
-            except (KeyboardInterrupt, gevent.GreenletExit):
-                pass
-
+        try:
+            self.__move_task.get()
+        except gevent.GreenletExit:
+            pass

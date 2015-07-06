@@ -514,17 +514,7 @@ class Axis(object):
     def _do_stop(self):
         self.__controller.stop(self)
 
-        # for some reason, _handle_move cannot be called !
-        # Python bug? Weird...
-        while True:
-            state = self.__controller.state(self)
-            if state != "MOVING":
-                if state == 'LIMPOS' or state == 'LIMNEG':
-                  self._update_settings(state)
-                  raise RuntimeError(str(state))
-                break
-            self._update_settings(state)
-            time.sleep(0.02)
+        self._handle_move(Motion(self, None, None))
 
         self.settings.set("_set_position", self.position())
 

@@ -107,17 +107,13 @@ class TestMockupController(unittest.TestCase):
         e = gevent.event.AsyncResult()
         old={"state":None}
         def callback(state, old=old): #{}):
-            #if old.get("state") == state:
-            #    return
             old["state"] = state
-            #e.set(state)
         robz = bliss.get_axis("robz")
         event.connect(robz, "state", callback)
         robz.rmove(10, wait=False)
         while old["state"]=="MOVING":
             time.sleep(0)
-        robz.state()
-        self.assertEqual(robz.state(), "READY")
+        self.assertEquals(robz.state(), "READY")
 
     def test_position_callback(self):
         storage={"last_pos":None, "last_dial_pos":None}

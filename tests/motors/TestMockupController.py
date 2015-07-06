@@ -333,7 +333,10 @@ class TestMockupController(unittest.TestCase):
         self.assertEqual(robz.state(), "MOVING")
         gevent.sleep(0.5)
         robz._Axis__move_task.kill(KeyboardInterrupt)
-        robz.wait_move()
+        try:
+            robz.wait_move()
+        except KeyboardInterrupt:
+            pass
         self.assertEqual(robz.state(), "READY")
         self.assertTrue(robz.position() < final_pos)
 
@@ -411,7 +414,10 @@ class TestMockupController(unittest.TestCase):
         m0.move(2, wait=False)
         time.sleep(0.01)
         m0._Axis__move_task.kill(KeyboardInterrupt)
-        m0.wait_move()
+        try:
+            m0.wait_move()
+        except KeyboardInterrupt:
+            pass
         m0.move(1)
         self.assertEquals(m0._set_position(), 1)
     

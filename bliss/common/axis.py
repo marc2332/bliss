@@ -499,27 +499,24 @@ class Axis(object):
     def wait_move(self):
         if not self.is_moving:
             return
-        try:
+        self.__move_task._being_waited = True
+        with error_cleanup(self.stop):
             self.__move_done.wait()
-        except KeyboardInterrupt:
-            self.stop()
-            raise
-        else:
-            try:
-                if self.__move_task is not None:
-                    return self.__move_task.get()
-            except (KeyboardInterrupt, gevent.GreenletExit):
-                pass
-
+        try:
+            self.__move_task.get()
+        except gevent.GreenletExit:
+            pass
+        
     def _do_stop(self):
         self.__controller.stop(self)
 
-        self._handle_move(Motion(self, None, None))
+        try:
+            self._handle_move(Motion(self, None, None))
+        finally:
+            self.settings.set("_set_position", self.position())
 
-        self.settings.set("_set_position", self.position())
-
-        if self.encoder is not None:
-            self._do_encoder_reading()
+            if self.encoder is not None:
+                self._do_encoder_reading()
 
     def stop(self, exception=gevent.GreenletExit, wait=True):
         if self.is_moving:

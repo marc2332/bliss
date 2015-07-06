@@ -439,8 +439,6 @@ class Axis(object):
         event.send(self, "move_done", False)
 
     def _set_move_done(self, move_task):
-        self.__move_done.set()
-
         if move_task is not None:
             if not move_task._being_waited:
                 try:
@@ -449,7 +447,14 @@ class Axis(object):
                     pass
                 except:
                     sys.excepthook(*sys.exc_info())
-            self._update_settings()
+            # update settings;
+            # as update is done before move done is set,
+            # we need to read state from hardware to get it right
+            # (it would return 'MOVING' otherwise)
+            # this update is very important for position, to have
+            # final position ok for waiters on move done event
+            self._update_settings(state=self.state(read_hw=True))
+        self.__move_done.set()
         event.send(self, "move_done", True)
 
     def _check_ready(self):

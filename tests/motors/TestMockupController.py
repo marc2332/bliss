@@ -104,7 +104,6 @@ class TestMockupController(unittest.TestCase):
         self.assertEqual(robz.controller.name, "test")
 
     def test_state_callback(self):
-        e = gevent.event.AsyncResult()
         old={"state":None}
         def callback(state, old=old): #{}):
             old["state"] = state

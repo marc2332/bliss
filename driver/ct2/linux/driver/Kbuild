@@ -24,8 +24,9 @@
 #                            BUILD OPTIONS BEGIN                             #
 ##############################################################################
 
-CT2_MAKE_DEBUG_VERSION      ?=  yes
-CT2_MAP_IOPORTS_TO_IOMEM    ?=  no
+CT2_MAKE_DEBUG_VERSION              ?=  yes
+CT2_MAP_IOPORTS_TO_IOMEM            ?=  no
+CT2_KMOD_PARAM_ENABLE_P201_TEST_REG ?= yes
 
 ##############################################################################
 #                             BUILD OPTIONS END                              #
@@ -51,5 +52,13 @@ EXTRA_CFLAGS                +=  -D CT2_MAP_IOPORTS_TO_IOMEM
 else 
 ifneq ($(CT2_MAP_IOPORTS_TO_IOMEM), no)
     $(error CT2_MAP_IOPORTS_TO_IOMEM can hold either "yes" or "no")
+endif
+endif
+
+ifeq ($(CT2_KMOD_PARAM_ENABLE_P201_TEST_REG), yes)
+EXTRA_CFLAGS                +=  -D CT2_KMOD_PARAM_ENABLE_P201_TEST_REG
+else 
+ifneq ($(CT2_KMOD_PARAM_ENABLE_P201_TEST_REG), no)
+    $(error CT2_KMOD_PARAM_ENABLE_P201_TEST_REG can hold either "yes" or "no")
 endif
 endif

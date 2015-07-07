@@ -28,9 +28,8 @@ KMOD_ROOT       ?=  ..
 EXAMPLES        =   continuous_scan \
                     rmap \
                     xaccess \
-                    ct
-
-
+                    ct \
+                    test_reg
 
 CXX             =   g++ -g
 LD              =   $(CXX)

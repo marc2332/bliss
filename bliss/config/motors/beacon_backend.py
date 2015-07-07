@@ -122,16 +122,23 @@ def load_axes(config_node):
 
 def write_setting(config_dict, setting_name, setting_value, write):
     axis_name = config_dict["name"]
-    
-    channels.Channel("axis.%s.%s" % (axis_name, setting_name), setting_value)
-   
-    if write: 
-        hash_setting = settings.HashSetting("axis.%s" % axis_name)
-        hash_setting[setting_name] = setting_value
+    #print 'in write_setting', axis_name, setting_name, str(setting_value)
+  
+    if setting_name == 'position':
+        channels.Channel("axis.%s.%s" % (axis_name, setting_name), setting_value)
+    else:
+        if write:
+           channels.Channel("axis.%s.%s" % (axis_name, setting_name), setting_value)
+           if setting_name != 'state':
+               hash_setting = settings.HashSetting("axis.%s" % axis_name)
+               hash_setting[setting_name] = setting_value
 
 
 def setting_update_from_channel(value, setting_name=None, axis=None):
     axis.settings.set(setting_name, value, write=False, from_channel=True)
+ 
+    #print 'setting update from channel', axis.name, setting_name, str(value)
+
     if setting_name == 'state':
         if 'MOVING' in str(value):
             axis._set_moving_state()

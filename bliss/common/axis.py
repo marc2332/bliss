@@ -328,7 +328,7 @@ class Axis(object):
         return self.settings.get('low_limit'), self.settings.get('high_limit')
 
     def _update_settings(self, state=None):
-        self.settings.set("state", state if state is not None else self.state(), write=False)
+        self.settings.set("state", state if state is not None else self.state(), write=True) #False)
         self._position()
 
     def _handle_move(self, motion):
@@ -435,7 +435,7 @@ class Axis(object):
 
     def _set_moving_state(self):
         self.__move_done.clear()
-        self.settings.set("state", AxisState("MOVING"), write=False)
+        self.settings.set("state", AxisState("MOVING"), write=True) #False)
         event.send(self, "move_done", False)
 
     def _set_move_done(self, move_task):

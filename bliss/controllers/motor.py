@@ -70,21 +70,6 @@ class Controller(object):
                 self.axes[axis.name] = referenced_axis
                 axis_list[i] = referenced_axis
                 referenced_axis.controller._tagged.setdefault(tag, []).append(referenced_axis)
-        """
-            referenced_axis = get_axis(axis.name)
-            self.axes[axis.name] = referenced_axis
-            self.__initialized_axis[referenced_axis] = True
-            for tag, axis_list in self._tagged.iteritems():
-                try:
-                    i = axis_list.index(axis)
-                except ValueError:
-                    continue
-                else:
-                    axis_list[i] = referenced_axis
-                    referenced_axis.controller._tagged.setdefault(
-                        tag,
-                        []).append(referenced_axis)
-        """
 
     def initialize(self):
         pass
@@ -268,7 +253,12 @@ class CalcController(Controller):
             axis for axis_name,
             axis in self.axes.iteritems() if axis not in self.reals]
 
+    def _updated_from_channel(self, setting_name):
+        #print [axis.settings.get_from_channel(setting_name) for axis in self.reals]
+        return any([axis.settings.get_from_channel(setting_name) for axis in self.reals])
+
     def _calc_from_real(self, *args, **kwargs):
+        #self._write_settings = not self._updated_from_channel('position')
         real_positions_by_axis = self._reals_group.position()
         real_positions = dict()
 
@@ -280,11 +270,13 @@ class CalcController(Controller):
             if axis in self.reals:
                 real_positions[tag] = real_positions_by_axis[axis]
 
+        #print real_positions
         new_positions = self.calc_from_real(real_positions)
 
         for tagged_axis_name, position in new_positions.iteritems():
             axis = self._tagged[tagged_axis_name][0]
             if axis in self.pseudos:
+                #print 'calc from real', axis.name, position, self._write_settings
                 axis.settings.set("dial_position", position, write=self._write_settings)
                 axis.settings.set("position", axis.dial2user(position), write=False)
             else:
@@ -295,12 +287,15 @@ class CalcController(Controller):
         raise NotImplementedError
 
     def _update_state_from_real(self, *args, **kwargs):
+        self._write_settings = not self._updated_from_channel('state')
         state = self._reals_group.state()
         for axis in self.pseudos:
-            axis.settings.set("state", state, write=False)
+            #print '_update_state_from_real', axis.name, str(state)
+            axis.settings.set("state", state, write=self._write_settings)
 
     def _real_move_done(self, done):
         if done:
+            #print 'MOVE DONE'
             self._write_settings = False
             for axis in self.pseudos:
                 if axis.encoder:

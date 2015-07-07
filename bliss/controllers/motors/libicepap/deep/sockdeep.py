@@ -307,7 +307,7 @@ class SockDeep:
       # read 'size' characters from the socket
       ans = ""
       while len(ans) < size:
-          ans += self.fifoin.get(block=True, timeout=1)
+          ans += self.fifoin.get(block=True) #, timeout=1)
     except Queue.Empty:
       if ignoretimeout:
          return ""

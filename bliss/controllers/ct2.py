@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import os
 import sys
 import errno
@@ -6,7 +8,7 @@ import ctypes
 import ctypes.util
 import struct
 import logging
-
+import weakref
 
 # low level pread and pwrite calls for the p201/c208 driver.
 
@@ -17,23 +19,29 @@ import logging
 
 __libc = ctypes.cdll.LoadLibrary(ctypes.util.find_library('c'))
 
-def pread(fd, buffersize, offset):
-    buff = ctypes.create_string_buffer(buffersize)
-    n = __libc.pread(fd, buff, buffersize, offset)
-    err = ctypes.get_errno()
-    if err != 0:
-        ctypes.set_errno(0)
-        raise OSError("pread error: %s (%d): %s" % (errno.errorcode(err), err, 
-                                                    errno.strerror(err)))
+def pread(fd, offset):
+    buff = ctypes.create_string_buffer(CT2_REG_SIZE)
+    n = __libc.pread(fd, buff, 1, offset)
+    if n == -1:
+        err = ctypes.get_errno()
+        if err != 0:
+            ctypes.set_errno(0)
+            raise OSError("pread error: %s (%d): %s" % (errno.errorcode(err), err, 
+                                                        errno.strerror(err)))
+        else:
+            raise OSError("pread error")
     return buff[:]
 
 def pwrite(fd, buff, offset):
-    __libc.pwrite(fd, buff, len(buff), offset)
-    err = ctypes.get_errno()
-    if err != 0:
-        ctypes.set_errno(0)
-        raise OSError("pwrite error: %s (%d): %s" % (errno.errorcode(err), err, 
-                                                     errno.strerror(err)))
+    n = __libc.pwrite(fd, buff, 1, offset)
+    if n == -1:
+        err = ctypes.get_errno()
+        if err != 0:
+            ctypes.set_errno(0)
+            raise OSError("pwrite error: %s (%d): %s" % (errno.errorcode(err), err, 
+                                                         errno.strerror(err)))
+        else:
+            raise OSError("pwrite error")
 
 #--------------------------------------------------------------------------
 #                       Linux ioctl numbers made easy
@@ -161,7 +169,7 @@ CT2_R2_OFFSET = 64
 
 CT2_R2_SEQ = [
 # addr        name           read  write             description 
-[0x00, "SEL_FILTRE_INPUT_A", True, True, "Input 1to 6: filter configuration and deglitcher enable"],
+[0x00, "SEL_FILTRE_INPUT_A", True, True, "Input 1 to 6: filter configuration and deglitcher enable"],
 [0x04, "SEL_FILTRE_INPUT_B", True, True, "Input 7 to 10: filter configuration and deglitcher enable"],
 
 [0x10, "SEL_FILTRE_OUTPUT", True, True, "Output 9 and 10: filter configuration and polarity selection"],
@@ -262,25 +270,27 @@ CT2_COM_GENE_SOFT_RESET = 0x00000080 # soft reset(1)
 CT2_COM_GENE_FREQ_MSK   = 0x0000000f # Frequency bitmask
 CT2_COM_GENE_FREQ_OFF   = 0          # Frequency offset
 
-def ct2_clock_freq_ctor(a, b, c, d, e):
+def __ct2_clock_freq_ctor(a, b, c, d, e):
     return (((a) << 4)|((b) << 3)|((c) << 2)|((d) << 1)|((e) << 0))
 
-CT2_COM_GENE_CLOCK_DISABLED     = ct2_clock_freq_ctor(0,  0, 0, 0, 0)
+CLOCK_DISABLED  = __ct2_clock_freq_ctor(0,  0, 0, 0, 0)
 
-CT2_COM_GENE_CLOCK_AT_20_MHz    = ct2_clock_freq_ctor(1,  0, 1, 0, 1)
-CT2_COM_GENE_CLOCK_AT_25_MHz    = ct2_clock_freq_ctor(1,  0, 1, 0, 0)
-CT2_COM_GENE_CLOCK_AT_30_MHz    = ct2_clock_freq_ctor(1,  0, 0, 1, 0)
-CT2_COM_GENE_CLOCK_AT_33_33_MHz = ct2_clock_freq_ctor(1,  0, 0, 0, 1)
-CT2_COM_GENE_CLOCK_AT_40_MHz    = ct2_clock_freq_ctor(1,  1, 1, 1, 1)
-CT2_COM_GENE_CLOCK_AT_45_MHz    = ct2_clock_freq_ctor(1,  1, 1, 0, 1)
-CT2_COM_GENE_CLOCK_AT_50_MHz    = ct2_clock_freq_ctor(1,  1, 1, 0, 0)
-CT2_COM_GENE_CLOCK_AT_60_MHz    = ct2_clock_freq_ctor(1,  1, 0, 1, 0)
-CT2_COM_GENE_CLOCK_AT_66_66_MHz = ct2_clock_freq_ctor(1,  1, 0, 0, 1)
-CT2_COM_GENE_CLOCK_AT_70_MHz    = ct2_clock_freq_ctor(1,  0, 1, 1, 0)
-CT2_COM_GENE_CLOCK_AT_75_MHz    = ct2_clock_freq_ctor(1,  1, 0, 0, 0)
-CT2_COM_GENE_CLOCK_AT_80_MHz    = ct2_clock_freq_ctor(1,  0, 1, 1, 1)
-CT2_COM_GENE_CLOCK_AT_90_MHz    = ct2_clock_freq_ctor(1,  1, 1, 1, 0)
-CT2_COM_GENE_CLOCK_AT_100_MHz   = ct2_clock_freq_ctor(1,  0, 0, 0, 0)
+CLOCK_20_MHz    = __ct2_clock_freq_ctor(1,  0, 1, 0, 1)
+CLOCK_25_MHz    = __ct2_clock_freq_ctor(1,  0, 1, 0, 0)
+CLOCK_30_MHz    = __ct2_clock_freq_ctor(1,  0, 0, 1, 0)
+CLOCK_33_33_MHz = __ct2_clock_freq_ctor(1,  0, 0, 0, 1)
+CLOCK_40_MHz    = __ct2_clock_freq_ctor(1,  1, 1, 1, 1)
+CLOCK_45_MHz    = __ct2_clock_freq_ctor(1,  1, 1, 0, 1)
+CLOCK_50_MHz    = __ct2_clock_freq_ctor(1,  1, 1, 0, 0)
+CLOCK_60_MHz    = __ct2_clock_freq_ctor(1,  1, 0, 1, 0)
+CLOCK_66_66_MHz = __ct2_clock_freq_ctor(1,  1, 0, 0, 1)
+CLOCK_70_MHz    = __ct2_clock_freq_ctor(1,  0, 1, 1, 0)
+CLOCK_75_MHz    = __ct2_clock_freq_ctor(1,  1, 0, 0, 0)
+CLOCK_80_MHz    = __ct2_clock_freq_ctor(1,  0, 1, 1, 1)
+CLOCK_90_MHz    = __ct2_clock_freq_ctor(1,  1, 1, 1, 0)
+CLOCK_100_MHz   = __ct2_clock_freq_ctor(1,  0, 0, 0, 0)
+
+
 
 #----------------------------------------------------------------------------
 # Definitions for the CTRL_GENE (general control) register(R)
@@ -605,14 +615,103 @@ CT2_IOC_LXA = _IO(CT2_IOC_MAGIC, 22), \
 CT2_IOC_DEVRST = _IO(CT2_IOC_MAGIC, 0), \
     {errno.EACCES: "Could not reset card: no permission"}
 
+
+class CountersStatus:
+
+    def __init__(self, status):
+        self.value = status
+
+    def isEnabled(self, counter):
+        """
+        Tells if the specified counter is enabled
+        
+        :param counter: counter number (starts with 1)
+        :type counter: int
+        
+        :return: True if the counter is enabled or False otherwise
+        :rtype: bool
+        """
+        return (self.value & (1 << (counter - 1))) != 0
+
+    def isRunning(self, counter):
+        """
+        Tells if the specified counter is running
+        
+        :param counter: counter number (starts with 1)
+        :type counter: int
+
+        :return: True if the counter is running or False otherwise
+        :rtype: bool
+        """
+        return (self.value & (1 << (16 + counter - 1))) != 0        
     
+    def __str__(self):
+        return "CountersStatus(%s)" % hex(self.value)
+
+    def __repr__(self):
+        return str(self)
+
+
+class NiveauOut:
+
+    def __init__(self, niveau_out=None, **kwargs):
+        if niveau_out is None:
+            niveau_out = kwargs
+        elif isinstance(niveau_out, NiveauOut):
+            niveau_out = niveau_out.value
+        self.__set_value(niveau_out)
+   
+    def __set_value(self, niveau_out):
+        if isinstance(niveau_out, dict):
+            value = 0
+            if niveau_out.get('ttl_out_9'):  value |= P201_OUT_9_TTL_ENABLE
+            if niveau_out.get('ttl_out_10'): value |= P201_OUT_10_TTL_ENABLE
+            if niveau_out.get('nim_out_9'):  value |= P201_OUT_9_NIM_ENABLE
+            if niveau_out.get('nim_out_10'): value |= P201_OUT_10_NIM_ENABLE
+        else:
+            value = niveau_out
+        self.__value = value
+        
+    @property
+    def value(self):
+        return self.__value
+   
+    @value.setter
+    def value(self, niveau_out):
+        self.__set_value(niveau_out)
+
+    @property
+    def value_dict(self):
+        return dict(ttl_out_9=(self.__value & P201_OUT_9_TTL_ENABLE != 0),
+                    ttl_out_10=(self.__value & P201_OUT_10_TTL_ENABLE != 0),
+                    nim_out_9=(self.__value & P201_OUT_9_NIM_ENABLE!=0),
+                    nim_out_10=(self.__value & P201_OUT_10_NIM_ENABLE!=0))
+
+    def isTTL9Enabled(self):
+        return bool(self.__value & P201_OUT_9_TTL_ENABLE)
+
+    def isTTL10Enabled(self):
+        return bool(self.__value & P201_OUT_10_TTL_ENABLE)
+
+    def isNIM9Enabled(self):
+        return bool(self.__value & P201_OUT_9_NIM_ENABLE)
+
+    def isNIM10Enabled(self):
+        return bool(self.__value & P201_OUT_10_NIM_ENABLE)
+
+    def __str__(self):
+        return "NiveauOut(%s)" % self.value_dict
+
+    def __repr__(self):
+        return str(self)
+
 
 class P201:
     
     def __init__(self, name="/dev/p201"):
         self.__name = name
-        self.__dev = open(name, "rw")
-        self.__log = logging.getLogger("P201./dev/p201")
+        self.__dev = open(name, "rwb+", 0)
+        self.__log = logging.getLogger("P201." + name)
 
     def __ioctl(self, op):
         try:
@@ -637,70 +736,89 @@ class P201:
 
     def reset(self):
         self.__ioctl(CT2_IOC_DEVRST)        
-                
+    
+    def _read_offset(self, offset):
+        result = pread(self.fileno, offset)
+        iresult = struct.unpack("I", result)[0]
+        return iresult
+        
+    def _write_offset(self, offset, ivalue):
+        """ """
+        svalue = struct.pack("I", ivalue)
+        return pwrite(self.fileno, svalue, offset)
+        
     def read_reg(self, register_name):
         """read from the specified register and return a 32bit integer"""
         offset = CT2_R_DICT[register_name][0]
-        result = pread(self.fileno, 4, offset)
-        iresult = struct.unpack("I", result)[0]
+        iresult = self._read_offset(offset)
         self.__log.debug("read %s (offset=%d) = %s", register_name, 
                          offset, hex(iresult))
         return iresult
 
     def write_reg(self, register_name, ivalue):
         """ """
-        svalue = struct.pack("I", ivalue)
         offset = CT2_R_DICT[register_name][0]
         self.__log.debug("write %s (offset=%d) with %s", register_name, 
                          offset, hex(ivalue))
-        return pwrite(self.fileno, svalue, offset)
+        return self._write_offset(offset, ivalue)
 
+    def set_niveau_out(self, niveau_out=None, **kwargs):
+        """
+        Enables/disables output 9 and 10 TLL and NIM.
+        
+        Three different ways to enable ouput 9 TTL::
 
-    def set_niveau_out(self, ttl_out_9=False, ttl_out_10=False,
-                       nim_out_9=False, nim_out_10=False):
-        value = 0
-        if ttl_out_9:  value |= P201_OUT_9_TTL_ENABLE
-        if ttl_out_10: value |= P201_OUT_10_TTL_ENABLE
-        if nim_out_9:  value |= P201_OUT_9_NIM_ENABLE
-        if nim_out_10: value |= P201_OUT_10_NIM_ENABLE
-        self.write_reg("NIVEAU_OUT", value)
+            # output 9 TTL enable
+            reg = 1 << 8 
+            p201.set_niveau_out(reg)
+
+            p201.set_niveau_out(ttl_out_9=True)
+
+            niveau_out = NiveauOut(ttl_out_9=True)
+            p201.set_niveau_out(niveau_out)
+        """
+        niveau_out = NiveauOut(niveau_out=niveau_out, **kwargs)
+        self.write_reg("NIVEAU_OUT", niveau_out.value)
 
     def get_niveau_out(self):
-        result, value = {}, self.read_reg("NIVEAU_OUT")
-        result["ttl_out_9"] =  bool(value & P201_OUT_9_TTL_ENABLE)
-        result["ttl_out_10"] = bool(value & P201_OUT_10_TTL_ENABLE)
-        result["nim_out_9"] =  bool(value & P201_OUT_9_NIM_ENABLE)
-        result["nim_out_10"] = bool(value & P201_OUT_10_NIM_ENABLE)
-        return result
+        result = self.read_reg("NIVEAU_OUT")
+        return NiveauOut(result)
 
     def set_clock(self, clock):
         self.write_reg("COM_GENE", clock)        
 
-    def read_ctrl_cmpt(self):
-        return self.read_reg("RD_CTRL_CMPT")
+    def get_counters_status(self):
+        result = self.read_reg("RD_CTRL_CMPT")
+        return CountersStatus(result)
 
-    def set_clock(self, clock):
-        self.write_reg("COM_GENE", clock)
+    def get_counter_value(self, counter):
+        offset = CT2_R_DICT["RD_CMPT_1"][0] + (counter - 1)
+        return self._read_offset(offset)
 
-    def read_test_reg(self):
+    def get_latch_value(self, counter):
+        offset = CT2_R_DICT["RD_LATCH_CMPT_1"][0] + (counter - 1)
+        return self._read_offset(offset)
+
+    def set_test_reg(self, value):
+        self.write_reg("TEST_REG", value)
+
+    def get_test_reg(self):
         return self.read_reg("TEST_REG")
-
-    def read_cmpt_10(self):
-        return self.read_reg("RD_CMPT_10")
-
-    def read_latch_10(self):
-        return self.read_reg("RD_LATCH_CMPT_10")
 
     
 def main():
-    logging.basicConfig(level=logging.DEBUG)
+    #logging.basicConfig(level=logging.DEBUG)
+
+    def out(msg):
+        sys.stdout.write(msg)
+        sys.stdout.flush()
+
     p201 = P201()
-    
     p201.request_exclusive_access()
     p201.reset()
 
     # internal clock 40 Mhz
-    p201.set_clock(CT2_COM_GENE_CLOCK_AT_40_MHz)
+    p201.set_clock(CLOCK_40_MHz)
 
     # channel 10 output: counter 10 gate envelop
     p201.set_niveau_out(ttl_out_10=True)
@@ -725,27 +843,35 @@ def main():
     # Counter 10 will count 1 sec
     p201.write_reg("COMPARE_CMPT_10", 1000*1000)
 
-    start, start_count = False, 0
-    while not start:
+    started, start_count = False, 0
+    while not started:
         # SoftStart on Counter 10
         start_count += 1
         if start_count > 10:
-            print "failed to start after 10 atempts" 
+            print("failed to start after 10 atempts" )
             break
         p201.write_reg("SOFT_START_STOP", 0x200)
-        status = p201.read_ctrl_cmpt()
-        if status & (0x200 << 16) != 0:
-            start = True
-    
-    if start:
-        while True:
-            counter = p201.read_cmpt_10()
-            latch = p201.read_latch_10()
-            status = p201.read_ctrl_cmpt_10()
-            print counter, latch, status
-            if status & (0x200 << 16) != 0:
-                break
+        status = p201.get_counters_status()
+        started = status.isRunning(10)
 
+    if start_count > 1:
+        logging.warning("took %d times to start", start_count)
+
+    if started:
+        print("Started!")
+        import time
+        while True:
+            time.sleep(0.01)
+            counter = p201.get_counter_value(10)
+            latch = p201.get_latch_value(10)
+            status = p201.get_counters_status()
+            msg = "\r %06d %06d %025s" % (counter, latch, status)
+            out(msg)
+            if not status.isRunning(10):
+                print(msg)
+                break
+    p201.write_reg("SOFT_ENABLE_DISABLE", 0x200 < 16)
+    print(p201.get_counters_status())
     p201.relinquish_exclusive_access()
     return p201
 

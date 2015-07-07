@@ -228,7 +228,7 @@ def call_notification_callbacks(bus_id, channel_name):
     except KeyError:
         return
     else:
-        channel._fire_notification_callbacks()
+        gevent.spawn(channel._fire_notification_callbacks)
 
 
 class _Channel(object):

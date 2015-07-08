@@ -39,7 +39,8 @@ class MD2M:
         axis_list = [] 
         for axis, target in grouped(args, 2):
             axis_list.append(axis)
-            axis.rmove(target, wait=False)
+            target += axis.position()
+            axis.move(target, wait=False)
         return [axis.wait_move() for axis in axis_list]
 
     def _wait_ready(self, *axes, **kwargs):
@@ -385,6 +386,8 @@ class MD2M:
         
     def centrebeam(self):
         self.lightout()
+        self._simultaneous_move(self.bstopz, -80)
+        self.detcover.set_in()
     
         def restore_slits(saved_pos=(self.hgap, self.hgap.position(), self.vgap, self.vgap.position())):
             print 'restoring slits to saved positions', saved_pos
@@ -445,7 +448,7 @@ class MD2M:
                     break
 
     def move_to_sample_loading_position(self, holder_length=22):
-        move_task=self._simultaneous_move(self.phix, 0, self.phiy, 22, self.phiz, 0, self.sampx, 0, self.sampy, 0, self.omega, 0, self.zoom, 1, wait=False)
+        move_task=self._simultaneous_move(self.bstopz, -80, self.phix, 0, self.phiy, 22, self.phiz, 0, self.sampx, 0, self.sampy, 0, self.omega, 0, self.zoom, 1, wait=False)
         self.wago.set("swpermit", 0)
         self.wago.set("SCcryoctrl", 0)
         self.wago.set("fldin", 0)

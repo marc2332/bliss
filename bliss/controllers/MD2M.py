@@ -469,7 +469,7 @@ class MD2M:
         self.lightin()
         self.wago.set("lightctrl", 0.3)
 
-    def align_slits(self):
+    def quick_realign(self):
         self.centrebeam()
         self.i1.autorange(True)
 

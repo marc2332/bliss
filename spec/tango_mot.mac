@@ -192,7 +192,7 @@ def eeconfig '{
 
 #%IU%
 #%MDESC%
-#Called on config/reconfig 
+#Called on config/reconfig
 def tango_mot_config(motnum, type, unit, module, channel) '{
 
     if((motnum == "..") && (type == "ctrl")) {
@@ -203,24 +203,17 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
             return ".error."
         }
 
-<<<<<<< HEAD
         # Checks that Tango DS is running, however ds_is_reponsive provokes undesired
         # error messages, use ds_is_tango
-=======
-        # Checks that Tango DS is running
-<<<<<<< HEAD
->>>>>>> ac096e4afc9e2d3349544fb546151820b45e6ad6
-=======
->>>>>>> ac096e4afc9e2d3349544fb546151820b45e6ad6
         if(!ds_is_tango(tango_mot_ADDR)) {
             tango_mot_err(sprintf("%s unresponsive -> disabling motor controller.", \
                                   tango_mot_ADDR))
             return ".error."
         }
-#	Users should be alerted, when it fails, not when it works
+#   Users should be alerted, when it fails, not when it works
 #        else{
 #            tango_mot_msg(sprintf("EMotion Controller %s is responding", tango_mot_ADDR))
-        }
+#        }
         return
     }
 
@@ -258,20 +251,12 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
             return ".error."
         }
 
-<<<<<<< HEAD
-	# ds_is_reponsive provokes undesired error messages, use ds_is_tango
+    # ds_is_reponsive provokes undesired error messages, use ds_is_tango
         if (!ds_is_tango(_axis_ds_name)){
-=======
-
-        if (ds_is_tango(_axis_ds_name)){
-            tango_mot_msg(sprintf("Motor %s linked to DS : %s ", _mot_mne, _axis_ds_name))
-        }
-        else{
->>>>>>> ac096e4afc9e2d3349544fb546151820b45e6ad6
             tango_mot_err(sprintf("Axis %s is not responding", _axis_ds_name))
             return ".error."
         }
-	# else{
+    # else{
         # Users should be alerted, when it fails, not when it works
         #    tango_mot_msg(sprintf("Motor %s linked to DS : %s ", _mot_mne, _axis_ds_name))
         #}
@@ -283,29 +268,6 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
         # Cannot use tango_mot_ADDR here directly...
         motor_par(motnum, "ctrl_dev_name", tango_mot_ADDR, "add")
         motor_par(motnum, "dev_name", _axis_ds_name, "add")
-
-        # Try to switch power on
-        TANGO_ERR = -1
-        tango_io(_axis_ds_name, "On")
-
-        # query Bliss DS to know the state of the axis
-        local _state  
-        _state = tango_io(_axis_ds_name, "State")
-        if (TANGO_ERR){
-            _tango_mot_error_stack(_mot_mne, _dev, _attr)
-            return ".error."
-        }
-
-        # Disables motor if not ready.
-        if (_state != 0){
-            _msg = sprintf("Motor %s is not ready, disabling it !!!", _mot_mne)
-            tango_mot_err(_msg)
-            motor_par(motnum ,"disable", 1)
-
-            tango_mot_print_status(motnum)
-
-            return ".error."
-        }
 
         # STEPS PER UNIT
         # The step_size SPEC value is only used to define the
@@ -372,18 +334,6 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
             motor_par(motnum, "in_config", 0)
         }
 
-        # handle the specific case of the backlash 
-        # which  can not be set in EMotion.
-        # therefore the flag use_spec_config can not
-        # be used neither.
-        spec_bk = motor_par(motnum, "backlash")
-        emot_bk = tango_mot_get_attr(motnum, "backlash")
-        if((emot_bk != 0) && (spec_bk != 0)) {
-            _msg = sprintf("Motor %s has backlash in SPEC and in EMotion, disabling it!!!", _mot_mne)
-            tango_mot_err(_msg)
-            motor_par(motnum ,"disable", 1)
-            return ".error."
-        }
     }
 }'
 
@@ -408,29 +358,6 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
     _msg = sprintf ("---tango_mot_par(motnum=%s key=\"%s\", action=\"%s\", p1=\"%s\", p2=\"%s\")", \
                     motnum, key, action, p1, p2)
     tango_mot_dbg(_msg)
- 
-    
-    # return the list of non standard motor parameters implemented
-    if ( key=="?" && action=="get") {
-        return("power, axisstatus")
-    }
-
-    # control motor power
-    if (key == "power") {
-        local _axis_ds_name
-        local _state
-
-        _axis_ds_name = motor_par(motnum, "dev_name")
-        if (action == "set") {
-            # Try to switch power on or off according to argin given
-            TANGO_ERR = -1
-            tango_io(_axis_ds_name, (p1==1?"On":"Off"))
-        }
-      
-        # in any case, returns the current state (0 == ON)
-        _state = tango_io(_axis_ds_name, "State")
-        return (_state == 0)
-    }
 
     if (action=="get") {
 
@@ -442,9 +369,6 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
         }
         else if ( key == "step_size"){
             print "OHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH step_size"
-        }
-        else if ( key == "axisstatus"){
-            return (tango_mot_status(motnum))
         }
     }
     else if (action == "set"){
@@ -566,14 +490,6 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
         if (cmd == "get_status"){
             local _state  _ret  _cmd
 
-            _ret = 0
-            if(tango_mot_get_attr(motnum, "HardLimitHigh")) {
-                _ret |= 8
-            }
-            if(tango_mot_get_attr(motnum, "HardLimitLow")) {
-                _ret |= 4
-            }
-
             _cmd = "State"
             _state = tango_io(_dev, _cmd)
             if (TANGO_ERR){
@@ -602,6 +518,7 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
             # MOVING
             if (_state == 6) {
                 _ret |= 2
+                return _ret
             }
 
             # FAULT
@@ -612,40 +529,31 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
 #                return _ret
 #            }
 
-            return _ret
+            return 0
         }
 
         #-------------------------------------
         # "start_one"
         # parameters: p2 is relative motion, p1 is absolute requested position
         if (cmd == "start_one") {
-            local _ret
 
             _attr = "position"
-            TANGO_ERR = -1
-            _ret = tango_put(_dev, _attr, p1)
+            tango_put(_dev, _attr, p1)
 
-            # MP: the exception error stack is not returned by TANGO API
-            # therefore print motor status instead. Anyway, this will be more
-            # useful for the user than the stack itself.
-            if(_ret) {
-                local _msg
-
-                _msg = sprintf("Unable to launch motion on motor %s", _mot_mne)
-                tango_mot_err(_msg)
-                tango_mot_print_status(motnum)
-                #_tango_mot_error_stack(_mot_mne, _dev, _attr)
+            if (TANGO_ERR){
+                _tango_mot_error_stack(_mot_mne, _dev, _attr)
                 exit
             }
         }
 
         #-------------------------------------
         # "set_position" called on "set_dial motor newpos"
-        # parameters: p1 is the new position in user units
+        # parameters: p1 is the new position
         #
+        # PC: this does not change the dial value, it will move to position p1
+        # We don not want set_dial to be used on Tango motors
         if (cmd == "set_position") {
-            tango_mot_dbg(sprintf("new dial position in user units: %g", p1))
-            tango_mot_set_attr(motnum, "presetposition", p1)
+            tango_mot_err("Changing dial value is not allowed")
         }
 
         # "abort_one" called on <Ctrl-C>
@@ -661,25 +569,6 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
     }
 }'
 
-def tango_mot_print_status(motnum) '{
-    tango_mot_msg(tango_mot_status(motnum))
-}'
-
-def tango_mot_status(motnum) '{
-    local _status tt[] i
-    local _axis_ds_name 
-    local _mot_mne
-
-    _mot_mne = motor_mne(motnum)
-    _axis_ds_name = motor_par(motnum, "dev_name")
-    _status = tango_io(_axis_ds_name, "Status")
-    split(_status, tt, " | ")
-    _msg = sprintf("Current motor %s status:\n", _mot_mne)
-    for(i in tt) {
-        _msg = sprintf("%s\t%s\n", _msg, tt[i])
-    }
-    return(_msg)
-}'
 
 
 ######################################################################

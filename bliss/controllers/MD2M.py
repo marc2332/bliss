@@ -31,17 +31,18 @@ class MD2M:
         axis_list = [] 
         for axis, target in grouped(args, 2):
             axis_list.append(axis)
-            axis.move(target, wait=False)
-        return [axis.wait_move() for axis in axis_list]
+        g = Group(*axis_list)
+        g.move(*args)
 
     @task
     def _simultaneous_rmove(self, *args):
         axis_list = [] 
+        targets = []
         for axis, target in grouped(args, 2):
-            axis_list.append(axis)
-            target += axis.position()
-            axis.move(target, wait=False)
-        return [axis.wait_move() for axis in axis_list]
+            axis_list.append(axis) 
+            targets.append(axis.position()+target)
+        g = Group(*axis_list)
+        g.move(dict(zip(axis_list,targets)))
 
     def _wait_ready(self, *axes, **kwargs):
         timeout = int(kwargs.get("timeout", 3))

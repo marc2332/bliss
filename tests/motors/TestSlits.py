@@ -21,22 +21,27 @@ config_xml = """
     <port value="5000"/>
     <axis name="m0">
       <velocity value="500"/>
+      <acceleration value="10"/>
     </axis>
     <axis name="s1f">
       <velocity value="500"/>
       <steps_per_unit value="-1000"/>
+      <acceleration value="10"/>
     </axis>
     <axis name="s1b">
       <velocity value="500"/>
       <steps_per_unit value="1000"/>
+      <acceleration value="10"/>
     </axis>
     <axis name="s1u">
       <velocity value="500"/>
       <steps_per_unit value="-1000"/>
+      <acceleration value="10"/>
     </axis>
     <axis name="s1d">
       <velocity value="500"/>
       <steps_per_unit value="1000"/>
+      <acceleration value="10"/>
     </axis>
   </controller>
   <controller class="slits" name="test">

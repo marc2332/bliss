@@ -389,7 +389,21 @@ class MD2M:
         self.lightout()
         self._simultaneous_move(self.bstopz, -80)
         self.detcover.set_in()
-    
+        self.i1.autorange(True)
+   
+        diode_values = []
+        for t in (1,10,100):
+          self.transmission.transmission_set(t)
+          diode_values.append(self.i1.read())
+        print diode_values 
+        if (diode_values[1]/diode_values[0])<=12 and (diode_values[1]/diode_values[0])>=8:
+            if (diode_values[2]/diode_values[1])<=12 and (diode_values[2]/diode_values[1])>=8:
+                pass
+            else:
+                raise RuntimeError("Wrong intensity, hint: is there beam?")
+        else:
+           raise RuntimeError("Wrong intensity, hint: is there beam?")
+ 
         def restore_slits(saved_pos=(self.hgap, self.hgap.position(), self.vgap, self.vgap.position())):
             print 'restoring slits to saved positions', saved_pos
             self._simultaneous_move(*saved_pos)

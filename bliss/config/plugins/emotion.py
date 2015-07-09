@@ -11,8 +11,7 @@ __KNOWN_AXIS_PARAMS = ("name", "controller", "unit", "steps_per_unit",
 
 __KNOWN_CONTROLLER_PARAMS = ("name", "class", "plugin", "axes")
 
-__controllers_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                                  "controllers")
+__controllers_path = os.path.join(os.path.dirname(os.path.realpath(__file__)))
 
 def get_jinja2():
     global __environment

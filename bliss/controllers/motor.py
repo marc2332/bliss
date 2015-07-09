@@ -183,9 +183,6 @@ class Controller(object):
     def home_search(self, axis):
         raise NotImplementedError
 
-    def home_set_hardware_position(self, axis, home_pos):
-        raise NotImplementedError
-
     def home_state(self, axis):
         raise NotImplementedError
 

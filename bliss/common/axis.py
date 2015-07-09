@@ -529,33 +529,14 @@ class Axis(object):
             if wait:
                 self.wait_move()
 
-    def home(self, home_pos=None, wait=True):
+    def home(self, wait=True):
         self._check_ready()
-
-        # flag "must the position to be set ?"
-        _set_pos = False
-
-        if home_pos is not None:
-            try:
-                self.__controller.home_set_hardware_position(
-                    self, home_pos)
-            except NotImplementedError:
-                _set_pos = True
 
         self.__move_task = self._do_home(wait=False)
         self._set_moving_state()
         self.__move_task._being_waited = wait
         self.__move_task.link(self._set_move_done)
-        if _set_pos:
-            # it is not possible to change position
-            # while axis has a moving state,
-            # so we register a callback to be executed
-            # *after* _set_move_done.
-            def set_pos(g, home_pos=home_pos):
-                self.dial(home_pos)
-                self.position(home_pos)
-            self.__move_task.link(set_pos)
-        gevent.sleep(0)
+        #gevent.sleep(0)
 
         if wait:
             self.wait_move()
@@ -570,32 +551,21 @@ class Axis(object):
                     break
                 time.sleep(0.02)
 
-    def hw_limit(self, limit, lim_pos=None, wait=True):
+    def hw_limit(self, limit, wait=True):
         """Go to a hardware limit
 
         Parameters:
             limit   - integer, positive means "positive limit"
-            lim_pos - if not None, set position to lim_pos once limit is reached
             wait    - boolean, wait for completion (default is to wait)
         """
         limit = int(limit)
         self._check_ready()
-        _set_pos = False
-        if lim_pos is not None:
-            lim_pos = float(lim_pos)
-            _set_pos = True
-
 
         self.__move_task = self._do_limit_search(limit, wait=False)
         self._set_moving_state()
         self.__move_task._being_waited = wait
         self.__move_task.link(self._set_move_done)
-        if _set_pos:
-            def set_pos(g, lim_pos=lim_pos):
-                self.dial(lim_pos)
-                self.position(lim_pos)
-            self.__move_task.link(set_pos)
-        gevent.sleep(0)
+        #gevent.sleep(0)
 
         if wait:
             self.wait_move()

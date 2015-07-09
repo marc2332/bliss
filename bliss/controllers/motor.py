@@ -227,6 +227,7 @@ class CalcController(Controller):
 
         self._reals_group = None
         self._write_settings = False
+        self._motion_control = False
 
     def initialize(self):
         for axis in self.pseudos:
@@ -255,7 +256,6 @@ class CalcController(Controller):
         return any([axis.settings.get_from_channel(setting_name) for axis in self.reals])
 
     def _calc_from_real(self, *args, **kwargs):
-        #self._write_settings = not self._updated_from_channel('position')
         real_positions_by_axis = self._reals_group.position()
         real_positions = dict()
 
@@ -273,6 +273,8 @@ class CalcController(Controller):
         for tagged_axis_name, position in new_positions.iteritems():
             axis = self._tagged[tagged_axis_name][0]
             if axis in self.pseudos:
+                if self._write_settings and not self._motion_control:
+                    axis.settings.set("_set_position", axis.dial2user(position), write=True)
                 #print 'calc from real', axis.name, position, self._write_settings
                 axis.settings.set("dial_position", position, write=self._write_settings)
                 axis.settings.set("position", axis.dial2user(position), write=False)
@@ -293,6 +295,7 @@ class CalcController(Controller):
     def _real_move_done(self, done):
         if done:
             #print 'MOVE DONE'
+            self._motion_control = False
             self._write_settings = False
             for axis in self.pseudos:
                 if axis.encoder:
@@ -325,6 +328,7 @@ class CalcController(Controller):
             real_axis = self._tagged[axis_tag][0]
             move_dict[real_axis] = target_pos
         self._write_settings = True
+        self._motion_control = True
         self._reals_group.move(move_dict, wait=False)
 
     def calc_to_real(self, axis_tag, positions_dict):

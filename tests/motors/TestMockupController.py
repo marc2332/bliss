@@ -318,9 +318,11 @@ class TestMockupController(unittest.TestCase):
     def test_home_search(self):
         roby = bliss.get_axis("roby")
         self.assertEqual(roby.state(), 'READY')
-        roby.home(38930, wait=False)
+        roby.home(wait=False)
         self.assertEqual(roby.state(), 'MOVING')
         roby.wait_move()
+        roby.dial(38930)
+        roby.position(38930)
         self.assertEqual(roby.state(), 'READY')
         self.assertEqual(roby.position(), 38930)
         self.assertEqual(roby.offset, 0)
@@ -386,7 +388,9 @@ class TestMockupController(unittest.TestCase):
         self.assertEquals(robz.dial(), 1E6)
         robz.hw_limit(-1)
         self.assertEquals(robz.dial(), -1E6)
-        robz.hw_limit(1, 10)
+        robz.hw_limit(1)
+        robz.dial(10)
+        robz.position(10)
         self.assertEquals(robz.dial(), 10)
         self.assertEquals(robz.position(), 10)
 

@@ -163,8 +163,8 @@ class Axis(object):
         """
         if self.is_moving:
             if new_dial is not None:
-                raise RuntimeError("Can't set axis position \
-                                    while it is moving")
+                raise RuntimeError("%s: can't set axis position \
+                                    while moving" % self.name)
 
         if new_dial is not None:
             user_pos = self.position()
@@ -418,13 +418,13 @@ class Axis(object):
         if user_low_limit is not None:
             if target_pos < low_limit:
                 raise ValueError(
-                    "Move to `%f'%s would go below low limit (%f)" %
-                    (user_target_pos, backlash_str, user_low_limit))
+                    "%s: move to `%f'%s would go below low limit (%f)" %
+                    (self.name, user_target_pos, backlash_str, user_low_limit))
         if user_high_limit is not None:
             if target_pos > high_limit:
                 raise ValueError(
-                    "Move to `%f' %s would go beyond high limit (%f)" %
-                    (user_target_pos, backlash_str, user_high_limit))
+                    "%s: move to `%f' %s would go beyond high limit (%f)" %
+                    (self.name, user_target_pos, backlash_str, user_high_limit))
 
         motion = Motion(self, target_pos, delta)
         motion.backlash = backlash

@@ -71,7 +71,9 @@ class MD2M:
 
     def omega_init(self):
         print 'Homing omega axis'
-        self.omega.home(float(self.init_offsets["omega"]))
+        self.omega.home()
+        self.omega.dial(float(self.init_offsets["omega"]))
+        self.omega.position(float(self.init_offsets["omega"]))
         time.sleep(1)
         self.musst.putget("#ABORT") #in case a program is running
         self.omega.move(0)
@@ -90,11 +92,13 @@ class MD2M:
         table_axes = (self.phix, self.phiy, self.phiz)
         self._reset_axes_settings(*table_axes)
         print "  searching for phix, phiy and phiz negative limits, and setting init pos."
-        [axis.hw_limit(-1, self.init_offsets[axis.name], wait=False) for axis in table_axes]
+        [axis.hw_limit(-1, wait=False) for axis in table_axes]
         [axis.wait_move() for axis in table_axes]
-        # WHY is this needed? return from hw_limit can leave motor in MOVING state
-        self._wait_ready(*table_axes)
-        self._reset_axes_settings(*table_axes)
+        for axis in table_axes:
+            axis.dial(self.init_offsets[axis.name])
+            axis.position(self.init_offsets[axis.name])
+        [axis.apply_config() for axis in table_axes]
+        #[axis.limits() for axis in table_axes]
         self._simultaneous_move(self.phix, 0, self.phiy, 0, self.phiz, 0)    
         self.phiy.position(22)
         print '  done.'
@@ -104,10 +108,12 @@ class MD2M:
         table_axes = (self.sampx, self.sampy)
         self._reset_axes_settings(*table_axes)
         print "  searching for sampx and sampy negative limits, and setting init pos."
-        [axis.hw_limit(-1, self.init_offsets[axis.name], wait=False) for axis in table_axes]
+        [axis.hw_limit(-1) for axis in table_axes]
         [axis.wait_move() for axis in table_axes]
-        self._wait_ready(*table_axes)
-        self._reset_axes_settings(*table_axes)
+        for axis in table_axes:
+            axis.dial(self.init_offsets[axis.name])
+            axis.position(self.init_offsets[axis.name])
+        [axis.apply_config() for axis in table_axes]
         self._simultaneous_move(self.sampx, 0, self.sampy, 0)
         print '  done.'
 
@@ -116,7 +122,9 @@ class MD2M:
         self.zoom.velocity(self.zoom.velocity(from_config=True))
         self.zoom.acceleration(self.zoom.acceleration(from_config=True))
         print "  searching for zoom negative limit"
-        self.zoom.home(6.1)
+        self.zoom.home()
+        self.zoom.dial(6.1)
+        self.zoom.position(6.1)
         self.zoom.move(1) 
         print '  done.'
 

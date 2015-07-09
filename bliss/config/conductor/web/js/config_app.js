@@ -137,17 +137,16 @@ function configure_yaml_editor(tag_name, file_name) {
     });
 
     $("#save_editor_changes").on("click", function() {
-	$.get("db_file/" + file_name, yaml_editor.getValue()).done(
-	      function(data) { alert("File saved!");
-	      });
-/*
-	var req = $.ajax({
-	    url: "db_file/" + file_name,
-	    type: "put",
-            data: yaml_editor.getValue(),
-	    success: function(response) { alert("File saved!"); },
-	});
-*/
+        var formData = new FormData();
+        formData.append('yml_file', yaml_editor.getValue());
+        $.ajax({
+	    url: 'db_file/'+file_name,
+            type: 'PUT',
+            contentType: false, //'multipart/form-data',
+            processData: false,
+            data: formData,
+            success: function() { alert("File saved!"); }
+       	});
     });
 
     $("#revert_editor_changes").on("click", function() {

@@ -52,16 +52,15 @@ def db_files():
 
   return flask.json.dumps(db_files)
 
-@web_app.route("/db_file/<path:filename>")
+@web_app.route("/db_file/<path:filename>", methods=['PUT', 'GET'])
 def get_db_file(filename):
-  if flask.request.data:
-    print flask.request.data
-    client.set_config_db_file(filename, flask.request.data)
-    return "ok"
+  if flask.request.method == 'PUT':
+      client.set_config_db_file(filename, flask.request.form['yml_file'])
+      return ''
   else:
-    cfg = get_config()
-    db_files = dict(client.get_config_db_files())
-    return flask.json.dumps(dict(name=filename, content=db_files[filename]))
+      cfg = get_config()
+      db_files = dict(client.get_config_db_files())
+      return flask.json.dumps(dict(name=filename, content=db_files[filename]))
 
 @web_app.route("/db_file_editor/<path:filename>")
 def get_db_file_editor(filename):

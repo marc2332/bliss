@@ -165,7 +165,7 @@ class Controller(object):
     def stop(self, axis):
         raise NotImplementedError
 
-    def stop_all(self):
+    def stop_all(self, *motions):
         raise NotImplementedError
 
     def state(self, axis):

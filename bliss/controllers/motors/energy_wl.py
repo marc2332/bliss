@@ -2,7 +2,7 @@
 """
 Energy/wavelength Bliss controller
 Calculate energy [keV] / wavelength [Angstrom] from angle or
-angle [deg] from energy [keV], using the Bragg´s law
+angle [deg] from energy [keV], using the Bragg's law
 
 monoang: alias for the real monochromator motor
 energy: energy calculated axis alias

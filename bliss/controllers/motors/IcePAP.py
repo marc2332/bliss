@@ -14,8 +14,6 @@ from bliss.common.axis import AxisState
 """
 Extra modules
 """
-#import pdb
-#from icepap_utils import lib 
 import libicepap
 
 """
@@ -66,6 +64,22 @@ class IcePAP(Controller):
             IcePAP.default_groupenc = libicepap.Group("default_enc")
         self.libgroupenc = IcePAP.default_groupenc
 
+        # Create custom EMotion states to map IcePAP status bits
+        self.icestate = AxisState()
+        self.icestate.create_state("POWEROFF", "motor power is off")
+        for code in libicepap.STATUS_DISCODE_STR:
+            self.icestate.create_state(
+                libicepap.STATUS_DISCODE_STR[code],
+                libicepap.STATUS_DISCODE_DSC[code])
+        for code in libicepap.STATUS_MODCODE_STR:
+            self.icestate.create_state(
+                libicepap.STATUS_MODCODE_STR[code],
+                libicepap.STATUS_MODCODE_DSC[code])
+        for code in libicepap.STATUS_STOPCODE_STR:
+            self.icestate.create_state(
+                libicepap.STATUS_STOPCODE_STR[code],
+                libicepap.STATUS_STOPCODE_DSC[code])
+
     def finalize(self):
         """Controller no more needed"""
         self.log_info("finalize() called")
@@ -110,6 +124,13 @@ class IcePAP(Controller):
         # Add new axis oject methods
         add_axis_method(axis, self.get_identifier, types_info=("None", "str"))
 
+    def set_on(self, axis):
+        """Switch power on"""
+        self.libgroup.set_power(libicepap.ON, axis.libaxis)
+
+    def set_off(self, axis):
+        """Switch power off"""
+        self.libgroup.set_power(libicepap.OFF, axis.libaxis)
 
     def read_position(self, axis):
         """Returns axis position in motor units"""
@@ -175,27 +196,54 @@ class IcePAP(Controller):
         status = self.libgroup.status(axis.libaxis)
 
         # Convert status from icepaplib to bliss format.
-        _state = AxisState()
-        if(libicepap.status_ismoving(status)):
-            _state.set("MOVING")
-            return _state
+        self.icestate.clear()
+
+        # first all concurrent states
+        if(libicepap.status_lowlim(status)):
+            self.icestate.set("LIMNEG")
+
+        if(libicepap.status_highlim(status)):
+            self.icestate.set("LIMPOS")
+
+        if(libicepap.status_home(status)):
+            self.icestate.set("HOME")
+
+        modcod, modstr, moddsc = libicepap.status_get_mode(status)
+        if modcod != None:
+            self.icestate.set(modstr)
+
+        sccod, scstr, scdsc = libicepap.status_get_stopcode(status)
+        if sccod != None:
+            self.icestate.set(scstr)
 
         if(libicepap.status_isready(status)):
-            _state.set("READY")
+            self.icestate.set("READY")
+            # if motor is ready then no need to investigate deeper
+            return self.icestate
 
-            if(libicepap.status_lowlim(status)):
-                _state.set("LIMNEG")
+        if(libicepap.status_ismoving(status)):
+            self.icestate.set("MOVING")
 
-            if(libicepap.status_highlim(status)):
-                _state.set("LIMPOS")
+        if(not libicepap.status_ispoweron(status)):
+            self.icestate.set("POWEROFF")
 
-            if(libicepap.status_home(status)):
-                _state.set("HOME")
+        discod, disstr, disdsc = libicepap.status_get_disable(status)
+        if discod != None:
+            self.icestate.set(disstr)
 
-            return _state
+        if(libicepap.status_warning(status)):
+            warn_str = self.libgroup.warning(axis.libaxis)
+            warn_dsc = "warning condition: \n" + warn_str
+            self.icestate.create_state("WARNING",  warn_dsc)
+            self.icestate.set("WARNING")
 
-        # Abnormal end
-        return AxisState("FAULT")
+        alarm_str = self.libgroup.alarm(axis.libaxis)
+        if alarm_str != 'NO':
+            alarm_dsc = "alarm condition: " + alarm_str
+            self.icestate.create_state("ALARMDESC",  alarm_dsc)
+            self.icestate.set("ALARMDESC")
+
+        return self.icestate
 
     def prepare_move(self, motion):
         """

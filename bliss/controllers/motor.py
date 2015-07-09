@@ -321,7 +321,7 @@ class CalcController(Controller):
                     axis_tag = tag
                     positions_dict[tag] = motion.target_pos
                 else:
-                    positions_dict[tag] = x.position()
+                    positions_dict[tag] = x._set_position()
 
         move_dict = dict()
         for axis_tag, target_pos in self.calc_to_real(axis_tag, positions_dict).iteritems():

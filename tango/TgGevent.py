@@ -130,9 +130,12 @@ class threadSafeRequest(object):
             self.done_event.wait()
         else:
             deal_with_job(self, args, kwargs)
-        if isinstance(self.result, CallException):
-            raise self.result.error_string, None, self.result.tb
-        return self.result
+        result = self.result
+        self.result = None
+        self.done_event.clear()
+        if isinstance(result, CallException):
+            raise result.error_string, None, result.tb
+        return result
 
     def set_result(self, res):
         self.result = res

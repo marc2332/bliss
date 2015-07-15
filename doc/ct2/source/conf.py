@@ -16,6 +16,12 @@ import sys
 import os
 import shlex
 
+_this_dir = os.path.realpath(__file__)
+ct2_dir = os.path.realpath(os.path.join(_this_dir, os.path.pardir, os.path.pardir, os.path.pardir))
+print ct2_dir
+sys.path.insert(0, ct2_dir)
+
+
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
@@ -31,6 +37,7 @@ import shlex
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
+    'sphinx.ext.autosummary',
     'sphinx.ext.intersphinx',
     'sphinx.ext.todo',
     'sphinx.ext.coverage',
@@ -134,7 +141,7 @@ html_theme = 'alabaster'
 
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
-#html_logo = None
+html_logo = "_static/logo.png"
 
 # The name of an image file (within the static path) to use as favicon of the
 # docs.  This file should be a Windows icon file (.ico) being 16x16 or 32x32
@@ -290,6 +297,20 @@ texinfo_documents = [
 # If true, do not generate a @detailmenu in the "Top" node's menu.
 #texinfo_no_detailmenu = False
 
+autodoc_default_flags = ['members', 'inherited-members']#, 'undoc-members' , 'show-inheritance']
+
+autodoc_member_order = 'bysource'
+
+autoclass_content = 'class'
+
+autosummary_generate = True
 
 # Example configuration for intersphinx: refer to the Python standard library.
 intersphinx_mapping = {'https://docs.python.org/': None}
+
+rst_epilog = """\
+.. _P201 reference manual: http://www.esrf.eu/files/live/sites/www/files/Industry/files/p201.pdf
+.. _Python: http://python.org/
+.. _IPython: http://ipython.org/
+.. _numpy: http://www.numpy.org/
+"""

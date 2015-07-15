@@ -2177,7 +2177,7 @@ class P201:
         ct = {}
         for counter in counters:
             ct[counter] = True
-        self.set_counters_software_enable_disable(ct)
+        self.set_counters_software_enable(ct)
 
     def disable_counters_software(self, counters):
         """
@@ -2195,7 +2195,7 @@ class P201:
         ct = {}
         for counter in counters:
             ct[counter] = False
-        self.set_counters_software_enable_disable(ct)
+        self.set_counters_software_enable(ct)
 
 
 def main():

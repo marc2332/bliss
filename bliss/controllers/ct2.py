@@ -1223,12 +1223,18 @@ class BaseParam(object):
 
 
 class CtStatus(BaseParam):
-    
+    """
+    Counter status (enabled and running)
+    """
+
     _FLAG_MAP = { 'enable': (bool, 1<< 0),
                   'run':    (bool, 1<< 16), }
 
 
 class FilterOutput(BaseParam):
+    """
+    Channel output filter (clock freq., enabled, polarity)
+    """
 
     _FLAG_MAP = { 'clock':    (FilterClock, 0b111),
                   'enable':   (bool, 1 << 3),
@@ -1242,7 +1248,9 @@ class FilterOutput(BaseParam):
 
 class AMCCFIFOStatus(BaseParam):
     """
-    Card general status. Returned by :meth:`P201.get_general_status`
+    Card general status.
+
+    Returned by :meth:`P201.get_general_status`
     """
 
     _FLAG_MAP = { 'read_empty': (bool, 1 << 0),
@@ -1252,6 +1260,11 @@ class AMCCFIFOStatus(BaseParam):
 
 
 class FIFOStatus(BaseParam):
+    """
+    FIFO status
+
+    Returned by :meth:`P201.get_fifo_status`
+    """
 
     _FLAG_MAP = { 'size':          (int,  0x1FFF),
                   'overrun_error': (bool, 1 << 16),
@@ -1289,7 +1302,7 @@ class CtConfig(BaseParam):
             self.value = (self.value & NOT(mask)) | value.value
 
 
-class NiveauOut(BaseParam):
+class LevelOut(BaseParam):
     
     _FLAG_MAP = { 'TTL': (bool, 1 << 8),
                   'NIM': (bool, 1 << 24) }
@@ -1431,12 +1444,12 @@ class P201:
         card_id = (result & CT2_CTRL_GENE_CARDN_MSK) >> CT2_CTRL_GENE_CARDN_OFF
         return card_id, AMCCFIFOStatus(result)
 
-    def get_niveau_out(self):
+    def get_level_out(self):
         """
         Returns the NIM/TTL level of all output channels (9 and 10)
 
         :return: the NIM/TTL level of all output channels (9 and 10)
-        :rtype: dict<int: :class:`NiveauOut`>
+        :rtype: dict<int: :class:`LevelOut`>
 
         :raises OSError: in case the operation fails
         """
@@ -1444,26 +1457,26 @@ class P201:
         result, mask = {}, ((1 << 8) | (1 << 24))
         for i, channel in enumerate(self.OUTPUT_CHANNELS):
             reg = (register >> i) & mask
-            result[channel] = NiveauOut(reg)
+            result[channel] = LevelOut(reg)
         return result
 
-    def set_niveau_out(self, niveau_out):
+    def set_level_out(self, level_out):
         """
         Enables/disables output channels TLL and NIM.
 
         .. warning::
             non specified output channels will have their TTL and NIM set to disable
 
-        :param niveau_out:
+        :param level_out:
             dictionary where keys are output channel numbers and value is
-            an instance of :class:`NiveauOut` representing the channel TTL and NIM
-        :type niveau_out: dict<int: :class:`NiveauOut`>
+            an instance of :class:`LevelOut` representing the channel TTL and NIM
+        :type level_out: dict<int: :class:`LevelOut`>
 
         :raises OSError: in case the operation fails
         """
         register = 0
         for i, channel in enumerate(self.OUTPUT_CHANNELS):
-            no = niveau_out.get(channel, NiveauOut())
+            no = level_out.get(channel, LevelOut())
             register |= (no.value) << i
         self.write_reg("NIVEAU_OUT", register)
 
@@ -1617,7 +1630,7 @@ class P201:
         """*not implemented*"""
         raise NotImplementedError
 
-    def get_trigger_interrupt_statuts(self):
+    def get_trigger_interrupt_status(self):
         """*not implemented*"""
         raise NotImplementedError
 
@@ -2214,7 +2227,7 @@ def main():
     p201.set_clock(Clock.CLK_40_MHz)
 
     # channel 10 output: counter 10 gate envelop
-    p201.set_niveau_out({10: NiveauOut(TTL=True)})
+    p201.set_level_out({10: LevelOut(TTL=True)})
 
     # no 50 ohm adapter
     p201.set_50ohm_adapters({})

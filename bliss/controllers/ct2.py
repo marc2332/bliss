@@ -2217,21 +2217,16 @@ def main():
     p201.set_niveau_out({10: NiveauOut(TTL=True)})
 
     # no 50 ohm adapter
-    #p201.write_reg("ADAPT_50", 0x3FF)
     p201.set_50ohm_adapters({})
 
     # channel 9 and 10: no filter, no polarity
-    #p201.write_reg("SEL_FILTRE_OUTPUT", 0)
     p201.set_output_channels_filter({})
     
     # channel 10 output: counter 10 gate envelop
-    #p201.write_reg("SEL_SOURCE_OUTPUT", 0x70 << 8)
     p201.set_output_channels_source({10: OutputSrc.CT_10_GATE})
 
     # Internal clock to 1 Mhz [1us], Gate=1, Soft Start, HardStop on CMP,
     # Reset on Hard/SoftStop, Stop on HardStop
-    #reg = 0x03 | (0 << 7) | (0 << 13) | (0x52 << 20) | (1 << 30) | (1 << 31)
-    #p201.write_reg("CONF_CMPT_10", reg)
     ct10_config = CtConfig(clock_source=CtClockSrc.CLK_1_MHz,
                            gate_source=CtGateSrc.GATE_CMPT,
                            hard_start_source=CtHardStartSrc.SOFTWARE_ONLY,
@@ -2241,11 +2236,9 @@ def main():
     p201.set_counter_config(10, ct10_config)
 
     # Latch on Counter 10 HardStop
-    #p201.write_reg("SEL_LATCH_E", 0x200 << 16)
     p201.set_counters_latch_sources({10: 10})
 
     # Counter 10 will count 1 sec
-    #p201.write_reg("COMPARE_CMPT_10", 1000*1000)
     p201.set_counter_comparator_value(10, 1000*1000)
 
     started, start_count = False, 0
@@ -2255,7 +2248,6 @@ def main():
         if start_count > 10:
             print("failed to start after 10 atempts" )
             break
-        #p201.write_reg("SOFT_START_STOP", 0x200)
         p201.set_counters_software_start_stop({10: True})
         status = p201.get_counters_status()
         started = status[10].run
@@ -2277,11 +2269,12 @@ def main():
             out(msg)
         print("\n%07d %07d" % (counter, latch))
 
-    #p201.write_reg("SOFT_ENABLE_DISABLE", 0x200 < 16)
     p201.disable_counters_software((10,))
+
     import pprint
     pprint.pprint(p201.get_counters_status())
     p201.relinquish_exclusive_access()
+
     return p201
 
 

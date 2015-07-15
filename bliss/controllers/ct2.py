@@ -1,3 +1,8 @@
+
+"""
+The python module for the ct2 (P201/C208) ESRF PCI counter card
+"""
+
 from __future__ import print_function
 
 import os
@@ -9,6 +14,12 @@ import ctypes.util
 import struct
 import logging
 import weakref
+
+try:
+    import enum
+except:
+    import enum34 as enum
+
 
 # low level pread and pwrite calls for the p201/c208 driver.
 
@@ -26,7 +37,8 @@ def pread(fd, offset):
         err = ctypes.get_errno()
         if err != 0:
             ctypes.set_errno(0)
-            raise OSError("pread error: %s (%d): %s" % (errno.errorcode(err), err, 
+            raise OSError("pread error: %s (%d): %s" % (errno.errorcode(err),
+                                                        err,
                                                         errno.strerror(err)))
         else:
             raise OSError("pread error")
@@ -38,7 +50,8 @@ def pwrite(fd, buff, offset):
         err = ctypes.get_errno()
         if err != 0:
             ctypes.set_errno(0)
-            raise OSError("pwrite error: %s (%d): %s" % (errno.errorcode(err), err, 
+            raise OSError("pwrite error: %s (%d): %s" % (errno.errorcode(err),
+                                                         err,
                                                          errno.strerror(err)))
         else:
             raise OSError("pwrite error")
@@ -83,6 +96,29 @@ def _IOR(type, nr, size): return _IOC(_IOC_READ, type, nr, size)
 def _IOW(type, nr, size): return _IOC(_IOC_WRITE, type, nr, size)
 def _IOWR(type, nr, size): return _IOC(_IOC_READ | _IOC_WRITE, type, nr, size)
 
+#--------------------------------------------------------------------------
+#                                Helpers
+#--------------------------------------------------------------------------
+
+def NOT(a):
+    return 0xFFFFFFFF ^ a
+
+
+@enum.unique
+class Edge(enum.Enum):
+    DISABLE        = 0b00
+    RISING         = 0b01
+    FALLING        = 0b10
+    RISING_FALLING = 0b11
+
+
+@enum.unique
+class Level(enum.Enum):
+    DISABLE       = 0b00
+    TTL           = 0b01
+    NIM           = 0b10
+    TTL_NIM       = 0b11
+
 
 #==========================================================================
 #                           Register Definitions
@@ -107,7 +143,7 @@ class CT2Exception(Exception):
 CT2_R1_OFFSET = 0
 
 CT2_R1_SEQ = [
-# addr        name      read  write             description 
+# addr        name      read  write             description
 [0x00, "COM_GENE",      True, True,  "General control"],
 [0x04, "CTRL_GENE",     True, False, "General status"],
 [0x0C, "NIVEAU_OUT",    True, True,  "Output enable and type (TTL or NIM)"],
@@ -168,7 +204,7 @@ del reg_info, addr, name, r, w, desc
 CT2_R2_OFFSET = 64
 
 CT2_R2_SEQ = [
-# addr        name           read  write             description 
+# addr        name           read  write             description
 [0x00, "SEL_FILTRE_INPUT_A", True, True, "Input 1 to 6: filter configuration and deglitcher enable"],
 [0x04, "SEL_FILTRE_INPUT_B", True, True, "Input 7 to 10: filter configuration and deglitcher enable"],
 
@@ -265,32 +301,28 @@ CT2_HI10BITS_OFF = 16         # Offset for the high word
 # Definitions for the COM_GENE (general command) register(R/W)
 #--------------------------------------------------------------------------
 CT2_COM_GENE_UMSK       = 0x0000009f # Used bits mask
-CT2_COM_GENE_ENAB_OSC   = 0x00000010 # en(1)/dis(0)able oscillator
+CT2_COM_GENE_ENAB_MSK   = 0x00000010 # en(1)/dis(0)able oscillator
 CT2_COM_GENE_SOFT_RESET = 0x00000080 # soft reset(1)
 CT2_COM_GENE_FREQ_MSK   = 0x0000000f # Frequency bitmask
 CT2_COM_GENE_FREQ_OFF   = 0          # Frequency offset
 
-def __ct2_clock_freq_ctor(a, b, c, d, e):
-    return (((a) << 4)|((b) << 3)|((c) << 2)|((d) << 1)|((e) << 0))
-
-CLOCK_DISABLED  = __ct2_clock_freq_ctor(0,  0, 0, 0, 0)
-
-CLOCK_20_MHz    = __ct2_clock_freq_ctor(1,  0, 1, 0, 1)
-CLOCK_25_MHz    = __ct2_clock_freq_ctor(1,  0, 1, 0, 0)
-CLOCK_30_MHz    = __ct2_clock_freq_ctor(1,  0, 0, 1, 0)
-CLOCK_33_33_MHz = __ct2_clock_freq_ctor(1,  0, 0, 0, 1)
-CLOCK_40_MHz    = __ct2_clock_freq_ctor(1,  1, 1, 1, 1)
-CLOCK_45_MHz    = __ct2_clock_freq_ctor(1,  1, 1, 0, 1)
-CLOCK_50_MHz    = __ct2_clock_freq_ctor(1,  1, 1, 0, 0)
-CLOCK_60_MHz    = __ct2_clock_freq_ctor(1,  1, 0, 1, 0)
-CLOCK_66_66_MHz = __ct2_clock_freq_ctor(1,  1, 0, 0, 1)
-CLOCK_70_MHz    = __ct2_clock_freq_ctor(1,  0, 1, 1, 0)
-CLOCK_75_MHz    = __ct2_clock_freq_ctor(1,  1, 0, 0, 0)
-CLOCK_80_MHz    = __ct2_clock_freq_ctor(1,  0, 1, 1, 1)
-CLOCK_90_MHz    = __ct2_clock_freq_ctor(1,  1, 1, 1, 0)
-CLOCK_100_MHz   = __ct2_clock_freq_ctor(1,  0, 0, 0, 0)
-
-
+@enum.unique
+class Clock(enum.Enum):
+    CLK_DISABLE   = 0b00000
+    CLK_20_MHz    = 0b10101
+    CLK_25_MHz    = 0b10100
+    CLK_30_MHz    = 0b10010
+    CLK_33_33_MHz = 0b10001
+    CLK_40_MHz    = 0b11111
+    CLK_45_MHz    = 0b11101
+    CLK_50_MHz    = 0b11100
+    CLK_60_MHz    = 0b11010
+    CLK_66_66_MHz = 0b11001
+    CLK_70_MHz    = 0b10110
+    CLK_75_MHz    = 0b11000
+    CLK_80_MHz    = 0b10111
+    CLK_90_MHz    = 0b11110
+    CLK_100_MHz   = 0b10000
 
 #----------------------------------------------------------------------------
 # Definitions for the CTRL_GENE (general control) register(R)
@@ -503,6 +535,14 @@ CT2_FILTRE_OUTPUT_FILTENAB_OFF   =  3   # offset of filter en/disable
 CT2_FILTRE_OUTPUT_POLARITY_OFF   =  4   # offset of polarity inversion
                                         #         bit within 5 bits
 
+@enum.unique
+class FilterClock(enum.Enum):
+    CLK_100_MHz  = 0x0
+    CLK_12_5_MHz = 0x1
+    CLK_1_MHz    = 0x2
+    CLK_125_KHz  = 0x3
+    CLK_10_KHz   = 0x4
+    CLK_1_25_KHz = 0x5
 
 #----------------------------------------------------------------------------
 # Definitions for SEL_SOURCE_OUTPUT_A/B/C (output source select) regs (R/W)
@@ -510,6 +550,138 @@ CT2_FILTRE_OUTPUT_POLARITY_OFF   =  4   # offset of polarity inversion
 #----------------------------------------------------------------------------
 C208_SOURCE_OUTPUT_UMSK = 0x7f7f7f7f  # used bits mask
 P201_SOURCE_OUTPUT_UMSK = 0x00007f7f  # used bits mask
+
+@enum.unique
+class OutputSrc(enum.Enum):
+    CLK_SOFTWARE = 0x00
+    CLK_1_25_KHz = 0x01
+    CLK_10_KHz   = 0x02
+    CLK_125_KHz  = 0x03
+    CLK_1_MHz    = 0x04
+    CLK_12_5_MHz = 0x05
+    CLK_DISABLE  = 0x06
+
+    CH_1_INPUT  = 0x07
+    CH_2_INPUT  = 0x08
+    CH_3_INPUT  = 0x09
+    CH_4_INPUT  = 0x0A
+    CH_5_INPUT  = 0x0B
+    CH_6_INPUT  = 0x0C
+    CH_7_INPUT  = 0x0D
+    CH_8_INPUT  = 0x0E
+    CH_9_INPUT  = 0x0F
+    CH_10_INPUT = 0x10
+
+    CH_1_INPUT_INV  = 0x13
+    CH_2_INPUT_INV  = 0x14
+    CH_3_INPUT_INV  = 0x15
+    CH_4_INPUT_INV  = 0x16
+    CH_5_INPUT_INV  = 0x17
+    CH_6_INPUT_INV  = 0x18
+    CH_7_INPUT_INV  = 0x19
+    CH_8_INPUT_INV  = 0x1A
+    CH_9_INPUT_INV  = 0x1B
+    CH_10_INPUT_INV = 0x1C
+
+    CH_1_RISING  = 0x1F
+    CH_2_RISING  = 0x20
+    CH_3_RISING  = 0x21
+    CH_4_RISING  = 0x22
+    CH_5_RISING  = 0x23
+    CH_6_RISING  = 0x24
+    CH_7_RISING  = 0x25
+    CH_8_RISING  = 0x26
+    CH_9_RISING  = 0x27
+    CH_10_RISING  = 0x28
+
+    CH_1_FALLING  = 0x2B
+    CH_2_FALLING  = 0x2C
+    CH_3_FALLING  = 0x2D
+    CH_4_FALLING  = 0x2E
+    CH_5_FALLING  = 0x2F
+    CH_6_FALLING  = 0x30
+    CH_7_FALLING  = 0x31
+    CH_8_FALLING  = 0x32
+    CH_9_FALLING  = 0x33
+    CH_10_FALLING  = 0x34
+
+    CH_1_RISING_FALLING  = 0x37
+    CH_2_RISING_FALLING  = 0x38
+    CH_3_RISING_FALLING  = 0x39
+    CH_4_RISING_FALLING  = 0x3A
+    CH_5_RISING_FALLING  = 0x3B
+    CH_6_RISING_FALLING  = 0x3C
+    CH_7_RISING_FALLING  = 0x3D
+    CH_8_RISING_FALLING  = 0x3E
+    CH_9_RISING_FALLING  = 0x3F
+    CH_10_RISING_FALLING  = 0x40
+
+    CT_1_START = 0x43
+    CT_2_START = 0x44
+    CT_3_START = 0x45
+    CT_4_START = 0x46
+    CT_5_START = 0x47
+    CT_6_START = 0x48
+    CT_7_START = 0x49
+    CT_8_START = 0x4A
+    CT_9_START = 0x4B
+    CT_10_START = 0x4C
+    CT_11_START = 0x4D
+    CT_12_START = 0x4E
+
+    CT_1_STOP = 0x4F
+    CT_2_STOP = 0x50
+    CT_3_STOP = 0x51
+    CT_4_STOP = 0x52
+    CT_5_STOP = 0x53
+    CT_6_STOP = 0x54
+    CT_7_STOP = 0x55
+    CT_8_STOP = 0x56
+    CT_9_STOP = 0x57
+    CT_10_STOP = 0x58
+    CT_11_STOP = 0x59
+    CT_12_STOP = 0x5A
+
+    CT_1_START_STOP = 0x5B
+    CT_2_START_STOP = 0x5C
+    CT_3_START_STOP = 0x5D
+    CT_4_START_STOP = 0x5E
+    CT_5_START_STOP = 0x5F
+    CT_6_START_STOP = 0x60
+    CT_7_START_STOP = 0x61
+    CT_8_START_STOP = 0x62
+    CT_9_START_STOP = 0x63
+    CT_10_START_STOP = 0x64
+    CT_11_START_STOP = 0x65
+    CT_12_START_STOP = 0x66
+
+    CT_1_GATE = 0x67
+    CT_2_GATE = 0x68
+    CT_3_GATE = 0x69
+    CT_4_GATE = 0x6A
+    CT_5_GATE = 0x6B
+    CT_6_GATE = 0x6C
+    CT_7_GATE = 0x6D
+    CT_8_GATE = 0x6E
+    CT_9_GATE = 0x6F
+    CT_10_GATE = 0X70
+    CT_11_GATE = 0x71
+    CT_12_GATE = 0x72
+
+    CT_1_SWITCH = 0x73
+    CT_2_SWITCH = 0x74
+    CT_3_SWITCH = 0x75
+    CT_4_SWITCH = 0x76
+    CT_5_SWITCH = 0x77
+    CT_6_SWITCH = 0x78
+    CT_7_SWITCH = 0x79
+    CT_8_SWITCH = 0x7A
+    CT_9_SWITCH = 0x7B
+    CT_10_SWITCH = 0x7C
+    CT_11_SWITCH = 0x7D
+    CT_12_SWITCH = 0x7E
+
+    DISABLE = 0x7F
 
 #----------------------------------------------------------------------------
 # Definitions for SEL_LATCH_A/B/C/D/E/F (latch select) registers (R/W)
@@ -528,6 +700,14 @@ def CT2_SEL_LATCH_OFF(ctn):
         return CT2_HI12BITS_OFF
     return CT2_HI12BITS_OFF
 
+@enum.unique
+class LatchCtSrc(enum.Enum):
+    """
+    Select counter source for latch
+    """
+
+
+
 #----------------------------------------------------------------------------
 # Definitions for CONF_CMPT_1/12 (counter configuration) registers (R/W)
 #----------------------------------------------------------------------------
@@ -541,8 +721,343 @@ CT2_CONF_CMPT_HSTART_MSK  =  0x000fe000
 CT2_CONF_CMPT_HSTART_OFF  =  13
 CT2_CONF_CMPT_HSTOP_MSK   =  0x07f00000
 CT2_CONF_CMPT_HSTOP_OFF   =  20
-CT2_CONF_CMPT_CLEAR_BIT   =  30
+CT2_CONF_CMPT_RESET_BIT   =  30
 CT2_CONF_CMPT_STOP_BIT    =  31
+CT2_CONF_CMPT_RESET_MSK   =  1 << CT2_CONF_CMPT_RESET_BIT
+CT2_CONF_CMPT_STOP_MSK    =  1 << CT2_CONF_CMPT_STOP_BIT
+
+@enum.unique
+class CtClockSrc(enum.Enum):
+    """
+    Count Clock Source enumeration. To be used in :class:`CtConfig`.
+    """
+
+    CLK_1_25_KHz = 0x00
+    CLK_10_KHz   = 0x01
+    CLK_125_KHz  = 0x02
+    CLK_1_MHz    = 0x03
+    CLK_12_5_MHz = 0x04
+    CLK_100_MHz  = 0x05
+
+    CH_1_RISING_EDGE  = 0x06
+    CH_2_RISING_EDGE  = 0x07
+    CH_3_RISING_EDGE  = 0x08
+    CH_4_RISING_EDGE  = 0x09
+    CH_5_RISING_EDGE  = 0x0A
+    CH_6_RISING_EDGE  = 0x0B
+    CH_7_RISING_EDGE  = 0x0C
+    CH_8_RISING_EDGE  = 0x0D
+    CH_9_RISING_EDGE  = 0x0E
+    CH_10_RISING_EDGE = 0x0F
+
+    CH_1_FALLING_EDGE  = 0x12
+    CH_2_FALLING_EDGE  = 0x13
+    CH_3_FALLING_EDGE  = 0x14
+    CH_4_FALLING_EDGE  = 0x15
+    CH_5_FALLING_EDGE  = 0x16
+    CH_6_FALLING_EDGE  = 0x17
+    CH_7_FALLING_EDGE  = 0x18
+    CH_8_FALLING_EDGE  = 0x19
+    CH_9_FALLING_EDGE  = 0x1A
+    CH_10_FALLING_EDGE = 0x1B
+
+    CH_1_RISING_FALLING_EDGE  = 0x1E
+    CH_2_RISING_FALLING_EDGE  = 0x1F
+    CH_3_RISING_FALLING_EDGE  = 0x20
+    CH_4_RISING_FALLING_EDGE  = 0x21
+    CH_5_RISING_FALLING_EDGE  = 0x22
+    CH_6_RISING_FALLING_EDGE  = 0x23
+    CH_7_RISING_FALLING_EDGE  = 0x24
+    CH_8_RISING_FALLING_EDGE  = 0x25
+    CH_9_RISING_FALLING_EDGE  = 0X26
+    CH_10_RISING_FALLING_EDGE = 0x27
+
+    INC_CT_1_START  = 0x2A
+    INC_CT_2_START  = 0x2B
+    INC_CT_3_START  = 0x2C
+    INC_CT_4_START  = 0x2D
+    INC_CT_5_START  = 0x2E
+    INC_CT_6_START  = 0x2F
+    INC_CT_7_START  = 0x30
+    INC_CT_8_START  = 0x31
+    INC_CT_9_START  = 0x32
+    INC_CT_10_START = 0x33
+    INC_CT_11_START = 0x34
+    INC_CT_12_START = 0x35
+
+    INC_CT_1_STOP  = 0x36
+    INC_CT_2_STOP  = 0x37
+    INC_CT_3_STOP  = 0x38
+    INC_CT_4_STOP  = 0x39
+    INC_CT_5_STOP  = 0x3A
+    INC_CT_6_STOP  = 0x3B
+    INC_CT_7_STOP  = 0x3C
+    INC_CT_8_STOP  = 0x3D
+    INC_CT_9_STOP  = 0x3E
+    INC_CT_10_STOP = 0x3F
+    INC_CT_11_STOP = 0x40
+    INC_CT_12_STOP = 0x41
+
+    INC_CT_1_START_STOP  = 0x42
+    INC_CT_2_START_STOP  = 0x43
+    INC_CT_3_START_STOP  = 0x44
+    INC_CT_4_START_STOP  = 0x45
+    INC_CT_5_START_STOP  = 0x46
+    INC_CT_6_START_STOP  = 0x47
+    INC_CT_7_START_STOP  = 0x48
+    INC_CT_8_START_STOP  = 0x49
+    INC_CT_9_START_STOP  = 0x4A
+    INC_CT_10_START_STOP = 0x4B
+    INC_CT_11_START_STOP = 0x4C
+    INC_CT_12_START_STOP = 0x4D
+
+    INC_CH_1_PULSE  = 0x4E
+    INC_CH_2_PULSE  = 0x4F
+    INC_CH_3_PULSE  = 0x50
+    INC_CH_4_PULSE  = 0x51
+    INC_CH_5_PULSE  = 0x52
+    INC_CH_6_PULSE  = 0x53
+    INC_CH_7_PULSE  = 0x54
+    INC_CH_8_PULSE  = 0x55
+    INC_CH_9_PULSE  = 0x56
+    INC_CH_10_PULSE = 0x57
+
+
+@enum.unique
+class CtGateSrc(enum.Enum):
+
+    GATE_CMPT = 0x00 << CT2_CONF_CMPT_GATE_OFF
+
+    CH_1_INPUT  = 0x01 << CT2_CONF_CMPT_GATE_OFF
+    CH_2_INPUT  = 0x02 << CT2_CONF_CMPT_GATE_OFF
+    CH_3_INPUT  = 0x03 << CT2_CONF_CMPT_GATE_OFF
+    CH_4_INPUT  = 0x04 << CT2_CONF_CMPT_GATE_OFF
+    CH_5_INPUT  = 0x05 << CT2_CONF_CMPT_GATE_OFF
+    CH_6_INPUT  = 0x06 << CT2_CONF_CMPT_GATE_OFF
+    CH_7_INPUT  = 0x07 << CT2_CONF_CMPT_GATE_OFF
+    CH_8_INPUT  = 0x08 << CT2_CONF_CMPT_GATE_OFF
+    CH_9_INPUT  = 0x09 << CT2_CONF_CMPT_GATE_OFF
+    CH_10_INPUT = 0x0A << CT2_CONF_CMPT_GATE_OFF
+
+    CH_1_INPUT_INV  = 0x0D << CT2_CONF_CMPT_GATE_OFF
+    CH_2_INPUT_INV  = 0x0E << CT2_CONF_CMPT_GATE_OFF
+    CH_3_INPUT_INV  = 0x0F << CT2_CONF_CMPT_GATE_OFF
+    CH_4_INPUT_INV  = 0x10 << CT2_CONF_CMPT_GATE_OFF
+    CH_5_INPUT_INV  = 0x11 << CT2_CONF_CMPT_GATE_OFF
+    CH_6_INPUT_INV  = 0x12 << CT2_CONF_CMPT_GATE_OFF
+    CH_7_INPUT_INV  = 0x13 << CT2_CONF_CMPT_GATE_OFF
+    CH_8_INPUT_INV  = 0x14 << CT2_CONF_CMPT_GATE_OFF
+    CH_9_INPUT_INV  = 0x15 << CT2_CONF_CMPT_GATE_OFF
+    CH_10_INPUT_INV = 0x16 << CT2_CONF_CMPT_GATE_OFF
+
+    CT_1_GATE_ENVELOP  = 0x19 << CT2_CONF_CMPT_GATE_OFF
+    CT_2_GATE_ENVELOP  = 0x1A << CT2_CONF_CMPT_GATE_OFF
+    CT_3_GATE_ENVELOP  = 0x1B << CT2_CONF_CMPT_GATE_OFF
+    CT_4_GATE_ENVELOP  = 0x1C << CT2_CONF_CMPT_GATE_OFF
+    CT_5_GATE_ENVELOP  = 0x1D << CT2_CONF_CMPT_GATE_OFF
+    CT_6_GATE_ENVELOP  = 0x1E << CT2_CONF_CMPT_GATE_OFF
+    CT_7_GATE_ENVELOP  = 0x1F << CT2_CONF_CMPT_GATE_OFF
+    CT_8_GATE_ENVELOP  = 0x20 << CT2_CONF_CMPT_GATE_OFF
+    CT_9_GATE_ENVELOP  = 0x21 << CT2_CONF_CMPT_GATE_OFF
+    CT_10_GATE_ENVELOP = 0x22 << CT2_CONF_CMPT_GATE_OFF
+    CT_11_GATE_ENVELOP = 0x23 << CT2_CONF_CMPT_GATE_OFF
+    CT_12_GATE_ENVELOP = 0x24 << CT2_CONF_CMPT_GATE_OFF
+
+    CT_1_SWITCH_SIGNAL  = 0x25 << CT2_CONF_CMPT_GATE_OFF
+    CT_2_SWITCH_SIGNAL  = 0x26 << CT2_CONF_CMPT_GATE_OFF
+    CT_3_SWITCH_SIGNAL  = 0x27 << CT2_CONF_CMPT_GATE_OFF
+    CT_4_SWITCH_SIGNAL  = 0x28 << CT2_CONF_CMPT_GATE_OFF
+    CT_5_SWITCH_SIGNAL  = 0x29 << CT2_CONF_CMPT_GATE_OFF
+    CT_6_SWITCH_SIGNAL  = 0x2A << CT2_CONF_CMPT_GATE_OFF
+    CT_7_SWITCH_SIGNAL  = 0x2B << CT2_CONF_CMPT_GATE_OFF
+    CT_8_SWITCH_SIGNAL  = 0x2C << CT2_CONF_CMPT_GATE_OFF
+    CT_9_SWITCH_SIGNAL  = 0x2D << CT2_CONF_CMPT_GATE_OFF
+    CT_10_SWITCH_SIGNAL = 0x2E << CT2_CONF_CMPT_GATE_OFF
+    CT_11_SWITCH_SIGNAL = 0x2F << CT2_CONF_CMPT_GATE_OFF
+    CT_12_SWITCH_SIGNAL = 0x30 << CT2_CONF_CMPT_GATE_OFF
+
+
+@enum.unique
+class CtHardStartSrc(enum.Enum):
+
+    SOFTWARE_ONLY = 0x00 << CT2_CONF_CMPT_HSTART_OFF
+
+    CH_1_RISING_EDGE  = 0x01 << CT2_CONF_CMPT_HSTART_OFF
+    CH_2_RISING_EDGE  = 0x02 << CT2_CONF_CMPT_HSTART_OFF
+    CH_3_RISING_EDGE  = 0x03 << CT2_CONF_CMPT_HSTART_OFF
+    CH_4_RISING_EDGE  = 0x04 << CT2_CONF_CMPT_HSTART_OFF
+    CH_5_RISING_EDGE  = 0x05 << CT2_CONF_CMPT_HSTART_OFF
+    CH_6_RISING_EDGE  = 0x06 << CT2_CONF_CMPT_HSTART_OFF
+    CH_7_RISING_EDGE  = 0x07 << CT2_CONF_CMPT_HSTART_OFF
+    CH_8_RISING_EDGE  = 0x08 << CT2_CONF_CMPT_HSTART_OFF
+    CH_9_RISING_EDGE  = 0x09 << CT2_CONF_CMPT_HSTART_OFF
+    CH_10_RISING_EDGE = 0x0A << CT2_CONF_CMPT_HSTART_OFF
+
+    CH_1_FALLING_EDGE  = 0x0D << CT2_CONF_CMPT_HSTART_OFF
+    CH_2_FALLING_EDGE  = 0x0E << CT2_CONF_CMPT_HSTART_OFF
+    CH_3_FALLING_EDGE  = 0x0F << CT2_CONF_CMPT_HSTART_OFF
+    CH_4_FALLING_EDGE  = 0x10 << CT2_CONF_CMPT_HSTART_OFF
+    CH_5_FALLING_EDGE  = 0x11 << CT2_CONF_CMPT_HSTART_OFF
+    CH_6_FALLING_EDGE  = 0x12 << CT2_CONF_CMPT_HSTART_OFF
+    CH_7_FALLING_EDGE  = 0x13 << CT2_CONF_CMPT_HSTART_OFF
+    CH_8_FALLING_EDGE  = 0x14 << CT2_CONF_CMPT_HSTART_OFF
+    CH_9_FALLING_EDGE  = 0x15 << CT2_CONF_CMPT_HSTART_OFF
+    CH_10_FALLING_EDGE = 0x16 << CT2_CONF_CMPT_HSTART_OFF
+
+    CH_1_RISING_FALLING_EDGE  = 0x19 << CT2_CONF_CMPT_HSTART_OFF
+    CH_2_RISING_FALLING_EDGE  = 0x1A << CT2_CONF_CMPT_HSTART_OFF
+    CH_3_RISING_FALLING_EDGE  = 0x1B << CT2_CONF_CMPT_HSTART_OFF
+    CH_4_RISING_FALLING_EDGE  = 0x1C << CT2_CONF_CMPT_HSTART_OFF
+    CH_5_RISING_FALLING_EDGE  = 0x1D << CT2_CONF_CMPT_HSTART_OFF
+    CH_6_RISING_FALLING_EDGE  = 0x1E << CT2_CONF_CMPT_HSTART_OFF
+    CH_7_RISING_FALLING_EDGE  = 0x1F << CT2_CONF_CMPT_HSTART_OFF
+    CH_8_RISING_FALLING_EDGE  = 0x20 << CT2_CONF_CMPT_HSTART_OFF
+    CH_9_RISING_FALLING_EDGE  = 0X21 << CT2_CONF_CMPT_HSTART_OFF
+    CH_10_RISING_FALLING_EDGE = 0x22 << CT2_CONF_CMPT_HSTART_OFF
+
+    CT_1_START  = 0x25 << CT2_CONF_CMPT_HSTART_OFF
+    CT_2_START  = 0x26 << CT2_CONF_CMPT_HSTART_OFF
+    CT_3_START  = 0x27 << CT2_CONF_CMPT_HSTART_OFF
+    CT_4_START  = 0x28 << CT2_CONF_CMPT_HSTART_OFF
+    CT_5_START  = 0x29 << CT2_CONF_CMPT_HSTART_OFF
+    CT_6_START  = 0x2A << CT2_CONF_CMPT_HSTART_OFF
+    CT_7_START  = 0x2B << CT2_CONF_CMPT_HSTART_OFF
+    CT_8_START  = 0x2C << CT2_CONF_CMPT_HSTART_OFF
+    CT_9_START  = 0x2D << CT2_CONF_CMPT_HSTART_OFF
+    CT_10_START = 0x2E << CT2_CONF_CMPT_HSTART_OFF
+    CT_11_START = 0x2F << CT2_CONF_CMPT_HSTART_OFF
+    CT_12_START = 0x30 << CT2_CONF_CMPT_HSTART_OFF
+
+    CT_1_STOP  = 0x31 << CT2_CONF_CMPT_HSTART_OFF
+    CT_2_STOP  = 0x32 << CT2_CONF_CMPT_HSTART_OFF
+    CT_3_STOP  = 0x33 << CT2_CONF_CMPT_HSTART_OFF
+    CT_4_STOP  = 0x34 << CT2_CONF_CMPT_HSTART_OFF
+    CT_5_STOP  = 0x35 << CT2_CONF_CMPT_HSTART_OFF
+    CT_6_STOP  = 0x36 << CT2_CONF_CMPT_HSTART_OFF
+    CT_7_STOP  = 0x37 << CT2_CONF_CMPT_HSTART_OFF
+    CT_8_STOP  = 0x38 << CT2_CONF_CMPT_HSTART_OFF
+    CT_9_STOP  = 0x39 << CT2_CONF_CMPT_HSTART_OFF
+    CT_10_STOP = 0x3A << CT2_CONF_CMPT_HSTART_OFF
+    CT_11_STOP = 0x3B << CT2_CONF_CMPT_HSTART_OFF
+    CT_12_STOP = 0x3C << CT2_CONF_CMPT_HSTART_OFF
+
+    CT_1_START_STOP  = 0x3D << CT2_CONF_CMPT_HSTART_OFF
+    CT_2_START_STOP  = 0x3E << CT2_CONF_CMPT_HSTART_OFF
+    CT_3_START_STOP  = 0x3F << CT2_CONF_CMPT_HSTART_OFF
+    CT_4_START_STOP  = 0x40 << CT2_CONF_CMPT_HSTART_OFF
+    CT_5_START_STOP  = 0x41 << CT2_CONF_CMPT_HSTART_OFF
+    CT_6_START_STOP  = 0x42 << CT2_CONF_CMPT_HSTART_OFF
+    CT_7_START_STOP  = 0x43 << CT2_CONF_CMPT_HSTART_OFF
+    CT_8_START_STOP  = 0x44 << CT2_CONF_CMPT_HSTART_OFF
+    CT_9_START_STOP  = 0x45 << CT2_CONF_CMPT_HSTART_OFF
+    CT_10_START_STOP = 0x46 << CT2_CONF_CMPT_HSTART_OFF
+    CT_11_START_STOP = 0x47 << CT2_CONF_CMPT_HSTART_OFF
+    CT_12_START_STOP = 0x48 << CT2_CONF_CMPT_HSTART_OFF
+
+    CT_1_EQ_CMP_1   = 0x49 << CT2_CONF_CMPT_HSTART_OFF
+    CT_2_EQ_CMP_2   = 0x4A << CT2_CONF_CMPT_HSTART_OFF
+    CT_3_EQ_CMP_3   = 0x4B << CT2_CONF_CMPT_HSTART_OFF
+    CT_4_EQ_CMP_4   = 0x4C << CT2_CONF_CMPT_HSTART_OFF
+    CT_5_EQ_CMP_5   = 0x4D << CT2_CONF_CMPT_HSTART_OFF
+    CT_6_EQ_CMP_6   = 0x4E << CT2_CONF_CMPT_HSTART_OFF
+    CT_7_EQ_CMP_7   = 0x4F << CT2_CONF_CMPT_HSTART_OFF
+    CT_8_EQ_CMP_8   = 0x50 << CT2_CONF_CMPT_HSTART_OFF
+    CT_9_EQ_CMP_9   = 0x51 << CT2_CONF_CMPT_HSTART_OFF
+    CT_10_EQ_CMP_10 = 0x52 << CT2_CONF_CMPT_HSTART_OFF
+    CT_11_EQ_CMP_11 = 0x53 << CT2_CONF_CMPT_HSTART_OFF
+    CT_12_EQ_CMP_12 = 0x54 << CT2_CONF_CMPT_HSTART_OFF
+
+
+@enum.unique
+class CtHardStopSrc(enum.Enum):
+
+    SOFTWARE_ONLY = 0x00 << CT2_CONF_CMPT_HSTOP_OFF
+
+    CH_1_RISING_EDGE  = 0x01 << CT2_CONF_CMPT_HSTOP_OFF
+    CH_2_RISING_EDGE  = 0x02 << CT2_CONF_CMPT_HSTOP_OFF
+    CH_3_RISING_EDGE  = 0x03 << CT2_CONF_CMPT_HSTOP_OFF
+    CH_4_RISING_EDGE  = 0x04 << CT2_CONF_CMPT_HSTOP_OFF
+    CH_5_RISING_EDGE  = 0x05 << CT2_CONF_CMPT_HSTOP_OFF
+    CH_6_RISING_EDGE  = 0x06 << CT2_CONF_CMPT_HSTOP_OFF
+    CH_7_RISING_EDGE  = 0x07 << CT2_CONF_CMPT_HSTOP_OFF
+    CH_8_RISING_EDGE  = 0x08 << CT2_CONF_CMPT_HSTOP_OFF
+    CH_9_RISING_EDGE  = 0x09 << CT2_CONF_CMPT_HSTOP_OFF
+    CH_10_RISING_EDGE = 0x0A << CT2_CONF_CMPT_HSTOP_OFF
+
+    CH_1_FALLING_EDGE  = 0x0D << CT2_CONF_CMPT_HSTOP_OFF
+    CH_2_FALLING_EDGE  = 0x0E << CT2_CONF_CMPT_HSTOP_OFF
+    CH_3_FALLING_EDGE  = 0x0F << CT2_CONF_CMPT_HSTOP_OFF
+    CH_4_FALLING_EDGE  = 0x10 << CT2_CONF_CMPT_HSTOP_OFF
+    CH_5_FALLING_EDGE  = 0x11 << CT2_CONF_CMPT_HSTOP_OFF
+    CH_6_FALLING_EDGE  = 0x12 << CT2_CONF_CMPT_HSTOP_OFF
+    CH_7_FALLING_EDGE  = 0x13 << CT2_CONF_CMPT_HSTOP_OFF
+    CH_8_FALLING_EDGE  = 0x14 << CT2_CONF_CMPT_HSTOP_OFF
+    CH_9_FALLING_EDGE  = 0x15 << CT2_CONF_CMPT_HSTOP_OFF
+    CH_10_FALLING_EDGE = 0x16 << CT2_CONF_CMPT_HSTOP_OFF
+
+    CH_1_RISING_FALLING_EDGE  = 0x19 << CT2_CONF_CMPT_HSTOP_OFF
+    CH_2_RISING_FALLING_EDGE  = 0x1A << CT2_CONF_CMPT_HSTOP_OFF
+    CH_3_RISING_FALLING_EDGE  = 0x1B << CT2_CONF_CMPT_HSTOP_OFF
+    CH_4_RISING_FALLING_EDGE  = 0x1C << CT2_CONF_CMPT_HSTOP_OFF
+    CH_5_RISING_FALLING_EDGE  = 0x1D << CT2_CONF_CMPT_HSTOP_OFF
+    CH_6_RISING_FALLING_EDGE  = 0x1E << CT2_CONF_CMPT_HSTOP_OFF
+    CH_7_RISING_FALLING_EDGE  = 0x1F << CT2_CONF_CMPT_HSTOP_OFF
+    CH_8_RISING_FALLING_EDGE  = 0x20 << CT2_CONF_CMPT_HSTOP_OFF
+    CH_9_RISING_FALLING_EDGE  = 0X21 << CT2_CONF_CMPT_HSTOP_OFF
+    CH_10_RISING_FALLING_EDGE = 0x22 << CT2_CONF_CMPT_HSTOP_OFF
+
+    CT_1_START  = 0x25 << CT2_CONF_CMPT_HSTOP_OFF
+    CT_2_START  = 0x26 << CT2_CONF_CMPT_HSTOP_OFF
+    CT_3_START  = 0x27 << CT2_CONF_CMPT_HSTOP_OFF
+    CT_4_START  = 0x28 << CT2_CONF_CMPT_HSTOP_OFF
+    CT_5_START  = 0x29 << CT2_CONF_CMPT_HSTOP_OFF
+    CT_6_START  = 0x2A << CT2_CONF_CMPT_HSTOP_OFF
+    CT_7_START  = 0x2B << CT2_CONF_CMPT_HSTOP_OFF
+    CT_8_START  = 0x2C << CT2_CONF_CMPT_HSTOP_OFF
+    CT_9_START  = 0x2D << CT2_CONF_CMPT_HSTOP_OFF
+    CT_10_START = 0x2E << CT2_CONF_CMPT_HSTOP_OFF
+    CT_11_START = 0x2F << CT2_CONF_CMPT_HSTOP_OFF
+    CT_12_START = 0x30 << CT2_CONF_CMPT_HSTOP_OFF
+
+    CT_1_STOP  = 0x31 << CT2_CONF_CMPT_HSTOP_OFF
+    CT_2_STOP  = 0x32 << CT2_CONF_CMPT_HSTOP_OFF
+    CT_3_STOP  = 0x33 << CT2_CONF_CMPT_HSTOP_OFF
+    CT_4_STOP  = 0x34 << CT2_CONF_CMPT_HSTOP_OFF
+    CT_5_STOP  = 0x35 << CT2_CONF_CMPT_HSTOP_OFF
+    CT_6_STOP  = 0x36 << CT2_CONF_CMPT_HSTOP_OFF
+    CT_7_STOP  = 0x37 << CT2_CONF_CMPT_HSTOP_OFF
+    CT_8_STOP  = 0x38 << CT2_CONF_CMPT_HSTOP_OFF
+    CT_9_STOP  = 0x39 << CT2_CONF_CMPT_HSTOP_OFF
+    CT_10_STOP = 0x3A << CT2_CONF_CMPT_HSTOP_OFF
+    CT_11_STOP = 0x3B << CT2_CONF_CMPT_HSTOP_OFF
+    CT_12_STOP = 0x3C << CT2_CONF_CMPT_HSTOP_OFF
+
+    CT_1_START_STOP  = 0x3D << CT2_CONF_CMPT_HSTOP_OFF
+    CT_2_START_STOP  = 0x3E << CT2_CONF_CMPT_HSTOP_OFF
+    CT_3_START_STOP  = 0x3F << CT2_CONF_CMPT_HSTOP_OFF
+    CT_4_START_STOP  = 0x40 << CT2_CONF_CMPT_HSTOP_OFF
+    CT_5_START_STOP  = 0x41 << CT2_CONF_CMPT_HSTOP_OFF
+    CT_6_START_STOP  = 0x42 << CT2_CONF_CMPT_HSTOP_OFF
+    CT_7_START_STOP  = 0x43 << CT2_CONF_CMPT_HSTOP_OFF
+    CT_8_START_STOP  = 0x44 << CT2_CONF_CMPT_HSTOP_OFF
+    CT_9_START_STOP  = 0x45 << CT2_CONF_CMPT_HSTOP_OFF
+    CT_10_START_STOP = 0x46 << CT2_CONF_CMPT_HSTOP_OFF
+    CT_11_START_STOP = 0x47 << CT2_CONF_CMPT_HSTOP_OFF
+    CT_12_START_STOP = 0x48 << CT2_CONF_CMPT_HSTOP_OFF
+
+    CT_1_EQ_CMP_1   = 0x49 << CT2_CONF_CMPT_HSTOP_OFF
+    CT_2_EQ_CMP_2   = 0x4A << CT2_CONF_CMPT_HSTOP_OFF
+    CT_3_EQ_CMP_3   = 0x4B << CT2_CONF_CMPT_HSTOP_OFF
+    CT_4_EQ_CMP_4   = 0x4C << CT2_CONF_CMPT_HSTOP_OFF
+    CT_5_EQ_CMP_5   = 0x4D << CT2_CONF_CMPT_HSTOP_OFF
+    CT_6_EQ_CMP_6   = 0x4E << CT2_CONF_CMPT_HSTOP_OFF
+    CT_7_EQ_CMP_7   = 0x4F << CT2_CONF_CMPT_HSTOP_OFF
+    CT_8_EQ_CMP_8   = 0x50 << CT2_CONF_CMPT_HSTOP_OFF
+    CT_9_EQ_CMP_9   = 0x51 << CT2_CONF_CMPT_HSTOP_OFF
+    CT_10_EQ_CMP_10 = 0x52 << CT2_CONF_CMPT_HSTOP_OFF
+    CT_11_EQ_CMP_11 = 0x53 << CT2_CONF_CMPT_HSTOP_OFF
+    CT_12_EQ_CMP_12 = 0x54 << CT2_CONF_CMPT_HSTOP_OFF
+
 
 #----------------------------------------------------------------------------
 # Definitions for SOFT_ENABLE_DISABLE register (W)
@@ -616,98 +1131,190 @@ CT2_IOC_DEVRST = _IO(CT2_IOC_MAGIC, 0), \
     {errno.EACCES: "Could not reset card: no permission"}
 
 
-class CountersStatus:
+class BaseParam(object):
+    """
+    Base class for parameters
+    """
 
-    def __init__(self, status):
-        self.value = status
+    _FLAG_MAP = {}
 
-    def isEnabled(self, counter):
-        """
-        Tells if the specified counter is enabled
-        
-        :param counter: counter number (starts with 1)
-        :type counter: int
-        
-        :return: True if the counter is enabled or False otherwise
-        :rtype: bool
-        """
-        return (self.value & (1 << (counter - 1))) != 0
-
-    def isRunning(self, counter):
-        """
-        Tells if the specified counter is running
-        
-        :param counter: counter number (starts with 1)
-        :type counter: int
-
-        :return: True if the counter is running or False otherwise
-        :rtype: bool
-        """
-        return (self.value & (1 << (16 + counter - 1))) != 0        
-    
-    def __str__(self):
-        return "CountersStatus(%s)" % hex(self.value)
-
-    def __repr__(self):
-        return str(self)
-
-
-class NiveauOut:
-
-    def __init__(self, niveau_out=None, **kwargs):
-        if niveau_out is None:
-            niveau_out = kwargs
-        elif isinstance(niveau_out, NiveauOut):
-            niveau_out = niveau_out.value
-        self.__set_value(niveau_out)
-   
-    def __set_value(self, niveau_out):
-        if isinstance(niveau_out, dict):
-            value = 0
-            if niveau_out.get('ttl_out_9'):  value |= P201_OUT_9_TTL_ENABLE
-            if niveau_out.get('ttl_out_10'): value |= P201_OUT_10_TTL_ENABLE
-            if niveau_out.get('nim_out_9'):  value |= P201_OUT_9_NIM_ENABLE
-            if niveau_out.get('nim_out_10'): value |= P201_OUT_10_NIM_ENABLE
+    def __init__(self, value=None, **kwargs):
+        self.__value = 0
+        if value is None:
+            self.set(**kwargs)
         else:
-            value = niveau_out
-        self.__value = value
-        
+            if isinstance(value, self.__class__):
+                value = value.value
+            self.__value = value
+
     @property
     def value(self):
+        """
+        The parameter integer representation (R/W). To be interpreted as a 32bit unsigined integer
+
+        It supports setting the value with either an integer or a dictionary
+        """
         return self.__value
-   
+
     @value.setter
-    def value(self, niveau_out):
-        self.__set_value(niveau_out)
+    def value(self, config):
+        if isinstance(config, dict):
+            self.__value = 0
+            self.set(**config)
+        else:
+            self.__value = config
 
-    @property
-    def value_dict(self):
-        return dict(ttl_out_9=(self.__value & P201_OUT_9_TTL_ENABLE != 0),
-                    ttl_out_10=(self.__value & P201_OUT_10_TTL_ENABLE != 0),
-                    nim_out_9=(self.__value & P201_OUT_9_NIM_ENABLE!=0),
-                    nim_out_10=(self.__value & P201_OUT_10_NIM_ENABLE!=0))
+    def set(self, **kwargs):
+        """Sets/unsets the specified fields (convenience method)
 
-    def isTTL9Enabled(self):
-        return bool(self.__value & P201_OUT_9_TTL_ENABLE)
+        This is a convenience method for doing multiple ``param["<arg>"] = value``
+        calls in one.
 
-    def isTTL10Enabled(self):
-        return bool(self.__value & P201_OUT_10_TTL_ENABLE)
+        The supported keywords are the same as returned by :meth:`keys`
+        """
+        for k, v in kwargs.items():
+            self[k] = v
 
-    def isNIM9Enabled(self):
-        return bool(self.__value & P201_OUT_9_NIM_ENABLE)
+    def keys(self):
+        """
+        Returns the list of keys
 
-    def isNIM10Enabled(self):
-        return bool(self.__value & P201_OUT_10_NIM_ENABLE)
+        :return: the list of keys
+        :rtype: list<str>
+        """
+        return self._FLAG_MAP.keys()
+
+    def items(self):
+        """
+        Returns the list of parameter's (key, value) pairs, as 2-tuples
+
+        :return: the list of parameter's (key, value) pairs, as 2-tuples
+        :rtype: list<tuple(str, obj)>
+        """
+        return dict(self).items()
+
+    def __getitem__(self, key):
+        klass, mask = self._FLAG_MAP[key]
+        return klass(self.value & mask)
+
+    def __setitem__(self, key, value):
+        klass, mask = self._FLAG_MAP[key]
+        if not isinstance(value, klass):
+            raise TypeError("{0} must be instance of {1}".format(key, klass.__name__ ))
+        if value:
+            self.value |= mask
+        else:
+            self.value &= NOT(mask)
+
+    def __getattr__(self, name):
+        return self[name]
 
     def __str__(self):
-        return "NiveauOut(%s)" % self.value_dict
+        pars = ", ".join(["{0}={1}".format(k, v) for k, v in self.items()])
+        return "{0}({1})".format(self.__class__.__name__, pars)
 
     def __repr__(self):
         return str(self)
+
+    def __eq__(self, other):
+        if not isinstance(other, BaseParam):
+            return False
+        return self.__value == other.__value
+
+
+class CtStatus(BaseParam):
+    
+    _FLAG_MAP = { 'enable': (bool, 1<< 0),
+                  'run':    (bool, 1<< 16), }
+
+
+class FilterOutput(BaseParam):
+
+    _FLAG_MAP = { 'clock':    (FilterClock, 0b111),
+                  'enable':   (bool, 1 << 3),
+                  'polarity': (int,  1 << 4) }
+
+    def __setitem__(self, key, value):
+        if key == 'clock':
+            klass, mask = self._FLAG_MAP[key]
+            self.value = (self.value & NOT(mask)) | value.value
+
+
+class AMCCFIFOStatus(BaseParam):
+    """
+    Card general status. Returned by :meth:`P201.get_general_status`
+    """
+
+    _FLAG_MAP = { 'read_empty': (bool, 1 << 0),
+                  'write_full': (bool, 1 << 1),
+                  'read_full':  (bool, 1 << 2),
+                  'write_empty':(bool, 1 << 3), }
+
+
+class FIFOStatus(BaseParam):
+
+    _FLAG_MAP = { 'size':          (int,  0x1FFF),
+                  'overrun_error': (bool, 1 << 16),
+                  'read_error':    (bool, 1 << 17),
+                  'write_error':   (bool, 1 << 18),
+                  'empty':         (bool, 1 << 19),
+                  'full':          (bool, 1 << 20), }
+
+    def __setitem__(self, key, value):
+        raise ValueError("FIFOStatus is read-only")
+
+
+class CtConfig(BaseParam):
+    """
+    Counter configuration class
+
+    To be used with methods :meth:`P201.get_counter_config` and
+    :meth:`P201.get_counter_config`
+    """
+
+    _FLAG_MAP = { 'clock_source':              (CtClockSrc,     CT2_CONF_CMPT_CLK_MSK),
+                  'gate_source':               (CtGateSrc,      CT2_CONF_CMPT_GATE_MSK),
+                  'hard_start_source':         (CtHardStartSrc, CT2_CONF_CMPT_HSTART_MSK),
+                  'hard_stop_source':          (CtHardStopSrc,  CT2_CONF_CMPT_HSTOP_MSK),
+                  'reset_from_hard_soft_stop': (bool,           CT2_CONF_CMPT_RESET_MSK),
+                  'stop_from_hard_stop':       (bool,           CT2_CONF_CMPT_STOP_MSK), }
+
+    def __setitem__(self, key, value):
+        klass, mask = self._FLAG_MAP[key]
+        if not isinstance(value, klass):
+            raise TypeError("{0} must be instance of {1}".format(key, klass.__name__ ))
+        if key in ('reset_from_hard_soft_stop', 'stop_from_hard_stop'):
+            super(CtConfig, self).__setitem__(key, value)
+        else:
+            self.value = (self.value & NOT(mask)) | value.value
+
+
+class NiveauOut(BaseParam):
+    
+    _FLAG_MAP = { 'TTL': (bool, 1 << 8),
+                  'NIM': (bool, 1 << 24) }
+
+
+class TriggerInterrupt(BaseParam):
+
+    _FLAG_MAP = { 'rising': (bool, 1 << 0),
+                  'falling': (bool, 1 << 16) }
 
 
 class P201:
-    
+    """
+    P201 card class
+    """
+
+    #: list of valid card counters
+    COUNTERS = range(1, 13)
+
+    #: list of valid card channels
+    CHANNELS = range(1, 11)
+
+    #: list of valid card ouput channels
+    OUTPUT_CHANNELS = 9, 10
+
     def __init__(self, name="/dev/p201"):
         self.__name = name
         self.__dev = open(name, "rwb+", 0)
@@ -724,88 +1331,873 @@ class P201:
 
     @property
     def fileno(self):
+        """
+        internalcard file descriptor (don't use this member directly on your
+        code)
+        """
         return self.__dev.fileno()
 
     def request_exclusive_access(self):
-        """Request exclusive access for the open file description in the call."""
+        """
+        Request exclusive access to the card. Nothing happens if the card
+        has already exclusive access.
+
+        :raises CT2Exception: if fails to get exclusive access
+        """
         self.__ioctl(CT2_IOC_QXA)
 
     def relinquish_exclusive_access(self):
-        """Request exclusive access for the open file description in the call."""
+        """
+        Relinquish exclusive access. Always succeeds.
+        """
         self.__ioctl(CT2_IOC_LXA)
 
     def reset(self):
-        self.__ioctl(CT2_IOC_DEVRST)        
-    
+        """
+        Resets the card.
+
+        :raises CT2Exception: if fails to reset the card
+        """
+        self.__ioctl(CT2_IOC_DEVRST)
+
+    def software_reset(self):
+        """
+        Does a software reset on the card.
+
+        :raises OSError: in case the operation fails
+        """
+        self.write_reg("COM_GENE", 1 << 7)
+
     def _read_offset(self, offset):
         result = pread(self.fileno, offset)
         iresult = struct.unpack("I", result)[0]
         return iresult
-        
+
     def _write_offset(self, offset, ivalue):
         """ """
         svalue = struct.pack("I", ivalue)
         return pwrite(self.fileno, svalue, offset)
-        
+
     def read_reg(self, register_name):
-        """read from the specified register and return a 32bit integer"""
+        """
+        Read from the specified register and return a 32bit integer
+
+        **Low level call**.
+
+        :param register_name: name of the register (case insensitive)
+        :type register_name: str
+        :return: the content of the register. Interpret as a 32bit unsigned integer
+        :rtype: int
+
+        :raises OSError: in case the operation fails
+        """
+        register_name = register_name.upper()
         offset = CT2_R_DICT[register_name][0]
         iresult = self._read_offset(offset)
-        self.__log.debug("read %s (offset=%d) = %s", register_name, 
+        self.__log.debug("read %s (offset=%d) = %s", register_name,
                          offset, hex(iresult))
         return iresult
 
     def write_reg(self, register_name, ivalue):
-        """ """
+        """
+        Write from the specified register a given integer value. The value is interpreted
+        as a 32bit unsigned integer
+
+        **Low level call**.
+
+        :param register_name: name of the register (case insensitive)
+        :type register_name: str
+        :param ivalue: value to write
+        :type ivalue: int
+
+        :raises OSError: in case the operation fails
+        """
+        register_name = register_name.upper()
         offset = CT2_R_DICT[register_name][0]
-        self.__log.debug("write %s (offset=%d) with %s", register_name, 
+        self.__log.debug("write %s (offset=%d) with %s", register_name,
                          offset, hex(ivalue))
         return self._write_offset(offset, ivalue)
 
-    def set_niveau_out(self, niveau_out=None, **kwargs):
+    def get_general_status(self):
         """
-        Enables/disables output 9 and 10 TLL and NIM.
-        
-        Three different ways to enable ouput 9 TTL::
+        Returns the general card status as a tuple of two elements:
+        - card id (int)
+        - AMCC fifo status (:class:`AMCCFIFOStatus`)
 
-            # output 9 TTL enable
-            reg = 1 << 8 
-            p201.set_niveau_out(reg)
-
-            p201.set_niveau_out(ttl_out_9=True)
-
-            niveau_out = NiveauOut(ttl_out_9=True)
-            p201.set_niveau_out(niveau_out)
+        :return: the general card status
+        :rtype: tuple<int, :class:`AMCCFIFOStatus`>
         """
-        niveau_out = NiveauOut(niveau_out=niveau_out, **kwargs)
-        self.write_reg("NIVEAU_OUT", niveau_out.value)
+        result = self.read_reg("CTRL_GENE")
+        card_id = (result & CT2_CTRL_GENE_CARDN_MSK) >> CT2_CTRL_GENE_CARDN_OFF
+        return card_id, AMCCFIFOStatus(result)
 
     def get_niveau_out(self):
-        result = self.read_reg("NIVEAU_OUT")
-        return NiveauOut(result)
+        """
+        Returns the NIM/TTL level of all output channels (9 and 10)
+
+        :return: the NIM/TTL level of all output channels (9 and 10)
+        :rtype: dict<int: :class:`NiveauOut`>
+
+        :raises OSError: in case the operation fails
+        """
+        register = self.read_reg("NIVEAU_OUT")
+        result, mask = {}, ((1 << 8) | (1 << 24))
+        for i, channel in enumerate(self.OUTPUT_CHANNELS):
+            reg = (register >> i) & mask
+            result[channel] = NiveauOut(reg)
+        return result
+
+    def set_niveau_out(self, niveau_out):
+        """
+        Enables/disables output channels TLL and NIM.
+
+        .. warning::
+            non specified output channels will have their TTL and NIM set to disable
+
+        :param niveau_out:
+            dictionary where keys are output channel numbers and value is
+            an instance of :class:`NiveauOut` representing the channel TTL and NIM
+        :type niveau_out: dict<int: :class:`NiveauOut`>
+
+        :raises OSError: in case the operation fails
+        """
+        register = 0
+        for i, channel in enumerate(self.OUTPUT_CHANNELS):
+            no = niveau_out.get(channel, NiveauOut())
+            register |= (no.value) << i
+        self.write_reg("NIVEAU_OUT", register)
+
+    def get_output_channels_level(self):
+        """
+        Returns the ouput channels levels as a dictionary with keys
+        being channel numbers (starting in 1) and an integer (0 or 1)
+        representing the channel output level
+
+        :return: the ouput channels levels
+        :rtype: dict<int: int>
+
+        :raises OSError: in case the operation fails
+        """
+        register = self.read_reg("SOFT_OUT")
+        result = {}
+        for channel in self.OUTPUT_CHANNELS:
+            result[channel] = register & (1 << (channel-1)) != 0 and 1 or 0
+        return result
+
+    def set_output_channels_level(self, channels_output_level):
+        """
+        Sets the cards output channels level.
+
+        .. warning::
+            non specified output channels will have their level reset to 0
+
+        :param channels_output_level:
+            dictionary where key is the output channel numbers and value is
+            either 0 or 1 representing the channel ouput level
+        :type channels_output_level: dict<int: int>
+
+        :raises OSError: in case the operation fails
+        """
+        register = 0
+        for channel in self.OUTPUT_CHANNELS:
+            if channels_output_level.get(channel, 0):
+                register |= 1 << (channel-1)
+        self.write_reg("SOFT_OUT", register)
+
+    def get_output_channels_source(self):
+        """
+        Returns the current output channels source configuration
+
+        :return: 
+            dictionary where key is the output channel number and value is the 
+            output channel source (instance of :class:`OutputSrc`)
+        :rtype: dict<int: class:`OutputSrc>`
+        """
+        result = {}
+        register = self.read_reg("SEL_SOURCE_OUTPUT")
+        for n, channel in enumerate(self.OUTPUT_CHANNELS):
+            result[channel] = OutputSrc((register >> (n*8)) & 0xFF)
+        return result
+
+    def set_output_channels_source(self, output_src):
+        """
+        Sets the cards ouput channels source configuration
+        
+        :param output_src:
+            dictionary where key is the output channel number and value is the 
+            ouput channel source (instance of :class:`OutputSrc`)
+        :type ouput_src: dict<int: class:`OutputSrc>`
+        """
+        register = 0
+        for n, channel in enumerate(self.OUTPUT_CHANNELS):
+            src = output_src.get(channel, OutputSrc.DISABLE)
+            register |= src.value << (n*8)
+        self.write_reg("SEL_SOURCE_OUTPUT", register)
+
+    def get_output_channels_filter(self):
+        """
+        Returns the current output channels filter configuration and polarity selection
+
+        :return:
+            dictionary where key is the channel number and value is the filter and
+            polarity configuration (instance of :class:`FilterOutput`)
+        :rtype: dict<int: class:`FilterOutput>`
+        """
+        result = {}
+        register = self.read_reg("SEL_FILTRE_OUTPUT")
+        for n, channel in enumerate(self.OUTPUT_CHANNELS):
+            result[channel] = FilterOutput((register >> (n*8)) & 0xFF)
+        return result
+
+    def set_output_channels_filter(self, filter):
+        """
+        Sets the given ouput channels filter configuration and polarity selection
+
+        :param filter: 
+            dictionary where key is the channel number and value is the filter and
+            polarity configuration (instance of :class:`FilterOutput`)
+        :type filter: dict<int: class:`FilterOutput>`
+        """
+        register = 0
+        for n, channel in enumerate(self.OUTPUT_CHANNELS):
+            try:
+                register |= filter[channel].value << (n*8)
+            except KeyError:
+                pass
+        self.write_reg("SEL_FILTRE_OUTPUT", register)
+
+    def get_DMA_enable_trigger_latch(self):
+        """*not implemented*"""
+        raise NotImplementedError
+
+    def set_DMA_enable_trigger_latch(self, map):
+        """*not implemented*"""
+        raise NotImplementedError
+
+    def get_FIFO_status(self):
+        """
+        Returns the current FIFO status
+
+        :return: the card's current FIFO status
+        :rtype: class:`FIFOStatus`
+        """
+        register = self.read_reg("CTRL_FIFO_DMA")
+        return FIFOStatus(register)
+
+    def get_channels_trigger_interrupts(self):
+        """
+        dict<int: :class:`TriggerInterrupt`>
+        key: channel
+        value: 
+        """
+        result = {}
+        register = self.read_reg("SOURCE_IT_A")
+        mask = (1<<0) | (1<<16)
+        for channel in self.CHANNELS:
+            reg = (register >> (channel-1)) & mask
+            result[channel] = TriggerInterrupt(reg)
+        return result
+
+    def set_channels_trigger_interrupts(self, channels_triggers):
+        """
+        dict<int: class:`TriggerInterrupt`>
+        key: channel
+        value: 
+        """
+        register = 0
+        for channel, triggers in channels_triggers.items():
+            register |= triggers.value << (channel-1)
+        self.write_reg("SOURCE_IT_A", register)
+
+    def get_counters_trigger_interrupts(self):
+        """*not implemented*"""
+        raise NotImplementedError
+
+    def set_counters_trigger_interrupts(self, counters_triggers):
+        """*not implemented*"""
+        raise NotImplementedError
+
+    def get_trigger_interrupt_statuts(self):
+        """*not implemented*"""
+        raise NotImplementedError
+
+    def get_clock(self):
+        """
+        Returns the global clock frequency
+
+        :return: the global clock frequency
+        :rtype: :class:`Clock`
+
+        :raises OSError: in case the operation fails
+        """
+        result = self.read_reg("COM_GENE")
+        if not (result & CT2_COM_GENE_ENAB_MSK):
+            return Clock.CLK_DISABLE
+        # silly: there are two possible values for 60 MHz
+        if result == 0xb11011:
+            result = 0xb11010
+        return Clock(result)
 
     def set_clock(self, clock):
-        self.write_reg("COM_GENE", clock)        
+        """
+        Sets the global card clock
+
+        To disable the clock use :attr:`Clock.CLK_DISABLE`
+
+        :param clock: new clock frequency
+        :type clock: :class:`Clock`
+
+        :raises OSError: in case the operation fails
+        """
+        self.write_reg("COM_GENE", clock.value)
 
     def get_counters_status(self):
-        result = self.read_reg("RD_CTRL_CMPT")
-        return CountersStatus(result)
+        """
+        Returns the card's counter status
+
+        :return: the counters status
+        :rtype: dict<int: :class:`CtsStatus`>
+
+        :raises OSError: in case the operation fails
+        """
+        register = self.read_reg("RD_CTRL_CMPT")
+        result, mask = {}, (1<<0) | (1<<16)
+        for i, c in enumerate(self.COUNTERS):
+            reg = (register >> i) & mask
+            result[c] = CtStatus(reg)
+        return result
 
     def get_counter_value(self, counter):
+        """
+        Returns the current value of the given counter
+
+        :param counter: counter number (starts with 1)
+        :type counter: int
+        :return: counter value
+        :rtype: int
+
+        :raises OSError: in case the operation fails
+        """
         offset = CT2_R_DICT["RD_CMPT_1"][0] + (counter - 1)
         return self._read_offset(offset)
 
-    def get_latch_value(self, counter):
-        offset = CT2_R_DICT["RD_LATCH_CMPT_1"][0] + (counter - 1)
+    def get_latch_value(self, latch):
+        """
+        Returns the current value of the given latch
+
+        :param latch: latch number (starts with 1)
+        :type latch: int
+        :return: latch value
+        :rtype: int
+
+        :raises OSError: in case the operation fails
+        """
+        offset = CT2_R_DICT["RD_LATCH_CMPT_1"][0] + (latch - 1)
         return self._read_offset(offset)
 
     def set_test_reg(self, value):
+        """
+        Writes the given value to the test register
+        :param value: the new value
+        :type value: int
+
+        :raises OSError: in case the operation fails
+        """
         self.write_reg("TEST_REG", value)
 
     def get_test_reg(self):
+        """
+        Read the test register value
+
+        :return: the test register value
+        :rtype: int
+
+        :raises OSError: in case the operation fails
+        """
         return self.read_reg("TEST_REG")
 
+    def get_counter_config(self, counter):
+        """
+        Sets the current configuration for the specified counter
+
+        Example::
+
+            >>> from bliss.controllers import ct2
+            >>> p201 = ct2.P201()
+            >>> print p201.get_counter_config()
+            CtConfig(clock_source=CtClockSrc.CLK_100_MHz,
+                     gate_source=CtGateSrc.GATE_CMPT,
+                     hard_start_source=CtHardStartSrc.SOFTWARE_ONLY,
+                     hard_stop_source=CtHardStopSrc.SOFTWARE_ONLY,
+                     reset_from_hard_soft_stop=True,
+                     stop_from_hard_stop=True)
+
+        :param counter: counter number (starts with 1)
+        :type counter: int
+        :return: the current configuration for the specified counter
+        :rtype: :class:`CtConfig`
+
+        :raises OSError: in case the operation fails
+        """
+        register = self.read_reg("CONF_CMPT_{0}".format(counter))
+        return CtConfig(register)
+
+    def set_counter_config(self, counter, config):
+        """
+        Sets the current configuration for the specified counter
+
+        *config* parameter can be an instance of :class:`CtConfig` or
+        an integer representing the direct bit counter configuration.
+
+        Example::
+
+            from bliss.controllers.ct2 import P201, CtConfig
+
+            config = CtConfig(clock_source=CtClockSrc.CLK_1_MHz,
+                              gate_source=CtGateSrc.GATE_CMPT,
+                              hard_start_source=CtHardStartSrc.SOFTWARE_ONLY,
+                              hard_stop_source=CtHardStopSrc.CT_10_EQ_CMP_10,
+                              reset_from_hard_soft_stop=True,
+                              stop_from_hard_stop=True)
+
+            p201 = P201()
+            p201.set_counter_config(10, config)
+
+        :param counter: counter number (starts with 1)
+        :type counter: int
+        :param config: counter configuration
+        :type config: :class:`CtConfig`, int
+
+        :raises OSError: in case the operation fails
+        """
+        config = CtConfig(config)
+        self.write_reg("CONF_CMPT_{0}".format(counter), config.value)
+
+    def set_counters_config(self, counters_cfg):
+        """
+        Sets the configuration for the given counters.
+
+        .. seealso:: :meth:`.set_counter_config`
+
+        :param counters_cfg:
+            a dictionary where keys are counters (starting with 1) and value is
+            the corresponding counter configuration (instance of 
+            :class:`CtConfig`)
+        :type counters_cfg: dict<int: :class:`CtConfig`>
+        """
+        for counter, config in counters_cfg.items():
+            if isintance(config, dict):
+                self.set_counter_config(counter, **config)
+            else:
+                self.set_counter_config(counter, value=config)
+
+    def get_latch_sources(self, latch):
+        """
+        Returns the 2 counters latch sources for the given latch
+
+        Example: for latch "C" it will give counter sources of counters 5, 6
+
+        This is considered a *low level call* since it assumes knowledge
+        of the internal card register configuration.
+        For simpler interface use :meth:`~P201.get_counter_latch_sources`
+
+        :param latch: latch name (A, B, ..., F) (case insensitive)
+        :type: str
+
+        :return:
+            a dictionary where keys are counters (starting with 1) and value is
+            a set of integers representing the counter(s) signals which
+            will trigger a latch on the corresponding counter key.
+        :rtype: dict<int: set<int>>
+
+        :raises OSError: in case the operation fails
+        """
+        latch = latch.upper()
+        latch_nb = ord(latch) - ord("A") + 1
+        c1, c2 = 2*latch_nb-1, 2*latch_nb
+
+        register = self.read_reg("SEL_LATCH_" + latch)
+
+        result = {c1: set(), c2: set()}
+        for bit_nb, bit in enumerate(bin(register)[-1:1:-1], 1):
+            if bit == '0':
+                continue
+            if bit_nb <= 12:
+                counter, c = bit_nb, c1
+            else:
+                counter, c = bit_nb - 16, c2
+            counters = result[c]
+            counters.add(counter)
+        return result
+
+    def set_latch_sources(self, latch, counter_sources):
+        """
+        Sets the latch source of signals HARD_STOP, SOFT_STOP, SOFT_DISABLE for
+        the 2 counters corresponding to the given latch
+
+        counters in *counter_sources* that don't belong to the given latch
+        are ignored
+
+        .. warning::
+            relevant counter(s) which are missing from counter_sources
+            will be set as non latched.
+            For a non intrusive call consider using
+            :meth:`~P201.set_counter_latch_sources` instead
+
+        This is considered a *low level call* since it assumes knowledge
+        of the internal card register configuration.
+        For simpler interface use :meth:`~P201.set_counter_latch_sources`
+
+        :param latch: latch name (A, B, ..., F) (case insensitive)
+        :type: str
+        :param counter_sources:
+            a dictionary where keys are counters (starting with 1) and value is
+            either a single integer or an iterator of integers representing the
+            counter(s) signals which will trigger a latch on the corresponding
+            counter key. The iterator can any python container (set,list, tuple,
+            even dict where keys are counter numbers)
+        :type counter_sources: dict<int: int|iterator>
+
+        :return: integer representing the bits written into given latch register
+        :rtype: int
+
+        :raises OSError: in case the operation fails
+        """
+        latch = latch.upper()
+        latch_nb = ord(latch) - ord("A") + 1
+        c1, c2 = 2*latch_nb-1, 2*latch_nb
+
+        s1, s2 = counter_sources.get(c1, ()),counter_sources.get(c2, ())
+        if isinstance(s1, int):
+            s1 = s1,
+        if isinstance(s2, int):
+            s2 = s2,
+
+        # convert from list of counters to register bits
+        source_bits = 0
+        for sources, shift in ((s1, 0), (s2, 16)):
+            sb = 0
+            for source in sources:
+                sb |= 1 << (source - 1)
+            source_bits |= sb << shift
+
+        self.write_reg("SEL_LATCH_" + latch, source_bits)
+        return source_bits
+
+    def add_latch_sources(self, latch, counter_sources):
+        """*not implemented*"""
+        raise NotImplementedError
+
+    def get_counter_latch_sources(self, counter):
+        """
+        Returns the latch source configuration for the given counter
+
+        :return:
+            a set of integers representing the counter(s) signals which
+            will trigger a latch on the given counter.
+        :rtype: container
+
+        :raises OSError: in case the operation fails
+        """
+        # even counter will be represented in high 16 bits part
+        shift = (counter % 2 == 0) and 16 or 0
+
+        # calculate which latch (A, B, ... F)
+        latch_str = "SEL_LATCH_" + (chr(((counter-1) % 12) // 2 + ord('A')))
+
+        reg = (self.read_reg(latch_str) >> shift) & 0x0000FFFF
+
+        return [ct for ct, bit in enumerate(bin(reg)[-1:1:-1], 1) if bit == '1']
+
+    def set_counter_latch_sources(self, counter, counter_sources):
+        """
+        Sets the latch source of signals HARD_STOP, SOFT_STOP, SOFT_DISABLE for
+        the given counter.
+
+        All other counters latch source configuration is left unchanged
+
+        The following example will set counter 10 latch sources to be counters
+        1, 2, 3 and 4. It will leave the latch source configuration off all
+        other counters (including counter 9 - the latch "D" pair of counter 10)
+        unchanged::
+
+            p201.set_counter_latch_sources(10, (1, 2, 3, 4))
+
+        :param counter: counter number (starts with 1)
+        :type counter: int
+        :param counter_sources:
+            an iterator of integers representing the counter(s) signals which
+            will trigger a latch on the corresponding counter key. It can be
+            any python container (set,list, tuple, even dict where keys are
+            counter numbers)
+        :type counter_sources: container
+
+        :raises OSError: in case the operation fails
+        """
+        if isintance(counter_sources, int):
+            counter_sources = counter_sources,
+
+        # calculate which latch (A, B, ... F)
+        latch_str = "SEL_LATCH_" + (chr(((counter-1) % 12) // 2 + ord('A')))
+
+        # even counter will be represented in high 16 bits part
+        if counter % 2:
+            shift = 0
+            mask  = 0xFFFF0000
+        else:
+            shift = 16
+            mask  = 0x0000FFFF
+
+        # read register so it can be *ored* with the new counter setting
+        # because each register contains info about two counters.
+        # (Example: SEL_LATCH_B contains config of counters 3 and 4
+        sibling_source_bits = self.read_reg(latch_str) | mask
+
+        # convert from list of counters to register bits
+        source_bits = 0
+        for source in counter_sources:
+            source_bits |= 1 << (source - 1)
+        source_bits = (source_bits << shift) | sibling_source_bits
+
+        self.write_reg(latch, source_bits)
+
+    def set_counters_latch_sources(self, counter_sources):
+        """
+        Sets the latch source of signals HARD_STOP, SOFT_STOP, SOFT_DISABLE for
+        all counters.
+
+        Each counter can be latched by one or more sources. Sources are
+        counters from 1 to 12.
+
+        .. warning::
+
+            All non specified counters will be set as non latched
+
+        The following example will latch:
+
+            - counter 1 on signals from counter 10
+            - counter 2 on signals from counters 3, 4 and 5
+            - counters 3 to 12 disable latch source
+
+        ::
+
+            p201.set_counters_latch_source({1 : 10,
+                                            2 : (3, 4, 5)})
+
+        :param counter_sources:
+            a dictionary where keys are counters (starting with 1) and value is
+            either a single integer or an iterator of integers representing the
+            counter(s) signals which will trigger a latch on the corresponding
+            counter key. The iterator can any python container (set,list, tuple,
+            even dict where keys are counter numbers)
+        :type counter_sources: dict<int: int|iterator>
+
+        :raises OSError: in case the operation fails
+        """
+        latches = {}
+        for latch in "ABCDEF":
+            latches[latch] = self.set_latch_sources(latch, counter_sources)
+        return latches
+
+        # initialize map of latches
+        latches = {}
+        for latch in "ABCDEF":
+            latches[latch] = 0
+
+        for counter, sources in counter_sources.items():
+            if isinstance(sources, int):
+                sources = sources,
+            source_bits = 0
+            for source in sources:
+                source_bits |= 1 << (source - 1)
+
+            # even counter will be represented in high 16 bits part
+            shift = (counter % 2 == 0) and 16 or 0
+            source_bits = source_bits << shift
+
+            # calculate which latch (A, B, ... F)
+            latch = chr(((counter-1) % 12) // 2 + ord('A'))
+            register = latches[latch]
+            latches[latch] = register | source_bits
+        for latch, value in latches.items():
+            self.write_reg("SEL_LATCH_" + latch, value)
+        return latches
+
+    def get_counters_latch_sources(self):
+        """
+        Returns the latch source configuration for all counters
+
+        :return:
+            a dictionary where keys are counters (starting with 1) and value is
+            a set of integers representing the counter(s) signals which
+            will trigger a latch on the corresponding counter key.
+        :rtype: dict<int: set<int>>
+
+        :raises OSError: in case the operation fails
+        """
+        result = {}
+        for latch in "ABCDEF":
+            result.update(self.get_latch_sources(latch))
+        return result
+
+        # initialize map of sources
+        result = {}
+        for c in range(1, 13):
+            result[c] = set()
+
+        for latch in range(1, 7):
+            latch_str = "SEL_LATCH_" + chr((latch-1) + ord('A'))
+            register = self.read_reg(latch_str)
+            c1, c2 = 2*latch-1, 2*latch
+            for counter, bit in enumerate(bin(register)[-1:1:-1], 1):
+                if bit == '0':
+                    continue
+                if counter <= 12:
+                    latch_counter = c1
+                else:
+                    counter = counter - 16
+                    latch_counter = c2
+                counters = result[latch_counter]
+                counters.add(counter)
+                result[latch_counter] = counters
+        return result
+
+    def set_counter_comparator_value(self, counter, value):
+        """
+        Sets the given counter comparator value
+
+        :param counter: counter number (starting at 1)
+        :type counter: int
+        :param value: comparator value
+        :type value: int
+        """
+        self.write_reg("COMPARE_CMPT_%d" % counter, value)
+
+    def get_50ohm_adapters(self):
+        """
+        Returns the enable/disable status of the channel 50 ohm adapter
+
+        :return:
+            a dictionary where key is the channel number (starting at 1)
+            and value is bool (set to True if 50 ohm load is to be enabled,
+            or False if it is to be disabled)
+        :rtype: dict<int: bool>
+
+        :raises OSError: in case the operation fails
+        """
+        result = {}
+        for c in range(1, 10): result[c] = True
+
+        register = self.read_reg("ADAPT_50") & P201_ADAPT_50_UMSK
+        for input, bit in enumerate(bin(register)[-1:1:-1], 1):
+            result[input] = bit == '0'
+        return result
+
+    def set_50ohm_adapters(self, inputs):
+        """
+        Enable/disable 50 ohm adapter from all channels.
+
+        .. warning::
+           non specified channels will be set as 50 ohm disabled
+
+        :param inputs:
+            a dictionary where key is the channel number (starting at 1)
+            and value is bool (set to True to enable 50 ohm adapter, or False
+            to disable it)
+        :type inputs: dict<str: bool>
+
+        :raises OSError: in case the operation fails
+        """
+        register = 0xFFFFFFFF
+        for inp, value in inputs.items():
+            if value:
+                register &= NOT(1 << (inp-1))
+        self.write_reg("ADAPT_50", register)
+
+    def set_counters_software_start_stop(self, counters):
+        """
+        Software starts or stops the given counters.
+
+        :param counters:
+            dictionary where key is the counter number (starting at 1) 
+            and value is bool (True means software start, False means software stop)
+        :type counters: dict<int: bool>
+
+        :raises OSError: in case the operation fails
+        """
+        register = 0
+        for counter, action in counters.items():
+            reg = 1 << (counter-1)
+            if not action:
+                reg = reg << 16
+            register |= reg
+        self.write_reg("SOFT_START_STOP", register)
     
+    def set_counters_software_latch(self, counters):
+        """
+        Triggers a latch on the specified counters by software
+        """
+        register = 0
+        for c in counters:
+            register |= 1 << (c-1)
+        self.write_reg("SOFT_LATCH", register)
+
+    def set_counters_software_enable(self, counters):
+        """
+        Software enables/disables the given counters
+
+        :param counters:
+            dictionary where key is the counter number (starting at 1) 
+            and value is bool (True means software enable, False means software disable)
+        :type counters: dict<int: bool>
+
+        :raises OSError: in case the operation fails
+        """
+        register = 0
+        for counter, enable in counters.items():
+            reg = 1 << (counter-1)
+            if not enable:
+                reg << 16
+            register |= reg
+        self.write_reg("SOFT_ENABLE_DISABLE", register)
+
+    def enable_counters_software(self, counters):
+        """
+        Software enables the given counters
+
+        This is a convenience method for :meth:`set_counters_software_enable`
+        
+        :param counters: 
+            a container of the counters to be software enabled. It can be any python
+            container of integers (tuple, list, iterable, even dict)
+        :type counters: container<int>
+
+        :raises OSError: in case the operation fails
+        """
+        ct = {}
+        for counter in counters:
+            ct[counter] = True
+        self.set_counters_software_enable_disable(ct)
+
+    def disable_counters_software(self, counters):
+        """
+        Software disables the given counters
+
+        This is a convenience method for :meth:`set_counters_software_enable`
+
+        :param counters: 
+            a container of the counters to be software disabled. It can be any python
+            container of integers (tuple, list, iterable, even dict)
+        :type counters: container<int>
+
+        :raises OSError: in case the operation fails
+        """
+        ct = {}
+        for counter in counters:
+            ct[counter] = False
+        self.set_counters_software_enable_disable(ct)
+
+
 def main():
     #logging.basicConfig(level=logging.DEBUG)
 
@@ -816,32 +2208,45 @@ def main():
     p201 = P201()
     p201.request_exclusive_access()
     p201.reset()
+    p201.software_reset()
 
     # internal clock 40 Mhz
-    p201.set_clock(CLOCK_40_MHz)
+    p201.set_clock(Clock.CLK_40_MHz)
 
     # channel 10 output: counter 10 gate envelop
-    p201.set_niveau_out(ttl_out_10=True)
+    p201.set_niveau_out({10: NiveauOut(TTL=True)})
 
     # no 50 ohm adapter
-    p201.write_reg("ADAPT_50", 0x3FF)
+    #p201.write_reg("ADAPT_50", 0x3FF)
+    p201.set_50ohm_adapters({})
 
     # channel 9 and 10: no filter, no polarity
-    p201.write_reg("SEL_FILTRE_OUTPUT", 0) 
-
+    #p201.write_reg("SEL_FILTRE_OUTPUT", 0)
+    p201.set_output_channels_filter({})
+    
     # channel 10 output: counter 10 gate envelop
-    p201.write_reg("SEL_SOURCE_OUTPUT", 0x70 << 8)
+    #p201.write_reg("SEL_SOURCE_OUTPUT", 0x70 << 8)
+    p201.set_output_channels_source({10: OutputSrc.CT_10_GATE})
 
-    # Internal clock to 1 Mhz [1us], Gate=1, Soft Start, HardStop on CMP, 
+    # Internal clock to 1 Mhz [1us], Gate=1, Soft Start, HardStop on CMP,
     # Reset on Hard/SoftStop, Stop on HardStop
-    reg = 0x03 | (0 << 7) | (0 << 13) | (0x52 << 20) | (1 << 30) | (1 << 31)
-    p201.write_reg("CONF_CMPT_10", reg)
+    #reg = 0x03 | (0 << 7) | (0 << 13) | (0x52 << 20) | (1 << 30) | (1 << 31)
+    #p201.write_reg("CONF_CMPT_10", reg)
+    ct10_config = CtConfig(clock_source=CtClockSrc.CLK_1_MHz,
+                           gate_source=CtGateSrc.GATE_CMPT,
+                           hard_start_source=CtHardStartSrc.SOFTWARE_ONLY,
+                           hard_stop_source=CtHardStopSrc.CT_10_EQ_CMP_10,
+                           reset_from_hard_soft_stop=True,
+                           stop_from_hard_stop=True)
+    p201.set_counter_config(10, ct10_config)
 
     # Latch on Counter 10 HardStop
-    p201.write_reg("SEL_LATCH_E", 0x200 << 16)
+    #p201.write_reg("SEL_LATCH_E", 0x200 << 16)
+    p201.set_counters_latch_sources({10: 10})
 
     # Counter 10 will count 1 sec
-    p201.write_reg("COMPARE_CMPT_10", 1000*1000)
+    #p201.write_reg("COMPARE_CMPT_10", 1000*1000)
+    p201.set_counter_comparator_value(10, 1000*1000)
 
     started, start_count = False, 0
     while not started:
@@ -850,9 +2255,10 @@ def main():
         if start_count > 10:
             print("failed to start after 10 atempts" )
             break
-        p201.write_reg("SOFT_START_STOP", 0x200)
+        #p201.write_reg("SOFT_START_STOP", 0x200)
+        p201.set_counters_software_start_stop({10: True})
         status = p201.get_counters_status()
-        started = status.isRunning(10)
+        started = status[10].run
 
     if start_count > 1:
         logging.warning("took %d times to start", start_count)
@@ -861,17 +2267,20 @@ def main():
         print("Started!")
         import time
         while True:
-            time.sleep(0.01)
+            time.sleep(0.1)
             counter = p201.get_counter_value(10)
             latch = p201.get_latch_value(10)
             status = p201.get_counters_status()
-            msg = "\r %06d %06d %025s" % (counter, latch, status)
-            out(msg)
-            if not status.isRunning(10):
-                print(msg)
+            if not status[10].run:
                 break
-    p201.write_reg("SOFT_ENABLE_DISABLE", 0x200 < 16)
-    print(p201.get_counters_status())
+            msg = "\r%07d %07d" % (counter, latch)
+            out(msg)
+        print("\n%07d %07d" % (counter, latch))
+
+    #p201.write_reg("SOFT_ENABLE_DISABLE", 0x200 < 16)
+    p201.disable_counters_software((10,))
+    import pprint
+    pprint.pprint(p201.get_counters_status())
     p201.relinquish_exclusive_access()
     return p201
 

@@ -13,13 +13,13 @@ P201/C208 python API
    P201
    CtStatus
    CtConfig
-   LevelOut
    FilterOutput
    AMCCFIFOStatus
    FIFOStatus
    TriggerInterrupt
    CT2Exception
    Clock
+   Level
    FilterClock
    OutputSrc
    CtClockSrc

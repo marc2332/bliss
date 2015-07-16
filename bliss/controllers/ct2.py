@@ -115,6 +115,7 @@ class Edge(enum.Enum):
     RISING         = 0b01
     FALLING        = 0b10
     RISING_FALLING = 0b11
+    UNKNOWN        = 0xFF
 
 
 @enum.unique
@@ -122,7 +123,7 @@ class Level(enum.Enum):
     DISABLE       = 0b00
     TTL           = 0b01
     NIM           = 0b10
-    TTL_NIM       = 0b11
+    UNKNOWN       = 0xFF
 
 
 #==========================================================================
@@ -1307,12 +1308,6 @@ class CtConfig(BaseParam):
             self.value = (self.value & NOT(mask)) | value.value
 
 
-class LevelOut(BaseParam):
-    
-    _FLAG_MAP = { 'TTL': (bool, 1 << 8),
-                  'NIM': (bool, 1 << 24) }
-
-
 class TriggerInterrupt(BaseParam):
 
     _FLAG_MAP = { 'rising': (bool, 1 << 0),
@@ -1469,28 +1464,46 @@ class P201:
         register = self.read_reg("NIVEAU_OUT")
         result, mask = {}, ((1 << 8) | (1 << 24))
         for i, channel in enumerate(self.OUTPUT_CHANNELS):
+            level = Level.UNKNOWN
             reg = (register >> i) & mask
-            result[channel] = LevelOut(reg)
+            TTL, NIM = reg & (1 << 8), reg & (1 << 24)
+            if TTL:
+                if not NIM:
+                    level = Level.TTL
+            else:
+                if NIM:
+                    level = Level.NIM
+                else:
+                    level = Level.DISABLE
+            
+            result[channel] = level
         return result
 
     def set_level_out(self, level_out):
         """
-        Enables/disables output channels TLL and NIM.
+        Sets output channels level (disable, TTL or NIM)
 
         .. warning::
-            non specified output channels will have their TTL and NIM set to disable
+            non specified output channels will have their level set to disable
 
         :param level_out:
             dictionary where keys are output channel numbers and value is
-            an instance of :class:`LevelOut` representing the channel TTL and NIM
-        :type level_out: dict<int: :class:`LevelOut`>
+            an instance of :class:`Level` representing the channel level
+        :type level_out: dict<int: :class:`Level`>
 
         :raises OSError: in case the operation fails
         """
         register = 0
         for i, channel in enumerate(self.OUTPUT_CHANNELS):
-            no = level_out.get(channel, LevelOut())
-            register |= (no.value) << i
+            level = level_out.get(channel, Level.DISABLE)
+            if level is Level.UNKNOWN:
+                raise ValueError("Invalid level UNKNOWN for channel %d" % channel)
+            elif level == Level.TTL:
+                register |= (1 << 8) << i
+            elif level == Level.NIM:
+                register |= (1 << 24) << i
+            else:
+                pass
         self.write_reg("NIVEAU_OUT", register)
 
     def get_output_channels_level(self):

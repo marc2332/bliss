@@ -72,17 +72,17 @@ class TestP201(unittest.TestCase):
         clock = self.p201.get_clock()
         self.assertEqual(clock, ct2.Clock.CLK_66_66_MHz)
 
-    def test_niveau_out(self):
-        for c in ({9: ct2.LevelOut(TTL=False, NIM=False),
-                   10: ct2.LevelOut(TTL=False, NIM=False) },
-                  {9: ct2.LevelOut(TTL=True, NIM=False),
-                   10: ct2.LevelOut(TTL=True, NIM=False) },
-                  {9: ct2.LevelOut(TTL=False, NIM=True),
-                   10: ct2.LevelOut(TTL=False, NIM=True) },
-                  {9: ct2.LevelOut(TTL=True, NIM=False),
-                   10: ct2.LevelOut(TTL=False, NIM=True) },
-                  {9: ct2.LevelOut(TTL=True, NIM=True),
-                   10: ct2.LevelOut(TTL=True, NIM=True) },):
+    def test_level_out(self):
+        for c in ({9: ct2.Level.DISABLE,
+                   10: ct2.Level.DISABLE },
+                  {9: ct2.Level.TTL,
+                   10: ct2.Level.NIM },
+                  {9: ct2.Level.NIM,
+                   10: ct2.Level.TTL },
+                  {9: ct2.Level.TTL,
+                   10: ct2.Level.TTL },
+                  {9: ct2.Level.NIM,
+                   10: ct2.Level.NIM },):
             self.p201.set_level_out(c)
             r = self.p201.get_level_out()
             self.assertEqual(c, r)

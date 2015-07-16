@@ -14,6 +14,7 @@ import ctypes.util
 import struct
 import logging
 import weakref
+import functools
 
 try:
     import enum
@@ -30,10 +31,10 @@ except:
 
 __libc = ctypes.cdll.LoadLibrary(ctypes.util.find_library('c'))
 
-def pread(fd, offset):
-    buff = ctypes.create_string_buffer(CT2_REG_SIZE)
-    n = __libc.pread(fd, buff, 1, offset)
-    if n == -1:
+def preadn(fd, offset, n=1):
+    buff = ctypes.create_string_buffer(CT2_REG_SIZE*n)
+    read_n = __libc.pread(fd, buff, n, offset)
+    if read_n == -1:
         err = ctypes.get_errno()
         if err != 0:
             ctypes.set_errno(0)
@@ -43,10 +44,14 @@ def pread(fd, offset):
         else:
             raise OSError("pread error")
     return buff[:]
+    
+pread = functools.partial(preadn, n=1)
+
 
 def pwrite(fd, buff, offset):
-    n = __libc.pwrite(fd, buff, 1, offset)
-    if n == -1:
+    n = len(buff) / CT2_REG_SIZE
+    write_n = __libc.pwrite(fd, buff, n, offset)
+    if write_n == -1:
         err = ctypes.get_errno()
         if err != 0:
             ctypes.set_errno(0)
@@ -1382,14 +1387,22 @@ class P201:
         self.write_reg("COM_GENE", 1 << 7)
 
     def _read_offset(self, offset):
-        result = pread(self.fileno, offset)
+        result = preadn(self.fileno, offset)
         iresult = struct.unpack("I", result)[0]
         return iresult
+
+    def _read_offset_array(self, offset, n=1):
+        result = preadn(self.fileno, offset, n=n)
+        import numpy
+        return numpy.frombuffer(result, dtype=numpy.uint32)
 
     def _write_offset(self, offset, ivalue):
         """ """
         svalue = struct.pack("I", ivalue)
         return pwrite(self.fileno, svalue, offset)
+
+    def _write_offset_array(self, offset, array):
+        return pwrite(self.fileno, array.tostring(), offset)
 
     def read_reg(self, register_name):
         """
@@ -1694,6 +1707,10 @@ class P201:
         offset = CT2_R_DICT["RD_CMPT_1"][0] + (counter - 1)
         return self._read_offset(offset)
 
+    def get_counters_values(self):
+        offset = CT2_R_DICT["RD_CMPT_1"][0]
+        return self._read_offset_array(offset, len(self.COUNTERS))
+
     def get_latch_value(self, latch):
         """
         Returns the current value of the given latch
@@ -1707,6 +1724,10 @@ class P201:
         """
         offset = CT2_R_DICT["RD_LATCH_CMPT_1"][0] + (latch - 1)
         return self._read_offset(offset)
+
+    def get_latches_values(self):
+        offset = CT2_R_DICT["RD_LATCH_CMPT_1"][0]
+        return self._read_offset_array(offset, len(self.COUNTERS))
 
     def set_test_reg(self, value):
         """

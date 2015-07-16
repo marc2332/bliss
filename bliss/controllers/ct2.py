@@ -2224,7 +2224,7 @@ def main():
     p201.software_reset()
 
     # internal clock 40 Mhz
-    p201.set_clock(Clock.CLK_40_MHz)
+    p201.set_clock(Clock.CLK_100_MHz)
 
     # channel 10 output: counter 10 gate envelop
     p201.set_level_out({10: LevelOut(TTL=True)})

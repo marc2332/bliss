@@ -73,18 +73,18 @@ class TestP201(unittest.TestCase):
         self.assertEqual(clock, ct2.Clock.CLK_66_66_MHz)
 
     def test_niveau_out(self):
-        for c in ({9: ct2.NiveauOut(TTL=False, NIM=False),
-                   10: ct2.NiveauOut(TTL=False, NIM=False) },
-                  {9: ct2.NiveauOut(TTL=True, NIM=False),
-                   10: ct2.NiveauOut(TTL=True, NIM=False) },
-                  {9: ct2.NiveauOut(TTL=False, NIM=True),
-                   10: ct2.NiveauOut(TTL=False, NIM=True) },
-                  {9: ct2.NiveauOut(TTL=True, NIM=False),
-                   10: ct2.NiveauOut(TTL=False, NIM=True) },
-                  {9: ct2.NiveauOut(TTL=True, NIM=True),
-                   10: ct2.NiveauOut(TTL=True, NIM=True) },):
-            self.p201.set_niveau_out(c)
-            r = self.p201.get_niveau_out()
+        for c in ({9: ct2.LevelOut(TTL=False, NIM=False),
+                   10: ct2.LevelOut(TTL=False, NIM=False) },
+                  {9: ct2.LevelOut(TTL=True, NIM=False),
+                   10: ct2.LevelOut(TTL=True, NIM=False) },
+                  {9: ct2.LevelOut(TTL=False, NIM=True),
+                   10: ct2.LevelOut(TTL=False, NIM=True) },
+                  {9: ct2.LevelOut(TTL=True, NIM=False),
+                   10: ct2.LevelOut(TTL=False, NIM=True) },
+                  {9: ct2.LevelOut(TTL=True, NIM=True),
+                   10: ct2.LevelOut(TTL=True, NIM=True) },):
+            self.p201.set_level_out(c)
+            r = self.p201.get_level_out()
             self.assertEqual(c, r)
                   
     def test_output_channels_level(self):

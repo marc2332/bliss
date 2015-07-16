@@ -1820,10 +1820,10 @@ class P201:
         :type counters_cfg: dict<int: :class:`CtConfig`>
         """
         for counter, config in counters_cfg.items():
-            if isintance(config, dict):
+            if isinstance(config, dict):
                 self.set_counter_config(counter, **config)
             else:
-                self.set_counter_config(counter, value=config)
+                self.set_counter_config(counter, config)
 
     def get_latch_sources(self, latch):
         """

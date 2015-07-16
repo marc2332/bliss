@@ -1155,7 +1155,7 @@ class BaseParam(object):
     @property
     def value(self):
         """
-        The parameter integer representation (R/W). To be interpreted as a 32bit unsigined integer
+        The parameter integer representation (R/W). To be interpreted as a 32bit unsigned integer
 
         It supports setting the value with either an integer or a dictionary
         """
@@ -1752,7 +1752,7 @@ class P201:
 
     def get_counter_config(self, counter):
         """
-        Sets the current configuration for the specified counter
+        Returns the current configuration for the specified counter
 
         Example::
 

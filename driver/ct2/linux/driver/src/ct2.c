@@ -341,7 +341,7 @@ static const ct2_r2_lut_type    ct2_reg_lut_ident(p201, 2, wr);
 
 #endif  // !CT2_DEBUG
 
-
+#define CT2_REG_SIZE                        sizeof(ct2_reg_t)
 
 /*==========================================================================*
  *                           Function definitions                           *
@@ -1219,7 +1219,7 @@ uint8_t offset_to_baddr_lut_off( loff_t                     offset,
     //   oo oooo
     //  rff ffff
     // 02ff ffff
-    rw_rmap_offset = ((uint8_t )offset) & 0x7f;
+    rw_rmap_offset = ((uint8_t ) (offset / CT2_REG_SIZE)) & 0x7f;
 
     //  r
     // 0200 0000
@@ -1268,13 +1268,12 @@ ssize_t ct2_read( struct file * file,
     bool                    einval, rrange_contains_R;
     ssize_t                 rv = 0;
 
-
     ct2_mtrace_enter(dev);
 
     // Assume
-    //          ( 0 <= (*offset) ) && ( (*offset) < CT2_RW_RMAP_LEN )
+    //          ( 0 <= (*offset) ) && ( (*offset) < CT2_RW_RMAP_LEN * CT2_REG_SIZE )
     // holds.
-    einval = !hfl_in_interval_ix(loff_t, (*offset), 0, CT2_RW_RMAP_LEN);
+    einval = !hfl_in_interval_ix(loff_t, (*offset), 0, CT2_RW_RMAP_LEN * CT2_REG_SIZE);
 
     // We want the register offset into the normalised RW map
     // for our access control check(s).
@@ -1301,8 +1300,8 @@ ssize_t ct2_read( struct file * file,
     }
 
     // [include/linux/kernel.h:min_t()]
-    rcount = min_t(ct2_reg_dist_t, rlut[roff], count);
-    bcount = rcount * sizeof(ct2_reg_t);
+    rcount = min_t(ct2_reg_dist_t, rlut[roff], count / CT2_REG_SIZE);
+    bcount = rcount * CT2_REG_SIZE;
 
     // Instead of tearing up the normalised RW map we went to great lengths
     // to to construct in the first place, we simply look at the register
@@ -1338,8 +1337,8 @@ ssize_t ct2_read( struct file * file,
     }
 
     // Return the actual number of (adjacent) registers read.
-    (*offset) += rcount;
-    rv = rcount;
+    (*offset) += bcount;
+    rv = bcount;
 
 done:
 
@@ -1374,7 +1373,7 @@ ssize_t ct2_write( struct file *        file,
     ct2_mtrace_enter(dev);
 
     // cf. ct2_read()
-    einval = !hfl_in_interval_ix(loff_t, (*offset), 0, CT2_RW_RMAP_LEN);
+    einval = !hfl_in_interval_ix(loff_t, (*offset), 0, CT2_RW_RMAP_LEN * CT2_REG_SIZE);
 
     // Since writing is a state changing operation, access control
     // checks based on register offsets do not make sense here.
@@ -1388,8 +1387,8 @@ ssize_t ct2_write( struct file *        file,
         goto done;
     }
 
-    rcount = min_t(ct2_reg_dist_t, wlut[woff], count);
-    bcount = rcount * sizeof(ct2_reg_t);
+    rcount = min_t(ct2_reg_dist_t, wlut[woff], count / CT2_REG_SIZE);
+    bcount = rcount * CT2_REG_SIZE;
 
     // Speculatively copy the data from userland into our transfer buffer.
     // [include/asm-generic/uaccess.h:copy_from_user()]
@@ -1415,8 +1414,8 @@ ssize_t ct2_write( struct file *        file,
         // Now copy (again) the data out into the device registers.
         ct2_regs_writev_sync(dev, wbuf, ct2_io_addr_subscript(waddr_base, woff), rcount);
 
-        (*offset) += rcount;
-        rv = rcount;
+        (*offset) += bcount;
+        rv = bcount;
     })
 
 done:

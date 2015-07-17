@@ -36,9 +36,27 @@
 
 #include <esrf/ct2.h>
 
+#ifndef CT2_REG_SIZE
+#define CT2_REG_SIZE sizeof(ct2_reg_t)
+#endif
 
 using namespace std;
 
+ssize_t rread(int fd, void *buf, size_t count, off_t offset) 
+{
+  ssize_t result = ::pread(fd, buf, count * CT2_REG_SIZE, offset * CT2_REG_SIZE);
+  if (result > 0)
+    result /= CT2_REG_SIZE;
+  return result;
+}
+
+ssize_t rwrite(int fd, const void *buf, size_t count, off_t offset)
+{
+  ssize_t result = ::pwrite(fd, buf, count * CT2_REG_SIZE, offset * CT2_REG_SIZE);
+  if (result > 0)
+    result /= CT2_REG_SIZE;
+  return result;  
+}
 
 static const char * const default_device_name = "/dev/p201";
 
@@ -72,13 +90,13 @@ int main ( int argc, char ** argv )
   // read beyond the limits of the map itself
   reg = 0;
   offset = -1;
-  if ( ::pread(device_fd, &reg, 1, offset) != 1 ) {
+  if ( rread(device_fd, &reg, 1, offset) != 1 ) {
     cerr << "pread(-1): " << strerror(errno) << endl;
   }
 
   reg = 0;
   offset = CT2_RW_R2_OFF + CT2_RW_R2_LEN;
-  if ( ::pread(device_fd, &reg, 1, offset) != 1 ) {
+  if ( rread(device_fd, &reg, 1, offset) != 1 ) {
     cerr << "pread(CT2_RW_R2_OFF + CT2_RW_R2_LEN): " << strerror(errno) << endl;
   }
 
@@ -86,21 +104,21 @@ int main ( int argc, char ** argv )
   // write to a read-only register
   reg = 0;
   offset = CT2_RW_R1_OFF + ct2_reg_offset(1, ctrl_fifo_dma);
-  if ( ::pwrite(device_fd, &reg, 1, offset) != 1 ) {
+  if ( rwrite(device_fd, &reg, 1, offset) != 1 ) {
     cerr << "pwrite(ctrl_fifo_dma): " << strerror(errno) << endl;
   }
 
   // write into a hole
   reg = 0;
   offset = CT2_RW_R1_OFF + ct2_reg_offset(1, rd_latch_cmpt[11]) + 1;
-  if ( ::pwrite(device_fd, &reg, 1, offset) != 1 ) {
+  if ( rwrite(device_fd, &reg, 1, offset) != 1 ) {
     cerr << "pwrite(rd_latch_cmpt[11] + 1): " << strerror(errno) << endl;
   }
 
   // write across a write hole
   ct2_reg_t rv1[] = { 0x0, 0x0, 0x0, 0x0 };
   offset = CT2_RW_R1_OFF + ct2_reg_offset(1, soft_out);
-  if ( (xfer_len = ::pwrite(device_fd, &rv1[0], 4, offset)) != 4 ) {
+  if ( (xfer_len = rwrite(device_fd, &rv1[0], 4, offset)) != 4 ) {
     if ( xfer_len != -1 )
       cout << "pwrite(soft_out, 4) = " << xfer_len << endl;
     else
@@ -111,28 +129,28 @@ int main ( int argc, char ** argv )
   // read from a write-only register
   reg = 0;
   offset = CT2_RW_R2_OFF + ct2_reg_offset(2, soft_latch);
-  if ( ::pread(device_fd, &reg, 1, offset) != 1 ) {
+  if ( rread(device_fd, &reg, 1, offset) != 1 ) {
     cerr << "pread(soft_latch): " << strerror(errno) << endl;
   }
 
   // read from a P201 hole
   reg = 0;
   offset = CT2_RW_R2_OFF + ct2_reg_offset(2, p201_sel_source_output) - 1;
-  if ( ::pread(device_fd, &reg, 1, offset) != 1 ) {
+  if ( rread(device_fd, &reg, 1, offset) != 1 ) {
     cerr << "pread(p201_sel_source_output - 1): " << strerror(errno) << endl;
   }
 
   // read from p201_test_reg
   reg = 0;
   offset = CT2_RW_R1_OFF + ct2_reg_offset(1, p201_test_reg);
-  if ( ::pread(device_fd, &reg, 1, offset) != 1 ) {
+  if ( rread(device_fd, &reg, 1, offset) != 1 ) {
     cerr << "pread(p201_test_reg): " << strerror(errno) << endl;
   }
 
   // read across a hole
   ct2_reg_t rv2[] = { 0x0, 0x0, 0x0, 0x0 };
   offset = CT2_RW_R1_OFF + ct2_reg_offset(1, p201_niveau_in);
-  if ( (xfer_len = ::pread(device_fd, &rv2[0], 4, offset)) != 4 ) {
+  if ( (xfer_len = rread(device_fd, &rv2[0], 4, offset)) != 4 ) {
     if ( xfer_len != -1 )
       cout << "pread(p201_niveau_in, 4) = " << xfer_len << endl;
     else
@@ -142,7 +160,7 @@ int main ( int argc, char ** argv )
   // read across a read hole
   ct2_reg_t rv3[] = { 0x0, 0x0, 0x0, 0x0, 0x0 };
   offset = CT2_RW_R2_OFF + ct2_reg_offset(2, conf_cmpt[11]);
-  if ( (xfer_len = ::pread(device_fd, &rv3[0], 5, offset)) != 5 ) {
+  if ( (xfer_len = rread(device_fd, &rv3[0], 5, offset)) != 5 ) {
     if ( xfer_len != -1 )
       cout << "pread(conf_cmpt[11], 5) = " << xfer_len << endl;
     else
@@ -163,7 +181,7 @@ int main ( int argc, char ** argv )
   // unprivileged read across a register with side effects
   ct2_reg_t rv4[] = { 0x0, 0x0, 0x0 };
   offset = CT2_RW_R1_OFF + ct2_reg_offset(1, cmd_dma);
-  if ( (xfer_len = ::pread(device_fd, &rv4[0], 3, offset)) != 3 ) {
+  if ( (xfer_len = rread(device_fd, &rv4[0], 3, offset)) != 3 ) {
     if ( xfer_len != -1 )
       cout << "pread(cmd_dma, 3) = " << xfer_len << endl;
     else

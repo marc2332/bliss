@@ -47,6 +47,13 @@ static const char * const default_device_name = "/dev/p201";
  * Invoke as "ct [〈device-name〉]".
  */
 
+template < dev_class c, rspc_name f, ct2_reg_dist_t r, bool wr >
+bool qrread( int fd, register_definition<c, f, r, true, wr> n, ct2_reg_t & reg)
+{
+  reg = 0;
+  return ::pread(fd, &reg, CT2_REG_SIZE, r_reg_off(n) * CT2_REG_SIZE) == CT2_REG_SIZE ;
+}
+
 int main ( int argc, char ** argv )
 {
   const char *  device_name;
@@ -147,20 +154,21 @@ int main ( int argc, char ** argv )
   printf("Started after %d start(s)\n", retries);
 
   while (1) {
-    if ( ::pread(device_fd, &count, 1, r_reg_off(p201::rd_cmpt_10)) != 1 )
+    if ( !qrread(device_fd, p201::rd_cmpt_10, count) )
       return 13;  
 
-    if ( ::pread(device_fd, &latch, 1, r_reg_off(p201::rd_latch_cmpt_10)) != 1 )
+    if ( !qrread(device_fd, p201::rd_latch_cmpt_10, latch) )
       return 14;  
 
-    if ( ::pread(device_fd, &status, 1, r_reg_off(p201::rd_ctrl_cmpt)) != 1 )
+    if ( !qrread(device_fd, p201::rd_ctrl_cmpt, status) )
       return 15;  
 
     bool end = ((status & (0x200 << 16)) == 0);
     if (end)
       break;
     printf("%010u   %010u    0x%08x\r", count, latch, status);
-
+    fflush(stdout);
+    usleep(100000);
   }
 
   printf("\n%010u   %010u    0x%08x\n", count, latch, status);

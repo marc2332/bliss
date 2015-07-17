@@ -33,7 +33,7 @@ __libc = ctypes.cdll.LoadLibrary(ctypes.util.find_library('c'))
 
 def preadn(fd, offset, n=1):
     buff = ctypes.create_string_buffer(CT2_REG_SIZE*n)
-    read_n = __libc.pread(fd, buff, n, offset)
+    read_n = __libc.pread(fd, buff, len(buff), offset)
     if read_n == -1:
         err = ctypes.get_errno()
         if err != 0:
@@ -49,8 +49,7 @@ pread = functools.partial(preadn, n=1)
 
 
 def pwrite(fd, buff, offset):
-    n = len(buff) / CT2_REG_SIZE
-    write_n = __libc.pwrite(fd, buff, n, offset)
+    write_n = __libc.pwrite(fd, buff, len(buff), offset)
     if write_n == -1:
         err = ctypes.get_errno()
         if err != 0:
@@ -198,7 +197,7 @@ CT2_R1_SEQ = [
 CT2_R1_DICT = {}
 for reg_info in CT2_R1_SEQ:
     addr, name, r, w, desc = reg_info
-    addr = CT2_R1_OFFSET + addr / CT2_REG_SIZE
+    addr = CT2_R1_OFFSET + addr #/ CT2_REG_SIZE
     reg_info[0] = addr
     CT2_R1_DICT[name] = addr, r, w, desc
 del reg_info, addr, name, r, w, desc
@@ -207,7 +206,7 @@ del reg_info, addr, name, r, w, desc
 #                       PCI I/O Space 2 Registers Map
 #--------------------------------------------------------------------------
 
-CT2_R2_OFFSET = 64
+CT2_R2_OFFSET = 64 * CT2_REG_SIZE
 
 CT2_R2_SEQ = [
 # addr        name           read  write             description
@@ -261,7 +260,7 @@ CT2_R2_SEQ = [
 CT2_R2_DICT = {}
 for reg_info in CT2_R2_SEQ:
     addr, name, r, w, desc = reg_info
-    addr = CT2_R2_OFFSET + addr / CT2_REG_SIZE
+    addr = CT2_R2_OFFSET + addr #/ CT2_REG_SIZE
     reg_info[0] = addr
     CT2_R2_DICT[name] = addr, r, w, desc
 del reg_info, addr, name, r, w, desc
@@ -1457,7 +1456,7 @@ class P201:
         Returns the NIM/TTL level of all output channels (9 and 10)
 
         :return: the NIM/TTL level of all output channels (9 and 10)
-        :rtype: dict<int: :class:`LevelOut`>
+        :rtype: dict<int: :class:`Level`>
 
         :raises OSError: in case the operation fails
         """
@@ -1648,6 +1647,22 @@ class P201:
             register |= triggers.value << (channel-1)
         self.write_reg("SOURCE_IT_A", register)
 
+    def get_channels_in_out_readback(self):
+        """
+        tuple(dict<int: bool>, dict<int: bool>)
+        """
+        register = self.read_reg("RD_IN_OUT")
+        in_result, out_result = {}, {}
+        for i, channel in enumerate(self.CHANNELS):
+            in_result[channel] = (register & (1 << (i))) != 0
+        for i, channel in enumerate(self.OUTPUT_CHANNELS):
+            out_result[channel] = (register & (1 << (i+24))) != 0
+        return in_result, out_result
+
+    def set_channels_in_out_readback(self, channels_in, channels_out):
+        """*not implemented*"""
+        raise NotImplementedError
+
     def get_counters_trigger_interrupts(self):
         """*not implemented*"""
         raise NotImplementedError
@@ -1717,7 +1732,7 @@ class P201:
 
         :raises OSError: in case the operation fails
         """
-        offset = CT2_R_DICT["RD_CMPT_1"][0] + (counter - 1)
+        offset = CT2_R_DICT["RD_CMPT_1"][0] + (counter - 1) * CT2_REG_SIZE
         return self._read_offset(offset)
 
     def get_counters_values(self):
@@ -1735,7 +1750,7 @@ class P201:
 
         :raises OSError: in case the operation fails
         """
-        offset = CT2_R_DICT["RD_LATCH_CMPT_1"][0] + (latch - 1)
+        offset = CT2_R_DICT["RD_LATCH_CMPT_1"][0] + (latch - 1) * CT2_REG_SIZE
         return self._read_offset(offset)
 
     def get_latches_values(self):
@@ -2261,7 +2276,7 @@ def main():
     p201.set_clock(Clock.CLK_100_MHz)
 
     # channel 10 output: counter 10 gate envelop
-    p201.set_level_out({10: LevelOut(TTL=True)})
+    p201.set_level_out({10: Level.TTL})
 
     # no 50 ohm adapter
     p201.set_50ohm_adapters({})
@@ -2324,6 +2339,20 @@ def main():
 
     return p201
 
+
+def ct2(name):
+    if "201" in name:
+        klass = P201
+    else:
+        klass = C208
+    return klass(name)
+
+
+def configure(card, config):
+    """
+    Configure the given card with the configuration (beacon compatible)
+    """
+    
 
 if __name__ == "__main__":
     main()

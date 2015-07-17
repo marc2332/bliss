@@ -33,11 +33,16 @@
 
 #include <esrf/ct2>
 
+#ifndef CT2_REG_SIZE
+#define CT2_REG_SIZE sizeof(ct2_reg_t)
+#endif
+
+
 inline
 bool rread( int fd, ct2_reg_t & reg, std::size_t offset, const char * rn )
 {
   reg = 0;
-  if ( ::pread(fd, &reg, 1, offset) != 1 ) {
+  if ( ::pread(fd, &reg, CT2_REG_SIZE, offset * CT2_REG_SIZE) != CT2_REG_SIZE ) {
     std::cerr << "pread(" << rn << "): " << std::strerror(errno) << std::endl;
     goto fail;
   }
@@ -58,7 +63,7 @@ bool rwrite( int fd, ct2_reg_t & reg, std::size_t offset, const char * rn )
 {
   std::printf("%08xh => %s\n", reg, rn);
 
-  if ( ::pwrite(fd, &reg, 1, offset) != 1 ) {
+  if ( ::pwrite(fd, &reg, CT2_REG_SIZE, offset * CT2_REG_SIZE) != CT2_REG_SIZE ) {
     std::cerr << "pwrite(" << rn << "): " << std::strerror(errno) << std::endl;
     goto fail;
   }
@@ -80,14 +85,14 @@ bool rwrite_rb( int fd, ct2_reg_t & reg, std::size_t offset, const char * rn )
 
   std::printf("%08xh => %s ", reg, rn);
 
-  if ( ::pwrite(fd, &reg, 1, offset) != 1 ) {
+  if ( ::pwrite(fd, &reg, CT2_REG_SIZE, offset * CT2_REG_SIZE) != CT2_REG_SIZE ) {
     std::cerr << "pwrite(" << rn << "): " << std::strerror(errno) << std::endl;
     step = "write";
     goto fail;
   }
 
   reg = 0;
-  if ( ::pread(fd, &reg, 1, offset) != 1 ) {
+  if ( ::pread(fd, &reg, CT2_REG_SIZE, offset * CT2_REG_SIZE) != CT2_REG_SIZE ) {
     std::cerr << "pread(" << rn << "): " << std::strerror(errno) << std::endl;
     step = "read";
     goto fail;

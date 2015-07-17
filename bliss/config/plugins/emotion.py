@@ -11,14 +11,15 @@ __KNOWN_AXIS_PARAMS = ("name", "controller", "unit", "steps_per_unit",
 
 __KNOWN_CONTROLLER_PARAMS = ("name", "class", "plugin", "axes")
 
-__controllers_path = os.path.join(os.path.dirname(os.path.realpath(__file__)))
+__this_path = os.path.realpath(os.path.dirname(__file__))
+
 
 def get_jinja2():
     global __environment
     try:
         return __environment
     except NameError:
-        __environment = Environment(loader=FileSystemLoader(__controllers_path))
+        __environment = Environment(loader=FileSystemLoader(__this_path))
     return __environment
 
 
@@ -34,9 +35,9 @@ def get_axis_html(cfg):
     ctrl_name = cfg.parent.get("name")
     vars = dict(cfg.items())
 
-    filename = ctrl_class + "_axis.html"
+    filename = "emotion_" + ctrl_class + "_axis.html"
     html_template = get_jinja2().select_template([filename,
-                                                  "base_axis.html"])
+                                                  "emotion_axis.html"])
 
     extra_params = []
     for key, value in vars.items():
@@ -62,8 +63,9 @@ def get_ctrl_html(cfg):
     ctrl_class = cfg.get("class")
     vars = dict(cfg.items())
 
-    html_template = get_jinja2().select_template([ctrl_class + ".html",
-                                                  "base_controller.html"])
+    filename = "emotion_" + ctrl_class + ".html"
+    html_template = get_jinja2().select_template([filename,
+                                                  "emotion_controller.html"])
 
     extra_params = []
     for key, value in vars.items():

@@ -101,6 +101,22 @@ def get_ctrl_html(cfg):
 
     return html_template.render(**vars)
 
+def __tango_apply_config(name):
+    import PyTango.gevent
+    try:
+        device = PyTango.gevent.DeviceProxy(name)
+        device.command_inout("ApplyConfig")
+        message = "'%s' configuration saved and applied to server!" % name
+        type = "success"
+    except PyTango.DevFailed as df:
+        message = "configuration not applied to server: " + df[0].desc
+        type = "warning"
+        sys.excepthook(*sys.exc_info())
+    except Exception as e:
+        message = "'%s' configuration saved but NOT applied to server due to error:\n%s" % (name, str(e))
+        type = "warning"
+        sys.excepthook(*sys.exc_info())
+    return message, type
 
 def axis_edit(cfg, request):
     if request.method == "POST":
@@ -118,18 +134,8 @@ def axis_edit(cfg, request):
         data = [(k, v) for k, v in form.iteritems()]
         axis_cfg.update(data)
         axis_cfg.save()
-
         if update_server:
-            try:
-                import PyTango
-                device = PyTango.DeviceProxy(name)
-                device.command_inout("ApplyConfig")
-                result["message"] = "'%s' configuration saved and applied to server!" % name
-                result["type"] = "success"
-            except Exception as e:
-                result["message"] = "'%s' configuration saved but NOT applied to server due to error:\n%s" % (name, str(e))
-                result["type"] = "warning"
-                sys.excepthook(*sys.exc_info())
+            result["message"], result["type"] = __tango_apply_config(name)
         else:
             result["message"] = "'%s' configuration applied!" % name
             result["type"] = "success"

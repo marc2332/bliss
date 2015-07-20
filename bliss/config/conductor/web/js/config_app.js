@@ -1,13 +1,64 @@
-function populate_tree(container) {
+function tree_context_menu(node) {
+    var items = {}
+    if (node.data.type == 'yml') {
+	items.add_item = {
+	    label: "Add item",
+	    icon: "glyphicon glyphicon-star",
+	    _disabled: true,
+	    action: function() { console.log("add item"); },
+	};
+    }
+    else if (node.data.type == 'folder') {
+	items.add_file = {
+	    label: "Add file",
+	    icon: "glyphicon glyphicon-file",
+	    _disabled: true,
+	    action: function() { console.log("add file"); },
+	};
+	items.add_folder = {
+	    label: "Add folder",
+	    icon: "glyphicon glyphicon-folder-close",
+	    _disabled: true,
+	    action: function() { console.log("add folder"); },
+	};
+    }
+
+    items.rename_item = {
+        label: "Rename",
+        icon: "glyphicon glyphicon-edit",
+	separator_before: true,
+	_disabled: false,
+	shortcut: 113,
+	shortcut_label: "F2",
+	action: function() { console.log("rename item"); },
+    };
+    items.delete_item = {
+	label: "Delete",
+	icon: "glyphicon glyphicon-remove",
+	separator_before: true,
+	_disabled: true,
+	action: function() { console.log("delete item"); },
+    };
+    return items;
+}
+
+function tree_populate(container) {
     var tree = {
         core: {
             data: [],
             animation: 0,
             multiple: false
         },
-        plugins: []
+        plugins: ["contextmenu", "search", "dnd"],
+	contextmenu: {
+	    items: tree_context_menu
+	},
+	search: {
+	    case_insensitive: true,
+	    show_only_matches: true,
+	}
     };
-    var fill_node = function(data, node, level) {
+    var fill_node = function(data, parent_node, level) {
         $.each(data, function(key, value) {
             var new_node = {
                 text: key,
@@ -17,7 +68,7 @@ function populate_tree(container) {
                     opened: true
                 }
             };
-            node.push(new_node);
+            parent_node.push(new_node);
             if (key.match("yml$") == "yml") {
                 new_node.icon = "glyphicon glyphicon-file";
                 new_node.data.type = "yml";
@@ -29,20 +80,20 @@ function populate_tree(container) {
                     new_node.icon = "glyphicon glyphicon-folder-open";
                     new_node.data.type = "folder";
                 } else {
-                    new_node.icon = "glyphicon glyphicon-star";
+                    new_node.icon = "glyphicon glyphicon-leaf";
                     new_node.data.type = "item";
                 }
             }
         });
     };
-    init_tree(container);
+    tree_init(container);
     $.get("objects", function(data) {
         fill_node(data, tree.core.data, 0);
         container.jstree(tree);
     }, "json");
 }
 
-function init_tree(tree) {
+function tree_init(tree) {
     tree.bind("select_node.jstree", on_node_selected);
     tree.bind("select_node.jstree", function(node, data) {
         if (data.node.data.type != "item") {
@@ -159,4 +210,3 @@ function write_message(msg, type) {
     $("#message_box").removeClass("alert-success alert-warning alert-danger");
     $("#message_box").addClass("alert-" + type);
 }
-

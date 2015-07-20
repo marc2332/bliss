@@ -143,7 +143,7 @@ function configure_yaml_editor(tag_name, file_name) {
             processData: false,
             data: formData,
             success: function() {
-                alert("File saved!");
+		write_message(file_name +" saved!", "success");
             }
         });
     });
@@ -153,3 +153,10 @@ function configure_yaml_editor(tag_name, file_name) {
         }, "json");
     });
 }
+
+function write_message(msg, type) {
+    $("#message_box").html(msg);
+    $("#message_box").removeClass("alert-success alert-warning alert-danger");
+    $("#message_box").addClass("alert-" + type);
+}
+

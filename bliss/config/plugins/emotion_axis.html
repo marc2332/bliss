@@ -192,11 +192,7 @@
       success: function(result) {
         data = $.parseJSON(result);
         show_item(data.name);
-        console.log("added class alert-" + data.type);
-        //alert(data.message);
-        $("#message_box").html(data.message);
-        $("#message_box").removeClass("alert-success alert-warning alert-danger");
-        $("#message_box").addClass("alert-" + data.type);
+        write_message(data.message, data.type);
       }
     });
   }

@@ -1,9 +1,9 @@
 function tree_context_menu(node) {
     var items = {}
-    if (node.data.type == 'yml') {
+    if (node.data.type == 'file') {
 	items.add_item = {
 	    label: "Add item",
-	    icon: "glyphicon glyphicon-star",
+	    icon: "fa fa-star",
 	    _disabled: true,
 	    action: function() { console.log("add item"); },
 	};
@@ -11,13 +11,13 @@ function tree_context_menu(node) {
     else if (node.data.type == 'folder') {
 	items.add_file = {
 	    label: "Add file",
-	    icon: "glyphicon glyphicon-file",
+	    icon: "fa fa-file",
 	    _disabled: true,
 	    action: function() { console.log("add file"); },
 	};
 	items.add_folder = {
 	    label: "Add folder",
-	    icon: "glyphicon glyphicon-folder-close",
+	    icon: "fa fa-folder",
 	    _disabled: true,
 	    action: function() { console.log("add folder"); },
 	};
@@ -25,16 +25,16 @@ function tree_context_menu(node) {
 
     items.rename_item = {
         label: "Rename",
-        icon: "glyphicon glyphicon-edit",
+        icon: "fa fa-edit",
 	separator_before: true,
-	_disabled: false,
+	_disabled: true,
 	shortcut: 113,
 	shortcut_label: "F2",
 	action: function() { console.log("rename item"); },
     };
     items.delete_item = {
 	label: "Delete",
-	icon: "glyphicon glyphicon-remove",
+	icon: "fa fa-remove",
 	separator_before: true,
 	_disabled: true,
 	action: function() { console.log("delete item"); },
@@ -69,25 +69,16 @@ function tree_populate(container) {
                 }
             };
             parent_node.push(new_node);
-            if (key.match("yml$") == "yml") {
-                new_node.icon = "glyphicon glyphicon-file";
-                new_node.data.type = "yml";
-                new_node.data.path = value[0];
-            }
+	    node_info = value[0];
+	    var node_type = node_info.type;
+	    new_node.data.type = node_info.type;
+	    new_node.data.path = node_info.path;
+	    new_node.icon = node_info.icon;
             fill_node(value[1], new_node.children, level + 1);
-            if (new_node.icon === undefined) {
-                if (new_node.children.length > 0) {
-                    new_node.icon = "glyphicon glyphicon-folder-open";
-                    new_node.data.type = "folder";
-                } else {
-                    new_node.icon = "glyphicon glyphicon-leaf";
-                    new_node.data.type = "item";
-                }
-            }
         });
     };
     tree_init(container);
-    $.get("objects", function(data) {
+    $.get("tree/files", function(data) {
         fill_node(data, tree.core.data, 0);
         container.jstree(tree);
     }, "json");
@@ -106,9 +97,9 @@ function tree_init(tree) {
 
 function on_node_selected(ev, data) {
     var node_type = data.node.data.type;
-    if (node_type === "yml") {
+    if (node_type === "file") {
         on_yml_node_selected(ev, data);
-    } else if (node_type === "item") {
+    } else {
         on_item_node_selected(ev, data);
     }
 }

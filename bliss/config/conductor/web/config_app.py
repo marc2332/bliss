@@ -36,6 +36,13 @@ def get_jinja2():
       __environment = Environment(loader=FileSystemLoader(__this_path))
     return __environment
 
+def get_config_plugin(cfg, member=None):
+  if cfg is None:
+    return
+  if cfg.plugin in ("default", None):
+    return
+  return get_plugin(cfg.plugin, member=member)
+
 def get_plugin(name, member=None):
   try:
     mod_name = 'bliss.config.plugins.%s' % name
@@ -44,12 +51,14 @@ def get_plugin(name, member=None):
     # plugin has an error
     mod = None
     sys.excepthook(*sys.exc_info())
+    return
   if member:
     try:
       return getattr(mod, member)
     except:
       # plugin has no member
       sys.excepthook(*sys.exc_info())
+      return
   return mod
 
 @web_app.route("/")
@@ -106,27 +115,53 @@ def objects():
       current_level = current_level[part][1]
   return flask.json.dumps(result)
 
+@web_app.route("/tree/<view>")
+def tree(view):
+  cfg = get_config()
+
+  if view == "files":
+    db_files = [dict(type="file", path=fname, icon="fa fa-file")
+                for fname, _ in client.get_config_db_files()]
+
+    for name in cfg.names_list:
+      config = cfg.get_config(name)
+      get_tree = get_config_plugin(config, "get_tree")
+      if get_tree:
+        item = get_tree(config)
+      else:
+        item = dict(type="object", path=os.path.join(config.filename, name),
+                    icon="fa fa-question")
+      db_files.append(item)
+
+    result = dict()
+    for item in db_files:
+      current_level = result
+      db_file = item['path']
+      parts = db_file.split(os.path.sep)
+      for part in parts[:-1]:
+        part_item = dict(type="folder", path=db_file, icon="fa fa-folder-open")
+        current_level.setdefault(part, [part_item, dict()])
+        current_level = current_level[part][1]
+      current_level.setdefault(parts[-1], [item, dict()])
+    return flask.json.dumps(result)
+
 @web_app.route("/objects/<name>")
 def get_object_config(name):
   cfg = get_config()
   obj_cfg = cfg.get_config(name)
-  if obj_cfg is None:
-      obj_cfg = ""
-  elif obj_cfg.plugin not in ("default", None):
-    plugin = get_plugin(obj_cfg.plugin, "get_html")
-    if plugin:
-      obj_cfg = {"html": plugin(obj_cfg), "name": name}
-    else:
-      obj_cfg = ""
+  plugin = get_config_plugin(obj_cfg, "get_html")
+  if plugin:
+    obj_cfg = plugin(obj_cfg)
   else:
     obj_cfg = ""
-  return flask.json.dumps(obj_cfg)
+  return flask.json.dumps(dict(html=obj_cfg, name=name))
 
 @web_app.route("/config/reload")
 def reload_config():
   cfg = get_config()
   cfg.reload()
-  return ""
+  return flask.json.dumps(dict(message="Configuration fully reloaded!",
+                               type="success"))
 
 @web_app.route("/plugins")
 def list_plugins():

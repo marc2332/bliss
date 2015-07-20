@@ -29,7 +29,17 @@ def get_jinja2():
 
 
 def get_tree(cfg):
-    pass
+    ctrl_class = cfg.get("class")
+    if ctrl_class is None:
+        result = dict(type="axis",
+                      path=os.path.join(get_tree(cfg.parent)['path'], cfg['name']),
+                      icon="fa fa-gear")
+    else:
+        ctrl_name = cfg.get("name", "<unnamed controller>")
+        result = dict(type="controller",
+                      path=os.path.join(cfg.filename, ctrl_name),
+                      icon="fa fa-th")
+    return result
 
 
 def get_html(cfg):

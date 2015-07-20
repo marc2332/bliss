@@ -36,6 +36,22 @@ def get_jinja2():
       __environment = Environment(loader=FileSystemLoader(__this_path))
     return __environment
 
+def get_plugin(name, member=None):
+  try:
+    mod_name = 'bliss.config.plugins.%s' % name
+    mod = __import__(mod_name, fromlist=[None])
+  except ImportError:
+    # plugin has an error
+    mod = None
+    sys.excepthook(*sys.exc_info())
+  if member:
+    try:
+      return getattr(mod, member)
+    except:
+      # plugin has no member
+      sys.excepthook(*sys.exc_info())
+  return mod
+
 @web_app.route("/")
 def index():
   return flask.send_from_directory(__this_path, "index.html")
@@ -95,16 +111,15 @@ def get_object_config(name):
   cfg = get_config()
   obj_cfg = cfg.get_config(name)
   if obj_cfg is None:
-      return ""
-  if obj_cfg.plugin not in ("default", None):
-    try:
-      mod_name = 'bliss.config.plugins.%s' % obj_cfg.plugin
-      m = __import__(mod_name, fromlist=[None])
-      if hasattr(m, "get_html"):
-        obj_cfg = {"html": m.get_html(obj_cfg), "name": name}
-    except ImportError:
-      # plugin has an error
-      sys.excepthook(*sys.exc_info())
+      obj_cfg = ""
+  elif obj_cfg.plugin not in ("default", None):
+    plugin = get_plugin(obj_cfg.plugin, "get_html")
+    if plugin:
+      obj_cfg = {"html": plugin(obj_cfg), "name": name}
+    else:
+      obj_cfg = ""
+  else:
+    obj_cfg = ""
   return flask.json.dumps(obj_cfg)
 
 @web_app.route("/config/reload")
@@ -117,3 +132,10 @@ def reload_config():
 def list_plugins():
   pkgpath = os.path.dirname(plugins.__file__)
   return flask.json.dumps([name for _,name,_ in pkgutil.iter_modules([pkgpath])])
+
+@web_app.route("/plugin/<name>/<action>", methods=["GET", "POST", "PUT"])
+def handle_plugin_action(name, action):
+  plugin = get_plugin(name, member=action)
+  if not plugin:
+    return ""
+  return plugin(get_config(), flask.request)

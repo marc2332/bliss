@@ -1,9 +1,14 @@
 from __future__ import absolute_import
+import os
+import sys
+import pkgutil
+
+import flask.json
+
+from jinja2 import Environment, FileSystemLoader
+
 from bliss.config.motors.beacon_backend import create_objects_from_config_node, create_object_from_cache
 import bliss.controllers.motor as bliss_motor_controller
-from jinja2 import Environment, FileSystemLoader
-import os
-import pkgutil
 
 __KNOWN_AXIS_PARAMS = ("name", "controller", "unit", "steps_per_unit",
                        "velocity", "acceleration", "backlash",
@@ -23,6 +28,10 @@ def get_jinja2():
     return __environment
 
 
+def get_tree(cfg):
+    pass
+
+
 def get_html(cfg):
     ctrl_class = cfg.get("class")
     if ctrl_class is None:
@@ -30,7 +39,9 @@ def get_html(cfg):
     else:
         return get_ctrl_html(cfg)
 
+
 def get_axis_html(cfg):
+    name = cfg["name"]
     ctrl_class = cfg.parent.get("class")
     ctrl_name = cfg.parent.get("name")
     vars = dict(cfg.items())
@@ -39,25 +50,33 @@ def get_axis_html(cfg):
     html_template = get_jinja2().select_template([filename,
                                                   "emotion_axis.html"])
 
-    extra_params = []
+    extra_params = {}
     for key, value in vars.items():
         if key not in __KNOWN_AXIS_PARAMS:
-            extra_params.append(dict(name=key, label=key.capitalize(),
-                                     value=value))
+            extra_params[key] = dict(name=key, label=key.capitalize(),
+                                     value=value)
 
     vars["controller_class"] = ctrl_class
-    vars["controller_name"] = ctrl_name
+    if ctrl_name:
+        vars["controller_name"] = ctrl_name
     vars["params"] = extra_params
-    vars["unit"] = cfg.get("unit", "units")
-    vars["steps_per_unit_label"] = "Steps per " + cfg.get("unit", "unit")
-
+    vars["units"] = cfg.get("unit", "unit")
     controllers = list()
     vars["controllers"] = controllers
     pkgpath = os.path.dirname(bliss_motor_controller.__file__)
     for _, controller_name, _ in pkgutil.iter_modules([pkgpath]):
         controllers.append({"class": controller_name})
 
+    vars["__tango_server__"] = False
+    try:
+        import PyTango
+        device = PyTango.DeviceProxy(name)
+        vars["__tango_server__"] = device is not None
+    except:
+        pass
+
     return html_template.render(**vars)
+
 
 def get_ctrl_html(cfg):
     ctrl_class = cfg.get("class")
@@ -81,3 +100,38 @@ def get_ctrl_html(cfg):
        controllers.append({"class": controller_name})
 
     return html_template.render(**vars)
+
+
+def axis_edit(cfg, request):
+    if request.method == "POST":
+        form = dict([(k,v) for k,v in request.form.items() if v])
+        update_server = form.pop("__update_server__") == 'true'
+        orig_name = form.pop("__original_name__")
+        name = form["name"]
+        result = dict(name=name)
+        if name != orig_name:
+            result["message"] = "Change of axis name not supported yet!"
+            result["type"] = "danger"
+            return flask.json.dumps(result)
+
+        axis_cfg = cfg.get_config(orig_name)
+        data = [(k, v) for k, v in form.iteritems()]
+        axis_cfg.update(data)
+        axis_cfg.save()
+
+        if update_server:
+            try:
+                import PyTango
+                device = PyTango.DeviceProxy(name)
+                device.command_inout("ApplyConfig")
+                result["message"] = "'%s' configuration saved and applied to server!" % name
+                result["type"] = "success"
+            except Exception as e:
+                result["message"] = "'%s' configuration saved but NOT applied to server due to error:\n%s" % (name, str(e))
+                result["type"] = "warning"
+                sys.excepthook(*sys.exc_info())
+        else:
+            result["message"] = "'%s' configuration applied!" % name
+            result["type"] = "success"
+
+        return flask.json.dumps(result)

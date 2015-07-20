@@ -86,7 +86,11 @@ function on_yml_node_selected(ev, data) {
 
 function on_item_node_selected(ev, data) {
     var node_name = data.node.text;
-    $.get("objects/" + node_name, function(data) {
+    show_item(node_name);
+}
+
+function show_item(item_name) {
+    $.get("objects/" + item_name, function(data) {
         $("#edit_form").empty();
         if (data === null) {
             $("#edit_panel").attr("style", "visibility: hidden");

@@ -1334,14 +1334,13 @@ class P201:
 
     def __ioctl(self, op):
         try:
-            fcntl.ioctl(self.fileno, op[0])
+            fcntl.ioctl(self.fileno(), op[0])
         except (IOError, OSError) as exc:
             if exc.errno in op[1]:
                 raise CT2Exception(op[1][exc.errno])
             else:
                 raise
 
-    @property
     def fileno(self):
         """
         internalcard file descriptor (don't use this member directly on your
@@ -1381,22 +1380,22 @@ class P201:
         self.write_reg("COM_GENE", 1 << 7)
 
     def _read_offset(self, offset):
-        result = preadn(self.fileno, offset)
+        result = preadn(self.fileno(), offset)
         iresult = struct.unpack("I", result)[0]
         return iresult
 
     def _read_offset_array(self, offset, n=1):
-        result = preadn(self.fileno, offset, n=n)
+        result = preadn(self.fileno(), offset, n=n)
         import numpy
         return numpy.frombuffer(result, dtype=numpy.uint32)
 
     def _write_offset(self, offset, ivalue):
         """ """
         svalue = struct.pack("I", ivalue)
-        return pwrite(self.fileno, svalue, offset)
+        return pwrite(self.fileno(), svalue, offset)
 
     def _write_offset_array(self, offset, array):
-        return pwrite(self.fileno, array.tostring(), offset)
+        return pwrite(self.fileno(), array.tostring(), offset)
 
     def read_reg(self, register_name):
         """

@@ -223,7 +223,8 @@ class Connection(object) :
                 if isinstance(value,RuntimeError):
                     raise value
                 else:
-                    return value
+                    return value.decode("utf-8")
+
     @check_connect
     def get_config_db(self,base_path='',timeout = 30.):
         return_files = []
@@ -234,7 +235,7 @@ class Connection(object) :
                 for rx_msg in wq.queue():
                     file_path,file_value = self._get_msg_key(rx_msg)
                     if file_path is None : continue
-                    return_files.append((file_path,file_value))
+                    return_files.append((file_path,file_value.decode("utf-8")))
         return return_files
 
     @check_connect
@@ -242,7 +243,7 @@ class Connection(object) :
         with gevent.Timeout(timeout,RuntimeError("Can't set config file")):
             with self.WaitingQueue(self) as wq:
                 msg = '%s|%s|%s' % (wq.message_key(),file_path,content)
-                self._fd.sendall(protocol.message(protocol.CONFIG_SET_DB_FILE,msg))
+                self._fd.sendall(protocol.message(protocol.CONFIG_SET_DB_FILE,msg.encode("utf-8")))
                 for rx_msg in wq.queue():
                     raise rx_msg
 

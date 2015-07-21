@@ -1,5 +1,6 @@
 import os
 import sys
+import codecs
 import argparse
 import weakref
 import subprocess
@@ -155,8 +156,8 @@ def _send_config_file(client_id,message):
     file_path = file_path.replace('../','') # prevent going up
     full_path = os.path.join(_options.db_path,file_path)
     try:
-        with open(full_path) as f:
-            buffer = f.read()
+        with codecs.open(full_path, "r", "utf-8") as f:
+            buffer = f.read().encode('utf-8')
             client_id.sendall(protocol.message(protocol.CONFIG_GET_FILE_OK,'%s|%s' % (message_key,buffer)))
     except IOError:
         client_id.sendall(protocol.message(protocol.CONFIG_GET_FILE_FAILED,"%s|File doesn't exist" % (message_key)))
@@ -175,10 +176,13 @@ def _send_config_db_files(client_id,message):
                 if ext == '.yml':
                     full_path = os.path.join(root,filename)
                     rel_path = full_path[len(_options.db_path) + 1:]
-                    with file(full_path) as f:
-                        raw_buffer = f.read()
-                        msg = protocol.message(protocol.CONFIG_DB_FILE_RX,'%s|%s|%s' % (message_key,rel_path,raw_buffer))
-                        client_id.sendall(msg)
+                    with codecs.open(full_path, "r", "utf-8") as f:
+                        try:
+                            raw_buffer = f.read().encode('utf-8')
+                            msg = protocol.message(protocol.CONFIG_DB_FILE_RX,'%s|%s|%s' % (message_key,rel_path,raw_buffer))
+                            client_id.sendall(msg)
+                        except Exception as e:
+                            sys.excepthook(*sys.exc_info())
     except:
         sys.excepthook(*sys.exc_info())
     finally:
@@ -196,7 +200,7 @@ def _write_config_db_file(client_id,message):
 
     message_key = message[:first_pos]
     file_path = message[first_pos + 1:second_pos]
-    content = message[second_pos + 1:]
+    content = message[second_pos + 1:].decode("utf-8")
     file_path = file_path.replace('../','') # prevent going up
     full_path = os.path.join(_options.db_path,file_path)
     try:

@@ -57,7 +57,6 @@ def get_plugin(name, member=None):
       return getattr(mod, member)
     except:
       # plugin has no member
-      sys.excepthook(*sys.exc_info())
       return
   return mod
 
@@ -120,8 +119,9 @@ def tree(view):
   cfg = get_config()
 
   if view == "files":
-    db_files = [dict(type="file", path=fname, icon="fa fa-file")
-                for fname, _ in client.get_config_db_files()]
+    items = {}
+    for fname, _ in client.get_config_db_files():
+      items[fname] = dict(type="file", path=fname, icon="fa fa-file")
 
     for name in cfg.names_list:
       config = cfg.get_config(name)
@@ -131,16 +131,20 @@ def tree(view):
       else:
         item = dict(type="object", path=os.path.join(config.filename, name),
                     icon="fa fa-question")
-      db_files.append(item)
+      items[item["path"]] = item
 
     result = dict()
-    for item in db_files:
+    for _, item in items.items():
       current_level = result
       db_file = item['path']
       parts = db_file.split(os.path.sep)
+      full_part = ""
       for part in parts[:-1]:
-        part_item = dict(type="folder", path=db_file, icon="fa fa-folder-open")
-        current_level.setdefault(part, [part_item, dict()])
+        full_part = os.path.join(full_part, part)
+        p_item = items.get(full_part)
+        if p_item is None:
+          p_item = dict(type="folder", path=db_file, icon="fa fa-folder-open")
+        current_level.setdefault(part, [p_item, dict()])
         current_level = current_level[part][1]
       current_level.setdefault(parts[-1], [item, dict()])
     return flask.json.dumps(result)

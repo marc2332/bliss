@@ -1,0 +1,121 @@
+<form class="form-horizontal">
+<fieldset>
+
+<!-- Form Name -->
+<legend>{% block title %}{{ name }}{% endblock %}</legend>
+
+{% for param in params %}
+<!-- Text input-->
+<div class="form-group">
+  <label class="col-md-4 control-label" for="{{ param.name }}">{{ param.label }}</label>
+  <div class="col-md-4">
+    <input id="{{ param.name }}" name="{{ param.name }}" placeholder="{{ param.value }}"
+	   class="form-control input-md" required="" type="text">
+  </div>
+</div>
+{% endfor %}
+
+
+<table id="p201_counters" class="table table-striped table-bordered" data-toggle="table">
+  <thead>
+    <tr>
+      <th>Counter #</th>
+      <th>Clock Src.</th>
+      <th>Gate Src.</th>
+      <th>Hard. Start Src.</th>
+      <th>Hard. Stop Src.</th>
+      <th>Reset</th>
+      <th>Stop</th>
+      <th>Latch Src.</th>
+      <th>Soft. Enabled</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for counter in counters %}
+  <tr>
+    <td>{{ counter["address"] }}</td>
+    <td>{{ counter.get("clock source", "<i>100 MHz</i>") }}</td>
+    <td>{{ counter.get("gate source", "<i>GATE_CMPT</i>") }}</td>
+    <td>{{ counter.get("hard start source", "<i>SOFTWARE_ONLY</i>") }}</td>
+    <td>{{ counter.get("hard stop source", "<i>SOFTWARE_ONLY</i>") }}</td>
+    <td>{{ counter.get("reset from hard soft stop", "<i>False</i>") }}</td>
+    <td>{{ counter.get("stop from hard stop", "<i>False</i>") }}</td>
+    <td>{{ counter.get("latch source", "<i>[]</i>") }}</td>
+    <td>{{ counter.get("software enable", "<i>False</i>") }}</td>
+  <tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<table id="p201_channels" class="table table-striped table-bordered">
+  <thead>
+    <tr>
+      <th>Channel #</th>
+      <th>50 Ohm</th>
+      <th>Trigger interrupt</th>
+    </tr>
+  </thead>
+  {% for channel in channels %}
+  <tr>
+    <td>{{ channel["address"] }}</td>
+    <td>{{ channel.get("50 ohm", "<i>False</i>") }}</td>
+    <td>{{ channel.get("trigger interrupt", "<i></i>") }}</td>
+
+  <tr>
+  {% endfor %}
+
+  <tfoot>
+    <tr>
+      <th>Channel #</th>
+      <th>50 Ohm</th>
+      <th>Trigger interrupt</th>
+    </tr>
+  </tfoot>
+
+</table>
+
+
+<table id="p201_output_channels" class="table table-striped table-bordered">
+  <thead>
+    <tr>
+      <th>Channel #</th>
+      <th>Level</th>
+      <th>TTL</th>
+      <th>NIM</th>
+      <th>Source</th>
+      <th>Filter enabled</th>
+      <th>Filter clock</th>
+      <th>Filter polarity</th>
+    </tr>
+  </thead>
+  {% for channel in channels %}
+  <tr>
+    <td>{{ channel["address"] }}</td>
+    <td>{{ channel.get("output level", "<i>0</i>") }}</td>
+    <td>{{ channel.get("TTL", "<i>False</i>") }}</td>
+    <td>{{ channel.get("NIM", "<i>False</i>") }}</td>
+    <td>{{ channel.get("output source", "<i>SOFTWARE</i>") }}</td>
+    <td>{{ channel.get("output filter enable", "<i>False</i>") }}</td>
+    <td>{{ channel.get("output filter clock", "<i>100 MHz</i>") }}</td>
+    <td>{{ channel.get("output filter polarity", "<i>0</i>") }}</td>
+  <tr>
+  {% endfor %}
+
+  <tfoot>
+    <tr>
+      <th>Channel #</th>
+      <th>Level</th>
+      <th>TTL</th>
+      <th>NIM</th>
+      <th>Source</th>
+      <th>Filter enabled</th>
+      <th>Filter clock</th>
+      <th>Filter polarity</th>
+    </tr>
+  </tfoot>
+
+</table>
+
+</fieldset>
+</form>
+

@@ -1,4 +1,3 @@
-
 """
 Simple example counting until a certain value on a counter
 """
@@ -18,7 +17,7 @@ except:
     sys.path.append(this_dir)
     from bliss.controllers import ct2
 
-from bliss.controllers.ct2 import P201, Clock, LevelOut, CtConfig, OutputSrc
+from bliss.controllers.ct2 import P201, Clock, Level, CtConfig, OutputSrc
 from bliss.controllers.ct2 import CtClockSrc, CtGateSrc, CtHardStartSrc, CtHardStopSrc
 
 
@@ -44,11 +43,11 @@ def main():
     p201.reset()
     p201.software_reset()
 
-    # internal clock 40 Mhz
-    p201.set_clock(Clock.CLK_40_MHz)
+    # internal clock 100 Mhz
+    p201.set_clock(Clock.CLK_100_MHz)
 
     # channel 10 output: counter 10 gate envelop
-    p201.set_level_out({counter: LevelOut(TTL=True)})
+    p201.set_output_level({counter: Level.TTL})
 
     # no 50 ohm adapter
     p201.set_50ohm_adapters({})

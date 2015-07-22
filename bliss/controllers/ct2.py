@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 
 """
 The python module for the ct2 (P201/C208) ESRF PCI counter card
@@ -7,10 +8,12 @@ from __future__ import print_function
 
 import os
 import sys
+import stat
 import errno
 import fcntl
 import ctypes
 import ctypes.util
+import select
 import struct
 import logging
 import weakref
@@ -30,8 +33,51 @@ except:
 # of the the number of bytes read like the linux programmer's manual specifies
 
 __libc = ctypes.cdll.LoadLibrary(ctypes.util.find_library('c'))
+__librt = ctypes.cdll.LoadLibrary(ctypes.util.find_library('rt'))
+
+ct2_size_type = ctypes.c_size_t
+ct2_reg_t = ctypes.c_uint32
+ct2_reg_dist_t = ctypes.c_uint8
+
+CT2_SIZE = ctypes.sizeof(ct2_size_type)
+
+#:
+#: ct2 register size (bytes)
+#:
+CT2_REG_SIZE = ctypes.sizeof(ct2_reg_t)
+
+
+class timeval(ctypes.Structure):
+    _fields_ = [("tv_sec", ctypes.c_long),
+                ("tv_usec", ctypes.c_long)]
+
+
+class timespec(ctypes.Structure):
+    _fields_ = [("tv_sec", ctypes.c_long),
+                ("tv_nsec", ctypes.c_long)]
+
+
+class ct2_in(ctypes.Structure):
+    _fields_ = [("ctrl_it", ct2_reg_t),
+                ("stamp", timespec)]
+
+
+class ct2_inv(ctypes.Structure):
+    _fields_ = [("inv", ctypes.POINTER(ct2_in)),
+                ("inv_len", ct2_size_type)]
+
+
+CT2_IN_SIZE = ctypes.sizeof(ct2_in)
+
 
 def preadn(fd, offset, n=1):
+    """
+    :param fd: fileno
+    :type fd: int
+    :param offset: offset (in bytes)
+    :type offset: int
+    :param n: number of registers to read starting at offset
+    """
     buff = ctypes.create_string_buffer(CT2_REG_SIZE*n)
     read_n = __libc.pread(fd, buff, len(buff), offset)
     if read_n == -1:
@@ -59,6 +105,7 @@ def pwrite(fd, buff, offset):
                                                          errno.strerror(err)))
         else:
             raise OSError("pwrite error")
+
 
 #--------------------------------------------------------------------------
 #                       Linux ioctl numbers made easy
@@ -122,14 +169,12 @@ class Level(enum.Enum):
     DISABLE       = 0b00
     TTL           = 0b01
     NIM           = 0b10
+    TTL_NIM       = 0b11
     UNKNOWN       = 0xFF
-
 
 #==========================================================================
 #                           Register Definitions
 #==========================================================================
-
-CT2_REG_SIZE = 4
 
 class CT2Exception(Exception):
     pass
@@ -548,6 +593,15 @@ class FilterClock(enum.Enum):
     CLK_125_KHz  = 0x3
     CLK_10_KHz   = 0x4
     CLK_1_25_KHz = 0x5
+
+
+@enum.unique
+class FilterInputSelection(enum.Enum):
+    SINGLE_SHORT_PULSE_CAPTURE = 0
+    SAMPLING_WITHOUT_FILTERING = 1
+    SYMETRICAL_FILTER          = 2
+    ASYMETRICAL_FILTER         = 3
+
 
 #----------------------------------------------------------------------------
 # Definitions for SEL_SOURCE_OUTPUT_A/B/C (output source select) regs (R/W)
@@ -1122,18 +1176,302 @@ def CT2_SOFT_LATCH(reg,ctn):
 #CT2_NREGS_CONF_CMPT =                (ct2_reg_size(2, conf_cmpt))
 #CT2_NREGS_COMPARE_CMPT =             (ct2_reg_size(2, compare_cmpt))
 
+#: Access to the Scaler Values FIFO of a Device is provided via the  mmap(2)
+#: system call on the open file description obtained from an  open(2)  on the
+#: character special file associated with the Device.  The FIFO is mapped
+#: neither for writing nor execution into the mmap Device space embedded
+#: within the type of the  offset  argument to  mmap(2)  beginning at
+#: CT2_FIFO_MMAP_OFF  page size unit bytes for as many bytes as the
+#: Device says its FIFO is large (+).
+#:
+#: In order for userland to successfully  mmap(2)  the FIFO of a Device,
+#: exclusive access to the Device must have been obtained, otherwise the call
+#: will fail with  errno  set to  EACCES.  The call will also fail, with  errno
+#: set to  EINVAL, if any of the  length  or  offset  arguments is invalid w.r.t.
+#: the region within the mmap Device space as defined above or if it is to be
+#: mapped for writing or execution.
+#:
+#: NOTE: As long as there exists at least one mapping of the FIFO into
+#:       userspace, every attempt to  close(2)  the open file description
+#:       that was used to obtain the initial mapping will fail with
+#:       errno  set to  EBUSY.
+#:
+#: (+) This information may be obtained from the sysfs entry to the
+#:     PCI node of the Device.
+#:
+CT2_MM_FIFO_OFF = 0
 
-
-RD_CTRL_CMPT = 7
 CT2_IOC_MAGIC = ord("w")
 
+#: CT2_IOC_QXA - "re[Q]uesting e[X]clusive device [A]ccess"
+#:
+#: arguments:
+#:
+#:  -
+#:
+#: Request exclusive access for the open file description in the call.
+#:
+#: returns:
+#:
+#:  zero on success
+#:  non-zero on failure with  errno  set appropriately:
+#:
+#:    EACCES  exclusive access was set up previously for the Device, but for
+#:            a different open file description than the one in the request
+#:
+#:    EINTR   the caller was interrupted while waiting for permission to
+#:            exclusively access the Device
+#:
+#:    EINVAL  some arguments to the  ioctl(2)  call where invalid
+#:
 CT2_IOC_QXA = _IO(CT2_IOC_MAGIC, 21), \
     {errno.EACCES: "Failed to request exclusive access: no permission"}
+
+#: CT2_IOC_LXA - "re[L]inquishing e[X]clusive device [A]ccess"
+#:
+#: arguments:
+#:
+#:  -
+#:
+#: Give up exclusive access for the open file description in the call,
+#: ignoring the request if there was no exclusive Device access granted
+#: at all.
+#:
+#: returns:
+#:
+#:  zero on success
+#:  non-zero on failure with  errno  set appropriately:
+#:
+#:    EACCES  exclusive access was set up previously for the Device, but for
+#:            a different open file description than the one in the request
+#:
+#:    EBUSY   at least one  mmap(2)  of the Scaler Values FIFO was still active
+#:
+#:    EINTR   the caller was interrupted while waiting for permission to
+#:            exclusively access the Device
+#:
+#:    EINVAL  some arguments to the  ioctl(2)  call where invalid
+#:
 CT2_IOC_LXA = _IO(CT2_IOC_MAGIC, 22), \
     {errno.EACCES: "Failed to relinquish exclusive access: no permission"}
 
+#: CT2_IOC_DEVRST - "[DEV]ice [R]e[S]e[T]"
+#:
+#: arguments:
+#:
+#:  -
+#:
+#: A "Device Reset" shall be defined as the following sequence of operations on
+#: the device where we provide a value for every register in the memory sense of
+#: the word that can be written to.
+#:
+#:  1.  disable the generation of interrupts
+#:  2.  disable output drivers/stages, ie enable their high impedance state (XXX)
+#:  3.  a.  remove the input load from the input stages,
+#:      b.  set the input filter master clock frequency divider to (the default of) "1",
+#:          capture synchronously but bypass the input filters, and,
+#:      c.  on the P201, disable the inputs altogether (XXX)
+#:  4.  a.  set the output filter master clock frequency divider to (the default of) "1",
+#:          bypass the output filter,
+#:          set the output value polarity to "normal", and
+#:      b.  fix the output logic value to "0"
+#:  5.  set the programmable output logic level to "0"
+#:  6.  inhibit any Device internal data movement of the Scaler Values FIFO,
+#:      flush the FIFO, and clear FIFO error flags
+#:  7.  set the counter clock source to (the default of) the master clock,
+#:      open the counter clock gate wide, and
+#:      disconnect any internally wired counter control connections
+#:  8.  inhibit storage of the counter value in each CCL unit's latch
+#:  9.  clear each CCL unit's comparator latch and counter
+#: 10.  disable the master clock and
+#:      set the clock frequency selector to (the default of) "100 MHz"
+#:
+#: NOTE: Since we must regard the generation and acknowledgement of interrupts
+#:       as state changing operations, and the whole purpose of a general Device
+#:       reset is to arrive at a known state, we require that the generation of
+#:       interrupts be /disabled/ during the reset.
+#:
+#: returns:
+#:
+#:  zero on success
+#:  non-zero on failure with  errno  set appropriately:
+#:
+#:    EACCES  exclusive access was set up previously for the Device, but for
+#:            a different open file description than the one in the request
+#:
+#:    EBUSY   interrupts are still enabled, preventing the request to be
+#:            processed
+#:
+#:    EINTR   the caller was interrupted while waiting for permission to
+#:            exclusively access the Device
+#:
+#:    EINVAL  some arguments to the  ioctl(2)  call where invalid
+#:
 CT2_IOC_DEVRST = _IO(CT2_IOC_MAGIC, 0), \
-    {errno.EACCES: "Could not reset card: no permission"}
+    {errno.EACCES: "Could not reset card: no permission",
+     errno.EBUSY:  "Could not reset card: interrupts are still enabled",
+     errno.EINTR:  "Could not reset card: interrupted while waiting for " \
+                   "permission to exclusively access the device",
+     errno.EINVAL: "Could not reset card: invalid arguments"}
+
+#: CT2_IOC_EDINT - "[E]nable [D]evice [INT]errupts"
+#:
+#: arguments:
+#:
+#:  1:  capacity of the interrupt notification queue
+#:
+#: Have the Operating System set up everything associated with the Device
+#: that is required so that we can receive Device interrupts once we enable
+#: their generation at the Device proper via SOURCE_IT_A/B.
+#:
+#: In order to not lose any notification of such interrupts, a queue is set
+#: up between the actual interrupt handler and the context that eventually
+#: makes them available to interested listeners whose capacity must be given
+#: as the argument.  Here, a value of  0  means that the default as determined
+#: by the module parameter "inq_length" shall be used for the capacity of
+#: the queue.
+#:
+#: If interrupts are already enabled with a queue capacity  c, the request
+#: to re-enable them with a queue capacity  d  will be considered a success
+#: without actually performing the required actions if both  c  and  d  are
+#: equal and an error otherwise.
+#:
+#: returns:
+#:
+#:  zero on success
+#:  non-zero on failure with  errno  set appropriately:
+#:
+#:    EACCES  exclusive access was set up previously for the Device, but for
+#:            a different open file description than the one in the request
+#:
+#:    EBUSY   interrupts are already enabled with a queue capacity different
+#:            from the one in the argument of the request
+#:
+#:    ENOMEM  failure to allocate storage for the notification queue and
+#:            the open file description in the request was in blocking mode
+#:
+#:    EAGAIN  similar to the ENOMEM case, only that the open file description
+#:            in the request was in non-blocking mode
+#:
+#:    EINTR   the caller was interrupted while waiting for permission to
+#:            exclusively access the Device
+#:
+#:    EINVAL  some arguments to the  ioctl(2)  call where invalid
+#:
+CT2_IOC_EDINT = _IOW(CT2_IOC_MAGIC, 01, CT2_SIZE), \
+    {errno.EACCES: "Exclusive access already granted to another file descriptor"}
+
+
+#: CT2_IOC_DDINT - "[D]isable [D]evice [INT]errupts"
+#:
+#: arguments:
+#:
+#:  -
+#:
+#: Undo everything that was set up during a (previous) CT2_IOC_EDINT call,
+#: ignoring the request if interrupts are already disabled.
+#:
+#: NOTE: No attempts are being made in ensuring that the Device itself
+#:       actually ceased to generate interrupts.  Failure to observe this
+#:       will most likely result in the kernel complaining about interrupts
+#:       "nobody cared" for etcpp.
+#:
+#: returns:
+#:
+#:  zero on success
+#:  non-zero on failure with  errno  set appropriately:
+#:
+#:    EACCES  exclusive access was set up previously for the Device, but for
+#:            a different open file description than the one in the request
+#:
+#:    EINTR   the caller was interrupted while waiting for permission to
+#:            exclusively access the Device
+#:
+#:    EINVAL  some arguments to the  ioctl(2)  call where invalid
+#:
+CT2_IOC_DDINT = _IO(CT2_IOC_MAGIC, 02), \
+    {errno.EACCES: "Exclusive access already granted to another file descriptor"}
+
+
+#: CT2_IOC_ACKINT - "[ACK]nowledge [INT]errupt"
+#:
+#: arguments:
+#:
+#:  1:  pointer to an interrupt notification object
+#:
+#: Obtain the accumulation of all delivered interrupt notifications since the
+#: last successful CT2_IOC_ACKINT call prior to the current request along with
+#: the time the most recent delivery occurred, clearing  CTRL_IT  in the
+#: interrupt notification storage and updating its time to the time of
+#: the current request.  The time is obtained from the clock with ID
+#: CLOCK_MONOTONIC_RAW.
+#:
+#: A value of  0  in  ctrl_it  of the object the argument points to indicates
+#: that there were no new interrupt notifications while a non-zero value hints
+#: at the delivery of at least one such notification.  In the former case, the
+#: stamp  member contains the time the value of  CTRL_IT  in the interrupt
+#: notification storage was last read while in the latter, the time  CTRL_IT
+#: was last updated is saved.
+#:
+#: returns:
+#:
+#:  zero on success
+#:  non-zero on failure with  errno  set appropriately:
+#:
+#:    EFAULT  the argument of the request does not point into a valid
+#:            object of type  struct ct2_in  in the calling user context's
+#:            address space
+#:
+#:    EINTR   the caller was interrupted while waiting for permission to
+#:            exclusively access the Device
+#:
+#:    EINVAL  some arguments to the  ioctl(2)  call where invalid
+#:
+#:    ENXIO   an INQ has been detected to be attached to the open file
+#:            description of the request although INQs are not implemented
+#:
+CT2_IOC_ACKINT = _IOR(CT2_IOC_MAGIC, 10, ctypes.sizeof(ctypes.POINTER(ct2_in))), \
+    {errno.EFAULT: "Failed to acknowledge interrupt: invalid argument"}
+
+
+#: CT2_IOC_AINQ - "[A]ttach [I]nterrupt [N]otification [Q]ueue"
+#:
+#: returns:
+#:
+#:    ENOSYS  not implemented
+#:
+CT2_IOC_AINQ = _IOW(CT2_IOC_MAGIC, 11, CT2_SIZE), \
+    {errno.ENOSYS: "not implemented"}
+
+
+#: CT2_IOC_DINQ - "[D]etach [I]nterrupt [N]otification [Q]ueue"
+#:
+#: returns:
+#:
+#:    ENOSYS  not implemented
+#:
+CT2_IOC_DINQ = _IO(CT2_IOC_MAGIC, 12), \
+    {errno.ENOSYS: "not implemented"}
+
+
+#: CT2_IOC_RINQ - "D[R]ain [I]nterrupt [N]otification [Q]ueue"
+#:
+#: returns:
+#:
+#:    ENOSYS  not implemented
+#:
+CT2_IOC_RINQ = _IOR(CT2_IOC_MAGIC, 13, ctypes.sizeof(ctypes.POINTER(ct2_inv))), \
+    {errno.ENOSYS: "not implemented"}
+
+
+#: CT2_IOC_FINQ - "[F]lush [I]nterrupt [N]otification [Q]ueue"
+#:
+#: returns:
+#:
+#:    ENOSYS  not implemented
+#:
+CT2_IOC_FINQ = _IOR(CT2_IOC_MAGIC, 14, ctypes.sizeof(ctypes.POINTER(timespec))), \
+    {errno.ENOSYS: "not implemented"}
 
 
 class BaseParam(object):
@@ -1236,6 +1574,19 @@ class CtStatus(BaseParam):
                   'run':    (bool, 1<< 16), }
 
 
+class FilterInput(BaseParam):
+    """
+    Channel input filter (clock freq., selection)
+    """
+    
+    _FLAG_MAP = { 'clock':     (FilterClock,            0b111),
+                  'selection': (FilterInputSelection, 0b11000), }
+
+    def __setitem__(self, key, value):
+        klass, mask = self._FLAG_MAP[key]
+        self.value = (self.value & NOT(mask)) | value.value
+
+
 class FilterOutput(BaseParam):
     """
     Channel output filter (clock freq., enabled, polarity)
@@ -1324,60 +1675,26 @@ class P201:
     #: list of valid card channels
     CHANNELS = range(1, 11)
 
+    #: list of valid card input channels
+    INPUT_CHANNELS = range(1,11)
+
     #: list of valid card ouput channels
     OUTPUT_CHANNELS = 9, 10
 
     def __init__(self, name="/dev/p201"):
         self.__name = name
         self.__dev = open(name, "rwb+", 0)
+        self.__exclusive = False
         self.__log = logging.getLogger("P201." + name)
 
-    def __ioctl(self, op):
+    def __ioctl(self, op, *args, **kwargs):
         try:
-            fcntl.ioctl(self.fileno(), op[0])
+            fcntl.ioctl(self.fileno(), op[0], *args, **kwargs)
         except (IOError, OSError) as exc:
             if exc.errno in op[1]:
                 raise CT2Exception(op[1][exc.errno])
             else:
                 raise
-
-    def fileno(self):
-        """
-        internalcard file descriptor (don't use this member directly on your
-        code)
-        """
-        return self.__dev.fileno()
-
-    def request_exclusive_access(self):
-        """
-        Request exclusive access to the card. Nothing happens if the card
-        has already exclusive access.
-
-        :raises CT2Exception: if fails to get exclusive access
-        """
-        self.__ioctl(CT2_IOC_QXA)
-
-    def relinquish_exclusive_access(self):
-        """
-        Relinquish exclusive access. Always succeeds.
-        """
-        self.__ioctl(CT2_IOC_LXA)
-
-    def reset(self):
-        """
-        Resets the card.
-
-        :raises CT2Exception: if fails to reset the card
-        """
-        self.__ioctl(CT2_IOC_DEVRST)
-
-    def software_reset(self):
-        """
-        Does a software reset on the card.
-
-        :raises OSError: in case the operation fails
-        """
-        self.write_reg("COM_GENE", 1 << 7)
 
     def _read_offset(self, offset):
         result = preadn(self.fileno(), offset)
@@ -1397,6 +1714,93 @@ class P201:
     def _write_offset_array(self, offset, array):
         return pwrite(self.fileno(), array.tostring(), offset)
 
+    def fileno(self):
+        """
+        internal card file descriptor (don't use this member directly on your
+        code)
+        """
+        return self.__dev.fileno()
+
+    def request_exclusive_access(self):
+        """
+        Request exclusive access to the card. Nothing happens if the card
+        has already exclusive access.
+
+        :raises CT2Exception: if fails to get exclusive access
+        """
+        self.__ioctl(CT2_IOC_QXA)
+        self.__exclusive = True
+
+    def relinquish_exclusive_access(self):
+        """
+        Relinquish exclusive access. Always succeeds.
+        """
+        self.__ioctl(CT2_IOC_LXA)
+        self.__exclusive = False
+
+    def has_exclusive_access(self):
+        """
+        Returns True if this card object has exclusive access or False otherwise
+        
+        :return: True if this card object has exclusive access or False otherwise
+        :rtype: bool
+        """
+        return self.__exclusive
+
+    def reset(self):
+        """
+        Resets the card.
+
+        :raises CT2Exception: if fails to reset the card
+        """
+        self.__ioctl(CT2_IOC_DEVRST)
+
+    def enable_interrupts(self, fifo_size):
+        """
+        Enable card interrupts with the given number of FIFO entries
+
+        :param fifo_size: FIFO depth (number of FIFO entries)
+        :type fifo_size: int
+        
+        :raises CT2Exception: if fails to enable interrupts
+        """
+        self.__ioctl(CT2_IOC_EDINT, fifo_size)
+
+    def disable_interrupts(self):
+        """
+        Disables the card interrupts
+        """
+        self.__ioctl(CT2_IOC_DDINT)
+
+    def acknowledge_interrupt(self):
+        """
+        Acknowledge interrupt.
+
+        The result is a tuple of 2 elements containing: 
+          - a tuple of 5 elements containing:
+            - channels rising and/or falling edge triggered interrupts
+              (dict<int: bool>)
+            - counters stop triggered interrupt (dict<int: bool>)
+            - DMA transfer interrupt enabled (bool)
+            - FIFO half full interrupt enabled (bool)
+            - FIFO transfer error or too close DMA trigger enabled (bool)
+          - time stamp (seconds)
+
+        Active elements mean that *at least* one such notification was delivered. 
+        If no new interrupt notification occurred since last call the time stamp 
+        contains the time the value of the value of the interrupt status in the
+        interrupt notification storage was last read. Otherwise, the time stamp
+        corresponds to the the time the interrupt status was last updated is saved.
+
+        :return: channels, counters, DMA, FIFO and error interrupt information plus time stamp
+        :rtype: tuple( tuple(dict<int: class:`TriggerInterrupt`>, dict<int: bool>, bool, bool, bool), float)
+        """
+        data = ct2_in()
+        data_ptr = ctypes.pointer(data)
+        self.__ioctl(CT2_IOC_ACKINT, data_ptr)
+        t = data.stamp.tv_sec + data.stamp.tv_nsec / 1E9
+        return self.__decode_ctrl_it(data.ctrl_it), t
+
     def read_reg(self, register_name):
         """
         Read from the specified register and return a 32bit integer
@@ -1413,8 +1817,8 @@ class P201:
         register_name = register_name.upper()
         offset = CT2_R_DICT[register_name][0]
         iresult = self._read_offset(offset)
-        self.__log.debug("read %s (offset=%d) = %s", register_name,
-                         offset, hex(iresult))
+        self.__log.debug("read %020s (addr=%06s) = %010s", register_name, hex(offset),
+                         hex(iresult))
         return iresult
 
     def write_reg(self, register_name, ivalue):
@@ -1433,9 +1837,17 @@ class P201:
         """
         register_name = register_name.upper()
         offset = CT2_R_DICT[register_name][0]
-        self.__log.debug("write %s (offset=%d) with %s", register_name,
-                         offset, hex(ivalue))
+        self.__log.debug("write %020s (addr=%06s) with %010s", register_name,
+                         hex(offset), hex(ivalue))
         return self._write_offset(offset, ivalue)
+
+    def software_reset(self):
+        """
+        Does a software reset on the card.
+
+        :raises OSError: in case the operation fails
+        """
+        self.write_reg("COM_GENE", 1 << 7)
 
     def get_general_status(self):
         """
@@ -1450,7 +1862,7 @@ class P201:
         card_id = (result & CT2_CTRL_GENE_CARDN_MSK) >> CT2_CTRL_GENE_CARDN_OFF
         return card_id, AMCCFIFOStatus(result)
 
-    def get_level_out(self):
+    def get_output_level(self):
         """
         Returns the NIM/TTL level of all output channels (9 and 10)
 
@@ -1466,7 +1878,9 @@ class P201:
             reg = (register >> i) & mask
             TTL, NIM = reg & (1 << 8), reg & (1 << 24)
             if TTL:
-                if not NIM:
+                if NIM:
+                    level = Level.TTL_NIM
+                else:
                     level = Level.TTL
             else:
                 if NIM:
@@ -1477,25 +1891,27 @@ class P201:
             result[channel] = level
         return result
 
-    def set_level_out(self, level_out):
+    def set_output_level(self, output_level):
         """
         Sets output channels level (disable, TTL or NIM)
 
         .. warning::
             non specified output channels will have their level set to disable
 
-        :param level_out:
+        :param output_level:
             dictionary where keys are output channel numbers and value is
             an instance of :class:`Level` representing the channel level
-        :type level_out: dict<int: :class:`Level`>
+        :type output_level: dict<int: :class:`Level`>
 
         :raises OSError: in case the operation fails
         """
         register = 0
         for i, channel in enumerate(self.OUTPUT_CHANNELS):
-            level = level_out.get(channel, Level.DISABLE)
-            if level is Level.UNKNOWN:
+            level = output_level.get(channel, Level.DISABLE)
+            if level == Level.UNKNOWN:
                 raise ValueError("Invalid level UNKNOWN for channel %d" % channel)
+            elif level == Level.TTL_NIM:
+                raise ValueError("Invalid level TTL and NIM for output channel %d" % channel)
             elif level == Level.TTL:
                 register |= (1 << 8) << i
             elif level == Level.NIM:
@@ -1504,6 +1920,51 @@ class P201:
                 pass
         self.write_reg("NIVEAU_OUT", register)
 
+    def get_input_level(self):
+        """
+        Returns the NIM/TTL input level of all channels
+
+        :return: the NIM/TTL input level of all channels
+        :rtype: dict<int: :class:`Level`>
+
+        :raises OSError: in case the operation fails
+        """
+        register = self.read_reg("NIVEAU_IN")
+        result, mask = {}, ((1 << 0) | (1 << 16))
+        for i, channel in enumerate(self.CHANNELS):
+            level = Level.UNKNOWN
+            TTL = register & (1 << i)
+            NIM = register & (1 << 16 << i)
+            if TTL:
+                if NIM:
+                    level = Level.TTL_NIM
+                else:
+                    level = Level.TTL
+            else:
+                if NIM:
+                    level = Level.NIM
+                else:
+                    level = Level.DISABLE
+            
+            result[channel] = level
+        return result        
+
+    def set_input_level(self, input_level):
+        register = 0
+        for i, channel in enumerate(self.CHANNELS):
+            level = input_level.get(channel, Level.DISABLE)
+            if level == Level.UNKNOWN:
+                raise ValueError("Invalid level UNKNOWN for channel %d" % channel)
+            elif level == Level.TTL_NIM:
+                register |= (1 << i) | (1 << 16 << i)
+            elif level == Level.TTL:
+                register |= (1 << i)
+            elif level == Level.NIM:
+                register |= (1 << 16 << i)
+            else:
+                pass
+        self.write_reg("NIVEAU_IN", register)
+        
     def get_output_channels_level(self):
         """
         Returns the ouput channels levels as a dictionary with keys
@@ -1603,13 +2064,55 @@ class P201:
                 pass
         self.write_reg("SEL_FILTRE_OUTPUT", register)
 
-    def get_DMA_enable_trigger_latch(self):
+    def get_input_channels_filter(self):
         """*not implemented*"""
         raise NotImplementedError
 
-    def set_DMA_enable_trigger_latch(self, map):
-        """*not implemented*"""
-        raise NotImplementedError
+    def set_input_channels_filter(self, filter):
+        reg_a, reg_b = 0, 0
+        for n, channel in enumerate(self.CHANNELS):
+            try:
+                if channel < 7:
+                    reg_a |= filter[channel].value << (n*8)
+                else:
+                    reg_b |= filter[channel].value << ((n-6)*8)
+            except KeyError:
+                pass
+        self.write_reg("SEL_FILTRE_INPUT_A", reg_a)
+        self.write_reg("SEL_FILTRE_INPUT_B", reg_b)
+
+    def get_DMA_enable_trigger_latch(self):
+        """
+        .. todo:: document
+        """
+        register = self.read_reg("CMD_DMA")
+        counters, latches = {}, {}
+        for n, counter in enumerate(self.COUNTERS):
+            counters[counter] = (register & (1 << n)) != 0
+            latches[counter] = (register & (1 << n << 16)) != 0
+        return counters, latches
+
+    def set_DMA_enable_trigger_latch(self, counters, latches, reset_fifo_error_flags=False):
+        """
+        .. todo:: document
+        """
+        if isinstance(counters, dict):
+            counters = [ c for c, yesno in counters.items() if yesno ]
+        if isinstance(latches, dict):
+            latches = [ l for l, yesno in latches.items() if yesno ]
+
+        register = 0
+        for counter in counters:
+            register |= 1 << (counter - 1)
+        for latch in latches:
+            register |= 1 << (latch - 1) << 16
+        if not reset_fifo_error_flags:
+            register |= (1 << 31)
+        self.write_reg("CMD_DMA", register)
+
+    def reset_FIFO_error_flags(self):
+        self.set_DMA_enable_trigger_latch(*self.get_DMA_enable_trigger_latch(),
+                                           reset_fifo_error_flags=True)
 
     def get_FIFO_status(self):
         """
@@ -1621,8 +2124,10 @@ class P201:
         register = self.read_reg("CTRL_FIFO_DMA")
         return FIFOStatus(register)
 
-    def get_channels_trigger_interrupts(self):
+    def get_channels_interrupts(self):
         """
+        Returns the channels interrupt configuration
+
         dict<int: :class:`TriggerInterrupt`>
         key: channel
         value: 
@@ -1635,16 +2140,133 @@ class P201:
             result[channel] = TriggerInterrupt(reg)
         return result
 
-    def set_channels_trigger_interrupts(self, channels_triggers):
+    def set_channels_interrupts(self, channels_triggers=None):
         """
         dict<int: class:`TriggerInterrupt`>
         key: channel
         value: 
         """
+        if channels_triggers is None:
+            channels_triggers = {}
         register = 0
         for channel, triggers in channels_triggers.items():
             register |= triggers.value << (channel-1)
         self.write_reg("SOURCE_IT_A", register)
+
+    def __get_source_it_b(self):
+        counters = {}
+        register = self.read_reg("SOURCE_IT_B")
+        for counter in self.COUNTERS:
+            counters[counter] = (register & 1 << (counter-1)) != 0
+        dma, fifo, error = (register & (1 << 12)) != 0
+        fifo_half_full = (register & (1 << 13)) != 0
+        error = (register & (1 << 14)) != 0
+        return counters, dma, fifo_half_full, error        
+
+    def __set_source_it_b(self, counters=None, dma=False, fifo_half_full=False,
+                          error=False):
+        if counters is None:
+            counters = {}
+        register = 0
+        for counter, trigger in counters.items():
+            if trigger:
+                register |= 1 << (counter-1)
+        register |= (dma and 1 or 0) << 12
+        register |= (fifo_half_full and 1 or 0) << 13
+        register |= (error and 1 or 0) << 14
+        self.write_reg("SOURCE_IT_B", register)
+
+    def get_counters_interrupts(self):
+        """
+        Returns the counters interrupt configuration
+
+        dict<int: bool>
+        key: counter
+        value: True if stop triggered interrupt or False otherwise
+        """
+        return self.__get_source_it_b()[0]
+
+    def set_counters_interrupts(self, counters=None):
+        """
+
+        .. note:: 
+          techincal note: this call leaves DMA and FIFO interrupt 
+          parameters unchanged (they come in the same register as 
+          the counter interrupts
+
+        dict<int: bool>
+        key: counter
+        value: True if stop triggered interrupt or False otherwise
+        """
+        # First, make sure we leave bits 12, 13 and 14 unchanged
+        # (these correspond to DMA, FIFO and error interrupts)
+        dma, fifo_half_full, error = self.get_DMA_FIFO_error_interrupts()
+        self.__set_source_it_b(counters, dma, fifo_half_full, error)
+
+    def get_DMA_FIFO_error_interrupts(self):
+        """
+        :return:
+            a tuple of three booleans representing: DMA transfer interrupt
+            enabled, FIFO half full interrupt enabled and FIFO transfer error
+            or too close DMA trigger enabled
+        :rtype: tuple(bool, bool, bool)
+        """
+        return self.__get_source_it_b()[1:]
+
+    def set_DMA_FIFO_interrupts(self, dma=False, fifo_half_full=False,
+                                error=False):
+        # First, make sure we leave bits 0 to 11 unchanged
+        # (these correspond to counter stop trigerred interrupts)
+        register = self.read_reg("SOURCE_IT_B") & 0xFFF
+        register |= (dma and 1 or 0) << 12
+        register |= (fifo_half_full and 1 or 0) << 13
+        register |= (error and 1 or 0) << 14
+        self.write_reg("SOURCE_IT_B", register)
+
+    def get_interrupts(self):
+        """
+        A convenience method to get all interrupt configuration
+
+        The result is a tuple of 5 elements containing: 
+            - channels rising and/or falling edge triggered interrupts
+              (dict<int: class:`TriggerInterrupt`)
+            - counters stop triggered interrupt (dict<int: bool>)
+            - DMA transfer interrupt enabled (bool)
+            - FIFO half full interrupt enabled (bool)
+            - FIFO transfer error or too close DMA trigger enabled (bool)
+        :return: channels, counters, DMA, FIFO and error interrupt information
+        :rtype: tuple(dict<int: class:`TriggerInterrupt`>, dict<int: bool>, bool, bool, bool)
+        """
+        channels = get_channels_interrupts(self)
+        counters, dma, fifo_half_full, error = self.__get_source_it_b()
+        return channels, counters, dma, fifo_half_full, error
+    
+    def set_interrupts(self, channels=None, counters=None, dma=False, 
+                       fifo_half_full=False, error=False):
+        """
+        A convenience method to configure interrupts
+        """
+        self.set_channels_interrupts(channels)
+        self.__set_source_it_b(counters, dma, fifo_half_full, error)
+
+    def __decode_ctrl_it(self, register):
+        counters, channels = {}, {}
+        for channel in self.CHANNELS:
+            channels[channel] = (register & (1 << (channel -1))) != 0
+        for counter in self.COUNTERS:
+            counters[counter] = (register & ((1 << (counter-1)) << 12)) != 0
+        dma = (register & (1 << 25)) != 0
+        fifo_half_full = (register & (1 << 26)) != 0
+        error = (register & (1 << 25)) != 0
+        return counters, channels, dma, fifo_half_full, error
+
+    def get_interrupts_status(self):
+        """
+        .. warning::
+            Reading out interrupt resets it and disables further interrupt. 
+        """
+        register = self.read_reg("CTRL_IT")
+        return self.__decode_ctrl_it(register)
 
     def get_channels_in_out_readback(self):
         """
@@ -1659,14 +2281,6 @@ class P201:
         return in_result, out_result
 
     def set_channels_in_out_readback(self, channels_in, channels_out):
-        """*not implemented*"""
-        raise NotImplementedError
-
-    def get_counters_trigger_interrupts(self):
-        """*not implemented*"""
-        raise NotImplementedError
-
-    def set_counters_trigger_interrupts(self, counters_triggers):
         """*not implemented*"""
         raise NotImplementedError
 
@@ -1847,10 +2461,7 @@ class P201:
         :type counters_cfg: dict<int: :class:`CtConfig`>
         """
         for counter, config in counters_cfg.items():
-            if isinstance(config, dict):
-                self.set_counter_config(counter, **config)
-            else:
-                self.set_counter_config(counter, config)
+            self.set_counter_config(counter, config)
 
     def get_latch_sources(self, latch):
         """
@@ -2162,17 +2773,20 @@ class P201:
            non specified channels will be set as 50 ohm disabled
 
         :param inputs:
-            a dictionary where key is the channel number (starting at 1)
-            and value is bool (set to True to enable 50 ohm adapter, or False
-            to disable it)
-        :type inputs: dict<str: bool>
+            a container of integers representing channel numbers (starting at
+            1). If a dictionary is given, the boolean value of each key will
+            determine if enable or disable 50 ohm adapter)
 
         :raises OSError: in case the operation fails
         """
-        register = 0xFFFFFFFF
-        for inp, value in inputs.items():
-            if value:
-                register &= NOT(1 << (inp-1))
+        register = 0
+        if not isinstance(inputs, dict):
+            inputs = dict([(c, True) for c in inputs])
+
+        for channel in self.INPUT_CHANNELS:
+            value = inputs.get(channel, False)
+            if not value:
+                register |= 1 << (channel-1)
         self.write_reg("ADAPT_50", register)
 
     def set_counters_software_start_stop(self, counters):
@@ -2197,6 +2811,10 @@ class P201:
     def set_counters_software_latch(self, counters):
         """
         Triggers a latch on the specified counters by software
+
+        :param counters: 
+            container of counters (starting at 1). It can be any python
+            container of integers (tuple, list, set, iterable, even dict)
         """
         register = 0
         for c in counters:
@@ -2206,6 +2824,9 @@ class P201:
     def set_counters_software_enable(self, counters):
         """
         Software enables/disables the given counters
+
+        .. note::
+            counters which are not given are disabled
 
         :param counters:
             dictionary where key is the counter number (starting at 1) 
@@ -2230,7 +2851,7 @@ class P201:
         
         :param counters: 
             a container of the counters to be software enabled. It can be any python
-            container of integers (tuple, list, iterable, even dict)
+            container of integers (tuple, list, set, iterable, even dict)
         :type counters: container<int>
 
         :raises OSError: in case the operation fails
@@ -2259,6 +2880,58 @@ class P201:
         self.set_counters_software_enable(ct)
 
 
+def create_fifo_mmap(card):
+    import mmap
+
+    # remember: need exclusive access to use FIFO
+    if not card.has_exclusive_access():
+        raise CTException("Need exclusive access to map FIFO")
+
+    dev_stat = os.fstat(card.fileno())
+    if not stat.S_ISCHR(dev_stat.st_mode):
+        raise CT2Exception("Cannot memory map FIFO: file descriptor '%s' " \
+                           "does not point to a special character file")
+    res3_file_name = "/sys/dev/char/{0}:{1}/device/resource3".format(
+        os.major(dev_stat.st_rdev),
+        os.minor(dev_stat.st_rdev))
+
+    res3_stat = os.stat(res3_file_name)
+    mmap_size = res3_stat.st_size
+    return mmap.mmap(card.fileno(), res3_stat.st_size, mmap.MAP_PRIVATE,
+                     mmap.PROT_READ, offset=CT2_MM_FIFO_OFF)
+
+
+def epoll(card):
+    card.enable_interrupts(100)
+    try:
+        poll = select.epoll()
+        poll.register(card, select.EPOLLIN | select.EPOLLHUP | select.EPOLLERR)
+        stop = False
+        while not stop:
+            events = poll.poll(timeout=1)
+            if not events:
+                print("poll loop")
+                continue
+            for fd, event in events:
+                if event & (select.EPOLLHUP):
+                    print("epoll hang up event on {0}, bailing out".format(fd))
+                    stop = True
+                elif event & (select.EPOLLERR):
+                    print("epoll error event on {0}, bailing out".format(fd))
+                    stop = True
+                else:
+                    print("epoll event {0} on {1}".format(event, fd))
+    finally:
+        card.disable_interrupts()
+
+def py_select(card):
+    raise NotImplementedError
+
+
+def gevent_select(card):
+    raise NotImplementedError
+
+
 def main():
     #logging.basicConfig(level=logging.DEBUG)
 
@@ -2275,7 +2948,7 @@ def main():
     p201.set_clock(Clock.CLK_100_MHz)
 
     # channel 10 output: counter 10 gate envelop
-    p201.set_level_out({10: Level.TTL})
+    p201.set_output_level({10: Level.TTL})
 
     # no 50 ohm adapter
     p201.set_50ohm_adapters({})

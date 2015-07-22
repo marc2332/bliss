@@ -60,6 +60,12 @@ class TestP201(unittest.TestCase):
 
     def setUp(self):
         self.p201 = ct2.P201()
+        self.p201.disable_interrupts()
+        self.p201.reset()
+        self.p201.software_reset()
+
+    def tearDown(self):
+        self.p201.disable_interrupts()
         self.p201.reset()
         self.p201.software_reset()
 
@@ -72,7 +78,7 @@ class TestP201(unittest.TestCase):
         clock = self.p201.get_clock()
         self.assertEqual(clock, ct2.Clock.CLK_66_66_MHz)
 
-    def test_level_out(self):
+    def test_output_level(self):
         for c in ({9: ct2.Level.DISABLE,
                    10: ct2.Level.DISABLE },
                   {9: ct2.Level.TTL,
@@ -83,8 +89,8 @@ class TestP201(unittest.TestCase):
                    10: ct2.Level.TTL },
                   {9: ct2.Level.NIM,
                    10: ct2.Level.NIM },):
-            self.p201.set_level_out(c)
-            r = self.p201.get_level_out()
+            self.p201.set_output_level(c)
+            r = self.p201.get_output_level()
             self.assertEqual(c, r)
                   
     def test_output_channels_level(self):
@@ -115,16 +121,17 @@ class TestP201(unittest.TestCase):
             result = self.p201.get_output_channels_filter()
             self.assertEqual(filter, result)
 
-    def test_channels_trigger_interrupts(self):
+    def test_channels_interrupts(self):
         triggers = { 1: ct2.TriggerInterrupt(rising=True), 
                      5: ct2.TriggerInterrupt(falling=True), 
                      10: ct2.TriggerInterrupt(rising=True, falling=True), }
         
-        self.p201.set_channels_trigger_interrupts(triggers)
+        self.p201.set_channels_interrupts(triggers)
         for ch in (2,3,4,6,7,8,9):
             triggers[ch] = ct2.TriggerInterrupt()
-        result = self.p201.get_channels_trigger_interrupts()
-
+        result = self.p201.get_channels_interrupts()
+        
+        
         self.assertEqual(triggers, result)
 
     def test_50ohm_adapter(self):

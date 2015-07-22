@@ -18,7 +18,7 @@ except:
     sys.path.append(this_dir)
     from bliss.controllers import ct2
 
-from bliss.controllers.ct2 import P201, Clock, LevelOut, CtConfig, OutputSrc
+from bliss.controllers.ct2 import P201, Clock, Level, CtConfig, OutputSrc
 from bliss.controllers.ct2 import CtClockSrc, CtGateSrc, CtHardStartSrc, CtHardStopSrc
 
 
@@ -41,11 +41,11 @@ def main():
     p201.reset()
     p201.software_reset()
 
-    # internal clock 40 Mhz
-    p201.set_clock(Clock.CLK_40_MHz)
+    # internal clock 100 Mhz
+    p201.set_clock(Clock.CLK_100_MHz)
 
     # channel 10 output: counter 10 gate envelop
-    p201.set_level_out(dict([(ct, LevelOut(TTL=True)) for ct in p201.COUNTERS]))
+    p201.set_output_level(dict([(ct, Level.TTL) for ct in p201.COUNTERS]))
 
     # no 50 ohm adapter
     p201.set_50ohm_adapters({})
@@ -102,9 +102,9 @@ def main():
             status = p201.get_counters_status()
             if not status[counter].run:
                 break
-            msg = "\r{0} {1}".format(counter_values, latch_values)
+            msg = "\r{0} {1}".format(counter_values.tolist(), latch_values.tolist())
             out(msg)
-        print("\n%{0} {1}".format(counter_values, latch_values))
+        print("\n{0} {1}".format(counter_values.tolist(), latch_values.tolist()))
 
     pprint.pprint(p201.get_counters_status())
     p201.relinquish_exclusive_access()

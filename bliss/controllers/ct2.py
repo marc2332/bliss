@@ -33,8 +33,9 @@ except:
 # returns the number of adjacent registers that we actually read instead
 # of the the number of bytes read like the linux programmer's manual specifies
 
-__libc = ctypes.cdll.LoadLibrary(ctypes.util.find_library('c'))
-__librt = ctypes.cdll.LoadLibrary(ctypes.util.find_library('rt'))
+__libc = ctypes.CDLL(ctypes.util.find_library('c'), use_errno=True)
+__librt = ctypes.CDLL(ctypes.util.find_library('rt'), use_errno=True)
+
 
 ct2_size_type = ctypes.c_size_t
 ct2_reg_t = ctypes.c_uint32

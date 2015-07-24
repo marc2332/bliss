@@ -2161,7 +2161,13 @@ class P201:
 
     def get_DMA_enable_trigger_latch(self):
         """
-        .. todo:: document
+        Returns DMA enable and trigger source and FIFO store configuration
+
+        :return:
+            a tuple of two dictionaries. The first describes which counter
+            latch signals trigger DMA. The second describes which counter
+            latches are stored to FIFO when DMA is triggered
+        :rtype: tuple (dict<int: bool>, dict<int: bool>)
         """
         register = self.read_reg("CMD_DMA")
         counters, latches = {}, {}
@@ -2170,13 +2176,39 @@ class P201:
             latches[counter] = (register & (1 << n << 16)) != 0
         return counters, latches
 
-    def set_DMA_enable_trigger_latch(self, counters, latches, reset_fifo_error_flags=False):
+    def set_DMA_enable_trigger_latch(self, counters=None, latches=None, 
+                                     reset_fifo_error_flags=False):
         """
-        .. todo:: document
+        Configures the DMA trigger sources and FIFO store.
+
+        :param counters:
+            a container of counters for which the latch transfer will trigger 
+            DMA (can be any python container (tuple, list, set, iterator, 
+            even dict. If a dictionary is given, the boolean value of each key
+            will determine if enable or disable the corresponding counter latch
+            trigger))
+        :type counters: container (tuple, list, set, iterator, even dict.)
+        :param latches:
+            a container of counters latches which will be stored to FIFO on 
+            a DMA trigger (can be any python container (tuple, list, set, 
+            iterator, even dict. If a dictionary is given, the boolean value of
+            each key will determine if enable or disable the corresponding
+            counter latch trigger)
+        :type latches: container (tuple, list, set, iterator, even dict.)
+        
+        :param reset_fifo_error_flags: 
+            set to True to reset FIFO and error flags. Usually not used.
+            Exists for convenience of implementation since it is in the same
+            register as the rest of the DMA configuration
+        :type reset_fifo_error_flags: bool
         """
-        if isinstance(counters, dict):
+        if counters is None:
+            counters = ()
+        elif isinstance(counters, dict):
             counters = [ c for c, yesno in counters.items() if yesno ]
-        if isinstance(latches, dict):
+        if latches is None:
+            latches = ()
+        elif isinstance(latches, dict):
             latches = [ l for l, yesno in latches.items() if yesno ]
 
         register = 0
@@ -2189,6 +2221,9 @@ class P201:
         self.write_reg("CMD_DMA", register)
 
     def reset_FIFO_error_flags(self):
+        """
+        Resets FIFO error flags
+        """
         self.set_DMA_enable_trigger_latch(*self.get_DMA_enable_trigger_latch(),
                                            reset_fifo_error_flags=True)
 
@@ -2206,9 +2241,10 @@ class P201:
         """
         Returns the channels interrupt configuration
 
-        dict<int: :class:`TriggerInterrupt`>
-        key: channel
-        value: 
+        :return:
+            a dictionary where keys are channels (starting a 1) and value
+            is an instance of :class:`TriggerInterrupt`
+        :rtype: dict<int: :class:`TriggerInterrupt`>
         """
         result = {}
         register = self.read_reg("SOURCE_IT_A")
@@ -2220,9 +2256,14 @@ class P201:
 
     def set_channels_interrupts(self, channels_triggers=None):
         """
-        dict<int: class:`TriggerInterrupt`>
-        key: channel
-        value: 
+        Sets the channels interrupt selectors.
+
+        :param channels_triggers:
+            a dictionary are keys are channels (starting at 1) and value
+            is an instance of :class:`TriggerInterrupt` describing which
+            edge (rising, falling, both or none) will trigger the channel
+            interrupt
+        :type channles_triggers: dict<int: :class:`TriggerInterrupt`>
         """
         if channels_triggers is None:
             channels_triggers = {}
@@ -2266,11 +2307,12 @@ class P201:
 
     def set_counters_interrupts(self, counters=None):
         """
+        Sets the counter source interrupt configuration
 
         .. note:: 
-          *techincal note*. This call leaves DMA and FIFO interrupt 
-          parameters unchanged (even though they come in the same 
-          register as the counter interrupts)
+            *techincal note*.This call leaves DMA and FIFO interrupt
+            parameters unchanged (even though they come in the same 
+            register as the counter interrupts)
 
         dict<int: bool>
         key: counter
@@ -2283,6 +2325,13 @@ class P201:
 
     def get_DMA_FIFO_error_interrupts(self):
         """
+        Returns the interrupt configuration for the following possible 
+        interruptions:
+
+            - End of DMA transfer
+            - FIFO half full 
+            - FIFO transfer error or too close DMA triggers error
+
         :return:
             a tuple of three booleans representing: DMA transfer interrupt
             enabled, FIFO half full interrupt enabled and FIFO transfer error
@@ -2293,6 +2342,27 @@ class P201:
 
     def set_DMA_FIFO_interrupts(self, dma=False, fifo_half_full=False,
                                 error=False):
+        """
+        Sets the interrupt configuration for the following possible 
+        interruptions:
+
+            - End of DMA transfer
+            - FIFO half full 
+            - FIFO transfer error or too close DMA triggers error
+            
+        :param dma:
+            set to True to enable interrupt on end of DMA transfer
+            [default: False]
+        :type dma: bool
+        :param fifo_half_full:
+            set to True to enable interrupt on FIFO half full
+            [default: False]
+        :type fifo_half_full: bool
+        :param error:
+            set to True to enable interrupt on FIFO transfer error
+            or too close DMA triggers error [default: False]
+        :type eror: bool
+        """
         # First, make sure we leave bits 0 to 11 unchanged
         # (these correspond to counter stop trigerred interrupts)
         register = self.read_reg("SOURCE_IT_B") & 0xFFF
@@ -2342,6 +2412,8 @@ class P201:
 
     def get_interrupts_status(self):
         """
+        Returns the interrupt status
+
         .. warning::
             Reading out interrupt resets it and disables further interrupt. 
 
@@ -2351,7 +2423,7 @@ class P201:
 
     def get_channels_in_out_readback(self):
         """
-        tuple(dict<int: bool>, dict<int: bool>)
+        :rtype: tuple(dict<int: bool>, dict<int: bool>)
         """
         register = self.read_reg("RD_IN_OUT")
         in_result, out_result = {}, {}

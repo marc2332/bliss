@@ -26,6 +26,7 @@ KMOD_ROOT       ?=  ..
 
 
 EXAMPLES        =   continuous_scan \
+                    sw_continuous_scan \
                     rmap \
                     xaccess \
                     ct \

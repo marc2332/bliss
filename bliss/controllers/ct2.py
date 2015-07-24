@@ -2931,25 +2931,28 @@ class P201:
         self.set_counters_software_enable(ct)
 
 
-def create_fifo_mmap(card):
-    import mmap
-
+def create_fifo_mmap(card, length=None):
     # remember: need exclusive access to use FIFO
     if not card.has_exclusive_access():
-        raise CTException("Need exclusive access to map FIFO")
-
+        raise CT2Exception("Need exclusive access to map FIFO")
     dev_stat = os.fstat(card.fileno())
     if not stat.S_ISCHR(dev_stat.st_mode):
         raise CT2Exception("Cannot memory map FIFO: file descriptor '%s' " \
                            "does not point to a special character file")
-    res3_file_name = "/sys/dev/char/{0}:{1}/device/resource3".format(
-        os.major(dev_stat.st_rdev),
-        os.minor(dev_stat.st_rdev))
+    if length is None:
+        res3_file_name = "/sys/dev/char/{0}:{1}/device/resource3".format(
+            os.major(dev_stat.st_rdev),
+            os.minor(dev_stat.st_rdev))
+        res3_stat = os.stat(res3_file_name)
+        length = res3_stat.st_size
+    import mmap
+    return mmap.mmap(card.fileno(), length, flags=mmap.MAP_PRIVATE, 
+                     prot=mmap.PROT_READ, offset=CT2_MM_FIFO_OFF)
 
-    res3_stat = os.stat(res3_file_name)
-    mmap_size = res3_stat.st_size
-    return mmap.mmap(card.fileno(), res3_stat.st_size, mmap.MAP_PRIVATE,
-                     mmap.PROT_READ, offset=CT2_MM_FIFO_OFF)
+
+def create_fifo(card, length=None):
+    import numpy
+    return numpy.frombuffer(create_fifo_mmap(card, length), dtype=numpy.uint32)
 
 
 def epoll(card):

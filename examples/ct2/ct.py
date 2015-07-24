@@ -39,6 +39,7 @@ def main():
         sys.stdout.flush()
 
     p201 = P201()
+    p201.disable_interrupts()
     p201.request_exclusive_access()
     p201.reset()
     p201.software_reset()

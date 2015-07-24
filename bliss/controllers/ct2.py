@@ -1844,8 +1844,9 @@ class P201:
             dict<int: bool>, bool, bool, bool), float)
         """
         data = ct2_in()
-        data_ptr = ctypes.pointer(data)
-        self.__ioctl(CT2_IOC_ACKINT, data_ptr)
+        self.__ioctl(CT2_IOC_ACKINT, ctypes.addressof(data))
+        self.__log.debug("CT2_IOC_ACKINT: ctrl_it=%s; ts=(sec=%d, nsec=%d)", 
+                         hex(data.ctrl_it), data.stamp.tv_sec, data.stamp.tv_nsec)
         t = data.stamp.tv_sec + data.stamp.tv_nsec / 1E9
         return self.__decode_ctrl_it(data.ctrl_it), t
 

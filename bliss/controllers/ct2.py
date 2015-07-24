@@ -9,6 +9,7 @@ from __future__ import print_function
 import os
 import sys
 import stat
+import time
 import errno
 import fcntl
 import ctypes
@@ -69,6 +70,30 @@ class ct2_inv(ctypes.Structure):
 
 CT2_IN_SIZE = ctypes.sizeof(ct2_in)
 
+
+# for python < 3.3 define clock_gettime
+clock_gettime = getattr(time, "clock_gettime", None)
+if not hasattr(time, "clock_gettime"):
+    # see <linux/time.h>
+    time.CLOCK_REALTIME = 0
+    time.CLOCK_MONOTONIC = 1      
+    time.CLOCK_PROCESS_CPUTIME_ID = 2
+    time.CLOCK_THREAD_CPUTIME_ID = 3
+    time.CLOCK_MONOTONIC_RAW = 4
+
+    __clock_gettime = __librt.clock_gettime
+    __clock_gettime.argtypes = [ctypes.c_int, ctypes.POINTER(timespec)]
+
+    def _clock_gettime(clk_id):
+        t = timespec()
+        if __clock_gettime(clk_id, ctypes.pointer(t)) != 0:
+            errno_ = ctypes.get_errno()
+            errno.set_errno(0)
+            raise OSError(errno_, "time.monotonic error: %s" % os.strerror(errno_))
+        return t.tv_sec + t.tv_nsec * 1E-9    
+    time.clock_gettime = _clock_gettime
+    time.monotonic = functools.partial(time.clock_gettime, time.CLOCK_MONOTONIC_RAW)
+time.monotonic_raw = functools.partial(time.clock_gettime, time.CLOCK_MONOTONIC_RAW)
 
 def preadn(fd, offset, n=1):
     """

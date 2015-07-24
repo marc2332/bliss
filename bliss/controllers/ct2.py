@@ -1260,7 +1260,7 @@ CT2_IOC_MAGIC = ord("w")
 #:
 #:    EINVAL  some arguments to the  ioctl(2)  call where invalid
 #:
-CT2_IOC_QXA = _IO(CT2_IOC_MAGIC, 21), \
+CT2_IOC_QXA = _IO(CT2_IOC_MAGIC, 21), "CT2_IOC_QXA", \
     {errno.EACCES: "Failed to request exclusive access: no permission"}
 
 #: CT2_IOC_LXA - "re[L]inquishing e[X]clusive device [A]ccess"
@@ -1288,7 +1288,7 @@ CT2_IOC_QXA = _IO(CT2_IOC_MAGIC, 21), \
 #:
 #:    EINVAL  some arguments to the  ioctl(2)  call where invalid
 #:
-CT2_IOC_LXA = _IO(CT2_IOC_MAGIC, 22), \
+CT2_IOC_LXA = _IO(CT2_IOC_MAGIC, 22), "CT2_IOC_LXA", \
     {errno.EACCES: "Failed to relinquish exclusive access: no permission"}
 
 #: CT2_IOC_DEVRST - "[DEV]ice [R]e[S]e[T]"
@@ -1343,7 +1343,7 @@ CT2_IOC_LXA = _IO(CT2_IOC_MAGIC, 22), \
 #:
 #:    EINVAL  some arguments to the  ioctl(2)  call where invalid
 #:
-CT2_IOC_DEVRST = _IO(CT2_IOC_MAGIC, 0), \
+CT2_IOC_DEVRST = _IO(CT2_IOC_MAGIC, 0), "CT2_IOC_DEVRST", \
     {errno.EACCES: "Could not reset card: no permission",
      errno.EBUSY:  "Could not reset card: interrupts are still enabled",
      errno.EINTR:  "Could not reset card: interrupted while waiting for " \
@@ -1394,7 +1394,7 @@ CT2_IOC_DEVRST = _IO(CT2_IOC_MAGIC, 0), \
 #:
 #:    EINVAL  some arguments to the  ioctl(2)  call where invalid
 #:
-CT2_IOC_EDINT = _IOW(CT2_IOC_MAGIC, 01, CT2_SIZE), \
+CT2_IOC_EDINT = _IOW(CT2_IOC_MAGIC, 01, CT2_SIZE), "CT2_IOC_EDINT", \
     {errno.EACCES: "Exclusive access already granted to another file descriptor"}
 
 
@@ -1425,7 +1425,7 @@ CT2_IOC_EDINT = _IOW(CT2_IOC_MAGIC, 01, CT2_SIZE), \
 #:
 #:    EINVAL  some arguments to the  ioctl(2)  call where invalid
 #:
-CT2_IOC_DDINT = _IO(CT2_IOC_MAGIC, 02), \
+CT2_IOC_DDINT = _IO(CT2_IOC_MAGIC, 02), "CT2_IOC_DDINT", \
     {errno.EACCES: "Exclusive access already granted to another file descriptor"}
 
 
@@ -1467,6 +1467,7 @@ CT2_IOC_DDINT = _IO(CT2_IOC_MAGIC, 02), \
 #:            description of the request although INQs are not implemented
 #:
 CT2_IOC_ACKINT = _IOR(CT2_IOC_MAGIC, 10, ctypes.sizeof(ctypes.POINTER(ct2_in))), \
+    "CT2_IOC_ACKINT", \
     {errno.EFAULT: "Failed to acknowledge interrupt: invalid argument"}
 
 
@@ -1476,7 +1477,7 @@ CT2_IOC_ACKINT = _IOR(CT2_IOC_MAGIC, 10, ctypes.sizeof(ctypes.POINTER(ct2_in))),
 #:
 #:    ENOSYS  not implemented
 #:
-CT2_IOC_AINQ = _IOW(CT2_IOC_MAGIC, 11, CT2_SIZE), \
+CT2_IOC_AINQ = _IOW(CT2_IOC_MAGIC, 11, CT2_SIZE), "CT2_IOC_AINQ", \
     {errno.ENOSYS: "not implemented"}
 
 
@@ -1486,7 +1487,7 @@ CT2_IOC_AINQ = _IOW(CT2_IOC_MAGIC, 11, CT2_SIZE), \
 #:
 #:    ENOSYS  not implemented
 #:
-CT2_IOC_DINQ = _IO(CT2_IOC_MAGIC, 12), \
+CT2_IOC_DINQ = _IO(CT2_IOC_MAGIC, 12), "CT2_IOC_DINQ", \
     {errno.ENOSYS: "not implemented"}
 
 
@@ -1497,6 +1498,7 @@ CT2_IOC_DINQ = _IO(CT2_IOC_MAGIC, 12), \
 #:    ENOSYS  not implemented
 #:
 CT2_IOC_RINQ = _IOR(CT2_IOC_MAGIC, 13, ctypes.sizeof(ctypes.POINTER(ct2_inv))), \
+    "CT2_IOC_RINQ", \
     {errno.ENOSYS: "not implemented"}
 
 
@@ -1507,6 +1509,7 @@ CT2_IOC_RINQ = _IOR(CT2_IOC_MAGIC, 13, ctypes.sizeof(ctypes.POINTER(ct2_inv))), 
 #:    ENOSYS  not implemented
 #:
 CT2_IOC_FINQ = _IOR(CT2_IOC_MAGIC, 14, ctypes.sizeof(ctypes.POINTER(timespec))), \
+    "CT2_IOC_FINQ", \
     {errno.ENOSYS: "not implemented"}
 
 
@@ -1756,9 +1759,11 @@ class P201:
     def __ioctl(self, op, *args, **kwargs):
         try:
             fcntl.ioctl(self.fileno(), op[0], *args, **kwargs)
+            self.__log.debug("ioctl %020s", op[1])
         except (IOError, OSError) as exc:
-            if exc.errno in op[1]:
-                raise CT2Exception(op[1][exc.errno])
+            if exc.errno in op[2]:
+                raise CT2Exception("{0} error: {1}".format(op[1], 
+                                                           op[2][exc.errno]))
             else:
                 raise
 
@@ -1870,9 +1875,7 @@ class P201:
         """
         data = ct2_in()
         self.__ioctl(CT2_IOC_ACKINT, ctypes.addressof(data))
-        self.__log.debug("CT2_IOC_ACKINT: ctrl_it=%s; ts=(sec=%d, nsec=%d)", 
-                         hex(data.ctrl_it), data.stamp.tv_sec, data.stamp.tv_nsec)
-        t = data.stamp.tv_sec + data.stamp.tv_nsec / 1E9
+        t = data.stamp.tv_sec + data.stamp.tv_nsec * 1E-9
         return self.__decode_ctrl_it(data.ctrl_it), t
 
     def read_reg(self, register_name):

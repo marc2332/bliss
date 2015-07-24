@@ -157,6 +157,7 @@ def NOT(a):
 
 @enum.unique
 class Edge(enum.Enum):
+    """Edge enumeration"""
     DISABLE        = 0b00
     RISING         = 0b01
     FALLING        = 0b10
@@ -166,6 +167,7 @@ class Edge(enum.Enum):
 
 @enum.unique
 class Level(enum.Enum):
+    """TTL/NIM level enumeration"""
     DISABLE       = 0b00
     TTL           = 0b01
     NIM           = 0b10
@@ -177,6 +179,9 @@ class Level(enum.Enum):
 #==========================================================================
 
 class CT2Exception(Exception):
+    """
+    ct2 exception class
+    """
     pass
 
 
@@ -358,6 +363,9 @@ CT2_COM_GENE_FREQ_OFF   = 0          # Frequency offset
 
 @enum.unique
 class Clock(enum.Enum):
+    """
+    Clock enumeration
+    """
     CLK_DISABLE   = 0b00000
     CLK_20_MHz    = 0b10101
     CLK_25_MHz    = 0b10100
@@ -587,6 +595,7 @@ CT2_FILTRE_OUTPUT_POLARITY_OFF   =  4   # offset of polarity inversion
 
 @enum.unique
 class FilterClock(enum.Enum):
+    """Clock enumeration to be used in input and output filter configuration"""
     CLK_100_MHz  = 0x0
     CLK_12_5_MHz = 0x1
     CLK_1_MHz    = 0x2
@@ -597,6 +606,7 @@ class FilterClock(enum.Enum):
 
 @enum.unique
 class FilterInputSelection(enum.Enum):
+    """Input selection to be used in input filter configuration"""
     SINGLE_SHORT_PULSE_CAPTURE = 0
     SAMPLING_WITHOUT_FILTERING = 1
     SYMETRICAL_FILTER          = 2
@@ -612,6 +622,7 @@ P201_SOURCE_OUTPUT_UMSK = 0x00007f7f  # used bits mask
 
 @enum.unique
 class OutputSrc(enum.Enum):
+    """Output channel source enumeration"""
     CLK_SOFTWARE = 0x00
     CLK_1_25_KHz = 0x01
     CLK_10_KHz   = 0x02
@@ -788,7 +799,7 @@ CT2_CONF_CMPT_STOP_MSK    =  1 << CT2_CONF_CMPT_STOP_BIT
 @enum.unique
 class CtClockSrc(enum.Enum):
     """
-    Count Clock Source enumeration. To be used in :class:`CtConfig`.
+    Counts clock source enumeration. To be used in :class:`CtConfig`.
     """
 
     CLK_1_25_KHz = 0x00
@@ -884,7 +895,7 @@ class CtClockSrc(enum.Enum):
 
 @enum.unique
 class CtGateSrc(enum.Enum):
-
+    """Couter Gate source enumeration. To be used in :class:`CtConfig`."""
     GATE_CMPT = 0x00 << CT2_CONF_CMPT_GATE_OFF
 
     CH_1_INPUT  = 0x01 << CT2_CONF_CMPT_GATE_OFF
@@ -938,7 +949,7 @@ class CtGateSrc(enum.Enum):
 
 @enum.unique
 class CtHardStartSrc(enum.Enum):
-
+    """Couter hardware start source enumeration. To be used in :class:`CtConfig`."""
     SOFTWARE_ONLY = 0x00 << CT2_CONF_CMPT_HSTART_OFF
 
     CH_1_RISING_EDGE  = 0x01 << CT2_CONF_CMPT_HSTART_OFF
@@ -1029,7 +1040,7 @@ class CtHardStartSrc(enum.Enum):
 
 @enum.unique
 class CtHardStopSrc(enum.Enum):
-
+    """Couter hardware stop source enumeration. To be used in :class:`CtConfig`."""
     SOFTWARE_ONLY = 0x00 << CT2_CONF_CMPT_HSTOP_OFF
 
     CH_1_RISING_EDGE  = 0x01 << CT2_CONF_CMPT_HSTOP_OFF
@@ -1637,8 +1648,30 @@ class CtConfig(BaseParam):
     """
     Counter configuration class
 
+    clock_source
+        Describes the source that triggers a counter event
+    
+    gate_source
+        counter gate source
+    
+    hard_start_source
+        Describes the event that triggers the counter to start
+
+    hard_stop_source
+        Describes the event that triggers the counter to stop
+
+    reset_from_hard_soft_stop
+        Set it to True to tell the counter to reset its value when a stop 
+        signal (hardware or software) is received. Set it to False to leave
+        the counter value unchanged when a stop signal occurs
+
+    stop from hard stop
+        Set it to True to disable the counter when a hardware stop signal 
+        is received. Set to False to maintain the counter enabled even after a
+        hardware stop signal is received.
+
     To be used with methods :meth:`P201.get_counter_config` and
-    :meth:`P201.get_counter_config`
+    :meth:`P201.set_counter_config`
     """
 
     _FLAG_MAP = { 'clock_source':              (CtClockSrc,     CT2_CONF_CMPT_CLK_MSK),
@@ -1659,7 +1692,15 @@ class CtConfig(BaseParam):
 
 
 class TriggerInterrupt(BaseParam):
+    """
+    Trigger interrupt information.
 
+    To be used with methods :meth:`P201.get_channels_interrupts` and
+    :meth:`P201.set_channels_interrupts`.
+
+    Also the result of :meth:`P201.get_interrupts` and 
+    :meth:`P201.acknowledge_interrupt`.
+    """
     _FLAG_MAP = { 'rising': (bool, 1 << 0),
                   'falling': (bool, 1 << 16) }
 
@@ -1679,7 +1720,7 @@ class P201:
     INPUT_CHANNELS = range(1,11)
 
     #: list of valid card ouput channels
-    OUTPUT_CHANNELS = 9, 10
+    OUTPUT_CHANNELS = range(9, 11)
 
     def __init__(self, name="/dev/p201"):
         self.__name = name
@@ -1777,23 +1818,30 @@ class P201:
         Acknowledge interrupt.
 
         The result is a tuple of 2 elements containing: 
-          - a tuple of 5 elements containing:
-            - channels rising and/or falling edge triggered interrupts
+
+          * a tuple of 5 elements containing:
+            
+            * channels rising and/or falling edge triggered interrupts
               (dict<int: bool>)
-            - counters stop triggered interrupt (dict<int: bool>)
-            - DMA transfer interrupt enabled (bool)
-            - FIFO half full interrupt enabled (bool)
-            - FIFO transfer error or too close DMA trigger enabled (bool)
-          - time stamp (seconds)
+            * counters stop triggered interrupt (dict<int: bool>)
+            * DMA transfer interrupt enabled (bool)
+            * FIFO half full interrupt enabled (bool)
+            * FIFO transfer error or too close DMA trigger enabled (bool)
+          * time stamp (seconds)
 
-        Active elements mean that *at least* one such notification was delivered. 
-        If no new interrupt notification occurred since last call the time stamp 
-        contains the time the value of the value of the interrupt status in the
-        interrupt notification storage was last read. Otherwise, the time stamp
-        corresponds to the the time the interrupt status was last updated is saved.
+        Active elements mean that *at least* one such notification was 
+        delivered. If no new interrupt notification occurred since last call
+        the time stamp contains the time the value of the value of the 
+        interrupt status in the interrupt notification storage was last read.
+        Otherwise, the time stamp corresponds to the the time the interrupt
+        status was last updated is saved.
 
-        :return: channels, counters, DMA, FIFO and error interrupt information plus time stamp
-        :rtype: tuple( tuple(dict<int: class:`TriggerInterrupt`>, dict<int: bool>, bool, bool, bool), float)
+        :return: 
+            channels, counters, DMA, FIFO and error interrupt information plus 
+            time stamp
+        :rtype: 
+            tuple( tuple(dict<int: class:`TriggerInterrupt`>, 
+            dict<int: bool>, bool, bool, bool), float)
         """
         data = ct2_in()
         data_ptr = ctypes.pointer(data)
@@ -1817,14 +1865,14 @@ class P201:
         register_name = register_name.upper()
         offset = CT2_R_DICT[register_name][0]
         iresult = self._read_offset(offset)
-        self.__log.debug("read %020s (addr=%06s) = %010s", register_name, hex(offset),
-                         hex(iresult))
+        self.__log.debug("read %020s (addr=%06s) = %010s", register_name, 
+                         hex(offset), hex(iresult))
         return iresult
 
     def write_reg(self, register_name, ivalue):
         """
-        Write from the specified register a given integer value. The value is interpreted
-        as a 32bit unsigned integer
+        Write from the specified register a given integer value. The value is
+        interpreted as a 32bit unsigned integer
 
         **Low level call**.
 
@@ -2190,9 +2238,9 @@ class P201:
         """
 
         .. note:: 
-          techincal note: this call leaves DMA and FIFO interrupt 
-          parameters unchanged (they come in the same register as 
-          the counter interrupts
+          *techincal note*. This call leaves DMA and FIFO interrupt 
+          parameters unchanged (even though they come in the same 
+          register as the counter interrupts)
 
         dict<int: bool>
         key: counter
@@ -2228,12 +2276,14 @@ class P201:
         A convenience method to get all interrupt configuration
 
         The result is a tuple of 5 elements containing: 
-            - channels rising and/or falling edge triggered interrupts
+        
+            * channels rising and/or falling edge triggered interrupts
               (dict<int: class:`TriggerInterrupt`)
-            - counters stop triggered interrupt (dict<int: bool>)
-            - DMA transfer interrupt enabled (bool)
-            - FIFO half full interrupt enabled (bool)
-            - FIFO transfer error or too close DMA trigger enabled (bool)
+            * counters stop triggered interrupt (dict<int: bool>)
+            * DMA transfer interrupt enabled (bool)
+            * FIFO half full interrupt enabled (bool)
+            * FIFO transfer error or too close DMA trigger enabled (bool)
+
         :return: channels, counters, DMA, FIFO and error interrupt information
         :rtype: tuple(dict<int: class:`TriggerInterrupt`>, dict<int: bool>, bool, bool, bool)
         """
@@ -2264,6 +2314,7 @@ class P201:
         """
         .. warning::
             Reading out interrupt resets it and disables further interrupt. 
+
         """
         register = self.read_reg("CTRL_IT")
         return self.__decode_ctrl_it(register)
@@ -2642,7 +2693,6 @@ class P201:
         counters from 1 to 12.
 
         .. warning::
-
             All non specified counters will be set as non latched
 
         The following example will latch:

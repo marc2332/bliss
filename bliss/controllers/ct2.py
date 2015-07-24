@@ -2337,7 +2337,7 @@ class P201:
             counters[counter] = (register & ((1 << (counter-1)) << 12)) != 0
         dma = (register & (1 << 25)) != 0
         fifo_half_full = (register & (1 << 26)) != 0
-        error = (register & (1 << 25)) != 0
+        error = (register & (1 << 27)) != 0
         return counters, channels, dma, fifo_half_full, error
 
     def get_interrupts_status(self):

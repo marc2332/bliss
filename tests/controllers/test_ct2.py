@@ -89,14 +89,14 @@ class TestP201(unittest.TestCase):
                    10: ct2.Level.TTL },
                   {9: ct2.Level.NIM,
                    10: ct2.Level.NIM },):
-            self.p201.set_output_level(c)
-            r = self.p201.get_output_level()
+            self.p201.set_output_channels_level(c)
+            r = self.p201.get_output_channels_level()
             self.assertEqual(c, r)
                   
     def test_output_channels_level(self):
         for c in ({9:0, 10:0}, {9:1, 10:0}, {9:0, 10:1}, {9:1, 10:1}):
-            self.p201.set_output_channels_level(c)
-            r = self.p201.get_output_channels_level()
+            self.p201.set_output_channels_software_enable(c)
+            r = self.p201.get_output_channels_software_enable()
             self.assertEqual(c, r)
 
     def test_output_channels_source(self):
@@ -140,9 +140,9 @@ class TestP201(unittest.TestCase):
         for i in range(1, 11):
             channels[i] = i % 2 != 0
         
-        self.p201.set_50ohm_adapters(channels)
+        self.p201.set_input_channels_50ohm_adapter(channels)
 
-        result = self.p201.get_50ohm_adapters()
+        result = self.p201.get_input_channels_50ohm_adapter()
         self.assertEqual(result, channels)
 
     def test_p201_counters_latch_sources(self):

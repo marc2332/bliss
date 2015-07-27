@@ -45,10 +45,10 @@ def main():
     p201.set_clock(Clock.CLK_100_MHz)
 
     # channel 10 output: counter 10 gate envelop
-    p201.set_output_level(dict([(ct, Level.TTL) for ct in p201.COUNTERS]))
+    p201.set_output_channels_level(dict([(ct, Level.TTL) for ct in p201.COUNTERS]))
 
     # no 50 ohm adapter
-    p201.set_50ohm_adapters({})
+    p201.set_input_channels_50ohm_adapter({})
 
     # channel 9 and 10: no filter, no polarity
     p201.set_output_channels_filter({})
@@ -64,7 +64,7 @@ def main():
         hard_stop = getattr(CtHardStopSrc, "CT_{0}_EQ_CMP_{0}".format(counter))
         cfg = CtConfig(clock_source=CtClockSrc.CLK_1_MHz,
                        gate_source=CtGateSrc.GATE_CMPT,
-                       hard_start_source=CtHardStartSrc.SOFTWARE_ONLY,
+                       hard_start_source=CtHardStartSrc.SOFTWARE,
                        hard_stop_source=hard_stop,
                        reset_from_hard_soft_stop=True,
                        stop_from_hard_stop=True)

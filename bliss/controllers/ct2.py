@@ -649,7 +649,7 @@ P201_SOURCE_OUTPUT_UMSK = 0x00007f7f  # used bits mask
 @enum.unique
 class OutputSrc(enum.Enum):
     """Output channel source enumeration"""
-    CLK_SOFTWARE = 0x00
+    SOFTWARE     = 0x00
     CLK_1_25_KHz = 0x01
     CLK_10_KHz   = 0x02
     CLK_125_KHz  = 0x03
@@ -976,7 +976,7 @@ class CtGateSrc(enum.Enum):
 @enum.unique
 class CtHardStartSrc(enum.Enum):
     """Couter hardware start source enumeration. To be used in :class:`CtConfig`."""
-    SOFTWARE_ONLY = 0x00 << CT2_CONF_CMPT_HSTART_OFF
+    SOFTWARE = 0x00 << CT2_CONF_CMPT_HSTART_OFF
 
     CH_1_RISING_EDGE  = 0x01 << CT2_CONF_CMPT_HSTART_OFF
     CH_2_RISING_EDGE  = 0x02 << CT2_CONF_CMPT_HSTART_OFF
@@ -1067,7 +1067,7 @@ class CtHardStartSrc(enum.Enum):
 @enum.unique
 class CtHardStopSrc(enum.Enum):
     """Couter hardware stop source enumeration. To be used in :class:`CtConfig`."""
-    SOFTWARE_ONLY = 0x00 << CT2_CONF_CMPT_HSTOP_OFF
+    SOFTWARE = 0x00 << CT2_CONF_CMPT_HSTOP_OFF
 
     CH_1_RISING_EDGE  = 0x01 << CT2_CONF_CMPT_HSTOP_OFF
     CH_2_RISING_EDGE  = 0x02 << CT2_CONF_CMPT_HSTOP_OFF
@@ -1752,10 +1752,10 @@ class P201:
     OUTPUT_CHANNELS = range(9, 11)
 
     def __init__(self, name="/dev/p201"):
-        self.__name = name
-        self.__dev = open(name, "rwb+", 0)
-        self.__exclusive = False
         self.__log = logging.getLogger("P201." + name)
+        self.__name = name
+        self.__dev = None
+        self.connect(name)
 
     def __ioctl(self, op, *args, **kwargs):
         try:
@@ -1786,11 +1786,28 @@ class P201:
     def _write_offset_array(self, offset, array):
         return pwrite(self.fileno(), array.tostring(), offset)
 
+    def connect(self, name):
+        if name is None:
+            self.disconnect()
+        else:
+            if self.__dev:
+                self.__log.info("connecting card to %s", name)
+            self.__dev = open(name, "rwb+", 0)
+            self.__exclusive = False
+
+    def disconnect(self):
+        if self.__dev:
+            self.__dev.close()
+        self.__dev = None
+        self.__exclusive = False
+
     def fileno(self):
         """
         internal card file descriptor (don't use this member directly on your
         code)
         """
+        if self.__dev is None:
+            raise CT2Exception("Card not connected to device")
         return self.__dev.fileno()
 
     def request_exclusive_access(self):
@@ -1940,7 +1957,7 @@ class P201:
         card_id = (result & CT2_CTRL_GENE_CARDN_MSK) >> CT2_CTRL_GENE_CARDN_OFF
         return card_id, AMCCFIFOStatus(result)
 
-    def get_output_level(self):
+    def get_output_channels_level(self):
         """
         Returns the NIM/TTL level of all output channels (9 and 10)
 
@@ -1969,7 +1986,7 @@ class P201:
             result[channel] = level
         return result
 
-    def set_output_level(self, output_level):
+    def set_output_channels_level(self, output_level):
         """
         Sets output channels level (disable, TTL or NIM)
 
@@ -1998,7 +2015,7 @@ class P201:
                 pass
         self.write_reg("NIVEAU_OUT", register)
 
-    def get_input_level(self):
+    def get_input_channels_level(self):
         """
         Returns the NIM/TTL input level of all channels
 
@@ -2027,7 +2044,7 @@ class P201:
             result[channel] = level
         return result        
 
-    def set_input_level(self, input_level):
+    def set_input_channels_level(self, input_level):
         register = 0
         for i, channel in enumerate(self.CHANNELS):
             level = input_level.get(channel, Level.DISABLE)
@@ -2043,7 +2060,7 @@ class P201:
                 pass
         self.write_reg("NIVEAU_IN", register)
         
-    def get_output_channels_level(self):
+    def get_output_channels_software_enable(self):
         """
         Returns the ouput channels levels as a dictionary with keys
         being channel numbers (starting in 1) and an integer (0 or 1)
@@ -2060,7 +2077,7 @@ class P201:
             result[channel] = register & (1 << (channel-1)) != 0 and 1 or 0
         return result
 
-    def set_output_channels_level(self, channels_output_level):
+    def set_output_channels_software_enable(self, channels_output_level):
         """
         Sets the cards output channels level.
 
@@ -2421,7 +2438,7 @@ class P201:
         register = self.read_reg("CTRL_IT")
         return self.__decode_ctrl_it(register)
 
-    def get_channels_in_out_readback(self):
+    def get_channels_readback(self):
         """
         :rtype: tuple(dict<int: bool>, dict<int: bool>)
         """
@@ -2433,7 +2450,7 @@ class P201:
             out_result[channel] = (register & (1 << (i+24))) != 0
         return in_result, out_result
 
-    def set_channels_in_out_readback(self, channels_in, channels_out):
+    def set_channels_readback(self, channels_in, channels_out):
         """*not implemented*"""
         raise NotImplementedError
 
@@ -2555,8 +2572,8 @@ class P201:
             >>> print p201.get_counter_config()
             CtConfig(clock_source=CtClockSrc.CLK_100_MHz,
                      gate_source=CtGateSrc.GATE_CMPT,
-                     hard_start_source=CtHardStartSrc.SOFTWARE_ONLY,
-                     hard_stop_source=CtHardStopSrc.SOFTWARE_ONLY,
+                     hard_start_source=CtHardStartSrc.SOFTWARE,
+                     hard_stop_source=CtHardStopSrc.SOFTWARE,
                      reset_from_hard_soft_stop=True,
                      stop_from_hard_stop=True)
 
@@ -2583,7 +2600,7 @@ class P201:
 
             config = CtConfig(clock_source=CtClockSrc.CLK_1_MHz,
                               gate_source=CtGateSrc.GATE_CMPT,
-                              hard_start_source=CtHardStartSrc.SOFTWARE_ONLY,
+                              hard_start_source=CtHardStartSrc.SOFTWARE,
                               hard_stop_source=CtHardStopSrc.CT_10_EQ_CMP_10,
                               reset_from_hard_soft_stop=True,
                               stop_from_hard_stop=True)
@@ -2897,12 +2914,16 @@ class P201:
         """
         self.write_reg("COMPARE_CMPT_%d" % counter, value)
 
-    def get_50ohm_adapters(self):
+    def set_counters_comparators_values(self, counters):
+        for ct, value in counters.items():
+            self.set_counter_comparator_value(ct, value)
+
+    def get_input_channels_50ohm_adapter(self):
         """
-        Returns the enable/disable status of the channel 50 ohm adapter
+        Returns the enable/disable status of the input channel 50 ohm adapter
 
         :return:
-            a dictionary where key is the channel number (starting at 1)
+            a dictionary where key is the input channel number (starting at 1)
             and value is bool (set to True if 50 ohm load is to be enabled,
             or False if it is to be disabled)
         :rtype: dict<int: bool>
@@ -2917,16 +2938,16 @@ class P201:
             result[input] = bit == '0'
         return result
 
-    def set_50ohm_adapters(self, inputs):
+    def set_input_channels_50ohm_adapter(self, inputs):
         """
-        Enable/disable 50 ohm adapter from all channels.
+        Enable/disable 50 ohm input adapter from all input channels.
 
         .. warning::
            non specified channels will be set as 50 ohm disabled
 
         :param inputs:
-            a container of integers representing channel numbers (starting at
-            1). If a dictionary is given, the boolean value of each key will
+            a container of integers representing input channel numbers (starting
+            at 1). If a dictionary is given, the boolean value of each key will
             determine if enable or disable 50 ohm adapter)
 
         :raises OSError: in case the operation fails
@@ -3056,6 +3077,179 @@ def create_fifo(card, length=None):
     return numpy.frombuffer(create_fifo_mmap(card, length), dtype=numpy.uint32)
 
 
+def ct2(card_type, name):
+    if "201" in card_type:
+        klass = P201
+        name = name and name or "/dev/p201"
+    else:
+        klass = C208
+        name = name and name or "/dev/c208"
+    return klass(name)
+
+
+# -----------------------------------------------------------------------------
+# Configuration helpers
+# -----------------------------------------------------------------------------
+
+__enum_meta = {
+    #   enum           optional      default
+    #                  prefixes       value
+    Clock:          ( ("CLK_",), Clock.CLK_DISABLE ),
+    CtClockSrc:     ( ("CLK_",), CtClockSrc.CLK_1_25_KHz),
+    CtGateSrc:      ( (),        CtGateSrc.GATE_CMPT),
+    CtHardStartSrc: ( (),        CtHardStartSrc.SOFTWARE),
+    CtHardStopSrc:  ( (),        CtHardStopSrc.SOFTWARE),
+    Level:          ( (),        Level.DISABLE),
+    OutputSrc:      ( ("CLK_",), OutputSrc.SOFTWARE), # maybe default should be DISABLE ?
+}
+
+
+def __get_from_enum(enum, name):
+    if name is None:
+        return __enum_meta[enum][1]
+    name_u = name.upper()
+    repls = ((" ", "_"), (".", "_"), ("CHANNEL", "CH"), ("CLOCK", "CLK"),
+             ("CHANNEL", "CH"), ('COUNTER', 'CT'), ('EQUAL', 'EQ'),
+             ('COMPARE', 'CMP'), ('MHZ', 'MHz'), ('KHZ', 'KHz'), 
+             ('INVERTED', 'INV'), ('INVERT', 'INV'),)
+    for orig, repl in repls:
+        name_u = name_u.replace(orig, repl)
+    names = [name_u] + [ prefix+name_u for prefix in __enum_meta[enum][0] ]
+    for n in names:
+        try:
+            return getattr(enum, n)
+        except AttributeError:
+            pass
+    else:
+        raise AttributeError("{0} does not have member {1}".format(enum, name))
+
+
+def __get(cfg, name, default=None, klass=None):
+    value = cfg.get(name, default)
+    if klass is None:
+        return value
+    elif issubclass(klass, enum.Enum):
+        return __get_from_enum(klass, value)
+
+                
+def create_card_from_configure(config):
+    """
+    Create a card from the given configuration (beacon compatible)
+    The card is just created with the address given by the configuration.
+    It is not configured at all!
+
+    :param config: configuration dictionary or dictionary like object
+    :type config: dict
+    :return: a new instance of :class:`P201`
+    :rtype: :class:`P201`
+    """
+    return ct2(config.get("class", "P201"), config.get("address"))
+
+
+def configure_card(card, config):
+    """
+    Configures the given card with the given configuration
+
+    :param card: the card to be configured
+    :type card: :class:`P201`
+    :param config: configuration dictionary or dictionary like object
+    :type config: dict
+    """
+    card.set_clock(__get(config, 'clock', klass=Clock))
+    
+    dma_int = __get(config, 'dma interrupt', False)
+    fifo_hf_int = __get(config, 'fifo half full interrupt', False)
+    error_int = __get(config, 'error interrupt', False)
+
+    ct_cfgs = {}
+    ct_latch_srcs = {}
+    ct_sw_enables = {}
+    ct_ints = {}
+    ct_cmpts = {}
+    for counter in config.get("counters", ()):
+        addr = counter['address']
+        ct_cfgs[addr] = CtConfig(
+            clock_source=__get(counter, "clock source", klass=CtClockSrc),
+            gate_source=__get(counter, "gate source", klass=CtGateSrc),
+            hard_start_source=__get(counter, "start source", klass=CtHardStartSrc),
+            hard_stop_source=__get(counter, "stop source", klass=CtHardStopSrc),
+            reset_from_hard_soft_stop=__get(counter, "reset", False),
+            stop_from_hard_stop=__get(counter, "stop", False))
+
+        ct_latch_srcs[addr] = __get(counter, "latch sources", ())
+        
+        ct_sw_enables[addr] = __get(counter, "software enable", False)
+
+        ct_ints[addr] =  __get(counter, "interrupt", False)
+
+        cmpt = __get(counter, "trigger interrupt")
+        if cmpt is not None:
+            ct_cmpts[addr] = cmpt
+
+    ch_50_ohms = {}
+    ch_ints = {}
+    ch_in_levels = {}
+    ch_in_readbacks = {}
+    ch_out_levels = {}
+    ch_out_sw = {}
+    ch_out_srcs = {}
+    ch_out_filters = {}
+    ch_out_readbacks = {}
+    for channel in config.get("channels", ()):
+        addr = channel['address']
+        ints = __get(channel, "interrupt", "").lower()
+        ch_ints[addr] = TriggerInterrupt(rising="rising" in ints,
+                                         falling="falling" in ints)
+        if channel in card.INPUT_CHANNELS:
+            inp = channel.get('input')
+            if inp is not None:
+                ch_50_ohms[addr] = __get(inp, "50 ohm", False)
+                ch_in_readbacks[addr] = __get(inp, "readback", False)
+                level = __get(inp, "level", "").upper()
+                if 'TTL' in level:
+                    if 'NIM' in level:
+                        level = Level.TTL_NIM
+                    else:
+                        level = Level.TTL
+                elif 'NIM' in level:
+                    level = Level.NIM
+                else:
+                    level = Level.DISABLE
+                ch_in_levels[addr] = level
+        
+        if channel in card.OUTPUT_CHANNELS:
+            inp = channel.get('input')
+            if out is not None:
+                ch_out_levels[addr] = __get(out, "level", "DISABLE",
+                                            klass=Level)
+                ch_out_sw[addr] = __get(out, "software enable", False)
+                ch_out_srcs[addr] = __get(out, "source", klass=OutputSrc) 
+                f_clk = __get(out, "filter clock", klass=FilterClock)
+                f_enable = __get(out, "filter enable", False)
+                f_polarity = __get(out, "filter polarity", 0)
+                ch_out_filters[addr] = FilterOutput(clock=f_clk,
+                                                    enable=f_enable,
+                                                    polarity=f_polarity)
+                ch_out_readbacks[addr] = __get(out, "readback", False)
+
+    card.set_input_channels_50ohm_adapter(ch_50_ohms)
+    card.set_input_channels_level(ch_in_levels)
+
+    card.set_output_channels_level(ch_out_levels)
+    card.set_output_channels_software_enable(ch_out_sw)
+    card.set_output_channels_source(ch_out_srcs)
+    card.set_output_channels_filter(ch_out_filters)
+
+#    card.set_channels_readback(ch_in_readbacks, ch_out_readbacks)
+
+    card.set_counters_config(ct_cfgs)
+    card.set_counters_latch_sources(ct_latch_srcs)
+    card.set_counters_software_enable(ct_sw_enables)
+    card.set_counters_comparators_values(ct_cmpts)
+            
+    card.set_interrupts(ch_ints, ct_ints, dma_int, fifo_hf_int, error_int)
+
+
 def epoll(card):
     card.enable_interrupts(100)
     try:
@@ -3078,6 +3272,7 @@ def epoll(card):
                     print("epoll event {0} on {1}".format(event, fd))
     finally:
         card.disable_interrupts()
+
 
 def py_select(card):
     raise NotImplementedError
@@ -3103,10 +3298,10 @@ def main():
     p201.set_clock(Clock.CLK_100_MHz)
 
     # channel 10 output: counter 10 gate envelop
-    p201.set_output_level({10: Level.TTL})
+    p201.set_output_channels_level({10: Level.TTL})
 
     # no 50 ohm adapter
-    p201.set_50ohm_adapters({})
+    p201.set_input_channels_50ohm_adapters({})
 
     # channel 9 and 10: no filter, no polarity
     p201.set_output_channels_filter({})
@@ -3118,7 +3313,7 @@ def main():
     # Reset on Hard/SoftStop, Stop on HardStop
     ct10_config = CtConfig(clock_source=CtClockSrc.CLK_1_MHz,
                            gate_source=CtGateSrc.GATE_CMPT,
-                           hard_start_source=CtHardStartSrc.SOFTWARE_ONLY,
+                           hard_start_source=CtHardStartSrc.SOFTWARE,
                            hard_stop_source=CtHardStopSrc.CT_10_EQ_CMP_10,
                            reset_from_hard_soft_stop=True,
                            stop_from_hard_stop=True)
@@ -3166,20 +3361,6 @@ def main():
 
     return p201
 
-
-def ct2(name):
-    if "201" in name:
-        klass = P201
-    else:
-        klass = C208
-    return klass(name)
-
-
-def configure(card, config):
-    """
-    Configure the given card with the configuration (beacon compatible)
-    """
-    
 
 if __name__ == "__main__":
     main()

@@ -38,7 +38,7 @@ def prepare(card, counter, value):
     hard_stop = getattr(CtHardStopSrc, "CT_{0}_EQ_CMP_{0}".format(counter))
     ct_config = CtConfig(clock_source=CtClockSrc.CLK_1_MHz,
                          gate_source=CtGateSrc.GATE_CMPT,
-                         hard_start_source=CtHardStartSrc.SOFTWARE_ONLY,
+                         hard_start_source=CtHardStartSrc.SOFTWARE,
                          hard_stop_source=hard_stop,
                          reset_from_hard_soft_stop=True,
                          stop_from_hard_stop=False)

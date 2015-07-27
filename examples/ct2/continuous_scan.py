@@ -213,10 +213,10 @@ def go(card):
                                                       clock=FilterClock.CLK_100_MHz)})
 
     # Set both output cells' levels to TTL.
-    card.set_output_level({9: Level.TTL, 10: Level.TTL})
+    card.set_output_channels_level({9: Level.TTL, 10: Level.TTL})
 
     # Enable input termination on all inputs except ic 9 and ic10.
-    card.set_50ohm_adapters(dict([(i, True) for i in range(1, 9)]))
+    card.set_input_channels_50ohm_adapter(dict([(i, True) for i in range(1, 9)]))
     
     # Set input cells 1's (1) and 2's (2) filter configuration
     # to short pulse capture.
@@ -226,7 +226,7 @@ def go(card):
          2:  FilterInput(clock=FilterClock.CLK_100_MHz,
                          selection=FilterInputSelection.SINGLE_SHORT_PULSE_CAPTURE)})
 
-    card.set_input_level({1: Level.TTL, 2: Level.TTL})
+    card.set_input_channels_level({1: Level.TTL, 2: Level.TTL})
 
     fifo = ct2.create_fifo_mmap(card)
 

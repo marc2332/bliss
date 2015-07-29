@@ -3091,6 +3091,26 @@ def ct2(card_type, name):
 # Configuration helpers
 # -----------------------------------------------------------------------------
 
+COUNTER_PARAMS_SEQ = (
+#      name             type              default value             label            description
+    ("clock source",    (CtClockSrc,     CtClockSrc.CLK_1_25_KHz, "Clock",        "counter clock source")),
+    ("gate source",     (CtGateSrc,      CtGateSrc.GATE_CMPT,     "Gate",         "counter gate source")),
+    ("start source",    (CtHardStartSrc, CtHardStartSrc.SOFTWARE, "Start",        "hardware start source")),
+    ("stop source",     (CtHardStopSrc,  CtHardStopSrc.SOFTWARE,  "Stop",         "hardware stop source")),
+    ("latch sources",   (list,           [],                      "Latch(es)",    "counter to latch(es) on counter signals hardware stop, software stop and software disable")),
+    ("reset",           (bool,           False,                   "Reset",        "reset from hardware or software stop")),
+    ("stop",            (bool,           False,                   "Stop",         "stop from hardware stop")),
+    ("software enable", (bool,           False,                   "Soft. enable", "software enable/disable")),
+)
+
+COUNTER_PARAMS_DICT = {}
+for k, v in COUNTER_PARAMS_SEQ:
+    COUNTER_PARAMS_DICT[k] = dict(name=k, type=v[0], default=v[1], label=v[2], description=v[3])
+
+
+def get_counter_params():
+    return __counter_params_dict
+
 __enum_meta = {
     #   enum           optional      default
     #                  prefixes       value

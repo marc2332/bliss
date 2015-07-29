@@ -203,6 +203,21 @@ class TestSlits(unittest.TestCase):
 
 
 
+    def testKeepZeroOffset(self):
+        s1hg = bliss.get_axis("s1hg")
+        s1hg.no_offset = True
+        s1b = bliss.get_axis("s1b")
+        s1f = bliss.get_axis("s1f")
+        s1b.move(0); s1f.move(0)
+        s1hg.move(4)
+        s1hg.dial(0)
+        self.assertAlmostEquals(0, s1hg.position(), places=4)
+        self.assertAlmostEquals(0, s1hg.dial(), places=4)
+        self.assertAlmostEquals(0, s1b.position(), places=4)
+        self.assertAlmostEquals(0, s1f.position(), places=4)
+        self.assertAlmostEquals(2, s1b.dial(), places=4)
+        self.assertAlmostEquals(2, s1f.dial(), places=4)
+
 
 if __name__ == '__main__':
     unittest.main()

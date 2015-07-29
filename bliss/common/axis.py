@@ -38,6 +38,7 @@ class Axis(object):
         self.__move_done.set()
         self.__custom_methods_list = list()
         self.__move_task = None
+        self.no_offset = False
 
     @property
     def name(self):
@@ -177,8 +178,12 @@ class Axis(object):
             except NotImplementedError:
                 curr_pos = self._hw_position()
 
-            # do not change user pos (update offset)
-            self._position(user_pos)
+            if self.no_offset: 
+                # change user pos (keep offset = 0)
+                self._position(new_dial)
+            else:
+                # do not change user pos (update offset)
+                self._position(user_pos)
 
             return curr_pos
         else:
@@ -194,6 +199,8 @@ class Axis(object):
             if self.is_moving:
                 raise RuntimeError("Can't set axis position \
                                     while it is moving")
+            if self.no_offset:
+                return self.dial(new_pos)
             pos = self._position(new_pos)
         else:
             pos = self.settings.get("position")

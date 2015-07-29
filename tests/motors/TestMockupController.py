@@ -475,6 +475,16 @@ class TestMockupController(unittest.TestCase):
         self.assertEquals(m.acceleration(), 4)        
         self.assertEquals(m.limits(), (None,None))
 
+    def test_no_offset(self):
+        m = bliss.get_axis("roby")
+        m.no_offset = True
+        m.move(0)
+        m.position(1)
+        self.assertEquals(m.dial(), 1)
+        m.dial(0)
+        self.assertEquals(m.position(), 0)
+       
+
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(TestMockupController)
     unittest.TextTestRunner(verbosity=2).run(suite)

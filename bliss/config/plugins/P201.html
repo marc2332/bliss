@@ -1,121 +1,268 @@
-<form class="form-horizontal">
+<form id="card_form" class="form-horizontal">
 <fieldset>
 
-<!-- Form Name -->
-<legend>{% block title %}{{ name }}{% endblock %}</legend>
+<div class="with-nav-tabs">
 
-{% for param in params %}
-<!-- Text input-->
-<div class="form-group">
-  <label class="col-md-4 control-label" for="{{ param.name }}">{{ param.label }}</label>
-  <div class="col-md-4">
-    <input id="{{ param.name }}" name="{{ param.name }}" placeholder="{{ param.value }}"
-	   class="form-control input-md" required="" type="text">
-  </div>
-</div>
-{% endfor %}
+  <ul class="nav nav-tabs" role="tablist">
+    <li>
+      <div class="btn btn-default" style="margin-right:4px;">
+	<span class="fa fa-credit-card"></span>
+	{{ params.get("name") }}
+      </div>
+    </li>
+    <li role="presentation" class="active">
+      <a href="#general_tab" aria-controls="global" role="tab" data-toggle="tab"><span class="fa fa-save"></span>Global</a>
+    </li>
+    <li role="presentation">
+      <a href="#counters_tab" aria-controls="counters" role="tab" data-toggle="tab">Counters</a>
+    </li>
+    <li role="presentation">
+      <a href="#in_channels_tab" aria-controls="input channels" role="tab" data-toggle="tab">Input channels</a>
+    </li>
+    <li role="presentation">
+      <a href="#out_channels_tab" aria-controls="output channels" role="tab" data-toggle="tab">Output channels</a>
+    </li>
+    <li role="presentation" class="navbar-right">
+      <div class="btn-group" role="group" aria-label="button bar">
+	<div id="apply" class="btn btn-primary">
+	  Apply
+	  <span class="fa fa-save"></span>
+	</div>
+	<div id="revert" class="btn btn-primary">
+	  Revert
+	  <span class="fa fa-undo"></span>
+	</div>
+      </div>
+    </li>
+  </ul>
 
+  <div class="panel-body" style="padding-left: 4px; padding-right: 4px;">
+    <div class="tab-content">
 
-<table id="p201_counters" class="table table-striped table-bordered" data-toggle="table">
-  <thead>
-    <tr>
-      <th>Counter #</th>
-      <th>Clock Src.</th>
-      <th>Gate Src.</th>
-      <th>Hard. Start Src.</th>
-      <th>Hard. Stop Src.</th>
-      <th>Reset</th>
-      <th>Stop</th>
-      <th>Latch Src.</th>
-      <th>Soft. Enabled</th>
-    </tr>
-  </thead>
-  <tbody>
-  {% for counter in counters %}
-  <tr>
-    <td>{{ counter["address"] }}</td>
-    <td>{{ counter.get("clock source", "<i>100 MHz</i>") }}</td>
-    <td>{{ counter.get("gate source", "<i>GATE_CMPT</i>") }}</td>
-    <td>{{ counter.get("hard start source", "<i>SOFTWARE_ONLY</i>") }}</td>
-    <td>{{ counter.get("hard stop source", "<i>SOFTWARE_ONLY</i>") }}</td>
-    <td>{{ counter.get("reset from hard soft stop", "<i>False</i>") }}</td>
-    <td>{{ counter.get("stop from hard stop", "<i>False</i>") }}</td>
-    <td>{{ counter.get("latch source", "<i>[]</i>") }}</td>
-    <td>{{ counter.get("software enable", "<i>False</i>") }}</td>
-  <tr>
-  {% endfor %}
-  </tbody>
-</table>
+      <div id="general_tab" class="tab-pane active">
+	{% for name, (type, waccess, default, label, group, desc) in GENERAL_PARAMS_SEQ %}
+	{% set value = params.get(name, default) %}
+	<div class="form-group">
+	  <label class="col-md-4 control-label" for="{{name}}"
+  		 data-toggle="tooltip" title="{{ desc }}">
+	    {{ label }}
+	  </label>
+	  <div class="col-md-4">
+	    {% if waccess == False %}
+              {{ value }}
+	    {% elif type == "bool" %}
+            <input id="{{ name }}" name="{{ name }}" 
+  		   class="form-control input-md" type="checkbox" 
+ 		   {{ "checked" if value == True }}>
+            </input>
+	    {% elif type in ("int", "float", "str", "unicode") %}
+            <input id="{{ name }}" name="{{ name }}"
+ 		   class="form-control input-md" type="text"
+		   value="{{ value }}">
+            </input>
+	    {% elif type in ("list<int>", "list<str>") %}
+	    <input id="{{ name }}" name="{{ name }}"
+  		   class="form-control input-md" type="text"
+		   value="{{ value|map('string')|join(', ') }}">
+            </input>
+	    {% else %}
+            <select class="selectpicker" id="{{ name }}" name="{{ name }}">
+  	      {% for src in ct2[type] %} 
+              <option {{ "selected" if value == src.name }}>{{ src.name }}</option>
+	      {% endfor %}
+	    </select>
+	    {% endif %}
+	  </div>
+	</div>
+	{% endfor %}
+      </div>
 
-<table id="p201_channels" class="table table-striped table-bordered">
-  <thead>
-    <tr>
-      <th>Channel #</th>
-      <th>50 Ohm</th>
-      <th>Trigger interrupt</th>
-    </tr>
-  </thead>
-  {% for channel in channels %}
-  <tr>
-    <td>{{ channel["address"] }}</td>
-    <td>{{ channel.get("50 ohm", "<i>False</i>") }}</td>
-    <td>{{ channel.get("trigger interrupt", "<i></i>") }}</td>
+      <div id="counters_tab" class="tab-pane">
+	<table id="p201_counters" class="table table-striped table-bordered" data-toggle="table"
+	       data-show-toggle="true" data-show-columns="true" >
+	  <thead>
+	    <tr>
+	      {% for name, (_, _, _, label, _, desc) in COUNTER_PARAMS_SEQ %}
+	      <th data-toggle="tooltip" title="{{ desc }}">{{ label }}</th>
+	      {% endfor %}
+	    </tr>
+	  </thead>
+	  <tbody>
+	    {% for ct_id, ct in counters.items() %}
+	    <tr>
+	      {% for name, (type, waccess, default, label, group, desc) in COUNTER_PARAMS_SEQ %}
+	      {% set value = ct.get(name, default) %}
+	      <td data-toggle="tooltip" title="{{ description }}" >
+		{% if waccess == False %}
+		{{ value }}
+		{% elif type == "bool" %}
+		<input id="ct {{ct_id}} {{ name }}" name="ct {{ct_id}} {{ name }}" 
+	               class="form-control input-md" type="checkbox" 
+	               {{ "checked" if value == True }} >
+                </input>
+		{% elif type in ("int", "float", "str", "unicode") %}
+		<input id="ct {{ct_id}} {{ name }}" name="ct {{ct_id}} {{ name }}"
+	               class="form-control input-md" type="text"
+		       value="{{ value }}">
+                </input>
+		{% elif type in ("list<int>", "list<str>") %}
+		<input id="ct {{ct_id}} {{ name }}" name="ct {{ct_id}} {{ name }}"
+		       class="form-control input-md" type="text"
+		       value="{{ value|map('string')|join(', ') }}">
+                </input>
+		{% else %}
+		<select class="selectpicker" id="ct {{ct_id}} {{ name }}" name="ct {{ct_id}} {{ name }}">
+		  {% for src in ct2[type] %} 
+		  <option {{ "selected" if value == src.name }}>{{ src.name }}</option>
+ 		  {% endfor %}
+		</select>
+		{% endif %}
+	      </td>
+	      {% endfor %}
+	    </tr>
+	    {% endfor %}
+	  </tbody>
+	</table>
+      </div>
 
-  <tr>
-  {% endfor %}
+      <div id="in_channels_tab" class="tab-pane">
+	<table id="ct2_in_channels" class="table table-striped table-bordered" data-toggle="table"
+	       data-show-toggle="true" data-show-columns="true" >
+	  <thead>
+	    <tr>
+	      {% for name, (_, _, _, label, _, desc) in IN_CHANNEL_PARAMS_SEQ %}
+	      <th data-toggle="tooltip" title="{{ desc }}">{{ label }}</th>
+	      {% endfor %}
+	    </tr>
+	  </thead>
+	  <tbody>
+	    {% for ch_id, ch in in_channels.items() %}
+	    <tr>
+	      {% for name, (type, waccess, default, label, group, desc) in IN_CHANNEL_PARAMS_SEQ %}
+	      {% set value = ch.get(name, default) %}
+	      <td data-toggle="tooltip" title="{{ description }}" >
+		{% if waccess == False %}
+		{{ value }}
+		{% elif type == "bool" %}
+		<input id="inch {{ch_id}} {{ name }}" name="inch {{ch_id}} {{ name }}" 
+	               class="form-control input-md" type="checkbox" 
+	               {{ "checked" if value == True }}>
+          </input>
+	  {% elif type in ("int", "float", "str", "unicode") %}
+          <input id="inch {{ch_id}} {{ name }}" name="inch {{ch_id}} {{ name }}"
+	         class="form-control input-md" type="text"
+		 value="{{ value }}">
+          </input>
+	  {% elif type in ("list<int>", "list<str>") %}
+	      <input id="inch {{ch_id}} {{ name }}" name="inch {{ch_id}} {{ name }}"
+		     class="form-control input-md" type="text"
+		     value="{{ value|map('string')|join(', ') }}">
+          </input>
+	  {% else %}
+	  <select class="selectpicker" id="inch {{ch_id}} {{ name }}" name="inch {{ch_id}} {{ name }}">
+	    {% for src in ct2[type] %} 
+            <option {{ "selected" if value == src.name }}>{{ src.name }}</option>
+ 	    {% endfor %}
+          </select>
+	  {% endif %}
+	      </td>
+	      {% endfor %}
+	    </tr>
+	    {% endfor %}
+	  </tbody>
+	</table>
+      </div>
 
-  <tfoot>
-    <tr>
-      <th>Channel #</th>
-      <th>50 Ohm</th>
-      <th>Trigger interrupt</th>
-    </tr>
-  </tfoot>
-
-</table>
-
-
-<table id="p201_output_channels" class="table table-striped table-bordered">
-  <thead>
-    <tr>
-      <th>Channel #</th>
-      <th>Level</th>
-      <th>TTL</th>
-      <th>NIM</th>
-      <th>Source</th>
-      <th>Filter enabled</th>
-      <th>Filter clock</th>
-      <th>Filter polarity</th>
-    </tr>
-  </thead>
-  {% for channel in channels %}
-  <tr>
-    <td>{{ channel["address"] }}</td>
-    <td>{{ channel.get("output level", "<i>0</i>") }}</td>
-    <td>{{ channel.get("TTL", "<i>False</i>") }}</td>
-    <td>{{ channel.get("NIM", "<i>False</i>") }}</td>
-    <td>{{ channel.get("output source", "<i>SOFTWARE</i>") }}</td>
-    <td>{{ channel.get("output filter enable", "<i>False</i>") }}</td>
-    <td>{{ channel.get("output filter clock", "<i>100 MHz</i>") }}</td>
-    <td>{{ channel.get("output filter polarity", "<i>0</i>") }}</td>
-  <tr>
-  {% endfor %}
-
-  <tfoot>
-    <tr>
-      <th>Channel #</th>
-      <th>Level</th>
-      <th>TTL</th>
-      <th>NIM</th>
-      <th>Source</th>
-      <th>Filter enabled</th>
-      <th>Filter clock</th>
-      <th>Filter polarity</th>
-    </tr>
-  </tfoot>
-
-</table>
-
+      <div id="out_channels_tab" class="tab-pane">
+	<table id="ct2_in_channels" class="table table-striped table-bordered" data-toggle="table"
+	       data-show-toggle="true" data-show-columns="true" >
+	  <thead>
+	    <tr>
+	      {% for name, (_, _, _, label, _, desc) in OUT_CHANNEL_PARAMS_SEQ %}
+	      <th data-toggle="tooltip" title="{{ desc }}">{{ label }}</th>
+	      {% endfor %}
+	    </tr>
+	  </thead>
+	  <tbody>
+	    {% for ch_id, ch in out_channels.items() %}
+	    <tr>
+	      {% for name, (type, waccess, default, label, group, desc) in OUT_CHANNEL_PARAMS_SEQ %}
+	      {% set value = ch.get(name, default) %}
+	      <td data-toggle="tooltip" title="{{ description }}" >
+		{% if waccess == False %}
+               	{{ value }}
+		{% elif type == "bool" %}
+		<input id="outch {{ch_id}} {{ name }}" name="outch {{ch_id}} {{ name }}" 
+	               class="form-control input-md" type="checkbox" 
+	               {{ "checked" if value == True }}>
+                </input>
+		{% elif type in ("int", "float", "str", "unicode") %}
+		<input id="outch {{ch_id}} {{ name }}" name="outch {{ch_id}} {{ name }}"
+	               class="form-control input-md" type="text"
+		       value="{{ value }}">
+                </input>
+		{% elif type in ("list<int>", "list<str>") %}
+                <input id="outch {{ch_id}} {{ name }}" name="outch {{ch_id}} {{ name }}"
+		       class="form-control input-md" type="text"
+		       value="{{ value|map('string')|join(', ') }}">
+                </input>
+		{% else %}
+		<select class="selectpicker" id="outch {{ch_id}} {{ name }}" name="outch {{ch_id}} {{ name }}">
+		  {% for src in ct2[type] %} 
+		  <option {{ "selected" if value == src.name }}>{{ src.name }}</option>
+ 		  {% endfor %}
+		</select>
+		{% endif %}
+	      </td>
+	      {% endfor %}
+	    </tr>
+	    {% endfor %}
+	  </tbody>
+	</table>
+      </div>
+    </div> <!-- tab content -->
+  </div> <!-- panel body -->
+</div> <!-- panel -->
 </fieldset>
 </form>
 
+<script type="text/javascript">
+
+  function submit_form(form) {
+    var formData = new FormData(form);
+    formData.append("__original_name__", "{{ params["name"] }}");
+    
+    $.ajax({
+      url: "plugin/ct2/card_edit",
+      type: "POST",
+      cache: false,
+      contentType: false,
+      processData: false,
+      data: formData,
+      success: function(result) {
+        data = $.parseJSON(result);
+        show_item(data.name);
+        write_message(data.message, data.type);
+      }
+    });
+  }
+
+  $(document).ready(function() {
+    $(".selectpicker")
+      .addClass("show-tick")
+      .attr("data-size", 10)
+      .attr("data-width", "auto")
+      .selectpicker();
+  
+    $("#apply").on("click", function() {
+      submit_form($("#card_form")[0]);
+      return false;
+    });
+  
+    $("#revert").on("click", function() {
+      show_item("{{ params.get("name") }}");
+      return false;
+    });
+  });
+
+</script>

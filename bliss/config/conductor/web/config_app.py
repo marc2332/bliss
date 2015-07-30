@@ -121,7 +121,7 @@ def tree(view):
   if view == "files":
     items = {}
     for fname, _ in client.get_config_db_files():
-      items[fname] = dict(type="file", path=fname, icon="fa fa-file")
+      items[fname] = dict(type="file", path=fname, icon="fa fa-file-text")
 
     for name in cfg.names_list:
       config = cfg.get_config(name)
@@ -157,7 +157,7 @@ def get_object_config(name):
   if plugin:
     obj_cfg = plugin(obj_cfg)
   else:
-    obj_cfg = ""
+    obj_cfg = "<h1>TODO</h1>"
   return flask.json.dumps(dict(html=obj_cfg, name=name))
 
 @web_app.route("/config/reload")

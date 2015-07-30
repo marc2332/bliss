@@ -70,11 +70,11 @@ class MockupAxis(Axis):
         self.backlash_move = 0
         return Axis.prepare_move(self, *args, **kwargs)
 
-    def _handle_move(self, motion):
+    def _handle_move(self, motion, polling_time):
         self.target_pos = motion.target_pos
         self.backlash_move = motion.target_pos / \
             self.steps_per_unit if motion.backlash else 0
-        return Axis._handle_move(self, motion)
+        return Axis._handle_move(self, motion, polling_time)
 
 
 class mockup_axis_module:

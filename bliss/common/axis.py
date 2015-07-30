@@ -8,6 +8,7 @@ import gevent
 import re
 import types
 
+DEFAULT_POLLING_TIME = 0.02
 
 class Null(object):
     __slots__ = []
@@ -338,7 +339,7 @@ class Axis(object):
         self.settings.set("state", state if state is not None else self.state(), write=True) #False)
         self._position()
 
-    def _handle_move(self, motion):
+    def _handle_move(self, motion, polling_time):
         while True:
             state = self.__controller.state(self)
             if state != "MOVING":
@@ -347,7 +348,7 @@ class Axis(object):
                   raise RuntimeError(str(state))
                 break
             self._update_settings(state)
-            time.sleep(0.02)
+            time.sleep(polling_time)
 
         if motion.backlash:
             # axis has moved to target pos - backlash;
@@ -357,7 +358,7 @@ class Axis(object):
             backlash_motion = Motion(self, final_pos, motion.backlash)
             self.__controller.prepare_move(backlash_motion)
             self.__controller.start_one(backlash_motion)
-            self._handle_move(backlash_motion)
+            self._handle_move(backlash_motion, polling_time)
 
     def _handle_sigint(self):
         self.stop(KeyboardInterrupt)
@@ -470,14 +471,14 @@ class Axis(object):
             raise RuntimeError("axis %s state is \
                                 %r" % (self.name, str(initial_state)))
 
-    def move(self, user_target_pos, wait=True, relative=False):
+    def move(self, user_target_pos, wait=True, relative=False, polling_time=DEFAULT_POLLING_TIME):
         if self.__controller.is_busy():
             raise RuntimeError("axis %s: controller is busy" % self.name)
         self._check_ready()
 
         motion = self.prepare_move(user_target_pos, relative)
 
-        self.__move_task = self._do_move(motion, wait=False)
+        self.__move_task = self._do_move(motion, polling_time, wait=False)
         self._set_moving_state()
         self.__move_task._being_waited = wait
         self.__move_task.link(self._set_move_done)
@@ -493,20 +494,20 @@ class Axis(object):
             raise RuntimeError("'%s` didn't reach final position." % self.name)
 
     @task
-    def _do_move(self, motion, wait=True):
+    def _do_move(self, motion, polling_time):
         if motion is None:
             return
 
         with error_cleanup(self._do_stop):
             self.__controller.start_one(motion)
 
-            self._handle_move(motion)
+            self._handle_move(motion, polling_time)
 
         if self.encoder is not None:
             self._do_encoder_reading()
 
-    def rmove(self, user_delta_pos, wait=True):
-        return self.move(user_delta_pos, wait, relative=True)
+    def rmove(self, user_delta_pos, wait=True, polling_time=DEFAULT_POLLING_TIME):
+        return self.move(user_delta_pos, wait, relative=True, polling_time=polling_time)
 
     def wait_move(self):
         if not self.is_moving:
@@ -523,7 +524,7 @@ class Axis(object):
         self.__controller.stop(self)
 
         try:
-            self._handle_move(Motion(self, None, None))
+            self._handle_move(Motion(self, None, None), DEFAULT_POLLING_TIME)
         finally:
             self.settings.set("_set_position", self.position())
 

@@ -1,7 +1,7 @@
 import gevent
 import itertools
 from bliss.common.task_utils import *
-from .axis import Axis, AxisRef, AxisState
+from bliss.common.axis import Axis, AxisRef, AxisState, DEFAULT_POLLING_TIME
 from bliss.common import event
 
 
@@ -105,15 +105,15 @@ class _Group(object):
             positions_dict[axis] = axis.dial()
         return positions_dict
 
-    def single_axis_move_task(self, motion):
+    def single_axis_move_task(self, motion, polling_time):
         with error_cleanup(motion.axis._do_stop):
-            motion.axis._handle_move(motion)
+            motion.axis._handle_move(motion, polling_time)
         if motion.axis.encoder is not None:
             motion.axis._do_encoder_reading()
 
-    def _handle_move(self, motions):
+    def _handle_move(self, motions, polling_time):
         for motion in motions:
-            move_task = gevent.spawn(self.single_axis_move_task, motion)
+            move_task = gevent.spawn(self.single_axis_move_task, motion, polling_time)
             motion.axis._Axis__move_task = move_task
             move_task._being_waited = True
             move_task.link(motion.axis._set_move_done)
@@ -128,7 +128,7 @@ class _Group(object):
         self._motions_dict = dict()
 
     @task
-    def _do_move(self, motions_dict):
+    def _do_move(self, motions_dict, polling_time):
         all_motions = []
         event.send(self, "move_done", False)
 
@@ -142,7 +142,7 @@ class _Group(object):
                         controller.start_one(motion)
                 for motion in motions:
                     motion.axis._set_moving_state()
-            self._handle_move(all_motions)
+            self._handle_move(all_motions, polling_time)
 
     def _set_move_done(self, move_task):
         self._reset_motions_dict()
@@ -166,18 +166,9 @@ class _Group(object):
 
         self._reset_motions_dict()
 
-        try:
-            wait = kwargs['wait']
-        except KeyError:
-            wait = True
-        else:
-            del kwargs['wait']
-        try:
-            relative = kwargs['relative']
-        except KeyError:
-            relative = False
-        else:
-            del kwargs['relative']
+        wait = kwargs.pop("wait", True)
+        relative = kwargs.pop("relative", False)
+        polling_time = kwargs.pop("polling_time", DEFAULT_POLLING_TIME)
 
         axis_pos_dict = dict()
 
@@ -197,7 +188,7 @@ class _Group(object):
                     motion)
 
         self.__move_done.clear() 
-        self.__move_task = self._do_move(self._motions_dict, wait=False)
+        self.__move_task = self._do_move(self._motions_dict, polling_time, wait=False)
         self.__move_task._being_waited = wait
         self.__move_task.link(self._set_move_done)
         gevent.sleep(0)

@@ -1,5 +1,8 @@
 from bliss.common.data_manager import DataManager
-from collections import OrderedDict
+try:
+    from collections import OrderedDict
+except ImportError:
+    from ordereddict import OrderedDict
 import gevent
 
 class Scan(object):
@@ -36,7 +39,8 @@ class AcquisitionMaster(object):
         raise NotImplementedError
     def start(self):
         raise NotImplementedError
-
+    def trigger(self):
+        raise NotImplementedError
 
 class AcquisitionDevice(object):
     def __init__(self, device):
@@ -47,6 +51,8 @@ class AcquisitionDevice(object):
     def prepare(self):
         raise NotImplementedError
     def start(self):
+        raise NotImplementedError
+    def trigger(self):
         raise NotImplementedError
 
 

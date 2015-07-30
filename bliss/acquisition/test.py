@@ -1,19 +1,27 @@
 from bliss.common.continuous_scan import AcquisitionDevice, AcquisitionMaster
 import gevent
+import time
 
 class TestAcquisitionDevice(AcquisitionDevice):
-  def __init__(self, device):
+  def __init__(self, device, sleep_time=1):
     AcquisitionDevice.__init__(self, device)
+    self.sleep_time = sleep_time
+
   def __str__(self):
     return '(acq.dev) '+self.device
+
   def prepare(self):
     print 'preparing device', self.device
-    gevent.sleep(2)
+    gevent.sleep(self.sleep_time)
     print 'done preparing device', self.device
+
   def start(self):
     print 'starting device', self.device
-    gevent.sleep(2)
+    gevent.sleep(self.sleep_time)
     print 'done starting device', self.device
+
+  def trigger(self):
+    print 'triggered', self.device, time.time()
 
 
 class TestAcquisitionMaster(AcquisitionMaster):

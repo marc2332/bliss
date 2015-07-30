@@ -367,6 +367,7 @@ def main():
     tcp.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
     tcp.bind(("",_options.port))
     port = tcp.getsockname()[1]
+    print "[beacon] server sitting on port:", port
     tcp.listen(512)        # limit to 512 clients
 
     #web application

@@ -1,0 +1,12 @@
+*.pyc
+*~
+build
+*.swp
+.coverage
+
+# for eclipse users
+.settings/
+.project
+.pydevproject
+
+

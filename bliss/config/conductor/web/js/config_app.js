@@ -107,8 +107,6 @@ function on_node_selected(ev, data) {
 function on_yml_node_selected(ev, data) {
     $.get("db_file_editor/" + data.node.data.path, function(data) {
         $("#edit_form").empty();
-        $("#edit_form_title").html(data.name);
-        $("#edit_form_title").parent().attr("style", "visibility: visible");
         if (data.html === undefined) {
             var form = $("<form></form>");
             form.addClass("form-group");
@@ -137,8 +135,6 @@ function show_item(item_name) {
         if (data === null) {
             $("#edit_panel").attr("style", "visibility: hidden");
         } else {
-            $("#edit_form_title").html(data.name);
-            $("#edit_form_title").parent().attr("style", "visibility: visible");
             if (data.html === undefined) {
                 var form = $("<form></form>");
                 form.addClass("form-group");

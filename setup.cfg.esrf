@@ -1,0 +1,11 @@
+[install]
+install_lib=/users/blissadm/python/bliss_modules
+install_scripts=/users/blissadm/local/bin
+
+[pep8]
+ignore=F403
+max-line-length=116
+
+[flake8]
+ignore=F403
+max-line-length=116

@@ -38,7 +38,7 @@ def get_tree(cfg):
         ctrl_name = cfg.get("name", "<unnamed controller>")
         result = dict(type="controller",
                       path=os.path.join(cfg.filename, ctrl_name),
-                      icon="fa fa-th")
+                      icon="fa fa-gears")
     return result
 
 

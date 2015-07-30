@@ -72,14 +72,14 @@
     <!-- Main content -->
     <div class="row">
       <!-- Tree panel (left panel) -->
-      <div id="tree_panel" class="col-md-4" style="padding-right: 4px;">
+      <div id="tree_panel" class="col-md-3" style="padding-right: 4px;">
 	<!-- Tree toolbar -->
 	<div class="panel panel-default">
 	  <div class="panel-body" style="padding: 6px;">
 	    <div class="btn-toolbar" role="toolbar" id="tree_toolbar" aria-label="tree toolbar">
 	      <div class="btn-group" role="group" aria-label="item edition">
 		<div class="btn-group" role="group">
-		  <button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown"
+		  <button type="button" class="btn btn-primary btn-sm dropdown-toggle" data-toggle="dropdown"
 			  aria-haspopup="true" aria-expanded="false" id="add_item">
 		    Add...
 		    <span class="caret"></span>
@@ -91,17 +91,18 @@
 		    <li><a href="#">Item</a></li>
 		  </ul>
 		</div>
-		<button type="button" class="btn btn-primary" id="delete_item">
+		<button type="button" class="btn btn-primary btn-sm" id="delete_item">
 		  Delete
 		  <span class="fa fa-remove"></span>
 		</button>
-		<button type="button" class="btn btn-primary" id="clone_item">
+		<button type="button" class="btn btn-primary btn-sm" id="clone_item">
 		  Clone
 		  <span class="fa fa-copy"></span>
 		</button>
 	      </div>
 	    </div>
 
+	    <div style="height:10px;"></div>
 	    <!-- Tree -->
 	    <div id="tree" class="jstree jstree-1 jstree-default"></div>
 	  </div>
@@ -109,12 +110,9 @@
       </div>
 
       <!-- Edit panel (right panel) -->
-      <div id="right_panel" class="col-md-8" style="padding-left: 4px;">
-	<div id="edit_panel" class="panel panel-default" style="visibility:hidden">
-	  <div class="panel-heading">
-            <h3 id="edit_form_title" class="panel-title"></h3>
-	  </div>
-	  <div id="edit_form" class="panel-body" style="padding: 6px;"></div>
+      <div id="right_panel" class="col-md-9" style="padding-left: 4px;">
+	<div id="edit_panel" class="" style="visibility:hidden">
+	  <div id="edit_form" class="" style=""></div>
         </div>
       </div>
     </div>

@@ -65,7 +65,7 @@ function tree_populate(container) {
                 children: [],
                 data: {},
                 state: {
-                    opened: true
+                    opened: (level < 1)
                 }
             };
             parent_node.push(new_node);

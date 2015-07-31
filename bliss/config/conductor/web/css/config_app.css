@@ -4,3 +4,7 @@
   min-height: 350px;
   padding: 5px;
 }
+
+.navbar-compact {
+    margin-bottom: 4px;
+}

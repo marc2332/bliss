@@ -32,23 +32,15 @@
     <script src="js/config_app.js"></script>
     <link rel="stylesheet" href="css/config_app.css"></link>
 
-    <style>
-      <!-- compact bootstrap panels and forms -->
-      .panel-body { padding: 4px; }
-      .edit-form { padding: 4px; }
-      .form-control { padding: 4px 4px; }
-      .message-bar { margin-top:8px; margin-bottom: 8px; padding: 6px;}
-      .navbar { margin-bottom: 6px; }
-      .navbar-brand { padding: 6px; }
-    </style>
   </head>
   <body>
 
     <!-- Main toolbar -->
-    <div class="navbar navbar-default" id="main_toolbar" aria-label="main toolbar">
+    <nav class="navbar navbar-default navbar-compact" id="main_toolbar" aria-label="main toolbar">
       <div class="container-fluid">
         <div class="navbar-header">
-          <a class="navbar-brand" href="#"><img alt="Beacon" src="res/logo.png" width="48"></img></a>
+          <!-- <a class="navbar-brand" href="#"><img alt="Beacon" src="res/logo.png" width="32" height="32"></img></a> -->
+	  <a class="navbar-brand" href="#">Beacon</a>
         </div>
 
 	<form class="navbar-form navbar-left" role="search">
@@ -61,64 +53,30 @@
 	  </button>
 	</form>
 
+	<p id="message_box" role="alert" class="navbar-text alert"></p>
+
         <button type="button" class="btn btn-primary navbar-btn navbar-right" id="reload_config"
-		        data-loading-text="Reloading...">
+		data-loading-text="Reloading...">
           Reload config
           <span class="fa fa-refresh"></span>
         </button>
       </div>
-    </div>
+    </nav>
 
-    <!-- Main content -->
-    <div class="row">
-      <!-- Tree panel (left panel) -->
-      <div id="tree_panel" class="col-md-3" style="padding-right: 4px;">
-	<!-- Tree toolbar -->
-	<div class="panel panel-default">
-	  <div class="panel-body" style="padding: 6px;">
-	    <div class="btn-toolbar" role="toolbar" id="tree_toolbar" aria-label="tree toolbar">
-	      <div class="btn-group" role="group" aria-label="item edition">
-		<div class="btn-group" role="group">
-		  <button type="button" class="btn btn-primary btn-sm dropdown-toggle" data-toggle="dropdown"
-			  aria-haspopup="true" aria-expanded="false" id="add_item">
-		    Add...
-		    <span class="caret"></span>
-		    <span class="fa fa-plus"></span>
-		  </button>
-		  <ul class="dropdown-menu">
-		    <li><a href="#">Folder</a></li>
-		    <li><a href="#">File</a></li>
-		    <li><a href="#">Item</a></li>
-		  </ul>
-		</div>
-		<button type="button" class="btn btn-primary btn-sm" id="delete_item">
-		  Delete
-		  <span class="fa fa-remove"></span>
-		</button>
-		<button type="button" class="btn btn-primary btn-sm" id="clone_item">
-		  Clone
-		  <span class="fa fa-copy"></span>
-		</button>
-	      </div>
-	    </div>
-
-	    <div style="height:10px;"></div>
-	    <!-- Tree -->
-	    <div id="tree" class="jstree jstree-1 jstree-default"></div>
+    <div class="container-fluid">
+      <div class="row row-eq-height">
+	<!-- Tree panel (left panel) -->
+	<div id="tree_panel" class="col-md-2">
+	  <!-- Tree -->
+	  <div id="tree" class="jstree"></div>
+	</div>
+	<div id="right_panel" class="col-md-10">
+	  <!-- Edit panel (right panel) -->
+	  <div id="edit_panel" class="" style="visibility:hidden">
+	    <div id="edit_form" class="" style=""></div>
 	  </div>
 	</div>
       </div>
-
-      <!-- Edit panel (right panel) -->
-      <div id="right_panel" class="col-md-9" style="padding-left: 4px;">
-	<div id="edit_panel" class="" style="visibility:hidden">
-	  <div id="edit_form" class="" style=""></div>
-        </div>
-      </div>
-    </div>
-    <div class="row">
-      <div id="message_box" role="alert"
-           class="alert"></div>
     </div>
     <script>
       $(function() {

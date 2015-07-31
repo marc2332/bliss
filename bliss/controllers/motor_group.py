@@ -11,10 +11,6 @@ def grouped(iterable, n):
     return itertools.izip(*[iter(iterable)] * n)
 
 
-def createGroupFromConfig(name, config, axes):
-    return _Group(name, config, axes)
-
-
 def Group(*axes_list):
     axes = dict()
     g = _Group(id(axes), {}, [])
@@ -30,8 +26,6 @@ class _Group(object):
 
     def __init__(self, name, config, axes):
         self.__name = name
-        from bliss.config.motors import StaticConfig
-        self.__config = StaticConfig(config)
         self._axes = dict()
         self._motions_dict = dict()
         self.__move_done = gevent.event.Event()
@@ -45,10 +39,6 @@ class _Group(object):
     @property
     def name(self):
         return self.__name
-
-    @property
-    def config(self):
-        return self.__config
 
     @property
     def axes(self):

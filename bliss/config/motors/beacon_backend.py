@@ -217,9 +217,20 @@ class StaticConfig(object):
 
             raise KeyError("no property '%s` in config" % property_name)
 
-
     def set(self, property_name, value):
         self.config_dict[property_name] = value
    
     def save(self):
         self.config_dict.save()
+
+    def reload(self):
+        cfg = static.get_config()
+        # this reloads *all* the configuration, hopefully it is not such
+        # a big task and it can be left as simple as it is, if needed
+        # we could selectively reload only parts of the config (e.g one
+        # single object yml file)
+        # TODO: a channel to inform all clients that config has changed!!!
+        # config keys should be sent to all listeners
+        cfg.reload()
+        self.config_dict = cfg.get_config(self.config_dict['name'])
+

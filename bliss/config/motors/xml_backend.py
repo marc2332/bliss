@@ -192,5 +192,21 @@ class StaticConfig(object):
             tree.write(self.config_dict.config_file)
         else:
             pass #print ElementTree.tostring(self.config_dict.root)
-      
+
+    def reload(self):
+        if self.config_dict.config_file is None:
+            return
+        name = self.config_dict['name']
+        parent_map = dict((c,p) for p in self.config_dict.root.getiterator() for c in p)
+        parent_parent_class = parent_map[self.config_dict.parent_element].attrib['class']
+        tree = ElementTree.parse(self.config_dict.config_file)
+        for controller_config in tree.findall("controller"):
+            if controller_config.attrib['class'] == parent_parent_class:
+                for object_config in controller_config:
+                    if object_config.attrib['name'] == name:
+                        config = XmlDictConfig(object_config)
+                        config.config_file = self.config_dict.config_file
+                        config.root = tree.getroot()
+                        self.config_dict = config
+                        break
 

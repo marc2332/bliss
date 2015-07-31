@@ -600,13 +600,12 @@ class Axis(object):
         if any((velocity, acceleration, limits)):
             self.__config.save()
 
-    def apply_config(self, velocity=True, acceleration=True, limits=True):
-        if velocity:
-            self.velocity(self.velocity(from_config=True))
-        if acceleration:
-            self.acceleration(self.acceleration(from_config=True))
-        if limits:
-            self.limits(*self.limits(from_config=True))
+    def apply_config(self):
+        self.config.reload()
+
+        self.velocity(self.velocity(from_config=True))
+        self.acceleration(self.acceleration(from_config=True))
+        self.limits(*self.limits(from_config=True))
 
 
 class AxisRef(object):

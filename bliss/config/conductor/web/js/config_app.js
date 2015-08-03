@@ -1,3 +1,120 @@
+function __add_file(path) {
+   console.log("add file " + path);
+    var formData = new FormData();
+    formData.append("file", path);
+
+    $.ajax({
+	url: "add_file",
+	type: "POST",
+	cache: false,
+	contentType: false,
+	processData: false,
+	data: formData,
+	success: function(result) {
+            data = $.parseJSON(result);
+	    tree_reload("#fs_tree", path);
+            show_yaml(path);
+            write_message(data.message, data.type);
+	}
+    });
+}
+
+function __add_folder(path) {
+   console.log("add folder " + path);
+    var formData = new FormData();
+    formData.append("folder", path);
+
+    $.ajax({
+	url: "add_folder",
+	type: "POST",
+	cache: false,
+	contentType: false,
+	processData: false,
+	data: formData,
+	success: function(result) {
+            data = $.parseJSON(result);
+	    tree_reload("#fs_tree", path);
+            show_item(path);
+            write_message(data.message, data.type);
+	}
+    });
+}
+
+function add_file() {
+    var path = prompt("YAML file name (full path inc '.yml extension)?");
+    if (path !== null) {
+	__add_file(path);
+    }
+}
+
+function __remove(path) {
+    console.log("remove file/directory " + path);
+    var formData = new FormData();
+    formData.append("file", path);
+
+    $.ajax({
+	url: "remove_file",
+	type: "POST",
+	cache: false,
+	contentType: false,
+	processData: false,
+	data: formData,
+	success: function(result) {
+            data = $.parseJSON(result);
+	    tree_reload("#fs_tree");
+	    $("#edit_form").empty();
+            write_message(data.message, data.type);
+	}
+    });
+}
+
+function __remove_file(path) {
+    var r = confirm("Are you sure you want to delete " + path + "?");
+    if (r !== true) {
+	return;
+    }
+    __remove(path);
+}
+
+function __remove_folder(path) {
+    var r = confirm("Are you sure you want to folder " + path + " (all items underneath will also be deleted!) ?");
+    if (r !== true) {
+	return;
+    }
+    __remove(path);
+}
+
+function add_folder() {
+    var path = prompt("Directory name (full path)?");
+    if (path !== null) {
+	__add_folder(path);
+    }
+}
+
+function tree_add_folder(obj) {
+    var path = prompt("Directory name?");
+    if (path !== null) {
+	path =  this.data.path + "/" + path;
+	__add_folder(path);
+    }
+}
+
+function tree_add_file(obj) {
+    var path = prompt("File name (must have suffix '.yml'?");
+    if (path !== null) {
+	path = this.data.path + "/" + path;
+	__add_file(path);
+    }
+}
+
+function tree_remove_file(obj) {
+    __remove_file(this.data.path);
+}
+
+function tree_remove_folder(obj) {
+    __remove_folder(this.data.path);
+}
+
 function tree_context_menu(node) {
     var items = {}
     if (node.data.type == 'file') {
@@ -5,107 +122,133 @@ function tree_context_menu(node) {
 	    label: "Add item",
 	    icon: "fa fa-star",
 	    _disabled: true,
-	    action: function() { console.log("add item"); },
+	    action: function(n) { console.log("add item"); },
+	};
+	items.rename_item = {
+            label: "Rename",
+            icon: "fa fa-edit",
+	    separator_before: true,
+	    _disabled: true,
+	    shortcut: 113,
+	    shortcut_label: "F2",
+	    action: function() { console.log("rename item"); },
+	};
+
+	items.delete_item = {
+	    label: "Delete",
+	    icon: "fa fa-remove",
+	    separator_before: true,
+	    _disabled: false,
+	    action: tree_remove_file.bind(node),
 	};
     }
     else if (node.data.type == 'folder') {
 	items.add_file = {
-	    label: "Add file",
+	    label: "Add YAML file",
 	    icon: "fa fa-file",
-	    _disabled: true,
-	    action: function() { console.log("add file"); },
+	    _disabled: false,
+	    action: tree_add_file.bind(node),
 	};
 	items.add_folder = {
 	    label: "Add folder",
 	    icon: "fa fa-folder",
 	    _disabled: true,
-	    action: function() { console.log("add folder"); },
+	    action: tree_add_folder.bind(node),
+	};
+	items.rename_item = {
+            label: "Rename",
+            icon: "fa fa-edit",
+	    separator_before: true,
+	    _disabled: true,
+	    shortcut: 113,
+	    shortcut_label: "F2",
+	    action: function() { console.log("rename item"); },
+	};
+
+	items.delete_item = {
+	    label: "Delete",
+	    icon: "fa fa-remove",
+	    separator_before: true,
+	    _disabled: false,
+	    action: tree_remove_folder.bind(node),
 	};
     }
 
-    items.rename_item = {
-        label: "Rename",
-        icon: "fa fa-edit",
-	separator_before: true,
-	_disabled: true,
-	shortcut: 113,
-	shortcut_label: "F2",
-	action: function() { console.log("rename item"); },
-    };
-    items.delete_item = {
-	label: "Delete",
-	icon: "fa fa-remove",
-	separator_before: true,
-	_disabled: true,
-	action: function() { console.log("delete item"); },
-    };
     return items;
 }
 
-function tree_populate(container) {
-    var tree = {
-        core: {
-            data: [],
-            animation: 0,
-            multiple: false
-        },
-        plugins: ["contextmenu", "search", "dnd"],
-	contextmenu: {
-	    items: tree_context_menu
-	},
-	search: {
-	    case_insensitive: true,
-	    show_only_matches: true,
-	}
-    };
+function tree_reload(tree_name, selected_item_name) {
     var fill_node = function(data, parent_node, level) {
+        var opened = false;
+        if (level<1) {
+            opened = true;
+        }
         $.each(data, function(key, value) {
+	    node_info = value[0];
+	    selected = selected_item_name === node_info.path;
             var new_node = {
-                text: key,
-                children: [],
-                data: {},
-                state: {
-                    opened: (level < 1)
-                }
+		text: key,
+		children: [],
+		icon: node_info.icon,
+		data: {
+		    type: node_info.type,
+		    path: node_info.path,
+		    icon: node_info.icon,
+		},
+		state: {
+                    opened: opened,
+		    selected: selected,
+		}
             };
             parent_node.push(new_node);
-	    node_info = value[0];
-	    var node_type = node_info.type;
-	    new_node.data.type = node_info.type;
-	    new_node.data.path = node_info.path;
-	    new_node.icon = node_info.icon;
             fill_node(value[1], new_node.children, level + 1);
         });
     };
-    tree_init(container);
-    $.get("tree/files", function(data) {
-        fill_node(data, tree.core.data, 0);
-        container.jstree(tree);
-    }, "json");
-}
 
-function tree_init(tree) {
-    tree.bind("select_node.jstree", on_node_selected);
-    tree.bind("select_node.jstree", function(node, data) {
-        if (data.node.data.type != "item") {
-            $("#clone_item").addClass("disabled");
-        } else {
-            $("#clone_item").removeClass("disabled");
-        }
-    });
+    $.get("tree/files", function(data) {
+        var tree = $(tree_name);
+        tree.jstree("destroy");
+	//var js_tree = tree.jstree();
+
+        var tree_struct = {
+            core: {
+		data: [],
+		animation: 0,
+		multiple: false
+            },
+            plugins: ["contextmenu", "search", "dnd"],
+	    contextmenu: {
+	      items: tree_context_menu.bind(this)
+            },
+            search: {
+		case_insensitive: true,
+		show_only_matches: true,
+	    },
+        };
+
+        fill_node(data, tree_struct.core.data, 0);
+
+        tree.jstree(tree_struct);
+	tree.bind("select_node.jstree", on_node_selected);
+    }, "json");
 }
 
 function on_node_selected(ev, data) {
     var node_type = data.node.data.type;
     if (node_type === "file") {
-        on_yml_node_selected(ev, data);
+        on_yaml_node_selected(ev, data);
     } else {
         on_item_node_selected(ev, data);
     }
 }
 
-function on_yml_node_selected(ev, data) {
-    $.get("db_file_editor/" + data.node.data.path, function(data) {
+function on_yaml_node_selected(ev, data) {
+    var file_path = data.node.data.path;
+    show_yaml(file_path);
+}
+
+function show_yaml(file_path) {
+   $.get("db_file_editor/" + file_path, function(data) {
         $("#edit_form").empty();
         if (data.html === undefined) {
             var form = $("<form></form>");
@@ -130,6 +273,7 @@ function on_item_node_selected(ev, data) {
 }
 
 function show_item(item_name) {
+    console.log("showing item " + item_name);
     $.get("objects/" + item_name, function(data) {
         $("#edit_form").empty();
         if (data === null) {

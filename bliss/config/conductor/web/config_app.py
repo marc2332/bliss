@@ -64,6 +64,10 @@ def get_plugin(name, member=None):
 def index():
   return flask.send_from_directory(__this_path, "index.html")
 
+@web_app.route("/jstree")
+def jstree_test():
+  return flask.send_from_directory(__this_path, "jstree_test1.html")
+
 @web_app.route("/<dir>/<path:filename>")
 def static_file(dir, filename):
   return flask.send_from_directory(os.path.join(__this_path, dir), filename)
@@ -178,3 +182,32 @@ def handle_plugin_action(name, action):
   if not plugin:
     return ""
   return plugin(get_config(), flask.request)
+
+@web_app.route("/add_folder", methods=["POST"])
+def add_folder():
+  cfg = get_config()
+  folder = flask.request.form['folder']
+  print(folder)
+  filename = os.path.join(folder, "__init__.yml")
+  node = static.Node(cfg, filename=filename)
+  node.save()
+  return flask.json.dumps(dict(message="Folder created!",
+                               type="success"))
+
+@web_app.route("/add_file", methods=["POST"])
+def add_file():
+  cfg = get_config()
+  filename = flask.request.form['file']
+  print(filename)
+  node = static.Node(cfg, filename=filename)
+  node.save()
+  return flask.json.dumps(dict(message="File created!",
+                               type="success"))
+
+@web_app.route("/remove_file", methods=["POST"])
+def remove_file():
+  cfg = get_config()
+  filename = flask.request.form['file']
+  client.remove_config_file(filename)
+  return flask.json.dumps(dict(message="File deleted!",
+                               type="success"))

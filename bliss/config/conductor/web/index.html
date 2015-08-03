@@ -48,18 +48,27 @@
             <input id="search_edit" type="text" class="form-control" placeholder="Search"></input>
           </div>
 	  <button id="clear_search" type="button" class="btn btn-default">
-	    Clear search
 	    <span class="fa fa-eraser"></span>
+	    Clear search
 	  </button>
 	</form>
 
-	<p id="message_box" role="alert" class="navbar-text alert"></p>
+	<button type="button" class="btn btn-primary navbar-btn" id="add_file"
+		data-toggle="tooltip" data-placement="bottom"
+		title="Add a new YAML file">
+          <span class="fa fa-file"></span>
+          Add YAML file...
+        </button>
+
+	<p id="message_box" role="alert" class="navbar-text alert message-compact"></p>
 
         <button type="button" class="btn btn-primary navbar-btn navbar-right" id="reload_config"
-		data-loading-text="Reloading...">
-          Reload config
+		data-loading-text="Reloading..." data-toggle="tooltip" data-placement="bottom"
+		title="Reloads configuration from the server">
           <span class="fa fa-refresh"></span>
+          Reload config
         </button>
+
       </div>
     </nav>
 
@@ -68,7 +77,7 @@
 	<!-- Tree panel (left panel) -->
 	<div id="tree_panel" class="col-md-2">
 	  <!-- Tree -->
-	  <div id="tree" class="jstree"></div>
+	  <div id="fs_tree" class="jstree"></div>
 	</div>
 	<div id="right_panel" class="col-md-10">
 	  <!-- Edit panel (right panel) -->
@@ -83,27 +92,28 @@
 
         $('[data-toggle="tooltip"]').tooltip({'placement': 'top'});
 
-        var tree = $("#tree")
-
         $("#search_edit").keyup(function() {
           var search = $(this).val();
-          tree.jstree("search", search);
+          $("#fs_tree").jstree("search", search);
         });
 
         $("#clear_search").on("click", function() {
           $("#search_edit").val("");
-          tree.jstree().clear_search();
+          $("#fs_tree").jstree("clear_search");
         });
 
-        tree_populate(tree);
+        $("#add_file").on("click", function() {
+          add_file();
+        });
+
+        tree_reload("#fs_tree");
 
         $("#reload_config").on("click", function() {
           var btn = $(this).button('loading');
           request = $.ajax({
             url : "config/reload",
             success: function() {
-              tree.jstree("destroy");
-              tree_populate(tree);
+              tree_reload("#fs_tree");
             }});
           request.always(function() {
             btn.button('reset');

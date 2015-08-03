@@ -26,6 +26,8 @@ def setup(setup_file=None, env_dict=None, verbose=True):
             if verbose:
                 print "Reading setup file '%s`" % setup_file_path
 
+            setattr(setup_globals, "SETUP_FILE", setup_file_path)
+
             if env_dict is None:
                 # does Python run in interactive mode?
                 import __main__ as main
@@ -68,4 +70,22 @@ def _load_config(env_dict, verbose=True):
             env_dict[item_name] = o
             setattr(setup_globals, item_name, o)
             del o
+
+def load_script(script_module_name, path=None):
+    if path is None:
+        setup_file_path = setup_globals.SETUP_FILE
+        path = os.path.join(os.path.dirname(setup_file_path), "scripts")
+
+    if not os.path.isdir(path):
+        raise RuntimeError("Scripts directory '%s` does not exist." % path)
+    if not path in sys.path:
+        sys.path.insert(0, path)
+
+    try:
+        script_module = __import__(script_module_name, globals(), {}, [])
+    except Exception:
+        sys.excepthook(*sys.exc_info())
+    else:
+        for k, v in script_module.__dict__.iteritems():
+            script_module.__builtins__[k] = v
 

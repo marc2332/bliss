@@ -149,12 +149,14 @@ class fshutter:
          self.fshutter_mot.move(self.shift)
          self.fshutter_mot.position(0)
          self.fshutter_mot.dial(0)
+         self.fshutter_mot.move(0)
+
          
          if self.musst:
             self.musst.putget("#ABORT")
             self.musst.putget("#CH CH1 0")
          time.sleep(1)
-         self.close()
+         self.enable()
 
        dispatcher.send('state', self, self.state())
 

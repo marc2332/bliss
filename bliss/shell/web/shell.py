@@ -25,8 +25,9 @@ OUTPUT_QUEUE = dict()
 INTERPRETER = dict()
 RESULT = dict()
 SESSION_INIT = dict()
-SETUP_FILE = dict()
+SETUP = dict()
 SYNOPTIC = dict()
+SHELL_CONFIG_FILE = None
 
 # patch socket module;
 # by default bottle doesn't set address as reusable
@@ -39,6 +40,13 @@ def my_socket_bind(self, *args, **kwargs):
 socket.socket.bind = my_socket_bind
 
 
+def set_shell_config_file(cfg_file):
+    global SHELL_CONFIG_FILE
+    if not os.path.isfile(cfg_file):
+        raise RuntimeError("Config file '%s` does not exist." % cfg_file)
+    SHELL_CONFIG_FILE = cfg_file
+
+
 def set_synoptic_file(session_id, synoptic_svg_file, synoptic_elements):
     global SYNOPTIC
     s = SYNOPTIC.setdefault(session_id, dict())
@@ -46,9 +54,11 @@ def set_synoptic_file(session_id, synoptic_svg_file, synoptic_elements):
     s["elements"] = synoptic_elements
 
 
-def set_setup_file(session_id, setup_file):
-    global SETUP_FILE
-    SETUP_FILE[session_id] = os.path.abspath(os.path.expanduser(setup_file))
+def set_setup_file(session_id, setup_file, config_objects_names):
+    global SETUP
+    if isinstance(config_objects_names, str):
+        config_objects_names = config_objects_names.split()
+    SETUP[session_id] = dict(file=os.path.abspath(os.path.expanduser(setup_file)), config_objects=config_objects_names)
 
 
 def read_config(config_file):
@@ -59,7 +69,7 @@ def read_config(config_file):
             setup_file = cfg[session_id]["setup-file"]
             if not os.path.isabs(setup_file):
                 setup_file = os.path.join(os.path.dirname(os.path.abspath(config_file)), setup_file)
-            set_setup_file(session_id, setup_file)
+            set_setup_file(session_id, setup_file, cfg[session_id].get("config_objects"))
             try:
                 synoptic_file = cfg[session_id]["synoptic"]["svg-file"]
             except KeyError:
@@ -223,11 +233,14 @@ def open_session(session_id):
     client_id = str(uuid.uuid1())
 
     if not session_id in INTERPRETER:
+        read_config(SHELL_CONFIG_FILE)
         cmds_queue,EXECUTION_QUEUE[session_id] = gipc.pipe()
         output_queue_from_interpreter, output_queue = gipc.pipe()
         RESULT[session_id] = dict()
+        setup_file = SETUP.get(session_id, {}).get("file")
+        config_objects_names = SETUP.get(session_id, {}).get("config_objects")
         INTERPRETER[session_id] = gipc.start_process(interpreter.start_interpreter,
-                                                     args=(SETUP_FILE.get(session_id), cmds_queue, output_queue))
+                                                     args=(setup_file, config_objects_names, cmds_queue, output_queue))
         EXECUTION_QUEUE[session_id].put((None, "syn", (None,)))
         output_queue_from_interpreter.get() #ack
     

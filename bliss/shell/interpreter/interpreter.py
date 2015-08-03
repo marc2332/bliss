@@ -254,7 +254,7 @@ def get_objects_by_type(objects_dict):
 
     return { "motors": motors, "counters": counters, "actuator": actuator, "shutter": shutter }
 
-def start(setup_file, input_queue, output_queue, i):
+def start(setup_file, config_objects_names, input_queue, output_queue, i):
     # restore default SIGINT behaviour
     def raise_kb_interrupt(interpreter=i):
         if not interpreter.kill(KeyboardInterrupt):
@@ -267,7 +267,7 @@ def start(setup_file, input_queue, output_queue, i):
                                "shutter": dict() }
     init_scans_callbacks(i, output_queue)
 
-    i.locals["resetup"] = functools.partial(setup, env_dict=i.locals)
+    i.locals["resetup"] = functools.partial(setup, env_dict=i.locals, config_objects_names_list=config_objects_names)
     i.locals["SETUP_FILE"] = setup_file
 
     root_logger = logging.getLogger()

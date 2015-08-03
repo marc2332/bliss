@@ -18,6 +18,6 @@ logging.basicConfig()
 logging.getLogger().setLevel(logging.DEBUG)
 
 if options.config_file:
-    shell.read_config(options.config_file)
+    shell.set_shell_config_file(options.config_file)
 shell.serve_forever(options.port) 
 

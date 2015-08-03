@@ -2,7 +2,7 @@
 from bliss import setup_globals
 import sys
 
-def start_interpreter(setup_file, input_queue, output_queue):
+def start_interpreter(setup_file, config_objects_names, input_queue, output_queue):
     interpreter = __import__("interpreter", globals(), locals(), [])
 
     i = interpreter.init(input_queue, output_queue)
@@ -15,5 +15,5 @@ def start_interpreter(setup_file, input_queue, output_queue):
     """
     i.locals = setup_globals.__dict__ #.copy()
 
-    return interpreter.start(setup_file, input_queue, output_queue, i)
+    return interpreter.start(setup_file, config_objects_names, input_queue, output_queue, i)
 

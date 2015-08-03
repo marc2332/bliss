@@ -8,7 +8,7 @@ try:
 except ImportError:
     sys.excepthook(*sys.exc_info())
 
-def setup(setup_file=None, env_dict=None, verbose=True):
+def setup(setup_file=None, env_dict=None, config_objects_names_list=None, verbose=True):
     if env_dict: 
         setup_file = env_dict.get("SETUP_FILE") if setup_file is None else setup_file
 
@@ -37,7 +37,7 @@ def setup(setup_file=None, env_dict=None, verbose=True):
                 else:
                     env_dict = globals()
 
-            _load_config(env_dict,verbose) 
+            _load_config(env_dict, config_objects_names_list, verbose) 
 
             try:
                 execfile(setup_file_path, env_dict) #setup_globals.__dict__) 
@@ -50,7 +50,7 @@ def setup(setup_file=None, env_dict=None, verbose=True):
             return True
     raise RuntimeError("No setup file.")
 
-def _load_config(env_dict, verbose=True):
+def _load_config(env_dict, names_list=None, verbose=True):
     try:
         cfg = static.get_config()
     except:
@@ -59,7 +59,9 @@ def _load_config(env_dict, verbose=True):
 
     cfg.reload()
  
-    for item_name in cfg.names_list:
+    if names_list is None:
+        names_list = cfg.names_list
+    for item_name in names_list:
         if verbose:
             print "Initializing '%s`" % item_name
         try:

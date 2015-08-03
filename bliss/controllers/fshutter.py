@@ -35,7 +35,6 @@ class fshutter:
       self.enastate = None
       self.state()
        
-
    def state(self):
       enastate = self.enastate
       if self.musst:
@@ -63,13 +62,23 @@ class fshutter:
       self.enable()
 
    def _toggle_state(self):
-      self.enable(self.icepap_steps)
       if self.musst:
+         if not self.enastate: 
+             self.enable(self.icepap_steps)
          btrig = self.musst.putget("?BTRIG")
          self.musst.putget("#BTRIG %d" % (1-btrig))
          dispatcher.send('state', self, 'MOVING')
-         while self.fshutter_mot.state().MOVING:
-            time.sleep(0.01)
+         # 'moving' state is not reported properly
+         # by libicepap in shutter mode
+         while True:
+             fstatus = int(self._icepap_query("?FSTATUS %d\n").split()[-1],16)
+             moving = (fstatus & 1<<10) or (fstatus & 1<<11)
+             if moving:
+                 time.sleep(0.01)
+             else:
+                 break
+      else:
+         self._toggle_state_icepap()
 
    def msopen(self):
       state = self.state()
@@ -95,7 +104,7 @@ class fshutter:
          # already open 
          return
        
-      self._toggle_state_icepap()
+      self._toggle_state()
       new_state = self.state()
       dispatcher.send('state', self, new_state)
       print "now is %s" % new_state
@@ -108,7 +117,7 @@ class fshutter:
          # already closed
          return
 
-      self._toggle_state_icepap()
+      self._toggle_state()
       new_state = self.state()
       dispatcher.send('state', self, new_state)
       print "now is %s" % new_state
@@ -145,7 +154,9 @@ class fshutter:
          self.disable()
          if self.musst:
             self.musst.putget("#BTRIG 0")
-         self.fshutter_mot.home(0)
+         self.fshutter_mot.home()
+         self.fshutter_mot.dial(0)
+         self.fshutter_mot.position(0)
          self.fshutter_mot.move(self.shift)
          self.fshutter_mot.position(0)
          self.fshutter_mot.dial(0)

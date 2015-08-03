@@ -29,7 +29,10 @@ class LogHandler(logging.Handler):
         self.queue = queue
 
     def emit(self, record):
-        self.queue.put((None, {"type":"log", "data": { "message": self.format(record), "level": record.levelname }}))
+        try:
+            self.queue.put((None, {"type":"log", "data": { "message": self.format(record), "level": record.levelname }}))
+        except OSError:
+            pass
     
 
 class Stdout:
@@ -273,7 +276,10 @@ def start(setup_file, input_queue, output_queue, i):
     root_logger.addHandler(custom_log_handler)
  
     while True:
-        client_uuid, action, _ = input_queue.get()
+        try:
+            client_uuid, action, _ = input_queue.get()
+        except EOFError:
+            break
         if action == "syn":
             output_queue.put("ack")
             continue

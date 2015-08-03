@@ -48,4 +48,24 @@
           {
 	      background-color: #E0F8F7;
           }
+          
+          input {
+              border:2px solid #dadada;
+              border-radius:7px;
+              padding:5px;
+              margin-top:-10px;    
+          }
 
+          input:focus { 
+             outline:none;
+             border-color:#9ecaed;
+             box-shadow:0 0 10px #9ecaed;
+          }
+ 
+          .glowing-border-focused {
+             border: 2px solid #dadada;
+             border-radius: 7px; 
+             border-color: #9ecaed;
+             outline: none;
+             box-shadow: 0 0 10px #9ecaed;
+          }

@@ -143,7 +143,7 @@ def tree(view):
         full_part = os.path.join(full_part, part)
         p_item = items.get(full_part)
         if p_item is None:
-          p_item = dict(type="folder", path=db_file, icon="fa fa-folder-open")
+          p_item = dict(type="folder", path=full_part, icon="fa fa-folder-open")
         current_level.setdefault(part, [p_item, dict()])
         current_level = current_level[part][1]
       current_level.setdefault(parts[-1], [item, dict()])

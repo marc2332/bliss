@@ -1,5 +1,6 @@
 from bliss.comm import gpib
 import numpy
+import os
 import struct
 import itertools
 import gevent.lock

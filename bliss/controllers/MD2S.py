@@ -151,6 +151,7 @@ class MD2S:
                 if abs(dy) < 0.001 and abs(dz) < 0.001:
                     break
             self._exporter.writeProperty("FastShutterIsOpen", "false")
+            self.set_phase("DataCollection", wait=True, timeout=100)
 
     def msopen(self):
         self._exporter.writeProperty("FastShutterIsOpen", "true")

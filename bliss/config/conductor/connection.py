@@ -226,6 +226,15 @@ class Connection(object) :
                     return value.decode("utf-8")
 
     @check_connect
+    def remove_config_file(self, file_path, timeout = 1.):
+        with gevent.Timeout(timeout,RuntimeError("Can't remove configuration file")):
+            with self.WaitingQueue(self) as wq:
+                msg = '%s|%s' % (wq.message_key(), file_path)
+                self._fd.sendall(protocol.message(protocol.CONFIG_REMOVE_FILE, msg))
+                for rx_msg in wq.queue():
+                    print (rx_msg)
+
+    @check_connect
     def get_config_db(self,base_path='',timeout = 30.):
         return_files = []
         with gevent.Timeout(timeout,RuntimeError("Can't get configuration file")):
@@ -290,13 +299,15 @@ class Connection(object) :
                             message_key,value = self._get_msg_key(message)
                             queue = self._message_queue.get(message_key)
                             if queue is not None: queue.put(value)
-                        elif(messageType == protocol.CONFIG_GET_FILE_FAILED or
-                             messageType == protocol.CONFIG_SET_DB_FILE_FAILED):
+                        elif messageType in (protocol.CONFIG_GET_FILE_FAILED,
+                                             protocol.CONFIG_SET_DB_FILE_FAILED,
+                                             protocol.CONFIG_REMOVE_FILE_FAILED):
                             message_key,value = self._get_msg_key(message)
                             queue = self._message_queue.get(message_key)
                             if queue is not None: queue.put(RuntimeError(value))
-                        elif(messageType == protocol.CONFIG_DB_END or
-                             messageType == protocol.CONFIG_SET_DB_FILE_OK):
+                        elif messageType in (protocol.CONFIG_DB_END,
+                                             protocol.CONFIG_SET_DB_FILE_OK,
+                                             protocol.CONFIG_REMOVE_FILE_OK):
                             message_key,value = self._get_msg_key(message)
                             queue = self._message_queue.get(message_key)
                             if queue is not None: queue.put(StopIteration)

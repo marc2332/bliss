@@ -162,6 +162,25 @@ def _send_config_file(client_id,message):
     except IOError:
         client_id.sendall(protocol.message(protocol.CONFIG_GET_FILE_FAILED,"%s|File doesn't exist" % (message_key)))
 
+def _remove_config_file(client_id, message):
+    try:
+        message_key,file_path = message.split('|')
+    except ValueError:          # message is bad, skip it
+        return
+    file_path = file_path.replace('../','') # prevent going up
+    full_path = os.path.join(_options.db_path, file_path)
+    try:
+        if os.path.isfile(full_path):
+            os.remove(full_path)
+        elif os.path.isdir(full_path):
+            import shutil
+            shutil.rmtree(full_path)
+        msg = (protocol.CONFIG_REMOVE_FILE_OK, '%s|0' % (message_key,))
+    except IOError:
+        msg = (protocol.CONFIG_REMOVE_FILE_FAILED,
+               "%s|File/directory doesn't exist" % message_key)
+    client_id.sendall(protocol.message(*msg))
+
 def _send_config_db_files(client_id,message):
     try:
         message_key,sub_path = message.split('|')
@@ -300,6 +319,8 @@ def _client_rx(client):
                             _send_config_db_files(c_id,message)
                         elif messageType == protocol.CONFIG_SET_DB_FILE:
                             _write_config_db_file(c_id,message)
+                        elif messageType == protocol.CONFIG_REMOVE_FILE:
+                            _remove_config_file(c_id,message)
                         else:
                             _send_unknow_message(c_id)
                     except ValueError:
@@ -379,7 +400,7 @@ def main():
         web_app.debug = True
         web_app.beacon_port = _options.port
         http_server = WSGIServer(('', _options.webapp_port), DebuggedApplication(web_app, evalex=True))
-        gevent.spawn(http_server.serve_forever) 
+        gevent.spawn(http_server.serve_forever)
 
     #Tango databaseds
     if _options.tango_port > 0:

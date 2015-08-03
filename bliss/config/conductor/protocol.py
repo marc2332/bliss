@@ -21,8 +21,10 @@ CONFIG = 1
 
 (CONFIG_SET_DB_FILE,CONFIG_SET_DB_FILE_FAILED,CONFIG_SET_DB_FILE_OK) = (70,71,72)
 
+(CONFIG_REMOVE_FILE, CONFIG_REMOVE_FILE_FAILED, CONFIG_REMOVE_FILE_OK) = (80,81,82)
+
 def message(cmd, contents = ''):
-  return '%s%s' % (struct.pack('<ii', cmd, len(contents)),contents)
+    return '%s%s' % (struct.pack('<ii', cmd, len(contents)),contents)
 
 def unpack_header(header) :
     return  struct.unpack('<ii',header)

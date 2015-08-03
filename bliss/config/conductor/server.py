@@ -203,6 +203,9 @@ def _write_config_db_file(client_id,message):
     content = message[second_pos + 1:].decode("utf-8")
     file_path = file_path.replace('../','') # prevent going up
     full_path = os.path.join(_options.db_path,file_path)
+    full_dir = os.path.dirname(full_path)
+    if not os.path.isdir(full_dir):
+        os.makedirs(full_dir)
     try:
         with file(full_path,'w') as f:
             f.write(content)

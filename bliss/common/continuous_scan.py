@@ -41,6 +41,22 @@ class AcquisitionMaster(object):
         raise NotImplementedError
     def trigger(self):
         raise NotImplementedError
+    def trigger_slaves(self):
+        try:
+            if not all([task.ready() for _, task in self.__triggers]):
+                invalid_slaves = list()
+                for slave, task in self.__triggers:
+                    if not task.ready():
+                        invalid_slaves.append(slave)
+                        task.kill(RuntimeError("Previous trigger is not done, aborting"))
+                    else:
+                        task.kill()
+                raise RuntimeError("Aborted due to bad triggering on slaves: %s" % invalid_slaves)
+        finally:
+            self.__triggers = list()
+
+        for slave in self.slaves:
+            self.__triggers.append((slave, gevent.spawn(slave.trigger)))
 
 class AcquisitionDevice(object):
     def __init__(self, device):

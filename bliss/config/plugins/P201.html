@@ -7,7 +7,8 @@
     <li>
     </li>
     <li role="presentation" class="active">
-      <a href="#general_tab" aria-controls="global" role="tab" data-toggle="tab"><span class="fa fa-save"></span>Global</a>
+
+      <a href="#general_tab" aria-controls="global" role="tab" data-toggle="tab">Global</a>
     </li>
     <li role="presentation">
       <a href="#counters_tab" aria-controls="counters" role="tab" data-toggle="tab">Counters</a>
@@ -36,38 +37,47 @@
     </li>
   </ul>
 
-  <div class="panel-body" style="padding-left: 4px; padding-right: 4px;">
+  <div class="panel-body">
     <div class="tab-content">
 
       <div id="general_tab" class="tab-pane active">
-	{% for name, (type, waccess, default, label, group, desc) in GENERAL_PARAMS_SEQ %}
-	{% set value = params.get(name, default) %}
+	{% for name, pinfo in GENERAL_PARAMS.items() %}
+	{% set value = params.get(name, pinfo["default"]) %}
 	<div class="form-group">
 	  <label class="col-md-4 control-label" for="{{name}}"
-  		 data-toggle="tooltip" title="{{ desc }}">
-	    {{ label }}
+  		 data-toggle="tooltip" title="{{ pinfo["description"] }}">
+	    {{ pinfo["label"] }}
 	  </label>
 	  <div class="col-md-4">
-	    {% if waccess == False %}
+	    {% if pinfo["access"] == False %}
               {{ value }}
-	    {% elif type == "bool" %}
-            <input id="{{ name }}" name="{{ name }}" 
-  		   class="form-control input-md" type="checkbox" 
+	    {% elif pinfo["type"] == "bool" %}
+            <input id="{{ name }}" name="{{ name }}"
+  		   class="form-control input-md" type="checkbox"
  		   {{ "checked" if value == True }}>
             </input>
-	    {% elif type in ("int", "float", "str", "unicode") %}
+	    {% elif pinfo["type"] in ("int", "float", "str", "unicode") %}
             <input id="{{ name }}" name="{{ name }}"
  		   class="form-control input-md" type="text"
 		   value="{{ value }}">
             </input>
-	    {% elif type in ("list<int>", "list<str>") %}
-	    <input id="{{ name }}" name="{{ name }}"
-  		   class="form-control input-md" type="text"
-		   value="{{ value|map('string')|join(', ') }}">
-            </input>
+	    {% elif pinfo["type"] in ("list int", "list str") %}
+		{% if pinfo["values"] %}
+		<select class="selectpicker" multiple
+			id="{{ name }}" name="{{ name }}">
+  		  {% for v in pinfo["values"] %}
+		  <option {{ "selected" if v in value}}>{{ v }}</option>
+		  {% endfor %}
+		</select>
+		{% else %}
+		<input id="{{ name }}" name="{{ name }}"
+  		       class="form-control input-md" type="text"
+		       value="{{ value|map('string')|join(', ') }}">
+                </input>
+		{% endif %}
 	    {% else %}
             <select class="selectpicker" id="{{ name }}" name="{{ name }}">
-  	      {% for src in ct2[type] %} 
+  	      {% for src in ct2[pinfo["type"]] %}
               <option {{ "selected" if value == src.name }}>{{ src.name }}</option>
 	      {% endfor %}
 	    </select>
@@ -82,37 +92,47 @@
 	       data-show-toggle="true" data-show-columns="true" >
 	  <thead>
 	    <tr>
-	      {% for name, (_, _, _, label, _, desc) in COUNTER_PARAMS_SEQ %}
-	      <th data-toggle="tooltip" title="{{ desc }}">{{ label }}</th>
+	      {% for name, pinfo in COUNTER_PARAMS.items() %}
+	      <th data-toggle="tooltip" title="{{ pinfo["description"] }}">{{ pinfo["label"] }}</th>
 	      {% endfor %}
 	    </tr>
 	  </thead>
 	  <tbody>
 	    {% for ct_id, ct in counters.items() %}
 	    <tr>
-	      {% for name, (type, waccess, default, label, group, desc) in COUNTER_PARAMS_SEQ %}
-	      {% set value = ct.get(name, default) %}
-	      <td data-toggle="tooltip" title="{{ description }}" >
-		{% if waccess == False %}
+	      {% for name, pinfo in COUNTER_PARAMS.items() %}
+	      {% set value = ct.get(name, pinfo["default"]) %}
+	      <td data-toggle="tooltip" title="{{ pinfo["description"] }}" >
+		{% if pinfo["access"] == False %}
 		{{ value }}
-		{% elif type == "bool" %}
-		<input id="ct {{ct_id}} {{ name }}" name="ct {{ct_id}} {{ name }}" 
-	               class="form-control input-md" type="checkbox" 
+		{% elif pinfo["type"] == "bool" %}
+		<input id="ct {{ct_id}} {{ name }}" name="ct {{ct_id}} {{ name }}"
+	               class="form-control input-md" type="checkbox"
 	               {{ "checked" if value == True }} >
                 </input>
-		{% elif type in ("int", "float", "str", "unicode") %}
+		{% elif pinfo["type"] in ("int", "float", "str", "unicode") %}
 		<input id="ct {{ct_id}} {{ name }}" name="ct {{ct_id}} {{ name }}"
 	               class="form-control input-md" type="text"
 		       value="{{ value }}">
                 </input>
-		{% elif type in ("list<int>", "list<str>") %}
-		<input id="ct {{ct_id}} {{ name }}" name="ct {{ct_id}} {{ name }}"
-		       class="form-control input-md" type="text"
-		       value="{{ value|map('string')|join(', ') }}">
-                </input>
+		{% elif pinfo["type"] in ("list int", "list str") %}
+		    {% if pinfo["values"] %}
+		    <select class="selectpicker" multiple data-width="100px"
+			    id="ct {{ct_id}} {{ name }}" name="ct {{ct_id}} {{ name }}">
+  		      {% for v in pinfo["values"] %}
+		      <option {{ "selected" if v in value}}>{{ v }}</option>
+		      {% endfor %}
+		    </select>
+		    {% else %}
+		    <input id="ct {{ct_id}} {{ name }}" name="ct {{ct_id}} {{ name }}"
+  			   class="form-control input-md" type="text"
+			   value="{{ value|map('string')|join(', ') }}">
+                    </input>
+		    {% endif %}
 		{% else %}
-		<select class="selectpicker" id="ct {{ct_id}} {{ name }}" name="ct {{ct_id}} {{ name }}">
-		  {% for src in ct2[type] %} 
+		<select class="selectpicker" data-width="100px"
+			id="ct {{ct_id}} {{ name }}" name="ct {{ct_id}} {{ name }}">
+		  {% for src in ct2[pinfo["type"]] %}
 		  <option {{ "selected" if value == src.name }}>{{ src.name }}</option>
  		  {% endfor %}
 		</select>
@@ -130,41 +150,50 @@
 	       data-show-toggle="true" data-show-columns="true" >
 	  <thead>
 	    <tr>
-	      {% for name, (_, _, _, label, _, desc) in IN_CHANNEL_PARAMS_SEQ %}
-	      <th data-toggle="tooltip" title="{{ desc }}">{{ label }}</th>
+	      {% for name, pinfo in IN_CHANNEL_PARAMS.items() %}
+	      <th data-toggle="tooltip" title="{{ pinfo["description"] }}">{{ pinfo["label"] }}</th>
 	      {% endfor %}
 	    </tr>
 	  </thead>
 	  <tbody>
 	    {% for ch_id, ch in in_channels.items() %}
 	    <tr>
-	      {% for name, (type, waccess, default, label, group, desc) in IN_CHANNEL_PARAMS_SEQ %}
-	      {% set value = ch.get(name, default) %}
-	      <td data-toggle="tooltip" title="{{ description }}" >
-		{% if waccess == False %}
+	      {% for name, pinfo in IN_CHANNEL_PARAMS.items() %}
+	      {% set value = ch.get(name, pinfo["default"]) %}
+	      <td data-toggle="tooltip" title="{{ pinfo["description"] }}" >
+		{% if pinfo["access"] == False %}
 		{{ value }}
-		{% elif type == "bool" %}
-		<input id="inch {{ch_id}} {{ name }}" name="inch {{ch_id}} {{ name }}" 
-	               class="form-control input-md" type="checkbox" 
+		{% elif pinfo["type"] == "bool" %}
+		<input id="inch {{ch_id}} {{ name }}" name="inch {{ch_id}} {{ name }}"
+	               class="form-control input-md" type="checkbox"
 	               {{ "checked" if value == True }}>
-          </input>
-	  {% elif type in ("int", "float", "str", "unicode") %}
-          <input id="inch {{ch_id}} {{ name }}" name="inch {{ch_id}} {{ name }}"
-	         class="form-control input-md" type="text"
-		 value="{{ value }}">
-          </input>
-	  {% elif type in ("list<int>", "list<str>") %}
-	      <input id="inch {{ch_id}} {{ name }}" name="inch {{ch_id}} {{ name }}"
-		     class="form-control input-md" type="text"
-		     value="{{ value|map('string')|join(', ') }}">
-          </input>
-	  {% else %}
-	  <select class="selectpicker" id="inch {{ch_id}} {{ name }}" name="inch {{ch_id}} {{ name }}">
-	    {% for src in ct2[type] %} 
-            <option {{ "selected" if value == src.name }}>{{ src.name }}</option>
- 	    {% endfor %}
-          </select>
-	  {% endif %}
+                </input>
+		{% elif pinfo["type"] in ("int", "float", "str", "unicode") %}
+		<input id="inch {{ch_id}} {{ name }}" name="inch {{ch_id}} {{ name }}"
+	               class="form-control input-md" type="text"
+		       value="{{ value }}">
+                </input>
+		{% elif pinfo["type"] in ("list int", "list str") %}
+		    {% if pinfo["values"] %}
+		    <select class="selectpicker" multiple
+			    id="inch {{ch_id}} {{ name }}" name="inch {{ch_id}} {{ name }}">
+  		      {% for v in pinfo["values"] %}
+		      <option {{ "selected" if v in value}}>{{ v }}</option>
+		      {% endfor %}
+		    </select>
+		    {% else %}
+		    <input id="inch {{ch_id}} {{ name }}" name="inch {{ch_id}} {{ name }}"
+  			   class="form-control input-md" type="text"
+			   value="{{ value|map('string')|join(', ') }}">
+                    </input>
+		    {% endif %}
+		{% else %}
+		    <select class="selectpicker" id="inch {{ch_id}} {{ name }}" name="inch {{ch_id}} {{ name }}">
+		      {% for src in ct2[pinfo["type"]] %}
+		      <option {{ "selected" if value == src.name }}>{{ src.name }}</option>
+ 		      {% endfor %}
+		    </select>
+		{% endif %}
 	      </td>
 	      {% endfor %}
 	    </tr>
@@ -178,40 +207,49 @@
 	       data-show-toggle="true" data-show-columns="true" >
 	  <thead>
 	    <tr>
-	      {% for name, (_, _, _, label, _, desc) in OUT_CHANNEL_PARAMS_SEQ %}
-	      <th data-toggle="tooltip" title="{{ desc }}">{{ label }}</th>
+	      {% for name, pinfo in OUT_CHANNEL_PARAMS.items() %}
+	      <th data-toggle="tooltip" title="{{ pinfo["description"] }}">{{ pinfo["label"] }}</th>
 	      {% endfor %}
 	    </tr>
 	  </thead>
 	  <tbody>
 	    {% for ch_id, ch in out_channels.items() %}
 	    <tr>
-	      {% for name, (type, waccess, default, label, group, desc) in OUT_CHANNEL_PARAMS_SEQ %}
-	      {% set value = ch.get(name, default) %}
-	      <td data-toggle="tooltip" title="{{ description }}" >
-		{% if waccess == False %}
+	      {% for name, pinfo in OUT_CHANNEL_PARAMS.items() %}
+	      {% set value = ch.get(name, pinfo["default"]) %}
+	      <td data-toggle="tooltip" title="{{ pinfo["description"] }}" >
+		{% if pinfo["access"] == False %}
                	{{ value }}
-		{% elif type == "bool" %}
-		<input id="outch {{ch_id}} {{ name }}" name="outch {{ch_id}} {{ name }}" 
-	               class="form-control input-md" type="checkbox" 
+		{% elif pinfo["type"] == "bool" %}
+		<input id="outch {{ch_id}} {{ name }}" name="outch {{ch_id}} {{ name }}"
+	               class="form-control input-md" type="checkbox"
 	               {{ "checked" if value == True }}>
                 </input>
-		{% elif type in ("int", "float", "str", "unicode") %}
+		{% elif pinfo["type"] in ("int", "float", "str", "unicode") %}
 		<input id="outch {{ch_id}} {{ name }}" name="outch {{ch_id}} {{ name }}"
 	               class="form-control input-md" type="text"
 		       value="{{ value }}">
                 </input>
-		{% elif type in ("list<int>", "list<str>") %}
-                <input id="outch {{ch_id}} {{ name }}" name="outch {{ch_id}} {{ name }}"
-		       class="form-control input-md" type="text"
-		       value="{{ value|map('string')|join(', ') }}">
-                </input>
+		{% elif pinfo["type"] in ("list int", "list str") %}
+		    {% if pinfo["values"] %}
+		    <select class="selectpicker" multiple
+			    id="outch {{ch_id}} {{ name }}" name="outch {{ch_id}} {{ name }}">
+  		      {% for v in pinfo["values"] %}
+		      <option {{ "selected" if v in value}}>{{ v }}</option>
+		      {% endfor %}
+		    </select>
+		    {% else %}
+		    <input id="outch {{ch_id}} {{ name }}" name="outch {{ch_id}} {{ name }}"
+  			   class="form-control input-md" type="text"
+			   value="{{ value|map('string')|join(', ') }}">
+                    </input>
+		    {% endif %}
 		{% else %}
-		<select class="selectpicker" id="outch {{ch_id}} {{ name }}" name="outch {{ch_id}} {{ name }}">
-		  {% for src in ct2[type] %} 
-		  <option {{ "selected" if value == src.name }}>{{ src.name }}</option>
- 		  {% endfor %}
-		</select>
+		    <select class="selectpicker" id="outch {{ch_id}} {{ name }}" name="outch {{ch_id}} {{ name }}">
+		      {% for src in ct2[pinfo["type"]] %}
+		      <option {{ "selected" if value == src.name }}>{{ src.name }}</option>
+ 		      {% endfor %}
+		    </select>
 		{% endif %}
 	      </td>
 	      {% endfor %}
@@ -231,7 +269,7 @@
   function submit_form(form) {
     var formData = new FormData(form);
     formData.append("__original_name__", "{{ params["name"] }}");
-    
+
     $.ajax({
       url: "plugin/ct2/card_edit",
       type: "POST",
@@ -248,17 +286,21 @@
   }
 
   $(document).ready(function() {
+    $(".selectpicker option").addClass("small");
+
     $(".selectpicker")
       .addClass("show-tick")
-      .attr("data-size", 10)
-      .attr("data-width", "auto")
-      .selectpicker();
-  
+      .selectpicker({
+        style: "btn-sm btn-primary",
+        selectedTextFormat: "count>6",
+        size: 10,
+      });
+
     $("#apply").on("click", function() {
       submit_form($("#card_form")[0]);
       return false;
     });
-  
+
     $("#revert").on("click", function() {
       show_item("{{ params.get("name") }}");
       return false;

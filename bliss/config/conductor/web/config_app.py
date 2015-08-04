@@ -62,15 +62,21 @@ def get_plugin(name, member=None):
 
 @web_app.route("/")
 def index():
+  cfg = get_config()
   return flask.send_from_directory(__this_path, "index.html")
-
-@web_app.route("/jstree")
-def jstree_test():
-  return flask.send_from_directory(__this_path, "jstree_test1.html")
 
 @web_app.route("/<dir>/<path:filename>")
 def static_file(dir, filename):
   return flask.send_from_directory(os.path.join(__this_path, dir), filename)
+
+@web_app.route("/main/")
+def main():
+   cfg = get_config()
+   get_main = get_plugin(cfg.root.plugin or "beamline", "get_main")
+   if get_main:
+     return get_main(cfg)
+   else:
+     return flask.json.dumps(dict(html="<h1>ups!</h1>"))
 
 @web_app.route("/db_files")
 def db_files():
@@ -198,7 +204,6 @@ def add_folder():
 def add_file():
   cfg = get_config()
   filename = flask.request.form['file']
-  print(filename)
   node = static.Node(cfg, filename=filename)
   node.save()
   return flask.json.dumps(dict(message="File created!",

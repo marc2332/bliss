@@ -17,3 +17,13 @@
     padding-top: 6px;
     padding-bottom: 6px;
 }
+
+.navbar-brand-img-compact {
+    padding: 1px;
+    margin-left: -10px;
+}
+
+.navbar-brand-compact {
+    margin-left: -10px;
+}
+

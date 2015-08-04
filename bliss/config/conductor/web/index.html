@@ -39,36 +39,45 @@
     <nav class="navbar navbar-default navbar-compact" id="main_toolbar" aria-label="main toolbar">
       <div class="container-fluid">
         <div class="navbar-header">
-          <!-- <a class="navbar-brand" href="#"><img alt="Beacon" src="res/logo.png" width="32" height="32"></img></a> -->
-	  <a class="navbar-brand" href="#">Beacon</a>
+          <a id="brand_image" class="navbar-brand navbar-brand-img-compact" href="#">
+	    <img alt="Beacon" src="res/logo.png" width="48" height="48"></img>
+	  </a>
+	  <a id="brand_text" class="navbar-brand navbar-brand-compact" href="#">Beacon</a>
         </div>
 
-	<form class="navbar-form navbar-left" role="search">
-          <div class="form-group">
-            <input id="search_edit" type="text" class="form-control" placeholder="Search"></input>
-          </div>
-	  <button id="clear_search" type="button" class="btn btn-default">
-	    <span class="fa fa-eraser"></span>
-	    Clear search
-	  </button>
-	</form>
+	<!-- Collect the nav links, forms, and other content for toggling -->
+	<div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+	  <ul class="nav navbar-nav">
+            <li class="dropdown">
+              <a href="#" class="dropdown-toggle" data-toggle="dropdown"
+		 role="button" aria-haspopup="true" aria-expanded="false">Add...<span class="caret"></span></a>
+              <ul class="dropdown-menu">
+		<li><a id="add_file" href="#">YAML File</a></li>
+              </ul>
+            </li>
+	  </ul>
 
-	<button type="button" class="btn btn-primary navbar-btn" id="add_file"
-		data-toggle="tooltip" data-placement="bottom"
-		title="Add a new YAML file">
-          <span class="fa fa-file"></span>
-          Add YAML file...
-        </button>
+	  <form class="navbar-form navbar-left" role="search">
+            <div class="form-group">
+              <input id="search_edit" type="text" class="form-control" placeholder="Search"></input>
+            </div>
+	    <button id="clear_search" type="button" class="btn btn-default">
+	      <span class="fa fa-eraser"></span>
+	      Clear search
+	    </button>
+	  </form>
 
-	<p id="message_box" role="alert" class="navbar-text alert message-compact"></p>
+	  <p id="message_box" role="alert" class="navbar-text alert alert-info message-compact">
+	    Welcome to the beamline configuration application
+	  </p>
 
-        <button type="button" class="btn btn-primary navbar-btn navbar-right" id="reload_config"
-		data-loading-text="Reloading..." data-toggle="tooltip" data-placement="bottom"
-		title="Reloads configuration from the server">
-          <span class="fa fa-refresh"></span>
-          Reload config
-        </button>
-
+          <button type="button" class="btn btn-primary navbar-btn navbar-right" id="reload_config"
+		  data-loading-text="Reloading..." data-toggle="tooltip" data-placement="left"
+		  title="Reloads configuration from the server">
+            <span class="fa fa-refresh"></span>
+            Reload config
+          </button>
+	</div>
       </div>
     </nav>
 
@@ -106,8 +115,6 @@
           add_file();
         });
 
-        tree_reload("#fs_tree");
-
         $("#reload_config").on("click", function() {
           var btn = $(this).button('loading');
           request = $.ajax({
@@ -115,10 +122,22 @@
             success: function() {
               tree_reload("#fs_tree");
             }});
-          request.always(function() {
-            btn.button('reset');
+            request.always(function() {
+              btn.button('reset');
           });
         });
+
+        $("#brand_image").on("click", function() {
+          show_main();
+        });
+
+        $("#brand_text").on("click", function() {
+          show_main();
+        });
+
+        tree_reload("#fs_tree");
+        show_main();
+
       });
     </script>
   </body>

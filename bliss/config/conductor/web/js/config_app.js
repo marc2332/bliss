@@ -312,6 +312,18 @@ function show_item(item_name) {
     }, "json");
 }
 
+function show_main() {
+    $.get("main/", function(data) {
+        $("#edit_form").empty();
+        if (data === null) {
+            $("#edit_panel").attr("style", "visibility: hidden");
+        } else {
+            $("#edit_form").html(data.html);
+            $("#edit_panel").attr("style", "visibility: visible");
+        }
+    }, "json");
+}
+
 function configure_yaml_editor(tag_name, file_name) {
     var yaml_editor = ace.edit(tag_name);
     var session = yaml_editor.getSession();

@@ -1,0 +1,76 @@
+{% block toolbar %}
+<div class="btn-toolbar pull-right" role="toolbar" id="main_toolbar" aria-label="main toolbar">
+  <button id="apply" class="btn btn-primary">
+    <span class="fa fa-save"></span>
+    Apply
+ </button>
+</div>
+
+{% endblock %}
+
+<form id="beamline_form" class="form-horizontal">
+<fieldset>
+
+{% block params %}
+
+{% for name, value in params.items() %}
+<!-- Text input-->
+<div class="form-group">
+  <label class="col-md-4 control-label" for="{{ name }}">{{ name.capitalize() }}</label>
+  <div class="col-md-4">
+    <input id="{{ name }}" name="{{ name }}" type="text"
+           class="form-control input-md"
+           placeholder="{{ value }}" value="{{ value }}">
+    </input>
+  </div>
+</div>
+{% endfor %}
+
+{% endblock %}
+
+<fieldset>
+</form>
+
+<script type="text/javascript">
+
+  function submit_form(form) {
+    var formData = new FormData(form);
+
+    $.ajax({
+      url: "plugin/beamline/edit",
+      type: "POST",
+      cache: false,
+      contentType: false,
+      processData: false,
+      data: formData,
+      success: function(result) {
+        data = $.parseJSON(result);
+        show_main(data.name);
+        write_message(data.message, data.type);
+      }
+    });
+  }
+
+  $(document).ready(function() {
+    $(".selectpicker option").addClass("small");
+
+    $(".selectpicker")
+      .addClass("show-tick")
+      .selectpicker({
+        style: "btn-sm btn-primary",
+        selectedTextFormat: "count>6",
+        size: 10,
+      });
+
+    $("#apply").on("click", function() {
+      submit_form($("#beamline_form")[0]);
+      return false;
+    });
+
+    $("#revert").on("click", function() {
+      show_main();
+      return false;
+    });
+  });
+
+</script>

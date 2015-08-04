@@ -35,7 +35,7 @@ class LimaAcquisitionDevice(AcquisitionDevice):
          self._reading_task.link(self._acquisition_finished)
       
   def read_data(self):
-      while self.device.acq_status.lower() != 'running':
+      while self.device.acq_status.lower() == 'running':
           dispatcher.send("new_ref", self, { "type":"lima/image", "last_image_acquired":self.device.last_image_acquired })
           gevent.sleep(self.parameters['acq_expo_time']/2.0)
       # TODO: self.dm.send_new_ref(self, {...}) ? or DataManager.send_new_ref(...) ?

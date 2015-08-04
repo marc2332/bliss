@@ -1,16 +1,16 @@
 
 {% block toolbar %}
-<div class="btn-toolbar" role="toolbar" id="main_toolbar" aria-label="main toolbar">
+<div class="btn-toolbar pull-right" role="toolbar" id="main_toolbar" aria-label="main toolbar">
   <button id="emotion_axis_apply" class="btn btn-primary">
+    <span class="fa fa-save"></span>
     Apply
-    <span class="glyphicon glyphicon-save"></span>
-  </button>
+ </button>
 
 {% if __tango_server__ %}
 
   <button id="emotion_axis_apply_server" class="btn btn-primary">
+    <span class="fa fa-save"></span>
     Apply & Update TANGO server
-    <span class="glyphicon glyphicon-save"></span>
   </button>
 
 {% endif %}

@@ -21,7 +21,6 @@ class MotorMaster(AcquisitionMaster):
         d = 1 if self.end_pos >= self.start_pos else -1
         d *= -1 if end else 1
         pos -= d*undershoot
-        else:
         return pos
 
     def prepare(self):

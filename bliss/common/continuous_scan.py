@@ -4,6 +4,8 @@ try:
 except ImportError:
     from ordereddict import OrderedDict
 import gevent
+from louie import dispatcher
+import time
 
 class Scan(object):
   def __init__(self, dm=None):
@@ -26,19 +28,26 @@ class Scan(object):
 
 
 class AcquisitionMaster(object):
-    def __init__(self, device):
+    #SAFE, FAST = (0, 1)
+    def __init__(self, device): #, trigger_mode=AcquisitionMaster.FAST):
         self.__device = device
         self.__slaves = list()
+        self.__triggers = list()
+        #self.__trigger_mode = trigger_mode
     @property
     def device(self):
         return self.__device
     @property
     def slaves(self):
         return self.__slaves
+    def _prepare(self):
+        return self.prepare()
     def prepare(self):
         raise NotImplementedError
     def start(self):
         raise NotImplementedError
+    def trigger_ready(self):
+        return True
     def trigger(self):
         raise NotImplementedError
     def trigger_slaves(self):
@@ -56,20 +65,47 @@ class AcquisitionMaster(object):
             self.__triggers = list()
 
         for slave in self.slaves:
-            self.__triggers.append((slave, gevent.spawn(slave.trigger)))
+            self.__triggers.append((slave, gevent.spawn(slave._trigger)))
 
 class AcquisitionDevice(object):
     def __init__(self, device):
         self.__device = device
+        self._reading_task = None
     @property
     def device(self):
         return self.__device
+    def _prepare(self):
+        if not self._check_ready():
+            raise RuntimeError("Last reading task is not finished.")
+        return self.prepare()
     def prepare(self):
         raise NotImplementedError
     def start(self):
         raise NotImplementedError
+    def trigger_ready(self):
+        return True
+    def _check_ready(self):
+        if self._reading_task:
+          return self._reading_task.ready()
+        return True
+    def _trigger(self):
+        self.trigger()
+        if self._check_ready():
+            dispatcher.send("start", self)
+            self._reading_task = gevent.spawn(self.reading)
+            self._reading_task.link(self._reading_finished)
     def trigger(self):
         raise NotImplementedError
+    def reading(self):
+        pass
+    def wait_reading(self):
+        return self._reading_task.get()
+    def _reading_finished(self, task):
+        try:
+            task.get()
+        except Exception:
+            pass
+        dispatcher.send("end", self)
 
 
 class _Node:
@@ -147,11 +183,13 @@ class AcquisitionChain(object):
          if node.acq_device:
              master.slaves.append(node.acq_device)
 
-    self._execute("prepare", self.devices_list)
+    self._execute("_prepare", self.devices_list)
 
     prepare_task.join()
 
     
   def start(self):
     self._execute("start", self.devices_list)
-    
+    for master, acq_devs in self.acq_devs_by_master.iteritems():
+        for acq_dev in acq_devs:
+            acq_dev.wait_reading() 

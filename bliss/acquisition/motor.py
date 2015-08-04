@@ -3,6 +3,7 @@ from bliss.common.continuous_scan import AcquisitionMaster
 import bliss
 import numpy
 import gevent
+import sys
 
 class MotorMaster(AcquisitionMaster):
     def __init__(self, axis, start, end, time=0, undershoot=None):
@@ -17,10 +18,10 @@ class MotorMaster(AcquisitionMaster):
         if self.undershoot is None:
             acctime = float(self.velocity)/self.movable.acceleration()
             undershoot = self.velocity*acctime
-        if self.end_pos > self.start_pos:
-            pos -= undershoot * -1 * end
+        d = 1 if self.end_pos >= self.start_pos else -1
+        d *= -1 if end else 1
+        pos -= d*undershoot
         else:
-            pos += undershoot * -1 * end
         return pos
 
     def prepare(self):
@@ -37,18 +38,25 @@ class MotorMaster(AcquisitionMaster):
     def move_done(self, done):
         if done:
             self.movable.velocity(self.initial_velocity)
-        emotion.event.disconnect(self.movable, "move_done", self.move_done)    
-
+            emotion.event.disconnect(self.movable, "move_done", self.move_done)    
 
 class SoftwarePositionTriggerMaster(MotorMaster):
-    def __init__(self, axis, start, end, npoints=1, undershoot=None):
-        MotorMaster.__init__(self, axis, start, end, undershoot)
-	self._positions = numpy.linspace(start, end, npoints)
+    def __init__(self, axis, start, end, npoints=1, **kwargs):
+	positions = numpy.linspace(start, end, npoints, retstep=True)
+        if isinstance(positions, tuple):
+            self._positions = positions[0]
+            end += positions[1]
+        else:
+            self._positions = positions
+        MotorMaster.__init__(self, axis, start, end, **kwargs)
 
     def start(self):
+        self.exception = None
         self.index = 0
         emotion.event.connect(self.movable, "position", self.position_changed)
         MotorMaster.start(self, 0)
+        if self.exception:
+            raise self.exception[0], self.exception[1], self.exception[2]
         
     def position_changed(self, position):
         try:
@@ -58,8 +66,12 @@ class SoftwarePositionTriggerMaster(MotorMaster):
         if ((self.end_pos >= self.start_pos and position >= next_trigger_pos) or
             (self.start_pos > self.end_pos and position <= next_trigger_pos)):
           self.index += 1
-          for slave in self.slaves:
-              gevent.spawn(slave.trigger)
+          try:
+              self.trigger_slaves()
+          except Exception:
+              emotion.event.disconnect(self.movable, "position", self.position_changed)
+              self.movable.stop(wait=False)
+              self.exception = sys.exc_info()
         
     def move_done(self, done):
         if done:

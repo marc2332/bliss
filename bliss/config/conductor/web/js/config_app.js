@@ -1,5 +1,12 @@
 function __add_file(path) {
-   console.log("add file " + path);
+    if (path.indexOf(".yml", path.length - 4) === -1) {
+	alert("File must end with '.yml'");
+	return;
+    }
+    if (path[0] === "/") {
+	path = path.substring(1);
+    }
+    console.log("add file " + path);
     var formData = new FormData();
     formData.append("file", path);
 
@@ -20,7 +27,10 @@ function __add_file(path) {
 }
 
 function __add_folder(path) {
-   console.log("add folder " + path);
+    if (path[0] === "/") {
+	path = path.substring(1);
+    }
+    console.log("add folder " + path);
     var formData = new FormData();
     formData.append("folder", path);
 
@@ -41,7 +51,7 @@ function __add_folder(path) {
 }
 
 function add_file() {
-    var path = prompt("YAML file name (full path inc '.yml extension)?");
+    var path = prompt("YAML file name (full path including '.yml extension)?");
     if (path !== null) {
 	__add_file(path);
     }

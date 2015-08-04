@@ -126,6 +126,8 @@ def objects():
 def tree(view):
     if view == "files":
         return tree_files()
+    elif view == "objects":
+        return tree_objects()
 
 def tree_files():
     cfg = get_config()
@@ -138,7 +140,7 @@ def tree_files():
         config = cfg.get_config(name)
         get_tree = get_config_plugin(config, "get_tree")
         if get_tree:
-            item = get_tree(config)
+            item = get_tree(config, "files")
         else:
             item = dict(type="object", path=os.path.join(config.filename, name),
                         icon="fa fa-question")
@@ -158,6 +160,37 @@ def tree_files():
             current_level.setdefault(part, [p_item, dict()])
             current_level = current_level[part][1]
         current_level.setdefault(parts[-1], [item, dict()])
+    return flask.json.dumps(result)
+
+def tree_objects():
+    cfg = get_config()
+
+    items = {}
+    for name in cfg.names_list:
+        config = cfg.get_config(name)
+        get_tree = get_config_plugin(config, "get_tree")
+        if get_tree:
+            item = get_tree(config, "objects")
+        else:
+            item = dict(type="object", path=name,
+                        icon="fa fa-question")
+        items[item["path"]] = item
+
+    result = dict()
+    for _, item in items.items():
+        current_level = result
+        db_file = item['path']
+        parts = db_file.split(os.path.sep)
+        full_part = ""
+        for part in parts[:-1]:
+            full_part = os.path.join(full_part, part)
+            p_item = items.get(full_part)
+            if p_item is None:
+                p_item = dict(type="folder", path=full_part, icon="fa fa-folder-open")
+            current_level.setdefault(part, [p_item, dict()])
+            current_level = current_level[part][1]
+        current_level.setdefault(parts[-1], [item, dict()])
+    import pprint;pprint.pprint(result)
     return flask.json.dumps(result)
 
 @web_app.route("/objects/<name>")

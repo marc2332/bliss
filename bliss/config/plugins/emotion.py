@@ -28,16 +28,39 @@ def get_jinja2():
     return __environment
 
 
-def get_tree(cfg):
+def get_tree(cfg, perspective):
+    if perspective == "files":
+        return get_tree_files(cfg)
+    elif perspective == "objects":
+        return get_tree_objects(cfg)
+
+
+def get_tree_files(cfg):
     ctrl_class = cfg.get("class")
     if ctrl_class is None:
         result = dict(type="axis",
-                      path=os.path.join(get_tree(cfg.parent)['path'], cfg['name']),
+                      path=os.path.join(get_tree_files(cfg.parent)['path'],
+                                        cfg['name']),
                       icon="fa fa-gear")
     else:
         ctrl_name = cfg.get("name", "<unnamed controller>")
         result = dict(type="controller",
                       path=os.path.join(cfg.filename, ctrl_name),
+                      icon="fa fa-gears")
+    return result
+
+
+def get_tree_objects(cfg):
+    ctrl_class = cfg.get("class")
+    if ctrl_class is None:
+        result = dict(type="axis",
+                      path=os.path.join(get_tree_objects(cfg.parent)['path'],
+                                        cfg['name']),
+                      icon="fa fa-gear")
+    else:
+        ctrl_name = cfg.get("name", "<unnamed controller>")
+        result = dict(type="controller",
+                      path=ctrl_name,
                       icon="fa fa-gears")
     return result
 

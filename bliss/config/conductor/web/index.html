@@ -84,13 +84,47 @@
     <div class="container-fluid">
       <div class="row row-eq-height">
 	<!-- Tree panel (left panel) -->
-	<div id="tree_panel" class="col-md-2">
-	  <!-- Tree -->
-	  <div id="fs_tree" class="jstree"></div>
+	<div id="tree_panel" class="col-md-3">
+	  <div class="with-nav-tabs">
+	    <ul class="nav nav-tabs" role="tablist">
+	      <li role="presentation" class="active">
+		<a href="#files_perspective" aria-controls="files perspective"
+		   role="tab" data-toggle="tab">
+		  Files
+		</a>
+	      </li>
+	      <li role="presentation">
+		<a href="#objects_perspective" aria-controls="objects perspective"
+		   role="tab" data-toggle="tab">
+		  Objects
+		</a>
+	      </li>
+	      <li role="presentation">
+		<a href="#instruments_perspective" aria-controls="instruments perspective"
+		   role="tab" data-toggle="tab">
+		  Instruments
+		</a>
+	      </li>
+	    </ul>
+	    <div id="tree_tabs" class="panel-body">
+	      <div class="tab-content">
+		<!-- Tree -->
+		<div id="files_perspective" class="tab-pane active">
+		  <div id="fs_tree" class="jstree beacon-tree files-perspective"></div>
+		</div>
+		<div id="objects_perspective" class="tab-pane">
+		  <div id="obj_tree" class="jstree beacon-tree objects-perspective"></div>
+		</div>
+		<div id="instruments_perspective" class="tab-pane">
+		  <div id="instrument_tree" class="jstree beacon-tree instruments-perspective"><h3>TODO</h3></div>
+		</div>
+	      </div>
+	    </div>
+	  </div>
 	</div>
-	<div id="right_panel" class="col-md-10">
+	<div id="right_panel" class="col-md-9">
 	  <!-- Edit panel (right panel) -->
-	  <div id="edit_panel" class="" style="visibility:hidden">
+	  <div id="edit_panel" class="panel-body" style="visibility:hidden">
 	    <div id="edit_form" class="" style=""></div>
 	  </div>
 	</div>
@@ -102,13 +136,14 @@
         $('[data-toggle="tooltip"]').tooltip({'placement': 'top'});
 
         $("#search_edit").keyup(function() {
+          console.log("search edit");
           var search = $(this).val();
-          $("#fs_tree").jstree("search", search);
+          $(".beacon-tree").jstree("search", search);
         });
 
         $("#clear_search").on("click", function() {
           $("#search_edit").val("");
-          $("#fs_tree").jstree("clear_search");
+          $(".beacon-tree").jstree("clear_search");
         });
 
         $("#add_file").on("click", function() {
@@ -120,7 +155,7 @@
           request = $.ajax({
             url : "config/reload",
             success: function() {
-              tree_reload("#fs_tree");
+              tree_reload("#tree_tabs");
             }});
             request.always(function() {
               btn.button('reset');
@@ -135,7 +170,7 @@
           show_main();
         });
 
-        tree_reload("#fs_tree");
+        tree_reload("#tree_tabs");
         show_main();
 
       });

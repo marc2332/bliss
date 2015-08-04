@@ -102,15 +102,35 @@ def get_jinja2():
         __environment = Environment(loader=FileSystemLoader(__this_path))
     return __environment
 
-def get_tree(cfg):
+def get_tree(cfg, perspective):
+    if perspective == "files":
+        return get_tree_files(cfg)
+    elif perspective == "objects":
+        return get_tree_objects(cfg)
+
+def get_tree_files(cfg):
     klass =  cfg.get("class")
     if klass is None:
         result = dict(type="ct/ch",
-                      path=os.path.join(get_tree(cfg.parent)['path'], cfg['name']),
+                      path=os.path.join(get_tree_files(cfg.parent)['path'],
+                                        cfg['name']),
                       icon="fa fa-square")
     else:
         result = dict(type="Counter card",
                       path=os.path.join(cfg.filename, cfg["name"]),
+                      icon="fa fa-credit-card")
+    return result
+
+def get_tree_objects(cfg):
+    klass =  cfg.get("class")
+    if klass is None:
+        result = dict(type="ct/ch",
+                      path=os.path.join(get_tree_objects(cfg.parent)['path'], 
+                                        cfg['name']),
+                      icon="fa fa-square")
+    else:
+        result = dict(type="Counter card",
+                      path=cfg["name"],
                       icon="fa fa-credit-card")
     return result
 

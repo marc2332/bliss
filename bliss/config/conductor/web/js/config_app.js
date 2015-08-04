@@ -43,7 +43,7 @@ function __add_folder(path) {
 	data: formData,
 	success: function(result) {
             data = $.parseJSON(result);
-	    tree_reload("#fs_tree", path);
+	    tree_reload("#tree_tabs", path);
             show_item(path);
             write_message(data.message, data.type);
 	}
@@ -71,7 +71,7 @@ function __remove(path) {
 	data: formData,
 	success: function(result) {
             data = $.parseJSON(result);
-	    tree_reload("#fs_tree");
+	    tree_reload("#tree_tabs");
 	    $("#edit_form").empty();
             write_message(data.message, data.type);
 	}
@@ -215,10 +215,37 @@ function tree_reload(tree_name, selected_item_name) {
         });
     };
 
-    $.get("tree/files", function(data) {
-        var tree = $(tree_name);
+    $.get("tree/objects", function(data) {
+        var _tree = $(tree_name);
+	var tree = $(".beacon-tree.objects-perspective", _tree);
         tree.jstree("destroy");
-	//var js_tree = tree.jstree();
+
+        var tree_struct = {
+            core: {
+		data: [],
+		animation: 0,
+		multiple: false
+            },
+            plugins: ["contextmenu", "search", "dnd"],
+	    contextmenu: {
+	      items: tree_context_menu.bind(this)
+            },
+            search: {
+		case_insensitive: true,
+		show_only_matches: true,
+	    },
+        };
+
+        fill_node(data, tree_struct.core.data, 0);
+
+        tree.jstree(tree_struct);
+	tree.bind("select_node.jstree", on_node_selected);
+    }, "json");
+
+    $.get("tree/files", function(data) {
+        var _tree = $(tree_name);
+	var tree = $(".beacon-tree.files-perspective", _tree);
+        tree.jstree("destroy");
 
         var tree_struct = {
             core: {

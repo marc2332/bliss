@@ -99,7 +99,7 @@ class AcquisitionDevice(object):
     def reading(self):
         pass
     def wait_reading(self):
-        return self._reading_task.get()
+        return self._reading_task.get() if self._reading_task is not None else True
     def _reading_finished(self, task):
         try:
             task.get()

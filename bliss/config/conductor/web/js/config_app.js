@@ -348,6 +348,6 @@ function configure_yaml_editor(tag_name, file_name) {
 
 function write_message(msg, type) {
     $("#message_box").html(msg);
-    $("#message_box").removeClass("alert-success alert-warning alert-danger");
+    $("#message_box").removeClass("alert-success alert-warning alert-danger alert-info");
     $("#message_box").addClass("alert-" + type);
 }

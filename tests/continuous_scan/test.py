@@ -19,7 +19,6 @@ import bliss
 #from PyTango.gevent import DeviceProxy
 from PyTango import DeviceProxy
 from louie import dispatcher
-import gevent
 
 def test():
   chain = AcquisitionChain()
@@ -98,7 +97,6 @@ def test_lima():
   scan.start()
   m0.wait_move()
   print m0.velocity()==10 
-  gevent.sleep(5)
 
 
 if __name__ == '__main__':

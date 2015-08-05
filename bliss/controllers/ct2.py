@@ -3018,7 +3018,7 @@ class P201:
 
     def set_counters_software_enable(self, counters):
         """
-        Software enables/disables the given counters
+        Software enables/disables *all* counters
 
         .. note::
             counters which are not given are disabled
@@ -3034,7 +3034,7 @@ class P201:
         for counter, enable in counters.items():
             reg = 1 << (counter-1)
             if not enable:
-                reg << 16
+                reg = reg << 16
             register |= reg
         self.write_reg("SOFT_ENABLE_DISABLE", register)
 

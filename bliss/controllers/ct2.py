@@ -1757,6 +1757,13 @@ class P201:
         self.__dev = None
         self.connect(name)
 
+    def __str__(self):
+        name = self.__name or ""
+        return "{0}({1})".format(self.__class__.__name__, name)
+
+    def __repr__(self):
+        return str(self)
+
     def __ioctl(self, op, *args, **kwargs):
         try:
             fcntl.ioctl(self.fileno(), op[0], *args, **kwargs)

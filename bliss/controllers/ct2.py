@@ -2903,6 +2903,21 @@ class P201:
                 result[latch_counter] = counters
         return result
 
+    def get_counter_comparator_value(self, counter):
+        """
+        Returns the given counter comparator value
+
+        :param counter: counter number (starting at 1)
+        :type counter: int
+        :return: comparator value
+        :rtype: int
+        """        
+        return self.read_reg("COMPARE_CMPT_%d" % counter)
+        
+    def get_counters_comparators_values(self):
+        offset = CT2_R_DICT["COMPARE_CMPT_1"][0]
+        return self._read_offset_array(offset, len(self.COUNTERS))
+
     def set_counter_comparator_value(self, counter, value):
         """
         Sets the given counter comparator value

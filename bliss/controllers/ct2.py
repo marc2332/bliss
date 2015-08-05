@@ -102,10 +102,10 @@ def preadn(fd, offset, n=1):
     :type fd: int
     :param offset: offset (in bytes)
     :type offset: int
-    :param n: number of registers to read starting at offset
+    :param n: number of bytes to read starting at offset
     """
-    buff = ctypes.create_string_buffer(CT2_REG_SIZE*n)
-    read_n = __libc.pread(fd, buff, len(buff), offset)
+    buff = ctypes.create_string_buffer(n)
+    read_n = __libc.pread(fd, buff, n, offset)
     if read_n == -1:
         err = ctypes.get_errno()
         if err != 0:
@@ -121,7 +121,8 @@ pread = functools.partial(preadn, n=1)
 
 
 def pwrite(fd, buff, offset):
-    write_n = __libc.pwrite(fd, buff, len(buff), offset)
+    length = len(buff)
+    write_n = __libc.pwrite(fd, buff, length, offset)
     if write_n == -1:
         err = ctypes.get_errno()
         if err != 0:
@@ -227,6 +228,7 @@ CT2_R1_SEQ = [
 # addr        name      read  write             description
 [0x00, "COM_GENE",      True, True,  "General control"],
 [0x04, "CTRL_GENE",     True, False, "General status"],
+
 [0x0C, "NIVEAU_OUT",    True, True,  "Output enable and type (TTL or NIM)"],
 [0x10, "ADAPT_50",      True, True,  "Input 50 ohms loads selector"],
 [0x14, "SOFT_OUT",      True, True,  "Output status control (when enabled)"],
@@ -273,7 +275,7 @@ CT2_R1_SEQ = [
 CT2_R1_DICT = {}
 for reg_info in CT2_R1_SEQ:
     addr, name, r, w, desc = reg_info
-    addr = CT2_R1_OFFSET + addr #/ CT2_REG_SIZE
+    addr = CT2_R1_OFFSET + addr
     reg_info[0] = addr
     CT2_R1_DICT[name] = addr, r, w, desc
 del reg_info, addr, name, r, w, desc
@@ -336,7 +338,7 @@ CT2_R2_SEQ = [
 CT2_R2_DICT = {}
 for reg_info in CT2_R2_SEQ:
     addr, name, r, w, desc = reg_info
-    addr = CT2_R2_OFFSET + addr #/ CT2_REG_SIZE
+    addr = CT2_R2_OFFSET + addr
     reg_info[0] = addr
     CT2_R2_DICT[name] = addr, r, w, desc
 del reg_info, addr, name, r, w, desc
@@ -1776,12 +1778,12 @@ class P201:
                 raise
 
     def _read_offset(self, offset):
-        result = preadn(self.fileno(), offset)
+        result = preadn(self.fileno(), offset, n=CT2_REG_SIZE)
         iresult = struct.unpack("I", result)[0]
         return iresult
 
-    def _read_offset_array(self, offset, n=1):
-        result = preadn(self.fileno(), offset, n=n)
+    def _read_offset_array(self, offset, nb_reg=1):
+        result = preadn(self.fileno(), offset, n=CT2_REG_SIZE*nb_reg)
         import numpy
         return numpy.frombuffer(result, dtype=numpy.uint32)
 

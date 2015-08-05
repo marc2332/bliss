@@ -3173,6 +3173,18 @@ def __get(cfg, name, default=None, klass=None):
     elif issubclass(klass, enum.Enum):
         return __get_from_enum(klass, value)
 
+
+def create_and_configure_card(name):
+    from beacon.static import get_config
+    config = get_config()
+    card_config = config.get_config(name)
+    card = create_card_from_configure(card_config)
+    card.request_exclusive_access()
+    card.reset()
+    card.software_reset()
+    configure_card(card, card_config)
+    return card
+
                 
 def create_card_from_configure(config):
     """

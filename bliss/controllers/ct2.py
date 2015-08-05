@@ -115,6 +115,9 @@ def preadn(fd, offset, n=1):
                                                         errno.strerror(err)))
         else:
             raise OSError("pread error")
+    elif read_n != n:
+        raise OSError("pread error: read only {0} bytes (expected {1})"
+                      .format(read_n, n))
     return buff[:]
     
 pread = functools.partial(preadn, n=1)
@@ -132,6 +135,10 @@ def pwrite(fd, buff, offset):
                                                          errno.strerror(err)))
         else:
             raise OSError("pwrite error")
+    elif write_n != length:
+        raise OSError("pwrite error: wrote only {0} bytes (expected {1})"
+                      .format(write_n, length))
+    return write_n
 
 
 #--------------------------------------------------------------------------

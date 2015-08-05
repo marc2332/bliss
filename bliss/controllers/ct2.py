@@ -3236,7 +3236,7 @@ def configure_card(card, config):
 
         ct_ints[addr] =  __get(counter, "interrupt", False)
 
-        cmpt = __get(counter, "trigger interrupt")
+        cmpt = __get(counter, "comparator")
         if cmpt is not None:
             ct_cmpts[addr] = cmpt
 

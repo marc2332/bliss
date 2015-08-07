@@ -93,20 +93,12 @@ class AcquisitionDevice(object):
         if self._check_ready():
             dispatcher.send("start", self)
             self._reading_task = gevent.spawn(self.reading)
-            self._reading_task.link(self._reading_finished)
     def trigger(self):
         raise NotImplementedError
     def reading(self):
         pass
     def wait_reading(self):
         return self._reading_task.get() if self._reading_task is not None else True
-    def _reading_finished(self, task):
-        try:
-            task.get()
-        except Exception:
-            pass
-        dispatcher.send("end", self)
-
 
 class _Node:
     def __init__(self, acq_device=None, master=None):
@@ -192,4 +184,5 @@ class AcquisitionChain(object):
     self._execute("start", self.devices_list)
     for master, acq_devs in self.acq_devs_by_master.iteritems():
         for acq_dev in acq_devs:
-            acq_dev.wait_reading() 
+            acq_dev.wait_reading()
+            dispatcher.send("end", acq_dev)

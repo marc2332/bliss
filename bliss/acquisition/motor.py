@@ -53,7 +53,7 @@ class SoftwarePositionTriggerMaster(MotorMaster):
         self.exception = None
         self.index = 0
         emotion.event.connect(self.movable, "position", self.position_changed)
-        MotorMaster.start(self, 0)
+        MotorMaster.start(self, 1E-6)
         if self.exception:
             raise self.exception[0], self.exception[1], self.exception[2]
         

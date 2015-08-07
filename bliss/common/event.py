@@ -41,3 +41,9 @@ def send(sender, signal, *args, **kwargs):
 
 def connect(sender, signal, callback):
     dispatcher.connect(callback, signal, sender)
+
+def disconnect(sender, signal, callback):
+    try:
+        dispatcher.disconnect(callback, signal, sender)
+    except Exception:
+        pass

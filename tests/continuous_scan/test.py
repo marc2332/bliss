@@ -17,7 +17,7 @@ from bliss.acquisition.motor import  SoftwarePositionTriggerMaster
 from bliss.acquisition.lima import LimaAcquisitionDevice
 import bliss 
 #from PyTango.gevent import DeviceProxy
-from PyTango import DeviceProxy
+from PyTango.gevent import DeviceProxy
 from louie import dispatcher
 
 def test():

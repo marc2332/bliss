@@ -57,6 +57,8 @@ hg_config_indent("tango_mot", 0, 0, 0)
 hg_config_headers("tango_mot", "TANGO_MOT", "TANGO_MOT", "TANGO_MOT")
 hg_generate("tango_mot")
 
+global EMOTION_COMP_FUNC[]
+
 
 def bliss_get_axes(mot_name) '{
     local  TTT[]
@@ -73,16 +75,12 @@ def bliss_get_axes(mot_name) '{
 def bliss_get_custom_commands(mot_name) '{
 
     local ccList[]
-    local commands_names_list[]
-
-    commands_names_list[0] = 0
 
     tango_io(motor_par(mot_name, "dev_name"), "GetCustomCommandList", ccList)
 
-
     for (ii in ccList) {
-        local _fct_name  _cmd_string  _tin  _tout  _reste  _length
-        local _cmd
+        local _fct_name  _cmd_string   _reste  _length
+        local uuu[]   _tin  _tout
 
         _cmd_string = ccList[ii]
 
@@ -97,49 +95,61 @@ def bliss_get_custom_commands(mot_name) '{
         _fct_length = index(_cmd_string, ",")+2
         _reste = substr(_cmd_string, _fct_length  , _length-_fct_length )
         # _reste = ["custom_set_measured_noise", ["float", "None"]]
-        # print _reste
 
-        local uuu[]
+
         split(_reste, uuu, ", ")
         _tin = string_remove_last_N_chars(substr(uuu[0], 3), 1)
         _tout = string_remove_last_N_chars(substr(uuu[1], 2), 2)
 
         printf("%s(%s) --> %s \n", _fct_name, _tin, _tout)
-        commands_names_list[ii] = _fct_name
 
-
-        if(_tin=="None" && _tout=="None"){
-            _cmd = sprintf("rdef bliss_%s(mot_name) \\\'{     \n\
-    tango_io(motor_par(mot_name, \"dev_name\"), \"%s\")                                  \n\
-}\\\'       \
-          ", _fct_name, _fct_name)
-
-            eval(_cmd)
-        }
-        else if(_tout=="None"){
-            _cmd = sprintf("rdef bliss_%s(mot_name, argin) \\\'{     \n\
-    tango_io(motor_par(mot_name, \"dev_name\"), \"%s\", argin)                                  \n\
-}\\\'       \
-          ", _fct_name, _fct_name)
-
-            eval(_cmd)
-        }
-        else if(_tin == "None"){
-            _cmd = sprintf("rdef bliss_%s(mot_name) \\\'{     \n\
-    return tango_io(motor_par(mot_name, \"dev_name\"), \"%s\")                                  \n\
-}\\\'       \
-          ", _fct_name, _fct_name)
-
-            eval(_cmd)
+        # Check for complementary functions
+        if (_fct_name == "closed_loop"){
+            EMOTION_COMP_FUNC["closed_loop"] = 1
         }
         else{
-            _cmd = sprintf("rdef bliss_%s(mot_name, argin) \\\'{     \n\
-    return tango_io(motor_par(mot_name, \"dev_name\"), \"%s\", argin)                                  \n\
-}\\\'       \
-          ", _fct_name, _fct_name)
-
-            eval(_cmd)
+            # Not a complementary function => custom command.
+            bliss_declare_func(_fct_name, _tin, _tout)
         }
+    }
+}'
+
+
+def bliss_declare_func(fct_name, type_in, type_out) '{
+
+    local _cmd
+
+    if(type_in == "None" && type_out == "None"){
+        _cmd = sprintf("rdef bliss_%s(mot_name) \\\'{     \n\
+    tango_io(motor_par(mot_name, \"dev_name\"), \"%s\")                                  \n\
+}\\\'       \
+          ", fct_name, fct_name)
+
+        eval(_cmd)
+    }
+    else if(type_out == "None"){
+        _cmd = sprintf("rdef bliss_%s(mot_name, argin) \\\'{     \n\
+    tango_io(motor_par(mot_name, \"dev_name\"), \"%s\", argin)                                  \n\
+}\\\'       \
+          ", fct_name, fct_name)
+
+        eval(_cmd)
+    }
+    else if(type_in == "None"){
+        _cmd = sprintf("rdef bliss_%s(mot_name) \\\'{     \n\
+    return tango_io(motor_par(mot_name, \"dev_name\"), \"%s\")                                  \n\
+}\\\'       \
+          ", fct_name, fct_name)
+
+        eval(_cmd)
+    }
+    else{
+        _cmd = sprintf("rdef bliss_%s(mot_name, argin) \\\'{     \n\
+    return tango_io(motor_par(mot_name, \"dev_name\"), \"%s\", argin)                                  \n \
+}\\\'       \
+          ", fct_name, fct_name)
+
+        eval(_cmd)
     }
 }'
 
@@ -176,7 +186,6 @@ def econfig '{
 def eeconfig '{
     econfig "$1" "expert"
 }'
-
 
 
 #%IU%
@@ -244,8 +253,8 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
             return ".error."
         }
         else{
-            tango_mot_msg(sprintf("Motor \"%s\" linked to Tango EMotion axis : %s ", \
-                                  _mot_mne, _axis_ds_name))
+            printf("Motor \"%s\" linked to Tango EMotion axis : %s ",   \
+                   _mot_mne, _axis_ds_name)
         }
 
         # Registers axis Tango DS name in parameters of the motor.
@@ -255,6 +264,9 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
         # Cannot use tango_mot_ADDR here directly...
         motor_par(motnum, "ctrl_dev_name", tango_mot_ADDR, "add")
         motor_par(motnum, "dev_name", _axis_ds_name, "add")
+
+        # On a reconfig, restores config value of axis.
+        motor_par(motnum, "apply_config")
 
         # Try to switch power on.
         TANGO_ERR = -1
@@ -384,10 +396,10 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
 
     # Returns the list of non standard motor parameters implemented.
     if ( key=="?" && action=="get") {
-        return("power, axisstatus")
+        return("power, axisstatus, apply_config, settings_to_config, closed_loop")
     }
 
-    # control motor power
+    # Control motor power
     if (key == "power") {
         local _axis_ds_name
         local _state
@@ -403,6 +415,36 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
         _state = tango_io(_axis_ds_name, "State")
         return (_state == 0)
     }
+
+    if (key == "apply_config") {
+        TANGO_ERR = -1
+        tango_io(_axis_ds_name, "ApplyConfig")
+
+        # in any case, returns the current state (0 == ON)
+        _state = tango_io(_axis_ds_name, "State")
+        return (_state == 0)
+    }
+
+    if (key == "settings_to_config") {
+        TANGO_ERR = -1
+        tango_io(_axis_ds_name, "SettingsToConfig")
+
+        # in any case, returns the current state (0 == ON)
+        _state = tango_io(_axis_ds_name, "State")
+        return (_state == 0)
+    }
+
+    if (key == "closed_loop"){
+        local _cl_state
+
+        if (action=="set"){
+            
+        }
+
+        _cl_state = tango_io(_axis_ds_name, "closed_loop")
+        return (_cl_state)
+    }
+
 
     if (action=="get") {
         if ( key == "axisstatus"){

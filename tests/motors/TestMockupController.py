@@ -5,6 +5,7 @@ import time
 import sys
 import os
 import math
+import tempfile
 
 sys.path.insert(
     0,
@@ -70,11 +71,11 @@ class MockupAxis(Axis):
         self.backlash_move = 0
         return Axis.prepare_move(self, *args, **kwargs)
 
-    def _handle_move(self, motion):
+    def _handle_move(self, motion, polling_time):
         self.target_pos = motion.target_pos
         self.backlash_move = motion.target_pos / \
             self.steps_per_unit if motion.backlash else 0
-        return Axis._handle_move(self, motion)
+        return Axis._handle_move(self, motion, polling_time)
 
 
 class mockup_axis_module:
@@ -90,7 +91,7 @@ class TestMockupController(unittest.TestCase):
 
     def setUp(self):
         bliss.load_cfg_fromstring(config_xml)
-
+    
     def test_get_axis(self):
         robz = bliss.get_axis("robz")
         self.assertTrue(robz)
@@ -455,6 +456,16 @@ class TestMockupController(unittest.TestCase):
             self.assertEquals(m.position(), 0)
         finally:
             m.controller.set_error(False)     
+
+    def test_no_offset(self):
+        m = bliss.get_axis("roby")
+        m.no_offset = True
+        m.move(0)
+        m.position(1)
+        self.assertEquals(m.dial(), 1)
+        m.dial(0)
+        self.assertEquals(m.position(), 0)
+
     def test_settings_to_config(self):
         m = bliss.get_axis("roby")
         m.velocity(3)
@@ -474,6 +485,61 @@ class TestMockupController(unittest.TestCase):
         self.assertEquals(m.velocity(), 2500)        
         self.assertEquals(m.acceleration(), 4)        
         self.assertEquals(m.limits(), (None,None))
+    
+    def test_reload_config(self):
+        cfg="""
+            <config>
+              <controller class='mockup'>
+                <axis name="m0">
+                  <velocity value="1000"/>
+                  <acceleration value="100"/>
+                  <low_limit value="-5"/>
+                  <high_limit value="5"/>
+                </axis>
+              </controller>
+            </config>
+        """
+        f = tempfile.NamedTemporaryFile()
+        filename = f.name
+        try:
+            f.write(cfg) 
+            f.flush()
+            bliss.load_cfg(f.name)
+            m = bliss.get_axis("m0")
+            self.assertEquals(m.config.config_dict.config_file, f.name)
+        finally:
+            f.close()
+        self.assertEquals(m.limits(), (-5,5))
+        self.assertEquals(m.backlash, 0)
+        self.assertEquals(m.steps_per_unit, 1)
+        cfg2 = """
+            <config>
+              <controller class='mockup'>
+                <axis name="m0">
+                  <steps_per_unit value="5"/>
+                  <velocity value="1000"/>
+                  <acceleration value="100"/>
+                  <low_limit value="-5"/>
+                  <high_limit value="10"/>
+                  <backlash value="4"/>
+                </axis>
+              </controller>
+            </config>
+        """
+        with open(filename, "w") as f:
+            f.write(cfg2)
+        try:
+            m.config.reload()
+        
+            self.assertEquals(m.config.config_dict['high_limit']['value'], '10')
+            self.assertEquals(m.backlash, 4)
+            self.assertEquals(m.steps_per_unit, 5)
+            m.apply_config()
+            self.assertEquals(m.limits(), (-5,10))
+        finally:
+            os.unlink(filename)
+
+       
 
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(TestMockupController)

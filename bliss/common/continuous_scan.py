@@ -113,7 +113,7 @@ class AcquisitionChain(object):
     self.acq_devs_by_master = OrderedDict()
     self.devices = dict()
     self.device_nodes = dict()
-
+    self._devices_tree = list()
 
   def add(self, master, acq_device):
     self.devices.setdefault(master.device, None)
@@ -140,31 +140,47 @@ class AcquisitionChain(object):
       return count
 
 
-  def _execute(self, func_name, devices_list):
+  def _get_devices_tree(self):
+    devices_list = [(self._get_level(device), device) for device in self.devices.iterkeys()]
+    devices_list.sort(reverse=True)
+
+    tree = list()
+    for level, device in devices_list:
+      node_dict = dict()
+      tree.append((level, node_dict)) 
+      node = self.device_nodes[device]
+      if node.acq_device:
+        node_dict['acq_device'] = node.acq_device
+      if node.master:
+        node_dict['master'] = node.master
+      parent_device = self.devices[device]
+      node_dict['parent'] = self.device_nodes.get(parent_device)
+    return tree
+
+
+  def _execute(self, func_name):
     tasks = list()
     prev_level = None
 
-    for level, device in devices_list:
+    for level, node_dict in self._devices_tree:
       if prev_level != level:
         prev_level = level
         gevent.joinall(tasks)
         tasks = []
-      node = self.device_nodes[device]
-      if node.acq_device is not None:
-        func = getattr(node.acq_device, func_name)
+      acq_device = node_dict.get('acq_device')
+      master = node_dict.get('master')
+      if acq_device is not None:
+        func = getattr(acq_device, func_name)
         tasks.append(gevent.spawn(func))
-      if node.master is not None:
-        func = getattr(node.master, func_name)
+      if master is not None:
+        func = getattr(master, func_name)
         tasks.append(gevent.spawn(func))
 
     gevent.joinall(tasks)
     
 
-  def prepare(self, dm):
-    self.devices_list = [(self._get_level(device), device) for device in self.devices.iterkeys()]
-    self.devices_list.sort(reverse=True)
-
-    prepare_task = gevent.spawn(dm.prepare)
+  def prepare(self, dm, scan_info):
+    self._devices_tree = self._get_devices_tree() 
 
     for master, acq_devs in self.acq_devs_by_master.iteritems():
        del master.slaves[:]
@@ -175,13 +191,13 @@ class AcquisitionChain(object):
          if node.acq_device:
              master.slaves.append(node.acq_device)
 
-    self._execute("_prepare", self.devices_list)
+    self._execute("_prepare")
 
     prepare_task.join()
 
     
   def start(self):
-    self._execute("start", self.devices_list)
+    self._execute("start")
     for master, acq_devs in self.acq_devs_by_master.iteritems():
         for acq_dev in acq_devs:
             acq_dev.wait_reading()

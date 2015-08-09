@@ -1364,7 +1364,7 @@ CT2_IOC_DEVRST = _IO(CT2_IOC_MAGIC, 0), "CT2_IOC_DEVRST", \
 #:
 #: arguments:
 #:
-#:  1:  capacity of the interrupt notification queue
+#: - capacity of the interrupt notification queue
 #:
 #: Have the Operating System set up everything associated with the Device
 #: that is required so that we can receive Device interrupts once we enable
@@ -1384,28 +1384,38 @@ CT2_IOC_DEVRST = _IO(CT2_IOC_MAGIC, 0), "CT2_IOC_DEVRST", \
 #:
 #: returns:
 #:
-#:  zero on success
-#:  non-zero on failure with  errno  set appropriately:
+#: - zero on success
+#: - non-zero on failure with  errno  set appropriately:
 #:
-#:    EACCES  exclusive access was set up previously for the Device, but for
-#:            a different open file description than the one in the request
+#:    - EACCES: exclusive access was set up previously for the Device, but for
+#:      a different open file description than the one in the request
 #:
-#:    EBUSY   interrupts are already enabled with a queue capacity different
-#:            from the one in the argument of the request
+#:    - EBUSY: interrupts are already enabled with a queue capacity different
+#:      from the one in the argument of the request
 #:
-#:    ENOMEM  failure to allocate storage for the notification queue and
-#:            the open file description in the request was in blocking mode
+#:    - ENOMEM: failure to allocate storage for the notification queue and
+#:      the open file description in the request was in blocking mode
 #:
-#:    EAGAIN  similar to the ENOMEM case, only that the open file description
-#:            in the request was in non-blocking mode
+#:    - EAGAIN: similar to the ENOMEM case, only that the open file description
+#:      in the request was in non-blocking mode
 #:
-#:    EINTR   the caller was interrupted while waiting for permission to
-#:            exclusively access the Device
+#:    - EINTR: the caller was interrupted while waiting for permission to
+#:      exclusively access the Device
 #:
-#:    EINVAL  some arguments to the  ioctl(2)  call where invalid
+#:    - EINVAL: some arguments to the  ioctl(2)  call where invalid
 #:
 CT2_IOC_EDINT = _IOW(CT2_IOC_MAGIC, 01, CT2_SIZE), "CT2_IOC_EDINT", \
-    {errno.EACCES: "Exclusive access already granted to another file descriptor"}
+    {errno.EACCES: "Exclusive access already granted to another file descriptor",
+     errno.EBUSY: "interrupts are already enabled with a queue with a " \
+                  "different capacity",
+     errno.ENOMEM: "failure to allocate storage for the notification queue " \
+                   "(file descriptor in blocking mode)",
+     errno.EAGAIN: "failure to allocate storage for the notification queue" \
+                   "(file descriptor in non blocking mode)",
+     errno.EINTR: "interrupted while waiting for permission to exclusively " \
+                  "access the device",
+     errno.EINVAL: "invalid arguments",
+}
 
 
 #: CT2_IOC_DDINT - "[D]isable [D]evice [INT]errupts"
@@ -1932,7 +1942,7 @@ class P201:
         register_name = register_name.upper()
         offset = CT2_R_DICT[register_name][0]
         iresult = self._read_offset(offset)
-        self.__log.debug("read %020s (addr=%06s) = %010s", register_name, 
+        self.__log.debug(" read %020s (addr=%06s) = %010s", register_name, 
                          hex(offset), hex(iresult))
         return iresult
 
@@ -1952,7 +1962,7 @@ class P201:
         """
         register_name = register_name.upper()
         offset = CT2_R_DICT[register_name][0]
-        self.__log.debug("write %020s (addr=%06s) with %010s", register_name,
+        self.__log.debug("write %020s (addr=%06s, value=%010s)", register_name,
                          hex(offset), hex(ivalue))
         return self._write_offset(offset, ivalue)
 
@@ -2414,9 +2424,9 @@ class P201:
 
         The result is a tuple of 5 elements containing: 
         
+            * counters stop triggered interrupt (dict<int: bool>)
             * channels rising and/or falling edge triggered interrupts
               (dict<int: class:`TriggerInterrupt`)
-            * counters stop triggered interrupt (dict<int: bool>)
             * DMA transfer interrupt enabled (bool)
             * FIFO half full interrupt enabled (bool)
             * FIFO transfer error or too close DMA trigger enabled (bool)

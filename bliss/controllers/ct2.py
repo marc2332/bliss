@@ -102,10 +102,10 @@ def preadn(fd, offset, n=1):
     :type fd: int
     :param offset: offset (in bytes)
     :type offset: int
-    :param n: number of registers to read starting at offset
+    :param n: number of bytes to read starting at offset
     """
-    buff = ctypes.create_string_buffer(CT2_REG_SIZE*n)
-    read_n = __libc.pread(fd, buff, len(buff), offset)
+    buff = ctypes.create_string_buffer(n)
+    read_n = __libc.pread(fd, buff, n, offset)
     if read_n == -1:
         err = ctypes.get_errno()
         if err != 0:
@@ -115,13 +115,17 @@ def preadn(fd, offset, n=1):
                                                         errno.strerror(err)))
         else:
             raise OSError("pread error")
+    elif read_n != n:
+        raise OSError("pread error: read only {0} bytes (expected {1})"
+                      .format(read_n, n))
     return buff[:]
     
 pread = functools.partial(preadn, n=1)
 
 
 def pwrite(fd, buff, offset):
-    write_n = __libc.pwrite(fd, buff, len(buff), offset)
+    length = len(buff)
+    write_n = __libc.pwrite(fd, buff, length, offset)
     if write_n == -1:
         err = ctypes.get_errno()
         if err != 0:
@@ -131,6 +135,10 @@ def pwrite(fd, buff, offset):
                                                          errno.strerror(err)))
         else:
             raise OSError("pwrite error")
+    elif write_n != length:
+        raise OSError("pwrite error: wrote only {0} bytes (expected {1})"
+                      .format(write_n, length))
+    return write_n
 
 
 #--------------------------------------------------------------------------
@@ -226,6 +234,7 @@ CT2_R1_SEQ = [
 # addr        name      read  write             description
 [0x00, "COM_GENE",      True, True,  "General control"],
 [0x04, "CTRL_GENE",     True, False, "General status"],
+
 [0x0C, "NIVEAU_OUT",    True, True,  "Output enable and type (TTL or NIM)"],
 [0x10, "ADAPT_50",      True, True,  "Input 50 ohms loads selector"],
 [0x14, "SOFT_OUT",      True, True,  "Output status control (when enabled)"],
@@ -272,7 +281,7 @@ CT2_R1_SEQ = [
 CT2_R1_DICT = {}
 for reg_info in CT2_R1_SEQ:
     addr, name, r, w, desc = reg_info
-    addr = CT2_R1_OFFSET + addr #/ CT2_REG_SIZE
+    addr = CT2_R1_OFFSET + addr
     reg_info[0] = addr
     CT2_R1_DICT[name] = addr, r, w, desc
 del reg_info, addr, name, r, w, desc
@@ -335,7 +344,7 @@ CT2_R2_SEQ = [
 CT2_R2_DICT = {}
 for reg_info in CT2_R2_SEQ:
     addr, name, r, w, desc = reg_info
-    addr = CT2_R2_OFFSET + addr #/ CT2_REG_SIZE
+    addr = CT2_R2_OFFSET + addr
     reg_info[0] = addr
     CT2_R2_DICT[name] = addr, r, w, desc
 del reg_info, addr, name, r, w, desc
@@ -1354,7 +1363,7 @@ CT2_IOC_DEVRST = _IO(CT2_IOC_MAGIC, 0), "CT2_IOC_DEVRST", \
 #:
 #: arguments:
 #:
-#:  1:  capacity of the interrupt notification queue
+#: - capacity of the interrupt notification queue
 #:
 #: Have the Operating System set up everything associated with the Device
 #: that is required so that we can receive Device interrupts once we enable
@@ -1374,28 +1383,38 @@ CT2_IOC_DEVRST = _IO(CT2_IOC_MAGIC, 0), "CT2_IOC_DEVRST", \
 #:
 #: returns:
 #:
-#:  zero on success
-#:  non-zero on failure with  errno  set appropriately:
+#: - zero on success
+#: - non-zero on failure with  errno  set appropriately:
 #:
-#:    EACCES  exclusive access was set up previously for the Device, but for
-#:            a different open file description than the one in the request
+#:    - EACCES: exclusive access was set up previously for the Device, but for
+#:      a different open file description than the one in the request
 #:
-#:    EBUSY   interrupts are already enabled with a queue capacity different
-#:            from the one in the argument of the request
+#:    - EBUSY: interrupts are already enabled with a queue capacity different
+#:      from the one in the argument of the request
 #:
-#:    ENOMEM  failure to allocate storage for the notification queue and
-#:            the open file description in the request was in blocking mode
+#:    - ENOMEM: failure to allocate storage for the notification queue and
+#:      the open file description in the request was in blocking mode
 #:
-#:    EAGAIN  similar to the ENOMEM case, only that the open file description
-#:            in the request was in non-blocking mode
+#:    - EAGAIN: similar to the ENOMEM case, only that the open file description
+#:      in the request was in non-blocking mode
 #:
-#:    EINTR   the caller was interrupted while waiting for permission to
-#:            exclusively access the Device
+#:    - EINTR: the caller was interrupted while waiting for permission to
+#:      exclusively access the Device
 #:
-#:    EINVAL  some arguments to the  ioctl(2)  call where invalid
+#:    - EINVAL: some arguments to the  ioctl(2)  call where invalid
 #:
 CT2_IOC_EDINT = _IOW(CT2_IOC_MAGIC, 01, CT2_SIZE), "CT2_IOC_EDINT", \
-    {errno.EACCES: "Exclusive access already granted to another file descriptor"}
+    {errno.EACCES: "Exclusive access already granted to another file descriptor",
+     errno.EBUSY: "interrupts are already enabled with a queue with a " \
+                  "different capacity",
+     errno.ENOMEM: "failure to allocate storage for the notification queue " \
+                   "(file descriptor in blocking mode)",
+     errno.EAGAIN: "failure to allocate storage for the notification queue" \
+                   "(file descriptor in non blocking mode)",
+     errno.EINTR: "interrupted while waiting for permission to exclusively " \
+                  "access the device",
+     errno.EINVAL: "invalid arguments",
+}
 
 
 #: CT2_IOC_DDINT - "[D]isable [D]evice [INT]errupts"
@@ -1750,11 +1769,18 @@ class P201:
     #: list of valid card ouput channels
     OUTPUT_CHANNELS = range(9, 11)
 
-    def __init__(self, name="/dev/p201"):
-        self.__log = logging.getLogger("P201." + name)
-        self.__name = name
+    def __init__(self, address="/dev/p201"):
+        self.__log = logging.getLogger("P201." + address)
+        self.__address = address
         self.__dev = None
-        self.connect(name)
+        self.connect(address)
+
+    def __str__(self):
+        address = self.__address or ""
+        return "{0}({1})".format(self.__class__.__name__, address)
+
+    def __repr__(self):
+        return str(self)
 
     def __ioctl(self, op, *args, **kwargs):
         try:
@@ -1768,12 +1794,12 @@ class P201:
                 raise
 
     def _read_offset(self, offset):
-        result = preadn(self.fileno(), offset)
+        result = preadn(self.fileno(), offset, n=CT2_REG_SIZE)
         iresult = struct.unpack("I", result)[0]
         return iresult
 
-    def _read_offset_array(self, offset, n=1):
-        result = preadn(self.fileno(), offset, n=n)
+    def _read_offset_array(self, offset, nb_reg=1):
+        result = preadn(self.fileno(), offset, n=CT2_REG_SIZE*nb_reg)
         import numpy
         return numpy.frombuffer(result, dtype=numpy.uint32)
 
@@ -1785,13 +1811,17 @@ class P201:
     def _write_offset_array(self, offset, array):
         return pwrite(self.fileno(), array.tostring(), offset)
 
-    def connect(self, name):
-        if name is None:
+    @property
+    def address(self):
+        return self.__address
+
+    def connect(self, address):
+        if address is None:
             self.disconnect()
         else:
             if self.__dev:
-                self.__log.info("connecting card to %s", name)
-            self.__dev = open(name, "rwb+", 0)
+                self.__log.info("connecting card to %s", address)
+            self.__dev = open(address, "rwb+", 0)
             self.__exclusive = False
 
     def disconnect(self):
@@ -1911,7 +1941,7 @@ class P201:
         register_name = register_name.upper()
         offset = CT2_R_DICT[register_name][0]
         iresult = self._read_offset(offset)
-        self.__log.debug("read %020s (addr=%06s) = %010s", register_name, 
+        self.__log.debug(" read %020s (addr=%06s) = %010s", register_name, 
                          hex(offset), hex(iresult))
         return iresult
 
@@ -1931,7 +1961,7 @@ class P201:
         """
         register_name = register_name.upper()
         offset = CT2_R_DICT[register_name][0]
-        self.__log.debug("write %020s (addr=%06s) with %010s", register_name,
+        self.__log.debug("write %020s (addr=%06s, value=%010s)", register_name,
                          hex(offset), hex(ivalue))
         return self._write_offset(offset, ivalue)
 
@@ -2389,9 +2419,9 @@ class P201:
 
         The result is a tuple of 5 elements containing: 
         
+            * counters stop triggered interrupt (dict<int: bool>)
             * channels rising and/or falling edge triggered interrupts
               (dict<int: class:`TriggerInterrupt`)
-            * counters stop triggered interrupt (dict<int: bool>)
             * DMA transfer interrupt enabled (bool)
             * FIFO half full interrupt enabled (bool)
             * FIFO transfer error or too close DMA trigger enabled (bool)
@@ -2898,6 +2928,21 @@ class P201:
                 result[latch_counter] = counters
         return result
 
+    def get_counter_comparator_value(self, counter):
+        """
+        Returns the given counter comparator value
+
+        :param counter: counter number (starting at 1)
+        :type counter: int
+        :return: comparator value
+        :rtype: int
+        """        
+        return self.read_reg("COMPARE_CMPT_%d" % counter)
+        
+    def get_counters_comparators_values(self):
+        offset = CT2_R_DICT["COMPARE_CMPT_1"][0]
+        return self._read_offset_array(offset, len(self.COUNTERS))
+
     def set_counter_comparator_value(self, counter, value):
         """
         Sets the given counter comparator value
@@ -2957,6 +3002,22 @@ class P201:
                 register |= 1 << (channel-1)
         self.write_reg("ADAPT_50", register)
 
+    def set_counters_software_start(self, counters):
+        register = 0
+        if isinstance(counters, dict):
+            counters = [c for c, start in counters.items() if start]
+        for counter in counters:
+            register |= 1 << (counter-1)
+        self.write_reg("SOFT_START_STOP", register)    
+
+    def set_counters_software_stop(self, counters):
+        register = 0
+        if isinstance(counters, dict):
+            counters = [c for c, stop in counters.items() if stop]
+        for counter in counters:
+            register |= (1 << (counter-1)) << 16
+        self.write_reg("SOFT_START_STOP", register)    
+            
     def set_counters_software_start_stop(self, counters):
         """
         Software starts or stops the given counters.
@@ -2991,7 +3052,7 @@ class P201:
 
     def set_counters_software_enable(self, counters):
         """
-        Software enables/disables the given counters
+        Software enables/disables *all* counters
 
         .. note::
             counters which are not given are disabled
@@ -3007,7 +3068,7 @@ class P201:
         for counter, enable in counters.items():
             reg = 1 << (counter-1)
             if not enable:
-                reg << 16
+                reg = reg << 16
             register |= reg
         self.write_reg("SOFT_ENABLE_DISABLE", register)
 
@@ -3146,6 +3207,28 @@ def __get(cfg, name, default=None, klass=None):
     elif issubclass(klass, enum.Enum):
         return __get_from_enum(klass, value)
 
+
+def __get_card_config(name):
+    from beacon.static import get_config
+    config = get_config()
+    card_config = config.get_config(name)
+    return card_config
+
+
+def create_and_configure_card(config_or_name):
+    if isinstance(config_or_name, (str, unicode)):
+        card_config = __get_card_config(config_or_name)
+    else:
+        card_config = config_or_name
+    card = create_card_from_configure(card_config)
+    card.request_exclusive_access()
+    card.disable_interrupts()
+    card.reset_FIFO_error_flags()
+    card.reset()
+    card.software_reset()
+    configure_card(card, card_config)
+    return card
+
                 
 def create_card_from_configure(config):
     """
@@ -3180,6 +3263,8 @@ def configure_card(card, config):
     ct_latch_srcs = {}
     ct_sw_enables = {}
     ct_ints = {}
+    ct_latch_triggers_dma = {}
+    ct_fifo_dma_trigger = {}
     ct_cmpts = {}
     for counter in config.get("counters", ()):
         addr = counter['address']
@@ -3197,7 +3282,11 @@ def configure_card(card, config):
 
         ct_ints[addr] =  __get(counter, "interrupt", False)
 
-        cmpt = __get(counter, "trigger interrupt")
+        ct_latch_triggers_dma[addr] = __get(counter, "latch triggers dma", False)
+
+        ct_fifo_dma_trigger[addr] = __get(counter, "fifo on dma trigger", False)
+
+        cmpt = __get(counter, "comparator")
         if cmpt is not None:
             ct_cmpts[addr] = cmpt
 
@@ -3259,9 +3348,11 @@ def configure_card(card, config):
 
     card.set_counters_config(ct_cfgs)
     card.set_counters_latch_sources(ct_latch_srcs)
+    card.set_DMA_enable_trigger_latch(counters=ct_latch_triggers_dma,
+                                      latches=ct_fifo_dma_trigger)
     card.set_counters_software_enable(ct_sw_enables)
     card.set_counters_comparators_values(ct_cmpts)
-            
+
     card.set_interrupts(ch_ints, ct_ints, dma_int, fifo_hf_int, error_int)
 
 

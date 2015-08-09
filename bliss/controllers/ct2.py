@@ -2997,6 +2997,22 @@ class P201:
                 register |= 1 << (channel-1)
         self.write_reg("ADAPT_50", register)
 
+    def set_counters_software_start(self, counters):
+        register = 0
+        if isinstance(counters, dict):
+            counters = [c for c, start in counters.items() if start]
+        for counter in counters:
+            register |= 1 << (counter-1)
+        self.write_reg("SOFT_START_STOP", register)    
+
+    def set_counters_software_stop(self, counters):
+        register = 0
+        if isinstance(counters, dict):
+            counters = [c for c, stop in counters.items() if stop]
+        for counter in counters:
+            register |= (1 << (counter-1)) << 16
+        self.write_reg("SOFT_START_STOP", register)    
+            
     def set_counters_software_start_stop(self, counters):
         """
         Software starts or stops the given counters.
@@ -3187,12 +3203,22 @@ def __get(cfg, name, default=None, klass=None):
         return __get_from_enum(klass, value)
 
 
-def create_and_configure_card(name):
+def __get_card_config(name):
     from beacon.static import get_config
     config = get_config()
     card_config = config.get_config(name)
+    return card_config
+
+
+def create_and_configure_card(config_or_name):
+    if isinstance(config_or_name, (str, unicode)):
+        card_config = __get_card_config(config_or_name)
+    else:
+        card_config = config_or_name
     card = create_card_from_configure(card_config)
     card.request_exclusive_access()
+    card.disable_interrupts()
+    card.reset_FIFO_error_flags()
     card.reset()
     card.software_reset()
     configure_card(card, card_config)
@@ -3232,6 +3258,8 @@ def configure_card(card, config):
     ct_latch_srcs = {}
     ct_sw_enables = {}
     ct_ints = {}
+    ct_latch_triggers_dma = {}
+    ct_fifo_dma_trigger = {}
     ct_cmpts = {}
     for counter in config.get("counters", ()):
         addr = counter['address']
@@ -3248,6 +3276,10 @@ def configure_card(card, config):
         ct_sw_enables[addr] = __get(counter, "software enable", False)
 
         ct_ints[addr] =  __get(counter, "interrupt", False)
+
+        ct_latch_triggers_dma[addr] = __get(counter, "latch triggers dma", False)
+
+        ct_fifo_dma_trigger[addr] = __get(counter, "fifo on dma trigger", False)
 
         cmpt = __get(counter, "comparator")
         if cmpt is not None:
@@ -3311,9 +3343,11 @@ def configure_card(card, config):
 
     card.set_counters_config(ct_cfgs)
     card.set_counters_latch_sources(ct_latch_srcs)
+    card.set_DMA_enable_trigger_latch(counters=ct_latch_triggers_dma,
+                                      latches=ct_fifo_dma_trigger)
     card.set_counters_software_enable(ct_sw_enables)
     card.set_counters_comparators_values(ct_cmpts)
-            
+
     card.set_interrupts(ch_ints, ct_ints, dma_int, fifo_hf_int, error_int)
 
 

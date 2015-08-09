@@ -1760,15 +1760,15 @@ class P201:
     #: list of valid card ouput channels
     OUTPUT_CHANNELS = range(9, 11)
 
-    def __init__(self, name="/dev/p201"):
-        self.__log = logging.getLogger("P201." + name)
-        self.__name = name
+    def __init__(self, address="/dev/p201"):
+        self.__log = logging.getLogger("P201." + address)
+        self.__address = address
         self.__dev = None
-        self.connect(name)
+        self.connect(address)
 
     def __str__(self):
-        name = self.__name or ""
-        return "{0}({1})".format(self.__class__.__name__, name)
+        address = self.__address or ""
+        return "{0}({1})".format(self.__class__.__name__, address)
 
     def __repr__(self):
         return str(self)
@@ -1802,13 +1802,17 @@ class P201:
     def _write_offset_array(self, offset, array):
         return pwrite(self.fileno(), array.tostring(), offset)
 
-    def connect(self, name):
-        if name is None:
+    @property
+    def address(self):
+        return self.__address
+
+    def connect(self, address):
+        if address is None:
             self.disconnect()
         else:
             if self.__dev:
-                self.__log.info("connecting card to %s", name)
-            self.__dev = open(name, "rwb+", 0)
+                self.__log.info("connecting card to %s", address)
+            self.__dev = open(address, "rwb+", 0)
             self.__exclusive = False
 
     def disconnect(self):

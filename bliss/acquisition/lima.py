@@ -8,7 +8,7 @@ class LimaAcquisitionDevice(AcquisitionDevice):
       self.parameters = locals().copy()
       del self.parameters['self']
       del self.parameters['device']
-      AcquisitionDevice.__init__(self, device)
+      AcquisitionDevice.__init__(self, device, device.user_detector_name, "lima")
       self._reading_task = None
 
   def prepare(self):
@@ -25,12 +25,7 @@ class LimaAcquisitionDevice(AcquisitionDevice):
   #    return self.device.ready_for_next_image
 
   def trigger(self):
-      #t0=time.time()
-      #print 'in trigger, before startAcq'
       self.device.startAcq()
-      #print time.time()-t0
-      #print 'in trigger after startAcq', self.device.acq_status.lower(), self._check_ready()
-  
   def reading(self):
       while self.device.acq_status.lower() == 'running':
           dispatcher.send("new_ref", self, { "type":"lima/image", "last_image_acquired":self.device.last_image_acquired })

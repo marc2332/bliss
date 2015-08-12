@@ -1,4 +1,3 @@
-from bliss.common.data_manager import DataManager
 try:
     from collections import OrderedDict
 except ImportError:
@@ -8,20 +7,13 @@ from louie import dispatcher
 import time
 
 class Scan(object):
-  def __init__(self, dm=None):
-    self.dm = dm
-    self.acq_chain = None
-
-  def set_acquisition_chain(self, acq_chain):
+  def __init__(self, acq_chain, dm, scan_info=None):
+    self.scan_dm = dm
     self.acq_chain = acq_chain
+    self.scan_info = scan_info if scan_info else dict()
 
   def prepare(self):
-    if not self.dm:
-        raise RuntimeError("No data manager.")
-   
-    self.scan_dm = DataManager(self.dm)
-
-    self.acq_chain.prepare(self.scan_dm)
+    self.acq_chain.prepare(self.scan_dm, self.scan_info)
 
   def start(self):
     self.acq_chain.start()
@@ -29,14 +21,22 @@ class Scan(object):
 
 class AcquisitionMaster(object):
     #SAFE, FAST = (0, 1)
-    def __init__(self, device): #, trigger_mode=AcquisitionMaster.FAST):
+    def __init__(self, device, name, type): #, trigger_mode=AcquisitionMaster.FAST):
         self.__device = device
+        self.__name = name
+        self.__type = type
         self.__slaves = list()
         self.__triggers = list()
         #self.__trigger_mode = trigger_mode
     @property
     def device(self):
         return self.__device
+    @property
+    def name(self):
+        return self.__name
+    @property
+    def type(self):
+        return self.__type
     @property
     def slaves(self):
         return self.__slaves
@@ -68,12 +68,20 @@ class AcquisitionMaster(object):
             self.__triggers.append((slave, gevent.spawn(slave._trigger)))
 
 class AcquisitionDevice(object):
-    def __init__(self, device):
+    def __init__(self, device, name, type):
         self.__device = device
+        self.__name = name
+        self.__type = type
         self._reading_task = None
     @property
     def device(self):
         return self.__device
+    @property
+    def name(self):
+        return self.__name
+    @property
+    def type(self):
+        return self.__type
     def _prepare(self):
         if not self._check_ready():
             raise RuntimeError("Last reading task is not finished.")
@@ -190,10 +198,12 @@ class AcquisitionChain(object):
              master.slaves.append(node.master)
          if node.acq_device:
              master.slaves.append(node.acq_device)
+    
+    dm_prepare_task = gevent.spawn(dm.prepare, scan_info, self._devices_tree)
 
     self._execute("_prepare")
 
-    prepare_task.join()
+    dm_prepare_task.join()
 
     
   def start(self):

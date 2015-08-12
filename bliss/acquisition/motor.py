@@ -7,7 +7,7 @@ import sys
 
 class MotorMaster(AcquisitionMaster):
     def __init__(self, axis, start, end, time=0, undershoot=None):
-        AcquisitionMaster.__init__(self, axis)
+        AcquisitionMaster.__init__(self, axis, axis.name, "axis")
         self.movable = axis    
         self.start_pos = start
         self.end_pos = end

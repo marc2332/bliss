@@ -224,7 +224,7 @@ class QueueSetting(object):
     @write_decorator
     def append(self,value):
         cnx = self._cnx()
-        cnx.rpush(self._name,value)
+        return cnx.rpush(self._name,value)
 
     def clear(self):
         cnx = self._cnx()
@@ -233,12 +233,12 @@ class QueueSetting(object):
     @write_decorator
     def prepend(self,value):
         cnx = self._cnx()
-        cnx.lpush(self._name,value)
+        return cnx.lpush(self._name,value)
 
     @write_decorator_multiple
     def extend(self,values):
         cnx = self._cnx()
-        cnx.rpush(self._name,*values)
+        return cnx.rpush(self._name,*values)
 
     @write_decorator
     def remove(self,value):

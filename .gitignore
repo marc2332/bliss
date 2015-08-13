@@ -3,6 +3,7 @@
 build
 *.swp
 .coverage
+_build
 
 # for eclipse users
 .settings/

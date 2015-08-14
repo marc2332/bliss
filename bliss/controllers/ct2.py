@@ -2216,12 +2216,12 @@ class P201:
 
     def set_input_channels_filter(self, filter):
         reg_a, reg_b = 0, 0
-        for n, channel in enumerate(self.CHANNELS):
+        for n, channel in enumerate(self.INPUT_CHANNELS):
             try:
                 if channel < 7:
-                    reg_a |= filter[channel].value << (n*8)
+                    reg_a |= filter[channel].value << (n*5)
                 else:
-                    reg_b |= filter[channel].value << ((n-6)*8)
+                    reg_b |= filter[channel].value << ((n-6)*5)
             except KeyError:
                 pass
         self.write_reg("SEL_FILTRE_INPUT_A", reg_a)

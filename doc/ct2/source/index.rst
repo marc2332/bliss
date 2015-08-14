@@ -6,7 +6,12 @@
 P201/C208 documentation!
 ========================
 
-Here is the link to the `P201 reference manual`_. 
+Here are the links to the:
+
+    * `P201 reference manual`_
+    * `P201 user's manual`_
+    * `C208 user's manual`_
+
 
 Quickstart
 ----------
@@ -53,13 +58,13 @@ Benchmarks
 Simple measurements/benchmarks
 
 Hardware
-   Used an IPC 4 CPU 3GHz Intel; 4Gb RAM.
+    Used an IPC 4 CPU 3GHz Intel; 4Gb RAM.
 
 Linux
-  Linux version 2.6.32-5-amd64 (Debian 2.6.32-45) (dannf@debian.org) (gcc version 4.3.5 (Debian 4.3.5-4) ) #1 SMP Sun May 6 04:00:17 UTC 2012
+    Linux version 2.6.32-5-amd64 (Debian 2.6.32-45) (dannf@debian.org) (gcc version 4.3.5 (Debian 4.3.5-4) ) #1 SMP Sun May 6 04:00:17 UTC 2012
 
 Python
-  2.6.6 (r266:84292, Dec 26 2010, 22:31:48)
+    2.6.6 (r266:84292, Dec 26 2010, 22:31:48)
 
 
 ct2.py benchmark

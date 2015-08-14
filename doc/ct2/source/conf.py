@@ -310,6 +310,9 @@ intersphinx_mapping = {'https://docs.python.org/': None}
 
 rst_epilog = """\
 .. _P201 reference manual: http://www.esrf.eu/files/live/sites/www/files/Industry/files/p201.pdf
+.. _P201 user's manual: http://intranet.esrf.fr/ISDD/detector-and-electronics/electronics/DigitalElectronicsLab/Publications/released/p201
+.. _C208 user's manual: http://intranet.esrf.fr/ISDD/detector-and-electronics/electronics/DigitalElectronicsLab/Publications/released/c208
+
 .. _Python: http://python.org/
 .. _IPython: http://ipython.org/
 .. _numpy: http://www.numpy.org/

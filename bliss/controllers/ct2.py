@@ -1752,22 +1752,22 @@ class TriggerInterrupt(BaseParam):
                   'falling': (bool, 1 << 16) }
 
 
-class P201:
+class BaseCard:
     """
-    P201 card class
+    CT2 card base class
     """
 
     #: list of valid card counters
-    COUNTERS = range(1, 13)
+    COUNTERS = ()
 
     #: list of valid card channels
-    CHANNELS = range(1, 11)
+    CHANNELS = ()
 
     #: list of valid card input channels
-    INPUT_CHANNELS = range(1,11)
+    INPUT_CHANNELS = ()
 
     #: list of valid card ouput channels
-    OUTPUT_CHANNELS = range(9, 11)
+    OUTPUT_CHANNELS = ()
 
     def __init__(self, address="/dev/p201"):
         self.__log = logging.getLogger("P201." + address)
@@ -3155,6 +3155,24 @@ class P201:
         self.set_counters_software_enable(ct)
 
 
+class P201(BaseCard):
+    """
+    P201 card class
+    """
+
+    #: list of valid card counters
+    COUNTERS = range(1, 13)
+
+    #: list of valid card channels
+    CHANNELS = range(1, 11)
+
+    #: list of valid card input channels
+    INPUT_CHANNELS = range(1,11)
+
+    #: list of valid card ouput channels
+    OUTPUT_CHANNELS = range(9, 11)
+
+
 def create_fifo_mmap(card, length=None):
     # remember: need exclusive access to use FIFO
     if not card.has_exclusive_access():
@@ -3172,6 +3190,10 @@ def create_fifo_mmap(card, length=None):
     import mmap
     return mmap.mmap(card.fileno(), length, flags=mmap.MAP_PRIVATE, 
                      prot=mmap.PROT_READ, offset=CT2_MM_FIFO_OFF)
+
+
+def C208(BaseCard):
+    raise NotImplementedError
 
 
 def create_fifo(card, length=None):

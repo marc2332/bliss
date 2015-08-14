@@ -196,7 +196,6 @@ class Edge(enum.Enum):
     RISING         = 0b01
     FALLING        = 0b10
     RISING_FALLING = 0b11
-    UNKNOWN        = 0xFF
 
 
 @enum.unique
@@ -206,7 +205,7 @@ class Level(enum.Enum):
     TTL           = 0b01
     NIM           = 0b10
     AUTO          = 0b11
-    UNKNOWN       = 0xFF
+
 
 #==========================================================================
 #                           Register Definitions
@@ -1999,7 +1998,7 @@ class P201:
         register = self.read_reg("NIVEAU_OUT")
         result, mask = {}, ((1 << 8) | (1 << 24))
         for i, channel in enumerate(self.OUTPUT_CHANNELS):
-            level = Level.UNKNOWN
+            level = Level.DISABLE
             reg = (register >> i) & mask
             TTL, NIM = reg & (1 << 8), reg & (1 << 24)
             if TTL:
@@ -2033,9 +2032,7 @@ class P201:
         register = 0
         for i, channel in enumerate(self.OUTPUT_CHANNELS):
             level = output_level.get(channel, Level.DISABLE)
-            if level == Level.UNKNOWN:
-                raise ValueError("Invalid level UNKNOWN for channel %d" % channel)
-            elif level == Level.AUTO:
+            if level == Level.AUTO:
                 raise ValueError("Invalid level for output channel %d: " \
                                      "output channels cannot have AUTO level" % channel)
             elif level == Level.TTL:
@@ -2058,7 +2055,7 @@ class P201:
         register = self.read_reg("NIVEAU_IN")
         result, mask = {}, ((1 << 0) | (1 << 16))
         for i, channel in enumerate(self.CHANNELS):
-            level = Level.UNKNOWN
+            level = Level.DISABLE
             TTL = register & (1 << i)
             NIM = register & (1 << 16 << i)
             if TTL:
@@ -2079,9 +2076,7 @@ class P201:
         register = 0
         for i, channel in enumerate(self.CHANNELS):
             level = input_level.get(channel, Level.DISABLE)
-            if level == Level.UNKNOWN:
-                raise ValueError("Invalid level UNKNOWN for channel %d" % channel)
-            elif level == Level.AUTO:
+            if level == Level.AUTO:
                 register |= (1 << i) | (1 << 16 << i)
             elif level == Level.TTL:
                 register |= (1 << i)

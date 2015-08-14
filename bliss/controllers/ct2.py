@@ -205,7 +205,7 @@ class Level(enum.Enum):
     DISABLE       = 0b00
     TTL           = 0b01
     NIM           = 0b10
-    TTL_NIM       = 0b11
+    AUTO          = 0b11
     UNKNOWN       = 0xFF
 
 #==========================================================================
@@ -2004,7 +2004,7 @@ class P201:
             TTL, NIM = reg & (1 << 8), reg & (1 << 24)
             if TTL:
                 if NIM:
-                    level = Level.TTL_NIM
+                    level = Level.AUTO
                 else:
                     level = Level.TTL
             else:
@@ -2035,8 +2035,9 @@ class P201:
             level = output_level.get(channel, Level.DISABLE)
             if level == Level.UNKNOWN:
                 raise ValueError("Invalid level UNKNOWN for channel %d" % channel)
-            elif level == Level.TTL_NIM:
-                raise ValueError("Invalid level TTL and NIM for output channel %d" % channel)
+            elif level == Level.AUTO:
+                raise ValueError("Invalid level for output channel %d: " \
+                                     "output channels cannot have AUTO level" % channel)
             elif level == Level.TTL:
                 register |= (1 << 8) << i
             elif level == Level.NIM:
@@ -2062,7 +2063,7 @@ class P201:
             NIM = register & (1 << 16 << i)
             if TTL:
                 if NIM:
-                    level = Level.TTL_NIM
+                    level = Level.AUTO
                 else:
                     level = Level.TTL
             else:
@@ -2080,7 +2081,7 @@ class P201:
             level = input_level.get(channel, Level.DISABLE)
             if level == Level.UNKNOWN:
                 raise ValueError("Invalid level UNKNOWN for channel %d" % channel)
-            elif level == Level.TTL_NIM:
+            elif level == Level.AUTO:
                 register |= (1 << i) | (1 << 16 << i)
             elif level == Level.TTL:
                 register |= (1 << i)
@@ -3315,14 +3316,9 @@ def configure_card(card, config):
                 ch_50_ohms[addr] = __get(inp, "50 ohm", False)
                 ch_in_readbacks[addr] = __get(inp, "readback", False)
                 level = __get(inp, "level", "").upper()
-                if 'TTL' in level:
-                    if 'NIM' in level:
-                        level = Level.TTL_NIM
-                    else:
-                        level = Level.TTL
-                elif 'NIM' in level:
-                    level = Level.NIM
-                else:
+                try:
+                    level = Level[level]
+                except KeyError:
                     level = Level.DISABLE
                 ch_in_levels[addr] = level
         

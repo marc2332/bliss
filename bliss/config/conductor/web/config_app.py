@@ -88,7 +88,10 @@ def db_files():
 def get_db_file(filename):
     if flask.request.method == 'PUT':
         client.set_config_db_file(filename, flask.request.form['yml_file'])
-        return ''
+        cfg = get_config()
+        cfg.reload()
+        return flask.json.dumps(dict(message="%s successfully saved",
+                                     type="success"))
     else:
         cfg = get_config()
         db_files = dict(client.get_config_db_files())
@@ -190,7 +193,6 @@ def tree_objects():
             current_level.setdefault(part, [p_item, dict()])
             current_level = current_level[part][1]
         current_level.setdefault(parts[-1], [item, dict()])
-    import pprint;pprint.pprint(result)
     return flask.json.dumps(result)
 
 @web_app.route("/objects/<name>")

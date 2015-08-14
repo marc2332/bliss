@@ -19,7 +19,7 @@ function __add_file(path) {
 	data: formData,
 	success: function(result) {
             data = $.parseJSON(result);
-	    tree_reload("#fs_tree", path);
+	    tree_reload("#tree_tabs", path);
             show_yaml(path);
             write_message(data.message, data.type);
 	}
@@ -361,7 +361,6 @@ function configure_yaml_editor(tag_name, file_name) {
     yaml_editor.setShowPrintMargin(false);
     yaml_editor.getSession().on("change", function(e) {
         $("#save_editor_changes").button().removeClass("disabled");
-        $("#save_reload_editor_changes").button().removeClass("disabled");
         $("#revert_editor_changes").button().removeClass("disabled");
     });
     $("#save_editor_changes").on("click", function() {
@@ -374,7 +373,12 @@ function configure_yaml_editor(tag_name, file_name) {
             processData: false,
             data: formData,
             success: function() {
-		write_message(file_name +" saved!", "success");
+		request = $.ajax({
+		    url : "config/reload",
+		    success: function() {
+			tree_reload("#tree_tabs", file_name);
+			write_message(file_name +" saved!", "success");
+		    }});
             }
         });
     });

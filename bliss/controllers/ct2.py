@@ -3022,6 +3022,18 @@ class P201:
         self.write_reg("ADAPT_50", register)
 
     def set_counters_software_start(self, counters):
+        """
+        Trigger a software start on the given counters
+
+        .. note::
+            counters which are not given are not started
+
+        :param counters:
+            container of counters (starting at 1). It can be any python
+            container of integers (tuple, list, set, iterable, even dict)
+            If a dict is provided, only counters for which their value is
+            True will be started.
+        """
         register = 0
         if isinstance(counters, dict):
             counters = [c for c, start in counters.items() if start]
@@ -3030,6 +3042,18 @@ class P201:
         self.write_reg("SOFT_START_STOP", register)    
 
     def set_counters_software_stop(self, counters):
+        """
+        Trigger a software stop on the given counters
+
+        .. note::
+            counters which are not given are not stopped
+
+        :param counters:
+            container of counters (starting at 1). It can be any python
+            container of integers (tuple, list, set, iterable, even dict)
+            If a dict is provided, only counters for which their value is
+            True will be stopped.
+        """
         register = 0
         if isinstance(counters, dict):
             counters = [c for c, stop in counters.items() if stop]
@@ -3040,6 +3064,9 @@ class P201:
     def set_counters_software_start_stop(self, counters):
         """
         Software starts or stops the given counters.
+
+        .. note::
+            counters which are not given are left unchanged
 
         :param counters:
             dictionary where key is the counter number (starting at 1) 
@@ -3074,7 +3101,7 @@ class P201:
         Software enables/disables *all* counters
 
         .. note::
-            counters which are not given are disabled
+            counters which are not given are left unchanged
 
         :param counters:
             dictionary where key is the counter number (starting at 1) 

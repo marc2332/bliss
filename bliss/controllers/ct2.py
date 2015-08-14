@@ -2507,14 +2507,6 @@ class P201:
             out_result[channel] = (register & (1 << (i+24))) != 0
         return in_result, out_result
 
-    def set_channels_readback(self, channels_in, channels_out):
-        """*not implemented*"""
-        raise NotImplementedError
-
-    def get_trigger_interrupt_status(self):
-        """*not implemented*"""
-        raise NotImplementedError
-
     def get_clock(self):
         """
         Returns the global clock frequency
@@ -3069,7 +3061,7 @@ class P201:
             register |= reg
         self.write_reg("SOFT_START_STOP", register)
     
-    def set_counters_software_latch(self, counters):
+    def trigger_counters_software_latch(self, counters):
         """
         Triggers a latch on the specified counters by software
 

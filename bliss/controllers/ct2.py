@@ -2194,8 +2194,25 @@ class P201:
         self.write_reg("SEL_FILTRE_OUTPUT", register)
 
     def get_input_channels_filter(self):
-        """*not implemented*"""
-        raise NotImplementedError
+        """
+        Returns the filter configuration and deglitcher enable for all input
+        channels
+
+        :return:
+            dictionary where key is the input channel number and value is the
+            filter configuration (instance of :class:`FilterInput`)
+        :rtype: dict<int: class:`FilterInput>`
+        """
+        result = {}
+        reg_a = self.read_reg("SEL_FILTRE_INPUT_A")
+        reg_b = self.read_reg("SEL_FILTRE_INPUT_B")
+        for n, channel in enumerate(self.INPUT_CHANNELS):
+            if channel < 7:
+                value = (reg_a >> (n*5)) & 0b11111
+            else:
+                value = (reg_b >> ((n-6)*5)) & 0b11111
+            result[channel] = FilterInput(value)
+        return result
 
     def set_input_channels_filter(self, filter):
         reg_a, reg_b = 0, 0

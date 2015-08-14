@@ -1678,7 +1678,7 @@ class FIFOStatus(BaseParam):
     """
     FIFO status
 
-    Returned by :meth:`P201.get_fifo_status`
+    Returned by :meth:`P201.get_FIFO_status`
     """
 
     _FLAG_MAP = { 'size':          (int,  0x1FFF),
@@ -2160,11 +2160,13 @@ class P201:
 
     def get_output_channels_filter(self):
         """
-        Returns the current output channels filter configuration and polarity selection
+        Returns the current output channels filter configuration and polarity
+        selection
 
         :return:
-            dictionary where key is the channel number and value is the filter and
-            polarity configuration (instance of :class:`FilterOutput`)
+            dictionary where key is the output channel number and value is the
+            filter and polarity configuration (instance of 
+            :class:`FilterOutput`)
         :rtype: dict<int: class:`FilterOutput>`
         """
         result = {}
@@ -2175,11 +2177,12 @@ class P201:
 
     def set_output_channels_filter(self, filter):
         """
-        Sets the given ouput channels filter configuration and polarity selection
+        Sets the given ouput channels filter configuration and polarity
+        selection
 
         :param filter: 
-            dictionary where key is the channel number and value is the filter and
-            polarity configuration (instance of :class:`FilterOutput`)
+            dictionary where key is the channel number and value is the filter
+            and polarity configuration (instance of :class:`FilterOutput`)
         :type filter: dict<int: class:`FilterOutput>`
         """
         register = 0
@@ -2471,6 +2474,12 @@ class P201:
 
     def get_channels_readback(self):
         """
+        Returns input and output channels readback after TTL or NIM has been selected
+
+        :return: 
+            a tuple of two items:
+                * dict where key is input channel number and value is True if readback or False otherwise
+                * dict where key is output channel number and value is True if readback or False otherwise
         :rtype: tuple(dict<int: bool>, dict<int: bool>)
         """
         register = self.read_reg("RD_IN_OUT")

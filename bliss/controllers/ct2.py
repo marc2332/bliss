@@ -1248,6 +1248,36 @@ CT2_MM_FIFO_OFF = 0
 
 CT2_IOC_MAGIC = ord("w")
 
+__CT2_BASE_ERRORS = {
+    errno.EACCES: "Failed to {operation}: exclusive access was set up " \
+                  "previously for the device, but for a different open " \
+                  "file description than the one in the request",
+    errno.EBUSY:  "Failed to {operation}: interrupts are still enabled",
+    errno.EINTR:  "Failed to {operation} : interrupted while waiting for " \
+                  "permission to exclusively access the device",
+    errno.EINVAL: "Failed to {operation}: invalid arguments",
+    errno.ENOMEM: "Failed to {operation}: could not allocate storage " \
+                  "for the notification queue (file descriptor in blocking " \
+                  "mode)",
+    errno.EAGAIN: "Failed to {operation}: could not allocate storage for " \
+                  "the notification queue (file descriptor in non blocking " \
+                  "mode)",
+    errno.EFAULT: "Failed to {operation}: invalid argument",
+    errno.ENXIO:  "Failed to {operation}: detected an attached INQ to the " \
+                  "description of the request although INQs are not " \
+                  "implemented",
+    errno.ENOSYS: "Failed to {operation}: not implemented",
+}
+
+def __CT2_ERRORS(operation, new_errors=None):
+    errors = {}
+    for err_no, err_desc in __CT2_BASE_ERRORS.items():
+        errors[err_no] = err_desc.format(operation=operation)
+    if new_errors:
+        errors.update(new_errors)
+    return errors
+
+
 #: CT2_IOC_QXA - "re[Q]uesting e[X]clusive device [A]ccess"
 #:
 #: arguments:
@@ -1270,7 +1300,8 @@ CT2_IOC_MAGIC = ord("w")
 #:    EINVAL  some arguments to the  ioctl(2)  call where invalid
 #:
 CT2_IOC_QXA = _IO(CT2_IOC_MAGIC, 21), "CT2_IOC_QXA", \
-    {errno.EACCES: "Failed to request exclusive access: no permission"}
+    __CT2_ERRORS("request exclusive_access")
+
 
 #: CT2_IOC_LXA - "re[L]inquishing e[X]clusive device [A]ccess"
 #:
@@ -1298,7 +1329,10 @@ CT2_IOC_QXA = _IO(CT2_IOC_MAGIC, 21), "CT2_IOC_QXA", \
 #:    EINVAL  some arguments to the  ioctl(2)  call where invalid
 #:
 CT2_IOC_LXA = _IO(CT2_IOC_MAGIC, 22), "CT2_IOC_LXA", \
-    {errno.EACCES: "Failed to relinquish exclusive access: no permission"}
+    __CT2_ERRORS("relinquish exclusive_access", 
+                 {errno.EBUSY: "Failed to relinquish exclusive access: " \
+                               "at least one mmap is still active"})
+
 
 #: CT2_IOC_DEVRST - "[DEV]ice [R]e[S]e[T]"
 #:
@@ -1353,11 +1387,8 @@ CT2_IOC_LXA = _IO(CT2_IOC_MAGIC, 22), "CT2_IOC_LXA", \
 #:    EINVAL  some arguments to the  ioctl(2)  call where invalid
 #:
 CT2_IOC_DEVRST = _IO(CT2_IOC_MAGIC, 0), "CT2_IOC_DEVRST", \
-    {errno.EACCES: "Could not reset card: no permission",
-     errno.EBUSY:  "Could not reset card: interrupts are still enabled",
-     errno.EINTR:  "Could not reset card: interrupted while waiting for " \
-                   "permission to exclusively access the device",
-     errno.EINVAL: "Could not reset card: invalid arguments"}
+    __CT2_ERRORS("reset card") 
+
 
 #: CT2_IOC_EDINT - "[E]nable [D]evice [INT]errupts"
 #:
@@ -1404,17 +1435,9 @@ CT2_IOC_DEVRST = _IO(CT2_IOC_MAGIC, 0), "CT2_IOC_DEVRST", \
 #:    - EINVAL: some arguments to the  ioctl(2)  call where invalid
 #:
 CT2_IOC_EDINT = _IOW(CT2_IOC_MAGIC, 01, CT2_SIZE), "CT2_IOC_EDINT", \
-    {errno.EACCES: "Exclusive access already granted to another file descriptor",
-     errno.EBUSY: "interrupts are already enabled with a queue with a " \
-                  "different capacity",
-     errno.ENOMEM: "failure to allocate storage for the notification queue " \
-                   "(file descriptor in blocking mode)",
-     errno.EAGAIN: "failure to allocate storage for the notification queue" \
-                   "(file descriptor in non blocking mode)",
-     errno.EINTR: "interrupted while waiting for permission to exclusively " \
-                  "access the device",
-     errno.EINVAL: "invalid arguments",
-}
+    __CT2_ERRORS("enable interrupts",
+         { errno.EBUSY: "Failed to enable interrupts: interrupts are already " \
+                        "enabled with a queue with a different capacity", })
 
 
 #: CT2_IOC_DDINT - "[D]isable [D]evice [INT]errupts"
@@ -1445,7 +1468,7 @@ CT2_IOC_EDINT = _IOW(CT2_IOC_MAGIC, 01, CT2_SIZE), "CT2_IOC_EDINT", \
 #:    EINVAL  some arguments to the  ioctl(2)  call where invalid
 #:
 CT2_IOC_DDINT = _IO(CT2_IOC_MAGIC, 02), "CT2_IOC_DDINT", \
-    {errno.EACCES: "Exclusive access already granted to another file descriptor"}
+    __CT2_ERRORS("disable interrupts")
 
 
 #: CT2_IOC_ACKINT - "[ACK]nowledge [INT]errupt"
@@ -1486,8 +1509,7 @@ CT2_IOC_DDINT = _IO(CT2_IOC_MAGIC, 02), "CT2_IOC_DDINT", \
 #:            description of the request although INQs are not implemented
 #:
 CT2_IOC_ACKINT = _IOR(CT2_IOC_MAGIC, 10, ctypes.sizeof(ctypes.POINTER(ct2_in))), \
-    "CT2_IOC_ACKINT", \
-    {errno.EFAULT: "Failed to acknowledge interrupt: invalid argument"}
+    "CT2_IOC_ACKINT", __CT2_ERRORS("acknowledge interrupt")
 
 
 #: CT2_IOC_AINQ - "[A]ttach [I]nterrupt [N]otification [Q]ueue"
@@ -1497,7 +1519,7 @@ CT2_IOC_ACKINT = _IOR(CT2_IOC_MAGIC, 10, ctypes.sizeof(ctypes.POINTER(ct2_in))),
 #:    ENOSYS  not implemented
 #:
 CT2_IOC_AINQ = _IOW(CT2_IOC_MAGIC, 11, CT2_SIZE), "CT2_IOC_AINQ", \
-    {errno.ENOSYS: "not implemented"}
+    __CT2_ERRORS("attach INQ")
 
 
 #: CT2_IOC_DINQ - "[D]etach [I]nterrupt [N]otification [Q]ueue"
@@ -1507,7 +1529,7 @@ CT2_IOC_AINQ = _IOW(CT2_IOC_MAGIC, 11, CT2_SIZE), "CT2_IOC_AINQ", \
 #:    ENOSYS  not implemented
 #:
 CT2_IOC_DINQ = _IO(CT2_IOC_MAGIC, 12), "CT2_IOC_DINQ", \
-    {errno.ENOSYS: "not implemented"}
+    __CT2_ERRORS("detach INQ")
 
 
 #: CT2_IOC_RINQ - "D[R]ain [I]nterrupt [N]otification [Q]ueue"
@@ -1518,7 +1540,7 @@ CT2_IOC_DINQ = _IO(CT2_IOC_MAGIC, 12), "CT2_IOC_DINQ", \
 #:
 CT2_IOC_RINQ = _IOR(CT2_IOC_MAGIC, 13, ctypes.sizeof(ctypes.POINTER(ct2_inv))), \
     "CT2_IOC_RINQ", \
-    {errno.ENOSYS: "not implemented"}
+    __CT2_ERRORS("drain INQ")
 
 
 #: CT2_IOC_FINQ - "[F]lush [I]nterrupt [N]otification [Q]ueue"
@@ -1529,7 +1551,7 @@ CT2_IOC_RINQ = _IOR(CT2_IOC_MAGIC, 13, ctypes.sizeof(ctypes.POINTER(ct2_inv))), 
 #:
 CT2_IOC_FINQ = _IOR(CT2_IOC_MAGIC, 14, ctypes.sizeof(ctypes.POINTER(timespec))), \
     "CT2_IOC_FINQ", \
-    {errno.ENOSYS: "not implemented"}
+    __CT2_ERRORS("flush INQ")
 
 
 class BaseParam(object):

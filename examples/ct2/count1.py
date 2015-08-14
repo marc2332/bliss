@@ -7,6 +7,7 @@ from __future__ import print_function
 import os
 import sys
 import pprint
+import logging
 
 import argparse
 
@@ -24,13 +25,19 @@ from bliss.controllers.ct2 import CtClockSrc, CtGateSrc, CtHardStartSrc, CtHardS
 def main():
     #logging.basicConfig(level=logging.DEBUG)
 
-    parser = argparse.ArgumentParser(description='Process some integers.')
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--log-level', type=str, default='info',
+                        help='log level (debug, info, warning, error) [default: info]')
     parser.add_argument('--counter', type=int,
                         help='counter number', default=1)
     parser.add_argument('--value', type=int, default=1000*1000,
                         help='count until value')
 
     args = parser.parse_args()
+
+    logging.basicConfig(level=getattr(logging, args.log_level.upper()),
+                        format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+
     counter = args.counter
     value = args.value
 

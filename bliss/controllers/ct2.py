@@ -3426,7 +3426,7 @@ def main():
     p201.set_output_channels_level({10: Level.TTL})
 
     # no 50 ohm adapter
-    p201.set_input_channels_50ohm_adapters({})
+    p201.set_input_channels_50ohm_adapter({})
 
     # channel 9 and 10: no filter, no polarity
     p201.set_output_channels_filter({})

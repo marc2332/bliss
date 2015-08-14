@@ -1,31 +1,98 @@
 from louie import dispatcher
 from bliss.config.conductor import client
-from bliss.config.settings import Struct,QueueSetting,HashObjSetting
-import collections
+from bliss.config.settings import Struct, QueueSetting, HashObjSetting
+import pkgutil
+import inspect
+import os
+import gevent
+import re
+from louie import saferef
 
-factory_class = {}
-def register(node_type,klass):
-    factory_class[node_type] = klass
+node_plugins = dict()
+for importer, module_name, _ in pkgutil.iter_modules([os.path.join(os.path.dirname(__file__),'..','data')]):
+    node_plugins[module_name] = importer
 
-def get_node(name, node_type = None, parent = None, connection = client.get_cache(db=1),create=False):
+def _get_node_object(node_type, name, parent, connection, create=False):
+    importer = node_plugins.get(node_type)
+    if importer is None:
+        return DataNode(node_type, name, parent, connection = connection, create = create)
+    else:
+        m = importer.find_module(node_type).load_module(node_type)
+        classes = inspect.getmembers(m, lambda x: inspect.isclass(x) and issubclass(x, DataNode) and x!=DataNode)
+        # there should be only 1 class inheriting from DataNode in the plugin
+        klass = classes[0][-1]
+        return klass(name, parent = parent, connection = connection, create = create)
+
+def get_node(name, node_type = None, parent = None, connection = client.get_cache(db=1)):
     data = Struct(name, connection=connection)
     if node_type is None:
         node_type = data.node_type
         if node_type is None:       # node has been deleted
             return None
 
-    klass = factory_class.get(node_type)
-    if klass is None:
-        return _Node(node_type, name, parent, connection = connection,create = create)
+    return _get_node_object(node_type, name, parent, connection)
+
+def _create_node(name, node_type = None, parent = None, connection = client.get_cache(db=1)):
+    return _get_node_object(node_type, name, parent, connection, create=True)
+
+def _get_or_create_node(name, node_type=None, parent=None, connection=client.get_cache(db=1)):
+    db_name = DataNode.exists(name, parent, connection)
+    if db_name:
+        return get_node(db_name, connection=connection)
     else:
-        return klass(name, parent = parent, connection = connection,create = create)
+        return _create_node(name, node_type, parent, connection)
 
-def Node(*args,**kwargs):
-    kwargs['create']=True
-    return _Node(*args, **kwargs)
+class DataNodeIterator(object):
+    NEW_CHILD_REGEX = re.compile("^__keyspace@.*?:(.*)_children_list$")
 
-class _Node(object):
+    def __init__(self, node):
+        self.node = node
+        self.last_child_id = dict()
+        
+    def walk(self, filter=None, wait=True):  
+        #print self.node.db_name(),id(self.node)
+        try:
+            it = iter(filter)
+        except TypeError:
+            if filter is not None:
+                filter = [filter]
+        
+        if wait:
+            redis = self.node.db_connection
+            pubsub = redis.pubsub()
+            pubsub.psubscribe("__keyspace*__:%s*_children_list" % self.node.db_name())
+
+        db_name = self.node.db_name()
+        self.last_child_id[db_name]=0
+
+        if filter is None or self.node.type() in filter:
+            yield self.node
+
+        for i, child in enumerate(self.node.children()):
+            iterator = DataNodeIterator(child)
+            for n in iterator.walk(filter, wait=False):
+                self.last_child_id[db_name] = i
+                if filter is None or n.type() in filter:
+                    yield n
+
+        if wait:
+            for msg in pubsub.listen():
+                if msg['data'] == 'rpush':
+                    channel = msg['channel']
+                    parent_db_name = DataNodeIterator.NEW_CHILD_REGEX.match(channel).groups()[0]
+                    for child in get_node(parent_db_name).children(self.last_child_id.setdefault(parent_db_name, 0), -1):
+                        self.last_child_id[parent_db_name]+=1
+                        if filter is None or child.type() in filter:
+                            yield child
+             
+
+class DataNode(object):
     default_time_to_live = 24*3600 # 1 day
+    
+    @staticmethod
+    def exists(name,parent = None,connection=client.get_cache(db=1)) :
+        db_name = '%s:%s' % (parent.db_name(),name) if parent else name
+        return db_name if connection.exists(db_name) else None
 
     def __init__(self,node_type,name,parent = None,connection=client.get_cache(db=1), create=False):
         db_name = '%s:%s' % (parent.db_name(),name) if parent else name
@@ -37,6 +104,8 @@ class _Node(object):
         info_hash_name = '%s_info' % db_name
         self._info = HashObjSetting(info_hash_name,
                                     connection=connection)
+        self.db_connection = connection
+        
         if create:
             self._data.name = name
             self._data.db_name = db_name
@@ -51,11 +120,20 @@ class _Node(object):
     def name(self):
         return self._data.name
 
+    def type(self):
+        return self._data.node_type
+
+    def iterator(self):
+        return DataNodeIterator(self)
+
     def add_children(self,*child):
         if len(child) > 1:
-            self._children.extend([c.db_name() for c in child])
+            children_no = self._children.extend([c.db_name() for c in child])
         else:
-            self._children.append(child[0].db_name())
+            children_no = self._children.append(child[0].db_name())
+
+    def connect(self, signal, callback):
+        dispatcher.connect(callback, signal, self)
 
     def parent(self):
         parent_name = self._data.parent
@@ -70,14 +148,14 @@ class _Node(object):
     #@param from_id start child index
     #@param to_id last child index
     def children(self,from_id = 0,to_id = -1):
-        for child_name in self._children.get(from_id,to_id) :
+        for child_name in self._children.get(from_id,to_id):
             new_child = get_node(child_name)
             if new_child is not None:
                 yield new_child
             else:
                 self._children.remove(child_name) # clean
 
-    def last_child(self) :
+    def last_child(self):
         return get_node(self._children.get(-1))
 
     def set_info(self,key,values):
@@ -96,14 +174,14 @@ class _Node(object):
 
     def set_ttl(self):
         redis_conn = client.get_cache(db=1)
-	redis_conn.expire(self.db_name(), _Node.default_time_to_live)
-	self._children.ttl(_Node.default_time_to_live)
-	self._info.ttl(_Node.default_time_to_live)
+	redis_conn.expire(self.db_name(), DataNode.default_time_to_live)
+	self._children.ttl(DataNode.default_time_to_live)
+	self._info.ttl(DataNode.default_time_to_live)
         parent = self.parent()
 	if parent:
 	   parent.set_ttl()
 
-    def store(self, *args):
+    def store(self, signal, event_dict):
         pass
 
 
@@ -111,7 +189,7 @@ class Container(object):
     def __init__(self, name, parent=None):
         self.root_node = parent.node if parent is not None else None
         self.__name = name
-        self.node = Node("container", self.__name, parent=self.root_node)
+        self.node = _get_or_create_node(self.__name, "container", parent=self.root_node)
 
 
 class ScanRecorder(object):
@@ -126,7 +204,7 @@ class ScanRecorder(object):
         else:
             run_number = client.get_cache(db=1).incrby("%s_last_run_number" % name, 1)
 	self.__name = '%s_%d' % (name, run_number)
-        self.node = Node("scan", self.__name, parent=self.root_node)
+        self.node = _create_node(self.__name, "scan", parent=self.root_node)
       
     @property
     def name(self):
@@ -144,8 +222,7 @@ class ScanRecorder(object):
                 node.set_ttl()
             self.node.set_ttl()
         node = self.nodes[sender]
-        if event_dict is not None:
-            node.store(event_dict) 
+        node.store(signal, event_dict) 
 
     def prepare(self, scan_info, devices_tree):
         parent_node = self.node
@@ -160,14 +237,12 @@ class ScanRecorder(object):
 
             acq_device = device_node.get("acq_device")
             if acq_device:
-                self.nodes[acq_device] = get_node(acq_device.name, acq_device.type,
-                                                  parent_node,create = True) 
+                self.nodes[acq_device] = _create_node(acq_device.name, acq_device.type, parent_node) 
                 for signal in ('start', 'end', 'new_ref'):
                     dispatcher.connect(self._acq_device_event, signal, acq_device)
             master = device_node.get("master")
             if master:
-                self.nodes[master] = get_node(master.name, master.type,
-                                              parent_node,create = True)
+                self.nodes[master] = _create_node(master.name, master.type, parent_node)
         print self.nodes 
 
 

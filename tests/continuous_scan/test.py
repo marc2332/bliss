@@ -141,5 +141,5 @@ if __name__ == '__main__':
   #test()
   #test_emotion_master()
   #test_lima()
-  #test_dm_lima()
-  test_dm_client()
+  test_dm_lima()
+  #test_dm_client()

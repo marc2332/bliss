@@ -33,21 +33,16 @@ chain**, it is the first thing to configure when defining a new Juyo scan:
      
    chain = AcquisitionChain()
 
-Then, masters and slaves objects have to be created.
-Juyo provides 2 base classes:
+Then, masters and slaves objects have to be created and added to the
+acquisition chain.
 
-- ``AcquisitionMaster``
-- ``AcquisitionDevice`` 
+Master object creation
+^^^^^^^^^^^^^^^^^^^^^^
 
-Those classes are mostly abstract, indeed the idea is to **encapsulate** 
-real data acquisition Python objects to turn them into Juyo-compliant
-devices. This construct gives a lot of flexibility,
-potentially any Python object can become part
-of a continuous scan with the appropriate ``AcquisitionMaster`` or
-``AcquisitionDevice`` class.
-
-Let's use the standard ``SoftwarePositionTriggerMaster`` class to
-make a master triggering slaves on **Emotion axis** positions:
+The ``SoftwarePositionTriggerMaster`` class is shipped with Juyo. It
+takes an **Emotion** ``Axis`` object, and turns it into a Juyo master,
+capable of triggering slaves at evenly spaced points between
+a start and an end position. 
 
 .. code-block:: python
 
@@ -55,4 +50,108 @@ make a master triggering slaves on **Emotion axis** positions:
 
    emotion_master = SoftwarePositionTriggerMaster(m0, 5, 10, 10, time=5)
 
-xxx
+In the example above the ``SoftwarePositionTriggerMaster`` is configured to move
+``m0`` from 5 to 10, with 10 points.
+The optional ``time`` keyword argument specifies the time in seconds to go
+between the start and end positions (acquisition time). Motor speed
+is changed accordingly. Acceleration time is taken into account to
+ensure constant speed during acquisition. An extra step is also added
+after end position in order to guarantee the last point is exposed
+identically as the previous ones.
+
+Considering an ``m0`` Emotion axis with acceleration set to 100 mm.s\ :sup:`-2`, and
+time for moving from 5 to 10 set to 5 seconds, velocity will be set to
+1 mm.s\ :sup:`-1` and the effective move will be from 4.99 to 10.56. 
+
+Slave object creation
+^^^^^^^^^^^^^^^^^^^^^
+
+Juyo comes with the ``LimaAcquisitionDevice`` class, encapsulating a Tango
+Lima device for use within an acquisition chain:
+
+.. code-block:: python
+  
+   params = { "acq_nb_frames": 10,
+              "acq_expo_time": 0.3,
+              "acq_trigger_mode": "INTERNAL_TRIGGER_MULTI" }
+   lima_acq_dev = LimaAcquisitionDevice(lima_dev, **params)
+
+Acquisition is configured to take 10 frames of 300 milliseconds exposure time,
+each frame capture being triggered by software.
+
+Adding master and slave to acquisition chain
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``AcquisitionChain.add()`` method is used to associate a master with slaves
+or with another master, and to add a node in the chain.
+
+.. code-block:: python
+
+   chain.add(emotion_master, lima_acq_dev)
+
+Internally, the ``AcquisitionChain.add()`` method builds a tree representing
+the different acquisition devices. Master acquisition devices are represented
+as nodes in a tree:
+
+::
+
+    . chain(AcquisitionChain)
+    └── emotion_master(SoftwarePositionTriggerMaster)
+        └── lima_dev(LimaAcquisitionDevice)
+
+
+Second step: data storage configuration
+---------------------------------------
+
+Once a continuous scan is started, data is produced from the masters and slaves
+devices in the acquisition chain. A ``ScanRecorder`` object has to be created,
+in order to specify how data is saved and made accessible for other programs
+like Online Data Analysis.
+
+A scan is identified by its name ; the full name is made of a prefix, plus
+a run number. The default prefix is *scan*, so the first scan is called
+*scan_1*, the second scan is called *scan_2* and so on. The first argument to
+``ScanRecorder`` is the scan name prefix.
+
+In the same way the ``AcquisitionChain`` can be represented as a tree, the
+``ScanRecorder`` saves data in a tree-like structure within the **Redis**
+cache. A scan node contains meta-data (``scan_info``), plus a ``data``
+member. If data is too big, only a reference to the data is saved. For example,
+in the case of images, the file name is stored instead of the image bytes.
+
+``ScanRecorder`` objects can be placed inside a ``Container``, in order to
+match data acquisition with data analysis logic. A ``Container`` is only
+identified by its name. Typically, a container will have a sample name,
+an each scan on this sample can be stored inside the container. ``Container``
+objects can be nested without limitation.
+
+.. code-block:: python
+
+   from bliss.common.data_manager import Container, ScanRecorder
+
+   sample = Container('my_sample`')
+   recorder = ScanRecorder('scan', sample)
+
+
+Third step: starting a continuous scan
+--------------------------------------
+   
+The ``Scan`` object takes 2 arguments:
+
+- acquisition chain object
+- scan recorder object
+
+.. code-block:: python
+
+    from bliss.common.continuous_scan import Scan
+
+    scan = Scan(chain, recorder)
+
+Launching a scan is done in 2 steps, first preparing then starting :
+
+.. code-block:: python
+ 
+   scan.prepare()
+   scan.start()
+
+

@@ -15,22 +15,20 @@ import flask.json
 
 from jinja2 import Environment, FileSystemLoader
 
-from .default import create_objects_from_config_node
-
 __this_path = os.path.dirname(os.path.realpath(__file__))
 
 import ct2
+from ct2 import create_objects_from_config_node
 
 GENERAL_PARAMS_SEQ = (
-#      name                          type   possible writable   default value         label                     group         description
-#                                            values
-    ("name",                      ('unicode', None, True,  None,                  "Name",                     None,        "card name")),
-    ("class",                     ('str',     None, True,  None,                  "Type",                     None,        "card type")),
-    ("address",                   ('str',     None, True,  None,                  "Address",                  None,        "card address (ex: /dev/p201)")),
-    ("clock",                     ('Clock',   None, True,  ct2.Clock.CLK_100_MHz, "Clock",                    None,        "counters external clock")),
-    ("dma interrupt",             ('bool',    None, True,  False,                 "DMA interrupt",            "interrupt", "End of DMA transfer will trigger interrupt")),
-    ("fifo half full interrupt",  ('bool',    None, True,  False,                 "FIFO half full interrupt", "interrupt", "FIFO half full will trigger interrupt")),
-    ("error interrupt",           ('bool',    None, True,  False,                 "Error interrupt",          "interrupt", "FIFO transfer error or too close DMA triggers will trigger interrupt")),
+#      name                          type     possible values   writable   default value         label                     group         description
+    ("name",                      ('unicode',  None,             True,  None,                  "Name",                     None,        "card name")),
+    ("class",                     ('str',      ['P201', 'C208'], True,  None,                  "Type",                     None,        "card type")),
+    ("address",                   ('str',      None,             True,  None,                  "Address",                  None,        "card address (ex: /dev/p201)")),
+    ("clock",                     ('Clock',    None,             True,  ct2.Clock.CLK_100_MHz, "Clock",                    None,        "counters external clock")),
+    ("dma interrupt",             ('bool',     None,             True,  False,                 "DMA interrupt",            "interrupt", "End of DMA transfer will trigger interrupt")),
+    ("fifo half full interrupt",  ('bool',     None,             True,  False,                 "FIFO half full interrupt", "interrupt", "FIFO half full will trigger interrupt")),
+    ("error interrupt",           ('bool',     None,             True,  False,                 "Error interrupt",          "interrupt", "FIFO transfer error or too close DMA triggers will trigger interrupt")),
 )
 
 GENERAL_PARAMS = OrderedDict()
@@ -39,20 +37,21 @@ for k, v in GENERAL_PARAMS_SEQ:
                              label=v[4], group=v[5], description=v[6])
 
 COUNTER_PARAMS_SEQ = (
-#      name             type           possible writable      default value           label         group       description
-#                                        values
-    ("address",         ('int',            None,        False, None,                        "#",      None,        "counter ID")),
-#    ("name",            ('unicode',        None,        True,  "",                          "Name",         None,        "counter name")),
-    ("clock source",    ('CtClockSrc',     None,        True,  ct2.CtClockSrc.CLK_1_25_KHz, "Clock",        "source",    "counter clock source")),
-    ("gate source",     ('CtGateSrc',      None,        True,  ct2.CtGateSrc.GATE_CMPT,     "Gate",         "source",    "counter gate source")),
-    ("start source",    ('CtHardStartSrc', None,        True,  ct2.CtHardStartSrc.SOFTWARE, "Start",        "source",    "hardware start source")),
-    ("stop source",     ('CtHardStopSrc',  None,        True,  ct2.CtHardStopSrc.SOFTWARE,  "Stop",         "source",    "hardware stop source")),
-    ("latch sources",   ('list int',       range(1,13), True,  [],                          "Latch(es)",    "source",    "counter to latch(es) on counter signals hardware stop, software stop and software disable (comma separated)")),
-    ("reset",           ('bool',           None,        True,  False,                       "Reset",        None,        "reset from hardware or software stop")),
-    ("stop",            ('bool',           None,        True,  False,                       "Stop",         None,        "stop from hardware stop")),
-    ("interrupt",       ('bool',           None,        True,  False,                       "Interrupt",    "interrupt", "counter N stop triggers interrupt")),
-    ("software enable", ('bool',           None,        True,  False,                       "Soft. enable", None,        "software enable/disable")),
-    ("comparator",      ('int',            None,        True,  0,                           "Comp.",   None,        "counter N comparator value")),
+#      name             type           possible values writable      default value                 label                group       description
+    ("address",             ('int',            None,        False, None,                        "#",                   None,        "counter ID")),
+#    ("name",                ('unicode',        None,        True,  "",                          "Name",               None,        "counter name")),
+    ("clock source",        ('CtClockSrc',     None,        True,  ct2.CtClockSrc.CLK_1_25_KHz, "Clock",               "source",    "counter clock source")),
+    ("gate source",         ('CtGateSrc',      None,        True,  ct2.CtGateSrc.GATE_CMPT,     "Gate",                "source",    "counter gate source")),
+    ("start source",        ('CtHardStartSrc', None,        True,  ct2.CtHardStartSrc.SOFTWARE, "Start",               "source",    "hardware start source")),
+    ("stop source",         ('CtHardStopSrc',  None,        True,  ct2.CtHardStopSrc.SOFTWARE,  "Stop",                "source",    "hardware stop source")),
+    ("latch sources",       ('list int',       range(1,13), True,  [],                          "Latch(es)",           "source",    "counter(s) to latch on counter signals hardware stop, software stop and software disable")),
+    ("reset",               ('bool',           None,        True,  False,                       "Reset",               None,        "reset from hardware or software stop")),
+    ("stop",                ('bool',           None,        True,  False,                       "Stop",                None,        "stop from hardware stop")),
+    ("interrupt",           ('bool',           None,        True,  False,                       "Interrupt",           "interrupt", "counter N stop triggers interrupt")),
+    ("latch triggers dma",  ('bool',           None,        True,  False,                       "Latch triggers DMA",  "interrupt", "DMA is triggered on counter N latch signal")),
+    ("fifo on dma trigger", ('bool',           None,        True,  False,                       "FIFO on DMA trigger", "interrupt", "Latch N value stored to FIFO when DMA triggered")),
+    ("software enable",     ('bool',           None,        True,  False,                       "Soft. enable",        None,        "software enable/disable")),
+    ("comparator",          ('int',            None,        True,  0,                           "Comp.",               None,        "counter N comparator value")),
 )
 
 COUNTER_PARAMS = OrderedDict()
@@ -61,8 +60,7 @@ for k, v in COUNTER_PARAMS_SEQ:
                              label=v[4], group=v[5], description=v[6])
 
 IN_CHANNEL_PARAMS_SEQ = (
-#      name             type          possible writable      default value           label         group       description
-#                                       values
+#      name             type          possible values          writable      default value           label         group       description
     ("address",         ('int',          None,                  False, None,                        "#",        None,     "channel ID")),
 #    ("name",            ('unicode',      None,                  True,  "",                          "Name",           None,     "channel name")),
     ("level",           ('Level',        None,                  True,  ct2.Level.DISABLE,           "Level",          None,     "channel level (TTL, NIM, Both or None)")),
@@ -241,7 +239,6 @@ def card_edit(cfg, request):
             return flask.json.dumps(result)
         card_cfg = cfg.get_config(orig_card_name)
         
-        print (form.getlist("bla"))
         cfg, counters, channels = {}, {}, {}
         # handle generic card parameters
         for p_name, p_info in GENERAL_PARAMS.items():
@@ -281,3 +278,4 @@ def card_edit(cfg, request):
         result["type"] = "success"
 
         return flask.json.dumps(result)
+

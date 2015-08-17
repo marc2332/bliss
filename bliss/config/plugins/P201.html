@@ -23,12 +23,17 @@
 	  {{ params.get("class") }}: {{ params.get("name") }}
 	</div>
 	<div id="apply" class="btn btn-primary">
-	  Apply
 	  <span class="fa fa-save"></span>
+	  Apply
 	</div>
 	<div id="revert" class="btn btn-primary">
-	  Revert
 	  <span class="fa fa-undo"></span>
+	  Revert
+	</div>
+	<div id="reset" class="btn btn-primary"
+	     data-toggle="tooltip" title="reset configuration to card default values (not implemented)" disabled>
+	  <span class="fa fa-history"></span>
+	  Reset
 	</div>
       </div>
     </li>
@@ -40,6 +45,8 @@
       <div id="general_tab" class="tab-pane active">
 	{% for name, pinfo in GENERAL_PARAMS.items() %}
 	{% set value = params.get(name, pinfo["default"]) %}
+	{% set enumerate = not (pinfo["values"] == None) %}
+	{% set multiple = "list" in pinfo["type"] %}
 	<div class="form-group">
 	  <label class="col-md-4 control-label" for="{{name}}"
   		 data-toggle="tooltip" title="{{ pinfo["description"] }}">
@@ -54,10 +61,19 @@
  		   {{ "checked" if value == True }}>
             </input>
 	    {% elif pinfo["type"] in ("int", "float", "str", "unicode") %}
-            <input id="{{ name }}" name="{{ name }}"
- 		   class="form-control input-md" type="text"
-		   value="{{ value }}">
-            </input>
+	      {% if enumerate %}
+	        <select class="selectpicker" id="{{ name }}" name="{{ name }}">
+  		  {% for v in pinfo["values"] %}
+		    <option {{ "selected" if v in value}}>{{ v }}</option>
+		  {% endfor %}
+		</select>
+	      {% else %}
+                <input id="{{ name }}" name="{{ name }}"
+ 		       class="form-control input-md" type="text"
+		       value="{{ value }}">
+                </input>
+	      {% endif %}
+
 	    {% elif pinfo["type"] in ("list int", "list str") %}
 		{% if pinfo["values"] %}
 		<select class="selectpicker" multiple
@@ -109,6 +125,7 @@
                 </input>
 		{% elif pinfo["type"] in ("int", "float", "str", "unicode") %}
 		<input id="ct {{ct_id}} {{ name }}" name="ct {{ct_id}} {{ name }}"
+		       style="min-width: 100px;"
 	               class="form-control input-md" type="text"
 		       value="{{ value }}">
                 </input>
@@ -300,6 +317,11 @@
 
     $("#revert").on("click", function() {
       show_item("{{ params.get("name") }}");
+      return false;
+    });
+
+    $("#reset").on("click", function() {
+      // TODO
       return false;
     });
   });

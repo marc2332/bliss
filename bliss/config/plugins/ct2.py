@@ -11,10 +11,6 @@ except ImportError:
     except ImportError:
         OrderedDict = dict
 
-import flask.json
-
-from jinja2 import Environment, FileSystemLoader
-
 __this_path = os.path.dirname(os.path.realpath(__file__))
 
 import ct2
@@ -93,6 +89,7 @@ for k, v in OUT_CHANNEL_PARAMS_SEQ:
                                  label=v[4], group=v[5], description=v[6])
 
 def get_jinja2():
+    from jinja2 import Environment, FileSystemLoader
     global __environment
     try:
         return __environment
@@ -226,6 +223,8 @@ def empty_channel(addr):
 
 
 def card_edit(cfg, request):
+    import flask.json
+
     if request.method == "POST":
         form = request.form
         orig_card_name = form.get("__original_name__")

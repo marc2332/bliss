@@ -102,18 +102,8 @@ def special_get(self, *args, **kwargs):
 
 def task(func):
     def start_task(*args, **kwargs):
-        try:
-            wait = kwargs["wait"]
-        except KeyError:
-            wait = True
-        else:
-            del kwargs["wait"]
-        try:
-            timeout = kwargs["timeout"]
-        except KeyError:
-            timeout = None
-        else:
-            del kwargs["timeout"]
+        wait = kwargs.pop("wait", True)
+        timeout = kwargs.pop("timeout", None)
 
         t = gevent.spawn(wrap_errors(func), *args, **kwargs)
         t._get = t.get

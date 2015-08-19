@@ -63,7 +63,16 @@ def get_plugin(name, member=None):
 @web_app.route("/")
 def index():
     cfg = get_config()
-    return flask.send_from_directory(__this_path, "index.html")
+    node = cfg.root
+    template = get_jinja2().select_template(("index.html",))
+    name = institute = node.get("institute", node.get("synchrotron"))
+    laboratory = node.get("laboratory", node.get("beamline"))
+    if laboratory:
+        if name:
+            name += " - "
+        name += laboratory
+    return template.render(dict(name=name, institute=institute,
+                                laboratory=laboratory, config=cfg))
 
 @web_app.route("/<dir>/<path:filename>")
 def static_file(dir, filename):

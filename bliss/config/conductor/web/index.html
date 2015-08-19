@@ -42,7 +42,9 @@
           <a id="brand_image" class="navbar-brand navbar-brand-img-compact" href="#">
 	    <img alt="Beacon" src="res/logo.png" width="48" height="48"></img>
 	  </a>
-	  <a id="brand_text" class="navbar-brand navbar-brand-compact" href="#">Beacon</a>
+
+	  <a id="brand_text" class="navbar-brand navbar-brand-compact" href="#">
+	    {{ name if name else "Beacon" }}</a>
         </div>
 
 	<!-- Collect the nav links, forms, and other content for toggling -->
@@ -68,7 +70,7 @@
 	  </form>
 
 	  <p id="message_box" role="alert" class="navbar-text alert alert-info message-compact">
-	    Welcome to the beamline configuration application
+	    Welcome to {{ name if name else "the beamline" }} configuration application
 	  </p>
 
           <button type="button" class="btn btn-primary navbar-btn navbar-right" id="reload_config"

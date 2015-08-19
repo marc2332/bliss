@@ -3194,6 +3194,8 @@ class P201(BaseCard):
     #: list of valid card ouput channels
     OUTPUT_CHANNELS = range(9, 11)
 
+    #: fifo size (bytes)
+    FIFO_SIZE = 2048 * CT2_REG_SIZE
 
 def create_fifo_mmap(card, length=None):
     # remember: need exclusive access to use FIFO
@@ -3204,11 +3206,12 @@ def create_fifo_mmap(card, length=None):
         raise CT2Exception("Cannot memory map FIFO: file descriptor '%s' " \
                            "does not point to a special character file")
     if length is None:
-        res3_file_name = "/sys/dev/char/{0}:{1}/device/resource3".format(
-            os.major(dev_stat.st_rdev),
-            os.minor(dev_stat.st_rdev))
-        res3_stat = os.stat(res3_file_name)
-        length = res3_stat.st_size
+        length = card.FIFO_SIZE
+    elif length > card.FIFO_SIZE:
+        raise CT2Exception("FIFO size exceeds maximum of %d" % card.FIFO_SIZE)
+    elif length % CT2_REG_SIZE:
+        raise CT2Exception("FIFO size must be multiple of %d" % CT2_REG_SIZE)
+
     import mmap
     return mmap.mmap(card.fileno(), length, flags=mmap.MAP_PRIVATE, 
                      prot=mmap.PROT_READ, offset=CT2_MM_FIFO_OFF)

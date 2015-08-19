@@ -1,16 +1,49 @@
-<form class="form-horizontal">
+{% block toolbar %}
+<div class="btn-toolbar" role="toolbar" id="main_toolbar" aria-label="main toolbar">
+  <button id="emotion_controller_apply" class="btn btn-primary">
+    <span class="fa fa-save"></span>
+    Apply
+  </button>
+
+{% if __tango_server__ %}
+
+  <button id="emotion_controller_apply_server" class="btn btn-primary">
+    <span class="fa fa-save"></span>
+    Apply & Update TANGO server
+  </button>
+
+{% endif %}
+
+</div>
+
+{% endblock %}
+
+<br/>
+
+<form id="emotion_controller_form" class="form-horizontal">
 <fieldset>
 
-<!-- Form Name -->
-<legend>{% block title %}{{ name }}{% endblock %}</legend>
+{% block name %}
+
+<!-- Text input-->
+<div class="form-group">
+  <label class="col-md-4 control-label" for="name">Name</label>
+  <div class="col-md-4">
+    <input id="name" name="name" type="text"
+           placeholder="{{ name }}" placeholder="{{ name }}"
+           class="form-control input-md" required></input>
+  </div>
+</div>
+
+{% endblock %}
 
 {% block standard_params %}
 
 <!-- Select Basic -->
 <div class="form-group">
-  <label class="col-md-4 control-label" for="selectbasic">Controller</label>
+  <label class="col-md-4 control-label" for="class">Controller</label>
   <div class="col-md-4">
-    <select id="selectbasic" name="selectbasic" class="form-control">
+    <select class="selectpicker" id="class" name="class" class="form-control">
       {% for c in controllers %}
       <option {{ "selected" if c.class == class }}>{{c.class}}</option>
       {% endfor %}
@@ -25,7 +58,7 @@
 {% for param in params %}
 <!-- Text input-->
 <div class="form-group">
-  <label class="col-md-4 control-label" for="{{ param.name }}">{{ param.label }}</label>  
+  <label class="col-md-4 control-label" for="{{ param.name }}">{{ param.label }}</label>
   <div class="col-md-4">
     <input id="{{ param.name }}" name="{{ param.name }}" placeholder="{{ param.value }}" 
 	   class="form-control input-md" required="" type="text">
@@ -35,6 +68,148 @@
 
 {% endblock %}
 
+{% block axes_table %}
+
+<table id="axes_table" class="table table-bordered" data-toggle="table"
+       data-show-toggle="true" data-show-columns="true">
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Unit</th>
+      <th>Steps p/ unit</th>
+      <th>Velocity (unit.s<sup>-1</sup>)</th>
+      <th>Acceleration (unit.s<sup>-2</sup>)</th>
+      <th>Backlash (unit)</th>
+      <th>Low limit (unit)</th>
+      <th>High limit (unit)</th>
+    </tr>
+  </thead>
+  <tbody>
+
+    {% for axis in axes %}
+    {% set aname = axis['name'] %}
+    <tr>
+      <td style="padding: 1px;">
+	<input id="name {{ aname }}" name="name {{ aname }}" style="border-radius: 0px;"
+	       class="form-control input-md" type="text" placeholder="{{ aname }}"></input>
+      </td>
+      <td style="padding: 1px;">
+	<input id="unit {{ aname }}" name="unit {{ aname }}"
+	       style="border-radius: 0px;" class="form-control input-md" type="text"
+	       placeholder="{{ axis['unit'] }}"></input>
+      </td>
+
+      <td style="padding: 1px;">
+	<input id="steps_per_unit {{ aname }}" name="steps_per_unit {{ aname }}"
+	       style="border-radius: 0px;" class="form-control input-md" type="text" 
+	       placeholder="{{ axis['steps_per_unit'] }}"></input>
+      </td>
+      <td style="padding: 1px;">
+	<input id="velocity {{ aname }}" name="velocity {{ aname }}" 
+	       style="border-radius: 0px;" class="form-control input-md" type="text" 
+	       placeholder="{{ axis['velocity'] }}"></input>
+      </td>
+
+      <td style="padding: 1px;">
+	<input id="acceleration {{ aname }}" name="acceleration {{ aname }}"
+	       style="border-radius: 0px;" class="form-control input-md" type="text"
+	       placeholder="{{ axis['acceleration'] }}"></input></td>
+
+      <td style="padding: 1px;">
+	<input id="backlash {{ aname }}" name="backlash {{ aname }}"
+	       style="border-radius: 0px;" class="form-control input-md" type="text"
+	       placeholder="{{ axis['backlash'] }}"></input>
+      </td>
+
+      <td style="padding: 1px;">
+	<input id="low_limit {{ aname }}" name="low_limit {{ aname }}"
+	       style="border-radius: 0px;" class="form-control input-md" type="text"
+	       placeholder="{{ axis['low_limit'] }}"></input>
+      </td>
+
+      <td style="padding: 1px;">
+	<input id="high_limit {{ aname }}" name="high_limit {{ aname }}"
+	       style="border-radius: 0px;" class="form-control input-md" type="text"
+	       placeholder="{{ axis['high_limit'] }}"></input></td>
+
+<!--
+      <td style="padding: 4px; min-width:100px;" >
+	<div class="btn-group" role="group" aria-label="...">
+	  <button id="apply {{ aname }}" class="btn btn-primary" disabled>
+	    <span class="fa fa-save"></span>
+	  </button>
+	  <button id="delete {{ aname }}" class="btn btn-danger" disabled>
+	    <span class="fa fa-remove"></span>
+	  </button>
+	</div>
+      </td>
+-->
+    </tr>
+    {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr>
+      <th>Name</th>
+      <th>Unit</th>
+      <th>Steps p/ unit</th>
+      <th>Velocity (unit.s<sup>-1</sup>)</th>
+      <th>Acceleration (unit.s<sup>-2</sup>)</th>
+      <th>Backlash (unit)</th>
+      <th>Low limit (unit)</th>
+      <th>High limit (unit)</th>
+    </tr>
+  </tfoot>
+</table>
+
+{% endblock %}
+
 </fieldset>
 </form>
 
+<script type="text/javascript">
+
+  function submit_form(form, update_server) {
+    var formData = new FormData(form);
+    formData.append("__update_server__", update_server);
+    formData.append("__original_name__", "{{ name }}");
+    $.ajax({
+      url: "plugin/emotion/controller_edit",
+      type: "POST",
+      cache: false,
+      contentType: false,
+      processData: false,
+      data: formData,
+      success: function(result) {
+        data = $.parseJSON(result);
+        show_item(data.name);
+        write_message(data.message, data.type);
+      }
+    });
+  }
+
+  $(document).ready(function() {
+    $(".selectpicker option").addClass("small");
+
+    $(".selectpicker")
+      .addClass("show-tick")
+      .selectpicker({
+        style: "btn-sm btn-primary",
+        selectedTextFormat: "count>6",
+        size: 10,
+      });
+
+    $("#emotion_controller_apply").on("click", function() {
+      submit_form($("#emotion_controller_form")[0], false);
+      return false;
+    });
+
+{% if __tango_server__ %}
+    $("#emotion_controller_apply_server").on("click", function() {
+      submit_form($("#emotion_controller_form")[0], true);
+      return false;
+    });
+{% endif %}
+
+  });
+
+</script>

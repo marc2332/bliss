@@ -100,13 +100,7 @@ def get_axis_html(cfg):
     for _, controller_name, _ in pkgutil.iter_modules([pkgpath]):
         controllers.append({"class": controller_name})
 
-    vars["__tango_server__"] = False
-    try:
-        import PyTango
-        device = PyTango.DeviceProxy(name)
-        vars["__tango_server__"] = device is not None
-    except:
-        pass
+    vars["__tango_server__"] = __is_tango_device(name)
 
     return html_template.render(**vars)
 
@@ -132,24 +126,96 @@ def get_ctrl_html(cfg):
     for _, controller_name, _ in pkgutil.iter_modules([pkgpath]):
        controllers.append({"class": controller_name})
 
+    for axis in vars["axes"]:
+        device = __is_tango_device(axis['name'])
+        if device:
+            vars["__tango_server__"] = True
+            break
+    else:
+        vars["__tango_server__"] = False
+
     return html_template.render(**vars)
+
+
+def __is_tango_device(name):
+    try:
+        import PyTango
+        return PyTango.DeviceProxy(name) is not None
+    except:
+        pass
+    return False
+
 
 def __tango_apply_config(name):
     import PyTango.gevent
     try:
         device = PyTango.gevent.DeviceProxy(name)
         device.command_inout("ApplyConfig")
-        message = "'%s' configuration saved and applied to server!" % name
-        type = "success"
+        msg = "'%s' configuration saved and applied to server!" % name
+        msg_type = "success"
     except PyTango.DevFailed as df:
-        message = "configuration not applied to server: " + df[0].desc
-        type = "warning"
+        msg = "'%s' configuration saved but <b>NOT</b> applied to " \
+              " server:\n%s" % (name, df[0].desc)
+        msg_type = "warning"
         sys.excepthook(*sys.exc_info())
     except Exception as e:
-        message = "'%s' configuration saved but NOT applied to server due to error:\n%s" % (name, str(e))
-        type = "warning"
+        msg = "'%s' configuration saved but <b>NOT</b> applied to " \
+              " server:\n%s" % (name, str(e))
+        msg_type = "warning"
         sys.excepthook(*sys.exc_info())
-    return message, type
+    return msg, msg_type
+
+
+def controller_edit(cfg, request):
+    if request.method == "POST":
+        form = dict([(k,v) for k,v in request.form.items() if v])
+        update_server = form.pop("__update_server__") == 'true'
+        orig_name = form.pop("__original_name__")
+        name = form.get("name", orig_name)
+        result = dict(name=name)
+        if name != orig_name:
+            result["message"] = "Change of controller name not supported yet!"
+            result["type"] = "danger"
+            return flask.json.dumps(result)
+
+        ctrl_cfg = cfg.get_config(orig_name)
+
+        axes_data = {}
+        objs = set()
+        for param_name, param_value in form.items():
+            if " " in param_name:     # axis param
+                param_name, axis_name = param_name.split()
+                obj = cfg.get_config(axis_name)
+            else:                     # controller param
+                obj = ctrl_cfg
+            obj[param_name] = param_value
+            objs.add(obj)
+
+        axes_server_results = {}
+        for obj in objs:
+            obj.save()
+            if update_server and obj != ctrl_cfg:
+                name = obj["name"]
+                axes_server_results[name] = __tango_apply_config(name)
+
+        msg_type = "success"
+        if update_server:
+            if ctrl_cfg in objs:
+                msg_type = "warning"
+                msg = "'%s' configuration saved! " \
+                      "TANGO server needs to be (re)started!" % name
+            else:
+                msg = "'%s' configuration applied!" % name
+                for axis_name, axis_result in axes_server_results:
+                    msg += "<br/>" + axis_result['message']
+                    axis_msg_type = axis_result['type']
+                    if axis_msg_type != "success":
+                        msg_type = axis_msg_type
+        else:
+            msg = "'%s' configuration applied!" % name
+        result["message"] = msg
+        result["type"] = msg_type
+        return flask.json.dumps(result)
 
 def axis_edit(cfg, request):
     if request.method == "POST":
@@ -170,7 +236,7 @@ def axis_edit(cfg, request):
         if update_server:
             result["message"], result["type"] = __tango_apply_config(name)
         else:
-            result["message"] = "'%s' configuration applied!" % name
+            result["message"] = "'%s' configuration saved!" % name
             result["type"] = "success"
 
         return flask.json.dumps(result)

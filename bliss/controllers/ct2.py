@@ -3308,6 +3308,15 @@ def __get_card_config(name):
     return card_config
 
 
+def create_objects_from_config_node(config, node):
+    """
+    To be used by the ct2 beacon plugin
+    """
+    name = node.get("name")
+    card = create_and_configure_card(node)
+    return {name:card}, {name:card}
+
+
 def create_and_configure_card(config_or_name):
     if isinstance(config_or_name, (str, unicode)):
         card_config = __get_card_config(config_or_name)

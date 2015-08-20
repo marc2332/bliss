@@ -143,7 +143,6 @@ function tree_context_menu(node) {
 	    shortcut_label: "F2",
 	    action: function() { console.log("rename item"); },
 	};
-
 	items.delete_item = {
 	    label: "Delete",
 	    icon: "fa fa-remove",
@@ -174,7 +173,6 @@ function tree_context_menu(node) {
 	    shortcut_label: "F2",
 	    action: function() { console.log("rename item"); },
 	};
-
 	items.delete_item = {
 	    label: "Delete",
 	    icon: "fa fa-remove",
@@ -310,45 +308,21 @@ function on_item_node_selected(ev, data) {
 }
 
 function show_item(item_name) {
-    console.log("showing item " + item_name);
-    $.get("objects/" + item_name, function(data) {
-        $("#edit_form").empty();
-        if (data === null) {
-            $("#edit_panel").attr("style", "visibility: hidden");
-        } else {
-            if (data.html === undefined) {
-                var form = $("<form></form>");
-                form.addClass("form-group");
-                $("#edit_form").html(form);
-                $.each(data, function(key, value) {
-                    var label = $("<label></label>");
-                    label.html(key);
-                    var input_field = $("<input></input>");
-                    input_field.addClass("form-control");
-                    input_field.attr("placeholder", key);
-                    input_field.attr("value", value);
-                    input_field.attr("type", "text");
-                    form.append(label);
-                    form.append(input_field);
-                });
-            } else {
-                $("#edit_form").html(data.html);
-            }
-            $("#edit_panel").attr("style", "visibility: visible");
-        }
-    }, "json");
+    $.get("objects/" + item_name, show_html_data, "json");
 }
 
 function show_main() {
-    $.get("main/", function(data) {
+    $.get("main/", show_html_data, "json");
+}
+
+function show_html_data(data) {
+    if (data === null) {
         $("#edit_form").empty();
-        if (data === null) {
-            $("#edit_panel").attr("style", "visibility: hidden");
-        } else {
-            $("#edit_form").html(data.html);
-            $("#edit_panel").attr("style", "visibility: visible");
-        }
-    }, "json");
+        $("#edit_panel").attr("style", "visibility: hidden");
+    } else {
+        $("#edit_form").html(data.html);
+        $("#edit_panel").attr("style", "visibility: visible");
+    }
 }
 
 function configure_yaml_editor(tag_name, file_name) {
@@ -386,6 +360,24 @@ function configure_yaml_editor(tag_name, file_name) {
         $.get("db_file/" + file_name, function(data) {
             yaml_editor.setValue(data.content);
         }, "json");
+    });
+}
+
+function on_plugin_action(plugin, action) {
+    console.log("plugin '" + plugin + "' action: " + action);
+    $.ajax({
+	url: action,
+	type: "GET",
+	cache: false,
+	contentType: false,
+	processData: false,
+	data: null,
+	success: function(action_result) {
+            data = $.parseJSON(action_result);
+//	    tree_reload("#tree_tabs");
+            show_html_data(data);
+            write_message(data.message, data.type);
+	}
     });
 }
 

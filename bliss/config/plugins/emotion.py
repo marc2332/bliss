@@ -19,6 +19,15 @@ __KNOWN_CONTROLLER_PARAMS = ("name", "class", "plugin", "axes")
 __this_path = os.path.realpath(os.path.dirname(__file__))
 
 
+def __get_controller_importer():
+    controllers_path = os.path.dirname(bliss_motor_controller.__file__)
+    return pkgutil.ImpImporter(path=controllers_path)
+
+
+def get_controller_class_names():
+    return [name for name, _ in __get_controller_importer().iter_modules()]
+
+
 def get_jinja2():
     global __environment
     try:
@@ -96,10 +105,8 @@ def get_axis_html(cfg):
     vars["units"] = cfg.get("unit", "unit")
     controllers = list()
     vars["controllers"] = controllers
-    pkgpath = os.path.dirname(bliss_motor_controller.__file__)
-    for _, controller_name, _ in pkgutil.iter_modules([pkgpath]):
+    for controller_name in __get_controller_class_names():
         controllers.append({"class": controller_name})
-
     vars["__tango_server__"] = __is_tango_device(name)
 
     return html_template.render(**vars)
@@ -240,3 +247,31 @@ def axis_edit(cfg, request):
             result["type"] = "success"
 
         return flask.json.dumps(result)
+
+
+
+__ACTIONS = \
+    { "add": [ {"id": "emotion_add_controller",
+                "label": "Add controller",
+                "icon": "fa fa-gears",
+                "action": "plugin/emotion/add_controller",
+                "disabled": True,},
+
+               {"id": "emotion_add_axis",
+                "label": "Add axis",
+                "icon": "fa fa-gears",
+                "action": "plugin/emotion/add_axis",
+                "disabled": True}],}
+
+def actions():
+    return __ACTIONS
+
+def add_controller(cfg, request):
+    if request.method == "GET":
+        return flask.json.dumps(dict(html="<h1>TODO</h1>",
+                                     message="not implemented", type="danger"))
+
+def add_axis(cfg, request):
+    if request.method == "GET":
+        return flask.json.dumps(dict(html="<h1>TODO</h1>",
+                                     message="not implemented", type="danger"))

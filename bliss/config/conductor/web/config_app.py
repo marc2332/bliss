@@ -18,7 +18,7 @@ beacon_port = None
 __this_file = os.path.realpath(__file__)
 __this_path = os.path.dirname(__this_file)
 
-def get_config():
+def __get_config():
     global __config
     try:
         return __config
@@ -28,7 +28,7 @@ def get_config():
         __config = static.get_config()
     return __config
 
-def get_jinja2():
+def __get_jinja2():
     global __environment
     try:
         return __environment
@@ -36,14 +36,14 @@ def get_jinja2():
         __environment = Environment(loader=FileSystemLoader(__this_path))
     return __environment
 
-def get_config_plugin(cfg, member=None):
+def __get_config_plugin(cfg, member=None):
     if cfg is None:
         return
     if cfg.plugin in ("default", None):
         return
-    return get_plugin(cfg.plugin, member=member)
+    return __get_plugin(cfg.plugin, member=member)
 
-def get_plugin(name, member=None):
+def __get_plugin(name, member=None):
     try:
         mod_name = 'bliss.config.plugins.%s' % name
         mod = __import__(mod_name, fromlist=[None])
@@ -60,19 +60,44 @@ def get_plugin(name, member=None):
             return
     return mod
 
+def __get_plugin_importer():
+    plugins_path = os.path.dirname(plugins.__file__)
+    return pkgutil.ImpImporter(path=plugins_path)
+
+def __get_plugin_names():
+    return [name for name, _ in __get_plugin_importer().iter_modules()]
+
+def __get_plugins():
+    result = {}
+    for name in __get_plugin_names():
+        plugin = __get_plugin(name)
+        if plugin:
+            result[name] = plugin
+    return result
+
 @web_app.route("/")
 def index():
-    cfg = get_config()
+    cfg = __get_config()
     node = cfg.root
-    template = get_jinja2().select_template(("index.html",))
-    name = institute = node.get("institute", node.get("synchrotron"))
+
+    template = __get_jinja2().select_template(("index.html",))
+
+    full_name = institute = node.get("institute", node.get("synchrotron"))
     laboratory = node.get("laboratory", node.get("beamline"))
     if laboratory:
-        if name:
-            name += " - "
-        name += laboratory
-    return template.render(dict(name=name, institute=institute,
-                                laboratory=laboratory, config=cfg))
+        if full_name:
+            full_name += " - "
+        full_name += laboratory
+
+    actions = {}
+    for name, plugin in __get_plugins().items():
+        try:
+            actions[name] = plugin.actions()
+        except AttributeError:
+            pass
+    return template.render(dict(name=full_name, institute=institute,
+                                laboratory=laboratory, actions=actions,
+                                config=cfg))
 
 @web_app.route("/<dir>/<path:filename>")
 def static_file(dir, filename):
@@ -80,8 +105,8 @@ def static_file(dir, filename):
 
 @web_app.route("/main/")
 def main():
-    cfg = get_config()
-    get_main = get_plugin(cfg.root.plugin or "beamline", "get_main")
+    cfg = __get_config()
+    get_main = __get_plugin(cfg.root.plugin or "beamline", "get_main")
     if get_main:
         return get_main(cfg)
     else:
@@ -89,7 +114,7 @@ def main():
 
 @web_app.route("/db_files")
 def db_files():
-    cfg = get_config()
+    cfg = __get_config()
     db_files, _ = zip(*client.get_config_db_files())
     return flask.json.dumps(db_files)
 
@@ -97,28 +122,28 @@ def db_files():
 def get_db_file(filename):
     if flask.request.method == 'PUT':
         client.set_config_db_file(filename, flask.request.form['yml_file'])
-        cfg = get_config()
+        cfg = __get_config()
         cfg.reload()
         return flask.json.dumps(dict(message="%s successfully saved",
                                      type="success"))
     else:
-        cfg = get_config()
+        cfg = __get_config()
         db_files = dict(client.get_config_db_files())
         return flask.json.dumps(dict(name=filename, content=db_files[filename]))
 
 @web_app.route("/db_file_editor/<path:filename>")
 def get_db_file_editor(filename):
-    cfg = get_config()
+    cfg = __get_config()
 
     db_files = dict(client.get_config_db_files())
 
-    template = get_jinja2().select_template(("editor.html",))
+    template = __get_jinja2().select_template(("editor.html",))
     html = template.render(dict(name=filename, content=db_files[filename]))
     return flask.json.dumps(dict(html=html, name=filename))
 
 @web_app.route("/objects/")
 def objects():
-    cfg = get_config()
+    cfg = __get_config()
 
     db_files, _ = map(list, zip(*client.get_config_db_files()))
 
@@ -142,7 +167,7 @@ def tree(view):
         return tree_objects()
 
 def tree_files():
-    cfg = get_config()
+    cfg = __get_config()
 
     items = {}
     for fname, _ in client.get_config_db_files():
@@ -150,7 +175,7 @@ def tree_files():
 
     for name in cfg.names_list:
         config = cfg.get_config(name)
-        get_tree = get_config_plugin(config, "get_tree")
+        get_tree = __get_config_plugin(config, "get_tree")
         if get_tree:
             item = get_tree(config, "files")
         else:
@@ -175,12 +200,12 @@ def tree_files():
     return flask.json.dumps(result)
 
 def tree_objects():
-    cfg = get_config()
+    cfg = __get_config()
 
     items = {}
     for name in cfg.names_list:
         config = cfg.get_config(name)
-        get_tree = get_config_plugin(config, "get_tree")
+        get_tree = __get_config_plugin(config, "get_tree")
         if get_tree:
             item = get_tree(config, "objects")
         else:
@@ -206,9 +231,9 @@ def tree_objects():
 
 @web_app.route("/objects/<name>")
 def get_object_config(name):
-    cfg = get_config()
+    cfg = __get_config()
     obj_cfg = cfg.get_config(name)
-    plugin = get_config_plugin(obj_cfg, "get_html")
+    plugin = __get_config_plugin(obj_cfg, "get_html")
     if plugin:
         obj_cfg = plugin(obj_cfg)
     else:
@@ -217,26 +242,25 @@ def get_object_config(name):
 
 @web_app.route("/config/reload")
 def reload_config():
-    cfg = get_config()
+    cfg = __get_config()
     cfg.reload()
     return flask.json.dumps(dict(message="Configuration fully reloaded!",
                                  type="success"))
 
 @web_app.route("/plugins")
 def list_plugins():
-    pkgpath = os.path.dirname(plugins.__file__)
-    return flask.json.dumps([name for _, name, _ in pkgutil.iter_modules([pkgpath])])
+    return flask.json.dumps(__get_plugin_names())
 
 @web_app.route("/plugin/<name>/<action>", methods=["GET", "POST", "PUT"])
 def handle_plugin_action(name, action):
-    plugin = get_plugin(name, member=action)
+    plugin = __get_plugin(name, member=action)
     if not plugin:
         return ""
-    return plugin(get_config(), flask.request)
+    return plugin(__get_config(), flask.request)
 
 @web_app.route("/add_folder", methods=["POST"])
 def add_folder():
-    cfg = get_config()
+    cfg = __get_config()
     folder = flask.request.form['folder']
 
     filename = os.path.join(folder, "__init__.yml")
@@ -247,7 +271,7 @@ def add_folder():
 
 @web_app.route("/add_file", methods=["POST"])
 def add_file():
-    cfg = get_config()
+    cfg = __get_config()
     filename = flask.request.form['file']
     node = static.Node(cfg, filename=filename)
     node.save()
@@ -256,7 +280,7 @@ def add_file():
 
 @web_app.route("/remove_file", methods=["POST"])
 def remove_file():
-    cfg = get_config()
+    cfg = __get_config()
     filename = flask.request.form['file']
     client.remove_config_file(filename)
     return flask.json.dumps(dict(message="File deleted!",

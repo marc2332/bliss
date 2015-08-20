@@ -24,7 +24,7 @@ def __get_controller_importer():
     return pkgutil.ImpImporter(path=controllers_path)
 
 
-def get_controller_class_names():
+def __get_controller_class_names():
     return [name for name, _ in __get_controller_importer().iter_modules()]
 
 

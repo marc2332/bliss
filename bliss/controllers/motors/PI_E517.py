@@ -102,9 +102,20 @@ class PI_E517(Controller):
         self.low_limit  = self._get_low_limit(axis)
         self.high_limit = self._get_high_limit(axis)
 
-
     def initialize_encoder(self, encoder):
+        encoder.channel = encoder.config.get("channel", int)
+        encoder.chan_letter = encoder.config.get("chan_letter")
+
+
+    """
+    ON / OFF
+    """
+    def set_on(self, axis):
         pass
+
+    def set_off(self, axis):
+        pass
+
 
     def read_position(self, axis, last_read={"t": time.time(), "pos": [None, None, None]}):
         """
@@ -132,7 +143,6 @@ class PI_E517(Controller):
         return _pos[axis.channel - 1]
 
     def read_encoder(self, encoder, last_read={"t": time.time(), "pos": [None, None, None]}):
-
         cache = last_read
 
         if time.time() - cache["t"] < 0.005:
@@ -140,12 +150,12 @@ class PI_E517(Controller):
             _pos = cache["pos"]
         else:
             # print "PAS encache meas %f" % time.time()
-            _pos = self._get_pos(axis)
+            _pos = self._get_pos()
             cache["pos"] = _pos
             cache["t"] = time.time()
         elog.debug("position measured read : %r" % _pos)
 
-        return _pos[axis.channel - 1]
+        return _pos[encoder.channel - 1]
 
     def read_velocity(self, axis):
         """
@@ -168,13 +178,6 @@ class PI_E517(Controller):
         elog.debug("velocity set : %g" % new_velocity)
         return self.read_velocity(axis)
 
-    def read_acceleration(self, axis):
-        """Returns axis current acceleration in steps/sec2"""
-        return 1
-
-    def set_acceleration(self, axis, new_acc):
-        """Set axis acceleration given in steps/sec2"""
-        pass
 
     def state(self, axis):
         # if self._get_closed_loop_status(axis):
@@ -303,7 +306,7 @@ class PI_E517(Controller):
     E517 specific
     """
 
-    def _get_pos(self, axis):
+    def _get_pos(self):
         """
         Args:
             - <axis> :
@@ -313,8 +316,6 @@ class PI_E517(Controller):
         Raises:
             ?
         """
-        # _ans = self.send(axis, "POS? %s" % axis.chan_letter)
-        # _pos = float(_ans[2:])
         _ans = self.sock.write_readlines("POS?\n", 3)
         _pos = map(float, [x[2:] for x in _ans])
 

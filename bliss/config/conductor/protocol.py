@@ -23,6 +23,10 @@ CONFIG = 1
 
 (CONFIG_REMOVE_FILE, CONFIG_REMOVE_FILE_FAILED, CONFIG_REMOVE_FILE_OK) = (80,81,82)
 
+(CONFIG_MOVE_PATH, CONFIG_MOVE_PATH_FAILED, CONFIG_MOVE_PATH_OK) = (83,84,85)
+
+(CONFIG_GET_DB_TREE, CONFIG_GET_DB_TREE_FAILED, CONFIG_GET_DB_TREE_OK) = (86,87,88)
+
 def message(cmd, contents = ''):
     return '%s%s' % (struct.pack('<ii', cmd, len(contents)),contents)
 

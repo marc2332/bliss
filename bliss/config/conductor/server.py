@@ -1,6 +1,7 @@
 import os
 import sys
 import codecs
+import shutil
 import argparse
 import weakref
 import subprocess
@@ -162,6 +163,35 @@ def _send_config_file(client_id,message):
     except IOError:
         client_id.sendall(protocol.message(protocol.CONFIG_GET_FILE_FAILED,"%s|File doesn't exist" % (message_key)))
 
+def __remove_empty_tree(base_dir=None, keep_empty_base=True):
+    """
+    Helper to remove empty directory tree.
+
+    If *base_dir* is *None* (meaning start at the beacon server base directory),
+    the *keep_empty_base* is forced to True to prevent the system from removing
+    the beacon base path
+
+    :param base_dir: directory to start from [default is None meaning start at
+                     the beacon server base directory
+    :type base_dir: str
+    :param keep_empty_base: if True (default) doesn't remove the given
+                            base directory. Otherwise the base directory is
+                            removed if empty.
+    """
+    if base_dir is None:
+        base_dir = _options.db_path
+        keep_empty_base = False
+
+    for dir_path, dir_names, file_names in os.walk(base_dir, topdown=False):
+        if keep_empty_base and dir_path == base_dir:
+            continue
+        if file_names:
+            continue
+        for dir_name in dir_names:
+            full_dir_name = os.path.join(dir_path, dir_name)
+            if not os.listdir(full_dir_name): # check if directory is empty
+                os.removedirs(full_dir_name)
+
 def _remove_config_file(client_id, message):
     try:
         message_key,file_path = message.split('|')
@@ -173,12 +203,46 @@ def _remove_config_file(client_id, message):
         if os.path.isfile(full_path):
             os.remove(full_path)
         elif os.path.isdir(full_path):
-            import shutil
             shutil.rmtree(full_path)
+
+        # walk back in directory tree removing empty directories. Do this to
+        # prevent future rename operations to inadvertely ending up inside a
+        # "transparent" directory instead of being renamed
+        __remove_empty_tree()
         msg = (protocol.CONFIG_REMOVE_FILE_OK, '%s|0' % (message_key,))
     except IOError:
         msg = (protocol.CONFIG_REMOVE_FILE_FAILED,
                "%s|File/directory doesn't exist" % message_key)
+    client_id.sendall(protocol.message(*msg))
+
+def _move_config_path(client_id, message):
+    # should work on both files and folders
+    # it can be used for both move and rename
+    try:
+        message_key, src_path, dst_path = message.split('|')
+    except ValueError:          # message is bad, skip it
+        return
+    src_path = src_path.replace('../','') # prevent going up
+    src_full_path = os.path.join(_options.db_path, src_path)
+
+    dst_path = dst_path.replace('../','') # prevent going up
+    dst_full_path = os.path.join(_options.db_path, dst_path)
+
+    try:
+        # make sure the parent directory exists
+        parent_dir = os.path.dirname(dst_full_path)
+        if not os.path.isdir(parent_dir):
+            os.makedirs(parent_dir)
+        shutil.move(src_full_path, dst_full_path)
+
+        # walk back in directory tree removing empty directories. Do this to
+        # prevent future rename operations to inadvertely ending up inside a
+        # "transparent" directory instead of being renamed
+        __remove_empty_tree()
+        msg = (protocol.CONFIG_MOVE_PATH_OK, '%s|0' % (message_key,))
+    except IOError as ioe:
+        msg = (protocol.CONFIG_MOVE_PATH_FAILED,
+               "%s|%s: %s" % (message_key, ioe.filename, ioe.strerror))
     client_id.sendall(protocol.message(*msg))
 
 def _send_config_db_files(client_id,message):
@@ -206,6 +270,39 @@ def _send_config_db_files(client_id,message):
         sys.excepthook(*sys.exc_info())
     finally:
         client_id.sendall(protocol.message(protocol.CONFIG_DB_END,"%s|" % (message_key)))
+
+def __get_directory_structure(base_dir):
+    """
+    Helper that creates a nested dictionary that represents the folder structure of base_dir
+    """
+    result = {}
+    base_dir = base_dir.rstrip(os.sep)
+    start = base_dir.rfind(os.sep) + 1
+    for path, dirs, files in os.walk(base_dir):
+        folders = path[start:].split(os.sep)
+        subdir = dict.fromkeys(files)
+        parent = reduce(dict.get, folders[:-1], result)
+        parent[folders[-1]] = subdir
+    assert len(result) == 1
+    return result.popitem()
+
+def _send_config_db_tree(client_id,message):
+    try:
+        message_key,sub_path = message.split('|')
+    except ValueError:          # message is bad, skip it
+        return
+    sub_path = sub_path.replace('../','') # prevent going up
+    look_path = sub_path and os.path.join(_options.db_path,sub_path) or _options.db_path
+
+    import json
+    try:
+        _, tree = __get_directory_structure(look_path)
+        msg = (protocol.CONFIG_GET_DB_TREE_OK,'%s|%s' % (message_key, json.dumps(tree)))
+    except Exception as e:
+        sys.excepthook(*sys.exc_info())
+        msg = (protocol.CONFIG_GET_DB_TREE_FAILED,
+               "%s|Failed to get tree: %s" % (message_key, str(e)))
+    client_id.sendall(protocol.message(*msg))
 
 def _write_config_db_file(client_id,message):
     first_pos = message.find('|')
@@ -317,10 +414,14 @@ def _client_rx(client):
                             _send_config_file(c_id,message)
                         elif messageType == protocol.CONFIG_GET_DB_BASE_PATH:
                             _send_config_db_files(c_id,message)
+                        elif messageType == protocol.CONFIG_GET_DB_TREE:
+                            _send_config_db_tree(c_id,message)
                         elif messageType == protocol.CONFIG_SET_DB_FILE:
                             _write_config_db_file(c_id,message)
                         elif messageType == protocol.CONFIG_REMOVE_FILE:
                             _remove_config_file(c_id,message)
+                        elif messageType == protocol.CONFIG_MOVE_PATH:
+                            _move_config_path(c_id,message)
                         else:
                             _send_unknow_message(c_id)
                     except ValueError:
@@ -392,6 +493,7 @@ def main():
     tcp.bind(("",_options.port))
     port = tcp.getsockname()[1]
     print "[beacon] server sitting on port:", port
+    print "[beacon] configuration path:", _options.db_path
     tcp.listen(512)        # limit to 512 clients
 
     #web application

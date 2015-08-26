@@ -98,9 +98,24 @@ class PI_E517(Controller):
         # Updates cached value of closed loop status.
         self.closed_loop = self._get_closed_loop_status(axis)
 
+        # Reads high/low limits of the piezo to use in set_gate
+        self.low_limit  = self._get_low_limit(axis)
+        self.high_limit = self._get_high_limit(axis)
 
     def initialize_encoder(self, encoder):
+        encoder.channel = encoder.config.get("channel", int)
+        encoder.chan_letter = encoder.config.get("chan_letter")
+
+
+    """
+    ON / OFF
+    """
+    def set_on(self, axis):
         pass
+
+    def set_off(self, axis):
+        pass
+
 
     def read_position(self, axis, last_read={"t": time.time(), "pos": [None, None, None]}):
         """
@@ -128,7 +143,6 @@ class PI_E517(Controller):
         return _pos[axis.channel - 1]
 
     def read_encoder(self, encoder, last_read={"t": time.time(), "pos": [None, None, None]}):
-
         cache = last_read
 
         if time.time() - cache["t"] < 0.005:
@@ -136,12 +150,12 @@ class PI_E517(Controller):
             _pos = cache["pos"]
         else:
             # print "PAS encache meas %f" % time.time()
-            _pos = self._get_pos(axis)
+            _pos = self._get_pos()
             cache["pos"] = _pos
             cache["t"] = time.time()
         elog.debug("position measured read : %r" % _pos)
 
-        return _pos[axis.channel - 1]
+        return _pos[encoder.channel - 1]
 
     def read_velocity(self, axis):
         """
@@ -164,13 +178,6 @@ class PI_E517(Controller):
         elog.debug("velocity set : %g" % new_velocity)
         return self.read_velocity(axis)
 
-    def read_acceleration(self, axis):
-        """Returns axis current acceleration in steps/sec2"""
-        return 1
-
-    def set_acceleration(self, axis, new_acc):
-        """Set axis acceleration given in steps/sec2"""
-        pass
 
     def state(self, axis):
         # if self._get_closed_loop_status(axis):
@@ -233,6 +240,9 @@ class PI_E517(Controller):
     Communication
     """
 
+#    def flush(self, axis):
+#        self.sock.flush()
+
     def raw_write(self, cmd):
         self.send_no_ans(self.ctrl_axis, cmd)
 
@@ -267,6 +277,12 @@ class PI_E517(Controller):
         _duration = time.time() - _t0
         if _duration > 0.005:
             elog.info("PI_E517.py : Received %r from Send %s (duration : %g ms) " % (_ans, _cmd, _duration * 1000))
+
+        # Check error code
+        _err = self.sock.write_readline("ERR?\n")
+        if _err != "0":
+            print ":( error read: %s on send(%r)" % (_err, _cmd)
+
         return _ans
 
     def send_no_ans(self, axis, cmd):
@@ -280,11 +296,17 @@ class PI_E517(Controller):
         _cmd = cmd + "\n"
         self.sock.write(_cmd)
 
+        # Check error code
+        _err = self.sock.write_readline("ERR?\n")
+        if _err != "0":
+            print ":( error read: %s on send(%r)" % (_err, _cmd)
+
+
     """
     E517 specific
     """
 
-    def _get_pos(self, axis):
+    def _get_pos(self):
         """
         Args:
             - <axis> :
@@ -294,8 +316,6 @@ class PI_E517(Controller):
         Raises:
             ?
         """
-        # _ans = self.send(axis, "POS? %s" % axis.chan_letter)
-        # _pos = float(_ans[2:])
         _ans = self.sock.write_readlines("POS?\n", 3)
         _pos = map(float, [x[2:] for x in _ans])
 
@@ -324,8 +344,44 @@ class PI_E517(Controller):
         _pos = map(float, [x[2:] for x in _ans])
         return _pos
 
+    def _get_cto(self, axis):
+        """
+        sss
+        """
+        _ans = self.sock.write_readlines("CTO?\n", 24)
+        return _ans
+
+    """
+    CTO?
+
+    1 1=+0000.1000    ???
+    1 2=1             ???
+    1 3=3             trigger mode
+    1 4=0             ???
+    1 5=+0000.0000    min threshold
+    1 6=+0001.0000    max threshold
+    1 7=1             polarity
+    1 12=1            ???
+    ...
+    """
+
+
+
+    def _get_low_limit(self, axis):
+        _ans = self.send(axis, "NLM? %s" % axis.chan_letter)
+        # A=+0000.0000
+        return float(_ans[2:])
+
+
+    def _get_high_limit(self, axis):
+        _ans = self.send(axis, "PLM? %s" % axis.chan_letter)
+        # A=+0035.0000
+        return float(_ans[2:])
+
+
     def open_loop(self, axis):
         self.send_no_ans(axis, "SVO %s 0" % axis.chan_letter)
+
 
     def close_loop(self, axis):
         self.send_no_ans(axis, "SVO %s 1" % axis.chan_letter)
@@ -382,7 +438,7 @@ class PI_E517(Controller):
             # auto gating
             self.auto_gate_enabled = True
             self.gate_axis = axis
-            elog.info("PI_E517.py : enable_gate " + value + "fro axis.channel " + axis.channel)
+            elog.info("PI_E517.py : enable_gate %s for axis.channel %s " %(str(value) , axis.channel) )
         else:
             self.auto_gate_enabled = False
 
@@ -408,11 +464,13 @@ class PI_E517(Controller):
                       - 2 : OnTarget
                       - 3 : MinMaxThreshold   <----
                       - 4 : Wave Generator
-             - 5: min threshold
-             - 6: max threshold
+             - 5: min threshold   <--- must be greater than low limit
+             - 6: max threshold   <--- must be lower than high limit
              - 7: polarity : 0 / 1
 
-        ex : CTO 1 3 3   1 5 0   1 6 100   1 7 1
+
+        ex :      ID trigmod min/max       ID min       ID max       ID pol +
+              CTO 1  3       3             1  5   0     1  6   100   1  7   1
 
         Args:
             - <state> : True / False
@@ -421,10 +479,11 @@ class PI_E517(Controller):
         Raises:
             ?
         """
+        _ch = self.gate_axis.channel
         if state:
-            _cmd = "CTO %d 3 3 1 5 0 1 6 100 1 7 1" % (self.gate_axis.channel)
+            _cmd = "CTO %d 3 3 %d 5 %g %d 6 %g %d 7 1" % (_ch, _ch, self.low_limit, _ch, self.high_limit, _ch)
         else:
-            _cmd = "CTO %d 3 3 1 5 0 1 6 100 1 7 0" % (self.gate_axis.channel)
+            _cmd = "CTO %d 3 3 %d 5 %g %d 6 %g %d 7 0" % (_ch, _ch, self.low_limit, _ch, self.high_limit, _ch)
 
         self.send_no_ans(self.gate_axis, _cmd)
 

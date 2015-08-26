@@ -253,7 +253,7 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
             return ".error."
         }
         else{
-            printf("Motor \"%s\" linked to Tango EMotion axis : %s ",   \
+            printf("Motor \"%s\" linked to Tango EMotion axis : %s \n",   \
                    _mot_mne, _axis_ds_name)
         }
 

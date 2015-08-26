@@ -30,12 +30,13 @@ def unpack_header(header) :
     return  struct.unpack('<ii',header)
 
 def unpack_message(s):
-  if(len(s) < HEADER_SIZE):
-      raise ValueError
+    if(len(s) < HEADER_SIZE):
+        raise ValueError
 
-  messageType, messageLen = struct.unpack('<ii', s[:HEADER_SIZE])
-  if len(s)<HEADER_SIZE+messageLen:
-    raise ValueError
-  message = s[HEADER_SIZE:HEADER_SIZE+messageLen]
-  remaining = s[HEADER_SIZE+messageLen:]
-  return messageType, message, remaining  
+    messageType, messageLen = struct.unpack('<ii', s[:HEADER_SIZE])
+    if len(s)<HEADER_SIZE+messageLen:
+        print("message error type:%d ; message size: %d" % (messageType, messageLen))
+        raise ValueError
+    message = s[HEADER_SIZE:HEADER_SIZE+messageLen]
+    remaining = s[HEADER_SIZE+messageLen:]
+    return messageType, message, remaining

@@ -1,3 +1,15 @@
+function __send_form(url, form, on_success) {
+    $.ajax({
+	url: url,
+	type: "POST",
+	cache: false,
+	contentType: false,
+	processData: false,
+	data: form,
+	success: on_success,
+    });
+}
+
 function __add_file(path) {
     if (path.indexOf(".yml", path.length - 4) === -1) {
 	alert("File must end with '.yml'");
@@ -6,23 +18,14 @@ function __add_file(path) {
     if (path[0] === "/") {
 	path = path.substring(1);
     }
-    console.log("add file " + path);
-    var formData = new FormData();
-    formData.append("file", path);
-
-    $.ajax({
-	url: "add_file",
-	type: "POST",
-	cache: false,
-	contentType: false,
-	processData: false,
-	data: formData,
-	success: function(result) {
-            data = $.parseJSON(result);
-	    tree_reload("#tree_tabs", path);
-            show_yaml(path);
-            write_message(data.message, data.type);
-	}
+    console.log("add file" + path);
+    var form = new FormData();
+    form.append("file", path);
+    __send_form("add_file", form, function(result) {
+        data = $.parseJSON(result);
+	tree_reload("#tree_tabs", path);
+        show_yaml(path);
+        notification(data.message, data.type);
     });
 }
 
@@ -31,50 +34,25 @@ function __add_folder(path) {
 	path = path.substring(1);
     }
     console.log("add folder " + path);
-    var formData = new FormData();
-    formData.append("folder", path);
-
-    $.ajax({
-	url: "add_folder",
-	type: "POST",
-	cache: false,
-	contentType: false,
-	processData: false,
-	data: formData,
-	success: function(result) {
-            data = $.parseJSON(result);
-	    tree_reload("#tree_tabs", path);
-            show_item(path);
-            write_message(data.message, data.type);
-	}
+    var form = new FormData();
+    form.append("folder", path);
+    __send_form("add_folder", form, function(result) {
+        data = $.parseJSON(result);
+	tree_reload("#tree_tabs", path);
+        show_item(path);
+        notification(data.message, data.type);
     });
-}
-
-function add_file() {
-    var path = prompt("YAML file name (full path including '.yml extension)?");
-    if (path !== null) {
-	__add_file(path);
-    }
 }
 
 function __remove(path) {
     console.log("remove file/directory " + path);
-    var formData = new FormData();
-    formData.append("file", path);
-
-    $.ajax({
-	url: "remove_file",
-	type: "POST",
-	cache: false,
-	contentType: false,
-	processData: false,
-	data: formData,
-	success: function(result) {
-            data = $.parseJSON(result);
-	    tree_reload("#tree_tabs");
-	    $("#edit_form").empty();
-            write_message(data.message, data.type);
-	}
+    var form = new FormData();
+    form.append("file", path);
+    __send_form("remove_file", form, function(result) {
+        data = $.parseJSON(result);
+	$("#edit_panel").empty();
+	tree_reload("#tree_tabs");
+        notification(data.message, data.type);
     });
 }
 
@@ -94,8 +72,41 @@ function __remove_folder(path) {
     __remove(path);
 }
 
-function add_folder() {
-    var path = prompt("Directory name (full path)?");
+function __move_path(src_path, dst_path) {
+    console.log("move file/directory from '" + src_path + "' to '" + dst_path + "'");
+    var form = new FormData();
+    form.append("src_path", src_path);
+    form.append("dst_path", dst_path);
+    __send_form("move_path", form, function(result) {
+        data = $.parseJSON(result);
+	$("#edit_panel").empty();
+	tree_reload("#tree_tabs", dst_path);
+        notification(data.message, data.type);
+    });
+}
+
+function __copy_file(src_path, dst_path) {
+    console.log("copy file '" + src_path + "' to '" + dst_path + "'");
+    var form = new FormData();
+    form.append("src_path", src_path);
+    form.append("dst_path", dst_path);
+    __send_form("copy_file", form, function(result) {
+        data = $.parseJSON(result);
+	tree_reload("#tree_tabs", dst_path);
+        show_html_data(data);
+        notification(data.message, data.type);
+    });
+}
+
+function add_file(dft) {
+    var path = prompt("YAML file name (full path including '.yml' extension)?", dft);
+    if (path !== null) {
+	__add_file(path);
+    }
+}
+
+function add_folder(dft) {
+    var path = prompt("Directory name (full path)?", dft);
     if (path !== null) {
 	__add_folder(path);
     }
@@ -110,10 +121,42 @@ function tree_add_folder(obj) {
 }
 
 function tree_add_file(obj) {
-    var path = prompt("File name (must have suffix '.yml'?");
+    var path = prompt("File name (must have suffix '.yml')?");
     if (path !== null) {
 	path = this.data.path + "/" + path;
 	__add_file(path);
+    }
+}
+
+function tree_copy_file(obj) {
+    var path = prompt("Destination (ex: OH/motion/ice2.yml)?");
+    if (path !== null) {
+	__copy_file(this.data.path, path);
+    }
+}
+
+function tree_rename_file(obj) {
+    var src_dir_name = this.data.path.substring(0, this.data.path.lastIndexOf("/")+1);
+    var src_file_name = this.data.path.replace(/^.*[\\\/]/, '')
+    var dst_file_name = prompt("New file name?", src_file_name);
+    if (dst_file_name !== null) {
+        __move_path(this.data.path, src_dir_name + dst_file_name);
+    }
+}
+
+function tree_rename_folder(obj) {
+    var src_dir_name = this.data.path.substring(0, this.data.path.lastIndexOf("/")+1);
+    var src_folder_name = this.data.path.replace(/^.*[\\\/]/, '')
+    var dst_folder_name = prompt("New folder name?", src_folder_name);
+    if (dst_folder_name !== null) {
+        __move_path(this.data.path, src_dir_name + dst_folder_name);
+    }
+}
+
+function tree_move_path(obj) {
+    var path = prompt("new path (ex: OH/motion)?");
+    if (path !== null) {
+	__move_path(this.data.path, path);
     }
 }
 
@@ -131,22 +174,37 @@ function tree_context_menu(node) {
 	items.add_item = {
 	    label: "Add item",
 	    icon: "fa fa-star",
+	    separator_before: false,
 	    _disabled: true,
 	    action: function(n) { console.log("add item"); },
+	};
+	items.copy_item = {
+            label: "Copy",
+            icon: "fa fa-copy",
+	    separator_before: true,
+	    _disabled: false,
+	    action: tree_copy_file.bind(node),
 	};
 	items.rename_item = {
             label: "Rename",
             icon: "fa fa-edit",
-	    separator_before: true,
-	    _disabled: true,
+	    separator_before: false,
+	    _disabled: false,
 	    shortcut: 113,
 	    shortcut_label: "F2",
-	    action: function() { console.log("rename item"); },
+	    action: tree_rename_file.bind(node),
+	};
+	items.move_item = {
+            label: "Move",
+            icon: "fa fa-reorder",
+	    separator_before: false,
+	    _disabled: false,
+	    action: tree_move_path.bind(node),
 	};
 	items.delete_item = {
 	    label: "Delete",
 	    icon: "fa fa-remove",
-	    separator_before: true,
+	    separator_before: false,
 	    _disabled: false,
 	    action: tree_remove_file.bind(node),
 	};
@@ -161,22 +219,29 @@ function tree_context_menu(node) {
 	items.add_folder = {
 	    label: "Add folder",
 	    icon: "fa fa-folder",
-	    _disabled: true,
+	    _disabled: false,
 	    action: tree_add_folder.bind(node),
 	};
 	items.rename_item = {
             label: "Rename",
             icon: "fa fa-edit",
 	    separator_before: true,
-	    _disabled: true,
+	    _disabled: false,
 	    shortcut: 113,
 	    shortcut_label: "F2",
-	    action: function() { console.log("rename item"); },
+	    action: tree_rename_folder.bind(node),
+	};
+	items.move_item = {
+            label: "Move",
+            icon: "fa fa-reorder",
+	    separator_before: false,
+	    _disabled: false,
+	    action: tree_move_path.bind(node),
 	};
 	items.delete_item = {
 	    label: "Delete",
 	    icon: "fa fa-remove",
-	    separator_before: true,
+	    separator_before: false,
 	    _disabled: false,
 	    action: tree_remove_folder.bind(node),
 	};
@@ -284,11 +349,11 @@ function on_yaml_node_selected(ev, data) {
 
 function show_yaml(file_path) {
    $.get("db_file_editor/" + file_path, function(data) {
-        $("#edit_form").empty();
+        $("#right_panel").empty();
         if (data.html === undefined) {
             var form = $("<form></form>");
             form.addClass("form-group");
-            $("#edit_form").html(form);
+            $("#right_panel").html(form);
             var text_area = $("<textarea></textarea>");
             text_area.addClass("yaml");
             text_area.addClass("form-control");
@@ -296,9 +361,9 @@ function show_yaml(file_path) {
             text_area.val(content);
             form.append(text_area);
         } else {
-            $("#edit_form").html(data.html);
+            $("#right_panel").html(data.html);
         }
-        $("#edit_panel").attr("style", "visibility: visible");
+        $("#right_panel").attr("style", "visibility: visible");
     }, "json");
 }
 
@@ -317,11 +382,11 @@ function show_main() {
 
 function show_html_data(data) {
     if (data === null) {
-        $("#edit_form").empty();
-        $("#edit_panel").attr("style", "visibility: hidden");
+        $("#right_panel").empty();
+        $("#right_panel").attr("style", "visibility: hidden");
     } else {
-        $("#edit_form").html(data.html);
-        $("#edit_panel").attr("style", "visibility: visible");
+        $("#right_panel").html(data.html);
+        $("#right_panel").attr("style", "visibility: visible");
     }
 }
 
@@ -338,20 +403,20 @@ function configure_yaml_editor(tag_name, file_name) {
         $("#revert_editor_changes").button().removeClass("disabled");
     });
     $("#save_editor_changes").on("click", function() {
-        var formData = new FormData();
-        formData.append("yml_file", yaml_editor.getValue());
+        var form = new FormData();
+        form.append("yml_file", yaml_editor.getValue());
         $.ajax({
             url: "db_file/" + file_name,
             type: "PUT",
             contentType: false,
             processData: false,
-            data: formData,
+            data: form,
             success: function() {
 		request = $.ajax({
 		    url : "config/reload",
 		    success: function() {
 			tree_reload("#tree_tabs", file_name);
-			write_message(file_name +" saved!", "success");
+			notification(file_name +" saved!", "success");
 		    }});
             }
         });
@@ -376,13 +441,40 @@ function on_plugin_action(plugin, action) {
             data = $.parseJSON(action_result);
 //	    tree_reload("#tree_tabs");
             show_html_data(data);
-            write_message(data.message, data.type);
+            notification(data.message, data.type);
 	}
     });
 }
 
-function write_message(msg, type) {
-    $("#message_box").html(msg);
-    $("#message_box").removeClass("alert-success alert-warning alert-danger alert-info");
-    $("#message_box").addClass("alert-" + type);
+function notification(msg, type, fadeOut, fadeOutDelay) {
+    if (type === undefined) {
+        type = "success";
+    }
+    if (fadeOut === undefined) {
+        fadeOut = true;
+    }
+    if (fadeOutDelay === undefined) {
+        if (type === "success") {
+            fadeOutDelay = 5000;
+        }
+        else if (type === "info") {
+            fadeOutDelay = 8000;
+        }
+        if (type === "warning") {
+            fadeOutDelay = 12000;
+        }
+        if (type === "danger") {
+            fadeOutDelay = 15000;
+        }
+    }
+    $(".top-right").notify({
+        message: { html: msg },
+        closable: true,
+        transition: "fade",
+        fadeOut: {
+            enabled: fadeOut,
+            delay: fadeOutDelay,
+        },
+        type: type,
+    }).show();
 }

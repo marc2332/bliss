@@ -1,5 +1,5 @@
 <style type="text/css" media="screen">
-  #yaml_editor { 
+  #yaml_editor {
     min-width: 200px;
     min-height: 500px;
     height: 500px;
@@ -9,11 +9,11 @@
 
 <div class="btn-toolbar" role="toolbar" id="main_toolbar" aria-label="main toolbar">
   <div class="btn-group pull-right" role="group" aria-label="global fucntionality">
-    <button type="button" class="btn btn-primary disabled" id="save_editor_changes">
+    <button type="button" class="btn btn-primary" id="save_editor_changes">
       Save
       <span class="fa fa-save"></span>
     </button>
-    <button type="button" class="btn btn-primary disabled" id="revert_editor_changes">
+    <button type="button" class="btn btn-primary" id="revert_editor_changes">
       Revert
       <span class="fa fa-undo"></span>
     </button>
@@ -35,12 +35,10 @@
   <fieldset>
 
     <legend>{{ name }}</legend>
-    
+
     <div class="form-group">
-      
       <textarea class="form-control yaml">{{ content }}</textarea>
     </div>
   </fieldset>
-  
 </form>
 -->

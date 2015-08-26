@@ -1,10 +1,11 @@
 {% block toolbar %}
-<div class="btn-toolbar pull-right" role="toolbar" id="main_toolbar" aria-label="main toolbar">
-  <button id="apply" class="btn btn-primary">
+
+<nav class="navbar navbar-static-top">
+  <button id="apply" class="btn btn-primary navbar-btn pull-right">
     <span class="fa fa-save"></span>
     Apply
  </button>
-</div>
+</nav>
 
 {% endblock %}
 
@@ -13,11 +14,12 @@
 
 {% block params %}
 
+<div class="col-md-10">
 {% for name, value in params.items() %}
 <!-- Text input-->
 <div class="form-group">
-  <label class="col-md-4 control-label" for="{{ name }}">{{ name.capitalize() }}</label>
-  <div class="col-md-4">
+  <label class="col-md-2 control-label" for="{{ name }}">{{ name.capitalize() }}</label>
+  <div class="col-md-8">
     <input id="{{ name }}" name="{{ name }}" type="text"
            class="form-control input-md"
            placeholder="{{ value }}" value="{{ value }}">
@@ -25,6 +27,11 @@
   </div>
 </div>
 {% endfor %}
+</div>
+
+<div class="col-md-2">
+  <img src="{{ logo }}" width="128"></img>
+</div>
 
 {% endblock %}
 

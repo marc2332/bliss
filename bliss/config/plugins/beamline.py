@@ -19,23 +19,37 @@ def get_jinja2():
 
 
 def get_main(cfg):
-   template = get_jinja2().select_template(("beamline.html",))   
+    from ..conductor.client import get_config_db_tree
+    tree = get_config_db_tree()
+    # if there is some configuration already
+    if tree:
+        return __get_main(cfg)
+    else:
+        return __get_empty_main(cfg)
+
+def __get_main(cfg):
+   template = get_jinja2().select_template(("beamline.html",))
 
    params = {}
    for k, v in cfg.root.iteritems():
      if not isinstance(v, (list, tuple, dict)):
        params[k] = v
+   logo = cfg.root.get("logo", "res/logo.png")
 
-   html = template.render(dict(params=params))
+   html = template.render(dict(params=params, logo=logo))
 
-   return flask.json.dumps(dict(html=html))    
+   return flask.json.dumps(dict(html=html))
 
+def __get_empty_main(cfg):
+    template = get_jinja2().select_template(("empty_config.html",))
+    html = template.render({})
+    return flask.json.dumps(dict(html=html))
 
 def edit(cfg, request):
     if request.method == "POST":
         for k, v in request.form.items():
             cfg.root[k] = v
     cfg.root.save()
-    
-    return flask.json.dumps(dict(message="configuration applied!", 
+
+    return flask.json.dumps(dict(message="configuration applied!",
                                  type="success"))

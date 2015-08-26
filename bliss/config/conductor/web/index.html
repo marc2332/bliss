@@ -1,7 +1,7 @@
 <html>
   <head>
     <meta http-equiv="Content-Type" content="text/html" charset="utf-8" />
-    <title>{{ name if name else "beamlinee" }} configuration application</title>
+    <title>{{ name if name else "Beamline" }} configuration application</title>
 
     <!-- JQuery -->
     <script language="JavaScript" type="text/javascript" src="js/jquery-2.1.3.min.js"></script>
@@ -14,6 +14,9 @@
     <!-- Bootstrap select -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.7.3/js/bootstrap-select.min.js"></script>
     <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.7.3/css/bootstrap-select.min.css"></link>
+    <!-- Bootstrap notify -->
+    <script src="js/bootstrap-notify.js"></script>
+    <link rel="stylesheet" href="css/bootstrap-notify.css"></link>
 
     <!-- JQuery UI -->
     <!-- <script language="JavaScript" type="text/javascript" src="js/jquery-ui.min.js"></script> -->
@@ -33,22 +36,19 @@
     <link rel="stylesheet" href="css/config_app.css"></link>
 
   </head>
-  <body>
-
+  <body style="padding-top: 60px;">
     <!-- Main toolbar -->
-    <nav class="navbar navbar-default navbar-fixed-top navbar-compact" id="main_toolbar" aria-label="main toolbar">
+    <nav class="navbar navbar-fixed-top" id="main_toolbar" aria-label="main toolbar">
       <div class="container-fluid">
         <div class="navbar-header">
           <a id="brand_image" class="navbar-brand navbar-brand-img-compact" href="#">
-	    <img alt="Beacon" src="res/logo.png" width="48" height="48"></img>
+	    <img alt="Beacon" src="{{ icon if icon else 'res/logo.png' }}" height="42"></img>
 	  </a>
-
-	  <a id="brand_text" class="navbar-brand navbar-brand-compact" href="#">
-	    {{ name if name else "Beacon" }}</a>
+	  <a id="brand_text" class="navbar-brand navbar-brand-compact" href="#">{{ name if name else "Beacon" }}</a>
         </div>
 
 	<!-- Collect the nav links, forms, and other content for toggling -->
-	<div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+	<div class="collapse navbar-collapse">
 	  <form class="navbar-form navbar-left" role="search">
             <div class="form-group">
               <input id="filter_edit" type="text" class="form-control" placeholder="Filter for..."></input>
@@ -65,25 +65,9 @@
 		 role="button" aria-haspopup="true" aria-expanded="false">Add...<span class="caret"></span></a>
               <ul class="dropdown-menu">
 		<li><a id="add_file" href="#">YAML File</a></li>
-
-		{% for plugin, plugin_actions in actions.items() %}
-		{% if "add" in plugin_actions %}
-		<!-- <li role="separator" class="divider"></li> -->
-		<li class="dropdown-header">{{ plugin }}</li>
-		{% for action in plugin_actions["add"] %}
-		<li>
-		  <a id="{{ action['id'] }}" href="#">{{ action['label'] }}</a>
-		</li>
-		{% endfor %}	    
-		{% endif %}
-		{% endfor %}
               </ul>
             </li>
 	  </ul>
-
-	  <p id="message_box" role="alert" class="navbar-text alert alert-info message-compact">
-	    Welcome to {{ name if name else "the beamline" }} configuration application
-	  </p>
 
           <button type="button" class="btn btn-primary navbar-btn navbar-right" id="reload_config"
 		  data-loading-text="Reloading..." data-toggle="tooltip" data-placement="left"
@@ -138,12 +122,14 @@
 	</div>
 	<div id="right_panel" class="col-md-9">
 	  <!-- Edit panel (right panel) -->
-	  <div id="edit_panel" class="panel-body" style="visibility:hidden">
-	    <div id="edit_form" class="" style=""></div>
+<!--	  <div id="edit_panel" class="panel-body" style="visibility:hidden"> -->
 	  </div>
 	</div>
       </div>
     </div>
+
+    <div id="notifications_top_right" class="notifications top-right"></div>
+
     <script>
       $(function() {
 
@@ -183,16 +169,6 @@
         $("#brand_text").on("click", function() {
           show_main();
         });
-
-        {% for plugin, plugin_actions in actions.items() %}
-        {% for group_name, group_actions in plugin_actions.items() %}
-        {% for action in group_actions %}
-        $("#{{ action['id'] }}").on("click", function() {
-          on_plugin_action("{{ plugin }}", "{{ action['action'] }}");
-        });
-        {% endfor %}	    
-        {% endfor %}
-        {% endfor %}
 
         tree_reload("#tree_tabs");
         show_main();

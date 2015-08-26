@@ -88,16 +88,9 @@ def index():
         if full_name:
             full_name += " - "
         full_name += laboratory
-
-    actions = {}
-    for name, plugin in __get_plugins().items():
-        try:
-            actions[name] = plugin.actions()
-        except AttributeError:
-            pass
+    icon = node.get("icon", "res/logo.png")
     return template.render(dict(name=full_name, institute=institute,
-                                laboratory=laboratory, actions=actions,
-                                config=cfg))
+                                laboratory=laboratory, icon=icon, config=cfg))
 
 @web_app.route("/<dir>/<path:filename>")
 def static_file(dir, filename):
@@ -266,8 +259,7 @@ def add_folder():
     filename = os.path.join(folder, "__init__.yml")
     node = static.Node(cfg, filename=filename)
     node.save()
-    return flask.json.dumps(dict(message="Folder created!",
-                                 type="success"))
+    return flask.json.dumps(dict(message="Folder created!", type="success"))
 
 @web_app.route("/add_file", methods=["POST"])
 def add_file():
@@ -275,13 +267,49 @@ def add_file():
     filename = flask.request.form['file']
     node = static.Node(cfg, filename=filename)
     node.save()
-    return flask.json.dumps(dict(message="File created!",
-                                 type="success"))
+    return flask.json.dumps(dict(message="File created!", type="success"))
 
 @web_app.route("/remove_file", methods=["POST"])
 def remove_file():
     cfg = __get_config()
     filename = flask.request.form['file']
     client.remove_config_file(filename)
-    return flask.json.dumps(dict(message="File deleted!",
-                                 type="success"))
+    cfg.reload()
+    return flask.json.dumps(dict(message="File deleted!", type="success"))
+
+@web_app.route("/copy_file", methods=["POST"])
+def copy_file():
+    cfg = __get_config()
+    src_path = flask.request.form['src_path']
+    dst_path = flask.request.form['dst_path']
+
+    # if destination is a directory (ends in '/'), append the
+    # filename coming from source
+    if dst_path.endswith(os.path.pathsep):
+        dst_path = os.path.join(dst_path, os.path.split(src_path)[1])
+
+    node = static.Node(cfg, filename=dst_path)
+    node.save()
+
+    db_files = dict(client.get_config_db_files())
+
+    template = __get_jinja2().select_template(("editor.html",))
+    html = template.render(dict(name=dst_path, content=db_files[src_path]))
+    result = dict(name=dst_path, html=html, type="warning",
+                  message="File copied from <i>{0}</i> to <i>{1}</i>. <br/>" \
+                          "You <b>must</b> edit content and change element " \
+                          "names to clear name conflicts<br/>" \
+                          "Don't forget to <b>save</b> in order for the changes " \
+                          "to take effect!".format(src_path, dst_path))
+    return flask.json.dumps(result)
+
+@web_app.route("/move_path", methods=["POST"])
+def move_path():
+    cfg = __get_config()
+    src_path = flask.request.form['src_path']
+    dst_path = flask.request.form['dst_path']
+    client.move_config_path(src_path, dst_path)
+    cfg.reload()
+    msg = "Moved from <i>{0}</i> to <i>{1}</i>".format(src_path, dst_path)
+    return flask.json.dumps(dict(message=msg, type="success"))
+

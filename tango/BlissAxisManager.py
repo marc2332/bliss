@@ -545,7 +545,7 @@ class BlissAxis(PyTango.Device_4Impl):
         :return:
         :rtype: PyTango.DevVoid """
         self.debug_stream("In GoHome(%f)" % self.attr_Home_position_read)
-        self.axis.home(self.attr_Home_position_read, wait=False)
+        self.axis.home(wait=False)
 
     def Abort(self):
         """ Stop immediately the motor

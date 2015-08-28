@@ -64,8 +64,8 @@ class TacoMaxe(Controller):
         axis.myacceleration = axis.config.get("acceleration", int)
         axis.steps_per_u = axis.config.get("steps_per_unit", int)
 
-	add_axis_method(axis, self.custom_read_firststeprate,types_info=(None,float))
-	add_axis_method(axis, self.custom_set_firststeprate,types_info=(float,None))
+	add_axis_method(axis, self.custom_read_firststeprate,types_info=("None","float"))
+	add_axis_method(axis, self.custom_set_firststeprate,types_info=("float","None"))
 
     def finalize(self):
     	""" Actions to perform at controller closing """
@@ -108,7 +108,10 @@ class TacoMaxe(Controller):
 
     def read_firstvelocity(self,axis):
         """Returns axis current firstvelocity -- in motorunits/sec --"""
+        tacomaxe_info("read_firstvelocity called for axis \"%s\"" %
+                      (axis.name))
 	steps_vel = self.device.DevReadFirstStepRate(axis.channel)
+        print steps_vel
         return steps_vel
 
     def read_acceleration(self, axis):

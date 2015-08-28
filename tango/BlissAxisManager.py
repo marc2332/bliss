@@ -19,6 +19,9 @@ try:
 except:
     print "beacon not installed ?"
 
+    class ConnectionException(Exception):
+        pass
+
 class bcolors:
     PINK = '\033[95m'
     BLUE = '\033[94m'
@@ -211,18 +214,19 @@ class BlissAxis(PyTango.Device_4Impl):
         self.attr_Backlash_read = 0.0
         self.attr_Offset_read = 0.0
         self.attr_Tolerance_read = 0.0
+        self.attr_PresetPosition_read = 0.0
 
         """
         self.attr_Steps_read = 0
         self.attr_Position_read = 0.0
         self.attr_Measured_Position_read = 0.0
-        self.attr_PresetPosition_read = 0.0
         self.attr_FirstVelocity_read = 0.0
         self.attr_Home_side_read = False
         """
 
         self.attr_trajpar_read = [[0.0]]
 
+        # To force update of state and status.
         self.dev_state()
 
         # elog.info("    %s" % self.axis.get_info())
@@ -284,6 +288,14 @@ class BlissAxis(PyTango.Device_4Impl):
 
         # print "dev_state %s" % self.get_state()
         return self.get_state()
+
+    def dev_status(self):
+        # update current state AND status
+        self.dev_state()
+
+        # get the updated status as a string
+        self._status = self.get_status()
+        return self._status
 
     def read_Steps_per_unit(self, attr):
         self.debug_stream("In read_Steps_per_unit()")
@@ -447,8 +459,15 @@ class BlissAxis(PyTango.Device_4Impl):
         attr.set_value(self.attr_PresetPosition_read)
 
     def write_PresetPosition(self, attr):
-        self.debug_stream("In write_PresetPosition()")
-        # data = attr.get_write_value()
+        data = float(attr.get_write_value())
+        self.debug_stream("In write_PresetPosition(%g)" % data)
+        self.attr_PresetPosition_read = data
+        # NOTE MP: if using TANGO DS let's consider that there is
+        # a smart client out there who is handling the user/offset.
+        # Therefore don't the user position/offset of EMotion.
+        # Which means: always keep dial position == user position
+        self.axis.dial(data)
+        self.axis.position(data)
 
     def read_FirstVelocity(self, attr):
         self.debug_stream("In read_FirstVelocity()")
@@ -475,6 +494,14 @@ class BlissAxis(PyTango.Device_4Impl):
     def read_attr_hardware(self, data):
         pass
         # self.debug_stream("In read_attr_hardware()")
+
+    def read_trajpar(self, attr):
+        self.debug_stream("In read_trajpar()")
+        attr.set_value(self.attr_trajpar_read)
+
+    def write_trajpar(self, attr):
+        self.debug_stream("In write_trajpar()")
+        data = attr.get_write_value()
 
     """
     Motor command methods
@@ -518,7 +545,7 @@ class BlissAxis(PyTango.Device_4Impl):
         :return:
         :rtype: PyTango.DevVoid """
         self.debug_stream("In GoHome(%f)" % self.attr_Home_position_read)
-        self.axis.home(self.attr_Home_position_read, wait=False)
+        self.axis.home(wait=False)
 
     def Abort(self):
         """ Stop immediately the motor
@@ -633,13 +660,17 @@ class BlissAxis(PyTango.Device_4Impl):
         return argout
 
 
-    def read_trajpar(self, attr):
-        self.debug_stream("In read_trajpar()")
-        attr.set_value(self.attr_trajpar_read)
+    def SettingsToConfig(self):
+        """
+        bla..
+        """
+        self.axis.settings_to_config()
 
-    def write_trajpar(self, attr):
-        self.debug_stream("In write_trajpar()")
-        data = attr.get_write_value()
+    def ApplyConfig(self):
+        """
+        bla..
+        """
+        self.axis.apply_config()
 
 
 
@@ -701,7 +732,13 @@ class BlissAxisClass(PyTango.DeviceClass):
          [PyTango.DevVoid, ""]],
         'GetCustomCommandList':
         [[PyTango.DevVoid, ""],
-         [PyTango.DevVarStringArray, "List of axis custom commands"]]
+         [PyTango.DevVarStringArray, "List of axis custom commands"]],
+        'ApplyConfig':
+        [[PyTango.DevVoid, ""],
+         [PyTango.DevVoid, "calls apply_config ???"]],
+        'SettingsToConfig':
+        [[PyTango.DevVoid, ""],
+         [PyTango.DevVoid, "calls settings_to_config ???"]]
     }
 
     #    Attribute definitions

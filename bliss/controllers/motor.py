@@ -70,21 +70,6 @@ class Controller(object):
                 self.axes[axis.name] = referenced_axis
                 axis_list[i] = referenced_axis
                 referenced_axis.controller._tagged.setdefault(tag, []).append(referenced_axis)
-        """
-            referenced_axis = get_axis(axis.name)
-            self.axes[axis.name] = referenced_axis
-            self.__initialized_axis[referenced_axis] = True
-            for tag, axis_list in self._tagged.iteritems():
-                try:
-                    i = axis_list.index(axis)
-                except ValueError:
-                    continue
-                else:
-                    axis_list[i] = referenced_axis
-                    referenced_axis.controller._tagged.setdefault(
-                        tag,
-                        []).append(referenced_axis)
-        """
 
     def initialize(self):
         pass
@@ -180,7 +165,7 @@ class Controller(object):
     def stop(self, axis):
         raise NotImplementedError
 
-    def stop_all(self):
+    def stop_all(self, *motions):
         raise NotImplementedError
 
     def state(self, axis):
@@ -189,16 +174,13 @@ class Controller(object):
     def get_info(self, axis):
         raise NotImplementedError
 
-    def raw_write(self, axis, com):
+    def raw_write(self, com):
         raise NotImplementedError
 
-    def raw_write_read(self, axis, com):
+    def raw_write_read(self, com):
         raise NotImplementedError
 
     def home_search(self, axis):
-        raise NotImplementedError
-
-    def home_set_hardware_position(self, axis, home_pos):
         raise NotImplementedError
 
     def home_state(self, axis):
@@ -244,6 +226,8 @@ class CalcController(Controller):
         Controller.__init__(self, *args, **kwargs)
 
         self._reals_group = None
+        self._write_settings = False
+        self._motion_control = False
 
     def initialize(self):
         for axis in self.pseudos:
@@ -261,13 +245,17 @@ class CalcController(Controller):
             self.reals.append(real_axis)
             event.connect(real_axis, 'position', self._calc_from_real)
             event.connect(real_axis, 'state', self._update_state_from_real)
-            event.connect(real_axis, "move_done", self._real_move_done)
         self._reals_group = Group(*self.reals)
+        event.connect(self._reals_group, 'move_done', self._real_move_done)
         self.pseudos = [
             axis for axis_name,
             axis in self.axes.iteritems() if axis not in self.reals]
 
-    def _calc_from_real(self, *args, **kwargs):
+    def _updated_from_channel(self, setting_name):
+        #print [axis.settings.get_from_channel(setting_name) for axis in self.reals]
+        return any([axis.settings.get_from_channel(setting_name) for axis in self.reals])
+
+    def _do_calc_from_real(self):
         real_positions_by_axis = self._reals_group.position()
         real_positions = dict()
 
@@ -279,13 +267,19 @@ class CalcController(Controller):
             if axis in self.reals:
                 real_positions[tag] = real_positions_by_axis[axis]
 
-        new_positions = self.calc_from_real(real_positions)
+        return self.calc_from_real(real_positions)
+
+    def _calc_from_real(self, *args, **kwargs):
+        new_positions = self._do_calc_from_real()
 
         for tagged_axis_name, position in new_positions.iteritems():
             axis = self._tagged[tagged_axis_name][0]
             if axis in self.pseudos:
-                axis.settings.set("dial_position", position)
-                axis.settings.set("position", axis.dial2user(position))
+                if self._write_settings and not self._motion_control:
+                    axis.settings.set("_set_position", axis.dial2user(position), write=True)
+                #print 'calc from real', axis.name, position, self._write_settings
+                axis.settings.set("dial_position", position, write=self._write_settings)
+                axis.settings.set("position", axis.dial2user(position), write=False)
             else:
                 raise RuntimeError("cannot assign position to real motor")
 
@@ -294,12 +288,17 @@ class CalcController(Controller):
         raise NotImplementedError
 
     def _update_state_from_real(self, *args, **kwargs):
+        self._write_settings = not self._updated_from_channel('state')
         state = self._reals_group.state()
         for axis in self.pseudos:
-            axis.settings.set("state", state, write=False)
+            #print '_update_state_from_real', axis.name, str(state)
+            axis.settings.set("state", state, write=self._write_settings)
 
     def _real_move_done(self, done):
         if done:
+            #print 'MOVE DONE'
+            self._motion_control = False
+            self._write_settings = False
             for axis in self.pseudos:
                 if axis.encoder:
                     # check position and raise RuntimeError if encoder
@@ -324,12 +323,14 @@ class CalcController(Controller):
                     axis_tag = tag
                     positions_dict[tag] = motion.target_pos
                 else:
-                    positions_dict[tag] = x.position()
+                    positions_dict[tag] = x._set_position()
 
         move_dict = dict()
         for axis_tag, target_pos in self.calc_to_real(axis_tag, positions_dict).iteritems():
             real_axis = self._tagged[axis_tag][0]
             move_dict[real_axis] = target_pos
+        self._write_settings = True
+        self._motion_control = True
         self._reals_group.move(move_dict, wait=False)
 
     def calc_to_real(self, axis_tag, positions_dict):
@@ -344,17 +345,23 @@ class CalcController(Controller):
     def state(self, axis, new_state=None):
         return self._reals_group.state()
 
-    """
-    def read_velocity(self, axis):
-        # no better idea...
-        return 0
+    def set_position(self, axis, new_pos):
+        if not axis in self.pseudos:
+            raise RuntimeError("Cannot set dial position on motor '%s` from CalcController" % axis.name)
+        
+        dial_pos = new_pos / axis.steps_per_unit
+        positions = self._do_calc_from_real()
+ 
+        for tag, axis_list in self._tagged.iteritems():
+            if len(axis_list) > 1:
+                continue
+            if axis in axis_list:
+                positions[tag]=dial_pos
+                real_positions = self.calc_to_real(tag, positions)
+                for real_axis_tag, user_pos in real_positions.iteritems():
+                    self._tagged[real_axis_tag][0].position(user_pos)
+                break
 
-    def set_velocity(self, axis, new_velocity):
-        return new_velocity
-
-    def read_acceleration(self,axis):
-        return 0
-
-    def set_acceleration(self, axis, new_acc):
-        return 0
-    """
+        self._calc_from_real()
+  
+        return axis.position()

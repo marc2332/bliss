@@ -1,7 +1,7 @@
 import gevent
 import itertools
 from bliss.common.task_utils import *
-from .axis import Axis, AxisRef, AxisState
+from bliss.common.axis import Axis, AxisRef, AxisState, DEFAULT_POLLING_TIME
 from bliss.common import event
 
 
@@ -9,10 +9,6 @@ def grouped(iterable, n):
     """s -> (s0,s1,s2,...sn-1), (sn,sn+1,sn+2,...s2n-1),
             (s2n,s2n+1,s2n+2,...s3n-1), ..."""
     return itertools.izip(*[iter(iterable)] * n)
-
-
-def createGroupFromConfig(name, config, axes):
-    return _Group(name, config, axes)
 
 
 def Group(*axes_list):
@@ -30,8 +26,6 @@ class _Group(object):
 
     def __init__(self, name, config, axes):
         self.__name = name
-        from bliss.config.motors import StaticConfig
-        self.__config = StaticConfig(config)
         self._axes = dict()
         self._motions_dict = dict()
         self.__move_done = gevent.event.Event()
@@ -45,10 +39,6 @@ class _Group(object):
     @property
     def name(self):
         return self.__name
-
-    @property
-    def config(self):
-        return self.__config
 
     @property
     def axes(self):
@@ -68,7 +58,7 @@ class _Group(object):
         if self.is_moving:
             return AxisState("MOVING")
 
-        states = [axis.state() for axis in self._axes.itervalues()]
+        states = [axis.state(read_hw=True) for axis in self._axes.itervalues()]
         if any([state.MOVING for state in states]):
             return AxisState("MOVING")
 
@@ -105,22 +95,20 @@ class _Group(object):
             positions_dict[axis] = axis.dial()
         return positions_dict
 
-    def single_axis_move_task(self, motion):
+    def single_axis_move_task(self, motion, polling_time):
         with error_cleanup(motion.axis._do_stop):
-            motion.axis._handle_move(motion)
+            motion.axis._handle_move(motion, polling_time)
         if motion.axis.encoder is not None:
             motion.axis._do_encoder_reading()
 
-    def _handle_move(self, motions):
-        move_tasks = []
+    def _handle_move(self, motions, polling_time):
         for motion in motions:
-            move_task = gevent.spawn(self.single_axis_move_task, motion)
+            move_task = gevent.spawn(self.single_axis_move_task, motion, polling_time)
             motion.axis._Axis__move_task = move_task
             move_task._being_waited = True
             move_task.link(motion.axis._set_move_done)
-            move_tasks.append(move_task)
-        for move_task in gevent.iwait(move_tasks):
-            move_task.get()
+        for motion in motions:
+            motion.axis.wait_move()
 
     def rmove(self, *args, **kwargs):
         kwargs["relative"] = True
@@ -130,7 +118,7 @@ class _Group(object):
         self._motions_dict = dict()
 
     @task
-    def _do_move(self, motions_dict):
+    def _do_move(self, motions_dict, polling_time):
         all_motions = []
         event.send(self, "move_done", False)
 
@@ -144,19 +132,22 @@ class _Group(object):
                         controller.start_one(motion)
                 for motion in motions:
                     motion.axis._set_moving_state()
-            self._handle_move(all_motions)
+            self._handle_move(all_motions, polling_time)
 
     def _set_move_done(self, move_task):
         self._reset_motions_dict()
-        event.send(self, "move_done", True)
+
+        if move_task is not None:
+            if not move_task._being_waited:
+                try:
+                    move_task.get()
+                except gevent.GreenletExit:
+                    pass
+                except:
+                    sys.excepthook(*sys.exc_info())
+
         self.__move_done.set()
-        if move_task is not None and not move_task._being_waited:
-            try:
-                move_task.get()
-            except gevent.GreenletExit:
-                pass
-            except:
-                sys.excepthook(*sys.exc_info())
+        event.send(self, "move_done", True)
 
     def move(self, *args, **kwargs):
         initial_state = self.state()
@@ -165,18 +156,9 @@ class _Group(object):
 
         self._reset_motions_dict()
 
-        try:
-            wait = kwargs['wait']
-        except KeyError:
-            wait = True
-        else:
-            del kwargs['wait']
-        try:
-            relative = kwargs['relative']
-        except KeyError:
-            relative = False
-        else:
-            del kwargs['relative']
+        wait = kwargs.pop("wait", True)
+        relative = kwargs.pop("relative", False)
+        polling_time = kwargs.pop("polling_time", DEFAULT_POLLING_TIME)
 
         axis_pos_dict = dict()
 
@@ -196,7 +178,7 @@ class _Group(object):
                     motion)
 
         self.__move_done.clear() 
-        self.__move_task = self._do_move(self._motions_dict, wait=False)
+        self.__move_task = self._do_move(self._motions_dict, polling_time, wait=False)
         self.__move_task._being_waited = wait
         self.__move_task.link(self._set_move_done)
         gevent.sleep(0)
@@ -205,15 +187,12 @@ class _Group(object):
             self.wait_move()
 
     def wait_move(self):
-        try:
+        if not self.is_moving:
+            return
+        self.__move_task._being_waited = True
+        with error_cleanup(self.stop):
             self.__move_done.wait()
-        except KeyboardInterrupt:
-            self.stop()
-            raise
-        else:
-            try:
-                if self.__move_task is not None:
-                    return self.__move_task.get()
-            except (KeyboardInterrupt, gevent.GreenletExit):
-                pass
-
+        try:
+            self.__move_task.get()
+        except gevent.GreenletExit:
+            pass

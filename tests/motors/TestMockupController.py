@@ -5,6 +5,7 @@ import time
 import sys
 import os
 import math
+import tempfile
 
 sys.path.insert(
     0,
@@ -70,11 +71,11 @@ class MockupAxis(Axis):
         self.backlash_move = 0
         return Axis.prepare_move(self, *args, **kwargs)
 
-    def _handle_move(self, motion):
+    def _handle_move(self, motion, polling_time):
         self.target_pos = motion.target_pos
         self.backlash_move = motion.target_pos / \
             self.steps_per_unit if motion.backlash else 0
-        return Axis._handle_move(self, motion)
+        return Axis._handle_move(self, motion, polling_time)
 
 
 class mockup_axis_module:
@@ -90,7 +91,7 @@ class TestMockupController(unittest.TestCase):
 
     def setUp(self):
         bliss.load_cfg_fromstring(config_xml)
-
+    
     def test_get_axis(self):
         robz = bliss.get_axis("robz")
         self.assertTrue(robz)
@@ -104,20 +105,15 @@ class TestMockupController(unittest.TestCase):
         self.assertEqual(robz.controller.name, "test")
 
     def test_state_callback(self):
-        e = gevent.event.AsyncResult()
         old={"state":None}
         def callback(state, old=old): #{}):
-            #if old.get("state") == state:
-            #    return
             old["state"] = state
-            #e.set(state)
         robz = bliss.get_axis("robz")
         event.connect(robz, "state", callback)
         robz.rmove(10, wait=False)
         while old["state"]=="MOVING":
             time.sleep(0)
-        robz.state()
-        self.assertEqual(robz.state(), "READY")
+        self.assertEquals(robz.state(), "READY")
 
     def test_position_callback(self):
         storage={"last_pos":None, "last_dial_pos":None}
@@ -323,9 +319,11 @@ class TestMockupController(unittest.TestCase):
     def test_home_search(self):
         roby = bliss.get_axis("roby")
         self.assertEqual(roby.state(), 'READY')
-        roby.home(38930, wait=False)
+        roby.home(wait=False)
         self.assertEqual(roby.state(), 'MOVING')
         roby.wait_move()
+        roby.dial(38930)
+        roby.position(38930)
         self.assertEqual(roby.state(), 'READY')
         self.assertEqual(roby.position(), 38930)
         self.assertEqual(roby.offset, 0)
@@ -336,8 +334,8 @@ class TestMockupController(unittest.TestCase):
         robz.move(final_pos, wait=False)
         self.assertEqual(robz.state(), "MOVING")
         gevent.sleep(0.5)
-        robz._Axis__move_task.kill(KeyboardInterrupt)
-        robz.wait_move()
+        robz._Axis__move_task.kill(KeyboardInterrupt, block=False)
+        self.assertRaises(KeyboardInterrupt, robz.wait_move)
         self.assertEqual(robz.state(), "READY")
         self.assertTrue(robz.position() < final_pos)
 
@@ -391,7 +389,9 @@ class TestMockupController(unittest.TestCase):
         self.assertEquals(robz.dial(), 1E6)
         robz.hw_limit(-1)
         self.assertEquals(robz.dial(), -1E6)
-        robz.hw_limit(1, 10)
+        robz.hw_limit(1)
+        robz.dial(10)
+        robz.position(10)
         self.assertEquals(robz.dial(), 10)
         self.assertEquals(robz.position(), 10)
 
@@ -415,7 +415,10 @@ class TestMockupController(unittest.TestCase):
         m0.move(2, wait=False)
         time.sleep(0.01)
         m0._Axis__move_task.kill(KeyboardInterrupt)
-        m0.wait_move()
+        try:
+            m0.wait_move()
+        except KeyboardInterrupt:
+            pass
         m0.move(1)
         self.assertEquals(m0._set_position(), 1)
     
@@ -453,6 +456,16 @@ class TestMockupController(unittest.TestCase):
             self.assertEquals(m.position(), 0)
         finally:
             m.controller.set_error(False)     
+
+    def test_no_offset(self):
+        m = bliss.get_axis("roby")
+        m.no_offset = True
+        m.move(0)
+        m.position(1)
+        self.assertEquals(m.dial(), 1)
+        m.dial(0)
+        self.assertEquals(m.position(), 0)
+
     def test_settings_to_config(self):
         m = bliss.get_axis("roby")
         m.velocity(3)
@@ -472,6 +485,61 @@ class TestMockupController(unittest.TestCase):
         self.assertEquals(m.velocity(), 2500)        
         self.assertEquals(m.acceleration(), 4)        
         self.assertEquals(m.limits(), (None,None))
+    
+    def test_reload_config(self):
+        cfg="""
+            <config>
+              <controller class='mockup'>
+                <axis name="m0">
+                  <velocity value="1000"/>
+                  <acceleration value="100"/>
+                  <low_limit value="-5"/>
+                  <high_limit value="5"/>
+                </axis>
+              </controller>
+            </config>
+        """
+        f = tempfile.NamedTemporaryFile()
+        filename = f.name
+        try:
+            f.write(cfg) 
+            f.flush()
+            bliss.load_cfg(f.name)
+            m = bliss.get_axis("m0")
+            self.assertEquals(m.config.config_dict.config_file, f.name)
+        finally:
+            f.close()
+        self.assertEquals(m.limits(), (-5,5))
+        self.assertEquals(m.backlash, 0)
+        self.assertEquals(m.steps_per_unit, 1)
+        cfg2 = """
+            <config>
+              <controller class='mockup'>
+                <axis name="m0">
+                  <steps_per_unit value="5"/>
+                  <velocity value="1000"/>
+                  <acceleration value="100"/>
+                  <low_limit value="-5"/>
+                  <high_limit value="10"/>
+                  <backlash value="4"/>
+                </axis>
+              </controller>
+            </config>
+        """
+        with open(filename, "w") as f:
+            f.write(cfg2)
+        try:
+            m.config.reload()
+        
+            self.assertEquals(m.config.config_dict['high_limit']['value'], '10')
+            self.assertEquals(m.backlash, 4)
+            self.assertEquals(m.steps_per_unit, 5)
+            m.apply_config()
+            self.assertEquals(m.limits(), (-5,10))
+        finally:
+            os.unlink(filename)
+
+       
 
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(TestMockupController)

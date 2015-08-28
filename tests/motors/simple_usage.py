@@ -11,6 +11,7 @@ xml_config = """
   <controller class="mockup">
     <axis name="axis0">
     <velocity value="100"/>
+    <acceleration value="1"/>
     </axis>
   </controller>
 </config>

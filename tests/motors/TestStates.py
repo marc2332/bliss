@@ -43,7 +43,7 @@ class TestStates(unittest.TestCase):
         self.assertEquals(s, "PARKED")
 
         # Prints string of states.
-        print s.current_states()
+        self.assertTrue(isinstance(s.current_states(), str))
 
         # bad name for a state
         self.assertRaises(ValueError, s.create_state, "A bad state")
@@ -74,6 +74,13 @@ class TestStates(unittest.TestCase):
         t = AxisState(s)
         self.assertEquals(s.current_states(), t.current_states())
        
+    def test_clear_state(self):
+        s = AxisState("READY")
+        s.clear()
+        self.assertEquals(s, "UNKNOWN")
+
+        s.set("MOVING")
+        self.assertEquals(s, "MOVING")
 
 if __name__ == '__main__':
     unittest.main()

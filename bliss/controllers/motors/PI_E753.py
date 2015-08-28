@@ -18,6 +18,7 @@ Cyril Guilloud ESRF BLISS  2014-2015
     <host value="192.168.2.10" />
     <axis name="mirror_piezo">
        <steps_per_unit value="1" />
+       <encoder_steps_per_unit value="1" />
        <velocity value="1" />
     </axis>
   </controller>
@@ -60,6 +61,18 @@ class PI_E753(Controller):
 
         # Enables the closed-loop.
         self.sock.write("SVO 1 1\n")
+
+    def initialize_encoder(self, encoder):
+        pass
+
+    """
+    ON / OFF
+    """
+    def set_on(self, axis):
+        pass
+
+    def set_off(self, axis):
+        pass
 
     def read_position(self, axis):
         _ans = self._get_target_pos()

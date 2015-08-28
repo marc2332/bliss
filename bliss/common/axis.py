@@ -8,6 +8,7 @@ import gevent
 import re
 import types
 
+DEFAULT_POLLING_TIME = 0.02
 
 class Null(object):
     __slots__ = []
@@ -38,6 +39,7 @@ class Axis(object):
         self.__move_done.set()
         self.__custom_methods_list = list()
         self.__move_task = None
+        self.no_offset = False
 
     @property
     def name(self):
@@ -163,8 +165,8 @@ class Axis(object):
         """
         if self.is_moving:
             if new_dial is not None:
-                raise RuntimeError("Can't set axis position \
-                                    while it is moving")
+                raise RuntimeError("%s: can't set axis position \
+                                    while moving" % self.name)
 
         if new_dial is not None:
             user_pos = self.position()
@@ -177,8 +179,12 @@ class Axis(object):
             except NotImplementedError:
                 curr_pos = self._hw_position()
 
-            # do not change user pos (update offset)
-            self._position(user_pos)
+            if self.no_offset: 
+                # change user pos (keep offset = 0)
+                self._position(new_dial)
+            else:
+                # do not change user pos (update offset)
+                self._position(user_pos)
 
             return curr_pos
         else:
@@ -194,6 +200,8 @@ class Axis(object):
             if self.is_moving:
                 raise RuntimeError("Can't set axis position \
                                     while it is moving")
+            if self.no_offset:
+                return self.dial(new_pos)
             pos = self._position(new_pos)
         else:
             pos = self.settings.get("position")
@@ -228,10 +236,14 @@ class Axis(object):
 
         return self.position()
 
-    def state(self):
-        if self.is_moving:
-            return AxisState("MOVING")
-        state = self.settings.get_from_channel('state')
+    def state(self, read_hw=False):
+        if read_hw:
+            state = None
+        else:
+            if self.is_moving:
+                return AxisState("MOVING")
+            state = self.settings.get_from_channel('state')
+       
         if state is None:
             # really read from hw
             state = self.__controller.state(self)
@@ -324,10 +336,10 @@ class Axis(object):
         return self.settings.get('low_limit'), self.settings.get('high_limit')
 
     def _update_settings(self, state=None):
-        self.settings.set("state", state if state is not None else self.state(), write=False)
+        self.settings.set("state", state if state is not None else self.state(), write=True) #False)
         self._position()
 
-    def _handle_move(self, motion):
+    def _handle_move(self, motion, polling_time):
         while True:
             state = self.__controller.state(self)
             if state != "MOVING":
@@ -336,7 +348,7 @@ class Axis(object):
                   raise RuntimeError(str(state))
                 break
             self._update_settings(state)
-            time.sleep(0.02)
+            time.sleep(polling_time)
 
         if motion.backlash:
             # axis has moved to target pos - backlash;
@@ -346,7 +358,7 @@ class Axis(object):
             backlash_motion = Motion(self, final_pos, motion.backlash)
             self.__controller.prepare_move(backlash_motion)
             self.__controller.start_one(backlash_motion)
-            self._handle_move(backlash_motion)
+            self._handle_move(backlash_motion, polling_time)
 
     def _handle_sigint(self):
         self.stop(KeyboardInterrupt)
@@ -414,13 +426,13 @@ class Axis(object):
         if user_low_limit is not None:
             if target_pos < low_limit:
                 raise ValueError(
-                    "Move to `%f'%s would go below low limit (%f)" %
-                    (user_target_pos, backlash_str, user_low_limit))
+                    "%s: move to `%f'%s would go below low limit (%f)" %
+                    (self.name, user_target_pos, backlash_str, user_low_limit))
         if user_high_limit is not None:
             if target_pos > high_limit:
                 raise ValueError(
-                    "Move to `%f' %s would go beyond high limit (%f)" %
-                    (user_target_pos, backlash_str, user_high_limit))
+                    "%s: move to `%f' %s would go beyond high limit (%f)" %
+                    (self.name, user_target_pos, backlash_str, user_high_limit))
 
         motion = Motion(self, target_pos, delta)
         motion.backlash = backlash
@@ -431,12 +443,10 @@ class Axis(object):
 
     def _set_moving_state(self):
         self.__move_done.clear()
-        self.settings.set("state", AxisState("MOVING"), write=False)
+        self.settings.set("state", AxisState("MOVING"), write=True) #False)
         event.send(self, "move_done", False)
 
     def _set_move_done(self, move_task):
-        self.__move_done.set()
-
         if move_task is not None:
             if not move_task._being_waited:
                 try:
@@ -445,23 +455,30 @@ class Axis(object):
                     pass
                 except:
                     sys.excepthook(*sys.exc_info())
-            self._update_settings()
+            # update settings;
+            # as update is done before move done is set,
+            # we need to read state from hardware to get it right
+            # (it would return 'MOVING' otherwise)
+            # this update is very important for position, to have
+            # final position ok for waiters on move done event
+            self._update_settings(state=self.state(read_hw=True))
+        self.__move_done.set()
         event.send(self, "move_done", True)
 
     def _check_ready(self):
-        initial_state = self.state()
+        initial_state = self.state(read_hw=True)
         if initial_state != "READY":
             raise RuntimeError("axis %s state is \
                                 %r" % (self.name, str(initial_state)))
 
-    def move(self, user_target_pos, wait=True, relative=False):
+    def move(self, user_target_pos, wait=True, relative=False, polling_time=DEFAULT_POLLING_TIME):
         if self.__controller.is_busy():
             raise RuntimeError("axis %s: controller is busy" % self.name)
         self._check_ready()
 
         motion = self.prepare_move(user_target_pos, relative)
 
-        self.__move_task = self._do_move(motion, wait=False)
+        self.__move_task = self._do_move(motion, polling_time, wait=False)
         self._set_moving_state()
         self.__move_task._being_waited = wait
         self.__move_task.link(self._set_move_done)
@@ -477,55 +494,42 @@ class Axis(object):
             raise RuntimeError("'%s` didn't reach final position." % self.name)
 
     @task
-    def _do_move(self, motion, wait=True):
+    def _do_move(self, motion, polling_time):
         if motion is None:
             return
 
         with error_cleanup(self._do_stop):
             self.__controller.start_one(motion)
 
-            self._handle_move(motion)
+            self._handle_move(motion, polling_time)
 
         if self.encoder is not None:
             self._do_encoder_reading()
 
-    def rmove(self, user_delta_pos, wait=True):
-        return self.move(user_delta_pos, wait, relative=True)
+    def rmove(self, user_delta_pos, wait=True, polling_time=DEFAULT_POLLING_TIME):
+        return self.move(user_delta_pos, wait, relative=True, polling_time=polling_time)
 
     def wait_move(self):
         if not self.is_moving:
             return
-        try:
+        self.__move_task._being_waited = True
+        with error_cleanup(self.stop):
             self.__move_done.wait()
-        except KeyboardInterrupt:
-            self.stop()
-            raise
-        else:
-            try:
-                if self.__move_task is not None:
-                    return self.__move_task.get()
-            except (KeyboardInterrupt, gevent.GreenletExit):
-                pass
-
+        try:
+            self.__move_task.get()
+        except gevent.GreenletExit:
+            pass
+        
     def _do_stop(self):
         self.__controller.stop(self)
 
-        # for some reason, _handle_move cannot be called !
-        # Python bug? Weird...
-        while True:
-            state = self.__controller.state(self)
-            if state != "MOVING":
-                if state == 'LIMPOS' or state == 'LIMNEG':
-                  self._update_settings(state)
-                  raise RuntimeError(str(state))
-                break
-            self._update_settings(state)
-            time.sleep(0.02)
+        try:
+            self._handle_move(Motion(self, None, None), DEFAULT_POLLING_TIME)
+        finally:
+            self.settings.set("_set_position", self.position())
 
-        self.settings.set("_set_position", self.position())
-
-        if self.encoder is not None:
-            self._do_encoder_reading()
+            if self.encoder is not None:
+                self._do_encoder_reading()
 
     def stop(self, exception=gevent.GreenletExit, wait=True):
         if self.is_moving:
@@ -533,33 +537,14 @@ class Axis(object):
             if wait:
                 self.wait_move()
 
-    def home(self, home_pos=None, wait=True):
+    def home(self, wait=True):
         self._check_ready()
-
-        # flag "must the position to be set ?"
-        _set_pos = False
-
-        if home_pos is not None:
-            try:
-                self.__controller.home_set_hardware_position(
-                    self, home_pos)
-            except NotImplementedError:
-                _set_pos = True
 
         self.__move_task = self._do_home(wait=False)
         self._set_moving_state()
         self.__move_task._being_waited = wait
         self.__move_task.link(self._set_move_done)
-        if _set_pos:
-            # it is not possible to change position
-            # while axis has a moving state,
-            # so we register a callback to be executed
-            # *after* _set_move_done.
-            def set_pos(g, home_pos=home_pos):
-                self.dial(home_pos)
-                self.position(home_pos)
-            self.__move_task.link(set_pos)
-        gevent.sleep(0)
+        #gevent.sleep(0)
 
         if wait:
             self.wait_move()
@@ -574,32 +559,21 @@ class Axis(object):
                     break
                 time.sleep(0.02)
 
-    def hw_limit(self, limit, lim_pos=None, wait=True):
+    def hw_limit(self, limit, wait=True):
         """Go to a hardware limit
 
         Parameters:
             limit   - integer, positive means "positive limit"
-            lim_pos - if not None, set position to lim_pos once limit is reached
             wait    - boolean, wait for completion (default is to wait)
         """
         limit = int(limit)
         self._check_ready()
-        _set_pos = False
-        if lim_pos is not None:
-            lim_pos = float(lim_pos)
-            _set_pos = True
-
 
         self.__move_task = self._do_limit_search(limit, wait=False)
         self._set_moving_state()
         self.__move_task._being_waited = wait
         self.__move_task.link(self._set_move_done)
-        if _set_pos:
-            def set_pos(g, lim_pos=lim_pos):
-                self.dial(lim_pos)
-                self.position(lim_pos)
-            self.__move_task.link(set_pos)
-        gevent.sleep(0)
+        #gevent.sleep(0)
 
         if wait:
             self.wait_move()
@@ -626,13 +600,12 @@ class Axis(object):
         if any((velocity, acceleration, limits)):
             self.__config.save()
 
-    def apply_config(self, velocity=True, acceleration=True, limits=True):
-        if velocity:
-            self.velocity(self.velocity(from_config=True))
-        if acceleration:
-            self.acceleration(self.acceleration(from_config=True))
-        if limits:
-            self.limits(*self.limits(from_config=True))
+    def apply_config(self):
+        self.config.reload()
+
+        self.velocity(self.velocity(from_config=True))
+        self.acceleration(self.acceleration(from_config=True))
+        self.limits(*self.limits(from_config=True))
 
 
 class AxisRef(object):
@@ -669,7 +642,7 @@ def add_property(inst, name, method):
 
 class AxisState(object):
 
-    STATE_VALIDATOR = re.compile("^[A-Z]+$")
+    STATE_VALIDATOR = re.compile("^[A-Z0-9]+$")
 
     """
     Standard states:
@@ -790,7 +763,7 @@ class AxisState(object):
 
     def clear(self):
         # Flags all states off.
-        self._current_states = set()
+        self._current_states = list()
 
     def current_states(self):
         """

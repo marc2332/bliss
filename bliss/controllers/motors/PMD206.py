@@ -111,16 +111,18 @@ class PMD206(Controller):
             print "AX CH =", axis.channel
             self.ctrl_axis = axis
 
+        # Adds new axis oject methods.
+        add_axis_method(axis, self.park_motor, types_info=("None", "None"))
+        add_axis_method(axis, self.unpark_motor, types_info=("None", "None"))
+
     def initialize_encoder(self, encoder):
         encoder.channel = encoder.config.get("channel", int)
 
     def set_on(self, axis):
-        print "dozijng ON : unpark axis %s." % axis.name
-        self.unpark_motor(axis)
+        pass
 
     def set_off(self, axis):
-        print "dzoing OFF : park axis %s." % axis.name
-        self.park_motor(axis)
+        pass
 
     def read_position(self, axis):
         """
@@ -322,7 +324,7 @@ class PMD206(Controller):
             - None
         """
 
-# unpark only on demand ?
+# unpark only on demand !
 
 #        # unpark the axis motor if needed
 #        # status bit 0x20 : "Motor is parked"

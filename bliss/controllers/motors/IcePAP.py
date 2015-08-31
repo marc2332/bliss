@@ -291,10 +291,9 @@ class IcePAP(Controller):
             axis_list.append(motion.axis.libaxis)
         self.libgroup.stop(axis_list)
 
-    def home_search(self, axis):
+    def home_search(self, axis, switch):
         """Launch a homing sequence"""
-        # TODO: MP17Nov14: missing argin on which home+/home- to look for
-        cmd = "HOME +1"
+        cmd = "HOME " + ("+1" if switch > 0 else "-1")
         # TODO: MP17Nov14: missing argin on position to set at home
         # TODO: MP17Nov14: missing home search in IcePAP library
         self.libgroup.ackcommand(cmd, axis.libaxis)

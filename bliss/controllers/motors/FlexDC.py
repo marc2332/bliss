@@ -151,7 +151,7 @@ class FlexDC(Controller):
         elog.debug("FLEXDC stop")
         self._flexdc_query("%sST" % axis.channel)
 
-    def home_search(self, axis):
+    def home_search(self, axis, switch):
         """
         start home search.
         """

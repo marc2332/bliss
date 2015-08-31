@@ -97,7 +97,7 @@ class TangoEMot(Controller):
     def stop(self, axis):
         self.axis_proxy.Abort()
 
-    def home_search(self, axis):
+    def home_search(self, axis, switch):
         self.axis_proxy.GoHome()
 
     def home_state(self, axis):

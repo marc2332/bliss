@@ -537,22 +537,21 @@ class Axis(object):
             if wait:
                 self.wait_move()
 
-    def home(self, wait=True):
+    def home(self, switch=1, wait=True):
         self._check_ready()
 
-        self.__move_task = self._do_home(wait=False)
+        self.__move_task = self._do_home(switch, wait=False)
         self._set_moving_state()
         self.__move_task._being_waited = wait
         self.__move_task.link(self._set_move_done)
-        #gevent.sleep(0)
 
         if wait:
             self.wait_move()
 
     @task
-    def _do_home(self):
+    def _do_home(self, switch):
         with error_cleanup(self._do_stop):
-            self.__controller.home_search(self)
+            self.__controller.home_search(self, switch)
             while True:
                 state = self.__controller.home_state(self)
                 if state != "MOVING":

@@ -207,7 +207,7 @@ class setpoint(Controller):
             self._axis_moves[axis]["end_pos"] = self.read_position(axis)
             self._axis_moves[axis]["end_t"] = 0
 
-    def home_search(self, axis):
+    def home_search(self, axis, switch):
         self._axis_moves[axis]["end_pos"] = 0
         self._axis_moves[axis]["end_t"] = 0
         self._axis_moves[axis]["home_search_start_time"] = time.time()

@@ -166,7 +166,7 @@ class GalilDMC213(Controller):
     def stop(self, axis):
         self._galil_query("ST %s" % axis.channel)
 
-    def home_search(self, axis):
+    def home_search(self, axis, switch):
         """
         start home search.
         """

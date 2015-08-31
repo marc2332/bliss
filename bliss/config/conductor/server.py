@@ -471,6 +471,8 @@ def main():
     # Binds system signals.
     signal.signal(signal.SIGTERM, sigterm_handler)
     signal.signal(signal.SIGINT, sigterm_handler)
+    signal.signal(signal.SIGHUP, sigterm_handler)
+    signal.signal(signal.SIGQUIT, sigterm_handler)
 
     # pimp my path
     _options.db_path = os.path.abspath(os.path.expanduser(_options.db_path))

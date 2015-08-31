@@ -348,7 +348,7 @@ class Axis(object):
                   raise RuntimeError(str(state))
                 break
             self._update_settings(state)
-            time.sleep(polling_time)
+            gevent.sleep(polling_time)
 
         if motion.backlash:
             # axis has moved to target pos - backlash;

@@ -180,7 +180,7 @@ class Controller(object):
     def raw_write_read(self, com):
         raise NotImplementedError
 
-    def home_search(self, axis):
+    def home_search(self, axis, switch):
         raise NotImplementedError
 
     def home_state(self, axis):

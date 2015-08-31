@@ -491,8 +491,8 @@ def main():
     tcp = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
     tcp.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
     tcp.bind(("",_options.port))
-    port = tcp.getsockname()[1]
-    print "[beacon] server sitting on port:", port
+    beacon_port = tcp.getsockname()[1]
+    print "[beacon] server sitting on port:", beacon_port
     print "[beacon] configuration path:", _options.db_path
     tcp.listen(512)        # limit to 512 clients
 
@@ -500,7 +500,7 @@ def main():
     if flask and _options.webapp_port > 0:
         print "[WEB] Web application sitting on port:", _options.webapp_port
         web_app.debug = True
-        web_app.beacon_port = _options.port
+        web_app.beacon_port = beacon_port
         http_server = WSGIServer(('', _options.webapp_port), DebuggedApplication(web_app, evalex=True))
         gevent.spawn(http_server.serve_forever)
 
@@ -546,7 +546,7 @@ def main():
             if s == udp:
                 buff,address = udp.recvfrom(8192)
                 if buff.find('Hello') > -1:
-                    udp.sendto('%s|%d' % (socket.gethostname(),port),address)
+                    udp.sendto('%s|%d' % (socket.gethostname(),beacon_port),address)
 
             elif s == tcp:
                 newSocket, addr = tcp.accept()

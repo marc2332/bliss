@@ -204,3 +204,26 @@ class GalilDMC213(Controller):
           elog.debug("RECEIVED: %r" % ans)
 
         return ans.strip()
+    
+    def raw_write_read(self, cmd):
+        if not cmd.endswith(";"):
+          cmd += ";"
+
+        with self.socket_lock:
+          elog.debug("SENDING: %r" % cmd)
+
+          ans = self.sock.write_read(cmd,size=1)
+          while ans[-1].isspace():
+            ans += self.sock.read(size=1)
+          print 'RECV',repr(ans),'!'
+          if ans == '?':
+            raise RuntimeError("Invalid command") 
+          elif ':' in ans:
+            # command without return
+            return
+          else:
+            ans += self.sock.readline(eol="\r\n:")
+
+          elog.debug("RECEIVED: %r" % ans)
+
+        return ans.strip()

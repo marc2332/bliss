@@ -297,6 +297,8 @@ class IcePAP(Controller):
         # TODO: MP17Nov14: missing argin on position to set at home
         # TODO: MP17Nov14: missing home search in IcePAP library
         self.libgroup.ackcommand(cmd, axis.libaxis)
+        # IcePAP status is not immediately MOVING after home search command is sent
+        time.sleep(0.2)
 
     def home_state(self, axis):
         """Returns the current axis state while homing"""

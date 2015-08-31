@@ -624,22 +624,6 @@ class AxisRef(object):
         return self.__config
 
 
-def add_property(inst, name, method):
-    '''
-    Adds a property to a class instance.
-    Property must be added to the CLASS.
-    Used by AxisState to create states.
-    '''
-    cls = type(inst)
-
-    if not hasattr(cls, '__perinstance'):
-        cls = type(cls.__name__, (cls,), {})
-        cls.__perinstance = True
-        inst.__class__ = cls
-
-    setattr(cls, name, property(method))
-
-
 class AxisState(object):
 
     STATE_VALIDATOR = re.compile("^[A-Z0-9]+$")
@@ -739,7 +723,10 @@ class AxisState(object):
                 self._state_desc[state_name] = state_desc
 
             # Makes state accessible via a class property.
-            add_property(self, state_name, lambda _: state_name in self._current_states)
+            # NO: we can't, because the objects of this class will become unpickable,
+            # as the class changes... 
+            # Error message is: "Can't pickle class XXX: it's not the same object as XXX"
+            #add_property(self, state_name, lambda _: state_name in self._current_states)
 
     """
     Flags ON a given state.

@@ -7,6 +7,7 @@ import os
 import Queue
 import pdb
 import numpy
+import itertools
 
 # DEEP modules
 from . import log
@@ -33,6 +34,22 @@ DEF_VERBOSE = log.DBG_NONE
 exitFlag    = False
 
 
+class Reply:
+  def __init__(self):
+    self.queue = Queue.Queue()
+
+  def put(self, *args, **kwargs):
+    return self.queue.put(*args, **kwargs)
+
+  def get(self, *args, **kwargs):
+    try:
+        ret, msg = self.queue.get(*args, **kwargs)
+    except Queue.Empty:
+          return None, None
+    if ret == 'ERROR':
+        raise RuntimeError(msg)
+    return ret
+
 
 # --------------------------------------------------------------------------
 #
@@ -40,13 +57,14 @@ class listenerThread(threading.Thread):
 
   # ------------------------------------------------------------------------
   #
-  def __init__(self, host_socket, fifoin, piper):
+  def __init__(self, host_socket, replies_list, piper):
     threading.Thread.__init__(self)
     self.host_socket = host_socket
     self.ready_event = threading.Event()
     self.inputs      = [host_socket, piper]
     self.outputs     = []
-    self.fifoin      = fifoin
+    self.__replies   = replies_list
+    self.incoming_data = ""
     self.piper       = piper
     self.daemon      = True
 
@@ -58,8 +76,6 @@ class listenerThread(threading.Thread):
     c_cache         = []
     ASYNC_WLEN_MASK         = ((1<<ASYNC_FRM_SHIFT)-1)
 
-
-
     log.async("starting thread")  
     
     # return from time to time from the select to check exitFlag
@@ -70,6 +86,9 @@ class listenerThread(threading.Thread):
       async_head_mark.append(chr((ASYNC_HEAD_ICESIGNATURE>>(8*idx)) & 0xff))
     idx = 0
     async_state = 0
+
+    multiline = False
+    msg = ""
 
     # inform main thread that we are about to start listening
     self.ready_event.set()
@@ -96,7 +115,7 @@ class listenerThread(threading.Thread):
       # empty the socket receiving buffer
       log.async("something arrived...")
       try:
-        ans = self.host_socket.recv(4096)
+        ans = self.host_socket.recv(4096*4)
 
 	# analyze each received byte looking for asynchronous transmition
         #
@@ -107,7 +126,6 @@ class listenerThread(threading.Thread):
         # n words of data
         #
 	for c in ans:
-
           # look for async binary mark
           if async_state == 0:
 	    if c == async_head_mark[idx]:
@@ -169,16 +187,42 @@ class listenerThread(threading.Thread):
           # do not loose bytes that looked like async binary header
 	  if(len(c_cache)):
 	    for cc in c_cache:
-              self.fifoin.put(cc)
+              self.incoming_data += cc
             del c_cache[:] 
 
           # sync byte received to be delivered to main thread
-          self.fifoin.put(c)
-      
+          self.incoming_data += c
+
+          if self.incoming_data.endswith('\n'):
+              raw_replies = self.incoming_data.split('\n')
+              self.incoming_data = ""
+              for raw_reply in raw_replies:
+                  if raw_reply:
+                      if raw_reply == '$':
+                          multiline = False
+                          ret = msg
+                          msg = ""
+                      else:
+                          if multiline:
+                              msg += raw_reply
+                              continue
+                          else:
+                              reply_iterator = itertools.chain(raw_reply.split(" "))
+                              read_cmd_str = reply_iterator.next()
+                              if read_cmd_str.endswith('\n'):
+                                  read_cmd_str = read_cmd_str[:-1]
+                              ret = reply_iterator.next().strip('\r\n')
+                              msg = " ".join(reply_iterator).strip('\n')
+                               
+                              if ret.endswith('$'):
+                                  multiline = True
+                                  continue
+                    
+                      reply = self.__replies.pop(0)
+                      reply.put((ret, msg)) 
+                      msg = ""
       except socket.timeout:
         continue
-      except KeyboardInterrupt:
-        raise
 
     # abnormal end of the thread
     log.async("finishing thread")
@@ -232,12 +276,12 @@ class SockDeep:
       log.error(msg, exception=NetworkError)
 
     # prepare a FIFO to communicate with the listening thread
-    self.fifoin = Queue.Queue()
+    self.__replies = list()
     self.piper, self.pipew = os.pipe()
  
     # launch the listening thread
     exitFlag      = False
-    self.listener = listenerThread(self.host_socket, self.fifoin, self.piper)
+    self.listener = listenerThread(self.host_socket, self.__replies, self.piper)
     self.listener.start()
     self.listener.ready_event.wait()
     log.trace("Thread running")  
@@ -288,6 +332,14 @@ class SockDeep:
       log.error(msg, exception=NetworkError)
 
 
+  # ------------------------------------------------------------------------
+  #
+  def request(self, cmd):
+      self.puts(cmd)
+      reply = Reply()
+      self.__replies.append(reply)
+      return reply
+      
 
   # ------------------------------------------------------------------------
   #
@@ -300,48 +352,14 @@ class SockDeep:
 
 
 
-  # ------------------------------------------------------------------------
-  #
-  def getchar(self, size = 1, ignoretimeout = False):
-    try:
-      # read 'size' characters from the socket
-      ans = ""
-      while len(ans) < size:
-          ans += self.fifoin.get(block=True) #, timeout=1)
-    except Queue.Empty:
-      if ignoretimeout:
-         return ""
-      else:
-         msg = "timeout reading char from host: \"%s\""% (self.host_name)
-         log.error(msg, exception=NetworkError)
-    except Exception as e:
-      print e
-      msg = "error reading char from host: \"%s\""% (self.host_name)
-      log.error(msg, exception=NetworkError)
-
-    # normal end
-    if size == 1:
-        log.data("rd: %s"%self.chardump(ans))
-    return ans
-
-
 
   # ------------------------------------------------------------------------
   # A very dirty way of flushing the socket connection
   #
   def flush(self):
     #print "flushing..."
-    self.host_socket.sendall("#\n")
-    # the socket timeout is handled by the listening thread
-    #self.host_socket.settimeout(0.2)
-    try:
-      while True:
-        if self.getchar() == "":
-          break
-    except:
-      pass
-    # the socket timeout is handled by the listening thread
-    #self.host_socket.settimeout(self.host_timeout)
+    r = self.request("#\n") #self.host_socket.sendall("#\n")
+    r.get()
 
 
   # ------------------------------------------------------------------------

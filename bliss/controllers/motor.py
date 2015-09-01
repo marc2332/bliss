@@ -174,10 +174,10 @@ class Controller(object):
     def get_info(self, axis):
         raise NotImplementedError
 
-    def raw_write(self, axis, com):
+    def raw_write(self, com):
         raise NotImplementedError
 
-    def raw_write_read(self, axis, com):
+    def raw_write_read(self, com):
         raise NotImplementedError
 
     def home_search(self, axis):

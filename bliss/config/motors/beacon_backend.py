@@ -193,6 +193,13 @@ class StaticConfig(object):
 
     def __init__(self, config_dict):
         self.config_dict = config_dict
+        try:
+            config_chan_name = "config.%s" % config_dict['name']
+        except KeyError:
+            # can't have config channel is there is no name
+            self.config_channel = None
+        else:
+            self.config_channel = channels.Channel(config_chan_name, dict(config_dict), callback=self._config_changed)
 
     def get(self, property_name, converter=str, default=None):
         """Get static property
@@ -217,9 +224,29 @@ class StaticConfig(object):
 
             raise KeyError("no property '%s` in config" % property_name)
 
-
     def set(self, property_name, value):
         self.config_dict[property_name] = value
    
     def save(self):
         self.config_dict.save()
+        self._update_channel() 
+
+    def reload(self):
+        cfg = static.get_config()
+        # this reloads *all* the configuration, hopefully it is not such
+        # a big task and it can be left as simple as it is, if needed
+        # we could selectively reload only parts of the config (e.g one
+        # single object yml file)
+        cfg.reload()
+        self.config_dict = cfg.get_config(self.config_dict['name'])
+        self._update_channel()
+
+    def _update_channel(self):
+        if self.config_channel is not None:
+            # inform all clients that config has changed
+            self.config_channel.value = dict(self.config_dict)
+
+    def _config_changed(self, config_dict):
+        for key, value in config_dict.iteritems():
+            self.config_dict[key]=value
+

@@ -354,6 +354,7 @@ class TestMockupController(unittest.TestCase):
         axes = config.axis_names_list()     
         self.assertTrue("robz" in axes)
         self.assertTrue("roby" in axes) 
+
     def test_settings_to_config(self):
         m = bliss.get_axis("roby")
         m.velocity(3)

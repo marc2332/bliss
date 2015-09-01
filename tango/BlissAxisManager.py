@@ -495,6 +495,14 @@ class BlissAxis(PyTango.Device_4Impl):
         pass
         # self.debug_stream("In read_attr_hardware()")
 
+    def read_trajpar(self, attr):
+        self.debug_stream("In read_trajpar()")
+        attr.set_value(self.attr_trajpar_read)
+
+    def write_trajpar(self, attr):
+        self.debug_stream("In write_trajpar()")
+        data = attr.get_write_value()
+
     """
     Motor command methods
     """
@@ -658,13 +666,17 @@ class BlissAxis(PyTango.Device_4Impl):
         return argout
 
 
-    def read_trajpar(self, attr):
-        self.debug_stream("In read_trajpar()")
-        attr.set_value(self.attr_trajpar_read)
+    def SettingsToConfig(self):
+        """
+        bla..
+        """
+        self.axis.settings_to_config()
 
-    def write_trajpar(self, attr):
-        self.debug_stream("In write_trajpar()")
-        data = attr.get_write_value()
+    def ApplyConfig(self):
+        """
+        bla..
+        """
+        self.axis.apply_config()
 
 
 
@@ -726,7 +738,13 @@ class BlissAxisClass(PyTango.DeviceClass):
          [PyTango.DevVoid, ""]],
         'GetCustomCommandList':
         [[PyTango.DevVoid, ""],
-         [PyTango.DevVarStringArray, "List of axis custom commands"]]
+         [PyTango.DevVarStringArray, "List of axis custom commands"]],
+        'ApplyConfig':
+        [[PyTango.DevVoid, ""],
+         [PyTango.DevVoid, "calls apply_config ???"]],
+        'SettingsToConfig':
+        [[PyTango.DevVoid, ""],
+         [PyTango.DevVoid, "calls settings_to_config ???"]]
     }
 
     #    Attribute definitions

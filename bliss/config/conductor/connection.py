@@ -4,6 +4,7 @@ import gevent
 from gevent import socket,select,event,queue
 from . import protocol
 import redis
+import netifaces
 
 try:
     import posix_ipc
@@ -22,6 +23,13 @@ try:
                 self._wqueue.send(msg[i:i+max_message_size])
 except ImportError:
     posix_ipc = None
+
+def ip4_broadcast_addresses():
+    ip_list = []
+    for interface in netifaces.interfaces():
+        for link in netifaces.ifaddresses(interface).get(netifaces.AF_INET, []):
+            ip_list.append(link.get("broadcast"))
+    return filter(None, ip_list)
 
 def check_connect(func) :
     def f(self,*args,**keys) :
@@ -128,8 +136,10 @@ class Connection(object) :
                 udp.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 udp.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
                 udp.bind(("",protocol.DEFAULT_UDP_CLIENT_PORT))
-                udp.sendto('Hello',('255.255.255.255',protocol.DEFAULT_UDP_SERVER_PORT))
-                timeout = 10.
+                # go through all interfaces, and issue broadcast on each
+                for addr in ip4_broadcast_addresses():
+                    udp.sendto('Hello',(addr,protocol.DEFAULT_UDP_SERVER_PORT))
+                timeout = 3.
                 while 1:
                     rlist,_,_ = select.select([udp],[],[],timeout)
                     if not rlist:
@@ -305,8 +315,7 @@ class Connection(object) :
         except socket.error:
             pass
         except:
-            import traceback
-            traceback.print_exc()
+            sys.excepthook(*sys.exc_info())
         finally:
             if self._fd:
                 self._fd.close()
@@ -334,8 +343,7 @@ class Connection(object) :
                             except ValueError:
                                 pass
         except:
-            import traceback
-            traceback.print_exc()
+            sys.excepthook(*sys.exc_info())
         finally:
             queue.close()
             os.close(pipe)

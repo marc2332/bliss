@@ -142,15 +142,15 @@ class Node(NodeDict):
                 if child_list:
                     return_dict[key] = child_list
             else:
-                return_dict[key] = values
-        return return_dict
+                return plugin
 
-    def _get_save_list(self,l,filename):
-        return_list = []
-        for v in l:
-            if isinstance(v, Node) :
-                if v.filename != filename: break
-                return_list.append(self._get_save_dict(v,filename))
+        def get_node_filename(self):
+            config = self._config()
+            filename = config._node2file.get(self)
+            if filename is not None:
+                return self, filename
+            elif self._parent is not None:
+                return self._parent.get_node_filename()
             else:
                 return_list.append(v)
         return return_list

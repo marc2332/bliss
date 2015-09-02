@@ -1,10 +1,15 @@
 # Standard modules
 import socket
 import string
+import sys
 import threading
+if 'gevent' in sys.modules:
+  from gevent import queue as Queue
+  import gevent.event
+else:
+  import Queue
 import select
 import os
-import Queue
 import pdb
 import numpy
 import itertools
@@ -50,23 +55,19 @@ class Reply:
         raise RuntimeError(msg)
     return ret
 
-
 # --------------------------------------------------------------------------
 #
-class listenerThread(threading.Thread):
+class BaseListenerThread:
 
   # ------------------------------------------------------------------------
   #
   def __init__(self, host_socket, replies_list, piper):
-    threading.Thread.__init__(self)
     self.host_socket = host_socket
-    self.ready_event = threading.Event()
     self.inputs      = [host_socket, piper]
     self.outputs     = []
     self.__replies   = replies_list
     self.incoming_data = ""
     self.piper       = piper
-    self.daemon      = True
 
 
   # ------------------------------------------------------------------------
@@ -228,8 +229,29 @@ class listenerThread(threading.Thread):
     log.async("finishing thread")
 
 
+class GListenerThread(BaseListenerThread):
+  def __init__(self, *args, **kwargs):
+    BaseListenerThread.__init__(self, *args, **kwargs)
+    self._thread = None
+    self.ready_event = gevent.event.Event()
+
+  def start(self):
+    self._thread = gevent.spawn(self.run)
+
+  def join(self):
+    self._thread.join()
 
 
+class listenerThread(threading.Thread, BaseListenerThread):
+  def __init__(self, *args, **kwargs):
+    threading.Thread.__init__(self)
+    self.daemon = True
+    self.ready_event = threading.Event()
+    BaseListenerThread.__init__(self, *args, **kwargs)
+
+
+if 'gevent' in sys.modules:
+    listenerThread = GListenerThread
 
 
 # --------------------------------------------------------------------------
@@ -406,3 +428,5 @@ class SockDeep:
 #
 class NetworkError(IOError):
   pass
+
+

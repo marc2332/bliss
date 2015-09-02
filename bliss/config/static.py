@@ -65,135 +65,135 @@ def get_config(base_path='',timeout=3.):
         CONFIG = Config(base_path, timeout)
     return CONFIG
 
+class Node(NodeDict):
+    def __init__(self,config,parent = None,filename = None) :
+        NodeDict.__init__(self)
+        self._parent = parent
+        self._config = weakref.ref(config)
+        config._create_file_index(self,filename)
+
+    def __hash__(self):
+        return id(self)
+
+    @property
+    def filename(self) :
+        return self.get_node_filename()[1]
+
+    @property
+    def parent(self):
+        return self._parent
+
+    @property
+    def children(self):
+        return self.get('__children__')
+
+    @property
+    def plugin(self):
+        """Return plugin name"""
+        plugin = self.get("plugin")
+        if plugin is None:
+          if self._parent is not None:
+              return self._parent.plugin
+          else:
+              return None
+        else:
+            return plugin
+
+    def get_node_filename(self):
+        config = self._config()
+        filename = config._node2file.get(self)
+        if filename is not None:
+            return self, filename
+        elif self._parent is not None:
+            return self._parent.get_node_filename()
+        else:
+            return None,None
+
+    def get_inherited(self,key):
+        value = self.get(key)
+        if value is None and self._parent:
+            return self._parent.get_inherited(key)
+        return value
+
+    def pprint(self,indent=1, depth = None) :
+        self._pprint(self,0,indent,0,depth)
+
+    def save(self) :
+        parent,filename = self.get_node_filename()
+        if filename is None: return # Memory
+        save_file_tree =  self._get_save_dict(parent,filename)
+        if ordered_yaml:
+            file_content = ordered_yaml.dump(save_file_tree,
+                                             Dumper=RoundTripDumper,
+                                             default_flow_style=False)
+        else:
+            file_content = yaml.dump(save_file_tree,default_flow_style=False)
+        cfg = self._config()
+        cfg.set_config_db_file(filename,file_content)
+
+    def _get_save_dict(self,src_node,filename):
+        return_dict = NodeDict()
+        for key,values in src_node.iteritems():
+            if isinstance(values, Node) :
+                if values.filename != filename: continue
+                return_dict[key] = self._get_save_dict(values,filename)
+            elif isinstance(values,list):
+                child_list = self._get_save_list(values,filename)
+                if child_list:
+                    return_dict[key] = child_list
+            else:
+                return_dict[key] = values
+        return return_dict
+
+    def _get_save_list(self,l,filename):
+        return_list = []
+        for v in l:
+            if isinstance(v, Node) :
+                if v.filename != filename: break
+                return_list.append(self._get_save_dict(v,filename))
+            else:
+                return_list.append(v)
+        return return_list
+
+    @staticmethod
+    def _pprint(node,cur_indet,indent,cur_depth,depth) :
+        cfg = node._config()
+        space = ' ' * cur_indet
+        print '%s{ filename: %r' % (space,cfg._node2file.get(node))
+        dict_space = ' ' * (cur_indet + 2)
+        for k,v in node.iteritems():
+            print '%s%s:' % (dict_space,k),
+            if isinstance(v, Node) :
+                print
+                Node._pprint(v,cur_indet + indent,indent,
+                                    cur_depth + 1,depth)
+            elif isinstance(v,list):
+                list_ident = cur_indet + indent
+                list_space = ' ' * list_ident
+                print '\n%s[' % list_space
+                for item in v:
+                    if isinstance(item, Node) :
+                        print
+                        Node._pprint(item,list_ident + indent,indent,
+                                            cur_depth + 1,depth)
+                    else:
+                        print item
+                print '%s]' % list_space
+            else:
+                print v
+        print '%s}' % space
+
+    def __repr__(self):
+        config = self._config()
+        value = dict.__repr__(self)
+        #filename = config._node2file.get(self)
+        return 'filename:<%s>,plugin:%r,%s' % (self.filename,
+                                               self.plugin, #self.get("plugin"),
+                                               value)
 
 class Config(object):
     NAME_KEY = 'name'
     USER_TAG_KEY = 'user_tag'
-
-    class Node(NodeDict):
-        def __init__(self,config,parent = None,filename = None) :
-            NodeDict.__init__(self)
-            self._parent = parent
-            self._config = weakref.ref(config)
-            config._create_file_index(self,filename)
-
-        def __hash__(self):
-            return id(self)
-
-        @property
-        def filename(self) :
-            return self.get_node_filename()[1]
-
-        @property
-        def parent(self):
-            return self._parent
-
-        @property
-        def children(self):
-            return self.get('__children__')
-
-        @property
-        def plugin(self):
-            """Return plugin name"""
-            plugin = self.get("plugin")
-            if plugin is None:
-              if self._parent is not None:
-                  return self._parent.plugin
-              else:
-                  return None
-            else:
-                return plugin
-
-        def get_node_filename(self) :
-            config = self._config()
-            filename = config._node2file.get(self)
-            if filename is not None:
-                return self,filename
-            elif self._parent is not None:
-                return self._parent.get_node_filename()
-            else:
-                return None,None
- 
-        def get_inherited(self,key):
-            value = self.get(key)
-            if value is None and self._parent:
-                return self._parent.get_inherited(key)
-            return value
-
-        def pprint(self,indent=1, depth = None) :
-            self._pprint(self,0,indent,0,depth)
-        
-        def save(self) :
-            parent,filename = self.get_node_filename()
-            if filename is None: return # Memory
-            save_file_tree =  self._get_save_dict(parent,filename)
-            if ordered_yaml:
-                file_content = ordered_yaml.dump(save_file_tree,
-                                                 Dumper=RoundTripDumper,
-                                                 default_flow_style=False)
-            else:
-                file_content = yaml.dump(save_file_tree,default_flow_style=False)
-            cfg = self._config()
-            cfg.set_config_db_file(filename,file_content)
-
-        def _get_save_dict(self,src_node,filename):
-            return_dict = NodeDict()
-            for key,values in src_node.iteritems():
-                if isinstance(values,Config.Node) :
-                    if values.filename != filename: continue
-                    return_dict[key] = self._get_save_dict(values,filename)
-                elif isinstance(values,list):
-                    child_list = self._get_save_list(values,filename)
-                    if child_list:
-                        return_dict[key] = child_list
-                else:
-                    return_dict[key] = values
-            return return_dict
-        
-        def _get_save_list(self,l,filename):
-            return_list = []
-            for v in l:
-                if isinstance(v,Config.Node) :
-                    if v.filename != filename: break
-                    return_list.append(self._get_save_dict(v,filename))
-                else:
-                    return_list.append(v)
-            return return_list
-        @staticmethod
-        def _pprint(node,cur_indet,indent,cur_depth,depth) :
-            cfg = node._config()
-            space = ' ' * cur_indet
-            print '%s{ filename: %r' % (space,cfg._node2file.get(node))
-            dict_space = ' ' * (cur_indet + 2)
-            for k,v in node.iteritems():
-                print '%s%s:' % (dict_space,k),
-                if isinstance(v,Config.Node) :
-                    print
-                    Config.Node._pprint(v,cur_indet + indent,indent,
-                                        cur_depth + 1,depth)
-                elif isinstance(v,list):
-                    list_ident = cur_indet + indent
-                    list_space = ' ' * list_ident
-                    print '\n%s[' % list_space
-                    for item in v:
-                        if isinstance(item,Config.Node) :
-                            print
-                            Config.Node._pprint(item,list_ident + indent,indent,
-                                                cur_depth + 1,depth)
-                        else:
-                            print item
-                    print '%s]' % list_space
-                else:
-                    print v
-            print '%s}' % space
-
-        def __repr__(self):
-            config = self._config()
-            value = dict.__repr__(self)
-            filename = config._node2file.get(self)
-            return 'filename:<%s>,plugin:%r,%s' % (filename,
-                                                   self.get("plugin"),
-                                                   value)
 
     def __init__(self, base_path, timeout=3):
         self._base_path = base_path
@@ -206,7 +206,7 @@ class Config(object):
 
         self._name2node = weakref.WeakValueDictionary()
         self._usertag2node = {}
-        self._root_node = Config.Node(self)
+        self._root_node = Node(self)
         self._node2file = weakref.WeakKeyDictionary()
         self._file2node = {}
 
@@ -236,18 +236,18 @@ class Config(object):
                     parents = fs_node.get(fs_key)
 
                 if isinstance(parents,list):
-                    new_node = self.Node(self,fs_node,path)
+                    new_node = Node(self,fs_node,path)
                     for n in parents:
                         n._parent = new_node
                     new_node['__children__'] = parents
                     parents = new_node
                 elif parents:
-                    new_node = self.Node(self,fs_node,path)
+                    new_node = Node(self,fs_node,path)
                     parents._parent = new_node
                     new_node['__children__'] = [parents]
                     parents = new_node
                 elif parents is None:
-                    parents = self.Node(self,fs_node,path)
+                    parents = Node(self,fs_node,path)
                     parents['__children__'] = []
                 else:
                     parents['__children__'] = []
@@ -263,12 +263,12 @@ class Config(object):
                 if isinstance(d,list):
                     parents = []
                     for item in d:
-                        local_parent = Config.Node(self,fs_node,path)
+                        local_parent = Node(self,fs_node,path)
                         self._parse(item,local_parent)
                         self._create_index(local_parent)
                         parents.append(local_parent)
                 else:
-                    parents = Config.Node(self,fs_node,path)
+                    parents = Node(self,fs_node,path)
                     self._parse(d,parents)
                     self._create_index(parents)
             
@@ -338,7 +338,7 @@ class Config(object):
                 except AttributeError:
                     #because it's a list and we need a dict (reparent)
                     gp = node[0].parent
-                    parent = self.Node(self,gp)
+                    parent = Node(self,gp)
                     for c in node:
                         c._parent = parent
                     gp[sp_path[i - 1]] = gp
@@ -346,7 +346,7 @@ class Config(object):
                     child = None
 
             if child is None:
-                child = Config.Node(self,node)
+                child = Node(self,node)
                 node[p] = child
             node = child
 
@@ -420,7 +420,7 @@ class Config(object):
         r_list = []
         for value in l:
             if isinstance(value,dict):
-                node = Config.Node(self,parent)
+                node = Node(self,parent)
                 self._parse(value,node)
                 self._create_index(node)
                 r_list.append(node)
@@ -434,7 +434,7 @@ class Config(object):
     def _parse(self,d,parent) :
         for key,value in d.iteritems():
             if isinstance(value,dict):
-                node = Config.Node(self,parent = parent)
+                node = Node(self,parent = parent)
                 self._parse(value,node)
                 self._create_index(node)
                 parent[key] = node

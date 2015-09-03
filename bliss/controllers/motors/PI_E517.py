@@ -22,15 +22,17 @@ class PI_E517(Controller):
         Controller.__init__(self, name, config, axes, encoders)
         self.host = self.config.get("host")
 
-    def move_done_event_received(self, state):
+    def move_done_event_received(self, state, sender=None):
+        # <sender> is the axis.
+        elog.info("move_done_event_received(state=%s axis.sender=%s)"%(state, sender.name))
         if self.auto_gate_enabled:
             if state is True:
                 elog.info("PI_E517.py : movement is finished")
-                self._set_gate(0)
+                self.set_gate(sender, 0)
                 elog.debug("mvt finished, gate set to 0")
             else:
                 elog.info("PI_E517.py : movement is starting")
-                self._set_gate(1)
+                self.set_gate(sender, 1)
                 elog.debug("mvt started, gate set to 1")
 
     def initialize(self):
@@ -78,7 +80,6 @@ class PI_E517(Controller):
         add_axis_method(axis, self.set_gate, types_info=(bool, None))
 
         if axis.channel == 1:
-            self.gate_axis = axis
             self.ctrl_axis = axis
 
         # NO automatic gating by default.
@@ -437,23 +438,13 @@ class PI_E517(Controller):
         if value:
             # auto gating
             self.auto_gate_enabled = True
-            self.gate_axis = axis
             elog.info("PI_E517.py : enable_gate %s for axis.channel %s " %(str(value) , axis.channel) )
         else:
             self.auto_gate_enabled = False
 
-            # To keep external gating possible.
-            self.gate_axis = 1
+
 
     def set_gate(self, axis, state):
-        """
-        Method to wrap '_set_gate' to be exported to device server.
-        <axis> parameter is requiered.
-        """
-        self.gate_axis = axis
-        self._set_gate(state)
-
-    def _set_gate(self, state):
         """
         CTO  [<TrigOutID> <CTOPam> <Value>]+
          - <TrigOutID> : {1, 2, 3}
@@ -479,13 +470,15 @@ class PI_E517(Controller):
         Raises:
             ?
         """
-        _ch = self.gate_axis.channel
+        _ch = axis.channel
         if state:
             _cmd = "CTO %d 3 3 %d 5 %g %d 6 %g %d 7 1" % (_ch, _ch, self.low_limit, _ch, self.high_limit, _ch)
         else:
             _cmd = "CTO %d 3 3 %d 5 %g %d 6 %g %d 7 0" % (_ch, _ch, self.low_limit, _ch, self.high_limit, _ch)
 
-        self.send_no_ans(self.gate_axis, _cmd)
+        elog.debug("set_gate :  _cmd = %s" % _cmd)
+
+        self.send_no_ans(axis, _cmd)
 
     def get_id(self, axis):
         """

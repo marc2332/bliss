@@ -525,6 +525,8 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
     else{
         tango_mot_dbg(sprintf ("tango_mot_par()--action \"%s\" is not recognized. (key=%s) ", action, key))
     }
+
+    return(0)
 }'
 
 

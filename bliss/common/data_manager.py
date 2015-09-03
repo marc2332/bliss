@@ -241,7 +241,7 @@ class ScanRecorder(object):
             if isinstance(dev,AcquisitionDevice):
                 acq_device = dev
                 self.nodes[acq_device] = _create_node(acq_device.name, acq_device.type, parent_node) 
-                for signal in ('start', 'end', 'new_ref'):
+                for signal in ('start', 'end', 'new_ref','new_data'):
                     dispatcher.connect(self._acq_device_event, signal, acq_device)
             if isinstance(dev,AcquisitionMaster):
                 master = dev

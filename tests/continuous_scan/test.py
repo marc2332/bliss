@@ -21,9 +21,13 @@ try:
   from PyTango.gevent import DeviceProxy
 except ImportError:
   pass
+
 #from PyTango import DeviceProxy
 from louie import dispatcher
 from bliss.config.conductor import client
+#P201
+from bliss.acquisition.p201 import P201AcquisitionMaster,P201AcquisitionDevice
+from ct2 import P201, Clock
 
 def test():
   chain = AcquisitionChain()
@@ -147,6 +151,26 @@ def test_dm_lima():
   scan.prepare()
   scan.start()
 
+def test_p201():
+  #import logging; logging.basicConfig(level=logging.DEBUG)
+
+  chain = AcquisitionChain()
+  p201_device = P201()
+  p201_device.request_exclusive_access()
+  p201_device.disable_interrupts()
+  p201_device.reset()
+  p201_device.software_reset()
+  p201_device.reset_FIFO_error_flags()
+  p201_device.enable_interrupts(100)
+  p201_device.set_clock(Clock.CLK_100_MHz)
+  p201_master = P201AcquisitionMaster(p201_device,nb_points=10,acq_expo_time=1)
+  p201_counters = P201AcquisitionDevice(p201_device,nb_points=10,acq_expo_time=1,
+                                        channels={"c0":1,"c1":2,"timer":11})
+  chain.add(p201_master,p201_counters)
+  scan = Scan(chain, ScanRecorder())
+  scan.prepare()
+  scan.start()
+  
 def _walk_children(parent,index = 0) :
   print ' ' * index,parent.db_name(), parent.name(),client.get_cache(db=1).ttl(parent.db_name())
   for child in parent.children():
@@ -164,3 +188,4 @@ if __name__ == '__main__':
   #test_lima()
   #test_dm_lima()
   #test_dm_client()
+  test_p201()

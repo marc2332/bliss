@@ -253,7 +253,7 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
             return ".error."
         }
         else{
-            printf("Motor \"%s\" linked to Tango EMotion axis : %s ",   \
+            printf("Motor \"%s\" linked to Tango EMotion axis : %s \n",   \
                    _mot_mne, _axis_ds_name)
         }
 
@@ -387,8 +387,13 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
 #%XUL%
 def tango_mot_par(motnum, key, action, p1, p2) '{
     local _msg _mot_mne
+    local _axis_ds_name
+    local _state
 
     _mot_mne = motor_mne(motnum)
+    if (key == "dev_name")
+        return
+    _axis_ds_name = motor_par(motnum, "dev_name")
 
     _msg = sprintf ("---tango_mot_par(motnum=%s key=\"%s\", action=\"%s\", p1=\"%s\", p2=\"%s\")", \
                     motnum, key, action, p1, p2)
@@ -401,10 +406,6 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
 
     # Control motor power
     if (key == "power") {
-        local _axis_ds_name
-        local _state
-
-        _axis_ds_name = motor_par(motnum, "dev_name")
         if (action == "set") {
             # Try to switch power on or off according to argin given
             TANGO_ERR = -1
@@ -450,7 +451,7 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
         if ( key == "axisstatus"){
             return (tango_mot_status(motnum))
         }
-        else {
+        else if ((key != "axis_name") && (key != "use_spec_config")) {
             printf("dou tu sors toi ??? motnum=%d, key=%s, action=%s, p1=%s, p2=%s \n", \
                    motnum, key, action, p1, p2)
         }

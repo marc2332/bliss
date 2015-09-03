@@ -37,7 +37,6 @@ class TestStates(unittest.TestCase):
         # custom state
         s.create_state("PARKED", "c'est ma place !!")
         s.set("PARKED")
-        self.assertTrue(s.PARKED)
         # still ready
         self.assertTrue(s.READY)
         self.assertEquals(s, "PARKED")

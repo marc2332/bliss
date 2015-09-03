@@ -538,14 +538,20 @@ class BlissAxis(PyTango.Device_4Impl):
             self.set_status("OFF command was not executed as expected.")
 
     def GoHome(self):
-        """ Move the motor to the home position given by a home switch.
+        """ 
+        Moves the motor to the home position given by a home switch.
+        Searches home switch in POSITIVE direction.
+        """
+        self.debug_stream("In GoHome()")
+        self.axis.home(switch=1, wait=False)
 
-        :param :
-        :type: PyTango.DevVoid
-        :return:
-        :rtype: PyTango.DevVoid """
-        self.debug_stream("In GoHome(%f)" % self.attr_Home_position_read)
-        self.axis.home(self.attr_Home_position_read, wait=False)
+    def GoHomeInversed(self):
+        """
+        Moves the motor to the home position given by a home switch.
+        Searches home switch in NEGATIVE direction.
+        """
+        self.debug_stream("In GoHomeInversed()")
+        self.axis.home(switch=-1, wait=False)
 
     def Abort(self):
         """ Stop immediately the motor

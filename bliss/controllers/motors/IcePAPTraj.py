@@ -232,7 +232,7 @@ class IcePAPTraj(Controller):
             self.libtraj[motion.axis].stop()
 
 
-    def home_search(self, axis):
+    def home_search(self, axis, switch):
         """Launch a homing sequence"""
         raise RuntimeError('unavailable for a trajectory')
 

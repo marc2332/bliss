@@ -64,6 +64,7 @@ def _create_attribute(filter_name,cls,instance,modbus):
     
 class nanodac(object):
     class SoftRamp(object) :
+        UP,DOWN = (1,-1)
         def __init__(self,nanodac,loop_number) :
             self._loop = nanodac.get_loop(loop_number)
             self._slope = 1/60. # default 1 deg / min
@@ -94,6 +95,7 @@ class nanodac(object):
         def targetsp(self,val) :
             self._started_targetsp = self._loop.pv
             self._targetsp = val
+            self._direction = self.UP if val > self._started_targetsp else self.DOWN
             self._start_ramp = time.time()
 
             if self._ramp_task is None:
@@ -115,8 +117,11 @@ class nanodac(object):
                 if wait_time < 0.: wait_time = 0.
                 fd,_,_ = gevent.select.select([self._pipe[0]],[],[],wait_time)
                 if fd: os.read(self._pipe[0],1024)
-                targetsp = self._slope * (time.time() - self._start_ramp) + self._started_targetsp
-                if targetsp > self._targetsp: targetsp = self._targetsp
+                targetsp = self._slope * self._direction * (time.time() - self._start_ramp) + self._started_targetsp
+                if ((self._direction == self.UP and targetsp > self._targetsp) or
+                    (self._direction == self.DOWN and targetsp < self._targetsp)):
+                    targetsp = self._targetsp
+
                 try:
                     self._loop.targetsp = round(targetsp,1)
                 except:

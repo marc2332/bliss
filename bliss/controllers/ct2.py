@@ -3223,11 +3223,6 @@ def C208():
     raise NotImplementedError
 
 
-def create_fifo(card, length=None):
-    import numpy
-    return numpy.frombuffer(create_fifo_mmap(card, length), dtype=numpy.uint32)
-
-
 def ct2(card_type, name):
     if "201" in card_type:
         klass = P201

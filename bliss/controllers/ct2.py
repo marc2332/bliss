@@ -1951,9 +1951,8 @@ class BaseCard:
 
           * a tuple of 5 elements containing:
             
-            * channels rising and/or falling edge triggered interrupts
-              (dict<int: bool>)
-            * counters stop triggered interrupt (dict<int: bool>)
+            * counters stop triggered interrupt (set)
+            * channels rising and/or falling edge triggered interrupts (set)
             * DMA transfer interrupt enabled (bool)
             * FIFO half full interrupt enabled (bool)
             * FIFO transfer error or too close DMA trigger enabled (bool)
@@ -1967,11 +1966,10 @@ class BaseCard:
         status was last updated is saved.
 
         :return: 
-            channels, counters, DMA, FIFO and error interrupt information plus 
+            counters, channels, DMA, FIFO and error interrupt information plus 
             time stamp
         :rtype: 
-            tuple( tuple(dict<int: class:`TriggerInterrupt`>, 
-            dict<int: bool>, bool, bool, bool), float)
+            tuple( tuple(set<int>, set<int>, bool, bool, bool), float )
         """
         data = ct2_in()
         self.__ioctl(CT2_IOC_ACKINT, ctypes.addressof(data))
@@ -2518,11 +2516,13 @@ class BaseCard:
         self.__set_source_it_b(counters, dma, fifo_half_full, error)
 
     def __decode_ctrl_it(self, register):
-        counters, channels = {}, {}
+        counters, channels = set(), set()
         for channel in self.CHANNELS:
-            channels[channel] = (register & (1 << (channel -1))) != 0
+            if (register & (1 << (channel -1))) != 0:
+                channels.add(channel)
         for counter in self.COUNTERS:
-            counters[counter] = (register & ((1 << (counter-1)) << 12)) != 0
+            if (register & ((1 << (counter-1)) << 12)) != 0:
+                counters.add(counter)
         dma = (register & (1 << 25)) != 0
         fifo_half_full = (register & (1 << 26)) != 0
         error = (register & (1 << 27)) != 0

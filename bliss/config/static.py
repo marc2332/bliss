@@ -216,6 +216,8 @@ class Config(object):
                                                timeout = timeout)
 
         for path, file_content in path2file:
+            if not file_content:
+                continue
             base_path, file_name = os.path.split(path)
             fs_node, fs_key = self._get_or_create_path_node(base_path)
 

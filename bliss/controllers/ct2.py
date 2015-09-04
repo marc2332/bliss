@@ -1769,8 +1769,7 @@ class TriggerInterrupt(BaseParam):
     To be used with methods :meth:`P201.get_channels_interrupts` and
     :meth:`P201.set_channels_interrupts`.
 
-    Also the result of :meth:`P201.get_interrupts` and 
-    :meth:`P201.acknowledge_interrupt`.
+    Also the result of :meth:`P201.get_interrupts`.
     """
     _FLAG_MAP = { 'rising': (bool, 1 << 0),
                   'falling': (bool, 1 << 16) }

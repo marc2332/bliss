@@ -1632,12 +1632,14 @@ class BaseParam(object):
     def __getattr__(self, name):
         return self[name]
 
+
     def __str__(self):
-        pars = ", ".join(["{0}={1}".format(k, v) for k, v in self.items()])
-        return "{0}({1})".format(self.__class__.__name__, pars)
+        pars = "\n  ".join(["{0}={1}".format(k, v) for k, v in self.items()])
+        return "{0}(\n  {1})".format(self.__class__.__name__, pars)
 
     def __repr__(self):
-        return str(self)
+        pars = ", ".join(["{0}={1}".format(k, v) for k, v in self.items()])
+        return "{0}({1})".format(self.__class__.__name__, pars)
 
     def __eq__(self, other):
         if not isinstance(other, BaseParam):

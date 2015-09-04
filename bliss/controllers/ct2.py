@@ -1632,6 +1632,11 @@ class BaseParam(object):
     def __getattr__(self, name):
         return self[name]
 
+    def __setattr__(self, name, value):
+        if name.startswith("_") or name == "value":
+            object.__setattr__(self, name, value)
+        else:
+            self[name] = value
 
     def __str__(self):
         pars = "\n  ".join(["{0}={1}".format(k, v) for k, v in self.items()])
@@ -2921,8 +2926,8 @@ class BaseCard:
 
         ::
 
-            p201.set_counters_latch_source({1 : 10,
-                                            2 : (3, 4, 5)})
+            p201.set_counters_latch_sources({1 : 10,
+                                             2 : (3, 4, 5)})
 
         :param counter_sources:
             a dictionary where keys are counters (starting with 1) and value is

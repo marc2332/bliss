@@ -79,70 +79,14 @@ def prepare_master(device, acq_time, nb_points):
     device.set_counter_comparator_value(11, int(acq_time * 1E8))
     device.set_counter_comparator_value(12, nb_points)
 
+    # dma transfer and error will trigger DMA
+    # also counter 12 stop should trigger an interrupt (this way we know that the
+    # acquisition has finished without having to query the counter 12 status)
+    device.set_interrupts(counters=(12,), dma=True, error=True)
+
+
 def prepare_slaves(device, acq_time, nb_points, channels):
     channel_nbs = list(channels.values())
-
-def main():
-
-    def to_str(values, fmt="9d"):
-        fmt = "%" + fmt
-        return "[" + "".join([fmt % value for value in values]) + "]"
-
-    def out(msg=""):
-        sys.stdout.write(msg)
-        sys.stdout.flush()
-
-    channels = { 
-        "I0": 3,
-        "V2F": 5,
-        "SCA": 6,
-    }
-
-    channel_nbs = list(channels.values())
-
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--log-level', type=str, default='info',
-                        help='log level (debug, info, warning, error) [default: info]')
-    parser.add_argument('--nb-points', type=int,
-                        help='number of points', default=10)
-    parser.add_argument('--acq-time', type=float, default=1,
-                        help='acquisition time')
-
-    args = parser.parse_args()
-
-    logging.basicConfig(level=getattr(logging, args.log_level.upper()),
-                        format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-
-    nb_points = args.nb_points
-    acq_time = args.acq_time
-
-    device = P201()
-
-    #
-    # internal master setup
-    #
-
-    ct_11_config = CtConfig(clock_source=CtClockSrc.CLK_100_MHz,
-                            gate_source=CtGateSrc.CT_12_GATE_ENVELOP,
-                            hard_start_source=CtHardStartSrc.SOFTWARE,
-                            hard_stop_source=CtHardStopSrc.CT_11_EQ_CMP_11,
-                            reset_from_hard_soft_stop=True,
-                            stop_from_hard_stop=False)
-    ct_12_config = CtConfig(clock_source=CtClockSrc.INC_CT_11_STOP,
-                            gate_source=CtGateSrc.GATE_CMPT,
-                            hard_start_source=CtHardStartSrc.SOFTWARE,
-                            hard_stop_source=CtHardStopSrc.CT_12_EQ_CMP_12,
-                            reset_from_hard_soft_stop=True,
-                            stop_from_hard_stop=True)
-
-    device.set_counters_config({11:ct_11_config, 12:ct_12_config})
-    device.set_counter_comparator_value(11, int(acq_time * 1E8))
-    device.set_counter_comparator_value(12, nb_points)
-
-    #
-    # slaves setup
-    #
-
     for ch_name, ch_nb in channels.iteritems():
         ct_config = device.get_counter_config(ch_nb)
         ct_config.gate_source = CtGateSrc.CT_11_GATE_ENVELOP
@@ -162,16 +106,52 @@ def main():
 
     # make all counters enabled by software
     device.set_counters_software_enable(channel_nbs + [11, 12])
-    
-    # dma transfer and error will trigger DMA
-    # also counter 12 stop should trigger an interrupt (this way we know that the
-    # acquisition has finished without having to query the counter 12 status)
-    device.set_interrupts(counters=(12,), dma=True, error=True)
+
+
+def main():
+
+    def to_str(values, fmt="9d"):
+        fmt = "%" + fmt
+        return "[" + "".join([fmt % value for value in values]) + "]"
+
+    def out(msg=""):
+        sys.stdout.write(msg)
+        sys.stdout.flush()
+
+    channels = { 
+        "I0": 3,
+        "V2F": 5,
+        "SCA": 6,
+    }
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--log-level', type=str, default='info',
+                        help='log level (debug, info, warning, error) [default: info]')
+    parser.add_argument('--nb-points', type=int,
+                        help='number of points', default=10)
+    parser.add_argument('--acq-time', type=float, default=1,
+                        help='acquisition time')
+
+    args = parser.parse_args()
+
+    logging.basicConfig(level=getattr(logging, args.log_level.upper()),
+                        format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+
+    nb_points = args.nb_points
+    acq_time = args.acq_time
+
+    device = P201()
+
+    configure(device, channels)
+
+    prepare_master(device, acq_time, nb_points)
+    prepare_slaves(device, acq_time, nb_points, channels)
 
     # start counting...
     nap = 0.1
     start_time = time.time()
-    device.set_counters_software_start(channel_nbs + [11, 12])
+
+    device.set_counters_software_start(channels.values() + [11, 12])
 
     while True:
         time.sleep(nap)

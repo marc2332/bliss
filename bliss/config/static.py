@@ -1,6 +1,8 @@
 import os
 import yaml
 import weakref
+import functools
+
 if not hasattr(weakref, "WeakSet"):
     import weakrefset
     weakref.WeakSet = weakrefset.WeakSet
@@ -46,18 +48,23 @@ except ImportError:
 
 CONFIG = None
 
+if hasattr(yaml, "CLoader"):
+    yaml_load = functools.partial(yaml.load, Loader=yaml.CLoader)
+else:
+    yaml_load = yaml.load
+
 def load_cfg(filename):
     cfg_string = client.get_config_file(filename)
     if ordered_yaml:
         return ordered_yaml.load(cfg_string,ordered_yaml.RoundTripLoader)
     else:
-        return yaml.load(cfg_string)
+        return yaml_load(cfg_string)
 
 def load_cfg_fromstring(cfg_string):
     if ordered_yaml:
         return ordered_yaml.load(cfg_string,ordered_yaml.RoundTripLoader)
     else:
-        return yaml.load(cfg_string)
+        return yaml_load(cfg_string)
 
 def get_config(base_path='',timeout=3.):
     global CONFIG
@@ -230,7 +237,7 @@ class Config(object):
             if ordered_yaml:
                 d = ordered_yaml.load(file_content,ordered_yaml.RoundTripLoader)
             else:
-                d = yaml.load(file_content)
+                d = yaml_load(file_content)
 
             is_init_file = False
             if file_name.startswith('__init__'):

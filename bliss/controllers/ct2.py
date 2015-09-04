@@ -3217,7 +3217,7 @@ def create_fifo_mmap(card, length=None):
                      prot=mmap.PROT_READ, offset=CT2_MM_FIFO_OFF)
 
 
-def C208(BaseCard):
+def C208():
     raise NotImplementedError
 
 

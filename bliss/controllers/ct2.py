@@ -2842,7 +2842,7 @@ class BaseCard:
 
         :raises OSError: in case the operation fails
         """
-        if isintance(counter_sources, int):
+        if isinstance(counter_sources, int):
             counter_sources = counter_sources,
 
         # calculate which latch (A, B, ... F)

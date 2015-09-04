@@ -1791,6 +1791,9 @@ class BaseCard:
     #: list of valid card ouput channels
     OUTPUT_CHANNELS = ()
 
+    #: fifo size (bytes)
+    FIFO_SIZE = 0
+    
     def __init__(self, address="/dev/p201"):
         self.__log = logging.getLogger("P201." + address)
         self.__address = address
@@ -1836,6 +1839,33 @@ class BaseCard:
     @property
     def address(self):
         return self.__address
+
+    @property
+    def fifo(self):
+        try:
+            return self.__fifo
+        except AttributeError:
+            self.__fifo = self.__create_fifo()
+        return self.__fifo
+
+    def __create_fifo(self, length=None):
+        # remember: need exclusive access to use FIFO
+        if not self.has_exclusive_access():
+            self.request_exclusive_access()
+        dev_stat = os.fstat(self.fileno())
+        if not stat.S_ISCHR(dev_stat.st_mode):
+            raise CT2Exception("Cannot memory map FIFO: file descriptor '%s' " \
+                                   "does not point to a special character file")
+        if length is None:
+            length = self.FIFO_SIZE
+        elif length > self.FIFO_SIZE:
+            raise CT2Exception("FIFO size exceeds maximum of %d" % self.FIFO_SIZE)
+        elif length % CT2_REG_SIZE:
+            raise CT2Exception("FIFO size must be multiple of %d" % CT2_REG_SIZE)
+
+        import mmap
+        return mmap.mmap(self.fileno(), length, flags=mmap.MAP_PRIVATE, 
+                         prot=mmap.PROT_READ, offset=CT2_MM_FIFO_OFF)        
 
     def connect(self, address):
         if address is None:
@@ -3198,25 +3228,6 @@ class P201(BaseCard):
 
     #: fifo size (bytes)
     FIFO_SIZE = 2048 * CT2_REG_SIZE
-
-def create_fifo_mmap(card, length=None):
-    # remember: need exclusive access to use FIFO
-    if not card.has_exclusive_access():
-        raise CT2Exception("Need exclusive access to map FIFO")
-    dev_stat = os.fstat(card.fileno())
-    if not stat.S_ISCHR(dev_stat.st_mode):
-        raise CT2Exception("Cannot memory map FIFO: file descriptor '%s' " \
-                           "does not point to a special character file")
-    if length is None:
-        length = card.FIFO_SIZE
-    elif length > card.FIFO_SIZE:
-        raise CT2Exception("FIFO size exceeds maximum of %d" % card.FIFO_SIZE)
-    elif length % CT2_REG_SIZE:
-        raise CT2Exception("FIFO size must be multiple of %d" % CT2_REG_SIZE)
-
-    import mmap
-    return mmap.mmap(card.fileno(), length, flags=mmap.MAP_PRIVATE, 
-                     prot=mmap.PROT_READ, offset=CT2_MM_FIFO_OFF)
 
 
 def C208():

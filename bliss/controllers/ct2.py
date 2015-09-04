@@ -1859,11 +1859,12 @@ class BaseCard:
         if not self.has_exclusive_access():
             self.request_exclusive_access()
         dev_stat = os.fstat(self.fileno())
+        #print("%d:%d" % (os.major(dev_stat.st_rdev), os.minor(dev_stat.st_rdev)))
         if not stat.S_ISCHR(dev_stat.st_mode):
             raise CT2Exception("Cannot memory map FIFO: file descriptor '%s' " \
                                    "does not point to a special character file")
         if length is None:
-            length = self.FIFO_SIZE
+            length = 16384 # self.FIFO_SIZE
         elif length > self.FIFO_SIZE:
             raise CT2Exception("FIFO size exceeds maximum of %d" % self.FIFO_SIZE)
         elif length % CT2_REG_SIZE:

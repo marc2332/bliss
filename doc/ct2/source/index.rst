@@ -50,8 +50,6 @@ Contents:
    
 .. _ct2-benchmarks:
 
-.. currentmodule:: ct2
-
 Benchmarks
 ----------
 

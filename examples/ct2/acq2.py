@@ -8,15 +8,16 @@ import os
 import sys
 import time
 import pprint
-import select
 import logging
 import argparse
 import datetime
 
 import numpy
 
-import gevent
-import gevent.select
+try:
+    from gevent.select import select
+except ImportError:
+    from select import select
 
 try:
     from bliss.controllers import ct2
@@ -63,6 +64,7 @@ def configure(device, channels):
     # internal clock 100 Mhz
     device.set_clock(Clock.CLK_100_MHz)
 
+
 def prepare_master(device, acq_time, nb_points):
     ct_11_config = CtConfig(clock_source=CtClockSrc.CLK_100_MHz,
                             gate_source=CtGateSrc.CT_12_GATE_ENVELOP,
@@ -88,15 +90,24 @@ def prepare_master(device, acq_time, nb_points):
     # acquisition has finished without having to query the counter 12 status)
     device.set_interrupts(counters=(12,), dma=True, error=True)
 
+    # make master enabled by software
+    device.set_counters_software_enable([11, 12])
 
-def prepare_slaves(device, acq_time, nb_points, channels):
+
+def prepare_slaves(device, acq_time, nb_points, channels, accumulate=False):
     channel_nbs = list(channels.values())
+
+    if accumulate:
+        hard_stop = CtHardStopSrc.SOFTWARE
+    else:
+        hard_stop = CtHardStopSrc.CT_11_EQ_CMP_11
+
     for ch_name, ch_nb in channels.iteritems():
         ct_config = device.get_counter_config(ch_nb)
         ct_config = CtConfig(clock_source=ct_config.clock_source,
                              gate_source=ct_config.gate_source,
                              hard_start_source=CtHardStartSrc.CT_12_START,
-                             hard_stop_source=CtHardStopSrc.CT_11_EQ_CMP_11,
+                             hard_stop_source=hard_stop,
                              reset_from_hard_soft_stop=True, 
                              stop_from_hard_stop=False)
         device.set_counter_config(ch_nb, ct_config)
@@ -107,12 +118,10 @@ def prepare_slaves(device, acq_time, nb_points, channels):
 
     # one of the active counter-to-latch signal will trigger DMA; at each DMA
     # trigger, all active counters (+ counter 12) are stored to FIFO
-    device.set_DMA_enable_trigger_latch({channel_nbs[0]: True}, 
-                                        channel_nbs + [12])
+    # (counter 11 cannot be the one to trigger because it is not being latched)
+    device.set_DMA_enable_trigger_latch((12,), channel_nbs + [12])
 
-    # make all counters enabled by software
-    device.set_counters_software_enable(channel_nbs + [11, 12])
-
+    device.set_counters_software_enable(channel_nbs)
 
 def main():
 
@@ -125,9 +134,10 @@ def main():
         sys.stdout.flush()
 
     channels = { 
-        "I0": 3,
+        "I0": 1,
         "V2F": 5,
-        "SCA": 6,
+        "SCA": 7,
+        "SCA2": 8,
     }
     
     parser = argparse.ArgumentParser(description=__doc__)
@@ -150,7 +160,7 @@ def main():
 
     configure(device, channels)
     prepare_master(device, acq_time, nb_points)
-    prepare_slaves(device, acq_time, nb_points, channels)
+    prepare_slaves(device, acq_time, nb_points, channels, accumulate=False)
 
     channelid2name = [(nb, name) for name, nb in channels.iteritems()]
     channelid2name += [(12, "point_nb")]
@@ -168,27 +178,34 @@ def main():
     try:
         while not stop:
             loop += 1
-            read, write, error = events = gevent.select.select((device,), (), (device,))
+            read, write, error = events = select((device,), (), (device,))
             if read:
                 (counters, channels, dma, fifo_half_full, error), tstamp = \
                     device.acknowledge_interrupt()
                 if 12 in counters:
                     stop = True
+                
                 if dma:
                     fifo_status = device.get_FIFO_status()
                     buff = fifo[:fifo_status.size * ct2.CT2_REG_SIZE]
                     data = numpy.ndarray(fifo_status.size, dtype=numpy.uint32, buffer=buff)
-                    print data
-                    print to_str(device.get_latches_values())
+                    print(str(data))#, to_str(device.get_latches_values()))
                     data.shape = -1, len(channelid2name)
                     ch_data = {}
                     for i, (ch_id, ch_name) in enumerate(channelid2name):
                         ch_data[ch_name] = data[:,i]
                     new_event = {"type": "0D", "channel_data": ch_data}
-                    #dispatcher.send("new_data",self,{"type":"0D","channel_data":channel_data})
+                    #dispatcher.send("new_data", self, new_event)
                     #print("new event: {0}".format(new_event))
             if stop:
                 print("Acquisition finished. Bailing out!")
+        
+        fifo_status = device.get_FIFO_status()
+        buff = fifo[:fifo_status.size * ct2.CT2_REG_SIZE]
+        data = numpy.ndarray(fifo_status.size, dtype=numpy.uint32, buffer=buff)
+        print(data)
+        print(data.shape)
+
     except KeyboardInterrupt:
         print("\rCtrl-C pressed. Bailing out!")
     except:

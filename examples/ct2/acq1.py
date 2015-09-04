@@ -8,7 +8,6 @@ import os
 import sys
 import time
 import pprint
-import select
 import logging
 import argparse
 import datetime

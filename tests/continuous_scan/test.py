@@ -14,10 +14,13 @@ from bliss.common.continuous_scan import Scan
 from bliss.common.data_manager import Container, ScanRecorder, get_node
 from bliss.acquisition.test import TestAcquisitionDevice
 from bliss.acquisition.test import TestAcquisitionMaster
-from bliss.acquisition.motor import  SoftwarePositionTriggerMaster
-from bliss.acquisition.lima import LimaAcquisitionDevice
-import bliss 
-from PyTango.gevent import DeviceProxy
+try:
+  from bliss.acquisition.motor import  SoftwarePositionTriggerMaster
+  from bliss.acquisition.lima import LimaAcquisitionDevice
+  import bliss 
+  from PyTango.gevent import DeviceProxy
+except ImportError:
+  pass
 #from PyTango import DeviceProxy
 from louie import dispatcher
 from bliss.config.conductor import client
@@ -32,12 +35,29 @@ def test():
   c0_dev = TestAcquisitionDevice("c0")
   c1_dev = TestAcquisitionDevice("c1")
   chain.add(mono_master, cam1_dev)
+  chain.add(mono_master,cam1_master)
   chain.add(cam1_master, cam2_dev)
   chain.add(timer_master, c0_dev)
   chain.add(timer_master, c1_dev)
+  chain._tree.show()
+  
   scan = Scan(chain, ScanRecorder())
   scan.prepare()
   scan.start()
+
+def test2():
+  chain = AcquisitionChain()
+  musst_master = TestAcquisitionMaster("musst")
+  p201_master = TestAcquisitionMaster("P201")
+  p201_acq_dev = TestAcquisitionDevice("P201")
+  chain.add(musst_master, p201_master)
+  chain.add(p201_master, p201_acq_dev)
+  chain._tree.show()
+  
+  scan = Scan(chain, ScanRecorder())
+  scan.prepare()
+  scan.start()
+
 
 def test_emotion_master():
   config_xml = """
@@ -138,8 +158,9 @@ def test_dm_client():
   _walk_children(toto)
 
 if __name__ == '__main__':
-  #test()
+  test()
+  test2()
   #test_emotion_master()
   #test_lima()
-  test_dm_lima()
+  #test_dm_lima()
   #test_dm_client()

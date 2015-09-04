@@ -7,6 +7,8 @@ import os
 import gevent
 import re
 from louie import saferef
+from treelib import Tree
+from bliss.common.continuous_scan import AcquisitionDevice,AcquisitionMaster
 
 node_plugins = dict()
 for importer, module_name, _ in pkgutil.iter_modules([os.path.join(os.path.dirname(__file__),'..','data')]):
@@ -226,22 +228,23 @@ class ScanRecorder(object):
 
     def prepare(self, scan_info, devices_tree):
         parent_node = self.node
-        prev_level = 0
+        prev_level = 1
         self.nodes = dict()
         
-        devices_tree = list(sorted(devices_tree))
-        for level, device_node in devices_tree:
+        for dev in list(devices_tree.expand_tree(mode=Tree.WIDTH))[1:]:
+            dev_node = devices_tree.get_node(dev)
+            level = devices_tree.depth(dev_node)
             if prev_level != level:
                 prev_level = level
-                parent_node = self.nodes[device_node["parent"].master]
+                parent_node = self.nodes[dev_node.bpointer]
 
-            acq_device = device_node.get("acq_device")
-            if acq_device:
+            if isinstance(dev,AcquisitionDevice):
+                acq_device = dev
                 self.nodes[acq_device] = _create_node(acq_device.name, acq_device.type, parent_node) 
                 for signal in ('start', 'end', 'new_ref'):
                     dispatcher.connect(self._acq_device_event, signal, acq_device)
-            master = device_node.get("master")
-            if master:
+            if isinstance(dev,AcquisitionMaster):
+                master = dev
                 self.nodes[master] = _create_node(master.name, master.type, parent_node)
         print self.nodes 
 

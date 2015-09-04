@@ -106,7 +106,7 @@ def main():
                 msg = "\r%07d %07d" % (counter_value, latch_value)
                 out(msg)
             except KeyboardInterrupt:
-                p201.set_counters_software_latch((counter,))
+                p201.trigger_counters_software_latch((counter,))
         print("\n%07d %07d" % (counter_value, latch_value))
 
     p201.disable_counters_software((counter,))

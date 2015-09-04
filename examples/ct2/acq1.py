@@ -41,7 +41,7 @@ def configure(device, channels):
     # will be up to the actual acquisition to setup according to the type of
     # acquisition
     for _, ch_nb in channels.items():
-        ct_config = CtConfig(clock_source=CtClockSrc.CLK_1_25_KHz,
+        ct_config = CtConfig(clock_source=CtClockSrc(ch_nb % 5),
                              gate_source=CtGateSrc.GATE_CMPT,
                              # anything will do for the remaining fields. It
                              # will be properly setup in the acquisition slave 
@@ -84,10 +84,11 @@ def prepare_slaves(device, acq_time, nb_points, channels):
         ct_config = device.get_counter_config(ch_nb)
         ct_config.gate_source = CtGateSrc.CT_11_GATE_ENVELOP
         ct_config.hard_start_source = CtHardStartSrc.SOFTWARE
-        ct_config.hard_stop_source = CtHardStopSrc.CT_11_STOP
+        ct_config.hard_stop_source = CtHardStopSrc.CT_11_EQ_CMP_11
         ct_config.reset_from_hard_soft_stop = True
         ct_config.stop_from_hard_stop = False
         device.set_counter_config(ch_nb, ct_config)
+        device.set_counter_config(ch_nb, ct_config)        
 
     # counter 11 will latch all active counters/channels
     latch_sources = dict([(ct, 11) for ct in channel_nbs + [12]])

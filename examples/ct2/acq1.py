@@ -31,8 +31,6 @@ def configure(device, channels):
     device.disable_interrupts()
     device.reset()
     device.software_reset()
-    device.reset_FIFO_error_flags()
-    device.enable_interrupts(100)
 
     # -------------------------------------------------------------------------
     # Channel configuration (could be loaded from beacon, for example. We 
@@ -79,11 +77,6 @@ def prepare_master(device, acq_time, nb_points):
     device.set_counter_comparator_value(11, int(acq_time * 1E8))
     device.set_counter_comparator_value(12, nb_points)
 
-    # dma transfer and error will trigger DMA
-    # also counter 12 stop should trigger an interrupt (this way we know that the
-    # acquisition has finished without having to query the counter 12 status)
-    device.set_interrupts(counters=(12,), dma=True, error=True)
-
 
 def prepare_slaves(device, acq_time, nb_points, channels):
     channel_nbs = list(channels.values())
@@ -99,10 +92,6 @@ def prepare_slaves(device, acq_time, nb_points, channels):
     # counter 11 will latch all active counters/channels
     latch_sources = dict([(ct, 11) for ct in channel_nbs + [12]])
     device.set_counters_latch_sources(latch_sources)
-
-    # one of the active counter-to-latch signal will trigger DMA;
-    # at each DMA trigger, all active channels are stored to FIFO
-    device.set_DMA_enable_trigger_latch({channel_nbs[0]:True}, channel_nbs)
 
     # make all counters enabled by software
     device.set_counters_software_enable(channel_nbs + [11, 12])
@@ -166,6 +155,7 @@ def main():
     print("\n{0} {1}".format(to_str(counter_values), to_str(latch_values)))
     print("Took ~{0}s (err: {1}s)".format(stop_time-start_time, nap))
     pprint.pprint(device.get_counters_status())
+
     device.relinquish_exclusive_access()
 
 

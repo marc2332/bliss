@@ -75,6 +75,12 @@ class Node(NodeDict):
     def __hash__(self):
         return id(self)
 
+    def __getstate__(self):
+        return dict(self)
+
+    def __setstate__(self, d):
+        self.update(d)
+
     @property
     def filename(self) :
         return self.get_node_filename()[1]

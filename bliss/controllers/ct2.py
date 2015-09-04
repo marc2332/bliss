@@ -2370,11 +2370,13 @@ class BaseCard:
     def __set_source_it_b(self, counters=None, dma=False, fifo_half_full=False,
                           error=False):
         if counters is None:
-            counters = {}
+            counters = ()
+        elif isinstance(counters, dict):
+            counters = [ c for c, trigger in counters.items() if trigger ]
+
         register = 0
-        for counter, trigger in counters.items():
-            if trigger:
-                register |= 1 << (counter-1)
+        for counter in counters:
+            register |= 1 << (counter-1)
         register |= (dma and 1 or 0) << 12
         register |= (fifo_half_full and 1 or 0) << 13
         register |= (error and 1 or 0) << 14
@@ -2867,7 +2869,7 @@ class BaseCard:
             source_bits |= 1 << (source - 1)
         source_bits = (source_bits << shift) | sibling_source_bits
 
-        self.write_reg(latch, source_bits)
+        self.write_reg(latch_str, source_bits)
 
     def set_counters_latch_sources(self, counter_sources):
         """
@@ -3112,6 +3114,7 @@ class BaseCard:
         :param counters: 
             container of counters (starting at 1). It can be any python
             container of integers (tuple, list, set, iterable, even dict)
+        :type counters: container<int>
         """
         register = 0
         for c in counters:
@@ -3126,18 +3129,17 @@ class BaseCard:
             counters which are not given are left unchanged
 
         :param counters:
-            dictionary where key is the counter number (starting at 1) 
-            and value is bool (True means software enable, False means software disable)
-        :type counters: dict<int: bool>
+            container of counters (starting at 1). It can be any python
+            container of integers (tuple, list, set, iterable, even dict)
+        :type counters: container<int>
 
         :raises OSError: in case the operation fails
         """
         register = 0
-        for counter, enable in counters.items():
-            reg = 1 << (counter-1)
-            if not enable:
-                reg = reg << 16
-            register |= reg
+        if isinstance(counters, dict):
+            counters = [c for c, enable in counters.items() if enable]
+        for counter in counters:
+            register |= 1 << (counter-1)
         self.write_reg("SOFT_ENABLE_DISABLE", register)
 
     def enable_counters_software(self, counters):

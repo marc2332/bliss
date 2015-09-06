@@ -1221,7 +1221,20 @@ def CT2_SOFT_LATCH(reg,ctn):
 #CT2_NREGS_CONF_CMPT =                (ct2_reg_size(2, conf_cmpt))
 #CT2_NREGS_COMPARE_CMPT =             (ct2_reg_size(2, compare_cmpt))
 
-#: Access to the Scaler Values FIFO of a Device is provided via the  mmap(2)
+#: Access to the Scaler Values FIFO is provided via the same (p)read(v)(2)
+#: and lseek(2) system calls than the PCI I/O Register Maps, with an offset
+#: just after the second register map
+
+CT2_RW_R1_OFF = 0
+CT2_RW_R2_OFF = 64
+CT2_RW_R1_LEN = CT2_RW_R2_OFF - CT2_RW_R1_OFF
+CT2_RW_R2_LEN = 64
+
+CT2_RW_FIFO_OFF = CT2_RW_R2_OFF + CT2_RW_R2_LEN
+CT2_RW_FIFO_LEN	= 2 * 1024
+
+
+#: Access to the Scaler Values FIFO of a Dev. is also provided via the  mmap(2)
 #: system call on the open file description obtained from an  open(2)  on the
 #: character special file associated with the Device.  The FIFO is mapped
 #: neither for writing nor execution into the mmap Device space embedded
@@ -1849,12 +1862,12 @@ class BaseCard:
     @property
     def fifo(self):
         try:
-            return self.__fifo
+            return self.__fifo_mmap
         except AttributeError:
-            self.__fifo = self.__create_fifo()
-        return self.__fifo
+            self.__fifo_mmap = self.__create_fifo_mmap()
+        return self.__fifo_mmap
 
-    def __create_fifo(self, length=None):
+    def __create_fifo_mmap(self, length=None):
         # remember: need exclusive access to use FIFO
         if not self.has_exclusive_access():
             self.request_exclusive_access()
@@ -1864,7 +1877,7 @@ class BaseCard:
             raise CT2Exception("Cannot memory map FIFO: file descriptor '%s' " \
                                    "does not point to a special character file")
         if length is None:
-            length = 16384 # self.FIFO_SIZE
+            length = self.FIFO_SIZE
         elif length > self.FIFO_SIZE:
             raise CT2Exception("FIFO size exceeds maximum of %d" % self.FIFO_SIZE)
         elif length % CT2_REG_SIZE:
@@ -2021,6 +2034,24 @@ class BaseCard:
         self.__log.debug("write %020s (addr=%06s, value=%010s)", register_name,
                          hex(offset), hex(ivalue))
         return self._write_offset(offset, ivalue)
+
+    def read_fifo(self, nb_events=0, use_mmap=False):
+        etl = self.get_DMA_enable_trigger_latch()
+        nb_counters = etl[1].values().count(True)
+        fifo_status = self.get_FIFO_status()
+        max_events = fifo_status.size / nb_counters
+        if not nb_events or nb_events > max_events:
+            nb_events = max_events
+        read_len = nb_events * nb_counters * CT2_REG_SIZE
+        if use_mmap:
+            buff = self.fifo[:read_len]
+        else:
+            fifo_offset = CT2_RW_FIFO_OFF * CT2_REG_SIZE
+            buff = preadn(self.fileno(), fifo_offset, n=read_len)
+
+        import numpy
+        return numpy.ndarray((nb_events, nb_counters), dtype=numpy.uint32, 
+                             buffer=buff), fifo_status
 
     def software_reset(self):
         """

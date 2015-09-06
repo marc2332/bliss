@@ -70,6 +70,7 @@ static int          ct2_open    ( struct inode *, struct file * );
 static int          ct2_close   ( struct inode *, struct file * );
 
 static ssize_t      ct2_read    ( struct file *, char __user *, size_t, loff_t * );
+static ssize_t      ct2_read_fifo(struct file *, char __user *, size_t, loff_t * );
 static ssize_t      ct2_write   ( struct file *, const char __user *, size_t, loff_t * );
 static loff_t       ct2_llseek  ( struct file *, loff_t, int );
 
@@ -502,6 +503,7 @@ int ct2_probe( struct pci_dev * pci_dev, const struct pci_device_id * id_table )
     const char *        cdev_basename_prefix;
     char                device_name[sizeof(((struct ct2 * )NULL)->cdev.basename)];
     void __iomem *      iomap_ptr;
+    unsigned long       buffer_addr;
     uint8_t             intr_pin;
     size_t              kmalloc_size = sizeof(struct ct2);
     gfp_t               kmalloc_flags = GFP_KERNEL | __GFP_NOWARN;
@@ -775,6 +777,16 @@ int ct2_probe( struct pci_dev * pci_dev, const struct pci_device_id * id_table )
     hfl_const_cast(ct2_reg_t __iomem *, dev->fifo) = (ct2_reg_t __iomem * )iomap_ptr;
     ct2_ktrace(dev, "pci_iomap(CT2_PCI_BAR_FIFO)");
 
+    // [mm/page_alloc.c:__get_free_pages()]
+    buffer_addr = __get_free_pages(GFP_KERNEL, CT2_FIFO_GFP_ORDER);
+    if ( buffer_addr == 0 ) {
+        ct2_fail(dev, "__get_free_pages(CT2_FIFO_GFP_ORDER) = NULL");
+        rv = -ENOMEM;
+        goto err;
+    }
+
+    hfl_const_cast(ct2_reg_t *, dev->fifo_buffer) = (ct2_reg_t * )buffer_addr;
+    ct2_ktrace(dev, "__get_free_pages(CT2_FIFO_GFP_ORDER)");
 
     // Check Low Voltages and Temperatures on the board.  If anything
     // appears to be wrong with the board, we can bail right here and
@@ -955,6 +967,13 @@ void ct2_remove( struct pci_dev * pci_dev )
             // fall through
 
         case DEV_INIT_FIFO_REGION:
+
+            if ( dev->fifo_buffer != NULL ) {
+		unsigned long buffer_addr = (unsigned long) dev->fifo_buffer;
+		// [mm/page_alloc.c:free_pages()]
+		free_pages(buffer_addr, CT2_FIFO_GFP_ORDER);
+                ct2_ktrace(dev, "free_pages(CT2_FIFO_GFP_ORDER)");
+            }
 
             if ( dev->fifo != NULL ) {
                 // [lib/iomap.c:pci_iounmap()]
@@ -1178,6 +1197,10 @@ CT2_RW_R1_LEN, or CT2_RW_R2_LEN are inconsistent with our RW map implementation.
 #define CT2_LONGEST_RREAD_RANGE     (ct2_reg_interval_size(2, sel_filtre_input[0], conf_cmpt[11]))
 #define CT2_LONGEST_RWRITE_RANGE    (ct2_reg_interval_size(2, sel_filtre_input[0], compare_cmpt[11]))
 
+#define CT2_RW_FIFO_START           (CT2_RW_FIFO_OFF * CT2_REG_SIZE)
+#define CT2_RW_FIFO_END             (CT2_RW_FIFO_START + \
+				     CT2_RW_FIFO_LEN * CT2_REG_SIZE)
+
 /**
  * offset_to_baddr_lut_off - compute register file I/O parameters
  * @offset: RW map offset
@@ -1270,6 +1293,12 @@ ssize_t ct2_read( struct file * file,
 
     ct2_mtrace_enter(dev);
 
+    if (hfl_in_interval_ix(loff_t, (*offset), CT2_RW_FIFO_START, 
+			   CT2_RW_FIFO_END) &&
+	hfl_in_interval_ix(loff_t, (*offset + count - 1), CT2_RW_FIFO_START, 
+			   CT2_RW_FIFO_END))
+	return ct2_read_fifo(file, buf, count, offset);
+
     // Assume
     //          ( 0 <= (*offset) ) && ( (*offset) < CT2_RW_RMAP_LEN * CT2_REG_SIZE )
     // holds.
@@ -1347,6 +1376,67 @@ done:
     return rv;
 
 }   // ct2_read()
+
+/**
+ * ct2_read_fifo - Device implementation of (p)read(v)(2) for FIFO area
+ *
+ * Note: Will not check the available words in FIFO to avoid reseting
+ * the error flags. Asume that the user already queried how much
+ * data can be read
+ */
+
+static
+ssize_t ct2_read_fifo( struct file * file,
+		       char __user * buf,
+		       size_t        count,
+		       loff_t *      offset )
+{
+    struct ct2_dcc *        dcc = (struct ct2_dcc * )file->private_data;
+    struct ct2 *            dev = dcc->dev;
+    ct2_reg_t               i, nb_regs = count / CT2_REG_SIZE;
+    ct2_reg_t __iomem *     fifo = dev->fifo;
+    ct2_reg_t *             buffer = dev->fifo_buffer;
+    ssize_t                 rv = 0;
+
+    ct2_mtrace_enter(dev);
+
+    // Device access via DCCs must be serialised across all DCCs.
+    ct2_dccs_sri(dev, rv, { goto done; }, {
+
+        // Reading the FIFO changes the device state
+        if ( !ct2_dcc_may_change_dev_state(dev, dcc) ) {
+            rv = -EACCES;
+            goto ct2_dccs_sri_end;
+        }
+
+        // Copy the data directly from the FIFO to a kernel buffer, 
+	// so we're sure it will not sleep
+	for ( i = 0; i < nb_regs; i++ )
+	    *buffer++ = readl(fifo++);
+    })
+
+    // ..., possibly intercept an EACCES generated inside the critical section, ...
+    if ( rv != 0 )
+        goto done;
+
+    // ... and (again) copy it out into userland.
+    // [include/asm-generic/uaccess.h:copy_to_user()]
+    if ( copy_to_user(buf, dev->fifo_buffer, count) != 0 ) {
+        rv = -EFAULT;
+        goto done;
+    }
+
+    // Return the actual number of bytes read.
+    (*offset) += count;
+    rv = count;
+
+done:
+
+    ct2_mtrace_exit(dev);
+
+    return rv;
+
+}   // ct2_read_fifo()
 
 /**
  * ct2_write - Device implementation of (p)write(v)(2)

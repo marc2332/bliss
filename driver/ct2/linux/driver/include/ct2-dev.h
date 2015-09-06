@@ -73,7 +73,6 @@
 
 #define CT2_AMCC_REG_MAP_LEN                (AMCC_OP_REG_MCSR + 4)
 
-
 /*--------------------------------------------------------------------------*
  *                        CT2 Object Type Definitions                       *
  *--------------------------------------------------------------------------*/
@@ -117,6 +116,9 @@ typedef ct2_reg_dist_t ct2_r1_lut_type[CT2_RW_R1_LEN];
 typedef ct2_reg_dist_t ct2_r2_lut_type[CT2_RW_R2_LEN];
 
 
+#define CT2_FIFO_GFP_ORDER                  1 // 2K * 32-bit = 8K = 2^1 * 4K
+
+
 /*--------------------------------------------------------------------------*
  *                                CT2 Device                                *
  *--------------------------------------------------------------------------*/
@@ -146,6 +148,7 @@ struct ct2 {
     } regs;
 
     ct2_reg_t __iomem * const           fifo;
+    ct2_reg_t *                         fifo_buffer;
 
     struct {
         const char                      basename[CT2_CDEV_NAME_BUF_SIZE];

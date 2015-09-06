@@ -25,12 +25,21 @@ from bliss.controllers.ct2 import P201, Clock, Level, CtConfig, OutputSrc
 from bliss.controllers.ct2 import CtClockSrc, CtGateSrc, CtHardStartSrc, CtHardStopSrc
 
 
+class TestContext:
+    def __init__(self, **kws):
+        self.__dict__.update(kws)
+
 def out(msg=""):
     sys.stdout.write(msg)
     sys.stdout.flush()
 
 
-def prepare(card, counter, value):
+def prepare(context):
+
+    card = context.card
+    counter = context.counter
+    value = context.value
+    acq_len = context.acq_len
 
     # internal clock 100 Mhz
     card.set_clock(Clock.CLK_100_MHz)
@@ -73,7 +82,7 @@ def prepare(card, counter, value):
 
     card.set_interrupts(dma=True, error=True)
 
-    card.set_counters_software_enable({counter: True})
+    card.set_counters_software_enable({counter: True, 11:True, 12: True})
     
     # force creation of a FIFO interface
     fifo = card.fifo
@@ -81,18 +90,8 @@ def prepare(card, counter, value):
     etl = card.get_DMA_enable_trigger_latch()
     nb_counters = etl[1].values().count(True)
 
-    def read_fifo(self, nb_events=0):
-        fifo_status = self.get_FIFO_status()
-        max_events = fifo_status.size / nb_counters
-        if not nb_events or nb_events > max_events:
-            nb_events = max_events
-        buff = self.fifo[:nb_events * nb_counters * ct2.CT2_REG_SIZE]
-        return numpy.ndarray((nb_events, nb_counters), dtype=numpy.uint32, buffer=buff), fifo_status
-
-    card.__class__.read_fifo = read_fifo
-
-    nsec = 10
-    card._fifo_stat = numpy.zeros((nsec*1000000/value,), dtype='uint32')
+    usec = acq_len * 1000000
+    card._fifo_stat = numpy.zeros((int(usec/value),), dtype='uint32')
     card._fifo_stat_index = 0
 
 
@@ -105,11 +104,18 @@ def main():
                         help='counter number', default=1)
     parser.add_argument('--value', type=int, default=1000*1000,
                         help='count until value')
+    parser.add_argument('--acq-len', type=float, default=10,
+                        help='measurement length')
+    parser.add_argument('--use-mmap', type=int, default=0,
+                        help='use mmap(2) to read FIFO')
 
+    
     args = parser.parse_args()
     
     counter = args.counter
     value = args.value
+    acq_len = args.acq_len
+    use_mmap = args.use_mmap
 
     if counter > 9:
         print("Can only use counters 1 to 9")
@@ -130,6 +136,9 @@ def main():
     poll.register(p201, select.EPOLLIN | select.EPOLLHUP | select.EPOLLERR)
     poll.register(sys.stdin, select.EPOLLIN)
 
+    context = TestContext(card=p201, counter=counter, value=value, 
+                          acq_len=acq_len, use_mmap=use_mmap)
+
     stop = False
     loop = 0
     out("Ready to accept commands (start, stop, Ctrl-D to abort!\n> ")
@@ -142,7 +151,7 @@ def main():
                     handle = handle_cmd
                 elif fd == p201.fileno():
                     handle = handle_card
-                result, cont = handle(p201, counter, value, fd, event)
+                result, cont = handle(context, fd, event)
                 if result:
                     stop = True
                     break
@@ -161,7 +170,7 @@ def main():
         p201.software_reset()
 
 
-def handle_cmd(card, counter, value, fd, event):
+def handle_cmd(context, fd, event):
     cmd = os.read(fd, 1024)
     if not cmd:
         print("\rCtrl-D pressed. Bailing out!")
@@ -171,7 +180,8 @@ def handle_cmd(card, counter, value, fd, event):
         return 0, False
     if cmd == 'start':
         print("Software start!")
-        prepare(card, counter, value)
+        prepare(context)
+        card, counter = context.card, context.counter
         card.set_counters_software_start_stop({counter: True})
         return 0, True
     elif cmd == 'stop':
@@ -186,8 +196,9 @@ def handle_cmd(card, counter, value, fd, event):
     return 3, False
 
 
-def handle_card(card, counter, value, fd, event):
+def handle_card(context, fd, event):
     t = ct2.time.monotonic_raw()
+    card = context.card
     if event & (select.EPOLLHUP):
         print("error: epoll hang up event on {0}, bailing out".format(fd))
         return 2, False
@@ -198,7 +209,7 @@ def handle_card(card, counter, value, fd, event):
     (counters, channels, dma, fifo_half_full, error), tstamp = \
         card.acknowledge_interrupt()
 
-    fifo, fifo_status = card.read_fifo()
+    fifo, fifo_status = card.read_fifo(use_mmap=context.use_mmap)
 
     if dma:
         d = card._fifo_stat

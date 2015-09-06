@@ -699,7 +699,16 @@ struct ct2_r2 {
  *--------------------------------------------------------------------------*/
 
 /**
- * Access to the Scaler Values FIFO of a Device is provided via the  mmap(2)
+ * Access to the Scaler Values FIFO is provided via the same (p)read(v)(2)
+ * and lseek(2) system calls than the PCI I/O Register Maps, with an offset
+ * just after the second register map
+ */
+
+#define CT2_RW_FIFO_OFF		(CT2_RW_R2_OFF + CT2_RW_R2_LEN)
+#define CT2_RW_FIFO_LEN		(2 * 1024)
+
+/**
+ * Access to the Scaler Values FIFO of a Dev. is also provided via the  mmap(2)
  * system call on the open file description obtained from an  open(2)  on the
  * character special file associated with the Device.  The FIFO is mapped
  * neither for writing nor execution into the mmap Device space embedded

@@ -56,8 +56,8 @@ class P201AcquisitionDevice(AcquisitionDevice):
     def __init__(self, device, nb_points=1, acq_expo_time=1.,
                  master="internal", channels=None):
         self.__channels = channels or dict()
-        AcquisitionDevice.__init__(self, device, device.__class__.__name__, "zerod")
-        self._trigger_type = AcquisitionDevice.HARDWARE
+        AcquisitionDevice.__init__(self, device, device.__class__.__name__, "zerod",
+                                   trigger_type = AcquisitionDevice.HARDWARE)
 
     def prepare(self):
         device = self.device

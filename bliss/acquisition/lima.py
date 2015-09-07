@@ -8,16 +8,18 @@ class LimaAcquisitionDevice(AcquisitionDevice):
       self.parameters = locals().copy()
       del self.parameters['self']
       del self.parameters['device']
-      AcquisitionDevice.__init__(self, device, device.user_detector_name, "lima")
-      self._reading_task = None
-
+      trigger_type = AcquisitionDevice.SOFTWARE if 'INTERNAL' in acq_trigger_mode else AcquisitionDevice.HARDWARE
+      AcquisitionDevice.__init__(self, device, device.user_detector_name, "lima",
+                                 trigger_type = trigger_type)
+     
+              
   def prepare(self):
       for param_name, param_value in self.parameters.iteritems():
           setattr(self.device, param_name, param_value)
       self.device.prepareAcq()
 
   def start(self):
-      if 'INTERNAL' in self.parameters["acq_trigger_mode"]:
+      if self._trigger_type == AcquisitionDevice.SOFTWARE:
           return
       self.trigger()
 
@@ -26,6 +28,7 @@ class LimaAcquisitionDevice(AcquisitionDevice):
 
   def trigger(self):
       self.device.startAcq()
+
   def reading(self):
       while self.device.acq_status.lower() == 'running':
           dispatcher.send("new_ref", self, { "type":"lima/image", "last_image_acquired":self.device.last_image_acquired })

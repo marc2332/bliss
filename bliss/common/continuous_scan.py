@@ -43,8 +43,12 @@ class AcquisitionMaster(object):
         raise NotImplementedError
     def start(self):
         raise NotImplementedError
+    def _start(self):
+      return self.start()
     def trigger_ready(self):
         return True
+    def _trigger(self):
+        return self.trigger()
     def trigger(self):
         raise NotImplementedError
     def trigger_slaves(self):
@@ -65,11 +69,15 @@ class AcquisitionMaster(object):
             self.__triggers.append((slave, gevent.spawn(slave._trigger)))
 
 class AcquisitionDevice(object):
-    def __init__(self, device, name, type):
+    HARDWARE,SOFTWARE = range(2)
+    def __init__(self, device, name, data_type,
+                 trigger_type = SOFTWARE):
         self.__device = device
         self.__name = name
-        self.__type = type
+        self.__type = data_type
         self._reading_task = None
+        self._trigger_type = trigger_type
+
     @property
     def device(self):
         return self.__device
@@ -87,6 +95,13 @@ class AcquisitionDevice(object):
         raise NotImplementedError
     def start(self):
         raise NotImplementedError
+
+    def _start(self):
+      if self._trigger_type == AcquisitionDevice.HARDWARE:
+        self.start()
+        self._reading_task = gevent.spawn(self.reading)
+        dispatcher.send("start", self)
+
     def trigger_ready(self):
         return True
     def _check_ready(self):
@@ -158,7 +173,7 @@ class AcquisitionChain(object):
 
     
   def start(self):
-    self._execute("start")
+    self._execute("_start")
     for acq_dev in (x for x in self._tree.expand_tree() if isinstance(x,AcquisitionDevice)):
         acq_dev.wait_reading()
         dispatcher.send("end", acq_dev)

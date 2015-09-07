@@ -57,6 +57,7 @@ class P201AcquisitionDevice(AcquisitionDevice):
                  master="internal", channels=None):
         self.__channels = channels or dict()
         AcquisitionDevice.__init__(self, device, device.__class__.__name__, "zerod")
+        self._trigger_type = AcquisitionDevice.HARDWARE
 
     def prepare(self):
         device = self.device
@@ -88,9 +89,6 @@ class P201AcquisitionDevice(AcquisitionDevice):
 
     def start(self):
         self.device.set_counters_software_start(self.__channels.values())
-        #to be integered into framework
-        dispatcher.send("start", self)
-        self._reading_task = gevent.spawn(self.reading)
 
     def reading(self):
         device = self.device

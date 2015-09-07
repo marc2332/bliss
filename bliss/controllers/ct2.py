@@ -96,7 +96,7 @@ if not hasattr(time, "clock_gettime"):
     time.monotonic = functools.partial(time.clock_gettime, time.CLOCK_MONOTONIC_RAW)
 time.monotonic_raw = functools.partial(time.clock_gettime, time.CLOCK_MONOTONIC_RAW)
 
-def preadn(fd, offset, n=1):
+def preadn(fd, offset, n=CT2_REG_SIZE):
     """
     :param fd: fileno
     :type fd: int
@@ -110,9 +110,9 @@ def preadn(fd, offset, n=1):
         err = ctypes.get_errno()
         if err != 0:
             ctypes.set_errno(0)
-            raise OSError("pread error: %s (%d): %s" % (errno.errorcode(err),
+            raise OSError("pread error: %s (%d): %s" % (errno.errorcode[err],
                                                         err,
-                                                        errno.strerror(err)))
+                                                        os.strerror(err)))
         else:
             raise OSError("pread error")
     elif read_n != n:
@@ -120,7 +120,7 @@ def preadn(fd, offset, n=1):
                       .format(read_n, n))
     return buff[:]
     
-pread = functools.partial(preadn, n=1)
+pread = functools.partial(preadn, n=CT2_REG_SIZE)
 
 
 def pwrite(fd, buff, offset):
@@ -130,9 +130,9 @@ def pwrite(fd, buff, offset):
         err = ctypes.get_errno()
         if err != 0:
             ctypes.set_errno(0)
-            raise OSError("pwrite error: %s (%d): %s" % (errno.errorcode(err),
+            raise OSError("pwrite error: %s (%d): %s" % (errno.errorcode[err],
                                                          err,
-                                                         errno.strerror(err)))
+                                                         os.strerror(err)))
         else:
             raise OSError("pwrite error")
     elif write_n != length:
@@ -2039,7 +2039,8 @@ class BaseCard:
         etl = self.get_DMA_enable_trigger_latch()
         nb_counters = etl[1].values().count(True)
         fifo_status = self.get_FIFO_status()
-        max_events = fifo_status.size / nb_counters
+        data_len = min(fifo_status.size, self.FIFO_SIZE / CT2_REG_SIZE)
+        max_events = data_len / nb_counters
         if not nb_events or nb_events > max_events:
             nb_events = max_events
         read_len = nb_events * nb_counters * CT2_REG_SIZE

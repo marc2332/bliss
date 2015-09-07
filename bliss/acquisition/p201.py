@@ -47,6 +47,14 @@ class P201AcquisitionMaster(AcquisitionMaster):
         else:
             raise NotImplementedError()
 
+    def trigger(self) :
+        #@todo to be integrate into framework
+        tasks = []
+        for slave in self.slaves:
+            tasks.append(gevent.spawn(slave._start))
+        gevent.joinall(tasks)
+        self.start()
+
     def start(self):
         if self.__master.lower() == "internal":
             self.device.set_counters_software_start((11, 12))

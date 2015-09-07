@@ -29,7 +29,7 @@ class P201AcquisitionMaster(AcquisitionMaster):
                                  gate_source=CtGateSrc.GATE_CMPT,
                                  hard_start_source=CtHardStartSrc.SOFTWARE,
                                  hard_stop_source=CtHardStopSrc.CT_12_EQ_CMP_12,
-                                 reset_from_hard_soft_stop=False,
+                                 reset_from_hard_soft_stop=True,
                                  stop_from_hard_stop=True)
             device.set_counter_config(12, ct_config)
 

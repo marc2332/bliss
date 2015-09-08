@@ -145,6 +145,8 @@ def main():
                         help='number of points', default=10)
     parser.add_argument('--acq-time', type=float, default=1,
                         help='acquisition time')
+    parser.add_argument('--nb-acq', type=int, default=1,
+                        help='number of acquisitions')
 
     args = parser.parse_args()
 
@@ -153,6 +155,7 @@ def main():
 
     nb_points = args.nb_points
     acq_time = args.acq_time
+    nb_acq = args.nb_acq
 
     device = P201()
 
@@ -160,50 +163,12 @@ def main():
     prepare_master(device, acq_time, nb_points)
     prepare_slaves(device, acq_time, nb_points, channels, accumulate=False)
 
-    channelid2name = [(nb, name) for name, nb in channels.iteritems()]
-    channelid2name += [(12, "point_nb")]
-
-    # force to create a fifo before
-    fifo = device.fifo
-
-    start_time = time.time()
-
-    # start counting...
-    device.set_counters_software_start(channels.values() + [11, 12])
-
-    stop = False
     loop = 0
     try:
-        while not stop:
+        while loop < nb_acq:
+            print("Acquisition #{0}".format(loop))
+            go(device, channels)
             loop += 1
-            read, write, error = events = select((device,), (), (device,))
-            if read:
-                (counters, channels, dma, fifo_half_full, error), tstamp = \
-                    device.acknowledge_interrupt()
-                if 12 in counters:
-                    stop = True
-                
-                if dma:
-                    fifo_status = device.get_FIFO_status()
-                    buff = fifo[:fifo_status.size * ct2.CT2_REG_SIZE]
-                    data = numpy.ndarray(fifo_status.size, dtype=numpy.uint32, buffer=buff)
-                    print(str(data))#, to_str(device.get_latches_values()))
-                    data.shape = -1, len(channelid2name)
-                    ch_data = {}
-                    for i, (ch_id, ch_name) in enumerate(channelid2name):
-                        ch_data[ch_name] = data[:,i]
-                    new_event = {"type": "0D", "channel_data": ch_data}
-                    #dispatcher.send("new_data", self, new_event)
-                    #print("new event: {0}".format(new_event))
-            if stop:
-                print("Acquisition finished. Bailing out!")
-        
-        fifo_status = device.get_FIFO_status()
-        buff = fifo[:fifo_status.size * ct2.CT2_REG_SIZE]
-        data = numpy.ndarray(fifo_status.size, dtype=numpy.uint32, buffer=buff)
-        print(data)
-        print(data.shape)
-
     except KeyboardInterrupt:
         print("\rCtrl-C pressed. Bailing out!")
     except:
@@ -213,8 +178,44 @@ def main():
         device.disable_interrupts()
         device.reset()
         device.software_reset()
-        device.fifo.close()
         device.relinquish_exclusive_access()
+
+def go(device, channels):
+    channelid2name = [(nb, name) for name, nb in channels.iteritems()]
+    channelid2name += [(12, "point_nb")]
+
+    start_time = time.time()
+
+    # start counting...
+    # slaves start all
+    device.set_counters_software_start(channels.values())
+
+    # master start all
+    device.set_counters_software_start([11, 12])
+
+    stop = False
+    loop = 0
+
+    while not stop:
+        loop += 1
+        read, write, error = events = select((device,), (), (device,))
+        if read:
+            (counters, channels, dma, fifo_half_full, error), tstamp = \
+                device.acknowledge_interrupt()
+            if 12 in counters:
+                stop = True
+            if dma:
+                fifo, fifo_status = device.read_fifo()
+                print(str(fifo))#, to_str(device.get_latches_values()))
+                fifo.shape = -1, len(channelid2name)
+                ch_data = {}
+                for i, (ch_id, ch_name) in enumerate(channelid2name):
+                    ch_data[ch_name] = fifo[:,i]
+                new_event = {"type": "0D", "channel_data": ch_data}
+                #dispatcher.send("new_data", self, new_event)
+                #print("new event: {0}".format(new_event))
+        if stop:
+            print("Acquisition finished. Bailing out!")
 
 
 if __name__ == "__main__":

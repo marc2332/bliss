@@ -12,13 +12,13 @@ class P201AcquisitionMaster(AcquisitionMaster):
         AcquisitionMaster.__init__(self, device, device.__class__.__name__, "zerod")
         self.__nb_points = nb_points
         self.__acq_expo_time = acq_expo_time
-        self.__master = master
+        self.__master = master.lower()
 
     def prepare(self) :
         device = self.device
 
-        if self.__master.lower() == "internal":
-            ct_config = CtConfig(clock_source=CtClockSrc.CLK_100_MHz,
+        if self.__master == "internal":
+            ct_config = CtConfig(clock_source=CtClockSrc.CLK_1_MHz,
                                  gate_source=CtGateSrc.CT_12_GATE_ENVELOP,
                                  hard_start_source=CtHardStartSrc.CT_12_START,
                                  hard_stop_source=CtHardStopSrc.CT_11_EQ_CMP_11,
@@ -33,7 +33,7 @@ class P201AcquisitionMaster(AcquisitionMaster):
                                  stop_from_hard_stop=True)
             device.set_counter_config(12, ct_config)
 
-            device.set_counter_comparator_value(11, int(self.__acq_expo_time * 1E8))
+            device.set_counter_comparator_value(11, int(self.__acq_expo_time * 1E6))
             device.set_counter_comparator_value(12, self.__nb_points)
 
             # dma transfer and error will trigger DMA; also counter 12 stop
@@ -56,7 +56,7 @@ class P201AcquisitionMaster(AcquisitionMaster):
         self.start()
 
     def start(self):
-        if self.__master.lower() == "internal":
+        if self.__master == "internal":
             self.device.set_counters_software_start((11, 12))
 
 class P201AcquisitionDevice(AcquisitionDevice):
@@ -64,13 +64,17 @@ class P201AcquisitionDevice(AcquisitionDevice):
     def __init__(self, device, nb_points=1, acq_expo_time=1.,
                  master="internal", channels=None):
         self.__channels = channels or dict()
+        self.__all_channels = dict(channels)
+        self.__all_channels.update({"timer": 11, "point_nb": 12})
+        self.__master = master.lower()
         AcquisitionDevice.__init__(self, device, device.__class__.__name__, "zerod",
                                    trigger_type = AcquisitionDevice.HARDWARE)
 
     def prepare(self):
         device = self.device
-        active_channels = self.__channels.values()
-        for ch_nb in active_channels:
+        channels = self.__channels.values()
+        all_channels = self.__all_channels.values()
+        for ch_nb in channels:
             ct_config = self.device.get_counter_config(ch_nb)
             ct_config.gate_source = CtGateSrc.CT_12_GATE_ENVELOP
             ct_config.hard_start_source=CtHardStartSrc.CT_12_START
@@ -80,25 +84,21 @@ class P201AcquisitionDevice(AcquisitionDevice):
             device.set_counter_config(ch_nb, ct_config)
 
         # counter 11 will latch all active counters/channels
-        latch_sources = dict([(ct, 11) for ct in active_channels + [12]])
+        latch_sources = dict([(ct, 11) for ct in all_channels])
         device.set_counters_latch_sources(latch_sources)
 
-        # counter 12 counter-to-latch signal will trigger DMA; at each DMA
-        # trigger, all active counters (+ counter 12) are stored to FIFO
-        # (counter 11 cannot be the one to trigger because it is not
-        # being latched)
-        device.set_DMA_enable_trigger_latch((12,), active_channels + [12])
-        device.set_counters_software_enable(active_channels)
-
-        # make sure there is a FIFO before starting
-        self.__fifo = device.fifo
+        # counter 11 counter-to-latch signal will trigger DMA; at each DMA
+        # trigger, all active counters (including counters 11 (timer)
+        # and 12 (point_nb)) are stored to FIFO
+        device.set_DMA_enable_trigger_latch((11,), all_channels)
+        device.set_counters_software_enable(channels)
 
     def start(self):
         self.device.set_counters_software_start(self.__channels.values())
 
     def reading(self):
         device = self.device
-        chid2name = sorted(((nb,name) for name,nb in self.__channels.iteritems()))
+        chid2name = sorted(((nb, name) for name, nb in self.__all_channels.iteritems()))
         stop = False
         while not stop:
             read, write, error = select((self.device,),(), (self.device))

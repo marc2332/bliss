@@ -199,7 +199,7 @@ def test_emotion_p201():
   p201_device.set_clock(Clock.CLK_100_MHz)
   p201_master = P201AcquisitionMaster(p201_device,nb_points=10,acq_expo_time=1e-3)
   p201_counters = P201AcquisitionDevice(p201_device,nb_points=10,acq_expo_time=1e-3,
-                                        channels={"c0":1,"c1":2,"timer":11})
+                                        channels={"c0":1,"c1":2})
   chain.add(emotion_master, p201_master)
   chain.add(p201_master,p201_counters)
   chain._tree.show()

@@ -75,8 +75,6 @@ class P201AcquisitionDevice(AcquisitionDevice):
             ct_config.gate_source = CtGateSrc.CT_12_GATE_ENVELOP
             ct_config.hard_start_source=CtHardStartSrc.CT_12_START
             ct_config.hard_stop_source=CtHardStopSrc.CT_11_EQ_CMP_11
-            ct_config.hard_start_source=CtHardStartSrc.SOFTWARE
-            ct_config.hard_stop_source=CtHardStopSrc.SOFTWARE
             ct_config.reset_from_hard_soft_stop=True
             ct_config.stop_from_hard_stop=False
             device.set_counter_config(ch_nb, ct_config)

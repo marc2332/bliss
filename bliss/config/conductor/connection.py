@@ -310,7 +310,7 @@ class Connection(object) :
                 while data:
                     try:
                         messageType,message,data = protocol.unpack_message(data)
-                    except ValueError:
+                    except protocol.IncompleteMessage:
                         break
                     try:
                         #print 'rx',messageType
@@ -378,7 +378,7 @@ class Connection(object) :
                             try:
                                 messageType,message,data = protocol.unpack_message(data)
                                 self._lock_mgt(queue,messageType,message)
-                            except ValueError:
+                            except protocol.IncompleteMessage:
                                 pass
         except:
             sys.excepthook(*sys.exc_info())

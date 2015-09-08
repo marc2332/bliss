@@ -27,6 +27,9 @@ CONFIG = 1
 
 (CONFIG_GET_DB_TREE, CONFIG_GET_DB_TREE_FAILED, CONFIG_GET_DB_TREE_OK) = (86,87,88)
 
+class IncompleteMessage(Exception):
+    pass
+
 def message(cmd, contents = ''):
     return '%s%s' % (struct.pack('<ii', cmd, len(contents)),contents)
 
@@ -35,12 +38,11 @@ def unpack_header(header) :
 
 def unpack_message(s):
     if(len(s) < HEADER_SIZE):
-        raise ValueError
+        raise IncompleteMessage
 
     messageType, messageLen = struct.unpack('<ii', s[:HEADER_SIZE])
     if len(s)<HEADER_SIZE+messageLen:
-        print("message error type:%d ; message size: %d" % (messageType, messageLen))
-        raise ValueError
+        raise IncompleteMessage
     message = s[HEADER_SIZE:HEADER_SIZE+messageLen]
     remaining = s[HEADER_SIZE+messageLen:]
     return messageType, message, remaining

@@ -424,7 +424,7 @@ def _client_rx(client):
                             _move_config_path(c_id,message)
                         else:
                             _send_unknow_message(c_id)
-                    except ValueError:
+                    except (ValueError, protocol.IncompleteMessage):
                         sys.excepthook(*sys.exc_info())
                         break
                     except:

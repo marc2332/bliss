@@ -7,10 +7,8 @@ counter 12 counts the number of points. Reading from FIFO!
 import os
 import sys
 import time
-import pprint
 import logging
 import argparse
-import datetime
 
 import numpy
 

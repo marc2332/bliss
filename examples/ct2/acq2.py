@@ -111,13 +111,13 @@ def prepare_slaves(device, acq_time, nb_points, channels, accumulate=False):
         device.set_counter_config(ch_nb, ct_config)
 
     # counter 11 will latch all active counters/channels
-    latch_sources = dict([(ct, 11) for ct in channel_nbs + [12]])
+    latch_sources = dict([(ct, 11) for ct in channel_nbs + [11, 12]])
     device.set_counters_latch_sources(latch_sources)
 
     # one of the active counter-to-latch signal will trigger DMA; at each DMA
     # trigger, all active counters (+ counter 12) are stored to FIFO
     # (counter 11 cannot be the one to trigger because it is not being latched)
-    device.set_DMA_enable_trigger_latch((12,), channel_nbs + [12])
+    device.set_DMA_enable_trigger_latch((11,), channel_nbs + [11, 12])
 
     device.set_counters_software_enable(channel_nbs)
 
@@ -182,7 +182,7 @@ def main():
 
 def go(device, channels):
     channelid2name = [(nb, name) for name, nb in channels.iteritems()]
-    channelid2name += [(12, "point_nb")]
+    channelid2name += [(11, "integ_time"), (12, "point_nb")]
 
     start_time = time.time()
 

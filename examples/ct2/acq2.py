@@ -48,14 +48,14 @@ def configure(device, channels):
     # acquisition
     for _, ch_nb in channels.items():
         ct_config = CtConfig(clock_source=CtClockSrc(ch_nb % 5),
-                             gate_source=CtGateSrc.GATE_CMPT,
                              # anything will do for the remaining fields. It
                              # will be properly setup in the acquisition slave 
                              # setup
+                             gate_source=CtGateSrc.CT_11_GATE_ENVELOP,
                              hard_start_source=CtHardStartSrc.SOFTWARE, 
-                             hard_stop_source=CtHardStopSrc.SOFTWARE,
-                             reset_from_hard_soft_stop=False, 
-                             stop_from_hard_stop=False)
+                             hard_stop_source=CtHardStopSrc.CT_12_EQ_CMP_12,
+                             reset_from_hard_soft_stop=True, 
+                             stop_from_hard_stop=True)
         device.set_counter_config(ch_nb, ct_config)
 
     # TODO: Set input and output channel configuration (TTL/NIM level, 50ohm,
@@ -105,9 +105,9 @@ def prepare_slaves(device, acq_time, nb_points, channels, accumulate=False):
     for ch_name, ch_nb in channels.iteritems():
         ct_config = device.get_counter_config(ch_nb)
         ct_config = CtConfig(clock_source=ct_config.clock_source,
-                             gate_source=ct_config.gate_source,
+                             gate_source=CtGateSrc.CT_12_GATE_ENVELOP,
                              hard_start_source=CtHardStartSrc.CT_12_START,
-                             hard_stop_source=hard_stop,
+                             hard_stop_source=CtHardStopSrc.CT_11_EQ_CMP_11,
                              reset_from_hard_soft_stop=True, 
                              stop_from_hard_stop=False)
         device.set_counter_config(ch_nb, ct_config)

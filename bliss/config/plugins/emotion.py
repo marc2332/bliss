@@ -3,8 +3,6 @@ import os
 import sys
 import pkgutil
 
-import flask.json
-
 from jinja2 import Environment, FileSystemLoader
 
 from bliss.config.motors.beacon_backend import create_objects_from_config_node, create_object_from_cache
@@ -225,6 +223,8 @@ def controller_edit(cfg, request):
         return flask.json.dumps(result)
 
 def axis_edit(cfg, request):
+    import flask.json
+
     if request.method == "POST":
         form = dict([(k,v) for k,v in request.form.items() if v])
         update_server = form.pop("__update_server__") == 'true'

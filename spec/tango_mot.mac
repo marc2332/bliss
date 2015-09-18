@@ -452,8 +452,8 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
             return (tango_mot_status(motnum))
         }
         else if ((key != "axis_name") && (key != "use_spec_config")) {
-            printf("dou tu sors toi ??? motnum=%d, key=%s, action=%s, p1=%s, p2=%s \n", \
-                   motnum, key, action, p1, p2)
+#            printf("dou tu sors toi ??? motnum=%d, key=%s, action=%s, p1=%s, p2=%s \n", \
+#                   motnum, key, action, p1, p2)
         }
     }
     else if (action == "set"){

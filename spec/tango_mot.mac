@@ -642,11 +642,9 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
             # useful for the user than the stack itself.
             if(_ret) {
                 local _msg
-
                 _msg = sprintf("Unable to launch motion on motor %s", _mot_mne)
-                tango_mot_err(_msg)
+                _tango_mot_error_desc(_msg)
                 tango_mot_print_status(motnum)
-                #_tango_mot_error_stack(_mot_mne, _dev, _attr)
                 exit
             }
         }
@@ -751,6 +749,15 @@ def _tango_mot_error_stack(motmne, devname, attr_cmd) '{
     printf ("TANGO_ERR_MSG = \"%s\" \n\n", TANGO_ERR)
     print TANGO_ERR_STACK
     tty_cntl("me")
+}'
+
+def _tango_mot_error_desc(msg) '{
+    tango_mot_msg(msg)
+    for (item in TANGO_ERR_STACK) {
+        if (index(item, "desc")) {
+            tango_mot_msg(TANGO_ERR_STACK[item])
+        }
+    }
 }'
 
 

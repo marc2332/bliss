@@ -360,7 +360,7 @@ class Container(object):
         self.node = _get_or_create_node(self.__name, "container", parent=self.root_node)
         
 class ScanRecorder(object):
-    def __init__(self, name="scan", parent=None, scan_info=None, writer = None):
+    def __init__(self, name="scan", parent=None, scan_info=None, writer=None):
         self.root_node = parent.node if parent is not None else None
         self._nodes = dict()
         self._writer = writer

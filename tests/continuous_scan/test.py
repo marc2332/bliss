@@ -193,9 +193,9 @@ def test_hdf5_lima():
   lima_acq_dev = LimaAcquisitionDevice(lima_dev, **params)
   chain.add(emotion_master, lima_acq_dev)
 
-  hdf5_writer = hdf5.Writer(root_path = '/tmp')
-  toto = Container('toto')
-  dm = ScanRecorder('test_acq', toto, writer=hdf5_writer)
+  file_organizer = Hdf5Organizer(root_path = '/tmp')
+  toto = Container('toto',file_organizer = file_organizer)
+  dm = ScanRecorder('test_acq', toto)
 
   scan = Scan(chain, dm)
   scan.prepare()

@@ -7,16 +7,15 @@
 
 from gevent.select import select
 from bliss.common.event import dispatcher
-
 from bliss.controllers.ct2 import CtConfig, CtClockSrc, CtGateSrc, CtHardStartSrc, CtHardStopSrc
-
-from bliss.common.continuous_scan import AcquisitionDevice, AcquisitionMaster
+import numpy
+from bliss.common.continuous_scan import AcquisitionDevice, AcquisitionMaster, AcquisitionChannel
 import gevent
 
 class P201AcquisitionMaster(AcquisitionMaster):
     #master could be cN for external channels or internal for internal counter
     def __init__(self,device, nb_points=1, acq_expo_time=1., master="internal"):
-        AcquisitionMaster.__init__(self, device, device.__class__.__name__, "zerod")
+        AcquisitionMaster.__init__(self, device, device.__class__.__name__, "zerod", nb_points)
         self.__nb_points = nb_points
         self.__acq_expo_time = acq_expo_time
         self.__master = master.lower()
@@ -74,8 +73,9 @@ class P201AcquisitionDevice(AcquisitionDevice):
         self.__all_channels = dict(channels)
         self.__all_channels.update({"timer": 11, "point_nb": 12})
         self.__master = master.lower()
-        AcquisitionDevice.__init__(self, device, device.__class__.__name__, "zerod",
+        AcquisitionDevice.__init__(self, device, device.__class__.__name__, "zerod", nb_points,
                                    trigger_type = AcquisitionDevice.HARDWARE)
+        self.channels.extend((AcquisitionChannel(name, numpy.uint32, (1,)) for name in self.__all_channels))
 
     def prepare(self):
         device = self.device

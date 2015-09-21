@@ -354,62 +354,74 @@ class DataNode(object):
 
 
 class Container(object):
-    def __init__(self, name, parent=None):
+    def __init__(self, name, parent=None) :
         self.root_node = parent.node if parent is not None else None
         self.__name = name
         self.node = _get_or_create_node(self.__name, "container", parent=self.root_node)
-
-
+        
 class ScanRecorder(object):
-    def __init__(self, name="scan", parent=None, scan_info=None):
-        self.__path = None
+    def __init__(self, name="scan", parent=None, scan_info=None, writer = None):
         self.root_node = parent.node if parent is not None else None
-        self.nodes = dict()
-	
+        self._nodes = dict()
+        self._writer = writer
+
         if parent:
             key = self.root_node.db_name() 
             run_number = client.get_cache(db=1).hincrby(key, "%s_last_run_number" % name, 1)
         else:
             run_number = client.get_cache(db=1).incrby("%s_last_run_number" % name, 1)
 	self.__name = '%s_%d' % (name, run_number)
-        self.node = _create_node(self.__name, "scan", parent=self.root_node)
+        self._node = _create_node(self.__name, "scan", parent=self.root_node)
       
     @property
     def name(self):
         return self.__name
     @property
-    def path(self):
-        return self.__path
-    def set_path(self, path):
-        self.__path = path
+    def writer(self):
+        return self._writer
+    @writer.setter
+    def writer(self, writer):
+        self._writer = writer
+    @property
+    def node(self):
+        return self._node
+    @property
+    def nodes(self):
+        return self._nodes
 
     def _acq_device_event(self, event_dict=None, signal=None, sender=None):
         print 'received', signal, 'from', sender, ":", event_dict
         if signal == 'end':
-            for node in self.nodes.itervalues():
+            for node in self._nodes.itervalues():
                 node.set_ttl()
-            self.node.set_ttl()
-        node = self.nodes[sender]
+            self._node.set_ttl()
+        node = self._nodes[sender]
         node.store(signal, event_dict) 
 
     def prepare(self, scan_info, devices_tree):
-        parent_node = self.node
+        parent_node = self._node
         prev_level = 1
-        self.nodes = dict()
-        
+        self._nodes = dict()
+
         for dev in list(devices_tree.expand_tree(mode=Tree.WIDTH))[1:]:
             dev_node = devices_tree.get_node(dev)
             level = devices_tree.depth(dev_node)
             if prev_level != level:
                 prev_level = level
-                parent_node = self.nodes[dev_node.bpointer]
+                parent_node = self._nodes[dev_node.bpointer]
 
             if isinstance(dev,AcquisitionDevice):
                 acq_device = dev
-                self.nodes[acq_device] = _create_node(acq_device.name, acq_device.type, parent_node) 
+                self._nodes[acq_device] = _create_node(acq_device.name, acq_device.type, parent_node) 
                 for signal in ('start', 'end', 'new_ref','new_data'):
                     dispatcher.connect(self._acq_device_event, signal, acq_device)
             if isinstance(dev,AcquisitionMaster):
                 master = dev
-                self.nodes[master] = _create_node(master.name, master.type, parent_node)
-        print self.nodes 
+                self._nodes[master] = _create_node(master.name, master.type, parent_node)
+        print self._nodes 
+
+        if self._writer:
+            self._writer.prepare(self, scan_info, devices_tree)
+
+
+

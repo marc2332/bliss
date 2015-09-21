@@ -5,7 +5,7 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from bliss.common.continuous_scan import AcquisitionDevice, AcquisitionMaster
+from bliss.common.continuous_scan import AcquisitionDevice, AcquisitionMaster, AcquisitionChannel
 from bliss.common.event import dispatcher
 import gevent
 import time
@@ -16,14 +16,21 @@ class LimaAcquisitionDevice(AcquisitionDevice):
       del self.parameters['self']
       del self.parameters['device']
       trigger_type = AcquisitionDevice.SOFTWARE if 'INTERNAL' in acq_trigger_mode else AcquisitionDevice.HARDWARE
-      AcquisitionDevice.__init__(self, device, device.user_detector_name, "lima",
+      AcquisitionDevice.__init__(self, device, device.user_detector_name, "lima", acq_nb_frames,
                                  trigger_type = trigger_type)
-     
               
   def prepare(self):
       for param_name, param_value in self.parameters.iteritems():
           setattr(self.device, param_name, param_value)
       self.device.prepareAcq()
+      signed, depth, w, h = self.device.image_sizes
+      dtype = {(0,2): numpy.uint16, 
+               (1,2): numpy.int16, 
+               (0,4): numpy.uint32, 
+               (1,4): numpy.int32,
+               (0,1): numpy.uint8,
+               (1,1): numpy.int8 }
+      self.channels = [ AcquisitionChannel("image", dtype[(signed, depth)], (h,w)) ] 
 
   def start(self):
       if self._trigger_type == AcquisitionDevice.SOFTWARE:

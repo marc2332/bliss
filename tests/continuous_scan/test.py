@@ -27,14 +27,22 @@ try:
   import bliss 
   from PyTango.gevent import DeviceProxy
 except ImportError:
-  pass
+  sys.excepthook(*sys.exc_info())
 
 #from PyTango import DeviceProxy
 from bliss.common.event import dispatcher
 from bliss.config.conductor import client
-#P201
-from bliss.acquisition.p201 import P201AcquisitionMaster,P201AcquisitionDevice
-from bliss.controllers.ct2 import P201, Clock
+try:
+  #P201
+  from bliss.acquisition.p201 import P201AcquisitionMaster,P201AcquisitionDevice
+  from bliss.controllers.ct2 import P201, Clock
+except ImportError:
+  sys.excepthook(*sys.exc_info())
+
+try:
+  from bliss.data.writer import hdf5
+except ImportError:
+  sys.excepthook(*sys.exc_info())
 
 def test():
   chain = AcquisitionChain()
@@ -152,11 +160,47 @@ def test_dm_lima():
              "acq_trigger_mode": "INTERNAL_TRIGGER_MULTI" }
   lima_acq_dev = LimaAcquisitionDevice(lima_dev, **params)
   chain.add(emotion_master, lima_acq_dev)
+
   toto = Container('toto')
   dm = ScanRecorder('test_acq', toto)
+
   scan = Scan(chain, dm)
   scan.prepare()
   scan.start()
+
+def test_hdf5_lima():
+  config_xml = """
+<config>
+  <controller class="mockup">
+    <axis name="m0">
+      <steps_per_unit value="10000"/>
+      <!-- degrees per second -->
+      <velocity value="10"/>
+      <acceleration value="100"/>
+    </axis>
+  </controller>
+</config>"""
+
+  emotion.load_cfg_fromstring(config_xml)
+  m0 = emotion.get_axis("m0")
+
+  chain = AcquisitionChain()
+  emotion_master = SoftwarePositionTriggerMaster(m0, 5, 10, 5, time=5)
+  lima_dev = DeviceProxy("id30a3/limaccd/simulation")
+  params = { "acq_nb_frames": 5,
+             "acq_expo_time": 3/10.0,
+             "acq_trigger_mode": "INTERNAL_TRIGGER_MULTI" }
+  lima_acq_dev = LimaAcquisitionDevice(lima_dev, **params)
+  chain.add(emotion_master, lima_acq_dev)
+
+  hdf5_writer = hdf5.Writer(root_path = '/tmp')
+  toto = Container('toto')
+  dm = ScanRecorder('test_acq', toto, writer=hdf5_writer)
+
+  scan = Scan(chain, dm)
+  scan.prepare()
+  scan.start()
+    
 
 def test_p201():
   #import logging; logging.basicConfig(level=logging.DEBUG)

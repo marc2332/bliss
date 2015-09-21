@@ -11,26 +11,40 @@ from .event import dispatcher
 import time
 
 class Scan(object):
-  def __init__(self, acq_chain, dm, scan_info=None):
-    self.scan_dm = dm
-    self.acq_chain = acq_chain
-    self.scan_info = scan_info if scan_info else dict()
+    def __init__(self, acq_chain, dm, scan_info=None):
+        self.scan_dm = dm
+        self.acq_chain = acq_chain
+        self.scan_info = scan_info if scan_info else dict()
 
-  def prepare(self):
-    self.acq_chain.prepare(self.scan_dm, self.scan_info)
+    def prepare(self):
+        self.acq_chain.prepare(self.scan_dm, self.scan_info)
 
-  def start(self):
-    self.acq_chain.start()
+    def start(self):
+        self.acq_chain.start()
+
+
+class AcquisitionChannel(object):
+    def __init__(self, name, dtype, shape):
+        self.__name = name
+        self.dtype = dtype
+        self.shape = shape
+
+    @property
+    def name(self):
+        return self.__name
+      
 
 
 class AcquisitionMaster(object):
     #SAFE, FAST = (0, 1)
-    def __init__(self, device, name, type): #, trigger_mode=AcquisitionMaster.FAST):
+    def __init__(self, device, name, type, npoints=None): #, trigger_mode=AcquisitionMaster.FAST):
         self.__device = device
         self.__name = name
         self.__type = type
         self.__slaves = list()
         self.__triggers = list()
+        self.__channels = list()
+        self.__npoints = npoints
         #self.__trigger_mode = trigger_mode
     @property
     def device(self):
@@ -44,6 +58,20 @@ class AcquisitionMaster(object):
     @property
     def slaves(self):
         return self.__slaves
+    @property
+    def channels(self):
+        return self.__channels
+    @channels.setter
+    def set_channels(self, channels_list):
+        if not isinstance(channels_list, list):
+            raise TypeError("A channels list is expected.")
+        self.__channels = channels_list
+    @property
+    def npoints(self):
+        return self.__npoints
+    #@npoints.setter
+    #def set_npoints(self, npoints):
+    #    self.__npoints = npoints
     def _prepare(self):
         return self.prepare()
     def prepare(self):
@@ -77,13 +105,14 @@ class AcquisitionMaster(object):
 
 class AcquisitionDevice(object):
     HARDWARE,SOFTWARE = range(2)
-    def __init__(self, device, name, data_type,
-                 trigger_type = SOFTWARE):
+    def __init__(self, device, name, data_type, npoints=None, trigger_type = SOFTWARE):
         self.__device = device
         self.__name = name
         self.__type = data_type
         self._reading_task = None
         self._trigger_type = trigger_type
+        self.__channels = list()
+        self.__npoints = npoints
 
     @property
     def device(self):
@@ -94,6 +123,15 @@ class AcquisitionDevice(object):
     @property
     def type(self):
         return self.__type
+    @property
+    def channels(self):
+        return self.__channels
+    @property
+    def npoints(self):
+        return self.__npoints
+    #@npoints.setter
+    #def set_npoints(self, npoints):
+    #    self.__npoints = npoints
     def _prepare(self):
         if not self._check_ready():
             raise RuntimeError("Last reading task is not finished.")

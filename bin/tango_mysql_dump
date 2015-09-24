@@ -16,13 +16,13 @@ def main(host = None,user = None,passwd = None):
 
         node = server2nodes.get(server)
         if node is None:
-            node = static.Config.Node(config,filename = 'tango/%s.yml' % server.replace('/','_'))
+            node = static.Node(config,filename = 'tango/%s.yml' % server.replace('/','_'))
             exe_name,personal = server.split('/')
             node['server'] = exe_name
             node['personal_name'] = personal
             server2nodes[server] = node
         
-        device_node = static.Config.Node(config,parent = node)
+        device_node = static.Node(config,parent = node)
         device_node['tango_name'] = name
         device_node['class'] = klass
         device2nodes[name] = device_node
@@ -40,7 +40,7 @@ def main(host = None,user = None,passwd = None):
             continue
         properties = device_node.get('properties')
         if properties is None:
-            properties = static.Config.Node(config,parent = device_node)
+            properties = static.Node(config,parent = device_node)
             device_node['properties'] = properties
 
         values = properties.get(name)

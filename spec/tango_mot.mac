@@ -226,12 +226,13 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
         _ctrl_ds_name = tango_mot_ADDR
         tango_mot_dbg(sprintf("CTRL DS NAME = %s", _ctrl_ds_name))
 
+        # Get axis name from spec config:
+        # Use "axis_name" field if present, otherwise, use motor mnemonic.
         _axis_name = motor_par(motnum, "axis_name")
-
-        if (_axis_name == 0){
+        if (_axis_name == 0 ){
             _axis_name = _mot_mne
-            _msg = sprintf("motor %d : parameter \"axis_name\" is empty (will use mnemonic : %s).", \
-                           motnum, _mot_mne )
+            _msg = sprintf("motor %s (no%d) : \"axis_name\" parameter is empty. Spec will use it.s mnemonic (%s)", \
+                           _mot_mne, motnum, _mot_mne )
             tango_mot_msg(_msg)
         }
         else{
@@ -399,8 +400,7 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
 
     # Returns the list of non standard motor parameters implemented.
     if ( key == "?" && action == "get") {
-        return ("ZZZZZZ")
-        # return("power, axisstatus, apply_config, settings_to_config, closed_loop")
+        return("power, axisstatus, apply_config, settings_to_config, closed_loop")
     }
 
 
@@ -459,8 +459,8 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
 
         local _cl_state
 
-        if (action=="set"){
-            print "oula"
+        if (action == "set"){
+            print "not yet implemented..."
         }
 
         _cl_state = tango_io(_axis_ds_name, "closed_loop")
@@ -468,13 +468,12 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
     }
 
 
-    if (action=="get") {
+    if (action == "get") {
         if ( key == "axisstatus"){
             return (tango_mot_status(motnum))
         }
         else {
-            #printf("dou tu sors toi ??? motnum=%d, key=%s, action=%s, p1=%s, p2=%s \n", \
-            #       motnum, key, action, p1, p2)
+            # Other keys can be used by SPEC.
         }
     }
     else if (action == "set"){
@@ -547,6 +546,8 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
     else{
         tango_mot_dbg(sprintf ("tango_mot_par()--action \"%s\" is not recognized. (key=%s) ", action, key))
     }
+
+    return(0)
 }'
 
 

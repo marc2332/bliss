@@ -231,17 +231,20 @@ class IcePAP(Controller):
         if discod != None:
             self.icestate.set(disstr)
 
-        if(libicepap.status_warning(status)):
-            warn_str = self.libgroup.warning(axis.libaxis)
-            warn_dsc = "warning condition: \n" + warn_str
-            self.icestate.create_state("WARNING",  warn_dsc)
-            self.icestate.set("WARNING")
+        if not self.icestate.MOVING:
+          # it seems it is not safe to call warning and/or alarm commands
+          # while homing motor, so let's not ask if motor is moving
+          if(libicepap.status_warning(status)):
+              warn_str = self.libgroup.warning(axis.libaxis)
+              warn_dsc = "warning condition: \n" + warn_str
+              self.icestate.create_state("WARNING",  warn_dsc)
+              self.icestate.set("WARNING")
 
-        alarm_str = self.libgroup.alarm(axis.libaxis)
-        if alarm_str != 'NO':
-            alarm_dsc = "alarm condition: " + alarm_str
-            self.icestate.create_state("ALARMDESC",  alarm_dsc)
-            self.icestate.set("ALARMDESC")
+          alarm_str = self.libgroup.alarm(axis.libaxis)
+          if alarm_str != 'NO':
+              alarm_dsc = "alarm condition: " + alarm_str
+              self.icestate.create_state("ALARMDESC",  alarm_dsc)
+              self.icestate.set("ALARMDESC")
 
         return self.icestate
 
@@ -291,13 +294,14 @@ class IcePAP(Controller):
             axis_list.append(motion.axis.libaxis)
         self.libgroup.stop(axis_list)
 
-    def home_search(self, axis):
+    def home_search(self, axis, switch):
         """Launch a homing sequence"""
-        # TODO: MP17Nov14: missing argin on which home+/home- to look for
-        cmd = "HOME +1"
+        cmd = "HOME " + ("+1" if switch > 0 else "-1")
         # TODO: MP17Nov14: missing argin on position to set at home
         # TODO: MP17Nov14: missing home search in IcePAP library
         self.libgroup.ackcommand(cmd, axis.libaxis)
+        # IcePAP status is not immediately MOVING after home search command is sent
+        time.sleep(0.2)
 
     def home_state(self, axis):
         """Returns the current axis state while homing"""

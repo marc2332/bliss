@@ -328,15 +328,18 @@ class DeepDevice(object):
 
   #
   #
-  def __wr(self, str_cmd):
+  def __wr(self, str_cmd, has_reply):
     if self._to_be_flushed:
       self.flush()
 
+    cmd = str_cmd + "\n"
+
     # send the command passed as string
     log.trace("===> [%s]"%str_cmd)
-    self.comm_dev.puts(str_cmd + "\n")
-
-
+    if has_reply:
+        return self.comm_dev.request(cmd)
+    else:
+        self.comm_dev.puts(cmd)
 
 
   #
@@ -438,79 +441,16 @@ class DeepDevice(object):
     return bin_block
 
 
-
-
-  # 
   #
-  def __rd_line(self):
-    # by default empty return
-    ans = ""
-
-    # wait for the answer
-    tim = time.time()
-    c = ""
-    while True:
-        c = self.comm_dev.getchar()
-        if c == COMM_EOL:
-            break
-        else:
-            ans = ans + c
-
-        #if (time.time()-tim) >= COMM_TIMEOUT:
-        #  raise IOError, "Timeout waiting for device answer"
-
-    return ans
-
-
-
+  #
 
 
   #
   #
-  def __rd_ascii(self, prefix):
-    ans = self.__rd_line()
-
-    # Be tolerant with IcePAP because some commands are not protocol compliant.
-    # Seen with MCPU1 firmware <=1.07 on "client not granted" error
-    if not ans.startswith(prefix):
-      if not self._icepapmode:
-        msg  = "Missing prefix \"%s\" in device answer: \"%s\""%(prefix,ans)
-        log.error(msg, exception=IOError)
-
-      # some commands answer the prefix but wihout the address field
-      prefix = prefix.lstrip(string.digits+':'+'*')
-      if ans.startswith(prefix):
-        ans = ans[len(prefix):].strip()
-      else:
-        ans = ans.strip()
-    else: 
-      ans = ans[len(prefix):].strip()
-
-
-    # Multiline answer
-    if ans == COMM_MLI:    
-      l_list = []
-      while True:
-        line = self.__rd_line()
-        if line == COMM_MLI:
-          ans = COMM_EOL.join(l_list)
-          break
-        else:
-          l_list.append(line)
-
-    log.trace("<=== [%s]"%ans)
-
-    return ans 
-
-
-
-  #
-  #
-  def __command(self, str_cmd, in_data = None, chkanswer = False, lock=Lock()):
+  def __command(self, str_cmd, in_data = None, chkanswer = False): #, lock=Lock()):
 
     # remove any useless ending white spaces and eols
     cmd = str_cmd.strip(" \n\r") 
-
 
     # some parsing to guess what to do
     prefix, cmd_type, chkanswer = self.__cmd_type(cmd, chkanswer)
@@ -518,13 +458,13 @@ class DeepDevice(object):
     # by default no binary data returned
     ans_data = None
 
-    with lock:
+    if True:
               #     minimum check if binary download is requested
 	    if in_data == None:
 	      if "bin" in cmd_type and not "req" in cmd_type:
 		self._syntax_error("binary data is missing")
 	      else:
-		self.__wr(cmd)
+		reply = self.__wr(cmd, "req" in cmd_type or "ack" in cmd_type)
 	    else:
 	      if not "bin" in cmd_type:
 		self._syntax_error("downloading binary with a non binary command")
@@ -536,20 +476,21 @@ class DeepDevice(object):
 		  self.comm_dev.set_timeout(COMM_LONG_TIMEOUT)
 
 	    if "req" in cmd_type or "ack" in cmd_type:
-	      ans = self.__rd_ascii(prefix)
-	      if chkanswer:
-		if ans.startswith("ERROR"):
-		   raise DeviceError(self, ans.replace("ERROR ", "", 1))
-
-	      if "bin" in cmd_type:
-		if "req" in cmd_type:
-		  ans_data = self.__rd_bin()
-		  return ans, ans_data
-		else:
-		  self.comm_dev.set_timeout()
-		  return ans
-	      else:
-		return ans
+              try:
+	          ans = reply.get() #self.__rd_ascii(prefix)
+              except RuntimeError, msg:
+	          if chkanswer:
+		     raise DeviceError(self, msg)
+              else: 
+	          if "bin" in cmd_type:
+		    if "req" in cmd_type:
+		      ans_data = self.__rd_bin()
+		      return ans, ans_data
+		    else:
+		      self.comm_dev.set_timeout()
+		      return ans
+	          else:
+		    return ans
 
   #
   #

@@ -274,7 +274,7 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
         tango_io(_axis_ds_name, "On")
         if (TANGO_ERR){
             _tango_mot_error_stack(_mot_mne, _dev, _attr)
-            exit
+            return ".error."
         }
 
         # Queries Bliss DS to know the state of the axis.
@@ -396,7 +396,13 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
     local _axis_ds_name
 
     _mot_mne = motor_mne(motnum)
+    if (key == "dev_name")
+        return
+    _axis_ds_name = motor_par(motnum, "dev_name")
 
+    _msg = sprintf ("---tango_mot_par(motnum=%s key=\"%s\", action=\"%s\", p1=\"%s\", p2=\"%s\")", \
+                    motnum, key, action, p1, p2)
+    tango_mot_dbg(_msg)
 
     # Returns the list of non standard motor parameters implemented.
     if ( key == "?" && action == "get") {
@@ -428,7 +434,6 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
     }
 
     if (key == "apply_config") {
-
         TANGO_ERR = -1
         tango_io(_axis_ds_name, "ApplyConfig")
         if (TANGO_ERR){
@@ -442,7 +447,6 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
     }
 
     if (key == "settings_to_config") {
-
         TANGO_ERR = -1
         tango_io(_axis_ds_name, "SettingsToConfig")
         if (TANGO_ERR){
@@ -456,7 +460,6 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
     }
 
     if (key == "closed_loop"){
-
         local _cl_state
 
         if (action == "set"){
@@ -560,6 +563,7 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
 
     _mot_mne = motor_mne(motnum)
 
+    tango_mot_dbg(sprintf ("tango_mot_cmd(motnum=%s cmd=%s p1=%s p2=%s)", motnum, cmd, p1, p2))
 
     if(motnum == ".."){
         # <cmd> command applying to all motors.
@@ -584,6 +588,7 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
 
             _step_size = motor_par(motnum, "step_size")
             _steps = _pos * _step_size
+            tango_mot_dbg(sprintf( "cmd=position mot=%s pos=%s  ss=%s steps=%s", _mot_mne, _pos , _step_size, _steps))
 
             return (_pos)
         }
@@ -611,6 +616,7 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
                 exit
             }
 
+            tango_mot_dbg(sprintf( "tango_mot_cmd get_status State=%s  (%s)" , _state, tango_state_to_str(_state)))
 
             # tango_state : -1   "FAULT"
             # tango_state : 0    "ON"
@@ -663,11 +669,9 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
             # useful for the user than the stack itself.
             if(_ret) {
                 local _msg
-
                 _msg = sprintf("Unable to launch motion on motor %s", _mot_mne)
-                tango_mot_err(_msg)
+                _tango_mot_error_desc(_msg)
                 tango_mot_print_status(motnum)
-                #_tango_mot_error_stack(_mot_mne, _dev, _attr)
                 exit
             }
         }
@@ -772,6 +776,15 @@ def _tango_mot_error_stack(motmne, devname, attr_cmd) '{
     printf ("TANGO_ERR_MSG = \"%s\" \n\n", TANGO_ERR)
     print TANGO_ERR_STACK
     tty_cntl("me")
+}'
+
+def _tango_mot_error_desc(msg) '{
+    tango_mot_msg(msg)
+    for (item in TANGO_ERR_STACK) {
+        if (index(item, "desc")) {
+            tango_mot_msg(TANGO_ERR_STACK[item])
+        }
+    }
 }'
 
 

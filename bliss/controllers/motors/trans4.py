@@ -173,14 +173,3 @@ class trans4(CalcController):
         # print _real_dict
         return _real_dict
 
-    def read_acctime(self, axis):
-        return 0
-
-    def set_acctime(self, axis, new_acctime):
-        print "not implemented. "
-
-    def read_acceleration(self, axis):
-        return 0
-
-    def set_acceleration(self, axis, new_acc):
-        print "not implemented. "

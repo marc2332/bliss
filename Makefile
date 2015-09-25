@@ -10,8 +10,6 @@
 
 BLISSADM_PATH=/users/blissadm
 
-MOD_PATH=${BLISSADM_PATH}/python/bliss_modules
-
 CONFIG_PATH=${BLISSADM_PATH}/local/userconf/bliss
 
 

@@ -299,7 +299,7 @@ class Mockup(Controller):
     """
     HOME and limits search
     """
-    def home_search(self, axis):
+    def home_search(self, axis, switch):
         self._axis_moves[axis]["start_pos"] = self._axis_moves[axis]["end_pos"]
         self._axis_moves[axis]["end_pos"] = 0
         self._axis_moves[axis]["delta"] = 0

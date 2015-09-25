@@ -348,7 +348,7 @@ class Axis(object):
                   raise RuntimeError(str(state))
                 break
             self._update_settings(state)
-            time.sleep(polling_time)
+            gevent.sleep(polling_time)
 
         if motion.backlash:
             # axis has moved to target pos - backlash;
@@ -537,22 +537,21 @@ class Axis(object):
             if wait:
                 self.wait_move()
 
-    def home(self, wait=True):
+    def home(self, switch=1, wait=True):
         self._check_ready()
 
-        self.__move_task = self._do_home(wait=False)
+        self.__move_task = self._do_home(switch, wait=False)
         self._set_moving_state()
         self.__move_task._being_waited = wait
         self.__move_task.link(self._set_move_done)
-        #gevent.sleep(0)
 
         if wait:
             self.wait_move()
 
     @task
-    def _do_home(self):
+    def _do_home(self, switch):
         with error_cleanup(self._do_stop):
-            self.__controller.home_search(self)
+            self.__controller.home_search(self, switch)
             while True:
                 state = self.__controller.home_state(self)
                 if state != "MOVING":
@@ -628,22 +627,6 @@ class AxisRef(object):
     @property
     def config(self):
         return self.__config
-
-
-def add_property(inst, name, method):
-    '''
-    Adds a property to a class instance.
-    Property must be added to the CLASS.
-    Used by AxisState to create states.
-    '''
-    cls = type(inst)
-
-    if not hasattr(cls, '__perinstance'):
-        cls = type(cls.__name__, (cls,), {})
-        cls.__perinstance = True
-        inst.__class__ = cls
-
-    setattr(cls, name, property(method))
 
 
 class AxisState(object):
@@ -745,7 +728,10 @@ class AxisState(object):
                 self._state_desc[state_name] = state_desc
 
             # Makes state accessible via a class property.
-            add_property(self, state_name, lambda _: state_name in self._current_states)
+            # NO: we can't, because the objects of this class will become unpickable,
+            # as the class changes... 
+            # Error message is: "Can't pickle class XXX: it's not the same object as XXX"
+            #add_property(self, state_name, lambda _: state_name in self._current_states)
 
     """
     Flags ON a given state.

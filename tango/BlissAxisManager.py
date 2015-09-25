@@ -215,12 +215,12 @@ class BlissAxis(PyTango.Device_4Impl):
         self.attr_Offset_read = 0.0
         self.attr_Tolerance_read = 0.0
         self.attr_PresetPosition_read = 0.0
+        self.attr_FirstVelocity_read = 0.0
 
         """
         self.attr_Steps_read = 0
         self.attr_Position_read = 0.0
         self.attr_Measured_Position_read = 0.0
-        self.attr_FirstVelocity_read = 0.0
         self.attr_Home_side_read = False
         """
 
@@ -472,10 +472,13 @@ class BlissAxis(PyTango.Device_4Impl):
     def read_FirstVelocity(self, attr):
         self.debug_stream("In read_FirstVelocity()")
         attr.set_value(self.attr_FirstVelocity_read)
+        #attr.set_value(self.axis.FirstVelocity())
 
     def write_FirstVelocity(self, attr):
         self.debug_stream("In write_FirstVelocity()")
-        # data = attr.get_write_value()
+        data = attr.get_write_value()
+        self.attr_FirstVelocity_read = data
+        # self.axis.FirstVelocity(data)
 
     def read_Home_side(self, attr):
         self.debug_stream("In read_Home_side()")
@@ -655,6 +658,7 @@ class BlissAxis(PyTango.Device_4Impl):
         argout = list()
 
         for _cmd in _cmd_list:
+            self.debug_stream("Custom command : %s" % _cmd)
             argout.append( json.dumps(_cmd))
 
         return argout
@@ -1144,7 +1148,6 @@ def main():
                         # Creates functions to read and write settings.
                         def read_custattr(self, attr, _axis=_axis, _attr_name=_attr_name):
                             _val = _axis.get_setting(_attr_name)
-                            print "in read_%s %s (%s)" % (_attr_name, _val, _axis.name())
                             attr.set_value(_val)
                         new_read_attr_method = types.MethodType(read_custattr, new_axis_class,
                                                                 new_axis_class.__class__)
@@ -1152,7 +1155,6 @@ def main():
 
                         def write_custattr(self, attr, _axis=_axis, _attr_name=_attr_name):
                             data = attr.get_write_value()
-                            print "in write_%s %s (%s)" % (_attr_name, data, _axis.name())
                             _axis.set_setting(_attr_name, data)
 
                         new_write_attr_method = types.MethodType(write_custattr, new_axis_class,

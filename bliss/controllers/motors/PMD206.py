@@ -90,12 +90,14 @@ class PMD206(Controller):
         Opens a single communication socket to the controller for all 1..6 axes.
         """
         self.sock = tcp.Socket(self.host, 9760)
+        print "socket open", self.sock
 
     def finalize(self):
         """
         Closes the controller socket.
         """
         self.sock.close()
+        print "socket close", self.sock
 
     def initialize_axis(self, axis):
         """
@@ -108,12 +110,13 @@ class PMD206(Controller):
 
         # Stores one axis to talk to the controller.
         if axis.channel == 1:
-            print "AX CH =", axis.channel
             self.ctrl_axis = axis
+            elog.debug("AX CH =%r" % axis.channel)
 
         # Adds new axis oject methods.
         add_axis_method(axis, self.park_motor, types_info=("None", "None"))
         add_axis_method(axis, self.unpark_motor, types_info=("None", "None"))
+        add_axis_method(axis, self.raw_write_read_axis, types_info=(str, str))
 
     def initialize_encoder(self, encoder):
         encoder.channel = encoder.config.get("channel", int)
@@ -376,25 +379,23 @@ class PMD206(Controller):
         # PC: don't know how to send a broadcast command to controller, not axis
         # intercept it here ...
         # put 0 instead of channel
+        elog.debug("in send(%r)" % cmd)
         broadcast_command = cmd[:4] in ["CC=4", "CC=5"]
         if broadcast_command:
-            print "BROADCAST COMMAND "
+            elog.debug("BROADCAST COMMAND ")
             _prefix = "PM%d%d" % (1, 0)
         else:
             _prefix = "PM%d%d" % (1, axis.channel)
 
         _cmd = _prefix + cmd + "\r"
-
         _t0 = time.time()
-
         _ans = self.sock.write_readline(_cmd, eol='\r')
-
-        # print "send(%s) returns : %s " % (_cmd, _ans)
+        elog.debug("send(%s) returns : %s " % (_cmd, _ans))
 
         set_command = cmd[:3] in ["DR=", "CS=", "TP=", "TR=", "RS="]
 
         if set_command:
-            print "SET COMMAND "
+            elog.debug("SET COMMAND ")
             if _ans != _cmd:
                 pass
                 # print "oh oh set command not answered correctly ?"
@@ -517,3 +518,6 @@ class PMD206(Controller):
 
     def raw_write_read(self, cmd):
         return self.send(self.ctrl_axis, cmd)
+
+    def raw_write_read_axis(self, axis, cmd):
+        return self.send(axis, cmd)

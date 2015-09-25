@@ -77,13 +77,13 @@ class BlissAxisManager(PyTango.Device_4Impl):
                 if "bliss_" in dev_name:
                     self.axis_dev_list.append(dev)
 
-        # build the BlissAxisManager State from states of BlissAxis devices.
+        # Builds the BlissAxisManager State from states of BlissAxis devices.
         _bliss_working = True
         _bliss_moving = False
         for dev in self.axis_dev_list:
             _axis_state = dev.get_state()
 
-            _axis_on = (_axis_state == PyTango.DevState.ON)
+            _axis_on = (_axis_state == PyTango.DevState.ON or _axis_state == PyTango.DevState.OFF)
             _axis_moving = (_axis_state == PyTango.DevState.MOVING)
 
             _axis_working = _axis_on or _axis_moving
@@ -271,6 +271,8 @@ class BlissAxis(PyTango.Device_4Impl):
                 self.set_state(PyTango.DevState.ON)
             elif _state.MOVING:
                 self.set_state(PyTango.DevState.MOVING)
+            elif _state.OFF:
+                self.set_state(PyTango.DevState.OFF)
             else:
                 self.set_state(PyTango.DevState.FAULT)
 

@@ -253,8 +253,8 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
             return ".error."
         }
         else{
-            printf("Motor \"%s\" linked to Tango EMotion axis : %s \n",   \
-                   _mot_mne, _axis_ds_name)
+            tango_mot_dbg(sprintf("Motor \"%s\" linked to Tango EMotion axis : %s ", \
+                                  _mot_mne, _axis_ds_name))
         }
 
         # Registers axis Tango DS name in parameters of the motor.
@@ -271,6 +271,10 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
         # Try to switch power on.
         TANGO_ERR = -1
         tango_io(_axis_ds_name, "On")
+        if (TANGO_ERR){
+            _tango_mot_error_stack(_mot_mne, _dev, _attr)
+            return ".error."
+        }
 
         # Queries Bliss DS to know the state of the axis.
         local _state

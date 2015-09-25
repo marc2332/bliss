@@ -254,7 +254,9 @@ class Mockup(Controller):
     def set_off(self, axis):
         self._hw_status = "OFF"
 
-    
+    """
+    Hard limits
+    """
     def _check_hw_limits(self, axis):
         ll, hl = self.__hw_limit
         pos = self.read_position(axis)
@@ -293,6 +295,9 @@ class Mockup(Controller):
             self._axis_moves[axis]["end_pos"] = self.read_position(axis)
             self._axis_moves[axis]["end_t"] = 0
 
+    """
+    HOME and limits search
+    """
     def home_search(self, axis):
         self._axis_moves[axis]["start_pos"] = self._axis_moves[axis]["end_pos"]
         self._axis_moves[axis]["end_pos"] = 0
@@ -362,6 +367,7 @@ class Mockup(Controller):
     def custom_send_command(self, axis, value):
         print "command=", value
 
+    # Types by default
     def custom_command_no_types(self, axis):
         print "print with no types"
 

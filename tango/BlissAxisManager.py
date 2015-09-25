@@ -367,7 +367,7 @@ class BlissAxis(PyTango.Device_4Impl):
         _duration = time.time() - _t
 
         if _duration > 0.01:
-            print "BlissAxisManager.py : {%s} read_Measured_Position : duration seems too long : %5.3g ms" % \
+            print "BlissAxisManager.py : {%s} read_Measured_Position : duration seems long : %5.3g ms" % \
                 (self._ds_name, _duration * 1000)
 
     def read_Acceleration(self, attr):

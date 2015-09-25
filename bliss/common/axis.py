@@ -589,6 +589,9 @@ class Axis(object):
                 time.sleep(0.02)
 
     def settings_to_config(self, velocity=True, acceleration=True, limits=True):
+        """
+        Saves settings (velo acc limits) into config (XML file or beacon YML).
+        """
         if velocity:
             self.__config.set('velocity', self.velocity())
         if acceleration:
@@ -601,6 +604,9 @@ class Axis(object):
             self.__config.save()
 
     def apply_config(self):
+        """
+        Apply configuration values to settings (ie: reset axis)
+        """
         self.config.reload()
 
         self.velocity(self.velocity(from_config=True))

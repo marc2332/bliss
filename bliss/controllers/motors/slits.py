@@ -46,23 +46,19 @@ class Slits(CalcController):
     def __init__(self, *args, **kwargs):
         CalcController.__init__(self, *args, **kwargs)
 
-        print "elf.slit_type = %s" % self.config.get("slit_type")
 
     def initialize_axis(self, axis):
         CalcController.initialize_axis(self, axis)
 
-        add_axis_method(axis, self.command_perso)
-
-    def command_perso(self, axis):
-        pass
 
     def calc_from_real(self, positions_dict):
         log.info("[SLITS] calc_from_real()")
         log.info("[SLITS]\treal: %s" % positions_dict)
 
         calc_dict = dict()
+        slit_type = self.config.get("slit_type", default="both")
 
-        if self.config.get("slit_type") not in ['vertical']:
+        if slit_type not in ['vertical']:
             calc_dict.update(
                 { "hoffset":
                   (positions_dict["back"] - positions_dict["front"]) / 2.0,
@@ -70,7 +66,7 @@ class Slits(CalcController):
                   positions_dict["back"] + positions_dict["front"]
                   } )
 
-        if self.config.get("slit_type") not in ['horizontal']:
+        if slit_type not in ['horizontal']:
             calc_dict.update(
                 { "voffset":
                   (positions_dict["up"] - positions_dict["down"]) / 2.0,

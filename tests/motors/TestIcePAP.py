@@ -45,7 +45,7 @@ config_xml = """
             <steps_per_unit value="2000"/>
             <backlash       value="0.01"/>
             <velocity       value="2500"/>   // unit is mm/sec
-            <acceleration   value="10"/>     // unit is mm/sec2
+            <acceleration   value="10"/>   // unit is mm/sec
         </axis>
 
         <axis name="mymot2">
@@ -53,7 +53,7 @@ config_xml = """
             <steps_per_unit value="2000"/>
             <backlash       value="0.01"/>
             <velocity       value="2500"/>   // unit is mm/sec
-            <acceleration   value="10"/>     // unit is mm/sec2
+            <acceleration   value="10"/>   // unit is mm/sec
         </axis>
 
         <encoder name="myenc">

@@ -635,6 +635,21 @@ class BlissAxis(PyTango.Device_4Impl):
 
         return self.kontroler.raw_write_read(argin)
 
+    def CtrlPosition(self):
+        """ Returns raw axis position read by controller.
+
+        :param argin: None
+        :type: PyTango.DevVoid
+        :return: answer from controller.
+        :rtype: PyTango.DevFloat """
+        self.debug_stream("In CtrlPosition()")
+
+        return self.axis.read_position()
+
+    def SyncHard(self):
+        self.debug_stream("In SyncHard()")
+        return self.axis.sync_hard()
+
     def WaitMove(self):
         """ Waits end of last motion
 
@@ -674,16 +689,15 @@ class BlissAxis(PyTango.Device_4Impl):
 
     def SettingsToConfig(self):
         """
-        bla..
+        Saves settings in configuration file (YML or XML)
         """
         self.axis.settings_to_config()
 
     def ApplyConfig(self):
         """
-        bla..
+        Reloads configuration and apply it.
         """
         self.axis.apply_config()
-
 
 
 class BlissAxisClass(PyTango.DeviceClass):
@@ -733,6 +747,13 @@ class BlissAxisClass(PyTango.DeviceClass):
         [[PyTango.DevString, "Raw command to be send to the axis. Be carefull!"],
          [PyTango.DevString, "Answer returned by the controller"],
          {'Display level': PyTango.DispLevel.EXPERT, }],
+        'CtrlPosition':
+        [[PyTango.DevVoid, ""],
+         [PyTango.DevFloat, "Controller raw position (used to manage discrepency)"],
+         {'Display level': PyTango.DispLevel.EXPERT, }],
+        'SyncHard':
+        [[PyTango.DevVoid, "none"],
+         [PyTango.DevVoid, "none"]],
         'WaitMove':
         [[PyTango.DevVoid, "none"],
          [PyTango.DevVoid, "none"]],
@@ -1125,7 +1146,7 @@ def main():
                     elog.debug("   %s (in: %s, %s) (out: %s, %s)" % (fname, t1, tin, t2, tout))
 
                 """
-                SETTINGS AS ATTRIBUTES.
+                CUSTOM SETTINGS AS ATTRIBUTES.
                 """
                 elog.debug(" BlissAxisManager.py : %s : -------------- SETTINGS -----------------" % axis_name)
 

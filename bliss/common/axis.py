@@ -179,7 +179,7 @@ class Axis(object):
             except NotImplementedError:
                 curr_pos = self._hw_position()
 
-            if self.no_offset: 
+            if self.no_offset:
                 # change user pos (keep offset = 0)
                 self._position(new_dial)
             else:
@@ -243,7 +243,7 @@ class Axis(object):
             if self.is_moving:
                 return AxisState("MOVING")
             state = self.settings.get_from_channel('state')
-       
+
         if state is None:
             # really read from hw
             state = self.__controller.state(self)
@@ -251,6 +251,9 @@ class Axis(object):
 
     def get_info(self):
         return self.__controller.get_info(self)
+
+    def sync_hard(self):
+        self._update_settings()
 
     def velocity(self, new_velocity=None, from_config=False):
         """

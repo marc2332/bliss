@@ -604,12 +604,21 @@ class Axis(object):
 
     def apply_config(self):
         """
-        Apply configuration values to settings (ie: reset axis)
+        Applies configuration values to settings (ie: reset axis)
         """
         self.config.reload()
 
-        self.velocity(self.velocity(from_config=True))
-        self.acceleration(self.acceleration(from_config=True))
+        # Applies velocity and acceleration only if possible.
+        # Try to execute <config_name> function to check if axis supports it.
+        for config_param in ['velocity', 'acceleration']:
+            rw_function = getattr(self, config_param)
+            try:
+                rw_function(rw_function(from_config=True))
+            except (NotImplementedError, KeyError):
+                elog.debug("'%s' for '%s' is not implemented" % (config_param, self.name))
+            else:
+                elog.debug("set '%s' for '%s' done." % (config_param, self.name))
+
         self.limits(*self.limits(from_config=True))
 
 

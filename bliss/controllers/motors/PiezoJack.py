@@ -1,4 +1,5 @@
 import time
+from math import cos, radians
 from bliss.controllers.motor import Controller
 from bliss.common import log as elog
 from bliss.controllers.motor import add_axis_method
@@ -9,13 +10,11 @@ from bliss.common.task_utils import *
 Bliss controller for a piezo jack.
 
 Unite an Icepap Stepper motor with a Physik Instrumente E712 axis.
-This will make a PiezoJack, which share one capacitive sensor. The sensor
-is read via the PI E712.
-
+This will make a PiezoJack, which share one capacitive sensor. The
+sensor is read via the PI E712.
 
 Holger Witsch ESRF BLISS
 Oct 2014
-
 
 This config example needs elaborating !!!!
 
@@ -23,15 +22,28 @@ Still in progess, please be patient
 """
 
 
-class PiezoSize():
+#                                      PiezoJack
+#    flexor                           /
+#    0----------|---------------- \ |/_
+#              CC                  \
+#                                   \
+#
+#    dist flexer / captor = 28mm
+#    dist flexor / piezo application point = 82mm
+#    angle : 26 deg.
+#
 
+class PiezoSize():
+    """
+    Piezo characteristics.
+    """
     def __init__(self, length, band):
-        self.length = length                      # microns (15)
-        self.band = band                          # microns (4)
-        self.middle = self.length / 2             # microns
-        self.low = self.middle - (self.band / 2)  # microns
-        self.high = self.middle + (self.band / 2) # microns
-        self.initial_voltage = 50                 # Volt
+        self.length = length                        # microns (15)
+        self.band = band                            # microns (11)
+        self.middle = self.length / 2.0             # microns (7.5)
+        self.low = self.middle - (self.band / 2.0)  # microns (2)
+        self.high = self.middle + (self.band / 2.0) # microns (13)
+        self.middle_voltage = 50                   # Volts
 
 
 class PiezoJack(Controller):
@@ -39,26 +51,50 @@ class PiezoJack(Controller):
     def __init__(self, name, config, axes, encoders):
         Controller.__init__(self, name, config, axes, encoders)
 
+        # *Analog* limits of linear use of capacitive sensor.
         self.TADmin = self.config.get("TADmin", int, default = 150000)
         self.TADmax = self.config.get("TADmax", int, default = 700000)
 
-        self.factor = 0
-        self.offset = 0
-        self.__move_task = None
+        self.factor = 0  # conversion factor from TNS to microns.
+
+        self._move_task = None
 
         length = self.config.get("PiezoLength", float, 15)  # microns
         band = self.config.get("PiezoBand", float, 4)       # microns
         self._PiezoSize = PiezoSize(length, band)
         self._piezo_settle_sleep = 1  # seconds
-        self._icepap_retries = 4
-        # set default factor and offset for TAD to micron calculation
-        # from Leo Rousset
-        self.factor = self.config.get("factor", float, default = 1.92782,)
-        # dto. but this is depending on the installation
-        self.offset = self.config.get("offset", float, default = 0)
+        self._piezo_settle_sleep_CL = 5  # seconds
 
-        # setting it to self.factor is setting it to 1 micro tolerance
-        self.tns_allowed_divergence = self.config.get("tns_allowed_divergence", float, default = self.factor)
+        self._icepap_retries = 8
+        self._piezo_retries = 8
+
+        # Capacitive Sensor's TNS to microns.
+        # Measured by Leo Rousset in linear system.
+        # 1 TNS = 1.75887 microns
+        self.CS_tns2microns = 1.75887
+
+        # leverage arm
+        self.leverage_arm = 82.0/28.0   # ~2.93 (theorical value)
+        self.leverage_arm = 2.8         # measured
+
+        # A PiezoJack movement (piezo or icepap) produces a
+        # <application_angle_factor> times BIGGER movement on the
+        # bender.
+        self.application_angle_factor = 1/cos(radians(26)) # ~1.11
+
+        # A PJ movement induce a <system_factor> times SMALLER
+        # displacement of the capacitive sensor.
+        self.system_factor = self.leverage_arm / self.application_angle_factor
+
+        self.piezo_factor  = self.system_factor                       # 1 TNS = 2.64 piezo-microns
+        self.icepap_factor = self.CS_tns2microns * self.system_factor # 1 TNS = 4.63 icepap-microns
+        self.bender_factor = self.CS_tns2microns * self.leverage_arm  # 1 TNS = 5.15 bender-microns
+
+        # Default factor for TNS to microns conversion
+        self.factor = self.config.get("factor", float, default = self.system_factor)
+
+        # setting it to self.factor is setting it to 1 micron tolerance
+        self.tns_allowed_divergence = self.config.get("tns_allowed_divergence", float, default = 1)
 
         self.cname = "PiezoJack"
         self._hw_status = AxisState("READY")
@@ -73,132 +109,66 @@ class PiezoJack(Controller):
         pass
 
     def initialize_axis(self, axis):
-        """
-        - Reads specific config
-        - Adds specific methods
-        - Switches piezo to ONLINE mode so that axis motion can be caused
-        by move commands.
 
-        Args:
-            - <axis>
-        Returns:
-            - None
-        """
-
-        add_axis_method(axis, self.read_offset, name = "ReadOffset", types_info = (None, float))
-        add_axis_method(axis, self.set_offset, name = "SetOffset", types_info = (float, None))
-
-        add_axis_method(axis, self.read_factor, name = "ReadFactor", types_info = (None, float))
-        add_axis_method(axis, self.set_factor, name = "SetFactor", types_info = (float, None))
+        # To get rid of cache coherency problems.
         add_axis_method(axis, self.sync, name = "sync", types_info = (None, None))
 
     def read_position(self, axis):
         """
-        Returns position
-
-        Args:
-            - <axis> : bliss axis.
         Returns:
             - <position> : float : system position in micron
         """
         try:
+            # Capacitive captor value.
             tns = self.piezo.Get_TNS()
 
-            # conversion to microns (factor=1.75 offset=-400)
-            _pos = tns * self.factor + self.offset
-            elog.debug("returned position %r" % _pos)
+            # Conversion TNS to bender-microns
+            _pos = tns * self.bender_factor
+            elog.debug("--PJ-bender position=%g" % _pos)
             return _pos
         except:
             print "error in reading PJ position"
             sys.excepthook(*sys.exc_info())
 
-    def read_offset(self, axis):
-        """Returns offset (used by position calculation"""
-        return self.offset
-
-    def set_offset(self, axis, new_offset):
-        """Set offset (used by position calculation"""
-
-        self.offset = new_offset
-
-        # Force to re-read position
-        self.sync(axis)
-
-    def read_factor(self, axis):
-        """Returns factor (used by position calculation"""
-        return self.factor
-
-    def set_factor(self, axis, new_factor):
-        """Set factor (used by position calculation"""
-
-        self.factor = new_factor
-
-        # Force to re-read position to make sure calculated position
-        # takes factor into account.
-        self.sync(axis)
-
     def state(self, axis):
-        if self.piezo.controller.name.startswith("mockup"):
-            return AxisState("READY")
         return self._hw_status
 
     def prepare_move(self, motion):
-        """
-        - TODO for multiple move...
+        elog.info("--PJ--prepare_move : motion: target_pos=%g  delta=%g " % (motion.target_pos, motion.delta))
 
-        Args:
-            - <motion> : Bliss motion object.
-
-        Returns:
-            -
-
-        Raises:
-            - RuntimeError('The capacitive sensor is not in its right area of function')
-        """
-        self.sync(self.piezo)
-        self.sync(self.icepap)
-
-        if self.piezo.controller.name.startswith("mockup"):
-            self.piezo.custom_get_chapi("titi")
-            return
-
-        # check for power cut
+        # Check for power cut.
         self.piezo.CheckPowerCut()
 
         tad = self.piezo.Get_TAD()
-        elog.debug("TAD : %s, %s, %s" % (tad, self.TADmax, self.TADmin))
+        elog.info("TAD : %s, %s, %s" % (tad, self.TADmax, self.TADmin))
         if self.TADmax < tad or tad < self.TADmin:
             #            raise RuntimeError("The capacitive sensor is not in its area of linear function")
             elog.info("""
-##########################################################################
-#####   The capacitive sensor is not in its area of linear function  #####
-##########################################################################
+###########################################################################
+##### !! The capacitive sensor is not in its area of linear function  #####
+###########################################################################
 TAD is %s""" % tad)
 
-        # elog.debug("icepap position: %s" % self.icepap.position())
 
     def start_one(self, motion):
-        """
-        Args:
-            - <motion> : Bliss motion object.
+        elog.info("--PJ--start_one : motion: target_pos=%g  delta=%g " % (motion.target_pos, motion.delta))
 
-        Returns:
-            - None
-        # TODO: Are we sure the icepap calculates in um, because the
-              piezo and this server do. To be checked.
-        """
-        if self.__move_task is None or self.__move_task.ready():
+        if self._move_task is None or self._move_task.ready():
+            # To be sure state is correct even if movement hasn't started.
             self._hw_status = AxisState("MOVING")
+
+            # Movement greenlet starting point.
             self._move_task = self._do_move(motion, wait = False)
+
+            # At end of the move task, just call _move_done() function.
             self._move_task.link(self._move_done)
         else:
             raise RuntimeError("cannot move, previous task is not finished")
 
     def _move_done(self, task):
-        self._hw_status = AxisState("READY")
+        self._hw_status = self.icepap.state()
 
         try:
-            #import pdb; pdb.set_trace()
             task.get()
         except:
             sys.excepthook(*sys.exc_info())
@@ -211,44 +181,30 @@ TAD is %s""" % tad)
 
     def get_info(self, axis):
         """
-        Returns a set of useful information about controller.
+        Returns information about controller.
         Helpful to tune the device.
-
-        Args:
-            <axis> : bliss axis
-        Returns:
-            None
-        Raises:
-            ?
         """
         elog.info("PiezoJack: get_info")
-        _info_str = "---------PiezoJack: get_info----------\n"
+        _info_str = "---------PiezoJack %s : get_info----------\n" % axis.name
 
         if not self.piezo.controller.name.startswith("mockup"):
             #             elog.info("PiezoJack::get_info: ICEPAP Identifier: " % self.icepap.get_identifier())
             #             elog.info("PiezoJack::get_info: Piezo Info:" % self.piezo.get_info())
 
+            _info_str += "bender position  : %s\n" % self.read_position(axis)
             _info_str += "icepap position  : %s\n" % self.icepap.position()
-            closed_loop = self.piezo.Get_Closed_Loop_Status()
-            _info_str += "piezo closed loop: %s\n" % closed_loop
-
+            _info_str += "piezo closed loop: %s\n" % self.piezo.Get_Closed_Loop_Status()
             _info_str += "piezo tns        : %s\n" % self.piezo.Get_TNS()
             _info_str += "piezo offset     : %s\n" % self.piezo.Get_Offset()
-
             _info_str += "piezo POS?       : %s\n" % self.piezo.Get_Pos()
+            _info_str += "piezo factor     : %g\n" % self.piezo_factor
+            _info_str += "icepap factor    : %g\n" % self.icepap_factor
+            _info_str += "bender factor    : %g\n" % self.bender_factor
+            _info_str += "system factor    : %g\n" % self.system_factor
 
-            _info_str += "piezo instance   : %s\n" % self.piezo.name
-
-            if closed_loop:
-                _info_str += "piezo MOV?       : %s\n" % self.piezo.position()
-                self.piezo.Set_Closed_Loop(onoff = False)
-                _info_str += "piezo SVA?       : %s\n" % self.piezo.position()
-                self.piezo.Set_Closed_Loop(onoff = True)
-            else:
-                self.piezo.Set_Closed_Loop(onoff = True)
-                _info_str += "piezo MOV?       : %s\n" % self.piezo.position()
-                self.piezo.Set_Closed_Loop(onoff = False)
-                _info_str += "piezo SVA?       : %s\n" % self.piezo.position()
+            _info_str += "piezo MOV?       : %s\n" % self.piezo.Get_MOV()
+            _info_str += "piezo SVA?       : %s\n" % self.piezo.Get_SVA()
+            _info_str += "piezo VOL?       : %s\n" % self.piezo.Get_VOL()
         _info_str += "--------------------------------------\n"
 
         return _info_str
@@ -269,137 +225,202 @@ TAD is %s""" % tad)
             if the new position is outside the piezo's travel range.
             Need to know the POS?
         """
-        pos = self.piezo.Get_Pos()   # "POS?"
-        elog.debug("real Position is %s" % pos)
+        elog.info("--PJ-------------- starts _do_move loop ----------------- ")
+        elog.info("--PJ-- _do_move : motion: target_pos=%g  delta=%g " % (motion.target_pos, motion.delta))
 
-        # at the first movement after a ds restart, the POS? might be
-        # way off, check if this is outside min and max
-        if pos >= self._PiezoSize.high or \
-                pos <= self._PiezoSize.low:
-            # open the loop, so that the piezo won't break
+        # Calculates targets positions
+        bender_new = motion.target_pos
+        bender_delta = motion.delta
+
+        # bender_current = bender_new - bender_delta
+        bender_current = self.read_position(motion.axis)
+
+        tns_new = bender_new / self.bender_factor
+        tns_delta = motion.delta / self.bender_factor
+        tns_current = self.piezo.Get_TNS()
+
+        piezo_delta  = tns_delta * self.piezo_factor
+        piezo_current = self.piezo.Get_Pos() * self.system_factor # Sensor corrected by lev.arm+app.angle.
+        piezo_target = piezo_current + piezo_delta
+
+        elog.info("--PJ--bender: current=%g  new=%g  delta=%g" % (bender_current, bender_new,   bender_delta))
+        elog.info("--PJ--TNS:    current=%g  new=%g  delta=%g" % (tns_current,    tns_new,      tns_delta))
+        elog.info("--PJ--piezo:  current=%g  new=%g  delta=%g" % (piezo_current,  piezo_target, piezo_delta))
+
+        elog.info(" ")
+        elog.info(" ")
+
+        elog.info("--PJ--piezo:  current=%g  new=%g  delta=%g" % (piezo_current,  piezo_target, piezo_delta))
+        return()
+
+        # At the first movement after a restart, the piezo might be
+        # way off.
+        # If piezo position is outside range [0;15] or if loop is open corrects it.
+        if piezo_current <= 0 or piezo_current >= self._PiezoSize.length or not self.piezo.Get_Closed_Loop_Status():
+            # Opens the loop, so that the piezo won't break, but move
+            # it to zero first and waits a bit to let time to piezo to
+            # come back to 0. (to avoid clacs ?)
+            elog.info("--PJ--Piezo out of correct range : Moves piezo to zero and opens the loop.")
+            self.piezo.move(0)
+            time.sleep(self._piezo_settle_sleep)  # ??? e712 does not use ONT? (to be done later if it works)
+                                                  # TODO : loop to check how long it takes to be ONT.
             self.piezo.Set_Closed_Loop(False)
-            # we are out of the controller range, so let's correct the
-            # 712 offset.
-            # Move is in volt, since loop is opened
-            self.piezo.move(50)
-            self.piezo.Put_Offset(self.piezo.Get_Offset()-self.piezo.Get_Pos()+ self._PiezoSize.middle)
+
+            # Changes piezo offset (i.e. 0 reference for capacitive sensor)
+            # to compensate icepap movement. (in microns)
+            # Offset is set considering that piezo position is 0.
+            new_piezo_offset = self.piezo.Get_Offset() - self.piezo.Get_Pos()
+            elog.info("--PJ--Puts new PIEZO offset to %g " % new_piezo_offset)
+            self.piezo.Put_Offset(new_piezo_offset)
+
+            # Place piezo in middle range. (??? why to do that in open loop ?)
+            elog.info("--PJ--Moves piezo to 50 V (half-range)")
+            self.piezo.move(self._PiezoSize.middle_voltage)
+
             self.piezo.Set_Closed_Loop(True)
-            time.sleep(self._piezo_settle_sleep)
-        
-        pos = self.piezo.Get_Pos()
-        new_pos = pos + motion.delta
-        elog.debug("New position should be %s" % new_pos)
-        current_tns = self.piezo.Get_TNS()
-        new_tns = current_tns + motion.delta / self.factor
+            time.sleep(self._piezo_settle_sleep_CL) # to stabilise (5s ?)
 
-        # Now check if new position is within the range of the piezo.
-        if new_pos <= self._PiezoSize.high and \
-                 new_pos >= self._PiezoSize.low:
-            #### PIEZO ONLY MOVE  ####
+        elog.info("--PJ--ok, piezo pos is in range and ready to be moved.")
+        elog.info(" ")
+        elog.info(" ")
 
-            # can't move in open loop.
-            self.piezo.Set_Closed_Loop(True)
+        tns_current = self.piezo.Get_TNS()
+        piezo_current = self.piezo.Get_Pos() * self.system_factor # Sensor corrected by lev.arm+app.angle.
+        piezo_target = piezo_current + piezo_delta
 
-            self.piezo.move(new_pos)
-            pos = self.piezo._position()  # "POS?" + cache update.
-            time.sleep(self._piezo_settle_sleep)
+        elog.info("--PJ--New positions should be: bender=%g tns=%g" % (bender_new, tns_new))
 
-            for _ in range(self._icepap_retries):
-                current_tns = self.piezo.Get_TNS()
-                elog.debug("---PIEZO-------------------- new_tns     ------------------> %r" % (new_tns))
-                elog.debug("---PIEZO-------------------- current_tns ------------------> %r" % (current_tns))
-                if abs(new_tns - current_tns) < self.tns_allowed_divergence / 8:
-                    break
+        # Checks if new position is within the range of the piezo [2; 13].
+        # ie : could be reached with only a piezo movement.
+        if (piezo_target >= self._PiezoSize.low) and (piezo_target <= self._PiezoSize.high):
+            # #### PIEZO MOVE ONLY  #### #
+            elog.info("--PJ--   PIEZO MOVE ONLY ")
+            elog.info("--PJ--new bender position (%g=%g+%g) can be reached by piezo: " %
+                      (bender_new, bender_current, bender_delta))
+            elog.info("--PJ--  piezo_target % is in range [%g, %g] => piezo movement only" %
+                      (piezo_target, self._PiezoSize.low, self._PiezoSize.high))
 
-                piezo_rmove = (new_tns - current_tns) * self.factor
-                self.piezo.rmove(piezo_rmove)
-                time.sleep(self._piezo_settle_sleep)
+            elog.info("--PJ--Moves bender to %g um (piezo to %g um)" % (bender_new, piezo_target))
+            self.piezo.move(piezo_target)  # in um.
+            time.sleep(self._piezo_settle_sleep) # needed because E712 is not using "on target" flag.
 
-            elog.debug("New piezo position given by controller: %s" % self.piezo.position())
+###            # Why /8 ??? and /100 in final piezo in hybrid movement ?
+###            # --->  ok : to be tuned.
+###            tns_tolerance = self.tns_allowed_divergence / 8
+###            elog.info("--PJ-piezo--TNS tolerance=%g" , tns_tolerance)
+###
+###            # Piezo approach : Try (many times if needed) to
+###            # move piezo to tns_new postion.
+###            # ??? why ? in close loop, the controller does that ???
+###            self.piezo_approach(tns_new, tns_tolerance)
+
+            tns_current = self.piezo.Get_TNS()
+            tns_diff = tns_new - tns_current
+            elog.info("--PJ--after piezo move : TNS : current=%g  new=%g  error=%g" % (tns_current, tns_new, tns_diff))
+            elog.info("--PJ--New piezo position : %g (updated)" % self.piezo._position())
+
         else:
-            #### ICEPAP MOVE  ####
-            elog.debug("ICEPAP needs moving!")
-            before = self.icepap.position()
+            # #### ICEPAP MOVE + PIEZO MOVE  #### #
+            elog.info("--PJ--   ICEPAP MOVE  +  PIEZO MOVE ")
+            elog.info("--PJ--piezo_target %g OUTSIDE range [%g;%g] => ICEPAP + PIEZO movement" %
+                      (piezo_target, self._PiezoSize.low, self._PiezoSize.high))
 
-            # new position's TNS value
-            current_tns = self.piezo.Get_TNS()
+            ice_pos_before = self.icepap.position()
 
-            elog.debug("self.factor is %r" % self.factor)
-            elog.debug("----------------------------> new_tns should be %r" % new_tns)
+            # TNS values.
+            tns_current = self.piezo.Get_TNS()
+            elog.info("--PJ--TNS : current=%g new=%g delta=%g" %(tns_current, tns_new, tns_delta))
 
-            # Open the loop
+            # Piezo to 0 and opens the loop.
+            # Icepap movements must be done with piezo loop open to
+            #  avoid to clac the piezo when moving icepap.
+            elog.info("--PJ--Opens the piezo loop, but move it to zero first")
+            self.piezo.move(0)
             self.piezo.Set_Closed_Loop(False)
+            time.sleep(self._piezo_settle_sleep)
 
-            # place icepap just under the requested position, so we can
+            # Piezo to middle position (in voltage) to get maximum piezo
+            # range of movement after icepap movement.
+            self.piezo.move(self._PiezoSize.middle_voltage) # (50 V)
+            elog.info("--PJ--Set Piezo voltage to %g" % self._PiezoSize.middle_voltage)
+            time.sleep(self._piezo_settle_sleep * 3) # open loop -> voltage mov -> no sync -> wait to stabilise
+
+#            # Correct motion by piezo_current (due to previous piezo.move(0))
+#            motion.delta += piezo_current
+
+            # Places icepap just 3um under the requested position, so we can
             # make a positive (i.e. no backlash) movement to get closer.
             motion.delta -= 3
-            elog.debug("ICEPAP before RMOVE! motion.delta = %r" % (motion.delta))
-            self.icepap.rmove(motion.delta)  # here we use the common unit, should work!
-            elog.debug("ICEPAP after  RMOVE!")
 
+            elog.info("--PJ-ICEPAP-before RMOVE! corrected motion.delta = %g----------" % (motion.delta))
+            self.icepap.rmove(motion.delta)
+            elog.info("--PJ-ICEPAP-after  RMOVE!<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
             # time.sleep(self._piezo_settle_sleep)
 
-            # when closed_loop is off, controller set volts
-            self.sync(self.piezo)
-            self.piezo.move(self._PiezoSize.initial_voltage)
-            elog.debug("AFTER Piezo Move")
-            time.sleep(self._piezo_settle_sleep * 3)
+            elog.info("--PJ--Moves ICEPAP to be closest possible to the TNS target .........")
+            for ii in range(self._icepap_retries):
+                tns_current = self.piezo.Get_TNS()
+                tns_diff = abs(tns_new - tns_current)
+                bender_diff = tns_diff * self.icepap_factor
+                elog.info("--PJ-ICEPAP--%d-- TNS new=%g current=%g diff= %g" % (ii, tns_new, tns_current, tns_diff))
+                if tns_diff < self.tns_allowed_divergence:
+                    break  # ok we are close enough
 
-            # Try to move close to the new calculated TNS.
-            for _ in range(self._icepap_retries):
-                current_tns = self.piezo.Get_TNS()
-                elog.debug("--ICEPAP-------------------- new_tns     ------------------> %r" % (new_tns))
-                elog.debug("--ICEPAP-------------------- current_tns ------------------> %r" % (current_tns))
-                if abs(new_tns - current_tns) < self.tns_allowed_divergence:
-                    break
+                # If overshoot : no icepap move to avoid backlash.
+                # -> faire un movement plus petit que voulu ? pour ne pas depasser et donc pour eviter des backlash.
+                icepap_move = (tns_new - tns_current) * self.icepap_factor
+                if icepap_move < 0:
+                    log.info("--PJ-icepap move negatif. tns_diff=%g bender_diff=%g" % tns_diff)
 
-                icepap_move = (new_tns - current_tns) * self.factor 
                 self.icepap.rmove(icepap_move)
 
-            after = self.icepap.position()
-            elog.debug("icepap pos after: %s, delta: %s" % (after, after - before))
+            icepap_after = self.icepap.position()
+            elog.info("--PJ- icepap after approach: %s, delta: %s" % (icepap_after, icepap_after - ice_pos_before))
 
-            """
-            here is where the piezo works
-
-            first set the new offset
-            """
-            # old offset
-            offset = self.piezo.Get_Offset()
-            elog.debug("offset: %s" % offset)
-
-            pos = self.piezo.Get_Pos()
-            elog.debug("POS? %s" % pos)
-
-            # recalculate offset
-            offset -= (pos - self._PiezoSize.middle)  # microns
-            self.piezo.Put_Offset(offset)
-
-            # print new values for info.
-            offset = self.piezo.Get_Offset()
-            pos = self.piezo.Get_Pos()
-            elog.debug("new offset : %s with pos: %s" % (offset, pos))
+            # Changes piezo offset to compensate icepap movement. (in microns)
+            # Piezo was set to middle position before ice movement.
+            # And to make piezo controller able to regulate position in closed loop.
+            new_piezo_offset = self.piezo.Get_Offset() - self.piezo.Get_Pos() + self._PiezoSize.middle
+            self.piezo.Put_Offset(new_piezo_offset)
+            elog.info("--PJ- offset changed, close the loop and make final approach")
 
             self.piezo.Set_Closed_Loop(True)
+            time.sleep(self._piezo_settle_sleep_CL) # to stabilise
 
-            time.sleep(self._piezo_settle_sleep)
+            # Piezo approach : Try (many times if needed) to
+            # move piezo to tns_new postion.
+            # In close loop, the controller does that ? (yes if all calculated/measured factors are ideal)
+            #   TODO : to test if our factors are so wonderful :)
+            tns_tolerance = self.tns_allowed_divergence / 10.0
+            if False:
+                self.piezo_approach(tns_new, tns_tolerance)
+            else:
+                _tns_current = self.piezo.Get_TNS()
+                _tns_diff = tns_new - _tns_current
+                if abs(_tns_diff) > tns_tolerance:
+                    _piezo_rmove = _tns_diff * self.piezo_factor
+                    elog.info("--PJ-piezo- rmove %g" % (_piezo_rmove))
+                    self.piezo.rmove(_piezo_rmove)
+                    time.sleep(self._piezo_settle_sleep) # ??? e712 does not use ONT?
 
-            pos = self.piezo._position()  # "POS?" + cache update.
-            self.piezo.move(self._PiezoSize.middle)
-            pos = self.piezo._position()  # "POS?" + cache update.
 
-            for _ in range(self._icepap_retries):
-                current_tns = self.piezo.Get_TNS()
-                elog.debug("---PIEZO-------------------- new_tns     ------------------> %r" % (new_tns))
-                elog.debug("---PIEZO-------------------- current_tns ------------------> %r" % (current_tns))
-                if abs(new_tns - current_tns) < self.tns_allowed_divergence / 8:
-                    break
+    def piezo_approach(self, tns_new, tns_tolerance):
+        for pp in range(self._piezo_retries):
+            _tns_current = self.piezo.Get_TNS()
+            _tns_diff = tns_new - _tns_current
+            elog.info("--PJ-piezo--TNS %d:current=%g  new=%g  diff=%g" %
+                      (pp, _tns_current, tns_new, _tns_diff))
 
-                piezo_rmove = (new_tns - current_tns) * self.factor
-                self.piezo.rmove(piezo_rmove)
-                time.sleep(self._piezo_settle_sleep)
+            if abs(_tns_diff) < tns_tolerance:
+                break
+
+            _piezo_rmove = _tns_diff * self.piezo_factor
+            elog.info("--PJ-piezo- rmove %g" % (_piezo_rmove))
+            self.piezo.rmove(_piezo_rmove)
+            time.sleep(self._piezo_settle_sleep) # ??? e712 does not use ONT?
 
 
     def sync(self, axis):
+        # NB : a _position() is done by E712 when closing/opening the piezo loop.
         axis._position()
 

@@ -243,6 +243,39 @@ def test_p201_hdf5():
   scan.prepare()
   scan.start()
 
+def test_lima_basler():
+  config_xml = """
+<config>
+  <controller class="mockup">
+    <axis name="m0">
+      <steps_per_unit value="10000"/>
+      <!-- degrees per second -->
+      <velocity value="10"/>
+      <acceleration value="100"/>
+    </axis>
+  </controller>
+</config>"""
+
+  emotion.load_cfg_fromstring(config_xml)
+  m0 = emotion.get_axis("m0")
+
+  chain = AcquisitionChain()
+  emotion_master = SoftwarePositionTriggerMaster(m0, 5, 10, 5, time=5)
+  lima_dev = DeviceProxy("id00/limaccds/basler_bcu")
+  params = { "acq_nb_frames": 5,
+             "acq_expo_time": 3/10.0,
+             "acq_trigger_mode": "INTERNAL_TRIGGER_MULTI" }
+  lima_acq_dev = LimaAcquisitionDevice(lima_dev, **params)
+  chain.add(emotion_master, lima_acq_dev)
+
+  hdf5_writer = hdf5.Writer(root_path = '/tmp')
+  toto = Container('test_lima_basler')
+  dm = ScanRecorder('test_acq', toto,writer=hdf5_writer!)
+
+  scan = Scan(chain, dm)
+  scan.prepare()
+  scan.start()
+
 
 def test_emotion_p201():
   config_xml = """
@@ -301,3 +334,4 @@ if __name__ == '__main__':
   #test_p201()
   #test_emotion_p201()
   test_p201_hdf5()
+  test_lima_basler()

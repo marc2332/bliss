@@ -222,6 +222,28 @@ def test_p201():
   scan.prepare()
   scan.start()
 
+def test_p201_hdf5():
+  chain = AcquisitionChain()
+  p201_device = P201()
+  p201_device.request_exclusive_access()
+  p201_device.disable_interrupts()
+  p201_device.reset()
+  p201_device.software_reset()
+  p201_device.reset_FIFO_error_flags()
+  p201_device.enable_interrupts(100)
+  p201_device.set_clock(Clock.CLK_100_MHz)
+  p201_master = P201AcquisitionMaster(p201_device,nb_points=10,acq_expo_time=50e-6)
+  p201_counters = P201AcquisitionDevice(p201_device,nb_points=10,acq_expo_time=50e-6,
+                                        channels={"c0":1,"c1":2,"timer":11})
+  chain.add(p201_master,p201_counters)
+  hdf5_writer = hdf5.Writer(root_path = '/tmp')
+  toto = Container('toto')
+  dm = ScanRecorder('test_acq', toto, writer=hdf5_writer)
+  scan = Scan(chain, dm)
+  scan.prepare()
+  scan.start()
+
+
 def test_emotion_p201():
   config_xml = """
 <config>
@@ -270,11 +292,12 @@ def test_dm_client():
   _walk_children(toto)
 
 if __name__ == '__main__':
-  test()
-  test2()
+  #test()
+  #test2()
   #test_emotion_master()
   #test_lima()
   #test_dm_lima()
   #test_dm_client()
-  test_p201()
-  test_emotion_p201()
+  #test_p201()
+  #test_emotion_p201()
+  test_p201_hdf5()

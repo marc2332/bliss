@@ -409,11 +409,21 @@ class Serial:
         
     @try_open
     def raw_read(self,maxsize = None,timeout = None) :
+        with self._lock:
+            return self._raw_read(maxsize,timeout)
+                
+    @try_open
+    def _raw_read(self,maxsize = None,timeout = None) :
         local_timeout = timeout or self._timeout
         return self._raw_handler.raw_read(maxsize,local_timeout)
                 
     @try_open
     def read(self,size=1,timeout=None):
+        with self._lock:
+            return self._read(size,timeout)
+
+    @try_open
+    def _read(self,size=1,timeout=None):
         local_timeout = timeout or self._timeout
         msg = self._raw_handler.read(size,local_timeout)
         if len(msg) != size:
@@ -422,6 +432,11 @@ class Serial:
 
     @try_open
     def readline(self,eol = None,timeout = None) :
+        with self._lock:
+            return self._readline(eol,timeout)
+    
+    @try_open
+    def _readline(self,eol = None,timeout = None) :
         local_eol = eol or self._eol
         local_timeout = timeout or self._timeout
         return self._raw_handler.readline(local_eol,local_timeout)
@@ -429,25 +444,27 @@ class Serial:
     @try_open
     def write(self,msg,timeout=None) :
         with self._lock:
-            return self._raw_handler.write(msg,timeout)
+            return self._write(msg,timeout)
+        
+    @try_open
+    def _write(self,msg,timeout=None) :
+        local_timeout = timeout or self._timeout
+        return self._raw_handler.write(msg,local_timeout)
         
     @try_open
     def write_read(self,msg,write_synchro=None,size=1,timeout=None) :
-        local_timeout = timeout or self._timeout
         with self._lock:
-            self._raw_handler.write(msg,local_timeout)
+            self._write(msg,timeout)
             if write_synchro: write_synchro.notify()
-            return self.read(size,local_timeout)
+            return self._read(size,timeout)
 
     @try_open
     def write_readline(self,msg,write_synchro = None,
                        eol = None,timeout = None) :
-        local_eol = eol or self._eol
-        local_timeout = timeout or self._timeout
         with self._lock:
-            self._raw_handler.write(msg,local_timeout)
+            self._write(msg,timeout)
             if write_synchro: write_synchro.notify()
-            return self.readline(local_eol,local_timeout)
+            return self._readline(eol,timeout)
 
     def flush(self) :
         if self._raw_handler:

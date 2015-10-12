@@ -1,6 +1,8 @@
 import numpy
 import weakref
 from bliss.comm.gpib import Gpib
+from bliss.comm import serial
+Serial = serial.Serial
 
 def _get_simple_property(command_name,
                          doc_sring):
@@ -112,9 +114,19 @@ class musst(object):
         """
         
         self.name = name
-        self._cnx = Gpib(config_tree["gpib_url"],
-                         pad = config_tree["gpib_pad"],
-                         timeout = config_tree.get("gpib_timeout",0.5))
+        if "gpib_url" in config_tree:
+            self._cnx = Gpib(config_tree["gpib_url"],
+                             pad = config_tree["gpib_pad"],
+                             timeout = config_tree.get("gpib_timeout",0.5))
+            self._txterm = ''
+            self._rxterm = '\n'
+        elif "serial_url" in config_tree:
+            self._cnx = Serial(config_tree["serial_url"])
+            self._txterm = '\r'
+            self._rxterm = '\r\n'
+        else:
+            raise ValueError, "Must specify gpib_url or serial_url"
+
         self._string2state = {
             "NOPROG" : self.NOPROG_STATE,
             "BADPROG" : self.BADPROG_STATE,
@@ -157,11 +169,11 @@ class musst(object):
            
         with self._cnx._lock:
             self._cnx.open()
-            self._cnx._write(msg)
+            self._cnx._write(msg + self._txterm)
             if msg.startswith("?") or ack:
-                answer = self._cnx._readline('\n')
+                answer = self._cnx._readline(self._rxterm)
                 if answer == '$':
-                    return self._cnx._readline('$\n')
+                    return self._cnx._readline('$' + self._rxterm)
                 elif ack:
                     return answer == "OK"
                 else:

@@ -119,11 +119,11 @@ class Gpib:
     @try_open
     def write(self,msg,timeout=None) :
         with self._lock:
-            return self._raw_handler.ibwrt(msg)
+            self._write(msg)
 
     def _write(self,msg) :
         return self._raw_handler.ibwrt(msg)
-    
+
     @try_open
     def write_read(self,msg,write_synchro = None,size = 1,timeout = None) :
         with self._lock:

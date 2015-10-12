@@ -32,6 +32,8 @@ except ImportError:
 #from PyTango import DeviceProxy
 from bliss.common.event import dispatcher
 from bliss.config.conductor import client
+from bliss.config.static import get_config as beacon_get_config
+
 try:
   #P201
   from bliss.acquisition.p201 import P201AcquisitionMaster,P201AcquisitionDevice
@@ -42,6 +44,10 @@ except ImportError:
 try:
   from bliss.data.writer import hdf5
 except ImportError:
+  sys.excepthook(*sys.exc_info())
+try:
+  from Salsa.controllers.musst.base import musst
+except:
   sys.excepthook(*sys.exc_info())
 
 def test():
@@ -244,17 +250,15 @@ def test_p201_hdf5():
   scan.start()
 
 def test_lima_basler():
-  config_xml = """
-<config>
-  <controller class="mockup">
-    <axis name="m0">
-      <steps_per_unit value="10000"/>
-      <!-- degrees per second -->
-      <velocity value="10"/>
-      <acceleration value="100"/>
-    </axis>
-  </controller>
-</config>"""
+  config = beacon_get_config()
+  m0 = config.get("bcumot2")
+  
+  config = {'serial_url': '/dev/ttyS0'}
+  musst_dev = musst('musst', config)
+  ch1 = musst_dev.get_channel(1)
+  print m0.position(), ch1.value
+
+  sys.exit(0)
 
   emotion.load_cfg_fromstring(config_xml)
   m0 = emotion.get_axis("m0")
@@ -270,7 +274,7 @@ def test_lima_basler():
 
   hdf5_writer = hdf5.Writer(root_path = '/tmp')
   toto = Container('test_lima_basler')
-  dm = ScanRecorder('test_acq', toto,writer=hdf5_writer!)
+  dm = ScanRecorder('test_acq', toto,writer=hdf5_writer)
 
   scan = Scan(chain, dm)
   scan.prepare()
@@ -333,5 +337,5 @@ if __name__ == '__main__':
   #test_dm_client()
   #test_p201()
   #test_emotion_p201()
-  test_p201_hdf5()
+  #test_p201_hdf5()
   test_lima_basler()

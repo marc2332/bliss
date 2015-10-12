@@ -1,0 +1,11 @@
+gevent<1.1
+redis
+PyYaml
+netifaces
+louie
+nanomsg
+
+# optional dependencies:
+
+ruamel.yaml
+posix_ipc

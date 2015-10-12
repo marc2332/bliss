@@ -407,7 +407,6 @@ class Serial:
             self._raw_handler.close()
             self._raw_handler = None
         
-    @try_open
     def raw_read(self,maxsize = None,timeout = None) :
         with self._lock:
             return self._raw_read(maxsize,timeout)
@@ -417,7 +416,6 @@ class Serial:
         local_timeout = timeout or self._timeout
         return self._raw_handler.raw_read(maxsize,local_timeout)
                 
-    @try_open
     def read(self,size=1,timeout=None):
         with self._lock:
             return self._read(size,timeout)
@@ -430,7 +428,6 @@ class Serial:
             raise RuntimeError("read timeout on serial (%s)" % self._serial_kwargs.get(port,''))
         return msg
 
-    @try_open
     def readline(self,eol = None,timeout = None) :
         with self._lock:
             return self._readline(eol,timeout)
@@ -441,7 +438,6 @@ class Serial:
         local_timeout = timeout or self._timeout
         return self._raw_handler.readline(local_eol,local_timeout)
     
-    @try_open
     def write(self,msg,timeout=None) :
         with self._lock:
             return self._write(msg,timeout)
@@ -451,14 +447,12 @@ class Serial:
         local_timeout = timeout or self._timeout
         return self._raw_handler.write(msg,local_timeout)
         
-    @try_open
     def write_read(self,msg,write_synchro=None,size=1,timeout=None) :
         with self._lock:
             self._write(msg,timeout)
             if write_synchro: write_synchro.notify()
             return self._read(size,timeout)
 
-    @try_open
     def write_readline(self,msg,write_synchro = None,
                        eol = None,timeout = None) :
         with self._lock:

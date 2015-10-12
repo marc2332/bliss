@@ -89,16 +89,19 @@ class Gpib:
         size_to_read = maxsize or self.READ_BLOCK_SIZE
         return self._raw_handler.ibrd(size_to_read)
 
-    @try_open
     def read(self,size = 1,timeout = None):
         with self._lock:
-            return self._raw_handler.ibrd(size)
+            return self._read(size)
 
     @try_open
+    def _read(self,size = 1):
+        return self._raw_handler.ibrd(size)
+
     def readline(self,eol = None,timeout = None):
         with self._lock:
             return self._readline(eol)
 
+    @try_open
     def _readline(self,eol):
         local_eol = eol or self._eos
         data = ''
@@ -116,34 +119,31 @@ class Gpib:
                 eol_pos = data.find(local_eol)
         return data[:eol_pos]
 
-    @try_open
     def write(self,msg,timeout=None) :
         with self._lock:
-            self._write(msg)
+            return self._write(msg)
 
+    @try_open
     def _write(self,msg) :
         return self._raw_handler.ibwrt(msg)
 
-    @try_open
     def write_read(self,msg,write_synchro = None,size = 1,timeout = None) :
         with self._lock:
-            self._raw_handler.ibwrt(msg)
+            self._write(msg)
             if write_synchro: write_synchro.notify()
-            return self._raw_handler.ibrd(size)
+            return self._read(size)
 
-    @try_open
     def write_readline(self,msg,write_synchro = None,
                        eol = None,timeout = None) :
         with self._lock:
-            self._raw_handler.ibwrt(msg)
+            self._write(msg)
             if write_synchro: write_synchro.notify()
             return self._readline(eol)
 
-    @try_open
     def write_readlines(self,msg,nb_lines,write_synchro = None,
                         eol = None,timeout = None):
         with self._lock:
-            self._raw_handler.ibwrt(msg)
+            self._write(msg)
             if write_synchro: write_synchro.notify()
             r_lines = []
             for i in range(nb_lines):

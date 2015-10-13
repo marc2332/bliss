@@ -1,0 +1,21 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# This file is part of the CT2 project
+#
+# Copyright 2015 European Synchrotron Radiation Facility, Grenoble, France
+#
+# Distributed under the terms of the LGPL license.
+# See LICENSE.txt for more info.
+
+try:
+    from CT2 import main
+except ImportError:
+    import os, sys
+    __this_dir = os.path.dirname(os.path.abspath(__file__))
+    __package_dir = os.path.join(__this_dir, os.path.pardir)
+    sys.path.append(__package_dir)
+    from CT2 import main
+
+if __name__ == "__main__":
+    main()

@@ -51,7 +51,7 @@ class musst(object):
 
         def stop(self):
             self._cnt_cmd("STOP")
-            
+        
         def _cnt_cmd(self,cmd):
             self._read_config()
             if(self._mode == self.COUNTER or
@@ -98,6 +98,8 @@ class musst(object):
     INFO    = _simple_cmd("?INFO","Query module configuration")
     RETCODE = _simple_cmd("?RETCODE","Query exit or stop code")
 
+    VARINIT = _simple_cmd("VARINIT","Reset program variables")
+
     #STATE
     NOPROG_STATE,BADPROG_STATE,IDLE_STATE,RUN_STATE,BREAK_STATE,STOP_STATE,ERROR_STATE = range(7)
     #FREQUENCY TIMEBASE
@@ -124,6 +126,8 @@ class musst(object):
             self._cnx = Serial(config_tree["serial_url"])
             self._txterm = '\r'
             self._rxterm = '\r\n'
+            self._cnx.write('?NAME' + self._txterm)
+            self._cnx.readline(self._rxterm)
         else:
             raise ValueError, "Must specify gpib_url or serial_url"
 
@@ -205,7 +209,8 @@ class musst(object):
         program_data -- program data you want to upload
         """
         self.putget("#CLEAR")
-        formatted_prog= "".join(("+%s\n" % l for l in program_data.splitlines()))
+        formatted_prog= "".join(("+%s%s" % (l, self._txterm)
+                                 for l in program_data.splitlines()))
         self._cnx.write(formatted_prog)
         if self.STATE != self.IDLE_STATE:
             raise RuntimeError(self.STATE)
@@ -300,6 +305,15 @@ class musst(object):
         to the data position at offset <offset> in the buffer number <buff_number>.
         """
         return self.putget("EPTR %d %d" % (offset,buff_number))
+
+    def get_variable_info(self, name):
+        return self.putget("?VARINFO %s" % name)
+
+    def get_variable(self, name):
+        return float(self.putget("?VAR %s" % name))
+
+    def set_variable(self, name, val):
+        self.putget("VAR %s %s" % (name, val))
 
     @property
     def STATE(self):

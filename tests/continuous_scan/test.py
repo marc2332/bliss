@@ -252,11 +252,89 @@ def test_p201_hdf5():
 def test_lima_basler():
   config = beacon_get_config()
   m0 = config.get("bcumot2")
+  m0_res = m0.steps_per_unit
+  m0_acc = m0.acceleration()
+  m0_vel = m0.velocity()
+  print "m0_acc: %s, m0_vel: %s" % (m0_acc, m0_vel)
+  acc_steps = m0_vel ** 2 / (2 * m0_acc) + 1.0 / m0_res
+  print "acc_steps: %s" % (acc_steps)
+
+  musst_config = config.get("musst")
+  musst_dev = musst('musst', musst_config)
+
+  def print_musst_state():
+    state_val = musst_dev.STATE
+    state_name = [s for s, v in musst_dev._string2state.items() 
+                  if v == state_val][0]
+    print "MUSST state: %s [%s]" % (state_name, state_val)
+
+  print_musst_state()
+  if musst_dev.STATE == musst_dev.RUN_STATE:
+    print "Aborting!"
+    musst_dev.ABORT
+    while musst_dev.STATE != musst_dev.IDLE_STATE:
+      pass
+    print_musst_state()
+
+  if musst_dev.get_variable_info('NPAT') == 'ERROR':
+    musst_dev.CLEAR
+    prog_name = 'id15aeromultiwin.mprg'
+    print "Uploading MUSST program: %s ..." % prog_name
+    this_dir = os.path.dirname(sys.argv[0])
+    musst_prog_fname = os.path.join(this_dir, prog_name)
+    musst_prog = ''.join(open(musst_prog_fname).readlines())
+    musst_dev.upload_program(musst_prog)
+    print " Done!"
   
-  config = {'serial_url': '/dev/ttyS0'}
-  musst_dev = musst('musst', config)
   ch1 = musst_dev.get_channel(1)
-  print m0.position(), ch1.value
+  def musst_pos():
+    return float(ch1.value) / m0_res
+  def print_pos():
+    print m0.position(), musst_pos()
+
+  start_pos = 0
+  final_pos = 360
+  nb_pts = 100
+
+  point_size = abs(float(final_pos - start_pos) / nb_pts)
+  move_dir = 1 if start_pos < final_pos else -1
+
+  patw = point_size * m0_res
+  patwi = int(patw)
+  patwf = int((patw - patwi) * 2 ** 31)
+
+  scan_start = start_pos - acc_steps * move_dir
+
+  if m0.position() != scan_start:
+    m0.move(scan_start)
+  if musst_pos() != scan_start:
+    ch1.value = scan_start * m0_res
+  print_pos()
+
+  musst_dev.VARINIT
+  vals = {'SCANCH': 1,
+          'E1': start_pos * m0_res,
+          'DIR': move_dir, 
+          'PATW': patwi, 
+          'PATWF': patwf, 
+          'NPAT': nb_pts, 
+          'UPW': patw / 4, 
+          'DOWNW': patw / 2, 
+          'NPULSE': 1}
+
+  for varname, val in vals.items():
+    print "Setting: %s=%s" % (varname, val)
+    musst_dev.set_variable(varname, val)
+    print '%s=%s' % (varname, musst_dev.get_variable(varname))
+
+  musst_dev.run()
+  m0.move(final_pos + acc_steps * move_dir)
+  print_pos()
+  while musst_dev.STATE != musst_dev.IDLE_STATE:
+    pass
+  print_musst_state()
+
+  print "retcode: %s" % musst_dev.RETCODE
 
   sys.exit(0)
 

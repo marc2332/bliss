@@ -460,9 +460,9 @@ class Serial:
             if write_synchro: write_synchro.notify()
             return self._readline(eol,timeout)
 
+    @try_open
     def flush(self) :
-        if self._raw_handler:
-            self._raw_handler.flushInput()
+        self._raw_handler.flushInput()
 
     def _check_type(self) :
         port = self._serial_kwargs.get('port','')

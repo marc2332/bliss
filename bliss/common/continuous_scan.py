@@ -62,7 +62,7 @@ class AcquisitionMaster(object):
     def channels(self):
         return self.__channels
     @channels.setter
-    def set_channels(self, channels_list):
+    def channels(self, channels_list):
         if not isinstance(channels_list, list):
             raise TypeError("A channels list is expected.")
         self.__channels = channels_list
@@ -70,7 +70,7 @@ class AcquisitionMaster(object):
     def npoints(self):
         return self.__npoints
     #@npoints.setter
-    #def set_npoints(self, npoints):
+    #def npoints(self, npoints):
     #    self.__npoints = npoints
     def _prepare(self):
         return self.prepare()
@@ -126,11 +126,16 @@ class AcquisitionDevice(object):
     @property
     def channels(self):
         return self.__channels
+    @channels.setter
+    def channels(self, channels_list):
+        if not isinstance(channels_list, list):
+            raise TypeError("A channels list is expected.")
+        self.__channels = channels_list
     @property
     def npoints(self):
         return self.__npoints
     #@npoints.setter
-    #def set_npoints(self, npoints):
+    #def npoints(self, npoints):
     #    self.__npoints = npoints
     def _prepare(self):
         if not self._check_ready():

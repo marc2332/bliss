@@ -26,7 +26,7 @@ class MotorMaster(AcquisitionMaster):
     def _calculate_undershoot(self, pos, end = False):
         if self.undershoot is None:
             acctime = float(self.velocity)/self.movable.acceleration()
-            undershoot = self.velocity*acctime
+            undershoot = self.velocity*acctime/2
         d = 1 if self.end_pos >= self.start_pos else -1
         d *= -1 if end else 1
         pos -= d*undershoot
@@ -50,12 +50,7 @@ class MotorMaster(AcquisitionMaster):
 
 class SoftwarePositionTriggerMaster(MotorMaster):
     def __init__(self, axis, start, end, npoints=1, **kwargs):
-	positions = numpy.linspace(start, end, npoints, retstep=True)
-        if isinstance(positions, tuple):
-            self._positions = positions[0]
-            end += positions[1]
-        else:
-            self._positions = positions
+	self._positions = numpy.linspace(start, end, npoints+1)[:-1]
         MotorMaster.__init__(self, axis, start, end, **kwargs)
 
     def start(self):

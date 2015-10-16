@@ -9,6 +9,7 @@ from bliss.common.continuous_scan import AcquisitionDevice, AcquisitionMaster, A
 from bliss.common.event import dispatcher
 import gevent
 import time
+import numpy
 
 class LimaAcquisitionDevice(AcquisitionDevice):
   def __init__(self, device, acq_nb_frames=1, acq_expo_time=1, acq_trigger_mode='INTERNAL_TRIGGER', acq_mode="SINGLE", acc_time_mode="LIVE", acc_max_expo_time=1, latency_time=0):

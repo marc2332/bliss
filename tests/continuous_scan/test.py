@@ -249,7 +249,7 @@ def test_p201_hdf5():
   scan.prepare()
   scan.start()
 
-def test_lima_basler():
+def test_lima_basler_musst():
   config = beacon_get_config()
   m0 = config.get("bcumot2")
   m0_res = m0.steps_per_unit
@@ -336,16 +336,19 @@ def test_lima_basler():
 
   print "retcode: %s" % musst_dev.RETCODE
 
-  sys.exit(0)
-
-  emotion.load_cfg_fromstring(config_xml)
-  m0 = emotion.get_axis("m0")
+def test_lima_basler():
+  config = beacon_get_config()
+  m0 = config.get("bcumot2")
+  m0.velocity(360)
+  m0.acceleration(720)
 
   chain = AcquisitionChain()
-  emotion_master = SoftwarePositionTriggerMaster(m0, 5, 10, 5, time=5)
-  lima_dev = DeviceProxy("id00/limaccds/basler_bcu")
-  params = { "acq_nb_frames": 5,
-             "acq_expo_time": 3/10.0,
+  nb_points = 4
+  emotion_master = SoftwarePositionTriggerMaster(m0, 0, 360, nb_points, time=10)
+  tango_host = "lid00limax:20000"
+  lima_dev = DeviceProxy("//%s/id00/limaccds/basler_bcu" % tango_host)
+  params = { "acq_nb_frames": nb_points,
+             "acq_expo_time": 10e-3,
              "acq_trigger_mode": "INTERNAL_TRIGGER_MULTI" }
   lima_acq_dev = LimaAcquisitionDevice(lima_dev, **params)
   chain.add(emotion_master, lima_acq_dev)

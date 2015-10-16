@@ -109,18 +109,19 @@ class Writer(FileWriter):
                 for slave in dev.slaves:
                     if isinstance(slave,AcquisitionDevice):
                         if slave.type == 'lima':
-                            dev.saving_format = 'EDF'
-                            dev.saving_mode = 'AUTO_FRAME'
-                            dev.saving_frame_per_file = 1
-                            camera_name = dev.camera_type
+                            lima_dev = slave.device
+                            lima_dev.saving_format = 'EDF'
+                            lima_dev.saving_mode = 'AUTO_FRAME'
+                            lima_dev.saving_frame_per_file = 1
+                            camera_name = lima_dev.camera_type
                             scan_name = scan_recorder.node.name()
-                            dev.saving_directory=os.path.join(full_path,'%s_%s' % (scan_name,camera_type))
-                            dev.saving_prefix='contscan_'
-                            dev.saving_suffix='.edf'
+                            lima_dev.saving_directory=full_path
+                            lima_dev.saving_prefix='%s_%s' % (scan_name,camera_name)
+                            lima_dev.saving_suffix='.edf'
                             pass # link
                         else:
                             self._event_receivers.append(EventReceiver(slave, master_entry))
                     elif isinstance(slave,AcquisitionMaster):
-                        self._event_receivers.append(MasterEventReceiver(dev, slave, master_entry))
+                        self._event_receivers.append(MasterEventReceiver(slave, slave, master_entry))
                 self._event_receivers.append(EventReceiver(dev, master_entry))
                 

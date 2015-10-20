@@ -77,13 +77,13 @@ class BlissAxisManager(PyTango.Device_4Impl):
                 if "bliss_" in dev_name:
                     self.axis_dev_list.append(dev)
 
-        # build the BlissAxisManager State from states of BlissAxis devices.
+        # Builds the BlissAxisManager State from states of BlissAxis devices.
         _bliss_working = True
         _bliss_moving = False
         for dev in self.axis_dev_list:
             _axis_state = dev.get_state()
 
-            _axis_on = (_axis_state == PyTango.DevState.ON)
+            _axis_on = (_axis_state == PyTango.DevState.ON or _axis_state == PyTango.DevState.OFF)
             _axis_moving = (_axis_state == PyTango.DevState.MOVING)
 
             _axis_working = _axis_on or _axis_moving
@@ -215,12 +215,12 @@ class BlissAxis(PyTango.Device_4Impl):
         self.attr_Offset_read = 0.0
         self.attr_Tolerance_read = 0.0
         self.attr_PresetPosition_read = 0.0
+        self.attr_FirstVelocity_read = 0.0
 
         """
         self.attr_Steps_read = 0
         self.attr_Position_read = 0.0
         self.attr_Measured_Position_read = 0.0
-        self.attr_FirstVelocity_read = 0.0
         self.attr_Home_side_read = False
         """
 
@@ -271,6 +271,8 @@ class BlissAxis(PyTango.Device_4Impl):
                 self.set_state(PyTango.DevState.ON)
             elif _state.MOVING:
                 self.set_state(PyTango.DevState.MOVING)
+            elif _state.OFF:
+                self.set_state(PyTango.DevState.OFF)
             else:
                 self.set_state(PyTango.DevState.FAULT)
 
@@ -367,7 +369,7 @@ class BlissAxis(PyTango.Device_4Impl):
         _duration = time.time() - _t
 
         if _duration > 0.01:
-            print "BlissAxisManager.py : {%s} read_Measured_Position : duration seems too long : %5.3g ms" % \
+            print "BlissAxisManager.py : {%s} read_Measured_Position : duration seems long : %5.3g ms" % \
                 (self._ds_name, _duration * 1000)
 
     def read_Acceleration(self, attr):
@@ -472,10 +474,13 @@ class BlissAxis(PyTango.Device_4Impl):
     def read_FirstVelocity(self, attr):
         self.debug_stream("In read_FirstVelocity()")
         attr.set_value(self.attr_FirstVelocity_read)
+        #attr.set_value(self.axis.FirstVelocity())
 
     def write_FirstVelocity(self, attr):
         self.debug_stream("In write_FirstVelocity()")
-        # data = attr.get_write_value()
+        data = attr.get_write_value()
+        self.attr_FirstVelocity_read = data
+        # self.axis.FirstVelocity(data)
 
     def read_Home_side(self, attr):
         self.debug_stream("In read_Home_side()")
@@ -630,6 +635,21 @@ class BlissAxis(PyTango.Device_4Impl):
 
         return self.kontroler.raw_write_read(argin)
 
+    def CtrlPosition(self):
+        """ Returns raw axis position read by controller.
+
+        :param argin: None
+        :type: PyTango.DevVoid
+        :return: answer from controller.
+        :rtype: PyTango.DevFloat """
+        self.debug_stream("In CtrlPosition()")
+
+        return self.axis.read_position()
+
+    def SyncHard(self):
+        self.debug_stream("In SyncHard()")
+        return self.axis.sync_hard()
+
     def WaitMove(self):
         """ Waits end of last motion
 
@@ -661,6 +681,7 @@ class BlissAxis(PyTango.Device_4Impl):
         argout = list()
 
         for _cmd in _cmd_list:
+            self.debug_stream("Custom command : %s" % _cmd)
             argout.append( json.dumps(_cmd))
 
         return argout
@@ -668,16 +689,15 @@ class BlissAxis(PyTango.Device_4Impl):
 
     def SettingsToConfig(self):
         """
-        bla..
+        Saves settings in configuration file (YML or XML)
         """
         self.axis.settings_to_config()
 
     def ApplyConfig(self):
         """
-        bla..
+        Reloads configuration and apply it.
         """
         self.axis.apply_config()
-
 
 
 class BlissAxisClass(PyTango.DeviceClass):
@@ -727,6 +747,13 @@ class BlissAxisClass(PyTango.DeviceClass):
         [[PyTango.DevString, "Raw command to be send to the axis. Be carefull!"],
          [PyTango.DevString, "Answer returned by the controller"],
          {'Display level': PyTango.DispLevel.EXPERT, }],
+        'CtrlPosition':
+        [[PyTango.DevVoid, ""],
+         [PyTango.DevFloat, "Controller raw position (used to manage discrepency)"],
+         {'Display level': PyTango.DispLevel.EXPERT, }],
+        'SyncHard':
+        [[PyTango.DevVoid, "none"],
+         [PyTango.DevVoid, "none"]],
         'WaitMove':
         [[PyTango.DevVoid, "none"],
          [PyTango.DevVoid, "none"]],
@@ -1119,7 +1146,7 @@ def main():
                     elog.debug("   %s (in: %s, %s) (out: %s, %s)" % (fname, t1, tin, t2, tout))
 
                 """
-                SETTINGS AS ATTRIBUTES.
+                CUSTOM SETTINGS AS ATTRIBUTES.
                 """
                 elog.debug(" BlissAxisManager.py : %s : -------------- SETTINGS -----------------" % axis_name)
 
@@ -1150,7 +1177,6 @@ def main():
                         # Creates functions to read and write settings.
                         def read_custattr(self, attr, _axis=_axis, _attr_name=_attr_name):
                             _val = _axis.get_setting(_attr_name)
-                            print "in read_%s %s (%s)" % (_attr_name, _val, _axis.name())
                             attr.set_value(_val)
                         new_read_attr_method = types.MethodType(read_custattr, new_axis_class,
                                                                 new_axis_class.__class__)
@@ -1158,7 +1184,6 @@ def main():
 
                         def write_custattr(self, attr, _axis=_axis, _attr_name=_attr_name):
                             data = attr.get_write_value()
-                            print "in write_%s %s (%s)" % (_attr_name, data, _axis.name())
                             _axis.set_setting(_attr_name, data)
 
                         new_write_attr_method = types.MethodType(write_custattr, new_axis_class,

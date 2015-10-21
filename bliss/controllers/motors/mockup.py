@@ -103,7 +103,7 @@ class Mockup(Controller):
         add_axis_method(axis, self.custom_command_no_types, types_info=("None", "None"))
         add_axis_method(axis, self.custom_set_measured_noise, types_info=("float", "None"))
 
-        add_axis_method(axis, self.put_discrepancy, types_info=("None", "None"))
+        add_axis_method(axis, self.put_discrepancy, types_info=("int", "None"))
 
 
         if axis.encoder:
@@ -325,7 +325,7 @@ class Mockup(Controller):
         self._axis_moves[axis]["t0"] = time.time()
 
     def get_info(self, axis):
-        return "turlututu chapo pointu : %s (host=%s)" % (axis.name, self.host)
+        return "turlututu chapo pointu : %s" % (axis.name)
 
     def raw_write(self, axis, com):
         print ("raw_write:  com = %s" % com)
@@ -338,8 +338,8 @@ class Mockup(Controller):
         self._axis_moves[axis]["end_t"] = 0
         return pos
 
-    def put_discrepancy(self, axis):
-        self._axis_moves[axis]["end_pos"] += 10
+    def put_discrepancy(self, axis, disc):
+        self._axis_moves[axis]["end_pos"] += disc
 
     """
     Custom axis methods

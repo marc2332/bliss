@@ -179,7 +179,7 @@ class Axis(object):
             except NotImplementedError:
                 curr_pos = self._hw_position()
 
-            if self.no_offset: 
+            if self.no_offset:
                 # change user pos (keep offset = 0)
                 self._position(new_dial)
             else:
@@ -243,7 +243,7 @@ class Axis(object):
             if self.is_moving:
                 return AxisState("MOVING")
             state = self.settings.get_from_channel('state')
-       
+
         if state is None:
             # really read from hw
             state = self.__controller.state(self)
@@ -251,6 +251,9 @@ class Axis(object):
 
     def get_info(self):
         return self.__controller.get_info(self)
+
+    def sync_hard(self):
+        self._update_settings()
 
     def velocity(self, new_velocity=None, from_config=False):
         """
@@ -604,12 +607,21 @@ class Axis(object):
 
     def apply_config(self):
         """
-        Apply configuration values to settings (ie: reset axis)
+        Applies configuration values to settings (ie: reset axis)
         """
         self.config.reload()
 
-        self.velocity(self.velocity(from_config=True))
-        self.acceleration(self.acceleration(from_config=True))
+        # Applies velocity and acceleration only if possible.
+        # Try to execute <config_name> function to check if axis supports it.
+        for config_param in ['velocity', 'acceleration']:
+            rw_function = getattr(self, config_param)
+            try:
+                rw_function(rw_function(from_config=True))
+            except (NotImplementedError, KeyError):
+                elog.debug("'%s' for '%s' is not implemented" % (config_param, self.name))
+            else:
+                elog.debug("set '%s' for '%s' done." % (config_param, self.name))
+
         self.limits(*self.limits(from_config=True))
 
 

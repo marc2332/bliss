@@ -233,7 +233,7 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
             _axis_name = _mot_mne
             _msg = sprintf("motor %s (no%d) : \"axis_name\" parameter is empty. Spec will use it.s mnemonic (%s)", \
                            _mot_mne, motnum, _mot_mne )
-            tango_mot_msg(_msg)
+            tango_mot_dbg(_msg)
         }
         else{
             tango_mot_dbg(sprintf("axis_name in SPEC config = %s", _axis_name))
@@ -664,12 +664,9 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
                 exit
             }
 
-            # MP: the exception error stack is not returned by TANGO API
-            # therefore print motor status instead. Anyway, this will be more
-            # useful for the user than the stack itself.
             if(_ret) {
                 local _msg
-                _msg = sprintf("Unable to launch motion on motor %s", _mot_mne)
+                _msg = sprintf("tango_mot_cmd() : start_one : Unable to launch motion on motor %s", _mot_mne)
                 _tango_mot_error_desc(_msg)
                 tango_mot_print_status(motnum)
                 exit
@@ -779,6 +776,19 @@ def _tango_mot_error_stack(motmne, devname, attr_cmd) '{
 }'
 
 def _tango_mot_error_desc(msg) '{
+    # Prints <msg> message.
+    # Prints only "desc" field of the TANGO_ERR_STACK
+    # other fields are too useless for users
+
+# MP: the exception error stack is not (yet) returned by TANGO API
+
+    # Stack example:
+    # TANGO_ERR_STACK["0"]["desc"] = "Failed to execute DeviceProxy::write_attributes on
+    #                                 device id26/bliss_cyrtest/ra, object(s) position"
+    # TANGO_ERR_STACK["0"]["origin"] = "DeviceProxy::write_attributes"
+    # TANGO_ERR_STACK["0"]["reason"] = "API_AttributeFailed"
+    # TANGO_ERR_STACK["0"]["severity"] = 1
+
     tango_mot_msg(msg)
     for (item in TANGO_ERR_STACK) {
         if (index(item, "desc")) {

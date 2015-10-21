@@ -72,6 +72,16 @@ class TacoMaxe(Controller):
         tacomaxe_info("finalize() called")
 	pass
 
+    def set_on(self, axis):
+        """Switch power on"""
+        tacomaxe_info("Power on called for axis \"%s\"" % axis.name)
+        self.device.DevEnablePower(axis.channel)
+
+    def set_off(self, axis):
+        """Switch power off"""
+        tacomaxe_info("Power off called for axis \"%s\"" % axis.name)
+        self.device.DevDisablePower(axis.channel)
+
     def read_position(self, axis, measured=False):
         """Returns real axis position -- in motorunit (steps) --"""
         tacomaxe_info("position() called for axis \"%s\"" % axis.name)
@@ -82,6 +92,7 @@ class TacoMaxe(Controller):
 	"""Sets the axis position 
 	   Returns the position -- in motorunit (steps) --
 	"""
+        tacomaxe_info("set_position(%f) called for axis \"%s\"" % (new_pos,axis.name))
 	self.device.DevLoadPosition(axis.channel,new_pos)
         return self.read_position(axis)
 
@@ -104,13 +115,15 @@ class TacoMaxe(Controller):
 
     def set_firstvelocity(self, axis, fsr):
 	"""Sets the firststeprate (velocity at start) in motorunits/sec """
+        tacomaxe_info("set_firstvelocity(%f) called for axis \"%s\"" %
+                      (fsr, axis.name))
 	self.device.DevSetFirstStepRate(axis.channel,fsr)
 
     def read_firstvelocity(self,axis):
         """Returns axis current firstvelocity -- in motorunits/sec --"""
         tacomaxe_info("read_firstvelocity called for axis \"%s\"" %
                       (axis.name))
-	steps_vel = self.device.DevReadFirstStepRate(axis.channel)
+	steps_vel = self.device.DevReadFStepRate(axis.channel)
         print steps_vel
         return steps_vel
 
@@ -119,6 +132,7 @@ class TacoMaxe(Controller):
         tacomaxe_info("read_acceleration called for axis \"%s\"" %
                       (axis.name))
         accel  = self.device.DevReadAcceleration(axis.channel)
+
         return accel
 
     def set_acceleration(self, axis, new_acc):
@@ -132,9 +146,43 @@ class TacoMaxe(Controller):
     def state(self, axis):
         """Returns the current axis (motor) state"""
         tacomaxe_info("state() called for axis \"%s\"" % axis.name)
-
         status = self.device.DevReadState(axis.channel)
-	return AxisState(maxe_states[status[0]])
+	status_motor = AxisState(maxe_states[status[0]])
+        tacomaxe_debug("status motor = \"%s\"" % status_motor)
+        full_status = self.device.DevReadHardStatus(axis.channel)
+        tacomaxe_debug("full status = \"%x\"" % full_status)
+        if (full_status & 0x01) == 1:
+	   status_limit = "LIMNEG"
+	elif (full_status & 0x03) == 1:
+	   status_limit = "LIMPOS"
+	else:
+	   status_limit = "NONE"
+	""" HOME not managed """
+        tacomaxe_debug("status limit = \"%s\"" % status_limit)
+        """ returns a global view ..."""
+	if status_limit != "NONE":
+	   return status_limit
+	else:        
+	   return status_motor
+
+    def home_search(self, axis, switch):
+        """Launch a homing sequence"""
+        tacomaxe_info("home_search() called for axis \"%s\"" % axis.name)
+	self.device.DevMoveReference(axis.channel,switch)
+
+    def home_state(self, axis):
+        """Returns the current axis state while homing"""
+        tacomaxe_info("home_state() called for axis \"%s\"" % axis.name)
+        return self.state(axis)
+
+    def limit_search(self, axis, limit):
+        """
+        Launch a limitswitch search sequence
+        the sign of the argin gives the search direction
+        """
+        tacomaxe_info("limit_search() called for axis \"%s\"" % axis.name)
+	self.device.DevSetContinuous(axis.channel,limit)
+
 
     def prepare_move(self, motion):
         """
@@ -173,6 +221,7 @@ class TacoMaxe(Controller):
 
     def stop_all(self, *motion_list):
         """Stops all the moving axis given"""
+        tacomaxe_info("stop_all() called for axis \"%s\"" % axis.name)
         for motion in motion_list:
             self.stop(motion)
 

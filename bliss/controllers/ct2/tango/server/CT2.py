@@ -188,7 +188,6 @@ class CT2(Device):
 
     def __on_error(self, error):
         self.__last_error = error
-        switch_state(self, state=DevState.FAULT, status=error)
         self.push_change_event("last_error", error)
 
     def __on_stop(self, *args):

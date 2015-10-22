@@ -149,12 +149,16 @@ class TacoMaxe(Controller):
         status = self.device.DevReadState(axis.channel)
 	status_motor = AxisState(maxe_states[status[0]])
         tacomaxe_debug("status motor = \"%s\"" % status_motor)
-        full_status = self.device.DevReadHardStatus(axis.channel)
-        tacomaxe_debug("full status = \"%x\"" % full_status)
-        if (full_status & 0x01) == 1:
+        statuslim = self.device.DevReadSwitches(axis.channel)
+	""" It is NEGATLIMIT - POSITLIMIT - NEGPOSLIMIT - LIMITSOFF """
+        tacomaxe_debug("status limit = \"%x\"" % statuslim)
+        if statuslim == "NEGATLIMIT":
 	   status_limit = "LIMNEG"
-	elif (full_status & 0x03) == 1:
+	elif statuslim == "POSITLIMIT":
 	   status_limit = "LIMPOS"
+	elif statuslim == "NEGPOSLIMIT":
+	   """ only one limit for bliss """
+	   status_limit = "NEGATLIMIT"
 	else:
 	   status_limit = "NONE"
 	""" HOME not managed """

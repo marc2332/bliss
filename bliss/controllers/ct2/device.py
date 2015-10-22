@@ -152,21 +152,24 @@ class CT2Device(BaseCT2Device):
 
         while True:
             read, write, error = select.select((card,), (), (card,))
-            if error:
-                self._send_error("ct2 select error on {0}".format(error))
-            if read:
-                (counters, channels, dma, fifo_half_full, err), tstamp = \
-                    card.acknowledge_interrupt()
-                if err:
-                    self._send_error("ct2 error")
-                if dma:
-                    data, fifo_status = card.read_fifo()
-                    self.__buffer.append(data)
-                    point_nb = data[-1][-1]
-                    self._send_point_nb(point_nb)
-                if self.__acq_mode == AcqMode.Internal:
-                    if self.internal_point_nb_counter in counters:
-                        self._send_stop()
+            try:
+                if error:
+                    self._send_error("ct2 select error on {0}".format(error))
+                if read:
+                    (counters, channels, dma, fifo_half_full, err), tstamp = \
+                        card.acknowledge_interrupt()
+                    if err:
+                        self._send_error("ct2 error")
+                    if dma:
+                        data, fifo_status = card.read_fifo()
+                        self.__buffer.append(data)
+                        point_nb = data[-1][-1]
+                        self._send_point_nb(point_nb)
+                    if self.__acq_mode == AcqMode.Internal:
+                        if self.internal_point_nb_counter in counters:
+                            self._send_stop()
+            except Exception as e:
+                self._send_error("unexpected ct2 select error: {0}".format(e))
 
     @property
     def _device(self):

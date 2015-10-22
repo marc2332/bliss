@@ -3287,26 +3287,6 @@ def ct2(card_type, name):
 # Configuration helpers
 # -----------------------------------------------------------------------------
 
-COUNTER_PARAMS_SEQ = (
-#      name             type              default value             label            description
-    ("clock source",    (CtClockSrc,     CtClockSrc.CLK_1_25_KHz, "Clock",        "counter clock source")),
-    ("gate source",     (CtGateSrc,      CtGateSrc.GATE_CMPT,     "Gate",         "counter gate source")),
-    ("start source",    (CtHardStartSrc, CtHardStartSrc.SOFTWARE, "Start",        "hardware start source")),
-    ("stop source",     (CtHardStopSrc,  CtHardStopSrc.SOFTWARE,  "Stop",         "hardware stop source")),
-    ("latch sources",   (list,           [],                      "Latch(es)",    "counter to latch(es) on counter signals hardware stop, software stop and software disable")),
-    ("reset",           (bool,           False,                   "Reset",        "reset from hardware or software stop")),
-    ("stop",            (bool,           False,                   "Stop",         "stop from hardware stop")),
-    ("software enable", (bool,           False,                   "Soft. enable", "software enable/disable")),
-)
-
-COUNTER_PARAMS_DICT = {}
-for k, v in COUNTER_PARAMS_SEQ:
-    COUNTER_PARAMS_DICT[k] = dict(name=k, type=v[0], default=v[1], label=v[2], description=v[3])
-
-
-def get_counter_params():
-    return __counter_params_dict
-
 __enum_meta = {
     #   enum           optional      default
     #                  prefixes       value
@@ -3503,37 +3483,6 @@ def configure_card(card, config):
                                                       interrupt_buffer_size])
     card.set_interrupts(ch_ints, ct_ints, dma_int, fifo_hf_int, error_int)
 
-
-def epoll(card):
-    card.enable_interrupts(100)
-    try:
-        poll = select.epoll()
-        poll.register(card, select.EPOLLIN | select.EPOLLHUP | select.EPOLLERR)
-        stop = False
-        while not stop:
-            events = poll.poll(timeout=1)
-            if not events:
-                print("poll loop")
-                continue
-            for fd, event in events:
-                if event & (select.EPOLLHUP):
-                    print("epoll hang up event on {0}, bailing out".format(fd))
-                    stop = True
-                elif event & (select.EPOLLERR):
-                    print("epoll error event on {0}, bailing out".format(fd))
-                    stop = True
-                else:
-                    print("epoll event {0} on {1}".format(event, fd))
-    finally:
-        card.disable_interrupts()
-
-
-def py_select(card):
-    raise NotImplementedError
-
-
-def gevent_select(card):
-    raise NotImplementedError
     if enable_interrupts:
         interrupt_buffer_size = interrupt_buffer_size and interrupt_buffer_size or 100
         card.enable_interrupts(interrupt_buffer_size)

@@ -16,9 +16,4 @@
 CT2 (P201/C208) ESRF counter card TANGO device
 """
 
-from . import release
 from .CT2 import CT2, main
-
-__version__ = release.version
-__version_info__ = release.version_info
-__author__ = release.author

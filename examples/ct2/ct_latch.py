@@ -19,7 +19,7 @@ except:
     sys.path.append(this_dir)
     from bliss.controllers import ct2
 
-from bliss.controllers.ct2 import P201, Clock, Level, CtConfig, OutputSrc
+from bliss.controllers.ct2 import P201Card, Clock, Level, CtConfig, OutputSrc
 from bliss.controllers.ct2 import CtClockSrc, CtGateSrc, CtHardStartSrc, CtHardStopSrc
 
 
@@ -40,7 +40,7 @@ def main():
         sys.stdout.write(msg)
         sys.stdout.flush()
 
-    p201 = P201()
+    p201 = P201Card()
     p201.request_exclusive_access()
     p201.reset()
     p201.software_reset()

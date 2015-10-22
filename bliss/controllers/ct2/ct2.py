@@ -1,4 +1,15 @@
 # -*- coding: utf-8 -*-
+#
+# This file is part of the CT2 project
+#
+# Copyright (c) : 2015
+# Beamline Control Unit, European Synchrotron Radiation Facility
+# BP 220, Grenoble 38043
+# FRANCE
+#
+# Distributed under the terms of the GNU Lesser General Public License,
+# either version 3 of the License, or (at your option) any later version.
+# See LICENSE.txt for more info.
 
 """
 The python module for the ct2 (P201/C208) ESRF PCI counter card
@@ -22,8 +33,8 @@ import functools
 
 try:
     import enum
-except:
-    import enum34 as enum
+except ImportError:
+    from . import enum34 as enum
 
 
 # low level pread and pwrite calls for the p201/c208 driver.
@@ -3248,7 +3259,7 @@ class BaseCard:
         self.set_counters_software_enable(ct)
 
 
-class P201(BaseCard):
+class P201Card(BaseCard):
     """
     P201 card class
     """
@@ -3269,16 +3280,16 @@ class P201(BaseCard):
     FIFO_SIZE = 2048 * CT2_REG_SIZE
 
 
-def C208():
+def C208Card():
     raise NotImplementedError
 
 
-def ct2(card_type, name):
+def CT2Card(card_type, name):
     if "201" in card_type:
-        klass = P201
+        klass = P201Card
         name = name and name or "/dev/p201"
     else:
-        klass = C208
+        klass = C208Card
         name = name and name or "/dev/c208"
     return klass(name)
 
@@ -3370,7 +3381,7 @@ def create_card_from_configure(config):
     :return: a new instance of :class:`P201`
     :rtype: :class:`P201`
     """
-    return ct2(config.get("class", "P201"), config.get("address"))
+    return CT2Card(config.get("class", "P201"), config.get("address"))
 
 
 def configure_card(card, config):
@@ -3497,7 +3508,7 @@ def main():
         sys.stdout.write(msg)
         sys.stdout.flush()
 
-    p201 = P201()
+    p201 = P201Card()
     p201.request_exclusive_access()
     p201.reset()
     p201.software_reset()

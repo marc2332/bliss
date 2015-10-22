@@ -1,0 +1,25 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# This file is part of the CT2 project
+#
+# Copyright (c) : 2015
+# Beamline Control Unit, European Synchrotron Radiation Facility
+# BP 220, Grenoble 38043
+# FRANCE
+#
+# Distributed under the terms of the GNU Lesser General Public License,
+# either version 3 of the License, or (at your option) any later version.
+# See LICENSE.txt for more info.
+
+try:
+    from bliss.controllers.ct2.tango.server import main
+except ImportError:
+    import os, sys
+    __this_dir = os.path.dirname(os.path.abspath(__file__))
+    __package_dir = os.path.join(__this_dir, os.path.pardir)
+    sys.path.append(__package_dir)
+    from bliss.controllers.ct2.tango.server import main
+
+if __name__ == "__main__":
+    main()

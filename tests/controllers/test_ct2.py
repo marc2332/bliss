@@ -1,6 +1,20 @@
+# -*- coding: utf-8 -*-
+#
+# This file is part of the CT2 project
+#
+# Copyright (c) : 2015
+# Beamline Control Unit, European Synchrotron Radiation Facility
+# BP 220, Grenoble 38043
+# FRANCE
+#
+# Distributed under the terms of the GNU Lesser General Public License,
+# either version 3 of the License, or (at your option) any later version.
+# See LICENSE.txt for more info.
+
 import unittest
 
 from bliss.controllers import ct2
+
 
 class TestCtConfig(unittest.TestCase):
 
@@ -59,7 +73,7 @@ class TestCtConfig(unittest.TestCase):
 class TestP201(unittest.TestCase):
 
     def setUp(self):
-        self.p201 = ct2.P201()
+        self.p201 = ct2.P201Card()
         self.p201.disable_interrupts()
         self.p201.reset()
         self.p201.software_reset()

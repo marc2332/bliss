@@ -10,7 +10,11 @@ P201/C208 python API
    :nosignatures:
    :toctree:
 
-   P201
+   BaseCard
+   P201Card
+   C208Card
+   BaseCT2Device
+   CT2Device
    CtStatus
    CtConfig
    FilterOutput

@@ -21,7 +21,7 @@ except:
     sys.path.append(this_dir)
     from bliss.controllers import ct2
 
-from bliss.controllers.ct2 import P201, Clock, Level, CtConfig, OutputSrc
+from bliss.controllers.ct2 import P201Card, Clock, Level, CtConfig, OutputSrc
 from bliss.controllers.ct2 import CtClockSrc, CtGateSrc, CtHardStartSrc, CtHardStopSrc
 
 
@@ -129,7 +129,7 @@ def main():
     nb_points = args.nb_points
     acq_time = args.acq_time
 
-    device = P201()
+    device = P201Card()
 
     configure(device, channels)
 

@@ -21,7 +21,7 @@ except:
     sys.path.append(this_dir)
     from bliss.controllers import ct2
 
-from bliss.controllers.ct2 import P201, Clock, Level, CtConfig, OutputSrc
+from bliss.controllers.ct2 import P201Card, Clock, Level, CtConfig, OutputSrc
 from bliss.controllers.ct2 import CtClockSrc, CtGateSrc, CtHardStartSrc, CtHardStopSrc
 
 
@@ -54,7 +54,7 @@ def main():
 
     counters = tuple(range(1, nb_counters+1))
 
-    card = P201()
+    card = P201Card()
     card.request_exclusive_access()
     card.reset()
     card.software_reset()

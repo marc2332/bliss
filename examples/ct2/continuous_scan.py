@@ -20,7 +20,7 @@ except:
     sys.path.append(this_dir)
     from bliss.controllers import ct2
 
-from bliss.controllers.ct2 import P201, Clock, Level, CtConfig, OutputSrc, FilterOutput, FilterClock
+from bliss.controllers.ct2 import P201Card, Clock, Level, CtConfig, OutputSrc, FilterOutput, FilterClock
 from bliss.controllers.ct2 import FilterInput, FilterInputSelection
 from bliss.controllers.ct2 import CtClockSrc, CtGateSrc, CtHardStartSrc, CtHardStopSrc
 
@@ -64,7 +64,7 @@ def main():
 
     parser = argparse.ArgumentParser(description='Process some integers.')
 
-    p201 = P201()
+    p201 = P201Card()
     try:
         go(p201)
     except KeyboardInterrupt:

@@ -3408,6 +3408,8 @@ def configure_card(card, config):
     fifo_hf_int = __get(config, 'fifo half full interrupt', False)
     error_int = __get(config, 'error interrupt', False)
 
+    interrupt_buffer_size = __get(config, 'interrupt buffer size', 0)
+
     ct_cfgs = {}
     ct_latch_srcs = {}
     ct_sw_enables = {}
@@ -3497,6 +3499,8 @@ def configure_card(card, config):
     card.set_counters_software_enable(ct_sw_enables)
     card.set_counters_comparators_values(ct_cmpts)
 
+    enable_interrupts = any(list(ct_ints.values()) + [dma_int, fifo_hf_int, error_int,
+                                                      interrupt_buffer_size])
     card.set_interrupts(ch_ints, ct_ints, dma_int, fifo_hf_int, error_int)
 
 
@@ -3530,6 +3534,9 @@ def py_select(card):
 
 def gevent_select(card):
     raise NotImplementedError
+    if enable_interrupts:
+        interrupt_buffer_size = interrupt_buffer_size and interrupt_buffer_size or 100
+        card.enable_interrupts(interrupt_buffer_size)
 
 
 def main():

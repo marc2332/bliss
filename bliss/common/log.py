@@ -10,12 +10,22 @@ NOTSET
 
 
 class bcolors:
-    PINK = '\033[95m'
-    BLUE = '\033[94m'
-    YELLOW = '\033[93m'
-    GREEN = '\033[92m'
-    RED = '\033[91m'
-    ENDC = '\033[0m'
+    CSI="\x1B["
+    BOLD = CSI + '1m'
+    RGREY = CSI + '100m'
+    RRED = CSI + '101m'
+    RGREEN = CSI + '102m'
+    RYELLOW = CSI + '103m'
+    RBLUE = CSI + '104m'
+    RMAGENTA = CSI + '105m'
+    RLIGHTBLUE = CSI + '106m'
+    WHITE = CSI + '107m'
+    BLUE = CSI + '94m'
+    PINK = CSI + '95m'
+    YELLOW = CSI + '93m'
+    GREEN = CSI + '92m'
+    RED = CSI + '91m'
+    ENDC = CSI + '0m'
 
 
 # LOG LEVELS :

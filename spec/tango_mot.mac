@@ -226,16 +226,17 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
         _ctrl_ds_name = tango_mot_ADDR
         tango_mot_dbg(sprintf("CTRL DS NAME = %s", _ctrl_ds_name))
 
+        # Get axis name from spec config:
+        # Use "axis_name" field if present, otherwise, use motor mnemonic.
         _axis_name = motor_par(motnum, "axis_name")
-
-        if (_axis_name == 0){
+        if (_axis_name == 0 ){
             _axis_name = _mot_mne
-            _msg = sprintf("motor %d : parameter \"axis_name\" is empty (will use mnemonic : %s).", \
-                           motnum, _mot_mne )
-            tango_mot_msg(_msg)
+            _msg = sprintf("motor %s (no%d) : \"axis_name\" parameter is empty. Spec will use it.s mnemonic (%s)", \
+                           _mot_mne, motnum, _mot_mne )
+            tango_mot_dbg(_msg)
         }
         else{
-            tango_mot_dbg(sprintf("axis_name = %s", _axis_name))
+            tango_mot_dbg(sprintf("axis_name in SPEC config = %s", _axis_name))
         }
 
         if (split(_ctrl_ds_name, TTT, "/") == 3){
@@ -253,8 +254,8 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
             return ".error."
         }
         else{
-            printf("Motor \"%s\" linked to Tango EMotion axis : %s \n",   \
-                   _mot_mne, _axis_ds_name)
+            tango_mot_dbg(sprintf("Motor \"%s\" linked to Tango EMotion axis : %s ", \
+                                  _mot_mne, _axis_ds_name))
         }
 
         # Registers axis Tango DS name in parameters of the motor.
@@ -271,6 +272,10 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
         # Try to switch power on.
         TANGO_ERR = -1
         tango_io(_axis_ds_name, "On")
+        if (TANGO_ERR){
+            _tango_mot_error_stack(_mot_mne, _dev, _attr)
+            return ".error."
+        }
 
         # Queries Bliss DS to know the state of the axis.
         local _state
@@ -302,7 +307,7 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
 
         # VELOCITY / ACCELERATION
         local _velo _velo_steps _use_spec_config
-        local _acc _acc_time _acc_time_ms
+        local _acc_time _acc_time_ms
 
         # 2 modes for acceleration / velocity
         # use_spec_config = 0 (default) : values are read from DS and set to
@@ -331,7 +336,7 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
         else {
             # We only need to set spec internals (no write to DS)
 
-            tango_mot_dbg("----------------configurin SPEC from DS values---------------")
+            tango_mot_dbg("----------------configuring SPEC from DS values---------------")
 
             # To inform macro func tango_mot_par to not set acc/velo
             # to DS we use this custom [in_config] motor_par flag
@@ -349,7 +354,7 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
             # "acceleration" value.
             _acc_time = tango_mot_get_attr(motnum, "acctime")
             _acc_time_ms = _acc_time * 1000
-            tango_mot_dbg(sprintf("DS acc_time=%g  _acc_time_ms=%g ", _acc, _acc_time_ms))
+            tango_mot_dbg(sprintf("DS acc_time=%g  _acc_time_ms=%g ", _acc_time, _acc_time_ms))
             motor_par(motnum, "acceleration", _acc_time_ms)
 
             # Reset custom [in_config] flag, so motor_par set by user
@@ -386,9 +391,9 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
 #%LI%<p2>     :    \
 #%XUL%
 def tango_mot_par(motnum, key, action, p1, p2) '{
-    local _msg _mot_mne
+    local _mot_mne
+    local _msg
     local _axis_ds_name
-    local _state
 
     _mot_mne = motor_mne(motnum)
     if (key == "dev_name")
@@ -400,19 +405,30 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
     tango_mot_dbg(_msg)
 
     # Returns the list of non standard motor parameters implemented.
-    if ( key=="?" && action=="get") {
+    if ( key == "?" && action == "get") {
         return("power, axisstatus, apply_config, settings_to_config, closed_loop")
+    }
+
+
+    if(key != "dev_name"){
+        _axis_ds_name = motor_par(motnum, "dev_name")
     }
 
     # Control motor power
     if (key == "power") {
+        local _state
+
         if (action == "set") {
             # Try to switch power on or off according to argin given
             TANGO_ERR = -1
-            tango_io(_axis_ds_name, (p1==1?"On":"Off"))
+            tango_io(_axis_ds_name, (p1==1 ? "On" : "Off"))
+            if (TANGO_ERR){
+                _tango_mot_error_stack(_mot_mne, _axis_ds_name, _attr)
+                exit
+            }
         }
 
-        # in any case, returns the current state (0 == ON)
+        # In any case, returns the current state (0 == ON)
         _state = tango_io(_axis_ds_name, "State")
         return (_state == 0)
     }
@@ -420,6 +436,10 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
     if (key == "apply_config") {
         TANGO_ERR = -1
         tango_io(_axis_ds_name, "ApplyConfig")
+        if (TANGO_ERR){
+            _tango_mot_error_stack(_mot_mne, _axis_ds_name, _attr)
+            exit
+        }
 
         # in any case, returns the current state (0 == ON)
         _state = tango_io(_axis_ds_name, "State")
@@ -429,6 +449,10 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
     if (key == "settings_to_config") {
         TANGO_ERR = -1
         tango_io(_axis_ds_name, "SettingsToConfig")
+        if (TANGO_ERR){
+            _tango_mot_error_stack(_mot_mne, _axis_ds_name, _attr)
+            exit
+        }
 
         # in any case, returns the current state (0 == ON)
         _state = tango_io(_axis_ds_name, "State")
@@ -438,8 +462,8 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
     if (key == "closed_loop"){
         local _cl_state
 
-        if (action=="set"){
-            
+        if (action == "set"){
+            print "not yet implemented..."
         }
 
         _cl_state = tango_io(_axis_ds_name, "closed_loop")
@@ -447,13 +471,12 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
     }
 
 
-    if (action=="get") {
+    if (action == "get") {
         if ( key == "axisstatus"){
             return (tango_mot_status(motnum))
         }
-        else if ((key != "axis_name") && (key != "use_spec_config")) {
-            printf("dou tu sors toi ??? motnum=%d, key=%s, action=%s, p1=%s, p2=%s \n", \
-                   motnum, key, action, p1, p2)
+        else {
+            # Other keys can be used by SPEC.
         }
     }
     else if (action == "set"){
@@ -636,17 +659,16 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
             _attr = "position"
             TANGO_ERR = -1
             _ret = tango_put(_dev, _attr, p1)
+            if (TANGO_ERR){
+                _tango_mot_error_stack(_mot_mne, _dev, _attr)
+                exit
+            }
 
-            # MP: the exception error stack is not returned by TANGO API
-            # therefore print motor status instead. Anyway, this will be more
-            # useful for the user than the stack itself.
             if(_ret) {
                 local _msg
-
-                _msg = sprintf("Unable to launch motion on motor %s", _mot_mne)
-                tango_mot_err(_msg)
+                _msg = sprintf("tango_mot_cmd() : start_one : Unable to launch motion on motor %s", _mot_mne)
+                _tango_mot_error_desc(_msg)
                 tango_mot_print_status(motnum)
-                #_tango_mot_error_stack(_mot_mne, _dev, _attr)
                 exit
             }
         }
@@ -753,9 +775,31 @@ def _tango_mot_error_stack(motmne, devname, attr_cmd) '{
     tty_cntl("me")
 }'
 
+def _tango_mot_error_desc(msg) '{
+    # Prints <msg> message.
+    # Prints only "desc" field of the TANGO_ERR_STACK
+    # other fields are too useless for users
+
+# MP: the exception error stack is not (yet) returned by TANGO API
+
+    # Stack example:
+    # TANGO_ERR_STACK["0"]["desc"] = "Failed to execute DeviceProxy::write_attributes on
+    #                                 device id26/bliss_cyrtest/ra, object(s) position"
+    # TANGO_ERR_STACK["0"]["origin"] = "DeviceProxy::write_attributes"
+    # TANGO_ERR_STACK["0"]["reason"] = "API_AttributeFailed"
+    # TANGO_ERR_STACK["0"]["severity"] = 1
+
+    tango_mot_msg(msg)
+    for (item in TANGO_ERR_STACK) {
+        if (index(item, "desc")) {
+            tango_mot_msg(TANGO_ERR_STACK[item])
+        }
+    }
+}'
+
 
 
 #%MACROS%
 #%IMACROS%
-#%AUTHOR%  Cyril Guilloud - BLISS - 2014
+#%AUTHOR%  Cyril Guilloud - BLISS - 2014-2015
 

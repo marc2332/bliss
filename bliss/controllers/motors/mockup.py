@@ -103,6 +103,8 @@ class Mockup(Controller):
         add_axis_method(axis, self.custom_command_no_types, types_info=("None", "None"))
         add_axis_method(axis, self.custom_set_measured_noise, types_info=("float", "None"))
 
+        add_axis_method(axis, self.put_discrepancy, types_info=("int", "None"))
+
 
         if axis.encoder:
             self.__encoders.setdefault(axis.encoder, {})["axis"] = axis
@@ -182,7 +184,6 @@ class Mockup(Controller):
         else:
             pos = self._axis_moves[axis]["end_pos"]
 
-        # always return position
         return int(round(pos))
 
     def read_encoder(self, encoder):
@@ -254,7 +255,9 @@ class Mockup(Controller):
     def set_off(self, axis):
         self._hw_status = "OFF"
 
-    
+    """
+    Hard limits
+    """
     def _check_hw_limits(self, axis):
         ll, hl = self.__hw_limit
         pos = self.read_position(axis)
@@ -279,7 +282,7 @@ class Mockup(Controller):
         else:
            self._axis_moves[axis]["end_t"]=0
            return self._check_hw_limits(axis)
- 
+
     """
     Must send a command to the controller to abort the motion of given axis.
     """
@@ -293,6 +296,9 @@ class Mockup(Controller):
             self._axis_moves[axis]["end_pos"] = self.read_position(axis)
             self._axis_moves[axis]["end_t"] = 0
 
+    """
+    HOME and limits search
+    """
     def home_search(self, axis, switch):
         self._axis_moves[axis]["start_pos"] = self._axis_moves[axis]["end_pos"]
         self._axis_moves[axis]["end_pos"] = 0
@@ -319,7 +325,7 @@ class Mockup(Controller):
         self._axis_moves[axis]["t0"] = time.time()
 
     def get_info(self, axis):
-        return "turlututu chapo pointu : %s (host=%s)" % (axis.name, self.host)
+        return "turlututu chapo pointu : %s" % (axis.name)
 
     def raw_write(self, axis, com):
         print ("raw_write:  com = %s" % com)
@@ -331,6 +337,9 @@ class Mockup(Controller):
         self._axis_moves[axis]["end_pos"] = pos
         self._axis_moves[axis]["end_t"] = 0
         return pos
+
+    def put_discrepancy(self, axis, disc):
+        self._axis_moves[axis]["end_pos"] += disc
 
     """
     Custom axis methods
@@ -362,6 +371,7 @@ class Mockup(Controller):
     def custom_send_command(self, axis, value):
         print "command=", value
 
+    # Types by default
     def custom_command_no_types(self, axis):
         print "print with no types"
 

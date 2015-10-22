@@ -36,39 +36,39 @@ Bliss is shipped with a generic Tango device server.
 [TANGO](http://www.tango-controls.org)
 
 Controllers supported in EMotion :
-*2014-01 : FlexDC.py      Nanomotion flexdc piezo rotation
-*2014-01 : IcePAP.py      ESRF IcePap
-*2014-01 : PI_E753.py     PI E-753 piezo actuators controller
-*2014-02 : PI_E517.py     PI E-517 piezo actuator controller
-*2014-04 : PMD206.py      Piezomotor piezo-motors controller
-*2014-09 : NF8753.py      Newfocus piezo actuators controller
-*2014-11 : GalilDMC213.py Galil stepper motors controller
-*2014-11 : VSCANNER.py    ISG voltage controller
+* 2014-01 : FlexDC.py      Nanomotion flexdc piezo rotation
+* 2014-01 : IcePAP.py      ESRF IcePap
+* 2014-01 : PI_E753.py     PI E-753 piezo actuators controller
+* 2014-02 : PI_E517.py     PI E-517 piezo actuator controller
+* 2014-04 : PMD206.py      Piezomotor piezo-motors controller
+* 2014-09 : NF8753.py      Newfocus piezo actuators controller
+* 2014-11 : GalilDMC213.py Galil stepper motors controller
+* 2014-11 : VSCANNER.py    ISG voltage controller
 
 Special controllers:
-*setpoint.py   Tango attribute as a simple motor (allows scans and ramps)
-*mockup.py     Test and demonstration controller
-*simpliest.py  Minimal controller example
-*PJ31.py       PiezoJack (combination of stepper and pizeo 712)
+* setpoint.py   Tango attribute as a simple motor (allows scans and ramps)
+* mockup.py     Test and demonstration controller
+* simpliest.py  Minimal controller example
+* PJ31.py       PiezoJack (combination of stepper and pizeo 712)
 
 Calculational controllers
-*spectro_eh1_test.py  new ID26 spectrometer prototype
-*tab3.py              3 legs table
-*tabsup.py            ?
-*TangoEMot.py         remote tango motor
-*trans4.py            Qsys support for ID22 transfocator
-*slits.py             slits
-*kb.py                kb support
+* spectro_eh1_test.py  new ID26 spectrometer prototype
+* tab3.py              3 legs table
+* tabsup.py            ?
+* TangoEMot.py         remote tango motor
+* trans4.py            Qsys support for ID22 transfocator
+* slits.py             slits
+* kb.py                kb support
 
 EMotion features:
-*position
-*velocity
-*acceleration
-*acceleration time
-*backlash
-*errors reporting
-*dial / user / controller reference systems
-*soft limits
-*custom commands
-*custom configuration
-*configuration management
+* position
+* velocity
+* acceleration
+* acceleration time
+* backlash
+* errors reporting
+* dial / user / controller reference systems
+* soft limits
+* custom commands
+* custom configuration
+* configuration management

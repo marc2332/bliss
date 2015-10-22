@@ -195,15 +195,6 @@ class PI_E517(Controller):
     def prepare_move(self, motion):
         """
         - TODO for multiple move...
-
-        Args:
-            - <motion> : Bliss motion object.
-
-        Returns:
-            -
-
-        Raises:
-            - ?
         """
         pass
 
@@ -246,9 +237,6 @@ class PI_E517(Controller):
 
     def raw_write(self, cmd):
         self.send_no_ans(self.ctrl_axis, cmd)
-
-#    def raw_write_read(self, cmd):
-#        return self.send(self.ctrl_axis, cmd)
 
     def raw_write_read(self, cmd):
         return self.send(self.ctrl_axis, cmd)

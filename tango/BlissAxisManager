@@ -3,7 +3,7 @@
 import os
 import sys
 
-sys.argv[0] = "Bliss"
+sys.argv[0] = "BlissAxisManager"
 
 if len(sys.argv) == 1:
     # no args ? -> I add "-?" to show defined instances.

@@ -3407,7 +3407,9 @@ def configure_card(card, config):
             reset_from_hard_soft_stop=__get(counter, "reset", False),
             stop_from_hard_stop=__get(counter, "stop", False))
 
-        ct_latch_srcs[addr] = __get(counter, "latch sources", ())
+        for ct_latched in __get(counter, "latch sources", ()):
+            ct_latch_srcs[ct_latched] = addr
+        #ct_latch_srcs[addr] = __get(counter, "latch sources", ())
         
         ct_sw_enables[addr] = __get(counter, "software enable", False)
 

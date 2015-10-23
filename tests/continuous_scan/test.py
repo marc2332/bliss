@@ -344,7 +344,7 @@ def test_lima_basler():
 
   chain = AcquisitionChain()
   nb_points = 4
-  emotion_master = SoftwarePositionTriggerMaster(m0, 0, 360, nb_points, time=10)
+  emotion_master = SoftwarePositionTriggerMaster(m0, 0, 360, nb_points, time=1)
   tango_host = "lid00limax:20000"
   lima_dev = DeviceProxy("//%s/id00/limaccds/basler_bcu" % tango_host)
   params = { "acq_nb_frames": nb_points,

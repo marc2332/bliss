@@ -2002,7 +2002,7 @@ class BaseCard:
             tuple( tuple(set<int>, set<int>, bool, bool, bool), float )
         """
         data = ct2_in()
-        self.__ioctl(CT2_IOC_ACKINT, ctypes.addressof(data))
+        self.__ioctl(CT2_IOC_ACKINT, data, True)
         t = data.stamp.tv_sec + data.stamp.tv_nsec * 1E-9
         return self.__decode_ctrl_it(data.ctrl_it), t
 

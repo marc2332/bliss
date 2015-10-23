@@ -11,7 +11,9 @@
 # either version 3 of the License, or (at your option) any later version.
 # See LICENSE.txt for more info.
 
+import sys
 import numpy
+import gevent
 from gevent import select
 from louie import dispatcher
 
@@ -76,7 +78,7 @@ class BaseCT2Device(object):
     @use_mmap.setter
     def use_mmap(self, use_mmap):
         self._device.use_mmap = use_mmap
-    
+
     @property
     def acq_mode(self):
         return self._device.acq_mode
@@ -118,6 +120,9 @@ class BaseCT2Device(object):
     def start_acq(self):
         self._device.start_acq()
 
+    def stop_acq(self):
+        self._device.stop_acq()
+
     def apply_config():
         self._device.apply_config()
 
@@ -138,14 +143,17 @@ class CT2Device(BaseCT2Device):
     Helper for a locally installed CT2 card (P201/C208).
     """
 
-    def __init__(self, config, name):
+    def __init__(self, config, name, auto_run=True):
         BaseCT2Device.__init__(self, config, name)
         self.__buffer = []
         self.__card = self.config.get(self.name)
         self.__acq_mode = AcqMode.Internal
+        self.__acq_mode_running = None
         self.__acq_expo_time = 1.0
         self.__acq_nb_points = 1
         self.__acq_channels = ()
+        if auto_run:
+            self.event_loop = gevent.spawn(self.run_forever)
 
     def run_forever(self):
         card = self.__card
@@ -169,6 +177,7 @@ class CT2Device(BaseCT2Device):
                         if self.internal_point_nb_counter in counters:
                             self._send_stop()
             except Exception as e:
+                sys.excepthook(*sys.exc_info())
                 self._send_error("unexpected ct2 select error: {0}".format(e))
 
     @property
@@ -252,15 +261,25 @@ class CT2Device(BaseCT2Device):
         configure_card(self.card, self.card_config)
 
     def prepare_acq(self):
+        self.stop_acq()
         if self.acq_mode == AcqMode.Internal:
             self.__configure_internal_mode()
         else:
             raise NotImplementedError
+        self.__acq_mode_running = self.acq_mode
 
     def start_acq(self):
         if self.acq_mode == AcqMode.Internal:
             counters = self.internal_timer_counter, self.internal_point_nb_counter
             self.card.set_counters_software_start(counters)
+        else:
+            raise NotImplementedError
+
+    def stop_acq(self):
+        if self.__acq_mode_running == None:
+            return
+        elif self.acq_mode == AcqMode.Internal:
+            self.card.set_counters_software_stop(self.card.COUNTERS)
         else:
             raise NotImplementedError
 
@@ -273,7 +292,7 @@ class CT2Device(BaseCT2Device):
 
     @acq_mode.setter
     def acq_mode(self, acq_mode):
-        self.__acq_mode = AcqMode(acq_mode)
+        new_acq_mode = AcqMode(acq_mode)
 
     @property
     def acq_nb_points(self):

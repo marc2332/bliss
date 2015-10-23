@@ -29,15 +29,15 @@ class CT2Device(BaseCT2Device):
         device_name = self.card_config['tango name']
         
         self.__tango_device = PyTango.gevent.DeviceProxy(device_name)
-        self.__tango_device.subscribe_event("data",
-                                            PyTango.EventType.DATA_READY_EVENT,
+        self.__tango_device.subscribe_event("last_point_nb",
+                                            PyTango.EventType.CHANGE_EVENT,
                                             self.__on_point_nb)
         self.__tango_device.subscribe_event("last_error",
                                             PyTango.EventType.CHANGE_EVENT,
                                             self.__on_error)
 
     def __on_point_nb(self, event):
-        point_nb = event.ctr
+        point_nb = event.attr_value.value
         if point_nb < 0:
             self._send_stop()
         else:

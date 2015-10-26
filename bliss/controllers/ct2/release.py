@@ -15,7 +15,7 @@
 
 name = """CT2"""
 package_name = """ct2"""
-version = "0.2.0"
+version = "0.3.0"
 version_info = version.split(".")
 description = """The ESRF CT2 (P201/C208) counter card project"""
 license = """LGPL"""

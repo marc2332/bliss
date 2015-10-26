@@ -33,7 +33,8 @@ from louie import dispatcher
 
 from beacon.static import get_config
 
-from ...device import CT2Device, AcqMode, ErrorSignal, PointNbSignal, StopSignal
+from ...device import CT2Device, AcqMode, AcqStatus
+from ...device import ErrorSignal, PointNbSignal, StatusSignal
 
 
 def switch_state(tg_dev, state=None, status=None):
@@ -65,13 +66,12 @@ class CT2(Device):
     def init_device(self):
         Device.init_device(self)
         for attr in ("state", "status", "last_error", "last_point_nb",
-                     "acq_mode", "acq_expo_time", "acq_nb_points",
-                     "acq_channels"):
+                     "acq_status", "acq_mode", "acq_expo_time",
+                     "acq_nb_points", "acq_channels"):
             self.set_change_event(attr, True, False)
 
         self.__last_error = ""
-        self.__last_point_nb = -1
-        self.__last_point_nb_timestamp = 0.
+        self.__last_point_nb_info = -1, 0, AttrQuality.ATTR_VALID
 
         try:
             config = get_config()
@@ -82,7 +82,7 @@ class CT2(Device):
                                    sender=self.device)
                 dispatcher.connect(self.__on_point_nb, signal=PointNbSignal,
                                    sender=self.device)
-                dispatcher.connect(self.__on_stop, signal=StopSignal,
+                dispatcher.connect(self.__on_status, signal=StatusSignal,
                                    sender=self.device)
             else:
                 self.apply_config()
@@ -101,11 +101,7 @@ class CT2(Device):
 
     @attribute(dtype='int32', label="Last point nb.")
     def last_point_nb(self):
-        state = self.get_state()
-        q = AttrQuality.ATTR_VALID
-        if state == DevState.RUNNING:
-            q = AttrQuality.ATTR_CHANGING
-        return self.__last_point_nb, self.__last_point_nb_timestamp, q
+        return self.__last_point_nb_info
 
     @attribute(dtype='str', label="Acq. mode",
                memorized=True, hw_memorized=True,
@@ -118,8 +114,13 @@ class CT2(Device):
         self.device.acq_mode = AcqMode[acq_mode]
         self.push_change_event("acq_mode", acq_mode)
 
+    @attribute(dtype='str', label="Acq. status",
+               doc="Acquisition status")
+    def acq_status(self):
+        return self.device.acq_status.name
+
     @attribute(dtype='float64', label="Acq. expo. time", unit="s",
-               standard_unit="s", display_unit="s",
+               standard_unit="s", display_unit="s", format="%6.3f",
                memorized=True, hw_memorized=True,
                doc="Acquisition exposition time (s)")
     def acq_expo_time(self):
@@ -196,12 +197,17 @@ class CT2(Device):
     def card(self):
         return self.device.card
 
-    def __set_last_point_nb(self, point_nb, timestamp=None):
-        self.__last_point_nb = int(point_nb)
+    def __set_last_point_nb(self, point_nb, timestamp=None, quality=None):
         if timestamp is None:
             timestamp = time.time()
+        if quality is None:
+            if self.device.acq_status == AcqStatus.Running:
+                quality = AttrQuality.ATTR_CHANGING
+            else:
+                quality = AttrQuality.ATTR_VALID
+        self.__last_point_nb = int(point_nb), timestamp, quality
         self.__last_point_nb_timestamp = timestamp
-        self.push_change_event("last_point_nb", self.__last_point_nb)
+        self.push_change_event("last_point_nb", *self.__last_point_nb)
 
     def __set_last_error(self, error):
         self.__last_error = error
@@ -210,16 +216,18 @@ class CT2(Device):
     def __on_error(self, error):
         self.__set_last_error(error)
 
-    def __on_stop(self, *args):
-        self.__set_last_point_nb(-1)
-        if self.get_state() == DevState.RUNNING:
+    def __on_status(self, status):
+        if status == AcqStatus.Ready:
+            quality = AttrQuality.ATTR_VALID
             switch_state(self, DevState.ON, "Ready!")
-
-    def __on_point_nb(self, point_nb):
-        if self.get_state() != DevState.RUNNING:
+        elif status == AcqStatus.Running:
+            quality = AttrQuality.ATTR_CHANGING
             acq_mode = self.device.acq_mode.name
             switch_state(self, DevState.RUNNING,
-                         "acquiring in {0} mode".format(acq_mode))
+                         "acquiring in {0} mode".format(acq_mode))            
+        self.push_change_event("acq_status", status.name, time.time(), quality)
+
+    def __on_point_nb(self, point_nb):
         self.__set_last_point_nb(point_nb)
 
 

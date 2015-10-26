@@ -88,7 +88,7 @@ clock_gettime = getattr(time, "clock_gettime", None)
 if not hasattr(time, "clock_gettime"):
     # see <linux/time.h>
     time.CLOCK_REALTIME = 0
-    time.CLOCK_MONOTONIC = 1      
+    time.CLOCK_MONOTONIC = 1
     time.CLOCK_PROCESS_CPUTIME_ID = 2
     time.CLOCK_THREAD_CPUTIME_ID = 3
     time.CLOCK_MONOTONIC_RAW = 4
@@ -102,7 +102,7 @@ if not hasattr(time, "clock_gettime"):
             errno_ = ctypes.get_errno()
             errno.set_errno(0)
             raise OSError(errno_, "time.monotonic error: %s" % os.strerror(errno_))
-        return t.tv_sec + t.tv_nsec * 1E-9    
+        return t.tv_sec + t.tv_nsec * 1E-9
     time.clock_gettime = _clock_gettime
     time.monotonic = functools.partial(time.clock_gettime, time.CLOCK_MONOTONIC_RAW)
 time.monotonic_raw = functools.partial(time.clock_gettime, time.CLOCK_MONOTONIC_RAW)
@@ -130,7 +130,7 @@ def preadn(fd, offset, n=CT2_REG_SIZE):
         raise OSError("pread error: read only {0} bytes (expected {1})"
                       .format(read_n, n))
     return buff[:]
-    
+
 pread = functools.partial(preadn, n=CT2_REG_SIZE)
 
 
@@ -1353,7 +1353,7 @@ CT2_IOC_QXA = _IO(CT2_IOC_MAGIC, 21), "CT2_IOC_QXA", \
 #:    EINVAL  some arguments to the  ioctl(2)  call where invalid
 #:
 CT2_IOC_LXA = _IO(CT2_IOC_MAGIC, 22), "CT2_IOC_LXA", \
-    __CT2_ERRORS("relinquish exclusive_access", 
+    __CT2_ERRORS("relinquish exclusive_access",
                  {errno.EBUSY: "Failed to relinquish exclusive access: " \
                                "at least one mmap is still active"})
 
@@ -1411,7 +1411,7 @@ CT2_IOC_LXA = _IO(CT2_IOC_MAGIC, 22), "CT2_IOC_LXA", \
 #:    EINVAL  some arguments to the  ioctl(2)  call where invalid
 #:
 CT2_IOC_DEVRST = _IO(CT2_IOC_MAGIC, 0), "CT2_IOC_DEVRST", \
-    __CT2_ERRORS("reset card") 
+    __CT2_ERRORS("reset card")
 
 
 #: CT2_IOC_EDINT - "[E]nable [D]evice [INT]errupts"
@@ -1689,7 +1689,7 @@ class FilterInput(BaseParam):
     """
     Channel input filter (clock freq., selection)
     """
-    
+
     _FLAG_MAP = { 'clock':     (FilterClock,            0b111),
                   'selection': (FilterInputSelection, 0b11000), }
 
@@ -1750,10 +1750,10 @@ class CtConfig(BaseParam):
 
     clock_source
         Describes the source that triggers a counter event
-    
+
     gate_source
         counter gate source
-    
+
     hard_start_source
         Describes the event that triggers the counter to start
 
@@ -1761,12 +1761,12 @@ class CtConfig(BaseParam):
         Describes the event that triggers the counter to stop
 
     reset_from_hard_soft_stop
-        Set it to True to tell the counter to reset its value when a stop 
+        Set it to True to tell the counter to reset its value when a stop
         signal (hardware or software) is received. Set it to False to leave
         the counter value unchanged when a stop signal occurs
 
     stop from hard stop
-        Set it to True to disable the counter when a hardware stop signal 
+        Set it to True to disable the counter when a hardware stop signal
         is received. Set to False to maintain the counter enabled even after a
         hardware stop signal is received.
 
@@ -1823,7 +1823,7 @@ class BaseCard:
 
     #: fifo size (bytes)
     FIFO_SIZE = 0
-    
+
     def __init__(self, address="/dev/p201"):
         self.__log = logging.getLogger("P201." + address)
         self.__address = address
@@ -1843,7 +1843,7 @@ class BaseCard:
             self.__log.debug("ioctl %020s", op[1])
         except (IOError, OSError) as exc:
             if exc.errno in op[2]:
-                raise CT2Exception("{0} error: {1}".format(op[1], 
+                raise CT2Exception("{0} error: {1}".format(op[1],
                                                            op[2][exc.errno]))
             else:
                 raise
@@ -1895,8 +1895,8 @@ class BaseCard:
             raise CT2Exception("FIFO size must be multiple of %d" % CT2_REG_SIZE)
 
         import mmap
-        return mmap.mmap(self.fileno(), length, flags=mmap.MAP_PRIVATE, 
-                         prot=mmap.PROT_READ, offset=CT2_MM_FIFO_OFF)        
+        return mmap.mmap(self.fileno(), length, flags=mmap.MAP_PRIVATE,
+                         prot=mmap.PROT_READ, offset=CT2_MM_FIFO_OFF)
 
     def connect(self, address):
         if address is None:
@@ -1942,7 +1942,7 @@ class BaseCard:
     def has_exclusive_access(self):
         """
         Returns True if this card object has exclusive access or False otherwise
-        
+
         :return: True if this card object has exclusive access or False otherwise
         :rtype: bool
         """
@@ -1962,7 +1962,7 @@ class BaseCard:
 
         :param fifo_size: FIFO depth (number of FIFO entries)
         :type fifo_size: int
-        
+
         :raises CT2Exception: if fails to enable interrupts
         """
         self.__ioctl(CT2_IOC_EDINT, fifo_size)
@@ -1977,10 +1977,10 @@ class BaseCard:
         """
         Acknowledge interrupt.
 
-        The result is a tuple of 2 elements containing: 
+        The result is a tuple of 2 elements containing:
 
           * a tuple of 5 elements containing:
-            
+
             * counters stop triggered interrupt (set)
             * channels rising and/or falling edge triggered interrupts (set)
             * DMA transfer interrupt enabled (bool)
@@ -1988,17 +1988,17 @@ class BaseCard:
             * FIFO transfer error or too close DMA trigger enabled (bool)
           * time stamp (seconds)
 
-        Active elements mean that *at least* one such notification was 
+        Active elements mean that *at least* one such notification was
         delivered. If no new interrupt notification occurred since last call
-        the time stamp contains the time the value of the value of the 
+        the time stamp contains the time the value of the value of the
         interrupt status in the interrupt notification storage was last read.
         Otherwise, the time stamp corresponds to the the time the interrupt
         status was last updated is saved.
 
-        :return: 
-            counters, channels, DMA, FIFO and error interrupt information plus 
+        :return:
+            counters, channels, DMA, FIFO and error interrupt information plus
             time stamp
-        :rtype: 
+        :rtype:
             tuple( tuple(set<int>, set<int>, bool, bool, bool), float )
         """
         data = ct2_in()
@@ -2022,7 +2022,7 @@ class BaseCard:
         register_name = register_name.upper()
         offset = CT2_R_DICT[register_name][0]
         iresult = self._read_offset(offset)
-        self.__log.debug(" read %020s (addr=%06s) = %010s", register_name, 
+        self.__log.debug(" read %020s (addr=%06s) = %010s", register_name,
                          hex(offset), hex(iresult))
         return iresult
 
@@ -2062,7 +2062,7 @@ class BaseCard:
             buff = preadn(self.fileno(), fifo_offset, n=read_len)
 
         import numpy
-        return numpy.ndarray((nb_events, nb_counters), dtype=numpy.uint32, 
+        return numpy.ndarray((nb_events, nb_counters), dtype=numpy.uint32,
                              buffer=buff), fifo_status
 
     def software_reset(self):
@@ -2111,7 +2111,7 @@ class BaseCard:
                     level = Level.NIM
                 else:
                     level = Level.DISABLE
-            
+
             result[channel] = level
         return result
 
@@ -2168,9 +2168,9 @@ class BaseCard:
                     level = Level.NIM
                 else:
                     level = Level.DISABLE
-            
+
             result[channel] = level
-        return result        
+        return result
 
     def set_input_channels_level(self, input_level):
         register = 0
@@ -2185,7 +2185,7 @@ class BaseCard:
             else:
                 pass
         self.write_reg("NIVEAU_IN", register)
-        
+
     def get_output_channels_software_enable(self):
         """
         Returns the ouput channels levels as a dictionary with keys
@@ -2227,8 +2227,8 @@ class BaseCard:
         """
         Returns the current output channels source configuration
 
-        :return: 
-            dictionary where key is the output channel number and value is the 
+        :return:
+            dictionary where key is the output channel number and value is the
             output channel source (instance of :class:`OutputSrc`)
         :rtype: dict<int: class:`OutputSrc>`
         """
@@ -2241,9 +2241,9 @@ class BaseCard:
     def set_output_channels_source(self, output_src):
         """
         Sets the cards ouput channels source configuration
-        
+
         :param output_src:
-            dictionary where key is the output channel number and value is the 
+            dictionary where key is the output channel number and value is the
             ouput channel source (instance of :class:`OutputSrc`)
         :type ouput_src: dict<int: class:`OutputSrc>`
         """
@@ -2260,7 +2260,7 @@ class BaseCard:
 
         :return:
             dictionary where key is the output channel number and value is the
-            filter and polarity configuration (instance of 
+            filter and polarity configuration (instance of
             :class:`FilterOutput`)
         :rtype: dict<int: class:`FilterOutput>`
         """
@@ -2275,7 +2275,7 @@ class BaseCard:
         Sets the given ouput channels filter configuration and polarity
         selection
 
-        :param filter: 
+        :param filter:
             dictionary where key is the channel number and value is the filter
             and polarity configuration (instance of :class:`FilterOutput`)
         :type filter: dict<int: class:`FilterOutput>`
@@ -2339,27 +2339,27 @@ class BaseCard:
             latches[counter] = (register & (1 << n << 16)) != 0
         return counters, latches
 
-    def set_DMA_enable_trigger_latch(self, counters=None, latches=None, 
+    def set_DMA_enable_trigger_latch(self, counters=None, latches=None,
                                      reset_fifo_error_flags=False):
         """
         Configures the DMA trigger sources and FIFO store.
 
         :param counters:
-            a container of counters for which the latch transfer will trigger 
-            DMA (can be any python container (tuple, list, set, iterator, 
+            a container of counters for which the latch transfer will trigger
+            DMA (can be any python container (tuple, list, set, iterator,
             even dict. If a dictionary is given, the boolean value of each key
             will determine if enable or disable the corresponding counter latch
             trigger))
         :type counters: container (tuple, list, set, iterator, even dict.)
         :param latches:
-            a container of counters latches which will be stored to FIFO on 
-            a DMA trigger (can be any python container (tuple, list, set, 
+            a container of counters latches which will be stored to FIFO on
+            a DMA trigger (can be any python container (tuple, list, set,
             iterator, even dict. If a dictionary is given, the boolean value of
             each key will determine if enable or disable the corresponding
             counter latch trigger)
         :type latches: container (tuple, list, set, iterator, even dict.)
-        
-        :param reset_fifo_error_flags: 
+
+        :param reset_fifo_error_flags:
             set to True to reset FIFO and error flags. Usually not used.
             Exists for convenience of implementation since it is in the same
             register as the rest of the DMA configuration
@@ -2443,7 +2443,7 @@ class BaseCard:
         dma, fifo, error = (register & (1 << 12)) != 0
         fifo_half_full = (register & (1 << 13)) != 0
         error = (register & (1 << 14)) != 0
-        return counters, dma, fifo_half_full, error        
+        return counters, dma, fifo_half_full, error
 
     def __set_source_it_b(self, counters=None, dma=False, fifo_half_full=False,
                           error=False):
@@ -2474,9 +2474,9 @@ class BaseCard:
         """
         Sets the counter source interrupt configuration
 
-        .. note:: 
+        .. note::
             *techincal note*.This call leaves DMA and FIFO interrupt
-            parameters unchanged (even though they come in the same 
+            parameters unchanged (even though they come in the same
             register as the counter interrupts)
 
         dict<int: bool>
@@ -2490,11 +2490,11 @@ class BaseCard:
 
     def get_DMA_FIFO_error_interrupts(self):
         """
-        Returns the interrupt configuration for the following possible 
+        Returns the interrupt configuration for the following possible
         interruptions:
 
             - End of DMA transfer
-            - FIFO half full 
+            - FIFO half full
             - FIFO transfer error or too close DMA triggers error
 
         :return:
@@ -2508,13 +2508,13 @@ class BaseCard:
     def set_DMA_FIFO_interrupts(self, dma=False, fifo_half_full=False,
                                 error=False):
         """
-        Sets the interrupt configuration for the following possible 
+        Sets the interrupt configuration for the following possible
         interruptions:
 
             - End of DMA transfer
-            - FIFO half full 
+            - FIFO half full
             - FIFO transfer error or too close DMA triggers error
-            
+
         :param dma:
             set to True to enable interrupt on end of DMA transfer
             [default: False]
@@ -2540,8 +2540,8 @@ class BaseCard:
         """
         A convenience method to get all interrupt configuration
 
-        The result is a tuple of 5 elements containing: 
-        
+        The result is a tuple of 5 elements containing:
+
             * counters stop triggered interrupt (dict<int: bool>)
             * channels rising and/or falling edge triggered interrupts
               (dict<int: class:`TriggerInterrupt`)
@@ -2555,8 +2555,8 @@ class BaseCard:
         channels = get_channels_interrupts(self)
         counters, dma, fifo_half_full, error = self.__get_source_it_b()
         return channels, counters, dma, fifo_half_full, error
-    
-    def set_interrupts(self, channels=None, counters=None, dma=False, 
+
+    def set_interrupts(self, channels=None, counters=None, dma=False,
                        fifo_half_full=False, error=False):
         """
         A convenience method to configure interrupts
@@ -2582,7 +2582,7 @@ class BaseCard:
         Returns the interrupt status
 
         .. warning::
-            Reading out interrupt resets it and disables further interrupt. 
+            Reading out interrupt resets it and disables further interrupt.
 
         """
         register = self.read_reg("CTRL_IT")
@@ -2592,7 +2592,7 @@ class BaseCard:
         """
         Returns input and output channels readback after TTL or NIM has been selected
 
-        :return: 
+        :return:
             a tuple of two items:
                 * dict where key is input channel number and value is True if readback or False otherwise
                 * dict where key is output channel number and value is True if readback or False otherwise
@@ -2774,7 +2774,7 @@ class BaseCard:
 
         :param counters_cfg:
             a dictionary where keys are counters (starting with 1) and value is
-            the corresponding counter configuration (instance of 
+            the corresponding counter configuration (instance of
             :class:`CtConfig`)
         :type counters_cfg: dict<int: :class:`CtConfig`>
         """
@@ -3059,9 +3059,9 @@ class BaseCard:
         :type counter: int
         :return: comparator value
         :rtype: int
-        """        
+        """
         return self.read_reg("COMPARE_CMPT_%d" % counter)
-        
+
     def get_counters_comparators_values(self):
         offset = CT2_R_DICT["COMPARE_CMPT_1"][0]
         return self._read_offset_array(offset, len(self.COUNTERS))
@@ -3143,7 +3143,7 @@ class BaseCard:
             counters = [c for c, start in counters.items() if start]
         for counter in counters:
             register |= 1 << (counter-1)
-        self.write_reg("SOFT_START_STOP", register)    
+        self.write_reg("SOFT_START_STOP", register)
 
     def set_counters_software_stop(self, counters):
         """
@@ -3163,8 +3163,8 @@ class BaseCard:
             counters = [c for c, stop in counters.items() if stop]
         for counter in counters:
             register |= (1 << (counter-1)) << 16
-        self.write_reg("SOFT_START_STOP", register)    
-            
+        self.write_reg("SOFT_START_STOP", register)
+
     def set_counters_software_start_stop(self, counters):
         """
         Software starts or stops the given counters.
@@ -3173,7 +3173,7 @@ class BaseCard:
             counters which are not given are left unchanged
 
         :param counters:
-            dictionary where key is the counter number (starting at 1) 
+            dictionary where key is the counter number (starting at 1)
             and value is bool (True means software start, False means software stop)
         :type counters: dict<int: bool>
 
@@ -3186,12 +3186,12 @@ class BaseCard:
                 reg = reg << 16
             register |= reg
         self.write_reg("SOFT_START_STOP", register)
-    
+
     def trigger_counters_software_latch(self, counters):
         """
         Triggers a latch on the specified counters by software
 
-        :param counters: 
+        :param counters:
             container of counters (starting at 1). It can be any python
             container of integers (tuple, list, set, iterable, even dict)
         :type counters: container<int>
@@ -3227,8 +3227,8 @@ class BaseCard:
         Software enables the given counters
 
         This is a convenience method for :meth:`set_counters_software_enable`
-        
-        :param counters: 
+
+        :param counters:
             a container of the counters to be software enabled. It can be any python
             container of integers (tuple, list, set, iterable, even dict)
         :type counters: container<int>
@@ -3246,7 +3246,7 @@ class BaseCard:
 
         This is a convenience method for :meth:`set_counters_software_enable`
 
-        :param counters: 
+        :param counters:
             a container of the counters to be software disabled. It can be any python
             container of integers (tuple, list, iterable, even dict)
         :type counters: container<int>
@@ -3317,7 +3317,7 @@ def __get_from_enum(enum, name):
     name_u = name.upper()
     repls = ((" ", "_"), (".", "_"), ("CHANNEL", "CH"), ("CLOCK", "CLK"),
              ("CHANNEL", "CH"), ('COUNTER', 'CT'), ('EQUAL', 'EQ'),
-             ('COMPARE', 'CMP'), ('MHZ', 'MHz'), ('KHZ', 'KHz'), 
+             ('COMPARE', 'CMP'), ('MHZ', 'MHz'), ('KHZ', 'KHz'),
              ('INVERTED', 'INV'), ('INVERT', 'INV'),)
     for orig, repl in repls:
         name_u = name_u.replace(orig, repl)
@@ -3369,7 +3369,7 @@ def create_and_configure_card(config_or_name):
     configure_card(card, card_config)
     return card
 
-                
+
 def create_card_from_configure(config):
     """
     Create a card from the given configuration (beacon compatible)
@@ -3394,7 +3394,7 @@ def configure_card(card, config):
     :type config: dict
     """
     card.set_clock(__get(config, 'clock', klass=Clock))
-    
+
     dma_int = __get(config, 'dma interrupt', False)
     fifo_hf_int = __get(config, 'fifo half full interrupt', False)
     error_int = __get(config, 'error interrupt', False)
@@ -3421,7 +3421,7 @@ def configure_card(card, config):
         for ct_latched in __get(counter, "latch sources", ()):
             ct_latch_srcs[ct_latched] = addr
         #ct_latch_srcs[addr] = __get(counter, "latch sources", ())
-        
+
         ct_sw_enables[addr] = __get(counter, "software enable", False)
 
         ct_ints[addr] =  __get(counter, "interrupt", False)
@@ -3459,14 +3459,14 @@ def configure_card(card, config):
                 except KeyError:
                     level = Level.DISABLE
                 ch_in_levels[addr] = level
-        
+
         if channel in card.OUTPUT_CHANNELS:
             inp = channel.get('input')
             if out is not None:
                 ch_out_levels[addr] = __get(out, "level", "DISABLE",
                                             klass=Level)
                 ch_out_sw[addr] = __get(out, "software enable", False)
-                ch_out_srcs[addr] = __get(out, "source", klass=OutputSrc) 
+                ch_out_srcs[addr] = __get(out, "source", klass=OutputSrc)
                 f_clk = __get(out, "filter clock", klass=FilterClock)
                 f_enable = __get(out, "filter enable", False)
                 f_polarity = __get(out, "filter polarity", 0)
@@ -3524,7 +3524,7 @@ def main():
 
     # channel 9 and 10: no filter, no polarity
     p201.set_output_channels_filter({})
-    
+
     # channel 10 output: counter 10 gate envelop
     p201.set_output_channels_source({10: OutputSrc.CT_10_GATE})
 

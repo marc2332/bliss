@@ -14,7 +14,7 @@
 import numpy
 import PyTango.gevent
 
-from ..device import BaseCT2Device, AcqMode
+from ..device import BaseCT2Device, AcqMode, AcqStatus
 
 PyTango.requires_pytango('8.1.8')
 
@@ -29,6 +29,9 @@ class CT2Device(BaseCT2Device):
         device_name = self.card_config['tango name']
         
         self.__tango_device = PyTango.gevent.DeviceProxy(device_name)
+        self.__tango_device.subscribe_event("acq_status",
+                                            PyTango.EventType.CHANGE_EVENT,
+                                            self.__on_status)
         self.__tango_device.subscribe_event("last_point_nb",
                                             PyTango.EventType.CHANGE_EVENT,
                                             self.__on_point_nb)
@@ -36,12 +39,11 @@ class CT2Device(BaseCT2Device):
                                             PyTango.EventType.CHANGE_EVENT,
                                             self.__on_error)
 
+    def __on_status(self, event):
+        self._send_status(AcqStatus[event.attr_value.value])
+
     def __on_point_nb(self, event):
-        point_nb = event.attr_value.value
-        if point_nb < 0:
-            self._send_stop()
-        else:
-            self._send_point_nb(point_nb)
+        self._send_point_nb(event.attr_value.value)
 
     def __on_error(self, event):
         self._send_error(event.attr_value.value)
@@ -52,18 +54,22 @@ class CT2Device(BaseCT2Device):
 
     @property
     def acq_mode(self):
-        return AcqMode(self._device.acq_mode)
+        return AcqMode[self._device.acq_mode]
 
     @acq_mode.setter
     def acq_mode(self, acq_mode):
-        self._device.acq_mode = AcqMode(acq_mode).name
+        self._device.acq_mode = acq_mode.name
+
+    @property
+    def acq_status(self):
+        return AcqStatus[self._device.acq_status]
 
     def apply_config(self):
         self.card_config.save()
         BaseCT2Device.apply_config(self)
 
     def read_data(self):
-        data = Ct2Device.read_data(self)
+        data = self._device.data
         if data is None:
             data = numpy.array([[]], dtype=numpy.uint32)
         return data

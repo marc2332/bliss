@@ -133,7 +133,11 @@ class MD2S:
                 self.sample_video_device.video_live=False
                 time.sleep(0.1)
                 res = self.bv_device.GetPosition()
-      
+                if res[1] < 1500.:
+                    self.transmission.transmission_set(20)
+                    time.sleep(0.1)
+                    res = self.bv_device.GetPosition()
+
             by = res[2]
             bz = res[3]
             #check for minimum intensity, stop the procedure if not enough

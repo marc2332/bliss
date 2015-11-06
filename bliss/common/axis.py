@@ -373,8 +373,12 @@ class Axis(object):
         return (position - self.offset) / self.sign
 
     def prepare_move(self, user_target_pos, relative=False):
+        elog.debug("user_target_pos=%g, relative=%r" % (user_target_pos, relative))
         user_initial_dial_pos = self.dial()
         hw_pos = self._hw_position()
+
+        elog.debug("hw_position=%g user_initial_dial_pos=%g" % (hw_pos, user_initial_dial_pos))
+
         if abs(user_initial_dial_pos - hw_pos) > self.tolerance:
             raise RuntimeError("Discrepancy between dial (%f) and controller position (%f), aborting" % (user_initial_dial_pos, hw_pos))
         if relative:
@@ -382,6 +386,7 @@ class Axis(object):
             user_target_pos += user_initial_pos
         else:
             user_initial_pos = self.dial2user(user_initial_dial_pos)
+
         dial_initial_pos = self.user2dial(user_initial_pos)
         dial_target_pos = self.user2dial(user_target_pos)
         self.settings.set("_set_position", user_target_pos)
@@ -475,6 +480,7 @@ class Axis(object):
                                 %r" % (self.name, str(initial_state)))
 
     def move(self, user_target_pos, wait=True, relative=False, polling_time=DEFAULT_POLLING_TIME):
+        elog.debug("user_target_pos=%g  wait=%r relative=%r" % (user_target_pos, wait, relative))
         if self.__controller.is_busy():
             raise RuntimeError("axis %s: controller is busy" % self.name)
         self._check_ready()
@@ -510,6 +516,7 @@ class Axis(object):
             self._do_encoder_reading()
 
     def rmove(self, user_delta_pos, wait=True, polling_time=DEFAULT_POLLING_TIME):
+        elog.debug("user_delta_pos=%g  wait=%r" % (user_delta_pos, wait))
         return self.move(user_delta_pos, wait, relative=True, polling_time=polling_time)
 
     def wait_move(self):

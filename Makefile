@@ -5,7 +5,7 @@
 # Installation directories :
 # /users/blissadm/python/bliss_modules/
 # /users/blissadm/local/userconf/bliss/
-# /users/blissadm/server/src/bliss_server
+# /users/blissadm/server/src/BlissAxisManager
 
 
 BLISSADM_PATH=/users/blissadm
@@ -32,7 +32,7 @@ install:
 
         ####  tango server and startup-script
 	mkdir -p ${BLISSADM_PATH}/server/src
-	cp --backup=simple --suffix=.bup tango/bliss_server ${BLISSADM_PATH}/server/src/bliss_server
+	cp --backup=simple --suffix=.bup tango/BlissAxisManager ${BLISSADM_PATH}/server/src/BlissAxisManager
 
 	cp --backup=simple --suffix=.bup tango/BlissAxisManager.py ${BLISSADM_PATH}/server/src/BlissAxisManager.py
 

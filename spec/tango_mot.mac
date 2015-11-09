@@ -62,19 +62,15 @@ global EMOTION_COMP_FUNC[]
 
 def bliss_get_axes(mot_name) '{
     local  TTT[]
-
     # Do not remove the following line...
     TTT[0] = TTT[0]
-
     tango_io(motor_par(mot_name, "ctrl_dev_name"), "GetAxisList", TTT)
-
     return TTT
 }'
 
 
 def bliss_get_custom_commands(mot_name) '{
-
-    local ccList[]
+    local ccList[]  ii
 
     tango_io(motor_par(mot_name, "dev_name"), "GetCustomCommandList", ccList)
 

@@ -2,7 +2,14 @@ from bliss.controllers.motor import CalcController; from bliss.common import log
 from bliss.controllers.motor import add_axis_method
 
 """
-example for single slits:
+example for single VERTICAL slits:
+  \     UP      /
+   \___________/
+                     VGAP
+    ___________      VOFF
+   /           \
+  /    DOWN     \
+
 -
   controller:
     class: mockup
@@ -20,20 +27,20 @@ example for single slits:
 -
   controller:
     class: slits
-    slit_type: horizontal
+    slit_type: vertical
     axes:
         -
             name: $rup
-            tags: real front
+            tags: real up
         -
             name: $rdown
-            tags: real back
+            tags: real down
         -
-            name: svg
-            tags: hgap
+            name: vgap
+            tags: vgap
         -
-            name: svo
-            tags: hoffset
+            name: voff
+            tags: voffset
 """
 
 """

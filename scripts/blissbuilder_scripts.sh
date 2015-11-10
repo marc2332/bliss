@@ -58,8 +58,11 @@ PreInstall() {
     #echo "get Python Strikes Back 1.6 tag"
     #$GIT checkout 1.6
 
-    echo "get The Control Awakens (1.8) tag"
-    $GIT checkout 1.8
+    #echo "get The Control Awakens (1.8) tag"
+    #$GIT checkout 1.8
+
+    echo "get Come to the bright side (1.91) tag"
+    $GIT checkout 1.91
 
     # will install in /users/blissadm/python/bliss_modules/bliss/
     # python setup.py install

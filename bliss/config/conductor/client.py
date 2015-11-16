@@ -43,10 +43,40 @@ def get_config_file(file_path, connection=None) :
 
 
 @check_connection
-def get_config_db_files(base_path='',timeout=3., connection=None):
+def get_config_db_files(base_path='', timeout=3., connection=None):
+    """
+       Gives a sequence of pairs: (file name<str>, file content<str>)
+
+       :param base_path:
+           base path to start looking for db files [default '', meaning use
+
+       :type base_path: str
+       :param timeout: timeout (seconds)
+       :type timeoout: float
+       :param connection:
+           connection object [default: None, meaning use default connection]
+       :return:
+           a sequence of pairs: (file name<str>, file content<str>)
+    """
     path2files = connection.get_config_db(base_path=base_path,timeout=timeout)
     return path2files
 
 @check_connection
+def get_config_db_tree(base_path='', timeout=3., connection=None):
+    """
+    """
+    return connection.get_config_db_tree(base_path, timeout=timeout)
+
+@check_connection
 def set_config_db_file(filepath,content,timeout=3.,connection = None):
     connection.set_config_db_file(filepath,content,timeout=timeout)
+
+
+@check_connection
+def remove_config_file(file_path, connection=None) :
+    return connection.remove_config_file(file_path)
+
+
+@check_connection
+def move_config_path(src_path, dst_path, connection=None):
+    return connection.move_config_path(src_path, dst_path)

@@ -1,0 +1,215 @@
+
+{% block toolbar %}
+<div class="btn-toolbar" role="toolbar" id="main_toolbar" aria-label="main toolbar">
+  <button id="emotion_axis_apply" class="btn btn-primary">
+    <span class="fa fa-save"></span>
+    Apply
+ </button>
+
+{% if __tango_server__ %}
+
+  <button id="emotion_axis_apply_server" class="btn btn-primary">
+    <span class="fa fa-save"></span>
+    Apply & Update TANGO server
+  </button>
+
+{% endif %}
+
+</div>
+
+{% endblock %}
+
+<br/>
+
+<form id="emotion_axis_form" class="form-horizontal">
+
+<fieldset>
+
+{% block name %}
+
+<!-- Text input-->
+<div class="form-group">
+  <label class="col-md-4 control-label" for="name">Name</label>
+  <div class="col-md-4">
+    <input id="name" name="name" type="text"
+           placeholder="{{ name }}" value="{{ name }}"
+           class="form-control input-md" required></input>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block controller %}
+
+<div class="form-group">
+  <label class="col-md-4 control-label" for="controller">Controller</label>
+  <div class="col-md-4">
+  {% if controller_name %}
+    <input id="controller" name="controller" type="text"
+           placeholder="{{ controller_name }} ({{ controller_class }})"
+           value="{{ controller_name }} ({{ controller_class }})"
+           class="form-control input-md" required disabled>
+    </input>
+  {% else %}
+    <input id="controller" name="controller" type="text"
+           placeholder="({{ controller_class }})"
+           value="({{ controller_class }})"
+           class="form-control input-md" required disabled>
+    </input>
+  {% endif %}
+  </div>
+</div>
+
+{% endblock %}
+
+{% block standard_params %}
+
+<!-- Select Basic -->
+
+<div class="form-group">
+  <label class="col-md-4 control-label" for="unit">Unit</label>
+  <div class="col-md-4">
+    <input id="unit" name="unit" type="text"
+           placeholder="{{ unit }}" value="{{ unit }}"
+           class="form-control input-md"></input>
+
+  </div>
+</div>
+
+<!-- Text input-->
+<div class="form-group">
+  <label class="col-md-4 control-label" for="steps_per_unit">Steps per {{ units }}</label>
+  <div class="col-md-4">
+    <input id="steps_per_unit" name="steps_per_unit" type="text"
+           placeholder="{{ steps_per_unit }}" value="{{ steps_per_unit }}"
+           class="form-control input-md"></input>
+  </div>
+</div>
+
+<!-- Appended Input-->
+<div class="form-group">
+  <label class="col-md-4 control-label" for="velocity">Velocity</label>
+  <div class="col-md-4">
+    <div class="input-group">
+      <input id="velocity" name="velocity" type="text"
+             class="form-control"
+             placeholder="{{ velocity }}"  value="{{ velocity }}">
+        <span class="input-group-addon">{{ units }}.s<sup>-1</sup></span>
+      </input>
+    </div>
+  </div>
+</div>
+
+<!-- Appended Input-->
+<div class="form-group">
+  <label class="col-md-4 control-label" for="acceleration">Acceleration</label>
+  <div class="col-md-4">
+    <div class="input-group">
+      <input id="acceleration" name="acceleration" type="text"
+             class="form-control"
+             placeholder="{{ acceleration }}" value="{{ acceleration }}">
+        <span class="input-group-addon">{{ units }}.s<sup>-2</sup></span>
+      </input>
+    </div>
+  </div>
+</div>
+
+<!-- Appended Input-->
+<div class="form-group">
+  <label class="col-md-4 control-label" for="backlash">Backlash</label>
+  <div class="col-md-4">
+    <div class="input-group">
+      <input id="backlash" name="backlash" type="text" class="form-control"
+             placeholder="{{ backlash }}" value="{{ backlash }}">
+        <span class="input-group-addon">{{ units }}</span>
+      </input>
+    </div>
+  </div>
+</div>
+
+<!-- Appended Input-->
+<div class="form-group">
+  <label class="col-md-4 control-label" for="low_limit">Low limit</label>
+  <div class="col-md-4">
+    <div class="input-group">
+      <input id="low_limit" name="low_limit"  type="text" class="form-control"
+             placeholder="{{ low_limit }}" value="{{ low_limit }}">
+        <span class="input-group-addon">{{ units }}</span>
+      </input>
+    </div>
+  </div>
+</div>
+
+<!-- Appended Input-->
+<div class="form-group">
+  <label class="col-md-4 control-label" for="high_limit">High limit</label>
+  <div class="col-md-4">
+    <div class="input-group">
+      <input id="high_limit" name="high_limit" type="text" class="form-control"
+             placeholder="{{ high_limit }}" value="{{ high_limit }}">
+        <span class="input-group-addon">{{ units }}</span>
+      </input>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_params %}
+
+{% for name in params.keys() %}
+<!-- Text input-->
+<div class="form-group">
+  <label class="col-md-4 control-label" for="{{ name }}">{{ params[name].label }}</label>
+  <div class="col-md-4">
+    <input id="{{ name }}" name="{{ name }}" type="text"
+           class="form-control input-md"
+           placeholder="{{ params[name].value }}" value="{{ params[name].value }}">
+    </input>
+  </div>
+</div>
+{% endfor %}
+
+{% endblock %}
+
+</fieldset>
+</form>
+
+
+<script type="text/javascript">
+
+  function submit_form(form, update_server) {
+    var formData = new FormData(form);
+    formData.append("__update_server__", update_server);
+    formData.append("__original_name__", "{{ name }}");
+    $.ajax({
+      url: "plugin/emotion/axis_edit",
+      type: "POST",
+      cache: false,
+      contentType: false,
+      processData: false,
+      data: formData,
+      success: function(result) {
+        data = $.parseJSON(result);
+        show_item(data.name);
+        write_message(data.message, data.type);
+      }
+    });
+  }
+
+  $(document).ready(function() {
+    $("#emotion_axis_apply").on("click", function() {
+      submit_form($("#emotion_axis_form")[0], false);
+      return false;
+    });
+
+{% if __tango_server__ %}
+    $("#emotion_axis_apply_server").on("click", function() {
+      submit_form($("#emotion_axis_form")[0], true);
+      return false;
+    });
+{% endif %}
+
+  });
+
+</script>

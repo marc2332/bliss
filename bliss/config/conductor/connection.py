@@ -223,7 +223,39 @@ class Connection(object) :
                 if isinstance(value,RuntimeError):
                     raise value
                 else:
-                    return value
+                    return value.decode("utf-8")
+
+    @check_connect
+    def get_config_db_tree(self, base_path='', timeout=1.):
+        with gevent.Timeout(timeout,RuntimeError("Can't get configuration tree")):
+            with self.WaitingQueue(self) as wq:
+                msg = '%s|%s' % (wq.message_key(),base_path)
+                self._fd.sendall(protocol.message(protocol.CONFIG_GET_DB_TREE,msg))
+                value = wq.get()
+                if isinstance(value,RuntimeError):
+                    raise value
+                else:
+                    import json
+                    return json.loads(value)
+
+    @check_connect
+    def remove_config_file(self, file_path, timeout = 1.):
+        with gevent.Timeout(timeout,RuntimeError("Can't remove configuration file")):
+            with self.WaitingQueue(self) as wq:
+                msg = '%s|%s' % (wq.message_key(), file_path)
+                self._fd.sendall(protocol.message(protocol.CONFIG_REMOVE_FILE, msg))
+                for rx_msg in wq.queue():
+                    print (rx_msg)
+
+    @check_connect
+    def move_config_path(self, src_path, dst_path, timeout = 1.):
+        with gevent.Timeout(timeout,RuntimeError("Can't move configuration file")):
+            with self.WaitingQueue(self) as wq:
+                msg = '%s|%s|%s' % (wq.message_key(), src_path, dst_path)
+                self._fd.sendall(protocol.message(protocol.CONFIG_MOVE_PATH, msg))
+                for rx_msg in wq.queue():
+                    print (rx_msg)
+
     @check_connect
     def get_config_db(self,base_path='',timeout = 30.):
         return_files = []
@@ -234,7 +266,7 @@ class Connection(object) :
                 for rx_msg in wq.queue():
                     file_path,file_value = self._get_msg_key(rx_msg)
                     if file_path is None : continue
-                    return_files.append((file_path,file_value))
+                    return_files.append((file_path,file_value.decode("utf-8")))
         return return_files
 
     @check_connect
@@ -242,7 +274,7 @@ class Connection(object) :
         with gevent.Timeout(timeout,RuntimeError("Can't set config file")):
             with self.WaitingQueue(self) as wq:
                 msg = '%s|%s|%s' % (wq.message_key(),file_path,content)
-                self._fd.sendall(protocol.message(protocol.CONFIG_SET_DB_FILE,msg))
+                self._fd.sendall(protocol.message(protocol.CONFIG_SET_DB_FILE,msg.encode("utf-8")))
                 for rx_msg in wq.queue():
                     raise rx_msg
 
@@ -278,24 +310,30 @@ class Connection(object) :
                 while data:
                     try:
                         messageType,message,data = protocol.unpack_message(data)
-                    except ValueError:
+                    except protocol.IncompleteMessage:
                         break
                     try:
                         #print 'rx',messageType
                         if self._lock_mgt(self._fd,messageType,message):
                             continue
-                        elif(messageType == protocol.CONFIG_GET_FILE_OK or
-                             messageType == protocol.CONFIG_DB_FILE_RX):
+                        elif messageType in (protocol.CONFIG_GET_FILE_OK,
+                                             protocol.CONFIG_GET_DB_TREE_OK,
+                                             protocol.CONFIG_DB_FILE_RX):
                             message_key,value = self._get_msg_key(message)
                             queue = self._message_queue.get(message_key)
                             if queue is not None: queue.put(value)
-                        elif(messageType == protocol.CONFIG_GET_FILE_FAILED or
-                             messageType == protocol.CONFIG_SET_DB_FILE_FAILED):
+                        elif messageType in (protocol.CONFIG_GET_FILE_FAILED,
+                                             protocol.CONFIG_SET_DB_FILE_FAILED,
+                                             protocol.CONFIG_GET_DB_TREE_FAILED,
+                                             protocol.CONFIG_REMOVE_FILE_FAILED,
+                                             protocol.CONFIG_MOVE_PATH_FAILED):
                             message_key,value = self._get_msg_key(message)
                             queue = self._message_queue.get(message_key)
                             if queue is not None: queue.put(RuntimeError(value))
-                        elif(messageType == protocol.CONFIG_DB_END or
-                             messageType == protocol.CONFIG_SET_DB_FILE_OK):
+                        elif messageType in (protocol.CONFIG_DB_END,
+                                             protocol.CONFIG_SET_DB_FILE_OK,
+                                             protocol.CONFIG_REMOVE_FILE_OK,
+                                             protocol.CONFIG_MOVE_PATH_OK):
                             message_key,value = self._get_msg_key(message)
                             queue = self._message_queue.get(message_key)
                             if queue is not None: queue.put(StopIteration)
@@ -340,7 +378,7 @@ class Connection(object) :
                             try:
                                 messageType,message,data = protocol.unpack_message(data)
                                 self._lock_mgt(queue,messageType,message)
-                            except ValueError:
+                            except protocol.IncompleteMessage:
                                 pass
         except:
             sys.excepthook(*sys.exc_info())

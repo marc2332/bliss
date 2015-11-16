@@ -1,0 +1,26 @@
+{% extends "emotion_controller.html" %}
+
+{% block extra_params %}
+
+<!-- Text input-->
+<div class="form-group">
+  <label class="col-md-4 control-label" for="host">Host</label>
+  <div class="col-md-4">
+    <input id="host" name="host" placeholder="{{ host }}"
+	   class="form-control input-md" required="" type="text"></input>
+  </div>
+</div>
+
+<!-- Text input-->
+<div class="form-group">
+  <label class="col-md-4 control-label" for="port">Port</label>
+  <div class="col-md-4">
+    <input id="port" name="port" placeholder="{{ port if port else 3000 }}"
+	   class="form-control input-md" required="" type="text"></input>
+  </div>
+</div>
+
+{% endblock %}
+
+</fieldset>
+</form>

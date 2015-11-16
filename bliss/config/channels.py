@@ -25,12 +25,14 @@ import os
 CHANNELS = dict()
 BUS = weakref.WeakValueDictionary()
 BUS_BY_FD = weakref.WeakValueDictionary()
-SURVEYORS = dict()
 RECEIVER_THREAD = None
 THREAD_ENDED = threading.Event()
 
 CHANNELS_BUS = 'channels_bus'
-CHANNELS_RESPONDENT = 'channels_respondent'
+
+class ValueQuery(object):
+    def __init__(self):
+        pass
 
 # getting the first free port available in range 30000-40000
 def get_free_port(redis,channel_key):
@@ -63,7 +65,7 @@ class NotInitialized(object):
 
 def get_file_descriptors():
     # .keys() is atomic (takes GIL)
-    fds = [WAKE_UP_SOCKET_R.recv_fd] + BUS_BY_FD.keys() + SURVEYORS.keys()
+    fds = [WAKE_UP_SOCKET_R.recv_fd] + BUS_BY_FD.keys()
     return fds
 
 
@@ -73,9 +75,12 @@ def update_channel(bus_id, channel_name, value):
     except KeyError:
         pass
     else:
-        # simple assignment is atomic 
-       channel._value = value
-       channel._update_watcher.send()
+        if isinstance(value, ValueQuery):
+            channel._bus.set_value(channel_name, channel.value)
+        else:
+            # simple assignment is atomic
+            channel._value = value
+            channel._update_watcher.send()
 
 
 def receive_channels_values():
@@ -90,64 +95,18 @@ def receive_channels_values():
                 fds = get_file_descriptors() 
                 break
             else:
-                bus_id, channel_name, s = SURVEYORS.get(fd, (None,None,None))
-                if s:
-                    close_survey = False
-
-                    if s.send_fd == fd and not s.survey_sent:
-                        if s.survey_sent is None:
-                            time.sleep(0.01) # give some time for connections to be established
-                            s.tries = 1
-                        #print os.getpid(), "sending survey", channel_name, time.time()
-                        s.send(channel_name)
-                        s.survey_sent = True
-                    elif s.recv_fd == fd and s.survey_sent:
-                        #print os.getpid(), "surveyor readable", time.time()
-                        try:
-                            value = cPickle.loads(s.recv())
-                        except nanomsg.NanoMsgAPIError:
-                            # nobody replied to survey within the 1 second timeout,
-                            # too bad :(
-                            #print os.getpid(), 'no reply to survey', time.time()
-                            # send again
-                            s.survey_sent = False
-                            s.tries += 1
-                            if s.tries > 3:
-                                close_survey = True
-                        else:
-                            close_survey = True
-                            update_channel(bus_id, channel_name, value) 
-
-                    if close_survey:
-                        del SURVEYORS[s.recv_fd]
-                        del SURVEYORS[s.send_fd]
-                        #print os.getpid(), 'closing socket'
-                        s.close()
-                        fds = get_file_descriptors()
+                try:
+                    bus = BUS_BY_FD[fd]
+                except KeyError:
+                    continue
                 else:
-                    try:
-		        bus = BUS_BY_FD[fd]
-	            except KeyError:
-                        continue
-	            else:
-		        if fd == bus._respondent_socket.recv_fd: 
-		            channel_name = bus._respondent_socket.recv()
-		            try:
-			        channel = CHANNELS[bus.id][channel_name]
-		            except KeyError:
-			        continue
-		            else:
-			        #print os.getpid(), 'replying to survey'
-			        bus._respondent_socket.send(cPickle.dumps(channel.value, protocol=-1))
-                                del channel
-		        else:
-		            channel_name, value = cPickle.loads(bus.recv()) 
-                            update_channel(bus.id, channel_name, value)
+                    channel_name, value = cPickle.loads(bus.recv())
+                    update_channel(bus.id, channel_name, value)
 
 
-def _clean_redis(redis, channels_bus, channels_respondent):
+def _clean_redis(redis, channels_bus):
     redis.srem(CHANNELS_BUS, channels_bus)
-    redis.srem(CHANNELS_RESPONDENT, channels_respondent)
+
 
 def stop_receiver_thread():
     if RECEIVER_THREAD is not None:
@@ -160,9 +119,8 @@ class _Bus(object):
     def __init__(self, redis, bus_id, channels_bus_list):   
         self._id = bus_id
 
-        # create sockets
+        # create socket
         self._bus_socket = nanomsg.Socket(nanomsg.BUS)
-        self._respondent_socket = nanomsg.Socket(nanomsg.RESPONDENT)
 
         bus_socket_port_number = get_free_port(redis,CHANNELS_BUS)
         self._bus_socket.bind("tcp://*:%d" % bus_socket_port_number)
@@ -172,14 +130,8 @@ class _Bus(object):
             self._bus_socket.connect(remote_bus)
         self.__bus_addr = "tcp://%s:%d" % (socket.getfqdn(), bus_socket_port_number)
 
-        # respondent socket is used to reply to survey requests 
-        respondent_socket_port_number = get_free_port(redis,CHANNELS_RESPONDENT)
-        self._respondent_socket.bind("tcp://*:%d" % respondent_socket_port_number)
-        BUS_BY_FD[self._respondent_socket.recv_fd] = self
-        self.__bus_respondent_addr = "tcp://%s:%d" % (socket.getfqdn(), respondent_socket_port_number)
-        
-        # remove addresses in redis at exit
-        atexit.register(_clean_redis, redis, self.addr, self.respondent_addr)
+        # remove address in redis at exit
+        atexit.register(_clean_redis, redis, self.addr)
 
         # receiver thread takes care of dispatching received values to right channels
         global RECEIVER_THREAD
@@ -198,10 +150,6 @@ class _Bus(object):
     @property
     def addr(self):
         return self.__bus_addr
-
-    @property
-    def respondent_addr(self):
-        return self.__bus_respondent_addr
 
     @property
     def name(self):
@@ -268,21 +216,7 @@ class _Channel(object):
 
     def init(self):
         self._initialized_event.clear()
-
-        s = nanomsg.Socket(nanomsg.SURVEYOR)
-        s.survey_sent = None
-        s.set_int_option(nanomsg.SURVEYOR, nanomsg.SURVEYOR_DEADLINE, 1000)
-
-        # ask for channel value to all respondents
-        respondent_list = self._redis.smembers("channels_respondent")
-        for respondent in respondent_list:
-            if respondent != self._bus.respondent_addr:
-                #print 'connecting to',respondent
-                s.connect(respondent)
- 
-        SURVEYORS[s.send_fd] = (self._bus.id, self.name, s)
-        SURVEYORS[s.recv_fd] = (self._bus.id, self.name, s)
-
+        self._bus.set_value(self.name, ValueQuery())
         WAKE_UP_SOCKET_W.send('!')
 
     def register_callback(self, callback):

@@ -4,7 +4,7 @@ PyYaml
 netifaces
 louie
 nanomsg
-
+flask
 # optional dependencies:
 
 ruamel.yaml

@@ -1,0 +1,20 @@
+{% extends "emotion_axis.html" %}
+
+
+{% block standard_params %}
+
+<!-- Text input-->
+<div class="form-group">
+  <label class="col-md-4 control-label" for="address">Address</label>
+  <div class="col-md-4">
+    <input id="address" name="address" required="" type="text"
+           placeholder="{{ address }}" class="form-control input-md"
+           value="{{ address }}" >
+
+    </input>
+  </div>
+</div>
+
+{{ super() }}
+
+{% endblock %}

@@ -21,19 +21,28 @@ CONFIG = 1
 
 (CONFIG_SET_DB_FILE,CONFIG_SET_DB_FILE_FAILED,CONFIG_SET_DB_FILE_OK) = (70,71,72)
 
+(CONFIG_REMOVE_FILE, CONFIG_REMOVE_FILE_FAILED, CONFIG_REMOVE_FILE_OK) = (80,81,82)
+
+(CONFIG_MOVE_PATH, CONFIG_MOVE_PATH_FAILED, CONFIG_MOVE_PATH_OK) = (83,84,85)
+
+(CONFIG_GET_DB_TREE, CONFIG_GET_DB_TREE_FAILED, CONFIG_GET_DB_TREE_OK) = (86,87,88)
+
+class IncompleteMessage(Exception):
+    pass
+
 def message(cmd, contents = ''):
-  return '%s%s' % (struct.pack('<ii', cmd, len(contents)),contents)
+    return '%s%s' % (struct.pack('<ii', cmd, len(contents)),contents)
 
 def unpack_header(header) :
     return  struct.unpack('<ii',header)
 
 def unpack_message(s):
-  if(len(s) < HEADER_SIZE):
-      raise ValueError
+    if(len(s) < HEADER_SIZE):
+        raise IncompleteMessage
 
-  messageType, messageLen = struct.unpack('<ii', s[:HEADER_SIZE])
-  if len(s)<HEADER_SIZE+messageLen:
-    raise ValueError
-  message = s[HEADER_SIZE:HEADER_SIZE+messageLen]
-  remaining = s[HEADER_SIZE+messageLen:]
-  return messageType, message, remaining  
+    messageType, messageLen = struct.unpack('<ii', s[:HEADER_SIZE])
+    if len(s)<HEADER_SIZE+messageLen:
+        raise IncompleteMessage
+    message = s[HEADER_SIZE:HEADER_SIZE+messageLen]
+    remaining = s[HEADER_SIZE+messageLen:]
+    return messageType, message, remaining

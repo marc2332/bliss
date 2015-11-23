@@ -188,6 +188,24 @@ class MD2S:
     def fldetstate(self):
         self._exporter.readProperty("FluoDetectorIsBack")
 
+    def flight(self, state=None):
+        if state:
+            self._exporter.writeProperty("FrontLightIsOn",state)
+        else:
+            return self._exporter.readProperty("FrontLightIsOn")
+
+    def blight(self,  state=None):
+        if state:
+            self._exporter.writeProperty("BackLightIsOn",state)
+        else:
+            return self._exporter.readProperty("BackLightIsOn")
+
+    def cryo(self,  state=None):
+        if state:
+            self._exporter.writeProperty("CryoIsBack",state)
+        else:
+            return self._exporter.readProperty("CryoIsBack")
+
     def microdiff_init(self,wait=True):
         self._exporter.execute("startHomingAll")
         if wait:

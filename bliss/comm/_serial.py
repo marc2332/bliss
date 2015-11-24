@@ -1,3 +1,5 @@
+__all__ = ["LocalSerial", "RFC2217", "SER2NET", "Serial"]
+
 import gevent
 from gevent import socket, select, lock, event
 import tcp

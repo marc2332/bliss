@@ -37,7 +37,7 @@ def try_connect_socket(fu):
 
 class Socket:
 
-    def __init__(self, host, port,
+    def __init__(self, host=None, port=None,
                  eol='\n',      # end of line for each rx message
                  timeout=5.,    # default timeout for read write
                  ):

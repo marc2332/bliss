@@ -7,6 +7,37 @@ from gevent import lock
 from .libnienet import EnetSocket
 from ..tcp import Socket
 
+try:
+    from collections import OrderedDict
+except AttributeError:
+    try:
+        from ordereddict import OrderedDict
+    except ImportError:
+        OrderedDict = dict
+
+__TMO_TUPLE = (0., 10E-6, 30E-6, 100E-6, 300E-6,
+               1E-3, 3E-3, 10E-3, 30E-3, 100E-3, 300E-3,
+               1., 3., 10., 30., 100., 300., 1E3,)
+
+TMO_MAP = OrderedDict([(tmo, t) for tmo, t in enumerate(__TMO_TUPLE)])
+
+def to_tmo(time_sec):
+    """
+    Returns the closest (>=) GPIB timeout constant for the given time in
+    seconds.
+
+    :param time_sec: time in seconds
+    :type time_sec: int, float
+    :return:
+        TMO as a tuple with two elements:  TMO constant, TMO in seconds (float)
+    :rtype: tuple(int, float)
+    """
+    for tmo, t in enumerate(__TMO_TUPLE):
+        if t >= time_sec:
+            return tmo, t
+    return tmo, t
+
+
 class Enet(EnetSocket):
     def __init__(self,cnt,**keys) :
         EnetSocket.__init__(self,None) # Don't use the socket connection

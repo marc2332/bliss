@@ -69,7 +69,7 @@ class Gpib:
         self._timeout = timeout
         self._lock = lock.Semaphore()
         self._raw_handler = None
-        self._logger = logging.getLogger(self.__class__.__name__)
+        self._logger = logging.getLogger(str(self))
         self._debug = self._logger.debug
 
     def open(self) :
@@ -160,4 +160,7 @@ class Gpib:
         else:
             return None
 
-
+    def __str__(self):
+        opts = self._gpib_kwargs
+        return "{0}(url={1}, pad={2})".format(self.__class__.__name__,
+                                              opts['url'], opts['pad'])

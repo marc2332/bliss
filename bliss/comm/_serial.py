@@ -4,6 +4,7 @@ import tcp
 
 import re
 import struct
+import logging
 import serial
 try:
     from serial import rfc2217
@@ -387,10 +388,15 @@ class Serial:
         self._timeout = timeout
         self._raw_handler = None
         self._lock = lock.Semaphore()
+        self._logger = logging.getLogger(str(self))
 
     def __del__(self) :
         if self._raw_handler:
             self._raw_handler.close()
+
+    def __str__(self):
+        return "{0}({1})".format(self.__class__.__name__,
+                                 self._serial_kwargs['port'])
 
     def open(self) :
         if self._raw_handler is None:

@@ -51,8 +51,12 @@ class Socket:
         self._event = event.Event()
         self._raw_read_task = None
         self._lock = lock.Semaphore()
-        self._logger = logging.getLogger(self.__class__.__name__)
+        self._logger = logging.getLogger(str(self))
         self._debug = self._logger.debug
+
+    def __str__(self):
+        return "{0}({1}:{2})".format(self.__class__.__name__,
+                                     self._host, self._port)
 
     def connect(self, host=None, port=None):
         local_host = host or self._host

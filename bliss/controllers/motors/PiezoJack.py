@@ -1,5 +1,5 @@
 import time
-import logging as alog # axis log
+import logging as alog  # axis log
 alog.basicConfig()
 from math import cos, radians
 from numpy import arange
@@ -42,34 +42,39 @@ class PiezoSize():
     Piezo characteristics.
     """
     def __init__(self, length, band):
-        self.length = length                        # microns (15)
-        self.band = band                            # microns (11)
-        self.middle = self.length / 2.0             # microns (7.5)
-        self.low = self.middle - (self.band / 2.0)  # microns (2)
-        self.high = self.middle + (self.band / 2.0) # microns (13)
-        self.middle_voltage = 50                   # Volts
+        self.length = length                         # microns (15)
+        self.band = band                             # microns (11)
+        self.middle = self.length / 2.0              # microns (7.5)
+        self.low = self.middle - (self.band / 2.0)   # microns (2)
+        self.high = self.middle + (self.band / 2.0)  # microns (13)
+        self.middle_voltage = 50                     # Volts
 
 
 class PiezoJack(Controller):
 
     def __init__(self, name, config, axes, encoders):
+        """
+
+        :type self: ???
+        """
         Controller.__init__(self, name, config, axes, encoders)
 
         # *Analog* limits of linear use of capacitive sensor.
-        self.TADmin = self.config.get("TADmin", int, default = 150000)
-        self.TADmax = self.config.get("TADmax", int, default = 700000)
+        self.TADmin = self.config.get("TADmin", int, default=150000)
+        self.TADmax = self.config.get("TADmax", int, default=700000)
 
         self.factor = 0  # conversion factor from TNS to microns.
 
         self._move_task = None
 
+        # set the length of the given piezo,
+        # the other needed attributes being calculated in class PiezoSize
         length = self.config.get("PiezoLength", float, 15)  # microns
         band = self.config.get("PiezoBand", float, 4)       # microns
         self._PiezoSize = PiezoSize(length, band)
         self._piezo_settle_sleep = 1  # seconds
 
         self._icepap_retries = 8
-        self._piezo_retries = 8
 
         # Capacitive Sensor's TNS to microns.
         # Measured by Leo Rousset in linear system.
@@ -81,48 +86,63 @@ class PiezoJack(Controller):
         self.system_factor = 2.8         # measured (cos taken into account in measurement...)
 
         # TNS to bender movement conversion factor
-        self.bender_factor = self.CS_tns2microns * self.system_factor # 4.925
+        self.bender_factor = self.CS_tns2microns * self.system_factor  # 4.925
 
         # Default factor for TNS to microns conversion   # 4.74
-        self.bender_factor = self.config.get("factor", float, default = self.bender_factor)
+        # This value has shown to be different for the two sides of the mirror
+        # we used for testing. It needs to be configurable.
+        self.bender_factor = self.config.get("factor", float, default=self.bender_factor)
 
-        #
-        self.tns_allowed_divergence = self.config.get("tns_allowed_divergence", float, default = 0.5)
+        # This value will decide in which distance from the calculated target_tns the icepap position
+        # needs to be, before it is acceptable to go on to regulate the position with the piezo.
+        self.tns_allowed_divergence = self.config.get("tns_allowed_divergence", float, default=0.5)
 
+        # the controllers name. The axes will have names given by the configuration.
         self.cname = "PiezoJack"
+        # one has to start somewhere. Be ready for the start.
         self._hw_status = AxisState("READY")
 
         # Attempt to open a logger for the controller
-        self.log = alog.getLogger('Contr '+self.name)
+        self.log = alog.getLogger('Contr '+self.cname)
         # set axis logging to the same level as elog.level
         self.log.setLevel(elog.level())
-        self.log.info("%slogging for controller %s: level %s%s" % (bcolors.RED+bcolors.BOLD, self.name, \
-            elog.getLevelName(elog._log_level), bcolors.ENDC))
-
+        self.log.info(
+            "{0:s}logging for controller {1:s}: level {2:s}{3:s}".format(bcolors.RED + bcolors.BOLD, self.cname,
+                                                                         elog.getLevelName(elog.level()), bcolors.ENDC))
+        self.piezo = None
+        self.icepap = None
 
     def initialize(self):
+        # axes used to drive the piezojack, one icepap and one piezo
         self.piezo = self._tagged["piezo"][0]
         self.icepap = self._tagged["icepap"][0]
-        self._hw_status  =  self.icepap.state()
+        # preset the hardware status with the icepap's status.
+        self._hw_status = self.icepap.state()
 
     def finalize(self):
         pass
 
     def initialize_axis(self, axis):
+        """
 
+        :type self: object
+        """
         # To get rid of cache coherency problems.
-        add_axis_method(axis, self.sync, name = "sync", types_info = (None, None))
-        add_axis_method(axis, self.set_log_level, name = "SetLogLevel", types_info = (int, None))
+        add_axis_method(axis, self.sync, name="sync", types_info=(None, None))
+        add_axis_method(axis, self.set_log_level, name="SetLogLevel", types_info=(int, None))
 
-        # Reads sensors coefficients (previously calibrated...)
-        self.piezo.coeffs = self.piezo.controller._get_sensor_coeffs(self.piezo)
+        # Reads sensors coefficients (previously calibrated...) for the current piezo axis
+        # from the PI E712
+        self.piezo.coeffs = self.piezo.controller.get_sensor_coeffs(self.piezo)
 
     def initialize_encoder(self, encoder):
+        """ use the capacitive sensor as encoder"""
         self.log.debug("initialize_encoder %s" % encoder.name)
 
     def read_encoder(self, encoder):
+        """ read the capacitive sensor over the PI E712 as an encoder """
         _tns = self.piezo.Get_TNS()
-        _bender_enc  = _tns * self.bender_factor
+        _bender_enc = _tns * self.bender_factor
         print "read_encoder Bender:", _bender_enc
         return _bender_enc
 
@@ -130,6 +150,8 @@ class PiezoJack(Controller):
         """
         Returns:
             - <position> : float : system position in micron
+        The current value of the capacitive sensor is read from the PI E712. The multiplication with the
+        factor is necessary, because the sensor is mounted much closer to the movement axis, than the piezojack,
         """
         try:
             # Capacitive captor value.
@@ -159,7 +181,7 @@ class PiezoJack(Controller):
             self.log.info('###########################################################################\n'+
                           '##### !! The capacitive sensor is not in its area of linear function  #####\n'+
                           '###########################################################################\n'+
-                          'TAD is {0:s}'.format(tad))
+                          'TAD is ' + str(tad))
 
 
     def start_one(self, motion):
@@ -346,8 +368,7 @@ class PiezoJack(Controller):
                 self.log.info("--PJ-ICEPAP--loop%d-- TNS target=%g current=%g delta= %g" % (
                     ii, tns_target, tns_current, tns_delta))
 
-                # tns_allowed_divergence / icepap_factor will be um.
-                # should be less than perhaps 2 um/???
+                # tns_allowed_divergence devided by icepap_factor will be um.
                 if abs(tns_delta) < self.tns_allowed_divergence:
                     break  # ok we are close enough
 
@@ -400,8 +421,6 @@ class PiezoJack(Controller):
 
             self.piezo.Set_Closed_Loop(True)
             self.piezo.move(piezo_target)  # in um.
-            # Right now ONT? should work! 8/10/15
-            #time.sleep(self._piezo_settle_sleep) # needed because E712 is not using "on target" flag.
 
             tns_current = self.piezo.Get_TNS()
             tns_delta = tns_target - tns_current

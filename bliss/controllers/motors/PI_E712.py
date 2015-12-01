@@ -526,7 +526,7 @@ class PI_E712(Controller):
         if _ans is "0":
             self.send_no_ans(None, "CCL 1 advanced")
 
-    def _get_sensor_coeffs(self, axis):
+    def get_sensor_coeffs(self, axis):
         """
         Returns a list with sensor coefficients:
         *Offset

@@ -102,6 +102,7 @@ class Mockup(Controller):
         add_axis_method(axis, self.custom_send_command, types_info=("str", "None"))
         add_axis_method(axis, self.custom_command_no_types, types_info=("None", "None"))
         add_axis_method(axis, self.custom_set_measured_noise, types_info=("float", "None"))
+        add_axis_method(axis, self._set_closed_loop, name = "Set_Closed_Loop", types_info = (bool, None))
 
         add_axis_method(axis, self.put_discrepancy, types_info=("int", "None"))
 
@@ -370,6 +371,10 @@ class Mockup(Controller):
     # STRING VOID
     def custom_send_command(self, axis, value):
         print "command=", value
+
+    # BOOL NONE
+    def _set_closed_loop(self, axis, onoff = True):
+        print "I set the closed loop ", onoff
 
     # Types by default
     def custom_command_no_types(self, axis):

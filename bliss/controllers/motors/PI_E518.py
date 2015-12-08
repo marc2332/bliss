@@ -12,7 +12,7 @@ from bliss.common import event
 from PI_E51X import PI_E51X
 
 """
-Bliss controller for ethernet PI E517 piezo controller.
+Bliss controller for ethernet PI E518 piezo controller.
 This controller inherits all methods from PI_E51X.
 Only the methods not common to E517 and E518 are redefined here:
    * gating.
@@ -20,13 +20,13 @@ Cyril Guilloud ESRF BLISS
 Thu 13 Feb 2014 15:51:41
 """
 
-class PI_E517(PI_E51X):
+class PI_E518(PI_E51X):
 
     def __init__(self, name, config, axes, encoders):
         PI_E51X.__init__(self, name, config, axes, encoders)
 
     def _get_cto(self, axis):
-        _ans = self.sock.write_readlines("CTO?\n", 24)
+        _ans = self.sock.write_readlines("CTO?\n", 24)       # 24 also for 518 ????
         return _ans
     """
     CTO?
@@ -68,13 +68,4 @@ class PI_E517(PI_E51X):
         Raises:
             ?
         """
-        _ch = axis.channel
-        if state:
-            _cmd = "CTO %d 3 3 %d 5 %g %d 6 %g %d 7 1" % (_ch, _ch, self.low_limit, _ch, self.high_limit, _ch)
-        else:
-            _cmd = "CTO %d 3 3 %d 5 %g %d 6 %g %d 7 0" % (_ch, _ch, self.low_limit, _ch, self.high_limit, _ch)
-
-        elog.debug("set_gate :  _cmd = %s" % _cmd)
-
-        self.send_no_ans(axis, _cmd)
-
+        print "   TO BE CHANGED fro E518"

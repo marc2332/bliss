@@ -79,8 +79,6 @@ class PI_E712(Controller):
         """
         axis.channel = axis.config.get("channel", int)
 
-        add_axis_method(axis, self.raw_com, name = "RawCom", types_info = (str, str))
-
         add_axis_method(axis, self.check_power_cut, name = "CheckPowerCut", types_info = (None, None))
         add_axis_method(axis, self._get_tns, name = "Get_TNS", types_info = (None, float))
         add_axis_method(axis, self._get_tsp, name = "Get_TSP", types_info = (None, float))
@@ -226,13 +224,9 @@ class PI_E712(Controller):
         """
         return self.send(axis, "*IDN?\n")
 
-
     """
     E712 specific
     """
-    def raw_com(self, axis, cmd):
-        return self.send(axis, cmd)
-
     def send(self, axis, cmd):
         """
         - Adds the 'newline' terminator character : "\\\\n"

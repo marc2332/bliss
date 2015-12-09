@@ -287,6 +287,8 @@ def __to_cmd_name(cmd_name):
     return res, res_min
 
 def __to_func_name(cmd_name):
+    if cmd_name.startswith(':'):
+        cmd_name = cmd_name[1:]
     return cmd_name.replace('*', '').replace(':', '_').lower()
 
 def __safe_add_method(klass, method, name=None):

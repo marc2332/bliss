@@ -75,7 +75,7 @@ commands.update({
     # TODO missing STATUS:QUEUE:ENABLE,DISABLE
 
     # range, auto range and display
-    'CURRent:RANGe:UPPer': IntCmd(doc='measure current range selection'),
+    'CURRent:RANGe[:UPPer]': IntCmd(doc='measure current range selection'),
     'CURRent:RANGe:AUTO': OnOffCmd(doc='measure current auto range'),
     'CURRent:RANGe:AUTO:ULIMt': IntCmd(doc='measure current upper range limit for auto range'),
     'CURRent:RANGe:AUTO:LLIMt': IntCmd(doc='measure current lower range limit for auto range'),
@@ -99,8 +99,6 @@ commands.update({
                                default='ASC'),
 
     # triggering
-
-    'ARM:SOURce': StrCmd(doc='control source (IMM)', default='IMM'),
 
     'ARM[:SEQuence1][:LAYer1]:SOURce': StrCmd(doc='control source (IMM, TIMer, BUS, TLIN, MAN)', default='IMM'),
     'ARM[:SEQuence1][:LAYer1]:COUNt': IntCmd(doc='measure count (1..2500 or INF)', default=1),

@@ -169,7 +169,7 @@ def mots2steps(mot_list, conv_list=None, pp=True):
 
 
 # CLASS #
-class spectro_eh1_test(CalcController):
+class spectro_eh1_test_V2(CalcController):
 
     def __init__(self, *args, **kwargs):
         CalcController.__init__(self, *args, **kwargs)

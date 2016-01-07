@@ -1,0 +1,7 @@
+
+BlissAxisManager/e753_dmir/DEVICE/Bliss: "id42/bliss/e753"
+
+id42/bliss/e753->config_file: "/users/blissadm/local/userconf/bliss/e753_config.xml"
+
+BlissAxisManager/e753_dmir/DEVICE/BlissAxis: "id42/bliss_e753/mirror_piezo"
+

@@ -1,22 +1,10 @@
 from distutils.core import setup
 
-# dependencies:
-#  - gevent
-#  - redis
-#  - yaml
-#  - netifaces
-#  - louie (or old pydispatch)
-#  - nanomsg
-# optional dependencies:
-#  - ruamel (yaml preserving comments, style, key order)
-#  - posix_ipc (use posix queues)
-
-setup(name="beacon", version="0.1",
-      description="BEAmline CONfiguration library",
-      author="S. Petitdemange, M. Guijarro (ESRF)",
+setup(name="bliss", version="0.1",
+      description="BeamLine Instrumentation Support Software",
+      author="BCU (ESRF)",
       package_dir={"bliss": "bliss"},
-      packages=["bliss", "bliss.config", "bliss.config.conductor", "bliss.config.conductor.web",
-                "bliss.config.plugins", "bliss.config.redis"],
+      packages=['bliss', 'bliss.comm', 'bliss.comm.embl', 'bliss.common', 'bliss.config', 'bliss.config.conductor', 'bliss.config.conductor.web', 'bliss.config.motors', 'bliss.config.plugins', 'bliss.config.redis', 'bliss.controllers', 'bliss.controllers.motors', 'bliss.controllers.motors.libicepap', 'bliss.controllers.motors.libicepap.deep'],
       package_data={"bliss.config.redis": ["redis.conf"],
                     "bliss.config.plugins": ["*.html"],
                     "bliss.config.conductor.web": ["*.html",
@@ -24,4 +12,5 @@ setup(name="beacon", version="0.1",
                                              "css/jstree/*.*",
                                              "js/*.*",
                                              "res/*.*"]},
-      scripts=["bin/beacon-server"])
+      scripts=["bin/beacon-server", "bin/bliss"])
+

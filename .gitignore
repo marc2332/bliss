@@ -1,6 +1,11 @@
 *.pyc
 *~
+*.bck
 build
 *.swp
+doc/_build
 .coverage
-
+# for eclipse users
+.settings/
+.project
+.pydevproject

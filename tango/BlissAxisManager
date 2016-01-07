@@ -1,0 +1,13 @@
+#!/usr/bin/env python
+
+import os
+import sys
+
+sys.argv[0] = "BlissAxisManager"
+
+if len(sys.argv) == 1:
+    # no args ? -> I add "-?" to show defined instances.
+    sys.argv.append("-?")
+
+execfile("/users/blissadm/server/src/BlissAxisManager.py")
+

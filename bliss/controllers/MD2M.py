@@ -25,6 +25,7 @@ class MD2M:
             self.init_offsets[motor_name]=float(value)
         self.zoom_positions = config.get("zoom_positions")
         self.oscil_mprg = config.get("oscil_mprg")
+        self.members_state = {'light':None, 'cryo':None, 'fluodet':None}
 
     @task
     def _simultaneous_move(self, *args):
@@ -51,7 +52,7 @@ class MD2M:
                 axis.wait_move()
 
     def move_beamstop_out(self):
-        pass
+        self.bstopz.move(-80)
 
     def move_beamstop_in(self):
         pass
@@ -107,8 +108,8 @@ class MD2M:
         print 'Doing centring table init.'
         table_axes = (self.sampx, self.sampy)
         self._reset_axes_settings(*table_axes)
-        print "  searching for sampx and sampy negative limits, and setting init pos."
-        [axis.hw_limit(-1) for axis in table_axes]
+        print "  searching for sampx and sampy positive limits, and setting init pos."
+        [axis.hw_limit(+1) for axis in table_axes]
         [axis.wait_move() for axis in table_axes]
         for axis in table_axes:
             axis.dial(self.init_offsets[axis.name])
@@ -121,7 +122,7 @@ class MD2M:
         print 'Homing zoom axis'
         self.zoom.velocity(self.zoom.velocity(from_config=True))
         self.zoom.acceleration(self.zoom.acceleration(from_config=True))
-        print "  searching for zoom negative limit"
+        print "  searching for zoom home switch"
         self.zoom.home()
         self.zoom.dial(6.1)
         self.zoom.position(6.1)
@@ -372,8 +373,22 @@ class MD2M:
         self.wago.set("lightin", set_in) 
         with gevent.Timeout(3, RuntimeError("Light %s switch is not activated" % ('in' if set_in else 'out'))):
           while not self.wago.get("light_is_in" if set_in else "light_is_out"):
-            time.sleep(0.1) 
-      
+            time.sleep(0.1)
+          self.members_state['light'] = set_in
+
+    def _get_light(self):
+        if self.wago.get("light_is_in"):
+            return True
+        if self.wago.get("light_is_out"):
+            return False
+        return None
+    
+    def light(self, state=None):
+        if state is not None:
+            self._set_light(state)
+        else:
+            return self.members_state['light']
+    
     def lightin(self):
         return self._set_light(True)
  
@@ -386,13 +401,34 @@ class MD2M:
         with gevent.Timeout(3, RuntimeError("Cryo %s switch is not activated" % ('in' if set_in else 'out'))):
           while not self.wago.get("cryoin" if set_in else "cryobck"):
             time.sleep(0.1)
+          self.members_state['cryo'] = set_in
+
+    def cryo(self, state=None):
+        if state is not None:
+            self._set_cryo(state)
+        else:
+            return self.members_state['cryo']
 
     def cryoin(self):
         return self._set_cryo(True)
    
     def cryoout(self):
         return self._set_cryo(False)
-        
+
+    def fluodet(self, state=None):
+        if state is not None:
+            self._set_fluodet(state)
+        else:
+            return self.members_state['fluodet']
+
+    def _set_fluodet(self, set_in):
+        set_in = bool(set_in)
+        self.wago.set("fldin", set_in)
+        with gevent.Timeout(3, RuntimeError("Fluorescense detector %s switch is not activated" % ('in' if set_in else 'out'))):
+          while self.wago.get('fldbck') is not set_in:
+            time.sleep(0.1)
+          self.members_state['fluodet'] = set_in
+
     def centrebeam(self):
         self.lightout()
         self._simultaneous_move(self.bstopz, -80)
@@ -460,7 +496,7 @@ class MD2M:
             self.transmission.transmission_set(old_transmission)
 
         with cleanup(restore_slits, restore_att):
-            self.transmission.transmission_set(0.1)
+            self.transmission.transmission_set(0.5)
             self.detcover.set_in()
             self.move_beamstop_out()
             self._simultaneous_move(self.hgap, 2, self.vgap, 2)
@@ -471,7 +507,7 @@ class MD2M:
                     break
 
     def move_to_sample_loading_position(self, holder_length=22):
-        move_task=self._simultaneous_move(self.bstopz, -80, self.phix, 0, self.phiy, 22, self.phiz, 0, self.sampx, 0, self.sampy, 0, self.omega, 0, self.zoom, 1, wait=False)
+        move_task=self._simultaneous_move(self.phix, 1.25, self.phiy, 22, self.phiz, 0, self.sampx, 0, self.sampy, 0, self.omega, 0, self.zoom, 1, wait=False)
         self.wago.set("swpermit", 0)
         self.wago.set("SCcryoctrl", 0)
         self.wago.set("fldin", 0)
@@ -488,8 +524,13 @@ class MD2M:
             raise RuntimeError("Sample changer: transfer refused")
 
     def prepare_centring(self):
-        self.lightin()
-        self.wago.set("lightctrl", 0.3)
+        self.wago.set("swpermit", 0)
+        move_task=self._simultaneous_move(self.bstopz, -80, self.phix, 0.0, self.phiy, 22, self.phiz, 0, self.sampx, 0, self.sampy, 0, self.omega, 0, self.zoom, 1, wait=False)
+        try:
+          self.lightin()
+          self.wago.set("lightctrl", 0.3)
+        finally:
+          move_task.get()
 
     def quick_realign(self):
         self.centrebeam()

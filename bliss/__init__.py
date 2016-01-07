@@ -7,6 +7,7 @@ try:
     from bliss.config import static
 except ImportError:
     sys.excepthook(*sys.exc_info())
+import functools
 
 def setup(setup_file=None, env_dict=None, config_objects_names_list=None, verbose=True):
     if env_dict: 
@@ -39,8 +40,10 @@ def setup(setup_file=None, env_dict=None, config_objects_names_list=None, verbos
 
             _load_config(env_dict, config_objects_names_list, verbose) 
 
+            env_dict['load_script']=functools.partial(_load_script, env_dict)
+
             try:
-                execfile(setup_file_path, env_dict) #setup_globals.__dict__) 
+                execfile(setup_file_path, env_dict) 
             finally:
                 for obj_name, obj in env_dict.iteritems():
                     setattr(setup_globals, obj_name, obj) 
@@ -73,7 +76,7 @@ def _load_config(env_dict, names_list=None, verbose=True):
             setattr(setup_globals, item_name, o)
             del o
 
-def load_script(script_module_name, path=None):
+def _load_script(env_dict, script_module_name, path=None):
     if path is None:
         setup_file_path = setup_globals.SETUP_FILE
         path = os.path.join(os.path.dirname(setup_file_path), "scripts")
@@ -89,5 +92,5 @@ def load_script(script_module_name, path=None):
         sys.excepthook(*sys.exc_info())
     else:
         for k, v in script_module.__dict__.iteritems():
-            script_module.__builtins__[k] = v
+            env_dict[k] = v
 

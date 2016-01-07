@@ -86,9 +86,9 @@ class MD2S:
         app = self._exporter.readProperty("AperturePosition")
         self._exporter.writeProperty("AperturePosition", "OFF")
         self._wait_ready(20)
-        #get the current zoom position and move zoom to 3
+        #get the current zoom position and move zoom to 5
         curr_zoom = self._exporter.readProperty("CoaxialCameraZoomValue")
-        self._exporter.writeProperty("CoaxialCameraZoomValue", 3)
+        self._exporter.writeProperty("CoaxialCameraZoomValue", 5)
         self._wait_ready(20)
 
         #set the camera to read one image
@@ -105,33 +105,56 @@ class MD2S:
         px_mm_y, px_mm_z = self.get_cameracalibration()
 
         def restore_table(saved_pos=(self.thgt, self.thgt.position(), self.ttrans,self.ttrans.position())):
-            logging.getLogger().info("Restoring table:", saved_pos)
-            self._simultaneous_move(*saved_pos)
+            #close the fast shutter, if needed
+            self.msclose()
+            logging.getLogger("user_level_log").info("Restoring table, please wait.")
+            self.thgt.stop()
+            self.ttrans.stop()
+            try:
+                self._simultaneous_move(*saved_pos)
+            except:
+                logging.getLogger("user_level_log").error("Could not restore the table to its initial position")
 
         def restore_att(old_transmission=self.transmission.transmission_get()):
             self.transmission.transmission_set(old_transmission)
             self._exporter.writeProperty("CoaxialCameraZoomValue", curr_zoom)
             self._wait_ready(20)
 
+        def restore_nobeam():
+            self.msclose()
+            self.restore_live()
+            self.restore_att()
+
         def do_centrebeam():
             with error_cleanup(restore_att):
-                self._exporter.writeProperty("FastShutterIsOpen", "true")
+                self.msopen()
                 
             with cleanup(restore_live):
                 self.sample_video_device.video_live=False
                 time.sleep(0.1)
                 res = self.bv_device.GetPosition()
-      
-            print res
+                if res[1] < 1500.:
+                    self.transmission.transmission_set(20)
+                    time.sleep(0.1)
+                    res = self.bv_device.GetPosition()
+
             by = res[2]
             bz = res[3]
-            if -1 in (by, bz):
-                raise RuntimeError("Could not find beam")
+            #check for minimum intensity, stop the procedure if not enough
+            with error_cleanup(restore_nobeam):
+                if res[1] < 1500. or -1 in (by, bz):
+                    time.sleep(1)
+                    logging.getLogger("user_level_log").error("Could not find beam, centrebeam aborted")
+                    raise RuntimeError("Could not find beam")
 
             dy = (by - (img_width / 2)) / px_mm_y
             dz = (bz - (img_height / 2)) / px_mm_z
-            if abs(dy) > 0.1 or abs(dz) > 0.1:
-                raise RuntimeError("Aborting centrebeam, too big displacement")
+            with error_cleanup(restore_live):
+                if abs(dy) > 0.1 or abs(dz) > 0.1:
+                    logging.getLogger("user_level_log").error("Aborting centrebeam, too big displacement (> 0.1 mm)")
+                    time.sleep(1)
+                    self.msclose()
+                    raise RuntimeError("Aborting centrebeam, too big displacement")
             with error_cleanup(restore_table):
                 print "moving ttrans by", -dy
                 print "moving thgt by", -dz
@@ -139,14 +162,15 @@ class MD2S:
             return dy, dz
 
         with cleanup(restore_att):
-            self.transmission.transmission_set(3)
+            self.transmission.transmission_set(1)
             self.detcover.set_in()
  
             for i in range(7):
                 dy, dz = do_centrebeam()
                 if abs(dy) < 0.001 and abs(dz) < 0.001:
+                    logging.getLogger("user_level_log").info("Centrebeam finished successfully")
                     break
-            self._exporter.writeProperty("FastShutterIsOpen", "false")
+            self.msclose()
             self.set_phase("DataCollection", wait=True, timeout=100)
 
     def msopen(self):
@@ -163,6 +187,24 @@ class MD2S:
 
     def fldetstate(self):
         self._exporter.readProperty("FluoDetectorIsBack")
+
+    def flight(self, state=None):
+        if state:
+            self._exporter.writeProperty("FrontLightIsOn",state)
+        else:
+            return self._exporter.readProperty("FrontLightIsOn")
+
+    def blight(self,  state=None):
+        if state:
+            self._exporter.writeProperty("BackLightIsOn",state)
+        else:
+            return self._exporter.readProperty("BackLightIsOn")
+
+    def cryo(self,  state=None):
+        if state:
+            self._exporter.writeProperty("CryoIsBack",state)
+        else:
+            return self._exporter.readProperty("CryoIsBack")
 
     def microdiff_init(self,wait=True):
         self._exporter.execute("startHomingAll")

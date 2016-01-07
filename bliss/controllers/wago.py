@@ -52,7 +52,12 @@ class wago(object):
     self.controller = wago_client.connect(self.wago_ip)
     self.controller.set_mapping(self.mapping)
 
+  def _safety_check(self, *args):
+    return True
+
   def set(self, *args, **kwargs):
+    if not self._safety_check(*args):
+      return
     if self.controller is None:
       self.connect()
     return self.controller.set(*args, **kwargs)

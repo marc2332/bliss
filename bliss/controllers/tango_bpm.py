@@ -118,3 +118,16 @@ class tango_bpm(object):
 
    def stop(self):
      return self.__control.Stop()      
+
+   def set_in(self):
+     return self.__control.In()
+
+   def set_out(self):
+     return self.__control.Out()
+
+   def is_in(self):
+     return self.__control.YagStatus == 'in'
+ 
+   def is_out(self):
+     return self.__control.YagStatus == 'out'
+

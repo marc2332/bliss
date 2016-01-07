@@ -1,4 +1,4 @@
-__all__ = ['EnetSocket', 'Enet', 'Gpib', 'to_tmo', 'TMO_MAP']
+__all__ = ['EnetSocket', 'Enet', 'TangoGpib', 'Gpib', 'to_tmo', 'TMO_MAP']
 
 import re
 import logging
@@ -73,6 +73,12 @@ class Enet(EnetSocket):
         return self._sock.read(length)
 
 
+def TangoGpib(cnt,**keys) :
+    from PyTango import GreenMode
+    from PyTango.client import Object
+    return Object(keys.pop('url'), green_mode=GreenMode.Gevent)
+
+
 def try_open(fu) :
     def rfunc(self,*args,**keys) :
         self.open()
@@ -84,7 +90,7 @@ def try_open(fu) :
     return rfunc
 
 class Gpib:
-    ENET = range(1)
+    ENET, TANGO = range(2)
     READ_BLOCK_SIZE = 64 * 1024
 
     def __init__(self,url = None,pad = 0,sad = 0,timeout = 1.,tmo = 13,
@@ -111,6 +117,8 @@ class Gpib:
             if gpib_type == self.ENET:
                 self._raw_handler = Enet(self,**self._gpib_kwargs)
                 self._raw_handler.init()
+            elif gpib_type == self.TANGO:
+                self._raw_handler = TangoGpib(self,**self._gpib_kwargs)
 
     def close(self) :
         if self._raw_handler is not None:
@@ -188,8 +196,11 @@ class Gpib:
 
     def _check_type(self) :
         url = self._gpib_kwargs.get('url','')
-        if url.lower().startswith("enet://") :
+        url_lower = url.lower()
+        if url_lower.startswith("enet://") :
             return self.ENET
+        elif url_lower.startswith("tango://") :
+            return self.TANGO
         else:
             return None
 

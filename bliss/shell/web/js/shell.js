@@ -210,20 +210,6 @@ Shell.prototype = {
             }
             return false; 
         });
-        mousetrap.bind("left", function() {
-            if (self.completion_mode) {
-                self._select_completion_item(-1);
-                self.cmdline.focus();
-                return false;
-            }
-        }); 
-        mousetrap.bind("right", function() {
-            if (self.completion_mode) {
-                self._select_completion_item(+1);
-                self.cmdline.focus();
-                return false;
-            }
-        });
         mousetrap.bind("esc", function() {
             if (self.completion_mode) {
                 self.completion_mode = false;
@@ -274,6 +260,11 @@ Shell.prototype = {
             self.completion_request(self.current_command, self._completion_start, true);
         });
         mousetrap.bind("tab", function() {
+            /*if (self.completion_mode) {
+                self._select_completion_item(+1);
+                self.cmdline.focus();
+                return false;
+            }*/
             self.current_command = self.cmdline.val();
             self._completion_start = self.cmdline[0].selectionStart;
             self.completion_mode = true;

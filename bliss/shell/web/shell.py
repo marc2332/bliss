@@ -62,6 +62,8 @@ def set_setup_file(session_id, setup_file, config_objects_names):
 
 
 def read_config(config_file):
+    if not config_file:
+        return
     with file(config_file, "r") as f:
         cfg = yaml.load(f.read())
 

@@ -154,7 +154,8 @@ class fshutter:
          self.disable()
          if self.musst:
             self.musst.putget("#BTRIG 0")
-         self.fshutter_mot.home()
+         time.sleep(0.1)
+         self.fshutter_mot.home(-1)
          self.fshutter_mot.dial(0)
          self.fshutter_mot.position(0)
          self.fshutter_mot.move(self.shift)

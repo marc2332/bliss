@@ -1,0 +1,38 @@
+1:
+    setup-file: ./test_setup.py
+    synoptic:
+        svg-file: ./id30_layout.svg
+        elements:
+           -
+              svg-id: wbv
+              top: m0
+              bottom: 
+           -
+              svg-id: mono
+              top: 
+              bottom: 
+           -
+              svg-id: monocal
+              top: 
+              bottom: light
+           -
+              svg-id: transfocators
+              top: m0
+              bottom: 
+           -
+              svg-id: sslits
+              top: m1
+              bottom: m2 
+           -
+              svg-id: mbv1
+              top: 
+              bottom: 
+           -
+              svg-id: safety_shutter
+              top:
+              bottom: safshut
+           -
+              svg-id: sslits2
+              top: m1
+              bottom:
+ 

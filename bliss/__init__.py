@@ -10,6 +10,10 @@ from bliss.controllers.motor_group import Group
 from bliss.common.scans import *
 from bliss.common.task_utils import task, cleanup, error_cleanup
 from bliss import setup_globals
+from bliss.common.continuous_scan import Scan
+from bliss.common.continuous_scan import AcquisitionChain
+from bliss.common.continuous_scan import AcquisitionDevice
+from bliss.common.continuous_scan import AcquisitionMaster
 try:
     from bliss.config import static
 except ImportError:
@@ -102,4 +106,3 @@ def _load_script(env_dict, script_module_name, path=None):
     else:
         for k, v in script_module.__dict__.iteritems():
             env_dict[k] = v
-

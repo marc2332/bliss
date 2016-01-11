@@ -5,3 +5,10 @@ install_scripts=/users/blissadm/local/bin
 [build]
 executable=/usr/bin/env python
 
+[pep8]
+ignore=F403
+max-line-length=116
+
+[flake8]
+ignore=F403
+max-line-length=116

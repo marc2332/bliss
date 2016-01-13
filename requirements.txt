@@ -5,7 +5,9 @@ netifaces
 louie
 nanomsg
 flask
+treelib
 # optional dependencies:
 
 ruamel.yaml
 posix_ipc
+

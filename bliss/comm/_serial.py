@@ -201,8 +201,7 @@ class RFC2217(_BaseSerial):
         telnet_cmd.data = ''
 
         #Read telnet negotiation
-        with gevent.Timeout(5.,RuntimeError("timeout on serial negotiation(%s)",
-                                            self._port)):
+        with gevent.Timeout(5.,RuntimeError("timeout on serial negotiation(%s)" % self._port)):
             while(1):
                 self._parse_nego(telnet_cmd)
                 if sum(o.active for o in mandatory_options) == len(mandatory_options):

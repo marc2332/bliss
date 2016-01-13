@@ -236,13 +236,13 @@ class IcePAP(Controller):
           # while homing motor, so let's not ask if motor is moving
           if(libicepap.status_warning(status)):
               warn_str = self.libgroup.warning(axis.libaxis)
-              warn_dsc = "warning condition: \n" + warn_str
+              warn_dsc = "warning condition: \n" + str(warn_str)
               self.icestate.create_state("WARNING",  warn_dsc)
               self.icestate.set("WARNING")
 
           alarm_str = self.libgroup.alarm(axis.libaxis)
           if alarm_str != 'NO':
-              alarm_dsc = "alarm condition: " + alarm_str
+              alarm_dsc = "alarm condition: " + str(alarm_str)
               self.icestate.create_state("ALARMDESC",  alarm_dsc)
               self.icestate.set("ALARMDESC")
 

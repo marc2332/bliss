@@ -19,10 +19,9 @@ sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import bliss
 
-user_ns = {"load_cfg": bliss.load_cfg,
-           "load_cfg_fromstring": bliss.load_cfg_fromstring,
-           "get_axis": bliss.get_axis,
-           "Group": bliss.Group,
+from bliss.config import static
+
+user_ns = {"config": static.get_config(),
            "sys": sys,
            "os": os}
 

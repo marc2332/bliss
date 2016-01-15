@@ -141,7 +141,9 @@ def _get_node_object(node_type, name, parent, connection, create=False):
         klass = classes[0][-1]
         return klass(name, parent = parent, connection = connection, create = create)
 
-def get_node(name, node_type = None, parent = None, connection = client.get_cache(db=1)):
+def get_node(name, node_type = None, parent = None, connection = None):
+    if connection is None:
+        connection = client.get_cache(db=1)
     data = Struct(name, connection=connection)
     if node_type is None:
         node_type = data.node_type
@@ -150,10 +152,14 @@ def get_node(name, node_type = None, parent = None, connection = client.get_cach
 
     return _get_node_object(node_type, name, parent, connection)
 
-def _create_node(name, node_type = None, parent = None, connection = client.get_cache(db=1)):
+def _create_node(name, node_type = None, parent = None, connection = None):
+    if connection is None:
+        connection = client.get_cache(db=1)
     return _get_node_object(node_type, name, parent, connection, create=True)
 
-def _get_or_create_node(name, node_type=None, parent=None, connection=client.get_cache(db=1)):
+def _get_or_create_node(name, node_type=None, parent=None, connection = None):
+    if connection is None:
+        connection = client.get_cache(db=1)
     db_name = DataNode.exists(name, parent, connection)
     if db_name:
         return get_node(db_name, connection=connection)
@@ -208,11 +214,15 @@ class DataNode(object):
     default_time_to_live = 24*3600 # 1 day
     
     @staticmethod
-    def exists(name,parent = None,connection=client.get_cache(db=1)) :
+    def exists(name,parent = None, connection = None):
+        if connection is None:
+            connection = client.get_cache(db=1)
         db_name = '%s:%s' % (parent.db_name(),name) if parent else name
         return db_name if connection.exists(db_name) else None
 
-    def __init__(self,node_type,name,parent = None,connection=client.get_cache(db=1), create=False):
+    def __init__(self,node_type,name,parent = None, connection = None, create=False):
+        if connection is None:
+            connection = client.get_cache(db=1)
         db_name = '%s:%s' % (parent.db_name(),name) if parent else name
         self._data = Struct(db_name,
                             connection=connection)

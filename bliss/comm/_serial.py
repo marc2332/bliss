@@ -1,9 +1,12 @@
+__all__ = ["LocalSerial", "RFC2217", "SER2NET", "Serial"]
+
 import gevent
 from gevent import socket, select, lock, event
 import tcp
 
 import re
 import struct
+import logging
 import serial
 try:
     from serial import rfc2217
@@ -387,10 +390,15 @@ class Serial:
         self._timeout = timeout
         self._raw_handler = None
         self._lock = lock.Semaphore()
+        self._logger = logging.getLogger(str(self))
 
     def __del__(self) :
         if self._raw_handler:
             self._raw_handler.close()
+
+    def __str__(self):
+        return "{0}({1})".format(self.__class__.__name__,
+                                 self._serial_kwargs['port'])
 
     def open(self) :
         if self._raw_handler is None:
@@ -407,51 +415,62 @@ class Serial:
             self._raw_handler.close()
             self._raw_handler = None
         
-    @try_open
     def raw_read(self,maxsize = None,timeout = None) :
+        with self._lock:
+            return self._raw_read(maxsize,timeout)
+                
+    @try_open
+    def _raw_read(self,maxsize = None,timeout = None) :
         local_timeout = timeout or self._timeout
         return self._raw_handler.raw_read(maxsize,local_timeout)
                 
-    @try_open
     def read(self,size=1,timeout=None):
+        with self._lock:
+            return self._read(size,timeout)
+
+    @try_open
+    def _read(self,size=1,timeout=None):
         local_timeout = timeout or self._timeout
         msg = self._raw_handler.read(size,local_timeout)
         if len(msg) != size:
             raise RuntimeError("read timeout on serial (%s)" % self._serial_kwargs.get(port,''))
         return msg
 
-    @try_open
     def readline(self,eol = None,timeout = None) :
+        with self._lock:
+            return self._readline(eol,timeout)
+    
+    @try_open
+    def _readline(self,eol = None,timeout = None) :
         local_eol = eol or self._eol
         local_timeout = timeout or self._timeout
         return self._raw_handler.readline(local_eol,local_timeout)
     
-    @try_open
     def write(self,msg,timeout=None) :
         with self._lock:
-            return self._raw_handler.write(msg,timeout)
+            return self._write(msg,timeout)
         
     @try_open
-    def write_read(self,msg,write_synchro=None,size=1,timeout=None) :
+    def _write(self,msg,timeout=None) :
         local_timeout = timeout or self._timeout
+        return self._raw_handler.write(msg,local_timeout)
+        
+    def write_read(self,msg,write_synchro=None,size=1,timeout=None) :
         with self._lock:
-            self._raw_handler.write(msg,local_timeout)
+            self._write(msg,timeout)
             if write_synchro: write_synchro.notify()
-            return self.read(size,local_timeout)
+            return self._read(size,timeout)
 
-    @try_open
     def write_readline(self,msg,write_synchro = None,
                        eol = None,timeout = None) :
-        local_eol = eol or self._eol
-        local_timeout = timeout or self._timeout
         with self._lock:
-            self._raw_handler.write(msg,local_timeout)
+            self._write(msg,timeout)
             if write_synchro: write_synchro.notify()
-            return self.readline(local_eol,local_timeout)
+            return self._readline(eol,timeout)
 
+    @try_open
     def flush(self) :
-        if self._raw_handler:
-            self._raw_handler.flushInput()
+        self._raw_handler.flushInput()
 
     def _check_type(self) :
         port = self._serial_kwargs.get('port','')

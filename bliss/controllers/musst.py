@@ -1,103 +1,341 @@
-from bliss.comm import gpib
 import numpy
-import os
-import struct
-import itertools
-import gevent.lock
+import weakref
+from bliss.comm.gpib import Gpib
+from bliss.comm import serial
+Serial = serial.Serial
 
-def grouped(iterable, n):
-    "s -> (s0,s1,s2,...sn-1), (sn,sn+1,sn+2,...s2n-1), (s2n,s2n+1,s2n+2,...s3n-1), ..."
-    return itertools.izip(*[iter(iterable)]*n)
+def _get_simple_property(command_name,
+                         doc_sring):
+    def get(self):
+        return self.putget("?%s" % command_name)
+    def set(self,value) :
+        return self.putget("%s %s" % (command_name,value))
+    return property(get,set,doc=doc_sring)
 
-class musst:
-   def __init__(self, name, config):
-       self.gpib_ip = config["gpib"]
-       self.gpib_pad = config["address"]
-       self.gpib_device = None
-       try:
-           self.prg_root = config["musst_prg_root"]
-       except:
-           self.prg_root = None
-       self.lock = gevent.lock.Semaphore()
+def _simple_cmd(command_name,doc_sring):
+    def exec_cmd(self):
+        return self.putget(command_name)
+    return property(exec_cmd,doc=doc_sring)
 
-   def putget(self, comm, ack=False):
-     if self.gpib_device is None:
-         self.connect()
+class musst(object):
+    class channel(object):
+        COUNTER,ENCODER,SSI,ADC10,ADC5 = range(5)
+        def __init__(self,musst,channel_id) :
+            self._musst = weakref.ref(musst)
+            self._channel_id = channel_id
+            self._mode = None
+            self._string2mode = {
+                "CNT" : self.COUNTER,
+                "ENCODER" : self.ENCODER,
+                "SSI" : self.SSI,
+                "ADC" : self.ADC10}
+        @property
+        def value(self):
+            musst = self._musst()
+            string_value = musst.putget("?CH CH%d" % self._channel_id).split()[0]
+            return self._convert(string_value)
 
-     with self.lock:
-       comm = comm if comm.endswith('\n') else comm+'\n'
-       if comm.startswith("?"):
-         ack = False
-       if ack:
-         comm = "#"+comm if not comm.startswith('#') else comm
-       ret = self.gpib_device.write_read(comm, size=64*1024)
-       if ret.endswith('\n'):
-         ret=ret[:-1]
-       if ret == "$":
-         ret = ""
-         while True:
-           data = self.gpib_device.read(size=64*1024)
-           if data.startswith('$'):
-             break
-           ret += data 
-       if ack:
-         return ret=="OK"
-       try:
-         return int(ret)
-       except:
-         if ret=="ERROR":
-           raise RuntimeError("%s: %s" % (comm.strip(), self.putget("?ERR")))
-         return ret
+        @value.setter
+        def value(self,val):
+            musst = self._musst()
+            musst.putget("CH CH%d %s" % (self._channel_id,val))
 
-   def connect(self, timeout=3):
-       with self.lock:
-         self.gpib_device = gpib.Gpib(self.gpib_ip, pad=self.gpib_pad)
-       #assert(self.putget("?VER")=='MUSST 01.00a')
+        @property
+        def status(self):
+            musst = self._musst()
+            status_string = musst.putget("?CH CH%d" % self._channel_id).split()[1]
+            return musst._string2state.get(status_string)
 
-   def upload_file(self, fname, prg_root=None):
-       if prg_root:
-           oscil_program = open(os.path.join(prg_root, fname))
-       else:
-           oscil_program = fname
+        def run(self):
+            self._cnt_cmd("RUN")
 
-       self.upload_program(oscil_program.read())
+        def stop(self):
+            self._cnt_cmd("STOP")
+        
+        def _cnt_cmd(self,cmd):
+            self._read_config()
+            if(self._mode == self.COUNTER or
+               self._mode == self.ENCODER):
+                musst = self._musst()
+                musst.putget("CH CH%d %s" % (self._channel_id,cmd))
+            else:
+                raise RuntimeError("%s command on "\
+                                   "channel %d is not allowed in this mode" % (cmd,self._channel_id))
 
-   def upload_program(self, program_data):
-       self.putget("#CLEAR")
-       program_lines = program_data.split("\n")
-       formatted_prog= "".join(["+%s\n" % l for l in program_lines])
-       with self.lock:
-           self.gpib_device.write(formatted_prog)
-       state = self.putget("?STATE")
-       if state != "IDLE":
-         raise RuntimeError(state)
-       return True
-       #return self.putget("?list err")==""
+        def _convert(self,string_value):
+            self._read_config()
+            if self._mode == self.COUNTER:
+                return int(string_value)
+            elif(self._mode == self.ADC10):
+                return int(string_value) * (10. / 0x7fffffff)
+            elif(self._mode == self.ADC5):
+                return int(string_value) * (5. / 0x7fffffff)
+            else:                       # not managed yet
+                return string_value
 
-   def print_info(self):
-       print self.putget("?INFO")
+        def _read_config(self) :
+            if self._mode is None:
+                musst = self._musst()
+                string_config = musst.putget("?CHCFG CH%d" % self._channel_id)
+                split_config = string_config.split()
+                self._mode = self._string2mode.get(split_config[0])
+                if self._mode == self.ADC10: # TEST if it's not a 5 volt ADC
+                    if len(split_config) > 1 and split_config[1].find('5') > -1:
+                        self._mode = self.ADC5
 
-   def val(self, channel, value=None):
-       return self.putget("?VAL %s" % channel)
+    ADDR    = _get_simple_property("ADDR","Set/query serial line address")
+    BTRIG   = _get_simple_property("BTRIG","Set/query the level of the TRIG out B output signal")
+    NAME    = _get_simple_property("NAME","Set/query module name")
+    EBUFF   = _get_simple_property("EBUFF","Set/ query current event buffer")
+    HBUFF   = _get_simple_property("HBUFF","Set/ query current histogram buffer")
 
-   def io(self, channel, value=None):
-       return self.putget("?IO %s" % channel)
+    ABORT   = _simple_cmd("ABORT","Program abort")
+    RESET   = _simple_cmd("RESET","Musst reset")
+    CLEAR   = _simple_cmd("CLEAR","Delete the current program")
+    LIST    = _simple_cmd("?LIST","List the current program")
+    DBINFO  = _simple_cmd("?DBINFO *","Returns the list of installed daughter boards")
+    HELP    = _simple_cmd("?HELP","Query list of available commands")
+    INFO    = _simple_cmd("?INFO","Query module configuration")
+    RETCODE = _simple_cmd("?RETCODE","Query exit or stop code")
 
-   def get_data(self, nlines, npts, buf=0):
-       values = []
-       offset = 0
+    VARINIT = _simple_cmd("VARINIT","Reset program variables")
 
-       # get data by chunks of 1024 values (= 4096 bytes)
-       raw_values = []
-       for i in xrange((nlines*npts)/1024):
-         raw_values.append(self.putget("?*EDAT %d %d %d" % (1024, buf, offset)))
-         offset += 1024
-       remaining_data = (nlines*npts) % 1024
-       #import pdb;pdb.set_trace()
-       if remaining_data:
-         #print "?*EDAT %d %d %d" % (remaining_data, buf, offset)
-         raw_values.append(self.putget("?*EDAT %d %d %d" % (remaining_data, buf, offset)))
-  
-       data = numpy.fromstring("".join(raw_values), numpy.int32)
-       data.shape = (nlines, npts)
-       return data
+    #STATE
+    NOPROG_STATE,BADPROG_STATE,IDLE_STATE,RUN_STATE,BREAK_STATE,STOP_STATE,ERROR_STATE = range(7)
+    #FREQUENCY TIMEBASE
+    F_1KHZ, F_10KHZ, F_100KHZ, F_1MHZ, F_10MHZ, F_50MHZ = range(6)
+    def __init__(self,name,config_tree):
+        """Base Musst controller.
+
+        name -- the controller's name
+        config_tree -- controller configuration,
+        in this dictionary we need to have:
+        gpib_url -- url of the gpib controller i.s:enet://gpib0.esrf.fr
+        gpib_pad -- primary address of the musst controller
+        gpib_timeout -- communication timeout, default is 1s
+        """
+        
+        self.name = name
+        if "gpib_url" in config_tree:
+            self._cnx = Gpib(config_tree["gpib_url"],
+                             pad = config_tree["gpib_pad"],
+                             timeout = config_tree.get("gpib_timeout",0.5))
+            self._txterm = ''
+            self._rxterm = '\n'
+        elif "serial_url" in config_tree:
+            self._cnx = Serial(config_tree["serial_url"])
+            self._txterm = '\r'
+            self._rxterm = '\r\n'
+            self._cnx.write('?NAME' + self._txterm)
+            self._cnx.readline(self._rxterm)
+        else:
+            raise ValueError, "Must specify gpib_url or serial_url"
+
+        self._string2state = {
+            "NOPROG" : self.NOPROG_STATE,
+            "BADPROG" : self.BADPROG_STATE,
+            "IDLE" : self.IDLE_STATE,
+            "RUN" : self.RUN_STATE,
+            "BREAK" : self.BREAK_STATE,
+            "STOP" : self.STOP_STATE,
+            "ERROR" : self.ERROR_STATE
+            }
+
+        self.__frequency_convertion = {
+            self.F_1KHZ   : "1KHZ",
+            self.F_10KHZ  : "10KHZ",
+            self.F_100KHZ : "100KHZ",
+            self.F_1MHZ   : "1MHZ",
+            self.F_10MHZ  : "10MHZ",
+            self.F_50MHZ  : "50MHZ",
+
+            "1KHZ"        : self.F_1KHZ,
+            "10KHZ"       : self.F_10KHZ,
+            "100KHZ"      : self.F_100KHZ,
+            "1MHZ"        : self.F_1MHZ,
+            "10MHZ"       : self.F_10MHZ,
+            "50MHZ"       : self.F_50MHZ
+            }
+            
+
+    def putget(self,msg,ack = False):
+        """ Raw connection to the Musst card.
+
+        msg -- the message you want to send
+        ack -- if True, wait the an acknowledge (synchronous)
+        """
+
+        if(ack is True and
+           not (msg.startswith("?") or msg.startswith("#"))):
+           msg = "#" + msg
+
+        ack = msg.startswith('#')
+           
+        with self._cnx._lock:
+            self._cnx.open()
+            self._cnx._write(msg + self._txterm)
+            if msg.startswith("?") or ack:
+                answer = self._cnx._readline(self._rxterm)
+                if answer == '$':
+                    return self._cnx._readline('$' + self._rxterm)
+                elif ack:
+                    return answer == "OK"
+                else:
+                    return answer
+
+    def run(self,entryPoint=""):
+        """ Execute program.
+
+        entryPoint -- program name or a program label that
+        indicates the point from where the execution should be carried out
+        """
+        return self.putget("#RUN %s" % entryPoint)
+
+    def ct(self,time=None):
+        """Starts the system timer, all the counting channels
+        and the MCA. All the counting channels
+        are previously cleared.
+
+        time -- If specified, the counters run for that time.
+        """
+        if time is not None:
+            return self.putget("#RUNCT %d" % time)
+        else:
+            return self.putget("#RUNCT")
+
+    def upload_program(self, program_data):
+        """ Upload a program.
+
+        program_data -- program data you want to upload
+        """
+        self.putget("#CLEAR")
+        formatted_prog= "".join(("+%s%s" % (l, self._txterm)
+                                 for l in program_data.splitlines()))
+        self._cnx.write(formatted_prog)
+        if self.STATE != self.IDLE_STATE:
+            raise RuntimeError(self.STATE)
+        return True
+
+    #    def get_data(self, nlines, npts, buf=0):
+    def get_data(self,nb_counters, from_event_id = 0,):
+        """ Read event musst data.
+
+        nb_counters -- number counter you have in your program storelist
+        from_event_id -- from which event you want to read
+
+        Returns event data organized by event_id,counters
+        """
+        
+        buffer_size,nb_buffer = self.get_event_buffer_size()
+        buffer_memory = buffer_size * nb_buffer
+        current_offset,current_buffer_id = self.get_event_memory_pointer()
+        current_offset = current_buffer_id * buffer_size + current_offset
+
+        from_offset = (from_event_id * nb_counters) % buffer_memory
+        current_offset = current_offset / nb_counters * nb_counters
+        if current_offset >= from_offset:
+            nb_lines = (current_offset - from_offset) / nb_counters
+            data = numpy.empty((nb_lines,nb_counters),dtype = numpy.int32)
+            self._read_data(from_offset,current_offset,data)
+        else:
+            nb_lines = current_offset / nb_counters
+            first_nblines = (buffer_memory - from_offset) / nb_counters
+            nb_lines += first_nblines
+            data = numpy.empty((nb_lines,nb_counters),dtype = numpy.int32)
+            self._read_data(from_offset,buffer_memory,data)
+            self._read_data(0,current_offset,data[first_nblines:])
+        return data
+
+    def _read_data(self,from_offset,to_offset,data):
+        BLOCK_SIZE = 8*1024
+        total_bytes = to_offset - from_offset
+        data_pt = data.flat
+        for offset,data_offset in zip(xrange(from_offset,to_offset,BLOCK_SIZE),
+                                      xrange(0,total_bytes,BLOCK_SIZE)):
+            size_to_read = min(BLOCK_SIZE,total_bytes)
+            total_bytes -= BLOCK_SIZE
+            with self._cnx._lock:
+                self._cnx.open()
+                self._cnx._write("?*EDAT %d %d %d" % (size_to_read,0,offset))
+                data_pt[data_offset:data_offset+size_to_read] = \
+                numpy.frombuffer(self._cnx.raw_read(),dtype=numpy.int32)
+
+    def get_event_buffer_size(self):
+        """ query event buffer size.
+
+        Returns buffer size and number of buffers
+        """
+        return [int(x) for x in self.putget("?ESIZE").split()]
+
+    def set_event_buffer_size(self,buffer_size,nb_buffer = 1):
+        """ set event buffer size.
+
+        buffer_size -- request buffer size
+        nb_buffer -- the number of allocated buffer
+        """
+        return self.putget("ESIZE %d %d" % (buffer_size,nb_buffer))
+
+    def get_histogram_buffer_size(self):
+        """ query histogram buffer size.
+        
+        Returns buffer size and number of buffers
+        """
+        return [int(x) for x in self.putget("?HSIZE").split()]
+
+    
+    def set_histogram_buffer_size(self,buffer_size,nb_buffer = 1):
+        """ set histogram buffer size.
+
+        buffer_size -- request buffer size
+        nb_buffer -- the number of allocated buffer
+        """
+        return self.putget("HSIZE %d %d" % (buffer_size,nb_buffer))
+
+    def get_event_memory_pointer(self):
+        """Query event memory pointer.
+
+        Returns the current position of the event data memory pointer (offset,buffN)
+        """
+        return [int(x) for x in self.putget("?EPTR").split()]
+
+    def set_event_memory_pointer(self,offset,buff_number = 0):
+        """Set event memory pointer.
+
+        Sets the internal event data memory pointer to point
+        to the data position at offset <offset> in the buffer number <buff_number>.
+        """
+        return self.putget("EPTR %d %d" % (offset,buff_number))
+
+    def get_variable_info(self, name):
+        return self.putget("?VARINFO %s" % name)
+
+    def get_variable(self, name):
+        return float(self.putget("?VAR %s" % name))
+
+    def set_variable(self, name, val):
+        self.putget("VAR %s %s" % (name, val))
+
+    @property
+    def STATE(self):
+        """ Query module state """
+        return self._string2state.get(self.putget("?STATE"))
+
+    @property
+    def TMRCFG(self):
+        """ Set/query main timer timebase """
+        return self.__frequency_convertion.get(self.putget("?TMRCFG"))
+    
+    @TMRCFG.setter
+    def TMRCFG(self,value):
+        if value not in self.__frequency_convertion:
+            raise ValueError("Value not allowed")
+
+        if not isinstance(value,str):
+            value = self.__frequency_convertion.get(value)
+        return self.putget("TMRCFG %s" % value)
+
+    def get_channel(self,channel_id):
+        if 0 < channel_id <= 6:
+            return self.channel(self,channel_id)
+        else:
+            raise RuntimeError("musst doesn't have channel id %d" % channel_id)

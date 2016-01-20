@@ -1,6 +1,6 @@
 from bliss.common.continuous_scan import AcquisitionDevice, AcquisitionMaster
+from bliss.common.event import dispatcher
 import gevent
-from louie import dispatcher
 import time
 
 class LimaAcquisitionDevice(AcquisitionDevice):

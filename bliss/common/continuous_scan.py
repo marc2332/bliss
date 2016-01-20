@@ -1,6 +1,6 @@
 from treelib import Tree
 import gevent
-from .dispatcher import dispatcher
+from .event import dispatcher
 import time
 
 class Scan(object):

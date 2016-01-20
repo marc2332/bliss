@@ -1,5 +1,5 @@
 from gevent.select import select
-from louie import dispatcher
+from bliss.common.event import dispatcher
 
 from ct2 import CtConfig, CtClockSrc, CtGateSrc, CtHardStartSrc, CtHardStopSrc
 

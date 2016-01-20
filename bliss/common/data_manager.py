@@ -2,8 +2,8 @@ from bliss.common.event import *
 from bliss.config.conductor import client
 from bliss.config.settings import Struct, QueueSetting, HashObjSetting
 from bliss.common.continuous_scan import AcquisitionDevice,AcquisitionMaster
-from .dispatcher import dispatcher
-from .dispatcher import saferef
+from .event import dispatcher
+from .event import saferef
 from treelib import Tree
 import pkgutil
 import inspect

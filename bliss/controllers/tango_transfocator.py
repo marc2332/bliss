@@ -1,5 +1,4 @@
 from bliss.common.task_utils import *
-from bliss.common import dispatcher
 import PyTango.gevent
 
 class tango_transfocator:

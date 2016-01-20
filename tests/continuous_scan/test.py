@@ -23,7 +23,7 @@ except ImportError:
   pass
 
 #from PyTango import DeviceProxy
-from louie import dispatcher
+from bliss.common.event import dispatcher
 from bliss.config.conductor import client
 #P201
 from bliss.acquisition.p201 import P201AcquisitionMaster,P201AcquisitionDevice

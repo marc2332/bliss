@@ -1,5 +1,4 @@
 from bliss.common.task_utils import *
-from bliss.common import dispatcher
 from bliss.common.utils import wrap_methods
 import tf_control
 

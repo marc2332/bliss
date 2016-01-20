@@ -1,5 +1,5 @@
 import gevent
-from bliss.common.event import dispatcher
+from .event import dispatcher
 
 class Actuator:
   def __init__(self, set_in=None, set_out=None, is_in=None, is_out=None):

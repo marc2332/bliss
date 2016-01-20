@@ -1,0 +1,4 @@
+#!/usr/bin/env python
+
+from Salsa.tango.servers.gpib import main
+main()

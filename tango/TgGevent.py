@@ -176,6 +176,10 @@ class objectProxy:
             watcher = None
         return threadSafeRequest(attr, self.obj_id, queue, watcher)
 
+    def get_base_obj(self):
+        d = objs.get(self.obj_id)
+        if d:
+            return d.get("obj")
 
 def check_gevent_thread():
     global gevent_thread

@@ -9,6 +9,13 @@ from bliss.comm import modbus
 from .nanodac_mapping import name2address
 from . import nanodac_mapping
 
+def _nb_digit(raw_val,f_val):
+    if int(raw_val) == int(f_val): return 0
+    for i in range(1,9):
+        if abs(((raw_val / float(10 ** i)) - f_val)) < 1e-6:
+           break
+    return i
+
 def _get_read_write(modbus,address_read_write):
     address,value_type = address_read_write
     if isinstance(address,tuple):
@@ -16,11 +23,14 @@ def _get_read_write(modbus,address_read_write):
         address_write,value_type_write,nb_digit = value_type
         def read(self):
             return modbus.read_holding_register(address_read,value_type_read)
-        def write(self,value):
-            if nb_digit >= 1:
-                write_value = value * 10 * nb_digit
-            else:
-                write_value = value
+        def write(self,value,params={}):
+            digit = params.get('nb_digit',nb_digit)
+            if not isinstance(digit,int) : # automatic digit case
+                raw_value = modbus.read_holding_register(address_write,value_type_write)
+                float_value = modbus.read_holding_register(address_read,value_type_read)
+                digit = _nb_digit(raw_value,float_value)
+                params['nb_digit'] = digit
+            write_value = value * 10 ** digit
             return modbus.write_holding_register(address_write,value_type_write,write_value)
         return read,write
     else:
@@ -151,9 +161,13 @@ class nanodac(object):
     def write(self,name,value):
         address,value_type = self._get_address(name)
         if isinstance(address,tuple): 
+            address_read,value_read_type = address
             address,value_type,nb_digit = value_type
-            if nb_digit >= 1:
-                value = value * 10 * nb_digit
+            if not isinstance(nb_digit,int) : # automatic nb_digit case
+                raw_value = self._modbus.read_holding_register(address,value_type)
+                float_value = self._modbus.read_holding_register(address_read,value_read_type)
+                nb_digit = _nb_digit(raw_value,float_value)
+            value = value * 10 ** nb_digit
         self._modbus.write_holding_register(address,value_type,value)
     
     def _get_handler(self,filter_name) :

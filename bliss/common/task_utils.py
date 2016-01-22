@@ -15,15 +15,19 @@ class cleanup:
         pass
 
     def __exit__(self, exc_type, value, traceback):
+        exception = False
         if self.cleanup_funcs:
             for cleanup_func in self.cleanup_funcs:
                 try:
                     cleanup_func(**self.keys)
                 except:
                     sys.excepthook(*sys.exc_info())
+                    exception = True
                     continue
         if exc_type is not None:
             raise exc_type, value, traceback
+        if exception:
+            raise RuntimeError("Exception(s) when executing cleanup function(s), aborting")
 
 
 class error_cleanup:

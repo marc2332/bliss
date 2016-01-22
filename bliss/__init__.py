@@ -99,10 +99,16 @@ def _load_script(env_dict, script_module_name, path=None):
     if not path in sys.path:
         sys.path.insert(0, path)
 
+    if script_module_name in sys.modules:
+        reload_module = True
+    else:
+        reload_module = False
     try:
         script_module = __import__(script_module_name, globals(), {}, [])
     except Exception:
         sys.excepthook(*sys.exc_info())
     else:
+        if reload_module:
+            reload(script_module)
         for k, v in script_module.__dict__.iteritems():
             env_dict[k] = v

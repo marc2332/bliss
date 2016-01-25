@@ -74,6 +74,18 @@ def deal_with_job(req, args, kwargs):
     else:
         obj = objs[req.obj_id]["obj"]
         try:
+            prop = getattr(obj.__class__,req.method)
+        except AttributeError:
+            pass
+        else:
+            if isinstance(prop,property):
+                if args:            # must be setter
+                    run(req,prop.fset,[obj] + list(args),kwargs)
+                else:
+                    run(req,prop.fget,[obj],kwargs)
+                return
+
+        try:
             method = getattr(obj, req.method)
         except AttributeError:
             exception, error_string, tb = sys.exc_info()
@@ -164,6 +176,10 @@ class objectProxy:
             watcher = None
         return threadSafeRequest(attr, self.obj_id, queue, watcher)
 
+    def get_base_obj(self):
+        d = objs.get(self.obj_id)
+        if d:
+            return d.get("obj")
 
 def check_gevent_thread():
     global gevent_thread

@@ -70,7 +70,7 @@ name2address = dict([
     ("channel.4.main.lintype",          (0x1986,'channel_lintype')),
 
     ("loop.1.main.pv",                   ((0x0200 * 2) + 0x8000,'f')),
-    ("loop.1.main.targetsp",             (((0x0202 * 2) + 0x8000,'f'),(0x0202,'h',1))),
+    ("loop.1.main.targetsp",             (((0x0202 * 2) + 0x8000,'f'),(0x0202,'h','auto'))),
     ("loop.1.main.workingsp",            ((0x0203 * 2) + 0x8000,'f')),
     ("loop.1.op.ch1onoffhysteresis",     (((0x1672 * 2) + 0x8000,'f'),(0x1672,'h',1))),
     ("loop.1.op.ch1out",                 (((0x020b * 2) + 0x8000,'f'),(0x020b,'h',1))),
@@ -167,7 +167,7 @@ name2address = dict([
     ("loop.1.sp.tracksp",                ((0x166a * 2) + 0x8000,'f')),
 
     ("loop.2.main.pv",                   ((0x0280 * 2) + 0x8000,'f')),
-    ("loop.2.main.targetsp",             (((0x0282 * 2) + 0x8000,'f'),(0x0282,'h',1))),
+    ("loop.2.main.targetsp",             (((0x0282 * 2) + 0x8000,'f'),(0x0282,'h','auto'))),
     ("loop.2.main.workingsp",            ((0x0283 * 2) + 0x8000,'f')),
     ("loop.2.op.ch1onoffhysteresis",     (((0x1772 * 2) + 0x8000,'f'),(0x1772,'h',1))),
     ("loop.2.op.ch1out",                 (((0x028b * 2) + 0x8000,'f'),(0x028b,'h',1))),

@@ -171,6 +171,8 @@ def __tango_apply_config(name):
 
 
 def controller_edit(cfg, request):
+    import flask.json
+
     if request.method == "POST":
         form = dict([(k,v) for k,v in request.form.items() if v])
         update_server = form.pop("__update_server__") == 'true'

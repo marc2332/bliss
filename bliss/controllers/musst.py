@@ -90,13 +90,18 @@ class musst(object):
     HBUFF   = _get_simple_property("HBUFF","Set/ query current histogram buffer")
 
     ABORT   = _simple_cmd("ABORT","Program abort")
+    STOP    = _simple_cmd("STOP","Program stop")
     RESET   = _simple_cmd("RESET","Musst reset")
+    CONT    = _simple_cmd("CONT","Continue the program when stopped in STOP or BREAK states")
     CLEAR   = _simple_cmd("CLEAR","Delete the current program")
-    LIST    = _simple_cmd("?LIST","List the current program")
+    LIST    = _simple_cmd("?LIST CODE","List the current program")
+    LISTVAR = _simple_cmd("?LIST VAR","List the current program")
     DBINFO  = _simple_cmd("?DBINFO *","Returns the list of installed daughter boards")
     HELP    = _simple_cmd("?HELP","Query list of available commands")
     INFO    = _simple_cmd("?INFO","Query module configuration")
     RETCODE = _simple_cmd("?RETCODE","Query exit or stop code")
+    TIMER   = _simple_cmd("?TIMER","Query timer")
+    VAL     = _simple_cmd("?VAL","Query values")
 
     VARINIT = _simple_cmd("VARINIT","Reset program variables")
 
@@ -113,15 +118,18 @@ class musst(object):
         gpib_url -- url of the gpib controller i.s:enet://gpib0.esrf.fr
         gpib_pad -- primary address of the musst controller
         gpib_timeout -- communication timeout, default is 1s
+        gpib_eos -- end of line termination
         """
         
         self.name = name
         if "gpib_url" in config_tree:
             self._cnx = Gpib(config_tree["gpib_url"],
                              pad = config_tree["gpib_pad"],
+                             eos = config_tree["gpib_eos"],
                              timeout = config_tree.get("gpib_timeout",0.5))
             self._txterm = ''
             self._rxterm = '\n'
+            self.putget("NAME %s" % name)
         elif "serial_url" in config_tree:
             self._cnx = Serial(config_tree["serial_url"])
             self._txterm = '\r'
@@ -141,7 +149,7 @@ class musst(object):
             "ERROR" : self.ERROR_STATE
             }
 
-        self.__frequency_convertion = {
+        self.__frequency_conversion = {
             self.F_1KHZ   : "1KHZ",
             self.F_10KHZ  : "10KHZ",
             self.F_100KHZ : "100KHZ",
@@ -177,7 +185,7 @@ class musst(object):
             if msg.startswith("?") or ack:
                 answer = self._cnx._readline(self._rxterm)
                 if answer == '$':
-                    return self._cnx._readline('$' + self._rxterm)
+                    return self._cnx._readline('$' + self._rxterm, multiline_response=True)
                 elif ack:
                     return answer == "OK"
                 else:
@@ -209,9 +217,9 @@ class musst(object):
         program_data -- program data you want to upload
         """
         self.putget("#CLEAR")
-        formatted_prog= "".join(("+%s%s" % (l, self._txterm)
-                                 for l in program_data.splitlines()))
-        self._cnx.write(formatted_prog)
+        # split into lines for Prologix
+        for l in program_data.splitlines():
+            self._cnx.write("+%s%s" % (l, self._txterm))
         if self.STATE != self.IDLE_STATE:
             raise RuntimeError(self.STATE)
         return True
@@ -248,17 +256,17 @@ class musst(object):
 
     def _read_data(self,from_offset,to_offset,data):
         BLOCK_SIZE = 8*1024
-        total_bytes = to_offset - from_offset
+        total_int32 = to_offset - from_offset
         data_pt = data.flat
+        dt = numpy.dtype(numpy.int32)
         for offset,data_offset in zip(xrange(from_offset,to_offset,BLOCK_SIZE),
-                                      xrange(0,total_bytes,BLOCK_SIZE)):
-            size_to_read = min(BLOCK_SIZE,total_bytes)
-            total_bytes -= BLOCK_SIZE
+                                      xrange(0,total_int32,BLOCK_SIZE)):
+            size_to_read = min(BLOCK_SIZE,total_int32)
+            total_int32 -= BLOCK_SIZE
             with self._cnx._lock:
                 self._cnx.open()
                 self._cnx._write("?*EDAT %d %d %d" % (size_to_read,0,offset))
-                data_pt[data_offset:data_offset+size_to_read] = \
-                numpy.frombuffer(self._cnx.raw_read(),dtype=numpy.int32)
+                data_pt[data_offset:data_offset+size_to_read] = numpy.frombuffer(self._cnx.raw_read(size_to_read*dt.itemsize),numpy.int32)
 
     def get_event_buffer_size(self):
         """ query event buffer size.
@@ -323,15 +331,15 @@ class musst(object):
     @property
     def TMRCFG(self):
         """ Set/query main timer timebase """
-        return self.__frequency_convertion.get(self.putget("?TMRCFG"))
+        return self.__frequency_conversion.get(self.putget("?TMRCFG"))
     
     @TMRCFG.setter
     def TMRCFG(self,value):
-        if value not in self.__frequency_convertion:
+        if value not in self.__frequency_conversion:
             raise ValueError("Value not allowed")
 
         if not isinstance(value,str):
-            value = self.__frequency_convertion.get(value)
+            value = self.__frequency_conversion.get(value)
         return self.putget("TMRCFG %s" % value)
 
     def get_channel(self,channel_id):

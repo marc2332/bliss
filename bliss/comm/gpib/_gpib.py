@@ -1,4 +1,4 @@
-__all__ = ['EnetSocket', 'Enet', 'TangoGpib', 'Gpib', 'to_tmo', 'TMO_MAP']
+__all__ = ['EnetSocket', 'Enet', 'Prologix', 'TangoGpib', 'Gpib', 'to_tmo', 'TMO_MAP']
 
 import re
 import logging
@@ -72,6 +72,113 @@ class Enet(EnetSocket):
     def _recv(self,length) :
         return self._sock.read(length)
 
+class Prologix:
+    def __init__(self,cnt,**keys) :
+        url = keys.pop('url')
+        url_parse = re.compile("^(prologix://)?([^:/]+):?([0-9]*)$")
+        match = url_parse.match(url)
+        if match is None:
+            raise RuntimeError('Inet: url is not valid (%s)' % url)
+        hostname = match.group(2)
+        port = match.group(3) and int(match.group(3)) or 5000
+        self._debug("Prologix::__init__() host = %s port = %s" % (hostname, port))
+        self._sock = Socket(hostname,port, timeout = keys.get('timeout'))
+        self._gpib_kwargs = keys
+
+    def init(self) :
+        self._debug("Prologix::init()")
+        try:
+            if self._sock._fd is None:
+                self._sock.connect()
+#            self.eoi = EOI
+            self._sock.write("++clr\n")
+            self._debug("Prologix::init() save the configuration set to 0")
+            self._sock.write("++savecfg 0\n")
+            # the Prologix must be a controller (mode 1)
+            self._debug("Prologix::init(): set to mode 1 (Controller) ")
+            self._sock.write("++mode 1\n")
+            self._debug("Prologix::init() auto (read_after_write) set to 0")
+            self._sock.write("++auto 0\n")
+            self._eos = self._gpib_kwargs.get('eos')
+            if self._eos == "CRLF":
+                self._debug("Prologix::init() eos set to 0 (%s)" % self._eos)
+                self._sock.write("++eos 0\n")
+            elif self._eos == "CR":
+                self._debug("Prologix::init() eos set to 1 (%s)" % self._eos)
+                self._sock.write("++eos 1\n")
+            elif self._eos == "LF":
+                self._debug("Prologix::init() eos set to 2 (%s)" % self._eos)
+                self._sock.write("++eos 2\n")
+            else:
+                self._debug("Prologix::init() eos set to 3 (%s)" % self._eos)
+                self._sock.write("++eos 3\n")
+            self._debug("Prologix::init() EOI set to 1")
+            self._sock.write("++eoi 1\n")
+            self._tmo = self._gpib_kwargs.get('tmo')
+            self._debug("Prologix::init() timeout set to %d " % self._tmo)
+            self._sock.write("++read_tmo_ms " + str(self._tmo) + "\n")
+            # the gpib address
+            self._sad = self._gpib_kwargs.get('sad')
+            self._pad = self._gpib_kwargs.get('pad')
+            if self._sad == 0:
+                self._debug("Prologix::init() gpib primary address set to %d" % self._pad)
+                self._sock.write("++addr " + str(self._pad) + "\n")
+            else:
+                self._debug("Prologix::init() gpib primary & secondary address' set to %d:%d" % (self._pad, self._sad))
+                self._sock.write("++addr " + str(self._pad) + " " + str(self._sad) + "\n")
+            self._send("++ver")
+            self.reply = self._recv(80)
+            self._debug("Prologix::init() version %s" % self.reply[:-1])
+        except:
+            self._debug("Prologix::init() Error initialising")
+
+    def close(self) :
+        self._sock.close()
+        
+    def _open(self) :
+        pass
+
+    """
+    Prologix commands start with ++. The characters <CR> <LF> <ESC> and <+>
+    are therefore protected by adding <ESC> before each character so that the Prologix 
+    does not interpret them.
+    """
+    def _send(self, cmd):
+        self._debug ("Sent: %s" % cmd)
+        if not cmd.startswith("++"):
+            cmd = cmd.replace('\33','\33'+'\33').replace("+",'\33'+"+").replace('\10', '\33'+'\10').replace('\13','\33'+'\13')
+#        print [ord(c) for c in cmd]
+        self._sock.write(cmd+"\n")
+        return len(cmd)
+
+    """
+    Prologix requires the ++read command to listen for the instrument reply.
+    However, if there is a multiline response then we don't want to send another
+    ++read command.
+    """
+    def _recv(self,length, multiline=False, eol="\n"):
+        if not multiline:
+            self._sock.write("++read EOI\n")
+        self._reply = ""
+        eol_pos = -1
+        while len(self._reply) != length and eol_pos == -1:
+            self._reply += self._sock.read(1)
+            eol_pos = self._reply.find(eol)
+
+#        print "chars",[ord(c) for c in self._reply]
+        self._debug ("Replied: %s" % self._reply[:-1])
+        return self._reply
+
+    def _raw(self,length):
+        self._sock.write("++read EOI\n")
+        self._reply = ""
+        while len(self._reply) != length:
+            self._reply += self._sock.read(1)
+        return self._reply
+
+    def _debug(self, msg):
+        print msg
+
 
 def TangoGpib(cnt,**keys) :
     from PyTango import GreenMode
@@ -84,13 +191,14 @@ def try_open(fu) :
         self.open()
         timeout = keys.get('timeout')
         if timeout and self._timeout != timeout:
-            self._raw_handler.ibtmo(timeout)
+            if gpib_type != self.PROLOGIX:
+                self._raw_handler.ibtmo(timeout)
             self._timeout = timeout
         return fu(self,*args,**keys)
     return rfunc
 
 class Gpib:
-    ENET, TANGO = range(2)
+    ENET, TANGO, PROLOGIX = range(3)
     READ_BLOCK_SIZE = 64 * 1024
 
     def __init__(self,url = None,pad = 0,sad = 0,timeout = 1.,tmo = 13,
@@ -110,14 +218,18 @@ class Gpib:
         self._raw_handler = None
         self._logger = logging.getLogger(str(self))
         self._debug = self._logger.debug
+        self.gpib_type = self.ENET
 
     def open(self) :
         if self._raw_handler is None:
-            gpib_type = self._check_type()
-            if gpib_type == self.ENET:
+            self.gpib_type = self._check_type()
+            if self.gpib_type == self.ENET:
                 self._raw_handler = Enet(self,**self._gpib_kwargs)
                 self._raw_handler.init()
-            elif gpib_type == self.TANGO:
+            elif self.gpib_type == self.PROLOGIX:
+                self._raw_handler = Prologix(self,**self._gpib_kwargs)
+                self._raw_handler.init()
+            elif self.gpib_type == self.TANGO:
                 self._raw_handler = TangoGpib(self,**self._gpib_kwargs)
 
     def close(self) :
@@ -128,35 +240,47 @@ class Gpib:
     @try_open
     def raw_read(self,maxsize = None,timeout = None):
         size_to_read = maxsize or self.READ_BLOCK_SIZE
-        return self._raw_handler.ibrd(size_to_read)
+        if self.gpib_type == self.PROLOGIX:
+            return self._raw_handler._raw(size_to_read)
+        else:
+            return self._raw_handler.ibrd(size_to_read)
 
     def read(self,size = 1,timeout = None):
         with self._lock:
             return self._read(size)
 
     @try_open
-    def _read(self,size = 1):
-        return self._raw_handler.ibrd(size)
+    def _read(self,size = 1, multiline_response = False):
+        if self.gpib_type == self.PROLOGIX:
+            return self._raw_handler._recv(size, multiline_response)
+        else:
+            return self._raw_handler.ibrd(size)
 
     def readline(self,eol = None,timeout = None):
         with self._lock:
             return self._readline(eol)
 
     @try_open
-    def _readline(self,eol):
+    def _readline(self,eol,multiline_response=False):
         local_eol = eol or self._eos
         data = ''
         url = self._gpib_kwargs.get('url')
         pad = self._gpib_kwargs.get('pad')
         timeout_errmsg = "timeout on gpib(%s,%d)" % (url,pad)
         with gevent.Timeout(self._timeout,RuntimeError(timeout_errmsg)):
-            data += self._raw_handler.ibrd(self.READ_BLOCK_SIZE)
+            if self.gpib_type == self.PROLOGIX:
+                data += self._raw_handler._recv(self.READ_BLOCK_SIZE, multiline_response, local_eol)
+            else:
+                data += self._raw_handler.ibrd(self.READ_BLOCK_SIZE)
             if local_eol is None:
                 eol_pos = len(data)
             else:
                 eol_pos = data.find(local_eol)
             while eol_pos == -1:
-                data += self._raw_handler.ibrd(self.READ_BLOCK_SIZE)
+                if self.gpib_type == self.PROLOGIX:
+                    data += self._raw_handler._recv(self.READ_BLOCK_SIZE, multiline_response, local_eol)
+                else:
+                    data += self._raw_handler.ibrd(self.READ_BLOCK_SIZE)
                 eol_pos = data.find(local_eol)
         return data[:eol_pos]
 
@@ -166,7 +290,10 @@ class Gpib:
 
     @try_open
     def _write(self,msg) :
-        return self._raw_handler.ibwrt(msg)
+        if self.gpib_type == self.PROLOGIX:
+            return self._raw_handler._send(msg)
+        else:
+            return self._raw_handler.ibwrt(msg)
 
     def write_read(self,msg,write_synchro = None,size = 1,timeout = None) :
         with self._lock:
@@ -199,6 +326,8 @@ class Gpib:
         url_lower = url.lower()
         if url_lower.startswith("enet://") :
             return self.ENET
+        elif url_lower.startswith("prologix://") :
+            return self.PROLOGIX
         elif url_lower.startswith("tango://") :
             return self.TANGO
         else:

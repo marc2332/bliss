@@ -2,7 +2,8 @@ from bliss.config import static
 from bliss.config import settings
 from bliss.config import channels
 from bliss.common import event
-from . import get_controller_class, get_axis_class, add_controller, set_backend, Axis, AxisRef, CONTROLLER_BY_AXIS, write_setting as config_write_setting
+from . import get_controller_class, get_axis_class, add_controller, set_backend, Axis, AxisRef, CONTROLLER_BY_AXIS, Encoder, CONTROLLER_BY_ENCODER
+from . import write_setting as config_write_setting
 import functools
 import gevent
 
@@ -21,6 +22,8 @@ def create_objects_from_config_node(config, node):
     controller_class = get_controller_class(controller_class_name)
     axes = list()
     axes_names = list()
+    encoders = list()
+    encoder_names = list()
     for axis_config in controller_config.get('axes'):
         axis_name = axis_config.get("name")
         CONTROLLER_BY_AXIS[axis_name] = controller_name
@@ -36,21 +39,41 @@ def create_objects_from_config_node(config, node):
             if axis_name != name:
                 axes_names.append(axis_name)
         axes.append((axis_name, axis_class, axis_config))
-        #static.register_motor(axis_name)
+    for encoder_config in controller_config.get('encoders', []):
+        encoder_name = encoder_config.get("name")
+        CONTROLLER_BY_ENCODER[encoder_name] = controller_name
+        encoder_class_name = encoder_config.get("class")
+        if encoder_class_name is None:
+            encoder_class = Encoder
+        else:
+            encoder_class = get_encoder_class(encoder_class_name)
+        if encoder_name != name:
+            encoder_names.append(encoder_name)
+        encoders.append((encoder_name, encoder_class, encoder_config))
 
-    controller = controller_class(controller_name, controller_config, axes, [])
+    controller = controller_class(controller_name, controller_config, axes, encoders)
     controller._update_refs()
     controller.initialize()
-    axis = controller.get_axis(name)
-    event.connect(axis, "write_setting", config_write_setting)
+    try:
+        o = controller.get_axis(name)
+    except KeyError:
+        o = controller.get_encoder(name)
+    else:
+        event.connect(o, "write_setting", config_write_setting)
+    all_names = axes_names + encoder_names
 
-    cache_dict = dict(zip(axes_names, [controller]*len(axes_names)))
-    return {name: axis}, cache_dict    
+    cache_dict = dict(zip(all_names, [controller]*len(all_names)))
+    return {name: o}, cache_dict    
 
 def create_object_from_cache(config, name, controller):
-    axis = controller.get_axis(name)
-    event.connect(axis, "write_setting", config_write_setting)
-    return axis
+    try:
+        o = controller.get_axis(name)
+    except KeyError:
+        o = controller.get_encoder(name) 
+    else:
+        event.connect(o, "write_setting", config_write_setting)
+    
+    return o
 
 def load_cfg_fromstring(config_yaml):
     """Load configuration from yaml string

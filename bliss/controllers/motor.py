@@ -54,6 +54,10 @@ class Controller(object):
         return self._axes
 
     @property
+    def encoders(self):
+        return self._encoders
+
+    @property
     def name(self):
         return self.__name
 

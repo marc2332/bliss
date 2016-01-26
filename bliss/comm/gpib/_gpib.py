@@ -9,7 +9,7 @@ from ..tcp import Socket
 
 try:
     from collections import OrderedDict
-except AttributeError:
+except (AttributeError,ImportError):
     try:
         from ordereddict import OrderedDict
     except ImportError:

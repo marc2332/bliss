@@ -6,6 +6,9 @@ louie
 nanomsg
 flask
 treelib
+gipc
+jedi
+
 # optional dependencies:
 
 ruamel.yaml

@@ -185,7 +185,7 @@ class musst(object):
             if msg.startswith("?") or ack:
                 answer = self._cnx._readline(self._rxterm)
                 if answer == '$':
-                    return self._cnx._readline('$' + self._rxterm, multiline_response=True)
+                    return self._cnx._readline('$' + self._rxterm)
                 elif ack:
                     return answer == "OK"
                 else:

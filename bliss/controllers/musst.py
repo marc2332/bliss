@@ -125,8 +125,8 @@ class musst(object):
         if "gpib_url" in config_tree:
             self._cnx = Gpib(config_tree["gpib_url"],
                              pad = config_tree["gpib_pad"],
-                             eos = config_tree["gpib_eos"],
-                             timeout = config_tree.get("gpib_timeout",0.5))
+                             eos = config_tree.get("gpib_eos",""),
+                             timeout = config_tree.get("gpib_timeout",5))
             self._txterm = ''
             self._rxterm = '\n'
             self.putget("NAME %s" % name)
@@ -266,7 +266,11 @@ class musst(object):
             with self._cnx._lock:
                 self._cnx.open()
                 self._cnx._write("?*EDAT %d %d %d" % (size_to_read,0,offset))
-                data_pt[data_offset:data_offset+size_to_read] = numpy.frombuffer(self._cnx.raw_read(size_to_read*dt.itemsize),numpy.int32)
+                raw_data = ''
+                while(len(raw_data) < (size_to_read * 4)):
+                    raw_data += self._cnx.raw_read()
+                data_pt[data_offset:data_offset+size_to_read] = \
+                numpy.frombuffer(raw_data,dtype=numpy.int32)
 
     def get_event_buffer_size(self):
         """ query event buffer size.

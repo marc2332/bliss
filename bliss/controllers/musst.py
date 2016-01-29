@@ -211,6 +211,15 @@ class musst(object):
         else:
             return self.putget("#RUNCT")
 
+    def upload_file(self, fname, prg_root=None):
+       if prg_root:
+           oscil_program = open(os.path.join(prg_root, fname))
+       else:
+           oscil_program = open(fname)
+
+       print "file to be uploaded", fname
+       self.upload_program(oscil_program.read())
+
     def upload_program(self, program_data):
         """ Upload a program.
 

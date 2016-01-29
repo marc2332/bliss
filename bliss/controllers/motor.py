@@ -1,5 +1,6 @@
 
 import types
+import inspect
 import functools
 from bliss.controllers.motor_settings import ControllerAxisSettings
 from bliss.common.axis import AxisRef
@@ -19,6 +20,38 @@ def add_axis_method(axis_object, method, name=None, args=[], types_info=(None, N
     axis_object._add_custom_method(
         types.MethodType(functools.partial(call, *([axis_object] + args)),
                          axis_object), name, types_info)
+
+
+def axis_method(method=None, name=None, args=[], types_info=(None, None)):
+    """
+    The same as add_axis_method but its purpose is to be used as a
+    decorator to the controller method which is to be exported as axis method.
+
+    Less flexible than add_axis_method. It will add the same method to **all**
+    axes of the controller. But this is the common use case.
+
+    Example::
+
+        from bliss.controllers.motor import Controller, axis_method
+
+        class MyController(Controller):
+
+            @axis_method
+            def park(self, axis):
+                print('I am parking {0}'.format(axis.name))
+
+            @axis_method(name='info', types_info=(None, 'str'))
+            def get_info(self, axis):
+                return 'I am MyController::{0}'.format(axis.name)
+
+    """
+    if method is None:
+        return functools.partial(axis_method, name=name, args=args,
+                                 types_info=types_info)
+
+    method._axis_method_ = dict(name=name, args=args, types_info=types_info)
+
+    return method
 
 
 class Controller(object):
@@ -123,6 +156,13 @@ class Controller(object):
         low_limit = get_setting_or_config_value("low_limit")
         high_limit = get_setting_or_config_value("high_limit")
         axis.limits(low_limit, high_limit)
+
+        for member in inspect.getmembers(self):
+            name, member = member
+            try:
+                add_axis_method(axis, member, **member._axis_method_)
+            except AttributeError:
+                pass
  
 
     def get_axis(self, axis_name):

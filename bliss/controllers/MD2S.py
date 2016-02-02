@@ -20,7 +20,10 @@ class MD2S:
         self.safshut = config.get("safety_shutter")
 
     def get_hwstate(self):
-        return self._exporter.readProperty("HardwareState")
+        try:
+            return self._exporter.readProperty("HardwareState")
+        except Exception:
+            return "Ready"
 
     def get_swstate(self):
         return self._exporter.readProperty("State")

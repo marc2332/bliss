@@ -36,6 +36,7 @@ class ValueQuery(object):
 
 # getting the first free port available in range 30000-40000
 def get_free_port(redis,channel_key):
+    fqdn = socket.getfqdn()
     for port_number in xrange(30000,40000) :
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -44,7 +45,7 @@ def get_free_port(redis,channel_key):
             except:
                 continue
             free_port_number = s.getsockname()[1]
-            url = "tcp://%s:%d" % (socket.getfqdn(), free_port_number)
+            url = "tcp://%s:%d" % (fqdn, free_port_number)
             if redis.sadd(channel_key,url) == 1: # the port is not used
                 break
         finally:

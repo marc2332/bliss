@@ -150,15 +150,15 @@ class MD2S:
             dy = (by - (img_width / 2)) / px_mm_y
             dz = (bz - (img_height / 2)) / px_mm_z
             with error_cleanup(restore_live):
-                if abs(dy) > 0.1 or abs(dz) > 0.1:
+                if abs(dy) > 0.4 or abs(dz) > 0.4:
                     logging.getLogger("user_level_log").error("Aborting centrebeam, too big displacement (> 0.1 mm)")
                     time.sleep(1)
                     self.msclose()
                     raise RuntimeError("Aborting centrebeam, too big displacement")
             with error_cleanup(restore_table):
-                print "moving ttrans by", -dy
-                print "moving thgt by", -dz
-                self._simultaneous_rmove(self.thgt, -dz, self.ttrans, -dy)
+                print "moving ttrans by", dy
+                print "moving thgt by", dz
+                self._simultaneous_rmove(self.thgt, dz, self.ttrans, dy)
             return dy, dz
 
         with cleanup(restore_att):

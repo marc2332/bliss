@@ -2,7 +2,7 @@ from bliss.controllers.motor import Controller
 from bliss.common import log as elog
 from bliss.common.axis import AxisState
 from bliss.common import event
-from bliss.controllers.motor import add_axis_method
+from bliss.controllers.motor import axis_method, add_axis_method
 import math
 import time
 import random
@@ -95,8 +95,6 @@ class Mockup(Controller):
         axis.settings.set('init_count', axis.settings.get('init_count') + 1)
 
         # Add new axis oject methods as tango commands.
-        add_axis_method(axis, self.custom_park, types_info=("None", "None"))
-        add_axis_method(axis, self.custom_get_forty_two, types_info=("None", "int"))
         add_axis_method(axis, self.custom_get_twice, types_info=("int", "int"))
         add_axis_method(axis, self.custom_get_chapi, types_info=("str", "str"))
         add_axis_method(axis, self.custom_send_command, types_info=("str", "None"))
@@ -346,12 +344,14 @@ class Mockup(Controller):
     Custom axis methods
     """
     # VOID VOID
+    @axis_method
     def custom_park(self, axis):
         print "parking"
         self._hw_status.clear()
         self._hw_status.set("PARKED")
 
     # VOID LONG
+    @axis_method(types_info=("None", "int"))
     def custom_get_forty_two(self, axis):
         return 42
 

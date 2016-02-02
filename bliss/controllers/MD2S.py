@@ -220,3 +220,12 @@ class MD2S:
         self._exporter.execute("startHomingMotor", "Zoom")
         if wait:
             self._wait_ready(10)
+
+    def kappa_init(self,wait=True):
+        self._exporter.execute("startHomingMotor", "Kappa")
+        if wait:
+            self._wait_ready(10)
+
+        self._exporter.execute("startHomingMotor", "Phi")
+        if wait:
+            self._wait_ready(10)

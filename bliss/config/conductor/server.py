@@ -47,16 +47,6 @@ else:
             for i in xrange(0,len(msg),max_message_size):
                 self._wqueue.send(msg[i:i+max_message_size])
 
-try:
-    import flask
-except ImportError:
-    flask = None
-    print "[WEB] flask cannot be imported: web application won't be available"
-else:
-    from gevent.wsgi import WSGIServer
-    from werkzeug.debug import DebuggedApplication
-    from .web.config_app import web_app
-
 _options = None
 _lock_object = {}
 _client_to_object = weakref.WeakKeyDictionary()
@@ -449,6 +439,23 @@ def sigterm_handler(_signo, _stack_frame):
     # On signal received, close the signal pipe to do a clean exit.
     os.close(sig_write)
 
+def start_webserver(webapp_port, beacon_port, debug=True):
+    try:
+        import flask
+    except ImportError:
+        print "[WEB] flask cannot be imported: web application won't be available"
+        return
+
+    from gevent.wsgi import WSGIServer
+    from werkzeug.debug import DebuggedApplication
+    from .web.config_app import web_app
+
+    print "[WEB] Web application sitting on port:", webapp_port
+    web_app.debug = debug
+    web_app.beacon_port = beacon_port
+    http_server = WSGIServer(('', webapp_port), DebuggedApplication(web_app, evalex=True))
+    gevent.spawn(http_server.serve_forever)
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--db_path",dest="db_path",default="./db",
@@ -500,11 +507,7 @@ def main():
 
     #web application
     if flask and _options.webapp_port > 0:
-        print "[WEB] Web application sitting on port:", _options.webapp_port
-        web_app.debug = True
-        web_app.beacon_port = beacon_port
-        http_server = WSGIServer(('', _options.webapp_port), DebuggedApplication(web_app, evalex=True))
-        gevent.spawn(http_server.serve_forever)
+        start_webserver(_options.webapp_port, beacon_port)
 
     #Tango databaseds
     if _options.tango_port > 0:

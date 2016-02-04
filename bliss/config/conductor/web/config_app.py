@@ -2,6 +2,10 @@ import os
 import sys
 import pkgutil
 
+import louie
+
+import gevent.lock
+
 import flask
 import flask.json
 
@@ -18,15 +22,27 @@ beacon_port = None
 __this_file = os.path.realpath(__file__)
 __this_path = os.path.dirname(__this_file)
 
-def __get_config():
-    global __config
-    try:
-        return __config
-    except NameError:
+class Config(object):
+
+    def __init__(self):
+        self.__new_config = False
+        self.__lock = gevent.lock.RLock()
         beacon_conn = connection.Connection('localhost', beacon_port)
         client._default_connection = beacon_conn
-        __config = static.get_config()
-    return __config
+        louie.connect(self.__on_config_changed, signal='config_changed')
+
+    def __on_config_changed(self):
+        self.__new_config = True
+
+    def __call__(self):
+        with self.__lock:
+            cfg = static.get_config()
+            if self.__new_config:
+                cfg.reload()
+                self.__new_config = False
+            return cfg
+
+__config = Config()
 
 def __get_jinja2():
     global __environment
@@ -77,7 +93,7 @@ def __get_plugins():
 
 @web_app.route("/")
 def index():
-    cfg = __get_config()
+    cfg = __config()
     node = cfg.root
 
     template = __get_jinja2().select_template(("index.html",))
@@ -98,7 +114,7 @@ def static_file(dir, filename):
 
 @web_app.route("/main/")
 def main():
-    cfg = __get_config()
+    cfg = __config()
     get_main = __get_plugin(cfg.root.plugin or "beamline", "get_main")
     if get_main:
         return get_main(cfg)
@@ -107,7 +123,7 @@ def main():
 
 @web_app.route("/db_files")
 def db_files():
-    cfg = __get_config()
+    cfg = __config()
     db_files, _ = zip(*client.get_config_db_files())
     return flask.json.dumps(db_files)
 
@@ -115,18 +131,16 @@ def db_files():
 def get_db_file(filename):
     if flask.request.method == 'PUT':
         client.set_config_db_file(filename, flask.request.form['yml_file'])
-        cfg = __get_config()
-        cfg.reload()
         return flask.json.dumps(dict(message="%s successfully saved",
                                      type="success"))
     else:
-        cfg = __get_config()
+        cfg = __config()
         db_files = dict(client.get_config_db_files())
         return flask.json.dumps(dict(name=filename, content=db_files[filename]))
 
 @web_app.route("/db_file_editor/<path:filename>")
 def get_db_file_editor(filename):
-    cfg = __get_config()
+    cfg = __config()
 
     db_files = dict(client.get_config_db_files())
 
@@ -136,7 +150,7 @@ def get_db_file_editor(filename):
 
 @web_app.route("/objects/")
 def objects():
-    cfg = __get_config()
+    cfg = __config()
 
     db_files, _ = map(list, zip(*client.get_config_db_files()))
 
@@ -160,7 +174,7 @@ def tree(view):
         return tree_objects()
 
 def tree_files():
-    cfg = __get_config()
+    cfg = __config()
 
     items = {}
     for fname, _ in client.get_config_db_files():
@@ -193,7 +207,7 @@ def tree_files():
     return flask.json.dumps(result)
 
 def tree_objects():
-    cfg = __get_config()
+    cfg = __config()
 
     items = {}
     for name in cfg.names_list:
@@ -224,7 +238,7 @@ def tree_objects():
 
 @web_app.route("/objects/<name>")
 def get_object_config(name):
-    cfg = __get_config()
+    cfg = __config()
     obj_cfg = cfg.get_config(name)
     plugin = __get_config_plugin(obj_cfg, "get_html")
     if plugin:
@@ -235,7 +249,7 @@ def get_object_config(name):
 
 @web_app.route("/config/reload")
 def reload_config():
-    cfg = __get_config()
+    cfg = __config()
     cfg.reload()
     return flask.json.dumps(dict(message="Configuration fully reloaded!",
                                  type="success"))
@@ -249,11 +263,11 @@ def handle_plugin_action(name, action):
     plugin = __get_plugin(name, member=action)
     if not plugin:
         return ""
-    return plugin(__get_config(), flask.request)
+    return plugin(__config(), flask.request)
 
 @web_app.route("/add_folder", methods=["POST"])
 def add_folder():
-    cfg = __get_config()
+    cfg = __config()
     folder = flask.request.form['folder']
 
     filename = os.path.join(folder, "__init__.yml")
@@ -263,7 +277,7 @@ def add_folder():
 
 @web_app.route("/add_file", methods=["POST"])
 def add_file():
-    cfg = __get_config()
+    cfg = __config()
     filename = flask.request.form['file']
     node = static.Node(cfg, filename=filename)
     node.save()
@@ -271,15 +285,14 @@ def add_file():
 
 @web_app.route("/remove_file", methods=["POST"])
 def remove_file():
-    cfg = __get_config()
+    cfg = __config()
     filename = flask.request.form['file']
     client.remove_config_file(filename)
-    cfg.reload()
     return flask.json.dumps(dict(message="File deleted!", type="success"))
 
 @web_app.route("/copy_file", methods=["POST"])
 def copy_file():
-    cfg = __get_config()
+    cfg = __config()
     src_path = flask.request.form['src_path']
     dst_path = flask.request.form['dst_path']
 
@@ -305,11 +318,10 @@ def copy_file():
 
 @web_app.route("/move_path", methods=["POST"])
 def move_path():
-    cfg = __get_config()
+    cfg = __config()
     src_path = flask.request.form['src_path']
     dst_path = flask.request.form['dst_path']
     client.move_config_path(src_path, dst_path)
-    cfg.reload()
     msg = "Moved from <i>{0}</i> to <i>{1}</i>".format(src_path, dst_path)
     return flask.json.dumps(dict(message=msg, type="success"))
 

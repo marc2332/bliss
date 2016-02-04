@@ -11,6 +11,7 @@ import socket
 import select
 import signal
 import traceback
+import louie.dispatcher
 
 def start_database_ds(tango_port = 20000,personal_name='2',debug_level = 0):
     from PyTango.databaseds import database
@@ -203,7 +204,11 @@ def _remove_config_file(client_id, message):
     except IOError:
         msg = (protocol.CONFIG_REMOVE_FILE_FAILED,
                "%s|File/directory doesn't exist" % message_key)
+    else:
+        louie.dispatcher.send('config_changed')
+
     client_id.sendall(protocol.message(*msg))
+
 
 def _move_config_path(client_id, message):
     # should work on both files and folders
@@ -233,7 +238,10 @@ def _move_config_path(client_id, message):
     except IOError as ioe:
         msg = (protocol.CONFIG_MOVE_PATH_FAILED,
                "%s|%s: %s" % (message_key, ioe.filename, ioe.strerror))
+    else:
+        louie.dispatcher.send('config_changed')
     client_id.sendall(protocol.message(*msg))
+
 
 def _send_config_db_files(client_id,message):
     try:
@@ -316,11 +324,12 @@ def _write_config_db_file(client_id,message):
         with file(full_path,'w') as f:
             f.write(content)
             msg = protocol.message(protocol.CONFIG_SET_DB_FILE_OK,'%s|0' % message_key)
-            client_id.sendall(msg)
     except:
         msg = protocol.message(protocol.CONFIG_SET_DB_FILE_FAILED,
                                '%s|%s' % (message_key,traceback.format_exc()))
-        client_id.sendall(msg)
+    else:
+        louie.dispatcher.send('config_changed')
+    client_id.sendall(msg)
 
 def _send_posix_mq_connection(client_id,client_hostname):
     ok_flag = False
@@ -506,7 +515,7 @@ def main():
     tcp.listen(512)        # limit to 512 clients
 
     #web application
-    if flask and _options.webapp_port > 0:
+    if _options.webapp_port > 0:
         start_webserver(_options.webapp_port, beacon_port)
 
     #Tango databaseds

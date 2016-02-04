@@ -681,7 +681,7 @@ class BlissAxis(PyTango.Device_4Impl):
         argout = list()
 
         for _cmd in _cmd_list:
-            self.debug_stream("Custom command : %s" % _cmd)
+            self.debug_stream("Custom command : %s" % _cmd[0])
             argout.append( json.dumps(_cmd))
 
         return argout

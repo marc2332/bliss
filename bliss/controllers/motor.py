@@ -375,6 +375,8 @@ class CalcController(Controller):
             move_dict[real_axis] = target_pos
         self._write_settings = True
         self._motion_control = True
+        # force a global position update in case phys motors never move
+        self._calc_from_real()
         self._reals_group.move(move_dict, wait=False)
 
     def calc_to_real(self, axis_tag, positions_dict):

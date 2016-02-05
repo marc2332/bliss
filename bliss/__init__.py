@@ -14,6 +14,8 @@ from bliss.common.continuous_scan import Scan
 from bliss.common.continuous_scan import AcquisitionChain
 from bliss.common.continuous_scan import AcquisitionDevice
 from bliss.common.continuous_scan import AcquisitionMaster
+from bliss.common.axis import Axis
+
 try:
     from bliss.config import static
 except ImportError:
@@ -21,6 +23,11 @@ except ImportError:
 import functools
 import os
 import sys
+
+try:
+    from tabulate import tabulate
+except ImportError:
+    pass
 
 def setup(setup_file=None, env_dict=None, config_objects_names_list=None, verbose=True):
     if env_dict: 
@@ -54,6 +61,7 @@ def setup(setup_file=None, env_dict=None, config_objects_names_list=None, verbos
             _load_config(env_dict, config_objects_names_list, verbose) 
 
             env_dict['load_script']=functools.partial(_load_script, env_dict)
+            env_dict['wa']=functools.partial(_wa, env_dict)
 
             try:
                 execfile(setup_file_path, env_dict) 
@@ -112,3 +120,11 @@ def _load_script(env_dict, script_module_name, path=None):
             reload(script_module)
         for k, v in script_module.__dict__.iteritems():
             env_dict[k] = v
+
+def _wa(env_dict):
+  motors = []
+  for name, obj in env_dict.iteritems():
+    if isinstance(obj, Axis):
+        motors.append([obj.name, obj.position(), obj.offset])
+  print str(tabulate(motors, headers=["Axis name", "Position", "Offset"]))
+

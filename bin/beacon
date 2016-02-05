@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+export BEACON_HOST=$(hostname --all)
+
+exec beacon-server $@
+

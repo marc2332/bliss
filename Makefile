@@ -32,7 +32,11 @@ install:
 
         ####  tango server and startup-script
 	mkdir -p ${BLISSADM_PATH}/server/src
+	cp --backup=simple --suffix=.bup bin/beacon ${BLISSADM_PATH}/server/src
+	chmod +x ${BLISSADM_PATH}/server/src/beacon
+
 	cp --backup=simple --suffix=.bup tango/BlissAxisManager ${BLISSADM_PATH}/server/src/BlissAxisManager
+	chmod +x ${BLISSADM_PATH}/server/src/BlissAxisManager
 
 	cp --backup=simple --suffix=.bup tango/BlissAxisManager.py ${BLISSADM_PATH}/server/src/BlissAxisManager.py
 

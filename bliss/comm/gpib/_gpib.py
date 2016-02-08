@@ -96,13 +96,12 @@ class Prologix:
             self._sock.write("++clr\n")
             self._debug("Prologix::init() save the configuration set to 0")
             self._sock.write("++savecfg 0\n")
-            
-            self._debug("Prologix::init() auto (read_after_write) set to 1")
-            self._sock.write("++auto 1\n")
+            self._debug("Prologix::init() auto (read_after_write) set to 0")
+            self._sock.write("++auto 0\n")
             
             self._eos = self._gpib_kwargs['eos']
             if self._eos == "\r\n":
-                self._debug("Prologix::init() eos set to 0 (%s)" % self._eos)
+                self._debug("Prologix::init() eos set to 0 (%s)" % [ord(c) for c in self._eos])
                 self._sock.write("++eos 0\n")
             elif self._eos == "\r":
                 self._debug("Prologix::init() eos set to 1 (%s)" % self._eos)
@@ -114,9 +113,10 @@ class Prologix:
                 self._debug("Prologix::init() eos set to 3 (%s)" % self._eos)
                 self._sock.write("++eos 3\n")
             
-            self._debug("Prologix::init() EOI set to 1")
+            self._debug("Prologix::init() eoi set to 1")
             self._sock.write("++eoi 1\n")
-            
+            self._debug("Prologix::init() read_tmo_ms set to 13")
+            self._sock.write("++read_tmo_ms 13\n")
             # the gpib address
             self._sad = self._gpib_kwargs.get('sad',0)
             self._pad = self._gpib_kwargs['pad']
@@ -145,6 +145,7 @@ class Prologix:
         return len(cmd)
 
     def ibrd(self,length) :
+        self._sock.write("++read EOI\n")
         return self._sock.raw_read(maxsize = length)
 
     def _raw(self,length):
@@ -189,6 +190,7 @@ class Gpib:
         self._logger = logging.getLogger(str(self))
         self._debug = self._logger.debug
         self.gpib_type = self.ENET
+        self._data = ""
 
     def open(self) :
         if self._raw_handler is None:
@@ -227,20 +229,17 @@ class Gpib:
     @try_open
     def _readline(self,eol) :
         local_eol = eol or self._eos
-        data = ''
         url = self._gpib_kwargs.get('url')
         pad = self._gpib_kwargs.get('pad')
         timeout_errmsg = "timeout on gpib(%s,%d)" % (url,pad)
         with gevent.Timeout(self._timeout,RuntimeError(timeout_errmsg)):
-            data += self._raw_handler.ibrd(self.READ_BLOCK_SIZE)
-            if local_eol is None:
-                eol_pos = len(data)
-            else:
-                eol_pos = data.find(local_eol)
+            eol_pos = self._data.find(local_eol)
             while eol_pos == -1:
-                data += self._raw_handler.ibrd(self.READ_BLOCK_SIZE)
-                eol_pos = data.find(local_eol)
-        return data[:eol_pos]
+                self._data += self._raw_handler.ibrd(self.READ_BLOCK_SIZE)
+                eol_pos = self._data.find(local_eol)
+        msg = self._data[:eol_pos]
+        self._data = self._data[eol_pos + len(local_eol):]
+        return msg
 
     def write(self,msg,timeout=None) :
         with self._lock:

@@ -68,9 +68,15 @@ class ID31Diffract(CalcController):
         'beam_energy': 'float',
     }
 
+    def initialize(self, *args, **kws):
+        self.has_extra = {'ben': False, 'bos': False}
+        super(ID31Diffract, self).initialize(*args, **kws)
+
     def initialize_axis(self, axis):
         super(ID31Diffract, self).initialize_axis(axis)
         add_axis_method(axis, self.get_lm_2th, types_info=('None', 'float'))
+        if axis.name in self.has_extra.keys():
+            self.has_extra[axis.name] = True
 
     def calc_from_real(self, positions_dict):
         phys_pos = dict(positions_dict)
@@ -83,8 +89,10 @@ class ID31Diffract(CalcController):
         result['mu'] = rad2deg(result['mu'])
         result['gamma'] = rad2deg(result['gamma'])
         result['delta'] = rad2deg(result['delta'])
-        result['ben'] = self['beam_energy']
-        result['bos'] = self['beam_offset']
+        if self.has_extra['ben']:
+            result['ben'] = self['beam_energy']
+        if self.has_extra['bos']:
+            result['bos'] = self['beam_offset']
         return result
 
     def calc_to_real(self, axis_tag, positions_dict):

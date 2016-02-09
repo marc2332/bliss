@@ -20,6 +20,8 @@ def start_database_ds(tango_port = 20000,personal_name='2',debug_level = 0):
 
 from . import protocol
 from .. import redis as redis_conf
+from ..common import event
+
 try:
     import posix_ipc
 except ImportError:
@@ -46,16 +48,6 @@ else:
             max_message_size = self.max_message_size
             for i in xrange(0,len(msg),max_message_size):
                 self._wqueue.send(msg[i:i+max_message_size])
-
-try:
-    import flask
-except ImportError:
-    flask = None
-    print "[WEB] flask cannot be imported: web application won't be available"
-else:
-    from gevent.wsgi import WSGIServer
-    from werkzeug.debug import DebuggedApplication
-    from .web.config_app import web_app
 
 _options = None
 _lock_object = {}
@@ -213,7 +205,11 @@ def _remove_config_file(client_id, message):
     except IOError:
         msg = (protocol.CONFIG_REMOVE_FILE_FAILED,
                "%s|File/directory doesn't exist" % message_key)
+    else:
+        event.send(__name__, 'config_changed')
+
     client_id.sendall(protocol.message(*msg))
+
 
 def _move_config_path(client_id, message):
     # should work on both files and folders
@@ -243,7 +239,10 @@ def _move_config_path(client_id, message):
     except IOError as ioe:
         msg = (protocol.CONFIG_MOVE_PATH_FAILED,
                "%s|%s: %s" % (message_key, ioe.filename, ioe.strerror))
+    else:
+        event.send(__name__, 'config_changed')
     client_id.sendall(protocol.message(*msg))
+
 
 def _send_config_db_files(client_id,message):
     try:
@@ -326,11 +325,12 @@ def _write_config_db_file(client_id,message):
         with file(full_path,'w') as f:
             f.write(content)
             msg = protocol.message(protocol.CONFIG_SET_DB_FILE_OK,'%s|0' % message_key)
-            client_id.sendall(msg)
     except:
         msg = protocol.message(protocol.CONFIG_SET_DB_FILE_FAILED,
                                '%s|%s' % (message_key,traceback.format_exc()))
-        client_id.sendall(msg)
+    else:
+        event.send(__name__, 'config_changed')
+    client_id.sendall(msg)
 
 def _send_posix_mq_connection(client_id,client_hostname):
     ok_flag = False
@@ -449,6 +449,23 @@ def sigterm_handler(_signo, _stack_frame):
     # On signal received, close the signal pipe to do a clean exit.
     os.close(sig_write)
 
+def start_webserver(webapp_port, beacon_port, debug=True):
+    try:
+        import flask
+    except ImportError:
+        print "[WEB] flask cannot be imported: web application won't be available"
+        return
+
+    from gevent.wsgi import WSGIServer
+    from werkzeug.debug import DebuggedApplication
+    from .web.config_app import web_app
+
+    print "[WEB] Web application sitting on port:", webapp_port
+    web_app.debug = debug
+    web_app.beacon_port = beacon_port
+    http_server = WSGIServer(('', webapp_port), DebuggedApplication(web_app, evalex=True))
+    gevent.spawn(http_server.serve_forever)
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--db_path",dest="db_path",default="./db",
@@ -499,12 +516,8 @@ def main():
     tcp.listen(512)        # limit to 512 clients
 
     #web application
-    if flask and _options.webapp_port > 0:
-        print "[WEB] Web application sitting on port:", _options.webapp_port
-        web_app.debug = True
-        web_app.beacon_port = beacon_port
-        http_server = WSGIServer(('', _options.webapp_port), DebuggedApplication(web_app, evalex=True))
-        gevent.spawn(http_server.serve_forever)
+    if _options.webapp_port > 0:
+        start_webserver(_options.webapp_port, beacon_port)
 
     #Tango databaseds
     if _options.tango_port > 0:

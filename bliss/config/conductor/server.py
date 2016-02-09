@@ -11,7 +11,6 @@ import socket
 import select
 import signal
 import traceback
-import louie.dispatcher
 
 def start_database_ds(tango_port = 20000,personal_name='2',debug_level = 0):
     from PyTango.databaseds import database
@@ -21,6 +20,8 @@ def start_database_ds(tango_port = 20000,personal_name='2',debug_level = 0):
 
 from . import protocol
 from .. import redis as redis_conf
+from ..common import event
+
 try:
     import posix_ipc
 except ImportError:
@@ -205,7 +206,7 @@ def _remove_config_file(client_id, message):
         msg = (protocol.CONFIG_REMOVE_FILE_FAILED,
                "%s|File/directory doesn't exist" % message_key)
     else:
-        louie.dispatcher.send('config_changed')
+        event.send(__name__, 'config_changed')
 
     client_id.sendall(protocol.message(*msg))
 
@@ -239,7 +240,7 @@ def _move_config_path(client_id, message):
         msg = (protocol.CONFIG_MOVE_PATH_FAILED,
                "%s|%s: %s" % (message_key, ioe.filename, ioe.strerror))
     else:
-        louie.dispatcher.send('config_changed')
+        event.send(__name__, 'config_changed')
     client_id.sendall(protocol.message(*msg))
 
 
@@ -328,7 +329,7 @@ def _write_config_db_file(client_id,message):
         msg = protocol.message(protocol.CONFIG_SET_DB_FILE_FAILED,
                                '%s|%s' % (message_key,traceback.format_exc()))
     else:
-        louie.dispatcher.send('config_changed')
+        event.send(__name__, 'config_changed')
     client_id.sendall(msg)
 
 def _send_posix_mq_connection(client_id,client_hostname):

@@ -2,8 +2,6 @@ import os
 import sys
 import pkgutil
 
-import louie
-
 import gevent.lock
 
 import flask
@@ -11,10 +9,13 @@ import flask.json
 
 from jinja2 import Environment, FileSystemLoader
 
+from .. import server
 from .. import client
 from .. import connection
 from ... import static
 from ... import plugins
+from ....common import event
+
 
 web_app = flask.Flask(__name__)
 beacon_port = None
@@ -29,7 +30,7 @@ class Config(object):
         self.__lock = gevent.lock.RLock()
         beacon_conn = connection.Connection('localhost', beacon_port)
         client._default_connection = beacon_conn
-        louie.connect(self.__on_config_changed, signal='config_changed')
+        event.connect(server.__name__, 'config_changed', self.__on_config_changed)
 
     def __on_config_changed(self):
         self.__new_config = True

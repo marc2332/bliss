@@ -75,7 +75,7 @@ class ID31Diffract(CalcController):
     def initialize_axis(self, axis):
         super(ID31Diffract, self).initialize_axis(axis)
         add_axis_method(axis, self.get_lm_2th, types_info=('None', 'float'))
-        if axis.name in self.has_extra.keys():
+        if axis.name in self.has_extra:
             self.has_extra[axis.name] = True
 
     def calc_from_real(self, positions_dict):

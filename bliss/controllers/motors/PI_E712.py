@@ -346,11 +346,11 @@ class PI_E712(Controller):
         # Only when closing loop: waits to be ON-Target.
         if onoff:
             _t0 = time.time()
-            cl_timeout = 2
+            cl_timeout = .5
 
             _ont_state = self._get_on_target_status(axis)
             elog.info(u'axis {0:s} waiting to be ONTARGET'.format(axis.name))
-            while((not _ont_state)  or  (time.time() - _t0) > cl_timeout):
+            while((not _ont_state)  and  (time.time() - _t0) < cl_timeout):
                 time.sleep(0.01)
                 print ".",
                 _ont_state = self._get_on_target_status(axis)
@@ -536,6 +536,18 @@ class PI_E712(Controller):
             # _ans looks like : "2 0x2000200=-2.25718141e+005"
             axis.coeffs.append(float(_ans.split("=")[1]))
         return axis.coeffs
+
+    def set_sensor_coeffs(self, axis, coeff, value):
+        """
+        Needed, when in the table, when senson works the opposite way
+        Returns a list with sensor coefficients:
+        *Offset
+        *Gain constant order
+        *Gain 2nd order
+        *Gain 3rd order
+        *Gain 4th order
+        """
+        self.send_no_ans(axis, "SPA %s 0x2000%d00 %f" % (axis.channel, coeff+2, value))
 
     def _get_tns(self, axis):
         """Get Normalized Input Signal Value. Loop 10 times to straighten out noise"""

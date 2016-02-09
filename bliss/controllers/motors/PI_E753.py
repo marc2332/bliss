@@ -116,11 +116,12 @@ class PI_E753(Controller):
         self.sock.write("STP\n")
 
     """ RAW COMMANDS """
-    def raw_write(self, axis, com):
+    def raw_write(self, com):
         self.sock.write("%s\n" % com)
 
-    def raw_write_read(self, axis, com):
-        return self.sock.write_read("%s\n" % com)
+    def raw_write_read(self, com, lines):
+        return "\n".join(self.sock.write_readlines("%s\n" % com, lines)))
+
 
     def get_identifier(self, axis):
         return self.sock.write_readline("IDN?\n")

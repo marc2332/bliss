@@ -63,7 +63,7 @@ class PiezoJack(Controller):
         self.TADmin = self.config.get("TADmin", int, default=150000)
         self.TADmax = self.config.get("TADmax", int, default=700000)
 
-        self.factor = 0  # conversion factor from TNS to microns.
+        self.factor = 1  # conversion factor from TNS to microns.
 
         self._move_task = None
 
@@ -134,6 +134,11 @@ class PiezoJack(Controller):
         # Reads sensors coefficients (previously calibrated...) for the current piezo axis
         # from the PI E712
         self.piezo.coeffs = self.piezo.controller.get_sensor_coeffs(self.piezo)
+        if self.bender_factor < 0 and self.piezo.coeffs[1] > 0 or self.bender_factor > 0 and self.piezo.coeffs[1] < 0:
+            # Needed, when in the table, when senson works the opposite way
+            self.piezo.controller.set_sensor_coeffs(self.piezo, 1, -self.piezo.coeffs[1])
+        print "--PJ-- coefficients", self.bender_factor, self.piezo.coeffs[1], self.piezo.coeffs #HWHWHW
+
 
     def initialize_encoder(self, encoder):
         """ use the capacitive sensor as encoder"""

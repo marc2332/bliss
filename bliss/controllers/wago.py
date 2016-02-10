@@ -25,7 +25,13 @@ class WagoCounter(CounterBase):
       reading.value = data
     return meas.average
 
-  def gain(self, name, gain=None):
+  def gain(self, gain=None, name=None):
+    name = name or self.cntname
+    try:
+      name = [x for x in self.parent.counter_gain_names if str(name) in x][0]
+    except:
+      raise RuntimeError("Cannot find %s in the %s mapping" % (name, self.parent.name))
+
     if gain:
       valarr = [False]*3
       valarr[gain-1] = True 
@@ -54,7 +60,13 @@ class wago(object):
 
     self.cnt_dict = {}
     self.cnt_names = []
+    self.cnt_gain_names = []
     
+    try:
+      self.counter_gain_names = config_tree["counter_gain_names"].replace(" ","").split(',')
+    except:
+      pass
+
     try:
       self.cnt_names = config_tree["counter_names"].replace(" ","").split(',')
     except:
@@ -90,5 +102,4 @@ class wago(object):
   def _cntread(self, acq_time=None):
     return self.get(*self.cnt_names)
 
-    
 

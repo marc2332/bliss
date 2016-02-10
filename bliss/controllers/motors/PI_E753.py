@@ -120,7 +120,7 @@ class PI_E753(Controller):
         self.sock.write("%s\n" % com)
 
     def raw_write_read(self, com, lines):
-        return "\n".join(self.sock.write_readlines("%s\n" % com, lines)))
+        return "\n".join(self.sock.write_readlines("%s\n" % com, lines))
 
 
     def get_identifier(self, axis):

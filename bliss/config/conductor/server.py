@@ -20,7 +20,7 @@ def start_database_ds(tango_port = 20000,personal_name='2',debug_level = 0):
 
 from . import protocol
 from .. import redis as redis_conf
-from ..common import event
+from bliss.common import event
 
 try:
     import posix_ipc

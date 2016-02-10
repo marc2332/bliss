@@ -68,15 +68,21 @@ class ID31Diffract(CalcController):
         'beam_energy': 'float',
     }
 
+    ParamMotors = {
+        'ben': 'beam_energy',
+        'bos': 'beam_offset',
+    }
+
     def initialize(self, *args, **kws):
-        self.has_extra = {'ben': False, 'bos': False}
+        self.has_extra = dict([(mot, False) for mot in self.ParamMotors])
         super(ID31Diffract, self).initialize(*args, **kws)
 
     def initialize_axis(self, axis):
         super(ID31Diffract, self).initialize_axis(axis)
         add_axis_method(axis, self.get_lm_2th, types_info=('None', 'float'))
-        if axis.name in self.has_extra:
-            self.has_extra[axis.name] = True
+        tags = axis.config.get('tags').split()
+        for mot in self.ParamMotors:
+            self.has_extra[mot] |= mot in tags
 
     def calc_from_real(self, positions_dict):
         phys_pos = dict(positions_dict)
@@ -89,20 +95,17 @@ class ID31Diffract(CalcController):
         result['mu'] = rad2deg(result['mu'])
         result['gamma'] = rad2deg(result['gamma'])
         result['delta'] = rad2deg(result['delta'])
-        if self.has_extra['ben']:
-            result['ben'] = self['beam_energy']
-        if self.has_extra['bos']:
-            result['bos'] = self['beam_offset']
+        for mot, par in self.ParamMotors.items():
+            if self.has_extra[mot]:
+                result[mot] = self[par]
         return result
 
     def calc_to_real(self, axis_tag, positions_dict):
         virt_pos = dict(positions_dict)
-        bos = self['beam_offset']
-        if virt_pos.setdefault('bos', bos) != bos:
-            self['beam_offset'] = virt_pos['bos']
-        ben = self['beam_energy']
-        if virt_pos.setdefault('ben', ben) != ben:
-            self['beam_energy'] = virt_pos['ben']
+        for mot, par in self.ParamMotors.items():
+            curr = self[par]
+            if virt_pos.setdefault(mot, curr) != curr:
+                self[par] = virt_pos[mot]
 
         virt_pos['mu'] = deg2rad(virt_pos['mu'])
         virt_pos['gamma'] = deg2rad(virt_pos['gamma'])

@@ -5,8 +5,9 @@ def get_packages_path():
     packages_path = ['bliss']
     for sub_package in [x for x in os.listdir('bliss') if os.path.isdir(os.path.join('bliss',x))]:
         full_package_path = os.path.join('bliss',sub_package)
-        packages_path.extend((x[0] for x in os.walk(full_package_path)))
-    return packages_path
+        packages_path.extend((dirnames for dirnames, _, filenames in os.walk(full_package_path) if '__init__.py' in filenames))
+
+    return [dirname.replace(os.path.sep, '.') for dirname in packages_path]
 
 setup(name="bliss", version="0.1",
       description="BeamLine Instrumentation Support Software",

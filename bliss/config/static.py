@@ -14,7 +14,7 @@ try:
         from collections import OrderedDict as ordereddict
     except ImportError:
         # Python 2.6 ?
-        import ordereddict
+        from ordereddict import OrderedDict as ordereddict
     NodeDict = ordereddict
     class RoundTripRepresenter(ordered_yaml.representer.RoundTripRepresenter):
         def __init__(self,*args,**keys):

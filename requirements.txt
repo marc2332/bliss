@@ -14,3 +14,7 @@ jedi
 ruamel.yaml
 posix_ipc
 
+# Python 2.6
+ordereddict
+importlib
+weakrefset

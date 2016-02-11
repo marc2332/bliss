@@ -10,7 +10,7 @@
 
 BLISSADM_PATH=/users/blissadm
 
-CONFIG_PATH=${BLISSADM_PATH}/local/userconf/bliss
+CONFIG_PATH=${BLISSADM_PATH}/local/beamline_configuration/
 
 
 DEV_PATH=${PWD}

@@ -10,7 +10,11 @@ from .conductor import client
 
 try:
     from ruamel import yaml as ordered_yaml
-    from _ordereddict import ordereddict
+    try:
+        from collections import OrderedDict as ordereddict
+    except ImportError:
+        # Python 2.6 ?
+        import ordereddict
     NodeDict = ordereddict
     class RoundTripRepresenter(ordered_yaml.representer.RoundTripRepresenter):
         def __init__(self,*args,**keys):

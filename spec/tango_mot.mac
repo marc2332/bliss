@@ -74,13 +74,37 @@ def bliss_get_custom_commands(mot_name) '{
 
     tango_io(motor_par(mot_name, "dev_name"), "GetCustomCommandList", ccList)
 
+    # print ccList
+    # ccList["0"] = "["custom_get_twice", ["int", "int"]]"
+    # ccList["1"] = "["custom_get_chapi", ["str", "str"]]"
+    # ccList["2"] = "["custom_send_command", ["str", "None"]]"
+    # ccList["3"] = "["custom_command_no_types", ["None", "None"]]"
+    # ccList["4"] = "["custom_set_measured_noise", ["float", "None"]]"
+    # ccList["5"] = "["Set_Closed_Loop", ["bool", null]]"
+    # ccList["6"] = "["put_discrepancy", ["int", "None"]]"
+
+    # decorated method with types
+    # ccList["7"] = "["custom_get_forty_two", ["None", "int"]]"
+
+    # decorated method
+    # ccList["8"] = "["custom_park", [null, null]]"
+
     for (ii in ccList) {
         local _fct_name  _cmd_string   _reste  _length
         local uuu[]   _tin  _tout
 
         _cmd_string = ccList[ii]
 
-        # example :
+        # print  _cmd_string
+        # ["custom_park", [null, null]]
+        # ["custom_get_forty_two", ["None", "int"]]
+        # ["put_discrepancy", ["int", "None"]]
+        # ["Set_Closed_Loop", ["bool", "None"]]
+        # ["custom_command_no_types", ["None", "None"]]
+        # ["custom_send_command", ["str", "None"]]
+        # ["custom_get_chapi", ["str", "str"]]
+        # ["custom_get_twice", ["int", "int"]]
+
         # ["custom_set_measured_noise", ["float", "None"]]
 
         _length = length(_cmd_string)
@@ -90,27 +114,43 @@ def bliss_get_custom_commands(mot_name) '{
 
         _fct_length = index(_cmd_string, ",")+2
         _reste = substr(_cmd_string, _fct_length  , _length-_fct_length )
-        # _reste = ["custom_set_measured_noise", ["float", "None"]]
+        # print _reste
+        # ["float", "None"]
+        # [null, null]
 
-
+        # in and out types.
         split(_reste, uuu, ", ")
-        _tin = string_remove_last_N_chars(substr(uuu[0], 3), 1)
-        _tout = string_remove_last_N_chars(substr(uuu[1], 2), 2)
+        if (uuu[0] == "[null") {
+            # Checks for decorated methods without parameters...
+            _tin = "None"
+        }
+        else{
+            _tin = string_remove_last_N_chars(substr(uuu[0], 3), 1)
+        }
 
-        printf("%s(%s) --> %s \n", _fct_name, _tin, _tout)
+        if (uuu[1] == "null]") {
+            _tout = "None"
+        }
+        else{
+            _tout = string_remove_last_N_chars(substr(uuu[1], 2), 2)
+        }
 
-        # Check for complementary functions
+        # printf("%s(%s) --> %s \n", _fct_name, _tin, _tout)
+
+        # Check for complementary functions.
+        # Functions accessible via "motor_par(<mne>, XXX)"
         if (_fct_name == "closed_loop"){
             EMOTION_COMP_FUNC["closed_loop"] = 1
         }
         else{
             # Not a complementary function => custom command.
+            # accessible via "bliss_custom_XXX"
             bliss_declare_func(_fct_name, _tin, _tout)
         }
     }
 }'
 
-
+# Forges SPEC function for custom commands.
 def bliss_declare_func(fct_name, type_in, type_out) '{
 
     local _cmd

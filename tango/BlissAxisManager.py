@@ -22,6 +22,9 @@ except:
     class ConnectionException(Exception):
         pass
 
+from bliss.controllers.motor_group import Group
+
+
 class bcolors:
     PINK = '\033[95m'
     BLUE = '\033[94m'
@@ -129,6 +132,21 @@ class BlissAxisManager(PyTango.Device_4Impl):
             argout.append(_axis)
         return argout
 
+    def move(self, axes_pos):
+        """
+        absolute move multiple motors
+        """
+        known_axes_names = set(self.axes.split())
+        axes_names = axes_pos[::2]
+        if not set(axes_names).issubset(known_axes_names):
+            raise ValueError("unknown axis(es) in motion")
+        axes = map(bliss.get_axis, axes_names)
+        group = TgGevent.get_proxy(Group, *axes)
+        positions = map(float, axes_pos[1::2])
+        axes_pos = dict(zip(axes, positions))
+        group.move(axes_pos, wait=False)
+
+
 class BlissAxisManagerClass(PyTango.DeviceClass):
 
     #    Class Properties
@@ -143,7 +161,10 @@ class BlissAxisManagerClass(PyTango.DeviceClass):
     cmd_list = {
         'GetAxisList':
         [[PyTango.DevVoid, "none"],
-         [PyTango.DevVarStringArray, "List of axis"]]
+         [PyTango.DevVarStringArray, "List of axis"]],
+        'move':
+        [[PyTango.DevVarStringArray, "flat list of pairs motor, position"],
+         [PyTango.DevVoid, ""]],
     }
 
 # Device States Description

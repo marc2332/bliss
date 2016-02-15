@@ -74,6 +74,8 @@ class ID31Diffract(CalcController):
         'bos': 'beam_offset',
     }
 
+    DetMotors = ['dy', 'dtz', 'dz1', 'dz2']
+
     def initialize(self, *args, **kws):
         hash_name = 'controller.id31diffract'
         ctrl_name = self.config.get('name', default=None)
@@ -127,6 +129,11 @@ class ID31Diffract(CalcController):
         result['ai'] = rad2deg(result['ai'])
         result['dtz'] = rad2deg(result['dtz'])
         result['lmchi'] = rad2deg(result['lmchi'])
+
+        if not self['detector_active']:
+            for mot in self.DetMotors:
+                result.pop(mot)
+
         return result
 
     def get_lm_2th(self, axis):

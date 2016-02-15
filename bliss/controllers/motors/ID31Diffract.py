@@ -135,7 +135,7 @@ class ID31Diffract(CalcController):
         return rad2deg(lm_2th)
 
     def __getitem__(self, name):
-        typ_map = dict(liquid_mode=str, det_act=bool)
+        typ_map = dict(liquid_mode=str, detector_active=bool)
         typ = typ_map.setdefault(name, float)
         if name in self.CtrlPars:
             val = self.par_settings[name]

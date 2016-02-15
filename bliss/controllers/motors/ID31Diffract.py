@@ -24,6 +24,7 @@ ben - beam energy (keV) (optional, write-only)
 
 from numpy import square, sqrt, arctan, arccos, cos, rad2deg, deg2rad
 
+from bliss.config import settings
 from bliss.controllers.motor import CalcController
 from bliss.controllers.motor import add_axis_method
 from bliss.controllers.calculations import ID31_diffractometer
@@ -46,7 +47,7 @@ def initialize_parameters(klass, ctrl_pars=None):
     orig_initialize_axis = klass.initialize_axis
     def initialize_axis(self, axis):
         orig_initialize_axis(self, axis)
-        for name, ptype in ctrl_pars.items():
+        for name, (ptype, default) in ctrl_pars.items():
             mname = 'set_%s' % name
             method = getattr(self, mname)
             add_axis_method(axis, method, mname, types_info=(ptype, 'None'))
@@ -62,10 +63,10 @@ def initialize_parameters(klass, ctrl_pars=None):
 class ID31Diffract(CalcController):
 
     CtrlPars = {
-        'liquid_mode': 'str',
-        'detector_active': 'float',
-        'beam_offset': 'float',
-        'beam_energy': 'float',
+        'liquid_mode': ('str', 'off'),
+        'detector_active': ('bool', False),
+        'beam_offset': ('float', 0),
+        'beam_energy': ('float', 0),
     }
 
     ParamMotors = {
@@ -74,7 +75,17 @@ class ID31Diffract(CalcController):
     }
 
     def initialize(self, *args, **kws):
+        hash_name = 'controller.id31diffract'
+        ctrl_name = self.config.get('name', default=None)
+        if ctrl_name:
+            hash_name += '.%s' % ctrl_name
+        self.par_settings = settings.HashSetting(hash_name)
+        if not len(self.par_settings):
+            for name, (typ, default) in self.CtrlPars.items():
+                self.par_settings[name] = default
+
         self.has_extra = dict([(mot, False) for mot in self.ParamMotors])
+
         super(ID31Diffract, self).initialize(*args, **kws)
 
     def initialize_axis(self, axis):
@@ -126,16 +137,16 @@ class ID31Diffract(CalcController):
     def __getitem__(self, name):
         typ_map = dict(liquid_mode=str, det_act=bool)
         typ = typ_map.setdefault(name, float)
-        try:
-            ret = self.config.get(name, typ)
-            if name == 'liquid_mode' and ret == 'False':
-                ret = 'off'
-            return ret
-        except KeyError:
-            return ID31_diffractometer.Default_Geom_Pars[name]
+        if name in self.CtrlPars:
+            val = self.par_settings[name]
+        else:
+            val = ID31_diffractometer.Default_Geom_Pars[name]
+            val = self.config.get(name, default=val)
+        return typ(val)
 
     def __setitem__(self, name, value):
-        self.config.set(name, value)
-        self.config.save()
+        if name not in self.CtrlPars:
+            raise KeyError, 'Cannot modify read-only config param. %s' % name
+        self.par_settings[name] = value
 
 

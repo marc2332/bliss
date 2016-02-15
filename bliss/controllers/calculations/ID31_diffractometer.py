@@ -61,7 +61,6 @@ def calc_phys(virt_pos, pars):
         lm_2th = calc_lm_2th(liq_mode, pars['beam_energy'])
         sin_lm_2th = sin(lm_2th)
     beam_off = pars['beam_offset']
-    det_act = pars['detector_active']
     sample_2_det = pars['sample_2_det']
     sample_2_leg1 = pars['sample_2_leg1']
     leg1_2_leg2 = pars['leg1_2_leg2']
@@ -90,10 +89,6 @@ def calc_phys(virt_pos, pars):
         lm_chi = arcsin(sin(mu) / sin_lm_2th)
         dd = arcsin(cos(lm_chi) * sin_lm_2th)
 
-    if not det_act:
-        delta = dd
-        gamma = 0
-
     dtz = arcsin(cos(gamma) * sin(delta - dd))
     dty += arcsin(sin(gamma) / cos(dtz))
     dty_slide_factor = 1 / cos(dty) - 1
@@ -114,7 +109,6 @@ def calc_virt(phys_pos, pars):
         lm_2th = calc_lm_2th(liq_mode, pars['beam_energy'])
         sin_lm_2th = sin(lm_2th)
     beam_off = pars['beam_offset']
-    det_act = pars['detector_active']
     sample_2_det = pars['sample_2_det']
     sample_2_leg1 = pars['sample_2_leg1']
     leg1_2_leg2 = pars['leg1_2_leg2']
@@ -132,7 +126,6 @@ def calc_virt(phys_pos, pars):
 
     # TODO checks:
     #  liq_mode -> ai == 0
-    #  not det_act -> dy == dyo & dtz == 0 & dz1 == dz2 == dzo
 
     dzo = dz1
     if dz1 == dz2:
@@ -198,7 +191,6 @@ def main():
         'liquid_mode': LM_OFF,
         'beam_offset': 0,
         'beam_energy': 40,
-        'detector_active': True,
     }
 
     pars = dict(Default_Geom_Pars)

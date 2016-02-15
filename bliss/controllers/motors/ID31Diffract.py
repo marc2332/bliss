@@ -27,7 +27,7 @@ from numpy import square, sqrt, arctan, arccos, cos, rad2deg, deg2rad
 from bliss.config import settings
 from bliss.controllers.motor import CalcController
 from bliss.controllers.motor import add_axis_method
-from bliss.controllers.calculations import ID31_diffractometer
+from bliss.controllers.calculations import ID31_diffractometer as Diffract
 from bliss.common import log
 
 def initialize_parameters(klass, ctrl_pars=None):
@@ -74,6 +74,10 @@ class ID31Diffract(CalcController):
         'bos': 'beam_offset',
     }
 
+    DetMotors = ['dy', 'dtz', 'dz1', 'dz2']
+
+    ValidLiquidModes = [Diffract.LM_OFF, Diffract.LM_220, Diffract.LM_311]
+
     def initialize(self, *args, **kws):
         hash_name = 'controller.id31diffract'
         ctrl_name = self.config.get('name', default=None)
@@ -101,7 +105,7 @@ class ID31Diffract(CalcController):
         phys_pos['dtz'] = deg2rad(phys_pos['dtz'])
         phys_pos['lmchi'] = deg2rad(phys_pos['lmchi'])
 
-        result = ID31_diffractometer.calc_virt(phys_pos, self)
+        result = Diffract.calc_virt(phys_pos, self)
 
         result['mu'] = rad2deg(result['mu'])
         result['gamma'] = rad2deg(result['gamma'])
@@ -122,31 +126,37 @@ class ID31Diffract(CalcController):
         virt_pos['gamma'] = deg2rad(virt_pos['gamma'])
         virt_pos['delta'] = deg2rad(virt_pos['delta'])
 
-        result = ID31_diffractometer.calc_phys(virt_pos, self)
+        result = Diffract.calc_phys(virt_pos, self)
 
         result['ai'] = rad2deg(result['ai'])
         result['dtz'] = rad2deg(result['dtz'])
         result['lmchi'] = rad2deg(result['lmchi'])
+
+        if not self['detector_active']:
+            for mot in self.DetMotors:
+                result.pop(mot)
+
         return result
 
     def get_lm_2th(self, axis):
-        lm_2th = ID31_diffractometer.calc_lm_2th(self['liquid_mode'],
-                                                 self['beam_energy'])
+        lm_2th = Diffract.calc_lm_2th(self['liquid_mode'], self['beam_energy'])
         return rad2deg(lm_2th)
 
     def __getitem__(self, name):
-        typ_map = dict(liquid_mode=str, det_act=bool)
+        typ_map = dict(liquid_mode=str, detector_active=bool)
         typ = typ_map.setdefault(name, float)
         if name in self.CtrlPars:
             val = self.par_settings[name]
         else:
-            val = ID31_diffractometer.Default_Geom_Pars[name]
+            val = Diffract.Default_Geom_Pars[name]
             val = self.config.get(name, default=val)
         return typ(val)
 
     def __setitem__(self, name, value):
         if name not in self.CtrlPars:
-            raise KeyError, 'Cannot modify read-only config param. %s' % name
+            raise KeyError('Cannot modify read-only config param. %s' % name)
+        if name == 'liquid_mode' and value not in self.ValidLiquidModes:
+            raise ValueError('Invalid liquid_mode: %s' % value)
         self.par_settings[name] = value
 
 

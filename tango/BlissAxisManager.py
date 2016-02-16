@@ -15,6 +15,12 @@ import types
 import json
 
 try:
+    from collections import OrderedDict
+except ImportError:
+    # Python 2.6 ?
+    from ordereddict import OrderedDict
+
+try:
     from bliss.config.conductor.connection import ConnectionException
 except:
     print "beacon not installed ?"
@@ -43,7 +49,6 @@ class BlissAxisManager(PyTango.Device_4Impl):
         self.debug_stream("In __init__() of controller")
         self.init_device()
 
-
     def delete_device(self):
         self.debug_stream("In delete_device() of controller")
 
@@ -51,6 +56,18 @@ class BlissAxisManager(PyTango.Device_4Impl):
         self.debug_stream("In init_device() of controller")
         self.get_device_properties(self.get_device_class())
 
+    def _get_axes(self):
+        util = PyTango.Util.instance()
+        dev_list = util.get_device_list("*")
+        result = OrderedDict()
+        for dev in dev_list:
+            dev_class = dev.get_device_class()
+            if dev_class:
+                class_name = dev_class.get_name()
+                if class_name.startswith("BlissAxis_"):
+                    axis = dev.axis
+                    result[axis.name()] = axis, dev
+        return result
 
     def dev_state(self):
         """ This command gets the device state (stored in its device_state
@@ -72,18 +89,13 @@ class BlissAxisManager(PyTango.Device_4Impl):
         # BlissAxis_roba(id26/bliss_cyrtest/roba),
         # DServer(dserver/BlissAxisManager/cyrtest)]
 
-        # Creates the list of BlissAxis devices.
-        if self.axis_dev_list is None:
-            self.axis_dev_list = list()
-            for dev in dev_list:
-                dev_name = dev.get_name()
-                if "bliss_" in dev_name:
-                    self.axis_dev_list.append(dev)
-
         # Builds the BlissAxisManager State from states of BlissAxis devices.
         _bliss_working = True
         _bliss_moving = False
-        for dev in self.axis_dev_list:
+
+        devs = [dev for axis, dev in self._get_axes().values()]
+
+        for dev in devs:
             _axis_state = dev.get_state()
 
             _axis_on = (_axis_state == PyTango.DevState.ON or _axis_state == PyTango.DevState.OFF)
@@ -103,7 +115,7 @@ class BlissAxisManager(PyTango.Device_4Impl):
 
         # Builds the status for BlissAxisManager device from BlissAxis status
         E_status = ""
-        for dev in self.axis_dev_list:
+        for dev in devs:
             E_status = E_status + dev.get_name() + ":" + dev.get_state().name + ";" + dev.get_status() + "\n"
         self.set_status(E_status)
 
@@ -114,33 +126,19 @@ class BlissAxisManager(PyTango.Device_4Impl):
         """
         Returns the list of BlissAxisManager axes of this device.
         """
-        argout = list()
-
-        U = PyTango.Util.instance()
-        dev_list = U.get_device_list("*")
-        # Creates the list of BlissAxis devices names.
-        if self.axis_dev_names is None:
-            self.axis_dev_names = list()
-            for dev in dev_list:
-                dev_name = dev.get_name()
-                if "bliss_" in dev_name:
-                    self.axis_dev_names.append(dev_name)
-
-        print "axes list : ", self.axis_dev_names
-
-        for _axis in self.axis_dev_names:
-            argout.append(_axis)
+        argout = [dev.get_name()
+                  for axis, dev in self._get_axes().values()]
         return argout
 
     def move(self, axes_pos):
         """
         absolute move multiple motors
         """
-        known_axes_names = set(self.axes.split())
+        axes_dict = self._get_axes()
         axes_names = axes_pos[::2]
-        if not set(axes_names).issubset(known_axes_names):
+        if not set(axes_names).issubset(set(axes_dict)):
             raise ValueError("unknown axis(es) in motion")
-        axes = map(bliss.get_axis, axes_names)
+        axes = [axes_dict[name][0].get_base_obj() for name in axes_names]
         group = TgGevent.get_proxy(Group, *axes)
         positions = map(float, axes_pos[1::2])
         axes_pos = dict(zip(axes, positions))

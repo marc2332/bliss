@@ -1,7 +1,2 @@
-Makefile
-pixmaptools.exp
-pixmaptools.sbf
-*.o
-pixmaptoolsconfig.py
-sipAPIpixmaptools.h
-sip*cpp
+build
+*~

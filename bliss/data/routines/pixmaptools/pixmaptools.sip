@@ -127,6 +127,7 @@ public:
 
     explicit Palette(palette_type = USER,mode = RGBX);
 %TypeCode
+#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #define PY_ARRAY_UNIQUE_SYMBOL _PixmapNumpyArray
 #include "numpy/arrayobject.h"
 #include <iostream>
@@ -173,8 +174,8 @@ template<class IN> void _create_palette_from_data(unsigned int *aDestPalette,con
    else
     {	
 	int aNbVal = 1;
-	for(int i = 0;i < colormapData->nd;++i)
-	    aNbVal *= colormapData->dimensions[i];
+	for(int i = 0;i < PyArray_NDIM(colormapData);++i)
+	  aNbVal *= PyArray_DIM(colormapData,i);
 	if(aNbVal != (0x10000 * 4))
 	   {
 	      LutError *sipExceptionCopy = new LutError("Palette must have 65536 entry of RBGX or BGRX");
@@ -183,20 +184,20 @@ template<class IN> void _create_palette_from_data(unsigned int *aDestPalette,con
 	      return NULL;
 	   }
 	unsigned int aTmpPalette[0x10000];
-	switch(colormapData->descr->type_num)
+	switch(PyArray_TYPE(colormapData))
 	{
  	 case NPY_BYTE:
 	 case NPY_UBYTE:
-	      _create_palette_from_data(aTmpPalette,(unsigned char*)colormapData->data);break;
+	      _create_palette_from_data(aTmpPalette,(unsigned char*)PyArray_DATA(colormapData));break;
          case NPY_SHORT:
 	 case NPY_USHORT:
-	      _create_palette_from_data(aTmpPalette,(unsigned short*)colormapData->data);break;
+	      _create_palette_from_data(aTmpPalette,(unsigned short*)PyArray_DATA(colormapData));break;
          case NPY_INT:
 	 case NPY_UINT:
-	       _create_palette_from_data(aTmpPalette,(unsigned int*)colormapData->data);break;
+	       _create_palette_from_data(aTmpPalette,(unsigned int*)PyArray_DATA(colormapData));break;
 	 case NPY_LONG:
 	 case NPY_ULONG:
-               _create_palette_from_data(aTmpPalette,(unsigned long*)colormapData->data);break;
+               _create_palette_from_data(aTmpPalette,(unsigned long*)PyArray_DATA(colormapData));break;
 	 default:
 	  {
 	      LutError *sipExceptionCopy = new LutError("Palette type can by char,int,long,short");
@@ -275,6 +276,7 @@ template<class IN> void _create_palette_from_data(unsigned int *aDestPalette,con
 				    LUT::Scaling::image_type aType,double aSigmaFactor);
    };
 %TypeCode
+#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #define PY_ARRAY_UNIQUE_SYMBOL _PixmapNumpyArray
 #define NO_IMPORT_ARRAY
 #include "numpy/arrayobject.h"
@@ -288,10 +290,10 @@ template<class IN> void _create_palette_from_data(unsigned int *aDestPalette,con
       return NULL; \
     } \
     int column,row; \
-    column = src->dimensions[1]; \
-    row = src->dimensions[0]; \
+    column = PyArray_DIM(src,1);	\
+    row = PyArray_DIM(src,0);	\
     PyObject *aRImage;\
-    switch(src->descr->type_num) \
+    switch(PyArray_TYPE(src))	\
     { \
 	case NPY_BYTE: \
 		{ \
@@ -374,7 +376,9 @@ template<class IN> void _create_palette_from_data(unsigned int *aDestPalette,con
  TYPE aMin,aMax;\
  QImage aMappedImage(column,row,QImage::Format_ARGB32);\
  Py_BEGIN_ALLOW_THREADS;\
- LUT::map_on_min_max_val<TYPE>((TYPE*)src->data,(unsigned int*)aMappedImage.bits(),column,row,*a1,a2,aMin,aMax);\
+ LUT::map_on_min_max_val<TYPE>((TYPE*)PyArray_DATA((PyArrayObject*)src), \
+						  (unsigned int*)aMappedImage.bits(), \
+						  column,row,*a1,a2,aMin,aMax);	\
  Py_END_ALLOW_THREADS;\
  aRImage = sipConvertFromNewInstance(new QImage(aMappedImage),sipClass_QImage,NULL);
 MAP_FUNCTION
@@ -389,7 +393,7 @@ MAP_FUNCTION
  TYPE aMin,aMax;\
  QImage aMappedImage(column,row,QImage::Format_ARGB32);\
  Py_BEGIN_ALLOW_THREADS;\
- LUT::map_on_plus_minus_sigma<TYPE>((TYPE*)src->data,(unsigned int*)aMappedImage.bits(),column,row,*a1,a2,a3,aMin,aMax);\
+ LUT::map_on_plus_minus_sigma<TYPE>((TYPE*)PyArray_DATA(src),(unsigned int*)aMappedImage.bits(),column,row,*a1,a2,a3,aMin,aMax);\
  Py_END_ALLOW_THREADS;\
  aRImage = sipConvertFromNewInstance(new QImage(aMappedImage),sipClass_QImage,NULL);
 MAP_FUNCTION
@@ -405,7 +409,7 @@ MAP_FUNCTION
  if(a3 < 0. && aMin > 0) aMin = 0;\
  QImage aMappedImage(column,row,QImage::Format_ARGB32);\
  Py_BEGIN_ALLOW_THREADS;\
- LUT::map<TYPE>((TYPE*)src->data,(unsigned int*)aMappedImage.bits(),column,row,*a1,a2,aMin,aMax);\
+ LUT::map<TYPE>((TYPE*)PyArray_DATA(src),(unsigned int*)aMappedImage.bits(),column,row,*a1,a2,aMin,aMax);\
  Py_END_ALLOW_THREADS;\
  aRImage = sipConvertFromNewInstance(new QImage(aMappedImage),sipClass_QImage,NULL);
 MAP_FUNCTION
@@ -421,7 +425,9 @@ MAP_FUNCTION
  npy_intp dims[] = {npy_intp(row << 2),npy_intp(column)};\
  aRImage = PyArray_SimpleNew(2,dims,NPY_UBYTE); \
  Py_BEGIN_ALLOW_THREADS;\
- LUT::map_on_min_max_val<TYPE>((TYPE*)src->data,(unsigned int*)PyArray_DATA(aRImage),column,row,*a1,a2,aMin,aMax);\
+ LUT::map_on_min_max_val<TYPE>((TYPE*)PyArray_DATA((PyArrayObject*)src), \
+			       (unsigned int*)PyArray_DATA((PyArrayObject*)aRImage), \
+			       column,row,*a1,a2,aMin,aMax);		\
  Py_END_ALLOW_THREADS;
 MAP_FUNCTION
 %End
@@ -437,7 +443,9 @@ MAP_FUNCTION
  npy_intp dims[] = {npy_intp(row << 2),npy_intp(column)};\
  aRImage = PyArray_SimpleNew(2,dims,NPY_UBYTE); \
  Py_BEGIN_ALLOW_THREADS;\
- LUT::map<TYPE>((TYPE*)src->data,(unsigned int*)PyArray_DATA(aRImage),column,row,*a1,a2,aMin,aMax);\
+ LUT::map<TYPE>((TYPE*)PyArray_DATA((PyArrayObject*)src),		\
+		(unsigned int*)PyArray_DATA((PyArrayObject*)aRImage),	\
+		column,row,*a1,a2,aMin,aMax);				\
  Py_END_ALLOW_THREADS;
 MAP_FUNCTION
 %End
@@ -489,7 +497,11 @@ if(luma)
 	sipRes = NULL;
       }
     if(sipRes)
+#ifdef NPY_ARRAY_OWNDATA
+      PyArray_ENABLEFLAGS((PyArrayObject*)sipRes,NPY_ARRAY_OWNDATA);
+#else
       ((PyArrayObject*)sipRes)->flags |= NPY_OWNDATA;
+#endif
   }
 else
 sipRes = NULL;
@@ -513,6 +525,7 @@ class Stat
 #include <pixmaptools_stat.h>
 %End
 %TypeCode
+#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #define PY_ARRAY_UNIQUE_SYMBOL _PixmapNumpyArray
 #define NO_IMPORT_ARRAY
 #include "numpy/arrayobject.h"
@@ -527,14 +540,14 @@ inline void _histo_full(IN* data,int nbElem,NPY_TYPES type,PyObject* &Y,PyObject
   npy_intp ydims[] = {npy_intp(vectorY.size())};
   Y = PyArray_SimpleNew(1,ydims,NPY_INT);
   typename std::vector<int>::iterator i = vectorY.begin();
-  for(int * Ydata = (int*)((PyArrayObject*)Y)->data;
+  for(int * Ydata = (int*)PyArray_DATA((PyArrayObject*)Y);
       i != vectorY.end();++i,++Ydata)
     *Ydata = *i;
 
   npy_intp xdims[] = {npy_intp(vectorX.size())};
   X = PyArray_SimpleNew(1,xdims,type);
   typename std::vector<IN>::iterator j = vectorX.begin();
-  for(IN *Xdata = (IN*)((PyArrayObject*)X)->data;
+  for(IN *Xdata = (IN*)PyArray_DATA((PyArrayObject*)X);
       j != vectorX.end();++j,++Xdata)
        *Xdata = *j;
 }
@@ -551,14 +564,14 @@ inline void _histo(IN* data,int nbElem,NPY_TYPES type,PyObject* &Y,PyObject* &X,
   npy_intp ydims[] = {npy_intp(vectorY.size())};
   Y = PyArray_SimpleNew(1,ydims,NPY_INT);
   typename std::vector<int>::iterator i = vectorY.begin();
-  for(int * Ydata = (int*)((PyArrayObject*)Y)->data;
+  for(int * Ydata = (int*)PyArray_DATA((PyArrayObject*)Y);
       i != vectorY.end();++i,++Ydata)
     *Ydata = *i;
 
   npy_intp xdims[] = {npy_intp(vectorX.size())};
   X = PyArray_SimpleNew(1,xdims,type);
   typename std::vector<IN>::iterator j = vectorX.begin();
-  for(IN *Xdata = (IN*)((PyArrayObject*)X)->data;
+  for(IN *Xdata = (IN*)PyArray_DATA((PyArrayObject*)X);
       j != vectorX.end();++j,++Xdata)
     *Xdata = *j;
 }
@@ -568,11 +581,12 @@ inline void _histo(IN* data,int nbElem,NPY_TYPES type,PyObject* &Y,PyObject* &X,
   if(!(src = (PyArrayObject*)PyArray_ContiguousFromObject(a0,NPY_NOTYPE,0,0))) \
     return NULL; \
     \
-    int nbElem = src->dimensions[0]; \
-    for(int i = 1;i < src->nd;++i) \
-       nbElem *= src->dimensions[i]; \
+    int nbElem = PyArray_NDIM(src);  \
+    npy_intp *dims = PyArray_DIMS(src); \
+    for(int i = 1;i < nbElem;++i) \
+       nbElem *= dims[i]; \
     PyObject *Y,*X;\
-    switch(src->descr->type_num) \
+    switch(PyArray_TYPE(src))	\
     { \
 	case NPY_BYTE: \
 		{ \
@@ -639,7 +653,8 @@ static SIP_PYTUPLE histo_full(SIP_PYOBJECT);
 #ifdef HISTO
 #undef HISTO
 #endif
-#define HISTO(TYPE) _histo_full((TYPE*)src->data,nbElem,(NPY_TYPES)src->descr->type_num,Y,X);
+#define HISTO(TYPE) _histo_full((TYPE*)PyArray_DATA(src),nbElem,\
+				(NPY_TYPES)PyArray_TYPE(src),Y,X);
 HISTO_FUNCTION
 %End
 
@@ -652,7 +667,8 @@ static SIP_PYOBJECT histo(SIP_PYOBJECT,int,double = 0,double = 0);
  TYPE maxVal,minVal;\
  minVal = (TYPE)a2; \
  maxVal = (TYPE)a3; \
- _histo((TYPE*)src->data,nbElem,(NPY_TYPES)src->descr->type_num,Y,X,a1,minVal,maxVal);
+ _histo((TYPE*)PyArray_DATA(src),nbElem,			\
+	(NPY_TYPES)PyArray_TYPE(src),Y,X,a1,minVal,maxVal);
 HISTO_FUNCTION
 %End
 };

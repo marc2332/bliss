@@ -15,12 +15,6 @@ import types
 import json
 
 try:
-    from collections import OrderedDict
-except ImportError:
-    # Python 2.6 ?
-    from ordereddict import OrderedDict
-
-try:
     from bliss.config.conductor.connection import ConnectionException
 except:
     print "beacon not installed ?"
@@ -59,7 +53,7 @@ class BlissAxisManager(PyTango.Device_4Impl):
     def _get_axes(self):
         util = PyTango.Util.instance()
         dev_list = util.get_device_list("*")
-        result = OrderedDict()
+        result = dict()
         for dev in dev_list:
             dev_class = dev.get_device_class()
             if dev_class:

@@ -181,6 +181,18 @@ class BlissAxisManager(PyTango.Device_4Impl):
         group = self.group_dict[groupid]
         group.stop(wait=False)
 
+    def _reload(self):
+        bliss_config.beacon_get_config().reload()
+
+    def ReloadConfig(self):
+        TgGevent.threadSafeRequest(self._reload)()
+
+    def ApplyConfig(self, reload):
+        if reload:
+            self.ReloadConfig()
+        for axis_name, dev in self._get_axis_devices().items():
+            dev.axis.apply_config(reload=False)
+
 
 class BlissAxisManagerClass(PyTango.DeviceClass):
 
@@ -206,6 +218,12 @@ class BlissAxisManagerClass(PyTango.DeviceClass):
         'GroupAbort':
         [[PyTango.DevString, "Group identifier"],
          [PyTango.DevVoid, ""]],
+        'ReloadConfig':
+        [[PyTango.DevVoid, ""],
+         [PyTango.DevVoid, "Reload configuration"]],
+        'ApplyConfig':
+        [[PyTango.DevBoolean, "reload (true to do a reload before apply configuration, false not to)"],
+         [PyTango.DevVoid, "Apply configuration"]],
     }
 
 # Device States Description

@@ -598,7 +598,7 @@ class BlissAxis(PyTango.Device_4Impl):
             self.set_status("OFF command was not executed as expected.")
 
     def GoHome(self):
-        """ 
+        """
         Moves the motor to the home position given by a home switch.
         Searches home switch in POSITIVE direction.
         """
@@ -755,11 +755,11 @@ class BlissAxis(PyTango.Device_4Impl):
         """
         self.axis.settings_to_config()
 
-    def ApplyConfig(self):
+    def ApplyConfig(self, reload):
         """
         Reloads configuration and apply it.
         """
-        self.axis.apply_config()
+        self.axis.apply_config(reload=reload)
 
 
 class BlissAxisClass(PyTango.DeviceClass):
@@ -832,7 +832,7 @@ class BlissAxisClass(PyTango.DeviceClass):
         [[PyTango.DevVoid, ""],
          [PyTango.DevString, "Name of the class of the controller of this axis"]],
         'ApplyConfig':
-        [[PyTango.DevVoid, ""],
+        [[PyTango.DevBoolean, "reload (true to do a reload before apply configuration, false not to)"],
          [PyTango.DevVoid, "calls apply_config ???"]],
         'SettingsToConfig':
         [[PyTango.DevVoid, ""],

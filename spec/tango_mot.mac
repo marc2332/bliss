@@ -340,6 +340,12 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
 
         tango_mot_reset_motion(_ctrl_dev)
 
+	tango_io(tango_motADDR, "ReloadConfig")
+        if (TANGO_ERR){
+            _tango_mot_error_stack(tango_mot_ADDR, tango_mot_ADDR, _attr)
+            return ".error."
+        }
+
         return
     }
 
@@ -397,7 +403,7 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
         motor_par(motnum, "dev_name", _axis_ds_name, "add")
 
         # On a reconfig, restores config value of axis.
-        motor_par(motnum, "apply_config")
+        motor_par(motnum, "apply_config", "no_reload")
 
         # Try to switch power on.
         TANGO_ERR = -1
@@ -573,7 +579,12 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
 
     if (key == "apply_config") {
         TANGO_ERR = -1
-        tango_io(_axis_ds_name, "ApplyConfig")
+        if (action == "no_reload") {
+            tango_io(_axis_ds_name, "ApplyConfig", 0)
+	}
+	else {
+            tango_io(_axis_ds_name, "ApplyConfig", 1)
+	}
         if (TANGO_ERR){
             _tango_mot_error_stack(_mot_mne, _axis_ds_name, _attr)
             exit

@@ -35,8 +35,6 @@ class bcolors:
 
 
 class BlissAxisManager(PyTango.Device_4Impl):
-    axis_dev_list = None
-    axis_dev_names = None
 
     def __init__(self, cl, name):
         PyTango.Device_4Impl.__init__(self, cl, name)
@@ -74,8 +72,6 @@ class BlissAxisManager(PyTango.Device_4Impl):
 #        self.debug_stream("In BlissAxisManager dev_state()")
         argout = PyTango.DevState.UNKNOWN
 
-        U = PyTango.Util.instance()
-        dev_list = U.get_device_list("*")
         # [BlissAxisManager(id26/bliss/cyrtest),
         # BlissAxis_robd(id26/bliss_cyrtest/robd),
         # BlissAxis_robc(id26/bliss_cyrtest/robc),

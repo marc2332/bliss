@@ -3,6 +3,8 @@
 import bliss
 import bliss.config.motors as bliss_config
 import bliss.common.log as elog
+from bliss.common import event
+from bliss.common.utils import grouped
 
 import PyTango
 import TgGevent
@@ -13,6 +15,7 @@ import time
 import traceback
 import types
 import json
+import itertools
 
 try:
     from bliss.config.conductor.connection import ConnectionException
@@ -47,6 +50,7 @@ class BlissAxisManager(PyTango.Device_4Impl):
     def init_device(self):
         self.debug_stream("In init_device() of controller")
         self.get_device_properties(self.get_device_class())
+        self.group_dict = {}
 
     def _get_axes(self):
         util = PyTango.Util.instance()
@@ -120,9 +124,9 @@ class BlissAxisManager(PyTango.Device_4Impl):
                   for axis, dev in self._get_axes().values()]
         return argout
 
-    def move(self, axes_pos):
+    def GroupMove(self, axes_pos):
         """
-        absolute move multiple motors
+        Absolute move multiple motors
         """
         axes_dict = self._get_axes()
         axes_names = axes_pos[::2]
@@ -130,9 +134,52 @@ class BlissAxisManager(PyTango.Device_4Impl):
             raise ValueError("unknown axis(es) in motion")
         axes = [axes_dict[name][0].get_base_obj() for name in axes_names]
         group = TgGevent.get_proxy(Group, *axes)
+        event.connect(group.get_base_obj(), 'move_done', self.group_move_done)
         positions = map(float, axes_pos[1::2])
-        axes_pos = dict(zip(axes, positions))
-        group.move(axes_pos, wait=False)
+        axes_pos_dict = dict(zip(axes, positions))
+        group.move(axes_pos_dict, wait=False)
+        groupid = ','.join(map(':'.join, grouped(axes_pos, 2)))
+        self.group_dict[groupid] = group
+        return groupid
+
+    def group_move_done(self, move_done, **kws):
+        if not move_done:
+            return
+
+        if 'sender' in kws:
+            sender = kws['sender']
+            groupid = [gid for gid, grp in self.group_dict.items()
+                       if grp.get_base_obj() == sender][0]
+        elif len(self.group_dict) == 1:
+            groupid = self.group_dict.keys()[0]
+        else:
+            print 'BlissAxisManager: Warning: ' \
+                  'cannot not identify group move_done'
+            return
+
+        self.group_dict.pop(groupid)
+
+    def GroupState(self, groupid):
+        """
+        Return the individual state of motors in the group
+        """
+        if groupid not in self.group_dict:
+            return []
+        group = self.group_dict[groupid].get_base_obj()
+        def get_name_state_list(group):
+            return [(name, str(axis.state()))
+                    for name, axis in group.axes.items()]
+        name_state_list = TgGevent.execute(get_name_state_list, group)
+        return list(itertools.chain(*name_state_list))
+
+    def GroupAbort(self, groupid):
+        """
+        Abort motor group movement
+        """
+        if groupid not in self.group_dict:
+            return
+        group = self.group_dict[groupid]
+        group.stop(wait=False)
 
 
 class BlissAxisManagerClass(PyTango.DeviceClass):
@@ -150,8 +197,14 @@ class BlissAxisManagerClass(PyTango.DeviceClass):
         'GetAxisList':
         [[PyTango.DevVoid, "none"],
          [PyTango.DevVarStringArray, "List of axis"]],
-        'move':
-        [[PyTango.DevVarStringArray, "flat list of pairs motor, position"],
+        'GroupMove':
+        [[PyTango.DevVarStringArray, "Flat list of pairs motor, position"],
+         [PyTango.DevString, "Group identifier"]],
+        'GroupState':
+        [[PyTango.DevString, "Group identifier"],
+         [PyTango.DevVarStringArray, "Flat list of pairs motor, status"]],
+        'GroupAbort':
+        [[PyTango.DevString, "Group identifier"],
          [PyTango.DevVoid, ""]],
     }
 

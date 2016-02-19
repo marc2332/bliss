@@ -315,6 +315,9 @@ def eeconfig '{
 #%MDESC% \
 #    Called on config/reconfig
 def tango_mot_config(motnum, type, unit, module, channel) '{
+    local _ctrl_dev
+
+    _ctrl_dev = tango_mot_ADDR
 
     if((motnum == "..") && (type == "ctrl")) {
 
@@ -334,6 +337,9 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
         else{
             tango_mot_dbg(sprintf("EMotion Controller %s is responding", tango_mot_ADDR))
         }
+
+        tango_mot_reset_motion(_ctrl_dev)
+
         return
     }
 
@@ -709,6 +715,11 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
         # "start_all"
         if (cmd == "start_all")
             tango_mot_start_motion(_ctrl_dev)
+
+        #-------------------------------------
+        # "abort_all"
+        if (cmd == "abort_all")
+            tango_mot_abort_motion(_ctrl_dev)
     }
     else{
         # <cmd> command applies to individual motor.
@@ -743,6 +754,8 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
         #               8 if positive limit on
         if (cmd == "get_status"){
             local _state  _ret  _cmd
+
+            tango_mot_check_motion(_ctrl_dev)
 
             _ret = 0
             if(tango_mot_get_attr(motnum, "HardLimitHigh")) {
@@ -809,7 +822,8 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
         }
 
         # "abort_one" called on <Ctrl-C>
-        if (cmd == "abort_one") {
+        if ((cmd == "abort_one") && \
+            !tango_mot_concerns_motion(_ctrl_dev, motnum)) {
             _cmd = "Abort"
             tango_io(_dev, _cmd)
 
@@ -822,15 +836,16 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
 }'
 
 
-#%IU% (<ctrl_dev>, <motion>)
+#%IU% (<ctrl_dev>)
 #%MDESC%
 #    Reset (prepare) the motion on a ctrl device
 def tango_mot_reset_motion(ctrl_dev) '{
     global TANGO_MOT_CTRL[]
     TANGO_MOT_CTRL[ctrl_dev]["grpmotion"] = ""
+    TANGO_MOT_CTRL[ctrl_dev]["grpid"] = ""
 }'
 
-#%IU% (<ctrl_dev>, <motion>)
+#%IU% (<ctrl_dev>, <motnum>, <pos>)
 #%MDESC%
 #    Add a motion to the specified ctrl device
 def tango_mot_add_motion(ctrl_dev, motnum, pos) '{
@@ -845,7 +860,24 @@ def tango_mot_add_motion(ctrl_dev, motnum, pos) '{
     TANGO_MOT_CTRL[ctrl_dev]["grpmotion"] = motion
 }'
 
-#%IU% (<ctrl_dev>, <motion>)
+#%IU% (<ctrl_dev>, <motnum>)
+#%MDESC%
+#    Check if motion includes motor
+def tango_mot_concerns_motion(ctrl_dev, motnum) '{
+    local motion nb_mot grptok[] mottok[] i
+
+    motion = TANGO_MOT_CTRL[ctrl_dev]["grpmotion"]
+    nb_mot = split(motion, grptok, ",")
+    for (i = 0; i < nb_mot; i++) {
+        split(grptok[i], mottok, ":")
+        if (motor_num(mottok[0]) == motnum)
+            return 1
+    }
+
+    return 0
+}'
+
+#%IU% (<ctrl_dev>)
 #%MDESC%
 #    Start a motion on the specified ctrl device
 def tango_mot_start_motion(ctrl_dev) '{
@@ -864,20 +896,69 @@ def tango_mot_start_motion(ctrl_dev) '{
     }
 
     TANGO_ERR = -1
-    ret = tango_io(ctrl_dev, "move", arr_in)
+    ret = tango_io(ctrl_dev, "GroupMove", arr_in)
     if (TANGO_ERR) {
-        _tango_mot_error_stack("ctrl", ctrl_dev, "move")
+        _tango_mot_error_stack("ctrl", ctrl_dev, "GroupMove")
         exit
-    } else if (ret) {
-        local _msg
-        _msg = "tango_mot_cmd() : start_all : Unable to launch motion : "
-        for (i = 0; i < nb_mot; i++)
-            _msg = sprintf("%s%s%s(%s)", _msg, i ? "," : "", \
-                           arr_mot[i], arr_in[i * 2])
+    } else if (ret < 0) {
+        local _msg axis_name
+        _msg = "tango_mot_cmd() : start_motion : Unable to launch motion : "
+        for (i = 0; i < nb_mot; i++) {
+            _msg = sprintf("%s%s%s", _msg, i ? "," : "", arr_mot[i])
+            axis_name = arr_in[i * 2]
+            if (axis_name != arr_mot[i])
+                _msg = sprintf("%s(%s)", _msg, axis_name)
+        }
         _tango_mot_error_desc(_msg)
         for (i = 0; i < nb_mot; i++)
             tango_mot_print_status(motor_num(arr_mot[i]))
         exit
+    }
+
+    TANGO_MOT_CTRL[ctrl_dev]["grpid"] = ret
+}'
+
+#%IU% (<ctrl_dev>)
+#%MDESC%
+#    Poll motion state and record if it is finished
+def tango_mot_check_motion(ctrl_dev) '{
+    local motionid arr_out[] ret
+
+    motionid = TANGO_MOT_CTRL[ctrl_dev]["grpid"]
+    if (!motionid)
+        return
+
+    TANGO_ERR = -1
+    ret = tango_io(ctrl_dev, "GroupState", motionid, arr_out)
+    if (TANGO_ERR) {
+        _tango_mot_error_stack("ctrl", ctrl_dev, "GroupMove")
+    } else if (ret < 0) {
+        local _msg
+        _msg = "tango_mot_cmd() : check_motion : Unable to check motion"
+        _tango_mot_error_desc(sprintf("%s: %s", _msg, motionid))
+    } else if (ret == 0) {
+        tango_mot_reset_motion(ctrl_dev)
+    }
+}'
+
+#%IU% (<ctrl_dev>)
+#%MDESC%
+#    Abort motion
+def tango_mot_abort_motion(ctrl_dev) '{
+    local motionid ret
+
+    motionid = TANGO_MOT_CTRL[ctrl_dev]["grpid"]
+    if (!motionid)
+        return
+
+    TANGO_ERR = -1
+    ret = tango_io(ctrl_dev, "GroupAbort", motionid)
+    if (TANGO_ERR) {
+        _tango_mot_error_stack("ctrl", ctrl_dev, "GroupMove")
+    } else if (ret < 0) {
+        local _msg
+        _msg = "tango_mot_cmd() : check_motion : Unable to check motion"
+        _tango_mot_error_desc(sprintf("%s: %s", _msg, motionid))
     }
 }'
 

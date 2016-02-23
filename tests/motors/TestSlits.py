@@ -117,7 +117,7 @@ class TestSlits(unittest.TestCase):
 
     def testPseudoAxisState(self):
         self.testPseudoAxisAreExported()
-        controller = bliss.config.motors["test"]["object"]
+        controller = bliss.config.motors.CONTROLLERS["test"]["object"]
         self.assertTrue(
             all([axis.state() == 'READY' for axis in controller.pseudos]))
 

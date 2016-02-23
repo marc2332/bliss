@@ -54,7 +54,7 @@ class calc_motor_mockup(CalcController):
 
         return {"calc_mot": calc_pos}
 
-    def calc_to_real(self, axis_tag, positions_dict):
+    def calc_to_real(self, positions_dict):
         calc_mot_axis = self._tagged["calc_mot"][0]
         s_param = calc_mot_axis.settings.get("s_param")
         # this formula is just an example

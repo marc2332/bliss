@@ -9,5 +9,5 @@ class simpliest(CalcController):
     def calc_from_real(self, positions_dict):
         return {"m1": positions_dict["m0"] * 2}
 
-    def calc_to_real(self, axis_tag, positions_dict):
+    def calc_to_real(self, positions_dict):
         return {"m0": positions_dict["m1"] / 2}

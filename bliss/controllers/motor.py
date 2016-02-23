@@ -401,7 +401,7 @@ class CalcController(Controller):
                     positions_dict[tag] = x._set_position()
 
         move_dict = dict()
-        for axis_tag, target_pos in self.calc_to_real(axis_tag, positions_dict).iteritems():
+        for axis_tag, target_pos in self.calc_to_real(positions_dict).iteritems():
             real_axis = self._tagged[axis_tag][0]
             move_dict[real_axis] = target_pos
         self._write_settings = True
@@ -410,7 +410,7 @@ class CalcController(Controller):
         self._calc_from_real()
         self._reals_group.move(move_dict, wait=False)
 
-    def calc_to_real(self, axis_tag, positions_dict):
+    def calc_to_real(self, positions_dict):
         raise NotImplementedError
 
     def stop(self, axis):
@@ -434,7 +434,7 @@ class CalcController(Controller):
                 continue
             if axis in axis_list:
                 positions[tag]=dial_pos
-                real_positions = self.calc_to_real(tag, positions)
+                real_positions = self.calc_to_real(positions)
                 for real_axis_tag, user_pos in real_positions.iteritems():
                     self._tagged[real_axis_tag][0].position(user_pos)
                 break

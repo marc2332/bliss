@@ -30,7 +30,7 @@ class kb(CalcController):
 
         return calc_dict
 
-    def calc_to_real(self, axis_tag, positions_dict):
+    def calc_to_real(self, positions_dict):
         d = positions_dict["trans"] * 1000.0 / self.distance
         return {"rot": positions_dict["tilt"] + d,
                 "erot": -d}

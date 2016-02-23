@@ -201,7 +201,7 @@ class spectro_eh1_test_V2(CalcController):
         self._pos_dict.update(_virt_dict)
         return _virt_dict
 
-    def calc_to_real(self, axis_tag, positions_dict):
+    def calc_to_real(self, positions_dict):
         """return real motors positions dictionary given virtual
         (INFO: method called when a virtual motor is moved)
         """

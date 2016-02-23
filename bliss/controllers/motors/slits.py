@@ -85,25 +85,29 @@ class Slits(CalcController):
 
         return calc_dict
 
-    def calc_to_real(self, axis_tag, positions_dict):
-        if axis_tag in ("hoffset", "hgap"):
-            log.info("[SLITS] calc_to_real()")
-            log.info("[SLITS]\tcalc: %s" % positions_dict)
-            real_dict = {
-                "back":
-                    (positions_dict["hgap"] / 2.0) + positions_dict["hoffset"],
-                "front":
-                    (positions_dict["hgap"] / 2.0) - positions_dict["hoffset"]
-            }
+    def calc_to_real(self, positions_dict):
+        log.info("[SLITS] calc_to_real()")
+        log.info("[SLITS]\tcalc: %s" % positions_dict)
 
-            log.info("[SLITS]\treal: %s" % real_dict)
+        real_dict = dict()
+        slit_type = self.config.get("slit_type", default="both")
 
-            return real_dict
+        if slit_type not in ['vertical']:
+            real_dict.update(
+                { "back":
+                  (positions_dict["hgap"] / 2.0) + positions_dict["hoffset"],
+                  "front":
+                  (positions_dict["hgap"] / 2.0) - positions_dict["hoffset"]
+                  } )
 
-        elif axis_tag in ("voffset", "vgap"):
-            return {
-                "up":
-                    (positions_dict["vgap"] / 2.0) + positions_dict["voffset"],
-                "down":
-                    (positions_dict["vgap"] / 2.0) - positions_dict["voffset"]
-            }
+        if slit_type not in ['horizontal']:
+            real_dict.update(
+                { "up":
+                  (positions_dict["vgap"] / 2.0) + positions_dict["voffset"],
+                  "down":
+                  (positions_dict["vgap"] / 2.0) - positions_dict["voffset"]
+                  } )
+
+        log.info("[SLITS]\treal: %s" % real_dict)
+
+        return real_dict

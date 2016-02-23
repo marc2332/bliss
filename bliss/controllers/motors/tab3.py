@@ -120,7 +120,7 @@ class tab3(CalcController):
                 "xtilt": xtilt,
                 "ytilt": ytilt}
 
-    def calc_to_real(self, axis_tag, positions_dict):
+    def calc_to_real(self, positions_dict):
         if self.geometry in (2, 6):
             xtan = math.tan(math.radians(positions_dict["xtilt"]))
             ytan = math.tan(math.radians(positions_dict["ytilt"]))

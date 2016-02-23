@@ -50,7 +50,7 @@ class Slitbox(CalcController):
     def calc_from_real(self, positions_dict):
         return {self.orientation: positions_dict["first"]}
 
-    def calc_to_real(self, axis_tag, positions_dict):
+    def calc_to_real(self, positions_dict):
         fraction = float(self.config.get("fraction"))
         pos = positions_dict[self.orientation]
         return {"first": pos, "second": pos + fraction}

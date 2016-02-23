@@ -315,34 +315,35 @@ def eeconfig '{
 #%MDESC% \
 #    Called on config/reconfig
 def tango_mot_config(motnum, type, unit, module, channel) '{
-    local _ctrl_dev
+    local _ctrl_ds_name
 
-    _ctrl_dev = tango_mot_ADDR
+    _ctrl_ds_name = tango_mot_ADDR
 
     if((motnum == "..") && (type == "ctrl")) {
 
         # Checks controller DS field.
-        if (tango_mot_ADDR == ""){
+        if (_ctrl_ds_name == ""){
             tango_mot_err( "config : tango_mot_ADDR is empty ?")
             return ".error."
         }
 
         # Checks that Tango DS is running, however ds_is_reponsive provokes undesired
         # error messages, use ds_is_tango
-        if(!ds_is_tango(tango_mot_ADDR)) {
+        if(!ds_is_tango(_ctrl_ds_name)) {
             tango_mot_err(sprintf("%s unresponsive -> disabling motor controller.", \
-                                  tango_mot_ADDR))
+                                  _ctrl_ds_name))
             return ".error."
         }
         else{
-            tango_mot_dbg(sprintf("EMotion Controller %s is responding", tango_mot_ADDR))
+            tango_mot_dbg(sprintf("EMotion Controller %s is responding", _ctrl_ds_name))
         }
 
-        tango_mot_reset_motion(_ctrl_dev)
+        tango_mot_reset_motion(_ctrl_ds_name)
 
-	tango_io(tango_motADDR, "ReloadConfig")
+	tango_io(_ctrl_ds_name, "ReloadConfig")
         if (TANGO_ERR){
-            _tango_mot_error_stack(tango_mot_ADDR, tango_mot_ADDR, _attr)
+            _tango_mot_error_stack(sprintf("controller %d", unit), \
+                                   _ctrl_ds_name, _attr)
             return ".error."
         }
 
@@ -350,7 +351,7 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
     }
 
     if(type == "mot") {
-        local _mot_mne  _ctrl_ds_name  _axis_ds_name  _axis_name
+        local _mot_mne _axis_ds_name  _axis_name
         local TTT[]  _msg
         local spec_bk emot_bk
 
@@ -358,7 +359,6 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
 
         # Builds axis DS name from controller DS name.
         # ex : id26/bliss/cyrtest -> id26/bliss_cyrtest/roba
-        _ctrl_ds_name = tango_mot_ADDR
         tango_mot_dbg(sprintf("CTRL DS NAME = %s", _ctrl_ds_name))
 
         # Get axis name from spec config:
@@ -380,7 +380,7 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
             tango_mot_dbg(sprintf("AXIS DS NAME = %s", _axis_ds_name))
         }
         else{
-            tango_mot_err(sprintf("wrong Tango DS name in ADDR field ?", tango_mot_ADDR ))
+            tango_mot_err(sprintf("wrong Tango DS name in ADDR field ?", _ctrl_ds_name ))
             return ".error."
         }
 
@@ -402,14 +402,14 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
         motor_par(motnum, "bliss_axis_master_ds", _ctrl_ds_name, "add")
         motor_par(motnum, "dev_name", _axis_ds_name, "add")
 
-        # On a reconfig, restores config value of axis.
-        motor_par(motnum, "apply_config", "no_reload")
+        # On a reconfig, restores config value of axis (no_reload=1).
+        motor_par(motnum, "apply_config", 1)
 
         # Try to switch power on.
         TANGO_ERR = -1
         tango_io(_axis_ds_name, "On")
         if (TANGO_ERR){
-            _tango_mot_error_stack(_mot_mne, _dev, _attr)
+            _tango_mot_error_stack(_mot_mne, _axis_ds_name, _attr)
             return ".error."
         }
 
@@ -417,7 +417,7 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
         local _state
         _state = tango_io(_axis_ds_name, "State")
         if (TANGO_ERR){
-            _tango_mot_error_stack(_mot_mne, _dev, _attr)
+            _tango_mot_error_stack(_mot_mne, _axis_ds_name, _attr)
             return ".error."
         }
 
@@ -578,17 +578,19 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
     }
 
     if (key == "apply_config") {
-        TANGO_ERR = -1
-        if (action == "no_reload") {
-            tango_io(_axis_ds_name, "ApplyConfig", 0)
+        local _state
+
+        # motor_par(mne, "apply_config", no_reload=0)
+        if (action == "set") {
+            local do_reload
+            do_reload = !p1
+            TANGO_ERR = -1
+            tango_io(_axis_ds_name, "ApplyConfig", do_reload)
+            if (TANGO_ERR){
+                _tango_mot_error_stack(_mot_mne, _axis_ds_name, _attr)
+                exit
+            }
 	}
-	else {
-            tango_io(_axis_ds_name, "ApplyConfig", 1)
-	}
-        if (TANGO_ERR){
-            _tango_mot_error_stack(_mot_mne, _axis_ds_name, _attr)
-            exit
-        }
 
         # in any case, returns the current state (0 == ON)
         _state = tango_io(_axis_ds_name, "State")
@@ -596,6 +598,8 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
     }
 
     if (key == "settings_to_config") {
+        local _state
+
         TANGO_ERR = -1
         tango_io(_axis_ds_name, "SettingsToConfig")
         if (TANGO_ERR){

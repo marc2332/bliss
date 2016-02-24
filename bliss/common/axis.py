@@ -328,15 +328,15 @@ class Axis(object):
         if from_config:
             try:
                 ll = self.config.get("low_limit")
-                ll = self.dial2user(float(ll))
             except KeyError:
                 ll = None
             try:
                 hl = self.config.get("high_limit")
-                hl = self.dial2user(float(hl))
             except KeyError:
                 hl = None
-            return (ll, hl)
+            def config2limit(c):
+                return self.dial2user(float(c)) if c is not None else c
+            return map(config2limit, (ll, hl))
         if not isinstance(low_limit, Null):
             self.settings.set("low_limit", low_limit)
         if not isinstance(high_limit, Null):
@@ -611,11 +611,9 @@ class Axis(object):
         if acceleration:
             self.__config.set('acceleration', self.acceleration())
         if limits:
-            ll, hl = self.limits()
-            if ll is not None:
-                ll = self.user2dial(ll)
-            if hl is not None:
-                hl = self.user2dial(hl)
+            def limit2config(l):
+                return self.user2dial(l) if l is not None else l
+            ll, hl = map(limit2config, self.limits())
             self.__config.set('low_limit', ll)
             self.__config.set('high_limit', hl)
         if any((velocity, acceleration, limits)):

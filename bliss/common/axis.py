@@ -225,11 +225,14 @@ class Axis(object):
         """
         dial_pos = self._hw_position()
         if new_pos is not None:
+            prev_offset = self.offset
             self.__settings.set("_set_position", new_pos)
             self.__settings.set("offset", new_pos - self.sign * dial_pos)
             # update limits
             ll, hl = self.limits()
-            self.limits(ll + self.offset if ll is not None else ll, hl + self.offset if hl is not None else hl)
+            lim_delta = self.offset - prev_offset
+            self.limits(ll + lim_delta if ll is not None else ll,
+                        hl + lim_delta if hl is not None else hl)
 
         self.__settings.set("position", self.dial2user(dial_pos), write=False)
         self.__settings.set("dial_position", dial_pos) #, write=False)

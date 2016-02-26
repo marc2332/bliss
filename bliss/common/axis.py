@@ -254,7 +254,8 @@ class Axis(object):
 
     def sync_hard(self):
         self._update_settings()
-
+        event.send(self, "sync_hard")
+        
     def velocity(self, new_velocity=None, from_config=False):
         """
         <new_velocity> is given in user units per seconds.

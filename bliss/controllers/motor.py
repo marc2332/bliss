@@ -294,6 +294,12 @@ class CalcController(Controller):
         self.pseudos = [
             axis for axis_name,
             axis in self.axes.iteritems() if axis not in self.reals]
+        for pseudo_axis in self.pseudos:
+            event.connect(pseudo_axis, 'sync_hard', self._pseudo_sync_hard)
+
+    def _pseudo_sync_hard(self):
+        for real_axis in self.reals:
+            real_axis.sync_hard()
 
     def _updated_from_channel(self, setting_name):
         #print [axis.settings.get_from_channel(setting_name) for axis in self.reals]

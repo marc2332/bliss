@@ -239,41 +239,15 @@ def bliss_get_custom_commands(mot_name) '{
 # Forges SPEC functions for custom commands.
 # Functions test if controller is of the good type.
 def bliss_declare_func(controller_name, fct_name, type_in, type_out) '{
-    local _cmd
+    local _arg _ret _sign _dev _body _cmd
 
-    # 4 cases depending on existence of in / out parameters.
-    if(type_in == "None" && type_out == "None"){
-        _cmd = sprintf("rdef %s_%s(mot_name) \\\'{     \n\
-    tango_io(motor_par(mot_name, \"dev_name\"), \"%s\")                                  \n\
-}\\\'       \
-          ", controller_name, fct_name, fct_name)
-
-        eval(_cmd)
-    }
-    else if(type_out == "None"){
-        _cmd = sprintf("rdef %s_%s(mot_name, argin) \\\'{     \n\
-    tango_io(motor_par(mot_name, \"dev_name\"), \"%s\", argin)                                  \n\
-}\\\'       \
-          ", controller_name, fct_name, fct_name)
-
-        eval(_cmd)
-    }
-    else if(type_in == "None"){
-        _cmd = sprintf("rdef %s_%s(mot_name) \\\'{     \n\
-    return tango_io(motor_par(mot_name, \"dev_name\"), \"%s\")                                  \n\
-}\\\'       \
-          ", controller_name, fct_name, fct_name)
-
-        eval(_cmd)
-    }
-    else{
-        _cmd = sprintf("rdef %s_%s(mot_name, argin) \\\'{     \n\
-    return tango_io(motor_par(mot_name, \"dev_name\"), \"%s\", argin)                                  \n \
-}\\\'       \
-          ", controller_name, fct_name, fct_name)
-
-        eval(_cmd)
-    }
+    _arg = (type_in != "None") ? ", argin" : ""
+    _ret = (type_out != "None") ? "return " : ""
+    _sign = sprintf("%s_%s(mot_name%s)", controller_name, fct_name, _arg)
+    _dev = "motor_par(mot_name, \"dev_name\")"
+    _body = sprintf("%stango_io(%s, \"%s\"%s)", _ret, _dev, fct_name, _arg)
+    _cmd = sprintf("rdef %s \\\'{\n    %s\n}\\\'\n", _sign, _body)
+    eval(_cmd)
 }'
 
 

@@ -478,9 +478,9 @@ class DeepDevice(object):
 	    if "req" in cmd_type or "ack" in cmd_type:
               try:
 	          ans = reply.get() #self.__rd_ascii(prefix)
-              except RuntimeError, msg:
+              except RuntimeError, e:
 	          if chkanswer:
-		     raise DeviceError(self, msg)
+		     raise DeviceError(self, str(e))
               else: 
 	          if "bin" in cmd_type:
 		    if "req" in cmd_type:

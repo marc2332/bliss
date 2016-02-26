@@ -621,7 +621,7 @@ class BlissAxis(PyTango.Device_4Impl):
         :return:
         :rtype: PyTango.DevVoid """
         self.debug_stream("In Abort()")
-        self.axis.stop()
+        self.axis.stop(wait=False)
 
     def Stop(self):
         """ Stop gently the motor
@@ -631,7 +631,7 @@ class BlissAxis(PyTango.Device_4Impl):
         :return:
         :rtype: PyTango.DevVoid """
         self.debug_stream("In Stop()")
-        self.axis.stop()
+        self.axis.stop(wait=False)
 
     def StepUp(self):
         """ Performs a relative motion of ``stepSize`` in the forward

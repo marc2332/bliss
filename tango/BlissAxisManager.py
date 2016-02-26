@@ -145,7 +145,10 @@ class BlissAxisManager(PyTango.Device_4Impl):
     def group_move_done(self, move_done, **kws):
         if not move_done:
             return
-
+        elif not self.group_dict:
+            print 'BlissAxisManager: move_done event with no group'
+            return
+        
         if 'sender' in kws:
             sender = kws['sender']
             groupid = [gid for gid, grp in self.group_dict.items()
@@ -541,7 +544,7 @@ class BlissAxis(PyTango.Device_4Impl):
         # a smart client out there who is handling the user/offset.
         # Therefore don't the user position/offset of EMotion.
         # Which means: always keep dial position == user position
-        self.axis.dial(data)
+        self.axis.dial(self.axis.sign * data)
         self.axis.position(data)
 
     def read_FirstVelocity(self, attr):
@@ -779,6 +782,23 @@ class BlissAxis(PyTango.Device_4Impl):
         """
         self.axis.apply_config(reload=reload)
 
+    def SetPosition(self, new_user_pos):
+        """
+        (Re)Set the user position (no motor move): just change offset
+        """
+        old_user = self.axis.position()
+        self.axis.position(new_user_pos)
+        return old_user
+
+    def SetDial(self, new_dial_pos):
+        """
+        (Re)Set the dial position (no motor move): write into controller
+        The offset is kept constant, so the user position also changes
+        """
+        old_dial = self.axis.dial()
+        self.axis.dial(new_dial_pos)
+        return old_dial
+
 
 class BlissAxisClass(PyTango.DeviceClass):
     #    Class Properties
@@ -854,7 +874,13 @@ class BlissAxisClass(PyTango.DeviceClass):
          [PyTango.DevVoid, "calls apply_config ???"]],
         'SettingsToConfig':
         [[PyTango.DevVoid, ""],
-         [PyTango.DevVoid, "calls settings_to_config ???"]]
+         [PyTango.DevVoid, "calls settings_to_config ???"]],
+        'SetPosition':
+        [[PyTango.DevDouble, "New user position (=dial*sign+offset)"],
+         [PyTango.DevDouble, "Previous user position"]],
+        'SetDial':
+        [[PyTango.DevDouble, "New dial position (=(user-offset)/sign)"],
+         [PyTango.DevDouble, "Previous dial position"]],
     }
 
     #    Attribute definitions

@@ -328,8 +328,12 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
         local _mot_mne _axis_ds_name  _axis_name
         local TTT[]  _msg
         local spec_bk emot_bk
+        local user_pos
 
         _mot_mne = motor_mne(motnum)
+
+        # Always include the "in_config" internal flag
+        motor_par(motnum, "in_config", 0, "add")
 
         # Builds axis DS name from controller DS name.
         # ex : id26/bliss/cyrtest -> id26/bliss_cyrtest/roba
@@ -451,7 +455,7 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
 
             # To inform macro func tango_mot_par to not set acc/velo
             # to DS we use this custom [in_config] motor_par flag
-            motor_par(motnum, "in_config", 1, "add")
+            motor_par(motnum, "in_config", 1)
 
             # Reads "velocity" from server and set SPEC internal
             # "velocity" (different from "config_velocity").
@@ -484,7 +488,16 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
             motor_par(motnum ,"disable", 1)
             return ".error."
         }
+
+        # Handle offset
+        # TODO: verify SPEC and E-motion sign agree
+        user_pos = tango_mot_get_attr(motnum, "Position")
+        motor_par(motnum, "in_config", 1)
+        if (chg_offset(motnum, user_pos) < 0)
+            printf("chg_offset(%s, %s) failed\n", _mot_mne, user_pos)
+        motor_par(motnum, "in_config", 0)
     }
+
 }'
 
 
@@ -597,6 +610,27 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
         return (_cl_state)
     }
 
+
+    if (key == "offset"){
+        local curr_offset user_pos _cmd
+
+        curr_offset = tango_mot_get_attr(motnum, "Offset")
+        if ((action == "set") && (p1 != curr_offset) && \
+            !motor_par(motnum, "in_config")) {
+            user_pos = tango_mot_get_attr(motnum, "Position")
+            user_pos += p1 - curr_offset
+            _cmd = "SetPosition"
+            TANGO_ERR = -1
+            tango_io(_axis_ds_name, _cmd, user_pos)
+            if (TANGO_ERR != "0"){
+                _tango_mot_error_stack(_mot_mne, _axis_ds_name, _cmd)
+                exit
+            }
+        } else {
+            tango_mot_dbg("motor_par: getting the offset!")
+        }
+        return curr_offset
+    }
 
     if (action == "get") {
         if ( key == "axisstatus"){
@@ -720,14 +754,18 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
         # deg, mm, um)
         # parameters: none
         if (cmd == "position") {
-            local _pos
+            local _pos _offset
 
             _attr =  "position"
-            _pos = tango_get(_dev, _attr)
+            _attr2 = "offset"
+            tango_get(_dev, _attr, _pos, _attr2, _offset)
             if (TANGO_ERR != "0"){
-                _tango_mot_error_stack(_mot_mne, _dev, _attr)
+                _tango_mot_error_stack(_mot_mne, _dev, \
+                                       sprintf("%s,%s",_attr, _attr2))
                 exit
             }
+
+            _pos -= _offset
 
             _step_size = motor_par(motnum, "step_size")
             _steps = _pos * _step_size
@@ -807,7 +845,13 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
         #
         if (cmd == "set_position") {
             tango_mot_dbg(sprintf("new dial position in user units: %g", p1))
-            tango_mot_set_attr(motnum, "presetposition", p1)
+            _cmd = "SetDial"
+            TANGO_ERR = -1
+            tango_io(_dev, _cmd, p1)
+            if (TANGO_ERR != "0"){
+                _tango_mot_error_stack(_mot_mne, _dev, _cmd)
+                exit
+            }
         }
 
         # "abort_one" called on <Ctrl-C>
@@ -844,7 +888,7 @@ def tango_mot_add_motion(ctrl_dev, motnum, pos) '{
     mot_mne = motor_mne(motnum)
     axis_name = motor_par(motnum, "axis_name")
     sep = (length(motion) > 0) ? "," : ""
-    pos_str = sprintf("%.20g", pos)
+    pos_str = sprintf("%.20g", user(motnum, pos))
     motion = sprintf("%s%s%s:%s:%s", motion, sep, mot_mne, axis_name, pos_str)
     TANGO_MOT_CTRL[ctrl_dev]["grpmotion"] = motion
 }'

@@ -507,10 +507,8 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
     local _axis_ds_name
     local _bliss_controller
 
-    _mot_mne = motor_mne(motnum)
     if (key == "dev_name")
         return
-    _axis_ds_name = motor_par(motnum, "dev_name")
 
     _msg = sprintf ("---tango_mot_par(motnum=%s key=\"%s\", action=\"%s\", p1=\"%s\", p2=\"%s\")", \
                     motnum, key, action, p1, p2)
@@ -523,10 +521,8 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
         return("dev_name, bliss_controller_name, power, axisstatus, apply_config, settings_to_config, closed_loop")
     }
 
-
-    if(key != "dev_name"){
-        _axis_ds_name = motor_par(motnum, "dev_name")
-    }
+    _mot_mne = motor_mne(motnum)
+    _axis_ds_name = motor_par(motnum, "dev_name")
 
     if (key == "bliss_controller_name") {
         _bliss_controller = tango_io(_axis_ds_name, "GetControllerClassName")
@@ -535,14 +531,15 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
 
     # Control motor power
     if (key == "power") {
-        local _state
+        local _state _cmd
 
         if (action == "set") {
             # Try to switch power on or off according to argin given
+            _cmd = (p1==1 ? "On" : "Off")
             TANGO_ERR = -1
-            tango_io(_axis_ds_name, (p1==1 ? "On" : "Off"))
+            tango_io(_axis_ds_name, _cmd)
             if (TANGO_ERR != "0"){
-                _tango_mot_error_stack(_mot_mne, _axis_ds_name, _attr)
+                _tango_mot_error_stack(_mot_mne, _axis_ds_name, _cmd)
                 exit
             }
         }
@@ -553,16 +550,17 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
     }
 
     if (key == "apply_config") {
-        local _state
+        local _state _cmd
 
         # motor_par(mne, "apply_config", no_reload=0)
         if (action == "set") {
             local do_reload
             do_reload = !p1
+            _cmd = "ApplyConfig"
             TANGO_ERR = -1
-            tango_io(_axis_ds_name, "ApplyConfig", do_reload)
+            tango_io(_axis_ds_name, _cmd, do_reload)
             if (TANGO_ERR != "0"){
-                _tango_mot_error_stack(_mot_mne, _axis_ds_name, _attr)
+                _tango_mot_error_stack(_mot_mne, _axis_ds_name, _cmd)
                 exit
             }
 	}
@@ -573,12 +571,13 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
     }
 
     if (key == "settings_to_config") {
-        local _state
+        local _state _cmd
 
+        _cmd = "SettingsToConfig"
         TANGO_ERR = -1
-        tango_io(_axis_ds_name, "SettingsToConfig")
+        tango_io(_axis_ds_name, _cmd)
         if (TANGO_ERR != "0"){
-            _tango_mot_error_stack(_mot_mne, _axis_ds_name, _attr)
+            _tango_mot_error_stack(_mot_mne, _axis_ds_name, _cmd)
             exit
         }
 

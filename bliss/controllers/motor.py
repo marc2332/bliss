@@ -397,8 +397,13 @@ class CalcController(Controller):
             self._update_state_from_real()
 
     def start_one(self, motion):
+        self.start_all(motion)
+
+    def start_all(self, *motion_list):
+        req_motion_dict = dict([(motion.axis, motion.target_pos)
+                                for motion in motion_list])
         positions_dict = self._get_set_positions()
-        positions_dict[motion.axis] = motion.target_pos
+        positions_dict.update(req_motion_dict)
 
         move_dict = dict()
         for tag, target_pos in self.calc_to_real(positions_dict).iteritems():

@@ -185,7 +185,7 @@ class Controller(object):
                 add_axis_method(axis, member, **member._axis_method_)
             except AttributeError:
                 pass
- 
+
 
     def get_axis(self, axis_name):
         axis = self._axes[axis_name]
@@ -199,7 +199,7 @@ class Controller(object):
     def initialize_axis(self, axis):
         raise NotImplementedError
 
-    
+
     def finalize_axis(self, axis):
         raise NotImplementedError
 
@@ -269,7 +269,7 @@ class Controller(object):
 
     def set_encoder(self, encoder, new_value):
         raise NotImplementedError
-  
+
     def read_velocity(self, axis):
         raise NotImplementedError
 
@@ -439,5 +439,5 @@ class CalcController(Controller):
                 break
 
         self._calc_from_real()
-  
+
         return axis.position()

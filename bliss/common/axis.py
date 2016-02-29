@@ -450,12 +450,12 @@ class Axis(object):
 
         return motion
 
-    def _set_moving_state(self):
+    def _set_moving_state(self, from_channel=False):
         self.__move_done.clear()
-        self.settings.set("state", AxisState("MOVING"), write=True) #False)
+        self.settings.set("state", AxisState("MOVING"), write=not from_channel)
         event.send(self, "move_done", False)
 
-    def _set_move_done(self, move_task):
+    def _set_move_done(self, move_task, from_channel=False):
         if move_task is not None:
             if not move_task._being_waited:
                 try:
@@ -471,7 +471,8 @@ class Axis(object):
             # this update is very important for position, to have
             # final position ok for waiters on move done event
             self._update_settings(state=self.state(read_hw=True))
-        self.__move_done.set()
+        if not from_channel:
+            self.__move_done.set()
         event.send(self, "move_done", True)
 
     def _check_ready(self):

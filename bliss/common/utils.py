@@ -13,7 +13,9 @@ class WrappedMethod(object):
 def wrap_methods(from_object, target_object):
    for name in dir(from_object):
        if inspect.ismethod(getattr(from_object, name)):
-           setattr(target_object, name, types.MethodType(WrappedMethod(from_object, name), target_object, target_object.__class__))
+         if hasattr(target_object, name) and inspect.ismethod(getattr(target_object, name)):
+           continue
+         setattr(target_object, name, types.MethodType(WrappedMethod(from_object, name), target_object, target_object.__class__))
 
 def add_property(inst, name, method):
   cls = type(inst)

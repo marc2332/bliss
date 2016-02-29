@@ -287,6 +287,7 @@ class BlissAxis(PyTango.Device_4Impl):
         self.attr_HardLimitLow_read = False
         self.attr_HardLimitHigh_read = False
         self.attr_Backlash_read = 0.0
+        self.attr_Sign_read = 1
         self.attr_Offset_read = 0.0
         self.attr_Tolerance_read = 0.0
         self.attr_PresetPosition_read = 0.0
@@ -489,6 +490,11 @@ class BlissAxis(PyTango.Device_4Impl):
 #        self.debug_stream("In write_Backlash()")
 #        data = attr.get_write_value()
 #        self.debug_stream("write backlash %s" % data)
+
+    def read_Sign(self, attr):
+        self.debug_stream("In read_Sign()")
+        self.attr_Sign_read = self.axis.sign()
+        attr.set_value(self.attr_Sign_read)
 
     def read_Offset(self, attr):
         self.debug_stream("In read_Offset()")
@@ -969,6 +975,17 @@ class BlissAxisClass(PyTango.DeviceClass):
              'description': "Backlash to be applied to each motor movement",
              #'Display level': PyTango.DispLevel.EXPERT,
         }],
+        'Sign':
+        [[PyTango.DevShort,
+          PyTango.SCALAR,
+          PyTango.READ],
+         {
+             'label': "Sign",
+             'unit': "unitless",
+             'format': "%d",
+             'description': "Sign between dial and user: +/-1",
+             #'Display level': PyTango.DispLevel.EXPERT,
+        }],
         'Offset':
         [[PyTango.DevDouble,
           PyTango.SCALAR,
@@ -977,7 +994,7 @@ class BlissAxisClass(PyTango.DeviceClass):
              'label': "Offset",
              'unit': "uu",
              'format': "%7.5f",
-             'description': "Offset between dial and user",
+             'description': "Offset between (sign*dial) and user",
              #'Display level': PyTango.DispLevel.EXPERT,
         }],
         'Tolerance':

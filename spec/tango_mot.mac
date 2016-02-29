@@ -328,6 +328,7 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
         local _mot_mne _axis_ds_name  _axis_name
         local TTT[]  _msg
         local spec_bk emot_bk
+        local emot_sign
         local user_pos
 
         _mot_mne = motor_mne(motnum)
@@ -489,8 +490,16 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
             return ".error."
         }
 
-        # Handle offset
-        # TODO: verify SPEC and E-motion sign agree
+        # Handle sign & offset
+
+        emot_sign = tango_mot_get_attr(motnum, "Sign")
+        if (emot_sign != motor_par(motnum, "sign")) {
+            _msg = sprintf("Motor %s has different sign in Spec AND in EMotion, disabling it!!!", _mot_mne)
+            tango_mot_err(_msg)
+            motor_par(motnum ,"disable", 1)
+            return ".error."
+        }
+
         user_pos = tango_mot_get_attr(motnum, "Position")
         motor_par(motnum, "in_config", 1)
         if (chg_offset(motnum, user_pos) < 0)
@@ -766,6 +775,7 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
             }
 
             _pos -= _offset
+            _pos /= motor_par(motnum, "sign")
 
             _step_size = motor_par(motnum, "step_size")
             _steps = _pos * _step_size

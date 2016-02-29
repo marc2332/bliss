@@ -1,4 +1,4 @@
-%Module pixmaptools 0
+%Module qt3 0
 
 %Import qt/qtmod.sip
 

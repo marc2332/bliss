@@ -2,7 +2,7 @@
 
 %Import QtGui/QtGuimod.sip
 
-%Module(name=qt4,version=0)
+%Module qt4
 
 %ModuleHeaderCode
 extern "C" { void pixmap_import_array();}
@@ -11,7 +11,7 @@ extern "C" { void pixmap_import_array();}
 %PostInitialisationCode
 pixmap_import_array();
 %End
-%Extract class_io
+%Doc
 <h1>Class IO</h1>
 <p>
 This class was copied from KPixmapIO and just rename IO
@@ -98,7 +98,7 @@ public:
 };
 
 
-%Extract class_lut
+%Doc
 <h1>Class LUT</h1>
 <p>
 This class is a lookup for colormap

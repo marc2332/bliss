@@ -544,7 +544,7 @@ class BlissAxis(PyTango.Device_4Impl):
         # a smart client out there who is handling the user/offset.
         # Therefore don't the user position/offset of EMotion.
         # Which means: always keep dial position == user position
-        self.axis.dial(self.axis.sign * data)
+        self.axis.dial(data / self.axis.sign)
         self.axis.position(data)
 
     def read_FirstVelocity(self, attr):

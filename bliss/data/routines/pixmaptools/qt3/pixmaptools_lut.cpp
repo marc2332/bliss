@@ -2,6 +2,18 @@
 #include <iostream>
 #include <math.h>
 
+template<class IN> static void _find_min_max(const IN *aData,int aNbValue,IN &dataMin,IN &dataMax);
+template<class IN> static void _find_minpos_max(const IN *aData,int aNbValue,IN &dataMin,IN &dataMax);
+template<class IN> static void _linear_data_map(const IN *data,unsigned int *anImagePt,int column,int line,
+						unsigned int *palette,double A,double B,
+						IN dataMin,IN dataMax) throw();
+template<class IN> static  void _log_data_map(const IN *data,unsigned int *anImagePt,int column,int line,
+					      unsigned int *aPalette,double A,double B,
+					      IN dataMin,IN dataMax) throw();
+template<class IN> static void _log_data_map_shift(const IN *data,unsigned int *anImagePt,int column,int line,
+						   unsigned int *aPalette,double A,double B,
+						   IN dataMin,IN dataMax,IN shift) throw();
+
 struct LUT::XServer_Info {
   int byte_order;
   int pixel_size;
@@ -355,7 +367,7 @@ static void _get_average_std_min_max(const IN *aData,int aNbValue,
  *  simple look up between dataMin and dataMax
  *  @see map_on_min_max_val
  */
-template<class IN> static __attribute__ ((used)) void _find_min_max(const IN *aData,int aNbValue,IN &dataMin,IN &dataMax)
+template<class IN> static void _find_min_max(const IN *aData,int aNbValue,IN &dataMin,IN &dataMax)
 {
   dataMax = dataMin = *aData;++aData;
   for(int i = 1;i < aNbValue;++i,++aData)
@@ -365,7 +377,7 @@ template<class IN> static __attribute__ ((used)) void _find_min_max(const IN *aD
     }
 }
 
-template<class IN> static __attribute__ ((used)) void _find_minpos_max(const IN *aData,int aNbValue,IN &dataMin,IN &dataMax)
+template<class IN> static void _find_minpos_max(const IN *aData,int aNbValue,IN &dataMin,IN &dataMax)
 {
   dataMax = *aData;
   if(*aData > 0) dataMin = *aData;
@@ -462,7 +474,7 @@ template<class IN> static __attribute__ ((used)) void _data_map(const IN *data,u
 
 // LINEAR MAPPING FCT
 
-template<class IN> static __attribute__ ((used)) void _linear_data_map(const IN *data,unsigned int *anImagePt,int column,int line,
+template<class IN> static void _linear_data_map(const IN *data,unsigned int *anImagePt,int column,int line,
 						unsigned int *palette,double A,double B,
 						IN dataMin,IN dataMax) throw()
 {
@@ -552,7 +564,7 @@ template<> void _linear_data_map(unsigned char const *data,unsigned int *anImage
 	*anImagePt = *palette;
     }
 }
-template<class IN> static __attribute__ ((used)) void _log_data_map(const IN *data,unsigned int *anImagePt,int column,int line,
+template<class IN> static void _log_data_map(const IN *data,unsigned int *anImagePt,int column,int line,
 					     unsigned int *aPalette,double A,double B,
 					     IN dataMin,IN dataMax) throw()
 {
@@ -571,7 +583,7 @@ template<class IN> static __attribute__ ((used)) void _log_data_map(const IN *da
     }
 }
 
-template<class IN> static __attribute__ ((used)) void _log_data_map_shift(const IN *data,unsigned int *anImagePt,int column,int line,
+template<class IN> static void _log_data_map_shift(const IN *data,unsigned int *anImagePt,int column,int line,
 						   unsigned int *aPalette,double A,double B,
 						   IN dataMin,IN dataMax,IN shift) throw()
 {
@@ -591,29 +603,25 @@ template<class IN> static __attribute__ ((used)) void _log_data_map_shift(const 
     }
 }
 
-static __attribute__ ((used)) void init_template()
-{
-#define INIT_MAP(TYPE)							\
-  {									\
-    TYPE aMin,aMax;							\
-    unsigned int *anImagePt = NULL;					\
-    LUT::map_on_min_max_val((TYPE*)aBuffer,anImagePt,0,0,palette,LUT::LINEAR,aMin,aMax); \
-    std::cout << aMin << aMax << *anImagePt << std::endl;		\
-  }
-  LUT::Palette palette = LUT::Palette();
-  char *aBuffer = new char[16];
-  INIT_MAP(char);
-  INIT_MAP(unsigned char);
-  INIT_MAP(short);
-  INIT_MAP(unsigned short);
-  INIT_MAP(int);
-  INIT_MAP(unsigned int);
-  INIT_MAP(long);
-  INIT_MAP(unsigned long);
-  INIT_MAP(float);
-  INIT_MAP(double);
-  delete [] aBuffer;
-}
+#define INIT_TEMPLATE(TYPE)						\
+  template void LUT::map_on_min_max_val(const TYPE *,unsigned int *anImagePt,int column,int row,Palette &aPalette, \
+					mapping_meth aMeth,		\
+					TYPE &dataMin,TYPE &dataMax);
+INIT_TEMPLATE(char)
+INIT_TEMPLATE(unsigned char)
+
+INIT_TEMPLATE(short)
+INIT_TEMPLATE(unsigned short)
+
+INIT_TEMPLATE(int)
+INIT_TEMPLATE(unsigned int)
+
+INIT_TEMPLATE(long)
+INIT_TEMPLATE(unsigned long)
+
+INIT_TEMPLATE(float)
+INIT_TEMPLATE(double)
+
 //inline function for video scaling
 inline void _alloc(unsigned char* &lumaPt,int column,int line,int depth)
 {

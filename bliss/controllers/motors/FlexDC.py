@@ -172,6 +172,7 @@ class FlexDC(Controller):
 
     def raw_write_read(self, cmd):
         _cmd = "%s%s" % (self.ctrl_axis.channel, cmd)
+        elog.debug("raw_write_read : _cmd=%s" % _cmd)
         return self._flexdc_query(_cmd)
 
     def read_acceleration(self, axis):

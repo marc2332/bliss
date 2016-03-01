@@ -191,6 +191,9 @@ class Controller(object):
 
         return encoder
 
+    def get_class_name(self):
+        return self.__class__.__name__
+
     def initialize_encoder(self, encoder):
         raise NotImplementedError
 

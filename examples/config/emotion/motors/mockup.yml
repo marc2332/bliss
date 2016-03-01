@@ -18,4 +18,6 @@
                 backlash: 2
                 steps_per_unit: 10000
                 velocity: 2500
+                offset: 1
+                tolerance: 0.1
 

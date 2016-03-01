@@ -1,4 +1,4 @@
-from bliss.common.measurement import CounterBase
+from bliss.common.measurement import CounterBase, AverageMeasurement
 from bliss.common.utils import add_property
 import wago_client
 
@@ -13,11 +13,36 @@ class WagoCounter(CounterBase):
     self.parent = parent
     self.cntname = name
 
-  def read(self, acq_time=None):
-    data = self.parent._cntread(acq_time)
-    if isinstance(self.cntname, str):
-      return data[self.parent.cnt_dict[self.cntname]]
-    return data
+  def __call__(self, *args, **kwargs):
+    return self
+  
+  def read(self, acq_time=0):
+    meas = AverageMeasurement()
+    for reading in meas(acq_time):
+      data = self.parent._cntread(acq_time)
+      if isinstance(self.cntname, str):
+        data = data[self.parent.cnt_dict[self.cntname]]
+      reading.value = data
+    return meas.average
+
+  def gain(self, gain=None, name=None):
+    name = name or self.cntname
+    try:
+      name = [x for x in self.parent.counter_gain_names if str(name) in x][0]
+    except:
+      raise RuntimeError("Cannot find %s in the %s mapping" % (name, self.parent.name))
+
+    if gain:
+      valarr = [False]*3
+      valarr[gain-1] = True 
+      self.parent.set(name,valarr)
+    else:
+      valarr = self.parent.get(name)
+      if isinstance(valarr, list) and True in valarr:
+        return (valarr.index(True)+1)
+      else:
+        return 0
+
 
 class wago(object):
   def __init__(self, name, config_tree):
@@ -35,18 +60,21 @@ class wago(object):
 
     self.cnt_dict = {}
     self.cnt_names = []
+    self.cnt_gain_names = []
+    
     try:
-      idx = 0
-      self.cnt_names = config_tree["counter_names"].replace(" ","").split(',')
-      for i in self.cnt_names:
-        self.cnt_dict[i] = idx
-        self.__counter = WagoCounter(self, i, idx)
-        def wc_counter(*args):
-          return self.__counter
-        add_property(self, i, wc_counter)
-        idx += 1
+      self.counter_gain_names = config_tree["counter_gain_names"].replace(" ","").split(',')
     except:
       pass
+
+    try:
+      self.cnt_names = config_tree["counter_names"].replace(" ","").split(',')
+    except:
+      pass
+    else:
+      for i, name in enumerate(self.cnt_names):
+        self.cnt_dict[name] = i
+        add_property(self, name, WagoCounter(self, name, i))
 
   def connect(self):
     self.controller = wago_client.connect(self.wago_ip)
@@ -74,5 +102,4 @@ class wago(object):
   def _cntread(self, acq_time=None):
     return self.get(*self.cnt_names)
 
-    
 

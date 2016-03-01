@@ -2,6 +2,7 @@ from bliss.common.task_utils import cleanup, error_cleanup, task
 from bliss.common.measurement import CounterBase, AverageMeasurement
 import PyTango.gevent
 import time
+import numpy
 
 class tango_keithley(CounterBase):
     def __init__(self, name, config):
@@ -15,6 +16,8 @@ class tango_keithley(CounterBase):
             self.__control.MeasureSingle()
             self.__control.WaitAcq()
             reading.value = self.__control.ReadData
+            if isinstance(reading.value,  numpy.ndarray):
+              reading.value = reading.value[0]
         return meas.average
 
     def autorange(self, autorange_on=None):

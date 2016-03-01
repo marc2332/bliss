@@ -316,6 +316,12 @@ class TestMockupController(unittest.TestCase):
         roby = bliss.get_axis("roby")
         self.assertEqual(roby.velocity(), roby.config.get("velocity", int))
 
+    def test_custom_method(self):
+        roby = emotion.get_axis("roby")
+        roby.Set_Closed_Loop(True)
+        roby.Set_Closed_Loop(False)
+        roby.Set_Closed_Loop()
+
     def test_home_search(self):
         roby = bliss.get_axis("roby")
         self.assertEqual(roby.state(), 'READY')

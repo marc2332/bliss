@@ -11,7 +11,7 @@
 #%EXAMPLE%
 #%DL%
 #%SETUP%
-# Configuration is done in SPEC config (not in SPEC setup).%BR%
+# Configuration is done in SPEC config (nothing in SPEC setup).%BR%
 #
 # --Controller------------------------------------------------------------------ %BR% \
 # Motor and Counter Device Configuration (Not CAMAC)
@@ -29,8 +29,7 @@
 # Mnemonic\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0unused\0\0\0\0\0\0\0\0\0\0\0fdc      %BR% \
 # ------------------------------------------------------------------------------ %BR%
 #
-# Set the custom parameter "axis_name" to use a mnemonic different from tango    %BR% \
-# axis name.
+# Set the custom parameter "axis_name" to use a name different from spec mnemonic.%BR% \
 #
 # Set "use_spec_config" to 1 to use spec configuration parameters rather than    %BR% \
 # EMotion/tango ones.
@@ -68,6 +67,90 @@ def bliss_get_axes(mot_name) '{
     return TTT
 }'
 
+
+def is_motor_BlissAxis(mot_num) '{
+    if ( motor_par(mot_num, "device_id") == "tango_mot"){
+        return (motor_par(mot_num, "bliss_axis_master_ds") != "")
+    }
+}'
+
+
+def bliss_axis_get_infos(mot_num) '{
+    printf("========= Bliss Axis ========\n")
+    printf("mnemonic = \"%s\"\n",motor_mne(mot_num))
+    printf("num = %d\n", mot_num)
+    printf("unit = %s\n", motor_par(mot_num, "unit") )
+    printf("module = %s\n", motor_par(mot_num, "module") )
+    printf("channel = %s\n", motor_par(mot_num, "channel") )
+    printf("address = %s\n", motor_par(mot_num, "address") )
+    printf("ICE number = %s\n",  motor_par(mot_num, "module")*10 + motor_par(mot_num, "channel") )
+    printf("disable = %s\n", motor_par(mot_num, "disable") )
+    printf("responsive = %s\n", motor_par(mot_num, "responsive") )
+    printf("controller = %s\n", motor_par(mot_num, "controller") )
+    printf("device_id = %s\n", motor_par(mot_num, "device_id") )
+
+    printf("dev_name = %s\n", motor_par(mot_num, "dev_name") )
+    printf("bliss_axis_master_ds = %s\n", motor_par(mot_num, "bliss_axis_master_ds") )
+
+    printf("active = %s\n", motor_par(mot_num, "active") )
+    printf("status = %s\n", motor_par(mot_num, "status") )
+    printf("==============================\n")
+
+    # EX :
+    #8.BATEST> bliss_axis_get_infos(ba1)
+    #========= Bliss Axis ========
+    #mnemonic = "ba1"
+    #num = 1
+    #unit = 0
+    #module = 0
+    #channel = 0
+    #address = id26/BlissAxisManager/batest
+    #ICE number = 0
+    #disable = 0
+    #responsive = 1
+    #controller = PSE_MAC_MOT
+    #device_id = tango_mot
+    #dev_name = id26/BlissAxisManager_batest/ba1
+    #bliss_axis_master_ds = id26/BlissAxisManager/batest
+    #active = 0
+    #status = 192
+    #===============================
+}'
+
+# Test macro to run on a mockup configuration
+# - axis must be named "ba1"
+# - instance must be named "batest"
+def ba_test '{
+    local mot_num
+
+    mot_num = motor_num("ba1")
+
+    printf("ba_test : motor_par(mot_num, \"controller\")")
+    if (motor_par(mot_num, "controller") != "PSE_MAC_MOT")
+        print " ERROR"
+    else
+        print " OK"
+
+    printf("ba_test : motor_par(mot_num, \"tango_mot\")")
+    if (motor_par(mot_num, "device_id") != "tango_mot")
+        print " ERROR"
+    else
+        print " OK"
+
+    printf("ba_test : motor_par(mot_num, \"dev_name\")")
+    if (motor_par(mot_num, "dev_name") != "id26/BlissAxisManager_batest/ba1")
+        print " ERROR"
+    else
+        print " OK"
+
+    printf("ba_test : motor_par(mot_num, \"bliss_axis_master_ds\")")
+    if (motor_par(mot_num, "bliss_axis_master_ds") != "id26/BlissAxisManager/batest")
+        print " ERROR"
+    else
+        print " OK"
+
+    # to be completed...
+}'
 
 def bliss_get_custom_commands(mot_name) '{
     local ccList[]  ii
@@ -232,7 +315,7 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
     if((motnum == "..") && (type == "ctrl")) {
 
         # Checks controller DS field.
-        if (tango_mot_ADDR ==""){
+        if (tango_mot_ADDR == ""){
             tango_mot_err( "config : tango_mot_ADDR is empty ?")
             return ".error."
         }
@@ -295,12 +378,15 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
         }
 
         # Registers axis Tango DS name in parameters of the motor.
-        tango_mot_dbg(sprintf("Registering DS name : \"%s\" for motor \"%s\"", \
-                             _axis_ds_name, _mot_mne))
+        tango_mot_dbg(sprintf("Registering axis DS name : \"%s\"  and ctrl DS name : \"%s\" for motor \"%s\"", \
+                              _axis_ds_name, _ctrl_ds_name, _mot_mne))
 
         # Cannot use tango_mot_ADDR here directly...
         motor_par(motnum, "ctrl_dev_name", tango_mot_ADDR, "add")
         motor_par(motnum, "dev_name", _axis_ds_name, "add")
+
+        # WTF : Can use tango_mot_ADDR here only for motor 1 !!!
+        motor_par(motnum, "bliss_axis_master_ds", _ctrl_ds_name, "add")
 
         # On a reconfig, restores config value of axis.
         motor_par(motnum, "apply_config")
@@ -430,6 +516,7 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
     local _mot_mne
     local _msg
     local _axis_ds_name
+    local _bliss_controller
 
     _mot_mne = motor_mne(motnum)
     if (key == "dev_name")
@@ -441,13 +528,20 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
     tango_mot_dbg(_msg)
 
     # Returns the list of non standard motor parameters implemented.
+    # !!! :   motor_par("svg", "?")   will not show nerw parameters.
+    #       p motor_par("svg", "?")   will do.
     if ( key == "?" && action == "get") {
-        return("power, axisstatus, apply_config, settings_to_config, closed_loop")
+        return("dev_name, bliss_controller_name, power, axisstatus, apply_config, settings_to_config, closed_loop")
     }
 
 
     if(key != "dev_name"){
         _axis_ds_name = motor_par(motnum, "dev_name")
+    }
+
+    if (key == "bliss_controller_name") {
+        _bliss_controller = tango_io(_axis_ds_name, "GetControllerClassName")
+        return (_bliss_controller)
     }
 
     # Control motor power
@@ -832,6 +926,42 @@ def _tango_mot_error_desc(msg) '{
         }
     }
 }'
+
+
+
+
+# 489.CYRIL> p motor_par(rup, "?")
+# disable, unit, module, channel,
+# responsive, controller, device_id
+# active, status, step_size, sign, offset, writable,
+# high_lim_set, low_lim_set,
+# acceleration, velocity|slew_rate, base_rate, backlash,
+# powder_base, powder_slew, powder_acceleration,
+# config_step_size, config_backlash, config_acceleration,
+# config_base_rate, config_velocity|config_slew_rate
+# dev_name, power, axisstatus, apply_config, settings_to_config, closed_loop
+
+# 490.CYRIL>  p motor_par(rup, "unit")
+# 2
+# 491.CYRIL> print motor_par(rup, "unit")
+# 2
+# 492.CYRIL> print motor_par(rup, "module")
+# 0
+# 493.CYRIL> print motor_par(rup, "channel")
+# 2
+# 494.CYRIL> print motor_par(rup, "responsive")
+# 1
+# 495.CYRIL> print motor_par(rup, "controller")
+# PSE_MAC_MOT
+# 496.CYRIL> print motor_par(rup, "device_id")
+# tango_mot
+# 497.CYRIL> print motor_par(rup, "dev_name")
+# id26/blissaxismanager_cyrtest/rup
+
+
+
+
+
 
 
 

@@ -18,6 +18,9 @@ class MD2S:
         self.transmission = config.get("transmission")
         self.detcover = config.get("detcover")
         self.safshut = config.get("safety_shutter")
+        self.filename = config.get("config_file")
+        self.energy = config.get("energy")
+        self.ring_curr = config.get("ring_curr")
 
     def get_hwstate(self):
         try:
@@ -42,6 +45,48 @@ class MD2S:
                  break
              else:
                  time.sleep(0.5)
+
+    def get_transmission(self, fname=None):
+        transmission = 100
+        if not fname:
+            fname = self.filename
+        try:
+            f = open(fname)
+            array = []
+            nb_line = 0
+            for line in f:
+                if not line.startswith('#'):
+                    array.append(line.split())
+                    nb_line += 1
+                else:
+                    pass
+        except IOError:
+            logging.exception("Cannot read transmission file")
+
+        curr_dict = {}
+        for i in array:
+          curr_dict[float(i[0])] = map(float,i[1:])
+
+        #read the ring current
+        try:
+            r_curr = self.ring_curr.read()
+        except:
+            raise RuntimeError("Could not read ring current")
+
+        #read the energy
+        try:
+            en = self.energy.position()
+        except:
+            raise RuntimeError("Could not read the energy")
+
+        for curr in sorted(curr_dict):
+            if r_curr > float(curr):
+                if en > curr_dict[curr][0] and en < curr_dict[curr][1]:
+                    transmission = curr_dict[curr][2]
+                else:
+                    transmission = curr_dict[curr][3]
+        print "Setting transmission to", transmission
+        return transmission
 
     def get_phase(self):
          return self._exporter.readProperty("CurrentPhase")
@@ -125,8 +170,8 @@ class MD2S:
 
         def restore_nobeam():
             self.msclose()
-            self.restore_live()
-            self.restore_att()
+            restore_live()
+            restore_att()
 
         def do_centrebeam():
             with error_cleanup(restore_att):
@@ -145,7 +190,7 @@ class MD2S:
             bz = res[3]
             #check for minimum intensity, stop the procedure if not enough
             with error_cleanup(restore_nobeam):
-                if res[1] < 1500. or -1 in (by, bz):
+                if res[1] < 800. or -1 in (by, bz):
                     time.sleep(1)
                     logging.getLogger("user_level_log").error("Could not find beam, centrebeam aborted")
                     raise RuntimeError("Could not find beam")
@@ -154,23 +199,26 @@ class MD2S:
             dz = (bz - (img_height / 2)) / px_mm_z
             with error_cleanup(restore_live):
                 if abs(dy) > 0.4 or abs(dz) > 0.4:
-                    logging.getLogger("user_level_log").error("Aborting centrebeam, too big displacement (> 0.1 mm)")
+                    logging.getLogger("user_level_log").error("Aborting centrebeam, too big displacement (> 0.4 mm)")
                     time.sleep(1)
                     self.msclose()
                     raise RuntimeError("Aborting centrebeam, too big displacement")
             with error_cleanup(restore_table):
-                print "moving ttrans by", dy
-                print "moving thgt by", dz
+                logging.info("moving ttrans by %f", dy)
+                logging.info("moving thgt by %f", dz)
                 self._simultaneous_rmove(self.thgt, dz, self.ttrans, dy)
+            time.sleep(1)
             return dy, dz
 
         with cleanup(restore_att):
-            self.transmission.transmission_set(1)
+            tm = self.get_transmission()
+            logging.info("Setting transmission to %2.3f", tm)
+            self.transmission.transmission_set(tm)
             self.detcover.set_in()
  
-            for i in range(7):
+            for i in range(5):
                 dy, dz = do_centrebeam()
-                if abs(dy) < 0.001 and abs(dz) < 0.001:
+                if abs(dy) < 0.002 and abs(dz) < 0.002:
                     logging.getLogger("user_level_log").info("Centrebeam finished successfully")
                     break
             self.msclose()

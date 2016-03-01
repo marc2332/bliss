@@ -316,15 +316,18 @@ class CalcController(Controller):
             event.connect(real_axis, 'state', self._update_state_from_real)
         self._reals_group = Group(*self.reals)
         event.connect(self._reals_group, 'move_done', self._real_move_done)
-        self.pseudos = [
-            axis for axis_name,
-            axis in self.axes.iteritems() if axis not in self.reals]
+        self.pseudos = [axis for axis_name, axis in self.axes.iteritems()
+                        if axis not in self.reals]
         for pseudo_axis in self.pseudos:
             event.connect(pseudo_axis, 'sync_hard', self._pseudo_sync_hard)
 
     def _pseudo_sync_hard(self):
         for real_axis in self.reals:
             real_axis.sync_hard()
+
+    def _axis_tag(self, axis):
+        return [tag for tag, axes in self._tagged.iteritems()
+                if tag != 'real' and len(axes) == 1 and axis in axes][0]
 
     def _updated_from_channel(self, setting_name):
         #print [axis.settings.get_from_channel(setting_name) for axis in self.reals]
@@ -334,22 +337,13 @@ class CalcController(Controller):
         def axis_position(x):
             return x.user2dial(x._set_position()) * x.steps_per_unit
 
-        return dict([(t, axis_position(axes[0]))
-                     for t, axes in self._tagged.iteritems()
-                     if len(axes) == 1 and axes[0] in self.pseudos])
+        return dict([(self._axis_tag(axis), axis_position(axis))
+                     for axis in self.pseudos])
 
     def _do_calc_from_real(self):
         real_positions_by_axis = self._reals_group.position()
-        real_positions = dict()
-
-        for tag, axis_list in self._tagged.iteritems():
-            if len(axis_list) > 1:
-                continue
-            axis = axis_list[0]
-
-            if axis in self.reals:
-                real_positions[tag] = real_positions_by_axis[axis]
-
+        real_positions = dict([(self._axis_tag(axis), pos)
+                               for axis, pos in real_positions_by_axis.items()])
         return self.calc_from_real(real_positions)
 
     def _calc_from_real(self, *args, **kwargs):
@@ -400,9 +394,11 @@ class CalcController(Controller):
         self.start_all(motion)
 
     def start_all(self, *motion_list):
-        req_motion_dict = dict([(motion.axis, motion.target_pos)
-                                for motion in motion_list])
         positions_dict = self._get_set_positions()
+        # _set_position dict currently includes the new target positions,
+        # so the next part is not necessary, done for completeness
+        req_motion_dict = dict([(self._axis_tag(motion.axis), motion.target_pos)
+                                for motion in motion_list])
         positions_dict.update(req_motion_dict)
 
         move_dict = dict()
@@ -432,16 +428,10 @@ class CalcController(Controller):
             raise RuntimeError("Cannot set dial position on motor '%s` from CalcController" % axis.name)
 
         positions = self._get_set_positions()
-
-        for tag, axis_list in self._tagged.iteritems():
-            if len(axis_list) > 1:
-                continue
-            if axis in axis_list:
-                positions[tag] = new_pos
-                real_positions = self.calc_to_real(positions)
-                for real_axis_tag, user_pos in real_positions.iteritems():
-                    self._tagged[real_axis_tag][0].position(user_pos)
-                break
+        positions[self._axis_tag(axis)] = new_pos
+        real_positions = self.calc_to_real(positions)
+        for real_axis_tag, user_pos in real_positions.iteritems():
+            self._tagged[real_axis_tag][0].position(user_pos)
 
         self._calc_from_real()
 

@@ -30,10 +30,10 @@ Example yml file:
    fraction: 0.01
    axes:
        -
-        name: s1h
+        name: $s1h
         tags: real first
        -
-        name: s2h
+        name: $s2h
         tags: real second
        -
         name: sH
@@ -48,7 +48,7 @@ class Slitbox(CalcController):
         self.orientation = str(self.config.get("orientation"))
 
     def calc_from_real(self, positions_dict):
-        return {self.orientation: position_dict["first"]}
+        return {self.orientation: positions_dict["first"]}
 
     def calc_to_real(self, axis_tag, positions_dict):
         fraction = float(self.config.get("fraction"))

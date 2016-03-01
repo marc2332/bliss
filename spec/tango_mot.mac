@@ -63,7 +63,7 @@ def bliss_get_axes(mot_name) '{
     local  TTT[]
     # Do not remove the following line...
     TTT[0] = TTT[0]
-    tango_io(motor_par(mot_name, "ctrl_dev_name"), "GetAxisList", TTT)
+    tango_io(motor_par(mot_name, "bliss_axis_master_ds"), "GetAxisList", TTT)
     return TTT
 }'
 
@@ -154,6 +154,7 @@ def ba_test '{
 
 def bliss_get_custom_commands(mot_name) '{
     local ccList[]  ii
+    local controller_name
 
     tango_io(motor_par(mot_name, "dev_name"), "GetCustomCommandList", ccList)
 
@@ -171,6 +172,8 @@ def bliss_get_custom_commands(mot_name) '{
 
     # decorated method
     # ccList["8"] = "["custom_park", [null, null]]"
+
+    controller_name = motor_par(mot_name, "bliss_controller_name")
 
     for (ii in ccList) {
         local _fct_name  _cmd_string   _reste  _length
@@ -228,45 +231,47 @@ def bliss_get_custom_commands(mot_name) '{
         else{
             # Not a complementary function => custom command.
             # accessible via "bliss_custom_XXX"
-            bliss_declare_func(_fct_name, _tin, _tout)
+            bliss_declare_func(controller_name, _fct_name, _tin, _tout)
         }
     }
 }'
 
-# Forges SPEC function for custom commands.
-def bliss_declare_func(fct_name, type_in, type_out) '{
 
+# Forges SPEC functions for custom commands.
+# Functions test if controller is of the good type.
+def bliss_declare_func(controller_name, fct_name, type_in, type_out) '{
     local _cmd
 
+    # 4 cases depending on existence of in / out parameters.
     if(type_in == "None" && type_out == "None"){
-        _cmd = sprintf("rdef bliss_%s(mot_name) \\\'{     \n\
+        _cmd = sprintf("rdef %s_%s(mot_name) \\\'{     \n\
     tango_io(motor_par(mot_name, \"dev_name\"), \"%s\")                                  \n\
 }\\\'       \
-          ", fct_name, fct_name)
+          ", controller_name, fct_name, fct_name)
 
         eval(_cmd)
     }
     else if(type_out == "None"){
-        _cmd = sprintf("rdef bliss_%s(mot_name, argin) \\\'{     \n\
+        _cmd = sprintf("rdef %s_%s(mot_name, argin) \\\'{     \n\
     tango_io(motor_par(mot_name, \"dev_name\"), \"%s\", argin)                                  \n\
 }\\\'       \
-          ", fct_name, fct_name)
+          ", controller_name, fct_name, fct_name)
 
         eval(_cmd)
     }
     else if(type_in == "None"){
-        _cmd = sprintf("rdef bliss_%s(mot_name) \\\'{     \n\
+        _cmd = sprintf("rdef %s_%s(mot_name) \\\'{     \n\
     return tango_io(motor_par(mot_name, \"dev_name\"), \"%s\")                                  \n\
 }\\\'       \
-          ", fct_name, fct_name)
+          ", controller_name, fct_name, fct_name)
 
         eval(_cmd)
     }
     else{
-        _cmd = sprintf("rdef bliss_%s(mot_name, argin) \\\'{     \n\
+        _cmd = sprintf("rdef %s_%s(mot_name, argin) \\\'{     \n\
     return tango_io(motor_par(mot_name, \"dev_name\"), \"%s\", argin)                                  \n \
 }\\\'       \
-          ", fct_name, fct_name)
+          ", controller_name, fct_name, fct_name)
 
         eval(_cmd)
     }

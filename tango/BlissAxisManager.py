@@ -230,7 +230,8 @@ class BlissAxis(PyTango.Device_4Impl):
         self.dev_state()
 
         # elog.info("    %s" % self.axis.get_info())
-        elog.info(" BlissAxisManager.py Axis " + bcolors.PINK + self._ds_name + bcolors.ENDC + " initialized")
+        _ctrl = self.kontroler.get_class_name()
+        elog.info("BlissAxisManager [%s] : \t" % _ctrl + bcolors.PINK + self._ds_name + bcolors.ENDC + "\t initialized")
 
     def always_executed_hook(self):
 
@@ -686,6 +687,13 @@ class BlissAxis(PyTango.Device_4Impl):
 
         return argout
 
+    def GetControllerClassName(self):
+        """
+        Returns the name of the class of the controller.
+        ex: 'Mockup'
+        """
+        argout = self.kontroler.get_class_name()
+        return argout
 
     def SettingsToConfig(self):
         """
@@ -766,6 +774,9 @@ class BlissAxisClass(PyTango.DeviceClass):
         'GetCustomCommandList':
         [[PyTango.DevVoid, ""],
          [PyTango.DevVarStringArray, "List of axis custom commands"]],
+        'GetControllerClassName':
+        [[PyTango.DevVoid, ""],
+         [PyTango.DevString, "Name of the class of the controller of this axis"]],
         'ApplyConfig':
         [[PyTango.DevVoid, ""],
          [PyTango.DevVoid, "calls apply_config ???"]],

@@ -1,4 +1,4 @@
-__all__ = ['EnetSocket', 'Enet', 'TangoGpib', 'Gpib', 'to_tmo', 'TMO_MAP']
+__all__ = ['EnetSocket', 'Enet', 'Prologix', 'TangoGpib', 'Gpib', 'to_tmo', 'TMO_MAP']
 
 import re
 import logging
@@ -72,6 +72,84 @@ class Enet(EnetSocket):
     def _recv(self,length) :
         return self._sock.read(length)
 
+class Prologix:
+    def __init__(self,cnt,**keys) :
+        self._logger = logging.getLogger(str(self))
+        self._debug = self._logger.debug
+        url = keys.pop('url')
+        url_parse = re.compile("^(prologix://)?([^:/]+):?([0-9]*)$")
+        match = url_parse.match(url)
+        if match is None:
+            raise RuntimeError('Inet: url is not valid (%s)' % url)
+        hostname = match.group(2)
+        port = match.group(3) and int(match.group(3)) or 1234
+        self._debug("Prologix::__init__() host = %s port = %s" % (hostname, port))
+        self._sock = Socket(hostname,port, timeout = keys.get('timeout'))
+        self._gpib_kwargs = keys
+
+    def init(self) :
+        self._debug("Prologix::init()")
+        if self._sock._fd is None:
+            # the Prologix must be a controller (mode 1)
+            self._debug("Prologix::init(): set to mode 1 (Controller) ")
+            self._sock.write("++mode 1\n")
+            self._sock.write("++clr\n")
+            self._debug("Prologix::init() save the configuration set to 0")
+            self._sock.write("++savecfg 0\n")
+            self._debug("Prologix::init() auto (read_after_write) set to 0")
+            self._sock.write("++auto 0\n")
+            
+            self._eos = self._gpib_kwargs['eos']
+            if self._eos == "\r\n":
+                self._debug("Prologix::init() eos set to 0 (%s)" % [ord(c) for c in self._eos])
+                self._sock.write("++eos 0\n")
+            elif self._eos == "\r":
+                self._debug("Prologix::init() eos set to 1 (%s)" % self._eos)
+                self._sock.write("++eos 1\n")
+            elif self._eos == "\n":
+                self._debug("Prologix::init() eos set to 2 (%s)" % self._eos)
+                self._sock.write("++eos 2\n")
+            else:
+                self._debug("Prologix::init() eos set to 3 (%s)" % self._eos)
+                self._sock.write("++eos 3\n")
+            
+            self._debug("Prologix::init() eoi set to 1")
+            self._sock.write("++eoi 1\n")
+            self._debug("Prologix::init() read_tmo_ms set to 13")
+            self._sock.write("++read_tmo_ms 13\n")
+            # the gpib address
+            self._sad = self._gpib_kwargs.get('sad',0)
+            self._pad = self._gpib_kwargs['pad']
+            if self._sad == 0:
+                self._debug("Prologix::init() gpib primary address set to %d" % self._pad)
+                self._sock.write("++addr %d\n" % self._pad)
+            else:
+                self._debug("Prologix::init() gpib primary & secondary address' set to %d:%d" % (self._pad, self._sad))
+                self._sock.write("++addr %d %d\n" % (self._pad, self._sad))
+
+    def close(self) :
+        self._sock.close()
+        
+    def _open(self) :
+        pass
+
+    """
+    Prologix commands start with ++. The characters <CR> <LF> <ESC> and <+>
+    are therefore protected by adding <ESC> before each character so that the Prologix 
+    does not interpret them.
+    """
+    def ibwrt(self, cmd):
+        self._debug ("Sent: %s" % cmd)
+        cmd = cmd.replace('\33','\33'+'\33').replace("+",'\33'+"+").replace('\10', '\33'+'\10').replace('\13','\33'+'\13')
+        self._sock.write(cmd+"\n")
+        return len(cmd)
+
+    def ibrd(self,length) :
+        self._sock.write("++read EOI\n")
+        return self._sock.raw_read(maxsize = length)
+
+    def _raw(self,length):
+        return self.ibrd(length)
 
 def TangoGpib(cnt,**keys) :
     from PyTango import GreenMode
@@ -84,13 +162,14 @@ def try_open(fu) :
         self.open()
         timeout = keys.get('timeout')
         if timeout and self._timeout != timeout:
-            self._raw_handler.ibtmo(timeout)
+            if gpib_type != self.PROLOGIX:
+                self._raw_handler.ibtmo(timeout)
             self._timeout = timeout
         return fu(self,*args,**keys)
     return rfunc
 
 class Gpib:
-    ENET, TANGO = range(2)
+    ENET, TANGO, PROLOGIX = range(3)
     READ_BLOCK_SIZE = 64 * 1024
 
     def __init__(self,url = None,pad = 0,sad = 0,timeout = 1.,tmo = 13,
@@ -110,14 +189,19 @@ class Gpib:
         self._raw_handler = None
         self._logger = logging.getLogger(str(self))
         self._debug = self._logger.debug
+        self.gpib_type = self.ENET
+        self._data = ""
 
     def open(self) :
         if self._raw_handler is None:
-            gpib_type = self._check_type()
-            if gpib_type == self.ENET:
+            self.gpib_type = self._check_type()
+            if self.gpib_type == self.ENET:
                 self._raw_handler = Enet(self,**self._gpib_kwargs)
                 self._raw_handler.init()
-            elif gpib_type == self.TANGO:
+            elif self.gpib_type == self.PROLOGIX:
+                self._raw_handler = Prologix(self,**self._gpib_kwargs)
+                self._raw_handler.init()
+            elif self.gpib_type == self.TANGO:
                 self._raw_handler = TangoGpib(self,**self._gpib_kwargs)
 
     def close(self) :
@@ -129,13 +213,13 @@ class Gpib:
     def raw_read(self,maxsize = None,timeout = None):
         size_to_read = maxsize or self.READ_BLOCK_SIZE
         return self._raw_handler.ibrd(size_to_read)
-
+        
     def read(self,size = 1,timeout = None):
         with self._lock:
             return self._read(size)
 
     @try_open
-    def _read(self,size = 1):
+    def _read(self,size = 1) :
         return self._raw_handler.ibrd(size)
 
     def readline(self,eol = None,timeout = None):
@@ -143,22 +227,19 @@ class Gpib:
             return self._readline(eol)
 
     @try_open
-    def _readline(self,eol):
+    def _readline(self,eol) :
         local_eol = eol or self._eos
-        data = ''
         url = self._gpib_kwargs.get('url')
         pad = self._gpib_kwargs.get('pad')
         timeout_errmsg = "timeout on gpib(%s,%d)" % (url,pad)
         with gevent.Timeout(self._timeout,RuntimeError(timeout_errmsg)):
-            data += self._raw_handler.ibrd(self.READ_BLOCK_SIZE)
-            if local_eol is None:
-                eol_pos = len(data)
-            else:
-                eol_pos = data.find(local_eol)
+            eol_pos = self._data.find(local_eol)
             while eol_pos == -1:
-                data += self._raw_handler.ibrd(self.READ_BLOCK_SIZE)
-                eol_pos = data.find(local_eol)
-        return data[:eol_pos]
+                self._data += self._raw_handler.ibrd(self.READ_BLOCK_SIZE)
+                eol_pos = self._data.find(local_eol)
+        msg = self._data[:eol_pos]
+        self._data = self._data[eol_pos + len(local_eol):]
+        return msg
 
     def write(self,msg,timeout=None) :
         with self._lock:
@@ -199,6 +280,8 @@ class Gpib:
         url_lower = url.lower()
         if url_lower.startswith("enet://") :
             return self.ENET
+        elif url_lower.startswith("prologix://") :
+            return self.PROLOGIX
         elif url_lower.startswith("tango://") :
             return self.TANGO
         else:

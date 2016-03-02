@@ -225,11 +225,14 @@ class Axis(object):
         """
         dial_pos = self._hw_position()
         if new_pos is not None:
+            prev_offset = self.offset
             self.__settings.set("_set_position", new_pos)
             self.__settings.set("offset", new_pos - self.sign * dial_pos)
             # update limits
             ll, hl = self.limits()
-            self.limits(ll + self.offset if ll is not None else ll, hl + self.offset if hl is not None else hl)
+            lim_delta = self.offset - prev_offset
+            self.limits(ll + lim_delta if ll is not None else ll,
+                        hl + lim_delta if hl is not None else hl)
 
         self.__settings.set("position", self.dial2user(dial_pos), write=False)
         self.__settings.set("dial_position", dial_pos) #, write=False)
@@ -332,7 +335,9 @@ class Axis(object):
                 hl = self.config.get("high_limit")
             except KeyError:
                 hl = None
-            return (ll, hl)
+            def config2limit(c):
+                return self.dial2user(float(c)) if c is not None else c
+            return map(config2limit, (ll, hl))
         if not isinstance(low_limit, Null):
             self.settings.set("low_limit", low_limit)
         if not isinstance(high_limit, Null):
@@ -608,7 +613,9 @@ class Axis(object):
         if acceleration:
             self.__config.set('acceleration', self.acceleration())
         if limits:
-            ll, hl = self.limits()
+            def limit2config(l):
+                return self.user2dial(l) if l is not None else l
+            ll, hl = map(limit2config, self.limits())
             self.__config.set('low_limit', ll)
             self.__config.set('high_limit', hl)
         if any((velocity, acceleration, limits)):

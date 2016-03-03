@@ -310,7 +310,7 @@ class MD2M:
           self.save_diagnostic(wait=False)
        
     def _get_diagnostic(self, phi_encoder_pos):
-        npoints = self.musst.putget("?VAR NPOINTS")
+        npoints = int(self.musst.putget("?VAR NPOINTS"))
         nlines = npoints #variable name should be changed in musst program
         diag_data = numpy.zeros((nlines, 9), dtype=numpy.float)
         data = self.musst.get_data(nlines, 8)

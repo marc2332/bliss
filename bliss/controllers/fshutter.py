@@ -65,7 +65,7 @@ class fshutter:
       if self.musst:
          if not self.enastate: 
              self.enable(self.icepap_steps)
-         btrig = self.musst.putget("?BTRIG")
+         btrig = int(self.musst.putget("?BTRIG"))
          self.musst.putget("#BTRIG %d" % (1-btrig))
          dispatcher.send('state', self, 'MOVING')
          # 'moving' state is not reported properly

@@ -77,20 +77,24 @@ def get_config(base_path='',timeout=3.):
     return CONFIG
 
 class Node(NodeDict):
-    def __init__(self,config,parent = None,filename = None) :
+    def __init__(self,config = None,parent = None,filename = None) :
         NodeDict.__init__(self)
         self._parent = parent
-        self._config = weakref.ref(config)
+        if config is None:
+            config = CONFIG
+        if config:
+            self._config = weakref.ref(config)
         config._create_file_index(self,filename)
 
     def __hash__(self):
         return id(self)
 
-    def __getstate__(self):
-        return dict(self)
-
     def __setstate__(self, d):
         self.update(d)
+
+    def __reduce__(self):
+        kwargs = dict(parent=None, filename=self.filename)
+        return self.__class__, (None, kwargs), dict(self)
 
     @property
     def filename(self) :

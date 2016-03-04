@@ -69,9 +69,8 @@ def bliss_get_axes(mot_name) '{
 
 
 def is_motor_BlissAxis(mot_num) '{
-    if ( motor_par(mot_num, "device_id") == "tango_mot"){
-        return (motor_par(mot_num, "bliss_axis_master_ds") != "")
-    }
+    return ((motor_par(mot_num, "device_id") == "tango_mot") && \
+            (motor_par(mot_num, "bliss_axis_master_ds") != ""))
 }'
 
 
@@ -386,12 +385,9 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
         tango_mot_dbg(sprintf("Registering axis DS name : \"%s\"  and ctrl DS name : \"%s\" for motor \"%s\"", \
                               _axis_ds_name, _ctrl_ds_name, _mot_mne))
 
-        # Cannot use tango_mot_ADDR here directly...
-        motor_par(motnum, "ctrl_dev_name", tango_mot_ADDR, "add")
-        motor_par(motnum, "dev_name", _axis_ds_name, "add")
-
-        # WTF : Can use tango_mot_ADDR here only for motor 1 !!!
+        # Store the BlissAxis master DS name for future refs
         motor_par(motnum, "bliss_axis_master_ds", _ctrl_ds_name, "add")
+        motor_par(motnum, "dev_name", _axis_ds_name, "add")
 
         # On a reconfig, restores config value of axis.
         motor_par(motnum, "apply_config")

@@ -57,6 +57,10 @@ def axis_method(method=None, name=None, args=[], types_info=(None, None)):
 def add_axis_attribute(axis_object, fget=None, fset=None, name=None,
                        type_info=None):
 
+    if not (fget or fset):
+        head = 'add_axis_attribute: %s' % name
+        raise ValueError('%s: must have a getter and/or a setter' % head)
+
     if name is None:
         if fget:
             name = fget.__name__.lstrip('get').lstrip('_')

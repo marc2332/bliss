@@ -797,6 +797,26 @@ class BlissAxis(PyTango.Device_4Impl):
 
         return argout
 
+    def GetCustomAttributeList(self):
+        """
+        Returns the list of custom attributes.
+        JSON format.
+        """
+        base_attrs = BlissAxisClass.attr_list
+        attrs = self.get_device_class().attr_list
+        custom_attr_names = set(attrs).difference(base_attrs)
+
+        argout = list()
+
+        for custom_attr_name in custom_attr_names:
+            custom_attr = attrs[custom_attr_name][0]
+            type_str = types_conv_tab_inv[custom_attr[0]]
+            access_str = access_conv_tab_inv[custom_attr[2]]
+            attr_item = custom_attr_name, type_str, access_str
+            argout.append(json.dumps(attr_item))
+
+        return argout
+
     def GetControllerClassName(self):
         """
         Returns the name of the class of the controller.
@@ -901,6 +921,9 @@ class BlissAxisClass(PyTango.DeviceClass):
         'GetCustomCommandList':
         [[PyTango.DevVoid, ""],
          [PyTango.DevVarStringArray, "List of axis custom commands"]],
+        'GetCustomAttributeList':
+        [[PyTango.DevVoid, ""],
+         [PyTango.DevVarStringArray, "List of axis custom attributes"]],
         'GetControllerClassName':
         [[PyTango.DevVoid, ""],
          [PyTango.DevString, "Name of the class of the controller of this axis"]],
@@ -1359,19 +1382,19 @@ def main(argv=None):
 
             # CUSTOM ATTRIBUTES
             _attr_list = _axis.custom_attributes_list()
-            for name, t, rw in _attr_list:
+            for name, t, access in _attr_list:
                 _attr_name = name
                 attr_info = [types_conv_tab[t],
                              PyTango.AttrDataFormat.SCALAR]
-                def read(self, attr, _axis=_axis, _attr_name=_attr_name):
-                    value = getattr(_axis, "get_" + _attr_name)()
-                    attr.set_value(value)
-                new_read_attr_method = types.MethodType(read, new_axis_class,
-                                                        new_axis_class.__class__)
-                setattr(new_axis_class, "read_%s" % _attr_name,
-                        new_read_attr_method)
-                if rw:
-                    attr_info.append(PyTango.AttrWriteType.READ_WRITE)
+                if 'r' in access:
+                    def read(self, attr, _axis=_axis, _attr_name=_attr_name):
+                        value = getattr(_axis, "get_" + _attr_name)()
+                        attr.set_value(value)
+                    new_read_attr_method = types.MethodType(read, new_axis_class,
+                                                            new_axis_class.__class__)
+                    setattr(new_axis_class, "read_%s" % _attr_name,
+                            new_read_attr_method)
+                if 'w' in access:
                     def write(self, attr, _axis=_axis, _attr_name=_attr_name):
                         value = attr.get_write_value()
                         getattr(_axis, "set_" + _attr_name)(value)
@@ -1379,8 +1402,10 @@ def main(argv=None):
                                                              new_axis_class.__class__)
                     setattr(new_axis_class, "write_%s" % _attr_name,
                             new_write_attr_method)
-                else:
-                    attr_info.append(PyTango.AttrWriteType.READ)
+
+                write_dict = {'r': 'READ', 'w': 'WRITE', 'rw': 'READ_WRITE'}
+                attr_write = getattr(PyTango.AttrWriteType, write_dict[access])
+                attr_info.append(attr_write)
                 new_axis_class_class.attr_list[_attr_name] = [attr_info]
 
             """

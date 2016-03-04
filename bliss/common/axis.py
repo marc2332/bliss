@@ -632,11 +632,12 @@ class Axis(object):
         if any((velocity, acceleration, limits)):
             self.__config.save()
 
-    def apply_config(self):
+    def apply_config(self, reload=True):
         """
         Applies configuration values to settings (ie: reset axis)
         """
-        self.config.reload()
+        if reload:
+            self.config.reload()
 
         # Applies velocity and acceleration only if possible.
         # Try to execute <config_name> function to check if axis supports it.

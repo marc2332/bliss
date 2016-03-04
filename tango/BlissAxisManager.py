@@ -145,7 +145,10 @@ class BlissAxisManager(PyTango.Device_4Impl):
     def group_move_done(self, move_done, **kws):
         if not move_done:
             return
-
+        elif not self.group_dict:
+            print 'BlissAxisManager: move_done event with no group'
+            return
+        
         if 'sender' in kws:
             sender = kws['sender']
             groupid = [gid for gid, grp in self.group_dict.items()
@@ -181,6 +184,18 @@ class BlissAxisManager(PyTango.Device_4Impl):
         group = self.group_dict[groupid]
         group.stop(wait=False)
 
+    def _reload(self):
+        bliss_config.beacon_get_config().reload()
+
+    def ReloadConfig(self):
+        TgGevent.threadSafeRequest(self._reload)()
+
+    def ApplyConfig(self, reload):
+        if reload:
+            self.ReloadConfig()
+        for axis_name, dev in self._get_axis_devices().items():
+            dev.axis.apply_config(reload=False)
+
 
 class BlissAxisManagerClass(PyTango.DeviceClass):
 
@@ -206,6 +221,12 @@ class BlissAxisManagerClass(PyTango.DeviceClass):
         'GroupAbort':
         [[PyTango.DevString, "Group identifier"],
          [PyTango.DevVoid, ""]],
+        'ReloadConfig':
+        [[PyTango.DevVoid, ""],
+         [PyTango.DevVoid, "Reload configuration"]],
+        'ApplyConfig':
+        [[PyTango.DevBoolean, "reload (true to do a reload before apply configuration, false not to)"],
+         [PyTango.DevVoid, "Apply configuration"]],
     }
 
 # Device States Description
@@ -266,6 +287,7 @@ class BlissAxis(PyTango.Device_4Impl):
         self.attr_HardLimitLow_read = False
         self.attr_HardLimitHigh_read = False
         self.attr_Backlash_read = 0.0
+        self.attr_Sign_read = 1
         self.attr_Offset_read = 0.0
         self.attr_Tolerance_read = 0.0
         self.attr_PresetPosition_read = 0.0
@@ -469,6 +491,11 @@ class BlissAxis(PyTango.Device_4Impl):
 #        data = attr.get_write_value()
 #        self.debug_stream("write backlash %s" % data)
 
+    def read_Sign(self, attr):
+        self.debug_stream("In read_Sign()")
+        self.attr_Sign_read = self.axis.sign()
+        attr.set_value(self.attr_Sign_read)
+
     def read_Offset(self, attr):
         self.debug_stream("In read_Offset()")
         self.attr_Offset_read = self.axis.offset()
@@ -523,7 +550,7 @@ class BlissAxis(PyTango.Device_4Impl):
         # a smart client out there who is handling the user/offset.
         # Therefore don't the user position/offset of EMotion.
         # Which means: always keep dial position == user position
-        self.axis.dial(data)
+        self.axis.dial(data / self.axis.sign)
         self.axis.position(data)
 
     def read_FirstVelocity(self, attr):
@@ -598,7 +625,7 @@ class BlissAxis(PyTango.Device_4Impl):
             self.set_status("OFF command was not executed as expected.")
 
     def GoHome(self):
-        """ 
+        """
         Moves the motor to the home position given by a home switch.
         Searches home switch in POSITIVE direction.
         """
@@ -755,11 +782,28 @@ class BlissAxis(PyTango.Device_4Impl):
         """
         self.axis.settings_to_config()
 
-    def ApplyConfig(self):
+    def ApplyConfig(self, reload):
         """
         Reloads configuration and apply it.
         """
-        self.axis.apply_config()
+        self.axis.apply_config(reload=reload)
+
+    def SetPosition(self, new_user_pos):
+        """
+        (Re)Set the user position (no motor move): just change offset
+        """
+        old_user = self.axis.position()
+        self.axis.position(new_user_pos)
+        return old_user
+
+    def SetDial(self, new_dial_pos):
+        """
+        (Re)Set the dial position (no motor move): write into controller
+        The offset is kept constant, so the user position also changes
+        """
+        old_dial = self.axis.dial()
+        self.axis.dial(new_dial_pos)
+        return old_dial
 
 
 class BlissAxisClass(PyTango.DeviceClass):
@@ -832,11 +876,17 @@ class BlissAxisClass(PyTango.DeviceClass):
         [[PyTango.DevVoid, ""],
          [PyTango.DevString, "Name of the class of the controller of this axis"]],
         'ApplyConfig':
-        [[PyTango.DevVoid, ""],
+        [[PyTango.DevBoolean, "reload (true to do a reload before apply configuration, false not to)"],
          [PyTango.DevVoid, "calls apply_config ???"]],
         'SettingsToConfig':
         [[PyTango.DevVoid, ""],
-         [PyTango.DevVoid, "calls settings_to_config ???"]]
+         [PyTango.DevVoid, "calls settings_to_config ???"]],
+        'SetPosition':
+        [[PyTango.DevDouble, "New user position (=dial*sign+offset)"],
+         [PyTango.DevDouble, "Previous user position"]],
+        'SetDial':
+        [[PyTango.DevDouble, "New dial position (=(user-offset)/sign)"],
+         [PyTango.DevDouble, "Previous dial position"]],
     }
 
     #    Attribute definitions
@@ -925,6 +975,17 @@ class BlissAxisClass(PyTango.DeviceClass):
              'description': "Backlash to be applied to each motor movement",
              #'Display level': PyTango.DispLevel.EXPERT,
         }],
+        'Sign':
+        [[PyTango.DevShort,
+          PyTango.SCALAR,
+          PyTango.READ],
+         {
+             'label': "Sign",
+             'unit': "unitless",
+             'format': "%d",
+             'description': "Sign between dial and user: +/-1",
+             #'Display level': PyTango.DispLevel.EXPERT,
+        }],
         'Offset':
         [[PyTango.DevDouble,
           PyTango.SCALAR,
@@ -933,7 +994,7 @@ class BlissAxisClass(PyTango.DeviceClass):
              'label': "Offset",
              'unit': "uu",
              'format': "%7.5f",
-             'description': "Offset between dial and user",
+             'description': "Offset between (sign*dial) and user",
              #'Display level': PyTango.DispLevel.EXPERT,
         }],
         'Tolerance':

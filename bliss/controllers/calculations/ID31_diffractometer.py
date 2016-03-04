@@ -55,6 +55,10 @@ def calc_lm_2th(liq_mode, e):
     th2 = bragg_angle(e, LM_D_C2[liq_mode])
     return 2 * (th2 - th1)
 
+def calc_q(e, th):
+    k = 2 * pi * e / Constant.hc_over_e
+    return 2 * k * sin(th)
+
 def calc_phys(virt_pos, pars):
     liq_mode = pars['liquid_mode']
     if liq_mode != LM_OFF:

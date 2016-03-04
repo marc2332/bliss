@@ -95,6 +95,7 @@ class ID31Diffract(CalcController):
     def initialize_axis(self, axis):
         super(ID31Diffract, self).initialize_axis(axis)
         add_axis_method(axis, self.get_lm_2th, types_info=('None', 'float'))
+        add_axis_method(axis, self.get_q, types_info=('float', 'float'))
         tags = axis.config.get('tags').split()
         for mot in self.ParamMotors:
             self.has_extra[mot] |= mot in tags
@@ -141,6 +142,9 @@ class ID31Diffract(CalcController):
     def get_lm_2th(self, axis):
         lm_2th = Diffract.calc_lm_2th(self['liquid_mode'], self['beam_energy'])
         return rad2deg(lm_2th)
+
+    def get_q(self, axis, th):
+        return Diffract.calc_q(self['beam_energy'], deg2rad(th))
 
     def __getitem__(self, name):
         typ_map = dict(liquid_mode=str, detector_active=bool)

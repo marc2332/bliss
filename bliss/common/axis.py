@@ -38,6 +38,7 @@ class Axis(object):
         self.__move_done = gevent.event.Event()
         self.__move_done.set()
         self.__custom_methods_list = list()
+        self.__custom_attributes_list = list()
         self.__move_task = None
         self.no_offset = False
 
@@ -100,6 +101,11 @@ class Axis(object):
         # return a copy of the custom methods list
         return self.__custom_methods_list[:]
 
+    @property
+    def custom_attributes_list(self):
+        # return a copy of the custom attributes list
+        return self.__custom_attributes_list[:]
+
     def set_setting(self, *args):
         self.settings.set(*args)
 
@@ -117,6 +123,12 @@ class Axis(object):
     def _add_custom_method(self, method, name, types_info=(None, None)):
         setattr(self, name, method)
         self.__custom_methods_list.append((name, types_info))
+
+    def _add_custom_attribute(self, fget, fset, name, type_info=None):
+        setattr(self, "get_" + name, fget)
+        if fset:
+            setattr(self, "set_" + name, fset)
+        self.__custom_attributes_list.append((name, type_info, fset is not None))
 
     def on(self):
         if self.is_moving:

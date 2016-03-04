@@ -137,14 +137,6 @@ class BlissAxisManagerClass(PyTango.DeviceClass):
 
     #    Device Properties
     device_property_list = {
-        'config_file':
-        [PyTango.DevString,
-         "( Deprecated ? ) Path to the XML configuration file\n  ---->XML only \n --->let empty if you want to use Beacon) ",
-        [["/users/blissadm/local/userconf/bliss/XXX.xml"]]],
-        'axes':
-        [PyTango.DevString,
-         "List of axes to instanciate \n ---> BEACON only \n let empty to use XML config file (only if you know what you are doing...).",
-         [["mot1 mot2 mot3"]]],
     }
 
     #    Command definitions
@@ -967,71 +959,74 @@ class BlissAxisClass(PyTango.DeviceClass):
           PyTango.READ_WRITE, 1000, 5]],
     }
 
+def get_server_axis_names(instance_name=None):
+    if instance_name is None:
+        _, instance_name, _ = get_server_info()
 
-def get_devices_from_server():
+    cfg = TgGevent.execute(bliss_config.beacon_get_config)
+    result = []
+    for item_name in cfg.names_list:
+        item_cfg = cfg.get_config(item_name)
+        if item_cfg.plugin == 'emotion' and \
+           instance_name in item_cfg.get('tango_server', ()):
+            result.append(item_name)
+    return result
+
+
+def get_server_info(argv=None):
+    if argv is None:
+        argv = sys.argv
+
+    file_name = os.path.basename(argv[0])
+    server_name = os.path.splitext(file_name)[0]
+    instance_name = argv[1]
+    server_instance = '/'.join((server_name, instance_name))
+    return server_name, instance_name, server_instance
+
+
+def register_server(db=None):
+    if db is None:
+        db = PyTango.Database()
+
+    server_name, instance_name, server_instance = get_server_info()
+
+    domain = os.environ.get('BEAMLINENAME', 'bliss')
+    dev_name = '{0}/emotion/{1}'.format(domain, instance_name)
+    elog.info(" registering new server: %s" % dev_name)
+    info = PyTango.DbDevInfo()
+    info.server = server_instance
+    info._class = 'BlissAxisManager'
+    info.name = dev_name
+    db.add_device(info)
+
+
+def get_devices_from_server(argv=None, db=None):
+    if db is None:
+        db = PyTango.Database()
+
+    if argv is None:
+        argv = sys.argv
+
     # get sub devices
-    fullpathExecName = sys.argv[0]
-    execName = os.path.split(fullpathExecName)[-1]
-    execName = os.path.splitext(execName)[0]
-    personalName = '/'.join([execName, sys.argv[1]])
-    db = PyTango.Database()
-    result = db.get_device_class_list(personalName)
+    _, _, personalName = get_server_info(argv)
+    result = list(db.get_device_class_list(personalName))
 
-    # "result" is :  DbDatum[
-    #    name = 'server'
-    # value_string = ['dserver/BlissAxisManager/cyril', 'DServer',
-    # 'pel/bliss/00', 'Bliss', 'pel/bliss_00/fd', 'BlissAxis']]
-    # print "--------------------"
-    # print result
-    # print "++++++++++++++++++++"
+    # dict<dev_name: tango_class_name>
+    dev_dict = dict(zip(result[::2], result[1::2]))
+
     class_dict = {}
+    for dev, class_name in dev_dict.items():
+        devs = class_dict.setdefault(class_name, [])
+        devs.append(dev)
 
-    for i in range(len(result.value_string) / 2):
-        deviceName = result.value_string[i * 2]
-        class_name = result.value_string[i * 2 + 1]
-        if class_name not in class_dict:
-            class_dict[class_name] = []
-
-        class_dict[class_name].append(deviceName)
+    class_dict.pop('DServer', None)
 
     return class_dict
 
 
-def delete_bliss_axes():
-    """
-    Removes BlissAxisManager axis devices from the database.
-    """
-    db = PyTango.Database()
-
-    bliss_axis_device_names = get_devices_from_server().get('BlissAxis')
-
-    for _axis_device_name in bliss_axis_device_names:
-        elog.info("Deleting existing BlissAxisManager axis: %s" %
-                  _axis_device_name)
-        db.delete_device(_axis_device_name)
-
-
-def delete_unused_bliss_axes():
-    """
-    Removes BlissAxisManager axes that are not running.
-    """
-    # get BlissAxis (only from current instance).
-    bliss_axis_device_names = get_devices_from_server().get('BlissAxis')
-    elog.info("Axes: %r" % bliss_axis_device_names)
-
-
-def main():
+def initialize_logging(argv):
     try:
-        delete_unused_bliss_axes()
-    except:
-        elog.error(
-            "Cannot delete unused bliss axes.",
-            raise_exception=False)
-
-    try:
-        py = PyTango.Util(sys.argv)
-
-        log_param = [param for param in sys.argv if "-v" in param]
+        log_param = [param for param in argv if "-v" in param]
         if log_param:
             log_param = log_param[0]
             # print "-vN log flag found   len=%d" % len(log_param)
@@ -1054,160 +1049,258 @@ def main():
             # by default : show INFO
             elog.level(20)
             tango_log_level = 0
+    except PyTango.DevFailed:
+        print traceback.format_exc()
+        elog.exception("Error in initializing logging")
+        sys.exit(0)
 
-        print ""
 
-        # elog.info("tango log level=%d" % tango_log_level)
-        # elog.debug("BlissAxisManager.py debug message")
-        # elog.error("BlissAxisManager.py error message", raise_exception=False)
+def recreate(db=None, new_server=False):
 
-        # Searches for bliss devices defined in tango database.
-        U = PyTango.Util.instance()
-        db = U.get_database()
-        device_list = get_devices_from_server().get('BlissAxisManager')
+    if db is None:
+        db = PyTango.Database()
 
-        if device_list is not None:
-            _device = device_list[0]
-            elog.info(" BlissAxisManager.py - BlissAxisManager device : %s" % _device)
-            try:
-                _config_file = db.get_device_property(_device, "config_file")["config_file"][0]
-            except:
-                elog.info(" BlissAxisManager.py - 'config_file' property not present ?")
-                _config_file = None
+    server_name, instance_name, server_instance = get_server_info()
+    registered_servers = set(db.get_instance_name_list('BlissAxisManager'))
 
-            first_run = False
+    # check if server exists in database. If not, create it.
+    if instance_name not in registered_servers:
+        if new_server:
+            register_server(db=db)
         else:
-            elog.error("[FIRST RUN] New server never started ? -> no database entry...", raise_exception=False)
-            elog.error("[FIRST RUN] NO CUSTOM COMANDS :( ", raise_exception=False)
-            elog.error("[FIRST RUN] Restart DS to havec CUSTOM COMMANDS", raise_exception=False)
-            first_run = True
+            print "The device server %s is not defined in database. " \
+                  "Exiting!" % server_instance
+            print "hint: start with '-n' to create a new one automatically"
+            sys.exit(255)
 
-        py.add_class(BlissAxisManagerClass, BlissAxisManager)
-        # py.add_class(BlissAxisClass, BlissAxis)
+    dev_map = get_devices_from_server(db=db)
 
-        if not first_run:
-            if _config_file is not None:
-                elog.info(" BlissAxisManager.py - config file : " + bcolors.PINK + _config_file + bcolors.ENDC)
-                try:
-                    TgGevent.execute(bliss.load_cfg, _config_file)
-                except:
-                    elog.error("error (not present or syntax error?) in reading config file : %s" %
-                               _config_file, raise_exception=False)
-                    sys.excepthook(*sys.exc_info())
-                    sys.exit(-1)
+    # if in a jive wizard workflow, return no axis
+    if not dev_map.get('BlissAxisManager', ()):
+        return ()
+
+    axis_names = get_server_axis_names()
+
+    # gather info about current axes registered in database and
+    # new axis from config
+
+    manager_dev_name = dev_map['BlissAxisManager'][0]
+
+    if db.get_device_property(manager_dev_name, "config_file")["config_file"]:
+        elog.error('Use of XML configuration not supported anymore. '
+                   'Turn to beacon', raise_exception=False)
+        sys.exit(-1)
+
+    if db.get_device_property(manager_dev_name, "axes")["axes"]:
+        elog.error('Use of \'axes\' property not supported anymore',
+                   raise_exception=False)
+        elog.error('Configure by adding: \'tango_server: %s\' in each '
+                   'axis yaml instead' % instance_name,
+                   raise_exception=False)
+        sys.exit(-1)
+
+    curr_axes = {}
+    for dev_class, dev_names in dev_map.items():
+        if not dev_class.startswith('BlissAxis_'):
+            continue
+        for dev_name in dev_names:
+            curr_axis_name = dev_name.rsplit("/", 1)[-1]
+            curr_axes[curr_axis_name] = dev_name, dev_class
+
+    axis_names_set = set(axis_names)
+    curr_axis_names_set = set(curr_axes)
+    new_axis_names = axis_names_set.difference(curr_axis_names_set)
+    old_axis_names = curr_axis_names_set.difference(axis_names_set)
+
+    domain, family, member = manager_dev_name.split('/', 2)
+
+    # remove old axes
+    for axis_name in old_axis_names:
+        dev_name = curr_axes[axis_name]
+        elog.debug('removing old axis %s (%s)' % (dev_name, axis_name))
+        db.delete_device(dev_name)
+
+    # add new axes
+    for axis_name in new_axis_names:
+        dev_name = "%s/%s_%s/%s" % (domain, family, member, axis_name)
+        info = PyTango.DbDevInfo()
+        info.server = server_instance
+        info._class = 'BlissAxis_' + axis_name
+        info.name = dev_name
+        elog.debug('adding new axis %s (%s)' % (dev_name, axis_name))
+        db.add_device(info)
+        # try to create alias if it doesn't exist yet
+        try:
+            db.get_device_alias(axis_name)
+        except PyTango.DevFailed:
+            elog.debug('registering alias for %s (%s)' % (dev_name, axis_name))
+            db.put_device_alias(dev_name, axis_name)
+
+    return axis_names
+
+
+def main(argv=None):
+    start_time = time.time()
+
+    if argv is None:
+        argv = sys.argv
+    argv = list(argv)
+
+    try:
+        argv.remove('-n')
+        new_server = True
+    except ValueError:
+        new_server = False
+
+    try:
+        # initialize logging as soon as possible
+        initialize_logging(argv)
+
+        bliss_config.set_backend('beacon')
+
+        # if querying list of instances, just return
+        if len(argv) < 2 or argv[1] == '-?':
+            util = PyTango.Util(argv)
+            # no need since tango exits the process when it finds '-?'
+            # (tango is not actually a library :-)
+            return
+
+        axis_names = recreate(new_server=new_server)
+        elog.debug("axis names list : %s" % (axis_names,))
+
+        util = PyTango.Util(argv)
+        db = util.get_database()
+        util.add_class(BlissAxisManagerClass, BlissAxisManager)
+
+        for axis_name in axis_names:
+            elog.debug("BlissAxisManager.py : _____________ axis %s _____________" % axis_name)
+            try:
+                _axis = TgGevent.get_proxy(bliss.get_axis, axis_name)
+            except ConnectionException:
+                elog.error("beacon_server seems not running")
+                sys.exit(-1)
+            except:
+                print traceback.format_exc()
+                sys.exit(-1)
+
+            new_axis_class_class = types.ClassType("BlissAxisClass_%s" % axis_name, (BlissAxisClass,), {})
+            new_axis_class = types.ClassType("BlissAxis_%s" % axis_name, (BlissAxis,), {})
+
+            types_conv_tab = {
+                None: PyTango.DevVoid,
+                str: PyTango.DevString,
+                int: PyTango.DevLong,
+                float: PyTango.DevDouble,
+                bool: PyTango.DevBoolean,
+                "str": PyTango.DevString,
+                "int": PyTango.DevLong,
+                "float": PyTango.DevDouble,
+                "bool": PyTango.DevBoolean,
+                "None": PyTango.DevVoid,
+                "float_array": PyTango.DevVarFloatArray,
+                "double_array": PyTango.DevVarDoubleArray,
+                "long_array": PyTango.DevVarLongArray,
+                "string_array": PyTango.DevVarStringArray
+            }
+
+            """
+            CUSTOM COMMANDS
+            """
+            # Search and adds custom commands.
+            _cmd_list = _axis.custom_methods_list()
+            elog.debug("'%s' custom commands:" % axis_name)
+
+            new_axis_class_class.cmd_list = dict(BlissAxisClass.cmd_list)
+
+            for (fname, (t1, t2)) in _cmd_list:
+                setattr(new_axis_class, fname, getattr(_axis, fname))
+
+                tin = types_conv_tab[t1]
+                tout = types_conv_tab[t2]
+
+                new_axis_class_class.cmd_list.update({fname: [[tin, ""], [tout, ""]]})
+
+                elog.debug("   %s (in: %s, %s) (out: %s, %s)" % (fname, t1, tin, t2, tout))
+
+            # CUSTOM ATTRIBUTES
+            _attr_list = _axis.custom_attributes_list()
+            for name, t, rw in _attr_list:
+                _attr_name = name
+                attr_info = [types_conv_tab[t],
+                             PyTango.AttrDataFormat.SCALAR]
+                def read(self, attr, _axis=_axis, _attr_name=_attr_name):
+                    value = getattr(_axis, "get_" + _attr_name)()
+                    attr.set_value(value)
+                new_read_attr_method = types.MethodType(read, new_axis_class,
+                                                        new_axis_class.__class__)
+                setattr(new_axis_class, "read_%s" % _attr_name,
+                        new_read_attr_method)
+                if rw:
+                    attr_info.append(PyTango.AttrWriteType.READ_WRITE)
+                    def write(self, attr, _axis=_axis, _attr_name=_attr_name):
+                        value = attr.get_write_value()
+                        getattr(_axis, "set_" + _attr_name)(value)
+                    new_write_attr_method = types.MethodType(write, new_axis_class,
+                                                             new_axis_class.__class__)
+                    setattr(new_axis_class, "write_%s" % _attr_name,
+                            new_write_attr_method)
                 else:
-                    # Get axis names defined in config file.
-                    axis_names = bliss_config.axis_names_list()
-            else:
-                elog.info(" BlissAxisManager.py - " + bcolors.PINK + "beacon config" + bcolors.ENDC)
-                # Get axes names from property (= use beacon to get axis objects)
-                bliss_config.BACKEND = "beacon"
-                axis_names = db.get_device_property(_device, "axes")["axes"][0].split()
+                    attr_info.append(PyTango.AttrWriteType.READ)
+                new_axis_class_class.attr_list[_attr_name] = [attr_info]
 
-            elog.debug("axis names list : %s" % axis_names)
 
-            for axis_name in axis_names:
-                elog.debug("BlissAxisManager.py : _____________ axis %s _____________" % axis_name)
-                try:
-                    _axis = TgGevent.get_proxy(bliss.get_axis, axis_name)
-                except ConnectionException:
-                    elog.error("beacon_server seems not running")
-                    sys.exit(-1)
-                except:
-                    print traceback.format_exc()
-                    sys.exit(-1)
+            """
+            CUSTOM SETTINGS AS ATTRIBUTES.
+            """
+            elog.debug(" BlissAxisManager.py : %s : -------------- SETTINGS -----------------" % axis_name)
 
-                new_axis_class_class = types.ClassType("BlissAxisClass_%s" % axis_name, (BlissAxisClass,), {})
-                new_axis_class = types.ClassType("BlissAxis_%s" % axis_name, (BlissAxis,), {})
+            new_axis_class_class.attr_list = dict(BlissAxisClass.attr_list)
 
-                types_conv_tab = {
-                    None: PyTango.DevVoid,
-                    str: PyTango.DevString,
-                    int: PyTango.DevLong,
-                    float: PyTango.DevDouble,
-                    bool: PyTango.DevBoolean,
-                    "str": PyTango.DevString,
-                    "int": PyTango.DevLong,
-                    "float": PyTango.DevDouble,
-                    "bool": PyTango.DevBoolean,
-                    "None": PyTango.DevVoid,
-                    "float_array": PyTango.DevVarFloatArray,
-                    "double_array": PyTango.DevVarDoubleArray,
-                    "long_array": PyTango.DevVarLongArray,
-                    "string_array": PyTango.DevVarStringArray
-                }
+            for setting_name in _axis.settings():
+                if setting_name in ["velocity", "position", "dial_position", "state",
+                                    "offset", "low_limit", "high_limit", "acceleration", "_set_position"]:
+                    elog.debug(" BlissAxisManager.py -- std SETTING %s " % (setting_name))
+                else:
+                    _attr_name = setting_name
+                    _setting_type = _axis.controller().axis_settings.convert_funcs[_attr_name]
+                    _attr_type = types_conv_tab[_setting_type]
+                    elog.debug(" BlissAxisManager.py -- adds SETTING %s as %s attribute" % (setting_name, _attr_type))
 
-                """
-                CUSTOM COMMANDS
-                """
-                # Search and adds custom commands.
-                _cmd_list = _axis.custom_methods_list()
-                elog.debug("'%s' custom commands:" % axis_name)
+                    # Updates Attributes list.
+                    new_axis_class_class.attr_list.update({_attr_name:
+                                                           [[_attr_type,
+                                                             PyTango.AttrDataFormat.SCALAR,
+                                                             PyTango.AttrWriteType.READ_WRITE], {
+                        'Display level': PyTango.DispLevel.OPERATOR,
+                        'format': '%10.3f',
+                        'description': '%s : u 2' % _attr_name,
+                        'unit': 'user units/s^2',
+                        'label': _attr_name
+                        }]})
 
-                new_axis_class_class.cmd_list = dict(BlissAxisClass.cmd_list)
+                    # Creates functions to read and write settings.
+                    def read_custattr(self, attr, _axis=_axis, _attr_name=_attr_name):
+                        _val = _axis.get_setting(_attr_name)
+                        attr.set_value(_val)
+                    new_read_attr_method = types.MethodType(read_custattr, new_axis_class,
+                                                            new_axis_class.__class__)
+                    setattr(new_axis_class, "read_%s" % _attr_name, new_read_attr_method)
 
-                for (fname, (t1, t2)) in _cmd_list:
-                    setattr(new_axis_class, fname, getattr(_axis, fname))
+                    def write_custattr(self, attr, _axis=_axis, _attr_name=_attr_name):
+                        data = attr.get_write_value()
+                        _axis.set_setting(_attr_name, data)
 
-                    tin = types_conv_tab[t1]
-                    tout = types_conv_tab[t2]
+                    new_write_attr_method = types.MethodType(write_custattr, new_axis_class,
+                                                             new_axis_class.__class__)
+                    setattr(new_axis_class, "write_%s" % _attr_name, new_write_attr_method)
 
-                    new_axis_class_class.cmd_list.update({fname: [[tin, ""], [tout, ""]]})
-
-                    elog.debug("   %s (in: %s, %s) (out: %s, %s)" % (fname, t1, tin, t2, tout))
-
-                """
-                CUSTOM SETTINGS AS ATTRIBUTES.
-                """
-                elog.debug(" BlissAxisManager.py : %s : -------------- SETTINGS -----------------" % axis_name)
-
-                new_axis_class_class.attr_list = dict(BlissAxisClass.attr_list)
-
-                for setting_name in _axis.settings():
-                    if setting_name in ["velocity", "position", "dial_position", "state",
-                                        "offset", "low_limit", "high_limit", "acceleration", "_set_position"]:
-                        elog.debug(" BlissAxisManager.py -- std SETTING %s " % (setting_name))
-                    else:
-                        _attr_name = setting_name
-                        _setting_type = _axis.controller().axis_settings.convert_funcs[_attr_name]
-                        _attr_type = types_conv_tab[_setting_type]
-                        elog.debug(" BlissAxisManager.py -- adds SETTING %s as %s attribute" % (setting_name, _attr_type))
-
-                        # Updates Attributes list.
-                        new_axis_class_class.attr_list.update({_attr_name:
-                                                               [[_attr_type,
-                                                                 PyTango._PyTango.AttrDataFormat.SCALAR,
-                                                                 PyTango._PyTango.AttrWriteType.READ_WRITE], {
-                            'Display level': PyTango._PyTango.DispLevel.OPERATOR,
-                            'format': '%10.3f',
-                            'description': '%s : u 2' % _attr_name,
-                            'unit': 'user units/s^2',
-                            'label': _attr_name
-                            }]})
-
-                        # Creates functions to read and write settings.
-                        def read_custattr(self, attr, _axis=_axis, _attr_name=_attr_name):
-                            _val = _axis.get_setting(_attr_name)
-                            attr.set_value(_val)
-                        new_read_attr_method = types.MethodType(read_custattr, new_axis_class,
-                                                                new_axis_class.__class__)
-                        setattr(new_axis_class, "read_%s" % _attr_name, new_read_attr_method)
-
-                        def write_custattr(self, attr, _axis=_axis, _attr_name=_attr_name):
-                            data = attr.get_write_value()
-                            _axis.set_setting(_attr_name, data)
-
-                        new_write_attr_method = types.MethodType(write_custattr, new_axis_class,
-                                                                 new_axis_class.__class__)
-                        setattr(new_axis_class, "write_%s" % _attr_name, new_write_attr_method)
-
-                # End of custom command and settings
-                elog.debug("BlissAxisManager.py : Adds new Axis specific class.")
-                py.add_class(new_axis_class_class, new_axis_class)
-                elog.debug("BlissAxisManager.py : Class added.")
+            # End of custom command and settings
+            elog.debug("BlissAxisManager.py : Adds new Axis specific class.")
+            util.add_class(new_axis_class_class, new_axis_class)
+            elog.debug("BlissAxisManager.py : Class added.")
 
         elog.debug("BlissAxisManager.py : intitialize server.")
-        U.server_init()
+        util.server_init()
 
     except PyTango.DevFailed:
         print traceback.format_exc()
@@ -1215,48 +1308,9 @@ def main():
             "Error in server initialization")
         sys.exit(0)
 
-    try:
-        bliss_admin_device_names = get_devices_from_server().get('BlissAxisManager')
-
-        if bliss_admin_device_names:
-            blname, server_name, device_number = bliss_admin_device_names[
-                0].split('/')
-
-            for axis_name in bliss_config.axis_names_list():
-                device_name = '/'.join((blname,
-                                        '%s_%s' % (server_name, device_number),
-                                        axis_name))
-                try:
-                    elog.debug("Creating %s" % device_name)
-
-                    U.create_device("BlissAxis_%s" % axis_name, device_name)
-
-                except PyTango.DevFailed:
-                    # print traceback.format_exc()
-                    elog.debug("Device %s already defined in Tango database" % device_name)
-                    pass
-
-                # If axis name is not already a tango alias,
-                # define it as an alias of the device.
-                try:
-                    db.get_device_alias(axis_name)
-                except PyTango.DevFailed:
-                    db.put_device_alias(device_name, axis_name)
-                    elog.debug("Created alias %s for device %s" % (axis_name, device_name))
-
-        else:
-            # Do not raise exception to be able to use
-            # Jive device creation wizard.
-            elog.error("No bliss supervisor device",
-                       raise_exception=False)
-
-    except PyTango.DevFailed:
-        print traceback.format_exc()
-        elog.exception(
-            "Error in devices initialization")
-        sys.exit(0)
-
-    U.server_run()
+    dt = time.time() - start_time
+    print('Ready to accept request (took %6.3fs)' % dt)
+    util.server_run()
 
 if __name__ == '__main__':
     main()

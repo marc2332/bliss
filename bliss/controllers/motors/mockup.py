@@ -3,6 +3,8 @@ from bliss.common import log as elog
 from bliss.common.axis import AxisState
 from bliss.common import event
 from bliss.controllers.motor import axis_method, add_axis_method
+from bliss.controllers.motor import add_axis_attribute
+
 import math
 import time
 import random
@@ -41,6 +43,7 @@ class Mockup(Controller):
 
         self._axis_moves = {}
         self.__encoders = {}
+        self.__voltages = {}
 
         self.__error_mode = False
         self._hw_status = AxisState("READY")
@@ -102,6 +105,11 @@ class Mockup(Controller):
         add_axis_method(axis, self.custom_set_measured_noise, types_info=("float", "None"))
         add_axis_method(axis, self._set_closed_loop, name = "Set_Closed_Loop", types_info = ("bool", "None"))
         add_axis_method(axis, self.put_discrepancy, types_info=("int", "None"))
+
+        add_axis_attribute(axis, self.get_voltage, self.set_voltage, type_info="int")
+        add_axis_attribute(axis, self.custom_get_measured_noise,
+                           self.custom_set_measured_noise, name='Measured_Noise',
+                           type_info="float")
 
         if axis.encoder:
             self.__encoders.setdefault(axis.encoder, {})["axis"] = axis
@@ -378,6 +386,13 @@ class Mockup(Controller):
     def custom_command_no_types(self, axis):
         print "print with no types"
 
+    def custom_get_measured_noise(self, axis):
+        noise = 0.0
+        if not axis.encoder in self.__encoders:
+            raise KeyError("cannot read measured noise: %s "
+                           "doesn't have encoder" % axis)
+        noise = self.__encoders[axis.encoder].get("measured_noise", 0.0)
+
     def custom_set_measured_noise(self, axis, noise):
         """
         Custom axis method to add a random noise, given in user units,
@@ -391,4 +406,8 @@ class Mockup(Controller):
     def set_error(self, error_mode):
         self.__error_mode = error_mode
 
+    def get_voltage(self, axis):
+        return self.__voltages.setdefault(axis, 0)
 
+    def set_voltage(self, axis, voltage):
+        self.__voltages[axis] = voltage

@@ -54,6 +54,28 @@ def axis_method(method=None, name=None, args=[], types_info=(None, None)):
     return method
 
 
+def add_axis_attribute(axis_object, fget, fset=None, name=None, type_info=None):
+
+    if name is None:
+        name = fget.im_func.func_name
+        name = name.lstrip('get').lstrip('_')
+
+    def call_get(self, *args, **kwargs):
+        return fget.im_func(fget.im_self, *args, **kwargs)
+
+    get_method = types.MethodType(functools.partial(call_get, axis_object),
+                                  axis_object)
+
+    set_method = None
+    if fset:
+        def call_set(self, *args, **kwargs):
+            return fset.im_func(fset.im_self, *args, **kwargs)
+        set_method = types.MethodType(functools.partial(call_set, axis_object),
+                                      axis_object)
+
+    axis_object._add_custom_attribute(get_method, set_method, name, type_info)
+
+
 class Controller(object):
 
     def __init__(self, name, config, axes, encoders):

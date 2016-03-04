@@ -1222,6 +1222,33 @@ def main(argv=None):
 
                 elog.debug("   %s (in: %s, %s) (out: %s, %s)" % (fname, t1, tin, t2, tout))
 
+            # CUSTOM ATTRIBUTES
+            _attr_list = _axis.custom_attributes_list()
+            for name, t, rw in _attr_list:
+                _attr_name = name
+                attr_info = [types_conv_tab[t],
+                             PyTango.AttrDataFormat.SCALAR]
+                def read(self, attr, _axis=_axis, _attr_name=_attr_name):
+                    value = getattr(_axis, "get_" + _attr_name)()
+                    attr.set_value(value)
+                new_read_attr_method = types.MethodType(read, new_axis_class,
+                                                        new_axis_class.__class__)
+                setattr(new_axis_class, "read_%s" % _attr_name,
+                        new_read_attr_method)
+                if rw:
+                    attr_info.append(PyTango.AttrWriteType.READ_WRITE)
+                    def write(self, attr, _axis=_axis, _attr_name=_attr_name):
+                        value = attr.get_write_value()
+                        getattr(_axis, "set_" + _attr_name)(value)
+                    new_write_attr_method = types.MethodType(write, new_axis_class,
+                                                             new_axis_class.__class__)
+                    setattr(new_axis_class, "write_%s" % _attr_name,
+                            new_write_attr_method)
+                else:
+                    attr_info.append(PyTango.AttrWriteType.READ)
+                new_axis_class_class.attr_list[_attr_name] = [attr_info]
+
+
             """
             CUSTOM SETTINGS AS ATTRIBUTES.
             """
@@ -1242,9 +1269,9 @@ def main(argv=None):
                     # Updates Attributes list.
                     new_axis_class_class.attr_list.update({_attr_name:
                                                            [[_attr_type,
-                                                             PyTango._PyTango.AttrDataFormat.SCALAR,
-                                                             PyTango._PyTango.AttrWriteType.READ_WRITE], {
-                        'Display level': PyTango._PyTango.DispLevel.OPERATOR,
+                                                             PyTango.AttrDataFormat.SCALAR,
+                                                             PyTango.AttrWriteType.READ_WRITE], {
+                        'Display level': PyTango.DispLevel.OPERATOR,
                         'format': '%10.3f',
                         'description': '%s : u 2' % _attr_name,
                         'unit': 'user units/s^2',

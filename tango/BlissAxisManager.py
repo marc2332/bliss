@@ -36,6 +36,35 @@ class bcolors:
     RED = '\033[91m'
     ENDC = '\033[0m'
 
+types_conv_tab_inv = {
+    PyTango.DevVoid: 'None',
+    PyTango.DevDouble: 'float',
+    PyTango.DevString: 'str',
+    PyTango.DevLong: 'int',
+    PyTango.DevBoolean: 'bool',
+    PyTango.DevVarFloatArray: "float_array",
+    PyTango.DevVarDoubleArray: "double_array",
+    PyTango.DevVarLongArray: "long_array",
+    PyTango.DevVarStringArray: "string_array",
+    PyTango.DevVarBooleanArray: "bool_array",
+}
+
+types_conv_tab = dict((v, k) for k, v in types_conv_tab_inv.items())
+types_conv_tab.update({
+    None: PyTango.DevVoid,
+    str: PyTango.DevString,
+    int: PyTango.DevLong,
+    float: PyTango.DevDouble,
+    bool: PyTango.DevBoolean,
+})
+
+access_conv_tab = {
+    'r': PyTango.AttrWriteType.READ,
+    'w': PyTango.AttrWriteType.WRITE,
+    'rw': PyTango.AttrWriteType.READ_WRITE,
+}
+
+access_conv_tab_inv = dict((v, k) for k, v in access_conv_tab.items())
 
 class BlissAxisManager(PyTango.Device_4Impl):
 
@@ -1308,23 +1337,8 @@ def main(argv=None):
 
             new_axis_class_class = types.ClassType("BlissAxisClass_%s" % axis_name, (BlissAxisClass,), {})
             new_axis_class = types.ClassType("BlissAxis_%s" % axis_name, (BlissAxis,), {})
-
-            types_conv_tab = {
-                None: PyTango.DevVoid,
-                str: PyTango.DevString,
-                int: PyTango.DevLong,
-                float: PyTango.DevDouble,
-                bool: PyTango.DevBoolean,
-                "str": PyTango.DevString,
-                "int": PyTango.DevLong,
-                "float": PyTango.DevDouble,
-                "bool": PyTango.DevBoolean,
-                "None": PyTango.DevVoid,
-                "float_array": PyTango.DevVarFloatArray,
-                "double_array": PyTango.DevVarDoubleArray,
-                "long_array": PyTango.DevVarLongArray,
-                "string_array": PyTango.DevVarStringArray
-            }
+            new_axis_class_class.attr_list = dict(BlissAxisClass.attr_list)
+            new_axis_class_class.cmd_list = dict(BlissAxisClass.cmd_list)
 
             """
             CUSTOM COMMANDS
@@ -1332,8 +1346,6 @@ def main(argv=None):
             # Search and adds custom commands.
             _cmd_list = _axis.custom_methods_list()
             elog.debug("'%s' custom commands:" % axis_name)
-
-            new_axis_class_class.cmd_list = dict(BlissAxisClass.cmd_list)
 
             for (fname, (t1, t2)) in _cmd_list:
                 setattr(new_axis_class, fname, getattr(_axis, fname))
@@ -1371,13 +1383,10 @@ def main(argv=None):
                     attr_info.append(PyTango.AttrWriteType.READ)
                 new_axis_class_class.attr_list[_attr_name] = [attr_info]
 
-
             """
             CUSTOM SETTINGS AS ATTRIBUTES.
             """
             elog.debug(" BlissAxisManager.py : %s : -------------- SETTINGS -----------------" % axis_name)
-
-            new_axis_class_class.attr_list = dict(BlissAxisClass.attr_list)
 
             for setting_name in _axis.settings():
                 if setting_name in ["velocity", "position", "dial_position", "state",
@@ -1398,7 +1407,7 @@ def main(argv=None):
                         'format': '%10.3f',
                         'description': '%s : u 2' % _attr_name,
                         'unit': 'user units/s^2',
-                        'label': _attr_name
+                        'label': _attr_name,
                         }]})
 
                     # Creates functions to read and write settings.

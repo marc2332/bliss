@@ -125,10 +125,14 @@ class Axis(object):
         self.__custom_methods_list.append((name, types_info))
 
     def _add_custom_attribute(self, fget, fset, name, type_info=None):
-        setattr(self, "get_" + name, fget)
+        access = ''
+        if fget:
+            access += 'r'
+            setattr(self, "get_" + name, fget)
         if fset:
+            access += 'w'
             setattr(self, "set_" + name, fset)
-        self.__custom_attributes_list.append((name, type_info, fset is not None))
+        self.__custom_attributes_list.append((name, type_info, access))
 
     def on(self):
         if self.is_moving:

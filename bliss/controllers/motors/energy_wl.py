@@ -33,7 +33,7 @@ class energy_wl(CalcController):
         lamb = 2 * dspace * math.sin(math.radians(positions_dict["monoang"]))
         return {"energy": 12.3984 / lamb, "wavelength": lamb}
 
-    def calc_to_real(self, axis_tag, positions_dict):
+    def calc_to_real(self, positions_dict):
         energy_axis = self._tagged["energy"][0]
         dspace = energy_axis.settings.get("dspace")
         monoangle = math.degrees(math.asin(12.3984 / (positions_dict["energy"] * 2 * dspace)))

@@ -38,7 +38,7 @@ class id16beam(CalcController):
         _virt_dict = {"xes_en_eh1": xes_en_eh1}
         return _virt_dict
 
-    def calc_to_real(self, axis_tag, positions_dict):
+    def calc_to_real(self, positions_dict):
         """returns real motors positions (as a dictionary) given virtual"""
         xes_en_eh1 = positions_dict["xes_en_eh1"]
         _mot_list = ene2mots(xes_en_eh1, pp=False)

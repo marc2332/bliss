@@ -42,7 +42,7 @@ class tabsup(CalcController):
         return {"ttrans": (d1*tyb+d2*tyf)/(d1+d2),
                 "trot": math.degrees(math.atan((tyf-tyb)/(d1+d2))) }
 
-    def calc_to_real(self, axis_tag, positions_dict):
+    def calc_to_real(self, positions_dict):
         ttrans = positions_dict["ttrans"]
         trot = positions_dict["trot"]
         d1 = self.d1

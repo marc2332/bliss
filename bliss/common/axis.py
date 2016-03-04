@@ -418,9 +418,8 @@ class Axis(object):
 
         user_backlash = self.config.get("backlash", float, 0)
         # all positions are converted to controller units
-        backlash = user_backlash * self.steps_per_unit
-        delta_dial = dial_target_pos - dial_initial_pos
-        delta = self.dial2user(delta_dial * self.steps_per_unit)
+        backlash = user_backlash / self.sign * self.steps_per_unit
+        delta = (dial_target_pos - dial_initial_pos) * self.steps_per_unit
         target_pos = dial_target_pos * self.steps_per_unit
 
         if backlash:

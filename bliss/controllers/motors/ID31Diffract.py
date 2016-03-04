@@ -116,7 +116,7 @@ class ID31Diffract(CalcController):
                 result[mot] = self[par]
         return result
 
-    def calc_to_real(self, axis_tag, positions_dict):
+    def calc_to_real(self, positions_dict):
         virt_pos = dict(positions_dict)
         for mot, par in self.ParamMotors.items():
             curr = self[par]

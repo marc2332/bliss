@@ -3,6 +3,8 @@
 import bliss
 import bliss.config.motors as bliss_config
 import bliss.common.log as elog
+from bliss.common import event
+from bliss.common.utils import grouped
 
 import PyTango
 import TgGevent
@@ -13,6 +15,7 @@ import time
 import traceback
 import types
 import json
+import itertools
 
 try:
     from bliss.config.conductor.connection import ConnectionException
@@ -21,6 +24,9 @@ except:
 
     class ConnectionException(Exception):
         pass
+
+from bliss.controllers.motor_group import Group
+
 
 class bcolors:
     PINK = '\033[95m'
@@ -32,14 +38,11 @@ class bcolors:
 
 
 class BlissAxisManager(PyTango.Device_4Impl):
-    axis_dev_list = None
-    axis_dev_names = None
 
     def __init__(self, cl, name):
         PyTango.Device_4Impl.__init__(self, cl, name)
         self.debug_stream("In __init__() of controller")
         self.init_device()
-
 
     def delete_device(self):
         self.debug_stream("In delete_device() of controller")
@@ -47,7 +50,20 @@ class BlissAxisManager(PyTango.Device_4Impl):
     def init_device(self):
         self.debug_stream("In init_device() of controller")
         self.get_device_properties(self.get_device_class())
+        self.group_dict = {}
 
+    def _get_axes(self):
+        util = PyTango.Util.instance()
+        dev_list = util.get_device_list("*")
+        result = dict()
+        for dev in dev_list:
+            dev_class = dev.get_device_class()
+            if dev_class:
+                class_name = dev_class.get_name()
+                if class_name.startswith("BlissAxis_"):
+                    axis = dev.axis
+                    result[axis.name()] = axis, dev
+        return result
 
     def dev_state(self):
         """ This command gets the device state (stored in its device_state
@@ -60,8 +76,6 @@ class BlissAxisManager(PyTango.Device_4Impl):
 #        self.debug_stream("In BlissAxisManager dev_state()")
         argout = PyTango.DevState.UNKNOWN
 
-        U = PyTango.Util.instance()
-        dev_list = U.get_device_list("*")
         # [BlissAxisManager(id26/bliss/cyrtest),
         # BlissAxis_robd(id26/bliss_cyrtest/robd),
         # BlissAxis_robc(id26/bliss_cyrtest/robc),
@@ -69,18 +83,13 @@ class BlissAxisManager(PyTango.Device_4Impl):
         # BlissAxis_roba(id26/bliss_cyrtest/roba),
         # DServer(dserver/BlissAxisManager/cyrtest)]
 
-        # Creates the list of BlissAxis devices.
-        if self.axis_dev_list is None:
-            self.axis_dev_list = list()
-            for dev in dev_list:
-                dev_name = dev.get_name()
-                if "bliss_" in dev_name:
-                    self.axis_dev_list.append(dev)
-
         # Builds the BlissAxisManager State from states of BlissAxis devices.
         _bliss_working = True
         _bliss_moving = False
-        for dev in self.axis_dev_list:
+
+        devs = [dev for axis, dev in self._get_axes().values()]
+
+        for dev in devs:
             _axis_state = dev.get_state()
 
             _axis_on = (_axis_state == PyTango.DevState.ON or _axis_state == PyTango.DevState.OFF)
@@ -100,7 +109,7 @@ class BlissAxisManager(PyTango.Device_4Impl):
 
         # Builds the status for BlissAxisManager device from BlissAxis status
         E_status = ""
-        for dev in self.axis_dev_list:
+        for dev in devs:
             E_status = E_status + dev.get_name() + ":" + dev.get_state().name + ";" + dev.get_status() + "\n"
         self.set_status(E_status)
 
@@ -111,23 +120,67 @@ class BlissAxisManager(PyTango.Device_4Impl):
         """
         Returns the list of BlissAxisManager axes of this device.
         """
-        argout = list()
-
-        U = PyTango.Util.instance()
-        dev_list = U.get_device_list("*")
-        # Creates the list of BlissAxis devices names.
-        if self.axis_dev_names is None:
-            self.axis_dev_names = list()
-            for dev in dev_list:
-                dev_name = dev.get_name()
-                if "bliss_" in dev_name:
-                    self.axis_dev_names.append(dev_name)
-
-        print "axes list : ", self.axis_dev_names
-
-        for _axis in self.axis_dev_names:
-            argout.append(_axis)
+        argout = [dev.get_name()
+                  for axis, dev in self._get_axes().values()]
         return argout
+
+    def GroupMove(self, axes_pos):
+        """
+        Absolute move multiple motors
+        """
+        axes_dict = self._get_axes()
+        axes_names = axes_pos[::2]
+        if not set(axes_names).issubset(set(axes_dict)):
+            raise ValueError("unknown axis(es) in motion")
+        axes = [axes_dict[name][0].get_base_obj() for name in axes_names]
+        group = TgGevent.get_proxy(Group, *axes)
+        event.connect(group.get_base_obj(), 'move_done', self.group_move_done)
+        positions = map(float, axes_pos[1::2])
+        axes_pos_dict = dict(zip(axes, positions))
+        group.move(axes_pos_dict, wait=False)
+        groupid = ','.join(map(':'.join, grouped(axes_pos, 2)))
+        self.group_dict[groupid] = group
+        return groupid
+
+    def group_move_done(self, move_done, **kws):
+        if not move_done:
+            return
+
+        if 'sender' in kws:
+            sender = kws['sender']
+            groupid = [gid for gid, grp in self.group_dict.items()
+                       if grp.get_base_obj() == sender][0]
+        elif len(self.group_dict) == 1:
+            groupid = self.group_dict.keys()[0]
+        else:
+            print 'BlissAxisManager: Warning: ' \
+                  'cannot not identify group move_done'
+            return
+
+        self.group_dict.pop(groupid)
+
+    def GroupState(self, groupid):
+        """
+        Return the individual state of motors in the group
+        """
+        if groupid not in self.group_dict:
+            return []
+        group = self.group_dict[groupid].get_base_obj()
+        def get_name_state_list(group):
+            return [(name, str(axis.state()))
+                    for name, axis in group.axes.items()]
+        name_state_list = TgGevent.execute(get_name_state_list, group)
+        return list(itertools.chain(*name_state_list))
+
+    def GroupAbort(self, groupid):
+        """
+        Abort motor group movement
+        """
+        if groupid not in self.group_dict:
+            return
+        group = self.group_dict[groupid]
+        group.stop(wait=False)
+
 
 class BlissAxisManagerClass(PyTango.DeviceClass):
 
@@ -143,7 +196,16 @@ class BlissAxisManagerClass(PyTango.DeviceClass):
     cmd_list = {
         'GetAxisList':
         [[PyTango.DevVoid, "none"],
-         [PyTango.DevVarStringArray, "List of axis"]]
+         [PyTango.DevVarStringArray, "List of axis"]],
+        'GroupMove':
+        [[PyTango.DevVarStringArray, "Flat list of pairs motor, position"],
+         [PyTango.DevString, "Group identifier"]],
+        'GroupState':
+        [[PyTango.DevString, "Group identifier"],
+         [PyTango.DevVarStringArray, "Flat list of pairs motor, status"]],
+        'GroupAbort':
+        [[PyTango.DevString, "Group identifier"],
+         [PyTango.DevVoid, ""]],
     }
 
 # Device States Description
@@ -559,7 +621,7 @@ class BlissAxis(PyTango.Device_4Impl):
         :return:
         :rtype: PyTango.DevVoid """
         self.debug_stream("In Abort()")
-        self.axis.stop()
+        self.axis.stop(wait=False)
 
     def Stop(self):
         """ Stop gently the motor
@@ -569,7 +631,7 @@ class BlissAxis(PyTango.Device_4Impl):
         :return:
         :rtype: PyTango.DevVoid """
         self.debug_stream("In Stop()")
-        self.axis.stop()
+        self.axis.stop(wait=False)
 
     def StepUp(self):
         """ Performs a relative motion of ``stepSize`` in the forward

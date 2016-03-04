@@ -43,7 +43,7 @@ class ID31DiffractLinTilt(CalcController):
         tilt = arccos((a2 + c2 - bc2) / (2*a*c)) - d
         return dict(tilt=rad2deg(tilt))
 
-    def calc_to_real(self, axis_tag, positions_dict):
+    def calc_to_real(self, positions_dict):
         a, b = self.a, self.b
         c, d = self.c(a, b), self.d(a, b)
         a2, c2 = square(a), square(c)

@@ -130,7 +130,7 @@ class trans4(CalcController):
 
         return dict(thetaz=thetaz, thetay=thetay, ty=ty, tz=tz)
 
-    def calc_to_real(self, axis_tag, positions_dict):
+    def calc_to_real(self, positions_dict):
         '''
         Returns real motors positions (as a dictionary) given virtual ones.
         Units:

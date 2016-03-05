@@ -26,7 +26,7 @@ from numpy import square, sqrt, arctan, arccos, cos, rad2deg, deg2rad
 
 from bliss.config import settings
 from bliss.controllers.motor import CalcController
-from bliss.controllers.motor import add_axis_method
+from bliss.controllers.motor import add_axis_method, add_axis_attribute
 from bliss.controllers.calculations import ID31_diffractometer as Diffract
 from bliss.common import log
 
@@ -48,12 +48,9 @@ def initialize_parameters(klass, ctrl_pars=None):
     def initialize_axis(self, axis):
         orig_initialize_axis(self, axis)
         for name, (ptype, default) in ctrl_pars.items():
-            mname = 'set_%s' % name
-            method = getattr(self, mname)
-            add_axis_method(axis, method, mname, types_info=(ptype, 'None'))
-            mname = 'get_%s' % name
-            method = getattr(self, mname)
-            add_axis_method(axis, method, mname, types_info=('None', ptype))
+            fget, fset = [getattr(self, '%s_%s' % (action, name))
+                          for action in 'get', 'set']
+            add_axis_attribute(axis, fget, fset, name, type_info=ptype)
     klass.initialize_axis = initialize_axis
 
     return klass
@@ -94,7 +91,7 @@ class ID31Diffract(CalcController):
 
     def initialize_axis(self, axis):
         super(ID31Diffract, self).initialize_axis(axis)
-        add_axis_method(axis, self.get_lm_2th, types_info=('None', 'float'))
+        add_axis_attribute(axis, self.get_lm_2th, type_info='float')
         add_axis_method(axis, self.get_q, types_info=('float', 'float'))
         tags = axis.config.get('tags').split()
         for mot in self.ParamMotors:

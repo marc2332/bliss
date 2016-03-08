@@ -288,7 +288,7 @@ class CT2Device(BaseCT2Device):
         card.set_counters_software_enable(channels)
 
     def apply_config(self):
-        configure_card(self.card, self.card_config)
+        ct2.configure_card(self.card, self.card_config)
 
     def prepare_acq(self):
         self.stop_acq()

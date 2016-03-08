@@ -20,18 +20,17 @@ __all__ = ["CT2", "main"]
 
 import time
 
-import PyTango
-from PyTango.server import Device, DeviceMeta
-from PyTango.server import attribute, command
-from PyTango.server import class_property, device_property
-from PyTango import AttrQuality, AttrWriteType, DispLevel, DevState
-
 import gevent
 from gevent import select
 
-from louie import dispatcher
-
+from bliss.common.event import connect
 from bliss.config.static import get_config
+
+from PyTango import Util, GreenMode
+from PyTango import AttrQuality, AttrWriteType, DispLevel, DevState
+from PyTango.server import Device, DeviceMeta
+from PyTango.server import attribute, command
+from PyTango.server import class_property, device_property
 
 from ...device import CT2Device, AcqMode, AcqStatus
 from ...device import ErrorSignal, PointNbSignal, StatusSignal
@@ -75,15 +74,12 @@ class CT2(Device):
 
         try:
             config = get_config()
-            util = PyTango.Util.instance()
+            util = Util.instance()
             if util.is_svr_starting():
                 self.device = CT2Device(config, self.card_name)
-                dispatcher.connect(self.__on_error, signal=ErrorSignal,
-                                   sender=self.device)
-                dispatcher.connect(self.__on_point_nb, signal=PointNbSignal,
-                                   sender=self.device)
-                dispatcher.connect(self.__on_status, signal=StatusSignal,
-                                   sender=self.device)
+                connect(self.device, ErrorSignal, self.__on_error)
+                connect(self.device, PointNbSignal, self.__on_point_nb)
+                connect(self.device, StatusSignal, self.__on_status)
             else:
                 self.apply_config()
             switch_state(self, DevState.ON, "Ready!")
@@ -233,7 +229,7 @@ class CT2(Device):
 
 def main(args=None, **kwargs):
     from PyTango.server import run
-    kwargs['green_mode'] = kwargs.get('green_mode', PyTango.GreenMode.Gevent)
+    kwargs['green_mode'] = kwargs.get('green_mode', GreenMode.Gevent)
     return run((CT2,), args=args, **kwargs)
 
 

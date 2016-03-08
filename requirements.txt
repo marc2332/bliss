@@ -3,7 +3,6 @@ redis
 PyYaml
 netifaces
 louie
-nanomsg
 flask
 treelib
 gipc

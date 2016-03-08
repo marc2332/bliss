@@ -2,6 +2,7 @@ import os
 import unittest
 import sys
 import gc
+import gevent
 
 sys.path.insert(
     0,
@@ -38,19 +39,10 @@ class TestBeacon(unittest.TestCase):
         p1_output = p1.stderr.readline().split('\n')[0]
         self.assertEquals(c.value, p1_output, 'hello')
         c.value = 5
+        gevent.sleep(0.1)
         p1_output = p1.stderr.readline().split('\n')[0]
         self.assertEquals(p1_output, '5')
         p1.wait()
-        
-    def testTimeout(self):
-        t0 = time.time()
-        c = channels.Channel("test", timeout=0)
-        self.assertTrue(time.time()-t0 < 0.02)
-        t0 = time.time()
-        c = channels.Channel("test", timeout=2)
-        self.assertTrue(time.time()-t0 >= 2)
-        self.assertEquals(c.value, channels.NotInitialized())
-
-
+  
 if __name__ == '__main__':
     unittest.main()

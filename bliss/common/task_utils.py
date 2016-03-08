@@ -1,9 +1,11 @@
+import os
 import sys
+import errno
 import types
 import gevent
 import signal
 import functools
-
+from multiprocessing import Process
 
 class cleanup:
 
@@ -52,7 +54,45 @@ class error_cleanup:
                 # so re-raise it from here
                 raise exc_type, value, traceback
 
+class post_mortem_cleanup(object):
+    """ This cleanup call the cleanup functions only if your programm crash.
+    """
+    def __init__(self,*args,**keys):
+        self._error_funcs = args
+        self._keys = keys
+        self._process = None
 
+    def __enter__(self):
+        self._read,self._write = os.pipe()
+        self.p = Process(target=self._run)
+        self.p.start()
+        os.close(self._read)
+        return self
+
+    def __exit__(self,*args):
+        os.write(self._write,'|')
+        self.p.join()
+        os.close(self._write)
+
+    def _run(self):
+        os.close(self._write)
+        while True:
+            try:
+                value = os.read(self._read,1024)
+            except OSError as err:
+                if err.errno == errno.EAGAIN:
+                    continue
+
+            # pipe was closed, trigger the cleanup
+            if not value:
+                for error_func in self._error_funcs:
+                    try:
+                        error_func(**self._keys)
+                    except:
+                        sys.excepthook(*sys.exc_info())
+
+            sys.exit(0)
+ 
 class TaskException:
 
     def __init__(self, exception, error_string, tb):

@@ -3340,7 +3340,7 @@ def __get(cfg, name, default=None, klass=None):
 
 
 def __get_card_config(name):
-    from beacon.static import get_config
+    from bliss.config.static import get_config
     config = get_config()
     card_config = config.get_config(name)
     return card_config
@@ -3348,7 +3348,7 @@ def __get_card_config(name):
 
 def create_objects_from_config_node(config, node):
     """
-    To be used by the ct2 beacon plugin
+    To be used by the ct2 bliss config plugin
     """
     name = node.get("name")
     card = create_and_configure_card(node)

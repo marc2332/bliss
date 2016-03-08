@@ -31,7 +31,7 @@ from gevent import select
 
 from louie import dispatcher
 
-from beacon.static import get_config
+from bliss.config.static import get_config
 
 from ...device import CT2Device, AcqMode, AcqStatus
 from ...device import ErrorSignal, PointNbSignal, StatusSignal

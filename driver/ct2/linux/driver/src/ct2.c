@@ -31,6 +31,7 @@
 #include <linux/stringify.h>        // __stringify()
 #include <linux/time.h>             // getrawmonotonic()
 #include <linux/types.h>            // bool, gfp_t, loff_t, size_t, ssize_t, uint(8|16|32|ptr)_t
+#include <linux/delay.h>            // mdelay()
 
 #include <asm/io.h>                 // pci_iomap(), pci_iounmap()
 #include <asm/page.h>               // PAGE_SHIFT
@@ -74,7 +75,11 @@ static ssize_t      ct2_read_fifo(struct file *, char __user *, size_t, loff_t *
 static ssize_t      ct2_write   ( struct file *, const char __user *, size_t, loff_t * );
 static loff_t       ct2_llseek  ( struct file *, loff_t, int );
 
+#ifdef HAVE_UNLOCKED_IOCTL
+static long         ct2_ioctl   ( struct file *, unsigned int, u_long );
+#else
 static int          ct2_ioctl   ( struct inode *, struct file *, unsigned int, u_long );
+#endif
 
 static int          ct2_mmap    ( struct file *, struct vm_area_struct * );
 static unsigned int ct2_poll    ( struct file *, poll_table * );
@@ -157,19 +162,23 @@ static struct pci_driver ct2_driver = {
 // [include/linux/fs.h, Documentation/filesystems/vfs.txt]
 static const struct file_operations ct2_file_ops = {
 
-    .owner      = THIS_MODULE,
+    .owner          = THIS_MODULE,
 
-    .open       = ct2_open,
-    .release    = ct2_close,
+    .open           = ct2_open,
+    .release        = ct2_close,
 
-    .read       = ct2_read,
-    .write      = ct2_write,
-    .llseek     = ct2_llseek,
+    .read           = ct2_read,
+    .write          = ct2_write,
+    .llseek         = ct2_llseek,
 
-    .ioctl      = ct2_ioctl,
+#ifdef HAVE_UNLOCKED_IOCTL
+    .unlocked_ioctl = ct2_ioctl,
+#else
+    .ioctl          = ct2_ioctl,
+#endif
 
-    .mmap       = ct2_mmap,
-    .poll       = ct2_poll,
+    .mmap           = ct2_mmap,
+    .poll           = ct2_poll,
 };
 
 
@@ -1559,11 +1568,18 @@ done:
  * ct2_ioctl - Device implementation of ioctl(2)
  */
 
+#ifdef HAVE_UNLOCKED_IOCTL
+static
+long ct2_ioctl( struct file *    file,
+                unsigned int     cmd,
+                u_long           user_arg )
+#else
 static
 int ct2_ioctl( struct inode *   inode,
                struct file *    file,
                unsigned int     cmd,
                u_long           user_arg )
+#endif
 {
     struct ct2_dcc *    dcc = (struct ct2_dcc * )file->private_data;
     struct ct2 *        dev = dcc->dev;

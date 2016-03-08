@@ -14,6 +14,7 @@
 import sys
 import numpy
 import gevent
+from gevent import lock
 from gevent import select
 from louie import dispatcher
 
@@ -163,6 +164,7 @@ class CT2Device(BaseCT2Device):
     def __init__(self, config, name, auto_run=True):
         BaseCT2Device.__init__(self, config, name)
         self.__buffer = []
+        self.__buffer_lock = lock.RLock()
         self.__card = self.config.get(self.name)
         self.__acq_mode = AcqMode.Internal
         self.__acq_status = AcqStatus.Ready
@@ -195,7 +197,8 @@ class CT2Device(BaseCT2Device):
 
                     if dma:
                         data, fifo_status = card.read_fifo()
-                        self.__buffer.append(data)
+                        with self.__buffer_lock:
+                            self.__buffer.append(data)
                         point_nb = data[-1][-1]
                         self._send_point_nb(point_nb)
 
@@ -361,6 +364,10 @@ class CT2Device(BaseCT2Device):
         return self.card.get_latches_values()
 
     def read_data(self):
+        with self.__buffer_lock:
+            return self.__read_data()
+
+    def __read_data(self):
         b = self.__buffer
         if b:
             self.__buffer = []

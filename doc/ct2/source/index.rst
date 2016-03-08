@@ -3,6 +3,8 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
+.. currentmodule:: ct2
+
 P201/C208 documentation!
 ========================
 
@@ -27,7 +29,7 @@ A minimal ct2 usage looks something like this::
 
     import ct2
 
-    p201 = ct2.P201()
+    p201 = ct2.P201Card()
 
     p201.request_exclusive_access()
     p201.reset_software()
@@ -43,7 +45,7 @@ If you are looking for information on a specific function, class or method, this
 Contents:
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
    
    API <api.rst>
    

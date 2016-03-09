@@ -140,11 +140,18 @@ class Connection(object) :
                 for addr in ip4_broadcast_addresses():
                     udp.sendto('Hello',(addr,protocol.DEFAULT_UDP_SERVER_PORT))
                 timeout = 3.
+                server_found = []
                 while 1:
                     rlist,_,_ = select.select([udp],[],[],timeout)
                     if not rlist:
                         if port is None:
-                            raise ConnectionException("Could not find the conductor")
+                            if server_found:
+                                msg = "Could not find the conductor on host %s\n" % self._host
+                                msg += "But other conductor server reply:\n"
+                                msg += '\n'.join(('%s on port %s' % (host,port) for host,port in server_found))
+                                raise ConnectionException(msg)
+                            else:
+                                raise ConnectionException("Could not find the conductor")
                         else:
                             break
                     else:
@@ -156,6 +163,7 @@ class Connection(object) :
 			    if localhost == host:
 				break	
                         elif self._host is not None and host != self._host:
+                            server_found.append((host,port))
                             host,port = None,None
                             timeout = 1.
                         else:

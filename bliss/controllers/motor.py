@@ -54,19 +54,28 @@ def axis_method(method=None, name=None, args=[], types_info=(None, None)):
     return method
 
 
-def add_axis_attribute(axis_object, fget, fset=None, name=None, type_info=None):
+def add_axis_attribute(axis_object, fget=None, fset=None, name=None,
+                       type_info=None):
+
+    if not (fget or fset):
+        head = 'add_axis_attribute: %s' % name
+        raise ValueError('%s: must have a getter and/or a setter' % head)
 
     if name is None:
-        name = fget.im_func.func_name
-        name = name.lstrip('get').lstrip('_')
+        if fget:
+            name = fget.__name__.lstrip('get').lstrip('_')
+        else:
+            name = fset.__name__.lstrip('set').lstrip('_')
 
-    def call_get(self, *args, **kwargs):
-        return fget.im_func(fget.im_self, *args, **kwargs)
+    get_method, set_method = None, None
 
-    get_method = types.MethodType(functools.partial(call_get, axis_object),
-                                  axis_object)
+    if fget:
+        def call_get(self, *args, **kwargs):
+            return fget.im_func(fget.im_self, *args, **kwargs)
 
-    set_method = None
+        get_method = types.MethodType(functools.partial(call_get, axis_object),
+                                      axis_object)
+
     if fset:
         def call_set(self, *args, **kwargs):
             return fset.im_func(fset.im_self, *args, **kwargs)

@@ -390,7 +390,7 @@ class Mockup(Controller):
         noise = 0.0
         if not axis.encoder in self.__encoders:
             raise KeyError("cannot read measured noise: %s "
-                           "doesn't have encoder" % axis)
+                           "doesn't have encoder" % axis.name)
         noise = self.__encoders[axis.encoder].get("measured_noise", 0.0)
 
     def custom_set_measured_noise(self, axis, noise):

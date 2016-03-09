@@ -209,7 +209,10 @@ class Connection(object) :
         cnx = self._redis_connection.get(db)
         if cnx is None :
             host,port = self.get_redis_connection_address()
-            cnx = redis.Redis(host=host,port=port,db=db)
+            if host != 'localhost':
+                cnx = redis.Redis(host=host,port=port,db=db)
+            else:
+                cnx = redis.Redis(unix_socket_path=port)
             self._redis_connection[db] = cnx
         return cnx
 

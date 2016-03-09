@@ -22,6 +22,8 @@ from . import protocol
 from .. import redis as redis_conf
 from bliss.common import event
 
+REDIS_UNIX_SOCKET='/tmp/redis.sock'
+
 try:
     import posix_ipc
 except ImportError:
@@ -137,9 +139,15 @@ def _unlock(client_id,priority,unlock_obj) :
 def _clean(client):
     _releaseAllLock(client)
 
-def _send_redis_info(client_id):
+def _send_redis_info(client_id,local_connection):
+    port = _options.redis_port
+    host = socket.gethostname()
+    if local_connection:
+        port = REDIS_UNIX_SOCKET
+        host = 'localhost'
+
     client_id.sendall(protocol.message(protocol.REDIS_QUERY_ANSWER,
-                                    '%s:%d' % (socket.gethostname(),_options.redis_port)))
+                                       '%s:%s' % (host,port)))
 
 def _send_config_file(client_id,message):
     try:
@@ -355,7 +363,7 @@ def _send_posix_mq_connection(client_id,client_hostname):
 def _send_unknow_message(client_id):
     client_id.sendall(protocol.message(protocol.UNKNOW_MESSAGE))
 
-def _client_rx(client):
+def _client_rx(client,local_connection):
     tcp_data = ''
     posix_queue_data = ''
     posix_queue = None
@@ -396,7 +404,7 @@ def _client_rx(client):
                             prio = int(lock_objects.pop(0))
                             _unlock(c_id,prio,lock_objects)
                         elif messageType == protocol.REDIS_QUERY:
-                            _send_redis_info(c_id)
+                            _send_redis_info(c_id,local_connection)
                         elif messageType == protocol.POSIX_MQ_QUERY:
                             posix_queue = _send_posix_mq_connection(c_id,message)
                             if posix_queue:
@@ -566,8 +574,8 @@ def main():
             elif s == tcp:
                 newSocket, addr = tcp.accept()
                 newSocket.setsockopt(socket.IPPROTO_TCP,socket.TCP_NODELAY,1)
-
-                gevent.spawn(_client_rx,newSocket)
+                localhost = addr[0] == '127.0.0.1'
+                gevent.spawn(_client_rx,newSocket,localhost)
 
             elif s == sig_read:
                 bosse = False

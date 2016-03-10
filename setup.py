@@ -113,7 +113,7 @@ setup(name="bliss", version="0.1",
                                              "js/*.*",
                                              "res/*.*"],
                     'bliss.shell.web':['*.html', 'css/*.css', "js/*.js"]},
-      scripts=["bin/beacon-server", "bin/bliss", 'bin/bliss_webserver'],
+      scripts=["bin/beacon-server", "bin/beacon-server-list","bin/bliss", 'bin/bliss_webserver'],
       cmdclass = {'build': BlissBuild,
                   'install': BlissInstall,},
 )

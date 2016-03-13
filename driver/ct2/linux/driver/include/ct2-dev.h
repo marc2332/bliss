@@ -47,7 +47,7 @@
 #define CT2_NAME                            "ct2"
 
 // printf() format for device and interrupt handler names
-#define CT2_DEVICE_NAME_FMT                 "%04u:%02u:%02u.%u"
+#define CT2_DEVICE_NAME_FMT                 "%04x:%02x:%02x.%u"
 #define CT2_CDEV_BASENAME_FMT               "%s-" CT2_DEVICE_NAME_FMT
 #define CT2_CDEV_BASENAME_PREFIX_C208       "c208"
 #define CT2_CDEV_BASENAME_PREFIX_P201       "p201"
@@ -92,7 +92,6 @@ enum ct2_init_status {
     DEV_INIT_CTRL_REGS_2_REGION,
     DEV_INIT_FIFO_REGION,
 
-    DEV_INIT_ALLOC_CHRDEV,
     DEV_INIT_CLASS_DEV,
     DEV_INIT_ADD_CDEV,
 
@@ -130,6 +129,8 @@ typedef ct2_reg_dist_t ct2_r2_lut_type[CT2_RW_R2_LEN];
 struct ct2 {
 
     hfl_dl_list_elem_type               list_elem;
+
+    const uint8_t			id;
 
     enum ct2_init_status                init_status;
 

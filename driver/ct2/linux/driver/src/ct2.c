@@ -159,6 +159,11 @@ static struct pci_driver ct2_driver = {
  *                               VFS Interface                              *
  *--------------------------------------------------------------------------*/
 
+#define CT2_DEV_NAME	"ct2"
+
+// alloc a single region for the CT2 driver
+static const dev_t ct2_cdev_region;
+
 // [include/linux/fs.h, Documentation/filesystems/vfs.txt]
 static const struct file_operations ct2_file_ops = {
 
@@ -191,6 +196,19 @@ static ssize_t ct2_drv_status_show( struct device_driver *, char * );
 
 static DRIVER_ATTR(revision, S_IRUGO, ct2_drv_revision_show, NULL);
 static DRIVER_ATTR(status, S_IRUGO, ct2_drv_status_show, NULL);
+
+
+/*--------------------------------------------------------------------------*
+ *                          Class Device Interface                          *
+ *--------------------------------------------------------------------------*/
+
+static ssize_t ct2_dev_ct2_id_show(struct device *dev, 
+				   struct device_attribute *attr,char *buf);
+
+static struct device_attribute ct2_dev_attrs[] = {
+    __ATTR(ct2_id, S_IRUGO, ct2_dev_ct2_id_show, NULL),
+    __ATTR_NULL,
+};
 
 
 /*--------------------------------------------------------------------------*
@@ -277,6 +295,7 @@ enum ct2_mod_init_status {
 
     MOD_INIT_UNDEFINED,
     MOD_INIT_CLASS_REGISTER,
+    MOD_INIT_ALLOC_CHRDEV,
     MOD_INIT_PCI_REGISTER_DRIVER,
     MOD_INIT_CREATE_DRV_ATTR_FILE
 
@@ -284,6 +303,11 @@ enum ct2_mod_init_status {
 // serialised access list of managed CT2 devices
 static struct ct2_list          mod_device_list;
 static struct class *           ct2_class = NULL;
+
+// Unique device IDs
+static uint64_t			ct2_act_id_mask = 0;
+#define MAX_NB_DEVS 		(sizeof(ct2_act_id_mask) * 8)
+
 
 /**
  * ct2_reg_lut_ident - LUT name constructor
@@ -366,7 +390,7 @@ int __init ct2_init( void )
 {
     size_t      num_devs_so_far;
     int         rv = 0;
-
+    dev_t	cdev_region;
 
     ct2_mtrace0_enter;
 
@@ -386,9 +410,28 @@ int __init ct2_init( void )
         // That's utter speculation.
         return -ENOMEM;
     }
+    ct2_class->dev_attrs = ct2_dev_attrs;
 
     mod_init_status = MOD_INIT_CLASS_REGISTER;
     ct2_ktrace0("class_create()");
+
+
+    // ===== MOD_INIT_ALLOC_CHRDEV =====
+
+    // Standard way to allocate the character device region for a 
+    // group of devices
+    // [fs/char_dev.c:alloc_chrdev_region()]
+    if ( (rv = alloc_chrdev_region(&cdev_region, 0, MAX_NB_DEVS, 
+				   CT2_DEV_NAME)) != 0 ) {
+        ct2_fail0("alloc_chrdev_region() = %d", rv);
+        goto err;
+    }
+    ct2_notice0("got chrdev_region: %d:%d (%ld devices)", 
+		MAJOR(cdev_region), MINOR(cdev_region), MAX_NB_DEVS);
+    hfl_const_cast(dev_t, ct2_cdev_region) = cdev_region;
+
+    mod_init_status = MOD_INIT_ALLOC_CHRDEV;
+    ct2_ktrace0("alloc_chrdev_region()");
 
 
     // ===== MOD_INIT_PCI_REGISTER_DRIVER =====
@@ -471,6 +514,14 @@ void ct2_exit( void )
 
             // fall through
 
+        case MOD_INIT_ALLOC_CHRDEV:
+
+            // [fs/char_dev.c:unregister_chrdev_region()]
+            unregister_chrdev_region(ct2_cdev_region, MAX_NB_DEVS);
+            ct2_ktrace0("unregister_chrdev_region()");
+
+            // fall through
+
         case MOD_INIT_CLASS_REGISTER:
 
             // [drivers/base/class.c:class_destroy()]
@@ -509,6 +560,7 @@ int ct2_probe( struct pci_dev * pci_dev, const struct pci_device_id * id_table )
     uint8_t             pci_slot = PCI_SLOT(pci_dev->devfn);
     uint8_t             pci_func = PCI_FUNC(pci_dev->devfn);
     unsigned short      pci_device_id = pci_dev->device;
+    uint8_t		id;
     const char *        cdev_basename_prefix;
     char                device_name[sizeof(((struct ct2 * )NULL)->cdev.basename)];
     void __iomem *      iomap_ptr;
@@ -545,6 +597,15 @@ int ct2_probe( struct pci_dev * pci_dev, const struct pci_device_id * id_table )
             goto err;
     }
 
+    // Find a unique device ID (not serialised yet!)
+    for (id = 0; id < MAX_NB_DEVS; id++)
+	if ((ct2_act_id_mask & (1 << id)) == 0)
+	    break;
+    if (id == MAX_NB_DEVS) {
+	rv = -ENOMEM;
+	goto err;
+    }
+
     snprintf(device_name,
              sizeof(device_name),
              CT2_CDEV_BASENAME_FMT,
@@ -578,6 +639,10 @@ int ct2_probe( struct pci_dev * pci_dev, const struct pci_device_id * id_table )
         rv = -ENOMEM;
         goto err;
     }
+
+    // Assign the unique device ID (not serialised yet!)
+    hfl_const_cast(uint8_t, dev->id) = id;
+    ct2_act_id_mask |= (1 << id);
 
     dev->init_status = DEV_INIT_ALLOC_CT2_STRUCT;
     ct2_ktrace0("kmalloc(%zu) for %s", kmalloc_size, device_name);
@@ -818,22 +883,8 @@ int ct2_probe( struct pci_dev * pci_dev, const struct pci_device_id * id_table )
     reset_device(dev);
 
 
-    // ===== DEV_INIT_ALLOC_CHRDEV =====
-
-    // Yeah, that's right, we take the easy way out and
-    // completely ignore the major/minor silliness.
-    // [fs/char_dev.c:alloc_chrdev_region()]
-    if ( (rv = alloc_chrdev_region(((dev_t * )&(dev->cdev.num)), 0, 1,
-                                   dev->cdev.basename                 )) != 0 ) {
-        ct2_fail(dev, "alloc_chrdev_region() = %d", rv);
-        goto err;
-    }
-
-    dev->init_status = DEV_INIT_ALLOC_CHRDEV;
-    ct2_ktrace(dev, "alloc_chrdev_region()");
-
-
     // ===== DEV_INIT_CLASS_DEV =====
+    hfl_const_cast(dev_t, dev->cdev.num) = ct2_cdev_region + dev->id;
 
     // [drivers/base/core.c:device_create()]
     if ( (class_dev = device_create(ct2_class,
@@ -967,14 +1018,6 @@ void ct2_remove( struct pci_dev * pci_dev )
 
             // fall through
 
-        case DEV_INIT_ALLOC_CHRDEV:
-
-            // [fs/char_dev.c:unregister_chrdev_region()]
-            unregister_chrdev_region(dev->cdev.num, 1);
-            ct2_ktrace(dev, "unregister_chrdev_region()");
-
-            // fall through
-
         case DEV_INIT_FIFO_REGION:
 
             if ( dev->fifo_buffer != NULL ) {
@@ -1045,6 +1088,10 @@ void ct2_remove( struct pci_dev * pci_dev )
             // fall through
 
         case DEV_INIT_ALLOC_CT2_STRUCT:
+
+	    // first release the allocated device ID
+	    if (dev->id < MAX_NB_DEVS)
+		ct2_act_id_mask &= ~(1 << dev->id);
 
             // Was moved from here to the beginning of the function
             // as was done in c216 driver:
@@ -2773,6 +2820,31 @@ ssize_t ct2_drv_status_show( struct device_driver * drv, char * buf )
     ct2_mtrace0_enter;
 
     len = sprintf(buf, "%u", mod_init_status);
+
+    ct2_mtrace0_exit;
+
+    return len;
+}
+
+
+/*--------------------------------------------------------------------------*
+ *                         Class Device Attribute Methods                   *
+ *--------------------------------------------------------------------------*/
+
+static
+ssize_t ct2_dev_ct2_id_show(struct device *class_dev, 
+			    struct device_attribute *attr,char *buf)
+{
+    ssize_t len = 0;
+    struct ct2 *dev = (struct ct2 *) dev_get_drvdata(class_dev);
+    const char *name = attr_name(*attr);
+
+    ct2_mtrace0_enter;
+
+    if (strcmp(name, "ct2_id") == 0)
+	len = sprintf(buf, "%u\n", dev->id);
+    else
+	len = sprintf("Unkown %s attribute: %s\n", dev_name(class_dev), name);
 
     ct2_mtrace0_exit;
 

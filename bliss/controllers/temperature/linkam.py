@@ -238,7 +238,7 @@ class LinkamDsc(object):
         
     def getTemperature(self):
         """
-        if a profile is running return the last cached temperature reading
+        If a profile is running return the last cached temperature reading
         so as not to disturb the timing of the profile (this assumes the
         profile thread is updating the temperature in its loop)
         """
@@ -300,17 +300,17 @@ class LinkamDsc(object):
 
     def _dscData(self):
 #        reply = self._cnx.write_read("D\r")
-        rely = "3a003a00"
+        reply = "3a003a00"
         self._temperature = self._extractTemperature(reply[0:4])
         self._dscValue = self._extractDscValue(reply[4:8])
-        if temperature < -273:
+        if self._temperature < -273:
             raise ValueError ("temperature reading less than -273, check that the heating stage is connected and switched on")
-        if dscValue == 32765: #if the buffer is full then clear it
+        if self._dscValue == 32765: #if the buffer is full then clear it
             self.clearBuffer()
         return [self._temperature, self._dscValue]
 
     def state(self):
-        """ return the Linkam state and errorcode as a tuple """
+        """ return the Linkam state, errorcode and current temperature """
         reply = self._getStatusString()
         currentstate = int(reply[0])
         errcode = int(reply[1])
@@ -383,7 +383,7 @@ class LinkamDsc(object):
         currentRamp = 1
         abort = '+'
         try:
-            state, errcode = self.state() # get initial state
+            state, errcode, self._temerature = self.state() # get initial state
             for (rate, limit, holdTime) in ramps: # get ramp and load it
                 self.rampNumber = currentRamp
                 self.rampRate = rate

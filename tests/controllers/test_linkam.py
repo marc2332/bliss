@@ -34,8 +34,9 @@ for i in range(5):
     time.sleep(4)
     dev.setStatusString("2000003a980000")
     time.sleep(2)
-    for i in range (100):
-        print i,dev.getDscData()
+    for j in range (25):
+        time.sleep(0.5)
+        print j,dev.getDscData()
     time.sleep(2)
     dev.setStatusString("3000003a980000")
     time.sleep(2)
@@ -43,9 +44,9 @@ for i in range(5):
     time.sleep(2)
     dev.setStatusString("2000003a980000")
     time.sleep(1)
-    if i == 0:
+    if i == 2:
         dev.setStatusString("2100003a980000")
-#        dev.stop()
+        dev.stop()
         time.sleep(2)
         break
     time.sleep(3)

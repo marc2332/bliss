@@ -30,9 +30,9 @@ class LinkamDsc(object):
 
         #Possible values of the status byte
         self.STOPPED = 0x1
-        self.HEATING = 2 # for testing 0x10
+        self.HEATING = 0x10
         self.COOLING = 0x20
-        self.HOLDINGLIMIT = 3 # for testing 0x30
+        self.HOLDINGLIMIT = 0x30
         self.HOLDINGTIME  = 0x40
         self.HOLDINGTEMP  = 0x50
 
@@ -50,7 +50,7 @@ class LinkamDsc(object):
         self.LINKAM_POWER_SURGE     = 0x04
         self.LINKAM_EXIT_300        = 0x08
         self.LINKAM_LINK_ERROR      = 0x20
-        self.LINKAM_OK              = 0 # for testing 0x80
+        self.LINKAM_OK              = 0x80
 
         self.ErrorToString = {
             self.LINKAM_COOLING_TOOFAST : "Cooling too fast",
@@ -60,8 +60,6 @@ class LinkamDsc(object):
             self.LINKAM_LINK_ERROR : "Problems with RS-232 or TCP data transmission - RESET Linkam !",
             self.LINKAM_OK : "OK"
         }
-        #for testing only remove afterwards
-        self.statusString = "1000003a980000"
 
         self._maximumTemp = config.get('max_temp', 1500.0)
         self._minimumTemp = config.get('min_temp', -196.0)
@@ -83,19 +81,19 @@ class LinkamDsc(object):
     def clearBuffer(self):
         """ Sends a "B" command to clear the buffers """
         self._logger.debug("clearBuffer() called")
-#        self._cnx.write("B\r")
+        self._cnx.write("B\r")
 
     def hold(self):
         """ If the controller is heating or cooling, will hold at the current
             temperature until either a heat or a cool command is received.
         """
         self._logger.debug("hold() called")
-#       self._cnx.write("O\r")
+        self._cnx.write("O\r")
 
     def start(self):
         """ Start heating or cooling at the rate specified by the Rate setting """
         self._logger.debug("start called")
-#        self._cnx.write("S\r")
+        self._cnx.write("S\r")
 
     def stop(self):
         """ Informs the controller to stop heating or cooling. """
@@ -106,8 +104,7 @@ class LinkamDsc(object):
             os.write(self._pipe[1],'|')
 
     def _doStop(self):
-#            self._cnx.write("E\r");
-        pass
+        self._cnx.write("E\r");
 
     def heat(self):
         """ Forces heating. If while heating the controller finds that the temperature
@@ -185,7 +182,7 @@ class LinkamDsc(object):
         if limit > self._maximumTemp or limit < self._minimumTemp:
             raise ValueError ("Temperature ramp limit {0} out of range ".format(limit))
         self._limit = limit
-#        self._cnx.write(("L1%d\r" % int(round(limit * 10.0))))
+        self._cnx.write(("L1%d\r" % int(round(limit * 10.0))))
 
     @property
     def rampHoldTime(self):
@@ -208,11 +205,10 @@ class LinkamDsc(object):
         if rate > 99.99: #check this
             raise ValueError ("Temperature ramp limit {0} out of range (max is 99.99)".format(rate))
         self._rate = rate
-#        self._cnx.write(("R1%d\r" % int(round(rate*100))));
+        self._cnx.write(("R1%d\r" % int(round(rate*100))));
 
     def _hasDscStage(self):
-        reply = "DSC"
-#        reply = self._cnx.write_read(chr(0xef) + "S\r")
+        reply = self._cnx.write_read(chr(0xef) + "S\r")
         self._logger.debug("hasDscStage() reply was " + reply)
         return True if reply[0:3] == "DSC" else False
 
@@ -221,8 +217,7 @@ class LinkamDsc(object):
 
     def _getStatusString(self):
         """ Get the Linkam status """
-#        return self._cnx.write_read("T\r")
-        return self.statusString
+        return self._cnx.write_read("T\r")
 
     def setTemperature(self, temp):
         # This might not work for all controllers
@@ -299,8 +294,7 @@ class LinkamDsc(object):
             return self._dscData()
 
     def _dscData(self):
-#        reply = self._cnx.write_read("D\r")
-        reply = "3a003a00"
+        reply = self._cnx.write_read("D\r")
         self._temperature = self._extractTemperature(reply[0:4])
         self._dscValue = self._extractDscValue(reply[4:8])
         if self._temperature < -273:

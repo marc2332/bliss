@@ -34,6 +34,14 @@ endif
 
 MAKE_CMD                    =   $(MAKE) -C $(KERNEL_SOURCES) M=$(MAKE_CWD)
 
+CT2_MOD                     =   ct2.ko
+
+OS                          =   $(shell /csadmin/common/scripts/get_os.share)
+ARCH                        =   $(shell uname -m)
+DRV_BASE                    =   /segfs/bliss/source/driver
+DRV_MOD                     =   $(DRV_BASE)/modules
+DRV_DEPOT                   =   $(DRV_MOD)/$(OS)/$(ARCH)/$(TARGET_KERN)
+
 all     :   kmod
 
 kmod    :   c208_bit.c p201_bit.c
@@ -44,3 +52,6 @@ kmod    :   c208_bit.c p201_bit.c
 
 clean   :
 	$(MAKE_CMD) clean
+
+copy2depot	:
+	cp $(CT2_MOD) $(DRV_DEPOT)

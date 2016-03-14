@@ -48,3 +48,6 @@ bit2arr :  $(CT2_TOOLS_PATH)/bit2arr.c
 
 examples:
 	make -C examples
+
+copy2depot:
+	make -C driver copy2depot

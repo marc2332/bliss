@@ -54,6 +54,15 @@ class BaseCT2Device(object):
     internal_timer_counter = 11
     internal_point_nb_counter = 12
 
+    IntClockSrc = {
+        1.25E3: ct2.CtClockSrc.CLK_1_25_KHz,
+        10E3:   ct2.CtClockSrc.CLK_10_KHz,
+        125E3:  ct2.CtClockSrc.CLK_125_KHz,
+        1E6:    ct2.CtClockSrc.CLK_1_MHz,
+        12.5E6: ct2.CtClockSrc.CLK_12_5_MHz,
+        1E8:    ct2.CtClockSrc.CLK_100_MHz,
+    }
+
     def __init__(self, config, name):
         self.__config = config
         self.__name = name
@@ -171,16 +180,15 @@ class CT2Device(BaseCT2Device):
         self.__acq_expo_time = 1.0
         self.__acq_nb_points = 1
         self.__acq_channels = ()
-        if auto_run:
-            self.event_loop = gevent.spawn(self.run_forever)
+        self.__timer_freq = 1E8
 
-    def run_forever(self):
+    def run_acq_loop(self):
         card = self.__card
 
-        while True:
+        just_stopped = False
+        while not just_stopped:
             read, write, error = select.select((card,), (), (card,))
             try:
-                just_stopped = False
                 if error:
                     self._send_error("ct2 select error on {0}".format(error))
                 if read:
@@ -234,14 +242,16 @@ class CT2Device(BaseCT2Device):
         point_nb_start_source = getattr(ct2.CtHardStartSrc, 'CT_{0}_START'.format(point_nb_ct))
 
         # configure counter 11 as "timer"
-        ct_config = ct2.CtConfig(clock_source=ct2.CtClockSrc.CLK_100_MHz,
+        clock_source = self.IntClockSrc[self.timer_freq]
+        ct_config = ct2.CtConfig(clock_source=clock_source,
                                  gate_source=point_nb_gate,
                                  hard_start_source=point_nb_start_source,
                                  hard_stop_source=timer_stop_source,
                                  reset_from_hard_soft_stop=True,
                                  stop_from_hard_stop=False)
         card.set_counter_config(timer_ct, ct_config)
-        card.set_counter_comparator_value(timer_ct, int(self.acq_expo_time * 1E8))
+        timer_val = int(self.acq_expo_time * self.timer_freq)
+        card.set_counter_comparator_value(timer_ct, timer_val)
 
         # configure counter 12 as "nb. points"
 
@@ -253,6 +263,10 @@ class CT2Device(BaseCT2Device):
                                  stop_from_hard_stop=True)
         card.set_counter_config(point_nb_ct, ct_config)
         card.set_counter_comparator_value(point_nb_ct, self.acq_nb_points)
+
+        # first, be sure interrupts are anabled
+        interrupt_buffer_size = 0
+        card.enable_interrupts(interrupt_buffer_size)
 
         # dma transfer and error will trigger DMA; also counter 12 stop
         # should trigger an interrupt (this way we know that the
@@ -298,6 +312,8 @@ class CT2Device(BaseCT2Device):
             raise NotImplementedError
 
     def start_acq(self):
+        self.event_loop = gevent.spawn(self.run_acq_loop)
+
         if self.acq_mode == AcqMode.Internal:
             counters = self.internal_timer_counter, self.internal_point_nb_counter
             self.card.set_counters_software_start(counters)
@@ -354,6 +370,16 @@ class CT2Device(BaseCT2Device):
     @acq_channels.setter
     def acq_channels(self, acq_channels):
         self.__acq_channels = acq_channels
+
+    @property
+    def timer_freq(self):
+        return self.__timer_freq
+
+    @timer_freq.setter
+    def timer_freq(self, timer_freq):
+        if timer_freq not in self.IntClockSrc:
+            raise ValueError('Invalid timer clock: %s' % timer_freq)
+        self.__timer_freq = timer_freq
 
     @property
     def counters(self):

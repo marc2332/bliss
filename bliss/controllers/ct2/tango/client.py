@@ -61,6 +61,30 @@ class CT2Device(BaseCT2Device):
         self._device.acq_mode = acq_mode.name
 
     @property
+    def acq_expo_time(self):
+        return self._device.acq_expo_time
+
+    @acq_expo_time.setter
+    def acq_expo_time(self, acq_expo_time):
+        self._device.acq_expo_time = acq_expo_time
+
+    @property
+    def acq_channels(self):
+        return tuple(self._device.acq_channels)
+
+    @acq_channels.setter
+    def acq_channels(self, acq_channels):
+        return tuple(self._device.acq_channels)
+
+    @property
+    def timer_freq(self):
+        return self._device.timer_freq
+
+    @timer_freq.setter
+    def timer_freq(self, timer_freq):
+        self._device.timer_freq = timer_freq
+
+    @property
     def acq_status(self):
         return AcqStatus[self._device.acq_status]
 

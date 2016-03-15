@@ -30,6 +30,7 @@ import struct
 import logging
 import weakref
 import functools
+import string
 
 try:
     import enum
@@ -3437,22 +3438,19 @@ def configure_card(card, config):
     ch_50_ohms = {}
     ch_ints = {}
     ch_in_levels = {}
-    ch_in_readbacks = {}
     ch_out_levels = {}
     ch_out_sw = {}
     ch_out_srcs = {}
     ch_out_filters = {}
-    ch_out_readbacks = {}
     for channel in config.get("channels", ()):
         addr = channel['address']
-        ints = __get(channel, "interrupt", "").lower()
+        ints = map(string.lower, __get(channel, "interrupt", []))
         ch_ints[addr] = TriggerInterrupt(rising="rising" in ints,
                                          falling="falling" in ints)
         if channel in card.INPUT_CHANNELS:
             inp = channel.get('input')
             if inp is not None:
                 ch_50_ohms[addr] = __get(inp, "50 ohm", False)
-                ch_in_readbacks[addr] = __get(inp, "readback", False)
                 level = __get(inp, "level", "").upper()
                 try:
                     level = Level[level]
@@ -3461,7 +3459,7 @@ def configure_card(card, config):
                 ch_in_levels[addr] = level
 
         if channel in card.OUTPUT_CHANNELS:
-            inp = channel.get('input')
+            out = channel.get('output')
             if out is not None:
                 ch_out_levels[addr] = __get(out, "level", "DISABLE",
                                             klass=Level)
@@ -3473,7 +3471,6 @@ def configure_card(card, config):
                 ch_out_filters[addr] = FilterOutput(clock=f_clk,
                                                     enable=f_enable,
                                                     polarity=f_polarity)
-                ch_out_readbacks[addr] = __get(out, "readback", False)
 
     card.set_input_channels_50ohm_adapter(ch_50_ohms)
     card.set_input_channels_level(ch_in_levels)
@@ -3482,8 +3479,6 @@ def configure_card(card, config):
     card.set_output_channels_software_enable(ch_out_sw)
     card.set_output_channels_source(ch_out_srcs)
     card.set_output_channels_filter(ch_out_filters)
-
-#    card.set_channels_readback(ch_in_readbacks, ch_out_readbacks)
 
     card.set_counters_config(ct_cfgs)
     card.set_counters_latch_sources(ct_latch_srcs)

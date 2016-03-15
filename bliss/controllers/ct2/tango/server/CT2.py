@@ -148,6 +148,18 @@ class CT2(Device):
         self.device.acq_channels = acq_channels
         self.push_change_event("acq_channels", acq_channels)
 
+    @attribute(dtype='float64', label="Timer clock freq.", unit="Hz",
+               standard_unit="Hz", display_unit="Hz", format="%10.3g",
+               memorized=True, hw_memorized=True,
+               doc="Timer clock frequency (Hz)")
+    def timer_freq(self):
+        return self.device.timer_freq
+
+    @timer_freq.setter
+    def timer_freq(self, timer_freq):
+        self.device.timer_freq = timer_freq
+        self.push_change_event("timer_freq", timer_freq)
+
     @attribute(dtype=('uint32',), max_dim_x=12)
     def counters(self):
         return self.device.counters

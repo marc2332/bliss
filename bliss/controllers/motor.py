@@ -15,6 +15,7 @@ def add_axis_method(axis_object, method, name=None, args=[], types_info=(None, N
         name = method.im_func.func_name
 
     def call(self, *args, **kwargs):
+        self.__class__.lazy_init(self)
         return method.im_func(method.im_self, *args, **kwargs)
 
     axis_object._add_custom_method(
@@ -71,6 +72,7 @@ def add_axis_attribute(axis_object, fget=None, fset=None, name=None,
 
     if fget:
         def call_get(self, *args, **kwargs):
+            self.__class__.lazy_init(self)
             return fget.im_func(fget.im_self, *args, **kwargs)
 
         get_method = types.MethodType(functools.partial(call_get, axis_object),
@@ -78,11 +80,13 @@ def add_axis_attribute(axis_object, fget=None, fset=None, name=None,
 
     if fset:
         def call_set(self, *args, **kwargs):
+            self.__class__.lazy_init(self)
             return fset.im_func(fset.im_self, *args, **kwargs)
         set_method = types.MethodType(functools.partial(call_set, axis_object),
                                       axis_object)
 
     axis_object._add_custom_attribute(get_method, set_method, name, type_info)
+
 
 
 class Controller(object):
@@ -149,6 +153,9 @@ class Controller(object):
         pass
 
     def _initialize_axis(self, axis):
+        if self.__initialized_axis[axis]:
+            return
+
         axis.settings.load_from_config()
 
         self.initialize_axis(axis)
@@ -199,9 +206,6 @@ class Controller(object):
     def get_axis(self, axis_name):
         axis = self._axes[axis_name]
 
-        if not self.__initialized_axis[axis]:
-            self._initialize_axis(axis)
-
         return axis
 
 
@@ -216,20 +220,28 @@ class Controller(object):
     def get_encoder(self, encoder_name):
         encoder = self._encoders[encoder_name]
 
-        if not self.__initialized_encoder[encoder]:
-            self.initialize_encoder(encoder)
-            self.__initialized_encoder[encoder] = True
-
         return encoder
+
 
     def get_class_name(self):
         return self.__class__.__name__
 
+
+    def _initialize_encoder(self, encoder):
+        if self.__initialized_encoder[encoder]:
+            return
+        
+        self.initialize_encoder(encoder)
+        self.__initialized_encoder[encoder] = True
+
+
     def initialize_encoder(self, encoder):
         raise NotImplementedError
 
+
     def is_busy(self):
         return False
+
 
     def prepare_move(self, motion):
         return

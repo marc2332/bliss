@@ -170,7 +170,7 @@ class CT2Device(BaseCT2Device):
     Helper for a locally installed CT2 card (P201/C208).
     """
 
-    def __init__(self, config, name, auto_run=True):
+    def __init__(self, config, name):
         BaseCT2Device.__init__(self, config, name)
         self.__buffer = []
         self.__buffer_lock = lock.RLock()

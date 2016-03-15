@@ -59,9 +59,8 @@ IN_CHANNEL_PARAMS_SEQ = (
 #      name             type          possible values          writable      default value           label         group       description
     ("address",         ('int',          None,                  False, None,                        "#",        None,     "channel ID")),
 #    ("name",            ('unicode',      None,                  True,  "",                          "Name",           None,     "channel name")),
-    ("level",           ('Level',        None,                  True,  ct2.Level.DISABLE,           "Level",          None,     "channel level (TTL, NIM, Both or None)")),
+    ("level",           ('Level',        None,                  True,  ct2.Level.DISABLE,           "Level",          None,     "channel level (TTL, NIM, Auto or None)")),
     ("50 ohm",          ('bool',         None,                  True,  False,                       "50 &#8486;",     None,     "50 &#8486; adapter")),
-    ("readback",        ('bool',         None,                  True,  False,                       "Readback",       None,     "readback")),
     ("interrupt",       ('list str',     ["rising", "falling"], True,  [],                          "Edge interrupt", None,     "edge interrupt: rising, falling or both (comma separated)")),
 )
 
@@ -75,8 +74,8 @@ OUT_CHANNEL_PARAMS_SEQ = (
 #                                      values
     ("address",         ('int',          None, False, None,                        "#",        None,     "channel ID")),
 #    ("name",            ('unicode',      None, True,  "",                          "Name",           None,     "channel name")),
-    ("software level",  ('bool',         None, True,  False,                      "Sw. enable",      None,     "software enable")),
-    ("level",           ('bool',         None, True,  False,                      "Level",           None,     "level")),
+    ("software enable", ('bool',         None, True,  False,                      "Sw. enable",      None,     "software enable")),
+    ("level",           ('Level',        None, True,  ct2.Level.DISABLE,          "Level",           None,     "channel level (TTL, NIM, Auto or None)")),
     ("source",          ('OutputSrc',    None, True,  ct2.OutputSrc.SOFTWARE,     "Source",          "source", "output source")),
     ("filter enable",   ('bool',         None, True,  False,                      "Filter enable",   "filter", "output filter enable/disable")),
     ("filter clock",    ('FilterClock',  None, True,  ct2.FilterClock.CLK_100_MHz,"Filter clock",    "filter", "output filter clock")),

@@ -875,6 +875,60 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
                 exit
             }
         }
+
+#        chg_dial(i, s [, u]) - Starts motor i on a home or limit search, according to the value of s, as follows:
+#
+#          "home+" - move to home switch in positive direction.
+#          "home-" - move to home switch in negative direction.
+#          "home" - move to home switch in positive direction if current dial position is less than zero, otherwise move to home
+#               switch in negative direction.
+#          "lim+" - move to limit switch in positive direction.
+#          "lim-" - move to limit switch in negative direction.
+
+        # home
+        if (cmd == "search"){
+            if(p1 == "lim+") {
+                action = "SRCH" ; lim = "LIM+"
+                printf("not yet implemented\n")
+            }
+            else if(p1 == "lim-") {
+                action = "SRCH" ; lim = "LIM-"
+                printf("not yet implemented\n")
+            }
+            else if(p1 == "lim+edge") {
+                action = "SRCH" ; lim = "LIM+"
+                printf("not yet implemented\n")
+            }
+            else if(p1 == "lim-edge") {
+                action = "SRCH" ; lim = "LIM-"
+                printf("not yet implemented\n")
+            }
+            else if(p1 == "home") {
+                # humm : must do : << move to home switch in positive
+                # direction if current dial position is less than
+                # zero, otherwise move to home switch in negative
+                # direction >>
+                _cmd = "GoHome"
+                printf("GoHome 1 \n")
+                tango_io(_dev, _cmd, 1)
+            }
+            else if(p1 == "home+") {
+                _cmd = "GoHome"
+                printf("GoHome 1 \n")
+                tango_io(_dev, _cmd, 1)
+            }
+            else if(p1 == "home-") {
+                _cmd = "GoHome"
+                printf("GoHome -1 \n")
+                tango_io(_dev, _cmd, -1)
+            }
+            else {
+                printf("un-supported home or limit search\n")
+                return ".error."
+            }
+
+
+        }
     }
 }'
 

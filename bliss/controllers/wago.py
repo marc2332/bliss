@@ -30,7 +30,8 @@ class WagoCounter(CounterBase):
     try:
       name = [x for x in self.parent.counter_gain_names if str(name) in x][0]
     except:
-      raise RuntimeError("Cannot find %s in the %s mapping" % (name, self.parent.name))
+      #raise RuntimeError("Cannot find %s in the %s mapping" % (name, self.parent.name))
+      return None
 
     if gain:
       valarr = [False]*3
@@ -94,6 +95,7 @@ class wago(object):
     if self.controller is None:
       self.connect()
     return self.controller.get(*args, **kwargs)
+
 
   @property
   def counters(self):

@@ -260,8 +260,11 @@ class MD2S:
     def microdiff_init(self,wait=True):
         self._exporter.execute("startHomingAll")
         if wait:
-            self._wait_ready(20)
-    
+            self._wait_ready(60)
+
+    def diffractometer_init(self,wait=True):
+        self.microdiff_init(wait)
+
     def phi_init(self,wait=True):
         self._exporter.execute("startHomingMotor", "Omega")
         if wait:

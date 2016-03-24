@@ -123,8 +123,8 @@ class GalilDMC213(Controller):
 
     def set_acceleration(self, axis, new_acc):
         padding = ","*(ord(axis.channel)-ord('A'))
-        self._galil_query("AC%s%.4f" % (padding, new_acc))
-        self._galil_query("DC%s%.4f" % (padding, new_acc))
+        self._galil_query("AC%s%d" % (padding, new_acc))
+        self._galil_query("DC%s%d" % (padding, new_acc))
 
     def read_acceleration(self, axis):
         return int(self._galil_query("AC%s=?" % axis.channel))
@@ -134,7 +134,7 @@ class GalilDMC213(Controller):
 
     def set_velocity(self, axis, new_velocity):
         padding = ","*(ord(axis.channel)-ord('A'))
-        self._galil_query("SP%s%.4f" % (padding, new_velocity))
+        self._galil_query("SP%s%d" % (padding, new_velocity))
         return self.read_velocity(axis)
 
     def set_off(self, axis):

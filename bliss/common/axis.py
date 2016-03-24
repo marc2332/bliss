@@ -305,6 +305,9 @@ class Axis(object):
             return self.config.get("acceleration", float)
 
         if new_acc is not None:
+            if self.is_moving:
+                raise RuntimeError("Cannot set acceleration while axis '%s` is moving." % self.name)
+
             # Converts into motor units to change acceleration of axis.
             self.__controller.set_acceleration(self, new_acc * abs(self.steps_per_unit))
         else:

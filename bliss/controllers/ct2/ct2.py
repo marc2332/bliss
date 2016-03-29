@@ -3202,32 +3202,33 @@ class BaseCard:
             register |= 1 << (c-1)
         self.write_reg("SOFT_LATCH", register)
 
-    def set_counters_software_enable(self, counters):
+    def set_counters_software_enable_disable(self, counters):
         """
-        Software enables/disables *all* counters
+        Software enables/disables specified counters
 
         .. note::
             counters which are not given are left unchanged
 
         :param counters:
-            container of counters (starting at 1). It can be any python
-            container of integers (tuple, list, set, iterable, even dict)
-        :type counters: container<int>
+            dictionary where key is the counter number (starting at 1)
+            and value is bool (True means software enable, False means software disable)
+        :type counters: dict<int: bool>
 
         :raises OSError: in case the operation fails
         """
         register = 0
-        if isinstance(counters, dict):
-            counters = [c for c, enable in counters.items() if enable]
-        for counter in counters:
-            register |= 1 << (counter-1)
+        for counter, action in counters.items():
+            reg = 1 << (counter-1)
+            if not action:
+                reg = reg << 16
+            register |= reg
         self.write_reg("SOFT_ENABLE_DISABLE", register)
 
     def enable_counters_software(self, counters):
         """
         Software enables the given counters
 
-        This is a convenience method for :meth:`set_counters_software_enable`
+        This is a convenience method for :meth:`set_counters_software_enable_disable`
 
         :param counters:
             a container of the counters to be software enabled. It can be any python
@@ -3239,13 +3240,13 @@ class BaseCard:
         ct = {}
         for counter in counters:
             ct[counter] = True
-        self.set_counters_software_enable(ct)
+        self.set_counters_software_enable_disable(ct)
 
     def disable_counters_software(self, counters):
         """
         Software disables the given counters
 
-        This is a convenience method for :meth:`set_counters_software_enable`
+        This is a convenience method for :meth:`set_counters_software_enable_disable`
 
         :param counters:
             a container of the counters to be software disabled. It can be any python
@@ -3257,7 +3258,7 @@ class BaseCard:
         ct = {}
         for counter in counters:
             ct[counter] = False
-        self.set_counters_software_enable(ct)
+        self.set_counters_software_enable_disable(ct)
 
 
 class P201Card(BaseCard):
@@ -3303,6 +3304,7 @@ __enum_meta = {
     #   enum           optional      default
     #                  prefixes       value
     Clock:          ( ("CLK_",), Clock.CLK_DISABLE ),
+    FilterClock:    ( ("CLK_",), FilterClock.CLK_100_MHz),
     CtClockSrc:     ( ("CLK_",), CtClockSrc.CLK_1_25_KHz),
     CtGateSrc:      ( (),        CtGateSrc.GATE_CMPT),
     CtHardStartSrc: ( (),        CtHardStartSrc.SOFTWARE),
@@ -3447,7 +3449,7 @@ def configure_card(card, config):
         ints = map(string.lower, __get(channel, "interrupt", []))
         ch_ints[addr] = TriggerInterrupt(rising="rising" in ints,
                                          falling="falling" in ints)
-        if channel in card.INPUT_CHANNELS:
+        if addr in card.INPUT_CHANNELS:
             inp = channel.get('input')
             if inp is not None:
                 ch_50_ohms[addr] = __get(inp, "50 ohm", False)
@@ -3458,7 +3460,7 @@ def configure_card(card, config):
                     level = Level.DISABLE
                 ch_in_levels[addr] = level
 
-        if channel in card.OUTPUT_CHANNELS:
+        if addr in card.OUTPUT_CHANNELS:
             out = channel.get('output')
             if out is not None:
                 ch_out_levels[addr] = __get(out, "level", "DISABLE",
@@ -3484,7 +3486,7 @@ def configure_card(card, config):
     card.set_counters_latch_sources(ct_latch_srcs)
     card.set_DMA_enable_trigger_latch(counters=ct_latch_triggers_dma,
                                       latches=ct_fifo_dma_trigger)
-    card.set_counters_software_enable(ct_sw_enables)
+    card.set_counters_software_enable_disable(ct_sw_enables)
     card.set_counters_comparators_values(ct_cmpts)
 
     enable_interrupts = any(list(ct_ints.values()) + [dma_int, fifo_hf_int, error_int,

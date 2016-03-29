@@ -275,7 +275,7 @@ class CT2Device(BaseCT2Device):
         card.set_interrupts(counters=(point_nb_ct,), dma=True, error=True)
 
         # make master enabled by software
-        card.set_counters_software_enable((timer_ct, point_nb_ct))
+        card.enable_counters_software((timer_ct, point_nb_ct))
 
         # ... and now for the slave channels
 
@@ -299,7 +299,7 @@ class CT2Device(BaseCT2Device):
         # trigger, all active counters (including counters 11 (timer)
         # and 12 (point_nb)) are stored to FIFO
         card.set_DMA_enable_trigger_latch((timer_ct,), all_channels)
-        card.set_counters_software_enable(channels)
+        card.enable_counters_software(channels)
 
     def apply_config(self):
         ct2.configure_card(self.card, self.card_config)

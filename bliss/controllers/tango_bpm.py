@@ -110,6 +110,10 @@ class tango_bpm(object):
    def set_diode_range(self, range):
      self.__control.DiodeRange = range
 
+   def get_diode_range(self):
+    return  self.__control.DiodeRange
+   
+
    def is_acquiring(self):
      return str(self.__control.State()) == 'MOVING'
 

@@ -7,22 +7,44 @@ import time
 import logging
 
 """
-connect
-close
-raw_read
-read
-readline
-write
-write_read
-write_readline
-flush
+Socket:
+  connect
+  close
+  raw_read
+  read
+  readline
+  write
+  write_read
+  write_readline
+  write_readlines
+  flush
+  _sendall
+  _raw_read
+
+Command:
+  connect
+  close
+  _read
+  _readline
+  _write
+  write
+  write_readline
+  write_readlines
+  _raw_read
 """
 
 
+# Decorator function for read/write functions.
+# Performs reading of data via "_raw_read_task" in self.connect()
 def try_connect_socket(fu):
     def rfunc(self, *args, **kwarg):
         write_func = fu.func_name.startswith('write')
-        if(not self._connected and (not self._data or write_func)):
+
+        if((not self._connected) and ((not self._data) or write_func)):
+            # connects if :
+            #   not already connected
+            #   AND
+            #   "write"-function   OR   no data are present.
             self.connect()
 
         if not self._connected:
@@ -126,9 +148,9 @@ class Socket:
         timeout_errmsg = "timeout on socket(%s, %d)" % (self._host, self._port)
         with gevent.Timeout(timeout or self._timeout,
                             RuntimeError(timeout_errmsg)):
-            #local_timeout = timeout or self._timeout
+            # local_timeout = timeout or self._timeout
             local_eol = eol or self._eol
-            #start_time = time.time()
+            # start_time = time.time()
             eol_pos = self._data.find(local_eol)
             while eol_pos == -1:
                 self._event.wait()
@@ -167,7 +189,7 @@ class Socket:
             self, msg, nb_lines, write_synchro=None, eol=None, timeout=None):
         with self._lock:
             with gevent.Timeout(timeout or self._timeout,
-                                RuntimeError("write_readline timed out")):
+                                RuntimeError("SOCKET write_readlines(%s, %d) timed out" % (msg, nb_lines))):
                 self._sendall(msg)
                 if write_synchro:
                     write_synchro.notify()
@@ -189,7 +211,7 @@ class Socket:
 
     def flush(self):
         self._data = ''
-    
+
     def _sendall(self,data) :
         if logging.getLogger().isEnabledFor(logging.DEBUG):
             self._debug("Tx: %s %s",data,['0x%.2x' % ord(x) for x in data])
@@ -373,7 +395,7 @@ class Command:
     def write_readlines(
             self, msg, nb_lines, write_synchro=None, eol=None, timeout=None):
         with gevent.Timeout(timeout or self._timeout,
-                            RuntimeError("write_readline timed out")):
+                            RuntimeError("COMMAND write_readlines(%s,%d) timed out" % (msg, nb_lines))):
             transaction = self._write(msg)
 
             if write_synchro:
@@ -419,9 +441,10 @@ class Command:
         self._transaction_list.append(data_queue)
         return data_queue
 
+
 class Tcp(object):
     SOCKET,COMMAND = range(2)
-    
+
     def __new__(cls,url = None,**keys) :
         if url.lower().startswith('command://') :
             parse = re.compile('^(command://)([^:/]+?):([0-9]+)$')
@@ -437,4 +460,3 @@ class Tcp(object):
                 raise RuntimeError('Socket: url is not valid (%s)' % url)
             host,port = match.group(2),int(match.group(3))
             return Socket(host,port,**keys)
-

@@ -147,7 +147,7 @@ class fshutter:
    @task
    def home(self):
        def home_cleanup():
-           self.fshutter_mot.set_velocity(self.fshutter_mot.velocity(from_config=True)) 
+           self.fshutter_mot.velocity(self.fshutter_mot.velocity(from_config=True)) 
            self.enable(self.icepap_steps)
 
        with cleanup(home_cleanup):

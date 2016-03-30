@@ -405,7 +405,7 @@ class Axis(object):
         elog.debug("hw_position=%g user_initial_dial_pos=%g" % (hw_pos, user_initial_dial_pos))
 
         if abs(user_initial_dial_pos - hw_pos) > self.tolerance:
-            raise RuntimeError("Discrepancy between dial (%f) and controller position (%f), aborting" % (user_initial_dial_pos, hw_pos))
+            raise RuntimeError("%s: discrepancy between dial (%f) and controller position (%f), aborting" % (self.name, user_initial_dial_pos, hw_pos))
         if relative:
             user_initial_pos = self._set_position()
             user_target_pos += user_initial_pos

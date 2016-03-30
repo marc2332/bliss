@@ -38,7 +38,7 @@ class fshutter:
    def state(self):
       enastate = self.enastate
       if self.musst:
-         return "CLOSED" if self.musst.putget("?VAL CH1") == 0 else "OPENED"
+         return "CLOSED" if self.musst.putget("?VAL CH1") == '0' else "OPENED"
       else:
          if enastate:
             self.disable()

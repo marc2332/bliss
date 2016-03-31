@@ -197,7 +197,6 @@ def Bus(redis):
         return bus
 
 class _Channel(object):
-        self._name = name
     def __init__(self, redis, name, default_value,value):
         self._bus = Bus(redis)
 
@@ -211,22 +210,24 @@ class _Channel(object):
             CHANNELS_CBK.pop(name, None)
             CHANNELS.pop(name, None) 
         CHANNELS[name] = weakref.ref(self, on_die)
+        self.__name = name
+        self.__timeout = 3.
         if not isinstance(value ,NotInitialized):
             self._bus.update_channel(name,value)
 
     @property
     def name(self):
-        return self._name
+        return self.__name
 
     @property 
     def value(self):
-        value = CHANNELS_VALUE.get(self._name)
+        value = CHANNELS_VALUE.get(self.__name)
         if value is None:       # probably not initialized
             with gevent.Timeout(self.__timeout, RuntimeError("timeout to receive channel value")):
                 while value is None:
                     with self._bus.wait_event_on(self.__name) as we:
                         we.wait()
-                        value = CHANNELS_VALUE.get(self._name)
+                        value = CHANNELS_VALUE.get(self.__name)
                     
         return value.value
 
@@ -245,20 +246,20 @@ class _Channel(object):
     def register_callback(self, callback):
         if callable(callback):
             cb_ref = saferef.safe_ref(callback)
-            callback_refs = CHANNELS_CBK.setdefault(self._name,set())
+            callback_refs = CHANNELS_CBK.setdefault(self.__name,set())
             callback_refs.add(cb_ref)
 
     def unregister_callback(self, callback):
         cb_ref = saferef.safe_ref(callback)
         try:
-            callback_refs = CHANNELS_CBK.setdefault(self._name,set())
+            callback_refs = CHANNELS_CBK.setdefault(self.__name,set())
             callback_refs.remove(cb_ref)
         except:
             return
 
     def __repr__(self):
         self.value
-        return '%s->%s' % (self._name,CHANNELS_VALUE.get(self._name))
+        return '%s->%s' % (self.__name,CHANNELS_VALUE.get(self.__name))
 
 def Channel(name, value=NotInitialized(), callback=None,
             default_value=None, redis=None):

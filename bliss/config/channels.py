@@ -197,9 +197,8 @@ def Bus(redis):
         return bus
 
 class _Channel(object):
-    def __init__(self, redis, name,timeout, default_value,value):
         self._name = name
-        self._timeout = timeout
+    def __init__(self, redis, name, default_value,value):
         self._bus = Bus(redis)
 
         self._bus.subscribe(name)
@@ -223,7 +222,7 @@ class _Channel(object):
     def value(self):
         value = CHANNELS_VALUE.get(self._name)
         if value is None:       # probably not initialized
-            with gevent.Timeout(self._timeout,RuntimeError("timeout to receive channel value")):
+            with gevent.Timeout(self.__timeout, RuntimeError("timeout to receive channel value")):
                 while value is None:
                     with self._bus.wait_event_on(self.__name) as we:
                         we.wait()
@@ -235,6 +234,13 @@ class _Channel(object):
     def value(self, new_value):
         self._bus.update_channel(self.__name,new_value)
 
+    @property
+    def timeout(self):
+        return self.__timeout
+
+    @timeout.setter
+    def timeout(self,value):
+        self.__timeout = value
 
     def register_callback(self, callback):
         if callable(callback):
@@ -255,14 +261,14 @@ class _Channel(object):
         return '%s->%s' % (self._name,CHANNELS_VALUE.get(self._name))
 
 def Channel(name, value=NotInitialized(), callback=None,
-            timeout=1,redis=None, default_value=NotInitialized(),**keys):
+            default_value=None, redis=None):
     if redis is None:
             redis = client.get_cache()
     try:
         chan_ref = CHANNELS[name]
         chan = chan_ref()
     except KeyError:
-        chan = _Channel(redis, name,timeout,default_value, value)
+        chan = _Channel(redis, name,default_value, value)
 
     if callback is not None:
         chan.register_callback(callback)

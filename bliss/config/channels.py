@@ -5,6 +5,7 @@ import cPickle
 import gevent
 import gevent.event
 import time
+from bliss.common.utils import grouped
 # use safe reference module from dispatcher
 # (either louie -the new project- or pydispatch)
 try:
@@ -148,7 +149,10 @@ class _Bus(object):
             self._pending_channel_value = dict()
             self._pending_init = list()
 
+            no_listener_4_values = set()
             if pending_subscribe:
+                result = self._redis.execute_command('pubsub','numsub',*pending_subscribe)
+                no_listener_4_values = set((name for name,nb_listener in grouped(result,2) if nb_listener is '0'))
                 pubsub.subscribe(pending_subscribe)
                 if self._listen_task is None:
                     self._listen_task = gevent.spawn(self._listen)
@@ -164,12 +168,13 @@ class _Bus(object):
             if pending_init:
                 pipeline = self._redis.pipeline()
                 for name,default_value in pending_init:
-                    pipeline.publish(name,cPickle.dumps(ValueQuery(),protocol=-1))
-                for (name,default_value),nb_listener in zip(pending_init,pipeline.execute()):
-                    if nb_listener <= 1: # we are alone
+                    if name not in no_listener_4_values:
+                        pipeline.publish(name,cPickle.dumps(ValueQuery(),protocol=-1))
+                    else: # we are alone
                         CHANNELS_VALUE[name] = _ChannelValue(None,default_value)
                         for waiting_event in self._wait_event.get(name,set()):
                             waiting_event.set()
+                pipeline.execute()
 
     def _listen(self):
         for event in self._pubsub.listen():

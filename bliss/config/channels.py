@@ -19,7 +19,7 @@ import os
 CHANNELS = dict()
 CHANNELS_VALUE = dict()
 CHANNELS_CBK = dict()
-BUS = None
+BUS = dict()
 
 class ValueQuery(object):
     def __init__(self):
@@ -34,13 +34,6 @@ class NotInitialized(object):
         return False
 
 _ChannelValue = namedtuple("_ChannelValue",['timestamp','value'])
-
-def _clean(ref=None,name=None):
-    if BUS:
-        BUS.unsubscribe(name)
-    CHANNELS_VALUE.pop(name,None)
-    CHANNELS_CBK.pop(name,None)
-    CHANNELS.pop(name,None)
 
 class _Bus(object):
     class WaitEvent(object):
@@ -195,21 +188,32 @@ class _Bus(object):
                     self._in_recv = False
         self._listen_task = None
 
+def Bus(redis):
+    try:
+        return BUS[redis]
+    except KeyError:
+        bus = _Bus(redis)
+        BUS[redis] = bus
+        return bus
+
 class _Channel(object):
     def __init__(self, redis, name,timeout, default_value,value):
-        global BUS
-        if BUS is None:
-            BUS = _Bus(redis)
-
-        BUS.subscribe(name)
-        BUS.get_init_value(name,default_value)
-        cbk = partial(_clean,name=name)
-        channel_ref = weakref.ref(self,cbk)
-        CHANNELS[name] = channel_ref
         self._name = name
         self._timeout = timeout
+        self._bus = Bus(redis)
+
+        self._bus.subscribe(name)
+        self._bus.get_init_value(name,default_value)
+        def on_die(killed_ref):
+            # don't use 'self' otherwise it creates a cycle
+            bus = Bus(redis)
+            bus.unsubscribe(name)
+            CHANNELS_VALUE.pop(name, None)
+            CHANNELS_CBK.pop(name, None)
+            CHANNELS.pop(name, None) 
+        CHANNELS[name] = weakref.ref(self, on_die)
         if not isinstance(value ,NotInitialized):
-            BUS.update_channel(name,value)
+            self._bus.update_channel(name,value)
 
     @property
     def name(self):
@@ -221,7 +225,7 @@ class _Channel(object):
         if value is None:       # probably not initialized
             with gevent.Timeout(self._timeout,RuntimeError("timeout to receive channel value")):
                 while value is None:
-                    with BUS.wait_event_on(self._name) as we:
+                    with self._bus.wait_event_on(self.__name) as we:
                         we.wait()
                         value = CHANNELS_VALUE.get(self._name)
                     
@@ -229,7 +233,8 @@ class _Channel(object):
 
     @value.setter
     def value(self, new_value):
-        BUS.update_channel(self._name,new_value)
+        self._bus.update_channel(self.__name,new_value)
+
 
     def register_callback(self, callback):
         if callable(callback):

@@ -141,35 +141,35 @@ class _Bus(object):
             pending_unsubscribe = self._pending_unsubscribe
             pending_channel_value = self._pending_channel_value
             pending_init = self._pending_init
+            pubsub = self._pubsub
 
             self._pending_subscribe = list()
             self._pending_unsubscribe = list()
             self._pending_channel_value = dict()
             self._pending_init = list()
 
-            if pending_subscribe or pending_unsubscribe or pending_channel_value:
-                pubsub = self._pubsub
-                if pending_subscribe: pubsub.subscribe(pending_subscribe)
-                if pending_unsubscribe: pubsub.unsubscribe(pending_unsubscribe)
+            if pending_subscribe:
+                pubsub.subscribe(pending_subscribe)
+                if self._listen_task is None:
+                    self._listen_task = gevent.spawn(self._listen)
 
-                if pending_channel_value:
-                    pipeline = self._redis.pipeline()
-                    for name,channel_value in pending_channel_value.iteritems():
-                        pipeline.publish(name,cPickle.dumps(channel_value,protocol=-1))
-                    pipeline.execute()
-                
-                if pending_init:
-                    pipeline = self._redis.pipeline()
-                    for name,default_value in pending_init:
-                        nb_listener = pipeline.publish(name,cPickle.dumps(ValueQuery(),protocol=-1))
-                    for (name,default_value),nb_listener in zip(pending_init,pipeline.execute()):
-                        if nb_listener <= 1: # we are alone
-                            CHANNELS_VALUE[name] = _ChannelValue(None,default_value)
-                            for waiting_event in self._wait_event.get(name,set()):
-                                waiting_event.set()
+            if pending_unsubscribe: pubsub.unsubscribe(pending_unsubscribe)
 
-            if pending_subscribe and self._listen_task is None:
-                self._listen_task = gevent.spawn(self._listen)
+            if pending_channel_value:
+                pipeline = self._redis.pipeline()
+                for name,channel_value in pending_channel_value.iteritems():
+                    pipeline.publish(name,cPickle.dumps(channel_value,protocol=-1))
+                pipeline.execute()
+
+            if pending_init:
+                pipeline = self._redis.pipeline()
+                for name,default_value in pending_init:
+                    pipeline.publish(name,cPickle.dumps(ValueQuery(),protocol=-1))
+                for (name,default_value),nb_listener in zip(pending_init,pipeline.execute()):
+                    if nb_listener <= 1: # we are alone
+                        CHANNELS_VALUE[name] = _ChannelValue(None,default_value)
+                        for waiting_event in self._wait_event.get(name,set()):
+                            waiting_event.set()
 
     def _listen(self):
         for event in self._pubsub.listen():

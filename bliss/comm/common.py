@@ -1,6 +1,6 @@
 
 
-class CommunicationError(Exception):
+class CommunicationError(RuntimeError):
     pass
 
 

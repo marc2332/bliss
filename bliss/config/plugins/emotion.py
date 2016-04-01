@@ -6,9 +6,17 @@ import pkgutil
 from bliss.config.motors.beacon_backend import create_objects_from_config_node, create_object_from_cache
 import bliss.controllers.motor as bliss_motor_controller
 
-__KNOWN_AXIS_PARAMS = ("name", "controller", "unit", "steps_per_unit",
-                       "velocity", "acceleration", "backlash",
-                       "low_limit", "high_limit")
+__KNOWN_AXIS_PARAMS = {
+    "name": str,
+    "controller": str,
+    "unit": str,
+    "steps_per_unit": float,
+    "velocity": float,
+    "acceleration": float,
+    "backlash": float,
+    "low_limit": float,
+    "high_limit": float,
+}
 
 __KNOWN_CONTROLLER_PARAMS = ("name", "class", "plugin", "axes")
 
@@ -192,6 +200,10 @@ def controller_edit(cfg, request):
             if " " in param_name:     # axis param
                 param_name, axis_name = param_name.split()
                 obj = cfg.get_config(axis_name)
+                try:
+                    param_value = __KNOWN_AXIS_PARAMS[param_name](param_value)
+                except KeyError:
+                    pass
             else:                     # controller param
                 obj = ctrl_cfg
             obj[param_name] = param_value
@@ -238,8 +250,13 @@ def axis_edit(cfg, request):
             return flask.json.dumps(result)
 
         axis_cfg = cfg.get_config(orig_name)
-        data = [(k, v) for k, v in form.iteritems()]
-        axis_cfg.update(data)
+
+        for k, v in form.iteritems():
+            try:
+                v = __KNOWN_AXIS_PARAMS[k](v)
+            except KeyError:
+                pass
+            axis_cfg[k] = v
         axis_cfg.save()
         if update_server:
             result["message"], result["type"] = __tango_apply_config(name)

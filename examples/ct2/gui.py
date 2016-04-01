@@ -267,7 +267,7 @@ def get_config(reload=False):
             cfg.reload()
         return cfg
     except NameError:
-        from beacon.static import get_config
+        from bliss.config.static import get_config
         __config = get_config()
     return __config
 

@@ -34,8 +34,11 @@ PointNbSignal = "point_nb"
 class AcqMode(enum.Enum):
     """Acquisition mode enumeration"""
 
-    #: Internal trigger (aka software trigger)
+    #: Software start + internal timer trigger (aka Internal Single-trigger)
     Internal = 0
+
+    #: Software start + software trigger (aka Internal multi-trigger)
+    Slave = 1
 
 
 class AcqStatus(enum.Enum):
@@ -170,23 +173,23 @@ class CT2Device(BaseCT2Device):
     Helper for a locally installed CT2 card (P201/C208).
     """
 
-    def __init__(self, config, name):
+    def __init__(self, config, name, acq_mode=AcqMode.Internal):
         BaseCT2Device.__init__(self, config, name)
         self.__buffer = []
         self.__buffer_lock = lock.RLock()
         self.__card = self.config.get(self.name)
-        self.__acq_mode = AcqMode.Internal
+        self.__acq_mode = acq_mode
         self.__acq_status = AcqStatus.Ready
         self.__acq_expo_time = 1.0
         self.__acq_nb_points = 1
         self.__acq_channels = ()
         self.__timer_freq = 1E8
+        self.__event_loop = None
 
     def run_acq_loop(self):
         card = self.__card
 
-        just_stopped = False
-        while not just_stopped:
+        while self.__acq_status == AcqStatus.Running:
             read, write, error = select.select((card,), (), (card,))
             try:
                 if error:
@@ -195,7 +198,7 @@ class CT2Device(BaseCT2Device):
                     (counters, channels, dma, fifo_half_full, err), tstamp = \
                         card.acknowledge_interrupt()
 
-                    if self.__acq_mode == AcqMode.Internal:
+                    if self.__acq_mode in [AcqMode.Internal, AcqMode.Slave]:
                         if self.internal_point_nb_counter in counters:
                             self.__acq_status = AcqStatus.Ready
                             just_stopped = True
@@ -229,17 +232,25 @@ class CT2Device(BaseCT2Device):
         self.card.reset()
         self.__buffer = []
 
-    def __configure_internal_mode(self):
+    def __configure_internal_slave_mode(self, mode):
         card = self.__card
 
         timer_ct = self.internal_timer_counter
         point_nb_ct = self.internal_point_nb_counter
 
-        timer_inc_stop = getattr(ct2.CtClockSrc, 'INC_CT_{0}_STOP'.format(timer_ct))
-        timer_stop_source = getattr(ct2.CtHardStopSrc, 'CT_{0}_EQ_CMP_{0}'.format(timer_ct))
-        point_nb_stop_source = getattr(ct2.CtHardStopSrc, 'CT_{0}_EQ_CMP_{0}'.format(point_nb_ct))
-        point_nb_gate = getattr(ct2.CtGateSrc, 'CT_{0}_GATE_ENVELOP'.format(point_nb_ct))
-        point_nb_start_source = getattr(ct2.CtHardStartSrc, 'CT_{0}_START'.format(point_nb_ct))
+        timer_inc_stop = getattr(ct2.CtClockSrc, 
+                                 'INC_CT_{0}_STOP'.format(timer_ct))
+        if mode == AcqMode.Internal:
+            timer_stop_source = getattr(ct2.CtHardStopSrc, 
+                                        'CT_{0}_EQ_CMP_{0}'.format(timer_ct))
+        else:
+            timer_stop_source = ct2.CtHardStopSrc.SOFTWARE
+        point_nb_stop_source = getattr(ct2.CtHardStopSrc, 
+                                       'CT_{0}_EQ_CMP_{0}'.format(point_nb_ct))
+        point_nb_gate = getattr(ct2.CtGateSrc, 
+                                'CT_{0}_GATE_ENVELOP'.format(point_nb_ct))
+        point_nb_start_source = getattr(ct2.CtHardStartSrc, 
+                                        'CT_{0}_START'.format(point_nb_ct))
 
         # configure counter 11 as "timer"
         clock_source = self.IntClockSrc[self.timer_freq]
@@ -250,8 +261,10 @@ class CT2Device(BaseCT2Device):
                                  reset_from_hard_soft_stop=True,
                                  stop_from_hard_stop=False)
         card.set_counter_config(timer_ct, ct_config)
-        timer_val = int(self.acq_expo_time * self.timer_freq)
-        card.set_counter_comparator_value(timer_ct, timer_val)
+
+        if mode == AcqMode.Internal:
+            timer_val = int(self.acq_expo_time * self.timer_freq)
+            card.set_counter_comparator_value(timer_ct, timer_val)
 
         # configure counter 12 as "nb. points"
 
@@ -285,6 +298,7 @@ class CT2Device(BaseCT2Device):
         # change the start and stop sources for the active channels
         for ch_nb in channels:
             ct_config = card.get_counter_config(ch_nb)
+            ct_config.gate_source = point_nb_gate
             ct_config.hard_start_source = point_nb_start_source
             ct_config.hard_stop_source = timer_stop_source
             ct_config.reset_from_hard_soft_stop = True
@@ -306,34 +320,50 @@ class CT2Device(BaseCT2Device):
 
     def prepare_acq(self):
         self.stop_acq()
-        if self.acq_mode == AcqMode.Internal:
-            self.__configure_internal_mode()
+        if self.acq_mode in [AcqMode.Internal, AcqMode.Slave]:
+            self.__configure_internal_slave_mode(self.acq_mode)
         else:
             raise NotImplementedError
 
     def start_acq(self):
-        self.event_loop = gevent.spawn(self.run_acq_loop)
-
-        if self.acq_mode == AcqMode.Internal:
-            counters = self.internal_timer_counter, self.internal_point_nb_counter
-            self.card.set_counters_software_start(counters)
-        else:
-            raise NotImplementedError
         self.__acq_status = AcqStatus.Running
+        try:
+            self.__event_loop = gevent.spawn(self.run_acq_loop)
+
+            if self.acq_mode in [AcqMode.Internal, AcqMode.Slave]:
+                counters = (self.internal_point_nb_counter,)
+                self.card.set_counters_software_start(counters)
+            else:
+                raise NotImplementedError
+        except:
+            self.__acq_status = AcqStatus.Ready
+            raise
         self._send_status(self.__acq_status)
 
     def stop_acq(self):
         if self.__acq_status != AcqStatus.Running:
+            if self.__event_loop is not None:
+                gevent.wait([self.__event_loop])
+            self.__event_loop = None
             return
-        elif self.acq_mode == AcqMode.Internal:
+
+        self.__acq_status = AcqStatus.Ready
+        if self.acq_mode in [AcqMode.Internal, AcqMode.Slave]:
             self.card.set_counters_software_stop(self.card.COUNTERS)
         else:
             raise NotImplementedError
-        self.__acq_status = AcqStatus.Ready
+        gevent.wait([self.__event_loop])
+        self.__event_loop = None
         self._send_status(self.__acq_status)
 
     def trigger_latch(self, counters):
         self.card.trigger_counters_software_latch(counters)
+
+    def trigger_point(self):
+        if self.acq_mode == AcqMode.Slave:
+            self.card.set_counters_software_stop((self.internal_timer_counter,))
+        else:
+            raise NotImplementedError
 
     @property
     def acq_mode(self):
@@ -341,7 +371,7 @@ class CT2Device(BaseCT2Device):
 
     @acq_mode.setter
     def acq_mode(self, acq_mode):
-        new_acq_mode = AcqMode(acq_mode)
+        self.__acq_mode = AcqMode(acq_mode)
 
     @property
     def acq_status(self):

@@ -57,7 +57,7 @@ class CT2(Device):
     __metaclass__ = DeviceMeta
 
     card_name = device_property(dtype='str', default_value="p201")
-
+    def_acq_mode = device_property(dtype='str', default_value="Internal")
 
     def __init__(self, *args, **kwargs):
         Device.__init__(self, *args, **kwargs)
@@ -76,7 +76,8 @@ class CT2(Device):
             config = get_config()
             util = Util.instance()
             if util.is_svr_starting():
-                self.device = CT2Device(config, self.card_name)
+                acq_mode = AcqMode[self.def_acq_mode]
+                self.device = CT2Device(config, self.card_name, acq_mode)
                 connect(self.device, ErrorSignal, self.__on_error)
                 connect(self.device, PointNbSignal, self.__on_point_nb)
                 connect(self.device, StatusSignal, self.__on_status)
@@ -101,7 +102,7 @@ class CT2(Device):
 
     @attribute(dtype='str', label="Acq. mode",
                memorized=True, hw_memorized=True,
-               doc="Acquisition mode (supported: 'internal', )")
+               doc="Acquisition mode (supported: 'Internal', 'Slave')")
     def acq_mode(self):
         return self.device.acq_mode.name
 
@@ -200,6 +201,10 @@ class CT2(Device):
     @command
     def stop_acq(self):
         self.device.stop_acq()
+
+    @command
+    def trigger_point(self):
+        self.device.trigger_point()
 
     @property
     def card(self):

@@ -14,7 +14,8 @@ def p201_config(cnum, type, unit, module, chan) '{
       printf("Configuring \"%s\" as timer\n", mne)
       factor = counter_par(cnum, "scale")
       tango_put(ctrl_dev, "timer_freq", factor)
-      P201_CT["int_cnt"] = 11
+      tango_put(ctrl_dev, "acq_mode", "Internal")
+      P201_CT[ctrl_dev]["int_cnt"] = 11
    }
 }'
 
@@ -46,7 +47,7 @@ def p201_cmd(cnum, key, p1, p2) '{
           tango_io(ctrl_dev, "start_acq")
       }
    } else if (key == "counts") {
-      int_cnt = P201_CT["int_cnt"]
+      int_cnt = P201_CT[ctrl_dev]["int_cnt"]
       tango_get(ctrl_dev, "latches", val)
       if (val[int_cnt - 1] == 0)
             tango_get(ctrl_dev, "counters", val)
@@ -57,7 +58,26 @@ def p201_cmd(cnum, key, p1, p2) '{
    } else if (key == "halt_all") {
       tango_io(ctrl_dev, "stop_acq")
    }
-
 }'
 
+def p201_par(cnum, key, action, val) '{
+   local ctrl_dev mode_str acq_mode acq_mode_table[]
 
+   acq_mode_table[0] = "Internal"
+   acq_mode_table[1] = "Slave"
+   acq_mode_table["nr"] = 2
+
+   ctrl_dev = p201_ADDR
+   if (key == "acq_mode") {
+       mode_str = tango_get(ctrl_dev, "acq_mode")
+       for (acq_mode = 0; acq_mode < acq_mode_table["nr"]; acq_mode++)
+           if (acq_mode_table[acq_mode] == mode_str)
+               break
+       if (action == "set")
+           tango_put(ctrl_dev, "acq_mode", acq_mode_table[val])
+       return acq_mode
+   } else if (key == "trigger_point") {
+       tango_io(ctrl_dev, "trigger_point")
+       return 0
+   }
+}'

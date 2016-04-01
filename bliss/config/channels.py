@@ -206,7 +206,6 @@ class _Channel(object):
         self._bus = Bus(redis)
 
         self._bus.subscribe(name)
-        self._bus.get_init_value(name,default_value)
         def on_die(killed_ref):
             # don't use 'self' otherwise it creates a cycle
             bus = Bus(redis)
@@ -219,6 +218,8 @@ class _Channel(object):
         self.__timeout = 3.
         if not isinstance(value ,NotInitialized):
             self._bus.update_channel(name,value)
+        else:
+            self._bus.get_init_value(name,default_value)
 
     @property
     def name(self):

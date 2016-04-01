@@ -25,10 +25,10 @@ import functools
 import numpy
 
 from .util import get_interface
-
 from .scpi_mapping import commands
+from .common import CommunicationError, CommunicationTimeout
 
-class ScpiException(Exception):
+class ScpiError(CommunicationError):
     pass
 
 def _sanatize_msgs(*msgs):
@@ -80,7 +80,7 @@ class Scpi(object):
         cmd = cmd.upper()
         command = self.commands[cmd]
         if not 'get' in command:
-            raise ScpiException('command {0} is not gettable'.format(cmd))
+            raise ScpiError('command {0} is not gettable'.format(cmd))
         result = self.command(cmd + "?")
         if result:
             return result[0][1]
@@ -89,7 +89,7 @@ class Scpi(object):
         cmd = cmd.upper()
         command = self.commands[cmd]
         if not 'set' in command:
-            raise ScpiException('command {0} is not settable'.format(cmd))
+            raise ScpiError('command {0} is not settable'.format(cmd))
         setter = command['set']
         if setter is not None:
             cmd = "{0} {1}".format(cmd, setter(value))
@@ -212,7 +212,7 @@ class Scpi(object):
         raw_results = raw_result.split(";")
         if len(queries) != len(raw_results):
             msg = "expected {0} results (got {1}".format(queries, raw_results)
-            raise ScpiException(msg)
+            raise ScpiError(msg)
         results = []
         for query, result in zip(queries, raw_results):
             command = self.commands.get(query)
@@ -239,7 +239,7 @@ class Scpi(object):
             instrumment.write('*RST')
         """
         if any(["?" in msg for msg in msgs]):
-            raise ScpiException("Cannot write a query")
+            raise ScpiError("Cannot write a query")
         msg = _sanatize_msgs(*msgs)
         self._logger.debug("[start] write '%s'", msg)
         raw_result = self.interface.write(msg)
@@ -259,7 +259,7 @@ class Scpi(object):
         while fix_retries:
             try:
                 err = self.get_syst_err()
-            except RuntimeError: # timeout: there's no comm: bail out
+            except CommunicationTimeout: # timeout: there's no comm: bail out
                 raise
             except:
                 fix_retries -= 1

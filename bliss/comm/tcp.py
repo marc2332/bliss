@@ -6,6 +6,8 @@ from gevent import socket, event, queue, lock
 import time
 import logging
 
+from .common import CommunicationError, CommunicationTimeout
+
 """
 Socket:
   connect
@@ -34,6 +36,10 @@ Command:
 """
 
 
+class SocketTimeout(CommunicationTimeout):
+    pass
+
+
 # Decorator function for read/write functions.
 # Performs reading of data via "_raw_read_task" in self.connect()
 def try_connect_socket(fu):
@@ -52,7 +58,7 @@ def try_connect_socket(fu):
             kwarg.update({'timeout': 0.})
             try:
                 return fu(self, *args, **kwarg)
-            except RuntimeError:
+            except SocketTimeout:
                 self.connect()
                 kwarg.update({'timeout': prev_timeout})
         return fu(self, *args, **kwarg)
@@ -119,7 +125,7 @@ class Socket:
     def raw_read(self, maxsize=None, timeout=None):
         timeout_errmsg = "timeout on socket(%s, %d)" % (self._host, self._port)
         with gevent.Timeout(timeout or self._timeout,
-                            RuntimeError(timeout_errmsg)):
+                            SocketTimeout(timeout_errmsg)):
             while not self._data:
                 self._event.wait()
                 self._event.clear()
@@ -135,7 +141,7 @@ class Socket:
     def read(self, size=1, timeout=None):
         timeout_errmsg = "timeout on socket(%s, %d)" % (self._host, self._port)
         with gevent.Timeout(timeout or self._timeout,
-                            RuntimeError(timeout_errmsg)):
+                            SocketTimeout(timeout_errmsg)):
             while len(self._data) < size:
                 self._event.wait()
                 self._event.clear()
@@ -147,7 +153,7 @@ class Socket:
     def readline(self, eol=None, timeout=None):
         timeout_errmsg = "timeout on socket(%s, %d)" % (self._host, self._port)
         with gevent.Timeout(timeout or self._timeout,
-                            RuntimeError(timeout_errmsg)):
+                            SocketTimeout(timeout_errmsg)):
             # local_timeout = timeout or self._timeout
             local_eol = eol or self._eol
             # start_time = time.time()
@@ -178,7 +184,7 @@ class Socket:
     def write_readline(self, msg, write_synchro=None, eol=None, timeout=None):
         with self._lock:
             with gevent.Timeout(timeout or self._timeout,
-                                RuntimeError("write_readline timed out")):
+                                SocketTimeout("write_readline timed out")):
                 self._sendall(msg)
                 if write_synchro:
                     write_synchro.notify()
@@ -189,7 +195,7 @@ class Socket:
             self, msg, nb_lines, write_synchro=None, eol=None, timeout=None):
         with self._lock:
             with gevent.Timeout(timeout or self._timeout,
-                                RuntimeError("SOCKET write_readlines(%s, %d) timed out" % (msg, nb_lines))):
+                                SocketTimeout("write_readlines(%s, %d) timed out" % (msg, nb_lines))):
                 self._sendall(msg)
                 if write_synchro:
                     write_synchro.notify()
@@ -237,6 +243,10 @@ class Socket:
             self._fd = None
 
 
+class CommandTimeout(CommunicationTimeout):
+    pass
+
+
 def try_connect_command(fu):
     def rfunc(self, *args, **kwarg):
         with self._lock:
@@ -248,7 +258,7 @@ def try_connect_command(fu):
             kwarg.update({'timeout': 0.})
             try:
                 return fu(self, *args, **kwarg)
-            except RuntimeError:
+            except CommandTimeout:
                 self.connect()
                 kwarg.update({'timeout': prev_timeout})
         return fu(self, *args, **kwarg)
@@ -332,7 +342,7 @@ class Command:
             timeout_errmsg = "timeout on socket(%s, %d)" % (
                 self._host, self._port)
             with gevent.Timeout(timeout or self._timeout,
-                                RuntimeError(timeout_errmsg)):
+                                CommandTimeout(timeout_errmsg)):
                 ctx.data = ''
                 while len(ctx.data) < size:
                     ctx.data += transaction.get()
@@ -346,8 +356,8 @@ class Command:
                   clear_transaction=True):
         with Command.Transaction(self, transaction, clear_transaction) as ctx:
             with gevent.Timeout(timeout or self._timeout,
-                                RuntimeError("timeout on socket(%s, %d)" %
-                                             (self._host, self._port))):
+                                CommandTimeout("timeout on socket(%s, %d)" %
+                                               (self._host, self._port))):
                 local_eol = eol or self._eol
                 ctx.data = ''
                 eol_pos = -1
@@ -384,7 +394,7 @@ class Command:
     @try_connect_command
     def write_readline(self, msg, write_synchro=None, eol=None, timeout=None):
         with gevent.Timeout(timeout or self._timeout,
-                            RuntimeError("write_readline timed out")):
+                            CommandTimeout("write_readline timed out")):
             transaction = self._write(msg)
             if write_synchro:
                 write_synchro.notify()
@@ -395,7 +405,7 @@ class Command:
     def write_readlines(
             self, msg, nb_lines, write_synchro=None, eol=None, timeout=None):
         with gevent.Timeout(timeout or self._timeout,
-                            RuntimeError("COMMAND write_readlines(%s,%d) timed out" % (msg, nb_lines))):
+                            CommandTimeout("write_readlines(%s,%d) timed out" % (msg, nb_lines))):
             transaction = self._write(msg)
 
             if write_synchro:
@@ -442,6 +452,10 @@ class Command:
         return data_queue
 
 
+class TcpError(CommunicationError):
+    pass
+
+
 class Tcp(object):
     SOCKET,COMMAND = range(2)
 
@@ -450,13 +464,13 @@ class Tcp(object):
             parse = re.compile('^(command://)([^:/]+?):([0-9]+)$')
             match = parse.match(url)
             if match is None:
-                raise RuntimeError('Command: url is not valid (%s)' % url)
+                raise TcpError('Command: url is not valid (%s)' % url)
             host,port = match.group(2),int(match.group(3))
             return Command(host,port,**keys)
         else:
             parse = re.compile('^(socket://)?([^:/]+?):([0-9]+)$')
             match = parse.match(url)
             if match is None:
-                raise RuntimeError('Socket: url is not valid (%s)' % url)
+                raise TcpError('Socket: url is not valid (%s)' % url)
             host,port = match.group(2),int(match.group(3))
             return Socket(host,port,**keys)

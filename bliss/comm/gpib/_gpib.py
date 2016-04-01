@@ -1,4 +1,5 @@
-__all__ = ['EnetSocket', 'Enet', 'Prologix', 'TangoGpib', 'Gpib', 'to_tmo', 'TMO_MAP']
+__all__ = ['EnetSocket', 'Enet', 'Prologix', 'TangoGpib', 'Gpib', 'to_tmo', 'TMO_MAP',
+           'GpibError', 'GpibTimeout', 'EnetError', 'PrologixError',  ]
 
 import re
 import logging
@@ -6,6 +7,7 @@ import gevent
 from gevent import lock
 from .libnienet import EnetSocket
 from ..tcp import Socket
+from ..common import CommunicationError, CommunicationTimeout
 
 try:
     from collections import OrderedDict
@@ -38,6 +40,18 @@ def to_tmo(time_sec):
     return tmo, t
 
 
+class GpibError(CommunicationError):
+    pass
+
+
+class GpibTimeout(CommunicationTimeout):
+    pass
+
+
+class EnetError(GpibError):
+    pass
+
+
 class Enet(EnetSocket):
     def __init__(self,cnt,**keys) :
         EnetSocket.__init__(self,None) # Don't use the socket connection
@@ -45,7 +59,7 @@ class Enet(EnetSocket):
         url_parse = re.compile("^(enet://)?([^:/]+):?([0-9]*)$")
         match = url_parse.match(url)
         if match is None:
-            raise RuntimeError('Inet: ursl is not valid (%s)' % url)
+            raise EnetError('Enet: url is not valid (%s)' % url)
         hostname = match.group(2)
         port = match.group(3) and int(match.group(3)) or 5000
         self._sock = Socket(hostname,port,
@@ -72,6 +86,11 @@ class Enet(EnetSocket):
     def _recv(self,length) :
         return self._sock.read(length)
 
+
+class PrologixError(GpibError):
+    pass
+
+
 class Prologix:
     def __init__(self,cnt,**keys) :
         self._logger = logging.getLogger(str(self))
@@ -80,7 +99,7 @@ class Prologix:
         url_parse = re.compile("^(prologix://)?([^:/]+):?([0-9]*)$")
         match = url_parse.match(url)
         if match is None:
-            raise RuntimeError('Inet: url is not valid (%s)' % url)
+            raise PrologixError('Inet: url is not valid (%s)' % url)
         hostname = match.group(2)
         port = match.group(3) and int(match.group(3)) or 1234
         self._debug("Prologix::__init__() host = %s port = %s" % (hostname, port))
@@ -232,7 +251,7 @@ class Gpib:
         url = self._gpib_kwargs.get('url')
         pad = self._gpib_kwargs.get('pad')
         timeout_errmsg = "timeout on gpib(%s,%d)" % (url,pad)
-        with gevent.Timeout(self._timeout,RuntimeError(timeout_errmsg)):
+        with gevent.Timeout(self._timeout,GpibTimeout(timeout_errmsg)):
             eol_pos = self._data.find(local_eol)
             while eol_pos == -1:
                 self._data += self._raw_handler.ibrd(self.READ_BLOCK_SIZE)

@@ -4,6 +4,18 @@ from gevent import lock
 from gevent import queue
 import gevent
 import errno
+
+from .common import CommunicationError, CommunicationTimeout
+
+
+class ModbusError(CommunicationError):
+    pass
+
+
+class ModbusTimeout(CommunicationTimeout):
+    pass
+
+
 #---------------------------------------------------------------------------#
 # Error Detection Functions
 #---------------------------------------------------------------------------#
@@ -154,7 +166,7 @@ class ModbusTcp:
         nb_bytes /= 2
         with self.Transaction(self) as trans:
             with gevent.Timeout(timeout or self._timeout,
-                                RuntimeError(timeout_errmsg)):
+                                ModbusTimeout(timeout_errmsg)):
                 msg = struct.pack('>HH',address,nb_bytes)
                 self._raw_write(trans.tid(),0x03,msg)
                 read_values = trans.get()
@@ -162,8 +174,8 @@ class ModbusTcp:
                     raise read_values
                 uid,func_code,msg = read_values
                 if func_code != 0x03: # Error
-                    raise RuntimeError('Error read_holding_register, %s' % 
-                                       self._error_code(func_code))
+                    raise ModbusError('Error read_holding_register, %s' %
+                                      self._error_code(func_code))
                 return struct.unpack('>%s' % struct_format,msg[1:])[0]
                 
     @try_connect_modbustcp
@@ -171,7 +183,7 @@ class ModbusTcp:
         timeout_errmsg = "timeout on write_holding_register modbus tcp (%s, %d)" % (self._host, self._port)
         with self.Transaction(self) as trans:
             with gevent.Timeout(timeout or self._timeout,
-                                RuntimeError(timeout_errmsg)):
+                                ModbusTimeout(timeout_errmsg)):
                 msg = struct.pack('>H' + struct_format,address,value)
                 self._raw_write(trans.tid(),0x06,msg)
                 read_values = trans.get()
@@ -179,8 +191,8 @@ class ModbusTcp:
                     raise read_values
                 uid,func_code,msg = read_values
                 if func_code != 0x06: # Error
-                    raise RuntimeError('Error write_holding_register, %s' % 
-                                       self._error_code(msg))
+                    raise ModbusError('Error write_holding_register, %s' %
+                                      self._error_code(msg))
 
     def connect(self,host=None,port=None):
         local_host = host or self._host

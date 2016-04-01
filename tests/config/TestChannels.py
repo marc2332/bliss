@@ -14,50 +14,64 @@ sys.path.insert(
 os.environ["PYTHONPATH"]=":".join(sys.path)
 
 import time
-import multiprocessing
+from multiprocessing import Process,Queue,Pipe
 from bliss.config import channels
-import subprocess
+
+def _ext_channel(keep_alive_delay,pipe,queue,*args,**kwargs):
+    c = channels.Channel(*args,**kwargs)
+    gevent.sleep(0.5)
+    queue.put(c.value)
+    pipe.send('|')
+    gevent.sleep(keep_alive_delay)
+    queue.put(c.value)
 
 def test_ext_channel(keep_alive_delay, *args, **kwargs):
-    kwargs = ["=".join([kwarg, str(value)]) for kwarg, value in kwargs.iteritems()]
-    cmd = [sys.executable, os.path.join(os.path.dirname(__file__), "test_channel.py"), str(keep_alive_delay)]+list(args)+kwargs
-    return subprocess.Popen(cmd, env=os.environ, stderr=subprocess.PIPE)
+    r,w = Pipe(False)
+    q = Queue()
+    fun_args = [keep_alive_delay,w,q]
+    fun_args.extend(args)
+    p = Process(target=_ext_channel,args=fun_args,
+                kwargs=kwargs)
+    p.start()
+    return p,r,q
 
 class TestBeacon(unittest.TestCase):
     def testNotInitialized(self):
-        c = channels.Channel("test")
+        c = channels.Channel("tagada")
         self.assertEquals(c.value, None)
 
     def testSetChannel(self):
-        c = channels.Channel("test", "test")
+        c = channels.Channel("super mario", "test")
         self.assertEquals(c.value, 'test')
 
     def testExtChannel(self):
-        p1 = test_ext_channel(2, "test", "hello")
-        time.sleep(1) # wait for process to be started
-        c = channels.Channel("test")
-        p1_output = p1.stderr.readline().split('\n')[0]
+        p1,pipe,queue = test_ext_channel(4, "gerard", "hello")
+        pipe.recv()
+        c = channels.Channel("gerard")
+        p1_output = queue.get()
         self.assertEquals(c.value, p1_output, 'hello')
         c.value = 5
         gevent.sleep(0.1)
-        p1_output = p1.stderr.readline().split('\n')[0]
-        self.assertEquals(p1_output, '5')
-        p1.wait()
+        p1_output = queue.get()
+        self.assertEquals(p1_output, 5)
+        p1.join()
 
     def testTimeout(self):
-        p = test_ext_channel(10, "test2", "hello")
-        time.sleep(1)
+        p,pipe,queue = test_ext_channel(5, "test2", "hello")
+        pipe.recv()
         os.kill(p.pid, signal.SIGSTOP)
         c = channels.Channel("test2")
         self.assertEquals(c.timeout, 3)
         c.timeout = 1
         def get_value(c):
+            print c.value
             return c.value
         t0 = time.time()
         self.assertRaises(RuntimeError,get_value,c)
         self.assertTrue(time.time()-t0 >= 1)
         os.kill(p.pid, signal.SIGCONT)
         self.assertEquals(c.value, "hello")
+        p.join()
 
 if __name__ == '__main__':
     unittest.main()

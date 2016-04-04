@@ -1,16 +1,11 @@
 from .conductor import client
-import nanomsg
+from collections import namedtuple
+from functools import partial
 import cPickle
-import socket
-import atexit
 import gevent
 import gevent.event
-import gevent.monkey
-# always use real time, select and threading module
-from gevent import _threading as threading
-import functools
-import select
 import time
+from bliss.common.utils import grouped
 # use safe reference module from dispatcher
 # (either louie -the new project- or pydispatch)
 try:
@@ -23,37 +18,13 @@ import sys
 import os
 
 CHANNELS = dict()
-BUS = weakref.WeakValueDictionary()
-BUS_BY_FD = weakref.WeakValueDictionary()
-RECEIVER_THREAD = None
-THREAD_ENDED = threading.Event()
-
-CHANNELS_BUS = 'channels_bus'
+CHANNELS_VALUE = dict()
+CHANNELS_CBK = dict()
+BUS = dict()
 
 class ValueQuery(object):
     def __init__(self):
         pass
-
-# getting the first free port available in range 30000-40000
-def get_free_port(redis,channel_key):
-    fqdn = socket.getfqdn()
-    for port_number in xrange(30000,40000) :
-        try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            try:
-                s.bind(('', port_number))
-            except:
-                continue
-            free_port_number = s.getsockname()[1]
-            url = "tcp://%s:%d" % (fqdn, free_port_number)
-            if redis.sadd(channel_key,url) == 1: # the port is not used
-                break
-        finally:
-            s.close()
-    else:
-        raise RuntimeError("No free TCP port in range (30000,40000)")
-    return free_port_number
-
 
 class NotInitialized(object):
     def __repr__(self):
@@ -63,215 +34,262 @@ class NotInitialized(object):
             return True
         return False
 
-
-def get_file_descriptors():
-    # .keys() is atomic (takes GIL)
-    fds = [WAKE_UP_SOCKET_R.recv_fd] + BUS_BY_FD.keys()
-    return fds
-
-
-def update_channel(bus_id, channel_name, value):
-    try:
-        channel = CHANNELS[bus_id][channel_name]
-    except KeyError:
-        pass
-    else:
-        if isinstance(value, ValueQuery):
-            channel._bus.set_value(channel_name, channel.value)
-        else:
-            # simple assignment is atomic
-            channel._value = value
-            channel._update_watcher.send()
-
-
-def receive_channels_values():
-    fds = get_file_descriptors()
-    while True:
-        readable_fds, _, _ = select.select(fds, [], [])
-        for fd in readable_fds:
-            if fd == WAKE_UP_SOCKET_R.recv_fd:
-                if WAKE_UP_SOCKET_R.recv() == '$':
-                    THREAD_ENDED.set()
-                    return
-                fds = get_file_descriptors() 
-                break
-            else:
-                try:
-                    bus = BUS_BY_FD[fd]
-                except KeyError:
-                    continue
-                else:
-                    channel_name, value = cPickle.loads(bus.recv())
-                    update_channel(bus.id, channel_name, value)
-
-
-def _clean_redis(redis, channels_bus):
-    redis.srem(CHANNELS_BUS, channels_bus)
-
-
-def stop_receiver_thread():
-    if RECEIVER_THREAD is not None:
-        WAKE_UP_SOCKET_W.send("$")
-        # join thread
-        THREAD_ENDED.wait()
-         
+_ChannelValue = namedtuple("_ChannelValue",['timestamp','value'])
 
 class _Bus(object):
-    def __init__(self, redis, bus_id, channels_bus_list):   
-        self._id = bus_id
-
-        # create socket
-        self._bus_socket = nanomsg.Socket(nanomsg.BUS)
-
-        bus_socket_port_number = get_free_port(redis,CHANNELS_BUS)
-        self._bus_socket.bind("tcp://*:%d" % bus_socket_port_number)
-        BUS_BY_FD[self.recv_fd] = self
-        # connect to other bus sockets     
-        for remote_bus in channels_bus_list:
-            self._bus_socket.connect(remote_bus)
-        self.__bus_addr = "tcp://%s:%d" % (socket.getfqdn(), bus_socket_port_number)
-
-        # remove address in redis at exit
-        atexit.register(_clean_redis, redis, self.addr)
-
-        # receiver thread takes care of dispatching received values to right channels
-        global RECEIVER_THREAD
-        if RECEIVER_THREAD is None:
-            global WAKE_UP_SOCKET_W
-            global WAKE_UP_SOCKET_R
-            WAKE_UP_SOCKET_W = nanomsg.Socket(nanomsg.PAIR)
-            WAKE_UP_SOCKET_W.bind("inproc://beacon/channels/wake_up_loop")
-            WAKE_UP_SOCKET_R = nanomsg.Socket(nanomsg.PAIR)
-            WAKE_UP_SOCKET_R.connect("inproc://beacon/channels/wake_up_loop")
-            RECEIVER_THREAD = threading.start_new_thread(receive_channels_values, ()) 
-            atexit.register(stop_receiver_thread)
-        else:
-            WAKE_UP_SOCKET_W.send('!')
-
-    @property
-    def addr(self):
-        return self.__bus_addr
-
-    @property
-    def name(self):
-        return self._name
-
-    @property
-    def id(self):
-        return self._id
-
-    @property
-    def recv_fd(self):
-        return self._bus_socket.recv_fd
-
-    def recv(self, *args, **kwargs):
-        return self._bus_socket.recv(*args, **kwargs)
-
-    def set_value(self, channel_name, new_value):
-        self._bus_socket.send(cPickle.dumps((channel_name, new_value), protocol=-1))                
-
-
-def call_notification_callbacks(bus_id, channel_name):
-    try:
-        channel = CHANNELS[bus_id][channel_name]
-    except KeyError:
-        return
-    else:
-        gevent.spawn(channel._fire_notification_callbacks)
-
-
-class _Channel(object):
-    def __init__(self, redis, bus_id, name, value, callback=None):
-        self._redis = redis
-        self._name = name
-        self._value = NotInitialized()
-        self._callback = callback
-        self._update_watcher = gevent.get_hub().loop.async()
-        self._update_watcher.start(functools.partial(call_notification_callbacks, bus_id, name))
-        self._callback_refs = set() 
-        self._initialized_event = gevent.event.Event()
-
-        self.register_callback(callback)
-
-        self._bus = BUS.get(bus_id)
-        if self._bus is None:
-            channels_bus_list = redis.smembers(CHANNELS_BUS)
-            self._bus = _Bus(redis, bus_id, channels_bus_list) 
-            BUS[bus_id] = self._bus
+    class WaitEvent(object):
+        def __init__(self,bus,name) :
+            self._bus = bus
+            self._name = name
+            self._event = gevent.event.Event()
             
-    @property
-    def name(self):
-        return self._name
+        def __enter__(self):
+            wait_set = self._bus._wait_event.setdefault(self._name,set())
+            wait_set.add(self)
+            self._event.clear()
+            return self
 
-    @property 
-    def value(self):
-        return self._value
+        def __exit__(self,*args):
+            wait_set = self._bus._wait_event.setdefault(self._name,set())
+            wait_set.remove(self)
+            if not wait_set:
+                self._bus._wait_event.pop(self._name)
 
-    @value.setter
-    def value(self, new_value):
-        if new_value == self._value:
-            return
-        self._initialized_event.set()
-        self._value = new_value
-        self._bus.set_value(self.name, new_value) 
+        def set(self):
+            self._event.set()
 
-    def init(self):
-        self._initialized_event.clear()
-        self._bus.set_value(self.name, ValueQuery())
-        WAKE_UP_SOCKET_W.send('!')
+        def wait(self):
+            self._event.clear()
+            self._event.wait()
 
-    def register_callback(self, callback):
-        if callable(callback):
-            cb_ref = saferef.safe_ref(callback)
-            self._callback_refs.add(cb_ref)
+    def __init__(self, redis):
+        self._redis = redis
+        self._pubsub = redis.pubsub()
+        self._pending_subscribe = list()
+        self._pending_unsubscribe = list()
+        self._pending_channel_value = dict()
+        self._pending_init = list()
+        self._send_event = gevent.event.Event()
+        self._in_recv = False
+        self._wait_event = dict()
 
-    def unregister_callback(self, callback):
-        cb_ref = saferef.safe_ref(callback)
-        try:
-            self._callback_refs.remove(cb_ref)
-        except:
-            return
+        self._listen_task = None
+        self._send_task = gevent.spawn(self._send)
 
-    def _fire_notification_callbacks(self):
-        self._initialized_event.set()
-        if self.value == NotInitialized():
-            return
-        for cb_ref in self._callback_refs:
+    def subscribe(self,names):
+        if isinstance(names,str):
+            self._pending_subscribe.append(names)
+        else:
+            self._pending_subscribe.extend(names)
+        self._send_event.set()
+
+    def get_init_value(self,name,default_value):
+        self._pending_init.append((name,default_value))
+        self._send_event.set()
+
+    def unsubscribe(self,names):
+        if isinstance(names,str):
+            self._pending_unsubscribe.append(names)
+        else:
+            self._pending_unsubscribe.extend(names)
+        self._send_event.set()
+
+    def wait_event_on(self,name):
+        return _Bus.WaitEvent(self,name)
+
+    def update_channel(self,name,value):
+        if isinstance(value,_ChannelValue):
+            prev_channel_value = CHANNELS_VALUE.get(name)
+            if(prev_channel_value is None or 
+               prev_channel_value.timestamp < value.timestamp):
+                channel_value = value
+            else:
+                return          # already up-to-date
+            CHANNELS_VALUE[name] = channel_value
+            self._fire_notification_callbacks(name)
+        else:
+            channel_value = _ChannelValue(None,value)
+
+        if not self._in_recv:
+            self._pending_channel_value[name] = channel_value
+            self._send_event.set()
+    
+    def _fire_notification_callbacks(self,name):
+        deleted_cb = set()
+        for cb_ref in CHANNELS_CBK.get(name,set()):
             cb = cb_ref()
             if cb is not None:
                 try:
-                    cb(self.value)
+                    cb(CHANNELS_VALUE.get(name).value)
                 except:
                     # display exception, but do not stop
                     # executing callbacks
                     sys.excepthook(*sys.exc_info())
+            else:
+                deleted_cb.add(cb_ref)
+        CHANNELS_CBK.get('name',set()).difference_update(deleted_cb)
 
-    def wait_initialized(self, timeout=None):
-        self._initialized_event.wait(timeout)
-      
+    def _send(self):
+        while(1):
+            self._send_event.wait()
+            self._send_event.clear()
+ 
+            #local transfer
+            pending_subscribe = self._pending_subscribe
+            pending_unsubscribe = self._pending_unsubscribe
+            pending_channel_value = self._pending_channel_value
+            pending_init = self._pending_init
+            pubsub = self._pubsub
 
-def Channel(name, value=NotInitialized(), callback=None, wait=True, timeout=1, redis=None):
+            self._pending_subscribe = list()
+            self._pending_unsubscribe = list()
+            self._pending_channel_value = dict()
+            self._pending_init = list()
+
+            if pending_unsubscribe: pubsub.unsubscribe(pending_unsubscribe)
+
+            no_listener_4_values = set()
+            if pending_subscribe:
+                result = self._redis.execute_command('pubsub','numsub',*pending_subscribe)
+                no_listener_4_values = set((name for name,nb_listener in grouped(result,2) if nb_listener is '0'))
+                pubsub.subscribe(pending_subscribe)
+                if self._listen_task is None:
+                    self._listen_task = gevent.spawn(self._listen)
+
+            if pending_channel_value:
+                pipeline = self._redis.pipeline()
+                for name,channel_value in pending_channel_value.iteritems():
+                    if channel_value.timestamp is None:
+                        channel_value = _ChannelValue(time.time(),channel_value.value)
+                    pipeline.publish(name,cPickle.dumps(channel_value,protocol=-1))
+                pipeline.execute()
+
+            if pending_init:
+                pipeline = self._redis.pipeline()
+                for name,default_value in pending_init:
+                    if name not in no_listener_4_values:
+                        pipeline.publish(name,cPickle.dumps(ValueQuery(),protocol=-1))
+                    else: # we are alone
+                        CHANNELS_VALUE[name] = _ChannelValue(None,default_value)
+                        for waiting_event in self._wait_event.get(name,set()):
+                            waiting_event.set()
+                pipeline.execute()
+
+    def _listen(self):
+        for event in self._pubsub.listen():
+            event_type = event.get('type')
+            if event_type == 'message':
+                value = cPickle.loads(event.get('data'))
+                channel_name = event.get('channel')
+                if isinstance(value,ValueQuery):
+                    channel_value = CHANNELS_VALUE.get(channel_name)
+                    if channel_value is not None:
+                        self._pending_channel_value[channel_name] = channel_value
+                        self._send_event.set()
+                else:
+                    self._in_recv = True
+                    self.update_channel(channel_name,value)
+                    self._in_recv = False
+                    for waiting_event in self._wait_event.get(channel_name,set()):
+                        waiting_event.set()
+
+        self._listen_task = None
+
+def Bus(redis):
+    try:
+        return BUS[redis]
+    except KeyError:
+        bus = _Bus(redis)
+        BUS[redis] = bus
+        return bus
+
+class _Channel(object):
+    def __init__(self, redis, name, default_value,value):
+        self._bus = Bus(redis)
+
+        self._bus.subscribe(name)
+        def on_die(killed_ref):
+            # don't use 'self' otherwise it creates a cycle
+            bus = Bus(redis)
+            bus.unsubscribe(name)
+            CHANNELS_VALUE.pop(name, None)
+            CHANNELS_CBK.pop(name, None)
+            CHANNELS.pop(name, None) 
+        CHANNELS[name] = weakref.ref(self, on_die)
+        self.__name = name
+        self.__timeout = 3.
+        if not isinstance(value ,NotInitialized):
+            self._bus.update_channel(name,value)
+        else:
+            self._bus.get_init_value(name,default_value)
+
+    @property
+    def name(self):
+        return self.__name
+
+    @property 
+    def value(self):
+        value = CHANNELS_VALUE.get(self.__name)
+        if value is None:       # probably not initialized
+            with gevent.Timeout(self.__timeout, RuntimeError("%s: timeout to receive channel value" % self.__name)):
+                while value is None:
+                    with self._bus.wait_event_on(self.__name) as we:
+                        we.wait()
+                        value = CHANNELS_VALUE.get(self.__name)
+                    
+        return value.value
+
+    @value.setter
+    def value(self, new_value):
+        self._bus.update_channel(self.__name,new_value)
+
+    @property
+    def timeout(self):
+        return self.__timeout
+
+    @timeout.setter
+    def timeout(self,value):
+        self.__timeout = value
+
+    def register_callback(self, callback):
+        if callable(callback):
+            cb_ref = saferef.safe_ref(callback)
+            callback_refs = CHANNELS_CBK.setdefault(self.__name,set())
+            callback_refs.add(cb_ref)
+
+    def unregister_callback(self, callback):
+        cb_ref = saferef.safe_ref(callback)
+        try:
+            callback_refs = CHANNELS_CBK.setdefault(self.__name,set())
+            callback_refs.remove(cb_ref)
+        except:
+            return
+
+    def wait(self):
+        with gevent.Timeout(self.__timeout, RuntimeError("%s: timeout waiting for event" % self.__name)):
+            with self._bus.wait_event_on(self.__name) as we:
+                we.wait()
+
+
+    def __repr__(self):
+        self.value
+        return '%s->%s' % (self.__name,CHANNELS_VALUE.get(self.__name))
+
+def Channel(name, value=NotInitialized(), callback=None,
+            default_value=None, redis=None):
     if redis is None:
             redis = client.get_cache()
-    redis_connection_args = redis.connection_pool.connection_kwargs
-    bus_id = (redis_connection_args['host'], redis_connection_args['port'], redis_connection_args['db'])
-
     try:
-        chan = CHANNELS[bus_id][name]
+        chan_ref = CHANNELS[name]
+        chan = chan_ref()
     except KeyError:
-        chan = _Channel(redis, bus_id, name, value, callback)
-   
-    if value == NotInitialized():
-        # ask peers for channel value
-        chan.init()
+        chan = _Channel(redis, name, default_value, value)
     else:
-        # set value for channel, and notify peers
-        chan.value = value
-
-    CHANNELS.setdefault(bus_id, weakref.WeakValueDictionary())[name] = chan
-    
-    if wait:
-        chan.wait_initialized(timeout)
+        if not isinstance(value, NotInitialized):
+            chan.value = value
+   
+    if callback is not None:
+        chan.register_callback(callback)
 
     return chan
 

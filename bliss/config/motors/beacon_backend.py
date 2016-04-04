@@ -204,9 +204,10 @@ def get_axis_setting(axis, setting_name):
         chan_name = "axis.%s.%s" % (axis.name, setting_name)
         cb = functools.partial(setting_update_from_channel, setting_name=setting_name, axis=axis) 
         if setting_value is None:
-            chan = channels.Channel(chan_name, callback=cb, wait=False) 
+            chan = channels.Channel(chan_name, callback=cb)
         else:
             chan = channels.Channel(chan_name, setting_value, callback=cb) 
+        chan._setting_update_cb = cb
         beacon_channels[setting_name] = chan
 
     return setting_value

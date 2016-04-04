@@ -232,7 +232,7 @@ class _Channel(object):
     def value(self):
         value = CHANNELS_VALUE.get(self.__name)
         if value is None:       # probably not initialized
-            with gevent.Timeout(self.__timeout, RuntimeError("timeout to receive channel value")):
+            with gevent.Timeout(self.__timeout, RuntimeError("%s: timeout to receive channel value" % self.__name)):
                 while value is None:
                     with self._bus.wait_event_on(self.__name) as we:
                         we.wait()

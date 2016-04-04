@@ -170,8 +170,11 @@ class GalilDMC213(Controller):
         """
         start home search.
         """
-        if int(self._galil_query("TS%s" % axis.channel)) & (1<<5):
-          raise RuntimeError("Motor is OFF")
+        # removed by DvS 22.Feb.2016 BECAUSE IT STOPS THE SERVER
+	# FROM STARTING AGAIN AFTER THE BOARD HAS LOST POWER:
+	#
+        # if int(self._galil_query("TS%s" % axis.channel)) & (1<<5):
+        #   raise RuntimeError("Motor is OFF")
         self._galil_query("OE%s=0" % axis.channel)
         self._galil_query("SH%s" % axis.channel)
         self._galil_query("FI%s" % axis.channel)
@@ -187,43 +190,15 @@ class GalilDMC213(Controller):
           cmd += ";"
 
         with self.socket_lock:
-          elog.debug("SENDING: %r" % cmd)
+          #print "SENDING: %r" % cmd
+          self.sock.write(cmd)
+          ans = self.sock.raw_read()
+          if ans[0]=='?':
+            raise RuntimeError("Invalid command") 
+          ans = ans.strip(": \r\n") 
+          #print 'received',repr(ans)
+          return ans or None
 
-          ans = self.sock.write_read(cmd,size=1)
-          while ans[-1].isspace():
-            ans += self.sock.read(size=1)
-          print 'RECV',repr(ans),'!'
-          if ans == '?':
-            raise RuntimeError("Invalid command")
-          elif ':' in ans:
-            # command without return
-            return
-          else:
-            ans += self.sock.readline(eol="\r\n:")
-
-          elog.debug("RECEIVED: %r" % ans)
-
-        return ans.strip()
     
     def raw_write_read(self, cmd):
-        if not cmd.endswith(";"):
-          cmd += ";"
-
-        with self.socket_lock:
-          elog.debug("SENDING: %r" % cmd)
-
-          ans = self.sock.write_read(cmd,size=1)
-          while ans[-1].isspace():
-            ans += self.sock.read(size=1)
-          print 'RECV',repr(ans),'!'
-          if ans == '?':
-            raise RuntimeError("Invalid command") 
-          elif ':' in ans:
-            # command without return
-            return
-          else:
-            ans += self.sock.readline(eol="\r\n:")
-
-          elog.debug("RECEIVED: %r" % ans)
-
-        return ans.strip()
+        return self._galil_query(cmd)

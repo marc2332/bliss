@@ -110,7 +110,6 @@ class _Bus(object):
         else:
             channel_value = _ChannelValue(None,value)
 
-
         if not self._in_recv:
             self._pending_channel_value[name] = channel_value
             self._send_event.set()
@@ -284,9 +283,13 @@ def Channel(name, value=NotInitialized(), callback=None,
         chan_ref = CHANNELS[name]
         chan = chan_ref()
     except KeyError:
-        chan = _Channel(redis, name,default_value, value)
-
+        chan = _Channel(redis, name, default_value, value)
+    else:
+        if not isinstance(value, NotInitialized):
+            chan.value = value
+   
     if callback is not None:
         chan.register_callback(callback)
+
     return chan
 

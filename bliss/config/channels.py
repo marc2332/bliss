@@ -147,6 +147,8 @@ class _Bus(object):
             self._pending_channel_value = dict()
             self._pending_init = list()
 
+            if pending_unsubscribe: pubsub.unsubscribe(pending_unsubscribe)
+
             no_listener_4_values = set()
             if pending_subscribe:
                 result = self._redis.execute_command('pubsub','numsub',*pending_subscribe)
@@ -154,8 +156,6 @@ class _Bus(object):
                 pubsub.subscribe(pending_subscribe)
                 if self._listen_task is None:
                     self._listen_task = gevent.spawn(self._listen)
-
-            if pending_unsubscribe: pubsub.unsubscribe(pending_unsubscribe)
 
             if pending_channel_value:
                 pipeline = self._redis.pipeline()

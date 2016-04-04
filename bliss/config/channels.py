@@ -100,22 +100,20 @@ class _Bus(object):
     def update_channel(self,name,value):
         if isinstance(value,_ChannelValue):
             prev_channel_value = CHANNELS_VALUE.get(name)
-            if(prev_channel_value is None or
+            if(prev_channel_value is None or 
                prev_channel_value.timestamp < value.timestamp):
                 channel_value = value
             else:
                 return          # already up-to-date
+            CHANNELS_VALUE[name] = channel_value
+            self._fire_notification_callbacks(name)
         else:
-            channel_value = _ChannelValue(time.time(),value)
+            channel_value = _ChannelValue(None,value)
 
-        CHANNELS_VALUE[name] = channel_value
-        for waiting_event in self._wait_event.get(name,set()):
-            waiting_event.set()
 
         if not self._in_recv:
             self._pending_channel_value[name] = channel_value
             self._send_event.set()
-        self._fire_notification_callbacks(name)
     
     def _fire_notification_callbacks(self,name):
         deleted_cb = set()
@@ -162,6 +160,8 @@ class _Bus(object):
             if pending_channel_value:
                 pipeline = self._redis.pipeline()
                 for name,channel_value in pending_channel_value.iteritems():
+                    if channel_value.timestamp is None:
+                        channel_value = _ChannelValue(time.time(),channel_value.value)
                     pipeline.publish(name,cPickle.dumps(channel_value,protocol=-1))
                 pipeline.execute()
 
@@ -191,6 +191,9 @@ class _Bus(object):
                     self._in_recv = True
                     self.update_channel(channel_name,value)
                     self._in_recv = False
+                    for waiting_event in self._wait_event.get(channel_name,set()):
+                        waiting_event.set()
+
         self._listen_task = None
 
 def Bus(redis):

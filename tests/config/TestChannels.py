@@ -19,7 +19,6 @@ from bliss.config import channels
 
 def _ext_channel(keep_alive_delay,pipe,queue,*args,**kwargs):
     c = channels.Channel(*args,**kwargs)
-    gevent.sleep(0.5)
     queue.put(c.value)
     pipe.send('|')
     gevent.sleep(keep_alive_delay)
@@ -36,6 +35,9 @@ def test_ext_channel(keep_alive_delay, *args, **kwargs):
     return p,r,q
 
 class TestBeacon(unittest.TestCase):
+    def setUp(self):
+        time.sleep(0.1)
+
     def testNotInitialized(self):
         c = channels.Channel("tagada")
         self.assertEquals(c.value, None)
@@ -57,20 +59,30 @@ class TestBeacon(unittest.TestCase):
         p1.join()
 
     def testTimeout(self):
-        p,pipe,queue = test_ext_channel(5, "test2", "hello")
+        p,pipe,queue = test_ext_channel(3, "test2", "hello")
         pipe.recv()
         os.kill(p.pid, signal.SIGSTOP)
         c = channels.Channel("test2")
         self.assertEquals(c.timeout, 3)
-        c.timeout = 1
+        c.timeout = .5
         def get_value(c):
-            print c.value
             return c.value
         t0 = time.time()
         self.assertRaises(RuntimeError,get_value,c)
-        self.assertTrue(time.time()-t0 >= 1)
+        self.assertTrue(time.time()-t0 >= .5)
         os.kill(p.pid, signal.SIGCONT)
         self.assertEquals(c.value, "hello")
+        p.join()
+
+    def testCallback(self):
+        p,pipe,queue = test_ext_channel(2, "bla", "hello")
+        pipe.recv()
+        received_value = {"value":None }
+        def cbk(value, received_value=received_value):
+            received_value['value'] = value
+        c = channels.Channel("bla",callback=cbk)
+        c.wait()
+        self.assertTrue(received_value['value']=='hello')
         p.join()
 
 if __name__ == '__main__':

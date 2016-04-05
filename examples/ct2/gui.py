@@ -225,13 +225,13 @@ class CT2Window(Qt.QMainWindow):
             return
         # start on selected counters
         counters = self.__ct_panel.getStartCounters()
-        self.__card.set_counters_software_start(counters)
+        self.__card.start_counters_software(counters)
 
     def __onSoftwareStop(self):
         if self.__card is None:
             return
         # stop on all counters
-        self.__card.set_counters_software_stop(self.__card.COUNTERS)
+        self.__card.stop_counters_software(self.__card.COUNTERS)
 
     def __onSoftwareReset(self):
         self.__card.software_reset()

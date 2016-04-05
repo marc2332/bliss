@@ -140,7 +140,7 @@ def main():
     nap = 0.1
     start_time = time.time()
 
-    device.set_counters_software_start(channels.values() + [11, 12])
+    device.start_counters_software(channels.values() + [11, 12])
 
     while True:
         time.sleep(nap)

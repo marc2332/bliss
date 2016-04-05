@@ -332,7 +332,7 @@ class CT2Device(BaseCT2Device):
 
             if self.acq_mode in [AcqMode.Internal, AcqMode.Slave]:
                 counters = (self.internal_point_nb_counter,)
-                self.card.set_counters_software_start(counters)
+                self.card.start_counters_software(counters)
             else:
                 raise NotImplementedError
         except:
@@ -349,7 +349,7 @@ class CT2Device(BaseCT2Device):
 
         self.__acq_status = AcqStatus.Ready
         if self.acq_mode in [AcqMode.Internal, AcqMode.Slave]:
-            self.card.set_counters_software_stop(self.card.COUNTERS)
+            self.card.stop_counters_software(self.card.COUNTERS)
         else:
             raise NotImplementedError
         gevent.wait([self.__event_loop])
@@ -361,7 +361,7 @@ class CT2Device(BaseCT2Device):
 
     def trigger_point(self):
         if self.acq_mode == AcqMode.Slave:
-            self.card.set_counters_software_stop((self.internal_timer_counter,))
+            self.card.stop_counters_software((self.internal_timer_counter,))
         else:
             raise NotImplementedError
 

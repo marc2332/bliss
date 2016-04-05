@@ -79,7 +79,7 @@ def main():
     card.enable_counters_software(counters)
 
     # Start!
-    card.set_counters_software_start(counters)
+    card.start_counters_software(counters)
 
     print("Started!")
     while True:

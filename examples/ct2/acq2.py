@@ -188,10 +188,10 @@ def go(device, channels):
 
     # start counting...
     # slaves start all
-    device.set_counters_software_start(channels.values())
+    device.start_counters_software(channels.values())
 
     # master start all
-    device.set_counters_software_start([11, 12])
+    device.start_counters_software([11, 12])
 
     stop = False
     loop = 0

@@ -3126,7 +3126,7 @@ class BaseCard:
                 register |= 1 << (channel-1)
         self.write_reg("ADAPT_50", register)
 
-    def set_counters_software_start(self, counters):
+    def start_counters_software(self, counters):
         """
         Trigger a software start on the given counters
 
@@ -3136,17 +3136,13 @@ class BaseCard:
         :param counters:
             container of counters (starting at 1). It can be any python
             container of integers (tuple, list, set, iterable, even dict)
-            If a dict is provided, only counters for which their value is
-            True will be started.
         """
-        register = 0
-        if isinstance(counters, dict):
-            counters = [c for c, start in counters.items() if start]
+        ct = {}
         for counter in counters:
-            register |= 1 << (counter-1)
-        self.write_reg("SOFT_START_STOP", register)
+            ct[counter] = True
+        self.set_counters_software_start_stop(counters)
 
-    def set_counters_software_stop(self, counters):
+    def stop_counters_software(self, counters):
         """
         Trigger a software stop on the given counters
 
@@ -3156,15 +3152,10 @@ class BaseCard:
         :param counters:
             container of counters (starting at 1). It can be any python
             container of integers (tuple, list, set, iterable, even dict)
-            If a dict is provided, only counters for which their value is
-            True will be stopped.
         """
-        register = 0
-        if isinstance(counters, dict):
-            counters = [c for c, stop in counters.items() if stop]
         for counter in counters:
-            register |= (1 << (counter-1)) << 16
-        self.write_reg("SOFT_START_STOP", register)
+            ct[counter] = False
+        self.set_counters_software_start_stop(counters)
 
     def set_counters_software_start_stop(self, counters):
         """

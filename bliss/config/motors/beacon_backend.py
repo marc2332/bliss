@@ -158,6 +158,9 @@ def write_setting(config_dict, setting_name, setting_value, write):
 
 
 def setting_update_from_channel(value, setting_name=None, axis=None):
+    if axis._hw_control:
+        return
+
     axis.settings.set(setting_name, value, write=False, from_channel=True)
  
     #print 'setting update from channel', axis.name, setting_name, str(value)

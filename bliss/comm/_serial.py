@@ -22,6 +22,17 @@ else:
 import weakref
 import os
 
+from .common import CommunicationError, CommunicationTimeout
+
+
+class SerialError(CommunicationError):
+    pass
+
+
+class SerialTimeout(CommunicationTimeout):
+    pass
+
+
 def try_open(fu) :
     def rfunc(self,*args,**kwarg) :
         self.open()
@@ -42,7 +53,7 @@ class _BaseSerial:
 
     def readline(self, eol, timeout):
         timeout_errmsg = "timeout on serial(%s)" % (self._port)
-        with gevent.Timeout(timeout, RuntimeError(timeout_errmsg)):
+        with gevent.Timeout(timeout,SerialTimeout(timeout_errmsg)):
             eol_pos = self._data.find(eol)
             while eol_pos == -1:
                 self._event.wait()
@@ -55,7 +66,7 @@ class _BaseSerial:
 
     def read(self, size, timeout):
         timeout_errmsg = "timeout on serial(%s)" % (self._port)
-        with gevent.Timeout(timeout,RuntimeError(timeout_errmsg)):
+        with gevent.Timeout(timeout,SerialTimeout(timeout_errmsg)):
             while len(self._data) < size:
                 self._event.wait()
                 self._event.clear()
@@ -65,7 +76,7 @@ class _BaseSerial:
     
     def write(self,msg,timeout) :
         timeout_errmsg = "timeout on serial(%s)" % (self._port)
-        with gevent.Timeout(timeout,RuntimeError(timeout_errmsg)):
+        with gevent.Timeout(timeout,SerialTimeout(timeout_errmsg)):
             while msg:
                 _,ready,_ = select.select([],[self.fd],[])
                 size_send = os.write(self.fd,msg)
@@ -73,7 +84,7 @@ class _BaseSerial:
 
     def raw_read(self, maxsize, timeout):
         timeout_errmsg = "timeout on serial(%s)" % (self._port)
-        with gevent.Timeout(timeout,RuntimeError(timeout_errmsg)):
+        with gevent.Timeout(timeout,SerialTimeout(timeout_errmsg)):
             while not self._data:
                 self._event.wait()
                 self._event.clear()
@@ -118,6 +129,15 @@ class LocalSerial(_BaseSerial):
     def close(self) :
         self.__serial.close()
 
+
+class RFC2217Error(SerialError):
+    pass
+
+
+class RFC2217Timeout(SerialTimeout):
+    pass
+
+
 class RFC2217(_BaseSerial):
     class TelnetCmd:
         def __init__(self):
@@ -157,7 +177,7 @@ class RFC2217(_BaseSerial):
         port_parse = re.compile('^(rfc2217://)?([^:/]+?):([0-9]+)$')
         match = port_parse.match(port)
         if match is None:
-            raise RuntimeError('RFC2217: port is not a valid url (%s)' % port)
+            raise RFC2217Error('port is not a valid url (%s)' % port)
 
         local_host,local_port = match.group(2),match.group(3)
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -204,7 +224,7 @@ class RFC2217(_BaseSerial):
         telnet_cmd.data = ''
 
         #Read telnet negotiation
-        with gevent.Timeout(5.,RuntimeError("timeout on serial negotiation(%s)" % self._port)):
+        with gevent.Timeout(5.,RFC2217Timeout("timeout on serial negotiation(%s)" % self._port)):
             while(1):
                 self._parse_nego(telnet_cmd)
                 if sum(o.active for o in mandatory_options) == len(mandatory_options):
@@ -332,13 +352,18 @@ class RFC2217(_BaseSerial):
     def close(self):
         self._socket.close()
 
+
+class SER2NETError(SerialError):
+    pass
+
+
 class SER2NET(RFC2217):
     def __init__(self,cnt,**keys) :
         port = keys.pop('port')
         port_parse = re.compile('^(ser2net://)?([^:/]+?):([0-9]+)(.+)$')
         match = port_parse.match(port)
         if match is None:
-            raise RuntimeError('SER2NET: port is not a valid url (%s)' % port)
+            raise SER2NETError('port is not a valid url (%s)' % port)
         comm = tcp.Command(match.group(2),int(match.group(3)),eol='\n\r->')
         msg = 'showshortport\n\r'
         rx = comm.write_readline(msg)
@@ -352,7 +377,7 @@ class SER2NET(RFC2217):
                 rfc2217_port = int(p[0])
                 break
         if rfc2217_port is None:
-            raise RuntimeError('SER2NET: port %s is not found on server' % match.group(4))
+            raise SER2NETError('port %s is not found on server' % match.group(4))
         
         keys['port'] = 'rfc2217://%s:%d' % (match.group(2),rfc2217_port)
         RFC2217.__init__(self,cnt,**keys)
@@ -433,7 +458,7 @@ class Serial:
         local_timeout = timeout or self._timeout
         msg = self._raw_handler.read(size,local_timeout)
         if len(msg) != size:
-            raise RuntimeError("read timeout on serial (%s)" % self._serial_kwargs.get(port,''))
+            raise SerialError("read timeout on serial (%s)" % self._serial_kwargs.get(port,''))
         return msg
 
     def readline(self,eol = None,timeout = None) :

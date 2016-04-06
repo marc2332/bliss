@@ -34,11 +34,11 @@ PointNbSignal = "point_nb"
 class AcqMode(enum.Enum):
     """Acquisition mode enumeration"""
 
-    #: Software start + internal timer trigger (aka Internal Single-trigger)
-    Internal = 0
+    #: Software start + internal timer trigger
+    IntTrigReadout = 0
 
-    #: Software start + software trigger (aka Internal multi-trigger)
-    Slave = 1
+    #: Software start + software trigger 
+    SoftTrigReadout = 1
 
 
 class AcqStatus(enum.Enum):
@@ -173,7 +173,7 @@ class CT2Device(BaseCT2Device):
     Helper for a locally installed CT2 card (P201/C208).
     """
 
-    def __init__(self, config, name, acq_mode=AcqMode.Internal):
+    def __init__(self, config, name, acq_mode=AcqMode.IntTrigReadout):
         BaseCT2Device.__init__(self, config, name)
         self.__buffer = []
         self.__buffer_lock = lock.RLock()
@@ -198,7 +198,8 @@ class CT2Device(BaseCT2Device):
                     (counters, channels, dma, fifo_half_full, err), tstamp = \
                         card.acknowledge_interrupt()
 
-                    if self.__acq_mode in [AcqMode.Internal, AcqMode.Slave]:
+                    if self.__acq_mode in [AcqMode.IntTrigReadout,
+                                           AcqMode.SoftTrigReadout]:
                         if self.internal_point_nb_counter in counters:
                             self.__acq_status = AcqStatus.Ready
                             just_stopped = True
@@ -232,7 +233,7 @@ class CT2Device(BaseCT2Device):
         self.card.reset()
         self.__buffer = []
 
-    def __configure_internal_slave_mode(self, mode):
+    def __configure_trigger_readout_mode(self, mode):
         card = self.__card
 
         timer_ct = self.internal_timer_counter
@@ -240,7 +241,7 @@ class CT2Device(BaseCT2Device):
 
         timer_inc_stop = getattr(ct2.CtClockSrc, 
                                  'INC_CT_{0}_STOP'.format(timer_ct))
-        if mode == AcqMode.Internal:
+        if mode == AcqMode.IntTrigReadout:
             timer_stop_source = getattr(ct2.CtHardStopSrc, 
                                         'CT_{0}_EQ_CMP_{0}'.format(timer_ct))
         else:
@@ -262,7 +263,7 @@ class CT2Device(BaseCT2Device):
                                  stop_from_hard_stop=False)
         card.set_counter_config(timer_ct, ct_config)
 
-        if mode == AcqMode.Internal:
+        if mode == AcqMode.IntTrigReadout:
             timer_val = int(self.acq_expo_time * self.timer_freq)
             card.set_counter_comparator_value(timer_ct, timer_val)
 
@@ -320,8 +321,8 @@ class CT2Device(BaseCT2Device):
 
     def prepare_acq(self):
         self.stop_acq()
-        if self.acq_mode in [AcqMode.Internal, AcqMode.Slave]:
-            self.__configure_internal_slave_mode(self.acq_mode)
+        if self.acq_mode in [AcqMode.IntTrigReadout, AcqMode.SoftTrigReadout]:
+            self.__configure_trigger_readout_mode(self.acq_mode)
         else:
             raise NotImplementedError
 
@@ -330,7 +331,7 @@ class CT2Device(BaseCT2Device):
         try:
             self.__event_loop = gevent.spawn(self.run_acq_loop)
 
-            if self.acq_mode in [AcqMode.Internal, AcqMode.Slave]:
+            if self.acq_mode in [AcqMode.IntTrigReadout, AcqMode.SoftTrigReadout]:
                 counters = (self.internal_point_nb_counter,)
                 self.card.start_counters_software(counters)
             else:
@@ -348,7 +349,7 @@ class CT2Device(BaseCT2Device):
             return
 
         self.__acq_status = AcqStatus.Ready
-        if self.acq_mode in [AcqMode.Internal, AcqMode.Slave]:
+        if self.acq_mode in [AcqMode.IntTrigReadout, AcqMode.SoftTrigReadout]:
             self.card.stop_counters_software(self.card.COUNTERS)
         else:
             raise NotImplementedError
@@ -360,7 +361,7 @@ class CT2Device(BaseCT2Device):
         self.card.trigger_counters_software_latch(counters)
 
     def trigger_point(self):
-        if self.acq_mode == AcqMode.Slave:
+        if self.acq_mode == AcqMode.SoftTrigReadout:
             self.card.stop_counters_software((self.internal_timer_counter,))
         else:
             raise NotImplementedError

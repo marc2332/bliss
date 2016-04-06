@@ -10,6 +10,7 @@ import types
 
 DEFAULT_POLLING_TIME = 0.02
 
+
 class Null(object):
     __slots__ = []
 
@@ -89,9 +90,9 @@ class Axis(object):
     @property
     def encoder(self):
         try:
-             encoder_name = self.config.get("encoder")
+            encoder_name = self.config.get("encoder")
         except KeyError:
-             return None
+            return None
         else:
             from bliss.config.motors import get_encoder
             return get_encoder(encoder_name)
@@ -159,8 +160,8 @@ class Axis(object):
     def _set_position(self):
         sp = self.settings.get("_set_position")
         if sp is None:
-          sp = self.position()
-          self.settings.set("_set_position", sp)
+            sp = self.position()
+            self.settings.set("_set_position", sp)
         return sp
 
     def measured_position(self):
@@ -208,8 +209,10 @@ class Axis(object):
 
     def position(self, new_pos=None):
         """
-        new_pos is in user units.
-        Returns a value in user units.
+        if <new_pos> is None : Gets axis *user* position.
+        else sets axis *user* position.
+        * <new_pos> is in user units.
+        * Return value is in user units.
         """
         elog.debug("axis.py : position(new_pos=%r)" % new_pos)
         if new_pos is not None:
@@ -251,7 +254,7 @@ class Axis(object):
                         hl + lim_delta if hl is not None else hl)
 
         self.__settings.set("position", self.dial2user(dial_pos), write=False)
-        self.__settings.set("dial_position", dial_pos) #, write=False)
+        self.__settings.set("dial_position", dial_pos)  # , write=False)
 
         return self.position()
 
@@ -274,7 +277,7 @@ class Axis(object):
     def sync_hard(self):
         self._update_settings()
         event.send(self, "sync_hard")
-        
+
     def velocity(self, new_velocity=None, from_config=False):
         """
         <new_velocity> is given in user units per seconds.
@@ -354,8 +357,10 @@ class Axis(object):
                 hl = self.config.get("high_limit")
             except KeyError:
                 hl = None
+
             def config2limit(c):
                 return self.dial2user(float(c)) if c is not None else c
+
             return map(config2limit, (ll, hl))
         if not isinstance(low_limit, Null):
             self.settings.set("low_limit", low_limit)
@@ -364,7 +369,7 @@ class Axis(object):
         return self.settings.get('low_limit'), self.settings.get('high_limit')
 
     def _update_settings(self, state=None):
-        self.settings.set("state", state if state is not None else self.state(), write=True) #False)
+        self.settings.set("state", state if state is not None else self.state(), write=True)  # False)
         self._position()
 
     def _handle_move(self, motion, polling_time):
@@ -372,8 +377,8 @@ class Axis(object):
             state = self.__controller.state(self)
             if state != "MOVING":
                 if state == 'LIMPOS' or state == 'LIMNEG':
-                  self._update_settings(state)
-                  raise RuntimeError(str(state))
+                    self._update_settings(state)
+                    raise RuntimeError(str(state))
                 break
             self._update_settings(state)
             gevent.sleep(polling_time)
@@ -405,7 +410,10 @@ class Axis(object):
         elog.debug("hw_position=%g user_initial_dial_pos=%g" % (hw_pos, user_initial_dial_pos))
 
         if abs(user_initial_dial_pos - hw_pos) > self.tolerance:
-            raise RuntimeError("%s: discrepancy between dial (%f) and controller position (%f), aborting" % (self.name, user_initial_dial_pos, hw_pos))
+            raise RuntimeError(
+					"%s: discrepancy between dial (%f) and controller position (%f), aborting" % (
+                     self.name, user_initial_dial_pos, hw_pos))
+
         if relative:
             user_initial_pos = self._set_position()
             user_target_pos += user_initial_pos
@@ -554,7 +562,7 @@ class Axis(object):
             self.__move_task.get()
         except gevent.GreenletExit:
             pass
-        
+
     def _do_stop(self):
         self.__controller.stop(self)
 
@@ -607,7 +615,7 @@ class Axis(object):
         self._set_moving_state()
         self.__move_task._being_waited = wait
         self.__move_task.link(self._set_move_done)
-        #gevent.sleep(0)
+        # gevent.sleep(0)
 
         if wait:
             self.wait_move()
@@ -766,7 +774,7 @@ class AxisState(object):
         if state_desc is not None and '|' in state_desc:
             raise ValueError("Invalid state: description contains invalid character '|'")
 
-        if not state_name in self._axis_states:
+        if state_name not in self._axis_states:
             self._axis_states.add(state_name)
             # new description is put in dict.
             if state_desc is None:
@@ -776,9 +784,9 @@ class AxisState(object):
 
             # Makes state accessible via a class property.
             # NO: we can't, because the objects of this class will become unpickable,
-            # as the class changes... 
+            # as the class changes...
             # Error message is: "Can't pickle class XXX: it's not the same object as XXX"
-            #add_property(self, state_name, lambda _: state_name in self._current_states)
+            # add_property(self, state_name, lambda _: state_name in self._current_states)
 
     """
     Flags ON a given state.
@@ -787,7 +795,7 @@ class AxisState(object):
     """
     def set(self, state_name):
         if state_name in self._axis_states:
-            if not state_name in self._current_states:
+            if state_name not in self._current_states:
                 self._current_states.append(state_name)
 
                 # Mutual exclusion of READY and MOVING

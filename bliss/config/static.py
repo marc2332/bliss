@@ -34,7 +34,7 @@ try:
                      canonical=None, indent=None, width=None,
                      allow_unicode=None, line_break=None,
                      encoding=None, explicit_start=None, explicit_end=None,
-                     version=None, tags=None):
+                     version=None, tags=None,**keys):
             ordered_yaml.emitter.Emitter.__init__(self, stream, canonical=canonical,
                                                   indent=indent, width=width,
                                                   allow_unicode=allow_unicode, line_break=line_break)

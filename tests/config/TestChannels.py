@@ -85,5 +85,19 @@ class TestBeacon(unittest.TestCase):
         self.assertTrue(received_value['value']=='hello')
         p.join()
 
+    def testRaiseExceptionInCallback(self):
+        c = channels.Channel("test_exception")
+        exception_raised = {"exc":False}
+        def cbk(value,exception_raised = exception_raised):
+            try:
+                c.value = "bla"
+            except RuntimeError:
+                exception_raised['exc'] = True
+        c.register_callback(cbk)
+        
+        c.value = "tagada"
+        c.wait()
+        self.assertTrue(exception_raised['exc'])
+
 if __name__ == '__main__':
     unittest.main()

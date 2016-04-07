@@ -70,7 +70,7 @@ class _Bus(object):
         self._pending_channel_value = dict()
         self._pending_init = list()
         self._send_event = gevent.event.Event()
-        self._in_recv = False
+        self._in_recv = set()
         self._wait_event = dict()
 
         self._listen_task = None
@@ -110,9 +110,11 @@ class _Bus(object):
         else:
             channel_value = _ChannelValue(None,value)
 
-        if not self._in_recv:
+        if name not in self._in_recv:
             self._pending_channel_value[name] = channel_value
             self._send_event.set()
+        elif not isinstance(value,_ChannelValue):
+            raise RuntimeError("Channel %s: detected value changed in callback" % name)
     
     def _fire_notification_callbacks(self,name):
         deleted_cb = set()
@@ -187,9 +189,10 @@ class _Bus(object):
                         self._pending_channel_value[channel_name] = channel_value
                         self._send_event.set()
                 else:
-                    self._in_recv = True
+                    self._in_recv.add(channel_name)
                     self.update_channel(channel_name,value)
-                    self._in_recv = False
+                    self._in_recv.remove(channel_name)
+
                     for waiting_event in self._wait_event.get(channel_name,set()):
                         waiting_event.set()
 

@@ -18,6 +18,8 @@ Example:
     print( scpi.get_idn() )
 """
 
+from __future__ import absolute_import
+
 import inspect
 import logging
 import functools

@@ -1,6 +1,6 @@
 __all__ = ['get_interface']
 
-from ._serial import Serial
+from .serial import Serial
 from .gpib import Gpib
 from .tcp import Tcp
 

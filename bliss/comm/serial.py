@@ -1,12 +1,16 @@
+from __future__ import absolute_import
+
 __all__ = ["LocalSerial", "RFC2217", "SER2NET", "Serial"]
 
-import gevent
-from gevent import socket, select, lock, event
-import tcp
-
+import os
 import re
 import struct
 import logging
+import weakref
+
+import gevent
+from gevent import socket, select, lock, event
+
 import serial
 try:
     from serial import rfc2217
@@ -19,9 +23,7 @@ else:
     globals().update(pro_keys_dict)
     from serial.rfc2217 import TelnetOption,TelnetSubnegotiation,RFC2217_PARITY_MAP,RFC2217_STOPBIT_MAP
 
-import weakref
-import os
-
+from . import tcp
 from .common import CommunicationError, CommunicationTimeout
 
 

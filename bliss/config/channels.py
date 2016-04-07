@@ -111,6 +111,11 @@ class _Bus(object):
             channel_value = _ChannelValue(None,value)
 
         if name not in self._in_recv:
+            if channel_value.timestamp is None:
+                CHANNELS_VALUE[name] = channel_value # synchronous set
+                self._in_recv.add(name)
+                self._fire_notification_callbacks(name)
+                self._in_recv.remove(name)
             self._pending_channel_value[name] = channel_value
             self._send_event.set()
         elif not isinstance(value,_ChannelValue):
@@ -163,6 +168,7 @@ class _Bus(object):
                 for name,channel_value in pending_channel_value.iteritems():
                     if channel_value.timestamp is None:
                         channel_value = _ChannelValue(time.time(),channel_value.value)
+                        CHANNELS_VALUE[name] = channel_value # synchronous set
                     pipeline.publish(name,cPickle.dumps(channel_value,protocol=-1))
                 pipeline.execute()
 

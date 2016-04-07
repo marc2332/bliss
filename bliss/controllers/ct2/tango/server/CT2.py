@@ -103,7 +103,8 @@ class CT2(Device):
     @attribute(dtype='str', label="Acq. mode",
                memorized=True, hw_memorized=True,
                doc="Acquisition mode (supported: 'IntTrigReadout', " \
-                                                "'SoftTrigReadout')")
+                                                "'SoftTrigReadout', " \
+                                                "'IntTrigMulti')")
     def acq_mode(self):
         return self.device.acq_mode.name
 

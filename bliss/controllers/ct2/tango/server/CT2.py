@@ -57,7 +57,7 @@ class CT2(Device):
     __metaclass__ = DeviceMeta
 
     card_name = device_property(dtype='str', default_value="p201")
-    def_acq_mode = device_property(dtype='str', default_value="Internal")
+    def_acq_mode = device_property(dtype='str', default_value="IntTrigReadout")
 
     def __init__(self, *args, **kwargs):
         Device.__init__(self, *args, **kwargs)
@@ -102,7 +102,9 @@ class CT2(Device):
 
     @attribute(dtype='str', label="Acq. mode",
                memorized=True, hw_memorized=True,
-               doc="Acquisition mode (supported: 'Internal', 'Slave')")
+               doc="Acquisition mode (supported: 'IntTrigReadout', " \
+                                                "'SoftTrigReadout', " \
+                                                "'IntTrigMulti')")
     def acq_mode(self):
         return self.device.acq_mode.name
 

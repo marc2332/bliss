@@ -7,7 +7,7 @@ class: rontec
 SLdevice: "rfc2217://lid30b2:28010"       #serial line name
 calib_cf: "-0.40290063, 0.0050059618, 0"  #calibration coeficients
 """
-from bliss.comm._serial import Serial
+from bliss.comm.serial import Serial
 import math
 import time
 import numpy

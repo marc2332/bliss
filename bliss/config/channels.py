@@ -160,6 +160,10 @@ class _Bus(object):
                 result = self._redis.execute_command('pubsub','numsub',*pending_subscribe)
                 no_listener_4_values = set((name for name,nb_listener in grouped(result,2) if nb_listener is '0'))
                 pubsub.subscribe(pending_subscribe)
+                for channel_name in pending_subscribe:
+                    for waiting_event in self._wait_event.get(channel_name,set()):
+                        waiting_event.set()
+
                 if self._listen_task is None:
                     self._listen_task = gevent.spawn(self._listen)
 
@@ -245,7 +249,11 @@ class _Channel(object):
                     with self._bus.wait_event_on(self.__name) as we:
                         we.wait()
                         value = CHANNELS_VALUE.get(self.__name)
-                    
+        elif self.__name not in self._bus._pubsub.channels: # not yet subscibe
+            with gevent.Timeout(self.__timeout, RuntimeError("%s: timeout to subscibe channel" % self.__name)):
+                while self.__name not in self._bus._pubsub.channels:
+                    with self._bus.wait_event_on(self.__name) as we:
+                        we.wait()
         return value.value
 
     @value.setter

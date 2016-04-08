@@ -78,10 +78,12 @@ class TestBeacon(unittest.TestCase):
         p,pipe,queue = test_ext_channel(2, "bla", "hello")
         pipe.recv()
         received_value = {"value":None }
+        cbk_event = gevent.event.Event()
         def cbk(value, received_value=received_value):
+            cbk_event.set()
             received_value['value'] = value
         c = channels.Channel("bla",callback=cbk)
-        c.wait()
+        cbk_event.wait(1.)
         self.assertTrue(received_value['value']=='hello')
         p.join()
 
@@ -96,7 +98,6 @@ class TestBeacon(unittest.TestCase):
         c.register_callback(cbk)
         
         c.value = "tagada"
-        c.wait()
         self.assertTrue(exception_raised['exc'])
 
 if __name__ == '__main__':

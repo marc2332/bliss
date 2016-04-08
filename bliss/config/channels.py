@@ -282,12 +282,6 @@ class _Channel(object):
         except:
             return
 
-    def wait(self):
-        with gevent.Timeout(self.__timeout, RuntimeError("%s: timeout waiting for event" % self.__name)):
-            with self._bus.wait_event_on(self.__name) as we:
-                we.wait()
-
-
     def __repr__(self):
         self.value
         return '%s->%s' % (self.__name,CHANNELS_VALUE.get(self.__name))

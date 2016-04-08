@@ -108,14 +108,13 @@ class _Bus(object):
             CHANNELS_VALUE[name] = channel_value
             self._fire_notification_callbacks(name)
         else:
-            channel_value = _ChannelValue(None,value)
+            channel_value = _ChannelValue(time.time(),value)
 
         if name not in self._in_recv:
-            if channel_value.timestamp is None:
-                CHANNELS_VALUE[name] = channel_value # synchronous set
-                self._in_recv.add(name)
-                self._fire_notification_callbacks(name)
-                self._in_recv.remove(name)
+            CHANNELS_VALUE[name] = channel_value # synchronous set
+            self._in_recv.add(name)
+            self._fire_notification_callbacks(name)
+            self._in_recv.remove(name)
             self._pending_channel_value[name] = channel_value
             self._send_event.set()
         elif not isinstance(value,_ChannelValue):
@@ -170,9 +169,6 @@ class _Bus(object):
             if pending_channel_value:
                 pipeline = self._redis.pipeline()
                 for name,channel_value in pending_channel_value.iteritems():
-                    if channel_value.timestamp is None:
-                        channel_value = _ChannelValue(time.time(),channel_value.value)
-                        CHANNELS_VALUE[name] = channel_value # synchronous set
                     pipeline.publish(name,cPickle.dumps(channel_value,protocol=-1))
                 pipeline.execute()
 
@@ -182,7 +178,7 @@ class _Bus(object):
                     if name not in no_listener_4_values:
                         pipeline.publish(name,cPickle.dumps(ValueQuery(),protocol=-1))
                     else: # we are alone
-                        CHANNELS_VALUE[name] = _ChannelValue(None,default_value)
+                        CHANNELS_VALUE[name] = _ChannelValue(time.time(),default_value)
                         for waiting_event in self._wait_event.get(name,set()):
                             waiting_event.set()
                 pipeline.execute()

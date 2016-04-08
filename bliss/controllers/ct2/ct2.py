@@ -1825,7 +1825,7 @@ class BaseCard:
     #: fifo size (bytes)
     FIFO_SIZE = 0
 
-    def __init__(self, address="/dev/p201"):
+    def __init__(self, address="/dev/ct2_0"):
         self.__log = logging.getLogger("P201." + address)
         self.__address = address
         self.__dev = None
@@ -3280,10 +3280,10 @@ def C208Card():
 def CT2Card(card_type, name):
     if "201" in card_type:
         klass = P201Card
-        name = name and name or "/dev/p201"
+        name = name and name or "/dev/ct2_0"
     else:
         klass = C208Card
-        name = name and name or "/dev/c208"
+        name = name and name or "/dev/ct2_0"
     return klass(name)
 
 

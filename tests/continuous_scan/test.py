@@ -27,7 +27,7 @@ from bliss.common.event import dispatcher
 from bliss.config.conductor import client
 #P201
 from bliss.acquisition.p201 import P201AcquisitionMaster,P201AcquisitionDevice
-from ct2 import P201, Clock
+from bliss.controllers.ct2 import P201, Clock
 
 def test():
   chain = AcquisitionChain()

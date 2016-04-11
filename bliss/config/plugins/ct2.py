@@ -13,8 +13,8 @@ except ImportError:
 
 __this_path = os.path.dirname(os.path.realpath(__file__))
 
-import ct2
-from ct2 import create_objects_from_config_node
+from bliss.controllers import ct2
+from bliss.controllers.ct2 import create_objects_from_config_node
 
 GENERAL_PARAMS_SEQ = (
 #      name                          type     possible values   writable   default value         label                     group         description

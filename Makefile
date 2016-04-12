@@ -45,7 +45,7 @@ install:
 	cp --backup=simple --suffix=.bup tango/TgGevent.py ${BLISSADM_PATH}/server/src/TgGevent.py
 
         ####  Spec macros
-	cp --backup=simple --suffix=.bup spec/tango_mot.mac ${BLISSADM_PATH}/spec/macros/tango_mot.mac
+	find spec -name \*.mac -exec cp --backup=simple --suffix=.bup {} ${BLISSADM_PATH}/spec/macros \;
 
 
 # Builds sphinx documentation.

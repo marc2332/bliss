@@ -27,7 +27,7 @@ A Minimal Application
 
 A minimal ct2 usage looks something like this::
 
-    import ct2
+    from bliss.controllers import ct2
 
     p201 = ct2.P201Card()
 

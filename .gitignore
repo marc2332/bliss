@@ -1,6 +1,7 @@
 \#*\#
 \.\#*
 *.pyc
+*.pyo
 *~
 *.bck
 build
@@ -11,3 +12,4 @@ doc/_build
 .settings/
 .project
 .pydevproject
+

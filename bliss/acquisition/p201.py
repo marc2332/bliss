@@ -1,7 +1,7 @@
 from gevent.select import select
 from bliss.common.event import dispatcher
 
-from ct2 import CtConfig, CtClockSrc, CtGateSrc, CtHardStartSrc, CtHardStopSrc
+from bliss.controllers.ct2 import CtConfig, CtClockSrc, CtGateSrc, CtHardStartSrc, CtHardStopSrc
 
 from bliss.common.continuous_scan import AcquisitionDevice, AcquisitionMaster
 import gevent

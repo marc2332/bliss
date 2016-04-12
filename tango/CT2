@@ -13,13 +13,13 @@
 # See LICENSE.txt for more info.
 
 try:
-    from bliss.controllers.ct2.tango.server import main
+    from bliss.tango.servers.ct2 import main
 except ImportError:
     import os, sys
     __this_dir = os.path.dirname(os.path.abspath(__file__))
     __package_dir = os.path.join(__this_dir, os.path.pardir)
     sys.path.append(__package_dir)
-    from bliss.controllers.ct2.tango.server import main
+    from bliss.tango.servers.ct2 import main
 
 if __name__ == "__main__":
     main()

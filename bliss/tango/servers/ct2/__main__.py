@@ -11,5 +11,5 @@
 # either version 3 of the License, or (at your option) any later version.
 # See LICENSE.txt for more info.
 
-from CT2 import main
+from .ct2 import main
 main()

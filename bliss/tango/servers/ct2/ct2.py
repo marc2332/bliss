@@ -23,17 +23,16 @@ import time
 import gevent
 from gevent import select
 
-from bliss.common.event import connect
-from bliss.config.static import get_config
-
 from PyTango import Util, GreenMode
 from PyTango import AttrQuality, AttrWriteType, DispLevel, DevState
 from PyTango.server import Device, DeviceMeta
 from PyTango.server import attribute, command
 from PyTango.server import class_property, device_property
 
-from ...device import CT2Device, AcqMode, AcqStatus
-from ...device import ErrorSignal, PointNbSignal, StatusSignal
+from bliss.common.event import connect
+from bliss.config.static import get_config
+from bliss.controllers.ct2 import CT2Device, AcqMode, AcqStatus
+from bliss.controllers.ct2 import ErrorSignal, PointNbSignal, StatusSignal
 
 
 def switch_state(tg_dev, state=None, status=None):

@@ -16,4 +16,4 @@
 CT2 (P201/C208) ESRF counter card TANGO device
 """
 
-from .CT2 import CT2, main
+from .ct2 import CT2, main

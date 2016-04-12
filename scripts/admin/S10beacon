@@ -1,0 +1,86 @@
+#!/bin/bash
+##########################################################################
+# File:         S10beacon
+# $Header$
+# Project:      ESRF beacon server configuration/startup utilities
+# Desc:         Script for integration in the BLControl startup/shutdown
+# Author(s):    A. Homs (ahoms@esrf.fr)
+#
+# ${log}$
+##########################################################################
+
+LINUX=""
+ECHO="/bin/echo "
+
+if [ "`uname`" == "SunOS" ]; then ECHO="/usr/ucb/echo"; fi
+
+[ "$1" == "start" ] && action="Starting"
+[ "$1" == "stop" ] && action="Stopping"
+[ "$1" == "status" ] && action="Testing"
+if [ -z "${action}" ]; then
+        echo "Usage: $0 start|stop|status"
+        exit 1
+fi
+ 
+if [ -z "${BLISSADM}" ]; then
+	BLISSADM="/users/blissadm"
+	export BLISSADM
+fi
+PATH=${BLISSADM}/local/bin:${BLISSADM}/bin:${PATH}
+export PATH
+. blissrc
+
+# avoid beacon startup/shutdown either 
+#  + acknowledging the BEACON_START variable (BLISS_ENV_VAR)
+#  + or, by default if local host is not the tango_host
+if [ -z "${BEACON_START}" ]; then
+    [ -z "${TANGO_HOST}" ] && exit 0
+    tango_hostname=`echo ${TANGO_HOST} |  awk -F":" '{print $1}'`
+    [ "${tango_hostname}" != "`uname -n`" ] && exit 0
+else
+    [ "${BEACON_START}" -eq 0 -o "${BEACON_START}" = "no" ] && exit 0
+fi
+
+script=`which beacon-server`
+opts="--db_path=${BEACON_DB_PATH} --posix_queue=0 --port=${BEACON_PORT} --webapp_port=${BEACON_WEB_PORT}"
+log="${BLISSADM}/admin/log/beacon.log"
+service="bliss beacon"
+beacon_user="$BEACON_USER"
+if [ -z "$beacon_user" ]; then
+	beacon_user=blissadm
+fi
+
+touch ${log}
+chmod 666 ${log} 2> /dev/null
+chown blissadm.bliss ${log} 2> /dev/null
+
+echo -n "${action} ${service} ... "
+echo "script: ${script}" >> ${log}
+if ! [ -x "${script}" ]; then
+	echo -e "\n`date`\nScript ${script} not found or not executable" >> ${log}
+	exit 1
+fi
+
+if [ "$1" == "start" ]; then
+        cmd="${script} ${opts}"
+	(echo; date) >> ${log}
+	cmd="${cmd} >> ${log} 2>&1 &"
+	if [ "x$beacon_user" != x -a `id -u` != `id -u $beacon_user` ]; then
+		[ `id -u` != 0 ] && echo -n "$beacon_user "
+		cmd="su $beacon_user -c \"${cmd}\""
+	fi
+elif [ "$1" == "stop" ]; then
+	pid=`ps -ef | grep -- "${script} ${opts}" | grep -v grep | \
+             awk '{print $2}'`
+        [ -z "${pid}" ] && exit 0
+	cmd="kill ${pid}"
+	if [ "x$beacon_user" != x -a `id -u` != `id -u $beacon_user` ]; then
+		[ `id -u` != 0 ] && echo -n "$beacon_user "
+		cmd="su $beacon_user -c \"${cmd}\""
+	fi
+else
+	echo
+fi
+
+eval ${cmd} || exit 1
+exit 0

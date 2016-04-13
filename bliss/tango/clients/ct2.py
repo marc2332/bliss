@@ -14,7 +14,7 @@
 import numpy
 import PyTango.gevent
 
-from ..device import BaseCT2Device, AcqMode, AcqStatus
+from bliss.controllers.ct2 import BaseCT2Device, AcqMode, AcqStatus
 
 PyTango.requires_pytango('8.1.8')
 

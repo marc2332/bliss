@@ -36,13 +36,8 @@ install:
         ####  config dir
 	mkdir -p ${CONFIG_PATH}; chmod 777 ${CONFIG_PATH}
 
-        ####  tango server : .py and startup-script
-	cp --backup=simple --suffix=.bup tango/BlissAxisManager ${BLISSADM_PATH}/server/src/BlissAxisManager
-	chmod +x ${BLISSADM_PATH}/server/src/BlissAxisManager
-
-	cp --backup=simple --suffix=.bup tango/BlissAxisManager.py ${BLISSADM_PATH}/server/src/BlissAxisManager.py
-
-	cp --backup=simple --suffix=.bup tango/TgGevent.py ${BLISSADM_PATH}/server/src/TgGevent.py
+        ####  tango servers
+	find tango/ -type f -perm /a+x -exec cp --backup=simple --suffix=.bup {} ${BLISSADM_PATH}/server/src/ \;
 
         ####  Spec macros
 	find spec -name \*.mac -exec cp --backup=simple --suffix=.bup {} ${BLISSADM_PATH}/spec/macros \;

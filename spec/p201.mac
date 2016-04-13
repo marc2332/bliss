@@ -14,7 +14,7 @@ def p201_config(cnum, type, unit, module, chan) '{
       printf("Configuring \"%s\" as timer\n", mne)
       factor = counter_par(cnum, "scale")
       tango_put(ctrl_dev, "timer_freq", factor)
-      tango_put(ctrl_dev, "acq_mode", "Internal")
+      tango_put(ctrl_dev, "acq_mode", "IntTrigReadout")
       P201_CT[ctrl_dev]["int_cnt"] = 11
    }
 }'

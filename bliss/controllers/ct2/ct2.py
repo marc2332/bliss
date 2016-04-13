@@ -3140,7 +3140,7 @@ class BaseCard:
         ct = {}
         for counter in counters:
             ct[counter] = True
-        self.set_counters_software_start_stop(counters)
+        self.set_counters_software_start_stop(ct)
 
     def stop_counters_software(self, counters):
         """
@@ -3153,9 +3153,10 @@ class BaseCard:
             container of counters (starting at 1). It can be any python
             container of integers (tuple, list, set, iterable, even dict)
         """
+        ct = {}
         for counter in counters:
             ct[counter] = False
-        self.set_counters_software_start_stop(counters)
+        self.set_counters_software_start_stop(ct)
 
     def set_counters_software_start_stop(self, counters):
         """

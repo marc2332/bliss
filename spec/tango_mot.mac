@@ -782,7 +782,7 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
         # deg, mm, um)
         # parameters: none
         if (cmd == "position") {
-            local _pos _offset
+            local _pos _offset _diff _msg
 
             _attr =  "position"
             _attr2 = "offset"
@@ -792,7 +792,13 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
                                        sprintf("%s,%s",_attr, _attr2))
                 exit
             }
-
+	    _diff = fabs(_offset - motor_par(motnum, "offset"))
+	    if ((_diff > fabs(1.5/motor_par(motnum, "step_size"))) && \
+                !motor_par(motnum, "in_config")) {
+                _msg = sprintf("%g discrepancy with TANGO on %s offset", \
+                               _diff, _mot_mne)
+                printf("\nWarning: %s. Please do reconfig!\n", _msg)
+            }
             _pos -= _offset
             _pos /= motor_par(motnum, "sign")
 

@@ -572,7 +572,9 @@ class Axis(object):
 
     def _do_stop(self):
         self.__controller.stop(self)
+        self._stop_loop()
 
+    def _stop_loop(self):
         try:
             self._handle_move(Motion(self, None, None), DEFAULT_POLLING_TIME)
         finally:

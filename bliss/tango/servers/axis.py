@@ -619,6 +619,16 @@ class BlissAxis(PyTango.Device_4Impl):
         self.debug_stream("In write_trajpar()")
         data = attr.get_write_value()
 
+    def read_Limits(self, attr):
+        self.debug_stream("In read_Limits()")
+        attr.set_value(self.axis.limits())
+
+    def write_Limits(self, attr):
+        self.debug_stream("In write_Limits()")
+        low, high = attr.get_write_value()
+        self.axis.limits(low, high)
+        self.axis.settings_to_config(velocity=False, acceleration=False)
+
     """
     Motor command methods
     """
@@ -1133,6 +1143,16 @@ class BlissAxisClass(PyTango.DeviceClass):
         [[PyTango.DevFloat,
           PyTango.IMAGE,
           PyTango.READ_WRITE, 1000, 5]],
+        'Limits':
+        [[PyTango.DevDouble,
+          PyTango.SPECTRUM,
+          PyTango.READ_WRITE, 2],
+         {
+             'unit': "uu",
+             'format': "%10.3f",
+             'description': "Software limits expressed in physical unit.",
+             'Display level': PyTango.DispLevel.OPERATOR,
+        }],
     }
 
 def get_server_axis_names(instance_name=None):

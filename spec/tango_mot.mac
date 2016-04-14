@@ -641,6 +641,25 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
         return curr_offset
     }
 
+    if (key == "limits") {
+        if (action == "set") {
+       	    local sw_limit[] curr_offset offset_diff _msg
+
+	    curr_offset = tango_mot_get_attr(motnum, "Offset")
+            offset_diff = fabs(curr_offset - motor_par(motnum, "offset"))
+            if (offset_diff > fabs(1.5/motor_par(motnum, "step_size"))) {
+                _msg = sprintf("%g discrepancy with TANGO on %s offset", \
+                               offset_diff, _mot_mne)
+                printf("\nError: %s. Please do reconfig!\n", _msg)
+		return -1
+            }
+
+	    sw_limit[0] = user(motnum, p1)
+	    sw_limit[1] = user(motnum, p2)
+	    tango_put(_axis_ds_name, "limits", sw_limit)
+        }
+    }
+
     if (action == "get") {
         if ( key == "axisstatus"){
             return (tango_mot_status(motnum))

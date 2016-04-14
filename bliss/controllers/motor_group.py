@@ -58,11 +58,21 @@ class _Group(object):
         if self.is_moving:
             return AxisState("MOVING")
 
-        states = [axis.state(read_hw=True) for axis in self._axes.itervalues()]
-        if any([state.MOVING for state in states]):
-            return AxisState("MOVING")
+        grp_state = AxisState("READY")
+        for i, (name, state) in enumerate([(axis.name, axis.state()) for axis in self._axes.itervalues()]):
+            if state.MOVING:
+                new_state = "MOVING"+" "*i
+                grp_state.create_state(new_state, "%s: %s" % (name, grp_state._state_desc["MOVING"]))
+                grp_state.set("MOVING")
+                grp_state.set(new_state) 
+            for axis_state in state._current_states:
+                if axis_state == "READY":
+                    continue
+                new_state = axis_state+" "*i
+                grp_state.create_state(new_state, "%s: %s" % (name, state._state_desc[axis_state]))     
+                grp_state.set(new_state) 
 
-        return AxisState("READY")
+        return grp_state
 
     def stop(self, exception=gevent.GreenletExit, wait=True):
         if self.is_moving:

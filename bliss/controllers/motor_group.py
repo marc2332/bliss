@@ -87,9 +87,14 @@ class _Group(object):
             try:
                 controller.stop_all(*motions)
             except NotImplementedError:
-                pass
-            for motion in motions:
-                motion.axis.stop(wait=False)
+                for motion in motions:
+                    motion.axis.stop(wait=False)
+            else:
+                for motion in motions:
+                    try:
+                        motion.axis._stop_loop()
+                    except Exception:
+                        sys.excepthook(*sys.exc_info())
         for motion in all_motions:
             motion.axis.wait_move()
 

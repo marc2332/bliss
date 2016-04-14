@@ -406,9 +406,9 @@ class CalcController(Controller):
         positions_dict = self._get_set_positions()
         # _set_position dict currently includes the new target positions,
         # so the next part is not necessary, done for completeness
-        req_motion_dict = dict([(self._axis_tag(motion.axis), motion.target_pos)
-                                for motion in motion_list])
-        positions_dict.update(req_motion_dict)
+        #req_motion_dict = dict([(self._axis_tag(motion.axis), motion.target_pos)
+        #                        for motion in motion_list])
+        #positions_dict.update(req_motion_dict)
 
         move_dict = dict()
         for tag, target_pos in self.calc_to_real(positions_dict).iteritems():
@@ -445,3 +445,4 @@ class CalcController(Controller):
         self._calc_from_real()
 
         return axis.position()
+

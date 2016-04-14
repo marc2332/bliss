@@ -165,6 +165,17 @@ class TestGroup(unittest.TestCase):
         finally:
             robz.controller.set_error(False) 
 
+    def testHardLimitsAndSetPosition(self):
+        robz = bliss.get_axis("robz")
+        robz2 = bliss.get_axis("robz2")
+        robz2.dial(0); robz2.position(0)
+        robz.dial(0); robz.position(0)
+        self.assertEquals(robz._set_position(), 0)
+        grp = bliss.Group(robz, robz2)
+        robz.controller.set_hw_limit(robz,-2,2)
+        robz2.controller.set_hw_limit(robz2,-2,2)
+        self.assertRaises(RuntimeError, grp.move, {robz:3,robz2:1})
+        self.assertEquals(robz._set_position(), robz.position())
 
 if __name__ == '__main__':
     unittest.main()

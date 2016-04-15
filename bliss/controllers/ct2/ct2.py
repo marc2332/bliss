@@ -1695,12 +1695,12 @@ class FilterInput(BaseParam):
 
 class FilterOutput(BaseParam):
     """
-    Channel output filter (clock freq., enabled, polarity)
+    Channel output filter (clock freq., enabled, polarity_inverted)
     """
 
     _FLAG_MAP = { 'clock':    (FilterClock, 0b111),
                   'enable':   (bool, 1 << 3),
-                  'polarity': (bool, 1 << 4) }
+                  'polarity_inverted': (bool, 1 << 4) }
 
     def __setitem__(self, key, value):
         if key == 'clock':
@@ -3467,10 +3467,10 @@ def configure_card(card, config):
                 ch_out_srcs[addr] = __get(out, "source", klass=OutputSrc)
                 f_clk = __get(out, "filter clock", klass=FilterClock)
                 f_enable = __get(out, "filter enable", False)
-                f_polarity = __get(out, "filter polarity", 0)
+                f_pol_inv = __get(out, "polarity inverted", False)
                 ch_out_filters[addr] = FilterOutput(clock=f_clk,
                                                     enable=f_enable,
-                                                    polarity=f_polarity)
+                                                    polarity_inverted=f_pol_inv)
 
     card.set_input_channels_50ohm_adapter(ch_50_ohms)
     card.set_input_channels_level(ch_in_levels)
@@ -3517,7 +3517,7 @@ def main():
     # no 50 ohm adapter
     p201.set_input_channels_50ohm_adapter({})
 
-    # channel 9 and 10: no filter, no polarity
+    # channel 9 and 10: no filter, no polarity inv
     p201.set_output_channels_filter({})
 
     # channel 10 output: counter 10 gate envelop

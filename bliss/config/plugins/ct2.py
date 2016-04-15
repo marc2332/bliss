@@ -86,7 +86,7 @@ OUT_CHANNEL_PARAMS_SEQ = (
     ("source",          ('OutputSrc',    None, True,  ct2.OutputSrc.SOFTWARE,     "Source",          "source", "output source")),
     ("filter enable",   ('bool',         None, True,  False,                      "Filter enable",   "filter", "output filter enable/disable")),
     ("filter clock",    ('FilterClock',  None, True,  ct2.FilterClock.CLK_100_MHz,"Filter clock",    "filter", "output filter clock")),
-    ("filter polarity", ('bool',         None, True,  False,                      "Filter polarity", "filter", "output filter polarity (0 or 1)")),
+    ("polarity inverted", ('bool',         None, True,  False,                      "Polarity inverted", "filter", "output polarity inverted")),
 )
 
 OUT_CHANNEL_PARAMS = OrderedDict()

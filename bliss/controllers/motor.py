@@ -175,13 +175,12 @@ class Controller(object):
         mandatory_config_list = list()
 
         for config_param in ['velocity', 'acceleration']:
-            # Try to execute read_<config_name> to check if controller support it.
-            reading_function = getattr(axis.controller, "read_%s" % config_param)
-            try:
-                reading_function(axis)
-            except NotImplementedError:
-                pass
-            else:
+            # Try to see if controller supports setting the <config_param> by
+            # checking if it oveloads default set_<config_name> method
+            set_name = "set_%s" % config_param
+            base_set_method = getattr(Controller, set_name)
+            set_method = getattr(axis.controller.__class__, set_name)
+            if base_set_method != set_method:
                 mandatory_config_list.append(config_param)
 
         for setting_name in mandatory_config_list:

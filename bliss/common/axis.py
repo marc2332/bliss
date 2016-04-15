@@ -1,4 +1,3 @@
-
 from bliss.common import log as elog
 from bliss.common.task_utils import *
 from bliss.controllers.motor_settings import AxisSettings
@@ -29,6 +28,11 @@ class Motion(object):
 
 
 class Axis(object):
+    def lazy_init(func):
+        def func_wrapper(self, *args, **kwargs):
+            self.controller._initialize_axis(self)
+            return func(self, *args, **kwargs)
+        return func_wrapper
 
     def __init__(self, name, controller, config):
         self.__name = name
@@ -142,6 +146,7 @@ class Axis(object):
             setattr(self, "set_" + name, fset)
         self.__custom_attributes_list.append((name, type_info, access))
 
+    @lazy_init
     def on(self):
         if self.is_moving:
             return
@@ -150,6 +155,7 @@ class Axis(object):
         state = self.__controller.state(self)
         self.settings.set("state", state)
 
+    @lazy_init
     def off(self):
         if self.is_moving:
             raise RuntimeError("Can't set power off while axis is moving")
@@ -160,10 +166,11 @@ class Axis(object):
 
     def reset(self):
         if self.is_moving:
-            raise RuntimeError("Can't set power off while axis is moving")
+            raise RuntimeError("Can't reset while axis is moving")
         self.__controller.finalize_axis(self)
         self.__controller._initialize_axis(self)
 
+    @lazy_init
     def _set_position(self):
         sp = self.settings.get("_set_position")
         if sp is None:
@@ -171,18 +178,21 @@ class Axis(object):
             self.settings.set("_set_position", sp)
         return sp
 
+    @lazy_init
     def measured_position(self):
         """
         Returns the encoder value in user units.
         """
         return self.dial2user(self.dial_measured_position())
 
+    @lazy_init
     def dial_measured_position(self):
         """
         Returns the dial encoder position.
         """
         return self.__controller.read_encoder(self.encoder) / self.encoder.steps_per_unit
 
+    @lazy_init
     def dial(self, new_dial=None):
         """
         Returns current dial position, or set new dial if 'new_dial' argument is provided
@@ -214,6 +224,7 @@ class Axis(object):
         else:
             return self.user2dial(self.position())
 
+    @lazy_init
     def position(self, new_pos=None):
         """
         if <new_pos> is None : Gets axis *user* position.
@@ -244,6 +255,7 @@ class Axis(object):
             curr_pos = 0
         return curr_pos
 
+    @lazy_init
     def _position(self, new_pos=None):
         """
         new_pos is in user units.
@@ -265,6 +277,7 @@ class Axis(object):
 
         return self.position()
 
+    @lazy_init
     def state(self, read_hw=False):
         if read_hw:
             state = None
@@ -278,13 +291,15 @@ class Axis(object):
             state = self.__controller.state(self)
         return state
 
+    @lazy_init
     def get_info(self):
         return self.__controller.get_info(self)
 
     def sync_hard(self):
         self._update_settings()
         event.send(self, "sync_hard")
-
+        
+    @lazy_init
     def velocity(self, new_velocity=None, from_config=False):
         """
         <new_velocity> is given in user units per seconds.
@@ -307,6 +322,7 @@ class Axis(object):
         self.settings.set("velocity", _user_vel)
         return _user_vel
 
+    @lazy_init
     def acceleration(self, new_acc=None, from_config=False):
         """
         <new_acc> is given in user_units/s2.
@@ -335,6 +351,7 @@ class Axis(object):
 
         return _acceleration
 
+    @lazy_init
     def acctime(self, new_acctime=None, from_config=False):
         """
         <new_acctime> given in seconds.
@@ -351,6 +368,7 @@ class Axis(object):
 
         return _acctime
 
+    @lazy_init
     def limits(self, low_limit=Null(), high_limit=Null(), from_config=False):
         """
         <low_limit> and <high_limit> given in user units.
@@ -409,6 +427,7 @@ class Axis(object):
     def user2dial(self, position):
         return (position - self.offset) / self.sign
 
+    @lazy_init
     def prepare_move(self, user_target_pos, relative=False):
         elog.debug("user_target_pos=%g, relative=%r" % (user_target_pos, relative))
         user_initial_dial_pos = self.dial()
@@ -519,6 +538,7 @@ class Axis(object):
             raise RuntimeError("axis %s state is \
                                 %r" % (self.name, str(initial_state)))
 
+    @lazy_init
     def move(self, user_target_pos, wait=True, relative=False, polling_time=DEFAULT_POLLING_TIME):
         elog.debug("user_target_pos=%g  wait=%r relative=%r" % (user_target_pos, wait, relative))
         if self.__controller.is_busy():
@@ -581,12 +601,14 @@ class Axis(object):
             if self.encoder is not None:
                 self._do_encoder_reading()
 
+    @lazy_init
     def stop(self, exception=gevent.GreenletExit, wait=True):
         if self.is_moving:
             self.__move_task.kill(exception, block=False)
             if wait:
                 self.wait_move()
 
+    @lazy_init
     def home(self, switch=1, wait=True):
         self._check_ready()
 
@@ -608,6 +630,7 @@ class Axis(object):
                     break
                 time.sleep(0.02)
 
+    @lazy_init
     def hw_limit(self, limit, wait=True):
         """Go to a hardware limit
 

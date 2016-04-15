@@ -124,7 +124,7 @@ class fshutter:
 
    def _icepap_query(self, cmd_str):
       """Send directly to Icepap controller"""
-      motor_address = self.fshutter_mot.address
+      motor_address = self.fshutter_mot.config.get("address",int)
       controller_host = self.fshutter_mot.controller.host
       s = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
       s.connect((controller_host, 5000))

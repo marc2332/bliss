@@ -11,9 +11,5 @@
 # either version 3 of the License, or (at your option) any later version.
 # See LICENSE.txt for more info.
 
-"""CT2 (P201/C208) ESRF counter card
-
-CT2 (P201/C208) ESRF counter card TANGO device
-"""
-
-from .ct2 import CT2, main
+from .ct2_ds import main
+main()

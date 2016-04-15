@@ -647,10 +647,10 @@ class FilterClock(enum.Enum):
 @enum.unique
 class FilterInputSelection(enum.Enum):
     """Input selection to be used in input filter configuration"""
-    SINGLE_SHORT_PULSE_CAPTURE = 0
-    SAMPLING_WITHOUT_FILTERING = 1
-    SYMETRICAL_FILTER          = 2
-    ASYMETRICAL_FILTER         = 3
+    SINGLE_SHORT_PULSE_CAPTURE = (0 << 3)
+    SAMPLING_WITHOUT_FILTERING = (1 << 3)
+    SYMETRICAL_FILTER          = (2 << 3)
+    ASYMETRICAL_FILTER         = (3 << 3)
 
 
 #----------------------------------------------------------------------------
@@ -1700,12 +1700,14 @@ class FilterOutput(BaseParam):
 
     _FLAG_MAP = { 'clock':    (FilterClock, 0b111),
                   'enable':   (bool, 1 << 3),
-                  'polarity': (int,  1 << 4) }
+                  'polarity': (bool, 1 << 4) }
 
     def __setitem__(self, key, value):
         if key == 'clock':
             klass, mask = self._FLAG_MAP[key]
             self.value = (self.value & NOT(mask)) | value.value
+        else:
+            super(FilterOutput, self).__setitem__(key, value)
 
 
 class AMCCFIFOStatus(BaseParam):
@@ -3268,17 +3270,27 @@ class P201Card(BaseCard):
     FIFO_SIZE = 2048 * CT2_REG_SIZE
 
 
-def C208Card():
-    raise NotImplementedError
+class C208Card(BaseCard):
+    def __init__(self, *args, **kws):
+        raise NotImplementedError
+
+
+def get_ct2_card_class(card_type):
+    if "P201" in card_type:
+        klass = P201Card
+    elif "C208" in card_type:
+        klass = C208Card
+    else:
+        klass = None
+    return klass
 
 
 def CT2Card(card_type, name):
-    if "201" in card_type:
-        klass = P201Card
-        name = name and name or "/dev/ct2_0"
-    else:
-        klass = C208Card
-        name = name and name or "/dev/ct2_0"
+    klass = get_ct2_card_class(card_type)
+    if not klass:
+        raise ValueError("Invalid card_type: %s" % card_type)
+
+    name = name if name else "/dev/ct2_0"
     return klass(name)
 
 

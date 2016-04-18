@@ -24,12 +24,15 @@ config_xml = """
     <encoder name="tiltenc">
       <steps_per_unit value="50"/>
     </encoder>
-    <axis name="m0" encoder="m0enc">
+    <axis name="m0">
       <velocity value="50"/>
+      <acceleration value="1"/>
+      <encoder value="m0enc"/>
       <steps_per_unit value="1000"/>
     </axis>
     <axis name="m1">
       <velocity value="50"/>
+      <acceleration value="1"/>
       <steps_per_unit value="1000"/>
     </axis>
   </controller>

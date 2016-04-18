@@ -50,11 +50,4 @@ doc:
 
 clean:
 	rm -rf ${BLISSADM_PATH}/python/bliss_modules/bliss/
-	rm -f ${BLISSADM_PATH}/server/src/BlissAxisManager
-	rm -f ${BLISSADM_PATH}/server/src/BlissAxisManager.py
-	rm -f ${BLISSADM_PATH}/server/src/TgGevent.py
-	rm -f ${BLISSADM_PATH}/spec/macros/tango_mot.mac
-
-
-
 

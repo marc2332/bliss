@@ -11,6 +11,8 @@ sys.path.insert(
 
 import bliss
 from bliss.common.axis import Axis
+
+
 #from bliss.common import log
 #log.level(log.DEBUG)
 
@@ -62,11 +64,13 @@ class TestEncoder(unittest.TestCase):
 
     def test_encoder_read(self):
         m0 = bliss.get_axis("m0")
+        _pos = m0.dial()
         enc = bliss.get_encoder("m0enc")
         self.assertEquals(enc.read(), m0.dial()/enc.steps_per_unit)
 
     def test_encoder_set(self):
         m0 = bliss.get_axis("m0")
+        _pos = m0.dial()
         enc = bliss.get_encoder("m0enc")
         self.assertEquals(enc.set(133), 133)
 
@@ -98,6 +102,35 @@ class TestEncoder(unittest.TestCase):
         m0.move(2)
         self.assertEquals(m0.position(), 2)
 
+
+    def test_encoder_set(self):
+        m0 = bliss.get_axis("m0")
+        _pos = m0.dial()
+        enc = bliss.get_encoder("m0enc")
+
+    def test_encoder_move(self):
+        # Does not pass ?
+        # pass with enc.set(5) uncommented...
+
+        m0 = bliss.get_axis("m0")
+        _pos = m0.dial()
+        enc = bliss.get_encoder("m0enc")
+        # enc.set(5)
+        try:
+            m0.move(5)
+        except:
+            print "\nm0  didntreach  ????"
+            print "encoder=", enc.read()
+            print "motor=", m0.position()
+            raise
+
+    def test_encoder_axis_init(self):
+        # Initialisation problem...
+        # ok with _pos = m0.dial()
+        m0 = bliss.get_axis("m0")
+        # _pos = m0.dial()
+        enc = bliss.get_encoder("m0enc")
+        self.assertEquals(enc.set(133), 133)
 
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(TestEncoder)

@@ -95,10 +95,9 @@ class keithley428(object):
     def FilterRiseTime(self):
         """ Set/query Filter Rise Time """
         result = self.putget("U0X")
-#        print result
         pos = result.index("T")+1
         result = int(result[pos:pos+1])
-        return result, self._FilterRiseTimes[result]
+        return (result, self._FilterRiseTimes[result])
     
     @FilterRiseTime.setter
     def FilterRiseTime(self, value):
@@ -126,7 +125,7 @@ class keithley428(object):
         result = self.putget("U2X")
         pos = result.index("V")+1
         result = result[pos:]
-        return result
+        return float(result)
 
     @VoltageBias.setter
     def VoltageBias(self, value):
@@ -191,3 +190,16 @@ class keithley428(object):
         pos = result.index("Z")+1
         result = int(result[pos:pos+1])
         return "Off" if result == 0 else "On"
+
+    @property
+    def ZeroCheck(self):
+        """ Query ZeroCheck state """
+        result = self.putget("U0X")
+        pos = result.index("C")+1
+        result = int(result[pos:pos+1])
+        if result == 0:
+            return "Off"
+        elif result == 1:
+            return "On"
+        else:
+            return "Zero correct last sent"

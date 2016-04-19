@@ -621,13 +621,14 @@ class Axis(object):
 
     @task
     def _do_home(self, switch):
-        with error_cleanup(self._do_stop):
-            self.__controller.home_search(self, switch)
-            while True:
-                state = self.__controller.home_state(self)
-                if state != "MOVING":
-                    break
-                time.sleep(0.02)
+        with cleanup(self.sync_hard):
+            with error_cleanup(self._do_stop):
+                self.__controller.home_search(self, switch)
+                while True:
+                    state = self.__controller.home_state(self)
+                    if state != "MOVING":
+                        break
+                    time.sleep(0.02)
 
     @lazy_init
     def hw_limit(self, limit, wait=True):
@@ -651,13 +652,14 @@ class Axis(object):
 
     @task
     def _do_limit_search(self, limit):
-        with error_cleanup(self._do_stop):
-            self.__controller.limit_search(self, limit)
-            while True:
-                state = self.__controller.state(self)
-                if state != "MOVING":
-                    break
-                time.sleep(0.02)
+        with cleanup(self.sync_hard):
+            with error_cleanup(self._do_stop):
+                self.__controller.limit_search(self, limit)
+                while True:
+                    state = self.__controller.state(self)
+                    if state != "MOVING":
+                        break
+                    time.sleep(0.02)
 
     def settings_to_config(self, velocity=True, acceleration=True, limits=True):
         """

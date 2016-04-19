@@ -89,23 +89,17 @@ class PMD206(Controller):
         """
         Opens a single communication socket to the controller for all 1..6 axes.
         """
-        self.sock = tcp.Socket(self.host, 9760)
-        print "socket open", self.sock
+        self.sock = tcp.Command(self.host, 9760)
+        elog.debug ("socket open : %r" % self.sock)
 
     def finalize(self):
         """
         Closes the controller socket.
         """
         self.sock.close()
-        print "socket close", self.sock
+        elog.debug ("socket closed: %r" % self.sock)
 
     def initialize_axis(self, axis):
-        """
-        Args:
-            - <axis>
-        Returns:
-            - None
-        """
         axis.channel = axis.config.get("channel", int)
 
         # Stores one axis to talk to the controller.
@@ -116,7 +110,9 @@ class PMD206(Controller):
         # Adds new axis oject methods.
         add_axis_method(axis, self.park_motor, types_info=("None", "None"))
         add_axis_method(axis, self.unpark_motor, types_info=("None", "None"))
-        add_axis_method(axis, self.raw_write_read_axis, types_info=(str, str))
+        add_axis_method(axis, self.raw_write_read_axis, types_info=("str", "str"))
+
+        add_axis_method(axis, self.get_identifier, types_info=("None", "str"))
 
     def initialize_encoder(self, encoder):
         encoder.channel = encoder.config.get("channel", int)
@@ -196,6 +192,21 @@ class PMD206(Controller):
 
         axis.settings.set('acctime', new_acctime)
         return new_acctime
+
+
+    def get_identifier(self, axis):
+        # example of answer : "PM11XV?:13,10,10,070707,206,0004a35a1d42,01"
+        # ----> Com V.13 ; pic1 V.10 ; pic2 V.10 ; sensor V.070707 ;
+        #       driver.type 206 ; MAC:0004a35a1d42 ; IPmode:01
+
+        _ans = self.send(axis, "XV?")
+        _fields = _ans.split(":")[1].split(",")
+
+        _msg = "PiezoMotor PMD%s : Com V.%s ; pic1 V.%s ; pic2 V.%s ; sensor V.%s ; MAC:%s ; IPmode:%s" % (
+             _fields[4], _fields[0], _fields[1], _fields[2], _fields[3], _fields[5], _fields[6] )
+
+        print _msg
+
 
     """
     STATUS
@@ -413,7 +424,7 @@ class PMD206(Controller):
 
     def do_homing(self, axis, freq, max_steps, max_counts, first_dir):
         """
-        Sends HO command.
+        Sends 'HO' command.
         """
         self.send("HO=%d,%d,%d,%d,%d,%d" % (freq, max_steps, max_counts,
                                             first_dir, max_steps, max_counts))
@@ -512,8 +523,7 @@ class PMD206(Controller):
             map(str, map(hex_to_int, _ans.split(':')[1].split(',')[0: 4])))
 
     def raw_write(self, cmd):
-        # no send_no_ans?
-        # self.send_no_ans(self.ctrl_axis, cmd)
+        elog.info("no send_no_ans with PMD206")
         pass
 
     def raw_write_read(self, cmd):

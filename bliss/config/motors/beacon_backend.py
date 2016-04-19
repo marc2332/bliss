@@ -170,7 +170,7 @@ def setting_update_from_channel(value, setting_name=None, axis=None):
             axis._set_moving_state(from_channel=True)
         else:
             if axis.is_moving:
-                axis._set_move_done(None, from_channel=True)
+                axis._set_move_done(None)
 
 
 def get_from_config(axis, setting_name):

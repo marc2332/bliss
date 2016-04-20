@@ -27,21 +27,29 @@ config_xml = """
       <velocity value="500"/>
       <steps_per_unit value="-1000"/>
       <acceleration value="10"/>
+      <low_limit value="-10"/>
+      <high_limit value="10"/>
     </axis>
     <axis name="s1b">
       <velocity value="500"/>
       <steps_per_unit value="1000"/>
       <acceleration value="10"/>
+      <low_limit value="-10"/>
+      <high_limit value="10"/>
     </axis>
     <axis name="s1u">
       <velocity value="500"/>
       <steps_per_unit value="-1000"/>
       <acceleration value="10"/>
+      <low_limit value="-10"/>
+      <high_limit value="10"/>
     </axis>
     <axis name="s1d">
       <velocity value="500"/>
       <steps_per_unit value="1000"/>
       <acceleration value="10"/>
+      <low_limit value="-10"/>
+      <high_limit value="10"/>
     </axis>
   </controller>
   <controller class="slits" name="test">
@@ -51,7 +59,9 @@ config_xml = """
     <axis name="s1d" tags="real down"/>
     <axis name="s1vg" tags="vgap"/>
     <axis name="s1vo" tags="voffset"/>
-    <axis name="s1hg" tags="hgap"/>
+    <axis name="s1hg" tags="hgap">
+      <low_limit value="-15"/>
+    </axis>
     <axis name="s1ho" tags="hoffset"/>
   </controller>
 </config>
@@ -216,7 +226,6 @@ class TestSlits(unittest.TestCase):
         self.assertAlmostEquals(2, s1b.dial(), places=4)
         self.assertAlmostEquals(2, s1f.dial(), places=4)
 
-
     def testKeepZeroOffset(self):
         s1hg = bliss.get_axis("s1hg")
         s1hg.no_offset = True
@@ -232,6 +241,19 @@ class TestSlits(unittest.TestCase):
         self.assertAlmostEquals(2, s1b.dial(), places=4)
         self.assertAlmostEquals(2, s1f.dial(), places=4)
 
+    def testOutOfLimits(self):
+        s1hg = bliss.get_axis("s1hg")
+        self.assertRaises(ValueError, s1hg.move, 40)
+        self.assertRaises(ValueError, s1hg.move, -16)
+ 
+    def testHardLimitsAndSetPosition(self):
+        s1f = bliss.get_axis("s1f")
+        s1b = bliss.get_axis("s1b")
+        s1f.controller.set_hw_limit(s1f,-2,2)
+        s1b.controller.set_hw_limit(s1b,-2,2)
+        s1hg = bliss.get_axis("s1hg")
+        self.assertRaises(RuntimeError, s1hg.move,6) 
+        self.assertAlmostEquals(s1hg._set_position(), s1hg.position(),places=4)
 
 if __name__ == '__main__':
     unittest.main()

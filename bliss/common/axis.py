@@ -591,7 +591,9 @@ class Axis(object):
 
     def _do_stop(self):
         self.__controller.stop(self)
+        self._stop_loop()
 
+    def _stop_loop(self):
         try:
             self._handle_move(Motion(self, None, None), DEFAULT_POLLING_TIME)
         finally:
@@ -717,7 +719,7 @@ class AxisRef(object):
 
 class AxisState(object):
 
-    STATE_VALIDATOR = re.compile("^[A-Z0-9]+$")
+    STATE_VALIDATOR = re.compile("^[A-Z0-9]+\s*$")
 
     """
     Standard states:
@@ -848,7 +850,7 @@ class AxisState(object):
         Returns a string of current states.
         """
         states = [
-            "%s%s" % (state, " (%s)" % self._state_desc[state] if self._state_desc.get(state) else "")
+            "%s%s" % (state.rstrip(), " (%s)" % self._state_desc[state] if self._state_desc.get(state) else "")
             for state in map(str, list(self._current_states))]
 
         if len(states) == 0:

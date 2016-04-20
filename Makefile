@@ -43,6 +43,15 @@ else
 endif
 
 
+        ####  Copy Tango servers.
+        # -perm /a+x : does not work on redhate4...
+        # find tango/ -type f -perm /a+x -exec cp --backup=simple --suffix=.bup {} ${BLISSADM_PATH}/server/src/ \;
+	cp --backup=simple --suffix=.bup tango/CT2 ${BLISSADM_PATH}/server/src/
+	cp --backup=simple --suffix=.bup tango/BlissAxisManager ${BLISSADM_PATH}/server/src/
+	cp --backup=simple --suffix=.bup tango/Nanodac ${BLISSADM_PATH}/server/src/
+	cp --backup=simple --suffix=.bup tango/Gpib ${BLISSADM_PATH}/server/src/
+	cp --backup=simple --suffix=.bup tango/Musst ${BLISSADM_PATH}/server/src/
+
 
         ####  Copy SPEC macros, only if spec/macros/ directory exists.
 ifneq ($(wildcard ${BLISSADM_PATH}/spec/macros/),)

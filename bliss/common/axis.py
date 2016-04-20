@@ -583,13 +583,18 @@ class Axis(object):
     def wait_move(self):
         if not self.is_moving:
             return
-        self.__move_task._being_waited = True
-        with error_cleanup(self.stop):
-            self.__move_done.wait()
-        try:
-            self.__move_task.get()
-        except gevent.GreenletExit:
-            pass
+        if self.__move_task is None:
+            # move has been started an external agent
+            with error_cleanup(self.stop):
+                self.__move_done.wait()
+        else:
+            self.__move_task._being_waited = True
+            with error_cleanup(self.stop):
+                self.__move_done.wait()
+            try:
+                self.__move_task.get()
+            except gevent.GreenletExit:
+                pass
 
     def _do_stop(self):
         self.__controller.stop(self)

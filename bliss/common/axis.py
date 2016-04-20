@@ -512,7 +512,7 @@ class Axis(object):
         self.settings.set("state", AxisState("MOVING"), write=not from_channel)
         event.send(self, "move_done", False)
 
-    def _set_move_done(self, move_task, from_channel=False):
+    def _set_move_done(self, move_task):
         if move_task is not None:
             if not move_task._being_waited:
                 try:
@@ -528,8 +528,7 @@ class Axis(object):
             # this update is very important for position, to have
             # final position ok for waiters on move done event
             self._update_settings(state=self.state(read_hw=True))
-        if not from_channel:
-            self.__move_done.set()
+        self.__move_done.set()
         event.send(self, "move_done", True)
 
     def _check_ready(self):
@@ -622,13 +621,14 @@ class Axis(object):
 
     @task
     def _do_home(self, switch):
-        with error_cleanup(self._do_stop):
-            self.__controller.home_search(self, switch)
-            while True:
-                state = self.__controller.home_state(self)
-                if state != "MOVING":
-                    break
-                time.sleep(0.02)
+        with cleanup(self.sync_hard):
+            with error_cleanup(self._do_stop):
+                self.__controller.home_search(self, switch)
+                while True:
+                    state = self.__controller.home_state(self)
+                    if state != "MOVING":
+                        break
+                    time.sleep(0.02)
 
     @lazy_init
     def hw_limit(self, limit, wait=True):
@@ -652,13 +652,14 @@ class Axis(object):
 
     @task
     def _do_limit_search(self, limit):
-        with error_cleanup(self._do_stop):
-            self.__controller.limit_search(self, limit)
-            while True:
-                state = self.__controller.state(self)
-                if state != "MOVING":
-                    break
-                time.sleep(0.02)
+        with cleanup(self.sync_hard):
+            with error_cleanup(self._do_stop):
+                self.__controller.limit_search(self, limit)
+                while True:
+                    state = self.__controller.state(self)
+                    if state != "MOVING":
+                        break
+                    time.sleep(0.02)
 
     def settings_to_config(self, velocity=True, acceleration=True, limits=True):
         """

@@ -65,11 +65,7 @@ class ControllerAxisSettings:
                     SETTINGS_WRITER_THREAD = _threading.start_new_thread(
                         write_settings, ())
             else:
-                SETTINGS_WRITER_QUEUE = gevent.queue.Queue()
-                SETTINGS_WRITER_WATCHER = gevent.event.Event()
-                SETTINGS_WRITER_WATCHER.set()
-                if SETTINGS_WRITER_THREAD is None:
-                    SETTINGS_WRITER_THREAD = gevent.spawn(write_settings)
+                pass
 
     def add(self, setting_name, convert_func=str):
         self.setting_names.append(setting_name)
@@ -126,7 +122,7 @@ class ControllerAxisSettings:
         try:
             event.send(axis, setting_name, setting_value)
         finally:
-            SETTINGS_WRITER_QUEUE.put((axis, setting_name, setting_value, write))
+            event.send(axis, "write_setting", axis.config, setting_name, setting_value, write)
 
     def get(self, axis, setting_name):
         settings = self._settings(axis)

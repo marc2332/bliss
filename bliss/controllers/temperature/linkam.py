@@ -1,9 +1,10 @@
-__all__ = ['LinkamDsc']
+___all__ = ['LinkamDsc']
 
 import time
 import os
 import gevent
 import logging
+import bisect
 from gevent import lock
 import serial.serialutil as serial
 from bliss.comm._serial import Serial
@@ -11,22 +12,17 @@ from bliss.comm.tcp import Tcp
 
 class LinkamDsc(object):
     
-    def __init__(self,config):
+    def __init__(self,name,config):
         """ Linkam controller with either hot stage or dsc stage
             config_-- controller configuration,
         """
+        self.name = name
         self._logger = logging.getLogger(str(self))
         logging.basicConfig(level=10)
-        if "tcp_url" in config:
-            self._cnx = Tcp(config["tcp_url"])
-        elif "serial_url" in config:
-            baud = config.get('baudrate',19200)
-            bytesize = config.get('bytesize',serial.EIGHTBITS)
-            parity = config.get('parity',serial.PARITY_NONE)
-            stopbits = config.get('stopbits',serial.STOPBITS_ONE)
-            self._cnx = Serial(config['serial_url'], baudrate=baud, eol='\r', timeout=10)
+        if "serial_url" in config:
+            self._cnx = Serial(config['serial_url'], 19200, bytesize=8, parity='N', stopbits=1, eol='\r', timeout=10)
         else:
-            raise ValueError, "Must specify serial_url or tcp_url"
+            raise ValueError, "Must specify serial_url"
 
         #Possible values of the status byte
         self.STOPPED = 0x1
@@ -78,22 +74,22 @@ class LinkamDsc(object):
         self._startingRamp = 2
         self._pipe = os.pipe()
 
-    def clearBuffer(self):
+    def _clearBuffer(self):
         """ Sends a "B" command to clear the buffers """
         self._logger.debug("clearBuffer() called")
-        self._cnx.write("B\r")
+        self._cnx.write_readline("B\r")
 
     def hold(self):
         """ If the controller is heating or cooling, will hold at the current
             temperature until either a heat or a cool command is received.
         """
         self._logger.debug("hold() called")
-        self._cnx.write("O\r")
+        self._cnx.write_readline("O\r")
 
     def start(self):
         """ Start heating or cooling at the rate specified by the Rate setting """
         self._logger.debug("start called")
-        self._cnx.write("S\r")
+        self._cnx.write_readline("S\r")
 
     def stop(self):
         """ Informs the controller to stop heating or cooling. """
@@ -104,7 +100,7 @@ class LinkamDsc(object):
             os.write(self._pipe[1],'|')
 
     def _doStop(self):
-        self._cnx.write("E\r");
+        self._cnx.write_readline("E\r");
 
     def heat(self):
         """ Forces heating. If while heating the controller finds that the temperature
@@ -112,7 +108,7 @@ class LinkamDsc(object):
             maximum temperature and stop.
         """
         self._logger.debug("heat() called");
-        self._cnx.write("H\r");
+        self._cnx.write_readline("H\r");
 
     def cool(self):
         """ Forces cooling. If while cooling the controller finds that the temperature
@@ -120,25 +116,17 @@ class LinkamDsc(object):
             minimum temperature and stop. 
         """
         self._logger.debug("cool() called");
-        self._cnx.write("C\r");
+        self._cnx.write_readline("C\r");
 
     def setPumpAutomatic(self):
         """ Set pump in automatic mode, where the pump speed is controlled by the controller """
         self._logger.debug("pump automatic() called");
-        # Is this correct, a different code for tcp?
-        if "tcp_url" in config:
-            self._cnx.write("Pa\r")
-        else:
-            self._cnx.write("Pa0\r")
+        self._cnx.write_readline("Pa0\r")
 
     def setPumpManual(self):
         """ Set pump in manual mode, where the pump speed is controlled by the PumpSpeed setting """
         self._logger.debug("pumpManual() called");
-        # Is this correct, a different code for tcp?
-        if "tcp_url" in config:
-            self._cnx.write("Pm\r")
-        else:
-            self._cnx.write("Pm0\r")
+        self._cnx.write_readline("Pm0\r")
 
     @property
     def startingRamp(self):
@@ -150,6 +138,7 @@ class LinkamDsc(object):
 
     @property
     def pumpSpeed(self):
+        print "in pumpspeed getter", self._pumpSpeed
         return self._pumpSpeed
 
     @pumpSpeed.setter
@@ -157,10 +146,12 @@ class LinkamDsc(object):
         """ Sets the liquid nitrogen pump speed. 
             The speed can be 0 to 30
         """
+        print "pumpspeed setter {0}".format(self._pumpSpeed)
         if speed < 0 or speed > 30:
             raise ValueError ("speed {0} out of range (0-30)".format(speed))
         self._pumpSpeed = speed
-        self._cnx.write("P%c\r" % chr(speed+0x30))
+        print "char speed ","P{0}".format(chr(speed+48))
+        self._cnx.write_readline("P{0}\r".format(chr(speed+48)))
 
     @property
     def rampNumber(self):
@@ -182,7 +173,7 @@ class LinkamDsc(object):
         if limit > self._maximumTemp or limit < self._minimumTemp:
             raise ValueError ("Temperature ramp limit {0} out of range ".format(limit))
         self._limit = limit
-        self._cnx.write(("L1%d\r" % int(round(limit * 10.0))))
+        self._cnx.write_readline(("L1%d\r" % int(round(limit * 10.0))))
 
     @property
     def rampHoldTime(self):
@@ -205,10 +196,11 @@ class LinkamDsc(object):
         if rate > 99.99: #check this
             raise ValueError ("Temperature ramp limit {0} out of range (max is 99.99)".format(rate))
         self._rate = rate
-        self._cnx.write(("R1%d\r" % int(round(rate*100))));
+        print "setting ramp rate"
+        self._cnx.write_readline(("R1%d\r" % int(round(rate*100))));
 
     def _hasDscStage(self):
-        reply = self._cnx.write_read(chr(0xef) + "S\r")
+        reply = self._cnx.write_readline(chr(0xef) + "S\r")
         self._logger.debug("hasDscStage() reply was " + reply)
         return True if reply[0:3] == "DSC" else False
 
@@ -217,19 +209,17 @@ class LinkamDsc(object):
 
     def _getStatusString(self):
         """ Get the Linkam status """
-        return self._cnx.write_read("T\r")
+        reply = self._cnx.write_readline("T\r")
+        print [ord(c) for c in reply]
+        return reply
 
     def setTemperature(self, temp):
         # This might not work for all controllers
-        if self._state != self.STOPPED:
+        if self._profile_task != None or self._state == self.HEATING or self._state == self.COOLING:
             self._logger.error("already running")
         else:
-            self.setRampLimit(temp)
-            t = self.getTemperature()
-            if temp > t:
-                self.heat()
-            else:
-                self.cool()
+            self.rampLimit = temp
+            self.start();
         
     def getTemperature(self):
         """
@@ -242,10 +232,10 @@ class LinkamDsc(object):
                 return self._temperature
         else:
             reply = self._getStatusString()
-            temperature = self._extractTemperature(reply[6:10])
+            temperature = self._extractTemperature(reply[6:])
             if temperature < -273:
                 raise ValueError ("temperature reading less than -273, check that the heating stage is connected and switched on")
-            self._logger.debug("getTemperature() returned %d" % temperature)
+            self._logger.debug("getTemperature() returned {0}".format(temperature))
             return temperature
 
     def _extractTemperature(self, hexString):
@@ -257,7 +247,7 @@ class LinkamDsc(object):
             value = int(hexString, 16)
             if value > 32768:
                 value -= 65536
-            return value / 10.0
+            return float(value / 10.0)
             # Sometimes the temperature part of a reply string seems to be invalid
             # even though sensible error and status values have been returned so we
             # catch the normally uncaught ValueError to deal with this
@@ -294,7 +284,7 @@ class LinkamDsc(object):
             return self._dscData()
 
     def _dscData(self):
-        reply = self._cnx.write_read("D\r")
+        reply = self._cnx.write_readline("D\r")
         self._temperature = self._extractTemperature(reply[0:4])
         self._dscValue = self._extractDscValue(reply[4:8])
         if self._temperature < -273:
@@ -306,21 +296,25 @@ class LinkamDsc(object):
     def state(self):
         """ return the Linkam state, errorcode and current temperature """
         reply = self._getStatusString()
-        currentstate = int(reply[0])
-        errcode = int(reply[1])
-        temperature = self._extractTemperature(reply[6:10])
-        return [currentstate, errcode, temperature]
+        currentstate = ord(reply[0])
+        errcode = ord(reply[1])
+        self._pumpSpeed = ord(reply[2])-ord('P')-48
+        temperature = self._extractTemperature(reply[6:])
+        print "state",currentstate, errcode, temperature, self._pumpSpeed
+        return [currentstate, errcode, temperature, self._pumpSpeed]
 
     def status(self):
         reply = self._getStatusString()
-        key = int(reply[0])
-        status = statusToString.get(key, "")
+        key = ord(reply[0])
+        err = ord(reply[1])
 
-        key = int(reply[1])
-        status += ErrorToString.get(key, "")
+        if err == self.LINKAM_OK:
+            status = self.StatusToString.get(key, "")
+        else:
+            status += self.ErrorToString.get(err, "")
 
-        if profile_state:
-            status += "Profile running"
+        if self._profile_task != None:
+            status += ": Profile is running"
         return status
 
     @property
@@ -333,40 +327,21 @@ class LinkamDsc(object):
         if not self._hasDSC:
             raise Exception ("No DSC stage connected")
 
-        if rate <= 0.3:
-            self._dscSamplingRate = 0.3;
-        if rate > 0.3 and rate <= 0.6:
-            self._dscSamplingRate = 0.6
-        if rate > 0.6 and rate <= 0.9:
-            self._dscSamplingRate = 0.9
-        if rate > 0.9 and rate <= 1.5:
-            self._dscSamplingRate = 1.5
-        if rate > 1.5 and rate <= 3.0:
-            self._dscSamplingRate = 3.0
-        if rate > 3.0 and rate <= 6.0:
-            self._dscSamplingRate = 6.0
-        if rate > 6.0 and rate <= 9.0:
-            self._dscSamplingRate = 9.0
-        if rate > 9.0 and rate <= 15.0:
-            self._dscSamplingRate = 15.0
-        if rate > 15.0 and rate <= 30.0:
-            self._dscSamplingRate = 30.0;
-        if rate > 30.0 and rate <= 60.0:
-            self._dscSamplingRate = 60.0;
-        if rate > 60.0 and rate <= 90.0:
-            self._dscSamplingRate = 90.0;
-        if rate > 90.0:
-            self._dscSamplingRate = 150.0;
-
-        self._logger.debug("dscSamplingRate() setting %f" % self._dscSamplingRate)
-        value = self._dscSamplingRate/0.05
-        self._cnx.write(chr(0xe7) + "%4d\r" % int(round(value)))
+        possible_range = (.3, .6, .9, 1.5, 3, 6, 9, 15, 30, 60, 90, 150)
+        index = bisect.bisect_right(possible_range, rate, 0, 11)
+        value = possible_range[index]/0.05
+        self._logger.debug("dscSamplingRate() setting %f" % value)
+        self._cnx.write_readline(chr(0xe7) + "%4d\r" % int(round(value)))
 
     def profile(self, ramps):
         """ Perform a temperature profile which is a series of ramps 
             Loads the ramp list (an array of tuples) and executes the profile in 
             a gevent thread. A ramp is a tuple (rate,limit,holdtime)
         """
+        print ramps
+        for (rate, limit, holdTime) in ramps: # get ramp and load it
+            print rate,limit,holdTime
+
         if self._profile_task is None:
             self._ramps = ramps
             self._profile_task = gevent.spawn(self._run_profile, ramps)
@@ -377,14 +352,15 @@ class LinkamDsc(object):
         currentRamp = 1
         abort = '+'
         try:
-            state, errcode, self._temerature = self.state() # get initial state
+            state,errcode,self._temperature,_ = self.state() # get initial state
             for (rate, limit, holdTime) in ramps: # get ramp and load it
+                print "loading",rate," ",limit," ",holdTime
                 self.rampNumber = currentRamp
                 self.rampRate = rate
                 self.rampLimit = limit
                 self.rampHoldTime = holdTime
                 if self.startingRamp == currentRamp:
-                    self.clearBuffer() #empty Linkam buffer ready to collect data
+                    self._clearBuffer() #empty Linkam buffer ready to collect data
                 if currentRamp == 1: 
                     self.start() # start ramping
                 while True:
@@ -392,18 +368,21 @@ class LinkamDsc(object):
                     if fd: 
                         abort = os.read(self._pipe[0],1)
                         break # abort profile
-                    newState, errcode, self._temperature = self.state()
+                    newState,errcode,self._temperature,_ = self.state()
                     if self._hasDSC:
                         self._temperature, self._dscValue = self._dscData()
                     if errcode != self.LINKAM_OK:
                         raise Exception("Profile failed on ramp %d with error %s" % (currentRamp, self.ErrorToString.get(state)))
-                    if newState != state and (state ==self. HEATING or state == self.COOLING) and newState == self.HOLDINGLIMIT:
+                    if newState != state and (state ==self.HEATING or state == self.COOLING) and newState == self.HOLDINGLIMIT:
                         if holdTime > 0:
                             fd,_,_ = gevent.select.select([self._pipe[0]],[],[],holdTime)
-                            if fd: abort = os.read(self._pipe[0],1)
+                            if fd:
+                                print "aborting"
+                                abort = os.read(self._pipe[0],1)
                         break # start the next ramp
                     state = newState
                 currentRamp += 1
+                print "startNext ramp", currentRamp
                 if abort == '|': 
                     break
         finally:

@@ -31,6 +31,7 @@ install:
 	rm setup.cfg
 
         ###### To do only on a NETHOST :
+	@echo ""
 ifeq ($(MYHOSTNAME),$(NETHOST))
 	@echo "I am on a NETHOST, "$(MYHOSTNAME)
         # Makes a link to be beacon-server dserver startable.
@@ -46,6 +47,8 @@ endif
         ####  Copy Tango servers.
         # -perm /a+x : does not work on redhate4...
         # find tango/ -type f -perm /a+x -exec cp --backup=simple --suffix=.bup {} ${BLISSADM_PATH}/server/src/ \;
+	@echo ""
+	@echo "Copying Tango DS start-up scripts..."
 	cp --backup=simple --suffix=.bup tango/CT2 ${BLISSADM_PATH}/server/src/
 	cp --backup=simple --suffix=.bup tango/BlissAxisManager ${BLISSADM_PATH}/server/src/
 	cp --backup=simple --suffix=.bup tango/Nanodac ${BLISSADM_PATH}/server/src/
@@ -54,8 +57,9 @@ endif
 
 
         ####  Copy SPEC macros, only if spec/macros/ directory exists.
+	@echo ""
 ifneq ($(wildcard ${BLISSADM_PATH}/spec/macros/),)
-	@echo "\"spec/macros/\" directory exists"
+	@echo "\"spec/macros/\" directory exists; Copying SPEC macros..."
 	find spec -name \*.mac -exec cp -v --backup=simple --suffix=.bup {} ${BLISSADM_PATH}/spec/macros \;
 else
 	@echo "\"spec/macros/\" directory does not exist"

@@ -509,6 +509,8 @@ class Axis(object):
 
     def _set_moving_state(self, from_channel=False):
         self.__move_done.clear()
+        if from_channel:
+            self.__move_task = None
         self.settings.set("state", AxisState("MOVING"), write=not from_channel)
         event.send(self, "move_done", False)
 

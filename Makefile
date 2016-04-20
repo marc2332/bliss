@@ -44,6 +44,15 @@ endif
 
 
 
+        ####  Copy SPEC macros, only if spec/macros/ directory exists.
+ifneq ($(wildcard ${BLISSADM_PATH}/spec/macros/),)
+	@echo "\"spec/macros/\" directory exists"
+	find spec -name \*.mac -exec cp -v --backup=simple --suffix=.bup {} ${BLISSADM_PATH}/spec/macros \;
+else
+	@echo "\"spec/macros/\" directory does not exist"
+endif
+
+
 # Builds sphinx documentation.
 doc:
 	cd doc/motors

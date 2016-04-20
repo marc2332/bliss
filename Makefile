@@ -12,6 +12,7 @@ BLISSADM_PATH=/users/blissadm
 
 CONFIG_PATH=${BLISSADM_PATH}/local/beamline_configuration/
 
+MYHOSTNAME=$(shell hostname)
 
 DEV_PATH=${PWD}
 
@@ -27,20 +28,20 @@ install:
         #   * in ~/local/bin/ : beacon-server  beacon-server-list  bliss  bliss_webserver
 	python setup.py install
 
+	rm setup.cfg
+
+        ###### To do only on a NETHOST :
+ifeq ($(MYHOSTNAME),$(NETHOST))
+	@echo "I am on a NETHOST, "$(MYHOSTNAME)
         # Makes a link to be beacon-server dserver startable.
 	mkdir -p ${BLISSADM_PATH}/server/src
 	ln -sf ${BLISSADM_PATH}/local/bin/beacon-server ${BLISSADM_PATH}/server/src/beacon-server
-
-	rm setup.cfg
-
-        ####  config dir
+        # Creates config directory.
 	mkdir -p ${CONFIG_PATH}; chmod 777 ${CONFIG_PATH}
+else
+	@echo "I am not on a NETHOST"
+endif
 
-        ####  tango servers
-	find tango/ -type f -perm /a+x -exec cp --backup=simple --suffix=.bup {} ${BLISSADM_PATH}/server/src/ \;
-
-        ####  Spec macros
-	find spec -name \*.mac -exec cp --backup=simple --suffix=.bup {} ${BLISSADM_PATH}/spec/macros \;
 
 
 # Builds sphinx documentation.

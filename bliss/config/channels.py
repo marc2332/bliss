@@ -70,7 +70,7 @@ class _Bus(object):
         self._pending_channel_value = dict()
         self._pending_init = list()
         self._send_event = gevent.event.Event()
-        self._in_recv = False
+        self._in_recv = set()
         self._wait_event = dict()
 
         self._listen_task = None
@@ -108,11 +108,17 @@ class _Bus(object):
             CHANNELS_VALUE[name] = channel_value
             self._fire_notification_callbacks(name)
         else:
-            channel_value = _ChannelValue(None,value)
+            channel_value = _ChannelValue(time.time(),value)
 
-        if not self._in_recv:
+        if name not in self._in_recv:
+            CHANNELS_VALUE[name] = channel_value # synchronous set
+            self._in_recv.add(name)
+            self._fire_notification_callbacks(name)
+            self._in_recv.remove(name)
             self._pending_channel_value[name] = channel_value
             self._send_event.set()
+        elif not isinstance(value,_ChannelValue):
+            raise RuntimeError("Channel %s: detected value changed in callback" % name)
     
     def _fire_notification_callbacks(self,name):
         deleted_cb = set()
@@ -153,14 +159,16 @@ class _Bus(object):
                 result = self._redis.execute_command('pubsub','numsub',*pending_subscribe)
                 no_listener_4_values = set((name for name,nb_listener in grouped(result,2) if nb_listener is '0'))
                 pubsub.subscribe(pending_subscribe)
+                for channel_name in pending_subscribe:
+                    for waiting_event in self._wait_event.get(channel_name,set()):
+                        waiting_event.set()
+
                 if self._listen_task is None:
                     self._listen_task = gevent.spawn(self._listen)
 
             if pending_channel_value:
                 pipeline = self._redis.pipeline()
                 for name,channel_value in pending_channel_value.iteritems():
-                    if channel_value.timestamp is None:
-                        channel_value = _ChannelValue(time.time(),channel_value.value)
                     pipeline.publish(name,cPickle.dumps(channel_value,protocol=-1))
                 pipeline.execute()
 
@@ -170,7 +178,7 @@ class _Bus(object):
                     if name not in no_listener_4_values:
                         pipeline.publish(name,cPickle.dumps(ValueQuery(),protocol=-1))
                     else: # we are alone
-                        CHANNELS_VALUE[name] = _ChannelValue(None,default_value)
+                        CHANNELS_VALUE[name] = _ChannelValue(time.time(),default_value)
                         for waiting_event in self._wait_event.get(name,set()):
                             waiting_event.set()
                 pipeline.execute()
@@ -187,9 +195,10 @@ class _Bus(object):
                         self._pending_channel_value[channel_name] = channel_value
                         self._send_event.set()
                 else:
-                    self._in_recv = True
+                    self._in_recv.add(channel_name)
                     self.update_channel(channel_name,value)
-                    self._in_recv = False
+                    self._in_recv.remove(channel_name)
+
                     for waiting_event in self._wait_event.get(channel_name,set()):
                         waiting_event.set()
 
@@ -236,7 +245,11 @@ class _Channel(object):
                     with self._bus.wait_event_on(self.__name) as we:
                         we.wait()
                         value = CHANNELS_VALUE.get(self.__name)
-                    
+        elif self.__name not in self._bus._pubsub.channels: # not yet subscibe
+            with gevent.Timeout(self.__timeout, RuntimeError("%s: timeout to subscibe channel" % self.__name)):
+                while self.__name not in self._bus._pubsub.channels:
+                    with self._bus.wait_event_on(self.__name) as we:
+                        we.wait()
         return value.value
 
     @value.setter
@@ -264,12 +277,6 @@ class _Channel(object):
             callback_refs.remove(cb_ref)
         except:
             return
-
-    def wait(self):
-        with gevent.Timeout(self.__timeout, RuntimeError("%s: timeout waiting for event" % self.__name)):
-            with self._bus.wait_event_on(self.__name) as we:
-                we.wait()
-
 
     def __repr__(self):
         self.value

@@ -71,7 +71,7 @@ class Axis(object):
     def _hw_control(self):
         """Return whether axis is currently driving hardware"""
         if self.__move_task is not None:
-            return self.is_moving and not self.__move_task.ready()
+            return self.is_moving 
         return False
 
     @property
@@ -272,8 +272,8 @@ class Axis(object):
             self.limits(ll + lim_delta if ll is not None else ll,
                         hl + lim_delta if hl is not None else hl)
 
-        self.__settings.set("position", self.dial2user(dial_pos), write=False)
-        self.__settings.set("dial_position", dial_pos)  # , write=False)
+        self.__settings.set("position", self.dial2user(dial_pos), write=self._hw_control)
+        self.__settings.set("dial_position", dial_pos) 
 
         return self.position()
 
@@ -394,7 +394,7 @@ class Axis(object):
         return self.settings.get('low_limit'), self.settings.get('high_limit')
 
     def _update_settings(self, state=None):
-        self.settings.set("state", state if state is not None else self.state(), write=True)  # False)
+        self.settings.set("state", state if state is not None else self.state(), write=self._hw_control) 
         self._position()
 
     def _handle_move(self, motion, polling_time):

@@ -97,7 +97,7 @@ class MD2S:
             if wait:
                 self._wait_ready(timeout)
 
-    def get_cameracalibration(self):
+    def get_camera_calibration(self):
         #the value depends on the zoom
         px_mm_y = 1000000.0*self._exporter.readProperty("CoaxCamScaleX")
         px_mm_z = 1000000.0*self._exporter.readProperty("CoaxCamScaleY")
@@ -119,110 +119,6 @@ class MD2S:
             axis_list.append(axis)
             axis.rmove(target, wait=False)
         return [axis.wait_move() for axis in axis_list]
-
-    def centrebeam(self):
-        #stop the procedure if hutch not searched
-        stat = self.safshut.get_state()
-        if  stat == 'DISABLE':
-            raise RuntimeError("Hutch not searched")
-        else:
-            self.safshut.open()
-        #prepare to see the beam
-        self.set_phase("BeamLocation", wait=True, timeout=100)
-        self._exporter.writeProperty("CapillaryPosition", "OFF")
-        self._wait_ready(20)
-        app = self._exporter.readProperty("AperturePosition")
-        self._exporter.writeProperty("AperturePosition", "OFF")
-        self._wait_ready(20)
-        #get the current zoom position and move zoom to 5
-        curr_zoom = self._exporter.readProperty("CoaxialCameraZoomValue")
-        self._exporter.writeProperty("CoaxialCameraZoomValue", 5)
-        self._wait_ready(20)
-
-        #set the camera to read one image
-        self.bv_device = DeviceProxy(self._beamviewer_server)
-        self.sample_video_device = DeviceProxy(self._sample_video_server)
-
-        def restore_live():
-            self.sample_video_device.video_live=True
-
-        #get the image size and camera calibration
-        img_width = self.sample_video_device.image_width
-        img_height = self.sample_video_device.image_height
-
-        px_mm_y, px_mm_z = self.get_cameracalibration()
-
-        def restore_table(saved_pos=(self.thgt, self.thgt.position(), self.ttrans,self.ttrans.position())):
-            #close the fast shutter, if needed
-            self.msclose()
-            logging.getLogger("user_level_log").info("Restoring table, please wait.")
-            self.thgt.stop()
-            self.ttrans.stop()
-            try:
-                self._simultaneous_move(*saved_pos)
-            except:
-                logging.getLogger("user_level_log").error("Could not restore the table to its initial position")
-
-        def restore_att(old_transmission=self.transmission.transmission_get()):
-            self.transmission.transmission_set(old_transmission)
-            self._exporter.writeProperty("CoaxialCameraZoomValue", curr_zoom)
-            self._wait_ready(20)
-
-        def restore_nobeam():
-            self.msclose()
-            restore_live()
-            restore_att()
-
-        def do_centrebeam():
-            with error_cleanup(restore_att):
-                self.msopen()
-                
-            with cleanup(restore_live):
-                self.sample_video_device.video_live=False
-                time.sleep(0.1)
-                res = self.bv_device.GetPosition()
-                if res[1] < 1500.:
-                    self.transmission.transmission_set(20)
-                    time.sleep(0.1)
-                    res = self.bv_device.GetPosition()
-
-            by = res[2]
-            bz = res[3]
-            #check for minimum intensity, stop the procedure if not enough
-            with error_cleanup(restore_nobeam):
-                if res[1] < 800. or -1 in (by, bz):
-                    time.sleep(1)
-                    logging.getLogger("user_level_log").error("Could not find beam, centrebeam aborted")
-                    raise RuntimeError("Could not find beam")
-
-            dy = (by - (img_width / 2)) / px_mm_y
-            dz = (bz - (img_height / 2)) / px_mm_z
-            with error_cleanup(restore_live):
-                if abs(dy) > 0.4 or abs(dz) > 0.4:
-                    logging.getLogger("user_level_log").error("Aborting centrebeam, too big displacement (> 0.4 mm)")
-                    time.sleep(1)
-                    self.msclose()
-                    raise RuntimeError("Aborting centrebeam, too big displacement")
-            with error_cleanup(restore_table):
-                logging.info("moving ttrans by %f", dy)
-                logging.info("moving thgt by %f", dz)
-                self._simultaneous_rmove(self.thgt, dz, self.ttrans, dy)
-            time.sleep(1)
-            return dy, dz
-
-        with cleanup(restore_att):
-            tm = self.get_transmission()
-            logging.info("Setting transmission to %2.3f", tm)
-            self.transmission.transmission_set(tm)
-            self.detcover.set_in()
- 
-            for i in range(5):
-                dy, dz = do_centrebeam()
-                if abs(dy) < 0.002 and abs(dz) < 0.002:
-                    logging.getLogger("user_level_log").info("Centrebeam finished successfully")
-                    break
-            self.msclose()
-            self.set_phase("DataCollection", wait=True, timeout=100)
 
     def msopen(self):
         self._exporter.writeProperty("FastShutterIsOpen", "true")
@@ -283,3 +179,23 @@ class MD2S:
         self._exporter.execute("startHomingMotor", "Phi")
         if wait:
             self._wait_ready(10)
+
+    def prepare(self, what, **kwargs):
+        if what == "data_collect":
+            self.set_phase("DataCollection", wait=True, timeout=100)
+            if kwargs.has_key("zoom_level"):
+                self._exporter.writeProperty("CoaxialCameraZoomValue", kwargs["zoom_level"])
+                self._wait_ready(20) 
+
+        if what == "see_beam":
+            zoom_level = kwargs.get("zoom_level", 5)
+            self.set_phase("BeamLocation", wait=True, timeout=100)
+            self._exporter.writeProperty("CapillaryPosition", "OFF")
+            self._wait_ready(20)
+            self._exporter.writeProperty("AperturePosition", "OFF")
+            self._wait_ready(20)
+            #get the current zoom position and move zoom to zoom_level
+            curr_zoom = self._exporter.readProperty("CoaxialCameraZoomValue")
+            self._exporter.writeProperty("CoaxialCameraZoomValue", zoom_level)
+            self._wait_ready(20)
+            return curr_zoom

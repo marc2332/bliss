@@ -87,7 +87,6 @@ class Mockup(Controller):
 
         self._axis_moves[axis] = {
             "measured_simul": False,
-            "measured_noise": 0.0,
             "end_t": 0,
             "end_pos": 0,
             "move_done_cb": set_pos }

@@ -109,20 +109,10 @@ class TestEncoder(unittest.TestCase):
         enc = bliss.get_encoder("m0enc")
 
     def test_encoder_move(self):
-        # Does not pass ?
-        # pass with enc.set(5) uncommented...
-
         m0 = bliss.get_axis("m0")
         _pos = m0.dial()
         enc = bliss.get_encoder("m0enc")
-        # enc.set(5)
-        try:
-            m0.move(5)
-        except:
-            print "\nm0  didntreach  ????"
-            print "encoder=", enc.read()
-            print "motor=", m0.position()
-            raise
+        m0.move(5)
 
     def test_encoder_axis_init(self):
         # Initialisation problem...

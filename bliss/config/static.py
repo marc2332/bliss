@@ -83,7 +83,7 @@ class Node(NodeDict):
         if config is None:
             config = CONFIG
         if config:
-            self._config = weakref.ref(config)
+            self._config = weakref.proxy(config)
         config._create_file_index(self,filename)
 
     def __hash__(self):
@@ -113,7 +113,7 @@ class Node(NodeDict):
         """Return plugin name"""
         plugin = self.get("plugin")
         if plugin is None:
-          if self._parent is not None:
+          if self._parent is not None and self._parent != self._config._root_node:
               return self._parent.plugin
           else:
               return None
@@ -121,8 +121,7 @@ class Node(NodeDict):
             return plugin
 
     def get_node_filename(self):
-        config = self._config()
-        filename = config._node2file.get(self)
+        filename = self._config._node2file.get(self)
         if filename is not None:
             return self, filename
         elif self._parent is not None:
@@ -149,8 +148,7 @@ class Node(NodeDict):
                                              default_flow_style=False)
         else:
             file_content = yaml.dump(save_file_tree,default_flow_style=False)
-        cfg = self._config()
-        cfg.set_config_db_file(filename,file_content)
+        self._config.set_config_db_file(filename,file_content)
 
     def _get_save_dict(self,src_node,filename):
         return_dict = NodeDict()
@@ -178,7 +176,7 @@ class Node(NodeDict):
 
     @staticmethod
     def _pprint(node,cur_indet,indent,cur_depth,depth) :
-        cfg = node._config()
+        cfg = node._config
         space = ' ' * cur_indet
         print '%s{ filename: %r' % (space,cfg._node2file.get(node))
         dict_space = ' ' * (cur_indet + 2)
@@ -205,7 +203,7 @@ class Node(NodeDict):
         print '%s}' % space
 
     def __repr__(self):
-        config = self._config()
+        config = self._config
         value = dict.__repr__(self)
         #filename = config._node2file.get(self)
         return 'filename:<%s>,plugin:%r,%s' % (self.filename,

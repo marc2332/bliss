@@ -285,9 +285,15 @@ class Controller(object):
         raise NotImplementedError
 
     def read_encoder(self, encoder):
+        """
+        Returns the encoder value in *encoder steps*.
+        """
         raise NotImplementedError
 
     def set_encoder(self, encoder, new_value):
+        """
+        Sets encoder value. <new_value> is in encoder steps.
+        """
         raise NotImplementedError
 
     def read_velocity(self, axis):

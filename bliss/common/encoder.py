@@ -43,10 +43,16 @@ class Encoder(object):
 
     @lazy_init
     def read(self):
+        """
+        Returns encoder value in user units.
+        """
         return self.controller.read_encoder(self)/float(self.steps_per_unit)
 
     @lazy_init
     def set(self, new_value):
+        """
+        <new_value> is in user units.
+        """
         self.controller.set_encoder(self, new_value*self.steps_per_unit)
         return self.read()
 

@@ -8,6 +8,9 @@ from bliss.controllers.motor_group import Group
 from bliss.config.motors import get_axis
 from bliss.common import event
 
+# make the link between encoder and axis, if axis uses an encoder
+# (only 1 encoder per axis of course)
+ENCODER_AXIS = dict()
 
 def add_axis_method(axis_object, method, name=None, args=[], types_info=(None, None)):
 
@@ -103,19 +106,21 @@ class Controller(object):
 
         self.axis_settings = ControllerAxisSettings()
 
+        for encoder_name, encoder_class, encoder_config in encoders:
+            encoder = encoder_class(encoder_name, self, encoder_config)
+            self._encoders[encoder_name] = encoder
+            self.__initialized_encoder[encoder] = False
         for axis_name, axis_class, axis_config in axes:
             axis = axis_class(axis_name, self, axis_config)
             self._axes[axis_name] = axis
             axis_tags = axis_config.get('tags')
             if axis_tags:
                 for tag in axis_tags.split():
-                    self._tagged.setdefault(tag, []).append(axis)  # _name)
+                    self._tagged.setdefault(tag, []).append(axis) 
             self.__initialized_axis[axis] = False
-        for encoder_name, encoder_class, encoder_config in encoders:
-            encoder = encoder_class(encoder_name, self, encoder_config)
-            self._encoders[encoder_name] = encoder
-            self.__initialized_encoder[encoder] = False
-
+            if axis_config.get("encoder"):
+                 encoder_name = axis_config.get("encoder")['value']
+                 ENCODER_AXIS[encoder_name] = axis_name
 
     @property
     def axes(self):
@@ -229,7 +234,12 @@ class Controller(object):
     def _initialize_encoder(self, encoder):
         if self.__initialized_encoder[encoder]:
             return
-        
+       
+        if ENCODER_AXIS.get(encoder.name):
+            axis_name = ENCODER_AXIS[encoder.name]
+            axis = get_axis(axis_name)
+            axis.controller._initialize_axis(axis)
+ 
         self.initialize_encoder(encoder)
         self.__initialized_encoder[encoder] = True
 
@@ -285,9 +295,15 @@ class Controller(object):
         raise NotImplementedError
 
     def read_encoder(self, encoder):
+        """
+        Returns the encoder value in *encoder steps*.
+        """
         raise NotImplementedError
 
     def set_encoder(self, encoder, new_value):
+        """
+        Sets encoder value. <new_value> is in encoder steps.
+        """
         raise NotImplementedError
 
     def read_velocity(self, axis):

@@ -11,6 +11,8 @@ sys.path.insert(
 
 import bliss
 from bliss.common.axis import Axis
+
+
 #from bliss.common import log
 #log.level(log.DEBUG)
 
@@ -24,12 +26,15 @@ config_xml = """
     <encoder name="tiltenc">
       <steps_per_unit value="50"/>
     </encoder>
-    <axis name="m0" encoder="m0enc">
+    <axis name="m0">
       <velocity value="50"/>
+      <acceleration value="1"/>
+      <encoder value="m0enc"/>
       <steps_per_unit value="1000"/>
     </axis>
     <axis name="m1">
       <velocity value="50"/>
+      <acceleration value="1"/>
       <steps_per_unit value="1000"/>
     </axis>
   </controller>
@@ -47,7 +52,7 @@ class TestEncoder(unittest.TestCase):
 
     def setUp(self):
         bliss.load_cfg_fromstring(config_xml)
-
+    
     def test_get_encoder(self):
         enc = bliss.get_encoder("m0enc")
         self.assertTrue(enc)
@@ -59,11 +64,13 @@ class TestEncoder(unittest.TestCase):
 
     def test_encoder_read(self):
         m0 = bliss.get_axis("m0")
+        _pos = m0.dial()
         enc = bliss.get_encoder("m0enc")
         self.assertEquals(enc.read(), m0.dial()/enc.steps_per_unit)
 
     def test_encoder_set(self):
         m0 = bliss.get_axis("m0")
+        _pos = m0.dial()
         enc = bliss.get_encoder("m0enc")
         self.assertEquals(enc.set(133), 133)
 
@@ -79,23 +86,37 @@ class TestEncoder(unittest.TestCase):
     def test_tolerance(self):
         enc = bliss.get_encoder("m0enc")
         self.assertEquals(enc.tolerance, 0.001)
-
+    
     def test_maxee(self):
         m1 = bliss.get_axis("m1")
         m1.move(1)
         self.assertEquals(m1.position(), 1)
 
+        enc = bliss.get_encoder("m0enc")
+        enc.read() #make sure encoder is initialized
         m0 = bliss.get_axis("m0")
         m0.dial(0); m0.position(0)
+        m0.custom_set_measured_noise(0.1)
+        self.assertRaises(RuntimeError, m0.move, 5)
+        m0.custom_set_measured_noise(0)
 
-        self.assertRaises(RuntimeError, m0.move, 1)
-
-        enc = bliss.get_encoder("m0enc")
         enc.set(2)
         m0.move(2)
         self.assertEquals(m0.position(), 2)
+    
+    def test_encoder_move(self):
+        m0 = bliss.get_axis("m0")
+        m0.move(5)
+        self.assertAlmostEquals(m0.position(), m0.encoder.read(), places=4)
 
-
+    def test_encoder_axis_init(self):
+        # Initialisation problem...
+        # ok with _pos = m0.dial()
+        m0 = bliss.get_axis("m0")
+        # _pos = m0.dial()
+        enc = bliss.get_encoder("m0enc")
+        self.assertEquals(enc.set(133), 133)
+    
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(TestEncoder)
     unittest.TextTestRunner(verbosity=2).run(suite)

@@ -561,7 +561,8 @@ class Axis(object):
         enc_dial = self.encoder.read()
         curr_pos = self.user2dial(self._position())
         if abs(curr_pos - enc_dial) > self.encoder.tolerance:
-            raise RuntimeError("'%s` didn't reach final position." % self.name)
+            raise RuntimeError("'%s' didn't reach final position.(enc_dial=%g, curr_pos=%g)" %
+                               (self.name, enc_dial, curr_pos))
 
     @task
     def _do_move(self, motion, polling_time):

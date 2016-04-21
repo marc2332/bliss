@@ -87,7 +87,6 @@ class Mockup(Controller):
 
         self._axis_moves[axis] = {
             "measured_simul": False,
-            "measured_noise": 0.0,
             "end_t": 0,
             "end_pos": 0,
             "move_done_cb": set_pos }
@@ -210,15 +209,15 @@ class Mockup(Controller):
             self.__encoders[encoder]["steps"] = _pos * encoder.steps_per_unit
 
         else:
-            # "Perfect encoder"
+            # print "Perfect encoder"
             if self.__encoders[encoder]["steps"] is None:
-                self.__encoders[encoder]["steps"] = self.read_position(axis) / axis.steps_per_unit
+                _axis_pos = self.read_position(axis) / axis.steps_per_unit
+                self.__encoders[encoder]["steps"] = _axis_pos * encoder.steps_per_unit
 
         return self.__encoders[encoder]["steps"]
 
     def set_encoder(self, encoder, encoder_steps):
         self.__encoders[encoder]["steps"]=encoder_steps
-
 
     """
     VELOCITY

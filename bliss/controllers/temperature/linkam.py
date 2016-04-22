@@ -389,3 +389,9 @@ class LinkamDsc(object):
             self._doStop()
             self.hold() # abort or last ramp finished
             self._profile_task = None
+
+    def _timeStamp(self):
+        theDate=str(datetime.datetime.now())
+        dt = datetime.datetime.strptime(theDate, "%Y-%m-%d %H:%M:%S.%f")
+        return time.mktime(dt.timetuple()) + (dt.microsecond / 1000000.0)
+ 

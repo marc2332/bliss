@@ -6,7 +6,11 @@ import re
 import signal
 import gevent
 import pdb
+import time
 
+SP = 10
+SP = 15
+SP = 20
 
 """
 Bliss generic library
@@ -66,19 +70,62 @@ class TestMockupTempController(unittest.TestCase):
         print "%s %s" % (aa.read(),bb.read())            
 
 
-    def test_setpoint(self):
+    def test_output_setpoint(self):
+        SP=10
         config = static.get_config()  
-        aa=config.get("thermo_sample")
         bb=config.get("heater")           
-        cc=config.get("sample_regulation")
-        bb.setpoint(10)
-        print ("Wait for end of setpoint")
+        val = bb.read()
+        print "Setting point from %s to %s" % (val,SP)
+        bb.setpoint(SP)
+        print "Wait for end of setpoint (around %s seconds)" % (int(abs(SP-val))*2)
         bb.wait()
         myval = bb.read()
         print "%s %s" % (myval,int(round(myval)))            
-        self.assertAlmostEqual(int(round(myval)),10,places=1)
+        self.assertAlmostEqual(int(round(myval)),SP,places=1)
 
+    def test_output_setpoint_stop(self):
+        SP=15
+        config = static.get_config()  
+        bb=config.get("heater")           
+        val = bb.read()
+        print "Setting point from %s to %s" % (val,SP)
+        bb.setpoint(SP)
+        #gevent.sleep(3)
+        #time.sleep(3)
+        print ("Stopping")
+        bb.stop()
+        myval = bb.read()
+        print "Now at: %s" % myval  
 
+    def test_loop_output_setpoint(self):
+        SP=20
+        config = static.get_config()  
+        cc=config.get("sample_regulation")
+        val = cc.output.read()
+        print "Setting point from %s to %s" % (val,SP)
+        cc.output.setpoint(SP)
+        print "Wait for end of setpoint (around %s seconds)" % (int(abs(SP-val))*2)
+        cc.output.wait()
+        myval = cc.output.read()
+        print myval
+        print "%s %s" % (myval,int(round(myval)))            
+        self.assertAlmostEqual(int(round(myval)),SP,places=1)
+
+    def test_loop_output_setpoint_stop(self):
+        SP=15
+        config = static.get_config()  
+        cc=config.get("sample_regulation")
+        val = cc.output.read()
+        print "Setting point from %s to %s" % (val,SP)
+        cc.output.setpoint(SP)
+        gevent.sleep(3)
+        print ("Stopping")
+        cc.output.stop()
+        myval = cc.output.read()
+        print "Now at: %s" % myval  
+
+         
+       
 
 """
 Main entry point

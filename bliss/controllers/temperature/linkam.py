@@ -1,6 +1,7 @@
-___all__ = ['LinkamDsc']
+__all__ = ['LinkamDsc']
 
 import time
+import datetime
 import os
 import gevent
 import logging
@@ -53,7 +54,7 @@ class LinkamDsc(object):
             self.LINKAM_OPEN_CIRCUIT : "Stage not connected or sensor is open circuit",
             self.LINKAM_POWER_SURGE : "Current protection due to overload",
             self.LINKAM_EXIT_300 : "No Exit (300 TS 1500 tried to exit profile at a temperature > 300 degrees)",
-            self.LINKAM_LINK_ERROR : "Problems with RS-232 or TCP data transmission - RESET Linkam !",
+            self.LINKAM_LINK_ERROR : "Problems with RS-232 data transmission - RESET Linkam !",
             self.LINKAM_OK : "OK"
         }
 
@@ -73,8 +74,11 @@ class LinkamDsc(object):
         self._dscValue = 0
         self._startingRamp = 2
         self._pipe = os.pipe()
+        self._abort = '+'
+        self._hold = True;
+        self._tstamp=0
 
-    def _clearBuffer(self):
+    def clearBuffer(self):
         """ Sends a "B" command to clear the buffers """
         self._logger.debug("clearBuffer() called")
         self._cnx.write_readline("B\r")
@@ -229,14 +233,15 @@ class LinkamDsc(object):
         """
         if self._profile_task != None:
             with self._lock:
-                return self._temperature
+                return self._tstamp, self._temperature
         else:
             reply = self._getStatusString()
+            tstamp = self._timeStamp()
             temperature = self._extractTemperature(reply[6:])
             if temperature < -273:
                 raise ValueError ("temperature reading less than -273, check that the heating stage is connected and switched on")
             self._logger.debug("getTemperature() returned {0}".format(temperature))
-            return temperature
+            return [tstamp, temperature]
 
     def _extractTemperature(self, hexString):
         """ Extracts the current temperature from a four byte string (from either a T or D reply)
@@ -279,29 +284,35 @@ class LinkamDsc(object):
 
         if self._profile_task != None:
             with self._lock:
-                return [self._temperature, self._dscValue]
+                return [self._tstamp, self._temperature, self._dscValue]
         else:
             return self._dscData()
 
     def _dscData(self):
         reply = self._cnx.write_readline("D\r")
-        self._temperature = self._extractTemperature(reply[0:4])
-        self._dscValue = self._extractDscValue(reply[4:8])
-        if self._temperature < -273:
+        tstamp = self._timeStamp()
+        temperature = self._extractTemperature(reply[0:4])
+        dscValue = self._extractDscValue(reply[4:8])
+        if temperature < -273:
             raise ValueError ("temperature reading less than -273, check that the heating stage is connected and switched on")
-        if self._dscValue == 32765: #if the buffer is full then clear it
-            self.clearBuffer()
-        return [self._temperature, self._dscValue]
+        if dscValue == 32765: #if the buffer is full then clear it
+            self._clearBuffer()
+        return [tstamp, temperature, dscValue]
+
+    def isProfileRunning(self):
+        with self._lock:
+            return False if self._profile_task == None else True
 
     def state(self):
         """ return the Linkam state, errorcode and current temperature """
         reply = self._getStatusString()
+        tstamp = self._timeStamp()
         currentstate = ord(reply[0])
         errcode = ord(reply[1])
         self._pumpSpeed = ord(reply[2])-ord('P')-48
         temperature = self._extractTemperature(reply[6:])
         print "state",currentstate, errcode, temperature, self._pumpSpeed
-        return [currentstate, errcode, temperature, self._pumpSpeed]
+        return [currentstate, errcode, tstamp, temperature, self._pumpSpeed]
 
     def status(self):
         reply = self._getStatusString()
@@ -350,45 +361,60 @@ class LinkamDsc(object):
 
     def _run_profile(self, ramps):
         currentRamp = 1
-        abort = '+'
+        self._abort = '+'
         try:
-            state,errcode,self._temperature,_ = self.state() # get initial state
+            state,errcode,self._tStamp,self._temperature,_ = self.state() # get initial state
             for (rate, limit, holdTime) in ramps: # get ramp and load it
-                print "loading",rate," ",limit," ",holdTime
+                print "loading rate={0} limit={1} holdtime={2}".format(rate,limit,holdTime)
                 self.rampNumber = currentRamp
                 self.rampRate = rate
                 self.rampLimit = limit
                 self.rampHoldTime = holdTime
                 if self.startingRamp == currentRamp:
-                    self._clearBuffer() #empty Linkam buffer ready to collect data
+                    self.clearBuffer() #empty Linkam buffer ready to collect data
                 if currentRamp == 1: 
                     self.start() # start ramping
-                while True:
+                while (1):
                     fd,_,_ = gevent.select.select([self._pipe[0]],[],[],0.1)
                     if fd: 
-                        abort = os.read(self._pipe[0],1)
+                        self._abort = os.read(self._pipe[0],1)
                         break # abort profile
-                    newState,errcode,self._temperature,_ = self.state()
-                    if self._hasDSC:
-                        self._temperature, self._dscValue = self._dscData()
+                    newState,errcode,self._tstamp,self._temperature,_ = self.state()
+                    print "newState={0} oldstate={1}".format(newState,state)
+#                    if self._hasDSC:
+#                        self._tstamp, self._temperature, self._dscValue = self._dscData()
                     if errcode != self.LINKAM_OK:
                         raise Exception("Profile failed on ramp %d with error %s" % (currentRamp, self.ErrorToString.get(state)))
-                    if newState != state and (state ==self.HEATING or state == self.COOLING) and newState == self.HOLDINGLIMIT:
-                        if holdTime > 0:
-                            fd,_,_ = gevent.select.select([self._pipe[0]],[],[],holdTime)
-                            if fd:
-                                print "aborting"
-                                abort = os.read(self._pipe[0],1)
+                    if newState != state and newState == self.HOLDINGLIMIT:
+                        print "should start to do hold {0}".format(holdTime)
+                        if holdTime > 0.0:
+                            self.hold = True
+                            while(self.hold):
+                                gevent.spawn(self._run_hold_timer, holdTime)
+                                fd,_,_ = gevent.select.select([self._pipe[0]],[],[],0.1)
+                                if fd:
+                                    print "aborting"
+                                    self._abort = os.read(self._pipe[0],1)
+                                    break
+                                _,_,self._tstamp,self._temperature,_ = self.state()
                         break # start the next ramp
                     state = newState
+                    print "now the newState={0} oldstate={1}".format(newState,state)
+
                 currentRamp += 1
-                print "startNext ramp", currentRamp
-                if abort == '|': 
+                print "startNext ramp {0}".format(currentRamp)
+                if self._abort == '|': 
                     break
         finally:
-            self._doStop()
+            print "doing finally"
             self.hold() # abort or last ramp finished
             self._profile_task = None
+
+
+    def _run_hold_timer(self, holdTime):
+        gevent.select.select([],[],[],holdTime)
+        with self._lock:
+            self.hold=False;
 
     def _timeStamp(self):
         theDate=str(datetime.datetime.now())

@@ -19,6 +19,7 @@ config_xml = """
     <axis name="robz">
       <!-- degrees per second -->
       <velocity value="100"/>
+      <acceleration value="1"/>
     </axis>
   </controller>
   <controller class="mockup">
@@ -28,6 +29,7 @@ config_xml = """
       <backlash value="2"/>
       <steps_per_unit value="10"/>
       <velocity  value="2500"/>
+      <acceleration value="1"/>
     </axis>
   </controller>
 </config>

@@ -1388,8 +1388,10 @@ def main(argv=None):
             CUSTOM COMMANDS
             """
             # Search and adds custom commands.
+            ohoh = _axis.dial() # to force lazy init :(
             _cmd_list = _axis.custom_methods_list()
             elog.debug("'%s' custom commands:" % axis_name)
+            elog.debug(', '.join(map(str, _cmd_list)))
 
             for (fname, (t1, t2)) in _cmd_list:
                 setattr(new_axis_class, fname, getattr(_axis, fname))
@@ -1403,6 +1405,9 @@ def main(argv=None):
 
             # CUSTOM ATTRIBUTES
             _attr_list = _axis.custom_attributes_list()
+            elog.debug("'%s' custom attributes:" % axis_name)
+            elog.debug(', '.join(map(str, _attr_list)))
+
             for name, t, access in _attr_list:
                 _attr_name = name
                 attr_info = [types_conv_tab[t],

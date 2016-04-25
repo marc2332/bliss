@@ -11,19 +11,7 @@ import time
 
 """
 Bliss controller for ethernet PI E753 piezo controller.
-Cyril Guilloud ESRF BLISS  2014-2015
-
-<config>
-  <controller class="PI_E753" name="idXX_machintruc">
-    <host value="192.168.2.10" />
-    <axis name="mirror_piezo">
-       <steps_per_unit value="1" />
-       <encoder_steps_per_unit value="1" />
-       <velocity value="1" />
-    </axis>
-  </controller>
-</config>
-
+Cyril Guilloud ESRF BLISS  2014-2016
 """
 
 
@@ -35,15 +23,12 @@ class PI_E753(Controller):
         self.host = self.config.get("host")
         self.cname = "E753"
 
-    def __del__(self):
-        print "PI_E753 DESTRUCTORRRRRR******+++++++++++++++++++++++++++++++++"
-
     # Init of controller.
     def initialize(self):
         """
         Controller intialization : opens a single socket for all 3 axes.
         """
-        self.sock = tcp.Socket(self.host, 50000)
+        self.sock = tcp.Command(self.host, 50000)
 
     def finalize(self):
         """
@@ -59,8 +44,18 @@ class PI_E753(Controller):
     def initialize_axis(self, axis):
         elog.debug("axis initialization")
 
+        '''Closed loop'''
+        add_axis_method(axis, self.open_loop, types_info=("None", "None"))
+        add_axis_method(axis, self.close_loop, types_info=("None", "None"))
+
+        # To purge controller.
+        try:
+            self.sock._raw_read()
+        except:
+            pass
+
         # Enables the closed-loop.
-        self.sock.write("SVO 1 1\n")
+        self._set_closed_loop(True)
 
     def initialize_encoder(self, encoder):
         pass
@@ -117,11 +112,13 @@ class PI_E753(Controller):
 
     """ RAW COMMANDS """
     def raw_write(self, com):
-        self.sock.write("%s\n" % com)
+        self.sock.write(com)
 
-    def raw_write_read(self, com, lines):
+    def raw_write_read(self, com):
+        return self.sock.write_readline(com)
+
+    def raw_write_readlines(self, com, lines):
         return "\n".join(self.sock.write_readlines("%s\n" % com, lines))
-
 
     def get_identifier(self, axis):
         return self.sock.write_readline("IDN?\n")
@@ -129,6 +126,17 @@ class PI_E753(Controller):
     """
     E753 specific
     """
+
+    def get_voltage(self, axis):
+        """ Returns voltage read from controller."""
+        _ans = self.sock.write_readline("SVA?\n")
+        _voltage = float(_ans[2:])
+        return _voltage
+
+    def set_voltage(self, axis, new_voltage):
+        """ Sets Voltage to the controller."""
+        self.sock.write("SVA 1 %g\n" % new_voltage)
+
 
     def _get_velocity(self, axis):
         """
@@ -151,6 +159,7 @@ class PI_E753(Controller):
 
         return _pos
 
+    """ON TARGET """
     def _get_target_pos(self):
         """
         Returns last target position (setpoint value).
@@ -163,16 +172,6 @@ class PI_E753(Controller):
 
         return _pos
 
-    def _get_closed_loop_status(self):
-        _ans = self.sock.write_readline("SVO?\n")
-
-        if _ans == "1=1":
-            return True
-        elif _ans == "1=0":
-            return False
-        else:
-            return -1
-
     def _get_on_target_status(self):
         _ans = self.sock.write_readline("ONT?\n")
 
@@ -183,9 +182,32 @@ class PI_E753(Controller):
         else:
             return -1
 
+    """ CLOSED LOOP"""
+    def _get_closed_loop_status(self):
+        _ans = self.sock.write_readline("SVO?\n")
+
+        if _ans == "1=1":
+            return True
+        elif _ans == "1=0":
+            return False
+        else:
+            return -1
+
+    def _set_closed_loop(self, state):
+        if state:
+            self.sock.write("SVO 1 1\n")
+        else:
+            self.sock.write("SVO 1 0\n")
+
+    def open_loop(self, axis):
+        self._set_closed_loop(False)
+
+    def close_loop(self, axis):
+        self._set_closed_loop(True)
+
     def _get_error(self):
         _error_number = self.sock.write_readline("ERR?\n")
-        _error_str = pi_gcs.get_error_str(_error_number)
+        _error_str = pi_gcs.get_error_str(int(_error_number))
 
         return (_error_number, _error_str)
 
@@ -221,15 +243,24 @@ class PI_E753(Controller):
         Raises:
             ?
         """
+        (error_nb, err_str) = self._get_error()
+        _txt = "      ERR nb=%s  : \"%s\"\n" % (error_nb, err_str)
+
         _infos = [
             ("Identifier                 ", "IDN?\n"),
             ("Com level                  ", "CCL?\n"),
+            ("Firmware name              ", "SEP? 1 0xffff0007\n"),
+            ("Firmware version           ", "SEP? 1 0xffff0008\n"),
+            ("Firmware description       ", "SEP? 1 0xffff000d\n"),
+            ("Firmware date              ", "SEP? 1 0xffff000e\n"),
+            ("Firmware developer         ", "SEP? 1 0xffff000f\n"),
             ("Real Position              ", "POS?\n"),
             ("Setpoint Position          ", "MOV?\n"),
             ("Position low limit         ", "SPA? 1 0x07000000\n"),
             ("Position High limit        ", "SPA? 1 0x07000001\n"),
             ("Velocity                   ", "VEL?\n"),
             ("On target                  ", "ONT?\n"),
+            ("On target window           ", "SPA? 1 0x07000900\n"),
             ("Target tolerance           ", "SPA? 1 0X07000900\n"),
             ("Settling time              ", "SPA? 1 0X07000901\n"),
             ("Sensor Offset              ", "SPA? 1 0x02000200\n"),
@@ -242,7 +273,6 @@ class PI_E753(Controller):
             ("High Voltage Limit         ", "SPA? 1 0x07000A01\n")
         ]
 
-        _txt = ""
 
         for i in _infos:
             _txt = _txt + "        %s %s\n" % \

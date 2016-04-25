@@ -46,32 +46,39 @@ class TestMockupController(unittest.TestCase):
 
     def test_get_custom_methods_list(self):
         robz = bliss.get_axis("robz")
+        robz.dial()
         print "\ncustom functions :"
         for (fname, types) in robz.custom_methods_list:
             print fname, types
 
     def test_custom_park(self):
         robz = bliss.get_axis("robz")
+        robz.dial()
         robz.custom_park()
 
     def test_custom_get_forty_two(self):
         robz = bliss.get_axis("robz")
+        robz.dial()
         print robz.custom_get_forty_two()
 
     def test_custom_get_twice(self):
         robz = bliss.get_axis("robz")
+        robz.dial()
         self.assertEqual(robz.custom_get_twice(42), 84)
 
     def test_custom_get_chapi(self):
         robz = bliss.get_axis("robz")
+        robz.dial()
         self.assertEqual(robz.custom_get_chapi("chapi"), "chapo")
         self.assertEqual(robz.custom_get_chapi("titi"), "toto")
         self.assertEqual(robz.custom_get_chapi("roooh"), "bla")
 
     def test_custom_send_command(self):
         robz = bliss.get_axis("robz")
+        robz.dial()
         robz.custom_send_command("SALUT sent")
 
 
 if __name__ == '__main__':
     unittest.main()
+

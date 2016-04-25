@@ -9,5 +9,5 @@ if len(sys.argv) == 1:
     # no args ? -> I add "-?" to show defined instances.
     sys.argv.append("-?")
 
-from bliss.tango.servers.axis import main
+from bliss.tango.servers.axis_ds import main
 main()

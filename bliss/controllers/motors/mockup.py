@@ -96,14 +96,6 @@ class Mockup(Controller):
         # this is to test axis are initialized only once
         axis.settings.set('init_count', axis.settings.get('init_count') + 1)
 
-        # Add new axis oject methods as tango commands.
-        add_axis_method(axis, self.custom_get_twice, types_info=("int", "int"))
-        add_axis_method(axis, self.custom_get_chapi, types_info=("str", "str"))
-        add_axis_method(axis, self.custom_send_command, types_info=("str", "None"))
-        add_axis_method(axis, self.custom_command_no_types, types_info=("None", "None"))
-        add_axis_method(axis, self.custom_set_measured_noise, types_info=("float", "None"))
-        add_axis_method(axis, self._set_closed_loop, name = "Set_Closed_Loop", types_info = ("bool", "None"))
-        add_axis_method(axis, self.put_discrepancy, types_info=("int", "None"))
 
         add_axis_attribute(axis, self.get_voltage, self.set_voltage, type_info="int")
         add_axis_attribute(axis, self.custom_get_measured_noise,
@@ -360,11 +352,13 @@ class Mockup(Controller):
     def custom_get_forty_two(self, axis):
         return 42
 
-    # LONG LONG
+    # LONG LONG  + renaming.
+    @axis_method(name= "CustomGetTwice", types_info=("int", "int"))
     def custom_get_twice(self, axis, LongValue):
         return LongValue * 2
 
     # STRING STRING
+    @axis_method(types_info=("str", "str"))
     def custom_get_chapi(self, axis, value):
         if value == "chapi":
             return "chapo"
@@ -374,14 +368,17 @@ class Mockup(Controller):
             return "bla"
 
     # STRING VOID
+    @axis_method(types_info=("str", "None"))
     def custom_send_command(self, axis, value):
         print "command=", value
 
     # BOOL NONE
+    @axis_method(name="Set_Closed_Loop", types_info=("bool", "None"))
     def _set_closed_loop(self, axis, onoff = True):
         print "I set the closed loop ", onoff
 
-    # Types by default
+    # Types by default (None, None)
+    @axis_method
     def custom_command_no_types(self, axis):
         print "print with no types"
 
@@ -392,6 +389,7 @@ class Mockup(Controller):
                            "doesn't have encoder" % axis.name)
         noise = self.__encoders[axis.encoder].get("measured_noise", 0.0)
 
+    @axis_method(types_info=("float", "None"))
     def custom_set_measured_noise(self, axis, noise):
         """
         Custom axis method to add a random noise, given in user units,

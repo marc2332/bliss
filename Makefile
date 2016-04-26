@@ -87,3 +87,26 @@ clean:
 	rm -rf ${BLISSADM_PATH}/python/bliss_modules/bliss/
 	find tango -type f -perm ${PERM_EXE} -exec bash -c 'rm -f ${BLISSADM_PATH}/server/src/`basename {}`' \;
 
+
+tests_axis_ds:
+	python tests/motors/TestBlissAxisManagerDS.py
+
+
+tests_axis:
+	python tests/motors/TestCustomCommandsAttributes.py
+	python tests/motors/TestEncoder.py
+	python tests/motors/TestEncoderBeacon.py
+	python tests/motors/TestGroup.py
+	python tests/motors/TestLogging.py
+	python tests/motors/TestMockupController.py
+	python tests/motors/TestSimplestCalcController.py
+	python tests/motors/TestStates.py
+
+#	python tests/motors/TestBeaconMockupController.py
+#	python tests/motors/TestBeaconSlits.py
+#	python tests/motors/TestSetpoint.py
+#	python tests/motors/TestSettings.py
+#	python tests/motors/TestSlits.py
+# does not finish ?	python tests/motors/TestTcpComm.py
+#	python tests/motors/TestTgGevent.py
+

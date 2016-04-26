@@ -127,8 +127,14 @@ class Controller(object):
             ##
             self.__initialized_axis[axis] = False
             if axis_config.get("encoder"):
-                 encoder_name = axis_config.get("encoder")['value']
-                 ENCODER_AXIS[encoder_name] = axis_name
+                try:
+                    # XML
+                    encoder_name = axis_config.get("encoder")['value']
+                except:
+                    # BEACON
+                    encoder_name = axis_config.get("encoder")
+
+                ENCODER_AXIS[encoder_name] = axis_name
 
     @property
     def axes(self):

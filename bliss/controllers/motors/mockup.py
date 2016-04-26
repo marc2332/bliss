@@ -43,7 +43,10 @@ class Mockup(Controller):
 
         self._axis_moves = {}
         self.__encoders = {}
+
+        # Custom attributes.
         self.__voltages = {}
+        self.__cust_attr_float = {}
 
         self.__error_mode = False
         self._hw_status = AxisState("READY")
@@ -59,9 +62,6 @@ class Mockup(Controller):
 
         # Adds Mockup-specific settings.
         self.axis_settings.add('init_count', int)
-        self.axis_settings.add('atrubi', float)
-        self.axis_settings.add('round_earth', bool)
-        self.axis_settings.add('geocentrisme', bool)
 
     """
     Controller initialization actions.
@@ -70,9 +70,8 @@ class Mockup(Controller):
         # hardware initialization
         for axis_name, axis in self.axes.iteritems():
             axis.settings.set('init_count', 0)
-            axis.settings.set('atrubi', 777)
-            axis.settings.set('round_earth', True)
-            axis.settings.set('geocentrisme', False)
+            axis.settings.set('cust_attr_float', 67.89)
+            axis.settings.set('cust_attr_bool', True)
 
             axis.__vel = None
             axis.__acc = None
@@ -96,15 +95,24 @@ class Mockup(Controller):
         # this is to test axis are initialized only once
         axis.settings.set('init_count', axis.settings.get('init_count') + 1)
 
+        add_axis_attribute(axis,
+                           name="voltage",
+                           fget=self.get_voltage,
+                           fset=self.set_voltage,
+                           type_info="int")
 
-        add_axis_attribute(axis, self.get_voltage, self.set_voltage, type_info="int")
+        add_axis_attribute(axis,
+                           name="cust_attr_float",
+                           fget=self.get_cust_attr_float,
+                           fset=self.set_cust_attr_float,
+                           type_info='float')
+
         add_axis_attribute(axis, self.custom_get_measured_noise,
                            self.custom_set_measured_noise, name='Measured_Noise',
                            type_info="float")
 
         if axis.encoder:
             self.__encoders.setdefault(axis.encoder, {})["axis"] = axis
-
 
     def initialize_encoder(self, encoder):
         self.__encoders.setdefault(encoder, {})["measured_noise"] = 0.0
@@ -403,8 +411,19 @@ class Mockup(Controller):
     def set_error(self, error_mode):
         self.__error_mode = error_mode
 
+
+    """
+    Custom attributes methods
+    """
     def get_voltage(self, axis):
-        return self.__voltages.setdefault(axis, 0)
+        return self.__voltages.setdefault(axis, 220)
 
     def set_voltage(self, axis, voltage):
         self.__voltages[axis] = voltage
+
+    def get_cust_attr_float(self, axis):
+        return self.__cust_attr_float.setdefault(axis, 0)
+
+    def set_cust_attr_float(self, axis, value):
+        self.__cust_attr_float[axis]
+

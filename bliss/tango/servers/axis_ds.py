@@ -1388,6 +1388,7 @@ def main(argv=None):
             CUSTOM COMMANDS
             """
             # Search and adds custom commands.
+            print _axis.dial()  # ARGGGGGGG
             _cmd_list = _axis.custom_methods_list()
             elog.debug("'%s' custom commands:" % axis_name)
             elog.debug(', '.join(map(str, _cmd_list)))

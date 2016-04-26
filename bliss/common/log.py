@@ -140,8 +140,8 @@ def debug(debug_msg):
         path = path
 
     short_filename = "%s" % "/".join(path)
-    short_filename = bcolors.BLUE + short_filename + bcolors.ENDC
-    debug_msg = bcolors.PINK + debug_msg + bcolors.ENDC
+    # short_filename = bcolors.BLUE + short_filename + bcolors.ENDC
+    # debug_msg = bcolors.PINK + debug_msg + bcolors.ENDC
     msg = "%.3f %s() (%s, l.%d): %s" % (time.time() - time0, func_name, short_filename, lineno, debug_msg)
 
     ret = log(DEBUG, msg)

@@ -16,6 +16,17 @@ MYHOSTNAME=$(shell hostname)
 
 DEV_PATH=${PWD}
 
+FIND_VER=$(shell for t in $$(find --version); do \
+                   echo "$$t" | grep -E "[0-9]+(\.[0-9]+){2}" && break; done)
+FIND_MAJ=$(shell echo "${FIND_VER}" | cut -d. -f1)
+FIND_MIN=$(shell echo "${FIND_VER}" | cut -d. -f2)
+OLD_FIND=$(shell test ${FIND_MAJ} -eq 4 -a ${FIND_MIN} -lt 2 && echo 1)
+ifeq (${OLD_FIND},1)
+PERM_EXE="+a+x"
+else
+PERM_EXE="/a+x"
+endif
+
 # "Distribution" installation.
 # Copy of files from current git directory.
 install:
@@ -45,15 +56,9 @@ endif
 
 
         ####  Copy Tango servers.
-        # -perm /a+x : does not work on redhate4...
-        # find tango/ -type f -perm /a+x -exec cp --backup=simple --suffix=.bup {} ${BLISSADM_PATH}/server/src/ \;
 	@echo ""
 	@echo "Copying Tango DS start-up scripts..."
-	cp --backup=simple --suffix=.bup tango/CT2 ${BLISSADM_PATH}/server/src/
-	cp --backup=simple --suffix=.bup tango/BlissAxisManager ${BLISSADM_PATH}/server/src/
-	cp --backup=simple --suffix=.bup tango/Nanodac ${BLISSADM_PATH}/server/src/
-	cp --backup=simple --suffix=.bup tango/Gpib ${BLISSADM_PATH}/server/src/
-	cp --backup=simple --suffix=.bup tango/Musst ${BLISSADM_PATH}/server/src/
+	find tango/ -type f -perm ${PERM_EXE} -exec cp --backup=simple --suffix=.bup {} ${BLISSADM_PATH}/server/src/ \;
 
 
         ####  Copy SPEC macros, only if spec/macros/ directory exists.

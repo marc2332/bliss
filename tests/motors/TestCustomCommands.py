@@ -74,10 +74,6 @@ class TestMockupController(unittest.TestCase):
         robz = bliss.get_axis("robz")
         robz.custom_send_command("SALUT sent")
 
-    def test_custom_attribute(self):
-        robz = bliss.get_axis("robz")
-        robz.cust_attr_float = 220
-        self.assertEqual(robz.cust_attr_float, 220)
 
 if __name__ == '__main__':
     unittest.main()

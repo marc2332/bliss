@@ -422,8 +422,8 @@ class Mockup(Controller):
         self.__voltages[axis] = voltage
 
     def get_cust_attr_float(self, axis):
-        return self.__cust_attr_float.setdefault(axis, 0)
+        return self.__cust_attr_float.setdefault(axis, 3.14)
 
     def set_cust_attr_float(self, axis, value):
-        self.__cust_attr_float[axis]
+        self.__cust_attr_float[axis] = value
 

@@ -46,9 +46,11 @@ class TestMockupController(unittest.TestCase):
 
     def test_get_custom_methods_list(self):
         robz = bliss.get_axis("robz")
-        print "\ncustom functions :",
-        for (fname, types) in robz.custom_methods_list:
-            print fname, types, "         ",
+        self.assertEqual(robz.custom_methods_list, [('Set_Closed_Loop', ('bool', 'None')), ('custom_command_no_types', (None, None)), ('custom_get_chapi', ('str', 'str')), ('custom_get_forty_two', ('None', 'int')), ('CustomGetTwice', ('int', 'int')), ('custom_park', (None, None)), ('custom_send_command', ('str', 'None')), ('custom_set_measured_noise', ('float', 'None'))])
+
+        #print "\ncustom functions :",
+        #for (fname, types) in robz.custom_methods_list:
+        #    print fname, types, "         ",
 
     def test_custom_park(self):
         robz = bliss.get_axis("robz")

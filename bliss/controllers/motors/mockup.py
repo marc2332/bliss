@@ -351,7 +351,7 @@ class Mockup(Controller):
     # VOID VOID
     @axis_method
     def custom_park(self, axis):
-        print "parking"
+        elog.debug("custom_park : parking")
         self._hw_status.clear()
         self._hw_status.set("PARKED")
 
@@ -378,7 +378,7 @@ class Mockup(Controller):
     # STRING VOID
     @axis_method(types_info=("str", "None"))
     def custom_send_command(self, axis, value):
-        print "command=", value
+        elog.debug("custom_send_command(axis=%s value=%r):" % (axis.name, value))
 
     # BOOL NONE
     @axis_method(name="Set_Closed_Loop", types_info=("bool", "None"))

@@ -150,6 +150,7 @@ class Mockup(Controller):
             raise RuntimeError("Cannot start because error mode is set")
         axis = motion.axis
         t0 = t0 or time.time()
+        axis.start_time=t0
         pos = self.read_position(axis)
         v = self.read_velocity(axis)
         ll, hl = self.__hw_limit

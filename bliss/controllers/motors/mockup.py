@@ -11,7 +11,7 @@ import random
 
 from bliss.controllers.motor import Controller
 from bliss.common import log as elog
-from bliss.common.axis import AxisState
+from bliss.common.axis import Axis,AxisState
 from bliss.common import event
 
 from bliss.common.utils import object_method
@@ -455,4 +455,19 @@ class Mockup(Controller):
     @object_attribute_set(type_info="float")
     def set_cust_attr_float(self, axis, value):
         self.__cust_attr_float[axis] = value
+
+class MockupAxis(Axis):
+
+    def __init__(self, *args, **kwargs):
+        Axis.__init__(self, *args, **kwargs)
+
+    def prepare_move(self, *args, **kwargs):
+        self.backlash_move = 0
+        return Axis.prepare_move(self, *args, **kwargs)
+
+    def _handle_move(self, motion, polling_time):
+        self.target_pos = motion.target_pos
+        self.backlash_move = motion.target_pos / \
+            self.steps_per_unit if motion.backlash else 0
+        return Axis._handle_move(self, motion, polling_time)
 

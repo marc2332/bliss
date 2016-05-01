@@ -71,36 +71,6 @@ config_xml = """
 </config>
 """
 
-# THIS IS FOR TESTING SPECIFIC FEATURES OF AXIS OBJECTS
-
-
-class MockupAxis(Axis):
-
-    def __init__(self, *args, **kwargs):
-        Axis.__init__(self, *args, **kwargs)
-        self.__custom_methods_list = list()
-        self.__custom_attributes_dict = dict()
-
-    def prepare_move(self, *args, **kwargs):
-        self.backlash_move = 0
-        return Axis.prepare_move(self, *args, **kwargs)
-
-    def _handle_move(self, motion, polling_time):
-        self.target_pos = motion.target_pos
-        self.backlash_move = motion.target_pos / \
-            self.steps_per_unit if motion.backlash else 0
-        return Axis._handle_move(self, motion, polling_time)
-
-
-class mockup_axis_module:
-
-    def __getattr__(self, attr):
-        return MockupAxis
-
-sys.modules["MockupAxis"] = mockup_axis_module()
-###
-
-
 class TestMockupController(unittest.TestCase):
 
     def setUp(self):

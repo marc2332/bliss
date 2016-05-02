@@ -9,6 +9,7 @@ gipc
 jedi
 ptpython
 docopt
+bottle
 
 # optional dependencies:
 ruamel.yaml

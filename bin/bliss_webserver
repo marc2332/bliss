@@ -6,7 +6,7 @@ import bliss
 from bliss.shell import set_shell_config_file
 from bliss.shell.web import shell
 
-usage = "usage: \%prog [-p<port>] [-s<setup file>]" 
+usage = "usage: \%prog [-p<port>] [-c<config file>]" 
 parser = optparse.OptionParser(usage)
 parser.add_option(
      '-p', '--port', dest='port', type='int',

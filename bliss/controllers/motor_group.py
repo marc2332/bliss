@@ -49,6 +49,10 @@ class _Group(object):
     def is_moving(self):
         return not self.__move_done.is_set()
 
+    @property
+    def is_started(self):
+        return self.__move_started.is_set()
+
     def _update_refs(self):
         config = __import__("config", globals(), locals(), [], 1)
         for axis in self._axes.itervalues():

@@ -69,6 +69,10 @@ class Axis(object):
         return not self.__move_done.is_set()
 
     @property
+    def is_started(self):
+        return self.__move_started.is_set()
+
+    @property
     def _hw_control(self):
         """Return whether axis is currently driving hardware"""
         if self.__move_task is not None:

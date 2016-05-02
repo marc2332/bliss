@@ -538,6 +538,7 @@ class Axis(object):
             # final position ok for waiters on move done event
             self._update_settings(state=self.state(read_hw=True))
         self.__move_done.set()
+        self.__move_started.clear()
         event.send(self, "move_done", True)
 
     def _check_ready(self):

@@ -446,14 +446,17 @@ class TestMockupController(unittest.TestCase):
         m0.move(5,wait=False)
         t0_old=m0.start_time
         m0.wait_start()
+        self.assertTrue(m0.is_started)
         self.assertNotEquals(t0_old,m0.start_time)
         m0.wait_move()
+        self.assertFalse(m0.is_started)
         self.assertAlmostEquals(m0.position(), 5, places=4)
         try:
             m0.controller.set_error(True)
             m0.move(8,wait=False)
             t0_old=m0.start_time
             self.assertRaises(RuntimeError, m0.wait_start)
+            self.assertFalse(m0.is_started)
             self.assertEquals(t0_old,m0.start_time)
             self.assertEquals(m0.state(), "READY")
         finally:

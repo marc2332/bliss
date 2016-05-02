@@ -7,7 +7,6 @@ import gevent.queue
 import gevent.monkey
 gevent.monkey.patch_all()
 import gipc
-import bliss.shell.interpreter as interpreter
 import bottle
 import socket
 import time
@@ -17,17 +16,15 @@ import json
 import signal
 import uuid
 from jinja2 import Template
-import yaml
 import bliss
+import bliss.shell.interpreter as interpreter
+from bliss.shell import SETUP, SYNOPTIC, read_config
 
 EXECUTION_QUEUE = dict()
 OUTPUT_QUEUE = dict()
 INTERPRETER = dict()
 RESULT = dict()
 SESSION_INIT = dict()
-SETUP = dict()
-SYNOPTIC = dict()
-SHELL_CONFIG_FILE = None
 
 # patch socket module;
 # by default bottle doesn't set address as reusable
@@ -38,48 +35,6 @@ def my_socket_bind(self, *args, **kwargs):
     self.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     return socket.socket._bind(self, *args, **kwargs)
 socket.socket.bind = my_socket_bind
-
-
-def set_shell_config_file(cfg_file):
-    global SHELL_CONFIG_FILE
-    if not os.path.isfile(cfg_file):
-        raise RuntimeError("Config file '%s` does not exist." % cfg_file)
-    SHELL_CONFIG_FILE = cfg_file
-
-
-def set_synoptic_file(session_id, synoptic_svg_file, synoptic_elements):
-    global SYNOPTIC
-    s = SYNOPTIC.setdefault(session_id, dict())
-    s["file"] = os.path.abspath(os.path.expanduser(synoptic_svg_file))
-    s["elements"] = synoptic_elements
-
-
-def set_setup_file(session_id, setup_file, config_objects_names):
-    global SETUP
-    if isinstance(config_objects_names, str):
-        config_objects_names = config_objects_names.split()
-    SETUP[session_id] = dict(file=os.path.abspath(os.path.expanduser(setup_file)), config_objects=config_objects_names)
-
-
-def read_config(config_file):
-    if not config_file:
-        return
-    with file(config_file, "r") as f:
-        cfg = yaml.load(f.read())
-
-        for session_id in cfg.iterkeys():
-            setup_file = cfg[session_id]["setup-file"]
-            if not os.path.isabs(setup_file):
-                setup_file = os.path.join(os.path.dirname(os.path.abspath(config_file)), setup_file)
-            set_setup_file(session_id, setup_file, cfg[session_id].get("config_objects"))
-            try:
-                synoptic_file = cfg[session_id]["synoptic"]["svg-file"]
-            except KeyError:
-                sys.excepthook(*sys.exc_info())
-            else:
-                if not os.path.isabs(synoptic_file):
-                    synoptic_file = os.path.join(os.path.dirname(os.path.abspath(config_file)), synoptic_file)
-                set_synoptic_file(session_id, synoptic_file, cfg[session_id]["synoptic"]["elements"])
 
 
 def handle_output(session_id, q):
@@ -146,9 +101,11 @@ def send_output(session_id, client_uuid):
             else:
                 continue
 
+
 @bottle.route("/<session_id:int>/synoptic/run/<object_name>/<method_name>")
 def action_from_synoptic(session_id, object_name, method_name):
     EXECUTION_QUEUE[session_id].put((None, "synoptic", (object_name, method_name)))   
+
 
 #@bottle.route("/log_msg_request")
 #def send_log():
@@ -235,7 +192,7 @@ def open_session(session_id):
     client_id = str(uuid.uuid1())
 
     if not session_id in INTERPRETER:
-        read_config(SHELL_CONFIG_FILE)
+        read_config()
         cmds_queue,EXECUTION_QUEUE[session_id] = gipc.pipe()
         output_queue_from_interpreter, output_queue = gipc.pipe()
         RESULT[session_id] = dict()
@@ -303,9 +260,13 @@ def main():
 @bottle.route("/js/<url:path>")
 def serve_static_file(url):
     return bottle.static_file(url, os.path.join(os.path.dirname(__file__), 'js'))
+
+
 @bottle.route("/css/<url:path>")
 def serve_static_file(url):
     return bottle.static_file(url, os.path.join(os.path.dirname(__file__),'css'))
+
+
 @bottle.route("/<url:path>")
 def serve_static_file(url):
     return bottle.static_file(url, os.path.dirname(__file__))

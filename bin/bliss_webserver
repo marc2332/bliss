@@ -3,6 +3,7 @@ import os
 import optparse
 import logging
 import bliss
+from bliss.shell import set_shell_config_file
 from bliss.shell.web import shell
 
 usage = "usage: \%prog [-p<port>] [-s<setup file>]" 
@@ -18,6 +19,6 @@ logging.basicConfig()
 logging.getLogger().setLevel(logging.DEBUG)
 
 if options.config_file:
-    shell.set_shell_config_file(options.config_file)
+    set_shell_config_file(options.config_file)
 shell.serve_forever(options.port) 
 

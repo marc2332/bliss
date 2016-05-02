@@ -1,6 +1,18 @@
 #!/usr/bin/env python
+"""
+Usage: bliss --config-file=FILE [--session=NAME] [--setup-file=FILE]  
+       bliss (-h | --help)
+
+Options:
+
+    --config-file=FILE  Full path to .yml configuration file.
+    --session=NAME      Session name (from configuration file)
+    --setup-file=FILE   Full path to Python setup file
+    -h --help           Show this screen.
+"""
 import sys
 import os
+import docopt
 import bliss
 from bliss.config import static
 from ptpython import repl
@@ -13,10 +25,23 @@ def gevent_inputhook(inputhook_context):
 def create_eventloop():
     return _create_eventloop(gevent_inputhook)
 
-repl.create_eventloop = create_eventloop
+if __name__ == '__main__':
+    try:
+        # Parse arguments, use file docstring as a parameter definition
+        arguments = docopt.docopt(__doc__)
 
-user_ns = {"config": static.get_config(),
-           "sys": sys,
-           "os": os}
+        config_file = os.path.expanduser(arguments["--config-file"])
+        session_name = arguments.get("--session")
+        setup_file = os.path.expanduser(arguments.get("--setup-file") or "")
+    except docopt.DocoptExit as e:
+        print e.message
+    else:
+        print "config file", repr(config_file)
+        print "session name", repr(session_name)
+        print "setup file", repr(setup_file)
 
-repl.embed(user_ns, None, vi_mode=False, history_filename=os.path.join(os.environ["HOME"], ".%s_history" % os.path.basename(sys.argv[0])))
+        repl.create_eventloop = create_eventloop
+
+        user_ns = {"config": static.get_config() }
+
+        repl.embed(user_ns, None, vi_mode=False, history_filename=os.path.join(os.environ["HOME"], ".%s_history" % os.path.basename(sys.argv[0])))

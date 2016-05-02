@@ -8,6 +8,7 @@ treelib
 gipc
 jedi
 ptpython
+docopt
 
 # optional dependencies:
 ruamel.yaml

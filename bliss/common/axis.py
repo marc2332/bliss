@@ -272,7 +272,7 @@ class Axis(object):
             self.limits(ll + lim_delta if ll is not None else ll,
                         hl + lim_delta if hl is not None else hl)
 
-        self.__settings.set("position", self.dial2user(dial_pos), write=self._hw_control)
+        self.__settings.set("position", self.dial2user(dial_pos), write=self._hw_control or new_pos is not None)
         self.__settings.set("dial_position", dial_pos) 
 
         return self.position()

@@ -1,23 +1,23 @@
 #!/usr/bin/env python
 """
-Usage: bliss --config-file=FILE [--session=NAME] [--setup-file=FILE]  
+Usage: bliss --config-file=FILE [--session=NAME]  
        bliss (-h | --help)
 
 Options:
 
     --config-file=FILE  Full path to .yml configuration file.
-    --session=NAME      Session name (from configuration file)
-    --setup-file=FILE   Full path to Python setup file
+    --session=NAME      Session name (from configuration file).
     -h --help           Show this screen.
 """
 import sys
 import os
 import docopt
-import bliss
-from bliss.config import static
 from ptpython import repl
 from ptpython.eventloop import _create_eventloop
 from gevent import select
+import bliss
+from bliss.config import static
+from bliss.shell import set_shell_config_file, read_config
 
 def gevent_inputhook(inputhook_context):
     r, _, _ = select.select([inputhook_context.fileno()],[],[])
@@ -32,13 +32,15 @@ if __name__ == '__main__':
 
         config_file = os.path.expanduser(arguments["--config-file"])
         session_name = arguments.get("--session")
-        setup_file = os.path.expanduser(arguments.get("--setup-file") or "")
     except docopt.DocoptExit as e:
         print e.message
     else:
-        print "config file", repr(config_file)
-        print "session name", repr(session_name)
-        print "setup file", repr(setup_file)
+        set_shell_config_file(config_file)
+       
+        SETUP, SYNOPTIC = read_config()
+
+        setup_file = SETUP.get(session_id, {}).get("file")
+        config_objects_names = SETUP.get(session_id, {}).get("config_objects")
 
         repl.create_eventloop = create_eventloop
 

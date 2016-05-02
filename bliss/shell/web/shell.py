@@ -187,7 +187,7 @@ def setup(session_id):
         return {"error":""}
 	
 
-@bottle.route('/<session_id:int>')
+@bottle.route('/<session_id>')
 def open_session(session_id):
     client_id = str(uuid.uuid1())
 
@@ -215,20 +215,20 @@ def open_session(session_id):
     return template.render(client_uuid=repr(client_id))
 
 
-#@bottle.route("/<session_id:int>/objects")
+#@bottle.route("/<session_id>/objects")
 #def return_objects_names(session_id):
 #    client_uuid = bottle.request.GET["client_uuid"]
 #
 #    return interpreter_exec(session_id, client_uuid, "get_objects", None)
 
 
-@bottle.route("/<session_id:int>/synoptic")
+@bottle.route("/<session_id>/synoptic")
 def return_synoptic_svg(session_id):
     if session_id in SYNOPTIC:
         with file(SYNOPTIC[session_id]["file"]) as f:
             return f.read()
 
-@bottle.route("/<session_id:int>/synoptic/objects")
+@bottle.route("/<session_id>/synoptic/objects")
 def return_synoptic_objects(session_id):
     if not session_id in SYNOPTIC:
         return {}

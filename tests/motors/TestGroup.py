@@ -177,5 +177,30 @@ class TestGroup(unittest.TestCase):
         self.assertRaises(RuntimeError, grp.move, {robz:3,robz2:1})
         self.assertEquals(robz._set_position(), robz.position())
 
+    def test_wait_start(self):
+        robz = bliss.get_axis("robz")
+        robz2 = bliss.get_axis("robz2")
+        robz2.dial(0); robz2.position(0)
+        robz.dial(0); robz.position(0)
+        grp = bliss.Group(robz, robz2)
+        self.assertFalse(grp.is_started)
+        grp.move({robz:3,robz2:3},wait=False)
+        grp.wait_start()
+        self.assertTrue(grp.is_started)
+        grp.wait_move()
+        self.assertFalse(grp.is_started)
+        pos_dict = grp.position()
+        self.assertAlmostEquals(pos_dict[robz], 3, places=4)
+        self.assertAlmostEquals(pos_dict[robz2], 3, places=4)
+        try:
+            robz.controller.set_error(True)
+            grp.move({robz:8,robz2:3},wait=False)
+            self.assertRaises(RuntimeError, grp.wait_start)
+            self.assertFalse(grp.is_started)
+            self.assertEquals(grp.state(), "READY")
+        finally:
+            robz.controller.set_error(False)
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -65,7 +65,7 @@ def handle_output(session_id, q):
                 continue
 
 
-@bottle.route("/<session_id:int>/output_stream/<client_uuid>")
+@bottle.route("/<session_id>/output_stream/<client_uuid>")
 def send_output(session_id, client_uuid):
     bottle.response.content_type = 'text/event-stream'
     bottle.response.add_header("Connection", "keep-alive")
@@ -102,7 +102,7 @@ def send_output(session_id, client_uuid):
                 continue
 
 
-@bottle.route("/<session_id:int>/synoptic/run/<object_name>/<method_name>")
+@bottle.route("/<session_id>/synoptic/run/<object_name>/<method_name>")
 def action_from_synoptic(session_id, object_name, method_name):
     EXECUTION_QUEUE[session_id].put((None, "synoptic", (object_name, method_name)))   
 
@@ -126,7 +126,7 @@ def interpreter_exec(session_id, client_uuid, action, *args):
     return res.get()
 
 
-@bottle.get("/<session_id:int>/completion_request")
+@bottle.get("/<session_id>/completion_request")
 def send_completion(session_id):
     client_uuid = bottle.request.GET["client_uuid"]
     text = bottle.request.GET["text"]
@@ -136,12 +136,12 @@ def send_completion(session_id):
             "completions": completions }
 
 
-@bottle.get("/<session_id:int>/abort")
+@bottle.get("/<session_id>/abort")
 def abort_execution(session_id):
     os.kill(INTERPRETER[session_id].pid, signal.SIGINT)
 
 
-@bottle.get("/<session_id:int>/command")
+@bottle.get("/<session_id>/command")
 def execute_command(session_id):
     client_uuid = bottle.request.GET["client_uuid"]
     code = bottle.request.GET["code"]
@@ -168,14 +168,14 @@ def _execute_command(session_id, client_uuid, code):
             return {"error":""}
 
 
-@bottle.get("/<session_id:int>/args_request")
+@bottle.get("/<session_id>/args_request")
 def get_func_args(session_id):
     client_id = bottle.request.GET["client_uuid"]
     code = bottle.request.GET["code"]
     return interpreter_exec(session_id, client_id, "get_function_args", str(code))
     
 
-@bottle.route('/<session_id:int>/setup')
+@bottle.route('/<session_id>/setup')
 def setup(session_id):
     client_uuid = bottle.request.GET["client_uuid"]
     force = bottle.request.GET["force"]=='true'

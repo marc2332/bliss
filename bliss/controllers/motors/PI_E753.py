@@ -218,11 +218,14 @@ class PI_E753(Controller):
     def _get_on_target_status(self, axis):
         _ans = self.send(axis, "ONT?")
 
-        if _ans == "":
+        _status = _ans.split("=")[1]
+
+        if _status == "1":
             return True
-        elif _ans == "":
+        elif _status == "0":
             return False
         else:
+            print "err _get_on_target_status, _ans=%r" % _ans
             return -1
 
     """ CLOSED LOOP"""

@@ -1,18 +1,24 @@
 from serial import serial_for_url
-import ConfigDict
 import os
 import struct
 
+from bliss.comm import serial
+from bliss.comm import tcp
 OPIOM_BASE_PATH='/users/blissadm/local/isg/opiom'
 
 class OpiomComm:
     FSIZE = 256
 
-    def __init__(self,serial=0,program='',**keys) :
-        self.__ser = serial_for_url(serial)
-        self.__ser.flushInput()
-        self.__ser.timeout = 1
-        self.__program = program
+    def __init__(self,name,config_tree): #serial=0,program='',**keys) :
+        if "serial" in config_tree:
+            self._cnx = serial.Serial(config_tree['serial'],timeout = 3)
+        elif "socket" in config_tree:
+            self._cnx = tcp.Tcp(config_tree['socket'],timeout = 3)
+        else:
+            raise RuntimeError("opiom: need to specify a communication url")
+        
+        self._cnx.flush()
+        self.__program = config_tree['program']
         self.__debug = False
         msg = self.comm("?VER")
         if not msg.startswith('OPIOM') :
@@ -22,7 +28,7 @@ class OpiomComm:
         self.comm("MODE normal")
 
     def __repr__(self) :
-        return "Opiom : %s with program %s" % (self.__ser,self.__program)
+        return "Opiom : %s with program %s" % (self._cnx,self.__program)
 
     def setDebug(self, flag) :
         self.__debug = flag is True
@@ -32,7 +38,7 @@ class OpiomComm:
 
     def __debugMsg(self, wr, msg):
         if self.__debug:
-            print "%-5.5s on %s > %s"%(wr, self.__ser.name, msg)
+            print "%-5.5s on %s > %s"%(wr, self._cnx.name, msg)
 
     def info(self) :
         return self.comm("?INFO")
@@ -81,10 +87,10 @@ class OpiomComm:
     def _write(self,msg) :
         self.__debugMsg("Write", msg)
         msg += '\r\n'
-        self.__ser.write(msg)
+        self._cnx.write(msg)
 
     def raw_write(self,msg) :
-        self.__ser.write(msg)
+        self._cnx.write(msg)
 
     def raw_bin_write(self,binmsg):
         nb_block = len(binmsg) / self.FSIZE
@@ -92,29 +98,22 @@ class OpiomComm:
         lrc = (nb_bytes + nb_block + sum([ord(x) for x in binmsg])) & 0xff
         rawMsg = struct.pack('BBB%dsBB' % len(binmsg),0xff,nb_block,nb_bytes,
                              binmsg,lrc,13)
-        self.__ser.write(rawMsg)
-
-    def _read(self) :
-        msg = self.__ser.readline()
-        if msg.startswith('$') :
-            msgLine = []
-            while 1:
-                msgPart = self.__ser.readline()
-                if not msgPart or msgPart.startswith('$') :
-                    break
-                self.__debugMsg("Read", msgPart.strip('\n\r'))
-                msgLine.append(msgPart.strip('\n\r'))
-            return '\n'.join(msgLine)
-        self.__debugMsg("Read", msg.strip('\n\r'))
-        return msg.strip('\r\n')
+        self._cnx.write(rawMsg)
 
     def comm_ack(self,msg) :
         return self.comm('#' + msg)
 
     def comm(self,msg) :
-        self._write(msg)
-        if msg.startswith('?') or msg.startswith('#') :
-            return self._read()
+        with self._cnx._lock:
+            self._cnx.open()
+            self._cnx._write(msg + '\r\n')
+            if msg.startswith('?') or msg.startswith('#') :
+                msg = self._cnx._readline()
+                if msg.startswith('$') :
+                    msg = self._cnx._readline('$\r\n')
+                self.__debugMsg("Read", msg.strip('\n\r'))
+                return msg.strip('\r\n')
+                
 
     def load_program(self) :
         pldid = self.comm("?PLDID")

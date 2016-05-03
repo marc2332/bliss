@@ -113,7 +113,9 @@ class Node(NodeDict):
         """Return plugin name"""
         plugin = self.get("plugin")
         if plugin is None:
-          if self._parent is not None and self._parent != self._config._root_node:
+          if self == self._config._root_node:
+              return
+          if self._parent is not None:
               return self._parent.plugin
           else:
               return None

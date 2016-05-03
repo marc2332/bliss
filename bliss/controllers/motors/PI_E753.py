@@ -5,6 +5,7 @@ from bliss.common.axis import AxisState
 
 import pi_gcs
 from bliss.comm import tcp
+import gevent.lock
 
 import sys
 import time
@@ -16,12 +17,14 @@ Cyril Guilloud ESRF BLISS  2014-2016
 
 
 class PI_E753(Controller):
+    __lock = gevent.lock.Semaphore()
 
     def __init__(self, name, config, axes, encoders):
         Controller.__init__(self, name, config, axes, encoders)
 
         self.host = self.config.get("host")
         self.cname = "E753"
+
 
     # Init of controller.
     def initialize(self):
@@ -55,7 +58,7 @@ class PI_E753(Controller):
             pass
 
         # Enables the closed-loop.
-        self._set_closed_loop(True)
+        self._set_closed_loop(axis, True)
 
     def initialize_encoder(self, encoder):
         pass
@@ -70,7 +73,7 @@ class PI_E753(Controller):
         pass
 
     def read_position(self, axis):
-        _ans = self._get_target_pos()
+        _ans = self._get_target_pos(axis)
         elog.debug("read_position = %f" % _ans)
         return _ans
 
@@ -85,13 +88,14 @@ class PI_E753(Controller):
 
     def set_velocity(self, axis, new_velocity):
         elog.debug("set_velocity new_velocity = %f" % new_velocity)
-        self.sock.write("VEL 1 %f\n" % new_velocity)
+        self.send_no_ans(axis, "VEL 1 %f" % new_velocity)
+
         return self.read_velocity(axis)
 
     """ STATE """
     def state(self, axis):
-        if self._get_closed_loop_status():
-            if self._get_on_target_status():
+        if self._get_closed_loop_status(axis):
+            if self._get_on_target_status(axis):
                 return AxisState("READY")
             else:
                 return AxisState("MOVING")
@@ -104,11 +108,47 @@ class PI_E753(Controller):
 
     def start_one(self, motion):
         elog.debug("start_one target_pos = %f" % self._target_pos)
-        self.sock.write("MOV 1 %g\n" % self._target_pos)
+        self.send_no_ans(motion.axis, "MOV 1 %g" % self._target_pos)
 
     def stop(self, axis):
         # to check : copy of current position into target position ???
-        self.sock.write("STP\n")
+        self.send_no_ans(axis, "STP")
+
+
+    """ COMMUNICATIONS"""
+    def send(self, axis, cmd):
+        _cmd = cmd + "\n"
+
+        self.__lock.acquire()
+
+        try:
+            _ans = self.sock.write_readline(_cmd)
+            # "\n" in answer has been removed by tcp lib.
+        finally:
+            self.__lock.release()
+
+        #self.check_error()
+
+        return _ans
+
+    def check_error(self):
+        # Check error code
+        (_err_nb, _err_str) = self._get_error()
+        if _err_nb != 0:
+            print ":( error #%d (%s) in send_no_ans(%r)" % (_err_nb, _err_str, cmd)
+
+
+
+    def send_no_ans(self, axis, cmd):
+        _cmd = cmd + "\n"
+        self.__lock.acquire()
+        try:
+            self.sock.write(_cmd)
+        finally:
+            self.__lock.release()
+
+        #self.check_error()
+
 
     """ RAW COMMANDS """
     def raw_write(self, com):
@@ -121,7 +161,7 @@ class PI_E753(Controller):
         return "\n".join(self.sock.write_readlines("%s\n" % com, lines))
 
     def get_identifier(self, axis):
-        return self.sock.write_readline("IDN?\n")
+        return self.send(axis, "IDN?")
 
     """
     E753 specific
@@ -129,51 +169,54 @@ class PI_E753(Controller):
 
     def get_voltage(self, axis):
         """ Returns voltage read from controller."""
-        _ans = self.sock.write_readline("SVA?\n")
+        _ans = self.send(axis, "SVA?")
         _voltage = float(_ans[2:])
         return _voltage
 
     def set_voltage(self, axis, new_voltage):
         """ Sets Voltage to the controller."""
-        self.sock.write("SVA 1 %g\n" % new_voltage)
+        self.send_no_ans(axis, "SVA 1 %g" % new_voltage)
 
 
     def _get_velocity(self, axis):
         """
         Returns velocity taken from controller.
         """
-        _ans = self.sock.write_readline("VEL?\n")
-        _velocity = float(_ans[2:])
+        _ans = self.send(axis, "VEL?")
+        _velocity = float(_ans.split("=")[1])
 
         return _velocity
 
     def _get_pos(self):
         """
         Returns real position read by capcitive captor.
+        no axis parameter as _get_pos is used by encoder.... can be a problem???
         """
-        _ans = self.sock.write_readline("POS?\n")
+        self.__lock.acquire()
+        try:
+            _ans = self.sock.write_readline("POS?\n")
+            # _ans should looks like "1=-8.45709419e+01\n"
+            # "\n" removed by tcp lib.
+            _pos = float(_ans[2:])
+            return _pos
+        finally:
+            self.__lock.release()
 
-        # _ans should looks like "1=-8.45709419e+01\n"
-        # "\n" removed by tcp lib.
-        _pos = float(_ans[2:])
-
-        return _pos
 
     """ON TARGET """
-    def _get_target_pos(self):
+    def _get_target_pos(self, axis):
         """
         Returns last target position (setpoint value).
         """
-        _ans = self.sock.write_readline("MOV?\n")
+        _ans = self.send(axis, "MOV?")
 
-        # _ans should looks like "1=-8.45709419e+01\n"
-        # "\n" removed by tcp lib.
+        # _ans should looks like "1=-8.45709419e+01"
         _pos = float(_ans[2:])
 
         return _pos
 
-    def _get_on_target_status(self):
-        _ans = self.sock.write_readline("ONT?\n")
+    def _get_on_target_status(self, axis):
+        _ans = self.send(axis, "ONT?")
 
         if _ans == "":
             return True
@@ -183,53 +226,48 @@ class PI_E753(Controller):
             return -1
 
     """ CLOSED LOOP"""
-    def _get_closed_loop_status(self):
-        _ans = self.sock.write_readline("SVO?\n")
+    def _get_closed_loop_status(self, axis):
+        _ans = self.send(axis, "SVO?")
 
-        if _ans == "1=1":
+        _status = _ans.split("=")[1]
+
+        if _status == "1":
             return True
-        elif _ans == "1=0":
+        elif _status == "0":
             return False
         else:
+            print "err _get_closed_loop_status, _ans=%r" % _ans
             return -1
 
-    def _set_closed_loop(self, state):
+    def _set_closed_loop(self, axis, state):
         if state:
-            self.sock.write("SVO 1 1\n")
+            self.send_no_ans(axis, "SVO 1 1")
         else:
-            self.sock.write("SVO 1 0\n")
+            self.send_no_ans(axis, "SVO 1 0")
 
     def open_loop(self, axis):
-        self._set_closed_loop(False)
+        self._set_closed_loop(axis, False)
 
     def close_loop(self, axis):
-        self._set_closed_loop(True)
+        self._set_closed_loop(axis, True)
 
     def _get_error(self):
-        _error_number = self.sock.write_readline("ERR?\n")
+
+        self.__lock.acquire()
+
+        try:
+            _error_number = int(self.sock.write_readline("ERR?\n"))
+        finally:
+            self.__lock.release()
+
+
         _error_str = pi_gcs.get_error_str(int(_error_number))
 
         return (_error_number, _error_str)
 
-    def _stop(self):
-        self.sock.write("STP\n")
-
-    def _test_melange(self, sleep_time=0.1):
-        ii = 0
-        _vel0 = self.sock.write_readline("VEL?\n")
-        _ans_pos0 = self.sock.write_readline("POS?\n")[2:]
-        _pos0 = int(round(float(_ans_pos0), 2))
-        while True:
-            time.sleep(sleep_time)
-            sys.stdout.write(".")
-            _vel = self.sock.write_readline("VEL?\n")
-            _ans_pos = self.sock.write_readline("POS?\n")[2:]
-            _pos = int(round(float(_ans_pos), 2))
-            if _vel != _vel0:
-                print "%d VEL = %s " % (ii, _vel)
-            if abs(_pos - _pos0) > 1:
-                print "%d POS = %s" % (ii, _ans_pos)
-            ii = ii + 1
+    def _stop(self, axis):
+        print "????????? PI_E753.py received _stop ???"
+        self.send_no_ans(axis, "STP")
 
     def get_info(self, axis):
         """
@@ -244,7 +282,7 @@ class PI_E753(Controller):
             ?
         """
         (error_nb, err_str) = self._get_error()
-        _txt = "      ERR nb=%s  : \"%s\"\n" % (error_nb, err_str)
+        _txt = "      ERR nb=%d  : \"%s\"\n" % (error_nb, err_str)
 
         _infos = [
             ("Identifier                 ", "IDN?\n"),
@@ -276,7 +314,7 @@ class PI_E753(Controller):
 
         for i in _infos:
             _txt = _txt + "        %s %s\n" % \
-                (i[0], self.sock.write_readline(i[1]))
+                (i[0], self.send(axis, i[1]))
 
         _txt = _txt + "        %s    \n%s\n" %  \
             ("Communication parameters",

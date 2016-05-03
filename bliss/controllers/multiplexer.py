@@ -56,38 +56,22 @@ class OpiomComm:
         return self.comm("?ERR")
 
     def registers(self) :
-        self._ask_register_values()
-        return self._read_register_values()
-
-    def _ask_register_values(self) :
-        self._write("?IM")
-        self._write("?IMA")
-
-    def _read_register_values(self) :
-        return {'IM':int(self._read(),base=16),'IMA':int(self._read(),base=16)}
+        return {'IM':int(self.comm("?IM"),base=16),
+                'IMA':int(self.comm("?IMA"),base=16)}
 
     def inputs_stat(self) :
-        self._write("?I")
-        self._write("?IB")
-        input_front = int(self._read(),base=16)
-        input_back = int(self._read(),base=16)
+        input_front = int(self.comm("?I"),base=16)
+        input_back = int(self.comm("?IB"),base=16)
 
         self._display_bits('I',input_front)
         self._display_bits('IB',input_back)
 
     def outputs_stat(self) :
-        self._write("?O")
-        self._write("?OB")
-        output_front = int(self._read(),base=16)
-        output_back = int(self._read(),base=16)
+        output_front = int(self.comm("?O"),base=16)
+        output_back = int(self.comm("?OB"),base=16)
 
         self._display_bits('O',output_front)
         self._display_bits('OB',output_back)
-
-    def _write(self,msg) :
-        self.__debugMsg("Write", msg)
-        msg += '\r\n'
-        self._cnx.write(msg)
 
     def raw_write(self,msg) :
         self._cnx.write(msg)

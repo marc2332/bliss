@@ -4,7 +4,7 @@ import optparse
 import logging
 import bliss
 from bliss.shell import set_shell_config_file
-from bliss.shell.web import shell
+from bliss.shell.web import bliss_webserver
 
 usage = "usage: \%prog [-p<port>] [-c<config file>]" 
 parser = optparse.OptionParser(usage)
@@ -20,5 +20,5 @@ logging.getLogger().setLevel(logging.DEBUG)
 
 if options.config_file:
     set_shell_config_file(options.config_file)
-shell.serve_forever(options.port) 
+bliss_webserver.serve_forever(options.port) 
 

@@ -41,8 +41,15 @@ else
     [ "${BEACON_START}" -eq 0 -o "${BEACON_START}" = "no" ] && exit 0
 fi
 
+if [ -n "${BEACON_TANGO_DATABASE" ] && \
+   [ "${BEACON_TANGO_DATABASE}" -eq 1 \
+     -o "${BEACON_TANGO_DATABASE}" = "yes" ] && [ -n "${TANGO_HOST}" ]; then
+    tango_port=`echo ${TANGO_HOST} |  awk -F":" '{print $2}'`
+    TANGO_PORT_OPT="--tango_port ${tango_port}"
+fi
+
 script=`which beacon-server`
-opts="--db_path=${BEACON_DB_PATH} --posix_queue=0 --port=${BEACON_PORT} --webapp_port=${BEACON_WEB_PORT}"
+opts="--db_path=${BEACON_DB_PATH} --posix_queue=0 --port=${BEACON_PORT} --webapp_port=${BEACON_WEB_PORT} ${TANGO_PORT_OPT}"
 log="${BLISSADM}/admin/log/beacon.log"
 service="bliss beacon"
 beacon_user="$BEACON_USER"

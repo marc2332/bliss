@@ -82,7 +82,7 @@ def prepare(context):
 
     card.set_interrupts(dma=True, error=True)
 
-    card.set_counters_software_enable({counter: True, 11:True, 12: True})
+    card.enable_counters_software([counter, 11, 12])
     
     # force creation of a FIFO interface
     fifo = card.fifo

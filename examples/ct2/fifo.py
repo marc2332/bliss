@@ -57,7 +57,7 @@ def prepare(card, counter, value):
     card.set_interrupts(counters={counter: True},
                         dma=True, fifo_half_full=True, error=True)
 
-    card.set_counters_software_enable({1: True})
+    card.enable_counters_software([1])
     
     card._fifo = card.fifo
 

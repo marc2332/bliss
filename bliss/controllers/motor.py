@@ -28,6 +28,8 @@ def add_axis_method(axis_object, method, name=None, args=[], types_info=(None, N
 
 def axis_method(method=None, name=None, args=[], types_info=(None, None)):
     """
+    Decorator to add a custom method to an axis.
+
     The same as add_axis_method but its purpose is to be used as a
     decorator to the controller method which is to be exported as axis method.
 
@@ -50,50 +52,75 @@ def axis_method(method=None, name=None, args=[], types_info=(None, None)):
 
     """
     if method is None:
+        # Passes here if decorator parameters are not present ???.
+        # ...
         return functools.partial(axis_method, name=name, args=args,
                                  types_info=types_info)
 
+    # Returns a method where _axis_method_ attribute is filled with a
+    # dict of elements to characterize it.
     method._axis_method_ = dict(name=name, args=args, types_info=types_info)
 
     return method
 
 
-def add_axis_attribute(axis_object, fget=None, fset=None, name=None,
-                       type_info=None):
+def add_axis_attribute(axis_object, method, name=None, fget=None, fset=None, args=[], type_info=None):
 
-    if not (fget or fset):
-        head = 'add_axis_attribute: %s' % name
-        raise ValueError('%s: must have a getter and/or a setter' % head)
+    cust_attr_dict = getattr(axis_object, "_%s__custom_attributes_dict" % axis_object.__class__.__name__)
 
-    if name is None:
+    if cust_attr_dict.get(name):
+        access_mode = cust_attr_dict[name][1]
+        if fget and not 'r' in access_mode:
+            access_mode = "rw"
+
+        if fset and not 'w' in access_mode:
+            access_mode = "rw"
+
+        cust_attr_dict[name] = (type_info, access_mode)
+    else:
         if fget:
-            name = fget.__name__.lstrip('get').lstrip('_')
+            cust_attr_dict[name] = (type_info, "r")
+        elif fset:
+            cust_attr_dict[name] = (type_info, "w")
         else:
-            name = fset.__name__.lstrip('set').lstrip('_')
+            print "oh louche ca..."
 
-    get_method, set_method = None, None
 
-    if fget:
-        def call_get(self, *args, **kwargs):
-            self.__class__.lazy_init(self)
-            return fget.im_func(fget.im_self, *args, **kwargs)
+"""
+decorators for set/get methods to access to custom attributes
+"""
+def axis_attribute_get(get_method=None, name=None, args=[], type_info=None):
+    if get_method is None:
+        return functools.partial(axis_attribute_get, name=name, args=args,
+                                 type_info=type_info)
 
-        get_method = types.MethodType(functools.partial(call_get, axis_object),
-                                      axis_object)
+    attr_name = get_method.func_name[4:] # removes leading "get_"
 
-    if fset:
-        def call_set(self, *args, **kwargs):
-            self.__class__.lazy_init(self)
-            return fset.im_func(fset.im_self, *args, **kwargs)
-        set_method = types.MethodType(functools.partial(call_set, axis_object),
-                                      axis_object)
+    get_method._axis_method_ = dict(name=name, args=args, types_info=("None", type_info))
 
-    axis_object._add_custom_attribute(get_method, set_method, name, type_info)
+    if not hasattr(get_method, "_axis_attribute_"):
+        get_method._axis_attribute_ = dict()
+    get_method._axis_attribute_.update(name=attr_name, fget=get_method, args=args, type_info=type_info)
 
+    return get_method
+
+def axis_attribute_set(set_method=None, name=None, args=[], type_info=None):
+    if set_method is None:
+        return functools.partial(axis_attribute_set, name=name, args=args,
+                                 type_info=type_info)
+
+    attr_name = set_method.func_name[4:] # removes leading "set_"
+
+    set_method._axis_method_ = dict(name=name, args=args, types_info=(type_info, "None"))
+
+    if not hasattr(set_method, "_axis_attribute_"):
+        set_method._axis_attribute_ = dict()
+    set_method._axis_attribute_.update(name=attr_name, fset=set_method, args=args, type_info=type_info)
+
+    return set_method
 
 
 class Controller(object):
-
     def __init__(self, name, config, axes, encoders):
         self.__name = name
         from bliss.config.motors import StaticConfig
@@ -116,14 +143,24 @@ class Controller(object):
             axis_tags = axis_config.get('tags')
             if axis_tags:
                 for tag in axis_tags.split():
-                    self._tagged.setdefault(tag, []).append(axis) 
-            ## create custom axis methods, populates __custom_methods_list
-            for member in inspect.getmembers(self):
-                name, member = member
+                    self._tagged.setdefault(tag, []).append(axis)
+
+            ## creates custom axis methods and attributes methods,
+            ## populates __custom_methods_list and __custom_attributes_dict
+            for name, member in inspect.getmembers(self):
+
+                # For each method of controller: try to add it as a
+                # custom axis method or methods to set/get custom
+                # attributes. This will fail if it does not have
+                # _axis_method_ dict.
                 try:
                     add_axis_method(axis, member, **member._axis_method_)
                 except AttributeError:
                     pass
+
+                if hasattr(member, "_axis_attribute_"):
+                    add_axis_attribute(axis, member, **member._axis_attribute_)
+
             ##
             self.__initialized_axis[axis] = False
             if axis_config.get("encoder"):

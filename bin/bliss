@@ -1,36 +1,60 @@
 #!/usr/bin/env python
+"""
+Usage: bliss [(-c FILE |--config-file=FILE)] [(-s NAME | --session=NAME)]  
+       bliss (-h | --help)
+
+Options:
+
+    -c FILE, --config-file=FILE  Full path to .yml configuration file.
+    -s NAME, --session=NAME      Session name (from configuration file).
+    -h, --help                   Show this screen.
+"""
 import sys
 import os
-
-try:
-    import sqlite3
-except ImportError:
-    print "failed to import sqlite3"
-    import pysqlite2.dbapi2 as sqlite3
-    sys.modules["sqlite3"] = sqlite3
-
-try:
-    from IPython.terminal.interactiveshell import TerminalInteractiveShell
-except ImportError:
-    # compatibility with IPython 0.13
-    from IPython.frontend.terminal.interactiveshell import TerminalInteractiveShell
-
-sys.path.insert(
-    0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-import bliss
-
+import docopt
+import functools
+from ptpython import repl
+from ptpython.eventloop import _create_eventloop
+from gevent import select
 from bliss.config import static
+from bliss.shell import set_shell_config_file, read_config, setup
 
-user_ns = {"config": static.get_config(),
-           "sys": sys,
-           "os": os}
+def gevent_inputhook(inputhook_context):
+    r, _, _ = select.select([inputhook_context.fileno()],[],[])
 
-# user_ns.update(objects)
+def create_eventloop():
+    return _create_eventloop(gevent_inputhook)
 
-shell = TerminalInteractiveShell(user_ns=user_ns)
+if __name__ == '__main__':
+    try:
+        # Parse arguments, use file docstring as a parameter definition
+        arguments = docopt.docopt(__doc__)
 
-from bliss.shell.ipython import inputhookgevent
+        config_file = os.path.expanduser(arguments["--config-file"]) if arguments["--config-file"] else None
+        session_name = arguments.get("--session")
+    except docopt.DocoptExit as e:
+        print e.message
+    else:
+        user_ns = { "config": static.get_config() }
 
-inputhookgevent.enable_gevent()
+        if config_file:
+            set_shell_config_file(config_file)
+       
+            SETUP, SYNOPTIC, default_session = read_config()
+            session_id = session_name or default_session 
 
-shell.mainloop()
+            setup_file = SETUP.get(session_id, {}).get("file")
+            config_objects_names = SETUP.get(session_id, {}).get("config_objects")
+
+            repl.create_eventloop = create_eventloop
+        
+    	    user_ns.update({ "resetup": functools.partial(setup, env_dict=user_ns, config_objects_names_list=config_objects_names),
+                             "SETUP_FILE": setup_file})
+        
+            user_ns['resetup']()
+
+            history_filename = os.path.join(os.environ["HOME"], ".%s_%s_history" % (os.path.basename(sys.argv[0]), session_id))
+        else:
+            history_filename = os.path.join(os.environ["HOME"], ".%s_history" % os.path.basename(sys.argv[0]))
+
+        repl.embed(user_ns, None, vi_mode=False, history_filename=history_filename)

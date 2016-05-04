@@ -15,7 +15,7 @@ import gevent
 import logging
 import functools
 from contextlib import contextmanager
-from bliss import setup
+from bliss.shell import setup
 from bliss.common.event import dispatcher
 from bliss.common import data_manager
 from bliss.common import measurement

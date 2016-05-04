@@ -7,9 +7,11 @@ flask
 treelib
 gipc
 jedi
+ptpython
+docopt
+bottle
 
 # optional dependencies:
-
 ruamel.yaml
 posix_ipc
 

@@ -78,9 +78,5 @@ doc:
 
 clean:
 	rm -rf ${BLISSADM_PATH}/python/bliss_modules/bliss/
-	rm -f ${BLISSADM_PATH}/server/src/CT2
-	rm -f ${BLISSADM_PATH}/server/src/BlissAxisManager
-	rm -f ${BLISSADM_PATH}/server/src/Nanodac
-	rm -f ${BLISSADM_PATH}/server/src/Gpib
-	rm -f ${BLISSADM_PATH}/server/src/Musst
+	find tango -type f -perm ${PERM_EXE} -exec bash -c 'rm -f ${BLISSADM_PATH}/server/src/`basename {}`' \;
 

@@ -16,7 +16,6 @@ import json
 import signal
 import uuid
 from jinja2 import Template
-import bliss
 import bliss.shell.interpreter as interpreter
 from bliss.shell import SETUP, SYNOPTIC, read_config
 

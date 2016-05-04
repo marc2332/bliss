@@ -54,7 +54,7 @@ def read_config(config_file=None):
 
         for session_id in cfg.iterkeys():
             if default_session is None:
-                default_session = session_id
+                default_session = str(session_id)
 
             setup_file = cfg[session_id]["setup-file"]
             if not os.path.isabs(setup_file):

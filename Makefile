@@ -9,10 +9,8 @@
 
 
 BLISSADM_PATH=/users/blissadm
-
-CONFIG_PATH=${BLISSADM_PATH}/local/beamline_configuration/
-
-MYHOSTNAME=$(shell hostname)
+BLISS_ENV_VAR=${BLISSADM_PATH}/local/BLISS_ENV_VAR
+CONFIG_PATH=${BLISSADM_PATH}/local/beamline_configuration
 
 DEV_PATH=${PWD}
 
@@ -41,24 +39,33 @@ install:
 
 	rm setup.cfg
 
-        ###### To do only on a NETHOST :
+        # Install beacon daemon blcontrol startup script
 	@echo ""
-ifeq ($(MYHOSTNAME),$(NETHOST))
-	@echo "I am on a NETHOST, "$(MYHOSTNAME)
-        # Makes a link to be beacon-server dserver startable.
-	mkdir -p ${BLISSADM_PATH}/server/src
-	ln -sf ${BLISSADM_PATH}/local/bin/beacon-server ${BLISSADM_PATH}/server/src/beacon-server
+	@echo "Adding beacon daemon to BLControl start-up/shudown structure..."
+	mkdir -p ${BLISSADM_PATH}/admin/etc
+	cp -f scripts/admin/S10beacon ${BLISSADM_PATH}/admin/etc
+
+        # Add default beacon-server parameters to BLISS_ENV_VAR
+	@echo ""
+	@echo "Checking beacon server start-up config..."
+	grep -q BEACON_DB_PATH ${BLISS_ENV_VAR} || \
+		echo 'BEACON_DB_PATH='${CONFIG_PATH}' export BEACON_DB_PATH' \
+			>> ${BLISS_ENV_VAR}
+
+	grep -q BEACON_PORT ${BLISS_ENV_VAR} || \
+		echo 'BEACON_PORT=25000 export BEACON_PORT' >> ${BLISS_ENV_VAR}
+
+	grep -q BEACON_WEB_PORT ${BLISS_ENV_VAR} || \
+		echo 'BEACON_WEB_PORT=9030 export BEACON_WEB_PORT' >> ${BLISS_ENV_VAR}
+
         # Creates config directory.
 	mkdir -p ${CONFIG_PATH}; chmod 777 ${CONFIG_PATH}
-else
-	@echo "I am not on a NETHOST"
-endif
-
 
         ####  Copy Tango servers.
 	@echo ""
 	@echo "Copying Tango DS start-up scripts..."
-	find tango/ -type f -perm ${PERM_EXE} -exec cp --backup=simple --suffix=.bup {} ${BLISSADM_PATH}/server/src/ \;
+	mkdir -p ${BLISSADM_PATH}/server/src
+	find tango -type f -perm ${PERM_EXE} -exec cp --backup=simple --suffix=.bup {} ${BLISSADM_PATH}/server/src/ \;
 
 
         ####  Copy SPEC macros, only if spec/macros/ directory exists.

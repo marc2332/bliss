@@ -37,7 +37,8 @@ if __name__ == '__main__':
     else:
         set_shell_config_file(config_file)
        
-        SETUP, SYNOPTIC = read_config()
+        SETUP, SYNOPTIC, default_session = read_config()
+        session_id = session_name or default_session 
 
         setup_file = SETUP.get(session_id, {}).get("file")
         config_objects_names = SETUP.get(session_id, {}).get("config_objects")

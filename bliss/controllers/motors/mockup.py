@@ -92,8 +92,15 @@ class Mockup(Controller):
 
         event.connect(axis, "move_done", set_pos)
 
-        self.__voltages[axis] = int(axis.config.get("default_voltage"))
-        self.__cust_attr_float[axis] = float(axis.config.get("default_cust_attr"))
+        try:
+            self.__voltages[axis] = int(axis.config.get("default_voltage"))
+        except:
+            self.__voltages[axis] = 220
+
+        try:
+            self.__cust_attr_float[axis] = float(axis.config.get("default_cust_attr"))
+        except:
+            self.__cust_attr_float[axis] = 3.14
 
         # this is to test axis are initialized only once
         axis.settings.set('init_count', axis.settings.get('init_count') + 1)

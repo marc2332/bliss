@@ -66,6 +66,8 @@ class MockupAxis(Axis):
 
     def __init__(self, *args, **kwargs):
         Axis.__init__(self, *args, **kwargs)
+        self.__custom_methods_list = list()
+        self.__custom_attributes_dict = dict()
 
     def prepare_move(self, *args, **kwargs):
         self.backlash_move = 0
@@ -91,7 +93,7 @@ class TestMockupController(unittest.TestCase):
 
     def setUp(self):
         bliss.load_cfg_fromstring(config_xml)
-    
+
     def test_get_axis(self):
         robz = bliss.get_axis("robz")
         self.assertTrue(robz)
@@ -208,6 +210,7 @@ class TestMockupController(unittest.TestCase):
 
     def test_axis_init(self):
         robz = bliss.get_axis("robz")
+        ohhh  = robz.dial()
         self.assertEqual(robz.settings.get("init_count"), 1)
 
     def test_stop(self):
@@ -327,6 +330,7 @@ class TestMockupController(unittest.TestCase):
 
     def test_custom_method(self):
         roby = bliss.get_axis("roby")
+        ohhhh = roby.dial()
         roby.Set_Closed_Loop(True)
         roby.Set_Closed_Loop(False)
         roby.Set_Closed_Loop()

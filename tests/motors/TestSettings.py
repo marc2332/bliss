@@ -21,6 +21,7 @@ config_xml = """<config>
     <axis name="robz">
       <!-- degrees per second -->
       <velocity value="100"/>
+      <acceleration value="1"/>
     </axis>
   </controller>
   <controller class="mockup">
@@ -30,6 +31,7 @@ config_xml = """<config>
       <backlash value="2"/>
       <steps_per_unit value="10"/>
       <velocity  value="2500"/>
+      <acceleration value="1"/>
     </axis>
   </controller>
 </config>
@@ -66,7 +68,8 @@ class TestSettings(unittest.TestCase):
 
     def test_setting_get(self):
         robz = bliss.get_axis("robz")
-        self.assertEquals(robz.settings.get("init_count"), 10)
+        ohhhh = robz.dial()
+        self.assertEquals(robz.settings.get("init_count"), 11)
 
     def tearDown(self):
         os.unlink(self.cfg_file.name)

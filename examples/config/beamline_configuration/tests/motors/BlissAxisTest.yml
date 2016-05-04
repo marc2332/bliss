@@ -21,22 +21,26 @@
         offset: 5.1109999999999998
         steps_per_unit: 1000
         tolerance: 1.111
-        velocity: 3.666
+        velocity: 3.888
         tango_server: batest
+        default_voltage: 110
+        default_cust_attr: 3.14
       - acceleration: 1
         backlash: 2
         name: ba2
         offset: 0
         steps_per_unit: 1000
-        velocity: 1.1399999999999999
+        velocity: 2.444
         encoder: $enc2
+        default_voltage: 220
+        default_cust_attr: 6.28
         tango_server: batest
       - acceleration: 1
         backlash: 2
         name: ba_up
         offset: 0
         steps_per_unit: 1000
-        velocity: 1.1399999999999999
+        velocity: 1.1799999999999999
         tango_server: batest
       - acceleration: 1
         backlash: 2

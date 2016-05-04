@@ -17,8 +17,9 @@ from bliss.common.axis import Axis
 config_xml = """
 <config>
   <controller class="setpoint" name="test">
-    <target_attribute value="id16ni/semidyn/cyril/target_sp"/>
+    <target_attribute value="ID26/emotion_batest/ba1/voltage"/>
     <port value="5000"/>
+    <gating_ds value="ID26/emotion_batest/ba2"/>
     <axis name="sp1">
       <!-- degrees per second -->
       <velocity value="100"/>

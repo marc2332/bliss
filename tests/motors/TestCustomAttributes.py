@@ -20,23 +20,22 @@ config_xml = """
       <!-- degrees per second -->
       <velocity value="100"/>
       <acceleration value="1"/>
-      <cust_attr_float_init value="3.14"/>
+      <default_voltage value="110"/>
+      <default_cust_attr value="3.14"/>
     </axis>
-  </controller>
-  <controller class="mockup">
-    <host value="mydummyhost2"/>
-    <port value="5000"/>
     <axis name="roby">
-      <backlash value="2"/>
-      <steps_per_unit value="10"/>
-      <velocity  value="2500"/>
+      <!-- degrees per second -->
+      <velocity value="100"/>
       <acceleration value="1"/>
+      <default_voltage value="220"/>
+      <default_cust_attr value="6.28"/>
     </axis>
+
   </controller>
 </config>
 """
 
-class TestMockupController(unittest.TestCase):
+class TestCustomAttributes(unittest.TestCase):
 
     def setUp(self):
         bliss.load_cfg_fromstring(config_xml)
@@ -46,19 +45,22 @@ class TestMockupController(unittest.TestCase):
         self.assertTrue(robz)
 
     def test_custom_attribute_read(self):
+        roby = bliss.get_axis("roby")
         robz = bliss.get_axis("robz")
-        # print robz.dial()
-        self.assertAlmostEquals(robz.get_cust_attr_float(), 3.14, places=4)
-        robz.set_cust_attr_float(7.20)
-        self.assertAlmostEquals(robz.get_cust_attr_float(), 7.20, places=4)
 
-#    def test_custom_attribute_rw(self):
-#        robz = bliss.get_axis("robz")
-#        self.assertEqual(robz.voltage, 220)
-#        robz.voltage = 380
-#        self.assertEqual(robz.voltage, 380)
-#        robz.voltage = 220
-#        self.assertEqual(robz.voltage, 220)
+        #ohh = robz.dial()
+        #ohh = roby.dial()
+
+        self.assertAlmostEquals(roby.get_cust_attr_float(), 6.28, places=3)
+        self.assertAlmostEquals(robz.get_cust_attr_float(), 3.14, places=3)
+
+    def test_custom_attribute_rw(self):
+        robz = bliss.get_axis("robz")
+        self.assertEqual(robz.get_voltage(), 220)
+        robz.set_voltage(380)
+        self.assertEqual(robz.get_voltage(), 380)
+        robz.set_voltage(220)
+        self.assertEqual(robz.get_voltage(), 220)
 
 
 if __name__ == '__main__':

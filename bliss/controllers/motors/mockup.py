@@ -3,7 +3,7 @@ from bliss.common import log as elog
 from bliss.common.axis import AxisState
 from bliss.common import event
 from bliss.controllers.motor import axis_method, add_axis_method
-from bliss.controllers.motor import add_axis_attribute
+from bliss.controllers.motor import axis_attribute_get, axis_attribute_set
 
 import math
 import time
@@ -92,24 +92,11 @@ class Mockup(Controller):
 
         event.connect(axis, "move_done", set_pos)
 
+        self.__voltages[axis] = int(axis.config.get("default_voltage"))
+        self.__cust_attr_float[axis] = float(axis.config.get("default_cust_attr"))
+
         # this is to test axis are initialized only once
         axis.settings.set('init_count', axis.settings.get('init_count') + 1)
-
-        add_axis_attribute(axis,
-                           name="voltage",
-                           fget=self.get_voltage,
-                           fset=self.set_voltage,
-                           type_info="int")
-
-        add_axis_attribute(axis,
-                           name="cust_attr_float",
-                           fget=self.get_cust_attr_float,
-                           fset=self.set_cust_attr_float,
-                           type_info='float')
-
-        add_axis_attribute(axis, self.custom_get_measured_noise,
-                           self.custom_set_measured_noise, name='Measured_Noise',
-                           type_info="float")
 
         if axis.encoder:
             self.__encoders.setdefault(axis.encoder, {})["axis"] = axis
@@ -415,15 +402,19 @@ class Mockup(Controller):
     """
     Custom attributes methods
     """
+    @axis_attribute_get(type_info="int")
     def get_voltage(self, axis):
-        return self.__voltages.setdefault(axis, 220)
+        return self.__voltages.setdefault(axis, 10000)
 
+    @axis_attribute_set(type_info="int")
     def set_voltage(self, axis, voltage):
         self.__voltages[axis] = voltage
 
+    @axis_attribute_get(type_info="float")
     def get_cust_attr_float(self, axis):
-        return self.__cust_attr_float.setdefault(axis, 3.14)
+        return self.__cust_attr_float.setdefault(axis, 9.999)
 
+    @axis_attribute_set(type_info="float")
     def set_cust_attr_float(self, axis, value):
         self.__cust_attr_float[axis] = value
 

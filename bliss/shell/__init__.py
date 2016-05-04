@@ -26,7 +26,9 @@ def set_setup_file(session_id, setup_file, config_objects_names):
         config_objects_names = config_objects_names.split()
     SETUP[session_id] = dict(file=os.path.abspath(os.path.expanduser(setup_file)), config_objects=config_objects_names)
 
-def read_config(config_file=SHELL_CONFIG_FILE):
+def read_config(config_file=None):
+    if config_file is None:
+        config_file = SHELL_CONFIG_FILE
     if not config_file:
         return
     with file(config_file, "r") as f:
@@ -36,7 +38,7 @@ def read_config(config_file=SHELL_CONFIG_FILE):
             setup_file = cfg[session_id]["setup-file"]
             if not os.path.isabs(setup_file):
                 setup_file = os.path.join(os.path.dirname(os.path.abspath(config_file)), setup_file)
-            set_setup_file(session_id, setup_file, cfg[session_id].get("config_objects"))
+            set_setup_file(str(session_id), setup_file, cfg[session_id].get("config_objects"))
             try:
                 synoptic_file = cfg[session_id]["synoptic"]["svg-file"]
             except KeyError:
@@ -44,5 +46,5 @@ def read_config(config_file=SHELL_CONFIG_FILE):
             else:
                 if not os.path.isabs(synoptic_file):
                     synoptic_file = os.path.join(os.path.dirname(os.path.abspath(config_file)), synoptic_file)
-                set_synoptic_file(session_id, synoptic_file, cfg[session_id]["synoptic"]["elements"])
+                set_synoptic_file(str(session_id), synoptic_file, cfg[session_id]["synoptic"]["elements"])
     return SETUP, SYNOPTIC

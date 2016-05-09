@@ -1,8 +1,17 @@
 from __future__ import absolute_import
 
 def create_objects_from_config_node(config, item_cfg_node):
-    module = __import__('bliss.controllers.%s' % item_cfg_node['class'], fromlist=[None])
-    klass = getattr(module, item_cfg_node['class'])
+    try:
+        module = __import__('bliss.controllers.%s' % item_cfg_node['class'], fromlist=[None])
+    except ImportError:         # try in file in lower case
+        module = __import__('bliss.controllers.%s' % item_cfg_node['class'].lower(), fromlist=[None])
+    klass_name = item_cfg_node['class']
+    try:
+        klass = getattr(module, klass_name)
+    except AttributeError:      # try with camelcase
+        klass_name = ''.join((x.capitalize() for x in klass_name.split('_')))
+        klass = getattr(module, klass_name)
+        
     item_name = item_cfg_node["name"]
     referenced_objects = dict()
     for name, value in item_cfg_node.iteritems():

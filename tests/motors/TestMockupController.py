@@ -210,7 +210,8 @@ class TestMockupController(unittest.TestCase):
 
     def test_axis_init(self):
         robz = bliss.get_axis("robz")
-        ohhh  = robz.dial()
+        # init_count is set in initialize_axis
+        ohhhy = robz.dial()
         self.assertEqual(robz.settings.get("init_count"), 1)
 
     def test_stop(self):
@@ -330,7 +331,6 @@ class TestMockupController(unittest.TestCase):
 
     def test_custom_method(self):
         roby = bliss.get_axis("roby")
-        ohhhh = roby.dial()
         roby.Set_Closed_Loop(True)
         roby.Set_Closed_Loop(False)
         roby.Set_Closed_Loop()

@@ -68,7 +68,8 @@ class TestSettings(unittest.TestCase):
 
     def test_setting_get(self):
         robz = bliss.get_axis("robz")
-        ohhhh = robz.dial()
+        # init_count is set in initialize_axis
+        ohhhz = robz.dial()
         self.assertEquals(robz.settings.get("init_count"), 11)
 
     def tearDown(self):

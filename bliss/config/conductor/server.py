@@ -523,10 +523,6 @@ def main():
     print "[beacon] configuration path:", _options.db_path
     tcp.listen(512)        # limit to 512 clients
 
-    #web application
-    if _options.webapp_port > 0:
-        start_webserver(_options.webapp_port, beacon_port)
-
     #Tango databaseds
     if _options.tango_port > 0:
         print '[TANGO] Database started on port:',_options.tango_port
@@ -543,6 +539,10 @@ def main():
             os.close(tango_wp)
     else:
         tango_rp = None
+
+    #web application
+    if _options.webapp_port > 0:
+        start_webserver(_options.webapp_port, beacon_port)
 
     #start redis
     rp,wp = os.pipe()

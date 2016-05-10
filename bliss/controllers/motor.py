@@ -83,7 +83,7 @@ def add_axis_attribute(axis_object, method, name=None, fget=None, fset=None, arg
         elif fset:
             cust_attr_dict[name] = (type_info, "w")
         else:
-            print "oh louche ca..."
+            raise RuntimeError("impossible case: must have fget or fset...")
 
 
 """

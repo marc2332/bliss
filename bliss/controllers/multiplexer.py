@@ -6,19 +6,19 @@ from collections import OrderedDict
 
 class Output:
     class Node:
-        def __init__(self,opiomId,register,shift,mask,value,parentNode) :
-            self.__opiomId = opiomId
+        def __init__(self,board,register,shift,mask,value,parentNode) :
+            self.__board = board
             self.__register = register.upper()
-            shift = int(shift)
-            self.__mask = int(mask,16) << shift
-            self.__value = int(value) << shift
+            shift = shift
+            self.__mask = mask << shift
+            self.__value = value << shift
             self.__parent = parentNode
 
-        def switch(self,opioms,synchronous) :
+        def switch(self,synchronous) :
             if self.__parent:
-                self.__parent.switch(opioms,False)
+                self.__parent.switch(False)
 
-            op = opioms[self.__opiomId]
+            op = self.__board
             cmd = '%s 0x%x 0x%x' % (self.__register,self.__value,self.__mask)
             if synchronous:
                 op.comm_ack(cmd)
@@ -30,17 +30,24 @@ class Output:
             if self.__parent:
                 activeFlag = self.__parent.isActive(opiom_registers)
 
-            registerValue = opiom_registers[self.__opiomId][self.__register]
+            registerValue = opiom_registers[self.__board][self.__register]
             return activeFlag and ((registerValue & self.__mask) == self.__value)
 
-    def __init__(self,multiplex,name='',**keys) :
-        self.__multiplex = multiplex
-        self.__name = name
-        self.__nodes = {}
-        self.__build_values(**keys)
+    def __init__(self,multiplex,config_dict) :
+        config = OrderedDict(config_dict)
 
-    def name(self) :
+        self.__multiplex = multiplex
+        self.__name = config.pop('label')
+        self.__comment = config.pop('comment','')
+        self.__nodes = OrderedDict()
+
+        self.__build_values(config)
+
+    def name(self):
         return self.__name
+    
+    def comment(self) :
+        return self.__comment
 
     def getSwitchList(self) :
         return self.__nodes.keys()
@@ -52,72 +59,66 @@ class Output:
         except KeyError:
             raise ValueError(switchValue)
 
-        node.switch(self.__multiplex._opioms,synchronous)
+        node.switch(synchronous)
 
     def getStat(self,opiom_register) :
         for key,node in self.__nodes.iteritems() :
             if node.isActive(opiom_register) :
                 return key
+    
+    def __build_values(self,config,parentNode = None) :
+        cfg = dict()
+        for key in ('board','register','shift','mask') :
+            value = config.pop(key,None)
+            if value is None:
+                raise RuntimeError("multiplexer: doesn't have '%s' keyword defined for %s switch" % (key,self.__comment or self.__name))
+            cfg[key] = value
 
-    def __build_values(self,opiomId = 0,register = '',shift = '0',
-                       mask = '0',chained_value = '0',parentNode = None,**configDict) :
-        for key,values in configDict.iteritems() :
-            key = key.upper()
-            if key.startswith('OPIOM') :
-                if register:
-                    nextParentNode = Output.Node(opiomId,register,shift,
-                                             mask,chained_value,parentNode)
-                else:
-                    nextParentNode = parentNode
-                self.__build_values(opiomId = getOpiomId(key),parentNode = nextParentNode,**values)
-            else:
-                self.__nodes[key] = Output.Node(opiomId,register,shift,mask,
-                                                values,parentNode)
-class Multiplexer:
-    SAVED_STATS_KEY = "saved stats"
-    def __init__(self,configFile) :
-        self._opioms = {}
-        self.__outputs = {}
+        board = self.__multiplex._boards.get(cfg['board'])
+        if board is None:
+            raise RuntimeError("multiplexer: can't find the board %s in config" % cfg['board'])
+        
+        register= cfg['register']
+        shift= cfg['shift']
+        mask= cfg['mask']
+        chain= config.pop('chain',None) # check if chained
 
-        if not os.path.isfile(configFile):
-            self.__configFilePath= "%s/%s"%(OPIOM_BASE_PATH, configFile)
-        else:
-            self.__configFilePath= configFile
-
-        config = ConfigDict.ConfigDict(filelist=[self.__configFilePath])
         for key,value in config.iteritems() :
             key = key.upper()
-            if key.startswith('OPIOM') :
-                self._opioms[getOpiomId(key)] = OpiomComm(**value)
-            else:
-                self.__outputs[key] = Output(self,**value)
+            self.__nodes[key] = Output.Node(board,register,shift,mask,value,parentNode)
 
-        basepath,configFilename = os.path.split(self.__configFilePath)
-        basefilename,ext = os.path.splitext(configFilename)
-        self.__statFilePath = os.path.join(basepath,"%s_saved_stats%s" % (basefilename,ext))
-        statConfig = ConfigDict.ConfigDict(filelist=[self.__statFilePath])
-        self.__stat = {}
-        for statname,d in statConfig.get(self.SAVED_STATS_KEY,{}).iteritems() :
-            tmpDict = {}
-            for opiomId,registerValues in d.iteritems():
-                try:
-                    opiomId = int(opiomId)
-                except:
-                    continue
-                tmpDict[opiomId] = registerValues
-            self.__stat[statname] = tmpDict
+        if chain is not None:
+            value = chain.pop('chained_value')
+            parentNode = Output.Node(board,register,shift,mask,value,parentNode)
+            self.__build_values(chain,parentNode)
+            
+class Multiplexer:
+
+    def __init__(self,name,config_tree) :
+        self.name = name
+        self._boards = OrderedDict()
+        self.__outputs = OrderedDict()
+
+        all_config = static.get_config()
+        
+        for board in config_tree['boards']:
+            board_name = board.get('name')
+            self._boards[board_name] = all_config.get(board_name)
+
+        for output_config in config_tree['outputs']:
+            output = Output(self,output_config)
+            self.__outputs[output.name()] = output
+
+        self.__stat = HashObjSetting('multiplexer.%s' % name)
         self.__debug= False
 
     def setDebug(self, flag):
         self.__debug= flag is True
-        for opiom in self._opioms.itervalues():
+        for opiom in self._boards.itervalues():
             opiom.setDebug(self.__debug)
 
     def getDebug(self):
         return self.__debug
-
-    def getConfigPath(self) :
-        return [self.__configFilePath, self.__statFilePath]
 
     def getOutputList(self) :
         return self.__outputs.keys()
@@ -127,11 +128,11 @@ class Multiplexer:
         return self.__outputs[output_key].getSwitchList()
 
     def getKeyAndName(self) :
-        return dict([(key,output.name()) for key,output in self.__outputs.iteritems()])
+        return dict([(key,output.comment()) for key,output in self.__outputs.iteritems()])
 
     def getName(self,output_key) :
         output_key = output_key.upper()
-        return self.__outputs[output_key].name()
+        return self.__outputs[output_key].comment()
 
     def switch(self,output_key,input_key,synchronous = False):
         output_key = output_key.upper()
@@ -148,12 +149,16 @@ class Multiplexer:
             except ValueError,err:
                 raise ValueError("%s is not available for output %s" % (str(err),output_key))
 
-    def raw_com(self,message,opiomId = 1,synchronous = False) :
-        opiomId = int(opiomId)
+    def raw_com(self,message,board_name = None,synchronous = False) :
+        if board_name is None:  # take the first name in list
+            if not len(self._boards):
+                raise RuntimeError('multiplexer: no board defined for multiplexer (%s)' % self.name)
+            board_name = self._boards.keys()[0]
+            
         try:
-            opiom = self._opioms[opiomId]
+            opiom = self._boards[board_name]
         except KeyError:
-            raise ValueError("Multiplexer don't have opiom with %d id" % opiomId)
+            raise ValueError("Multiplexer don't have any board with this name (%s)" % board_name)
 
         if synchronous:
             return opiom.comm_ack(message)
@@ -166,32 +171,29 @@ class Multiplexer:
             print "Multiplexer.getOutputStat %s"%output_key
         output = self.__outputs[output_key]
         opiomRegister = {}
-        for opiomId,comm in self._opioms.iteritems() :
-            comm._ask_register_values()
-        for opiomId,comm in self._opioms.iteritems() :
-            opiomRegister[opiomId] = comm._read_register_values()
+        futures = [(b,gevent.spawn(b.registers)) for b in self._boards.values()]
+        for board,registers in futures:
+            opiomRegister[board] = registers.get()
 
         return output.getStat(opiomRegister)
 
     def storeCurrentStat(self,name) :
         opiomRegister = {}
-        for opiomId,comm in self._opioms.iteritems() :
-            comm._ask_register_values()
-        for opiomId,comm in self._opioms.iteritems() :
-            opiomRegister[opiomId] = comm._read_register_values()
+        futures = [(b,gevent.spawn(b.registers)) for b in self._boards.values()]
+        for board,registers in futures:
+            opiomRegister[board.name] = registers.get()
 
         self.__stat[name] = opiomRegister
-        self.__saveStats()
 
     def restoreStat(self,name) :
         try:
             opiomRegister = self.__stat[name]
         except KeyError:
-             raise ValueError("Multiplexer don't have the stat %s" % name)
+            raise ValueError("Multiplexer don't have the stat %s" % name)
 
-        for opiomId,reg in opiomRegister.iteritems() :
+        for board_name,reg in opiomRegister.iteritems() :
             for regName,value in reg.iteritems() :
-                self._opioms[opiomId].comm("%s 0x%x" % (regName,value))
+                self._boards[board_name].comm("%s 0x%x" % (regName,value))
 
     def rmStat(self,name) :
         try:
@@ -199,63 +201,46 @@ class Multiplexer:
         except KeyError:
             raise ValueError("Multiplexer don't have the stat %s" % name)
 
-        self.__saveStats(False)
-
     def getSavedStats(self) :
         return self.__stat.keys()
-
-    def __saveStats(self,update = True) :
-        statConfig = ConfigDict.ConfigDict(filelist=[self.__statFilePath])
-        if update:
-            try:
-                statConfig[self.SAVED_STATS_KEY].update(self.__stat)
-            except KeyError:
-                statConfig[self.SAVED_STATS_KEY] = self.__stat
-        else:
-            statConfig[self.SAVED_STATS_KEY] = self.__stat
-        statConfig.write(self.__statFilePath)
 
     def getGlobalStat(self) :
         if self.__debug:
             print "Multiplexer.getGlobalStat"
         opiomRegister = {}
-        for opiomId,comm in self._opioms.iteritems() :
-            comm._ask_register_values()
-        for opiomId,comm in self._opioms.iteritems() :
-            opiomRegister[opiomId] = comm._read_register_values()
-        outputStat = {}
+        futures = [(b,gevent.spawn(b.registers)) for b in self._boards.values()]
+        for board,registers in futures:
+            opiomRegister[board] = registers.get()
+        outputStat = dict()
         for key,output in self.__outputs.iteritems() :
             outputStat[key] = output.getStat(opiomRegister)
         return outputStat
 
     def load_program(self) :
-        for opiom in self._opioms.values() :
-            opiom.load_program()
+        futures = [gevent.spawn(b.load_program) for b in self._boards.values()]
+        gevent.joinall(futures)
 
     def getOpiomProg(self) :
         progs= {}
-        for opiomId,comm in self._opioms.iteritems() :
+        for opiomId,comm in self._boards.iteritems() :
             progs[opiomId]= comm.prog()
         return progs
 
-    def dumpOpiomSource(self, opiomId) :
-        try:
-            com= self._opioms[opiomId]
-        except KeyError:
-            raise ValueError("Multiplexer do not have opiomId %d" % opiomId)
-
-        print "OPIOMID:", opiomId
-        print "Prog.Source:"
-        print com.source()
-        print "End of Prog.Source."
-
-def getOpiomId(opiomKey) :
-    try:
-        return int(opiomKey[5:])
-    except ValueError:
-        return 0
-
-if __name__ == '__main__':
-    m = Multiplexer('example.config')
-    print m.getGlobalStat()
-
+    def dumpOpiomSource(self, board_name = None,all_board = True) :
+        if all_board:
+            boards = self._boards.values()
+        elif board_name is None:  # take the first name in list
+            if not len(self._boards):
+                raise RuntimeError('multiplexer: no board defined for multiplexer (%s)' % self.name)
+            boards = [self._boards.values()[0]]
+        else:
+            try:
+                boards= [self._boards[board_name]]
+            except KeyError:
+                raise ValueError("Multiplexer don't have any board with this name (%s)" % board_name)
+        
+        for board,source in ((b,gevent.spawn(b.source)) for b in boards):
+            print "OPIOMID:", board.name
+            print "Prog.Source:"
+            print source.get()
+            print "End of Prog.Source."

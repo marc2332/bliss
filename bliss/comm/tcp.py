@@ -99,14 +99,18 @@ class Socket:
                 self._raw_read_task.join()
                 self._raw_read_task = None
 
-        self._fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self._fd.connect((local_host, local_port))
-        self._fd.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-        self._connected = True
         self._host = local_host
         self._port = local_port
         self._data = ''
+
+        with self._lock:
+            self._fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self._fd.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+            self._fd.connect((local_host, local_port))
+            self._connected = True
+
         self._raw_read_task = gevent.spawn(self._raw_read)
+
         return True
 
     def close(self):

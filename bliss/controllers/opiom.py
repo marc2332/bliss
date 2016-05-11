@@ -134,7 +134,17 @@ class Opiom:
                 answer = self._cnx.readline('\r\n')
                 if(answer != "OK") : break
 
-
+            #waiting end programming
+            while 1:
+                stat_num = self.comm("?PSTAT")
+                self.__debugMsg("Load", stat_num)
+                try:
+                    stat,percent = stat_num.split()
+                except ValueError:
+                    stat = stat_num
+                    break
+            return stat == "DONE"
+        
     def _display_bits(self,prefix,bits) :
         for i in range(1,9) :
             print "%s%d\t" % (prefix,i),

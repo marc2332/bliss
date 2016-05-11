@@ -349,7 +349,6 @@ class CalcController(Controller):
                     "Real axis '%s` doesn't exist" % real_axis.name)
             self.reals.append(real_axis)
             event.connect(real_axis, 'position', self._calc_from_real)
-            event.connect(real_axis, 'state', self._update_state_from_real)
         self._reals_group = Group(*self.reals)
         event.connect(self._reals_group, 'move_done', self._real_move_done)
         self.pseudos = [axis for axis_name, axis in self.axes.iteritems()
@@ -410,6 +409,7 @@ class CalcController(Controller):
             axis.settings.set("state", state, write=self._write_settings)
 
     def _real_move_done(self, done):
+        self._update_state_from_real()
         if done:
             #print 'MOVE DONE'
             self._motion_control = False

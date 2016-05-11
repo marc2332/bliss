@@ -336,7 +336,7 @@ class CalcController(Controller):
 
     def initialize(self):
         for axis in self.pseudos:
-            self.get_axis(axis.name)
+            self._initialize_axis(axis)
 
     def _update_refs(self):
         Controller._update_refs(self)

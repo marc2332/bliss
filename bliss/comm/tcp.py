@@ -93,15 +93,10 @@ class Socket:
         local_port = port or self._port
         self._debug("connect(host=%s,port=%d)",local_host,local_port)
 
-        if self._connected:
-            self._fd.close()
-            if self._raw_read_task:
-                self._raw_read_task.join()
-                self._raw_read_task = None
+        self.close()
 
         self._host = local_host
         self._port = local_port
-        self._data = ''
 
         with self._lock:
             self._fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

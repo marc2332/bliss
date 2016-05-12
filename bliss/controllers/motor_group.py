@@ -30,6 +30,7 @@ class _Group(object):
         self._motions_dict = dict()
         self.__move_done = gevent.event.Event()
         self.__move_done.set()
+        self.__move_started = gevent.event.Event()
         self.__move_task = None
 
         for axis_name, axis_config in axes:
@@ -47,6 +48,10 @@ class _Group(object):
     @property
     def is_moving(self):
         return not self.__move_done.is_set()
+
+    @property
+    def is_started(self):
+        return self.__move_started.is_set()
 
     def _update_refs(self):
         config = __import__("config", globals(), locals(), [], 1)
@@ -145,8 +150,12 @@ class _Group(object):
                 except NotImplementedError:
                     for motion in motions:
                         controller.start_one(motion)
+
                 for motion in motions:
                     motion.axis._set_moving_state()
+
+                self.__move_started.set()
+
             self._handle_move(all_motions, polling_time)
 
     def _set_move_done(self, move_task):
@@ -162,6 +171,7 @@ class _Group(object):
                     sys.excepthook(*sys.exc_info())
 
         self.__move_done.set()
+        self.__move_started.clear()
         event.send(self, "move_done", True)
 
     def move(self, *args, **kwargs):
@@ -193,6 +203,7 @@ class _Group(object):
                     motion)
 
         self.__move_done.clear() 
+        self.__move_started.clear()
         self.__move_task = self._do_move(self._motions_dict, polling_time, wait=False)
         self.__move_task._being_waited = wait
         self.__move_task.link(self._set_move_done)
@@ -211,3 +222,25 @@ class _Group(object):
             self.__move_task.get()
         except gevent.GreenletExit:
             pass
+
+    def wait_start(self):
+        if not self.is_moving:
+            return
+        if self.__move_task is None:
+            # move has been started by external agent
+            return
+
+        being_waited = self.__move_task._being_waited
+        self.__move_task._being_waited = True
+
+        gevent.wait([self.__move_started, self.__move_task],count=1)
+
+        if not self.is_moving:
+            # an exception happened 
+            try:
+                self.__move_task.get()
+            except gevent.GreenletExit:
+                pass
+        else:
+            self.__move_task.being_waited = being_waited
+

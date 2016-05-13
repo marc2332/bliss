@@ -87,26 +87,29 @@ class Socket:
     def __str__(self):
         return "{0}({1}:{2})".format(self.__class__.__name__,
                                      self._host, self._port)
-
+    
+    def open(self):
+        if not self._connected:
+            self.connect()
+    
     def connect(self, host=None, port=None):
         local_host = host or self._host
         local_port = port or self._port
         self._debug("connect(host=%s,port=%d)",local_host,local_port)
 
-        if self._connected:
-            self._fd.close()
-            if self._raw_read_task:
-                self._raw_read_task.join()
-                self._raw_read_task = None
+        self.close()
 
-        self._fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self._fd.connect((local_host, local_port))
-        self._fd.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-        self._connected = True
         self._host = local_host
         self._port = local_port
-        self._data = ''
+
+        with self._lock:
+            self._fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self._fd.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+            self._fd.connect((local_host, local_port))
+            self._connected = True
+
         self._raw_read_task = gevent.spawn(self._raw_read)
+
         return True
 
     def close(self):
@@ -151,6 +154,9 @@ class Socket:
 
     @try_connect_socket
     def readline(self, eol=None, timeout=None):
+        return self._readline(eol,timeout)
+    
+    def _readline(self, eol=None, timeout=None):
         timeout_errmsg = "timeout on socket(%s, %d)" % (self._host, self._port)
         with gevent.Timeout(timeout or self._timeout,
                             SocketTimeout(timeout_errmsg)):
@@ -172,6 +178,9 @@ class Socket:
         with self._lock:
             self._sendall(msg)
 
+    def _write(self,msg,timeout=None):
+        self._sendall(msg)
+        
     @try_connect_socket
     def write_read(self, msg, write_synchro=None, size=1, timeout=None):
         with self._lock:
@@ -309,6 +318,10 @@ class Command:
         self._logger = logging.getLogger(self.__class__.__name__)
         self._debug = self._logger.debug
 
+    def open(self):
+        if not self._connected:
+            self.connect()
+        
     def connect(self, host=None, port=None):
         local_host = host or self._host
         local_port = port or self._port

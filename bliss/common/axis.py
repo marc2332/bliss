@@ -42,7 +42,6 @@ class Axis(object):
         self.__settings = AxisSettings(self)
         self.__move_done = gevent.event.Event()
         self.__move_done.set()
-        self.__move_started = gevent.event.Event()
         self.__custom_methods_list = list()
         self.__custom_attributes_list = list()
         self.__move_task = None
@@ -67,10 +66,6 @@ class Axis(object):
     @property
     def is_moving(self):
         return not self.__move_done.is_set()
-
-    @property
-    def is_started(self):
-        return self.__move_started.is_set()
 
     @property
     def _hw_control(self):
@@ -515,7 +510,6 @@ class Axis(object):
 
     def _set_moving_state(self, from_channel=False):
         self.__move_done.clear()
-        self.__move_started.clear()
         if from_channel:
             self.__move_task = None
         self.settings.set("state", AxisState("MOVING"), write=not from_channel)
@@ -538,7 +532,6 @@ class Axis(object):
             # final position ok for waiters on move done event
             self._update_settings(state=self.state(read_hw=True))
         self.__move_done.set()
-        self.__move_started.clear()
         event.send(self, "move_done", True)
 
     def _check_ready(self):
@@ -560,6 +553,7 @@ class Axis(object):
         self._set_moving_state()
         self.__move_task._being_waited = wait
         self.__move_task.link(self._set_move_done)
+        gevent.sleep(0)
 
         if wait:
             self.wait_move()
@@ -578,8 +572,6 @@ class Axis(object):
 
         with error_cleanup(self._do_stop):
             self.__controller.start_one(motion)
-            
-            self.__move_started.set()
 
             self._handle_move(motion, polling_time)
 
@@ -589,27 +581,6 @@ class Axis(object):
     def rmove(self, user_delta_pos, wait=True, polling_time=DEFAULT_POLLING_TIME):
         elog.debug("user_delta_pos=%g  wait=%r" % (user_delta_pos, wait))
         return self.move(user_delta_pos, wait, relative=True, polling_time=polling_time)
-
-    def wait_start(self):
-        if not self.is_moving:
-            return
-        if self.__move_task is None:
-            # move has been started by external agent
-            return
-
-        being_waited = self.__move_task._being_waited
-        self.__move_task._being_waited = True
-
-        gevent.wait([self.__move_started, self.__move_task],count=1)
-
-        if not self.is_moving:
-            # an exception happened 
-            try:
-                self.__move_task.get()
-            except gevent.GreenletExit:
-                pass
-        else:
-            self.__move_task.being_waited = being_waited 
 
     def wait_move(self):
         if not self.is_moving:

@@ -439,29 +439,6 @@ class TestMockupController(unittest.TestCase):
         except:
             self.assertEquals(m0.state(), "READY")
 
-    def test_wait_start(self):
-        m0 = bliss.get_axis("m0")
-        m0.position(0)
-        m0.move(1) #this is to make sure start_time exists
-        m0.move(5,wait=False)
-        t0_old=m0.start_time
-        m0.wait_start()
-        self.assertTrue(m0.is_started)
-        self.assertNotEquals(t0_old,m0.start_time)
-        m0.wait_move()
-        self.assertFalse(m0.is_started)
-        self.assertAlmostEquals(m0.position(), 5, places=4)
-        try:
-            m0.controller.set_error(True)
-            m0.move(8,wait=False)
-            t0_old=m0.start_time
-            self.assertRaises(RuntimeError, m0.wait_start)
-            self.assertFalse(m0.is_started)
-            self.assertEquals(t0_old,m0.start_time)
-            self.assertEquals(m0.state(), "READY")
-        finally:
-            m0.controller.set_error(False)
-
     def test_hardware_limits(self):
         m = bliss.get_axis("roby")
         m.dial(0);m.position(0)

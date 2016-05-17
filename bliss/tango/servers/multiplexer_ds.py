@@ -1,166 +1,102 @@
 import sys
 import PyTango
-from bliss.controllers import multiplexer
+from PyTango import GreenMode
+from PyTango.server import Device, DeviceMeta
+from PyTango.server import device_property
+from PyTango.server import attribute, command
+from bliss.config import static
 
-class Multiplexer(PyTango.Device_4Impl) :
-    def __init__(self,*args) :
-        PyTango.Device_4Impl.__init__(self,*args)
+class Multiplexer(Device):
+    __metaclass__ = DeviceMeta
+    multiplexer_name = device_property(dtype='str')
+    
+    def __init__(self,*args,**kwargs) :
+        Device.__init__(self,*args,**kwargs)
         self.__multiplexer = None
         self.init_device()
 
     def init_device(self) :
+        Device.init_device(self)
         self.set_state(PyTango.DevState.FAULT)
         self.get_device_properties(self.get_device_class())
-        self.__multiplexer = multiplexer.Multiplexer(self.ConfigFile)
+        config = static.get_config()
+        self.__multiplexer = config.get(self.multiplexer_name)
         self.__multiplexer.load_program()
         self.set_state(PyTango.DevState.ON)
 
-    def read_outputs(self,attr) :
-        attr.set_value(self.__multiplexer.getOutputList())
+    @attribute(dtype=('str',),max_dim_x=1024,label='Output list')
+    def outputs(self) :
+        return self.__multiplexer.getOutputList()
 
-    def read_outputs_status(self,attr) :
+    @attribute(dtype=('str',),max_dim_x=2048,label='Output status')
+    def outputs_status(self) :
         returnList = []
         for item in self.__multiplexer.getGlobalStat().iteritems() :
             returnList.extend(item)
-        attr.set_value(returnList)
+        return returnList
 
-    def read_outputs_key_name(self,attr) :
+    @attribute(dtype=('str',),max_dim_x=2048,label='Output key and name')
+    def outputs_key_name(self) :
         returnList = []
         for item in self.__multiplexer.getKeyAndName().iteritems():
             returnList.extend(item)
-        attr.set_value(returnList)
+        return returnList
 
-    def read_config_path(self,attr) :
-        attr.set_value(self.__multiplexer.getConfigPath())
-        
-
-    def read_opiom_prog(self,attr) :
+    @attribute(dtype=('str',),max_dim_x=32,label='Opiom programs')
+    def opiom_prog(self) :
         returnList = []
-        print self.__multiplexer.getOpiomProg()
         for id,val in self.__multiplexer.getOpiomProg().iteritems():
-            returnList.append("%d : %s"%(id,val))
-        attr.set_value(returnList)
+            returnList.append("%s : %s"%(id,val))
+        return returnList
 
-    def read_debug(self,attr) :
-        attr.set_value(self.__multiplexer.getDebug())
+    @attribute(dtype=bool,label='Debug flag')
+    def debug(self) :
+        return self.__multiplexer.getDebug()
 
-    def write_debug(self,attr) :
-        data= attr.get_write_value()
-        self.__multiplexer.setDebug(data)
+    @debug.setter
+    def debug(self,flag) :
+        self.__multiplexer.setDebug(flag)
 
+    @command(dtype_in=('str',))
     def switch(self,values) :
         self.__multiplexer.switch(*values)
 
+    @command(dtype_in=('str',),dtype_out='str')
     def raw_com(self,values):
         return self.__multiplexer.raw_com(*values) or ""
-    
+
+    @command(dtype_in='str',dtype_out=('str',))
     def getPossibleOutputValues(self,output_key) :
         return self.__multiplexer.getPossibleValues(output_key)
 
+    @command(dtype_in='str',dtype_out='str')
     def getOutputStat(self,output_key) :
         return self.__multiplexer.getOutputStat(output_key)
-    
+
+    @command(dtype_in='str')
     def storeCurrentStat(self,stat) :
         self.__multiplexer.storeCurrentStat(stat)
 
+    @command(dtype_in='str')
     def restoreStat(self,stat) :
         self.__multiplexer.restoreStat(stat)
 
+    @command(dtype_out=('str',))
     def getSavedStats(self):
         return self.__multiplexer.getSavedStats()
 
+    @command(dtype_in='str')
     def removeSavedStat(self,stat) :
         self.__multiplexer.rmStat(stat)
 
-    def dumpOpiomSource(self,opiomId) :
-        self.__multiplexer.dumpOpiomSource(opiomId)
-
-        
-class MultiplexerClass(PyTango.DeviceClass) :
-    #    Class Properties
-    class_property_list = {
-        }
-
-
-    #    Device Properties
-    device_property_list = {
-        'ConfigFile' :
-        [PyTango.DevString,
-         "Multiplexer configuration file",[]],
-        }
-
-    #    Command definitions
-    cmd_list = {
-        'switch':
-        [[PyTango.DevVarStringArray,"output_key input_key synchronous"],
-         [PyTango.DevVoid,""]],
-        'raw_com':
-        [[PyTango.DevVarStringArray,"message opiomId synchronous"],
-         [PyTango.DevString,"result"]],
-        'getPossibleOutputValues':
-        [[PyTango.DevString,"output_key"],
-         [PyTango.DevVarStringArray,"possible output values"]],
-        'getOutputStat':
-        [[PyTango.DevString,"output_key"],
-         [PyTango.DevString,"output_value"]],
-        'getSavedStats':
-        [[PyTango.DevVoid,""],
-         [PyTango.DevVarStringArray,"saved stats"]],
-        'removeSavedStat':
-        [[PyTango.DevString,"stat_name"],
-         [PyTango.DevVoid,""]],
-        'storeCurrentStat':
-        [[PyTango.DevString,"stat_name"],
-         [PyTango.DevVoid,'']],
-        'restoreStat':
-        [[PyTango.DevString,"stat_name"],
-         [PyTango.DevVoid,'']],
-        'dumpOpiomSource':
-        [[PyTango.DevShort,"opiomid"],
-         [PyTango.DevVoid,'']]
-        }
-
-    #    Attribute definitions
-    attr_list = {
-        'outputs' :
-        [[PyTango.DevString,
-          PyTango.SPECTRUM,
-          PyTango.READ,1024]],
-        'outputs_status' :
-        [[PyTango.DevString,
-          PyTango.SPECTRUM,
-          PyTango.READ,2048]],
-        'outputs_key_name' :
-        [[PyTango.DevString,
-          PyTango.SPECTRUM,
-          PyTango.READ,2048]],
-        'config_path' :
-        [[PyTango.DevString,
-          PyTango.SPECTRUM,
-          PyTango.READ,2]],
-        'opiom_prog' :
-        [[PyTango.DevString,
-          PyTango.SPECTRUM,
-          PyTango.READ,32]],
-        'debug' :
-        [[PyTango.DevBoolean,
-          PyTango.SCALAR,
-          PyTango.READ_WRITE]],
-        }
- 
+    @command
+    def dumpOpiomSource(self) :
+        self.__multiplexer.dumpOpiomSource()
     
-def main() :
-    try:
-        py = PyTango.Util(sys.argv)
-        py.add_TgClass(MultiplexerClass,Multiplexer,'Multiplexer')
-        U = PyTango.Util.instance()
-        U.server_init()
-        U.server_run()
-    except PyTango.DevFailed,e:
-        print '-------> Received a DevFailed exception:',e
-    except Exception,e:
-        print '-------> An unforeseen exception occured....',e
-
+def main(args=None,**kwargs) :
+    from PyTango.server import run
+    kwargs['green_mode'] = kwargs.get('green_mode', GreenMode.Gevent)
+    return run((Multiplexer,),args=args,**kwargs)
 
 if __name__ == '__main__':
     main()

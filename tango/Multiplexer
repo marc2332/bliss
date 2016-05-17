@@ -1,7 +1,12 @@
-#!/usr/bin/env bash
+#!/usr/bin/env python
 
-. blissrc
+import sys
 
-bash_path=${BLISSADM}/server/src/Multiplexer_src
-cd $bash_path
-exec python Multiplexer.py $*
+sys.argv[0] = "Multiplexer"
+
+if len(sys.argv) == 1:
+    # no args ? -> I add "-?" to show defined instances.
+    sys.argv.append("-?")
+
+from bliss.tango.servers.multiplexer_ds import main
+main()

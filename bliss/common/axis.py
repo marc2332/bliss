@@ -418,7 +418,9 @@ class Axis(object):
             self.__controller.prepare_move(backlash_motion)
             self.__controller.start_one(backlash_motion)
             self._handle_move(backlash_motion, polling_time)
-
+        elif self.encoder is not None:
+            self._do_encoder_reading()
+            
     def _handle_sigint(self):
         self.stop(KeyboardInterrupt)
 
@@ -548,12 +550,16 @@ class Axis(object):
         self._check_ready()
 
         motion = self.prepare_move(user_target_pos, relative)
+        if motion is None:
+            return
 
-        self.__move_task = self._do_move(motion, polling_time, wait=False)
+        with error_cleanup(self._do_stop):
+            self.__controller.start_one(motion)
+        
+        self.__move_task = self._do_handle_move(motion, polling_time,wait=False)
         self._set_moving_state()
         self.__move_task._being_waited = wait
         self.__move_task.link(self._set_move_done)
-        gevent.sleep(0)
 
         if wait:
             self.wait_move()
@@ -566,17 +572,9 @@ class Axis(object):
                                (self.name, enc_dial, curr_pos))
 
     @task
-    def _do_move(self, motion, polling_time):
-        if motion is None:
-            return
-
+    def _do_handle_move(self, motion, polling_time):
         with error_cleanup(self._do_stop):
-            self.__controller.start_one(motion)
-
             self._handle_move(motion, polling_time)
-
-        if self.encoder is not None:
-            self._do_encoder_reading()
 
     def rmove(self, user_delta_pos, wait=True, polling_time=DEFAULT_POLLING_TIME):
         elog.debug("user_delta_pos=%g  wait=%r" % (user_delta_pos, wait))
@@ -608,8 +606,6 @@ class Axis(object):
         finally:
             self.settings.set("_set_position", self.position())
 
-            if self.encoder is not None:
-                self._do_encoder_reading()
 
     @lazy_init
     def stop(self, exception=gevent.GreenletExit, wait=True):

@@ -618,7 +618,8 @@ class Axis(object):
     def home(self, switch=1, wait=True):
         self._check_ready()
 
-        self.__move_task = self._do_home(switch, wait=False)
+        self.__controller.home_search(self, switch)
+        self.__move_task = self._wait_home(switch, wait=False)
         self._set_moving_state()
         self.__move_task._being_waited = wait
         self.__move_task.link(self._set_move_done)
@@ -627,10 +628,9 @@ class Axis(object):
             self.wait_move()
 
     @task
-    def _do_home(self, switch):
+    def _wait_home(self, switch):
         with cleanup(self.sync_hard):
             with error_cleanup(self._do_stop):
-                self.__controller.home_search(self, switch)
                 while True:
                     state = self.__controller.home_state(self)
                     if state != "MOVING":
@@ -648,20 +648,19 @@ class Axis(object):
         limit = int(limit)
         self._check_ready()
 
-        self.__move_task = self._do_limit_search(limit, wait=False)
+        self.__controller.limit_search(self, limit)
+        self.__move_task = self._wait_limit_search(limit, wait=False)
         self._set_moving_state()
         self.__move_task._being_waited = wait
         self.__move_task.link(self._set_move_done)
-        # gevent.sleep(0)
 
         if wait:
             self.wait_move()
 
     @task
-    def _do_limit_search(self, limit):
+    def _wait_limit_search(self, limit):
         with cleanup(self.sync_hard):
             with error_cleanup(self._do_stop):
-                self.__controller.limit_search(self, limit)
                 while True:
                     state = self.__controller.state(self)
                     if state != "MOVING":

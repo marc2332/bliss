@@ -191,11 +191,10 @@ class TestMockupController(unittest.TestCase):
 
         for i in range(250):
             self.assertEqual(robz.state(), "READY")
-            robz.move(180, wait=False)
+            robz.move((i+1)*2, wait=False)
             self.assertEqual(robz.state(), "MOVING")
             robz.wait_move() 
             self.assertEqual(robz.state(), "READY")
-            time.sleep(0.0001)
 
     def test_axis_init(self):
         robz = bliss.get_axis("robz")

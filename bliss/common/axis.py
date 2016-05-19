@@ -608,9 +608,9 @@ class Axis(object):
 
 
     @lazy_init
-    def stop(self, exception=gevent.GreenletExit, wait=True):
+    def stop(self, wait=True):
         if self.is_moving:
-            self.__move_task.kill(exception, block=False)
+            self._do_stop()
             if wait:
                 self.wait_move()
 

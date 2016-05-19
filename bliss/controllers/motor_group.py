@@ -74,13 +74,13 @@ class _Group(object):
 
         return grp_state
 
-    def stop(self, exception=gevent.GreenletExit, wait=True):
+    def stop(self, wait=True):
         if self.is_moving:
-            self.__move_task.kill(exception, block=False)
+            self._do_stop(wait=False)
             if wait:
                 self.wait_move()
 
-    def _do_stop(self):
+    def _do_stop(self,wait=True):
         all_motions = []
         for controller, motions in self._motions_dict.iteritems():
             all_motions.extend(motions)
@@ -95,8 +95,9 @@ class _Group(object):
                         motion.axis._stop_loop()
                     except Exception:
                         sys.excepthook(*sys.exc_info())
-        for motion in all_motions:
-            motion.axis.wait_move()
+        if wait:
+            for motion in all_motions:
+                motion.axis.wait_move()
 
     def position(self):
         positions_dict = dict()

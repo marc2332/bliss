@@ -80,21 +80,33 @@ class _Group(object):
             if wait:
                 self.wait_move()
 
+    def _stop_one_controller_motions(self,controller,motions):
+        try:
+            controller.stop_all(*motions)
+        except NotImplementedError:
+            for motion in motions:
+                motion.axis.stop(wait=False)
+        else:
+            for motion in motions:
+                try:
+                    motion.axis._stop_loop()
+                except Exception:
+                    sys.excepthook(*sys.exc_info())
+        
     def _do_stop(self,wait=True):
         all_motions = []
-        for controller, motions in self._motions_dict.iteritems():
-            all_motions.extend(motions)
-            try:
-                controller.stop_all(*motions)
-            except NotImplementedError:
-                for motion in motions:
-                    motion.axis.stop(wait=False)
-            else:
-                for motion in motions:
-                    try:
-                        motion.axis._stop_loop()
-                    except Exception:
-                        sys.excepthook(*sys.exc_info())
+        if len(self._motions_dict) == 1:
+            for controller, motions in self._motions_dict.iteritems():
+                all_motions.extend(motions)
+                self._stop_one_controller_motions(controller,motions)
+        else:
+            controller_tasks = list()
+            for controller, motions in self._motions_dict.iteritems():
+                all_motions.extend(motions)
+                controller_tasks.append(gevent.spawn(self._stop_one_controller_motions,
+                                                    controller,motions))
+            gevent.joinall(controller_tasks)
+
         if wait:
             for motion in all_motions:
                 motion.axis.wait_move()
@@ -133,20 +145,31 @@ class _Group(object):
     def _reset_motions_dict(self):
         self._motions_dict = dict()
 
+    def _start_one_controller_motions(self,controller,motions):
+        try:
+            controller.start_all(*motions)
+        except NotImplementedError:
+            for motion in motions:
+                controller.start_one(motion)
+        for motion in motions:
+            motion.axis._set_moving_state()
+
     def _start_motion(self, motions_dict):
         all_motions = []
         event.send(self, "move_done", False)
 
-        with error_cleanup(self._do_stop): 
-            for controller, motions in motions_dict.iteritems():
-                all_motions.extend(motions)
-                try:
-                    controller.start_all(*motions)
-                except NotImplementedError:
-                    for motion in motions:
-                        controller.start_one(motion)
-                for motion in motions:
-                    motion.axis._set_moving_state()
+        with error_cleanup(self._do_stop):
+            if(len(motions_dict) == 1): # only one controller for the motion
+                for controller, motions in motions_dict.iteritems():
+                    all_motions.extend(motions)
+                    self._start_one_controller_motions(controller,motions)
+            else:               # parallel start
+                controller_tasks = list()
+                for controller, motions in motions_dict.iteritems():
+                    all_motions.extend(motions)
+                    controller_tasks.append(gevent.spawn(self._start_one_controller_motions,
+                                                         controller,motions))
+                gevent.joinall(controller_tasks)
         return all_motions
 
     def _set_move_done(self, move_task):

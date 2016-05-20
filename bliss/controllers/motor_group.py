@@ -30,7 +30,6 @@ class _Group(object):
         self._motions_dict = dict()
         self.__move_done = gevent.event.Event()
         self.__move_done.set()
-        self.__move_started = gevent.event.Event()
         self.__move_task = None
 
         for axis_name, axis_config in axes:
@@ -48,10 +47,6 @@ class _Group(object):
     @property
     def is_moving(self):
         return not self.__move_done.is_set()
-
-    @property
-    def is_started(self):
-        return self.__move_started.is_set()
 
     def _update_refs(self):
         config = __import__("config", globals(), locals(), [], 1)
@@ -79,29 +74,42 @@ class _Group(object):
 
         return grp_state
 
-    def stop(self, exception=gevent.GreenletExit, wait=True):
+    def stop(self, wait=True):
         if self.is_moving:
-            self.__move_task.kill(exception, block=False)
+            self._do_stop(wait=False)
             if wait:
                 self.wait_move()
 
-    def _do_stop(self):
+    def _stop_one_controller_motions(self,controller,motions):
+        try:
+            controller.stop_all(*motions)
+        except NotImplementedError:
+            for motion in motions:
+                motion.axis.stop(wait=False)
+        else:
+            for motion in motions:
+                try:
+                    motion.axis._stop_loop()
+                except Exception:
+                    sys.excepthook(*sys.exc_info())
+        
+    def _do_stop(self,wait=True):
         all_motions = []
-        for controller, motions in self._motions_dict.iteritems():
-            all_motions.extend(motions)
-            try:
-                controller.stop_all(*motions)
-            except NotImplementedError:
-                for motion in motions:
-                    motion.axis.stop(wait=False)
-            else:
-                for motion in motions:
-                    try:
-                        motion.axis._stop_loop()
-                    except Exception:
-                        sys.excepthook(*sys.exc_info())
-        for motion in all_motions:
-            motion.axis.wait_move()
+        if len(self._motions_dict) == 1:
+            for controller, motions in self._motions_dict.iteritems():
+                all_motions.extend(motions)
+                self._stop_one_controller_motions(controller,motions)
+        else:
+            controller_tasks = list()
+            for controller, motions in self._motions_dict.iteritems():
+                all_motions.extend(motions)
+                controller_tasks.append(gevent.spawn(self._stop_one_controller_motions,
+                                                    controller,motions))
+            gevent.joinall(controller_tasks)
+
+        if wait:
+            for motion in all_motions:
+                motion.axis.wait_move()
 
     def position(self):
         positions_dict = dict()
@@ -118,17 +126,17 @@ class _Group(object):
     def single_axis_move_task(self, motion, polling_time):
         with error_cleanup(motion.axis._do_stop):
             motion.axis._handle_move(motion, polling_time)
-        if motion.axis.encoder is not None:
-            motion.axis._do_encoder_reading()
 
+    @task
     def _handle_move(self, motions, polling_time):
-        for motion in motions:
-            move_task = gevent.spawn(self.single_axis_move_task, motion, polling_time)
-            motion.axis._Axis__move_task = move_task
-            move_task._being_waited = True
-            move_task.link(motion.axis._set_move_done)
-        for motion in motions:
-            motion.axis.wait_move()
+        with error_cleanup(self._do_stop): 
+            for motion in motions:
+                move_task = gevent.spawn(self.single_axis_move_task, motion, polling_time)
+                motion.axis._Axis__move_task = move_task
+                move_task._being_waited = True
+                move_task.link(motion.axis._set_move_done)
+            for motion in motions:
+                motion.axis.wait_move()
 
     def rmove(self, *args, **kwargs):
         kwargs["relative"] = True
@@ -137,26 +145,32 @@ class _Group(object):
     def _reset_motions_dict(self):
         self._motions_dict = dict()
 
-    @task
-    def _do_move(self, motions_dict, polling_time):
+    def _start_one_controller_motions(self,controller,motions):
+        try:
+            controller.start_all(*motions)
+        except NotImplementedError:
+            for motion in motions:
+                controller.start_one(motion)
+        for motion in motions:
+            motion.axis._set_moving_state()
+
+    def _start_motion(self, motions_dict):
         all_motions = []
         event.send(self, "move_done", False)
 
-        with error_cleanup(self._do_stop): 
-            for controller, motions in motions_dict.iteritems():
-                all_motions.extend(motions)
-                try:
-                    controller.start_all(*motions)
-                except NotImplementedError:
-                    for motion in motions:
-                        controller.start_one(motion)
-
-                for motion in motions:
-                    motion.axis._set_moving_state()
-
-                self.__move_started.set()
-
-            self._handle_move(all_motions, polling_time)
+        with error_cleanup(self._do_stop):
+            if(len(motions_dict) == 1): # only one controller for the motion
+                for controller, motions in motions_dict.iteritems():
+                    all_motions.extend(motions)
+                    self._start_one_controller_motions(controller,motions)
+            else:               # parallel start
+                controller_tasks = list()
+                for controller, motions in motions_dict.iteritems():
+                    all_motions.extend(motions)
+                    controller_tasks.append(gevent.spawn(self._start_one_controller_motions,
+                                                         controller,motions))
+                gevent.joinall(controller_tasks)
+        return all_motions
 
     def _set_move_done(self, move_task):
         self._reset_motions_dict()
@@ -171,7 +185,6 @@ class _Group(object):
                     sys.excepthook(*sys.exc_info())
 
         self.__move_done.set()
-        self.__move_started.clear()
         event.send(self, "move_done", True)
 
     def move(self, *args, **kwargs):
@@ -202,12 +215,11 @@ class _Group(object):
                     axis.controller, []).append(
                     motion)
 
+        all_motions = self._start_motion(self._motions_dict)
         self.__move_done.clear() 
-        self.__move_started.clear()
-        self.__move_task = self._do_move(self._motions_dict, polling_time, wait=False)
+        self.__move_task = self._handle_move(all_motions, polling_time,wait=False)
         self.__move_task._being_waited = wait
         self.__move_task.link(self._set_move_done)
-        gevent.sleep(0)
  
         if wait:
             self.wait_move()
@@ -222,25 +234,3 @@ class _Group(object):
             self.__move_task.get()
         except gevent.GreenletExit:
             pass
-
-    def wait_start(self):
-        if not self.is_moving:
-            return
-        if self.__move_task is None:
-            # move has been started by external agent
-            return
-
-        being_waited = self.__move_task._being_waited
-        self.__move_task._being_waited = True
-
-        gevent.wait([self.__move_started, self.__move_task],count=1)
-
-        if not self.is_moving:
-            # an exception happened 
-            try:
-                self.__move_task.get()
-            except gevent.GreenletExit:
-                pass
-        else:
-            self.__move_task.being_waited = being_waited
-

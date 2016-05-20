@@ -42,7 +42,6 @@ class Axis(object):
         self.__settings = AxisSettings(self)
         self.__move_done = gevent.event.Event()
         self.__move_done.set()
-        self.__move_started = gevent.event.Event()
         self.__custom_methods_list = list()
         self.__custom_attributes_list = list()
         self.__move_task = None
@@ -67,10 +66,6 @@ class Axis(object):
     @property
     def is_moving(self):
         return not self.__move_done.is_set()
-
-    @property
-    def is_started(self):
-        return self.__move_started.is_set()
 
     @property
     def _hw_control(self):
@@ -423,7 +418,9 @@ class Axis(object):
             self.__controller.prepare_move(backlash_motion)
             self.__controller.start_one(backlash_motion)
             self._handle_move(backlash_motion, polling_time)
-
+        elif self.encoder is not None:
+            self._do_encoder_reading()
+            
     def _handle_sigint(self):
         self.stop(KeyboardInterrupt)
 
@@ -515,7 +512,6 @@ class Axis(object):
 
     def _set_moving_state(self, from_channel=False):
         self.__move_done.clear()
-        self.__move_started.clear()
         if from_channel:
             self.__move_task = None
         self.settings.set("state", AxisState("MOVING"), write=not from_channel)
@@ -538,7 +534,6 @@ class Axis(object):
             # final position ok for waiters on move done event
             self._update_settings(state=self.state(read_hw=True))
         self.__move_done.set()
-        self.__move_started.clear()
         event.send(self, "move_done", True)
 
     def _check_ready(self):
@@ -555,8 +550,13 @@ class Axis(object):
         self._check_ready()
 
         motion = self.prepare_move(user_target_pos, relative)
+        if motion is None:
+            return
 
-        self.__move_task = self._do_move(motion, polling_time, wait=False)
+        with error_cleanup(self._do_stop):
+            self.__controller.start_one(motion)
+        
+        self.__move_task = self._do_handle_move(motion, polling_time,wait=False)
         self._set_moving_state()
         self.__move_task._being_waited = wait
         self.__move_task.link(self._set_move_done)
@@ -572,44 +572,13 @@ class Axis(object):
                                (self.name, enc_dial, curr_pos))
 
     @task
-    def _do_move(self, motion, polling_time):
-        if motion is None:
-            return
-
+    def _do_handle_move(self, motion, polling_time):
         with error_cleanup(self._do_stop):
-            self.__controller.start_one(motion)
-            
-            self.__move_started.set()
-
             self._handle_move(motion, polling_time)
-
-        if self.encoder is not None:
-            self._do_encoder_reading()
 
     def rmove(self, user_delta_pos, wait=True, polling_time=DEFAULT_POLLING_TIME):
         elog.debug("user_delta_pos=%g  wait=%r" % (user_delta_pos, wait))
         return self.move(user_delta_pos, wait, relative=True, polling_time=polling_time)
-
-    def wait_start(self):
-        if not self.is_moving:
-            return
-        if self.__move_task is None:
-            # move has been started by external agent
-            return
-
-        being_waited = self.__move_task._being_waited
-        self.__move_task._being_waited = True
-
-        gevent.wait([self.__move_started, self.__move_task],count=1)
-
-        if not self.is_moving:
-            # an exception happened 
-            try:
-                self.__move_task.get()
-            except gevent.GreenletExit:
-                pass
-        else:
-            self.__move_task.being_waited = being_waited 
 
     def wait_move(self):
         if not self.is_moving:
@@ -637,13 +606,11 @@ class Axis(object):
         finally:
             self.settings.set("_set_position", self.position())
 
-            if self.encoder is not None:
-                self._do_encoder_reading()
 
     @lazy_init
-    def stop(self, exception=gevent.GreenletExit, wait=True):
+    def stop(self, wait=True):
         if self.is_moving:
-            self.__move_task.kill(exception, block=False)
+            self._do_stop()
             if wait:
                 self.wait_move()
 
@@ -651,7 +618,8 @@ class Axis(object):
     def home(self, switch=1, wait=True):
         self._check_ready()
 
-        self.__move_task = self._do_home(switch, wait=False)
+        self.__controller.home_search(self, switch)
+        self.__move_task = self._wait_home(switch, wait=False)
         self._set_moving_state()
         self.__move_task._being_waited = wait
         self.__move_task.link(self._set_move_done)
@@ -660,10 +628,9 @@ class Axis(object):
             self.wait_move()
 
     @task
-    def _do_home(self, switch):
+    def _wait_home(self, switch):
         with cleanup(self.sync_hard):
             with error_cleanup(self._do_stop):
-                self.__controller.home_search(self, switch)
                 while True:
                     state = self.__controller.home_state(self)
                     if state != "MOVING":
@@ -681,20 +648,19 @@ class Axis(object):
         limit = int(limit)
         self._check_ready()
 
-        self.__move_task = self._do_limit_search(limit, wait=False)
+        self.__controller.limit_search(self, limit)
+        self.__move_task = self._wait_limit_search(limit, wait=False)
         self._set_moving_state()
         self.__move_task._being_waited = wait
         self.__move_task.link(self._set_move_done)
-        # gevent.sleep(0)
 
         if wait:
             self.wait_move()
 
     @task
-    def _do_limit_search(self, limit):
+    def _wait_limit_search(self, limit):
         with cleanup(self.sync_hard):
             with error_cleanup(self._do_stop):
-                self.__controller.limit_search(self, limit)
                 while True:
                     state = self.__controller.state(self)
                     if state != "MOVING":

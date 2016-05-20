@@ -2,6 +2,9 @@ from .conductor import client
 import weakref
 import pickle
 
+class Null(object):
+    __slots__ = []
+
 def get_cache():
     return client.get_cache(db=0)
 
@@ -396,10 +399,16 @@ class HashSetting(object):
         return return_val
 
     @read_decorator
-    def pop(self,key):
-        cnx = self._cnx()
-        value = self.hget(self._name,key)
-        self.hdel(self._name,key)
+    def pop(self,key,default = Null()):
+        cnx = self._cnx().pipeline()
+        cnx.hget(self._name,key)
+        cnx.hdel(self._name,key)
+        (value,worked) = cnx.execute()
+        if not worked:
+            if isinstance(default,Null):
+                raise KeyError(key)
+            else:
+                value = default
         return value
     
     def remove(self,key):

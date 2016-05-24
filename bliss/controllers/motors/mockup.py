@@ -1,14 +1,15 @@
+import math
+import time
+import random
+
 from bliss.controllers.motor import Controller
 from bliss.common import log as elog
 from bliss.common.axis import AxisState
 from bliss.common import event
-from bliss.controllers.motor import axis_method, add_axis_method
-from bliss.controllers.motor import axis_attribute_get, axis_attribute_set
 
-import math
-import time
-import random
-import functools
+from bliss.common.utils import object_method
+from bliss.common.utils import object_attribute_get, object_attribute_set
+
 
 """
 mockup.py : a mockup controller for bliss.
@@ -70,8 +71,6 @@ class Mockup(Controller):
         # hardware initialization
         for axis_name, axis in self.axes.iteritems():
             axis.settings.set('init_count', 0)
-            axis.settings.set('cust_attr_float', 67.89)
-            axis.settings.set('cust_attr_bool', True)
 
             axis.__vel = None
             axis.__acc = None
@@ -343,24 +342,24 @@ class Mockup(Controller):
     Custom axis methods
     """
     # VOID VOID
-    @axis_method
+    @object_method
     def custom_park(self, axis):
         elog.debug("custom_park : parking")
         self._hw_status.clear()
         self._hw_status.set("PARKED")
 
     # VOID LONG
-    @axis_method(types_info=("None", "int"))
+    @object_method(types_info=("None", "int"))
     def custom_get_forty_two(self, axis):
         return 42
 
     # LONG LONG  + renaming.
-    @axis_method(name= "CustomGetTwice", types_info=("int", "int"))
+    @object_method(name= "CustomGetTwice", types_info=("int", "int"))
     def custom_get_twice(self, axis, LongValue):
         return LongValue * 2
 
     # STRING STRING
-    @axis_method(types_info=("str", "str"))
+    @object_method(types_info=("str", "str"))
     def custom_get_chapi(self, axis, value):
         if value == "chapi":
             return "chapo"
@@ -370,17 +369,17 @@ class Mockup(Controller):
             return "bla"
 
     # STRING VOID
-    @axis_method(types_info=("str", "None"))
+    @object_method(types_info=("str", "None"))
     def custom_send_command(self, axis, value):
         elog.debug("custom_send_command(axis=%s value=%r):" % (axis.name, value))
 
     # BOOL NONE
-    @axis_method(name="Set_Closed_Loop", types_info=("bool", "None"))
+    @object_method(name="Set_Closed_Loop", types_info=("bool", "None"))
     def _set_closed_loop(self, axis, onoff = True):
         print "I set the closed loop ", onoff
 
     # Types by default (None, None)
-    @axis_method
+    @object_method
     def custom_command_no_types(self, axis):
         print "print with no types"
 
@@ -391,7 +390,7 @@ class Mockup(Controller):
                            "doesn't have encoder" % axis.name)
         noise = self.__encoders[axis.encoder].get("measured_noise", 0.0)
 
-    @axis_method(types_info=("float", "None"))
+    @object_method(types_info=("float", "None"))
     def custom_set_measured_noise(self, axis, noise):
         """
         Custom axis method to add a random noise, given in user units,
@@ -405,23 +404,23 @@ class Mockup(Controller):
     def set_error(self, error_mode):
         self.__error_mode = error_mode
 
-
     """
     Custom attributes methods
     """
-    @axis_attribute_get(type_info="int")
+
+    @object_attribute_get(type_info="int")
     def get_voltage(self, axis):
         return self.__voltages.setdefault(axis, 10000)
 
-    @axis_attribute_set(type_info="int")
+    @object_attribute_set(type_info="int")
     def set_voltage(self, axis, voltage):
         self.__voltages[axis] = voltage
 
-    @axis_attribute_get(type_info="float")
+    @object_attribute_get(type_info="float")
     def get_cust_attr_float(self, axis):
         return self.__cust_attr_float.setdefault(axis, 9.999)
 
-    @axis_attribute_set(type_info="float")
+    @object_attribute_set(type_info="float")
     def set_cust_attr_float(self, axis, value):
         self.__cust_attr_float[axis] = value
 

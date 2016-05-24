@@ -2,7 +2,8 @@ import time
 
 from bliss.controllers.motor import Controller
 from bliss.common import log as elog
-from bliss.controllers.motor import add_axis_method
+from bliss.common.utils import object_method
+
 from bliss.common.axis import AxisState
 
 import pi_gcs
@@ -79,19 +80,19 @@ class PI_E712(Controller):
         """
         axis.channel = axis.config.get("channel", int)
 
-        add_axis_method(axis, self.check_power_cut, name = "CheckPowerCut", types_info = (None, None))
-        add_axis_method(axis, self._get_tns, name = "Get_TNS", types_info = (None, float))
-        add_axis_method(axis, self._get_tsp, name = "Get_TSP", types_info = (None, float))
-        add_axis_method(axis, self._get_sva, name = "Get_SVA", types_info = (None, float))
-        add_axis_method(axis, self._get_vol, name = "Get_VOL", types_info = (None, float))
-        add_axis_method(axis, self._get_mov, name = "Get_MOV", types_info = (None, float))
-        add_axis_method(axis, self._get_offset, name = "Get_Offset", types_info = (None, float))
-        add_axis_method(axis, self._put_offset, name = "Put_Offset", types_info = (float, None))
-        add_axis_method(axis, self._get_tad, name = "Get_TAD", types_info = (None, float))
-        add_axis_method(axis, self._get_closed_loop_status, name = "Get_Closed_Loop_Status", types_info = (None, bool))
-        add_axis_method(axis, self._set_closed_loop, name = "Set_Closed_Loop", types_info = (bool, None))
-        #add_axis_method(axis, self._get_on_target_status, name = "Get_On_Target_Status", types_info = (None, bool))
-        add_axis_method(axis, self._get_pos, name = "Get_Pos", types_info = (None, float))
+#        add_axis_method(axis, self.check_power_cut, name = "CheckPowerCut", types_info = (None, None))
+#        add_axis_method(axis, self._get_tns, name = "Get_TNS", types_info = (None, float))
+#        add_axis_method(axis, self._get_tsp, name = "Get_TSP", types_info = (None, float))
+#        add_axis_method(axis, self._get_sva, name = "Get_SVA", types_info = (None, float))
+#        add_axis_method(axis, self._get_vol, name = "Get_VOL", types_info = (None, float))
+#        add_axis_method(axis, self._get_mov, name = "Get_MOV", types_info = (None, float))
+#        add_axis_method(axis, self._get_offset, name = "Get_Offset", types_info = (None, float))
+#        add_axis_method(axis, self._put_offset, name = "Put_Offset", types_info = (float, None))
+#        add_axis_method(axis, self._get_tad, name = "Get_TAD", types_info = (None, float))
+#        add_axis_method(axis, self._get_closed_loop_status, name = "Get_Closed_Loop_Status", types_info = (None, bool))
+#        add_axis_method(axis, self._set_closed_loop, name = "Set_Closed_Loop", types_info = (bool, None))
+#        #add_axis_method(axis, self._get_on_target_status, name = "Get_On_Target_Status", types_info = (None, bool))
+#        add_axis_method(axis, self._get_pos, name = "Get_Pos", types_info = (None, float))
 
         try:
             axis.paranoia_mode = axis.config.get("paranoia_mode")  # check error after each command

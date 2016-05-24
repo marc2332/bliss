@@ -3,12 +3,14 @@ import os
 import Taco.TacoDevice as MyTacoDevice
 import time
 
+from bliss.controllers.motor import Controller; from bliss.common import log
+from bliss.common.axis import AxisState
+
+from bliss.common.utils import object_method
+
 """
 TacoMaxe: TacoDevice controller library
 """
-from bliss.controllers.motor import Controller; from bliss.common import log
-from bliss.controllers.motor import add_axis_method
-from bliss.common.axis import AxisState
 
 """
 Global resources
@@ -64,8 +66,6 @@ class TacoMaxe(Controller):
         axis.myacceleration = axis.config.get("acceleration", int)
         axis.steps_per_u = axis.config.get("steps_per_unit", int)
 
-	add_axis_method(axis, self.custom_read_firststeprate,types_info=("None","float"))
-	add_axis_method(axis, self.custom_set_firststeprate,types_info=("float","None"))
 
     def finalize(self):
     	""" Actions to perform at controller closing """
@@ -229,6 +229,7 @@ class TacoMaxe(Controller):
         for motion in motion_list:
             self.stop(motion)
 
+    @object_method(types_info=("None", "float"))
     def custom_read_firststeprate(self,axis):
         """Returns axis current firstvelocity -- in motorunits/sec --"""
         tacomaxe_info("custom_read_firststeprate() called for axis \"%s\"" % axis.name)
@@ -236,6 +237,7 @@ class TacoMaxe(Controller):
         print fsteps_vel
         return fsteps_vel
 
+    @object_method(types_info=("float", "None"))
     def custom_set_firststeprate(self,axis,fsr):
         """Sets axis current firstvelocity -- in motorunits/sec --"""
         tacomaxe_info("custom_set_firststeprate(%f) called for axis \"%s\"" % (fsr,axis.name))

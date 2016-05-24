@@ -2,7 +2,9 @@ import time
 
 from bliss.controllers.motor import Controller
 from bliss.common import log as elog
-from bliss.controllers.motor import add_axis_method
+
+from bliss.common.utils import object_method
+
 from bliss.common.axis import AxisState
 
 from bliss.comm import tcp
@@ -107,12 +109,6 @@ class PMD206(Controller):
             self.ctrl_axis = axis
             elog.debug("AX CH =%r" % axis.channel)
 
-        # Adds new axis oject methods.
-        add_axis_method(axis, self.park_motor, types_info=("None", "None"))
-        add_axis_method(axis, self.unpark_motor, types_info=("None", "None"))
-        add_axis_method(axis, self.raw_write_read_axis, types_info=("str", "str"))
-
-        add_axis_method(axis, self.get_identifier, types_info=("None", "str"))
 
     def initialize_encoder(self, encoder):
         encoder.channel = encoder.config.get("channel", int)
@@ -447,12 +443,16 @@ class PMD206(Controller):
         ]
         print _home_status_table
 
+
+
+    @object_method(types_info=("None", "None"))
     def park_motor(self, axis):
         """
         Parks axis motor.
         """
         self.send(axis, "CC=1")
 
+    @object_method(types_info=("None", "None"))
     def unpark_motor(self, axis):
         """
         Unpark axis motor (mandatory before moving).
@@ -529,5 +529,6 @@ class PMD206(Controller):
     def raw_write_read(self, cmd):
         return self.send(self.ctrl_axis, cmd)
 
+    @object_method(types_info=("str", "str"))
     def raw_write_read_axis(self, axis, cmd):
         return self.send(axis, cmd)

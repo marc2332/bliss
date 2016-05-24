@@ -2,7 +2,8 @@ import time
 
 from bliss.controllers.motor import Controller
 from bliss.common import log as elog
-from bliss.controllers.motor import add_axis_method
+from bliss.common.utils import object_method
+
 from bliss.common.axis import AxisState
 
 import pi_gcs
@@ -61,23 +62,6 @@ class PI_E51X(Controller):
         """
         axis.channel = axis.config.get("channel", int)
         axis.chan_letter = axis.config.get("chan_letter")
-
-        add_axis_method(axis, self.get_id, types_info=(None, str))
-
-        '''Closed loop'''
-        add_axis_method(axis, self.open_loop, types_info=(None, None))
-        add_axis_method(axis, self.close_loop, types_info=(None, None))
-
-        '''DCO'''
-        add_axis_method(axis, self.activate_dco, types_info=(None, None))
-        add_axis_method(axis, self.desactivate_dco, types_info=(None, None))
-
-        '''GATE'''
-        # to enable automatic gating (ex: zap)
-        add_axis_method(axis, self.enable_auto_gate, types_info=(bool, None))
-
-        # to trig gate from external device (ex: HPZ with setpoint controller)
-        add_axis_method(axis, self.set_gate, types_info=(bool, None))
 
         if axis.channel == 1:
             self.ctrl_axis = axis
@@ -361,26 +345,27 @@ class PI_E51X(Controller):
         # A=+0000.0000
         return float(_ans[2:])
 
-
     def _get_high_limit(self, axis):
         _ans = self.send(axis, "PLM? %s" % axis.chan_letter)
         # A=+0035.0000
         return float(_ans[2:])
 
-
+    @object_method(types_info=("None", "None"))
     def open_loop(self, axis):
         self.send_no_ans(axis, "SVO %s 0" % axis.chan_letter)
 
-
+    @object_method(types_info=("None", "None"))
     def close_loop(self, axis):
         self.send_no_ans(axis, "SVO %s 1" % axis.chan_letter)
 
     """
     DCO : Drift Compensation Offset.
     """
+    @object_method(types_info=("None", "None"))
     def activate_dco(self, axis):
         self.send_no_ans(axis, "DCO %s 1" % axis.chan_letter)
 
+    @object_method(types_info=("None", "None"))
     def desactivate_dco(self, axis):
         self.send_no_ans(axis, "DCO %s 0" % axis.chan_letter)
 
@@ -422,6 +407,7 @@ class PI_E51X(Controller):
         else:
             return False
 
+    @object_method(types_info=("bool", "None"))
     def enable_auto_gate(self, axis, value):
         if value:
             # auto gating
@@ -431,7 +417,7 @@ class PI_E51X(Controller):
             self.auto_gate_enabled = False
 
 
-
+    @object_method(types_info=("bool", "None"))
     def set_gate(self, axis, state):
         """
         CTO  [<TrigOutID> <CTOPam> <Value>]+

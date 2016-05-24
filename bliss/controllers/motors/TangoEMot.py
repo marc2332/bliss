@@ -1,12 +1,11 @@
 from bliss.controllers.motor import Controller
 from bliss.common import log as elog
-from bliss.controllers.motor import add_axis_method
+
 from bliss.common.axis import AxisState
 
 from PyTango.gevent import DeviceProxy
 from PyTango import DevState
 
-import traceback
 
 """
 Bliss controller tango bliss motor

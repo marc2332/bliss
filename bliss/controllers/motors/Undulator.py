@@ -1,14 +1,13 @@
+import time
+
 from bliss.controllers.motor import Controller
 from bliss.common import log as elog
 from bliss.common.axis import AxisState
-from bliss.controllers.motor import add_axis_method
 
 from PyTango.gevent import DeviceProxy
 from PyTango.gevent import AttributeProxy
 
 from PyTango import DevState
-
-import time
 
 """
 undulator.py : a undulator controller for bliss.

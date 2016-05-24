@@ -1,6 +1,7 @@
 from bliss.controllers.motor import Controller
 from bliss.common import log as elog
-from bliss.controllers.motor import add_axis_method
+from bliss.common.utils import object_method
+
 from bliss.common.axis import AxisState
 
 import pi_gcs
@@ -46,10 +47,6 @@ class PI_E753(Controller):
     # Init of each axis.
     def initialize_axis(self, axis):
         elog.debug("axis initialization")
-
-        '''Closed loop'''
-        add_axis_method(axis, self.open_loop, types_info=("None", "None"))
-        add_axis_method(axis, self.close_loop, types_info=("None", "None"))
 
         # To purge controller.
         try:
@@ -248,9 +245,11 @@ class PI_E753(Controller):
         else:
             self.send_no_ans(axis, "SVO 1 0")
 
+    @object_method(types_info=("None", "None"))
     def open_loop(self, axis):
         self._set_closed_loop(axis, False)
 
+    @object_method(types_info=("None", "None"))
     def close_loop(self, axis):
         self._set_closed_loop(axis, True)
 

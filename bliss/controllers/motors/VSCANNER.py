@@ -3,8 +3,11 @@ import serial
 
 from bliss.controllers.motor import Controller
 from bliss.common import log as elog
-from bliss.controllers.motor import add_axis_method
 from bliss.common.axis import AxisState
+from bliss.common import event
+
+from bliss.common.utils import object_method
+from bliss.common.utils import object_attribute_get, object_attribute_set
 
 
 """
@@ -53,7 +56,6 @@ class VSCANNER(Controller):
         # can be "X" or "Y"
         axis.chan_letter = axis.config.get("chan_letter")
 
-        add_axis_method(axis, self.get_id, types_info=(None, str))
 
         axis.config.config_dict.update({"steps_per_unit": {"value": axis.config.get("steps_per_unit")}})
 
@@ -211,6 +213,7 @@ class VSCANNER(Controller):
         _ans = self.serial.readlines()
         return _ans
 
+    @object_method(types_info=("None", "str"))
     def get_id(self, axis):
         """
         Returns firmware version.

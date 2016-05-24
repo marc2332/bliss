@@ -1,6 +1,6 @@
 from bliss.controllers.motor import Controller
 from bliss.common import log as log
-from bliss.controllers.motor import add_axis_method
+from bliss.common.utils import object_method
 from bliss.common.axis import AxisState
 from bliss.comm import tcp
 from distutils.log import Log
@@ -42,8 +42,7 @@ class PM600(Controller):
     def initialize_axis(self, axis):
         log.debug("initialize_axis() called")
         axis.channel = axis.config.get("address")
-        print self.GetId(axis.channel)
-        
+
         axis.kf = axis.config.get("Kf", int, default=0)
         axis.kp = axis.config.get("Kp", int, default=10)
         axis.ks = axis.config.get("Ks", int, default=0)
@@ -116,11 +115,7 @@ class PM600(Controller):
         self.io_command("GN", axis.channel, axis.gearbox_ratio_numerator)
         # Set gearbox ratio denominator
         self.io_command("GD", axis.channel, axis.gearbox_ratio_denominator)
-        
-        add_axis_method(axis, self.GetId, types_info=("int","str"))
-        add_axis_method(axis, self.Reset, types_info=("int", "None"))
-        add_axis_method(axis, self.GetDeceleration,types_info=("None","float"))
-        add_axis_method(axis, self.SetDeceleration,types_info=("float","None"))
+
 
     def finalize_axis(self):
         log.debug("finalize_axis() called")
@@ -334,6 +329,7 @@ class PM600(Controller):
     """
     PM600 added commands
     """
+    @object_method(types_info=("None", "None"))
     def Reset(self, axis):
         log.debug("Reset() called")
         #Reset the controller
@@ -343,8 +339,10 @@ class PM600(Controller):
         log.debug("GetId called")
         return self.io_command("ID", axis)
 
+    @object_method(types_info=("None", "float"))
     def GetDeceleration(self):
         return self.read_deceleration(axis)
 
+    @object_method(types_info=("float", "None"))
     def SetDeceleration(self, axis, deceleration):
         return self.set_deceleration(axis, deceleration)

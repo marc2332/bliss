@@ -49,21 +49,14 @@ class TestCustomAttributes(unittest.TestCase):
         roby = bliss.get_axis("roby")
         robz = bliss.get_axis("robz")
 
-        # default value of cust_attr is set in initialize_axis...
-        self.assertAlmostEquals(roby.get_cust_attr_float(), 9.999, places=3)
-
-        # dial() needed to call initialize_axis...
-        ohhhy = roby.dial()
         self.assertAlmostEquals(roby.get_cust_attr_float(), 6.28, places=3)
 
-        self.assertAlmostEquals(robz.get_cust_attr_float(), 9.999, places=3)
-        ohhhz = robz.dial()
         self.assertAlmostEquals(robz.get_cust_attr_float(), 3.14, places=3)
 
     def test_custom_attribute_rw(self):
         robz = bliss.get_axis("robz")
 
-        self.assertEqual(robz.get_voltage(), 10000)
+        self.assertEqual(robz.get_voltage(), 110)
         robz.set_voltage(380)
         self.assertEqual(robz.get_voltage(), 380)
         robz.set_voltage(110)

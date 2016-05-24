@@ -318,6 +318,10 @@ class PM600(Controller):
         log.debug("abort() called")
         return self.io_command("AB", axis.channel)
 
+    def get_id(self, axis):
+        log.debug("get_id called")
+        return self.io_command("ID", axis)
+
     def raw_write_read(self, command):
         log.debug("raw_write_read() called")
         return self.sock.write_readline(cmd, eol="\r\n")
@@ -334,10 +338,6 @@ class PM600(Controller):
         log.debug("Reset() called")
         #Reset the controller
         self.io_command("RS", axis.channel)
-
-    def GetId(self, axis):
-        log.debug("GetId called")
-        return self.io_command("ID", axis)
 
     @object_method(types_info=("None", "float"))
     def GetDeceleration(self):

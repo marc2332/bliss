@@ -324,6 +324,9 @@ class Mockup(Controller):
     def get_info(self, axis):
         return "turlututu chapo pointu : %s" % (axis.name)
 
+    def get_id(self, axis):
+        return "MOCKUP AXIS %s" % (axis.name)
+
     def raw_write(self, axis, com):
         print ("raw_write:  com = %s" % com)
 

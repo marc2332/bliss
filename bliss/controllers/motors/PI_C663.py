@@ -191,13 +191,13 @@ class PI_C663(Controller):
         elog.debug("ans=%s" % repr(_ans))
         return _ans
 
-    def get_identifier(self, axis):
+    def get_id(self, axis):
         return self.send(axis, "%d IDN?", axis.address )
+
 
     """
     C663 specific
     """
-
     def _get_velocity(self, axis):
         """
         Returns velocity read from controller. (physical unit/s)

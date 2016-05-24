@@ -45,7 +45,7 @@ class FlexDC(Controller):
         axis.smoothing = axis.config.get("smoothing", int)
         axis.deceleration = axis.config.get("deceleration", float)
 
-        add_axis_method(axis, self.get_id)
+
 
         # Enabling servo mode.
         self._flexdc_query("%sMO=1" % axis.channel)

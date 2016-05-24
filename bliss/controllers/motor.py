@@ -198,6 +198,9 @@ class Controller(object):
     def get_info(self, axis):
         raise NotImplementedError
 
+    def get_id(self, axis):
+        raise NotImplementedError
+
     def raw_write(self, com):
         raise NotImplementedError
 

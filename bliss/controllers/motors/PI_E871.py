@@ -209,7 +209,7 @@ class PI_E871(Controller):
         elog.debug("ans=%s" % repr(_ans))
         return _ans
 
-    def get_identifier(self, axis):
+    def get_id(self, axis):
         return self.send(axis, "%d IDN?", axis.address )
 
     """

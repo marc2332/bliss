@@ -189,8 +189,7 @@ class PMD206(Controller):
         axis.settings.set('acctime', new_acctime)
         return new_acctime
 
-
-    def get_identifier(self, axis):
+    def get_id(self, axis):
         # example of answer : "PM11XV?:13,10,10,070707,206,0004a35a1d42,01"
         # ----> Com V.13 ; pic1 V.10 ; pic2 V.10 ; sensor V.070707 ;
         #       driver.type 206 ; MAC:0004a35a1d42 ; IPmode:01
@@ -201,7 +200,7 @@ class PMD206(Controller):
         _msg = "PiezoMotor PMD%s : Com V.%s ; pic1 V.%s ; pic2 V.%s ; sensor V.%s ; MAC:%s ; IPmode:%s" % (
              _fields[4], _fields[0], _fields[1], _fields[2], _fields[3], _fields[5], _fields[6] )
 
-        print _msg
+        return _msg
 
 
     """

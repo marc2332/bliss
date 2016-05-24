@@ -11,8 +11,8 @@
 
 Class for controlling the Linkam T94 with Dsc stage.
 """
-
-__all__ = ["LinkamDsc", "main"]
+import numpy
+from functools import wraps
 
 # PyTango imports
 import PyTango
@@ -22,16 +22,18 @@ from PyTango.server import Device, DeviceMeta
 from PyTango.server import attribute, command
 from PyTango.server import class_property, device_property
 from PyTango import AttrQuality, AttrWriteType, DispLevel, DevState
+
 # Additional import
 from bliss.controllers.temperature.linkam import LinkamDsc as linkam
-from functools import wraps
-import numpy
+from bliss.controllers.temperature.linkam import Scan as linkamScan
 
-def is_cmd_allowed(disallowed) :
+__all__ = ["LinkamDsc", "main"]
+
+def is_cmd_allowed(fisallowed):
     def is_allowed(func):
         @wraps(func)
-        def rfunc(self,*args,**keys) :
-            if self.get_state() not in disallowed:
+        def rfunc(self,*args,**keys):
+            if getattr(self, fisallowed)():
                 return func(self,*args,**keys)
             else:
                 raise Exception("Command not allowed")
@@ -135,49 +137,53 @@ class LinkamDsc(Device):
     # --------
     @command
     @DebugIt()
-    @is_cmd_allowed([DevState.FAULT, DevState.OFF, DevState.UNKNOWN])
+    @is_cmd_allowed("is_command_allowed")
     def ClearBuffer(self):
         self._linkam.clearBuffer
 
     @command
     @DebugIt()
-    @is_cmd_allowed([DevState.FAULT, DevState.OFF, DevState.UNKNOWN])
+    @is_cmd_allowed("is_command_allowed")
     def Hold(self):
         self._linkam.hold
 
     @command
     @DebugIt()
-    @is_cmd_allowed([DevState.FAULT, DevState.OFF, DevState.UNKNOWN])
+    @is_cmd_allowed("is_command_allowed")
     def Start(self):
         self._linkam.start
 
     @command
     @DebugIt()
-    @is_cmd_allowed([DevState.FAULT, DevState.OFF, DevState.UNKNOWN])
+    @is_cmd_allowed("is_command_allowed")
     def Stop(self):
         self._linkam.stop
 
     @command
     @DebugIt()
-    @is_cmd_allowed([DevState.FAULT, DevState.OFF, DevState.UNKNOWN])
+    @is_cmd_allowed("is_command_allowed")
     def PumpAutomatic(self):
         self._linkam.setPumpAutomatic
 
     @command
     @DebugIt()
-    @is_cmd_allowed([DevState.FAULT, DevState.OFF, DevState.UNKNOWN])
+    @is_cmd_allowed("is_command_allowed")
     def PumpManual(self):
         self._linkam.setPumpManual
 
     @command(dtype_in=[float,], doc_in=' ramp list')
     @DebugIt()
-    @is_cmd_allowed([DevState.FAULT, DevState.OFF, DevState.UNKNOWN])
+    @is_cmd_allowed("is_command_allowed")
     def Profile(self, ramps):
-        print ramps.size
-        ramps = numpy.ndarray((3,3), buffer=ramps ,dtype=float)
-        self._linkam.profile
+        print len(ramps)
+        rr=numpy.ndarray((len(ramps)/3,3), buffer=ramps,dtype=float)
+        ramplist = [tuple(a) for a in rr]
+        self._scan = linkamScan(self._linkam, self.filePrefix)
+        self._linkam.profile(ramplist)
 
-    
+    def is_command_allowed(self):
+        return self.get_state() not in [DevState.FAULT, DevState.OFF, DevState.UNKNOWN]
+
 # ----------
 # Run server
 # ----------

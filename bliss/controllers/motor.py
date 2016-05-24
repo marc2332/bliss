@@ -40,8 +40,10 @@ class Controller(object):
                 for tag in axis_tags.split():
                     self._tagged.setdefault(tag, []).append(axis)
 
-            # For cust attributes and commands.
-            set_custom_members(self, axis, axis.controller._initialize_axis)
+            # For custom attributes and commands.
+            # NB : AxisRef has no controller.
+            if not isinstance(axis, AxisRef):
+                set_custom_members(self, axis, axis.controller._initialize_axis)
 
             ##
             self.__initialized_axis[axis] = False

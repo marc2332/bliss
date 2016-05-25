@@ -1,16 +1,33 @@
 from __future__ import absolute_import
 
+def __find_class(cfg_node):
+    klass_name = cfg_node['class']
+
+    if 'package' in cfg_node:
+        module_name = cfg_node['package']
+    elif 'module' in cfg_node:
+        module_name = 'bliss.controllers.%s' % cfg_node['module']
+    else:
+        # discover module and class name
+        module_name = 'bliss.controllers.%s' % klass_name
+        try:
+            module = __import__(module_name, fromlist=[None])
+        except ImportError:         # try in file in lower case
+            module_name = 'bliss.controllers.%s' % klass_name.lower()
+            module = __import__(module_name, fromlist=[None])
+        try:
+            klass = getattr(module, klass_name)
+        except AttributeError:      # try with camelcase
+            klass_name = ''.join((x.capitalize() for x in klass_name.split('_')))
+
+    module = __import__(module_name, fromlist=[None])
+    klass = getattr(module, klass_name)
+
+    return klass
+
+
 def create_objects_from_config_node(config, item_cfg_node):
-    try:
-        module = __import__('bliss.controllers.%s' % item_cfg_node['class'], fromlist=[None])
-    except ImportError:         # try in file in lower case
-        module = __import__('bliss.controllers.%s' % item_cfg_node['class'].lower(), fromlist=[None])
-    klass_name = item_cfg_node['class']
-    try:
-        klass = getattr(module, klass_name)
-    except AttributeError:      # try with camelcase
-        klass_name = ''.join((x.capitalize() for x in klass_name.split('_')))
-        klass = getattr(module, klass_name)
+    klass = __find_class(item_cfg_node)
         
     item_name = item_cfg_node["name"]
     referenced_objects = dict()

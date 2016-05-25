@@ -263,10 +263,7 @@ class PI_E51X(Controller):
         if _duration > 0.005:
             elog.info("PI_E51X.py : Received %r from Send %s (duration : %g ms) " % (_ans, _cmd, _duration * 1000))
 
-        # Check error code
-        _err = self.sock.write_readline("ERR?\n")
-        if _err != "0":
-            print ":( error read: %s on send(%r)" % (_err, _cmd)
+        # self.check_error(axis)
 
         return _ans
 
@@ -281,10 +278,13 @@ class PI_E51X(Controller):
         _cmd = cmd + "\n"
         self.sock.write(_cmd)
 
+        # self.check_error(axis)
+
+    def check_error(self):
         # Check error code
-        _err = self.sock.write_readline("ERR?\n")
-        if _err != "0":
-            print ":( error read: %s on send(%r)" % (_err, _cmd)
+        (_err_nb, _err_str) = self._get_error()
+        if _err_nb != 0:
+            print ":( error #%d (%s) in send_no_ans(%r)" % (_err_nb, _err_str, cmd)
 
 
     """
@@ -468,12 +468,16 @@ class PI_E51X(Controller):
 
     def get_id(self, axis):
         """
-        Returns Identification information (\*IDN? command).
+        Returns Identification information.
         """
         return self.send(axis, "*IDN?")
 
-    def get_error(self, axis):
-        _error_number = self.send(axis, "ERR?")
+    def _get_error(self):
+        # Does not use send() to be able to call _get_error in send().
+        _error_number = int(self.sock.write_readline("ERR?\n"))
+        _error_str = pi_gcs.get_error_str(int(_error_number))
+
+
         _error_str = pi_gcs.get_error_str(_error_number)
 
         return (_error_number, _error_str)
@@ -507,6 +511,7 @@ class PI_E51X(Controller):
             ("Drift compensation Offset  ", "DCO? %s" % axis.chan_letter),
             ("Online                     ", "ONL? %s" % axis.channel),
             ("On target                  ", "ONT? %s" % axis.chan_letter),
+            ("On target window           ", "SPA? %s 0x07000900" % axis.channel),
             ("ADC Value of input signal  ", "TAD? %s" % axis.channel),
             ("Input Signal Position value", "TSP? %s" % axis.channel),
             ("Velocity control mode      ", "VCO? %s" % axis.chan_letter),

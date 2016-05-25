@@ -18,7 +18,7 @@ Cyril Guilloud ESRF BLISS  2014-2016
 
 
 class PI_E753(Controller):
-    __lock = gevent.lock.Semaphore()
+    __sock_map = dict()
 
     def __init__(self, name, config, axes, encoders):
         Controller.__init__(self, name, config, axes, encoders)
@@ -32,7 +32,12 @@ class PI_E753(Controller):
         """
         Controller intialization : opens a single socket for all 3 axes.
         """
-        self.sock = tcp.Command(self.host, 50000)
+        if self.host in PI_E753.__sock_map:
+            print "sock already defined ----------------------"
+            self.sock = PI_E753.__sock_map[self.host]
+        else:
+            self.sock = tcp.Socket(self.host, 50000)
+            PI_E753.__sock_map[self.host] = self.sock
 
     def finalize(self):
         """
@@ -48,13 +53,14 @@ class PI_E753(Controller):
     def initialize_axis(self, axis):
         elog.debug("axis initialization")
 
-        # To purge controller.
-        try:
-            self.sock._raw_read()
-        except:
-            pass
+        ## To purge controller.
+        #try:
+        #    self.sock._raw_read()
+        #except:
+        #    pass
 
         # Enables the closed-loop.
+        # Can be dangerous ??? test diff between target and position before ???
         self._set_closed_loop(axis, True)
 
     def initialize_encoder(self, encoder):
@@ -116,13 +122,9 @@ class PI_E753(Controller):
     def send(self, axis, cmd):
         _cmd = cmd + "\n"
 
-        self.__lock.acquire()
 
-        try:
-            _ans = self.sock.write_readline(_cmd)
-            # "\n" in answer has been removed by tcp lib.
-        finally:
-            self.__lock.release()
+        _ans = self.sock.write_readline(_cmd)
+        # "\n" in answer has been removed by tcp lib.
 
         #self.check_error()
 
@@ -138,11 +140,7 @@ class PI_E753(Controller):
 
     def send_no_ans(self, axis, cmd):
         _cmd = cmd + "\n"
-        self.__lock.acquire()
-        try:
-            self.sock.write(_cmd)
-        finally:
-            self.__lock.release()
+        self.sock.write(_cmd)
 
         #self.check_error()
 
@@ -186,18 +184,16 @@ class PI_E753(Controller):
 
     def _get_pos(self):
         """
-        Returns real position read by capcitive captor.
+        Returns real position read by capacitive sensor.
         no axis parameter as _get_pos is used by encoder.... can be a problem???
         """
-        self.__lock.acquire()
-        try:
-            _ans = self.sock.write_readline("POS?\n")
-            # _ans should looks like "1=-8.45709419e+01\n"
-            # "\n" removed by tcp lib.
-            _pos = float(_ans[2:])
-            return _pos
-        finally:
-            self.__lock.release()
+
+        _ans = self.sock.write_readline("POS?\n")
+        # _ans should looks like "1=-8.45709419e+01\n"
+        # "\n" removed by tcp lib.
+        _pos = float(_ans[2:])
+        return _pos
+
 
 
     """ON TARGET """
@@ -254,15 +250,8 @@ class PI_E753(Controller):
         self._set_closed_loop(axis, True)
 
     def _get_error(self):
-
-        self.__lock.acquire()
-
-        try:
-            _error_number = int(self.sock.write_readline("ERR?\n"))
-        finally:
-            self.__lock.release()
-
-
+        # Does not use send() to be able to call _get_error in send().
+        _error_number = int(self.sock.write_readline("ERR?\n"))
         _error_str = pi_gcs.get_error_str(int(_error_number))
 
         return (_error_number, _error_str)

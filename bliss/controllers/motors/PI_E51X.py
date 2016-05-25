@@ -18,10 +18,17 @@ Thu 13 Feb 2014 15:51:41
 """
 
 class PI_E51X(Controller):
+    __sock_map = dict()
 
     def __init__(self, name, config, axes, encoders):
         Controller.__init__(self, name, config, axes, encoders)
         self.host = self.config.get("host")
+
+        self.__encoder_axis_map = {}
+        for name, axis, config in axes:
+            enc_name = config.get('encoder')
+            if enc_name:
+                self.__encoder_axis_map[enc_name[1:]] = name
 
     def move_done_event_received(self, state, sender=None):
         # <sender> is the axis.
@@ -40,7 +47,12 @@ class PI_E51X(Controller):
         """
         Opens a single socket for all 3 axes.
         """
-        self.sock = tcp.Socket(self.host, 50000)
+        if self.host in self.__sock_map:
+            print "sock already defined ----------------------"
+            self.sock = self.__sock_map[self.host]
+        else:
+            self.sock = tcp.Socket(self.host, 50000)
+            self.__sock_map[self.host] = self.sock
 
     def finalize(self):
         """

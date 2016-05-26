@@ -21,6 +21,10 @@ def last_scan_data():
     return DataManager().last_scan_data()
 
 
+def __count(counter, count_time):
+    return counter.count(count_time).value
+
+
 def ascan(motor, start, stop, npoints, count_time, *counters, **kwargs):
     save_flag = kwargs.get("save", True)
 
@@ -58,7 +62,7 @@ def ascan(motor, start, stop, npoints, count_time, *counters, **kwargs):
             acquisitions = []
             values = [position]
             for counter in counters:
-                acquisitions.append(gevent.spawn(counter.read, count_time))
+                acquisitions.append(gevent.spawn(__count, counter, count_time))
 
             gevent.joinall(acquisitions)
 
@@ -113,7 +117,7 @@ def a2scan(
             acquisitions = []
             values = [m.position() for m in (motor1, motor2)]
             for counter in counters:
-                acquisitions.append(gevent.spawn(counter.read, count_time))
+                acquisitions.append(gevent.spawn(__count, counter, count_time))
 
             gevent.joinall(acquisitions)
             values.extend([a.get() for a in acquisitions])
@@ -156,7 +160,7 @@ def timescan(count_time, *counters, **kwargs):
             tt = time.time() - t0
             values = [tt]
             for counter in counters:
-                acquisitions.append(gevent.spawn(counter.read, count_time))
+                acquisitions.append(gevent.spawn(__count, counter, count_time))
 
             gevent.joinall(acquisitions)
 

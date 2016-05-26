@@ -10,12 +10,12 @@ class LSCounter(CounterBase):
      self.parent = parent
      self.index = index
 
-   def read(self, acq_time=None):
+   def count(self, time=None, measurement=None):
      if not self.parent.acquisition_event.is_set():
        self.parent.acquisition_event.wait()
        data = self.parent.last_acq
      else:
-       data = self.parent._read(acq_time)
+       data = self.parent._read(time)
      return data[self.index]
 
 

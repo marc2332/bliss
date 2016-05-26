@@ -2,7 +2,7 @@
 #
 # This file is part of the Keithley428 project
 #
-# 
+#
 #
 # Distributed under the terms of the GPL license.
 # See LICENSE.txt for more info.
@@ -108,38 +108,38 @@ class Keithley428(Device):
     def gainStr(self):
         gain,gainstr = self._keithley.Gain
         return gainstr
- 
+
     @attribute(label="Overloaded", dtype=bool, fisallowed="is_attr_allowed",
                description="Test if device is overloaded: true/false")
     @DebugIt()
     def overloaded(self):
         return self._keithley.Overloaded
- 
+
     @attribute(label="Zero check", dtype=str, fisallowed="is_attr_allowed",
                description="State of Zero check: Off/On/Zero correct last sent")
     @DebugIt()
     def zeroCheck(self):
         return self._keithley.ZeroCheck
- 
+
     @attribute(label="Filter state", dtype=str, fisallowed="is_attr_allowed",
                description="State of the manual filter: Off/On")
     @DebugIt()
     def filterState(self):
         return self._keithley.FilterState
- 
+
     @attribute(label="Auto filter state", dtype=str, fisallowed="is_attr_allowed",
                description="State of the auto Filter")
     @DebugIt()
     def autoFilterState(self):
         return self._keithley.AutoFilterState
-  
+
     @attribute(label="Filter rise time", dtype=int, fisallowed="is_attr_allowed", max_value=9, min_value=0,
                description="Numerical representation of the filter rise time")
     @DebugIt()
     def filterRiseTime(self):
         riseTime, riseTimeStr = self._keithley.FilterRiseTime
         return riseTime
-  
+
     @filterRiseTime.write
     @DebugIt()
     def filterRiseTime(self, value):
@@ -151,13 +151,13 @@ class Keithley428(Device):
     def filterRiseTimeStr(self):
         riseTime, riseTimeStr = self._keithley.FilterRiseTime
         return riseTimeStr
- 
+
     @attribute(label="Voltage bias", dtype=float, fisallowed="is_attr_allowed", format='%6.4f',
                description="The programmed voltage bias value")
     @DebugIt()
     def voltageBias(self):
         return self._keithley.VoltageBias
- 
+
     @voltageBias.write
     def voltageBias(self, value):
         self._keithley.VoltageBias = value

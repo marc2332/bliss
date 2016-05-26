@@ -2,7 +2,7 @@
 
 import sys
 
-sys.argv[0] = "NanoBpm"
+sys.argv[0] = "NanoBpmServo"
 
 if len(sys.argv) == 1:
     # no args ? -> I add "-?" to show defined instances.

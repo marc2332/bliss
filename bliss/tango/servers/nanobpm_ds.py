@@ -44,10 +44,9 @@ from PyTango.server import device_property
 
 # Add additional imports
 import gevent
-from tcp import Socket
 from gevent import lock
 from functools import wraps
-from nano_bpm import NanoBpm as nanoBpm
+from bliss.controllers.nano_bpm import NanoBpm as nanoBpm
 
 def is_cmd_allowed(fisallowed) :
     def is_allowed(func):
@@ -91,7 +90,7 @@ class NanoBpm(Device):
                   'command_url': self.CommandUrl,
                   'control_url': self.ControlUrl,
         }
-        self._nanoBpm = nanoBpm(self.name, kwargs)
+        self._nanoBpm = nanoBpm(self.Name, kwargs)
         self._AcqMode2String = {
             self.CONTINUOUS : 'continuous',
             self.STREAMING  : 'stream'

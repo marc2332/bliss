@@ -5,11 +5,11 @@ import numpy
 import struct
 import math
 import logging
-from tcp import Socket
-from tcp import Tcp
 from collections import OrderedDict
 import gevent
 from gevent import lock
+from bliss.comm.tcp import Socket
+from bliss.comm.tcp import Tcp
 
 def _config_property(key, doc_str):
     def get(self):

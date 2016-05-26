@@ -1,2 +1,4 @@
-khoros
+Bliss
 ======
+
+The bliss control library.

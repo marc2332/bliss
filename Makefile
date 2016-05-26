@@ -87,3 +87,29 @@ clean:
 	rm -rf ${BLISSADM_PATH}/python/bliss_modules/bliss/
 	find tango -type f -perm ${PERM_EXE} -exec bash -c 'rm -f ${BLISSADM_PATH}/server/src/`basename {}`' \;
 
+
+tests_axis_ds:
+        # needs ~/server/src/BlissAxisManager batest to be running
+	python tests/motors/TestBlissAxisManagerDS.py
+	python tests/motors/TestSetpoint.py
+
+
+tests_axis:
+	python tests/motors/TestCustomCommands.py
+	python tests/motors/TestCustomAttributes.py
+	python tests/motors/TestEncoder.py
+	python tests/motors/TestEncoderBeacon.py
+	python tests/motors/TestGroup.py
+	python tests/motors/TestLogging.py
+	python tests/motors/TestMockupController.py
+	python tests/motors/TestSimplestCalcController.py
+	python tests/motors/TestStates.py
+	python tests/motors/TestTgGevent.py
+	python tests/motors/TestSettings.py
+
+#	python tests/motors/TestBeaconMockupController.py   config file to be adapted in yml...
+#	python tests/motors/TestBeaconSlits.py              config file to be adapted in yml...
+#	python tests/motors/TestSlits.py
+#       python tests/motors/TestTcpComm.py                  does not finish ?
+
+

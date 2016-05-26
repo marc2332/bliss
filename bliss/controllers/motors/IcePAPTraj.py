@@ -5,7 +5,7 @@ import os
 Bliss generic library
 """
 from bliss.controllers.motor import Controller; from bliss.common import log, axis
-from bliss.controllers.motor import add_axis_method
+from bliss.common.utils import object_method
 from bliss.common.axis import AxisState
 import bliss
 
@@ -97,15 +97,6 @@ class IcePAPTraj(Controller):
 
         # Keep a record of the IcePAP system for faster access
         self.libdevice = dev
-
-        # Add new axis oject methods
-        add_axis_method(axis, self.set_parameter)
-        add_axis_method(axis, self.get_parameter)
-        add_axis_method(axis, self.set_trajectory)
-        add_axis_method(axis, self.drain)
-        add_axis_method(axis, self.load)
-        add_axis_method(axis, self.sync)
-
 
     def read_position(self, axis, measured=False):
         """Returns axis position in motor units"""
@@ -288,40 +279,41 @@ class IcePAPTraj(Controller):
         """Logging method"""
         log.info(_ICEPAP_TAB + msg)
 
-
+    @object_method(types_info=("float_array", "None"))
     def set_parameter(self, axis, par_list):
         """Set the trajectory parameter values"""
         self.libtraj[axis].set_parameter(par_list)
 
-
+    @object_method(types_info=("None", "float_array"))
     def get_parameter(self, axis):
         """Returns the trajectory parameter values"""
         return self.libtraj[axis].get_parameter()
 
-
+#  ???? @object_method(types_info=("float_array", "None"))
     def set_trajectory(self, axis, hw_axis, pos_list):
         """
-        Set the trajectory position values for a given real axis
-        
+        Set the trajectory position values for a given real axis.
         The position values are given in user unit
         """
 
         # convert user units into IcePAP motor steps
         stp_sz   = hw_axis.steps_per_unit
-        stp_list = [ x*stp_sz for x in pos_list ] 
+        stp_list = [ x*stp_sz for x in pos_list ]
         self.libtraj[axis].add_axis_trajectory(hw_axis.libaxis, stp_list)
 
-
+    @object_method(types_info=("None", "None"))
     def drain(self, axis):
         """Empty any previously defined trajectory"""
         self.libtraj[axis].drain()
 
 
+    @object_method(types_info=("None", "None"))
     def load(self, axis):
         """Load the full trajectory into the IcePAP system"""
         self.libtraj[axis].load()
 
-
+    # float ?
+    @object_method(types_info=("float", "None"))
     def sync(self, axis, par_val):
         """Put all IcePAP axes on the trajectory"""
         self.libtraj[axis].sync(par_val)

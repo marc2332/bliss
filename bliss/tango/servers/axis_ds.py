@@ -71,6 +71,8 @@ class BlissAxisManager(PyTango.Device_4Impl):
     def __init__(self, cl, name):
         PyTango.Device_4Impl.__init__(self, cl, name)
         self.debug_stream("In __init__() of controller")
+        print "Manager device : %s " % name
+
         self.init_device()
 
     def delete_device(self):
@@ -1390,6 +1392,7 @@ def main(argv=None):
             # Search and adds custom commands.
             _cmd_list = _axis.custom_methods_list()
             elog.debug("'%s' custom commands:" % axis_name)
+            elog.debug(', '.join(map(str, _cmd_list)))
 
             for (fname, (t1, t2)) in _cmd_list:
                 setattr(new_axis_class, fname, getattr(_axis, fname))
@@ -1402,7 +1405,11 @@ def main(argv=None):
                 elog.debug("   %s (in: %s, %s) (out: %s, %s)" % (fname, t1, tin, t2, tout))
 
             # CUSTOM ATTRIBUTES
-            _attr_list = _axis.custom_attributes_list()
+            _attr_list =_axis.custom_attributes_list()
+
+            elog.debug("'%s' custom attributes:" % axis_name)
+            elog.debug(', '.join(map(str, _attr_list)))
+
             for name, t, access in _attr_list:
                 _attr_name = name
                 attr_info = [types_conv_tab[t],
@@ -1478,6 +1485,10 @@ def main(argv=None):
             elog.debug("BlissAxisManager.py : Class added.")
 
         elog.debug("BlissAxisManager.py : intitialize server.")
+
+        # To force serialization of commands ...
+        # util.set_serial_model(PyTango.SerialModel.BY_PROCESS)
+
         util.server_init()
 
     except PyTango.DevFailed:

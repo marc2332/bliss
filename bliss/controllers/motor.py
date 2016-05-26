@@ -7,93 +7,15 @@ from bliss.common.axis import AxisRef
 from bliss.controllers.motor_group import Group
 from bliss.config.motors import get_axis
 from bliss.common import event
+from bliss.common.utils import set_custom_members
+
 
 # make the link between encoder and axis, if axis uses an encoder
 # (only 1 encoder per axis of course)
 ENCODER_AXIS = dict()
 
-def add_axis_method(axis_object, method, name=None, args=[], types_info=(None, None)):
-
-    if name is None:
-        name = method.im_func.func_name
-
-    def call(self, *args, **kwargs):
-        self.__class__.lazy_init(self)
-        return method.im_func(method.im_self, *args, **kwargs)
-
-    axis_object._add_custom_method(
-        types.MethodType(functools.partial(call, *([axis_object] + args)),
-                         axis_object), name, types_info)
-
-
-def axis_method(method=None, name=None, args=[], types_info=(None, None)):
-    """
-    The same as add_axis_method but its purpose is to be used as a
-    decorator to the controller method which is to be exported as axis method.
-
-    Less flexible than add_axis_method. It will add the same method to **all**
-    axes of the controller. But this is the common use case.
-
-    Example::
-
-        from bliss.controllers.motor import Controller, axis_method
-
-        class MyController(Controller):
-
-            @axis_method
-            def park(self, axis):
-                print('I am parking {0}'.format(axis.name))
-
-            @axis_method(name='info', types_info=(None, 'str'))
-            def get_info(self, axis):
-                return 'I am MyController::{0}'.format(axis.name)
-
-    """
-    if method is None:
-        return functools.partial(axis_method, name=name, args=args,
-                                 types_info=types_info)
-
-    method._axis_method_ = dict(name=name, args=args, types_info=types_info)
-
-    return method
-
-
-def add_axis_attribute(axis_object, fget=None, fset=None, name=None,
-                       type_info=None):
-
-    if not (fget or fset):
-        head = 'add_axis_attribute: %s' % name
-        raise ValueError('%s: must have a getter and/or a setter' % head)
-
-    if name is None:
-        if fget:
-            name = fget.__name__.lstrip('get').lstrip('_')
-        else:
-            name = fset.__name__.lstrip('set').lstrip('_')
-
-    get_method, set_method = None, None
-
-    if fget:
-        def call_get(self, *args, **kwargs):
-            self.__class__.lazy_init(self)
-            return fget.im_func(fget.im_self, *args, **kwargs)
-
-        get_method = types.MethodType(functools.partial(call_get, axis_object),
-                                      axis_object)
-
-    if fset:
-        def call_set(self, *args, **kwargs):
-            self.__class__.lazy_init(self)
-            return fset.im_func(fset.im_self, *args, **kwargs)
-        set_method = types.MethodType(functools.partial(call_set, axis_object),
-                                      axis_object)
-
-    axis_object._add_custom_attribute(get_method, set_method, name, type_info)
-
-
 
 class Controller(object):
-
     def __init__(self, name, config, axes, encoders):
         self.__name = name
         from bliss.config.motors import StaticConfig
@@ -116,11 +38,24 @@ class Controller(object):
             axis_tags = axis_config.get('tags')
             if axis_tags:
                 for tag in axis_tags.split():
-                    self._tagged.setdefault(tag, []).append(axis) 
+                    self._tagged.setdefault(tag, []).append(axis)
+
+            # For custom attributes and commands.
+            # NB : AxisRef has no controller.
+            if not isinstance(axis, AxisRef):
+                set_custom_members(self, axis, axis.controller._initialize_axis)
+
+            ##
             self.__initialized_axis[axis] = False
             if axis_config.get("encoder"):
-                 encoder_name = axis_config.get("encoder")['value']
-                 ENCODER_AXIS[encoder_name] = axis_name
+                try:
+                    # XML
+                    encoder_name = axis_config.get("encoder")['value']
+                except:
+                    # BEACON
+                    encoder_name = axis_config.get("encoder")
+
+                ENCODER_AXIS[encoder_name] = axis_name
 
     @property
     def axes(self):
@@ -157,7 +92,7 @@ class Controller(object):
     def finalize(self):
         pass
 
-    def _initialize_axis(self, axis):
+    def _initialize_axis(self, axis, *args, **kwargs):
         if self.__initialized_axis[axis]:
             return
 
@@ -173,7 +108,6 @@ class Controller(object):
                 try:
                     value = axis.config.get(name, converter)
                 except:
-                    # print "no config value for %s " % name
                     return None
             return value
 
@@ -198,13 +132,6 @@ class Controller(object):
         low_limit = get_setting_or_config_value("low_limit")
         high_limit = get_setting_or_config_value("high_limit")
         axis.limits(low_limit, high_limit)
-
-        for member in inspect.getmembers(self):
-            name, member = member
-            try:
-                add_axis_method(axis, member, **member._axis_method_)
-            except AttributeError:
-                pass
 
 
     def get_axis(self, axis_name):
@@ -271,6 +198,9 @@ class Controller(object):
         raise NotImplementedError
 
     def get_info(self, axis):
+        raise NotImplementedError
+
+    def get_id(self, axis):
         raise NotImplementedError
 
     def raw_write(self, com):

@@ -17,6 +17,7 @@ config_xml = """
     <axis name="m0">
       <backlash value="0.1" />
       <velocity value="100" />
+      <acceleration value="1" />
     </axis>
   </controller>
   <controller class="simpliest">

@@ -119,4 +119,5 @@ class TestEncoder(unittest.TestCase):
     
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(TestEncoder)
-    unittest.TextTestRunner(verbosity=2).run(suite)
+    unittest.TextTestRunner(verbosity=1).run(suite)
+

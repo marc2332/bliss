@@ -19,6 +19,7 @@ config_xml = """
     <axis name="robz">
       <!-- degrees per second -->
       <velocity value="100"/>
+      <acceleration value="1"/>
     </axis>
   </controller>
   <controller class="mockup">
@@ -28,6 +29,7 @@ config_xml = """
       <backlash value="2"/>
       <steps_per_unit value="10"/>
       <velocity  value="2500"/>
+      <acceleration value="1"/>
     </axis>
   </controller>
 </config>
@@ -44,9 +46,11 @@ class TestMockupController(unittest.TestCase):
 
     def test_get_custom_methods_list(self):
         robz = bliss.get_axis("robz")
-        print "\ncustom functions :"
-        for (fname, types) in robz.custom_methods_list:
-            print fname, types
+        self.assertEqual(robz.custom_methods_list, [('Set_Closed_Loop', ('bool', 'None')), ('custom_command_no_types', (None, None)), ('custom_get_chapi', ('str', 'str')), ('custom_get_forty_two', ('None', 'int')), ('CustomGetTwice', ('int', 'int')), ('custom_park', (None, None)), ('custom_send_command', ('str', 'None')), ('custom_set_measured_noise', ('float', 'None')), ('get_cust_attr_float', ('None', 'float')), ('get_voltage', ('None', 'int')), ('set_cust_attr_float', ('float', 'None')), ('set_voltage', ('int', 'None'))])
+
+        #print "\ncustom functions :",
+        #for (fname, types) in robz.custom_methods_list:
+        #    print fname, types, "         ",
 
     def test_custom_park(self):
         robz = bliss.get_axis("robz")
@@ -54,11 +58,11 @@ class TestMockupController(unittest.TestCase):
 
     def test_custom_get_forty_two(self):
         robz = bliss.get_axis("robz")
-        print robz.custom_get_forty_two()
+        self.assertEqual(robz.custom_get_forty_two(), 42)
 
     def test_custom_get_twice(self):
         robz = bliss.get_axis("robz")
-        self.assertEqual(robz.custom_get_twice(42), 84)
+        self.assertEqual(robz.CustomGetTwice(42), 84)
 
     def test_custom_get_chapi(self):
         robz = bliss.get_axis("robz")
@@ -73,3 +77,4 @@ class TestMockupController(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+

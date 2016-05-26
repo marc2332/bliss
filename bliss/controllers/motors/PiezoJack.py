@@ -8,7 +8,7 @@ from bliss.controllers.motor import Controller
 from bliss.config import motor_settings as settings
 from bliss.common import log as elog
 from bliss.common.log import bcolors
-from bliss.controllers.motor import add_axis_method
+
 from bliss.common.axis import AxisState
 from bliss.common.task_utils import *
 
@@ -127,9 +127,6 @@ class PiezoJack(Controller):
 
         :type self: object
         """
-        # To get rid of cache coherency problems.
-        add_axis_method(axis, self.sync, name="sync", types_info=(None, None))
-        add_axis_method(axis, self.set_log_level, name="SetLogLevel", types_info=(int, None))
 
         # Reads sensors coefficients (previously calibrated...) for the current piezo axis
         # from the PI E712
@@ -443,10 +440,12 @@ class PiezoJack(Controller):
             y = y + coeffs[ii]*pow(x, ii)
         return y
 
+    @object_method(types_info=("None", "None"), name="sync")
     def sync(self, axis):
         # NB : a _position() is done by E712 when closing/opening the piezo loop.
         axis._position()
 
+    @object_method(types_info=("int", "None"), name="SetLogLevel")
     def set_log_level(self, axis, level):
         self.log.setLevel(level)
         try:

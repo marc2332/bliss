@@ -4,7 +4,7 @@ protocol for communication.
 """
 from bliss.controllers.motor import Controller
 from bliss.common import log as elog
-from bliss.controllers.motor import add_axis_method
+
 
 from bliss.comm.Exporter import ExporterChannel
 from bliss.comm.Exporter import ExporterCommand

@@ -1,7 +1,7 @@
 from bliss.controllers.motor import Controller
 from bliss.common import log as elog
 from bliss.common.axis import AxisState
-from bliss.controllers.motor import add_axis_method
+
 import math
 import time
 

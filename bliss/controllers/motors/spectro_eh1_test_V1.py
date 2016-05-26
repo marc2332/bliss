@@ -8,7 +8,6 @@ Bliss controller for  5-motors spectrometer test bench in EH1
 # IMPORTS #
 from bliss.controllers.motor import CalcController
 from bliss.common import log as elog
-from bliss.controllers.motor import add_axis_method
 
 import math
 
@@ -151,8 +150,8 @@ class spectro_eh1_test_V1(CalcController):
 #     def initialize_axis(self, axis):
 #         CalcController.initialize_axis(self, axis)
 #         print "initialize_axis"
-#
-#         # add_axis_method(axis, self.set_CRYST_R, types_info=(int, int))
+
+
 
     def set_CRYST_R(self, axis, new_radius):
         self.CRYST_R = float(new_radius)

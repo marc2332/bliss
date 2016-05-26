@@ -8,7 +8,7 @@ import time
 Bliss generic library
 """
 from bliss.controllers.motor import Controller; from bliss.common import log
-from bliss.controllers.motor import add_axis_method
+from bliss.common.utils import object_method
 from bliss.common.axis import AxisState
 
 """
@@ -121,8 +121,6 @@ class IcePAP(Controller):
         except:
             sys.excepthook(*sys.exc_info())
 
-        # Add new axis oject methods
-        add_axis_method(axis, self.get_identifier, types_info=("None", "str"))
 
     def set_on(self, axis):
         """Switch power on"""
@@ -413,7 +411,7 @@ class IcePAP(Controller):
         """Logging method"""
         log.info(_ICEPAP_TAB + msg)
 
-    def get_identifier(self, axis):
+    def get_id(self, axis):
         """Returns the unique string identifier of the specified axis"""
         self.log_info("get_identifier() called for axis %r" % axis.name)
         return self.libgroup.command("?ID", axis.libaxis)

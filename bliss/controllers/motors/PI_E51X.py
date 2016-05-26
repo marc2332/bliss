@@ -2,7 +2,8 @@ import time
 
 from bliss.controllers.motor import Controller
 from bliss.common import log as elog
-from bliss.controllers.motor import add_axis_method
+from bliss.common.utils import object_method
+
 from bliss.common.axis import AxisState
 
 import pi_gcs
@@ -17,10 +18,17 @@ Thu 13 Feb 2014 15:51:41
 """
 
 class PI_E51X(Controller):
+    __sock_map = dict()
 
     def __init__(self, name, config, axes, encoders):
         Controller.__init__(self, name, config, axes, encoders)
         self.host = self.config.get("host")
+
+        self.__encoder_axis_map = {}
+        for name, axis, config in axes:
+            enc_name = config.get('encoder')
+            if enc_name:
+                self.__encoder_axis_map[enc_name[1:]] = name
 
     def move_done_event_received(self, state, sender=None):
         # <sender> is the axis.
@@ -39,7 +47,12 @@ class PI_E51X(Controller):
         """
         Opens a single socket for all 3 axes.
         """
-        self.sock = tcp.Socket(self.host, 50000)
+        if self.host in self.__sock_map:
+            print "sock already defined ----------------------"
+            self.sock = self.__sock_map[self.host]
+        else:
+            self.sock = tcp.Socket(self.host, 50000)
+            self.__sock_map[self.host] = self.sock
 
     def finalize(self):
         """
@@ -61,23 +74,6 @@ class PI_E51X(Controller):
         """
         axis.channel = axis.config.get("channel", int)
         axis.chan_letter = axis.config.get("chan_letter")
-
-        add_axis_method(axis, self.get_id, types_info=(None, str))
-
-        '''Closed loop'''
-        add_axis_method(axis, self.open_loop, types_info=(None, None))
-        add_axis_method(axis, self.close_loop, types_info=(None, None))
-
-        '''DCO'''
-        add_axis_method(axis, self.activate_dco, types_info=(None, None))
-        add_axis_method(axis, self.desactivate_dco, types_info=(None, None))
-
-        '''GATE'''
-        # to enable automatic gating (ex: zap)
-        add_axis_method(axis, self.enable_auto_gate, types_info=(bool, None))
-
-        # to trig gate from external device (ex: HPZ with setpoint controller)
-        add_axis_method(axis, self.set_gate, types_info=(bool, None))
 
         if axis.channel == 1:
             self.ctrl_axis = axis
@@ -267,10 +263,7 @@ class PI_E51X(Controller):
         if _duration > 0.005:
             elog.info("PI_E51X.py : Received %r from Send %s (duration : %g ms) " % (_ans, _cmd, _duration * 1000))
 
-        # Check error code
-        _err = self.sock.write_readline("ERR?\n")
-        if _err != "0":
-            print ":( error read: %s on send(%r)" % (_err, _cmd)
+        # self.check_error(axis)
 
         return _ans
 
@@ -285,10 +278,13 @@ class PI_E51X(Controller):
         _cmd = cmd + "\n"
         self.sock.write(_cmd)
 
+        # self.check_error(axis)
+
+    def check_error(self):
         # Check error code
-        _err = self.sock.write_readline("ERR?\n")
-        if _err != "0":
-            print ":( error read: %s on send(%r)" % (_err, _cmd)
+        (_err_nb, _err_str) = self._get_error()
+        if _err_nb != 0:
+            print ":( error #%d (%s) in send_no_ans(%r)" % (_err_nb, _err_str, cmd)
 
 
     """
@@ -361,26 +357,27 @@ class PI_E51X(Controller):
         # A=+0000.0000
         return float(_ans[2:])
 
-
     def _get_high_limit(self, axis):
         _ans = self.send(axis, "PLM? %s" % axis.chan_letter)
         # A=+0035.0000
         return float(_ans[2:])
 
-
+    @object_method(types_info=("None", "None"))
     def open_loop(self, axis):
         self.send_no_ans(axis, "SVO %s 0" % axis.chan_letter)
 
-
+    @object_method(types_info=("None", "None"))
     def close_loop(self, axis):
         self.send_no_ans(axis, "SVO %s 1" % axis.chan_letter)
 
     """
     DCO : Drift Compensation Offset.
     """
+    @object_method(types_info=("None", "None"))
     def activate_dco(self, axis):
         self.send_no_ans(axis, "DCO %s 1" % axis.chan_letter)
 
+    @object_method(types_info=("None", "None"))
     def desactivate_dco(self, axis):
         self.send_no_ans(axis, "DCO %s 0" % axis.chan_letter)
 
@@ -422,6 +419,7 @@ class PI_E51X(Controller):
         else:
             return False
 
+    @object_method(types_info=("bool", "None"))
     def enable_auto_gate(self, axis, value):
         if value:
             # auto gating
@@ -431,7 +429,7 @@ class PI_E51X(Controller):
             self.auto_gate_enabled = False
 
 
-
+    @object_method(types_info=("bool", "None"))
     def set_gate(self, axis, state):
         """
         CTO  [<TrigOutID> <CTOPam> <Value>]+
@@ -470,12 +468,16 @@ class PI_E51X(Controller):
 
     def get_id(self, axis):
         """
-        Returns Identification information (\*IDN? command).
+        Returns Identification information.
         """
         return self.send(axis, "*IDN?")
 
-    def get_error(self, axis):
-        _error_number = self.send(axis, "ERR?")
+    def _get_error(self):
+        # Does not use send() to be able to call _get_error in send().
+        _error_number = int(self.sock.write_readline("ERR?\n"))
+        _error_str = pi_gcs.get_error_str(int(_error_number))
+
+
         _error_str = pi_gcs.get_error_str(_error_number)
 
         return (_error_number, _error_str)
@@ -509,6 +511,7 @@ class PI_E51X(Controller):
             ("Drift compensation Offset  ", "DCO? %s" % axis.chan_letter),
             ("Online                     ", "ONL? %s" % axis.channel),
             ("On target                  ", "ONT? %s" % axis.chan_letter),
+            ("On target window           ", "SPA? %s 0x07000900" % axis.channel),
             ("ADC Value of input signal  ", "TAD? %s" % axis.channel),
             ("Input Signal Position value", "TSP? %s" % axis.channel),
             ("Velocity control mode      ", "VCO? %s" % axis.chan_letter),

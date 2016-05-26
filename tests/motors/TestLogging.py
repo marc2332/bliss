@@ -47,10 +47,13 @@ class TestLogging(unittest.TestCase):
         log.level(log.DEBUG)
         with wrapped_stdout() as stdout:
             log.debug("debugging test")
-        output = stdout.getvalue()
+        output = stdout.getvalue()[13:]
+        # 'DEBUG: 0.152 test_debug() (motors/TestLogging.py, l.49): debugging test\n'
+        # Musst suppress 13 firsts chars.
         self.assertEquals(
             output,
-            "DEBUG: test_debug ('TestLogging.py`, line 49): debugging test\n")
+            "test_debug() (motors/TestLogging.py, l.49): debugging test\n")
+
 
     def test_error(self):
         log.level(log.ERROR)
@@ -80,7 +83,7 @@ class TestLogging(unittest.TestCase):
             output,
             """ERROR: excepted exception
 Traceback (most recent call last):
-  File "TestLogging.py", line 74, in test_exception
+  File "tests/motors/TestLogging.py", line 77, in test_exception
     raise RuntimeError("BLA")
 RuntimeError: BLA
 """)

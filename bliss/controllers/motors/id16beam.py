@@ -9,7 +9,7 @@ ID16A (ni)
 # IMPORTS #
 from bliss.controllers.motor import CalcController
 from bliss.common import log as elog
-from bliss.controllers.motor import add_axis_method
+
 
 import math
 
@@ -27,7 +27,7 @@ class id16beam(CalcController):
 #         CalcController.initialize_axis(self, axis)
 #         print "initialize_axis"
 #
-#         # add_axis_method(axis, self.set_CRYST_R, types_info=(int, int))
+
 
     def calc_from_real(self, positions_dict):
         """calculates the energy pseudo from the real position of atheh1"""

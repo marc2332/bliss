@@ -1,0 +1,74 @@
+# YML configuration to test BlissAxis
+# - 2 mockups motors
+# - slits calculated axes
+# - 1 perfect encoder
+# - 1 noisy encoder
+
+-
+  controller:
+    class: mockup
+    encoders:
+      - name: enc2
+        steps_per_unit: 100
+        tolerance: 10
+        simulated_noise: 3
+    axes:
+      - acceleration: 1.0
+        backlash: 2.1110000000000002
+        high_limit: null
+        low_limit: null
+        name: ba1
+        offset: 5.1109999999999998
+        steps_per_unit: 1000
+        tolerance: 1.111
+        velocity: 3.888
+        tango_server: batest
+        default_voltage: 110
+        default_cust_attr: 3.14
+      - acceleration: 1
+        backlash: 2
+        name: ba2
+        offset: 0
+        steps_per_unit: 1000
+        velocity: 2.444
+        encoder: $enc2
+        default_voltage: 220
+        default_cust_attr: 6.28
+        tango_server: batest
+      - acceleration: 1
+        backlash: 2
+        name: ba_up
+        offset: 0
+        steps_per_unit: 1000
+        velocity: 1.1799999999999999
+        tango_server: batest
+      - acceleration: 1
+        backlash: 2
+        offset: 0
+        name: ba_down
+        steps_per_unit: 1000
+        velocity: 1.1399999999999999
+        tango_server: batest
+-
+  controller:
+    class: slits
+    slit_type: vertical
+    axes:
+        -
+            name: $ba_up
+            tags: real up
+            tango_server: batest
+        -
+            name: $ba_down
+            tags: real down
+            tango_server: batest
+        -
+            name: ba_vg
+            tags: vgap
+            tango_server: batest
+        -
+            name: ba_vo
+            tags: voffset
+            tango_server: batest
+
+

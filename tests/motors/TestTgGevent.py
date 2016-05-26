@@ -26,6 +26,7 @@ config_xml = """
     <port value="5000"/>
     <axis name="robz">
       <velocity value="100"/>
+      <acceleration value="1"/>
     </axis>
   </controller>
 </config>

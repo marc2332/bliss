@@ -5,7 +5,6 @@ A. Beteva, M. Guijarro, ESRF BCU
 import time
 
 from bliss.controllers.motor import Controller; from bliss.common import log
-from bliss.controllers.motor import add_axis_method
 from bliss.common.axis import AxisState
 from bliss.comm import tcp
 from bliss.common import event

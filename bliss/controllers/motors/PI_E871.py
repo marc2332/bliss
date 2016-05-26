@@ -1,7 +1,8 @@
 from bliss.controllers.motor import Controller
 from bliss.common import log as elog
-from bliss.controllers.motor import add_axis_method
+from bliss.common.utils import object_method
 from bliss.common.axis import AxisState
+from bliss.common.utils import object_method
 
 import pi_gcs
 from bliss.comm import tcp
@@ -85,14 +86,6 @@ class PI_E871(Controller):
         axis.axis_id = axis.config.get("axis_id", str)
         axis.address = axis.config.get("address", int)
 
-        add_axis_method(axis, self._get_all_params, types_info=('None', 'str'))
-        add_axis_method(axis, self._get_error, types_info=('None', 'str'))
-        add_axis_method(axis, self.reference_axis_ref_switch, types_info=('None', 'None'))
-        add_axis_method(axis, self.reference_axis_neg_lim, types_info=('None', 'None'))
-        add_axis_method(axis, self.reference_axis_pos_lim, types_info=('None', 'None'))
-
-        add_axis_method(axis, self.custom_initialize_axis, types_info=('float', 'None'))
-
         # Enables servo mode.
         elog.debug("Switches %s servo mode ON" % axis.name)
         self._enable_servo_mode(axis)
@@ -104,6 +97,7 @@ class PI_E871(Controller):
         else:
             print "axis '%s' is referenced." % axis.name
 
+    @object_method(types_info=("float", "None"))
     def custom_initialize_axis(self, axis, current_pos):
         """
         If axis is not referenced (after power on) Use this command to 
@@ -215,7 +209,7 @@ class PI_E871(Controller):
         elog.debug("ans=%s" % repr(_ans))
         return _ans
 
-    def get_identifier(self, axis):
+    def get_id(self, axis):
         return self.send(axis, "%d IDN?", axis.address )
 
     """
@@ -291,6 +285,7 @@ class PI_E871(Controller):
 
         return _ref
 
+    @object_method(types_info=("None", "None"))
     def reference_axis_ref_switch(self, axis):
         """
         Launches referencing of axis <axis>.
@@ -306,6 +301,7 @@ class PI_E871(Controller):
         self._check_error(axis)
         axis.sync_hard()
 
+    @object_method(types_info=("None", "None"))
     def reference_axis_neg_lim(self, axis):
         """
         Launches referencing of axis <axis> using NEGATIVE limit switch.
@@ -321,6 +317,7 @@ class PI_E871(Controller):
         self._check_error(axis)
         axis.sync_hard()
 
+    @object_method(types_info=("None", "None"))
     def reference_axis_pos_lim(self, axis):
         """
         Launches referencing of axis <axis> using POSITIVE limit switch.
@@ -336,6 +333,7 @@ class PI_E871(Controller):
         self._check_error(axis)
         axis.sync_hard()
 
+    @object_method(types_info=("None", "str"))
     def _get_error(self, axis):
         """
         Returns (err_number, error_string).
@@ -390,6 +388,7 @@ class PI_E871(Controller):
         _cmd = cmd + "\n"
         self.serial.write(_cmd)
 
+    @object_method(types_info=("None", "str"))
     def _get_all_params(self, axis):
         self.serial.write("1 HPA?\n")
         _txt = ""
@@ -462,7 +461,7 @@ class PI_E871(Controller):
 
         _txt = ""
         _txt = _txt + "###############################\n"
-        _txt = _txt + "identifier         : " + self.send(axis, "*IDN?") + "\n"
+        _txt = _txt + "id                 : " + self.send(axis, "*IDN?") + "\n"
         _txt = _txt + "Firmware Ver.      : " + self.send(axis, "%d VER?" % axis.address) + "\n"
         self._check_error(axis)
         _txt = _txt + "Syntax Ver.        : " + self.send(axis, "%d CSV?" % axis.address) + "\n"
@@ -534,7 +533,7 @@ class PI_E871(Controller):
 # 873
 # 
 # ###############################
-# identifier         : (c)2015 Physik Instrumente (PI) GmbH & Co. KG, E-873.1A1, 115072229, 01.09
+# id                 : (c)2015 Physik Instrumente (PI) GmbH & Co. KG, E-873.1A1, 115072229, 01.09
 # Firmware Ver.      : 0 1 FW_DSP: V01.09
 # Syntax Ver.        : 0 1 2.0
 # axis ID            : 0 1 1

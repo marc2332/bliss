@@ -33,7 +33,7 @@ class TestEncoder(unittest.TestCase):
         ba2 = bliss.get_axis("ba2")
         enc2 = bliss.get_encoder("enc2")
         ba2.move(1)
-        self.assertAlmostEquals(enc2.read()*enc2.steps_per_unit, ba2.position(), places=8)
+        self.assertAlmostEquals(enc2.read(), ba2.position(), places=5)
 
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(TestEncoder)

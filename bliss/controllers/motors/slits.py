@@ -1,5 +1,4 @@
 from bliss.controllers.motor import CalcController; from bliss.common import log
-from bliss.controllers.motor import add_axis_method
 
 """
 example for single VERTICAL slits:

@@ -25,9 +25,6 @@
 # along with Tango.  If not, see <http://www.gnu.org/licenses/>.
 # 
 # ############################################################################
-#
-# Original Author                      : S.Ohlsson
-# Restructured & removed h/w specifics : G.Mant
 
 import sys
 import time
@@ -121,8 +118,27 @@ class NanoBpm(Device):
         self.set_change_event("Xprofile", True, False)
         self.set_change_event("Yprofile", True, False)
         self._nanoBpm.subscribe(self.bpmCallback)
-#        attr = self.get_device_attr().get_attr_by_name("acqMode")
-#        attr.set_write_value(self._acqMode)
+
+        attr = self.get_device_attr().get_attr_by_name("acqMode")
+        attr.set_write_value(self._AcqMode2String[self._acqMode])
+        attr = self.get_device_attr().get_attr_by_name("imageDepth")
+        attr.set_write_value(self.imageDepth2String[self._imageDepth])
+        if self._nanoBpm is not None:
+            attr = self.get_device_attr().get_attr_by_name("gain")
+            attr.set_write_value(self._nanoBpm.GAIN)
+            attr = self.get_device_attr().get_attr_by_name("offset")
+            attr.set_write_value(self._nanoBpm.OFFSET)
+            attr = self.get_device_attr().get_attr_by_name("horizMinAmp")
+            attr.set_write_value(self._nanoBpm.H_MINAMP)
+            attr = self.get_device_attr().get_attr_by_name("vertMinAmp")
+            attr.set_write_value(self._nanoBpm.V_MINAMP)
+            attr = self.get_device_attr().get_attr_by_name("vertMinRSQ")
+            attr.set_write_value(self._nanoBpm.V_MINRSQ)
+            attr = self.get_device_attr().get_attr_by_name("horizMinRSQ")
+            attr.set_write_value(self._nanoBpm.H_MINRSQ)
+            attr = self.get_device_attr().get_attr_by_name("maxIter")
+            attr.set_write_value(self._nanoBpm.MAXITER)
+
         self.set_state(PyTango.DevState.ON)
 
     def always_executed_hook(self):
@@ -176,7 +192,70 @@ class NanoBpm(Device):
     def nbFramesToSum(self, num):
         self._nanoBpm.nbFramesToSum = num
 
-    @attribute(label="Last frame number acquired",dtype=int, fisallowed="is_attr_allowed",
+    @attribute(label="Gain", dtype=int, fisallowed="is_attr_allowed",
+               description="Gain of the device")
+    def gain(self):
+        return self._nanoBpm.GAIN
+
+    @gain.write
+    def gain(self, val):
+        self._nanoBpm.GAIN = val
+
+    @attribute(label="Offset", dtype=int, fisallowed="is_attr_allowed",
+               description="Offset of the device")
+    def offset(self):
+        return self._nanoBpm.OFFSET
+
+    @offset.write
+    def offset(self, val):
+        self._nanoBpm.OFFSET = val
+
+    @attribute(label="Maximum Iterations", dtype=int, fisallowed="is_attr_allowed",
+               description="Maximum number of iterations for the fitting algorithm")
+    def maxIter(self):
+        return self._nanoBpm.MAXITER
+
+    @maxIter.write
+    def maxIter(self, val):
+        self._nanoBpm.MAXITER = val
+
+    @attribute(label="Horizontal Minimum Amplitude", dtype=float, fisallowed="is_attr_allowed",
+               description="")
+    def horizMinAmp(self):
+        return self._nanoBpm.H_MINAMP
+
+    @horizMinAmp.write
+    def horizMinAmp(self, val):
+        self._nanoBpm.H_MINAMP = val
+
+    @attribute(label="Vertical Minimum Amplitude", dtype=float, fisallowed="is_attr_allowed",
+               description="Fitting minimum amplitude in vertical direction")
+    def vertMinAmp(self):
+        return self._nanoBpm.V_MINAMP
+
+    @vertMinAmp.write
+    def vertMinAmp(self, val):
+        self._nanoBpm.V_MINAMP = val
+
+    @attribute(label="Vertical Minimum Chi-squared", dtype=float, fisallowed="is_attr_allowed",
+               description="Minimum chi-squared value for fitting in vertical direction")
+    def vertMinRSQ(self):
+        return self._nanoBpm.V_MINRSQ
+
+    @vertMinRSQ.write
+    def vertMinRSQ(self, val):
+        self._nanoBpm.V_MINRSQ = val
+
+    @attribute(label="Horizontal Minimum Chi-squared", dtype=float, fisallowed="is_attr_allowed",
+               description="Minimum chi-squared value for fitting in horizontal direction")
+    def horizMinRSQ(self):
+        return self._nanoBpm.H_MINRSQ
+
+    @horizMinRSQ.write
+    def horizMinRSQ(self, val):
+        self._nanoBpm.H_MINRSQ = val
+
+    @attribute(label="Last frame number acquired", dtype=int, fisallowed="is_attr_allowed",
                description="")
     @DebugIt()
     def last_image_acquired(self):

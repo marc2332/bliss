@@ -25,11 +25,6 @@
 # along with Tango.  If not, see <http://www.gnu.org/licenses/>.
 # 
 # ############################################################################
-#
-# Author :  G.Mant
-
-__all__ = ["NanoBpmServo", "main"]
-
 import sys
 import logging
 from functools import wraps
@@ -45,6 +40,8 @@ from PyTango.server import device_property
 
 import gevent
 from gevent import event
+
+__all__ = ["NanoBpmServo", "main"]
 
 def is_cmd_allowed(fisallowed) :
     def is_allowed(func):
@@ -64,8 +61,8 @@ class NanoBpmServo(Device):
     # Device Properties
     # -------------------------------------------------------------------------
     NanoBPM = device_property(dtype=str, doc='Tango Device server for the Beam position monitor eg d26/nanobpm/1.')
-    XController = device_property(dtype=str, doc='Tango Device server for the x position controller')
-    YController = device_property(dtype=str, doc='Tango Device server for the x position controller')
+    XController = device_property(dtype=str, doc='Tango Device server for the x motor controller')
+    YController = device_property(dtype=str, doc='Tango Device server for the y motor controller')
 
     # -------------------------------------------------------------------------
     # General methods
@@ -113,29 +110,8 @@ class NanoBpmServo(Device):
             if self._nanoBpmProxy is not None:
                 self._centreId = self._nanoBpmProxy.subscribe_event("Centre", PyTango.EventType.CHANGE_EVENT, self)
             self.set_state(PyTango.DevState.ON)
-            gevent.spawn(self._restoreMemorisedValues)
         except:
             self.set_state(PyTango.DevState.FAULT)
-
-    def _restoreMemorisedValues(self):
-        # this needs to happen after init_device finishes
-        gevent.sleep(0.05)
-        attr = self.get_device_attr().get_attr_by_name("XMovePerPixel")
-        self._xMovePerPixel = attr.get_write_value()
-        attr = self.get_device_attr().get_attr_by_name("YMovePerPixel")
-        self._yMovePerPixel = attr.get_write_value()
-        attr = self.get_device_attr().get_attr_by_name("MinimumXMovement")
-        self._minimumXMove = attr.get_write_value()
-        attr = self.get_device_attr().get_attr_by_name("MinimumYMovement")
-        self._minimumYMove = attr.get_write_value()
-        attr = self.get_device_attr().get_attr_by_name("MaximumXMovement")
-        self._maximumXMove = attr.get_write_value()
-        attr = self.get_device_attr().get_attr_by_name("MaximumYMovement")
-        self._maximumYMove = attr.get_write_value()
-        attr = self.get_device_attr().get_attr_by_name("XCentre")
-        self._xcentre = attr.get_write_value()
-        attr = self.get_device_attr().get_attr_by_name("YCentre")
-        self._ycentre = attr.get_write_value()
 
     @attribute(label="MinimumXMovement", dtype=float, memorized=True,
                unit="mm", description="Minimum X motor movement")
@@ -148,7 +124,7 @@ class NanoBpmServo(Device):
     def minimumXMovement(self, minMove):
         self._minimumXMove = minMove
 
-    @attribute(label="MinimumYMovement", dtype=float, memorized=True,
+    @attribute(label="MinimumYMovement", dtype=float, memorized=True, hw_memorized=True,
                unit="mm", description="Minimum Y motor movement")
     @DebugIt()
     def minimumYMovement(self):
@@ -159,7 +135,7 @@ class NanoBpmServo(Device):
     def minimumYMovement(self, minMove):
         self._minimumYMove = minMove
 
-    @attribute(label="MaximumXMovement", dtype=float, memorized=True,
+    @attribute(label="MaximumXMovement", dtype=float, memorized=True, hw_memorized=True,
                unit="mm", description="Maximum X motor movement")
     @DebugIt()
     def maximumXMovement(self):
@@ -170,7 +146,7 @@ class NanoBpmServo(Device):
     def maximumXMovement(self, minMove):
         self._maximumXMove = minMove
 
-    @attribute(label="MaximumYMovement", dtype=float, memorized=True,
+    @attribute(label="MaximumYMovement", dtype=float, memorized=True, hw_memorized=True,
                unit="mm", description="Maximum Y motor movement")
     @DebugIt()
     def maximumYMovement(self):
@@ -181,7 +157,7 @@ class NanoBpmServo(Device):
     def maximumYMovement(self, minMove):
         self._maximumYMove = minMove
 
-    @attribute(label="XMovePerPixel", dtype=float, memorized=True,
+    @attribute(label="XMovePerPixel", dtype=float, memorized=True, hw_memorized=True,
                unit="mm/pixel", description="Motor movement per bpm pixel")
     @DebugIt()
     def xmovePerPixel(self):
@@ -192,7 +168,7 @@ class NanoBpmServo(Device):
     def xmovePerPixel(self, movePerPixel):
         self._xmovePerPixel = movePerPixel
 
-    @attribute(label="YMovePerPixel", dtype=float, memorized=True,
+    @attribute(label="YMovePerPixel", dtype=float, memorized=True, hw_memorized=True,
                unit="mm/pixel", description="Motor movement per bpm pixel")
     @DebugIt()
     def ymovePerPixel(self):
@@ -204,7 +180,7 @@ class NanoBpmServo(Device):
         self._ymovePerPixel = movePerPixel
 
 
-    @attribute(label="XCentre", dtype=float, memorized=True,
+    @attribute(label="XCentre", dtype=float, memorized=True, hw_memorized=True,
                unit="pixel", description="Nominal Y centre position")
     @DebugIt()
     def xcentre(self):
@@ -215,7 +191,7 @@ class NanoBpmServo(Device):
     def xcentre(self, centre):
         self._xcentre = centre
 
-    @attribute(label="YCentre", dtype=float, memorized=True,
+    @attribute(label="YCentre", dtype=float, memorized=True, hw_memorized=True,
                unit="pixel", description="Nominal Y centre position")
     @DebugIt()
     def ycentre(self):

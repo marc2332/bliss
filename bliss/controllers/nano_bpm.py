@@ -24,7 +24,7 @@ def _fit_property(key, doc_str):
         return self._fitParameters[key]
     def set(self,value) :
         self._fitParameters[key] = value
-        self.deviceParameters()
+        self.setDeviceParameters()
     return property(get,set,doc=doc_str)
 
 def _v_result_property(key, doc_str):
@@ -32,7 +32,7 @@ def _v_result_property(key, doc_str):
         return self._vertFitResultParameters[key]
     def set(self,value) :
         self._vertFitResultParameters[key] = value
-        self.deviceParameters()
+        self.setDeviceParameters()
     return property(get,set,doc=doc_str)
 
 def _h_result_property(key, doc_str):
@@ -40,7 +40,7 @@ def _h_result_property(key, doc_str):
         return self._horFitResultParameters[key]
     def set(self,value) :
         self._horFitResultParameters[key] = value
-        self.deviceParameters()
+        self.setDeviceParameters()
     return property(get,set,doc=doc_str)
 
 class NanoBpm(object):
@@ -148,25 +148,25 @@ class NanoBpm(object):
             self.CODE8 : "I^C-bus initialization error"
         }
         # Device Info structure keys
-        self._deviceInfoKeys=['ProcessorType', 'ProcessorVersion', 'FPGAType', 'FPGAVersion', 'BoardType', 'BoardVersion',
+        self._deviceInfoKeys = ['ProcessorType', 'ProcessorVersion', 'FPGAType', 'FPGAVersion', 'BoardType', 'BoardVersion',
             'BuidYear', 'BuildMonth', 'Buildday', 'BuildHour', 'BuildMinute', 'BuildSecond', 'SWMajor', 'SWMinor', 'SWbuild',
-            'FirmWare Major','FirmWareMinor', 'FirmWareBuild'', BoardID']
+            'FirmWare Major', 'FirmWareMinor', 'FirmWareBuild'', BoardID']
         # Device configuration parameter keys
         self._deviceConfigKeys = ['Settings', 'Gain', 'Offset', 'LineIntTime', 'YEnd',
              'FrameIntTime', 'YStart', 'XStart', 'XEnd', 'AdcPhase', 'SubtractDarkImage']
         #Image Descriptor keys
         self._imageDescriptorKeys = ['FrameNb', 'IntegrationTime', 'XSize', 'YSize', 'InternalPtr']
         self._quadConfigKeys = ['XCentre', 'YCentre', 'WinStartX', 'WinEndX', 'WinStartY', 'WinEndY']
-        self._sensorConfigKeys = ['YSize','DarkImageSubtract']
+        self._sensorConfigKeys = ['YSize', 'DarkImageSubtract']
         #device parameter keys
         self._deviceParameterKeys = ['configurationKeys', 'DAC0Keys', 'DAC1Keys', 'DAC2keys', 'DAC3Keys', 'fitParameterKeys',
                                     'verticalFitResultCriteria', 'horizontalFitResultCriteria']
-        self._configurationKeys = ['Control','XStart', 'YStart', 'Width', 'Height', 'Gain', 'SensorFineOffset', 'SensorCourseOffset',
-                                   'IntegrationTime', 'ImageClock','AdcPhase', 'Orientation', 'RampInc']
+        self._configurationKeys = ['Control', 'XStart', 'YStart', 'Width', 'Height', 'Gain', 'SensorFineOffset', 'SensorCourseOffset',
+                                   'IntegrationTime', 'ImageClock', 'AdcPhase', 'Orientation', 'RampInc']
         self._DAC0Keys = self._DAC1Keys = self._DAC2Keys = self._DAC3Keys = ['MinOutVoltage', 'MaxOutVoltage', 'MinDACCode',
                                                                              'MaxDACCode', 'Action;']
         self._fitParameterKeys = ['MaxDeltaChiSq', 'Threshold', 'MaxIter', 'FilterSpan', 'FilterCtrl']
-        self._fitResultCriteriaKeys =['MaxWidth', 'MinWidth', 'MinRSQ', 'MinAmp', 'CalibCoeff', 'CalibOffset']
+        self._fitResultCriteriaKeys = ['MaxWidth', 'MinWidth', 'MinRSQ', 'MinAmp', 'CalibCoeff', 'CalibOffset']
 
         self._logger = logging.getLogger("NanoBpmCtrl.NanoBpm")
         logging.basicConfig(level=logging.INFO)

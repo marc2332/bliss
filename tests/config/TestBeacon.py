@@ -34,7 +34,7 @@ test_db = [('__init__.yml', 'synchrotron: ESRF\nbeamline: id30b\n'),
   '-\n    name: wcid30q\n    class: wago\n    controller_ip: 160.103.50.53\n    mapping:\n        -\n            type: 750-517\n            logical_names: _,_\n        -\n            type: 750-469\n            logical_names: th_311_in, th_311_out\n        -\n            type: 750-469\n            logical_names: th_111_in, th_111_out\n        -\n            type: 750-469\n            logical_names: th_mask, _\n'),
  ('oh/transfocator.yml',
   'name: tfmad\nclass: transfocator\ncontroller_ip: 160.103.50.57\nlenses: 7\npinhole: 2\n'),
- ('oh/__init__.yml', 'plugin: khoros\n'),
+ ('oh/__init__.yml', 'plugin: bliss\n'),
  ('oh/bpms.yml',
   '-\n    name: wbvg\n    class: tango_bpm\n    uri: id30/id30b/wbvg\n-\n    name: mbv1\n    class: tango_bpm\n    uri: id30/id30b/mbv1\n\n'),
  ('oh/motors/@iceid301/__init__.yml',
@@ -81,13 +81,13 @@ class TestBeacon(unittest.TestCase):
         self.assertEquals(self.cfg.get_config("m0").filename, "oh/motors/@iceid301/axes/m0.yml")
 
     def testPlugin(self):
-        self.assertEquals(self.cfg.root["oh"].plugin, "khoros")
-        self.assertEquals(self.cfg.get_config("wcid30q").plugin, "khoros")
-        self.assertEquals(self.cfg.get_config("wbvg").plugin, "khoros")
-        self.assertEquals(self.cfg.get_config("mbv1").plugin, "khoros")
-        self.assertEquals(self.cfg.get_config("tfmad").plugin, "khoros")
-        self.assertEquals(self.cfg.get_config("m0").plugin, "khoros")
-        self.assertEquals(self.cfg.get_config("m1").plugin, "khoros")
+        self.assertEquals(self.cfg.root["oh"].plugin, "bliss")
+        self.assertEquals(self.cfg.get_config("wcid30q").plugin, "bliss")
+        self.assertEquals(self.cfg.get_config("wbvg").plugin, "bliss")
+        self.assertEquals(self.cfg.get_config("mbv1").plugin, "bliss")
+        self.assertEquals(self.cfg.get_config("tfmad").plugin, "bliss")
+        self.assertEquals(self.cfg.get_config("m0").plugin, "bliss")
+        self.assertEquals(self.cfg.get_config("m1").plugin, "bliss")
 
     def testChildren(self):
         root_node = self.cfg.root
@@ -101,7 +101,7 @@ class TestBeacon(unittest.TestCase):
     def test__init__(self):
         root_node = self.cfg.root
         self.assertEquals(root_node["beamline"], "id30b")
-        self.assertEquals(root_node["oh"]["plugin"], "khoros")
+        self.assertEquals(root_node["oh"]["plugin"], "bliss")
 
     def test__init__arobase(self):
         root_node = self.cfg.root

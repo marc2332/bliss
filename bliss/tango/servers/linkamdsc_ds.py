@@ -49,8 +49,8 @@ class LinkamDsc(Device):
     # -----------------
     # Device Properties
     # -----------------
-    url = device_property(dtype=str, doc='use rfc2217://lid30b2:28010')
-    name = device_property(dtype=str, default_value="linkam")
+    SerialUrl = device_property(dtype=str, doc='use rfc2217://lid30b2:28010')
+    Name = device_property(dtype=str, default_value="linkam")
 
     # ---------------
     # General methods

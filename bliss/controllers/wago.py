@@ -1,4 +1,4 @@
-from bliss.common.measurement import CounterBase, AverageMeasurement
+from bliss.common.measurement import CounterBase
 from bliss.common.utils import add_property
 import wago_client
 
@@ -15,15 +15,12 @@ class WagoCounter(CounterBase):
 
   def __call__(self, *args, **kwargs):
     return self
-  
-  def read(self, acq_time=0):
-    meas = AverageMeasurement()
-    for reading in meas(acq_time):
-      data = self.parent._cntread(acq_time)
-      if isinstance(self.cntname, str):
-        data = data[self.parent.cnt_dict[self.cntname]]
-      reading.value = data
-    return meas.average
+
+  def read(self):
+    data = self.parent._cntread(acq_time)
+    if isinstance(self.cntname, str):
+      data = data[self.parent.cnt_dict[self.cntname]]
+    return data
 
   def gain(self, gain=None, name=None):
     name = name or self.cntname

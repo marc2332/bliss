@@ -313,7 +313,7 @@ class MD2M:
         npoints = int(self.musst.putget("?VAR NPOINTS"))
         nlines = npoints #variable name should be changed in musst program
         diag_data = numpy.zeros((nlines, 9), dtype=numpy.float)
-        data = self.musst.get_data(nlines, 8)
+        data = self.musst.get_data(8)
 
         # first column contains time in microseconds,
         # convert it to milliseconds

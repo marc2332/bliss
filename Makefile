@@ -53,8 +53,8 @@ ifneq ($(BLISS_ESRF),0)
         # Install beacon daemon blcontrol startup script
 	@echo ""
 	@echo "Adding beacon daemon to BLControl start-up/shudown structure..."
-	mkdir -p ${BLISSADM_PATH}/admin/etc
-	cp -f scripts/admin/S10beacon ${BLISSADM_PATH}/admin/etc
+	mkdir -p ${BLISSADM}/admin/etc
+	cp -f scripts/admin/S10beacon ${BLISSADM}/admin/etc
 
         # Add default beacon-server parameters to BLISS_ENV_VAR
 	@echo ""
@@ -75,15 +75,15 @@ ifneq ($(BLISS_ESRF),0)
         ####  Copy Tango servers.
 	@echo ""
 	@echo "Copying Tango DS start-up scripts..."
-	mkdir -p ${BLISSADM_PATH}/server/src
-	find tango -type f -perm ${PERM_EXE} -exec cp --backup=simple --suffix=.bup {} ${BLISSADM_PATH}/server/src/ \;
+	mkdir -p ${BLISSADM}/server/src
+	find tango -type f -perm ${PERM_EXE} -exec cp --backup=simple --suffix=.bup {} ${BLISSADM}/server/src/ \;
 
 
         ####  Copy SPEC macros, only if spec/macros/ directory exists.
 	@echo ""
-ifneq ($(wildcard ${BLISSADM_PATH}/spec/macros/),)
+ifneq ($(wildcard ${BLISSADM}/spec/macros/),)
 	@echo "\"spec/macros/\" directory exists; Copying SPEC macros..."
-	find spec -name \*.mac -exec cp -v --backup=simple --suffix=.bup {} ${BLISSADM_PATH}/spec/macros \;
+	find spec -name \*.mac -exec cp -v --backup=simple --suffix=.bup {} ${BLISSADM}/spec/macros \;
 else
 	@echo "\"spec/macros/\" directory does not exist"
 endif
@@ -96,8 +96,8 @@ doc:
 
 clean:
 ifneq ($(BLISS_ESRF),0)
-	rm -rf ${BLISSADM_PATH}/python/bliss_modules/bliss/
-	find tango -type f -perm ${PERM_EXE} -exec bash -c 'rm -f ${BLISSADM_PATH}/server/src/`basename {}`' \;
+	rm -rf ${BLISSADM}/python/bliss_modules/bliss/
+	find tango -type f -perm ${PERM_EXE} -exec bash -c 'rm -f ${BLISSADM}/server/src/`basename {}`' \;
 endif
 
 

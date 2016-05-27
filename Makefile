@@ -1,18 +1,23 @@
 #
-# E-Motion installation at ESRF.
+# bliss installation.
 #
 
-# Installation directories :
+# Installation directories for ESRF:
 # /users/blissadm/python/bliss_modules/
 # /users/blissadm/local/userconf/bliss/
 # /users/blissadm/server/src/BlissAxisManager
 
+BLISS_ESRF ?= $(shell if [ -d "/users/blissadm" ]; then echo "1"; else echo "0"; fi)
 
-BLISSADM_PATH=/users/blissadm
-BLISS_ENV_VAR=${BLISSADM_PATH}/local/BLISS_ENV_VAR
-CONFIG_PATH=${BLISSADM_PATH}/local/beamline_configuration
+# ESRF specific configuration
+ifneq ($(BLISS_ESRF),0)
+  BLISSADM ?= /users/blissadm
+  BLISS_ENV_VAR ?= ${BLISSADM}/local/BLISS_ENV_VAR
+  CONFIG_PATH ?= ${BLISSADM}/local/beamline_configuration
+endif
 
 DEV_PATH=${PWD}
+MAKEFILE_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 
 FIND_VER=$(shell for t in $$(find --version); do \
                    echo "$$t" | grep -E "[0-9]+(\.[0-9]+){2}" && break; done)
@@ -28,15 +33,17 @@ endif
 # "Distribution" installation.
 # Copy of files from current git directory.
 install:
+	${MAKEFILE_DIR}/bootstrap -q
 
-        ####  ESRF install only...
+ifneq ($(BLISS_ESRF),0)
 	cp -f setup.cfg.esrf setup.cfg
-
+endif
         ####  install of the py module.
         # this install:
         #   * in ~/local/bin/ : beacon-server  beacon-server-list  bliss  bliss_webserver
 	python setup.py install
 
+ifneq ($(BLISS_ESRF),0)
 	rm setup.cfg
 
         # Install beacon daemon blcontrol startup script
@@ -76,7 +83,7 @@ ifneq ($(wildcard ${BLISSADM_PATH}/spec/macros/),)
 else
 	@echo "\"spec/macros/\" directory does not exist"
 endif
-
+endif
 
 # Builds sphinx documentation.
 doc:
@@ -84,8 +91,10 @@ doc:
 	make html
 
 clean:
+ifneq ($(BLISS_ESRF),0)
 	rm -rf ${BLISSADM_PATH}/python/bliss_modules/bliss/
 	find tango -type f -perm ${PERM_EXE} -exec bash -c 'rm -f ${BLISSADM_PATH}/server/src/`basename {}`' \;
+endif
 
 
 tests_axis_ds:

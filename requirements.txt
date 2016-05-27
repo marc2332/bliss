@@ -1,3 +1,8 @@
+
+# Don't run this directly. Run bootstrap script instead
+
+# --- mandatory dependencies -------------------------------
+
 gevent<1.1
 redis  >= 2.8
 PyYaml
@@ -10,12 +15,18 @@ jedi
 ptpython
 docopt
 bottle
+numpy
+six >= 1.10
+tabulate
 
-# optional dependencies:
+# --- optional dependencies --------------------------------
+
 ruamel.yaml
 posix_ipc
 
-# Python 2.6
-ordereddict
-importlib
-weakrefset
+# --- python < 2.7 dependencies ----------------------------
+
+ordereddict   ; python_version < '2.7'
+importlib     ; python_version < '2.7'
+weakrefset    ; python_version < '2.7'
+unittest2     ; python_version < '2.7'

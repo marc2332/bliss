@@ -4,7 +4,7 @@
 # our requirements.txt
 
 echo "[BLISS] Checking pip version..."
-ver=$(pip -V 2>/dev/null | cut -d' ' -f2)
+ver=$(pip --version 2>/dev/null | cut -d' ' -f2)
 if [ -z $ver ]; then
   ver="0.0.0"
 fi

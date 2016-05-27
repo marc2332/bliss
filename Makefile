@@ -33,6 +33,10 @@ endif
 # "Distribution" installation.
 # Copy of files from current git directory.
 install:
+ifneq ($(BLISS_ESRF),0)
+	export http_proxy=http://proxy.esrf.fr:3128
+	export https_proxy=https://proxy.esrf.fr:3128
+endif
 	${MAKEFILE_DIR}/bootstrap -q
 
 ifneq ($(BLISS_ESRF),0)

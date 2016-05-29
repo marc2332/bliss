@@ -30,12 +30,11 @@ dev.profile([(10,35,0)])
 with open('rampData', 'w') as f:
     while (1):
         time.sleep(0.1)
-        ts,temp,dsc = dev.getDscData()
+        temp,dsc = dev.getDscData()
         print "temp  ",temp," dsc ",dsc
 #        print "rampNb",dev.rampNumber," rampLimit",dev.rampLimit," rampRate",dev.rampRate,"rampHold",dev.rampHoldTime
         f.write("%f %f\n" % (ts, temp))
         print dev.status()
-        state,_,_,_,_ = dev.state()
         running=dev.isProfileRunning()
         print "Profile running ",running
         if running == False:
@@ -43,5 +42,5 @@ with open('rampData', 'w') as f:
 
 #with open('temperatureData', 'w') as f:
 #    while (1):
-#        f.write("{0} {1}\n".format(ts,dev.getTemperature()))
+#        f.write("{0}\n".format(dev.getTemperature()))
 #        time.sleep(5)

@@ -23,9 +23,12 @@ from PyTango.server import attribute, command
 from PyTango.server import class_property, device_property
 from PyTango import AttrQuality, AttrWriteType, DispLevel, DevState
 
+import gevent
+from gevent import lock
+
 # Additional import
 from bliss.controllers.temperature.linkam import LinkamDsc as linkam
-from bliss.controllers.temperature.linkam import Scan as linkamScan
+from bliss.controllers.temperature.linkam import LinkamScan as linkamScan
 
 __all__ = ["LinkamDsc", "main"]
 
@@ -62,10 +65,13 @@ class LinkamDsc(Device):
 
     def init_device(self):
         Device.init_device(self)
-        kwargs = {
-                  'serial_url': self.url,
+        config = {
+                  'serial_url': self.SerialUrl,
         }
-#        self._linkam = linkam(self.name, kwargs)
+        self._linkam = linkam(self.Name, config)
+        self._lock = lock.Semaphore()
+        self._filename = ""
+        self._linkam.subscribe(self._profileCompleteCallback)
         self.set_state(PyTango.DevState.ON)
 
     def always_executed_hook(self):
@@ -105,10 +111,14 @@ class LinkamDsc(Device):
         description="Current temperature")
     @DebugIt()
     def temperature(self):
-        return self._linkam.getTemperature
+        return self._linkam.getTemperature()
+
+    @temperature.write
+    def temperature(self, temp):
+        self._linkam.setTemperature(temp)
 
     @attribute(label='Pump speed', dtype='int', fisallowed="is_attr_allowed",max_value=30, min_value=0,
-        description="Liquid nitrogen pump speed")
+               description="Liquid nitrogen pump speed (0-30)")
     @DebugIt()
     def pumpSpeed(self):
         return self._linkam.pumpSpeed
@@ -118,8 +128,30 @@ class LinkamDsc(Device):
     def pumpSpeed(self, value):
         self._linkam.pumpSpeed = value
 
+    @attribute(label='Filename', dtype='str', fisallowed="is_attr_allowed",
+        description="Output dataset filename. Data will not be saved if not specified")
+    @DebugIt()
+    def filename(self):
+        return self._filename
+
+    @filename.write
+    @DebugIt()
+    def filename(self, value):
+        self._filename = value
+
+    @attribute(label='Polling time', dtype='float', fisallowed="is_attr_allowed",
+               description="Polling time (seconds): adjust with care, must be less than sampling time for dsc")
+    @DebugIt()
+    def pollTime(self):
+        return self._linkam.pollTime
+
+    @pollTime.write
+    @DebugIt()
+    def pollTime(self, time):
+        self._linkam.pollTime = time
+
     @attribute(label='Dsc Sample Rate', dtype='float', fisallowed="is_attr_allowed",max_value=150.0, min_value=0.3,
-        description="DSC sampling rate")
+        description="DSC sampling rate: allowable values are (.3, .6, .9, 1.5, 3, 6, 9, 15, 30, 60, 90, or 150)")
     @DebugIt()
     def dscSamplingRate(self):
         return self._linkam.dscSamplingRate
@@ -129,8 +161,14 @@ class LinkamDsc(Device):
     def dscSamplingRate(self, value):
         self._linkam.dscSamplingRate= value
 
+    @attribute(label='Linkam status', dtype='str', fisallowed="is_attr_allowed",
+        description="Current linkam status: Heating/Cooling/Holding/Stopped")
+    @DebugIt()
+    def acqStatus(self):
+        return self._linkam.status()
+
     def is_attr_allowed(self, attr):
-        return self.get_state() not in [DevState.FAULT]
+        return self.get_state() not in [DevState.FAULT, DevState.OFF]
 
     # --------
     # Commands
@@ -139,50 +177,53 @@ class LinkamDsc(Device):
     @DebugIt()
     @is_cmd_allowed("is_command_allowed")
     def ClearBuffer(self):
-        self._linkam.clearBuffer
+        self._linkam.clearBuffer()
 
     @command
     @DebugIt()
     @is_cmd_allowed("is_command_allowed")
     def Hold(self):
-        self._linkam.hold
+        self._linkam.hold()
 
     @command
     @DebugIt()
     @is_cmd_allowed("is_command_allowed")
     def Start(self):
-        self._linkam.start
+        self._linkam.start()
 
     @command
     @DebugIt()
     @is_cmd_allowed("is_command_allowed")
     def Stop(self):
-        self._linkam.stop
+        self._linkam.stop()
 
     @command
     @DebugIt()
     @is_cmd_allowed("is_command_allowed")
     def PumpAutomatic(self):
-        self._linkam.setPumpAutomatic
+        self._linkam.setPumpAutomatic()
 
     @command
     @DebugIt()
     @is_cmd_allowed("is_command_allowed")
     def PumpManual(self):
-        self._linkam.setPumpManual
+        self._linkam.setPumpManual()
 
-    @command(dtype_in=[float,], doc_in=' ramp list')
+    @command(dtype_in=[float,], doc_in='ramp list')
     @DebugIt()
     @is_cmd_allowed("is_command_allowed")
     def Profile(self, ramps):
-        print len(ramps)
         rr=numpy.ndarray((len(ramps)/3,3), buffer=ramps,dtype=float)
         ramplist = [tuple(a) for a in rr]
-        self._scan = linkamScan(self._linkam, self.filePrefix)
+        self._scan = linkamScan(self._linkam, self._filename)
         self._linkam.profile(ramplist)
+        self.set_state(PyTango.DevState.RUNNING)
 
     def is_command_allowed(self):
         return self.get_state() not in [DevState.FAULT, DevState.OFF, DevState.UNKNOWN]
+
+    def _profileCompleteCallback(self):
+        self.set_state(PyTango.DevState.ON)
 
 # ----------
 # Run server

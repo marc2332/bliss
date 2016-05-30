@@ -3,7 +3,26 @@
 # first make sure we have a minimum pip that is able to read
 # our requirements.txt
 
-echo "[BLISS] Updating pip if necessary..."
-pip install 'pip>=7.1' $*
+echo "[BLISS] Checking pip version..."
+ver=$(pip --version 2>/dev/null | cut -d' ' -f2)
+if [ -z $ver ]; then
+  ver="0.0.0"
+fi
+
+verlte() {
+  [ "$1" = "`echo -e "$1\n$2" | sort -t'.' -k 1,1 -k 2,2 -k 3,3 -g | head -n1`" ]
+}
+
+if verlte $ver 7.1; then
+    while true; do
+        read -p "[BLISS] pip >= 7.1 is needed, do you want to update pip?" yn
+        case $yn in
+          [Yy]* ) pip install 'pip>=7.1' $*; break;;
+          [Nn]* ) exit;;
+          * ) echo "Please answer yes or no.";;
+        esac
+    done
+fi
+
 echo "[BLISS] Installing requirements..."
 pip install -r requirements.txt $*

@@ -14,7 +14,7 @@ class tango_keithley(CounterBase):
         self.__control.MeasureSingle()
         self.__control.WaitAcq()
         value = self.__control.ReadData
-        if isinstance(reading.value,  numpy.ndarray):
+        if isinstance(value,  numpy.ndarray):
             value = value[0]
         return value
 

@@ -777,6 +777,18 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
 
         _mot_mne = motor_mne(motnum)
         _dev = motor_par(motnum, "dev_name")
+        if (_dev == 1){
+            # on a fresh start, "_dev" can be badly defined...
+            # I do not know why but this is a workaround.
+            if (split(_ctrl_dev, TTT, "/") == 3){
+                _dev = sprintf("%s/%s_%s/%s", TTT[0], TTT[1], TTT[2], _mot_mne)
+                tango_mot_dbg(sprintf("_DEV = %s", _dev))
+            }
+            else{
+                tango_mot_err(sprintf("wrong Tango DS name in ADDR field ?", _ctrl_dev ))
+                return ".error."
+            }
+        }
 
         # "position" must return dial position in prefered units( ex :
         # deg, mm, um)
@@ -856,14 +868,6 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
             if (_state == 6) {
                 _ret |= 2
             }
-
-            # FAULT
-# ???       # PC: problem with SyncAxis, acceleration is wrong; causes Fault State while moving
-# ???       # We do not care; this is anyway a provisional solution
-#            if (_state == 8) {
-#                _ret |= 2
-#                return _ret
-#            }
 
             return _ret
         }

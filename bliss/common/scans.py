@@ -26,12 +26,25 @@ _log = logging.getLogger('bliss.scans')
 SCANFILE = "/dev/null"
 
 def set_scanfile(filename):
+    '''
+    Changes the active scan file.
+    It supports any of the attributes of :func:`time.strftime`.
+    Example::
+
+        set_scanfile('/tmp/scans/mono_temp_%d%m%y')
+
+    Using this format allows bliss to reinterpret the file name
+    at the beginning of each scan. In the previous example, bliss
+    will change files automatically between two scans that occur
+    in different days.
+    '''
     global SCANFILE
     SCANFILE = filename
 
 
 def scanfile():
-    return SCANFILE
+    '''Returns the current active scanfile'''
+    return time.strftime(SCANFILE)
 
 
 def last_scan_data():

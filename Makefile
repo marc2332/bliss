@@ -7,10 +7,11 @@
 # /users/blissadm/local/userconf/bliss/
 # /users/blissadm/server/src/BlissAxisManager
 
-BLISS_ESRF ?= $(shell if [ -d "/users/blissadm" ]; then echo "1"; else echo "0"; fi)
+BLISS_ESRF ?= $(shell if id blissadm >/dev/null 2>&1; then echo "1"; else echo "0"; fi)
+EUID = $(shell id -u)
 
 # ESRF specific configuration
-ifneq ($(BLISS_ESRF),0)
+ifeq ($(BLISS_ESRF),1)
   BLISSADM ?= /users/blissadm
   BLISS_ENV_VAR ?= ${BLISSADM}/local/BLISS_ENV_VAR
   CONFIG_PATH ?= ${BLISSADM}/local/beamline_configuration
@@ -30,18 +31,22 @@ else
 PERM_EXE="/a+x"
 endif
 
+.PHONY: bootstrap install clean doc 
+
 # "Distribution" installation.
 # Copy of files from current git directory.
+bootstrap:
+	${MAKEFILE_DIR}/bootstrap $(BLISS_ESRF) 
+	$(MAKE) install
+
 install:
 ifneq ($(BLISS_ESRF),0)
-	export http_proxy=http://proxy.esrf.fr:3128
-	export https_proxy=https://proxy.esrf.fr:3128
-endif
-	${MAKEFILE_DIR}/bootstrap -q
-
-ifneq ($(BLISS_ESRF),0)
+ifeq ($(EUID), 0)
+	#xauth merge /users/blissadm/.Xauthority
+	su blissadm -c "$(MAKE) install"
+else
 	cp -f setup.cfg.esrf setup.cfg
-endif
+
         ####  install of the py module.
         # this install:
         #   * in ~/local/bin/ : beacon-server  beacon-server-list  bliss  bliss_webserver
@@ -86,6 +91,8 @@ ifneq ($(wildcard ${BLISSADM}/spec/macros/),)
 	find spec -name \*.mac -exec cp -v --backup=simple --suffix=.bup {} ${BLISSADM}/spec/macros \;
 else
 	@echo "\"spec/macros/\" directory does not exist"
+endif
+endif
 endif
 endif
 

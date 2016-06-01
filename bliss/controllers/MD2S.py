@@ -103,6 +103,13 @@ class MD2S:
         px_mm_z = 1000000.0*self._exporter.readProperty("CoaxCamScaleY")
         return [px_mm_y, px_mm_z]
 
+    def move_motors(self, *args):
+        par = ""
+        for axis, target in grouped(args, 2):
+            par += "%s=%f," % (axis.root_name, target)
+        self._exporter.execute("startSimultaneousMoveMotors",par)
+        self._wait_ready(20)
+
     @task
     def _simultaneous_move(self, *args):
         axis_list = [] 

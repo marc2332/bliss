@@ -5,12 +5,16 @@ import math
 from bliss.common import log
 
 from bliss.common.utils import object_method
+from bliss.common.utils import object_attribute_get
+from bliss.common.utils import object_attribute_set
 
 DEGREE_PER_SECOND=0.5
 """ all channels will start at this temperature """
 INITIAL_TEMP=random.random()*10-random.random()*10
 
 class mockup(Controller):
+    __material = "Hg"
+
     def __init__(self, *args):
         #log.info("On mockup ")
         #for arg in args :
@@ -156,18 +160,20 @@ class mockup(Controller):
         sp["setpoint"]=None
 
     def on(self, tloop):
-        """Starting the regulation on a Loop
-
         """
-        log.debug("mockup: on: starting regulation between input:%s and output:%s" % (tloop.input.channel,tloop.output.channel))
+        Starting the regulation on a Loop
+        """
+        log.debug("mockup: on: starting regulation between input:%s and output:%s" % (
+                tloop.input.channel,tloop.output.channel))
         print "Mockup: regulation on"
 
 
     def off(self, tloop):
-        """Stopping the regulation on a Loop object
-
         """
-        log.debug("mockup: off: stopping regulation between input:%s and output:%s" % (tloop.input.channel,tloop.output.channel))
+        Stopping the regulation on a Loop object
+        """
+        log.debug("mockup: off: stopping regulation between input:%s and output:%s" % (
+                tloop.input.channel,tloop.output.channel))
         print "Mockup: regulation off"
 
     def Wraw(self, str):
@@ -190,7 +196,20 @@ class mockup(Controller):
         log.debug("mockup: writeraw: %s" % (str))
         return ("%s : %s" % (time.asctime(), str) )
 
-    @object_method(types_info=("None", "str"))
-    def get_custom_material(self, tinput):
-        return "Hg"
+    """
+    Custom commands and Attributes
+    """
+    # Custom Command
+    @object_method(types_info=("str", "str"))
+    def get_double_str(self, tinput, value):
+        return value + "_" + value
+
+    # Custom Attribute
+    @object_attribute_get(type_info=("str"))
+    def get_material(self, tinput):
+        return self.__material
+
+    @object_attribute_set(type_info=("str"))
+    def set_material(self, tinput, value):
+        self.__material = value
 

@@ -4,6 +4,7 @@ import gevent.event
 import math
 from bliss.common import log
 from bliss.common.temperature import *
+from bliss.common.utils import set_custom_members
 
 
 
@@ -22,17 +23,31 @@ class Controller(object):
             log.debug("  input config: %s" % (cfg))
             self._objects[name] = Input(self, cfg)
             self._inputs[name] = Input(self, cfg)
+
+            # For custom attributes and commands.
+            set_custom_members(self, self._inputs[name])
+            set_custom_members(self, self._objects[name])
+
         for name, cfg in outputs:
             log.debug("  output name: %s" % (name))
             log.debug("  output config: %s" % (cfg))
             self._objects[name] = Output(self, cfg)
             self._outputs[name] = Output(self, cfg)
             self.__dictramp.setdefault(self._outputs[name].channel,{"ramp":None, "step":None, "dwell":None})
+
+            # For custom attributes and commands.
+            set_custom_members(self, self._outputs[name])
+            set_custom_members(self, self._objects[name])
+
         for name, cfg in loops:
             log.debug("  loops name: %s" % (name))
             log.debug("  loops config: %s" % (cfg))
             self._objects[name] = Loop(self, cfg)
             self._loops [name] = Loop(self, cfg)
+
+            # For custom attributes and commands.
+            set_custom_members(self, self._loops[name])
+            set_custom_members(self, self._objects[name])
 
 
     @property

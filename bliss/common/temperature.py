@@ -14,6 +14,10 @@ class Input(object):
         self.__name = config["name"]
         self.__config = config
 
+        # lists of custom attr and commands
+        self.__custom_methods_list = list()
+        self.__custom_attributes_dict = dict()
+
     @property
     def controller(self):
         return self.__controller
@@ -38,6 +42,10 @@ class Input(object):
         log.debug("On Input:state")
         return self.controller.state_input(self)
 
+    def _add_custom_method(self, method, name, types_info=(None, None)):
+        setattr(self, name, method)
+        self.__custom_methods_list.append((name, types_info))
+
 class Output(object):
     def __init__(self, controller, config):
         log.debug("On Output")
@@ -55,6 +63,10 @@ class Output(object):
         # if defined as  self.deadband, attribute available from the instance
         # if defined as  self.__deadband, not available.
         #     in that case, use of decorator property offers it (read only) to world
+
+        # lists of custom attr and commands
+        self.__custom_methods_list = list()
+        self.__custom_attributes_dict = dict()
 
     @property
     def controller(self):
@@ -200,6 +212,9 @@ class Output(object):
         else:
            return self.controller.get_dwellval(self)
 
+    def _add_custom_method(self, method, name, types_info=(None, None)):
+        setattr(self, name, method)
+        self.__custom_methods_list.append((name, types_info))
 
 
 class Loop(object):
@@ -210,6 +225,10 @@ class Loop(object):
         self.__config = config
         self.__input  = controller.get_object(config["input"][1:])
         self.__output = controller.get_object(config["output"][1:])
+
+        # lists of custom attr and commands
+        self.__custom_methods_list = list()
+        self.__custom_attributes_dict = dict()
 
     @property
     def controller(self):
@@ -251,6 +270,10 @@ class Loop(object):
         log.debug("On Loop: off")
         self.controller.off(self)
 
+
+    def _add_custom_method(self, method, name, types_info=(None, None)):
+        setattr(self, name, method)
+        self.__custom_methods_list.append((name, types_info))
 
 
 

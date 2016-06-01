@@ -32,6 +32,7 @@ class Controller(object):
             encoder = encoder_class(encoder_name, self, encoder_config)
             self._encoders[encoder_name] = encoder
             self.__initialized_encoder[encoder] = False
+
         for axis_name, axis_class, axis_config in axes:
             axis = axis_class(axis_name, self, axis_config)
             self._axes[axis_name] = axis

@@ -5,8 +5,9 @@ standard bliss macros (wa, wm, ...)
 """
 
 __all__ = ['wa', 'wm', 'sta', 'mv', 'umv', 'mvr', 'umvr', 'move',
-           'enable', 'disable', 'lsct']
+           'enable', 'disable', 'lsct', 'prdef']
 
+import inspect
 import logging
 import functools
 
@@ -301,3 +302,30 @@ def lsct():
     print_(__tabulate(table))
 
 
+def prdef(obj_or_name):
+    '''
+    Shows the text of the source code for an object or the name of an object.
+    '''
+    if isinstance(obj_or_name, (str, unicode)):
+        obj, name = getattr(setup_globals, obj_or_name), obj_or_name
+    else:
+        obj = obj_or_name
+        name = None
+    try:
+        real_name = obj.__name__
+    except AttributeError:
+        real_name = str(obj)
+    if name is None:
+        name = real_name
+
+    fname = inspect.getfile(obj)
+    lines, line_nb = inspect.getsourcelines(obj)
+
+    if name == real_name:
+        header = "'{0}' is defined in:\n{1}:{2}\n". \
+                 format(name, fname, line_nb)
+    else:
+        header = "'{0}' is an alias for '{1}' which is defined in:\n{2}:{3}\n". \
+                 format(name, real_name, fname, line_nb)
+    print_(header)
+    print_(''.join(lines))

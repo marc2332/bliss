@@ -84,15 +84,15 @@ class Output(object):
         log.debug("On Output:read")
         return self.controller.read_output(self)
 
-    def ramp(self, new_setpoint=None, wait=False, **kwargs):   
+    def ramp(self, new_setpoint=None, wait=False, **kwargs):
         log.debug( "On Output:ramp %s" % new_setpoint)
         self.__mode = 1
         return self._ramp(new_setpoint, wait, **kwargs)
 
-    def set(self, new_setpoint=None, wait=False, **kwargs):   
+    def set(self, new_setpoint=None, wait=False, **kwargs):
         log.debug( "On Output:set %s" % new_setpoint)
         self.__mode = 0
-        return self._ramp(new_setpoint, wait, **kwargs)    
+        return self._ramp(new_setpoint, wait, **kwargs)
 
     def _ramp(self, new_setpoint=None, wait=False, **kwargs):
         log.debug( "On Output:_ramp %s" % new_setpoint)
@@ -102,7 +102,7 @@ class Output(object):
                 raise RuntimeError("Invalid setpoint `%f', below low limit (%f)" % (new_setpoint, ll))
             if hl is not None and new_setpoint > hl:
                 raise RuntimeError("Invalid setpoint `%f', above high limit (%f)" % (new_setpoint, hl))
-            
+
             self.__setpoint_task = self._start_setpoint(new_setpoint,**kwargs)
             self.__setpoint_task.link(self.__setpoint_done)
 
@@ -110,7 +110,7 @@ class Output(object):
                 self.wait()
         else:
             return self.controller.get_setpoint(self)
-            
+
     def wait(self):
         log.debug("On Output:wait")
         print "On Output:wait"
@@ -136,13 +136,13 @@ class Output(object):
             try:
                 task.get()
             except Exception:
-                sys.excepthook(*sys.exc_info())        
-	finally: 
+                sys.excepthook(*sys.exc_info())
+	finally:
             if self.__stopped == 0:
                self.__setpoint_event.set()
             self.__stopped = 0
-            
-	
+
+
     @task
     def _do_setpoint(self, setpoint, **kwargs):
         log.debug("On Output:_do_setpoint : mode = %s" % (self.__mode))
@@ -150,7 +150,7 @@ class Output(object):
            self.controller.start_ramp(self, setpoint, **kwargs)
         else :
            self.controller.set(self, setpoint, **kwargs)
-        
+
         while self.controller.setpoint_state(self, self.__deadband) == 'RUNNING':
             gevent.sleep(0.02)
 
@@ -162,7 +162,7 @@ class Output(object):
         # and adds a 'wait' keyword argument, whose value is True by default;
         # setting wait to False returns the coroutine object
         return self._do_setpoint(setpoint, wait=False, **kwargs)
-        
+
     def state(self):
         log.debug("On Output:state")
         return self.controller.state_output(self)
@@ -240,18 +240,17 @@ class Loop(object):
         return self.__output.ramp(new_setpoint, wait, **kwargs)
 
     def stop(self):
-        log.debug("On Loop: stop") 
+        log.debug("On Loop: stop")
         self.__output.stop()
 
     def on(self):
-        log.debug("On Loop: on") 
+        log.debug("On Loop: on")
         self.controller.on(self)
 
     def off(self):
-        log.debug("On Loop: off") 
+        log.debug("On Loop: off")
         self.controller.off(self)
 
 
 
 
- 

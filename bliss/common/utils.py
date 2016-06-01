@@ -141,6 +141,6 @@ def set_custom_members(src_obj, target_obj, pre_call=None):
         except AttributeError:
             pass
 
-        # just fill the list ???
+        # Just fills the list.
         if hasattr(member, "_object_attribute_"):
             add_object_attribute(target_obj,  **member._object_attribute_)

@@ -46,11 +46,11 @@ class Controller(object):
     def get_object(self, name):
         log.info("Controller:get_object: %s" % (name))
         return self._objects.get(name)
-        
+
     def read(self, tinputoutput):
         log.info("Controller:read: %s" % (tinput))
         raise NotImplementedError
- 
+
     def start_ramp(self, toutput, sp, **kwargs):
         """Send the command to start ramping to a setpoint"""
         log.info("Controller:start_ramp: %s" % (toutput))
@@ -110,16 +110,16 @@ class Controller(object):
             return "READY"
         else:
             return "RUNNING"
- 
+
     def setpoint_stop(self,toutput):
         """Stops the setpoint
 
         """
-        log.info("Controller:setpoint_stop") 
+        log.info("Controller:setpoint_stop")
 
     def set_rampval(self,toutput,ramp):
         """Sets the setpoint ramp value
-        
+
         """
         log.info("Controller:set_rampval: %s " % (toutput))
         #print toutput.channel
@@ -129,7 +129,7 @@ class Controller(object):
 
     def get_rampval(self,toutput):
         """Gets the setpoint ramp value
-        
+
         """
         log.info("Controller:get_rampval: %s " % (toutput))
         #print toutput.channel
@@ -138,7 +138,7 @@ class Controller(object):
 
     def set_stepval(self,toutput,step):
         """Sets the setpoin step value
-        
+
         """
         log.info("Controller:set_stepval: %s " % (toutput))
         self.__dictramp[toutput.channel]["step"]=step
@@ -146,7 +146,7 @@ class Controller(object):
 
     def get_stepval(self,toutput):
         """Gets the setpoint step value
-        
+
         """
         log.info("Controller:get_stepval: %s " % (toutput))
         return self.__dictramp[toutput.channel]["step"]
@@ -154,14 +154,14 @@ class Controller(object):
 
     def set_dwellval(self,toutput,dwell):
         """Sets the setpoint dwell value
-        
+
         """
         log.info("Controller:set_dwellval: %s " % (toutput))
         self.__dictramp[toutput.channel]["dwell"]=dwell
 
     def get_dwellval(self,toutput):
         """Gets the setpoint dwell value
-        
+
         """
         log.info("Controller:get_dwellval: %s " % (toutput))
         return self.__dictramp[toutput.channel]["dwell"]

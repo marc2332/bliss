@@ -1,0 +1,301 @@
+#%TITLE% bliss.mac
+#%NAME%
+#  bliss.mac - SPEC macros to integrate bliss control system
+#
+#%OVERVIEW%
+#  SPEC macros to integrate bliss control system                                  %BR% \
+#  It assumes the existance of a TANGO Bliss DS with a Bliss device class         %BR% \
+#  with a name SPECBL/bliss/<session>                                             %BR% \
+#                                                                                 %BR% \
+#  Short way: add %B%need\ bliss%B% and %B%blisssetup%B% to your setup files      %BR% \
+#                                                                                 %BR% \
+#  %BR%
+
+#%EXAMPLE%
+#  %DL%
+#  %DT%blisssetup
+#  %DD%Configures to use the bliss session with the same name as the
+#  spec session
+#  %DT%blisssetup sixc
+#  %DD%Configures to use the bliss 'sixc' session
+#  %DT%blisssetup sixc 1
+#  %DD%Configures to use the bliss 'sixc' session, replacing standard spec
+#  macros (use with extreme caution)
+#  %DT%b_wa
+#  %DD%Runs the %B%wa%B% function in bliss (if replaced spec macros in
+#  blisssetup, then macro is just "wa" not "b_wa". Same goes for following
+#  examples)
+#  %DT%b_umv th 180
+#  %DD%Runs the %B%umv%B% function in bliss
+#  %DT%b_ascan th 0 180 100 0.1
+#  %DD%Runs the %B%ascan%B% function in bliss
+#  %XDL%
+#
+
+def blisssetup '{
+    global BLISS_DEVICE replace
+
+    replace = 0
+
+    if ($# == 0) {
+        BLISS_DEVICE = SPECBL "/bliss/" SPEC
+    } else if ($# > 1) {
+        BLISS_DEVICE = SPECBL "/bliss/$1"
+    }
+    if ($# == 2) {
+        replace = $2
+    }
+
+    _bliss_expose_all(replace)
+}'
+
+def _bliss_msg(msg) '{
+    printf("%s\n", msg)
+}'
+
+def _bliss_error_desc(msg) '{
+    # Prints <msg> message.
+    # Prints only "desc" field of the TANGO_ERR_STACK
+    # other fields are too useless for users
+
+    _bliss_msg(msg)
+    _bliss_msg("Details:")
+    for (item in TANGO_ERR_STACK) {
+        if (index(item, "desc")) {
+            _bliss_msg(TANGO_ERR_STACK[item])
+        }
+    }
+}'
+
+def _bliss_print_err '{
+    local msg
+    if (TANGO_ERR != "0") {
+       if (TANGO_ERR == "API_DeviceNotExported") {
+           msg = "bliss server is not running or inacessible"
+       } else {
+           msg = sprintf("%s\n%s", TANGO_ERR_STACK[0]["reason"], \
+                         TANGO_ERR_STACK[0]["desc"])
+       }
+       eprintf("bliss error: %s\n", msg)
+    }
+}'
+
+def _bliss_io(cmd_name) '{
+    local dev result
+    dev = _get_bliss_device()
+
+    TANGO_ERR = -1
+    result = tango_io(dev, cmd_name)
+    _bliss_print_err
+    return result
+}'
+
+def _bliss_io_param(cmd_name, param) '{
+    local dev result
+    dev = _get_bliss_device()
+    TANGO_ERR = -1
+    if (tango_io(dev, cmd_name, param, result) == 0) {
+        return result
+    }
+    _bliss_print_err
+    return
+}'
+
+def _bliss_get(attr_name) '{
+    local dev result
+    dev = _get_bliss_device()
+
+    TANGO_ERR = -1
+    if (tango_get(dev, attr_name, result) == 0) {
+        return result
+    }
+    _bliss_print_err
+    return
+}'
+
+def _bliss_get_array(attr_name) '{
+    local dev result[]
+    dev = _get_bliss_device()
+
+    TANGO_ERR = -1
+    if (tango_get(dev, attr_name, result) != -1) {
+        return (result)
+    }
+    _bliss_print_err
+    return
+}'
+
+def _bliss_put(attr_name, value) '{
+    local dev
+    dev = _get_bliss_device()
+
+    TANGO_ERR = -1
+    if (tango_put(dev, attr_name, value) == 0) {
+        return 0
+    }
+    _bliss_print_err
+    return -1
+}'
+
+def _bliss_update_channel(channel) '{
+    local value
+    value = _bliss_get(channel)
+    if (TANGO_ERR != "0") {
+        return -1
+    }
+    printf("%s", value)
+    return 0
+}'
+
+def _bliss_update_output() '{
+    if(_bliss_update_channel("output_channel") != 0) {
+        return -1
+    }
+    if(_bliss_update_channel("error_channel") != 0) {
+        return -1
+    }
+}'
+
+def _bliss_update_input() '{
+    local need_input inp
+    need_input = _bliss_get("need_input")
+    if (TANGO_ERR != "0") {
+        return -1
+    }
+    if (need_input) {
+        inp = input() "\n"
+	if (_bliss_put("input_channel", inp) != 0) {
+	    return -1
+        }
+    }
+    return 0
+}'
+
+def _bliss_stop(cmd_id) '{
+    _bliss_io_param("stop", cmd_id)
+    _bliss_update_output()
+}'
+
+def _bliss_run(params) '{
+    local cmd_id running cleanup
+
+    cmd_id = _bliss_io_param("execute", params)
+    if (TANGO_ERR != "0") {
+        return -1
+    }
+    cleanup = sprintf("_bliss_stop(%lld)", cmd_id)
+    cdef("cleanup_once", cleanup, "_bliss_run_")
+    running = 1
+    while (running) {
+        if(_bliss_update_output() != 0) {
+            return -1
+        }
+        if(_bliss_update_input() != 0) {
+            return -1
+        }
+        running = _bliss_io_param("is_running", cmd_id)
+        if (TANGO_ERR != "0") {
+            return -1
+    	}
+        sleep(0.1)
+    }
+    if(_bliss_update_output() != 0) {
+        return -1
+    }
+    cdef("cleanup_once", "", "_bliss_run_", "delete")
+}'
+
+def _get_bliss_device(p) '{
+    global BLISS_DEVICE
+    local dev
+
+    if (BLISS_DEVICE == 0) {
+        dev = SPECBL "/bliss/" SPEC
+        BLISS_DEVICE = dev
+    }
+    else {
+        dev = BLISS_DEVICE
+    }
+    return (dev)
+}'
+
+def blisskeys '{
+    local bliss_dev keys[]
+    bliss_dev = _get_bliss_device()
+
+    tango_get(bliss_dev, "namespace", keys)
+
+    # TODO: print output to screen
+}'
+
+def __to_py_cmd(cmd, spec_args) '{
+    local args nargs result next
+
+    nargs = split(spec_args, args)
+
+    if (!nargs) {
+        result = cmd "()"
+    } else {
+        result = cmd "("
+        for(i=0; i<nargs; i++) {
+            if (i < (nargs-1)) {
+                suffix = ", "
+            }
+            else {
+                suffix = ")"
+            }
+            result = result args[i] suffix
+        }
+    }
+    return(result)
+}'
+
+def _bliss_execute(cmd, spec_args) '{
+    local args
+    py_cmd = __to_py_cmd(cmd, spec_args)
+    _bliss_run(py_cmd)
+}'
+
+def b_run '{
+    _bliss_run("$*")
+}'
+
+def _bliss_expose_all(replace) '{
+    local i functions[]
+    local dev
+
+    if(replace) {
+        print "WARNING: spec standard macros are being replaced!"
+    }
+
+    dev = _get_bliss_device()
+
+    TANGO_ERR = -1
+    if (tango_get(dev, "functions", functions) == -1) {
+        _bliss_print_err
+        return
+    }
+
+    for(i in functions) {
+        _bliss_expose(functions[i], replace)
+    }
+
+    #functions = _bliss_get_array("functions")
+    #for(function in functions) {
+    #    _bliss_expose(function)
+    #}
+}'
+
+def _bliss_expose(cmd, replace) '{
+    local _cmd prefix
+
+    prefix = "b_"
+
+    if(replace) {
+        prefix = ""
+    }
+
+    _cmd = "rdef " prefix cmd " \'{ _bliss_execute(\"" cmd "\", \"$*\") }\'"
+
+    eval(_cmd)
+}'

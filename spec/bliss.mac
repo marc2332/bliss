@@ -33,20 +33,20 @@
 #
 
 def blisssetup '{
-    global BLISS_DEVICE replace
+    global BLISS_DEVICE
+    local name result
 
-    replace = 0
-
-    if ($# == 0) {
-        BLISS_DEVICE = SPECBL "/bliss/" SPEC
-    } else if ($# > 1) {
-        BLISS_DEVICE = SPECBL "/bliss/$1"
+    name = SPEC
+    if ($# > 0) {
+        name = "$1"
     }
-    if ($# == 2) {
-        replace = $2
-    }
+    BLISS_DEVICE = SPECBL "/bliss/" name
 
-    _bliss_expose_all(replace)
+    result = _bliss_expose_all()
+    if (result == 0) {
+        printf("bliss info: \'%s\' session configured with \'%s\'\n", \
+	       name, BLISS_DEVICE)
+    }
 }'
 
 def _bliss_msg(msg) '{
@@ -260,40 +260,29 @@ def b_run '{
     _bliss_run("$*")
 }'
 
-def _bliss_expose_all(replace) '{
+def _bliss_expose_all() '{
     local i functions[]
     local dev
-
-    if(replace) {
-        print "WARNING: spec standard macros are being replaced!"
-    }
 
     dev = _get_bliss_device()
 
     TANGO_ERR = -1
     if (tango_get(dev, "functions", functions) == -1) {
         _bliss_print_err
-        return
+        return -1
     }
 
     for(i in functions) {
-        _bliss_expose(functions[i], replace)
+        _bliss_expose(functions[i])
     }
 
-    #functions = _bliss_get_array("functions")
-    #for(function in functions) {
-    #    _bliss_expose(function)
-    #}
+    return 0
 }'
 
-def _bliss_expose(cmd, replace) '{
+def _bliss_expose(cmd) '{
     local _cmd prefix
 
     prefix = "b_"
-
-    if(replace) {
-        prefix = ""
-    }
 
     _cmd = "rdef " prefix cmd " \'{ _bliss_execute(\"" cmd "\", \"$*\") }\'"
 

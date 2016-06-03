@@ -13,15 +13,15 @@ class BpmCounter(CounterBase):
      self.parent = parent
      self.index = index
 
-   def count(self, time=None, measurement=None):
+   def read(self):
      if isinstance(self.index, str):
-       return getattr(self.parent, self.index)(time)
+       return getattr(self.parent, self.index)(0) #time)
      else:
        if not self.parent.acquisition_event.is_set():
          self.parent.acquisition_event.wait()
          data = self.parent.last_acq
        else:
-         data = self.parent.read(time)
+         data = self.parent.read(0) #time)
        return data[self.index]
 
 

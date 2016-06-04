@@ -191,6 +191,13 @@ class ScanListener:
             print_(msg)
 
 
+_SHELL_INFO = None
+def load_shell(config_file, session_name):
+    result = initialize(config_file, session_name)
+    global _SHELL_INFO
+    _SHELL_INFO = result
+    return result
+
 @six.add_metaclass(DeviceMeta)
 class Bliss(Device):
     """Bliss TANGO device class"""
@@ -212,6 +219,7 @@ class Bliss(Device):
 
     def __init__(self, *args, **kwargs):
         self._log = logging.getLogger('bliss.tango.Bliss')
+        self.__startup = True
         Device.__init__(self, *args, **kwargs)
         self.show_traceback = False
 
@@ -232,8 +240,12 @@ class Bliss(Device):
             self.session_name = util.get_ds_inst_name()
 
         self.__scan_listener = ScanListener()
-        self.__user_ns, _, (self.__setup, _) = initialize(self.config_file,
-                                                          self.session_name)
+        if self.__startup:
+            shell_info = _SHELL_INFO
+        else:
+            shell_info = initialize(self.config_file, self.session_name)
+        self.__user_ns, _, (self.__setup, _), _ = shell_info
+        self.__startup = False
 
         # redirect output
         self.__output_channel = OutputChannel()
@@ -488,9 +500,16 @@ def __register_server(server_type, server_instance,
     db.put_device_property(dev_name, dict(config_file=config_file))
 
 
-def __initialize(args=None, db=None):
+def __import(package):
+    __import__(package)
+    return sys.modules[package]
+
+
+def __initialize(args, db=None):
     args = args or sys.argv
     db = db or Database()
+
+    klasses = [Bliss]
 
     # initialize logging
     fmt = '%(levelname)-8s %(asctime)s %(name)s: %(message)s'
@@ -502,8 +521,6 @@ def __initialize(args=None, db=None):
     # check if server exists in database. If not, create it.
     if server_instance not in registered_servers:
         register_server(server_type, server_instance, db=db)
-
-    klasses = [Bliss]
 
     device_map = utils.get_devices_from_server(args)
 
@@ -523,28 +540,37 @@ def __initialize(args=None, db=None):
     this_dir = os.path.dirname(os.path.abspath(__file__))
     suffix = '_ds.py'
     inits = []
+
+    shell_info = load_shell(config_file, session_name)
+
+    info=dict(server_type=server_type,
+              server_instance=server_instance,
+              config_file=config_file,
+              session_name=session_name,
+              device_map=device_map,
+              manager_device_name=bliss_dev_name,
+              shell_info=shell_info)
+
     for name in os.listdir(this_dir):
         if name.endswith(suffix):
             module_name = '{0}.{1}'.format(__package__, name[:-3])
             _log.info('searching for init in %s...', module_name)
             try:
-                module = __import__(module_name)
+                module = __import(module_name)
             except ImportError as ie:
                 _log.warning('failed to search for init in %s: %s',
                              module_name, str(ie))
             else:
                 if hasattr(module, 'initialize_bliss') and \
                    callable(module.initialize_bliss):
-                    inits.append((module_name, module.initialize_bliss))
-
-    for module_name, init in inits:
-        try:
-            _log.info('initializing %s...', module_name)
-            mod_klasses = init(server_type, server_instance, config_file, session_name, device_map)
-            klasses.extend(mod_klasses)
-        except Exception as e:
-            _log.warning('failed to initialize %s: %s', module_name, str(e))
-
+                    _log.info('found init in %s', module_name)
+                    try:
+                        mod_klasses = module.initialize_bliss(info, db=db)
+                        klasses.extend(mod_klasses)
+                    except Exception as e:
+                        _log.warning('failed to initialize %s: %s',
+                                     module_name, str(e))
+                        _log.debug('details:', exc_info=1)
     return klasses
 
 
@@ -553,7 +579,15 @@ def main(args=None, **kwargs):
     from PyTango.server import run
     kwargs['green_mode'] = GreenMode.Gevent
 
-    klasses = __initialize(args=args)
+    args = list(sys.argv if args is None else args)
+
+    if len(args) == 1:
+        args.append('-?')
+
+    if '-?' in args:
+        klasses = Bliss,
+    else:
+        klasses = __initialize(args=args)
 
     return run(klasses, args=args, **kwargs)
 

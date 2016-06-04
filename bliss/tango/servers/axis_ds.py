@@ -16,8 +16,8 @@ from bliss.common import event
 from bliss.common.utils import grouped
 
 import PyTango
-from PyTango.server import Device, DeviceMeta
-from PyTango.server import attribute, command, device_property
+from PyTango.server import Device, DeviceMeta, device_property
+from PyTango.server import attribute, command, get_worker
 
 PyTango.requires_pytango('8.1.9', software_name='BlissAxis')
 
@@ -1134,8 +1134,22 @@ def __create_tango_axis_class(axis):
     elog.debug("'%s' custom commands:" % axis.name)
     elog.debug(', '.join(map(str, _cmd_list)))
 
+    def create_cmd(cmd_name):
+        def cmd(self, *args, **kwargs):
+            method = getattr(self.axis, cmd_name)
+            return get_worker().execute(method, *args, **kwargs)
+        return cmd
+
+    _attr_list = axis.custom_attributes_list
+
     for (fname, (t1, t2)) in _cmd_list:
-        setattr(new_axis_class, fname, getattr(axis, fname))
+        # Skip the attr set/get methods
+        attr = [n for n, t, a in _attr_list
+                if fname in ['set_%s' % n, 'get_%s' % n]]
+        if attr:
+            continue
+
+        setattr(new_axis_class, fname, create_cmd(fname))
 
         tin = types_conv_tab[t1]
         tout = types_conv_tab[t2]
@@ -1145,36 +1159,29 @@ def __create_tango_axis_class(axis):
         elog.debug("   %s (in: %s, %s) (out: %s, %s)" % (fname, t1, tin, t2, tout))
 
     # CUSTOM ATTRIBUTES
-    _attr_list = axis.custom_attributes_list
-
     elog.debug("'%s' custom attributes:" % axis.name)
     elog.debug(', '.join(map(str, _attr_list)))
 
     for name, t, access in _attr_list:
-        _attr_name = name
         attr_info = [types_conv_tab[t],
                      PyTango.AttrDataFormat.SCALAR]
         if 'r' in access:
-            def read(self, attr, _axis=axis, _attr_name=_attr_name):
-                value = getattr(_axis, "get_" + _attr_name)()
+            def read(self, attr):
+                method = getattr(self.axis, "get_" + attr.get_name())
+                value = get_worker().execute(method)
                 attr.set_value(value)
-            new_read_attr_method = types.MethodType(read, new_axis_class,
-                                                    new_axis_class.__class__)
-            setattr(new_axis_class, "read_%s" % _attr_name,
-                    new_read_attr_method)
+            setattr(new_axis_class, "read_%s" % name, read)
         if 'w' in access:
-            def write(self, attr, _axis=axis, _attr_name=_attr_name):
+            def write(self, attr):
+                method = getattr(self.axis, "set_" + attr.get_name())
                 value = attr.get_write_value()
-                getattr(_axis, "set_" + _attr_name)(value)
-            new_write_attr_method = types.MethodType(write, new_axis_class,
-                                                     new_axis_class.__class__)
-            setattr(new_axis_class, "write_%s" % _attr_name,
-                    new_write_attr_method)
+                method(value)
+            setattr(new_axis_class, "write_%s" % name, write)
 
         write_dict = {'r': 'READ', 'w': 'WRITE', 'rw': 'READ_WRITE'}
         attr_write = getattr(PyTango.AttrWriteType, write_dict[access])
         attr_info.append(attr_write)
-        new_axis_class_class.attr_list[_attr_name] = [attr_info]
+        new_axis_class_class.attr_list[name] = [attr_info]
 
     """
     CUSTOM SETTINGS AS ATTRIBUTES.
@@ -1186,38 +1193,34 @@ def __create_tango_axis_class(axis):
                             "offset", "low_limit", "high_limit", "acceleration", "_set_position"]:
             elog.debug(" BlissAxisManager.py -- std SETTING %s " % (setting_name))
         else:
-            _attr_name = setting_name
-            _setting_type = axis.controller.axis_settings.convert_funcs[_attr_name]
+            _setting_type = axis.controller.axis_settings.convert_funcs[setting_name]
             _attr_type = types_conv_tab[_setting_type]
             elog.debug(" BlissAxisManager.py -- adds SETTING %s as %s attribute" % (setting_name, _attr_type))
 
             # Updates Attributes list.
-            new_axis_class_class.attr_list.update({_attr_name:
+            new_axis_class_class.attr_list.update({setting_name:
                                                    [[_attr_type,
                                                      PyTango.AttrDataFormat.SCALAR,
-                                                     PyTango.AttrWriteType.READ_WRITE], {
+                                                      PyTango.AttrWriteType.READ_WRITE], {
                 'Display level': PyTango.DispLevel.OPERATOR,
                 'format': '%10.3f',
-                'description': '%s : u 2' % _attr_name,
+                'description': '%s : u 2' % setting_name,
                 'unit': 'user units/s^2',
-                'label': _attr_name,
+                'label': setting_name,
                 }]})
 
             # Creates functions to read and write settings.
-            def read_custattr(self, attr, _axis=axis, _attr_name=_attr_name):
-                _val = _axis.get_setting(_attr_name)
-                attr.set_value(_val)
-            new_read_attr_method = types.MethodType(read_custattr, new_axis_class,
-                                                    new_axis_class.__class__)
-            setattr(new_axis_class, "read_%s" % _attr_name, new_read_attr_method)
+            def read_custattr(self, attr):
+                value = get_worker().execute(self.axis.get_setting,
+                                             attr.get_name())
+                attr.set_value(value)
+            setattr(new_axis_class, "read_%s" % setting_name, read_custattr)
 
-            def write_custattr(self, attr, _axis=axis, _attr_name=_attr_name):
-                data = attr.get_write_value()
-                _axis.set_setting(_attr_name, data)
+            def write_custattr(self, attr):
+                get_worker().execute(self.axis.set_setting, attr.get_name(),
+                                     attr.get_write_value())
+            setattr(new_axis_class, "write_%s" % setting_name, write_custattr)
 
-            new_write_attr_method = types.MethodType(write_custattr, new_axis_class,
-                                                     new_axis_class.__class__)
-            setattr(new_axis_class, "write_%s" % _attr_name, new_write_attr_method)
     return new_axis_class
 
 
@@ -1265,7 +1268,7 @@ def main(argv=None):
 
     from PyTango import GreenMode
     from PyTango.server import run
-    run(classes, green_mode=GreenMode.Gevent)
+    run(klasses, green_mode=GreenMode.Gevent)
 
 
 if __name__ == '__main__':

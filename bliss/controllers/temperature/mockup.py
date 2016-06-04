@@ -78,11 +78,11 @@ class mockup(Controller):
 
         """
         if kwargs.has_key("ramp"):
-           toutput.controller.dictramp[toutput.channel]['ramp'] = kwargs["ramp"]
+           toutput.controller._set_rampval(toutput,kwargs["ramp"])
         if kwargs.has_key("dwell"):
-           toutput.controller.dictramp[toutput.channel]['dwell'] = kwargs["dwell"]
+           toutput.controller._set_dwellval(toutput,kwargs["dwell"])
         if kwargs.has_key("step"):
-           toutput.controller.dictramp[toutput.channel]['step'] = kwargs["step"]
+           toutput.controller._set_stepval(toutput,kwargs["step"])
         channel = toutput.config.get("channel",str)
         log.debug("mockup: set %s on channel %s" % (sp,channel))
         #print kwargs
@@ -104,11 +104,12 @@ class mockup(Controller):
 
         """
         if kwargs.has_key("ramp"):
-           toutput.controller.dictramp[toutput.channel]['ramp'] = kwargs["ramp"]
+           #toutput.controller.dictramp[toutput.channel]['ramp'] = kwargs["ramp"]
+           toutput.controller._set_rampval(toutput,kwargs["ramp"])
         if kwargs.has_key("dwell"):
-           toutput.controller.dictramp[toutput.channel]['dwell'] = kwargs["dwell"]
+           toutput.controller._set_dwellval(toutput,kwargs["dwell"])
         if kwargs.has_key("step"):
-           toutput.controller.dictramp[toutput.channel]['step'] = kwargs["step"]
+           toutput.controller._set_stepval(toutput,kwargs["step"])
         channel = toutput.config.get("channel",str)
         log.debug("mockup: start_ramp %s on channel %s" % (sp,channel))
         #print kwargs
@@ -152,9 +153,9 @@ class mockup(Controller):
 
         """
         log.debug("mockup: state Output")
-        log.debug("mockup: ramp : %s" % toutput.controller.dictramp[toutput.channel]['ramp'])
-        log.debug("mockup: step : %s" % toutput.controller.dictramp[toutput.channel]['step'])
-        log.debug("mockup: dwell : %s" % toutput.controller.dictramp[toutput.channel]['dwell'])
+        log.debug("mockup: ramp : %s" % toutput.controller._get_rampval(toutput))
+        log.debug("mockup: step : %s" % toutput.controller._get_stepval(toutput))
+        log.debug("mockup: dwell : %s" % toutput.controller._get_dwellval(toutput))
         return "READY"
 
     def setpoint_stop(self, toutput):
@@ -165,6 +166,14 @@ class mockup(Controller):
         log.debug("mockup: stop: %s" % (channel))
         sp = self.setpoints.setdefault(channel, {"setpoint":None, "temp": INITIAL_TEMP, "end_time":0 })
         sp["setpoint"]=None
+
+    def setpoint_abort(self, toutput):
+        """Aborting the setpoint on an Output object
+
+        """
+        channel = toutput.config.get("channel",str)
+        log.debug("mockup: abort: %s" % (channel))
+        self.setpoint_stop(toutput)
 
     def on(self, tloop):
         """

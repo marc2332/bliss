@@ -148,6 +148,16 @@ class Output(object):
             ##
         self.controller.setpoint_stop(self)
 
+    def abort(self):
+        print "On Output: abort"
+        if self.__setpoint_task and not self.__setpoint_task.ready():
+            self.__setpoint_task.kill()
+            #added lines
+            self.__setpoint_event.set()
+            self.__stopped = 1
+            ##
+        self.controller.setpoint_abort(self)
+
     def __setpoint_done(self, task):
         log.debug("On Output:__setpoint_done")
         print "On Output:__setpoint_done"
@@ -170,7 +180,7 @@ class Output(object):
         else :
            self.controller.set(self, setpoint, **kwargs)
 
-        while self.controller.setpoint_state(self, self.__deadband) == 'RUNNING':
+        while self.controller._setpoint_state(self, self.__deadband) == 'RUNNING':
             gevent.sleep(0.02)
 
     def _start_setpoint(self, setpoint, **kwargs):
@@ -193,9 +203,9 @@ class Output(object):
 
         """
         if new_ramp:
-           self.controller.set_rampval(self,new_ramp)
+           self.controller._set_rampval(self,new_ramp)
         else:
-           return self.controller.get_rampval(self)
+           return self.controller._get_rampval(self)
 
     def stepval(self, new_step=None):
         log.debug("On Output:stepval: %s " % (new_step))
@@ -204,9 +214,9 @@ class Output(object):
 
         """
         if new_step:
-           self.controller.set_stepval(self,new_step)
+           self.controller._set_stepval(self,new_step)
         else:
-           return self.controller.get_stepval(self)
+           return self.controller._get_stepval(self)
 
     def dwellval(self, new_dwell=None):
         log.debug("On Output:setpoint dwell: %s " % (new_dwell))
@@ -215,9 +225,9 @@ class Output(object):
 
         """
         if new_dwell:
-           self.controller.set_dwellval(self,new_dwell)
+           self.controller._set_dwellval(self,new_dwell)
         else:
-           return self.controller.get_dwellval(self)
+           return self.controller._get_dwellval(self)
 
     def _add_custom_method(self, method, name, types_info=(None, None)):
         setattr(self, name, method)

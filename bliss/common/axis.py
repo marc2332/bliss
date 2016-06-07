@@ -244,17 +244,22 @@ class Axis(object):
                 curr_pos = _pos / self.steps_per_unit
             except NotImplementedError:
                 curr_pos = self._hw_position()
+            
+            self.__settings.set("dial_position", curr_pos)
 
             if self.no_offset:
                 # change user pos (keep offset = 0)
-                self._position(new_dial)
+                self._set_position_and_offset(curr_pos)
             else:
                 # do not change user pos (update offset)
-                self._position(user_pos)
+                self._set_position_and_offset(user_pos) 
 
             return curr_pos
         else:
-            return self.user2dial(self.position())
+            dial_pos = self.settings.get("dial_position")
+            if dial_pos is None:
+                dial_pos = self._hw_position() 
+            return dial_pos
 
     @lazy_init
     def position(self, new_pos=None):
@@ -271,11 +276,11 @@ class Axis(object):
                                     while it is moving")
             if self.no_offset:
                 return self.dial(new_pos)
-            pos = self._position(new_pos)
+            pos = self._set_position_and_offset(new_pos)
         else:
             pos = self.settings.get("position")
             if pos is None:
-                pos = self._position()
+                pos = self.dial2user(self._hw_position())
         return pos
 
     @lazy_init 
@@ -288,28 +293,21 @@ class Axis(object):
             curr_pos = 0
         return curr_pos
 
-    @lazy_init
-    def _position(self, new_pos=None):
-        """
-        new_pos is in user units.
-        Returns a value in user units.
-        """
-        dial_pos = self._hw_position()
-        if new_pos is not None:
-            prev_offset = self.offset
-            self.__settings.set("_set_position", new_pos)
-            self.__settings.set("offset", new_pos - self.sign * dial_pos)
-            # update limits
-            ll, hl = self.limits()
-            lim_delta = self.offset - prev_offset
-            self.limits(ll + lim_delta if ll is not None else ll,
-                        hl + lim_delta if hl is not None else hl)
-
-        self.__settings.set("position", self.dial2user(dial_pos), write=self._hw_control or new_pos is not None)
-        self.__settings.set("dial_position", dial_pos) 
-
+    def _set_position_and_offset(self, new_pos):
+        dial_pos = self.settings.get("dial_position")
+        if dial_pos is None:
+            dial_pos = self._hw_position()
+        prev_offset = self.offset
+        self.__settings.set("_set_position", new_pos)
+        self.__settings.set("offset", new_pos - self.sign * dial_pos)
+        # update limits
+        ll, hl = self.limits()
+        lim_delta = self.offset - prev_offset
+        self.limits(ll + lim_delta if ll is not None else ll,
+                    hl + lim_delta if hl is not None else hl)
+        self.__settings.set("position", self.dial2user(dial_pos), write=True)
         return self.position()
-
+         
     @lazy_init
     def state(self, read_hw=False):
         if read_hw:
@@ -429,8 +427,10 @@ class Axis(object):
 
     def _update_settings(self, state=None):
         self.settings.set("state", state if state is not None else self.state(), write=self._hw_control) 
-        self._position()
-
+        dial_pos = self._hw_position()
+        self.__settings.set("position", self.dial2user(dial_pos), write=self._hw_control)
+        self.__settings.set("dial_position", dial_pos)        
+ 
     def _handle_move(self, motion, polling_time):
         state = self._wait_move(polling_time, update_settings=True)
         if state in ['LIMPOS', 'LIMNEG']:
@@ -600,7 +600,7 @@ class Axis(object):
 
     def _do_encoder_reading(self):
         enc_dial = self.encoder.read()
-        curr_pos = self.user2dial(self._position())
+        curr_pos = self._hw_position()
         if abs(curr_pos - enc_dial) > self.encoder.tolerance:
             raise RuntimeError("'%s' didn't reach final position.(enc_dial=%g, curr_pos=%g)" %
                                (self.name, enc_dial, curr_pos))

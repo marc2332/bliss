@@ -71,6 +71,10 @@ class Output(object):
         # if defined as  self.__deadband, not available.
         #     in that case, use of decorator property offers it (read only) to world
 
+        self._rampval = None
+        self._dwellval = None
+        self._stepval = None
+
         # lists of custom attr and commands
         self.__custom_methods_list = list()
         self.__custom_attributes_dict = dict()
@@ -203,9 +207,9 @@ class Output(object):
 
         """
         if new_ramp:
-           self.controller._set_rampval(self,new_ramp)
+           self._rampval = new_ramp
         else:
-           return self.controller._get_rampval(self)
+           return self._rampval
 
     def stepval(self, new_step=None):
         log.debug("On Output:stepval: %s " % (new_step))
@@ -214,9 +218,9 @@ class Output(object):
 
         """
         if new_step:
-           self.controller._set_stepval(self,new_step)
+           self._stepval = new_step
         else:
-           return self.controller._get_stepval(self)
+           return self._stepval
 
     def dwellval(self, new_dwell=None):
         log.debug("On Output:setpoint dwell: %s " % (new_dwell))
@@ -225,9 +229,9 @@ class Output(object):
 
         """
         if new_dwell:
-           self.controller._set_dwellval(self,new_dwell)
+           self._dwellval = new_dwell
         else:
-           return self.controller._get_dwellval(self)
+           return self._dwellval
 
     def _add_custom_method(self, method, name, types_info=(None, None)):
         setattr(self, name, method)
@@ -242,6 +246,9 @@ class Loop(object):
         self.__config = config
         self.__input  = controller.get_object(config["input"][1:])
         self.__output = controller.get_object(config["output"][1:])
+        self._Pval = None
+        self._Ival = None
+        self._Dval = None
 
         # lists of custom attr and commands
         self.__custom_methods_list = list()
@@ -286,6 +293,41 @@ class Loop(object):
     def off(self):
         log.debug("On Loop: off")
         self.controller.off(self)
+
+
+    def Pval(self, new_Pval=None):
+        log.debug("On Output: Pval (PID): %s " % (new_Pval))
+        """
+        Setting/reading the P value (for PID)
+
+        """
+        if new_Pval:
+           self._Pval = new_Pval
+        else:
+           return self._Pval
+
+    def Ival(self, new_Ival=None):
+        log.debug("On Output: Ival (PID): %s " % (new_Ival))
+        """
+        Setting/reading the I value (for PID)
+
+        """
+        if new_Ival:
+           self._Ival = new_Ival
+        else:
+           return self._Ival
+
+    def Dval(self, new_Dval=None):
+        log.debug("On Output: Dval (PID): %s " % (new_Dval))
+        """
+        Setting/reading the D value (for PID)
+
+        """
+        if new_Dval:
+           self._Dval = new_Dval
+        else:
+           return self._Dval
+
 
 
     def _add_custom_method(self, method, name, types_info=(None, None)):

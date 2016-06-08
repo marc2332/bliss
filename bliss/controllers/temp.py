@@ -70,53 +70,6 @@ class Controller(object):
         #it is used by Loop class
         return self._objects.get(name)
 
-    def _set_rampval(self,toutput,ramp):
-        """Sets the setpoint ramp value
-
-        """
-        log.info("Controller:set_rampval: %s " % (toutput))
-        #print toutput.channel
-        #print self.__dictramp
-        self.__dictramp[toutput.channel]["ramp"]=ramp
-        #print self.__dictramp
-
-    def _get_rampval(self,toutput):
-        """Gets the setpoint ramp value
-
-        """
-        log.info("Controller:get_rampval: %s " % (toutput))
-        #print toutput.channel
-        #print self.__dictramp
-        return self.__dictramp[toutput.channel]["ramp"]
-
-    def _set_stepval(self,toutput,step):
-        """Sets the setpoint step value
-
-        """
-        log.info("Controller:set_stepval: %s " % (toutput))
-        self.__dictramp[toutput.channel]["step"]=step
-
-    def _get_stepval(self,toutput):
-        """Gets the setpoint step value
-
-        """
-        log.info("Controller:get_stepval: %s " % (toutput))
-        return self.__dictramp[toutput.channel]["step"]
-
-    def _set_dwellval(self,toutput,dwell):
-        """Sets the setpoint dwell value
-
-        """
-        log.info("Controller:set_dwellval: %s " % (toutput))
-        self.__dictramp[toutput.channel]["dwell"]=dwell
-
-    def _get_dwellval(self,toutput):
-        """Gets the setpoint dwell value
-
-        """
-        log.info("Controller:get_dwellval: %s " % (toutput))
-        return self.__dictramp[toutput.channel]["dwell"]
-
     def read_input(self, tinput):
         log.info("Controller:read_input: %s" % (tinput))
         raise NotImplementedError

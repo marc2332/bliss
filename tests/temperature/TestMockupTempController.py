@@ -16,8 +16,7 @@ import pdb
 import time
 
 SP = 10
-SP = 15
-SP = 20
+KW = 1
 
 """
 Bliss generic library
@@ -126,8 +125,25 @@ class TestMockupTempController(unittest.TestCase):
         self.assertAlmostEqual(int(round(myval)),SP,places=1)
         myset = bb.set()
         self.assertAlmostEqual(int(round(myset)),SP,places=1)
-        
 
+    def test_output_set_with_kwarg(self):
+        SP=11
+        KW=23
+        config = static.get_config()  
+        bb=config.get("heater")           
+        val = bb.read()
+        print "Direct setpoint from %s to %s" % (val,SP)
+        bb.set(SP, step=KW)
+        bb.wait()
+        myval = bb.read()
+        print "%s rounded to %s" % (myval,int(round(myval)))            
+        self.assertAlmostEqual(int(round(myval)),SP,places=1)
+        myset = bb.set()
+        self.assertAlmostEqual(int(round(myset)),SP,places=1)
+        myval = bb.stepval()
+        self.assertEqual(myval,KW)
+
+        
     def test_loop_set(self):
         SP=18
         config = static.get_config()  
@@ -149,7 +165,36 @@ class TestMockupTempController(unittest.TestCase):
         cc.on()
         print "Stopping regulation"
         cc.off()
+
+    def test_Pval(self):
+        KW=13
+        config = static.get_config()  
+        cc=config.get("sample_regulation")
+        print "Setting P to %f" % KW
+        cc.Pval(KW)
+        myval = cc.Pval()
+        self.assertEqual(KW,myval)
         
+    def test_Ival(self):
+        KW=50
+        config = static.get_config()  
+        cc=config.get("sample_regulation")
+        print "Setting I to %f" % KW
+        cc.Ival(KW)
+        myval = cc.Ival()
+        self.assertEqual(KW,myval)
+        
+    def test_Dval(self):
+        KW=1
+        config = static.get_config()  
+        cc=config.get("sample_regulation")
+        print "Setting D to %f" % KW
+        cc.Dval(KW)
+        myval = cc.Dval()
+        self.assertEqual(KW,myval)
+        
+
+               
 """
 Main entry point
 """

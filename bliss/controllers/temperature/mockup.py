@@ -78,11 +78,11 @@ class mockup(Controller):
 
         """
         if kwargs.has_key("ramp"):
-           toutput.controller._set_rampval(toutput,kwargs["ramp"])
+           toutput.rampval(kwargs["ramp"])
         if kwargs.has_key("dwell"):
-           toutput.controller._set_dwellval(toutput,kwargs["dwell"])
+           toutput.dwellval(kwargs["dwell"])
         if kwargs.has_key("step"):
-           toutput.controller._set_stepval(toutput,kwargs["step"])
+           toutput.stepval(kwargs["step"])
         channel = toutput.config.get("channel",str)
         log.debug("mockup: set %s on channel %s" % (sp,channel))
         #print kwargs
@@ -104,12 +104,11 @@ class mockup(Controller):
 
         """
         if kwargs.has_key("ramp"):
-           #toutput.controller.dictramp[toutput.channel]['ramp'] = kwargs["ramp"]
-           toutput.controller._set_rampval(toutput,kwargs["ramp"])
+           toutput.rampval(kwargs["ramp"])
         if kwargs.has_key("dwell"):
-           toutput.controller._set_dwellval(toutput,kwargs["dwell"])
+           toutput.dwellval(kwargs["dwell"])
         if kwargs.has_key("step"):
-           toutput.controller._set_stepval(toutput,kwargs["step"])
+           toutput.stepval(kwargs["step"])
         channel = toutput.config.get("channel",str)
         log.debug("mockup: start_ramp %s on channel %s" % (sp,channel))
         #print kwargs
@@ -182,6 +181,9 @@ class mockup(Controller):
         log.debug("mockup: on: starting regulation between input:%s and output:%s" % (
                 tloop.input.channel,tloop.output.channel))
         print "Mockup: regulation on"
+        log.debug("mockup: P: %s" % (tloop.Pval()))
+        log.debug("mockup: I: %s" % (tloop.Ival()))
+        log.debug("mockup: D: %s" % (tloop.Dval()))
 
 
     def off(self, tloop):

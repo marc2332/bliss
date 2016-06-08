@@ -25,6 +25,8 @@ class Controller(object):
         self._loops = dict()
         self.__dictramp = dict()
 
+        self.initialize()
+
         for name, cfg in inputs:
             log.debug("  input name: %s" % (name))
             log.debug("  input config: %s" % (cfg))
@@ -35,12 +37,15 @@ class Controller(object):
             set_custom_members(self, self._inputs[name])
             set_custom_members(self, self._objects[name])
 
+            self.initialize_input(self._inputs[name])
+
         for name, cfg in outputs:
             log.debug("  output name: %s" % (name))
             log.debug("  output config: %s" % (cfg))
             self._objects[name] = Output(self, cfg)
             self._outputs[name] = Output(self, cfg)
-            self.__dictramp.setdefault(self._outputs[name].channel,{"ramp":None, "step":None, "dwell":None})
+
+            self.initialize_output(self._outputs[name])
 
             # For custom attributes and commands.
             set_custom_members(self, self._outputs[name])
@@ -51,6 +56,8 @@ class Controller(object):
             log.debug("  loops config: %s" % (cfg))
             self._objects[name] = Loop(self, cfg)
             self._loops [name] = Loop(self, cfg)
+
+            self.initialize_loop(self._loops[name])
 
             # For custom attributes and commands.
             set_custom_members(self, self._loops[name])
@@ -69,6 +76,22 @@ class Controller(object):
         log.info("Controller:get_object: %s" % (name))
         #it is used by Loop class
         return self._objects.get(name)
+
+    def initialize(self):
+        """ Controller Initialization """
+        pass
+
+    def initialize_input(self,tinput):
+        log.info("Controller:initialize_input: %s" % (tinput))
+        raise NotImplementedError 
+
+    def initialize_output(self,toutput):
+        log.info("Controller:initialize_output: %s" % (toutput))
+        raise NotImplementedError 
+
+    def initialize_loop(self,tloop):
+        log.info("Controller:initialize_loop: %s" % (tloop))
+        raise NotImplementedError 
 
     def read_input(self, tinput):
         log.info("Controller:read_input: %s" % (tinput))

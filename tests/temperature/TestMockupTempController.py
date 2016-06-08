@@ -73,6 +73,16 @@ class TestMockupTempController(unittest.TestCase):
         aa=config.get("thermo_sample")
         print "%s" % (aa.read())            
 
+    def test_input_state(self):
+        config = static.get_config()     
+        aa=config.get("thermo_sample")
+        aa.state() 
+
+    def tests_output_state(self):
+        config = static.get_config()     
+        bb=config.get("heater")
+        bb.state() 
+
     def test_read_output(self):       
         config = static.get_config()     
         bb=config.get("heater") 

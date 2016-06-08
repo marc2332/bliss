@@ -296,7 +296,7 @@ class Loop(object):
 
 
     def Pval(self, new_Pval=None):
-        log.debug("On Output: Pval (PID): %s " % (new_Pval))
+        log.debug("On Loop: Pval (PID): ")
         """
         Setting/reading the P value (for PID)
 
@@ -307,7 +307,7 @@ class Loop(object):
            return self._Pval
 
     def Ival(self, new_Ival=None):
-        log.debug("On Output: Ival (PID): %s " % (new_Ival))
+        log.debug("On Loop: Ival (PID): ")
         """
         Setting/reading the I value (for PID)
 
@@ -318,7 +318,7 @@ class Loop(object):
            return self._Ival
 
     def Dval(self, new_Dval=None):
-        log.debug("On Output: Dval (PID): %s " % (new_Dval))
+        log.debug("On Loop: Dval (PID): ")
         """
         Setting/reading the D value (for PID)
 

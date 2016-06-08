@@ -31,6 +31,21 @@ class mockup(Controller):
         self.setpoints = dict()
         self.setpointramp = dict()
 
+    def initialize(self):
+        # host becomes mandatory
+        log.debug("mockup: initialize ")
+        self.host = self.config.get("host",str)
+        print "host is: %s" % self.host
+
+    def initialize_input(self, tinput):
+        log.debug("mockup: initialize_input: %s" % (tinput))
+
+    def initialize_output(self, toutput):
+        log.debug("mockup: initialize_output: %s" % (toutput))
+
+    def initialize_loop(self, tloop):
+        log.debug("mockup: initialize_loop: %s" % (tloop))
+
     def read_input(self, tinput):
         """Reading on a Input object
 
@@ -139,12 +154,12 @@ class mockup(Controller):
         except KeyError:
             pass
 
-
     def state_input(self, tinput):
         """Get the status of a Input object
 
         """
         log.debug("mockup: state Input")
+        print "host is %s" %self.host
         return "READY"
 
     def state_output(self, toutput):
@@ -152,10 +167,12 @@ class mockup(Controller):
 
         """
         log.debug("mockup: state Output")
-        log.debug("mockup: ramp : %s" % toutput.controller._get_rampval(toutput))
-        log.debug("mockup: step : %s" % toutput.controller._get_stepval(toutput))
-        log.debug("mockup: dwell : %s" % toutput.controller._get_dwellval(toutput))
+        log.debug("mockup: ramp : %s" % toutput.rampval())
+        log.debug("mockup: step : %s" % toutput.stepval())
+        log.debug("mockup: dwell : %s" % toutput.dwellval())
+        log.debug("mockup: host : %s" % self.host)       
         return "READY"
+
 
     def setpoint_stop(self, toutput):
         """Stopping the setpoint on an Output object

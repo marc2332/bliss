@@ -1,7 +1,14 @@
-#!/usr/bin/python
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# This file is part of the bliss project
+#
+# Copyright (c) 2016 Beamline Control Unit, ESRF
+# Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-# redemption.py : conversion script to change SPEC config into bliss
-# configuration
+'''
+conversion script to change SPEC config into bliss configuration
+'''
 
 __author__  = "cyril.guilloud@esrf.fr"
 __date__    = "2015"

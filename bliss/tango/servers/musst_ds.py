@@ -1,11 +1,9 @@
 # -*- coding: utf-8 -*-
 #
-# This file is part of the MusstPy project
+# This file is part of the bliss project
 #
-# 
-#
-# Distributed under the terms of the GPL license.
-# See LICENSE.txt for more info.
+# Copyright (c) 2016 Beamline Control Unit, ESRF
+# Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 """ Tango Device Server for Musst
 

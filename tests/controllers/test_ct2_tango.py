@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+#
+# This file is part of the bliss project
+#
+# Copyright (c) 2016 Beamline Control Unit, ESRF
+# Distributed under the GNU LGPLv3. See LICENSE for more info.
+
 from bliss.config.static import get_config
 from bliss.controllers.ct2.tango.client import CT2Device, AcqStatus
 

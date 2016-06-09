@@ -1,11 +1,9 @@
 # -*- coding: utf-8 -*-
 #
-# This file is part of the Keithley428 project
+# This file is part of the bliss project
 #
-#
-#
-# Distributed under the terms of the GPL license.
-# See LICENSE.txt for more info.
+# Copyright (c) 2016 Beamline Control Unit, ESRF
+# Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 """ Keithley428 Current Amplifier
 

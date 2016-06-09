@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+#
+# This file is part of the bliss project
+#
+# Copyright (c) 2016 Beamline Control Unit, ESRF
+# Distributed under the GNU LGPLv3. See LICENSE for more info.
+
 from logging import ERROR, INFO, DEBUG, NOTSET
 from logging import getLevelName
 from traceback import extract_stack as tb_extract_stack

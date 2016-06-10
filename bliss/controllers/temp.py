@@ -114,7 +114,7 @@ class Controller(object):
     def get_setpoint(self, toutput):
         """Return current setpoint
 
-        Returned value is None if not setpoint is set
+        Returned value must be None if not setpoint is set
         """
         log.info("Controller:get_setpoint: %s" % (toutput))
         raise NotImplementedError

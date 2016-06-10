@@ -6,6 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import struct
+import weakref
 from gevent import socket,select
 from gevent import lock
 from gevent import queue
@@ -124,7 +125,7 @@ class ModbusTcp:
     '''
     class Transaction:
         def __init__(self,modbustcp) :
-            self.__modbus = modbustcp
+            self.__modbus = weakref.proxy(modbustcp)
             self._tid = 0
             self._queue = queue.Queue()
 
@@ -161,6 +162,9 @@ class ModbusTcp:
         self._raw_read_task = None
         self._transaction = {}
         self._lock = lock.Semaphore()
+
+    def __del__(self):
+        self.close()
 
     ##@brief read holding register
     @try_connect_modbustcp
@@ -213,7 +217,8 @@ class ModbusTcp:
         self._connected = True
         self._host = local_host
         self._port = local_port
-        self._raw_read_task = gevent.spawn(self._raw_read)
+        self._raw_read_task = gevent.spawn(self._raw_read,
+                                           weakref.proxy(self),self._fd)
         return True
 
     def close(self):
@@ -248,11 +253,12 @@ class ModbusTcp:
         }
         return errors.get(error_code,"Unknown")
 
-    def _raw_read(self):
+    @staticmethod
+    def _raw_read(modbus,fd):
         data = ''
         try:
             while(1):
-                raw_data = self._fd.recv(16 * 1024)
+                raw_data = fd.recv(16 * 1024)
                 if raw_data:
                     data += raw_data
                     if len(data) > 7:
@@ -262,7 +268,7 @@ class ModbusTcp:
                             end_msg = 8 + lenght - 2
                             msg = data[8:end_msg]
                             data = data[end_msg:]
-                            transaction = self._transaction.get(tid)
+                            transaction = modbus._transaction.get(tid)
                             if transaction:
                                 transaction.put((uid,func_code,msg))
                 else:
@@ -270,10 +276,12 @@ class ModbusTcp:
         except:
             pass
         finally:
-            self._connected = False
-            self._fd.close()
-            self._fd = None
-            #inform all pending requests that the socket closed
-            for trans in self._transaction.values():
-                trans.put(socket.error(errno.EPIPE,"Broken pipe"))
-
+            fd.close()
+            try:
+                modbus._connected = False
+                modbus._fd = None
+                #inform all pending requests that the socket closed
+                for trans in modbus._transaction.values():
+                    trans.put(socket.error(errno.EPIPE,"Broken pipe"))
+            except ReferenceError:
+                pass

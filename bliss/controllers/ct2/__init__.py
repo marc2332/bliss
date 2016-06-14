@@ -5,8 +5,7 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-"""
-The python module for the ct2 (P201/C208) ESRF PCI counter card
+"""ct2 (P201/C208) ESRF PCI counter card
 """
 
 from .ct2 import *

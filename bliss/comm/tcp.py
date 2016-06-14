@@ -5,6 +5,10 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+'''TCP communication module (:class:`~bliss.comm.tcp.Tcp`, \
+:class:`~bliss.comm.tcp.Socket` and :class:`~bliss.comm.tcp.Command`)
+'''
+
 __all__ = ['Tcp', 'Socket', 'Command']
 
 import re
@@ -15,36 +19,9 @@ import logging
 
 from .common import CommunicationError, CommunicationTimeout
 
-"""
-Socket:
-  connect
-  close
-  raw_read
-  read
-  readline
-  write
-  write_read
-  write_readline
-  write_readlines
-  flush
-  _sendall
-  _raw_read
-
-Command:
-  connect
-  close
-  _read
-  _readline
-  _write
-  write
-  write_readline
-  write_readlines
-  _raw_read
-"""
-
 
 class SocketTimeout(CommunicationTimeout):
-    pass
+    '''Socket timeout error'''
 
 
 # Decorator function for read/write functions.
@@ -73,6 +50,8 @@ def try_connect_socket(fu):
 
 
 class Socket:
+    '''Raw socket class. Provides raw socket access.
+    Consider using :class:`Tcp`.'''
 
     def __init__(self, host=None, port=None,
                  eol='\n',      # end of line for each rx message
@@ -260,7 +239,7 @@ class Socket:
 
 
 class CommandTimeout(CommunicationTimeout):
-    pass
+    '''Command timeout error'''
 
 
 def try_connect_command(fu):
@@ -282,6 +261,8 @@ def try_connect_command(fu):
 
 
 class Command:
+    '''Raw command class. Provides command like API through sockets.
+    Consider using :class:`Tcp` with url starting with  *command://* instead.'''
 
     class Transaction:
 
@@ -473,10 +454,18 @@ class Command:
 
 
 class TcpError(CommunicationError):
-    pass
+    '''TCP communication error'''
 
 
 class Tcp(object):
+    '''TCP object. You can access raw socket layer (default) or with a command
+    like API (prefix url with *command://* scheme). Example::
+
+        from bliss.comm.tcp import Tcp
+
+        cmd = Tcp('iceid001.esrf.fr:5000')
+    '''
+
     SOCKET,COMMAND = range(2)
 
     def __new__(cls,url = None,**keys) :

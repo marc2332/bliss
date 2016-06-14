@@ -18,6 +18,8 @@ bottle
 numpy
 six >= 1.10
 tabulate
+sphinx >= 1.4
+pyserial >= 3.0
 
 # --- optional dependencies --------------------------------
 

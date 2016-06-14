@@ -5,6 +5,8 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+'''Helpers to make Tango_ & gevent_ work together'''
+
 from gevent import _threading
 import threading
 import gevent.event

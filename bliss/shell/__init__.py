@@ -5,6 +5,8 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+'''Shell (:term:`CLI` and Web based)'''
+
 import os
 import yaml
 import sys

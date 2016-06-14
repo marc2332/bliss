@@ -5,6 +5,27 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+'''Bliss main package
+
+For your convenience, configuration motion and scan APIs have been made available
+directly at this level.
+
+Here are the main bliss sub-systems:
+
+.. autosummary::
+    :nosignatures:
+    :toctree:
+
+    acquisition
+    comm
+    common
+    config
+    controllers
+    data
+    shell
+    tango
+'''
+
 from __future__ import division
 
 from gevent import monkey

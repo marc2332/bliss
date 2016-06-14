@@ -195,6 +195,12 @@ def try_open(fu) :
     return rfunc
 
 class Gpib:
+    '''Gpib object
+
+    from bliss.comm.gpib import Gpib
+    interface = Gpib(url="enet://gpibid00a.esrf.fr", pad=15)
+    '''
+
     ENET, TANGO, PROLOGIX = range(3)
     READ_BLOCK_SIZE = 64 * 1024
 

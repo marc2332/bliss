@@ -5,6 +5,30 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+'''Common functionality (:mod:`~bliss.common.event`, :mod:`~bliss.common.log`, \
+:mod:`~bliss.common.axis`, :mod:`~bliss.common.temperature`, etc)
+
+This module gathers most common functionality to bliss (from
+:mod:`~bliss.common.event` to :mod:`~bliss.common.axis`)
+
+.. autosummary::
+   :nosignatures:
+   :toctree:
+
+   axis
+   continuous_scan
+   data_manager
+   encoder
+   event
+   log
+   measurement
+   scans
+   standard
+   task_utils
+   temperature
+   utils
+'''
+
 import gevent
 from .event import dispatcher
 

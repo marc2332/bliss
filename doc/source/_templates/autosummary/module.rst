@@ -35,3 +35,5 @@
    {%- endfor %}
    {% endif %}
    {% endblock %}
+
+   .. rubric:: Details

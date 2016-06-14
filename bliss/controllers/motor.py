@@ -22,6 +22,8 @@ ENCODER_AXIS = dict()
 
 
 class Controller(object):
+    '''Motor controller base class'''
+
     def __init__(self, name, config, axes, encoders):
         self.__name = name
         from bliss.config.motors import StaticConfig

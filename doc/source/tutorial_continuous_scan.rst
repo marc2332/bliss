@@ -1,8 +1,9 @@
-===================
-Getting started
-===================
+.. _bliss-continuous-scan-tutorial:
 
-This tutorial shows how to use Juyo in 3 steps:
+Continuous Scan Tutorial
+========================
+
+This tutorial shows how to use Bliss in 3 steps:
 
 - configuring data acquisition
 - configuring data storage
@@ -11,7 +12,7 @@ This tutorial shows how to use Juyo in 3 steps:
 First step: data acquisition configuration
 ------------------------------------------
 
-A continuous scan in Juyo is the combination of **acquisition objects**,
+A continuous scan in Bliss is the combination of **acquisition objects**,
 being either **master** or **slaves**, and **data recorder objects**.
 
 Master devices are enabled with synchronization superpowers ; their
@@ -25,12 +26,12 @@ A scan can have **multiple masters**, and masters can also be slaves for
 other masters. There is no limit to imagination.
 
 The set of masters and slaves acquisition objects is called an **acquisition
-chain**, it is the first thing to configure when defining a new Juyo scan:
+chain**, it is the first thing to configure when defining a new Bliss scan:
 
 .. code-block:: python
 
    from bliss.common.continuous_scan import AcquisitionChain
-     
+
    chain = AcquisitionChain()
 
 Then, masters and slaves objects have to be created and added to the
@@ -39,10 +40,10 @@ acquisition chain.
 Master object creation
 ^^^^^^^^^^^^^^^^^^^^^^
 
-The ``SoftwarePositionTriggerMaster`` class is shipped with Juyo. It
-takes an **Emotion** ``Axis`` object, and turns it into a Juyo master,
+The ``SoftwarePositionTriggerMaster`` class is shipped with Bliss. It
+takes an **Emotion** ``Axis`` object, and turns it into a Bliss master,
 capable of triggering slaves at evenly spaced points between
-a start and an end position. 
+a start and an end position.
 
 .. code-block:: python
 
@@ -61,16 +62,16 @@ identically as the previous ones.
 
 Considering an ``m0`` Emotion axis with acceleration set to 100 mm.s\ :sup:`-2`, and
 time for moving from 5 to 10 set to 5 seconds, velocity will be set to
-1 mm.s\ :sup:`-1` and the effective move will be from 4.99 to 10.56. 
+1 mm.s\ :sup:`-1` and the effective move will be from 4.99 to 10.56.
 
 Slave object creation
 ^^^^^^^^^^^^^^^^^^^^^
 
-Juyo comes with the ``LimaAcquisitionDevice`` class, encapsulating a Tango
+Bliss comes with the ``LimaAcquisitionDevice`` class, encapsulating a Tango
 Lima device for use within an acquisition chain:
 
 .. code-block:: python
-  
+
    params = { "acq_nb_frames": 10,
               "acq_expo_time": 0.3,
               "acq_trigger_mode": "INTERNAL_TRIGGER_MULTI" }
@@ -135,7 +136,7 @@ objects can be nested without limitation.
 
 Third step: starting a continuous scan
 --------------------------------------
-   
+
 The ``Scan`` object takes 2 arguments:
 
 - acquisition chain object
@@ -150,8 +151,6 @@ The ``Scan`` object takes 2 arguments:
 Launching a scan is done in 2 steps, first preparing then starting :
 
 .. code-block:: python
- 
+
    scan.prepare()
    scan.start()
-
-

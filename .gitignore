@@ -6,7 +6,8 @@
 *.bck
 build
 *.swp
-doc/_build
+doc/build
+doc/source/bliss.*rst
 .coverage
 # for eclipse users
 .settings/

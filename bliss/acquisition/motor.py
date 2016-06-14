@@ -8,6 +8,8 @@
 from __future__ import absolute_import
 from bliss.common.continuous_scan import AcquisitionMaster
 import bliss
+from bliss.common import axis
+from bliss.common.event import connect, disconnect
 import numpy
 import gevent
 import sys
@@ -34,17 +36,17 @@ class MotorMaster(AcquisitionMaster):
         start = self._calculate_undershoot(self.start_pos)
         self.movable.move(start)
 
-    def start(self, polling_time=emotion.axis.DEFAULT_POLLING_TIME):
+    def start(self, polling_time=bliss.common.axis.DEFAULT_POLLING_TIME):
         self.initial_velocity = self.movable.velocity()
         self.movable.velocity(self.velocity) 
         end = self._calculate_undershoot(self.end_pos,end=True)
-        emotion.event.connect(self.movable, "move_done", self.move_done)
+        connect(self.movable, "move_done", self.move_done)
         self.movable.move(end, polling_time=polling_time)
 
     def move_done(self, done):
         if done:
             self.movable.velocity(self.initial_velocity)
-            emotion.event.disconnect(self.movable, "move_done", self.move_done)    
+            disconnect(self.movable, "move_done", self.move_done)
 
 class SoftwarePositionTriggerMaster(MotorMaster):
     def __init__(self, axis, start, end, npoints=1, **kwargs):
@@ -59,7 +61,7 @@ class SoftwarePositionTriggerMaster(MotorMaster):
     def start(self):
         self.exception = None
         self.index = 0
-        emotion.event.connect(self.movable, "position", self.position_changed)
+        connect(self.movable, "position", self.position_changed)
         MotorMaster.start(self, 1E-6)
         if self.exception:
             raise self.exception[0], self.exception[1], self.exception[2]
@@ -75,12 +77,12 @@ class SoftwarePositionTriggerMaster(MotorMaster):
           try:
               self.trigger_slaves()
           except Exception:
-              emotion.event.disconnect(self.movable, "position", self.position_changed)
+              disconnect(self.movable, "position", self.position_changed)
               self.movable.stop(wait=False)
               self.exception = sys.exc_info()
         
     def move_done(self, done):
         if done:
-            emotion.event.disconnect(self.movable, "position", self.position_changed)
+            disconnect(self.movable, "position", self.position_changed)
         MotorMaster.move_done(self, done) 
        

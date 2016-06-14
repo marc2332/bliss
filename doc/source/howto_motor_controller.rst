@@ -1,6 +1,8 @@
-===================
-Controller tutorial : How to write a new controller ?
-===================
+
+.. _bliss-how-to-motor-controller:
+
+How to write a new motor controller ?
+=====================================
 
 
 To create an EMotion plugin for a new controller, you have to
@@ -16,7 +18,8 @@ example : Mockup
 
 
 Minimal set of standard functions to implement
--------------------------------------
+----------------------------------------------
+
 - ``__init__(self, name, config, axes)``
 - ``start_one(self, motion)``
 - ``read_position(self, axis)``

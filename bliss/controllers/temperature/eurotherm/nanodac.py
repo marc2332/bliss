@@ -1,4 +1,14 @@
-# This class is the main controller of Eurotherm nanodac
+# -*- coding: utf-8 -*-
+#
+# This file is part of the bliss project
+#
+# Copyright (c) 2016 Beamline Control Unit, ESRF
+# Distributed under the GNU LGPLv3. See LICENSE for more info.
+
+'''
+This class is the main controller of Eurotherm nanodac
+'''
+
 import weakref
 import os
 import time

@@ -113,8 +113,9 @@ class AcquisitionMaster(object):
             self.__triggers.append((slave, gevent.spawn(slave._trigger)))
 
 class AcquisitionDevice(object):
-    HARDWARE,SOFTWARE = range(2)
-    def __init__(self, device, name, data_type, npoints=None, trigger_type = SOFTWARE):
+    HARDWARE, SOFTWARE = range(2)
+
+    def __init__(self, device, name, data_type, npoints=0, trigger_type = SOFTWARE):
         self.__device = device
         self.__name = name
         self.__type = data_type
@@ -154,7 +155,6 @@ class AcquisitionDevice(object):
         raise NotImplementedError
     def start(self):
         raise NotImplementedError
-
     def _start(self):
       if self._trigger_type == AcquisitionDevice.HARDWARE:
         self.start()
@@ -162,7 +162,6 @@ class AcquisitionDevice(object):
         dispatcher.send("start", self)
     def stop(self):
         raise NotImplementedError
-
     def trigger_ready(self):
         return True
     def _check_ready(self):

@@ -56,9 +56,9 @@ class EventReceiver(object):
                 
         if signal == 'start':
             for channel in device.channels:
-                maxshape = [None] + list(channel.shape)
+                maxshape = tuple([None] + list(channel.shape))
                 npoints = device.npoints
-                shape = [npoints] + list(channel.shape)
+                shape = tuple([npoints] + list(channel.shape))
                 self.dataset[channel.name] = self._parent.create_dataset(device.name+':'+channel.name,
                                                                          shape=shape, 
                                                                          dtype=channel.dtype,
@@ -69,11 +69,18 @@ class EventReceiver(object):
             for channel_name, data in event_dict['channel_data'].iteritems():
                 dataset = self.dataset[channel_name]
                 last_point_index = dataset.last_point_index
+
                 if len(data.shape) == 1:
-                    # this is to make hf5py happy
+                    # this is to make h5py happy
                     data.shape = (-1,1)
-                print data, len(data)
-                dataset[last_point_index:last_point_index + data.shape[0]] = data
+                
+                new_point_index = dataset.last_point_index + data.shape[0]
+                
+                if dataset.shape[0] < new_point_index:
+                    dataset.resize(new_point_index, axis = 0)
+
+                dataset[last_point_index:new_point_index] = data
+
                 dataset.last_point_index += data.shape[0]
 
 

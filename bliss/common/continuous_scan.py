@@ -185,6 +185,7 @@ class AcquisitionChain(object):
       self._tree = Tree()
       self._root_node = self._tree.create_node("acquisition chain","root")
       self._device_to_node = dict()
+      self._presets_list = list()
 
   def add(self, master, slave):
       slave_node = self._tree.get_node(slave)
@@ -203,7 +204,8 @@ class AcquisitionChain(object):
       else:
           self._tree.move_node(slave_node,master_node)
 
-  def _execute(self, func_name):
+  def add_preset(self, preset):
+      self._presets_list.append(preset)
 
   def _execute(self, func_name, master_to_slave=False):
     tasks = list()
@@ -227,24 +229,35 @@ class AcquisitionChain(object):
     
 
   def prepare(self, dm, scan_info):
-    #self._devices_tree = self._get_devices_tree()  
-    for master in (x for x in self._tree.expand_tree() if isinstance(x,AcquisitionMaster)):
-        del master.slaves[:]
-        for dev in self._tree.get_node(master).fpointer:
-            master.slaves.append(dev)
+      preset_tasks = [gevent.spawn(preset.prepare) for preset in self._presets_list]
+      gevent.joinall(preset_tasks, raise_error=True)
 
-    dm_prepare_task = gevent.spawn(dm.prepare, scan_info, self._tree)
+      #self._devices_tree = self._get_devices_tree()
+      for master in (x for x in self._tree.expand_tree() if isinstance(x,AcquisitionMaster)):
+          del master.slaves[:]
+          for dev in self._tree.get_node(master).fpointer:
+              master.slaves.append(dev)
 
-    self._execute("_prepare")
+      dm_prepare_task = gevent.spawn(dm.prepare, scan_info, self._tree)
 
-    dm_prepare_task.join()
+      self._execute("_prepare")
+
+      dm_prepare_task.join()
 
     
   def start(self):
-    self._execute("_start")
-    for acq_dev in (x for x in self._tree.expand_tree() if isinstance(x,AcquisitionDevice)):
-        acq_dev.wait_reading()
-        dispatcher.send("end", acq_dev)
+      preset_tasks = [gevent.spawn(preset.start) for preset in self._presets_list]
+      gevent.joinall(preset_tasks, raise_error=True)
+
+      self._execute("_start")
+
+      for acq_dev in (x for x in self._tree.expand_tree() if isinstance(x, AcquisitionDevice)):
+          acq_dev.wait_reading()
+          dispatcher.send("end", acq_dev)
+
+
   def stop(self):
       self._execute("stop", master_to_slave=True)
 
+      preset_tasks = [gevent.spawn(preset.stop) for preset in self._presets_list]
+      gevent.joinall(preset_tasks, raise_error=True)

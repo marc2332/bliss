@@ -11,12 +11,12 @@ class McaPreset(object):
     def prepare(self):
         for roi in self.rois:
             self.device.set_roi(**roi)
-
+        self.__device.set_presets(erange=1, ctime=0)
+       
     def start(self):
         self.__device.stop_acq()
         self.__device.clear_spectrum()
         #set the MCA to count indefinitely
-        self.__device.set_presets(ctime=0)
         self.__device.start_acq(cnt_time=self.cnt_time)
 
     def stop(self):

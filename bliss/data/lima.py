@@ -84,8 +84,6 @@ class LimaDataNode(DataNode):
 
     def __init__(self,name,**keys):
         DataNode.__init__(self,'lima',name,**keys)
-        self.image_status_channel = channels.RawChannel(self.db_name()+"_"+"image_status",
-                                                        redis = self.db_connection)
         saving_params_name = '%s_saving_params' % self.db_name()
         self._saving_params = QueueObjSetting(saving_params_name, connection=self.db_connection)
         self._storage_task = None
@@ -117,7 +115,6 @@ class LimaDataNode(DataNode):
             if self._new_image_status is None:
                 break
             self.db_connection.hmset(self.db_name(), self._new_image_status)
-            self.image_status_channel.value = self._new_image_status
             #TODO: remove the comment, for use without simulator
             #gevent.idle()
 

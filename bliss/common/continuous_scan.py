@@ -20,8 +20,15 @@ class Scan(object):
         self.acq_chain.prepare(self.scan_dm, self.scan_info)
 
     def start(self):
-        self.acq_chain.start()
-
+        acquisition = gevent.spawn(self.acq_chain.start)
+        try:
+            acquisition.get()
+        except:
+            self.acq_chain.stop()
+            raise
+        else:
+            self.acq_chain.stop()
+        
 
 class AcquisitionChannel(object):
     def __init__(self, name, dtype, shape):
@@ -77,6 +84,8 @@ class AcquisitionMaster(object):
     def prepare(self):
         raise NotImplementedError
     def start(self):
+        raise NotImplementedError
+    def stop(self):
         raise NotImplementedError
     def _start(self):
       return self.start()
@@ -151,6 +160,8 @@ class AcquisitionDevice(object):
         self.start()
         self._reading_task = gevent.spawn(self.reading)
         dispatcher.send("start", self)
+    def stop(self):
+        raise NotImplementedError
 
     def trigger_ready(self):
         return True
@@ -194,10 +205,18 @@ class AcquisitionChain(object):
           self._tree.move_node(slave_node,master_node)
 
   def _execute(self, func_name):
+
+  def _execute(self, func_name, master_to_slave=False):
     tasks = list()
 
     prev_level = None
-    for dev in reversed(list(self._tree.expand_tree(mode=Tree.WIDTH))[1:]):
+
+    if master_to_slave:
+        devs = list(self._tree.expand_tree(mode=Tree.WIDTH))[1:]
+    else:
+        devs = reversed(list(self._tree.expand_tree(mode=Tree.WIDTH))[1:])
+
+    for dev in devs:
         node = self._tree.get_node(dev)
         level = self._tree.depth(node)
         if prev_level != level:
@@ -227,3 +246,6 @@ class AcquisitionChain(object):
     for acq_dev in (x for x in self._tree.expand_tree() if isinstance(x,AcquisitionDevice)):
         acq_dev.wait_reading()
         dispatcher.send("end", acq_dev)
+  def stop(self):
+      self._execute("stop", master_to_slave=True)
+

@@ -65,6 +65,10 @@ class P201AcquisitionMaster(AcquisitionMaster):
         if self.__master == "internal":
             self.device.set_counters_software_start((11, 12))
 
+    def stop(self):
+        #TODO: call proper stop method
+        pass
+
 class P201AcquisitionDevice(AcquisitionDevice):
 
     def __init__(self, device, nb_points=1, acq_expo_time=1.,
@@ -102,6 +106,10 @@ class P201AcquisitionDevice(AcquisitionDevice):
 
     def start(self):
         self.device.set_counters_software_start(self.__channels.values())
+
+    def stop(self):
+        #TODO: call proper stop method
+        pass
 
     def reading(self):
         device = self.device

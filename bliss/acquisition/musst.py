@@ -27,6 +27,9 @@ class MusstAcquisitionDevice(AcquisitionDevice):
     self.musst.start()
     self._buffer_reading_task = gevent.spawn(self.read_buffer)
 
+  def stop(self):
+    self.musst.ABORT
+
   def read_buffer(self):
     last_read_event = 0
     while self.musst.STATUS != self.musst.RUN_STAT:

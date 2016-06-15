@@ -38,6 +38,9 @@ class LimaAcquisitionDevice(AcquisitionDevice):
           return
       self.trigger()
 
+  def stop(self):
+      self.device.stopAcq()
+
   #def trigger_ready(self):
   #    return self.device.ready_for_next_image
 

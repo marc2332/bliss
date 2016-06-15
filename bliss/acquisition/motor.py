@@ -43,6 +43,9 @@ class MotorMaster(AcquisitionMaster):
         connect(self.movable, "move_done", self.move_done)
         self.movable.move(end, polling_time=polling_time)
 
+    def stop(self):
+        self.movable.stop()
+
     def move_done(self, done):
         if done:
             self.movable.velocity(self.initial_velocity)
@@ -61,6 +64,9 @@ class SoftwarePositionTriggerMaster(MotorMaster):
         if self.exception:
             raise self.exception[0], self.exception[1], self.exception[2]
         
+    def stop(self):
+        self.movable.stop()
+
     def position_changed(self, position):
         try:
             next_trigger_pos = self._positions[self.index]

@@ -19,7 +19,7 @@ Antonia Beteva ESRF BCU
 """
 
 from bliss.controllers.motor import CalcController; from bliss.common import event
-import math
+import numpy
 
 
 class energy_wl(CalcController):
@@ -36,11 +36,11 @@ class energy_wl(CalcController):
         energy_axis = self._tagged["energy"][0]
         dspace = energy_axis.settings.get("dspace")
         # NB: lambda is a keyword.
-        lamb = 2 * dspace * math.sin(math.radians(positions_dict["monoang"]))
+        lamb = 2 * dspace * numpy.sin(numpy.radians(positions_dict["monoang"]))
         return {"energy": 12.3984 / lamb, "wavelength": lamb}
 
     def calc_to_real(self, positions_dict):
         energy_axis = self._tagged["energy"][0]
         dspace = energy_axis.settings.get("dspace")
-        monoangle = math.degrees(math.asin(12.3984 / (positions_dict["energy"] * 2 * dspace)))
+        monoangle = numpy.degrees(numpy.arcsin(12.3984 / (positions_dict["energy"] * 2 * dspace)))
         return {"monoang": monoangle}

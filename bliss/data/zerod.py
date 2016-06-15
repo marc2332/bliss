@@ -38,7 +38,9 @@ class Dataset0D(DataNode):
             if channel_data is None:
                 #warning
                 return
-            for channel_name,data in channel_data.iteritems():
+            for channel_name, data in channel_data.iteritems():
+                if data.size == 0:
+                    continue
                 queue = self._channels.get(channel_name)
                 if queue is None:
                     self._channels_name.append(channel_name)

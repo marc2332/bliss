@@ -46,7 +46,7 @@ try:
 except ImportError:
   sys.excepthook(*sys.exc_info())
 try:
-  from Salsa.controllers.musst.base import musst
+  from bliss.controllers.musst.base import musst
 except:
   sys.excepthook(*sys.exc_info())
 

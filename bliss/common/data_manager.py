@@ -29,40 +29,53 @@ def DataManager():
     return DM
 
 
+def to_timestamp(dt, epoch=None):
+    if epoch is None:
+        epoch = datetime.datetime(1970,1,1)
+    td = dt - epoch
+    return (td.microseconds + (td.seconds + td.days * 86400) * 10**6) / 10**6
+
+
 class ScanFile:
 
-    def __init__(self, filename):
-        self.scan_n = 1
+    FILE_HEADER_TEMPLATE = "#F {0.filename}\n" + \
+                           "#E {0.start_time_stamp}\n" + \
+                           "#D {0.start_time_str}\n" + \
+                           "#C {0.session_name} User = {0.user_name}\n"
+
+    SCAN_HEADER_TEMPLATE = "\n#S {0.scan_nb} {0.title}\n" + \
+                           "#D {0.start_time_str}\n" + \
+                           "#L {motors}  {counters}\n"
+
+    def __init__(self, env):
+        self.env = env
+        exists = os.path.exists(self.filename)
 
         # find next scan number
-        if os.path.exists(filename):
-            with file(filename) as f:
-                for line in iter(f.readline, ''):
-                    if line.startswith("#S"):
-                        self.scan_n += 1
+        if 'scan_nb' not in env:
+            scan_nb = 1
+            if exists:
+                with file(self.filename) as f:
+                    for line in iter(f.readline, ''):
+                        if line.startswith("#S"):
+                            scan_nb += 1
+            self.env['scan_nb'] = scan_nb
 
-        self.file_obj = file(filename, "a+")
+        self.file_obj = file(self.filename, "a+")
 
-    def write_header(self, scan_actuators, counters_list):
-        motors_str = "  ".join([m.name for m in scan_actuators])
-        cnt_str = "  ".join(["  ".join(c.name) if isinstance(c.name, list) else c.name for c in counters_list])
+        if not exists:
+            self.write_file_header()
 
-        self.file_obj.write(
-            "\n#S %d ascan %s\n#D %s\n" %
-            (self.scan_n, motors_str, datetime.datetime.now().strftime(
-                "%a %b %d %H:%M:%S %Y")))
-        #self.file_obj.write("#N %d\n" % (len(scan_actuators) +len(counters_list)))
-        self.file_obj.write("#L %s  %s\n" % (motors_str, cnt_str))
-        self.file_obj.flush()
+    def __getattr__(self, name):
+        return self.env[name]
 
-    def write_timeheader(self, counters_list):
-        cnt_str = "  ".join(["  ".join(c.name) if isinstance(c.name, list) else c.name for c in counters_list])
+    def write_file_header(self):
+        self.write(self.FILE_HEADER_TEMPLATE.format(self))
 
-        self.file_obj.write(
-            "\n#S %d  timescan  %s\n#D %s\n" %
-            (self.scan_n, cnt_str, datetime.datetime.now().strftime(
-                "%a %b %d %H:%M:%S %Y")))
-        self.file_obj.write("#L Time  %s\n" % cnt_str)
+    def write_header(self):
+        motors_str = "  ".join(self.env['actuator_names'])
+        cnt_str = "  ".join(self.env['counter_names'])
+        self.write(self.SCAN_HEADER_TEMPLATE.format(self, motors=motors_str, counters=cnt_str))
 
     def write(self, data):
         self.file_obj.write(data)
@@ -75,47 +88,67 @@ class ScanFile:
 
 class Scan:
 
-    def __init__(
-            self, filename, scan_actuators, npoints, counters_list, save_flag):
-        self.n_cols = len(counters_list)+len(scan_actuators)
-        self.raw_data = []
-        self.save_flag = save_flag
-        if self.save_flag:
-            self.scanfile = ScanFile(filename)
-            if scan_actuators == 'time':
-                self.scanfile.write_timeheader(counters_list)
+    def __init__(self, scan_actuators, npoints, counters_list, env):
+        time_scan = scan_actuators == 'time'
+        env['start_time'] = start_time = datetime.datetime.now()
+        env['start_time_str'] = start_time.strftime("%a %b %d %H:%M:%S %Y")
+        env['start_time_stamp'] = to_timestamp(start_time)
+        env['actuators'] = scan_actuators
+        env['counters'] = counters_list
+        actuator_names = ['Time'] if time_scan else [m.name for m in scan_actuators]
+        env['actuator_names'] = actuator_names
+        counter_names = []
+        for counter in counters_list:
+            if isinstance(counter.name, (tuple, list)):
+                counter_names.extend(counter.name)
             else:
-                self.scanfile.write_header(scan_actuators, counters_list)
+                counter_names.append(counter.name)
+        env['counter_names'] = counter_names
+        env.setdefault('nb_cols', len(counters_list)+len(scan_actuators))
+        self.env = env
+        self.raw_data = []
+        self.save_flag = self.save and self.filename
+        if self.save_flag:
+            self.scanfile = ScanFile(env)
+            self.scanfile.write_header()
         dispatcher.send(
-            "scan_new", DataManager(),
-            id(self),
-            filename if save_flag else None, 'Time' if scan_actuators=='time' else [m.name for m in scan_actuators],
+            "scan_new", self.data_manager, self,
+            self.filename if self.save_flag else None,
+            'Time' if scan_actuators=='time' else actuator_names,
             npoints, [c.name for c in counters_list])
+
+    def __getattr__(self, name):
+        return self.env[name]
 
     def add(self, values_list):
         self.raw_data.append(values_list)
 
         if self.save_flag:
             self.scanfile.write("%s\n" % (" ".join(map(str, values_list))))
-        dispatcher.send("scan_data", DataManager(), id(self), values_list)
+        dispatcher.send("scan_data", self.data_manager, self, values_list)
 
     def end(self):
+        end_time = datetime.datetime.now()
+        self.env['end_time'] = end_time
+        self.env['end_time_str'] = end_time.strftime("%a %b %d %H:%M:%S %Y")
+        self.env['end_time_stamp'] = to_timestamp(end_time)
+
         data = numpy.array(self.raw_data, numpy.float)
-        data.shape = (len(self.raw_data), self.n_cols)
+        data.shape = (len(self.raw_data), self.nb_cols)
         self.raw_data = []
-        DataManager()._last_scan_data = data
+        self.data_manager._last_scan_data = data
 
         if self.save_flag:
             self.scanfile.close()
 
-        dispatcher.send("scan_end", DataManager(), id(self))
+        dispatcher.send("scan_end", self.data_manager, self)
 
 
 class Timescan(Scan):
 
-    def __init__(self, filename, counters_list, save_flag):
-        Scan.__init__(self, filename, 'time', None, counters_list, save_flag)
-        self.n_cols = len(counters_list)+1
+    def __init__(self, counters_list, env):
+        env['nb_cols'] = len(counters_list)+1
+        Scan.__init__(self, 'time', None, counters_list, env)
 
 
 class _DataManager(object):
@@ -123,11 +156,11 @@ class _DataManager(object):
     def __init__(self):
         self._last_scan_data = None
 
-    def new_scan(self, filename, motor, npoints, counters_list, save_flag=True):
-        return Scan(filename, motor, npoints, counters_list, save_flag)
+    def new_scan(self, motor, npoints, counters_list, env):
+        return Scan(motor, npoints, counters_list, env)
 
-    def new_timescan(self, filename, counters_list, save_flag=True):
-        return Timescan(filename, counters_list, save_flag)
+    def new_timescan(self, counters_list, env):
+        return Timescan(counters_list, env)
 
     def last_scan_data(self):
         return self._last_scan_data

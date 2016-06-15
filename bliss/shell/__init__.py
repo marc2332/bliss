@@ -10,6 +10,7 @@
 import os
 import yaml
 import sys
+import logging
 import functools
 
 from bliss import setup_globals
@@ -25,6 +26,7 @@ try:
 except ImportError:
     pass
 
+_log = logging.getLogger('bliss.shell')
 
 SHELL_CONFIG_FILE = None
 SYNOPTIC = dict()
@@ -50,6 +52,7 @@ def set_setup_file(session_id, setup_file, config_objects_names):
     if isinstance(config_objects_names, str):
         config_objects_names = config_objects_names.split()
     SETUP[session_id] = dict(file=os.path.abspath(os.path.expanduser(setup_file)), config_objects=config_objects_names)
+    SETUP['session_name'] = session_id
 
 
 def read_config(config_file=None):
@@ -74,7 +77,8 @@ def read_config(config_file=None):
             try:
                 synoptic_file = cfg[session_id]["synoptic"]["svg-file"]
             except KeyError:
-                sys.excepthook(*sys.exc_info())
+                _log.warning('Unable to find synoptic file')
+                _log.debug('Details:', exc_info=1)
             else:
                 if not os.path.isabs(synoptic_file):
                     synoptic_file = os.path.join(os.path.dirname(os.path.abspath(config_file)), synoptic_file)
@@ -115,7 +119,6 @@ def setup(setup_file=None, env_dict=None, config_objects_names_list=None, verbos
             _load_config(env_dict, config_objects_names_list, verbose) 
 
             env_dict['load_script']=functools.partial(_load_script, env_dict)
-            env_dict['wa']=functools.partial(_wa, env_dict)
 
             try:
                 execfile(setup_file_path, env_dict) 
@@ -178,9 +181,21 @@ def _load_script(env_dict, script_module_name, path=None):
             env_dict[k] = v
 
 
-def _wa(env_dict):
-  motors = []
-  for name, obj in env_dict.iteritems():
-    if isinstance(obj, Axis):
-        motors.append([obj.name, obj.position(), obj.offset])
-  print str(tabulate(motors, headers=["Axis name", "Position", "Offset"]))
+def initialize(config_file=None, session_name=None):
+    user_ns = { "config": static.get_config() }
+    if config_file:
+        set_shell_config_file(config_file)
+
+        SETUP, SYNOPTIC, default_session = read_config()
+        session_id = session_name or default_session
+
+        setup_file = SETUP.get(session_id, {}).get("file")
+        config_objects_names = SETUP.get(session_id, {}).get("config_objects")
+
+        resetup = functools.partial(setup, env_dict=user_ns,
+                                    config_objects_names_list=config_objects_names)
+        user_ns.update({"resetup": resetup, "SETUP_FILE": setup_file})
+
+        resetup()
+
+    return user_ns, session_id, (SETUP, SYNOPTIC)

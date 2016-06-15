@@ -19,12 +19,10 @@ Options:
 import sys
 import os
 import docopt
-import functools
 from ptpython import repl
 from ptpython.eventloop import _create_eventloop
 from gevent import select
-from bliss.config import static
-from bliss.shell import set_shell_config_file, read_config, setup
+from bliss.shell import initialize
 
 def gevent_inputhook(inputhook_context):
     r, _, _ = select.select([inputhook_context.fileno()],[],[])
@@ -32,7 +30,7 @@ def gevent_inputhook(inputhook_context):
 def create_eventloop():
     return _create_eventloop(gevent_inputhook)
 
-if __name__ == '__main__':
+def main():
     try:
         # Parse arguments, use file docstring as a parameter definition
         arguments = docopt.docopt(__doc__)
@@ -42,26 +40,18 @@ if __name__ == '__main__':
     except docopt.DocoptExit as e:
         print e.message
     else:
-        user_ns = { "config": static.get_config() }
+        repl.create_eventloop = create_eventloop
+
+        user_ns, session_id, _ = initialize(config_file, session_name)
 
         if config_file:
-            set_shell_config_file(config_file)
-       
-            SETUP, SYNOPTIC, default_session = read_config()
-            session_id = session_name or default_session 
-
-            setup_file = SETUP.get(session_id, {}).get("file")
-            config_objects_names = SETUP.get(session_id, {}).get("config_objects")
-
-            repl.create_eventloop = create_eventloop
-        
-    	    user_ns.update({ "resetup": functools.partial(setup, env_dict=user_ns, config_objects_names_list=config_objects_names),
-                             "SETUP_FILE": setup_file})
-        
-            user_ns['resetup']()
-
-            history_filename = os.path.join(os.environ["HOME"], ".%s_%s_history" % (os.path.basename(sys.argv[0]), session_id))
+            history_filename = ".%s_%s_history" % (os.path.basename(sys.argv[0]), session_id)
         else:
-            history_filename = os.path.join(os.environ["HOME"], ".%s_history" % os.path.basename(sys.argv[0]))
+            history_filename = ".%s_history" % os.path.basename(sys.argv[0])
+        history_filename = os.path.join(os.environ["HOME"], history_filename)
 
         repl.embed(user_ns, None, vi_mode=False, history_filename=history_filename)
+
+
+if __name__ == '__main__':
+    main()

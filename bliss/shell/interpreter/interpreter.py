@@ -70,14 +70,14 @@ def stdout_redirected(client_uuid, new_stdout):
 
 
 def init_scans_callbacks(interpreter, output_queue):
-    def new_scan_callback(scan_id, filename, scan_actuators, npoints, counters_list):
-        output_queue.put((interpreter.get_last_client_uuid(), {"scan_id": scan_id, "filename": filename,
+    def new_scan_callback(scan, filename, scan_actuators, npoints, counters_list):
+        output_queue.put((interpreter.get_last_client_uuid(), {"scan_id": id(scan), "filename": filename,
                           "scan_actuators": scan_actuators, "npoints": npoints,
                           "counters": counters_list}))
-    def update_scan_callback(scan_id, values):
-        output_queue.put((interpreter.get_last_client_uuid(), {"scan_id": scan_id, "values":values}))
-    def scan_end_callback(scan_id):
-        output_queue.put((interpreter.get_last_client_uuid(), {"scan_id":scan_id}))
+    def update_scan_callback(scan, values):
+        output_queue.put((interpreter.get_last_client_uuid(), {"scan_id": id(scan), "values":values}))
+    def scan_end_callback(scan):
+        output_queue.put((interpreter.get_last_client_uuid(), {"scan_id": id(scan)}))
 
     # keep callbacks references
     output_queue.callbacks["scans"]["new"] = new_scan_callback

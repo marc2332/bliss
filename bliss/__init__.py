@@ -36,6 +36,7 @@ from bliss.config.motors import load_cfg, load_cfg_fromstring, get_axis, get_enc
 from bliss.controllers.motor_group import Group
 ##
 from bliss.common.scans import *
+from bliss.common.standard import *
 from bliss.common.continuous_scan import Scan
 from bliss.common.continuous_scan import AcquisitionChain
 from bliss.common.continuous_scan import AcquisitionDevice

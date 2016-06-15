@@ -238,8 +238,6 @@ def go(card):
     poll = select.epoll()
     poll.register(card, select.EPOLLIN | select.EPOLLHUP | select.EPOLLERR)
     
-    card.enable_interrupts(100)
-
     card.set_interrupts(counters=counter_interrupts,
                         dma=True, fifo_half_full=True, error=True)
 
@@ -309,7 +307,6 @@ def handle_event(card, fifo, fd, event):
 
 def clean_up(card):
     card.set_interrupts()
-    card.disable_interrupts()    
     card.disable_counters_software(card.COUNTERS)
     
 

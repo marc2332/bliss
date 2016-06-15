@@ -126,11 +126,10 @@ def main():
 
     p201 = P201Card()
     p201.request_exclusive_access()
-    p201.disable_interrupts()
+    p201.set_interrupts()
     p201.reset()
     p201.software_reset()
     p201.reset_FIFO_error_flags()
-    p201.enable_interrupts(100)
     
     poll = select.epoll()
     poll.register(p201, select.EPOLLIN | select.EPOLLHUP | select.EPOLLERR)
@@ -165,7 +164,7 @@ def main():
         sys.excepthook(*sys.exc_info())
     finally:
         print ("Clean up!")
-        p201.disable_interrupts()
+        p201.set_interrupts()
         p201.reset()
         p201.software_reset()
 

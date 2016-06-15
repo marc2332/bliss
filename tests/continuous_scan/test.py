@@ -214,11 +214,10 @@ def test_p201():
   chain = AcquisitionChain()
   p201_device = P201()
   p201_device.request_exclusive_access()
-  p201_device.disable_interrupts()
+  p201_device.set_interrupts()
   p201_device.reset()
   p201_device.software_reset()
   p201_device.reset_FIFO_error_flags()
-  p201_device.enable_interrupts(100)
   p201_device.set_clock(Clock.CLK_100_MHz)
   p201_master = P201AcquisitionMaster(p201_device,nb_points=100000,acq_expo_time=50e-6)
   p201_counters = P201AcquisitionDevice(p201_device,nb_points=100000,acq_expo_time=50e-6,
@@ -382,11 +381,10 @@ def test_emotion_p201():
 
   p201_device = P201()
   p201_device.request_exclusive_access()
-  p201_device.disable_interrupts()
+  p201_device.set_interrupts()
   p201_device.reset()
   p201_device.software_reset()
   p201_device.reset_FIFO_error_flags()
-  p201_device.enable_interrupts(100)
   p201_device.set_clock(Clock.CLK_100_MHz)
   p201_master = P201AcquisitionMaster(p201_device,nb_points=10,acq_expo_time=1e-3)
   p201_counters = P201AcquisitionDevice(p201_device,nb_points=10,acq_expo_time=1e-3,

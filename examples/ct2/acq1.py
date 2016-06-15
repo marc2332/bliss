@@ -27,7 +27,7 @@ from bliss.controllers.ct2 import CtClockSrc, CtGateSrc, CtHardStartSrc, CtHardS
 
 def configure(device, channels):
     device.request_exclusive_access()
-    device.disable_interrupts()
+    device.set_interrupts()
     device.reset()
     device.software_reset()
 

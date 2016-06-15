@@ -30,11 +30,10 @@ from bliss.controllers.ct2 import CtClockSrc, CtGateSrc, CtHardStartSrc, CtHardS
 
 def configure(device, channels):
     device.request_exclusive_access()
-    device.disable_interrupts()
+    device.set_interrupts()
     device.reset()
     device.software_reset()
     device.reset_FIFO_error_flags()
-    device.enable_interrupts(100)
 
     # -------------------------------------------------------------------------
     # Channel configuration (could be loaded from beacon, for example. We 
@@ -175,7 +174,7 @@ def main():
         sys.excepthook(*sys.exc_info())
     finally:
         print ("Clean up!")
-        device.disable_interrupts()
+        device.set_interrupts()
         device.reset()
         device.software_reset()
         device.relinquish_exclusive_access()

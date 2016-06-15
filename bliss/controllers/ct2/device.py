@@ -301,10 +301,6 @@ class CT2Device(BaseCT2Device):
         # the acquisition has finished without having to query its status
         int_counters.append(point_nb_ct)
 
-        # first, be sure interrupts are anabled
-        interrupt_buffer_size = 0
-        card.enable_interrupts(interrupt_buffer_size)
-
         # make master enabled by software
         card.enable_counters_software((timer_ct, point_nb_ct))
 

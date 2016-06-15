@@ -1825,6 +1825,7 @@ class BaseCard:
         self.__log = logging.getLogger("P201." + address)
         self.__address = address
         self.__dev = None
+        self.__interrupt_buffer_size = 0
         self.connect(address)
 
     def __str__(self):
@@ -1953,9 +1954,9 @@ class BaseCard:
         """
         self.__ioctl(CT2_IOC_DEVRST)
 
-    def enable_interrupts(self, fifo_size):
+    def __enable_interrupts(self, fifo_size):
         """
-        Enable card interrupts with the given number of FIFO entries
+        Enables driver IRQ handler with the given number of FIFO entries
 
         :param fifo_size: FIFO depth (number of FIFO entries)
         :type fifo_size: int
@@ -1964,11 +1965,34 @@ class BaseCard:
         """
         self.__ioctl(CT2_IOC_EDINT, fifo_size)
 
-    def disable_interrupts(self):
+    def __disable_interrupts(self):
         """
-        Disables the card interrupts
+        Disables the driver IRQ handler
         """
         self.__ioctl(CT2_IOC_DDINT)
+
+    def __source_irq_reg_name(self, reg):
+        return "SOURCE_IT_" + reg
+
+    def __read_source_irq_reg(self, reg):
+        """
+        Reads the source IRQ register
+        """
+        return self.read_reg(self.__source_irq_reg_name(reg))
+
+    def __write_source_irq_reg(self, reg, val):
+        """
+        Writes on source IRQ register and enable/disable IRQ handler 
+        """
+        # Ensure that the kernel will handle IRQs before enabling ...
+        if val:
+            self.__enable_interrupts(self.__interrupt_buffer_size)
+        self.write_reg(self.__source_irq_reg_name(reg), val)
+        # Check if IRQ handler can be disabled
+        if not val:
+            other = "A" if reg == "B" else "B"
+            if not self.__read_source_irq_reg(other):
+                self.__disable_interrupts()
 
     def acknowledge_interrupt(self):
         """
@@ -2407,7 +2431,7 @@ class BaseCard:
         :rtype: dict<int: :class:`TriggerInterrupt`>
         """
         result = {}
-        register = self.read_reg("SOURCE_IT_A")
+        register = self.__read_source_irq_reg("A")
         mask = (1<<0) | (1<<16)
         for channel in self.CHANNELS:
             reg = (register >> (channel-1)) & mask
@@ -2430,11 +2454,11 @@ class BaseCard:
         register = 0
         for channel, triggers in channels_triggers.items():
             register |= triggers.value << (channel-1)
-        self.write_reg("SOURCE_IT_A", register)
+        self.__write_source_irq_reg("A", register)
 
     def __get_source_it_b(self):
         counters = {}
-        register = self.read_reg("SOURCE_IT_B")
+        register = self.__read_source_irq_reg("B")
         for counter in self.COUNTERS:
             counters[counter] = (register & 1 << (counter-1)) != 0
         dma, fifo, error = (register & (1 << 12)) != 0
@@ -2452,10 +2476,10 @@ class BaseCard:
         register = 0
         for counter in counters:
             register |= 1 << (counter-1)
-        register |= (dma and 1 or 0) << 12
-        register |= (fifo_half_full and 1 or 0) << 13
-        register |= (error and 1 or 0) << 14
-        self.write_reg("SOURCE_IT_B", register)
+        register |= (1 << 12) if dma else 0
+        register |= (1 << 13) if fifo_half_full else 0
+        register |= (1 << 14) if error else 0
+        self.__write_source_irq_reg("B", register)
 
     def get_counters_interrupts(self):
         """
@@ -2527,11 +2551,8 @@ class BaseCard:
         """
         # First, make sure we leave bits 0 to 11 unchanged
         # (these correspond to counter stop trigerred interrupts)
-        register = self.read_reg("SOURCE_IT_B") & 0xFFF
-        register |= (dma and 1 or 0) << 12
-        register |= (fifo_half_full and 1 or 0) << 13
-        register |= (error and 1 or 0) << 14
-        self.write_reg("SOURCE_IT_B", register)
+        counters = self.get_counters_interrupts()
+        self.__set_source_it_b(counters, dma, fifo_half_full, error)
 
     def get_interrupts(self):
         """
@@ -3363,7 +3384,7 @@ def create_and_configure_card(config_or_name):
         card_config = config_or_name
     card = create_card_from_configure(card_config)
     card.request_exclusive_access()
-    card.disable_interrupts()
+    card.set_interrupts()
     card.reset_FIFO_error_flags()
     card.reset()
     card.software_reset()
@@ -3399,8 +3420,6 @@ def configure_card(card, config):
     dma_int = __get(config, 'dma interrupt', False)
     fifo_hf_int = __get(config, 'fifo half full interrupt', False)
     error_int = __get(config, 'error interrupt', False)
-
-    interrupt_buffer_size = __get(config, 'interrupt buffer size', 0)
 
     ct_cfgs = {}
     ct_latch_srcs = {}
@@ -3487,13 +3506,7 @@ def configure_card(card, config):
     card.set_counters_software_enable_disable(ct_sw_enables)
     card.set_counters_comparators_values(ct_cmpts)
 
-    enable_interrupts = any(list(ct_ints.values()) + [dma_int, fifo_hf_int, error_int,
-                                                      interrupt_buffer_size])
     card.set_interrupts(ch_ints, ct_ints, dma_int, fifo_hf_int, error_int)
-
-    if enable_interrupts:
-        interrupt_buffer_size = interrupt_buffer_size and interrupt_buffer_size or 100
-        card.enable_interrupts(interrupt_buffer_size)
 
 
 def main():

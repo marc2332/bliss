@@ -259,6 +259,11 @@ class Rontec:
         Raises:
             KeyError
         """
+        if emin > 1000:
+            emin /= 1000.0
+        if emax > 1000:
+            emax /= 1000.0
+
         #check if input is energy [keV] or channels
         if emax > 80:
             self.chmin = emin

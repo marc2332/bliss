@@ -56,9 +56,18 @@ class _BaseSerial:
         self._data = ''
         self._event = event.Event()
         self._rx_filter = None
+        self._rpipe,self._wpipe = os.pipe()
 
     def _init(self):
-        self._raw_read_task = gevent.spawn(self._raw_read)
+        self._raw_read_task = gevent.spawn(self._raw_read,
+                                           weakref.proxy(self),
+                                           self.fd,self._rpipe)
+
+    def _close(self):
+        os.write(self._wpipe,"|")
+        if self._raw_read_task:
+            self._raw_read_task.join()
+            self._raw_read_task = None
 
     def readline(self, eol, timeout):
         timeout_errmsg = "timeout on serial(%s)" % (self._port)
@@ -105,24 +114,30 @@ class _BaseSerial:
             self._data = ''
         return msg
  
-    def _raw_read(self):
+    @staticmethod
+    def _raw_read(ser,fd,rp):
         try:
             while(1):
-                ready,_,_ = select.select([self.fd],[],[])
-                raw_data = os.read(self.fd,4096)
+                ready,_,_ = select.select([fd,rp],[],[])
+                if rp in ready:
+                    break;
+                raw_data = os.read(fd,4096)
                 if raw_data:
-                    if self._rx_filter:
-                        raw_data = self._rx_filter(raw_data)
-                    self._data += raw_data
-                    self._event.set()
+                    if ser._rx_filter:
+                        raw_data = ser._rx_filter(raw_data)
+                    ser._data += raw_data
+                    ser._event.set()
                 else:
                     break
         except:
             pass
         finally:
-            cnt = self._cnt()
-            if cnt:
-                cnt._raw_handler = None
+            try:
+                cnt = ser._cnt()
+                if cnt:
+                    cnt._raw_handler = None
+            except ReferenceError:
+                pass
 
 class LocalSerial(_BaseSerial):
     def __init__(self,cnt,**keys):
@@ -131,11 +146,15 @@ class LocalSerial(_BaseSerial):
         self.fd = self.__serial.fd
         self._init()
 
+    def __del__(self):
+        self.close()
+
     def flushInput(self):
         self.__serial.flushInput()
         self._data = ''
 
     def close(self) :
+        self._close()
         self.__serial.close()
 
 
@@ -271,6 +290,9 @@ class RFC2217(_BaseSerial):
         self._rx_filter = self._rfc2217_filter
         self._pending_data = None
 
+    def __del__(self):
+        self.close()
+
     def write(self,msg,timeout):
         msg = msg.replace(IAC,IAC_DOUBLED)
         _BaseSerial.write(self,msg,timeout)
@@ -359,6 +381,7 @@ class RFC2217(_BaseSerial):
                 break
 
     def close(self):
+        self._close()
         self._socket.close()
 
 
@@ -390,6 +413,9 @@ class SER2NET(RFC2217):
         
         keys['port'] = 'rfc2217://%s:%d' % (match.group(2),rfc2217_port)
         RFC2217.__init__(self,cnt,**keys)
+
+    def __del__(self):
+        self.close()
 
 class Serial:
     LOCAL,RFC2217,SER2NET = range(3)
@@ -427,8 +453,7 @@ class Serial:
         self._logger = logging.getLogger(str(self))
 
     def __del__(self) :
-        if self._raw_handler:
-            self._raw_handler.close()
+        self.close()
 
     def __str__(self):
         return "{0}({1})".format(self.__class__.__name__,

@@ -16,6 +16,7 @@ import gevent
 from gevent import socket, event, queue, lock
 import time
 import logging
+import weakref
 
 from .common import CommunicationError, CommunicationTimeout
 
@@ -70,6 +71,9 @@ class Socket:
         self._logger = logging.getLogger(str(self))
         self._debug = self._logger.debug
 
+    def __del__(self):
+        self.close()
+
     def __str__(self):
         return "{0}({1}:{2})".format(self.__class__.__name__,
                                      self._host, self._port)
@@ -94,7 +98,7 @@ class Socket:
             self._fd.connect((local_host, local_port))
             self._connected = True
 
-        self._raw_read_task = gevent.spawn(self._raw_read)
+        self._raw_read_task = gevent.spawn(self._raw_read,weakref.proxy(self),self._fd)
 
         return True
 
@@ -218,24 +222,28 @@ class Socket:
             self._debug("Tx: %s %s",data,['0x%.2x' % ord(x) for x in data])
         self._fd.sendall(data)
 
-    def _raw_read(self):
+    @staticmethod
+    def _raw_read(sock,fd):
         try:
             while(1):
-                raw_data = self._fd.recv(16 * 1024)
+                raw_data = fd.recv(16 * 1024)
                 if logging.getLogger().isEnabledFor(logging.DEBUG):
-                    self._debug("Rx: %s %s",raw_data,
+                    sock._debug("Rx: %s %s",raw_data,
                                 ['0x%.2x' % ord(x) for x in raw_data])
                 if raw_data:
-                    self._data += raw_data
-                    self._event.set()
+                    sock._data += raw_data
+                    sock._event.set()
                 else:
                     break
         except:
             pass
         finally:
-            self._connected = False
-            self._fd.close()
-            self._fd = None
+            fd.close()
+            try:
+                sock._connected = False
+                sock._fd = None
+            except ReferenceError:
+                pass
 
 
 class CommandTimeout(CommunicationTimeout):
@@ -306,6 +314,9 @@ class Command:
         self._logger = logging.getLogger(self.__class__.__name__)
         self._debug = self._logger.debug
 
+    def __del__(self):
+        self.close()
+
     def open(self):
         if not self._connected:
             self.connect()
@@ -322,7 +333,7 @@ class Command:
         self._connected = True
         self._host = local_host
         self._port = local_port
-        self._raw_read_task = gevent.spawn(self._raw_read)
+        self._raw_read_task = gevent.spawn(self._raw_read,weakref.proxy(self),self._fd)
         return True
 
     def close(self):
@@ -432,20 +443,25 @@ class Command:
                 start_time = time.time()
             return str_list
 
-    def _raw_read(self):
+    @staticmethod
+    def _raw_read(command,fd):
         try:
             while(1):
-                raw_data = self._fd.recv(16 * 1024)
-                if raw_data and self._transaction_list:
-                    self._transaction_list[0].put(raw_data)
+                raw_data = fd.recv(16 * 1024)
+                if raw_data and command._transaction_list:
+                    command._transaction_list[0].put(raw_data)
                 else:
                     break
         except:
             pass
         finally:
-            self._connected = False
-            self._fd.close()
-            self._fd = None
+            fd.close()
+            try:
+                command._connected = False
+                command._fd = None
+            except ReferenceError:
+                pass
+
 
     def new_transaction(self):
         data_queue = queue.Queue()

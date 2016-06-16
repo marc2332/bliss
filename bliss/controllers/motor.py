@@ -273,10 +273,6 @@ class CalcController(Controller):
         self._write_settings = False
         self._motion_control = False
 
-    def initialize(self):
-        for axis in self.pseudos:
-            self._initialize_axis(axis)
-
     def _update_refs(self):
         Controller._update_refs(self)
 
@@ -361,10 +357,10 @@ class CalcController(Controller):
                     axis._do_encoder_reading()
 
     def _initialize_axis(self, axis):
-        for axis in self.reals:
-            axis.controller._initialize_axis(axis)
         for axis in self.pseudos:
             Controller._initialize_axis(self, axis)
+        for axis in self.reals:
+            axis.controller._initialize_axis(axis)
 
     def initialize_axis(self, axis):
         if axis in self.pseudos:

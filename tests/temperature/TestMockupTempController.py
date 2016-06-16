@@ -16,8 +16,7 @@ import pdb
 import time
 
 SP = 10
-SP = 15
-SP = 20
+KW = 1
 
 """
 Bliss generic library
@@ -74,6 +73,16 @@ class TestMockupTempController(unittest.TestCase):
         aa=config.get("thermo_sample")
         print "%s" % (aa.read())            
 
+    def test_input_state(self):
+        config = static.get_config()     
+        aa=config.get("thermo_sample")
+        aa.state() 
+
+    def tests_output_state(self):
+        config = static.get_config()     
+        bb=config.get("heater")
+        bb.state() 
+
     def test_read_output(self):       
         config = static.get_config()     
         bb=config.get("heater") 
@@ -126,76 +135,25 @@ class TestMockupTempController(unittest.TestCase):
         self.assertAlmostEqual(int(round(myval)),SP,places=1)
         myset = bb.set()
         self.assertAlmostEqual(int(round(myset)),SP,places=1)
-        
 
-    def test_output_ramp(self):
-        SP=13
+    def test_output_set_with_kwarg(self):
+        SP=11
+        KW=23
         config = static.get_config()  
         bb=config.get("heater")           
         val = bb.read()
-        print "Ramping from %s to %s" % (val,SP)
-        bb.ramp(SP)
-        print "Wait for end of setpoint (around %s seconds)" % (int(abs(SP-val))*2)
+        print "Direct setpoint from %s to %s" % (val,SP)
+        bb.set(SP, step=KW)
         bb.wait()
         myval = bb.read()
         print "%s rounded to %s" % (myval,int(round(myval)))            
         self.assertAlmostEqual(int(round(myval)),SP,places=1)
+        myset = bb.set()
+        self.assertAlmostEqual(int(round(myset)),SP,places=1)
+        myval = bb.stepval()
+        self.assertEqual(myval,KW)
 
-    def test_output_ramp_stop(self):
-        SP=15
-        config = static.get_config()  
-        bb=config.get("heater")           
-        val = bb.read()
-        print "Ramping (then stopping) from %s to %s" % (val,SP)
-        bb.ramp(SP)
-        #gevent.sleep(3)
-        #time.sleep(3)
-        print ("Stopping")
-        bb.stop()
-        myval = bb.read()
-        print "Now at: %s" % myval  
-
-    def test_loop_output_ramp(self):
-        SP=20
-        config = static.get_config()  
-        cc=config.get("sample_regulation")
-        val = cc.output.read()
-        print "Ramping from %s to %s" % (val,SP)
-        cc.output.ramp(SP)
-        print "Wait for end of setpoint (around %s seconds)" % (int(abs(SP-val))*2)
-        cc.output.wait()
-        myval = cc.output.read()
-        print myval
-        print "%s rounded to %s" % (myval,int(round(myval)))            
-        self.assertAlmostEqual(int(round(myval)),SP,places=1)
-
-    def test_loop_output_ramp_stop(self):
-        SP=20
-        config = static.get_config()  
-        cc=config.get("sample_regulation")
-        val = cc.output.read()
-        print "Ramping (then stopping) from %s to %s" % (val,SP)
-        cc.output.ramp(SP)
-        gevent.sleep(3)
-        print ("Stopping")
-        cc.output.stop()
-        myval = cc.output.read()
-        print "Now at: %s" % myval  
-
-    def test_loop_ramp(self):
-        SP=15
-        config = static.get_config()  
-        cc=config.get("sample_regulation")
-        val = cc.output.read()
-        print "Ramping from %s to %s" % (val,SP)
-        cc.ramp(SP)
-        print "Wait for end of setpoint (around %s seconds)" % (int(abs(SP-val))*2)
-        cc.output.wait()
-        myval = cc.output.read()
-        print myval
-        print "%s rounded to %s" % (myval,int(round(myval)))            
-        self.assertAlmostEqual(int(round(myval)),SP,places=1)
-
+        
     def test_loop_set(self):
         SP=18
         config = static.get_config()  
@@ -217,7 +175,36 @@ class TestMockupTempController(unittest.TestCase):
         cc.on()
         print "Stopping regulation"
         cc.off()
+
+    def test_Pval(self):
+        KW=13
+        config = static.get_config()  
+        cc=config.get("sample_regulation")
+        print "Setting P to %f" % KW
+        cc.Pval(KW)
+        myval = cc.Pval()
+        self.assertEqual(KW,myval)
         
+    def test_Ival(self):
+        KW=50
+        config = static.get_config()  
+        cc=config.get("sample_regulation")
+        print "Setting I to %f" % KW
+        cc.Ival(KW)
+        myval = cc.Ival()
+        self.assertEqual(KW,myval)
+        
+    def test_Dval(self):
+        KW=1
+        config = static.get_config()  
+        cc=config.get("sample_regulation")
+        print "Setting D to %f" % KW
+        cc.Dval(KW)
+        myval = cc.Dval()
+        self.assertEqual(KW,myval)
+        
+
+               
 """
 Main entry point
 """

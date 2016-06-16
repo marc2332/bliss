@@ -25,6 +25,8 @@ class Controller(object):
         self._loops = dict()
         self.__dictramp = dict()
 
+        self.initialize()
+
         for name, cfg in inputs:
             log.debug("  input name: %s" % (name))
             log.debug("  input config: %s" % (cfg))
@@ -35,12 +37,15 @@ class Controller(object):
             set_custom_members(self, self._inputs[name])
             set_custom_members(self, self._objects[name])
 
+            self.initialize_input(self._inputs[name])
+
         for name, cfg in outputs:
             log.debug("  output name: %s" % (name))
             log.debug("  output config: %s" % (cfg))
             self._objects[name] = Output(self, cfg)
             self._outputs[name] = Output(self, cfg)
-            self.__dictramp.setdefault(self._outputs[name].channel,{"ramp":None, "step":None, "dwell":None})
+
+            self.initialize_output(self._outputs[name])
 
             # For custom attributes and commands.
             set_custom_members(self, self._outputs[name])
@@ -51,6 +56,8 @@ class Controller(object):
             log.debug("  loops config: %s" % (cfg))
             self._objects[name] = Loop(self, cfg)
             self._loops [name] = Loop(self, cfg)
+
+            self.initialize_loop(self._loops[name])
 
             # For custom attributes and commands.
             set_custom_members(self, self._loops[name])
@@ -67,10 +74,31 @@ class Controller(object):
 
     def get_object(self, name):
         log.info("Controller:get_object: %s" % (name))
+        #it is used by Loop class
         return self._objects.get(name)
 
-    def read(self, tinputoutput):
-        log.info("Controller:read: %s" % (tinput))
+    def initialize(self):
+        """ Controller Initialization """
+        pass
+
+    def initialize_input(self,tinput):
+        log.info("Controller:initialize_input: %s" % (tinput))
+        raise NotImplementedError 
+
+    def initialize_output(self,toutput):
+        log.info("Controller:initialize_output: %s" % (toutput))
+        raise NotImplementedError 
+
+    def initialize_loop(self,tloop):
+        log.info("Controller:initialize_loop: %s" % (tloop))
+        raise NotImplementedError 
+
+    def read_input(self, tinput):
+        log.info("Controller:read_input: %s" % (tinput))
+        raise NotImplementedError
+
+    def read_output(self, toutput):
+        log.info("Controller:read_output: %s" % (toutput))
         raise NotImplementedError
 
     def start_ramp(self, toutput, sp, **kwargs):
@@ -86,7 +114,7 @@ class Controller(object):
     def get_setpoint(self, toutput):
         """Return current setpoint
 
-        Returned value is None if not setpoint is set
+        Returned value must be None if not setpoint is set
         """
         log.info("Controller:get_setpoint: %s" % (toutput))
         raise NotImplementedError
@@ -115,7 +143,7 @@ class Controller(object):
         log.info("Controller:state_output:" )
         raise NotImplementedError
 
-    def setpoint_state(self, toutput, deadband):
+    def _setpoint_state(self, toutput, deadband):
         """Return a string representing the setpoint state
 
         One of:
@@ -123,6 +151,8 @@ class Controller(object):
         - RUNNING
         - ALARM
         - FAULT
+
+           It can be used as it is or overloaded with custom code
         """
         log.info("Controller:setpoint_state: %s" % (toutput))
         mysp = self.get_setpoint(toutput)
@@ -138,55 +168,14 @@ class Controller(object):
 
         """
         log.info("Controller:setpoint_stop")
+        raise NotImplementedError
 
-    def set_rampval(self,toutput,ramp):
-        """Sets the setpoint ramp value
-
-        """
-        log.info("Controller:set_rampval: %s " % (toutput))
-        #print toutput.channel
-        #print self.__dictramp
-        self.__dictramp[toutput.channel]["ramp"]=ramp
-        #print self.__dictramp
-
-    def get_rampval(self,toutput):
-        """Gets the setpoint ramp value
+    def setpoint_abort(self,toutput):
+        """Aborts the setpoint
 
         """
-        log.info("Controller:get_rampval: %s " % (toutput))
-        #print toutput.channel
-        #print self.__dictramp
-        return self.__dictramp[toutput.channel]["ramp"]
-
-    def set_stepval(self,toutput,step):
-        """Sets the setpoin step value
-
-        """
-        log.info("Controller:set_stepval: %s " % (toutput))
-        self.__dictramp[toutput.channel]["step"]=step
-
-
-    def get_stepval(self,toutput):
-        """Gets the setpoint step value
-
-        """
-        log.info("Controller:get_stepval: %s " % (toutput))
-        return self.__dictramp[toutput.channel]["step"]
-
-
-    def set_dwellval(self,toutput,dwell):
-        """Sets the setpoint dwell value
-
-        """
-        log.info("Controller:set_dwellval: %s " % (toutput))
-        self.__dictramp[toutput.channel]["dwell"]=dwell
-
-    def get_dwellval(self,toutput):
-        """Gets the setpoint dwell value
-
-        """
-        log.info("Controller:get_dwellval: %s " % (toutput))
-        return self.__dictramp[toutput.channel]["dwell"]
+        log.info("Controller:setpoint_stop")
+        raise NotImplementedError
 
     def on(self,tloop):
         """Starts the regulation on the loop

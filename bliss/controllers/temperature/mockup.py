@@ -31,6 +31,21 @@ class mockup(Controller):
         self.setpoints = dict()
         self.setpointramp = dict()
 
+    def initialize(self):
+        # host becomes mandatory
+        log.debug("mockup: initialize ")
+        self.host = self.config.get("host",str)
+        print "host is: %s" % self.host
+
+    def initialize_input(self, tinput):
+        log.debug("mockup: initialize_input: %s" % (tinput))
+
+    def initialize_output(self, toutput):
+        log.debug("mockup: initialize_output: %s" % (toutput))
+
+    def initialize_loop(self, tloop):
+        log.debug("mockup: initialize_loop: %s" % (tloop))
+
     def read_input(self, tinput):
         """Reading on a Input object
 
@@ -78,11 +93,11 @@ class mockup(Controller):
 
         """
         if kwargs.has_key("ramp"):
-           toutput.controller.dictramp[toutput.channel]['ramp'] = kwargs["ramp"]
+           toutput.rampval(kwargs["ramp"])
         if kwargs.has_key("dwell"):
-           toutput.controller.dictramp[toutput.channel]['dwell'] = kwargs["dwell"]
+           toutput.dwellval(kwargs["dwell"])
         if kwargs.has_key("step"):
-           toutput.controller.dictramp[toutput.channel]['step'] = kwargs["step"]
+           toutput.stepval(kwargs["step"])
         channel = toutput.config.get("channel",str)
         log.debug("mockup: set %s on channel %s" % (sp,channel))
         #print kwargs
@@ -104,11 +119,11 @@ class mockup(Controller):
 
         """
         if kwargs.has_key("ramp"):
-           toutput.controller.dictramp[toutput.channel]['ramp'] = kwargs["ramp"]
+           toutput.rampval(kwargs["ramp"])
         if kwargs.has_key("dwell"):
-           toutput.controller.dictramp[toutput.channel]['dwell'] = kwargs["dwell"]
+           toutput.dwellval(kwargs["dwell"])
         if kwargs.has_key("step"):
-           toutput.controller.dictramp[toutput.channel]['step'] = kwargs["step"]
+           toutput.stepval(kwargs["step"])
         channel = toutput.config.get("channel",str)
         log.debug("mockup: start_ramp %s on channel %s" % (sp,channel))
         #print kwargs
@@ -139,12 +154,12 @@ class mockup(Controller):
         except KeyError:
             pass
 
-
     def state_input(self, tinput):
         """Get the status of a Input object
 
         """
         log.debug("mockup: state Input")
+        print "host is %s" %self.host
         return "READY"
 
     def state_output(self, toutput):
@@ -152,10 +167,12 @@ class mockup(Controller):
 
         """
         log.debug("mockup: state Output")
-        log.debug("mockup: ramp : %s" % toutput.controller.dictramp[toutput.channel]['ramp'])
-        log.debug("mockup: step : %s" % toutput.controller.dictramp[toutput.channel]['step'])
-        log.debug("mockup: dwell : %s" % toutput.controller.dictramp[toutput.channel]['dwell'])
+        log.debug("mockup: ramp : %s" % toutput.rampval())
+        log.debug("mockup: step : %s" % toutput.stepval())
+        log.debug("mockup: dwell : %s" % toutput.dwellval())
+        log.debug("mockup: host : %s" % self.host)       
         return "READY"
+
 
     def setpoint_stop(self, toutput):
         """Stopping the setpoint on an Output object
@@ -166,6 +183,14 @@ class mockup(Controller):
         sp = self.setpoints.setdefault(channel, {"setpoint":None, "temp": INITIAL_TEMP, "end_time":0 })
         sp["setpoint"]=None
 
+    def setpoint_abort(self, toutput):
+        """Aborting the setpoint on an Output object
+
+        """
+        channel = toutput.config.get("channel",str)
+        log.debug("mockup: abort: %s" % (channel))
+        self.setpoint_stop(toutput)
+
     def on(self, tloop):
         """
         Starting the regulation on a Loop
@@ -173,6 +198,9 @@ class mockup(Controller):
         log.debug("mockup: on: starting regulation between input:%s and output:%s" % (
                 tloop.input.channel,tloop.output.channel))
         print "Mockup: regulation on"
+        log.debug("mockup: P: %s" % (tloop.Pval()))
+        log.debug("mockup: I: %s" % (tloop.Ival()))
+        log.debug("mockup: D: %s" % (tloop.Dval()))
 
 
     def off(self, tloop):

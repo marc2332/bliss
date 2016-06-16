@@ -570,7 +570,7 @@ def main():
       bosse = True
 
       while bosse:
-        rlist,_,_ = select.select(fd_list,[],[],-1)
+        rlist,_,_ = select.select(fd_list,[],[])
 
         for s in rlist:
             if s == udp:

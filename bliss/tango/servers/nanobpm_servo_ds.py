@@ -1,30 +1,10 @@
-#!/usr/bin/env python
-# -*- coding:utf-8 -*-
+# -*- coding: utf-8 -*-
+#
+# This file is part of the bliss project
+#
+# Copyright (c) 2016 Beamline Control Unit, ESRF
+# Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-# ############################################################################
-#  license :
-# ============================================================================
-#
-#  File :        NanoBpmServo.py
-#
-#  Project :     NanoBBM Device Servers
-#
-# This file is part of Tango device class.
-# 
-# Tango is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-# 
-# Tango is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-# 
-# You should have received a copy of the GNU General Public License
-# along with Tango.  If not, see <http://www.gnu.org/licenses/>.
-# 
-# ############################################################################
 import sys
 import logging
 from functools import wraps
@@ -43,10 +23,10 @@ from gevent import event
 
 __all__ = ["NanoBpmServo", "main"]
 
-def is_cmd_allowed(fisallowed) :
+def is_cmd_allowed(fisallowed):
     def is_allowed(func):
         @wraps(func)
-        def rfunc(self, *args, **keys) :
+        def rfunc(self, *args, **keys):
             if getattr(self, fisallowed)():
                 return func(self, *args, **keys)
             else:
@@ -94,7 +74,7 @@ class NanoBpmServo(Device):
             if self.XController is not None:
                 self._xcontrolProxy = PyTango.DeviceProxy(self.XController)
             if self.YController is not None:
-                self._ycontrolProxy = PyTango.DeviceProxy(self.XController)
+                self._ycontrolProxy = PyTango.DeviceProxy(self.YController)
             self._event = gevent.event.Event()
             self._servoId = None
             self._xcoord = 0
@@ -211,13 +191,13 @@ class NanoBpmServo(Device):
 
     def _doServo(self):
         while(1):
-            self._logging.debug("Entering event wait")
+            self._logger.debug("Entering event wait")
             self._event.wait()
             self._event.clear()
             if self._xcoord != 0.0:
                 incx = (self._xcentre - self._xcoord) * self._xmovePerPixel
                 if abs(incx) > self._minimumXMove and abs(incx) < self._maximumXMove:
-                    self._logging.debug("Need to move X by {0} minX {1}, maxX {2}".format(
+                    self._logger.debug("Need to move X by {0} minX {1}, maxX {2}".format(incx,
                                         self._minimumXMove, self._maximumXMove))
                     if self._xcontrolProxy is not None:
                         xpos = self._xcontrolProxy.read_attribute("position").value
@@ -225,10 +205,11 @@ class NanoBpmServo(Device):
             if self._ycoord != 0.0:
                 incy = (self._ycentre - self._ycoord) * self._ymovePerPixel 
                 if abs(incy) > self._minimumYMove and abs(incy) < self._maximumYMove:
-                    self._logging.debug("Need to move Y by {0} minY {1}, maxY {2}".format(
+                    self._logger.debug("Need to move Y by {0} minY {1}, maxY {2}".format(incy,
                                         self._minimumYMove, self._maximumYMove))
                     if self._ycontrolProxy is not None:
                         ypos = self._ycontrolProxy.read_attribute("position").value
+                        self._logger.debug("current position is {0} should move to {1}".format(ypos, ypos+incy))
                         self._ycontrolProxy.write_attribute("position", ypos + incy)
 
     @command
@@ -249,7 +230,7 @@ class NanoBpmServo(Device):
             if ev.attr_value is not None and ev.attr_value.name == "centre":
                 self._xcoord = ev.attr_value.value[0]
                 self._ycoord = ev.attr_value.value[1]
-                self._logging.debug("Bpm centre [{0},{1}]".format(self._xcoord, self._ycoord))
+                self._logger.debug("Bpm centre [{0},{1}]".format(self._xcoord, self._ycoord))
                 self._event.set()
 
 # -------------------------------------------------------------------------

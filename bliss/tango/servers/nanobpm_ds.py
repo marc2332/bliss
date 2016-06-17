@@ -1,30 +1,9 @@
-#!/usr/bin/env python
-# -*- coding:utf-8 -*-
-
-# ############################################################################
-#  license :
-# ============================================================================
+# -*- coding: utf-8 -*-
 #
-#  File :        NanoBpm.py
+# This file is part of the bliss project
 #
-#  Project :     NanoBBM Device Servers
-#
-# This file is part of Tango device class.
-# 
-# Tango is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-# 
-# Tango is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-# 
-# You should have received a copy of the GNU General Public License
-# along with Tango.  If not, see <http://www.gnu.org/licenses/>.
-# 
-# ############################################################################
+# Copyright (c) 2016 Beamline Control Unit, ESRF
+# Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import sys
 import time
@@ -48,12 +27,12 @@ from gevent import lock
 from functools import wraps
 from bliss.controllers.nano_bpm import NanoBpm as nanoBpm
 
-def is_cmd_allowed(fisallowed) :
+def is_cmd_allowed(fisallowed):
     def is_allowed(func):
         @wraps(func)
-        def rfunc(self,*args,**keys) :
+        def rfunc(self, *args, **keys):
             if getattr(self, fisallowed)():
-                return func(self,*args,**keys)
+                return func(self, *args, **keys)
             else:
                 raise Exception("Command not allowed")
         return rfunc
@@ -104,7 +83,7 @@ class NanoBpm(Device):
         logging.basicConfig(level=logging.INFO)
         self._logger.setLevel(logging.DEBUG)
         self._imageDepth = self.BPP8
-        self._image = None
+        self._imageData = None
         self._lock = lock.Semaphore()
         self._acqMode = self.STREAMING
         self._CoG = None
@@ -116,6 +95,11 @@ class NanoBpm(Device):
         self.set_change_event("Centre", True, False)
         self.set_change_event("Xprofile", True, False)
         self.set_change_event("Yprofile", True, False)
+        self.set_change_event("Xfit", True, False)
+        self.set_change_event("Yfit", True, False)
+        self.set_change_event("ReadImage8", True, False)
+        self.set_change_event("ReadImage16", True, False)
+        self.set_change_event("ReadImage32", True, False)
         self._nanoBpm.subscribe(self.bpmCallback)
 
         attr = self.get_device_attr().get_attr_by_name("acqMode")
@@ -159,7 +143,7 @@ class NanoBpm(Device):
         self._acqMode = self._AcqMode2String.keys()[ind]
 
     @attribute(label="Integration time", dtype=float, unit="s", min_value="0.0", memorized=True,
-                description="Integration time in seconds", fisallowed="is_attr_allowed")
+                description="Integration time in seconds", fisallowed="is_attr_rw_allowed")
     @DebugIt()
     def integrationTime(self):
         return self._nanoBpm.getIntegrationTime()
@@ -191,7 +175,7 @@ class NanoBpm(Device):
     def nbFramesToSum(self, num):
         self._nanoBpm.nbFramesToSum = num
 
-    @attribute(label="Gain", dtype=int, fisallowed="is_attr_allowed",
+    @attribute(label="Gain", dtype=int, fisallowed="is_attr_rw_allowed",
                description="Gain of the device")
     def gain(self):
         return self._nanoBpm.GAIN
@@ -200,7 +184,7 @@ class NanoBpm(Device):
     def gain(self, val):
         self._nanoBpm.GAIN = val
 
-    @attribute(label="Offset", dtype=int, fisallowed="is_attr_allowed",
+    @attribute(label="Offset", dtype=int, fisallowed="is_attr_rw_allowed",
                description="Offset of the device")
     def offset(self):
         return self._nanoBpm.OFFSET
@@ -209,7 +193,7 @@ class NanoBpm(Device):
     def offset(self, val):
         self._nanoBpm.OFFSET = val
 
-    @attribute(label="Maximum Iterations", dtype=int, fisallowed="is_attr_allowed",
+    @attribute(label="Maximum Iterations", dtype=int, fisallowed="is_attr_rw_allowed",
                description="Maximum number of iterations for the fitting algorithm")
     def maxIter(self):
         return self._nanoBpm.MAXITER
@@ -218,7 +202,7 @@ class NanoBpm(Device):
     def maxIter(self, val):
         self._nanoBpm.MAXITER = val
 
-    @attribute(label="Horizontal Minimum Amplitude", dtype=float, fisallowed="is_attr_allowed",
+    @attribute(label="Horizontal Minimum Amplitude", dtype=float, fisallowed="is_attr_rw_allowed",
                description="")
     def horizMinAmp(self):
         return self._nanoBpm.H_MINAMP
@@ -227,7 +211,7 @@ class NanoBpm(Device):
     def horizMinAmp(self, val):
         self._nanoBpm.H_MINAMP = val
 
-    @attribute(label="Vertical Minimum Amplitude", dtype=float, fisallowed="is_attr_allowed",
+    @attribute(label="Vertical Minimum Amplitude", dtype=float, fisallowed="is_attr_rw_allowed",
                description="Fitting minimum amplitude in vertical direction")
     def vertMinAmp(self):
         return self._nanoBpm.V_MINAMP
@@ -236,7 +220,7 @@ class NanoBpm(Device):
     def vertMinAmp(self, val):
         self._nanoBpm.V_MINAMP = val
 
-    @attribute(label="Vertical Minimum Chi-squared", dtype=float, fisallowed="is_attr_allowed",
+    @attribute(label="Vertical Minimum Chi-squared", dtype=float, fisallowed="is_attr_rw_allowed",
                description="Minimum chi-squared value for fitting in vertical direction")
     def vertMinRSQ(self):
         return self._nanoBpm.V_MINRSQ
@@ -245,7 +229,7 @@ class NanoBpm(Device):
     def vertMinRSQ(self, val):
         self._nanoBpm.V_MINRSQ = val
 
-    @attribute(label="Horizontal Minimum Chi-squared", dtype=float, fisallowed="is_attr_allowed",
+    @attribute(label="Horizontal Minimum Chi-squared", dtype=float, fisallowed="is_attr_rw_allowed",
                description="Minimum chi-squared value for fitting in horizontal direction")
     def horizMinRSQ(self):
         return self._nanoBpm.H_MINRSQ
@@ -254,11 +238,11 @@ class NanoBpm(Device):
     def horizMinRSQ(self, val):
         self._nanoBpm.H_MINRSQ = val
 
-    @attribute(label="Last frame number acquired", dtype=int, fisallowed="is_attr_allowed",
-               description="")
-    @DebugIt()
-    def last_image_acquired(self):
-        return -1 if self._image is None else self._image[0]
+#    @attribute(label="Last frame number acquired", dtype=int, fisallowed="is_attr_allowed",
+#               description="")
+#    @DebugIt()
+#    def last_image_acquired(self):
+#        return -1 if self._imageData is None else self._imageData[0]
 
     @attribute(label="Image depth",dtype=str, fisallowed="is_attr_allowed",
                description="")
@@ -318,21 +302,31 @@ class NanoBpm(Device):
                description="")
     @DebugIt()
     def readImage8(self):
-        if self._image is None:
+        if self._imageData is None:
              raise AttributeError("No valid image collected")
-        if self._image[1] != self.BPP8:
+        if self._imageData[0] != self.BPP8:
              raise AttributeError("This is not a 8 bit image")
-        return self._image[2]
+        return self._imageData[1]
 
     @attribute(label="Image16",dtype=[['uint16']], fisallowed="is_attr_allowed", max_dim_x=2000, max_dim_y=2000,
                description="")
     @DebugIt()
     def readImage16(self):
-        if self._image is None:
+        if self._imageData is None:
              raise AttributeError("No valid image collected")
-        if self._image[1] != self.BPP16:
+        if self._imageData[0] != self.BPP16:
              raise AttributeError("This is not a 16 bit image")
-        return self._image[2]
+        return self._imageData[1]
+
+    @attribute(label="Image32",dtype=[['uint32']], fisallowed="is_attr_allowed", max_dim_x=2000, max_dim_y=2000,
+               description="")
+    @DebugIt()
+    def readImage32(self):
+        if self._imageData is None:
+             raise AttributeError("No valid image collected")
+        if self._imageData[0] != self.BPP32:
+             raise AttributeError("This is not a 16 bit image")
+        return self._imageData[1]
 
     @DebugIt()
     def is_attr_allowed(self, attr):
@@ -355,7 +349,7 @@ class NanoBpm(Device):
                                             PyTango.DevState.RUNNING]
 
 
-    def bpmCallback(self, cog, xprofile, yprofile, xfit, yfit, image):
+    def bpmCallback(self, cog, xprofile, yprofile, xfit, yfit, imageData):
         if cog is not None :
             if self._CoG is None or int(self._CoG[0]) != int(cog[0]) or int(self._CoG[1]) != int(cog[1]):
                 self._logger.debug("bpmCallback(): pushing COG {0}".format(cog))
@@ -375,14 +369,24 @@ class NanoBpm(Device):
             with self._lock:
                 self._yprofile = yp
         if xfit is not None:
+            self.push_change_event("Xfit", xfit)
             with self._lock:
                 self._xfit = xfit
         if yfit is not None:
+            self.push_change_event("Yfit", yfit)
             with self._lock:
                 self._yfit = yfit
-        if image is not None:
+        if imageData is not None:
+            depth = imageData[0]
+            image = imageData[1]
+            if depth == self.BPP32:
+                self.push_change_event("ReadImage32",image)
+            elif depth == self.BPP16:
+                self.push_change_event("ReadImage16",image)
+            else:
+                self.push_change_event("ReadImage8",image)
             with self._lock:
-                self._image = image
+                self._imageData = imageData
 
     # -------------------------------------------------------------------------
     # commands
@@ -433,11 +437,11 @@ class NanoBpm(Device):
     def _doCollectDark(self):
         self._logger.info("CollectDark(): Starting dark current image collection")
         self._nanoBpm.storeDark = True
-        imageData = self._nanoBpm.readAve16Sum32()
+        self._nanoBpm.readAve16Sum32()
         self._nanoBpm.storeDark = False
         self._logger.info("CollectDark(): Dark current image collection complete")
         with self._lock:
-            if imageData is not None:
+            if self._imageData is not None:
                 self.set_state(PyTango.DevState.ON)
             else:
                 self.set_state(PyTango.DevState.FAULT)
@@ -452,19 +456,17 @@ class NanoBpm(Device):
     def _doCollect(self):
         if self._imageDepth == self.BPP32:
             self._logger.info("Collect(): collecting Ave16/sum32 image")
-            imageData = self._nanoBpm.readAve16Sum32()
+            self._nanoBpm.readAve16Sum32()
         elif self._imageDepth == self.BPP16:
             self._logger.info("Collect(): collecting 16 bit image")
-            imageData = self._nanoBpm.readImage16()
+            self._nanoBpm.readImage16()
         else:
             self._logger.info("Collect(): collecting 8 bit image")
-            imageData = self._nanoBpm.readImage8()
+            self._nanoBpm.readImage8()
         self._logger.info("Collect(): collection complete")
 
         with self._lock:
-            if imageData is not None:
-                frameNb = self._nanoBpm.frameNbAcquired
-                self._image = (frameNb, self._imageDepth, imageData)
+            if self._imageData is not None:
                 self.set_state(PyTango.DevState.ON)
             else:
                 self.set_state(PyTango.DevState.FAULT)
@@ -482,11 +484,12 @@ class NanoBpm(Device):
     @command
     @DebugIt()
     def Stop(self):
-        self.set_state(PyTango.DevState.ON)
         if self._acqMode == self.CONTINUOUS:
             self._nanoBpm.stopContinuousFrame()
         else:
             self._nanoBpm.stopDataStreaming()
+
+        self.set_state(PyTango.DevState.ON)
 
     @DebugIt()
     def is_command_allowed(self):

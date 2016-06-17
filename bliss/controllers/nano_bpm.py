@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+#
+# This file is part of the bliss project
+#
+# Copyright (c) 2016 Beamline Control Unit, ESRF
+# Distributed under the GNU LGPLv3. See LICENSE for more info.
+
 __all__ = ["NanoBpm", "main"]
 
 import time
@@ -46,6 +53,7 @@ def _h_result_property(key, doc_str):
 class NanoBpm(object):
     # Errors codes
     NO_ERROR,CODE1,CODE2,CODE3,CODE4,CODE5,CODE6,CODE7,CODE8 = range(9)
+    BPP8, BPP16, BPP32 = range(3)
 
     SETTINGS     = _config_property('Settings',"Configuration settings")
     GAIN         = _config_property("Gain","Set device gain")
@@ -172,7 +180,7 @@ class NanoBpm(object):
         logging.basicConfig(level=logging.INFO)
         self._logger.setLevel(logging.DEBUG)
         self._controlWord = 0
-        self._nbFramesToSum = 4
+        self._nbFramesToSum = 8
         self._thread = None
         self._lock = lock.Semaphore()
         self._remoteDataSelector = 0
@@ -258,7 +266,8 @@ class NanoBpm(object):
     def _checkReplyOK(self, command_sent, reply):
         errorCode = struct.unpack('>I', reply[2:])[0]
         if command_sent != reply[0:2]:
-            self._logger.error("Acknowledged the wrong Code")
+            self._logger.error("Acknowledged the wrong Code: sent {0} replied {1}"
+                               .format([ord(c) for c in command_sent],[ord(c) for c in reply[0:2]]))
             return False
         elif errorCode != self.NO_ERROR:
             self._logger.error("Acknowledgement error: %s" % self._errorCode2string[errorCode])
@@ -311,7 +320,6 @@ class NanoBpm(object):
         return self._checkReplyOK(self.commandSetParams, reply)
 
     def getDeviceParameters(self):
-
         reply = self.command_socket.write_read(self.commandGetParams, size=152, timeout=10)
         if self._checkReplyOK(self.commandGetParams, reply[0:6]):
             self._configurationParameters = OrderedDict(zip(self._configurationKeys, struct.unpack('>8Hf4H', reply[6:34])))
@@ -360,7 +368,11 @@ class NanoBpm(object):
             image_length = imageDescriptor['XSize'] * imageDescriptor['YSize']
             data = self.command_socket.read(size=image_length, timeout=10)
             #  need to invert X & Y to get the real image)
-            return numpy.ndarray(shape=(imageDescriptor['YSize'], imageDescriptor['XSize']), dtype='>u1', buffer=data)
+            image = numpy.ndarray(shape=(imageDescriptor['YSize'], imageDescriptor['XSize']), dtype='>u1', buffer=data)
+            # do callback function
+            imageData=(self.BPP8, image)
+            for doCallback in self.callbacks:
+                doCallback(None, None, None, None, None, imageData)
 
 
     def readImage16(self):
@@ -370,7 +382,11 @@ class NanoBpm(object):
             self._frameNbAcquired = imageDescriptor['FrameNb']
             image_length = imageDescriptor['XSize'] * imageDescriptor['YSize'] * 2
             data = self.command_socket.read(size=image_length, timeout=10)
-            return numpy.ndarray(shape=(imageDescriptor['YSize'], imageDescriptor['XSize']), dtype='>u2', buffer=data)
+            image =  numpy.ndarray(shape=(imageDescriptor['YSize'], imageDescriptor['XSize']), dtype='>u2', buffer=data)
+            # do callback function
+            imageData=(self.BPP16, image)
+            for doCallback in self.callbacks:
+                doCallback(None, None, None, None, None, imageData)
 
     def readDark16(self):
         reply = self.command_socket.write_read(self.commandReadDark16, size=20, timeout=10)
@@ -379,7 +395,11 @@ class NanoBpm(object):
             self._frameNbAcquired = imageDescriptor['FrameNb']
             image_length = imageDescriptor['XSize'] * imageDescriptor['YSize'] * 2
             data = self.command_socket.read(size=image_length, timeout=10)
-            return numpy.ndarray(shape=(imageDescriptor['YSize'], imageDescriptor['XSize']), dtype='>u2', buffer=data)
+            image = numpy.ndarray(shape=(imageDescriptor['YSize'], imageDescriptor['XSize']), dtype='>u2', buffer=data)
+            # do callback function
+            imageData=(self.BPP16, image)
+            for doCallback in self.callbacks:
+                doCallback(None, None, None, None, None, imageData)
 
     def readAve16Sum32(self):
         buf = struct.pack('>HH', self._nbFramesToSum, self._controlWord)
@@ -390,12 +410,18 @@ class NanoBpm(object):
             if self._controlWord & self.Control.COLLECT_SUM:
                 bytes = 4
                 type = '>u4'
+                depth = self.BPP32
             else:
                 type = '>u2'
                 bytes = 2
+                depth = self.BPP16
             image_length = imageDescriptor['XSize'] * imageDescriptor['YSize'] * bytes
             data = self.command_socket.read(size=image_length, timeout=10)
-            return numpy.ndarray(shape=(imageDescriptor['YSize'], imageDescriptor['XSize']), dtype=type, buffer=data)
+            image = numpy.ndarray(shape=(imageDescriptor['YSize'], imageDescriptor['XSize']), dtype=type, buffer=data)
+            # do callback function
+            imageData=(depth, image)
+            for doCallback in self.callbacks:
+                doCallback(None, None, None, None, None, imageData)
 
     def readContinuousFrame(self, dataSelector):
         self._logger.debug("readContinuousFrame(): dataSelector {0}".format(dataSelector))
@@ -520,7 +546,7 @@ class NanoBpm(object):
                 (xb, xa, x0, xsigma, xrsq) = struct.unpack('>5f', data[nextIndex:nextIndex + 20])
                 self._logger.debug("streamData(): xfit {0} {1} {2} {3} {4}".format(xb, xa, x0, xsigma, xrsq))
                 nextIndex += 20
-                if xrsq <= 1.0 and xrsq > 0.75:  # its a good fit
+                if xrsq <= 1.0 and xrsq > 0.8:  # its a good fit
                     xfit = (xb, xa, x0, xsigma, xrsq)
                     if x0 <= xsize:
                         xcentre = x0
@@ -529,7 +555,7 @@ class NanoBpm(object):
                 (yb, ya, y0, ysigma, yrsq) = struct.unpack('>5f', data[nextIndex:nextIndex + 20])
                 self._logger.debug("streamData(): yfit {0} {1} {2} {3} {4}".format(yb, ya, y0, ysigma, yrsq))
                 nextIndex += 20
-                if yrsq <= 1.0 and yrsq > 0.75:  # its a good fit
+                if yrsq <= 1.0 and yrsq > 0.8:  # its a good fit
                     yfit = (yb, ya, y0, ysigma, yrsq)
                     if y0 <= ysize:
                         ycentre = y0

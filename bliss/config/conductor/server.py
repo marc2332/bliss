@@ -13,9 +13,12 @@ import argparse
 import weakref
 import subprocess
 import gevent
+#monkey patch needed for web server
+#just keep for consistency because it's already patched
+#in __init__ in bliss project
 from gevent import monkey; monkey.patch_all()
 import socket
-import select
+from gevent import select
 import signal
 import traceback
 
@@ -570,7 +573,7 @@ def main():
       bosse = True
 
       while bosse:
-        rlist,_,_ = select.select(fd_list,[],[],-1)
+        rlist,_,_ = select.select(fd_list,[],[])
 
         for s in rlist:
             if s == udp:

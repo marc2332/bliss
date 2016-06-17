@@ -18,7 +18,7 @@ import gevent
 #in __init__ in bliss project
 from gevent import monkey; monkey.patch_all()
 import socket
-import select
+from gevent import select
 import signal
 import traceback
 

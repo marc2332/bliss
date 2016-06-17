@@ -197,5 +197,6 @@ def initialize(config_file=None, session_name=None):
         user_ns.update({"resetup": resetup, "SETUP_FILE": setup_file})
 
         resetup()
-
-    return user_ns, session_id, (SETUP, SYNOPTIC)
+        return user_ns, session_id, (SETUP, SYNOPTIC)
+    else:
+        return user_ns,None,(None,None)

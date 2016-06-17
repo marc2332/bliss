@@ -12,6 +12,7 @@ from gevent import lock
 from gevent import queue
 import gevent
 import errno
+import numpy
 
 from .common import CommunicationError, CommunicationTimeout
 
@@ -202,6 +203,19 @@ class ModbusTcp:
             struct_format = 'x' + struct_format
         nb_bytes /= 2
         return self._read(0x04,address,nb_bytes,struct_format,timeout_errmsg,timeout)
+
+    @try_connect_modbustcp
+    def read_coils(self,address,nb_coils,timeout=None):
+        timeout_errmsg = "timeout on read_coils tcp (%s, %d)" % (self._host, self._port)
+        nb_bytes = (((nb_coils + 7) & ~7) // 8)
+        struct_format = '%dB' % nb_bytes
+        result = self._read(0x01,address,nb_coils,struct_format,timeout_errmsg,timeout)
+        if isinstance(result,tuple):
+            result = [int('{:08b}'.format(x)[::-1], 2) for x in result]
+        else:
+            result = int('{:08b}'.format(result)[::-1], 2)
+        a = numpy.array(result,dtype=numpy.uint8)
+        return numpy.unpackbits(a)[:nb_coils]
 
     def connect(self,host=None,port=None):
         local_host = host or self._host

@@ -31,6 +31,14 @@ else
 PERM_EXE="/a+x"
 endif
 
+# if in a virtualenv, activate it in installed scripts, if not done yet
+ifneq ($(VIRTUAL_ENV),)
+CAT_BS_CMD=sed "/. blissrc/a\
+[ -z \"\$${VIRTUAL_ENV}\" ] && . ${VIRTUAL_ENV}/bin/activate" 
+else
+CAT_BS_CMD=cat
+endif
+
 .PHONY: bootstrap install clean doc 
 
 # "Distribution" installation.
@@ -59,7 +67,7 @@ ifneq ($(BLISS_ESRF),0)
 	@echo ""
 	@echo "Adding beacon daemon to BLControl start-up/shudown structure..."
 	mkdir -p ${BLISSADM}/admin/etc
-	cp -f scripts/admin/S10beacon ${BLISSADM}/admin/etc
+	${CAT_BS_CMD} scripts/admin/S10beacon > ${BLISSADM}/admin/etc/S10beacon
 
         # Add default beacon-server parameters to BLISS_ENV_VAR
 	@echo ""

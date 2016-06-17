@@ -13,6 +13,9 @@ import argparse
 import weakref
 import subprocess
 import gevent
+#monkey patch needed for web server
+#just keep for consistency because it's already patched
+#in __init__ in bliss project
 from gevent import monkey; monkey.patch_all()
 import socket
 import select

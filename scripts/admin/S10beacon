@@ -38,11 +38,11 @@ if [ -z "${BEACON_START}" ]; then
     tango_hostname=`echo ${TANGO_HOST} |  awk -F":" '{print $1}'`
     [ "${tango_hostname}" != "`uname -n`" ] && exit 0
 else
-    [ "${BEACON_START}" -eq 0 -o "${BEACON_START}" = "no" ] && exit 0
+    [ "${BEACON_START}" = "0" -o "${BEACON_START}" = "no" ] && exit 0
 fi
 
-if [ -n "${BEACON_TANGO_DATABASE" ] && \
-   [ "${BEACON_TANGO_DATABASE}" -eq 1 \
+if [ -n "${BEACON_TANGO_DATABASE}" ] && \
+   [ "${BEACON_TANGO_DATABASE}" = "1" \
      -o "${BEACON_TANGO_DATABASE}" = "yes" ] && [ -n "${TANGO_HOST}" ]; then
     tango_port=`echo ${TANGO_HOST} |  awk -F":" '{print $2}'`
     TANGO_PORT_OPT="--tango_port ${tango_port}"
@@ -77,8 +77,8 @@ if [ "$1" == "start" ]; then
 		cmd="su $beacon_user -c \"${cmd}\""
 	fi
 elif [ "$1" == "stop" ]; then
-	pid=`ps -ef | grep -- "${script} ${opts}" | grep -v grep | \
-             awk '{print $2}'`
+	patt=`echo ${script} ${opts}`
+	pid=`ps -ef | grep -- "${patt}" | grep -v grep | awk '{print $2}'`
         [ -z "${pid}" ] && exit 0
 	cmd="kill ${pid}"
 	if [ "x$beacon_user" != x -a `id -u` != `id -u $beacon_user` ]; then

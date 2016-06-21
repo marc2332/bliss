@@ -1,69 +1,47 @@
 import os, errno
 import h5py
-from louie import dispatcher
-from bliss.common.continuous_scan import AcquisitionDevice, AcquisitionMaster
+from bliss.data.writer.common import FileWriter, \
+    AcquisitionMasterEventReceiver, AcquisitionDeviceEventReceiver
 
-class FileWriter(object):
-    def __init__(self,root_path,
-                 windows_path_mapping=None,
-                 detector_temporay_path=None,**keys):
-        """ A default way to organize file structure
 
-        windows_path_mapping -- transform unix path to windows
-        i.e: {'/data/visitor/':'Y:/'}
-        detector_temporay_path -- temporary path for a detector
-        i.e: {detector: {'/data/visitor':'/tmp/data/visitor'}}
-        """
-        self._root_path = root_path
-        self._windows_path_mapping = windows_path_mapping or dict()
-        self._detector_temporay_path = detector_temporay_path or dict()
 
-class MasterEventReceiver(object):
-    def __init__(self, master, slave, parent_group):
-        self._master = master
-        self._slave = slave
-        self._parent = parent_group
-        for signal in ('start', 'end', 'new_data'):
-            dispatcher.connect(self, signal, slave)
-                
+class Hdf5MasterEventReceiver(AcquisitionMasterEventReceiver):
+    def __init__(self, *args, **kwargs):
+        AcquisitionMasterEventReceiver.__init__(self, *args, **kwargs)
 
-    def __call__(self, event_dict=None, signal=None, sender=None):
+        self.dataset = None
+
+    def on_event(self, event_dict, signal, device):
         if signal == 'start':
-            device = sender
-            shape = self._master.shape
+            shape = self.master.shape
             maxshape = [None] + list(shape)[1:]
             dtype = device.dtype
-            self.dataset = self._parent.create_dataset(device.name,
-                                                       shape=shape,
-                                                       dtype=dtype,
-                                                       compression='gzip',
-                                                       maxshape=maxshape)
+            self.dataset = self.parent.create_dataset(device.name,
+                                                      shape=shape,
+                                                      dtype=dtype,
+                                                      compression='gzip',
+                                                      maxshape=maxshape)
         elif signal == 'new_data':
             pass
 
 
-class EventReceiver(object):
-    def __init__(self,device,parent_group):
-        self._device = device
-        self._parent = parent_group
+class Hdf5DeviceEventReceiver(AcquisitionDeviceEventReceiver):
+    def __init__(self, *args, **kwargs):
+        AcquisitionDeviceEventReceiver.__init__(self, *args, **kwargs)
+
         self.dataset = dict()
         
-        for signal in ('start', 'end', 'new_data'):
-            dispatcher.connect(self, signal, device)
-
-    def __call__(self, event_dict=None, signal=None, sender=None):
-        device = sender
-                
+    def on_event(self, event_dict, signal, device):
         if signal == 'start':
             for channel in device.channels:
                 maxshape = tuple([None] + list(channel.shape))
                 npoints = device.npoints
                 shape = tuple([npoints] + list(channel.shape))
-                self.dataset[channel.name] = self._parent.create_dataset(device.name+':'+channel.name,
-                                                                         shape=shape, 
-                                                                         dtype=channel.dtype,
-                                                                         compression='gzip',
-                                                                         maxshape=maxshape)
+                self.dataset[channel.name] = self.parent.create_dataset(device.name+':'+channel.name,
+                                                                        shape=shape, 
+                                                                        dtype=channel.dtype,
+                                                                        compression='gzip',
+                                                                        maxshape=maxshape)
                 self.dataset[channel.name].last_point_index = 0
         elif signal == 'new_data':
             for channel_name, data in event_dict['channel_data'].iteritems():
@@ -86,49 +64,21 @@ class EventReceiver(object):
 
 class Writer(FileWriter):
     def __init__(self,root_path,**keys):
-        FileWriter.__init__(self,root_path,**keys)
+        FileWriter.__init__(self, root_path, 
+                            master_event_receiver=Hdf5MasterEventReceiver,
+                            device_event_receiver=Hdf5DeviceEventReceiver,
+                            **keys)
+
         self.file = None
-        self._event_receivers = list()
+        self.scan_entry = None
+        self.measurement = None
+        
+    def new_file(self, scan_file_dir, scan_recorder):
+        self.file = h5py.File(os.path.join(scan_file_dir, 'data.h5'))
+        self.scan_entry = self.file.create_group(scan_recorder.name)
+        self.scan_entry.attrs['NX_class'] = 'NXentry'
+        self.measurement = self.scan_entry.create_group('measurement')
 
-    def prepare(self,scan_recorder,scan_info,devices_tree):
-        self._event_receivers = list()
-
-        path_suffix = scan_recorder.node.db_name().replace(':',os.path.sep)
-        full_path = os.path.join(self._root_path,path_suffix)
-        try:
-            os.makedirs(full_path)
-        except OSError as exc: # Python >2.5
-            if exc.errno == errno.EEXIST and os.path.isdir(full_path):
-                pass
-            else: raise
-
-        self.file = h5py.File(os.path.join(full_path,'data.h5'))
-        scan_entry = self.file.create_group(scan_recorder.name)
-        scan_entry.attrs['NX_class'] = 'NXentry'
-
-        measurement = scan_entry.create_group('measurement')
-
-        master_id = 0
-        for dev, node in scan_recorder.nodes.iteritems():
-            if isinstance(dev, AcquisitionMaster):
-                master_entry = measurement.create_group('master%d' % master_id)
-                master_id += 1
-                for slave in dev.slaves:
-                    if isinstance(slave,AcquisitionDevice):
-                        if slave.type == 'lima':
-                            lima_dev = slave.device
-                            lima_dev.saving_format = 'EDF'
-                            lima_dev.saving_mode = 'AUTO_FRAME'
-                            lima_dev.saving_frame_per_file = 1
-                            camera_name = lima_dev.camera_type
-                            scan_name = scan_recorder.node.name()
-                            lima_dev.saving_directory=full_path
-                            lima_dev.saving_prefix='%s_%s' % (scan_name,camera_name)
-                            lima_dev.saving_suffix='.edf'
-                            pass # link
-                        else:
-                            self._event_receivers.append(EventReceiver(slave, master_entry))
-                    elif isinstance(slave,AcquisitionMaster):
-                        self._event_receivers.append(MasterEventReceiver(slave, slave, master_entry))
-                self._event_receivers.append(EventReceiver(dev, master_entry))
+    def new_master(self, master, scan):
+        return self.measurement.create_group(master.name + '_master')
                 

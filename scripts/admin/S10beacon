@@ -9,11 +9,6 @@
 # ${log}$
 ##########################################################################
 
-LINUX=""
-ECHO="/bin/echo "
-
-if [ "`uname`" == "SunOS" ]; then ECHO="/usr/ucb/echo"; fi
-
 [ "$1" == "start" ] && action="Starting"
 [ "$1" == "stop" ] && action="Stopping"
 [ "$1" == "status" ] && action="Testing"
@@ -77,7 +72,7 @@ if [ "$1" == "start" ]; then
 		cmd="su $beacon_user -c \"${cmd}\""
 	fi
 elif [ "$1" == "stop" ]; then
-	patt=`echo ${script} ${opts}`
+	patt=`echo ${script}`
 	pid=`ps -ef | grep -- "${patt}" | grep -v grep | awk '{print $2}'`
         [ -z "${pid}" ] && exit 0
 	cmd="kill ${pid}"

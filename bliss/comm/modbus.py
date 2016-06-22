@@ -179,8 +179,8 @@ class ModbusTcp:
         return self._read(0x03,address,nb_bytes,struct_format,timeout_errmsg,timeout)
                 
     @try_connect_modbustcp
-    def write_holding_register(self,address,struct_format,value,timeout = None):
-        timeout_errmsg = "timeout on write_holding_register modbus tcp (%s, %d)" % (self._host, self._port)
+    def write_register(self,address,struct_format,value,timeout = None):
+        timeout_errmsg = "timeout on write_register modbus tcp (%s, %d)" % (self._host, self._port)
         self._write(0x06,address,struct_format,value,timeout_errmsg,timeout)
 
     @try_connect_modbustcp

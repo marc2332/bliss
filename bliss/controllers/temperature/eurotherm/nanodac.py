@@ -41,7 +41,7 @@ def _get_read_write(modbus,address_read_write):
                 digit = _nb_digit(raw_value,float_value)
                 params['nb_digit'] = digit
             write_value = value * 10 ** digit
-            return modbus.write_holding_register(address_write,value_type_write,write_value)
+            return modbus.write_register(address_write,value_type_write,write_value)
         return read,write
     else:
         if hasattr(nanodac_mapping,value_type): # probably an enum
@@ -58,12 +58,12 @@ def _get_read_write(modbus,address_read_write):
                     else:
                         raise RuntimeError("Value %s is not in enum (%s)",value,
                                            enum_type.values())
-                return modbus.write_holding_register(address,'b',value)
+                return modbus.write_register(address,'b',value)
         else:
             def read(self) :
                 return modbus.read_holding_register(address,value_type)
             def write(self,value):
-                return modbus.write_holding_register(address,value_type,value)
+                return modbus.write_register(address,value_type,value)
         return read,write
 
 def _create_attribute(filter_name,cls,instance,modbus):
@@ -178,7 +178,7 @@ class nanodac(object):
                 float_value = self._modbus.read_holding_register(address_read,value_read_type)
                 nb_digit = _nb_digit(raw_value,float_value)
             value = value * 10 ** nb_digit
-        self._modbus.write_holding_register(address,value_type,value)
+        self._modbus.write_register(address,value_type,value)
     
     def _get_handler(self,filter_name) :
         cls = type('.'.join([self.__class__.__module__,

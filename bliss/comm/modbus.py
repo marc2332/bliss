@@ -181,18 +181,7 @@ class ModbusTcp:
     @try_connect_modbustcp
     def write_holding_register(self,address,struct_format,value,timeout = None):
         timeout_errmsg = "timeout on write_holding_register modbus tcp (%s, %d)" % (self._host, self._port)
-        with self.Transaction(self) as trans:
-            with gevent.Timeout(timeout or self._timeout,
-                                ModbusTimeout(timeout_errmsg)):
-                msg = struct.pack('>H' + struct_format,address,value)
-                self._raw_write(trans.tid(),0x06,msg)
-                read_values = trans.get()
-                if isinstance(read_values,socket.error):
-                    raise read_values
-                uid,func_code,msg = read_values
-                if func_code != 0x06: # Error
-                    raise ModbusError('Error write_holding_register, %s' %
-                                      self._error_code(msg))
+        self._write(0x06,address,struct_format,value,timeout_errmsg,timeout)
 
     @try_connect_modbustcp
     def read_input_registers(self,address,struct_format,timeout=None):
@@ -216,6 +205,12 @@ class ModbusTcp:
             result = int('{:08b}'.format(result)[::-1], 2)
         a = numpy.array(result,dtype=numpy.uint8)
         return numpy.unpackbits(a)[:nb_coils]
+
+    @try_connect_modbustcp
+    def write_coil(self,address,on_off,timeout=None):
+         timeout_errmsg = "timeout on write_coil tcp (%s, %d)" % (self._host, self._port)
+         value = 0xff00 if on_off else 0x0000
+         self._write(0x05,address,'H',value,timeout_errmsg,timeout)
 
     def connect(self,host=None,port=None):
         local_host = host or self._host
@@ -259,6 +254,20 @@ class ModbusTcp:
                                       (func_code,self._error_code(msg)))
                 returnVal = struct.unpack('>%s' % struct_format,msg[1:])
                 return returnVal if len(returnVal) > 1 else returnVal[0]
+
+    def _write(self,func_code,address,struct_format,value,timeout_errmsg,timeout):
+        with self.Transaction(self) as trans:
+            with gevent.Timeout(timeout or self._timeout,
+                                ModbusTimeout(timeout_errmsg)):
+                msg = struct.pack('>H' + struct_format,address,value)
+                self._raw_write(trans.tid(),func_code,msg)
+                read_values = trans.get()
+                if isinstance(read_values,socket.error):
+                    raise read_values
+                uid,func_code,msg = read_values
+                if func_code != func_code: # Error
+                    raise ModbusError('Error expecting func code %s intead of %s' %
+                                      (func_code,self._error_code(msg)))
 
     def _raw_write(self,tid,func,msg) :
         full_msg = struct.pack('>HHHBB',tid,0,len(msg) + 2,self._unit,func) + msg

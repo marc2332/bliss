@@ -112,7 +112,7 @@ class _Group(object):
                 all_motions.extend(motions)
                 controller_tasks.append(gevent.spawn(self._stop_one_controller_motions,
                                                     controller,motions))
-            gevent.joinall(controller_tasks)
+            gevent.joinall(controller_tasks, raise_error=True)
 
         if wait:
             for motion in all_motions:
@@ -176,7 +176,7 @@ class _Group(object):
                     all_motions.extend(motions)
                     controller_tasks.append(gevent.spawn(self._start_one_controller_motions,
                                                          controller,motions))
-                gevent.joinall(controller_tasks)
+                gevent.joinall(controller_tasks, raise_error=True)
         return all_motions
 
     def _set_move_done(self, move_task):

@@ -11,26 +11,47 @@ from .event import dispatcher
 import time
 
 class Scan(object):
-  def __init__(self, acq_chain, dm, scan_info=None):
-    self.scan_dm = dm
-    self.acq_chain = acq_chain
-    self.scan_info = scan_info if scan_info else dict()
+    def __init__(self, acq_chain, dm, scan_info=None):
+        self.scan_dm = dm
+        self.acq_chain = acq_chain
+        self.scan_info = scan_info if scan_info else dict()
 
-  def prepare(self):
-    self.acq_chain.prepare(self.scan_dm, self.scan_info)
+    def prepare(self):
+        self.acq_chain.prepare(self.scan_dm, self.scan_info)
 
-  def start(self):
-    self.acq_chain.start()
+    def start(self):
+        acquisition = gevent.spawn(self.acq_chain.start)
+        try:
+            acquisition.get()
+        except:
+            self.acq_chain.stop()
+            raise
+        else:
+            self.acq_chain.stop()
+        
+
+class AcquisitionChannel(object):
+    def __init__(self, name, dtype, shape):
+        self.__name = name
+        self.dtype = dtype
+        self.shape = shape
+
+    @property
+    def name(self):
+        return self.__name
+      
 
 
 class AcquisitionMaster(object):
     #SAFE, FAST = (0, 1)
-    def __init__(self, device, name, type): #, trigger_mode=AcquisitionMaster.FAST):
+    def __init__(self, device, name, type, npoints=None): #, trigger_mode=AcquisitionMaster.FAST):
         self.__device = device
         self.__name = name
         self.__type = type
         self.__slaves = list()
         self.__triggers = list()
+        self.__channels = list()
+        self.__npoints = npoints
         #self.__trigger_mode = trigger_mode
     @property
     def device(self):
@@ -44,11 +65,27 @@ class AcquisitionMaster(object):
     @property
     def slaves(self):
         return self.__slaves
+    @property
+    def channels(self):
+        return self.__channels
+    @channels.setter
+    def channels(self, channels_list):
+        if not isinstance(channels_list, list):
+            raise TypeError("A channels list is expected.")
+        self.__channels = channels_list
+    @property
+    def npoints(self):
+        return self.__npoints
+    #@npoints.setter
+    #def npoints(self, npoints):
+    #    self.__npoints = npoints
     def _prepare(self):
         return self.prepare()
     def prepare(self):
         raise NotImplementedError
     def start(self):
+        raise NotImplementedError
+    def stop(self):
         raise NotImplementedError
     def _start(self):
       return self.start()
@@ -76,14 +113,16 @@ class AcquisitionMaster(object):
             self.__triggers.append((slave, gevent.spawn(slave._trigger)))
 
 class AcquisitionDevice(object):
-    HARDWARE,SOFTWARE = range(2)
-    def __init__(self, device, name, data_type,
-                 trigger_type = SOFTWARE):
+    HARDWARE, SOFTWARE = range(2)
+
+    def __init__(self, device, name, data_type, npoints=0, trigger_type = SOFTWARE):
         self.__device = device
         self.__name = name
         self.__type = data_type
         self._reading_task = None
         self._trigger_type = trigger_type
+        self.__channels = list()
+        self.__npoints = npoints
 
     @property
     def device(self):
@@ -94,6 +133,20 @@ class AcquisitionDevice(object):
     @property
     def type(self):
         return self.__type
+    @property
+    def channels(self):
+        return self.__channels
+    @channels.setter
+    def channels(self, channels_list):
+        if not isinstance(channels_list, list):
+            raise TypeError("A channels list is expected.")
+        self.__channels = channels_list
+    @property
+    def npoints(self):
+        return self.__npoints
+    #@npoints.setter
+    #def npoints(self, npoints):
+    #    self.__npoints = npoints
     def _prepare(self):
         if not self._check_ready():
             raise RuntimeError("Last reading task is not finished.")
@@ -102,13 +155,13 @@ class AcquisitionDevice(object):
         raise NotImplementedError
     def start(self):
         raise NotImplementedError
-
     def _start(self):
       if self._trigger_type == AcquisitionDevice.HARDWARE:
         self.start()
         self._reading_task = gevent.spawn(self.reading)
         dispatcher.send("start", self)
-
+    def stop(self):
+        raise NotImplementedError
     def trigger_ready(self):
         return True
     def _check_ready(self):
@@ -132,6 +185,7 @@ class AcquisitionChain(object):
       self._tree = Tree()
       self._root_node = self._tree.create_node("acquisition chain","root")
       self._device_to_node = dict()
+      self._presets_list = list()
 
   def add(self, master, slave):
       slave_node = self._tree.get_node(slave)
@@ -150,11 +204,20 @@ class AcquisitionChain(object):
       else:
           self._tree.move_node(slave_node,master_node)
 
-  def _execute(self, func_name):
+  def add_preset(self, preset):
+      self._presets_list.append(preset)
+
+  def _execute(self, func_name, master_to_slave=False):
     tasks = list()
 
     prev_level = None
-    for dev in reversed(list(self._tree.expand_tree(mode=Tree.WIDTH))[1:]):
+
+    if master_to_slave:
+        devs = list(self._tree.expand_tree(mode=Tree.WIDTH))[1:]
+    else:
+        devs = reversed(list(self._tree.expand_tree(mode=Tree.WIDTH))[1:])
+
+    for dev in devs:
         node = self._tree.get_node(dev)
         level = self._tree.depth(node)
         if prev_level != level:
@@ -166,21 +229,35 @@ class AcquisitionChain(object):
     
 
   def prepare(self, dm, scan_info):
-    #self._devices_tree = self._get_devices_tree()  
-    for master in (x for x in self._tree.expand_tree() if isinstance(x,AcquisitionMaster)):
-        del master.slaves[:]
-        for dev in self._tree.get_node(master).fpointer:
-            master.slaves.append(dev)
+      preset_tasks = [gevent.spawn(preset.prepare) for preset in self._presets_list]
+      gevent.joinall(preset_tasks, raise_error=True)
 
-    dm_prepare_task = gevent.spawn(dm.prepare, scan_info, self._tree)
+      #self._devices_tree = self._get_devices_tree()
+      for master in (x for x in self._tree.expand_tree() if isinstance(x,AcquisitionMaster)):
+          del master.slaves[:]
+          for dev in self._tree.get_node(master).fpointer:
+              master.slaves.append(dev)
 
-    self._execute("_prepare")
+      dm_prepare_task = gevent.spawn(dm.prepare, scan_info, self._tree)
 
-    dm_prepare_task.join()
+      self._execute("_prepare")
+
+      dm_prepare_task.join()
 
     
   def start(self):
-    self._execute("_start")
-    for acq_dev in (x for x in self._tree.expand_tree() if isinstance(x,AcquisitionDevice)):
-        acq_dev.wait_reading()
-        dispatcher.send("end", acq_dev)
+      preset_tasks = [gevent.spawn(preset.start) for preset in self._presets_list]
+      gevent.joinall(preset_tasks, raise_error=True)
+
+      self._execute("_start")
+
+      for acq_dev in (x for x in self._tree.expand_tree() if isinstance(x, AcquisitionDevice)):
+          acq_dev.wait_reading()
+          dispatcher.send("end", acq_dev)
+
+
+  def stop(self):
+      self._execute("stop", master_to_slave=True)
+
+      preset_tasks = [gevent.spawn(preset.stop) for preset in self._presets_list]
+      gevent.joinall(preset_tasks, raise_error=True)

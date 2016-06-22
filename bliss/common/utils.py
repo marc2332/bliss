@@ -108,7 +108,11 @@ def object_attribute_get(get_method=None, name=None, args=[], type_info=None):
         return functools.partial(object_attribute_get, name=name, args=args,
                                  type_info=type_info)
 
-    attr_name = get_method.func_name[4:] # removes leading "get_"
+    if name is None:
+        name = get_method.func_name
+    attr_name = name
+    if attr_name.startswith("get_"):
+        attr_name = attr_name[4:] # removes leading "get_"
 
     get_method._object_method_ = dict(name=name, args=args, types_info=("None", type_info))
 
@@ -123,7 +127,11 @@ def object_attribute_set(set_method=None, name=None, args=[], type_info=None):
         return functools.partial(object_attribute_set, name=name, args=args,
                                  type_info=type_info)
 
-    attr_name = set_method.func_name[4:] # removes leading "set_"
+    if name is None:
+        name = set_method.func_name
+    attr_name = name
+    if attr_name.startswith("set_"):
+        attr_name = attr_name[4:] # removes leading "set_"
 
     set_method._object_method_ = dict(name=name, args=args, types_info=(type_info, "None"))
 
@@ -140,6 +148,10 @@ def set_custom_members(src_obj, target_obj, pre_call=None):
     # Populates __custom_methods_list and __custom_attributes_dict
     # for tango device server.
     for name, member in inspect.getmembers(src_obj):
+        # Just fills the list.
+        if hasattr(member, "_object_attribute_"):
+            add_object_attribute(target_obj,  **member._object_attribute_)
+
         # For each method of <src_obj>: try to add it as a
         # custom method or as methods to set/get custom
         # attributes.
@@ -148,6 +160,3 @@ def set_custom_members(src_obj, target_obj, pre_call=None):
         except AttributeError:
             pass
 
-        # Just fills the list.
-        if hasattr(member, "_object_attribute_"):
-            add_object_attribute(target_obj,  **member._object_attribute_)

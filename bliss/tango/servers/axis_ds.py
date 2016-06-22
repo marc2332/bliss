@@ -1403,7 +1403,14 @@ def main(argv=None):
             elog.debug("'%s' custom commands:" % axis_name)
             elog.debug(', '.join(map(str, _cmd_list)))
 
+            _attr_list =_axis.custom_attributes_list()
             for (fname, (t1, t2)) in _cmd_list:
+                # Skip the attr set/get methods
+                attr = [n for n, t, a in _attr_list
+                        if fname in ['set_%s' % n, 'get_%s' % n]]
+                if attr:
+                    continue
+
                 setattr(new_axis_class, fname, getattr(_axis, fname))
 
                 tin = types_conv_tab[t1]

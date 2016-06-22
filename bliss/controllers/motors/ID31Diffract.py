@@ -35,26 +35,18 @@ from bliss.common import log
 def initialize_parameters(klass, ctrl_pars=None):
     if ctrl_pars is None:
         ctrl_pars = klass.CtrlPars
-    def get_param_funcs(name):
+    def get_param_funcs(name, ptype):
+        @object_attribute_set(name='set_%s' % name, type_info=ptype)
         def set_parameter(self, axis, value):
             self[name] = value
+        @object_attribute_get(name='get_%s' % name, type_info=ptype)
         def get_parameter(self, axis):
             return self[name]
         return set_parameter, get_parameter
-    for name in ctrl_pars:
-        setter, getter = get_param_funcs(name)
+    for name, (ptype, default) in ctrl_pars. items():
+        setter, getter = get_param_funcs(name, ptype)
         setattr(klass, 'set_%s' % name, setter)
         setattr(klass, 'get_%s' % name, getter)
-
-    orig_initialize_axis = klass.initialize_axis
-    def initialize_axis(self, axis):
-        orig_initialize_axis(self, axis)
-        for name, (ptype, default) in ctrl_pars.items():
-            fget, fset = [getattr(self, '%s_%s' % (action, name))
-                          for action in 'get', 'set']
-            add_object_attribute(axis, fget, fset, name, type_info=ptype)
-    klass.initialize_axis = initialize_axis
-
     return klass
 
 

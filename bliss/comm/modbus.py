@@ -167,10 +167,10 @@ class ModbusTcp:
     def __del__(self):
         self.close()
 
-    ##@brief read holding register
+    ##@brief read holding registers
     @try_connect_modbustcp
-    def read_holding_register(self,address,struct_format,timeout=None):
-        timeout_errmsg = "timeout on read_holding_register modbus tcp (%s, %d)" % (self._host, self._port)
+    def read_holding_registers(self,address,struct_format,timeout=None):
+        timeout_errmsg = "timeout on read_holding_registers modbus tcp (%s, %d)" % (self._host, self._port)
         nb_bytes = struct.calcsize(struct_format)
         if nb_bytes < 2:        # register are 16bits
             nb_bytes = 2

@@ -32,12 +32,12 @@ def _get_read_write(modbus,address_read_write):
         address_read,value_type_read = address
         address_write,value_type_write,nb_digit = value_type
         def read(self):
-            return modbus.read_holding_register(address_read,value_type_read)
+            return modbus.read_holding_registers(address_read,value_type_read)
         def write(self,value,params={}):
             digit = params.get('nb_digit',nb_digit)
             if not isinstance(digit,int) : # automatic digit case
-                raw_value = modbus.read_holding_register(address_write,value_type_write)
-                float_value = modbus.read_holding_register(address_read,value_type_read)
+                raw_value = modbus.read_holding_registers(address_write,value_type_write)
+                float_value = modbus.read_holding_registers(address_read,value_type_read)
                 digit = _nb_digit(raw_value,float_value)
                 params['nb_digit'] = digit
             write_value = value * 10 ** digit
@@ -47,7 +47,7 @@ def _get_read_write(modbus,address_read_write):
         if hasattr(nanodac_mapping,value_type): # probably an enum
             enum_type = getattr(nanodac_mapping,value_type)
             def read(self):
-                value = modbus.read_holding_register(address,'b')
+                value = modbus.read_holding_registers(address,'b')
                 return enum_type.get(value,'Unknown')
             def write(self,value):
                 if isinstance(value,str):
@@ -61,7 +61,7 @@ def _get_read_write(modbus,address_read_write):
                 return modbus.write_register(address,'b',value)
         else:
             def read(self) :
-                return modbus.read_holding_register(address,value_type)
+                return modbus.read_holding_registers(address,value_type)
             def write(self,value):
                 return modbus.write_register(address,value_type,value)
         return read,write
@@ -166,7 +166,7 @@ class nanodac(object):
     def read(self,name) :
         address,value_type = self._get_address(name)
         if isinstance(address,tuple): address,value_type = address
-        return self._modbus.read_holding_register(address,value_type)
+        return self._modbus.read_holding_registers(address,value_type)
 
     def write(self,name,value):
         address,value_type = self._get_address(name)
@@ -174,8 +174,8 @@ class nanodac(object):
             address_read,value_read_type = address
             address,value_type,nb_digit = value_type
             if not isinstance(nb_digit,int) : # automatic nb_digit case
-                raw_value = self._modbus.read_holding_register(address,value_type)
-                float_value = self._modbus.read_holding_register(address_read,value_read_type)
+                raw_value = self._modbus.read_holding_registers(address,value_type)
+                float_value = self._modbus.read_holding_registers(address_read,value_read_type)
                 nb_digit = _nb_digit(raw_value,float_value)
             value = value * 10 ** nb_digit
         self._modbus.write_register(address,value_type,value)

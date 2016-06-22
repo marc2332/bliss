@@ -12,6 +12,7 @@ from gevent import lock
 from gevent import queue
 import gevent
 import errno
+import numpy
 
 from .common import CommunicationError, CommunicationTimeout
 
@@ -166,44 +167,50 @@ class ModbusTcp:
     def __del__(self):
         self.close()
 
-    ##@brief read holding register
+    ##@brief read holding registers
     @try_connect_modbustcp
-    def read_holding_register(self,address,struct_format,timeout=None):
-        timeout_errmsg = "timeout on read_holding_register modbus tcp (%s, %d)" % (self._host, self._port)
+    def read_holding_registers(self,address,struct_format,timeout=None):
+        timeout_errmsg = "timeout on read_holding_registers modbus tcp (%s, %d)" % (self._host, self._port)
         nb_bytes = struct.calcsize(struct_format)
         if nb_bytes < 2:        # register are 16bits
             nb_bytes = 2
             struct_format = 'x' + struct_format
         nb_bytes /= 2
-        with self.Transaction(self) as trans:
-            with gevent.Timeout(timeout or self._timeout,
-                                ModbusTimeout(timeout_errmsg)):
-                msg = struct.pack('>HH',address,nb_bytes)
-                self._raw_write(trans.tid(),0x03,msg)
-                read_values = trans.get()
-                if isinstance(read_values,socket.error):
-                    raise read_values
-                uid,func_code,msg = read_values
-                if func_code != 0x03: # Error
-                    raise ModbusError('Error read_holding_register, %s' %
-                                      self._error_code(func_code))
-                return struct.unpack('>%s' % struct_format,msg[1:])[0]
+        return self._read(0x03,address,nb_bytes,struct_format,timeout_errmsg,timeout)
                 
     @try_connect_modbustcp
-    def write_holding_register(self,address,struct_format,value,timeout = None):
-        timeout_errmsg = "timeout on write_holding_register modbus tcp (%s, %d)" % (self._host, self._port)
-        with self.Transaction(self) as trans:
-            with gevent.Timeout(timeout or self._timeout,
-                                ModbusTimeout(timeout_errmsg)):
-                msg = struct.pack('>H' + struct_format,address,value)
-                self._raw_write(trans.tid(),0x06,msg)
-                read_values = trans.get()
-                if isinstance(read_values,socket.error):
-                    raise read_values
-                uid,func_code,msg = read_values
-                if func_code != 0x06: # Error
-                    raise ModbusError('Error write_holding_register, %s' %
-                                      self._error_code(msg))
+    def write_register(self,address,struct_format,value,timeout = None):
+        timeout_errmsg = "timeout on write_register modbus tcp (%s, %d)" % (self._host, self._port)
+        self._write(0x06,address,struct_format,value,timeout_errmsg,timeout)
+
+    @try_connect_modbustcp
+    def read_input_registers(self,address,struct_format,timeout=None):
+        timeout_errmsg = "timeout on read_input_registers modbus tcp (%s, %d)" % (self._host, self._port)
+        nb_bytes = struct.calcsize(struct_format)
+        if nb_bytes < 2:        # input register are 16bits
+            nb_bytes = 2
+            struct_format = 'x' + struct_format
+        nb_bytes /= 2
+        return self._read(0x04,address,nb_bytes,struct_format,timeout_errmsg,timeout)
+
+    @try_connect_modbustcp
+    def read_coils(self,address,nb_coils,timeout=None):
+        timeout_errmsg = "timeout on read_coils tcp (%s, %d)" % (self._host, self._port)
+        nb_bytes = (((nb_coils + 7) & ~7) // 8)
+        struct_format = '%dB' % nb_bytes
+        result = self._read(0x01,address,nb_coils,struct_format,timeout_errmsg,timeout)
+        if isinstance(result,tuple):
+            result = [int('{:08b}'.format(x)[::-1], 2) for x in result]
+        else:
+            result = int('{:08b}'.format(result)[::-1], 2)
+        a = numpy.array(result,dtype=numpy.uint8)
+        return numpy.unpackbits(a)[:nb_coils]
+
+    @try_connect_modbustcp
+    def write_coil(self,address,on_off,timeout=None):
+         timeout_errmsg = "timeout on write_coil tcp (%s, %d)" % (self._host, self._port)
+         value = 0xff00 if on_off else 0x0000
+         self._write(0x05,address,'H',value,timeout_errmsg,timeout)
 
     def connect(self,host=None,port=None):
         local_host = host or self._host
@@ -231,6 +238,36 @@ class ModbusTcp:
             if self._raw_read_task:
                 self._raw_read_task.join()
                 self._raw_read_task = None
+
+    def _read(self,func_code,address,nb,struct_format,timeout_errmsg,timeout):
+        with self.Transaction(self) as trans:
+            with gevent.Timeout(timeout or self._timeout,
+                                ModbusTimeout(timeout_errmsg)):
+                msg = struct.pack('>HH',address,nb)
+                self._raw_write(trans.tid(),func_code,msg)
+                read_values = trans.get()
+                if isinstance(read_values,socket.error):
+                    raise read_values
+                uid,f_code,msg = read_values
+                if f_code != func_code: # Error
+                    raise ModbusError('Error expecting func code %s instead of %s' %
+                                      (func_code,self._error_code(msg)))
+                returnVal = struct.unpack('>%s' % struct_format,msg[1:])
+                return returnVal if len(returnVal) > 1 else returnVal[0]
+
+    def _write(self,func_code,address,struct_format,value,timeout_errmsg,timeout):
+        with self.Transaction(self) as trans:
+            with gevent.Timeout(timeout or self._timeout,
+                                ModbusTimeout(timeout_errmsg)):
+                msg = struct.pack('>H' + struct_format,address,value)
+                self._raw_write(trans.tid(),func_code,msg)
+                read_values = trans.get()
+                if isinstance(read_values,socket.error):
+                    raise read_values
+                uid,func_code,msg = read_values
+                if func_code != func_code: # Error
+                    raise ModbusError('Error expecting func code %s intead of %s' %
+                                      (func_code,self._error_code(msg)))
 
     def _raw_write(self,tid,func,msg) :
         full_msg = struct.pack('>HHHBB',tid,0,len(msg) + 2,self._unit,func) + msg

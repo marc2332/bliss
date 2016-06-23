@@ -404,6 +404,16 @@ class _WagoController:
         with self.lock:
             return self.write_phys(write_table)
 
+    def print_plugged_modules(self):
+      modules = self.client.read_holding_registers(0x2030,"65H")
+      for m in modules:
+        if not m: break
+        if(m & 0x8000):         # digital in/out
+          direction  = 'input' if m & 0x1 else 'output'
+          mod_size = (m & 0xf00) >> 8
+          print 'Module digital %s %s(s)' % (mod_size,direction)
+        else:
+          print 'Module %d' % (m)
 
 class WagoCounter(CounterBase):
   def __init__(self, parent, name, index=None):

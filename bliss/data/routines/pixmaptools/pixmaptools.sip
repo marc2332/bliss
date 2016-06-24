@@ -125,7 +125,7 @@ public:
     enum mode {RGBX,BGRX};
     enum endian {LSB,MSB};
 
-    explicit Palette(palette_type = USER,mode = RGBX);
+    explicit Palette(palette_type = USER,mode = BGRX);
 %TypeCode
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #define PY_ARRAY_UNIQUE_SYMBOL _PixmapNumpyArray

@@ -251,7 +251,7 @@ class AcquisitionChain(object):
         node = self._tree.get_node(dev)
         level = self._tree.depth(node)
         if wait_between_levels and prev_level != level:
-            gevent.joinall(tasks)
+            gevent.joinall(tasks,raise_error=True)
             tasks = list()
             prev_level = level
 	if func_name.endswith("prepare"):
@@ -262,7 +262,7 @@ class AcquisitionChain(object):
 		continue
 	func = getattr(dev, func_name)
 	tasks.append(gevent.spawn(func))
-    gevent.joinall(tasks)
+    gevent.joinall(tasks, raise_error=True)
 
   def prepare(self, dm, scan_info):
       preset_tasks = list()

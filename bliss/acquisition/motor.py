@@ -51,6 +51,9 @@ class MotorMaster(AcquisitionMaster):
         event.connect(self.movable, "move_done", self.move_done)
         self.movable.move(end)
 
+    def wait_ready(self) :
+        return self.move.wait_move()
+
     def stop(self):
         self.movable.stop()
 

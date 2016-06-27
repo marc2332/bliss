@@ -12,10 +12,13 @@ import time
 import numpy
 
 class LimaAcquisitionDevice(AcquisitionDevice):
-  def __init__(self, device, acq_nb_frames=1, acq_expo_time=1, acq_trigger_mode='INTERNAL_TRIGGER', acq_mode="SINGLE", acc_time_mode="LIVE", acc_max_expo_time=1, latency_time=0):
+  def __init__(self, device, acq_nb_frames=1, acq_expo_time=1,
+               acq_trigger_mode='INTERNAL_TRIGGER', acq_mode="SINGLE",
+               acc_time_mode="LIVE", acc_max_expo_time=1, latency_time=0):
       self.parameters = locals().copy()
       del self.parameters['self']
       del self.parameters['device']
+      self._latency = latency_time
       trigger_type = AcquisitionDevice.SOFTWARE if 'INTERNAL' in acq_trigger_mode else AcquisitionDevice.HARDWARE
       AcquisitionDevice.__init__(self, device, device.user_detector_name, "lima", acq_nb_frames,
                                  trigger_type = trigger_type)
@@ -32,6 +35,7 @@ class LimaAcquisitionDevice(AcquisitionDevice):
                (0,1): numpy.uint8,
                (1,1): numpy.int8 }
       self.channels = [ AcquisitionChannel("image", dtype[(signed, depth)], (h,w)) ] 
+      self._latency = self.device.latency_time
 
   def start(self):
       if self.trigger_type == AcquisitionDevice.SOFTWARE:
@@ -41,8 +45,11 @@ class LimaAcquisitionDevice(AcquisitionDevice):
   def stop(self):
       self.device.stopAcq()
 
-  #def trigger_ready(self):
-  #    return self.device.ready_for_next_image
+  def wait_ready(self):
+      wait_start = time.time()
+      while not self.device.ready_for_next_image:
+        if (wait_start + self._latency) >= time.time():
+          break
 
   def trigger(self):
       self.device.startAcq()

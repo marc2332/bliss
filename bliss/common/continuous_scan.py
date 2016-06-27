@@ -268,8 +268,6 @@ class AcquisitionChain(object):
       preset_tasks = list()
       if self.__sequence_index == 0:
 	  preset_tasks.extend([gevent.spawn(preset.prepare) for preset in self._presets_list])
-          if not self._parallel_prepare:
-              gevent.joinall(preset_tasks, raise_error=True)
 
 	  for master in (x for x in self._tree.expand_tree() if isinstance(x,AcquisitionMaster)):
 	      del master.slaves[:]
@@ -280,8 +278,8 @@ class AcquisitionChain(object):
 
       self._execute("_prepare",wait_between_levels = not self._parallel_prepare)
 
-      if self._parallel_prepare:
-          gevent.joinall(preset_tasks, raise_error=True)
+      if self.__sequence_index == 0:
+	  gevent.joinall(preset_tasks, raise_error=True)
     
   def start(self):
       if self.__sequence_index == 0:

@@ -34,7 +34,7 @@ class LimaAcquisitionDevice(AcquisitionDevice):
       self.channels = [ AcquisitionChannel("image", dtype[(signed, depth)], (h,w)) ] 
 
   def start(self):
-      if self._trigger_type == AcquisitionDevice.SOFTWARE:
+      if self.trigger_type == AcquisitionDevice.SOFTWARE:
           return
       self.trigger()
 

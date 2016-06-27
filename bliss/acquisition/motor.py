@@ -16,8 +16,10 @@ import gevent
 import sys
 
 class MotorMaster(AcquisitionMaster):
-    def __init__(self, axis, start, end, time=0, undershoot=None):
-        AcquisitionMaster.__init__(self, axis, axis.name, "axis")
+    def __init__(self, axis, start, end, time=0, undershoot=None,
+                 trigger_type=AcquisitionMaster.HARDWARE,**keys):
+        AcquisitionMaster.__init__(self, axis, axis.name, "axis",
+                                   trigger_type=trigger_type,**keys)
         self.movable = axis    
         self.start_pos = start
         self.end_pos = end
@@ -38,11 +40,16 @@ class MotorMaster(AcquisitionMaster):
         self.movable.move(start)
 
     def start(self, polling_time=axis.DEFAULT_POLLING_TIME):
+        if self.trigger_type == AcquisitionMaster.SOFTWARE:
+            return
+        self.trigger()
+
+    def trigger(self):
         self.initial_velocity = self.movable.velocity()
         self.movable.velocity(self.velocity) 
         end = self._calculate_undershoot(self.end_pos,end=True)
         event.connect(self.movable, "move_done", self.move_done)
-        self.movable.move(end, polling_time=polling_time)
+        self.movable.move(end)
 
     def stop(self):
         self.movable.stop()

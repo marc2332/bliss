@@ -46,7 +46,9 @@ class AcquisitionChannel(object):
 
 class AcquisitionMaster(object):
     #SAFE, FAST = (0, 1)
-    def __init__(self, device, name, type, npoints=None, prepare_once=False, start_once=False): #, trigger_mode=AcquisitionMaster.FAST):
+    HARDWARE, SOFTWARE = range(2)
+    
+    def __init__(self, device, name, type, npoints=None, trigger_type = SOFTWARE, prepare_once=False, start_once=False): #, trigger_mode=AcquisitionMaster.FAST):
         self.__device = device
         self.__name = name
         self.__type = type
@@ -55,6 +57,7 @@ class AcquisitionMaster(object):
         self.__channels = list()
         self.__npoints = npoints
         #self.__trigger_mode = trigger_mode
+        self.__trigger_type = trigger_type
 	self.__prepare_once = prepare_once
 	self.__start_once = start_once
 	
@@ -135,12 +138,15 @@ class AcquisitionDevice(object):
         self.__name = name
         self.__type = data_type
         self._reading_task = None
-        self._trigger_type = trigger_type
+        self.__trigger_type = trigger_type
         self.__channels = list()
         self.__npoints = npoints
 	self.__prepare_once = prepare_once
 	self.__start_once = start_once
-	
+
+    @property
+    def trigger_type(self):
+        return self.__trigger_type
     @property
     def prepare_once(self):
 	return self.__prepare_once

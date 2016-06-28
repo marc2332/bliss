@@ -69,6 +69,8 @@ if [ "$1" == "start" ]; then
 	cmd="${cmd} >> ${log} 2>&1 &"
 	if [ "x$beacon_user" != x -a `id -u` != `id -u $beacon_user` ]; then
 		[ `id -u` != 0 ] && echo -n "$beacon_user "
+                setp="export PATH=$BLISSADM/bin:\\\$PATH; . blissrc"
+                cmd="bash -c \\\"$setp; $cmd\\\""
 		cmd="su $beacon_user -c \"${cmd}\""
 	fi
 elif [ "$1" == "stop" ]; then

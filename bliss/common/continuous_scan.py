@@ -179,6 +179,10 @@ class AcquisitionMaster(object):
 
         for slave in self.slaves:
             self.__triggers.append((slave, gevent.spawn(slave._trigger)))
+
+    def wait_slaves(self):
+        gevent.joinall([task for slave,task in self.__triggers], raise_error=True)
+
     def wait_ready(self):
 	# wait until ready for next acquisition
 	# (not considering slave devices)

@@ -39,7 +39,7 @@ class MotorMaster(AcquisitionMaster):
         start = self._calculate_undershoot(self.start_pos)
         self.movable.move(start)
 
-    def start(self, polling_time=axis.DEFAULT_POLLING_TIME):
+    def start(self):
         if self.trigger_type == AcquisitionMaster.SOFTWARE:
             return
         self.trigger()

@@ -52,6 +52,7 @@ class Axis(object):
         self.__custom_methods_list = list()
         self.__custom_attributes_dict = dict()
         self.__move_task = None
+        self.__stopped = False
         self.no_offset = False
 
     @property
@@ -406,16 +407,28 @@ class Axis(object):
             if state != "MOVING":
                 if state == 'LIMPOS' or state == 'LIMNEG':
                     self._update_settings(state)
+                    if self.__stopped:
+                        self.settings.set("_set_position", self.position())
                     raise RuntimeError(str(state))
                 break
             self._update_settings(state)
             gevent.sleep(polling_time)
 
+        # gevent-atomic
+        stopped, self.__stopped = self.__stopped, False
+        if stopped or motion.backlash:
+            user_pos = self._position()
+        if stopped:
+            user_backlash = self.backlash if motion.backlash else 0
+            self.settings.set("_set_position", user_pos + user_backlash)
+            curr_pos = self.user2dial(user_pos) * self.steps_per_unit
+
         if motion.backlash:
-            # axis has moved to target pos - backlash;
-            # now do the final motion (backlash) to reach original target.
+            # axis has moved to target pos - backlash (or shorter, if stopped);
+            # now do the final motion (backlash) relative to current/theo. pos
             elog.debug("doing backlash (%g)" % motion.backlash)
-            final_pos = motion.target_pos + motion.backlash
+            backlash_start = curr_pos if stopped else motion.target_pos
+            final_pos = backlash_start + motion.backlash
             backlash_motion = Motion(self, final_pos, motion.backlash)
             self.__controller.prepare_move(backlash_motion)
             self.__controller.start_one(backlash_motion)
@@ -462,9 +475,8 @@ class Axis(object):
                    "  dial_target_pos=%g dial_intial_pos=%g relative=%s" %
                    (dial_target_pos, dial_initial_pos, relative))
 
-        user_backlash = self.config.get("backlash", float, 0)
         # all positions are converted to controller units
-        backlash = user_backlash / self.sign * self.steps_per_unit
+        backlash = self.backlash / self.sign * self.steps_per_unit
         delta = (dial_target_pos - dial_initial_pos) * self.steps_per_unit
         target_pos = dial_target_pos * self.steps_per_unit
 
@@ -493,7 +505,7 @@ class Axis(object):
             high_limit, low_limit = low_limit, high_limit
             user_high_limit, user_low_limit = user_low_limit, user_high_limit
 
-        backlash_str = " (with %f backlash)" % user_backlash if backlash else ""
+        backlash_str = " (with %f backlash)" % self.backlash if backlash else ""
         if user_low_limit is not None:
             if target_pos < low_limit:
                 raise ValueError(
@@ -504,6 +516,8 @@ class Axis(object):
                 raise ValueError(
                     "%s: move to `%f' %s would go beyond high limit (%f)" %
                     (self.name, user_target_pos, backlash_str, user_high_limit))
+
+        self.__stopped = False
 
         motion = Motion(self, target_pos, delta)
         motion.backlash = backlash
@@ -603,11 +617,7 @@ class Axis(object):
         self._stop_loop()
 
     def _stop_loop(self):
-        try:
-            self._handle_move(Motion(self, None, None), DEFAULT_POLLING_TIME)
-        finally:
-            self.settings.set("_set_position", self.position())
-
+        self.__stopped = True
 
     @lazy_init
     def stop(self, wait=True):

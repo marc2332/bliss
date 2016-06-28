@@ -9,6 +9,7 @@ from treelib import Tree
 import gevent
 from .event import dispatcher
 import time
+import weakref
 
 class Scan(object):
     def __init__(self, acq_chain, dm, scan_info=None):
@@ -20,17 +21,16 @@ class Scan(object):
 	pass
 
     def start(self):
-	for i in self.acq_chain:
-	    i.prepare(self.scan_dm, self.scan_info)
-	    acquisition = gevent.spawn(i.start)
-	    try:
-		i.get()
-	    except:
-		i.stop()
-                self.scan_dm.stop()
-		raise
-	    else:
-		i.stop()
+        try:
+            for i in self.acq_chain:
+                i.prepare(self.scan_dm, self.scan_info)
+                i.start()
+        except:
+            i.stop()
+            self.scan_dm.stop()
+            raise
+        else:
+            i.stop()
                  
 class AcquisitionChannel(object):
     def __init__(self, name, dtype, shape):
@@ -42,13 +42,57 @@ class AcquisitionChannel(object):
     def name(self):
         return self.__name
       
+class DeviceIterator(object):
+    def __init__(self,device):
+        self.__device = weakref.proxy(device)
+        self.__sequence_index = 0
 
+    def __getattr__(self,name):
+        return getattr(self.__device,name)
+
+    @property
+    def device(self):
+        return self.__device
+
+    def next(self):
+        if(not self.device.prepare_once and not self.device.start_once and
+           self.device.one_shot):
+            raise StopIteration
+
+        self.__sequence_index += 1
+        return self
+
+    def _prepare(self):
+        if self.__sequence_index > 0 and self.device.prepare_once:
+            return
+        self.device.prepare()
+
+    def _start(self):
+        if self.__sequence_index > 0 and self.device.start_once:
+            return
+        self.device.start()
+
+class DeviceIteratorWrapper(object):
+    def __init__(self,iterator):
+        self.__iterator = iterator
+        self.next()
+
+    def next(self):
+        self.__current = self.__iterator.next()
+
+    def __getattr__(self,name):
+        return getattr(self.__current,name)
+
+    @property
+    def device(self):
+        return self.__current
 
 class AcquisitionMaster(object):
     #SAFE, FAST = (0, 1)
     HARDWARE, SOFTWARE = range(2)
     
-    def __init__(self, device, name, type, npoints=None, trigger_type = SOFTWARE, prepare_once=False, start_once=False): #, trigger_mode=AcquisitionMaster.FAST):
+    def __init__(self, device, name, type, npoints=None, trigger_type = SOFTWARE,
+                 prepare_once=False, start_once=False, one_shot=True): #, trigger_mode=AcquisitionMaster.FAST):
         self.__device = device
         self.__name = name
         self.__type = type
@@ -60,13 +104,23 @@ class AcquisitionMaster(object):
         self.__trigger_type = trigger_type
 	self.__prepare_once = prepare_once
 	self.__start_once = start_once
-	
+        self.__one_shot = one_shot
+
+    @property
+    def trigger_type(self):
+        return self.__trigger_type
     @property
     def prepare_once(self):
 	return self.__prepare_once
     @property
     def start_once(self):
 	return self.__start_once
+    @property
+    def one_shot(self):
+	return self.__one_shot
+    @one_shot.setter
+    def one_shot(self,value):
+        self.__one_shot = value
     @property
     def device(self):
         return self.__device
@@ -133,7 +187,8 @@ class AcquisitionMaster(object):
 class AcquisitionDevice(object):
     HARDWARE, SOFTWARE = range(2)
 
-    def __init__(self, device, name, data_type, npoints=0, trigger_type = SOFTWARE, prepare_once=False, start_once=False):
+    def __init__(self, device, name, data_type, npoints=0, trigger_type = SOFTWARE,
+                 prepare_once=False, start_once=False, one_shot=True):
         self.__device = device
         self.__name = name
         self.__type = data_type
@@ -143,6 +198,7 @@ class AcquisitionDevice(object):
         self.__npoints = npoints
 	self.__prepare_once = prepare_once
 	self.__start_once = start_once
+        self.__one_shot = one_shot
 
     @property
     def trigger_type(self):
@@ -153,6 +209,12 @@ class AcquisitionDevice(object):
     @property
     def start_once(self):
 	return self.__start_once
+    @property
+    def one_shot(self):
+        return self.__one_shot
+    @one_shot.setter
+    def one_shot(self,value):
+        self.__one_shot = value
     @property
     def device(self):
         return self.__device
@@ -185,7 +247,6 @@ class AcquisitionDevice(object):
     def start(self):
         raise NotImplementedError
     def _start(self):
-      if self._trigger_type == AcquisitionDevice.HARDWARE:
         self.start()
         self._reading_task = gevent.spawn(self.reading)
         dispatcher.send("start", self)
@@ -211,7 +272,99 @@ class AcquisitionDevice(object):
     def wait_ready(self):
 	# wait until ready for next acquisition
 	return True
-    
+
+class AcquisitionChainIter(object):
+    def __init__(self,acquisition_chain,parallel_prepare = False):
+        self.__sequence_index = -1
+        self._parallel_prepare = parallel_prepare
+        self.__acquisition_chain = weakref.proxy(acquisition_chain)
+        #set all slaves into master
+        for master in (x for x in acquisition_chain._tree.expand_tree() if isinstance(x,AcquisitionMaster)):
+            del master.slaves[:]
+            for dev in acquisition_chain._tree.get_node(master).fpointer:
+                master.slaves.append(dev)
+
+        #create iterators tree
+        self._tree = Tree()
+        self._root_node = self._tree.create_node("acquisition chain","root")
+        device2iter = dict()
+        for dev in acquisition_chain._tree.expand_tree():
+            if not isinstance(dev,(AcquisitionDevice,AcquisitionMaster)):
+                continue
+            dev_node = acquisition_chain._tree.get_node(dev)
+            parent = device2iter.get(dev_node.bpointer,"root")
+            try:
+                it = iter(dev)
+            except TypeError:
+                dev_iter = DeviceIterator(dev)
+            else:
+                dev_iter = DeviceIteratorWrapper(it)
+            device2iter[dev] = dev_iter
+            self._tree.create_node(tag=dev.name,identifier=dev_iter,parent=parent)
+            
+    def prepare(self, dm, scan_info):
+        preset_tasks = list()
+        if self.__sequence_index == 0:
+            preset_tasks.extend([gevent.spawn(preset.prepare) for preset in self.__acquisition_chain._presets_list])
+            dm.prepare(scan_info, self.__acquisition_chain._tree)
+
+        self._execute("_prepare",wait_between_levels = not self._parallel_prepare)
+
+        if self.__sequence_index == 0:
+            gevent.joinall(preset_tasks, raise_error=True)
+
+    def start(self):
+        if self.__sequence_index == 0:
+	  preset_tasks = [gevent.spawn(preset.start) for preset in self.__acquisition_chain._presets_list]
+	  gevent.joinall(preset_tasks, raise_error=True)
+
+        self._execute("_start")
+
+    def stop(self):
+        self._execute("stop", master_to_slave=True)
+
+        preset_tasks = [gevent.spawn(preset.stop) for preset in self.__acquisition_chain._presets_list]
+        gevent.joinall(preset_tasks, raise_error=True)
+
+    def next(self):
+        self.__sequence_index += 1
+        gevent.joinall([gevent.spawn(dev_iter.wait_ready) for dev_iter in self._tree.expand_tree()
+                        if dev_iter is not 'root'],
+                       raise_error=True)
+        try:
+            if self.__sequence_index:
+                for dev_iter in self._tree.expand_tree():
+                    if dev_iter is 'root': continue
+                    dev_iter.next()
+        except StopIteration:                # should we stop all devices?
+            for acq_dev in (x for x in self._tree.expand_tree() if x is not 'root' and isinstance(x.device, AcquisitionDevice)):
+                acq_dev.wait_reading()
+                dispatcher.send("end", acq_dev)
+            raise
+        return self
+
+    def _execute(self, func_name,
+                 master_to_slave=False, wait_between_levels=True):
+        tasks = list()
+
+        prev_level = None
+
+        if master_to_slave:
+            devs = list(self._tree.expand_tree(mode=Tree.WIDTH))[1:]
+        else:
+            devs = reversed(list(self._tree.expand_tree(mode=Tree.WIDTH))[1:])
+
+        for dev in devs:
+            node = self._tree.get_node(dev)
+            level = self._tree.depth(node)
+            if wait_between_levels and prev_level != level:
+                gevent.joinall(tasks, raise_error=True)
+                tasks = list()
+                prev_level = level
+            func = getattr(dev, func_name)
+            tasks.append(gevent.spawn(func))
+        gevent.joinall(tasks, raise_error=True)
+
 class AcquisitionChain(object):
   def __init__(self, parallel_prepare = False):
       self._tree = Tree()
@@ -219,10 +372,11 @@ class AcquisitionChain(object):
       self._device_to_node = dict()
       self._presets_list = list()
       self._parallel_prepare = parallel_prepare
-      self.__sequence_index = 0
-
 
   def add(self, master, slave):
+      if hasattr(slave,"one_shot"):
+          slave.one_shot = False
+
       slave_node = self._tree.get_node(slave)
       master_node = self._tree.get_node(master)
       if slave_node is not None and isinstance(slave,AcquisitionDevice):
@@ -242,79 +396,5 @@ class AcquisitionChain(object):
   def add_preset(self, preset):
       self._presets_list.append(preset)
 
-  def _execute(self, func_name,
-               master_to_slave=False, wait_between_levels=True):
-    tasks = list()
-
-    prev_level = None
-
-    if master_to_slave:
-        devs = list(self._tree.expand_tree(mode=Tree.WIDTH))[1:]
-    else:
-        devs = reversed(list(self._tree.expand_tree(mode=Tree.WIDTH))[1:])
-
-    for dev in devs:
-        node = self._tree.get_node(dev)
-        level = self._tree.depth(node)
-        if wait_between_levels and prev_level != level:
-            gevent.joinall(tasks,raise_error=True)
-            tasks = list()
-            prev_level = level
-	if func_name.endswith("prepare"):
-	    if dev.prepare_once and self.__sequence_index > 0:
-		continue
-	elif func_name.endswith("start"):
-	    if dev.start_once and self.__sequence_index > 0:
-		continue
-	func = getattr(dev, func_name)
-	tasks.append(gevent.spawn(func))
-    gevent.joinall(tasks, raise_error=True)
-
-  def prepare(self, dm, scan_info):
-      preset_tasks = list()
-      if self.__sequence_index == 0:
-	  preset_tasks.extend([gevent.spawn(preset.prepare) for preset in self._presets_list])
-
-	  for master in (x for x in self._tree.expand_tree() if isinstance(x,AcquisitionMaster)):
-	      del master.slaves[:]
-	      for dev in self._tree.get_node(master).fpointer:
-		  master.slaves.append(dev)
-
-          dm.prepare(scan_info, self._tree)
-
-      self._execute("_prepare",wait_between_levels = not self._parallel_prepare)
-
-      if self.__sequence_index == 0:
-	  gevent.joinall(preset_tasks, raise_error=True)
-    
-  def start(self):
-      if self.__sequence_index == 0:
-	  preset_tasks = [gevent.spawn(preset.start) for preset in self._presets_list]
-	  gevent.joinall(preset_tasks, raise_error=True)
-
-      self._execute("_start")
-
-     
-
-  def stop(self):
-      self._execute("stop", master_to_slave=True)
-
-      preset_tasks = [gevent.spawn(preset.stop) for preset in self._presets_list]
-      gevent.joinall(preset_tasks, raise_error=True)
-
-
-  def continue_scan(self):
-      # check if all masters of first column of the tree
-      # are done, or not
-      return True
-  
-
   def __iter__(self):
-      self.__sequence_index = 0
-      while self.continue_scan():
-	  yield self
-	  gevent.joinall([gevent.spawn(dev.wait_ready) for dev in self._tree.expand_tree()], raise_error=True)
-	  self.__sequence_index += 1
-      for acq_dev in (x for x in self._tree.expand_tree() if isinstance(x, AcquisitionDevice)):
-	  acq_dev.wait_reading()
-          dispatcher.send("end", acq_dev)
+      return AcquisitionChainIter(self,parallel_prepare = self._parallel_prepare)

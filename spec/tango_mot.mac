@@ -1083,7 +1083,7 @@ def tango_mot_abort_motion(ctrl_dev) '{
         _tango_mot_error_stack("ctrl", ctrl_dev, "GroupAbort")
     } else if (ret < 0) {
         local _msg
-        _msg = "tango_mot_cmd() : check_motion : Unable to check motion"
+        _msg = "tango_mot_cmd() : abort_motion : Unable to abort motion"
         _tango_mot_error_desc(sprintf("%s: %s", _msg, motionid))
     }
 }'

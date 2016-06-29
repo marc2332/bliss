@@ -1057,7 +1057,7 @@ def tango_mot_check_motion(ctrl_dev) '{
     TANGO_ERR = -1
     ret = tango_io(ctrl_dev, "GroupState", motionid, arr_out)
     if (TANGO_ERR != "0") {
-        _tango_mot_error_stack("ctrl", ctrl_dev, "GroupMove")
+        _tango_mot_error_stack("ctrl", ctrl_dev, "GroupState")
     } else if (ret < 0) {
         local _msg
         _msg = "tango_mot_cmd() : check_motion : Unable to check motion"
@@ -1080,7 +1080,7 @@ def tango_mot_abort_motion(ctrl_dev) '{
     TANGO_ERR = -1
     ret = tango_io(ctrl_dev, "GroupAbort", motionid)
     if (TANGO_ERR != "0") {
-        _tango_mot_error_stack("ctrl", ctrl_dev, "GroupMove")
+        _tango_mot_error_stack("ctrl", ctrl_dev, "GroupAbort")
     } else if (ret < 0) {
         local _msg
         _msg = "tango_mot_cmd() : check_motion : Unable to check motion"

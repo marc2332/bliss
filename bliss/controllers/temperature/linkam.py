@@ -35,11 +35,10 @@ class LinkamScanFile(ScanFile):
 
 class LinkamScan:
     def __init__(self, linkamDevice, filename):
-        if not filename:
-            self._scanFile = LinkamScanFile(filename)
-            dispatcher.connect(self.handle_data_event, 'linkam_profile_data', linkamDevice)
-            dispatcher.connect(self.handle_startstop_event, 'linkam_profile_start', linkamDevice)
-            dispatcher.connect(self.handle_startstop_event, 'linkam_profile_end', linkamDevice)
+        self._scanFile = LinkamScanFile(filename)
+        dispatcher.connect(self.handle_data_event, 'linkam_profile_data', linkamDevice)
+        dispatcher.connect(self.handle_startstop_event, 'linkam_profile_start', linkamDevice)
+        dispatcher.connect(self.handle_startstop_event, 'linkam_profile_end', linkamDevice)
 
     def handle_data_event(self, data, signal=None, sender=None):
         if signal == 'linkam_profile_data':
@@ -205,7 +204,7 @@ class LinkamDsc(object):
         if speed < 0 or speed > 30:
             raise ValueError ("speed {0} out of range (0-30)".format(speed))
         self._pumpSpeed = speed
-        self._logger.debug("pump speed P{0}".format(chr(speed+48)))
+        self._logger.debug("pump speed() P{0}".format(chr(speed+48)))
         self._cnx.write_readline("P{0}\r".format(chr(speed+48)))
 
     @property
@@ -224,6 +223,7 @@ class LinkamDsc(object):
         if limit > self._maximumTemp or limit < self._minimumTemp:
             raise ValueError ("Temperature ramp limit {0} out of range ".format(limit))
         self._limit = limit
+        self._logger.debug("rampLimit() Set limit to {0}".format(self._limit))
         self._cnx.write_readline(("L1%d\r" % int(round(limit * 10.0))))
 
     @property
@@ -425,7 +425,7 @@ class LinkamDsc(object):
 
     def _run_profile(self, ramps):
         currentRamp = 1
-#        self._abort = None
+        abort = '+'
         try:
             state, errcode, temperature, _ = self._getState()  # get initial state
             self._updateState(state,errcode,temperature, 0.0, None)
@@ -444,7 +444,6 @@ class LinkamDsc(object):
                     state, errcode, temperature, _ = self._getState()  # get initial state
                     self._updateState(state,errcode,temperature, 0.0, None)
                 while (1):
-#                    gevent.sleep(self._pollTime)
                     fd, _, _ = gevent.select.select([self._pipe[0]], [], [], 0.1)
                     if fd:
                         abort = os.read(self._pipe[0], 1)
@@ -485,6 +484,7 @@ class LinkamDsc(object):
                                         self._updateState(newState,errcode,temperature, 0.0, tstamp)
                                 else:
                                     self._updateState(newState,errcode,temperature, 0.0, tstamp)
+                        self._logger.debug("starting next ramp {0} state {1} newstate {2}".format(currentRamp+1,state,newState))
                         break  # start the next ramp
                     state = newState
 
@@ -492,7 +492,7 @@ class LinkamDsc(object):
                 if abort == '|':
                     break  # abort the profile
         except:
-            print "CAUGHT--------------------------------------"
+            self.logger.error(self.ErrorToString.get(errCode))
             self.rampLimit = self._temperature
         finally:
             self._logger.debug("doing finally")

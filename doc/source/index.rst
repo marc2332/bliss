@@ -27,7 +27,7 @@ the :ref:`bliss-api` documentation.
     howtos
     api
     developers_guide
-    design_document
+    project_design
     glossary  
 	
 

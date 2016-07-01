@@ -72,6 +72,9 @@ class LinkamDsc(Device):
         self._lock = lock.Semaphore()
         self._filename = ""
         self._linkam.subscribe(self._profileCompleteCallback)
+        if self._linkam is not None:
+            attr = self.get_device_attr().get_attr_by_name("temperature")
+            attr.set_write_value(self._linkam.getTemperature())
         self.set_state(PyTango.DevState.ON)
 
     def always_executed_hook(self):
@@ -107,6 +110,10 @@ class LinkamDsc(Device):
     def rampRate(self):
         return self._linkam.rampRate
 
+    @rampRate.write
+    def rampRate(self, rate):
+        self._linkam.rampRate = rate
+
     @attribute(label='Temperature', dtype='float', fisallowed="is_attr_allowed",
         description="Current temperature")
     @DebugIt()
@@ -116,6 +123,12 @@ class LinkamDsc(Device):
     @temperature.write
     def temperature(self, temp):
         self._linkam.setTemperature(temp)
+
+    @attribute(label='DSC data', dtype=['float',], fisallowed="is_attr_allowed", max_dim_x=2, 
+        description="Current temperature and dsc data")
+    @DebugIt()
+    def dscData(self):
+        return self._linkam.getDscData()
 
     @attribute(label='Pump speed', dtype='int', fisallowed="is_attr_allowed",max_value=30, min_value=0,
                description="Liquid nitrogen pump speed (0-30)")
@@ -149,6 +162,17 @@ class LinkamDsc(Device):
     @DebugIt()
     def pollTime(self, time):
         self._linkam.pollTime = time
+
+    @attribute(label='Starting Ramp', dtype='int', fisallowed="is_attr_allowed",
+               description="Ramp number when acquisition will start")
+    @DebugIt()
+    def startingRamp(self):
+        return self._linkam.startingRamp
+
+    @startingRamp.write
+    @DebugIt()
+    def startingRamp(self, rampNos):
+        self._linkam.startingRamp = rampNos
 
     @attribute(label='Dsc Sample Rate', dtype='float', fisallowed="is_attr_allowed",max_value=150.0, min_value=0.3,
         description="DSC sampling rate: allowable values are (.3, .6, .9, 1.5, 3, 6, 9, 15, 30, 60, 90, or 150)")
@@ -215,7 +239,8 @@ class LinkamDsc(Device):
     def Profile(self, ramps):
         rr=numpy.ndarray((len(ramps)/3,3), buffer=ramps,dtype=float)
         ramplist = [tuple(a) for a in rr]
-        self._scan = linkamScan(self._linkam, self._filename)
+        if self._filename:
+            self._scan = linkamScan(self._linkam, self._filename)
         self._linkam.profile(ramplist)
         self.set_state(PyTango.DevState.RUNNING)
 

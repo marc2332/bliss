@@ -59,7 +59,7 @@ ifneq ($(BLISS_ESRF),0)
 	@echo ""
 	@echo "Adding beacon daemon to BLControl start-up/shudown structure..."
 	mkdir -p ${BLISSADM}/admin/etc
-	cp -f scripts/admin/S10beacon ${BLISSADM}/admin/etc
+	cp -f --preserve=mode scripts/admin/S10beacon ${BLISSADM}/admin/etc
 
         # Add default beacon-server parameters to BLISS_ENV_VAR
 	@echo ""

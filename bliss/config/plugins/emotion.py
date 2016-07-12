@@ -169,7 +169,7 @@ def __tango_apply_config(name):
     import PyTango.gevent
     try:
         device = PyTango.gevent.DeviceProxy(name)
-        device.command_inout("ApplyConfig")
+        device.command_inout("ApplyConfig", True)
         msg = "'%s' configuration saved and applied to server!" % name
         msg_type = "success"
     except PyTango.DevFailed as df:

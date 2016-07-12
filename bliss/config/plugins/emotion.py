@@ -12,6 +12,7 @@ import pkgutil
 
 from bliss.config.motors.beacon_backend import create_objects_from_config_node, create_object_from_cache
 import bliss.controllers.motor as bliss_motor_controller
+import bliss.controllers.motors
 
 __KNOWN_AXIS_PARAMS = {
     "name": str,
@@ -31,7 +32,7 @@ __this_path = os.path.realpath(os.path.dirname(__file__))
 
 
 def __get_controller_importer():
-    controllers_path = os.path.dirname(bliss_motor_controller.__file__)
+    controllers_path = os.path.dirname(bliss.controllers.motors.__file__)
     return pkgutil.ImpImporter(path=controllers_path)
 
 
@@ -141,7 +142,7 @@ def get_ctrl_html(cfg):
     vars["params"] = extra_params
     controllers = list()
     vars["controllers"] = controllers
-    pkgpath = os.path.dirname(bliss_motor_controller.__file__)
+    pkgpath = os.path.dirname(bliss.controllers.motors.__file__)
     for _, controller_name, _ in pkgutil.iter_modules([pkgpath]):
        controllers.append({"class": controller_name})
 

@@ -356,7 +356,7 @@ class CalcController(Controller):
                     # (MAXE_E)
                     axis._do_encoder_reading()
 
-    def _initialize_axis(self, axis):
+    def _initialize_axis(self, axis, *args, **kwargs):
         for axis in self.pseudos:
             Controller._initialize_axis(self, axis)
         for axis in self.reals:

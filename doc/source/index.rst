@@ -3,7 +3,7 @@
 Welcome to Bliss
 ================
 
-Welcome to Bliss documentation. Bliss is a python library focused on
+Welcome to Bliss |release| documentation. Bliss is a python_ library focused on
 beamline control and data acquisition.
 
 This document is divided into different parts. Check out the

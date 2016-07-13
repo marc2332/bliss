@@ -28,6 +28,14 @@ Here are the main bliss sub-systems:
 
 from __future__ import division
 
+# version should be valid according to distutils.version.StrictVersion
+__author__ = 'BCU (ESRF)'
+__version__ = '0.1a1'
+__short_version__ = '.'.join(__version__.split('.')[:2])
+__license__ = 'LGPLv3'
+__copyright__ = '2016 Beamline Control Unit, ESRF'
+__description__ = 'BeamLine Instrumentation Support Software'
+
 from gevent import monkey
 monkey.patch_all(thread=False)
 
@@ -42,5 +50,3 @@ from bliss.common.continuous_scan import AcquisitionChain
 from bliss.common.continuous_scan import AcquisitionDevice
 from bliss.common.continuous_scan import AcquisitionMaster
 from bliss.common.axis import Axis
-
-

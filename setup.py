@@ -20,6 +20,12 @@ try:
 except ImportError:
     sipdistutils = None
 
+def abspath(*path):
+    """A method to determine absolute path for a given relative path to the
+    directory where this setup.py script is located"""
+    setup_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(setup_dir, *path)
+
 def get_packages_path():
     packages_path = ['bliss']
     for sub_package in [x for x in os.listdir('bliss') if os.path.isdir(os.path.join('bliss',x))]:
@@ -109,13 +115,19 @@ class BlissInstall(install):
         install.finalize_options(self)
         _finalize_options(self)
 
+
+# make sure we use bliss from this source and not one that might be installed
+sys.path.insert(0, abspath())
+import bliss
+
 cmdclass = {'build': BlissBuild,
             'install': BlissInstall,
             'build_doc': BuildDoc,}
 
-setup(name="bliss", version="0.1",
-      description="BeamLine Instrumentation Support Software",
-      author="BCU (ESRF)",
+setup(name="bliss",
+      version=bliss.__version__,
+      description=bliss.__description__,
+      author=bliss.__author__,
       package_dir={"bliss": "bliss"},
       packages=get_packages_path(),
       package_data={"bliss.config.redis": ["redis.conf"],

@@ -12,6 +12,8 @@ from distutils.command.build import build
 from distutils.command.install import install
 from distutils.unixccompiler import UnixCCompiler
 
+from sphinx.setup_command import BuildDoc
+
 try:
     import sipdistutils
     from extensions import sip as sip_modules
@@ -106,7 +108,11 @@ class BlissInstall(install):
     def finalize_options(self):
         install.finalize_options(self)
         _finalize_options(self)
-   
+
+cmdclass = {'build': BlissBuild,
+            'install': BlissInstall,
+            'build_doc': BuildDoc,}
+
 setup(name="bliss", version="0.1",
       description="BeamLine Instrumentation Support Software",
       author="BCU (ESRF)",
@@ -121,8 +127,7 @@ setup(name="bliss", version="0.1",
                                              "res/*.*"],
                     'bliss.shell.web':['*.html', 'css/*.css', "js/*.js"]},
       scripts=["bin/beacon-server", "bin/beacon-server-list","bin/bliss", 'bin/bliss_webserver'],
-      cmdclass = {'build': BlissBuild,
-                  'install': BlissInstall,},
+      cmdclass=cmdclass,
 )
 
 #remove user option from command argument

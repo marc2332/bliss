@@ -12,7 +12,6 @@ This module gathers most common functionality to bliss (from
 :mod:`~bliss.common.event` to :mod:`~bliss.common.axis`)
 
 .. autosummary::
-   :nosignatures:
    :toctree:
 
    axis

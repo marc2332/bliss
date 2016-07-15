@@ -12,7 +12,6 @@ This may change in the future when more controllers patterns are discovered
 and their common API and functionality can be determined
 
 .. autosummary::
-    :nosignatures:
     :toctree:
 
     actuator_inout

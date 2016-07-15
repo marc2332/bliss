@@ -1,7 +1,6 @@
 '''Repository of motor controllers
 
 .. autosummary::
-    :nosignatures:
     :toctree:
 
     calc_motor_mockup

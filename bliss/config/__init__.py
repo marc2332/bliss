@@ -2,7 +2,6 @@
 :mod:`~bliss.config.settings`)
 
 .. autosummary::
-    :nosignatures:
     :toctree:
 
     channels

@@ -12,6 +12,10 @@ Glossary
         of text (command lines).
 	See: `Wikipedia CLI <https://en.wikipedia.org/wiki/Command-line_interface>`_
 
+    ESRF
+    European Synchrotron Radiation Facility
+        The European Synchrotron, located in Grenoble, France.
+
     TDD
     Test Driven Development
         a software development process that relies on the repetition of a very

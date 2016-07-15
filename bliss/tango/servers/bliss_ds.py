@@ -171,7 +171,10 @@ class ScanListener:
 
     def __on_scan_end(self, scan):
         if scan.type == 'ct':
+            # ct is actually a timescan(npoints=1).
             names, values = scan.counter_names, last_scan_data()[-1]
+            # First value is elapsed time since timescan started. We don't need it here
+            values = values[1:]
             norm_values = values / scan.count_time
             col_len = max(map(len, names)) + 2
             template = '{{0:>{0}}} = {{1: 10g}} ({{2: 10g}}/s)'.format(col_len)

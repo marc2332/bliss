@@ -310,7 +310,7 @@ class Bliss(Device):
         return ''
 
     @input_channel.setter
-    def input(self, inp):
+    def input_channel(self, inp):
         self.__input_channel.write(inp)
 
     @attribute(dtype=bool)

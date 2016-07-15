@@ -6,7 +6,7 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-'''Bliss axis Tango_ DS class (:class:`BlissAxisManager` and :class:`BlissAxis`)
+'''Bliss axis TANGO_ DS class (:class:`BlissAxisManager` and :class:`BlissAxis`)
 '''
 
 import bliss

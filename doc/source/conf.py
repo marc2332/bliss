@@ -306,7 +306,7 @@ intersphinx_mapping = {'https://docs.python.org/': None}
 rst_epilog = """\
 .. _python: http://www.python.org/
 .. _git: http://git-scm.com/
-.. _yaml: http://www.yaml.org/
+.. _YAML: http://www.yaml.org/
 .. _numpy: http://www.numpy.org/
 .. _gevent: http://www.gevent.org/
 .. _redis: http://www.redis.io/
@@ -314,6 +314,7 @@ rst_epilog = """\
 .. _ptpython: https://github.com/jonathanslenders/ptpython/
 .. _ESRF Gitlab: http://gitlab.esrf.fr/
 .. _pew: https://github.com/berdario/pew/
-.. _Tango: http://tango-controls.org/
+.. _TANGO: http://tango-controls.org/
 .. _PyTango: http://www.esrf.eu/computing/cs/tango/pytango/
+.. _spec: http://certif.com/content/spec/
 """

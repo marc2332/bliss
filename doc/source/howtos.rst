@@ -7,3 +7,4 @@ How Tos
     :maxdepth: 2
 
     howto_motor_controller
+    howto_tango

@@ -86,7 +86,7 @@ class pace:
         """
         reply = self._query_comm("SYST:ERR?")
         if not "No error" in reply:
-            retutn reply.split(",")[1]
+            return reply.split(",")[1]
         return False
 
     def _send_comm(self, msg):

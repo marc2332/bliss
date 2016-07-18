@@ -22,6 +22,8 @@ cfg = get_config()
 dev = ct2.CT2Device(cfg, 'p201_lid002_0', out_config={'chan': 10})
 dev.timer_freq = 1e6
 
+import sys
+import time
 
 def ct2_acq(expo_time, point_period, nb_points):
 
@@ -30,6 +32,8 @@ def ct2_acq(expo_time, point_period, nb_points):
         if status == ct2.AcqStatus.Ready:
             acq_end.set()
 
+    dev.acq_mode = (ct2.AcqMode.IntTrigSingle
+                    if point_period else ct2.AcqMode.IntTrigReadout)
     dev.acq_expo_time = expo_time
     dev.acq_point_period = point_period
     dev.acq_nb_points = nb_points
@@ -40,4 +44,19 @@ def ct2_acq(expo_time, point_period, nb_points):
     dev.start_acq()
     acq_end.wait()
 
-ct2_acq(0.1, 0.150, 4)
+try:
+    i = int(sys.argv[1])
+except:
+    i = 0
+
+tot_nb_points = 4
+
+point_period = 0 if (i % 4 > 1) else 0.15
+nb_points = 1 if (i % 2 > 0) else tot_nb_points
+
+t0 = time.time()
+nb_cycles = tot_nb_points / nb_points
+for i in range(nb_cycles):
+    ct2_acq(0.1, point_period, nb_points)
+t = time.time()
+print "Period=%.2f, Points=%s, Elapsed=%s" % (point_period, nb_points, t - t0)

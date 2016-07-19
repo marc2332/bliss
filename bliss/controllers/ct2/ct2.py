@@ -3386,8 +3386,6 @@ def create_and_configure_card(config_or_name):
     card.request_exclusive_access()
     card.set_interrupts()
     card.reset_FIFO_error_flags()
-    card.reset()
-    card.software_reset()
     configure_card(card, card_config)
     return card
 
@@ -3415,6 +3413,12 @@ def configure_card(card, config):
     :param config: configuration dictionary or dictionary like object
     :type config: dict
     """
+
+    if __get(config, 'hard reset on init', False):
+        card.reset()
+    if __get(config, 'soft reset on init', True):
+        card.software_reset()
+
     card.set_clock(__get(config, 'clock', klass=Clock))
 
     dma_int = __get(config, 'dma interrupt', False)

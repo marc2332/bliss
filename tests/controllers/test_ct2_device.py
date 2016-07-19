@@ -46,17 +46,21 @@ def ct2_acq(expo_time, point_period, nb_points):
 
 try:
     i = int(sys.argv[1])
+    expo_time = float(sys.argv[2])
+    point_period = float(sys.argv[3])
 except:
     i = 0
+    expo_time = 0.1
+    point_period = 0.15
 
 tot_nb_points = 4
 
-point_period = 0 if (i % 4 > 1) else 0.15
+point_period = 0 if (i % 4 > 1) else point_period
 nb_points = 1 if (i % 2 > 0) else tot_nb_points
 
 t0 = time.time()
 nb_cycles = tot_nb_points / nb_points
 for i in range(nb_cycles):
-    ct2_acq(0.1, point_period, nb_points)
+    ct2_acq(expo_time, point_period, nb_points)
 t = time.time()
 print "Period=%.2f, Points=%s, Elapsed=%s" % (point_period, nb_points, t - t0)

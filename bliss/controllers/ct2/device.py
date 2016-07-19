@@ -361,7 +361,7 @@ class CT2Device(BaseCT2Device):
             ct_config.stop_from_hard_stop = stop_from_hard_stop
             card.set_counter_config(ch_nb, ct_config)
 
-        # if needed, configure the "output" counter ...
+        # if needed, configure the "output" counter
         if out_ct:
             auto_restart = (mode != AcqMode.IntTrigMulti and
                             self.acq_nb_points > 1)
@@ -380,20 +380,6 @@ class CT2Device(BaseCT2Device):
             card.set_counter_comparator_value(out_ct, out_cmp)
             card.enable_counters_software((out_ct,))
             
-        # ... and the output channel
-        if out_ch:
-            ch_source = card.get_output_channels_source()
-            ch_source[out_ch] = getattr(ct2.OutputSrc, 
-                                        'CT_{0}_GATE'.format(out_ch))
-            card.set_output_channels_source(ch_source)
-            filter_pol = card.get_output_channels_filter()
-            filter_pol[out_ch]["polarity_inverted"] = False
-            card.set_output_channels_filter(filter_pol)
-            def_out_level = self.DefOutConfig['level']
-            ch_level = card.get_output_channels_level()
-            ch_level[out_ch] = self.__out_config.get('level', def_out_level)
-            card.set_output_channels_level(ch_level)
-            
         # counter that will latch all active counters
         latch_ct = out_ct if out_ct else timer_ct
         latch_sources = dict([(ct, latch_ct) for ct in all_channels])
@@ -410,6 +396,20 @@ class CT2Device(BaseCT2Device):
         # enable the active counters
         card.enable_counters_software(channels)
 
+        # and finally the output channel
+        if out_ch:
+            ch_source = card.get_output_channels_source()
+            ch_source[out_ch] = getattr(ct2.OutputSrc, 
+                                        'CT_{0}_GATE'.format(out_ch))
+            card.set_output_channels_source(ch_source)
+            filter_pol = card.get_output_channels_filter()
+            filter_pol[out_ch]["polarity_inverted"] = False
+            card.set_output_channels_filter(filter_pol)
+            def_out_level = self.DefOutConfig['level']
+            ch_level = card.get_output_channels_level()
+            ch_level[out_ch] = self.__out_config.get('level', def_out_level)
+            card.set_output_channels_level(ch_level)
+            
     def __get_counter_cmp(self):
         expo_time = (self.acq_expo_time or 0) * self.timer_freq
         point_period = (self.acq_point_period or 0) * self.timer_freq

@@ -198,17 +198,16 @@ class CT2Device(BaseCT2Device):
         self.__timer_freq = 1E8
         self.__event_loop = None
         
-        card = self.__card
+        card = self.card
         if self.out_channel and self.out_channel not in card.OUTPUT_CHANNELS:
             raise ValueError('out_config channels must be in %s', 
                              card.OUTPUT_CHANNELS)
-
 
     def __del__(self):
         self.stop_acq()
 
     def run_acq_loop(self):
-        card = self.__card
+        card = self.card
 
         int_trig_single = (self.__acq_mode == AcqMode.IntTrigSingle)
         trig_readout = self.__acq_mode in [AcqMode.IntTrigReadout,
@@ -218,7 +217,8 @@ class CT2Device(BaseCT2Device):
         acq_last_point = self.acq_nb_points - 1
 
         point_nb = -1
-
+        async_latch_comp = 0
+        
         while self.__acq_status == AcqStatus.Running:
             read, write, error = select.select((card,), (), (card,))
             try:
@@ -239,12 +239,20 @@ class CT2Device(BaseCT2Device):
                                                                      dma)
                 if dma:
                     data, fifo_status = card.read_fifo()
+                    if self.__acq_mode == AcqMode.SoftTrigReadout:
+                        data = numpy.array(data)
+                        for i, point_data in enumerate(data, point_nb + 1):
+                            async_latch_comp = point_data[-1] - i
+                            if async_latch_comp not in [0, 1]:
+                                print ("Warning! Async latch jump: %s" %
+                                       async_latch_comp)
+                            point_data[-1] -= async_latch_comp
                     point_nb = data[-1][-1]
-                
+
                 point_end = timer_ct in counters if int_trig_single else dma
                 acq_end = point_end and (point_nb == acq_last_point)
                 last_restart = point_end and (point_nb == acq_last_point - 1)
-                if last_restart and out_ct:
+                if out_ct and last_restart and self.__has_int_trig():
                     ct_config = card.get_counter_config(out_ct)
                     ct_config.hard_start_source = ct2.CtHardStartSrc.SOFTWARE
                     card.set_counter_config(out_ct, ct_config)
@@ -255,7 +263,6 @@ class CT2Device(BaseCT2Device):
                 if dma:
                     with self.__buffer_lock:
                         self.__buffer.append(data)
-                    point_nb = data[-1][-1]
                     self._send_point_nb(point_nb)
 
                 if acq_end:
@@ -287,32 +294,30 @@ class CT2Device(BaseCT2Device):
         self.__buffer = []
 
     def __configure_std_mode(self, mode):
-        card = self.__card
+        card = self.card
 
         timer_ct = self.internal_timer_counter
         point_nb_ct = self.internal_point_nb_counter
         out_ch = self.out_channel
         out_ct = self.out_counter
 
+        gate_ct = out_ct if out_ct else timer_ct
+        
+        def ct_gate(ct):
+            return getattr(ct2.CtGateSrc, 'CT_{0}_GATE_ENVELOP'.format(ct))
         def stop_on_ct_end(ct):
             return getattr(ct2.CtHardStopSrc, 'CT_{0}_EQ_CMP_{0}'.format(ct))
-
-        inc_on_timer_stop = getattr(ct2.CtClockSrc, 
-                                    'INC_CT_{0}_STOP'.format(timer_ct))
-        start_on_timer_start = getattr(ct2.CtHardStartSrc, 
-                                       'CT_{0}_START'.format(timer_ct))
+        
         if self.__has_int_exp():
             timer_stop_source = stop_on_ct_end(timer_ct)
         else:
             timer_stop_source = ct2.CtHardStopSrc.SOFTWARE
-
-        point_nb_stop_source = stop_on_ct_end(point_nb_ct)
-        point_nb_gate = getattr(ct2.CtGateSrc, 
-                                'CT_{0}_GATE_ENVELOP'.format(point_nb_ct))
+        stop_on_timer_stop = getattr(ct2.CtHardStopSrc, 
+                                     'CT_{0}_STOP'.format(timer_ct))
         point_nb_start_source = getattr(ct2.CtHardStartSrc, 
                                         'CT_{0}_START'.format(point_nb_ct))
 
-        stop_from_hard_stop = (mode in [AcqMode.IntTrigMulti])
+        stop_from_hard_stop = not self.__has_int_trig()
 
         timer_cmp, out_cmp = self.__get_counter_cmp()
         int_counters = []
@@ -320,7 +325,7 @@ class CT2Device(BaseCT2Device):
         # configure "timer" counter
         timer_clock_source = self.IntClockSrc[self.timer_freq]
         ct_config = ct2.CtConfig(clock_source=timer_clock_source,
-                                 gate_source=point_nb_gate,
+                                 gate_source=ct_gate(point_nb_ct),
                                  hard_start_source=point_nb_start_source,
                                  hard_stop_source=timer_stop_source,
                                  reset_from_hard_soft_stop=True,
@@ -334,10 +339,12 @@ class CT2Device(BaseCT2Device):
             int_counters.append(timer_ct)
 
         # configure "nb. points" counter
+        inc_on_timer_stop = getattr(ct2.CtClockSrc, 
+                                    'INC_CT_{0}_STOP'.format(timer_ct))
         ct_config = ct2.CtConfig(clock_source=inc_on_timer_stop,
                                  gate_source=ct2.CtGateSrc.GATE_CMPT,
                                  hard_start_source=ct2.CtHardStartSrc.SOFTWARE,
-                                 hard_stop_source=point_nb_stop_source,
+                                 hard_stop_source=stop_on_ct_end(point_nb_ct),
                                  reset_from_hard_soft_stop=True,
                                  stop_from_hard_stop=True)
         card.set_counter_config(point_nb_ct, ct_config)
@@ -351,38 +358,41 @@ class CT2Device(BaseCT2Device):
         channels = tuple(self.acq_channels)
         all_channels = channels + (timer_ct, point_nb_ct)
 
+        integrator = dict([(ct, False) for ct in channels])
         # change the start and stop sources for the active channels
         for ch_nb in channels:
+            start_on_timer_start = getattr(ct2.CtHardStartSrc, 
+                                           'CT_{0}_START'.format(timer_ct))
             ct_config = card.get_counter_config(ch_nb)
-            ct_config.gate_source = point_nb_gate
+            ct_config.gate_source = ct_gate(gate_ct)
             ct_config.hard_start_source = start_on_timer_start
-            ct_config.hard_stop_source = timer_stop_source
-            ct_config.reset_from_hard_soft_stop = True
+            ct_config.hard_stop_source = stop_on_timer_stop
+            ct_config.reset_from_hard_soft_stop = not integrator[ch_nb]
             ct_config.stop_from_hard_stop = stop_from_hard_stop
             card.set_counter_config(ch_nb, ct_config)
 
         # if needed, configure the "output" counter
         if out_ct:
-            auto_restart = (mode != AcqMode.IntTrigMulti and
-                            self.acq_nb_points > 1)
+            auto_restart = self.__has_int_trig() and (self.acq_nb_points > 1)
             start_src = 'START_STOP' if auto_restart else 'START'
             out_start_source = getattr(ct2.CtHardStartSrc,
                                        'CT_{0}_%s'.format(timer_ct) % start_src)
-            out_stop_source = stop_on_ct_end(out_ct)
+            out_stop_source = (stop_on_ct_end(out_ct)
+                               if out_cmp else stop_on_timer_stop)
 
             ct_config = ct2.CtConfig(clock_source=timer_clock_source,
-                                     gate_source=ct2.CtGateSrc.GATE_CMPT,
+                                     gate_source=ct_gate(timer_ct),
                                      hard_start_source=out_start_source,
                                      hard_stop_source=out_stop_source,
                                      reset_from_hard_soft_stop=True,
                                      stop_from_hard_stop=True)
             card.set_counter_config(out_ct, ct_config)
-            card.set_counter_comparator_value(out_ct, out_cmp)
+            if out_cmp:
+                card.set_counter_comparator_value(out_ct, out_cmp)
             card.enable_counters_software((out_ct,))
             
-        # counter that will latch all active counters
-        latch_ct = out_ct if out_ct else timer_ct
-        latch_sources = dict([(ct, latch_ct) for ct in all_channels])
+        # gate counter will latch all active counters at stop
+        latch_sources = dict([(ct, gate_ct) for ct in all_channels])
         card.set_counters_latch_sources(latch_sources)
 
         # timer counter-to-latch signal will trigger DMA; at each DMA
@@ -414,16 +424,17 @@ class CT2Device(BaseCT2Device):
         expo_time = (self.acq_expo_time or 0) * self.timer_freq
         point_period = (self.acq_point_period or 0) * self.timer_freq
 
-        if not point_period:
-            point_period = expo_time
-            int_trig_multi = self.acq_mode == AcqMode.IntTrigMulti
-            expo_time = point_period - (0 if int_trig_multi else 1)
+        if not point_period and expo_time:
+            longer_timer = (self.acq_mode in [AcqMode.IntTrigReadout,
+                                              AcqMode.IntTrigMulti])
+            extra_gap = longer_timer and self.out_counter
+            point_period = expo_time + (1 if extra_gap else 0)
 
         timer_cmp, out_cmp = None, None
         if self.__has_int_exp():
             timer_cmp = int(point_period)
-        if self.out_counter:
-            out_cmp = int(expo_time)
+            if self.out_counter:
+                out_cmp = int(expo_time)
 
         return timer_cmp, out_cmp
 
@@ -431,6 +442,9 @@ class CT2Device(BaseCT2Device):
         return self.acq_mode in [AcqMode.IntTrigReadout, AcqMode.IntTrigSingle, 
                                  AcqMode.IntTrigMulti]
         
+    def __has_int_trig(self):
+        return self.acq_mode in [AcqMode.IntTrigReadout, AcqMode.IntTrigSingle]
+
     def apply_config(self):
         ct2.configure_card(self.card, self.card_config)
 
@@ -489,15 +503,25 @@ class CT2Device(BaseCT2Device):
         self.card.trigger_counters_software_latch(counters)
 
     def trigger_point(self):
+        if self.acq_status != AcqStatus.Running:
+            raise ValueError('No acquisition is running')
+        elif self.__has_int_trig():
+            raise ValueError('Cannot trigger point in int-trig modes')
+
+        counters = (self.internal_timer_counter,)
         if self.acq_mode == AcqMode.SoftTrigReadout:
-            self.card.stop_counters_software((self.internal_timer_counter,))
+            point_nb_ct = self.internal_point_nb_counter
+            point_nb = self.card.get_counter_value(point_nb_ct)
+            self.card.stop_counters_software(counters)
+            restart = (point_nb < self.acq_nb_points - 1)
         elif self.acq_mode == AcqMode.IntTrigMulti:
             counters_status = self.card.get_counters_status()
-            if counters_status[self.internal_timer_counter]['run']:
+            if counters_status[counters[0]]['run']:
                 raise RuntimeError('Counter still running')
-            self.card.start_counters_software((self.internal_timer_counter,))
-        else:
-            raise NotImplementedError
+            restart = True
+            
+        if restart:
+            self.card.start_counters_software(counters)
 
     @property
     def acq_mode(self):
@@ -560,7 +584,7 @@ class CT2Device(BaseCT2Device):
     @property
     def out_counter(self):
         return self.out_channel
-                                 
+
     @property
     def counters(self):
         return self.card.get_counters_values()

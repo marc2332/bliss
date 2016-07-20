@@ -200,9 +200,9 @@ class ModbusTcp:
         struct_format = '%dB' % nb_bytes
         result = self._read(0x01,address,nb_coils,struct_format,timeout_errmsg,timeout)
         if isinstance(result,tuple):
-            result = [int('{:08b}'.format(x)[::-1], 2) for x in result]
+            result = [int('{0:08b}'.format(x)[::-1], 2) for x in result]
         else:
-            result = int('{:08b}'.format(result)[::-1], 2)
+            result = int('{0:08b}'.format(result)[::-1], 2)
         a = numpy.array(result,dtype=numpy.uint8)
         return numpy.unpackbits(a)[:nb_coils]
 

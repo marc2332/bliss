@@ -14,7 +14,8 @@ from bliss.controllers.motor_group import Group
 from bliss.config.motors import get_axis
 from bliss.common import event
 from bliss.common.utils import set_custom_members
-
+from bliss.config.channels import Channel
+from gevent import lock
 
 # make the link between encoder and axis, if axis uses an encoder
 # (only 1 encoder per axis of course)
@@ -34,6 +35,7 @@ class Controller(object):
         from bliss.config.motors import StaticConfig
         self.__config = StaticConfig(config)
         self.__initialized_axis = dict()
+        self.__initialized_hw_axis = dict()
         self._axes = dict()
         self._encoders = dict()
         self.__initialized_encoder = dict()
@@ -61,6 +63,11 @@ class Controller(object):
 
             ##
             self.__initialized_axis[axis] = False
+            self.__lock = lock.Semaphore()
+            self.__initialized_hw = Channel("controller:%s:initialized" % name,
+                                            default_value = False)
+            self.__initialized_hw_axis[axis] = Channel("axis:%s:initialized" % axis_name,
+                                                       default_value=False)
             if axis_config.get("encoder"):
                 try:
                     # XML
@@ -100,6 +107,14 @@ class Controller(object):
     def initialize(self):
         pass
 
+    def initialize_hardware(self):
+        """
+        This method should contain all commands needed to initialize the controller hardware.
+        i.e: reset, power on....
+    	This initialization will call only once (by the first client).
+        """
+        pass
+
     def __del__(self):
         self.finalize()
 
@@ -110,6 +125,11 @@ class Controller(object):
         if self.__initialized_axis[axis]:
             return
 
+        with self.__lock:
+            if not self.__initialized_hw.value:
+                self.initialize_hardware()
+                self.__initialized_hw.value = True
+            
         axis.settings.load_from_config()
 
         self.initialize_axis(axis)
@@ -150,6 +170,9 @@ class Controller(object):
         # force initialisation of position and state settings
         axis.sync_hard()
 
+        if not self.__initialized_hw_axis[axis].value:
+            self.initialize_hardware_axis(axis)
+            self.__initialized_hw_axis[axis].value = True
 
     def get_axis(self, axis_name):
         axis = self._axes[axis_name]
@@ -160,6 +183,13 @@ class Controller(object):
     def initialize_axis(self, axis):
         raise NotImplementedError
 
+    def initialize_hardware_axis(self, axis):
+        """
+        This method should contain all commands needed to initialize the hardware for this axis.
+        i.e: velocity, close loop configuration...
+    	This initialization will call only once (by the first client).
+        """
+        pass
 
     def finalize_axis(self, axis):
         raise NotImplementedError

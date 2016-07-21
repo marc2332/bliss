@@ -46,6 +46,9 @@ ifeq ($(EUID), 0)
 	su blissadm -c "$(MAKE) install"
 else
 	cp -f setup.cfg.esrf setup.cfg
+ifeq ($(VIRTUAL_ENV),)
+	cat setup.cfg.bliss >> setup.cfg
+endif
 
         ####  install of the py module.
         # this install:

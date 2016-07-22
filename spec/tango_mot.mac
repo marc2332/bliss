@@ -73,7 +73,8 @@ def is_motor_BlissAxis(mot_num) '{
             (motor_par(mot_num, "bliss_axis_master_ds") != ""))
 }'
 
-
+def tango_mot_info(mot_num) '{ bliss_axis_get_infos(mot_num) }'
+def emotion_infos(mot_num)  '{ bliss_axis_get_infos(mot_num) }'
 def bliss_axis_get_infos(mot_num) '{
     printf("========= Bliss Axis ========\n")
     printf("mnemonic = \"%s\"\n",motor_mne(mot_num))
@@ -289,7 +290,7 @@ def eeconfig '{
 #%MDESC% \
 #    Called on config/reconfig
 def tango_mot_config(motnum, type, unit, module, channel) '{
-    local _ctrl_ds_name
+    local _ctrl_ds_name _msg
 
     _ctrl_ds_name = tango_mot_ADDR
 
@@ -316,8 +317,9 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
 
 	tango_io(_ctrl_ds_name, "ReloadConfig")
         if (TANGO_ERR != "0"){
-            _tango_mot_error_stack(sprintf("controller %d", unit), \
-                                   _ctrl_ds_name, _attr)
+            _msg = sprintf("Cmd=ReloadConfig: controller %d (%s) ", \
+                           unit, _ctrl_ds_name)
+            _tango_mot_error_desc(_msg)
             return ".error."
         }
 
@@ -326,7 +328,7 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
 
     if(type == "mot") {
         local _mot_mne _axis_ds_name  _axis_name
-        local TTT[]  _msg
+        local TTT[]
         local spec_bk emot_bk
         local emot_sign
         local user_pos
@@ -389,7 +391,7 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
         tango_io(_axis_ds_name, "On")
         if ((TANGO_ERR != "0") && \
             (index(TANGO_ERR_STACK[0]["desc"], "NotImplementedError") == 0)) {
-            _tango_mot_error_stack(_mot_mne, _axis_ds_name, _attr)
+            _tango_mot_error_desc(sprintf("Cmd=On: %s", _axis_ds_name))
             return ".error."
         }
 
@@ -397,7 +399,7 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
         local _state
         _state = tango_io(_axis_ds_name, "State")
         if (TANGO_ERR != "0"){
-            _tango_mot_error_stack(_mot_mne, _axis_ds_name, _attr)
+            _tango_mot_error_desc(sprintf("Cmd=State: %s", _axis_ds_name))
             return ".error."
         }
 
@@ -561,7 +563,8 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
             TANGO_ERR = -1
             tango_io(_axis_ds_name, _cmd)
             if (TANGO_ERR != "0"){
-                _tango_mot_error_stack(_mot_mne, _axis_ds_name, _cmd)
+                _tango_mot_error_desc(sprintf("Cmd=%s: %s", _cmd, \
+                                                            _axis_ds_name))
                 exit
             }
         }
@@ -582,7 +585,8 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
             TANGO_ERR = -1
             tango_io(_axis_ds_name, _cmd, do_reload)
             if (TANGO_ERR != "0"){
-                _tango_mot_error_stack(_mot_mne, _axis_ds_name, _cmd)
+                _tango_mot_error_desc(sprintf("Cmd=%s: %s", _cmd, \
+                                                            _axis_ds_name))
                 exit
             }
 	}
@@ -599,7 +603,7 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
         TANGO_ERR = -1
         tango_io(_axis_ds_name, _cmd)
         if (TANGO_ERR != "0"){
-            _tango_mot_error_stack(_mot_mne, _axis_ds_name, _cmd)
+            _tango_mot_error_desc(sprintf("Cmd=%s: %s", _cmd, _axis_ds_name))
             exit
         }
 
@@ -632,7 +636,8 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
             TANGO_ERR = -1
             tango_io(_axis_ds_name, _cmd, user_pos)
             if (TANGO_ERR != "0"){
-                _tango_mot_error_stack(_mot_mne, _axis_ds_name, _cmd)
+                _tango_mot_error_desc(sprintf("Cmd=%s: %s", _cmd, \
+                                                            _axis_ds_name))
                 exit
             }
         } else {
@@ -800,8 +805,8 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
             _attr2 = "offset"
             tango_get(_dev, _attr, _pos, _attr2, _offset)
             if (TANGO_ERR != "0"){
-                _tango_mot_error_stack(_mot_mne, _dev, \
-                                       sprintf("%s,%s",_attr, _attr2))
+                _tango_mot_error_desc(sprintf("GetAttr=[%s,%s]: %s", \
+                                              _attr, _attr2, _dev))
                 exit
             }
 	    _diff = fabs(_offset - motor_par(motnum, "offset"))
@@ -842,7 +847,7 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
             _cmd = "State"
             _state = tango_io(_dev, _cmd)
             if (TANGO_ERR != "0"){
-                _tango_mot_error_stack(_mot_mne, _dev, _attr)
+                _tango_mot_error_desc(sprintf("Cmd=%s: %s", _cmd, _dev))
                 exit
             }
 
@@ -875,8 +880,9 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
         #-------------------------------------
         # "start_one"
         # parameters: p2 is relative motion, p1 is absolute requested position
-        if (cmd == "start_one")
+        if (cmd == "start_one"){
             tango_mot_add_motion(_ctrl_dev, motnum, p1)
+        }
 
         #-------------------------------------
         # "set_position" called on "set_dial motor newpos"
@@ -888,7 +894,7 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
             TANGO_ERR = -1
             tango_io(_dev, _cmd, p1)
             if (TANGO_ERR != "0"){
-                _tango_mot_error_stack(_mot_mne, _dev, _cmd)
+                _tango_mot_error_desc(sprintf("Cmd=%s: %s", _cmd, _dev))
                 exit
             }
         }
@@ -898,9 +904,8 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
             !tango_mot_concerns_motion(_ctrl_dev, motnum)) {
             _cmd = "Abort"
             tango_io(_dev, _cmd)
-
             if (TANGO_ERR != "0"){
-                _tango_mot_error_stack(_mot_mne, _dev, _cmd)
+                _tango_mot_error_desc(sprintf("Cmd=%s: %s", _cmd, _dev))
                 exit
             }
         }
@@ -955,7 +960,16 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
                 printf("un-supported home or limit search\n")
                 return ".error."
             }
+        }
 
+        if (cmd == "test_error") {
+            _cmd = "generate_error"
+            tango_io(_dev, _cmd)
+
+            if (TANGO_ERR != "0"){
+                _tango_mot_error_desc(sprintf("Error in : tango_io(\"%s\", \"%s\")",  _dev , _cmd ))
+                exit
+            }
 
         }
     }
@@ -1024,11 +1038,8 @@ def tango_mot_start_motion(ctrl_dev) '{
     TANGO_ERR = -1
     ret = tango_io(ctrl_dev, "GroupMove", arr_in)
     if (TANGO_ERR != "0") {
-        _tango_mot_error_stack("ctrl", ctrl_dev, "GroupMove")
-        exit
-    } else if (ret < 0) {
         local _msg axis_name
-        _msg = "tango_mot_cmd() : start_motion : Unable to launch motion : "
+        _msg = sprintf("Cmd=GroupMove: %s: ", ctrl_dev)
         for (i = 0; i < nb_mot; i++) {
             _msg = sprintf("%s%s%s", _msg, i ? "," : "", arr_mot[i])
             axis_name = arr_in[i * 2]
@@ -1057,10 +1068,8 @@ def tango_mot_check_motion(ctrl_dev) '{
     TANGO_ERR = -1
     ret = tango_io(ctrl_dev, "GroupState", motionid, arr_out)
     if (TANGO_ERR != "0") {
-        _tango_mot_error_stack("ctrl", ctrl_dev, "GroupState")
-    } else if (ret < 0) {
         local _msg
-        _msg = "tango_mot_cmd() : check_motion : Unable to check motion"
+        _msg = sprintf("Cmd=GroupState: %s: ", ctrl_dev)
         _tango_mot_error_desc(sprintf("%s: %s", _msg, motionid))
     } else if (ret == 0) {
         tango_mot_reset_motion(ctrl_dev)
@@ -1080,10 +1089,8 @@ def tango_mot_abort_motion(ctrl_dev) '{
     TANGO_ERR = -1
     ret = tango_io(ctrl_dev, "GroupAbort", motionid)
     if (TANGO_ERR != "0") {
-        _tango_mot_error_stack("ctrl", ctrl_dev, "GroupAbort")
-    } else if (ret < 0) {
         local _msg
-        _msg = "tango_mot_cmd() : check_motion : Unable to check motion"
+        _msg = sprintf("Cmd=GroupAbort: %s: ", ctrl_dev)
         _tango_mot_error_desc(sprintf("%s: %s", _msg, motionid))
     }
 }'
@@ -1141,7 +1148,7 @@ def tango_mot_get_attr(motnum, attr_name) '{
 
     _attr_val = tango_get(_dev, attr_name)
     if (TANGO_ERR != "0"){
-        _tango_mot_error_stack(_mot_mne, _dev, attr_name)
+        _tango_mot_error_desc(sprintf("GetAttr=%s: %s", attr_name, _dev))
         exit
     }
     return _attr_val
@@ -1154,7 +1161,7 @@ def tango_mot_set_attr(motnum, attr_name, attr_value) '{
 
     tango_put(_dev, attr_name, attr_value)
     if (TANGO_ERR != "0"){
-        _tango_mot_error_stack(_mot_mne, _dev, attr_name)
+        _tango_mot_error_desc(sprintf("SetAttr=%s: %s", attr_name, _dev))
         exit
     }
 }'

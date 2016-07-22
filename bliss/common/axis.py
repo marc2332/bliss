@@ -300,7 +300,8 @@ class Axis(object):
         return self.__controller.get_info(self)
 
     def sync_hard(self):
-        self._update_settings()
+        self.settings.set("state", self.state(read_hw=True), write=True) 
+        self.dial(self._hw_position())
         event.send(self, "sync_hard")
         
     @lazy_init

@@ -5,6 +5,46 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+"""
+Bliss static configuration
+
+The next example will require a running bliss configuration server and
+assumes the following YAML_ configuration is present:
+
+.. literalinclude:: examples/config/motion.yml
+    :language: yaml
+    :caption: ./motion_example.yml
+
+Accessing the configured elements from python is easy
+
+.. code-block:: python
+    :emphasize-lines: 1,4,7,11,18
+
+    >>> from bliss.config.static import get_config
+
+    >>> # access the bliss configuration object
+    >>> config = get_config()
+
+    >>> # see all available object names
+    >>> config.names_list
+    ['mock1', 'slit1', 's1f', 's1b', 's1u', 's1d', 's1vg', 's1vo', 's1hg', 's1ho']
+
+    >>> # get a hold of motor 's1vo' configuration
+    >>> s1u_config = config.get_config('s1u')
+    >>> s1u_config
+    Node([('name', 's1u')])
+    >>> s1vo_config['velocity']
+    500
+
+    >>> # get a hold of motor 's1vo'
+    >>> s1vo = config.get('s1vo')
+    >>> s1vo
+    <bliss.common.axis.Axis at 0x7f94de365790>
+    >>> s1vo.position()
+    0.0
+
+"""
+
 import os
 import yaml
 import weakref

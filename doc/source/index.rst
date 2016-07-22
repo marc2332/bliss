@@ -46,6 +46,7 @@ the :ref:`bliss-api` documentation.
     api
     developers_guide
     project_design
-    glossary  
-	
+    todo
+    glossary
+
 

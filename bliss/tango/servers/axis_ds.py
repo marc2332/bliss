@@ -1175,7 +1175,7 @@ def get_server_axis_names(instance_name=None):
     for item_name in cfg.names_list:
         item_cfg = cfg.get_config(item_name)
         if item_cfg.plugin == 'emotion' and \
-           instance_name in item_cfg.get('tango_server', ()):
+                instance_name in item_cfg.get('tango_server', ()):
             result.append(item_name)
     return result
 
@@ -1198,7 +1198,7 @@ def register_server(db=None):
     server_name, instance_name, server_instance = get_server_info()
 
     domain = os.environ.get('BEAMLINENAME', 'bliss')
-    dev_name = '{0}/emotion/{1}'.format(domain, instance_name)
+    dev_name = '{0}/BlissAxisManager/{1}'.format(domain, instance_name)
     elog.info(" registering new server: %s" % dev_name)
     info = PyTango.DbDevInfo()
     info.server = server_instance

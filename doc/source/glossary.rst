@@ -16,6 +16,10 @@ Glossary
     European Synchrotron Radiation Facility
         The European Synchrotron, located in Grenoble, France.
 
+    PCI
+    Peripheral Component Interconnect
+        See: `Wikipedia PCI <https://en.wikipedia.org/wiki/Conventional_PCI>`_
+
     TDD
     Test Driven Development
         a software development process that relies on the repetition of a very

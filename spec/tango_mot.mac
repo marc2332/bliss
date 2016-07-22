@@ -73,7 +73,8 @@ def is_motor_BlissAxis(mot_num) '{
             (motor_par(mot_num, "bliss_axis_master_ds") != ""))
 }'
 
-
+def tango_mot_info(mot_num) '{ bliss_axis_get_infos(mot_num) }'
+def emotion_infos(mot_num)  '{ bliss_axis_get_infos(mot_num) }'
 def bliss_axis_get_infos(mot_num) '{
     printf("========= Bliss Axis ========\n")
     printf("mnemonic = \"%s\"\n",motor_mne(mot_num))
@@ -879,8 +880,9 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
         #-------------------------------------
         # "start_one"
         # parameters: p2 is relative motion, p1 is absolute requested position
-        if (cmd == "start_one")
+        if (cmd == "start_one"){
             tango_mot_add_motion(_ctrl_dev, motnum, p1)
+        }
 
         #-------------------------------------
         # "set_position" called on "set_dial motor newpos"
@@ -958,7 +960,16 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
                 printf("un-supported home or limit search\n")
                 return ".error."
             }
+        }
 
+        if (cmd == "test_error") {
+            _cmd = "generate_error"
+            tango_io(_dev, _cmd)
+
+            if (TANGO_ERR != "0"){
+                _tango_mot_error_desc(sprintf("Error in : tango_io(\"%s\", \"%s\")",  _dev , _cmd ))
+                exit
+            }
 
         }
     }

@@ -393,6 +393,11 @@ class Mockup(Controller):
     def custom_command_no_types(self, axis):
         print "print with no types"
 
+    @object_method
+    def generate_error(self, axis):
+        # For testing purposes.
+        raise RuntimeError("Testing Error")
+
     def custom_get_measured_noise(self, axis):
         noise = 0.0
         if not axis.encoder in self.__encoders:

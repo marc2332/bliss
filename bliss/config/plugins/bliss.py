@@ -16,16 +16,7 @@ def __find_class(cfg_node):
         module_name = 'bliss.controllers.%s' % cfg_node['module']
     else:
         # discover module and class name
-        module_name = 'bliss.controllers.%s' % klass_name
-        try:
-            module = __import__(module_name, fromlist=[None])
-        except ImportError:         # try in file in lower case
-            module_name = 'bliss.controllers.%s' % klass_name.lower()
-            module = __import__(module_name, fromlist=[None])
-        try:
-            klass = getattr(module, klass_name)
-        except AttributeError:      # try with camelcase
-            klass_name = ''.join((x.capitalize() for x in klass_name.split('_')))
+        module_name = 'bliss.controllers.%s' % klass_name.lower()
 
     module = __import__(module_name, fromlist=[None])
     klass = getattr(module, klass_name)

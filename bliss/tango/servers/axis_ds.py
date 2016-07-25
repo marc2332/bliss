@@ -1323,7 +1323,7 @@ def recreate(db=None, new_server=False):
 
     # remove old axes
     for axis_name in old_axis_names:
-        dev_name = curr_axes[axis_name]
+        dev_name, klass_name = curr_axes[axis_name]
         elog.debug('removing old axis %s (%s)' % (dev_name, axis_name))
         db.delete_device(dev_name)
 

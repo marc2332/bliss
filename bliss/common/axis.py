@@ -5,6 +5,29 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+"""
+Axis related classes (:class:`~bliss.common.axis.Axis`, \
+:class:`~bliss.common.axis.AxisState` and :class:`~bliss.common.axis.Motion`)
+
+These classes are part of the bliss motion subsystem.
+They are not to be instantiated directly. They are the objects produced
+as calls to :meth:`~bliss.config.static.Config.get`. Example::
+
+    >>> from bliss.config.static import get_config
+
+    >>> cfg = get_config()
+    >>> energy = cfg.get('energy')
+    >>> energy
+    <bliss.common.axis.Axis object at 0x7f7baa7f6d10>
+
+    >>> energy.move(120)
+    >>> print(energy.position)
+    120.0
+
+    >>> print energy.state()
+    READY (Axis is READY)
+"""
+
 from bliss.common import log as elog
 from bliss.common.task_utils import *
 from bliss.controllers.motor_settings import AxisSettings
@@ -13,15 +36,27 @@ import time
 import gevent
 import re
 import types
+import functools
 
+#: Default polling time
 DEFAULT_POLLING_TIME = 0.02
 
 
 class Null(object):
+    """Null representation"""
     __slots__ = []
 
 
 class Motion(object):
+    """Motion information
+
+    Represents a specific motion. The following members are present:
+
+    * *axis* (:class:`Axis`): the axis to which this motion corresponds to
+    * *target_pos* (:obj:`float`): final motion position
+    * *delta* (:obj:`float`): motion displacement
+    * *backlash* (:obj:`float`): motion backlash
+    """
 
     def __init__(self, axis, target_pos, delta):
         self.__axis = axis
@@ -31,11 +66,20 @@ class Motion(object):
 
     @property
     def axis(self):
+        """Reference to :class:`Axis`"""
         return self.__axis
 
 
 class Axis(object):
+    """
+    Bliss motor axis
+
+    Typical usage goes through the bliss configuration (see this module
+    documentation above for an example)
+    """
+
     def lazy_init(func):
+        @functools.wraps(func)
         def func_wrapper(self, *args, **kwargs):
             self.controller._initialize_axis(self)
             return func(self, *args, **kwargs)
@@ -57,22 +101,32 @@ class Axis(object):
 
     @property
     def name(self):
+        """Axis name"""
         return self.__name
 
     @property
     def controller(self):
+        """Reference to :class:`~bliss.controllers.motor.Controller`"""
         return self.__controller
 
     @property
     def config(self):
+        """Reference to the :class:`~bliss.config.motors.StaticConfig`"""
         return self.__config
 
     @property
     def settings(self):
+        """
+        Reference to the
+        :class:`~bliss.controllers.motor_settings.AxisSettings`
+        """
         return self.__settings
 
     @property
     def is_moving(self):
+        """
+        Tells if the axis is moving (:obj:`bool`)
+        """
         return not self.__move_done.is_set()
 
     @property
@@ -84,6 +138,7 @@ class Axis(object):
 
     @property
     def offset(self):
+        """Current offset in user units (:obj:`float`)"""
         offset = self.settings.get("offset")
         if offset is None:
             offset = 0
@@ -92,22 +147,30 @@ class Axis(object):
 
     @property
     def backlash(self):
+        """Current backlash in user units (:obj:`float`)"""
         return self.config.get("backlash", float, 0)
 
     @property
     def sign(self):
+        """Current motor sign (:obj:`int`) [-1, 1]"""
         return self.config.get("sign", int, 1)
 
     @property
     def steps_per_unit(self):
+        """Current steps per unit (:obj:`float`)"""
         return self.config.get("steps_per_unit", float, 1)
 
     @property
     def tolerance(self):
+        """Current tolerance in dial units (:obj:`float`)"""
         return self.config.get("tolerance", float, 1E-4)
 
     @property
     def encoder(self):
+        """
+        Reference to :class:`~bliss.common.encoder.Encoder` or None if no
+        encoder is defined
+        """
         try:
             encoder_name = self.config.get("encoder")
         except KeyError:
@@ -118,11 +181,19 @@ class Axis(object):
 
     @property
     def custom_methods_list(self):
+        """
+        List of custom methods defined for this axis.
+        Internal usage only
+        """
         # Returns a *copy* of the custom methods list.
         return self.__custom_methods_list[:]
 
     @property
     def custom_attributes_list(self):
+        """
+        List of custom attributes defined for this axis.
+        Internal usage only
+        """
         ad = self.__custom_attributes_dict
 
         # Converts dict into list...
@@ -132,12 +203,23 @@ class Axis(object):
         return _attr_list[:]
 
     def set_setting(self, *args):
+        """Sets the given settings"""
         self.settings.set(*args)
 
     def get_setting(self, *args):
+        """Returns the values for the given settings"""
         return self.settings.get(*args)
 
     def has_tag(self, tag):
+        """
+        Tells if the axis has the given tag
+
+        Args:
+            tag (str): tag name
+
+        Returns:
+            bool: True if the axis has the tag or False otherwise
+        """
         for t, axis_list in self.__controller._tagged.iteritems():
             if t != tag:
                 continue
@@ -151,6 +233,7 @@ class Axis(object):
 
     @lazy_init
     def on(self):
+        """Turns the axis on"""
         if self.is_moving:
             return
 
@@ -160,6 +243,7 @@ class Axis(object):
 
     @lazy_init
     def off(self):
+        """Turns the axis off"""
         if self.is_moving:
             raise RuntimeError("Can't set power off while axis is moving")
 
@@ -168,6 +252,7 @@ class Axis(object):
         self.settings.set("state", state)
 
     def reset(self):
+        """Resets the axis (calls finalize + initialize on its controller)"""
         if self.is_moving:
             raise RuntimeError("Can't reset while axis is moving")
         self.__controller.finalize_axis(self)
@@ -187,6 +272,9 @@ class Axis(object):
     def measured_position(self):
         """
         Returns the encoder value in user units.
+
+        Returns:
+            float: encoder value in user units
         """
         return self.dial2user(self.dial_measured_position())
 
@@ -194,13 +282,24 @@ class Axis(object):
     def dial_measured_position(self):
         """
         Returns the dial encoder position.
+
+        Returns:
+            float: dial encoder position
         """
         return self.__controller.read_encoder(self.encoder) / self.encoder.steps_per_unit
 
     @lazy_init
     def dial(self, new_dial=None):
         """
-        Returns current dial position, or set new dial if 'new_dial' argument is provided
+        Returns current dial position, or set new dial if *new_dial* argument
+        is provided
+
+        Keyword Args:
+            new_dial: new dial position [default: None, meaning just return \
+            current dial]
+
+        Returns:
+            float: current dial position (dimensionless)
         """
         if new_dial is None:
             dial_pos = self.settings.get("dial_position")
@@ -233,10 +332,15 @@ class Axis(object):
     @lazy_init
     def position(self, new_pos=None):
         """
-        if <new_pos> is None : Gets axis *user* position.
-        else sets axis *user* position.
-        * <new_pos> is in user units.
-        * Return value is in user units.
+        Returns current user position, or set new user position if *new_pos*
+        argument is provided
+
+        Keyword Args:
+            new_pos: new user position (in user units) [default: None, \
+            meaning just return current user position]
+
+        Returns:
+            float: current user position (user units)
         """
         elog.debug("axis.py : position(new_pos=%r)" % new_pos)
         if new_pos is None:
@@ -290,6 +394,15 @@ class Axis(object):
 
     @lazy_init
     def state(self, read_hw=False):
+        """
+        Returns the axis state
+
+        Keyword Args:
+            read_hw (bool): read from hardware [default: False]
+
+        Returns:
+            AxisState: axis state
+        """
         if read_hw:
             state = None
         else:
@@ -304,9 +417,11 @@ class Axis(object):
 
     @lazy_init
     def get_info(self):
+        """Returns controller specific information about the axis"""
         return self.__controller.get_info(self)
 
     def sync_hard(self):
+        """Forces an axis synchronization with the hardware"""
         self.settings.set("state", self.state(read_hw=True), write=True) 
         self._read_dial_and_update()
         self._set_position(self.position())
@@ -315,7 +430,18 @@ class Axis(object):
     @lazy_init
     def velocity(self, new_velocity=None, from_config=False):
         """
-        <new_velocity> is given in user units per seconds.
+        Returns the current velocity. If *new_velocity* is given it sets
+        the new velocity on the controller.
+
+        Keyword Args:
+            new_velocity (float): new velocity (user units/second) [default: \
+            None, meaning return the current velocity]
+            from_config (bool): if reading velocity (new_velocity is None), \
+            if True, returns the current static configuration velocity, \
+            otherwise, False returns velocity from the motor axis \
+            [default: False]
+        Returns:
+            float: current velocity (user units/second)
         """
         if from_config:
             return self.config.get("velocity", float)
@@ -367,7 +493,18 @@ class Axis(object):
     @lazy_init
     def acctime(self, new_acctime=None, from_config=False):
         """
-        <new_acctime> given in seconds.
+        Returns the current acceleration time. If *new_acctime* is given it sets
+        the new acceleration time on the controller.
+
+        Keyword Args:
+            new_acctime (float): new acceleration (second) [default: \
+            None, meaning return the current acceleration time]
+            from_config (bool): if reading acceleration time (new_acctime \
+            is None), if True, returns the current static configuration
+            acceleration time, otherwise, False returns acceleration time \
+            from the motor axis [default: False]
+        Returns:
+            float: current acceleration time (second)
         """
         if from_config:
             return self.velocity(from_config=True) / self.acceleration(from_config=True)
@@ -384,7 +521,20 @@ class Axis(object):
     @lazy_init
     def limits(self, low_limit=Null(), high_limit=Null(), from_config=False):
         """
-        <low_limit> and <high_limit> given in user units.
+        Returns the current software user limits. If *low_limit* or *high_limit*
+        is given it sets the new values.
+
+        Keyword Args:
+            low_limit (float): new low limit (user units) [default: \
+            None, meaning return the current limits]
+            high_limit (float): new high limit (user units) [default: \
+            None, meaning return the current limits]
+            from_config (bool): if limits are not given, if True, returns \
+            the current static configuration limits, otherwise, False returns \
+            current limits from settings [default: False]
+
+        Returns:
+            tuple<float, float>: axis software limits (user units)
         """
         if from_config:
             ll = self.config.get("low_limit", float, None)
@@ -431,6 +581,18 @@ class Axis(object):
             self._do_encoder_reading()
 
     def dial2user(self, position, offset=None):
+        """
+        Translates given position from dial units to user units
+
+        Args:
+            position (float): position in dial units
+
+        Keyword Args:
+            offset (float): alternative offset. None (default) means use current offset
+
+        Returns:
+            float: position in axis user units
+        """
         if position is None:
             # see limits()
             return None
@@ -439,10 +601,20 @@ class Axis(object):
         return (self.sign * position) + offset
 
     def user2dial(self, position):
+        """
+        Translates given position from user units to dial units
+
+        Args:
+            position (float): position in user units
+
+        Returns:
+            float: position in axis dial units
+        """
         return (position - self.offset) / self.sign
 
     @lazy_init
     def prepare_move(self, user_target_pos, relative=False):
+        """Prepare a motion. Internal usage only"""
         elog.debug("user_target_pos=%g, relative=%r" % (user_target_pos, relative))
         user_initial_dial_pos = self.dial()
         hw_pos = self._read_dial_and_update()
@@ -569,6 +741,17 @@ class Axis(object):
 
     @lazy_init
     def move(self, user_target_pos, wait=True, relative=False, polling_time=DEFAULT_POLLING_TIME):
+        """
+        Move axis to the given absolute/relative position
+
+        Args:
+            user_target_pos: destination (user units)
+        Keyword Args:
+            wait (bool): wait or not for end of motion
+            relative (bool): False if *user_target_pos* is given in absolute \
+            position or True if it is given in relative position
+            polling_time (float): motion loop polling time (seconds)
+        """
         elog.debug("user_target_pos=%g  wait=%r relative=%r" % (user_target_pos, wait, relative))
         if self.__controller.is_busy():
             raise RuntimeError("axis %s: controller is busy" % self.name)
@@ -599,10 +782,26 @@ class Axis(object):
             self._handle_move(motion, polling_time)
 
     def rmove(self, user_delta_pos, wait=True, polling_time=DEFAULT_POLLING_TIME):
+        """
+        Move axis to the given relative position.
+
+        Same as :meth:`move` *(relative=True)*
+
+        Args:
+            user_delta_pos: motor displacement (user units)
+        Keyword Args:
+            wait (bool): wait or not for end of motion
+            polling_time (float): motion loop polling time (seconds)
+        """
         elog.debug("user_delta_pos=%g  wait=%r" % (user_delta_pos, wait))
         return self.move(user_delta_pos, wait, relative=True, polling_time=polling_time)
 
     def wait_move(self):
+        """
+        Wait for the axis to finish motion (blocks current :class:`Greenlet`)
+
+        If axis is not moving returns immediately
+        """
         if not self.is_moving:
             return
         if self.__move_task is None:
@@ -643,6 +842,15 @@ class Axis(object):
 
     @lazy_init
     def stop(self, wait=True):
+        """
+        Stops the current motion
+
+        If axis is not moving returns immediately
+
+        Args:
+            wait (bool): wait for the axis to decelerate before returning \
+            [default: True]
+        """
         if self.is_moving:
             self._do_stop()
             if wait:
@@ -650,6 +858,12 @@ class Axis(object):
 
     @lazy_init
     def home(self, switch=1, wait=True):
+        """
+        Searches the home switch
+
+        Args:
+            wait (bool): wait for search to finish [default: True]
+        """
         self._check_ready()
 
         self.__controller.home_search(self, switch)
@@ -665,11 +879,13 @@ class Axis(object):
 
     @lazy_init
     def hw_limit(self, limit, wait=True):
-        """Go to a hardware limit
+        """
+        Go to a hardware limit
 
-        Parameters:
-            limit   - integer, positive means "positive limit"
-            wait    - boolean, wait for completion (default is to wait)
+        Args:
+            limit (int): positive means "positive limit"
+            wait (bool): wait for axis to finish motion before returning \
+            [default: True]
         """
         limit = int(limit)
         self._check_ready()
@@ -724,6 +940,7 @@ class Axis(object):
 
 
 class AxisRef(object):
+    """Object representing a named reference to an :class:`Axis`."""
 
     def __init__(self, name, _, config):
         self.__name = name
@@ -732,10 +949,12 @@ class AxisRef(object):
 
     @property
     def name(self):
+        """Axis reference name"""
         return self.__name
 
     @property
     def config(self):
+        """Reference to the :class:`~bliss.config.motors.StaticConfig`"""
         return self.__config
 
 
@@ -749,8 +968,13 @@ class AxisState(object):
       LIMNEG : 'Hardware low limit active'
       HOME   : 'Home signal active'
       OFF    : 'Axis is disabled (must be enabled to move (not ready ?))'
+
+    When creating a new instance, you can pass any number of arguments, each
+    being either a string or tuple of strings (state, description). They
+    represent custom axis states.
     """
 
+    #: state regular expression validator
     STATE_VALIDATOR = re.compile("^[A-Z0-9]+\s*$")
 
     _STANDARD_STATES = {
@@ -765,30 +989,37 @@ class AxisState(object):
 
     @property
     def READY(self):
+        """Axis is ready to be moved"""
         return "READY" in self._current_states
 
     @property
     def MOVING(self):
+        """Axis is moving"""
         return "MOVING" in self._current_states
 
     @property
     def FAULT(self):
+        """Error from controller"""
         return "FAULT" in self._current_states
 
     @property
     def LIMPOS(self):
+        """Hardware high limit active"""
         return "LIMPOS" in self._current_states
 
     @property
     def LIMNEG(self):
+        """Hardware low limit active"""
         return "LIMNEG" in self._current_states
 
     @property
     def OFF(self):
+        """Axis is disabled (must be enabled to move (not ready ?))"""
         return "OFF" in self._current_states
 
     @property
     def HOME(self):
+        """Home signal active"""
         return "HOME" in self._current_states
 
     def __init__(self, *states):
@@ -826,6 +1057,17 @@ class AxisState(object):
         return not self._state_desc is AxisState._STANDARD_STATES
 
     def create_state(self, state_name, state_desc=None):
+        """
+        Adds a new custom state
+
+        Args:
+            state_name (str): name of the new state
+        Keyword Args:
+            state_desc (str): state description [default: None]
+
+        Raises:
+            ValueError: if state_name is invalid
+        """
         # Raises ValueError if state_name is invalid.
         self._check_state_name(state_name)
         if state_desc is not None and '|' in state_desc:
@@ -854,6 +1096,15 @@ class AxisState(object):
     ??? how to flag OFF ???-> no : on en cree un nouveau.
     """
     def set(self, state_name):
+        """
+        Activates the given state on this AxisState
+
+        Args:
+            state_name (str): name of the state to activate
+
+        Raises:
+            ValueError: if state_name is invalid
+        """
         if state_name in self._state_desc:
             if state_name not in self._current_states:
                 self._current_states.append(state_name)
@@ -869,12 +1120,17 @@ class AxisState(object):
             raise ValueError("state %s does not exist" % state_name)
 
     def clear(self):
+        """Clears all current states"""
         # Flags all states off.
         self._current_states = list()
 
     def current_states(self):
         """
         Returns a string of current states.
+
+        Returns:
+            str: *|* separated string of current states or string *UNKNOWN* \
+            if there is no current state
         """
         states = [
             "%s%s" % (state.rstrip(), " (%s)" % self._state_desc[state] if self._state_desc.get(state) else "")

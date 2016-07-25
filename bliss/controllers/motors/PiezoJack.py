@@ -12,7 +12,7 @@ from math import cos, radians
 from numpy import arange
 
 from bliss.controllers.motor import Controller
-from bliss.config import motor_settings as settings
+from bliss.controllers import motor_settings as settings
 from bliss.common import log as elog
 from bliss.common.log import bcolors
 

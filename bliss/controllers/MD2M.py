@@ -79,6 +79,7 @@ class MD2M:
 
     def omega_init(self):
         print 'Homing omega axis'
+        self.omega.apply_config()
         self.omega.home()
         self.omega.dial(float(self.init_offsets["omega"]))
         self.omega.position(float(self.init_offsets["omega"]))

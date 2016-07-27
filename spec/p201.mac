@@ -16,11 +16,14 @@ def p201_config(cnum, type, unit, module, chan) '{
       tango_put(ctrl_dev, "timer_freq", factor)
       tango_put(ctrl_dev, "acq_mode", "IntTrigReadout")
       P201_CT[ctrl_dev]["int_cnt"] = 11
+   } else {
+      counter_par(cnum, "counter_idx", "add")
    }
 }'
 
 def p201_cmd(cnum, key, p1, p2) '{
    local chan is_running ctrl_dev acq_chan acq_chan_list[] sep val[] int_cnt
+   local cnt_idx
 
    ctrl_dev = p201_ADDR
    if (cnum != "..")
@@ -32,12 +35,15 @@ def p201_cmd(cnum, key, p1, p2) '{
       return is_running
    } else if (key == "prestart_all") {
       P201_CT[ctrl_dev]["acq_channels"] = ""
+      P201_CT[ctrl_dev]["nb_channels"] = 0
    } else if (key == "start_one") {
       if (chan != 0) {
           acq_chan = P201_CT[ctrl_dev]["acq_channels"]
 	  sep = length(acq_chan) ? " " : ""
 	  acq_chan = sprintf("%s%s%d", acq_chan, sep, chan)
 	  P201_CT[ctrl_dev]["acq_channels"] = acq_chan
+          cnt_idx = P201_CT[ctrl_dev]["nb_channels"]++
+          counter_par(cnum, "counter_idx", cnt_idx)          
       } else {
           tango_put(ctrl_dev, "acq_expo_time", p1)
           split(P201_CT[ctrl_dev]["acq_channels"], acq_chan_list)
@@ -48,13 +54,12 @@ def p201_cmd(cnum, key, p1, p2) '{
       }
    } else if (key == "counts") {
       int_cnt = P201_CT[ctrl_dev]["int_cnt"]
-      tango_get(ctrl_dev, "latches", val)
-      if (val[int_cnt - 1] == 0)
-            tango_get(ctrl_dev, "counters", val)
-      if (val[int_cnt - 1] == 0)
-            tango_get(ctrl_dev, "latches", val)
-      chan = chan ? chan : int_cnt
-      return val[chan - 1]
+      tango_get(ctrl_dev, "data", val)
+      if (chan)
+          cnt_idx = counter_par(cnum, "counter_idx")
+      else
+          cnt_idx = P201_CT[ctrl_dev]["nb_channels"]
+      return val[cnt_idx]
    } else if (key == "halt_all") {
       tango_io(ctrl_dev, "stop_acq")
    }

@@ -66,10 +66,6 @@ class BaseCT2Device(object):
         100E6:  ct2.CtClockSrc.CLK_100_MHz,
     }
 
-    def __init__(self, config, name):
-        self.__config = config
-        self.__name = name
-
     # helper methods to fire events
 
     def _send_error(self, error):
@@ -83,15 +79,15 @@ class BaseCT2Device(object):
 
     @property
     def config(self):
-        return self.__config
+        return self._device.config
 
     @property
     def card_config(self):
-        return self.config.get_config(self.__name)
+        return self._device.card_config
 
     @property
     def name(self):
-        return self.__name
+        return self._device.name
 
     @property
     def _device(self):
@@ -107,7 +103,7 @@ class BaseCT2Device(object):
 
     @property
     def acq_mode(self):
-        return self._device.acq_mode
+        return AcqMode[self._device.acq_mode]
 
     @acq_mode.setter
     def acq_mode(self, acq_mode):
@@ -115,7 +111,7 @@ class BaseCT2Device(object):
 
     @property
     def acq_status(self):
-        return self._device.acq_status
+        return AcqStatus[self._device.acq_status]
 
     @property
     def acq_nb_points(self):
@@ -124,6 +120,14 @@ class BaseCT2Device(object):
     @acq_nb_points.setter
     def acq_nb_points(self, acq_nb_points):
         self._device.acq_nb_points = acq_nb_points
+
+    @property
+    def timer_freq(self):
+        return self._device.timer_freq
+
+    @timer_freq.setter
+    def timer_freq(self, timer_freq):
+        self._device.timer_freq = timer_freq
 
     @property
     def acq_expo_time(self):
@@ -135,7 +139,7 @@ class BaseCT2Device(object):
 
     @property
     def acq_channels(self):
-        return self._device.acq_channels
+        return tuple(self._device.acq_channels)
 
     @acq_channels.setter
     def acq_channels(self, acq_channels):
@@ -158,6 +162,12 @@ class BaseCT2Device(object):
 
     def read_data(self):
         self._device.read_data()
+
+    def trigger_latch(self, counters):
+        self._device.trigger_latch(counters)
+
+    def trigger_point(self):
+        self._device.trigger_point()
 
     @property
     def counters(self):
@@ -182,12 +192,26 @@ class CT2Device(BaseCT2Device):
     
     DefOutConfig = {'chan': 10, 'level': ct2.Level.TTL}
 
-    def __init__(self, config, name, acq_mode=AcqMode.IntTrigReadout, 
-                 out_config=DefOutConfig):
-        BaseCT2Device.__init__(self, config, name)
+    def __init__(self, card=None, card_config=None, config=None, name=None,
+                 acq_mode=AcqMode.IntTrigReadout, out_config=DefOutConfig):
+        BaseCT2Device.__init__(self)
+
+        if card_config is None:
+            if config is None or name is None:
+                raise ValueError('Must provide config and name to create card')
+            card_config = config.get_config(name)
+        if card is None:
+            if config is None or name is None:
+                card = ct2.P201Card()
+                ct2.configure_card(card, card_config)
+            else:                    
+                card = config.get(name)
+            
         self.__buffer = []
         self.__buffer_lock = lock.RLock()
-        self.__card = self.config.get(self.name)
+        self.__name = name
+        self.__card = card
+        self.__card_config = card_config
         self.__acq_mode = acq_mode
         self.__out_config = dict(out_config or {}) 
         self.__acq_status = AcqStatus.Ready
@@ -287,6 +311,18 @@ class CT2Device(BaseCT2Device):
     @property
     def card(self):
         return self.__card
+
+    @property
+    def name(self):
+        return self.__name
+
+    @property
+    def config(self):
+        return self.card_config and self.card_config._config
+
+    @property
+    def card_config(self):
+        return self.__card_config
 
     def reset(self):
         self.card.software_reset()

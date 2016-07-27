@@ -30,7 +30,7 @@ def get_dev(dev_name):
         cfg = get_config()
     else:
         cfg.reload()
-    dev = ct2.CT2Device(cfg, dev_name, out_config={'chan': 10})
+    dev = ct2.CT2Device(config=cfg, name=dev_name)
     return dev
 
 def start_acq(dev, acq_mode, expo_time, point_period, nb_points,

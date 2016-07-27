@@ -18,8 +18,8 @@ class CT2Device(BaseCT2Device):
     Helper for a remote TANGO device CT2 card (P201/C208).
     """
 
-    def __init__(self, config, name):
-        BaseCT2Device.__init__(self, config, name)
+    def __init__(self):
+        BaseCT2Device.__init__(self)
         device_name = self.card_config['tango name']
         
         self.__tango_device = PyTango.gevent.DeviceProxy(device_name)
@@ -45,42 +45,6 @@ class CT2Device(BaseCT2Device):
     @property
     def _device(self):
         return self.__tango_device
-
-    @property
-    def acq_mode(self):
-        return AcqMode[self._device.acq_mode]
-
-    @acq_mode.setter
-    def acq_mode(self, acq_mode):
-        self._device.acq_mode = acq_mode.name
-
-    @property
-    def acq_expo_time(self):
-        return self._device.acq_expo_time
-
-    @acq_expo_time.setter
-    def acq_expo_time(self, acq_expo_time):
-        self._device.acq_expo_time = acq_expo_time
-
-    @property
-    def acq_channels(self):
-        return tuple(self._device.acq_channels)
-
-    @acq_channels.setter
-    def acq_channels(self, acq_channels):
-        return tuple(self._device.acq_channels)
-
-    @property
-    def timer_freq(self):
-        return self._device.timer_freq
-
-    @timer_freq.setter
-    def timer_freq(self, timer_freq):
-        self._device.timer_freq = timer_freq
-
-    @property
-    def acq_status(self):
-        return AcqStatus[self._device.acq_status]
 
     def apply_config(self):
         self.card_config.save()

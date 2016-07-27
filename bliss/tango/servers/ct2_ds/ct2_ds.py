@@ -70,7 +70,8 @@ class CT2(Device):
             util = Util.instance()
             if util.is_svr_starting():
                 acq_mode = AcqMode[self.def_acq_mode]
-                self.device = CT2Device(config, self.card_name, acq_mode)
+                self.device = CT2Device(config=config, name=self.card_name, 
+                                        acq_mode=acq_mode)
                 connect(self.device, ErrorSignal, self.__on_error)
                 connect(self.device, PointNbSignal, self.__on_point_nb)
                 connect(self.device, StatusSignal, self.__on_status)
@@ -173,7 +174,8 @@ class CT2(Device):
         # first, empty FIFO
         self.device.read_data()
         # then, reload config and apply it to the device
-        self.device.config.reload()
+        if self.device.config:
+            self.device.config.reload()
         self.device.apply_config()
 
     @command

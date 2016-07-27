@@ -22,11 +22,11 @@ INITIAL_TEMP=random.random()*10-random.random()*10
 class mockup(Controller):
     __material = "Hg"
 
-    def __init__(self, *args):
+    def __init__(self, config, *args):
         #log.info("On mockup ")
         #for arg in args :
         #   log.info("  argument: %s" % (arg))
-        Controller.__init__(self, *args)
+        Controller.__init__(self, config, *args)
 
         self.setpoints = dict()
         self.setpointramp = dict()

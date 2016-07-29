@@ -23,7 +23,9 @@ def p201_config(cnum, type, unit, module, chan) '{
 
 def p201_cmd(cnum, key, p1, p2) '{
     local chan is_running ctrl_dev acq_chan acq_chan_list[] sep val[] int_cnt
-    local cnt_idx
+    local cnt_idx cnt_i
+
+    global P201_CT_LAST[]
 
     ctrl_dev = p201_ADDR
     if (cnum != "..")
@@ -36,6 +38,7 @@ def p201_cmd(cnum, key, p1, p2) '{
     } else if (key == "prestart_all") {
         P201_CT[ctrl_dev]["acq_channels"] = ""
         P201_CT[ctrl_dev]["nb_channels"] = 0
+        P201_CT_LAST["valid"] = 0
     } else if (key == "start_one") {
         if (chan != 0) {
             acq_chan = P201_CT[ctrl_dev]["acq_channels"]
@@ -53,13 +56,27 @@ def p201_cmd(cnum, key, p1, p2) '{
             tango_io(ctrl_dev, "start_acq")
         }
     } else if (key == "counts") {
-        int_cnt = P201_CT[ctrl_dev]["int_cnt"]
-        tango_get(ctrl_dev, "data", val)
+        if (!P201_CT_LAST["valid"]) {
+            tango_get(ctrl_dev, "counters", val)
+            int_cnt = P201_CT[ctrl_dev]["int_cnt"]
+            if (val[int_cnt - 1] != 0) {
+                cnt_idx = (chan ? chan : int_cnt) - 1
+                return val[cnt_idx]
+            }
+
+            TANGO_ERR = -1
+            tango_get(ctrl_dev, "data", val)
+            if (TANGO_ERR != "0")
+                return -1
+            for (cnt_i in val) 
+                P201_CT_LAST[cnt_i] = val[cnt_i]
+            P201_CT_LAST["valid"] = 1
+        }
         if (chan)
             cnt_idx = counter_par(cnum, "counter_idx")
         else
             cnt_idx = P201_CT[ctrl_dev]["nb_channels"]
-        return val[cnt_idx]
+        return P201_CT_LAST[cnt_idx]
     } else if (key == "halt_all") {
         tango_io(ctrl_dev, "stop_acq")
     }

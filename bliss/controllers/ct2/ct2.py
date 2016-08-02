@@ -1858,7 +1858,7 @@ class BaseCard:
 
     def _write_offset(self, offset, ivalue):
         """ """
-        svalue = struct.pack("I", ivalue)
+        svalue = struct.pack("I", int(ivalue))
         return pwrite(self.fileno(), svalue, offset)
 
     def _write_offset_array(self, offset, array):

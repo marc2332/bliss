@@ -20,6 +20,10 @@ try:
 except ImportError:
     from pydispatch import saferef
     saferef.safe_ref = saferef.safeRef
+try:
+    from collections import OrderedDict
+except ImportError:
+    from ordereddict import OrderedDict
 import weakref
 import sys
 import os
@@ -74,7 +78,7 @@ class _Bus(object):
         self._pubsub = redis.pubsub()
         self._pending_subscribe = list()
         self._pending_unsubscribe = list()
-        self._pending_channel_value = dict()
+        self._pending_channel_value = OrderedDict()
         self._pending_init = list()
         self._send_event = gevent.event.Event()
         self._in_recv = set()
@@ -156,7 +160,7 @@ class _Bus(object):
 
             self._pending_subscribe = list()
             self._pending_unsubscribe = list()
-            self._pending_channel_value = dict()
+            self._pending_channel_value = OrderedDict()
             self._pending_init = list()
 
             if pending_unsubscribe: pubsub.unsubscribe(pending_unsubscribe)

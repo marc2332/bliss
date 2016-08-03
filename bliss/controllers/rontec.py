@@ -12,6 +12,15 @@ import math
 import time
 import numpy
 
+import enum
+
+@enum.unique
+class MCA_STATE(enum.Enum):
+    """ MCA States enumeration """
+    UNKNOWN = 0
+    RUNNING = 1
+    STOP = 2
+
 class Rontec:
 
     ERANGE = {0:"10keV", 1:"20keV", 2:"40keV", 3:"80keV"}
@@ -27,7 +36,7 @@ class Rontec:
                  9: "Function not implemented or no hardware support",
                  13: "Hardware error",
                  14: "Illegal baud rate"}
-                 
+
     def __init__(self, port=None, calib_file=None, calib_cf=[0,1,0], debug=False):
         """calib_file: rontec calibration file, should be like:
         
@@ -44,8 +53,9 @@ class Rontec:
         self.debug = debug
         self.roi_dict = {}
 
-        #connect to the hardware and make a reset
-        self.reset(calib_file, calib_cf)
+        #connect to the hardware and make a reset if possible
+        if self.read_acqstatus() == MCA_STATE.STOP:
+            self.reset(calib_file, calib_cf)
 
     def exit(self):
         self.sl.close()
@@ -175,6 +185,29 @@ class Rontec:
         asw = str(self.sl.write_readline("$SM 4 0\r"))
         self._check_answer(asw, 'reset:set read fromat/mode')
 
+    def read_acqstatus(self):
+        """Read the acquisition status
+           Returns:
+              status (int): The acquisition status
+        """
+        self.sl.flush()
+        asw = self.sl.write_readline("$FP\r")
+        self._check_answer(asw, 'read_acqstatus')
+        try:
+            _,state = asw.split()
+            if state == '+':
+                #return Rontec.STOP
+                return MCA_STATE.STOP
+            elif state == '-':
+                #return Rontec.RUNNING
+                return MCA_STATE.RUNNING
+            else:
+                #return Rontec.UNKNOWN
+                return MCA_STATE.UNKNOWN
+        except AttributeError:
+            #return Rontec.UNKNOWN
+            return MCA_STATE.UNKNOWN
+        
     def set_presets(self, **kwargs):
         """Set presets parameters
 

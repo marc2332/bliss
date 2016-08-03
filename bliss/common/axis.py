@@ -259,6 +259,7 @@ class Axis(object):
             dial_pos = self.settings.get("dial_position")
             if dial_pos is None:
                 dial_pos = self._hw_position() 
+                self.__settings.set("dial_position", dial_pos)
             return dial_pos
 
     @lazy_init

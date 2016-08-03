@@ -5,6 +5,36 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+"""
+Controller class
+
+Class to be inherited by temperature controllers
+
+Example of .yml file for a mockup temperature controller
+with the mandatory fields:
+
+controller:
+    class: mockup                   <- mandatory
+    host: lid269
+    inputs:
+        -
+            name: thermo_sample     <- mandatory
+            channel: A              <- mandatory
+    outputs:
+        -
+            name: heater            <- mandatory
+            channel: B              <- mandatory
+            low_limit: 10           <- mandatory
+            high_limit: 200         <- mandatory
+            deadband: 0.1           <- mandatory
+
+    ctrl_loops:
+        -
+            name: sample_regulation <- mandatory
+            input: $thermo_sample   <- mandatory
+            output: $heater         <- mandatory
+"""
+
 from bliss.common.task_utils import *
 import gevent
 import gevent.event
@@ -16,6 +46,10 @@ from bliss.common.utils import set_custom_members
 
 
 class Controller(object):
+    """
+    Temperature controller base class
+    """
+
     def __init__(self, config, inputs, outputs, loops):
         #log.info("on Controller")
         self.__config = config
@@ -66,6 +100,9 @@ class Controller(object):
 
     @property
     def config(self):
+        """
+        returns the config structure
+        """
         return self.__config
 
     @property
@@ -73,86 +110,168 @@ class Controller(object):
         return self.__dictramp
 
     def get_object(self, name):
+        """
+        get object by name
+
+        Args:
+           name:  name of an object
+
+        Returns:
+           the object
+        """
         log.info("Controller:get_object: %s" % (name))
         #it is used by Loop class
         return self._objects.get(name)
 
     def initialize(self):
-        """ Controller Initialization """
+        """ 
+        Initializes the controller.
+        """
         pass
 
     def initialize_input(self,tinput):
+        """
+        Initializes an Input class type object
+           Raises NotImplementedError if not defined by inheriting class
+
+        Args:
+           tinput:  Input class type object          
+        """
         log.info("Controller:initialize_input: %s" % (tinput))
         raise NotImplementedError 
 
     def initialize_output(self,toutput):
+        """
+        Initializes an Output class type object
+           Raises NotImplementedError if not defined by inheriting class
+
+        Args:
+           toutput:  Output class type object          
+        """
         log.info("Controller:initialize_output: %s" % (toutput))
         raise NotImplementedError 
 
     def initialize_loop(self,tloop):
+        """
+        Initializes a Loop class type object
+           Raises NotImplementedError if not defined by inheriting class
+
+        Args:
+           tloop:  Loop class type object          
+        """
         log.info("Controller:initialize_loop: %s" % (tloop))
         raise NotImplementedError 
 
     def read_input(self, tinput):
+        """
+        Reads an Input class type object
+           Raises NotImplementedError if not defined by inheriting class
+
+        Args:
+           tinput:  Input class type object 
+
+        Returns:
+           read value         
+        """
         log.info("Controller:read_input: %s" % (tinput))
         raise NotImplementedError
 
     def read_output(self, toutput):
+        """
+        Reads an Onput class type object
+           Raises NotImplementedError if not defined by inheriting class
+
+        Args:
+           toutput:  Output class type object 
+
+        Returns:
+           read value         
+        """
         log.info("Controller:read_output: %s" % (toutput))
         raise NotImplementedError
 
     def start_ramp(self, toutput, sp, **kwargs):
-        """Send the command to start ramping to a setpoint"""
+        """
+        Send the command to start ramping to a setpoint
+           Raises NotImplementedError if not defined by inheriting class
+
+        Args:
+           toutput:  Output class type object 
+           sp:       setpoint
+           **kwargs: auxilliary arguments
+        """
         log.info("Controller:start_ramp: %s" % (toutput))
         raise NotImplementedError
 
     def set(self, toutput, sp, **kwargs):
-        """Send the command to set a setpoint as quickly as possible"""
+        """
+        Send the command to go to a setpoint as quickly as possible
+           Raises NotImplementedError if not defined by inheriting class
+
+        Args:
+           toutput:  Output class type object 
+           sp:       setpoint
+           **kwargs: auxilliary arguments
+        """
         log.info("Controller:set: %s" % (toutput))
         raise NotImplementedError
 
     def get_setpoint(self, toutput):
-        """Return current setpoint
+        """
+        Return current setpoint
+           Raises NotImplementedError if not defined by inheriting class
 
-        Returned value must be None if not setpoint is set
+        Args:
+           toutput:  Output class type object 
+
+        Returns:
+           setpoint value. Must be None if not setpoint is set
         """
         log.info("Controller:get_setpoint: %s" % (toutput))
         raise NotImplementedError
 
     def state_input(self,tinput):
-        """Return a string representing state of an 'inputs' object.
+        """
+        Return a string representing state of an 'inputs' object.
+           Raises NotImplementedError if not defined by inheriting class
 
-        One of:
-        - READY
-        - RUNNING
-        - ALARM
-        - FAULT
+        Args:
+           tinput:  Input class type object
+
+        Returns:
+           object state string. This is one of READY/RUNNING/ALARM/FAULT
         """
         log.info("Controller:state_input:" )
         raise NotImplementedError
 
     def state_output(self,toutput):
-        """Return a string representing state of an 'outputs' object.
+        """
+        Return a string representing state of an 'outputs' object.
+           Raises NotImplementedError if not defined by inheriting class
 
-        One of:
-        - READY
-        - RUNNING
-        - ALARM
-        - FAULT
+        Args:
+           toutput:  Output class type object
+
+        Returns:
+           object state string. This is one of READY/RUNNING/ALARM/FAULT
         """
         log.info("Controller:state_output:" )
         raise NotImplementedError
 
     def _setpoint_state(self, toutput, deadband):
-        """Return a string representing the setpoint state
+        """
+        Return a string representing the setpoint state of an Output class type object.
+        If a setpoint is set (by ramp or by direct setting) on an ouput, the status
+        will be RUNNING until it is in the deadband.
+        Method called by Output class type object.
 
-        One of:
-        - READY
-        - RUNNING
-        - ALARM
-        - FAULT
+        Args:
+           toutput:  Output class type object
+           deadband: deadband attribute of toutput.
+       
+        Returns:
+           object state string. This is one of READY/RUNNING/ALARM/FAULT
 
-           It can be used as it is or overloaded with custom code
         """
         log.info("Controller:setpoint_state: %s" % (toutput))
         mysp = self.get_setpoint(toutput)
@@ -164,45 +283,80 @@ class Controller(object):
             return "RUNNING"
 
     def setpoint_stop(self,toutput):
-        """Stops the setpoint
+        """
+        Stops the setpoint
+           Raises NotImplementedError if not defined by inheriting class
 
+        Args:
+           toutput:  Output class type object
         """
         log.info("Controller:setpoint_stop")
         raise NotImplementedError
 
     def setpoint_abort(self,toutput):
-        """Aborts the setpoint
+        """
+	Aborts the setpoint (emergency stop)
+           Raises NotImplementedError if not defined by inheriting class
 
+        Args:
+           toutput:  Output class type object
         """
         log.info("Controller:setpoint_stop")
         raise NotImplementedError
 
     def on(self,tloop):
-        """Starts the regulation on the loop
+        """
+        Starts the regulation on the loop
+           Raises NotImplementedError if not defined by inheriting class
+
+        Args: 
+           tloop:  Loop class type object
         """
         log.info("Controller:on:" )
         raise NotImplementedError
 
     def off(self,tloop):
-        """Stops the regulation on the loop
+        """
+        Stops the regulation on the loop
+           Raises NotImplementedError if not defined by inheriting class
+
+        Args: 
+           tloop:  Loop class type object
         """
         log.info("Controller:on:" )
         raise NotImplementedError
 
     def Wraw(self, str):
-        """A string to write to the controller
+        """
+        A string to write to the controller
+           Raises NotImplementedError if not defined by inheriting class
+
+        Args:
+           str:  the string to write
         """
         log.info("Controller:Wraw:" )
         raise NotImplementedError
 
     def Rraw(self):
-        """Reading the controller
+        """
+        Reading the controller
+           Raises NotImplementedError if not defined by inheriting class
+
+        returns:
+           response from the controller
         """
         log.info("Controller:Rraw:" )
         raise NotImplementedError
 
-    def WRraw(self):
-        """Write then Reading the controller
+    def WRraw(self, str):
+        """
+        Write then Reading the controller
+           Raises NotImplementedError if not defined by inheriting class
+
+        Args:
+           str:  the string to write
+        returns:
+           response from the controller
         """
         log.info("Controller:WRraw:" )
         raise NotImplementedError

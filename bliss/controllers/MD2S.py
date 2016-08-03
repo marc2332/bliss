@@ -5,12 +5,19 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+"""
+EMBL Microdiff MD2S set of methods
+
+yml configuration example:
+   name: diffractometer
+   class: MD2S
+   exporter_addr: 'microdiff29new:9001'
+"""
+
 import time
-from PyTango.gevent import DeviceProxy
 from bliss.common.task_utils import *
 from bliss.common.utils import grouped
 from bliss.comm.Exporter import *
-import logging
 
 class MD2S:
     def __init__(self, name, config):
@@ -18,24 +25,22 @@ class MD2S:
         self.timeout = 3 #s by default
         nn, port = config.get("exporter_addr").split(":")
         self._exporter = Exporter(nn, int(port))
-        self._beamviewer_server = config.get("beamviewer_server")
-        self._sample_video_server = config.get("sample_video_server")
-        self.thgt = config.get("thgt")
-        self.ttrans = config.get("ttrans")
-        self.transmission = config.get("transmission")
-        self.detcover = config.get("detcover")
-        self.safshut = config.get("safety_shutter")
-        self.filename = config.get("config_file")
-        self.energy = config.get("energy")
-        self.ring_curr = config.get("ring_curr")
 
     def get_hwstate(self):
+        """Read the hardware state (if implemented)
+           Returns:
+             state(str): the hardware state or Ready (if not implemented)
+        """ 
         try:
             return self._exporter.readProperty("HardwareState")
         except Exception:
             return "Ready"
 
     def get_swstate(self):
+        """Read the software state.
+           Returns:
+             state(str): the software state
+        """ 
         return self._exporter.readProperty("State")
 
     def _ready(self):
@@ -53,64 +58,43 @@ class MD2S:
              else:
                  time.sleep(0.5)
 
-    def get_transmission(self, fname=None):
-        transmission = 100
-        if not fname:
-            fname = self.filename
-        try:
-            f = open(fname)
-            array = []
-            nb_line = 0
-            for line in f:
-                if not line.startswith('#'):
-                    array.append(line.split())
-                    nb_line += 1
-                else:
-                    pass
-        except IOError:
-            logging.exception("Cannot read transmission file")
-
-        curr_dict = {}
-        for i in array:
-          curr_dict[float(i[0])] = map(float,i[1:])
-
-        #read the ring current
-        try:
-            r_curr = self.ring_curr.read()
-        except:
-            raise RuntimeError("Could not read ring current")
-
-        #read the energy
-        try:
-            en = self.energy.position()
-        except:
-            raise RuntimeError("Could not read the energy")
-
-        for curr in sorted(curr_dict):
-            if r_curr > float(curr):
-                if en > curr_dict[curr][0] and en < curr_dict[curr][1]:
-                    transmission = curr_dict[curr][2]
-                else:
-                    transmission = curr_dict[curr][3]
-        print "Setting transmission to", transmission
-        return transmission
-
     def get_phase(self):
-         return self._exporter.readProperty("CurrentPhase")
+        """Read the current phase
+           Returns:
+             phase(str): the current phase (Centring, BeamLocation,
+                            DataCollection or Transfer)
+        """
+        return self._exporter.readProperty("CurrentPhase")
 
     def set_phase(self, phase, wait=False, timeout=40):
+        """Set new phase. Wait until finished.
+           Args:
+               phase(str): Centring, BeamLocation, DataCollection or Transfer
+               wait(bool): Wait until finished (True/False)
+               timeout(float): wait time [s]
+           Returns:
+            None
+        """
         if self.phases.has_key(phase):
             self._exporter.execute("startSetPhase", phase)
             if wait:
                 self._wait_ready(timeout)
 
     def get_camera_calibration(self):
+        """Read the pixel per mm - the values are different for each zoom level
+           Returns:
+             values(list): pixel per mm on Y and Z axis
+        """
         #the value depends on the zoom
         px_mm_y = 1000000.0*self._exporter.readProperty("CoaxCamScaleX")
         px_mm_z = 1000000.0*self._exporter.readProperty("CoaxCamScaleY")
         return [px_mm_y, px_mm_z]
 
     def move_motors(self, *args):
+        """Simultaneous move for all the listed motors.
+           Args:
+             motor,position(list): motor_object0, position0, motor_object1, ...
+        """
         par = ""
         for axis, target in grouped(args, 2):
             par += "%s=%f," % (axis.root_name, target)
@@ -135,39 +119,69 @@ class MD2S:
         return [axis.wait_move() for axis in axis_list]
 
     def msopen(self):
+        """Open fast shutter"""
         self._exporter.writeProperty("FastShutterIsOpen", "true")
 
     def msclose(self):
+        """Close fast shutter"""
         self._exporter.writeProperty("FastShutterIsOpen", "false")
 
     def fldetin(self):
+        """Move the fluorescense detector close to the beam position"""
         self._exporter.writeProperty("FluoDetectorIsBack", "false")
 
     def fldetout(self):
+        """Move the fluorescense detector far from the beam position"""
         self._exporter.writeProperty("FluoDetectorIsBack", "true")
 
     def fldetstate(self):
+        """Read the fluorescense detector position
+           Returns:
+             position(bool): close to the beam - True/False
+        """
         self._exporter.readProperty("FluoDetectorIsBack")
 
     def flight(self, state=None):
+        """Switch the front light on/off or read the state
+           Args:
+             state(bool): on (True), off (False) or None (read only)
+           Returns:
+             state(bool): on (True)or off (False) - when no args
+        """
         if state:
             self._exporter.writeProperty("FrontLightIsOn",state)
         else:
             return self._exporter.readProperty("FrontLightIsOn")
 
     def blight(self,  state=None):
+        """Switch the back light on/off or read the state
+           Args:
+             state(bool): on (True), off (False) or None (read only)
+           Returns:
+             state(bool): on (True)or off (False) - when no args
+        """
         if state:
             self._exporter.writeProperty("BackLightIsOn",state)
         else:
             return self._exporter.readProperty("BackLightIsOn")
 
     def cryo(self,  state=None):
+        """Set the cryostat close to/far from the sample or read the position
+           Args:
+             state(bool): close to (True), far from (False) or None (read only)
+           Returns:
+             state(bool): close to(True) or far from(False) - when no args
+        """
         if state:
             self._exporter.writeProperty("CryoIsBack",state)
         else:
             return self._exporter.readProperty("CryoIsBack")
 
     def microdiff_init(self,wait=True):
+        """Do the homing of all the motors
+           Args:
+             wait(bool): Wait until finished (True/False)
+        """
         self._exporter.execute("startHomingAll")
         if wait:
             self._wait_ready(60)
@@ -176,16 +190,28 @@ class MD2S:
         self.microdiff_init(wait)
 
     def phi_init(self,wait=True):
+        """Do the homing of omega
+           Args:
+             wait(bool): Wait until finished (True/False)
+        """
         self._exporter.execute("startHomingMotor", "Omega")
         if wait:
             self._wait_ready(10)
 
     def zoom_init(self,wait=True):
+        """Do the homing of the zoom
+           Args:
+             wait(bool): Wait until finished (True/False)
+        """
         self._exporter.execute("startHomingMotor", "Zoom")
         if wait:
             self._wait_ready(10)
 
     def kappa_init(self,wait=True):
+        """Do the homing of the kappa
+           Args:
+             wait(bool): Wait until finished (True/False)
+        """
         self._exporter.execute("startHomingMotor", "Kappa")
         if wait:
             self._wait_ready(10)
@@ -195,6 +221,15 @@ class MD2S:
             self._wait_ready(10)
 
     def prepare(self, what, **kwargs):
+        """Do actions to prepare the MD2S to use in different procedures like
+           centrebeam or alignment. Wait until actions done.
+           Args:
+             what(string): which is action to follow (see_beam, data_collect)
+           Keyword Args:
+             zoom_level(int): where to move the zoom to
+           Returns:
+             zoom_level(int): position before the execition of the action, if relevant
+        """
         if what == "data_collect":
             self.set_phase("DataCollection", wait=True, timeout=100)
             if kwargs.has_key("zoom_level"):

@@ -293,13 +293,17 @@ class Axis(object):
             curr_pos = 0
         return curr_pos
 
+    def _calc_offset(self, new_pos, dial_pos):
+        return new_pos - self.sign * dial_pos
+
     def _set_position_and_offset(self, new_pos):
         dial_pos = self.settings.get("dial_position")
         if dial_pos is None:
             dial_pos = self._hw_position()
+            self.__settings.set("dial_position", dial_pos)
         prev_offset = self.offset
         self.__settings.set("_set_position", new_pos)
-        self.__settings.set("offset", new_pos - self.sign * dial_pos)
+        self.__settings.set("offset", self._calc_offset(new_pos, dial_pos))
         # update limits
         ll, hl = self.limits()
         lim_delta = self.offset - prev_offset
@@ -459,8 +463,10 @@ class Axis(object):
     def _handle_sigint(self):
         self.stop(KeyboardInterrupt)
 
-    def dial2user(self, position):
-        return (self.sign * position) + self.offset
+    def dial2user(self, position, offset=None):
+        if offset is None:
+            offset = self.offset
+        return (self.sign * position) + offset
 
     def user2dial(self, position):
         return (position - self.offset) / self.sign

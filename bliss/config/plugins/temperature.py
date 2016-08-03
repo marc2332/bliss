@@ -21,17 +21,22 @@ def create_objects_from_config_node(config, item_cfg_node):
     loops = list()
     names = dict()
     for category, objects in [('inputs', inputs),('outputs', outputs), ('ctrl_loops', loops)]:
-      for config_item in parent_node.get(category):
-          name = config_item.get("name")
-          objects.append((name, config_item))
-          names.setdefault(category, list()).append(name)
+        pnode_cat = parent_node.get(category)
+        if pnode_cat:
+            for config_item in pnode_cat:
+                name = config_item.get("name")
+                objects.append((name, config_item))
+                names.setdefault(category, list()).append(name)
                  
     controller_class = getattr(module, parent_node["class"])
     controller = controller_class(parent_node, inputs, outputs, loops)
     
     cache_dict = dict()
     for category in ('inputs', 'outputs', 'ctrl_loops'):
-        cache_dict.update(dict(zip(names[category], [controller]*len(names[category]))))
+        try:
+            cache_dict.update(dict(zip(names[category], [controller]*len(names[category]))))
+        except KeyError:
+            pass
 
     #controller.initialize()
     o = controller.get_object(item_name)

@@ -792,8 +792,12 @@ class Group(object):
             # Handle axis spread over different system
             if not system in cmds:
                 cmds[system] = "MOVE GROUP"
+            try:
+                pos = int(target_positions[axis])
+            except ValueError:
+                return
             cmds[system] += " %s %ld"% \
-                (axis.address(), target_positions[axis])
+                (axis.address(), pos)
         
         # Launch the motions on each concerned system
         for dev in cmds:

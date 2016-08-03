@@ -35,6 +35,8 @@ class energy_wl(CalcController):
     def calc_from_real(self, positions_dict):
         energy_axis = self._tagged["energy"][0]
         dspace = energy_axis.settings.get("dspace")
+        if dspace is None:
+            dspace = 3.13542
         # NB: lambda is a keyword.
         lamb = 2 * dspace * numpy.sin(numpy.radians(positions_dict["monoang"]))
         return {"energy": 12.3984 / lamb, "wavelength": lamb}

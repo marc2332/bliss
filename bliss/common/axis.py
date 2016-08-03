@@ -298,10 +298,7 @@ class Axis(object):
         return new_pos - self.sign * dial_pos
 
     def _set_position_and_offset(self, new_pos):
-        dial_pos = self.settings.get("dial_position")
-        if dial_pos is None:
-            dial_pos = self._hw_position()
-            self.__settings.set("dial_position", dial_pos)
+        dial_pos = self.dial()
         prev_offset = self.offset
         self.__settings.set("_set_position", new_pos)
         self.__settings.set("offset", self._calc_offset(new_pos, dial_pos))

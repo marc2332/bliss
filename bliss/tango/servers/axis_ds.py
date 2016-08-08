@@ -1078,6 +1078,10 @@ def __recreate_axes(server_name, manager_dev_name, axis_names,
             continue
         for dev_name in dev_names:
             curr_axis_name = dev_name.rsplit("/", 1)[-1]
+            try:
+                bliss.get_axis(curr_axis_name)
+            except:
+                continue
             curr_axes[curr_axis_name] = dev_name, dev_class
 
     axis_names_set = set(axis_names)

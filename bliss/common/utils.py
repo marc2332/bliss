@@ -58,7 +58,7 @@ def add_object_method(obj, method, pre_call, name=None, args=[], types_info=(Non
                          obj), name, types_info)
 
 
-def object_method(method=None, name=None, args=[], types_info=(None, None)):
+def object_method(method=None, name=None, args=[], types_info=(None, None), filter=None):
     """
     Decorator to add a custom method to an object.
 
@@ -69,16 +69,21 @@ def object_method(method=None, name=None, args=[], types_info=(None, None)):
         # Passes here if decorator parameters are not present ???.
         # ...
         return functools.partial(object_method, name=name, args=args,
-                                 types_info=types_info)
+                                 types_info=types_info, filter=filter)
 
     # Returns a method where _object_method_ attribute is filled with a
     # dict of elements to characterize it.
-    method._object_method_ = dict(name=name, args=args, types_info=types_info)
+    method._object_method_ = dict(name=name, args=args, types_info=types_info, filter=filter)
 
     return method
 
 
-def add_object_attribute(obj, name=None, fget=None, fset=None, args=[], type_info=None):
+def object_method_type(method=None, name=None, args=[], types_info=(None, None), type=None):
+    f = lambda x: isinstance(x, type)
+    return object_method(method=method, name=name, args=args, types_info=types_info, filter=f)
+
+
+def add_object_attribute(obj, name=None, fget=None, fset=None, args=[], type_info=None, filter=None):
 
     cust_attr_dict = getattr(obj, "_%s__custom_attributes_dict" % obj.__class__.__name__)
 
@@ -103,10 +108,15 @@ def add_object_attribute(obj, name=None, fget=None, fset=None, args=[], type_inf
 """
 decorators for set/get methods to access to custom attributes
 """
-def object_attribute_get(get_method=None, name=None, args=[], type_info=None):
+
+def object_attribute_type_get(get_method=None, name=None, args=[], type_info=None, type=None):
+    f = lambda x: isinstance(x, type)
+    return object_attribute_get(get_method=get_method, name=name, args=args, type_info=type_info, filter=f)
+
+def object_attribute_get(get_method=None, name=None, args=[], type_info=None, filter=None):
     if get_method is None:
         return functools.partial(object_attribute_get, name=name, args=args,
-                                 type_info=type_info)
+                                 type_info=type_info, filter=filter)
 
     if name is None:
         name = get_method.func_name
@@ -114,18 +124,23 @@ def object_attribute_get(get_method=None, name=None, args=[], type_info=None):
     if attr_name.startswith("get_"):
         attr_name = attr_name[4:] # removes leading "get_"
 
-    get_method._object_method_ = dict(name=name, args=args, types_info=("None", type_info))
+    get_method._object_method_ = dict(name=name, args=args, types_info=("None", type_info), filter=filter)
 
     if not hasattr(get_method, "_object_attribute_"):
         get_method._object_attribute_ = dict()
-    get_method._object_attribute_.update(name=attr_name, fget=get_method, args=args, type_info=type_info)
+    get_method._object_attribute_.update(name=attr_name, fget=get_method, args=args, type_info=type_info, filter=filter)
 
     return get_method
 
-def object_attribute_set(set_method=None, name=None, args=[], type_info=None):
+
+def object_attribute_type_set(set_method=None, name=None, args=[], type_info=None, type=None):
+    f = lambda x: isinstance(x, type)
+    return object_attribute_set(set_method=set_method, name=name, args=args, type_info=type_info, filter=f)
+
+def object_attribute_set(set_method=None, name=None, args=[], type_info=None, filter=None):
     if set_method is None:
         return functools.partial(object_attribute_set, name=name, args=args,
-                                 type_info=type_info)
+                                 type_info=type_info, filter=filter)
 
     if name is None:
         name = set_method.func_name
@@ -133,11 +148,11 @@ def object_attribute_set(set_method=None, name=None, args=[], type_info=None):
     if attr_name.startswith("set_"):
         attr_name = attr_name[4:] # removes leading "set_"
 
-    set_method._object_method_ = dict(name=name, args=args, types_info=(type_info, "None"))
+    set_method._object_method_ = dict(name=name, args=args, types_info=(type_info, "None"), filter=filter)
 
     if not hasattr(set_method, "_object_attribute_"):
         set_method._object_attribute_ = dict()
-    set_method._object_attribute_.update(name=attr_name, fset=set_method, args=args, type_info=type_info)
+    set_method._object_attribute_.update(name=attr_name, fset=set_method, args=args, type_info=type_info, filter=filter)
 
     return set_method
 
@@ -150,13 +165,23 @@ def set_custom_members(src_obj, target_obj, pre_call=None):
     for name, member in inspect.getmembers(src_obj):
         # Just fills the list.
         if hasattr(member, "_object_attribute_"):
-            add_object_attribute(target_obj,  **member._object_attribute_)
+            attribute_info = dict(member._object_attribute_)
+            filter = attribute_info.pop('filter', None)
+            #print "\nUU", name, filter, target_obj,
+            #if filter: print "\nVV", filter(target_obj)
+            if filter is None or filter(target_obj):
+               add_object_attribute(target_obj,  **member._object_attribute_)
 
         # For each method of <src_obj>: try to add it as a
         # custom method or as methods to set/get custom
         # attributes.
         try:
-            add_object_method(target_obj, member, pre_call, **member._object_method_)
+            method_info = dict(member._object_method_)
+            filter = method_info.pop('filter', None)
+            #print "\nAA", name, filter, target_obj,
+            #if filter: print "\nBB", filter(target_obj)
+            if filter is None or filter(target_obj):
+                add_object_method(target_obj, member, pre_call, **method_info)
         except AttributeError:
             pass
 

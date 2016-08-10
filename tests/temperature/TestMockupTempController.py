@@ -28,6 +28,47 @@ sys.path.insert(
             os.path.dirname(__file__),
             "..")))
 """
+
+"""
+.yml file used for unitest:
+in lid269:blissadm/local/beamline_configuration/temp/test.yml
+-----------------------------------
+controller:
+    class: mockup
+    host: lid269
+    inputs:
+        - 
+            name: thermo_sample
+            channel: A
+            unit: deg
+            tango_server: temp1
+        - 
+            name: sensor
+            channel: B
+            tango_server: temp1
+    outputs: 
+        -
+            name: heater
+            channel: B 
+            unit: deg
+            low_limit: 10
+            high_limit: 200
+            deadband: 0.1
+            tango_server: temp1
+    ctrl_loops:
+        -
+            name: sample_regulation
+            input: $thermo_sample
+            output: $heater
+            P: 2.2
+            I: 1.1
+            D: 0.1
+            frequency: 2
+            deadband: 5
+            tango_server: temp1
+------------------------------------
+"""
+
 """
 To work in my local dev
 """
@@ -83,6 +124,17 @@ class TestMockupTempController(unittest.TestCase):
         bb=config.get("heater")
         bb.state() 
 
+    def tests_output_limits(self):
+        config = static.get_config()     
+        bb=config.get("heater")
+        self.assertEqual(10,bb.limits[0])
+        self.assertEqual(200,bb.limits[1])
+
+    def tests_output_deadband(self):
+        config = static.get_config()     
+        bb=config.get("heater")
+        self.assertEqual(0.1,bb.deadband)
+
     def test_read_output(self):       
         config = static.get_config()     
         bb=config.get("heater") 
@@ -98,28 +150,28 @@ class TestMockupTempController(unittest.TestCase):
         cc=config.get("sample_regulation")
         print "%s" % (cc.output.read())  
 
-    def test_set_rampval(self):
+    def test_set_ramprate(self):
         SP=45
         config = static.get_config()  
         bb=config.get("heater")
-        bb.rampval(SP)
-        val = bb.rampval()                  
+        bb.ramprate(SP)
+        val = bb.ramprate()                  
         self.assertEqual(SP,val)
          
     def test_set_stepval(self):
         SP=23
         config = static.get_config()  
         bb=config.get("heater")
-        bb.stepval(SP)
-        val = bb.stepval()                  
+        bb.step(SP)
+        val = bb.step()                  
         self.assertEqual(SP,val)
          
-    def test_set_dwellval(self):
+    def test_set_dwell(self):
         SP=12
         config = static.get_config()  
         bb=config.get("heater")
-        bb.dwellval(SP)
-        val = bb.dwellval()                  
+        bb.dwell(SP)
+        val = bb.dwell()                  
         self.assertEqual(SP,val) 
 
     def test_output_set(self):
@@ -150,7 +202,7 @@ class TestMockupTempController(unittest.TestCase):
         self.assertAlmostEqual(int(round(myval)),SP,places=1)
         myset = bb.set()
         self.assertAlmostEqual(int(round(myset)),SP,places=1)
-        myval = bb.stepval()
+        myval = bb.step()
         self.assertEqual(myval,KW)
 
         
@@ -176,31 +228,31 @@ class TestMockupTempController(unittest.TestCase):
         print "Stopping regulation"
         cc.off()
 
-    def test_Pval(self):
+    def test_kp(self):
         KW=13
         config = static.get_config()  
         cc=config.get("sample_regulation")
         print "Setting P to %f" % KW
-        cc.Pval(KW)
-        myval = cc.Pval()
+        cc.kp(KW)
+        myval = cc.kp()
         self.assertEqual(KW,myval)
         
-    def test_Ival(self):
+    def test_ki(self):
         KW=50
         config = static.get_config()  
         cc=config.get("sample_regulation")
         print "Setting I to %f" % KW
-        cc.Ival(KW)
-        myval = cc.Ival()
+        cc.ki(KW)
+        myval = cc.ki()
         self.assertEqual(KW,myval)
         
-    def test_Dval(self):
+    def test_kd(self):
         KW=1
         config = static.get_config()  
         cc=config.get("sample_regulation")
         print "Setting D to %f" % KW
-        cc.Dval(KW)
-        myval = cc.Dval()
+        cc.kd(KW)
+        myval = cc.kd()
         self.assertEqual(KW,myval)
         
 

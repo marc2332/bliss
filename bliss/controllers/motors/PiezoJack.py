@@ -19,6 +19,8 @@ from bliss.common.log import bcolors
 from bliss.common.axis import AxisState
 from bliss.common.task_utils import *
 
+from bliss.common.utils import object_method
+
 """
 Bliss controller for a piezo jack.
 

@@ -9,6 +9,8 @@ import os
 import sys
 import types
 
+import json
+
 import PyTango
 from PyTango.server import Device, DeviceMeta, attribute, command
 from PyTango.server import get_worker
@@ -62,6 +64,39 @@ class BlissInput(Device):
         name = self.get_name().rsplit('/', 1)[-1] 
 	return config.get(name) 
 
+    @attribute(dtype='string')
+    def name(self):
+        return self.channel_object.name
+
+    @command(dtype_out='DevVarStringArray')
+    def GetCustomCommandList(self):
+        """
+        Returns the list of custom commands.
+        JSON format.
+        """
+        _cmd_list = self.channel_object.custom_methods_list
+
+        argout = list()
+
+        for _cmd in _cmd_list:
+            self.debug_stream("Custom command : %s" % _cmd[0])
+            argout.append( json.dumps(_cmd))
+
+        return argout
+
+    @command(dtype_in='string')
+    def Wraw(self,st):
+        self.channel_object.controller.Wraw(st)
+
+    @command(dtype_out='string')
+    def Rraw(self):
+        return self.channel_object.controller.Rraw()
+     
+    @command(dtype_in='string',dtype_out='string')
+    def WRraw(self,st):
+        return self.channel_object.controller.WRraw(st)
+
+
     @command(dtype_out=float)
     def read(self):
         return self.channel_object.read()       
@@ -85,6 +120,10 @@ class BlissOutput(Device):
         config = get_config()
         name = self.get_name().rsplit('/', 1)[-1] 
 	return config.get(name) 
+
+    @attribute(dtype='string')
+    def name(self):
+        return self.channel_object.name
 
     @attribute(dtype=float)
     def limit_low(self):
@@ -127,28 +166,12 @@ class BlissOutput(Device):
         self.channel_object.step(stp)
 
     @attribute(dtype=float)
-    def kp(self):
-        return self.channel_object.kp()
+    def pollramp(self):
+        return self.channel_object.pollramp()
 
-    @kp.write
-    def kp(self,kkp):
-        self.channel_object.kp(kkp)
-
-    @attribute(dtype=float)
-    def ki(self):
-        return self.channel_object.ki()
-
-    @ki.write
-    def ki(self,kki):
-        self.channel_object.ki(kki)
-
-    @attribute(dtype=float)
-    def kd(self):
-        return self.channel_object.kd()
-
-    @kd.write
-    def kd(self,kkd):
-        self.channel_object.kd(kkd)
+    @pollramp.write
+    def pollramp(self,pr):
+        self.channel_object.pollramp(pr)
 
     @attribute(dtype='DevState')
     def rampstate(self):
@@ -172,7 +195,23 @@ class BlissOutput(Device):
 
     @command
     def abort(self):
-        self.channel_object.abort()      
+        self.channel_object.abort()  
+
+    @command(dtype_out='DevVarStringArray')
+    def GetCustomCommandList(self):
+        """
+        Returns the list of custom commands.
+        JSON format.
+        """
+        _cmd_list = self.channel_object.custom_methods_list
+
+        argout = list()
+
+        for _cmd in _cmd_list:
+            self.debug_stream("Custom command : %s" % _cmd[0])
+            argout.append( json.dumps(_cmd))
+
+        return argout
 
     def dev_state(self):
         state = self.channel_object.state()
@@ -194,6 +233,73 @@ class BlissLoop(Device):
         name = self.get_name().rsplit('/', 1)[-1] 
 	return config.get(name) 
 
+    @attribute(dtype='string')
+    def name(self):
+        return self.channel_object.name
+
+    @attribute(dtype='string')
+    def input_name(self):
+        return self.channel_object.input.name
+
+    @attribute(dtype='string')
+    def input_device(self):
+        return getdevicefromname("BlissInput",self.channel_object.input.name)
+
+    @attribute(dtype='string')
+    def output_name(self):
+        return self.channel_object.output.name
+
+    @attribute(dtype='string')
+    def output_device(self):
+        return getdevicefromname("BlissOutput",self.channel_object.output.name)
+
+    @attribute(dtype=float)
+    def kp(self):
+        return self.channel_object.kp()
+
+    @kp.write
+    def kp(self,kkp):
+        self.channel_object.kp(kkp)
+
+    @attribute(dtype=float)
+    def ki(self):
+        return self.channel_object.ki()
+
+    @ki.write
+    def ki(self,kki):
+        self.channel_object.ki(kki)
+
+    @attribute(dtype=float)
+    def kd(self):
+        return self.channel_object.kd()
+
+    @kd.write
+    def kd(self,kkd):
+        self.channel_object.kd(kkd)
+
+    @command(dtype_out='DevVarStringArray')
+    def GetCustomCommandList(self):
+        """
+        Returns the list of custom commands.
+        JSON format.
+        """
+        _cmd_list = self.channel_object.custom_methods_list
+
+        argout = list()
+
+        for _cmd in _cmd_list:
+            self.debug_stream("Custom command : %s" % _cmd[0])
+            argout.append( json.dumps(_cmd))
+
+        return argout
+    @command
+    def on(self):
+        self.channel_object.on()
+
+    @command
+    def off(self):
+        self.channel_object.off()
+
     @command(dtype_out=float)
     def read_input(self):
         return self.channel_object.input.read()       
@@ -208,8 +314,13 @@ class BlissLoop(Device):
 
     def init_device(self):
         Device.init_device(self)
+
+def getdevicefromname(klass=None,name=None):
+    mykey = klass + '_' + name
+    return dev_map.get(mykey,None)[0]
                
 def recreate(db=None, new_server=False, typ='inputs'):
+    global dev_map
 #    import pdb; pdb.set_trace()
     if db is None:
         db = PyTango.Database()
@@ -492,11 +603,11 @@ def main(argv=None):
         new_server = False
 
     initialize_logging(argv)
-    inputs, tango_input_classes   = recreate(new_server=new_server,typ='inputs')
-    outputs, tango_output_classes = recreate(new_server=new_server,typ='outputs')
-    loops, tango_loop_classes     = recreate(new_server=new_server,typ='ctrl_loops')
+    inputs, tango_input_classes   = recreate(new_server=new_server,typ='inputs')  
+    outputs, tango_output_classes = recreate(new_server=new_server,typ='outputs') 
+    loops, tango_loop_classes     = recreate(new_server=new_server,typ='ctrl_loops')  
     tango_classes = tango_input_classes + tango_output_classes + tango_loop_classes
-    run(tango_classes, args=argv, green_mode=GreenMode.Gevent)    
+    run(tango_classes, args=argv, green_mode=GreenMode.Gevent)
 
 if __name__ == "__main__":
     main()

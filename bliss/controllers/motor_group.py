@@ -92,13 +92,9 @@ class _Group(object):
             controller.stop_all(*motions)
         except NotImplementedError:
             for motion in motions:
-                motion.axis.stop(wait=False)
-        else:
-            for motion in motions:
-                try:
-                    motion.axis._stop_loop()
-                except Exception:
-                    sys.excepthook(*sys.exc_info())
+                controller.stop(motion.axis)
+        for motion in motions:
+            motion.axis._handle_stop()
         
     def _do_stop(self,wait=True):
         all_motions = []

@@ -406,14 +406,13 @@ class Axis(object):
         while True:
             state = self.__controller.state(self)
             if state != "MOVING":
-                if state == 'LIMPOS' or state == 'LIMNEG':
-                    self._update_settings(state)
-                    if self.__stopped:
-                        self.settings.set("_set_position", self.position())
-                    raise RuntimeError(str(state))
                 break
             self._update_settings(state)
             gevent.sleep(polling_time)
+
+        if state in ['LIMPOS', 'LIMNEG']:
+            self.settings.set("_set_position", self._position())
+            raise RuntimeError(str(state))
 
         # gevent-atomic
         stopped, self.__stopped = self.__stopped, False
@@ -615,9 +614,9 @@ class Axis(object):
 
     def _do_stop(self):
         self.__controller.stop(self)
-        self._stop_loop()
+        self._handle_stop()
 
-    def _stop_loop(self):
+    def _handle_stop(self):
         self.__stopped = True
 
     @lazy_init

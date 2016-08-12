@@ -14,18 +14,14 @@ SP = 20
 
 """
 Bliss generic library
+"""
 
 sys.path.insert(
     0,
     os.path.abspath(
         os.path.join(
             os.path.dirname(__file__),
-            "..")))
-"""
-"""
-To work in my local dev
-"""
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
+            os.path.pardir, os.path.pardir)))
 
 
 import bliss

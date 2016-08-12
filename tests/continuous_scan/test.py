@@ -14,7 +14,7 @@ sys.path.insert(
     os.path.abspath(
         os.path.join(
             os.path.dirname(__file__),
-            "..")))
+            os.path.pardir, os.path.pardir)))
 
 from bliss.common.continuous_scan import AcquisitionChain
 from bliss.common.continuous_scan import Scan

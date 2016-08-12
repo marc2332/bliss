@@ -20,14 +20,14 @@ KW = 1
 
 """
 Bliss generic library
+"""
 
 sys.path.insert(
     0,
     os.path.abspath(
         os.path.join(
             os.path.dirname(__file__),
-            "..")))
-"""
+            os.path.pardir, os.path.pardir)))
 
 """
 .yml file used for unitest:
@@ -68,11 +68,6 @@ controller:
             tango_server: temp1
 ------------------------------------
 """
-
-"""
-To work in my local dev
-"""
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
 
 
 import bliss

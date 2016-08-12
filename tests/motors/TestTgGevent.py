@@ -14,17 +14,10 @@ sys.path.insert(
     os.path.abspath(
         os.path.join(
             os.path.dirname(__file__),
-            "..")))
-sys.path.insert(
-    0,
-    os.path.abspath(
-        os.path.join(
-            os.path.dirname(__file__),
-            "..",
-            "tango")))
+            os.path.pardir, os.path.pardir)))
 
 import bliss
-import TgGevent
+from bliss.tango.servers import TgGevent
 
 config_xml = """
 <config>

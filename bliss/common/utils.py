@@ -167,8 +167,6 @@ def set_custom_members(src_obj, target_obj, pre_call=None):
         if hasattr(member, "_object_attribute_"):
             attribute_info = dict(member._object_attribute_)
             filter = attribute_info.pop('filter', None)
-            #print "\nUU", name, filter, target_obj,
-            #if filter: print "\nVV", filter(target_obj)
             if filter is None or filter(target_obj):
                add_object_attribute(target_obj,  **member._object_attribute_)
 
@@ -178,8 +176,6 @@ def set_custom_members(src_obj, target_obj, pre_call=None):
         try:
             method_info = dict(member._object_method_)
             filter = method_info.pop('filter', None)
-            #print "\nAA", name, filter, target_obj,
-            #if filter: print "\nBB", filter(target_obj)
             if filter is None or filter(target_obj):
                 add_object_method(target_obj, member, pre_call, **method_info)
         except AttributeError:

@@ -27,7 +27,7 @@ from bliss.controllers.ct2 import CtClockSrc, CtGateSrc, CtHardStartSrc, CtHardS
 
 def configure(device, channels):
     device.request_exclusive_access()
-    device.disable_interrupts()
+    device.set_interrupts()
     device.reset()
     device.software_reset()
 
@@ -94,7 +94,7 @@ def prepare_slaves(device, acq_time, nb_points, channels):
     device.set_counters_latch_sources(latch_sources)
 
     # make all counters enabled by software
-    device.set_counters_software_enable(channel_nbs + [11, 12])
+    device.enable_counters_software(channel_nbs + [11, 12])
 
 
 def main():

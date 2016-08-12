@@ -57,7 +57,7 @@ def prepare(card, counter, value):
     card.set_interrupts(counters={counter: True},
                         dma=True, fifo_half_full=True, error=True)
 
-    card.set_counters_software_enable({1: True})
+    card.enable_counters_software([1])
     
     card._fifo = card.fifo
 
@@ -84,10 +84,9 @@ def main():
 
     p201 = P201Card()
     p201.request_exclusive_access()
-    p201.disable_interrupts()
+    p201.set_interrupts()
     p201.reset()
     p201.software_reset()
-    p201.enable_interrupts(100)
 
     poll = select.epoll()
     poll.register(p201, select.EPOLLIN | select.EPOLLHUP | select.EPOLLERR)
@@ -117,7 +116,7 @@ def main():
         print("\rCtrl-C pressed. Bailing out!")
     finally:
         print ("Clean up!")
-        p201.disable_interrupts()
+        p201.set_interrupts()
         p201.reset()
         p201.software_reset()
 

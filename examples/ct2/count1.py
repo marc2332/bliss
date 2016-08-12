@@ -46,7 +46,7 @@ def main():
         sys.stdout.flush()
 
     p201 = P201Card()
-    p201.disable_interrupts()
+    p201.set_interrupts()
     p201.request_exclusive_access()
     p201.reset()
     p201.software_reset()

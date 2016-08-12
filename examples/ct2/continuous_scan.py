@@ -102,7 +102,7 @@ def go(card):
     card.set_clock(Clock.CLK_40_MHz)
 
     # Make sure the counters are disabled (soft_enable_disable).
-    card.set_counters_software_enable({})
+    card.disable_counters_software(card.COUNTERS)
 
     # Configure counter 1 aka c_so:
     # (1) clock source is s_en
@@ -238,13 +238,11 @@ def go(card):
     poll = select.epoll()
     poll.register(card, select.EPOLLIN | select.EPOLLHUP | select.EPOLLERR)
     
-    card.enable_interrupts(100)
-
     card.set_interrupts(counters=counter_interrupts,
                         dma=True, fifo_half_full=True, error=True)
 
     # enable counters
-    card.set_counters_software_enable({1: True, 11: True, 12: True, 2: True, 3: True})
+    card.enable_counters_software([1, 11, 12, 2, 3])
     
     stop, finish = False, False
     while not stop:
@@ -309,8 +307,7 @@ def handle_event(card, fifo, fd, event):
 
 def clean_up(card):
     card.set_interrupts()
-    card.disable_interrupts()    
-    card.set_counters_software_enable({})
+    card.disable_counters_software(card.COUNTERS)
     
 
 if __name__ == "__main__":

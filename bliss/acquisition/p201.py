@@ -49,7 +49,7 @@ class P201AcquisitionMaster(AcquisitionMaster):
             device.set_interrupts(counters=(12,), dma=True, error=True)
 
             # make master enabled by software
-            device.set_counters_software_enable([11, 12])
+            device.enable_counters_software([11, 12])
         else:
             raise NotImplementedError()
 
@@ -63,7 +63,7 @@ class P201AcquisitionMaster(AcquisitionMaster):
 
     def start(self):
         if self.__master == "internal":
-            self.device.set_counters_software_start((11, 12))
+            self.device.start_counters_software((11, 12))
 
     def stop(self):
         #TODO: call proper stop method
@@ -102,10 +102,10 @@ class P201AcquisitionDevice(AcquisitionDevice):
         # trigger, all active counters (including counters 11 (timer)
         # and 12 (point_nb)) are stored to FIFO
         device.set_DMA_enable_trigger_latch((11,), all_channels)
-        device.set_counters_software_enable(channels)
+        device.enable_counters_software(channels)
 
     def start(self):
-        self.device.set_counters_software_start(self.__channels.values())
+        self.device.start_counters_software(self.__channels.values())
 
     def stop(self):
         #TODO: call proper stop method

@@ -647,10 +647,10 @@ class FilterClock(enum.Enum):
 @enum.unique
 class FilterInputSelection(enum.Enum):
     """Input selection to be used in input filter configuration"""
-    SINGLE_SHORT_PULSE_CAPTURE = 0
-    SAMPLING_WITHOUT_FILTERING = 1
-    SYMETRICAL_FILTER          = 2
-    ASYMETRICAL_FILTER         = 3
+    SINGLE_SHORT_PULSE_CAPTURE = (0 << 3)
+    SAMPLING_WITHOUT_FILTERING = (1 << 3)
+    SYMETRICAL_FILTER          = (2 << 3)
+    ASYMETRICAL_FILTER         = (3 << 3)
 
 
 #----------------------------------------------------------------------------
@@ -1695,17 +1695,19 @@ class FilterInput(BaseParam):
 
 class FilterOutput(BaseParam):
     """
-    Channel output filter (clock freq., enabled, polarity)
+    Channel output filter (clock freq., enabled, polarity_inverted)
     """
 
     _FLAG_MAP = { 'clock':    (FilterClock, 0b111),
                   'enable':   (bool, 1 << 3),
-                  'polarity': (int,  1 << 4) }
+                  'polarity_inverted': (bool, 1 << 4) }
 
     def __setitem__(self, key, value):
         if key == 'clock':
             klass, mask = self._FLAG_MAP[key]
             self.value = (self.value & NOT(mask)) | value.value
+        else:
+            super(FilterOutput, self).__setitem__(key, value)
 
 
 class AMCCFIFOStatus(BaseParam):
@@ -1823,6 +1825,7 @@ class BaseCard:
         self.__log = logging.getLogger("P201." + address)
         self.__address = address
         self.__dev = None
+        self.__interrupt_buffer_size = 0
         self.connect(address)
 
     def __str__(self):
@@ -1855,7 +1858,7 @@ class BaseCard:
 
     def _write_offset(self, offset, ivalue):
         """ """
-        svalue = struct.pack("I", ivalue)
+        svalue = struct.pack("I", int(ivalue))
         return pwrite(self.fileno(), svalue, offset)
 
     def _write_offset_array(self, offset, array):
@@ -1951,9 +1954,9 @@ class BaseCard:
         """
         self.__ioctl(CT2_IOC_DEVRST)
 
-    def enable_interrupts(self, fifo_size):
+    def __enable_interrupts(self, fifo_size):
         """
-        Enable card interrupts with the given number of FIFO entries
+        Enables driver IRQ handler with the given number of FIFO entries
 
         :param fifo_size: FIFO depth (number of FIFO entries)
         :type fifo_size: int
@@ -1962,11 +1965,34 @@ class BaseCard:
         """
         self.__ioctl(CT2_IOC_EDINT, fifo_size)
 
-    def disable_interrupts(self):
+    def __disable_interrupts(self):
         """
-        Disables the card interrupts
+        Disables the driver IRQ handler
         """
         self.__ioctl(CT2_IOC_DDINT)
+
+    def __source_irq_reg_name(self, reg):
+        return "SOURCE_IT_" + reg
+
+    def __read_source_irq_reg(self, reg):
+        """
+        Reads the source IRQ register
+        """
+        return self.read_reg(self.__source_irq_reg_name(reg))
+
+    def __write_source_irq_reg(self, reg, val):
+        """
+        Writes on source IRQ register and enable/disable IRQ handler 
+        """
+        # Ensure that the kernel will handle IRQs before enabling ...
+        if val:
+            self.__enable_interrupts(self.__interrupt_buffer_size)
+        self.write_reg(self.__source_irq_reg_name(reg), val)
+        # Check if IRQ handler can be disabled
+        if not val:
+            other = "A" if reg == "B" else "B"
+            if not self.__read_source_irq_reg(other):
+                self.__disable_interrupts()
 
     def acknowledge_interrupt(self):
         """
@@ -2405,7 +2431,7 @@ class BaseCard:
         :rtype: dict<int: :class:`TriggerInterrupt`>
         """
         result = {}
-        register = self.read_reg("SOURCE_IT_A")
+        register = self.__read_source_irq_reg("A")
         mask = (1<<0) | (1<<16)
         for channel in self.CHANNELS:
             reg = (register >> (channel-1)) & mask
@@ -2428,11 +2454,11 @@ class BaseCard:
         register = 0
         for channel, triggers in channels_triggers.items():
             register |= triggers.value << (channel-1)
-        self.write_reg("SOURCE_IT_A", register)
+        self.__write_source_irq_reg("A", register)
 
     def __get_source_it_b(self):
         counters = {}
-        register = self.read_reg("SOURCE_IT_B")
+        register = self.__read_source_irq_reg("B")
         for counter in self.COUNTERS:
             counters[counter] = (register & 1 << (counter-1)) != 0
         dma, fifo, error = (register & (1 << 12)) != 0
@@ -2450,10 +2476,10 @@ class BaseCard:
         register = 0
         for counter in counters:
             register |= 1 << (counter-1)
-        register |= (dma and 1 or 0) << 12
-        register |= (fifo_half_full and 1 or 0) << 13
-        register |= (error and 1 or 0) << 14
-        self.write_reg("SOURCE_IT_B", register)
+        register |= (1 << 12) if dma else 0
+        register |= (1 << 13) if fifo_half_full else 0
+        register |= (1 << 14) if error else 0
+        self.__write_source_irq_reg("B", register)
 
     def get_counters_interrupts(self):
         """
@@ -2525,11 +2551,8 @@ class BaseCard:
         """
         # First, make sure we leave bits 0 to 11 unchanged
         # (these correspond to counter stop trigerred interrupts)
-        register = self.read_reg("SOURCE_IT_B") & 0xFFF
-        register |= (dma and 1 or 0) << 12
-        register |= (fifo_half_full and 1 or 0) << 13
-        register |= (error and 1 or 0) << 14
-        self.write_reg("SOURCE_IT_B", register)
+        counters = self.get_counters_interrupts()
+        self.__set_source_it_b(counters, dma, fifo_half_full, error)
 
     def get_interrupts(self):
         """
@@ -3268,17 +3291,27 @@ class P201Card(BaseCard):
     FIFO_SIZE = 2048 * CT2_REG_SIZE
 
 
-def C208Card():
-    raise NotImplementedError
+class C208Card(BaseCard):
+    def __init__(self, *args, **kws):
+        raise NotImplementedError
+
+
+def get_ct2_card_class(card_type):
+    if "P201" in card_type:
+        klass = P201Card
+    elif "C208" in card_type:
+        klass = C208Card
+    else:
+        klass = None
+    return klass
 
 
 def CT2Card(card_type, name):
-    if "201" in card_type:
-        klass = P201Card
-        name = name and name or "/dev/ct2_0"
-    else:
-        klass = C208Card
-        name = name and name or "/dev/ct2_0"
+    klass = get_ct2_card_class(card_type)
+    if not klass:
+        raise ValueError("Invalid card_type: %s" % card_type)
+
+    name = name if name else "/dev/ct2_0"
     return klass(name)
 
 
@@ -3351,10 +3384,8 @@ def create_and_configure_card(config_or_name):
         card_config = config_or_name
     card = create_card_from_configure(card_config)
     card.request_exclusive_access()
-    card.disable_interrupts()
+    card.set_interrupts()
     card.reset_FIFO_error_flags()
-    card.reset()
-    card.software_reset()
     configure_card(card, card_config)
     return card
 
@@ -3382,13 +3413,17 @@ def configure_card(card, config):
     :param config: configuration dictionary or dictionary like object
     :type config: dict
     """
+
+    if __get(config, 'hard reset on init', False):
+        card.reset()
+    if __get(config, 'soft reset on init', True):
+        card.software_reset()
+
     card.set_clock(__get(config, 'clock', klass=Clock))
 
     dma_int = __get(config, 'dma interrupt', False)
     fifo_hf_int = __get(config, 'fifo half full interrupt', False)
     error_int = __get(config, 'error interrupt', False)
-
-    interrupt_buffer_size = __get(config, 'interrupt buffer size', 0)
 
     ct_cfgs = {}
     ct_latch_srcs = {}
@@ -3455,10 +3490,10 @@ def configure_card(card, config):
                 ch_out_srcs[addr] = __get(out, "source", klass=OutputSrc)
                 f_clk = __get(out, "filter clock", klass=FilterClock)
                 f_enable = __get(out, "filter enable", False)
-                f_polarity = __get(out, "filter polarity", 0)
+                f_pol_inv = __get(out, "polarity inverted", False)
                 ch_out_filters[addr] = FilterOutput(clock=f_clk,
                                                     enable=f_enable,
-                                                    polarity=f_polarity)
+                                                    polarity_inverted=f_pol_inv)
 
     card.set_input_channels_50ohm_adapter(ch_50_ohms)
     card.set_input_channels_level(ch_in_levels)
@@ -3475,13 +3510,7 @@ def configure_card(card, config):
     card.set_counters_software_enable_disable(ct_sw_enables)
     card.set_counters_comparators_values(ct_cmpts)
 
-    enable_interrupts = any(list(ct_ints.values()) + [dma_int, fifo_hf_int, error_int,
-                                                      interrupt_buffer_size])
     card.set_interrupts(ch_ints, ct_ints, dma_int, fifo_hf_int, error_int)
-
-    if enable_interrupts:
-        interrupt_buffer_size = interrupt_buffer_size and interrupt_buffer_size or 100
-        card.enable_interrupts(interrupt_buffer_size)
 
 
 def main():
@@ -3505,7 +3534,7 @@ def main():
     # no 50 ohm adapter
     p201.set_input_channels_50ohm_adapter({})
 
-    # channel 9 and 10: no filter, no polarity
+    # channel 9 and 10: no filter, no polarity inv
     p201.set_output_channels_filter({})
 
     # channel 10 output: counter 10 gate envelop

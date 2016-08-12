@@ -68,12 +68,12 @@ class TestP201(unittest.TestCase):
 
     def setUp(self):
         self.p201 = ct2.P201Card()
-        self.p201.disable_interrupts()
+        self.p201.set_interrupts()
         self.p201.reset()
         self.p201.software_reset()
 
     def tearDown(self):
-        self.p201.disable_interrupts()
+        self.p201.set_interrupts()
         self.p201.reset()
         self.p201.software_reset()
 

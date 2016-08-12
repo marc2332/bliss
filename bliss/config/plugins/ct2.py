@@ -86,7 +86,7 @@ OUT_CHANNEL_PARAMS_SEQ = (
     ("source",          ('OutputSrc',    None, True,  ct2.OutputSrc.SOFTWARE,     "Source",          "source", "output source")),
     ("filter enable",   ('bool',         None, True,  False,                      "Filter enable",   "filter", "output filter enable/disable")),
     ("filter clock",    ('FilterClock',  None, True,  ct2.FilterClock.CLK_100_MHz,"Filter clock",    "filter", "output filter clock")),
-    ("filter polarity", ('bool',         None, True,  False,                      "Filter polarity", "filter", "output filter polarity (0 or 1)")),
+    ("polarity inverted", ('bool',         None, True,  False,                      "Polarity inverted", "filter", "output polarity inverted")),
 )
 
 OUT_CHANNEL_PARAMS = OrderedDict()
@@ -148,7 +148,7 @@ def get_channel_html(cfg):
 def get_card_html(cfg):
     cfg = dict(cfg.items())
     card_type = cfg.get("class")
-    card = getattr(ct2, card_type)
+    card = ct2.get_ct2_card_class(card_type)
     cts = cfg.setdefault("counters", [])
     counters = dict([(i, dict(address=i)) for i in card.COUNTERS])
     for ct in cts:
@@ -236,7 +236,7 @@ def card_edit(cfg, request):
         orig_card_name = form.get("__original_name__")
         card_name = form["name"]
         card_type = form.get("class")
-        card = getattr(ct2, card_type)
+        card = ct2.get_ct2_card_class(card_type)
         result = dict(name=card_name)
         if card_name != orig_card_name:
             result["message"] = "Change of card name not supported yet!"

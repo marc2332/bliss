@@ -30,11 +30,10 @@ from bliss.controllers.ct2 import CtClockSrc, CtGateSrc, CtHardStartSrc, CtHardS
 
 def configure(device, channels):
     device.request_exclusive_access()
-    device.disable_interrupts()
+    device.set_interrupts()
     device.reset()
     device.software_reset()
     device.reset_FIFO_error_flags()
-    device.enable_interrupts(100)
 
     # -------------------------------------------------------------------------
     # Channel configuration (could be loaded from beacon, for example. We 
@@ -89,7 +88,7 @@ def prepare_master(device, acq_time, nb_points):
     device.set_interrupts(counters=(12,), dma=True, error=True)
 
     # make master enabled by software
-    device.set_counters_software_enable([11, 12])
+    device.enable_counters_software([11, 12])
 
 
 def prepare_slaves(device, acq_time, nb_points, channels, accumulate=False):
@@ -119,7 +118,7 @@ def prepare_slaves(device, acq_time, nb_points, channels, accumulate=False):
     # (counter 11 cannot be the one to trigger because it is not being latched)
     device.set_DMA_enable_trigger_latch((11,), channel_nbs + [11, 12])
 
-    device.set_counters_software_enable(channel_nbs)
+    device.enable_counters_software(channel_nbs)
 
 def main():
 
@@ -175,7 +174,7 @@ def main():
         sys.excepthook(*sys.exc_info())
     finally:
         print ("Clean up!")
-        device.disable_interrupts()
+        device.set_interrupts()
         device.reset()
         device.software_reset()
         device.relinquish_exclusive_access()

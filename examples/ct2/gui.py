@@ -258,7 +258,7 @@ class CT2Window(Qt.QMainWindow):
         if card is None:
             return
         card.request_exclusive_access()
-        card.disable_interrupts()
+        card.set_interrupts()
         card.reset_FIFO_error_flags()
         card.reset()
         card.software_reset()

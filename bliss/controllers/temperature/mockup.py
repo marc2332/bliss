@@ -42,9 +42,15 @@ class mockup(Controller):
 
     def initialize_output(self, toutput):
         log.debug("mockup: initialize_output: %s" % (toutput))
+        toutput._attr_dict["ramprate"] = None
+        toutput._attr_dict["dwell"] = None
+        toutput._attr_dict["step"] = None
 
     def initialize_loop(self, tloop):
         log.debug("mockup: initialize_loop: %s" % (tloop))
+        tloop._attr_dict["kp"] = None
+        tloop._attr_dict["ki"] = None
+        tloop._attr_dict["kd"] = None
 
     def read_input(self, tinput):
         """Reading on a Input object
@@ -88,16 +94,64 @@ class mockup(Controller):
         log.info("mockup: read output: returns: %s" % (sp["temp"]))
         return sp["temp"]
 
+    def set_ramprate(self, toutput, rate):
+        """ sets the ramp rate """
+        toutput._attr_dict["ramprate"] = rate
+
+    def read_ramprate(self, toutput):
+        """ reads the ramp rate """
+        return toutput._attr_dict["ramprate"]
+
+    def set_step(self, toutput, step):
+        """ sets the step value """
+        toutput._attr_dict["step"] = step
+
+    def read_step(self, toutput):
+        """ reads the step value """
+        return toutput._attr_dict["step"]
+
+    def set_dwell(self, toutput, dwell):
+        """ sets the dwell value """
+        toutput._attr_dict["dwell"] = dwell
+
+    def read_dwell(self, toutput):
+        """ reads the dwell value """
+        return toutput._attr_dict["dwell"]
+
+    def set_kp(self, tloop, kp):
+        """ sets the kp value """
+        tloop._attr_dict["kp"] = kp
+
+    def read_kp(self, tloop):
+        """ reads the kp value """
+        return tloop._attr_dict["kp"]
+
+    def set_ki(self, tloop, ki):
+        """ sets the ki value """
+        tloop._attr_dict["ki"] = ki
+
+    def read_ki(self, tloop):
+        """ reads the ki value """
+        return tloop._attr_dict["ki"]
+
+    def set_kd(self, tloop, kd):
+        """ sets the kd value """
+        tloop._attr_dict["kd"] = kd
+
+    def read_kd(self, tloop):
+        """ reads the kd value """
+        return tloop._attr_dict["kd"]
+
     def set(self, toutput, sp, **kwargs):
         """Setting a setpoint as quickly as possible
 
         """
         if kwargs.has_key("ramp"):
-           toutput.rampval(kwargs["ramp"])
+           self.set_ramprate(toutput, kwargs["ramp"])
         if kwargs.has_key("dwell"):
-           toutput.dwellval(kwargs["dwell"])
+           self.set_dwell(toutput, kwargs["dwell"])
         if kwargs.has_key("step"):
-           toutput.stepval(kwargs["step"])
+           self.set_step(toutput, kwargs["step"])
         channel = toutput.config.get("channel",str)
         log.debug("mockup: set %s on channel %s" % (sp,channel))
         #print kwargs
@@ -119,11 +173,11 @@ class mockup(Controller):
 
         """
         if kwargs.has_key("ramp"):
-           toutput.rampval(kwargs["ramp"])
+           self.set_ramprate(toutput, kwargs["ramp"])
         if kwargs.has_key("dwell"):
-           toutput.dwellval(kwargs["dwell"])
+           self.set_dwell(toutput, kwargs["dwell"])
         if kwargs.has_key("step"):
-           toutput.stepval(kwargs["step"])
+           self.set_step(toutput, kwargs["step"])
         channel = toutput.config.get("channel",str)
         log.debug("mockup: start_ramp %s on channel %s" % (sp,channel))
         #print kwargs
@@ -167,9 +221,9 @@ class mockup(Controller):
 
         """
         log.debug("mockup: state Output")
-        log.debug("mockup: ramp : %s" % toutput.rampval())
-        log.debug("mockup: step : %s" % toutput.stepval())
-        log.debug("mockup: dwell : %s" % toutput.dwellval())
+        log.debug("mockup: ramp : %s" % self.read_ramprate(toutput))
+        log.debug("mockup: step : %s" % self.read_step(toutput))
+        log.debug("mockup: dwell : %s" % self.read_dwell(toutput))
         log.debug("mockup: host : %s" % self.host)       
         return "READY"
 
@@ -196,11 +250,13 @@ class mockup(Controller):
         Starting the regulation on a Loop
         """
         log.debug("mockup: on: starting regulation between input:%s and output:%s" % (
-                tloop.input.channel,tloop.output.channel))
+                tloop.input.config.get("channel",str),
+                tloop.output.config.get("channel",str),
+                 ))
         print "Mockup: regulation on"
-        log.debug("mockup: P: %s" % (tloop.Pval()))
-        log.debug("mockup: I: %s" % (tloop.Ival()))
-        log.debug("mockup: D: %s" % (tloop.Dval()))
+        log.debug("mockup: P: %s" % (tloop.kp()))
+        log.debug("mockup: I: %s" % (tloop.ki()))
+        log.debug("mockup: D: %s" % (tloop.kd()))
 
 
     def off(self, tloop):
@@ -208,7 +264,9 @@ class mockup(Controller):
         Stopping the regulation on a Loop object
         """
         log.debug("mockup: off: stopping regulation between input:%s and output:%s" % (
-                tloop.input.channel,tloop.output.channel))
+                tloop.input.config.get("channel",str),
+                tloop.output.config.get("channel",str),
+                 ))
         print "Mockup: regulation off"
 
     def Wraw(self, str):

@@ -12,7 +12,7 @@ import math
 from bliss.common import log
 
 """
-Classes implemented with temperture Controller
+Classes implemented with temperature Controller
 """
 
 class Input(object):
@@ -24,7 +24,6 @@ class Input(object):
         #log.debug("  config type is: %s" % type(config))
         #log.debug("  controller type is: %s" % type(controller))
         self.__controller = controller
-        self.__channel = config['channel']
         self.__name = config["name"]
         self.__config = config
 
@@ -32,15 +31,13 @@ class Input(object):
         self.__custom_methods_list = list()
         self.__custom_attributes_dict = dict()
 
+        # useful attribute for a temperature controller writer
+        self._attr_dict = {}
+
     @property
     def controller(self):
         """ Returns the temperature controller """
         return self.__controller
-
-    @property
-    def channel(self):
-        """ Returns the sensor channel """
-        return self.__channel
 
     @property
     def name(self):
@@ -73,12 +70,18 @@ class Output(object):
         """ Constructor """
         log.debug("On Output")
         self.__controller = controller
-	self.__channel = config['channel']
         self.__name = config["name"]
-        self.__limits = (config.get("low_limit"), config.get("high_limit"))
+        try: 
+            self.__limits = (config.get("low_limit"), config.get("high_limit"))
+        except:
+            self.__limits = (None,None)
         self.__setpoint_task = None
         self.__setpoint_event = gevent.event.Event()
-        self.__deadband = float(config["deadband"])
+        self.__setpoint_event_poll = 0.02
+        try:
+            self.__deadband = float(config["deadband"])
+        except:
+            self.__deadband = None
         self.__setpoint_event.set()
         self.__config = config
         self.__stopped = 0
@@ -87,23 +90,18 @@ class Output(object):
         # if defined as  self.__deadband, not available.
         #     in that case, use of decorator property offers it (read only) to world
 
-        self._rampval = None
-        self._dwellval = None
-        self._stepval = None
 
         # lists of custom attr and commands
         self.__custom_methods_list = list()
         self.__custom_attributes_dict = dict()
 
+        # useful attribute for a temperature controller writer
+        self._attr_dict = {}
+
     @property
     def controller(self):
         """ returns the temperature controller """
         return self.__controller
-
-    @property
-    def channel(self):
-        """ returns the heater channel """
-        return self.__channel
 
     @property
     def name(self):
@@ -258,7 +256,7 @@ class Output(object):
            self.controller.set(self, setpoint, **kwargs)
 
         while self.controller._setpoint_state(self, self.__deadband) == 'RUNNING':
-            gevent.sleep(0.02)
+            gevent.sleep(self.__setpoint_event_poll)
 
     def _start_setpoint(self, setpoint, **kwargs):
         """ launches the coroutine doing the setpoint
@@ -276,38 +274,50 @@ class Output(object):
         log.debug("On Output:state")
         return self.controller.state_output(self)
 
-    def rampval(self, new_ramp=None):
+    def pollramp(self, new_poll=None):
         """
-        Setting/reading the setpoint ramp value (for ramping in degC/hr)
+        Setting/reading the polling time (in seconds) in the event loop waiting
+        for setpoint being reached (== read value inside the deadband)
+        default is 0.02 sec
+        """
+        if new_poll:
+           self.__setpoint_event_poll = new_poll
+        else:
+           return self.__setpoint_event_poll
+
+    def ramprate(self, new_ramp=None):
+        """
+        Setting/reading the setpoint ramp rate value 
 
         """
-        log.debug("On Output:rampval: %s " % (new_ramp))
+        log.debug("On Output:ramprate: %s " % (new_ramp))
         if new_ramp:
-           self._rampval = new_ramp
+           self.controller.set_ramprate(self,new_ramp)
         else:
-           return self._rampval
+           return self.controller.read_ramprate(self)
 
-    def stepval(self, new_step=None):
+    def step(self, new_step=None):
         """
-        Setting/reading the setpoint step value (for ramping in degC/hr)
+        Setting/reading the setpoint step value (for step mode ramping)
 
         """
-        log.debug("On Output:stepval: %s " % (new_step))
+        log.debug("On Output:step: %s " % (new_step))
         if new_step:
-           self._stepval = new_step
+           self.controller.set_step(self,new_step)
         else:
-           return self._stepval
+           return self.controller.read_step(self)
 
-    def dwellval(self, new_dwell=None):
+    def dwell(self, new_dwell=None):
         """
         Setting/reading the setpoint dwell value (for step mode ramping)
 
         """
         log.debug("On Output:setpoint dwell: %s " % (new_dwell))
         if new_dwell:
-           self._dwellval = new_dwell
+           self.controller.set_dwell(self,new_dwell)
         else:
-           return self._dwellval
+           return self.controller.read_dwell(self)
+
 
     def _add_custom_method(self, method, name, types_info=(None, None)):
         """ necessary to add custom methods to this class """
@@ -332,6 +342,9 @@ class Loop(object):
         # lists of custom attr and commands
         self.__custom_methods_list = list()
         self.__custom_attributes_dict = dict()
+
+        # useful attribute for a temperature controller writer
+        self._attr_dict = {}
 
     @property
     def controller(self):
@@ -388,38 +401,39 @@ class Loop(object):
         self.controller.off(self)
 
 
-    def Pval(self, new_Pval=None):
+    def kp(self, new_kp=None):
         """
         Setting/reading the P value (for PID)
 
         """
-        log.debug("On Loop: Pval (PID): ")
-        if new_Pval:
-           self._Pval = new_Pval
+        log.debug("On Loop: kp (PID): ")
+        if new_kp:
+           self.controller.set_kp(self,new_kp)
         else:
-           return self._Pval
+           return self.controller.read_kp(self)
 
-    def Ival(self, new_Ival=None):
+
+    def ki(self, new_ki=None):
         """
         Setting/reading the I value (for PID)
 
         """
-        log.debug("On Loop: Ival (PID): ")
-        if new_Ival:
-           self._Ival = new_Ival
+        log.debug("On Loop: ki (PID): ")
+        if new_ki:
+           self.controller.set_ki(self,new_ki)
         else:
-           return self._Ival
+           return self.controller.read_ki(self)
 
-    def Dval(self, new_Dval=None):
+    def kd(self, new_kd=None):
         """
         Setting/reading the D value (for PID)
 
         """
-        log.debug("On Loop: Dval (PID): ")
-        if new_Dval:
-           self._Dval = new_Dval
+        log.debug("On Loop: kd (PID): ")
+        if new_kd:
+           self.controller.set_kd(self,new_kd)
         else:
-           return self._Dval
+           return self.controller.read_kd(self)
 
 
     def _add_custom_method(self, method, name, types_info=(None, None)):

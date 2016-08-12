@@ -77,11 +77,11 @@ class TestMockupTempController(unittest.TestCase):
         print "%s rounded to %s" % (myval,int(round(myval)))            
         self.assertAlmostEqual(int(round(myval)),SP,places=1)
         print "check ramp value by kwargs"
-        myramp = bb.rampval()
+        myramp = bb.ramprate()
         self.assertEqual(myramp,KWRAMP)
-        mystep = bb.stepval()
+        mystep = bb.step()
         self.assertEqual(mystep,KWSTEP)
-        mydwell = bb.dwellval()
+        mydwell = bb.dwell()
         self.assertEqual(mydwell,KWDWELL)
 
     def test_output_ramp_stop(self):

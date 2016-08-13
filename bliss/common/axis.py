@@ -113,10 +113,10 @@ class Axis(object):
 
     @property
     def offset(self):
-        offset = self.__settings.get("offset")
+        offset = self.settings.get("offset")
         if offset is None:
             offset = 0
-            self.__settings.set('offset', 0)
+            self.settings.set('offset', 0)
         return offset
 
     @property
@@ -247,7 +247,7 @@ class Axis(object):
             new_hw = new_dial * self.steps_per_unit
             hw_pos = self.__controller.set_position(self, new_hw)
             dial_pos = hw_pos / self.steps_per_unit
-            self.__settings.set("dial_position", dial_pos)
+            self.settings.set("dial_position", dial_pos)
         except NotImplementedError:
             dial_pos = self._read_dial_and_update(update_user=False)
 
@@ -305,14 +305,14 @@ class Axis(object):
     def _set_position_and_offset(self, new_pos):
         dial_pos = self.dial()
         prev_offset = self.offset
-        self.__settings.set("_set_position", new_pos)
-        self.__settings.set("offset", self._calc_offset(new_pos, dial_pos))
+        self.settings.set("_set_position", new_pos)
+        self.settings.set("offset", self._calc_offset(new_pos, dial_pos))
         # update limits
         ll, hl = self.limits()
         lim_delta = self.offset - prev_offset
         self.limits(ll + lim_delta if ll is not None else ll,
                     hl + lim_delta if hl is not None else hl)
-        self.__settings.set("position", new_pos, write=True)
+        self.settings.set("position", new_pos, write=True)
         return new_pos
 
     @lazy_init

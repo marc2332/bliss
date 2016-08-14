@@ -126,15 +126,12 @@ class _Group(object):
             positions_dict[axis] = axis.dial()
         return positions_dict
 
-    def single_axis_move_task(self, motion, polling_time):
-        with error_cleanup(motion.axis._do_stop):
-            motion.axis._handle_move(motion, polling_time)
-
     @task
     def _handle_move(self, motions, polling_time):
         with error_cleanup(self._do_stop): 
             for motion in motions:
-                move_task = gevent.spawn(self.single_axis_move_task, motion, polling_time)
+                move_task = motion.axis._do_handle_move(motion, polling_time,
+                                                        wait=False)
                 motion.axis._Axis__move_task = move_task
                 move_task._being_waited = True
                 move_task.link(motion.axis._set_move_done)

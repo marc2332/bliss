@@ -34,6 +34,35 @@ class Motion(object):
         return self.__axis
 
 
+def move_task(f):
+    tf = task(f)
+    def mf(self, *args, **kws):
+        self._stopped = False
+        return tf(self, *args, **kws)
+    return mf
+
+
+class move_cleanup:
+
+    def __init__(self, axis, task=True):
+        self.axis = axis
+        self.task = task
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self, exc_type, value, traceback):
+        if exc_type is not None or (self.task and self.axis._stopped):
+            try:
+                self.axis._cleanup_stop()
+            except:
+                sys.excepthook(*sys.exc_info())
+                if exc_type is None:
+                    raise RuntimeError("Exception when executing move cleanup")
+        if exc_type is not None:
+            raise exc_type, value, traceback
+
+
 class Axis(object):
     def lazy_init(func):
         def func_wrapper(self, *args, **kwargs):
@@ -52,7 +81,7 @@ class Axis(object):
         self.__custom_methods_list = list()
         self.__custom_attributes_dict = dict()
         self.__move_task = None
-        self.__stopped = False
+        self._stopped = False
         self.no_offset = False
 
     @property
@@ -403,39 +432,30 @@ class Axis(object):
         self._position()
 
     def _handle_move(self, motion, polling_time):
-        while True:
-            state = self.__controller.state(self)
-            if state != "MOVING":
-                break
-            self._update_settings(state)
-            gevent.sleep(polling_time)
-
+        state = self._wait_move(polling_time, update_settings=True)
         if state in ['LIMPOS', 'LIMNEG']:
-            self.settings.set("_set_position", self._position())
             raise RuntimeError(str(state))
 
         # gevent-atomic
-        stopped, self.__stopped = self.__stopped, False
-        if stopped or motion.backlash:
-            user_pos = self._position()
-        if stopped:
-            user_backlash = self.backlash if motion.backlash else 0
-            self.settings.set("_set_position", user_pos + user_backlash)
-            curr_pos = self.user2dial(user_pos) * self.steps_per_unit
-
+        stopped, self._stopped = self._stopped, False
         if motion.backlash:
+            # broadcast reached position before backlash correction
+            user_pos = self._position()
+            backlash_start = motion.target_pos
+            if stopped:
+                self.settings.set("_set_position", user_pos + self.backlash)
+                backlash_start = self.user2dial(user_pos) * self.steps_per_unit
             # axis has moved to target pos - backlash (or shorter, if stopped);
             # now do the final motion (backlash) relative to current/theo. pos
             elog.debug("doing backlash (%g)" % motion.backlash)
-            backlash_start = curr_pos if stopped else motion.target_pos
             final_pos = backlash_start + motion.backlash
             backlash_motion = Motion(self, final_pos, motion.backlash)
             self.__controller.prepare_move(backlash_motion)
             self.__controller.start_one(backlash_motion)
             self._handle_move(backlash_motion, polling_time)
-        elif self.encoder is not None:
+        elif self.encoder is not None and not stopped:
             self._do_encoder_reading()
-            
+
     def _handle_sigint(self):
         self.stop(KeyboardInterrupt)
 
@@ -517,8 +537,6 @@ class Axis(object):
                     "%s: move to `%f' %s would go beyond high limit (%f)" %
                     (self.name, user_target_pos, backlash_str, user_high_limit))
 
-        self.__stopped = False
-
         motion = Motion(self, target_pos, delta)
         motion.backlash = backlash
 
@@ -569,7 +587,7 @@ class Axis(object):
         if motion is None:
             return
 
-        with error_cleanup(self._do_stop):
+        with move_cleanup(self, task=False):
             self.__controller.start_one(motion)
         
         self.__move_task = self._do_handle_move(motion, polling_time,wait=False)
@@ -587,9 +605,9 @@ class Axis(object):
             raise RuntimeError("'%s' didn't reach final position.(enc_dial=%g, curr_pos=%g)" %
                                (self.name, enc_dial, curr_pos))
 
-    @task
+    @move_task
     def _do_handle_move(self, motion, polling_time):
-        with error_cleanup(self._do_stop):
+        with move_cleanup(self):
             self._handle_move(motion, polling_time)
 
     def rmove(self, user_delta_pos, wait=True, polling_time=DEFAULT_POLLING_TIME):
@@ -612,12 +630,27 @@ class Axis(object):
             except gevent.GreenletExit:
                 pass
 
+    def _wait_move(self, polling_time=DEFAULT_POLLING_TIME,
+                   update_settings=False):
+        while True:
+            state = self.__controller.state(self)
+            if state != "MOVING":
+                return state
+            if update_settings:
+                self._update_settings(state)
+            gevent.sleep(polling_time)
+        
+    def _cleanup_stop(self):
+        self.__controller.stop(self)
+        self._wait_move()
+        self.settings.set("_set_position", self._position())
+
     def _do_stop(self):
         self.__controller.stop(self)
         self._handle_stop()
 
     def _handle_stop(self):
-        self.__stopped = True
+        self._stopped = True
 
     @lazy_init
     def stop(self, wait=True):
@@ -639,15 +672,11 @@ class Axis(object):
         if wait:
             self.wait_move()
 
-    @task
+    @move_task
     def _wait_home(self, switch):
         with cleanup(self.sync_hard):
-            with error_cleanup(self._do_stop):
-                while True:
-                    state = self.__controller.home_state(self)
-                    if state != "MOVING":
-                        break
-                    time.sleep(0.02)
+            with move_cleanup(self):
+                self._wait_move()
 
     @lazy_init
     def hw_limit(self, limit, wait=True):
@@ -669,15 +698,11 @@ class Axis(object):
         if wait:
             self.wait_move()
 
-    @task
+    @move_task
     def _wait_limit_search(self, limit):
         with cleanup(self.sync_hard):
-            with error_cleanup(self._do_stop):
-                while True:
-                    state = self.__controller.state(self)
-                    if state != "MOVING":
-                        break
-                    time.sleep(0.02)
+            with move_cleanup(self):
+                self._wait_move()
 
     def settings_to_config(self, velocity=True, acceleration=True, limits=True):
         """

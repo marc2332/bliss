@@ -4,8 +4,8 @@ if [ "$1" = "1" ]; then
     # ESRF specific
     export http_proxy=http://proxy.esrf.fr:3128
     export https_proxy=https://proxy.esrf.fr:3128
-    shift
 fi
+shift
 
 # first make sure we have a minimum pip that is able to read
 # our requirements.txt

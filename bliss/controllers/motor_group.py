@@ -94,7 +94,7 @@ class _Group(object):
             for motion in motions:
                 controller.stop(motion.axis)
         for motion in motions:
-            motion.axis._handle_stop()
+            motion.axis._set_stopped()
         
     def _do_stop(self,wait=True):
         all_motions = []

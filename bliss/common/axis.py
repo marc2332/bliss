@@ -34,35 +34,6 @@ class Motion(object):
         return self.__axis
 
 
-def move_task(f):
-    tf = task(f)
-    def mf(self, *args, **kws):
-        self._stopped = False
-        return tf(self, *args, **kws)
-    return mf
-
-
-class move_cleanup:
-
-    def __init__(self, axis, task=True):
-        self.axis = axis
-        self.task = task
-
-    def __enter__(self):
-        pass
-
-    def __exit__(self, exc_type, value, traceback):
-        if exc_type is not None or (self.task and self.axis._stopped):
-            try:
-                self.axis._cleanup_stop()
-            except:
-                sys.excepthook(*sys.exc_info())
-                if exc_type is None:
-                    raise RuntimeError("Exception when executing move cleanup")
-        if exc_type is not None:
-            raise exc_type, value, traceback
-
-
 class Axis(object):
     def lazy_init(func):
         def func_wrapper(self, *args, **kwargs):
@@ -81,7 +52,7 @@ class Axis(object):
         self.__custom_methods_list = list()
         self.__custom_attributes_dict = dict()
         self.__move_task = None
-        self._stopped = False
+        self.__stopped = False
         self.no_offset = False
 
     @property
@@ -284,7 +255,7 @@ class Axis(object):
     @lazy_init 
     def _read_dial_and_update(self, update_user=True, write=True):
         dial_pos = self._hw_position()
-        self.settings.set("dial_position", dial_pos, write=True)
+        self.settings.set("dial_position", dial_pos, write=write)
         if update_user:
             user_pos = self.dial2user(dial_pos, self.offset)
             self.settings.set("position", user_pos, write=write)
@@ -336,6 +307,7 @@ class Axis(object):
     def sync_hard(self):
         self.settings.set("state", self.state(read_hw=True), write=True) 
         self._read_dial_and_update()
+        self.settings.set("_set_position", self.position())
         event.send(self, "sync_hard")
         
     @lazy_init
@@ -442,7 +414,7 @@ class Axis(object):
             raise RuntimeError(str(state))
 
         # gevent-atomic
-        stopped, self._stopped = self._stopped, False
+        stopped, self.__stopped = self.__stopped, False
         if motion.backlash:
             # broadcast reached position before backlash correction
             dial_pos = self._read_dial_and_update()
@@ -553,6 +525,7 @@ class Axis(object):
         return motion
 
     def _set_moving_state(self, from_channel=False):
+        self.__stopped = False
         self.__move_done.clear()
         if from_channel:
             self.__move_task = None
@@ -595,7 +568,7 @@ class Axis(object):
         if motion is None:
             return
 
-        with move_cleanup(self, task=False):
+        with error_cleanup(self._cleanup_stop):
             self.__controller.start_one(motion)
         
         self.__move_task = self._do_handle_move(motion, polling_time,wait=False)
@@ -613,9 +586,9 @@ class Axis(object):
             raise RuntimeError("'%s' didn't reach final position.(enc_dial=%g, curr_pos=%g)" %
                                (self.name, enc_dial, curr_pos))
 
-    @move_task
+    @task
     def _do_handle_move(self, motion, polling_time):
-        with move_cleanup(self):
+        with error_cleanup(self._cleanup_stop):
             self._handle_move(motion, polling_time)
 
     def rmove(self, user_delta_pos, wait=True, polling_time=DEFAULT_POLLING_TIME):
@@ -652,15 +625,14 @@ class Axis(object):
     def _cleanup_stop(self):
         self.__controller.stop(self)
         self._wait_move()
-        dial_pos = self._read_dial_and_update()
-        self.settings.set("_set_position", self.dial2user(dial_pos))
+        self.sync_hard()
 
     def _do_stop(self):
         self.__controller.stop(self)
-        self._handle_stop()
+        self._set_stopped()
 
-    def _handle_stop(self):
-        self._stopped = True
+    def _set_stopped(self):
+        self.__stopped = True
 
     @lazy_init
     def stop(self, wait=True):
@@ -682,10 +654,10 @@ class Axis(object):
         if wait:
             self.wait_move()
 
-    @move_task
+    @task
     def _wait_home(self, switch):
         with cleanup(self.sync_hard):
-            with move_cleanup(self):
+            with error_cleanup(self._cleanup_stop):
                 self._wait_move(ctrl_state_funct='home_state')
 
     @lazy_init
@@ -708,10 +680,10 @@ class Axis(object):
         if wait:
             self.wait_move()
 
-    @move_task
+    @task
     def _wait_limit_search(self, limit):
         with cleanup(self.sync_hard):
-            with move_cleanup(self):
+            with error_cleanup(self._cleanup_stop):
                 self._wait_move()
 
     def settings_to_config(self, velocity=True, acceleration=True, limits=True):

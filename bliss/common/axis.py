@@ -631,9 +631,10 @@ class Axis(object):
                 pass
 
     def _wait_move(self, polling_time=DEFAULT_POLLING_TIME,
-                   update_settings=False):
+                   update_settings=False, ctrl_state_funct='state'):
         while True:
-            state = self.__controller.state(self)
+            state_funct = getattr(self.__controller, ctrl_state_funct)
+            state = state_funct(self)
             if state != "MOVING":
                 return state
             if update_settings:
@@ -676,7 +677,7 @@ class Axis(object):
     def _wait_home(self, switch):
         with cleanup(self.sync_hard):
             with move_cleanup(self):
-                self._wait_move()
+                self._wait_move(ctrl_state_funct='home_state')
 
     @lazy_init
     def hw_limit(self, limit, wait=True):

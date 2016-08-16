@@ -735,9 +735,6 @@ class AxisRef(object):
 
 
 class AxisState(object):
-
-    STATE_VALIDATOR = re.compile("^[A-Z0-9]+\s*$")
-
     """
     Standard states:
       MOVING : 'Axis is moving'
@@ -748,6 +745,18 @@ class AxisState(object):
       HOME   : 'Home signal active'
       OFF    : 'Axis is disabled (must be enabled to move (not ready ?))'
     """
+
+    STATE_VALIDATOR = re.compile("^[A-Z0-9]+\s*$")
+
+    _STANDARD_STATES = {
+        "READY" : "Axis is READY",
+        "MOVING": "Axis is MOVING",
+        "FAULT" : "Error from controller",
+        "LIMPOS": "Hardware high limit active",
+        "LIMNEG": "Hardware low limit active",
+        "HOME"  : "Home signal active",
+        "OFF"   : "Axis is disabled (must be enabled to move (not ready ?))"
+    }
 
     @property
     def READY(self):
@@ -785,18 +794,8 @@ class AxisState(object):
         # set of active states.
         self._current_states = list()
 
-        # set of defined/created states.
-        self._axis_states = set(["READY", "MOVING", "FAULT", "LIMPOS", "LIMNEG", "HOME", "OFF"])
-
         # dict of descriptions of states.
-        self._state_desc = {"READY" : "Axis is READY",
-                            "MOVING": "Axis is MOVING",
-                            "FAULT" : "Error from controller",
-                            "LIMPOS": "Hardware high limit active",
-                            "LIMNEG": "Hardware low limit active",
-                            "HOME"  : "Home signal active",
-                            "OFF"   : "Axis is disabled (must be enabled to move (not ready ?))"
-                            }
+        self._state_desc = self._STANDARD_STATES
 
         for state in states:
             if isinstance(state, tuple):
@@ -811,12 +810,15 @@ class AxisState(object):
         """
         Returns a list of available/created states for this axis.
         """
-        return list(self._axis_states)
+        return list(self._state_desc)
 
     def _check_state_name(self, state_name):
         if not isinstance(state_name, str) or not AxisState.STATE_VALIDATOR.match(state_name):
             raise ValueError(
                 "Invalid state: a state must be a string containing only block letters")
+
+    def _has_custom_states(self):
+        return not self._state_desc is AxisState._STANDARD_STATES
 
     def create_state(self, state_name, state_desc=None):
         # Raises ValueError if state_name is invalid.
@@ -824,13 +826,16 @@ class AxisState(object):
         if state_desc is not None and '|' in state_desc:
             raise ValueError("Invalid state: description contains invalid character '|'")
 
-        if state_name not in self._axis_states:
-            self._axis_states.add(state_name)
+        # if it is the first time we are creating a new state, create a
+        # private copy of standard states to be able to modify locally
+        if not self._has_custom_states():
+            self._state_desc = AxisState._STANDARD_STATES.copy()
+
+        if state_name not in self._state_desc:
             # new description is put in dict.
             if state_desc is None:
-                self._state_desc[state_name] = "Axis is %s" % state_name
-            else:
-                self._state_desc[state_name] = state_desc
+                state_desc = "Axis is %s" % state_name
+            self._state_desc[state_name] = state_desc
 
             # Makes state accessible via a class property.
             # NO: we can't, because the objects of this class will become unpickable,
@@ -844,7 +849,7 @@ class AxisState(object):
     ??? how to flag OFF ???-> no : on en cree un nouveau.
     """
     def set(self, state_name):
-        if state_name in self._axis_states:
+        if state_name in self._state_desc:
             if state_name not in self._current_states:
                 self._current_states.append(state_name)
 
@@ -905,3 +910,28 @@ class AxisState(object):
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
+    def new(self, share_states=True):
+        """
+        Create a new AxisState which contains the same possible states but no
+        current state.
+
+        If this AxisState contains custom states and *share_states* is True
+        (default), the possible states are shared with the new AxisState.
+        Otherwise, a copy of possible states is created for the new AxisState.
+
+        Keyword Args:
+            share_states: If this AxisState contains custom states and
+                          *share_states* is True (default), the possible states
+                          are shared with the new AxisState. Otherwise, a copy
+                          of possible states is created for the new AxisState.
+
+        Returns:
+            AxisState: a copy of this AxisState with no current states
+        """
+        result = AxisState()
+        if self._has_custom_states() and not share_states:
+            result._state_desc = self._state_desc.copy()
+        else:
+            result._state_desc = self._state_desc
+        return result

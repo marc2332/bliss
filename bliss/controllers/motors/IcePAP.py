@@ -201,57 +201,57 @@ class IcePAP(Controller):
         status = self.libgroup.status(axis.libaxis)
 
         # Convert status from icepaplib to bliss format.
-        self.icestate.clear()
+        icestate = self.icestate.new()
 
         # first all concurrent states
         if(libicepap.status_lowlim(status)):
-            self.icestate.set("LIMNEG")
+            icestate.set("LIMNEG")
 
         if(libicepap.status_highlim(status)):
-            self.icestate.set("LIMPOS")
+            icestate.set("LIMPOS")
 
         if(libicepap.status_home(status)):
-            self.icestate.set("HOME")
+            icestate.set("HOME")
 
         modcod, modstr, moddsc = libicepap.status_get_mode(status)
         if modcod != None:
-            self.icestate.set(modstr)
+            icestate.set(modstr)
 
         sccod, scstr, scdsc = libicepap.status_get_stopcode(status)
         if sccod != None:
-            self.icestate.set(scstr)
+            icestate.set(scstr)
 
         if(libicepap.status_isready(status)):
-            self.icestate.set("READY")
+            icestate.set("READY")
             # if motor is ready then no need to investigate deeper
-            return self.icestate
+            return icestate
 
         if(libicepap.status_ismoving(status)):
-            self.icestate.set("MOVING")
+            icestate.set("MOVING")
 
         if(not libicepap.status_ispoweron(status)):
-            self.icestate.set("POWEROFF")
+            icestate.set("POWEROFF")
 
         discod, disstr, disdsc = libicepap.status_get_disable(status)
         if discod != None:
-            self.icestate.set(disstr)
+            icestate.set(disstr)
 
-        if not self.icestate.MOVING:
+        if not icestate.MOVING:
           # it seems it is not safe to call warning and/or alarm commands
           # while homing motor, so let's not ask if motor is moving
           if(libicepap.status_warning(status)):
               warn_str = self.libgroup.warning(axis.libaxis)
               warn_dsc = "warning condition: \n" + str(warn_str)
-              self.icestate.create_state("WARNING",  warn_dsc)
-              self.icestate.set("WARNING")
+              icestate.create_state("WARNING",  warn_dsc)
+              icestate.set("WARNING")
 
           alarm_str = self.libgroup.alarm(axis.libaxis)
           if alarm_str != 'NO':
               alarm_dsc = "alarm condition: " + str(alarm_str)
-              self.icestate.create_state("ALARMDESC",  alarm_dsc)
-              self.icestate.set("ALARMDESC")
+              icestate.create_state("ALARMDESC",  alarm_dsc)
+              icestate.set("ALARMDESC")
 
-        return self.icestate
+        return icestate
 
     def prepare_move(self, motion):
         """

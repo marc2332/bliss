@@ -14,39 +14,42 @@ from . import write_setting as config_write_setting
 import functools
 import gevent
 
+
 def create_objects_from_config_node(config, node):
     set_backend("beacon")
 
-    name = node.get('name')
-    controller_config = node.parent
-   
-    controller_class_name = controller_config.get('class')
-    controller_name = controller_config.get('name')
-    if controller_name is None:
-            controller_name = "%s_%d" % (
-                controller_class_name, id(controller_config))
+    if 'axes' in node or 'encoders' in node:
+        # asking for a controller
+        create = __create_controller_from_config_node
+    else:
+        # asking for an axis (controller is the parent)
+        create = __create_axis_from_config_node
+    return create(config, node)
 
+
+def __create_controller_from_config_node(config, node):
+    controller_class_name = node.get('class')
+    controller_name = node.get('name', '%s_%d' % (node.get('class'), id(node)))
     controller_class = get_controller_class(controller_class_name)
     axes = list()
     axes_names = list()
     encoders = list()
     encoder_names = list()
-    for axis_config in controller_config.get('axes'):
+    for axis_config in node.get('axes'):
         axis_name = axis_config.get("name")
         CONTROLLER_BY_AXIS[axis_name] = controller_name
-	if axis_name.startswith("$"):
-	    axis_class = AxisRef
-	    axis_name = axis_name.lstrip('$')
-	else:
-	    axis_class_name = axis_config.get("class")
-	    if axis_class_name is None:
-		axis_class = Axis
-	    else:
-		axis_class = get_axis_class(axis_class_name)
-            if axis_name != name:
-                axes_names.append(axis_name)
+        if axis_name.startswith("$"):
+            axis_class = AxisRef
+            axis_name = axis_name.lstrip('$')
+        else:
+            axis_class_name = axis_config.get("class")
+            if axis_class_name is None:
+        	axis_class = Axis
+            else:
+        	axis_class = get_axis_class(axis_class_name)
+            axes_names.append(axis_name)
         axes.append((axis_name, axis_class, axis_config))
-    for encoder_config in controller_config.get('encoders', []):
+    for encoder_config in node.get('encoders', []):
         encoder_name = encoder_config.get("name")
         CONTROLLER_BY_ENCODER[encoder_name] = controller_name
         encoder_class_name = encoder_config.get("class")
@@ -54,23 +57,24 @@ def create_objects_from_config_node(config, node):
             encoder_class = Encoder
         else:
             encoder_class = get_encoder_class(encoder_class_name)
-        if encoder_name != name:
-            encoder_names.append(encoder_name)
+        encoder_names.append(encoder_name)
         encoders.append((encoder_name, encoder_class, encoder_config))
 
-    controller = controller_class(controller_name, controller_config, axes, encoders)
+    controller = controller_class(controller_name, node, axes, encoders)
     controller._update_refs()
     controller.initialize()
-    try:
-        o = controller.get_axis(name)
-    except KeyError:
-        o = controller.get_encoder(name)
-    else:
-        event.connect(o, "write_setting", config_write_setting)
     all_names = axes_names + encoder_names
-
     cache_dict = dict(zip(all_names, [controller]*len(all_names)))
-    return {name: o}, cache_dict    
+    return {controller_name: controller}, cache_dict
+
+
+def __create_axis_from_config_node(config, node):
+    name = node.get('name')
+    objs, cache = __create_controller_from_config_node(config, node.parent)
+    controller = cache.pop(name)
+    objs[name] = create_object_from_cache(config, name, controller)
+    return objs, cache
+
 
 def create_object_from_cache(config, name, controller):
     try:

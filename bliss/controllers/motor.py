@@ -22,7 +22,12 @@ ENCODER_AXIS = dict()
 
 
 class Controller(object):
-    '''Motor controller base class'''
+    '''
+    Motor controller base class
+
+    See Also:
+        :ref:`bliss-how-to-motor-controller`
+    '''
 
     def __init__(self, name, config, axes, encoders):
         self.__name = name

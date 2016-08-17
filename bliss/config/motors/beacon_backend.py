@@ -9,7 +9,7 @@ from bliss.config import static
 from bliss.config import settings
 from bliss.config import channels
 from bliss.common import event
-from . import get_controller_class, get_axis_class, add_controller, set_backend, Axis, AxisRef, CONTROLLER_BY_AXIS, Encoder, CONTROLLER_BY_ENCODER
+from . import get_controller_class, get_axis_class, get_encoder_class, add_controller, set_backend, Axis, AxisRef, CONTROLLER_BY_AXIS, Encoder, CONTROLLER_BY_ENCODER
 from . import write_setting as config_write_setting
 import functools
 import gevent

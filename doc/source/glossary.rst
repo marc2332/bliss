@@ -24,6 +24,10 @@ Glossary
     Peripheral Component Interconnect
         See: `Wikipedia PCI <https://en.wikipedia.org/wiki/Conventional_PCI>`_
 
+    SCPI
+    Standard Commands for Programmable Instruments
+        See: `Wikipedia SCPI <https://en.wikipedia.org/wiki/Standard_Commands_for_Programmable_Instruments>`_
+
     TDD
     Test Driven Development
         a software development process that relies on the repetition of a very

@@ -6,7 +6,7 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-'''Bliss axis Tango_ DS class (:class:`BlissAxisManager` and :class:`BlissAxis`)
+'''Bliss axis TANGO_ DS class (:class:`BlissAxisManager` and :class:`BlissAxis`)
 '''
 
 import bliss
@@ -16,7 +16,10 @@ from bliss.common import event
 from bliss.common.utils import grouped
 
 import PyTango
-import TgGevent
+from PyTango.server import Device, DeviceMeta, device_property
+from PyTango.server import attribute, command, get_worker
+
+PyTango.requires_pytango('8.1.9', software_name='BlissAxis')
 
 import os
 import sys
@@ -25,6 +28,8 @@ import traceback
 import types
 import json
 import itertools
+
+import six
 
 try:
     from bliss.config.conductor.connection import ConnectionException
@@ -75,21 +80,15 @@ access_conv_tab = {
 
 access_conv_tab_inv = dict((v, k) for k, v in access_conv_tab.items())
 
-class BlissAxisManager(PyTango.Device_4Impl):
-
-    def __init__(self, cl, name):
-        PyTango.Device_4Impl.__init__(self, cl, name)
-        self.debug_stream("In __init__() of controller")
-        print "Manager device : %s " % name
-
-        self.init_device()
+@six.add_metaclass(DeviceMeta)
+class BlissAxisManager(Device):
 
     def delete_device(self):
         self.debug_stream("In delete_device() of controller")
 
     def init_device(self):
+        Device.init_device(self)
         self.debug_stream("In init_device() of controller")
-        self.get_device_properties(self.get_device_class())
         self.group_dict = {}
 
     def _get_axes(self):
@@ -155,7 +154,7 @@ class BlissAxisManager(PyTango.Device_4Impl):
 
         return self.get_state()
 
-
+    @command(dtype_out=[str], doc_out='list of axis')
     def GetAxisList(self):
         """
         Returns the list of BlissAxisManager axes of this device.
@@ -164,6 +163,8 @@ class BlissAxisManager(PyTango.Device_4Impl):
                   for axis, dev in self._get_axes().values()]
         return argout
 
+    @command(dtype_in=[str], doc_in='Flat list of pairs motor, position',
+             dtype_out=str, doc_out='group identifier')
     def GroupMove(self, axes_pos):
         """
         Absolute move multiple motors
@@ -173,7 +174,7 @@ class BlissAxisManager(PyTango.Device_4Impl):
         if not set(axes_names).issubset(set(axes_dict)):
             raise ValueError("unknown axis(es) in motion")
         axes = [axes_dict[name][0].get_base_obj() for name in axes_names]
-        group = TgGevent.get_proxy(Group, *axes)
+        group = Group(*axes)
         event.connect(group.get_base_obj(), 'move_done', self.group_move_done)
         positions = map(float, axes_pos[1::2])
         axes_pos_dict = dict(zip(axes, positions))
@@ -202,6 +203,8 @@ class BlissAxisManager(PyTango.Device_4Impl):
 
         self.group_dict.pop(groupid)
 
+    @command(dtype_in=str, doc_in='group identifier',
+             dtype_out=[str], doc_out='"flat list of pairs motor, status')
     def GroupState(self, groupid):
         """
         Return the individual state of motors in the group
@@ -212,9 +215,10 @@ class BlissAxisManager(PyTango.Device_4Impl):
         def get_name_state_list(group):
             return [(name, str(axis.state()))
                     for name, axis in group.axes.items()]
-        name_state_list = TgGevent.execute(get_name_state_list, group)
+        name_state_list = get_name_state_list(group)
         return list(itertools.chain(*name_state_list))
 
+    @command(dtype_in=str, doc_in='group identifier')
     def GroupAbort(self, groupid):
         """
         Abort motor group movement
@@ -227,47 +231,18 @@ class BlissAxisManager(PyTango.Device_4Impl):
     def _reload(self):
         bliss_config.beacon_get_config().reload()
 
+    @command
     def ReloadConfig(self):
-        TgGevent.threadSafeRequest(self._reload)()
+        self._reload()
 
+    @command(dtype_in=bool, doc_in='reload (true to do a reload before ' \
+             'apply configuration, false not to)')
     def ApplyConfig(self, reload):
         if reload:
-            self.ReloadConfig()
-        for axis_name, dev in self._get_axis_devices().items():
-            dev.axis.apply_config(reload=False)
+            self._reload()
+        for axis_name, (axis, dev) in self._get_axes().items():
+            axis.apply_config(reload=False)
 
-
-class BlissAxisManagerClass(PyTango.DeviceClass):
-
-    #    Class Properties
-    class_property_list = {
-    }
-
-    #    Device Properties
-    device_property_list = {
-    }
-
-    #    Command definitions
-    cmd_list = {
-        'GetAxisList':
-        [[PyTango.DevVoid, "none"],
-         [PyTango.DevVarStringArray, "List of axis"]],
-        'GroupMove':
-        [[PyTango.DevVarStringArray, "Flat list of pairs motor, position"],
-         [PyTango.DevString, "Group identifier"]],
-        'GroupState':
-        [[PyTango.DevString, "Group identifier"],
-         [PyTango.DevVarStringArray, "Flat list of pairs motor, status"]],
-        'GroupAbort':
-        [[PyTango.DevString, "Group identifier"],
-         [PyTango.DevVoid, ""]],
-        'ReloadConfig':
-        [[PyTango.DevVoid, ""],
-         [PyTango.DevVoid, "Reload configuration"]],
-        'ApplyConfig':
-        [[PyTango.DevBoolean, "reload (true to do a reload before apply configuration, false not to)"],
-         [PyTango.DevVoid, "Apply configuration"]],
-    }
 
 # Device States Description
 # ON : The motor powered on and is ready to move.
@@ -277,25 +252,24 @@ class BlissAxisManagerClass(PyTango.DeviceClass):
 # a limit switch.
 # OFF : The power on the moror drive is switched off.
 # DISABLE : The motor is in slave mode and disabled for normal use
-class BlissAxis(PyTango.Device_4Impl):
+@six.add_metaclass(DeviceMeta)
+class BlissAxis(Device):
+
+    write_position_wait = device_property(dtype=bool, default_value=False,
+                                          doc='Write position waits for end of motion')
 
     def __init__(self, cl, name):
-        PyTango.Device_4Impl.__init__(self, cl, name)
-
         self._axis_name = name.split('/')[-1]
         self._ds_name = name
+        Device.__init__(self, cl, name)
         self.debug_stream("In __init__() of axis")
-        try:
-            self.init_device()
-        except:
-            self.fatal_stream("CANNOT INIT DEVICE FOR AXIS")
 
     def delete_device(self):
         self.debug_stream("In delete_device() of axis")
 
     def init_device(self):
         self.debug_stream("In init_device() of axis")
-        self.get_device_properties(self.get_device_class())
+        Device.init_device(self)
 
         # -v1
         self.info_stream("INFO STREAM ON ++++++++++++++++++++++++++")
@@ -307,15 +281,26 @@ class BlissAxis(PyTango.Device_4Impl):
         self.debug_stream("DEBUG STREAM ON ++++++++++++++++++++++++++")
 
         try:
-            self.axis = TgGevent.get_proxy(bliss.get_axis, self._axis_name)
-            self.kontroler = TgGevent.get_proxy(self.axis.controller)
+            axis = self.axis
+            controller = self.axis.controller
         except:
+            traceback.print_exc()
             elog.error("unable to get kontroller or axis")
             self.set_status(traceback.format_exc())
+            _ctrl = 'UNKNOWN'
+        else:
+            m_attr = self.get_device_attr()
+            try:
+                m_attr.get_attr_by_name('Position').set_write_value(axis.position())
+            except:
+                pass
+            try:
+                m_attr.get_attr_by_name('Velocity').set_write_value(axis.velocity())
+            except:
+                pass
+            _ctrl = controller.get_class_name()
 
         self.debug_stream("axis found : %s" % self._axis_name)
-
-        self.once = False
 
         self._init_time = time.time()
         self._t = time.time()
@@ -346,29 +331,8 @@ class BlissAxis(PyTango.Device_4Impl):
         self.dev_state()
 
         # elog.info("    %s" % self.axis.get_info())
-        _ctrl = self.kontroler.get_class_name()
+
         elog.info("BlissAxisManager [%s] : \t" % _ctrl + bcolors.PINK + self._ds_name + bcolors.ENDC + "\t initialized")
-
-    def always_executed_hook(self):
-
-        # here instead of in init_device due to (Py?)Tango bug :
-        # device does not really exist in init_device... (Cyril)
-        if not self.once:
-            try:
-                # Initialises "set values" of attributes.
-                # Position
-                attr = self.get_device_attr().get_attr_by_name("Position")
-                attr.set_write_value(self.axis.position())
-
-                # Velocity
-                attr = self.get_device_attr().get_attr_by_name("Velocity")
-                attr.set_write_value(self.axis.velocity())
-            except:
-                elog.info(
-                    "Cannot set one of the attributes write value")
-            finally:
-                self.once = True
-
 
     def dev_state(self):
         """ This command gets the device state (stored in its device_state
@@ -403,7 +367,7 @@ class BlissAxis(PyTango.Device_4Impl):
             self.set_status(traceback.format_exc())
 
         if argout != PyTango.DevState.ALARM:
-            PyTango.Device_4Impl.dev_state(self)
+            Device.dev_state(self)
 
         # print "dev_state %s" % self.get_state()
         return self.get_state()
@@ -416,58 +380,64 @@ class BlissAxis(PyTango.Device_4Impl):
         self._status = self.get_status()
         return self._status
 
-    def read_Steps_per_unit(self, attr):
-        self.debug_stream("In read_Steps_per_unit()")
-        attr.set_value(self.axis.steps_per_unit())
+    @property
+    def axis(self):
+        return bliss.get_axis(self._axis_name)
 
-    def write_Steps_per_unit(self, attr):
+    @attribute(dtype=float, label='Steps per user unit', unit='steps/uu',
+               format='%7.1f')
+    def Steps_per_unit(self):
+        self.debug_stream("In read_Steps_per_unit()")
+        return self.axis.steps_per_unit
+
+    @Steps_per_unit.write
+    def Steps_per_unit(self, value):
         self.debug_stream("In write_Steps_per_unit()")
         # data = attr.get_write_value()
         elog.debug("Not implemented")
 
-    def read_Steps(self, attr):
+    @attribute(dtype=int, label='Steps', format='%6d',
+               doc='number of steps in the step counter\n')
+    def Steps(self):
         self.debug_stream("In read_Steps()")
-        _spu = float(self.axis.steps_per_unit())
+        _spu = float(self.axis.steps_per_unit)
         _steps = _spu * self.axis.position()
-        attr.set_value(int(round(_steps)))
+        return int(round(_steps))
 
-#    def write_Steps(self, attr):
-#        self.debug_stream("In write_Steps()")
-#        data=attr.get_write_value()
-
-    def read_Position(self, attr):
+    @attribute(dtype=float, label='Position', unit='uu',
+               format='%10.3f', doc='the desired motor position in user units.')
+    def Position(self):
         self.debug_stream("In read_Position()")
-        if self.axis.is_moving():
+
+        _t = time.time()
+
+        if self.axis.is_moving:
             quality = PyTango.AttrQuality.ATTR_CHANGING
         else:
             quality = PyTango.AttrQuality.ATTR_VALID
-        _t = time.time()
-
-        _pos = self.axis.position()
-
-        # updates value of "position" attribute.
-        attr.set_value(_pos)
+        result = self.axis.position(), _t, quality
 
         _duration = time.time() - _t
+
         if _duration > 0.05:
             print "BlissAxisManager.py : {%s} read_Position : duration seems too long : %5.3g ms" % \
                 (self._ds_name, _duration * 1000)
+        return result
 
-    def write_Position(self, attr):
+    @Position.write
+    def Position(self, new_position):
         """
         Sends movement command to BlissAxisManager axis.
         NB : take care to call WaitMove before sending another movement
         self.write_position_wait is a device property (False by default).
         """
         self.debug_stream("In write_Position()")
-        # self.axis.move(attr.get_write_value(), wait=False)
-        # self.axis.move(attr.get_write_value(), wait=True)
 
         self.set_state(PyTango.DevState.MOVING)
-        self.axis.move(attr.get_write_value(), wait=self.write_position_wait)
+        self.axis.move(new_position, wait=self.write_position_wait)
         self.set_state(PyTango.DevState.ON)
 
-    def is_Position_allowed(self, req_type):
+    def is_position_allowed(self, req_type):
         try:
             if req_type == PyTango.AttReqType.WRITE_REQ:
                 if self.get_state() == "MOVING":
@@ -479,170 +449,195 @@ class BlissAxis(PyTango.Device_4Impl):
         except:
             sys.excepthook(*sys.exc_info())
 
-    def read_Measured_Position(self, attr):
+    @attribute(dtype=float, label='Measured position', unit='uu',
+               format='%10.3f', doc='the measured motor position in user units')
+    def Measured_Position(self):
         self.debug_stream("In read_Measured_Position()")
         _t = time.time()
-        attr.set_value(self.axis.measured_position())
+        result = self.axis.measured_position()
         _duration = time.time() - _t
 
         if _duration > 0.01:
             print "BlissAxisManager.py : {%s} read_Measured_Position : duration seems long : %5.3g ms" % \
                 (self._ds_name, _duration * 1000)
+        return result
 
-    def read_Acceleration(self, attr):
+    @attribute(dtype=float, label='Acceleration', unit='user units/s^2',
+               format='%10.3f', doc='Acceleration of the motor in uu/s2')
+    def Acceleration(self):
         _acc = self.axis.acceleration()
         self.debug_stream("In read_Acceleration(%f)" % float(_acc))
-        attr.set_value(_acc)
+        return _acc
 
+    @Acceleration.write
+    def Acceleration(self, new_acc):
+        self.debug_stream("In write_Acceleration(%f)" % new_acc)
+        self.axis.acceleration(new_acc)
 
-    def write_Acceleration(self, attr):
-        data = float(attr.get_write_value())
-        self.debug_stream("In write_Acceleration(%f)" % data)
-        self.axis.acceleration(data)
-
-    def read_AccTime(self, attr):
+    @attribute(dtype=float, label='Acceleration time', unit='s',
+               format='%10.6f', doc='the acceleration time of the motor (in seconds)')
+    def AccTime(self):
         self.debug_stream("In read_AccTime()")
         _acc_time = self.axis.acctime()
         self.debug_stream("In read_AccTime(%f)" % float(_acc_time))
-        attr.set_value(_acc_time)
+        return _acc_time
 
-    def write_AccTime(self, attr):
-        data = float(attr.get_write_value())
-        self.axis.acctime(data)
-        self.debug_stream("In write_AccTime(%f)" % float(data))
+    @AccTime.write
+    def AccTime(self, new_acctime):
+        self.axis.acctime(new_acctime)
+        self.debug_stream("In write_AccTime(%f)" % float(new_acctime))
 
-    def read_Velocity(self, attr):
+    @attribute(dtype=float, label='Velocity', unit='unit/s', format='%10.3f',
+               doc='The constant velocity of the motor')
+    def Velocity(self):
         _vel = self.axis.velocity()
-        attr.set_value(_vel)
         self.debug_stream("In read_Velocity(%g)" % _vel)
+        return _vel
 
-    def write_Velocity(self, attr):
-        data = float(attr.get_write_value())
-        self.debug_stream("In write_Velocity(%g)" % data)
-        self.axis.velocity(data)
+    @Velocity.write
+    def Velocity(self, new_velocity):
+        self.debug_stream("In write_Velocity(%g)" % new_velocity)
+        self.axis.velocity(new_velocity)
 
-    def read_Backlash(self, attr):
+    @attribute(dtype=float, label='Backlash', unit='uu', format='%5.3f',
+               doc='Backlash to be applied to each motor movement')
+    def Backlash(self):
         self.debug_stream("In read_Backlash()")
-        self.attr_Backlash_read = self.axis.backlash()
-        attr.set_value(self.attr_Backlash_read)
+        print 'bacl', self.axis.backlash
+        return self.axis.backlash
 
-#    def write_Backlash(self, attr):
-#        self.debug_stream("In write_Backlash()")
-#        data = attr.get_write_value()
-#        self.debug_stream("write backlash %s" % data)
-
-    def read_Sign(self, attr):
+    @attribute(dtype='int16', label='Sign', unit='unitless', format='%d',
+               doc='Sign between dial and user: +/-1')
+    def Sign(self):
         self.debug_stream("In read_Sign()")
-        self.attr_Sign_read = self.axis.sign()
-        attr.set_value(self.attr_Sign_read)
+        return self.axis.sign
 
-    def read_Offset(self, attr):
+    @attribute(dtype=float, label='Offset', unit='uu', format='%7.5f',
+               doc='Offset between (sign*dial) and user')
+    def Offset(self):
         self.debug_stream("In read_Offset()")
-        self.attr_Offset_read = self.axis.offset()
-        attr.set_value(self.attr_Offset_read)
+        return self.axis.offset
 
-#    def write_Offset(self, attr):
-#        self.debug_stream("In write_Offset()")
-#        data = attr.get_write_value()
-#        self.debug_stream("write offset %s" % data)
-#        self.axis.offset(data)
-
-    def read_Tolerance(self, attr):
+    @attribute(dtype=float, label='Tolerance', unit='uu', format='%7.5f',
+               doc='Tolerance between dial and user')
+    def Tolerance(self):
         self.debug_stream("In read_Tolerance()")
-        self.attr_Tolerance_read = self.axis.tolerance()
-        attr.set_value(self.attr_Tolerance_read)
+        return self.axis.tolerance
 
-    def write_Tolerance(self, attr):
+    @Tolerance.write
+    def Tolerance(self, new_tolerance):
         self.debug_stream("In write_Tolerance()")
-        data = attr.get_write_value()
-        self.debug_stream("write tolerance %s" % data)
+        self.debug_stream("write tolerance %s" % new_tolerance)
 
-    def read_Home_position(self, attr):
+    @attribute(dtype=float, label='Home position', unit='uu', format='%7.3f',
+               doc='Position of the home switch',
+               display_level=PyTango.DispLevel.EXPERT)
+    def Home_Position(self):
         self.debug_stream("In read_Home_position()")
-        attr.set_value(self.attr_Home_position_read)
+        return self.attr_Home_position_read
 
-    def write_Home_position(self, attr):
+    @Home_Position.write
+    def Home_position(self, new_home_position):
         self.debug_stream("In write_Home_position()")
-        data = float(attr.get_write_value())
-        self.attr_Home_position_read = data
+        self.attr_Home_position_read = new_home_position
 
-    def read_HardLimitLow(self, attr):
+    @attribute(dtype=bool, label='low limit switch state')
+    def HardLimitLow(self):
         self.debug_stream("In read_HardLimitLow()")
         # Update state and return cached value.
         self.dev_state()
-        attr.set_value(self.attr_HardLimitLow_read)
+        return self.attr_HardLimitLow_read
 
-    def read_HardLimitHigh(self, attr):
+    @attribute(dtype=bool, label='up limit switch state')
+    def HardLimitHigh(self):
         self.debug_stream("In read_HardLimitHigh()")
         # Update state and return cached value.
         self.dev_state()
-        attr.set_value(self.attr_HardLimitHigh_read)
+        return self.attr_HardLimitHigh_read
 
-    def read_PresetPosition(self, attr):
+    @attribute(dtype=float, label='Preset Position', unit='uu', format='%10.3f',
+               doc='preset the position in the step counter',
+               display_level=PyTango.DispLevel.EXPERT)
+    def PresetPosition(self):
         self.debug_stream("In read_PresetPosition()")
-        attr.set_value(self.attr_PresetPosition_read)
+        return self.attr_PresetPosition_read
 
-    def write_PresetPosition(self, attr):
-        data = float(attr.get_write_value())
-        self.debug_stream("In write_PresetPosition(%g)" % data)
-        self.attr_PresetPosition_read = data
+    @PresetPosition.write
+    def PresetPosition(self, new_preset_position):
+        self.debug_stream("In write_PresetPosition(%g)" % new_preset_position)
+        self.attr_PresetPosition_read = new_preset_position
         # NOTE MP: if using TANGO DS let's consider that there is
         # a smart client out there who is handling the user/offset.
         # Therefore don't the user position/offset of EMotion.
         # Which means: always keep dial position == user position
-        self.axis.dial(data / self.axis.sign)
-        self.axis.position(data)
+        self.axis.dial(new_preset_position / self.axis.sign)
+        self.axis.position(new_preset_position)
 
-    def read_FirstVelocity(self, attr):
+    @attribute(dtype=float, label='first step velocity', unit='units/s',
+               format='%10.3f', doc='number of unit/s for the first step and ' \
+               'for the move reference', display_level=PyTango.DispLevel.EXPERT)
+    def FirstVelocity(self):
         self.debug_stream("In read_FirstVelocity()")
-        attr.set_value(self.attr_FirstVelocity_read)
+        return self.attr_FirstVelocity_read
         #attr.set_value(self.axis.FirstVelocity())
 
-    def write_FirstVelocity(self, attr):
+    @FirstVelocity.write
+    def write_FirstVelocity(self, new_first_velocity):
         self.debug_stream("In write_FirstVelocity()")
-        data = attr.get_write_value()
-        self.attr_FirstVelocity_read = data
+        self.attr_FirstVelocity_read = new_first_velocity
         # self.axis.FirstVelocity(data)
 
-    def read_Home_side(self, attr):
+    @attribute(dtype=bool, doc='indicates if the axis is below or above ' \
+               'the position of the home switch')
+    def Home_side(self):
         self.debug_stream("In read_Home_side()")
-        attr.set_value(self.attr_Home_side_read)
+        return self.attr_Home_side_read
 
-    def read_StepSize(self, attr):
+    @attribute(dtype=float, 
+               doc='Size of the relative step performed by the ' \
+               'StepUp and StepDown commands.\nThe StepSize' \
+               'is expressed in physical unit',
+               display_level=PyTango.DispLevel.EXPERT)
+    def StepSize(self):
         self.debug_stream("In read_StepSize()")
-        attr.set_value(self.attr_StepSize_read)
+        return self.attr_StepSize_read
 
-    def write_StepSize(self, attr):
+    @StepSize.write
+    def StepSize(self, new_step_size):
         self.debug_stream("In write_StepSize()")
-        data = attr.get_write_value()
-        self.attr_StepSize_read = data
-        attr.set_value(data)
+        self.attr_StepSize_read = new_step_size
 
     def read_attr_hardware(self, data):
         pass
         # self.debug_stream("In read_attr_hardware()")
 
-    def read_trajpar(self, attr):
+    @attribute(dtype=[[float]], max_dim_x=1000, max_dim_y=5)
+    def trajpar(self):
         self.debug_stream("In read_trajpar()")
-        attr.set_value(self.attr_trajpar_read)
+        return self.attr_trajpar_read
 
-    def write_trajpar(self, attr):
+    @trajpar.write
+    def trajpar(self, new_trajpar):
         self.debug_stream("In write_trajpar()")
-        data = attr.get_write_value()
 
-    def read_Limits(self, attr):
+    @attribute(dtype=[float], unit='uu', format='%10.3f', max_dim_x=2,
+               doc='Software limits expressed in physical unit',
+               display_level=PyTango.DispLevel.EXPERT)
+    def Limits(self):
         self.debug_stream("In read_Limits()")
-        attr.set_value(self.axis.limits())
+        return self.axis.limits()
 
-    def write_Limits(self, attr):
+    @Limits.write
+    def write_Limits(self, limits):
         self.debug_stream("In write_Limits()")
-        low, high = attr.get_write_value()
+        low, high = limits
         self.axis.limits(low, high)
         self.axis.settings_to_config(velocity=False, acceleration=False)
 
     """
     Motor command methods
     """
+    @command
     def On(self):
         """ Enable power on motor
 
@@ -659,6 +654,7 @@ class BlissAxis(PyTango.Device_4Impl):
             self.set_state(PyTango.DevState.FAULT)
             self.set_status("ON command was not executed as expected.")
 
+    @command
     def Off(self):
         """ Disable power on motor
 
@@ -674,6 +670,7 @@ class BlissAxis(PyTango.Device_4Impl):
             self.set_state(PyTango.DevState.FAULT)
             self.set_status("OFF command was not executed as expected.")
 
+    @command(dtype_in=int, doc_in='homing direction')
     def GoHome(self, argin):
         """
         Moves the motor to the home position given by a home switch.
@@ -683,6 +680,7 @@ class BlissAxis(PyTango.Device_4Impl):
         self.debug_stream("In GoHome(%d)" % argin)
         self.axis.home(switch=argin, wait=False)
 
+    @command
     def GoHomeInversed(self):
         """
         Moves the motor to the home position given by a home switch.
@@ -691,6 +689,7 @@ class BlissAxis(PyTango.Device_4Impl):
         self.debug_stream("In GoHomeInversed()")
         self.axis.home(switch=-1, wait=False)
 
+    @command
     def Abort(self):
         """ Stop immediately the motor
 
@@ -701,6 +700,7 @@ class BlissAxis(PyTango.Device_4Impl):
         self.debug_stream("In Abort()")
         self.axis.stop(wait=False)
 
+    @command
     def Stop(self):
         """ Stop gently the motor
 
@@ -711,6 +711,7 @@ class BlissAxis(PyTango.Device_4Impl):
         self.debug_stream("In Stop()")
         self.axis.stop(wait=False)
 
+    @command
     def StepUp(self):
         """ Performs a relative motion of ``stepSize`` in the forward
          direction.  StepSize is defined as an attribute of the
@@ -723,6 +724,7 @@ class BlissAxis(PyTango.Device_4Impl):
         self.debug_stream("In StepUp(); stepsize=%f" % self.attr_StepSize_read)
         self.axis.rmove(self.attr_StepSize_read, wait=self.write_position_wait)
 
+    @command
     def StepDown(self):
         """ Performs a relative motion of ``stepSize`` in the backward
          direction.  StepSize is defined as an attribute of the
@@ -735,6 +737,7 @@ class BlissAxis(PyTango.Device_4Impl):
         self.debug_stream("In StepDown(); stepsize=%f" % self.attr_StepSize_read)
         self.axis.rmove(-self.attr_StepSize_read, wait=self.write_position_wait)
 
+    @command(dtype_out=str)
     def GetInfo(self):
         """ provide information about the axis.
 
@@ -745,6 +748,7 @@ class BlissAxis(PyTango.Device_4Impl):
         self.debug_stream("In GetInfo()")
         return self.axis.get_info()
 
+    @command(dtype_in=str, doc_in='raw command to be send to the axis. Be carefull!')
     def RawWrite(self, argin):
         """ Sends a raw command to the axis. Be carefull!
 
@@ -754,8 +758,10 @@ class BlissAxis(PyTango.Device_4Impl):
         """
         self.debug_stream("In RawWrite()")
 
-        return self.kontroler.raw_write(argin)
+        return self.axis.controller.raw_write(argin)
 
+    @command(dtype_in=str, doc_in='raw command to be send to the axis. Be carefull!',
+             dtype_out=str, doc_out='answer returned by the controller')
     def RawWriteRead(self, argin):
         """ Sends a raw command to the axis and read the result.
         Be carefull!
@@ -766,8 +772,9 @@ class BlissAxis(PyTango.Device_4Impl):
         :rtype: PyTango.DevString """
         self.debug_stream("In RawWriteRead()")
 
-        return self.kontroler.raw_write_read(argin)
+        return self.axis.controller.raw_write_read(argin)
 
+    @command(dtype_out=float, doc_out='controller raw position (used to manage discrepency)')
     def CtrlPosition(self):
         """ Returns raw axis position read by controller.
 
@@ -779,10 +786,12 @@ class BlissAxis(PyTango.Device_4Impl):
 
         return self.axis.read_position()
 
+    @command
     def SyncHard(self):
         self.debug_stream("In SyncHard()")
         return self.axis.sync_hard()
 
+    @command
     def WaitMove(self):
         """ Waits end of last motion
 
@@ -793,9 +802,12 @@ class BlissAxis(PyTango.Device_4Impl):
         self.debug_stream("In WaitMove()")
         return self.axis.wait_move()
 
+    @command(dtype_in=str, doc_in='parameter name',
+             dtype_out=str, doc_out='configuration value')
     def ReadConfig(self, argin):
-        return self.axis.config().get(argin)
+        return self.axis.config.get(argin)
 
+    @command(dtype_in=int, doc_in='state of the gate 0/1')
     def SetGate(self, argin):
         """
         Activate or de-activate gate of this axis.
@@ -804,12 +816,13 @@ class BlissAxis(PyTango.Device_4Impl):
 
         return self.axis.set_gate(argin)
 
+    @command(dtype_out=[str], doc_out='list of axis custom commands')
     def GetCustomCommandList(self):
         """
         Returns the list of custom commands.
         JSON format.
         """
-        _cmd_list = self.axis.custom_methods_list()
+        _cmd_list = self.axis.custom_methods_list
 
         argout = list()
 
@@ -819,12 +832,13 @@ class BlissAxis(PyTango.Device_4Impl):
 
         return argout
 
+    @command(dtype_out=[str], doc_out='list of axis custom attributes')
     def GetCustomAttributeList(self):
         """
         Returns the list of custom attributes.
         JSON format.
         """
-        base_attrs = BlissAxisClass.attr_list
+        base_attrs = BlissAxis.TangoClassClass.attr_list
         attrs = self.get_device_class().attr_list
         custom_attr_names = set(attrs).difference(base_attrs)
 
@@ -839,26 +853,32 @@ class BlissAxis(PyTango.Device_4Impl):
 
         return argout
 
+    @command(dtype_out=str, doc_out='name of the class of the controller of this axis')
     def GetControllerClassName(self):
         """
         Returns the name of the class of the controller.
         ex: 'Mockup'
         """
-        argout = self.kontroler.get_class_name()
+        argout = self.axis.controller.get_class_name()
         return argout
 
+    @command
     def SettingsToConfig(self):
         """
         Saves settings in configuration file (YML or XML)
         """
         self.axis.settings_to_config()
 
+    @command(dtype_in=bool,
+             doc_in='reload (true to do a reload before apply configuration, false not to)')
     def ApplyConfig(self, reload):
         """
         Reloads configuration and apply it.
         """
         self.axis.apply_config(reload=reload)
 
+    @command(dtype_in=float, doc_in='new user position (=dial*sign+offset)',
+             dtype_out=float, doc_out='previous user position')
     def SetPosition(self, new_user_pos):
         """
         (Re)Set the user position (no motor move): just change offset
@@ -867,6 +887,8 @@ class BlissAxis(PyTango.Device_4Impl):
         self.axis.position(new_user_pos)
         return old_user
 
+    @command(dtype_in=float, doc_in='new dial position (=(user-offset)/sign)',
+             dtype_out=float, doc_out='previous dial position')
     def SetDial(self, new_dial_pos):
         """
         (Re)Set the dial position (no motor move): write into controller
@@ -877,300 +899,11 @@ class BlissAxis(PyTango.Device_4Impl):
         return old_dial
 
 
-class BlissAxisClass(PyTango.DeviceClass):
-    #    Class Properties
-    class_property_list = {
-    }
-
-    #    Device Properties
-    device_property_list = {
-        'write_position_wait':
-        [PyTango.DevBoolean,
-         "Write position waits for end of motion",
-         False],
-    }
-
-    #    Command definitions
-    cmd_list = {
-        'On':
-        [[PyTango.DevVoid, "none"],
-         [PyTango.DevVoid, "none"]],
-        'Off':
-        [[PyTango.DevVoid, "none"],
-         [PyTango.DevVoid, "none"]],
-        'GoHome':
-        [[PyTango.DevLong, "Homing direction"],
-         [PyTango.DevVoid, "none"]],
-        'Abort':
-        [[PyTango.DevVoid, "none"],
-         [PyTango.DevVoid, "none"]],
-        'Stop':
-        [[PyTango.DevVoid, "none"],
-         [PyTango.DevVoid, "none"]],
-        'StepUp':
-        [[PyTango.DevVoid, "none"],
-         [PyTango.DevVoid, "none"], {'Display level': PyTango.DispLevel.EXPERT, }],
-        'StepDown':
-        [[PyTango.DevVoid, "none"],
-         [PyTango.DevVoid, "none"], {'Display level': PyTango.DispLevel.EXPERT, }],
-        'GetInfo':
-        [[PyTango.DevVoid, "none"],
-         [PyTango.DevString, "Info string returned by the axis"]],
-        'RawWrite':
-        [[PyTango.DevString, "Raw command to be send to the axis. Be carefull!"],
-         [PyTango.DevVoid, "No answer"],
-         {'Display level': PyTango.DispLevel.EXPERT, }],
-        'RawWriteRead':
-        [[PyTango.DevString, "Raw command to be send to the axis. Be carefull!"],
-         [PyTango.DevString, "Answer returned by the controller"],
-         {'Display level': PyTango.DispLevel.EXPERT, }],
-        'CtrlPosition':
-        [[PyTango.DevVoid, ""],
-         [PyTango.DevFloat, "Controller raw position (used to manage discrepency)"],
-         {'Display level': PyTango.DispLevel.EXPERT, }],
-        'SyncHard':
-        [[PyTango.DevVoid, "none"],
-         [PyTango.DevVoid, "none"]],
-        'WaitMove':
-        [[PyTango.DevVoid, "none"],
-         [PyTango.DevVoid, "none"]],
-        'ReadConfig':
-        [[PyTango.DevString, "Parameter name"],
-         [PyTango.DevString, "Configuration value"]],
-        'SetGate':
-        [[PyTango.DevLong, "state of the gate 0/1"],
-         [PyTango.DevVoid, ""]],
-        'GetCustomCommandList':
-        [[PyTango.DevVoid, ""],
-         [PyTango.DevVarStringArray, "List of axis custom commands"]],
-        'GetCustomAttributeList':
-        [[PyTango.DevVoid, ""],
-         [PyTango.DevVarStringArray, "List of axis custom attributes"]],
-        'GetControllerClassName':
-        [[PyTango.DevVoid, ""],
-         [PyTango.DevString, "Name of the class of the controller of this axis"]],
-        'ApplyConfig':
-        [[PyTango.DevBoolean, "reload (true to do a reload before apply configuration, false not to)"],
-         [PyTango.DevVoid, "calls apply_config ???"]],
-        'SettingsToConfig':
-        [[PyTango.DevVoid, ""],
-         [PyTango.DevVoid, "calls settings_to_config ???"]],
-        'SetPosition':
-        [[PyTango.DevDouble, "New user position (=dial*sign+offset)"],
-         [PyTango.DevDouble, "Previous user position"]],
-        'SetDial':
-        [[PyTango.DevDouble, "New dial position (=(user-offset)/sign)"],
-         [PyTango.DevDouble, "Previous dial position"]],
-    }
-
-    #    Attribute definitions
-    attr_list = {
-        'Steps_per_unit':
-        [[PyTango.DevDouble,
-          PyTango.SCALAR,
-          PyTango.READ],
-         {
-             'label': "Steps per user unit",
-             'unit': "steps/uu",
-             'format': "%7.1f",
-             # 'Display level': PyTango.DispLevel.EXPERT,
-        }],
-        'Steps':
-        [[PyTango.DevLong,
-          PyTango.SCALAR,
-          PyTango.READ],
-         {
-             'label': "Steps",
-             'unit': "steps",
-             'format': "%6d",
-             'description': "number of steps in the step counter\n",
-        }],
-        'Position':
-        [[PyTango.DevDouble,
-          PyTango.SCALAR,
-          PyTango.READ_WRITE],
-         {
-             'label': "Position",
-             'unit': "uu",
-             'format': "%10.3f",
-             'description': "The desired motor position in user units.",
-        }],
-        'Measured_Position':
-        [[PyTango.DevDouble,
-          PyTango.SCALAR,
-          PyTango.READ],
-         {
-             'label': "Measured position",
-             'unit': "uu",
-             'format': "%10.3f",
-             'description': "The measured motor position in user units.",
-        }],
-        'Acceleration':
-        [[PyTango.DevDouble,
-          PyTango.SCALAR,
-          PyTango.READ_WRITE],
-         {
-             'label': "Acceleration",
-             'unit': "user units/s^2",
-             'format': "%10.3f",
-             'description': "Acceleration of the motor in uu/s2",
-             'Display level': PyTango.DispLevel.EXPERT,
-        }],
-        'AccTime':
-        [[PyTango.DevDouble,
-          PyTango.SCALAR,
-          PyTango.READ_WRITE],
-         {
-             'label': "Acceleration Time",
-             'unit': "s",
-             'format': "%10.6f",
-             'description': "The acceleration time of the motor (in seconds).",
-             'Display level': PyTango.DispLevel.EXPERT,
-        }],
-        'Velocity':
-        [[PyTango.DevDouble,
-          PyTango.SCALAR,
-          PyTango.READ_WRITE],
-         {
-             'label': "Velocity",
-             'unit': "units/s",
-             'format': "%10.3f",
-             'description': "The constant velocity of the motor.",
-             #                'Display level': PyTango.DispLevel.EXPERT,
-        }],
-        'Backlash':
-        [[PyTango.DevDouble,
-          PyTango.SCALAR,
-          PyTango.READ],
-         {
-             'label': "Backlash",
-             'unit': "uu",
-             'format': "%5.3f",
-             'description': "Backlash to be applied to each motor movement",
-             #'Display level': PyTango.DispLevel.EXPERT,
-        }],
-        'Sign':
-        [[PyTango.DevShort,
-          PyTango.SCALAR,
-          PyTango.READ],
-         {
-             'label': "Sign",
-             'unit': "unitless",
-             'format': "%d",
-             'description': "Sign between dial and user: +/-1",
-             #'Display level': PyTango.DispLevel.EXPERT,
-        }],
-        'Offset':
-        [[PyTango.DevDouble,
-          PyTango.SCALAR,
-          PyTango.READ],
-         {
-             'label': "Offset",
-             'unit': "uu",
-             'format': "%7.5f",
-             'description': "Offset between (sign*dial) and user",
-             #'Display level': PyTango.DispLevel.EXPERT,
-        }],
-        'Tolerance':
-        [[PyTango.DevDouble,
-          PyTango.SCALAR,
-          PyTango.READ],
-         {
-             'label': "Tolerance",
-             'unit': "uu",
-             'format': "%7.5f",
-             'description': "Tolerance between dial and user",
-             #'Display level': PyTango.DispLevel.EXPERT,
-        }],
-        'Home_position':
-        [[PyTango.DevDouble,
-          PyTango.SCALAR,
-          PyTango.READ_WRITE],
-         {
-             'label': "Home position",
-             'unit': "uu",
-             'format': "%7.3f",
-             'description': "Position of the home switch",
-             'Display level': PyTango.DispLevel.EXPERT,
-        }],
-        'HardLimitLow':
-        [[PyTango.DevBoolean,
-          PyTango.SCALAR,
-          PyTango.READ],
-         {
-             'label': "low limit switch state",
-        }],
-        'HardLimitHigh':
-        [[PyTango.DevBoolean,
-          PyTango.SCALAR,
-          PyTango.READ],
-         {
-             'label': "up limit switch state",
-        }],
-        'PresetPosition':
-        [[PyTango.DevDouble,
-          PyTango.SCALAR,
-          PyTango.READ_WRITE],
-         {
-             'label': "Preset Position",
-             'unit': "uu",
-             'format': "%10.3f",
-             'description': "preset the position in the step counter",
-             'Display level': PyTango.DispLevel.EXPERT,
-        }],
-        'FirstVelocity':
-        [[PyTango.DevDouble,
-          PyTango.SCALAR,
-          PyTango.READ_WRITE],
-         {
-             'label': "first step velocity",
-             'unit': "units/s",
-             'format': "%10.3f",
-             'description': "number of unit/s for the first step and for \
-             the move reference",
-             'Display level': PyTango.DispLevel.EXPERT,
-        }],
-        'Home_side':
-        [[PyTango.DevBoolean,
-          PyTango.SCALAR,
-          PyTango.READ],
-         {
-             'description': "indicates if the axis is below or above \
-             the position of the home switch",
-        }],
-        'StepSize':
-        [[PyTango.DevDouble,
-          PyTango.SCALAR,
-          PyTango.READ_WRITE],
-         {
-             'unit': "uu",
-             'format': "%10.3f",
-             'description': "Size of the relative step performed by the \
-             StepUp and StepDown commands.\nThe StepSize\
-             is expressed in physical unit.",
-             'Display level': PyTango.DispLevel.EXPERT,
-        }],
-        'trajpar':
-        [[PyTango.DevFloat,
-          PyTango.IMAGE,
-          PyTango.READ_WRITE, 1000, 5]],
-        'Limits':
-        [[PyTango.DevDouble,
-          PyTango.SPECTRUM,
-          PyTango.READ_WRITE, 2],
-         {
-             'unit': "uu",
-             'format': "%10.3f",
-             'description': "Software limits expressed in physical unit.",
-             'Display level': PyTango.DispLevel.OPERATOR,
-        }],
-    }
-
 def get_server_axis_names(instance_name=None):
     if instance_name is None:
         _, instance_name, _ = get_server_info()
 
-    cfg = TgGevent.execute(bliss_config.beacon_get_config)
+    cfg = bliss_config.beacon_get_config()
     result = []
     for item_name in cfg.names_list:
         item_cfg = cfg.get_config(item_name)
@@ -1262,21 +995,21 @@ def initialize_logging(argv):
         sys.exit(0)
 
 
-def recreate(db=None, new_server=False):
+def __recreate(db=None, new_server=False):
 
     if db is None:
         db = PyTango.Database()
 
-    server_name, instance_name, server_instance = get_server_info()
+    server_name, server_instance, server_name = get_server_info()
     registered_servers = set(db.get_instance_name_list('BlissAxisManager'))
 
     # check if server exists in database. If not, create it.
-    if instance_name not in registered_servers:
+    if server_instance not in registered_servers:
         if new_server:
             register_server(db=db)
         else:
             print "The device server %s is not defined in database. " \
-                  "Exiting!" % server_instance
+                  "Exiting!" % server_name
             print "hint: start with '-n' to create a new one automatically"
             sys.exit(255)
 
@@ -1302,9 +1035,17 @@ def recreate(db=None, new_server=False):
         elog.error('Use of \'axes\' property not supported anymore',
                    raise_exception=False)
         elog.error('Configure by adding: \'tango_server: %s\' in each '
-                   'axis yaml instead' % instance_name,
+                   'axis yaml instead' % server_instance,
                    raise_exception=False)
         sys.exit(-1)
+
+    return __recreate_axes(server_name, manager_dev_name,
+                           axis_names, dev_map, db=db)
+
+
+def __recreate_axes(server_name, manager_dev_name, axis_names,
+                    dev_map, db=None):
+    db = db or PyTango.Database()
 
     curr_axes = {}
     for dev_class, dev_names in dev_map.items():
@@ -1331,7 +1072,7 @@ def recreate(db=None, new_server=False):
     for axis_name in new_axis_names:
         dev_name = "%s/%s_%s/%s" % (domain, family, member, axis_name)
         info = PyTango.DbDevInfo()
-        info.server = server_instance
+        info.server = server_name
         info._class = 'BlissAxis_' + axis_name
         info.name = dev_name
         elog.debug('adding new axis %s (%s)' % (dev_name, axis_name))
@@ -1342,8 +1083,145 @@ def recreate(db=None, new_server=False):
         except PyTango.DevFailed:
             elog.debug('registering alias for %s (%s)' % (dev_name, axis_name))
             db.put_device_alias(dev_name, axis_name)
+ 
+    axes, tango_classes = [], []
+    for axis_name in curr_axis_names_set:
+        axis = bliss.get_axis(axis_name)
+        axes.append(axis)
+        tango_class = __create_tango_axis_class(axis)
+        tango_classes.append(tango_class)
 
-    return axis_names
+    return axes, tango_classes
+
+
+# callback from the Bliss server
+def initialize_bliss(info, db=None):
+    shell_info = info['shell_info']
+    session_cfg = shell_info[-1]
+    object_names = session_cfg['config_objects']
+    server_type  = info['server_type']
+    server_instance = info['server_instance']
+    server_name = server_type + '/' + server_instance
+
+    cfg = bliss_config.beacon_get_config()
+
+    axis_names = []
+    for name in object_names:
+        obj_cfg = cfg.get_config(name)
+        if obj_cfg.plugin == 'emotion':
+            axis_names.append(name)
+
+    axes, classes = __recreate_axes(server_name, info['manager_device_name'],
+                                    axis_names, info['device_map'], db=db)
+    return classes
+
+
+def __create_tango_axis_class(axis):
+    BlissAxisClass = BlissAxis.TangoClassClass
+    new_axis_class_class = types.ClassType("BlissAxisClass_%s" % axis.name, (BlissAxisClass,), {})
+    new_axis_class = types.ClassType("BlissAxis_%s" % axis.name, (BlissAxis,), {})
+    new_axis_class.TangoClassName = "BlissAxis_%s" % axis.name
+    new_axis_class.TangoClassClass = new_axis_class_class
+
+    new_axis_class_class.attr_list = dict(BlissAxisClass.attr_list)
+    new_axis_class_class.cmd_list = dict(BlissAxisClass.cmd_list)
+
+    """
+    CUSTOM COMMANDS
+    """
+    # Search and adds custom commands.
+    _cmd_list = axis.custom_methods_list
+    elog.debug("'%s' custom commands:" % axis.name)
+    elog.debug(', '.join(map(str, _cmd_list)))
+
+    def create_cmd(cmd_name):
+        def cmd(self, *args, **kwargs):
+            method = getattr(self.axis, cmd_name)
+            return get_worker().execute(method, *args, **kwargs)
+        return cmd
+
+    _attr_list = axis.custom_attributes_list
+
+    for (fname, (t1, t2)) in _cmd_list:
+        # Skip the attr set/get methods
+        attr = [n for n, t, a in _attr_list
+                if fname in ['set_%s' % n, 'get_%s' % n]]
+        if attr:
+            continue
+
+        setattr(new_axis_class, fname, create_cmd(fname))
+
+        tin = types_conv_tab[t1]
+        tout = types_conv_tab[t2]
+
+        new_axis_class_class.cmd_list.update({fname: [[tin, ""], [tout, ""]]})
+
+        elog.debug("   %s (in: %s, %s) (out: %s, %s)" % (fname, t1, tin, t2, tout))
+
+    # CUSTOM ATTRIBUTES
+    elog.debug("'%s' custom attributes:" % axis.name)
+    elog.debug(', '.join(map(str, _attr_list)))
+
+    for name, t, access in _attr_list:
+        attr_info = [types_conv_tab[t],
+                     PyTango.AttrDataFormat.SCALAR]
+        if 'r' in access:
+            def read(self, attr):
+                method = getattr(self.axis, "get_" + attr.get_name())
+                value = get_worker().execute(method)
+                attr.set_value(value)
+            setattr(new_axis_class, "read_%s" % name, read)
+        if 'w' in access:
+            def write(self, attr):
+                method = getattr(self.axis, "set_" + attr.get_name())
+                value = attr.get_write_value()
+                method(value)
+            setattr(new_axis_class, "write_%s" % name, write)
+
+        write_dict = {'r': 'READ', 'w': 'WRITE', 'rw': 'READ_WRITE'}
+        attr_write = getattr(PyTango.AttrWriteType, write_dict[access])
+        attr_info.append(attr_write)
+        new_axis_class_class.attr_list[name] = [attr_info]
+
+    """
+    CUSTOM SETTINGS AS ATTRIBUTES.
+    """
+    elog.debug(" BlissAxisManager.py : %s : -------------- SETTINGS -----------------" % axis.name)
+
+    for setting_name in axis.settings:
+        if setting_name in ["velocity", "position", "dial_position", "state",
+                            "offset", "low_limit", "high_limit", "acceleration", "_set_position"]:
+            elog.debug(" BlissAxisManager.py -- std SETTING %s " % (setting_name))
+        else:
+            _setting_type = axis.controller.axis_settings.convert_funcs[setting_name]
+            _attr_type = types_conv_tab[_setting_type]
+            elog.debug(" BlissAxisManager.py -- adds SETTING %s as %s attribute" % (setting_name, _attr_type))
+
+            # Updates Attributes list.
+            new_axis_class_class.attr_list.update({setting_name:
+                                                   [[_attr_type,
+                                                     PyTango.AttrDataFormat.SCALAR,
+                                                      PyTango.AttrWriteType.READ_WRITE], {
+                'Display level': PyTango.DispLevel.OPERATOR,
+                'format': '%10.3f',
+                'description': '%s : u 2' % setting_name,
+                'unit': 'user units/s^2',
+                'label': setting_name,
+                }]})
+
+            # Creates functions to read and write settings.
+            def read_custattr(self, attr):
+                value = get_worker().execute(self.axis.get_setting,
+                                             attr.get_name())
+                attr.set_value(value)
+            setattr(new_axis_class, "read_%s" % setting_name, read_custattr)
+
+            def write_custattr(self, attr):
+                get_worker().execute(self.axis.set_setting, attr.get_name(),
+                                     attr.get_write_value())
+            setattr(new_axis_class, "write_%s" % setting_name, write_custattr)
+
+    return new_axis_class
 
 
 def main(argv=None):
@@ -1372,140 +1250,10 @@ def main(argv=None):
             # (tango is not actually a library :-)
             return
 
-        axis_names = recreate(new_server=new_server)
-        elog.debug("axis names list : %s" % (axis_names,))
+        axes, axes_classes = __recreate(new_server=new_server)
 
         util = PyTango.Util(argv)
         db = util.get_database()
-        util.add_class(BlissAxisManagerClass, BlissAxisManager)
-
-        for axis_name in axis_names:
-            elog.debug("BlissAxisManager.py : _____________ axis %s _____________" % axis_name)
-            try:
-                _axis = TgGevent.get_proxy(bliss.get_axis, axis_name)
-            except ConnectionException:
-                elog.error("beacon_server seems not running")
-                sys.exit(-1)
-            except:
-                print traceback.format_exc()
-                sys.exit(-1)
-
-            new_axis_class_class = types.ClassType("BlissAxisClass_%s" % axis_name, (BlissAxisClass,), {})
-            new_axis_class = types.ClassType("BlissAxis_%s" % axis_name, (BlissAxis,), {})
-            new_axis_class_class.attr_list = dict(BlissAxisClass.attr_list)
-            new_axis_class_class.cmd_list = dict(BlissAxisClass.cmd_list)
-
-            """
-            CUSTOM COMMANDS
-            """
-            # Search and adds custom commands.
-            _cmd_list = _axis.custom_methods_list()
-            elog.debug("'%s' custom commands:" % axis_name)
-            elog.debug(', '.join(map(str, _cmd_list)))
-
-            _attr_list =_axis.custom_attributes_list()
-            for (fname, (t1, t2)) in _cmd_list:
-                # Skip the attr set/get methods
-                attr = [n for n, t, a in _attr_list
-                        if fname in ['set_%s' % n, 'get_%s' % n]]
-                if attr:
-                    continue
-
-                setattr(new_axis_class, fname, getattr(_axis, fname))
-
-                tin = types_conv_tab[t1]
-                tout = types_conv_tab[t2]
-
-                new_axis_class_class.cmd_list.update({fname: [[tin, ""], [tout, ""]]})
-
-                elog.debug("   %s (in: %s, %s) (out: %s, %s)" % (fname, t1, tin, t2, tout))
-
-            # CUSTOM ATTRIBUTES
-            _attr_list =_axis.custom_attributes_list()
-
-            elog.debug("'%s' custom attributes:" % axis_name)
-            elog.debug(', '.join(map(str, _attr_list)))
-
-            for name, t, access in _attr_list:
-                _attr_name = name
-                attr_info = [types_conv_tab[t],
-                             PyTango.AttrDataFormat.SCALAR]
-                if 'r' in access:
-                    def read(self, attr, _axis=_axis, _attr_name=_attr_name):
-                        value = getattr(_axis, "get_" + _attr_name)()
-                        attr.set_value(value)
-                    new_read_attr_method = types.MethodType(read, new_axis_class,
-                                                            new_axis_class.__class__)
-                    setattr(new_axis_class, "read_%s" % _attr_name,
-                            new_read_attr_method)
-                if 'w' in access:
-                    def write(self, attr, _axis=_axis, _attr_name=_attr_name):
-                        value = attr.get_write_value()
-                        getattr(_axis, "set_" + _attr_name)(value)
-                    new_write_attr_method = types.MethodType(write, new_axis_class,
-                                                             new_axis_class.__class__)
-                    setattr(new_axis_class, "write_%s" % _attr_name,
-                            new_write_attr_method)
-
-                write_dict = {'r': 'READ', 'w': 'WRITE', 'rw': 'READ_WRITE'}
-                attr_write = getattr(PyTango.AttrWriteType, write_dict[access])
-                attr_info.append(attr_write)
-                new_axis_class_class.attr_list[_attr_name] = [attr_info]
-
-            """
-            CUSTOM SETTINGS AS ATTRIBUTES.
-            """
-            elog.debug(" BlissAxisManager.py : %s : -------------- SETTINGS -----------------" % axis_name)
-
-            for setting_name in _axis.settings():
-                if setting_name in ["velocity", "position", "dial_position", "state",
-                                    "offset", "low_limit", "high_limit", "acceleration", "_set_position"]:
-                    elog.debug(" BlissAxisManager.py -- std SETTING %s " % (setting_name))
-                else:
-                    _attr_name = setting_name
-                    _setting_type = _axis.controller().axis_settings.convert_funcs[_attr_name]
-                    _attr_type = types_conv_tab[_setting_type]
-                    elog.debug(" BlissAxisManager.py -- adds SETTING %s as %s attribute" % (setting_name, _attr_type))
-
-                    # Updates Attributes list.
-                    new_axis_class_class.attr_list.update({_attr_name:
-                                                           [[_attr_type,
-                                                             PyTango.AttrDataFormat.SCALAR,
-                                                             PyTango.AttrWriteType.READ_WRITE], {
-                        'Display level': PyTango.DispLevel.OPERATOR,
-                        'format': '%10.3f',
-                        'description': '%s : u 2' % _attr_name,
-                        'unit': 'user units/s^2',
-                        'label': _attr_name,
-                        }]})
-
-                    # Creates functions to read and write settings.
-                    def read_custattr(self, attr, _axis=_axis, _attr_name=_attr_name):
-                        _val = _axis.get_setting(_attr_name)
-                        attr.set_value(_val)
-                    new_read_attr_method = types.MethodType(read_custattr, new_axis_class,
-                                                            new_axis_class.__class__)
-                    setattr(new_axis_class, "read_%s" % _attr_name, new_read_attr_method)
-
-                    def write_custattr(self, attr, _axis=_axis, _attr_name=_attr_name):
-                        data = attr.get_write_value()
-                        _axis.set_setting(_attr_name, data)
-
-                    new_write_attr_method = types.MethodType(write_custattr, new_axis_class,
-                                                             new_axis_class.__class__)
-                    setattr(new_axis_class, "write_%s" % _attr_name, new_write_attr_method)
-
-            # End of custom command and settings
-            elog.debug("BlissAxisManager.py : Adds new Axis specific class.")
-            util.add_class(new_axis_class_class, new_axis_class)
-            elog.debug("BlissAxisManager.py : Class added.")
-
-        elog.debug("BlissAxisManager.py : intitialize server.")
-
-        # To force serialization of commands ...
-        # util.set_serial_model(PyTango.SerialModel.BY_PROCESS)
-
-        util.server_init()
 
     except PyTango.DevFailed:
         print traceback.format_exc()
@@ -1513,9 +1261,15 @@ def main(argv=None):
             "Error in server initialization")
         sys.exit(0)
 
+    klasses = [BlissAxisManager] + axes_classes
+
     dt = time.time() - start_time
-    print('Ready to accept request (took %6.3fs)' % dt)
-    util.server_run()
+    elog.info('server configured (took %6.3fs)' % dt)
+
+    from PyTango import GreenMode
+    from PyTango.server import run
+    run(klasses, green_mode=GreenMode.Gevent)
+
 
 if __name__ == '__main__':
     main()

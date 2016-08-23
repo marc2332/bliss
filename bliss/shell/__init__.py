@@ -77,14 +77,14 @@ def read_config(config_file=None):
             try:
                 synoptic_file = cfg[session_id]["synoptic"]["svg-file"]
             except KeyError:
-                _log.warning('Unable to find synoptic file')
+                _log.warning('Unable to find synoptic file for %s', session_id)
                 _log.debug('Details:', exc_info=1)
             else:
                 if not os.path.isabs(synoptic_file):
                     synoptic_file = os.path.join(os.path.dirname(os.path.abspath(config_file)), synoptic_file)
                 set_synoptic_file(str(session_id), synoptic_file, cfg[session_id]["synoptic"]["elements"])
 
-    return SETUP, SYNOPTIC, default_session
+    return SETUP, SYNOPTIC, default_session, cfg
 
 
 def setup(setup_file=None, env_dict=None, config_objects_names_list=None, verbose=True):
@@ -186,7 +186,7 @@ def initialize(config_file=None, session_name=None):
     if config_file:
         set_shell_config_file(config_file)
 
-        SETUP, SYNOPTIC, default_session = read_config()
+        SETUP, SYNOPTIC, default_session, cfg = read_config()
         session_id = session_name or default_session
 
         setup_file = SETUP.get(session_id, {}).get("file")
@@ -197,6 +197,6 @@ def initialize(config_file=None, session_name=None):
         user_ns.update({"resetup": resetup, "SETUP_FILE": setup_file})
 
         resetup()
-        return user_ns, session_id, (SETUP, SYNOPTIC)
+        return user_ns, session_id, (SETUP, SYNOPTIC), cfg[session_id]
     else:
-        return user_ns,None,(None,None)
+        return user_ns,None,(None,None), None

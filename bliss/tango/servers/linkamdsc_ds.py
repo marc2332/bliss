@@ -7,7 +7,7 @@
 # Distributed under the terms of the GPL license.
 # See LICENSE.txt for more info.
 
-""" Linkam T94
+""" Linkam T94/T95
 
 Class for controlling the Linkam T94 with Dsc stage.
 """
@@ -52,7 +52,7 @@ class LinkamDsc(Device):
     # -----------------
     # Device Properties
     # -----------------
-    SerialUrl = device_property(dtype=str, doc='use rfc2217://lid30b2:28010')
+    SerialUrl = device_property(dtype=str, doc='use rfc2217://ld262:28068')
     Name = device_property(dtype=str, default_value="linkam")
 
     # ---------------
@@ -71,6 +71,7 @@ class LinkamDsc(Device):
         self._linkam = linkam(self.Name, config)
         self._lock = lock.Semaphore()
         self._filename = ""
+        self._profileData = [0.0,0.0,0.0]
         self._linkam.subscribe(self._profileCompleteCallback)
         if self._linkam is not None:
             attr = self.get_device_attr().get_attr_by_name("temperature")
@@ -124,7 +125,7 @@ class LinkamDsc(Device):
     def temperature(self, temp):
         self._linkam.setTemperature(temp)
 
-    @attribute(label='DSC data', dtype=['float',], fisallowed="is_attr_allowed", max_dim_x=2, 
+    @attribute(label='DSC data', dtype=['float',], fisallowed="is_attr_allowed", max_dim_x=3, 
         description="Current temperature and dsc data")
     @DebugIt()
     def dscData(self):
@@ -174,6 +175,17 @@ class LinkamDsc(Device):
     def startingRamp(self, rampNos):
         self._linkam.startingRamp = rampNos
 
+    @attribute(label='Profile Data', dtype=['float',], fisallowed="is_attr_allowed",max_dim_x=999,
+               description="Profile ramp data comprising rate, temp and dwell")
+    @DebugIt()
+    def profileData(self):
+        return self._profileData
+
+    @profileData.write
+    @DebugIt()
+    def profileData(self, profile):
+        self._profileData = profile
+
     @attribute(label='Dsc Sample Rate', dtype='float', fisallowed="is_attr_allowed",max_value=150.0, min_value=0.3,
         description="DSC sampling rate: allowable values are (.3, .6, .9, 1.5, 3, 6, 9, 15, 30, 60, 90, or 150)")
     @DebugIt()
@@ -208,18 +220,21 @@ class LinkamDsc(Device):
     @is_cmd_allowed("is_command_allowed")
     def Hold(self):
         self._linkam.hold()
+        self.set_state(PyTango.DevState.ON)
 
     @command
     @DebugIt()
     @is_cmd_allowed("is_command_allowed")
     def Start(self):
         self._linkam.start()
+        self.set_state(PyTango.DevState.RUNNING)
 
     @command
     @DebugIt()
     @is_cmd_allowed("is_command_allowed")
     def Stop(self):
         self._linkam.stop()
+        self.set_state(PyTango.DevState.ON)
 
     @command
     @DebugIt()
@@ -233,12 +248,13 @@ class LinkamDsc(Device):
     def PumpManual(self):
         self._linkam.setPumpManual()
 
-    @command(dtype_in=[float,], doc_in='ramp list')
+    @command
     @DebugIt()
     @is_cmd_allowed("is_command_allowed")
-    def Profile(self, ramps):
-        rr=numpy.ndarray((len(ramps)/3,3), buffer=ramps,dtype=float)
+    def Profile(self):
+        rr=numpy.ndarray((len(self._profileData)/3,3), buffer=self._profileData, dtype=float)
         ramplist = [tuple(a) for a in rr]
+        print ramplist
         if self._filename:
             self._scan = linkamScan(self._linkam, self._filename)
         self._linkam.profile(ramplist)

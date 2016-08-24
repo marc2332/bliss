@@ -66,10 +66,10 @@ class TestMockupTempController(unittest.TestCase):
 
     def test_custom_attr(self):
         config = static.get_config()
-        aa=config.get("thermo_sample")
-        self.assertEqual(aa.get_material(), "Hg")
-        aa.set_material("CH4OH")
-        self.assertEqual(aa.get_material(), "CH4OH")
+        bb=config.get("heater")
+        self.assertEqual(bb.get_material(), "Hg")
+        bb.set_material("CH4OH")
+        self.assertEqual(bb.get_material(), "CH4OH")
 
     def test_custom_cmd(self):
         config = static.get_config()

@@ -49,6 +49,21 @@ class Input(object):
         """ returns the snsor config """
         return self.__config
 
+    @property
+    def custom_methods_list(self):
+        # Returns a *copy* of the custom methods list.
+        return self.__custom_methods_list[:]
+
+    @property
+    def custom_attributes_list(self):
+        ad = self.__custom_attributes_dict
+
+        # Converts dict into list...
+        _attr_list = [(a_name, ad[a_name][0], ad[a_name][1]) for i, a_name in enumerate(ad)]
+
+        # Returns a *copy* of the custom attributes list.
+        return _attr_list[:]
+
     def read(self):
         """ returns the sensor value """
         log.debug("On Input:read")
@@ -85,6 +100,7 @@ class Output(object):
         self.__setpoint_event.set()
         self.__config = config
         self.__stopped = 0
+        self.__ramping = 0
         self.__mode = 0
         # if defined as  self.deadband, attribute available from the instance
         # if defined as  self.__deadband, not available.
@@ -125,6 +141,21 @@ class Output(object):
             only if heater value is within the deadband.
             While the setpoint is not reached, a wait will block on it."""
         return self.__deadband
+
+    @property
+    def custom_methods_list(self):
+        # Returns a *copy* of the custom methods list.
+        return self.__custom_methods_list[:]
+
+    @property
+    def custom_attributes_list(self):
+        ad = self.__custom_attributes_dict
+
+        # Converts dict into list...
+        _attr_list = [(a_name, ad[a_name][0], ad[a_name][1]) for i, a_name in enumerate(ad)]
+
+        # Returns a *copy* of the custom attributes list.
+        return _attr_list[:]
 
     def read(self):
         """ returns the heater value """
@@ -174,6 +205,7 @@ class Output(object):
             if hl is not None and new_setpoint > hl:
                 raise RuntimeError("Invalid setpoint `%f', above high limit (%f)" % (new_setpoint, hl))
 
+            self.__ramping = 1
             self.__setpoint_task = self._start_setpoint(new_setpoint,**kwargs)
             self.__setpoint_task.link(self.__setpoint_done)
 
@@ -192,6 +224,35 @@ class Output(object):
         except KeyboardInterrupt:
             self.stop()
 
+    def _setpoint_state(self, deadband):
+        """
+        Return a string representing the setpoint state of an Output class type object.
+        If a setpoint is set (by ramp or by direct setting) on an ouput, the status
+        will be RUNNING until it is in the deadband.
+        This RUNNING state is used by the ramping event loop in the case a user wants
+        to block on the Output ramp method (wait=True)
+
+        If deadband is None, returns immediately READY
+
+        Args:
+           toutput:  Output class type object
+           deadband: deadband attribute of toutput.
+       
+        Returns:
+           object state string: READY/RUNNING from [READY/RUNNING/ALARM/FAULT]
+
+        """
+        log.debug("On output:_setpoint_state: %s" % (deadband))
+        if (deadband == None):
+            return "READY"
+        mysp = self.controller.get_setpoint(self)
+        if (mysp == None) :
+            return "READY"
+        if math.fabs(self.controller.read_output(self) - mysp) <= deadband:
+            return "READY"
+        else:
+            return "RUNNING"
+
     def stop(self):
         """ Stops a setpoint task.
             Calls the controller method setpoint_stop
@@ -204,6 +265,7 @@ class Output(object):
             self.__stopped = 1
             ##
         self.controller.setpoint_stop(self)
+        self.__ramping = 0
 
     def abort(self):
         """ Aborts a setpoint task.
@@ -217,14 +279,18 @@ class Output(object):
             self.__stopped = 1
             ##
         self.controller.setpoint_abort(self)
+        self.__ramping = 0
 
     def rampstate(self):
-        """ Returns the setpoint state:
+        """ Returns the setpoint state: according to the value of __ramping
             - RUNNING: means that output object read value
-                       is outside setpoint deadband
-            - READY: inside the deadband
+                       is outside setpoint deadband (still in event loop)
+            - READY: inside the deadband, or stop or abort command has been called
         """
-        return self.controller._setpoint_state(self, self.__deadband)
+        if self.__ramping == 1:
+            return "RUNNING"
+        else :
+            return "READY"
         
 
     def __setpoint_done(self, task):
@@ -237,10 +303,11 @@ class Output(object):
                 task.get()
             except Exception:
                 sys.excepthook(*sys.exc_info())
-	finally:
+        finally:
             if self.__stopped == 0:
                self.__setpoint_event.set()
             self.__stopped = 0
+            self.__ramping = 0
 
 
     @task
@@ -255,7 +322,7 @@ class Output(object):
         else :
            self.controller.set(self, setpoint, **kwargs)
 
-        while self.controller._setpoint_state(self, self.__deadband) == 'RUNNING':
+        while self._setpoint_state(self.__deadband) == 'RUNNING':
             gevent.sleep(self.__setpoint_event_poll)
 
     def _start_setpoint(self, setpoint, **kwargs):
@@ -370,6 +437,21 @@ class Loop(object):
     def output(self):
         """ returns the loop output object """
         return self.__output
+
+    @property
+    def custom_methods_list(self):
+        # Returns a *copy* of the custom methods list.
+        return self.__custom_methods_list[:]
+
+    @property
+    def custom_attributes_list(self):
+        ad = self.__custom_attributes_dict
+
+        # Converts dict into list...
+        _attr_list = [(a_name, ad[a_name][0], ad[a_name][1]) for i, a_name in enumerate(ad)]
+
+        # Returns a *copy* of the custom attributes list.
+        return _attr_list[:]
 
     def set(self, new_setpoint=None, wait=False,**kwargs):
         """ same as a call to the the method set on its output object """

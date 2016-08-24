@@ -37,10 +37,10 @@ from bliss.common.task_utils import *
 import gevent
 import gevent.event
 import math
+import functools
 from bliss.common import log
 from bliss.common.temperature import *
 from bliss.common.utils import set_custom_members
-
 
 
 class Controller(object):
@@ -414,36 +414,6 @@ class Controller(object):
         """
         log.info("Controller:state_output:" )
         raise NotImplementedError
-
-    def _setpoint_state(self, toutput, deadband):
-        """
-        Return a string representing the setpoint state of an Output class type object.
-        If a setpoint is set (by ramp or by direct setting) on an ouput, the status
-        will be RUNNING until it is in the deadband.
-        This RUNNING state is used by the ramping event loop in the case a user wants
-        to block on the Output ramp method (wait=True)
-        Method called by Output class type object.
-
-        If deadband is None, returns immediately READY
-
-        Args:
-           toutput:  Output class type object
-           deadband: deadband attribute of toutput.
-       
-        Returns:
-           object state string: READY/RUNNING from [READY/RUNNING/ALARM/FAULT]
-
-        """
-        log.info("Controller:setpoint_state: %s" % (toutput))
-        if (deadband == None):
-            return "READY"
-        mysp = self.get_setpoint(toutput)
-        if (mysp == None) :
-            return "READY"
-        if math.fabs(self.read_output(toutput) - mysp) <= deadband:
-            return "READY"
-        else:
-            return "RUNNING"
 
     def _f(self): pass
 

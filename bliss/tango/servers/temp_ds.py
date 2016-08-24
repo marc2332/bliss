@@ -7,13 +7,46 @@
 
 import os
 import sys
+import types
+
+import json
 
 import PyTango
 from PyTango.server import Device, DeviceMeta, attribute, command
+from PyTango.server import get_worker
 
 import bliss.common.log as elog
 from bliss.config.static import get_config
 
+types_conv_tab_inv = {
+    PyTango.DevVoid: 'None',
+    PyTango.DevDouble: 'float',
+    PyTango.DevString: 'str',
+    PyTango.DevLong: 'int',
+    PyTango.DevBoolean: 'bool',
+    PyTango.DevVarFloatArray: "float_array",
+    PyTango.DevVarDoubleArray: "double_array",
+    PyTango.DevVarLongArray: "long_array",
+    PyTango.DevVarStringArray: "string_array",
+    PyTango.DevVarBooleanArray: "bool_array",
+}
+
+types_conv_tab = dict((v, k) for k, v in types_conv_tab_inv.items())
+types_conv_tab.update({
+    None: PyTango.DevVoid,
+    str: PyTango.DevString,
+    int: PyTango.DevLong,
+    float: PyTango.DevDouble,
+    bool: PyTango.DevBoolean,
+})
+
+access_conv_tab = {
+    'r': PyTango.AttrWriteType.READ,
+    'w': PyTango.AttrWriteType.WRITE,
+    'rw': PyTango.AttrWriteType.READ_WRITE,
+}
+
+access_conv_tab_inv = dict((v, k) for k, v in access_conv_tab.items())
 
 _STATE_MAP = {
   'READY': PyTango.DevState.ON,
@@ -25,22 +58,51 @@ _STATE_MAP = {
 class BlissInput(Device):
     __metaclass__ = DeviceMeta
 
-    @attribute(dtype=str)
-    def channel(self):
-        return self.input_channel.channel
-
     @property
-    def input_channel(self):
+    def channel_object(self):
         config = get_config()
         name = self.get_name().rsplit('/', 1)[-1] 
 	return config.get(name) 
 
+    @attribute(dtype='string')
+    def name(self):
+        return self.channel_object.name
+
+    @command(dtype_out='DevVarStringArray')
+    def GetCustomCommandList(self):
+        """
+        Returns the list of custom commands.
+        JSON format.
+        """
+        _cmd_list = self.channel_object.custom_methods_list
+
+        argout = list()
+
+        for _cmd in _cmd_list:
+            self.debug_stream("Custom command : %s" % _cmd[0])
+            argout.append( json.dumps(_cmd))
+
+        return argout
+
+    @command(dtype_in='string')
+    def Wraw(self,st):
+        self.channel_object.controller.Wraw(st)
+
+    @command(dtype_out='string')
+    def Rraw(self):
+        return self.channel_object.controller.Rraw()
+     
+    @command(dtype_in='string',dtype_out='string')
+    def WRraw(self,st):
+        return self.channel_object.controller.WRraw(st)
+
+
     @command(dtype_out=float)
     def read(self):
-        return self.input_channel.read()       
+        return self.channel_object.read()       
 
     def dev_state(self):
-        state = self.input_channel.state()
+        state = self.channel_object.state()
         return _STATE_MAP[state]
 
     def dev_status(self):
@@ -53,22 +115,106 @@ class BlissInput(Device):
 class BlissOutput(Device):
     __metaclass__ = DeviceMeta
 
-    @attribute(dtype=str)
-    def channel(self):
-        return self.input_channel.channel
-
     @property
-    def output_channel(self):
+    def channel_object(self):
         config = get_config()
         name = self.get_name().rsplit('/', 1)[-1] 
 	return config.get(name) 
 
+    @attribute(dtype='string')
+    def name(self):
+        return self.channel_object.name
+
+    @attribute(dtype=float)
+    def limit_low(self):
+       return self.channel_object.limits[0]
+
+    @attribute(dtype=float)
+    def limit_high(self):
+        return self.channel_object.limits[1]
+
+    @attribute(dtype=float)
+    def deadband(self):
+        return self.channel_object.deadband
+
+    @attribute(dtype=float)
+    def ramprate(self):
+        return self.channel_object.ramprate()
+
+    @ramprate.write
+    def ramprate(self,ramp):
+        self.channel_object.ramprate(ramp)
+
+    @attribute(dtype=float)
+    def setpoint(self):
+        return self.channel_object.ramp()
+
+    @attribute(dtype=float)
+    def dwell(self):
+        return self.channel_object.dwell()
+
+    @dwell.write
+    def dwell(self,dw):
+        self.channel_object.dwell(dw)
+
+    @attribute(dtype=float)
+    def step(self):
+        return self.channel_object.step()
+
+    @step.write
+    def step(self,stp):
+        self.channel_object.step(stp)
+
+    @attribute(dtype=float)
+    def pollramp(self):
+        return self.channel_object.pollramp()
+
+    @pollramp.write
+    def pollramp(self,pr):
+        self.channel_object.pollramp(pr)
+
+    @attribute(dtype='DevState')
+    def rampstate(self):
+        return _STATE_MAP[self.channel_object.rampstate()]
+
     @command(dtype_out=float)
     def read(self):
-        return self.output_channel.read()       
+        return self.channel_object.read() 
+
+    @command(dtype_in=float)
+    def ramp(self,sp):
+        self.channel_object.ramp(sp)
+
+    @command(dtype_in=float)
+    def set(self,sp):
+        self.channel_object.set(sp)
+
+    @command
+    def stop(self):
+        self.channel_object.stop()
+
+    @command
+    def abort(self):
+        self.channel_object.abort()  
+
+    @command(dtype_out='DevVarStringArray')
+    def GetCustomCommandList(self):
+        """
+        Returns the list of custom commands.
+        JSON format.
+        """
+        _cmd_list = self.channel_object.custom_methods_list
+
+        argout = list()
+
+        for _cmd in _cmd_list:
+            self.debug_stream("Custom command : %s" % _cmd[0])
+            argout.append( json.dumps(_cmd))
+
+        return argout
 
     def dev_state(self):
-        state = self.output_channel.state()
+        state = self.channel_object.state()
         return _STATE_MAP[state]
 
     def dev_status(self):
@@ -81,22 +227,85 @@ class BlissOutput(Device):
 class BlissLoop(Device):
     __metaclass__ = DeviceMeta
 
-    @attribute(dtype=str)
-    def channel(self):
-        return self.input_channel.channel
-
     @property
-    def loop_channel(self):
+    def channel_object(self):
         config = get_config()
         name = self.get_name().rsplit('/', 1)[-1] 
 	return config.get(name) 
 
+    @attribute(dtype='string')
+    def name(self):
+        return self.channel_object.name
+
+    @attribute(dtype='string')
+    def input_name(self):
+        return self.channel_object.input.name
+
+    @attribute(dtype='string')
+    def input_device(self):
+        return getdevicefromname("BlissInput",self.channel_object.input.name)
+
+    @attribute(dtype='string')
+    def output_name(self):
+        return self.channel_object.output.name
+
+    @attribute(dtype='string')
+    def output_device(self):
+        return getdevicefromname("BlissOutput",self.channel_object.output.name)
+
+    @attribute(dtype=float)
+    def kp(self):
+        return self.channel_object.kp()
+
+    @kp.write
+    def kp(self,kkp):
+        self.channel_object.kp(kkp)
+
+    @attribute(dtype=float)
+    def ki(self):
+        return self.channel_object.ki()
+
+    @ki.write
+    def ki(self,kki):
+        self.channel_object.ki(kki)
+
+    @attribute(dtype=float)
+    def kd(self):
+        return self.channel_object.kd()
+
+    @kd.write
+    def kd(self,kkd):
+        self.channel_object.kd(kkd)
+
+    @command(dtype_out='DevVarStringArray')
+    def GetCustomCommandList(self):
+        """
+        Returns the list of custom commands.
+        JSON format.
+        """
+        _cmd_list = self.channel_object.custom_methods_list
+
+        argout = list()
+
+        for _cmd in _cmd_list:
+            self.debug_stream("Custom command : %s" % _cmd[0])
+            argout.append( json.dumps(_cmd))
+
+        return argout
+    @command
+    def on(self):
+        self.channel_object.on()
+
+    @command
+    def off(self):
+        self.channel_object.off()
+
     @command(dtype_out=float)
     def read_input(self):
-        return self.loop_channel.input.read()       
+        return self.channel_object.input.read()       
 
     def dev_state(self):
-        state = self.loop_channel.input.state()
+        state = self.channel_object.input.state()
         return _STATE_MAP[state]
 
     def dev_status(self):
@@ -105,9 +314,14 @@ class BlissLoop(Device):
 
     def init_device(self):
         Device.init_device(self)
+
+def getdevicefromname(klass=None,name=None):
+    mykey = klass + '_' + name
+    return dev_map.get(mykey,None)[0]
                
 def recreate(db=None, new_server=False, typ='inputs'):
-
+    global dev_map
+#    import pdb; pdb.set_trace()
     if db is None:
         db = PyTango.Database()
 
@@ -173,7 +387,7 @@ def recreate(db=None, new_server=False, typ='inputs'):
         dev_name = "%s/%s_%s/%s" % (domain, family, member, io_name)
         info = PyTango.DbDevInfo()
         info.server = server_instance
-        info._class = classname 
+        info._class = "%s_%s" % (classname, io_name)
         info.name = dev_name
         elog.debug('adding new %s %s (%s)' % (classmsg, dev_name, io_name))
         db.add_device(info)
@@ -184,7 +398,17 @@ def recreate(db=None, new_server=False, typ='inputs'):
             elog.debug('registering alias for %s (%s)' % (dev_name, io_name))
             db.put_device_alias(dev_name, io_name)
 
-    return io_names
+    cfg = get_config()
+    io_objs, tango_classes = [], []
+    for io_name in curr_io_names_set:
+        io_obj = cfg.get(io_name)
+        io_objs.append(io_obj)
+	tango_base_class = globals()[classname]
+        tango_class = __create_tango_class(io_obj, tango_base_class)
+        tango_classes.append(tango_class)
+
+    return io_objs, tango_classes
+
 
 def get_devices_from_server(argv=None, db=None):
     if db is None:
@@ -291,6 +515,79 @@ def initialize_logging(argv):
         elog.exception("Error in initializing logging")
         sys.exit(0)
 
+
+def __create_tango_class(obj, klass):
+    klass_name = klass.__name__
+    tango_klass_name = "%s_%s" % (klass_name, obj.name)
+    BlissClass = klass.TangoClassClass
+    new_class_class = types.ClassType("%sClass_%s" % (klass_name, obj.name), (BlissClass,), {})
+    new_class = types.ClassType(tango_klass_name, (klass,), {})
+    new_class.TangoClassName = tango_klass_name
+    new_class.TangoClassClass = new_class_class
+
+    new_class_class.attr_list = dict(BlissClass.attr_list)
+    new_class_class.cmd_list = dict(BlissClass.cmd_list)
+
+    """
+    CUSTOM COMMANDS
+    """
+    # Search and adds custom commands.
+    _cmd_list = obj.custom_methods_list
+    elog.debug("'%s' custom commands:" % obj.name)
+    elog.debug(', '.join(map(str, _cmd_list)))
+
+    def create_cmd(cmd_name):
+        def cmd(self, *args, **kwargs):
+            method = getattr(self.channel_object, cmd_name)
+            return get_worker().execute(method, *args, **kwargs)
+        return cmd
+
+    _attr_list = obj.custom_attributes_list
+
+    for (fname, (t1, t2)) in _cmd_list:
+        # Skip the attr set/get methods
+        attr = [n for n, t, a in _attr_list
+                if fname in ['set_%s' % n, 'get_%s' % n]]
+        if attr:
+            continue
+
+        setattr(new_class, fname, create_cmd(fname))
+
+        tin = types_conv_tab[t1]
+        tout = types_conv_tab[t2]
+
+        new_class_class.cmd_list.update({fname: [[tin, ""], [tout, ""]]})
+
+        elog.debug("   %s (in: %s, %s) (out: %s, %s)" % (fname, t1, tin, t2, tout))
+
+    # CUSTOM ATTRIBUTES
+    elog.debug("'%s' custom attributes:" % obj.name)
+    elog.debug(', '.join(map(str, _attr_list)))
+
+    for name, t, access in _attr_list:
+        attr_info = [types_conv_tab[t],
+                     PyTango.AttrDataFormat.SCALAR]
+        if 'r' in access:
+            def read(self, attr):
+                method = getattr(self.channel_object, "get_" + attr.get_name())
+                value = get_worker().execute(method)
+                attr.set_value(value)
+            setattr(new_class, "read_%s" % name, read)
+        if 'w' in access:
+            def write(self, attr):
+                method = getattr(self.channel_object, "set_" + attr.get_name())
+                value = attr.get_write_value()
+                method(value)
+            setattr(new_class, "write_%s" % name, write)
+
+        write_dict = {'r': 'READ', 'w': 'WRITE', 'rw': 'READ_WRITE'}
+        attr_write = getattr(PyTango.AttrWriteType, write_dict[access])
+        attr_info.append(attr_write)
+        new_class_class.attr_list[name] = [attr_info]
+
+    return new_class
+
+
 def main(argv=None):
     from PyTango import GreenMode
     from PyTango.server import run
@@ -306,10 +603,11 @@ def main(argv=None):
         new_server = False
 
     initialize_logging(argv)
-    input_names  = recreate(new_server=new_server,typ='inputs')
-    output_names = recreate(new_server=new_server,typ='outputs')
-    loop_names   = recreate(new_server=new_server,typ='ctrl_loops')
-    run([BlissInput,BlissOutput,BlissLoop], args=argv, green_mode=GreenMode.Gevent)    
+    inputs, tango_input_classes   = recreate(new_server=new_server,typ='inputs')  
+    outputs, tango_output_classes = recreate(new_server=new_server,typ='outputs') 
+    loops, tango_loop_classes     = recreate(new_server=new_server,typ='ctrl_loops')  
+    tango_classes = tango_input_classes + tango_output_classes + tango_loop_classes
+    run(tango_classes, args=argv, green_mode=GreenMode.Gevent)
 
 if __name__ == "__main__":
     main()

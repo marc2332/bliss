@@ -6,14 +6,16 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss.controllers.temp import Controller
+from bliss.common.temperature import Input, Output, Loop
+
 import random
 import time
 import math
 from bliss.common import log
 
-from bliss.common.utils import object_method
-from bliss.common.utils import object_attribute_get
-from bliss.common.utils import object_attribute_set
+from bliss.common.utils import object_method, object_method_type
+from bliss.common.utils import object_attribute_get, object_attribute_type_get
+from bliss.common.utils import object_attribute_set, object_attribute_type_set
 
 DEGREE_PER_SECOND=0.5
 """ all channels will start at this temperature """
@@ -293,16 +295,16 @@ class mockup(Controller):
     Custom commands and Attributes
     """
     # Custom Command
-    @object_method(types_info=("str", "str"))
+    @object_method_type(types_info=("str", "str"), type=Input)
     def get_double_str(self, tinput, value):
         return value + "_" + value
 
     # Custom Attribute
-    @object_attribute_get(type_info=("str"))
+    @object_attribute_type_get(type_info=("str"), type=Output)
     def get_material(self, tinput):
         return self.__material
 
-    @object_attribute_set(type_info=("str"))
+    @object_attribute_type_set(type_info=("str"), type=Output)
     def set_material(self, tinput, value):
         self.__material = value
 

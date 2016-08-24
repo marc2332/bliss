@@ -255,7 +255,23 @@ class TestMockupTempController(unittest.TestCase):
         myval = cc.kd()
         self.assertEqual(KW,myval)
         
+    def test_read_input_counters(self):       
+        config = static.get_config()     
+        aa=config.get("thermo_sample")
+        myval = aa.read()
+        print "%s" % (myval) 
+        myvalcount = aa.counters.read()
+        self.assertAlmostEqual(myval,myvalcount,places=1)
 
+    def test_read_output_counters(self):       
+        config = static.get_config()     
+        bb=config.get("heater")
+        myval = bb.read()
+        print "%s" % (myval) 
+        myvalcount = bb.counters.read()
+        self.assertAlmostEqual(myval,myvalcount,places=1)
+           
+           
                
 """
 Main entry point

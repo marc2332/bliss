@@ -434,9 +434,6 @@ class Axis(object):
         elif self.encoder is not None and not stopped:
             self._do_encoder_reading()
 
-    def _handle_sigint(self):
-        self.stop(KeyboardInterrupt)
-
     def dial2user(self, position, offset=None):
         if offset is None:
             offset = self.offset

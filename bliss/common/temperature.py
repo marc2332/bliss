@@ -10,10 +10,25 @@ import gevent
 import gevent.event
 import math
 from bliss.common import log
+from bliss.common.measurement import CounterBase
 
 """
 Classes implemented with temperature Controller
 """
+
+class TempControllerCounter(CounterBase):
+   """ Implements access to counter object for 
+       Input and Output type objects
+   """
+   def __init__(self, name, parent):
+
+       CounterBase.__init__(self, name)
+       self.parent = parent
+
+   def read(self):
+       data = self.parent.read()
+       return data
+
 
 class Input(object):
     """ Implements the access to temperature sensors
@@ -46,16 +61,17 @@ class Input(object):
 
     @property
     def config(self):
-        """ returns the snsor config """
+        """ returns the sensor config """
         return self.__config
 
     @property
     def custom_methods_list(self):
-        # Returns a *copy* of the custom methods list.
+        """ Returns a *copy* of the custom methods list."""
         return self.__custom_methods_list[:]
 
     @property
     def custom_attributes_list(self):
+        """ Returns a *copy* of the custom attributes list """
         ad = self.__custom_attributes_dict
 
         # Converts dict into list...
@@ -63,6 +79,11 @@ class Input(object):
 
         # Returns a *copy* of the custom attributes list.
         return _attr_list[:]
+
+    @property
+    def counters(self):
+        """ returns the counter object """
+        return TempControllerCounter(self.name, self)
 
     def read(self):
         """ returns the sensor value """
@@ -144,11 +165,12 @@ class Output(object):
 
     @property
     def custom_methods_list(self):
-        # Returns a *copy* of the custom methods list.
+        """ Returns a *copy* of the custom methods """
         return self.__custom_methods_list[:]
 
     @property
     def custom_attributes_list(self):
+        """ returns the list of attributes """
         ad = self.__custom_attributes_dict
 
         # Converts dict into list...
@@ -156,6 +178,11 @@ class Output(object):
 
         # Returns a *copy* of the custom attributes list.
         return _attr_list[:]
+
+    @property
+    def counters(self):
+        """ returns the counter object """
+        return TempControllerCounter(self.name, self)
 
     def read(self):
         """ returns the heater value """

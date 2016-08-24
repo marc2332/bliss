@@ -596,7 +596,7 @@ class Axis(object):
         if not self.is_moving:
             return
         if self.__move_task is None:
-            # move has been started an external agent
+            # move has been started externally
             with error_cleanup(self.stop):
                 self.__move_done.wait()
         else:

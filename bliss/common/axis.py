@@ -385,19 +385,9 @@ class Axis(object):
         <low_limit> and <high_limit> given in user units.
         """
         if from_config:
-            try:
-                ll = self.config.get("low_limit")
-            except KeyError:
-                ll = None
-            try:
-                hl = self.config.get("high_limit")
-            except KeyError:
-                hl = None
-
-            def config2limit(c):
-                return self.dial2user(float(c)) if c is not None else c
-
-            return map(config2limit, (ll, hl))
+            ll = self.config.get("low_limit", float, None)
+            hl = self.config.get("high_limit", float, None)
+            return map(self.dial2user, (ll, hl))
         if not isinstance(low_limit, Null):
             self.settings.set("low_limit", low_limit)
         if not isinstance(high_limit, Null):
@@ -435,6 +425,9 @@ class Axis(object):
             self._do_encoder_reading()
 
     def dial2user(self, position, offset=None):
+        if position is None:
+            # see limits()
+            return None
         if offset is None:
             offset = self.offset
         return (self.sign * position) + offset

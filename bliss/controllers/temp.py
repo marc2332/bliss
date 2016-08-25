@@ -281,25 +281,25 @@ class Controller(object):
         log.info("Controller:read_step: %s" % (toutput))
         raise NotImplementedError
 
-    def set_kp(self, toutput, kp):
+    def set_kp(self, tloop, kp):
         """
         Sets the PID P value
            Raises NotImplementedError if not defined by inheriting class
 
         Args:
-           toutput:  Output class type object 
+           tloop:  Loop class type object 
            kp
        """
         log.info("Controller:set_kp: %s" % (toutput))
         raise NotImplementedError
 
-    def read_kp(self, toutput):
+    def read_kp(self, tloop):
         """
         Reads the PID P value
            Raises NotImplementedError if not defined by inheriting class
 
         Args:
-           toutput:  Output class type object 
+           tloop:  Loop class type object 
         
         Returns:
            kp value
@@ -307,25 +307,25 @@ class Controller(object):
         log.info("Controller:read_kp: %s" % (toutput))
         raise NotImplementedError
 
-    def set_ki(self, toutput, ki):
+    def set_ki(self, tloop, ki):
         """
         Sets the PID I value
            Raises NotImplementedError if not defined by inheriting class
 
         Args:
-           toutput:  Output class type object 
+           tloop:  Loop class type object 
            ki
        """
         log.info("Controller:set_ki: %s" % (toutput))
         raise NotImplementedError
 
-    def read_ki(self, toutput):
+    def read_ki(self, tloop):
         """
         Reads the PID I value
            Raises NotImplementedError if not defined by inheriting class
 
         Args:
-           toutput:  Output class type object 
+           tloop:  Loop class type object 
         
         Returns:
            ki value
@@ -333,25 +333,25 @@ class Controller(object):
         log.info("Controller:read_ki: %s" % (toutput))
         raise NotImplementedError
 
-    def set_kd(self, toutput, kd):
+    def set_kd(self, tloop, kd):
         """
         Sets the PID D value
            Raises NotImplementedError if not defined by inheriting class
 
         Args:
-           toutput:  Output class type object 
+           tloop:  Loop class type object 
            kd
        """
         log.info("Controller:set_kd: %s" % (toutput))
         raise NotImplementedError
 
-    def read_kd(self, toutput):
+    def read_kd(self, tloop):
         """
         Reads the PID D value
            Raises NotImplementedError if not defined by inheriting class
 
         Args:
-           toutput:  Output class type object 
+           tloop:  Output class type object 
         
         Returns:
            kd value

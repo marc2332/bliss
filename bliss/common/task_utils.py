@@ -133,18 +133,9 @@ class wrap_errors(object):
         return getattr(self.func, item)
 
 
-def kill_with_kbint(g):
-    g.kill(KeyboardInterrupt)
-
-
 def special_get(self, *args, **kwargs):
-    sigint_handler = gevent.signal(signal.SIGINT, functools.partial(kill_with_kbint, self))
-
-    try:
-        ret = self._get(*args, **kwargs)
-    finally:
-        sigint_handler.cancel()
-
+    ret = self._get(*args, **kwargs)
+    
     if isinstance(ret, TaskException):
         raise ret.exception, ret.error_string, ret.tb
     else:

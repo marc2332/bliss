@@ -405,12 +405,14 @@ class Axis(object):
 
         # gevent-atomic
         stopped, self.__stopped = self.__stopped, False
+        if stopped or motion.backlash:
+            dial_pos = self._read_dial_and_update()
+            user_pos = self.dial2user(dial_pos)
+
         if motion.backlash:
             # broadcast reached position before backlash correction
-            dial_pos = self._read_dial_and_update()
             backlash_start = motion.target_pos
             if stopped:
-                user_pos = self.dial2user(dial_pos)
                 self.settings.set("_set_position", user_pos + self.backlash)
                 backlash_start = dial_pos * self.steps_per_unit
             # axis has moved to target pos - backlash (or shorter, if stopped);
@@ -421,7 +423,9 @@ class Axis(object):
             self.__controller.prepare_move(backlash_motion)
             self.__controller.start_one(backlash_motion)
             self._handle_move(backlash_motion, polling_time)
-        elif self.encoder is not None and not stopped:
+        elif stopped:
+            self.settings.set("_set_position", user_pos)
+        elif self.encoder is not None:
             self._do_encoder_reading()
 
     def dial2user(self, position, offset=None):

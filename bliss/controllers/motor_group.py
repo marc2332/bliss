@@ -130,11 +130,8 @@ class _Group(object):
     def _handle_move(self, motions, polling_time):
         with error_cleanup(self._do_stop): 
             for motion in motions:
-                move_task = motion.axis._do_handle_move(motion, polling_time,
-                                                        wait=False)
-                motion.axis._Axis__move_task = move_task
-                move_task._being_waited = True
-                move_task.link(motion.axis._set_move_done)
+                motion.axis._start_move_task(motion.axis._do_handle_move,
+                                             motion, polling_time)
             for motion in motions:
                 motion.axis.wait_move()
 
@@ -151,8 +148,6 @@ class _Group(object):
         except NotImplementedError:
             for motion in motions:
                 controller.start_one(motion)
-        for motion in motions:
-            motion.axis._set_moving_state()
 
     def _start_motion(self, motions_dict):
         all_motions = []

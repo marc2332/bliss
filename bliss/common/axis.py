@@ -553,6 +553,20 @@ class Axis(object):
             raise RuntimeError("axis %s state is \
                                 %r" % (self.name, str(initial_state)))
 
+    def _start_move_task(self, funct, *args, **kws):
+        start_event = gevent.event.Event()
+        @task
+        def sync_funct(*args, **kws):
+            start_event.wait()
+            return funct(*args, **kws)
+        kws = dict(kws)
+        being_waited = kws.pop('being_waited', True)
+        self.__move_task = sync_funct(*args, wait=False, **kws)
+        self.__move_task._being_waited = being_waited
+        self.__move_task.link(self._set_move_done)
+        self._set_moving_state()
+        start_event.set()
+
     @lazy_init
     def move(self, user_target_pos, wait=True, relative=False, polling_time=DEFAULT_POLLING_TIME):
         elog.debug("user_target_pos=%g  wait=%r relative=%r" % (user_target_pos, wait, relative))
@@ -567,10 +581,8 @@ class Axis(object):
         with error_cleanup(self._cleanup_stop):
             self.__controller.start_one(motion)
         
-        self.__move_task = self._do_handle_move(motion, polling_time,wait=False)
-        self._set_moving_state()
-        self.__move_task._being_waited = wait
-        self.__move_task.link(self._set_move_done)
+        self._start_move_task(self._do_handle_move, motion, polling_time,
+                              being_waited=wait)
 
         if wait:
             self.wait_move()
@@ -582,7 +594,6 @@ class Axis(object):
             raise RuntimeError("'%s' didn't reach final position.(enc_dial=%g, curr_pos=%g)" %
                                (self.name, enc_dial, curr_pos))
 
-    @task
     def _do_handle_move(self, motion, polling_time):
         with error_cleanup(self._cleanup_stop):
             self._handle_move(motion, polling_time)
@@ -642,15 +653,11 @@ class Axis(object):
         self._check_ready()
 
         self.__controller.home_search(self, switch)
-        self.__move_task = self._wait_home(switch, wait=False)
-        self._set_moving_state()
-        self.__move_task._being_waited = wait
-        self.__move_task.link(self._set_move_done)
+        self._start_move_task(self._wait_home, switch, being_waited=wait)
 
         if wait:
             self.wait_move()
 
-    @task
     def _wait_home(self, switch):
         with cleanup(self.sync_hard):
             with error_cleanup(self._cleanup_stop):
@@ -668,15 +675,11 @@ class Axis(object):
         self._check_ready()
 
         self.__controller.limit_search(self, limit)
-        self.__move_task = self._wait_limit_search(limit, wait=False)
-        self._set_moving_state()
-        self.__move_task._being_waited = wait
-        self.__move_task.link(self._set_move_done)
+        self._start_move_task(self._wait_limit_search, limit, being_waited=wait)
 
         if wait:
             self.wait_move()
 
-    @task
     def _wait_limit_search(self, limit):
         with cleanup(self.sync_hard):
             with error_cleanup(self._cleanup_stop):

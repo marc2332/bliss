@@ -84,10 +84,10 @@ class Axis(object):
 
     @property
     def offset(self):
-        offset = self.__settings.get("offset")
+        offset = self.settings.get("offset")
         if offset is None:
             offset = 0
-            self.__settings.set('offset', 0)
+            self.settings.set('offset', 0)
         return offset
 
     @property
@@ -174,12 +174,14 @@ class Axis(object):
         self.__controller._initialize_axis(self)
 
     @lazy_init
-    def _set_position(self):
-        sp = self.settings.get("_set_position")
-        if sp is None:
-            sp = self.position()
-            self.settings.set("_set_position", sp)
-        return sp
+    def _set_position(self, new_set_pos=None):
+        if new_set_pos is None:
+            sp = self.settings.get("_set_position")
+            if sp is not None:
+                return sp
+            new_set_pos = self.position()
+        self.settings.set("_set_position", new_set_pos)
+        return new_set_pos
 
     @lazy_init
     def measured_position(self):
@@ -200,32 +202,33 @@ class Axis(object):
         """
         Returns current dial position, or set new dial if 'new_dial' argument is provided
         """
+        if new_dial is None:
+            dial_pos = self.settings.get("dial_position")
+            if dial_pos is None:
+                dial_pos = self._read_dial_and_update() 
+            return dial_pos
+
         if self.is_moving:
-            if new_dial is not None:
-                raise RuntimeError("%s: can't set axis position \
-                                    while moving" % self.name)
+            raise RuntimeError("%s: can't set axis dial position " 
+                               "while moving" % self.name)
 
-        if new_dial is not None:
-            user_pos = self.position()
+        user_pos = self.position()
 
-            # Sends a value in motor units to the controller
-            # but returns a user-units value.
-            try:
-                _pos = self.__controller.set_position(self, new_dial * self.steps_per_unit)
-                curr_pos = _pos / self.steps_per_unit
-            except NotImplementedError:
-                curr_pos = self._hw_position()
+        try:
+            # Send the new value in motor units to the controller
+            # and read back the (atomically) reported position
+            new_hw = new_dial * self.steps_per_unit
+            hw_pos = self.__controller.set_position(self, new_hw)
+            dial_pos = hw_pos / self.steps_per_unit
+            self.settings.set("dial_position", dial_pos)
+        except NotImplementedError:
+            dial_pos = self._read_dial_and_update(update_user=False)
 
-            if self.no_offset:
-                # change user pos (keep offset = 0)
-                self._position(new_dial)
-            else:
-                # do not change user pos (update offset)
-                self._position(user_pos)
-
-            return curr_pos
-        else:
-            return self.user2dial(self.position())
+        # update user_pos or offset setting
+        if self.no_offset:
+            user_pos = dial_pos 
+        self._set_position_and_offset(user_pos)
+        return dial_pos
 
     @lazy_init
     def position(self, new_pos=None):
@@ -236,20 +239,30 @@ class Axis(object):
         * Return value is in user units.
         """
         elog.debug("axis.py : position(new_pos=%r)" % new_pos)
-        if new_pos is not None:
-            if self.is_moving:
-                raise RuntimeError("Can't set axis position \
-                                    while it is moving")
-            if self.no_offset:
-                return self.dial(new_pos)
-            pos = self._position(new_pos)
-        else:
+        if new_pos is None:
             pos = self.settings.get("position")
             if pos is None:
-                pos = self._position()
-        return pos
+                pos = self.dial2user(self.dial())
+            return pos
+
+        if self.is_moving:
+            raise RuntimeError("%s: can't set axis user position "
+                               "while moving" % self.name)
+
+        if self.no_offset:
+            return self.dial(new_pos)
+        else:
+            return self._set_position_and_offset(new_pos)
 
     @lazy_init 
+    def _read_dial_and_update(self, update_user=True, write=True):
+        dial_pos = self._hw_position()
+        self.settings.set("dial_position", dial_pos, write=write)
+        if update_user:
+            user_pos = self.dial2user(dial_pos, self.offset)
+            self.settings.set("position", user_pos, write=write)
+        return dial_pos
+
     def _hw_position(self):
         try:
             curr_pos = self.__controller.read_position(self) / self.steps_per_unit
@@ -259,27 +272,21 @@ class Axis(object):
             curr_pos = 0
         return curr_pos
 
-    @lazy_init
-    def _position(self, new_pos=None):
-        """
-        new_pos is in user units.
-        Returns a value in user units.
-        """
-        dial_pos = self._hw_position()
-        if new_pos is not None:
-            prev_offset = self.offset
-            self.__settings.set("_set_position", new_pos)
-            self.__settings.set("offset", new_pos - self.sign * dial_pos)
-            # update limits
-            ll, hl = self.limits()
-            lim_delta = self.offset - prev_offset
-            self.limits(ll + lim_delta if ll is not None else ll,
-                        hl + lim_delta if hl is not None else hl)
+    def _calc_offset(self, new_pos, dial_pos):
+        return new_pos - self.sign * dial_pos
 
-        self.__settings.set("position", self.dial2user(dial_pos), write=self._hw_control or new_pos is not None)
-        self.__settings.set("dial_position", dial_pos) 
-
-        return self.position()
+    def _set_position_and_offset(self, new_pos):
+        dial_pos = self.dial()
+        prev_offset = self.offset
+        self._set_position(new_pos)
+        self.settings.set("offset", self._calc_offset(new_pos, dial_pos))
+        # update limits
+        ll, hl = self.limits()
+        lim_delta = self.offset - prev_offset
+        self.limits(ll + lim_delta if ll is not None else ll,
+                    hl + lim_delta if hl is not None else hl)
+        self.settings.set("position", new_pos, write=True)
+        return new_pos
 
     @lazy_init
     def state(self, read_hw=False):
@@ -301,7 +308,8 @@ class Axis(object):
 
     def sync_hard(self):
         self.settings.set("state", self.state(read_hw=True), write=True) 
-        self.dial(self._hw_position())
+        self._read_dial_and_update()
+        self._set_position(self.position())
         event.send(self, "sync_hard")
         
     @lazy_init
@@ -379,19 +387,9 @@ class Axis(object):
         <low_limit> and <high_limit> given in user units.
         """
         if from_config:
-            try:
-                ll = self.config.get("low_limit")
-            except KeyError:
-                ll = None
-            try:
-                hl = self.config.get("high_limit")
-            except KeyError:
-                hl = None
-
-            def config2limit(c):
-                return self.dial2user(float(c)) if c is not None else c
-
-            return map(config2limit, (ll, hl))
+            ll = self.config.get("low_limit", float, None)
+            hl = self.config.get("high_limit", float, None)
+            return map(self.dial2user, (ll, hl))
         if not isinstance(low_limit, Null):
             self.settings.set("low_limit", low_limit)
         if not isinstance(high_limit, Null):
@@ -400,48 +398,45 @@ class Axis(object):
 
     def _update_settings(self, state=None):
         self.settings.set("state", state if state is not None else self.state(), write=self._hw_control) 
-        self._position()
-
+        self._read_dial_and_update(write=self._hw_control)
+ 
     def _handle_move(self, motion, polling_time):
-        while True:
-            state = self.__controller.state(self)
-            if state != "MOVING":
-                if state == 'LIMPOS' or state == 'LIMNEG':
-                    self._update_settings(state)
-                    if self.__stopped:
-                        self.settings.set("_set_position", self.position())
-                    raise RuntimeError(str(state))
-                break
-            self._update_settings(state)
-            gevent.sleep(polling_time)
+        state = self._wait_move(polling_time, update_settings=True)
+        if state in ['LIMPOS', 'LIMNEG']:
+            raise RuntimeError(str(state))
 
         # gevent-atomic
         stopped, self.__stopped = self.__stopped, False
         if stopped or motion.backlash:
-            user_pos = self._position()
-        if stopped:
-            user_backlash = self.backlash if motion.backlash else 0
-            self.settings.set("_set_position", user_pos + user_backlash)
-            curr_pos = self.user2dial(user_pos) * self.steps_per_unit
+            dial_pos = self._read_dial_and_update()
+            user_pos = self.dial2user(dial_pos)
 
         if motion.backlash:
+            # broadcast reached position before backlash correction
+            backlash_start = motion.target_pos
+            if stopped:
+                self._set_position(user_pos + self.backlash)
+                backlash_start = dial_pos * self.steps_per_unit
             # axis has moved to target pos - backlash (or shorter, if stopped);
             # now do the final motion (backlash) relative to current/theo. pos
             elog.debug("doing backlash (%g)" % motion.backlash)
-            backlash_start = curr_pos if stopped else motion.target_pos
             final_pos = backlash_start + motion.backlash
             backlash_motion = Motion(self, final_pos, motion.backlash)
             self.__controller.prepare_move(backlash_motion)
             self.__controller.start_one(backlash_motion)
             self._handle_move(backlash_motion, polling_time)
+        elif stopped:
+            self._set_position(user_pos)
         elif self.encoder is not None:
             self._do_encoder_reading()
-            
-    def _handle_sigint(self):
-        self.stop(KeyboardInterrupt)
 
-    def dial2user(self, position):
-        return (self.sign * position) + self.offset
+    def dial2user(self, position, offset=None):
+        if position is None:
+            # see limits()
+            return None
+        if offset is None:
+            offset = self.offset
+        return (self.sign * position) + offset
 
     def user2dial(self, position):
         return (position - self.offset) / self.sign
@@ -450,7 +445,7 @@ class Axis(object):
     def prepare_move(self, user_target_pos, relative=False):
         elog.debug("user_target_pos=%g, relative=%r" % (user_target_pos, relative))
         user_initial_dial_pos = self.dial()
-        hw_pos = self._hw_position()
+        hw_pos = self._read_dial_and_update()
 
         elog.debug("hw_position=%g user_initial_dial_pos=%g" % (hw_pos, user_initial_dial_pos))
 
@@ -467,7 +462,7 @@ class Axis(object):
 
         dial_initial_pos = self.user2dial(user_initial_pos)
         dial_target_pos = self.user2dial(user_target_pos)
-        self.settings.set("_set_position", user_target_pos)
+        self._set_position(user_target_pos)
         if abs(dial_target_pos - dial_initial_pos) < 1E-6:
             return
 
@@ -518,8 +513,6 @@ class Axis(object):
                     "%s: move to `%f' %s would go beyond high limit (%f)" %
                     (self.name, user_target_pos, backlash_str, user_high_limit))
 
-        self.__stopped = False
-
         motion = Motion(self, target_pos, delta)
         motion.backlash = backlash
 
@@ -528,6 +521,7 @@ class Axis(object):
         return motion
 
     def _set_moving_state(self, from_channel=False):
+        self.__stopped = False
         self.__move_done.clear()
         if from_channel:
             self.__move_task = None
@@ -559,6 +553,20 @@ class Axis(object):
             raise RuntimeError("axis %s state is \
                                 %r" % (self.name, str(initial_state)))
 
+    def _start_move_task(self, funct, *args, **kws):
+        start_event = gevent.event.Event()
+        @task
+        def sync_funct(*args, **kws):
+            start_event.wait()
+            return funct(*args, **kws)
+        kws = dict(kws)
+        being_waited = kws.pop('being_waited', True)
+        self.__move_task = sync_funct(*args, wait=False, **kws)
+        self.__move_task._being_waited = being_waited
+        self.__move_task.link(self._set_move_done)
+        self._set_moving_state()
+        start_event.set()
+
     @lazy_init
     def move(self, user_target_pos, wait=True, relative=False, polling_time=DEFAULT_POLLING_TIME):
         elog.debug("user_target_pos=%g  wait=%r relative=%r" % (user_target_pos, wait, relative))
@@ -570,27 +578,24 @@ class Axis(object):
         if motion is None:
             return
 
-        with error_cleanup(self._do_stop):
+        with error_cleanup(self._cleanup_stop):
             self.__controller.start_one(motion)
         
-        self.__move_task = self._do_handle_move(motion, polling_time,wait=False)
-        self._set_moving_state()
-        self.__move_task._being_waited = wait
-        self.__move_task.link(self._set_move_done)
+        self._start_move_task(self._do_handle_move, motion, polling_time,
+                              being_waited=wait)
 
         if wait:
             self.wait_move()
 
     def _do_encoder_reading(self):
         enc_dial = self.encoder.read()
-        curr_pos = self.user2dial(self._position())
+        curr_pos = self._read_dial_and_update()
         if abs(curr_pos - enc_dial) > self.encoder.tolerance:
             raise RuntimeError("'%s' didn't reach final position.(enc_dial=%g, curr_pos=%g)" %
                                (self.name, enc_dial, curr_pos))
 
-    @task
     def _do_handle_move(self, motion, polling_time):
-        with error_cleanup(self._do_stop):
+        with error_cleanup(self._cleanup_stop):
             self._handle_move(motion, polling_time)
 
     def rmove(self, user_delta_pos, wait=True, polling_time=DEFAULT_POLLING_TIME):
@@ -601,7 +606,7 @@ class Axis(object):
         if not self.is_moving:
             return
         if self.__move_task is None:
-            # move has been started an external agent
+            # move has been started externally
             with error_cleanup(self.stop):
                 self.__move_done.wait()
         else:
@@ -613,11 +618,27 @@ class Axis(object):
             except gevent.GreenletExit:
                 pass
 
+    def _wait_move(self, polling_time=DEFAULT_POLLING_TIME,
+                   update_settings=False, ctrl_state_funct='state'):
+        while True:
+            state_funct = getattr(self.__controller, ctrl_state_funct)
+            state = state_funct(self)
+            if state != "MOVING":
+                return state
+            if update_settings:
+                self._update_settings(state)
+            gevent.sleep(polling_time)
+        
+    def _cleanup_stop(self):
+        self.__controller.stop(self)
+        self._wait_move()
+        self.sync_hard()
+
     def _do_stop(self):
         self.__controller.stop(self)
-        self._stop_loop()
+        self._set_stopped()
 
-    def _stop_loop(self):
+    def _set_stopped(self):
         self.__stopped = True
 
     @lazy_init
@@ -632,23 +653,15 @@ class Axis(object):
         self._check_ready()
 
         self.__controller.home_search(self, switch)
-        self.__move_task = self._wait_home(switch, wait=False)
-        self._set_moving_state()
-        self.__move_task._being_waited = wait
-        self.__move_task.link(self._set_move_done)
+        self._start_move_task(self._wait_home, switch, being_waited=wait)
 
         if wait:
             self.wait_move()
 
-    @task
     def _wait_home(self, switch):
         with cleanup(self.sync_hard):
-            with error_cleanup(self._do_stop):
-                while True:
-                    state = self.__controller.home_state(self)
-                    if state != "MOVING":
-                        break
-                    time.sleep(0.02)
+            with error_cleanup(self._cleanup_stop):
+                self._wait_move(ctrl_state_funct='home_state')
 
     @lazy_init
     def hw_limit(self, limit, wait=True):
@@ -662,23 +675,15 @@ class Axis(object):
         self._check_ready()
 
         self.__controller.limit_search(self, limit)
-        self.__move_task = self._wait_limit_search(limit, wait=False)
-        self._set_moving_state()
-        self.__move_task._being_waited = wait
-        self.__move_task.link(self._set_move_done)
+        self._start_move_task(self._wait_limit_search, limit, being_waited=wait)
 
         if wait:
             self.wait_move()
 
-    @task
     def _wait_limit_search(self, limit):
         with cleanup(self.sync_hard):
-            with error_cleanup(self._do_stop):
-                while True:
-                    state = self.__controller.state(self)
-                    if state != "MOVING":
-                        break
-                    time.sleep(0.02)
+            with error_cleanup(self._cleanup_stop):
+                self._wait_move()
 
     def settings_to_config(self, velocity=True, acceleration=True, limits=True):
         """

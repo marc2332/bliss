@@ -92,13 +92,9 @@ class _Group(object):
             controller.stop_all(*motions)
         except NotImplementedError:
             for motion in motions:
-                motion.axis.stop(wait=False)
-        else:
-            for motion in motions:
-                try:
-                    motion.axis._stop_loop()
-                except Exception:
-                    sys.excepthook(*sys.exc_info())
+                controller.stop(motion.axis)
+        for motion in motions:
+            motion.axis._set_stopped()
         
     def _do_stop(self,wait=True):
         all_motions = []
@@ -130,18 +126,12 @@ class _Group(object):
             positions_dict[axis] = axis.dial()
         return positions_dict
 
-    def single_axis_move_task(self, motion, polling_time):
-        with error_cleanup(motion.axis._do_stop):
-            motion.axis._handle_move(motion, polling_time)
-
     @task
     def _handle_move(self, motions, polling_time):
         with error_cleanup(self._do_stop): 
             for motion in motions:
-                move_task = gevent.spawn(self.single_axis_move_task, motion, polling_time)
-                motion.axis._Axis__move_task = move_task
-                move_task._being_waited = True
-                move_task.link(motion.axis._set_move_done)
+                motion.axis._start_move_task(motion.axis._do_handle_move,
+                                             motion, polling_time)
             for motion in motions:
                 motion.axis.wait_move()
 
@@ -158,8 +148,6 @@ class _Group(object):
         except NotImplementedError:
             for motion in motions:
                 controller.start_one(motion)
-        for motion in motions:
-            motion.axis._set_moving_state()
 
     def _start_motion(self, motions_dict):
         all_motions = []

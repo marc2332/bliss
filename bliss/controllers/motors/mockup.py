@@ -153,34 +153,30 @@ class Mockup(Controller):
         pos = self.read_position(axis)
         v = self.read_velocity(axis)
         ll, hl = self.__hw_limit
-        if hl is not None and motion.target_pos > hl:
-            d=hl-motion.target_pos
-            motion.delta -= d
-            motion.target_pos = hl
-        if ll is not None and motion.target_pos < ll:
-            d=ll-motion.target_pos
-            motion.delta -= d
-            motion.target_pos = ll
+        end_pos = motion.target_pos
+        if hl is not None and end_pos > hl:
+            end_pos = hl
+        if ll is not None and end_pos < ll:
+            end_pos = ll
+        delta = motion.delta + end_pos - motion.target_pos
         self._axis_moves[axis].update({
             "start_pos": pos,
-            "delta": motion.delta,
-            "end_pos": motion.target_pos,
-            "end_t": t0 +
-            math.fabs(
-                motion.delta) /
-            float(v),
+            "delta": delta,
+            "end_pos": end_pos,
+            "end_t": t0 + math.fabs(delta) / float(v),
             "t0": t0})
 
-    def read_position(self, axis):
+    def read_position(self, axis, t=None):
         """
         Returns the position (measured or desired) taken from controller
         in controller unit (steps).
         """
 
         # handle read out during a motion
-        if self._axis_moves[axis]["end_t"]:
+        t = t or time.time()
+        end_t = self._axis_moves[axis]["end_t"]
+        if end_t and t < end_t:
             # motor is moving
-            t = time.time()
             v = self.read_velocity(axis)
             d = math.copysign(1, self._axis_moves[axis]["delta"])
             dt = t - self._axis_moves[axis]["t0"]  # t0=time at start_one.

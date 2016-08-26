@@ -625,21 +625,12 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
 
 
     if (key == "offset"){
-        local curr_offset user_pos _cmd
+        local curr_offset
 
         curr_offset = tango_mot_get_attr(motnum, "Offset")
         if ((action == "set") && (p1 != curr_offset) && \
             !motor_par(motnum, "in_config")) {
-            user_pos = tango_mot_get_attr(motnum, "Position")
-            user_pos += p1 - curr_offset
-            _cmd = "SetPosition"
-            TANGO_ERR = -1
-            tango_io(_axis_ds_name, _cmd, user_pos)
-            if (TANGO_ERR != "0"){
-                _tango_mot_error_desc(sprintf("Cmd=%s: %s", _cmd, \
-                                                            _axis_ds_name))
-                exit
-            }
+            tango_mot_set_attr(motnum, "Offset", p1)
         } else {
             tango_mot_dbg("motor_par: getting the offset!")
         }

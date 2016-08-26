@@ -518,6 +518,12 @@ class BlissAxis(Device):
         self.debug_stream("In read_Offset()")
         return self.axis.offset
 
+    @Offset.write
+    def Offset(self, data):
+        self.debug_stream("In write_Offset()")
+        new_pos = self.axis.dial2user(self.axis.dial(), data)
+        self.axis.position(new_pos)
+
     @attribute(dtype=float, label='Tolerance', unit='uu', format='%7.5f',
                doc='Tolerance between dial and user')
     def Tolerance(self):
@@ -897,7 +903,6 @@ class BlissAxis(Device):
         old_dial = self.axis.dial()
         self.axis.dial(new_dial_pos)
         return old_dial
-
 
 def get_server_axis_names(instance_name=None):
     if instance_name is None:

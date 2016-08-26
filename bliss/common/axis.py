@@ -174,12 +174,14 @@ class Axis(object):
         self.__controller._initialize_axis(self)
 
     @lazy_init
-    def _set_position(self):
-        sp = self.settings.get("_set_position")
-        if sp is None:
-            sp = self.position()
-            self.settings.set("_set_position", sp)
-        return sp
+    def _set_position(self, new_set_pos=None):
+        if new_set_pos is None:
+            sp = self.settings.get("_set_position")
+            if sp is not None:
+                return sp
+            new_set_pos = self.position()
+        self.settings.set("_set_position", new_set_pos)
+        return new_set_pos
 
     @lazy_init
     def measured_position(self):
@@ -276,7 +278,7 @@ class Axis(object):
     def _set_position_and_offset(self, new_pos):
         dial_pos = self.dial()
         prev_offset = self.offset
-        self.settings.set("_set_position", new_pos)
+        self._set_position(new_pos)
         self.settings.set("offset", self._calc_offset(new_pos, dial_pos))
         # update limits
         ll, hl = self.limits()
@@ -307,7 +309,7 @@ class Axis(object):
     def sync_hard(self):
         self.settings.set("state", self.state(read_hw=True), write=True) 
         self._read_dial_and_update()
-        self.settings.set("_set_position", self.position())
+        self._set_position(self.position())
         event.send(self, "sync_hard")
         
     @lazy_init
@@ -413,7 +415,7 @@ class Axis(object):
             # broadcast reached position before backlash correction
             backlash_start = motion.target_pos
             if stopped:
-                self.settings.set("_set_position", user_pos + self.backlash)
+                self._set_position(user_pos + self.backlash)
                 backlash_start = dial_pos * self.steps_per_unit
             # axis has moved to target pos - backlash (or shorter, if stopped);
             # now do the final motion (backlash) relative to current/theo. pos
@@ -424,7 +426,7 @@ class Axis(object):
             self.__controller.start_one(backlash_motion)
             self._handle_move(backlash_motion, polling_time)
         elif stopped:
-            self.settings.set("_set_position", user_pos)
+            self._set_position(user_pos)
         elif self.encoder is not None:
             self._do_encoder_reading()
 
@@ -460,7 +462,7 @@ class Axis(object):
 
         dial_initial_pos = self.user2dial(user_initial_pos)
         dial_target_pos = self.user2dial(user_target_pos)
-        self.settings.set("_set_position", user_target_pos)
+        self._set_position(user_target_pos)
         if abs(dial_target_pos - dial_initial_pos) < 1E-6:
             return
 

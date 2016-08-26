@@ -26,6 +26,7 @@ from prompt_toolkit.terminal.vt100_input import InputStream
 from prompt_toolkit.eventloop.posix_utils import PosixStdinReader
 from prompt_toolkit.eventloop.posix import call_on_sigwinch, DummyContext
 from gevent import select
+import signal
 from bliss.shell import initialize
 
 class GeventEventLoop(EventLoop):
@@ -110,6 +111,7 @@ class GeventEventLoop(EventLoop):
         """
         gevent.spawn(callback)
 
+CURRENT_TASK = None
 
 def main():
     try:
@@ -130,8 +132,27 @@ def main():
         else:
             history_filename = ".%s_history" % os.path.basename(sys.argv[0])
         history_filename = os.path.join(os.environ["HOME"], history_filename)
+        
 
-        repl.embed(user_ns, None, vi_mode=False, history_filename=history_filename)
+        def patch_repl(repl):
+            prev_execute = repl._execute
+            def patched_execute(self,*args,**keys):
+                global CURRENT_TASK
+                CURRENT_TASK = gevent.spawn(prev_execute,self,*args,**keys)
+                try:
+                    return CURRENT_TASK.get()
+                finally:
+                    CURRENT_TASK = None
+            repl._execute = patched_execute
+
+        def stop_current_task(signum,frame):
+            if CURRENT_TASK:
+                CURRENT_TASK.kill(block=False)
+        signal.signal(signal.SIGINT,stop_current_task)
+        signal.signal(signal.SIGTERM,stop_current_task)
+
+        repl.embed(user_ns, None, vi_mode=False, history_filename=history_filename,
+                   configure=patch_repl)
 
 
 if __name__ == '__main__':

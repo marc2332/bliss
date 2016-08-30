@@ -142,6 +142,9 @@ class Controller(object):
         high_limit = get_setting_or_config_value("high_limit")
         axis.limits(low_limit, high_limit)
 
+        # force initialisation of position and state settings
+        axis.sync_hard()
+
 
     def get_axis(self, axis_name):
         axis = self._axes[axis_name]

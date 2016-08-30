@@ -140,7 +140,7 @@ def main():
                 global CURRENT_TASK
                 CURRENT_TASK = gevent.spawn(prev_execute,self,*args,**keys)
                 try:
-                    return CURRENT_TASK.get()
+                    CURRENT_TASK.join()
                 finally:
                     CURRENT_TASK = None
             repl._execute = patched_execute

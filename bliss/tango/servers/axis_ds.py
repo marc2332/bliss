@@ -101,7 +101,7 @@ class BlissAxisManager(Device):
                 class_name = dev_class.get_name()
                 if class_name.startswith("BlissAxis_"):
                     axis = dev.axis
-                    result[axis.name()] = axis, dev
+                    result[axis.name] = axis, dev
         return result
 
     def dev_state(self):
@@ -173,9 +173,9 @@ class BlissAxisManager(Device):
         axes_names = axes_pos[::2]
         if not set(axes_names).issubset(set(axes_dict)):
             raise ValueError("unknown axis(es) in motion")
-        axes = [axes_dict[name][0].get_base_obj() for name in axes_names]
+        axes = [axes_dict[name][0] for name in axes_names]
         group = Group(*axes)
-        event.connect(group.get_base_obj(), 'move_done', self.group_move_done)
+        event.connect(group, 'move_done', self.group_move_done)
         positions = map(float, axes_pos[1::2])
         axes_pos_dict = dict(zip(axes, positions))
         group.move(axes_pos_dict, wait=False)
@@ -193,7 +193,7 @@ class BlissAxisManager(Device):
         if 'sender' in kws:
             sender = kws['sender']
             groupid = [gid for gid, grp in self.group_dict.items()
-                       if grp.get_base_obj() == sender][0]
+                       if grp == sender][0]
         elif len(self.group_dict) == 1:
             groupid = self.group_dict.keys()[0]
         else:
@@ -211,7 +211,7 @@ class BlissAxisManager(Device):
         """
         if groupid not in self.group_dict:
             return []
-        group = self.group_dict[groupid].get_base_obj()
+        group = self.group_dict[groupid]
         def get_name_state_list(group):
             return [(name, str(axis.state()))
                     for name, axis in group.axes.items()]

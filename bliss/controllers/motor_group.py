@@ -94,8 +94,12 @@ class _Group(object):
             for motion in motions:
                 controller.stop(motion.axis)
         for motion in motions:
-            motion.axis._set_stopped()
-        
+            if self.__move_task:
+                motion.axis._set_stopped()
+            else:
+                motion.axis._wait_move()
+                motion.axis.sync_hard()
+
     def _do_stop(self,wait=True):
         all_motions = []
         if len(self._motions_dict) == 1:
@@ -188,6 +192,7 @@ class _Group(object):
             raise RuntimeError("all motors are not ready")
 
         self._reset_motions_dict()
+        self.__move_task = None
 
         wait = kwargs.pop("wait", True)
         relative = kwargs.pop("relative", False)

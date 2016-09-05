@@ -186,7 +186,7 @@ class Mockup(Controller):
 
         return int(round(pos))
 
-    def read_encoder(self, encoder):
+    def read_encoder(self, encoder, t=None):
         """
         returns encoder position.
         unit : 'encoder steps'
@@ -199,7 +199,7 @@ class Mockup(Controller):
             amplitude = self.__encoders[encoder]["measured_noise"]
             noise_mm = random.uniform(-amplitude, amplitude)
 
-            _pos = self.read_position(axis) / axis.steps_per_unit
+            _pos = self.read_position(axis, t=t) / axis.steps_per_unit
             _pos += noise_mm
 
             self.__encoders[encoder]["steps"] = _pos * encoder.steps_per_unit
@@ -207,7 +207,7 @@ class Mockup(Controller):
         else:
             # print "Perfect encoder"
             if self.__encoders[encoder]["steps"] is None:
-                _axis_pos = self.read_position(axis) / axis.steps_per_unit
+                _axis_pos = self.read_position(axis, t=t) / axis.steps_per_unit
                 self.__encoders[encoder]["steps"] = _axis_pos * encoder.steps_per_unit
 
         return self.__encoders[encoder]["steps"]
@@ -286,15 +286,15 @@ class Mockup(Controller):
     """
     Must send a command to the controller to abort the motion of given axis.
     """
-    def stop(self, axis):
-        self._axis_moves[axis]["end_pos"] = self.read_position(axis)
-        self._axis_moves[axis]["end_t"] = 0
+    def stop(self, axis, t=None):
+        if self._axis_moves[axis]["end_t"]:
+            self._axis_moves[axis]["end_pos"] = self.read_position(axis, t=t)
+            self._axis_moves[axis]["end_t"] = 0
 
     def stop_all(self, *motion_list):
+        t = time.time()
         for motion in motion_list:
-            axis = motion.axis
-            self._axis_moves[axis]["end_pos"] = self.read_position(axis)
-            self._axis_moves[axis]["end_t"] = 0
+            self.stop(motion.axis, t=t)
 
     """
     HOME and limits search

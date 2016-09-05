@@ -240,8 +240,8 @@ class BlissAxisManager(Device):
     def ApplyConfig(self, reload):
         if reload:
             self._reload()
-        for axis_name, (axis, dev) in self._get_axes().items():
-            axis.apply_config(reload=False)
+        for dev in self._get_axis_devices().values():
+            dev.axis.apply_config(reload=False)
 
 
 # Device States Description
@@ -328,13 +328,16 @@ class BlissAxis(Device):
         self.attr_trajpar_read = [[0.0]]
 
         # To force update of state and status.
-        self.dev_state()
+        self._dev_state()
 
         # elog.info("    %s" % self.axis.get_info())
 
         elog.info("BlissAxisManager [%s] : \t" % _ctrl + bcolors.PINK + self._ds_name + bcolors.ENDC + "\t initialized")
 
     def dev_state(self):
+        return get_worker().execute(self._dev_state)
+
+    def _dev_state(self):
         """ This command gets the device state (stored in its device_state
         data member) and returns it to the caller.
 
@@ -374,7 +377,7 @@ class BlissAxis(Device):
 
     def dev_status(self):
         # update current state AND status
-        self.dev_state()
+        self._dev_state()
 
         # get the updated status as a string
         self._status = self.get_status()
@@ -551,14 +554,14 @@ class BlissAxis(Device):
     def HardLimitLow(self):
         self.debug_stream("In read_HardLimitLow()")
         # Update state and return cached value.
-        self.dev_state()
+        self._dev_state()
         return self.attr_HardLimitLow_read
 
     @attribute(dtype=bool, label='up limit switch state')
     def HardLimitHigh(self):
         self.debug_stream("In read_HardLimitHigh()")
         # Update state and return cached value.
-        self.dev_state()
+        self._dev_state()
         return self.attr_HardLimitHigh_read
 
     @attribute(dtype=float, label='Preset Position', unit='uu', format='%10.3f',

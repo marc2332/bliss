@@ -226,6 +226,8 @@ def get_axis_setting(axis, setting_name):
 
 class StaticConfig(object):
 
+    NO_VALUE = None, None
+
     def __init__(self, config_dict):
         self.config_dict = config_dict
         try:
@@ -236,7 +238,7 @@ class StaticConfig(object):
         else:
             self.config_channel = channels.Channel(config_chan_name, dict(config_dict), callback=self._config_changed)
 
-    def get(self, property_name, converter=str, default=None):
+    def get(self, property_name, converter=str, default=NO_VALUE):
         """Get static property
 
         Args:
@@ -254,7 +256,7 @@ class StaticConfig(object):
         if property_value is not None:
             return converter(property_value)
         else:
-            if default is not None:
+            if default != self.NO_VALUE:
                 return default
 
             raise KeyError("no property '%s` in config" % property_name)

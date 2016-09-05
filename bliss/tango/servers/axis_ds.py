@@ -29,6 +29,9 @@ import types
 import json
 import itertools
 
+import gevent
+from gevent.backdoor import BackdoorServer
+
 import six
 
 try:
@@ -83,6 +86,9 @@ access_conv_tab_inv = dict((v, k) for k, v in access_conv_tab.items())
 @six.add_metaclass(DeviceMeta)
 class BlissAxisManager(Device):
 
+    BackdoorPort = device_property(dtype=int, default_value=None,
+                                   doc='gevent Backdoor port')
+
     def delete_device(self):
         self.debug_stream("In delete_device() of controller")
 
@@ -90,6 +96,13 @@ class BlissAxisManager(Device):
         Device.init_device(self)
         self.debug_stream("In init_device() of controller")
         self.group_dict = {}
+        if self.BackdoorPort:
+            print "Starting Backdoor server on port", self.BackdoorPort
+            server = BackdoorServer(('127.0.0.1', self.BackdoorPort),
+                                    banner="BlissAxisManager back door",
+                                    locals={'axis_manager': self})
+            gevent.spawn(server.serve_forever)
+            self.__backdoor_server = server
 
     def _get_axes(self):
         util = PyTango.Util.instance()

@@ -142,6 +142,9 @@ class Controller(object):
         high_limit = get_setting_or_config_value("high_limit")
         axis.limits(low_limit, high_limit)
 
+        # force initialisation of position and state settings
+        axis.sync_hard()
+
 
     def get_axis(self, axis_name):
         axis = self._axes[axis_name]
@@ -272,24 +275,30 @@ class CalcController(Controller):
         self._reals_group = None
         self._write_settings = False
         self._motion_control = False
-
-    def _update_refs(self):
-        Controller._update_refs(self)
-
         self.reals = []
+        self.pseudos = []
+
+    def initialize(self):
         for real_axis in self._tagged['real']:
             # check if real axis is really from another controller
             if real_axis.controller == self:
                 raise RuntimeError(
                     "Real axis '%s` doesn't exist" % real_axis.name)
             self.reals.append(real_axis)
-            event.connect(real_axis, 'position', self._calc_from_real)
-        self._reals_group = Group(*self.reals)
-        event.connect(self._reals_group, 'move_done', self._real_move_done)
+
         self.pseudos = [axis for axis_name, axis in self.axes.iteritems()
                         if axis not in self.reals]
+
+        for real_axis in self.reals:
+            real_axis.controller._initialize_axis(real_axis)
+            event.connect(real_axis, 'position', self._calc_from_real)
+
+        self._reals_group = Group(*self.reals)
+        event.connect(self._reals_group, 'move_done', self._real_move_done)
+
         for pseudo_axis in self.pseudos:
             event.connect(pseudo_axis, 'sync_hard', self._pseudo_sync_hard)
+            self._initialize_axis(pseudo_axis)
 
     def _pseudo_sync_hard(self):
         for real_axis in self.reals:
@@ -355,12 +364,6 @@ class CalcController(Controller):
                     # position doesn't correspond to axis position
                     # (MAXE_E)
                     axis._do_encoder_reading()
-
-    def _initialize_axis(self, axis, *args, **kwargs):
-        for axis in self.pseudos:
-            Controller._initialize_axis(self, axis)
-        for axis in self.reals:
-            axis.controller._initialize_axis(axis)
 
     def initialize_axis(self, axis):
         if axis in self.pseudos:

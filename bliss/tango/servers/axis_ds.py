@@ -104,7 +104,7 @@ class BlissAxisManager(Device):
             gevent.spawn(server.serve_forever)
             self.__backdoor_server = server
 
-    def _get_axes(self):
+    def _get_axis_devices(self):
         util = PyTango.Util.instance()
         dev_list = util.get_device_list("*")
         result = dict()
@@ -114,7 +114,7 @@ class BlissAxisManager(Device):
                 class_name = dev_class.get_name()
                 if class_name.startswith("BlissAxis_"):
                     axis = dev.axis
-                    result[axis.name] = axis, dev
+                    result[axis.name] = dev
         return result
 
     def dev_state(self):
@@ -139,7 +139,7 @@ class BlissAxisManager(Device):
         _bliss_working = True
         _bliss_moving = False
 
-        devs = [dev for axis, dev in self._get_axes().values()]
+        devs = self._get_axis_devices().values()
 
         for dev in devs:
             _axis_state = dev.get_state()
@@ -172,9 +172,7 @@ class BlissAxisManager(Device):
         """
         Returns the list of BlissAxisManager axes of this device.
         """
-        argout = [dev.get_name()
-                  for axis, dev in self._get_axes().values()]
-        return argout
+        return [dev.get_name() for dev in self._get_axis_devices().values()]
 
     @command(dtype_in=[str], doc_in='Flat list of pairs motor, position',
              dtype_out=str, doc_out='group identifier')
@@ -182,11 +180,11 @@ class BlissAxisManager(Device):
         """
         Absolute move multiple motors
         """
-        axes_dict = self._get_axes()
+        axes_dict = self._get_axis_devices()
         axes_names = axes_pos[::2]
         if not set(axes_names).issubset(set(axes_dict)):
             raise ValueError("unknown axis(es) in motion")
-        axes = [axes_dict[name][0] for name in axes_names]
+        axes = [axes_dict[name].axis for name in axes_names]
         group = Group(*axes)
         event.connect(group, 'move_done', self.group_move_done)
         positions = map(float, axes_pos[1::2])
@@ -277,6 +275,11 @@ class BlissAxis(Device):
         Device.__init__(self, cl, name)
         self.debug_stream("In __init__() of axis")
 
+    @property
+    def axis(self):
+        self.__axis = bliss.get_axis(self._axis_name)
+        return self.__axis
+
     def delete_device(self):
         self.debug_stream("In delete_device() of axis")
 
@@ -293,6 +296,7 @@ class BlissAxis(Device):
         # -v3 (-v == -v4)
         self.debug_stream("DEBUG STREAM ON ++++++++++++++++++++++++++")
 
+        # force a get of axis and controller to update status in case of error
         try:
             axis = self.axis
             controller = self.axis.controller
@@ -1272,6 +1276,7 @@ def main(argv=None):
             return
 
         axes, axes_classes = __recreate(new_server=new_server)
+        del axes
 
         util = PyTango.Util(argv)
         db = util.get_database()

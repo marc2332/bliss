@@ -6,11 +6,9 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from .conductor import client
+from bliss.common.utils import Null
 import weakref
 import pickle
-
-class Null(object):
-    __slots__ = []
 
 def get_cache():
     return client.get_cache(db=0)

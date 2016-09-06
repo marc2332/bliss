@@ -7,6 +7,7 @@
 
 import xml.etree.cElementTree as ElementTree
 from . import get_controller_class, add_controller
+from bliss.common.utils import Null
 
 
 class XmlListConfig(list):
@@ -156,7 +157,7 @@ def write_setting(config_dict, setting_name, setting_value, write):
 
 class StaticConfig(object):
 
-    NO_VALUE = None, None
+    NO_VALUE = Null()
 
     def __init__(self, config_dict):
         self.config_dict = config_dict

@@ -181,3 +181,8 @@ def set_custom_members(src_obj, target_obj, pre_call=None):
         except AttributeError:
             pass
 
+
+class Null(object):
+    __slots__ = []
+
+

@@ -32,6 +32,7 @@ from bliss.common import log as elog
 from bliss.common.task_utils import *
 from bliss.controllers.motor_settings import AxisSettings
 from bliss.common import event
+from bliss.common.utils import Null
 import time
 import gevent
 import re
@@ -40,11 +41,6 @@ import functools
 
 #: Default polling time
 DEFAULT_POLLING_TIME = 0.02
-
-
-class Null(object):
-    """Null representation"""
-    __slots__ = []
 
 
 class Motion(object):

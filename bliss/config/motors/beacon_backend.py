@@ -239,13 +239,15 @@ class StaticConfig(object):
         else:
             self.config_channel = channels.Channel(config_chan_name, dict(config_dict), callback=self._config_changed)
 
-    def get(self, property_name, converter=str, default=NO_VALUE):
+    def get(self, property_name, converter=str, default=NO_VALUE, 
+            inherited=False):
         """Get static property
 
         Args:
             property_name (str): Property name
             converter (function): Default :func:`str`, Conversion function from configuration format to Python
-            default: Default: None, default value for property
+            default: Default: NO_VALUE, default value for property
+            inherited (bool): Default: False, Property can be inherited
 
         Returns:
             Property value
@@ -253,7 +255,8 @@ class StaticConfig(object):
         Raises:
             KeyError, ValueError
         """
-        property_value = self.config_dict.get(property_name)
+        get_method = 'get_inherited' if inherited else 'get'
+        property_value = getattr(self.config_dict, get_method)(property_name)
         if property_value is not None:
             return converter(property_value)
         else:

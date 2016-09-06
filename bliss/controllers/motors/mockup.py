@@ -86,6 +86,14 @@ class Mockup(Controller):
     Axes initialization actions.
     """
     def initialize_axis(self, axis):
+        dial_pos = 0
+        if axis.config.get("persistent_position", bool, 
+                           default=False, inherited=True):
+            try:
+                dial_pos = axis.settings.get("dial_position")
+            except:
+                pass
+
         def set_pos(move_done, axis=axis):
             if move_done:
                 self.set_position(axis, axis.dial()*axis.steps_per_unit)
@@ -93,20 +101,15 @@ class Mockup(Controller):
         self._axis_moves[axis] = {
             "measured_simul": False,
             "end_t": 0,
-            "end_pos": 0,
+            "end_pos": dial_pos * axis.steps_per_unit,
             "move_done_cb": set_pos }
 
         event.connect(axis, "move_done", set_pos)
 
-        try:
-            self.__voltages[axis] = int(axis.config.get("default_voltage"))
-        except:
-            self.__voltages[axis] = 220
-
-        try:
-            self.__cust_attr_float[axis] = float(axis.config.get("default_cust_attr"))
-        except:
-            self.__cust_attr_float[axis] = 3.14
+        self.__voltages[axis] = axis.config.get("default_voltage", 
+                                                int, default=220)
+        self.__cust_attr_float[axis] = axis.config.get("default_cust_attr",
+                                                       float, default=3.14)
 
         # this is to test axis are initialized only once
         axis.settings.set('init_count', axis.settings.get('init_count') + 1)

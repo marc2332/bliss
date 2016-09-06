@@ -115,9 +115,9 @@ class ControllerAxisSettings:
 
     def set(self, axis, setting_name, value, write=True):
         '''
-        *set setting (if updated)
-        *send event
-        *write
+        * set setting (if updated)
+        * send event
+        * write
         '''
         old_value = self.get(axis, setting_name)
         if value == old_value:

@@ -7,37 +7,40 @@ orientation: label (horizontal | vertical) of the orientation of the motors.
 fraction: the difference [mm] between the first and the second motor.
 
 Example yml file:
--
- controller:
-   class: Slitbox
-   orientation: vertical
-   fraction: 0.01
-   axes:
-       -
-        name: s1v
-        tags: real first
-       -
-        name: s2v
-        tags: real second
-       -
-        name: sV
-        tags: vertical
 
--
- controller:
-   class: Slitbox
-   orientation: horizontal
-   fraction: 0.01
-   axes:
-       -
-        name: $s1h
-        tags: real first
-       -
-        name: $s2h
-        tags: real second
-       -
-        name: sH
-        tags: horizontal
+.. code-block:: yaml
+
+    -
+     controller:
+       class: Slitbox
+       orientation: vertical
+       fraction: 0.01
+       axes:
+           -
+            name: s1v
+            tags: real first
+           -
+            name: s2v
+            tags: real second
+           -
+            name: sV
+            tags: vertical
+
+    -
+     controller:
+       class: Slitbox
+       orientation: horizontal
+       fraction: 0.01
+       axes:
+           -
+            name: $s1h
+            tags: real first
+           -
+            name: $s2h
+            tags: real second
+           -
+            name: sH
+            tags: horizontal
 """
 from bliss.controllers.motor import CalcController
 

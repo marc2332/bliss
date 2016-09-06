@@ -1,7 +1,7 @@
 """
 SCPI helper class. Defines the language above the interface (TCP, GPIB, Serial)
 
-Example:
+Example::
 
     from bliss.comm.scpi import Scpi
 
@@ -48,7 +48,7 @@ def _sanatize_msgs(*msgs):
 class Scpi(object):
     """
     SCPI language. Although it can be used directly, the main idea is that it
-    ia used by an SCPI capable instrument. Example::
+    is used by an SCPI capable instrument. Example::
 
         from bliss.comm import scpi
 
@@ -198,7 +198,7 @@ class Scpi(object):
             # set ESE to 1 and ask for IDN and ESE
             idn, ese = instrument.read('*ESE 1; *IDN?; *ESE?')
 
-        :param msg: raw message to be queried. Example: "*IDN?"
+        :param msg: raw message to be queried (ex: "\*IDN?")
         :type msg: str
         :return: the read result
         :rtype: str
@@ -234,6 +234,7 @@ class Scpi(object):
         Execute non query command(s).
 
         Examples::
+
             # set ESE to 1
             instrument.write("*ESE 1")
 

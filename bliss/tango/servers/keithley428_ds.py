@@ -46,8 +46,8 @@ class Keithley428(Device):
     # Device Properties
     # -----------------
     url = device_property(dtype=str,
-                          doc='use enet://<host>:<port> for NI ENET adapter;'
-                              'use prologix://<host>:<port> for prologix adapter')
+                          doc='* `enet://<host>:<port>` for NI ENET adapter\n'
+                              '* `prologix://<host>:<port>` for prologix adapter')
     pad = device_property(dtype=int, default_value=0,
                           doc='primary address')
     sad = device_property(dtype=int, default_value=0,

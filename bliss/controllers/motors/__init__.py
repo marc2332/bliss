@@ -24,7 +24,6 @@
     PI_E712
     PI_E753
     PI_E871
-    PiezoJack
     pi_gcs
     PM600
     PMD206

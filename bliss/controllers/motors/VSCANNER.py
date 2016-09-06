@@ -183,7 +183,8 @@ class VSCANNER(Controller):
 
     def start_one(self, motion):
         """
-        - Sends 'V<chan>  <voltage>' command
+        Sends 'V<chan>  <voltage>' command
+
         Args:
             - <motion> : Bliss motion object.
         Returns:

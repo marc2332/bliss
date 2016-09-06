@@ -7,7 +7,6 @@
 
 import sys
 import os
-import Taco.TacoDevice as MyTacoDevice
 import time
 
 from bliss.controllers.motor import Controller; from bliss.common import log
@@ -59,6 +58,7 @@ class TacoMaxe(Controller):
         # Get controller from bliss config
         self.taconame = self.config.get("tacodevice")
         log.info("my taconame is %r"%self.taconame)
+        import Taco.TacoDevice as MyTacoDevice
 	self.device = MyTacoDevice.TacoDevice(self.taconame)
 
 

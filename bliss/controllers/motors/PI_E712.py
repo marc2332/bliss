@@ -68,7 +68,7 @@ class PI_E712(Controller):
         - Reads specific config
         - Adds specific methods
         - Switches piezo to ONLINE mode so that axis motion can be caused
-        by move commands.
+          by move commands.
 
         Args:
             - <axis>
@@ -531,11 +531,11 @@ class PI_E712(Controller):
     def get_sensor_coeffs(self, axis):
         """
         Returns a list with sensor coefficients:
-        *Offset
-        *Gain constant order
-        *Gain 2nd order
-        *Gain 3rd order
-        *Gain 4th order
+        * Offset
+        * Gain constant order
+        * Gain 2nd order
+        * Gain 3rd order
+        * Gain 4th order
         """
         axis.coeffs = list()
 
@@ -549,11 +549,11 @@ class PI_E712(Controller):
         """
         Needed, when in the table, when senson works the opposite way
         Returns a list with sensor coefficients:
-        *Offset
-        *Gain constant order
-        *Gain 2nd order
-        *Gain 3rd order
-        *Gain 4th order
+        * Offset
+        * Gain constant order
+        * Gain 2nd order
+        * Gain 3rd order
+        * Gain 4th order
         """
         self.send_no_ans(axis, "SPA %s 0x2000%d00 %f" % (axis.channel, coeff+2, value))
 

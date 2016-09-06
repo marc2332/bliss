@@ -72,7 +72,7 @@ class PI_E51X(Controller):
         - Reads specific config
         - Adds specific methods
         - Switches piezo to ONLINE mode so that axis motion can be caused
-        by move commands.
+          by move commands.
 
         Args:
             - <axis>

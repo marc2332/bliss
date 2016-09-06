@@ -1,15 +1,16 @@
-""" Calculational controller for KB rotation motors
+""" Calculational controller for KB rotation motors::
 
-            X-Ray
-    <--------------------------
-        <-  d   ->
-       o=========o==========
-       |         |
-       |         |
-       | <==     |<==
-       | m2        m1
-     ==== base
+|            X-Ray  <-------
+|
+|     --o---------o---
+|       |         |
+|       |<---d--->|
+|       |         |
+|       | m2      | m1
+|     ================== base
+
 """
+
 from bliss.controllers.motor import CalcController; from bliss.common import log
 
 

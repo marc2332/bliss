@@ -40,8 +40,5 @@ and their common API and functionality can be determined
     tango_transfocator
     temperature
     temp
-    tf_control
-    transfocator
-    transmission
     wago
 '''

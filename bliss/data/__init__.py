@@ -8,7 +8,6 @@
 '''Data management
 
 .. autosummary::
-    :nosignatures:
     :toctree:
 
     lima

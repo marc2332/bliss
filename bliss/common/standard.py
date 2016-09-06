@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 
 """
-standard bliss macros (wa, wm, ...)
+Standard bliss macros (:func:`~bliss.common.standard.wa`, \
+:func:`~bliss.common.standard.mv`, etc)
 """
 
 __all__ = ['wa', 'wm', 'sta', 'mv', 'umv', 'mvr', 'umvr', 'move',
@@ -90,10 +91,12 @@ def __tabulate(data, **kwargs):
 
 MEASUREMENT_GROUP = None
 def active_measurement_group():
-    '''
-    Returns the active measurement group (a QueueSetting which is a list of
-    active counters)
-    '''
+    """
+    Returns the active measurement group
+
+    Returns:
+        QueueSetting: a list of active counters
+    """
     global MEASUREMENT_GROUP
     if MEASUREMENT_GROUP:
         return MEASUREMENT_GROUP
@@ -126,11 +129,12 @@ def __disable_ct(counters):
 
 
 def enable(*elems):
-    '''
+    """
     Enables given elements.
 
-    :param elems: a list of objects or object names
-    '''
+    Args:
+        elem: a object or object name
+    """
     counters = []
     for elem in __get_objects_iter(*elems):
         if isinstance(elem, CounterBase):
@@ -139,11 +143,12 @@ def enable(*elems):
 
 
 def disable(*elems):
-    '''
+    """
     Disables given elements.
 
-    :param elems: a list of objects or object names
-    '''
+    Args:
+        elem: object or object name
+    """
     counters = []
     for elem in __get_objects_iter(*elems):
         if isinstance(elem, CounterBase):
@@ -152,6 +157,9 @@ def disable(*elems):
 
 
 def wa(**kwargs):
+    """
+    Displays all position positions (Where All) in both user and dial units
+    """
     max_cols = kwargs.get('max_cols', _MAX_COLS)
     err = kwargs.get('err', _ERR)
     get = functools.partial(__safe_get, on_error=err)
@@ -173,6 +181,12 @@ def wa(**kwargs):
 
 
 def wm(*axes, **kwargs):
+    """
+    Displays information (position - user and dial, limits) of the given axes
+
+    Args:
+        axis (~bliss.common.axis.Axis): motor axis
+    """
     if not axes:
         print_('need at least one axis name/object')
         return
@@ -209,10 +223,12 @@ def wm(*axes, **kwargs):
 
 
 def stm(*axes):
+    """Displays axis state (not implemented yet!)"""
     raise NotImplementedError
 
 
 def sta():
+    """Displays state information about all axes"""
     global __axes
     table = [("Axis", "Status")]
     table += [(axis.name, __safe_get(axis, "state", "<status not available>"))
@@ -221,22 +237,62 @@ def sta():
 
 
 def mv(*args):
+    """
+    Moves given axes to given absolute positions
+
+    Arguments are interleaved axis and respective absolute target position.
+    Example::
+
+        >>> mv(th, 180, chi, 90)
+
+    See Also: move
+    """
     move(*args)
 
 
 def umv(*args):
+    """
+    Moves given axes to given absolute positions providing updated display of
+    the motor(s) position(s) while it(they) is(are) moving.
+
+    Arguments are interleaved axis and respective absolute target position.
+    """
     __umove(*args)
 
 
 def mvr(*args):
+    """
+    Moves given axes to given relative positions
+
+    Arguments are interleaved axis and respective relative target position.
+    Example::
+
+        >>> mv(th, 180, chi, 90)
+    """
     __move(*args, relative=True)
 
 
 def umvr(*args):
+    """
+    Moves given axes to given relative positions providing updated display of
+    the motor(s) position(s) while it(they) is(are) moving.
+
+    Arguments are interleaved axis and respective relative target position.
+    """
     __umove(*args, relative=True)
 
 
 def move(*args, **kwargs):
+    """
+    Moves given axes to given absolute positions
+
+    Arguments are interleaved axis and respective absolute target position.
+    Example::
+
+        >>> mv(th, 180, chi, 90)
+
+    See Also: mv
+    """
     __move(*args, **kwargs)
 
 
@@ -293,7 +349,7 @@ def __move(*args, **kwargs):
 
 
 def lsct():
-    '''list all counters'''
+    """Displays list of all counters"""
     table = [('Counter', 'Type', 'Active')]
     active_counters = tuple(get_active_counters_iter())
     for counter in __get_counters_iter():
@@ -303,9 +359,9 @@ def lsct():
 
 
 def prdef(obj_or_name):
-    '''
+    """
     Shows the text of the source code for an object or the name of an object.
-    '''
+    """
     if isinstance(obj_or_name, (str, unicode)):
         obj, name = getattr(setup_globals, obj_or_name), obj_or_name
     else:

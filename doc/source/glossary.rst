@@ -12,6 +12,22 @@ Glossary
         of text (command lines).
 	See: `Wikipedia CLI <https://en.wikipedia.org/wiki/Command-line_interface>`_
 
+    ESRF
+    European Synchrotron Radiation Facility
+        The European Synchrotron, located in Grenoble, France.
+
+    IcePAP
+        IcePAP are :term:`ESRF` ISG modules to control stepper motors, read out
+        encoders (incremental, SSI), perform I/O synchronization etc
+
+    PCI
+    Peripheral Component Interconnect
+        See: `Wikipedia PCI <https://en.wikipedia.org/wiki/Conventional_PCI>`_
+
+    SCPI
+    Standard Commands for Programmable Instruments
+        See: `Wikipedia SCPI <https://en.wikipedia.org/wiki/Standard_Commands_for_Programmable_Instruments>`_
+
     TDD
     Test Driven Development
         a software development process that relies on the repetition of a very

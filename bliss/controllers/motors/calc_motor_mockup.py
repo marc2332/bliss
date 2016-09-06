@@ -1,23 +1,31 @@
 """
 Calculation Bliss controller
 
-real_mot: real motor axis alias
-calc_mot: calculated axis alias
-s_param: specific_parameter to use for the calculation axis (e.g. gain factor)
-         As it can change, we want to treat it as settings parameter as well.
-         The parameter can have an initial value in the config file.
+real_mot
+    real motor axis alias
+
+calc_mot
+    calculated axis alias
+
+s_param
+    specific_parameter to use for the calculation axis (e.g. gain factor)
+    As it can change, we want to treat it as settings parameter as well.
+    The parameter can have an initial value in the config file.
 
 Example of the config file:
-controller:
-    class: calc_motor_mockup
-    axes:
-        -
-            name: $real_motor_name
-            tags: real real_mot
-        -
-            name: calc_mot
-            tags: calc_mot
-            s_param: 2 #this is optional
+
+.. code-block:: yaml
+
+    controller:
+        class: calc_motor_mockup
+        axes:
+            -
+                name: $real_motor_name
+                tags: real real_mot
+            -
+                name: calc_mot
+                tags: calc_mot
+                s_param: 2 #this is optional
 """
 
 from bliss.controllers.motor import CalcController; from bliss.common import event

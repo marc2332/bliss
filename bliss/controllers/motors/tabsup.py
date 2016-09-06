@@ -1,26 +1,30 @@
 """
-Table support Bliss controller
+Table support
 
-back: alias for real back leg axis
-front: alias for real front leg axis
-ttrans: Y-axis translation calculated axis alias
-trot: Z-axis rotation calculated axis alias
+Configuration parameters:
+
+* back: alias for real back leg axis
+* front: alias for real front leg axis
+* ttrans: Y-axis translation calculated axis alias
+* trot: Z-axis rotation calculated axis alias
 
 
-Top view (S=sample position):
+Top view (S=sample position)::
 
-         ^  ttrans
-         |                            \
-         |                             \
-------------------------------    trot ^\
-    ^                  ^            __/__\
-    |          S<-d1-> |
-    |             ^    |
-    |<---d2--->   |    |
-   ^|             |d5  |
- d4||             |    |
-   -|             -    |
-  back(tyb)      front(tyf)
+             ^  ttrans
+             |                            \
+             |                             \
+    ------------------------------    trot ^\
+        ^                  ^            __/__\
+        |          S<-d1-> |
+        |             ^    |
+        |<---d2--->   |    |
+       ^|             |d5  |
+     d4||             |    |
+       -|             -    |
+      back(tyb)      front(tyf)
+
+Top view
 """
 from bliss.controllers.motor import CalcController
 import math

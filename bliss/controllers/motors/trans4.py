@@ -6,92 +6,95 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 """
-Bliss controller fo 4-motors Q-Sys support table for transfocators.
-(ID22, ID31, ID15A, ID28? ...)
+4-motors Q-Sys support table for transfocators
 
+(Used at ESRF: ID22, ID31, ID15A, ID28, ...)
 
-dh dr ur uh : aliases for real motors
-              dh = downstream hall
-              dr = downstream ring
-              ur = upstream ring
-              uh = upstream hall
-ty tz thetay thetaz : aliases for calculated/virtual motors
-              ty = alias for calculated y translation
-              tz = alias for calculated z translation
-              thetay = alias for calculated y rotation
-              thetaz = alias for calculated z rotation
+Real motor roles:
+* *dh*: downstream hall
+* *dr*: downstream ring
+* *ur*: upstream ring
+* *uh*: upstream hall
 
-d1 : half distance in x direction (in mm) between the two moving blocks.
-d3 : distance in z direction (in mm) between pivot plane and the top plate.
+Calc. motor roles:
+* ty*: alias for calculated y translation
+* *tz*: alias for calculated z translation
+* *thetay*: alias for calculated y rotation
+* *thetaz*: alias for calculated z rotation
+
+Configuration parameters:
+* *d1*: half distance in x direction (in mm) between the two moving blocks.
+* *d3*: distance in z direction (in mm) between pivot plane and the top plate.
 
 POI : point of interest (rotation center)
 
-NOTE : We are using orientation conventions used on Q-Sys document.
+.. note:: We are using orientation conventions used on Q-Sys document.
+
+::
+
+    <---X---Z
+            |
+            |
+            Y
+            |
+            |
+            V
+
+       M2=DR                M3=UR
+                POI
+                   X           <------------------------- BEAM
+
+       M1=DH       |        M4=UH
+        |          |
+        |<---D1--->|
 
 
-<---X---Z
-        |
-        |
-        Y
-        |
-        |
-        V
+Example configuration::
 
-   M2=DR                M3=UR
-            POI
-               X           <------------------------- BEAM
-
-   M1=DH       |        M4=UH
-    |          |
-    |<---D1--->|
-
-
-Example configuration (from ID22):
-==================================
-<config>
-  <controller class="mockup">
-    <axis name="tfdh">
-      <address value="21" />
-      <steps_per_unit value="100" />
-      <backlash value="0.1" />
-      <velocity value="6000" />
-      <acceleration value="24000" />
-    </axis>
-    <axis name="tfdr">
-      <address value="22" />
-      <steps_per_unit value="100" />
-      <backlash value="0.1" />
-      <velocity value="6000" />
-      <acceleration value="24000" />
-    </axis>
-    <axis name="tfur">
-      <address value="23" />
-      <steps_per_unit value="100" />
-      <backlash value="0.1" />
-      <velocity value="6000" />
-      <acceleration value="24000" />
-    </axis>
-    <axis name="tfuh">
-      <address value="24" />
-      <steps_per_unit value="100" />
-      <backlash value="0.1" />
-      <velocity value="8000" />
-      <acceleration value="24000" />
-    </axis>
-  </controller>
-  <controller class="trans4">
-    <axis name="tfdh" tags="real dh" />
-    <axis name="tfdr" tags="real dr" />
-    <axis name="tfur" tags="real ur" />
-    <axis name="tfuh" tags="real uh" />
-    <axis name="tfroty" tags="thetay" />
-    <axis name="tfrotz" tags="thetaz" />
-    <axis name="tfty"  tags="ty" />
-    <axis name="tftz"  tags="tz" />
-    <d1 value="180" />
-    <d2 value="30" />
-  </controller>
-</config>
+    <config>
+      <controller class="mockup">
+        <axis name="tfdh">
+          <address value="21" />
+          <steps_per_unit value="100" />
+          <backlash value="0.1" />
+          <velocity value="6000" />
+          <acceleration value="24000" />
+        </axis>
+        <axis name="tfdr">
+          <address value="22" />
+          <steps_per_unit value="100" />
+          <backlash value="0.1" />
+          <velocity value="6000" />
+          <acceleration value="24000" />
+        </axis>
+        <axis name="tfur">
+          <address value="23" />
+          <steps_per_unit value="100" />
+          <backlash value="0.1" />
+          <velocity value="6000" />
+          <acceleration value="24000" />
+        </axis>
+        <axis name="tfuh">
+          <address value="24" />
+          <steps_per_unit value="100" />
+          <backlash value="0.1" />
+          <velocity value="8000" />
+          <acceleration value="24000" />
+        </axis>
+      </controller>
+      <controller class="trans4">
+        <axis name="tfdh" tags="real dh" />
+        <axis name="tfdr" tags="real dr" />
+        <axis name="tfur" tags="real ur" />
+        <axis name="tfuh" tags="real uh" />
+        <axis name="tfroty" tags="thetay" />
+        <axis name="tfrotz" tags="thetaz" />
+        <axis name="tfty"  tags="ty" />
+        <axis name="tftz"  tags="tz" />
+        <d1 value="180" />
+        <d2 value="30" />
+      </controller>
+    </config>
 """
 
 from bliss.controllers.motor import CalcController
@@ -105,7 +108,8 @@ class trans4(CalcController):
     def calc_from_real(self, positions_dict):
         '''
         Returns calculated/virtual motor positions (as a dictionary) given real ones.
-        Units:
+
+        Units
             Distances d1 and d2, real motors positions and calculated/virtual z and y
             motor positions are in millimeters.
             Calculated/virtual rotation around y and z axis in milliradians

@@ -26,10 +26,7 @@ import weakref
 import functools
 import string
 
-try:
-    import enum
-except ImportError:
-    from . import enum34 as enum
+import enum
 
 
 # low level pread and pwrite calls for the p201/c208 driver.

@@ -143,87 +143,13 @@ apply:
 Bliss Module Template
 ---------------------
 
-Here is a template that you can use to start writing a new bliss module::
+Here is a template that you can use to start writing a new bliss module:
 
-    # -*- coding: utf-8 -*-
-    #
-    # This file is part of the bliss project
-    #
-    # Copyright (c) 2016 Beamline Control Unit, ESRF
-    # Distributed under the GNU LGPLv3. See LICENSE for more info.
+.. literalinclude:: template.py
 
-    """A brief description goes here.
+Example of a motor controller extension:
 
-    Long description here with examples if possible
-
-    If you have submodules document them here with autosummary:
-
-    .. autosummary::
-        :nosignatures:
-        :toctree:
-
-        module1
-        module2
-    """
-
-    __all__ = [] # list of members to export
-
-    # standard module imports
-
-    # third-party module imports
-
-    # local bliss imports
-
-
-Example of a motor controller extension::
-
-    # -*- coding: utf-8 -*-
-    #
-    # This file is part of the bliss project
-    #
-    # Copyright (c) 2016 Beamline Control Unit, ESRF
-    # Distributed under the GNU LGPLv3. See LICENSE for more info.
-
-    """IcePAP motor controller
-
-    To instantiate a new IcePAP motor controller, configure it with::
-
-        plugin: emotion
-        class: IcePAP
-        host: iceid00a
-        axes:
-          - name: th
-            address: 01
-            unit: deg
-            steps_per_unit: 1
-            velocity: 0        # unit/s
-            acceleration: 0    # unit/s/s
-            backlash:          # unit
-
-    ... and so on and so forth
-
-    .. autosummary::
-        :nosignatures:
-        :toctree:
-
-        libicepap
-    """
-
-    __all__ = ['IcePAP']
-
-    import os
-    import sys
-    import string
-
-    import gevent
-
-    from bliss.controllers.motor import Controller
-
-
-    class IcePAP(Controller):
-        '''The IcePAP motor controller'''
-
-        pass
+.. literalinclude:: example.py
 
 .. _bliss-style-guide:
 
@@ -351,6 +277,7 @@ Instance checks:
 Naming Conventions
 ------------------
 
+- Module names: ``lowercase_with_underscores``
 - Class names: ``CamelCase``, with acronyms kept uppercase (``HTTPWriter``
   and not ``HttpWriter``)
 - Variable names: ``lowercase_with_underscores``
@@ -390,10 +317,35 @@ Docstring conventions:
 
 
     def bar():
-        """This is a longer docstring with so much information in there
+        """
+	This is a longer docstring with so much information in there
         that it spans three lines.  In this case the closing triple quote
         is on its own line.
         """
+
+  Bliss supports *napoleon* sphinx extension. The recommended way to document
+  API is to follow the `Google Python Style Guide`_::
+
+    def move(axis, position, wait=False):
+        """
+        move the given axis to the given absolute position
+
+        Note:
+            using `wait=True` will block the current :class:`~gevent.Greenlet`.
+
+        See Also:
+            :func:`rmove`
+
+        Args:
+            axis (Axis): instance of bliss :class:`bliss.common.axis.Axis`
+            position (float): position (axis units)
+            wait (bool): wait or not for motion to end [default: False]
+
+        Returns:
+            float: actual position where motor is (axis units)
+        """
+        pass
+
 
 Module header:
   The module header consists of an utf-8 encoding declaration (if non
@@ -406,20 +358,6 @@ Module header:
     #
     # Copyright (c) 2016 Beamline Control Unit, ESRF
     # Distributed under the GNU LGPLv3. See LICENSE for more info.
-
-    """A brief description goes here.
-
-    Long description here with examples if possible
-
-    If you have submodules document them here with autosummary:
-
-    .. autosummary::
-        :nosignatures:
-        :toctree:
-
-        module1
-        module2
-    """
 
 
 Comments
@@ -438,4 +376,7 @@ colon after the opening pound sign (``#``)::
         pw_hash = Column(String)
 
 
-.. _Feature Branch Workflow: https://www.atlassian.com/git/tutorials/comparing-workflows/feature-branch-workflow
+.. _Feature Branch Workflow:
+   https://www.atlassian.com/git/tutorials/comparing-workflows/feature-branch-workflow
+.. _Google Python Style Guide:
+   http://google.github.io/styleguide/pyguide.html

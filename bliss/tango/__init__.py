@@ -9,7 +9,6 @@
 :mod:`~bliss.tango.clients`
 
 .. autosummary::
-    :nosignatures:
     :toctree:
 
     clients

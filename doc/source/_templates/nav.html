@@ -1,0 +1,14 @@
+{% if parents %}
+<h3>Up</h3>
+<p><a href="{{ parents[-1].link|e }}">{{ parents[-1].title }}</a></p>
+{% endif %}
+
+{% if prev %}
+<h3>Previous topic</h3>
+<p><a href="{{ prev.link|e }}">{{ prev.title }}</a></p>
+{% endif %}
+
+{% if next %}
+<h3>Next topic</h3>
+<p><a href="{{ next.link|e }}">{{ next.title }}</a></p>
+{% endif %}

@@ -5,6 +5,46 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+"""
+Bliss static configuration
+
+The next example will require a running bliss configuration server and
+assumes the following YAML_ configuration is present:
+
+.. literalinclude:: examples/config/motion.yml
+    :language: yaml
+    :caption: ./motion_example.yml
+
+Accessing the configured elements from python is easy
+
+.. code-block:: python
+    :emphasize-lines: 1,4,7,11,18
+
+    >>> from bliss.config.static import get_config
+
+    >>> # access the bliss configuration object
+    >>> config = get_config()
+
+    >>> # see all available object names
+    >>> config.names_list
+    ['mock1', 'slit1', 's1f', 's1b', 's1u', 's1d', 's1vg', 's1vo', 's1hg', 's1ho']
+
+    >>> # get a hold of motor 's1vo' configuration
+    >>> s1u_config = config.get_config('s1u')
+    >>> s1u_config
+    Node([('name', 's1u')])
+    >>> s1vo_config['velocity']
+    500
+
+    >>> # get a hold of motor 's1vo'
+    >>> s1vo = config.get('s1vo')
+    >>> s1vo
+    <bliss.common.axis.Axis at 0x7f94de365790>
+    >>> s1vo.position()
+    0.0
+
+"""
+
 import os
 import yaml
 import weakref
@@ -77,13 +117,63 @@ def load_cfg_fromstring(cfg_string):
     else:
         return yaml_load(cfg_string)
 
-def get_config(base_path='',timeout=3.):
+def get_config(base_path='', timeout=3.):
+    """
+    Return configuration from bliss configuration server
+
+    The first time the function is called, a new
+    :class:`~bliss.config.static.Config` object is constructed and returned.
+    Subsequent calls will return a cached object. Example::
+
+        >>> from bliss.config.static import get_config
+
+        >>> # access the bliss configuration object
+        >>> config = get_config()
+
+        >>> # see all available object names
+        >>> config.names_list
+        ['mock1', 'slit1', 's1f', 's1b', 's1u', 's1d', 's1vg', 's1vo', 's1hg', 's1ho']
+
+        >>> # get a hold of motor 's1vo' configuration
+        >>> s1u_config = config.get_config('s1u')
+        >>> s1u_config
+        Node([('name', 's1u')])
+        >>> s1vo_config['velocity']
+        500
+
+    Args:
+        base_path (str): base path to config
+        timeout (float): response timeout (seconds)
+
+    Returns:
+        Config: the configuration object
+    """
     global CONFIG
     if CONFIG is None:
         CONFIG = Config(base_path, timeout)
     return CONFIG
 
 class Node(NodeDict):
+    """
+    Configuration Node. Do not instantiate this class directly.
+
+    Typical usage goes throught :class:`~bliss.config.static.Config`.
+
+    This class has a :class:`dict` like API::
+
+        >>> from bliss.config.static import get_config
+
+        >>> # access the bliss configuration object
+        >>> config = get_config()
+
+        >>> # get a hold of motor 's1vo' configuration
+        >>> s1u_config = config.get_config('s1u')
+        >>> s1u_config
+        Node([('name', 's1u')])
+        >>> s1vo_config['velocity']
+        500
+    """
+
     def __init__(self,config = None,parent = None,filename = None) :
         NodeDict.__init__(self)
         self._parent = parent
@@ -104,20 +194,23 @@ class Node(NodeDict):
         return self.__class__, (None, kwargs), dict(self)
 
     @property
-    def filename(self) :
+    def filename(self):
+        """Filename where the cofiguration of this node is located"""
         return self.get_node_filename()[1]
 
     @property
     def parent(self):
+        """Parent Node or None if it is the root Node"""
         return self._parent
 
     @property
     def children(self):
+        """List of children Nodes"""
         return self.get('__children__')
 
     @property
     def plugin(self):
-        """Return plugin name"""
+        """Active plugin name for this Node or None if no plugin active"""
         plugin = self.get("plugin")
         if plugin is None:
           if self == self._config._root_node:
@@ -130,6 +223,14 @@ class Node(NodeDict):
             return plugin
 
     def get_node_filename(self):
+        """
+        Returns the Node object corresponding to the filename where this Node
+        is defined
+
+        Returns:
+           ~bliss.config.static.Node: the Node file object where this Node is
+           defined
+        """
         filename = self._config._node2file.get(self)
         if filename is not None:
             return self, filename
@@ -139,15 +240,37 @@ class Node(NodeDict):
             return None,None
 
     def get_inherited(self,key):
+        """
+        Returns the value for the given config key. If the key does not exist
+        in this Node it is searched recusively up in the Node tree until it
+        finds a parent which defines it
+
+        Args:
+            key (str): key to search
+
+        Returns:
+            object: value corresponding to the key or None if key is not found
+            in the Node tree
+        """
         value = self.get(key)
         if value is None and self._parent:
             return self._parent.get_inherited(key)
         return value
 
-    def pprint(self,indent=1, depth = None) :
+    def pprint(self,indent=1, depth = None):
+        """
+        Pretty prints this Node
+
+        Keyword Args:
+            indent (int): indentation level (default: 1)
+            depth (int): max depth (default: None, meaning no max)
+        """
         self._pprint(self,0,indent,0,depth)
 
     def save(self) :
+        """
+        Saves the Node configuration persistently in the server
+        """
         parent,filename = self.get_node_filename()
         if filename is None: return # Memory
         save_file_tree =  self._get_save_dict(parent,filename)
@@ -220,15 +343,39 @@ class Node(NodeDict):
                                                value)
 
 class Config(object):
+    """
+    Bliss static configuration object.
+
+    Typical usage is to call :func:`get_config` which will return an instance
+    of this class.
+    """
+
+    #: key which triggers a YAML_ collection to be identified as a bliss named item
     NAME_KEY = 'name'
+
     USER_TAG_KEY = 'user_tag'
 
     def __init__(self, base_path, timeout=3):
         self._base_path = base_path
-       
+        
         self.reload(timeout=timeout)
 
     def reload(self, base_path=None, timeout=3):
+        """
+        Reloads the configuration from the bliss server.
+
+        Effectively cleans any cache (bliss objects and configuration tree)
+
+        Keyword args:
+
+            base_path (str): base path to config [default: empty string,
+                             meaning full configuration]
+            timeout (float): response timeout (seconds) [default: 3 seconds]
+
+        Raises:
+            RuntimeError: in case of connection timeout
+        """
+
         if base_path is None:
             base_path = self._base_path
 
@@ -333,13 +480,34 @@ class Config(object):
 
     @property
     def names_list(self):
+        """
+        List of existing configuration names
+
+        Returns:
+            list<str>: sequence of configuration names
+        """
         return self._name2node.keys()
 
     @property
     def root(self):
+        """
+        Reference to the root :class:`~bliss.config.static.Node`
+        """
         return self._root_node
 
     def set_config_db_file(self,filename,content) :
+        """
+        Update the server filename with the given content
+
+        Args:
+            filename (str): YAML_ file name (path relative to configuration
+                            base directory. Example: motion/icepap.yml)
+            content (str): configuration content
+
+        Raises:
+            RuntimeError: in case of connection timeout
+        """
+
         full_filename = os.path.join(self._base_path,filename)
         client.set_config_db_file(full_filename,content)
 
@@ -386,17 +554,37 @@ class Config(object):
 
         return node, sp_path and sp_path[-1]
 
-    ##@brief return the config node with it's name
-    #
     def get_config(self, name):
+        """
+        Returns the config :class:`~bliss.config.static.Node` with the
+        given name
+
+        Args:
+            name (str): config node name
+
+        Returns:
+            ~bliss.config.static.Node: config node or None if object is
+            not found
+        """
         # '$' means the item is a reference
         name = name.lstrip('$')
         return self._name2node.get(name)
 
-    ##@brief return an instance with it's name
-    #
     def get(self,name):
-        # '$' means the item is a reference
+        """
+        Returns an object instance from its configuration name
+
+        If names starts with *$* it means it is a reference.
+
+        Args:
+            name (str): config node name
+
+        Returns:
+            ~bliss.config.static.Node: config node
+
+        Raises:
+            RuntimeError: if name is not found in configuration
+        """
         name = name.lstrip('$')
         instance_object = self._name2instance.get(name)
         if instance_object is None: # we will create it

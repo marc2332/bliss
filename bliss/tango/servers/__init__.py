@@ -8,7 +8,6 @@
 '''Bliss Tango_ server classes
 
 .. autosummary::
-    :nosignatures:
     :toctree:
 
     axis_ds

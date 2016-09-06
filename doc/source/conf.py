@@ -301,8 +301,11 @@ autoclass_content = 'class'
 
 autosummary_generate = True
 
-# Example configuration for intersphinx: refer to the Python standard library.
-intersphinx_mapping = {'https://docs.python.org/': None}
+# Configuration for intersphinx
+intersphinx_mapping = {
+    'https://docs.python.org/': None,
+    'http://www.esrf.fr/computing/cs/tango/pytango/latest/': None,
+}
 
 rst_epilog = """\
 .. _python: http://www.python.org/

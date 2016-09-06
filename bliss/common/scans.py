@@ -5,6 +5,12 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+"""
+Most common scan procedures (:func:`~bliss.common.scans.ascan`, \
+:func:`~bliss.common.scans.dscan`, :func:`~bliss.common.scans.timescan`, etc)
+
+"""
+
 __all__ = ['SCANFILE', 'set_scanfile', 'scanfile', 'last_scan_data',
            'ascan', 'a2scan', 'dscan', 'd2scan', 'timescan', 'ct']
 
@@ -26,7 +32,7 @@ _log = logging.getLogger('bliss.scans')
 SCANFILE = "/dev/null"
 
 def set_scanfile(filename):
-    '''
+    """
     Changes the active scan file.
     It supports any of the attributes of :func:`time.strftime`.
     Example::
@@ -37,17 +43,32 @@ def set_scanfile(filename):
     at the beginning of each scan. In the previous example, bliss
     will change files automatically between two scans that occur
     in different days.
-    '''
+
+    Args:
+        filename (str): name for the new scan file
+    """
     global SCANFILE
     SCANFILE = filename
 
 
 def scanfile():
-    '''Returns the current active scanfile'''
+    """
+    Returns the current active scanfile
+
+    Returns:
+        str: name of the current scan file
+    """
     return time.strftime(SCANFILE)
 
 
 def last_scan_data():
+    """
+    Returns the data corresponding to the last scan or None if no scan has
+    been executed
+
+    Returns:
+        object: last scan data or None
+    """
     return DataManager().last_scan_data()
 
 
@@ -56,6 +77,12 @@ def __count(counter, count_time):
 
 
 class ScanEnvironment(dict):
+    """
+    Internal scan environment helper.
+    Used to pass the current environment between scan executor,
+    the :class:`~bliss.common.data_manager.DataManager` and the
+    :class:`~bliss.common.data_manager.Scan` object
+    """
 
     def __init__(self, *args, **kwargs):
         dict.__init__(self, *args, **kwargs)
@@ -71,6 +98,35 @@ class ScanEnvironment(dict):
 
 
 def ascan(motor, start, stop, npoints, count_time, *extra_counters, **kwargs):
+    """
+    Absolute scan
+
+    Scans one motor, as specified by *motor*. The motor starts at the position
+    given by *start* and ends at the position given by *stop*. The step size is
+    `(*start*-*stop*)/(*npoints*-1)`. The number of intervals will be
+    *npoints*-1. Count time is given by *count_time* (seconds).
+
+    At the end of the scan (even in case of error) the motor will return to
+    its initial position
+
+    Args:
+        motor (Axis): motor to scan
+        start (float): motor start position
+        stop (float): motor end position
+        npoints (int): the number of points
+        count_time (float): count time (seconds)
+        extra_counters (BaseCounter): additional counters
+
+    Keyword Args:
+        type (str): scan type [default: 'ascan')
+        title (str): scan title [default: 'ascan <motor> ... <count_time>']
+        filename (str): file name [default: current value returned by \
+        :func:`scanfile`]
+        save (bool): save scan data to file [default: True]
+        user_name (str): current user
+        session_name (str): session name [default: current session name or \
+        'bliss' if not inside a session]
+    """
     scan_type = kwargs.setdefault('type', 'ascan')
     if 'title' not in kwargs:
         args = scan_type, motor.name, start, stop, npoints, count_time
@@ -125,6 +181,35 @@ def ascan(motor, start, stop, npoints, count_time, *extra_counters, **kwargs):
 
 
 def dscan(motor, start, stop, npoints, count_time, *extra_counters, **kwargs):
+    """
+    Relative scan
+
+    Scans one motor, as specified by *motor*. If the motor is at position *X*
+    before the scan begins, the scan will run from `X+start` to `X+end`.
+    The step size is `(*start*-*stop*)/(*npoints*-1)`. The number of intervals
+    will be *npoints*-1. Count time is given by *count_time* (seconds).
+
+    At the end of the scan (even in case of error) the motor will return to
+    its initial position
+
+    Args:
+        motor (Axis): motor to scan
+        start (float): motor relative start position
+        stop (float): motor relative end position
+        npoints (int): the number of points
+        count_time (float): count time (seconds)
+        extra_counters (BaseCounter): additional counters
+
+    Keyword Args:
+        type (str): scan type [default: 'ascan')
+        title (str): scan title [default: 'dscan <motor> ... <count_time>']
+        filename (str): file name [default: current value returned by \
+        :func:`scanfile`]
+        save (bool): save scan data to file [default: True]
+        user_name (str): current user
+        session_name (str): session name [default: current session name or \
+        'bliss' if not inside a session]
+    """
     kwargs.setdefault('type', 'dscan')
     oldpos = motor.position()
     ascan(motor, oldpos + start, oldpos + stop, npoints, count_time,
@@ -134,7 +219,39 @@ def dscan(motor, start, stop, npoints, count_time, *extra_counters, **kwargs):
 
 def a2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
            *extra_counters, **kwargs):
+    """
+    Absolute 2 motor scan
 
+    Scans two motors, as specified by *motor1* and *motor2*. The motors start
+    at the positions given by *start1* and *start2* and end at the positions
+    given by *stop1* and *stop2*. The step size for each motor is given by
+    `(*start*-*stop*)/(*npoints*-1)`. The number of intervals will be
+    *npoints*-1. Count time is given by *count_time* (seconds).
+
+    At the end of the scan (even in case of error) the motors will return to
+    its initial positions
+
+    Args:
+        motor1 (Axis): motor1 to scan
+        start1 (float): motor1 start position
+        stop1 (float): motor1 end position
+        motor2 (Axis): motor2 to scan
+        start2 (float): motor2 start position
+        stop2 (float): motor2 end position
+        npoints (int): the number of points
+        count_time (float): count time (seconds)
+        extra_counters (BaseCounter): additional counters
+
+    Keyword Args:
+        type (str): scan type [default: 'a2scan')
+        title (str): scan title [default: 'a2scan <motor1> ... <count_time>']
+        filename (str): file name [default: current value returned by \
+        :func:`scanfile`]
+        save (bool): save scan data to file [default: True]
+        user_name (str): current user
+        session_name (str): session name [default: current session name or \
+        'bliss' if not inside a session]
+    """
     scan_type = kwargs.setdefault('type', 'a2scan')
     if 'title' not in kwargs:
         args = scan_type, motor1.name, start1, stop1, \
@@ -191,6 +308,40 @@ def a2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
 
 def d2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
            *extra_counters, **kwargs):
+    """
+    Relative 2 motor scan
+
+    Scans two motors, as specified by *motor1* and *motor2*. Each motor moves
+    the same number of points. If a motor is at position *X*
+    before the scan begins, the scan will run from `X+start` to `X+end`.
+    The step size of a motor is `(*start*-*stop*)/(*npoints*-1)`. The number
+    of intervals will be *npoints*-1. Count time is given by *count_time*
+    (seconds).
+
+    At the end of the scan (even in case of error) the motor will return to
+    its initial position
+
+    Args:
+        motor1 (Axis): motor1 to scan
+        start1 (float): motor1 relative start position
+        stop1 (float): motor1 relative end position
+        motor2 (Axis): motor2 to scan
+        start2 (float): motor2 relative start position
+        stop2 (float): motor2 relative end position
+        npoints (int): the number of points
+        count_time (float): count time (seconds)
+        extra_counters (BaseCounter): additional counters
+
+    Keyword Args:
+        type (str): scan type [default: 'ascan')
+        title (str): scan title [default: 'd2scan <motor1> ... <count_time>']
+        filename (str): file name [default: current value returned by \
+        :func:`scanfile`]
+        save (bool): save scan data to file [default: True]
+        user_name (str): current user
+        session_name (str): session name [default: current session name or \
+        'bliss' if not inside a session]
+    """
     kwargs.setdefault('type', 'd2scan')
 
     oldpos1 = motor1.position()
@@ -206,6 +357,24 @@ def d2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
 
 
 def timescan(count_time, *extra_counters, **kwargs):
+    """
+    Time scan
+
+    Args:
+        count_time (float): count time (seconds)
+        extra_counters (BaseCounter): additional counters
+
+    Keyword Args:
+        sleep_time (float): sleep time (seconds) [default: 0]
+        type (str): scan type [default: 'ascan')
+        title (str): scan title [default: 'timescan <count_time>']
+        filename (str): file name [default: current value returned by \
+        :func:`scanfile`]
+        save (bool): save scan data to file [default: True]
+        user_name (str): current user
+        session_name (str): session name [default: current session name or \
+        'bliss' if not inside a session]
+    """
     scan_type = kwargs.setdefault('type', 'timescan')
     if 'title' not in kwargs:
         args = scan_type, count_time
@@ -250,6 +419,27 @@ def timescan(count_time, *extra_counters, **kwargs):
 
 
 def ct(count_time, *counters, **kwargs):
+    """
+    Count for a specified time
+
+    Note:
+        This function blocks the current :class:`Greenlet`
+
+    Args:
+        count_time (float): count time (seconds)
+        extra_counters (BaseCounter): additional counters
+
+    Keyword Args:
+        sleep_time (float): sleep time (seconds) [default: 0]
+        type (str): scan type [default: 'ascan')
+        title (str): scan title [default: 'ct <count_time>']
+        filename (str): file name [default: current value returned by \
+        :func:`scanfile`]
+        save (bool): save scan data to file [default: True]
+        user_name (str): current user
+        session_name (str): session name [default: current session name or \
+        'bliss' if not inside a session]
+    """
     kwargs.setdefault('type', 'ct')
     kwargs.setdefault('save', False)
     kwargs['npoints'] = 1

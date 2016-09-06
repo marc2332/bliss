@@ -11,7 +11,6 @@
 This module gathers different communication interfaces
 
 .. autosummary::
-   :nosignatures:
    :toctree:
 
    common

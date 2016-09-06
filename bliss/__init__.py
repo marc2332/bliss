@@ -13,7 +13,6 @@ directly at this level.
 Here are the main bliss sub-systems:
 
 .. autosummary::
-    :nosignatures:
     :toctree:
 
     acquisition

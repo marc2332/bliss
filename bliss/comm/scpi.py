@@ -1,7 +1,8 @@
 """
-SCPI helper class. Defines the language above the interface (TCP, GPIB, Serial)
+:term:`SCPI` helpers (:class:`~bliss.comm.scpi.Scpi` class and \
+:func:`~bliss.comm.scpi.scpify` class decorator)
 
-Example:
+Example::
 
     from bliss.comm.scpi import Scpi
 
@@ -13,9 +14,9 @@ Example:
     interface = Gpib(url="enet://example.com", pad=15)
     scpi = Scpi(interface)
 
-    print( scpi('*IDN?') )
-    print( scpi['*IDN'] )
-    print( scpi.get_idn() )
+    print( scpi('*IDN?') )   # functional API
+    print( scpi['*IDN'] )    # dict like API
+    print( scpi.get_idn() )  # object API: get_<> and set_<>
 """
 
 from __future__ import absolute_import
@@ -31,7 +32,9 @@ from .scpi_mapping import commands
 from .common import CommunicationError, CommunicationTimeout
 
 class ScpiError(CommunicationError):
-    pass
+    """
+    Base :term:`SCPI` error
+    """
 
 def _sanatize_msgs(*msgs):
     result = []
@@ -47,8 +50,10 @@ def _sanatize_msgs(*msgs):
 
 class Scpi(object):
     """
-    SCPI language. Although it can be used directly, the main idea is that it
-    ia used by an SCPI capable instrument. Example::
+    :term:`SCPI` language helper.
+
+    Although it can be used directly, the main idea is
+    that it is used by an :term:`SCPI` capable instrument. Example::
 
         from bliss.comm import scpi
 
@@ -65,7 +70,12 @@ class Scpi(object):
         from bliss.comm.scpi import Scpi
 
         scpi = Scpi(gpib=dict(url="enet://gpibhost", pad=10))
-        print scpi("*IDN?")
+
+        # functional API
+        print scpi('*IDN?')
+
+        # dict like API ( [cmd] == (cmd+"?") )
+        print scpi['*IDN']
     """
 
     def __init__(self, *args, **kwargs):
@@ -160,11 +170,11 @@ class Scpi(object):
             instrumment.command('*RST')
 
             # set ESE to 1 and ask for IDN and ESE
-            idn, ese = instrument.command('*ESE 1; *IDN?;', *ESE?')
+            idn, ese = instrument.command('*ESE 1; *IDN?; *ESE?')
 
         .. note::
             a direct call to the scpi object has the same effect
-            (ex: ``idn, ese = instrument('*ESE 1; *IDN?;', *ESE?')``)
+            (ex: ``idn, ese = instrument('*ESE 1; *IDN?; *ESE?')``)
 
         .. seealso::
             :py:meth:`__call__`, :py:meth:`write`, :py:meth:`read`
@@ -198,10 +208,11 @@ class Scpi(object):
             # set ESE to 1 and ask for IDN and ESE
             idn, ese = instrument.read('*ESE 1; *IDN?; *ESE?')
 
-        :param msg: raw message to be queried. Example: "*IDN?"
+        :param msg: raw message to be queried (ex: "\*IDN?")
         :type msg: str
         :return: the read result
         :rtype: str
+        :raises ScpiError: in case an of unexpected result
         """
         raw = kwargs.get('raw', False)
         msg = _sanatize_msgs(*msgs)
@@ -234,11 +245,14 @@ class Scpi(object):
         Execute non query command(s).
 
         Examples::
+
             # set ESE to 1
             instrument.write("*ESE 1")
 
             # reset the instrument
             instrumment.write('*RST')
+
+        :raises ScpiError: in case any of the messages is a query
         """
         if any(["?" in msg for msg in msgs]):
             raise ScpiError("Cannot write a query")
@@ -362,7 +376,7 @@ def _safe_add_command(element, cmd_name, cmd):
         __safe_add_method(element, set_cmd, name=set_min_name)
     return full_cmd_name, min_cmd_name, get_cmd, set_cmd
 
-def scpify_init_cmds(device, cmds=None, model_cmds=None, patch_cmds=True):
+def __scpify_init_cmds(device, cmds=None, model_cmds=None, patch_cmds=True):
     all_cmds = {}
     if cmds is not None:
         all_cmds.update(cmds)
@@ -389,30 +403,34 @@ def scpify_init_cmds(device, cmds=None, model_cmds=None, patch_cmds=True):
 
 def scpify(klass=None, cmds=None, model_cmds=None, patch_cmds=True):
     """
-    To be used as a decorator to enable SCPI capabilities on an instrument.
+    Decorator to enable :term:`SCPI` capabilities on a class
 
-    This decorator overwrites the constructor(__init__) with one constructor
+    This decorator overwrites the constructor(`__init__`) with one constructor
     expecting an *interface* argument or an 'interface' keyword argument,
-    consuming it. Tthe remaining arguments and keyword arguments are passed to
-    the original class __init__ method.
+    consuming it. The remaining arguments and keyword arguments are passed to
+    the original class `__init__` method.
 
-    When not implemented by the class, this decorator adds __getitem__,
-    __setitem__, __getattr__, __dir__ methods and language and commands
-    python properties.
+    When not implemented by the class, this decorator adds `__getitem__`,
+    `__setitem__`, `__getattr__`, `__dir__` methods and `language` and
+    `commands` python properties.
 
     Example::
 
         import collections
 
         from bliss.comm.scpi import Scpi, scpify, commands, Cmd, OnOffCmd
-        K_CMDS = dict(commands)
-        K_CMDS.update({
+
+        # common keithley commands to all models
+        keithley_cmds = dict(commands)
+        keithley_cmds.update({
             "REN": Cmd(doc="goes into remote when next addressed to listen"),
-            "IFC": Cmd(doc="reset interface; all devices go into talker and listener idle states"),
+            "IFC": Cmd(doc="reset interface; all devices go into talker and "
+                           "listener idle states"),
         })
 
-        K_MODEL_CMDS = collections.defaultdict(dict)
-        K_MODEL_CMDS.update({
+        # specific commands to each model
+        keithley_model_cmds = collections.defaultdict(dict)
+        keithley_model_cmds.update({
             "6482": {
                 "OUTP1": OnOffCmd(),
                 "OUTP2": OnOffCmd(),
@@ -421,7 +439,7 @@ def scpify(klass=None, cmds=None, model_cmds=None, patch_cmds=True):
             }
         })
 
-        @scpify(cmds=K_CMDS, model_cmds=K_MODEL_CMDS)
+        @scpify(cmds=keithley_cmds, model_cmds=keithley_model_cmds)
         class KeithleyScpi(object):
             pass
     """
@@ -448,8 +466,8 @@ def scpify(klass=None, cmds=None, model_cmds=None, patch_cmds=True):
 
     if not hasattr(klass, "_init_cmds"):
         def _init_cmds(device):
-            return scpify_init_cmds(device, cmds=cmds, model_cmds=model_cmds,
-                                    patch_cmds=patch_cmds)
+            return __scpify_init_cmds(device, cmds=cmds, model_cmds=model_cmds,
+                                      patch_cmds=patch_cmds)
         klass._init_cmds = _init_cmds
 
     if not callable("__call__"):
@@ -497,7 +515,7 @@ def main(argv=None):
     The following example will start a SCPI console with one SCPI instrument
     called *s*::
 
-        $ python -m Salsa.core.communications.scpi gpib --pad=15 enet://gpibhost
+        $ python -m bliss.comm.scpi gpib --pad=15 enet://gpibhost
 
         scpi> print s['*IDN']
     """

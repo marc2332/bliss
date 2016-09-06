@@ -156,10 +156,12 @@ def write_setting(config_dict, setting_name, setting_value, write):
 
 class StaticConfig(object):
 
+    NO_VALUE = None, None
+
     def __init__(self, config_dict):
         self.config_dict = config_dict
 
-    def get(self, property_name, converter=str, default=None):
+    def get(self, property_name, converter=str, default=NO_VALUE):
         """Get static property
 
         Args:
@@ -180,7 +182,7 @@ class StaticConfig(object):
             except AttributeError:
                 return converter(property_attrs)
         else:
-            if default is not None:
+            if default != self.NO_VALUE:
                 return default
 
             raise KeyError("no property '%s` in config" % property_name)

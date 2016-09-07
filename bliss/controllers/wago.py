@@ -74,7 +74,7 @@ for module_name, module_info in MODULES_CONFIG.iteritems():
         reading_info["bits"] = int(reading_type[3:])
     elif reading_type.startswith("thc"):
         module_info[READING_TYPE]="thc"
-        reading_info["bits"] = 24
+        reading_info["bits"] = 16
 
 def WagoController(host):
     """Return _WagoController instance, unique for a particular host"""

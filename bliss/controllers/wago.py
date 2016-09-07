@@ -430,7 +430,7 @@ class WagoCounter(CounterBase):
     return self
 
   def read(self):
-    data = self.parent._cntread(acq_time)
+    data = self.parent._cntread()
     if isinstance(self.cntname, str):
       data = data[self.parent.cnt_dict[self.cntname]]
     return data

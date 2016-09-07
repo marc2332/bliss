@@ -11,6 +11,7 @@ import gevent.lock
 import time
 import socket
 import sys
+from ..common.greenlet_utils import KillMask,protect_from_kill
 
 class TimeoutError(Exception):
     pass
@@ -215,7 +216,7 @@ class StandardClient:
               self.msg_received_event.wait()
           return self.received_msg
 
-
+    @protect_from_kill
     def sendReceive(self,cmd, timeout=-1):
         self._lock.acquire() 
         try:
@@ -232,7 +233,7 @@ class StandardClient:
             finally:
                 self._lock.release()
 
-
+    @protect_from_kill
     def send(self,cmd):
         if self.protocol==PROTOCOL.DATAGRAM:
             raise ProtocolError,"Protocol error: send command not support in datagram clients"

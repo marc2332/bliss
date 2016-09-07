@@ -15,6 +15,7 @@ from gevent import lock
 from .libnienet import EnetSocket
 from ..tcp import Socket
 from ..common import CommunicationError, CommunicationTimeout
+from ...common.greenlet_utils import KillMask
 
 try:
     from collections import OrderedDict
@@ -185,13 +186,16 @@ def TangoGpib(cnt,**keys) :
 
 def try_open(fu) :
     def rfunc(self,*args,**keys) :
-        self.open()
+        with KillMask():
+            self.open()
         timeout = keys.get('timeout')
         if timeout and self._timeout != timeout:
             if gpib_type != self.PROLOGIX:
-                self._raw_handler.ibtmo(timeout)
+                with KillMask():
+                    self._raw_handler.ibtmo(timeout)
             self._timeout = timeout
-        return fu(self,*args,**keys)
+        with KillMask():
+            return fu(self,*args,**keys)
     return rfunc
 
 class Gpib:

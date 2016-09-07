@@ -19,7 +19,7 @@ import logging
 import weakref
 
 from .common import CommunicationError, CommunicationTimeout
-
+from ..common.greenlet_utils import KillMask
 
 class SocketTimeout(CommunicationTimeout):
     '''Socket timeout error'''
@@ -42,7 +42,8 @@ def try_connect_socket(fu):
             prev_timeout = kwarg.get('timeout', None)
             kwarg.update({'timeout': 0.})
             try:
-                return fu(self, *args, **kwarg)
+                with KillMask():
+                    return fu(self, *args, **kwarg)
             except SocketTimeout:
                 self.connect()
                 kwarg.update({'timeout': prev_timeout})
@@ -260,7 +261,8 @@ def try_connect_command(fu):
             prev_timeout = kwarg.get('timeout', None)
             kwarg.update({'timeout': 0.})
             try:
-                return fu(self, *args, **kwarg)
+                with KillMask():
+                    return fu(self, *args, **kwarg)
             except CommandTimeout:
                 self.connect()
                 kwarg.update({'timeout': prev_timeout})

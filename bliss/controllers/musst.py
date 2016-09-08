@@ -9,6 +9,7 @@ import numpy
 import weakref
 from bliss.comm.gpib import Gpib
 from bliss.comm import serial
+from bliss.common.greenlet_utils import KillMask,protect_from_kill
 Serial = serial.Serial
 
 def _get_simple_property(command_name,
@@ -172,7 +173,7 @@ class musst(object):
             "50MHZ"       : self.F_50MHZ
             }
             
-
+    @protect_from_kill
     def putget(self,msg,ack = False):
         """ Raw connection to the Musst card.
 
@@ -281,12 +282,13 @@ class musst(object):
             total_int32 -= BLOCK_SIZE
             with self._cnx._lock:
                 self._cnx.open()
-                self._cnx._write("?*EDAT %d %d %d" % (size_to_read,0,offset))
-                raw_data = ''
-                while(len(raw_data) < (size_to_read * 4)):
-                    raw_data += self._cnx.raw_read()
-                data_pt[data_offset:data_offset+size_to_read] = \
-                numpy.frombuffer(raw_data,dtype=numpy.int32)
+                with KillMask():
+                    self._cnx._write("?*EDAT %d %d %d" % (size_to_read,0,offset))
+                    raw_data = ''
+                    while(len(raw_data) < (size_to_read * 4)):
+                        raw_data += self._cnx.raw_read()
+                    data_pt[data_offset:data_offset+size_to_read] = \
+                    numpy.frombuffer(raw_data,dtype=numpy.int32)
 
     def get_event_buffer_size(self):
         """ query event buffer size.

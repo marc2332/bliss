@@ -389,8 +389,7 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
         # Try to switch power on.
         TANGO_ERR = -1
         tango_io(_axis_ds_name, "On")
-        if ((TANGO_ERR != "0") && \
-            (index(TANGO_ERR_STACK[0]["desc"], "NotImplementedError") == 0)) {
+        if ((TANGO_ERR != "0") && !_tango_mot_error_notimpl()) {
             _tango_mot_error_desc(sprintf("Cmd=On: %s", _axis_ds_name))
             return ".error."
         }
@@ -444,15 +443,26 @@ def tango_mot_config(motnum, type, unit, module, channel) '{
 
             _velo_steps = motor_par(motnum, "velocity")
             tango_mot_dbg(sprintf("set velocity to : %g steps/s", _velo_steps))
+            if (!tango_mot_check_attr(motnum, "velocity", "w", _velo_steps)) {
+                tango_mot_err("\"velocity\" is not implemented. Disabling!")
+                motor_par(motnum ,"disable", 1)
+                return ".error."
+            }
             tango_mot_par(motnum, "velocity", "set", _velo_steps)
 
             _acc_time_ms = motor_par(motnum, "acceleration")
             tango_mot_dbg(sprintf("set acceleration to : %g ms", _acc_time_ms))
+            if (!tango_mot_check_attr(motnum, "acceleration", "set", \
+                                      _acc_time_ms)) {
+                tango_mot_err("\"acceleration\" is not implemented. Disabling!")
+                motor_par(motnum ,"disable", 1)
+                return ".error."
+            }
             tango_mot_par(motnum, "acceleration", "set", _acc_time_ms)
 
         }
-        else {
-            # We only need to set spec internals (no write to DS)
+        else if (tango_mot_check_attr(motnum, "velocity", "r")) {
+            # WE only need to set spec internals (no write to DS)
 
             tango_mot_dbg("----------------configuring SPEC from DS values---------------")
 
@@ -1157,6 +1167,24 @@ def tango_mot_set_attr(motnum, attr_name, attr_value) '{
     }
 }'
 
+def tango_mot_check_attr(motnum, attr_name, access, attr_value) '{
+    local _dev
+    _dev = motor_par (motnum, "dev_name")
+
+    TANGO_ERR = -1
+    if (index(access, "r") > 0) {
+        attr_value = tango_get(_dev, attr_name)
+        if ((TANGO_ERR != "0") && _tango_mot_error_notimpl())
+            return 0
+    }
+    if (index(access, "w") > 0) {
+        tango_put(_dev, attr_name, attr_value)
+        if ((TANGO_ERR != "0") && _tango_mot_error_notimpl())
+            return 0
+    }
+    return 1
+}'
+
 def _tango_mot_error_stack(motmne, devname, attr_cmd) '{
     tty_cntl("md")
     print "\n TANGO_MOT_ERROR " motmne " " devname  "/"  attr_cmd
@@ -1187,6 +1215,9 @@ def _tango_mot_error_desc(msg) '{
     }
 }'
 
+def _tango_mot_error_notimpl() '{
+    return (index(TANGO_ERR_STACK[0]["desc"], "NotImplementedError") > 0)
+}'
 
 
 

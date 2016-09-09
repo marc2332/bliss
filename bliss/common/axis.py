@@ -363,6 +363,7 @@ class Axis(object):
             self.settings.set("position", user_pos, write=write)
         return dial_pos
 
+    @lazy_init
     def _hw_position(self):
         try:
             curr_pos = self.__controller.read_position(self) / self.steps_per_unit

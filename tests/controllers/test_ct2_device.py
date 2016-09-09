@@ -93,7 +93,7 @@ def test(dev, expo_time, point_period, acq_nb_points, nb_acqs, soft_trig,
 def main():
     parser = argparse.ArgumentParser(description='Test the CT2Device class')
     
-    parser.add_argument('--dev_name', default='p201_lid002_0', type=str,
+    parser.add_argument('--dev_name', default='p201_lid00c_0', type=str,
                         help='Device name in config')
     parser.add_argument('--hard_reset', default=0, type=int,
                         help='Perform a hard reset')

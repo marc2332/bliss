@@ -262,5 +262,34 @@ class TestSlits(unittest.TestCase):
         self.assertRaises(RuntimeError, s1hg.move,6) 
         self.assertAlmostEquals(s1hg._set_position(), s1hg.position(),places=4)
 
+    def testHwControl(self):
+        s1f = bliss.get_axis("s1f")
+        s1b = bliss.get_axis("s1b")
+        s1hg = bliss.get_axis("s1hg")
+        s1hg.dial(0); s1hg.position(0)
+        s1hg.move(2, wait=False)
+        self.assertEquals(s1hg._hw_control, True)
+        self.assertEquals(s1b._hw_control, True)
+        self.assertEquals(s1f._hw_control, True)
+        s1hg.wait_move()
+        self.assertEquals(s1hg._hw_control, False)
+        self.assertEquals(s1b._hw_control, False)
+        self.assertEquals(s1f._hw_control, False)
+
+    def testRealMoveAndSetPosition(self):
+        s1f = bliss.get_axis("s1f")
+        s1b = bliss.get_axis("s1b")
+        s1hg = bliss.get_axis("s1hg")
+        s1hg.dial(0); s1hg.position(0)
+        s1hg.move(0.5)
+        s1f.rmove(1)
+        s1b.rmove(1)
+        self.assertAlmostEquals(s1f._set_position(), 1.25, places=4)
+        self.assertAlmostEquals(s1b._set_position(), 1.25, places=4)
+        self.assertAlmostEquals(s1hg.position(), 2.5, places=4)
+        self.assertAlmostEquals(s1hg._set_position(), 2.5, places=4)
+        
+   
+
 if __name__ == '__main__':
     unittest.main()

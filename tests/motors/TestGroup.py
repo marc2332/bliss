@@ -184,5 +184,18 @@ class TestGroup(unittest.TestCase):
         self.assertRaises(RuntimeError, grp.move, {robz:3,robz2:1})
         self.assertEquals(robz._set_position(), robz.position())
 
+    def testHwControl(self):
+        robz = bliss.get_axis("robz")
+        robz2 = bliss.get_axis("robz2")
+        robz2.dial(0); robz2.position(0)
+        robz.dial(0); robz.position(0)
+        grp = bliss.Group(robz, robz2)
+        grp.move({ robz: 2, robz2: 2 }, wait=False)
+        self.assertEquals(robz._hw_control, True)
+        self.assertEquals(robz2._hw_control, True)
+        grp.wait_move()
+        self.assertEquals(robz._hw_control, False)
+        self.assertEquals(robz2._hw_control, False)
+
 if __name__ == '__main__':
     unittest.main()

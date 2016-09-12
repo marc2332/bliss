@@ -278,8 +278,6 @@ class CalcController(Controller):
         Controller.__init__(self, *args, **kwargs)
 
         self._reals_group = None
-        self._write_settings = False
-        self._motion_control = False
         self.reals = []
         self.pseudos = []
 
@@ -331,6 +329,8 @@ class CalcController(Controller):
         return self.calc_from_real(real_positions)
 
     def _calc_from_real(self, *args, **kwargs):
+        motion_control = any([real._hw_control for real in self.reals])
+
         new_positions = self._do_calc_from_real()
 
         for tagged_axis_name, position in new_positions.iteritems():
@@ -338,10 +338,8 @@ class CalcController(Controller):
             if axis in self.pseudos:
                 dial_pos = position / axis.steps_per_unit
                 user_pos = axis.dial2user(dial_pos)
-                if self._write_settings and not self._motion_control:
-                    axis.settings.set("_set_position", user_pos, write=True)
-                axis.settings.set("dial_position", dial_pos,
-                                  write=self._write_settings)
+                axis.settings.set("_set_position", user_pos, write=motion_control)
+                axis.settings.set("dial_position", dial_pos, write=motion_control)
                 axis.settings.set("position", user_pos, write=False)
             else:
                 raise RuntimeError("cannot assign position to real motor")
@@ -351,18 +349,16 @@ class CalcController(Controller):
         raise NotImplementedError
 
     def _update_state_from_real(self, *args, **kwargs):
-        self._write_settings = not self._updated_from_channel('state')
+        write_settings = not self._updated_from_channel('state')
         state = self._reals_group.state()
         for axis in self.pseudos:
             #print '_update_state_from_real', axis.name, str(state)
-            axis.settings.set("state", state, write=self._write_settings)
+            axis.settings.set("state", state, write=write_settings)
 
     def _real_move_done(self, done):
         self._update_state_from_real()
         if done:
             #print 'MOVE DONE'
-            self._motion_control = False
-            self._write_settings = False
             for axis in self.pseudos:
                 if axis.encoder:
                     # check position and raise RuntimeError if encoder
@@ -385,8 +381,6 @@ class CalcController(Controller):
         for tag, target_pos in self.calc_to_real(positions_dict).iteritems():
             real_axis = self._tagged[tag][0]
             move_dict[real_axis] = target_pos
-        self._write_settings = True
-        self._motion_control = True
         # force a global position update in case phys motors never move
         self._calc_from_real()
         self._reals_group.move(move_dict, wait=False)

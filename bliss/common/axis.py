@@ -93,6 +93,7 @@ class Axis(object):
         self.__custom_attributes_dict = dict()
         self.__move_task = None
         self.__stopped = False
+        self._in_group_move = False
         self.no_offset = False
 
     @property
@@ -128,6 +129,8 @@ class Axis(object):
     @property
     def _hw_control(self):
         """Return whether axis is currently driving hardware"""
+        if self._in_group_move:
+            return True
         if self.__move_task is not None:
             return self.is_moving 
         return False

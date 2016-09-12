@@ -1081,6 +1081,8 @@ def __recreate_axes(server_name, manager_dev_name, axis_names,
             try:
                 bliss.get_axis(curr_axis_name)
             except:
+                elog.info("Error instantiating %s (%s): skipping!!" % (curr_axis_name, dev_name))
+                traceback.print_exc()
                 continue
             curr_axes[curr_axis_name] = dev_name, dev_class
 

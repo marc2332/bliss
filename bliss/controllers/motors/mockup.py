@@ -178,9 +178,14 @@ class Mockup(Controller):
         if end_t and t < end_t:
             # motor is moving
             v = self.read_velocity(axis)
+            a = self.read_acceleration(axis)
             d = math.copysign(1, self._axis_moves[axis]["delta"])
             dt = t - self._axis_moves[axis]["t0"]  # t0=time at start_one.
-            pos = self._axis_moves[axis]["start_pos"] + d * dt * v
+            acctime = min(dt, v/a)
+            dt -= acctime
+            pos = self._axis_moves[axis]["start_pos"] + d*a*0.5*acctime**2 
+            if dt > 0:
+                pos += d * dt * v
         else:
             pos = self._axis_moves[axis]["end_pos"]
 

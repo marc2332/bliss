@@ -166,6 +166,17 @@ class Mockup(Controller):
             "end_t": t0 + math.fabs(delta) / float(v),
             "t0": t0})
 
+    def start_jog(self, axis, velocity, direction):
+        t0 = time.time() 
+        pos = self.read_position(axis)
+        self.set_velocity(axis, velocity)
+        self._axis_moves[axis].update({ 
+            "start_pos": pos,
+            "delta": direction,
+            "end_pos": None,
+            "end_t": t0+1E9,
+            "t0": t0}) 
+
     def read_position(self, axis, t=None):
         """
         Returns the position (measured or desired) taken from controller
@@ -178,9 +189,14 @@ class Mockup(Controller):
         if end_t and t < end_t:
             # motor is moving
             v = self.read_velocity(axis)
+            a = self.read_acceleration(axis)
             d = math.copysign(1, self._axis_moves[axis]["delta"])
             dt = t - self._axis_moves[axis]["t0"]  # t0=time at start_one.
-            pos = self._axis_moves[axis]["start_pos"] + d * dt * v
+            acctime = min(dt, v/a)
+            dt -= acctime
+            pos = self._axis_moves[axis]["start_pos"] + d*a*0.5*acctime**2 
+            if dt > 0:
+                pos += d * dt * v
         else:
             pos = self._axis_moves[axis]["end_pos"]
 

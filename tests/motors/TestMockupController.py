@@ -22,7 +22,7 @@ sys.path.insert(
             os.path.pardir, os.path.pardir)))
 
 import bliss
-from bliss.common.axis import Axis
+from bliss.common.axis import Axis, Modulo
 from bliss.common import event
 from bliss.common import log
 
@@ -37,7 +37,7 @@ config_xml = """
       <steps_per_unit value="10000"/>
       <!-- degrees per second -->
       <velocity value="100"/>
-      <acceleration value="3"/>
+      <acceleration value="300"/>
       <low_limit value="-1000"/>
       <high_limit value="1E9"/>
     </axis>
@@ -49,18 +49,18 @@ config_xml = """
       <backlash value="2"/>
       <steps_per_unit value="10000"/>
       <velocity  value="2500"/>
-      <acceleration value="4"/>
+      <acceleration value="1000"/>
     </axis>
     <axis name="williams" class="MockupAxis">
       <backlash value="3"/>
       <steps_per_unit value="3000"/>
       <velocity  value="25"/>
-      <acceleration value="5"/>
+      <acceleration value="500"/>
     </axis>
     <axis name="m0">
       <steps_per_unit value="1"/>
       <velocity  value="1000"/>
-      <acceleration value="1"/>
+      <acceleration value="1000"/>
     </axis>
   </controller>
 </config>
@@ -157,7 +157,7 @@ class TestMockupController(unittest.TestCase):
         self.assertEquals(robz.acctime(), v/acc)
         robz.acctime(0.03)
         self.assertEquals(robz.acceleration(), v/0.03)
-        self.assertEquals(robz.acceleration(from_config=True), 3)
+        self.assertEquals(robz.acceleration(from_config=True), 300)
         robz.acceleration(acc)
         self.assertEquals(robz.acctime(), v/acc)
 
@@ -497,7 +497,7 @@ class TestMockupController(unittest.TestCase):
         m.velocity(3)
         m.acceleration(10)
         self.assertEquals(m.velocity(from_config=True), 2500) 
-        self.assertEquals(m.acceleration(from_config=True), 4)
+        self.assertEquals(m.acceleration(from_config=True), 1000)
         m.settings_to_config()
         self.assertEquals(m.velocity(from_config=True), 3) 
         self.assertEquals(m.acceleration(from_config=True), 10)
@@ -509,9 +509,36 @@ class TestMockupController(unittest.TestCase):
         m.limits(0,10)
         m.apply_config()
         self.assertEquals(m.velocity(), 2500)        
-        self.assertEquals(m.acceleration(), 4)        
+        self.assertEquals(m.acceleration(), 1000)        
         self.assertEquals(m.limits(), (None,None))
     
+    def test_jog(self):
+        m = bliss.get_axis("robz")
+        m.dial(0); m.position(0)
+        m.velocity(10)
+        m.jog(300)
+        self.assertEquals(m.velocity(), 300)
+        t = 1+m.acctime()
+        time.sleep(t)
+        self.assertAlmostEquals(m._hw_position(), 300+m.acceleration()*0.5*m.acctime()**2, delta=0.5)
+        self.assertEquals(m.state(), "MOVING")
+        m.stop()
+        self.assertEquals(m.state(), "READY")
+        self.assertEquals(m._set_position(), m.position())
+        m.dial(0); m.position(0)
+        self.assertEquals(m.velocity(), 10)
+        m.jog(-300, reset_position=0)
+        self.assertEquals(m.velocity(), 300)
+        time.sleep(t)
+        self.assertAlmostEquals(m._hw_position(), -300-m.acceleration()*0.5*m.acctime()**2, delta=0.5)
+        m.stop() 
+        self.assertEquals(m.dial(), 0)
+        self.assertEquals(m.velocity(), 10)
+        m.jog(300, reset_position=Modulo())
+        time.sleep(t)
+        m.stop()
+        self.assertAlmostEquals(m.position(), 90, delta=0.5)
+
     def test_reload_config(self):
         cfg="""
             <config>

@@ -22,7 +22,7 @@ sys.path.insert(
             os.path.pardir, os.path.pardir)))
 
 import bliss
-from bliss.common.axis import Axis
+from bliss.common.axis import Axis, Modulo
 from bliss.common import event
 from bliss.common import log
 
@@ -512,6 +512,33 @@ class TestMockupController(unittest.TestCase):
         self.assertEquals(m.acceleration(), 1000)        
         self.assertEquals(m.limits(), (None,None))
     
+    def test_jog(self):
+        m = bliss.get_axis("robz")
+        m.dial(0); m.position(0)
+        m.velocity(10)
+        m.jog(300)
+        self.assertEquals(m.velocity(), 300)
+        t = 1+m.acctime()
+        time.sleep(t)
+        self.assertAlmostEquals(m._hw_position(), 300+m.acceleration()*0.5*m.acctime()**2, delta=0.5)
+        self.assertEquals(m.state(), "MOVING")
+        m.stop()
+        self.assertEquals(m.state(), "READY")
+        self.assertEquals(m._set_position(), m.position())
+        m.dial(0); m.position(0)
+        self.assertEquals(m.velocity(), 10)
+        m.jog(-300, reset_position=0)
+        self.assertEquals(m.velocity(), 300)
+        time.sleep(t)
+        self.assertAlmostEquals(m._hw_position(), -300-m.acceleration()*0.5*m.acctime()**2, delta=0.5)
+        m.stop() 
+        self.assertEquals(m.dial(), 0)
+        self.assertEquals(m.velocity(), 10)
+        m.jog(300, reset_position=Modulo())
+        time.sleep(t)
+        m.stop()
+        self.assertAlmostEquals(m.position(), 90, delta=0.5)
+
     def test_reload_config(self):
         cfg="""
             <config>

@@ -43,6 +43,16 @@ import functools
 DEFAULT_POLLING_TIME = 0.02
 
 
+class Modulo(object):
+    def __init__(self, mod=360):
+        self.modulo = mod
+
+    def __call__(self, axis):
+        dial_pos = axis.dial()
+        axis.dial(dial_pos % self.modulo)    	
+        axis.position(dial_pos % self.modulo)
+
+
 class Motion(object):
     """Motion information
 
@@ -550,6 +560,13 @@ class Axis(object):
         self.settings.set("state", state if state is not None else self.state(), write=self._hw_control) 
         self._read_dial_and_update(write=self._hw_control)
  
+    def _backlash_move(self, backlash_start, backlash, polling_time):
+        final_pos = backlash_start + backlash
+        backlash_motion = Motion(self, final_pos, backlash)
+        self.__controller.prepare_move(backlash_motion)
+        self.__controller.start_one(backlash_motion)
+        self._handle_move(backlash_motion, polling_time)
+
     def _handle_move(self, motion, polling_time):
         state = self._wait_move(polling_time, update_settings=True)
         if state in ['LIMPOS', 'LIMNEG']:
@@ -570,15 +587,26 @@ class Axis(object):
             # axis has moved to target pos - backlash (or shorter, if stopped);
             # now do the final motion (backlash) relative to current/theo. pos
             elog.debug("doing backlash (%g)" % motion.backlash)
-            final_pos = backlash_start + motion.backlash
-            backlash_motion = Motion(self, final_pos, motion.backlash)
-            self.__controller.prepare_move(backlash_motion)
-            self.__controller.start_one(backlash_motion)
-            self._handle_move(backlash_motion, polling_time)
+            self._backlash_move(backlash_start, motion.backlash, polling_time)
         elif stopped:
             self._set_position(user_pos)
         elif self.encoder is not None:
             self._do_encoder_reading()
+
+    def _jog_move(self, velocity, direction, polling_time):
+        self._wait_move(polling_time, update_settings=True)
+
+        dial_pos = self._read_dial_and_update()
+        user_pos = self.dial2user(dial_pos)
+
+        if self.backlash:
+            backlash = self.backlash / self.sign * self.steps_per_unit
+            if cmp(direction, 0) != cmp(backlash, 0):
+                self._set_position(user_pos + self.backlash)
+                backlash_start = dial_pos * self.steps_per_unit
+                self._backlash_move(backlash_start, backlash, polling_time)
+        else:
+            self._set_position(user_pos)
 
     def dial2user(self, position, offset=None):
         """
@@ -770,6 +798,30 @@ class Axis(object):
         if wait:
             self.wait_move()
 
+    @lazy_init
+    def jog(self, velocity, reset_position=None, polling_time=DEFAULT_POLLING_TIME):
+        """
+        Start to move axis at constant velocity
+
+        Args:
+            velocity: signed velocity for constant speed motion
+        """
+        if self.__controller.is_busy():
+            raise RuntimeError("axis %s: controller is busy" % self.name)
+        self._check_ready()
+       
+        if velocity == 0:
+            return
+
+        saved_velocity = self.velocity()
+
+        with error_cleanup(self._cleanup_stop, functools.partial(self._jog_cleanup, saved_velocity, reset_position)):
+            self.velocity(abs(velocity)) #change velocity, to have settings updated accordingly
+            direction = 1 if velocity>0 else -1
+            self.__controller.start_jog(self, abs(velocity*self.steps_per_unit), direction)
+
+        self._start_move_task(self._do_jog_move, saved_velocity, velocity, direction, reset_position, polling_time, being_waited=False)
+
     def _do_encoder_reading(self):
         enc_dial = self.encoder.read()
         curr_pos = self._read_dial_and_update()
@@ -780,6 +832,24 @@ class Axis(object):
     def _do_handle_move(self, motion, polling_time):
         with error_cleanup(self._cleanup_stop):
             self._handle_move(motion, polling_time)
+
+    def _jog_cleanup(self, saved_velocity, reset_position):
+        self.velocity(saved_velocity)
+
+        if reset_position == 0:
+            def reset_dial(_):
+                self.dial(0)
+                self.position(0)
+            self.__move_task.link(reset_dial)
+        elif callable(reset_position):
+            def reset_pos(_):
+                reset_position(self)
+            self.__move_task.link(reset_pos)
+
+    def _do_jog_move(self, saved_velocity, velocity, direction, reset_position, polling_time):
+        with cleanup(functools.partial(self._jog_cleanup, saved_velocity, reset_position)):
+            with error_cleanup(self._cleanup_stop):
+                self._jog_move(velocity, direction, polling_time)
 
     def rmove(self, user_delta_pos, wait=True, polling_time=DEFAULT_POLLING_TIME):
         """

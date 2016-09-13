@@ -166,6 +166,17 @@ class Mockup(Controller):
             "end_t": t0 + math.fabs(delta) / float(v),
             "t0": t0})
 
+    def start_jog(self, axis, velocity, direction):
+        t0 = time.time() 
+        pos = self.read_position(axis)
+        self.set_velocity(axis, velocity)
+        self._axis_moves[axis].update({ 
+            "start_pos": pos,
+            "delta": direction,
+            "end_pos": None,
+            "end_t": t0+1E9,
+            "t0": t0}) 
+
     def read_position(self, axis, t=None):
         """
         Returns the position (measured or desired) taken from controller

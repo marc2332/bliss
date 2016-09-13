@@ -301,10 +301,10 @@ class mockup(Controller):
 
     # Custom Attribute
     @object_attribute_type_get(type_info=("str"), type=Output)
-    def get_material(self, tinput):
+    def get_material(self, toutput):
         return self.__material
 
     @object_attribute_type_set(type_info=("str"), type=Output)
-    def set_material(self, tinput, value):
+    def set_material(self, toutput, value):
         self.__material = value
 

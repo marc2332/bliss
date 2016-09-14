@@ -1207,7 +1207,6 @@ class LeicaCamera(LeicaUSB):
     def read_image(self):
         p_len = struct.calcsize(LeicaCamImgPacketI.HEADER)
         s = self.img_ep_in.read(p_len)
-        print p_len,len(s)
         p = LeicaCamImgPacketI.frombytes(s)
         image_shape = p.height, p.width, 3
         nb_pixels = image_shape[0] * image_shape[1] + self.EXTRA_PIXELS
@@ -1215,14 +1214,11 @@ class LeicaCamera(LeicaUSB):
 
         align = self.ALIGN
         block_size = int((block_size + align - 1) / align) * align
-        print block_size
         data = self.img_ep_in.read(block_size).tostring()
 
         p_len = struct.calcsize(LeicaCamImgPacketII.HEADER)
         s = self.img_ep_in.read(p_len)
-        print p_len, len(s)
         p = LeicaCamImgPacketII.frombytes(s)
-        #print p
         if p.plen != block_size:
             raise InvalidValue, 'Image block size mismatch'
         

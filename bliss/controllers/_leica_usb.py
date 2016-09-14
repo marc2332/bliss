@@ -983,7 +983,9 @@ class LeicaCamera(LeicaUSB):
                                             ep_dir=USBDev.EP_IN)
         self.img_ep_in = self.get_end_point(self.IMG_IF_NB,
                                             ep_dir=USBDev.EP_IN)
-        self.img_queue = gevent.queue.Queue()
+        #self.img_queue = gevent.queue.Queue()
+        self.last_image = None
+        self.new_image = gevent.event.Event()
         self.reader = None
         self.pnb = 1
         
@@ -1008,7 +1010,11 @@ class LeicaCamera(LeicaUSB):
         while self.is_running():
             img = self.read_image() 
             if img:
-                self.img_queue.put(img)
+                self.last_image = img
+                self.new_image.set()
+                self.new_image.clear()
+            #if img:
+            #    self.img_queue.put(img)
         self.close_camera()
 
     SPECIAL_STR_ADDR = ([0x04, 0x01],
@@ -1234,4 +1240,7 @@ class LeicaCamera(LeicaUSB):
     def get_next_image(self, block=True, timeout=None):
         if not self.is_running():
             self.start_camera()
-        return self.img_queue.get(block=block, timeout=timeout)
+        if block:
+            self.new_image.wait(timeout=timeout)
+        return self.last_image
+        #return self.img_queue.get(block=block, timeout=timeout)

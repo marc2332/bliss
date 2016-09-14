@@ -17,6 +17,7 @@ import gevent.event
 import gevent.queue
 import gevent.select
 import numpy as np
+import atexit
 
 from ctypes import cast, c_int, c_uint16, c_short, c_ulong, c_ubyte, c_void_p, \
     POINTER, pointer, py_object, byref, addressof, Structure, CDLL, CFUNCTYPE
@@ -988,10 +989,8 @@ class LeicaCamera(LeicaUSB):
         self.new_image = gevent.event.Event()
         self.reader = None
         self.pnb = 1
+        atexit.register(self.dev.reset)
         
-    def __del__(self):
-        self.stop_camera()
-
     def is_running(self):
         return self.reader is not None
     

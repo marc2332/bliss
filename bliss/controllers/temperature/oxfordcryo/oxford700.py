@@ -21,8 +21,17 @@ from bliss.comm.serial import Serial
 import math
 import time
 import numpy
-from .oxfordcryo import StatusPacket, CSCOMMAND, splitBytes
+from bliss.controllers.temperature.oxfordcryo.oxfordcryo import StatusPacket, CSCOMMAND, splitBytes
 import logging
+
+""" TempController import """
+from bliss.controllers.temp import Controller
+from bliss.common.temperature import Output
+from bliss.common import log
+from bliss.common.utils import object_method, object_method_type
+from bliss.common.utils import object_attribute_get, object_attribute_type_get
+from bliss.common.utils import object_attribute_set, object_attribute_type_set
+
 
 class OxfordCryostream:
     """
@@ -227,35 +236,59 @@ class OxfordCryostream:
             self.serial.flush()
 
 
-class oxford700(OxfordCryostream):
-    def __init__(self, name, config):
-        self.oxford = OxfordCryostream(config["SLdevice"])
+class oxford700(Controller):
+    def __init__(self, config, *args):
+        Controller.__init__(self, config, *args)
+        self._oxford = OxfordCryostream(config["SLdevice"])
 
-    def setpoint(self, temp=None):
-        return self.oxford.cool(temp)
+    def initialize_output(self,toutput):
+        log.debug("oxf700: initialize_output: %s" % (toutput))
+        self.__ramp_rate = None
+        self.__set_point = None
+
+    def read_output(self, toutput):
+        return self._oxford.read_temperature()
+
+    def start_ramp(self, toutput, sp, **kwargs):
+        try:
+            rate = float(kwargs["rate"])
+        except AttributeError:
+            rate = self.__ramp_rate
+        self._oxford.ramp(rate, sp)
+
+    def set_ramprate(self, toutput, rate):
+        self.ramp_rate = rate
+
+    def read_ramprate(self, toutput):
+        self.__ramp_rate, self.__set_point = self._oxford.ramp()
+        return self.__ramp_rate
         
-    def ramp(self, rate, temp):
-        self.oxford.ramp(rate, temp)
+    def set(self, toutput, sp, **kwargs):
+        return self._oxford.cool(sp)
+    
+    def get_setpoint(self, toutput):
+        self.__set_point = self._oxford.cool()
+        return self.__set_point
 
-    def turbo(self, off):
-        import pdb; pdb.set_trace()
-        self.oxford.turbo(off)
+    def state_output(self,toutput):
+        self._oxford.update_cmd()
+        state = str(self._oxford.statusPacket.run_mode)+" "+str(self._oxford.statusPacket.phase)
+        return state
 
-    def read_temperature(self):   
-        return self.oxford.read_temperature()
 
-    def read_ramp_rate(self):
-        return self.oxford.ramp()
+    @object_method_type(types_info=("bool", "None"), type=Output)
+    def turbo(self, toutput, off):
+        self._oxford.turbo(off)
 
-    def read_status():
-        self.oxford.update_cmd()
-        #data.append(self.oxford.statusPacket.gas_temp)
-        #data.append(self.oxford.statusPacket.gas_error)
-        #data.append(self.oxford.statusPacket.cryo_state)
-        #data.append(self.oxford.statusPacket.evap_temp)
-        #data.append(self.oxford.statusPacket.ramp_rate)
+    def read_status(self):
+        self._oxford.update_cmd()
+        #data.append(self._oxford.statusPacket.gas_temp)
+        #data.append(self._oxford.statusPacket.gas_error)
+        #data.append(self._oxford.statusPacket.cryo_state)
+        #data.append(self._oxford.statusPacket.evap_temp)
+        #data.append(self._oxford.statusPacket.ramp_rate)
         #return data
-        return self.oxford.statusPacket
+        return self._oxford.statusPacket
 
 
 

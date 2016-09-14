@@ -168,7 +168,7 @@ class _Bus(object):
             no_listener_4_values = set()
             if pending_subscribe:
                 result = self._redis.execute_command('pubsub','numsub',*pending_subscribe)
-                no_listener_4_values = set((name for name,nb_listener in grouped(result,2) if nb_listener is '0'))
+                no_listener_4_values = set((name for name,nb_listener in grouped(result,2) if int(nb_listener) == 0))
                 pubsub.subscribe(pending_subscribe)
                 for channel_name in pending_subscribe:
                     for waiting_event in self._wait_event.get(channel_name,set()):

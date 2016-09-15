@@ -85,10 +85,8 @@ class keithley428(object):
         """ Raw connection to the Keithley.
         msg -- the message you want to send
         """
-        with self._cnx._lock:
-            self._cnx.open()
-            self._cnx._write(msg + self._txterm)
-            return self._cnx._readline(self._rxterm)
+        return self._cnx.write_readline(msg + self._txterm,
+                                        eol=self._rxterm)
 
     def put(self,msg):
         """ Raw connection to the Keithley.

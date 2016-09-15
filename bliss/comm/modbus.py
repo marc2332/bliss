@@ -15,7 +15,7 @@ import errno
 import numpy
 
 from .common import CommunicationError, CommunicationTimeout
-
+from .common.greenlet_utils import KillMask
 
 class ModbusError(CommunicationError):
     pass
@@ -94,14 +94,16 @@ def try_connect_modbustcp(fu):
         if(not self._connected):
             self.connect()
         try:
-            return fu(self, *args, **kwarg)
+            with KillMask():
+                return fu(self, *args, **kwarg)
         except socket.error as e:
             if e.errno == errno.EPIPE:
                 # some modbus controller close the connection
                 # give a chance to _raw_read_task to detect it
                 gevent.sleep(0)
                 self.connect()
-                return fu(self,*args,**kwarg)
+                with KillMask():
+                    return fu(self,*args,**kwarg)
             else:
                 raise
     return rfunc

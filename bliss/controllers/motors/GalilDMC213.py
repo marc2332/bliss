@@ -6,6 +6,7 @@ from bliss.common import log as elog
 
 from bliss.common.axis import AxisState
 from bliss.comm import tcp
+from bliss.common.greenlet_utils import protect_from_kill
 from gevent import lock
 
 SERVO = 1
@@ -185,6 +186,7 @@ class GalilDMC213(Controller):
         # if int(self._galil_query("TS%s" % axis.channel)) & (1<<1):
         return self.state(axis)
 
+    @protect_from_kill
     def _galil_query(self, cmd, raw=False):
         if not cmd.endswith(";"):
           cmd += ";"

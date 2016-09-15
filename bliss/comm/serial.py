@@ -17,6 +17,7 @@ import weakref
 
 import gevent
 from gevent import socket, select, lock, event
+from ..common.greenlet_utils import KillMask
 
 import serial
 try:
@@ -44,8 +45,9 @@ class SerialTimeout(CommunicationTimeout):
 
 def try_open(fu) :
     def rfunc(self,*args,**kwarg) :
-        self.open()
-        return fu(self,*args,**kwarg)
+        with KillMask():
+            self.open()
+            return fu(self,*args,**kwarg)
     return rfunc
 
 class _BaseSerial:

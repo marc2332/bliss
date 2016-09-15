@@ -10,6 +10,7 @@ import struct
 
 from bliss.comm import serial
 from bliss.comm import tcp
+from bliss.common.greenlet_utils import KillMask,protect_from_kill
 OPIOM_PRG_ROOT='/users/blissadm/local/isg/opiom'
 
 class Opiom:
@@ -95,6 +96,7 @@ class Opiom:
     def comm_ack(self,msg) :
         return self.comm('#' + msg)
 
+    @protect_from_kill
     def comm(self,msg) :
         self._cnx.open()
         with self._cnx._lock:
@@ -136,10 +138,11 @@ class Opiom:
                 raise IOError("Can't start programming opiom %s" % str(self))
 
             for frame_n,index in enumerate(range(0,len(sendarray),self.FSIZE)) :
-                self.raw_write("#*FRM %d\r" % frame_n)
-                self.raw_bin_write(sendarray[index:index+self.FSIZE])
-                answer = self._cnx.readline('\r\n')
-                if(answer != "OK") : break
+                with KillMask():
+                    self.raw_write("#*FRM %d\r" % frame_n)
+                    self.raw_bin_write(sendarray[index:index+self.FSIZE])
+                    answer = self._cnx.readline('\r\n')
+                    if(answer != "OK") : break
 
             #waiting end programming
             while 1:

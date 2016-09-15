@@ -7,6 +7,7 @@
 
 from bliss.common.task_utils import cleanup, error_cleanup, task
 from bliss.common.measurement import CounterBase, AverageMeasurement
+from bliss.common.greenlet_utils import protect_from_kill
 import time
 import gevent
 import socket
@@ -43,6 +44,7 @@ class ls335(object):
        self.__control.sendall('++mode 1\r\n++addr %d\r\n++auto 0\r\nmode 0\r\n' % self.gpib_address)
        return self._putget("*idn?").startswith("LS")
 
+   @protect_from_kill
    def _putget(self, cmd):
        if self.__control is None:
            self.connect()

@@ -14,7 +14,7 @@ from . import get_controller_class, get_axis_class, get_encoder_class, add_contr
 from . import write_setting as config_write_setting
 import functools
 import gevent
-
+import hashlib
 
 def create_objects_from_config_node(config, node):
     set_backend("beacon")
@@ -30,7 +30,14 @@ def create_objects_from_config_node(config, node):
 
 def __create_controller_from_config_node(config, node):
     controller_class_name = node.get('class')
-    controller_name = node.get('name', '%s_%d' % (node.get('class'), id(node)))
+    controller_name = node.get('name')
+    if controller_name is None:
+        h = hashlib.md5()
+        for axis_config in node.get('axes'):
+            name = axis_config.get('name')
+            if name is not None:
+                h.update(name)
+        controller_name = h.hexdigest()
     controller_class = get_controller_class(controller_class_name)
     axes = list()
     axes_names = list()

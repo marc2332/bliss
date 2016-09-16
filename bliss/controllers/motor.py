@@ -241,6 +241,9 @@ class Controller(object):
     def stop(self, axis):
         raise NotImplementedError
 
+    def stop_jog(self, axis):
+        return self.stop(axis)
+ 
     def stop_all(self, *motions):
         raise NotImplementedError
 

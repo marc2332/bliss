@@ -41,6 +41,11 @@ config_xml = """
       <low_limit value="-1000"/>
       <high_limit value="1E9"/>
     </axis>
+    <axis name="jogger">
+      <steps_per_unit value="-500"/>
+      <velocity value="100"/>
+      <acceleration value="300"/>
+    </axis>
   </controller>
   <controller class="mockup">
     <host value="mydummyhost2"/>
@@ -538,6 +543,17 @@ class TestMockupController(unittest.TestCase):
         time.sleep(t)
         m.stop()
         self.assertAlmostEquals(m.position(), 90, delta=0.5)
+
+    def test_jog2(self):
+        m = bliss.get_axis("jogger")
+        m.dial(0); m.position(0)
+        m.jog(300) #this should go in the opposite direction because steps_per_unit < 0
+        t = 1+m.acctime()
+        time.sleep(t)
+        self.assertAlmostEquals(m._hw_position(), 300+m.acceleration()*0.5*m.acctime()**2, delta=0.5)
+        m.stop()
+        print m._hw_position()
+         
 
     def test_reload_config(self):
         cfg="""

@@ -815,10 +815,12 @@ class Axis(object):
 
         saved_velocity = self.velocity()
 
-        with error_cleanup(self._cleanup_stop, functools.partial(self._jog_cleanup, saved_velocity, reset_position)):
+        with error_cleanup(functools.partial(self._cleanup_stop, jog=True), 
+                           functools.partial(self._jog_cleanup, saved_velocity, reset_position)):
             self.velocity(abs(velocity)) #change velocity, to have settings updated accordingly
-            direction = 1 if velocity>0 else -1
-            self.__controller.start_jog(self, abs(velocity*self.steps_per_unit), direction)
+            velocity_in_steps = velocity * self.steps_per_unit
+            direction = 1 if velocity_in_steps > 0 else -1
+            self.__controller.start_jog(self, abs(velocity_in_steps), direction)
 
         self._start_move_task(self._do_jog_move, saved_velocity, velocity, direction, reset_position, polling_time, being_waited=False)
 
@@ -848,7 +850,7 @@ class Axis(object):
 
     def _do_jog_move(self, saved_velocity, velocity, direction, reset_position, polling_time):
         with cleanup(functools.partial(self._jog_cleanup, saved_velocity, reset_position)):
-            with error_cleanup(self._cleanup_stop):
+            with error_cleanup(functools.partial(self._cleanup_stop, jog=True)):
                 self._jog_move(velocity, direction, polling_time)
 
     def rmove(self, user_delta_pos, wait=True, polling_time=DEFAULT_POLLING_TIME):
@@ -898,8 +900,11 @@ class Axis(object):
                 self._update_settings(state)
             gevent.sleep(polling_time)
         
-    def _cleanup_stop(self):
-        self.__controller.stop(self)
+    def _cleanup_stop(self, jog=False):
+        if jog:
+            self.__controller.stop_jog(self)
+        else:
+            self.__controller.stop(self)
         self._wait_move()
         self.sync_hard()
 

@@ -28,11 +28,13 @@ class Opiom:
         self.__program = config_tree['program']
         self.__base_path = config_tree.get('opiom_prg_root',OPIOM_PRG_ROOT)
         self.__debug = False
-        msg = self.comm("?VER")
-        if not msg.startswith('OPIOM') :
+        try:
             msg = self.comm("?VER")
-            if not msg.startswith('OPIOM') :
-                raise IOError("No opiom connected at %s" % serial)
+        except serial.SerialTimeout:
+            msg = self.comm("?VER")
+            
+        if not msg.startswith('OPIOM') :
+            raise IOError("No opiom connected at %s" % serial)
         self.comm("MODE normal")
 
     def __repr__(self) :

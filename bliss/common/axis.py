@@ -818,8 +818,9 @@ class Axis(object):
         with error_cleanup(functools.partial(self._cleanup_stop, jog=True), 
                            functools.partial(self._jog_cleanup, saved_velocity, reset_position)):
             self.velocity(abs(velocity)) #change velocity, to have settings updated accordingly
-            direction = 1 if velocity>0 else -1
-            self.__controller.start_jog(self, abs(velocity*self.steps_per_unit), direction)
+            velocity_in_steps = velocity * self.steps_per_unit
+            direction = 1 if velocity_in_steps > 0 else -1
+            self.__controller.start_jog(self, abs(velocity_in_steps), direction)
 
         self._start_move_task(self._do_jog_move, saved_velocity, velocity, direction, reset_position, polling_time, being_waited=False)
 

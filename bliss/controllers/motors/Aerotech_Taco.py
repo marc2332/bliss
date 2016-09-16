@@ -37,7 +37,7 @@ class Aerotech_Taco(TacoMaxe):
                                       direction,
                                       velocity,
                                       axis.myacceleration))
-        self._job_axis = axis
+        self._jog_axis = axis
 
     def stop_jog(self, axis):
         self.device.DevSetContinuous((axis.channel,

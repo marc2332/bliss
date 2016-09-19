@@ -246,7 +246,8 @@ class musst(object):
         for l in program_data.splitlines():
             self._cnx.write("+%s%s" % (l, self._txterm))
         if self.STATE != self.IDLE_STATE:
-            raise RuntimeError(self.STATE)
+            err = self.putget("?LIST ERR")
+            raise RuntimeError(err)
         return True
 
     #    def get_data(self, nlines, npts, buf=0):

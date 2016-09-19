@@ -10,6 +10,7 @@ import weakref
 from bliss.comm.gpib import Gpib
 from bliss.comm import serial
 from bliss.common.greenlet_utils import KillMask,protect_from_kill
+from bliss.config.channels import Cache
 Serial = serial.Serial
 
 def _get_simple_property(command_name,
@@ -127,6 +128,7 @@ class musst(object):
         gpib_pad -- primary address of the musst controller
         gpib_timeout -- communication timeout, default is 1s
         gpib_eos -- end of line termination
+        musst_prg_root -- default path for musst programs
         """
         
         self.name = name
@@ -172,7 +174,9 @@ class musst(object):
             "10MHZ"       : self.F_10MHZ,
             "50MHZ"       : self.F_50MHZ
             }
-            
+        self.__last_file_load = Cache(self,'last_file_load')
+        self.__prg_root = config_tree.get('musst_prg_root')
+        
     @protect_from_kill
     def putget(self,msg,ack = False):
         """ Raw connection to the Musst card.
@@ -220,13 +224,17 @@ class musst(object):
             return self.putget("#RUNCT")
 
     def upload_file(self, fname, prg_root=None):
+       prg_root = prg_root or self.__prg_root
+            
        if prg_root:
-           oscil_program = open(os.path.join(prg_root, fname))
+           oscil_program_file = os.path.join(prg_root, fname)
        else:
-           oscil_program = open(fname)
+           oscil_program_file = fname
 
-       print "file to be uploaded", fname
-       self.upload_program(oscil_program.read())
+       if self.__last_file_load.value != oscil_program_file:
+           with open(oscil_program_file) as oscil_program:
+               self.upload_program(oscil_program.read())
+           self.__last_file_load.value = oscil_program_file
 
     def upload_program(self, program_data):
         """ Upload a program.

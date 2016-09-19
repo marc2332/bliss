@@ -20,8 +20,7 @@ class MusstAcquisitionDevice(AcquisitionDevice):
 
   def prepare(self):
     #self.musst.putget("#ABORT")
-    with file(self.program, "r") as prog:
-      self.musst.upload_program(prog.read())
+    self.musst.upload_file(self.program)
     if vars:
       for var_name, value in self.vars.iteritems():	
         self.musst.putget("VAR %s %s" %  (var_name,value))

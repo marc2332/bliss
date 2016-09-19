@@ -79,7 +79,7 @@ class musst(object):
             elif(self._mode == self.ADC5):
                 return int(string_value) * (5. / 0x7fffffff)
             else:                       # not managed yet
-                return string_value
+                return int(string_value)
 
         def _read_config(self) :
             if self._mode is None:

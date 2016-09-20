@@ -394,7 +394,7 @@ class BlissAxis(Device):
 
     def dev_status(self):
         # update current state AND status
-        self._dev_state()
+        get_worker().execute(self._dev_state)
 
         # get the updated status as a string
         self._status = self.get_status()

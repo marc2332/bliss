@@ -17,7 +17,6 @@ class Aerotech_Taco(TacoMaxe):
     
     def __init__(self, name, config, axes, encoders):
         TacoMaxe.__init__(self, name, config, axes, encoders)
-        self._jog_axis = None
         
     def initialize_hardware(self):
         #enable encoder output
@@ -32,12 +31,12 @@ class Aerotech_Taco(TacoMaxe):
         axis.encoder_divider = encoder_divider
 
     def start_jog(self, axis, velocity, direction):
+        acceleration = axis.acceleration()
         self.device.DevSetContinuous((axis.channel,
                                       1,
                                       direction,
                                       velocity,
-                                      axis.myacceleration))
-        self._jog_axis = axis
+                                      acceleration))
 
     def stop_jog(self, axis):
         self.device.DevSetContinuous((axis.channel,

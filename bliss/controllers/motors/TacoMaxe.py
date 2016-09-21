@@ -68,11 +68,6 @@ class TacoMaxe(Controller):
 
         # Get axis config from bliss config
         axis.channel = axis.config.get("channel", int)
-        axis.myvelocity = axis.config.get("velocity", int)
-        axis.mybacklash = axis.config.get("backlash", int)
-        axis.myacceleration = axis.config.get("acceleration", int)
-        axis.steps_per_u = axis.config.get("steps_per_unit", int)
-
 
     def finalize(self):
     	""" Actions to perform at controller closing """
@@ -115,7 +110,6 @@ class TacoMaxe(Controller):
         s = "%f" % new_velocity
         tacomaxe_info("set_velocity(%s) called for axis \"%s\"" %
                       (s, axis.name))
-        axis.myvelocity = new_velocity
  	self.device.DevSetVelocity(axis.channel, new_velocity)
         # Always return the current velocity
         return self.read_velocity(axis)

@@ -15,7 +15,7 @@ import errno
 import numpy
 
 from .exceptions import CommunicationError, CommunicationTimeout
-from .common.greenlet_utils import KillMask
+from ..common.greenlet_utils import KillMask
 
 class ModbusError(CommunicationError):
     pass

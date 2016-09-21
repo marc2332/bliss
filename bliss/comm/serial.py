@@ -32,7 +32,7 @@ else:
     from serial.rfc2217 import TelnetOption,TelnetSubnegotiation,RFC2217_PARITY_MAP,RFC2217_STOPBIT_MAP
 
 from . import tcp
-from .common import CommunicationError, CommunicationTimeout
+from .exceptions import CommunicationError, CommunicationTimeout
 
 
 class SerialError(CommunicationError):

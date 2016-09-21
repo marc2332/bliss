@@ -14,7 +14,7 @@ import gevent
 from gevent import lock
 from .libnienet import EnetSocket
 from ..tcp import Socket
-from ..common import CommunicationError, CommunicationTimeout
+from ..exceptions import CommunicationError, CommunicationTimeout
 from ...common.greenlet_utils import KillMask
 
 try:

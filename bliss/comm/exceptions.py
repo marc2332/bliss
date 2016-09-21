@@ -5,7 +5,7 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-'''Common classes to communication (basicaly exceptions)'''
+'''Exception classes for communication'''
 
 
 class CommunicationError(RuntimeError):

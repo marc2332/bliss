@@ -29,7 +29,7 @@ import numpy
 
 from .util import get_interface
 from .scpi_mapping import commands
-from .common import CommunicationError, CommunicationTimeout
+from .exceptions import CommunicationError, CommunicationTimeout
 
 class ScpiError(CommunicationError):
     """

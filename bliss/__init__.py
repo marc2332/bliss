@@ -42,6 +42,7 @@ monkey.patch_all(thread=False)
 from bliss.config.motors import load_cfg, load_cfg_fromstring, get_axis, get_encoder
 from bliss.controllers.motor_group import Group
 ##
+from bliss.common.task_utils import cleanup, error_cleanup
 from bliss.common.scans import *
 from bliss.common.standard import *
 from bliss.common.continuous_scan import Scan

@@ -118,6 +118,8 @@ class Scan:
             npoints, [c.name for c in counters_list])
 
     def __getattr__(self, name):
+        if name.startswith('__'):
+            raise AttributeError, name
         return self.env[name]
 
     def add(self, values_list):

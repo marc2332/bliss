@@ -86,6 +86,10 @@ class musst(object):
             status_string = musst.putget("?CH CH%d" % self._channel_id).split()[1]
             return musst._string2state.get(status_string)
 
+        @property
+        def channel_id(self):
+            return self._channel_id
+        
         def run(self):
             self._cnt_cmd("RUN")
 
@@ -212,6 +216,7 @@ class musst(object):
             "50MHZ"       : self.F_50MHZ
             }
         self.__last_file_load = Cache(self,'last_file_load')
+        self.__last_template_replacement = Cache(self,"last_template")
         self.__prg_root = config_tree.get('musst_prg_root')
 
         #Configured channels
@@ -291,18 +296,32 @@ class musst(object):
         else:
             return self.putget("#RUNCT")
 
-    def upload_file(self, fname, prg_root=None):
-       prg_root = prg_root or self.__prg_root
-            
-       if prg_root:
-           oscil_program_file = os.path.join(prg_root, fname)
-       else:
-           oscil_program_file = fname
+    def upload_file(self, fname, prg_root=None,
+                    template_replacement = {}):
+        """ Load a program into the musst device.
 
-       if self.__last_file_load.value != oscil_program_file:
-           with open(oscil_program_file) as oscil_program:
-               self.upload_program(oscil_program.read())
-           self.__last_file_load.value = oscil_program_file
+        fname -- the file-name
+        prg_root -- the base path where the program files are.
+        if prg_root is None use the one in configuration
+        template_replacement -- will be used to replace the key by the value
+        in the program file
+        """
+        prg_root = prg_root or self.__prg_root
+            
+        if prg_root:
+            program_file = os.path.join(prg_root, fname)
+        else:
+            program_file = fname
+
+        if(self.__last_file_load.value != program_file or
+           self.__last_template_replacement.value != str(template_replacement)):
+            with open(program_file) as program:
+                program_bytes = program.read()
+                for old,new in template_replacement.iteritems():
+                    program_bytes = program_bytes.replace(old,new)
+                self.upload_program(program_bytes)
+            self.__last_file_load.value = program_file
+            self.__last_template_replacement.value = str(template_replacement)
 
     def upload_program(self, program_data):
         """ Upload a program.

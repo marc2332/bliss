@@ -11,16 +11,21 @@ import gevent
 import numpy
 
 class MusstAcquisitionDevice(AcquisitionDevice):
-  def __init__(self, musst_dev, program=None, store_list=None, vars=None):
+  def __init__(self, musst_dev,
+               program=None,
+               store_list=None, vars=None,
+               program_template_replacement={}):
     AcquisitionDevice.__init__(self, musst_dev, "musst", "zerod", trigger_type=AcquisitionDevice.HARDWARE)
     self.musst = musst_dev
     self.program = program
+    self.program_template_replacement = program_template_replacement
     self.vars = vars
     self.channels.extend((AcquisitionChannel(name,numpy.uint32, (1,)) for name in store_list))
 
   def prepare(self):
     #self.musst.putget("#ABORT")
-    self.musst.upload_file(self.program)
+    self.musst.upload_file(self.program,
+                           template_replacement=self.program_template_replacement)
     if vars:
       for var_name, value in self.vars.iteritems():	
         self.musst.putget("VAR %s %s" %  (var_name,value))

@@ -7,6 +7,7 @@
 
 import numpy
 import weakref
+import os
 from bliss.comm.gpib import Gpib
 from bliss.comm import serial
 from bliss.common.greenlet_utils import KillMask,protect_from_kill
@@ -28,8 +29,11 @@ def _simple_cmd(command_name,doc_sring):
 
 class musst(object):
     class channel(object):
-        COUNTER,ENCODER,SSI,ADC10,ADC5 = range(5)
-        def __init__(self,musst,channel_id) :
+        COUNTER,ENCODER,SSI,ADC10,ADC5,SWITCH = range(6)
+        def __init__(self,musst,channel_id,
+                     type = None,
+                     switch = None,
+                     switch_name = None) :
             self._musst = weakref.ref(musst)
             self._channel_id = channel_id
             self._mode = None
@@ -37,15 +41,42 @@ class musst(object):
                 "CNT" : self.COUNTER,
                 "ENCODER" : self.ENCODER,
                 "SSI" : self.SSI,
-                "ADC" : self.ADC10}
+                "ADC10" : self.ADC10,
+                "ADC5" : self.ADC5,
+                "SWITCH" : self.SWITCH,
+            }
+            if type is not None:
+                if isinstance(type,(str,unicode)):
+                    MODE = type.upper()
+                    mode = self._string2mode.get(MODE)
+                    if mode is None:
+                        raise RuntimeError('musst: mode (%s) is not known' % type)
+                    self._mode = mode
+                else:
+                    self._mode = type
+            if switch is not None:
+                #check if has the good interface
+                if switch_name is None:
+                    raise RuntimeError('musst: channel (%d) with external switch musst have a switch_name defined' % channel_id)
+                if not hasattr(switch,'switch'):
+                    raise RuntimeError("musst: channel (%d), switch object doesn't have a switch method" % channel_id)
+                self._switch = weakref.proxy(switch)
+                self._switch_name = switch_name
+            else:
+                self._switch = None
+
         @property
         def value(self):
+            if self._switch is not None:
+                self._switch.switch(self._switch_name)
             musst = self._musst()
             string_value = musst.putget("?CH CH%d" % self._channel_id).split()[0]
             return self._convert(string_value)
 
         @value.setter
         def value(self,val):
+            if self._switch is not None:
+                self._switch.switch(self._switch_name)
             musst = self._musst()
             musst.putget("CH CH%d %s" % (self._channel_id,val))
 
@@ -129,6 +160,12 @@ class musst(object):
         gpib_timeout -- communication timeout, default is 1s
         gpib_eos -- end of line termination
         musst_prg_root -- default path for musst programs
+        channels: -- list of configured channels
+        in this dictionary we need to have:
+        label: -- the name alias for the channels
+        type: -- channel type (cnt,encoder,ssi,adc5,adc10 and switch)
+        channel: -- channel number
+        name: -- use to reference an external switch
         """
         
         self.name = name
@@ -176,7 +213,38 @@ class musst(object):
             }
         self.__last_file_load = Cache(self,'last_file_load')
         self.__prg_root = config_tree.get('musst_prg_root')
-        
+
+        #Configured channels
+        self._channels = dict()
+        channels_list = config_tree.get('channels',list())
+        for channel_config in channels_list:
+            channel_number = channel_config.get('channel')
+            if channel_number is None:
+                raise RuntimeError("musst: channel in config must have a channel")
+
+            channel_type = channel_config.get('type')
+            if channel_type in ('cnt','encoder','ssi','adc5','adc10'):
+                channel_name = channel_config.get('label')
+                if channel_name is None:
+                    raise RuntimeError("musst: channel in config must have a label")
+                self._channels[channel_name.upper()] = self.get_channel(channel_number,type=channel_type)
+            elif channel_type == 'switch':
+                ext_switch_name = channel_config.get('name')
+                if ext_switch_name is None:
+                    raise RuntimeError("musst: channel (%s) with type switch must have a reference to an object name" % channel_number)
+
+                ext_switch = config_tree.get(ext_switch_name)
+                if not hasattr(ext_switch,'getSwitchList'):
+                    raise RuntimeError("musst: channels (%s) switch object must have getSwitchList method" % channel_number)
+
+                for channel_name in ext_switch.getSwitchList():
+                    self._channels[channel_name.upper()] = self.get_channel(channel_number,
+                                                                            type=channel_type,
+                                                                            switch=ext_switch,
+                                                                            switch_name=channel_name)
+            else:
+                raise RuntimeError("musst: channel type can only be of type (cnt,encoder,ssi,adc5,adc10,switch)")
+
     @protect_from_kill
     def putget(self,msg,ack = False):
         """ Raw connection to the Musst card.
@@ -373,8 +441,20 @@ class musst(object):
             value = self.__frequency_conversion.get(value)
         return self.putget("TMRCFG %s" % value)
 
-    def get_channel(self,channel_id):
+    def get_channel(self,channel_id,type = None,switch=None,
+                    switch_name=None) :
         if 0 < channel_id <= 6:
-            return self.channel(self,channel_id)
+            return self.channel(self,channel_id,
+                                type = type,
+                                switch = switch,
+                                switch_name = switch_name)
         else:
             raise RuntimeError("musst doesn't have channel id %d" % channel_id)
+
+
+    def get_channel_by_name(self,channel_name):
+        channel_name = channel_name.upper()
+        channel = self._channels.get(channel_name)
+        if channel is None:
+            raise RuntimeError("musst doesn't have channel (%s) in his config" % channel_name)
+        return channel

@@ -156,8 +156,19 @@ class _DataManager(object):
     def __init__(self):
         self._last_scan_data = None
 
-    def new_scan(self, motor, npoints, counters_list, env):
-        return Scan(motor, npoints, counters_list, env)
+    def new_scan(self, motor, npoints, counters_list, env=None, save_flag=True): 
+        if env is None:
+            env = dict({ 'save': False })
+        if isinstance(motor, list):
+            return Scan(motor, npoints, counters_list, env)
+        else:
+            # assuming old API
+            # motor: filename
+            # npoints: motor
+            # counters_list: npoints
+            # env: counters_list
+            # save_flag
+            return Scan(npoints, counters_list, env, {'save':save_flag, 'filename':motor})
 
     def new_timescan(self, counters_list, env):
         return Timescan(counters_list, env)

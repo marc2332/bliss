@@ -159,8 +159,12 @@ class _DataManager(object):
         self._last_scan_data = None
 
     def new_scan(self, motor, npoints, counters_list, env=None, save_flag=True): 
+        from bliss.common.scans import ScanEnvironment
         if env is None:
-            env = dict({ 'save': False })
+            env = ScanEnvironment()
+            env['save'] = False
+            env['title'] = 'unnamed'
+
         if isinstance(motor, list):
             return Scan(motor, npoints, counters_list, env)
         else:
@@ -170,7 +174,11 @@ class _DataManager(object):
             # counters_list: npoints
             # env: counters_list
             # save_flag
-            return Scan(npoints, counters_list, env, {'save':save_flag, 'filename':motor})
+            scan_env = ScanEnvironment()
+            scan_env['save'] = save_flag
+            scan_env['filename'] = motor
+            scan_env['title'] = 'unnamed'
+            return Scan(npoints, counters_list, env, scan_env)
 
     def new_timescan(self, counters_list, env):
         return Timescan(counters_list, env)

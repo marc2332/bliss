@@ -11,7 +11,7 @@ import gevent.lock
 import time
 import socket
 import sys
-from ..common.greenlet_utils import KillMask,protect_from_kill
+from bliss.common.greenlet_utils import KillMask,protect_from_kill
 
 class TimeoutError(Exception):
     pass

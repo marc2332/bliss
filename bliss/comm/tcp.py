@@ -18,7 +18,7 @@ import time
 import logging
 import weakref
 
-from .common import CommunicationError, CommunicationTimeout
+from .exceptions import CommunicationError, CommunicationTimeout
 from ..common.greenlet_utils import KillMask
 
 class SocketTimeout(CommunicationTimeout):

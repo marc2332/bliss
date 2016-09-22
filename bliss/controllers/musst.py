@@ -180,13 +180,10 @@ class musst(object):
                              timeout = config_tree.get("gpib_timeout",5))
             self._txterm = ''
             self._rxterm = '\n'
-            self.putget("NAME %s" % name)
         elif "serial_url" in config_tree:
             self._cnx = Serial(config_tree["serial_url"])
             self._txterm = '\r'
             self._rxterm = '\r\n'
-            self._cnx.write('?NAME' + self._txterm)
-            self._cnx.readline(self._rxterm)
         else:
             raise ValueError, "Must specify gpib_url or serial_url"
 

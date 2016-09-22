@@ -118,6 +118,8 @@ class Scan:
             npoints, [c.name for c in counters_list])
 
     def __getattr__(self, name):
+        if name.startswith('__'):
+            raise AttributeError, name
         return self.env[name]
 
     def add(self, values_list):
@@ -156,8 +158,27 @@ class _DataManager(object):
     def __init__(self):
         self._last_scan_data = None
 
-    def new_scan(self, motor, npoints, counters_list, env):
-        return Scan(motor, npoints, counters_list, env)
+    def new_scan(self, motor, npoints, counters_list, env=None, save_flag=True): 
+        from bliss.common.scans import ScanEnvironment
+        if env is None:
+            env = ScanEnvironment()
+            env['save'] = False
+            env['title'] = 'unnamed'
+
+        if isinstance(motor, list):
+            return Scan(motor, npoints, counters_list, env)
+        else:
+            # assuming old API
+            # motor: filename
+            # npoints: motor
+            # counters_list: npoints
+            # env: counters_list
+            # save_flag
+            scan_env = ScanEnvironment()
+            scan_env['save'] = save_flag
+            scan_env['filename'] = motor
+            scan_env['title'] = 'unnamed'
+            return Scan(npoints, counters_list, env, scan_env)
 
     def new_timescan(self, counters_list, env):
         return Timescan(counters_list, env)

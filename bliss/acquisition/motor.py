@@ -87,3 +87,70 @@ class SoftwarePositionTriggerMaster(MotorMaster):
             event.disconnect(self.movable, "position", self.position_changed)
         MotorMaster.move_done(self, done) 
        
+
+class JogMotorMaster(AcquisitionMaster):
+    """
+    Helper to driver a motor in constant speed in jog mode.
+    
+    axis -- a motor axis
+    start -- position where you want to have your motor in constant speed
+    jog_speed -- constant velocity during the movement
+    end_jog_func -- function to stop the jog movement. 
+    Stop the movement if return value != True
+    if end_jog_func is None should be stopped externally.
+    """
+    def __init__(self, axis, start, jog_speed, end_jog_func = None,
+                 undershoot=None):
+        AcquisitionMaster.__init__(self, axis, axis.name, "axis")
+        self.movable = axis    
+        self.start_pos = start
+        self.undershoot = undershoot
+        self.jog_speed = jog_speed
+        self.end_jog_func = end_jog_func
+        self.__end_jog_task = None
+        
+    def _calculate_undershoot(self, pos) :
+        if self.undershoot is None:
+            acctime = abs(float(self.jog_speed)/self.movable.acceleration())
+            undershoot = self.jog_speed*acctime/2
+        pos -= undershoot
+        return pos
+
+    def prepare(self):
+        if self.__end_jog_task is not None:
+            self.__end_jog_task.stop()
+            self.__end_jog_task = None
+
+        start = self._calculate_undershoot(self.start_pos)
+        self.movable.move(start)
+
+    def start(self, polling_time=axis.DEFAULT_POLLING_TIME):
+        self.movable.jog(self.jog_speed)
+        if self.end_jog_func is not None:
+            self.__end_jog_task = gevent.spawn(self._end_jog_watch,polling_time)
+
+
+    def stop(self):
+        self.movable.stop()
+
+    def move_done(self, done):
+        if done:
+            self.movable.velocity(self.initial_velocity)
+            event.disconnect(self.movable, "move_done", self.move_done)
+
+    def _end_jog_watch(self,polling_time):
+        try:
+            while self.movable.is_moving:
+                stopFlag = True
+                try:
+                    stopFlag = not self.end_jog_func(self.movable)
+                    if stopFlag:
+                        self.movable.stop()
+                        break
+                    gevent.sleep(polling_time)
+                except:
+                    self.movable.stop()
+                    raise
+                
+        finally:
+            self.__end_jog_task = None

@@ -223,6 +223,7 @@ class AcquisitionChain(object):
         if prev_level != level:
             gevent.joinall(tasks)
             tasks = list()
+            prev_level = level
         func = getattr(dev, func_name)
         tasks.append(gevent.spawn(func))
     gevent.joinall(tasks)

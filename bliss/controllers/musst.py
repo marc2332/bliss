@@ -7,9 +7,11 @@
 
 import numpy
 import weakref
+import os
 from bliss.comm.gpib import Gpib
 from bliss.comm import serial
 from bliss.common.greenlet_utils import KillMask,protect_from_kill
+from bliss.config.channels import Cache
 Serial = serial.Serial
 
 def _get_simple_property(command_name,
@@ -27,8 +29,11 @@ def _simple_cmd(command_name,doc_sring):
 
 class musst(object):
     class channel(object):
-        COUNTER,ENCODER,SSI,ADC10,ADC5 = range(5)
-        def __init__(self,musst,channel_id) :
+        COUNTER,ENCODER,SSI,ADC10,ADC5,SWITCH = range(6)
+        def __init__(self,musst,channel_id,
+                     type = None,
+                     switch = None,
+                     switch_name = None) :
             self._musst = weakref.ref(musst)
             self._channel_id = channel_id
             self._mode = None
@@ -36,15 +41,42 @@ class musst(object):
                 "CNT" : self.COUNTER,
                 "ENCODER" : self.ENCODER,
                 "SSI" : self.SSI,
-                "ADC" : self.ADC10}
+                "ADC10" : self.ADC10,
+                "ADC5" : self.ADC5,
+                "SWITCH" : self.SWITCH,
+            }
+            if type is not None:
+                if isinstance(type,(str,unicode)):
+                    MODE = type.upper()
+                    mode = self._string2mode.get(MODE)
+                    if mode is None:
+                        raise RuntimeError('musst: mode (%s) is not known' % type)
+                    self._mode = mode
+                else:
+                    self._mode = type
+            if switch is not None:
+                #check if has the good interface
+                if switch_name is None:
+                    raise RuntimeError('musst: channel (%d) with external switch musst have a switch_name defined' % channel_id)
+                if not hasattr(switch,'switch'):
+                    raise RuntimeError("musst: channel (%d), switch object doesn't have a switch method" % channel_id)
+                self._switch = weakref.proxy(switch)
+                self._switch_name = switch_name
+            else:
+                self._switch = None
+
         @property
         def value(self):
+            if self._switch is not None:
+                self._switch.switch(self._switch_name)
             musst = self._musst()
             string_value = musst.putget("?CH CH%d" % self._channel_id).split()[0]
             return self._convert(string_value)
 
         @value.setter
         def value(self,val):
+            if self._switch is not None:
+                self._switch.switch(self._switch_name)
             musst = self._musst()
             musst.putget("CH CH%d %s" % (self._channel_id,val))
 
@@ -54,6 +86,10 @@ class musst(object):
             status_string = musst.putget("?CH CH%d" % self._channel_id).split()[1]
             return musst._string2state.get(status_string)
 
+        @property
+        def channel_id(self):
+            return self._channel_id
+        
         def run(self):
             self._cnt_cmd("RUN")
 
@@ -79,7 +115,7 @@ class musst(object):
             elif(self._mode == self.ADC5):
                 return int(string_value) * (5. / 0x7fffffff)
             else:                       # not managed yet
-                return string_value
+                return int(string_value)
 
         def _read_config(self) :
             if self._mode is None:
@@ -127,6 +163,13 @@ class musst(object):
         gpib_pad -- primary address of the musst controller
         gpib_timeout -- communication timeout, default is 1s
         gpib_eos -- end of line termination
+        musst_prg_root -- default path for musst programs
+        channels: -- list of configured channels
+        in this dictionary we need to have:
+        label: -- the name alias for the channels
+        type: -- channel type (cnt,encoder,ssi,adc5,adc10 and switch)
+        channel: -- channel number
+        name: -- use to reference an external switch
         """
         
         self.name = name
@@ -137,13 +180,10 @@ class musst(object):
                              timeout = config_tree.get("gpib_timeout",5))
             self._txterm = ''
             self._rxterm = '\n'
-            self.putget("NAME %s" % name)
         elif "serial_url" in config_tree:
             self._cnx = Serial(config_tree["serial_url"])
             self._txterm = '\r'
             self._rxterm = '\r\n'
-            self._cnx.write('?NAME' + self._txterm)
-            self._cnx.readline(self._rxterm)
         else:
             raise ValueError, "Must specify gpib_url or serial_url"
 
@@ -172,7 +212,41 @@ class musst(object):
             "10MHZ"       : self.F_10MHZ,
             "50MHZ"       : self.F_50MHZ
             }
-            
+        self.__last_file_load = Cache(self,'last_file_load')
+        self.__last_template_replacement = Cache(self,"last_template")
+        self.__prg_root = config_tree.get('musst_prg_root')
+
+        #Configured channels
+        self._channels = dict()
+        channels_list = config_tree.get('channels',list())
+        for channel_config in channels_list:
+            channel_number = channel_config.get('channel')
+            if channel_number is None:
+                raise RuntimeError("musst: channel in config must have a channel")
+
+            channel_type = channel_config.get('type')
+            if channel_type in ('cnt','encoder','ssi','adc5','adc10'):
+                channel_name = channel_config.get('label')
+                if channel_name is None:
+                    raise RuntimeError("musst: channel in config must have a label")
+                self._channels[channel_name.upper()] = self.get_channel(channel_number,type=channel_type)
+            elif channel_type == 'switch':
+                ext_switch_name = channel_config.get('name')
+                if ext_switch_name is None:
+                    raise RuntimeError("musst: channel (%s) with type switch must have a reference to an object name" % channel_number)
+
+                ext_switch = config_tree.get(ext_switch_name)
+                if not hasattr(ext_switch,'getSwitchList'):
+                    raise RuntimeError("musst: channels (%s) switch object must have getSwitchList method" % channel_number)
+
+                for channel_name in ext_switch.getSwitchList():
+                    self._channels[channel_name.upper()] = self.get_channel(channel_number,
+                                                                            type=channel_type,
+                                                                            switch=ext_switch,
+                                                                            switch_name=channel_name)
+            else:
+                raise RuntimeError("musst: channel type can only be of type (cnt,encoder,ssi,adc5,adc10,switch)")
+
     @protect_from_kill
     def putget(self,msg,ack = False):
         """ Raw connection to the Musst card.
@@ -219,14 +293,32 @@ class musst(object):
         else:
             return self.putget("#RUNCT")
 
-    def upload_file(self, fname, prg_root=None):
-       if prg_root:
-           oscil_program = open(os.path.join(prg_root, fname))
-       else:
-           oscil_program = open(fname)
+    def upload_file(self, fname, prg_root=None,
+                    template_replacement = {}):
+        """ Load a program into the musst device.
 
-       print "file to be uploaded", fname
-       self.upload_program(oscil_program.read())
+        fname -- the file-name
+        prg_root -- the base path where the program files are.
+        if prg_root is None use the one in configuration
+        template_replacement -- will be used to replace the key by the value
+        in the program file
+        """
+        prg_root = prg_root or self.__prg_root
+            
+        if prg_root:
+            program_file = os.path.join(prg_root, fname)
+        else:
+            program_file = fname
+
+        if(self.__last_file_load.value != program_file or
+           self.__last_template_replacement.value != str(template_replacement)):
+            with open(program_file) as program:
+                program_bytes = program.read()
+                for old,new in template_replacement.iteritems():
+                    program_bytes = program_bytes.replace(old,new)
+                self.upload_program(program_bytes)
+            self.__last_file_load.value = program_file
+            self.__last_template_replacement.value = str(template_replacement)
 
     def upload_program(self, program_data):
         """ Upload a program.
@@ -238,7 +330,8 @@ class musst(object):
         for l in program_data.splitlines():
             self._cnx.write("+%s%s" % (l, self._txterm))
         if self.STATE != self.IDLE_STATE:
-            raise RuntimeError(self.STATE)
+            err = self.putget("?LIST ERR")
+            raise RuntimeError(err)
         return True
 
     #    def get_data(self, nlines, npts, buf=0):
@@ -364,8 +457,20 @@ class musst(object):
             value = self.__frequency_conversion.get(value)
         return self.putget("TMRCFG %s" % value)
 
-    def get_channel(self,channel_id):
+    def get_channel(self,channel_id,type = None,switch=None,
+                    switch_name=None) :
         if 0 < channel_id <= 6:
-            return self.channel(self,channel_id)
+            return self.channel(self,channel_id,
+                                type = type,
+                                switch = switch,
+                                switch_name = switch_name)
         else:
             raise RuntimeError("musst doesn't have channel id %d" % channel_id)
+
+
+    def get_channel_by_name(self,channel_name):
+        channel_name = channel_name.upper()
+        channel = self._channels.get(channel_name)
+        if channel is None:
+            raise RuntimeError("musst doesn't have channel (%s) in his config" % channel_name)
+        return channel

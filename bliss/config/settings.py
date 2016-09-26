@@ -97,6 +97,18 @@ def write_decorator(func):
         return func(self,value,**keys)
     return _write
 
+def scan(match='*',count=1000,connection=None):
+    if connection is None:
+        connection = get_cache()
+    cursor = 0
+    while 1:
+        cursor,values = connection.scan(cursor=cursor,
+                                        match=match,count=count)
+        for val in values:
+            yield val
+        if int(cursor) == 0:
+            break
+        
 class SimpleSetting(object):
     def __init__(self,name,connection = None,
                  read_type_conversion = auto_conversion,

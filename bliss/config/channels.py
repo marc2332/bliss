@@ -311,3 +311,35 @@ def Channel(name, value=NotInitialized(), callback=None,
 
     return chan
 
+DEVICE_CACHE = weakref.WeakKeyDictionary()
+
+def Cache(device,key,**keys):
+    """
+    Create a cache value for a device. Device object must have a *name* in his attributes.
+    This class should be used to optimized the device access.
+    i.e: Don't re-configure a device if it's already configured
+    """
+    try:
+        device_name = device.name
+    except AttributeError:
+        raise RuntimeError("cache: can't create a cache value (%s), the device (%s) has no name" % (device,key))
+    
+    default_value = keys.get('default_value',None)
+    cached_channels = DEVICE_CACHE.setdefault(device,dict())
+    key_name = '%s:%s' % (device.name,key)
+    cached_channels[key_name] = default_value
+    return Channel(key_name,**keys)
+
+def clear_cache(*devices) :
+    """
+    Clear cache for the associated devices
+    devices -- one or more devices or if no device all devices
+    """
+    if not devices:
+        devices = DEVICE_CACHE.keys()
+    for d in devices:
+        cached_channels = DEVICE_CACHE.get(d,dict())
+        for channel_name,default_value in cached_channels.iteritems():
+            chan = Channel(channel_name)
+            chan.value = default_value
+            

@@ -14,7 +14,7 @@ from bliss.controllers.motor_group import Group
 from bliss.config.motors import get_axis
 from bliss.common import event
 from bliss.common.utils import set_custom_members
-from bliss.config.channels import Channel
+from bliss.config.channels import Cache
 from gevent import lock
 
 # make the link between encoder and axis, if axis uses an encoder
@@ -64,10 +64,8 @@ class Controller(object):
             ##
             self.__initialized_axis[axis] = False
             self.__lock = lock.Semaphore()
-            self.__initialized_hw = Channel("controller:%s:initialized" % name,
-                                            default_value = False)
-            self.__initialized_hw_axis[axis] = Channel("axis:%s:initialized" % axis_name,
-                                                       default_value=False)
+            self.__initialized_hw = Cache(self,"initialized",default_value = False)
+            self.__initialized_hw_axis[axis] = Cache(axis,"initialized",default_value=False)
             if axis_config.get("encoder"):
                 try:
                     # XML

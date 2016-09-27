@@ -7,16 +7,21 @@
 
 from __future__ import absolute_import
 
-def __find_class(cfg_node):
+def __find_class(cfg_node, subdir=""):
     klass_name = cfg_node['class']
+    dirs = ['bliss', 'controllers']
+    if subdir:
+      dirs.append(subdir)
 
     if 'package' in cfg_node:
         module_name = cfg_node['package']
-    elif 'module' in cfg_node:
-        module_name = 'bliss.controllers.%s' % cfg_node['module']
     else:
-        # discover module and class name
-        module_name = 'bliss.controllers.%s' % klass_name.lower()
+        if 'module' in cfg_node:
+            dirs.append(cfg_node['module'])
+        else:
+            # discover module and class name
+            dirs.append(klass_name.lower())
+        module_name = '.'.join(dirs)
 
     module = __import__(module_name, fromlist=[None])
     klass = getattr(module, klass_name)

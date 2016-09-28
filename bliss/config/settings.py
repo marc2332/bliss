@@ -428,9 +428,9 @@ class HashSetting(object):
                 value = default
         return value
     
-    def remove(self,key):
+    def remove(self,*key):
         cnx = self._cnx()
-        cnx.hdel(self._name,key)
+        cnx.hdel(self._name,*key)
 
     @read_decorator
     def get_all(self):

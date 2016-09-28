@@ -378,7 +378,7 @@ def recreate(db=None, new_server=False, typ='inputs'):
 
     # remove old io
     for io_name in old_io_names:
-        dev_name = curr_ios[io_name][0]
+        dev_name, klass_name = curr_ios[io_name]
         elog.debug('removing old %s %s (%s)' % (classmsg, dev_name, io_name))    
         db.delete_device(dev_name)
 

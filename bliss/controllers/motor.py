@@ -330,8 +330,15 @@ class CalcController(Controller):
         event.connect(self._reals_group, 'move_done', self._real_move_done)
 
         for pseudo_axis in self.pseudos:
-            event.connect(pseudo_axis, 'sync_hard', self._pseudo_sync_hard)
+	    self._Controller__initialized_hw_axis[pseudo_axis].value = True
             self._initialize_axis(pseudo_axis)
+	    event.connect(pseudo_axis, 'sync_hard', self._pseudo_sync_hard)
+
+	self._calc_from_real()
+	self._update_state_from_real() 
+
+    def initialize_axis(self, axis):
+	pass
 
     def _pseudo_sync_hard(self):
         for real_axis in self.reals:
@@ -395,11 +402,6 @@ class CalcController(Controller):
                     # position doesn't correspond to axis position
                     # (MAXE_E)
                     axis._do_encoder_reading()
-
-    def initialize_axis(self, axis):
-        if axis in self.pseudos:
-            self._calc_from_real()
-            self._update_state_from_real()
 
     def start_one(self, motion):
         self.start_all(motion)

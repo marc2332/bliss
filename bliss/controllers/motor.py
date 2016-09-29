@@ -64,8 +64,8 @@ class Controller(object):
             ##
             self.__initialized_axis[axis] = False
             self.__lock = lock.Semaphore()
-            self.__initialized_hw = Cache(self,"initialized",default_value = False)
-            self.__initialized_hw_axis[axis] = Cache(axis,"initialized",default_value=False)
+            self.__initialized_hw = Cache(self, "initialized", default_value = False)
+            self.__initialized_hw_axis[axis] = Cache(axis, "initialized", default_value = False)
             if axis_config.get("encoder"):
                 try:
                     # XML
@@ -109,7 +109,7 @@ class Controller(object):
         """
         This method should contain all commands needed to initialize the controller hardware.
         i.e: reset, power on....
-    	This initialization will call only once (by the first client).
+    	This initialization will be called once (by the first client).
         """
         pass
 
@@ -177,7 +177,6 @@ class Controller(object):
 
         return axis
 
-
     def initialize_axis(self, axis):
         raise NotImplementedError
 
@@ -192,16 +191,13 @@ class Controller(object):
     def finalize_axis(self, axis):
         raise NotImplementedError
 
-
     def get_encoder(self, encoder_name):
         encoder = self._encoders[encoder_name]
 
         return encoder
 
-
     def get_class_name(self):
         return self.__class__.__name__
-
 
     def _initialize_encoder(self, encoder):
         if self.__initialized_encoder[encoder]:
@@ -215,14 +211,11 @@ class Controller(object):
         self.initialize_encoder(encoder)
         self.__initialized_encoder[encoder] = True
 
-
     def initialize_encoder(self, encoder):
         raise NotImplementedError
 
-
     def is_busy(self):
         return False
-
 
     def prepare_move(self, motion):
         return

@@ -7,8 +7,10 @@
 
 from .conductor import client
 from bliss.common.utils import Null
+from bliss import setup_globals
 import weakref
 import pickle
+
 
 def get_cache():
     return client.get_cache(db=0)
@@ -97,6 +99,18 @@ def write_decorator(func):
         return func(self,value,**keys)
     return _write
 
+def scan(match='*',count=1000,connection=None):
+    if connection is None:
+        connection = get_cache()
+    cursor = 0
+    while 1:
+        cursor,values = connection.scan(cursor=cursor,
+                                        match=match,count=count)
+        for val in values:
+            yield val
+        if int(cursor) == 0:
+            break
+        
 class SimpleSetting(object):
     def __init__(self,name,connection = None,
                  read_type_conversion = auto_conversion,
@@ -416,9 +430,9 @@ class HashSetting(object):
                 value = default
         return value
     
-    def remove(self,key):
+    def remove(self,*key):
         cnx = self._cnx()
-        cnx.hdel(self._name,key)
+        cnx.hdel(self._name,*key)
 
     @read_decorator
     def get_all(self):
@@ -585,33 +599,115 @@ class SimpleObjSettingProp(SimpleSettingProp):
         _change_to_obj_marshalling(keys)
         SimpleSettingProp.__init__(self,name,**keys)
 
+class StructDescriptor(object):
+    def __init__(self, proxy, name, value, assign = True):
+        self.proxy = proxy 
+        self.name = name
+        if assign:
+            self.assign(value)
+
+    def assign(self, value):
+        self.proxy[self.name] = value
+
+    def __get__(self, obj, obj_type):
+        return self.proxy[self.name]
+
+    def __set__(self, obj, value):
+        return self.assign(value)
+
+    def __delete__(self, *args):
+        del self.proxy[self.name]
+
+class StructType(type):
+    def __call__(cls, *args, **kwargs):
+        class_dict = { '__slots__': tuple(cls.SLOTS), 'SLOTS':cls.SLOTS }
+        new_cls = type(cls.__name__, (cls,), class_dict)
+        return type.__call__(new_cls, *args, **kwargs)
+
+    def __new__(cls, name, bases, attrs):
+        attrs['__slots__'] = tuple(attrs['SLOTS'])
+        return type.__new__(cls, name, bases, attrs)
+        
 class Struct(object):
-    def __init__(self,name,**keys):
-        self._proxy = HashSetting(name,**keys)
+    __metaclass__ = StructType
+    DESCRIPTOR = StructDescriptor
+    SLOTS = ['_proxy']
+
+    def __init__(self, name, **keys):
+        self._proxy = HashSetting(name, **keys)
+        for key in self._proxy.iterkeys():
+            self.add(key)
 
     def __dir__(self):
-        return self._proxy.keys()
-
+        return self._proxy.keys() + ['add','remove']
+    
     def __repr__(self):
         return "<Struct with attributes: %s>" % self._proxy.keys()
 
-    def __getattribute__(self, name):
-        if name.startswith('_'):
-            return object.__getattribute__(self,name)
-        else:
-            return self._proxy.get(name)
-            
-    def __setattr__(self,name,value):
-        if name.startswith('_'):
-            return object.__setattr__(self,name,value)
-        else:
-            self._proxy[name] = value
- 
-    def __delattr__(self,name):
-        if name.startswith('_'):
-            return object.__delattr__(self,name)
-        else:
-            self._proxy.remove(name)
+    
+    def add(self, name, value = None):
+        setattr(self.__class__, name, self.DESCRIPTOR(self._proxy, name, value,
+                                                      value is not None))
+
+    def remove(self, name):
+        self._proxy.remove(name)
+        delattr(self.__class__, name)
+
+
+class ParamDescriptor(StructDescriptor):
+    OBJECT_PREFIX = 'object:'
+
+    def __get__(self, obj, obj_type):
+        value = self.proxy[self.name]
+        if isinstance(value, (str,unicode)) and value.startswith(ParamDescriptor.OBJECT_PREFIX):
+            value = value[len(ParamDescriptor.OBJECT_PREFIX):]
+            return getattr(setup_globals, value)
+        return StructDescriptor.__get__(self, obj, obj_type)
+
+    def assign(self, value):
+        if hasattr(value, 'name') and hasattr(setup_globals, value.name):
+            value = '%s%s' % (ParamDescriptor.OBJECT_PREFIX, value.name)
+        return StructDescriptor.assign(self, value)
+
+
+class Parameters(Struct):
+    DESCRIPTOR = ParamDescriptor
+    SLOTS = Struct.SLOTS+['__current_config']
+    
+    def __init__(self, name, **keys):
+        self.__current_config = SimpleSetting(name, default_value='default')
+        
+        Struct.__init__(self, '%s:%s' % (name, self.__current_config.get()), **keys)
+
+    def __dir__(self):
+        return Struct.__dir__(self) + ['switch','configs']
+
+    def __repr__(self):
+        rep_str = "Parameters : (%s)\n" % self.__current_config.get()
+        d = dict(self._proxy.iteritems())
+        max_len = max((len(x) for x in d.keys()))
+        str_format = '  %-' + '%ds' % max_len + ' = %s\n'
+        for key,value in d.iteritems():
+            rep_str += str_format % (key,value)
+        return rep_str
+
+    def switch(self,name):
+        for key,value in dict(self.__class__.__dict__).iteritems():
+            if isinstance(value, self.DESCRIPTOR):
+                delattr(self.__class__,key)
+                
+        self.__current_config.set(name)
+
+        basename = ":".join(self._proxy._name.split(':')[:-1])
+        self._proxy._name = '%s:%s' % (basename, name)
+        
+        for key in self._proxy.keys():
+            self.add(key)
+        
+    @property
+    def configs(self):
+        basename = ":".join(self._proxy._name.split(':')[:-1])
+        return list((x.split(':')[-1] for x in scan(match='%s:*' % basename)))
 
 if __name__ == "__main__":
     class A(object):

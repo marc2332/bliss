@@ -165,9 +165,6 @@ class Controller(object):
         high_limit = get_setting_or_config_value("high_limit")
         axis.limits(low_limit, high_limit)
 
-        # force initialisation of position and state settings
-        axis.sync_hard()
-
         if not self.__initialized_hw_axis[axis].value:
             self.initialize_hardware_axis(axis)
             self.__initialized_hw_axis[axis].value = True

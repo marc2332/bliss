@@ -978,12 +978,6 @@ class LeicaCamera(LeicaUSB):
     def __init__(self, usb_dev=None):
         LeicaUSB.__init__(self, usb_dev)
 
-        self.cfg_ep_out = self.get_end_point(self.CFG_IF_NB,
-                                             ep_dir=USBDev.EP_OUT)
-        self.cfg_ep_in = self.get_end_point(self.CFG_IF_NB,
-                                            ep_dir=USBDev.EP_IN)
-        self.img_ep_in = self.get_end_point(self.IMG_IF_NB,
-                                            ep_dir=USBDev.EP_IN)
         #self.img_queue = gevent.queue.Queue()
         self.last_image = None
         self.new_image = gevent.event.Event()
@@ -996,7 +990,8 @@ class LeicaCamera(LeicaUSB):
     
     def start_camera(self):
         if not self.is_running():
-            self.reader = gevent.spawn(self.reader_funct)
+            gthreadpool = gevent.get_hub().threadpool
+            self.reader = gthreadpool.spawn(self.reader_funct)
         
     def stop_camera(self):
         if self.is_running():
@@ -1005,6 +1000,12 @@ class LeicaCamera(LeicaUSB):
             t.join()
 
     def reader_funct(self):
+        self.cfg_ep_out = self.get_end_point(self.CFG_IF_NB,
+                                             ep_dir=USBDev.EP_OUT)
+        self.cfg_ep_in = self.get_end_point(self.CFG_IF_NB,
+                                            ep_dir=USBDev.EP_IN)
+        self.img_ep_in = self.get_end_point(self.IMG_IF_NB,
+                                            ep_dir=USBDev.EP_IN)
         self.init_camera()
         while self.is_running():
             img = self.read_image() 

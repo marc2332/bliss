@@ -384,6 +384,11 @@ class Connection(object) :
                             self._g_event.set()
                         elif messageType == protocol.POSIX_MQ_FAILED:
                             self._g_event.set()
+                        elif messageType == protocol.UNKNOW_MESSAGE:
+                            message_key,value = self._get_msg_key(message)
+                            queue = self._message_queue.get(message_key)
+                            error = RuntimeError("Beacon server don't know this command (%s)" % value)
+                            if queue is not None: queue.put(error)
                     except:
                         sys.excepthook(*sys.exc_info())
         except socket.error:

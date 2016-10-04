@@ -396,8 +396,8 @@ def _send_posix_mq_connection(client_id,client_hostname):
         else:
             client_id.sendall(protocol.message(protocol.POSIX_MQ_FAILED))
 
-def _send_unknow_message(client_id):
-    client_id.sendall(protocol.message(protocol.UNKNOW_MESSAGE))
+def _send_unknow_message(client_id,message):
+    client_id.sendall(protocol.message(protocol.UNKNOW_MESSAGE,message))
 
 def _client_rx(client,local_connection):
     tcp_data = ''
@@ -469,7 +469,7 @@ def _client_rx(client,local_connection):
                         elif messageType == protocol.CONFIG_GET_PYTHON_MODULE:
                             _get_python_module(c_id,message)
                         else:
-                            _send_unknow_message(c_id)
+                            _send_unknow_message(c_id,message)
                     except (ValueError, protocol.IncompleteMessage):
                         sys.excepthook(*sys.exc_info())
                         break

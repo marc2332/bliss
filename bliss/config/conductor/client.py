@@ -87,3 +87,7 @@ def remove_config_file(file_path, connection=None) :
 @check_connection
 def move_config_path(src_path, dst_path, connection=None):
     return connection.move_config_path(src_path, dst_path)
+
+@check_connection
+def get_python_modules(base_path = '',timeout=3.,connection=None):
+    return connection.get_python_modules(base_path,timeout)

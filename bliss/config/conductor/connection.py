@@ -296,6 +296,21 @@ class Connection(object) :
                 for rx_msg in wq.queue():
                     raise rx_msg
 
+    @check_connect
+    def get_python_modules(self,base_path='',timeout=3.):
+        return_module = []
+        with gevent.Timeout(timeout,RuntimeError("Can't set config file")):
+            with self.WaitingQueue(self) as wq:
+                msg = '%s|%s' % (wq.message_key(),base_path)
+                self._fd.sendall(protocol.message(protocol.CONFIG_GET_PYTHON_MODULE,
+                                                  msg.encode("utf-8")))
+                for rx_msg in wq.queue():
+                    if isinstance(rx_msg,RuntimeError):
+                        raise rx_msg
+                    module_name,full_path = self._get_msg_key(rx_msg)
+                    return_module.append((module_name,full_path))
+        return return_module
+    
     def _lock_mgt(self,fd,messageType,message):
         if messageType == protocol.LOCK_OK_REPLY:
             events = self._pending_lock.get(message,[])
@@ -336,7 +351,8 @@ class Connection(object) :
                             continue
                         elif messageType in (protocol.CONFIG_GET_FILE_OK,
                                              protocol.CONFIG_GET_DB_TREE_OK,
-                                             protocol.CONFIG_DB_FILE_RX):
+                                             protocol.CONFIG_DB_FILE_RX,
+                                             protocol.CONFIG_GET_PYTHON_MODULE_RX):
                             message_key,value = self._get_msg_key(message)
                             queue = self._message_queue.get(message_key)
                             if queue is not None: queue.put(value)
@@ -344,14 +360,16 @@ class Connection(object) :
                                              protocol.CONFIG_SET_DB_FILE_FAILED,
                                              protocol.CONFIG_GET_DB_TREE_FAILED,
                                              protocol.CONFIG_REMOVE_FILE_FAILED,
-                                             protocol.CONFIG_MOVE_PATH_FAILED):
+                                             protocol.CONFIG_MOVE_PATH_FAILED,
+                                             protocol.CONFIG_GET_PYTHON_MODULE_FAILED):
                             message_key,value = self._get_msg_key(message)
                             queue = self._message_queue.get(message_key)
                             if queue is not None: queue.put(RuntimeError(value))
                         elif messageType in (protocol.CONFIG_DB_END,
                                              protocol.CONFIG_SET_DB_FILE_OK,
                                              protocol.CONFIG_REMOVE_FILE_OK,
-                                             protocol.CONFIG_MOVE_PATH_OK):
+                                             protocol.CONFIG_MOVE_PATH_OK,
+                                             protocol.CONFIG_GET_PYTHON_MODULE_END):
                             message_key,value = self._get_msg_key(message)
                             queue = self._message_queue.get(message_key)
                             if queue is not None: queue.put(StopIteration)

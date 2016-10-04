@@ -470,8 +470,14 @@ def _client_rx(client,local_connection):
                             _get_python_module(c_id,message)
                         else:
                             _send_unknow_message(c_id,message)
-                    except (ValueError, protocol.IncompleteMessage):
+                    except ValueError:
                         sys.excepthook(*sys.exc_info())
+                        break
+                    except protocol.IncompleteMessage:
+                        r,_,_ = select.select(r_listen,[],[],.5)
+                        if not r: # if timeout, something wired, close the connection
+                           data = None
+                           stopFlag = True
                         break
                     except:
                         sys.excepthook(*sys.exc_info())

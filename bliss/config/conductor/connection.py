@@ -282,6 +282,8 @@ class Connection(object) :
                 msg = '%s|%s' % (wq.message_key(),base_path)
                 self._fd.sendall(protocol.message(protocol.CONFIG_GET_DB_BASE_PATH,msg))
                 for rx_msg in wq.queue():
+                    if isinstance(rx_msg,RuntimeError):
+                        raise rx_msg
                     file_path,file_value = self._get_msg_key(rx_msg)
                     if file_path is None : continue
                     return_files.append((file_path,file_value.decode("utf-8")))

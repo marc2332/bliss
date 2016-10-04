@@ -288,7 +288,7 @@ class Connection(object) :
         return return_files
 
     @check_connect
-    def set_config_db_file(self,file_path,content,timeout = 30.):
+    def set_config_db_file(self,file_path,content,timeout = 3.):
         with gevent.Timeout(timeout,RuntimeError("Can't set config file")):
             with self.WaitingQueue(self) as wq:
                 msg = '%s|%s|%s' % (wq.message_key(),file_path,content)

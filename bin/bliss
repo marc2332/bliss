@@ -8,10 +8,12 @@
 
 """
 Usage: bliss [(-s | --session)] <name>...
+       bliss [--show-sessions]
        bliss
        bliss (-h | --help)
 Options:
-    -s, --session                Starts with a some session(s).
+    -show-sessions               Display all available session.
+    -s, --session                Starts with some session(s).
     -h, --help                   Show this screen.
 """
 import sys
@@ -26,6 +28,7 @@ from prompt_toolkit.eventloop.posix import call_on_sigwinch, DummyContext
 from gevent import select
 import signal
 from bliss.shell import initialize
+from bliss.config import static
 
 class GeventEventLoop(EventLoop):
     def __init__(self, *args, **kwargs):
@@ -119,6 +122,15 @@ def main():
     except docopt.DocoptExit as e:
         print e.message
     else:
+        if arguments['--show-sessions']:
+            config = static.get_config()
+            print 'Session name(s):'
+            for name in config.names_list:
+                c = config.get_config(name)
+                if c.get('class') != 'Session': continue
+                if c.get_inherited('plugin') != 'session': continue
+                print ' '*4,name
+            exit(0)
         repl.create_eventloop = GeventEventLoop
 
         user_ns, sessions = initialize(*sessions_name)

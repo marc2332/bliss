@@ -441,20 +441,26 @@ class MD2M:
         self.lightout()
         self._simultaneous_move(self.bstopz, -80)
         self.detcover.set_in()
+        self.fshut.open()
         self.i1.autorange(True)
    
         diode_values = []
-        for t in (1,10,100):
-          self.transmission.transmission_set(t)
-          diode_values.append(self.i1.read())
-        print diode_values 
-        if (diode_values[1]/diode_values[0])<=12 and (diode_values[1]/diode_values[0])>=8:
-            if (diode_values[2]/diode_values[1])<=12 and (diode_values[2]/diode_values[1])>=8:
-                pass
-            else:
-                raise RuntimeError("Wrong intensity, hint: is there beam?")
-        else:
-           raise RuntimeError("Wrong intensity, hint: is there beam?")
+        
+        def restore_att(old_transmission=self.transmission.transmission_get()):
+            self.transmission.transmission_set(old_transmission)
+
+        with error_cleanup(restore_att, self.fshut.close):
+          for t in (1,10,100):
+            self.transmission.transmission_set(t)
+            diode_values.append(self.i1.read())
+        
+          if (diode_values[1]/diode_values[0])<=12 and (diode_values[1]/diode_values[0])>=8:
+              if (diode_values[2]/diode_values[1])<=12 and (diode_values[2]/diode_values[1])>=8:
+                  pass
+              else:
+                  raise RuntimeError("Wrong intensity, hint: is there beam?")
+          else:
+             raise RuntimeError("Wrong intensity, hint: is there beam?")
  
         def restore_slits(saved_pos=(self.hgap, self.hgap.position(), self.vgap, self.vgap.position())):
             print 'restoring slits to saved positions', saved_pos
@@ -500,13 +506,11 @@ class MD2M:
                 self._simultaneous_rmove(self.ttrans, -dy, self.tz1, -dz, self.tz2, -dz, self.tz3, -dz)
             return dy, dz
   
-        def restore_att(old_transmission=self.transmission.transmission_get()):
-            self.transmission.transmission_set(old_transmission)
-
-        with cleanup(restore_slits, restore_att):
+        with cleanup(restore_slits, restore_att, self.fshut.close):
             self.transmission.transmission_set(0.5)
             self.detcover.set_in()
             self.move_beamstop_out()
+            self.fshut.open()
             self._simultaneous_move(self.hgap, 2, self.vgap, 2)
  
             for i in range(5):

@@ -506,7 +506,8 @@ class HashSetting(object):
     def __getitem__(self,key):
         value = self.get(key)
         if value is None:
-            raise KeyError(key)
+            if not self._default_values.has_key(key):
+                raise KeyError(key)
         return value
 
     def __setitem__(self,key,value):
@@ -599,26 +600,36 @@ class SimpleObjSettingProp(SimpleSettingProp):
         _change_to_obj_marshalling(keys)
         SimpleSettingProp.__init__(self,name,**keys)
 
-class StructDescriptor(object):
-    def __init__(self, proxy, name, value, assign = True):
-        self.proxy = proxy 
-        self.name = name
-        if assign:
-            self.assign(value)
+class Struct(object):
+    def __init__(self,name,**keys):
+        self._proxy = HashSetting(name,**keys)
 
-    def assign(self, value):
-        self.proxy[self.name] = value
+    def __dir__(self):
+        return self._proxy.keys()
 
-    def __get__(self, obj, obj_type):
-        return self.proxy[self.name]
+    def __repr__(self):
+        return "<Struct with attributes: %s>" % self._proxy.keys()
 
-    def __set__(self, obj, value):
-        return self.assign(value)
+    def __getattribute__(self, name):
+        if name.startswith('_'):
+            return object.__getattribute__(self,name)
+        else:
+            return self._proxy.get(name)
+            
+    def __setattr__(self,name,value):
+        if name.startswith('_'):
+            return object.__setattr__(self,name,value)
+        else:
+            self._proxy[name] = value
+ 
+    def __delattr__(self,name):
+        if name.startswith('_'):
+            return object.__delattr__(self,name)
+        else:
+            self._proxy.remove(name)
 
-    def __delete__(self, *args):
-        del self.proxy[self.name]
 
-class StructType(type):
+class ParametersType(type):
     def __call__(cls, *args, **kwargs):
         class_dict = { '__slots__': tuple(cls.SLOTS), 'SLOTS':cls.SLOTS }
         new_cls = type(cls.__name__, (cls,), class_dict)
@@ -627,61 +638,51 @@ class StructType(type):
     def __new__(cls, name, bases, attrs):
         attrs['__slots__'] = tuple(attrs['SLOTS'])
         return type.__new__(cls, name, bases, attrs)
-        
-class Struct(object):
-    __metaclass__ = StructType
-    DESCRIPTOR = StructDescriptor
-    SLOTS = ['_proxy']
-
-    def __init__(self, name, **keys):
-        self._proxy = HashSetting(name, **keys)
-        for key in self._proxy.iterkeys():
-            self.add(key)
-
-    def __dir__(self):
-        return self._proxy.keys() + ['add','remove']
-    
-    def __repr__(self):
-        return "<Struct with attributes: %s>" % self._proxy.keys()
-
-    
-    def add(self, name, value = None):
-        setattr(self.__class__, name, self.DESCRIPTOR(self._proxy, name, value,
-                                                      value is not None))
-
-    def remove(self, name):
-        self._proxy.remove(name)
-        delattr(self.__class__, name)
 
 
-class ParamDescriptor(StructDescriptor):
+class ParamDescriptor(object):
     OBJECT_PREFIX = 'object:'
+
+    def __init__(self, proxy, name, value, assign = True):
+        self.proxy = proxy 
+        self.name = name
+        if assign:
+            self.assign(value)
+
+    def assign(self, value):
+        if hasattr(value, 'name') and hasattr(setup_globals, value.name):
+            value = '%s%s' % (ParamDescriptor.OBJECT_PREFIX, value.name)
+        self.proxy[self.name] = value
 
     def __get__(self, obj, obj_type):
         value = self.proxy[self.name]
         if isinstance(value, (str,unicode)) and value.startswith(ParamDescriptor.OBJECT_PREFIX):
             value = value[len(ParamDescriptor.OBJECT_PREFIX):]
             return getattr(setup_globals, value)
-        return StructDescriptor.__get__(self, obj, obj_type)
+        return self.proxy[self.name]
 
-    def assign(self, value):
-        if hasattr(value, 'name') and hasattr(setup_globals, value.name):
-            value = '%s%s' % (ParamDescriptor.OBJECT_PREFIX, value.name)
-        return StructDescriptor.assign(self, value)
+    def __set__(self, obj, value):
+        return self.assign(value)
+
+    def __delete__(self, *args):
+        del self.proxy[self.name]
 
 
-class Parameters(Struct):
+class Parameters(object):
+    __metaclass__ = ParametersType
     DESCRIPTOR = ParamDescriptor
-    SLOTS = Struct.SLOTS+['__current_config']
-    
+    SLOTS = ['_proxy','__current_config']
+
     def __init__(self, name, **keys):
         self.__current_config = SimpleSetting(name, default_value='default')
-        
-        Struct.__init__(self, '%s:%s' % (name, self.__current_config.get()), **keys)
+        hash_name = '%s:%s' % (name, self.__current_config.get())
+        self._proxy = HashSetting(hash_name, **keys)
+        for key in self._proxy.iterkeys():
+            self.add(key)
 
     def __dir__(self):
-        return Struct.__dir__(self) + ['switch','configs']
-
+        return self._proxy.keys() + ['add','remove','switch','configs']
+    
     def __repr__(self):
         rep_str = "Parameters : (%s)\n" % self.__current_config.get()
         d = dict(self._proxy.iteritems())
@@ -690,6 +691,14 @@ class Parameters(Struct):
         for key,value in d.iteritems():
             rep_str += str_format % (key,value)
         return rep_str
+    
+    def add(self, name, value = None):
+        setattr(self.__class__, name, self.DESCRIPTOR(self._proxy, name, value,
+                                                      value is not None))
+
+    def remove(self, name):
+        self._proxy.remove(name)
+        delattr(self.__class__, name)
 
     def switch(self,name):
         for key,value in dict(self.__class__.__dict__).iteritems():

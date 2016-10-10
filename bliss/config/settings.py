@@ -506,7 +506,8 @@ class HashSetting(object):
     def __getitem__(self,key):
         value = self.get(key)
         if value is None:
-            raise KeyError(key)
+            if not self._default_values.has_key(key):
+                raise KeyError(key)
         return value
 
     def __setitem__(self,key,value):

@@ -30,9 +30,9 @@ class Opiom:
         self.__base_path = config_tree.get('opiom_prg_root',OPIOM_PRG_ROOT)
         self.__debug = False
         try:
-            msg = self.comm("?VER")
+            msg = self.comm("?VER",timeout=50e-3)
         except serial.SerialTimeout:
-            msg = self.comm("?VER")
+            msg = self.comm("?VER",timeout=50e-3)
             
         if not msg.startswith('OPIOM') :
             raise IOError("No opiom connected at %s" % serial)
@@ -99,14 +99,14 @@ class Opiom:
         return self.comm('#' + msg)
 
     @protect_from_kill
-    def comm(self,msg) :
+    def comm(self,msg,timeout = None) :
         self._cnx.open()
         with self._cnx._lock:
             self._cnx._write(msg + '\r\n')
             if msg.startswith('?') or msg.startswith('#') :
-                msg = self._cnx._readline()
+                msg = self._cnx._readline(timeout = timeout)
                 if msg.startswith('$') :
-                    msg = self._cnx._readline('$\r\n')
+                    msg = self._cnx._readline('$\r\n',timeout = timeout)
                 self.__debugMsg("Read", msg.strip('\n\r'))
                 return msg.strip('\r\n')
                 

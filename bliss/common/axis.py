@@ -33,7 +33,6 @@ from bliss.common.task_utils import *
 from bliss.controllers.motor_settings import AxisSettings
 from bliss.common import event
 from bliss.common.utils import Null
-import time
 import gevent
 import re
 import types
@@ -426,8 +425,7 @@ class Axis(object):
         else:
             if self.is_moving:
                 return AxisState("MOVING")
-            state = self.settings.get_from_channel('state')
-
+            state = self.settings.get('state')
         if state is None:
             # really read from hw
             state = self.__controller.state(self)
@@ -468,15 +466,14 @@ class Axis(object):
             # Write -> Converts into motor units to change velocity of axis."
             self.__controller.set_velocity(
                 self, new_velocity * abs(self.steps_per_unit))
-            _user_vel = new_velocity
+            _user_vel = self.__controller.read_velocity(self) / abs(self.steps_per_unit)
+            self.settings.set("velocity", _user_vel)
         else:
             # Read -> Returns velocity read from motor axis.
-            _user_vel = self.settings.get_from_channel('velocity')
+            _user_vel = self.settings.get('velocity')
             if _user_vel is None:
                 _user_vel = self.__controller.read_velocity(self) / abs(self.steps_per_unit)
 
-        # In all cases, stores velocity in settings in uu/s
-        self.settings.set("velocity", _user_vel)
         return _user_vel
 
     @lazy_init
@@ -493,18 +490,14 @@ class Axis(object):
 
             # Converts into motor units to change acceleration of axis.
             self.__controller.set_acceleration(self, new_acc * abs(self.steps_per_unit))
-        else:
-            _acceleration = self.settings.get_from_channel('acceleration')
-            if _acceleration is not None:
-                return _acceleration
-
-        # Both R or W : Reads acceleration from controller.
-        _ctrl_acc = self.__controller.read_acceleration(self)
-        _acceleration = _ctrl_acc / abs(self.steps_per_unit)
-
-        if new_acc is not None:
-            # W => save acceleration in settings in uu/s2.
+            _ctrl_acc = self.__controller.read_acceleration(self)
+            _acceleration = _ctrl_acc / abs(self.steps_per_unit)
             self.settings.set("acceleration", _acceleration)
+        else:
+            _acceleration = self.settings.get('acceleration')
+            if _acceleration is None:
+                _ctrl_acc = self.__controller.read_acceleration(self)
+                _acceleration = _ctrl_acc / abs(self.steps_per_unit)
 
         return _acceleration
 
@@ -745,13 +738,6 @@ class Axis(object):
                     pass
                 except:
                     sys.excepthook(*sys.exc_info())
-            # update settings;
-            # as update is done before move done is set,
-            # we need to read state from hardware to get it right
-            # (it would return 'MOVING' otherwise)
-            # this update is very important for position, to have
-            # final position ok for waiters on move done event
-            self._update_settings(state=self.state(read_hw=True))
         self.__move_done.set()
         event.send(self, "move_done", True)
 
@@ -902,10 +888,10 @@ class Axis(object):
         while True:
             state_funct = getattr(self.__controller, ctrl_state_funct)
             state = state_funct(self)
-            if state != "MOVING":
-                return state
             if update_settings:
                 self._update_settings(state)
+            if state != "MOVING":
+                return state
             gevent.sleep(polling_time)
         
     def _cleanup_stop(self, jog=False):

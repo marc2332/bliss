@@ -345,10 +345,6 @@ class CalcController(Controller):
         return [tag for tag, axes in self._tagged.iteritems()
                 if tag != 'real' and len(axes) == 1 and axis in axes][0]
 
-    def _updated_from_channel(self, setting_name):
-        #print [axis.settings.get_from_channel(setting_name) for axis in self.reals]
-        return any([axis.settings.get_from_channel(setting_name) for axis in self.reals])
-
     def _get_set_positions(self):
         def axis_position(x):
             return x.user2dial(x._set_position()) * x.steps_per_unit
@@ -383,7 +379,7 @@ class CalcController(Controller):
         raise NotImplementedError
 
     def _update_state_from_real(self, *args, **kwargs):
-        write_settings = not self._updated_from_channel('state')
+        write_settings = any([real._hw_control for real in self.reals])
         state = self._reals_group.state()
         for axis in self.pseudos:
             #print '_update_state_from_real', axis.name, str(state)

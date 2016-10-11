@@ -139,19 +139,14 @@ class AxisSettings:
 
     def __init__(self, axis):
         self.__axis = axis
-        self.__from_channel = dict()
 
     def set(self, setting_name, value, write=True, from_channel=False):
-        self.__from_channel[setting_name]=from_channel
         return self.__axis.controller.axis_settings.set(
             self.__axis, setting_name, value, write)
 
     def get(self, setting_name):
         return self.__axis.controller.axis_settings.get(
             self.__axis, setting_name)
-
-    def get_from_channel(self, setting_name):
-        return self.get(setting_name) if self.__from_channel.get(setting_name) else None
 
     def load_from_config(self):
         return self.__axis.controller.axis_settings.load_from_config(

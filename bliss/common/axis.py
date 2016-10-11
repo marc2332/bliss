@@ -742,7 +742,7 @@ class Axis(object):
         event.send(self, "move_done", True)
 
     def _check_ready(self):
-        initial_state = self.state(read_hw=True)
+        initial_state = self.state()
         if initial_state != "READY":
             raise RuntimeError("axis %s state is \
                                 %r" % (self.name, str(initial_state)))

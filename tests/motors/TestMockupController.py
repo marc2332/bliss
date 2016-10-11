@@ -127,6 +127,7 @@ class TestMockupController(unittest.TestCase):
         robz.rmove(10, wait=False)
         while old["state"]=="MOVING":
             time.sleep(0)
+        robz.wait_move()
         self.assertEquals(robz.state(), "READY")
 
     def test_position_callback(self):

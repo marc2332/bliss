@@ -411,7 +411,6 @@ class ScanRecorder(object):
         return self._nodes
 
     def _acq_device_event(self, event_dict=None, signal=None, sender=None):
-        print 'received', signal, 'from', sender, ":", event_dict
         if signal == 'end':
             for node in self._nodes.itervalues():
                 node.set_ttl()
@@ -439,7 +438,6 @@ class ScanRecorder(object):
             if isinstance(dev,AcquisitionMaster):
                 master = dev
                 self._nodes[master] = _create_node(master.name, master.type, parent_node)
-        print self._nodes 
 
         if self._writer:
             self._writer.prepare(self, scan_info, devices_tree)

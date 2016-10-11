@@ -240,6 +240,8 @@ class QueueSetting(object):
         if first == last:
             l = cnx.lindex(self._name,first)
         else:
+            if last != -1:
+                last -= 1
             l = cnx.lrange(self._name,first,last)
         return l
 

@@ -64,8 +64,8 @@ class Controller(object):
             ##
             self.__initialized_axis[axis] = False
             self.__lock = lock.Semaphore()
-            self.__initialized_hw = Cache(self,"initialized",default_value = False)
-            self.__initialized_hw_axis[axis] = Cache(axis,"initialized",default_value=False)
+            self.__initialized_hw = Cache(self, "initialized", default_value = False)
+            self.__initialized_hw_axis[axis] = Cache(axis, "initialized", default_value = False)
             if axis_config.get("encoder"):
                 try:
                     # XML
@@ -109,7 +109,7 @@ class Controller(object):
         """
         This method should contain all commands needed to initialize the controller hardware.
         i.e: reset, power on....
-    	This initialization will call only once (by the first client).
+    	This initialization will be called once (by the first client).
         """
         pass
 
@@ -165,18 +165,17 @@ class Controller(object):
         high_limit = get_setting_or_config_value("high_limit")
         axis.limits(low_limit, high_limit)
 
-        # force initialisation of position and state settings
-        axis.sync_hard()
-
         if not self.__initialized_hw_axis[axis].value:
             self.initialize_hardware_axis(axis)
             self.__initialized_hw_axis[axis].value = True
+
+            # force initialization of position and state settings
+	    axis.sync_hard()
 
     def get_axis(self, axis_name):
         axis = self._axes[axis_name]
 
         return axis
-
 
     def initialize_axis(self, axis):
         raise NotImplementedError
@@ -192,16 +191,13 @@ class Controller(object):
     def finalize_axis(self, axis):
         raise NotImplementedError
 
-
     def get_encoder(self, encoder_name):
         encoder = self._encoders[encoder_name]
 
         return encoder
 
-
     def get_class_name(self):
         return self.__class__.__name__
-
 
     def _initialize_encoder(self, encoder):
         if self.__initialized_encoder[encoder]:
@@ -215,14 +211,11 @@ class Controller(object):
         self.initialize_encoder(encoder)
         self.__initialized_encoder[encoder] = True
 
-
     def initialize_encoder(self, encoder):
         raise NotImplementedError
 
-
     def is_busy(self):
         return False
-
 
     def prepare_move(self, motion):
         return
@@ -334,8 +327,15 @@ class CalcController(Controller):
         event.connect(self._reals_group, 'move_done', self._real_move_done)
 
         for pseudo_axis in self.pseudos:
-            event.connect(pseudo_axis, 'sync_hard', self._pseudo_sync_hard)
+	    self._Controller__initialized_hw_axis[pseudo_axis].value = True
             self._initialize_axis(pseudo_axis)
+	    event.connect(pseudo_axis, 'sync_hard', self._pseudo_sync_hard)
+
+	self._calc_from_real()
+	self._update_state_from_real() 
+
+    def initialize_axis(self, axis):
+	pass
 
     def _pseudo_sync_hard(self):
         for real_axis in self.reals:
@@ -344,10 +344,6 @@ class CalcController(Controller):
     def _axis_tag(self, axis):
         return [tag for tag, axes in self._tagged.iteritems()
                 if tag != 'real' and len(axes) == 1 and axis in axes][0]
-
-    def _updated_from_channel(self, setting_name):
-        #print [axis.settings.get_from_channel(setting_name) for axis in self.reals]
-        return any([axis.settings.get_from_channel(setting_name) for axis in self.reals])
 
     def _get_set_positions(self):
         def axis_position(x):
@@ -383,7 +379,7 @@ class CalcController(Controller):
         raise NotImplementedError
 
     def _update_state_from_real(self, *args, **kwargs):
-        write_settings = not self._updated_from_channel('state')
+        write_settings = any([real._hw_control for real in self.reals])
         state = self._reals_group.state()
         for axis in self.pseudos:
             #print '_update_state_from_real', axis.name, str(state)
@@ -399,11 +395,6 @@ class CalcController(Controller):
                     # position doesn't correspond to axis position
                     # (MAXE_E)
                     axis._do_encoder_reading()
-
-    def initialize_axis(self, axis):
-        if axis in self.pseudos:
-            self._calc_from_real()
-            self._update_state_from_real()
 
     def start_one(self, motion):
         self.start_all(motion)

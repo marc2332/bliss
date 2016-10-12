@@ -162,7 +162,8 @@ class StaticConfig(object):
     def __init__(self, config_dict):
         self.config_dict = config_dict
 
-    def get(self, property_name, converter=str, default=NO_VALUE):
+    def get(self, property_name, converter=str, default=NO_VALUE, 
+            inherited=False):
         """Get static property
 
         Args:

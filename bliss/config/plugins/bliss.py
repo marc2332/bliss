@@ -23,7 +23,7 @@ def __find_class(cfg_node, subdir=""):
             dirs.append(klass_name.lower())
         module_name = '.'.join(dirs)
 
-    module = __import__(module_name, fromlist=[None])
+    module = __import__(module_name, fromlist=[''])
     klass = getattr(module, klass_name)
 
     return klass

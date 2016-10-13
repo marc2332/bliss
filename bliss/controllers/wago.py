@@ -428,7 +428,7 @@ class WagoCounter(CounterBase):
 
   def __call__(self, *args, **kwargs):
     return self
-
+ 
   def read(self):
     data = self.parent._cntread()
     if isinstance(self.cntname, str):
@@ -439,8 +439,8 @@ class WagoCounter(CounterBase):
     name = name or self.cntname
     try:
       name = [x for x in self.parent.counter_gain_names if str(name) in x][0]
-    except:
-      #raise RuntimeError("Cannot find %s in the %s mapping" % (name, self.parent.name))
+    except IndexError:
+      #raise RuntimeError"Cannot find %s in the %s mapping" % (name, self.parent.name))
       return None
 
     if gain:

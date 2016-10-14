@@ -214,20 +214,25 @@ class ModbusTcp:
          value = 0xff00 if on_off else 0x0000
          self._write(0x05,address,'H',value,timeout_errmsg,timeout)
 
-    def connect(self,host=None,port=None):
+    def connect(self, host=None, port=None):
         local_host = host or self._host
         local_port = port or self._port
 
         self.close()
-        
-        self._fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self._fd.connect((local_host,local_port))
-        self._fd.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-        self._connected = True
-        self._host = local_host
-        self._port = local_port
-        self._raw_read_task = gevent.spawn(self._raw_read,
-                                           weakref.proxy(self),self._fd)
+
+        with self._lock: 
+            if self._connected:
+                return True
+
+            self._fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self._fd.connect((local_host,local_port))
+            self._fd.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+            self._host = local_host
+            self._port = local_port
+            self._raw_read_task = gevent.spawn(self._raw_read,
+                                               weakref.proxy(self), self._fd)
+            self._connected = True
+
         return True
 
     def close(self):
@@ -236,7 +241,9 @@ class ModbusTcp:
                 self._fd.shutdown(socket.SHUT_RDWR)
             except:             # probably closed one the server side
                 pass
+
             self._fd.close()
+
             if self._raw_read_task:
                 self._raw_read_task.join()
                 self._raw_read_task = None
@@ -293,18 +300,19 @@ class ModbusTcp:
         return errors.get(error_code,"Unknown")
 
     @staticmethod
-    def _raw_read(modbus,fd):
+    def _raw_read(modbus, fd):
         data = ''
+
         try:
             while(1):
                 raw_data = fd.recv(16 * 1024)
                 if raw_data:
                     data += raw_data
                     if len(data) > 7:
-                        tid,pid,lenght,uid = struct.unpack('>HHHB',data[:7])
-                        if len(data) >= lenght + 6: # new complet msg
+                        tid,pid,length,uid = struct.unpack('>HHHB',data[:7])
+                        if len(data) >= length + 6: # new msg
                             func_code = ord(data[7])
-                            end_msg = 8 + lenght - 2
+                            end_msg = 8 + length - 2
                             msg = data[8:end_msg]
                             data = data[end_msg:]
                             transaction = modbus._transaction.get(tid)

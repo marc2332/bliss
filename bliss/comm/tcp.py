@@ -94,6 +94,9 @@ class Socket:
         self._port = local_port
 
         with self._lock:
+            if self._connected:
+                return True
+
             self._fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self._fd.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
             self._fd.connect((local_host, local_port))
@@ -329,13 +332,18 @@ class Command:
 
         self.close()
 
-        self._fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self._fd.connect((local_host, local_port))
-        self._fd.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-        self._connected = True
-        self._host = local_host
-        self._port = local_port
-        self._raw_read_task = gevent.spawn(self._raw_read,weakref.proxy(self),self._fd)
+        with self._lock:
+            if self._connected:
+                return True
+
+            self._fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self._fd.connect((local_host, local_port))
+            self._fd.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+            self._host = local_host
+            self._port = local_port
+            self._raw_read_task = gevent.spawn(self._raw_read,weakref.proxy(self),self._fd)
+            self._connected = True
+
         return True
 
     def close(self):

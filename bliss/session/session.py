@@ -57,14 +57,16 @@ class _StringImporter(object):
       new_module = sys.modules.get(fullname,
                                    ModuleType(fullname))
       new_module.__loader__ = self
-      new_module.__file__ = 'beacon://%s' % file_name
+      module_filename = 'beacon://%s' % file_name
+      new_module.__file__ = module_filename
       if file_name.find('__init__') > -1:
          new_module.__path__ = []
          new_module.__package__ = fullname
       else:
          new_module.__package__ = fullname.rpartition('.')[0]
       sys.modules.setdefault(fullname,new_module)
-      exec(data_file,new_module.__dict__)
+      c_code = compile(data_file,module_filename,'exec')
+      exec(c_code,new_module.__dict__)
       return new_module
   
 class Session(object):

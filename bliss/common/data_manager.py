@@ -19,6 +19,7 @@ import re
 import datetime
 import os
 import numpy
+import weakref
 
 DM = None
 
@@ -381,7 +382,23 @@ class Container(object):
         self.node = _get_or_create_node(self.__name, "container", parent=self.root_node)
         
 class ScanRecorder(object):
-    def __init__(self, name="scan", parent=None, scan_info=None, writer=None):
+    def __init__(self, name="scan", parent=None, scan_info=None, writer=None,
+                 data_watch_callback=None):
+        """
+        This class publish data and trig the writer if any.
+        
+        name -- usually the scan name
+        parent -- the parent is the root node of the data tree.
+        usually the parent is a Container like to a session,sample,experiment...
+        i.e: parent = Container('eh3')
+        scan_info -- should be the scan parameters as a dict
+        writer -- is the final file writter (hdf5,cvs,spec file...)
+        data_watch_callback -- a callback which can follow the data status of the scan.
+        this callback is usually used to display the scan status.
+        the callback will get:
+            - data_event : a dict with Acq(Device/Master) as key and a set of signal as values
+            - nodes : a dict with Acq(Device/Master) as key and the associated data node as value
+        """
         self.root_node = parent.node if parent is not None else None
         self._nodes = dict()
         self._writer = writer
@@ -393,7 +410,23 @@ class ScanRecorder(object):
             run_number = client.get_cache(db=1).incrby("%s_last_run_number" % name, 1)
 	self.__name = '%s_%d' % (name, run_number)
         self._node = _create_node(self.__name, "scan", parent=self.root_node)
-      
+        self._data_watch_callback = data_watch_callback
+        self._data_events = dict()
+        
+        if data_watch_callback is not None:
+            if not callable(data_watch_callback):
+                raise TypeError("data_watch_callback needs to be callable")
+            data_watch_callback_event = gevent.event.Event()
+            data_watch_callback_done = gevent.event.Event()
+            def trig(*args):
+                data_watch_callback_event.set()
+            self._data_watch_task = gevent.spawn(ScanRecorder._data_watch,
+                                                 weakref.proxy(self,trig),
+                                                 data_watch_callback_event)
+            self._data_watch_callback_event = data_watch_callback_event
+        else:
+            self._data_watch_task = None
+
     @property
     def name(self):
         return self.__name
@@ -416,7 +449,17 @@ class ScanRecorder(object):
                 node.set_ttl()
             self._node.set_ttl()
         node = self._nodes[sender]
-        node.store(signal, event_dict) 
+        node.store(signal, event_dict)
+        
+        if self._data_watch_callback is not None:
+            event_set = self._data_events.setdefault(sender,set())
+            event_set.add(signal)
+            if signal == 'end':
+                data_events = self._data_events
+                self._data_events = dict()
+                self._data_watch_callback(data_events,self.nodes)
+            else:
+                self._data_watch_callback_event.set()
 
     def prepare(self, scan_info, devices_tree):
         parent_node = self._node
@@ -446,3 +489,17 @@ class ScanRecorder(object):
         for node in self._nodes.itervalues():
             node.set_ttl()
         self._node.set_ttl()
+        
+    @staticmethod
+    def _data_watch(scanrecorder,event):
+        while True:
+            event.wait()
+            event.clear()
+            try:
+                data_events = scanrecorder._data_events
+                scanrecorder._data_events = dict()
+                scanrecorder._data_watch_callback(data_events,scanrecorder.nodes)
+                gevent.idle()
+            except ReferenceError:
+                break                
+    

@@ -25,6 +25,7 @@ class Scan(object):
             acquisition.get()
         except:
             self.acq_chain.stop()
+            self.scan_dm.stop()
             raise
         else:
             self.acq_chain.stop()

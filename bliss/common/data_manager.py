@@ -442,5 +442,7 @@ class ScanRecorder(object):
         if self._writer:
             self._writer.prepare(self, scan_info, devices_tree)
 
-
-
+    def stop(self):
+        for node in self._nodes.itervalues():
+            node.set_ttl()
+        self._node.set_ttl()

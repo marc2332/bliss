@@ -360,6 +360,8 @@ class CalcController(Controller):
 
     def _calc_from_real(self, *args, **kwargs):
         motion_control = any([real._hw_control for real in self.reals])
+        if kwargs.pop('force_write', False):
+            motion_control = True
 
         new_positions = self._do_calc_from_real()
 
@@ -432,7 +434,7 @@ class CalcController(Controller):
         for real_axis_tag, user_pos in real_positions.iteritems():
             self._tagged[real_axis_tag][0].position(user_pos)
 
-        self._calc_from_real()
+        self._calc_from_real(force_write=True)
 
         return axis.position()
 

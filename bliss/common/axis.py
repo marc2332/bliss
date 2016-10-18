@@ -1213,7 +1213,7 @@ class AxisState(object):
         # (copy constructor)
         if '(' in state:
             full_states = [s.strip() for s in state.split('|')]
-            p = re.compile('^([A-Z]+)\s\((.+)\)$')
+            p = re.compile('^([A-Z0-9]+)\s\((.+)\)$')
             for full_state in full_states:
                 m = p.match(full_state)
                 state = m.group(1)

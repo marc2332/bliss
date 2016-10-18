@@ -78,6 +78,9 @@ class OxfordCryostream:
         #RS232 settings: 9600 baud, 8 bits, no parity, 1 stop bit
         self.serial = Serial(port, baudrate=9600, eol='\r')
 
+    def __del__(self):
+        self.serial.close()
+
     def exit(self):
         self.serial.close()
 
@@ -242,7 +245,6 @@ class oxford700(Controller):
         self._oxford = OxfordCryostream(config["SLdevice"])
 
     def initialize_output(self,toutput):
-        log.debug("oxf700: initialize_output: %s" % (toutput))
         self.__ramp_rate = None
         self.__set_point = None
 
@@ -251,9 +253,9 @@ class oxford700(Controller):
 
     def start_ramp(self, toutput, sp, **kwargs):
         try:
-            rate = float(kwargs["rate"])
-        except AttributeError:
-            rate = self.__ramp_rate
+            rate = int(kwargs.get("rate", self.__ramp_rate))
+        except TypeError:
+            raise RuntimeError("Cannot start ramping, ramp rate not set")
         self._oxford.ramp(rate, sp)
 
     def set_ramprate(self, toutput, rate):

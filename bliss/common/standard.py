@@ -98,7 +98,7 @@ def active_measurement_group():
         QueueSetting: a list of active counters
     """
     global MEASUREMENT_GROUP
-    if MEASUREMENT_GROUP:
+    if MEASUREMENT_GROUP is not None:
         return MEASUREMENT_GROUP
     def write(value):
         if not isinstance(value, (str, unicode)):

@@ -569,7 +569,7 @@ class Axis(object):
         self._handle_move(backlash_motion, polling_time)
 
     def _handle_move(self, motion, polling_time):
-        state = self._wait_move(polling_time, update_settings=True)
+        state = self._wait_move(polling_time)
         if state in ['LIMPOS', 'LIMNEG']:
             raise RuntimeError(str(state))
 
@@ -595,7 +595,7 @@ class Axis(object):
             self._do_encoder_reading()
 
     def _jog_move(self, velocity, direction, polling_time):
-        self._wait_move(polling_time, update_settings=True)
+        self._wait_move(polling_time)
 
         dial_pos = self._read_dial_and_update()
         user_pos = self.dial2user(dial_pos)
@@ -883,13 +883,11 @@ class Axis(object):
             except gevent.GreenletExit:
                 pass
 
-    def _wait_move(self, polling_time=DEFAULT_POLLING_TIME,
-                   update_settings=False, ctrl_state_funct='state'):
+    def _wait_move(self, polling_time=DEFAULT_POLLING_TIME, ctrl_state_funct='state'):
         while True:
             state_funct = getattr(self.__controller, ctrl_state_funct)
             state = state_funct(self)
-            if update_settings:
-                self._update_settings(state)
+            self._update_settings(state)
             if state != "MOVING":
                 return state
             gevent.sleep(polling_time)

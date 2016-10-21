@@ -4,12 +4,20 @@
 #
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
+"""
+Get/Set transmission factor as function of the filters, mounted on a
+ESRF standard monochromatic attenuator aznd the energy (fixed or tunable).
+
+yml configuration example:
+name: transmission
+class: transmission
+matt: $matt
+energy: $energy (or energy: 12.7)
+datafile: "/users/blissadm/local/beamline_control/configuration/misc/transmission.dat"
+"""
 
 from bliss.common.task_utils import *
-from bliss.common.utils import wrap_methods
-import inspect
-from PyTransmission import matt_control
-import types
+from bliss.controllers import matt, _transmission_calc
 
 class Energy:
    def __init__(self, energy):
@@ -26,8 +34,6 @@ class Energy:
 
 class transmission:
    def __init__(self, name, config):
-      wago_ip = config["controller_ip"]
-      nb_filter = config["nb_filter"]
       try:
          #fixed energy
          self.energy = Energy(float(config["energy"]))
@@ -35,40 +41,41 @@ class transmission:
          #tunable energy: energy motor is expected
          self.energy = Energy(config["energy"])
       try:
-          #attenuator type (0,1 or 2, default is 0)
-          att_type = config["att_type"]
+            self.datafile = config["datafile"]
       except:
-          att_type = 0
-      try:
-         #wago card alternation (True or False, default False)
-         wago_alternate = config["wago_alternate"]
-      except:
-         wago_alternate = False
-      try:
-         #wago status module (default value "750-436")
-         stat_m = config["status_module"]
-      except:
-         stat_m = "750-436"
-      try:
-         #wago control module (default value "750-530")
-         ctrl_m = config["control_module"]
-      except:
-         ctrl_m = "750-530"
-      try:
-         datafile = config["datafile"]
-      except:
-         datafile=None
+         self.datafile=None
 
-      self.__control = matt_control.MattControl(wago_ip, nb_filter, self.energy.read(), att_type, wago_alternate, stat_m, ctrl_m, datafile)
+      self.__matt = config["matt"]
 
-      self.__control.connect()
-      wrap_methods(self.__control, self)
 
-   def transmission_get(self):
-      self.__control.set_energy(self.energy.read())
-      return self.__control.transmission_get()
+   def set(self, transm):
+        vals = []
+        value = 0
+        en = self.energy.read()
+        if en <= 0:
+            raise RuntimeError("Wrong energy input %g" % en)
 
-   def transmission_set(self, transmission):
-      self.__control.set_energy(self.energy.read())
-      return self.__control.transmission_set(transmission)
+        transm, vals = _transmission_calc.getAttenuation(en, transm, self.datafile)
+        if -1 in vals:
+            value = 0
+        else:
+            for i in vals:
+                value += (1<<i)
+        self.__matt.mattstatus_set(value)
+
+   def get(self):
+        mystr = ""
+        en = self.energy.read()
+        if en <= 0:
+            raise RuntimeError("Wrong energy input %g" % en)
+
+	mystr = self.__matt._status_read()
+
+        if not mystr:
+            val = 100
+        else:
+            val = _transmission_calc.getAttenuationFactor(en, mystr, self.datafile)
+        self.transmission_factor = val
+        return val
+
    

@@ -309,7 +309,7 @@ class flex:
                 self.save_ref_image(image, filename, dir)
             logging.getLogger('flex').info("gripper for pin detection is %s" %gripper_type)
             #roi_pin = [[350,200], [630,450]]
-            roi_pin = [[200,300], [800,600]]
+            roi_pin = [[200,300], [800,500]]
             PinIsInGripper = not(self.cam.is_empty(image, roi_pin))
             if PinIsInGripper:
                 logging.getLogger('flex').info("Pin is in gripper")
@@ -334,16 +334,16 @@ class flex:
                     raise ValueError("2 rois must be on the same horizontal line from top")
                 edge_gripper = self.cam.horizontal_edge(image, roi_gripper)
                 edge_pin = self.cam.horizontal_edge(image, roi_pin)
-                logging.getLogger('flex').info("horizonta edge of the pin %s and of the gripper %s" %(str(edge_pin), str(edge_gripper)))
+                logging.getLogger('flex').info("horizontal edge of the pin %s and of the gripper %s" %(str(edge_pin), str(edge_gripper)))
                 if edge_gripper is not None or edge_pin is not None:
                     distance_pin_gripper = self.cam.edge_distance(edge_pin, edge_gripper)
                     logging.getLogger('flex').info("distance between pin and gripper %s" %str(distance_pin_gripper))
                     # DN must be negative if the pin stands out of the gripper if not VAL3 will care about the error
-                    if 2 <= abs(distance_pin_gripper) <= 4:
+                    if 1 <= abs(distance_pin_gripper) <= 4:
                         self.robot.setVal3GlobalVariableDouble("trsfPutFpGonio.z", str(distance_pin_gripper)) 
                         logging.getLogger('flex').info("distance saved in robot")
                     else:
-                        logging.getLogger('flex').error("distance pin gripper is %s should be between 2-4mm" %str(abs(distance_pin_gripper)))
+                        logging.getLogger('flex').error("distance pin gripper is %s should be between 1-4mm" %str(abs(distance_pin_gripper)))
                 else:
                     logging.getLogger('flex').error("Edge of the gripper or of the pin not found")
                     raise RuntimeError("Edge of the gripper or of the pin not found")
@@ -355,8 +355,8 @@ class flex:
 
     def vial_center_detection(self):
         image = self.waiting_for_image()
-        roi_left = [[200,0],[600,500]]
-        roi_right = [[800,0],[1200,500]]
+        roi_left = [[0,0],[400,400]]
+        roi_right = [[700,0],[1100,400]]
         left_edge =  self.cam.vertical_edge(image, roi_left)
         right_edge = self.cam.vertical_edge(image, roi_right)
         logging.getLogger('flex').info("Vial left edge %s right_edge %s" %(str(left_edge), str(right_edge)))
@@ -384,7 +384,9 @@ class flex:
             raise RuntimeError("Correction is too high")
 
     def vial_detection(self, image):
-        roi = [[350,600], [650,1023]]
+        #roi = [[350,600], [650,1023]]
+        #roi = [[200,500], [350,1023]]
+        roi = [[500,500], [700,1023]]
         VialIsNotInGripper = self.cam.is_empty(image, roi)
         if VialIsNotInGripper:
             logging.getLogger('flex').info("Vial is not in gripper")
@@ -693,7 +695,7 @@ class flex:
 
     def flipping_gripper_height_detections(self):
         image = self.waiting_for_image()
-        roi_dewar = [[0,150], [350,550]]
+        roi_dewar = [[0,150], [250,550]]
         image_dewar_height = self.cam.horizontal_edge(image, roi_dewar)
         logging.getLogger('flex').info("image height in dewar orientation %s" %str(self.cam.horizontal_edge(image, roi_dewar)))
         height_dewar = (image_dewar_height - self.cam.image_height / 2.0) / self.cam.pixels_per_mm
@@ -712,7 +714,7 @@ class flex:
         self.robot.setVal3GlobalVariableBoolean("bImageProcEnded", True)
 
         image = self.waiting_for_image()
-        roi_gonio = [[0,150], [350,550]]
+        roi_gonio = [[0,150], [250,550]]
         image_gonio_height = self.cam.horizontal_edge(image, roi_gonio)
         logging.getLogger('flex').info("image height in gonio orientation %s" %str(image_gonio_height))
         height_gonio = (image_gonio_height - self.cam.image_height / 2.0) / self.cam.pixels_per_mm
@@ -726,7 +728,7 @@ class flex:
         logging.getLogger('flex').info("error in Z at the gonio %s" %str(diff_calib_flipping))
 
         logging.getLogger('flex').info("Vertical correction at dewar %s, at gonio %s" %(str(height_dewar), str(height_gonio)))
-        if abs(height_dewar) < 4 and abs(height_gonio) < 4:
+        if abs(height_dewar) < 5 and abs(height_gonio) < 5:
             logging.getLogger('flex').info("Correction flipping gripper in Z in Dewar orientation %s, in gonio orientation %s" %(str(flipping_gripper_z_dewar), str(flipping_gripper_z_gonio)))
             self.robot.execute("data:tFlippingDewar.trsf.z = (%s)" %str(flipping_gripper_z_dewar))
             self.robot.execute("data:tFlippingGonio.trsf.z = (%s)" %str(flipping_gripper_z_gonio))
@@ -737,8 +739,8 @@ class flex:
 
     def stallion_center_detection(self):
         image = self.waiting_for_image()
-        roi_left = [[400,0], [650,400]]
-        roi_right = [[650,0], [900,400]]
+        roi_left = [[300,50], [600,400]]
+        roi_right = [[600,50], [900,400]]
         left_edge =  self.cam.vertical_edge(image, roi_left)
         right_edge =  self.cam.vertical_edge(image, roi_right)
         logging.getLogger('flex').info("Stallion left edge %s, right edge %s" %(str(left_edge), str(right_edge)))

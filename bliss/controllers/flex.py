@@ -195,8 +195,11 @@ class flex:
             logging.getLogger('flex').error("No or wrong gripper")
             raise ValueError("No or wrong gripper")
         self.robot.setVal3GlobalVariableDouble("nGripperType", str(gripper_type))
-        self.robot.setVal3GlobalVariableBoolean("bGripperIsOnArm", True)
-        self.robot.execute("data:dioEnablePress=true")
+        if gripper_type == -1:
+            self.robot.setVal3GlobalVariableBoolean("bGripperIsOnArm", False)
+        else:
+            self.robot.setVal3GlobalVariableBoolean("bGripperIsOnArm", True)
+        #self.robot.execute("data:dioEnablePress=true")
         self.robot.executeTask("homeClear", timeout=60)
         logging.getLogger('flex').info("Homing done")
 

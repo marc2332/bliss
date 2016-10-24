@@ -263,11 +263,11 @@ class flex:
         self.cam.image_save(image)
         return image
 
-    def save_ref_image(self, image, filename, dir="/users/blissadm/local/StaubCom.git/"):
+    def save_ref_image(self, image, filename):
         logging.getLogger('flex').info("Saving the reference file")
-        dir = "/users/blissadm/local/StaubCom.git/"
-        file_path = dir + filename + ".edf"
-        old_file_path = dir + filename + ".old"
+        dir = os.path.dirname(self.calibration_file)
+        file_path = os.path.join(dir, filename)+".edf"
+        old_file_path = os.path.join(dir, filename) + ".old"
         try:
             os.remove(old_file_path)
         except OSError:
@@ -285,7 +285,7 @@ class flex:
         if int(gripper_type) == 1:
             if ref == "True":
                 filename = "ref_spine_with_pin"
-                self.save_ref_image(image, filename, dir)
+                self.save_ref_image(image, filename)
             roi = [[800,800], [900,1023]]
             PinIsInGripper = not(self.cam.is_empty(image, roi))
             logging.getLogger('flex').info("Pin is the gripper %s" %str(PinIsInGripper))
@@ -295,7 +295,7 @@ class flex:
             edge = self.cam.vertical_edge(image, roi)
             logging.getLogger('flex').info("Vertical edge of the pin %s" %str(edge))
             if edge is not None:
-                sp_ref_file = "/users/blissadm/local/StaubCom.git/ref_spine_with_pin.edf"
+                sp_ref_file = os.path.join(os.path.dirname(self.calibration_file), "ref_spine_with_pin.edf")
                 ref_image = self.cam.image_read(sp_ref_file)
                 ref_image_edge = self.cam.vertical_edge(ref_image, roi)
                 logging.getLogger('flex').info("edge position on the reference image %s" %str(ref_image_edge))
@@ -306,7 +306,7 @@ class flex:
         if int(gripper_type) == 3:
             if ref == "True":
                 filename = "ref_flipping_with_pin"
-                self.save_ref_image(image, filename, dir)
+                self.save_ref_image(image, filename)
             logging.getLogger('flex').info("gripper for pin detection is %s" %gripper_type)
             #roi_pin = [[350,200], [630,450]]
             roi_pin = [[200,300], [800,500]]
@@ -317,7 +317,7 @@ class flex:
                 edge = self.cam.horizontal_edge(image, roi_pin)
                 logging.getLogger('flex').info("Horizontal edge of the pin %s" %str(edge))
                 if edge is not None:
-                    fp_ref_file = "/users/blissadm/local/StaubCom.git/ref_flipping_with_pin.edf"
+                    fp_ref_file = os.path.join(os.path.dirname(self.calibration_file), "ref_flipping_with_pin.edf")
                     ref_image = self.cam.image_read(fp_ref_file)
                     ref_image_edge = self.cam.horizontal_edge(ref_image, roi_pin)
                     logging.getLogger('flex').info("edge position on the reference image %s" %str(ref_image_edge))
@@ -394,7 +394,7 @@ class flex:
         else:
             vial_edge = self.cam.horizontal_edge(image, roi)
             logging.getLogger('flex').info("Vial edge position %s" %str(vial_edge))
-            fp_ref_file = "/users/blissadm/local/StaubCom.git/ref_flipping_with_pin.edf"
+            fp_ref_file = os.path.join(os.path.dirname(self.calibration_file), "ref_flipping_with_pin.edf")
             ref_image = self.cam.image_read(fp_ref_file)
             roi_ref = [[200,300], [800,600]]
             ref_image_edge = self.cam.horizontal_edge(ref_image, roi_ref)
@@ -705,7 +705,7 @@ class flex:
         flipping_z_robot = self.robot.getVal3GlobalVariableDouble("pTemp.trsf.z")
         logging.getLogger('flex').info("from robot z is %s" %str(flipping_z_robot))
         parser = ConfigParser.RawConfigParser()
-        file_path = "/users/blissadm/local/StaubCom.git/calibration.cfg"
+        file_path = self.calibration_file
         parser.read(file_path)
         calib_z_robot = parser.getfloat("Calibration", "z")
         logging.getLogger('flex').info("from reference %s" %str(calib_z_robot))
@@ -820,8 +820,8 @@ class flex:
             raise RuntimeError("problem with getVal3GlobalVariableDouble")
 
         parser = ConfigParser.RawConfigParser()
-        file_path = "/users/blissadm/local/StaubCom.git/calibration.cfg"
-        saved_file_path = "/users/blissadm/local/StaubCom.git/calibration.sav"
+        file_path = self.calibration_file
+        saved_file_path = os.path.splitext(self.calibration_file)[0]+os.path.extsep+"sav"
         parser.read(file_path)
         try:
             shutil.copy(file_path, saved_file_path)

@@ -64,6 +64,7 @@ class flex:
         self.microscan_hor_ip = config.get('ip_hor')
         self.microscan_vert_ip = config.get('ip_vert')
         self.proxisense_address = config.get('proxisense_address')
+        self.calibration_file = config.get('calibration_file')
         self.robot = None
         self.cam = None
         robot.setLogFile(config.get('log_file'))
@@ -84,7 +85,7 @@ class flex:
         self.cam = Ueye_cam(self.ueye_id)
         self.microscan_hor = dm_reader(self.microscan_hor_ip)
         self.microscan_vert = dm_reader(self.microscan_vert_ip)
-        self.proxisense = ProxiSense(self.proxisense_address)
+        self.proxisense = ProxiSense(self.proxisense_address, os.path.dirname(self.calibration_file))
         self.robot = robot.Robot('flex', self.cs8_ip)
         logging.getLogger('flex').info("Connection done")
 

@@ -332,7 +332,6 @@ class CalcController(Controller):
 	    event.connect(pseudo_axis, 'sync_hard', self._pseudo_sync_hard)
 
 	self._calc_from_real()
-	self._update_state_from_real() 
 
     def initialize_axis(self, axis):
 	pass
@@ -380,15 +379,7 @@ class CalcController(Controller):
         """Return a dict { pseudo motor tag: new position, ... }"""
         raise NotImplementedError
 
-    def _update_state_from_real(self, *args, **kwargs):
-        write_settings = any([real._hw_control for real in self.reals])
-        state = self._reals_group.state()
-        for axis in self.pseudos:
-            #print '_update_state_from_real', axis.name, str(state)
-            axis.settings.set("state", state, write=write_settings)
-
     def _real_move_done(self, done):
-        self._update_state_from_real()
         if done:
             #print 'MOVE DONE'
             for axis in self.pseudos:

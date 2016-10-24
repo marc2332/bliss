@@ -222,7 +222,7 @@ class _Group(object):
 
         all_motions = self._start_motion(self._motions_dict)
         self.__move_done.clear() 
-        self.__move_task = self._handle_move(all_motions, polling_time,wait=False)
+        self.__move_task = self._handle_move(all_motions, polling_time, wait=False)
         self.__move_task._being_waited = wait
         self.__move_task.link(self._set_move_done)
  

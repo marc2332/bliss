@@ -406,7 +406,8 @@ class flex:
                 self.robot.setVal3GlobalVariableBoolean("bVialIsInGrip", True) 
                 logging.getLogger('flex').info("Vial is in gripper")
             else:
-                logging.getLogger('flex').info("Vial is not in gripper")
+                logging.getLogger('flex').info("Vial edge too different to the reference")
+                self.robot.setVal3GlobalVariableBoolean("bVialIsInGrip", False)
 
     def dm_detection(self, GripperType):
         logging.getLogger('flex').info("Starting Data matrix reading with gripper type %s" %GripperType)

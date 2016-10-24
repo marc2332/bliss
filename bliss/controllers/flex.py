@@ -168,6 +168,26 @@ class flex:
             raise
         logging.getLogger('flex').info("Dewar moved to %d" %cell)
 
+    def get_loaded_sample(self):
+        VAL3_puck = int(self.robot.getVal3GlobalVariableDouble("nLoadPuckPos"))
+        VAL3_sample = int(self.robot.getVal3GlobalVariableDouble("nLoadSamplePos"))
+        cell = VAL3_puck // 3 + 1
+        puck = VAL3_puck % 3 + 1
+        sample = VAL3_sample + 1
+        return cell, puck, sample
+
+    def get_cell_position(self):
+        if self.robot.getCachedVariable('DewarInPosition').getValue():
+            try:
+                VAL3_puck = int(self.robot.getCachedVariable('RequestedDewarPosition').getValue())
+            except:
+                return None, None
+            cell = VAL3_puck // 3 + 1
+            puck = VAL3_puck % 3 + 1
+
+            return cell, puck
+        return None, None
+
     def homeClear(self):
         logging.getLogger('flex').info("Starting homing")
         gripper_type = self.onewire.read()[1]

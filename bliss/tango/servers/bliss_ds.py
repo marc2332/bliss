@@ -212,10 +212,10 @@ class Bliss(Device):
     #: session name)
     session_name = device_property(dtype=str, default_value=None)
 
-    #: Sanatize or not the command to be executed
+    #: Sanitize or not the command to be executed
     #: If True, it will allow you to send a command like: 'wm th phi'
     #: If False, it will only accepts commands with python syntax: 'wm(th, phi)'
-    #: Sanatize is not perfect! You simply cannot transform one language into
+    #: Sanitize is not perfect! You simply cannot transform one language into
     #: another. Avoid the temptation of using it just to try to please the user
     #: with a 'spec' like syntax as much as possible
     sanatize_command = device_property(dtype=bool, default_value=False)

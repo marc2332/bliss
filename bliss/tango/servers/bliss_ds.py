@@ -25,6 +25,8 @@ import StringIO
 import functools
 import itertools
 import traceback
+import cPickle
+import base64
 
 import six
 import gevent
@@ -231,6 +233,7 @@ class Bliss(Device):
         self.set_state(DevState.INIT)
         self._log.info('Initializing device...')
         self.__tasks = {}
+        self.__results = {}
 
         if self.config_file is None:
             self.set_state(DevState.FAULT)
@@ -349,15 +352,22 @@ class Bliss(Device):
     def __on_cmd_finished(self, task):
         del self.__tasks[id(task)]
 
+        res = task.get()
+        if res is not None:
+            self.__results[id(task)] = base64.encodestring(cPickle.dumps(res, protocol=-1))
+
     def __execute(self, cmd):
         if self.sanatize_command:
             cmd = sanatize_command(cmd)
         try:
-            six.exec_(cmd, self.__user_ns)
+            six.exec_('_='+cmd, self.__user_ns)
         except gevent.GreenletExit:
             six.reraise(*sys.exc_info())
-        except:
+        except Exception, e:
             sys.excepthook(*sys.exc_info())
+            return e
+        else:
+            return self.__user_ns.get("_")
 
     @command(dtype_in=str, dtype_out=int)
     def execute(self, cmd):
@@ -371,6 +381,11 @@ class Bliss(Device):
     @command(dtype_in=int, dtype_out=bool)
     def is_finished(self, cmd_id):
         return cmd_id not in self.__tasks
+
+    @command(dtype_in=int, dtype_out=str)
+    def get_result(self, cmd_id):
+        res = self.__results.pop(cmd_id, '')
+        return res
 
     @command(dtype_in=int, dtype_out=bool)
     def is_running(self, cmd_id):

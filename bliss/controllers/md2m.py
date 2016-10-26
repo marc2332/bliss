@@ -446,12 +446,12 @@ class MD2M:
    
         diode_values = []
         
-        def restore_att(old_transmission=self.transmission.transmission_get()):
-            self.transmission.transmission_set(old_transmission)
+        def restore_att(old_transmission=self.transmission.get()):
+            self.transmission.set(old_transmission)
 
         with error_cleanup(restore_att, self.fshut.close):
           for t in (1,10,100):
-            self.transmission.transmission_set(t)
+            self.transmission.set(t)
             diode_values.append(self.i1.read())
         
           if (diode_values[1]/diode_values[0])<=12 and (diode_values[1]/diode_values[0])>=8:
@@ -507,7 +507,7 @@ class MD2M:
             return dy, dz
   
         with cleanup(restore_slits, restore_att, self.fshut.close):
-            self.transmission.transmission_set(0.5)
+            self.transmission.set(0.5)
             self.detcover.set_in()
             self.move_beamstop_out()
             self.fshut.open()
@@ -548,15 +548,15 @@ class MD2M:
         self.centrebeam()
         self.i1.autorange(True)
 
-        def restore(old_transmission=self.transmission.transmission_get(), old_slits=(self.hgap, self.hgap.position(), self.vgap, self.vgap.position())):
-          self.transmission.transmission_set(old_transmission)
+        def restore(old_transmission=self.transmission.get(), old_slits=(self.hgap, self.hgap.position(), self.vgap, self.vgap.position())):
+          self.transmission.set(old_transmission)
           self._simultaneous_move(*old_slits)
           self.fshut.close()
 
         with cleanup(restore):
           self._simultaneous_move(self.hgap, 1.6, self.vgap, 0.2)
           self.move_beamstop_in()
-          self.transmission.transmission_set(10)
+          self.transmission.set(10)
 
           dscan(self.vtrans, -0.2*1.5, 0.2*1.5, 20, 0, self.i1) 
           a = last_scan_data()

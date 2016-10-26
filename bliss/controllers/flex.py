@@ -190,6 +190,15 @@ class flex:
             return cell, puck
         return None, None
 
+    def get_user_cell_position(self):
+        if self.robot.getCachedVariable('DewarInPosition').getValue():
+            try:
+                VAL3_puck = int(self.robot.getCachedVariable('RequestedDewarPosition').getValue())
+            except:
+                return None, None
+            cell = ((VAL3_puck // 3 + 3) % 8) + 1 
+            return cell
+
     def homeClear(self):
         logging.getLogger('flex').info("Starting homing")
         gripper_type = self.onewire.read()[1]
@@ -647,12 +656,23 @@ class flex:
         self.robot.executeTask("defreezeGripper", timeout=60)
         logging.getLogger('flex').info("Defreezing gripper finished")
 
-    def changeGripper(self, gripper_to_take):
+    def changeGripper(self, gripper_to_take=1, user_mode=True):
         gripper_type = self.onewire.read()[1]
         if gripper_type in [1,3,9]:
-            logging.getLogger('flex').info("first pose gripper %d" %gripper_type)
-            self.poseGripper()
-            self.takeGripper(int(gripper_to_take))
+            if user_mode == False:
+                logging.getLogger('flex').info("first pose gripper %d" %gripper_type)
+                self.poseGripper()
+                self.takeGripper(int(gripper_to_take))
+            else:
+                gripper_type = self.onewire.read()[1]
+                self.poseGripper()
+                if gripper_type == 1:
+                    self.takeGripper(3)
+                elif gripper_type == 3:
+                    self.takeGripper(1)
+                else:
+                    logging.getLogger('flex').error("gripper left unknown")
+                    raise RuntimeError("gripper left unknown")            
         elif gripper_type == -1:
             logging.getLogger('flex').info("No gripper on arm taking gripper %d" %gripper_to_take)
             self.takeGripper(int(gripper_to_take))

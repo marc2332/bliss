@@ -200,6 +200,36 @@ class flex:
                 return None, None
             cell = ((VAL3_puck // 3 + 3) % 8) + 1 
             return cell
+  
+    def pin_on_gonio(self):
+        value = self.robot.getCachedVariable("data:dioPinOnGonio").getValue() == 'true'
+        success = 0
+        with gevent.Timeout(3, RuntimeError("SmartMagnet problem: don't know if pin is on gonio.")):
+          while True:
+              gevent.sleep(0.2)
+              new_value = self.robot.getCachedVariable("data:dioPinOnGonio").getValue() == 'true'
+              if value == new_value:
+                  success += 1
+              else:
+                  success = 0
+              value = new_value
+              if success == 2:
+                  return new_value
+
+    def arm_is_parked(self):
+        return self.robot.getCachedVariable("data:dioArmIsParked").getValue() == 'true'
+ 
+    def ready_for_centring(self):
+        if self.pin_on_gonio():
+            if self.arm_is_parked():
+                return True
+        return False
+ 
+    def get_robot_cache_variable(self, varname):
+        try:
+            return self.robot.getCachedVariable(varname).getValue()
+        except Exception:
+            return ''
 
     def homeClear(self):
         logging.getLogger('flex').info("Starting homing")

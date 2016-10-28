@@ -67,6 +67,7 @@ class flex:
         self.calibration_file = config.get('calibration_file')
         self.robot = None
         self.cam = None
+        self._loaded_sample = (-1, -1, -1)
         robot.setLogFile(config.get('log_file'))
         robot.setExceptionLogFile(config.get('exception_file'))
         global flex_log_handler
@@ -169,14 +170,15 @@ class flex:
         logging.getLogger('flex').info("Dewar moved to %d" %cell)
 
     def get_loaded_sample(self):
-        if self.robot.getCachedVariable("data:dioPinOnGonio").getValue() == 'false':
-            return -1,-1,-1
-        VAL3_puck = int(self.robot.getVal3GlobalVariableDouble("nLoadPuckPos"))
-        VAL3_sample = int(self.robot.getVal3GlobalVariableDouble("nLoadSamplePos"))
-        cell = VAL3_puck // 3 + 1
-        puck = VAL3_puck % 3 + 1
-        sample = VAL3_sample + 1
-        return cell, puck, sample
+        #if self.robot.getCachedVariable("data:dioPinOnGonio").getValue() == 'false':
+        #    return -1,-1,-1
+        #VAL3_puck = int(self.robot.getVal3GlobalVariableDouble("nLoadPuckPos"))
+        #VAL3_sample = int(self.robot.getVal3GlobalVariableDouble("nLoadSamplePos"))
+        #cell = VAL3_puck // 3 + 1
+        #puck = VAL3_puck % 3 + 1
+        #sample = VAL3_sample + 1
+        #return cell, puck, sample
+        return self._loaded_sample
 
     def get_cell_position(self):
         if self.robot.getCachedVariable('DewarInPosition').getValue():
@@ -484,6 +486,7 @@ class flex:
             X.execute(self.robot.executeTask, "loadSample", timeout=200)
 
     def loadSample(self, cell, puck, sample, ref=False):
+        to_load = (cell, puck, sample)
         cell, PuckPos, sample, PuckType = self.check_coordinates(cell, puck, sample)
         logging.getLogger('flex').info("Loading sample cell %d, puck %d, sample %d" %(cell, puck, (sample + 1)))
         if self.robot.getCachedVariable("data:dioPinOnGonio").getValue() == "true":
@@ -506,6 +509,8 @@ class flex:
             raise RuntimeError("No or wrong gripper")
 
         self.do_load_detection(gripper_type, ref)
+
+        self._loaded_sample = to_load
 
     def do_unload_detection(self, gripper_type):
         with BackgroundGreenlets(self.detection, (str(gripper_type), str(False)), 
@@ -535,6 +540,7 @@ class flex:
                     raise RuntimeError(errstr)
 
         #set variables at the beginning
+        self._loaded_sample = (-1, -1, -1)
         self.robot.setVal3GlobalVariableDouble("nPuckType", str(PuckType))
         self.robot.setVal3GlobalVariableDouble("nUnldPuckPos", str(PuckPos))
         self.robot.setVal3GlobalVariableDouble("nUnldSamplePos", str(sample))
@@ -589,11 +595,13 @@ class flex:
                     raise RuntimeError(errstr)
 
         #set variables at the beginning
+        self._loaded_sample = (-1, -1, -1)
         self.robot.setVal3GlobalVariableDouble("nPuckType", str(unload_PuckType))
         self.robot.setVal3GlobalVariableDouble("nUnldPuckPos", str(unload_PuckPos))
         self.robot.setVal3GlobalVariableDouble("nUnldSamplePos", str(unload_sample))
         self.robot.setVal3GlobalVariableDouble("nLoadPuckPos", str(load_PuckPos))
         self.robot.setVal3GlobalVariableDouble("nLoadSamplePos", str(load_sample))
+
         #Get gripper type
         gripper_type = self.onewire.read()[1]
         if gripper_type in [1, 3]:
@@ -608,6 +616,9 @@ class flex:
             logging.getLogger('flex').error("Wrong gripper")
             raise RuntimeError("Wrong gripper")
         self.do_chainedUnldLd_detection(gripper_type)
+  
+        self._loaded_sample = tuple(load)
+
 
     def sampleStatus(self, status_name):
         while True:

@@ -542,6 +542,9 @@ class flex:
 
         self._loaded_sample = to_load
 
+        if gripper_type == 3:
+            self.defreezeGripper()
+
     def do_unload_detection(self, gripper_type):
         with BackgroundGreenlets(self.detection, (str(gripper_type), str(False)), 
                                  self.sampleStatus, ("UnloadSampleStatus",)) as X:
@@ -587,6 +590,8 @@ class flex:
             logging.getLogger('flex').error("No or wrong gripper")
             raise RuntimeError("No or wrong gripper")
         self.do_unload_detection(gripper_type)
+        if gripper_type == 3:
+            self.defreezeGripper()
 
     def do_chainedUnldLd_detection(self, gripper_type):
         with BackgroundGreenlets(self.detection, (str(gripper_type), str(False)), 
@@ -603,6 +608,7 @@ class flex:
         if self.robot.getCachedVariable("data:dioPinOnGonio").getValue() == "false":
             logging.getLogger('flex').error("No sample on SmartMagnet")
             raise RuntimeError("No sample on SmartMagnet")
+
         unload_cell = unload[0]
         unload_puck = unload[1]
         unload_sample = unload[2]
@@ -649,6 +655,8 @@ class flex:
   
         self._loaded_sample = tuple(load)
 
+        if gripper_type == 3:
+            self.defreezeGripper()
 
     def sampleStatus(self, status_name):
         while True:
@@ -979,7 +987,7 @@ class flex:
         if self.onewire.read()[1] != 9:
             logging.getLogger('flex').error("Need calibration gripper")
             raise RuntimeError("Need calibration gripper")
-        self.defreezeGripper()
+        #self.defreezeGripper()
         if cell == "all":
             for i in range(0, 22, 3):
                 self.robot.setVal3GlobalVariableDouble("nLoadPuckPos", str(i))

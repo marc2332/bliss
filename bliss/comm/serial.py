@@ -460,6 +460,7 @@ class Serial:
             "dsrdtr":dsrdtr,
             "interCharTimeout":interCharTimeout,
             }
+        self._port = port
         self._eol = eol
         self._timeout = timeout
         self._raw_handler = None
@@ -506,7 +507,8 @@ class Serial:
         local_timeout = timeout or self._timeout
         msg = self._raw_handler.read(size,local_timeout)
         if len(msg) != size:
-            raise SerialError("read timeout on serial (%s)" % self._serial_kwargs.get(port,''))
+            raise SerialError("read timeout on serial (%s)" \
+                                  % self._serial_kwargs.get(self._port,''))
         return msg
 
     def readline(self,eol = None,timeout = None) :

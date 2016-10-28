@@ -352,7 +352,7 @@ class flex:
                 self.save_ref_image(image, filename)
             logging.getLogger('flex').info("gripper for pin detection is %s" %gripper_type)
             #roi_pin = [[350,200], [630,450]]
-            roi_pin = [[200,300], [800,500]]
+            roi_pin = [[200,400], [800,600]]
             PinIsInGripper = not(self.cam.is_empty(image, roi_pin))
             if PinIsInGripper:
                 logging.getLogger('flex').info("Pin is in gripper")
@@ -366,12 +366,12 @@ class flex:
                     logging.getLogger('flex').info("edge position on the reference image %s" %str(ref_image_edge))
                     distance_from_ref = self.cam.edge_distance(self.cam.horizontal_edge(ref_image, roi_pin), edge)
                     logging.getLogger('flex').info("distance of the pin from the reference %s" %str(distance_from_ref))
-                    if abs(distance_from_ref)  <= 0.6:
+                    if abs(distance_from_ref)  <= 0.7:
                         self.robot.setVal3GlobalVariableBoolean("bPinIsOkInGrip", True)
                     else:
-                        logging.getLogger('flex').error("distance from reference is too high (0.25mm)")
+                        logging.getLogger('flex').error("distance from reference is too high")
                 
-                roi_gripper = [[0,300], [70,900]]
+                roi_gripper = [[0,400], [70,900]]
                 if roi_gripper[0][1] != roi_pin[0][1]:
                     logging.getLogger('flex').error("2 rois must be on the same horizontal line from top")
                     raise ValueError("2 rois must be on the same horizontal line from top")
@@ -382,11 +382,11 @@ class flex:
                     distance_pin_gripper = self.cam.edge_distance(edge_pin, edge_gripper)
                     logging.getLogger('flex').info("distance between pin and gripper %s" %str(distance_pin_gripper))
                     # DN must be negative if the pin stands out of the gripper if not VAL3 will care about the error
-                    if 1 <= abs(distance_pin_gripper) <= 4:
+                    if 0.5 <= abs(distance_pin_gripper) <= 4:
                         self.robot.setVal3GlobalVariableDouble("trsfPutFpGonio.z", str(distance_pin_gripper)) 
                         logging.getLogger('flex').info("distance saved in robot")
                     else:
-                        logging.getLogger('flex').error("distance pin gripper is %s should be between 1-4mm" %str(abs(distance_pin_gripper)))
+                        logging.getLogger('flex').error("distance pin gripper is %s should be between 0.5-4mm" %str(abs(distance_pin_gripper)))
                 else:
                     logging.getLogger('flex').error("Edge of the gripper or of the pin not found")
                     raise RuntimeError("Edge of the gripper or of the pin not found")
@@ -445,7 +445,7 @@ class flex:
             cap_height = 3.0
             ref_vial_edge = cap_height * self.cam.pixels_per_mm + ref_image_edge
             logging.getLogger('flex').info("Reference vial edge position %s" %str(ref_vial_edge))
-            if abs(ref_vial_edge - vial_edge) < 60:
+            if abs(ref_vial_edge - vial_edge) < 70:
                 self.robot.setVal3GlobalVariableBoolean("bVialIsInGrip", True) 
                 logging.getLogger('flex').info("Vial is in gripper")
             else:

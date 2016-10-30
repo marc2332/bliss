@@ -1,8 +1,8 @@
 
-.. _bliss-how-tango:
+.. _bliss-tango-how-to:
 
-How to setup a new Bliss TANGO_ server
-======================================
+Bliss TANGO_ server how to
+==========================
 
 Bliss project provides extensions that allow you to work with bliss
 through TANGO_. This is used at the ESRF_, for example, to access bliss from

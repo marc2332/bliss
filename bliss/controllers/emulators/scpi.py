@@ -6,30 +6,39 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 """
-SCPI emulator helper class
+:term:`SCPI` emulator helper class
 
-To create a pure SCPI_ device use the following configuration as
+To create a pure :term:`SCPI` device use the following configuration as
 a starting point:
 
 .. code-block:: yaml
 
     name: my_emulator
     devices:
-        - class: SCPI
-          transports:
-              - type: tcp
-                url: :25000
+      - class: SCPI
+        transports:
+          - type: tcp
+            url: :25000
 
-To start the server you can do something like:
+To start the server you can do something like::
 
     $ python -m bliss.controllers.emulator my_emulator
 
-A simple *nc* client can be used to connect to the instrument:
+A simple *nc* client can be used to connect to the instrument::
 
     $ nc 0 25000
     *idn?
     Bliss Team, Generic SCPI Device, 0, 0.1.0
 
+The main purspose of this module is provide a base :class:`SCPI`
+class that can be used as a helper for your specific :term:`SCPI`
+device. Example of usage for a Tektronix Keithley device::
+
+    class Keithley(SCPI):
+
+        def __init__(self, *args, **kwargs):
+            super(PI, self).__init__(*args, **kwargs)
+            self._manufacturer = '(c)2013 Tektronix bla bla...'
 """
 
 import enum
@@ -48,6 +57,9 @@ class SCPIError(enum.Enum):
 
 
 class SCPI(BaseDevice):
+    """
+    Base class for :term:`SCPI` based bliss emulator devices
+    """
 
     def __init__(self, name, **opts):
         super_kwargs = dict(newline=opts.pop('newline', self.DEFAULT_NEWLINE))

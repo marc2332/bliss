@@ -17,6 +17,8 @@ and their common API and functionality can be determined
     actuator_inout
     ct2
     detector_cover
+    emulator
+    emulators
     fshutter
     keithley428
     keithley

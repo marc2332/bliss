@@ -352,7 +352,7 @@ class flex:
                 self.save_ref_image(image, filename)
             logging.getLogger('flex').info("gripper for pin detection is %s" %gripper_type)
             #roi_pin = [[350,200], [630,450]]
-            roi_pin = [[200,400], [800,600]]
+            roi_pin = [[200,300], [800,600]]
             PinIsInGripper = not(self.cam.is_empty(image, roi_pin))
             if PinIsInGripper:
                 logging.getLogger('flex').info("Pin is in gripper")
@@ -366,12 +366,12 @@ class flex:
                     logging.getLogger('flex').info("edge position on the reference image %s" %str(ref_image_edge))
                     distance_from_ref = self.cam.edge_distance(self.cam.horizontal_edge(ref_image, roi_pin), edge)
                     logging.getLogger('flex').info("distance of the pin from the reference %s" %str(distance_from_ref))
-                    if abs(distance_from_ref)  <= 0.7:
+                    if abs(distance_from_ref)  <= 0.8:
                         self.robot.setVal3GlobalVariableBoolean("bPinIsOkInGrip", True)
                     else:
                         logging.getLogger('flex').error("distance from reference is too high")
                 
-                roi_gripper = [[0,400], [70,900]]
+                roi_gripper = [[0,300], [70,900]]
                 if roi_gripper[0][1] != roi_pin[0][1]:
                     logging.getLogger('flex').error("2 rois must be on the same horizontal line from top")
                     raise ValueError("2 rois must be on the same horizontal line from top")

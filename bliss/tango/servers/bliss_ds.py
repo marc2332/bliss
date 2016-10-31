@@ -363,7 +363,7 @@ class Bliss(Device):
             six.exec_('_='+cmd, self.__user_ns)
         except gevent.GreenletExit:
             six.reraise(*sys.exc_info())
-        except Exception, e:
+        except Exception as e:
             sys.excepthook(*sys.exc_info())
             return e
         else:

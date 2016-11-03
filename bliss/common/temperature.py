@@ -80,7 +80,7 @@ class Input(object):
         return _attr_list[:]
 
     @property
-    def counters(self):
+    def counter(self):
         """ returns the counter object """
         return TempControllerCounter(self.name, self)
 
@@ -179,7 +179,7 @@ class Output(object):
         return _attr_list[:]
 
     @property
-    def counters(self):
+    def counter(self):
         """ returns the counter object """
         return TempControllerCounter(self.name, self)
 

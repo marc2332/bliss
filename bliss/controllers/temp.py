@@ -132,35 +132,29 @@ class Controller(object):
     def initialize_input(self,tinput):
         """
         Initializes an Input class type object
-           Raises NotImplementedError if not defined by inheriting class
 
         Args:
            tinput:  Input class type object          
         """
-        log.info("Controller:initialize_input: %s" % (tinput))
-        raise NotImplementedError 
+        pass 
 
     def initialize_output(self,toutput):
         """
         Initializes an Output class type object
-           Raises NotImplementedError if not defined by inheriting class
 
         Args:
            toutput:  Output class type object          
         """
-        log.info("Controller:initialize_output: %s" % (toutput))
-        raise NotImplementedError 
+        pass 
 
     def initialize_loop(self,tloop):
         """
         Initializes a Loop class type object
-           Raises NotImplementedError if not defined by inheriting class
 
         Args:
            tloop:  Loop class type object          
         """
-        log.info("Controller:initialize_loop: %s" % (tloop))
-        raise NotImplementedError 
+        pass
 
     def read_input(self, tinput):
         """

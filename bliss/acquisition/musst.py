@@ -13,8 +13,8 @@ import numpy
 class MusstAcquisitionDevice(AcquisitionDevice):
   def __init__(self, musst_dev,
                program=None,
-               store_list=list(), vars=dict(),
-               program_template_replacement={}):
+               store_list=None, vars=None,
+               program_template_replacement=None):
     """
     Acquisition device for the musst card.
 
@@ -26,8 +26,12 @@ class MusstAcquisitionDevice(AcquisitionDevice):
     AcquisitionDevice.__init__(self, musst_dev, "musst", "zerod", trigger_type=AcquisitionDevice.HARDWARE)
     self.musst = musst_dev
     self.program = program
-    self.program_template_replacement = program_template_replacement
-    self.vars = vars
+    if program_template_replacement is not None:
+      self.program_template_replacement = program_template_replacement
+    else:
+      self.program_template_replacement = dict()
+    self.vars = vars if vars is not None else dict()
+    store_list = store_list if store_list is not None else list()
     self.channels.extend((AcquisitionChannel(name,numpy.uint32, (1,)) for name in store_list))
 
   def prepare(self):

@@ -513,7 +513,7 @@ class flex:
     def do_load_detection(self, gripper_type, ref):
         with BackgroundGreenlets(self.detection, (str(gripper_type), str(ref)), 
                                  self.sampleStatus, ("LoadSampleStatus",)) as X:
-            X.execute(self.robot.executeTask, "loadSample", timeout=200)
+            return X.execute(self.robot.executeTask, "loadSample", timeout=200)
 
     def loadSample(self, cell, puck, sample, ref=False):
         to_load = (cell, puck, sample)
@@ -522,6 +522,7 @@ class flex:
         if self.robot.getCachedVariable("data:dioPinOnGonio").getValue() == "true":
             logging.getLogger('flex').error("Sample already on SmartMagnet")
             raise RuntimeError("Sample already on SmartMagnet")
+
         #set variables at the beginning
         self.robot.setVal3GlobalVariableDouble("nPuckType", str(PuckType))
         self.robot.setVal3GlobalVariableDouble("nLoadPuckPos", str(PuckPos))
@@ -538,17 +539,19 @@ class flex:
             logging.getLogger('flex').error("No or wrong gripper")
             raise RuntimeError("No or wrong gripper")
 
-        self.do_load_detection(gripper_type, ref)
-
-        self._loaded_sample = to_load
+        success = self.do_load_detection(gripper_type, ref)
+        if success: 
+            self._loaded_sample = to_load
 
         if gripper_type == 3:
-            self.defreezeGripper()
+            gevent.spawn(self.defreezeGripper)
+ 
+        return success
 
     def do_unload_detection(self, gripper_type):
         with BackgroundGreenlets(self.detection, (str(gripper_type), str(False)), 
                                  self.sampleStatus, ("UnloadSampleStatus",)) as X:
-            X.execute(self.robot.executeTask, "unloadSample", timeout=200)
+            return X.execute(self.robot.executeTask, "unloadSample", timeout=200)
 
     def reset_sample_pos(self):
         self.robot.setVal3GlobalVariableDouble("nUnldPuckPos", "24")
@@ -573,7 +576,6 @@ class flex:
                     raise RuntimeError(errstr)
 
         #set variables at the beginning
-        self._loaded_sample = (-1, -1, -1)
         self.robot.setVal3GlobalVariableDouble("nPuckType", str(PuckType))
         self.robot.setVal3GlobalVariableDouble("nUnldPuckPos", str(PuckPos))
         self.robot.setVal3GlobalVariableDouble("nUnldSamplePos", str(sample))
@@ -589,15 +591,21 @@ class flex:
         else:
             logging.getLogger('flex').error("No or wrong gripper")
             raise RuntimeError("No or wrong gripper")
-        self.do_unload_detection(gripper_type)
+
+        success =  self.do_unload_detection(gripper_type)
+        if success:
+            self._loaded_sample = (-1, -1, -1)
+        
         if gripper_type == 3:
-            self.defreezeGripper()
+            gevent.spawn(self.defreezeGripper)
+
+        return success
 
     def do_chainedUnldLd_detection(self, gripper_type):
         with BackgroundGreenlets(self.detection, (str(gripper_type), str(False)), 
                                  self.sampleStatus, ("LoadSampleStatus",),
                                  self.sampleStatus, ("UnloadSampleStatus",)) as X:
-            X.execute(self.robot.executeTask, "chainedUnldLd", timeout=200)
+            return X.execute(self.robot.executeTask, "chainedUnldLd", timeout=200)
  
     def chainedUnldLd(self, unload, load):
         if not isinstance(unload, list) or not isinstance(load, list):
@@ -631,7 +639,6 @@ class flex:
                     raise RuntimeError(errstr)
 
         #set variables at the beginning
-        self._loaded_sample = (-1, -1, -1)
         self.robot.setVal3GlobalVariableDouble("nPuckType", str(unload_PuckType))
         self.robot.setVal3GlobalVariableDouble("nUnldPuckPos", str(unload_PuckPos))
         self.robot.setVal3GlobalVariableDouble("nUnldSamplePos", str(unload_sample))
@@ -651,12 +658,15 @@ class flex:
         else:
             logging.getLogger('flex').error("Wrong gripper")
             raise RuntimeError("Wrong gripper")
-        self.do_chainedUnldLd_detection(gripper_type)
-  
-        self._loaded_sample = tuple(load)
+
+        success =  self.do_chainedUnldLd_detection(gripper_type)
+        if success:
+            self._loaded_sample = tuple(load)
 
         if gripper_type == 3:
-            self.defreezeGripper()
+            gevent.spawn(self.defreezeGripper)
+
+        return success
 
     def sampleStatus(self, status_name):
         while True:

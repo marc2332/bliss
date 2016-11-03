@@ -9,6 +9,7 @@ from __future__ import absolute_import
 from bliss.common.continuous_scan import AcquisitionMaster
 from bliss.common import axis
 from bliss.common import event
+from bliss.common.task_utils import error_cleanup
 import bliss
 import numpy
 import gevent
@@ -89,18 +90,18 @@ class SoftwarePositionTriggerMaster(MotorMaster):
        
 
 class JogMotorMaster(AcquisitionMaster):
-    """
-    Helper to driver a motor in constant speed in jog mode.
-    
-    axis -- a motor axis
-    start -- position where you want to have your motor in constant speed
-    jog_speed -- constant velocity during the movement
-    end_jog_func -- function to stop the jog movement. 
-    Stop the movement if return value != True
-    if end_jog_func is None should be stopped externally.
-    """
     def __init__(self, axis, start, jog_speed, end_jog_func = None,
                  undershoot=None):
+        """
+        Helper to driver a motor in constant speed in jog mode.
+        
+        axis -- a motor axis
+        start -- position where you want to have your motor in constant speed
+        jog_speed -- constant velocity during the movement
+        end_jog_func -- function to stop the jog movement. 
+        Stop the movement if return value != True
+        if end_jog_func is None should be stopped externally.
+        """
         AcquisitionMaster.__init__(self, axis, axis.name, "axis")
         self.movable = axis    
         self.start_pos = start
@@ -125,10 +126,10 @@ class JogMotorMaster(AcquisitionMaster):
         self.movable.move(start)
 
     def start(self, polling_time=axis.DEFAULT_POLLING_TIME):
-        self.movable.jog(self.jog_speed)
-        if self.end_jog_func is not None:
+        with error_cleanup(self.stop):
+            self.movable.jog(self.jog_speed)
             self.__end_jog_task = gevent.spawn(self._end_jog_watch,polling_time)
-
+            self.__end_jog_task.join()
 
     def stop(self):
         self.movable.stop()
@@ -143,7 +144,10 @@ class JogMotorMaster(AcquisitionMaster):
             while self.movable.is_moving:
                 stopFlag = True
                 try:
-                    stopFlag = not self.end_jog_func(self.movable)
+                    if self.end_jog_func is not None:
+                        stopFlag = not self.end_jog_func(self.movable)
+                    else:
+                        stopFlag = False
                     if stopFlag:
                         self.movable.stop()
                         break

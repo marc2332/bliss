@@ -25,6 +25,7 @@ class Scan(object):
             acquisition.get()
         except:
             self.acq_chain.stop()
+            self.scan_dm.stop()
             raise
         else:
             self.acq_chain.stop()
@@ -181,12 +182,13 @@ class AcquisitionDevice(object):
         return self._reading_task.get() if self._reading_task is not None else True
 
 class AcquisitionChain(object):
-  def __init__(self):
+  def __init__(self, parallel_prepare = False):
       self._tree = Tree()
       self._root_node = self._tree.create_node("acquisition chain","root")
       self._device_to_node = dict()
       self._presets_list = list()
-
+      self._parallel_prepare = parallel_prepare
+      
   def add(self, master, slave):
       slave_node = self._tree.get_node(slave)
       master_node = self._tree.get_node(master)
@@ -207,7 +209,8 @@ class AcquisitionChain(object):
   def add_preset(self, preset):
       self._presets_list.append(preset)
 
-  def _execute(self, func_name, master_to_slave=False):
+  def _execute(self, func_name,
+               master_to_slave=False, wait_between_levels=True):
     tasks = list()
 
     prev_level = None
@@ -220,9 +223,10 @@ class AcquisitionChain(object):
     for dev in devs:
         node = self._tree.get_node(dev)
         level = self._tree.depth(node)
-        if prev_level != level:
+        if wait_between_levels and prev_level != level:
             gevent.joinall(tasks)
             tasks = list()
+            prev_level = level
         func = getattr(dev, func_name)
         tasks.append(gevent.spawn(func))
     gevent.joinall(tasks)
@@ -230,7 +234,8 @@ class AcquisitionChain(object):
 
   def prepare(self, dm, scan_info):
       preset_tasks = [gevent.spawn(preset.prepare) for preset in self._presets_list]
-      gevent.joinall(preset_tasks, raise_error=True)
+      if not self._parallel_prepare:
+          gevent.joinall(preset_tasks, raise_error=True)
 
       #self._devices_tree = self._get_devices_tree()
       for master in (x for x in self._tree.expand_tree() if isinstance(x,AcquisitionMaster)):
@@ -238,12 +243,12 @@ class AcquisitionChain(object):
           for dev in self._tree.get_node(master).fpointer:
               master.slaves.append(dev)
 
-      dm_prepare_task = gevent.spawn(dm.prepare, scan_info, self._tree)
+      dm.prepare(scan_info, self._tree)
 
-      self._execute("_prepare")
+      self._execute("_prepare",wait_between_levels = not self._parallel_prepare)
 
-      dm_prepare_task.join()
-
+      if self._parallel_prepare:
+          gevent.joinall(preset_tasks, raise_error=True)
     
   def start(self):
       preset_tasks = [gevent.spawn(preset.start) for preset in self._presets_list]

@@ -11,16 +11,18 @@ from bliss.common.data_manager import DataNode
 
 class Dataset0D(DataNode):
     class DataChannel(object):
-        def __init__(self,channel_db_name) :
-            cnx = node.get_default_connection()
+        def __init__(self,channel_db_name,cnx) :
             self._queue = QueueSetting(channel_db_name,
-                                       connection=cnx).get_proxy()
+                                       connection=cnx)
         def get(self,from_index,to_index = None):
             if to_index is None:
                 return self._queue[from_index]
             else:
                 return self._queue[from_index:to_index]
 
+        def __len__(self):
+            return len(self._queue)
+        
     def __init__(self,name,**keys):
         DataNode.__init__(self,'zerod',name,**keys)
         cnx = self.db_connection
@@ -29,8 +31,8 @@ class Dataset0D(DataNode):
         for channel_name in self._channels_name:
             self._channels[channel_name] = QueueSetting('%s_%s' % (self.db_name(),channel_name),
                                                         connection=cnx)
-    def channel_name(self) :
-        return self._channels.get()
+    def channels_name(self) :
+        return list(self._channels_name)
 
     def store(self,signal,event_dict) :
         if signal == "new_data":
@@ -56,8 +58,15 @@ class Dataset0D(DataNode):
         if channel_name is None:
             channel_name = self._channels[0]
         channel_db_name = '%s_%s' % (self.db_name(),channel_name)
-        return Dataset0D.DataChannel(channel_db_name)
+        return Dataset0D.DataChannel(channel_db_name,self.db_connection)
 
+    def get_all_channels(self):
+        """
+        return all channels for this node
+        the return is a dict {channel_name:DataChannel}
+        """
+        return dict(((chan_name,get_channel(chan_name))
+                     for chan_name in self._channels_name))
     def set_ttl(self):
         DataNode.set_ttl(self)
         for channel in self._channels.itervalues():

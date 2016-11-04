@@ -11,14 +11,19 @@
 This is a skeleton for writing a temperature controller called MyTemperatureController
 
 1- A beacon .yml file has to be defined.
-   Here, an example is given, providing 
-   - 2 'inputs' objects: used for reading only. can be seen as sensors.
-   - 1 'outputs' object: reading, ramping can be performed on such object. 
-                         can be seen as heater
-   - 1 'loops object   : to perform a regulation between an 'inputs' object
-                         and an 'outputs' object
+   This file will define :
+   - 'inputs'    : the list of Input type objects for this controller.
+   - 'outputs'   : the list of Output type objects for this controller.
+   - 'ctrl_loops': the list of Loop type objects for this controller.
 
-   In this example, it is shown also what is 'mandatory', what is 'recommended'
+   Following, an example is given, providing 
+   - 2 Input type  objects: used for reading only. can be seen as sensors.
+   - 1 Output type object : reading, ramping can be performed on such object. 
+                            can be seen as heater
+   - 1 Loop object        : to perform a regulation between an Input type object
+                            and an Output type object
+
+   In this example, it is shown also what is 'mandatory', what is 'recommended',
    and what is needed if you want a Tango server control.
    - mandatory: 
           - 'name': for all objects, a 'name' is mandatory.
@@ -109,28 +114,26 @@ class MyTemperatureController(Controller):
 
     def initialize(self):
         """ 
-        Initializes the controller. not mandatory 
+        Initializes the controller.
         """
 
 
     def initialize_input(self,tinput):
         """
-        Initializes an Input class type object
-           Raises NotImplementedError if not defined by inheriting class
+        Input type object only
 
-        MANDATORY if Input
+        Initialize an Input class type object
 
         Args:
-           tinput:  Input class type object          
+           tinput:  Input class type object 
         """
  
 
     def initialize_output(self,toutput):
         """
-        Initializes an Output class type object
-           Raises NotImplementedError if not defined by inheriting class
+        Output type object only
 
-        MANDATORY if Output
+        Initialize an Output class type object
 
         Args:
            toutput:  Output class type object          
@@ -138,10 +141,9 @@ class MyTemperatureController(Controller):
  
     def initialize_loop(self,tloop):
         """
-        Initializes a Loop class type object
-           Raises NotImplementedError if not defined by inheriting class
+        Loop type object only
 
-        MANDATORY if Loop
+        Initialize a Loop class type object
 
         Args:
            tloop:  Loop class type object          
@@ -149,229 +151,264 @@ class MyTemperatureController(Controller):
 
     def read_input(self, tinput):
         """
+        Input type object only
+
         Reads an Input class type object
-           Raises NotImplementedError if not defined by inheriting class
 
         Args:
            tinput:  Input class type object 
 
-        MANDATORY if Input
-
         Returns:
            read value         
+
+        Raises:
+           NotImplementedError: when not defined by the inheriting class      
         """
 
 
     def read_output(self, toutput):
         """
-        Reads an Onput class type object
-           Raises NotImplementedError if not defined by inheriting class
+        Output type object only
 
-        MANDATORY if Output
+        Reads an Output class type object
 
         Args:
            toutput:  Output class type object 
 
         Returns:
            read value         
+
+        Raises:
+           NotImplementedError: when not defined by the inheriting class      
         """
 
 
     def start_ramp(self, toutput, sp, **kwargs):
         """
-        Send the command to start ramping to a setpoint
-           Raises NotImplementedError if not defined by inheriting class
+        Output type object only
 
-        MANDATORY if Output
+        Send the command to start ramping to a setpoint
 
         Args:
            toutput:  Output class type object 
            sp:       setpoint
-           **kwargs: auxilliary arguments
+
+        Keyword Args:
+           kwargs: auxilliary arguments
+
+        Raises:
+           NotImplementedError: when not defined by the inheriting class      
         """
 
 
     def set_ramprate(self, toutput, rate):
         """
-        Sets the ramp rate
-           Raises NotImplementedError if not defined by inheriting class
+        Output type object only
 
-        MANDATORY if Output
+        Sets the ramp rate (for ramping mode)
 
         Args:
            toutput:  Output class type object 
            rate:     ramp rate
+
+        Raises:
+           NotImplementedError: when not defined by the inheriting class      
        """
 
 
     def read_ramprate(self, toutput):
         """
-        Reads the ramp rate
-           Raises NotImplementedError if not defined by inheriting class
+        Output type object only
 
-        MANDATORY if Output
+        Reads the ramp rate (for ramping mode)
 
         Args:
            toutput:  Output class type object 
         
         Returns:
            ramp rate
+
+        Raises:
+           NotImplementedError: when not defined by the inheriting class      
         """
 
 
     def set_dwell(self, toutput, dwell):
         """
-        Sets the dwell value (for ramp stepping mode)
-           Raises NotImplementedError if not defined by inheriting class
+        Output type object only
 
-        MANDATORY if Output
+        Sets the dwell value (for step-ramping mode)
 
         Args:
            toutput:  Output class type object 
-           dwell
+           dwell: dwell value (for step ramping)
+
+        Raises:
+           NotImplementedError: when not defined by the inheriting class      
        """
 
     def read_dwell(self, toutput):
         """
-        Reads the dwell value (for ramp stepping mode)
-           Raises NotImplementedError if not defined by inheriting class
+        Output type object only
 
-        MANDATORY if Output
+        Reads the dwell value (for step-ramping mode)
 
         Args:
            toutput:  Output class type object 
         
         Returns:
            dwell value
+
+        Raises:
+           NotImplementedError: when not defined by the inheriting class      
         """
 
     def set_step(self, toutput, step):
         """
-        Sets the step value (for ramp stepping mode)
-           Raises NotImplementedError if not defined by inheriting class
+        Output type object only
 
-        MANDATORY if Output
+        Sets the step value (for step-ramping mode)
 
         Args:
            toutput:  Output class type object 
-           step
+           step: step value (for step ramping)
+
+        Raises:
+           NotImplementedError: when not defined by the inheriting class      
        """
 
     def read_step(self, toutput):
         """
-        Reads the dwell value (for ramp stepping mode)
-           Raises NotImplementedError if not defined by inheriting class
+        Output type object only
 
-        MANDATORY if Output
+        Reads the dwell value (for step-ramping mode)
 
         Args:
            toutput:  Output class type object 
         
         Returns:
            step value
+
+        Raises:
+           NotImplementedError: when not defined by the inheriting class      
         """
 
 
     def set_kp(self, tloop, kp):
         """
-        Sets the PID P value
-           Raises NotImplementedError if not defined by inheriting class
+        Loop type object only
 
-        MANDATORY if Loop
+        Sets the PID P value
 
         Args:
            tloop:  Loop class type object 
-           kp
+           kp: P value
+
+        Raises:
+           NotImplementedError: when not defined by the inheriting class      
         """
 
 
     def read_kp(self, tloop):
         """
-        Reads the PID P value
-           Raises NotImplementedError if not defined by inheriting class
+        Loop type object only
 
-        MANDATORY if Loop
+        Reads the PID P value
 
         Args:
            tloop:  Loop class type object 
         
         Returns:
-           kp value
+           P value
+
+        Raises:
+           NotImplementedError: when not defined by the inheriting class      
         """
 
 
     def set_ki(self, tloop, ki):
         """
-        Sets the PID I value
-           Raises NotImplementedError if not defined by inheriting class
+        Loop type object only
 
-        MANDATORY if Loop
+        Sets the PID I value
 
         Args:
            tloop:  Loop class type object 
-           ki
+           ki: I value
+
+        Raises:
+           NotImplementedError: when not defined by the inheriting class      
        """
 
     def read_ki(self, tloop):
         """
-        Reads the PID I value
-           Raises NotImplementedError if not defined by inheriting class
+        Loop type object only
 
-        MANDATORY if Loop
+        Reads the PID I value
 
         Args:
            tloop:  Loop class type object 
         
         Returns:
-           ki value
+           I value
+
+        Raises:
+           NotImplementedError: when not defined by the inheriting class      
         """
 
     def set_kd(self, tloop, kd):
         """
-        Sets the PID D value
-           Raises NotImplementedError if not defined by inheriting class
+        Loop type object only
 
-        MANDATORY if Loop
+        Sets the PID D value
 
         Args:
            tloop:  Loop class type object 
-           kd
+           kd: D value
+
+        Raises:
+           NotImplementedError: when not defined by the inheriting class      
        """
 
     def read_kd(self, tloop):
         """
-        Reads the PID D value
-           Raises NotImplementedError if not defined by inheriting class
+        Loop type object only
 
-        MANDATORY if Loop
+        Reads the PID D value
 
         Args:
            tloop:  Loop class type object 
         
         Returns:
-           kd value
+           D value
+
+        Raises:
+           NotImplementedError: when not defined by the inheriting class      
         """
 
 
     def set(self, toutput, sp, **kwargs):
         """
-        Send the command to go to a setpoint as quickly as possible
-           Raises NotImplementedError if not defined by inheriting class
+        Output type object only
 
-        MANDATORY if Output
+        Send the command to go to a setpoint as quickly as possible
 
         Args:
            toutput:  Output class type object 
            sp:       setpoint
-           **kwargs: auxilliary arguments
+
+        Keyword Args:
+           kwargs: auxilliary arguments
+
+        Raises:
+           NotImplementedError: when not defined by the inheriting class      
         """
 
     def get_setpoint(self, toutput):
         """
-        Return current setpoint
-           Raises NotImplementedError if not defined by inheriting class
+        On Output type object only
 
-        MANDATORY if Output
+        Return current setpoint
 
         Args:
            toutput:  Output class type object 
@@ -383,114 +420,133 @@ class MyTemperatureController(Controller):
 
     def state_input(self,tinput):
         """
-        Return a string representing state of an 'inputs' object.
-           Raises NotImplementedError if not defined by inheriting class
+        Input type object only
 
-        MANDATORY if Input
+        Return a string representing state of an Input object.
 
         Args:
            tinput:  Input class type object
 
         Returns:
            object state string. This is one of READY/RUNNING/ALARM/FAULT
+
+        Raises:
+           NotImplementedError: when not defined by the inheriting class      
         """
 
 
     def state_output(self,toutput):
         """
-        Return a string representing state of an 'outputs' object.
-           Raises NotImplementedError if not defined by inheriting class
+        Output type object only
 
-        MANDATORY if Output
+        Return a string representing state of an Output object.
 
         Args:
            toutput:  Output class type object
 
         Returns:
            object state string. This is one of READY/RUNNING/ALARM/FAULT
+
+        Raises:
+           NotImplementedError: when not defined by the inheriting class      
         """
 
     def setpoint_stop(self,toutput):
         """
-        Stops the setpoint
-           Raises NotImplementedError if not defined by inheriting class
+        Output type object only
 
-        MANDATORY if Output
+        Stops the setpoint
 
         Args:
            toutput:  Output class type object
+
+        Raises:
+           NotImplementedError: when not defined by the inheriting class      
         """
 
 
     def setpoint_abort(self,toutput):
         """
-	    Aborts the setpoint (emergency stop)
-           Raises NotImplementedError if not defined by inheriting class
+        Output type object only
 
-        MANDATORY if Output
+	    Aborts the setpoint (emergency stop)
 
         Args:
            toutput:  Output class type object
+
+        Raises:
+           NotImplementedError: when not defined by the inheriting class      
         """
 
 
     def on(self,tloop):
         """
-        Starts the regulation on the loop
-           Raises NotImplementedError if not defined by inheriting class
+        Loop type object only
 
-        MANDATORY if Loop
+        Starts the regulation on the Loop class type object
 
         Args: 
            tloop:  Loop class type object
+
+        Raises:
+           NotImplementedError: when not defined by the inheriting class      
         """
 
     def off(self,tloop):
         """
-        Stops the regulation on the loop
-           Raises NotImplementedError if not defined by inheriting class
+        Loop type object only
 
-        MANDATORY if Loop
+        Stops the regulation on the Loop class type object
 
         Args: 
            tloop:  Loop class type object
+
+        Raises:
+           NotImplementedError: when not defined by the inheriting class      
         """
 
 
     def Wraw(self, str):
         """
-        A string to write to the controller
-           Raises NotImplementedError if not defined by inheriting class
+        Callable from any type (Input/Output/Loop) class type object
 
-        MANDATORY 
+        A string to write to the controller
 
         Args:
            str:  the string to write
+
+        Raises:
+           NotImplementedError: when not defined by the inheriting class      
         """
 
 
     def Rraw(self):
         """
+        Callable from any type (Input/Output/Loop) class type object
+
         Reading the controller
-           Raises NotImplementedError if not defined by inheriting class
 
-        MANDATORY
-
-        returns:
+        Returns:
            response from the controller
+
+        Raises:
+           NotImplementedError: when not defined by the inheriting class      
         """
 
     def WRraw(self, str):
         """
-        Write then Reading the controller
-           Raises NotImplementedError if not defined by inheriting class
+        Callable from any type (Input/Output/Loop) class type object
 
-        MANDATORY 
+        Write then Reading the controller
 
         Args:
            str:  the string to write
-        returns:
+
+        Returns:
            response from the controller
+
+        Raises:
+           NotImplementedError: when not defined by the inheriting class      
         """
 
 

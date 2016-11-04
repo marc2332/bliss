@@ -250,7 +250,7 @@ class flex:
 
     def homeClear(self):
         logging.getLogger('flex').info("Starting homing")
-        gripper_type = self.onewire.read()[1]
+        gripper_type = self.get_gripper_type()
         if gripper_type not in [-1, 0, 1, 3, 9]:
             logging.getLogger('flex').error("No or wrong gripper")
             raise ValueError("No or wrong gripper")
@@ -265,14 +265,17 @@ class flex:
 
     def defreezeGripper(self):
         logging.getLogger('flex').info("Starting defreeze gripper")
-        gripper = self.onewire.read()[1]
-        logging.getLogger('flex').info("gripper type %s" %gripper)
-        if gripper == -1:
+        gripper_type = self.get_gripper_type()
+        logging.getLogger('flex').info("gripper type %s" %gripper_type)
+        if gripper_type not in [-1, 0, 1, 3, 9]:
+            logging.getLogger('flex').error("No or wrong gripper")
+            raise ValueError("No or wrong gripper")
+        if gripper_type == -1:
             self.robot.setVal3GlobalVariableBoolean("bGripperIsOnArm", False)
             self.robot.setVal3GlobalVariableDouble("nGripperType", "0")
         else:
             self.robot.setVal3GlobalVariableBoolean("bGripperIsOnArm", True)
-            self.robot.setVal3GlobalVariableDouble("nGripperType", str(gripper))
+            self.robot.setVal3GlobalVariableDouble("nGripperType", str(gripper_type))
         self.robot.executeTask("defreezeGripper", timeout=90)
         logging.getLogger('flex').info("Defreezing gripper finished")
 
@@ -546,7 +549,7 @@ class flex:
         self.robot.setVal3GlobalVariableDouble("nLoadSamplePos", str(sample))
 
         #Get gripper type
-        gripper_type = self.onewire.read()[1]
+        gripper_type = self.get_gripper_type()
         if gripper_type in [1, 3]:
             if (gripper_type == 1 and cell in range(1,9,2)) or (gripper_type == 3 and cell in range(2,10,2)):
                 logging.getLogger('flex').error("gripper/puck mismatch")
@@ -598,7 +601,7 @@ class flex:
         self.robot.setVal3GlobalVariableDouble("nUnldSamplePos", str(sample))
 
         #Get gripper type
-        gripper_type = self.onewire.read()[1]
+        gripper_type = self.get_gripper_type()
 
         if gripper_type in [1, 3]:
             if (gripper_type == 1 and cell in range(1,9,2)) or (gripper_type == 3 and cell in range(2,10,2)):
@@ -663,7 +666,7 @@ class flex:
         self.robot.setVal3GlobalVariableDouble("nLoadSamplePos", str(load_sample))
 
         #Get gripper type
-        gripper_type = self.onewire.read()[1]
+        gripper_type = self.get_gripper_type()
         if gripper_type in [1, 3]:
             if (gripper_type == 1 and unload_cell in range(1,9,2)) or (gripper_type == 3 and unload_cell in range(2,10,2)):
                 logging.getLogger('flex').error("gripper/puck mismatch in unload")
@@ -709,7 +712,7 @@ class flex:
         if gripper_to_take not in [1, 3, 9]:
             logging.getLogger('flex').error("No or wrong gripper")
             raise RuntimeError("No or wrong gripper")
-        gripper_type = self.onewire.read()[1]
+        gripper_type = self.get_gripper_type()
         if gripper_type not in [-1, 0, 1, 3, 9]:
             logging.getLogger('flex').error("wrong gripper on arm")
             raise RuntimeError("wrong gripper on arm")
@@ -732,15 +735,31 @@ class flex:
         self.robot.executeTask("defreezeGripper", timeout=60)
         logging.getLogger('flex').info("Defreezing gripper finished")
 
+    def get_gripper_type(self):
+        iter = 0
+        previous_type = self.onewire.read()[1]
+        for i in range(0,10):
+            gevent.sleep(0.1)
+            curr_type = self.onewire.read()[1]
+            if curr_type != previous_type:
+                previous_type = curr_type
+                iter = 0
+            else:
+                previous_type = curr_type
+                iter += 1
+                if iter == 3:
+                    break
+        return previous_type
+
     def changeGripper(self, gripper_to_take=1, user_mode=True):
-        gripper_type = self.onewire.read()[1]
+        gripper_type = self.get_gripper_type()
         if gripper_type in [1,3,9]:
             if user_mode == False:
                 logging.getLogger('flex').info("first pose gripper %d" %gripper_type)
                 self.poseGripper()
                 self.takeGripper(int(gripper_to_take))
             else:
-                gripper_type = self.onewire.read()[1]
+                gripper_type = self.get_gripper_type()
                 self.poseGripper()
                 if gripper_type == 1:
                     self.takeGripper(3)
@@ -980,7 +999,7 @@ class flex:
 
     def gripperCalib(self):
         logging.getLogger('flex').info("Starting calibration tool")
-        gripper_type = self.onewire.read()[1]
+        gripper_type = self.get_gripper_type()
         if gripper_type in [1,3,9]:
             self.robot.setVal3GlobalVariableDouble("nGripperType", str(gripper_type))
         else:
@@ -1003,7 +1022,8 @@ class flex:
 
     def gonioAlignment(self):
         logging.getLogger('flex').info("Starting calibration of the SmartMagnet position")
-        if self.onewire.read()[1] != 9:
+        gripper_type = self.get_gripper_type()
+        if gripper_type != 9:
             logging.getLogger('flex').error("Need calibration gripper")
             raise RuntimeError("Need calibration gripper")
         self.robot.executeTask("gonioAlignment", timeout=200)
@@ -1011,7 +1031,8 @@ class flex:
 
     def dewarAlignment(self, cell="all"):
         logging.getLogger('flex').info("Starting calibration of the Dewar position")
-        if self.onewire.read()[1] != 9:
+        gripper_type = self.get_gripper_type()
+        if self.gripper_type != 9:
             logging.getLogger('flex').error("Need calibration gripper")
             raise RuntimeError("Need calibration gripper")
         #self.defreezeGripper()

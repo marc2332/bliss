@@ -90,6 +90,23 @@ class flex:
         self.robot = robot.Robot('flex', self.cs8_ip)
         logging.getLogger('flex').info("Connection done")
 
+    def enablePower(self, state):
+        state = bool(state)
+        for i in range(0,10):
+            self.robot.enablePower(state)
+            if state:
+                if self.robot.getCachedVariable("IsPowered").getValue() == "true":
+                    break
+            else:
+                if self.robot.getCachedVariable("IsPowered").getValue() == "false":
+                    break
+            gevent.sleep(1)
+        if i == 9 and self.robot.getCachedVariable("IsPowered") is not state:
+            msg = "Cannot set power to %s" %str(state)
+            logging.getLogger('flex').error(msg)
+            raise RuntimeError(msg)
+        logging.getLogger('flex').info("Power set to %s" %state)
+
     def abort(self):
         self.robot.abort()
         logging.getLogger('flex').info("Robot aborted")

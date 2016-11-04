@@ -697,13 +697,13 @@ class flex:
         self.homeClear()
         logging.getLogger('flex').info("Putting the gripper back in tool bank")
         try:
+            self.onewire.close()
             self.robot.executeTask("poseGripper", timeout=30)
         except:
             self.robot.setVal3GlobalVariableDouble("nGripperType", "0")
             logging.getLogger('flex').error("Deposing gripper failed, gripper type unknown")
             raise RuntimeError("Deposing gripper failed, gripper type unknown")
         self.robot.setVal3GlobalVariableDouble("nGripperType", "-1")
-        self.onewire.close()
         logging.getLogger('flex').info("Gripper back on tool bank")
 
     def takeGripper(self, gripper_to_take):

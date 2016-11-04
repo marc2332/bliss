@@ -1162,19 +1162,39 @@ class flex:
             logging.getLogger('flex').info("Scan slot cell %d" %cell)
             self._scanSlot(cell, puck) 
 
-    def automatic_scanSlots(self):
-        logging.getLogger('flex').info("Starting automatic puck recognition")
-        self.robot.waitNotify("data:dioDewarLoading")
-        try:
-            curr_puck_pos = self.robot.getCachedVariable("RequestedDewarPosition").getValue()
-        except AttributeError:
-            self.moveDewar(1, user=True)
-        while True:
-            curr_puck_pos = self.robot.getCachedVariable("RequestedDewarPosition").getValue()
-            while self.robot.getCachedVariable("RequestedDewarPosition").getValue() == str(curr_puck_pos):
-                cell_usr = (int(curr_puck_pos) // 3) + 1 + 3
-                logging.getLogger('flex').info("cell under user port %d" %cell_usr)
-                list_detect = self.detect_puck(cell_usr)
-                logging.getLogger('flex').info("Puck presence list %s" %str(list_detect)) 
+    def proxisenseCalib(self, cell="all", empty=True):
+        if cell != "all" and isinstance(cell, (int,long)) and not cell in range(1,9):
+            logging.getLogger('flex').error("Wrong cell number [1-8]")
+            raise ValueError("Wrong cell number [1-8]")
+        if cell is "all":
+            for i in range(1,9):
+                if empty:
+                    puckType = "empty"
+                else:
+                    if i in range(1,8,2):
+                        puckType = "sc3"
+                    else:
+                        puckType = "uni"
+                self.proxisense.set_frequency(800)
+                res = self.proxisense.getPhaseShift(i)
+                self.proxisense.set_config(i, 800, puckType, res[0], res[1], res[2])
+                self.proxisense.set_frequency(2000)
+                res = self.proxisense.getPhaseShift(i)
+                self.proxisense.set_config(i, 2000, puckType, res[0], res[1], res[2])
+        else:
+            if empty:
+                puckType = "empty"
+            else:
+                if i in range(1,8,2):
+                    puckType = "sc3"
+                else:
+                    puckType = "uni"
+            self.proxisense.set_frequency(800)
+            res = self.proxisense.getPhaseShift(cell)
+            self.proxisense.set_config(cell, 800, puckType, res[0], res[1], res[2])
+            self.proxisense.set_frequency(2000)
+            res = self.proxisense.getPhaseShift(cell)
+            self.proxisense.set_config(cell, 2000, puckType, res[0], res[1], res[2])
+                
 
 

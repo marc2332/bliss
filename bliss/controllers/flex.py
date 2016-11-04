@@ -1092,7 +1092,7 @@ class flex:
       
         if len(ref_phase_800) != len(ref_phase_2000):
             logging.getLogger('flex').error("config files have different length")
-            raise RuntimeError("config files have different length")
+            raise RuntimeError("corrupted config files ")
         len_ref = len(ref_phase_800)
         logging.getLogger('flex').info("%d puck types to checked, including empty" %len_ref)
         

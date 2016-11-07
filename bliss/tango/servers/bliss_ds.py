@@ -352,13 +352,14 @@ class Bliss(Device):
     def __on_cmd_finished(self, task):
         del self.__tasks[id(task)]
 
+    def __on_eval_finished(self, task):
+        self.__on_cmd_finished(task)
+
         res = task.get()
         if res is not None:
             self.__results[id(task)] = base64.encodestring(cPickle.dumps(res, protocol=-1))
 
-    def __execute(self, cmd):
-        if self.sanatize_command:
-            cmd = sanatize_command(cmd)
+    def __evaluate(self, cmd):
         try:
             six.exec_('_='+cmd, self.__user_ns)
         except gevent.GreenletExit:
@@ -368,6 +369,25 @@ class Bliss(Device):
             return e
         else:
             return self.__user_ns.get("_")
+
+    def __execute(self, cmd):
+        if self.sanatize_command:
+            cmd = sanatize_command(cmd)
+        try:
+            six.exec_(cmd, self.__user_ns)
+        except gevent.GreenletExit:
+            six.reraise(*sys.exc_info())
+        except Exception as e:
+            sys.excepthook(*sys.exc_info())
+
+    @command(dtype_in=str, dtype_out=int)
+    def eval(self, cmd):
+        self._log.info('evaluating: %s', cmd)
+        task = gevent.spawn(self.__evaluate, cmd)
+        task_id = id(task)
+        self.__tasks[task_id] = task, cmd
+        task.link(self.__on_eval_finished)
+        return task_id
 
     @command(dtype_in=str, dtype_out=int)
     def execute(self, cmd):

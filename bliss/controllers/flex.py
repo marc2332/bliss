@@ -562,6 +562,9 @@ class flex:
         success = self.do_load_detection(gripper_type, ref)
         if success: 
             self._loaded_sample = to_load
+        else:
+            if not self.pin_on_gonio():
+              self._loaded_sample = -1, -1, -1
 
         if gripper_type == 3:
             gevent.spawn(self.defreezeGripper)
@@ -615,7 +618,10 @@ class flex:
         success =  self.do_unload_detection(gripper_type)
         if success:
             self._loaded_sample = (-1, -1, -1)
-        
+        else:
+            if not self.pin_on_gonio():
+              self._loaded_sample = -1, -1, -1
+
         if gripper_type == 3:
             gevent.spawn(self.defreezeGripper)
 
@@ -682,7 +688,10 @@ class flex:
         success =  self.do_chainedUnldLd_detection(gripper_type)
         if success:
             self._loaded_sample = tuple(load)
-
+        else:
+            if not self.pin_on_gonio():
+              self._loaded_sample = -1, -1, -1
+  
         if gripper_type == 3:
             gevent.spawn(self.defreezeGripper)
 

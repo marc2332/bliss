@@ -25,6 +25,8 @@ import StringIO
 import functools
 import itertools
 import traceback
+import cPickle
+import base64
 
 import six
 import gevent
@@ -212,10 +214,10 @@ class Bliss(Device):
     #: session name)
     session_name = device_property(dtype=str, default_value=None)
 
-    #: Sanatize or not the command to be executed
+    #: Sanitize or not the command to be executed
     #: If True, it will allow you to send a command like: 'wm th phi'
     #: If False, it will only accepts commands with python syntax: 'wm(th, phi)'
-    #: Sanatize is not perfect! You simply cannot transform one language into
+    #: Sanitize is not perfect! You simply cannot transform one language into
     #: another. Avoid the temptation of using it just to try to please the user
     #: with a 'spec' like syntax as much as possible
     sanatize_command = device_property(dtype=bool, default_value=False)
@@ -231,6 +233,7 @@ class Bliss(Device):
         self.set_state(DevState.INIT)
         self._log.info('Initializing device...')
         self.__tasks = {}
+        self.__results = {}
 
         if self.config_file is None:
             self.set_state(DevState.FAULT)
@@ -349,6 +352,24 @@ class Bliss(Device):
     def __on_cmd_finished(self, task):
         del self.__tasks[id(task)]
 
+    def __on_eval_finished(self, task):
+        self.__on_cmd_finished(task)
+
+        res = task.get()
+        if res is not None:
+            self.__results[id(task)] = base64.encodestring(cPickle.dumps(res, protocol=-1))
+
+    def __evaluate(self, cmd):
+        try:
+            six.exec_('_='+cmd, self.__user_ns)
+        except gevent.GreenletExit:
+            six.reraise(*sys.exc_info())
+        except Exception as e:
+            sys.excepthook(*sys.exc_info())
+            return e
+        else:
+            return self.__user_ns.get("_")
+
     def __execute(self, cmd):
         if self.sanatize_command:
             cmd = sanatize_command(cmd)
@@ -356,8 +377,17 @@ class Bliss(Device):
             six.exec_(cmd, self.__user_ns)
         except gevent.GreenletExit:
             six.reraise(*sys.exc_info())
-        except:
+        except Exception as e:
             sys.excepthook(*sys.exc_info())
+
+    @command(dtype_in=str, dtype_out=int)
+    def eval(self, cmd):
+        self._log.info('evaluating: %s', cmd)
+        task = gevent.spawn(self.__evaluate, cmd)
+        task_id = id(task)
+        self.__tasks[task_id] = task, cmd
+        task.link(self.__on_eval_finished)
+        return task_id
 
     @command(dtype_in=str, dtype_out=int)
     def execute(self, cmd):
@@ -371,6 +401,11 @@ class Bliss(Device):
     @command(dtype_in=int, dtype_out=bool)
     def is_finished(self, cmd_id):
         return cmd_id not in self.__tasks
+
+    @command(dtype_in=int, dtype_out=str)
+    def get_result(self, cmd_id):
+        res = self.__results.pop(cmd_id, '')
+        return res
 
     @command(dtype_in=int, dtype_out=bool)
     def is_running(self, cmd_id):

@@ -596,7 +596,7 @@ class flex:
                 if sample != loaded_sample_pos:
                     errstr = "Previous sample loaded was in %d, %d, %d; hint: reset sample position" %(int(loaded_puck_pos // 3 + 1), int(loaded_puck_pos % 3 + 1), int(loaded_sample_pos + 1))
                     logging.getLogger('flex').error(errstr)
-                    raise RuntimeError(errstr)
+                    #raise RuntimeError(errstr)
 
         #set variables at the beginning
         self.robot.setVal3GlobalVariableDouble("nPuckType", str(PuckType))
@@ -662,7 +662,7 @@ class flex:
                 if unload_sample != loaded_sample_pos:
                     errstr = "Previous sample loaded was in %d, %d, %d; hint: reset sample position" %(int(loaded_puck_pos // 3 + 1), int(loaded_puck_pos % 3 + 1), int(loaded_sample_pos + 1))
                     logging.getLogger('flex').error(errstr)
-                    raise RuntimeError(errstr)
+                    #raise RuntimeError(errstr)
 
         #set variables at the beginning
         self.robot.setVal3GlobalVariableDouble("nPuckType", str(unload_PuckType))

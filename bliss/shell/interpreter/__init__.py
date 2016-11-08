@@ -8,18 +8,15 @@
 from bliss import setup_globals
 import sys
 
-def start_interpreter(setup_file, config_objects_names, input_queue, output_queue):
+def start_interpreter(session_id, input_queue, output_queue, beacon_host=None, beacon_port=None):
     interpreter = __import__("interpreter", globals(), locals(), [])
 
-    i = interpreter.init(input_queue, output_queue)
-  
-    """globals_module = ModuleType("globals")
-    sys.modules["khoros.interpreter"].globals = globals_module
-    sys.modules["khoros.interpreter.globals"] = globals_module 
+    if beacon_port is not None:
+      beacon_port = int(beacon_port)
 
-    i.locals = globals_module.__dict__
-    """
+    i = interpreter.init(input_queue, output_queue, beacon_host, beacon_port)
+  
     i.locals = setup_globals.__dict__ #.copy()
 
-    return interpreter.start(setup_file, config_objects_names, input_queue, output_queue, i)
+    return interpreter.start(session_id, input_queue, output_queue, i)
 

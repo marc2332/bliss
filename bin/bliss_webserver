@@ -6,26 +6,29 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+"""
+Usage: bliss_webserver [-p <port> | --port=<port>] 
+       bliss_webserver (-h | --help)
+
+Options:
+    -p, --port=<port>               Port number [default: 8099]     
+    -h, --help                      Show this screen.
+"""
+
 import os
-import optparse
+import docopt
 import logging
 import bliss
-from bliss.shell import set_shell_config_file
 from bliss.shell.web import bliss_webserver
 
-usage = "usage: \%prog [-p<port>] [-c<config file>]" 
-parser = optparse.OptionParser(usage)
-parser.add_option(
-     '-p', '--port', dest='port', type='int',
-     help='Port to listen on (default 8099)', default=8099, action='store')
-parser.add_option('-c', '--config-file', dest='config_file', type='string',
-                  help='Configuration file', default=None, action='store')
-options, args = parser.parse_args()
+try:
+  arguments = docopt.docopt(__doc__)
+  port = int(arguments['--port'])
+except docopt.DocoptExit as e:
+  print e.message
+else:
+  logging.basicConfig()
+  logging.getLogger().setLevel(logging.DEBUG)
 
-logging.basicConfig()
-logging.getLogger().setLevel(logging.DEBUG)
-
-if options.config_file:
-    set_shell_config_file(options.config_file)
-bliss_webserver.serve_forever(options.port) 
+  bliss_webserver.serve_forever(port) 
 

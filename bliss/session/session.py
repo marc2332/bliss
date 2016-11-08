@@ -13,9 +13,10 @@ import functools
 from bliss import setup_globals
 from bliss.config import static
 from bliss.config.conductor.client import get_config_file,get_python_modules
+
 DEFAULT_SESSION = None
 
-def get_default() :
+def get_default():
    return DEFAULT_SESSION
 
 _importer_path = set()
@@ -75,7 +76,7 @@ class Session(object):
       self._base_path = os.path.dirname(config_tree.filename)
       self._setup_file_path = config_tree.get('setup-file')
       self._synoptic_file = config_tree.get('svg-file')
-      self._config_objects_names = config_tree.get("config_objects")
+      self._config_objects_names = config_tree.get("config-objects")
 
       global DEFAULT_SESSION
       if(DEFAULT_SESSION is None or 
@@ -93,6 +94,7 @@ class Session(object):
             fullpath = os.path.join(self._base_path,filename)
          else:
             fullpath = setup_file_path
+
          try:
             setup_python = get_config_file(fullpath)
          except RuntimeError:

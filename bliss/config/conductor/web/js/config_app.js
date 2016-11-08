@@ -19,10 +19,12 @@ function __send_form(url, form, on_success) {
 }
 
 function __add_file(path) {
+/*
     if (path.indexOf(".yml", path.length - 4) === -1) {
 	alert("File must end with '.yml'");
 	return;
     }
+*/
     if (path[0] === "/") {
 	path = path.substring(1);
     }
@@ -32,7 +34,7 @@ function __add_file(path) {
     __send_form("add_file", form, function(result) {
         data = $.parseJSON(result);
 	tree_reload("#tree_tabs", path);
-        show_yaml(path);
+        show_file(path);
         notification(data.message, data.type);
     });
 }
@@ -219,7 +221,7 @@ function tree_context_menu(node) {
     }
     else if (node.data.type == 'folder') {
 	items.add_file = {
-	    label: "Add YAML file",
+	    label: "Add file",
 	    icon: "fa fa-file",
 	    _disabled: false,
 	    action: tree_add_file.bind(node),
@@ -265,7 +267,8 @@ function tree_reload(tree_name, selected_item_name) {
             opened = true;
         }
         $.each(data, function(key, value) {
-	    node_info = value[0];
+            console.log(key, value);
+	    var node_info = value[0];
 	    selected = selected_item_name === node_info.path;
             var new_node = {
 		text: key,
@@ -286,9 +289,9 @@ function tree_reload(tree_name, selected_item_name) {
         });
     };
 
-    $.get("tree/objects", function(data) {
+    $.get("tree/items", function(data) {
         var _tree = $(tree_name);
-	var tree = $(".beacon-tree.objects-perspective", _tree);
+	var tree = $(".beacon-tree.items-perspective", _tree);
         tree.jstree("destroy");
 
         var tree_struct = {
@@ -344,18 +347,18 @@ function tree_reload(tree_name, selected_item_name) {
 function on_node_selected(ev, data) {
     var node_type = data.node.data.type;
     if (node_type === "file") {
-        on_yaml_node_selected(ev, data);
+        on_file_node_selected(ev, data);
     } else {
         on_item_node_selected(ev, data);
     }
 }
 
-function on_yaml_node_selected(ev, data) {
+function on_file_node_selected(ev, data) {
     var file_path = data.node.data.path;
-    show_yaml(file_path);
+    show_file(file_path);
 }
 
-function show_yaml(file_path) {
+function show_file(file_path) {
    $.get("db_file_editor/" + file_path, function(data) {
         $("#right_panel").empty();
         if (data.html === undefined) {
@@ -363,7 +366,6 @@ function show_yaml(file_path) {
             form.addClass("form-group");
             $("#right_panel").html(form);
             var text_area = $("<textarea></textarea>");
-            text_area.addClass("yaml");
             text_area.addClass("form-control");
             var content = data.content;
             text_area.val(content);
@@ -381,7 +383,7 @@ function on_item_node_selected(ev, data) {
 }
 
 function show_item(item_name) {
-    $.get("objects/" + item_name, show_html_data, "json");
+    $.get("items/" + item_name, show_html_data, "json");
 }
 
 function show_main() {
@@ -398,21 +400,21 @@ function show_html_data(data) {
     }
 }
 
-function configure_yaml_editor(tag_name, file_name) {
-    var yaml_editor = ace.edit(tag_name);
-    var session = yaml_editor.getSession();
-    session.setMode("ace/mode/yaml");
+function configure_file_editor(tag_name, file_name, file_type) {
+    var file_editor = ace.edit(tag_name);
+    var session = file_editor.getSession();
+    session.setMode("ace/mode/" + file_type);
     session.setTabSize(4);
-    yaml_editor.setHighlightActiveLine(true);
-    yaml_editor.setReadOnly(false);
-    yaml_editor.setShowPrintMargin(false);
-    yaml_editor.getSession().on("change", function(e) {
+    file_editor.setHighlightActiveLine(true);
+    file_editor.setReadOnly(false);
+    file_editor.setShowPrintMargin(false);
+    file_editor.getSession().on("change", function(e) {
         $("#save_editor_changes").button().removeClass("disabled");
         $("#revert_editor_changes").button().removeClass("disabled");
     });
     $("#save_editor_changes").on("click", function() {
         var form = new FormData();
-        form.append("yml_file", yaml_editor.getValue());
+        form.append("file_content", file_editor.getValue());
         $.ajax({
             url: "db_file/" + file_name,
             type: "PUT",
@@ -431,7 +433,7 @@ function configure_yaml_editor(tag_name, file_name) {
     });
     $("#revert_editor_changes").on("click", function() {
         $.get("db_file/" + file_name, function(data) {
-            yaml_editor.setValue(data.content);
+            file_editor.setValue(data.content);
         }, "json");
     });
 }

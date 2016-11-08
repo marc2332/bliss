@@ -5,7 +5,7 @@
  Distributed under the GNU LGPLv3. See LICENSE for more info.
 -->
 <style type="text/css" media="screen">
-  #yaml_editor {
+  #file_editor {
     min-width: 200px;
     min-height: 500px;
     height: 500px;
@@ -29,22 +29,9 @@
 
 <div style="height:10px;"></div>
 
-<div id="yaml_editor">{{ content }}</div>
+<div id="file_editor">{{ content }}</div>
 
 <script>
-  configure_yaml_editor("yaml_editor", "{{ name }}");
+  configure_file_editor("file_editor", "{{ name }}", "{{ ftype }}");
 </script>
 
-<!--
-<form class="form-horizontal">
-
-  <fieldset>
-
-    <legend>{{ name }}</legend>
-
-    <div class="form-group">
-      <textarea class="form-control yaml">{{ content }}</textarea>
-    </div>
-  </fieldset>
-</form>
--->

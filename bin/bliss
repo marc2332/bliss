@@ -12,9 +12,9 @@ Usage: bliss [(-s | --session)] <name>...
        bliss
        bliss (-h | --help)
 Options:
-    -show-sessions               Display all available session.
-    -s, --session                Starts with some session(s).
-    -h, --help                   Show this screen.
+    --show-sessions               Display available sessions.
+    -s, --session                 Starts with some session(s).
+    -h, --help                    Show this screen.
 """
 import sys
 import os

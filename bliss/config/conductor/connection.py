@@ -299,7 +299,7 @@ class Connection(object) :
     @check_connect
     def get_python_modules(self,base_path='',timeout=3.):
         return_module = []
-        with gevent.Timeout(timeout,RuntimeError("Can't set config file")):
+        with gevent.Timeout(timeout,RuntimeError("Can't get python modules")):
             with self.WaitingQueue(self) as wq:
                 msg = '%s|%s' % (wq.message_key(),base_path)
                 self._fd.sendall(protocol.message(protocol.CONFIG_GET_PYTHON_MODULE,

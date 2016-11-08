@@ -177,3 +177,4 @@ class Session(object):
          for k, v in script_module.__dict__.iteritems():
             if k.startswith('_'): continue
             env_dict[k] = v
+

@@ -238,7 +238,7 @@ latex_documents = [
 
 # The name of an image file (relative to this directory) to place at the top of
 # the title page.
-#latex_logo = None
+latex_logo = "_static/logo.png"
 
 # For "manual" documents, if this is true, then toplevel headings are parts,
 # not chapters.
@@ -293,7 +293,7 @@ texinfo_documents = [
 # If true, do not generate a @detailmenu in the "Top" node's menu.
 #texinfo_no_detailmenu = False
 
-autodoc_default_flags = ['members', 'inherited-members']#, 'undoc-members' , 'show-inheritance']
+autodoc_default_flags = ['members', 'undoc-members' , 'show-inheritance']
 
 autodoc_member_order = 'bysource'
 
@@ -304,7 +304,8 @@ autosummary_generate = True
 # Configuration for intersphinx
 intersphinx_mapping = {
     'https://docs.python.org/': None,
-    'http://www.esrf.fr/computing/cs/tango/pytango/latest/': None,
+    'http://www.gevent.org/': None,
+    'http://pytango.rtfd.io/': None,
 }
 
 rst_epilog = """\
@@ -316,9 +317,19 @@ rst_epilog = """\
 .. _redis: http://www.redis.io/
 .. _flask: http://flask.pocoo.org/
 .. _ptpython: https://github.com/jonathanslenders/ptpython/
+.. _ESRF: http://www.esrf.eu/
 .. _ESRF Gitlab: http://gitlab.esrf.fr/
 .. _pew: https://github.com/berdario/pew/
 .. _TANGO: http://tango-controls.org/
-.. _PyTango: http://www.esrf.eu/computing/cs/tango/pytango/
+.. _PyTango: http://pytango.rtfd.io/
 .. _spec: http://certif.com/content/spec/
+
+.. _CAENels: http://www.caenels.com/
+.. _AH501D: http://www.caenels.com/products/ah501d/
+.. _AH501D doc: http://www.caenels.com/wp-content/uploads/2015/04/AH501D_UsersManual_V1.7.pdf
+.. _IcePAP: http://www.esrf.eu/Instrumentation/DetectorsAndElectronics/icepap/
+"""
+
+rst_prolog = """\
+
 """

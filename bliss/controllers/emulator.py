@@ -5,8 +5,11 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-"""
-Device Server Emulator
+"""Emulator :mod:`~bliss.controllers.emulator.Server` and \
+:mod:`~bliss.controllers.emulator.BaseDevice`
+
+Quick start
+-----------
 
 To create a server use the following configuration as a starting point:
 
@@ -19,15 +22,13 @@ To create a server use the following configuration as a starting point:
               - type: tcp
                 url: :25000
 
-To start the server you can do something like:
+To start the server you can do something like::
 
     $ python -m bliss.controllers.emulator my_emulator
 
-A simple *nc* client can be used to connect to the instrument:
+(bliss also provides a ``bliss-emulator`` script which basically does the same)
 
-    $ nc 0 25000
-    *idn?
-    Bliss Team, Generic SCPI Device, 0, 0.1.0
+An emulator how-to is available :ref:`here <bliss-emulator-how-to>`.
 """
 
 from __future__ import print_function
@@ -153,11 +154,11 @@ class EmulatorServerMixin(object):
 
 class SerialServer(BaseServer, EmulatorServerMixin):
     """
-    Serial line emulation server. It uses :ref:`pty.opentpy` to open a
+    Serial line emulation server. It uses :func:`pty.opentpy` to open a
     pseudo-terminal simulating a serial line.
 
     .. note::
-        Since :ref:`pty.opentpy` opens a non configurable file descriptor, it
+        Since :func:`pty.opentpy` opens a non configurable file descriptor, it
         is impossible to predict which /dev/pts/<N> will be used.
         You have to be attentive to the first logging info messages when the
         server is started. They indicate which device is in use  :-(
@@ -172,8 +173,8 @@ class SerialServer(BaseServer, EmulatorServerMixin):
 
     def set_listener(self, listener):
         """
-        Override of :ref:`BaseServer.set_listener` to initialize
-        a pty and properly fill the address
+        Override of :meth:`~gevent.baseserver.BaseServer.set_listener` to
+        initialize a pty and properly fill the address
         """
         if listener is None:
             self.master, self.slave = pty.openpty()
@@ -185,8 +186,8 @@ class SerialServer(BaseServer, EmulatorServerMixin):
     @property
     def socket(self):
         """
-        Override of :ref:`BaseServer.socket` to return a socket
-        object for the pseudo-terminal file object
+        Override of :meth:`~gevent.baseserver.BaseServer.socket` to return a
+        socket object for the pseudo-terminal file object
         """
         return self.fileobj._sock
 

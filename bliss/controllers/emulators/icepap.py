@@ -5,7 +5,22 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-__all__ = ['IcePAP', 'IcePAPError']
+"""IcePAP_ motor controller emulator device
+
+.. image:: _static/IcePAP_3D.png
+    :alt: IcePAP
+    :width: 256pt
+    :align: right
+
+Have a look at the :ref:`bliss-emulator-how-to` to find out how to
+configure and run an emulator server with an IcePAP_.
+
+In the :ref:`IcePAP configuration <bliss-emulator-icepap-configuration>`
+section you can find information specific to the IcePAP_ emulator device
+configuration.
+"""
+
+__all__ = ['IcePAP', 'Axis', 'IcePAPError']
 
 import re
 import enum

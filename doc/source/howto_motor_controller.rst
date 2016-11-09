@@ -1,11 +1,11 @@
 
-.. _bliss-how-to-motor-controller:
+.. _bliss-motor-controller-how-to:
 
-How to write a new motor controller ?
-=====================================
+How to write a new motor controller
+===================================
 
 
-To create an EMotion plugin for a new controller, you have to
+To create a Bliss plugin for a new controller, you have to
 provide:
 
 - NewCtrl.py : to implement the NewCtrl  class.

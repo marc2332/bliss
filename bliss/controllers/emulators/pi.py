@@ -22,11 +22,11 @@ a starting point:
               - type: tcp
                 url: :25000
 
-To start the server you can do something like:
+To start the server you can do something like::
 
     $ python -m bliss.controllers.emulator my_emulator
 
-A simple *nc* client can be used to connect to the instrument:
+A simple *nc* client can be used to connect to the instrument::
 
     $ nc 0 25000
     *idn?

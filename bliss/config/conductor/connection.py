@@ -16,7 +16,7 @@ import netifaces
 try:
     import posix_ipc
     class _PosixQueue(posix_ipc.MessageQueue):
-        def __init__(self,rx_name,wx_name) :
+        def __init__(self,rx_name,wx_name):
             posix_ipc.MessageQueue.__init__(self,rx_name)
             self._wqueue = posix_ipc.MessageQueue(wx_name)
 
@@ -38,8 +38,8 @@ def ip4_broadcast_addresses():
             ip_list.append(link.get("broadcast"))
     return filter(None, ip_list)
 
-def check_connect(func) :
-    def f(self,*args,**keys) :
+def check_connect(func):
+    def f(self,*args,**keys):
         self.connect()
         return func(self,*args,**keys)
     return f
@@ -48,17 +48,17 @@ class ConnectionException(Exception):
   def __init__(self, *args, **kwargs):
     Exception.__init__(self, *args, **kwargs)
 
-class Connection(object) :
+class Connection(object):
     class WaitingLock(object):
-        def __init__(self,cnt,priority,device_name) :
+        def __init__(self, cnt, priority,device_name):
             self._cnt = weakref.ref(cnt)
             self._msg = '%d|%s' % (priority,'|'.join(device_name))
             self._queue = queue.Queue()
 
-        def msg(self) :
+        def msg(self):
             return self._msg
 
-        def get(self) :
+        def get(self):
             return self._queue.get()
 
         def __enter__(self):
@@ -70,7 +70,7 @@ class Connection(object) :
                 pm.append(self._queue)
             return self
 
-        def __exit__(self,*args) :
+        def __exit__(self,*args):
             cnt = self._cnt()
             pm = cnt._pending_lock.pop(self._msg,[])
             if pm:
@@ -81,27 +81,27 @@ class Connection(object) :
                 cnt._pending_lock[self._msg] = pm
 
     class WaitingQueue(object):
-        def __init__(self,cnt) :
+        def __init__(self,cnt):
             self._cnt = weakref.ref(cnt)
             self._message_key = str(cnt._message_key)
             cnt._message_key += 1
             self._queue = queue.Queue()
 
-        def message_key(self) :
+        def message_key(self):
             return self._message_key
 
-        def get(self) :
+        def get(self):
             return self._queue.get()
 
-        def queue(self) :
+        def queue(self):
             return self._queue
 
-        def __enter__(self) :
+        def __enter__(self):
             cnt = self._cnt()
             cnt._message_queue[self._message_key] = self._queue
             return self
 
-        def __exit__(self,*args) :
+        def __exit__(self,*args):
             cnt = self._cnt()
             cnt._message_queue.pop(self._message_key,None)
 
@@ -114,6 +114,9 @@ class Connection(object) :
                 port = int(port)
             else:
                 host = beacon_host
+        if port is None:
+            env_port = os.environ.get("BEACON_PORT")
+            port = int(env_port) if env_port else env_port
         self._host = host
         self._port = port
         self._pending_lock = {}
@@ -125,7 +128,7 @@ class Connection(object) :
         self._cnx = None
         self._raw_read_task = None
 
-    def close(self) :
+    def close(self):
         if self._fd:
             self._fd.close()
             self._fd = None
@@ -133,7 +136,7 @@ class Connection(object) :
             self._raw_read_task = None
             self._cnx = None
 
-    def connect(self) :
+    def connect(self):
         host = self._host
         port = self._port
         if self._fd is None:
@@ -200,7 +203,7 @@ class Connection(object) :
                     if status == protocol.LOCK_OK_REPLY: break
 
     @check_connect
-    def unlock(self,devices_name,**params) :
+    def unlock(self,devices_name,**params):
         timeout = params.get('timeout',1)
         priority = params.get('priority',50)
         if len(devices_name) == 0: return
@@ -222,7 +225,7 @@ class Connection(object) :
     @check_connect
     def get_redis_connection(self,db=0):
         cnx = self._redis_connection.get(db)
-        if cnx is None :
+        if cnx is None:
             host,port = self.get_redis_connection_address()
             if host != 'localhost':
                 cnx = redis.Redis(host=host,port=port,db=db)
@@ -232,7 +235,7 @@ class Connection(object) :
         return cnx
 
     @check_connect
-    def get_config_file(self,file_path,timeout = 10.) :
+    def get_config_file(self,file_path,timeout = 1.):
         with gevent.Timeout(timeout,RuntimeError("Can't get configuration file")):
             with self.WaitingQueue(self) as wq:
                 msg = '%s|%s' % (wq.message_key(),file_path)
@@ -284,8 +287,8 @@ class Connection(object) :
                 for rx_msg in wq.queue():
                     if isinstance(rx_msg,RuntimeError):
                         raise rx_msg
-                    file_path,file_value = self._get_msg_key(rx_msg)
-                    if file_path is None : continue
+                    file_path, file_value = self._get_msg_key(rx_msg)
+                    if file_path is None: continue
                     return_files.append((file_path,file_value.decode("utf-8")))
         return return_files
 
@@ -314,12 +317,12 @@ class Connection(object) :
             return True
         return False
 
-    def _get_msg_key(self,message) :
+    def _get_msg_key(self,message):
         pos = message.find('|')
         if pos < 0: return None,None
         return message[:pos],message[pos + 1:]
 
-    def _raw_read(self) :
+    def _raw_read(self):
         try:
             data = ''
             mq_pipe = None
@@ -406,7 +409,7 @@ class Connection(object) :
             queue.close()
             os.close(pipe)
 
-    def _clean(self) :
+    def _clean(self):
         self._redis_host = None
         self._redis_port = None
         try:

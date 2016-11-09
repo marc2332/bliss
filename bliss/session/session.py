@@ -87,6 +87,10 @@ class Session(object):
    def name(self):
       return self.__name
 
+   @property
+   def object_names(self):
+      return self._config_objects_names
+
    def setup(self,env_dict = None,verbose = False):
       if self._setup_file_path is not None:
          if self._setup_file_path.startswith('.'): # relative from current node

@@ -45,6 +45,9 @@ from gevent.fileobject import FileObject
 
 _log = logging.getLogger('emulator')
 
+__all__ = ['Server', 'BaseDevice', 'EmulatorServerMixin',
+           'SerialServer', 'TCPServer', 'main', 'create_server_from_config']
+
 
 class EmulatorServerMixin(object):
     """
@@ -207,6 +210,8 @@ class TCPServer(StreamServer, EmulatorServerMixin):
 
     def __init__(self, *args, **kwargs):
         listener = kwargs.pop('url')
+        if isinstance(listener, list):
+            listener = tuple(listener)
         device = kwargs.pop('device')
         e_kwargs = dict(baudrate=kwargs.pop('baudrate', None),
                         newline=kwargs.pop('newline', None))
@@ -230,11 +235,14 @@ class BaseDevice(object):
 
     special_messages = set()
 
-    def __init__(self, name, newline=DEFAULT_NEWLINE):
+    def __init__(self, name, newline=None, **kwargs):
         self.name = name
-        self.newline = newline
+        self.newline = self.DEFAULT_NEWLINE if newline is None else newline
         self._log = logging.getLogger('{0}.{1}'.format(_log.name, name))
         self.__transports = weakref.WeakKeyDictionary()
+        if kwargs:
+            self._log.warning('constructor keyword args ignored: %s',
+                              ', '.join(kwargs.keys()))
 
     @property
     def transports(self):
@@ -334,26 +342,22 @@ class Server(object):
         return '{0}({1})'.format(self.__class__.__name__, self.name)
 
 
-def find_device_class(device_info):
-    klass_name = device_info.get('class')
-    if 'package' in device_info:
-        package_name = device_info['package']
-    else:
-        module_name = device_info.get('module', klass_name.lower())
+def create_device(device_info):
+    device_info = dict(device_info)
+    class_name = device_info.pop('class')
+    module_name = device_info.pop('module', class_name.lower())
+    package_name = device_info.pop('package', None)
+    name = device_info.pop('name', class_name)
+
+    if package_name is None:
         package_name = 'bliss.controllers.emulators.' + module_name
 
     __import__(package_name)
     package = sys.modules[package_name]
-    return getattr(package, klass_name)
-
-
-def create_device(device_info):
-    device_info = dict(device_info)
-    klass = find_device_class(device_info)
-    klass_name = device_info.pop('class')
-    name = device_info.pop('name', klass_name)
-    transports_info = device_info.pop('transports', ())
+    klass = getattr(package, class_name)
     device = klass(name, **device_info)
+
+    transports_info = device_info.pop('transports', ())
     transports = []
     for interface_info in transports_info:
         ikwargs = dict(interface_info)

@@ -492,8 +492,8 @@ def main():
                         help="redis connection port")
     parser.add_argument("--posix_queue",dest="posix_queue",type=int,default=1,
                         help="enable/disable posix_queue connection")
-    parser.add_argument("--port",dest="port",type=int,default=0,
-                        help="server port (default to 0: take a free port)")
+    parser.add_argument("--port",dest="port",type=int,default=int(os.environ.get("BEACON_PORT", 0)),
+                        help="server port (default to BEACON_PORT environment variable, otherwise takes a free port)")
     parser.add_argument("--tango_port",dest="tango_port",type=int,default=0,
                         help="tango server port (default to 0: disable)")
     parser.add_argument("--tango_debug_level",dest="tango_debug_level",type=int,default=0,

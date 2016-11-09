@@ -7,30 +7,10 @@
 
 from __future__ import absolute_import
 
-def __find_class(cfg_node, subdir=""):
-    klass_name = cfg_node['class']
-    dirs = ['bliss', 'controllers']
-    if subdir:
-      dirs.append(subdir)
-
-    if 'package' in cfg_node:
-        module_name = cfg_node['package']
-    else:
-        if 'module' in cfg_node:
-            dirs.append(cfg_node['module'])
-        else:
-            # discover module and class name
-            dirs.append(klass_name.lower())
-        module_name = '.'.join(dirs)
-
-    module = __import__(module_name, fromlist=[''])
-    klass = getattr(module, klass_name)
-
-    return klass
-
+from .utils import find_class
 
 def create_objects_from_config_node(config, item_cfg_node):
-    klass = __find_class(item_cfg_node)
+    klass = find_class(item_cfg_node)
 
     item_name = item_cfg_node["name"]
     referenced_objects = dict()

@@ -8,7 +8,7 @@
 from __future__ import absolute_import
 import logging
 from bliss.common import log
-from bliss.config.plugins.bliss import __find_class
+from bliss.config.plugins.bliss import find_class
 
 
 def create_objects_from_config_node(config, item_cfg_node):
@@ -28,7 +28,7 @@ def create_objects_from_config_node(config, item_cfg_node):
                 objects.append((name, config_item))
                 names.setdefault(category, list()).append(name)
                  
-    controller_class = __find_class(parent_node, subdir="temperature") 
+    controller_class = find_class(parent_node, "bliss.controllers.temperature") 
     controller = controller_class(parent_node, inputs, outputs, loops)
     
     cache_dict = dict()

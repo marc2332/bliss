@@ -24,13 +24,15 @@ import signal
 import uuid
 from jinja2 import Template
 import bliss.shell.interpreter as interpreter
-from bliss.shell import SETUP, SYNOPTIC, read_config
+from bliss.config import static as static_config
+from bliss.config.conductor import client as beacon
 
 EXECUTION_QUEUE = dict()
 OUTPUT_QUEUE = dict()
 INTERPRETER = dict()
 RESULT = dict()
 SESSION_INIT = dict()
+SYNOPTIC = dict()
 
 # patch socket module;
 # by default bottle doesn't set address as reusable
@@ -198,14 +200,20 @@ def open_session(session_id):
     client_id = str(uuid.uuid1())
 
     if not session_id in INTERPRETER:
-        read_config()
         cmds_queue,EXECUTION_QUEUE[session_id] = gipc.pipe()
         output_queue_from_interpreter, output_queue = gipc.pipe()
         RESULT[session_id] = dict()
-        setup_file = SETUP.get(session_id, {}).get("file")
-        config_objects_names = SETUP.get(session_id, {}).get("config_objects")
+
+        config = static_config.get_config()
+        session = config.get(session_id)
+        session_cfg = config.get_config(session.name)
+        synoptic = session_cfg.get('synoptic')
+        if synoptic:
+            SYNOPTIC[session_id] = synoptic
+
         INTERPRETER[session_id] = gipc.start_process(interpreter.start_interpreter,
-                                                     args=(setup_file, config_objects_names, cmds_queue, output_queue))
+                                                     args=(session_id, cmds_queue, output_queue),
+                                                     kwargs={"beacon_host": os.environ.get("BEACON_HOST"), "beacon_port": os.environ.get("BEACON_PORT") })
         EXECUTION_QUEUE[session_id].put((None, "syn", (None,)))
         output_queue_from_interpreter.get() #ack
     
@@ -230,9 +238,12 @@ def open_session(session_id):
 
 @bottle.route("/<session_id>/synoptic")
 def return_synoptic_svg(session_id):
-    if session_id in SYNOPTIC:
-        with file(SYNOPTIC[session_id]["file"]) as f:
-            return f.read()
+    s = static_config.get_config().get(session_id)
+    svg = SYNOPTIC.get(session_id, {}).get('svg-file')
+    if svg:
+        return beacon.get_config_file(os.path.join(s._base_path, svg))
+    else:
+        return ""
 
 @bottle.route("/<session_id>/synoptic/objects")
 def return_synoptic_objects(session_id):
@@ -257,10 +268,30 @@ def return_synoptic_objects(session_id):
     print objects
     return objects        
  
+@bottle.route('/sessions')
+def sessions_list():
+    config = static_config.get_config()
+    sessions = ["<ul>"]
+    for name in config.names_list:
+        c = config.get_config(name)
+        if c.get('class') != 'Session': continue
+        if c.get_inherited('plugin') != 'session': continue
+        sessions.append("<li><a href='/%s'>%s</a></li>" % (name, name))
+    sessions.append("</ul>")
+    return "<html><head><h3>BLISS sessions</h3><br></head><body>%s</body></html>" % "\n".join(sessions)
+  
 
 @bottle.route('/')
 def main():
-    bottle.redirect("/1")
+    # redirect to default session or to list if there is no default
+    config = static_config.get_config()
+    for name in config.names_list:
+        c = config.get_config(name)
+        if c.get('class') != 'Session': continue
+        if c.get_inherited('plugin') != 'session': continue
+        if c.get('default', False):
+            bottle.redirect("/%s" % name)
+    bottle.redirect("/sessions")
 
 
 @bottle.route("/js/<url:path>")

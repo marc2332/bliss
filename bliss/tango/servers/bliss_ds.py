@@ -37,13 +37,13 @@ from PyTango.server import device_property
 from PyTango.server import Device, DeviceMeta
 from PyTango.server import attribute, command
 
+from bliss import shell
 from bliss.common import event
 from bliss.common import data_manager
 from bliss.common.scans import last_scan_data
 from bliss.common.utils import grouped
 from bliss.config.static import get_config
 from bliss.controllers.motor_group import Group
-from bliss.shell import initialize
 
 from . import utils
 
@@ -197,22 +197,20 @@ class ScanListener:
 
 
 _SHELL_INFO = None
-def load_shell(config_file, session_name):
-    result = initialize(config_file, session_name)
+def load_shell(*session_names):
+    result = shell.initialize(*session_names)
     global _SHELL_INFO
     _SHELL_INFO = result
     return result
+
 
 @six.add_metaclass(DeviceMeta)
 class Bliss(Device):
     """Bliss TANGO device class"""
 
-    #: Config file name (mandatory)
-    config_file = device_property(dtype=str)
-
-    #: Session name (default: None, meaning use server instance name as
+    #: Session names (default: None, meaning use server instance name as
     #: session name)
-    session_name = device_property(dtype=str, default_value=None)
+    session_names = device_property(dtype=[str], default_value=None)
 
     #: Sanitize or not the command to be executed
     #: If True, it will allow you to send a command like: 'wm th phi'
@@ -235,22 +233,16 @@ class Bliss(Device):
         self.__tasks = {}
         self.__results = {}
 
-        if self.config_file is None:
-            self.set_state(DevState.FAULT)
-            self.set_status('missing config_file property')
-            return
-
-        self.config_file = os.path.expanduser(self.config_file)
-        if self.session_name is None:
+        if self.session_names is None:
             util = Util.instance()
-            self.session_name = util.get_ds_inst_name()
+            self.session_names = [util.get_ds_inst_name()]
 
         self.__scan_listener = ScanListener()
         if self.__startup:
             shell_info = _SHELL_INFO
         else:
-            shell_info = initialize(self.config_file, self.session_name)
-        self.__user_ns, _, (self.__setup, _), _ = shell_info
+            shell_info = shell.initialize(*self.session_names)
+        self.__user_ns, self.__sessions = shell_info
         self.__startup = False
 
         # redirect output
@@ -280,28 +272,15 @@ class Bliss(Device):
         return self.__status
 
     @property
-    def _session(self):
-        return self.__setup.get(self.session_name, {})
-
-    @property
-    def _setup_file(self):
-        return self._session.get('file') or ''
-
-    @property
     def _object_names(self):
-        return self._session.get('config_objects')
+        objs = []
+        for session in self.__sessions:
+            objs.extend(session.object_names)
+        return objs
 
-    @attribute(dtype=str)
-    def setup(self):
-        return json.dumps(self.__setup)
-
-    @attribute(dtype=str)
-    def session(self):
-        return json.dumps(self._session)
-
-    @attribute(dtype=str)
-    def setup_file(self):
-        return self._setup_file
+    @attribute(dtype=[str])
+    def sessions(self):
+        return self.session_names
 
     @attribute(dtype=(str,), max_dim_x=10000)
     def object_names(self):
@@ -568,26 +547,27 @@ def __initialize(args, db=None):
 
     bliss_dev_name = device_map['Bliss'][0]
 
-    props = db.get_device_property(bliss_dev_name,
-                                   ('config_file', 'session_name'))
-    config_file = props['config_file']
-    config_file = config_file[0] if config_file else None
-    session_name = props['session_name']
-    session_name = session_name[0] if session_name else server_instance
+    props = db.get_device_property(bliss_dev_name, ('session_names',))
+    session_names = props['session_names']
+    session_names = session_names if session_names else [server_instance]
 
     this_dir = os.path.dirname(os.path.abspath(__file__))
     suffix = '_ds.py'
     inits = []
 
-    shell_info = load_shell(config_file, session_name)
+    shell_info = ns, sessions = load_shell(*session_names)
 
-    info=dict(server_type=server_type,
-              server_instance=server_instance,
-              config_file=config_file,
-              session_name=session_name,
-              device_map=device_map,
-              manager_device_name=bliss_dev_name,
-              shell_info=shell_info)
+    object_names = []
+    for session in sessions:
+        object_names.extend(session.object_names)
+
+    info = dict(server_type=server_type,
+                server_instance=server_instance,
+                session_names=session_names,
+                device_map=device_map,
+                manager_device_name=bliss_dev_name,
+                object_names=object_names,
+                shell_info=shell_info)
 
     for name in os.listdir(this_dir):
         if name.endswith(suffix):

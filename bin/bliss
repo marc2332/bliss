@@ -7,14 +7,14 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 """
-Usage: bliss [(-c FILE |--config-file=FILE)] [(-s NAME | --session=NAME)]  
+Usage: bliss [(-s | --session)] <name>...
+       bliss [--show-sessions]
+       bliss
        bliss (-h | --help)
-
 Options:
-
-    -c FILE, --config-file=FILE  Full path to .yml configuration file.
-    -s NAME, --session=NAME      Session name (from configuration file).
-    -h, --help                   Show this screen.
+    --show-sessions               Display available sessions.
+    -s, --session                 Starts with some session(s).
+    -h, --help                    Show this screen.
 """
 import sys
 import os
@@ -28,6 +28,7 @@ from prompt_toolkit.eventloop.posix import call_on_sigwinch, DummyContext
 from gevent import select
 import signal
 from bliss.shell import initialize
+from bliss.config import static
 
 class GeventEventLoop(EventLoop):
     def __init__(self, *args, **kwargs):
@@ -117,17 +118,25 @@ def main():
     try:
         # Parse arguments, use file docstring as a parameter definition
         arguments = docopt.docopt(__doc__)
-
-        config_file = os.path.expanduser(arguments["--config-file"]) if arguments["--config-file"] else None
-        session_name = arguments.get("--session")
+        sessions_name = arguments['<name>']
     except docopt.DocoptExit as e:
         print e.message
     else:
+        if arguments['--show-sessions']:
+            config = static.get_config()
+            print 'Session name(s):'
+            for name in config.names_list:
+                c = config.get_config(name)
+                if c.get('class') != 'Session': continue
+                if c.get_inherited('plugin') != 'session': continue
+                print ' '*4,name
+            exit(0)
         repl.create_eventloop = GeventEventLoop
 
-        user_ns, session_id, _, _ = initialize(config_file, session_name)
+        user_ns, sessions = initialize(*sessions_name)
 
-        if config_file:
+        if sessions_name:
+            session_id  = '_'.join(sessions_name)
             history_filename = ".%s_%s_history" % (os.path.basename(sys.argv[0]), session_id)
         else:
             history_filename = ".%s_history" % os.path.basename(sys.argv[0])

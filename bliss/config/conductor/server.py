@@ -21,6 +21,7 @@ import socket
 from gevent import select
 import signal
 import traceback
+import pkgutil
 
 def start_database_ds(tango_port = 20000,personal_name='2',debug_level = 0):
     from PyTango.databaseds import database
@@ -173,6 +174,31 @@ def _send_config_file(client_id,message):
     except IOError:
         client_id.sendall(protocol.message(protocol.CONFIG_GET_FILE_FAILED,"%s|File doesn't exist" % (message_key)))
 
+def __find_module(client_id,message_key,path,parent_name = None):
+    for importer,name,ispkg in pkgutil.walk_packages([path]):
+        module_name = name if parent_name is None else '%s.%s' % (parent_name,name)
+        client_id.sendall(protocol.message(protocol.CONFIG_GET_PYTHON_MODULE_RX,
+                                           '%s|%s|%s' % (message_key,module_name,
+                                                         importer.find_module(name).get_filename())))
+        if ispkg:
+            __find_module(client_id,message_key,os.path.join(path,name),module_name)
+
+def _get_python_module(client_id,message):
+    try:
+        message_key,start_module_path = message.split('|')
+    except ValueError:
+        client_id.sendall(protocol.message(protocol.CONFIG_GET_PYTHON_MODULE_FAILED,"%s|Can't split message (%s)" %
+                                           (message_key,message)))
+        return
+
+    start_module_path = start_module_path.replace('../','') # prevent going up
+    start_module_path = os.path.join(_options.db_path,start_module_path)
+
+    __find_module(client_id,message_key,start_module_path)
+    client_id.sendall(protocol.message(protocol.CONFIG_GET_PYTHON_MODULE_END, '%s|' % message_key))
+    
+                          
+    
 def __remove_empty_tree(base_dir=None, keep_empty_base=True):
     """
     Helper to remove empty directory tree.
@@ -370,8 +396,8 @@ def _send_posix_mq_connection(client_id,client_hostname):
         else:
             client_id.sendall(protocol.message(protocol.POSIX_MQ_FAILED))
 
-def _send_unknow_message(client_id):
-    client_id.sendall(protocol.message(protocol.UNKNOW_MESSAGE))
+def _send_unknow_message(client_id,message):
+    client_id.sendall(protocol.message(protocol.UNKNOW_MESSAGE,message))
 
 def _client_rx(client,local_connection):
     tcp_data = ''
@@ -440,10 +466,18 @@ def _client_rx(client,local_connection):
                             _remove_config_file(c_id,message)
                         elif messageType == protocol.CONFIG_MOVE_PATH:
                             _move_config_path(c_id,message)
+                        elif messageType == protocol.CONFIG_GET_PYTHON_MODULE:
+                            _get_python_module(c_id,message)
                         else:
-                            _send_unknow_message(c_id)
-                    except (ValueError, protocol.IncompleteMessage):
+                            _send_unknow_message(c_id,message)
+                    except ValueError:
                         sys.excepthook(*sys.exc_info())
+                        break
+                    except protocol.IncompleteMessage:
+                        r,_,_ = select.select(r_listen,[],[],.5)
+                        if not r: # if timeout, something wired, close the connection
+                           data = None
+                           stopFlag = True
                         break
                     except:
                         sys.excepthook(*sys.exc_info())

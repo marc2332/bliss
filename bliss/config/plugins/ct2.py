@@ -106,8 +106,8 @@ def get_jinja2():
 def get_tree(cfg, perspective):
     if perspective == "files":
         return get_tree_files(cfg)
-    elif perspective == "objects":
-        return get_tree_objects(cfg)
+    elif perspective == "items":
+        return get_tree_items(cfg)
 
 def get_tree_files(cfg):
     klass =  cfg.get("class")
@@ -122,11 +122,11 @@ def get_tree_files(cfg):
                       icon="fa fa-credit-card")
     return result
 
-def get_tree_objects(cfg):
+def get_tree_items(cfg):
     klass =  cfg.get("class")
     if klass is None:
         result = dict(type="ct/ch",
-                      path=os.path.join(get_tree_objects(cfg.parent)['path'], 
+                      path=os.path.join(get_tree_items(cfg.parent)['path'], 
                                         cfg['name']),
                       icon="fa fa-square")
     else:

@@ -53,8 +53,8 @@ def get_jinja2():
 def get_tree(cfg, perspective):
     if perspective == "files":
         return get_tree_files(cfg)
-    elif perspective == "objects":
-        return get_tree_objects(cfg)
+    elif perspective == "items":
+        return get_tree_items(cfg)
 
 
 def get_tree_files(cfg):
@@ -72,11 +72,11 @@ def get_tree_files(cfg):
     return result
 
 
-def get_tree_objects(cfg):
+def get_tree_items(cfg):
     ctrl_class = cfg.get("class")
     if ctrl_class is None:
         result = dict(type="axis",
-                      path=os.path.join(get_tree_objects(cfg.parent)['path'],
+                      path=os.path.join(get_tree_items(cfg.parent)['path'],
                                         cfg['name']),
                       icon="fa fa-gear")
     else:

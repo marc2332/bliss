@@ -8,6 +8,7 @@
 import os
 import sys
 import pkgutil
+import functools
 
 import gevent.lock
 
@@ -30,27 +31,148 @@ beacon_port = None
 __this_file = os.path.realpath(__file__)
 __this_path = os.path.dirname(__this_file)
 
-class Config(object):
+
+def check_config(f):
+    functools.wraps(f)
+    def wrapper(self, *args, **kwargs):
+        self.get_config()
+        return f(self, *args, **kwargs)
+    return wrapper
+
+
+class WebConfig(object):
+
+    EXT_MAP = {
+        'yml': dict(type='yaml', icon='file-text'),
+        'py': dict(type='python', icon='file-code-o'),
+    }
 
     def __init__(self):
         self.__new_config = False
         self.__lock = gevent.lock.RLock()
+        self.__items = None
+        self.__tree_items = None
+        self.__tree_files = None
         beacon_conn = connection.Connection('localhost', beacon_port)
         client._default_connection = beacon_conn
         event.connect(server.__name__, 'config_changed', self.__on_config_changed)
 
     def __on_config_changed(self):
-        self.__new_config = True
+        with self.__lock:
+            self.__new_config = True
 
-    def __call__(self):
+    def get_config(self):
         with self.__lock:
             cfg = static.get_config()
             if self.__new_config:
                 cfg.reload()
+                self.__items = None
+                self.__tree_items = None
+                self.__tree_files = None
                 self.__new_config = False
             return cfg
 
-__config = Config()
+    @property
+    def items(self):
+        if self.__items is None:
+            self.__items = self.__build_items()
+        return self.__items
+
+    @property
+    def tree_items(self):
+        if self.__tree_items is None:
+            self.__tree_items = self.__build_tree_items()
+        return self.__tree_items
+
+    @property
+    def tree_files(self):
+        if self.__tree_files is None:
+            self.__tree_files = self.__build_tree_files()
+        return self.__tree_files
+
+    def __build_items(self):
+        cfg = self.get_config()
+        items = {}
+        for name in cfg.names_list:
+            config = cfg.get_config(name)
+            get_tree = _get_config_plugin(config, "get_tree")
+            if get_tree:
+                item = get_tree(config, "items")
+            else:
+                item = dict(type="item", path=name, icon="fa fa-question")
+            items[name] = item
+        return items
+
+    def __build_tree_items(self):
+        items = self.items
+        result = dict()
+        for _, item in items.items():
+            current_level = result
+            db_file = item['path']
+            parts = db_file.split(os.path.sep)
+            full_part = ""
+            for part in parts[:-1]:
+                full_part = os.path.join(full_part, part)
+                p_item = items.get(full_part)
+                if p_item is None:
+                    p_item = dict(type="folder", path=full_part, icon="fa fa-folder-open")
+                current_level.setdefault(part, [p_item, dict()])
+                current_level = current_level[part][1]
+            current_level.setdefault(parts[-1], [item, dict()])
+        return result
+
+    def __build_tree_files(self):
+        cfg = self.get_config()
+
+        src, dst = client.get_config_db_tree(), {}
+        self.__build_tree_files__(src, dst)
+
+        items = {}
+        for name in cfg.names_list:
+            config = cfg.get_config(name)
+            get_tree = _get_config_plugin(config, "get_tree")
+            if get_tree:
+                item = get_tree(config, "files")
+            else:
+                item = dict(type="item", path=os.path.join(config.filename, name),
+                            icon="fa fa-question")
+            items[name] = item
+
+        for name, item in items.items():
+            path = item['path']
+            parent = dst
+            # search file node where item is defined
+            for pitem in path.split(os.path.sep):
+                try:
+                    parent = parent[pitem][1]
+                except KeyError:
+                    break
+            parent[name] = [item, {}]
+        return dst
+
+    def __build_tree_files__(self, src, dst, path=''):
+        for name, data in src.items():
+            if name.startswith('.') or name.endswith('~') or name.endswith('.rdb'):
+                continue
+            item_path = os.path.join(path, name)
+            sub_items = {}
+            if data is None: # a file
+                ext_info = self.get_file_info(name)
+                meta = dict(type="file", path=item_path, icon="fa fa-" + ext_info['icon'])
+            else:
+                meta = dict(type="folder", path=item_path, icon="fa fa-folder-open")
+                self.__build_tree_files__(data, sub_items, path=item_path)
+            dst[name] = [meta, sub_items]
+        return dst
+
+    @check_config
+    def get_file_info(self, file_name):
+        ext = file_name.rsplit(os.path.extsep, 1)[1]
+        return self.EXT_MAP.setdefault(ext, dict(type=ext, icon='question'))
+
+
+__config = WebConfig()
+
 
 def __get_jinja2():
     global __environment
@@ -60,7 +182,7 @@ def __get_jinja2():
         __environment = Environment(loader=FileSystemLoader(__this_path))
     return __environment
 
-def __get_config_plugin(cfg, member=None):
+def _get_config_plugin(cfg, member=None):
     if cfg is None:
         return
     if cfg.plugin in ("default", None):
@@ -101,7 +223,7 @@ def __get_plugins():
 
 @web_app.route("/")
 def index():
-    cfg = __config()
+    cfg = __config.get_config()
     node = cfg.root
 
     template = __get_jinja2().select_template(("index.html",))
@@ -122,7 +244,7 @@ def static_file(dir, filename):
 
 @web_app.route("/main/")
 def main():
-    cfg = __config()
+    cfg = __config.get_config()
     get_main = __get_plugin(cfg.root.plugin or "beamline", "get_main")
     if get_main:
         return get_main(cfg)
@@ -131,34 +253,41 @@ def main():
 
 @web_app.route("/db_files")
 def db_files():
-    cfg = __config()
+    cfg = __config.get_config()
     db_files, _ = zip(*client.get_config_db_files())
     return flask.json.dumps(db_files)
+
+@web_app.route("/db_tree")
+def db_tree():
+    cfg = __config.get_config
+    db_tree = client.get_config_db_tree()
+    return flask.json.dumps(db_tree)
 
 @web_app.route("/db_file/<path:filename>", methods=['PUT', 'GET'])
 def get_db_file(filename):
     if flask.request.method == 'PUT':
-        client.set_config_db_file(filename, flask.request.form['yml_file'])
+        client.set_config_db_file(filename, flask.request.form['file_content'])
         return flask.json.dumps(dict(message="%s successfully saved",
                                      type="success"))
     else:
-        cfg = __config()
-        db_files = dict(client.get_config_db_files())
-        return flask.json.dumps(dict(name=filename, content=db_files[filename]))
+        cfg = __config.get_config()
+        content = client.get_config_file(filename)
+        return flask.json.dumps(dict(name=filename, content=content))
 
 @web_app.route("/db_file_editor/<path:filename>")
 def get_db_file_editor(filename):
-    cfg = __config()
+    cfg = __config.get_config()
 
-    db_files = dict(client.get_config_db_files())
+    content = client.get_config_file(filename)
 
+    file_info = __config.get_file_info(filename)
     template = __get_jinja2().select_template(("editor.html",))
-    html = template.render(dict(name=filename, content=db_files[filename]))
+    html = template.render(dict(name=filename, ftype=file_info['type'], content=content))
     return flask.json.dumps(dict(html=html, name=filename))
 
-@web_app.route("/objects/")
-def objects():
-    cfg = __config()
+@web_app.route("/items/")
+def items():
+    cfg = __config.get_config()
 
     db_files, _ = map(list, zip(*client.get_config_db_files()))
 
@@ -177,78 +306,18 @@ def objects():
 @web_app.route("/tree/<view>")
 def tree(view):
     if view == "files":
-        return tree_files()
-    elif view == "objects":
-        return tree_objects()
-
-def tree_files():
-    cfg = __config()
-
-    items = {}
-    for fname, _ in client.get_config_db_files():
-        items[fname] = dict(type="file", path=fname, icon="fa fa-file-text")
-
-    for name in cfg.names_list:
-        config = cfg.get_config(name)
-        get_tree = __get_config_plugin(config, "get_tree")
-        if get_tree:
-            item = get_tree(config, "files")
-        else:
-            item = dict(type="object", path=os.path.join(config.filename, name),
-                        icon="fa fa-question")
-        items[item["path"]] = item
-
-    result = dict()
-    for _, item in items.items():
-        current_level = result
-        db_file = item['path']
-        parts = db_file.split(os.path.sep)
-        full_part = ""
-        for part in parts[:-1]:
-            full_part = os.path.join(full_part, part)
-            p_item = items.get(full_part)
-            if p_item is None:
-                p_item = dict(type="folder", path=full_part, icon="fa fa-folder-open")
-            current_level.setdefault(part, [p_item, dict()])
-            current_level = current_level[part][1]
-        current_level.setdefault(parts[-1], [item, dict()])
+        result = __config.tree_files
+    elif view == "items":
+        result = __config.tree_items
+    else:
+        result = dict(message='unknown view', type='error')
     return flask.json.dumps(result)
 
-def tree_objects():
-    cfg = __config()
-
-    items = {}
-    for name in cfg.names_list:
-        config = cfg.get_config(name)
-        get_tree = __get_config_plugin(config, "get_tree")
-        if get_tree:
-            item = get_tree(config, "objects")
-        else:
-            item = dict(type="object", path=name,
-                        icon="fa fa-question")
-        items[item["path"]] = item
-
-    result = dict()
-    for _, item in items.items():
-        current_level = result
-        db_file = item['path']
-        parts = db_file.split(os.path.sep)
-        full_part = ""
-        for part in parts[:-1]:
-            full_part = os.path.join(full_part, part)
-            p_item = items.get(full_part)
-            if p_item is None:
-                p_item = dict(type="folder", path=full_part, icon="fa fa-folder-open")
-            current_level.setdefault(part, [p_item, dict()])
-            current_level = current_level[part][1]
-        current_level.setdefault(parts[-1], [item, dict()])
-    return flask.json.dumps(result)
-
-@web_app.route("/objects/<name>")
-def get_object_config(name):
-    cfg = __config()
+@web_app.route("/items/<name>")
+def get_item_config(name):
+    cfg = __config.get_config()
     obj_cfg = cfg.get_config(name)
-    plugin = __get_config_plugin(obj_cfg, "get_html")
+    plugin = _get_config_plugin(obj_cfg, "get_html")
     if plugin:
         obj_cfg = plugin(obj_cfg)
     else:
@@ -257,7 +326,7 @@ def get_object_config(name):
 
 @web_app.route("/config/reload")
 def reload_config():
-    cfg = __config()
+    cfg = __config.get_config()
     cfg.reload()
     return flask.json.dumps(dict(message="Configuration fully reloaded!",
                                  type="success"))
@@ -271,11 +340,11 @@ def handle_plugin_action(name, action):
     plugin = __get_plugin(name, member=action)
     if not plugin:
         return ""
-    return plugin(__config(), flask.request)
+    return plugin(__config.get_config(), flask.request)
 
 @web_app.route("/add_folder", methods=["POST"])
 def add_folder():
-    cfg = __config()
+    cfg = __config.get_config()
     folder = flask.request.form['folder']
 
     filename = os.path.join(folder, "__init__.yml")
@@ -285,7 +354,7 @@ def add_folder():
 
 @web_app.route("/add_file", methods=["POST"])
 def add_file():
-    cfg = __config()
+    cfg = __config.get_config()
     filename = flask.request.form['file']
     node = static.Node(cfg, filename=filename)
     node.save()
@@ -293,14 +362,14 @@ def add_file():
 
 @web_app.route("/remove_file", methods=["POST"])
 def remove_file():
-    cfg = __config()
+    cfg = __config.get_config()
     filename = flask.request.form['file']
     client.remove_config_file(filename)
     return flask.json.dumps(dict(message="File deleted!", type="success"))
 
 @web_app.route("/copy_file", methods=["POST"])
 def copy_file():
-    cfg = __config()
+    cfg = __config.get_config()
     src_path = flask.request.form['src_path']
     dst_path = flask.request.form['dst_path']
 
@@ -326,7 +395,7 @@ def copy_file():
 
 @web_app.route("/move_path", methods=["POST"])
 def move_path():
-    cfg = __config()
+    cfg = __config.get_config()
     src_path = flask.request.form['src_path']
     dst_path = flask.request.form['dst_path']
     client.move_config_path(src_path, dst_path)

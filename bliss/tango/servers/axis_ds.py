@@ -1128,8 +1128,7 @@ def __recreate_axes(server_name, manager_dev_name, axis_names,
 # callback from the Bliss server
 def initialize_bliss(info, db=None):
     shell_info = info['shell_info']
-    session_cfg = shell_info[-1]
-    object_names = session_cfg['config_objects']
+    object_names = info['object_names']
     server_type  = info['server_type']
     server_instance = info['server_instance']
     server_name = server_type + '/' + server_instance

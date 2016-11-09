@@ -22,7 +22,9 @@ import gevent
 import logging
 import functools
 from contextlib import contextmanager
-from bliss.shell import setup
+from bliss.config import static as static_config
+from bliss.config.conductor import connection as conductor_connection
+from bliss.config.conductor import client as conductor_client
 from bliss.common.event import dispatcher
 from bliss.common import data_manager
 from bliss.common import measurement
@@ -154,9 +156,15 @@ class InteractiveInterpreter(code.InteractiveInterpreter):
             return self.executed_greenlet.client_uuid
         
 
-def init(input_queue, output_queue):
+def init(input_queue, output_queue, beacon_host, beacon_port):
     # undo thread module monkey-patching
     reload(thread)
+
+    # make sure connection to beacon server is the right one,
+    # we might have a specific beacon host,port and it seems
+    # environment variables are not all passed here to the
+    # new process
+    conductor_client._default_connection = conductor_connection.Connection(host=beacon_host, port=beacon_port)
 
     i = InteractiveInterpreter(output_queue)
 
@@ -216,11 +224,6 @@ def get_objects_by_type(objects_dict):
     actuator = dict()
     shutter = dict()
 
-    #if beacon_static:
-    #    cfg = beacon_static.get_config()
-    #else:
-    #    cfg = None
-
     for name, obj in objects_dict.iteritems():
         if inspect.isclass(obj):
             continue
@@ -261,7 +264,7 @@ def get_objects_by_type(objects_dict):
 
     return { "motors": motors, "counters": counters, "actuator": actuator, "shutter": shutter }
 
-def start(setup_file, config_objects_names, input_queue, output_queue, i):
+def start(session_id, input_queue, output_queue, i):
     # restore default SIGINT behaviour
     def raise_kb_interrupt(interpreter=i):
         if not interpreter.kill(KeyboardInterrupt):
@@ -274,8 +277,10 @@ def start(setup_file, config_objects_names, input_queue, output_queue, i):
                                "shutter": dict() }
     init_scans_callbacks(i, output_queue)
 
-    i.locals["resetup"] = functools.partial(setup, env_dict=i.locals, config_objects_names_list=config_objects_names)
-    i.locals["SETUP_FILE"] = setup_file
+    config = static_config.get_config()
+    session = config.get(session_id)
+
+    i.locals["resetup"] = functools.partial(session.setup, env_dict=i.locals, verbose=True)
 
     root_logger = logging.getLogger()
     custom_log_handler = LogHandler(output_queue) 

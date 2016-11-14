@@ -38,9 +38,15 @@ fi
 
 if [ -n "${BEACON_TANGO_DATABASE}" ] && \
    [ "${BEACON_TANGO_DATABASE}" = "1" \
-     -o "${BEACON_TANGO_DATABASE}" = "yes" ] && [ -n "${TANGO_HOST}" ]; then
-    tango_port=`echo ${TANGO_HOST} |  awk -F":" '{print $2}'`
-    TANGO_PORT_OPT="--tango_port ${tango_port}"
+     -o "${BEACON_TANGO_DATABASE}" = "yes" ]; then
+    if [ -z "${BEACON_TANGO_PORT}" ]; then
+	if [ -n "${TANGO_HOST}" ]; then
+	    BEACON_TANGO_PORT=`echo ${TANGO_HOST} |  awk -F":" '{print $2}'`
+	else
+	    BEACON_TANGO_PORT="20000"
+	fi
+    fi
+    TANGO_PORT_OPT="--tango_port=${BEACON_TANGO_PORT}"
 fi
 
 script=`which beacon-server`

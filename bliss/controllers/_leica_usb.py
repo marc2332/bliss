@@ -89,6 +89,8 @@ class ImageRGB(object):
     def get_binned(self, ibin):
         data = self.np_array
         bin_x, bin_y = ibin
+        if bin_x == 1 and bin_y == 1:
+            return ImageRGB((self.cols, self.rows), self.data.tostring())
         if self.cols % bin_x != 0 or self.rows % bin_y != 0:
             raise ValueError, 'Invalid bin: must be a multiple of dims'
         new_cols = self.cols / bin_x

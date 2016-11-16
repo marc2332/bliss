@@ -68,6 +68,7 @@ class flex:
         self.robot = None
         self.cam = None
         self._loaded_sample = (-1, -1, -1)
+        #DNself._loaded_sample = self.read_loaded_position()
         robot.setLogFile(config.get('log_file'))
         robot.setExceptionLogFile(config.get('exception_file'))
         global flex_log_handler
@@ -535,6 +536,26 @@ class flex:
                                  self.sampleStatus, ("LoadSampleStatus",)) as X:
             return X.execute(self.robot.executeTask, "loadSample", timeout=200)
 
+    def save_loaded_position(self, cell, puck, sample):
+        parser = ConfigParser.RawConfigParser()
+        file_path = os.path.dirname(self.calibration_file)+"/loaded_position.cfg"
+        parser.read(file_path)
+        parser.set("position", "cell", str(cell))
+        parser.set("position", "puck", str(puck))
+        parser.set("position", "sample", str(sample))
+        with open(file_path, 'wb') as file:
+            parser.write(file)
+        logging.getLogger('flex').info("loaded position written")
+
+    def read_loaded_position(self):
+        parser = ConfigParser.RawConfigParser()
+        file_path = os.path.dirname(self.calibration_file)+"/loaded_position.cfg"
+        parser.read(file_path)
+        cell = parser.getfloat("position", "cell")
+        puck = parser.getfloat("position", "puck")
+        sample = parser.getfloat("position", "sample")
+        return (int(cell), int(puck), int(sample))
+
     def loadSample(self, cell, puck, sample, ref=False):
         to_load = (cell, puck, sample)
         cell, PuckPos, sample, PuckType = self.check_coordinates(cell, puck, sample)
@@ -568,6 +589,8 @@ class flex:
 
         if gripper_type == 3:
             gevent.spawn(self.defreezeGripper)
+
+        #DN self.save_loaded_position(*to_load)
  
         return success
 
@@ -624,6 +647,8 @@ class flex:
 
         if gripper_type == 3:
             gevent.spawn(self.defreezeGripper)
+
+        #DN self.save_loaded_position(-1,-1,-1)
 
         return success
 
@@ -694,6 +719,8 @@ class flex:
   
         if gripper_type == 3:
             gevent.spawn(self.defreezeGripper)
+
+        #DN self.save_loaded_position(*load)
 
         return success
 

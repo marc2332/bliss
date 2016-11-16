@@ -386,7 +386,7 @@ class flex:
                     logging.getLogger('flex').info("edge position on the reference image %s" %str(ref_image_edge))
                     distance_from_ref = self.cam.edge_distance(self.cam.horizontal_edge(ref_image, roi_pin), edge)
                     logging.getLogger('flex').info("distance of the pin from the reference %s" %str(distance_from_ref))
-                    if abs(distance_from_ref)  <= 0.8:
+                    if abs(distance_from_ref)  <= 2.0:
                         self.robot.setVal3GlobalVariableBoolean("bPinIsOkInGrip", True)
                     else:
                         logging.getLogger('flex').error("distance from reference is too high")

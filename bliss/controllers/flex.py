@@ -1068,7 +1068,7 @@ class flex:
     def dewarAlignment(self, cell="all"):
         logging.getLogger('flex').info("Starting calibration of the Dewar position")
         gripper_type = self.get_gripper_type()
-        if self.gripper_type != 9:
+        if gripper_type != 9:
             logging.getLogger('flex').error("Need calibration gripper")
             raise RuntimeError("Need calibration gripper")
         #self.defreezeGripper()

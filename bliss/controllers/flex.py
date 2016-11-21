@@ -68,7 +68,6 @@ class flex:
         self.robot = None
         self.cam = None
         self._loaded_sample = (-1, -1, -1)
-        #DNself._loaded_sample = self.read_loaded_position()
         robot.setLogFile(config.get('log_file'))
         robot.setExceptionLogFile(config.get('exception_file'))
         global flex_log_handler
@@ -90,6 +89,7 @@ class flex:
         self.proxisense = ProxiSense(self.proxisense_address, os.path.dirname(self.calibration_file))
         self.robot = robot.Robot('flex', self.cs8_ip)
         logging.getLogger('flex').info("Connection done")
+        self._loaded_sample = self.read_loaded_position()
 
     def enablePower(self, state):
         state = bool(state)
@@ -547,6 +547,10 @@ class flex:
             parser.write(file)
         logging.getLogger('flex').info("loaded position written")
 
+    def reset_loaded_position(self):
+        self._loaded_sample = (-1, -1, -1)
+        self.save_loaded_position(-1, -1, -1)
+
     def read_loaded_position(self):
         parser = ConfigParser.RawConfigParser()
         file_path = os.path.dirname(self.calibration_file)+"/loaded_position.cfg"
@@ -590,7 +594,7 @@ class flex:
         if gripper_type == 3:
             gevent.spawn(self.defreezeGripper)
 
-        #DN self.save_loaded_position(*to_load)
+        self.save_loaded_position(*to_load)
  
         return success
 
@@ -648,7 +652,7 @@ class flex:
         if gripper_type == 3:
             gevent.spawn(self.defreezeGripper)
 
-        #DN self.save_loaded_position(-1,-1,-1)
+        self.save_loaded_position(-1,-1,-1)
 
         return success
 
@@ -720,7 +724,7 @@ class flex:
         if gripper_type == 3:
             gevent.spawn(self.defreezeGripper)
 
-        #DN self.save_loaded_position(*load)
+        self.save_loaded_position(*load)
 
         return success
 

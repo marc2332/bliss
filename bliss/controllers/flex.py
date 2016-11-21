@@ -324,7 +324,10 @@ class flex:
         logging.getLogger('flex').info("image taken number %d" %imgNb)
         prev_imgNb = imgNb
         image = self.cam.BW_image(self.cam.take_snapshot())
-        self.cam.image_save(image)
+        try:
+            self.cam.image_save(image)
+        except Exception as e:
+            logging.getLogger('flex').exception("Could not save image")
         return image
 
     def save_ref_image(self, image, filename):

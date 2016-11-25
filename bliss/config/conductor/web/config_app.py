@@ -136,9 +136,10 @@ class WebConfig(object):
             else:
                 item = dict(type="item", path=os.path.join(config.filename, name),
                             icon="fa fa-question")
-            items[name] = item
+            items[item['path']] = name, item
 
-        for name, item in items.items():
+        for path in sorted(items):
+            name, item = items[path]
             path = item['path']
             parent = dst
             # search file node where item is defined

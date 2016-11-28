@@ -329,6 +329,7 @@ def get_item_config(name):
 def reload_config():
     cfg = __config.get_config()
     cfg.reload()
+    event.send(server.__name__, 'config_changed')
     return flask.json.dumps(dict(message="Configuration fully reloaded!",
                                  type="success"))
 

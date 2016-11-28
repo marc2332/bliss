@@ -96,9 +96,13 @@ class WebConfig(object):
         for name in cfg.names_list:
             config = cfg.get_config(name)
             get_tree = _get_config_plugin(config, "get_tree")
+            item = None
             if get_tree:
-                item = get_tree(config, "items")
-            else:
+                try:
+                    item = get_tree(config, "items")
+                except:
+                    pass
+            if item is None:
                 item = dict(type="item", path=name, icon="fa fa-question")
             items[name] = item
         return items
@@ -131,9 +135,13 @@ class WebConfig(object):
         for name in cfg.names_list:
             config = cfg.get_config(name)
             get_tree = _get_config_plugin(config, "get_tree")
+            item = None
             if get_tree:
-                item = get_tree(config, "files")
-            else:
+                try:
+                    item = get_tree(config, "files")
+                except:
+                    pass
+            if item is None:
                 item = dict(type="item", path=os.path.join(config.filename, name),
                             icon="fa fa-question")
             items[item['path']] = name, item
@@ -197,7 +205,6 @@ def __get_plugin(name, member=None):
     except ImportError:
         # plugin has an error
         mod = None
-        sys.excepthook(*sys.exc_info())
         return
     if member:
         try:

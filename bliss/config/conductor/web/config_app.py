@@ -60,15 +60,15 @@ class WebConfig(object):
     def __on_config_changed(self):
         with self.__lock:
             self.__new_config = True
+            self.__items = None
+            self.__tree_items = None
+            self.__tree_files = None
 
     def get_config(self):
         with self.__lock:
             cfg = static.get_config()
             if self.__new_config:
                 cfg.reload()
-                self.__items = None
-                self.__tree_items = None
-                self.__tree_files = None
                 self.__new_config = False
             return cfg
 

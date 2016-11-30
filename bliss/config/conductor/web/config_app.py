@@ -43,7 +43,7 @@ def check_config(f):
 class WebConfig(object):
 
     EXT_MAP = {
-        'yml': dict(type='yaml', icon='file-text'),
+        'yml': dict(type='yaml', icon='file-text-o'),
         'py': dict(type='python', icon='file-code-o'),
     }
 
@@ -104,6 +104,7 @@ class WebConfig(object):
                     pass
             if item is None:
                 item = dict(type="item", path=name, icon="fa fa-question")
+            item['name'] = name
             items[name] = item
         return items
 
@@ -144,6 +145,7 @@ class WebConfig(object):
             if item is None:
                 item = dict(type="item", path=os.path.join(config.filename, name),
                             icon="fa fa-question")
+            item['name'] = name
             items[item['path']] = name, item
 
         for path in sorted(items):

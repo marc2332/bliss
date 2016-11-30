@@ -577,6 +577,8 @@ def main():
             os.dup2(tango_wp,sys.stdout.fileno())
             os.dup2(tango_wp,sys.stderr.fileno())
             os.close(tango_wp)
+            this_host = socket.gethostname()
+            os.environ['BEACON_HOST'] = '%s:%d' % (this_host, beacon_port)
             start_database_ds(tango_port = _options.tango_port,debug_level = _options.tango_debug_level)
             sys.exit(0)
         else:

@@ -5,33 +5,37 @@
  Distributed under the GNU LGPLv3. See LICENSE for more info.
 -->
 <style type="text/css" media="screen">
-  #file_editor {
+  #file-editor {
     min-width: 200px;
     min-height: 500px;
-    height: 500px;
+    height: 90%;
   }
 </style>
 
-
-<div class="btn-toolbar" role="toolbar" id="main_toolbar" aria-label="main toolbar">
-  <div class="btn-group pull-right" role="group" aria-label="global fucntionality">
-    <button type="button" class="btn btn-primary" id="save_editor_changes">
+<div class="row">
+  <div class="btn-group" role="group" aria-label="global functionality">
+    <a class="btn btn-default" href="javascript:void(0)">
+      {{ name if name else "unknown file" }}
+    </a>
+    <button type="button" class="btn btn-primary" id="save_editor_changes"
+	    data-toggle="tooltip" title="save changes">
       Save
       <span class="fa fa-save"></span>
     </button>
-    <button type="button" class="btn btn-primary" id="revert_editor_changes">
+    <button type="button" class="btn btn-primary" id="revert_editor_changes"
+	    data-toggle="tooltip" title="revert editor changes">
       Revert
       <span class="fa fa-undo"></span>
     </button>
-
   </div>
 </div>
 
+</div>
 <div style="height:10px;"></div>
-
-<div id="file_editor">{{ content }}</div>
+<div class="row">
+  <div id="file-editor">{{ content }}</div>
+</div>
 
 <script>
-  configure_file_editor("file_editor", "{{ name }}", "{{ ftype }}");
+  configure_file_editor("file-editor", "{{ name }}", "{{ ftype }}");
 </script>
-

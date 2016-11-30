@@ -25,6 +25,7 @@ import StringIO
 import functools
 import itertools
 import traceback
+import collections
 import cPickle
 import base64
 import datetime
@@ -42,6 +43,7 @@ from bliss import shell
 from bliss.common import event
 from bliss.common import data_manager
 from bliss.common.utils import grouped
+from bliss.config import settings
 from bliss.config.static import get_config
 from bliss.controllers.motor_group import Group
 
@@ -401,6 +403,26 @@ class Bliss(Device):
             return
         group = self.group_dict[group_id]
         group.stop(wait=False)
+
+    @command(dtype_in=str,
+             doc_in='JSON representation of a map: <setting_name, setting_value>')
+    def set_settings(self, json_value):
+        data = json.loads(json_value)
+        for key, value in data.items():
+            setting = settings.HashSetting(key)
+            setting.set(value)
+
+    @command(dtype_in=str, doc_in='JSON representation of list<setting_name>',
+             dtype_out=str, doc_out='')
+    def get_settings(self, json_value):
+        data = json.loads(json_value)
+        result = {}
+        if not isinstance(data, list):
+            data = data,
+        for key in data:
+            setting = settings.HashSetting(key)
+            result[key] = setting.get_all()
+        return json.dumps(result)
 
 
 def register_server(server_type, server_instance,

@@ -6,14 +6,18 @@
 -->
 {% block toolbar %}
 
-<nav class="navbar navbar-static-top">
-  <button id="apply" class="btn btn-primary navbar-btn pull-right">
-    <span class="fa fa-save"></span>
-    Apply
- </button>
-</nav>
+<div class="row">
+  <div class="btn-group" role="group" aria-label="global functionality">
+    <button id="apply" class="btn btn-primary">
+      <span class="fa fa-save"></span>
+      Save
+    </button>
+  </div>
+</div>
 
 {% endblock %}
+
+<div style="height:10px;"></div>
 
 <form id="beamline_form" class="form-horizontal">
 <fieldset>
@@ -41,7 +45,7 @@
 
 {% endblock %}
 
-<fieldset>
+</fieldset>
 </form>
 
 <script type="text/javascript">

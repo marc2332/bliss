@@ -43,7 +43,7 @@ def check_config(f):
 class WebConfig(object):
 
     EXT_MAP = {
-        'yml': dict(type='yaml', icon='file-text'),
+        'yml': dict(type='yaml', icon='file-text-o'),
         'py': dict(type='python', icon='file-code-o'),
     }
 
@@ -60,15 +60,15 @@ class WebConfig(object):
     def __on_config_changed(self):
         with self.__lock:
             self.__new_config = True
+            self.__items = None
+            self.__tree_items = None
+            self.__tree_files = None
 
     def get_config(self):
         with self.__lock:
             cfg = static.get_config()
             if self.__new_config:
                 cfg.reload()
-                self.__items = None
-                self.__tree_items = None
-                self.__tree_files = None
                 self.__new_config = False
             return cfg
 
@@ -96,10 +96,15 @@ class WebConfig(object):
         for name in cfg.names_list:
             config = cfg.get_config(name)
             get_tree = _get_config_plugin(config, "get_tree")
+            item = None
             if get_tree:
-                item = get_tree(config, "items")
-            else:
+                try:
+                    item = get_tree(config, "items")
+                except:
+                    pass
+            if item is None:
                 item = dict(type="item", path=name, icon="fa fa-question")
+            item['name'] = name
             items[name] = item
         return items
 
@@ -131,14 +136,20 @@ class WebConfig(object):
         for name in cfg.names_list:
             config = cfg.get_config(name)
             get_tree = _get_config_plugin(config, "get_tree")
+            item = None
             if get_tree:
-                item = get_tree(config, "files")
-            else:
+                try:
+                    item = get_tree(config, "files")
+                except:
+                    pass
+            if item is None:
                 item = dict(type="item", path=os.path.join(config.filename, name),
                             icon="fa fa-question")
-            items[name] = item
+            item['name'] = name
+            items[item['path']] = name, item
 
-        for name, item in items.items():
+        for path in sorted(items):
+            name, item = items[path]
             path = item['path']
             parent = dst
             # search file node where item is defined
@@ -196,7 +207,6 @@ def __get_plugin(name, member=None):
     except ImportError:
         # plugin has an error
         mod = None
-        sys.excepthook(*sys.exc_info())
         return
     if member:
         try:
@@ -328,6 +338,7 @@ def get_item_config(name):
 def reload_config():
     cfg = __config.get_config()
     cfg.reload()
+    event.send(server.__name__, 'config_changed')
     return flask.json.dumps(dict(message="Configuration fully reloaded!",
                                  type="success"))
 

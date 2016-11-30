@@ -1,0 +1,281 @@
+<!--
+ This file is part of the bliss project
+
+ Copyright (c) 2016 Beamline Control Unit, ESRF
+ Distributed under the GNU LGPLv3. See LICENSE for more info.
+-->
+<style>
+
+.col-v-center {
+  min-height:200px;
+  display: flex;
+  justify-content:center;
+  flex-flow: column wrap;
+}
+
+.col-compact {
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+.list-group-item-compact {
+  padding: 4px 6px;
+}
+
+.panel-compact {
+  padding: 4px 6px;
+}
+
+.panel-heading-compact {
+  padding: 4px 6px;
+}
+
+</style>
+
+{% block toolbar %}
+
+<div class="row">
+  <div class="btn-group" role="group" aria-label="global functionality">
+    <a class="btn btn-default" href="javascript:void(0)">
+      {{ name if name else "unknown session" }}
+    </a>
+    <button type="button" class="btn btn-primary apply"
+	    data-toggle="tooltip" title="save changes">
+      Save
+      <span class="fa fa-save"></span>
+    </button>
+  </div>
+</div>
+
+{% endblock %}
+
+<div style="height:10px;"></div>
+
+{% block params %}
+
+<div class="row">
+
+  <form id="session_form" class="form-horizontal">
+    <fieldset>
+
+      <div class="row">
+	<!-- Text input-->
+	<div class="form-group">
+	  <label class="col-sm-4 control-label" for="name">Name</label>
+	  <div class="col-sm-4">
+	    <input id="name" name="name" type="text"
+		   placeholder="{{ name }}" value="{{ name }}"
+		   class="form-control input-md" required></input>
+	  </div>
+	</div>
+
+
+	<!-- Text input-->
+	<div class="form-group">
+	  <label class="col-sm-4 control-label" for="setup">Setup script</label>
+	  <div class="col-sm-4">
+	    <input id="setup" name="setup" type="text"
+		   placeholder="{{ setup }}" value="{{ setup }}"
+		   class="form-control input-md"></input>
+	  </div>
+	</div>
+      </div>
+
+      <div class="row">
+	{% for plugin, items in plugin_items.items() %}
+	<div class="col-sm-6 col-md-6 col-lg-4">
+	  <div class="panel panel-info">
+	    <div class="panel-heading panel-heading-compact">{{ plugin }}</div>
+	    <div class="panel-body panel-compact">
+	      <!-- available list -->
+	      <div class="col-sm-5 col-compact">
+		<div class="list-group available-list" id="available-list-{{ plugin }}">
+		  <a href="javascript:void(0);"
+		     class="list-group-item list-group-item-danger list-group-item-compact">
+		    Available
+		    <input title="toggle all" class="all-{{ plugin }} pull-right"
+			   type="checkbox">
+		  </a>
+		  {% for item in items %}
+		  {% if not item['checked'] %}
+		  <a href="javascript:void(0);"
+		     class="list-group-item list-group-item-compact"
+		     id="obj_{{ item['name'] }}" name="obj_{{ item['name'] }}"
+		     data-toggle="tooltip" title="{{ item['description'] }}">
+		    {{ item['name'] }}
+		    <input class="pull-right" type="checkbox">
+		  </a>
+		  {% endif %}
+		  {% endfor %}
+
+		</div>
+	      </div>
+
+	      <!-- vertical button bar -->
+	      <div class="col-sm-2 col-v-center col-compact">
+		<button type="button" title="Select"
+			class="btn btn-default center-block add"
+			id="add-{{ plugin }}">
+		  <i class="fa fa-chevron-right"></i>
+		</button>
+		<button type="button" title="Unselect"
+			class="btn btn-default center-block remove"
+			id="remove-{{ plugin }}">
+		  <i class="fa fa-chevron-left"></i>
+		</button>
+	      </div>
+
+	      <!-- selected list -->
+	      <div class="col-sm-5 col-compact">
+		<div class="list-group selected-list" id="selected-list-{{ plugin }}">
+		  <a href="javascript:void(0);"
+		     class="list-group-item list-group-item-success list-group-item-compact">
+		    Selected
+		    <input title="toggle all" class="all-{{plugin}} pull-right"
+			   type="checkbox">
+		  </a>
+		  {% for item in items %}
+		  {% if item['checked'] %}
+		  <a href="javascript:void(0);"
+		     class="list-group-item list-group-item-compact"
+		     id="obj_{{ item['name'] }}" name="obj_{{ item['name'] }}"
+		     data-toggle="tooltip" title="{{ item['description'] }}">
+		    {{ item['name'] }}
+		    <input class="pull-right" type="checkbox">
+		  </a>
+		  {% endif %}
+		  {% endfor %}
+		</div>
+	      </div>
+
+	    </div> <!-- panel body -->
+	  </div> <!-- panel -->
+	</div>
+	{% endfor %}
+      </div>
+
+    </fieldset>
+  </form>
+</div> <!-- row -->
+{% endblock %}
+
+{% block footbar %}
+
+<div class="row">
+  <div class="btn-group" role="group" aria-label="global functionality">
+    <a class="btn btn-default" href="javascript:void(0)">
+      {{ name if name else "unknown session" }}
+    </a>
+    <button type="button" class="btn btn-primary apply"
+	    data-toggle="tooltip" title="save changes">
+      Save
+      <span class="fa fa-save"></span>
+    </button>
+  </div>
+</div>
+
+{% endblock %}
+
+<script type="text/javascript">
+
+  function submit_form(form) {
+    var formData = new FormData(form);
+    formData.append("__original_name__", "{{ name }}");
+
+    $(".selected-list a:not(.active)").each(function() {
+      var name = $(this).attr("name");
+      if (name !== undefined && name.startsWith("obj_")) {
+        name = name.substring(4);
+        formData.append("items[]", name);
+      }
+    });
+
+    $.ajax({
+      url: "plugin/session/edit",
+      type: "POST",
+      cache: false,
+      contentType: false,
+      processData: false,
+      data: formData,
+      success: function(result) {
+        data = $.parseJSON(result);
+        show_notification(data.message, data.type);
+      }
+    });
+  }
+
+  function initiate_plugin_controls(plugin) {
+    $("#add-" + plugin).click(function() {
+      $(".all-" + plugin).prop("checked",false);
+      var items = $("#available-list-" + plugin + " input:checked:not('.all-" + plugin + "')");
+      var n = items.length;
+      if (n > 0) {
+        items.each(function(idx,item) {
+          var choice = $(item);
+          choice.prop("checked",false);
+          choice.parent().appendTo("#selected-list-" + plugin);
+        });
+      }
+      else {
+        alert("Choose an item from available list");
+      }
+    });
+
+    $("#remove-" + plugin).click(function() {
+      $(".all-" + plugin).prop("checked",false);
+      var items = $("#selected-list-" + plugin + " input:checked:not('.all-" + plugin + "')");
+      items.each(function(idx,item) {
+        var choice = $(item);
+        choice.prop("checked",false);
+        choice.parent().appendTo("#available-list-" + plugin);
+      });
+    });
+
+    $(".all-" + plugin).click(function(e) {
+      e.stopPropagation();
+      var $this = $(this);
+      if($this.is(":checked")) {
+    	$this.parents(".list-group").find("[type=checkbox]").prop("checked",true);
+      }
+      else {
+    	$this.parents(".list-group").find("[type=checkbox]").prop("checked",false);
+        $this.prop("checked",false);
+      }
+    });
+
+    $("[type=checkbox]").click(function(e) {
+      e.stopPropagation();
+    });
+
+    $(".list-group a").click(function(e) {
+      e.stopPropagation();
+
+      var $this = $(this).find("[type=checkbox]");
+
+      if($this.is(":checked")) {
+    	$this.prop("checked",false);
+      }
+      else {
+    	$this.prop("checked",true);
+      }
+
+      if ($this.hasClass("all-" + plugin)) {
+    	$this.trigger("click");
+      }
+    });
+  }
+
+  $(document).ready(function() {
+
+    $(".apply").on("click", function() {
+      submit_form($("#session_form")[0]);
+      return false;
+    });
+
+    {% for plugin in plugin_items %}
+        initiate_plugin_controls("{{ plugin }}");
+    {% endfor %}
+
+  });
+
+</script>

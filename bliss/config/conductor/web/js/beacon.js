@@ -155,7 +155,7 @@ function show_node(node, panel) {
   }
 }
 
-function configure_file_editor(tag_name, file_name, file_type) {
+function configure_file_editor(tag_name, file_type) {
   var file_editor = ace.edit(tag_name);
   var session = file_editor.getSession();
   session.setMode("ace/mode/" + file_type);
@@ -165,33 +165,26 @@ function configure_file_editor(tag_name, file_name, file_type) {
   file_editor.setHighlightActiveLine(true);
   file_editor.setReadOnly(false);
   file_editor.setShowPrintMargin(false);
-  file_editor.getSession().on("change", function(e) {
-    $("#save_editor_changes").button().removeClass("disabled");
-    $("#revert_editor_changes").button().removeClass("disabled");
+  return file_editor;
+}
+
+function reload_config(on_success) {
+  $.ajax({
+    url : "config/reload",
+    success: on_success,
   });
-  $("#save_editor_changes").on("click", function() {
-    var form = new FormData();
-    form.append("file_content", file_editor.getValue());
-    $.ajax({
-      url: "db_file/" + file_name,
-      type: "PUT",
-      contentType: false,
-      processData: false,
-      data: form,
-      success: function() {
-	request = $.ajax({
-	  url : "config/reload",
-	  success: function() {
-	    reload_trees();
-	    show_notification(file_name +" saved!", "success");
-	  }});
-      }
-    });
-  });
-  $("#revert_editor_changes").on("click", function() {
-    $.get("db_file/" + file_name, function(data) {
-      file_editor.setValue(data.content);
-    }, "json");
+}
+
+function save_file(file_name, content, on_success) {
+  var form = new FormData();
+  form.append("file_content", content);
+  $.ajax({
+    url: "db_file/" + file_name,
+    type: "PUT",
+    contentType: false,
+    processData: false,
+    data: form,
+    success: on_success,
   });
 }
 

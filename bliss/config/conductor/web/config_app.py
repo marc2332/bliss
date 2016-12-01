@@ -279,6 +279,7 @@ def get_db_file(filename):
         # browsers encode newlines as '\r\n' so we have to undo that crap
         content = flask.request.form['file_content'].replace('\r\n', '\n')
         client.set_config_db_file(filename, content)
+        event.send(server.__name__, 'config_changed')
         return flask.json.dumps(dict(message="%s successfully saved",
                                      type="success"))
     else:

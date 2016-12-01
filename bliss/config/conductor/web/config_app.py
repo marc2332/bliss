@@ -276,7 +276,9 @@ def db_tree():
 @web_app.route("/db_file/<path:filename>", methods=['PUT', 'GET'])
 def get_db_file(filename):
     if flask.request.method == 'PUT':
-        client.set_config_db_file(filename, flask.request.form['file_content'])
+        # browsers encode newlines as '\r\n' so we have to undo that crap
+        content = flask.request.form['file_content'].replace('\r\n', '\n')
+        client.set_config_db_file(filename, content)
         return flask.json.dumps(dict(message="%s successfully saved",
                                      type="success"))
     else:

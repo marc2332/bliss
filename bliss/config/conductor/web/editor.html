@@ -17,13 +17,13 @@
     <a class="btn btn-default" href="javascript:void(0)">
       {{ name if name else "unknown file" }}
     </a>
-    <button type="button" class="btn btn-primary" id="save_editor_changes"
-	    data-toggle="tooltip" title="save changes">
+    <button type="button" class="btn btn-primary save-editor"
+	    data-toggle="tooltip" title="save changes" disabled>
       Save
       <span class="fa fa-save"></span>
     </button>
-    <button type="button" class="btn btn-primary" id="revert_editor_changes"
-	    data-toggle="tooltip" title="revert editor changes">
+    <button type="button" class="btn btn-primary revert-editor"
+	    data-toggle="tooltip" title="revert editor changes" disabled>
       Revert
       <span class="fa fa-undo"></span>
     </button>
@@ -37,5 +37,32 @@
 </div>
 
 <script>
-  configure_file_editor("file-editor", "{{ name }}", "{{ ftype }}");
+  $(function() {
+    var editor = configure_file_editor("file-editor", "{{ ftype }}");
+
+    function update_buttons() {
+      var clean = editor.getSession().getUndoManager().isClean();
+      $(".save-editor").prop("disabled", clean);
+      $(".revert-editor").prop("disabled", clean);
+    }
+
+    editor.on("input", function(e) {
+      update_buttons();
+    });
+
+    $(".save-editor").on("click", function() {
+      save_file("{{ name }}", editor.getValue(), function() {
+        editor.getSession().getUndoManager().markClean();
+        update_buttons();
+        reload_trees();
+	show_notification("{{name}} saved!", "success");
+      });
+    });
+
+    $(".revert-editor").on("click", function() {
+      $.get("db_file/{{ name }}", function(data) {
+        editor.setValue(data.content);
+      }, "json");
+    });
+  });
 </script>

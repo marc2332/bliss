@@ -399,7 +399,8 @@ class Bliss(Device):
 
         self.group_dict.pop(group_id)
 
-    @command(dtype_in=str, doc_in='Group identifier')
+    @command(dtype_in=str, doc_in='Group identifier',
+             dtype_out=[str], doc_out='"flat list of pairs motor, status')
     def motor_group_state(self, group_id):
         """
         Return the individual state of motors in the group

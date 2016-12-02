@@ -356,7 +356,7 @@ class Bliss(Device):
         axes_pos_dict = dict(zip(axes, axes_positions))
         group = Group(*axes)
         event.connect(group, 'move_done', self.__on_motor_group_move_done)
-        group.move(axes_pos_dict)
+        group.move(axes_pos_dict, wait=False)
         group_id = ','.join(map(':'.join, grouped(axes_pos, 2)))
         self.group_dict[group_id] = group
         return group_id

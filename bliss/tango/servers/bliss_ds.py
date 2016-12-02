@@ -158,7 +158,7 @@ class Bliss(Device):
 
     #: Session names (default: None, meaning use server instance name as
     #: session name)
-    session_names = device_property(dtype=[str], default_value=None)
+    session_names = device_property(dtype=[str], default_value=[])
 
     #: Sanitize or not the command to be executed
     #: If True, it will allow you to send a command like: 'wm th phi'
@@ -181,7 +181,7 @@ class Bliss(Device):
         self.__tasks = {}
         self.__results = {}
 
-        if self.session_names is None:
+        if not self.session_names:
             util = Util.instance()
             self.session_names = [util.get_ds_inst_name()]
 

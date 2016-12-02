@@ -437,11 +437,14 @@ class Bliss(Device):
     def get_settings(self, json_value):
         data = json.loads(json_value)
         result = {}
-        if not isinstance(data, list):
+        if isinstance(data, dict):
+            data = data.values()
+        elif isinstance(data, (str, unicode)):
             data = data,
-        for key in data:
-            setting = settings.HashSetting(key)
-            result[key] = setting.get_all()
+        for element in data:
+            if element:
+                setting = settings.HashSetting(element)
+                result[element] = setting.get_all()
         return json.dumps(result)
 
     @command

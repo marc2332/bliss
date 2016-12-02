@@ -369,18 +369,18 @@ class Bliss(Device):
 
     @command(dtype_in=(str,), doc_in='Flat list of pairs motor, position',
              dtype_out=str, doc_out='Group identifier')
-    def motor_group_move(self, axes_pos):
+    def axis_group_move(self, axes_pos):
         axes = map(get_bliss_obj, axes_pos[::2])
         axes_positions = map(float, axes_pos[1::2])
         axes_pos_dict = dict(zip(axes, axes_positions))
         group = Group(*axes)
-        event.connect(group, 'move_done', self.__on_motor_group_move_done)
+        event.connect(group, 'move_done', self.__on_axis_group_move_done)
         group.move(axes_pos_dict, wait=False)
         group_id = ','.join(map(':'.join, grouped(axes_pos, 2)))
         self.group_dict[group_id] = group
         return group_id
 
-    def __on_motor_group_move_done(self, move_done, **kwargs):
+    def __on_axis_group_move_done(self, move_done, **kwargs):
         if not move_done:
             return
         elif not self.group_dict:
@@ -401,7 +401,7 @@ class Bliss(Device):
 
     @command(dtype_in=str, doc_in='Group identifier',
              dtype_out=[str], doc_out='"flat list of pairs motor, status')
-    def motor_group_state(self, group_id):
+    def axis_group_state(self, group_id):
         """
         Return the individual state of motors in the group
         """
@@ -415,7 +415,7 @@ class Bliss(Device):
         return list(itertools.chain(*name_state_list))
 
     @command(dtype_in=str, doc_in='Group identifier')
-    def motor_group_abort(self, group_id):
+    def axis_group_abort(self, group_id):
         """
         Abort motor group movement
         """

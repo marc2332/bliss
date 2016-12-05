@@ -574,6 +574,8 @@ def __initialize(args, db=None):
                 shell_info=shell_info)
 
     for name in os.listdir(this_dir):
+        if name.startswith('.'):
+            continue
         if name.endswith(suffix):
             module_name = '{0}.{1}'.format(__package__, name[:-3])
             _log.info('searching for init in %s...', module_name)

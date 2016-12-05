@@ -19,7 +19,7 @@ numpy
 six >= 1.10
 tabulate
 sphinx >= 1.4
-pyserial >= 3.0
+pyserial == 2.7
 
 # --- optional dependencies --------------------------------
 

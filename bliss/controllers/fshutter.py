@@ -7,6 +7,7 @@
 
 from bliss.common.task_utils import *
 from bliss.common.event import dispatcher
+from bliss.config import channels
 import time
 import socket
 """
@@ -25,6 +26,7 @@ icepap_steps: 500         #icepap steps to move when external trigger received
 class fshutter:
    def __init__(self, name, config):
       self.fshutter_mot = config["fshutter_mot"]
+      self._state_chan = channels.Channel("fshutter:%s" % name, callback=self.__state_changed)
 
       try:
          self.musst = config["musst"]
@@ -41,8 +43,8 @@ class fshutter:
 
       self.enastate = None
       self.state()
-       
-   def state(self):
+
+   def _state(self):
       enastate = self.enastate
       if self.musst:
          return "CLOSED" if self.musst.putget("?VAL CH1") == '0' else "OPENED"
@@ -62,7 +64,15 @@ class fshutter:
             if enastate:
                self.enable(self.icepap_steps)
             return "UNKNOWN"
-   
+
+   def state(self):
+      st = self._state()
+      self._state_chan.value = st
+      return st
+  
+   def __state_changed(self, st):
+      dispatcher.send('state', self, st)
+    
    def _toggle_state_icepap(self):
       self.disable()
       self.fshutter_mot.rmove(self.step, wait=True)
@@ -74,7 +84,7 @@ class fshutter:
              self.enable(self.icepap_steps)
          btrig = int(self.musst.putget("?BTRIG"))
          self.musst.putget("#BTRIG %d" % (1-btrig))
-         dispatcher.send('state', self, 'MOVING')
+         self._state_chan.value = 'MOVING'
          # 'moving' state is not reported properly
          # by libicepap in shutter mode
          while True:
@@ -86,6 +96,7 @@ class fshutter:
                  break
       else:
          self._toggle_state_icepap()
+      return self.state()
 
    def msopen(self):
       state = self.state()
@@ -93,7 +104,6 @@ class fshutter:
          # already closed 
          return
       self._toggle_state()
-      dispatcher.send('state', self, self.state())
 
    def msclose(self):
       state = self.state()
@@ -101,7 +111,6 @@ class fshutter:
          # already open 
          return
       self._toggle_state()
-      dispatcher.send('state', self, self.state())
 
    def open(self):
       state = self.state()
@@ -111,9 +120,7 @@ class fshutter:
          # already open 
          return
        
-      self._toggle_state()
-      new_state = self.state()
-      dispatcher.send('state', self, new_state)
+      new_state = self._toggle_state()
       print "now is %s" % new_state
 
    def close(self):
@@ -124,9 +131,7 @@ class fshutter:
          # already closed
          return
 
-      self._toggle_state()
-      new_state = self.state()
-      dispatcher.send('state', self, new_state)
+      new_state = self._toggle_state()
       print "now is %s" % new_state
 
    def _icepap_query(self, cmd_str):
@@ -170,12 +175,11 @@ class fshutter:
          self.fshutter_mot.dial(0)
          self.fshutter_mot.move(0)
 
-         
          if self.musst:
             self.musst.putget("#ABORT")
             self.musst.putget("#CH CH1 0")
          time.sleep(1)
          self.enable()
 
-       dispatcher.send('state', self, self.state())
+       self.state()
 

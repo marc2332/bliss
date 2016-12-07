@@ -10,8 +10,8 @@ import gevent
 import time
 
 class TestAcquisitionDevice(AcquisitionDevice):
-  def __init__(self, device, sleep_time=1):
-    AcquisitionDevice.__init__(self, device, device, "test")
+  def __init__(self, device, sleep_time=1,**keys):
+    AcquisitionDevice.__init__(self, device, device, "test",**keys)
     self.sleep_time = sleep_time
 
   def __str__(self):
@@ -26,6 +26,11 @@ class TestAcquisitionDevice(AcquisitionDevice):
     print 'starting device', self.device
     gevent.sleep(self.sleep_time)
     print 'done starting device', self.device
+
+  def stop(self):
+    print 'stopping device', self.device
+    gevent.sleep(self.sleep_time)
+    print 'done stopping device',self.device
 
   def trigger(self):
     print 'triggered', self.device, time.time()

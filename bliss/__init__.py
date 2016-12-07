@@ -29,7 +29,7 @@ from __future__ import division
 
 # version should be valid according to distutils.version.StrictVersion
 __author__ = 'BCU (ESRF)'
-__version__ = '0.1a1'
+__version__ = '0.2.dev0'
 __short_version__ = '.'.join(__version__.split('.')[:2])
 __license__ = 'LGPLv3'
 __copyright__ = '2016 Beamline Control Unit, ESRF'

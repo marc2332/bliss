@@ -197,8 +197,11 @@ class CT2Device(BaseCT2Device):
         BaseCT2Device.__init__(self)
 
         if card_config is None:
-            if config is None or name is None:
-                raise ValueError('Must provide config and name to create card')
+            if name is None:
+                raise ValueError('Must provide name to create card')
+            if config is None:
+                import bliss.config.static
+                config = bliss.config.static.get_config()
             card_config = config.get_config(name)
         if card is None:
             if config is None or name is None:

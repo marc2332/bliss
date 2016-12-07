@@ -149,7 +149,8 @@ class Session(object):
       if names_list is None:
          names_list = cfg.names_list
       for item_name in names_list:
-         if hasattr(setup_globals,item_name):
+         if hasattr(setup_globals, item_name):
+            env_dict[item_name] = getattr(setup_globals, item_name)
             continue
 
          if verbose:

@@ -23,6 +23,8 @@ from bliss.acquisition.test import TestAcquisitionDevice
 from bliss.acquisition.test import TestAcquisitionMaster
 try:
   from bliss.acquisition.motor import  SoftwarePositionTriggerMaster
+  from bliss.acquisition.motor import  MeshStepTriggerMaster,LinearStepTriggerMaster
+  from bliss.acquisition.timer import SoftwareTimerMaster
   from bliss.acquisition.lima import LimaAcquisitionDevice
   import bliss 
   from PyTango.gevent import DeviceProxy
@@ -33,7 +35,7 @@ except ImportError:
 from bliss.common.event import dispatcher
 from bliss.config.conductor import client
 from bliss.config.static import get_config as beacon_get_config
-
+from bliss.config.motors import load_cfg_fromstring,get_axis
 try:
   #P201
   from bliss.acquisition.p201 import P201AcquisitionMaster,P201AcquisitionDevice
@@ -407,6 +409,72 @@ def test_dm_client():
   toto = get_node("toto")
   _walk_children(toto)
 
+def test_step_cont():
+  config_xml = """
+<config>
+  <controller class="mockup">
+    <axis name="m0">
+      <steps_per_unit value="10000"/>
+      <!-- degrees per second -->
+      <velocity value="10"/>
+      <acceleration value="100"/>
+    </axis>
+    <axis name="m1">
+      <steps_per_unit value="10000"/>
+      <!-- degrees per second -->
+      <velocity value="1"/>
+      <acceleration value="10"/>
+    </axis>
+    <axis name="m2">
+      <steps_per_unit value="10000"/>
+      <!-- degrees per second -->
+      <velocity value="10"/>
+      <acceleration value="100"/>
+    </axis>
+  </controller>
+</config>"""
+
+  load_cfg_fromstring(config_xml)
+  m0 = get_axis("m0")
+  m1 = get_axis("m1")
+  m2 = get_axis("m2")
+
+  ascan = AcquisitionChain(parallel_prepare=True)
+  ascan_mot = LinearStepTriggerMaster(m0,10,20,11)
+  timer = SoftwareTimerMaster(0.1)
+  ascan.add(ascan_mot,timer)
+  test_acq_dev = TestAcquisitionDevice("timer_test", 2,prepare_once=True,start_once=True)
+  ascan.add(timer,test_acq_dev)
+  test2_acq_dev = TestAcquisitionDevice("timer_test2", 2,prepare_once=True,start_once=True)
+  ascan.add(timer,test2_acq_dev)
+  step_scan = Container('step_scan')
+  scan = Scan(ascan, ScanRecorder('ascan',step_scan))
+  scan.prepare()
+  scan.start()
+
+
+
+  chain = AcquisitionChain(parallel_prepare=True)
+  
+  step_master = MeshStepTriggerMaster(m1, -2, 2, 5,
+                                      m2, -5, 5, 3,
+                                      backnforth=True)
+  emotion_master = SoftwarePositionTriggerMaster(m0, 5, 10, 7,time=1)
+  chain.add(step_master,emotion_master)
+  chain.add(emotion_master, test_acq_dev)
+  scan = Scan(chain, ScanRecorder('super_zap_image',step_scan))
+  scan.prepare()
+  scan.start()
+
+  print "next scan"
+  chain = AcquisitionChain()
+  emotion_master = SoftwarePositionTriggerMaster(m0,5,10,7)
+  test_acq_dev = TestAcquisitionDevice("super_mario", 0)
+  chain.add(emotion_master, test_acq_dev)
+  scan = Scan(chain,ScanRecorder('soft_zapline',step_scan))
+  scan.prepare()
+  scan.start()
+
 if __name__ == '__main__':
   #test()
   #test2()
@@ -417,4 +485,5 @@ if __name__ == '__main__':
   #test_p201()
   #test_emotion_p201()
   #test_p201_hdf5()
-  test_lima_basler()
+  #test_lima_basler()
+  test_step_cont()

@@ -58,6 +58,12 @@ endif
 ifneq ($(BLISS_ESRF),0)
 	rm setup.cfg
 
+ifneq ($(VIRTUAL_ENV),)
+	# Backward compatibility with TgGevent package
+	cd $(VIRTUAL_ENV)/lib/python2.?/site-packages && rm -f TgGevent.py && \
+		ln -s bliss/tango/servers/TgGevent.py
+endif
+
         # Install beacon daemon blcontrol startup script
 	@echo ""
 	@echo "Adding beacon daemon to BLControl start-up/shudown structure..."

@@ -26,7 +26,7 @@ flex_logger.setLevel(logging.DEBUG)
 flex_log_formatter = logging.Formatter("%(name)s %(levelname)s %(asctime)s %(message)s")
 flex_log_handler = None
 
-
+from bliss.common import event
 
 def grouper(iterable, n):
     args = [iter(iterable)]*n
@@ -67,6 +67,7 @@ class flex:
         self.calibration_file = config.get('calibration_file')
         self.robot = None
         self.cam = None
+        self.robot_exceptions = []
         self._loaded_sample = (-1, -1, -1)
         robot.setLogFile(config.get('log_file'))
         robot.setExceptionLogFile(config.get('exception_file'))
@@ -88,8 +89,17 @@ class flex:
         self.microscan_vert = dm_reader(self.microscan_vert_ip)
         self.proxisense = ProxiSense(self.proxisense_address, os.path.dirname(self.calibration_file))
         self.robot = robot.Robot('flex', self.cs8_ip)
+        event.connect(self.robot, "robot_exception", self._enqueue_robot_exception_msg)
         logging.getLogger('flex').info("Connection done")
         self._loaded_sample = self.read_loaded_position()
+
+    def _enqueue_robot_exception_msg(self, msg):
+        self.robot_exceptions.append(msg)
+
+    def getRobotExceptions(self):
+        ret = self.robot_exceptions[:]
+        self.robot_exceptions = []
+        return ret
 
     def enablePower(self, state):
         state = bool(state)

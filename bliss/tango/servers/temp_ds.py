@@ -96,7 +96,6 @@ class BlissInput(Device):
     def WRraw(self,st):
         return self.channel_object.controller.WRraw(st)
 
-
     @command(dtype_out=float)
     def read(self):
         return self.channel_object.read()       
@@ -196,6 +195,18 @@ class BlissOutput(Device):
     @command
     def abort(self):
         self.channel_object.abort()  
+
+    @command(dtype_in='string')
+    def Wraw(self,st):
+        self.channel_object.controller.Wraw(st)
+
+    @command(dtype_out='string')
+    def Rraw(self):
+        return self.channel_object.controller.Rraw()
+     
+    @command(dtype_in='string',dtype_out='string')
+    def WRraw(self,st):
+        return self.channel_object.controller.WRraw(st)
 
     @command(dtype_out='DevVarStringArray')
     def GetCustomCommandList(self):

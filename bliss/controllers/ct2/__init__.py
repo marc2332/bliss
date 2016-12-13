@@ -16,45 +16,39 @@ Links to the card manuals:
 Quickstart
 ----------
 
-It assumes you already have an ESRF_ CT2 (P201/C208) :term:`PCI` counter card
-and driver installed.
+The :ref:`CT2 how-to <bliss-ct2-how-to>` provides a concise guide on how to
+configure and start working with a CT2 card.
 
-A Minimal Application
-~~~~~~~~~~~~~~~~~~~~~
+This chapter assumes you already have a ESRF_ CT2 (P201/C208) :term:`PCI`
+counter card and driver installed.
 
-.. rubric:: Beacon pre-configured
+The bliss library provides two objects:
 
-A minimal usage looks something like this::
+* :func:`CT2Card` - low level card. Talks directly to CT2 driver and provides a
+  direct map over the card configuration (you will only use this API in
+  exceptional cases where you need complete control over the card
+  configuration).
 
-    from bliss.config.static import get_config
-    from bliss.controllers.ct2 import AcqMode
+* :class:`CT2Device` - an abstraction over the :func:`CT2Card` providing a much
+  a much simpler and more intuitive API. It uses the :func:`CT2Card` internally.
 
-    cfg = get_config()
+You can instantiate the :class:`CT2Device` from a beacon configured card::
 
-    ct2_device = cfg.get('my_p201')
+    from bliss.controllers.ct2 import CT2Device
 
-    ct2_device.acq_mode = AcqMode.IntTrigReadout
-    ct2_device.acq_expo_time = 1E-3
-    ct2_device.acq_point_period = 0
-    ct2_device.acq_nb_points = 5
+    dev = CT2Device(name='my_p201')
 
+... or from without using beacon. In this case your are responsible at runtime
+for the card configuration::
 
-.. rubric:: Standalone
+    from bliss.controllers.ct2 import P201Card, CT2Device
 
-Minimalistic usage, accesing the low level card API
-(you will only use this API in exceptional cases where you need
-complete control over the card configuration)::
- 
-    from bliss.controllers.ct2 import P201Card
-
-    # (CT2 driver must be installed as /dev/ct2_0)
     p201 = P201Card('/dev/ct2_0')
 
-    p201.request_exclusive_access()
-    p201.reset_software()
+    p201_card.request_exclusive_access()
+    p201_card.reset_software()
 
-    for i in range(10):
-        print(p201.get_test_reg())
+    dev = CT2Device(card=p201)
 
 
 API Reference
@@ -85,6 +79,7 @@ level.
    :toctree:
 
    ~bliss.controllers.ct2.ct2.BaseCard
+   ~bliss.controllers.ct2.ct2.CT2Card
    ~bliss.controllers.ct2.ct2.P201Card
    ~bliss.controllers.ct2.ct2.C208Card
    ~bliss.controllers.ct2.ct2.CtStatus

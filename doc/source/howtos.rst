@@ -8,4 +8,5 @@ How Tos
 
     howto_motor_controller
     howto_tango
+    howto_ct2
     howto_emulator

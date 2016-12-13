@@ -72,7 +72,7 @@ class flex:
         robot.setLogFile(config.get('log_file'))
         robot.setExceptionLogFile(config.get('exception_file'))
         global flex_log_handler
-        flex_log_handler = TimedRotatingFileHandler(config.get('flex_log_file'), when='midnight', backupCount=1)
+        flex_log_handler = TimedRotatingFileHandler(config.get('flex_log_file'), when='midnight', backupCount=7)
         flex_log_handler.setFormatter(flex_log_formatter)
         flex_logger.addHandler(flex_log_handler)
         logging.getLogger('flex').info("")
@@ -569,7 +569,7 @@ class flex:
         parser.set("position", "sample", str(sample))
         with open(file_path, 'wb') as file:
             parser.write(file)
-        logging.getLogger('flex').info("loaded position written")
+        logging.getLogger('flex').info("loaded position written (%d, %d, %d)" %(cell, puck, sample))
 
     def reset_loaded_position(self):
         self._loaded_sample = (-1, -1, -1)

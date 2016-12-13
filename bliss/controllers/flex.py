@@ -490,7 +490,7 @@ class flex:
             cap_height = 3.0
             ref_vial_edge = cap_height * self.cam.pixels_per_mm + ref_image_edge
             logging.getLogger('flex').info("Reference vial edge position %s" %str(ref_vial_edge))
-            if abs(ref_vial_edge - vial_edge) < 70:
+            if abs(ref_vial_edge - vial_edge) < 200:
                 self.robot.setVal3GlobalVariableBoolean("bVialIsInGrip", True) 
                 logging.getLogger('flex').info("Vial is in gripper")
             else:

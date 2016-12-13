@@ -119,6 +119,15 @@ class flex:
         else:
             self.robot.execute("data:" + dio + "= false")
 
+    def PSS_light(self):
+        self.robot.setVal3GlobalVariableBoolean("bEnable_PSS", True)
+        try:
+            while True:
+                gevent.sleep(60)
+        finally:
+            self.robot.setVal3GlobalVariableBoolean("bEnable_PSS", False)
+        
+
     def gripper_port(self, boolean):
         self.set_io("dioOpenGrpPort", bool(boolean))
         try:
@@ -261,7 +270,8 @@ class flex:
         else:
             self.robot.setVal3GlobalVariableBoolean("bGripperIsOnArm", True)
         #self.robot.execute("data:dioEnablePress=true")
-        self.robot.executeTask("homeClear", timeout=60)
+        with BackgroundGreenlets(self.PSS_light, ()) as X:
+            return X.execute(self.robot.executeTask, "homeClear", timeout=60)
         logging.getLogger('flex').info("Homing done")
 
     def defreezeGripper(self):
@@ -277,7 +287,8 @@ class flex:
         else:
             self.robot.setVal3GlobalVariableBoolean("bGripperIsOnArm", True)
             self.robot.setVal3GlobalVariableDouble("nGripperType", str(gripper_type))
-        self.robot.executeTask("defreezeGripper", timeout=90)
+        with BackgroundGreenlets(self.PSS_light, ()) as X:
+            return X.execute(self.robot.executeTask, "defreezeGripper", timeout=90)
         logging.getLogger('flex').info("Defreezing gripper finished")
 
     def check_coordinates(self, cell, puck, sample):
@@ -536,7 +547,7 @@ class flex:
 
     def do_load_detection(self, gripper_type, ref):
         with BackgroundGreenlets(self.detection, (str(gripper_type), str(ref)), 
-                                 self.sampleStatus, ("LoadSampleStatus",)) as X:
+                                 self.sampleStatus, ("LoadSampleStatus",), self.PSS_light, ()) as X:
             return X.execute(self.robot.executeTask, "loadSample", timeout=200)
 
     def save_loaded_position(self, cell, puck, sample):
@@ -603,7 +614,8 @@ class flex:
 
     def do_unload_detection(self, gripper_type):
         with BackgroundGreenlets(self.detection, (str(gripper_type), str(False)), 
-                                 self.sampleStatus, ("UnloadSampleStatus",)) as X:
+                                 self.sampleStatus, ("UnloadSampleStatus",),
+                                 self.PSS_light, ()) as X:
             return X.execute(self.robot.executeTask, "unloadSample", timeout=200)
 
     def reset_sample_pos(self):
@@ -662,7 +674,8 @@ class flex:
     def do_chainedUnldLd_detection(self, gripper_type):
         with BackgroundGreenlets(self.detection, (str(gripper_type), str(False)), 
                                  self.sampleStatus, ("LoadSampleStatus",),
-                                 self.sampleStatus, ("UnloadSampleStatus",)) as X:
+                                 self.sampleStatus, ("UnloadSampleStatus",),
+                                 self.PSS_light, ()) as X:
             return X.execute(self.robot.executeTask, "chainedUnldLd", timeout=200)
  
     def chainedUnldLd(self, unload, load):

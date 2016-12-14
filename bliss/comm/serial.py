@@ -61,9 +61,13 @@ class _BaseSerial:
         self._rpipe,self._wpipe = os.pipe()
 
     def _init(self):
-        self._raw_read_task = gevent.spawn(self._raw_read,
+        self._raw_read_task = gevent.spawn(self._raw_read_loop,
                                            weakref.proxy(self),
                                            self.fd,self._rpipe)
+
+    def _timeout_context(self, timeout):
+        timeout_errmsg = "timeout on serial(%s)" % (self._port)
+        return gevent.Timeout(timeout, SerialTimeout(timeout_errmsg))
 
     def _close(self):
         os.write(self._wpipe,"|")
@@ -72,42 +76,50 @@ class _BaseSerial:
             self._raw_read_task = None
 
     def readline(self, eol, timeout):
-        timeout_errmsg = "timeout on serial(%s)" % (self._port)
-        with gevent.Timeout(timeout,SerialTimeout(timeout_errmsg)):
+        with self._timeout_context(timeout):
+            return self._readline(eol)
+
+    def _readline(self,eol):
+        eol_pos = self._data.find(eol)
+        while eol_pos == -1:
+            self._event.wait()
+            self._event.clear()
             eol_pos = self._data.find(eol)
-            while eol_pos == -1:
-                self._event.wait()
-                self._event.clear()
-                eol_pos = self._data.find(eol)
 
         msg = self._data[:eol_pos]
         self._data = self._data[eol_pos + len(eol):]
         return msg
 
     def read(self, size, timeout):
-        timeout_errmsg = "timeout on serial(%s)" % (self._port)
-        with gevent.Timeout(timeout,SerialTimeout(timeout_errmsg)):
-            while len(self._data) < size:
-                self._event.wait()
-                self._event.clear()
+        with self._timeout_context(timeout):
+            return self._read(size)
+
+    def _read(self, size):
+        while len(self._data) < size:
+            self._event.wait()
+            self._event.clear()
         msg = self._data[:size]
         self._data = self._data[size:]
         return msg
     
     def write(self,msg,timeout) :
-        timeout_errmsg = "timeout on serial(%s)" % (self._port)
-        with gevent.Timeout(timeout,SerialTimeout(timeout_errmsg)):
-            while msg:
-                _,ready,_ = select.select([],[self.fd],[])
-                size_send = os.write(self.fd,msg)
-                msg = msg[size_send:]
+        with self._timeout_context(timeout):
+            return self._write(msg)
+
+    def _write(self, msg):
+        while msg:
+            _,ready,_ = select.select([],[self.fd],[])
+            size_send = os.write(self.fd,msg)
+            msg = msg[size_send:]
 
     def raw_read(self, maxsize, timeout):
-        timeout_errmsg = "timeout on serial(%s)" % (self._port)
-        with gevent.Timeout(timeout,SerialTimeout(timeout_errmsg)):
-            while not self._data:
-                self._event.wait()
-                self._event.clear()
+        with self._timeout_context(timeout):
+            return self._raw_read(maxsize)
+    
+    def _raw_read(self, maxsize):
+        while not self._data:
+            self._event.wait()
+            self._event.clear()
         if maxsize:
             msg = self._data[:maxsize]
             self._data = self._data[maxsize:]
@@ -117,7 +129,7 @@ class _BaseSerial:
         return msg
  
     @staticmethod
-    def _raw_read(ser,fd,rp):
+    def _raw_read_loop(ser,fd,rp):
         try:
             while(1):
                 ready,_,_ = select.select([fd,rp],[],[])

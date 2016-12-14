@@ -197,8 +197,11 @@ class CT2Device(BaseCT2Device):
         BaseCT2Device.__init__(self)
 
         if card_config is None:
-            if config is None or name is None:
-                raise ValueError('Must provide config and name to create card')
+            if name is None:
+                raise ValueError('Must provide name to create card')
+            if config is None:
+                import bliss.config.static
+                config = bliss.config.static.get_config()
             card_config = config.get_config(name)
         if card is None:
             if config is None or name is None:
@@ -213,7 +216,7 @@ class CT2Device(BaseCT2Device):
         self.__card = card
         self.__card_config = card_config
         self.__acq_mode = acq_mode
-        self.__out_config = dict(out_config or {}) 
+        self.__out_config = dict(out_config or {})
         self.__acq_status = AcqStatus.Ready
         self.__acq_expo_time = 1.0
         self.__acq_point_period = None
@@ -502,10 +505,14 @@ class CT2Device(BaseCT2Device):
         else:
             raise NotImplementedError
 
+    def __on_acq_loop_finished(self, event_loop):
+        self.__event_loop = None
+
     def start_acq(self):
         self.__acq_status = AcqStatus.Running
         try:
             self.__event_loop = gevent.spawn(self.run_acq_loop)
+            self.__event_loop.link(self.__on_acq_loop_finished)
 
             if self.acq_mode in self.StdModes:
                 counters = (self.internal_point_nb_counter,)
@@ -534,6 +541,10 @@ class CT2Device(BaseCT2Device):
         gevent.wait([self.__event_loop])
         self.__event_loop = None
         self._send_status(self.__acq_status)
+
+    def wait_acq(self):
+        if self.__event_loop:
+            gevent.wait([self.__event_loop])
 
     def trigger_latch(self, counters):
         self.card.trigger_counters_software_latch(counters)

@@ -37,6 +37,7 @@ extensions = [
     'sphinx.ext.coverage',
     'sphinx.ext.imgmath',
     'sphinx.ext.viewcode',
+    'sphinxcontrib.wavedrom',  # wavedrom diagrams
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -305,7 +306,7 @@ autosummary_generate = True
 intersphinx_mapping = {
     'https://docs.python.org/': None,
     'http://www.gevent.org/': None,
-    'http://pytango.rtfd.io/': None,
+    'http://pytango.rtfd.io/en/latest/': None,
 }
 
 rst_epilog = """\

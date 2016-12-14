@@ -1,9 +1,9 @@
-def p201_config(cnum, type, unit, module, chan) '{
+def ct2_config(cnum, type, unit, module, chan) '{
     local mne factor ctrl_dev
 
-    global P201_CT[]
+    global CT2_MAC_HDW[]
 
-    ctrl_dev = p201_ADDR
+    ctrl_dev = ct2_ADDR
     if (type == "ctrl") {
         printf("Using P201 \"%s\" counters\n", ctrl_dev)
         return
@@ -15,50 +15,50 @@ def p201_config(cnum, type, unit, module, chan) '{
         factor = counter_par(cnum, "scale")
         tango_put(ctrl_dev, "timer_freq", factor)
         tango_put(ctrl_dev, "acq_mode", "IntTrigReadout")
-        P201_CT[ctrl_dev]["int_cnt"] = 11
+        CT2_MAC_HDW[ctrl_dev]["int_cnt"] = 11
     } else {
         counter_par(cnum, "counter_idx", "add")
     }
 }'
 
-def p201_cmd(cnum, key, p1, p2) '{
+def ct2_cmd(cnum, key, p1, p2) '{
     local chan is_running ctrl_dev acq_chan acq_chan_list[] sep val[] int_cnt
     local cnt_idx cnt_i
 
-    global P201_CT_LAST[]
+    global CT2_MAC_HDW_LAST[]
 
-    ctrl_dev = p201_ADDR
+    ctrl_dev = ct2_ADDR
     if (cnum != "..")
         chan = counter_par(cnum, "channel")
 
     if (key == "get_status") {
         is_running = (tango_get(ctrl_dev, "acq_status") == "Running")
-        P201_CT[ctrl_dev]["running"] = is_running
+        CT2_MAC_HDW[ctrl_dev]["running"] = is_running
         return is_running
     } else if (key == "prestart_all") {
-        P201_CT[ctrl_dev]["acq_channels"] = ""
-        P201_CT[ctrl_dev]["nb_channels"] = 0
-        P201_CT_LAST["valid"] = 0
+        CT2_MAC_HDW[ctrl_dev]["acq_channels"] = ""
+        CT2_MAC_HDW[ctrl_dev]["nb_channels"] = 0
+        CT2_MAC_HDW_LAST["valid"] = 0
     } else if (key == "start_one") {
         if (chan != 0) {
-            acq_chan = P201_CT[ctrl_dev]["acq_channels"]
+            acq_chan = CT2_MAC_HDW[ctrl_dev]["acq_channels"]
             sep = length(acq_chan) ? " " : ""
             acq_chan = sprintf("%s%s%d", acq_chan, sep, chan)
-            P201_CT[ctrl_dev]["acq_channels"] = acq_chan
-            cnt_idx = P201_CT[ctrl_dev]["nb_channels"]++
+            CT2_MAC_HDW[ctrl_dev]["acq_channels"] = acq_chan
+            cnt_idx = CT2_MAC_HDW[ctrl_dev]["nb_channels"]++
             counter_par(cnum, "counter_idx", cnt_idx)          
         } else {
             tango_put(ctrl_dev, "acq_expo_time", p1)
-            split(P201_CT[ctrl_dev]["acq_channels"], acq_chan_list)
+            split(CT2_MAC_HDW[ctrl_dev]["acq_channels"], acq_chan_list)
             tango_put(ctrl_dev, "acq_channels", acq_chan_list)
             tango_put(ctrl_dev, "acq_nb_points", 1)
             tango_io(ctrl_dev, "prepare_acq")
             tango_io(ctrl_dev, "start_acq")
         }
     } else if (key == "counts") {
-        if (!P201_CT_LAST["valid"]) {
+        if (!CT2_MAC_HDW_LAST["valid"]) {
             tango_get(ctrl_dev, "counters", val)
-            int_cnt = P201_CT[ctrl_dev]["int_cnt"]
+            int_cnt = CT2_MAC_HDW[ctrl_dev]["int_cnt"]
             if (val[int_cnt - 1] != 0) {
                 cnt_idx = (chan ? chan : int_cnt) - 1
                 return val[cnt_idx]
@@ -69,27 +69,27 @@ def p201_cmd(cnum, key, p1, p2) '{
             if (TANGO_ERR != "0")
                 return -1
             for (cnt_i in val) 
-                P201_CT_LAST[cnt_i] = val[cnt_i]
-            P201_CT_LAST["valid"] = 1
+                CT2_MAC_HDW_LAST[cnt_i] = val[cnt_i]
+            CT2_MAC_HDW_LAST["valid"] = 1
         }
         if (chan)
             cnt_idx = counter_par(cnum, "counter_idx")
         else
-            cnt_idx = P201_CT[ctrl_dev]["nb_channels"]
-        return P201_CT_LAST[cnt_idx]
+            cnt_idx = CT2_MAC_HDW[ctrl_dev]["nb_channels"]
+        return CT2_MAC_HDW_LAST[cnt_idx]
     } else if (key == "halt_all") {
         tango_io(ctrl_dev, "stop_acq")
     }
 }'
 
-def p201_par(cnum, key, action, val) '{
+def ct2_par(cnum, key, action, val) '{
     local ctrl_dev mode_str acq_mode acq_mode_table[]
 
     acq_mode_table[0] = "Internal"
     acq_mode_table[1] = "Slave"
     acq_mode_table["nr"] = 2
 
-    ctrl_dev = p201_ADDR
+    ctrl_dev = ct2_ADDR
     if (key == "acq_mode") {
         mode_str = tango_get(ctrl_dev, "acq_mode")
         for (acq_mode = 0; acq_mode < acq_mode_table["nr"]; acq_mode++)

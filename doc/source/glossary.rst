@@ -13,8 +13,13 @@ Glossary
 	See: `Wikipedia CLI <https://en.wikipedia.org/wiki/Command-line_interface>`_
 
     IcePAP
-        IcePAP are :term:`ESRF` ISG modules to control stepper motors, read out
+        IcePAP are ESRF_ ISG modules to control stepper motors, read out
         encoders (incremental, SSI), perform I/O synchronization etc
+
+    cPCI
+    CompactPCI
+    Compact Peripheral Component Interconnect
+        See: `Wikipedia cPCI <https://en.wikipedia.org/wiki/CompactPCI>`_
 
     PCI
     Peripheral Component Interconnect
@@ -32,3 +37,8 @@ Glossary
         is opposed to software development that allows software to be added
         that isn't proven to meet requirements.
         See: `Wikipedia TDD <https://en.wikipedia.org/wiki/Test-driven_development>`_
+
+    TTL
+    Transistor-transistor logic
+        See: `Wikipedia TTL <https://en.wikipedia.org/wiki/Transistor-transistor_logic>`_
+

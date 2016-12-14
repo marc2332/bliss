@@ -7,7 +7,7 @@
 
 from __future__ import absolute_import
 
-__all__ = ["LocalSerial", "RFC2217", "SER2NET", "Serial"]
+__all__ = ["LocalSerial", "RFC2217", "SER2NET", "TangoSerial", "Serial"]
 
 import os
 import re
@@ -61,9 +61,13 @@ class _BaseSerial:
         self._rpipe,self._wpipe = os.pipe()
 
     def _init(self):
-        self._raw_read_task = gevent.spawn(self._raw_read,
+        self._raw_read_task = gevent.spawn(self._raw_read_loop,
                                            weakref.proxy(self),
                                            self.fd,self._rpipe)
+
+    def _timeout_context(self, timeout):
+        timeout_errmsg = "timeout on serial(%s)" % (self._port)
+        return gevent.Timeout(timeout, SerialTimeout(timeout_errmsg))
 
     def _close(self):
         os.write(self._wpipe,"|")
@@ -72,42 +76,50 @@ class _BaseSerial:
             self._raw_read_task = None
 
     def readline(self, eol, timeout):
-        timeout_errmsg = "timeout on serial(%s)" % (self._port)
-        with gevent.Timeout(timeout,SerialTimeout(timeout_errmsg)):
+        with self._timeout_context(timeout):
+            return self._readline(eol)
+
+    def _readline(self,eol):
+        eol_pos = self._data.find(eol)
+        while eol_pos == -1:
+            self._event.wait()
+            self._event.clear()
             eol_pos = self._data.find(eol)
-            while eol_pos == -1:
-                self._event.wait()
-                self._event.clear()
-                eol_pos = self._data.find(eol)
 
         msg = self._data[:eol_pos]
         self._data = self._data[eol_pos + len(eol):]
         return msg
 
     def read(self, size, timeout):
-        timeout_errmsg = "timeout on serial(%s)" % (self._port)
-        with gevent.Timeout(timeout,SerialTimeout(timeout_errmsg)):
-            while len(self._data) < size:
-                self._event.wait()
-                self._event.clear()
+        with self._timeout_context(timeout):
+            return self._read(size)
+
+    def _read(self, size):
+        while len(self._data) < size:
+            self._event.wait()
+            self._event.clear()
         msg = self._data[:size]
         self._data = self._data[size:]
         return msg
     
     def write(self,msg,timeout) :
-        timeout_errmsg = "timeout on serial(%s)" % (self._port)
-        with gevent.Timeout(timeout,SerialTimeout(timeout_errmsg)):
-            while msg:
-                _,ready,_ = select.select([],[self.fd],[])
-                size_send = os.write(self.fd,msg)
-                msg = msg[size_send:]
+        with self._timeout_context(timeout):
+            return self._write(msg)
+
+    def _write(self, msg):
+        while msg:
+            _,ready,_ = select.select([],[self.fd],[])
+            size_send = os.write(self.fd,msg)
+            msg = msg[size_send:]
 
     def raw_read(self, maxsize, timeout):
-        timeout_errmsg = "timeout on serial(%s)" % (self._port)
-        with gevent.Timeout(timeout,SerialTimeout(timeout_errmsg)):
-            while not self._data:
-                self._event.wait()
-                self._event.clear()
+        with self._timeout_context(timeout):
+            return self._raw_read(maxsize)
+    
+    def _raw_read(self, maxsize):
+        while not self._data:
+            self._event.wait()
+            self._event.clear()
         if maxsize:
             msg = self._data[:maxsize]
             self._data = self._data[maxsize:]
@@ -117,7 +129,7 @@ class _BaseSerial:
         return msg
  
     @staticmethod
-    def _raw_read(ser,fd,rp):
+    def _raw_read_loop(ser,fd,rp):
         try:
             while(1):
                 ready,_,_ = select.select([fd,rp],[],[])
@@ -419,8 +431,106 @@ class SER2NET(RFC2217):
     def __del__(self):
         self.close()
 
+
+class TangoSerial(_BaseSerial):
+    """Tango serial line"""
+
+    SL_RAW = 0
+    SL_NCHAR = 1
+    SL_LINE = 2
+    SL_RETRY = 3
+
+    SL_NONE = 0
+    SL_ODD = 1
+    SL_EVEN = 3
+
+    SL_STOP1 = 0
+    SL_STOP15 = 1
+    SL_STOP2 = 2
+
+    SL_TIMEOUT = 3
+    SL_PARITY = 4
+    SL_CHARLENGTH = 5
+    SL_STOPBITS = 6
+    SL_BAUDRATE = 7
+    SL_NEWLINE = 8
+
+    FLUSH_INPUT = 0
+    FLUSH_OUTPUT = 1
+    FLUSH_BOTH = 2
+
+    PARITY_MAP = {
+        serial.PARITY_NONE: SL_NONE,
+        serial.PARITY_ODD:  SL_ODD,
+        serial.PARITY_EVEN: SL_EVEN,
+    }
+    
+    STOPBITS_MAP = {
+        serial.STOPBITS_ONE: SL_STOP1,
+        serial.STOPBITS_TWO: SL_STOP2,
+        serial.STOPBITS_ONE_POINT_FIVE: SL_STOP15,
+    }
+
+    PAR_MAP = {
+        SL_BAUDRATE: ('baudrate', lambda o, v: int(v)),
+        SL_CHARLENGTH: ('bytesize', lambda o, v: int(v)),
+        SL_PARITY: ('parity', lambda o, v: o.PARITY_MAP[v]),
+        SL_STOPBITS: ('stopbits', lambda o, v: o.STOPBITS_MAP[v]),
+        SL_TIMEOUT: ('timeout', lambda o, v: int(v*1000)),
+        SL_NEWLINE: ('eol', lambda o, v: ord(v[-1])),
+    }       
+
+    def __init__(self, cnt, **kwargs):
+        _BaseSerial.__init__(self, cnt, kwargs.get('port'))
+        self._device = None
+        self._pars = kwargs
+        self._last_eol = kwargs['eol'] = cnt._eol
+        del self._data
+        del self._event
+        del self._rpipe, self._wpipe
+        # import tango here to prevent import serial from failing in places
+        # were tango is not installed
+        from PyTango import GreenMode
+        from PyTango.client import Object, get_object_proxy
+        device = Object(kwargs['port'], green_mode=GreenMode.Gevent)
+        timeout = kwargs.get('timeout')
+        if timeout:
+            get_object_proxy(device).set_timeout_millis(int(timeout * 1000))
+        args = []
+        kwargs['eol'] = cnt._eol
+        for arg, (key, encode) in self.PAR_MAP.items():
+            args.append(arg)
+            args.append(encode(self, kwargs[key]))
+        device.DevSerSetParameter(args)
+        self._device = device
+
+    def close(self):
+        self._device = None
+
+    def _readline(self, eol):
+        if eol != self._last_eol:
+            _, eol_encode = self.PAR_MAP[self.SL_NEWLINE]
+            self._device.DevSerSetNewline(eol_encode(self, eol))
+            self._last_eol = eol
+        return self._device.DevSerReadLine() or ''
+
+    def _raw_read(self, maxsize):
+        if maxsize:
+            return self._device.DevSerReadNChar(maxsize) or ''
+        else:
+               return self._device.DevSerReadRaw() or ''
+
+    _read = _raw_read
+
+    def _write(self, msg):
+        self._device.DevSerWriteString(msg)
+
+    def flushInput(self):
+        self._device.DevSerFlush(self.FLUSH_INPUT)
+
+
 class Serial:
-    LOCAL,RFC2217,SER2NET = range(3)
+    LOCAL,RFC2217,SER2NET,TANGO = range(4)
 
     def __init__(self,port=None, 
                  baudrate=9600,
@@ -448,6 +558,7 @@ class Serial:
             "dsrdtr":dsrdtr,
             "interCharTimeout":interCharTimeout,
             }
+        self._port = port
         self._eol = eol
         self._timeout = timeout
         self._raw_handler = None
@@ -468,6 +579,8 @@ class Serial:
                 self._raw_handler = RFC2217(self,**self._serial_kwargs)
             elif serial_type == self.SER2NET:
                 self._raw_handler = SER2NET(self,**self._serial_kwargs)
+            elif serial_type == self.TANGO:
+                self._raw_handler = TangoSerial(self,**self._serial_kwargs)
             else:                   # LOCAL
                 self._raw_handler = LocalSerial(self,**self._serial_kwargs)
         
@@ -494,7 +607,8 @@ class Serial:
         local_timeout = timeout or self._timeout
         msg = self._raw_handler.read(size,local_timeout)
         if len(msg) != size:
-            raise SerialError("read timeout on serial (%s)" % self._serial_kwargs.get(port,''))
+            raise SerialError("read timeout on serial (%s)" \
+                                  % self._serial_kwargs.get(self._port,''))
         return msg
 
     def readline(self,eol = None,timeout = None) :
@@ -535,9 +649,12 @@ class Serial:
 
     def _check_type(self) :
         port = self._serial_kwargs.get('port','')
-        if port.lower().startswith("rfc2217://"):
+        port_lower = port.lower()
+        if port_lower.startswith("rfc2217://"):
             return self.RFC2217
-        elif port.lower().startswith("ser2net://"):
+        elif port_lower.startswith("ser2net://"):
             return self.SER2NET
+        elif port_lower.startswith("tango://"):
+            return self.TANGO
         else:
             return self.LOCAL

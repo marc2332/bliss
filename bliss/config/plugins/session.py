@@ -32,9 +32,15 @@ def get_jinja2():
 
 
 def get_tree(cfg, perspective):
-    return dict(type="session",
-                path=os.path.join(cfg.filename, cfg['name']),
-                icon="fa fa-scribd")
+    items = {}
+    name = cfg['name']
+    result = dict(type="session", icon="fa fa-scribd")
+    if perspective == 'files':
+        path = os.path.join(cfg.filename, name)
+    else:
+        path = name
+    result['path'] = path
+    return result
 
 
 def get_html(cfg):

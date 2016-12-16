@@ -31,10 +31,26 @@ def get_jinja2():
     return __environment
 
 
+def get_item(cfg):
+    from ..static import get_config
+    from ..conductor.web.config_app import get_item
+    config = get_config()
+    items = [get_item(config.get_config(name))
+             for name in cfg.get('config-objects', ())]
+    result = dict(type="session", icon="fa fa-scribd",
+                  items=items)
+    return result
+
+
 def get_tree(cfg, perspective):
-    return dict(type="session",
-                path=os.path.join(cfg.filename, cfg['name']),
-                icon="fa fa-scribd")
+    item = get_item(cfg)
+    name = cfg.get('name')
+    if perspective == 'files':
+        path = os.path.join(cfg.filename, name)
+    else:
+        path = name
+    item['path'] = path
+    return item
 
 
 def get_html(cfg):
@@ -71,10 +87,16 @@ def edit(cfg, request):
         session_cfg = cfg.get_config(name)
         session_cfg['setup-file'] = form['setup']
         session_cfg['config-objects'] = form.getlist('items[]')
-        
+
         session_cfg.save()
 
         result["message"] = "'%s' configuration applied!" % name
         result["type"] = "success"
 
         return flask.json.dumps(result)
+
+
+def config_objects(cfg, request):
+    import flask.json
+    objects = cfg.get('config-objects', ())
+    return flask.json.dumps(objects)

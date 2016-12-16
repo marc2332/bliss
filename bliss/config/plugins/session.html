@@ -7,9 +7,9 @@
 <style>
 
 .col-v-center {
-  min-height:200px;
+  min-height: 200px;
   display: flex;
-  justify-content:center;
+  justify-content: center;
   flex-flow: column wrap;
 }
 
@@ -54,7 +54,6 @@
 {% block params %}
 
 <div class="row">
-
   <form id="session_form" class="form-horizontal">
     <fieldset>
 
@@ -68,8 +67,6 @@
 		   class="form-control input-md" required></input>
 	  </div>
 	</div>
-
-
 	<!-- Text input-->
 	<div class="form-group">
 	  <label class="col-sm-4 control-label" for="setup">Setup script</label>
@@ -79,203 +76,264 @@
 		   class="form-control input-md"></input>
 	  </div>
 	</div>
-      </div>
 
+      </div>
       <div class="row">
-	{% for plugin, items in plugin_items.items() %}
-	<div class="col-sm-6 col-md-6 col-lg-4">
-	  <div class="panel panel-info">
-	    <div class="panel-heading panel-heading-compact">{{ plugin }}</div>
+	<div class="col-sm-5">
+	  <div class="panel panel-danger">
+	    <div class="panel-heading panel-heading-compact">Available (tag view)</div>
 	    <div class="panel-body panel-compact">
-	      <!-- available list -->
-	      <div class="col-sm-5 col-compact">
-		<div class="list-group available-list" id="available-list-{{ plugin }}">
-		  <a href="javascript:void(0);"
-		     class="list-group-item list-group-item-danger list-group-item-compact">
-		    Available
-		    <input title="toggle all" class="all-{{ plugin }} pull-right"
-			   type="checkbox">
-		  </a>
-		  {% for item in items %}
-		  {% if not item['checked'] %}
-		  <a href="javascript:void(0);"
-		     class="list-group-item list-group-item-compact"
-		     id="obj_{{ item['name'] }}" name="obj_{{ item['name'] }}"
-		     data-toggle="tooltip" title="{{ item['description'] }}">
-		    {{ item['name'] }}
-		    <input class="pull-right" type="checkbox">
-		  </a>
-		  {% endif %}
-		  {% endfor %}
-
-		</div>
-	      </div>
-
-	      <!-- vertical button bar -->
-	      <div class="col-sm-2 col-v-center col-compact">
-		<button type="button" title="Select"
-			class="btn btn-default center-block add"
-			id="add-{{ plugin }}">
-		  <i class="fa fa-chevron-right"></i>
+	      <div class="btn-group" role="group">
+		<button type="button" class="btn btn-default"
+			id="available-stree-expand-all"
+			data-toggle="tooltip" data-placement="bottom"
+			title="Expand all items">
+		  <span class="fa fa-angle-double-down"></span>
 		</button>
-		<button type="button" title="Unselect"
-			class="btn btn-default center-block remove"
-			id="remove-{{ plugin }}">
-		  <i class="fa fa-chevron-left"></i>
+		<button type="button" class="btn btn-default"
+			id="available-stree-collapse-all"
+			data-toggle="tooltip" data-placement="bottom"
+			title="Collapse all items">
+		  <span class="fa fa-angle-double-up"></span>
 		</button>
 	      </div>
+	      <div class="btn-group" role="group">
+		<button type="button" class="btn btn-default"
+			id="available-stree-clear"
+			data-toggle="tooltip" data-placement="bottom"
+			title="Clear selection">
+		  <span class="fa fa-eraser"></span>
+		</button>
+	    </div>
 
-	      <!-- selected list -->
-	      <div class="col-sm-5 col-compact">
-		<div class="list-group selected-list" id="selected-list-{{ plugin }}">
-		  <a href="javascript:void(0);"
-		     class="list-group-item list-group-item-success list-group-item-compact">
-		    Selected
-		    <input title="toggle all" class="all-{{plugin}} pull-right"
-			   type="checkbox">
-		  </a>
-		  {% for item in items %}
-		  {% if item['checked'] %}
-		  <a href="javascript:void(0);"
-		     class="list-group-item list-group-item-compact"
-		     id="obj_{{ item['name'] }}" name="obj_{{ item['name'] }}"
-		     data-toggle="tooltip" title="{{ item['description'] }}">
-		    {{ item['name'] }}
-		    <input class="pull-right" type="checkbox">
-		  </a>
-		  {% endif %}
-		  {% endfor %}
-		</div>
-	      </div>
-
-	    </div> <!-- panel body -->
-	  </div> <!-- panel -->
+	      <div style="height:10px;"></div>
+	      <div id="available-stree"
+		   class="beacon-tree"></div>
+	    </div>
+	  </div>
 	</div>
-	{% endfor %}
-      </div>
 
+	<!-- vertical button bar -->
+	<div class="col-sm-1 col-v-center col-compact">
+	  <button type="button" title="Select"
+		  class="btn btn-default center-block add"
+		  id="add-session-item">
+	    <i class="fa fa-chevron-right"></i>
+	  </button>
+	  <button type="button" title="Unselect"
+		  class="btn btn-default center-block remove"
+		  id="remove-session-item">
+	    <i class="fa fa-chevron-left"></i>
+	  </button>
+	</div>
+
+	<div class="col-sm-5">
+	  <div class="panel panel-info">
+	    <div class="panel-heading panel-heading-compact">Selected (tag view)</div>
+	    <div class="panel-body panel-compact">
+	      <div class="btn-group" role="group">
+		<button type="button" class="btn btn-default"
+			id="selected-stree-expand-all"
+			data-toggle="tooltip" data-placement="bottom"
+			title="Expand all nodes">
+		  <span class="fa fa-angle-double-down"></span>
+		</button>
+		<button type="button" class="btn btn-default"
+			id="selected-stree-collapse-all"
+			data-toggle="tooltip" data-placement="bottom"
+			title="Collapse all nodes">
+		  <span class="fa fa-angle-double-up"></span>
+		</button>
+	      </div>
+	      <div class="btn-group" role="group">
+		<button type="button" class="btn btn-default"
+			id="selected-stree-clear"
+			data-toggle="tooltip" data-placement="bottom"
+			title="Clear selection">
+		  <span class="fa fa-eraser"></span>
+		</button>
+	      </div>
+
+	      <div style="height:10px;"></div>
+
+	      <div id="selected-stree"
+		   class="beacon-tree"></div>
+	    </div>
+	  </div>
+	</div>
+
+      </div>
     </fieldset>
   </form>
 </div> <!-- row -->
-{% endblock %}
-
-{% block footbar %}
-
-<div class="row">
-  <div class="btn-group" role="group" aria-label="global functionality">
-    <a class="btn btn-default" href="javascript:void(0)">
-      {{ name if name else "unknown session" }}
-    </a>
-    <button type="button" class="btn btn-primary apply"
-	    data-toggle="tooltip" title="save changes">
-      Save
-      <span class="fa fa-save"></span>
-    </button>
-  </div>
-</div>
 
 {% endblock %}
 
 <script type="text/javascript">
 
-  function submit_form(form) {
-    var formData = new FormData(form);
-    formData.append("__original_name__", "{{ name }}");
+  var SESSION_SELECTED_ITEMS = {}
 
-    $(".selected-list a:not(.active)").each(function() {
-      var name = $(this).attr("name");
-      if (name !== undefined && name.startsWith("obj_")) {
-        name = name.substring(4);
-        formData.append("items[]", name);
+  function add_session_tree_item(tree, item) {
+    var tags = item.tags;
+    if (tags == null || tags.length == 0) {
+      tags = ["__no_tag__"];
+    }
+    $.each(tags, function(idx, tag) {
+      var nodes = null;
+      if (tree.hasOwnProperty(tag)) {
+        nodes = tree[tag]["nodes"];
       }
-    });
-
-    $.ajax({
-      url: "plugin/session/edit",
-      type: "POST",
-      cache: false,
-      contentType: false,
-      processData: false,
-      data: formData,
-      success: function(result) {
-        data = $.parseJSON(result);
-        show_notification(data.message, data.type);
+      else {
+        nodes = [];
+        tree[tag] = {
+          text: tag,
+          nodes: nodes,
+          icon: "fa fa-folder-open",
+          type: "folder",
+        };
       }
+      item.text = item.name;
+      nodes.push(item);
     });
   }
 
-  function initiate_plugin_controls(plugin) {
-    $("#add-" + plugin).click(function() {
-      $(".all-" + plugin).prop("checked",false);
-      var items = $("#available-list-" + plugin + " input:checked:not('.all-" + plugin + "')");
-      var n = items.length;
-      if (n > 0) {
-        items.each(function(idx,item) {
-          var choice = $(item);
-          choice.prop("checked",false);
-          choice.parent().appendTo("#selected-list-" + plugin);
+  function add_session_tree_items(tree, items) {
+    $.each(items, function(name, item) {
+      add_session_tree_item(tree, item);
+    });
+  }
+
+  function remove_session_tree_item(tree, item) {
+    var tags = item.tags;
+    if (tags == null || tags.length == 0) {
+      tags = ["__no_tag__"];
+    }
+    var tags_to_remove = [];
+    $.each(tags, function(i1, tag) {
+      var nodes = tree[tag].nodes;
+      for(var i2 = 0; i2 < nodes.length; ++i2) {
+        if(nodes[i2].name == item.name) {
+          nodes.splice(i2, 1);
+          break;
+        }
+      }
+
+      if(nodes.length == 0) {
+        tags_to_remove.push(tag);
+      }
+    });
+    $.each(tags_to_remove, function(idx, tag) {
+      delete tree[tag];
+    });
+  }
+
+  function remove_session_tree_items(tree, items) {
+    $.each(items, function(name, item) {
+      remove_session_tree_item(tree, item);
+    });
+  }
+
+  function refresh_session_tree(tree_tag, tree) {
+    var tree_options = get_tree_options();
+    tree_options.multiSelect = true;
+
+    nodes = [];
+    $.each(tree, function(name, node) {
+      nodes.push(node);
+    });
+    tree_options.data = nodes;
+    tree_tag.treeview(tree_options);
+  }
+
+  function unselect_all(tree) {
+    $.each(tree.getSelected(), function(index, node) {
+      tree.unselectNode(node, {silent: true});
+    });
+  }
+
+  function get_selected_items(tree) {
+    var items = {};
+    $.each(tree.getSelected(), function(i1, node) {
+      if(node.type == "folder") {
+        $.each(node.nodes, function(i2, sub_node) {
+          items[sub_node.name] = sub_node;
         });
       }
       else {
-        alert("Choose an item from available list");
+        items[node.name] = node;
       }
     });
-
-    $("#remove-" + plugin).click(function() {
-      $(".all-" + plugin).prop("checked",false);
-      var items = $("#selected-list-" + plugin + " input:checked:not('.all-" + plugin + "')");
-      items.each(function(idx,item) {
-        var choice = $(item);
-        choice.prop("checked",false);
-        choice.parent().appendTo("#available-list-" + plugin);
-      });
-    });
-
-    $(".all-" + plugin).click(function(e) {
-      e.stopPropagation();
-      var $this = $(this);
-      if($this.is(":checked")) {
-    	$this.parents(".list-group").find("[type=checkbox]").prop("checked",true);
-      }
-      else {
-    	$this.parents(".list-group").find("[type=checkbox]").prop("checked",false);
-        $this.prop("checked",false);
-      }
-    });
-
-    $("[type=checkbox]").click(function(e) {
-      e.stopPropagation();
-    });
-
-    $(".list-group a").click(function(e) {
-      e.stopPropagation();
-
-      var $this = $(this).find("[type=checkbox]");
-
-      if($this.is(":checked")) {
-    	$this.prop("checked",false);
-      }
-      else {
-    	$this.prop("checked",true);
-      }
-
-      if ($this.hasClass("all-" + plugin)) {
-    	$this.trigger("click");
-      }
-    });
+    return items;
   }
 
-  $(document).ready(function() {
+  $(function() {
 
     $(".apply").on("click", function() {
       submit_form($("#session_form")[0]);
-      return false;
+        return false;
     });
 
-    {% for plugin in plugin_items %}
-        initiate_plugin_controls("{{ plugin }}");
-    {% endfor %}
+    $(".add").click(function() {
+      var available_tree = $("#available-stree").treeview(true);
+      var items = get_selected_items(available_tree);
+      add_session_tree_items(SESSION_SELECTED_ITEMS, items);
+      refresh_session_tree($("#selected-stree"),
+                           SESSION_SELECTED_ITEMS);
+      unselect_all($("#available-stree").treeview(true));
+      unselect_all($("#selected-stree").treeview(true));
+    });
 
+    $(".remove").click(function() {
+      var selected_tree = $("#selected-stree").treeview(true);
+      var items = get_selected_items(selected_tree);
+      remove_session_tree_items(SESSION_SELECTED_ITEMS, items);
+      refresh_session_tree($("#selected-stree"),
+                           SESSION_SELECTED_ITEMS);
+      unselect_all($("#available-stree").treeview(true));
+      unselect_all($("#selected-stree").treeview(true));
+    });
+
+    $("#available-stree-expand-all").on("click", function() {
+      $("#available-stree").treeview("expandAll",
+        { levels: 2, silent: true } );
+    });
+
+    $("#available-stree-collapse-all").on("click", function() {
+      $("#available-stree").treeview("collapseAll",
+        { silent: true } );
+    });
+
+    $("#available-stree-clear").on("click", function() {
+      unselect_all($("#available-stree").treeview(true));
+    });
+
+    $("#selected-stree-clear").on("click", function() {
+      unselect_all($("#selected-stree").treeview(true));
+    });
+
+    $("#selected-stree-expand-all").on("click", function() {
+      $("#selected-stree").treeview("expandAll",
+        { levels: 2, silent: true } );
+    });
+
+    $("#selected-stree-collapse-all").on("click", function() {
+      $("#selected-stree").treeview("collapseAll",
+        { silent: true } );
+    });
+
+    var tree_options = get_tree_options();
+    tree_options.multiSelect = true;
+    tree_options.data = BEACON_TREES["tags"];
+
+    $("#available-stree").treeview(tree_options);
+
+    SESSION_SELECTED_ITEMS = {};
+
+    // fill selected items
+    $.get("item/{{ name }}", function(data) {
+      add_session_tree_items(SESSION_SELECTED_ITEMS, data.items);
+      refresh_session_tree($("#selected-stree"),
+                             SESSION_SELECTED_ITEMS);
+    }, "json");
   });
-
 </script>

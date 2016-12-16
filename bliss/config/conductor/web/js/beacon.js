@@ -6,53 +6,15 @@
  * Distributed under the GNU LGPLv3. See LICENSE for more info.
  */
 
-function getTreeExample() {
-  var data = [
-    {
-      text: "OH1",
-      icon: "fa fa-folder-open",
-      nodes: [
-        { text: "gasblower.yml",
-          icon: "fa fa-file-text", },
-        { text: "wago1.yml" },
-      ]
-    },
-    {
-      text: "OH2",
-      nodes: [
-        { text: "ll.yml" },
-        { text: "wago2.yml" },
-        { text: "iceid315.yml",
-          nodes: [
-            { text: "gmy" },
-            { text: "eslb" },
-            { text: "esrb" },
-            { text: "estb" },
-            { text: "esbb" },
-          ]
-        },
-      ]
-    },
-    {
-      text: "EH",
-      nodes: [
-        { text: "hemd.yml" },
-        { text: "wago3.yml" },
-        { text: "iceid315.yml",
-          nodes: [
-            { text: "th" },
-            { text: "tth" },
-            { text: "chi" },
-            { text: "phi" },
-          ]
-        },
-      ]
-    },
-  ];
-  return data;
-}
+var BEACON_TREES = {
+  files: null,
+  items: null,
+  plugins: null,
+  tags: null,
+  sessions: null,
+};
 
-function __get_tree_options() {
+function get_tree_options() {
   var options = {
     collapseIcon: "fa fa-minus-square-o",
     expandIcon: "fa fa-plus-square-o",
@@ -64,11 +26,12 @@ function __get_tree_options() {
     searchResultColor: "#FFFFFF",
     highlightSelected: true,
     highlightSearchResults: true,
-    levels: 2,
+    levels: 1,
     multiSelect: false,
-    showBorder: false,
+    showBorder: true,
     showIcon: true,
     showCheckbox: false,
+    showTags: true,
   }
   return options;
 }
@@ -77,8 +40,9 @@ function build_nodes(tree_data, level) {
   var result = [];
   $.each(tree_data, function(name, info) {
     var node = info[0];
-    var nodes = build_nodes(info[1], level + 1);
     node.text = name;
+    node.tags = node.tags;
+    var nodes = build_nodes(info[1], level + 1);
     if (nodes.length > 0) {
       node.nodes = nodes;
     }
@@ -88,12 +52,15 @@ function build_nodes(tree_data, level) {
 }
 
 function reload_tree(tree, options) {
-  $.get(options.url, function(data) {
-    var tree_options = __get_tree_options();
+  var url = "tree/" + options.perspective;
+  $.get(url, function(data) {
+    var tree_options = get_tree_options();
     $.each(options, function(k, v) {
       tree_options[k] = v;
     });
-    tree_options.data = build_nodes(data, 0);
+    var data = build_nodes(data, 0);
+    BEACON_TREES[options.perspective] = data;
+    tree_options.data = data;
     tree.treeview(tree_options);
   }, "json");
 }

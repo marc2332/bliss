@@ -489,6 +489,16 @@ class Config(object):
         return self._name2node.keys()
 
     @property
+    def user_tags_list(self):
+        """
+        List of existing user tags
+
+        Returns:
+            list<str>: sequence of user tag names
+        """
+        return self._usertag2node.keys()
+
+    @property
     def root(self):
         """
         Reference to the root :class:`~bliss.config.static.Node`
@@ -569,6 +579,19 @@ class Config(object):
         # '$' means the item is a reference
         name = name.lstrip('$')
         return self._name2node.get(name)
+
+    def get_user_tag_configs(self, tag_name):
+        """
+        Returns the set of config nodes (:class:`~bliss.config.static.Node`)
+        which have the given user *tag_name*.
+
+        Args:
+            tag_name (str): user tag name
+
+        Returns:
+            set<Node>: the set of nodes wich have the given user tag
+        """
+        return set(self._usertag2node.get(tag_name, ()))
 
     def get(self,name):
         """
@@ -667,3 +690,5 @@ class Config(object):
         self._name2instance = dict()
         self._name2cache = dict()
 
+    def pprint(self, indent=1, depth=None):
+        self.root.pprint(indent=indent, depth=depth)

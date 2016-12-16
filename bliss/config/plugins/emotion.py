@@ -50,41 +50,31 @@ def get_jinja2():
     return __environment
 
 
+def get_item(cfg):
+    klass = cfg.get('class')
+    result = {'class': klass }
+    if klass is None:
+        result['icon'] = 'fa fa-gear'
+        result['type'] = 'axis'
+    else:
+        result['icon'] = 'fa fa-gears'
+        result['type'] = 'controller'
+    return result
+
+
 def get_tree(cfg, perspective):
-    if perspective == "files":
-        return get_tree_files(cfg)
-    elif perspective == "items":
-        return get_tree_items(cfg)
-
-
-def get_tree_files(cfg):
+    item = get_item(cfg)
+    name = cfg.get('name')
     ctrl_class = cfg.get("class")
     if ctrl_class is None:
-        result = dict(type="axis",
-                      path=os.path.join(get_tree_files(cfg.parent)['path'],
-                                        cfg['name']),
-                      icon="fa fa-gear")
+        path = os.path.join(get_tree(cfg.parent, 'files')['path'], name)
     else:
-        ctrl_name = cfg.get("name", "<unnamed controller>")
-        result = dict(type="controller",
-                      path=os.path.join(cfg.filename, ctrl_name),
-                      icon="fa fa-gears")
-    return result
-
-
-def get_tree_items(cfg):
-    ctrl_class = cfg.get("class")
-    if ctrl_class is None:
-        result = dict(type="axis",
-                      path=os.path.join(get_tree_items(cfg.parent)['path'],
-                                        cfg['name']),
-                      icon="fa fa-gear")
-    else:
-        ctrl_name = cfg.get("name", "<unnamed controller>")
-        result = dict(type="controller",
-                      path=ctrl_name,
-                      icon="fa fa-gears")
-    return result
+        if perspective == "files":
+            path = os.path.join(cfg.filename, name)
+        else:
+            path = name
+    item['path'] = path
+    return item
 
 
 def get_html(cfg):

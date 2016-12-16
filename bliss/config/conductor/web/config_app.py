@@ -53,6 +53,9 @@ class WebConfig(object):
         self.__items = None
         self.__tree_items = None
         self.__tree_files = None
+        self.__tree_plugins = None
+        self.__tree_tags = None
+        self.__tree_sessions = None
         beacon_conn = connection.Connection('localhost', beacon_port)
         client._default_connection = beacon_conn
         event.connect(server.__name__, 'config_changed', self.__on_config_changed)
@@ -63,6 +66,9 @@ class WebConfig(object):
             self.__items = None
             self.__tree_items = None
             self.__tree_files = None
+            self.__tree_plugins = None
+            self.__tree_tags = None
+            self.__tree_sessions = None
 
     def get_config(self):
         with self.__lock:
@@ -90,6 +96,24 @@ class WebConfig(object):
             self.__tree_files = self.__build_tree_files()
         return self.__tree_files
 
+    @property
+    def tree_plugins(self):
+        if self.__tree_plugins is None:
+            self.__tree_plugins = self.__build_tree_plugins()
+        return self.__tree_plugins
+
+    @property
+    def tree_tags(self):
+        if self.__tree_tags is None:
+            self.__tree_tags = self.__build_tree_tags()
+        return self.__tree_tags
+
+    @property
+    def tree_sessions(self):
+        if self.__tree_sessions is None:
+            self.__tree_sessions = self.__build_tree_sessions()
+        return self.__tree_sessions
+
     def __build_items(self):
         cfg = self.get_config()
         items = {}
@@ -105,13 +129,28 @@ class WebConfig(object):
             if item is None:
                 item = dict(type="item", path=name, icon="fa fa-question")
             item['name'] = name
+            item['tags'] = _get_config_user_tags(config)
+            item['plugin'] = config.get('plugin')
             items[name] = item
         return items
 
+    def __build_tree_sessions(self):
+        cfg = self.get_config()
+        sessions = {}
+        for name, item in self.items.items():
+            config = cfg.get_config(name)
+            if config.plugin != 'session':
+                continue
+            session_items = {}
+#            for iname, item in self.items.items():
+
+            sessions[name] = item, session_items
+        return sessions
+
     def __build_tree_items(self):
         items = self.items
-        result = dict()
-        for _, item in items.items():
+        result = {}
+        for name, item in items.items():
             current_level = result
             db_file = item['path']
             parts = db_file.split(os.path.sep)
@@ -124,6 +163,36 @@ class WebConfig(object):
                 current_level.setdefault(part, [p_item, dict()])
                 current_level = current_level[part][1]
             current_level.setdefault(parts[-1], [item, dict()])
+        return result
+
+    def __build_tree_plugins(self):
+        cfg = self.get_config()
+        result = {}
+        for name, item in self.items.items():
+            config = cfg.get_config(name)
+            plugin_name = config.plugin or '__no_plugin__'
+            plugin_data = result.get(plugin_name)
+            if plugin_data is None:
+                 plugin_data = [dict(type="folder", path=plugin_name,
+                                     icon="fa fa-folder-open"), {}]
+                 result[plugin_name] = plugin_data
+            plugin_items = plugin_data[1]
+            plugin_items[name] = [item, {}]
+        return result
+
+    def __build_tree_tags(self):
+        cfg = self.get_config()
+        result = {}
+        for name, item in self.items.items():
+            config = cfg.get_config(name)
+            for tag in (item['tags'] or ['__no_tag__']):
+                tag_data = result.get(tag)
+                if tag_data is None:
+                    tag_data = [dict(type="folder", path=tag,
+                                     icon="fa fa-folder-open"), {}]
+                    result[tag] = tag_data
+                tag_items = tag_data[1]
+                tag_items[name] = [item, {}]
         return result
 
     def __build_tree_files(self):
@@ -145,7 +214,9 @@ class WebConfig(object):
             if item is None:
                 item = dict(type="item", path=os.path.join(config.filename, name),
                             icon="fa fa-question")
+
             item['name'] = name
+            item['tags'] = _get_config_user_tags(config)
             items[item['path']] = name, item
 
         for path in sorted(items):
@@ -342,9 +413,30 @@ def tree(view):
         result = __config.tree_files
     elif view == "items":
         result = __config.tree_items
+    elif view == "plugins":
+        result = __config.tree_plugins
+    elif view == "tags":
+        result = __config.tree_tags
+    elif view == "sessions":
+        result = __config.tree_sessions
     else:
         result = dict(message='unknown view', type='error')
     return flask.json.dumps(result)
+
+@web_app.route("/tree/<view>/<item>")
+def sub_tree(view, item):
+    if view == "files":
+        result = __config.tree_files
+    elif view == "items":
+        result = __config.tree_items
+    elif view == "plugins":
+        result = __config.tree_plugins
+    elif view == "tags":
+        result = __config.tree_tags
+    elif view == "sessions":
+        result = __config.tree_sessions
+    else:
+        return flask.json.dumps(dict(message='unknown view', type='error'))
 
 @web_app.route("/items/<name>")
 def get_item_config(name):

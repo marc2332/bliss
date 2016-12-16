@@ -156,7 +156,9 @@ class AcquisitionMaster(object):
     def stop(self):
         raise NotImplementedError
     def _start(self):
-      return self.start()
+        return_value = self.start()
+        dispatcher.send("start", self)
+        return return_value
     def trigger_ready(self):
         return True
     def _trigger(self):

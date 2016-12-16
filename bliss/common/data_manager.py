@@ -474,12 +474,13 @@ class ScanRecorder(object):
     def nodes(self):
         return self._nodes
 
-    def _acq_device_event(self, event_dict=None, signal=None, sender=None):
+    def _device_event(self, event_dict=None, signal=None, sender=None):
         if signal == 'end':
             for node in self._nodes.itervalues():
                 node.set_ttl()
             self._node.set_ttl()
         node = self._nodes[sender]
+        if not hasattr(node,'store'): return
         node.store(signal, event_dict)
         
         if self._data_watch_callback is not None:
@@ -504,14 +505,10 @@ class ScanRecorder(object):
                 prev_level = level
                 parent_node = self._nodes[dev_node.bpointer]
 
-            if isinstance(dev,AcquisitionDevice):
-                acq_device = dev
-                self._nodes[acq_device] = _create_node(acq_device.name, acq_device.type, parent_node) 
+            if isinstance(dev,AcquisitionDevice) or isinstance(dev,AcquisitionMaster):
+                self._nodes[dev] = _create_node(dev.name, dev.type, parent_node) 
                 for signal in ('start', 'end', 'new_ref','new_data'):
-                    dispatcher.connect(self._acq_device_event, signal, acq_device)
-            if isinstance(dev,AcquisitionMaster):
-                master = dev
-                self._nodes[master] = _create_node(master.name, master.type, parent_node)
+                    dispatcher.connect(self._device_event, signal, dev)
 
         if self._writer:
             self._writer.prepare(self, scan_info, devices_tree)

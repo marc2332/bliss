@@ -48,8 +48,11 @@ class Dataset0D(DataNode):
                     self._channels_name.append(channel_name)
                     queue = QueueSetting('%s_%s' % (self.db_name(),channel_name),
                                          connection=self.db_connection)
-                    queue.extend(data)
                     self._channels[channel_name] = queue
+                try:
+                    iter(data)
+                except:
+                    queue.append(data)
                 else:
                     queue.extend(data)
 
@@ -65,10 +68,10 @@ class Dataset0D(DataNode):
         return all channels for this node
         the return is a dict {channel_name:DataChannel}
         """
-        return dict(((chan_name,get_channel(chan_name))
+        return dict(((chan_name,self.get_channel(chan_name))
                      for chan_name in self._channels_name))
     def _get_db_names(self):
-        db_names = DataChannel._get_db_names(self)
+        db_names = DataNode._get_db_names(self)
         db_names.append(self._channels_name._name)
         db_names.extend((channel._name for channel in self._channels.itervalues()))
         return db_names

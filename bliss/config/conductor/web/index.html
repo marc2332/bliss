@@ -59,39 +59,33 @@
 		 href="#files-view"
 		 data-toggle="tooltip" data-placement="bottom"
 		 title="Files perspective">
-		Files
+		<span class="fa fa-files-o"></span>
 	      </a>
 	      <a role="tab" class="btn btn-primary navbar-btn"
 		 href="#items-view"
 		 data-toggle="tooltip" data-placement="bottom"
 		 title="Items perspective">
-		Items
+		<span class="fa fa-th-list"></span>
 	      </a>
 	      <a role="tab" class="btn btn-primary navbar-btn"
 		 href="#plugins-view"
 		 data-toggle="tooltip" data-placement="bottom"
 		 title="Plugins perspective">
-		Plugins
+		<span class="fa fa-chain"></span>
 	      </a>
 	      <a role="tab" class="btn btn-primary navbar-btn"
 		 href="#tags-view"
 		 data-toggle="tooltip" data-placement="bottom"
 		 title="Show tags tree view">
-		Tags
+		<span class="fa fa-tags"></span>
 	      </a>
 	      <a role="tab" class="btn btn-primary navbar-btn"
 		 href="#sessions-view"
 		 data-toggle="tooltip" data-placement="bottom"
 		 title="Show sessions tree view">
-		Sessions
+		<span class="fa fa-scribd"></span>
 	      </a>
 	    </div>
-	    <button id="reload-config" type="button"
-		    class="btn btn-info navbar-btn"
-		    data-toggle="tooltip" data-placement="bottom"
-		    title="Forces server to reload configuration from repository">
-	      Reload config
-	    </button>
 	  </div>
 
 	  <!-- Filter form -->
@@ -109,6 +103,18 @@
 	      Clear
 	    </button>
 	  </form>
+
+	  <div class="btn-group" role="group" id="refresh-buttons" data-toggle="buttons" >
+	    <button id="reload-config" type="button"
+		    class="btn btn-info navbar-btn"
+		    data-toggle="tooltip" data-placement="bottom"
+		    title="Forces server to reload configuration from repository">
+	      <span class="fa fa-refresh"></span>
+
+	      Reload config
+	    </button>
+
+	  </div>
 
 	  <!-- Menu -->
 	  <ul class="nav navbar-nav">

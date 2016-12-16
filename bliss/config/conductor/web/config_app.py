@@ -231,6 +231,12 @@ def __get_plugins():
             result[name] = plugin
     return result
 
+def _get_config_user_tags(config_item):
+    user_tag = config_item.get(static.Config.USER_TAG_KEY, [])
+    if not isinstance(user_tag, (tuple, list)):
+        user_tag = [user_tag]
+    return user_tag
+
 @web_app.route("/")
 def index():
     cfg = __config.get_config()
@@ -315,6 +321,20 @@ def items():
             current_level.setdefault(part, [db_file, dict()])
             current_level = current_level[part][1]
     return flask.json.dumps(result)
+
+def get_item(cfg):
+    name = cfg.get('name')
+    item = dict(name=name, tags=_get_config_user_tags(cfg))
+    plugin = _get_config_plugin(cfg, 'get_item')
+    if plugin:
+        item.update(plugin(cfg))
+    return item
+
+@web_app.route("/item/<name>")
+def item(name):
+    cfg = __config.get_config()
+    obj_cfg = cfg.get_config(name)
+    return flask.json.dumps(get_item(obj_cfg))
 
 @web_app.route("/tree/<view>")
 def tree(view):

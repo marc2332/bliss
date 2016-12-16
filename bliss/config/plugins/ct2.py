@@ -103,6 +103,17 @@ def get_jinja2():
         __environment = Environment(loader=FileSystemLoader(__this_path))
     return __environment
 
+def get_item(cfg):
+    klass = cfg.get('class')
+    result = {'class': klass }
+    if klass is None:
+        result['icon'] = 'fa fa-square'
+        result['type'] = 'ct/ch'
+    else:
+        result['icon'] = 'fa fa-credit-card'
+        result['type'] = 'Counter card'
+    return result
+
 def get_tree(cfg, perspective):
     if perspective == "files":
         return get_tree_files(cfg)

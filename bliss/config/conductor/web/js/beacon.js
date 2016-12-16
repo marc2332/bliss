@@ -6,51 +6,6 @@
  * Distributed under the GNU LGPLv3. See LICENSE for more info.
  */
 
-function getTreeExample() {
-  var data = [
-    {
-      text: "OH1",
-      icon: "fa fa-folder-open",
-      nodes: [
-        { text: "gasblower.yml",
-          icon: "fa fa-file-text", },
-        { text: "wago1.yml" },
-      ]
-    },
-    {
-      text: "OH2",
-      nodes: [
-        { text: "ll.yml" },
-        { text: "wago2.yml" },
-        { text: "iceid315.yml",
-          nodes: [
-            { text: "gmy" },
-            { text: "eslb" },
-            { text: "esrb" },
-            { text: "estb" },
-            { text: "esbb" },
-          ]
-        },
-      ]
-    },
-    {
-      text: "EH",
-      nodes: [
-        { text: "hemd.yml" },
-        { text: "wago3.yml" },
-        { text: "iceid315.yml",
-          nodes: [
-            { text: "th" },
-            { text: "tth" },
-            { text: "chi" },
-            { text: "phi" },
-          ]
-        },
-      ]
-    },
-  ];
-  return data;
-}
 
 function __get_tree_options() {
   var options = {

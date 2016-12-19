@@ -171,85 +171,160 @@
 
 <script type="text/javascript">
 
-  var SESSION_SELECTED_ITEMS = {}
+  var SESSION_ITEMS = null;
 
-  function add_session_tree_item(tree, item) {
-    var tags = item.tags;
-    if (tags == null || tags.length == 0) {
-      tags = ["__no_tag__"];
-    }
-    $.each(tags, function(idx, tag) {
-      var nodes = null;
-      if (tree.hasOwnProperty(tag)) {
-        nodes = tree[tag]["nodes"];
+  function submit_form(form) {
+    var formData = new FormData(form);
+    formData.append("__original_name__", "{{ name }}");
+    var selected_tree = $("#selected-stree").treeview(true);
+    $.each(SESSION_ITEMS.selected, function(name, item) {
+      formData.append("items[]", name);
+    });
+    $.ajax({
+      url: "plugin/session/edit",
+      type: "POST",
+      cache: false,
+      contentType: false,
+      processData: false,
+      data: formData,
+      success: function(result) {
+        data = $.parseJSON(result);
+        show_notification(data.message, data.type);
       }
-      else {
-        nodes = [];
-        tree[tag] = {
-          text: tag,
-          nodes: nodes,
-          icon: "fa fa-folder-open",
-          type: "folder",
-        };
-      }
-      item.text = item.name;
-      nodes.push(item);
     });
   }
 
-  function add_session_tree_items(tree, items) {
+  function select_items() {
+    move_session_items($("#available-stree").treeview(true),
+                       SESSION_ITEMS.available, SESSION_ITEMS.selected);
+  }
+
+  function unselect_items() {
+    move_session_items($("#selected-stree").treeview(true),
+                       SESSION_ITEMS.selected, SESSION_ITEMS.available);
+  }
+
+  function move_session_items(treeview, src_tree, dst_tree) { 
+    var nodes = get_selected_items(treeview);
+    $.each(nodes, function(name, node) {
+      delete src_tree[name];
+      dst_tree[name] = SESSION_ITEMS.all[name];
+    });
+    update_session_trees(SESSION_ITEMS);
+    unselect_all($("#available-stree").treeview(true));
+    unselect_all($("#selected-stree").treeview(true));
+  }
+
+  function add_session_tree_nodes(tree_options, items) {
+    var tag_nodes = {};
     $.each(items, function(name, item) {
-      add_session_tree_item(tree, item);
-    });
-  }
-
-  function remove_session_tree_item(tree, item) {
-    var tags = item.tags;
-    if (tags == null || tags.length == 0) {
-      tags = ["__no_tag__"];
-    }
-    var tags_to_remove = [];
-    $.each(tags, function(i1, tag) {
-      var nodes = tree[tag].nodes;
-      for(var i2 = 0; i2 < nodes.length; ++i2) {
-        if(nodes[i2].name == item.name) {
-          nodes.splice(i2, 1);
-          break;
+      var tags = item.tags;
+      if (tags == null || tags.length == 0) {
+        tags = ["__no_tag__"];
+      }
+      $.each(tags, function(idx, tag) {
+        var nodes = null;
+        if (tag_nodes.hasOwnProperty(tag)) {
+          nodes = tag_nodes[tag];
         }
-      }
-
-      if(nodes.length == 0) {
-        tags_to_remove.push(tag);
-      }
-    });
-    $.each(tags_to_remove, function(idx, tag) {
-      delete tree[tag];
+        else {
+          nodes = [];
+          tree_options.data.push({
+            text: tag,
+            nodes: nodes,
+            icon: "fa fa-folder-open",
+            type: "folder",
+          });
+          tag_nodes[tag] = nodes;
+        }
+        item.text = item.name;
+        nodes.push(item);
+      });
     });
   }
 
-  function remove_session_tree_items(tree, items) {
-    $.each(items, function(name, item) {
-      remove_session_tree_item(tree, item);
-    });
-  }
-
-  function refresh_session_tree(tree_tag, tree) {
+  function update_session_tree(tree_tag, items) {
     var tree_options = get_tree_options();
     tree_options.multiSelect = true;
-
-    nodes = [];
-    $.each(tree, function(name, node) {
-      nodes.push(node);
-    });
-    tree_options.data = nodes;
+    tree_options.data = [];
+    add_session_tree_nodes(tree_options, items);
     tree_tag.treeview(tree_options);
   }
 
-  function unselect_all(tree) {
+  function update_session_trees(data) {
+    update_session_tree($("#available-stree"), data.available);
+    update_session_tree($("#selected-stree"), data.selected);
+  }
+
+  function unselect_all_session_tree(tree) {
     $.each(tree.getSelected(), function(index, node) {
       tree.unselectNode(node, {silent: true});
     });
   }
+
+  $(function() {
+
+    $(".apply").on("click", function() {
+      submit_form($("#session_form")[0]);
+    });
+
+    $(".add").click(function() {
+      select_items();
+    });
+
+    $(".remove").click(function() {
+      unselect_items();
+    });
+
+    $("#available-stree-expand-all").on("click", function() {
+      $("#available-stree").treeview("expandAll",
+        { levels: 2, silent: true } );
+    });
+
+    $("#available-stree-collapse-all").on("click", function() {
+      $("#available-stree").treeview("collapseAll",
+        { silent: true } );
+    });
+
+    $("#available-stree-clear").on("click", function() {
+      unselect_all_session_tree($("#available-stree").treeview(true));
+    });
+
+    $("#selected-stree-clear").on("click", function() {
+      unselect_all_session_tree($("#selected-stree").treeview(true));
+    });
+
+    $("#selected-stree-expand-all").on("click", function() {
+      $("#selected-stree").treeview("expandAll",
+        { levels: 2, silent: true } );
+    });
+
+    $("#selected-stree-collapse-all").on("click", function() {
+      $("#selected-stree").treeview("collapseAll",
+        { silent: true } );
+    });
+
+    var all_items = {};
+    $.each(BEACON_TREES["tags"], function(i1, tag) {
+      $.each(tag.nodes, function(i2, node) {
+        all_items[node.name] = node;
+      });
+    });
+
+    SESSION_ITEMS = {all: all_items, available: {}, selected: {}};
+
+    $.get("item/{{ name }}", function(data) {
+      $.each(data.items, function(index, item) {
+        SESSION_ITEMS.selected[item.name] = item;
+      });
+      $.each(SESSION_ITEMS.all, function(name, item) {
+        if (!SESSION_ITEMS.selected.hasOwnProperty(name)) {
+          SESSION_ITEMS.available[name] = item;
+        }
+      });
+      update_session_trees(SESSION_ITEMS);
+    }, "json");
+  });
 
   function get_selected_items(tree) {
     var items = {};
@@ -265,75 +340,4 @@
     });
     return items;
   }
-
-  $(function() {
-
-    $(".apply").on("click", function() {
-      submit_form($("#session_form")[0]);
-        return false;
-    });
-
-    $(".add").click(function() {
-      var available_tree = $("#available-stree").treeview(true);
-      var items = get_selected_items(available_tree);
-      add_session_tree_items(SESSION_SELECTED_ITEMS, items);
-      refresh_session_tree($("#selected-stree"),
-                           SESSION_SELECTED_ITEMS);
-      unselect_all($("#available-stree").treeview(true));
-      unselect_all($("#selected-stree").treeview(true));
-    });
-
-    $(".remove").click(function() {
-      var selected_tree = $("#selected-stree").treeview(true);
-      var items = get_selected_items(selected_tree);
-      remove_session_tree_items(SESSION_SELECTED_ITEMS, items);
-      refresh_session_tree($("#selected-stree"),
-                           SESSION_SELECTED_ITEMS);
-      unselect_all($("#available-stree").treeview(true));
-      unselect_all($("#selected-stree").treeview(true));
-    });
-
-    $("#available-stree-expand-all").on("click", function() {
-      $("#available-stree").treeview("expandAll",
-        { levels: 2, silent: true } );
-    });
-
-    $("#available-stree-collapse-all").on("click", function() {
-      $("#available-stree").treeview("collapseAll",
-        { silent: true } );
-    });
-
-    $("#available-stree-clear").on("click", function() {
-      unselect_all($("#available-stree").treeview(true));
-    });
-
-    $("#selected-stree-clear").on("click", function() {
-      unselect_all($("#selected-stree").treeview(true));
-    });
-
-    $("#selected-stree-expand-all").on("click", function() {
-      $("#selected-stree").treeview("expandAll",
-        { levels: 2, silent: true } );
-    });
-
-    $("#selected-stree-collapse-all").on("click", function() {
-      $("#selected-stree").treeview("collapseAll",
-        { silent: true } );
-    });
-
-    var tree_options = get_tree_options();
-    tree_options.multiSelect = true;
-    tree_options.data = BEACON_TREES["tags"];
-
-    $("#available-stree").treeview(tree_options);
-
-    SESSION_SELECTED_ITEMS = {};
-
-    // fill selected items
-    $.get("item/{{ name }}", function(data) {
-      add_session_tree_items(SESSION_SELECTED_ITEMS, data.items);
-      refresh_session_tree($("#selected-stree"),
-                             SESSION_SELECTED_ITEMS);
-    }, "json");
-  });
 </script>

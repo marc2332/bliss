@@ -88,8 +88,8 @@ function show_filename(filename, panel) {
   }, "json");
 }
 
-function show_item(node, panel) {
-  $.get("page/" + node.name, function(data) {
+function show_item(name, panel) {
+  $.get("page/" + name, function(data) {
     show_html_data(data, panel);
   }, "json");
 }
@@ -101,13 +101,16 @@ function show_main(panel) {
 }
 
 function show_html_data(data, panel) {
-    if (data === null) {
-        panel.empty();
-        panel.attr("style", "visibility: hidden");
-    } else {
-        panel.html(data.html);
-        panel.attr("style", "visibility: visible");
-    }
+  if (panel === undefined) {
+    panel = $("#content-panel");
+  }
+  if (data === null) {
+    panel.empty();
+    panel.attr("style", "visibility: hidden");
+  } else {
+    panel.html(data.html);
+    panel.attr("style", "visibility: visible");
+  }
 }
 
 function show_node(node, panel) {
@@ -118,7 +121,7 @@ function show_node(node, panel) {
     /* TODO */
   }
   else {
-    show_item(node, panel);
+    show_item(node.name, panel);
   }
 }
 

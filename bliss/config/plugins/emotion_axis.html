@@ -67,6 +67,13 @@
 <!-- Select Basic -->
 
 <div class="form-group">
+  <label class="col-md-4 control-label" for="tags">Tags</label>
+  <div class="col-md-4">
+    <input id="user_tag" name="user_tag" data-role="tagsinput"></input>
+  </div>
+</div>
+
+<div class="form-group">
   <label class="col-md-4 control-label" for="unit">Unit</label>
   <div class="col-md-4">
     <input id="unit" name="unit" type="text"
@@ -191,13 +198,15 @@
       data: formData,
       success: function(result) {
         data = $.parseJSON(result);
+        console.log(data);
         show_item(data.name);
-        write_message(data.message, data.type);
+        show_notification(data.message, data.type);
       }
     });
   }
 
   $(document).ready(function() {
+
     $("#emotion_axis_apply").on("click", function() {
       submit_form($("#emotion_axis_form")[0], false);
       return false;
@@ -210,6 +219,9 @@
     });
 {% endif %}
 
+    var tags = "{{ tags|join(',') }}";
+    $("#user_tag").tagsinput();
+    $("#user_tag").tagsinput("add", tags);
   });
 
 </script>

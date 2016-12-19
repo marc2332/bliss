@@ -10,6 +10,7 @@ import os
 import sys
 import pkgutil
 
+from bliss.config.static import Config
 from bliss.config.motors.beacon_backend import create_objects_from_config_node, create_object_from_cache
 import bliss.controllers.motor as bliss_motor_controller
 import bliss.controllers.motors
@@ -17,6 +18,7 @@ import bliss.controllers.motors
 __KNOWN_AXIS_PARAMS = {
     "name": str,
     "controller": str,
+    "user_tag": lambda x: x.split(','),
     "unit": str,
     "steps_per_unit": float,
     "velocity": float,
@@ -90,7 +92,6 @@ def get_axis_html(cfg):
     ctrl_class = cfg.parent.get("class")
     ctrl_name = cfg.parent.get("name")
     vars = dict(cfg.items())
-
     filename = "emotion_" + ctrl_class + "_axis.html"
     html_template = get_jinja2().select_template([filename,
                                                   "emotion_axis.html"])
@@ -101,6 +102,10 @@ def get_axis_html(cfg):
             extra_params[key] = dict(name=key, label=key.capitalize(),
                                      value=value)
 
+    tags = cfg.get(Config.USER_TAG_KEY, [])
+    if not isinstance(tags, (tuple, list)):
+        tags = [tags]
+    vars["tags"] = tags
     vars["controller_class"] = ctrl_class
     if ctrl_name:
         vars["controller_name"] = ctrl_name
@@ -242,6 +247,7 @@ def axis_edit(cfg, request):
         orig_name = form.pop("__original_name__")
         name = form["name"]
         result = dict(name=name)
+
         if name != orig_name:
             result["message"] = "Change of axis name not supported yet!"
             result["type"] = "danger"
@@ -261,7 +267,6 @@ def axis_edit(cfg, request):
         else:
             result["message"] = "'%s' configuration saved!" % name
             result["type"] = "success"
-
         return flask.json.dumps(result)
 
 

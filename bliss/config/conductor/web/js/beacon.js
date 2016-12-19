@@ -89,7 +89,7 @@ function show_filename(filename, panel) {
 }
 
 function show_item(node, panel) {
-  $.get("items/" + node.name, function(data) {
+  $.get("page/" + node.name, function(data) {
     show_html_data(data, panel);
   }, "json");
 }

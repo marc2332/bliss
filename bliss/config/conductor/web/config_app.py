@@ -438,7 +438,7 @@ def sub_tree(view, item):
     else:
         return flask.json.dumps(dict(message='unknown view', type='error'))
 
-@web_app.route("/items/<name>")
+@web_app.route("/page/<name>")
 def get_item_config(name):
     cfg = __config.get_config()
     obj_cfg = cfg.get_config(name)

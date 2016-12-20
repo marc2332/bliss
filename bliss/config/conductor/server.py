@@ -524,6 +524,9 @@ def main():
                         help="database path")
     parser.add_argument("--redis_port",dest="redis_port",default=6379,type=int,
                         help="redis connection port")
+    parser.add_argument("--redis_conf",dest="redis_conf",
+                        default=redis_conf.get_redis_config_path(),
+                        help="path to alternative redis configuration file")
     parser.add_argument("--posix_queue",dest="posix_queue",type=int,default=1,
                         help="enable/disable posix_queue connection")
     parser.add_argument("--port",dest="port",type=int,default=int(os.environ.get("BEACON_PORT", 0)),
@@ -592,7 +595,7 @@ def main():
 
     #start redis
     rp,wp = os.pipe()
-    redis_process = subprocess.Popen(['redis-server',redis_conf.get_redis_config_path(),
+    redis_process = subprocess.Popen(['redis-server', _options.redis_conf,
                                       '--port','%d' % _options.redis_port],
                                      stdout=wp,stderr=subprocess.STDOUT,cwd=_options.db_path)
     # signal pipe

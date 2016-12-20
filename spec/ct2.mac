@@ -16,8 +16,6 @@ def ct2_config(cnum, type, unit, module, chan) '{
         tango_put(ctrl_dev, "timer_freq", factor)
         tango_put(ctrl_dev, "acq_mode", "IntTrigReadout")
         CT2_MAC_HDW[ctrl_dev]["int_cnt"] = 11
-    } else {
-        counter_par(cnum, "counter_idx", "add")
     }
 }'
 
@@ -46,7 +44,7 @@ def ct2_cmd(cnum, key, p1, p2) '{
             acq_chan = sprintf("%s%s%d", acq_chan, sep, chan)
             CT2_MAC_HDW[ctrl_dev]["acq_channels"] = acq_chan
             cnt_idx = CT2_MAC_HDW[ctrl_dev]["nb_channels"]++
-            counter_par(cnum, "counter_idx", cnt_idx)          
+            counter_par(cnum, "counter_idx", cnt_idx, "add")          
         } else {
             tango_put(ctrl_dev, "acq_expo_time", p1)
             split(CT2_MAC_HDW[ctrl_dev]["acq_channels"], acq_chan_list)
@@ -76,6 +74,7 @@ def ct2_cmd(cnum, key, p1, p2) '{
             cnt_idx = counter_par(cnum, "counter_idx")
         else
             cnt_idx = CT2_MAC_HDW[ctrl_dev]["nb_channels"]
+
         return CT2_MAC_HDW_LAST[cnt_idx]
     } else if (key == "halt_all") {
         tango_io(ctrl_dev, "stop_acq")

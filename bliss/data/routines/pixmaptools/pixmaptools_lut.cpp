@@ -1390,8 +1390,55 @@ inline void _i420_2_image(const unsigned char* data,
     }
 }
 
+
+inline void _yuv422_packed_2_image(const unsigned char* data,
+                                   unsigned int *anImagePt,
+                                   int column,int row,
+                                   float minValue,float maxValue,
+                                   bool scalingFlag)
+{
+#define _YUV422_PACKED_BRGA(y, imagePt)                         \
+    red = y + redChro;                                          \
+    if(red > 255) red = 255;                                    \
+    else if(red < 0) red = 0;                                   \
+                                                                \
+    green = y + greenChro;                                      \
+    if(green  > 255) green = 255;                               \
+    else if(green < 0) green = 0;                               \
+                                                                \
+    blue = y + blueChro;                                        \
+    if(blue > 255) blue = 255;                                  \
+    else if(blue < 0) blue = 0;                                 \
+                                                                \
+    *imagePt = 0xff000000 | (red << 16) | (green << 8) | blue;
+
+    if(scalingFlag){
+        std::cout << "TODO : _yuv422_packed_2_image scalingFlag=1  minValue=" << minValue << "maxValue=" << maxValue;
+    }
+    else{
+        long nb_iter = column * row / 2;
+        if(nb_iter > 0)
+            --nb_iter;
+
+        for(const unsigned char *src = data ; nb_iter ; --nb_iter,src += 4) {
+            unsigned char U  = src[0];
+            unsigned char y0 = src[1];
+            unsigned char V  = src[2];
+            unsigned char y1 = src[3];
+
+            int redChro   =  1.403f * (V-128);
+            int greenChro = -0.714f * (V-128) -0.344f * (U-128);
+            int blueChro  =  1.773f * (U-128);
+
+            int red, green, blue;
+            _YUV422_PACKED_BRGA(y0, anImagePt); ++anImagePt;
+            _YUV422_PACKED_BRGA(y1, anImagePt); ++anImagePt;
+        }
+    }
+}
+
 inline unsigned char* _calculate_luma(const unsigned char *data,
-				      int column,int row,LUT::Scaling::image_type aType)
+                                      int column,int row,LUT::Scaling::image_type aType)
 {
   unsigned char *lumaPt = NULL;
   //creation of luma data if need
@@ -1743,6 +1790,22 @@ bool LUT::raw_video_2_image(const unsigned char *data,unsigned int *anImagePt,
 		 aScaling._Luma->_palette_mapping_meth,uchar(minValue),uchar(maxValue));
       else
 	_i420_2_image(data,anImagePt,column,row,minValue,maxValue,
+		      aMode != LUT::Scaling::UNACTIVE);
+      break;
+    case LUT::Scaling::YUV422PACKED:
+      if(aMode == LUT::Scaling::COLOR_MAPPED)
+	{
+	  unsigned char* data_y = new unsigned char[column * row];
+	  const unsigned char* src = data + 1;
+	  for(int i = 0;i < column * row;++i,src += 2,++data_y){
+              *data_y = *src;
+          }
+	  LUT::map(data_y,anImagePt,column,row,aScaling._Luma->_palette,
+		   aScaling._Luma->_palette_mapping_meth,uchar(minValue),uchar(maxValue));
+	  delete data_y;
+	}
+      else
+	_yuv422_packed_2_image(data, anImagePt, column, row, minValue, maxValue,
 		      aMode != LUT::Scaling::UNACTIVE);
       break;
     case LUT::Scaling::RGB555:

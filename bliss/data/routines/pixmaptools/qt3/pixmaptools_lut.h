@@ -99,7 +99,8 @@ public:
 		     BAYER_BG16, // BAYER BG 16bits (basler)
 		     YUV411,
 		     YUV422,
-		     YUV444};
+		     YUV444,
+                     YUV422PACKED};
 
     enum mode {UNACTIVE,QUICK,ACCURATE,COLOR_MAPPED};
     

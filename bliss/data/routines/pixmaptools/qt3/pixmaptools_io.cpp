@@ -43,15 +43,6 @@ struct IO::Data {
 #endif
 };
 
-extern "C"
-{
-  static int _XError_hanlder(Display *,XErrorEvent *)
-  {
-    aRloginFlag = True;
-    std::cerr << "" << ID << ": Unactive MIT-SHM" << std::endl;
-    return 0;
-  }
-}
 
 IO::IO()
 {

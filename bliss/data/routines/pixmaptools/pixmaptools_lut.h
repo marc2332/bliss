@@ -15,7 +15,7 @@ public:
   }
   LutError(const LutError &aLutError)
   {
-    if(aLutError._msg) 
+    if(aLutError._msg)
       _msg = strdup(aLutError._msg);
     else
       _msg = strdup("");
@@ -32,7 +32,7 @@ class LUT
 public :
   enum mapping_meth {LINEAR,LOG,SHIFT_LOG};
   struct XServer_Info;
-  
+
 public:
   class Palette
   {
@@ -43,7 +43,7 @@ public:
     enum endian {LSB,MSB};
 
     explicit Palette(palette_type = USER,mode = BGRX) throw();
-    
+
     void setPaletteData(const unsigned int *aPaletteDataPt,int aSize) throw(LutError);
     void getPaletteData(unsigned int* &aPaletteDataPt,int &aSize);
     void fillPalette(palette_type) throw();
@@ -51,7 +51,7 @@ public:
 		     double R1,double G1,double B1,
 		     double R2,double G2,double B2) throw(LutError);
   private:
-    
+
     void _fillSegment(const XServer_Info&,
 		      int from,int to,
 		      double R1,double G1,double B1,double R2,double G2,double B2) throw();
@@ -104,23 +104,24 @@ public:
 		     BAYER_BG16, // BAYER BG 16bits (basler)
 		     YUV411,
 		     YUV422,
-		     YUV444};
+		     YUV444,
+                     YUV422PACKED};
 
     enum mode {UNACTIVE,QUICK,ACCURATE,COLOR_MAPPED};
-    
+
     Scaling();
     ~Scaling();
 
     void current_type(image_type &aType) const;
     void min_max_mapping(double &minVal,double &maxVal) const;
-    
+
     void set_custom_mapping(double minVal,double maxVal);
-    
+
     void get_mode(mode&) const;
     void set_mode(mode);
 
     void fill_palette(LUT::Palette::palette_type);
-    
+
     void set_palette_mapping_meth(LUT::mapping_meth);
 
     void autoscale_min_max(const unsigned char *data,int column,int row,

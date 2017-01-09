@@ -23,6 +23,7 @@ import gevent
 
 from bliss.common.task_utils import *
 from bliss.controllers.motor_group import Group
+from bliss.session import session
 from .data_manager import DataManager
 from .standard import get_active_counters_iter
 
@@ -93,8 +94,8 @@ class ScanEnvironment(dict):
         self.setdefault('total_acq_time', 0)
         self.setdefault('user_name', getpass.getuser())
         if 'session_name' not in self:
-            import bliss.shell
-            self['session_name'] = bliss.shell.SETUP.get('session_name', 'bliss')
+            s = session.get_default()
+            self['session_name'] = s.name if s is not None else 'bliss'
 
 
 def ascan(motor, start, stop, npoints, count_time, *extra_counters, **kwargs):

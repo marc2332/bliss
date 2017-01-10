@@ -273,13 +273,18 @@ class Node(NodeDict):
         """
         parent,filename = self.get_node_filename()
         if filename is None: return # Memory
-        save_file_tree =  self._get_save_dict(parent,filename)
+        nodes_2_save = self._config._file2node[filename]
+        if len(nodes_2_save) == 1:
+            node = tuple(nodes_2_save)[0]
+            save_nodes = self._get_save_dict(node,filename)
+        else:
+            save_nodes = self._get_save_list(nodes_2_save,filename)
         if ordered_yaml:
-            file_content = ordered_yaml.dump(save_file_tree,
+            file_content = ordered_yaml.dump(save_nodes,
                                              Dumper=RoundTripDumper,
                                              default_flow_style=False)
         else:
-            file_content = yaml.dump(save_file_tree,default_flow_style=False)
+            file_content = yaml.dump(save_nodes,default_flow_style=False)
         self._config.set_config_db_file(filename,file_content)
 
     def _get_save_dict(self,src_node,filename):

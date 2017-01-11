@@ -271,6 +271,19 @@ class DataNodeIterator(object):
                         if filter is None or child.type() in filter:
                             yield child
              
+class _TTL_setter(object):
+    def __init__(self,db_name):
+        self._db_name = db_name
+        self._disable = False
+
+    def disable(self):
+        self._disable = True
+
+    def __del__(self):
+        if not self._disable:
+            node = get_node(self._db_name)
+            if node is not None:
+                node.set_ttl()
 
 class DataNode(object):
     default_time_to_live = 24*3600 # 1 day
@@ -303,6 +316,9 @@ class DataNode(object):
             if parent: 
                 self._data.parent = parent.db_name()
                 parent.add_children(self)
+            self._ttl_setter = _TTL_setter(self.db_name())
+        else:
+            self._ttl_setter = None
 
     def db_name(self):
         return self._data.db_name
@@ -363,13 +379,28 @@ class DataNode(object):
         self._data.update(keys)
 
     def set_ttl(self):
+        db_names = set(self._get_db_names())
+        self._set_ttl(db_names)
+        if self._ttl_setter is not None:
+            self._ttl_setter.disable()
+        
+    @staticmethod
+    def _set_ttl(db_names):
         redis_conn = client.get_cache(db=1)
-	redis_conn.expire(self.db_name(), DataNode.default_time_to_live)
-	self._children.ttl(DataNode.default_time_to_live)
-	self._info.ttl(DataNode.default_time_to_live)
+        pipeline = redis_conn.pipeline()
+        for name in db_names:
+            pipeline.expire(name,DataNode.default_time_to_live)
+        pipeline.execute()
+
+    def _get_db_names(self):
+        db_name = self.db_name()
+        children_queue_name = '%s_children_list' % db_name
+        info_hash_name = '%s_info' % db_name
+        db_names = [db_name,children_queue_name,info_hash_name]
         parent = self.parent()
-	if parent:
-	   parent.set_ttl()
+        if parent:
+            db_names.extend(parent._get_db_names())
+        return db_names
 
     def store(self, signal, event_dict):
         pass

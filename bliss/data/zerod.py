@@ -67,7 +67,8 @@ class Dataset0D(DataNode):
         """
         return dict(((chan_name,get_channel(chan_name))
                      for chan_name in self._channels_name))
-    def set_ttl(self):
-        DataNode.set_ttl(self)
-        for channel in self._channels.itervalues():
-            channel.ttl(DataNode.default_time_to_live)
+    def _get_db_names(self):
+        db_names = DataChannel._get_db_names(self)
+        db_names.append(self._channels_name._name)
+        db_names.extend((channel._name for channel in self._channels.itervalues()))
+        return db_names

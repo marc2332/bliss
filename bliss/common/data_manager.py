@@ -7,8 +7,10 @@
 
 from bliss.common.event import *
 from bliss.config.conductor import client
-from bliss.config.settings import Struct, QueueSetting, HashObjSetting
+from bliss.config.settings import Struct, QueueSetting, HashObjSetting, Parameters
+from bliss.config.settings import _change_to_obj_marshalling
 from bliss.common.continuous_scan import AcquisitionDevice,AcquisitionMaster
+from bliss.session.session import get_default as _default_session
 from .event import dispatcher
 from .event import saferef
 from treelib import Tree
@@ -20,6 +22,7 @@ import datetime
 import os
 import numpy
 import weakref
+import string
 
 DM = None
 
@@ -531,3 +534,80 @@ class ScanRecorder(object):
             except ReferenceError:
                 break                
     
+
+class ScanData(Parameters):
+    SLOTS = []
+
+    def __init__(self):
+        """
+        This class hold the saving structure for a session.
+
+        This class generate the *root path* of scans and the *parent* node use to publish data.
+
+        The *root path* is generate using *base path* argument as the first part and
+        use the *template* argument as the final part.
+        The *template* argument is basically a (python) string format use to generate the final part of the
+        root_path.
+        i.e: a template like "{session}/{date}" will use the session and the date attribute
+        of this class.
+        attribute use in this template can also be a function with one argument (scan_data) which return a string.
+        i.e: date argument can point to this method
+             def get_date(scan_data): datetime.datetime.now().strftime("%Y/%m/%d")
+             scan_data.add('date',get_date)
+
+        The *parent* node should be use as parameters for the ScanRecorder.
+        """
+
+        keys = dict()
+        _change_to_obj_marshalling(keys)
+        Parameters.__init__(self,'%s:scan_data' % self.session,
+                            default_values = {'base_path': '/tmp',
+                                              'template' : '{session}/'},
+                            **keys)
+
+    def __dir__(self) :
+        keys = Parameters.__dir__(self)
+        return keys + ['session','get']
+
+    @property
+    def session(self):
+        """ This give the name of the default session or unnamed if not session is not defined """
+
+        session = _default_session()
+        return session.name if session is not None else 'unnamed'
+
+    def get(self):
+        """
+        This method will compute all configurations needed for a new acquisition.
+        It will return a dictionary with:
+            root_path -- compute root path with *base_path* and *template* attribute
+            parent -- this DataNode should be used as a parent for new acquisition
+        """
+        try:
+            template = self.template
+            formatter = string.Formatter()
+            cache_dict = self._proxy.get_all()
+            cache_dict['session'] = self.session
+            template_keys = [key[1] for key in formatter.parse(template)]
+
+            if 'session' in template_keys:
+                parent = None
+            else:
+                parent = _get_or_create_node(self.session,"container")
+
+            for key in template_keys:
+                value = cache_dict.get(key)
+                if callable(value):
+                    value = value(self) # call the function
+                    cache_dict[key] = value
+                if value is not None:
+                    parent = _get_or_create_node(value,"container",
+                                                 parent=parent)
+            
+            sub_path = template.format(**cache_dict)
+        except KeyError,keyname:
+            raise RuntimeError("Missing %s attribute in ScanData" % keyname)
+        else:
+            return {'root_path' : os.path.join(cache_dict.get('base_path'),sub_path),
+                    'parent' : parent}
+                    

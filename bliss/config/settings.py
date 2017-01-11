@@ -436,8 +436,13 @@ class HashSetting(object):
         cnx = self._cnx()
         cnx.hdel(self._name,*key)
 
-    @read_decorator
     def get_all(self):
+        all_dict = dict(self._default_values)
+        all_dict.update(self._get_all())
+        return all_dict
+
+    @read_decorator
+    def _get_all(self):
         cnx = self._cnx()
         return cnx.hgetall(self._name)
     

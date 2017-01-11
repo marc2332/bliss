@@ -33,3 +33,9 @@ class actuator_inout(Actuator):
 
    def _is_out(self):
        return self.ctrl.get(self.key_out)
+
+   def _toggle(self):
+      if self._is_in():
+         self._set_out()
+      elif self._is_out():
+         self._set_in()

@@ -2,9 +2,12 @@
 Oxford 700 Series Cryostream, acessible via serial line
 
 yml configuration example:
-name: cryo
 class: oxford700
 SLdevice: "rfc2217://lid30b2:28003"       #serial line name
+outputs:
+    -
+        name: cryostream
+        #tango_server: cryo_stream
 
  - Chars have a size of 1 byte, shorts have a size of 2 bytes.
  - All temperatures are in centi-Kelvin, i.e. 80 K is reported as 8000
@@ -113,6 +116,20 @@ class OxfordCryostream:
               None
         """
         self.send_cmd(2,CSCOMMAND.HOLD)
+
+    def pause(self):
+        """Start temporary hold
+           Returns:
+              None
+        """
+        self.send_cmd(2,CSCOMMAND.PAUSE)
+
+    def resume(self):
+        """Exit temporary hold
+           Returns:
+              None
+        """
+        self.send_cmd(2,CSCOMMAND.RESUME)
 
     def turbo(self, off):
         """Switch on/off the turbo gas flow
@@ -274,13 +291,27 @@ class oxford700(Controller):
 
     def state_output(self,toutput):
         self._oxford.update_cmd()
-        state = str(self._oxford.statusPacket.run_mode)+" "+str(self._oxford.statusPacket.phase)
-        return state
+        mode = str(self._oxford.statusPacket.run_mode)
+        phase = str(self._oxford.statusPacket.phase)
+        #state = mode + ' ' + phase
+        #return state
+        return [mode, phase]
 
 
     @object_method_type(types_info=("bool", "None"), type=Output)
     def turbo(self, toutput, off):
         self._oxford.turbo(off)
+
+    @object_method_type(types_info=("bool", "None"), type=Output)
+    def pause(self, toutput, off):
+        if off:
+            self._oxford.resume()
+        else:
+            self._oxford.pause()
+
+    @object_method_type(types_info=("None", "None"), type=Output)
+    def hold(self, toutput):
+        self._oxford.hold()
 
     def read_status(self):
         self._oxford.update_cmd()

@@ -65,12 +65,12 @@ class DeviceIterator(object):
     def _prepare(self):
         if self.__sequence_index > 0 and self.device.prepare_once:
             return
-        self.device.prepare()
+        self.device._prepare()
 
     def _start(self):
         if self.__sequence_index > 0 and self.device.start_once:
             return
-        self.device.start()
+        self.device._start()
 
 class DeviceIteratorWrapper(object):
     def __init__(self,iterator):
@@ -156,8 +156,8 @@ class AcquisitionMaster(object):
     def stop(self):
         raise NotImplementedError
     def _start(self):
-        return_value = self.start()
         dispatcher.send("start", self)
+        return_value = self.start()
         return return_value
     def trigger_ready(self):
         return True

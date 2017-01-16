@@ -23,6 +23,7 @@ import os
 import numpy
 import weakref
 import string
+import getpass
 
 DM = None
 
@@ -37,125 +38,7 @@ def to_timestamp(dt, epoch=None):
     if epoch is None:
         epoch = datetime.datetime(1970,1,1)
     td = dt - epoch
-    return (td.microseconds + (td.seconds + td.days * 86400) * 10**6) / 10**6
-
-
-class ScanFile:
-
-    FILE_HEADER_TEMPLATE = "#F {0.filename}\n" + \
-                           "#E {0.start_time_stamp}\n" + \
-                           "#D {0.start_time_str}\n" + \
-                           "#C {0.session_name} User = {0.user_name}\n"
-
-    SCAN_HEADER_TEMPLATE = "\n#S {0.scan_nb} {0.title}\n" + \
-                           "#D {0.start_time_str}\n" + \
-                           "#L {motors}  {counters}\n"
-
-    def __init__(self, env):
-        self.env = env
-        exists = os.path.exists(self.filename)
-
-        # find next scan number
-        if 'scan_nb' not in env:
-            scan_nb = 1
-            if exists:
-                with file(self.filename) as f:
-                    for line in iter(f.readline, ''):
-                        if line.startswith("#S"):
-                            scan_nb += 1
-            self.env['scan_nb'] = scan_nb
-
-        self.file_obj = file(self.filename, "a+")
-
-        if not exists:
-            self.write_file_header()
-
-    def __getattr__(self, name):
-        return self.env[name]
-
-    def write_file_header(self):
-        self.write(self.FILE_HEADER_TEMPLATE.format(self))
-
-    def write_header(self):
-        motors_str = "  ".join(self.env['actuator_names'])
-        cnt_str = "  ".join(self.env['counter_names'])
-        self.write(self.SCAN_HEADER_TEMPLATE.format(self, motors=motors_str, counters=cnt_str))
-
-    def write(self, data):
-        self.file_obj.write(data)
-        self.file_obj.flush()
-
-    def close(self):
-        self.file_obj.write("\n\n")
-        self.file_obj.close()
-
-
-class Scan:
-
-    def __init__(self, scan_actuators, npoints, counters_list, env):
-        time_scan = scan_actuators == 'time'
-        env['start_time'] = start_time = datetime.datetime.now()
-        env['start_time_str'] = start_time.strftime("%a %b %d %H:%M:%S %Y")
-        env['start_time_stamp'] = to_timestamp(start_time)
-        env['actuators'] = scan_actuators
-        env['counters'] = counters_list
-        actuator_names = ['Time'] if time_scan else [m.name for m in scan_actuators]
-        env['actuator_names'] = actuator_names
-        counter_names = []
-        for counter in counters_list:
-            if isinstance(counter.name, (tuple, list)):
-                counter_names.extend(counter.name)
-            else:
-                counter_names.append(counter.name)
-        env['counter_names'] = counter_names
-        env.setdefault('nb_cols', len(counters_list)+len(scan_actuators))
-        self.env = env
-        self.raw_data = []
-        self.save_flag = self.save and self.filename
-        if self.save_flag:
-            self.scanfile = ScanFile(env)
-            self.scanfile.write_header()
-        dispatcher.send(
-            "scan_new", self.data_manager, self,
-            self.filename if self.save_flag else None,
-            'Time' if scan_actuators=='time' else actuator_names,
-            npoints, [c.name for c in counters_list])
-
-    def __getattr__(self, name):
-        if name.startswith('__'):
-            raise AttributeError, name
-        return self.env[name]
-
-    def add(self, values_list):
-        self.raw_data.append(values_list)
-
-        if self.save_flag:
-            self.scanfile.write("%s\n" % (" ".join(map(str, values_list))))
-        dispatcher.send("scan_data", self.data_manager, self, values_list)
-
-    def end(self):
-        end_time = datetime.datetime.now()
-        self.env['end_time'] = end_time
-        self.env['end_time_str'] = end_time.strftime("%a %b %d %H:%M:%S %Y")
-        self.env['end_time_stamp'] = to_timestamp(end_time)
-
-        data = numpy.array(self.raw_data, numpy.float)
-        data.shape = (len(self.raw_data), self.nb_cols)
-        self.raw_data = []
-        self.data_manager._last_scan_data = data
-
-        if self.save_flag:
-            self.scanfile.close()
-
-        dispatcher.send("scan_end", self.data_manager, self)
-
-
-class Timescan(Scan):
-
-    def __init__(self, counters_list, env):
-        env['nb_cols'] = len(counters_list)+1
-        Scan.__init__(self, 'time', None, counters_list, env)
-
+    return td.microseconds / 10**6 + td.seconds + td.days * 86400
 
 class _DataManager(object):
 
@@ -433,7 +316,13 @@ class ScanRecorder(object):
             - data_event : a dict with Acq(Device/Master) as key and a set of signal as values
             - nodes : a dict with Acq(Device/Master) as key and the associated data node as value
         """
-        self.root_node = parent.node if parent is not None else None
+        if isinstance(parent,DataNode):
+            self.root_node = parent
+        elif isinstance(parent,Container):
+            self.root_node = parent.node
+        else:
+            self.root_node = None
+
         self._nodes = dict()
         self._writer = writer
 
@@ -444,6 +333,10 @@ class ScanRecorder(object):
             run_number = client.get_cache(db=1).incrby("%s_last_run_number" % name, 1)
 	self.__name = '%s_%d' % (name, run_number)
         self._node = _create_node(self.__name, "scan", parent=self.root_node)
+        if scan_info is not None:
+            scan_info['scan_nb'] = run_number
+            scan_info['start_time_str'] = self._node._data.start_time_str
+        self._node._info.update(dict(scan_info) if scan_info is not None else {})
         self._data_watch_callback = data_watch_callback
         self._data_events = dict()
         
@@ -454,10 +347,13 @@ class ScanRecorder(object):
             data_watch_callback_done = gevent.event.Event()
             def trig(*args):
                 data_watch_callback_event.set()
+            self._data_watch_running = False
             self._data_watch_task = gevent.spawn(ScanRecorder._data_watch,
                                                  weakref.proxy(self,trig),
-                                                 data_watch_callback_event)
+                                                 data_watch_callback_event,
+                                                 data_watch_callback_done)
             self._data_watch_callback_event = data_watch_callback_event
+            self._data_watch_callback_done = data_watch_callback_done
         else:
             self._data_watch_task = None
 
@@ -482,6 +378,7 @@ class ScanRecorder(object):
             for node in self._nodes.itervalues():
                 node.set_ttl()
             self._node.set_ttl()
+            self._node.end()
         node = self._nodes[sender]
         if not hasattr(node,'store'): return
         node.store(signal, event_dict)
@@ -492,6 +389,10 @@ class ScanRecorder(object):
             if signal == 'end':
                 data_events = self._data_events
                 self._data_events = dict()
+                while not self._data_watch_running or self._data_watch_task.ready():
+                    self._data_watch_callback_done.wait()
+                    self._data_watch_callback_done.clear()
+
                 self._data_watch_callback(data_events,self.nodes)
             else:
                 self._data_watch_callback_event.set()
@@ -522,18 +423,22 @@ class ScanRecorder(object):
         self._node.set_ttl()
         
     @staticmethod
-    def _data_watch(scanrecorder,event):
+    def _data_watch(scanrecorder,event,event_done):
         while True:
             event.wait()
             event.clear()
             try:
                 data_events = scanrecorder._data_events
                 scanrecorder._data_events = dict()
+                if not data_events : continue
+                scanrecorder._data_watch_running = True
                 scanrecorder._data_watch_callback(data_events,scanrecorder.nodes)
-                gevent.idle()
+                scanrecorder._data_watch_running = False
             except ReferenceError:
                 break                
-    
+            else:
+                event_done.set()
+                gevent.idle()
 
 class ScanData(Parameters):
     SLOTS = []
@@ -562,6 +467,7 @@ class ScanData(Parameters):
         _change_to_obj_marshalling(keys)
         Parameters.__init__(self,'%s:scan_data' % self.session,
                             default_values = {'base_path': '/tmp',
+                                              'user_name': getpass.getuser(),
                                               'template' : '{session}/'},
                             **keys)
 

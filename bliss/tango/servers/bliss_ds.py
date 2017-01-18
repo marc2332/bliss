@@ -27,6 +27,7 @@ import itertools
 import traceback
 import cPickle
 import base64
+import datetime
 
 import six
 import gevent
@@ -40,7 +41,6 @@ from PyTango.server import attribute, command
 from bliss import shell
 from bliss.common import event
 from bliss.common import data_manager
-from bliss.common.scans import last_scan_data
 from bliss.common.utils import grouped
 from bliss.config.static import get_config
 from bliss.controllers.motor_group import Group
@@ -141,60 +141,6 @@ class InputChannel(object):
         return False
 
 
-class ScanListener:
-    '''listen to scan events and compose output'''
-
-    HEADER = "Total {0.npoints} points, {0.total_acq_time} seconds\n\n" + \
-             "Scan {0.scan_nb} {0.start_time_str} {0.filename} " + \
-             "{0.session_name} user = {0.user_name}\n" + \
-             "{0.title}\n\n" + \
-             "{column_header}"
-
-    def __init__(self, datamanager=None):
-        dm = datamanager or data_manager.DataManager()
-        event.connect(dm, 'scan_new', self.__on_scan_new)
-        event.connect(dm, 'scan_data', self.__on_scan_data)
-        event.connect(dm, 'scan_end', self.__on_scan_end)
-
-    def __on_scan_new(self, scan, filename, motor_names, nb_points, counter_names):
-        if scan.type == 'ct':
-            return
-        if isinstance(motor_names, str):
-            motor_names = [motor_names]
-        col_names = motor_names + counter_names
-        point_nb_col_len = len(str(nb_points-1)) + 1 if nb_points else 6
-        col_lens = map(len, col_names)
-        col_templs = ["{{0:>{0}}}".format(min(col_len, 8)) for col_len in col_lens]
-        col_names.insert(0, '#')
-        col_templs.insert(0, "{{0:>{0}}}".format(point_nb_col_len))
-        col_header = "  ".join([col_templs[i].format(m) for i, m in enumerate(col_names)])
-        header = self.HEADER.format(scan, column_header=col_header)
-        self.col_templs = ["{{0:>{0}g}}".format(min(col_len, 8)) for col_len in col_lens]
-        self.col_templs.insert(0, "{{0:>{0}g}}".format(point_nb_col_len))
-        print_(header)
-
-    def __on_scan_data(self, scan, values):
-        if scan.type == 'ct':
-            return
-        point_nb = len(scan.raw_data) - 1
-        values = [point_nb] + values
-        line = "  ".join([self.col_templs[i].format(v) for i, v in enumerate(values)])
-        print_(line)
-
-    def __on_scan_end(self, scan):
-        if scan.type == 'ct':
-            # ct is actually a timescan(npoints=1).
-            names, values = scan.counter_names, last_scan_data()[-1]
-            # First value is elapsed time since timescan started. We don't need it here
-            values = values[1:]
-            norm_values = values / scan.count_time
-            col_len = max(map(len, names)) + 2
-            template = '{{0:>{0}}} = {{1: 10g}} ({{2: 10g}}/s)'.format(col_len)
-            lines = "\n".join([template.format(name, v, nv)
-                               for name, v, nv in zip(names, values, norm_values)])
-            msg = '\n{0}\n\n{1}'.format(scan.end_time_str, lines)
-            print_(msg)
-
 
 _SHELL_INFO = None
 def load_shell(*session_names):
@@ -237,7 +183,7 @@ class Bliss(Device):
             util = Util.instance()
             self.session_names = [util.get_ds_inst_name()]
 
-        self.__scan_listener = ScanListener()
+        self.__scan_listener = shell.ScanListener()
         if self.__startup:
             shell_info = _SHELL_INFO
         else:

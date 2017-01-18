@@ -38,7 +38,7 @@ _log = logging.getLogger('bliss.scans')
 def default_chain(chain,scan_pars,extra_counters) :
     count_time = scan_pars.get('count_time',1)
     npoints = scan_pars.get('npoints',1)
-    timer = SoftwareTimerMaster(count_time)
+    timer = SoftwareTimerMaster(count_time,npoints=npoints)
     meas = measurement.get_default()
     if meas is not None:
         counters = filter(None,[setup_globals.__dict__.get(c) for c in meas.enable])
@@ -323,16 +323,11 @@ def d2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
     oldpos1 = motor1.position()
     oldpos2 = motor2.position()
 
-    counters = list(get_active_counters_iter()) 
-    for cnt in extra_counters:
-      if not cnt in counters:
-        counters.append(cnt)
- 
     a2scan(motor1, oldpos1 + start1, oldpos1+stop1, motor2, oldpos2 + start2,
-           oldpos2 + stop2, npoints, count_time, *counters, **kwargs)
+           oldpos2 + stop2, npoints, count_time, *extra_counters, **kwargs)
 
     group = Group(motor1,motor2)
-    group.move(oldpos1,oldpos2)
+    group.move(motor1,oldpos1,motor2,oldpos2)
 
 
 def timescan(count_time, *extra_counters, **kwargs):
@@ -360,45 +355,21 @@ def timescan(count_time, *extra_counters, **kwargs):
         template = " ".join(['{{{0}}}'.format(i) for i in range(len(args))])
         kwargs['title'] = template.format(*args)
 
-    sleep_time = kwargs.setdefault("sleep_time", 0)
     npoints = kwargs.setdefault("npoints", 0)
+    kwargs.setdefault('motors', [])
+    kwargs.setdefault('start', [])
+    kwargs.setdefault('stop', [])
+    kwargs.setdefault('count_time',count_time)
 
-    if npoints > 0:
-        kwargs['total_acq_time'] = npoints * (count_time + sleep_time)
-
-    counters = list(get_active_counters_iter())
-    for cnt in extra_counters:
-      if not cnt in counters:
-        counters.append(cnt)
-
-    env = ScanEnvironment(kwargs, count_time=count_time)
-    dm = env['data_manager']
-
-    if max(count_time, sleep_time) == 0:
-        raise RuntimeError("Either sleep or count time has to be specified.")
+    kwargs['total_acq_time'] = npoints * count_time
 
     _log.info("Doing %s", scan_type)
 
-    scan = dm.new_timescan(counters, env)
+    chain = AcquisitionChain(parallel_prepare=True)
+    timer = default_chain(chain,kwargs,extra_counters)
+    timer.timescan_mode = True
 
-    t0 = time.time()
-    with cleanup(scan.end):
-        while True:
-            acquisitions = []
-            tt = time.time() - t0
-            values = [tt]
-            for counter in counters:
-                acquisitions.append(gevent.spawn(__count, counter, count_time))
-
-            gevent.joinall(acquisitions)
-
-            values.extend([a.get() for a in acquisitions])
-            scan.add(values)
-            npoints -= 1
-            if npoints == 0:
-                break
-            time.sleep(sleep_time)
-
+    _do_scan(chain,kwargs)
 
 def ct(count_time, *counters, **kwargs):
     """

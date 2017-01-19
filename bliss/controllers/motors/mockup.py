@@ -91,6 +91,8 @@ class Mockup(Controller):
                            default=False, inherited=True):
             try:
                 dial_pos = axis.settings.get("dial_position")
+                if dial_pos is None:
+                    dial_pos = 0 # init
             except:
                 pass
 

@@ -204,7 +204,7 @@ class AcquisitionChain(object):
       if slave_node is None:
           slave_node = self._tree.create_node(tag=slave.name,identifier=slave,parent=master)
       else:
-          self._tree.move_node(slave_node,master_node)
+          self._tree.move_node(slave,master)
 
   def add_preset(self, preset):
       self._presets_list.append(preset)

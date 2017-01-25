@@ -111,9 +111,9 @@ def active_measurement_group():
 
 
 def get_active_counters_iter():
-    cfg = get_config()
-    for name in active_measurement_group():
-        yield cfg.get(name)
+    for c in __get_counters_iter():
+      if c.name in active_measurement_group():
+        yield c
 
 
 def __enable_ct(counters):

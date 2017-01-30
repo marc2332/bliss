@@ -135,9 +135,9 @@ def enable(*elems):
         elem: a object or object name
     """
     counters = []
-    for elem in __get_objects_iter(*elems):
-        if isinstance(elem, CounterBase):
-            counters.append(elem)
+    for elem in elems:
+      if isinstance(elem, CounterBase):
+        counters.append(elem)
     __enable_ct(counters)
 
 
@@ -149,9 +149,9 @@ def disable(*elems):
         elem: object or object name
     """
     counters = []
-    for elem in __get_objects_iter(*elems):
-        if isinstance(elem, CounterBase):
-            counters.append(elem)
+    for elem in elems:
+      if isinstance(elem, CounterBase):
+        counters.append(elem)
     __disable_ct(counters)
 
 

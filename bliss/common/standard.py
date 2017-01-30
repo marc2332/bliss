@@ -124,7 +124,6 @@ def __enable_ct(counters):
 def __disable_ct(counters):
     amg = active_measurement_group()
     for counter in counters:
-        print 'removing', counter.name
         amg.remove(counter.name)
 
 

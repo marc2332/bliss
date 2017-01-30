@@ -22,13 +22,13 @@ class BpmCounter(CounterBase):
 
    def read(self):
      if isinstance(self.index, str):
-       return getattr(self.parent, self.index)(0) #time)
+       return getattr(self.parent, self.index)() #use current exp time
      else:
        if not self.parent.acquisition_event.is_set():
          self.parent.acquisition_event.wait()
          data = self.parent.last_acq
        else:
-         data = self.parent.read(0) #time)
+         data = self.parent.read() #use current exp time
        return data[self.index]
 
 

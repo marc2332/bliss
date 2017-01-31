@@ -18,6 +18,7 @@ import os
 import shutil
 import sys
 import ConfigParser
+import inspect
 
 import logging
 from logging.handlers import TimedRotatingFileHandler
@@ -32,6 +33,25 @@ def grouper(iterable, n):
     args = [iter(iterable)]*n
     return itertools.izip_longest(fillvalue=None, *args)
 
+BUSY = False
+def notwhenbusy(func):
+     def _(self, *args, **kw):
+         # if caller is self, then we can always execute
+         frame = inspect.currentframe(1)
+         caller = frame.f_locals.get("self", None)
+         if self == caller:
+           return func(self, *args, **kw)
+         else:
+           global BUSY
+           if BUSY: 
+               raise RuntimeError("Cannot execute while robot is busy")
+           else:
+               try:
+                   BUSY = True
+                   return func(self, *args, **kw)
+               finally:
+                   BUSY = False
+     return _
 
 class BackgroundGreenlets(object):
     def __init__(self, *args):
@@ -101,6 +121,8 @@ class flex:
         self.robot_exceptions = []
         return ret
 
+
+    @notwhenbusy
     def enablePower(self, state):
         state = bool(state)
         for i in range(0,10):
@@ -137,7 +159,7 @@ class flex:
         finally:
             self.robot.setVal3GlobalVariableBoolean("bEnable_PSS", False)
         
-
+    @notwhenbusy
     def gripper_port(self, boolean):
         self.set_io("dioOpenGrpPort", bool(boolean))
         try:
@@ -151,6 +173,7 @@ class flex:
         except gevent.timeout.Timeout:
             logging.getLogger('flex').error("Timeout on gripper port")
 
+    @notwhenbusy
     def robot_port(self, boolean):
         self.set_io("dioOpenRbtPort", bool(boolean))
         try:
@@ -177,6 +200,7 @@ class flex:
         except gevent.timeout.Timeout:
             logging.getLogger('flex').error("Timeout on user port")
 
+    @notwhenbusy
     def moveDewar(self, cell, puck=1, user=False):
         logging.getLogger('flex').info("Starting to move the Dewar")
         if isinstance(cell, (int,long)) and isinstance(puck, (int,long)):
@@ -268,6 +292,7 @@ class flex:
         except Exception:
             return ''
 
+    @notwhenbusy
     def homeClear(self):
         logging.getLogger('flex').info("Starting homing")
         gripper_type = self.get_gripper_type()
@@ -284,6 +309,9 @@ class flex:
             return X.execute(self.robot.executeTask, "homeClear", timeout=60)
         logging.getLogger('flex').info("Homing done")
 
+    @notwhenbusy
+    def dryWithoutPloun(self):
+    @notwhenbusy
     def defreezeGripper(self):
         logging.getLogger('flex').info("Starting defreeze gripper")
         gripper_type = self.get_gripper_type()
@@ -584,6 +612,8 @@ class flex:
         sample = parser.getfloat("position", "sample")
         return (int(cell), int(puck), int(sample))
 
+
+    @notwhenbusy
     def loadSample(self, cell, puck, sample, ref=False):
         to_load = (cell, puck, sample)
         cell, PuckPos, sample, PuckType = self.check_coordinates(cell, puck, sample)
@@ -634,6 +664,7 @@ class flex:
         self.robot.setVal3GlobalVariableDouble("nLoadPuckPos", "24")
         self.robot.setVal3GlobalVariableDouble("nLoadSamplePos", "16")
 
+    @notwhenbusy
     def unloadSample(self, cell, puck, sample):
         logging.getLogger('flex').info("Unloading sample cell %d, puck %d, sample %d" %(cell, puck, sample))
         cell, PuckPos, sample, PuckType = self.check_coordinates(cell, puck, sample)
@@ -688,6 +719,7 @@ class flex:
                                  self.PSS_light, ()) as X:
             return X.execute(self.robot.executeTask, "chainedUnldLd", timeout=200)
  
+    @notwhenbusy
     def chainedUnldLd(self, unload, load):
         if not isinstance(unload, list) or not isinstance(load, list):
             logging.getLogger('flex').error("unload/load pos must be list")
@@ -759,6 +791,8 @@ class flex:
             notify = self.robot.waitNotify(status_name)
             logging.getLogger('flex').info("From Robot: %s %s" %(status_name, notify))
 
+
+    @notwhenbusy
     def poseGripper(self):
         self.homeClear()
         logging.getLogger('flex').info("Putting the gripper back in tool bank")
@@ -772,6 +806,8 @@ class flex:
         self.robot.setVal3GlobalVariableDouble("nGripperType", "-1")
         logging.getLogger('flex').info("Gripper back on tool bank")
 
+
+    @notwhenbusy
     def takeGripper(self, gripper_to_take):
         logging.getLogger('flex').info("Starting to take gripper on tool bank")
         self.onewire = OneWire(self.ow_port)
@@ -817,6 +853,7 @@ class flex:
                     break
         return previous_type
 
+    @notwhenbusy
     def changeGripper(self, gripper_to_take=1, user_mode=True):
         gripper_type = self.get_gripper_type()
         if gripper_type in [1,3,9]:
@@ -1063,6 +1100,7 @@ class flex:
         finally:
             do_detection_if_needed_task.kill()
 
+    @notwhenbusy
     def gripperCalib(self):
         logging.getLogger('flex').info("Starting calibration tool")
         gripper_type = self.get_gripper_type()
@@ -1074,10 +1112,12 @@ class flex:
         self.do_calib_detection(gripper_type)
         logging.getLogger('flex').info("Calibration finished")
 
+    @notwhenbusy
     def disableDewar(self):
         self.robot.executeTask("disableDewar", timeout=5)
         logging.getLogger('flex').info("Dewar disable")
 
+    @notwhenbusy
     def stopDewar(self):
         self.robot.executeTask("stopDewar", timeout=10)
         logging.getLogger('flex').info("Dewar stop")
@@ -1086,6 +1126,8 @@ class flex:
         self.robot.executeTask("savedata", timeout=5)
         logging.getLogger('flex').info("VAL3 library saved")
 
+
+    @notwhenbusy
     def gonioAlignment(self):
         logging.getLogger('flex').info("Starting calibration of the SmartMagnet position")
         gripper_type = self.get_gripper_type()
@@ -1095,6 +1137,7 @@ class flex:
         self.robot.executeTask("gonioAlignment", timeout=200)
         logging.getLogger('flex').info("calibration of the SmartMagnet position finished")
 
+    @notwhenbusy
     def dewarAlignment(self, cell="all"):
         logging.getLogger('flex').info("Starting calibration of the Dewar position")
         gripper_type = self.get_gripper_type()

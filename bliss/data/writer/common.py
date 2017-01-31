@@ -1,4 +1,4 @@
-import os
+import os,errno
 from bliss.common import event
 from bliss.common.continuous_scan import AcquisitionDevice, AcquisitionMaster
 
@@ -8,7 +8,7 @@ class AcquisitionMasterEventReceiver(object):
         self._parent = parent
 
         for signal in ('start', 'end', 'new_data'):
-            event.connect(slave, signal, self.on_event)
+            event.connect(slave, signal, self)
 
     @property
     def parent(self):
@@ -72,7 +72,7 @@ class FileWriter(object):
         self._event_receivers = list()
 
     def create_path(self, scan_recorder):
-        path_suffix = scan_recorder.node.db_name().replace(':', os.path.sep)
+        path_suffix = scan_recorder.node.name()
         full_path = os.path.join(self._root_path, path_suffix)
         try:
             os.makedirs(full_path)

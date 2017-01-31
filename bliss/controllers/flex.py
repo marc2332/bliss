@@ -18,6 +18,7 @@ import os
 import shutil
 import sys
 import ConfigParser
+import ast
 import inspect
 
 import logging
@@ -121,6 +122,16 @@ class flex:
         self.robot_exceptions = []
         return ret
 
+    def get_detection_param(self, section, name_value):
+        parser = ConfigParser.RawConfigParser()
+        file_path = os.path.dirname(self.calibration_file)+"/detection.cfg"
+        parser.read(file_path)
+        val = ast.literal_eval(parser.get(section, name_value))
+        if section == "acq_time":
+            logging.getLogger('flex').info("Acquisition time is set to %s" %( str(val)))
+        else:
+            logging.getLogger('flex').info("Roi for %s detection is %s" %(section, str(val)))
+        return val
 
     @notwhenbusy
     def enablePower(self, state):
@@ -397,27 +408,30 @@ class flex:
 
     def pin_detection(self, gripper_type, ref):
         logging.getLogger('flex').info("Pin detection")
-        image = self.waiting_for_image()
+        acq_time = self.get_detection_param("acq_time", "pin")
+        image = self.waiting_for_image(acq_time=acq_time, timeout=60)
         if int(gripper_type) == 1:
             if ref == "True":
                 filename = "ref_spine_with_pin"
                 self.save_ref_image(image, filename)
-            roi = [[800,800], [900,1023]]
+            #roi = [[700,800], [800,1023]]
+            roi = self.get_detection_param("pin_unipuck", "roi")
             PinIsInGripper = not(self.cam.is_empty(image, roi))
             logging.getLogger('flex').info("Pin is the gripper %s" %str(PinIsInGripper))
             if PinIsInGripper:
                 self.robot.setVal3GlobalVariableBoolean("bPinIsInGripper", True)
-            roi = [[800,700], [1100,1023]]
-            edge = self.cam.vertical_edge(image, roi)
+            #roi = [[600,700], [900,1023]]
+            roi_edge = self.get_detection_param("pin_unipuck", "roi_edge")
+            edge = self.cam.vertical_edge(image, roi_edge)
             logging.getLogger('flex').info("Vertical edge of the pin %s" %str(edge))
             if edge is not None:
                 sp_ref_file = os.path.join(os.path.dirname(self.calibration_file), "ref_spine_with_pin.edf")
                 ref_image = self.cam.image_read(sp_ref_file)
-                ref_image_edge = self.cam.vertical_edge(ref_image, roi)
+                ref_image_edge = self.cam.vertical_edge(ref_image, roi_edge)
                 logging.getLogger('flex').info("edge position on the reference image %s" %str(ref_image_edge))
                 distance_from_ref = self.cam.edge_distance(ref_image_edge, edge)
                 logging.getLogger('flex').info("distance of the pin from the reference  %s" %str(distance_from_ref))
-                if abs(distance_from_ref)  < 0.6:
+                if abs(distance_from_ref)  <= self.get_detection_param("distance_from_ref", "unipuck") :
                     self.robot.setVal3GlobalVariableBoolean("bPinIsOkInGrip", True)
         if int(gripper_type) == 3:
             if ref == "True":
@@ -425,7 +439,8 @@ class flex:
                 self.save_ref_image(image, filename)
             logging.getLogger('flex').info("gripper for pin detection is %s" %gripper_type)
             #roi_pin = [[350,200], [630,450]]
-            roi_pin = [[200,300], [800,600]]
+            #roi_pin = [[400,550], [800,750]]
+            roi_pin = self.get_detection_param("pin_flipping", "roi_pin")
             PinIsInGripper = not(self.cam.is_empty(image, roi_pin))
             if PinIsInGripper:
                 logging.getLogger('flex').info("Pin is in gripper")
@@ -439,12 +454,13 @@ class flex:
                     logging.getLogger('flex').info("edge position on the reference image %s" %str(ref_image_edge))
                     distance_from_ref = self.cam.edge_distance(self.cam.horizontal_edge(ref_image, roi_pin), edge)
                     logging.getLogger('flex').info("distance of the pin from the reference %s" %str(distance_from_ref))
-                    if abs(distance_from_ref)  <= 2.0:
+                    if abs(distance_from_ref)  <= self.get_detection_param("distance_from_ref", "spine"):
                         self.robot.setVal3GlobalVariableBoolean("bPinIsOkInGrip", True)
                     else:
                         logging.getLogger('flex').error("distance from reference is too high")
                 
-                roi_gripper = [[0,300], [70,900]]
+                #roi_gripper = [[0,550], [70,900]]
+                roi_gripper = self.get_detection_param("pin_flipping", "roi_gripper")
                 if roi_gripper[0][1] != roi_pin[0][1]:
                     logging.getLogger('flex').error("2 rois must be on the same horizontal line from top")
                     raise ValueError("2 rois must be on the same horizontal line from top")
@@ -470,9 +486,12 @@ class flex:
                 self.vial_detection(image)
 
     def vial_center_detection(self):
-        image = self.waiting_for_image()
-        roi_left = [[0,0],[400,400]]
-        roi_right = [[700,0],[1100,400]]
+        acq_time = self.get_detection_param("acq_time","vial")
+        image = self.waiting_for_image(acq_time=acq_time, timeout=60)
+        #roi_left = [[0,0],[400,400]]
+        roi_left = self.get_detection_param("vial_center", "roi_left")
+        #roi_right = [[700,0],[1100,400]]
+        roi_right = self.get_detection_param("vial_center", "roi_right")
         left_edge =  self.cam.vertical_edge(image, roi_left)
         right_edge = self.cam.vertical_edge(image, roi_right)
         logging.getLogger('flex').info("Vial left edge %s right_edge %s" %(str(left_edge), str(right_edge)))
@@ -502,7 +521,8 @@ class flex:
     def vial_detection(self, image):
         #roi = [[350,600], [650,1023]]
         #roi = [[200,500], [350,1023]]
-        roi = [[500,500], [700,1023]]
+        #roi = [[500,500], [700,1023]]
+        roi = self.get_detection_param("vial","roi")
         VialIsNotInGripper = self.cam.is_empty(image, roi)
         if VialIsNotInGripper:
             logging.getLogger('flex').info("Vial is not in gripper")
@@ -512,7 +532,8 @@ class flex:
             logging.getLogger('flex').info("Vial edge position %s" %str(vial_edge))
             fp_ref_file = os.path.join(os.path.dirname(self.calibration_file), "ref_flipping_with_pin.edf")
             ref_image = self.cam.image_read(fp_ref_file)
-            roi_ref = [[200,300], [800,600]]
+            #roi_ref = [[200,300], [800,600]]
+            roi_ref = self.get_detection_param("vial","roi_ref")
             ref_image_edge = self.cam.horizontal_edge(ref_image, roi_ref)
             logging.getLogger('flex').info("Ref pin edge position %s" %str(ref_image_edge))
             cap_height = 3.0
@@ -612,6 +633,14 @@ class flex:
         sample = parser.getfloat("position", "sample")
         return (int(cell), int(puck), int(sample))
 
+    def set_cam(self, gripper_type):
+        self.cam.stop_cam()
+        if gripper_type == 1 or gripper_type == 9:
+            acq_time = self.get_detection_param("acq_time", "unipuck")
+        if gripper_type == 3:
+            acq_time = self.get_detection_param("acq_time", "pin")
+        self.cam.prepare(acq_time) 
+
 
     @notwhenbusy
     def loadSample(self, cell, puck, sample, ref=False):
@@ -633,6 +662,7 @@ class flex:
             if (gripper_type == 1 and cell in range(1,9,2)) or (gripper_type == 3 and cell in range(2,10,2)):
                 logging.getLogger('flex').error("gripper/puck mismatch")
                 raise RuntimeError("gripper/puck mismatch")
+            self.set_cam(gripper_type)
             self.robot.setVal3GlobalVariableDouble("nGripperType", str(gripper_type))
         else:
             logging.getLogger('flex').error("No or wrong gripper")
@@ -693,6 +723,7 @@ class flex:
             if (gripper_type == 1 and cell in range(1,9,2)) or (gripper_type == 3 and cell in range(2,10,2)):
                 logging.getLogger('flex').error("gripper/puck mismatch")
                 raise RuntimeError('gripper/puck mismatch')
+            self.set_cam(gripper_type)
             self.robot.setVal3GlobalVariableDouble("nGripperType", str(gripper_type))
         else:
             logging.getLogger('flex').error("No or wrong gripper")
@@ -767,6 +798,7 @@ class flex:
             if (gripper_type == 1 and load_cell in range(1,9,2)) or (gripper_type == 3 and load_cell in range(2,10,2)):
                 logging.getLogger('flex').error("gripper/puck mismatch in load")
                 raise RuntimeError("gripper/puck mismatch in load")
+            self.set_cam(gripper_type)
             self.robot.setVal3GlobalVariableDouble("nGripperType", str(gripper_type))
         else:
             logging.getLogger('flex').error("Wrong gripper")
@@ -879,14 +911,18 @@ class flex:
             raise RuntimeError("Wrong gripper on arm")
 
     def spine_gripper_center_detection(self):
-        image = self.waiting_for_image()
-        roi_left = [[300,0], [500, 200]]
-        roi_right = [[800,0], [1000,200]]
+        acq_time = self.get_detection_param("acq_time","pin")
+        image = self.waiting_for_image(acq_time=acq_time, timeout=60)
+        #roi_left = [[300,0], [500, 100]]
+        roi_left = self.get_detection_param("spine_gripper_center","roi_left")
+        #roi_right = [[800,0], [1000,100]]
+        roi_right = self.get_detection_param("spine_gripper_center","roi_right")
         left_edge =  self.cam.vertical_edge(image, roi_left)
         right_edge = self.cam.vertical_edge(image, roi_right)
         logging.getLogger('flex').info("left edge %s, right edge %s" %(str(left_edge), str(right_edge)))
         center = (left_edge + right_edge) / 2.
-        roi_bottom = [[500,450], [800,650]]
+        #roi_bottom = [[500,450], [800,650]]
+        roi_bottom = self.get_detection_param("spine_gripper_center","roi_bottom")
         bottom_edge = self.cam.horizontal_edge(image, roi_bottom)
         logging.getLogger('flex').info("center is %s bottom of the gripper is %s" %(str(center), str(bottom_edge)))
         return center, bottom_edge
@@ -915,8 +951,10 @@ class flex:
             raise RuntimeError("gripper offsets are wrong")
 
     def flipping_gripper_height_detections(self):
-        image = self.waiting_for_image()
-        roi_dewar = [[0,150], [250,550]]
+        acq_time = self.get_detection_param("acq_time","pin")
+        image = self.waiting_for_image(acq_time=acq_time, timeout=60)
+        #roi_dewar = [[0,150], [250,550]]
+        roi_dewar = self.get_detection_param("flipping_gripper_height","roi_dewar")
         image_dewar_height = self.cam.horizontal_edge(image, roi_dewar)
         logging.getLogger('flex').info("image height in dewar orientation %s" %str(self.cam.horizontal_edge(image, roi_dewar)))
         height_dewar = (image_dewar_height - self.cam.image_height / 2.0) / self.cam.pixels_per_mm
@@ -934,8 +972,10 @@ class flex:
         logging.getLogger('flex').info("error in Z in the dewar orientation %s" %str(diff_calib_flipping))
         self.robot.setVal3GlobalVariableBoolean("bImageProcEnded", True)
 
-        image = self.waiting_for_image()
-        roi_gonio = [[0,150], [250,550]]
+        acq_time = self.get_detection_param("acq_time","pin")
+        image = self.waiting_for_image(acq_time=acq_time, timeout=60)
+        #roi_gonio = [[0,150], [250,550]]
+        roi_gonio = self.get_detection_param("flipping_gripper_height","roi_gonio")
         image_gonio_height = self.cam.horizontal_edge(image, roi_gonio)
         logging.getLogger('flex').info("image height in gonio orientation %s" %str(image_gonio_height))
         height_gonio = (image_gonio_height - self.cam.image_height / 2.0) / self.cam.pixels_per_mm
@@ -959,9 +999,12 @@ class flex:
             raise RuntimeError("Vertical correction too high")
 
     def stallion_center_detection(self):
-        image = self.waiting_for_image()
-        roi_left = [[300,50], [600,400]]
-        roi_right = [[600,50], [900,400]]
+        acq_time = self.get_detection_param("acq_time","pin")
+        image = self.waiting_for_image(acq_time=acq_time, timeout=60)
+        #roi_left = [[300,50], [600,400]]
+        roi_left = self.get_detection_param("stallion_center","roi_left")
+        #roi_right = [[600,50], [900,400]]
+        roi_right = self.get_detection_param("stallion_center","roi_right")
         left_edge =  self.cam.vertical_edge(image, roi_left)
         right_edge =  self.cam.vertical_edge(image, roi_right)
         logging.getLogger('flex').info("Stallion left edge %s, right edge %s" %(str(left_edge), str(right_edge)))
@@ -994,11 +1037,13 @@ class flex:
                 raise RuntimeError("stallion centering not in dewar or gonio orientation")
 
     def ball_center_detection(self):
-        image = self.waiting_for_image()
-        roi = [[100,200],[1100,600]]
+        acq_time = self.get_detection_param("acq_time","pin")
+        image = self.waiting_for_image(acq_time=acq_time, timeout=60)
+        #roi = [[300,200],[1100,800]]
+        roi = self.get_detection_param("ball_center", "roi")
         x_center, y_center, rad1, rad2 = self.cam.fitEllipse(image, roi)
         logging.getLogger('flex').info("ball center in X %s, in Y %s, radius 1 %s, radius %s" %(str(x_center), str(y_center), str(rad1), str(rad2)))
-        if abs(rad1 - rad2) > 2:
+        if abs(rad1 - rad2) > 20:
             logging.getLogger('flex').error("ellipse radii are too different")
             raise RuntimeError("ellipse radii are too different")
         radius = (rad1 + rad2) / 2.0

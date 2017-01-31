@@ -153,6 +153,9 @@ class flex:
 
     def abort(self):
         self.robot.abort()
+        self.set_io("dioUnloadStReq", False)
+        self.set_io("dioLoadStReq", False)
+
         logging.getLogger('flex').info("Robot aborted")
 
     def set_io(self, dio, boolean):
@@ -368,8 +371,8 @@ class flex:
             raise ValueError("cell, puck and sample must be integer")
         return cell, puck, sample, puckType
 
-    def waiting_for_image(self, timeout = 60):
-        self.cam.prepare()
+    def waiting_for_image(self, acq_time = 0.001, timeout = 60):
+        self.cam.prepare(acq_time)
         prev_imgNb = int(self.cam.control.getImageStatus().LastImageAcquired)
         logging.getLogger('flex').info("Image number %d" %prev_imgNb)
         imgNb = prev_imgNb
@@ -609,6 +612,20 @@ class flex:
                                  self.sampleStatus, ("LoadSampleStatus",), self.PSS_light, ()) as X:
             return X.execute(self.robot.executeTask, "loadSample", timeout=200)
 
+    def update_transfer_iteration(self, reset=False):
+        parser = ConfigParser.RawConfigParser()
+        file_path = os.path.dirname(self.calibration_file)+"/transfer_iteration.cfg"
+        parser.read(file_path)
+        if reset:
+            iter_nb = 0
+        else:
+            iter_nb = parser.getfloat("transfer", "iter") + 1
+        parser.set("transfer", "iter", str(iter_nb))
+        with open(file_path, 'wb') as file:
+            parser.write(file)
+        logging.getLogger('flex').info("number of sample transfer set to %d" %(int(iter_nb)))
+        return iter_nb
+
     def save_loaded_position(self, cell, puck, sample):
         parser = ConfigParser.RawConfigParser()
         file_path = os.path.dirname(self.calibration_file)+"/loaded_position.cfg"
@@ -655,6 +672,10 @@ class flex:
         self.robot.setVal3GlobalVariableDouble("nPuckType", str(PuckType))
         self.robot.setVal3GlobalVariableDouble("nLoadPuckPos", str(PuckPos))
         self.robot.setVal3GlobalVariableDouble("nLoadSamplePos", str(sample))
+        if self.robot.getCachedVariable("data:dioLoadStReq").getValue() == 'true':
+            self.set_io("dioLoadStReq", False)
+            gevent.sleep(3)
+        self.set_io("dioLoadStReq", True)
 
         #Get gripper type
         gripper_type = self.get_gripper_type()
@@ -669,6 +690,7 @@ class flex:
             raise RuntimeError("No or wrong gripper")
 
         success = self.do_load_detection(gripper_type, ref)
+        self.set_io("dioLoadStReq", False)
         if success: 
             self._loaded_sample = to_load
         else:
@@ -716,6 +738,11 @@ class flex:
         self.robot.setVal3GlobalVariableDouble("nUnldPuckPos", str(PuckPos))
         self.robot.setVal3GlobalVariableDouble("nUnldSamplePos", str(sample))
 
+        if self.robot.getCachedVariable("data:dioUnloadStReq").getValue() == 'true':
+            self.set_io("dioUnloadStReq", False)
+            gevent.sleep(3)
+        self.set_io("dioUnloadStReq", True)
+
         #Get gripper type
         gripper_type = self.get_gripper_type()
 
@@ -730,6 +757,7 @@ class flex:
             raise RuntimeError("No or wrong gripper")
 
         success =  self.do_unload_detection(gripper_type)
+        self.set_io("dioUnloadStReq", False)
         if success:
             self._loaded_sample = (-1, -1, -1)
         else:
@@ -789,6 +817,11 @@ class flex:
         self.robot.setVal3GlobalVariableDouble("nLoadPuckPos", str(load_PuckPos))
         self.robot.setVal3GlobalVariableDouble("nLoadSamplePos", str(load_sample))
 
+        if self.robot.getCachedVariable("data:dioUnloadStReq").getValue() == 'true':
+            self.set_io("dioUnloadStReq", False)
+            gevent.sleep(3)
+        self.set_io("dioUnloadStReq", True)
+
         #Get gripper type
         gripper_type = self.get_gripper_type()
         if gripper_type in [1, 3]:
@@ -805,6 +838,8 @@ class flex:
             raise RuntimeError("Wrong gripper")
 
         success =  self.do_chainedUnldLd_detection(gripper_type)
+        self.set_io("dioUnloadStReq", False)
+        self.set_io("dioLoadStReq", False)
         if success:
             self._loaded_sample = tuple(load)
         else:
@@ -1179,8 +1214,10 @@ class flex:
         if gripper_type != 9:
             logging.getLogger('flex').error("Need calibration gripper")
             raise RuntimeError("Need calibration gripper")
-        self.robot.executeTask("gonioAlignment", timeout=200)
+        self.set_io("dioUnloadStReq", True)
+        self.do_gonioAlign(200)
         logging.getLogger('flex').info("calibration of the SmartMagnet position finished")
+        self.set_io("dioUnloadStReq", False)
 
     @notwhenbusy
     def dewarAlignment(self, cell="all"):

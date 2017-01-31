@@ -324,8 +324,10 @@ class flex:
         if gripper_type == -1:
             self.robot.setVal3GlobalVariableBoolean("bGripperIsOnArm", False)
         else:
+            #self.robot.setVal3GlobalVariableDouble("nGripperType", str(gripper_type))
             self.robot.setVal3GlobalVariableBoolean("bGripperIsOnArm", True)
         self.do_homeClear()
+        self.update_transfer_iteration(reset=True)
         logging.getLogger('flex').info("Homing done")
 
     def do_dryWithoutPloun(self):
@@ -369,6 +371,7 @@ class flex:
             self.robot.setVal3GlobalVariableBoolean("bGripperIsOnArm", True)
             self.robot.setVal3GlobalVariableDouble("nGripperType", str(gripper_type))
         self.do_defreezeGripper()
+        self.update_transfer_iteration(reset=True)
         logging.getLogger('flex').info("Defreezing gripper finished")
 
     def check_coordinates(self, cell, puck, sample):
@@ -635,6 +638,19 @@ class flex:
           if dm_reading:
             dm_reading.kill()
 
+    def update_transfer_iteration(self, reset=False):
+        parser = ConfigParser.RawConfigParser()
+        file_path = os.path.dirname(self.calibration_file)+"/transfer_iteration.cfg"
+        parser.read(file_path)
+        if reset:
+            iter_nb = 0
+        else:
+            iter_nb = parser.getfloat("transfer", "iter") + 1
+        parser.set("transfer", "iter", str(iter_nb))
+        with open(file_path, 'wb') as file:
+            parser.write(file)
+        logging.getLogger('flex').info("number of sample transfer set to %d" %(int(iter_nb)))
+        return iter_nb
     def do_load_detection(self, gripper_type, ref):
         with BackgroundGreenlets(self.detection, (str(gripper_type), str(ref)), 
                                  self.sampleStatus, ("LoadSampleStatus",), self.PSS_light, ()) as X:
@@ -723,6 +739,7 @@ class flex:
 
         success = self.do_load_detection(gripper_type, ref)
         self.set_io("dioLoadStReq", False)
+        transfer_iter = self.update_transfer_iteration()
         if success: 
             self._loaded_sample = to_load
         else:
@@ -732,6 +749,10 @@ class flex:
         if gripper_type == 3:
             gevent.spawn(self.defreezeGripper)
 
+        if gripper_type == 1 and transfer_iter >= 16:
+            self.homeClear()
+            self.defreezeGripper()
+            self.update_transfer_iteration(reset=True)
         self.save_loaded_position(*to_load)
  
         return success
@@ -790,6 +811,8 @@ class flex:
 
         success =  self.do_unload_detection(gripper_type)
         self.set_io("dioUnloadStReq", False)
+        transfer_iter = self.update_transfer_iteration()
+
         if success:
             self._loaded_sample = (-1, -1, -1)
         else:
@@ -798,6 +821,12 @@ class flex:
 
         if gripper_type == 3:
             gevent.spawn(self.defreezeGripper)
+
+        if gripper_type == 1 and transfer_iter >= 16:
+            self.homeClear()
+            self.defreezeGripper()
+            self.update_transfer_iteration(reset=True)
+ 
 
         self.save_loaded_position(-1,-1,-1)
 
@@ -872,6 +901,8 @@ class flex:
         success =  self.do_chainedUnldLd_detection(gripper_type)
         self.set_io("dioUnloadStReq", False)
         self.set_io("dioLoadStReq", False)
+        transfer_iter = self.update_transfer_iteration()
+
         if success:
             self._loaded_sample = tuple(load)
         else:
@@ -881,6 +912,11 @@ class flex:
         if gripper_type == 3:
             gevent.spawn(self.defreezeGripper)
 
+        if gripper_type == 1 and transfer_iter >= 16:
+            self.homeClear()
+            self.defreezeGripper()
+            self.update_transfer_iteration(reset=True)
+ 
         self.save_loaded_position(*load)
 
         return success

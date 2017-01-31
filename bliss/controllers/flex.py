@@ -451,7 +451,7 @@ class flex:
             #roi = [[700,800], [800,1023]]
             roi = self.get_detection_param("pin_unipuck", "roi")
             PinIsInGripper = not(self.cam.is_empty(image, roi))
-            logging.getLogger('flex').info("Pin is the gripper %s" %str(PinIsInGripper))
+            logging.getLogger('flex').info("Pin is in the gripper %s" %str(PinIsInGripper))
             if PinIsInGripper:
                 self.robot.setVal3GlobalVariableBoolean("bPinIsInGripper", True)
             #roi = [[600,700], [900,1023]]
@@ -1165,7 +1165,7 @@ class flex:
         logging.getLogger('flex').info("average height %s average radius %s" %(str(average_height_center), str(average_radius)))
         gripper_Zoffset = (average_radius + average_height_center - self.cam.image_height / 2.0) / self.cam.pixels_per_mm 
         # if gripper above the middle of the image the correction is <0 as it is in JLib
-        logging.getLogger('flex').info("Calibration gripper offsetin X %s, in Y %s, in Z %s" %(str(gripper_Xoffset), str(gripper_Yoffset), str(gripper_Zoffset)))
+        logging.getLogger('flex').info("Calibration gripper offset in X %s, in Y %s, in Z %s" %(str(gripper_Xoffset), str(gripper_Yoffset), str(gripper_Zoffset)))
         if abs(gripper_Xoffset) < 1 or abs(gripper_Yoffset) < 1 or abs(gripper_Zoffset) < 1:
             self.robot.execute("data:tCalibration.trsf.x = data:tCalibration.trsf.x + (%s)" %str(gripper_Xoffset))
             self.robot.execute("data:tCalibration.trsf.y = data:tCalibration.trsf.y + (%s)" %str(gripper_Yoffset))

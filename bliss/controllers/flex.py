@@ -334,7 +334,22 @@ class flex:
 
     @notwhenbusy
     def dryWithoutPloun(self):
+        logging.getLogger('flex').info("Starting defreeze gripper and stay parked")
+        gripper_type = self.get_gripper_type()
+        logging.getLogger('flex').info("gripper type %s" %gripper_type)
+        if gripper_type not in [-1, 0, 1, 3, 9]:
+            logging.getLogger('flex').error("No or wrong gripper")
+            raise ValueError("No or wrong gripper")
+        if gripper_type == -1:
+            self.robot.setVal3GlobalVariableBoolean("bGripperIsOnArm", False)
+            self.robot.setVal3GlobalVariableDouble("nGripperType", "0")
+        else:
+            self.robot.setVal3GlobalVariableBoolean("bGripperIsOnArm", True)
+            self.robot.setVal3GlobalVariableDouble("nGripperType", str(gripper_type))
         self.do_dryWithoutPloun()
+        self.update_transfer_iteration(reset=True)
+        logging.getLogger('flex').info("Defreezing gripper finished")
+
     def do_defreezeGripper(self):
         with BackgroundGreenlets(self.PSS_light, ()) as X:
             return X.execute(self.robot.executeTask, "defreezeGripper", timeout=200)

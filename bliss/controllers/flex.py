@@ -225,11 +225,9 @@ class flex:
             logging.getLogger('flex').error("Cell must be integer")
             raise ValueError("Cell must be integer")
         if user:
-            cell = cell - 3
-            if cell <= 0:
-                cell = math.fmod(cell,8) + 8
-            else:
-                cell = math.fmod((cell - 1), 8) + 1
+            cell = cell + 5
+            if cell > 8:
+                cell = math.fmod(cell,8)
         logging.getLogger('flex').info("Dewar to move to %d" %cell)
         self.robot.setVal3GlobalVariableDouble("nDewarDest", str(3 * (int(cell) - 1)))
         self.robot.executeTask("moveDewar", timeout=60)

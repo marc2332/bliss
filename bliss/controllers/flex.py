@@ -309,6 +309,10 @@ class flex:
         self.savedata()
 
 
+    def do_homeClear(self):
+        with BackgroundGreenlets(self.PSS_light, ()) as X:
+            return X.execute(self.robot.executeTask, "homeClear", timeout=60)
+
     @notwhenbusy
     def homeClear(self):
         logging.getLogger('flex').info("Starting homing")
@@ -321,13 +325,20 @@ class flex:
             self.robot.setVal3GlobalVariableBoolean("bGripperIsOnArm", False)
         else:
             self.robot.setVal3GlobalVariableBoolean("bGripperIsOnArm", True)
-        #self.robot.execute("data:dioEnablePress=true")
-        with BackgroundGreenlets(self.PSS_light, ()) as X:
-            return X.execute(self.robot.executeTask, "homeClear", timeout=60)
+        self.do_homeClear()
         logging.getLogger('flex').info("Homing done")
+
+    def do_dryWithoutPloun(self):
+        with BackgroundGreenlets(self.PSS_light, ()) as X:
+            return X.execute(self.robot.executeTask, "dryWithoutPloun", timeout=90)
 
     @notwhenbusy
     def dryWithoutPloun(self):
+        self.do_dryWithoutPloun()
+    def do_defreezeGripper(self):
+        with BackgroundGreenlets(self.PSS_light, ()) as X:
+            return X.execute(self.robot.executeTask, "defreezeGripper", timeout=200)
+
     @notwhenbusy
     def defreezeGripper(self):
         logging.getLogger('flex').info("Starting defreeze gripper")
@@ -342,8 +353,7 @@ class flex:
         else:
             self.robot.setVal3GlobalVariableBoolean("bGripperIsOnArm", True)
             self.robot.setVal3GlobalVariableDouble("nGripperType", str(gripper_type))
-        with BackgroundGreenlets(self.PSS_light, ()) as X:
-            return X.execute(self.robot.executeTask, "defreezeGripper", timeout=90)
+        self.do_defreezeGripper()
         logging.getLogger('flex').info("Defreezing gripper finished")
 
     def check_coordinates(self, cell, puck, sample):
@@ -661,6 +671,10 @@ class flex:
             acq_time = self.get_detection_param("acq_time", "pin")
         self.cam.prepare(acq_time) 
 
+    def do_load_detection(self, gripper_type, ref):
+        with BackgroundGreenlets(self.detection, (str(gripper_type), str(ref)), 
+                                 self.sampleStatus, ("LoadSampleStatus",), self.PSS_light, ()) as X:
+            return X.execute(self.robot.executeTask, "loadSample", timeout=200)
 
     @notwhenbusy
     def loadSample(self, cell, puck, sample, ref=False):
@@ -861,21 +875,22 @@ class flex:
             notify = self.robot.waitNotify(status_name)
             logging.getLogger('flex').info("From Robot: %s %s" %(status_name, notify))
 
+    def do_poseGripper(self):
+        with BackgroundGreenlets(self.PSS_light, ()) as X:
+            return X.execute(self.robot.executeTask, "poseGripper", timeout=60)
 
     @notwhenbusy
     def poseGripper(self):
         self.homeClear()
         logging.getLogger('flex').info("Putting the gripper back in tool bank")
-        try:
-            self.onewire.close()
-            self.robot.executeTask("poseGripper", timeout=30)
-        except:
-            self.robot.setVal3GlobalVariableDouble("nGripperType", "0")
-            logging.getLogger('flex').error("Deposing gripper failed, gripper type unknown")
-            raise RuntimeError("Deposing gripper failed, gripper type unknown")
+        self.onewire.close()
+        self.do_poseGripper()
         self.robot.setVal3GlobalVariableDouble("nGripperType", "-1")
         logging.getLogger('flex').info("Gripper back on tool bank")
 
+    def do_takeGripper(self):
+        with BackgroundGreenlets(self.PSS_light, ()) as X:
+                return X.execute(self.robot.executeTask, "takeGripper", timeout=60)
 
     @notwhenbusy
     def takeGripper(self, gripper_to_take):
@@ -894,17 +909,13 @@ class flex:
                 logging.getLogger('flex').error("Wrong gripper")
                 raise RuntimeError("Wrong gripper")
             self.robot.setVal3GlobalVariableDouble("nGripperType", str(gripper_to_take))
-            try:
-                self.robot.executeTask("takeGripper", timeout=60)
-            except:
-                logging.getLogger('flex').error("No gripper in bank")
-                raise RuntimeError("No gripper in bank")
+            self.do_takeGripper()
         else:
             self.robot.setVal3GlobalVariableBoolean("bGripperIsOnArm", True)
             self.robot.setVal3GlobalVariableDouble("nGripperType", str(gripper_type))
         logging.getLogger('flex').info("Gripper on robot")
         logging.getLogger('flex').info("Starting defreezing gripper if needed")
-        self.robot.executeTask("defreezeGripper", timeout=60)
+        self.do_dryWithoutPloun()
         logging.getLogger('flex').info("Defreezing gripper finished")
 
     def get_gripper_type(self):
@@ -1176,12 +1187,9 @@ class flex:
                 centers = []
 
     def do_calib_detection(self, gripper_type):
-        gripperCalib_task = gevent.spawn(self.robot.executeTask, "gripperCalib", timeout=200)
-        do_detection_if_needed_task = gevent.spawn(self.calib_detection, str(gripper_type))
-        try:
-            gripperCalib_task.get()
-        finally:
-            do_detection_if_needed_task.kill()
+        with BackgroundGreenlets(self.calib_detection, (str(gripper_type)),
+                                 self.PSS_light, ()) as X:
+            return X.execute(self.robot.executeTask, "gripperCalib", timeout=200)
 
     @notwhenbusy
     def gripperCalib(self):
@@ -1209,6 +1217,9 @@ class flex:
         self.robot.executeTask("savedata", timeout=5)
         logging.getLogger('flex').info("VAL3 library saved")
 
+    def do_gonioAlign(self, timeout):
+        with BackgroundGreenlets(self.PSS_light, ()) as X:
+            return X.execute(self.robot.executeTask, "gonioAlignment", timeout)
 
     @notwhenbusy
     def gonioAlignment(self):
@@ -1222,6 +1233,10 @@ class flex:
         logging.getLogger('flex').info("calibration of the SmartMagnet position finished")
         self.set_io("dioUnloadStReq", False)
 
+    def do_dewar_align(self, timeout):
+        with BackgroundGreenlets(self.PSS_light, ()) as X:
+            return X.execute(self.robot.executeTask, "autoAlignment", timeout=timeout)
+
     @notwhenbusy
     def dewarAlignment(self, cell="all"):
         logging.getLogger('flex').info("Starting calibration of the Dewar position")
@@ -1233,10 +1248,10 @@ class flex:
         if cell == "all":
             for i in range(0, 22, 3):
                 self.robot.setVal3GlobalVariableDouble("nLoadPuckPos", str(i))
-                self.robot.executeTask("autoAlignment", timeout=200)
+                self.do_dewar_align(1000)
         elif cell in range(1,9):
             self.robot.setVal3GlobalVariableDouble("nLoadPuckPos", str((cell - 1) * 3))
-            self.robot.executeTask("autoAlignment", timeout=200)
+            self.do_dewar_align(200)
         else:
             logging.getLogger('flex').error("Wrong cell (default all or 1-8)")
             raise RuntimeError("Wrong cell (default all or 1-8)")

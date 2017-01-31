@@ -243,14 +243,6 @@ class flex:
         logging.getLogger('flex').info("Dewar moved to %d" %cell)
 
     def get_loaded_sample(self):
-        #if self.robot.getCachedVariable("data:dioPinOnGonio").getValue() == 'false':
-        #    return -1,-1,-1
-        #VAL3_puck = int(self.robot.getVal3GlobalVariableDouble("nLoadPuckPos"))
-        #VAL3_sample = int(self.robot.getVal3GlobalVariableDouble("nLoadSamplePos"))
-        #cell = VAL3_puck // 3 + 1
-        #puck = VAL3_puck % 3 + 1
-        #sample = VAL3_sample + 1
-        #return cell, puck, sample
         return self._loaded_sample
 
     def get_cell_position(self):

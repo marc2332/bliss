@@ -296,6 +296,19 @@ class flex:
         except Exception:
             return ''
 
+    def set_massCompensation(self,x,y,z,rx=0,ry=0,rz=0):
+        logging.getLogger('flex').info("set mass compensation to x=%s, y=%s, z=%s, rx=%s, ry=%s, rz=%s", str(x), str(y), str(z), str(rx), str(ry), str(rz))
+        if abs(x) > 1 or abs(y) > 1 or abs(z) > 1 or abs(rx) > 1 or abs(ry) > 1 or abs(rz) > 1:
+            logging.getLogger('flex').error("Mass compensation too high, all coordinates must be less than 1.0")  
+        self.robot.setVal3GlobalVariableDouble("trFpGripMasComp.x", str(x)) 
+        self.robot.setVal3GlobalVariableDouble("trFpGripMasComp.y", str(y)) 
+        self.robot.setVal3GlobalVariableDouble("trFpGripMasComp.z", str(z)) 
+        self.robot.setVal3GlobalVariableDouble("trFpGripMasComp.rx", str(rx)) 
+        self.robot.setVal3GlobalVariableDouble("trFpGripMasComp.ry", str(ry)) 
+        self.robot.setVal3GlobalVariableDouble("trFpGripMasComp.rz", str(rz)) 
+        self.savedata()
+
+
     @notwhenbusy
     def homeClear(self):
         logging.getLogger('flex').info("Starting homing")

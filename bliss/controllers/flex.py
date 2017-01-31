@@ -465,7 +465,7 @@ class flex:
                 logging.getLogger('flex').info("edge position on the reference image %s" %str(ref_image_edge))
                 distance_from_ref = self.cam.edge_distance(ref_image_edge, edge)
                 logging.getLogger('flex').info("distance of the pin from the reference  %s" %str(distance_from_ref))
-                if abs(distance_from_ref)  <= self.get_detection_param("distance_from_ref", "unipuck") :
+                if abs(distance_from_ref)  <= self.get_detection_param("distance_from_ref", "unipuck"):
                     self.robot.setVal3GlobalVariableBoolean("bPinIsOkInGrip", True)
         if int(gripper_type) == 3:
             if ref == "True":
@@ -1248,6 +1248,7 @@ class flex:
         gripper_type = self.get_gripper_type()
         if gripper_type in [1,3,9]:
             self.robot.setVal3GlobalVariableDouble("nGripperType", str(gripper_type))
+            self.set_cam(gripper_type)
         else:
             logging.getLogger('flex').error("Wrong gripper")
             raise RuntimeError("Wrong gripper")

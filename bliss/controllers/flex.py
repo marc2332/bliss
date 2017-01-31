@@ -63,7 +63,7 @@ class BackgroundGreenlets(object):
 
     def __enter__(self):
         for f, fargs in grouper(self.func_args, 2):
-            self.greenlets.append(gevent.spawn(f, *fargs))
+            self.greenlets.append(gevent.spawn_later(0.2, f, *fargs))
         return self
 
     def execute(self, func, *args, **kwargs):

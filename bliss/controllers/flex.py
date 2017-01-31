@@ -161,9 +161,9 @@ class flex:
     def set_io(self, dio, boolean):
         logging.getLogger('flex').info("Set IO %s to %s" %(dio, str(bool(boolean))))
         if bool(boolean):
-            self.robot.execute("data:" + dio + "= true")
+            self.robot.execute("data:" + dio + "=true")
         else:
-            self.robot.execute("data:" + dio + "= false")
+            self.robot.execute("data:" + dio + "=false")
 
     def PSS_light(self):
         self.robot.setVal3GlobalVariableBoolean("bEnable_PSS", True)

@@ -651,24 +651,6 @@ class flex:
             parser.write(file)
         logging.getLogger('flex').info("number of sample transfer set to %d" %(int(iter_nb)))
         return iter_nb
-    def do_load_detection(self, gripper_type, ref):
-        with BackgroundGreenlets(self.detection, (str(gripper_type), str(ref)), 
-                                 self.sampleStatus, ("LoadSampleStatus",), self.PSS_light, ()) as X:
-            return X.execute(self.robot.executeTask, "loadSample", timeout=200)
-
-    def update_transfer_iteration(self, reset=False):
-        parser = ConfigParser.RawConfigParser()
-        file_path = os.path.dirname(self.calibration_file)+"/transfer_iteration.cfg"
-        parser.read(file_path)
-        if reset:
-            iter_nb = 0
-        else:
-            iter_nb = parser.getfloat("transfer", "iter") + 1
-        parser.set("transfer", "iter", str(iter_nb))
-        with open(file_path, 'wb') as file:
-            parser.write(file)
-        logging.getLogger('flex').info("number of sample transfer set to %d" %(int(iter_nb)))
-        return iter_nb
 
     def save_loaded_position(self, cell, puck, sample):
         parser = ConfigParser.RawConfigParser()

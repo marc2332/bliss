@@ -10,53 +10,43 @@ PACE (Pressure Automated Calibration Equipmet) , acessible via tcp sockets
 5000 and 6000 models
 
 Only one channel to control
-
 yml configuration example:
-name: 
-class: pace
-url: 'id29pace1:5025' #host:port
-outputs:
-    - name: pmb_press
-      channel: 1            # for 6000 only
+controller:
+   class: pace
+   url: 'id29pace1:5025' #host:port
+   outputs:
+     - name: pmbpress
+       low_limit: 0
+       high_limit: 2.1
+       channel: 1            # for 6000 only
 """
 
-# import for Controller
+""" TempController import """
 from bliss.controllers.temp import Controller
-from bliss.common.temperature import Input, Output, Loop
-import random
-import time
-import math
+from bliss.common.temperature import Output
 from bliss.common import log
-
 from bliss.common.utils import object_method, object_method_type
 from bliss.common.utils import object_attribute_get, object_attribute_type_get
 from bliss.common.utils import object_attribute_set, object_attribute_type_set
 
-
 # import for this controller
 from bliss.comm.tcp import Tcp
 import logging
-import time
 
-class pace(Controller):
-
-    def __init__(self, config, *args):
-
-        Controller.__init__(self, config, *args)
- 
-        if "timeout" in config:
-            self.timeout = config["timeout"]
-        else:
-            self.timeout = 3
-            
-        if "url" in config:
-            self._sock = Tcp(config["url"], timeout=self.timeout)
-        else:
-            raise RuntimeError("pace: should give a communication url")
-        
+class Pace:
+    def __init__(self, url=None, timeout=3, debug=False):
+        self.timeout = timeout
+        self._sock = Tcp(url, timeout=self.timeout)
         self.units={1:"MBAR", 2:"BAR", 3:"PA", 4:"HPA", 5:"KPA",
                     12: "KG/M2", 19:"TORR", 20:"ATM"}
-            
+
+    def __del__(self):
+        self._sock.close()
+
+    def exit(self):
+        self._sock.close()
+
+    def init(self):
         #check if the device replies correctly
         reply = self._sock.write_readline("*IDN?\r", eol="\r", timeout=self.timeout)
         
@@ -68,77 +58,63 @@ class pace(Controller):
         self._logger.setLevel(logging.DEBUG)
         logging.basicConfig(level=logging.INFO)
 
-    def initialize(self):
-        pass
-
-    def initialize_output(self, toutput):
-        pass
-
-    def __del__(self):
-        self._sock.close()
-
-
-    def set(self, toutput, pressure):
-        """Controller method:
-           Setting a setpoint as quickly as possible
-
-           TO BE REVIEWED: need to disable the ramp before
-
-           Set the pressure setpoint
+    def setpoint(self, pressure=None, channel=1):
+        """Set/Read the pressure setpoint
         Args:
            pressure (float): Pressure setpoint value
         Returns:
-           None
+           pressure(float): Current setpoint value
         """
-        try:
-            self._send_comm(":SOUR%1d:PRES %f"%(toutput.channel, pressure))
-        except RuntimeError:
-            self._logger.error("Pressure not set")
+        if pressure:
+            try:
+                self._send_comm(":SOUR%1d:PRES %f"%(channel, pressure))
+            except RuntimeError:
+                self._logger.error("Pressure not set")
+        else:
+            try:
+                return float(self._query_comm(":SOUR%1d:PRES?"%(channel)))
+            except ValueError:
+                self._logger.error("Pressure setpoint not read")
 
-
-    def start_ramp(self, toutput, pressure, **kwargs):
-        """Controller method:
-           Doing a ramp on a Output object
-
-           Change the pressure to a set value at a controlled rate
-           Args:
-              rate (float): ramp rate in current units per second
-              pressure (float): target pressure
-           Returns:
-              (float, float): current ramp rate , target pressure        
+    def ramp(self, pressure=None, rate=None, channel=1):
+        """Start ramping to the pressure setpoint/Get current ramp parameters
+        Args:
+           pressure (float): target pressure
+           rate (float): ramp rate in current units per second
+        Returns:
+           (float, float): target pressure, current ramp rate
         """
-        if kwargs.has_key("ramp"):
-           toutput.rampval(kwargs["ramp"])
+        if ramp:
+            self.ramprate(ramp, channel)
+        else:
+            ramp = self.ramprate()
 
-        self._ramprate(toutput.rampval())
+        if pressure:
+            self.setpoint(pressure, channel)
+        else:
+            pressure = setpoint(pressure, channel)
 
-        try:
-            self._send_comm(":SOUR%1d:PRES %f"%(toutput.channel, pressure))
-        except RuntimeError:
-            self._logger.error("Pressure not set")
+        return (pressure, ramp)
 
-
-    def get_setpoint(self,toutput):
-        """Controller method:
-           Get the setpoint value on a Output object
-
-        Returned value is None if not setpoint is set
+    def ramprate(self, rate=None, channel=1):
+        """Set/Read the rate the controller should use to achieve setpoint
+        Args:
+            rate (float): Desired rate in pressure units per second
+        Returns:
+            (float): Current rate in selected pressure units per second
         """
-        try:
-            return float(self._query_comm(":SOUR%1d:PRES?"%(toutput.channel)))
-        except ValueError:
-            self._logger.error("Pressure not read")
+        if rate:
+            try:
+               self._send_comm("SOUR%1d:PRES:SLEW %f" % (channel, rate))
+            except RuntimeError:
+                self._logger.error("Ramp rate not set")
+        else:
+            try:
+                return self._query_comm("SOUR%1d:PRES:SLEW?" % channel)
+            except ValueError:
+                self._logger.error("Cannot read the current ramp rate")
 
-    def read_output(self,toutput):
-        """Controller method:
-           Reading on a TOutput object
-        Returned value is None if not setpoint is set
-
-        """
-        return self._read_pressure(toutput.channel)
-
-        
-    def _read_pressure(self,channel):
+    def read_pressure(self,channel=1):
         """Read the current pressure
         Returns:
            (float): The pressure in the current units
@@ -147,26 +123,6 @@ class pace(Controller):
             return float(self._query_comm(":SENS%1d:PRES?"%channel))
         except ValueError:
             self._logger.error("Cannot read the pressure")
-
-
-    def _ramprate(self, rate=None):
-        """Set/Read the rate the controller should use to acieve setpoint
-        Args:
-            rate (float): Desired rate in pressure inits per second
-        Returns:
-            (float): Current rate in selected pressure inits per second
-        """
-        channel = 1
-        if rate:
-            try:
-               self._send_comm("SOUR%1d:PRES:SLEW %f" % (channel, rate))
-            except RuntimeError:
-                self._logger.error("Slew rate not set")
-        else:
-            try:
-                return self._query_comm("SOUR%1d:PRES:SLEW?" % channel)
-            except ValueError:
-                self._logger.error("Cannot read the current slew rate")    
         
     def _unit(self, unit=None):
         """Set/Read the pressure unit
@@ -207,8 +163,7 @@ class pace(Controller):
             except (ValueError,AttributeError), e:
                 self._logger.error(e)
                 return False
-            
-        
+
     def _read_error(self):
         """Check for an error
            Returns:
@@ -233,3 +188,109 @@ class pace(Controller):
         if err:
             self._logger.error(err)
             raise RuntimeError(err)
+
+
+class pace(Controller):
+    def __init__(self, config, *args):
+        if not "url" in config:
+            raise RuntimeError("pace: should give a communication url")
+
+        self._pace = Pace(config["url"], config.get("timeout"))
+
+        Controller.__init__(self, config, *args)
+
+    def initialize(self):
+        self._pace.init()
+
+    def initialize_output(self, toutput):
+        self.__ramp_rate = None
+        self.__set_point = None
+        self.channel = toutput.config.get("channel") or 1
+
+    def __del__(self):
+        self._pace.exit()
+
+    def start_ramp(self, toutput, sp, **kwargs):
+        """ Send the command to start ramping to a setpoint.
+        Args:
+           toutput (object): Output class type object
+           sp (float): setpoint
+           **kwargs: auxilliary arguments:
+              rate (float): ramp rate in current units per second
+	Raises:
+	   RuntimeError: the ramp rate is not set
+        """
+        try:
+            rate = int(kwargs.get("rate", self.__ramp_rate))
+        except TypeError:
+            raise RuntimeError("Cannot start ramping, ramp rate not set")
+
+        self._pace.ramp(pressure, rate, self.channel)
+
+    def set_ramprate(self, toutput, rate, **kwargs):
+        """ Set the ramp rate.
+         Args:
+            toutput (object): Output class type object
+            rate (float): Desired rate in pressure units per second
+        """
+        self.__ramp_rate = rate
+        toutput.rampval(rate)
+        self._pace.ramprate(rate, self.channel)
+
+    def read_ramprate(self, toutput):
+        """ Read the ramp rate.
+        Args:
+           toutput (object): Output class type object
+        Returns:
+           (float): Current rate in selected pressure units per second
+                    None if no ramp rate set
+        """
+        self.__ramp_rate = self._pace.ramprate(None, self.channel)
+        return self.__ramp_rate
+
+    def set(self, toutput, sp, **kwargs):
+        """ Set the pressure setpoint (go as quick as possible).
+        Args:
+           toutput (object): Output class type object
+           sp (float): Pressure setpoint value
+        Returns:
+           None
+        """
+        self._pace.setpoint(sp, self.channel)
+
+    def get_setpoint(self,toutput):
+        """ Get the setpoint value.
+        Args:
+           toutput (object): Output class type object
+        Returns:
+           (float): Current setpoint in selected pressure units
+                    None if no setpoint set
+        """
+        self.__set_point = self._pace.setpoint(None, self.channel)
+        return self.__set_point
+
+    def read_output(self,toutput):
+        """ Read the pressure.
+        Args:
+           toutput (object): Output class type object
+        Returns:
+           (float): The pressure in the current units
+        """
+        return self._pace.read_pressure(self.channel)
+
+    def state_output(self,toutput):
+        """ Read the state.
+        Args:
+           toutput(object): Output class type object
+        Returns:
+           (string): The controller state
+        """
+        return "READY"
+
+
+if __name__ == '__main__':
+    _pace = Pace('id29pace1:5025')
+
+    _pace.init()
+
+    print _pace.read_pressure()

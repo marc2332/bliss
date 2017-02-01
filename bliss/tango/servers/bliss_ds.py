@@ -559,7 +559,8 @@ def __initialize(args, db=None):
 
     object_names = []
     for session in sessions:
-        object_names.extend(session.object_names)
+        if session.object_names:
+            object_names.extend(session.object_names)
 
     info = dict(server_type=server_type,
                 server_instance=server_instance,

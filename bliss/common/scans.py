@@ -137,7 +137,10 @@ def ascan(motor, start, stop, npoints, count_time, *extra_counters, **kwargs):
     kwargs.setdefault('npoints', npoints)
     kwargs.setdefault('total_acq_time', npoints * count_time)
 
-    counters = list(get_active_counters_iter()) + list(extra_counters)
+    counters = list(get_active_counters_iter())
+    for cnt in extra_counters:
+      if not cnt in counters:
+        counters.append(cnt)
 
     env = ScanEnvironment(kwargs, count_time=count_time)
     dm = env['data_manager']
@@ -263,7 +266,10 @@ def a2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
     kwargs.setdefault('npoints', npoints)
     kwargs.setdefault('total_acq_time', npoints * count_time)
 
-    counters = list(get_active_counters_iter()) + list(extra_counters)
+    counters = list(get_active_counters_iter())
+    for cnt in extra_counters:
+      if not cnt in counters:
+        counters.append(cnt)
 
     env = ScanEnvironment(kwargs, count_time=count_time)
     dm = env['data_manager']
@@ -348,8 +354,11 @@ def d2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
     oldpos1 = motor1.position()
     oldpos2 = motor2.position()
 
-    counters = list(get_active_counters_iter()) + list(extra_counters)
-
+    counters = list(get_active_counters_iter()) 
+    for cnt in extra_counters:
+      if not cnt in counters:
+        counters.append(cnt)
+ 
     a2scan(motor1, oldpos1 + start1, oldpos1+stop1, motor2, oldpos2 + start2,
            oldpos2 + stop2, npoints, count_time, *counters, **kwargs)
 
@@ -388,7 +397,10 @@ def timescan(count_time, *extra_counters, **kwargs):
     if npoints > 0:
         kwargs['total_acq_time'] = npoints * (count_time + sleep_time)
 
-    counters = list(get_active_counters_iter()) + list(extra_counters)
+    counters = list(get_active_counters_iter())
+    for cnt in extra_counters:
+      if not cnt in counters:
+        counters.append(cnt)
 
     env = ScanEnvironment(kwargs, count_time=count_time)
     dm = env['data_manager']

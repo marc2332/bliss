@@ -111,9 +111,9 @@ def active_measurement_group():
 
 
 def get_active_counters_iter():
-    cfg = get_config()
-    for name in active_measurement_group():
-        yield cfg.get(name)
+    for c in __get_counters_iter():
+      if c.name in active_measurement_group():
+        yield c
 
 
 def __enable_ct(counters):
@@ -124,7 +124,6 @@ def __enable_ct(counters):
 def __disable_ct(counters):
     amg = active_measurement_group()
     for counter in counters:
-        print 'removing', counter.name
         amg.remove(counter.name)
 
 
@@ -136,9 +135,9 @@ def enable(*elems):
         elem: a object or object name
     """
     counters = []
-    for elem in __get_objects_iter(*elems):
-        if isinstance(elem, CounterBase):
-            counters.append(elem)
+    for elem in elems:
+      if isinstance(elem, CounterBase):
+        counters.append(elem)
     __enable_ct(counters)
 
 
@@ -150,9 +149,9 @@ def disable(*elems):
         elem: object or object name
     """
     counters = []
-    for elem in __get_objects_iter(*elems):
-        if isinstance(elem, CounterBase):
-            counters.append(elem)
+    for elem in elems:
+      if isinstance(elem, CounterBase):
+        counters.append(elem)
     __disable_ct(counters)
 
 

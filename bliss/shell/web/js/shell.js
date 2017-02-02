@@ -33,7 +33,7 @@ function Shell(client_uuid, cmdline_div_id, shell_output_div_id, setup_div_id, l
     var table = $('<div style="width:100%; display:table;"></div>');
     this.hint_row = $($.parseHTML('<div style="display:table-row;"><label style="display:table-cell; width:1%;">&nbsp;</label></div>'));
     this.hint_row.appendTo(table);
-    this.hint = $('<label class="hint" style="display:table-cell;"></label>');
+    this.hint = $('<label class="hint" style="display:table-cell; padding: 1.1em;"></label>');
     this.hint.appendTo(this.hint_row);
     this.cmdline_row = $($.parseHTML('<div style="display:table-row;"></div>'));
     this.cmdline_row.appendTo(table);

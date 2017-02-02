@@ -506,12 +506,17 @@ class wago(object):
       self.connect()
     return self.controller.get(*args, **kwargs)
 
-
   @property
   def counters(self):
-    return WagoCounter(self,self.cnt_names)
+    counters_list = []
+    for cnt_name in self.cnt_names: 
+      counters_list.append(getattr(self, cnt_name))
+    return counters_list
 
   def _cntread(self, acq_time=None):
-    return self.get(*self.cnt_names)
+    if len(self.cnt_names) == 1:
+      return [self.get(*self.cnt_names)]
+    else:
+      return self.get(*self.cnt_names)
 
 

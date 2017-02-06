@@ -298,19 +298,21 @@ def _send_config_db_files(client_id,message):
     try:
         for root,dirs,files in os.walk(look_path):
             for filename in files:
-                basename,ext = os.path.splitext(filename)
+                basename, ext = os.path.splitext(filename)
                 if ext == '.yml':
                     full_path = os.path.join(root,filename)
                     rel_path = full_path[len(_options.db_path) + 1:]
-                    with codecs.open(full_path, "r", "utf-8") as f:
-                        try:
+                    try:
+                        with codecs.open(full_path, "r", "utf-8") as f:
                             raw_buffer = f.read().encode('utf-8')
                             msg = protocol.message(protocol.CONFIG_DB_FILE_RX,'%s|%s|%s' % (message_key,rel_path,raw_buffer))
                             client_id.sendall(msg)
-                        except Exception as e:
-                            sys.excepthook(*sys.exc_info())
-    except:
+                    except Exception as e:
+                        sys.excepthook(*sys.exc_info())
+                        client_id.sendall(protocol.message(protocol.CONFIG_DB_FAILED, "%s|%s" % (message_key, e)))
+    except Exception as e:
         sys.excepthook(*sys.exc_info())
+        client_id.sendall(protocol.message(protocol.CONFIG_DB_FAILED, "%s|%s" % (message_key, e)))
     finally:
         client_id.sendall(protocol.message(protocol.CONFIG_DB_END,"%s|" % (message_key)))
 

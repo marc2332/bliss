@@ -362,6 +362,7 @@ class Connection(object):
                             queue = self._message_queue.get(message_key)
                             if queue is not None: queue.put(value)
                         elif messageType in (protocol.CONFIG_GET_FILE_FAILED,
+                                             protocol.CONFIG_DB_FAILED,
                                              protocol.CONFIG_SET_DB_FILE_FAILED,
                                              protocol.CONFIG_GET_DB_TREE_FAILED,
                                              protocol.CONFIG_REMOVE_FILE_FAILED,

@@ -267,7 +267,7 @@ class QueueSetting(object):
     @write_decorator
     def remove(self,value):
         cnx = self._cnx()
-        cnx.lrem(self._name,1,value)
+        cnx.lrem(self._name,value)
 
     @write_decorator_multiple
     def set(self,values):

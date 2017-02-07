@@ -8,6 +8,7 @@ redis  >= 2.8
 PyYaml
 netifaces
 louie
+jinja2 >= 2.7
 flask
 treelib
 gipc

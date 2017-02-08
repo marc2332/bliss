@@ -258,6 +258,8 @@ class flex:
         logging.getLogger('flex').info("Dewar moved to %d" %cell)
 
     def get_loaded_sample(self):
+        if self._loaded_sample == None:
+            self._loaded_sample = self.read_loaded_position()
         return self._loaded_sample
 
     def get_cell_position(self):

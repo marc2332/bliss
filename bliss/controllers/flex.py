@@ -754,7 +754,7 @@ class flex:
             self.homeClear()
             self.defreezeGripper()
             self.update_transfer_iteration(reset=True)
-        self.save_loaded_position(*to_load)
+        self.save_loaded_position(*self._loaded_sample)
  
         return success
 
@@ -831,7 +831,7 @@ class flex:
             self.update_transfer_iteration(reset=True)
  
 
-        self.save_loaded_position(-1,-1,-1)
+        self.save_loaded_position(*self._loaded_sample)
 
         return success
 
@@ -922,7 +922,7 @@ class flex:
             self.defreezeGripper()
             self.update_transfer_iteration(reset=True)
  
-        self.save_loaded_position(*load)
+        self.save_loaded_position(*self._loaded_sample)
 
         return success
 

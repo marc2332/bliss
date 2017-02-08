@@ -133,6 +133,21 @@ class flex:
             logging.getLogger('flex').info("Roi for %s detection is %s" %(section, str(val)))
         return val
 
+    def transfer_counter(self, success=True):
+        parser = ConfigParser.RawConfigParser()
+        file_path = os.path.dirname(self.calibration_file)+"/transfer_counter.log"
+        parser.read(file_path)
+        if success:
+            transfer_iter = parser.getint("total transfer", "success") + 1
+            parser.set("total transfer", "success", str(transfer_iter))
+            logging.getLogger('flex').info("total number of successful transfer: %d" %(transfer_iter))
+        else:
+            transfer_iter = parser.getint("total transfer", "failure") + 1
+            parser.set("total transfer", "failure", str(transfer_iter))
+            logging.getLogger('flex').info("total number of transfer with failure: %d" %(transfer_iter))
+        with open(file_path, 'wb') as file:
+            parser.write(file)
+
     @notwhenbusy
     def enablePower(self, state):
         state = bool(state)
@@ -243,6 +258,8 @@ class flex:
         logging.getLogger('flex').info("Dewar moved to %d" %cell)
 
     def get_loaded_sample(self):
+        if self._loaded_sample == None:
+            self._loaded_sample = self.read_loaded_position()
         return self._loaded_sample
 
     def get_cell_position(self):
@@ -292,6 +309,7 @@ class flex:
  
     def get_robot_cache_variable(self, varname):
         try:
+            logging.getLogger('flex').info("cache variable %s is %s", str(varname), str(self.robot.getCachedVariable(varname).getValue()))
             return self.robot.getCachedVariable(varname).getValue()
         except Exception:
             return ''
@@ -693,6 +711,7 @@ class flex:
     def loadSample(self, cell, puck, sample, ref=False):
         to_load = (cell, puck, sample)
         cell, PuckPos, sample, PuckType = self.check_coordinates(cell, puck, sample)
+        logging.getLogger('flex').info("#################")
         logging.getLogger('flex').info("Loading sample cell %d, puck %d, sample %d" %(cell, puck, (sample + 1)))
         if self.robot.getCachedVariable("data:dioPinOnGonio").getValue() == "true":
             logging.getLogger('flex').error("Sample already on SmartMagnet")
@@ -722,11 +741,13 @@ class flex:
         success = self.do_load_detection(gripper_type, ref)
         self.set_io("dioLoadStReq", False)
         transfer_iter = self.update_transfer_iteration()
-        if success: 
+        if success and self.pin_on_gonio(): 
+            self.transfer_counter(success=True)
             self._loaded_sample = to_load
         else:
-            if not self.pin_on_gonio():
-              self._loaded_sample = -1, -1, -1
+            self.transfer_counter(success=False)
+            #if not self.pin_on_gonio():
+            self._loaded_sample = -1, -1, -1
 
         if gripper_type == 3:
             gevent.spawn(self.defreezeGripper)
@@ -735,7 +756,7 @@ class flex:
             self.homeClear()
             self.defreezeGripper()
             self.update_transfer_iteration(reset=True)
-        self.save_loaded_position(*to_load)
+        self.save_loaded_position(*self._loaded_sample)
  
         return success
 
@@ -753,6 +774,7 @@ class flex:
 
     @notwhenbusy
     def unloadSample(self, cell, puck, sample):
+        logging.getLogger('flex').info("#################")
         logging.getLogger('flex').info("Unloading sample cell %d, puck %d, sample %d" %(cell, puck, sample))
         cell, PuckPos, sample, PuckType = self.check_coordinates(cell, puck, sample)
         loaded_puck_pos = self.robot.getVal3GlobalVariableDouble("nLoadPuckPos")
@@ -795,9 +817,11 @@ class flex:
         self.set_io("dioUnloadStReq", False)
         transfer_iter = self.update_transfer_iteration()
 
-        if success:
+        if success and not self.pin_on_gonio():
+            self.transfer_counter(success=True)
             self._loaded_sample = (-1, -1, -1)
         else:
+            self.transfer_counter(success=False)
             if not self.pin_on_gonio():
               self._loaded_sample = -1, -1, -1
 
@@ -810,7 +834,7 @@ class flex:
             self.update_transfer_iteration(reset=True)
  
 
-        self.save_loaded_position(-1,-1,-1)
+        self.save_loaded_position(*self._loaded_sample)
 
         return success
 
@@ -823,6 +847,7 @@ class flex:
  
     @notwhenbusy
     def chainedUnldLd(self, unload, load):
+        logging.getLogger('flex').info("#################")
         if not isinstance(unload, list) or not isinstance(load, list):
             logging.getLogger('flex').error("unload/load pos must be list")
             raise TypeError("unload/load pos must be list")
@@ -885,9 +910,11 @@ class flex:
         self.set_io("dioLoadStReq", False)
         transfer_iter = self.update_transfer_iteration()
 
-        if success:
+        if success and self.get_robot_cache_variable("SampleCentringReady") == "True" and self.pin_on_gonio():
+            self.transfer_counter(success=True)
             self._loaded_sample = tuple(load)
         else:
+            self.transfer_counter(success=False)
             if not self.pin_on_gonio():
               self._loaded_sample = -1, -1, -1
   
@@ -899,7 +926,7 @@ class flex:
             self.defreezeGripper()
             self.update_transfer_iteration(reset=True)
  
-        self.save_loaded_position(*load)
+        self.save_loaded_position(*self._loaded_sample)
 
         return success
 
@@ -948,7 +975,7 @@ class flex:
             self.robot.setVal3GlobalVariableDouble("nGripperType", str(gripper_type))
         logging.getLogger('flex').info("Gripper on robot")
         logging.getLogger('flex').info("Starting defreezing gripper if needed")
-        self.do_dryWithoutPloun()
+        self.do_defreezeGripper()
         logging.getLogger('flex').info("Defreezing gripper finished")
 
     def get_gripper_type(self):

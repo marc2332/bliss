@@ -971,7 +971,7 @@ class flex:
             self.robot.setVal3GlobalVariableDouble("nGripperType", str(gripper_type))
         logging.getLogger('flex').info("Gripper on robot")
         logging.getLogger('flex').info("Starting defreezing gripper if needed")
-        self.do_dryWithoutPloun()
+        self.do_defreezeGripper()
         logging.getLogger('flex').info("Defreezing gripper finished")
 
     def get_gripper_type(self):

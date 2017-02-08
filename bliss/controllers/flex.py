@@ -133,6 +133,21 @@ class flex:
             logging.getLogger('flex').info("Roi for %s detection is %s" %(section, str(val)))
         return val
 
+    def transfer_counter(self, success=True):
+        parser = ConfigParser.RawConfigParser()
+        file_path = os.path.dirname(self.calibration_file)+"/transfer_counter.log"
+        parser.read(file_path)
+        if success:
+            transfer_iter = parser.getint("total transfer", "success") + 1
+            parser.set("total transfer", "success", str(transfer_iter))
+            logging.getLogger('flex').info("total number of successful transfer: %d" %(transfer_iter))
+        else:
+            transfer_iter = parser.getint("total transfer", "failure") + 1
+            parser.set("total transfer", "failure", str(transfer_iter))
+            logging.getLogger('flex').info("total number of transfer with failure: %d" %(transfer_iter))
+        with open(file_path, 'wb') as file:
+            parser.write(file)
+
     @notwhenbusy
     def enablePower(self, state):
         state = bool(state)
@@ -722,11 +737,13 @@ class flex:
         success = self.do_load_detection(gripper_type, ref)
         self.set_io("dioLoadStReq", False)
         transfer_iter = self.update_transfer_iteration()
-        if success: 
+        if success and self.pin_on_gonio(): 
+            self.transfer_counter(success=True)
             self._loaded_sample = to_load
         else:
-            if not self.pin_on_gonio():
-              self._loaded_sample = -1, -1, -1
+            self.transfer_counter(success=False)
+            #if not self.pin_on_gonio():
+            self._loaded_sample = -1, -1, -1
 
         if gripper_type == 3:
             gevent.spawn(self.defreezeGripper)
@@ -795,9 +812,11 @@ class flex:
         self.set_io("dioUnloadStReq", False)
         transfer_iter = self.update_transfer_iteration()
 
-        if success:
+        if success and not self.pin_on_gonio():
+            self.transfer_counter(success=True)
             self._loaded_sample = (-1, -1, -1)
         else:
+            self.transfer_counter(success=False)
             if not self.pin_on_gonio():
               self._loaded_sample = -1, -1, -1
 
@@ -885,9 +904,11 @@ class flex:
         self.set_io("dioLoadStReq", False)
         transfer_iter = self.update_transfer_iteration()
 
-        if success:
+        if success and self.get_robot_cache_variable("SampleCentringReady") == "True" and self.pin_on_gonio():
+            self.transfer_counter(success=True)
             self._loaded_sample = tuple(load)
         else:
+            self.transfer_counter(success=False)
             if not self.pin_on_gonio():
               self._loaded_sample = -1, -1, -1
   

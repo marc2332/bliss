@@ -309,6 +309,7 @@ class flex:
  
     def get_robot_cache_variable(self, varname):
         try:
+            logging.getLogger('flex').info("cache variable %s is %s", str(varname), str(self.robot.getCachedVariable(varname).getValue()))
             return self.robot.getCachedVariable(varname).getValue()
         except Exception:
             return ''
@@ -710,6 +711,7 @@ class flex:
     def loadSample(self, cell, puck, sample, ref=False):
         to_load = (cell, puck, sample)
         cell, PuckPos, sample, PuckType = self.check_coordinates(cell, puck, sample)
+        logging.getLogger('flex').info("#################")
         logging.getLogger('flex').info("Loading sample cell %d, puck %d, sample %d" %(cell, puck, (sample + 1)))
         if self.robot.getCachedVariable("data:dioPinOnGonio").getValue() == "true":
             logging.getLogger('flex').error("Sample already on SmartMagnet")
@@ -772,6 +774,7 @@ class flex:
 
     @notwhenbusy
     def unloadSample(self, cell, puck, sample):
+        logging.getLogger('flex').info("#################")
         logging.getLogger('flex').info("Unloading sample cell %d, puck %d, sample %d" %(cell, puck, sample))
         cell, PuckPos, sample, PuckType = self.check_coordinates(cell, puck, sample)
         loaded_puck_pos = self.robot.getVal3GlobalVariableDouble("nLoadPuckPos")
@@ -844,6 +847,7 @@ class flex:
  
     @notwhenbusy
     def chainedUnldLd(self, unload, load):
+        logging.getLogger('flex').info("#################")
         if not isinstance(unload, list) or not isinstance(load, list):
             logging.getLogger('flex').error("unload/load pos must be list")
             raise TypeError("unload/load pos must be list")

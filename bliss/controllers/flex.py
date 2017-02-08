@@ -309,7 +309,7 @@ class flex:
  
     def get_robot_cache_variable(self, varname):
         try:
-            logging.getLogger('flex').info("cache variable %s is %s", str(varname), str(self.robot.getCachedVariable(varname).getValue()))
+            #logging.getLogger('flex').info("cache variable %s is %s", str(varname), str(self.robot.getCachedVariable(varname).getValue()))
             return self.robot.getCachedVariable(varname).getValue()
         except Exception:
             return ''

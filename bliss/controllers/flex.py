@@ -234,7 +234,7 @@ class flex:
             try:
                 VAL3_puck = int(self.robot.getCachedVariable('RequestedDewarPosition').getValue())
             except:
-                return None, None
+                return None
             cell = ((VAL3_puck // 3 + 3) % 8) + 1 
             return cell
   

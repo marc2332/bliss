@@ -12,7 +12,7 @@ import functools
 
 from bliss import setup_globals
 from bliss.config import static
-from bliss.config.conductor.client import get_config_file,get_python_modules
+from bliss.config.conductor.client import get_config_file,get_python_modules,get_file
 
 DEFAULT_SESSION = None
 
@@ -73,8 +73,7 @@ class _StringImporter(object):
 class Session(object):
    def __init__(self,name,config_tree):
       self.__name = name
-      self._base_path = os.path.dirname(config_tree.filename)
-      self._setup_file_path = config_tree.get('setup-file')
+      self._config_tree = config_tree
       self._synoptic_file = config_tree.get('svg-file')
       self._config_objects_names = config_tree.get("config-objects")
 
@@ -92,19 +91,10 @@ class Session(object):
       return self._config_objects_names
 
    def setup(self,env_dict = None,verbose = False):
-      if self._setup_file_path is not None:
-         if self._setup_file_path.startswith('.'): # relative from current node
-            filename = os.path.basename(self._setup_file_path)
-            fullpath = os.path.join(self._base_path,filename)
-         else:
-            fullpath = setup_file_path
-
-         try:
-            setup_python = get_config_file(fullpath)
-         except RuntimeError:
-            raise ValueError("Session: setup-file %s can't be found" % fullpath)
-         else:
-            module_path = os.path.join(self._base_path,'scripts')
+      try:
+         with get_file(self._config_tree,'setup-file') as setup_file:
+            base_path = os.path.dirname(self._config_tree.filename)
+            module_path = os.path.join(base_path,'scripts')
             
             if env_dict is None:
                # does Python run in interactive mode?
@@ -129,14 +119,18 @@ class Session(object):
                _importer_path.add(module_path)
 
             try:
-               exec(setup_python,env_dict)
+               exec(setup_file.read(),env_dict)
             finally:
                for obj_name, obj in env_dict.iteritems():
                   setattr(setup_globals, obj_name, obj) 
             if verbose:
                print "Done."
             return True
-      raise RuntimeError("No setup file.")
+      except KeyError:
+         raise RuntimeError("No setup file.")
+      except IOError:
+         raise ValueError("Session: setup-file %s can't be found" % 
+                          self._config_tree.get('setup-file'))
 
    @staticmethod
    def _load_config(env_dict, names_list=None, verbose=True):

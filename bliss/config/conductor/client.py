@@ -5,10 +5,17 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+import os
+import StringIO
 from . import connection
 
 _default_connection = None
 
+class _StringIO(StringIO.StringIO):
+    def __enter__(self,*args,**kwags):
+        return self
+    def __exit__(self,*args,**kwags):
+        pass
 
 def check_connection(func):
     def f(*args,**keys):
@@ -48,6 +55,54 @@ def get_cache(db=0, connection=None):
 def get_config_file(file_path, connection=None) :
     return connection.get_config_file(file_path)
 
+def get_file(config_node,key,local=False,base_path=None,raise_on_none_path=True) :
+    """
+    return an open file object in read only mode.
+
+    This function first try to open a remote file store on the global configuration.
+    If it failed it try to open it locally like python *open*.
+
+    :params config_node basically the controller's configuration node.
+    :params key the config_node[key] where the file path is stored.
+    If config_node[key] start with './' => the path will be relative to the config_node file.
+    :params local if set to True, just use python *open*
+    :params base_path path prepended if not None to the path return by config_node[key]
+    :params raise_on_none_path if False and config_node[key] == None, return empty file. Otherwise raise KeyError.
+    this parameters may be useful if the key is optional.
+    """
+    path = config_node.get(key)
+    if path is not None:
+        if base_path is not None:
+            path = os.path.join(base_path,path)
+        elif path.startswith('.'): # relative from current config_node
+            base_path = os.path.dirname(config_node.filename)
+            path = os.path.join(base_path,path)
+    elif raise_on_none_path:
+        raise KeyError(key)
+    return _open_file(path,local)
+
+def remote_open(file_path,local=False):
+    """
+    return an open file object in read only mode
+    
+    :params file_path the full path to the file if None return an empty file
+    :params local if set to True, just use python *open*
+    """
+    return _open_file(file_path,local)
+
+def _open_file(file_path,local) :
+    if file_path is None:
+        return _StringIO()
+
+    if local:
+        return open(file_path)
+
+    try:
+        file_content = get_config_file(file_path.strip('/'))
+    except RuntimeError:
+        return open(file_path)
+    else:
+        return _StringIO(file_content)
 
 @check_connection
 def get_config_db_files(base_path='', timeout=3., connection=None):

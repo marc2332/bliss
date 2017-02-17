@@ -14,6 +14,7 @@ treelib
 gipc
 jedi
 ptpython
+pygments == 1.6.0 ; python_version < '2.7'
 docopt
 bottle
 numpy
@@ -25,7 +26,8 @@ pyserial == 2.7
 
 # --- optional dependencies --------------------------------
 
-ruamel.yaml
+ruamel.yaml == 0.11.15 ; python_version < '2.7'
+ruamel.yaml ; python_version >= '2.7'
 posix_ipc
 
 # --- python < 2.7 dependencies ----------------------------

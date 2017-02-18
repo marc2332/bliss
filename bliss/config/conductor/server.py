@@ -522,7 +522,7 @@ def start_webserver(webapp_port, beacon_port, debug=True):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--db_path",dest="db_path",default="./db",
+    parser.add_argument("--db_path",dest="db_path",default=os.environ.get("BEACON_DB_PATH", "./db"),
                         help="database path")
     parser.add_argument("--redis_port",dest="redis_port",default=6379,type=int,
                         help="redis connection port")

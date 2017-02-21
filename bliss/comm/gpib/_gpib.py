@@ -68,15 +68,14 @@ class Enet(EnetSocket):
         match = url_parse.match(url)
         if match is None:
             raise EnetError('Enet: url is not valid (%s)' % url)
-        hostname = match.group(2)
-        port = match.group(3) and int(match.group(3)) or 5000
-        self._sock = Socket(hostname,port,
+        self._host = match.group(2)
+        self._port = match.group(3) and int(match.group(3)) or 5000
+        self._sock = Socket(self._host,self._port,
                             timeout = keys.get('timeout'))
         self._gpib_kwargs = keys
 
     def init(self) :
         if self._sock._fd is None:
-            self._sock.connect()
             self.ibdev(pad = self._gpib_kwargs.get('pad'),
                        sad = self._gpib_kwargs.get('sad'),
                        tmo = self._gpib_kwargs.get('tmo'))

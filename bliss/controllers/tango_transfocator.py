@@ -23,7 +23,7 @@ class tango_transfocator:
             self.__control.ping()
          except PyTango.ConnectionFailed:
             self.__control = None
-            raise ConnectionError
+            raise RuntimeError("Connection error")
 
    def status_read(self):
       return self.__control.ShowLenses

@@ -681,6 +681,12 @@ class LeicaFocus(LeicaUSB):
                 res[anum] = (pos, status)
         return res
 
+    def switch_led_on(self):
+        self.write(95, 37, 1)
+
+    def switch_led_off(self):
+        self.write(95, 37, 0)
+
     def read_all_mot_pos(self, fromcache=False):
         if not fromcache or None in self.dial.values():
             self.write(self.MOT_REQ_POS, self.ALL_MOTORS)

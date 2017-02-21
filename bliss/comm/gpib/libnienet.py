@@ -65,11 +65,19 @@ class EnetSocket(object):
     self._sock = None
     self._open()
     self.sta = self.err = self.cnt = 0
+    self.enet1000 = False
+    self._extra_socket = list()
 
   def _open(self):
     self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     self._sock.connect((self._host, self._port))
-    
+
+  def close(self):
+    if self._sock:
+      self._sock.close()
+    for enet in self._extra_socket:
+      enet.close()
+
   def _send(self, string):
     return self._sock.send(string)
   
@@ -109,7 +117,8 @@ class EnetSocket(object):
         break
   
   def _read(self, many=False):
-    return "".join(self._read_frags(many))
+    rx = "".join(self._read_frags(many))
+    return rx
 
   def _write(self, string):
     return self._send(string)
@@ -130,12 +139,90 @@ class EnetSocket(object):
     return self._sresp()
 
   def ibdev(self, pad, sad=0, tmo=13, eot=1, eos=0):
-    if sad != 0: pad |= 0x80
-    self._scmd(0x07, "BBBBBBBB", 1, 0,
-      0x40 | eot, pad, sad, eos, 0, tmo) #, "\x02\x04\x00")
-    self._scmd(0x07, "BBBBBBBB", 0, 0x5c, 
-      0x40 | 1, 0, 0, 0, 0, 13) #, "\x02\x04\x00")
-    self.ibonl(1)
+    #first check if device is enet1000
+    enet_5000 = EnetSocket(self._host,5000)
+    intro_resp = enet_5000._scmd(0x0b)
+    self.enet1000 = intro_resp.find('ENET/1000') > -1
+    if self.enet1000:
+      i,h = unpack("!IH",enet_5000._scmd(0x63,"B",0x06))
+      client_id = enet_5000._scmd(0x64)
+      enet_5000._scmd(0x65,'BBB4s',0,0,0,client_id)
+      enet_5000._scmd(0x50,'B',0x05)
+      enet_5000._scmd(0x50,'B',0x25)
+      enet_5000._scmd(0x07,"BBBBBBBB",0,0x18,0x01,0,0,0,0,0x0d)
+      enet_5000._scmd(0x50,"BB",0x10,0x01)
+      
+      enet_5015 = EnetSocket(self._host,5015)
+      self._extra_socket.append(enet_5015)
+      enet_5015._scmd(0x55,'B4sHI',0x02,'\0\0\0\0',h,i)
+      enet_5015._scmd(0x65,'BBB4s',0,0,0,client_id)
+
+      enet_5003 = EnetSocket(self._host,5003)
+      self._extra_socket.append(enet_5003)
+      enet_5003._scmd(0x63,"B",0x06)
+      enet_5003._scmd(0x65,'BBB4s',0,0,0,client_id)
+
+      enet_5005 = EnetSocket(self._host,5005)
+      self._extra_socket.append(enet_5005)
+      enet_5005._scmd(0x65,'BBB4s',0,0,0,client_id)
+      enet_5005._scmd(0x4f,'B2sIH',0x22,"\0\0",i,h)
+
+      enet_5003._scmd(0x50,'BB',0x10,0x01)
+      enet_5003._scmd(0x55,'B4sHI',0x01,"\0\0\0\0",h,i)
+
+      self._sock.connect()
+      self._extra_socket.append(enet_5000)
+      i,h = unpack("!IH",self._scmd(0x63,"B",0x06))
+      self._scmd(0x65,'BBB4s',0,0,0,client_id)
+
+      self._scmd(0x07,"BBBBBBBBBB",0x02,0,eot,pad,sad,eos,0,tmo,0,0x04)
+      self._scmd(0x50,'B',0x05)
+      self._scmd(0x50,'BB',0x10,0x01)
+      self._scmd(0x50,'BB',0x15,0x0b)
+
+      enet_5015 = EnetSocket(self._host,5015)
+      self._extra_socket.append(enet_5015)
+      enet_5015._scmd(0x55,'BBBBBHI',0x02,0,0x02,0,0,h,i)
+      enet_5015._scmd(0x65,'BBB4s',0,0,0,client_id)
+
+      enet_5003 = EnetSocket(self._host,5003)
+      self._extra_socket.append(enet_5003)
+      enet_5003._scmd(0x63,"B",0x06)
+      enet_5003._scmd(0x65,'BBB4s',0,0,0,client_id)
+
+      enet_5005 = EnetSocket(self._host,5005)
+      self._extra_socket.append(enet_5005)
+      enet_5005._scmd(0x65,'BBB4s',0,0,0,client_id)
+      enet_5005._scmd(0x4f,'B2sIH',0x22,"\0\0",i,h)
+
+      enet_5003._scmd(0x55,'BBBBBHI',0x01,0,0x02,0,0,h,i)
+      enet_5003._scmd(0x50,'BB',0x10,0x01)
+
+      self._scmd(0x58,'BB',0x01,0x01)
+    else:
+      self._extra_socket.append(enet_5000)
+      first_msg = intro_resp.find('\0')
+      client_id = intro_resp[first_msg + 10:first_msg + 10 + 6]
+      i,h = unpack("!IH",client_id)
+      enet_5000._scmd(0x50,'B',0x05)
+      enet_5000._scmd(0x07,"BBBBBBBB",0,0x18,0x01,0,0,0,0,0x0d)
+      enet_5000._scmd(0x50,"BB",0x10,0x01)
+
+      enet_5015 = EnetSocket(self._host,5015)
+      self._extra_socket.append(enet_5015)
+      enet_5015._scmd(0x55,'B4sHI',0x02,'\0\0\0\0',h,i)
+      
+      self._sock.connect()
+      self._scmd(0x07,"BBBBBBBBBB",0x02,0,eot,pad,sad,eos,0,tmo,0,0x04)
+      self._scmd(0x50,'B',0x05)
+      self._scmd(0x50,'BB',0x10,0x01)
+      self._scmd(0x50,'BB',0x15,0x0b)
+
+      enet_5015 = EnetSocket(self._host,5015)
+      self._extra_socket.append(enet_5015)
+      enet_5015._scmd(0x55,'BBBBBHI',0x02,0,0x02,0,0,h,i)
+
+      self._scmd(0x58,'BB',0x01,0x01)
 
   def ibask(self, cfg):
     self._scmd(0x4e, "B", cfg)
@@ -212,15 +299,23 @@ class EnetSocket(object):
 #      "\xe1\x05\x08\xb1\xe0\x05\x08\x88\xf5\xff\xbf")
     
   def ibwrt(self, string):
-    self._scmd(0x23, "3s I", "\x05\x05\x08", len(string))
-#     "\x00\x54\x00\x00")
-    self._write(string)
+    argsfmt = "3s I"
+    argsfmt += "%dx" % (12 - calcsize("!B" + argsfmt))
+    header = pack("!B" + argsfmt,0x62,"\0\0\0",len(string))
+    self._write(header + string)
     self._sresp()
-    
+    if self.err:
+      raise IOError("No device connected to this address")
+    return self.cnt
+
   def ibrd(self, num):
-    self._scmd(0x16, "3s I", "\x00\x00\x00", num) 
-#     "\x40\x63\x16\x40")
-    ret = self._read(many=True)
+    argsfmt = "3s I"
+    argsfmt += "%dx" % (12 - calcsize("!B" + argsfmt))
+    self._write(pack("!B" + argsfmt,0x16,"\0\0\0",num))
+    if not self.enet1000:
+      self._sresp()
+      
+    ret =  self._read(many=True)
     self._sresp()
     return ret
 

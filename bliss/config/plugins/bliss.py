@@ -26,13 +26,13 @@ def create_objects_from_config_node(config, item_cfg_node):
         elif isinstance(value,list):
             object_list = dict()
             for node in value:
-                node_name = node.get('name','')
-                if(isinstance(node,dict) and
-                   node_name.startswith('$')):
-                    ref_obj = config.get(node_name)
-                    item_cfg_node[node_name] = ref_obj
-                    object_list[node_name] = ref_obj
-                    item_cfg_node_2_clean.add(node_name)
+                if(isinstance(node,dict):
+                    node_name = node.get('name','')
+                    if node_name.startswith('$')):
+                        ref_obj = config.get(node_name)
+                        item_cfg_node[node_name] = ref_obj
+                        object_list[node_name] = ref_obj
+                        item_cfg_node_2_clean.add(node_name)
             if object_list:
                 referenced_objects[name] = object_list
 

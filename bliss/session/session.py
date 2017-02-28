@@ -76,6 +76,7 @@ class Session(object):
       self._config_tree = config_tree
       self._synoptic_file = config_tree.get('svg-file')
       self._config_objects_names = config_tree.get("config-objects")
+      self._exclude_objects_names = config_tree.get("exclude-objects")
 
       global DEFAULT_SESSION
       if(DEFAULT_SESSION is None or 
@@ -105,12 +106,15 @@ class Session(object):
                else:
                   env_dict = globals()
 
+            exclude_objects = self._exclude_objects_names
             if isinstance(self._config_objects_names,(str,unicode)):
                config_objects = self._config_objects_names.split()
             else:
+               if isinstance(self._exclude_objects_names,(str,unicode)):
+                  exclude_objects = self._exclude_objects_names.split()
                config_objects = self._config_objects_names
 
-            self._load_config(env_dict, config_objects, verbose)
+            self._load_config(env_dict, config_objects, exclude_objects, verbose)
             
             env_dict['load_script'] = functools.partial(self._load_script, env_dict)
 
@@ -133,7 +137,7 @@ class Session(object):
                           self._config_tree.get('setup-file'))
 
    @staticmethod
-   def _load_config(env_dict, names_list=None, verbose=True):
+   def _load_config(env_dict, names_list=None, exclude_list=None, verbose=True):
       try:
          cfg = static.get_config()
       except:
@@ -142,6 +146,13 @@ class Session(object):
 
       if names_list is None:
          names_list = cfg.names_list
+         if exclude_list:
+            for name in exclude_list:
+               try:
+                  names_list.remove(name)
+               except (ValueError, AttributeError):
+                  pass
+
       for item_name in names_list:
          if hasattr(setup_globals, item_name):
             env_dict[item_name] = getattr(setup_globals, item_name)

@@ -26,9 +26,9 @@ def create_objects_from_config_node(config, item_cfg_node):
         elif isinstance(value,list):
             object_list = dict()
             for node in value:
-                if(isinstance(node,dict):
+                if isinstance(node,dict):
                     node_name = node.get('name','')
-                    if node_name.startswith('$')):
+                    if node_name.startswith('$'):
                         ref_obj = config.get(node_name)
                         item_cfg_node[node_name] = ref_obj
                         object_list[node_name] = ref_obj

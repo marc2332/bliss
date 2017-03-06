@@ -41,7 +41,7 @@ def start_acq(dev, acq_mode, expo_time, point_period, nb_points,
             acq_end.set()
     static_cb_list.append(acq_status_cb)
     
-    dev.acq_mode = acq_mode
+    dev.acq_mode = getattr(ct2.AcqMode, acq_mode)
     dev.acq_expo_time = expo_time
     dev.acq_point_period = point_period
     dev.acq_nb_points = nb_points
@@ -50,42 +50,46 @@ def start_acq(dev, acq_mode, expo_time, point_period, nb_points,
     dev.start_acq()
     return acq_end
 
-def ct2_acq_hard(dev, expo_time, point_period, nb_points):
 
-    acq_mode = (ct2.AcqMode.IntTrigSingle
-                if point_period else ct2.AcqMode.IntTrigReadout)
+def ct2_acq(dev, acq_mode, expo_time, point_period, nb_points):
+
+    trig_readout_modes = ['IntTrigReadout', 'SoftTrigReadout']
+    if acq_mode in trig_readout_modes:
+        if point_period and point_period != expo_time:
+            raise ValueError('Invalid point period for trigger/readoud mode')
+    else:
+        if point_period and point_period <= expo_time:
+            raise ValueError('If defined, point period must be > than '
+                             'expo. time')
+
+    soft_trig_modes = ['SoftTrigReadout', 'IntTrigMulti']
+    soft_trig = acq_mode in soft_trig_modes
+    if soft_trig:
+        sleep_time = max(expo_time, point_period)
+        point_period = 0
+        
     acq_end = start_acq(dev, acq_mode, expo_time, point_period, nb_points)
+
+    if soft_trig:
+        for i in range(nb_points):
+            gevent.sleep(sleep_time)
+            if (i < nb_points - 1) or (acq_mode == 'SoftTrigReadout'):
+                dev.trigger_point()
+
     acq_end.wait()
 
 
-def ct2_acq_soft(dev, expo_time, point_period, nb_points):
-
-    if point_period and point_period <= expo_time:
-        raise ValueError('If defined, point period must be > than expo. time')
-
-    acq_mode = (ct2.AcqMode.IntTrigMulti
-                if point_period else ct2.AcqMode.SoftTrigReadout)
-    acq_end = start_acq(dev, acq_mode, expo_time, 0, nb_points)
-    sleep_time = max(expo_time, point_period)
-    nb_trig = nb_points - (1 if acq_mode == ct2.AcqMode.IntTrigMulti else 0)
-    for i in range(nb_trig):
-        gevent.sleep(sleep_time)
-        dev.trigger_point()
-    acq_end.wait()
-
-def test(dev, expo_time, point_period, acq_nb_points, nb_acqs, soft_trig,
+def test(dev, acq_mode, expo_time, point_period, acq_nb_points, nb_acqs,
          sleep_time=0):
 
     dev.timer_freq = 1e6
-        
-    ct2_test = ct2_acq_soft if soft_trig else ct2_acq_hard
 
     t0 = time.time()
     for i in range(nb_acqs):
-        ct2_test(dev, expo_time, point_period, acq_nb_points)
+        ct2_acq(dev, acq_mode, expo_time, point_period, acq_nb_points)
     t = time.time()
-    print ("Expo=%.4f, Period=%.4f, Points=%s, Soft=%d, Elapsed=%s" %
-           (expo_time, point_period, acq_nb_points, soft_trig, t - t0))
+    print ("%-15s Expo=%.4f, Period=%.4f, Points/Acqs=%s/%s, Elapsed=%.4f" %
+           (acq_mode, expo_time, point_period, acq_nb_points, nb_acqs, t - t0))
 
     if sleep_time:
         gevent.sleep(sleep_time)
@@ -97,6 +101,8 @@ def main():
                         help='Device name in config')
     parser.add_argument('--hard_reset', default=0, type=int,
                         help='Perform a hard reset')
+    parser.add_argument('--acq_mode', default='IntTrigSingle', type=str,
+                        help='Acquisition mode')
     parser.add_argument('--expo_time', default=0.10, type=float,
                         help='Exposure time')
     parser.add_argument('--point_period', default=0.15, type=float,
@@ -105,8 +111,6 @@ def main():
                         help='Acq. number of points')
     parser.add_argument('--nb_acqs', default=1, type=int,
                         help='Number of acq.s')
-    parser.add_argument('--soft_trig', default=0, type=int,
-                        help='Use software trigger')
     parser.add_argument('--all_tests', default=0, type=int,
                         help='Execute all tests')
     parser.add_argument('--sleep_time', default=2, type=float,
@@ -114,6 +118,11 @@ def main():
 
     args = parser.parse_args()
 
+    try:
+        getattr(ct2.AcqMode, args.acq_mode)
+    except:
+        raise ValueError('Invalid acquisition mode: %s' % args.acq_mode)
+        
     dev = get_dev(args.dev_name)
     if args.hard_reset:
         dev.reset()
@@ -123,17 +132,21 @@ def main():
     if args.all_tests:
         if args.nb_acqs != 1:
             raise ValueError('all_tests requires nb_acqs=1')
-        
-        for point_period in (0, args.point_period):
-            for soft_trig in (0, 1):
-                test(dev, args.expo_time, point_period, args.acq_nb_points, 1,
-                     soft_trig, args.sleep_time)
-            test(dev, args.expo_time, point_period, 1, args.acq_nb_points, 0,
-                 args.sleep_time)
+
+        mode_lists = ((False, ['IntTrigReadout', 'SoftTrigReadout']),
+                      (True, ['IntTrigSingle', 'IntTrigMulti']))
+        for has_point_period, mode_list in mode_lists:
+            point_period = args.point_period if has_point_period else 0
+            for acq_mode in mode_list:
+                test(dev, acq_mode, args.expo_time, point_period,
+                     args.acq_nb_points, 1, args.sleep_time)
+            acq_mode = mode_list[0]
+            test(dev, acq_mode, args.expo_time, point_period, 1,
+                 args.acq_nb_points, args.sleep_time)
             
     else:
-        test(dev, args.expo_time, args.point_period, args.acq_nb_points,
-             args.nb_acqs, args.soft_trig)
+        test(dev, args.acq_mode, args.expo_time, args.point_period,
+             args.acq_nb_points, args.nb_acqs)
 
 if __name__ == '__main__':
     main()    

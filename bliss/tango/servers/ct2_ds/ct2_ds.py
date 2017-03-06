@@ -134,6 +134,18 @@ class CT2(Device):
         self.device.acq_expo_time = acq_expo_time
         self.push_change_event("acq_expo_time", acq_expo_time)
 
+    @attribute(dtype='float64', label="Acq. expo. time", unit="s",
+               standard_unit="s", display_unit="s", format="%6.3f",
+               memorized=True, hw_memorized=True,
+               doc="Acquisition point period (s)")
+    def acq_point_period(self):
+        return self.device.acq_point_period
+
+    @acq_point_period.setter
+    def acq_point_period(self, acq_point_period):
+        self.device.acq_point_period = acq_point_period
+        self.push_change_event("acq_point_period", acq_point_period)
+
     @attribute(dtype='uint32', label="Acq. nb. points",
                memorized=True, hw_memorized=True,
                doc="Number of points per acquisition ")

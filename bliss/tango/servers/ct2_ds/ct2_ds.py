@@ -33,14 +33,14 @@ def switch_state(tg_dev, state=None, status=None):
     """Helper to switch state and/or status and send event"""
     if state is not None:
         tg_dev.set_state(state)
-        tg_dev.push_change_event("state")
+#        tg_dev.push_change_event("state")
         if state in (DevState.ALARM, DevState.UNKNOWN, DevState.FAULT):
             msg = "State changed to " + str(state)
             if status is not None:
                 msg += ": " + status
     if status is not None:
         tg_dev.set_status(status)
-        tg_dev.push_change_event("status")
+#        tg_dev.push_change_event("status")
 
 
 class CT2(Device):
@@ -59,10 +59,10 @@ class CT2(Device):
 
     def init_device(self):
         Device.init_device(self)
-        for attr in ("state", "status", "last_error", "last_point_nb",
-                     "acq_status", "acq_mode", "acq_expo_time",
-                     "acq_nb_points", "acq_channels"):
-            self.set_change_event(attr, True, False)
+#        for attr in ("state", "status", "last_error", "last_point_nb",
+#                     "acq_status", "acq_mode", "acq_expo_time",
+#                     "acq_nb_points", "acq_channels"):
+#            self.set_change_event(attr, True, False)
 
         self.__last_error = ""
         self.__last_point_nb_info = -1, 0, AttrQuality.ATTR_VALID
@@ -82,9 +82,9 @@ class CT2(Device):
                                         acq_mode=acq_mode,
                                         in_config=in_config,
                                         out_config=out_config)
-                connect(self.device, ErrorSignal, self.__on_error)
-                connect(self.device, PointNbSignal, self.__on_point_nb)
-                connect(self.device, StatusSignal, self.__on_status)
+#                connect(self.device, ErrorSignal, self.__on_error)
+#                connect(self.device, PointNbSignal, self.__on_point_nb)
+#                connect(self.device, StatusSignal, self.__on_status)
             else:
                 self.apply_config()
             switch_state(self, DevState.ON, "Ready!")
@@ -115,7 +115,7 @@ class CT2(Device):
     @acq_mode.setter
     def acq_mode(self, acq_mode):
         self.device.acq_mode = AcqMode[acq_mode]
-        self.push_change_event("acq_mode", acq_mode)
+#        self.push_change_event("acq_mode", acq_mode)
 
     @attribute(dtype='str', label="Acq. status",
                doc="Acquisition status")
@@ -132,7 +132,8 @@ class CT2(Device):
     @acq_expo_time.setter
     def acq_expo_time(self, acq_expo_time):
         self.device.acq_expo_time = acq_expo_time
-        self.push_change_event("acq_expo_time", acq_expo_time)
+#        self.push_change_event("acq_expo_time", acq_expo_time)
+
 
     @attribute(dtype='float64', label="Acq. expo. time", unit="s",
                standard_unit="s", display_unit="s", format="%6.3f",
@@ -144,7 +145,7 @@ class CT2(Device):
     @acq_point_period.setter
     def acq_point_period(self, acq_point_period):
         self.device.acq_point_period = acq_point_period
-        self.push_change_event("acq_point_period", acq_point_period)
+#        self.push_change_event("acq_point_period", acq_point_period)
 
     @attribute(dtype='uint32', label="Acq. nb. points",
                memorized=True, hw_memorized=True,
@@ -155,7 +156,7 @@ class CT2(Device):
     @acq_nb_points.setter
     def acq_nb_points(self, acq_nb_points):
         self.device.acq_nb_points = acq_nb_points
-        self.push_change_event("acq_nb_points", acq_nb_points)
+#        self.push_change_event("acq_nb_points", acq_nb_points)
 
     @attribute(dtype=('int16',), max_dim_x=12, label="Active channels",
                doc="List of active channels (first is 1)")
@@ -165,7 +166,7 @@ class CT2(Device):
     @acq_channels.setter
     def acq_channels(self, acq_channels):
         self.device.acq_channels = acq_channels
-        self.push_change_event("acq_channels", acq_channels)
+#        self.push_change_event("acq_channels", acq_channels)
 
     @attribute(dtype='float64', label="Timer clock freq.", unit="Hz",
                standard_unit="Hz", display_unit="Hz", format="%10.3g",
@@ -177,7 +178,7 @@ class CT2(Device):
     @timer_freq.setter
     def timer_freq(self, timer_freq):
         self.device.timer_freq = timer_freq
-        self.push_change_event("timer_freq", timer_freq)
+#        self.push_change_event("timer_freq", timer_freq)
 
     @attribute(dtype=('uint32',), max_dim_x=12)
     def counters(self):
@@ -239,11 +240,11 @@ class CT2(Device):
                 quality = AttrQuality.ATTR_VALID
         self.__last_point_nb = int(point_nb), timestamp, quality
         self.__last_point_nb_timestamp = timestamp
-        self.push_change_event("last_point_nb", *self.__last_point_nb)
+#        self.push_change_event("last_point_nb", *self.__last_point_nb)
 
     def __set_last_error(self, error):
         self.__last_error = error
-        self.push_change_event("last_error", error)
+#        self.push_change_event("last_error", error)
 
     def __on_error(self, error):
         self.__set_last_error(error)
@@ -257,7 +258,7 @@ class CT2(Device):
             acq_mode = self.device.acq_mode.name
             switch_state(self, DevState.RUNNING,
                          "acquiring in {0} mode".format(acq_mode))            
-        self.push_change_event("acq_status", status.name, time.time(), quality)
+#        self.push_change_event("acq_status", status.name, time.time(), quality)
 
     def __on_point_nb(self, point_nb):
         self.__set_last_point_nb(point_nb)

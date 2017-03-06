@@ -51,6 +51,7 @@ class CT2(Device):
 
     card_name = device_property(dtype='str', default_value="p201")
     def_acq_mode = device_property(dtype='str', default_value="IntTrigReadout")
+    in_chan = device_property(dtype='int', default_value=0)
     out_chan = device_property(dtype='int', default_value=10)
 
     def __init__(self, *args, **kwargs):
@@ -71,10 +72,15 @@ class CT2(Device):
             util = Util.instance()
             if util.is_svr_starting():
                 acq_mode = AcqMode[self.def_acq_mode]
+                in_config = None
+                if self.in_chan:
+                    in_config = dict(CT2Device.DefInConfig)
+                    in_config.update({'chan': self.in_chan})
                 out_config = {'chan': self.out_chan} if self.out_chan else None
-                print "out_config=%s" % out_config
+                print "in_config=%s, out_config=%s" % (in_config, out_config)
                 self.device = CT2Device(config=config, name=self.card_name, 
-                                        acq_mode=acq_mode, 
+                                        acq_mode=acq_mode,
+                                        in_config=in_config,
                                         out_config=out_config)
                 connect(self.device, ErrorSignal, self.__on_error)
                 connect(self.device, PointNbSignal, self.__on_point_nb)

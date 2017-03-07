@@ -21,6 +21,8 @@ from louie import dispatcher
 
 cfg = None
 musst_dev = None
+musst_trig_width = None
+musst_extra_period = None
 
 import sys
 import time
@@ -56,6 +58,8 @@ PROG PULSES
 ENDPROG
 """
 
+ExtTrigModes = ['ExtTrigSingle', 'ExtTrigMulti', 'ExtGate', 'ExtTrigReadout']
+
 def get_ct2_dev(dev_name, in_config):
     global cfg
     if not cfg:
@@ -69,10 +73,10 @@ def has_soft_trig(acq_mode):
     return acq_mode in ['SoftTrigReadout', 'IntTrigMulti']
 
 def has_ext_start(acq_mode):
-    return acq_mode in ['ExtTrigSingle', 'ExtTrigMulti', 'ExtGate']
+    return acq_mode in ExtTrigModes
 
 def has_ext_trig(acq_mode):
-    return acq_mode in ['ExtTrigMulti', 'ExtGate']
+    return acq_mode in ['ExtTrigMulti', 'ExtGate', 'ExtTrigReadout']
 
 def get_musst_dev(dev_name):
     dev_cfg = cfg.get_config(dev_name)
@@ -155,14 +159,15 @@ def test(dev, acq_mode, expo_time, point_period, acq_nb_points, nb_acqs,
     ext_start = has_ext_start(acq_mode)
     ext_exp = acq_mode == 'ExtGate'
     if ext_start:
-        musst_expo_time = expo_time if ext_exp else 1e-3
+        musst_expo_time = expo_time if ext_exp else musst_trig_width
         musst_point_period = point_period
         musst_pulses = nb_acqs
         if acq_mode == 'ExtTrigSingle':
             musst_point_period *= acq_nb_points
         else:
-            musst_pulses *= acq_nb_points
-        musst_point_period += 10e-3
+            extra_pulse = (acq_mode == 'ExtTrigReadout')
+            musst_pulses *= acq_nb_points + (1 if extra_pulse else 0)
+        musst_point_period += musst_extra_period
         prepare_musst(musst_expo_time, musst_point_period, musst_pulses)
 
     t0 = time.time()
@@ -198,6 +203,10 @@ def main():
                         help='Input channel for ext trig')
     parser.add_argument('--musst_name', default='musst_bculab', type=str,
                         help='Config name of the MUSST pulse generator')
+    parser.add_argument('--musst_trig_width', default=1e-3, type=float,
+                        help='MUSST trigger pulse width')
+    parser.add_argument('--musst_extra_period', default=10e-3, type=float,
+                        help='Extra MUSST point period')
     parser.add_argument('--all_tests', default=0, type=int,
                         help='Execute all tests: 1=Int+Soft, 2=Int+Soft+Ext')
     parser.add_argument('--sleep_time', default=2, type=float,
@@ -221,6 +230,9 @@ def main():
 
     if use_ext_trig:
         create_musst_dev(args.musst_name)
+        global musst_trig_width, musst_extra_period
+        musst_trig_width = args.musst_trig_width
+        musst_extra_period = args.musst_extra_period
 
     if args.all_tests == 0:
         test(dev, args.acq_mode, args.expo_time, args.point_period,
@@ -239,7 +251,7 @@ def main():
                  args.acq_nb_points * args.nb_acqs, args.sleep_time)
             
     if args.all_tests & 2:
-        for acq_mode in ['ExtTrigSingle', 'ExtTrigMulti', 'ExtGate']:
+        for acq_mode in ExtTrigModes:
             test(dev, acq_mode, args.expo_time, args.point_period,
                  args.acq_nb_points, args.nb_acqs, args.sleep_time)
                 

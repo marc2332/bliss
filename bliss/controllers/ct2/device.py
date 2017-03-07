@@ -634,6 +634,8 @@ class CT2Device(BaseCT2Device):
         self.__configure_std_mode(self.acq_mode)
         self.__soft_started = False
 
+        self._send_point_nb(-1)
+
     def __on_acq_loop_finished(self, event_loop):
         self.__event_loop = None
 

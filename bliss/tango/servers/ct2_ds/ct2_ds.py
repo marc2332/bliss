@@ -238,9 +238,9 @@ class CT2(Device):
                 quality = AttrQuality.ATTR_CHANGING
             else:
                 quality = AttrQuality.ATTR_VALID
-        self.__last_point_nb = int(point_nb), timestamp, quality
+        self.__last_point_nb_info = int(point_nb), timestamp, quality
         self.__last_point_nb_timestamp = timestamp
-#        self.push_change_event("last_point_nb", *self.__last_point_nb)
+#        self.push_change_event("last_point_nb", *self.__last_point_nb_info)
 
     def __set_last_error(self, error):
         self.__last_error = error

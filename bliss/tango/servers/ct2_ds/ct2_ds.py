@@ -82,9 +82,9 @@ class CT2(Device):
                                         acq_mode=acq_mode,
                                         in_config=in_config,
                                         out_config=out_config)
-#                connect(self.device, ErrorSignal, self.__on_error)
-#                connect(self.device, PointNbSignal, self.__on_point_nb)
-#                connect(self.device, StatusSignal, self.__on_status)
+                connect(self.device, ErrorSignal, self.__on_error)
+                connect(self.device, PointNbSignal, self.__on_point_nb)
+                connect(self.device, StatusSignal, self.__on_status)
             else:
                 self.apply_config()
             switch_state(self, DevState.ON, "Ready!")

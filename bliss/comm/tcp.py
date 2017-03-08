@@ -20,6 +20,7 @@ import weakref
 
 from .exceptions import CommunicationError, CommunicationTimeout
 from ..common.greenlet_utils import KillMask
+from .util import HexMsg
 
 class SocketTimeout(CommunicationTimeout):
     '''Socket timeout error'''
@@ -198,7 +199,7 @@ class Socket:
             self, msg, nb_lines, write_synchro=None, eol=None, timeout=None):
         with self._lock:
             with gevent.Timeout(timeout or self._timeout,
-                                SocketTimeout("write_readlines(%s, %d) timed out" % (msg, nb_lines))):
+                                SocketTimeout("write_readlines(%r, %d) timed out" % (msg, nb_lines))):
                 self._sendall(msg)
                 if write_synchro:
                     write_synchro.notify()
@@ -222,8 +223,7 @@ class Socket:
         self._data = ''
 
     def _sendall(self,data) :
-        if logging.getLogger().isEnabledFor(logging.DEBUG):
-            self._debug("Tx: %s %s",data,['0x%.2x' % ord(x) for x in data])
+        self._debug("Tx: %r %r",data,HexMsg(data))
         self._fd.sendall(data)
 
     @staticmethod
@@ -231,9 +231,7 @@ class Socket:
         try:
             while(1):
                 raw_data = fd.recv(16 * 1024)
-                if logging.getLogger().isEnabledFor(logging.DEBUG):
-                    sock._debug("Rx: %s %s",raw_data,
-                                ['0x%.2x' % ord(x) for x in raw_data])
+                sock._debug("Rx: %r %r",raw_data,HexMsg(raw_data))
                 if raw_data:
                     sock._data += raw_data
                     sock._event.set()
@@ -398,8 +396,7 @@ class Command:
         with self._lock:
             if transaction is None and create_transaction:
                 transaction = self.new_transaction()
-            if logging.getLogger().isEnabledFor(logging.DEBUG):
-                self._debug("Tx: %s %s",msg,['0x%x' % ord(x) for x in msg])
+            self._debug("Tx: %r %r",msg, HexMsg(msg))
             self._fd.sendall(msg)
         return transaction
 

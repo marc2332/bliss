@@ -5,15 +5,11 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-"""Communication tools (:func:`~bliss.comm.util.get_interface`)"""
+"""Communication tools (:func:`~bliss.comm.util.get_interface`,
+:func:`~bliss.comm.util.HexMsg`)"""
 
-__all__ = ['get_interface']
+__all__ = ['get_interface', 'HexMsg']
 
-from .serial import Serial
-from .gpib import Gpib
-from .tcp import Tcp
-
-__INTERFACES = dict(serial=Serial, gpib=Gpib, tcp=Tcp)
 
 def get_interface(*args, **kwargs):
     """
@@ -55,7 +51,11 @@ def get_interface(*args, **kwargs):
         if args:
             interface, args = args[0], args[1:]
         else:
-            for iname, iclass in __INTERFACES.items():
+            from .tcp import Tcp
+            from .gpib import Gpib
+            from .serial import Serial
+            interfaces = dict(serial=Serial, gpib=Gpib, tcp=Tcp)
+            for iname, iclass in interfaces.items():
                 if iname in kwargs:
                     ikwargs = kwargs.pop(iname)
                     if isinstance(ikwargs, dict):
@@ -66,3 +66,29 @@ def get_interface(*args, **kwargs):
             else:
                 raise RuntimeError("Cannot find proper interface")
     return interface, args, kwargs
+
+
+class HexMsg:
+    """
+    Encapsulate a message with a hexadecimal representation.
+    Useful to have in log messages since it only computes the hex representation
+    if the log message is recorded. Example::
+
+        import logging
+        from bliss.comm.util import HexMsg
+
+        logging.basicConfig(level=logging.INFO)
+
+        msg_from_socket = '\x00\x00\x00\x021\n'
+        logging.debug('Rx: %r', HexMsg(msg_from_socket))
+    """
+    __slots__ = ['msg']
+
+    def __init__(self, msg):
+        self.msg = msg
+
+    def __str__(self):
+        return ' '.join(map(hex, map(ord, self.msg)))
+
+    def __repr__(self):
+        return '[{0}]'.format(self)

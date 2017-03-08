@@ -68,6 +68,10 @@ class BlissInput(Device):
     def name(self):
         return self.channel_object.name
 
+    @attribute(dtype='string')
+    def typedev(self):
+        return "input"
+
     @command(dtype_out='DevVarStringArray')
     def GetCustomCommandList(self):
         """
@@ -123,6 +127,10 @@ class BlissOutput(Device):
     @attribute(dtype='string')
     def name(self):
         return self.channel_object.name
+
+    @attribute(dtype='string')
+    def typedev(self):
+        return "output"
 
     @attribute(dtype=float)
     def limit_low(self):
@@ -247,6 +255,10 @@ class BlissLoop(Device):
     @attribute(dtype='string')
     def name(self):
         return self.channel_object.name
+
+    @attribute(dtype='string')
+    def typedev(self):
+        return "loop"
 
     @attribute(dtype='string')
     def input_name(self):

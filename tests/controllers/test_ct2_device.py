@@ -191,13 +191,13 @@ def main():
                         help='Perform a hard reset')
     parser.add_argument('--acq_mode', default='IntTrigSingle', type=str,
                         help='Acquisition mode')
-    parser.add_argument('--expo_time', default=0.10, type=float,
+    parser.add_argument('--expo_time', default=0.050, type=float,
                         help='Exposure time')
-    parser.add_argument('--point_period', default=0.15, type=float,
+    parser.add_argument('--point_period', default=0.075, type=float,
                         help='Point period (0=expo_time)')
     parser.add_argument('--acq_nb_points', default=4, type=int,
                         help='Acq. number of points')
-    parser.add_argument('--nb_acqs', default=1, type=int,
+    parser.add_argument('--nb_acqs', default=2, type=int,
                         help='Number of acq.s')
     parser.add_argument('--in_chan', default=7, type=int,
                         help='Input channel for ext trig')
@@ -207,7 +207,7 @@ def main():
                         help='MUSST trigger pulse width')
     parser.add_argument('--musst_extra_period', default=10e-3, type=float,
                         help='Extra MUSST point period')
-    parser.add_argument('--all_tests', default=0, type=int,
+    parser.add_argument('--all_tests', default=1, type=int,
                         help='Execute all tests: 1=Int+Soft, 2=Int+Soft+Ext')
     parser.add_argument('--sleep_time', default=2, type=float,
                         help='Sleep time between test')

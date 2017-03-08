@@ -337,7 +337,9 @@ class CT2Device(BaseCT2Device):
                 if err:
                     self._send_error("ct2 error")
 
-                if counters and dma:
+                timer_end = (timer_ct in counters)
+                acq_running = (self.__acq_status == AcqStatus.Running)
+                if int_trig_dead_time and timer_end and dma and acq_running:
                     print "Warning! Overrun: counters=%s, dma=%s" % (counters, \
                                                                      dma)
                 if dma:
@@ -361,7 +363,7 @@ class CT2Device(BaseCT2Device):
                                 point_data[-1] -= 1
                 if dma:
                     point_nb = data[-1][-1]
-                point_end = timer_ct in counters if int_trig_dead_time else dma
+                point_end = timer_end if int_trig_dead_time else dma
                 acq_end = point_end and (point_nb == acq_last_point)
                 last_restart = point_end and (point_nb == acq_last_point - 1)
                 if out_ct and last_restart and self.__has_int_trig():
@@ -527,6 +529,7 @@ class CT2Device(BaseCT2Device):
         card.set_counter_config(point_nb_ct, ct_config)
         acq_nb_points = self.acq_nb_points + (1 if ext_trig_readout else 0)
         card.set_counter_comparator_value(point_nb_ct, acq_nb_points)
+        irq_counters.append(point_nb_ct)
 
         # make master enabled by software
         card.enable_counters_software((timer_ct, point_nb_ct))

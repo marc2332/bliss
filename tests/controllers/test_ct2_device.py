@@ -23,10 +23,13 @@ cfg = None
 musst_dev = None
 musst_trig_width = None
 musst_extra_period = None
+acq_timeout = None
 
 import sys
 import time
 import argparse
+import re
+import random
 
 musst_prog = """
 UNSIGNED T1
@@ -102,6 +105,10 @@ def wait_musst():
     while musst_dev.STATE != musst.musst.IDLE_STATE:
         gevent.sleep(0.5)
 
+def stop_musst():
+    musst_dev.ABORT
+    musst_dev.BTRIG = 0
+
 def start_acq(dev, acq_mode, expo_time, point_period, nb_points,
               static_cb_list=[]):
     acq_end = Event()
@@ -147,12 +154,12 @@ def ct2_acq(dev, acq_mode, expo_time, point_period, nb_points, i):
                 dev.trigger_point()
     elif ext_start and (i == 0):
         run_musst()
-    
+
     acq_end.wait()
 
 
-def test(dev, acq_mode, expo_time, point_period, acq_nb_points, nb_acqs,
-         sleep_time=0):
+def base_test(dev, acq_mode, expo_time, point_period, acq_nb_points, nb_acqs,
+              sleep_time=0):
 
     dev.timer_freq = 1e6
 
@@ -182,6 +189,46 @@ def test(dev, acq_mode, expo_time, point_period, acq_nb_points, nb_acqs,
     if ext_start:
         wait_musst()
 
+def get_acq_timeout(s):
+    if not s:
+        return None
+
+    nb_re_str = '[-+.0-9eE]+'
+    re_obj = re.compile(nb_re_str)
+    m = re_obj.match(s)
+    if m:
+        return float(s)
+
+    random_re_str = 'random\((?P<n1>{0}),[ ]*(?P<n2>{0})\)'.format(nb_re_str)
+    re_obj = re.compile(random_re_str)
+    m = re_obj.match(s)
+    if m:
+        def usec(x):
+            return int(float(x) * 1e6)
+        n1, n2 = map(usec, m.groups())
+        return random.randrange(n1, n2) * 1e-6
+
+    raise ValueError('Invalid acq_timeout: %s' % s)
+
+def test(dev, acq_mode, *args, **kws):
+    t0 = time.time()
+    try:
+        t = get_acq_timeout(acq_timeout)
+        if t:
+            print "- Timeout=%s" % t
+        with gevent.Timeout(t):
+            base_test(dev, acq_mode, *args, **kws)
+    except gevent.Timeout:
+        print "%-15s - Timeout: Interrupting!" % acq_mode
+        dev.stop_acq()
+        t = time.time()
+        if has_ext_start(acq_mode):
+            stop_musst()
+        print "%-15s - Elapsed: %s" % ('', t - t0)
+        sleep_time = args[4] if len(args) > 4 else kws.get('sleep_time', 0)
+        if sleep_time:
+            gevent.sleep(sleep_time)
+
 def main():
     parser = argparse.ArgumentParser(description='Test the CT2Device class')
     
@@ -207,6 +254,8 @@ def main():
                         help='MUSST trigger pulse width')
     parser.add_argument('--musst_extra_period', default=10e-3, type=float,
                         help='Extra MUSST point period')
+    parser.add_argument('--acq_timeout', default='', type=str,
+                        help='Timeout aborting acquisition sequence')
     parser.add_argument('--all_tests', default=1, type=int,
                         help='Execute all tests: 1=Int+Soft, 2=Int+Soft+Ext')
     parser.add_argument('--sleep_time', default=2, type=float,
@@ -227,6 +276,9 @@ def main():
         dev.reset()
         del dev
         dev = get_ct2_dev(args.dev_name)
+
+    global acq_timeout
+    acq_timeout = args.acq_timeout
 
     if use_ext_trig:
         create_musst_dev(args.musst_name)

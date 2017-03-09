@@ -275,7 +275,7 @@ def main():
     if args.hard_reset:
         dev.reset()
         del dev
-        dev = get_ct2_dev(args.dev_name)
+        dev = get_ct2_dev(args.dev_name, in_config)
 
     global acq_timeout
     acq_timeout = args.acq_timeout

@@ -15,6 +15,7 @@ def ct2_config(cnum, type, unit, module, chan) '{
         factor = counter_par(cnum, "scale")
         tango_put(ctrl_dev, "timer_freq", factor)
         tango_put(ctrl_dev, "acq_mode", "IntTrigReadout")
+        tango_put(ctrl_dev, "acq_point_period", 0)
         CT2_MAC_HDW[ctrl_dev]["int_cnt"] = 11
     }
 }'
@@ -81,24 +82,51 @@ def ct2_cmd(cnum, key, p1, p2) '{
     }
 }'
 
-def ct2_par(cnum, key, action, val) '{
-    local ctrl_dev mode_str acq_mode acq_mode_table[]
+def ct2_get(cnum, key, val_arr) '{
+    local ctrl_dev arr_keys 
 
-    acq_mode_table[0] = "Internal"
-    acq_mode_table[1] = "Slave"
-    acq_mode_table["nr"] = 2
-
-    ctrl_dev = ct2_ADDR
-    if (key == "acq_mode") {
-        mode_str = tango_get(ctrl_dev, "acq_mode")
-        for (acq_mode = 0; acq_mode < acq_mode_table["nr"]; acq_mode++)
-            if (acq_mode_table[acq_mode] == mode_str)
-                break
-        if (action == "set")
-            tango_put(ctrl_dev, "acq_mode", acq_mode_table[val])
-        return acq_mode
-    } else if (key == "trigger_point") {
-        tango_io(ctrl_dev, "trigger_point")
-        return 0
+    ctrl_dev = counter_par(cnum, "address")
+    if (key == "?") {
+        printf("%s\n%s\n%s\n", \
+	       "acq_mode, acq_status, timer_freq, acq_nb_points", \
+	       "acq_expo_time, acq_point_period, last_point_nb", \
+	       "acq_channels, counters, latches, data")
+	return
     }
+
+    arr_keys = " acq_channels counters latches data "
+    if (index(arr_keys, sprintf(" %s ", key)) > 0) {
+        return tango_get(ctrl_dev, key, val_arr)
+    } else {
+        return tango_get(ctrl_dev, key)
+    }
+}'
+
+def ct2_put(cnum, key, val) '{
+    local ctrl_dev mode_str 
+
+    ctrl_dev = counter_par(cnum, "address")
+    if (key == "?") {
+        printf("%s\n%s\n%s\n", \
+	       "acq_mode, acq_status, timer_freq, acq_nb_points", \
+	       "acq_expo_time, acq_point_period, last_point_nb", \
+	       "acq_channels")
+	return
+    }
+
+    return tango_put(ctrl_dev, key, val)
+}'
+
+def ct2_io(cnum, cmd) '{
+    local ctrl_dev mode_str val val_arr[]
+
+    ctrl_dev = counter_par(cnum, "address")
+    if (cmd == "?") {
+        printf("%s\n%s\n", \
+	       "prepare_acq, start_acq, stop_acq, trigger_point", \
+	       "trigger_latch")
+        return
+    }
+
+    tango_io(ctrl_dev, cmd)
 }'

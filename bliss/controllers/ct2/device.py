@@ -344,6 +344,9 @@ class CT2Device(BaseCT2Device):
                                                                      dma)
                 if dma:
                     data, fifo_status = card.read_fifo()
+                    # software trigger readout is asynchronous with the int.
+                    # clocks, so counter point_nb & latch are not properly
+                    # synchronised, correct the this effect
                     if self.__acq_mode == AcqMode.SoftTrigReadout:
                         data = numpy.array(data)
                         for i, point_data in enumerate(data, point_nb + 1):
@@ -436,14 +439,22 @@ class CT2Device(BaseCT2Device):
 
         ext_trig_readout = self.__in_ext_trig_readout()
 
+        def ch_signal(ch, rise, pol_invert=False):
+            edge = 'RISING' if bool(rise) != bool(pol_invert) else 'FALLING'
+            return 'CH_{0}_{1}_EDGE'.format(ch, edge)
+
         def ct_gate(ct):
             return getattr(ct2.CtGateSrc, 'CT_{0}_GATE_ENVELOP'.format(ct))
+        def start_source(signal):
+            return getattr(ct2.CtHardStartSrc, signal)
+        def stop_source(signal):
+            return getattr(ct2.CtHardStopSrc, signal)
         def start_on_ct_signal(ct, signal):
-            return getattr(ct2.CtHardStartSrc, 'CT_{0}_{1}'.format(ct, signal))
+            return start_source('CT_{0}_{1}'.format(ct, signal))
         def stop_on_ct_end(ct):
-            return getattr(ct2.CtHardStopSrc, 'CT_{0}_EQ_CMP_{0}'.format(ct))
+            return stop_source('CT_{0}_EQ_CMP_{0}'.format(ct))
         def stop_on_ct_stop(ct):
-            return getattr(ct2.CtHardStopSrc, 'CT_{0}_STOP'.format(ct))
+            return stop_source('CT_{0}_STOP'.format(ct))
         
         if in_ch:
             def_chan_level = self.DefInConfig['level']
@@ -458,19 +469,17 @@ class CT2Device(BaseCT2Device):
             ch_pol_invert = self.__in_config.get('polarity_invert',
                                                  def_chan_pol_inv)
 
-            edge = 'RISING' if not ch_pol_invert else 'FALLING'
-            raise_sig_name = 'CH_{0}_{1}_EDGE'.format(in_ch, edge)
-            ext_start_source = getattr(ct2.CtHardStartSrc, raise_sig_name)
+            ext_rise_signal = ch_signal(in_ch, True, ch_pol_invert)
+            ext_fall_signal = ch_signal(in_ch, False, ch_pol_invert)
 
-            edge = 'FALLING' if not ch_pol_invert else 'RISING'
-            fall_sig_name = 'CH_{0}_{1}_EDGE'.format(in_ch, edge)
-            ext_stop_source = getattr(ct2.CtHardStopSrc, raise_sig_name)
-
-            in_start_sig_name = (fall_sig_name if mode == AcqMode.ExtGate
-                                 else raise_sig_name)
-            in_start_source = getattr(ct2.CtHardStartSrc, in_start_sig_name)
-
+        # in_counter is used to generate, on the ext. event, an internal pulse
+        # that triggers the timer stop synchronously with the internal clocks
         if in_ct:
+            # the ext. event: ext_trig=rising-edge, ext_gate=falling-edge
+            ext_gate = (mode == AcqMode.ExtGate)
+            in_start_signal = ext_fall_signal if ext_gate else ext_rise_signal
+            in_start_source = start_source(in_start_signal)
+
             ct_config = ct2.CtConfig(clock_source=timer_clock_source,
                                      gate_source=ct_gate(point_nb_ct),
                                      hard_start_source=in_start_source,
@@ -481,23 +490,21 @@ class CT2Device(BaseCT2Device):
             card.set_counter_comparator_value(in_ct, 1)
             card.enable_counters_software((in_ct,))
             
-        stop_on_timer_stop = stop_on_ct_stop(timer_ct)
-        soft_start_source = ct2.CtHardStartSrc.SOFTWARE
         auto_restart = ((self.__has_int_trig() or ext_trig_readout) and
                         (self.acq_nb_points > 1))
         stop_from_hard_stop = not auto_restart
 
         if self.__has_ext_start():
-            timer_start_source = ext_start_source
+            timer_start_source = start_source(ext_rise_signal)
         else:
-            timer_start_source = soft_start_source
+            timer_start_source = start_source('SOFTWARE')
             
         if self.__has_int_exp():
             timer_stop_source = stop_on_ct_end(timer_ct)
         elif self.__has_ext_exp():
             timer_stop_source = stop_on_ct_end(in_ct)
         else:
-            timer_stop_source = ct2.CtHardStopSrc.SOFTWARE
+            timer_stop_source = stop_source('SOFTWARE')
 
         timer_cmp, out_cmp = self.__get_counter_cmp()
         irq_counters = []
@@ -522,13 +529,14 @@ class CT2Device(BaseCT2Device):
                                     'INC_CT_{0}_STOP'.format(timer_ct))
         ct_config = ct2.CtConfig(clock_source=inc_on_timer_stop,
                                  gate_source=ct2.CtGateSrc.GATE_CMPT,
-                                 hard_start_source=soft_start_source,
+                                 hard_start_source=start_source('SOFTWARE'),
                                  hard_stop_source=stop_on_ct_end(point_nb_ct),
                                  reset_from_hard_soft_stop=True,
                                  stop_from_hard_stop=True)
         card.set_counter_config(point_nb_ct, ct_config)
         acq_nb_points = self.acq_nb_points + (1 if ext_trig_readout else 0)
         card.set_counter_comparator_value(point_nb_ct, acq_nb_points)
+        # gen. IRQ on point_nb (soft) stop, so acq_loop ends during stop_acq
         irq_counters.append(point_nb_ct)
 
         # make master enabled by software
@@ -545,7 +553,7 @@ class CT2Device(BaseCT2Device):
             ct_config = card.get_counter_config(ch_nb)
             ct_config.gate_source = ct_gate(gate_ct)
             ct_config.hard_start_source = start_on_ct_signal(timer_ct, 'START')
-            ct_config.hard_stop_source = stop_on_timer_stop
+            ct_config.hard_stop_source = stop_on_ct_stop(timer_ct)
             ct_config.reset_from_hard_soft_stop = not integrator[ch_nb]
             ct_config.stop_from_hard_stop = stop_from_hard_stop
             card.set_counter_config(ch_nb, ct_config)
@@ -556,13 +564,13 @@ class CT2Device(BaseCT2Device):
             out_start_source = start_on_ct_signal(timer_ct, start_signal)
 
             if ext_trig_readout:
-                out_stop_source = ext_stop_source
+                out_stop_source = stop_source(ext_rise_signal)
             elif out_cmp:
                 out_stop_source = stop_on_ct_end(out_ct)
             elif self.__has_ext_exp():
                 out_stop_source = stop_on_ct_end(in_ct)
             else:
-                out_stop_source = stop_on_timer_stop
+                out_stop_source = stop_on_ct_stop(timer_ct)
             ct_config = ct2.CtConfig(clock_source=timer_clock_source,
                                      gate_source=ct_gate(timer_ct),
                                      hard_start_source=out_start_source,
@@ -608,6 +616,8 @@ class CT2Device(BaseCT2Device):
         point_period = (self.acq_point_period or 0) * self.timer_freq
 
         if not point_period and expo_time:
+            # in zero-dead-time modes the out_counter counts one pulse less
+            # so it can be restarted on timer end
             longer_timer = self.acq_mode in self.ZeroDeadTimeModes
             extra_gap = longer_timer and self.out_counter
             point_period = expo_time + (1 if extra_gap else 0)
@@ -697,9 +707,11 @@ class CT2Device(BaseCT2Device):
             self.__event_loop = None
             return
 
+        # signal acq_loop that we are stopping
         self.__acq_status = AcqStatus.Ready
         if self.out_counter:
             self.card.disable_counters_software((self.out_counter,))
+        # this will generate point_nb_cnt STOP -> IRQ -> unblock acq_loop
         self.card.stop_counters_software(self.card.COUNTERS)
 
         gevent.wait([self.__event_loop])

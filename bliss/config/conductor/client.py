@@ -29,6 +29,36 @@ def check_connection(func):
         return func(*args,**keys)
     return f
 
+class Lock(object):
+    def __init__(self,*devices,**params):
+        """
+        This class is an helper to lock object using context manager
+        :params timeout default 10s
+        :params priority default 50
+        """
+        self._devices = devices
+        self._params = params
+
+    def __enter__(self):
+        lock(*self._devices,**self._params)
+        return self
+
+    def __exit__(self,*args,**kwags):
+        unlock(*self._devices,**self._params)
+
+def synchronized(**params):
+    """ 
+    Synchronization decorator.
+    
+    This is an helper to lock during the method call.
+    :params are the lock's parameters (see Lock helper)
+    """
+    def wrap(f):
+        def func(self,*args,**keys):
+            with Lock(self,**params):
+                return f(self,*args,**keys)
+        return func
+    return wrap
 
 @check_connection
 def lock(*devices,**params):

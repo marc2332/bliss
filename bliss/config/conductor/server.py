@@ -73,6 +73,13 @@ def _releaseAllLock(client_id):
     for obj in objset:
 #        print 'release',obj
         _lock_object.pop(obj)
+    #Inform waiting client
+    tmp_dict = dict(_waiting_lock)
+    for client_sock,tlo in tmp_dict.iteritems():
+        try_lock_object = set(tlo)
+        if try_lock_object.intersection(objset):
+            objs = _waiting_lock.pop(client_sock)
+            client_sock.sendall(protocol.message(protocol.LOCK_RETRY))
 
 def _lock(client_id,prio,lock_obj,raw_message) :
 #    print '_lock_object',_lock_object

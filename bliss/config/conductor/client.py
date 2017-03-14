@@ -8,6 +8,7 @@
 import os
 import StringIO
 from . import connection
+from .connection import StolenLockException
 
 _default_connection = None
 

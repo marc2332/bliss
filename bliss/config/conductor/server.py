@@ -62,6 +62,37 @@ else:
             for i in xrange(0,len(msg),max_message_size):
                 self._wqueue.send(msg[i:i+max_message_size])
 
+_waitstolen = dict()
+
+class _WaitStolenReply(object):
+    def __init__(self,stolen_lock):
+        self._stolen_lock = {client : '|'.join(objects) for client,objects in stolen_lock.iteritems()}
+        self._client2info = dict()
+
+    def __enter__(self):
+        for client,message in self._stolen_lock.iteritems():
+            event = gevent.event.Event()
+            client2sync = _waitstolen.setdefault(message,dict())
+            client2sync[client] = event
+            client.sendall(protocol.message(protocol.LOCK_STOLEN,message))
+        return self
+
+    def __exit__(self,*args,**keys):
+        for client,message in self._stolen_lock.iteritems():
+            client2sync = _waitstolen.pop(message,None)
+            if client2sync is not None:
+                client2sync.pop(client,None)
+            if client2sync:
+                _waitstolen[message] = client2sync
+
+    def wait(self,timeout):
+        with gevent.Timeout(timeout,
+                            RuntimeError("some client(s) didn't reply to stolen lock")):
+            for client,message in self._stolen_lock.iteritems():
+                client2sync = _waitstolen.get(message)
+                if client2sync is not None:
+                    sync = client2sync.get(client)
+                    sync.wait()
 _options = None
 _lock_object = {}
 _client_to_object = weakref.WeakKeyDictionary()
@@ -110,9 +141,12 @@ def _lock(client_id,prio,lock_obj,raw_message) :
                 new_prio = lock_prio > prio and lock_prio or prio
                 _lock_object[obj] = (client_id,compteur,new_prio)
 
-        for client,objects in stolen_lock.iteritems():
-            client.sendall(protocol.message(protocol.LOCK_STOLEN,'|'.join(objects)))
-
+        try:
+            with _WaitStolenReply(stolen_lock) as w:
+                w.wait(3.)
+        except RuntimeError:
+            print "Warning: some client(s) didn't reply to the stolen lock"
+        
         obj_already_locked = _client_to_object.get(client_id,set())
         _client_to_object[client_id] = set(lock_obj).union(obj_already_locked)
 
@@ -448,6 +482,12 @@ def _client_rx(client,local_connection):
                             lock_objects = message.split('|')
                             prio = int(lock_objects.pop(0))
                             _unlock(c_id,prio,lock_objects)
+                        elif messageType == protocol.LOCK_STOLEN_OK_REPLY:
+                            client2sync = _waitstolen.get(message)
+                            if client2sync is not None:
+                                sync = client2sync.get(c_id)
+                                if sync is not None:
+                                    sync.set()
                         elif messageType == protocol.REDIS_QUERY:
                             _send_redis_info(c_id,local_connection)
                         elif messageType == protocol.POSIX_MQ_QUERY:

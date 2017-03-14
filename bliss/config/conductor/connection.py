@@ -13,6 +13,9 @@ from . import protocol
 import redis
 import netifaces
 
+class StolenLockException(RuntimeError):
+    '''This exception is raise in case of a stolen lock'''
+
 try:
     import posix_ipc
     class _PosixQueue(posix_ipc.MessageQueue):
@@ -127,6 +130,7 @@ class Connection(object):
         self._fd = None
         self._cnx = None
         self._raw_read_task = None
+        self._greenlet_to_lockobjects = weakref.WeakKeyDictionary()
 
     def close(self):
         if self._fd:
@@ -201,6 +205,10 @@ class Connection(object):
                     self._cnx.sendall(protocol.message(protocol.LOCK,wait_lock.msg()))
                     status = wait_lock.get()
                     if status == protocol.LOCK_OK_REPLY: break
+        locked_objects = self._greenlet_to_lockobjects.setdefault(gevent.getcurrent(),dict())
+        for device in devices_name:
+            nb_lock = locked_objects.get(device,0)
+            locked_objects[device] = nb_lock + 1
 
     @check_connect
     def unlock(self,devices_name,**params):
@@ -210,6 +218,16 @@ class Connection(object):
         msg = "%d|%s" % (priority,'|'.join(devices_name))
         with gevent.Timeout(timeout,RuntimeError("unlock timeout (%s)" % str(devices_name))):
             self._cnx.sendall(protocol.message(protocol.UNLOCK,msg))
+        locked_objects = self._greenlet_to_lockobjects.setdefault(gevent.getcurrent(),dict())
+        max_lock = 0;
+        for device in devices_name:
+            nb_lock = locked_objects.get(device,0)
+            nb_lock -= 1
+            if nb_lock > max_lock :
+                max_lock = nb_lock
+            locked_objects[device] = nb_lock
+        if max_lock <= 0:
+            self._greenlet_to_lockobjects.pop(gevent.getcurrent(),None)
 
     @check_connect
     def get_redis_connection_address(self):
@@ -329,6 +347,18 @@ class Connection(object):
         elif messageType == protocol.LOCK_RETRY:
             for m,l in self._pending_lock.iteritems():
                 for e in l: e.put(messageType)
+            return True
+        elif messageType == protocol.LOCK_STOLEN:
+            stolen_object_lock = set(message.split('|'))
+            greenlet_to_objects = self._greenlet_to_lockobjects.copy()
+            for greenlet,locked_objects in greenlet_to_objects.iteritems():
+                locked_object_name = set((name for name,nb_lock in locked_objects.iteritems() if nb_lock > 0))
+                if locked_object_name.intersection(stolen_object_lock):
+                    try:
+                        greenlet.kill(exception=StolenLockException)
+                    except AttributeError:
+                        pass
+            fd.sendall(protocol.message(protocol.LOCK_STOLEN_OK_REPLY,message))
             return True
         return False
 

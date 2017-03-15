@@ -22,6 +22,7 @@ class KillMask:
                                                      self.__greenlet,
                                                      self.__exception, 
                                                      self.__waiter)
+	    gevent.sleep(0)
         elif self.__exception is not None:
             get_hub().loop.run_callback(self.__greenlet.throw,
                                         self.__exception)

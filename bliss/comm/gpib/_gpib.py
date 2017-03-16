@@ -15,7 +15,7 @@ from gevent import lock
 from .libnienet import EnetSocket
 from ..tcp import Socket
 from ..exceptions import CommunicationError, CommunicationTimeout
-from ...common.greenlet_utils import KillMask
+from ...common.greenlet_utils import KillMask, protect_from_kill
 
 try:
     from collections import OrderedDict
@@ -284,12 +284,14 @@ class Gpib:
     def _write(self,msg) :
         return self._raw_handler.ibwrt(msg)
 
+    @protect_from_kill
     def write_read(self,msg,write_synchro = None,size = 1,timeout = None) :
         with self._lock:
             self._write(msg)
             if write_synchro: write_synchro.notify()
             return self._read(size)
 
+    @protect_from_kill
     def write_readline(self,msg,write_synchro = None,
                        eol = None,timeout = None) :
         with self._lock:
@@ -297,6 +299,7 @@ class Gpib:
             if write_synchro: write_synchro.notify()
             return self._readline(eol)
 
+    @protect_from_kill
     def write_readlines(self,msg,nb_lines,write_synchro = None,
                         eol = None,timeout = None):
         with self._lock:

@@ -28,7 +28,7 @@ from bliss.acquisition.counter import CounterAcqDevice
 from bliss.common.continuous_scan import AcquisitionChain,Scan
 from bliss.acquisition.timer import SoftwareTimerMaster
 from bliss.acquisition.motor import LinearStepTriggerMaster
-from bliss.session import session,measurement
+from bliss.session import session,measurementgroup
 from bliss.data.writer import hdf5
 from . import data_manager
 from .event import dispatcher
@@ -39,7 +39,7 @@ def default_chain(chain,scan_pars,extra_counters) :
     count_time = scan_pars.get('count_time',1)
     npoints = scan_pars.get('npoints',1)
     timer = SoftwareTimerMaster(count_time,npoints=npoints)
-    meas = measurement.get_default()
+    meas = measurementgroup.get_active()
     if meas is not None:
         counters = filter(None,[setup_globals.__dict__.get(c) for c in meas.enable])
     else:

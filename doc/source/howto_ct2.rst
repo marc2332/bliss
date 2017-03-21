@@ -27,7 +27,6 @@ The CT2 card has two models:
     * Only the *P201* has been fully tested (*C208* not tested).
     * When card software is initialized, channel 10 is automatically
       configured to generate *output_gate* in :term:`TTL` level
-    * Missing external trigger modes
 
     Please contact the bliss development team if any of these missing
     features is blocking for you.
@@ -53,17 +52,20 @@ Exposure time
 .. wavedrom::
     {
       signal: [
-        { node: ".a...........b", period: 1 },
-        { name: "output gate",
-          wave: "lH.lh.lh.lh.l", period: 1, },
-        { node: ".c..d..."},
-        { node: ".e.f"},
+        { node: "..a...........................b", period: 0.5 },
+        { name: "soft. start",
+          wave: "l.Pd.", period: 0.5 },
+        { name: "out. gate",
+          wave: "l.H....l.h....l.h....l.h....l.d.", period: 0.5, },
+        { node: "..e....f", period: 0.5},
+        { node: "..c......d", period: 0.5},
       ],
 
       edge: [ "a<->b Nb. points (N) = 4;",
               "c<->d Point period", "e<->f Exp. time" ],
 
       head: {
+        text: "Internal Trigger Single",
         tick:-1,
       },
 
@@ -74,7 +76,7 @@ Exposure time
 
 .. pull-quote::
     Start by software. Trigger by internal clock. Internal clock determines
-    exposure time and point period.
+    exposure time (constant) and point period (constant).
 
     Note that in this mode, the acquisition finishes after the last
     *point period*, where in non *single* modes it ends right after *exposure
@@ -85,9 +87,13 @@ Exposure time
 .. wavedrom::
     {
       signal: [
-        { node: "..a.....................b", period: 0.5 },
-        { name: "output gate",
-          wave: "l.H...lH...l..H...l.H...l", period: 0.5 },
+        { node: "..a...........................b", period: 0.5 },
+        { name: "soft. start",
+          wave: "l.Pd.", period: 0.5 },
+        { name: "soft. trigger",
+         wave: "l.........Pl..Pl........Pd.", period: 0.5 },
+        { name: "out. gate",
+          wave: "l.H....l..H...lH...l......H...l", period: 0.5 },
         { node: "..c...d", period: 0.5 },
       ],
 
@@ -95,6 +101,7 @@ Exposure time
               "c<->d Exp. time" ],
 
       head: {
+        text: "Internal Trigger Multi",
         tick:-1,
       },
 
@@ -103,32 +110,37 @@ Exposure time
       },
     }
 
+
 .. pull-quote::
     Start by software. Hardware takes one single point. Each point is
-    triggered by software. Internal clock determines exposure time.
+    triggered by software. Internal clock determines exposure time (constant).
 
 .. rubric:: Internal Trigger Readout
 
 .. wavedrom::
     {
       signal: [
-        { node: "..a...............b", period: 0.5  },
-        { name: "output gate",
-          wave: "l.H...h...h...h...l", period: 0.5 },
-        { node: "..c...d", period: 0.5 },
+        { node: "..a...........................b", period: 0.5 },
+        { name: "soft. start",
+          wave: "l.Pd.", period: 0.5 },
+        { name: "out. gate",
+          wave: "l.H......H......H......H......l", period: 0.5 },
+        { node: "..c......d", period: 0.5 },
       ],
 
       edge: [ "a<->b Nb. points (N) = 4",
               "c<->d Exp. time" ],
 
       head: {
+        text: "Internal Trigger Readout",
         tick:-1,
       },
 
-      foot: {
+      foot:{
         text: "1 soft. start; 0 soft. triggers",
       },
     }
+
 
 .. pull-quote::
     Start by software. Trigger by internal clock which determines exposure time.
@@ -142,14 +154,19 @@ Exposure time
 .. wavedrom::
     {
       signal: [
-        { node: "..a...................b", period: 0.5  },
-        { name: "output gate",
-          wave: "l.H.H......H...H......L", period: 0.5, },
+        { node: "..a...........................b", period: 0.5 },
+        { name: "soft. start",
+          wave: "l.Pd.", period: 0.5 },
+        { name: "soft. trigger",
+         wave: "l.........Pl..Pl........Pl.Pd.", period: 0.5 },
+        { name: "out. gate",
+          wave: "l.H.......H....H..........H...L", period: 0.5 },
       ],
 
-      edge: [ "a<->b Nb. points (N) = 4" ],
+      edge: [ "a<->b Nb. points (N) = 4"],
 
       head: {
+        text: "Software Trigger Readout",
         tick:-1,
       },
 
@@ -160,39 +177,38 @@ Exposure time
 
 .. pull-quote::
     Start by software; trigger by software. Trigger ends previous acquisition
-    and starts next with no dead time.
+    and starts next with no dead time. Exposure time determined by trigger.
 
 .. rubric:: External Trigger Single
 
 .. wavedrom::
     {
       signal: [
-        { node: ".a...........b" },
-
+        { node: "..a...........................b", period: 0.5 },
         { name: "ext. trigger",
-          wave: "lPddd",
-        },
+          wave: "l.Pd.", period: 0.5 },
         { name: "out. gate",
-          wave: "lh.lh.lh.lh.l"},
-        { node: ".c..d..."},
-        { node: ".e.f"},
+          wave: "l.H....l.h....l.h....l.h....l.d.", period: 0.5, },
+        { node: "..e....f", period: 0.5},
+        { node: "..c......d", period: 0.5},
       ],
 
       edge: [ "a<->b Nb. points (N) = 4;",
               "c<->d Point period", "e<->f Exp. time" ],
 
       head: {
+        text: "External Trigger Single",
         tick:-1,
       },
 
       foot: {
-        text: "1 external trigger start",
+        text: "1 ext. trigger start",
       }
     }
 
 .. pull-quote::
     Start by external trigger. Trigger by internal clock.
-    Internal clock determines exposure time and point period.
+    Internal clock determines exposure time (constant) and point period (constant).
 
     Note that in this mode, the acquisition finishes after the last
     *point period*, where in non *single* modes it ends right after *exposure
@@ -202,6 +218,103 @@ Exposure time
     is done by an external trigger instead of software.
 
 .. rubric:: External Trigger Multi
+
+.. wavedrom::
+    {
+      signal: [
+        { node: "..a...........................b", period: 0.5 },
+        { name: "ext. trigger",
+          wave: "l.Pl.....Pl..Pl........Pd.", period: 0.5 },
+        { name: "out. gate",
+          wave: "l.H....l..H...lH...l......H...l", period: 0.5 },
+        { node: "..c....d", period: 0.5 },
+      ],
+
+      edge: [ "a<->b Nb. points (N) = 4",
+              "c<->d Exp. time" ],
+
+      head: {
+        text: "External Trigger Multi",
+        tick:-1,
+      },
+
+      foot:{
+        text: "N ext. triggers",
+      },
+    }
+
+.. pull-quote::
+    Start by external trigger. Trigger by external trigger.
+    Internal clock determines exposure time (constant).
+
+    This mode is similar to Internal Trigger Multi except that the start and
+    the triggers are by an external trigger instead of software start and
+    software trigger.
+
+.. TODO document what happens if an external trigger arrives before the exposure time is finished
+
+.. rubric:: External gate
+
+.. wavedrom::
+    {
+      signal: [
+        { node: "..a...........................b", period: 0.5 },
+        { name: "ext. trigger",
+          wave: "l.Pl..Pl.Pl.PPl.Pl.Pl..Pd.", period: 0.5 },
+        { name: "out. gate",
+          wave: "l.H....L...H...L.H...L...H....L", period: 0.5 },
+        { node: "..c....d", period: 0.5 },
+      ],
+
+      edge: [ "a<->b Nb. points (N) = 4",
+              "c<->d Exp. time" ],
+
+      head: {
+        text: "External gate",
+        tick:-1,
+      },
+
+      foot:{
+        text: "2 x N ext. triggers",
+      },
+    }
+
+.. pull-quote::
+    Start by external trigger. Trigger by odd external trigger numbers.
+    Exposure time determined by even external trigger numbers.
+
+.. rubric:: External Trigger Readout
+
+.. wavedrom::
+    {
+      signal: [
+        { node: "..a...........................b", period: 0.5 },
+        { name: "ext. trigger",
+         wave: "l.Pl.....Pl..Pl........Pl.Pd.", period: 0.5 },
+        { name: "out. gate",
+          wave: "l.H.......H....H..........H...L", period: 0.5 },
+      ],
+
+      edge: [ "a<->b Nb. points (N) = 4"],
+
+      head: {
+        text: "External Trigger Readout",
+        tick:-1,
+      },
+
+      foot:{
+        text: "N+1 ext. triggers",
+      },
+    }
+
+.. pull-quote::
+    Start by external trigger. Trigger by external trigger.
+    Trigger ends previous acquisition and starts next with no dead time.
+    Exposure time determined by trigger.
+
+    This mode is similar to Internal Trigger Readout except that the start and
+    the triggers are by an external trigger instead of software start and
+    software trigger.
 
 
 .. _bliss-ct2-driver-how-to:

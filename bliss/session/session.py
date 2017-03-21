@@ -106,13 +106,15 @@ class Session(object):
                else:
                   env_dict = globals()
 
-            exclude_objects = self._exclude_objects_names
             if isinstance(self._config_objects_names,(str,unicode)):
                config_objects = self._config_objects_names.split()
             else:
-               if isinstance(self._exclude_objects_names,(str,unicode)):
-                  exclude_objects = self._exclude_objects_names.split()
                config_objects = self._config_objects_names
+
+            if isinstance(self._exclude_objects_names,(str,unicode)):
+               exclude_objects = self._exclude_objects_names.split()
+            else:
+               exclude_objects = self._exclude_objects_names
 
             self._load_config(env_dict, config_objects, exclude_objects, verbose)
             

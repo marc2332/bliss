@@ -183,6 +183,54 @@ def TangoGpib(cnt,**keys) :
     return Object(keys.pop('url'), green_mode=GreenMode.Gevent)
 
 
+class LocalGpibError(GpibError):
+    pass
+
+class LocalGpib(object):
+
+    URL_RE = re.compile("^(local://)?([0-9]{1,2})$")
+
+    def __init__(self, cnt, **keys):
+        url = keys.pop('url')
+        match = self.URL_RE.match(url)
+        if match is None:
+            raise LocalGpibError('LocalGpib: url is not valid (%s)' % url)
+        self.board_index = int(match.group(2))
+        if self.board_index < 0 or self.board_index > 15:
+            raise LocalGpibError('LocalGpib: url is not valid (%s)' % url)
+        self._logger = logging.getLogger(str(self))
+        self._debug = self._logger.debug
+        self._gpib_kwargs = keys
+
+    def __str__(self):
+        return '{0}(board={1})'.format(type(self).__name__, self.board_index)
+
+    def init(self) :
+        self._debug("init()")
+        opts = self._gpib_kwargs
+        from . import libgpib
+        self.gpib = libgpib
+        self._debug("libgpib version %s", self.gpib.ibvers())
+        self.gpib.GPIBError = LocalGpibError
+        self.ud = self.gpib.ibdev(self.board_index, pad=opts['pad'],
+                                  sad=opts['sad'], tmo=opts['tmo'])
+
+    def ibwrt(self, cmd):
+        self._debug("Sent: %r" % cmd)
+        tp = gevent.get_hub().threadpool
+        return tp.spawn(self.gpib.ibwrt, self.ud, cmd).get()
+
+    def ibrd(self, length):
+        tp = gevent.get_hub().threadpool
+        return tp.spawn(self.gpib.ibrd, self.ud, length).get()
+
+    def ibtmo(self, tmo):
+        return self.gpib.ibtmo(self.ud, tmo)
+
+    def close(self):
+        pass
+
+
 def try_open(fu) :
     def rfunc(self,*args,**keys) :
         with KillMask():
@@ -204,7 +252,7 @@ class Gpib:
     interface = Gpib(url="enet://gpibid00a.esrf.fr", pad=15)
     '''
 
-    ENET, TANGO, PROLOGIX = range(3)
+    ENET, TANGO, PROLOGIX, LOCAL = range(4)
     READ_BLOCK_SIZE = 64 * 1024
 
     def __init__(self,url = None,pad = 0,sad = 0,timeout = 1.,tmo = 13,
@@ -238,6 +286,9 @@ class Gpib:
                 self._raw_handler.init()
             elif self.gpib_type == self.TANGO:
                 self._raw_handler = TangoGpib(self,**self._gpib_kwargs)
+            elif self.gpib_type == self.LOCAL:
+                self._raw_handler = LocalGpib(self,**self._gpib_kwargs)
+                self._raw_handler.init()
 
     def close(self) :
         if self._raw_handler is not None:
@@ -322,6 +373,8 @@ class Gpib:
             return self.PROLOGIX
         elif url_lower.startswith("tango://") :
             return self.TANGO
+        elif url_lower.startswith("local://") :
+            return self.LOCAL
         else:
             return None
 

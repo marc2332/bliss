@@ -473,7 +473,7 @@ class ScanSaving(Parameters):
 
     def __dir__(self) :
         keys = Parameters.__dir__(self)
-        return keys + ['session','get']
+        return keys + ['session','get','get_path','get_parent_node']
 
     @property
     def session(self):
@@ -517,3 +517,16 @@ class ScanSaving(Parameters):
             return {'root_path' : os.path.join(cache_dict.get('base_path'),sub_path),
                     'parent' : parent}
                     
+    def get_path(self):
+        """
+        This method return the current saving path.
+        The path is compute with *base_path* and follow the *template* attribute
+        to generate it.
+        """
+        return self.get()['root_path']
+
+    def get_parent_node(self):
+        """
+        This method return the parent node which should be used to publish new data
+        """
+        return self.get()['parent']

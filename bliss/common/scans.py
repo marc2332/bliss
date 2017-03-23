@@ -115,7 +115,7 @@ class _ScanDataWatch(object):
             
 
 def _do_scan(chain,scan_info) :
-    scandata = data_manager.ScanData()
+    scandata = data_manager.ScanSaving()
     config = scandata.get()
     root_path = config['root_path']
     writer = hdf5.Writer(root_path)

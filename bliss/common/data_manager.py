@@ -440,7 +440,7 @@ class ScanRecorder(object):
                 event_done.set()
                 gevent.idle()
 
-class ScanData(Parameters):
+class ScanSaving(Parameters):
     SLOTS = []
 
     def __init__(self):
@@ -512,7 +512,7 @@ class ScanData(Parameters):
             
             sub_path = template.format(**cache_dict)
         except KeyError,keyname:
-            raise RuntimeError("Missing %s attribute in ScanData" % keyname)
+            raise RuntimeError("Missing %s attribute in ScanSaving" % keyname)
         else:
             return {'root_path' : os.path.join(cache_dict.get('base_path'),sub_path),
                     'parent' : parent}

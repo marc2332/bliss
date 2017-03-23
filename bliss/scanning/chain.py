@@ -7,31 +7,10 @@
 
 from treelib import Tree
 import gevent
-from .event import dispatcher
+from bliss.common.event import dispatcher
 import time
 import weakref
 
-class Scan(object):
-    def __init__(self, acq_chain, dm, scan_info=None):
-        self.scan_dm = dm
-        self.acq_chain = acq_chain
-        self.scan_info = scan_info if scan_info else dict()
-
-    def prepare(self):
-	pass
-
-    def start(self):
-        try:
-            for i in self.acq_chain:
-                i.prepare(self.scan_dm, self.scan_info)
-                i.start()
-        except:
-            i.stop()
-            self.scan_dm.stop()
-            raise
-        else:
-            i.stop()
-                 
 class AcquisitionChannel(object):
     def __init__(self, name, dtype, shape):
         self.__name = name

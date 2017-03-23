@@ -14,7 +14,6 @@ Most common scan procedures (:func:`~bliss.common.scans.ascan`, \
 __all__ = ['ascan', 'a2scan', 'dscan', 'd2scan', 'timescan', 'ct']
 
 import time
-import getpass
 import logging
 
 import numpy
@@ -24,14 +23,14 @@ from bliss import setup_globals
 from bliss.common.task_utils import *
 from bliss.controllers.motor_group import Group
 from bliss.common.measurement import CounterBase
-from bliss.acquisition.counter import CounterAcqDevice
-from bliss.common.continuous_scan import AcquisitionChain,Scan
-from bliss.acquisition.timer import SoftwareTimerMaster
-from bliss.acquisition.motor import LinearStepTriggerMaster
+from bliss.scanning.acquisition.counter import CounterAcqDevice
+from bliss.scanning.chain import AcquisitionChain
+from bliss.scanning import scan as scan_module
+from bliss.scanning.acquisition.timer import SoftwareTimerMaster
+from bliss.scanning.acquisition.motor import LinearStepTriggerMaster
 from bliss.session import session,measurementgroup
-from bliss.data.writer import hdf5
-from . import data_manager
-from .event import dispatcher
+from bliss.scanning.writer import hdf5
+from .event import send
 
 _log = logging.getLogger('bliss.scans')
 
@@ -77,10 +76,10 @@ class _ScanDataWatch(object):
         if self._last_point_display == -1:
             counter_names = [x for x in self._channel_name_2_channel.keys() if x not in self._motors_name]
             self._scan_info['counter_names'] = counter_names
-            dispatcher.send("scan_new",data_manager,
-                            self._scan_info,self._root_path,
-                            self._motors_name,self._scan_info['npoints'],
-                            counter_names)
+            send(scan_module,"scan_new",
+                 self._scan_info,self._root_path,
+                 self._motors_name,self._scan_info['npoints'],
+                 counter_names)
             self._last_point_display += 1
 
         min_nb_points = None
@@ -100,8 +99,8 @@ class _ScanDataWatch(object):
             values.extend((channel.get(point_nb)
                            for channel in self._channel_name_2_channel.values()
                            if channel not in motor_channels))
-            dispatcher.send("scan_data",data_manager,
-                            self._scan_info,values)
+            send(scan_module,"scan_data",
+                 self._scan_info,values)
         if min_nb_points is not None:
             self._last_point_display = min_nb_points
         #check end
@@ -111,11 +110,11 @@ class _ScanDataWatch(object):
                 if data_node.type() == 'zerod':
                     self._channel_end_nb += len(data_node.channel_name())
         if self._channel_end_nb == len(self._channel_name_2_channel):
-            dispatcher.send("scan_end",self._scan_info)
+            send(scan_module,"scan_end",self._scan_info)
             
 
 def _do_scan(chain,scan_info) :
-    scandata = data_manager.ScanSaving()
+    scandata = scan_module.ScanSaving()
     config = scandata.get()
     root_path = config['root_path']
     writer = hdf5.Writer(root_path)
@@ -123,11 +122,11 @@ def _do_scan(chain,scan_info) :
     scan_info['session_name'] = scandata.session
     scan_info['user_name'] = scandata.user_name
     scan_data_watch = _ScanDataWatch(root_path,scan_info)
-    scan_recorder = data_manager.ScanRecorder(parent=config['parent'],
-                                              scan_info=scan_info,
-                                              writer=writer,
-                                              data_watch_callback=scan_data_watch)
-    scan = Scan(chain, scan_recorder)
+    scan_recorder = scan_module.ScanRecorder(parent=config['parent'],
+                                             scan_info=scan_info,
+                                             writer=writer,
+                                             data_watch_callback=scan_data_watch)
+    scan = scan_module.Scan(chain, scan_recorder)
     scan.prepare()
     scan.start()
 

@@ -5,8 +5,9 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 import datetime
-from bliss.common.data_manager import DataNode,to_timestamp
 import pickle
+
+from bliss.data.node import DataNode,to_timestamp
 
 def _transform_dict_obj(dict_object) :
     return_dict = dict()

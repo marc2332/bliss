@@ -7,7 +7,7 @@
 
 import collections
 from bliss.config.settings import QueueSetting
-from bliss.common.data_manager import DataNode
+from bliss.data.node import DataNode
 
 class Dataset0D(DataNode):
     class DataChannel(object):

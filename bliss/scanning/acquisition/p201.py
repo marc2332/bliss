@@ -9,7 +9,7 @@ from gevent.select import select
 from bliss.common.event import dispatcher
 from bliss.controllers.ct2 import CtConfig, CtClockSrc, CtGateSrc, CtHardStartSrc, CtHardStopSrc
 import numpy
-from bliss.common.continuous_scan import AcquisitionDevice, AcquisitionMaster, AcquisitionChannel
+from ..chain import AcquisitionDevice, AcquisitionMaster, AcquisitionChannel
 import gevent
 
 class P201AcquisitionMaster(AcquisitionMaster):

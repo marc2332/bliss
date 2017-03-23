@@ -1,7 +1,7 @@
 import os, errno
 import h5py
 import numpy
-from bliss.data.writer.common import FileWriter, \
+from ..scan import FileWriter, \
     AcquisitionMasterEventReceiver, AcquisitionDeviceEventReceiver
 
 def _on_event(obj, event_dict, signal, device):

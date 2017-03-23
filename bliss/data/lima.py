@@ -8,7 +8,7 @@
 import struct
 import numpy
 from PyTango.gevent import DeviceProxy
-from bliss.common.data_manager import DataNode
+from bliss.data.node import DataNode
 from bliss.config.settings import QueueObjSetting
 from bliss.config.conductor import client
 from bliss.config import channels

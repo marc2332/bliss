@@ -9,7 +9,7 @@ import numpy
 import time
 from gevent import event,sleep
 from bliss.common.event import dispatcher
-from bliss.common.continuous_scan import AcquisitionDevice,AcquisitionChannel
+from ..chain import AcquisitionDevice,AcquisitionChannel
 
 class CounterAcqDevice(AcquisitionDevice):
     def __init__(self,counter,

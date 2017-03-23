@@ -6,7 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from __future__ import absolute_import
-from bliss.common.continuous_scan import AcquisitionMaster, AcquisitionChannel
+from ..chain import AcquisitionMaster, AcquisitionChannel
 from bliss.common import axis
 from bliss.common import event
 from bliss.common.event import dispatcher

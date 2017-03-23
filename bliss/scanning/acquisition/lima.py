@@ -5,7 +5,7 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from bliss.common.continuous_scan import AcquisitionDevice, AcquisitionMaster, AcquisitionChannel
+from ..chain import AcquisitionDevice, AcquisitionMaster, AcquisitionChannel
 from bliss.common.event import dispatcher
 import gevent
 import time

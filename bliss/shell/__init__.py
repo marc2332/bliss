@@ -17,7 +17,7 @@ import numpy
 import datetime
 
 from bliss import setup_globals
-from bliss.common import data_manager
+from bliss.scanning import scan
 from bliss.common import event
 
 try:
@@ -52,10 +52,9 @@ class ScanListener:
              "{column_header}"
 
     def __init__(self):
-        dm = data_manager
-        event.connect(dm, 'scan_new', self.__on_scan_new)
-        event.connect(dm, 'scan_data', self.__on_scan_data)
-        event.connect(dm, 'scan_end', self.__on_scan_end)
+        event.connect(scan, 'scan_new', self.__on_scan_new)
+        event.connect(scan, 'scan_data', self.__on_scan_data)
+        event.connect(scan, 'scan_end', self.__on_scan_end)
 
     def __on_scan_new(self, scan_info, filename, motor_names, nb_points, counter_names):
         if scan_info['type'] == 'ct':

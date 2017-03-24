@@ -33,18 +33,25 @@ from bliss.scanning.writer import hdf5
 
 _log = logging.getLogger('bliss.scans')
 
-def default_chain(chain,scan_pars,extra_counters) :
+def default_chain(chain,scan_pars,counters) :
     count_time = scan_pars.get('count_time',1)
     npoints = scan_pars.get('npoints',1)
     timer = SoftwareTimerMaster(count_time,npoints=npoints)
-    meas = measurementgroup.get_active()
-    if meas is not None:
-        counters = filter(None,[setup_globals.__dict__.get(c) for c in meas.enable])
+    scan_counters = list()
+    if counters:
+        for cnt in counters:
+            if isinstance(cnt,measurementgroup.MeasurementGroup):
+                extra = filter(None,[setup_globals.__dict__.get(c) for c in cnt.enable])
+                scan_counters.extend(extra)
+            else:
+                scan_counters.append(cnt)
     else:
-        counters = list()   # todo
-    counters.extend(extra_counters)
+        meas = measurementgroup.get_active()
+        if meas is not None:
+            extra = filter(None,[setup_globals.__dict__.get(c) for c in meas.enable])
+            scan_counters.extend(extra)
     
-    for cnt in set(counters):
+    for cnt in set(scan_counters):
         if isinstance(cnt, CounterBase):
             chain.add(timer, CounterAcqDevice(cnt, expo_time=count_time, npoints=npoints))
 #      elif isinstance(cnt,Lima):
@@ -71,7 +78,7 @@ def _do_scan(chain,scan_info) :
     scan.prepare()
     scan.start()
 
-def ascan(motor, start, stop, npoints, count_time, *extra_counters, **kwargs):
+def ascan(motor, start, stop, npoints, count_time, *counters, **kwargs):
     """
     Absolute scan
 
@@ -89,7 +96,9 @@ def ascan(motor, start, stop, npoints, count_time, *extra_counters, **kwargs):
         stop (float): motor end position
         npoints (int): the number of points
         count_time (float): count time (seconds)
-        extra_counters (BaseCounter): additional counters
+        counters (BaseCounter or
+                  MeasurementGroup): change for those counters or measurement group.
+                                     if counter is empty use the active measurement group.
 
     Keyword Args:
         type (str): scan type [default: 'ascan')
@@ -115,7 +124,7 @@ def ascan(motor, start, stop, npoints, count_time, *extra_counters, **kwargs):
     kwargs.setdefault('count_time', count_time)
 
     chain = AcquisitionChain(parallel_prepare=True)
-    timer = default_chain(chain,kwargs,extra_counters)
+    timer = default_chain(chain,kwargs,counters)
     top_master = LinearStepTriggerMaster(npoints,motor,start,stop)
     chain.add(top_master,timer)
 
@@ -124,7 +133,7 @@ def ascan(motor, start, stop, npoints, count_time, *extra_counters, **kwargs):
 
     _do_scan(chain,kwargs)
 
-def dscan(motor, start, stop, npoints, count_time, *extra_counters, **kwargs):
+def dscan(motor, start, stop, npoints, count_time, *counters, **kwargs):
     """
     Relative scan
 
@@ -142,7 +151,9 @@ def dscan(motor, start, stop, npoints, count_time, *extra_counters, **kwargs):
         stop (float): motor relative end position
         npoints (int): the number of points
         count_time (float): count time (seconds)
-        extra_counters (BaseCounter): additional counters
+        counters (BaseCounter or
+                  MeasurementGroup): change for those counters or measurement group.
+                                     if counter is empty use the active measurement group.
 
     Keyword Args:
         type (str): scan type [default: 'ascan')
@@ -157,12 +168,12 @@ def dscan(motor, start, stop, npoints, count_time, *extra_counters, **kwargs):
     kwargs.setdefault('type', 'dscan')
     oldpos = motor.position()
     ascan(motor, oldpos + start, oldpos + stop, npoints, count_time,
-          *extra_counters, **kwargs)
+          *counters, **kwargs)
     motor.move(oldpos)
 
 
 def a2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
-           *extra_counters, **kwargs):
+           *counters, **kwargs):
     """
     Absolute 2 motor scan
 
@@ -184,7 +195,9 @@ def a2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
         stop2 (float): motor2 end position
         npoints (int): the number of points
         count_time (float): count time (seconds)
-        extra_counters (BaseCounter): additional counters
+        counters (BaseCounter or
+                  MeasurementGroup): change for those counters or measurement group.
+                                     if counter is empty use the active measurement group.
 
     Keyword Args:
         type (str): scan type [default: 'a2scan')
@@ -211,7 +224,7 @@ def a2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
     kwargs.setdefault('count_time', count_time)
 
     chain = AcquisitionChain(parallel_prepare=True)
-    timer = default_chain(chain,kwargs,extra_counters)
+    timer = default_chain(chain,kwargs,counters)
     top_master = LinearStepTriggerMaster(npoints,
                                          motor1,start1,stop1,
                                          motor2,start2,stop2)
@@ -224,7 +237,7 @@ def a2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
     _do_scan(chain,kwargs)
 
 def d2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
-           *extra_counters, **kwargs):
+           *counters, **kwargs):
     """
     Relative 2 motor scan
 
@@ -247,7 +260,9 @@ def d2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
         stop2 (float): motor2 relative end position
         npoints (int): the number of points
         count_time (float): count time (seconds)
-        extra_counters (BaseCounter): additional counters
+        counters (BaseCounter or
+                  MeasurementGroup): change for those counters or measurement group.
+                                     if counter is empty use the active measurement group.
 
     Keyword Args:
         type (str): scan type [default: 'ascan')
@@ -265,19 +280,21 @@ def d2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
     oldpos2 = motor2.position()
 
     a2scan(motor1, oldpos1 + start1, oldpos1+stop1, motor2, oldpos2 + start2,
-           oldpos2 + stop2, npoints, count_time, *extra_counters, **kwargs)
+           oldpos2 + stop2, npoints, count_time, *counters, **kwargs)
 
     group = Group(motor1,motor2)
     group.move(motor1,oldpos1,motor2,oldpos2)
 
 
-def timescan(count_time, *extra_counters, **kwargs):
+def timescan(count_time, *counters, **kwargs):
     """
     Time scan
 
     Args:
         count_time (float): count time (seconds)
-        extra_counters (BaseCounter): additional counters
+        counters (BaseCounter or
+                  MeasurementGroup): change for those counters or measurement group.
+                                     if counter is empty use the active measurement group.
 
     Keyword Args:
         sleep_time (float): sleep time (seconds) [default: 0]
@@ -307,7 +324,7 @@ def timescan(count_time, *extra_counters, **kwargs):
     _log.info("Doing %s", scan_type)
 
     chain = AcquisitionChain(parallel_prepare=True)
-    timer = default_chain(chain,kwargs,extra_counters)
+    timer = default_chain(chain,kwargs,counters)
     timer.timescan_mode = True
 
     _do_scan(chain,kwargs)
@@ -321,7 +338,9 @@ def ct(count_time, *counters, **kwargs):
 
     Args:
         count_time (float): count time (seconds)
-        extra_counters (BaseCounter): additional counters
+        counters (BaseCounter or
+                  MeasurementGroup): change for those counters or measurement group.
+                                     if counter is empty use the active measurement group.
 
     Keyword Args:
         sleep_time (float): sleep time (seconds) [default: 0]

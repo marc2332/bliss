@@ -53,7 +53,7 @@ def default_chain(chain,scan_pars,extra_counters) :
 
     return timer
 
-class _ScanDataWatch(object):
+class StepScanDataWatch(object):
     def __init__(self,root_path,scan_info):
         self._motors = scan_info['motors']
         self._motors_name = [x.name for x in self._motors]
@@ -121,7 +121,7 @@ def _do_scan(chain,scan_info) :
     scan_info['root_path'] = root_path
     scan_info['session_name'] = scandata.session
     scan_info['user_name'] = scandata.user_name
-    scan_data_watch = _ScanDataWatch(root_path,scan_info)
+    scan_data_watch = StepScanDataWatch(root_path,scan_info)
     scan_recorder = scan_module.ScanRecorder(parent=config['parent'],
                                              scan_info=scan_info,
                                              writer=writer,

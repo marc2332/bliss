@@ -65,7 +65,7 @@ def _do_scan(chain,scan_info) :
     scandata = scan_module.ScanSaving()
     config = scandata.get()
     root_path = config['root_path']
-    writer = hdf5.Writer(root_path)
+    writer = hdf5.Writer(root_path) if scan_info.get('save',True) else None
     scan_info['root_path'] = root_path
     scan_info['session_name'] = scandata.session
     scan_info['user_name'] = scandata.user_name

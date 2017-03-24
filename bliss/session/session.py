@@ -131,6 +131,9 @@ class Session(object):
                   setattr(setup_globals, obj_name, obj) 
             if verbose:
                print "Done."
+
+            from bliss.scanning.scan import ScanSaving
+            env_dict['SCAN_SAVING'] = ScanSaving()
             return True
       except KeyError:
          raise RuntimeError("No setup file.")

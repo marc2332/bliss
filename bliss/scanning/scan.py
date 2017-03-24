@@ -10,14 +10,81 @@ import gevent
 import os
 import string
 import weakref
+import sys
 from treelib import Tree
 
-from bliss.common.event import connect
+from bliss.common.event import connect,send
 from bliss.config.conductor import client
 from bliss.config.settings import Parameters,_change_to_obj_marshalling
 from bliss.data.node import _get_or_create_node,_create_node,DataNode
 from bliss.session.session import get_default as _default_session
 from .chain import AcquisitionDevice, AcquisitionMaster
+
+current_module = sys.modules[__name__]
+
+class StepScanDataWatch(object):
+    """
+    This class is an helper to follow data generation by a step scan like:
+    an acquisition chain with motor(s) as the top-master.
+    This produce event compatible with the ScanListener class (bliss.shell)
+    """
+    def __init__(self,root_path,scan_info):
+        self._motors = scan_info['motors']
+        self._motors_name = [x.name for x in self._motors]
+        self._last_point_display = -1
+        self._channel_name_2_channel = dict()
+        self._scan_info = scan_info
+        self._root_path = root_path
+        self._channel_end_nb = 0
+        self._init_done = False
+
+    def __call__(self,data_events,nodes):
+        if self._init_done is False:
+            for acq_device,data_node in nodes.iteritems():
+                if data_node.type() == 'zerod':
+                    self._channel_name_2_channel.update(
+                        ((channel.name,data_node.get_channel(channel.name)) 
+                         for channel in acq_device.channels))
+            self._init_done = True
+
+        if self._last_point_display == -1:
+            counter_names = [x for x in self._channel_name_2_channel.keys() if x not in self._motors_name]
+            self._scan_info['counter_names'] = counter_names
+            send(current_module,"scan_new",
+                 self._scan_info,self._root_path,
+                 self._motors_name,self._scan_info['npoints'],
+                 counter_names)
+            self._last_point_display += 1
+
+        min_nb_points = None
+        for channels_name,channel in self._channel_name_2_channel.iteritems():
+            nb_points = len(channel)
+            if min_nb_points is None:
+                min_nb_points = nb_points
+            elif min_nb_points > nb_points:
+                min_nb_points = nb_points
+ 
+        point_nb = self._last_point_display
+        for point_nb in range(self._last_point_display,min_nb_points):
+            motor_channels = [self._channel_name_2_channel.get(channel_name)
+                              for channel_name in self._motors_name]
+            values = [channel.get(point_nb) for channel in motor_channels]
+            motor_channels = set(motor_channels)
+            values.extend((channel.get(point_nb)
+                           for channel in self._channel_name_2_channel.values()
+                           if channel not in motor_channels))
+            send(current_module,"scan_data",
+                 self._scan_info,values)
+        if min_nb_points is not None:
+            self._last_point_display = min_nb_points
+        #check end
+        for acq_device,event in data_events.iteritems():
+            if 'end' in event:
+                data_node = nodes.get(acq_device)
+                if data_node.type() == 'zerod':
+                    self._channel_end_nb += len(data_node.channel_name())
+        if self._channel_end_nb == len(self._channel_name_2_channel):
+            send(current_module,"scan_end",self._scan_info)
 
 class Scan(object):
     def __init__(self, acq_chain, dm, scan_info=None):

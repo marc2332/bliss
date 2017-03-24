@@ -116,7 +116,7 @@ def ascan(motor, start, stop, npoints, count_time, *extra_counters, **kwargs):
 
     chain = AcquisitionChain(parallel_prepare=True)
     timer = default_chain(chain,kwargs,extra_counters)
-    top_master = LinearStepTriggerMaster(motor,start,stop,npoints)
+    top_master = LinearStepTriggerMaster(npoints,motor,start,stop)
     chain.add(top_master,timer)
 
     _log.info("Scanning %s from %f to %f in %d points",
@@ -212,8 +212,9 @@ def a2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
 
     chain = AcquisitionChain(parallel_prepare=True)
     timer = default_chain(chain,kwargs,extra_counters)
-    top_master = LinearStepTriggerMaster(motor1,start1,stop1,npoints,
-                                         motor2,start2,stop2,npoints)
+    top_master = LinearStepTriggerMaster(npoints,
+                                         motor1,start1,stop1,
+                                         motor2,start2,stop2)
     chain.add(top_master,timer)
 
     _log.info(

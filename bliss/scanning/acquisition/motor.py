@@ -185,21 +185,21 @@ class JogMotorMaster(AcquisitionMaster):
         finally:
             self.__end_jog_task = None
 
-class LinearStepTriggerMaster(AcquisitionMaster):
+class _StepTriggerMaster(AcquisitionMaster):
     """
-    Generic motor master for step by step acquisition.
+    Generic motor master helper for step by step acquisition.
 
     :param *args == mot1,start1,stop1,nb_point,mot2,start2,stop2,nb_point,...
     :param nb_point should be always the same for all motors
     Example::
 
-        LinearStepTriggerMaster(mota,0,10,20,motb,-1,1,20)
+        _StepTriggerMaster(mota,0,10,20,motb,-1,1,20)
     """
     def __init__(self,*args,**keys):
         trigger_type= keys.pop('trigger_type',AcquisitionMaster.SOFTWARE)
         self.next_mv_cmd_arg = list()
         if len(args) % 4:
-            raise TypeError('LinearStepTriggerMaster: argument is a mot1,start,stop,nb points,mot2,start2...')
+            raise TypeError('_StepTriggerMaster: argument is a mot1,start,stop,nb points,mot2,start2...')
         self._motor_pos = list()
         self._axes = list()
         for axis,start,stop,nb_point in grouped(args,4):
@@ -244,7 +244,7 @@ class LinearStepTriggerMaster(AcquisitionMaster):
 
         self.wait_slaves()
 
-class MeshStepTriggerMaster(LinearStepTriggerMaster):
+class MeshStepTriggerMaster(_StepTriggerMaster):
     """
     Generic motor master for step by step mesh acquisition.
 
@@ -256,7 +256,7 @@ class MeshStepTriggerMaster(LinearStepTriggerMaster):
     """
     def __init__(self,*args,**keys):
         backnforth = keys.pop('backnforth',False)
-        LinearStepTriggerMaster.__init__(self,*args,**keys)
+        _StepTriggerMaster.__init__(self,*args,**keys)
         
         self._motor_pos = numpy.meshgrid(*self._motor_pos)
         if backnforth:
@@ -265,3 +265,22 @@ class MeshStepTriggerMaster(LinearStepTriggerMaster):
         for x in self._motor_pos:       # flatten
             x.shape = -1,
  
+
+class LinearStepTriggerMaster(_StepTriggerMaster):
+    """
+    Generic motor master for step by step acquisition.
+    
+    :param nb_point the number of position generated
+    :param *args == mot1,start1,stop1,mot2,start2,stop2,...
+    Example::
+
+        LinearStepTriggerMaster(20,mota,0,10,motb,-1,1)
+    """
+    def __init__(self,nb_point,*args,**keys):
+        if len(args) % 3:
+            raise TypeError('LinearStepTriggerMaster: argument is a nb_point,mot1,start1,stop1,mot2,start2,stop2,...')
+
+        params = list()
+        for axis,start,stop in grouped(args,3):
+            params.extend((axis,start,stop,nb_point))
+        _StepTriggerMaster.__init__(self,*params,**keys)

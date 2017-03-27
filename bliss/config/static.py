@@ -287,6 +287,38 @@ class Node(NodeDict):
             file_content = yaml.dump(save_nodes,default_flow_style=False)
         self._config.set_config_db_file(filename,file_content)
 
+    def deep_copy(self):
+        """
+        full copy of this node an it's children
+        """
+        node = Node()
+        node._config = self._config
+        node._parent = self._parent
+        for key,value in self.iteritems():
+            if isinstance(value,Node):
+                child_node = value.deep_copy()
+                node[key] = child_node
+            elif isinstance(value,list):
+                new_list = Node._copy_list(value)
+                node[key] = new_list
+            else:
+                node[key] = value
+        return node
+
+    @staticmethod
+    def _copy_list(l):
+        new_list = list()
+        for v in l:
+            if isinstance(v,Node):
+                new_node = v.deep_copy()
+                new_list.append(new_node)
+            elif isinstance(v,list):
+                child_list = Node._copy_list(v)
+                new_list.append(child_list)
+            else:
+                new_list.append(v)
+        return new_list
+
     def _get_save_dict(self,src_node,filename):
         return_dict = NodeDict()
         for key,values in src_node.iteritems():

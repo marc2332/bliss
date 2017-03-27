@@ -7,39 +7,86 @@
 
 from __future__ import absolute_import
 
+import weakref
+
 from .utils import find_class
 
-def create_objects_from_config_node(config, item_cfg_node):
+
+
+def _checkref(config,item_cfg_node,referenced_objects,name,value):
+    if isinstance(value, str) and value.startswith("$"):
+        # convert reference to item from config
+        obj = weakref.proxy(config.get(value))
+        item_cfg_node[name]=obj
+        referenced_objects[name]=obj
+        return True
+    else:
+        return False
+
+def _parse_dict(config,item_cfg_node,referenced_objects,
+                subdict):
+    for name,node in subdict.iteritems():
+        if _checkref(config,item_cfg_node,referenced_objects,
+                     name,node):
+            continue
+        elif isinstance(node,dict):
+            childdict = dict()
+            childref = dict()
+            _parse_dict(config,childdict,childref,node)
+            if childref:
+                node.update(childref)
+                referenced_objects[name] = node
+            subdict.update(childdict)
+        elif isinstance(node,list):
+            return_list = _parse_list(config,node)
+            if return_list:
+                referenced_objects[name] = return_list
+                item_cfg_node[name] = return_list
+
+def _parse_list(config,value):
+    object_list = list()
+    for node in value:
+        if isinstance(node,str) and node.startswith("$"):
+            object_list.append(weakref.proxy(config.get(node)))
+        elif isinstance(node,dict):
+            subdict = dict()
+            subref = dict()
+            _parse_dict(config,subdict,subref,node)
+            if subdict:
+                node.update(subdict)
+                object_list.append(node)
+        elif isinstance(node,list):
+            return_list = _parse_list(config,node)
+            if return_list:
+                object_list.append(return_list)
+    return object_list
+
+def create_objects_from_config_node(config, cfg_node):
+    item_cfg_node = cfg_node.deep_copy()
     klass = find_class(item_cfg_node)
 
     item_name = item_cfg_node["name"]
     referenced_objects = dict()
-    item_cfg_node_2_clean = set()
 
     for name, value in item_cfg_node.iteritems():
-        if isinstance(value, str) and value.startswith("$"):
-            # convert reference to item from config
-            obj = config.get(value)
-            item_cfg_node[name]=obj
-            item_cfg_node_2_clean.add(name)
-            referenced_objects[name]=item_cfg_node[name]
-        elif isinstance(value,list):
-            object_list = dict()
-            for node in value:
-                if isinstance(node,dict):
-                    node_name = node.get('name','')
-                    if node_name.startswith('$'):
-                        ref_obj = config.get(node_name)
-                        item_cfg_node[node_name] = ref_obj
-                        object_list[node_name] = ref_obj
-                        item_cfg_node_2_clean.add(node_name)
-            if object_list:
-                referenced_objects[name] = object_list
+        if _checkref(config,item_cfg_node,referenced_objects,
+                           name,value):
+            continue
+
+        if isinstance(value,list):
+            return_list = _parse_list(config,value)
+            if return_list:
+                referenced_objects[name] = return_list
+                item_cfg_node[name] = return_list
+        elif isinstance(value,dict):
+            subdict = dict()
+            subref = dict()
+            _parse_dict(config,subdict,subref,value)
+            if subref:
+                referenced_objects[name] = subref
+            item_cfg_node.update(subdict)
 
     o = klass(item_name, item_cfg_node)
-
-    for name in item_cfg_node_2_clean:
-        item_cfg_node.pop(name)
 
     for name, object in referenced_objects.iteritems():
         if hasattr(o, name):

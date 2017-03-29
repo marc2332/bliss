@@ -134,6 +134,8 @@ class Session(object):
 
             from bliss.scanning.scan import ScanSaving
             env_dict['SCAN_SAVING'] = ScanSaving()
+            from bliss.session.measurementgroup import default_mg
+            env_dict['DEFAULT_MG'] = default_mg()
             return True
       except KeyError:
          raise RuntimeError("No setup file.")

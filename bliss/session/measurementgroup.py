@@ -167,3 +167,12 @@ def _active_name(name = ""):
         active_measure_name.set(name)
     else:
         return active_measure_name.get()
+
+class default_mg(object):
+  def __getattribute__(self, attr):
+    return getattr(get_active(), attr)
+  def __setattr__(self,name,value):
+    active = get_active()
+    return setattr(active,name,value)
+  def __repr__(self):
+    return repr(get_active())

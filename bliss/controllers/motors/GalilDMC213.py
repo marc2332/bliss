@@ -1,11 +1,14 @@
 """
 Bliss controller for ethernet Galil DC controller.
 """
+
+from warnings import warn
+
 from bliss.controllers.motor import Controller
 from bliss.common import log as elog
 
 from bliss.common.axis import AxisState
-from bliss.comm import tcp
+from bliss.comm.util import get_comm, TCP
 from bliss.common.greenlet_utils import protect_from_kill
 from gevent import lock
 
@@ -28,12 +31,17 @@ class GalilDMC213(Controller):
 
     def __init__(self, name, config, axes, encoders):
         Controller.__init__(self, name, config, axes, encoders)
-
-        self.host = self.config.get("host")
         self.socket_lock = lock.Semaphore()
 
     def initialize(self):
-        self.sock = tcp.Socket(self.host, 23)
+        try:
+            self.sock = get_comm(self.config.config_dict, ctype=TCP, port=23)
+        except ValueError:
+            host = config.get("host")
+            warn("'host' keyword is deprecated. Use 'tcp' instead", DeprecationWarning)
+            comm_cfg = {'tcp': {'url': host } }
+            self.sock = get_comm(comm_cfg, port=23)
+
         # perform hw reset
         self._galil_query("RS")
         # set default sample time
@@ -196,11 +204,11 @@ class GalilDMC213(Controller):
           self.sock.write(cmd)
           ans = self.sock.raw_read()
           if ans[0]=='?':
-            raise RuntimeError("Invalid command") 
-          ans = ans.strip(": \r\n") 
+            raise RuntimeError("Invalid command")
+          ans = ans.strip(": \r\n")
           #print 'received',repr(ans)
           return ans or None
 
-    
+
     def raw_write_read(self, cmd):
         return self._galil_query(cmd)

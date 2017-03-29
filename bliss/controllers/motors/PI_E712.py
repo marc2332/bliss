@@ -14,7 +14,7 @@ from bliss.common.utils import object_method
 from bliss.common.axis import AxisState
 
 import pi_gcs
-from bliss.comm import tcp
+from bliss.comm.util import TCP
 
 """
 Bliss controller for ethernet PI E712 piezo controller.
@@ -47,14 +47,13 @@ class PI_E712(Controller):
         Controller.__init__(self, name, config, axes, encoders)
 
         self.sock = None
-        self.host = self.config.get("host")
         self.cname = "E712"
 
     def initialize(self):
         """
         Controller intialization : opens a single socket for all 3 axes.
         """
-        self.sock = tcp.Socket(self.host, 50000)
+        self.sock = pi_gcs.get_pi_comm(self.config, TCP)
 
     def finalize(self):
         """

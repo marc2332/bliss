@@ -12,11 +12,10 @@ from bliss.common.axis import AxisState
 from bliss.common.utils import object_method
 
 import pi_gcs
-from bliss.comm import tcp
+from bliss.comm.util import SERIAL
 
 import sys
 import time
-import serial
 
 """
 Bliss controller for ethernet PI E871 piezo controller.
@@ -28,8 +27,6 @@ class PI_E871(Controller):
     def __init__(self, name, config, axes, encoders):
         Controller.__init__(self, name, config, axes, encoders)
 
-        self.serial_line = self.config.get("serial_line")
-
         self.cname = "E871"
 
     def __del__(self):
@@ -40,7 +37,7 @@ class PI_E871(Controller):
         """
         Controller intialization : opens a single serial for all axes.
         """
-        self.serial = serial.Serial(self.serial_line, 115200, bytesize=8, parity='N', stopbits=1, timeout=1)
+        self.serial = pi_gcs.get_pi_comm(self.config, SERIAL, baudrate=115200)
 
         self._status = ""
         try:

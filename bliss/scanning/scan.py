@@ -86,28 +86,6 @@ class StepScanDataWatch(object):
         if self._channel_end_nb == len(self._channel_name_2_channel):
             send(current_module,"scan_end",self._scan_info)
 
-class Scan(object):
-    def __init__(self, acq_chain, dm, scan_info=None):
-        self.scan_dm = dm
-        self.acq_chain = acq_chain
-        self.scan_info = scan_info if scan_info else dict()
-
-    def prepare(self):
-	pass
-
-    def start(self):
-        try:
-            for i in self.acq_chain:
-                i.prepare(self.scan_dm, self.scan_info)
-                i.start()
-        except:
-            i.stop()
-            self.scan_dm.stop()
-            raise
-        else:
-            i.stop()
-
-
 class ScanSaving(Parameters):
     SLOTS = []
 
@@ -128,7 +106,7 @@ class ScanSaving(Parameters):
              def get_date(scan_data): datetime.datetime.now().strftime("%Y/%m/%d")
              scan_data.add('date',get_date)
 
-        The *parent* node should be use as parameters for the ScanRecorder.
+        The *parent* node should be use as parameters for the Scan.
         """
 
         keys = dict()
@@ -205,12 +183,14 @@ class Container(object):
         self.__name = name
         self.node = _get_or_create_node(self.__name, "container", parent=self.root_node)
 
-class ScanRecorder(object):
-    def __init__(self, name="scan", parent=None, scan_info=None, writer=None,
+class Scan(object):
+    def __init__(self,chain, name="scan",
+                 parent=None, scan_info=None, writer=None,
                  data_watch_callback=None):
         """
         This class publish data and trig the writer if any.
         
+        chain -- acquisition chain you want to use for this scan.
         name -- usually the scan name
         parent -- the parent is the root node of the data tree.
         usually the parent is a Container like to a session,sample,experiment...
@@ -223,12 +203,15 @@ class ScanRecorder(object):
             - data_event : a dict with Acq(Device/Master) as key and a set of signal as values
             - nodes : a dict with Acq(Device/Master) as key and the associated data node as value
         """
-        if isinstance(parent,DataNode):
-            self.root_node = parent
-        elif isinstance(parent,Container):
-            self.root_node = parent.node
-        else:
+        if parent is None:
             self.root_node = None
+        else:
+            if isinstance(parent,DataNode):
+                self.root_node = parent
+            elif isinstance(parent,Container):
+                self.root_node = parent.node         
+            else:
+                raise ValueError("parent must be a DataNode or Container object, or None")
 
         self._nodes = dict()
         self._writer = writer
@@ -243,7 +226,7 @@ class ScanRecorder(object):
         if scan_info is not None:
             scan_info['scan_nb'] = run_number
             scan_info['start_time_str'] = self._node._data.start_time_str
-        self._node._info.update(dict(scan_info) if scan_info is not None else {})
+            self._node._info.update(dict(scan_info))
         self._data_watch_callback = data_watch_callback
         self._data_events = dict()
         
@@ -255,7 +238,7 @@ class ScanRecorder(object):
             def trig(*args):
                 data_watch_callback_event.set()
             self._data_watch_running = False
-            self._data_watch_task = gevent.spawn(ScanRecorder._data_watch,
+            self._data_watch_task = gevent.spawn(Scan._data_watch,
                                                  weakref.proxy(self,trig),
                                                  data_watch_callback_event,
                                                  data_watch_callback_done)
@@ -263,6 +246,9 @@ class ScanRecorder(object):
             self._data_watch_callback_done = data_watch_callback_done
         else:
             self._data_watch_task = None
+
+        self._acq_chain = chain
+        self._scan_info = scan_info if scan_info is not None else dict()
 
     @property
     def name(self):
@@ -279,7 +265,13 @@ class ScanRecorder(object):
     @property
     def nodes(self):
         return self._nodes
-
+    @property
+    def acq_chain(self):
+        return self._acq_chain
+    @property
+    def scan_info(self):
+        return self._scan_info
+        
     def _device_event(self, event_dict=None, signal=None, sender=None):
         if signal == 'end':
             for node in self._nodes.itervalues():
@@ -328,19 +320,31 @@ class ScanRecorder(object):
         for node in self._nodes.itervalues():
             node.set_ttl()
         self._node.set_ttl()
-        
+    
+    def run(self):
+        try:
+            for i in self.acq_chain:
+                i.prepare(self,self.scan_info)
+                i.start()
+        except:
+            i.stop()
+            self.stop()
+            raise
+        else:
+            i.stop()
+
     @staticmethod
-    def _data_watch(scanrecorder,event,event_done):
+    def _data_watch(scan,event,event_done):
         while True:
             event.wait()
             event.clear()
             try:
-                data_events = scanrecorder._data_events
-                scanrecorder._data_events = dict()
+                data_events = scan._data_events
+                scan._data_events = dict()
                 if not data_events : continue
-                scanrecorder._data_watch_running = True
-                scanrecorder._data_watch_callback(data_events,scanrecorder.nodes)
-                scanrecorder._data_watch_running = False
+                scan._data_watch_running = True
+                scan._data_watch_callback(data_events,scan.nodes)
+                scan._data_watch_running = False
             except ReferenceError:
                 break                
             else:

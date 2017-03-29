@@ -61,22 +61,24 @@ def default_chain(chain,scan_pars,counters) :
 
             
 
-def _do_scan(chain,scan_info) :
+def step_scan(chain,scan_info) :
     scandata = scan_module.ScanSaving()
     config = scandata.get()
-    root_path = config['root_path']
+    root_path = config.get('root_path')
     writer = hdf5.Writer(root_path) if scan_info.get('save',True) else None
     scan_info['root_path'] = root_path
     scan_info['session_name'] = scandata.session
     scan_info['user_name'] = scandata.user_name
     scan_data_watch = scan_module.StepScanDataWatch(root_path,scan_info)
-    scan_recorder = scan_module.ScanRecorder(parent=config['parent'],
-                                             scan_info=scan_info,
-                                             writer=writer,
-                                             data_watch_callback=scan_data_watch)
-    scan = scan_module.Scan(chain, scan_recorder)
-    scan.prepare()
-    scan.start()
+    return scan_module.Scan(chain=chain,
+                            parent=config['parent'],
+                            scan_info=scan_info,
+                            writer=writer,
+                            data_watch_callback=scan_data_watch)
+
+def _do_scan(chain,scan_info):
+    scan = step_scan(chain,scan_info)
+    scan.run()
 
 def ascan(motor, start, stop, npoints, count_time, *counters, **kwargs):
     """

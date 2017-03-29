@@ -469,7 +469,8 @@ class HashSetting(object):
     @write_decorator_dict
     def update(self,values):
         cnx = self._cnx()
-        cnx.hmset(self._name,values)
+        if values:
+            cnx.hmset(self._name,values)
 
     def items(self):
         values = self.get_all()

@@ -12,10 +12,11 @@ import gevent
 import numpy
 
 class SoftwareTimerMaster(AcquisitionMaster):
-    def __init__(self,count_time,**keys):
+    def __init__(self,count_time,sleep_time=None, **keys):
         AcquisitionMaster.__init__(self,None,"timer","zerod",
                                    **keys)
         self.count_time = count_time
+        self.sleep_time = sleep_time
         self.channels.append(AcquisitionChannel('timestamp',numpy.double, (1,)))
         
         self._nb_point = 0
@@ -43,6 +44,9 @@ class SoftwareTimerMaster(AcquisitionMaster):
             self.trigger()
 
     def trigger(self):
+        if self.sleep_time and self._nb_point > 1:
+            gevent.sleep(self.sleep_time)
+
         dispatcher.send("new_data",self,
                         {"channel_data":{'timestamp':numpy.double(time.time())}})
 

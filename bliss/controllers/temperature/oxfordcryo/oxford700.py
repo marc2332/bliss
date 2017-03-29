@@ -31,6 +31,7 @@ from bliss.common.temperature import Output
 from bliss.controllers.temperature.oxfordcryo.oxfordcryo import StatusPacket
 from bliss.controllers.temperature.oxfordcryo.oxfordcryo import CSCOMMAND
 from bliss.controllers.temperature.oxfordcryo.oxfordcryo import split_bytes
+from warnings import warn
 
 
 class OxfordCryostream(object):
@@ -264,7 +265,13 @@ class OxfordCryostream(object):
 class oxford700(Controller):
     def __init__(self, config, *args):
         Controller.__init__(self, config, *args)
-        self._oxford = OxfordCryostream(config["SLdevice"])
+        try:
+            port = config['serial']['url']
+        except KeyError:
+            port = config["SLdevice"]
+            warn("'SLdevice' is deprecated. Use serial 'instead'",
+                 DeprecationWarning)
+        self._oxford = OxfordCryostream(port)
 
     def initialize_output(self, toutput):
         """Initialize the output device

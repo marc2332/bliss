@@ -6,9 +6,9 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import time
-import serial
 
 from bliss.controllers.motor import Controller
+from bliss.comm.util import get_comm
 from bliss.common import log as elog
 from bliss.common.axis import AxisState
 from bliss.common import event
@@ -34,8 +34,14 @@ class VSCANNER(Controller):
         """
         Opens a single socket for all 2
         """
-        self.serial_line = self.config.get("serial_line")
-        self.serial = serial.Serial(self.serial_line, 9600, bytesize=8, parity='N', stopbits=1, timeout=2)
+        try:
+            self.serial = get_comm(config, SERIAL, timeout=1)
+        except ValueError:
+            serial_line = self.config.get("serial_line")
+            warn("'serial_line' keyword is deprecated. Use 'serial' instead",
+                 DeprecationWarning)
+            comm_cfg = {'serial': {'url': serial_line } }
+            self.serial = get_comm(comm_cfg, timeout=1)
 
         self._status = ""
         try:

@@ -139,7 +139,8 @@ def ascan(motor, start, stop, npoints, count_time, *counters, **kwargs):
     _log.info("Scanning %s from %f to %f in %d points",
               motor.name, start, stop, npoints)
 
-    scan = step_scan(chain, scan_info, name=kwargs.get("name"), save=scan_info['save'])
+    scan = step_scan(chain, scan_info,
+                     name=kwargs.setdefault("name","ascan"), save=scan_info['save'])
     scan.run()
 
 def dscan(motor, start, stop, npoints, count_time, *counters, **kwargs):
@@ -237,7 +238,8 @@ def a2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
         "Scanning %s from %f to %f and %s from %f to %f in %d points",
         motor1.name, start1, stop1, motor2.name, start2, stop2, npoints)
 
-    scan = step_scan(chain, scan_info, name=kwargs.get("name"), save=scan_info['save'])
+    scan = step_scan(chain, scan_info,
+                     name=kwargs.setdefault("name","a2scan"), save=scan_info['save'])
     scan.run()
 
 def d2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
@@ -278,6 +280,8 @@ def d2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
 
     oldpos1 = motor1.position()
     oldpos2 = motor2.position()
+
+    kwargs.setdefault('name','d2scan')
 
     a2scan(motor1, oldpos1 + start1, oldpos1+stop1, motor2, oldpos2 + start2,
            oldpos2 + stop2, npoints, count_time, *counters, **kwargs)
@@ -323,7 +327,8 @@ def timescan(count_time, *counters, **kwargs):
     timer = default_chain(chain,scan_info,counters)
     timer.timescan_mode = True
 
-    scan = step_scan(chain, scan_info, name=kwargs.get("name"), save=scan_info['save'])
+    scan = step_scan(chain, scan_info,
+                     name=kwargs.setdefault("name","timescan"), save=scan_info['save'])
     scan.run()
 
 
@@ -348,5 +353,8 @@ def ct(count_time, *counters, **kwargs):
     kwargs['type'] = 'ct'
     kwargs['save'] = False
     kwargs['npoints'] = 1
+
+    kwargs.setdefault("name","ct")
+
     return timescan(count_time, *counters, **kwargs)
 

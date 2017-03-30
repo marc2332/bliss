@@ -325,7 +325,6 @@ def timescan(count_time, *counters, **kwargs):
 
     chain = AcquisitionChain(parallel_prepare=True)
     timer = default_chain(chain,scan_info,counters)
-    timer.timescan_mode = True
 
     scan = step_scan(chain, scan_info,
                      name=kwargs.setdefault("name","timescan"), save=scan_info['save'])

@@ -20,31 +20,29 @@ class SoftwareTimerMaster(AcquisitionMaster):
         self.channels.append(AcquisitionChannel('timestamp',numpy.double, (1,)))
         
         self._nb_point = 0
-        self._timescan_mode = False
-
-    @property
-    def timescan_mode(self):
-        return self._timescan_mode
-    @timescan_mode.setter
-    def timescan_mode(self,value):
-        self._timescan_mode = value
-        self.one_shot = False
-        self._nb_point = 0
+    
+    def __iter__(self):
+        npoints = self.npoints
+        if npoints > 0:
+            for i in range(npoints):
+                self._nb_point = i
+                yield self
+        else:
+            self._nb_point = 0
+            while True:
+                yield self
+                self._nb_point += 1
 
     def prepare(self):
         pass
 
     def start(self):
-        if self._timescan_mode and self.npoints > 0:
-            self.one_shot = self.npoints == self._nb_point + 1
-            self._nb_point += 1
-
-        #if we are the main master
-        if self.one_shot or self.timescan_mode:
+        #if we are the top master
+        if self.parent is None:
             self.trigger()
 
     def trigger(self):
-        if self.sleep_time and self._nb_point > 1:
+        if self._nb_point > 0 and self.sleep_time:
             gevent.sleep(self.sleep_time)
 
         dispatcher.send("new_data",self,

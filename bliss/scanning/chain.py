@@ -360,7 +360,7 @@ class AcquisitionChain(object):
       self._device2one_shot_flag = weakref.WeakKeyDictionary()
 
   def add(self, master, slave):
-      self._device2one_shot_flag[slave] = False
+      self._device2one_shot_flag.setdefault(slave,False)
 
       slave_node = self._tree.get_node(slave)
       master_node = self._tree.get_node(master)
@@ -381,6 +381,14 @@ class AcquisitionChain(object):
 
   def add_preset(self, preset):
       self._presets_list.append(preset)
+
+  def set_stopper(self,device,stop_flag):
+      """
+      By default any top master device will stop the scan.
+      In case of several top master, you can define which one won't
+      stop the scan
+      """
+      self._device2one_shot_flag[device] = not stop_flag
 
   def __iter__(self):
       return AcquisitionChainIter(self,parallel_prepare = self._parallel_prepare)

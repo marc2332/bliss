@@ -6,7 +6,7 @@ import time
 
 from bliss.controllers.motor import Controller; from bliss.common import log
 from bliss.common.axis import AxisState
-from bliss.comm import tcp
+from bliss.comm.util import get_comm, TCP
 from bliss.common import event
 import gevent.lock
 
@@ -18,13 +18,19 @@ class NF8753(Controller):
     def __init__(self, name, config, axes, encoders):
         Controller.__init__(self, name, config, axes, encoders)
 
-        self.host = self.config.get("host")
         self.__current_selected_channel = None
         self.lock = gevent.lock.RLock()
         self.__busy = False
 
     def initialize(self):
-        self.sock = tcp.Socket(self.host, 23)
+        try:
+            self.sock = get_comm(self.config.config_dict, TCP, port=23)
+        except ValueError:
+            host = self.config.get("host")
+            warn("'host' keyword is deprecated. Use 'tcp' instead", DeprecationWarning)
+            comm_cfg = {'tcp': {'url': host } }
+            self.sock = get_comm(comm_cfg, port=23)
+
         if '=2' in self._write_read(None, "DRT", raw=True):
             raise RuntimeError("Uncompatible closed-loop driver detected in daisy chain")
 

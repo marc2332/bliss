@@ -422,3 +422,22 @@ class IcePAP(Controller):
         """Returns the unique string identifier of the specified axis"""
         self.log_info("get_identifier() called for axis %r" % axis.name)
         return self.libgroup.command("?ID", axis.libaxis)
+
+    @object_method(name='MotToSync')
+    def mot_to_sync(self, axis):
+        """
+        Broadcast the concerned DRIVER signal to all IcePAP system
+        components (DRIVERs, CONTROLLERs, MASTER DB9 SYNCHRO connector)
+        """
+
+        # remove any previous multiplexer rule
+        _cmd = "PMUX REMOVE"
+        axis.libaxis.system().command(_cmd)
+
+	# set the new multiplexer rule
+        _cmd = "PMUX HARD B%d"%(axis.address)
+        axis.libaxis.system().command(_cmd)
+
+	# set which signal the DRIVER has to send to multiplexer
+        _cmd = "SYNCPOS MEASURE"
+        axis.libaxis.ackcommand(_cmd)

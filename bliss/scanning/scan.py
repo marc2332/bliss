@@ -184,14 +184,14 @@ class Container(object):
         self.node = _get_or_create_node(self.__name, "container", parent=self.root_node)
 
 class Scan(object):
-    def __init__(self,chain, name="scan",
+    def __init__(self,chain, name=None,
                  parent=None, scan_info=None, writer=None,
                  data_watch_callback=None):
         """
         This class publish data and trig the writer if any.
         
         chain -- acquisition chain you want to use for this scan.
-        name -- usually the scan name
+        name -- usually the scan name if None set default name *scan"
         parent -- the parent is the root node of the data tree.
         usually the parent is a Container like to a session,sample,experiment...
         i.e: parent = Container('eh3')
@@ -215,6 +215,8 @@ class Scan(object):
 
         self._nodes = dict()
         self._writer = writer
+
+        name = name if name else "scan"
 
         if parent:
             key = self.root_node.db_name() 

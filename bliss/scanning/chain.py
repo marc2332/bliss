@@ -75,6 +75,7 @@ class AcquisitionMaster(object):
         self.__device = device
         self.__name = name
         self.__type = type
+        self.__parent = None
         self.__slaves = list()
         self.__triggers = list()
         self.__channels = list()
@@ -112,6 +113,12 @@ class AcquisitionMaster(object):
     @property
     def slaves(self):
         return self.__slaves
+    @property
+    def parent(self):
+        return self.__parent
+    @parent.setter
+    def parent(self,p):
+        self.__parent = p
     @property
     def channels(self):
         return self.__channels
@@ -175,6 +182,7 @@ class AcquisitionDevice(object):
     def __init__(self, device, name, data_type, npoints=0, trigger_type = SOFTWARE,
                  prepare_once=False, start_once=False, one_shot=True):
         self.__device = device
+        self.__parent = None
         self.__name = name
         self.__type = data_type
         self._reading_task = None
@@ -185,6 +193,12 @@ class AcquisitionDevice(object):
 	self.__start_once = start_once
         self.__one_shot = one_shot
 
+    @property
+    def parent(self):
+        return self.__parent
+    @parent.setter
+    def parent(self,p):
+        self.__parent = p
     @property
     def trigger_type(self):
         return self.__trigger_type
@@ -266,8 +280,7 @@ class AcquisitionChainIter(object):
         #set all slaves into master
         for master in (x for x in acquisition_chain._tree.expand_tree() if isinstance(x,AcquisitionMaster)):
             del master.slaves[:]
-            for dev in acquisition_chain._tree.get_node(master).fpointer:
-                master.slaves.append(dev)
+            master.slaves.extend(acquisition_chain._tree.get_node(master).fpointer)
 
         #create iterators tree
         self._tree = Tree()
@@ -377,6 +390,7 @@ class AcquisitionChain(object):
           slave_node = self._tree.create_node(tag=slave.name,identifier=slave,parent=master)
       else:
           self._tree.move_node(slave,master)
+      slave.parent = master
 
   def add_preset(self, preset):
       self._presets_list.append(preset)

@@ -22,10 +22,10 @@ class AcquisitionChannel(object):
         return self.__name
       
 class DeviceIterator(object):
-    def __init__(self,device):
+    def __init__(self,device,one_shot):
         self.__device = weakref.proxy(device)
         self.__sequence_index = 0
-
+        self._one_shot = one_shot
     def __getattr__(self,name):
         return getattr(self.__device,name)
 
@@ -35,7 +35,7 @@ class DeviceIterator(object):
 
     def next(self):
         if(not self.device.prepare_once and not self.device.start_once and
-           self.device.one_shot):
+           self._one_shot):
             raise StopIteration
 
         self.__sequence_index += 1
@@ -71,7 +71,7 @@ class AcquisitionMaster(object):
     HARDWARE, SOFTWARE = range(2)
     
     def __init__(self, device, name, type, npoints=None, trigger_type = SOFTWARE,
-                 prepare_once=False, start_once=False, one_shot=True): #, trigger_mode=AcquisitionMaster.FAST):
+                 prepare_once=False, start_once=False): #, trigger_mode=AcquisitionMaster.FAST):
         self.__device = device
         self.__name = name
         self.__type = type
@@ -84,7 +84,6 @@ class AcquisitionMaster(object):
         self.__trigger_type = trigger_type
 	self.__prepare_once = prepare_once
 	self.__start_once = start_once
-        self.__one_shot = one_shot
 
     @property
     def trigger_type(self):
@@ -95,12 +94,6 @@ class AcquisitionMaster(object):
     @property
     def start_once(self):
 	return self.__start_once
-    @property
-    def one_shot(self):
-	return self.__one_shot
-    @one_shot.setter
-    def one_shot(self,value):
-        self.__one_shot = value
     @property
     def device(self):
         return self.__device
@@ -180,7 +173,7 @@ class AcquisitionDevice(object):
     HARDWARE, SOFTWARE = range(2)
 
     def __init__(self, device, name, data_type, npoints=0, trigger_type = SOFTWARE,
-                 prepare_once=False, start_once=False, one_shot=True):
+                 prepare_once=False, start_once=False):
         self.__device = device
         self.__parent = None
         self.__name = name
@@ -191,7 +184,6 @@ class AcquisitionDevice(object):
         self.__npoints = npoints
 	self.__prepare_once = prepare_once
 	self.__start_once = start_once
-        self.__one_shot = one_shot
 
     @property
     def parent(self):
@@ -208,12 +200,6 @@ class AcquisitionDevice(object):
     @property
     def start_once(self):
 	return self.__start_once
-    @property
-    def one_shot(self):
-        return self.__one_shot
-    @one_shot.setter
-    def one_shot(self,value):
-        self.__one_shot = value
     @property
     def device(self):
         return self.__device
@@ -294,7 +280,8 @@ class AcquisitionChainIter(object):
             try:
                 it = iter(dev)
             except TypeError:
-                dev_iter = DeviceIterator(dev)
+                one_shot = self.__acquisition_chain._device2one_shot_flag.get(dev,True)
+                dev_iter = DeviceIterator(dev,one_shot)
             else:
                 dev_iter = DeviceIteratorWrapper(it)
             device2iter[dev] = dev_iter
@@ -370,10 +357,10 @@ class AcquisitionChain(object):
       self._device_to_node = dict()
       self._presets_list = list()
       self._parallel_prepare = parallel_prepare
+      self._device2one_shot_flag = weakref.WeakKeyDictionary()
 
   def add(self, master, slave):
-      if hasattr(slave,"one_shot"):
-          slave.one_shot = False
+      self._device2one_shot_flag[slave] = False
 
       slave_node = self._tree.get_node(slave)
       master_node = self._tree.get_node(master)

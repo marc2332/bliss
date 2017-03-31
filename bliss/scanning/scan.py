@@ -82,7 +82,7 @@ class StepScanDataWatch(object):
             if 'end' in event:
                 data_node = nodes.get(acq_device)
                 if data_node.type() == 'zerod':
-                    self._channel_end_nb += len(data_node.channel_name())
+                    self._channel_end_nb += len(data_node.channels_name())
         if self._channel_end_nb == len(self._channel_name_2_channel):
             send(current_module,"scan_end",self._scan_info)
 
@@ -290,10 +290,9 @@ class Scan(object):
             if signal == 'end':
                 data_events = self._data_events
                 self._data_events = dict()
-                while not self._data_watch_running or self._data_watch_task.ready():
+                while self._data_watch_running and not self._data_watch_task.ready():
                     self._data_watch_callback_done.wait()
                     self._data_watch_callback_done.clear()
-
                 self._data_watch_callback(data_events,self.nodes)
             else:
                 self._data_watch_callback_event.set()

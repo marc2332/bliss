@@ -322,9 +322,11 @@ class AcquisitionChainIter(object):
                     if dev_iter is 'root': continue
                     dev_iter.next()
         except StopIteration:                # should we stop all devices?
-            for acq_dev in (x for x in self._tree.expand_tree() if x is not 'root' and isinstance(x.device, AcquisitionDevice)):
-                acq_dev.wait_reading()
-                dispatcher.send("end", acq_dev)
+            for acq_dev_iter in (x for x in self._tree.expand_tree() if x is not 'root' and
+                                 isinstance(x.device, (AcquisitionDevice,AcquisitionMaster))):
+                if hasattr(acq_dev_iter,'wait_reading'):
+                    acq_dev_iter.wait_reading()
+                dispatcher.send("end", acq_dev_iter.device)
             raise
         return self
 

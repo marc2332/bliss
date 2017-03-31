@@ -4,9 +4,13 @@
 Standard bliss macros (:func:`~bliss.common.standard.wa`, \
 :func:`~bliss.common.standard.mv`, etc)
 """
+from bliss.common import scans
+from bliss.common.scans import *
+
+from bliss.common.task_utils import cleanup, error_cleanup
 
 __all__ = ['wa', 'wm', 'sta', 'mv', 'umv', 'mvr', 'umvr', 'move',
-           'prdef']
+           'prdef'] + scans.__all__ + ['cleanup', 'error_cleanup']
 
 import inspect
 import logging

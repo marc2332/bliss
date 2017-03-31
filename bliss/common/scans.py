@@ -116,6 +116,7 @@ def ascan(motor, start, stop, npoints, count_time, *counters, **kwargs):
         title (str): scan title [default: 'ascan <motor> ... <count_time>']
         save (bool): save scan data to file [default: True]
         sleep_time (float): sleep time between 2 points [default: None]
+        return_scan (bool): False by default
     """
     scan_info = { 'type': kwargs.get('type', 'ascan'),
                   'save': kwargs.get('save', True),
@@ -142,6 +143,8 @@ def ascan(motor, start, stop, npoints, count_time, *counters, **kwargs):
     scan = step_scan(chain, scan_info,
                      name=kwargs.setdefault("name","ascan"), save=scan_info['save'])
     scan.run()
+    if kwargs.get('return_scan',False):
+        return scan
 
 def dscan(motor, start, stop, npoints, count_time, *counters, **kwargs):
     """
@@ -170,13 +173,14 @@ def dscan(motor, start, stop, npoints, count_time, *counters, **kwargs):
         title (str): scan title [default: 'dscan <motor> ... <count_time>']
         save (bool): save scan data to file [default: True]
         sleep_time (float): sleep time between 2 points [default: None]
+        return_scan (bool): False by default
     """
     kwargs['type'] = 'dscan'
     oldpos = motor.position()
-    ascan(motor, oldpos + start, oldpos + stop, npoints, count_time,
-          *counters, **kwargs)
+    scan = ascan(motor, oldpos + start, oldpos + stop, npoints, count_time,
+                 *counters, **kwargs)
     motor.move(oldpos)
-
+    return scan
 
 def a2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
            *counters, **kwargs):
@@ -210,6 +214,7 @@ def a2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
         title (str): scan title [default: 'a2scan <motor1> ... <count_time>']
         save (bool): save scan data to file [default: True]
         sleep_time (float): sleep time between 2 points [default: None]
+        return_scan (bool): False by default
     """
     scan_info = { 'type': kwargs.get('type', 'a2scan'),
                   'save': kwargs.get('save', True),
@@ -241,6 +246,9 @@ def a2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
     scan = step_scan(chain, scan_info,
                      name=kwargs.setdefault("name","a2scan"), save=scan_info['save'])
     scan.run()
+    if kwargs.get('return_scan',False):
+        return scan
+
 
 def d2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
            *counters, **kwargs):
@@ -275,6 +283,7 @@ def d2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
         title (str): scan title [default: 'd2scan <motor1> ... <count_time>']
         save (bool): save scan data to file [default: True]
         sleep_time (float): sleep time between 2 points [default: None]
+        return_scan (bool): False by default
     """
     kwargs['type'] = 'd2scan'
 
@@ -283,11 +292,12 @@ def d2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
 
     kwargs.setdefault('name','d2scan')
 
-    a2scan(motor1, oldpos1 + start1, oldpos1+stop1, motor2, oldpos2 + start2,
-           oldpos2 + stop2, npoints, count_time, *counters, **kwargs)
+    scan = a2scan(motor1, oldpos1 + start1, oldpos1+stop1, motor2, oldpos2 + start2,
+                  oldpos2 + stop2, npoints, count_time, *counters, **kwargs)
 
     group = Group(motor1,motor2)
     group.move(motor1,oldpos1,motor2,oldpos2)
+    return scan
 
 
 def timescan(count_time, *counters, **kwargs):
@@ -305,6 +315,7 @@ def timescan(count_time, *counters, **kwargs):
         title (str): scan title [default: 'timescan <count_time>']
         save (bool): save scan data to file [default: True]
         sleep_time (float): sleep time between 2 points [default: None]
+        return_scan (bool): False by default
     """
     scan_info = { 'type': kwargs.get('type', 'timescan'),
                   'save': kwargs.get('save', True),
@@ -329,7 +340,7 @@ def timescan(count_time, *counters, **kwargs):
     scan = step_scan(chain, scan_info,
                      name=kwargs.setdefault("name","timescan"), save=scan_info['save'])
     scan.run()
-
+    return scan
 
 def ct(count_time, *counters, **kwargs):
     """

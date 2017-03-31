@@ -57,9 +57,12 @@ class Dataset0D(DataNode):
                     queue.extend(data)
 
     #@brief get data channel object
-    def get_channel(self,channel_name = None) :
+    def get_channel(self,channel_name = None,check_exists = True) :
         if channel_name is None:
-            channel_name = self._channels[0]
+            channel_name = self._channels_name[0]
+        elif check_exists and channel_name not in self._channels_name:
+            raise ValueError("Unknown channel %s" % channel_name)
+
         channel_db_name = '%s_%s' % (self.db_name(),channel_name)
         return Dataset0D.DataChannel(channel_db_name,self.db_connection)
 

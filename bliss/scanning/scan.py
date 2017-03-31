@@ -43,7 +43,7 @@ class StepScanDataWatch(object):
             for acq_device,data_node in nodes.iteritems():
                 if data_node.type() == 'zerod':
                     self._channel_name_2_channel.update(
-                        ((channel.name,data_node.get_channel(channel.name)) 
+                        ((channel.name,data_node.get_channel(channel.name,check_exists=False)) 
                          for channel in acq_device.channels))
             self._init_done = True
 

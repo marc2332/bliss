@@ -29,7 +29,7 @@ def auto_conversion(var):
     for caster in (boolify,int, float):
         try:
             return caster(var)
-        except ValueError:
+        except (ValueError,TypeError):
             pass
     return var
 

@@ -653,9 +653,9 @@ class flex:
                     logging.getLogger('flex').info("center is at %s" %str(vial_center))
                     centers.append(vial_center)
                     logging.getLogger('flex').info("length of centers list is  %s and run is %s" %(str(len(centers)), str(run)))
-                    if notify.split("_")[1] != str(len(centers)):
+                    if run != str(len(centers)):
                         logging.getLogger('flex').error("image lost in vial detection") 
-                        raise RuntimeError("image lost in vial detection")
+                        #raise RuntimeError("image lost in vial detection")
                     if len(centers) == 3:
                         logging.getLogger('flex').info("Calling Vial centering")
                         self.vial_centering(*centers)
@@ -1332,7 +1332,7 @@ class flex:
         self.proxisense.set_frequency(frequency)
         self.proxisense.deGauss(cell)
         phase_puck1, phase_puck2, phase_puck3 = self.proxisense.getPhaseShift(cell)
-        logging.getLogger('flex').info("phase shift (microsec) for puck1 %s, puck2 %s, puck3 %s" %(str(phase_puck1), str(phase_puck2), str(phase_puck3)))
+        logging.getLogger('flex').info("phase (microsec)  at %s Hz for puck 1 %s, puck 2 %s, puck 3 %s" %(str(frequency), str(phase_puck1), str(phase_puck2), str(phase_puck3)))
         return [phase_puck1, phase_puck2, phase_puck3]
 
     def find_ref(self, frequency, cell):

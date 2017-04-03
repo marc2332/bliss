@@ -5,6 +5,7 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 import datetime
+import numpy
 import pickle
 
 from bliss.data.node import DataNode,to_timestamp
@@ -54,3 +55,33 @@ class Scan(DataNode):
             self._data.end_time = end_time
             self._data.end_time_str = end_time.strftime("%a %b %d %H:%M:%S %Y")
             self._data.end_time_stamp = to_timestamp(end_time)
+
+def get_data(scan):
+    """
+    Return a numpy structured arrays
+    
+    tips: to get the list of channels (data.dtype.names)
+          to get datas of a channel data["channel_name"]
+
+    """
+    dtype = list()
+    chanlist = list()
+    chan_len_max = 0
+    connection = scan.node.db_connection
+    pipeline = connection.pipeline()
+    for device,node in scan.nodes.iteritems():
+        if node.type() == 'zerod':
+            for channel_name in node.channels_name():
+                chan = node.get_channel(channel_name,check_exists=False,cnx=pipeline)
+                chanlist.append(channel_name)
+                chan.get(0,-1)       # all data
+                dtype.append((channel_name,'f8'))
+
+    result = pipeline.execute()
+    chan_len_max = max((len(values) for values in result))
+    data = numpy.zeros(chan_len_max,dtype=dtype)
+    for channel_name,values in zip(chanlist,result):
+        a = data[channel_name]
+        nb_data = len(values)
+        a[0:nb_data] = values[0:nb_data]
+    return data

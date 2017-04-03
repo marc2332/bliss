@@ -21,7 +21,7 @@ class Dataset0D(DataNode):
                 return self._queue[from_index:to_index]
 
         def __len__(self):
-            return len(self._queue)
+            return self._queue.__len__()
         
     def __init__(self,name,**keys):
         DataNode.__init__(self,'zerod',name,**keys)
@@ -57,14 +57,14 @@ class Dataset0D(DataNode):
                     queue.extend(data)
 
     #@brief get data channel object
-    def get_channel(self,channel_name = None,check_exists = True) :
+    def get_channel(self,channel_name = None,check_exists = True,cnx = None) :
         if channel_name is None:
             channel_name = self._channels_name[0]
         elif check_exists and channel_name not in self._channels_name:
             raise ValueError("Unknown channel %s" % channel_name)
 
         channel_db_name = '%s_%s' % (self.db_name(),channel_name)
-        return Dataset0D.DataChannel(channel_db_name,self.db_connection)
+        return Dataset0D.DataChannel(channel_db_name,self.db_connection if cnx is None else cnx)
 
     def get_all_channels(self):
         """

@@ -7,9 +7,9 @@
 
 import os
 import struct
+from warnings import warn
 
-from bliss.comm import serial
-from bliss.comm import tcp
+from bliss.comm.util import get_comm, get_comm_type, SERIAL, TCP
 from bliss.common.greenlet_utils import KillMask,protect_from_kill
 OPIOM_PRG_ROOT='/users/blissadm/local/isg/opiom'
 
@@ -18,13 +18,29 @@ class Opiom:
 
     def __init__(self,name,config_tree):
         self.name = name
-        if "serial" in config_tree:
-            self._cnx = serial.Serial(config_tree['serial'],timeout = 3)
-        elif "socket" in config_tree:
-            self._cnx = tcp.Tcp(config_tree['socket'],timeout = 3)
-        else:
-            raise RuntimeError("opiom: need to specify a communication url")
-        
+
+        comm_type = None
+        try:
+            comm_type = get_comm_type(config_tree)
+            comm_config = config_tree
+        except:
+            if "serial" in config_tree:
+                comm_type = SERIAL
+                comm_config = dict(tcp=dict(url=config_tree['serial']))
+                warn("'serial: <url>' is deprecated. " \
+                     "Use 'serial: url: <url>' instead", DeprecationWarning)
+            elif "socket" in config_tree:
+                comm_type = TCP
+                comm_config = dict(serial=dict(url=config_tree['socket']))
+                warn("'socket: <url>' is deprecated. " \
+                     "Use 'tcp: url: <url>' instead", DeprecationWarning)
+            else:
+                raise RuntimeError("opiom: need to specify a communication url")
+
+        if comm_type not in (SERIAL, TCP):
+            raise TypeError('opiom: invalid communication type %r' % comm_type)
+
+        self._cnx = get_comm(comm_config, ctype=comm_type, timeout=3)
         self._cnx.flush()
         self.__program = config_tree['program']
         self.__base_path = config_tree.get('opiom_prg_root',OPIOM_PRG_ROOT)

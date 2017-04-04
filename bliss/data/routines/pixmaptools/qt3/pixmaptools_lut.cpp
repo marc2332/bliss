@@ -1326,24 +1326,22 @@ inline void _yuv422_packed_2_image(const unsigned char* data,
   if(scalingFlag){
       std::cout << "TODO : _yuv422_packed_2_image scalingFlag=1  minValue=" << minValue << "maxValue=" << maxValue;
   }
-  else{
-      long nb_iter = column * row / 2;
-      --nb_iter;
-      for(const unsigned char *src = data;nb_iter;--nb_iter,src += 4)
-        {
-          unsigned char U = src[0];
-          unsigned char y0 = src[1];
-          unsigned char V = src[2];
-          unsigned char y1 = src[3];
 
-          int redChro = 1.403f * (V -128);
-          int greenChro = -0.714f * (V - 128) -0.344f * (U - 128);
-          int blueChro = 1.773f * (U - 128);
+  long nb_iter = column * row / 2;
+  --nb_iter;
+  for(const unsigned char *src = data;nb_iter;--nb_iter,src += 4) {
+      unsigned char U = src[0];
+      unsigned char y0 = src[1];
+      unsigned char V = src[2];
+      unsigned char y1 = src[3];
 
-          int red,green,blue;
-          _YUV422_PACKED_BRGA(y0, anImagePt); ++anImagePt;
-          _YUV422_PACKED_BRGA(y1, anImagePt); ++anImagePt;
-        }
+      int redChro = 1.403f * (V -128);
+      int greenChro = -0.714f * (V - 128) -0.344f * (U - 128);
+      int blueChro = 1.773f * (U - 128);
+
+      int red,green,blue;
+      _YUV422_PACKED_BRGA(y0, anImagePt); ++anImagePt;
+      _YUV422_PACKED_BRGA(y1, anImagePt); ++anImagePt;
   }
 }
 

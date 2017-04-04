@@ -21,39 +21,6 @@ def to_timestamp(dt, epoch=None):
     td = dt - epoch
     return td.microseconds / 10**6 + td.seconds + td.days * 86400
 
-class _DataManager(object):
-
-    def __init__(self):
-        self._last_scan_data = None
-
-    def new_scan(self, motor, npoints, counters_list, env=None, save_flag=True): 
-        from bliss.common.scans import ScanEnvironment
-        if env is None:
-            env = ScanEnvironment()
-            env['save'] = False
-            env['title'] = 'unnamed'
-
-        if isinstance(motor, list):
-            return Scan(motor, npoints, counters_list, env)
-        else:
-            # assuming old API
-            # motor: filename
-            # npoints: motor
-            # counters_list: npoints
-            # env: counters_list
-            # save_flag
-            scan_env = ScanEnvironment()
-            scan_env['save'] = save_flag
-            scan_env['filename'] = motor
-            scan_env['title'] = 'unnamed'
-            return Scan(npoints, counters_list, env, scan_env)
-
-    def new_timescan(self, counters_list, env):
-        return Timescan(counters_list, env)
-
-    def last_scan_data(self):
-        return self._last_scan_data
-
 # From continuous scan
 node_plugins = dict()
 for importer, module_name, _ in pkgutil.iter_modules([os.path.join(os.path.dirname(__file__),'..','data')]):

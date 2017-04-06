@@ -29,7 +29,7 @@ from prompt_toolkit.eventloop.select import fd_to_int
 from gevent import select
 import time
 import signal
-from bliss.shell import initialize
+from bliss.shell import initialize, ScanListener
 from bliss.config import static
 
 class GeventEventLoop(EventLoop):
@@ -186,6 +186,8 @@ def main():
             exit(0)
         repl.create_eventloop = GeventEventLoop
 
+        scan_listener = ScanListener()
+
         user_ns, sessions = initialize(*sessions_name)
 
         if sessions_name:
@@ -195,7 +197,6 @@ def main():
             history_filename = ".%s_history" % os.path.basename(sys.argv[0])
         history_filename = os.path.join(os.environ["HOME"], history_filename)
         
-
         def patch_repl(repl):
             prev_execute = repl._execute
             def patched_execute(self,*args,**keys):

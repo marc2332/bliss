@@ -11,6 +11,11 @@ from bliss import setup_globals
 import weakref
 import pickle
 
+class InvalidValue(Null):
+    def __str__(self):
+        raise ValueError
+    def __repr__(self):
+        return '#ERR'
 
 def get_cache():
     return client.get_cache(db=0)
@@ -36,7 +41,10 @@ def auto_conversion(var):
 def pickle_loads(var):
     if var is None:
         return None
-    return pickle.loads(var)
+    try:
+        return pickle.loads(var)
+    except Exception:
+        return InvalidValue()
 
 def ttl_func(cnx,name,value = -1):
     if value is None:
@@ -411,16 +419,32 @@ class HashSetting(object):
     def ttl(self,value = -1):
         return ttl_func(self._cnx(),self._name,value)
 
-    @read_decorator
-    def get(self,key,default = None):
+    def raw_get(self, key):
         cnx = self._cnx()
-        return_val = cnx.hget(self._name,key)
-        if return_val is None:
-            return_val = default
-        return return_val
+        return cnx.hget(self._name, key)
 
     @read_decorator
-    def pop(self,key,default = Null()):
+    def get(self, key, default = None):
+        v = self.raw_get(key)
+        if v is None:
+            v = default
+        return v 
+
+    def _raw_get_all(self):
+        cnx = self._cnx()
+        return cnx.hgetall(self._name)
+    
+    def get_all(self):
+        all_dict = dict(self._default_values)
+        for k, raw_v in self._raw_get_all().iteritems():
+          v = self._read_type_conversion(raw_v)
+          if isinstance(v, InvalidValue):
+              raise ValueError("%s: Invalid value '%s` (cannot deserialize %r)" % (self._name, k, raw_v))
+          all_dict[k] = v
+        return all_dict
+    
+    @read_decorator
+    def pop(self, key, default = Null()):
         cnx = self._cnx().pipeline()
         cnx.hget(self._name,key)
         cnx.hdel(self._name,key)
@@ -432,20 +456,10 @@ class HashSetting(object):
                 value = default
         return value
     
-    def remove(self,*key):
+    def remove(self, *keys):
         cnx = self._cnx()
-        cnx.hdel(self._name,*key)
+        cnx.hdel(self._name, *keys)
 
-    def get_all(self):
-        all_dict = dict(self._default_values)
-        all_dict.update(self._get_all())
-        return all_dict
-
-    @read_decorator
-    def _get_all(self):
-        cnx = self._cnx()
-        return cnx.hgetall(self._name)
-    
     def keys(self):
         return list(self.iterkeys())
 
@@ -660,14 +674,17 @@ class ParamDescriptor(object):
     def assign(self, value):
         if hasattr(value, 'name') and hasattr(setup_globals, value.name):
             value = '%s%s' % (ParamDescriptor.OBJECT_PREFIX, value.name)
-        self.proxy[self.name] = value
+        try:
+            self.proxy[self.name] = value
+        except Exception:
+            raise ValueError("%s.%s: cannot set value" % (self.proxy._name, self.name))
 
     def __get__(self, obj, obj_type):
         value = self.proxy[self.name]
         if isinstance(value, (str,unicode)) and value.startswith(ParamDescriptor.OBJECT_PREFIX):
             value = value[len(ParamDescriptor.OBJECT_PREFIX):]
             return getattr(setup_globals, value)
-        return self.proxy[self.name]
+        return value
 
     def __set__(self, obj, value):
         return self.assign(value)

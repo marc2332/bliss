@@ -692,10 +692,10 @@ class Parameters(object):
         return self._proxy.keys() + ['add','remove','switch','configs']
     
     def __repr__(self):
-        rep_str = "Parameters : (%s)\n" % self.__current_config.get()
+        rep_str = "Parameters (%s)\n" % self.__current_config.get()
         d = dict(self._proxy.iteritems())
         max_len = max((len(x) for x in d.keys()))
-        str_format = '  %-' + '%ds' % max_len + ' = %s\n'
+        str_format = '  .%-' + '%ds' % max_len + ' = %r\n'
         for key,value in d.iteritems():
             rep_str += str_format % (key,value)
         return rep_str

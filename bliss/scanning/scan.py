@@ -112,7 +112,7 @@ class ScanSaving(Parameters):
         keys = dict()
         _change_to_obj_marshalling(keys)
         Parameters.__init__(self,'%s:scan_data' % self.session,
-                            default_values = {'base_path': '/tmp',
+                            default_values = {'base_path': '/tmp/scans',
                                               'user_name': getpass.getuser(),
                                               'template' : '{session}/'},
                             **keys)
@@ -123,8 +123,7 @@ class ScanSaving(Parameters):
 
     @property
     def session(self):
-        """ This give the name of the default session or unnamed if not session is not defined """
-
+        """ This give the name of the default session or unnamed if no default session is defined """
         session = _default_session()
         return session.name if session is not None else 'unnamed'
 

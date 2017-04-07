@@ -12,6 +12,7 @@ import string
 import weakref
 import sys
 from treelib import Tree
+import time
 
 from bliss.common.event import connect,send
 from bliss.config.conductor import client
@@ -127,6 +128,10 @@ class ScanSaving(Parameters):
         session = _default_session()
         return session.name if session is not None else 'unnamed'
 
+    @property
+    def date(self):
+        return time.strftime("%Y%m%d")
+
     def get(self):
         """
         This method will compute all configurations needed for a new acquisition.
@@ -139,6 +144,7 @@ class ScanSaving(Parameters):
             formatter = string.Formatter()
             cache_dict = self._proxy.get_all()
             cache_dict['session'] = self.session
+            cache_dict['date'] = self.date
             template_keys = [key[1] for key in formatter.parse(template)]
 
             if 'session' in template_keys:

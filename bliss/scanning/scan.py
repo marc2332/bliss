@@ -115,7 +115,8 @@ class ScanSaving(Parameters):
         Parameters.__init__(self,'%s:scan_data' % self.session,
                             default_values = {'base_path': '/tmp/scans',
                                               'user_name': getpass.getuser(),
-                                              'template' : '{session}/'},
+                                              'template' : '{session}/',
+                                              'date_format': '%Y%m%d' },
                             **keys)
 
     def __dir__(self) :
@@ -130,7 +131,7 @@ class ScanSaving(Parameters):
 
     @property
     def date(self):
-        return time.strftime("%Y%m%d")
+        return time.strftime(self.date_format)
 
     def get(self):
         """

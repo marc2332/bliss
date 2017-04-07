@@ -58,7 +58,6 @@ class CounterAcqDevice(AcquisitionDevice):
             self._ready_event.clear()
 
     def reading(self):
-
         while self._nb_acq_points < self.npoints:
             #trigger wait
             self._event.wait()
@@ -85,11 +84,11 @@ class CounterAcqDevice(AcquisitionDevice):
                     break
                 sleep(0) # Be able to kill the task
 
-            self._ready_flag = True
-            self._ready_event.set()
             self._nb_acq_points += 1
             data = numpy.zeros((1,),dtype=numpy.double)
             data[0] = acc_value / nb_read
             dispatcher.send("new_data",self,
                             {"channel_data": {self.name:data}})
+            self._ready_flag = True
+            self._ready_event.set()
             

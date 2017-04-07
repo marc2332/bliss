@@ -17,7 +17,7 @@ class SoftwareTimerMaster(AcquisitionMaster):
                                    **keys)
         self.count_time = count_time
         self.sleep_time = sleep_time
-        self.channels.append(AcquisitionChannel('timestamp',numpy.double, (1,)))
+        self.channels.append(AcquisitionChannel('timestamp', numpy.double, (1,)))
         
         self._nb_point = 0
     

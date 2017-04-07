@@ -26,7 +26,7 @@ from bliss.config import static as static_config
 from bliss.config.conductor import connection as conductor_connection
 from bliss.config.conductor import client as conductor_client
 from bliss.common.event import dispatcher
-from bliss.common import data_manager
+from bliss.scanning import scan
 from bliss.common import measurement
 jedi.settings.case_insensitive_completion = False
 
@@ -72,14 +72,14 @@ def stdout_redirected(client_uuid, new_stdout):
 
 
 def init_scans_callbacks(interpreter, output_queue):
-    def new_scan_callback(scan, filename, scan_actuators, npoints, counters_list):
-        output_queue.put((interpreter.get_last_client_uuid(), {"scan_id": id(scan), "filename": filename,
+    def new_scan_callback(scan_info, root_path, scan_actuators, npoints, counters_list):
+        output_queue.put((interpreter.get_last_client_uuid(), {"scan_id": id(scan_info), "filename": root_path,
                           "scan_actuators": scan_actuators, "npoints": npoints,
                           "counters": counters_list}))
-    def update_scan_callback(scan, values):
-        output_queue.put((interpreter.get_last_client_uuid(), {"scan_id": id(scan), "values":values}))
-    def scan_end_callback(scan):
-        output_queue.put((interpreter.get_last_client_uuid(), {"scan_id": id(scan)}))
+    def update_scan_callback(scan_info, values):
+        output_queue.put((interpreter.get_last_client_uuid(), {"scan_id": id(scan_info), "values":values}))
+    def scan_end_callback(scan_info):
+        output_queue.put((interpreter.get_last_client_uuid(), {"scan_id": id(scan_info)}))
 
     # keep callbacks references
     output_queue.callbacks["scans"]["new"] = new_scan_callback
@@ -87,11 +87,11 @@ def init_scans_callbacks(interpreter, output_queue):
     output_queue.callbacks["scans"]["end"] = scan_end_callback
 
     dispatcher.connect(
-        new_scan_callback, "scan_new", data_manager.DataManager())
+        new_scan_callback, "scan_new", scan)
     dispatcher.connect(
-        update_scan_callback, "scan_data", data_manager.DataManager())
+        update_scan_callback, "scan_data", scan)
     dispatcher.connect(
-        scan_end_callback, "scan_end", data_manager.DataManager())
+        scan_end_callback, "scan_end", scan)
 
 
 class InteractiveInterpreter(code.InteractiveInterpreter):

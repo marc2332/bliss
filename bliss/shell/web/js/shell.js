@@ -474,12 +474,16 @@ Shell.prototype = {
             this.last_output_div.append(plot_div);
             this.output_div.scrollTop(0);
             //this.scrollToBottom(this.output_div);
+	    var labels = [];
+	    if (data.scan_actuators.length > 0) {
+		labels = labels.concat(data.scan_actuators);
+            }
             this.plot[data.scan_id] = {
                 "div": inner_plot_div[0],
                 "data": [],
                 "obj": null,
                 "title": data.filename,
-                "labels": [data.scan_actuators[0]].concat(data.counters)
+                "labels": labels.concat(data.counters)
             };
         }
     },

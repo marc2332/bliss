@@ -418,6 +418,7 @@ class IcePAP(Controller):
         """Logging method"""
         log.info(_ICEPAP_TAB + msg)
 
+    @object_method()
     def get_id(self, axis):
         """Returns the unique string identifier of the specified axis"""
         self.log_info("get_identifier() called for axis %r" % axis.name)

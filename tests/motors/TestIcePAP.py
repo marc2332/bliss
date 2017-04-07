@@ -169,7 +169,7 @@ class TestIcePAPController(unittest.TestCase):
         self.assertTrue(
             re.match(
                 r"[a-f0-9A-F]{4}.[a-f0-9A-F]{4}.[a-f0-9A-F]{4}",
-                mymot.get_identifier()))
+                mymot.get_id()))
 
     def test_axis_get_velocity(self):
         mymot = bliss.get_axis("mymot")

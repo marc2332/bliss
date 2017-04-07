@@ -66,8 +66,10 @@ def default_chain(chain,scan_pars,counters):
     for cnt in set(scan_counters):
         if isinstance(cnt, CounterBase):
             chain.add(timer, CounterAcqDevice(cnt, expo_time=count_time, npoints=npoints))
-#      elif isinstance(cnt,Lima):
-#          chain.add(timer, LimaAcqDevice()))
+        # elif isinstance(cnt,Lima):
+        #   chain.add(timer, LimaAcqDevice()))
+        else:
+            raise TypeError("`%r' is not a supported counter type" % repr(cnt))
 
     return timer
 

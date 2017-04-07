@@ -36,10 +36,21 @@ def initialize(*session_names):
     config = static.get_config()
     user_ns = { "config": config }
     sessions = list()
+
     for sname in session_names:
         session = config.get(sname)
-        session.setup(env_dict = user_ns,verbose = True)
+
+        print "%s: Executing setup..." % session.name
+        
+        try:
+            session.setup(env_dict = user_ns, verbose = True)
+        except Exception:
+            sys.excepthook(*sys.exc_info())
+
         sessions.append(session)
+
+    print "Done."
+
     return user_ns,sessions
 
 class ScanListener:

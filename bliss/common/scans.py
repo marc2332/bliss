@@ -33,6 +33,10 @@ from bliss.scanning.writer import hdf5
 
 _log = logging.getLogger('bliss.scans')
 
+class TimestampPlaceholder:
+    def __init__(self):
+      self.name = 'timestamp'
+
 def _get_counters(mg, missing_list):
     counters = list()
     if mg is not None:
@@ -131,7 +135,7 @@ def ascan(motor, start, stop, npoints, count_time, *counters, **kwargs):
         scan_info['title'] = template.format(*args)
 
     scan_info.update({ 'npoints': npoints, 'total_acq_time': npoints * count_time,
-                       'motors': [motor], 'start': [start], 'stop': [stop],
+                       'motors': [TimestampPlaceholder(), motor], 'start': [start], 'stop': [stop],
                        'count_time': count_time })
 
     chain = AcquisitionChain(parallel_prepare=True)
@@ -230,7 +234,7 @@ def a2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
         scan_info['title'] = template.format(*args)
 
     scan_info.update({ 'npoints': npoints, 'total_acq_time': npoints * count_time,
-                       'motors': [motor1, motor2],
+                       'motors': [TimestampPlaceholder(), motor1, motor2],
                        'start': [start1, start2], 'stop': [stop1, stop2],
                        'count_time': count_time })
 
@@ -331,7 +335,7 @@ def timescan(count_time, *counters, **kwargs):
 
     npoints = kwargs.get("npoints", 0)
     scan_info.update({ 'npoints': npoints, 'total_acq_time': npoints * count_time,
-                       'motors': [], 'start': [], 'stop': [], 'count_time': count_time,
+                       'motors': [TimestampPlaceholder()], 'start': [], 'stop': [], 'count_time': count_time,
                        'total_acq_time': npoints * count_time })
 
     _log.info("Doing %s", scan_info['type'])

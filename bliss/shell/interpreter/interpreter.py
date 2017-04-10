@@ -73,13 +73,17 @@ def stdout_redirected(client_uuid, new_stdout):
 
 def init_scans_callbacks(interpreter, output_queue):
     def new_scan_callback(scan_info, root_path, scan_actuators, npoints, counters_list):
-        output_queue.put((interpreter.get_last_client_uuid(), {"scan_id": id(scan_info), "filename": root_path,
+        if len(scan_actuators) > 1:
+            scan_actuators = scan_actuators[1:]
+        output_queue.put((interpreter.get_last_client_uuid(), {"scan_id": scan_info["node_name"], "filename": root_path,
                           "scan_actuators": scan_actuators, "npoints": npoints,
                           "counters": counters_list}))
     def update_scan_callback(scan_info, values):
-        output_queue.put((interpreter.get_last_client_uuid(), {"scan_id": id(scan_info), "values":values}))
+        if scan_info["type"] != "timescan":
+            values = values[1:]
+        output_queue.put((interpreter.get_last_client_uuid(), {"scan_id": scan_info["node_name"], "values":values}))
     def scan_end_callback(scan_info):
-        output_queue.put((interpreter.get_last_client_uuid(), {"scan_id": id(scan_info)}))
+        output_queue.put((interpreter.get_last_client_uuid(), {"scan_id": scan_info["node_name"]}))
 
     # keep callbacks references
     output_queue.callbacks["scans"]["new"] = new_scan_callback

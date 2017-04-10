@@ -257,6 +257,7 @@ class Scan(object):
 
         self._acq_chain = chain
         self._scan_info = scan_info if scan_info is not None else dict()
+        self._scan_info['node_name'] = self._node.db_name()
 
     @property
     def name(self):

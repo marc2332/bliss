@@ -287,11 +287,11 @@ class AcquisitionChainIter(object):
             device2iter[dev] = dev_iter
             self._tree.create_node(tag=dev.name,identifier=dev_iter,parent=parent)
             
-    def prepare(self, dm, scan_info):
+    def prepare(self, scan, scan_info):
         preset_tasks = list()
         if self.__sequence_index == 0:
             preset_tasks.extend([gevent.spawn(preset.prepare) for preset in self.__acquisition_chain._presets_list])
-            dm.prepare(scan_info, self.__acquisition_chain._tree)
+            scan.prepare(scan_info, self.__acquisition_chain._tree)
 
         self._execute("_prepare",wait_between_levels = not self._parallel_prepare)
 

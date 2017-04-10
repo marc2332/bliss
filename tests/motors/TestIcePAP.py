@@ -51,21 +51,21 @@ config_xml = """
             <address        value="%s"/>
             <steps_per_unit value="2000"/>
             <backlash       value="0.01"/>
-            <velocity       value="2500"/>   // unit is mm/sec
-            <acceleration   value="10"/>   // unit is mm/sec
+            <velocity       value="2"/>    // unit is unit/sec
+            <acceleration   value="10"/>   // unit is unit/sec2
         </axis>
 
         <axis name="mymot2">
             <address        value="%s"/>
             <steps_per_unit value="2000"/>
             <backlash       value="0.01"/>
-            <velocity       value="2500"/>   // unit is mm/sec
-            <acceleration   value="10"/>   // unit is mm/sec
+            <velocity       value="2.5"/>  // unit is unit/sec
+            <acceleration   value="10"/>   // unit is unit/sec2
         </axis>
 
         <encoder name="myenc">
             <address        value="%s"/>
-            <type           value="encin"/>  // optional
+            <type           value="encin"/> // optional
             <steps_per_unit value="1000"/>
         </encoder>
 
@@ -177,8 +177,14 @@ class TestIcePAPController(unittest.TestCase):
 
     def test_axis_set_velocity(self):
         mymot = bliss.get_axis("mymot")
+        vel = 5
+        mymot.velocity(vel)
+        self.assertEqual(mymot.velocity(), vel)
+
+    def test_axis_set_velocity_error(self):
+        mymot = bliss.get_axis("mymot")
         vel = 5000
-        self.assertEqual(mymot.velocity(vel), vel)
+        self.assertRaises(Exception, mymot.velocity, vel)
 
     def test_axis_get_acctime(self):
         mymot = bliss.get_axis("mymot")
@@ -212,7 +218,10 @@ class TestIcePAPController(unittest.TestCase):
         mymot.rmove(0.1)
 
     def test_axis_home_search(self):
-        # launch a never ending motion as there is no home signal
+        # launch a never ending motion as there is no home signal.
+        # WARINING: check with icepapcms that the concerned axis an home 
+        # signal configured (for instance "Lim+") because the default 
+        # icepapcms configuration is "None" which will make the test fails.
         mymot = bliss.get_axis("mymot")
         mymot.home(wait=False)
 

@@ -139,7 +139,7 @@ class IcePAP(Controller):
 
     def read_position(self, axis):
         """Returns axis position in motor units"""
-        self.log_info("position() called for axis %r" % axis.name)
+        self.log_info("read_position() called for axis %r" % axis.name)
         return self.libgroup.pos(axis.libaxis)
 
 
@@ -154,7 +154,10 @@ class IcePAP(Controller):
     def read_velocity(self, axis):
         """Returns axis current velocity in user units/sec"""
         #TODO: wouldn't be better in steps/s ?
-        return self.libgroup.velocity(axis.libaxis)
+        velocity = self.libgroup.velocity(axis.libaxis)
+        self.log_info("read_velocity() returns %fstps/sec for axis %r" %
+                      (velocity, axis.name))
+        return velocity
 
 
     def set_velocity(self, axis, new_velocity):

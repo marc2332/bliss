@@ -571,7 +571,7 @@ class Group(object):
         if isinstance(axes, libtypes.VelList):
             cmds, idx = self._prepare_syscommands(axes, "VELOCITY")
             for dev in cmds:
-                dev.command(cmds[dev])
+                dev.ackcommand(cmds[dev])
 
         # Prepare the commands to send to each concerned system
         cmds, idx = self._prepare_syscommands(axis_list, "?VELOCITY")

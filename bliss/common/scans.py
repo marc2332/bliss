@@ -67,6 +67,9 @@ def default_chain(chain,scan_pars,counters):
     if missing_counters:
         raise ValueError("Missing counters, not in setup_globals: %s. Hint: disable inactive counters." % ", ".join(missing_counters))
 
+    if not scan_counters:
+        raise ValueError("All counters are disabled...")
+
     for cnt in set(scan_counters):
         if isinstance(cnt, CounterBase):
             chain.add(timer, CounterAcqDevice(cnt, expo_time=count_time, npoints=npoints))

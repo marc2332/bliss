@@ -424,7 +424,7 @@ class IcePAP(Controller):
     @object_method()
     def get_id(self, axis):
         """Returns the unique string identifier of the specified axis"""
-        self.log_info("get_identifier() called for axis %r" % axis.name)
+        self.log_info("get_id() called for axis %r" % axis.name)
         return self.libgroup.command("?ID", axis.libaxis)
 
     @object_method(name='MotToSync')

@@ -158,14 +158,12 @@ def ct2_acq(dev, acq_mode, expo_time, point_period, nb_points, i):
     acq_end.wait()
 
 
-def base_test(dev, acq_mode, expo_time, point_period, acq_nb_points, nb_acqs,
-              sleep_time=0):
+def base_test(dev, acq_mode, expo_time, point_period, acq_nb_points, nb_acqs):
 
     dev.timer_freq = 1e6
 
-    ext_start = has_ext_start(acq_mode)
-    ext_exp = acq_mode == 'ExtGate'
-    if ext_start:
+    if has_ext_start(acq_mode):
+        ext_exp = acq_mode == 'ExtGate'
         musst_expo_time = expo_time if ext_exp else musst_trig_width
         musst_point_period = point_period
         musst_pulses = nb_acqs
@@ -183,11 +181,6 @@ def base_test(dev, acq_mode, expo_time, point_period, acq_nb_points, nb_acqs,
     t = time.time()
     print ("%-15s Expo=%.4f, Period=%.4f, Points/Acqs=%s/%s, Elapsed=%.4f" %
            (acq_mode, expo_time, point_period, acq_nb_points, nb_acqs, t - t0))
-
-    if sleep_time:
-        gevent.sleep(sleep_time)
-    if ext_start:
-        wait_musst()
 
 def get_acq_timeout(s):
     if not s:
@@ -211,6 +204,14 @@ def get_acq_timeout(s):
     raise ValueError('Invalid acq_timeout: %s' % s)
 
 def test(dev, acq_mode, *args, **kws):
+    sleep_time = 0
+    if len(args) > 4:
+        sleep_time = args[4]
+        args = list(args)
+        args.pop(4)
+    elif 'sleep_time' in kws:
+        sleep_time = kws.pop('sleep_time')
+        
     t0 = time.time()
     try:
         t = get_acq_timeout(acq_timeout)
@@ -218,6 +219,8 @@ def test(dev, acq_mode, *args, **kws):
             print "- Timeout=%s" % t
         with gevent.Timeout(t):
             base_test(dev, acq_mode, *args, **kws)
+        if has_ext_start(acq_mode):
+            wait_musst()
     except gevent.Timeout:
         print "%-15s - Timeout: Interrupting!" % acq_mode
         dev.stop_acq()
@@ -225,9 +228,9 @@ def test(dev, acq_mode, *args, **kws):
         if has_ext_start(acq_mode):
             stop_musst()
         print "%-15s - Elapsed: %s" % ('', t - t0)
-        sleep_time = args[4] if len(args) > 4 else kws.get('sleep_time', 0)
-        if sleep_time:
-            gevent.sleep(sleep_time)
+
+    if sleep_time:
+        gevent.sleep(sleep_time)
 
 def main():
     parser = argparse.ArgumentParser(description='Test the CT2Device class')

@@ -47,7 +47,7 @@ config_xml = """
         <host value="%s"/>
         <libdebug value="1"/>
 
-        <axis name="mymot">
+        <axis name="mymot1">
             <address        value="%s"/>
             <steps_per_unit value="2000"/>
             <backlash       value="0.01"/>
@@ -95,11 +95,15 @@ def signal_handler(*args):
 
 
 def finalize():
-    mymot = bliss.get_axis("mymot")
-    #mymot.controller.log_level(bliss.common.log.INFO)
+
+    mymot1 = bliss.get_axis("mymot1")
+    mymot1.stop()
+    mymot2 = bliss.get_axis("mymot2")
+    mymot2.stop()
 
     # needed to stop threads of Deep module
-    mymot.controller.finalize()
+    #mymot1.controller.log_level(bliss.common.log.INFO)
+    mymot1.controller.finalize()
 
 
 
@@ -123,166 +127,166 @@ class TestIcePAPController(unittest.TestCase):
         pass
 
     def test_axis_creation(self):
-        mymot = bliss.get_axis("mymot")
-        self.assertTrue(mymot)
+        mymot1 = bliss.get_axis("mymot1")
+        self.assertTrue(mymot1)
 
     """
     def test_ctrlc(self):
-        mymot = bliss.get_axis("mymot")
-        move_greenlet = mymot.rmove(1000, wait=False)
-        self.assertEqual(mymot.state(), "MOVING")
+        mymot1 = bliss.get_axis("mymot1")
+        move_greenlet = mymot1.rmove(1000, wait=False)
+        self.assertEqual(mymot1.state(), "MOVING")
         gevent.sleep(0.1)
         move_greenlet.kill(KeyboardInterrupt)
         gevent.sleep(0.2)
-        self.assertEqual(mymot.state(), "READY")
+        self.assertEqual(mymot1.state(), "READY")
     """
 
     """
     def test_group_ctrlc(self):
-        mygrp = bliss.get_group("eh1")
-        mymot = bliss.get_axis("mymot")
-        mymot2= bliss.get_axis("mymot2")
-        #mymot.controller.log_level(bliss.common.log.INFO)
+        mygrp  = bliss.get_group("eh1")
+        mymot1 = bliss.get_axis("mymot1")
+        mymot2 = bliss.get_axis("mymot2")
+        #mymot1.controller.log_level(bliss.common.log.INFO)
         for i in range(10):
-            move_greenlet = mygrp.rmove(mymot, 1000, mymot2,1000, wait=False)
+            move_greenlet = mygrp.rmove(mymot1, 1000, mymot2,1000, wait=False)
             self.assertEqual(mygrp.state(), "MOVING")
             gevent.sleep(0.1)
             move_greenlet.kill(KeyboardInterrupt)
             gevent.sleep(0.5)
-            self.assertEqual(mymot.state(), "READY")
+            self.assertEqual(mymot1.state(), "READY")
             self.assertEqual(mymot2.state(), "READY")
             self.assertEqual(mygrp.state(), "READY")
-        #mymot.controller.log_level(bliss.common.log.ERROR)
+        #mymot1.controller.log_level(bliss.common.log.ERROR)
     """
 
     def test_axis_get_position(self):
-        mymot = bliss.get_axis("mymot")
-        pos = mymot.position()
+        mymot1 = bliss.get_axis("mymot1")
+        pos = mymot1.position()
 
     def test_axis_set_position(self):
-        mymot = bliss.get_axis("mymot")
+        mymot1 = bliss.get_axis("mymot1")
         pos = 2.0  # given in mm
-        self.assertEqual(mymot.position(pos), pos)
+        self.assertEqual(mymot1.position(pos), pos)
 
     def test_axis_get_id(self):
-        mymot = bliss.get_axis("mymot")
+        mymot1 = bliss.get_axis("mymot1")
         self.assertTrue(
             re.match(
                 r"[a-f0-9A-F]{4}.[a-f0-9A-F]{4}.[a-f0-9A-F]{4}",
-                mymot.get_id()))
+                mymot1.get_id()))
 
     def test_axis_get_velocity(self):
-        mymot = bliss.get_axis("mymot")
-        vel = mymot.velocity()
+        mymot1 = bliss.get_axis("mymot1")
+        vel = mymot1.velocity()
 
     def test_axis_set_velocity(self):
-        mymot = bliss.get_axis("mymot")
+        mymot1 = bliss.get_axis("mymot1")
         vel = 5
-        mymot.velocity(vel)
-        self.assertEqual(mymot.velocity(), vel)
+        mymot1.velocity(vel)
+        self.assertEqual(mymot1.velocity(), vel)
 
     def test_axis_set_velocity_error(self):
-        mymot = bliss.get_axis("mymot")
+        mymot1 = bliss.get_axis("mymot1")
         vel = 5000
-        self.assertRaises(Exception, mymot.velocity, vel)
+        self.assertRaises(Exception, mymot1.velocity, vel)
 
     def test_axis_get_acctime(self):
-        mymot = bliss.get_axis("mymot")
-        acc = mymot.acctime()
+        mymot1 = bliss.get_axis("mymot1")
+        acc = mymot1.acctime()
 
     def test_axis_set_acctime(self):
-        mymot = bliss.get_axis("mymot")
+        mymot1 = bliss.get_axis("mymot1")
         acc = 0.250
-        self.assertEqual(mymot.acctime(acc), acc)
+        self.assertEqual(mymot1.acctime(acc), acc)
 
     def test_axis_state(self):
-        mymot = bliss.get_axis("mymot")
-        mymot.state()
+        mymot1 = bliss.get_axis("mymot1")
+        mymot1.state()
 
     def test_axis_stop(self):
-        mymot = bliss.get_axis("mymot")
-        mymot.stop()
+        mymot1 = bliss.get_axis("mymot1")
+        mymot1.stop()
 
     def test_axis_move(self):
-        mymot = bliss.get_axis("mymot")
-        pos = mymot.position()
-        mymot.move(pos + 0.1) # waits for the end of motion
+        mymot1 = bliss.get_axis("mymot1")
+        pos = mymot1.position()
+        mymot1.move(pos + 0.1) # waits for the end of motion
 
     def test_axis_move_backlash(self):
-        mymot = bliss.get_axis("mymot")
-        pos = mymot.position()
-        mymot.move(pos - 0.1)
+        mymot1 = bliss.get_axis("mymot1")
+        pos = mymot1.position()
+        mymot1.move(pos - 0.1)
 
     def test_axis_rmove(self):
-        mymot = bliss.get_axis("mymot")
-        mymot.rmove(0.1)
+        mymot1 = bliss.get_axis("mymot1")
+        mymot1.rmove(0.1)
 
     def test_axis_home_search(self):
         # launch a never ending motion as there is no home signal.
         # WARINING: check with icepapcms that the concerned axis an home 
         # signal configured (for instance "Lim+") because the default 
         # icepapcms configuration is "None" which will make the test fails.
-        mymot = bliss.get_axis("mymot")
-        mymot.home(wait=False)
+        mymot1 = bliss.get_axis("mymot1")
+        mymot1.home(wait=False)
 
         # give time to motor to start
         gevent.sleep(0.1)
-        self.assertEqual(mymot.state(), 'MOVING')
+        self.assertEqual(mymot1.state(), 'MOVING')
 
         # stop the never ending motion
-        mymot.stop()
+        mymot1.stop()
 
         # wait for the motor stop
-        while mymot.state() == 'MOVING':
+        while mymot1.state() == 'MOVING':
             gevent.sleep(0.1)
 
     def test_axis_limit_search(self):
-        mymot = bliss.get_axis("mymot")
+        mymot1 = bliss.get_axis("mymot1")
         # test both search senses
         for sense in [-1, 1]:
 
             # launch a never ending motion as there is no limitswitch 
-            mymot.hw_limit(sense, wait=False)
+            mymot1.hw_limit(sense, wait=False)
 
             # give time to motor to start
             gevent.sleep(0.1)
-            self.assertEqual(mymot.state(), 'MOVING')
+            self.assertEqual(mymot1.state(), 'MOVING')
     
             # stop the never ending motion
-            mymot.stop()
+            mymot1.stop()
 
             # wait for the motor stop
-            while mymot.state() == 'MOVING':
+            while mymot1.state() == 'MOVING':
                 gevent.sleep(0.1)
 
     def test_group_creation(self):
         # group creation
-        mymot = bliss.get_axis("mymot")
+        mymot1 = bliss.get_axis("mymot1")
         mymot2= bliss.get_axis("mymot2")
-        mygrp = bliss.Group(mymot, mymot2)
+        mygrp = bliss.Group(mymot1, mymot2)
 
         self.assertTrue(mygrp)
 
     def test_group_get_position(self):
         # group creation
-        mymot = bliss.get_axis("mymot")
+        mymot1 = bliss.get_axis("mymot1")
         mymot2= bliss.get_axis("mymot2")
-        mygrp = bliss.Group(mymot, mymot2)
+        mygrp = bliss.Group(mymot1, mymot2)
 
-        #mymot.controller.log_level(3)
+        #mymot1.controller.log_level(3)
         pos_list = mygrp.position()
-        #mymot.controller.log_level(3)
+        #mymot1.controller.log_level(3)
         for axis in pos_list:
             self.assertEqual(axis.position(), pos_list[axis])
 
     def test_group_move(self):
         # group creation
-        mymot = bliss.get_axis("mymot")
+        mymot1 = bliss.get_axis("mymot1")
         mymot2= bliss.get_axis("mymot2")
-        mygrp = bliss.Group(mymot, mymot2)
+        mygrp = bliss.Group(mymot1, mymot2)
 
         pos_list = mygrp.position()
-        pos_list[mymot] += 0.1
+        pos_list[mymot1] += 0.1
 
         # waits for the end of motions
         mygrp.move(pos_list) 
@@ -290,12 +294,12 @@ class TestIcePAPController(unittest.TestCase):
 
     def test_group_stop(self):
         # group creation
-        mymot = bliss.get_axis("mymot")
+        mymot1 = bliss.get_axis("mymot1")
         mymot2= bliss.get_axis("mymot2")
-        mygrp = bliss.Group(mymot, mymot2)
+        mygrp = bliss.Group(mymot1, mymot2)
 
         pos_list = mygrp.position()
-        pos_list[mymot] -= 0.1
+        pos_list[mymot1] -= 0.1
 
         # non blocking call
         mygrp.move(pos_list, wait=False) 
@@ -318,6 +322,45 @@ class TestIcePAPController(unittest.TestCase):
         myenc = bliss.get_encoder("myenc")
         pos = 2.0  # given in mm
         self.assertEqual(myenc.set(pos), pos)
+
+    def test_mulitple_moves(self):
+        mymot1 = bliss.get_axis("mymot1")
+        mymot2 = bliss.get_axis("mymot2")
+
+        def task_cyclic(mot):
+            while True:
+                mot.position()
+                gevent.sleep(0.1)
+
+        #mymot1.controller.log_level(bliss.common.log.INFO)
+
+        # launch several greenlets
+        mymot1.move(mymot1.position() + 1000, wait=False)
+        gevent.sleep(0.1)
+        mymot2.move(mymot2.position() - 1000, wait=False)
+
+        task = gevent.spawn(task_cyclic, mymot2)
+        for i in range(10):
+            mymot1.position()
+            mymot2.position()
+
+        mymot1.stop()
+        self.assertEqual(mymot1.state(), "READY")
+        mymot1.move(mymot1.position() - 1000, wait=False)
+        for i in range(10):
+            mymot1.position()
+            mymot2.position()
+            gevent.sleep(0.1)
+
+        mymot1.stop()
+        mymot2.stop()
+        self.assertEqual(mymot1.state(), "READY")
+        self.assertEqual(mymot2.state(), "READY")
+
+        #mymot1.controller.log_level(bliss.common.log.ERROR)
+        
+        task.kill()
+        task.join()
 
 """
 Main entry point

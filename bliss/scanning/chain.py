@@ -393,4 +393,7 @@ class AcquisitionChain(object):
       self._device2one_shot_flag[device] = not stop_flag
 
   def __iter__(self):
-      return AcquisitionChainIter(self,parallel_prepare = self._parallel_prepare)
+      if len(self._tree) > 1:
+          return AcquisitionChainIter(self,parallel_prepare = self._parallel_prepare)
+      else:
+          return iter(())

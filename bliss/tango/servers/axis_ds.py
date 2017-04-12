@@ -1205,7 +1205,7 @@ def __create_tango_axis_class(axis):
             def write(self, attr):
                 method = getattr(self.axis, "set_" + attr.get_name())
                 value = attr.get_write_value()
-                method(value)
+                get_worker().execute(method, value)
             setattr(new_axis_class, "write_%s" % name, write)
 
         write_dict = {'r': 'READ', 'w': 'WRITE', 'rw': 'READ_WRITE'}

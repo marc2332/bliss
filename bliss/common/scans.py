@@ -11,94 +11,94 @@ Most common scan procedures (:func:`~bliss.common.scans.ascan`, \
 
 """
 
-__all__ = ['SCANFILE', 'set_scanfile', 'scanfile', 'last_scan_data',
-           'ascan', 'a2scan', 'dscan', 'd2scan', 'timescan', 'ct']
+__all__ = ['ascan', 'a2scan', 'dscan', 'd2scan', 'timescan', 'ct']
 
 import time
-import getpass
 import logging
 
 import numpy
 import gevent
 
+from bliss import setup_globals
 from bliss.common.task_utils import *
 from bliss.controllers.motor_group import Group
-from bliss.session import session
-from .data_manager import DataManager
-from .standard import get_active_counters_iter
+from bliss.common.measurement import CounterBase
+from bliss.scanning.acquisition.counter import CounterAcqDevice
+from bliss.scanning.chain import AcquisitionChain
+from bliss.scanning import scan as scan_module
+from bliss.scanning.acquisition.timer import SoftwareTimerMaster
+from bliss.scanning.acquisition.motor import LinearStepTriggerMaster
+from bliss.session import session,measurementgroup
+from bliss.scanning.writer import hdf5
 
 _log = logging.getLogger('bliss.scans')
 
+class TimestampPlaceholder:
+    def __init__(self):
+      self.name = 'timestamp'
 
-SCANFILE = "/dev/null"
+def _get_counters(mg, missing_list):
+    counters = list()
+    if mg is not None:
+        for cnt_name in mg.enable:
+            cnt = setup_globals.__dict__.get(cnt_name)
+            if cnt:
+                counters.append(cnt)
+            else:
+                missing_list.append(cnt_name)
+    return counters
 
-def set_scanfile(filename):
-    """
-    Changes the active scan file.
-    It supports any of the attributes of :func:`time.strftime`.
-    Example::
+def default_chain(chain,scan_pars,counters):
+    count_time = scan_pars.get('count_time', 1)
+    sleep_time = scan_pars.get('sleep_time')
+    npoints = scan_pars.get('npoints', 1)
+    timer = SoftwareTimerMaster(count_time, npoints=npoints, sleep_time=sleep_time)
+    scan_counters = list()
+    missing_counters = list()
+    if counters:
+        for cnt in counters:
+            if isinstance(cnt, measurementgroup.MeasurementGroup):
+                scan_counters.extend(_get_counters(cnt, missing_counters))
+            else:
+                scan_counters.append(cnt)
+    else:
+        scan_counters.extend(_get_counters(measurementgroup.get_active(), missing_counters))
+    
+    if missing_counters:
+        raise ValueError("Missing counters, not in setup_globals: %s. Hint: disable inactive counters." % ", ".join(missing_counters))
 
-        set_scanfile('/tmp/scans/mono_temp_%d%m%y')
+    if not scan_counters:
+        raise ValueError("All counters are disabled...")
 
-    Using this format allows bliss to reinterpret the file name
-    at the beginning of each scan. In the previous example, bliss
-    will change files automatically between two scans that occur
-    in different days.
+    for cnt in set(scan_counters):
+        if isinstance(cnt, CounterBase):
+            chain.add(timer, CounterAcqDevice(cnt, expo_time=count_time, npoints=npoints))
+        # elif isinstance(cnt,Lima):
+        #   chain.add(timer, LimaAcqDevice()))
+        else:
+            raise TypeError("`%r' is not a supported counter type" % repr(cnt))
 
-    Args:
-        filename (str): name for the new scan file
-    """
-    global SCANFILE
-    SCANFILE = filename
+    return timer
 
+            
 
-def scanfile():
-    """
-    Returns the current active scanfile
+def step_scan(chain,scan_info,name=None,save=True):
+    scandata = scan_module.ScanSaving()
+    config = scandata.get()
+    root_path = config.get('root_path')
+    writer = hdf5.Writer(root_path) if save else None
+    scan_info['root_path'] = root_path
+    scan_info['session_name'] = scandata.session
+    scan_info['user_name'] = scandata.user_name
+    scan_data_watch = scan_module.StepScanDataWatch(root_path,scan_info)
+    return scan_module.Scan(chain,
+                            name=name,
+                            parent=config['parent'],
+                            scan_info=scan_info,
+                            writer=writer,
+                            data_watch_callback=scan_data_watch)
 
-    Returns:
-        str: name of the current scan file
-    """
-    return time.strftime(SCANFILE)
-
-
-def last_scan_data():
-    """
-    Returns the data corresponding to the last scan or None if no scan has
-    been executed
-
-    Returns:
-        object: last scan data or None
-    """
-    return DataManager().last_scan_data()
-
-
-def __count(counter, count_time):
-    return counter.count(count_time).value
-
-
-class ScanEnvironment(dict):
-    """
-    Internal scan environment helper.
-    Used to pass the current environment between scan executor,
-    the :class:`~bliss.common.data_manager.DataManager` and the
-    :class:`~bliss.common.data_manager.Scan` object
-    """
-
-    def __init__(self, *args, **kwargs):
-        dict.__init__(self, *args, **kwargs)
-        self.setdefault('type', 'scan')
-        self.setdefault('filename', scanfile())
-        self.setdefault('save', True)
-        self.setdefault('data_manager', DataManager())
-        self.setdefault('total_acq_time', 0)
-        self.setdefault('user_name', getpass.getuser())
-        if 'session_name' not in self:
-            s = session.get_default()
-            self['session_name'] = s.name if s is not None else 'bliss'
-
-
-def ascan(motor, start, stop, npoints, count_time, *extra_counters, **kwargs):
+def ascan(motor, start, stop, npoints, count_time, *counters, **kwargs):
     """
     Absolute scan
 
@@ -116,75 +116,46 @@ def ascan(motor, start, stop, npoints, count_time, *extra_counters, **kwargs):
         stop (float): motor end position
         npoints (int): the number of points
         count_time (float): count time (seconds)
-        extra_counters (BaseCounter): additional counters
+        counters (BaseCounter or
+                  MeasurementGroup): change for those counters or measurement group.
+                                     if counter is empty use the active measurement group.
 
     Keyword Args:
-        type (str): scan type [default: 'ascan')
+        name (str): scan name in data nodes tree and directories [default: 'scan']
         title (str): scan title [default: 'ascan <motor> ... <count_time>']
-        filename (str): file name [default: current value returned by \
-        :func:`scanfile`]
         save (bool): save scan data to file [default: True]
-        user_name (str): current user
-        session_name (str): session name [default: current session name or \
-        'bliss' if not inside a session]
+        sleep_time (float): sleep time between 2 points [default: None]
+        return_scan (bool): False by default
     """
-    scan_type = kwargs.setdefault('type', 'ascan')
-    if 'title' not in kwargs:
-        args = scan_type, motor.name, start, stop, npoints, count_time
+    scan_info = { 'type': kwargs.get('type', 'ascan'),
+                  'save': kwargs.get('save', True),
+                  'title': kwargs.get('title'),
+                  'sleep_time': kwargs.get('sleep_time') }
+
+    if scan_info['title'] is None:
+        args = scan_info['type'], motor.name, start, stop, npoints, count_time
         template = " ".join(['{{{0}}}'.format(i) for i in range(len(args))])
-        kwargs['title'] = template.format(*args)
+        scan_info['title'] = template.format(*args)
 
-    kwargs.setdefault('npoints', npoints)
-    kwargs.setdefault('total_acq_time', npoints * count_time)
+    scan_info.update({ 'npoints': npoints, 'total_acq_time': npoints * count_time,
+                       'motors': [TimestampPlaceholder(), motor], 'start': [start], 'stop': [stop],
+                       'count_time': count_time })
 
-    counters = list(get_active_counters_iter())
-    for cnt in extra_counters:
-      if not cnt in counters:
-        counters.append(cnt)
-
-    env = ScanEnvironment(kwargs, count_time=count_time)
-    dm = env['data_manager']
+    chain = AcquisitionChain(parallel_prepare=True)
+    timer = default_chain(chain,scan_info,counters)
+    top_master = LinearStepTriggerMaster(npoints,motor,start,stop)
+    chain.add(top_master,timer)
 
     _log.info("Scanning %s from %f to %f in %d points",
               motor.name, start, stop, npoints)
 
-    motors = [motor]
-    scan = dm.new_scan(motors, npoints, counters, env)
+    scan = step_scan(chain, scan_info,
+                     name=kwargs.setdefault("name","ascan"), save=scan_info['save'])
+    scan.run()
+    if kwargs.get('return_scan',False):
+        return scan
 
-    start_pos = motor.position()
-
-    def scan_cleanup():
-        print "Returning motor %s to %f" % (motor.name, start_pos)
-        motor.move(start_pos)
-
-    motor.move(start)
-    ipoint = 0
-    countlabellen = len("{0:d}".format(npoints))
-    countformatstr = "{0:" + "{0:d}".format(countlabellen) + "d}"
-
-    with cleanup(scan.end):
-      with error_cleanup(scan_cleanup):
-        for position in numpy.linspace(start, stop, npoints):
-            ipoint = ipoint + 1
-            countlabel = "(" + "{0:3d}".format(
-                ipoint) + "/" + "{0:3d}".format(npoints) + ")"
-            countlabel = "(" + countformatstr.format(
-                ipoint) + "/" + countformatstr.format(npoints) + ")"
-            motor.move(float(position))
-
-            acquisitions = []
-            values = [position]
-            for counter in counters:
-                acquisitions.append(gevent.spawn(__count, counter, count_time))
-
-            gevent.joinall(acquisitions)
-
-            values.extend([a.get() for a in acquisitions])
-            # print values
-            scan.add(values)
-
-
-def dscan(motor, start, stop, npoints, count_time, *extra_counters, **kwargs):
+def dscan(motor, start, stop, npoints, count_time, *counters, **kwargs):
     """
     Relative scan
 
@@ -202,27 +173,26 @@ def dscan(motor, start, stop, npoints, count_time, *extra_counters, **kwargs):
         stop (float): motor relative end position
         npoints (int): the number of points
         count_time (float): count time (seconds)
-        extra_counters (BaseCounter): additional counters
+        counters (BaseCounter or
+                  MeasurementGroup): change for those counters or measurement group.
+                                     if counter is empty use the active measurement group.
 
     Keyword Args:
-        type (str): scan type [default: 'ascan')
+        name (str): scan name in data nodes tree and directories [default: 'scan']
         title (str): scan title [default: 'dscan <motor> ... <count_time>']
-        filename (str): file name [default: current value returned by \
-        :func:`scanfile`]
         save (bool): save scan data to file [default: True]
-        user_name (str): current user
-        session_name (str): session name [default: current session name or \
-        'bliss' if not inside a session]
+        sleep_time (float): sleep time between 2 points [default: None]
+        return_scan (bool): False by default
     """
-    kwargs.setdefault('type', 'dscan')
+    kwargs['type'] = 'dscan'
     oldpos = motor.position()
-    ascan(motor, oldpos + start, oldpos + stop, npoints, count_time,
-          *extra_counters, **kwargs)
+    scan = ascan(motor, oldpos + start, oldpos + stop, npoints, count_time,
+                 *counters, **kwargs)
     motor.move(oldpos)
-
+    return scan
 
 def a2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
-           *extra_counters, **kwargs):
+           *counters, **kwargs):
     """
     Absolute 2 motor scan
 
@@ -244,77 +214,53 @@ def a2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
         stop2 (float): motor2 end position
         npoints (int): the number of points
         count_time (float): count time (seconds)
-        extra_counters (BaseCounter): additional counters
+        counters (BaseCounter or
+                  MeasurementGroup): change for those counters or measurement group.
+                                     if counter is empty use the active measurement group.
 
     Keyword Args:
-        type (str): scan type [default: 'a2scan')
+        name (str): scan name in data nodes tree and directories [default: 'scan']
         title (str): scan title [default: 'a2scan <motor1> ... <count_time>']
-        filename (str): file name [default: current value returned by \
-        :func:`scanfile`]
         save (bool): save scan data to file [default: True]
-        user_name (str): current user
-        session_name (str): session name [default: current session name or \
-        'bliss' if not inside a session]
+        sleep_time (float): sleep time between 2 points [default: None]
+        return_scan (bool): False by default
     """
-    scan_type = kwargs.setdefault('type', 'a2scan')
-    if 'title' not in kwargs:
-        args = scan_type, motor1.name, start1, stop1, \
+    scan_info = { 'type': kwargs.get('type', 'a2scan'),
+                  'save': kwargs.get('save', True),
+                  'title': kwargs.get('title'),
+                  'sleep_time': kwargs.get('sleep_time') }
+
+    if scan_info['title'] is None:
+        args = scan_info['type'], motor1.name, start1, stop1, \
                motor2.name, start2, stop2, npoints, count_time
         template = " ".join(['{{{0}}}'.format(i) for i in range(len(args))])
-        kwargs['title'] = template.format(*args)
+        scan_info['title'] = template.format(*args)
 
-    kwargs.setdefault('npoints', npoints)
-    kwargs.setdefault('total_acq_time', npoints * count_time)
+    scan_info.update({ 'npoints': npoints, 'total_acq_time': npoints * count_time,
+                       'motors': [TimestampPlaceholder(), motor1, motor2],
+                       'start': [start1, start2], 'stop': [stop1, stop2],
+                       'count_time': count_time })
 
-    counters = list(get_active_counters_iter())
-    for cnt in extra_counters:
-      if not cnt in counters:
-        counters.append(cnt)
-
-    env = ScanEnvironment(kwargs, count_time=count_time)
-    dm = env['data_manager']
+    chain = AcquisitionChain(parallel_prepare=True)
+    timer = default_chain(chain,scan_info,counters)
+    top_master = LinearStepTriggerMaster(npoints,
+                                         motor1,start1,stop1,
+                                         motor2,start2,stop2)
+    chain.add(top_master,timer)
 
     _log.info(
         "Scanning %s from %f to %f and %s from %f to %f in %d points",
         motor1.name, start1, stop1, motor2.name, start2, stop2, npoints)
 
-    motors = [motor1, motor2]
-    scan = dm.new_scan(motors, npoints, counters, env)
-    start_pos1 = motor1.position()
-    start_pos2 = motor2.position()
-    motor_group = Group(motor1, motor2)
+    scan = step_scan(chain, scan_info,
+                     name=kwargs.setdefault("name","a2scan"), save=scan_info['save'])
+    scan.run()
+    if kwargs.get('return_scan',False):
+        return scan
 
-    def scan_cleanup():
-        _log.info(
-            "Returning motor %s to %f and motor %s to %f",
-            motor1.name, start_pos1, motor2.name, start_pos2)
-        motor_group.move(motor1, start_pos1, motor2, start_pos2)
-
-    motor_group.move(motor1, start1, motor2, start2)
-    ipoint = 0
-    countlabellen = len("{0:d}".format(npoints))
-    countformatstr = "{0:" + "{0:d}".format(countlabellen) + "d}"
-
-    s1 = numpy.linspace(start1, stop1, npoints)
-    s2 = numpy.linspace(start2, stop2, npoints)
-    with cleanup(scan.end):
-      with error_cleanup(scan_cleanup):
-        for ii in range(npoints):
-            ipoint = ipoint + 1
-            motor_group.move(motor1, s1[ii], motor2, s2[ii])
-
-            acquisitions = []
-            values = [m.position() for m in (motor1, motor2)]
-            for counter in counters:
-                acquisitions.append(gevent.spawn(__count, counter, count_time))
-
-            gevent.joinall(acquisitions)
-            values.extend([a.get() for a in acquisitions])
-            # print values
-            scan.add(values)
 
 def d2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
-           *extra_counters, **kwargs):
+           *counters, **kwargs):
     """
     Relative 2 motor scan
 
@@ -337,99 +283,73 @@ def d2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
         stop2 (float): motor2 relative end position
         npoints (int): the number of points
         count_time (float): count time (seconds)
-        extra_counters (BaseCounter): additional counters
+        counters (BaseCounter or
+                  MeasurementGroup): change for those counters or measurement group.
+                                     if counter is empty use the active measurement group.
 
     Keyword Args:
-        type (str): scan type [default: 'ascan')
+        name (str): scan name in data nodes tree and directories [default: 'scan']    
         title (str): scan title [default: 'd2scan <motor1> ... <count_time>']
-        filename (str): file name [default: current value returned by \
-        :func:`scanfile`]
         save (bool): save scan data to file [default: True]
-        user_name (str): current user
-        session_name (str): session name [default: current session name or \
-        'bliss' if not inside a session]
+        sleep_time (float): sleep time between 2 points [default: None]
+        return_scan (bool): False by default
     """
-    kwargs.setdefault('type', 'd2scan')
+    kwargs['type'] = 'd2scan'
 
     oldpos1 = motor1.position()
     oldpos2 = motor2.position()
 
-    counters = list(get_active_counters_iter()) 
-    for cnt in extra_counters:
-      if not cnt in counters:
-        counters.append(cnt)
- 
-    a2scan(motor1, oldpos1 + start1, oldpos1+stop1, motor2, oldpos2 + start2,
-           oldpos2 + stop2, npoints, count_time, *counters, **kwargs)
+    kwargs.setdefault('name','d2scan')
 
-    motor1.move(oldpos1)
-    motor2.move(oldpos2)
+    scan = a2scan(motor1, oldpos1 + start1, oldpos1+stop1, motor2, oldpos2 + start2,
+                  oldpos2 + stop2, npoints, count_time, *counters, **kwargs)
+
+    group = Group(motor1,motor2)
+    group.move(motor1,oldpos1,motor2,oldpos2)
+    return scan
 
 
-def timescan(count_time, *extra_counters, **kwargs):
+def timescan(count_time, *counters, **kwargs):
     """
     Time scan
 
     Args:
         count_time (float): count time (seconds)
-        extra_counters (BaseCounter): additional counters
+        counters (BaseCounter or
+                  MeasurementGroup): change for those counters or measurement group.
+                                     if counter is empty use the active measurement group.
 
     Keyword Args:
-        sleep_time (float): sleep time (seconds) [default: 0]
-        type (str): scan type [default: 'ascan')
+        name (str): scan name in data nodes tree and directories [default: 'scan']
         title (str): scan title [default: 'timescan <count_time>']
-        filename (str): file name [default: current value returned by \
-        :func:`scanfile`]
         save (bool): save scan data to file [default: True]
-        user_name (str): current user
-        session_name (str): session name [default: current session name or \
-        'bliss' if not inside a session]
+        sleep_time (float): sleep time between 2 points [default: None]
+        return_scan (bool): False by default
     """
-    scan_type = kwargs.setdefault('type', 'timescan')
-    if 'title' not in kwargs:
-        args = scan_type, count_time
+    scan_info = { 'type': kwargs.get('type', 'timescan'),
+                  'save': kwargs.get('save', True),
+                  'title': kwargs.get('title'),
+                  'sleep_time': kwargs.get('sleep_time') }
+
+    if scan_info['title'] is None:
+        args = scan_info['type'], count_time
         template = " ".join(['{{{0}}}'.format(i) for i in range(len(args))])
-        kwargs['title'] = template.format(*args)
+        scan_info['title'] = template.format(*args)
 
-    sleep_time = kwargs.setdefault("sleep_time", 0)
-    npoints = kwargs.setdefault("npoints", 0)
+    npoints = kwargs.get("npoints", 0)
+    scan_info.update({ 'npoints': npoints, 'total_acq_time': npoints * count_time,
+                       'motors': [TimestampPlaceholder()], 'start': [], 'stop': [], 'count_time': count_time,
+                       'total_acq_time': npoints * count_time })
 
-    if npoints > 0:
-        kwargs['total_acq_time'] = npoints * (count_time + sleep_time)
+    _log.info("Doing %s", scan_info['type'])
 
-    counters = list(get_active_counters_iter())
-    for cnt in extra_counters:
-      if not cnt in counters:
-        counters.append(cnt)
+    chain = AcquisitionChain(parallel_prepare=True)
+    timer = default_chain(chain,scan_info,counters)
 
-    env = ScanEnvironment(kwargs, count_time=count_time)
-    dm = env['data_manager']
-
-    if max(count_time, sleep_time) == 0:
-        raise RuntimeError("Either sleep or count time has to be specified.")
-
-    _log.info("Doing %s", scan_type)
-
-    scan = dm.new_timescan(counters, env)
-
-    t0 = time.time()
-    with cleanup(scan.end):
-        while True:
-            acquisitions = []
-            tt = time.time() - t0
-            values = [tt]
-            for counter in counters:
-                acquisitions.append(gevent.spawn(__count, counter, count_time))
-
-            gevent.joinall(acquisitions)
-
-            values.extend([a.get() for a in acquisitions])
-            scan.add(values)
-            npoints -= 1
-            if npoints == 0:
-                break
-            time.sleep(sleep_time)
-
+    scan = step_scan(chain, scan_info,
+                     name=kwargs.setdefault("name","timescan"), save=scan_info['save'])
+    scan.run()
+    return scan
 
 def ct(count_time, *counters, **kwargs):
     """
@@ -440,21 +360,20 @@ def ct(count_time, *counters, **kwargs):
 
     Args:
         count_time (float): count time (seconds)
-        extra_counters (BaseCounter): additional counters
+        counters (BaseCounter or
+                  MeasurementGroup): change for those counters or measurement group.
+                                     if counter is empty use the active measurement group.
 
     Keyword Args:
-        sleep_time (float): sleep time (seconds) [default: 0]
-        type (str): scan type [default: 'ascan')
+        name (str): scan name in data nodes tree and directories [default: 'scan']
         title (str): scan title [default: 'ct <count_time>']
-        filename (str): file name [default: current value returned by \
-        :func:`scanfile`]
         save (bool): save scan data to file [default: True]
-        user_name (str): current user
-        session_name (str): session name [default: current session name or \
-        'bliss' if not inside a session]
     """
-    kwargs.setdefault('type', 'ct')
-    kwargs.setdefault('save', False)
+    kwargs['type'] = 'ct'
+    kwargs['save'] = False
     kwargs['npoints'] = 1
+
+    kwargs.setdefault("name","ct")
+
     return timescan(count_time, *counters, **kwargs)
 

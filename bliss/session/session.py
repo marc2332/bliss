@@ -91,7 +91,8 @@ class Session(object):
    def object_names(self):
       return self._config_objects_names
 
-   def setup(self,env_dict = None,verbose = False):
+   def setup(self,
+             env_dict = None,verbose = False):
       try:
          with get_file(self._config_tree,'setup-file') as setup_file:
             base_path = os.path.dirname(self._config_tree.filename)
@@ -124,13 +125,18 @@ class Session(object):
                sys.meta_path.append(_StringImporter(module_path,self.name))
                _importer_path.add(module_path)
 
-            try:
-               exec(setup_file.read(),env_dict)
-            finally:
-               for obj_name, obj in env_dict.iteritems():
-                  setattr(setup_globals, obj_name, obj) 
-            if verbose:
-               print "Done."
+            from bliss.scanning.scan import ScanSaving
+            env_dict['SCAN_SAVING'] = ScanSaving()
+            from bliss.session.measurementgroup import default_mg
+            env_dict['DEFAULT_MG'] = default_mg()
+
+            fullpath = self._config_tree.get('setup-file')
+            code = compile(setup_file.read(), fullpath, 'exec')
+            exec(code, env_dict)
+            
+            for obj_name, obj in env_dict.iteritems():
+                setattr(setup_globals, obj_name, obj)
+
             return True
       except KeyError:
          raise RuntimeError("No setup file.")

@@ -15,8 +15,6 @@ This module gathers most common functionality to bliss (from
    :toctree:
 
    axis
-   continuous_scan
-   data_manager
    encoder
    event
    log

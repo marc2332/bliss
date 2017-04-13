@@ -230,7 +230,7 @@ class Connection(object):
             if host != 'localhost':
                 cnx = redis.Redis(host=host,port=port,db=db)
             else:
-                cnx = redis.Redis(unix_socket_path=port)
+                cnx = redis.Redis(unix_socket_path=port,db=db)
             self._redis_connection[db] = cnx
         return cnx
 

@@ -1,5 +1,5 @@
 from __future__ import absolute_import
-from bliss.common.continuous_scan import AcquisitionDevice
+from ..chain import AcquisitionDevice
 from bliss.common.event import dispatcher
 import bliss
 import numpy

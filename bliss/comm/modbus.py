@@ -15,8 +15,8 @@ import errno
 import numpy
 
 from .exceptions import CommunicationError, CommunicationTimeout
-from ..common.greenlet_utils import KillMask
-
+from ..common.greenlet_utils import KillMask, protect_from_kill
+from . import serial
 class ModbusError(CommunicationError):
     pass
 
@@ -24,6 +24,21 @@ class ModbusError(CommunicationError):
 class ModbusTimeout(CommunicationTimeout):
     pass
 
+def _error_code(msg) :
+    error_code = struct.unpack('B',msg)[0]
+    errors = {
+        0x01: "Illegal Function",
+        0x02: "Illegal Data Address",
+        0x03: "Illegal Data Value",
+        0x04: "Slave Device Failure",
+        0x05: "Acknowledge, The slave has accepted the request but it'll take time", # probably not an error
+        0x06: "Slave Device Busy",
+        0x07: "Negative Acknowledge",
+        0x08: "Memory Parity Error",
+        0x0A: "Gateway Path Unavailable",
+        0x0B: "Gateway Target Device Failed to Respond",
+    }
+    return errors.get(error_code,"Unknown")
 
 #---------------------------------------------------------------------------#
 # Error Detection Functions
@@ -44,7 +59,7 @@ def __generate_crc16_table():
         result.append(crc)
     return result
 
-__crc16_table = __generate_crc16_table()
+_crc16_table = __generate_crc16_table()
 
 class Modbus_ASCII:
     def __init__(self,raw_com) :
@@ -65,9 +80,11 @@ class Modbus_ASCII:
         return lrc & 0xff
 
 class Modbus_RTU:
-    def __init__(self,raw_com) :
-        self._raw_com = raw_com
-
+    def __init__(self,node,*args) :
+        self._serial = serial.Serial(*args)
+        self.node = node
+        self.lock = lock.Semaphore()
+        
     def computeCRC(self,data):
         ''' Computes a crc16 on the passed in string. For modbus,
         this is only used on the binary serial protocols (in this
@@ -81,13 +98,107 @@ class Modbus_RTU:
         '''
         crc = 0xffff
         for a in data:
-            idx = __crc16_table[(crc ^ ord(a)) & 0xff];
+            idx = _crc16_table[(crc ^ ord(a)) & 0xff];
             crc = ((crc >> 8) & 0xff) ^ idx
         swapped = ((crc << 8) & 0xff00) | ((crc >> 8) & 0x00ff)
         return swapped
 
+    ##@brief read holding registers
+    def read_holding_registers(self,address,struct_format,timeout=None):
+        timeout_errmsg = "timeout on read_holding_registers modbus rtu (%s)" % (self._serial)
+        nb_bytes = struct.calcsize(struct_format)
+        if nb_bytes < 2:        # input register are 16bits
+            nb_bytes = 2
+            struct_format = 'x' + struct_format
+        nb_bytes /= 2
+        return self._read(0x03,address,nb_bytes,struct_format,timeout_errmsg,timeout)
+                
+    def write_register(self,address,struct_format,value,timeout = None):
+        timeout_errmsg = "timeout on write_register modbus rtu (%s)" % (self._serial)
+        self.write_registers(address,struct_format,(value,),timeout = timeout)
 
+    def write_registers(self,address,struct_format,values,timeout = None):
+        timeout_errmsg = "timeout on write_registers modbus rtu (%s)" % (self._serial)
+        self._write(0x10,address,struct_format,values,timeout_errmsg,timeout)
 
+    def read_input_registers(self,address,struct_format,timeout=None):
+        timeout_errmsg = "timeout on read_input_registers modbus rtu (%s)" % (self._serial)
+        nb_bytes = struct.calcsize(struct_format)
+        if nb_bytes < 2:        # input register are 16bits
+            nb_bytes = 2
+            struct_format = 'x' + struct_format
+        nb_bytes /= 2
+        return self._read(0x04,address,nb_bytes,struct_format,timeout_errmsg,timeout)
+
+    def read_coils(self,address,nb_coils,timeout=None):
+        timeout_errmsg = "timeout on read_coils modbus rtu (%s)" % (self._serial)
+        nb_bytes = (((nb_coils + 7) & ~7) // 8)
+        struct_format = '%dB' % nb_bytes
+        result = self._read(0x01,address,nb_coils,struct_format,timeout_errmsg,timeout)
+        if isinstance(result,tuple):
+            result = [int('{0:08b}'.format(x)[::-1], 2) for x in result]
+        else:
+            result = int('{0:08b}'.format(result)[::-1], 2)
+        a = numpy.array(result,dtype=numpy.uint8)
+        return numpy.unpackbits(a)[:nb_coils]
+
+    def write_coil(self,address,on_off,timeout=None):
+        timeout_errmsg = "timeout on write_coil modbus rtu (%s)" % (self._serial)
+        value = 0xff00 if on_off else 0x0000
+        self._write(0x05,address,'H',value,timeout_errmsg,timeout)
+
+    def _read(self,func_code,address,nb,struct_format,timeout_errmsg,timeout):
+        msg = self._cmd(address,func_code,nb)
+        data = struct.unpack('>%s' % struct_format,msg)
+        return data if len(data) > 1 else data[0]
+
+    def _write(self,func_code,address,struct_format,value,timeout_errmsg,timeout):
+        if isinstance(value,(tuple,list)):
+            data_write = struct.pack('>%s' % struct_format,*value)
+        else:
+            data_write = struct.pack('>%s' % struct_format,value)
+        nb_bytes = struct.calcsize(struct_format) / 2
+        msg = self._cmd(address,func_code,nb_bytes,data_write)
+        return struct.unpack('>H',msg)[0]
+
+    @protect_from_kill
+    def _cmd(self,address,func_code,nb,data_write = None):
+        msg = struct.pack('>BBHH',self.node,func_code,address,nb)
+        if data_write is not None: # write
+            msg += struct.pack('>B%ds' % len(data_write),nb*2,data_write)
+        msg += struct.pack('>H',self.computeCRC(msg))
+        
+        with self.lock:
+            self._serial.write(msg)
+            if data_write is not None: # WRITE
+                raw_msg = self._serial.read(4)
+                rx_node,rx_func_code,first_address = struct.unpack('>BBH',raw_msg)
+                nb_bytes = 2
+            else:                   # READ
+                raw_msg = self._serial.read(3)
+                rx_node,rx_func_code,nb_bytes = struct.unpack('>BBB',raw_msg)
+
+            if rx_node != self.node:
+                raise ModbusError('Wrong device address rx: %s expected: %s' %
+                                  (rx_node,self.node))
+
+            if rx_func_code != func_code:
+                if((rx_func_code & 0x80) == func_code):
+                    crc = self._serial.read(2)
+                    raise ModbusError('Rx Error %s',_error_code(nb_bytes))
+                else:
+                    self._serial.flushInput()
+                    raise ModbusError('Wrong function code rx: %s expected: %s'%
+                                      (rx_func_code,func_code))
+
+            data_and_crc = self._serial.read(nb_bytes + 2)
+        data = data_and_crc[:-2]
+        rx_crc = struct.unpack('>H',data_and_crc[-2:])[0]
+        crc = self.computeCRC(raw_msg + data)
+        if rx_crc != crc:
+            raise ModbusError('Wrong CRC')
+        return data
+        
 
 def try_connect_modbustcp(fu):
     def rfunc(self, *args, **kwarg):
@@ -261,7 +372,7 @@ class ModbusTcp:
                 uid,f_code,msg = read_values
                 if f_code != func_code: # Error
                     raise ModbusError('Error expecting func code %s instead of %s' %
-                                      (func_code,self._error_code(msg)))
+                                      (func_code,_error_code(msg)))
                 returnVal = struct.unpack('>%s' % struct_format,msg[1:])
                 return returnVal if len(returnVal) > 1 else returnVal[0]
 
@@ -277,29 +388,14 @@ class ModbusTcp:
                 uid,func_code,msg = read_values
                 if func_code != func_code: # Error
                     raise ModbusError('Error expecting func code %s intead of %s' %
-                                      (func_code,self._error_code(msg)))
+                                      (func_code,_error_code(msg)))
 
     def _raw_write(self,tid,func,msg) :
         full_msg = struct.pack('>HHHBB',tid,0,len(msg) + 2,self._unit,func) + msg
         with self._lock:
             self._fd.sendall(full_msg)
 
-    def _error_code(self,msg) :
-        error_code = struct.unpack('B',msg)[0]
-        errors = {
-            0x01: "Illegal Function",
-            0x02: "Illegal Data Address",
-            0x03: "Illegal Data Value",
-            0x04: "Slave Device Failure",
-            0x05: "Acknowledge, The slave has accepted the request but it'll take time", # probably not an error
-            0x06: "Slave Device Busy",
-            0x07: "Negative Acknowledge",
-            0x08: "Memory Parity Error",
-            0x0A: "Gateway Path Unavailable",
-            0x0B: "Gateway Target Device Failed to Respond",
-        }
-        return errors.get(error_code,"Unknown")
-
+ 
     @staticmethod
     def _raw_read(modbus, fd):
         data = ''

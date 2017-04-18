@@ -12,8 +12,8 @@ import globals
 # Specific modules than must be in the PYTHONPATH
 #
 try:
-    from ..deep import device  as deep_device
-    from ..deep import log as deep_log
+    from ..libdeep import device  as deep_device
+    from ..libdeep import log as deep_log
 except ImportError:
     print 'ERROR: module "deep" not found'
     print 'HINT : add to your PYTHONPATH the location of this module'

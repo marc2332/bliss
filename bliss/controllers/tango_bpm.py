@@ -7,30 +7,35 @@
 
 from bliss.common.task_utils import cleanup, error_cleanup, task
 from bliss.common.utils import add_property
-from bliss.common.measurement import CounterBase, AverageMeasurement
+from bliss.common.measurement import CounterBase, Reading
 from bliss.common import Actuator
-import time
 import gevent
+from gevent import event
 import PyTango.gevent
-
+import numpy
 
 class BpmCounter(CounterBase):
-   def __init__(self, parent, name, index):
-     CounterBase.__init__(self, parent.name+'.'+name)
-     self.parent = parent
-     self.index = index
+    def __init__(self, parent, name, index):
+        CounterBase.__init__(self, parent.name+'.'+name)
+        self.parent = parent
+        self.index = index
 
-   def read(self):
-     if isinstance(self.index, str):
-       return getattr(self.parent, self.index)() #use current exp time
-     else:
-       if not self.parent.acquisition_event.is_set():
-         self.parent.acquisition_event.wait()
-         data = self.parent.last_acq
-       else:
-         data = self.parent.read() #use current exp time
-       return data[self.index]
+    def read(self):
+        data = self.parent.last_acq
+        reading = Reading()
+        try:
+            reading.value = data[self.index]
+        except TypeError:
+            raise RuntimeError("No data available, hint: acquire data with `.count(acq_time)` first")
+        else:
+            reading.timestamp = data[0]
+            return reading
 
+    def count(self, acq_time):
+        if self.parent._acquisition_event.is_set():
+            self.parent.read(acq_time)
+        self.parent._acquisition_event.wait()
+       
 
 class tango_bpm(object):
    def __init__(self, name, config):
@@ -40,8 +45,8 @@ class tango_bpm(object):
        foil_actuator_name = config.get("foil_name")
 
        self.__control = PyTango.gevent.DeviceProxy(tango_uri)
-       self.__acquisition_event = gevent.event.Event()
-       self.__acquisition_event.set()
+       self._acquisition_event = event.Event()
+       self._acquisition_event.set()
        self.__last_acq = None
        self.__diode_actuator = None
        self.__led_actuator = None
@@ -79,38 +84,52 @@ class tango_bpm(object):
 
    @property
    def x(self):
-     return BpmCounter(self, "x", 2)
+     return BpmCounter(self, "x", 1)
 
    @property
    def y(self):
-     return BpmCounter(self, "y", 3)
+     return BpmCounter(self, "y", 2)
 
    @property
    def intensity(self):
-     return BpmCounter(self, "intensity", 1)
-
+     return BpmCounter(self, "intensity", 3)
 
    @property
-   def acquisition_event(self):
-     return self.__acquisition_event
+   def fwhm_x(self):
+     return BpmCounter(self, "fwhm_x", 4)
+ 
+   @property
+   def fwhm_y(self):
+     return BpmCounter(self, "fwhm_y", 5)
 
    @property
    def last_acq(self):
      return self.__last_acq
 
-   def read(self, exp_time=None):
+   def read(self, acq_time=0):
+     self._acquisition_event.clear()
+     self.__last_acq = None
+     back_to_live = False
      try:
-       self.__acquisition_event.clear()
-       if exp_time is not None:
-           self.__control.ExposureTime = exp_time
-       self.__last_acq = self.__control.GetPosition()
-       return self.__last_acq[:]
+       if str(self.__control.LiveState) == 'RUNNING':
+         back_to_live = True
+         self.stop()
+       self.__control.AcquirePositions(acq_time)
+       while self.is_acquiring():
+         gevent.sleep(0.01)
+       data = self.__control.AcquisitionSpectrum
+       timestamp = data[0][0]
+       self.__last_acq = numpy.mean(data, axis=1)
+       self.__last_acq[0] = timestamp
+       if back_to_live:
+         self.live()
+       return self.__last_acq
      finally:
-       self.__acquisition_event.set()
+       self._acquisition_event.set()
 
-   def _read_diode_current(self, exp_time=None):
+   def _read_diode_current(self, acq_time=None):
      meas = AverageMeasurement()
-     for reading in meas(exp_time):
+     for reading in meas(acq_time):
          reading.value = self.__control.DiodeCurrent
      return meas.average
 
@@ -118,8 +137,14 @@ class tango_bpm(object):
      self.__control.DiodeRange = range
 
    def get_diode_range(self):
-    return  self.__control.DiodeRange
+     return  self.__control.DiodeRange
    
+   def set_exposure_time(self, exp_time):
+     self.__control.ExposureTime = exp_time
+  
+   @property 
+   def exposure_time(self):
+     return self.__control.ExposureTime 
 
    def is_acquiring(self):
      return str(self.__control.State()) == 'MOVING'

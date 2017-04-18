@@ -21,7 +21,7 @@ from bliss.common.axis import AxisState
 """
 Extra modules
 """
-import libicepap
+from bliss.comm import libicepap
 
 """
 Global resources

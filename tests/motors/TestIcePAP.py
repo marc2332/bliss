@@ -25,6 +25,8 @@ sys.path.insert(
             os.path.pardir, os.path.pardir)))
 
 import bliss
+from bliss.config.motors import load_cfg_fromstring, get_axis, get_encoder
+from bliss.controllers.motor_group import Group
 
 
 """
@@ -96,9 +98,9 @@ def signal_handler(*args):
 
 def finalize():
 
-    mymot1 = bliss.get_axis("mymot1")
+    mymot1 = get_axis("mymot1")
     mymot1.stop()
-    mymot2 = bliss.get_axis("mymot2")
+    mymot2 = get_axis("mymot2")
     mymot2.stop()
 
     # needed to stop threads of Deep module
@@ -119,7 +121,7 @@ class TestIcePAPController(unittest.TestCase):
 
     # called for each test
     def setUp(self):
-        bliss.load_cfg_fromstring(config_xml % 
+        load_cfg_fromstring(config_xml % 
             (hostname, address, address2, address))
 
     # called at the end of each individual test
@@ -127,12 +129,12 @@ class TestIcePAPController(unittest.TestCase):
         pass
 
     def test_axis_creation(self):
-        mymot1 = bliss.get_axis("mymot1")
+        mymot1 = get_axis("mymot1")
         self.assertTrue(mymot1)
 
     """
     def test_ctrlc(self):
-        mymot1 = bliss.get_axis("mymot1")
+        mymot1 = get_axis("mymot1")
         move_greenlet = mymot1.rmove(1000, wait=False)
         self.assertEqual(mymot1.state(), "MOVING")
         gevent.sleep(0.1)
@@ -144,8 +146,8 @@ class TestIcePAPController(unittest.TestCase):
     """
     def test_group_ctrlc(self):
         mygrp  = bliss.get_group("eh1")
-        mymot1 = bliss.get_axis("mymot1")
-        mymot2 = bliss.get_axis("mymot2")
+        mymot1 = get_axis("mymot1")
+        mymot2 = get_axis("mymot2")
         #mymot1.controller.log_level(bliss.common.log.INFO)
         for i in range(10):
             move_greenlet = mygrp.rmove(mymot1, 1000, mymot2,1000, wait=False)
@@ -160,65 +162,65 @@ class TestIcePAPController(unittest.TestCase):
     """
 
     def test_axis_get_position(self):
-        mymot1 = bliss.get_axis("mymot1")
+        mymot1 = get_axis("mymot1")
         pos = mymot1.position()
 
     def test_axis_set_position(self):
-        mymot1 = bliss.get_axis("mymot1")
+        mymot1 = get_axis("mymot1")
         pos = 2.0  # given in mm
         self.assertEqual(mymot1.position(pos), pos)
 
     def test_axis_get_id(self):
-        mymot1 = bliss.get_axis("mymot1")
+        mymot1 = get_axis("mymot1")
         self.assertTrue(
             re.match(
                 r"[a-f0-9A-F]{4}.[a-f0-9A-F]{4}.[a-f0-9A-F]{4}",
                 mymot1.get_id()))
 
     def test_axis_get_velocity(self):
-        mymot1 = bliss.get_axis("mymot1")
+        mymot1 = get_axis("mymot1")
         vel = mymot1.velocity()
 
     def test_axis_set_velocity(self):
-        mymot1 = bliss.get_axis("mymot1")
+        mymot1 = get_axis("mymot1")
         vel = 5
         mymot1.velocity(vel)
         self.assertEqual(mymot1.velocity(), vel)
 
     def test_axis_set_velocity_error(self):
-        mymot1 = bliss.get_axis("mymot1")
+        mymot1 = get_axis("mymot1")
         vel = 5000
         self.assertRaises(Exception, mymot1.velocity, vel)
 
     def test_axis_get_acctime(self):
-        mymot1 = bliss.get_axis("mymot1")
+        mymot1 = get_axis("mymot1")
         acc = mymot1.acctime()
 
     def test_axis_set_acctime(self):
-        mymot1 = bliss.get_axis("mymot1")
+        mymot1 = get_axis("mymot1")
         acc = 0.250
         self.assertEqual(mymot1.acctime(acc), acc)
 
     def test_axis_state(self):
-        mymot1 = bliss.get_axis("mymot1")
+        mymot1 = get_axis("mymot1")
         mymot1.state()
 
     def test_axis_stop(self):
-        mymot1 = bliss.get_axis("mymot1")
+        mymot1 = get_axis("mymot1")
         mymot1.stop()
 
     def test_axis_move(self):
-        mymot1 = bliss.get_axis("mymot1")
+        mymot1 = get_axis("mymot1")
         pos = mymot1.position()
         mymot1.move(pos + 0.1) # waits for the end of motion
 
     def test_axis_move_backlash(self):
-        mymot1 = bliss.get_axis("mymot1")
+        mymot1 = get_axis("mymot1")
         pos = mymot1.position()
         mymot1.move(pos - 0.1)
 
     def test_axis_rmove(self):
-        mymot1 = bliss.get_axis("mymot1")
+        mymot1 = get_axis("mymot1")
         mymot1.rmove(0.1)
 
     def test_axis_home_search(self):
@@ -226,7 +228,7 @@ class TestIcePAPController(unittest.TestCase):
         # WARINING: check with icepapcms that the concerned axis an home 
         # signal configured (for instance "Lim+") because the default 
         # icepapcms configuration is "None" which will make the test fails.
-        mymot1 = bliss.get_axis("mymot1")
+        mymot1 = get_axis("mymot1")
         mymot1.home(wait=False)
 
         # give time to motor to start
@@ -241,7 +243,7 @@ class TestIcePAPController(unittest.TestCase):
             gevent.sleep(0.1)
 
     def test_axis_limit_search(self):
-        mymot1 = bliss.get_axis("mymot1")
+        mymot1 = get_axis("mymot1")
         # test both search senses
         for sense in [-1, 1]:
 
@@ -261,17 +263,17 @@ class TestIcePAPController(unittest.TestCase):
 
     def test_group_creation(self):
         # group creation
-        mymot1 = bliss.get_axis("mymot1")
-        mymot2= bliss.get_axis("mymot2")
-        mygrp = bliss.Group(mymot1, mymot2)
+        mymot1 = get_axis("mymot1")
+        mymot2= get_axis("mymot2")
+        mygrp = Group(mymot1, mymot2)
 
         self.assertTrue(mygrp)
 
     def test_group_get_position(self):
         # group creation
-        mymot1 = bliss.get_axis("mymot1")
-        mymot2= bliss.get_axis("mymot2")
-        mygrp = bliss.Group(mymot1, mymot2)
+        mymot1 = get_axis("mymot1")
+        mymot2= get_axis("mymot2")
+        mygrp = Group(mymot1, mymot2)
 
         #mymot1.controller.log_level(3)
         pos_list = mygrp.position()
@@ -281,9 +283,9 @@ class TestIcePAPController(unittest.TestCase):
 
     def test_group_move(self):
         # group creation
-        mymot1 = bliss.get_axis("mymot1")
-        mymot2= bliss.get_axis("mymot2")
-        mygrp = bliss.Group(mymot1, mymot2)
+        mymot1 = get_axis("mymot1")
+        mymot2= get_axis("mymot2")
+        mygrp = Group(mymot1, mymot2)
 
         pos_list = mygrp.position()
         pos_list[mymot1] += 0.1
@@ -294,9 +296,9 @@ class TestIcePAPController(unittest.TestCase):
 
     def test_group_stop(self):
         # group creation
-        mymot1 = bliss.get_axis("mymot1")
-        mymot2= bliss.get_axis("mymot2")
-        mygrp = bliss.Group(mymot1, mymot2)
+        mymot1 = get_axis("mymot1")
+        mymot2= get_axis("mymot2")
+        mygrp = Group(mymot1, mymot2)
 
         pos_list = mygrp.position()
         pos_list[mymot1] -= 0.1
@@ -309,23 +311,23 @@ class TestIcePAPController(unittest.TestCase):
         self.assertEqual(mygrp.state(), "READY")
 
     def test_encoder_creation(self):
-        myenc = bliss.get_encoder("myenc")
+        myenc = get_encoder("myenc")
         self.assertTrue(myenc)
 
     def test_encoder_get_position(self):
-        myenc = bliss.get_encoder("myenc")
+        myenc = get_encoder("myenc")
         #myenc.controller.log_level(bliss.common.log.INFO)
         pos = myenc.read()
         #myenc.controller.log_level(bliss.common.log.ERROR)
 
     def test_encoder_set_position(self):
-        myenc = bliss.get_encoder("myenc")
+        myenc = get_encoder("myenc")
         pos = 2.0  # given in mm
         self.assertEqual(myenc.set(pos), pos)
 
     def test_mulitple_moves(self):
-        mymot1 = bliss.get_axis("mymot1")
-        mymot2 = bliss.get_axis("mymot2")
+        mymot1 = get_axis("mymot1")
+        mymot2 = get_axis("mymot2")
 
         def task_cyclic(mot):
             while True:

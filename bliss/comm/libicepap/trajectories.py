@@ -17,7 +17,7 @@ import groups as libgroups
 import types  as libtypes
 import vdata  as libvdata
 
-import deep.log as log
+from ..libdeep import log
 
 
 #-------------------------------------------------------------------------

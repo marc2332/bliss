@@ -20,7 +20,6 @@ from . import serial
 class ModbusError(CommunicationError):
     pass
 
-
 class ModbusTimeout(CommunicationTimeout):
     pass
 
@@ -45,7 +44,6 @@ def _error_code(msg) :
 #---------------------------------------------------------------------------#
 def __generate_crc16_table():
     ''' Generates a crc16 lookup table
-
     .. note:: This will only be generated once
     '''
     result = []
@@ -103,7 +101,6 @@ class Modbus_RTU:
         swapped = ((crc << 8) & 0xff00) | ((crc >> 8) & 0x00ff)
         return swapped
 
-    ##@brief read holding registers
     def read_holding_registers(self,address,struct_format,timeout=None):
         timeout_errmsg = "timeout on read_holding_registers modbus rtu (%s)" % (self._serial)
         nb_bytes = struct.calcsize(struct_format)
@@ -162,10 +159,52 @@ class Modbus_RTU:
         return struct.unpack('>H',msg)[0]
 
     @protect_from_kill
+    def _fstatus(self,timeout=None):
+        timeout_errmsg = "timeout on read_fstatus modbus rtu (%s)" % (self._serial)
+        func_code=0x07
+        msg = struct.pack('>BB',self.node,func_code)
+        msg += struct.pack('>H',self.computeCRC(msg))
+
+        with self.lock:
+            self._serial.write(msg)
+
+            raw_msg = self._serial.read(5)
+            rx_node,rx_func_code,status_byte,rx_crc = struct.unpack('>BBBH',raw_msg)
+
+            if rx_node != self.node:
+                raise ModbusError('Wrong device address rx: %s expected: %s' %
+                                  (rx_node,self.node))
+
+            if rx_func_code != func_code:
+                if((rx_func_code & 0x80) == func_code):
+                    raise ModbusError('Rx Error %s',_error_code(status_byte))
+                else:
+#                    self._serial.flushInput()
+                    self._serial.flush()
+                    raise ModbusError('Wrong function code rx: %s expected: %s'%
+                                      (rx_func_code,func_code))
+
+
+        crc = self.computeCRC(raw_msg[:-2])
+        if rx_crc != crc:
+            raise ModbusError('Wrong CRC')
+
+#        import pdb;pdb.set_trace()
+        
+        return status_byte
+        
+
+    @protect_from_kill
     def _cmd(self,address,func_code,nb,data_write = None):
-        msg = struct.pack('>BBHH',self.node,func_code,address,nb)
+#        msg = struct.pack('>BBHH',self.node,func_code,address,nb)
+        msg = struct.pack('>BBH',self.node,func_code,address)
         if data_write is not None: # write
-            msg += struct.pack('>B%ds' % len(data_write),nb*2,data_write)
+            if func_code is 0x5:
+                msg += struct.pack('>%ds' % len(data_write),data_write)
+            else:
+                msg += struct.pack('>HB%ds' % len(data_write),nb,nb*2,data_write)
+        else:
+            msg += struct.pack('>H' ,nb)
         msg += struct.pack('>H',self.computeCRC(msg))
         
         with self.lock:
@@ -187,7 +226,8 @@ class Modbus_RTU:
                     crc = self._serial.read(2)
                     raise ModbusError('Rx Error %s',_error_code(nb_bytes))
                 else:
-                    self._serial.flushInput()
+#                    self._serial.flushInput()
+                    self._serial.flush()
                     raise ModbusError('Wrong function code rx: %s expected: %s'%
                                       (rx_func_code,func_code))
 

@@ -291,10 +291,14 @@ class Server(object):
             banner = 'Welcome to Bliss emulator server console.\n' \
                      'My name is {0!r}. You can access me through the ' \
                      '\'server()\' function. Have fun!'.format(name)
-            self._log.info('Opening backdoor at %r', backdoor)
             self.backdoor = BackdoorServer(backdoor, banner=banner,
                                            locals=dict(server=weakref.ref(self)))
             self.backdoor.start()
+            self._log.info('Backdoor opened at %r', backdoor)
+
+        else:
+            self._log.info('no backdoor declared')
+
         self.devices = {}
         for device in devices:
             try:

@@ -31,3 +31,9 @@ class tango_keithley(CounterBase):
         else:
             self.__control.autorange = autorange_on
 
+    def autozero(self, autozero_on=None):
+        if autozero_on is None:
+            return self.__control.autozero
+        else:
+            self.__control.autozero = autozero_on
+

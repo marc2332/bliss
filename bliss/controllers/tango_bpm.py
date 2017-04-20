@@ -32,9 +32,11 @@ class BpmCounter(CounterBase):
             return reading
 
     def count(self, acq_time):
-        if self.parent._acquisition_event.is_set():
+        if not self.parent._acquisition_event.is_set():
+            # acquisition in progress
+            self.parent._acquisition_event.wait()
+        else:
             self.parent.read(acq_time)
-        self.parent._acquisition_event.wait()
        
 
 class tango_bpm(object):
@@ -110,13 +112,15 @@ class tango_bpm(object):
      self._acquisition_event.clear()
      self.__last_acq = None
      back_to_live = False
+     exp_time = self.__control.ExposureTime
      try:
        if str(self.__control.LiveState) == 'RUNNING':
          back_to_live = True
          self.stop()
        self.__control.AcquirePositions(acq_time)
+       gevent.sleep(acq_time)
        while self.is_acquiring():
-         gevent.sleep(0.01)
+         gevent.sleep(exp_time)
        data = self.__control.AcquisitionSpectrum
        timestamp = data[0][0]
        self.__last_acq = numpy.mean(data, axis=1)

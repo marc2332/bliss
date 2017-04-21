@@ -15,6 +15,9 @@ import bliss.common.log as elog
 from bliss.common import event
 from bliss.common.utils import grouped
 
+from bliss.config.motors import load_cfg_fromstring, get_axis, get_encoder
+from bliss.controllers.motor_group import Group
+
 import PyTango
 from PyTango.server import Device, DeviceMeta, device_property
 from PyTango.server import attribute, command, get_worker
@@ -277,7 +280,7 @@ class BlissAxis(Device):
 
     @property
     def axis(self):
-        self.__axis = bliss.get_axis(self._axis_name)
+        self.__axis = get_axis(self._axis_name)
         return self.__axis
 
     def delete_device(self):
@@ -402,7 +405,7 @@ class BlissAxis(Device):
 
     @property
     def axis(self):
-        return bliss.get_axis(self._axis_name)
+        return get_axis(self._axis_name)
 
     @attribute(dtype=float, label='Steps per user unit', unit='steps/uu',
                format='%7.1f')
@@ -1079,7 +1082,7 @@ def __recreate_axes(server_name, manager_dev_name, axis_names,
         for dev_name in dev_names:
             curr_axis_name = dev_name.rsplit("/", 1)[-1]
             try:
-                bliss.get_axis(curr_axis_name)
+                get_axis(curr_axis_name)
             except:
                 elog.info("Error instantiating %s (%s): skipping!!" % (curr_axis_name, dev_name))
                 traceback.print_exc()
@@ -1117,7 +1120,7 @@ def __recreate_axes(server_name, manager_dev_name, axis_names,
  
     axes, tango_classes = [], []
     for axis_name in curr_axis_names_set:
-        axis = bliss.get_axis(axis_name)
+        axis = get_axis(axis_name)
         axes.append(axis)
         tango_class = __create_tango_axis_class(axis)
         tango_classes.append(tango_class)

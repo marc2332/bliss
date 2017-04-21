@@ -68,7 +68,7 @@ class ISG_DEVICE(BaseDevice):
         super(ISG_DEVICE, self).__init__(name, **super_kwargs)
         self._manufacturer = 'ISG Team'
         self._model = 'Generic ISG Device'
-        self._version = '0'
+        self._version = '0.0'
         self._firmware = '0.1.0'
         self._data = {}
         self._error_stack = collections.deque()
@@ -80,6 +80,7 @@ class ISG_DEVICE(BaseDevice):
         for cmd in line.split(';'):
             cmd = cmd.strip()
             response = self.handle_command(cmd)
+            print "response=", response
             if isinstance(response, ISG_DEVICE_Error):
                 self._error_stack.append(response)
             elif response is not None:
@@ -99,32 +100,33 @@ class ISG_DEVICE(BaseDevice):
         print "instr = ", instr
         print "args = ", args
 
-        return instr
+        is_query = instr.startswith('?')
 
-#         is_query = instr.endswith('?')
-#         if instr.startswith(':'):
-#             instr = instr[1:]
-#         if is_query:
-#             instr = instr[:-1]
-#         simple_instr = instr.replace('*', '').replace(':', '_')
-# 
-#         attr = getattr(self, simple_instr, None)
-# 
-#         if attr is None:
-#             if simple_instr in self._data:
-#                 return self._data[simple_instr]
-#             if is_query:
-#                 return self.query(simple_instr, *args)
-#             else:
-#                 return self.write(simple_instr, *args)
-#         elif callable(attr):
-#             fargs = inspect.getargspec(attr).args
-#             if len(fargs) > 1 and fargs[1] == 'is_query':
-#                 args = [is_query] + args
-#             return attr(*args)
-#         else:
-#             if is_query:
-#                 return attr
+        # Removes "?".
+        simple_instr = instr.replace('?', '')
+
+        # has isg_device this simple instruction as method ?
+        attr = getattr(self, simple_instr, None)
+
+        if attr is None:
+            print " no method of this name..."
+            if simple_instr in self._data:
+                return self._data[simple_instr]
+            if is_query:
+                # ??? retuns an error ???
+                return self.query(simple_instr, *args)
+            else:
+                return self.write(simple_instr, *args)
+        elif callable(attr):
+            print " ok a method exists and can be called"
+            fargs = inspect.getargspec(attr).args
+            if len(fargs) > 1 and fargs[1] == 'is_query':
+                args = [is_query] + args
+            return attr(*args)
+        else:
+            print " ok a method exists but not callable ???"
+            if is_query:
+                return attr
 
     def info():
         args = map(str, (self._manufacturer, self._model,

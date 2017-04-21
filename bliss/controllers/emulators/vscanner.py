@@ -51,6 +51,7 @@ class VSCANNER(ISG_DEVICE):
         super(VSCANNER, self).__init__(name, **opts)
 
         self._model = model
+        self._version = 3.14
         self._manufacturer = 'ESRF ISG vscanner'
 
         axes_dict = {}
@@ -71,12 +72,26 @@ class VSCANNER(ISG_DEVICE):
     def pos(self, channel):
         return self._axes[int(channel)].pos
 
-#     def mov(self, is_query, channel, new_pos=None):
-#         axis = self._axes[int(channel)]
-#         if is_query:
-#             return axis.mov
-#         axis.mov = new_pos
-# 
+
+    def ver(self):
+        return 'VSCANNER 01.02\r\n'
+
+    def state(self):
+        # READY  LWAITING  LRUNNING  PWAITING  PRUNNING
+        return "READY"
+
+    def vxy(self):
+        return "2.34 3.45"
+
+    def vx(self):
+        return "4.56"
+
+    def vy(self, is_query, channel, new_pos=None):
+        axis = self._axes[int(channel)]
+        if is_query:
+            return axis.mov
+        axis.mov = new_pos
+
 #     def sva(self, is_query, channel, new_pos=None):
 #         axis = self._axes[int(channel)]
 #         if is_query:

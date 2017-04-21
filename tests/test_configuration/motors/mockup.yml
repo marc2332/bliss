@@ -1,0 +1,93 @@
+controller:
+    -
+        class: mockup
+        axes:
+            -
+                name: robz
+                steps_per_unit: 10000
+                velocity: 100
+                acceleration: 30
+                low_limit: -1000
+                high_limit: 1E9
+            -
+                name: robz2
+                steps_per_unit: 10000
+                velocity: 1000
+                acceleration: 100
+    -
+        class: mockup
+        axes:
+            -
+                class: MockupAxis
+                name: roby
+                backlash: 2
+                steps_per_unit: 10000
+                velocity: 2500
+                acceleration: 40
+            -
+                class: MockupAxis
+                name: williams
+                backlash: 3
+                steps_per_unit: 3000
+                velocity: 25
+                acceleration: 5
+            -
+                name: m0
+                velocity: 1000
+                acceleration: 100
+            -
+                name: s1f
+                steps_per_unit: -1000
+                velocity: 500
+                acceleration: 100
+                low_limit: -10
+                high_limit: 10
+            -
+                name: s1b
+                steps_per_unit: 1000
+                velocity: 500
+                acceleration: 100
+                low_limit: -10
+                high_limit: 10
+            -
+                name: s1u
+                steps_per_unit: -1000
+                velocity: 500
+                acceleration: 100
+                low_limit: -10
+                high_limit: 10
+            -
+                name: s1d
+                steps_per_unit: 1000
+                velocity: 500
+                acceleration: 100
+                low_limit: -10
+                high_limit: 10
+    -
+        class: slits
+        axes:
+            -
+                name: $s1f
+                tags: real front
+            -
+                name: $s1b
+                tags: real back
+            -
+                name: $s1u
+                tags: real up
+            -
+                name: $s1d
+                tags: real down
+            -
+                name: s1vg
+                tags: vgap
+            -
+                name: s1vo
+                tags: voffset
+            -
+                name: s1hg
+                tags: hgap
+                low_limit: -15
+            -
+                name: s1ho
+                tags: hoffset

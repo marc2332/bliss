@@ -8,10 +8,10 @@
 import types
 import inspect
 import functools
-from bliss.controllers.motor_settings import ControllerAxisSettings
-from bliss.common.axis import AxisRef
-from bliss.controllers.motor_group import Group
-from bliss.config.motors import get_axis
+from bliss.common.motor_config import StaticConfig
+from bliss.common.motor_settings import ControllerAxisSettings
+from bliss.common.axis import Axis, AxisRef
+from bliss.common.motor_group import Group
 from bliss.common import event
 from bliss.common.utils import set_custom_members
 from bliss.config.channels import Cache
@@ -32,7 +32,6 @@ class Controller(object):
 
     def __init__(self, name, config, axes, encoders):
         self.__name = name
-        from bliss.config.motors import StaticConfig
         self.__config = StaticConfig(config)
         self.__initialized_axis = dict()
         self.__initialized_hw_axis = dict()
@@ -67,13 +66,7 @@ class Controller(object):
             self.__initialized_hw = Cache(self, "initialized", default_value = False)
             self.__initialized_hw_axis[axis] = Cache(axis, "initialized", default_value = False)
             if axis_config.get("encoder"):
-                try:
-                    # XML
-                    encoder_name = axis_config.get("encoder")['value']
-                except:
-                    # BEACON
-                    encoder_name = axis_config.get("encoder")
-
+                encoder_name = axis_config.get("encoder")
                 ENCODER_AXIS[encoder_name] = axis_name
 
     @property
@@ -92,12 +85,14 @@ class Controller(object):
     def config(self):
         return self.__config
 
-    def _update_refs(self):
+    def _update_refs(self, config):
         for tag, axis_list in self._tagged.iteritems():
             for i, axis in enumerate(axis_list):
                 if not isinstance(axis, AxisRef):
                     continue
-                referenced_axis = get_axis(axis.name)
+                referenced_axis = config.get(axis.name)
+                if not isinstance(referenced_axis, Axis):
+                    raise TypeError("%s: invalid axis '%s`, not an Axis" % (self.name, axis.name))
                 self.axes[axis.name] = referenced_axis
                 axis_list[i] = referenced_axis
                 referenced_axis.controller._tagged.setdefault(tag, []).append(referenced_axis)

@@ -12,7 +12,7 @@ from bliss.common import event
 from bliss.common.event import dispatcher
 from bliss.common.task_utils import error_cleanup
 from bliss.common.utils import grouped
-from bliss.controllers import motor_group
+from bliss.common.motor_group import Group
 import bliss
 import numpy
 import gevent
@@ -206,7 +206,7 @@ class _StepTriggerMaster(AcquisitionMaster):
             self._axes.append(axis)
             self._motor_pos.append(numpy.linspace(start,stop,nb_point))
 
-        mot_group = motor_group.Group(*self._axes)
+        mot_group = Group(*self._axes)
         group_name = '/'.join((x.name for x in self._axes))
 
         AcquisitionMaster.__init__(self,mot_group,group_name,"zerod",

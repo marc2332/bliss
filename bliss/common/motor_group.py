@@ -10,12 +10,7 @@ import itertools
 from bliss.common.task_utils import *
 from bliss.common.axis import Axis, AxisRef, AxisState, DEFAULT_POLLING_TIME
 from bliss.common import event
-
-
-def grouped(iterable, n):
-    """s -> (s0,s1,s2,...sn-1), (sn,sn+1,sn+2,...s2n-1),
-            (s2n,s2n+1,s2n+2,...s3n-1), ..."""
-    return itertools.izip(*[iter(iterable)] * n)
+from bliss.common.utils import grouped
 
 
 def Group(*axes_list):

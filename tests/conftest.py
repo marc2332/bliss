@@ -22,7 +22,8 @@ from bliss.config.conductor import client
 from bliss.config.conductor import connection
 
 os.environ["PYTHONPATH"] = BLISS
-@pytest.fixture(scope="session", autouse=True)
+
+@pytest.fixture(scope="session")
 def beacon():
     p = subprocess.Popen([BEACON, '--port=%d' % BEACON_PORT, '--redis_port=7654', '--db_path='+BEACON_DB_PATH, '--posix_queue=0'])
     time.sleep(0.3) #wait for beacon to be really started

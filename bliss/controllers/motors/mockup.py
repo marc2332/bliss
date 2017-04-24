@@ -86,6 +86,7 @@ class Mockup(Controller):
     Axes initialization actions.
     """
     def initialize_axis(self, axis):
+        print 'in initialize_axis', axis
         dial_pos = 0
         if axis.config.get("persistent_position", bool, 
                            default=False, inherited=True):
@@ -205,6 +206,8 @@ class Mockup(Controller):
         else:
             pos = self._axis_moves[axis]["end_pos"]
 
+        print self._axis_moves[axis]
+ 
         return int(round(pos))
 
     def read_encoder(self, encoder, t=None):

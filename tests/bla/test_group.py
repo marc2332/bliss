@@ -12,14 +12,18 @@ from bliss.common.standard import Group
 
 @pytest.fixture
 def robz(beacon):
+  print beacon
   m = beacon.get("robz")
+  print '*** robz is', m
   #m.sync_hard()
   yield m
   m.apply_config()
 
 @pytest.fixture
 def roby(beacon):
+  print beacon
   m = beacon.get("roby")
+  print '*** roby is', m
   #m.sync_hard()
   yield m
   m.apply_config()

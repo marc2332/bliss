@@ -11,15 +11,17 @@ import sys
 import os
 import time
 
-BEACON_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'bin'))
+BLISS = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+BEACON_PATH = os.path.join(BLISS, 'bin')
 BEACON = os.path.join(BEACON_PATH, "beacon-server")
-BEACON_DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), 'test_configuration'))
+BEACON_DB_PATH = os.path.join(BLISS, 'tests', 'test_configuration')
 BEACON_PORT = 7655
 
 from bliss.config import static
 from bliss.config.conductor import client
 from bliss.config.conductor import connection
 
+os.environ["PYTHONPATH"] = BLISS
 @pytest.fixture(scope="session", autouse=True)
 def beacon():
     p = subprocess.Popen([BEACON, '--port=%d' % BEACON_PORT, '--redis_port=7654', '--db_path='+BEACON_DB_PATH, '--posix_queue=0'])

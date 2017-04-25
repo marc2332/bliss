@@ -10,10 +10,15 @@ import os
 import sys
 import pkgutil
 
-from bliss.config.static import Config
-from bliss.config.motors.beacon_backend import create_objects_from_config_node, create_object_from_cache
-import bliss.controllers.motor as bliss_motor_controller
+from bliss.common.axis import Axis, AxisRef
+from bliss.common.encoder import Encoder
+from bliss.config.static import Config, get_config
 import bliss.controllers.motors
+import functools
+import gevent
+import hashlib
+import sys
+
 
 __KNOWN_AXIS_PARAMS = {
     "name": str,
@@ -40,6 +45,19 @@ def __get_controller_importer():
 
 def __get_controller_class_names():
     return [name for name, _ in __get_controller_importer().iter_modules()]
+
+
+def get_controller_class(name):
+    importer = __get_controller_importer()
+    mod = importer.find_module(name)
+    module = mod.load_module(mod.filename)
+
+    try:
+        controller_class = getattr(module, name.title())
+    except AttributeError:
+        raise RuntimeError("could not find class '%s` in module '%s`" % (name, module))
+    else:
+        return controller_class, module
 
 
 def get_jinja2():
@@ -296,3 +314,77 @@ def add_axis(cfg, request):
     if request.method == "GET":
         return flask.json.dumps(dict(html="<h1>TODO</h1>",
                                      message="not implemented", type="danger"))
+
+
+def create_objects_from_config_node(config, node):
+    if 'axes' in node or 'encoders' in node:
+        # asking for a controller
+        create = __create_controller_from_config_node
+    else:
+        # asking for an axis (controller is the parent)
+        create = __create_axis_from_config_node
+    return create(config, node)
+
+
+def __create_controller_from_config_node(config, node):
+    controller_class_name = node.get('class')
+    controller_name = node.get('name')
+    if controller_name is None:
+        h = hashlib.md5()
+        for axis_config in node.get('axes'):
+            name = axis_config.get('name')
+            if name is not None:
+                h.update(name)
+        controller_name = h.hexdigest()
+    controller_class, controller_module = get_controller_class(controller_class_name)
+    axes = list()
+    axes_names = list()
+    encoders = list()
+    encoder_names = list()
+    for axis_config in node.get('axes'):
+        axis_name = axis_config.get("name")
+        if axis_name.startswith("$"):
+            axis_class = AxisRef
+            axis_name = axis_name.lstrip('$')
+        else:
+            axis_class_name = axis_config.get("class")
+            if axis_class_name is None:
+        	axis_class = Axis
+            else:
+		axis_class = getattr(controller_module, axis_class_name)
+            axes_names.append(axis_name)
+        axes.append((axis_name, axis_class, axis_config))
+    for encoder_config in node.get('encoders', []):
+        encoder_name = encoder_config.get("name")
+        encoder_class_name = encoder_config.get("class")
+        if encoder_class_name is None:
+            encoder_class = Encoder
+        else:
+            encoder_class = getattr(controller_module, encoder_class_name)
+        encoder_names.append(encoder_name)
+        encoders.append((encoder_name, encoder_class, encoder_config))
+
+    controller = controller_class(controller_name, node, axes, encoders)
+    controller._update_refs(config)
+    controller.initialize()
+    all_names = axes_names + encoder_names
+    cache_dict = dict(zip(all_names, [controller]*len(all_names)))
+    return {controller_name: controller}, cache_dict
+
+
+def __create_axis_from_config_node(config, node):
+    name = node.get('name')
+    objs, cache = __create_controller_from_config_node(config, node.parent)
+    controller = cache.pop(name)
+    objs[name] = create_object_from_cache(config, name, controller)
+    return objs, cache
+
+
+def create_object_from_cache(config, name, controller):
+    try:
+        o = controller.get_axis(name)
+    except KeyError:
+        o = controller.get_encoder(name) 
+
+    return o
+

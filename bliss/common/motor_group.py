@@ -8,19 +8,14 @@
 import gevent
 import itertools
 from bliss.common.task_utils import *
-from bliss.common.axis import Axis, AxisRef, AxisState, DEFAULT_POLLING_TIME
+from bliss.common.axis import Axis, AxisState, DEFAULT_POLLING_TIME
 from bliss.common import event
-
-
-def grouped(iterable, n):
-    """s -> (s0,s1,s2,...sn-1), (sn,sn+1,sn+2,...s2n-1),
-            (s2n,s2n+1,s2n+2,...s3n-1), ..."""
-    return itertools.izip(*[iter(iterable)] * n)
+from bliss.common.utils import grouped
 
 
 def Group(*axes_list):
     axes = dict()
-    g = _Group(id(axes), {}, [])
+    g = _Group(id(axes), {})
     for axis in axes_list:
         if not isinstance(axis, Axis):
             raise ValueError("invalid axis %r" % axis)
@@ -31,17 +26,13 @@ def Group(*axes_list):
 
 class _Group(object):
 
-    def __init__(self, name, config, axes):
+    def __init__(self, name, config):
         self.__name = name
         self._axes = dict()
         self._motions_dict = dict()
         self.__move_done = gevent.event.Event()
         self.__move_done.set()
         self.__move_task = None
-
-        for axis_name, axis_config in axes:
-            axis = AxisRef(axis_name, self, axis_config)
-            self._axes[axis_name] = axis
 
     @property
     def name(self):
@@ -54,12 +45,6 @@ class _Group(object):
     @property
     def is_moving(self):
         return not self.__move_done.is_set()
-
-    def _update_refs(self):
-        config = __import__("config", globals(), locals(), [], 1)
-        for axis in self._axes.itervalues():
-            referenced_axis = config.get_axis(axis.name)
-            self._axes[axis.name] = referenced_axis
 
     def state(self):
         if self.is_moving:

@@ -21,7 +21,7 @@ import gevent
 
 from bliss import setup_globals
 from bliss.common.task_utils import *
-from bliss.controllers.motor_group import Group
+from bliss.common.motor_group import Group
 from bliss.common.measurement import CounterBase
 from bliss.scanning.acquisition.counter import CounterAcqDevice
 from bliss.scanning.chain import AcquisitionChain

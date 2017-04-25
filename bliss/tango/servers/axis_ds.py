@@ -9,11 +9,11 @@
 '''Bliss axis TANGO_ DS class (:class:`BlissAxisManager` and :class:`BlissAxis`)
 '''
 
-import bliss
-import bliss.config.motors as bliss_config
 import bliss.common.log as elog
+from bliss.common.axis import get_axis
 from bliss.common import event
 from bliss.common.utils import grouped
+from bliss.config.static import get_config as beacon_get_config
 
 import PyTango
 from PyTango.server import Device, DeviceMeta, device_property
@@ -240,7 +240,7 @@ class BlissAxisManager(Device):
         group.stop(wait=False)
 
     def _reload(self):
-        bliss_config.beacon_get_config().reload()
+        beacon_get_config().reload()
 
     @command
     def ReloadConfig(self):
@@ -277,7 +277,7 @@ class BlissAxis(Device):
 
     @property
     def axis(self):
-        self.__axis = bliss.get_axis(self._axis_name)
+        self.__axis = get_axis(self._axis_name)
         return self.__axis
 
     def delete_device(self):
@@ -402,7 +402,7 @@ class BlissAxis(Device):
 
     @property
     def axis(self):
-        return bliss.get_axis(self._axis_name)
+        return get_axis(self._axis_name)
 
     @attribute(dtype=float, label='Steps per user unit', unit='steps/uu',
                format='%7.1f')
@@ -928,7 +928,7 @@ def get_server_axis_names(instance_name=None):
     if instance_name is None:
         _, instance_name, _ = get_server_info()
 
-    cfg = bliss_config.beacon_get_config()
+    cfg = beacon_get_config()
     result = []
     for item_name in cfg.names_list:
         item_cfg = cfg.get_config(item_name)
@@ -1079,7 +1079,7 @@ def __recreate_axes(server_name, manager_dev_name, axis_names,
         for dev_name in dev_names:
             curr_axis_name = dev_name.rsplit("/", 1)[-1]
             try:
-                bliss.get_axis(curr_axis_name)
+                get_axis(curr_axis_name)
             except:
                 elog.info("Error instantiating %s (%s): skipping!!" % (curr_axis_name, dev_name))
                 traceback.print_exc()
@@ -1117,7 +1117,7 @@ def __recreate_axes(server_name, manager_dev_name, axis_names,
  
     axes, tango_classes = [], []
     for axis_name in curr_axis_names_set:
-        axis = bliss.get_axis(axis_name)
+        axis = get_axis(axis_name)
         axes.append(axis)
         tango_class = __create_tango_axis_class(axis)
         tango_classes.append(tango_class)
@@ -1133,7 +1133,7 @@ def initialize_bliss(info, db=None):
     server_instance = info['server_instance']
     server_name = server_type + '/' + server_instance
 
-    cfg = bliss_config.beacon_get_config()
+    cfg = beacon_get_config()
 
     axis_names = []
     for name in object_names:
@@ -1270,8 +1270,6 @@ def main(argv=None):
     try:
         # initialize logging as soon as possible
         initialize_logging(argv)
-
-        bliss_config.set_backend('beacon')
 
         # if querying list of instances, just return
         if len(argv) < 2 or argv[1] == '-?':

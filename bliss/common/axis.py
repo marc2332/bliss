@@ -30,9 +30,12 @@ as calls to :meth:`~bliss.config.static.Config.get`. Example::
 
 from bliss.common import log as elog
 from bliss.common.task_utils import *
-from bliss.controllers.motor_settings import AxisSettings
+from bliss.common.motor_config import StaticConfig
+from bliss.common.motor_settings import AxisSettings
 from bliss.common import event
 from bliss.common.utils import Null
+from bliss.config.static import get_config
+from bliss.common.encoder import Encoder
 import gevent
 import re
 import types
@@ -40,6 +43,22 @@ import functools
 
 #: Default polling time
 DEFAULT_POLLING_TIME = 0.02
+
+
+def get_encoder(name):
+  cfg = get_config()
+  enc = cfg.get(name)
+  if not isinstance(enc, Encoder):
+    raise TypeError("%s is not an Encoder" % name)
+  return enc
+
+
+def get_axis(name):
+  cfg = get_config()
+  axis = cfg.get(name)
+  if not isinstance(axis, Axis):
+    raise TypeError("%s is not an Axis" % name)
+  return axis
 
 
 class Modulo(object):
@@ -93,7 +112,6 @@ class Axis(object):
     def __init__(self, name, controller, config):
         self.__name = name
         self.__controller = controller
-        from bliss.config.motors import StaticConfig
         self.__config = StaticConfig(config)
         self.__settings = AxisSettings(self)
         self.__move_done = gevent.event.Event()
@@ -117,7 +135,7 @@ class Axis(object):
 
     @property
     def config(self):
-        """Reference to the :class:`~bliss.config.motors.StaticConfig`"""
+        """Reference to the :class:`~bliss.common.motor_config.StaticConfig`"""
         return self.__config
 
     @property
@@ -192,7 +210,6 @@ class Axis(object):
         except KeyError:
             return None
         else:
-            from bliss.config.motors import get_encoder
             return get_encoder(encoder_name)
 
     @property
@@ -991,7 +1008,6 @@ class Axis(object):
         """
         if reload:
             self.config.reload()
-
         # Applies velocity and acceleration only if possible.
         # Try to execute <config_name> function to check if axis supports it.
         for config_param in ['velocity', 'acceleration']:
@@ -1021,7 +1037,7 @@ class AxisRef(object):
 
     @property
     def config(self):
-        """Reference to the :class:`~bliss.config.motors.StaticConfig`"""
+        """Reference to the :class:`~bliss.common.motor_config.StaticConfig`"""
         return self.__config
 
 

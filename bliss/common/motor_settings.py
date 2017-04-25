@@ -7,37 +7,68 @@
 
 from bliss.common import log as elog
 from bliss.common import event
-from gevent import _threading
-import gevent.queue
-import gevent.event
-import gevent
-import atexit
+from bliss.config import settings
+from bliss.config import channels
+import functools
 
-SETTINGS_WRITER_THREAD = None
-SETTINGS_WRITER_QUEUE = None
-SETTINGS_WRITER_WATCHER = None
+def setting_update_from_channel(value, setting_name=None, axis=None):
+    if axis._hw_control:
+        return
+
+    axis.settings.set(setting_name, value, write=False, from_channel=True)
+
+    #print 'setting update from channel', axis.name, setting_name, str(value)
+
+    if setting_name == 'state':
+        if 'MOVING' in str(value):
+            axis._set_moving_state(from_channel=True)
+        else:
+            if axis.is_moving:
+                axis._set_move_done(None)
 
 
-def wait_settings_writing():
-    if SETTINGS_WRITER_QUEUE:
-        SETTINGS_WRITER_QUEUE.put((None, None, None, None))
-        SETTINGS_WRITER_WATCHER.wait()
+def get_from_config(axis, setting_name):
+    try:
+        return axis.config.get(setting_name)
+    except KeyError:
+        return
 
 
-def write_settings():
-    global SETTINGS_WRITER_WATCHER
-    SETTINGS_WRITER_WATCHER.clear()
+def get_axis_setting(axis, setting_name):
+    hash_setting = settings.HashSetting("axis.%s" % axis.name)
+    if len(hash_setting) == 0:
+        # there is no setting value in cache
+        setting_value = get_from_config(axis, setting_name)
+        if setting_value is not None:
+            # write setting to cache
+            hash_setting[setting_name] = setting_value
+    else:
+        setting_value = hash_setting.get(setting_name)
+        if setting_value is None:
+            # take setting value from config
+            setting_value = get_from_config(axis, setting_name)
+            if setting_value is not None:
+                # write setting to cache
+                hash_setting[setting_name] = setting_value
 
     try:
-        while True:
-            axis, setting_name, value, write_flag = SETTINGS_WRITER_QUEUE.get()
-            if axis is None:
-                break
-            event.send(
-                axis, "write_setting", axis.config, setting_name, value, write_flag)
-    finally:
-        SETTINGS_WRITER_WATCHER.set()
+        beacon_channels = axis._beacon_channels
+    except AttributeError:
+        beacon_channels = dict()
+        axis._beacon_channels = beacon_channels
 
+    if not setting_name in beacon_channels:
+        chan_name = "axis.%s.%s" % (axis.name, setting_name)
+        cb = functools.partial(setting_update_from_channel, setting_name=setting_name, axis=axis)
+        if setting_value is None:
+            chan = channels.Channel(chan_name, callback=cb)
+        else:
+            chan = channels.Channel(chan_name, setting_value, callback=cb)
+        chan._setting_update_cb = cb
+        beacon_channels[setting_name] = chan
+
+    return setting_value
+                                          
 
 class ControllerAxisSettings:
 
@@ -57,32 +88,16 @@ class ControllerAxisSettings:
             "acceleration": float}
         self.axis_settings_dict = dict()
 
-        from bliss.config import motors as config
-        global SETTINGS_WRITER_THREAD
-        global SETTINGS_WRITER_QUEUE
-        global SETTINGS_WRITER_WATCHER
-        if SETTINGS_WRITER_THREAD is None:
-            if config.BACKEND == 'xml':
-                SETTINGS_WRITER_QUEUE = _threading.Queue()
-                SETTINGS_WRITER_WATCHER = _threading.Event()
-                SETTINGS_WRITER_WATCHER.set()
-                atexit.register(wait_settings_writing)
-                if SETTINGS_WRITER_THREAD is None:
-                    SETTINGS_WRITER_THREAD = _threading.start_new_thread(
-                        write_settings, ())
-            else:
-                pass
 
     def add(self, setting_name, convert_func=str):
         self.setting_names.append(setting_name)
         self.convert_funcs[setting_name] = convert_func
 
     def load_from_config(self, axis):
-        from bliss.config import motors as config
         for setting_name in self.setting_names:
             try:
-                # Reads setting from XML file or redis DB.
-                setting_value = config.get_axis_setting(axis, setting_name)
+                # Reads setting from redis DB.
+                setting_value = get_axis_setting(axis, setting_name)
             except RuntimeError:
                 elog.debug("settings.py : no '%s' in settings." % setting_name)
                 return
@@ -128,7 +143,11 @@ class ControllerAxisSettings:
         try:
             event.send(axis, setting_name, setting_value)
         finally:
-            event.send(axis, "write_setting", axis.config, setting_name, setting_value, write)
+            if write:
+                channels.Channel("axis.%s.%s" % (axis.name, setting_name), setting_value)
+                if setting_name not in ('state', 'position'):
+                    hash_setting = settings.HashSetting("axis.%s" % axis.name)
+                    hash_setting[setting_name] = setting_value
 
     def get(self, axis, setting_name):
         settings = self._settings(axis)

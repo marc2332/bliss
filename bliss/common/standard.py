@@ -33,7 +33,7 @@ from bliss.common.axis import Axis
 
 from bliss.config.static import get_config
 
-from bliss.controllers.motor_group import Group
+from bliss.common.motor_group import Group
 
 
 _ERR = '!ERR'

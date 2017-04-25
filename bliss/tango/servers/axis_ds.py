@@ -252,7 +252,7 @@ class BlissAxisManager(Device):
         if reload:
             self._reload()
         for dev in self._get_axis_devices().values():
-            dev.axis.apply_config(reload=False)
+            dev.axis.apply_config()
 
 
 # Device States Description

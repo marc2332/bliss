@@ -130,7 +130,7 @@ class Mockup(Controller):
     def finalize(self):
         pass
 
-    def set_hw_limit(self, axis, low_limit, high_limit):
+    def set_hw_limits(self, axis, low_limit, high_limit):
         if low_limit is not None:
             ll= axis.user2dial(low_limit)*axis.steps_per_unit
         else:

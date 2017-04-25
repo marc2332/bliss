@@ -1,6 +1,7 @@
 controller:
     -
         class: mockup
+        name: test
         axes:
             -
                 name: robz
@@ -63,6 +64,11 @@ controller:
                 acceleration: 100
                 low_limit: -10
                 high_limit: 10
+            -
+                name: jogger
+                steps_per_unit: -500
+                velocity: 100
+                acceleration: 300
     -
         class: slits
         axes:

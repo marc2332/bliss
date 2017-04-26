@@ -186,13 +186,6 @@ class Node(NodeDict):
     def __hash__(self):
         return id(self)
 
-    def __setstate__(self, d):
-        self.update(d)
-
-    def __reduce__(self):
-        kwargs = dict(parent=None, filename=self.filename)
-        return self.__class__, (None, kwargs), dict(self)
-
     @property
     def filename(self):
         """Filename where the cofiguration of this node is located"""

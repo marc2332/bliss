@@ -15,13 +15,17 @@ class StaticConfig(object):
 
     def __init__(self, config_dict):
         self.config_dict = config_dict
+        self.config_channel = None
+
         try:
             config_chan_name = "config.%s" % config_dict['name']
         except KeyError:
             # can't have config channel is there is no name
-            self.config_channel = None
+            pass
         else:
-            self.config_channel = channels.Channel(config_chan_name, dict(config_dict), callback=self._config_changed)
+            if not 'axes' in config_dict and not 'encoders' in config_dict:
+                # axis config
+                self.config_channel = channels.Channel(config_chan_name, config_dict.to_dict(), callback=self._config_changed)
 
     def get(self, property_name, converter=str, default=NO_VALUE,
             inherited=False):

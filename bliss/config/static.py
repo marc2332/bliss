@@ -186,13 +186,6 @@ class Node(NodeDict):
     def __hash__(self):
         return id(self)
 
-    def __setstate__(self, d):
-        self.update(d)
-
-    def __reduce__(self):
-        kwargs = dict(parent=None, filename=self.filename)
-        return self.__class__, (None, kwargs), dict(self)
-
     @property
     def filename(self):
         """Filename where the cofiguration of this node is located"""
@@ -304,16 +297,33 @@ class Node(NodeDict):
             else:
                 node[key] = value
         return node
-
+    
+    def to_dict(self):
+        """
+        full copy and transform all node to dict object.
+        
+        the return object is a simple dictionary
+        """
+        newdict = dict()
+        for key,value in self.iteritems():
+            if isinstance(value,Node):
+                child_dict = value.to_dict()
+                newdict[key] = child_dict
+            elif isinstance(value,list):
+                new_list = Node._copy_list(value,dict_mode = True)
+                newdict[key] = new_list
+            else:
+                newdict[key] = value
+        return newdict
     @staticmethod
-    def _copy_list(l):
+    def _copy_list(l,dict_mode = False):
         new_list = list()
         for v in l:
             if isinstance(v,Node):
-                new_node = v.deep_copy()
+                new_node = v.deep_copy() if not dict_mode else v.to_dict()
                 new_list.append(new_node)
             elif isinstance(v,list):
-                child_list = Node._copy_list(v)
+                child_list = Node._copy_list(v,dict_mode=dict_mode)
                 new_list.append(child_list)
             else:
                 new_list.append(v)

@@ -180,7 +180,13 @@ class _Bus(object):
             if pending_channel_value:
                 pipeline = self._redis.pipeline()
                 for name,channel_value in pending_channel_value.iteritems():
-                    pipeline.publish(name,cPickle.dumps(channel_value,protocol=-1))
+                    try:
+                        pipeline.publish(name,cPickle.dumps(channel_value,protocol=-1))
+                    except cPickle.PicklingError:
+                        exctype,value,traceback = sys.exc_info()
+                        message = "Can't pickle in channel <%s> %r with values <%r> " % \
+                        (name,type(channel_value.value),channel_value.value)
+                        sys.excepthook(exctype,message,traceback)
                 pipeline.execute()
 
             if pending_init:

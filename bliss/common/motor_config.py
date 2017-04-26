@@ -25,7 +25,7 @@ class StaticConfig(object):
         else:
             if not 'axes' in config_dict and not 'encoders' in config_dict:
                 # axis config
-                self.config_channel = channels.Channel(config_chan_name, dict(config_dict), callback=self._config_changed)
+                self.config_channel = channels.Channel(config_chan_name, config_dict.to_dict(), callback=self._config_changed)
 
     def get(self, property_name, converter=str, default=NO_VALUE,
             inherited=False):

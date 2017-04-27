@@ -13,7 +13,7 @@ flask
 treelib
 gipc
 jedi
-ptpython
+ptpython == 0.39
 pygments == 1.6.0 ; python_version < '2.7'
 docopt
 bottle

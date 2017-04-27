@@ -902,8 +902,8 @@ class Axis(object):
                 pass
 
     def _wait_move(self, polling_time=DEFAULT_POLLING_TIME, ctrl_state_funct='state'):
+        state_funct = getattr(self.__controller, ctrl_state_funct)
         while True:
-            state_funct = getattr(self.__controller, ctrl_state_funct)
             state = state_funct(self)
             self._update_settings(state)
             if state != "MOVING":

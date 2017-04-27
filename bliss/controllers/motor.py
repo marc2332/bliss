@@ -369,6 +369,7 @@ class CalcController(Controller):
                 axis.settings.set("position", user_pos, write=False)
             else:
                 raise RuntimeError("cannot assign position to real motor")
+        return new_positions
 
     def calc_from_real(self, real_positions):
         """Return a dict { pseudo motor tag: new position, ... }"""
@@ -420,7 +421,7 @@ class CalcController(Controller):
         for real_axis_tag, user_pos in real_positions.iteritems():
             self._tagged[real_axis_tag][0].position(user_pos)
 
-        self._calc_from_real(force_write=True)
+        new_positions = self._calc_from_real(force_write=True)
 
-        return axis.position()
+        return new_positions[self._axis_tag(axis)]
 

@@ -72,7 +72,6 @@ class Mockup(Controller):
     Axes initialization actions.
     """
     def initialize_axis(self, axis):
-        print 'in initialize_axis', axis
         dial_pos = 0
         if axis.config.get("persistent_position", bool, 
                            default=False, inherited=True):
@@ -192,8 +191,6 @@ class Mockup(Controller):
         else:
             pos = self._axis_moves[axis]["end_pos"]
 
-        print self._axis_moves[axis]
- 
         return int(round(pos))
 
     def read_encoder(self, encoder, t=None):
@@ -394,7 +391,7 @@ class Mockup(Controller):
     # BOOL NONE
     @object_method(name="Set_Closed_Loop", types_info=("bool", "None"))
     def _set_closed_loop(self, axis, onoff = True):
-        print "I set the closed loop ", onoff
+        pass #print "I set the closed loop ", onoff
 
     # Types by default (None, None)
     @object_method

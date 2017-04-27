@@ -464,6 +464,48 @@ def test_step_cont():
   scan = Scan(chain,name='soft_zapline',parent=step_scan)
   scan.run()
 
+def test_sps():
+  config_xml = """
+<config>
+  <controller class="mockup">
+    <axis name="m0">
+      <steps_per_unit value="10000"/>
+      <!-- degrees per second -->
+      <velocity value="10"/>
+      <acceleration value="100"/>
+    </axis>
+    <axis name="m1">
+      <steps_per_unit value="10000"/>
+      <!-- degrees per second -->
+      <velocity value="1"/>
+      <acceleration value="10"/>
+    </axis>
+    <axis name="m2">
+      <steps_per_unit value="10000"/>
+      <!-- degrees per second -->
+      <velocity value="10"/>
+      <acceleration value="100"/>
+    </axis>
+  </controller>
+</config>"""
+
+  load_cfg_fromstring(config_xml)
+  m0 = get_axis("m0")
+ 
+  chain = AcquisitionChain()
+  emotion_master = SoftwarePositionTriggerMaster(m0, 5, 10, 7,time=1)
+  c0_dev = TestAcquisitionDevice("c0")
+  c1_dev = TestAcquisitionDevice("c1")
+  chain.add(emotion_master, c0_dev)
+  chain.add(emotion_master,c1_dev)
+  chain._tree.show()
+
+  session_cnt = Container('sps_test')
+  recorder = ScanRecorder('test_scan',session_cnt)
+  scan = Scan(chain, recorder)
+  scan.prepare()
+  scan.start()
+
 if __name__ == '__main__':
   #test()
   #test2()
@@ -475,4 +517,5 @@ if __name__ == '__main__':
   #test_emotion_p201()
   #test_p201_hdf5()
   #test_lima_basler()
-  test_step_cont()
+  #test_step_cont()
+  test_sps()

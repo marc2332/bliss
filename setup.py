@@ -138,7 +138,8 @@ setup(name="bliss",
                                              "js/*.*",
                                              "res/*.*"],
                     'bliss.shell.web':['*.html', 'css/*.css', "js/*.js"]},
-      scripts=["bin/beacon-server", "bin/beacon-server-list","bin/bliss", 'bin/bliss_webserver'],
+      scripts=["bin/beacon-server", "bin/beacon-server-list","bin/bliss", 'bin/bliss_webserver',
+               'bin/sps_data_watch'],
       cmdclass=cmdclass,
 )
 

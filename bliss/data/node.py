@@ -64,11 +64,14 @@ def _get_or_create_node(name, node_type=None, parent=None, connection = None):
 
 class DataNodeIterator(object):
     NEW_CHILD_REGEX = re.compile("^__keyspace@.*?:(.*)_children_list$")
-
-    def __init__(self, node):
+    NEW_CHANNEL_REGEX = re.compile("^__keyspace@.*?:(.*)_channels$")
+    NEW_CHILD_EVENT,NEW_CHANNEL_EVENT,NEW_DATA_IN_CHANNEL_EVENT = range(3)
+    
+    def __init__(self, node,last_child_id = None):
         self.node = node
-        self.last_child_id = dict()
-        
+        self.last_child_id = dict() if last_child_id is None else last_child_id
+        self.zerod_channel_event = dict()
+
     def walk(self, filter=None, wait=True):  
         #print self.node.db_name(),id(self.node)
         try:
@@ -78,9 +81,7 @@ class DataNodeIterator(object):
                 filter = [filter]
         
         if wait:
-            redis = self.node.db_connection
-            pubsub = redis.pubsub()
-            pubsub.psubscribe("__keyspace*__:%s*_children_list" % self.node.db_name())
+            pubsub = self.children_event_register()
 
         db_name = self.node.db_name()
         self.last_child_id[db_name]=0
@@ -89,22 +90,68 @@ class DataNodeIterator(object):
             yield self.node
 
         for i, child in enumerate(self.node.children()):
-            iterator = DataNodeIterator(child)
+            iterator = DataNodeIterator(child,last_child_id=self.last_child_id)
             for n in iterator.walk(filter, wait=False):
                 self.last_child_id[db_name] = i
                 if filter is None or n.type() in filter:
                     yield n
-
         if wait:
-            for msg in pubsub.listen():
-                if msg['data'] == 'rpush':
-                    channel = msg['channel']
-                    parent_db_name = DataNodeIterator.NEW_CHILD_REGEX.match(channel).groups()[0]
-                    for child in get_node(parent_db_name).children(self.last_child_id.setdefault(parent_db_name, 0), -1):
-                        self.last_child_id[parent_db_name]+=1
+            #yield from self.wait_for_event(pubsub)
+            for event_type,value in self.wait_for_event(pubsub,filter):
+                yield value
+
+    def children_event_register(self):
+        redis = self.node.db_connection
+        pubsub = redis.pubsub()
+        pubsub.psubscribe("__keyspace*__:%s*_children_list" % self.node.db_name())
+        return pubsub
+    
+    def child_register_new_data(self,child_node,pubsub):
+        if child_node.type() == 'zerod':
+            pubsub.subscribe("__keyspace@1__:%s_channels" % child_node.db_name())
+            for channel_name in child_node.channels_name():
+                pubsub.subscribe("__keyspace@1__:%s_%s" % (child_node.db_name(),channel_name))
+        else:
+            pass                # warning not managed yet
+
+    def wait_for_event(self,pubsub,filter = None):
+        try:
+            it = iter(filter)
+        except TypeError:
+            if filter is not None:
+                filter = set(filter)
+
+        for msg in pubsub.listen():
+            if msg['data'] == 'rpush':
+                channel = msg['channel']
+                new_child_event = DataNodeIterator.NEW_CHILD_REGEX.match(channel)
+                if new_child_event:
+                    parent_db_name = new_child_event.groups()[0]
+                    parent_node = get_node(parent_db_name)
+                    first_child = self.last_child_id.setdefault(parent_db_name, 0)
+                    for i,child in enumerate(parent_node.children(first_child, -1)):
+                        self.last_child_id[parent_db_name] = first_child + i
                         if filter is None or child.type() in filter:
-                            yield child
-             
+                            yield self.NEW_CHILD_EVENT,child
+                else:
+                    new_channel_event = DataNodeIterator.NEW_CHANNEL_REGEX.match(channel)
+                    if new_channel_event:
+                        zerod_db_name = new_channel_event.groups()[0]
+                        zerod = get_node(zerod_db_name)
+                        for channel_name in zerod.channels_name():
+                            event_key = "__keyspace@1__:%s_%s" % (zerod.db_name(),channel_name)
+                            pubsub.subscribe(event_key)
+                            self.zerod_channel_event[event_key] = zerod_db_name
+                        if filter is None or zerod.type() in filter:
+                            yield self.NEW_CHANNEL_EVENT,zerod
+                    else:
+                        new_data_in_channel = self.zerod_channel_event.get(channel)
+                        if new_data_in_channel is not None:
+                            zerod = get_node(new_data_in_channel)
+                            db_name = zerod.db_name() + '_'
+                            channel_name = channel.split(db_name)[-1]
+                            if filter is None or zerod.type() in filter:
+                                yield self.NEW_DATA_IN_CHANNEL_EVENT,(zerod,channel_name)
 class _TTL_setter(object):
     def __init__(self,db_name):
         self._db_name = db_name

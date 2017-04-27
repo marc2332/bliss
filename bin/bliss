@@ -199,11 +199,20 @@ def main():
         
         def patch_repl(repl):
             prev_execute = repl._execute
+            def wrapped_f(self,*args, **kwargs):
+                try:
+                    return prev_execute(self,*args,**kwargs)
+                except:
+                    return sys.exc_info()
+
             def patched_execute(self,*args,**keys):
                 global CURRENT_TASK
-                CURRENT_TASK = gevent.spawn(prev_execute,self,*args,**keys)
+                CURRENT_TASK = gevent.spawn(wrapped_f,self,*args,**keys)
                 try:
-                    CURRENT_TASK.join()
+                    return_value = CURRENT_TASK.get()
+                    if(isinstance(return_value,tuple) and 
+                       isinstance(return_value[1],Exception)):
+                        raise return_value[0],return_value[1],return_value[2]
                 finally:
                     CURRENT_TASK = None
             repl._execute = patched_execute

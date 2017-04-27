@@ -1,48 +1,21 @@
+# -*- coding: utf-8 -*-
+#
+# This file is part of the bliss project
+#
+# Copyright (c) 2016 Beamline Control Unit, ESRF
+# Distributed under the GNU LGPLv3. See LICENSE for more info.
+
 import pytest
 import time
+import gevent
+import gevent.event
 from bliss.common import event
 from bliss.common.axis import get_axis, Modulo
 
-@pytest.fixture
-def robz(beacon):
-  m = beacon.get("robz")
-  yield m
-  m.wait_move()
-  m.apply_config()
-  m.controller.set_hw_limits(m, None, None)
-  m.dial(0); m.position(0)
-
-@pytest.fixture
-def roby(beacon):
-  m = beacon.get("roby")
-  yield m
-  m.wait_move()
-  m.apply_config()
-  m.controller.set_hw_limits(m, None, None)
-  m.dial(0); m.position(0)
-
-@pytest.fixture
-def m0(beacon):
-  m = beacon.get("m0")
-  yield m
-  m.wait_move()
-  m.apply_config()
-  m.controller.set_hw_limits(m, None, None)
-  m.dial(0); m.position(0)
-
-@pytest.fixture
-def jogger(beacon):
-  m = beacon.get("jogger")
-  yield m
-  m.wait_move()
-  m.apply_config()
-  m.controller.set_hw_limits(m, None, None)
-  m.dial(0); m.position(0)
-
-
-def test_get_axis():
+"""def test_get_axis():
     robz = get_axis("robz")
     assert robz
+"""
 
 def test_property_setting(robz):
     assert robz.velocity() == 100
@@ -51,17 +24,17 @@ def test_controller_from_axis(robz):
     assert robz.controller.name == "test"
 
 def test_state_callback(robz):
-    old={"state":None}
-    def callback(state, old=old):
-        old["state"] = state
+    ready_event = gevent.event.Event()
+    def callback(state):
+        if state == 'READY':
+          ready_event.set()
 
     event.connect(robz, "state", callback)
 
     robz.rmove(10, wait=False)
 
-    while old["state"]=="MOVING":
-        time.sleep(0)
-    #robz.wait_move()
+    ready_event.wait()
+
     assert robz.state()=="READY"
 
 def test_position_callback(robz):
@@ -77,20 +50,20 @@ def test_position_callback(robz):
     robz.position(1)
     pos = robz.position()
     robz.rmove(1)
-    assert storage["last_pos"] == pytest.approx(pos+1, 1e-5)
-    assert storage["last_dial_pos"] == pytest.approx(robz.user2dial(pos+1), 1e-5)
+    assert storage["last_pos"] == pytest.approx(pos+1)
+    assert storage["last_dial_pos"] == pytest.approx(robz.user2dial(pos+1))
 
 def test_rmove(robz):
     robz.move(0)
-    assert robz.position() == pytest.approx(0, 1e-5)
+    assert robz.position() == pytest.approx(0)
     robz.rmove(0.1)
     robz.rmove(0.1)
-    assert robz.position() == pytest.approx(0.2, 1e-5)
+    assert robz.position() == pytest.approx(0.2)
 
 def test_acceleration(robz):
     acc = robz.acceleration()
     
-    assert robz.acctime() == pytest.approx(robz.velocity()/robz.acceleration(), 1e-5)
+    assert robz.acctime() == pytest.approx(robz.velocity()/robz.acceleration())
 
     v = robz.velocity()/2.0
     robz.velocity(v)
@@ -160,7 +133,7 @@ def test_asynchronous_stop(robz):
 
     assert robz.state() == "MOVING"
 
-    time.sleep(1)
+    time.sleep(1+robz.acctime())
 
     robz.stop(wait=False)
 
@@ -170,7 +143,7 @@ def test_asynchronous_stop(robz):
 
     assert robz.state() == "READY"
     
-    assert robz.position() == pytest.approx(1-robz.acctime(), 1e-4)
+    assert robz.position() == pytest.approx(1+robz.acceleration()*0.5*robz.acctime()**2, 1e-2)
 
 def test_home_stop(robz):
     robz.home(wait=False)
@@ -212,10 +185,9 @@ def test_limits(robz):
 
 def test_limits2(robz, roby):
     assert robz.limits() == (-1000,1E9)
-    roby = bliss.get_axis("roby")
     assert roby.limits() == (None,None)
     with pytest.raises(ValueError):
-        robz.movei(-1001)
+        robz.move(-1001)
 
 def test_limits3(robz):
     robz.limits(-10,10)
@@ -224,6 +196,10 @@ def test_limits3(robz):
 
 def test_backlash(roby):
     roby.move(-10, wait=False)
+
+    ## why?
+    time.sleep(0)
+    ##
 
     assert roby.backlash_move == -12
 
@@ -240,7 +216,7 @@ def test_backlash(roby):
 
 def test_backlash2(roby):
     roby.move(10, wait=False)
-    time.sleep(0)
+    time.sleep(0) ## why is this needed?
     assert roby.backlash_move == 0
     roby.wait_move() 
     assert roby.position() == 10
@@ -263,7 +239,7 @@ def test_axis_steps_per_unit(roby):
 
 def test_axis_set_pos(roby):
     roby.position(10)
-    assert roby.position(10) == pytest.approx(10, 1e-5)
+    assert roby.position(10) == pytest.approx(10)
 
 def test_axis_set_velocity(roby):
     # vel is in user-unit per seconds.
@@ -297,20 +273,23 @@ def test_ctrlc(robz):
     assert robz.position() < final_pos
 
 def test_on_off(robz):
-    robz.off()
-    assert robz.state() == 'OFF'
-    with pytest.raises(RuntimeError):
-        robz.move(1)
-    robz.on()
-    assert robz.state() == 'READY'
-    robz.move(1)
-    assert robz.position() == pytest.approx(robz.position(), 1, 1e-5)
-    robz.move(2, wait=False)
-    with pytest.raises(RuntimeError):
+    try:
         robz.off()
-    robz.wait_move()
-    robz.off()
-    assert robz.state() == 'OFF'
+        assert robz.state() == 'OFF'
+        with pytest.raises(RuntimeError):
+            robz.move(1)
+        robz.on()
+        assert robz.state() == 'READY'
+        robz.move(1)
+        assert robz.position() == pytest.approx(1)
+        robz.move(2, wait=False)
+        with pytest.raises(RuntimeError):
+            robz.off()
+        robz.wait_move()
+        robz.off()
+        assert robz.state() == 'OFF'
+    finally:
+        robz.on()
 
 def test_dial(robz):
     robz.position(1)
@@ -337,8 +316,8 @@ def test_set_position(m0):
     assert m0._set_position() == 0.1
     for i in range(9):
         m0.rmove(0.1)
-    assert m0._set_position() == pytest.approx(1.0, 1E-5)
-    assert m0.position() == m0._set_position()
+    assert m0._set_position() == pytest.approx(1.0)
+    assert m0.position() == pytest.approx(m0._set_position())
     m0.move(0.4)
     assert m0._set_position() == 0.4
     assert m0.position() == 0
@@ -364,22 +343,26 @@ def test_interrupted_waitmove(m0):
     assert m0.state() == "READY"
 
 def test_hardware_limits(roby):
-    roby.controller.set_hw_limit(roby, -2,2)
-    with pytest.raises(RuntimeError):
-        roby.move(3)
+    try:
+        roby.controller.set_hw_limits(roby, -2,2)
+        with pytest.raises(RuntimeError):
+            roby.move(3)
 
-    assert roby.position() == 2
+        assert roby.position() == 2
 
-    # move hit limit because of backlash
-    with pytest.raises(RuntimeError):
-        roby.move(0)
-    roby.move(1)
+        # move hit limit because of backlash
+        with pytest.raises(RuntimeError):
+            roby.move(0)
+        roby.move(1)
 
-    assert roby.position() == 1
-    with pytest.raises(RuntimeError):
-        roby.move(-3)
+        assert roby.position() == 1
+        with pytest.raises(RuntimeError):
+            roby.move(-3)
 
-    assert roby.position() == -2
+        assert roby.position() == -2
+    finally:
+        roby.controller.set_hw_limits(roby, None, None)
+    
 
 def test_bad_start(roby):
     try:
@@ -413,23 +396,26 @@ def test_settings_to_config(roby):
     roby.settings_to_config()
     assert roby.velocity(from_config=True) == 3
     assert roby.acceleration(from_config=True) == 10
+    roby.velocity(2500)
+    roby.acceleration(1000)
+    roby.settings_to_config()
 
 def test_apply_config(roby):
     roby.velocity(1)
     roby.acceleration(2)
     roby.limits(0,10)
     roby.apply_config()
-    assert roby.velocity() == 3
-    assert roby.acceleration() == 10
+    assert roby.velocity() == 2500
+    assert roby.acceleration() == 1000
     assert roby.limits() == (None, None)
-    
+
 def test_jog(robz):
     robz.velocity(10)
     robz.jog(300)
     assert robz.velocity() == 300
     t = 1+robz.acctime()
     time.sleep(t)
-    assert robz._hw_position() == 300+robz.acceleration()*0.5*robz.acctime()**2
+    assert robz._hw_position() == pytest.approx(300+robz.acceleration()*0.5*robz.acctime()**2, 1e-2)
     assert robz.state() == "MOVING"
     robz.stop()
     assert robz.state() == "READY"
@@ -439,18 +425,19 @@ def test_jog(robz):
     robz.jog(-300, reset_position=0)
     assert robz.velocity() == 300
     time.sleep(t)
-    assert robz._hw_position() == -300-robz.acceleration()*0.5*robz.acctime()**2
+    assert robz._hw_position() == pytest.approx(-300-robz.acceleration()*0.5*robz.acctime()**2, 1e-2)
     robz.stop()
     assert robz.dial() == 0
     assert robz.velocity() == 10
     robz.jog(300, reset_position=Modulo())
     time.sleep(t)
     robz.stop()
-    assert robz.position() == 90 # delta=0.5)
+    assert robz.position() == pytest.approx(90, 0.1)
 
 def test_jog2(jogger):
     jogger.jog(300) #this should go in the opposite direction because steps_per_unit < 0
-    t = 1+m.acctime()
+    t = 1+jogger.acctime()
     time.sleep(t)
-    assert m._hw_position() == 300+jogger.acceleration()*0.5*jogger.acctime()**2
+    assert jogger._hw_position() == pytest.approx(300+jogger.acceleration()*0.5*jogger.acctime()**2, 1e-2)
     jogger.stop() 
+

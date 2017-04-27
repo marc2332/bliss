@@ -10,33 +10,6 @@ import time
 from bliss.common import event
 from bliss.common.standard import Group
 
-@pytest.fixture
-def robz(beacon):
-  m = beacon.get("robz")
-  yield m
-  m.wait_move()
-  m.apply_config()
-  m.controller.set_hw_limits(m, None, None)
-  m.dial(0); m.position(0)
-
-@pytest.fixture
-def roby(beacon):
-  m = beacon.get("roby")
-  yield m
-  m.wait_move()
-  m.apply_config()
-  m.controller.set_hw_limits(m, None, None)
-  m.dial(0); m.position(0)
-
-@pytest.fixture
-def robz2(beacon):
-  m = beacon.get("robz2")
-  yield m
-  m.wait_move()
-  m.apply_config()
-  m.controller.set_hw_limits(m, None, None)
-  m.dial(0); m.position(0)
-
 def test_group_move(robz, roby):
     robz_pos = robz.position()
     roby_pos = roby.position()

@@ -762,6 +762,7 @@ class Axis(object):
                 except:
                     sys.excepthook(*sys.exc_info())
         self.__move_done.set()
+        self._update_settings(self.state(read_hw=True))
         event.send(self, "move_done", True)
 
     def _check_ready(self):
@@ -905,7 +906,7 @@ class Axis(object):
         state_funct = getattr(self.__controller, ctrl_state_funct)
         while True:
             state = state_funct(self)
-            self._update_settings(state)
+            self._update_settings()
             if state != "MOVING":
                 return state
             gevent.sleep(polling_time)

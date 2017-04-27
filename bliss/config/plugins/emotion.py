@@ -38,19 +38,12 @@ __KNOWN_CONTROLLER_PARAMS = ("name", "class", "plugin", "axes")
 __this_path = os.path.realpath(os.path.dirname(__file__))
 
 
-def __get_controller_importer():
-    controllers_path = os.path.dirname(bliss.controllers.motors.__file__)
-    return pkgutil.ImpImporter(path=controllers_path)
-
-
 def __get_controller_class_names():
-    return [name for name, _ in __get_controller_importer().iter_modules()]
+    return bliss.controllers.motors.__all__
 
 
 def get_controller_class(name):
-    importer = __get_controller_importer()
-    mod = importer.find_module(name)
-    module = mod.load_module(mod.filename)
+    module = __import__('bliss.controllers.motors.%s' % name,fromlist=[''])
 
     try:
         controller_class = getattr(module, name.title())

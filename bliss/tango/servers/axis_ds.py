@@ -1082,6 +1082,9 @@ def __recreate_axes(server_name, manager_dev_name, axis_names,
                 get_axis(curr_axis_name)
             except:
                 elog.info("Error instantiating %s (%s): skipping!!" % (curr_axis_name, dev_name))
+                elog.info(" hint : Check beacon ")
+                elog.info(" hint : Check redis-server ")
+                elog.info(" hint : Check user running redis-server : must not be \"redis\" ")
                 traceback.print_exc()
                 continue
             curr_axes[curr_axis_name] = dev_name, dev_class

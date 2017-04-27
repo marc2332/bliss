@@ -103,7 +103,7 @@ class LimaDataNode(DataNode):
         pipeline.execute()
 
     def _end_storage(self):
-        self._new_image_status = None
+        self._stop_flag = True
         if self._storage_task is not None:
             self._new_image_status_event.set()
             self._storage_task.join()
@@ -112,24 +112,29 @@ class LimaDataNode(DataNode):
         while True:
             self._new_image_status_event.wait()
             self._new_image_status_event.clear()
-            if self._new_image_status is None:
+            local_dict = self._new_image_status_event
+            self._new_image_status_event = dict()
+            if local_dict:
+                self.db_connection.hmset(self.db_name(),local_dict)
+            if self._stop_flag :
                 break
-            self.db_connection.hmset(self.db_name(), self._new_image_status)
-            #TODO: remove the comment, for use without simulator
-            #gevent.idle()
+            gevent.idle()
 
     def store(self, signal, event_dict):
         if signal == 'start':
             self._end_storage()
             self._new_image_status_event = gevent.event.Event()
+            self._new_image_status = dict()
+            self._stop = False
             self._storage_task = gevent.spawn(self._do_store)
         elif signal == 'end':
             self._end_storage()
         else:
             local_dict = dict(event_dict)
             data_type = local_dict.pop('type')
-            if data_type == 'lima/image':
-                self._new_image_status = local_dict
+            if(data_type == 'lima/image' or
+               data_type == 'lima/parameters'):
+                self._new_image_status.update(local_dict)
                 self._new_image_status_event.set()
 
 

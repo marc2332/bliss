@@ -31,20 +31,6 @@ config :
  'backlash' in unit
 """
 
-config_xml = """
-<config>
-  <controller class="mockup">
-    <axis name="robx" class="MockupAxis">
-      <velocity  value="1"/>
-      <acceleration value="3"/>
-      <steps_per_unit value="10"/>
-      <backlash value="2"/>
-    </axis>
-  </controller>
-</config>
-"""
-
-
 class Mockup(Controller):
     def __init__(self, name, config, axes, encoders):
         Controller.__init__(self, name, config, axes, encoders)
@@ -215,29 +201,31 @@ class Mockup(Controller):
         returns encoder position.
         unit : 'encoder steps'
         """
-
-        axis = self.__encoders[encoder]["axis"]
-
-        if self.__encoders[encoder]["measured_noise"] != 0.0:
-            # Simulates noisy encoder.
-            amplitude = self.__encoders[encoder]["measured_noise"]
-            noise_mm = random.uniform(-amplitude, amplitude)
-
-            _pos = self.read_position(axis, t=t) / axis.steps_per_unit
-            _pos += noise_mm
-
-            self.__encoders[encoder]["steps"] = _pos * encoder.steps_per_unit
-
+        if self.__encoders[encoder]["steps"] is not None:
+            enc_steps = self.__encoders[encoder]["steps"]
         else:
-            # print "Perfect encoder"
-            if self.__encoders[encoder]["steps"] is None:
-                _axis_pos = self.read_position(axis, t=t) / axis.steps_per_unit
-                self.__encoders[encoder]["steps"] = _axis_pos * encoder.steps_per_unit
+            axis = self.__encoders[encoder]["axis"]
 
-        return self.__encoders[encoder]["steps"]
+            if self.__encoders[encoder]["measured_noise"] != 0.0:
+                # Simulates noisy encoder.
+                amplitude = self.__encoders[encoder]["measured_noise"]
+                noise_mm = random.uniform(-amplitude, amplitude)
+
+                _pos = self.read_position(axis, t=t) / axis.steps_per_unit
+                _pos += noise_mm
+
+                enc_steps = _pos * encoder.steps_per_unit
+            else:
+                # print "Perfect encoder"
+                _pos = self.read_position(axis, t=t) / axis.steps_per_unit
+                enc_steps = _pos * encoder.steps_per_unit
+
+        self.__encoders[encoder]["steps"] = None
+
+        return enc_steps
 
     def set_encoder(self, encoder, encoder_steps):
-        self.__encoders[encoder]["steps"]=encoder_steps
+        self.__encoders[encoder]["steps"] = encoder_steps
 
     """
     VELOCITY

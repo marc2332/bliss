@@ -29,12 +29,11 @@
         - low_limit:
         - high_limit:
       - !!omap
-        - class: MockupAxis
-        - name: williams
-        - backlash: 3
-        - steps_per_unit: 3000
-        - velocity: 25
-        - acceleration: 5
+        - name: m1
+        - steps_per_unit: 1000
+        - velocity: 50
+        - acceleration: 1
+        - encoder: $m1enc
       - !!omap
         - name: m0
         - velocity: 1000
@@ -72,6 +71,11 @@
         - steps_per_unit: -500
         - velocity: 100
         - acceleration: 300
+    - encoders:
+        - !!omap
+          - name: m1enc
+          - steps_per_unit: 50
+          - tolerance: 0.001
   - !!omap
     - class: slits
     - axes:

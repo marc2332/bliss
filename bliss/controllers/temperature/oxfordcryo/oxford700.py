@@ -20,23 +20,20 @@ outputs:
  - The controller issues status packets of a fixed length at 1 second
    intervals.
 """
-from bliss.comm.serial import Serial
-import math
-import time
-import numpy
-from bliss.controllers.temperature.oxfordcryo.oxfordcryo import StatusPacket, CSCOMMAND, splitBytes
-import logging
 
-""" TempController import """
+import time
+
+from bliss.common import log
+from bliss.common.utils import object_method_type
+from bliss.comm.serial import Serial
 from bliss.controllers.temp import Controller
 from bliss.common.temperature import Output
-from bliss.common import log
-from bliss.common.utils import object_method, object_method_type
-from bliss.common.utils import object_attribute_get, object_attribute_type_get
-from bliss.common.utils import object_attribute_set, object_attribute_type_set
+from bliss.controllers.temperature.oxfordcryo.oxfordcryo import StatusPacket
+from bliss.controllers.temperature.oxfordcryo.oxfordcryo import CSCOMMAND
+from bliss.controllers.temperature.oxfordcryo.oxfordcryo import split_bytes
 
 
-class OxfordCryostream:
+class OxfordCryostream(object):
     """
     OXCRYO_ALARM = {0:"No Alarms",
                  1:"Stop button has been pressed",
@@ -77,14 +74,12 @@ class OxfordCryostream:
                  36:"Sample temp > 325 K"}
     """
 
-    def __init__(self, port=None, debug=False):
-        #RS232 settings: 9600 baud, 8 bits, no parity, 1 stop bit
+    def __init__(self, port=None):
+        """RS232 settings: 9600 baud, 8 bits, no parity, 1 stop bit
+        """
         self.serial = Serial(port, baudrate=9600, eol='\r')
 
-    def __del__(self):
-        self.serial.close()
-
-    def exit(self):
+    def __exit__(self, etype, evalue, etb):
         self.serial.close()
 
     def restart(self):
@@ -99,7 +94,7 @@ class OxfordCryostream:
            Returns:
               None
         """
-        self.send_cmd(2,CSCOMMAND.PURGE)
+        self.send_cmd(2, CSCOMMAND.PURGE)
 
     def stop(self):
         """Immediately halt the Cryostream Cooler,turning off the pump and
@@ -108,37 +103,37 @@ class OxfordCryostream:
            Returns:
               None
         """
-        self.send_cmd(2,CSCOMMAND.STOP)
+        self.send_cmd(2, CSCOMMAND.STOP)
 
     def hold(self):
         """Maintain temperature fixed indefinitely, until start issued.
            Returns:
               None
         """
-        self.send_cmd(2,CSCOMMAND.HOLD)
+        self.send_cmd(2, CSCOMMAND.HOLD)
 
     def pause(self):
         """Start temporary hold
            Returns:
               None
         """
-        self.send_cmd(2,CSCOMMAND.PAUSE)
+        self.send_cmd(2, CSCOMMAND.PAUSE)
 
     def resume(self):
         """Exit temporary hold
            Returns:
               None
         """
-        self.send_cmd(2,CSCOMMAND.RESUME)
+        self.send_cmd(2, CSCOMMAND.RESUME)
 
-    def turbo(self, off):
+    def turbo(self, flow):
         """Switch on/off the turbo gas flow
            Args:
-              on (bool): True when turbo is on (gas flow 10 l/min)
+              flow (bool): True when turbo is on (gas flow 10 l/min)
            Returns:
               None
         """
-        self.send_cmd(3, CSCOMMAND.TURBO, int(off))
+        self.send_cmd(3, CSCOMMAND.TURBO, int(flow))
 
     def cool(self, temp=None):
         """Make gas temperature decrease to a set value as quickly as possible
@@ -161,22 +156,21 @@ class OxfordCryostream:
            Returns:
               (int): remaining time [minutes]
         """
-        if duration:
-            duration = int(duration)
-            self.send_cmd(4, CSCOMMAND.COOL, duration)
-        else:
+        try:
+            self.send_cmd(4, CSCOMMAND.COOL, int(duration))
+        except (TypeError, ValueError):
             self.update_cmd()
             return self.statusPacket.remaining
 
     def end(self, rate):
         """System shutdown with Ramp Rate to go back to temperature of 300K
-
            Args:
               rate (int): ramp rate [K/hour]
-           Returns:
-              None
         """
-        self.send_cmd(4, CSCOMMAND.END, rate)
+        try:
+            self.send_cmd(4, CSCOMMAND.END, int(rate))
+        except (TypeError, ValueError):
+            pass
 
     def ramp(self, rate=None, temp=None):
         """Change gas temperature to a set value at a controlled rate
@@ -184,20 +178,32 @@ class OxfordCryostream:
               rate (int): ramp rate [K/hour], values 1 to 360
               temp (float): target temperature [K]
            Returns:
-              (float, float): current ramp rate [K/hour], target temperature [K]
+              (float, float): current ramp rate [K/hour],
+                              target temperature [K]
         """
         if rate and temp:
-            temp = int(temp * 100) #transfering to centi-Kelvin
-            self.send_cmd(6, CSCOMMAND.RAMP, int(rate), temp)
+            try:
+                temp = int(temp * 100)  # transfering to centi-Kelvin
+                self.send_cmd(6, CSCOMMAND.RAMP, int(rate), temp)
+            except (TypeError, ValueError):
+                raise
         else:
             self.update_cmd()
             return self.statusPacket.ramp_rate, self.statusPacket.target_temp
 
     def read_temperature(self):
+        """ Read the current temperature
+            Returns:
+              (float): current temperature [K]
+        """
         self.update_cmd()
         return self.statusPacket.gas_temp
 
     def read_ramp_rate(self):
+        """ Read the current ramprate
+            Returns:
+              (int): current ramprate [K/hour]
+        """
         self.update_cmd()
         return self.statusPacket.ramp_rate
 
@@ -214,17 +220,17 @@ class OxfordCryostream:
         if size == 3:
             data.append(str(args[0]))
         elif size > 3:
-            HIBYTE, LOBYTE = splitBytes(args[0])
-            data.append(HIBYTE)
-            data.append(LOBYTE)
+            hbyte, lbyte = split_bytes(args[0])
+            data.append(hbyte)
+            data.append(lbyte)
             try:
-                HIBYTE, LOBYTE = splitBytes(args[1])
-                data.append(HIBYTE)
-                data.append(LOBYTE)
+                hbyte, lbyte = split_bytes(args[1])
+                data.append(hbyte)
+                data.append(lbyte)
             except Exception:
                 pass
-        dataStr = ''.join(data)
-        self.serial.write(dataStr)
+        data_str = ''.join(data)
+        self.serial.write(data_str)
 
     def update_cmd(self):
         """Read the controller and update all the parameter variables
@@ -232,27 +238,26 @@ class OxfordCryostream:
               None
            Returns:
               None
-        """     
-        #flush the buffer to clean old status packages
+        """
+        # flush the buffer to clean old status packages
         self.serial.flush()
 
-        #read the data
+        # read the data
         data = self.serial.read(32, 10)
 
-        #check if data
+        # check if data
         if not data.__len__():
             raise RuntimeError('Invalid answer from Cryostream')
 
         if data.__len__() != 32:
             data = ""
             data = self.serial.read(32, 10)
-            print data.__len__()
-
-        data = map(ord,data)
+        # data = map(ord, data)
+        data = [ord(nb) for nb in data]
         if data[0] == 32:
             self.statusPacket = StatusPacket(data)
         else:
-            print "Flushing serial line to start from skratch"
+            log.debug("Cryostream: Flushing serial line to start from skratch")
             self.serial.flush()
 
 
@@ -261,14 +266,28 @@ class oxford700(Controller):
         Controller.__init__(self, config, *args)
         self._oxford = OxfordCryostream(config["SLdevice"])
 
-    def initialize_output(self,toutput):
+    def initialize_output(self, toutput):
+        """Initialize the output device
+        """
         self.__ramp_rate = None
         self.__set_point = None
 
     def read_output(self, toutput):
+        """Read the current temperature
+           Returns:
+              (float): current temperature [K]
+        """
         return self._oxford.read_temperature()
 
     def start_ramp(self, toutput, sp, **kwargs):
+        """Start ramping to setpoint
+           Args:
+              sp (float): The setpoint temperature [K]
+           Kwargs:
+              rate (int): The ramp rate [K/hour]
+           Returns:
+              None
+        """
         try:
             rate = int(kwargs.get("rate", self.__ramp_rate))
         except TypeError:
@@ -276,34 +295,58 @@ class oxford700(Controller):
         self._oxford.ramp(rate, sp)
 
     def set_ramprate(self, toutput, rate):
-        self.ramp_rate = rate
+        """Set the ramp rate
+           Args:
+              rate (int): The ramp rate [K/hour]
+        """
+        self.__ramp_rate = int(rate)
 
     def read_ramprate(self, toutput):
-        self.__ramp_rate, self.__set_point = self._oxford.ramp()
+        """Read the ramp rate
+           Returns:
+              (int): Previously set ramp rate (cashed value only) [K/hour]
+        """
         return self.__ramp_rate
-        
+
     def set(self, toutput, sp, **kwargs):
+        """Make gas temperature decrease to a set value as quickly as possible
+           Args:
+              sp (float): final temperature [K]
+           Returns:
+              (float): current gas temperature setpoint
+        """
         return self._oxford.cool(sp)
-    
+
     def get_setpoint(self, toutput):
+        """Read the as quick as possible setpoint
+           Returns:
+              (float): current gas temperature setpoint
+        """
         self.__set_point = self._oxford.cool()
         return self.__set_point
 
-    def state_output(self,toutput):
+    def state_output(self, toutput):
+        """Read the state parameters of the controller
+           Returns:
+              (list): run_mode, phase
+        """
         self._oxford.update_cmd()
         mode = str(self._oxford.statusPacket.run_mode)
         phase = str(self._oxford.statusPacket.phase)
-        #state = mode + ' ' + phase
-        #return state
         return [mode, phase]
 
+    @object_method_type(types_info=("bool", "None"), type=Output)
+    def turbo(self, toutput, flow):
+        """Switch on/off the turbo gas flow
+           Args:
+              flow (bool): True when turbo is on (gas flow 10 l/min)
+           Returns:
+              None
+        """
+        self._oxford.turbo(flow)
 
     @object_method_type(types_info=("bool", "None"), type=Output)
-    def turbo(self, toutput, off):
-        self._oxford.turbo(off)
-
-    @object_method_type(types_info=("bool", "None"), type=Output)
-    def pause(self, toutput, off):
+    def pause(self, toutput, off=None):
         if off:
             self._oxford.resume()
         else:
@@ -313,25 +356,40 @@ class oxford700(Controller):
     def hold(self, toutput):
         self._oxford.hold()
 
+    @object_method_type(types_info=("None", "None"), type=Output)
+    def restart(self, toutput):
+        self._oxford.restart()
+
+    @object_method_type(types_info=("int", "int"), type=Output)
+    def plat(self, toutput, duration=None):
+        """Maintain temperature fixed for a certain time.
+           Args:
+              duration (int): time [minutes]
+           Returns:
+              (int): remaining time [minutes]
+        """
+        return self._oxford.plat(duration)
+
+    @object_method_type(types_info=("int", "None"), type=Output)
+    def end(self, toutput, rate):
+        """System shutdown with Ramp Rate to go back to temperature of 300K
+           Args:
+              rate (int): ramp rate [K/hour]
+        """
+        self._oxford.end(rate)
+
+
     def read_status(self):
         self._oxford.update_cmd()
-        #data.append(self._oxford.statusPacket.gas_temp)
-        #data.append(self._oxford.statusPacket.gas_error)
-        #data.append(self._oxford.statusPacket.cryo_state)
-        #data.append(self._oxford.statusPacket.evap_temp)
-        #data.append(self._oxford.statusPacket.ramp_rate)
-        #return data
         return self._oxford.statusPacket
 
 
-
 if __name__ == '__main__':
-    cryo = OxfordCryostream("rfc2217://lid292:28003")
+    cryo_obj = OxfordCryostream("rfc2217://lid292:28003")
 
     for i in range(100):
-        print cryo.read_temperature()
-        #time.sleep(10)
-    
-    print cryo.ramp()
+        print cryo_obj.read_temperature()
+        time.sleep(10)
 
-    #cryo.turbo(True)
+    print cryo_obj.ramp()
+    # cryo_obj.turbo(True)

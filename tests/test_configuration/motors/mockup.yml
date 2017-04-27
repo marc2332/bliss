@@ -72,10 +72,10 @@
         - velocity: 100
         - acceleration: 300
     - encoders:
-        - !!omap
-          - name: m1enc
-          - steps_per_unit: 50
-          - tolerance: 0.001
+      - !!omap
+        - name: m1enc
+        - steps_per_unit: 50
+        - tolerance: 0.001
   - !!omap
     - class: slits
     - axes:

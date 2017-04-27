@@ -57,3 +57,90 @@ def jogger(beacon):
   m.controller.set_hw_limits(m, None, None)
   m.dial(0); m.position(0)
 
+@pytest.fixture
+def m1(beacon):
+  m = beacon.get("m1")
+  yield m
+  m.stop()
+  m.wait_move()
+  m.apply_config()
+  m.controller.set_hw_limits(m, None, None)
+  m.dial(0); m.position(0)
+
+@pytest.fixture
+def m1enc(beacon):
+  m = beacon.get("m1enc")
+  yield m
+
+@pytest.fixture
+def s1ho(beacon):
+  m = beacon.get("s1ho")
+  yield m
+  m.stop()
+  m.wait_move()
+  #m.apply_config()
+
+@pytest.fixture
+def s1hg(beacon):
+  m = beacon.get("s1hg")
+  yield m
+  m.stop()
+  m.wait_move()
+  #m.apply_config()
+
+@pytest.fixture
+def s1vo(beacon):
+  m = beacon.get("s1vo")
+  yield m
+  m.stop()
+  m.wait_move()
+  #m.apply_config()
+
+@pytest.fixture
+def s1vg(beacon):
+  m = beacon.get("s1vg")
+  yield m
+  m.stop()
+  m.wait_move()
+  #m.apply_config()
+
+@pytest.fixture
+def s1f(beacon):
+  m = beacon.get("s1f")
+  yield m
+  m.stop()
+  m.wait_move()
+  m.apply_config()
+  m.controller.set_hw_limits(m, None, None)
+  m.dial(0); m.position(0)
+
+@pytest.fixture
+def s1b(beacon):
+  m = beacon.get("s1b")
+  yield m
+  m.stop()
+  m.wait_move()
+  m.apply_config()
+  m.controller.set_hw_limits(m, None, None)
+  m.dial(0); m.position(0)
+
+@pytest.fixture
+def s1u(beacon):
+  m = beacon.get("s1u")
+  yield m
+  m.stop()
+  m.wait_move()
+  m.apply_config()
+  m.controller.set_hw_limits(m, None, None)
+  m.dial(0); m.position(0)
+
+@pytest.fixture
+def s1d(beacon):
+  m = beacon.get("s1d")
+  yield m
+  m.stop()
+  m.wait_move()
+  m.apply_config()
+  m.controller.set_hw_limits(m, None, None)
+  m.dial(0); m.position(0)
+

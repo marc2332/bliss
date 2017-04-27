@@ -63,36 +63,6 @@ try:
         # Python 2.6 ?
         from ordereddict import OrderedDict as ordereddict
     NodeDict = ordereddict
-    class RoundTripRepresenter(ordered_yaml.representer.RoundTripRepresenter):
-        def __init__(self,*args,**keys):
-            ordered_yaml.representer.RoundTripRepresenter.__init__(self,*args,**keys)
-        def represent_ordereddict(self, data):
-            return self.represent_mapping(u'tag:yaml.org,2002:map', data)
-
-    RoundTripRepresenter.add_representer(ordereddict,
-                                         RoundTripRepresenter.represent_ordereddict)
-
-    class RoundTripDumper(ordered_yaml.emitter.Emitter,
-                          ordered_yaml.serializer.Serializer,
-                          RoundTripRepresenter,
-                          ordered_yaml.resolver.Resolver):
-        def __init__(self,stream,
-                     default_style=None, default_flow_style=None,
-                     canonical=None, indent=None, width=None,
-                     allow_unicode=None, line_break=None,
-                     encoding=None, explicit_start=None, explicit_end=None,
-                     version=None, tags=None,**keys):
-            ordered_yaml.emitter.Emitter.__init__(self, stream, canonical=canonical,
-                                                  indent=indent, width=width,
-                                                  allow_unicode=allow_unicode, line_break=line_break)
-            ordered_yaml.serializer.Serializer.__init__(self, encoding=encoding,
-                                                     explicit_start=explicit_start,
-                                                     explicit_end=explicit_end,
-                                                     version=version, tags=tags)
-            RoundTripRepresenter.__init__(self, default_style=default_style,
-                                          default_flow_style=default_flow_style)
-            ordered_yaml.resolver.Resolver.__init__(self)
-
 except ImportError:
     ordered_yaml = None
     NodeDict = dict
@@ -274,7 +244,7 @@ class Node(NodeDict):
             save_nodes = self._get_save_list(nodes_2_save,filename)
         if ordered_yaml:
             file_content = ordered_yaml.dump(save_nodes,
-                                             Dumper=RoundTripDumper,
+                                             Dumper=ordered_yaml.RoundTripDumper,
                                              default_flow_style=False)
         else:
             file_content = yaml.dump(save_nodes,default_flow_style=False)

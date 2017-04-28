@@ -15,7 +15,7 @@ class tango_fe(CounterBase):
     Measurement = SingleMeasurement
 
     def __init__(self, name, config):
-        CounterBase.__init__(self, name)
+        CounterBase.__init__(self, None, name)
         tango_uri = config.get("uri")
         self.__control = PyTango.gevent.DeviceProxy(tango_uri)
         self.attribute = config.get("attr_name")

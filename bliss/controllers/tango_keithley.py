@@ -13,7 +13,7 @@ import numpy
 
 class tango_keithley(CounterBase):
     def __init__(self, name, config):
-        CounterBase.__init__(self, name)
+        CounterBase.__init__(self, None, name)
         tango_uri = config["uri"]
         self.__control = PyTango.gevent.DeviceProxy(tango_uri)
 

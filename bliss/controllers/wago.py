@@ -419,9 +419,9 @@ class WagoCounter(CounterBase):
   def __init__(self, parent, name, index=None):
 
     if index is None:
-      CounterBase.__init__(self, name)
+      CounterBase.__init__(self, parent, name)
     else:
-      CounterBase.__init__(self, parent.name+'.'+name)
+      CounterBase.__init__(self, parent, parent.name+'.'+name)
     self.index = index
     self.parent = parent
     self.cntname = name

@@ -16,7 +16,7 @@ import numpy
 
 class BpmCounter(CounterBase):
     def __init__(self, parent, name, index):
-        CounterBase.__init__(self, parent.name+'.'+name)
+        CounterBase.__init__(self, parent, parent.name+'.'+name)
         self.parent = parent
         self.index = index
 
@@ -40,7 +40,6 @@ class BpmCounter(CounterBase):
         meas._add_value(self.parent.last_acq[self.index], self.parent.last_acq[0])
         return meas
  
-
 class tango_bpm(object):
    def __init__(self, name, config):
        self.name = name

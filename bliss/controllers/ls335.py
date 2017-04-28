@@ -14,7 +14,7 @@ import socket
 
 class LSCounter(CounterBase):
    def __init__(self, parent, name, index):
-     CounterBase.__init__(self, parent.name+'.'+name)
+     CounterBase.__init__(self, parent, parent.name+'.'+name)
      self.parent = parent
      self.index = index
 

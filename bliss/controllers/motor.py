@@ -341,11 +341,10 @@ class CalcController(Controller):
                 if tag != 'real' and len(axes) == 1 and axis in axes][0]
 
     def _get_set_positions(self):
-        def axis_position(x):
-            return x.user2dial(x._set_position()) * x.steps_per_unit
-
-        return dict([(self._axis_tag(axis), axis_position(axis))
-                     for axis in self.pseudos])
+        setpos_dict = dict()
+        for axis in self.pseudos:
+            setpos_dict[self._axis_tag(axis)] = axis.user2dial(axis._set_position())
+        return setpos_dict
 
     def _real_setpos_update(self, _):
         motion_control = False

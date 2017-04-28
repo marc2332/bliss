@@ -422,8 +422,11 @@ class CalcController(Controller):
         return axis.settings.get("dial_position")
 
     def state(self, axis, new_state=None):
-        return self._reals_group.state()
-
+        st = self._reals_group.state()
+        if st == 'READY':
+            self._calc_from_real()
+        return st
+     
     def set_position(self, axis, new_pos):
         if not axis in self.pseudos:
             raise RuntimeError("Cannot set dial position on motor '%s` from CalcController" % axis.name)

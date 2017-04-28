@@ -43,10 +43,10 @@ class Mockup(Controller):
         self.__cust_attr_float = {}
 
         self.__error_mode = False
-        self._hw_status = AxisState("READY")
+        self._hw_state = AxisState("READY")
         self.__hw_limit = (None, None)
 
-        self._hw_status.create_state("PARKED", "mot au parking")
+        self._hw_state.create_state("PARKED", "mot au parking")
 
         # Access to the config.
         try:
@@ -259,10 +259,11 @@ class Mockup(Controller):
     ON / OFF
     """
     def set_on(self, axis):
-        self._hw_status.set("READY")
+        self._hw_state.clear()
+        self._hw_state.set("READY")
 
     def set_off(self, axis):
-        self._hw_status.set("OFF")
+        self._hw_state.set("OFF")
 
     """
     Hard limits
@@ -274,18 +275,17 @@ class Mockup(Controller):
             return AxisState("READY", "LIMNEG")
         elif hl is not None and pos >= hl:
             return AxisState("READY", "LIMPOS")
-        return AxisState("READY")
+        if self._hw_state == "OFF":
+            return AxisState("OFF")
+        else:
+            s = AxisState(self._hw_state)
+            s.set("READY")
+            return s
 
     """
     STATE
     """
     def state(self, axis):
-        if self._hw_status == "PARKED":
-            return AxisState("PARKED")
-
-        if self._hw_status == "OFF":
-            return AxisState("OFF")
-
         if self._axis_moves[axis]["end_t"] > time.time():
            return AxisState("MOVING")
         else:
@@ -360,8 +360,7 @@ class Mockup(Controller):
     @object_method
     def custom_park(self, axis):
         elog.debug("custom_park : parking")
-        self._hw_status.clear()
-        self._hw_status.set("PARKED")
+        self._hw_state.set("PARKED")
 
     # VOID LONG
     @object_method(types_info=("None", "int"))

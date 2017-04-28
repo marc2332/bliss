@@ -374,10 +374,9 @@ class CalcController(Controller):
 
         new_positions = self._do_calc_from_real()
 
-        for tagged_axis_name, position in new_positions.iteritems():
+        for tagged_axis_name, dial_pos in new_positions.iteritems():
             axis = self._tagged[tagged_axis_name][0]
             if axis in self.pseudos:
-                dial_pos = position / axis.steps_per_unit
                 user_pos = axis.dial2user(dial_pos)
                 axis.settings.set("dial_position", dial_pos, write=motion_control)
                 axis.settings.set("position", user_pos, write=False)
@@ -404,11 +403,11 @@ class CalcController(Controller):
 
     def start_all(self, *motion_list):
         positions_dict = self._get_set_positions()
-
         move_dict = dict()
         for tag, target_pos in self.calc_to_real(positions_dict).iteritems():
             real_axis = self._tagged[tag][0]
             move_dict[real_axis] = target_pos
+
         # force a global position update in case phys motors never move
         self._calc_from_real()
         self._reals_group.move(move_dict, wait=False)

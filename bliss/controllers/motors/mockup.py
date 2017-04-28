@@ -259,10 +259,10 @@ class Mockup(Controller):
     ON / OFF
     """
     def set_on(self, axis):
-        self._hw_status = "READY"
+        self._hw_status.set("READY")
 
     def set_off(self, axis):
-        self._hw_status = "OFF"
+        self._hw_status.set("OFF")
 
     """
     Hard limits

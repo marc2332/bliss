@@ -28,6 +28,7 @@
         - acceleration: 1000.0
         - low_limit:
         - high_limit:
+        - default_cust_attr: 6.28
       - !!omap
         - name: m1
         - steps_per_unit: 1000

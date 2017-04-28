@@ -116,8 +116,6 @@ def test_keep_zero_offset(s1hg, s1b, s1f):
     assert s1hg.dial() == pytest.approx(0)
     assert s1b.position() == pytest.approx(0)
     assert s1f.position() == pytest.approx(0)
-    assert s1b.dial() == pytest.approx(2)
-    assert s1f.dial() == pytest.approx(2)
 
 def test_limits(s1hg):
     with pytest.raises(ValueError):

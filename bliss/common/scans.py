@@ -70,9 +70,21 @@ def default_chain(chain,scan_pars,counters):
     if not scan_counters:
         raise ValueError("All counters are disabled...")
 
+    read_cnt_handler = dict()
     for cnt in set(scan_counters):
         if isinstance(cnt, CounterBase):
-            chain.add(timer, CounterAcqDevice(cnt, count_time=count_time, npoints=npoints))
+            try:
+                read_all_handler = cnt.read_all_handler()
+            except NotImplementedError:
+                chain.add(timer, CounterAcqDevice(cnt, count_time=count_time, npoints=npoints))
+            else:
+                uniq_id = read_all_handler.id()
+                cnt_acq_device = read_cnt_handler.get(uniq_id)
+                if cnt_acq_device is None:
+                    cnt_acq_device = CounterAcqDevice(read_all_handler, count_time=count_time, npoints=npoints)
+                    chain.add(timer, cnt_acq_device)
+                    read_cnt_handler[uniq_id] = cnt_acq_device
+                cnt_acq_device.add_counter_to_read(cnt)
         # elif isinstance(cnt,Lima):
         #   chain.add(timer, LimaAcqDevice()))
         else:

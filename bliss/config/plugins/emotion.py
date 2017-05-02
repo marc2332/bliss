@@ -14,7 +14,6 @@ from bliss.common.axis import Axis, AxisRef
 from bliss.common.encoder import Encoder
 from bliss.config.static import Config, get_config
 import bliss.controllers.motors
-import functools
 import gevent
 import hashlib
 import sys
@@ -312,14 +311,11 @@ def add_axis(cfg, request):
 def create_objects_from_config_node(config, node):
     if 'axes' in node or 'encoders' in node:
         # asking for a controller
-        create = __create_controller_from_config_node
+        obj_name = None
     else:
-        # asking for an axis (controller is the parent)
-        create = __create_axis_from_config_node
-    return create(config, node)
+        obj_name = node.get('name')
+        node = node.parent
 
-
-def __create_controller_from_config_node(config, node):
     controller_class_name = node.get('class')
     controller_name = node.get('name')
     if controller_name is None:
@@ -333,7 +329,7 @@ def __create_controller_from_config_node(config, node):
     axes = list()
     axes_names = list()
     encoders = list()
-    encoder_names = list()
+    encoders_names = list()
     for axis_config in node.get('axes'):
         axis_name = axis_config.get("name")
         if axis_name.startswith("$"):
@@ -354,23 +350,23 @@ def __create_controller_from_config_node(config, node):
             encoder_class = Encoder
         else:
             encoder_class = getattr(controller_module, encoder_class_name)
-        encoder_names.append(encoder_name)
+        encoders_names.append(encoder_name)
         encoders.append((encoder_name, encoder_class, encoder_config))
 
     controller = controller_class(controller_name, node, axes, encoders)
     controller._update_refs(config)
     controller.initialize()
-    all_names = axes_names + encoder_names
+
+    all_names = axes_names + encoders_names
     cache_dict = dict(zip(all_names, [controller]*len(all_names)))
-    return {controller_name: controller}, cache_dict
-
-
-def __create_axis_from_config_node(config, node):
-    name = node.get('name')
-    objs, cache = __create_controller_from_config_node(config, node.parent)
-    controller = cache.pop(name)
-    objs[name] = create_object_from_cache(config, name, controller)
-    return objs, cache
+    if obj_name in axes_names:
+      cache_dict.pop(obj_name)
+      return { controller_name: controller, obj_name: controller.get_axis(obj_name) }, cache_dict
+    elif obj_name in encoders_names:
+      cache_dict.pop(obj_name)
+      return {controller_name: controller, obj_name: controller.get_encoder(obj_name) }, cache_dict
+    else:
+      return {controller_name: controller }, cache_dict
 
 
 def create_object_from_cache(config, name, controller):

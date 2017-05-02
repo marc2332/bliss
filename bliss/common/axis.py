@@ -67,8 +67,7 @@ class Modulo(object):
 
     def __call__(self, axis):
         dial_pos = axis.dial()
-        axis.dial(dial_pos % self.modulo)    	
-        axis.position(dial_pos % self.modulo)
+        axis._Axis__do_set_dial(dial_pos % self.modulo, True)
 
 
 class Motion(object):
@@ -321,6 +320,25 @@ class Axis(object):
         """
         return self.__controller.read_encoder(self.encoder) / self.encoder.steps_per_unit
 
+    def __do_set_dial(self, new_dial, no_offset):
+        user_pos = self.position()
+
+        try:
+            # Send the new value in motor units to the controller
+            # and read back the (atomically) reported position
+            new_hw = new_dial * self.steps_per_unit
+            hw_pos = self.__controller.set_position(self, new_hw)
+            dial_pos = hw_pos / self.steps_per_unit
+            self.settings.set("dial_position", dial_pos)
+        except NotImplementedError:
+            dial_pos = self._read_dial_and_update(update_user=False)
+
+        # update user_pos or offset setting
+        if no_offset:
+            user_pos = dial_pos
+        self._set_position_and_offset(user_pos)
+        return dial_pos
+
     @lazy_init
     def dial(self, new_dial=None):
         """
@@ -344,23 +362,13 @@ class Axis(object):
             raise RuntimeError("%s: can't set axis dial position " 
                                "while moving" % self.name)
 
-        user_pos = self.position()
+        return self.__do_set_dial(new_dial, no_offset=self.no_offset)
 
-        try:
-            # Send the new value in motor units to the controller
-            # and read back the (atomically) reported position
-            new_hw = new_dial * self.steps_per_unit
-            hw_pos = self.__controller.set_position(self, new_hw)
-            dial_pos = hw_pos / self.steps_per_unit
-            self.settings.set("dial_position", dial_pos)
-        except NotImplementedError:
-            dial_pos = self._read_dial_and_update(update_user=False)
-
-        # update user_pos or offset setting
-        if self.no_offset:
-            user_pos = dial_pos 
-        self._set_position_and_offset(user_pos)
-        return dial_pos
+    def __do_set_position(self, new_pos, no_offset):
+        if no_offset:
+            return self.__do_set_dial(new_pos, no_offset)
+        else:
+            return self._set_position_and_offset(new_pos)
 
     @lazy_init
     def position(self, new_pos=None):
@@ -386,10 +394,8 @@ class Axis(object):
             raise RuntimeError("%s: can't set axis user position "
                                "while moving" % self.name)
 
-        if self.no_offset:
-            return self.dial(new_pos)
-        else:
-            return self._set_position_and_offset(new_pos)
+        return self.__do_set_position(new_pos, self.no_offset)
+
 
     @lazy_init 
     def _read_dial_and_update(self, update_user=True, write=True):
@@ -756,6 +762,7 @@ class Axis(object):
                 except:
                     sys.excepthook(*sys.exc_info())
         self.__move_done.set()
+        self._update_settings(self.state(read_hw=True))
         event.send(self, "move_done", True)
 
     def _check_ready(self):
@@ -850,14 +857,9 @@ class Axis(object):
         self.velocity(saved_velocity)
 
         if reset_position == 0:
-            def reset_dial(_):
-                self.dial(0)
-                self.position(0)
-            self.__move_task.link(reset_dial)
+            self.__do_set_dial(0, True)
         elif callable(reset_position):
-            def reset_pos(_):
-                reset_position(self)
-            self.__move_task.link(reset_pos)
+            reset_position(self)
 
     def _do_jog_move(self, saved_velocity, velocity, direction, reset_position, polling_time):
         with cleanup(functools.partial(self._jog_cleanup, saved_velocity, reset_position)):
@@ -901,10 +903,10 @@ class Axis(object):
                 pass
 
     def _wait_move(self, polling_time=DEFAULT_POLLING_TIME, ctrl_state_funct='state'):
+        state_funct = getattr(self.__controller, ctrl_state_funct)
         while True:
-            state_funct = getattr(self.__controller, ctrl_state_funct)
             state = state_funct(self)
-            self._update_settings(state)
+            self._update_settings()
             if state != "MOVING":
                 return state
             gevent.sleep(polling_time)
@@ -1002,7 +1004,7 @@ class Axis(object):
         if any((velocity, acceleration, limits)):
             self.__config.save()
 
-    def apply_config(self, reload=True):
+    def apply_config(self, reload=False):
         """
         Applies configuration values to settings (ie: reset axis)
         """

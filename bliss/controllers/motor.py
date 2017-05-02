@@ -317,6 +317,7 @@ class CalcController(Controller):
         for real_axis in self.reals:
             real_axis.controller._initialize_axis(real_axis)
             event.connect(real_axis, 'position', self._calc_from_real)
+            event.connect(real_axis, '_set_position', self._real_setpos_update)
 
         self._reals_group = Group(*self.reals)
         event.connect(self._reals_group, 'move_done', self._real_move_done)
@@ -340,11 +341,24 @@ class CalcController(Controller):
                 if tag != 'real' and len(axes) == 1 and axis in axes][0]
 
     def _get_set_positions(self):
-        def axis_position(x):
-            return x.user2dial(x._set_position()) * x.steps_per_unit
+        setpos_dict = dict()
+        for axis in self.pseudos:
+            setpos_dict[self._axis_tag(axis)] = axis.user2dial(axis._set_position())
+        return setpos_dict
 
-        return dict([(self._axis_tag(axis), axis_position(axis))
-                     for axis in self.pseudos])
+    def _real_setpos_update(self, _):
+        motion_control = False
+        real_setpos = dict()
+        for axis in self.reals:
+          if not motion_control and axis._hw_control:
+            motion_control = True
+          real_setpos[self._axis_tag(axis)] = axis._set_position()
+
+        new_setpos = self.calc_from_real(real_setpos)
+       
+        for tagged_axis_name, setpos in new_setpos.iteritems():
+          axis = self._tagged[tagged_axis_name][0]
+          axis.settings.set("_set_position", setpos, write=motion_control)
 
     def _do_calc_from_real(self):
         real_positions_by_axis = self._reals_group.position()
@@ -359,16 +373,16 @@ class CalcController(Controller):
 
         new_positions = self._do_calc_from_real()
 
-        for tagged_axis_name, position in new_positions.iteritems():
+        for tagged_axis_name, dial_pos in new_positions.iteritems():
             axis = self._tagged[tagged_axis_name][0]
             if axis in self.pseudos:
-                dial_pos = position / axis.steps_per_unit
+                #dial_pos = position / axis.steps_per_unit
                 user_pos = axis.dial2user(dial_pos)
-                axis.settings.set("_set_position", user_pos, write=motion_control)
                 axis.settings.set("dial_position", dial_pos, write=motion_control)
                 axis.settings.set("position", user_pos, write=False)
             else:
                 raise RuntimeError("cannot assign position to real motor")
+        return new_positions
 
     def calc_from_real(self, real_positions):
         """Return a dict { pseudo motor tag: new position, ... }"""
@@ -376,7 +390,6 @@ class CalcController(Controller):
 
     def _real_move_done(self, done):
         if done:
-            #print 'MOVE DONE'
             for axis in self.pseudos:
                 if axis.encoder:
                     # check position and raise RuntimeError if encoder
@@ -389,11 +402,11 @@ class CalcController(Controller):
 
     def start_all(self, *motion_list):
         positions_dict = self._get_set_positions()
-
         move_dict = dict()
         for tag, target_pos in self.calc_to_real(positions_dict).iteritems():
             real_axis = self._tagged[tag][0]
             move_dict[real_axis] = target_pos
+
         # force a global position update in case phys motors never move
         self._calc_from_real()
         self._reals_group.move(move_dict, wait=False)
@@ -408,8 +421,11 @@ class CalcController(Controller):
         return axis.settings.get("dial_position")
 
     def state(self, axis, new_state=None):
-        return self._reals_group.state()
-
+        st = self._reals_group.state()
+        if st == 'READY':
+            self._calc_from_real()
+        return st
+     
     def set_position(self, axis, new_pos):
         if not axis in self.pseudos:
             raise RuntimeError("Cannot set dial position on motor '%s` from CalcController" % axis.name)
@@ -420,7 +436,7 @@ class CalcController(Controller):
         for real_axis_tag, user_pos in real_positions.iteritems():
             self._tagged[real_axis_tag][0].position(user_pos)
 
-        self._calc_from_real(force_write=True)
+        new_positions = self._calc_from_real(force_write=True)
 
-        return axis.position()
+        return new_positions[self._axis_tag(axis)]
 

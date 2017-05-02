@@ -13,4 +13,6 @@ doc/source/bliss.*rst
 .settings/
 .project
 .pydevproject
-
+beacon.rdb
+.cache/
+dump.rdb

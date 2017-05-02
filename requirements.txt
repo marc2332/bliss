@@ -29,6 +29,7 @@ pyserial == 2.7
 ruamel.yaml == 0.11.15 ; python_version < '2.7'
 ruamel.yaml ; python_version >= '2.7'
 posix_ipc
+pytest
 
 # --- python < 2.7 dependencies ----------------------------
 

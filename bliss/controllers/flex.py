@@ -992,6 +992,7 @@ class flex:
         logging.getLogger('flex').info("Gripper on robot")
         logging.getLogger('flex').info("Starting defreezing gripper if needed")
         self.do_defreezeGripper()
+        self.update_transfer_iteration(reset=True)
         logging.getLogger('flex').info("Defreezing gripper finished")
 
     def get_gripper_type(self):

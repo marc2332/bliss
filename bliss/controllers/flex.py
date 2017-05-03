@@ -538,11 +538,13 @@ class flex:
                     distance_pin_gripper = self.cam.edge_distance(edge_pin, edge_gripper)
                     logging.getLogger('flex').info("distance between pin and gripper %s" %str(distance_pin_gripper))
                     # DN must be negative if the pin stands out of the gripper if not VAL3 will care about the error
-                    if 0.5 <= abs(distance_pin_gripper) <= 4:
+                    min_dist_pin_gripper = self.get_detection_param("distance_pin_gripper", "min")
+                    max_dist_pin_gripper = self.get_detection_param("distance_pin_gripper", "max")
+                    if min_dist_pin_gripper <= abs(distance_pin_gripper) <= max_dist_pin_gripper:
                         self.robot.setVal3GlobalVariableDouble("trsfPutFpGonio.z", str(distance_pin_gripper)) 
                         logging.getLogger('flex').info("distance saved in robot")
                     else:
-                        logging.getLogger('flex').error("distance pin gripper is %s should be between 0.5-4mm" %str(abs(distance_pin_gripper)))
+                        logging.getLogger('flex').error("distance pin gripper is %s should be between %s-%smm" %(str(abs(distance_pin_gripper)), str(min_dist_pin_gripper), str(max_dist_pin_gripper)))
                 else:
                     logging.getLogger('flex').error("Edge of the gripper or of the pin not found")
                     raise RuntimeError("Edge of the gripper or of the pin not found")

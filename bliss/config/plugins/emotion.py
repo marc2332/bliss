@@ -45,9 +45,14 @@ def get_controller_class(name):
     module = __import__('bliss.controllers.motors.%s' % name,fromlist=[''])
 
     try:
-        controller_class = getattr(module, name.title())
+        controller_class = getattr(module, name)
     except AttributeError:
-        raise RuntimeError("could not find class '%s` in module '%s`" % (name, module))
+        try:
+            controller_class = getattr(module, name.title())
+        except AttributeError:
+            raise RuntimeError("could not find class '%s` or '%s` in module '%s`" % (name, name.title(), module))
+        else:
+            return controller_class, module
     else:
         return controller_class, module
 

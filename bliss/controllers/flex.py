@@ -355,8 +355,9 @@ class flex:
         else:
             #self.robot.setVal3GlobalVariableDouble("nGripperType", str(gripper_type))
             self.robot.setVal3GlobalVariableBoolean("bGripperIsOnArm", True)
-        self.do_homeClear()
-        self.update_transfer_iteration(reset=True)
+        if gripper_type in [-1, 1, 3, 9]:
+            self.do_homeClear()
+            self.update_transfer_iteration(reset=True)
         logging.getLogger('flex').info("Homing done")
 
     def do_dryWithoutPloun(self):
@@ -377,8 +378,9 @@ class flex:
         else:
             self.robot.setVal3GlobalVariableBoolean("bGripperIsOnArm", True)
             self.robot.setVal3GlobalVariableDouble("nGripperType", str(gripper_type))
-        self.do_dryWithoutPloun()
-        self.update_transfer_iteration(reset=True)
+        if gripper_type in [1, 3, 9]:
+            self.do_dryWithoutPloun()
+            self.update_transfer_iteration(reset=True)
         logging.getLogger('flex').info("Defreezing gripper finished")
 
     def do_defreezeGripper(self):
@@ -399,8 +401,9 @@ class flex:
         else:
             self.robot.setVal3GlobalVariableBoolean("bGripperIsOnArm", True)
             self.robot.setVal3GlobalVariableDouble("nGripperType", str(gripper_type))
-        self.do_defreezeGripper()
-        self.update_transfer_iteration(reset=True)
+        if gripper_type in [1, 3, 9]:
+            self.do_defreezeGripper()
+            self.update_transfer_iteration(reset=True)
         logging.getLogger('flex').info("Defreezing gripper finished")
 
     def check_coordinates(self, cell, puck, sample):
@@ -972,6 +975,7 @@ class flex:
             logging.getLogger('flex').error("No or wrong gripper")
             raise RuntimeError("No or wrong gripper")
         gripper_type = self.get_gripper_type()
+        logging.getLogger('flex').info("Gripper is %s" %str(gripper_type))
         if gripper_type not in [-1, 0, 1, 3, 9]:
             logging.getLogger('flex').error("wrong gripper on arm")
             raise RuntimeError("wrong gripper on arm")
@@ -991,32 +995,29 @@ class flex:
         logging.getLogger('flex').info("Defreezing gripper finished")
 
     def get_gripper_type(self):
-        iter = 0
-        previous_type = self.onewire.read()[1]
-        for i in range(0,10):
-            gevent.sleep(0.1)
-            curr_type = self.onewire.read()[1]
-            if curr_type != previous_type:
-                previous_type = curr_type
-                iter = 0
-            else:
-                previous_type = curr_type
-                iter += 1
-                if iter == 3:
-                    break
-        return previous_type
+        curr_type = -1
+        if (self.get_robot_cache_variable("data:dioFlipGonPos") != self.get_robot_cache_variable("data:dioFlipDwPos")) or int(self.get_robot_cache_variable("data:aioGripperTemp")) < 3000: 
+            iter = 0
+            previous_type = self.onewire.read()[1]
+            for i in range(0,20):
+                gevent.sleep(0.1)
+                curr_type = self.onewire.read()[1]
+                if curr_type in [1,3,9]:
+                    return curr_type
+            if curr_type == -1:
+                #if gripper is present but not defined (pb with 1-wire) return 0
+                curr_type = 0        
+        return curr_type     
 
     @notwhenbusy
     def changeGripper(self, gripper_to_take=1, user_mode=True):
         gripper_type = self.get_gripper_type()
         if gripper_type in [1,3,9]:
+            logging.getLogger('flex').info("first pose gripper %d" %gripper_type)
+            self.poseGripper()
             if user_mode == False:
-                logging.getLogger('flex').info("first pose gripper %d" %gripper_type)
-                self.poseGripper()
                 self.takeGripper(int(gripper_to_take))
             else:
-                gripper_type = self.get_gripper_type()
-                self.poseGripper()
                 if gripper_type == 1:
                     self.takeGripper(3)
                 elif gripper_type == 3:

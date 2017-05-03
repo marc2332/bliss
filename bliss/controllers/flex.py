@@ -122,6 +122,9 @@ class flex:
         self.robot_exceptions = []
         return ret
 
+    def get_cachedVariable_list(self):
+        return self.robot._cached_variables.keys()
+
     def get_detection_param(self, section, name_value):
         parser = ConfigParser.RawConfigParser()
         file_path = os.path.dirname(self.calibration_file)+"/detection.cfg"

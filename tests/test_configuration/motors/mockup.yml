@@ -1,107 +1,84 @@
-!!omap
-- controller:
-  - !!omap
-    - class: mockup
-    - name: test
-    - axes:
-      - !!omap
-        - name: robz
-        - steps_per_unit: 10000
-        - velocity: 100
-        - acceleration: 300
-        - low_limit: -1000
-        - high_limit: 1000000000.0
-      - !!omap
-        - name: robz2
-        - steps_per_unit: 10000
-        - velocity: 1000
-        - acceleration: 100
-  - !!omap
-    - class: mockup
-    - axes:
-      - !!omap
-        - class: MockupAxis
-        - name: roby
-        - backlash: 2
-        - steps_per_unit: 10000
-        - velocity: 2500.0
-        - acceleration: 1000.0
-        - low_limit:
-        - high_limit:
-        - default_cust_attr: 6.28
-      - !!omap
-        - name: m1
-        - steps_per_unit: 1000
-        - velocity: 50
-        - acceleration: 1
-        - encoder: $m1enc
-      - !!omap
-        - name: m0
-        - velocity: 1000
-        - acceleration: 100
-      - !!omap
-        - name: s1f
-        - steps_per_unit: -1000
-        - velocity: 500
-        - acceleration: 100
-        - low_limit: -10
-        - high_limit: 10
-      - !!omap
-        - name: s1b
-        - steps_per_unit: 1000
-        - velocity: 500
-        - acceleration: 100
-        - low_limit: -10
-        - high_limit: 10
-      - !!omap
-        - name: s1u
-        - steps_per_unit: -1000
-        - velocity: 500
-        - acceleration: 100
-        - low_limit: -10
-        - high_limit: 10
-      - !!omap
-        - name: s1d
-        - steps_per_unit: 1000
-        - velocity: 500
-        - acceleration: 100
-        - low_limit: -10
-        - high_limit: 10
-      - !!omap
-        - name: jogger
-        - steps_per_unit: -500
-        - velocity: 100
-        - acceleration: 300
-    - encoders:
-      - !!omap
-        - name: m1enc
-        - steps_per_unit: 50
-        - tolerance: 0.001
-  - !!omap
-    - class: slits
-    - axes:
-      - !!omap
-        - name: $s1f
-        - tags: real front
-      - !!omap
-        - name: $s1b
-        - tags: real back
-      - !!omap
-        - name: $s1u
-        - tags: real up
-      - !!omap
-        - name: $s1d
-        - tags: real down
-      - !!omap
-        - name: s1vg
-        - tags: vgap
-      - !!omap
-        - name: s1vo
-        - tags: voffset
-      - !!omap
-        - name: s1hg
-        - tags: hgap
-        - low_limit: -15
-      - !!omap
-        - name: s1ho
-        - tags: hoffset
+controller:
+- class: mockup
+  name: test
+  axes:
+  - name: robz
+    steps_per_unit: 10000
+    velocity: 100
+    acceleration: 300
+    low_limit: -1000
+    high_limit: 1000000000.0
+  - name: robz2
+    steps_per_unit: 10000
+    velocity: 1000
+    acceleration: 100
+- class: mockup
+  axes:
+  - class: MockupAxis
+    name: roby
+    backlash: 2
+    steps_per_unit: 10000
+    velocity: 2500.0
+    acceleration: 1000.0
+    low_limit: null
+    high_limit: null
+    default_cust_attr: 6.28
+  - name: m1
+    steps_per_unit: 1000
+    velocity: 50
+    acceleration: 1
+    encoder: $m1enc
+  - name: m0
+    velocity: 1000
+    acceleration: 100
+  - name: s1f
+    steps_per_unit: -1000
+    velocity: 500
+    acceleration: 100
+    low_limit: -10
+    high_limit: 10
+  - name: s1b
+    steps_per_unit: 1000
+    velocity: 500
+    acceleration: 100
+    low_limit: -10
+    high_limit: 10
+  - name: s1u
+    steps_per_unit: -1000
+    velocity: 500
+    acceleration: 100
+    low_limit: -10
+    high_limit: 10
+  - name: s1d
+    steps_per_unit: 1000
+    velocity: 500
+    acceleration: 100
+    low_limit: -10
+    high_limit: 10
+  - name: jogger
+    steps_per_unit: -500
+    velocity: 100
+    acceleration: 300
+  encoders:
+  - name: m1enc
+    steps_per_unit: 50
+    tolerance: 0.001
+- class: slits
+  axes:
+  - name: $s1f
+    tags: real front
+  - name: $s1b
+    tags: real back
+  - name: $s1u
+    tags: real up
+  - name: $s1d
+    tags: real down
+  - name: s1vg
+    tags: vgap
+  - name: s1vo
+    tags: voffset
+  - name: s1hg
+    tags: hgap
+    low_limit: -15
+  - name: s1ho
+    tags: hoffset

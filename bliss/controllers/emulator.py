@@ -65,8 +65,8 @@ class EmulatorServerMixin(object):
         name = '{0}({1}, device={2})'.format(type(self).__name__, self.address,
                                              device.name)
         self._log = logging.getLogger('{0}.{1}'.format(_log.name, name))
-        self._log.info('listening on %s (newline=%r)', self.address,
-                       self.newline)
+        self._log.info('listening on %s (newline=%r) (baudrate=%g)',
+                       self.address, self.newline, self.baudrate)
 
     def handle(self, sock, addr):
         file_obj = sock.makefile(mode='rb')
@@ -127,6 +127,7 @@ class EmulatorServerMixin(object):
         if response is not None:
             self.pause(len(response))
             sock.sendall(response)
+
         return response
 
     def pause(self, nb_bytes):
@@ -141,8 +142,8 @@ class EmulatorServerMixin(object):
         if not self.baudrate:
             return
         byterate = self.baudrate / 10.0
-        sleep = nb_bytes / byterate
-        gevent.sleep(sleep)
+        sleep_time = nb_bytes / byterate
+        gevent.sleep(sleep_time)
 
     def broadcast(self, msg):
         for _, (_, sock) in self.connections.items():
@@ -171,17 +172,42 @@ class SerialServer(BaseServer, EmulatorServerMixin):
         BaseServer.__init__(self, None, *args, **kwargs)
         EmulatorServerMixin.__init__(self, device, **e_kwargs)
 
+    def __del__(self):
+        try:
+            print("Removing pseudo terminal link : %s" % self.link_name)
+            os.remove(self.link_name)
+        except:
+            print("pseudo terminal link no more present ?")
+
+    def terminate(self):
+        try:
+            print("terminate of SerialServer : Removing pseudo terminal link : %s" % self.link_name)
+            os.remove(self.link_name)
+        except:
+            print("pseudo terminal link no more present ?")
+
     def set_listener(self, listener):
         """
         Override of :meth:`~gevent.baseserver.BaseServer.set_listener` to
         initialize a pty and properly fill the address
         """
         if listener is None:
-            self.master, self.slave = pty.openpty()
+            self.master, self.slave = pty.openpty()  # returns the 2 file descriptors within the current process.
         else:
             self.master, self.slave = listener
-        self.address = os.ttyname(self.slave)
-        self.fileobj = FileObject(self.master, mode='rb')
+
+        self.address = os.ttyname(self.slave)              # /dev/pts/N : slave pts to use to communicate with emulator.
+        self.fileobj = FileObject(self.master, mode='rb')  # <FileObjectPosix <SocketAdapter at 0x1723490 (7, 'rb')>>
+
+        # Make a link to the randomly named pseudo-terminal with a known name.
+        self.link_name = "/tmp/bliss_emulator_pts"
+        try:
+            os.remove(self.link_name)
+        except:
+            pass
+        os.symlink(self.address, self.link_name)
+        print("Created symbolic link \"%s\" to emulator pseudo terminal \"%s\" " % (self.link_name, self.address) )
+
 
     @property
     def socket(self):
@@ -309,6 +335,11 @@ class Server(object):
                                 dname, error)
                 self._log.debug('details: %s', error, exc_info=1)
 
+    def terminate(self):
+        for device in self.devices:
+            for tp in device.transports:
+                tp.terminate()
+
     def create_device(self, device_info):
         klass_name = device_info.get('class')
         name = device_info.get('name', klass_name)
@@ -405,6 +436,11 @@ def main():
         server.serve_forever()
     except KeyboardInterrupt:
         print("\nCtrl-C Pressed. Bailing out...")
+        try:
+            server.terminate()
+            print ("Server terminated... I'll be back.")
+        except:
+            print ("No terminate function for server or error in terminating.")
 
 if __name__ == "__main__":
     main()

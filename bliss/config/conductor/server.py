@@ -66,7 +66,9 @@ _waitstolen = dict()
 
 class _WaitStolenReply(object):
     def __init__(self,stolen_lock):
-        self._stolen_lock = {client : '|'.join(objects) for client,objects in stolen_lock.iteritems()}
+        self._stolen_lock = dict()
+        for client,objects in stolen_lock.iteritems():
+            self._stolen_lock[client] = '|'.join(objects)
         self._client2info = dict()
 
     def __enter__(self):

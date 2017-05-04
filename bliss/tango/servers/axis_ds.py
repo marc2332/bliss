@@ -106,6 +106,8 @@ class BlissAxisManager(Device):
                                     locals={'axis_manager': self})
             gevent.spawn(server.serve_forever)
             self.__backdoor_server = server
+        else:
+            print " no backdoor"
 
     def _get_axis_devices(self):
         util = PyTango.Util.instance()
@@ -526,7 +528,6 @@ class BlissAxis(Device):
                doc='Backlash to be applied to each motor movement')
     def Backlash(self):
         self.debug_stream("In read_Backlash()")
-        print 'bacl', self.axis.backlash
         return self.axis.backlash
 
     @attribute(dtype='int16', label='Sign', unit='unitless', format='%d',
@@ -1081,10 +1082,14 @@ def __recreate_axes(server_name, manager_dev_name, axis_names,
             continue
         for dev_name in dev_names:
             curr_axis_name = dev_name.rsplit("/", 1)[-1]
+
             try:
                 get_axis(curr_axis_name)
             except:
                 elog.info("Error instantiating %s (%s): skipping!!" % (curr_axis_name, dev_name))
+                elog.info(" hint : Check beacon ")
+                elog.info(" hint : Check redis-server ")
+                elog.info(" hint : Check user running redis-server : must not be \"redis\" ")
                 traceback.print_exc()
                 continue
             curr_axes[curr_axis_name] = dev_name, dev_class

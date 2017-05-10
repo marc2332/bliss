@@ -37,3 +37,5 @@ class tango_keithley(CounterBase):
         else:
             self.__control.autozero = autozero_on
 
+    def init(self):
+        return self.__control.init()

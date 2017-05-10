@@ -87,6 +87,7 @@ class CounterAcqDevice(AcquisitionDevice):
             self._nb_acq_points += 1
             data = numpy.zeros((1,),dtype=numpy.double)
             data[0] = acc_value / nb_read
+
             dispatcher.send("new_data",self,
                             {"channel_data": {self.name:data}})
             self._ready_flag = True

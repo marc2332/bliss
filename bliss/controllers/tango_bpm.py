@@ -7,7 +7,7 @@
 
 from bliss.common.task_utils import cleanup, error_cleanup, task
 from bliss.common.utils import add_property
-from bliss.common.measurement import CounterBase, Reading
+from bliss.common.measurement import CounterBase
 from bliss.common import Actuator
 import gevent
 from gevent import event
@@ -22,31 +22,38 @@ class BpmCounter(CounterBase):
 
     def read(self):
         data = self.parent.last_acq
-        reading = Reading()
         try:
-            reading.value = data[self.index]
+            value = data[self.index]
         except TypeError:
             raise RuntimeError("No data available, hint: acquire data with `.count(acq_time)` first")
         else:
-            reading.timestamp = data[0]
-            return reading
+            return value 
 
     def count(self, acq_time):
+        meas = self.Measurement()
+
         if not self.parent._acquisition_event.is_set():
             # acquisition in progress
             self.parent._acquisition_event.wait()
         else:
             self.parent.read(acq_time)
-       
+        meas._add_value(self.parent.last_acq[self.index], self.parent.last_acq[0])
+        return meas
+ 
 
 class tango_bpm(object):
    def __init__(self, name, config):
        self.name = name
 
        tango_uri = config.get("uri")
+       tango_lima_uri = config.get("lima_uri")
        foil_actuator_name = config.get("foil_name")
 
        self.__control = PyTango.gevent.DeviceProxy(tango_uri)
+       if tango_lima_uri:
+           self.__lima_control = PyTango.gevent.DeviceProxy(tango_lima_uri)
+       else:
+           self.__lima_control = None
        self._acquisition_event = event.Event()
        self._acquisition_event.set()
        self.__last_acq = None
@@ -112,11 +119,16 @@ class tango_bpm(object):
      self._acquisition_event.clear()
      self.__last_acq = None
      back_to_live = False
+     video = False
      exp_time = self.__control.ExposureTime
      try:
+       if self.__lima_control and self.__lima_control.video_live:
+           back_to_live = True
+           video = self.__lima_control.video_exposure
+           self.stop(video=video)
        if str(self.__control.LiveState) == 'RUNNING':
-         back_to_live = True
-         self.stop()
+           back_to_live = True
+           self.stop()
        self.__control.AcquirePositions(acq_time)
        gevent.sleep(acq_time)
        while self.is_acquiring():
@@ -126,7 +138,7 @@ class tango_bpm(object):
        self.__last_acq = numpy.mean(data, axis=1)
        self.__last_acq[0] = timestamp
        if back_to_live:
-         self.live()
+         self.live(video=video)
        return self.__last_acq
      finally:
        self._acquisition_event.set()
@@ -153,11 +165,18 @@ class tango_bpm(object):
    def is_acquiring(self):
      return str(self.__control.State()) == 'MOVING'
 
-   def live(self):
-     return self.__control.Live()
+   def live(self, video=False):
+     if video and self.__lima_control:
+         self.__lima_control.video_exposure = video
+         self.__lima_control.video_live = True
+     else:
+         return self.__control.Live()
 
-   def stop(self):
-     return self.__control.Stop()      
+   def stop(self, video=False):
+     if video and self.__lima_control:
+         self.__lima_control.video_live = False
+     else:
+         self.__control.Stop()      
 
    def set_in(self):
      return self.__control.In()

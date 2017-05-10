@@ -519,4 +519,7 @@ class wago(object):
     else:
       return self.get(*self.cnt_names)
 
-
+  def read_all(self,*counter_name):
+    cnt_name = [n.replace(self.name + '.','') for n in counter_name]
+    result = self.get(*cnt_name)
+    return result if isinstance(result,list) else [result]

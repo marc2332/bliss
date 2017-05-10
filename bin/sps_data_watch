@@ -23,7 +23,10 @@ try:
 except ImportError:
     from ordereddict import OrderedDict
 
-import sps
+try:
+    import sps
+except ImportError:
+    from PyMca import sps
 
 from bliss.data.node import DataNodeIterator,_get_or_create_node
 
@@ -69,6 +72,10 @@ def copy_data(zerod,channel_name,zerod_index,
                 min_index = point_nb
 
         sps.putinfo(session_name,ARRAY_NAME,json.dumps((min_index,"running")))
+
+def new_scanno(last={"scanno": 0}):
+    last["scanno"]+=1
+    return last["scanno"]
  
 def watch_data(scan_node,session_name):
     npoints = max(scan_node.info_get("npoints"),4096)
@@ -90,12 +97,18 @@ def watch_data(scan_node,session_name):
                     copy_data(zerod,channel_name,zerod_index,
                               session_name,nbcounters,npoints)
 
+            allcountersdict = dict([(i,"") for i in range(nbcounters)])
+            allcountersdict.update(dict(((i,name) for i,name in enumerate(zerod_index))))
+
             sps.putmetadata(session_name,ARRAY_NAME,
-                            json.dumps((dict(((i,name) for i,name in enumerate(zerod_index))),
+                            json.dumps((allcountersdict,
                                         {"npts":npoints,
                                          "allmotorm": "",
-                                         "scanno" : 1,
+                                         "scanno" : new_scanno(),
                                          "datafile" : "bliss",
+                                         "spec": session_name,
+                                         "columnnames": zerod_index.keys()+[""]*(nbcounters-len(zerod_index.keys())),
+                                         "columns": len(zerod_index.keys()),
                                          "selectedcounters" : ';'.join(zerod_index.keys())},
                                         {})))
 
@@ -103,11 +116,11 @@ def watch_data(scan_node,session_name):
                 if event_type is scan_data_iterator.NEW_CHILD_EVENT:
                     scan_data_iterator.child_register_new_data(zerod,pubsub)
                     for channel_name in zerod.channels_name():
-                        copy_data(zerod,channels_name,zerod_index,
+                        copy_data(zerod,channel_name,zerod_index,
                                   session_name,nbcounters,npoints)
                 elif event_type is scan_data_iterator.NEW_CHANNEL_REGEX:
                     for channel_name in zerod.channels_name():
-                        copy_data(zerod,channels_name,zerod_index,
+                        copy_data(zerod,channel_name,zerod_index,
                                   session_name,nbcounters,npoints)
                 elif event_type is scan_data_iterator.NEW_DATA_IN_CHANNEL_EVENT:
                     zerod,channel_name = zerod

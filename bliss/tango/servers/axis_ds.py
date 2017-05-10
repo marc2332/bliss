@@ -18,6 +18,9 @@ from bliss.config.static import get_config as beacon_get_config
 from bliss.config.motors import load_cfg_fromstring, get_axis, get_encoder
 from bliss.controllers.motor_group import Group
 
+from bliss.config.motors import load_cfg_fromstring, get_axis, get_encoder
+from bliss.controllers.motor_group import Group
+
 import PyTango
 from PyTango.server import Device, DeviceMeta, device_property
 from PyTango.server import attribute, command, get_worker
@@ -106,6 +109,8 @@ class BlissAxisManager(Device):
                                     locals={'axis_manager': self})
             gevent.spawn(server.serve_forever)
             self.__backdoor_server = server
+        else:
+            print " no backdoor"
 
     def _get_axis_devices(self):
         util = PyTango.Util.instance()
@@ -526,7 +531,6 @@ class BlissAxis(Device):
                doc='Backlash to be applied to each motor movement')
     def Backlash(self):
         self.debug_stream("In read_Backlash()")
-        print 'bacl', self.axis.backlash
         return self.axis.backlash
 
     @attribute(dtype='int16', label='Sign', unit='unitless', format='%d',
@@ -1081,6 +1085,7 @@ def __recreate_axes(server_name, manager_dev_name, axis_names,
             continue
         for dev_name in dev_names:
             curr_axis_name = dev_name.rsplit("/", 1)[-1]
+
             try:
                 get_axis(curr_axis_name)
             except:

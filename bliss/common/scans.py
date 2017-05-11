@@ -11,11 +11,11 @@ Most common scan procedures (:func:`~bliss.common.scans.ascan`, \
 
 """
 
-__all__ = ['ascan', 'a2scan', 'dscan', 'd2scan', 'timescan', 'ct']
+__all__ = ['ascan', 'a2scan', 'mesh', 'dscan', 'd2scan', 'timescan', 'ct', 'get_data']
 
 import time
 import logging
-
+import functools
 import numpy
 import gevent
 
@@ -27,9 +27,10 @@ from bliss.scanning.acquisition.counter import CounterAcqDevice
 from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning import scan as scan_module
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
-from bliss.scanning.acquisition.motor import LinearStepTriggerMaster
+from bliss.scanning.acquisition.motor import LinearStepTriggerMaster, MeshStepTriggerMaster
 from bliss.session import session,measurementgroup
 from bliss.scanning.writer import hdf5
+from bliss.data.scan import get_data
 
 _log = logging.getLogger('bliss.scans')
 
@@ -92,8 +93,6 @@ def default_chain(chain,scan_pars,counters):
 
     return timer
 
-            
-
 def step_scan(chain,scan_info,name=None,save=True):
     scandata = scan_module.ScanSaving()
     config = scandata.get()
@@ -118,9 +117,6 @@ def ascan(motor, start, stop, npoints, count_time, *counters, **kwargs):
     given by *start* and ends at the position given by *stop*. The step size is
     `(*start*-*stop*)/(*npoints*-1)`. The number of intervals will be
     *npoints*-1. Count time is given by *count_time* (seconds).
-
-    At the end of the scan (even in case of error) the motor will return to
-    its initial position
 
     Args:
         motor (Axis): motor to scan
@@ -203,6 +199,53 @@ def dscan(motor, start, stop, npoints, count_time, *counters, **kwargs):
     motor.move(oldpos)
     return scan
 
+def mesh(motor1, start1, stop1, npoints1, motor2, start2, stop2, npoints2, count_time, *counters, **kwargs):
+    """
+    Mesh scan
+
+    The mesh scan traces out a grid using motor1 and motor2. The first motor
+    scans from start1 to end1 using the specified number of intervals.  The
+    second motor similarly scans from start2 to end2. Each point is counted for
+    for time seconds (or monitor counts).
+
+    The scan of motor1 is done at each point scanned by motor2.  That is, the
+    first motor scan is nested within the second motor scan.
+    """
+    scan_info = { 'type': kwargs.get('type', 'mesh'),
+                  'save': kwargs.get('save', True),
+                  'title': kwargs.get('title'),
+                  'sleep_time': kwargs.get('sleep_time') }
+
+    if scan_info['title'] is None:
+        args = scan_info['type'], motor1.name, start1, stop1, npoints1, \
+               motor2.name, start2, stop2, npoints2, count_time
+        template = " ".join(['{{{0}}}'.format(i) for i in range(len(args))])
+        scan_info['title'] = template.format(*args)
+
+    scan_info.update({ 'npoints1': npoints1, 'npoints2': npoints2, 
+                       'total_acq_time': npoints1 * npoints2 * count_time,
+                       'motors': [TimestampPlaceholder(), motor1, motor2],
+                       'start': [start1, start2], 'stop': [stop1, stop2],
+                       'count_time': count_time })
+
+    chain = AcquisitionChain(parallel_prepare=True)
+    timer = default_chain(chain,scan_info,counters)
+    top_master = MeshStepTriggerMaster(motor1, start1, stop1, npoints1,
+                                       motor2, start2, stop2, npoints2)
+    chain.add(top_master,timer)
+
+    _log.info(
+        "Scanning (%s, %s) from (%f, %f) to (%f, %f) in (%d, %d) points",
+        motor1.name, motor2.name, start1, start2, stop1, stop2, npoints1, npoints2)
+
+    scan = step_scan(chain, scan_info,
+                     name=kwargs.setdefault("name","mesh"), save=scan_info['save'])
+
+    scan.run()
+
+    if kwargs.get('return_scan', False):
+        return scan
+
 def a2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
            *counters, **kwargs):
     """
@@ -213,9 +256,6 @@ def a2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
     given by *stop1* and *stop2*. The step size for each motor is given by
     `(*start*-*stop*)/(*npoints*-1)`. The number of intervals will be
     *npoints*-1. Count time is given by *count_time* (seconds).
-
-    At the end of the scan (even in case of error) the motors will return to
-    its initial positions
 
     Args:
         motor1 (Axis): motor1 to scan
@@ -266,7 +306,9 @@ def a2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
 
     scan = step_scan(chain, scan_info,
                      name=kwargs.setdefault("name","a2scan"), save=scan_info['save'])
+    
     scan.run()
+
     if kwargs.get('return_scan',False):
         return scan
 

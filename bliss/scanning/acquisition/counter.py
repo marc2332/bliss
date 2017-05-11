@@ -13,7 +13,7 @@ from ..chain import AcquisitionDevice,AcquisitionChannel
 
 class CounterAcqDevice(AcquisitionDevice):
     def __init__(self,counter,
-                 expo_time=None,npoints=1,**keys):
+                 count_time=None,npoints=1,**keys):
         prepare_once = keys.pop('prepare_once',npoints > 1 and True or False)
         start_once = keys.pop('start_once',npoints > 1 and True or False)
         npoints = max(1,npoints)
@@ -23,7 +23,7 @@ class CounterAcqDevice(AcquisitionDevice):
                                    prepare_once=prepare_once,
                                    start_once=start_once,
                                    **keys)
-        self._expo_time = expo_time
+        self._count_time = count_time
         self.channels.append(AcquisitionChannel(counter.name,numpy.double, (1,)))
         self._nb_acq_points = 0
         self._event = event.Event()
@@ -70,7 +70,7 @@ class CounterAcqDevice(AcquisitionDevice):
             nb_read = 0
             acc_read_time = 0
             acc_value = 0
-            stop_time = trig_time + self._expo_time or 0
+            stop_time = trig_time + self._count_time or 0
             #Counter integration loop
             while not self._stop_flag:
                 start_read = time.time()

@@ -72,7 +72,7 @@ def default_chain(chain,scan_pars,counters):
 
     for cnt in set(scan_counters):
         if isinstance(cnt, CounterBase):
-            chain.add(timer, CounterAcqDevice(cnt, expo_time=count_time, npoints=npoints))
+            chain.add(timer, CounterAcqDevice(cnt, count_time=count_time, npoints=npoints))
         # elif isinstance(cnt,Lima):
         #   chain.add(timer, LimaAcqDevice()))
         else:

@@ -133,6 +133,15 @@ class DataNodeIterator(object):
                         self.last_child_id[parent_db_name] = first_child + i
                         if filter is None or child.type() in filter:
                             yield self.NEW_CHILD_EVENT,child
+                        if child.type() == 'zerod':
+                            zerod = child
+                            for channel_name in zerod.channels_name():
+                                zerod_db_name = zerod.db_name()
+                                event_key = "__keyspace@1__:%s_%s" % (zerod_db_name,channel_name)
+                                pubsub.subscribe(event_key)
+                                self.zerod_channel_event[event_key] = zerod_db_name
+                            if filter is None or zerod.type() in filter:
+                                yield self.NEW_CHANNEL_EVENT,zerod
                 else:
                     new_channel_event = DataNodeIterator.NEW_CHANNEL_REGEX.match(channel)
                     if new_channel_event:

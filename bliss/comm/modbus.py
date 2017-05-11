@@ -82,7 +82,11 @@ class Modbus_RTU:
         self._serial = serial.Serial(*args)
         self.node = node
         self.lock = lock.Semaphore()
-        
+
+    def __del__(self):
+        self._serial.close()
+
+
     def computeCRC(self,data):
         ''' Computes a crc16 on the passed in string. For modbus,
         this is only used on the binary serial protocols (in this
@@ -189,8 +193,6 @@ class Modbus_RTU:
         if rx_crc != crc:
             raise ModbusError('Wrong CRC')
 
-#        import pdb;pdb.set_trace()
-        
         return status_byte
         
 
@@ -206,32 +208,37 @@ class Modbus_RTU:
         else:
             msg += struct.pack('>H' ,nb)
         msg += struct.pack('>H',self.computeCRC(msg))
-        
-        with self.lock:
-            self._serial.write(msg)
-            if data_write is not None: # WRITE
-                raw_msg = self._serial.read(4)
-                rx_node,rx_func_code,first_address = struct.unpack('>BBH',raw_msg)
-                nb_bytes = 2
-            else:                   # READ
-                raw_msg = self._serial.read(3)
-                rx_node,rx_func_code,nb_bytes = struct.unpack('>BBB',raw_msg)
 
-            if rx_node != self.node:
-                raise ModbusError('Wrong device address rx: %s expected: %s' %
+#        timeout=3
+#        with gevent.Timeout(timeout or self._timeout, ModbusTimeout(timeout_errmsg)):
+
+        with self.lock:
+        
+                self._serial.write(msg)
+                if data_write is not None: # WRITE
+                    raw_msg = self._serial.read(4)
+                    rx_node,rx_func_code,first_address = struct.unpack('>BBH',raw_msg)
+                    nb_bytes = 2
+                else:                   # READ
+                    raw_msg = self._serial.read(3)
+                    rx_node,rx_func_code,nb_bytes = struct.unpack('>BBB',raw_msg)
+
+                if rx_node != self.node:
+                    raise ModbusError('Wrong device address rx: %s expected: %s' %
                                   (rx_node,self.node))
 
-            if rx_func_code != func_code:
-                if((rx_func_code & 0x80) == func_code):
-                    crc = self._serial.read(2)
-                    raise ModbusError('Rx Error %s',_error_code(nb_bytes))
-                else:
+                if rx_func_code != func_code:
+                    if((rx_func_code & 0x80) == func_code):
+                        crc = self._serial.read(2)
+                        raise ModbusError('Rx Error %s',_error_code(nb_bytes))
+                    else:
 #                    self._serial.flushInput()
-                    self._serial.flush()
-                    raise ModbusError('Wrong function code rx: %s expected: %s'%
+                        self._serial.flush()
+                        raise ModbusError('Wrong function code rx: %s expected: %s'%
                                       (rx_func_code,func_code))
 
-            data_and_crc = self._serial.read(nb_bytes + 2)
+                data_and_crc = self._serial.read(nb_bytes + 2)
+
         data = data_and_crc[:-2]
         rx_crc = struct.unpack('>H',data_and_crc[-2:])[0]
         crc = self.computeCRC(raw_msg + data)

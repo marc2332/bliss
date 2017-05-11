@@ -22,7 +22,7 @@ class TempControllerCounter(CounterBase):
         Input and Output type objects
     """
     def __init__(self, name, parent):
-        CounterBase.__init__(self, name)
+        CounterBase.__init__(self, parent, name)
         self.parent = parent
 
     def read(self):

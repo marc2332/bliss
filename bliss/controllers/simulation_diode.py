@@ -11,7 +11,7 @@ from gevent import sleep
 
 class simulation_diode(CounterBase):
     def __init__(self, name, config):
-        CounterBase.__init__(self, name)
+        CounterBase.__init__(self, None, name)
 
     def read(self):
         sleep(0.01) # simulate hw reading

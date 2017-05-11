@@ -52,7 +52,7 @@ import time
 
 import six
 import numpy
-
+import weakref
 
 class Reading(object):
     """Value yielded from a reading"""
@@ -200,7 +200,6 @@ class FullMeasurement(Measurement):
         Measurement._add_value(self, value, timestamp)
         self.__data.append((value, timestamp))
 
-
 class CounterBase(object):
     """
     Base class for counters.
@@ -226,12 +225,44 @@ class CounterBase(object):
     #: default measurement class
     Measurement = Measurement
 
-    def __init__(self, name):
+    class ReadAllHandler(object):
+        def name(self):
+            """
+            Should return a human readable name
+            """
+            raise NotImplementedError
+        def id(self) :
+            """
+            Should return a unique id to be able to group Counters per ReadAllHandler
+            """
+            raise NotImplementedError
+        def read_all(self,*counter_name):
+            """
+            this method should return a list of reads values in the same order 
+            as the counter_name
+            """
+            raise NotImplementedError
+
+    def __init__(self, controller, name):
         self.__name = name
+        self.__controller = weakref.proxy(controller) if controller is not None else None
 
     @property
     def name(self):
         return self.__name
+
+    @property
+    def controller(self):
+        return self.__controller
+
+    def read_all_handler(self):
+        """
+        Should return a handler which is has the interface of CounterBase.ReadAllHandler.
+        This Handler will be used to group counters to read all values at once.
+        """
+        if hasattr(self.__controller,'read_all'):
+            return DefaultReadAllHandler(self.__controller)
+        raise NotImplementedError
 
     def read(self):
         """Overwrite in your class to provide a useful counter class"""
@@ -256,3 +287,21 @@ class CounterBase(object):
         for reading in meas(time):
             reading.value, reading.timestamp = self.read_timestamp()
         return meas
+
+class DefaultReadAllHandler(CounterBase.ReadAllHandler):
+    """
+    Default read all handler for controller which have read_all method
+    """
+    def __init__(self,controller):
+        if isinstance(controller,weakref.ProxyType):
+            self.__controller = controller
+        else:
+            self.__controller = weakref.proxy(controller)
+    @property
+    def name(self):
+        return self.__controller.name
+    def id(self):
+        return id(self.__controller)
+    def read_all(self,*counter_name):
+        return self.__controller.read_all(*counter_name)
+

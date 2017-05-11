@@ -419,9 +419,9 @@ class WagoCounter(CounterBase):
   def __init__(self, parent, name, index=None):
 
     if index is None:
-      CounterBase.__init__(self, name)
+      CounterBase.__init__(self, parent, name)
     else:
-      CounterBase.__init__(self, parent.name+'.'+name)
+      CounterBase.__init__(self, parent, parent.name+'.'+name)
     self.index = index
     self.parent = parent
     self.cntname = name
@@ -519,4 +519,7 @@ class wago(object):
     else:
       return self.get(*self.cnt_names)
 
-
+  def read_all(self,*counter_name):
+    cnt_name = [n.replace(self.name + '.','') for n in counter_name]
+    result = self.get(*cnt_name)
+    return result if isinstance(result,list) else [result]

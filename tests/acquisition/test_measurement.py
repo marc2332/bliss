@@ -19,7 +19,7 @@ from bliss.common.measurement import SingleMeasurement, FullMeasurement
 class RandomCounter(CounterBase):
 
     def __init__(self, name, range=(0., 1000.), nap=1E-3):
-        CounterBase.__init__(self, name)
+        CounterBase.__init__(self, None, name)
         self.range = range
         self.nb_reads = 0
         self.nap = nap

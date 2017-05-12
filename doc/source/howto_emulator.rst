@@ -53,19 +53,20 @@ It is easier to start with a full example:
 
 .. code-block:: yaml
 
-    name: my_emulator       # (1)
-    backdoor: :5100         # (2)
-    devices:                # (3)
-      - class: IcePAP       # (4)
-        newline: #xA        # (5)
-        module: icepap      # (6)
-        transports:         # (7)
-          - type: tcp       # (8)
-            url: :5000      # (9)
-            newline: #xA    # (10)
-          - type: serial    # (11)
-	    baudrate: 9600  # (12)
-        axes:               # (13)
+    name: my_emulator          # (1)
+    backdoor: :5100            # (2)
+    devices:                   # (3)
+      - class: IcePAP          # (4)
+        newline: #xA           # (5)
+        module: icepap         # (6)
+        transports:            # (7)
+          - type: tcp          # (8)
+            url: :5000         # (9)
+            newline: #xA       # (10)
+          - type: serial       # (11)
+            url: /tmp/pts/ice1 # (12)
+            baudrate: 9600     # (13)
+        axes:                  # (14)
           - address: 1
           - address: 2
             axis_name: th
@@ -94,6 +95,7 @@ Details:
 #. transpoort new-line (optional, default=device new-line character). Overrides
    device newline charater
 #. serial line transport (see :ref:`bliss-emulator-serial-configuration`)
+#. serial line url
 #. emulate baudrate delay (optional, default: None, means max speed)
 #. device specific configuration
 
@@ -133,11 +135,10 @@ Serial line
 ~~~~~~~~~~~
 
 Serial line transport only needs: ``type: serial`` to be configured.
-It uses a pseudo-terminal to emulate serial line. Since :func:`~pty.openpty`
-opens a non configurable file descriptor, it is impossible to predict which
-`/dev/pts/<N>` will be used. You have to be attentive to the first logging
-info messages when the server is started. They indicate which pseudo-terminal
-is being used by which device.
+It uses a pseudo-terminal to emulate serial line. The mandatory parameter *url*
+must be an absolute path in the filesystem from which the serial line should
+be addressed. Internally, the server will create a symbolic link from
+`/dev/pts/<N>` to the url you specified.
 
 .. _bliss-emulator-backdoor-configuration:
 
@@ -216,6 +217,7 @@ Example:
         - type: tcp
           url: :5001
         - type: serial
+	  url: /tmp/pts/ice1
 	  baudrate: 9600
       axes:                   # (4)
         - address: 1          # (5)

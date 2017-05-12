@@ -274,3 +274,41 @@ class DefaultSamplingCounterGroupedReadHandler(SamplingCounter.GroupedReadHandle
         return self.controller.read_all(*counters)
 
 
+class IntegratingCounter(Counter):
+    class GroupedReadHandler(GroupedReadMixin):
+        def get_values(self, from_index, *counters):
+            """
+            this method should return a list of reads values in the same order 
+            as the counter_name
+            """
+            raise NotImplementedError
+
+    """
+    Base class for integrated counters.
+    """
+    def __init__(self, name, controller, acquisition_controller):
+        Counter.__init__(self, name, controller, DefaultIntegratingCounterGroupedReadHandler)
+        self.__acquisition_controller_ref = weakref.ref(acquisition_controller)
+
+    def get_values(self, from_index=0):
+        """
+        Overwrite in your class to provide a useful integrated counter class
+
+        this method is called after the prepare and start on the master handler.
+        this method can block until the data is ready or not and return empty data.
+        When data is ready should return the data from the acquisition
+        point **from_point_index**
+        """
+        raise NotImplementedError
+
+    @property
+    def acquisition_controller(self):
+        return self.__acquisition_controller_ref()
+
+class DefaultIntegratingCounterGroupedReadHandler(IntegratingCounter.GroupedReadHandler):
+    """
+    Default read all handler for controller which have read_all method
+    """
+    def get_values(self, from_index, *counters):
+        return self.controller.get_values(from_index, *counters)
+

@@ -142,3 +142,47 @@ class CounterAcqDevice(AcquisitionDevice):
             self._ready_flag = True
             self._ready_event.set()
             
+
+class IntegratingAcqDevice(AcquisitionDevice):
+    def __init__(self,integrating_device,
+                 count_time=None,npoints=1,**keys):
+        prepare_once = keys.pop('prepare_once',npoints > 1 and True or False)
+        start_once = keys.pop('start_once',npoints > 1 and True or False)
+        npoints = max(1,npoints)
+        AcquisitionDevice.__init__(self, counter, integrating_device.name, "zerod",
+                                   npoints=npoints,
+                                   trigger_type=AcquisitionDevice.SOFTWARE,
+                                   prepare_once=prepare_once,
+                                   start_once=start_once,
+                                   **keys)
+        self._count_time = count_time
+        self.channels.append(AcquisitionChannel(integrating_device.name,numpy.double, (1,)))
+        self._nb_acq_points = 0
+
+    def prepare(self):
+        self._nb_acq_points = 0
+        self._stop_flag = False
+
+    def start(self):
+        pass
+
+    def stop(self):
+        self._stop_flag = True
+
+    def trigger(self):
+        pass
+    
+    def reading(self):
+        from_point_index = 0
+        while self._nb_acq_points < self.npoints and not self._stop_flag:
+            data = self.device.get_value(from_point_index)
+            if data:
+                from_point_index += len(data)
+                self._nb_acq_points += len(data)
+                channel_data = {self.name:data}
+                dispatcher.send("new_data",self,
+                                {"channel_data": channel_data})
+                gevent.idle()
+            else:
+                gevent.sleep(count_time/2.)
+            

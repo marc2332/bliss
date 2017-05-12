@@ -5,11 +5,13 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+from warnings import warn
+
 from bliss.controllers.motor import Controller
 from bliss.common import log as log
 from bliss.common.utils import object_method
 from bliss.common.axis import AxisState
-from bliss.comm import tcp
+from bliss.comm.util import get_comm, TCP
 from distutils.log import Log
 
 MAX_VELOCITY = 400000
@@ -29,15 +31,21 @@ class PM600(Controller):
     def __init__(self, name, config, axes, encoders):
         Controller.__init__(self, name, config, axes, encoders)
 
-        # Get the host and port from xml configuration
-        self.host = self.config.get("host")
-        self.port = self.config.get("port")
         log.level(10)
 
     def initialize(self):
         log.debug("initialize() called")
-        self.sock = tcp.Socket(self.host, int(self.port))
-        log.info("initialize() create socket on " + self.host + " using port " + self.port)
+        try:
+            self.sock = get_comm(self.config.config_dict, TCP)
+        except ValueError:
+            host = config.get("host")
+            port = int(config.get("port"))
+            warn("'host' and 'port' keywords are deprecated. " \
+                 "Use 'tcp' instead", DeprecationWarning)
+            comm_cfg = {'tcp': {'url': '{0}:{1}'.format(host, port)}}
+            self.sock = get_comm(comm_cfg)
+
+        log.info("initialize() create socket %s" % str(self.sock))
         # read spurious 'd' character when connected
         self.sock.readline(eol="\r")
 

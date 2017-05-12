@@ -65,7 +65,7 @@ class EmulatorServerMixin(object):
         name = '{0}({1}, device={2})'.format(type(self).__name__, self.address,
                                              device.name)
         self._log = logging.getLogger('{0}.{1}'.format(_log.name, name))
-        self._log.info('listening on %s (newline=%r) (baudrate=%g)',
+        self._log.info('listening on %s (newline=%r) (baudrate=%s)',
                        self.address, self.newline, self.baudrate)
 
     def handle(self, sock, addr):

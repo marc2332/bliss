@@ -226,6 +226,17 @@ class Lima(object):
             self._camera = camera_module.Camera(self.name, proxy)
         return self._camera
     
+    @property
+    def camera_type(self):
+        return self._proxy.camera_type
+
+    @property
+    def available_triggers(self):
+        """
+        This will returns all availables triggers for the camera
+        """
+        return self._proxy.getAttrStringValueList('acq_trigger_mode')
+
     def prepareAcq(self):
         self._proxy.prepareAcq()
 

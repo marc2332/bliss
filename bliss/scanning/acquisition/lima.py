@@ -17,6 +17,8 @@ class LimaAcquisitionDevice(AcquisitionDevice):
                acq_nb_frames=1, acq_expo_time=1,
                acq_trigger_mode='INTERNAL_TRIGGER', acq_mode="SINGLE",
                acc_time_mode="LIVE", acc_max_expo_time=1, latency_time=0,
+               save_flag = False,
+               prepare_once = False,start_once = False,
                **keys) :
       """
       Acquisition device for lima camera.
@@ -26,15 +28,17 @@ class LimaAcquisitionDevice(AcquisitionDevice):
       self.parameters = locals().copy()
       del self.parameters['self']
       del self.parameters['device']
+      del self.parameters['save_flag']
       del self.parameters['keys']
       self.parameters.update(keys)
       trigger_type = AcquisitionDevice.SOFTWARE if 'INTERNAL' in acq_trigger_mode else AcquisitionDevice.HARDWARE
       if isinstance(device,lima.Lima):
         device = device.proxy
       AcquisitionDevice.__init__(self, device, device.user_detector_name, "lima", acq_nb_frames,
-                                 trigger_type = trigger_type)
-      self._latency = self.device.latency_time
-
+                                 trigger_type = trigger_type,
+                                 prepare_once = prepare_once,start_once = start_once)
+      self.save_flag = save_flag
+              
   def prepare(self):
       for param_name, param_value in self.parameters.iteritems():
           setattr(self.device, param_name, param_value)

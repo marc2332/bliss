@@ -488,16 +488,24 @@ class FileWriter(object):
                 for slave in dev.slaves:
                     if isinstance(slave, AcquisitionDevice):
                         if slave.type == 'lima':
-                            lima_dev = slave.device
-                            lima_dev.saving_format = 'EDF'
-                            lima_dev.saving_mode = 'AUTO_FRAME'
-                            lima_dev.saving_frame_per_file = 1
-                            camera_name = lima_dev.camera_type
-                            scan_name = scan_recorder.node.name()
-                            lima_dev.saving_directory=scan_file_dir
-                            lima_dev.saving_prefix='%s_%s' % (scan_name,camera_name)
-                            lima_dev.saving_suffix='.edf'
-                            pass # link
+                            try:
+                                save_flag = slave.save_flag
+                            except AttributeError:
+                                save_flag = True
+
+                            parameters  = slave.parameters
+                            camera_name = slave.device.camera_type
+                            scan_name   = scan_recorder.node.name()
+                            full_path = os.path.join(scan_file_dir,slave.device.user_detector_name)
+
+                            parameters.setdefault('saving_mode', 'AUTO_FRAME' if save_flag else 'MANUAL')
+                            if not save_flag : continue
+
+                            parameters.setdefault('saving_format', 'EDF')
+                            parameters.setdefault('saving_frame_per_file', 1)
+                            parameters.setdefault('saving_directory', full_path)
+                            parameters.setdefault('saving_prefix', '%s_%s' % (scan_name,camera_name))
+                            parameters.setdefault('saving_suffix', '.edf')
                         else:
                             self._event_receivers.append(self._device_event_receiver(slave, master_entry))
                     elif isinstance(slave,AcquisitionMaster):

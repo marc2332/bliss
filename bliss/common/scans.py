@@ -26,9 +26,8 @@ from bliss.common.axis import MotionEstimation
 from bliss.common.temperature import Input, Output, TempControllerCounter
 from bliss.common.task_utils import *
 from bliss.common.motor_group import Group
-from bliss.common.measurement import SamplingCounter
-from bliss.scanning.acquisition.counter import CounterAcqDevice
-
+from bliss.common.measurement import SamplingCounter, IntegratingCounter
+from bliss.scanning.acquisition.counter import CounterAcqDevice, IntegratingAcqDevice
 from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning import scan as scan_module
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
@@ -78,11 +77,40 @@ def _get_all_counters(counters):
     return all_counters
     
 
-def default_chain(chain, scan_pars):
+def default_master_configuration(device, scan_pars):
+    """
+    This function should create and configured
+    a device acquisition which could also
+    be a master for other devices.
+
+    @returns the acq_device + counters parameters
+    """
+    if isinstance(device,Lima):
+        multi_mode = 'INTERNAL_TRIGGER_MULTI' in device.available_triggers
+        save_flag = scan_pars.get('save',False)
+        acq_nb_frames = scan_pars.get('npoints',1) if multi_mode else 1
+        acq_expo_time = scan_pars['count_time']
+        acq_trigger_mode = scan_pars.get('acq_trigger_mode',
+                                         'INTERNAL_TRIGGER_MULTI' \
+                                         if multi_mode else 'INTERNAL_TRIGGER')
+        acq_device = LimaAcquisitionDevice(device,
+                                           acq_nb_frames = acq_nb_frames,
+                                           acq_expo_time = acq_expo_time,
+                                           acq_trigger_mode = acq_trigger_mode,
+                                           save_flag = save,
+                                           prepare_once = multi_mode)
+        return acq_device,{prepare_once : multi_mode,start_once : multi_mode}
+    else:
+        raise TypeError("`%r' is not a supported counter type" % repr(cnt))
+
+def activate_master_saving(acq_device,activate_flag):
+    acq_device.save_flag = activate_flag
+
+def default_chain(chain,scan_pars,counters):
     count_time = scan_pars.get('count_time', 1)
     sleep_time = scan_pars.get('sleep_time')
     npoints = scan_pars.get('npoints', 1)
-    counters = scan_pars.get('counters')
+    timer = SoftwareTimerMaster(count_time, npoints=npoints, sleep_time=sleep_time)
 
     if not counters:
         raise ValueError("No counters for scan. Hint: are all counters disabled ?")
@@ -90,6 +118,8 @@ def default_chain(chain, scan_pars):
     timer = SoftwareTimerMaster(count_time, npoints=npoints, sleep_time=sleep_time)
 
     read_cnt_handler = dict()
+    integrating_cnt_handler = dict()
+    master_integrating_counter = dict()
     for cnt in set(counters):
         if isinstance(cnt, (Input, Output)):
             cnt = TempControllerCounter(cnt.name, cnt)
@@ -107,10 +137,38 @@ def default_chain(chain, scan_pars):
                     chain.add(timer, cnt_acq_device)
                     read_cnt_handler[uniq_id] = cnt_acq_device
                 cnt_acq_device.add_counter_to_read(cnt)
-        # elif isinstance(cnt,Lima):
-        #   chain.add(timer, LimaAcqDevice()))
+        elif isinstance(cnt,IntegratingCounter):
+            master_acq_device = master_integrating_counter.get(cnt.acquisition_controller)
+            if master_acq_device is None :
+                tmp_scan_pars = scan_pars.copy()
+                # by default don't save data from master
+                # so pop **save** flag
+                tmp_scan_pars.pop('save',None)
+                master_acq_device = default_master_configuration(cnt.acquisition_controller,tmp_scan_pars)
+                chain.add(timer,master_acq_device)
+                master_integrating_counter[cnt.master] = master_acq_device
+
+            try:
+                read_all_handler = cnt.read_cnt_handler()
+            except NotImplementedError:
+                chain.add(master_acq_device,IntegratingAcqDevice(cnt,count_time=count_time,npoints=npoints))
+            else:
+                uniq_id = read_all_handler.id()
+                cnt_acq_device = integrating_cnt_handler.get(uniq_id)
+                if cnt_acq_device is None:
+                    cnt_acq_device = IntegratingAcqDevice(read_all_handler,count_time=count_time,npoints=npoints)
+                    chain.add(master_acq_device, cnt_acq_device)
+                    integrating_cnt_handler[uniq_id] = cnt_acq_device
+                cnt_acq_device.add_counter_to_read(cnt)
         else:
-            raise TypeError("`%r' is not a supported counter type" % repr(cnt))
+            master_acq_device = master_integrating_counter.get(cnt)
+            if master_acq_device is None:
+                master_acq_device = default_master_configuration(cnt,scan_pars)
+                chain.add(timer,master_acq_device)
+                master_integrating_counter[cnt] = master_acq_device
+            else:
+                if scan_pars.get('save',False):
+                    activate_master_saving(master_acq_device,True)
 
     chain.timer = timer
     return timer

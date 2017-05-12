@@ -157,16 +157,11 @@ class SerialServer(BaseServer, EmulatorServerMixin):
     """
     Serial line emulation server. It uses :func:`pty.opentpy` to open a
     pseudo-terminal simulating a serial line.
-
-    .. note::
-        Since :func:`pty.opentpy` opens a non configurable file descriptor, it
-        is impossible to predict which /dev/pts/<N> will be used.
-        You have to be attentive to the first logging info messages when the
-        server is started. They indicate which device is in use  :-(
     """
 
     def __init__(self, *args, **kwargs):
         device = kwargs.pop('device')
+        self.link_name = kwargs.pop('url')
         e_kwargs = dict(baudrate=kwargs.pop('baudrate', None),
                         newline=kwargs.pop('newline', None))
         BaseServer.__init__(self, None, *args, **kwargs)
@@ -200,11 +195,13 @@ class SerialServer(BaseServer, EmulatorServerMixin):
         self.fileobj = FileObject(self.master, mode='rb')  # <FileObjectPosix <SocketAdapter at 0x1723490 (7, 'rb')>>
 
         # Make a link to the randomly named pseudo-terminal with a known name.
-        self.link_name = "/tmp/bliss_emulator_pts"
+        link_path, link_fname = os.path.split(self.link_name)
         try:
             os.remove(self.link_name)
         except:
             pass
+        if not os.path.exists(link_path):
+            os.makedirs(link_path)
         os.symlink(self.address, self.link_name)
         print("Created symbolic link \"%s\" to emulator pseudo terminal \"%s\" " % (self.link_name, self.address) )
 

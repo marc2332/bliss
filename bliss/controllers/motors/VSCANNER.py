@@ -50,9 +50,15 @@ class VSCANNER(Controller):
             # should be : 'VSCANNER 01.02\r\n'
             _ans = self.serial.write_readline("?VER\r\n")
             elog.debug(_ans)
-            if _ans.index("VSCANNER") == 0:
-                elog.debug("?VER -> %s" % _ans.rstrip())
         except:
+            self._status = "communication error : cannot communicate with serial \"%s\"" % self.serial
+            elog.error(self._status)
+            _ans = ""
+
+        if _ans.index("VSCANNER") == 0:
+            # ok VSACNNER is answering.
+            elog.debug("?VER -> %s" % _ans.rstrip())
+        else:
             self._status = "communication error : no VSCANNER found on serial \"%s\"" % self.serial
             self._status += "_ans=%s" % _ans
             elog.debug(self._status)
@@ -284,7 +290,7 @@ class VSCANNER(Controller):
         Raises:
             ?
         """
-        elog.debug("cmd=%s" % repr(cmd))
+        elog.debug("cmd=%r" % cmd)
         _cmd = cmd + "\r\n"
         self.serial.write(_cmd)
 
@@ -305,7 +311,7 @@ class VSCANNER(Controller):
         - <axis> is passed for debugging purposes.
         - Used for answer-less commands, then returns nothing.
         """
-        elog.debug("send_no_ans : cmd=\"%s\" " % cmd)
+        elog.debug("send_no_ans : cmd=%r" % cmd)
         _cmd = cmd + "\r\n"
         self.serial.write(_cmd)
 

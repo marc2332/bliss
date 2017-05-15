@@ -14,7 +14,7 @@ from bliss.common.utils import object_method
 
 from bliss.common.axis import AxisState
 
-from bliss.comm import tcp
+from bliss.comm.util import get_comm, TCP
 
 """
 - Bliss controller for PiezoMotor PMD206 piezo motor controller.
@@ -92,13 +92,20 @@ class PMD206(Controller):
             (0x1, "Motor is running"),
         ]
 
-        self.host = self.config.get("host")
-
     def initialize(self):
         """
         Opens a single communication socket to the controller for all 1..6 axes.
         """
-        self.sock = tcp.Command(self.host, 9760)
+        try:
+            self.sock = get_comm(self.config.config_dict, TCP, port=9760)
+        except ValueError:
+            host = self.config.get("host")
+            warn("'host' keyword is deprecated. Use 'tcp' instead", DeprecationWarning)
+            if not host.startswith('command://'):
+                host = 'command://' + host
+            comm_cfg = {'tcp': {'url': host } }
+            self.sock = get_comm(comm_cfg, port=9760)
+
         elog.debug ("socket open : %r" % self.sock)
 
     def finalize(self):

@@ -5,12 +5,14 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+from warnings import warn
+
 from bliss.controllers.motor import Controller
 from bliss.common import log as elog
 from bliss.common.axis import AxisState
 from bliss.common.utils import object_method
 
-from bliss.comm import tcp
+from bliss.comm.util import get_comm, TCP
 
 
 """
@@ -24,15 +26,15 @@ NOT DONE :
 
 class FlexDC(Controller):
 
-    def __init__(self, name, config, axes, encoders):
-        Controller.__init__(self, name, config, axes, encoders)
-
-        # Gets host from xml config.
-        self.host = self.config.get("host")
-
     # Init of controller.
     def initialize(self):
-        self.sock = tcp.Socket(self.host, 4000)
+        try:
+            self.sock = get_comm(self.config.config_dict, ctype=TCP, port=4000)
+        except ValueError:
+            host = config.get("host")
+            warn("'host' keyword is deprecated. Use 'tcp' instead", DeprecationWarning)
+            comm_cfg = {'tcp': {'url': host } }
+            self.sock = get_comm(comm_cfg, port=4000)
 
     def finalize(self):
         self.sock.close()

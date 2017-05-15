@@ -28,6 +28,7 @@ from bliss.comm.serial import Serial
 from bliss.controllers.temperature.oxfordcryo.oxfordcryo import StatusPacket
 from bliss.controllers.temperature.oxfordcryo.oxfordcryo import CSCOMMAND
 from bliss.controllers.temperature.oxfordcryo.oxfordcryo import split_bytes
+from warnings import warn
 
 from .oxford import Base
 
@@ -261,8 +262,73 @@ class OxfordCryostream(object):
 
 class oxford700(Base):
     def __init__(self, config, *args):
-        handler = OxfordCryostream(config["SLdevice"])
-        Base.__init__(self, handler, config, *args)
+        Controller.__init__(self, config, *args)
+        try:
+            port = config['serial']['url']
+        except KeyError:
+            port = config["SLdevice"]
+            warn("'SLdevice' is deprecated. Use serial 'instead'",
+                 DeprecationWarning)
+        self._oxford = OxfordCryostream(port)
+
+    def initialize_output(self, toutput):
+        """Initialize the output device
+        """
+        self.__ramp_rate = None
+        self.__set_point = None
+
+    def read_output(self, toutput):
+        """Read the current temperature
+           Returns:
+              (float): current temperature [K]
+        """
+        return self._oxford.read_temperature()
+
+    def start_ramp(self, toutput, sp, **kwargs):
+        """Start ramping to setpoint
+           Args:
+              sp (float): The setpoint temperature [K]
+           Kwargs:
+              rate (int): The ramp rate [K/hour]
+           Returns:
+              None
+        """
+        try:
+            rate = int(kwargs.get("rate", self.__ramp_rate))
+        except TypeError:
+            raise RuntimeError("Cannot start ramping, ramp rate not set")
+        self._oxford.ramp(rate, sp)
+
+    def set_ramprate(self, toutput, rate):
+        """Set the ramp rate
+           Args:
+              rate (int): The ramp rate [K/hour]
+        """
+        self.__ramp_rate = int(rate)
+
+    def read_ramprate(self, toutput):
+        """Read the ramp rate
+           Returns:
+              (int): Previously set ramp rate (cashed value only) [K/hour]
+        """
+        return self.__ramp_rate
+
+    def set(self, toutput, sp, **kwargs):
+        """Make gas temperature decrease to a set value as quickly as possible
+           Args:
+              sp (float): final temperature [K]
+           Returns:
+              (float): current gas temperature setpoint
+        """
+        return self._oxford.cool(sp)
+
+    def get_setpoint(self, toutput):
+        """Read the as quick as possible setpoint
+           Returns:
+              (float): current gas temperature setpoint
+        """
+        self.__set_point = self._oxford.cool()
+        return self.__set_point
 
     def state_output(self, toutput):
         """Read the state parameters of the controller

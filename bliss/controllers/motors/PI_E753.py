@@ -12,7 +12,7 @@ from bliss.common.utils import object_method
 from bliss.common.axis import AxisState
 
 import pi_gcs
-from bliss.comm import tcp
+from bliss.comm.util import TCP
 import gevent.lock
 
 import sys
@@ -25,26 +25,18 @@ Cyril Guilloud ESRF BLISS  2014-2016
 
 
 class PI_E753(Controller):
-    __sock_map = dict()
 
     def __init__(self, name, config, axes, encoders):
         Controller.__init__(self, name, config, axes, encoders)
 
-        self.host = self.config.get("host")
         self.cname = "E753"
-
 
     # Init of controller.
     def initialize(self):
         """
         Controller intialization : opens a single socket for all 3 axes.
         """
-        if self.host in PI_E753.__sock_map:
-            print "sock already defined ----------------------"
-            self.sock = PI_E753.__sock_map[self.host]
-        else:
-            self.sock = tcp.Socket(self.host, 50000)
-            PI_E753.__sock_map[self.host] = self.sock
+        self.sock = pi_gcs.get_pi_comm(self.config, TCP)
 
     def finalize(self):
         """

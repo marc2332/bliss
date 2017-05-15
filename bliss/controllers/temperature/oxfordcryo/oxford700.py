@@ -24,15 +24,13 @@ outputs:
 import time
 
 from bliss.common import log
-from bliss.common.utils import object_method_type
 from bliss.comm.serial import Serial
-from bliss.controllers.temp import Controller
-from bliss.common.temperature import Output
 from bliss.controllers.temperature.oxfordcryo.oxfordcryo import StatusPacket
 from bliss.controllers.temperature.oxfordcryo.oxfordcryo import CSCOMMAND
 from bliss.controllers.temperature.oxfordcryo.oxfordcryo import split_bytes
 from warnings import warn
 
+from .oxford import Base
 
 class OxfordCryostream(object):
     """
@@ -262,7 +260,7 @@ class OxfordCryostream(object):
             self.serial.flush()
 
 
-class oxford700(Controller):
+class oxford700(Base):
     def __init__(self, config, *args):
         Controller.__init__(self, config, *args)
         try:
@@ -342,54 +340,9 @@ class oxford700(Controller):
         phase = str(self._oxford.statusPacket.phase)
         return [mode, phase]
 
-    @object_method_type(types_info=("bool", "None"), type=Output)
-    def turbo(self, toutput, flow):
-        """Switch on/off the turbo gas flow
-           Args:
-              flow (bool): True when turbo is on (gas flow 10 l/min)
-           Returns:
-              None
-        """
-        self._oxford.turbo(flow)
-
-    @object_method_type(types_info=("bool", "None"), type=Output)
-    def pause(self, toutput, off=None):
-        if off:
-            self._oxford.resume()
-        else:
-            self._oxford.pause()
-
-    @object_method_type(types_info=("None", "None"), type=Output)
-    def hold(self, toutput):
-        self._oxford.hold()
-
-    @object_method_type(types_info=("None", "None"), type=Output)
-    def restart(self, toutput):
-        self._oxford.restart()
-
-    @object_method_type(types_info=("int", "int"), type=Output)
-    def plat(self, toutput, duration=None):
-        """Maintain temperature fixed for a certain time.
-           Args:
-              duration (int): time [minutes]
-           Returns:
-              (int): remaining time [minutes]
-        """
-        return self._oxford.plat(duration)
-
-    @object_method_type(types_info=("int", "None"), type=Output)
-    def end(self, toutput, rate):
-        """System shutdown with Ramp Rate to go back to temperature of 300K
-           Args:
-              rate (int): ramp rate [K/hour]
-        """
-        self._oxford.end(rate)
-
-
     def read_status(self):
         self._oxford.update_cmd()
         return self._oxford.statusPacket
-
 
 if __name__ == '__main__':
     cryo_obj = OxfordCryostream("rfc2217://lid292:28003")

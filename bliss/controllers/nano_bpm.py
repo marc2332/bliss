@@ -12,11 +12,12 @@ import numpy
 import struct
 import math
 import logging
+from warnings import warn
 from collections import OrderedDict
 import gevent
 from gevent import lock
-from bliss.comm.tcp import Socket
-from bliss.comm.tcp import Tcp
+
+from bliss.comm.util import get_comm, TCP
 
 def _config_property(key, doc_str):
     def get(self):
@@ -122,8 +123,23 @@ class NanoBpm(object):
         # Status bits for Remote Data Toggle
         self.ToggleBits = {'OFF':0,'XFIT':1,'YFIT':2,'COG':4}
 
-        self.command_socket = Tcp(config["command_url"])
-        self.control_socket = Tcp(config["control_url"])
+        try:
+            self.command_socket = get_comm(self.config['command'], ctype=TCP)
+        except KeyError:
+            command_url = config["command_url"]
+            warn("'command_url' keyword is deprecated." \
+                 " Use 'command: tcp' instead", DeprecationWarning)
+            comm_cfg = {'tcp': {'url': command_url } }
+            self.command_socket = get_comm(comm_cfg)
+
+        try:
+            self.control_socket = get_comm(self.config['control'], ctype=TCP)
+        except KeyError:
+            control_url = config["control_url"]
+            warn("'control_url' keyword is deprecated." \
+                 " Use 'control: tcp' instead", DeprecationWarning)
+            comm_cfg = {'tcp': {'url': control_url } }
+            self.control_socket = get_comm(comm_cfg)
 
         # Commands ready packed in network byte order
         self.commandReset         = struct.pack(">H",0xAA00)

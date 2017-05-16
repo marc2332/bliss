@@ -271,65 +271,6 @@ class oxford700(Base):
                  DeprecationWarning)
         self._oxford = OxfordCryostream(port)
 
-    def initialize_output(self, toutput):
-        """Initialize the output device
-        """
-        self.__ramp_rate = None
-        self.__set_point = None
-
-    def read_output(self, toutput):
-        """Read the current temperature
-           Returns:
-              (float): current temperature [K]
-        """
-        return self._oxford.read_temperature()
-
-    def start_ramp(self, toutput, sp, **kwargs):
-        """Start ramping to setpoint
-           Args:
-              sp (float): The setpoint temperature [K]
-           Kwargs:
-              rate (int): The ramp rate [K/hour]
-           Returns:
-              None
-        """
-        try:
-            rate = int(kwargs.get("rate", self.__ramp_rate))
-        except TypeError:
-            raise RuntimeError("Cannot start ramping, ramp rate not set")
-        self._oxford.ramp(rate, sp)
-
-    def set_ramprate(self, toutput, rate):
-        """Set the ramp rate
-           Args:
-              rate (int): The ramp rate [K/hour]
-        """
-        self.__ramp_rate = int(rate)
-
-    def read_ramprate(self, toutput):
-        """Read the ramp rate
-           Returns:
-              (int): Previously set ramp rate (cashed value only) [K/hour]
-        """
-        return self.__ramp_rate
-
-    def set(self, toutput, sp, **kwargs):
-        """Make gas temperature decrease to a set value as quickly as possible
-           Args:
-              sp (float): final temperature [K]
-           Returns:
-              (float): current gas temperature setpoint
-        """
-        return self._oxford.cool(sp)
-
-    def get_setpoint(self, toutput):
-        """Read the as quick as possible setpoint
-           Returns:
-              (float): current gas temperature setpoint
-        """
-        self.__set_point = self._oxford.cool()
-        return self.__set_point
-
     def state_output(self, toutput):
         """Read the state parameters of the controller
            Returns:

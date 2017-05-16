@@ -6,7 +6,8 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import time
-
+import sys
+import traceback
 from bliss.controllers.motor import Controller
 from bliss.comm.util import get_comm
 from bliss.common import log as elog
@@ -29,7 +30,7 @@ class VSCANNER(Controller):
 
     def __init__(self, name, config, axes, encoders):
         Controller.__init__(self, name, config, axes, encoders)
-
+        self._status = "uninitialized"
 
     def initialize(self):
         """
@@ -37,45 +38,50 @@ class VSCANNER(Controller):
         """
         try:
             self.serial = get_comm(self.config.config_dict, SERIAL, timeout=1)
+            self._status = "SERIAL communication configuration found"
+            elog.debug(self._status)
         except ValueError:
-            serial_line = self.config.get("serial_line")
-            warn("'serial_line' keyword is deprecated. Use 'serial' instead",
-                 DeprecationWarning)
-            comm_cfg = {'serial': {'url': serial_line } }
-            self.serial = get_comm(comm_cfg, timeout=1)
-
-        self._status = ""
+            try:
+                serial_line = self.config.get("serial_line")
+                warn("'serial_line' keyword is deprecated. Use 'serial' instead",
+                     DeprecationWarning)
+                comm_cfg = {'serial': {'url': serial_line } }
+                self.serial = get_comm(comm_cfg, timeout=1)
+            except:
+                self._status = "Cannot find serial configuration"
+                elog.error(self._status)
 
         try:
             # should be : 'VSCANNER 01.02\r\n'
             _ans = self.serial.write_readline("?VER\r\n")
-            elog.debug(_ans)
+            self._status += "\ncommunication ok "
+            elog.debug(self._status + _ans)
+        except OSError:
+            _ans = "no ans"
+            self._status = sys.exc_info()[1]
+            elog.error(self._status)
         except:
+            _ans = "no ans"
             self._status = "communication error : cannot communicate with serial \"%s\"" % self.serial
             elog.error(self._status)
-            _ans = ""
+            traceback.print_exc()
 
-        if _ans.index("VSCANNER") == 0:
-            # ok VSACNNER is answering.
-            elog.debug("?VER -> %s" % _ans.rstrip())
-        else:
+        try:
+            _ans.index("VSCANNER")
+            self._status += "VSCANNER found (substring VSCANNER found in answer to ?VER)."
+        except:
             self._status = "communication error : no VSCANNER found on serial \"%s\"" % self.serial
-            self._status += "_ans=%s" % _ans
-            elog.debug(self._status)
 
-        self.serial.write("?VXY\r\n")
-        _ans = self.serial.readline()
-        print "VXY=" , _ans
+        elog.debug(self._status)
 
-        self.serial.write("?STATE\r\n")
-        _ans = self.serial.readline()
-        print "STATE=", _ans
-
+    def __del__(self):
+        print "__del__ from VSCANNER"
 
     def finalize(self):
         """
         Closes the serial object.
         """
+        print "finalize() from VSCANNER"
         self.serial.close()
 
     def initialize_axis(self, axis):

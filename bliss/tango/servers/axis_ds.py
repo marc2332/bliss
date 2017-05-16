@@ -15,12 +15,6 @@ from bliss.common import event
 from bliss.common.utils import grouped
 from bliss.config.static import get_config as beacon_get_config
 
-from bliss.config.motors import load_cfg_fromstring, get_axis, get_encoder
-from bliss.controllers.motor_group import Group
-
-from bliss.config.motors import load_cfg_fromstring, get_axis, get_encoder
-from bliss.controllers.motor_group import Group
-
 import PyTango
 from PyTango.server import Device, DeviceMeta, device_property
 from PyTango.server import attribute, command, get_worker
@@ -48,7 +42,7 @@ except:
     class ConnectionException(Exception):
         pass
 
-from bliss.controllers.motor_group import Group
+from bliss.common.motor_group import Group
 
 
 class bcolors:

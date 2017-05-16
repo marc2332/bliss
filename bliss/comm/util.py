@@ -87,6 +87,9 @@ def get_comm_type(config):
                     channel is found in config
     """
     comm_type = None
+    if 'tcp-proxy' in config:
+        config = config.get('tcp-proxy')
+
     if 'tcp' in config:
         comm_type = TCP
     if 'gpib' in config:
@@ -139,6 +142,12 @@ def get_comm(config, ctype=None, **opts):
         raise TypeError('Expected {0!r} communication channel. Got {1!r}'
                         .format(ctype, comm_type))
     klass = None
+    if 'tcp-proxy' in config:
+        proxy_config = config['tcp-proxy']
+        config = proxy_config
+    else:
+        proxy_config = None
+
     if comm_type == TCP:
         default_port = opts.pop('port', None)
         opts.update(config['tcp'])
@@ -161,7 +170,12 @@ def get_comm(config, ctype=None, **opts):
     if klass is None:
         # should not happen (get_comm_type should handle all errors)
         raise ValueError('No communication channel found in config')
-    return klass(**opts)
+
+    if proxy_config is None:
+        return klass(**opts)
+    else:
+        from .tcp_proxy import Proxy
+        return Proxy(proxy_config)
 
 
 class HexMsg:

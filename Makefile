@@ -114,6 +114,7 @@ clean:
 ifneq ($(BLISS_ESRF),0)
 	rm -rf ${BLISSADM}/python/bliss_modules/bliss/
 	find tango -type f -perm ${PERM_EXE} -exec bash -c 'rm -f ${BLISSADM}/server/src/`basename {}`' \;
+	rm -rf /users/blissadm/lib/virtualenvs/bliss/lib/python2.?/site-packages/bliss
 endif
 
 

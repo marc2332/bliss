@@ -254,9 +254,8 @@ class CommandTimeout(CommunicationTimeout):
 
 def try_connect_command(fu):
     def rfunc(self, *args, **kwarg):
-        with self._lock:
-            if(not self._connected):
-                self.connect()
+        if(not self._connected):
+            self.connect()
 
         if not self._connected:
             prev_timeout = kwarg.get('timeout', None)
@@ -328,7 +327,18 @@ class Command:
         local_host = host or self._host
         local_port = port or self._port
 
-        self.close()
+        if self._connected:
+            prev_ip_host,prev_port = s.getpeername()
+            try:
+                prev_name, aliaslist, _ = socket.gethostbyaddr(prev_ip_host)
+            except socket.herror:
+                prev_name = prev_ip_host
+
+            fqdn_host = socket.getfqdn(host)
+            if(port != prev_port or
+               (fqdn_host != prev_name and 
+                name not in aliaslist)):
+               self.close()
 
         with self._lock:
             if self._connected:
@@ -345,16 +355,17 @@ class Command:
         return True
 
     def close(self):
-        if self._connected:
-            try:
-                self._fd.shutdown(socket.SHUT_RDWR)
-            except:             # probably closed one the server side
-                pass
-            self._fd.close()
-            if self._raw_read_task:
-                self._raw_read_task.join()
-                self._raw_read_task = None
-            self._transaction_list = []
+        with self._lock:
+            if self._connected:
+                try:
+                    self._fd.shutdown(socket.SHUT_RDWR)
+                except:             # probably closed one the server side
+                    pass
+                self._fd.close()
+                if self._raw_read_task:
+                    self._raw_read_task.join()
+                    self._raw_read_task = None
+                self._transaction_list = []
 
     @try_connect_command
     def _read(self, transaction, size=1, timeout=None, clear_transaction=True):

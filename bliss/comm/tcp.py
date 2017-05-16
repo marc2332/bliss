@@ -12,6 +12,7 @@
 __all__ = ['Tcp', 'Socket', 'Command']
 
 import re
+import errno
 import gevent
 from gevent import socket, event, queue, lock
 import time
@@ -129,6 +130,8 @@ class Socket:
             while not self._data:
                 self._event.wait()
                 self._event.clear()
+                if not self._connected:
+                    raise socket.error(errno.EPIPE,"Broken pipe")
         if maxsize:
             msg = self._data[:maxsize]
             self._data = self._data[maxsize:]
@@ -145,6 +148,8 @@ class Socket:
             while len(self._data) < size:
                 self._event.wait()
                 self._event.clear()
+                if not self._connected:
+                    raise socket.error(errno.EPIPE,"Broken pipe")
         msg = self._data[:size]
         self._data = self._data[size:]
         return msg
@@ -164,6 +169,8 @@ class Socket:
             while eol_pos == -1:
                 self._event.wait()
                 self._event.clear()
+                if not self._connected:
+                    raise socket.error(errno.EPIPE,"Broken pipe")
                 eol_pos = self._data.find(local_eol)
 
         msg = self._data[:eol_pos]
@@ -246,6 +253,7 @@ class Socket:
             try:
                 sock._connected = False
                 sock._fd = None
+                sock._event.set()
             except ReferenceError:
                 pass
 
@@ -291,7 +299,9 @@ class Command:
 
         def __exit__(self, *args):
             while not self.__transaction.empty():
-                self.data += self.__transaction.get()
+                read_value = self.__transaction.get()
+                if not isinstance(read_value,socket.error):
+                    self.data += self.__transaction.get()
 
             if self.__clear_transaction and \
                len(self.__socket._transaction_list) > 1:
@@ -379,7 +389,10 @@ class Command:
                                 CommandTimeout(timeout_errmsg)):
                 ctx.data = ''
                 while len(ctx.data) < size:
-                    ctx.data += transaction.get()
+                    read_value = transaction.get()
+                    if isinstance(read_value,socket.error):
+                        raise read_value
+                    ctx.data += read_value
 
                 msg = ctx.data[:size]
                 ctx.data = ctx.data[size:]
@@ -396,7 +409,10 @@ class Command:
                 ctx.data = ''
                 eol_pos = -1
                 while eol_pos == -1:
-                    ctx.data += transaction.get()
+                    read_value = transaction.get()
+                    if isinstance(read_value,socket.error):
+                        raise read_value
+                    ctx.data += read_value
                     eol_pos = ctx.data.find(local_eol)
 
                 msg = ctx.data[:eol_pos]
@@ -480,6 +496,9 @@ class Command:
             try:
                 command._connected = False
                 command._fd = None
+                #inform all pending transaction that the socket is closed
+                for trans in command._transaction_list:
+                    trans.put(socket.error(errno.EPIPE,"Broken pipe"))
             except ReferenceError:
                 pass
 

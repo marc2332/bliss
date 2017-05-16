@@ -48,7 +48,9 @@ def try_connect_socket(fu):
             except SocketTimeout:
                 self.connect()
                 kwarg.update({'timeout': prev_timeout})
-        return fu(self, *args, **kwarg)
+
+        with KillMask():
+            return fu(self, *args, **kwarg)
     return rfunc
 
 
@@ -266,7 +268,8 @@ def try_connect_command(fu):
             except CommandTimeout:
                 self.connect()
                 kwarg.update({'timeout': prev_timeout})
-        return fu(self, *args, **kwarg)
+        with KillMask():
+            return fu(self, *args, **kwarg)
     return rfunc
 
 

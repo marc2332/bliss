@@ -185,6 +185,7 @@ class Connection(object):
                             
             self._fd = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
             self._fd.setsockopt(socket.IPPROTO_TCP,socket.TCP_NODELAY,1)
+            self._fd.setsockopt(socket.SOL_IP, socket.IP_TOS, 0x10)
             self._fd.connect((host,port))
             self._raw_read_task = gevent.spawn(self._raw_read)
             self._cnx = self._fd

@@ -225,6 +225,7 @@ class RFC2217(_BaseSerial):
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._socket.connect((local_host, local_port))
         self._socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        self._socket.setsockopt(socket.SOL_IP, socket.IP_TOS, 0x10)
         self.fd = self._socket.fileno()
         self._init()
 

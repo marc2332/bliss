@@ -674,6 +674,7 @@ def main():
             elif s == tcp:
                 newSocket, addr = tcp.accept()
                 newSocket.setsockopt(socket.IPPROTO_TCP,socket.TCP_NODELAY,1)
+                newSocket.setsockopt(socket.SOL_IP, socket.IP_TOS, 0x10)
                 localhost = addr[0] == '127.0.0.1'
                 gevent.spawn(_client_rx,newSocket,localhost)
 

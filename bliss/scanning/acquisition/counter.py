@@ -13,8 +13,22 @@ from ..chain import AcquisitionDevice,AcquisitionChannel
 from bliss.common.measurement import CounterBase
 
 class CounterAcqDevice(AcquisitionDevice):
+    SIMPLE_AVERAGE,TIME_AVERAGE,INTEGRATE = range(3)
+
     def __init__(self,counter,
-                 count_time=None,npoints=1,**keys):
+                 count_time=None,npoints=1,
+                 mode=SIMPLE_AVERAGE,**keys):
+        """
+        Helper to manage acquisition of a sampling counter.
+
+        count_time -- the master integration time.
+        npoints -- number of point for this acquisition
+        mode -- three mode are available *SIMPLE_AVERAGE* (the default)
+        which sum all the sampling values and divide by the number of read value.
+        the *TIME_AVERAGE* which sum all integration  then divide by the sum
+        of time spend to measure all values. And *INTEGRATION* which sum all integration
+        and then normalize it when the *count_time*.
+        """
         prepare_once = keys.pop('prepare_once',npoints > 1 and True or False)
         start_once = keys.pop('start_once',npoints > 1 and True or False)
         npoints = max(1,npoints)
@@ -32,6 +46,14 @@ class CounterAcqDevice(AcquisitionDevice):
         self._stop_flag = False
         self._ready_event = event.Event()
         self._ready_flag = True
+        self.__mode = mode
+
+    @property
+    def mode(self):
+        return self.__mode
+    @mode.setter
+    def mode(self,value):
+        self.__mode = value
 
     def add_counter_to_read(self,counter):
         self.channels.append(AcquisitionChannel(counter.name,numpy.double, (1,)))
@@ -88,8 +110,14 @@ class CounterAcqDevice(AcquisitionDevice):
             #Counter integration loop
             while not self._stop_flag:
                 start_read = time.time()
-                acc_value += read()
+                read_value = read()
                 end_read = time.time()
+                read_time = end_read - start_read
+                
+                if self.__mode != CounterAcqDevice.TIME_AVERAGE:
+                    acc_value += read_value
+                else:
+                    acc_value += read_value * (end_read - start_read)
                 nb_read += 1
                 acc_read_time += end_read - start_read
 
@@ -97,10 +125,16 @@ class CounterAcqDevice(AcquisitionDevice):
                 if (current_time + (acc_read_time / nb_read)) > stop_time:
                     break
                 sleep(0) # Be able to kill the task
-
             self._nb_acq_points += 1
-            data = acc_value / nb_read
-            channel_data = dict([(name, data[index]) for index,name in enumerate(counter_name)])
+            if self.__mode == CounterAcqDevice.TIME_AVERAGE:
+                data = acc_value / nb_read
+            else:
+                data = acc_value / acc_read_time
+                
+            if self.__mode == CounterAcqDevice.INTEGRATE:
+                data *= self._count_time
+            
+            channel_data = {name:data[index] for index,name in enumerate(counter_name)}
             dispatcher.send("new_data",self,
                             {"channel_data": channel_data})
             self._ready_flag = True

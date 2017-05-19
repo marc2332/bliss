@@ -416,12 +416,12 @@ class SER2NET(RFC2217):
         rx = comm.write_readline(msg)
         msg_pos = rx.find(msg)
         rx = rx[msg_pos + len(msg):]
-        parameters = [re.split('[ ]{2,}',l) for l in rx.split('\n\r')]
-        port_parse = re.compile('.+?%s$' % match.group(4))
+        port_parse = re.compile('^([0-9]+).+?%s' % match.group(4))
         rfc2217_port = None
-        for p in parameters:
-            if port_parse.match(p[2]):
-                rfc2217_port = int(p[0])
+        for line in rx.split('\n\r'):
+            g = port_parse.match(line)
+            if g:
+                rfc2217_port = int(g.group(1))
                 break
         if rfc2217_port is None:
             raise SER2NETError('port %s is not found on server' % match.group(4))

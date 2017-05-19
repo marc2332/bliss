@@ -227,6 +227,7 @@ class ModbusTcp:
             self._fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self._fd.connect((local_host,local_port))
             self._fd.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+            self._fd.setsockopt(socket.SOL_IP, socket.IP_TOS, 0x10)
             self._host = local_host
             self._port = local_port
             self._raw_read_task = gevent.spawn(self._raw_read,

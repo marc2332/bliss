@@ -12,6 +12,7 @@
 __all__ = ['Tcp', 'Socket', 'Command']
 
 import re
+import errno
 import gevent
 from gevent import socket, event, queue, lock
 import time
@@ -48,7 +49,9 @@ def try_connect_socket(fu):
             except SocketTimeout:
                 self.connect()
                 kwarg.update({'timeout': prev_timeout})
-        return fu(self, *args, **kwarg)
+
+        with KillMask():
+            return fu(self, *args, **kwarg)
     return rfunc
 
 
@@ -127,6 +130,8 @@ class Socket:
             while not self._data:
                 self._event.wait()
                 self._event.clear()
+                if not self._connected:
+                    raise socket.error(errno.EPIPE,"Broken pipe")
         if maxsize:
             msg = self._data[:maxsize]
             self._data = self._data[maxsize:]
@@ -143,6 +148,8 @@ class Socket:
             while len(self._data) < size:
                 self._event.wait()
                 self._event.clear()
+                if not self._connected:
+                    raise socket.error(errno.EPIPE,"Broken pipe")
         msg = self._data[:size]
         self._data = self._data[size:]
         return msg
@@ -162,6 +169,8 @@ class Socket:
             while eol_pos == -1:
                 self._event.wait()
                 self._event.clear()
+                if not self._connected:
+                    raise socket.error(errno.EPIPE,"Broken pipe")
                 eol_pos = self._data.find(local_eol)
 
         msg = self._data[:eol_pos]
@@ -244,6 +253,7 @@ class Socket:
             try:
                 sock._connected = False
                 sock._fd = None
+                sock._event.set()
             except ReferenceError:
                 pass
 
@@ -254,9 +264,8 @@ class CommandTimeout(CommunicationTimeout):
 
 def try_connect_command(fu):
     def rfunc(self, *args, **kwarg):
-        with self._lock:
-            if(not self._connected):
-                self.connect()
+        if(not self._connected):
+            self.connect()
 
         if not self._connected:
             prev_timeout = kwarg.get('timeout', None)
@@ -267,7 +276,8 @@ def try_connect_command(fu):
             except CommandTimeout:
                 self.connect()
                 kwarg.update({'timeout': prev_timeout})
-        return fu(self, *args, **kwarg)
+        with KillMask():
+            return fu(self, *args, **kwarg)
     return rfunc
 
 
@@ -289,7 +299,9 @@ class Command:
 
         def __exit__(self, *args):
             while not self.__transaction.empty():
-                self.data += self.__transaction.get()
+                read_value = self.__transaction.get()
+                if not isinstance(read_value,socket.error):
+                    self.data += self.__transaction.get()
 
             if self.__clear_transaction and \
                len(self.__socket._transaction_list) > 1:
@@ -328,7 +340,18 @@ class Command:
         local_host = host or self._host
         local_port = port or self._port
 
-        self.close()
+        if self._connected:
+            prev_ip_host,prev_port = s.getpeername()
+            try:
+                prev_name, aliaslist, _ = socket.gethostbyaddr(prev_ip_host)
+            except socket.herror:
+                prev_name = prev_ip_host
+
+            fqdn_host = socket.getfqdn(host)
+            if(port != prev_port or
+               (fqdn_host != prev_name and 
+                name not in aliaslist)):
+               self.close()
 
         with self._lock:
             if self._connected:
@@ -345,16 +368,17 @@ class Command:
         return True
 
     def close(self):
-        if self._connected:
-            try:
-                self._fd.shutdown(socket.SHUT_RDWR)
-            except:             # probably closed one the server side
-                pass
-            self._fd.close()
-            if self._raw_read_task:
-                self._raw_read_task.join()
-                self._raw_read_task = None
-            self._transaction_list = []
+        with self._lock:
+            if self._connected:
+                try:
+                    self._fd.shutdown(socket.SHUT_RDWR)
+                except:             # probably closed one the server side
+                    pass
+                self._fd.close()
+                if self._raw_read_task:
+                    self._raw_read_task.join()
+                    self._raw_read_task = None
+                self._transaction_list = []
 
     @try_connect_command
     def _read(self, transaction, size=1, timeout=None, clear_transaction=True):
@@ -365,7 +389,10 @@ class Command:
                                 CommandTimeout(timeout_errmsg)):
                 ctx.data = ''
                 while len(ctx.data) < size:
-                    ctx.data += transaction.get()
+                    read_value = transaction.get()
+                    if isinstance(read_value,socket.error):
+                        raise read_value
+                    ctx.data += read_value
 
                 msg = ctx.data[:size]
                 ctx.data = ctx.data[size:]
@@ -382,7 +409,10 @@ class Command:
                 ctx.data = ''
                 eol_pos = -1
                 while eol_pos == -1:
-                    ctx.data += transaction.get()
+                    read_value = transaction.get()
+                    if isinstance(read_value,socket.error):
+                        raise read_value
+                    ctx.data += read_value
                     eol_pos = ctx.data.find(local_eol)
 
                 msg = ctx.data[:eol_pos]
@@ -466,6 +496,9 @@ class Command:
             try:
                 command._connected = False
                 command._fd = None
+                #inform all pending transaction that the socket is closed
+                for trans in command._transaction_list:
+                    trans.put(socket.error(errno.EPIPE,"Broken pipe"))
             except ReferenceError:
                 pass
 

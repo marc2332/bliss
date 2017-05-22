@@ -104,11 +104,11 @@ class DataNodeIterator(object):
         redis = self.node.db_connection
         pubsub = redis.pubsub()
         pubsub.psubscribe("__keyspace*__:%s*_children_list" % self.node.db_name())
+        pubsub.psubscribe("__keyspace*__:%s*_channels" % self.node.db_name())
         return pubsub
     
     def child_register_new_data(self,child_node,pubsub):
         if child_node.type() == 'zerod':
-            pubsub.subscribe("__keyspace@1__:%s_channels" % child_node.db_name())
             for channel_name in child_node.channels_name():
                 pubsub.subscribe("__keyspace@1__:%s_%s" % (child_node.db_name(),channel_name))
         else:
@@ -153,6 +153,7 @@ class DataNodeIterator(object):
                             self.zerod_channel_event[event_key] = zerod_db_name
                         if filter is None or zerod.type() in filter:
                             yield self.NEW_CHANNEL_EVENT,zerod
+                            yield self.NEW_DATA_IN_CHANNEL_EVENT,(zerod,channel_name)
                     else:
                         new_data_in_channel = self.zerod_channel_event.get(channel)
                         if new_data_in_channel is not None:

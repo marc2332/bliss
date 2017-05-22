@@ -153,3 +153,10 @@ def test_real_move_and_set_pos(s1f, s1b, s1hg):
     assert s1hg.position() == pytest.approx(2.5)
     assert s1hg._set_position() == pytest.approx(2.5)
 
+def test_offset_set_position(s1hg):
+    s1hg.dial(0)
+    s1hg.position(1)
+    assert s1hg._set_position() == pytest.approx(1)
+    s1hg.move(0.1)
+    assert s1hg._set_position() == pytest.approx(0.1)
+

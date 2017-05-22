@@ -358,7 +358,7 @@ class CalcController(Controller):
        
         for tagged_axis_name, setpos in new_setpos.iteritems():
           axis = self._tagged[tagged_axis_name][0]
-          axis.settings.set("_set_position", setpos, write=motion_control)
+          axis.settings.set("_set_position", axis.dial2user(setpos), write=motion_control)
 
     def _do_calc_from_real(self):
         real_positions_by_axis = self._reals_group.position()

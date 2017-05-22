@@ -20,7 +20,7 @@ BEACON_PORT = 7655
 from bliss.config import static
 from bliss.config.conductor import client
 from bliss.config.conductor import connection
-#import redis
+import redis
 
 os.environ["PYTHONPATH"] = BLISS
 
@@ -28,8 +28,8 @@ os.environ["PYTHONPATH"] = BLISS
 def beacon():
     p = subprocess.Popen([BEACON, '--port=%d' % BEACON_PORT, '--redis_port=7654', '--db_path='+BEACON_DB_PATH, '--posix_queue=0'])
     time.sleep(0.5) #wait for beacon to be really started
-    #redis_db = redis.Redis(port=7654)
-    #redis_db.flushdb()
+    redis_db = redis.Redis(port=7654)
+    redis_db.flushdb()
     beacon_connection = connection.Connection("localhost", BEACON_PORT)
     client._default_connection = beacon_connection
     cfg = static.get_config()

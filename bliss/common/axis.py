@@ -318,7 +318,10 @@ class Axis(object):
         Returns:
             float: dial encoder position
         """
-        return self.__controller.read_encoder(self.encoder) / self.encoder.steps_per_unit
+        if self.encoder is not None:
+            return self.encoder.read()
+        else:
+            raise RuntimeError("Axis '%s` has no encoder." % self.name)
 
     def __do_set_dial(self, new_dial, no_offset):
         user_pos = self.position()

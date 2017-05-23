@@ -441,3 +441,8 @@ def test_jog2(jogger):
     assert jogger._hw_position() == pytest.approx(300+jogger.acceleration()*0.5*jogger.acctime()**2, 1e-2)
     jogger.stop() 
 
+def test_measured_position(m1, roby):
+    assert m1.measured_position() == m1.position()
+    with pytest.raises(RuntimeError):
+      roby.measured_position()
+

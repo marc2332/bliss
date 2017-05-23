@@ -186,14 +186,6 @@ class Axis(object):
         return self.config.get("steps_per_unit", float, 1)
 
     @property
-    def encoder_steps_per_unit(self):
-        """Current encoder steps per unit (:obj:`float`)"""
-        if self.encoder is not None:
-            return self.encoder.steps_per_unit
-        else:
-            return self.config.get("encoder_steps_per_unit",float,
-                                   self.steps_per_unit)
-    @property
     def tolerance(self):
         """Current tolerance in dial units (:obj:`float`)"""
         return self.config.get("tolerance", float, 1E-4)
@@ -617,7 +609,7 @@ class Axis(object):
             self._backlash_move(backlash_start, motion.backlash, polling_time)
         elif stopped:
             self._set_position(user_pos)
-        elif self.encoder is not None:
+        elif self.config.get("check_encoder", bool, False) and self.encoder:
             self._do_encoder_reading()
 
     def _jog_move(self, velocity, direction, polling_time):

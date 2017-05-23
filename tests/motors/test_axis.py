@@ -12,11 +12,6 @@ import gevent.event
 from bliss.common import event
 from bliss.common.axis import get_axis, Modulo
 
-"""def test_get_axis():
-    robz = get_axis("robz")
-    assert robz
-"""
-
 def test_property_setting(robz):
     assert robz.velocity() == 100
 

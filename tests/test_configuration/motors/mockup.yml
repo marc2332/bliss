@@ -28,6 +28,7 @@ controller:
     velocity: 50
     acceleration: 1
     encoder: $m1enc
+    check_encoder: True
   - name: m0
     velocity: 1000
     acceleration: 100

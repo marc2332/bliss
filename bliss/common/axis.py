@@ -609,7 +609,7 @@ class Axis(object):
             self._backlash_move(backlash_start, motion.backlash, polling_time)
         elif stopped:
             self._set_position(user_pos)
-        elif self.encoder is not None:
+        elif self.config.get("check_encoder", bool, False) and self.encoder:
             self._do_encoder_reading()
 
     def _jog_move(self, velocity, direction, polling_time):

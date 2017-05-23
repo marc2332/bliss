@@ -186,14 +186,6 @@ class Axis(object):
         return self.config.get("steps_per_unit", float, 1)
 
     @property
-    def encoder_steps_per_unit(self):
-        """Current encoder steps per unit (:obj:`float`)"""
-        if self.encoder is not None:
-            return self.encoder.steps_per_unit
-        else:
-            return self.config.get("encoder_steps_per_unit",float,
-                                   self.steps_per_unit)
-    @property
     def tolerance(self):
         """Current tolerance in dial units (:obj:`float`)"""
         return self.config.get("tolerance", float, 1E-4)

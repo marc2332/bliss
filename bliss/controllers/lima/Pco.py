@@ -79,7 +79,7 @@ class Camera(object):
         """
         return self._proxy.maxNbImages
 
-   @property
+    @property
     def version(self):
         """
         Pco plugin version

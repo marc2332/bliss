@@ -100,7 +100,7 @@ class CounterAcqDevice(AcquisitionDevice):
 
             self._nb_acq_points += 1
             data = acc_value / nb_read
-            channel_data = {name:data[index] for index,name in enumerate(counter_name)}
+            channel_data = dict([(name, data[index]) for index,name in enumerate(counter_name)])
             dispatcher.send("new_data",self,
                             {"channel_data": channel_data})
             self._ready_flag = True

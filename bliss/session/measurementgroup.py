@@ -170,6 +170,8 @@ def _active_name(name = ""):
 
 class default_mg(object):
   def __getattribute__(self, attr):
+    if attr == '__class__':
+      return MeasurementGroup
     return getattr(get_active(), attr)
   def __setattr__(self,name,value):
     active = get_active()

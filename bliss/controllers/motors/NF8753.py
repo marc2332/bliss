@@ -3,6 +3,7 @@ Bliss controller for ethernet NewFocus 87xx series piezo controller.
 A. Beteva, M. Guijarro, ESRF BCU
 """
 import time
+from warnings import warn
 
 from bliss.controllers.motor import Controller; from bliss.common import log
 from bliss.common.axis import AxisState

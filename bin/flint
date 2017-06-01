@@ -59,12 +59,9 @@ def copy_data(scan_node,zerod,channel_name,zerod_index):
     if data:
         channel_data = PLOT_DATA.setdefault(scan_node, {}).setdefault(channel_name, [])
         channel_data.extend(data)
-        print channel_data
         update_plot(scan_node)
 
 def watch_data(scan_node):
-    print '*'*50
-    print 'in watch data',scan_node
     PLOTS[scan_node]=Plot1D()
     PLOTS[scan_node].show()
     zerod_index = dict()

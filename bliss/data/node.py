@@ -94,7 +94,7 @@ class DataNodeIterator(object):
         for i, child in enumerate(self.node.children()):
             iterator = DataNodeIterator(child,last_child_id=self.last_child_id)
             for n in iterator.walk(filter, wait=False):
-                self.last_child_id[db_name] = i
+                self.last_child_id[db_name] = i+1
                 if filter is None or n.type() in filter:
                     yield n
         if wait:
@@ -183,8 +183,8 @@ class DataNodeIterator(object):
                     parent_db_name = new_child_event.groups()[0]
                     parent_node = get_node(parent_db_name)
                     first_child = self.last_child_id.setdefault(parent_db_name, 0)
-                    for i,child in enumerate(parent_node.children(first_child, -1)):
-                        self.last_child_id[parent_db_name] = first_child + i
+                    for i, child in enumerate(parent_node.children(first_child, -1)):
+                        self.last_child_id[parent_db_name] = first_child + i + 1
                         if filter is None or child.type() in filter:
                             yield self.NEW_CHILD_EVENT,child
                         if child.type() == 'zerod':
@@ -206,6 +206,7 @@ class DataNodeIterator(object):
                             channel_name = channel.split(db_name)[-1]
                             if filter is None or zerod.type() in filter:
                                 yield self.NEW_DATA_IN_CHANNEL_EVENT,(zerod,channel_name)
+
 class _TTL_setter(object):
     def __init__(self,db_name):
         self._db_name = db_name

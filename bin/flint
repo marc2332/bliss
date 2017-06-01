@@ -28,7 +28,10 @@ except ImportError:
 pyqtRemoveInputHook()
 
 def run_gevent():
-  gevent.wait(timeout=0.01)
+  try:
+      gevent.wait(timeout=0.01)
+  except KeyboardInterrupt:
+      sys.exit(1)
 
 qapp = qt.QApplication([])
 

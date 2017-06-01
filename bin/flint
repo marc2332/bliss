@@ -1,0 +1,121 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# This file is part of the bliss project
+#
+# Copyright (c) 2016 Beamline Control Unit, ESRF
+# Distributed under the GNU LGPLv3. See LICENSE for more info.
+"""
+Usage: flint [(-s | --session)] <name>...
+       flint (-h | --help)
+Options:
+    -s, --session                 Follow data from session(s).
+    -h, --help                    Show this screen.
+"""
+import docopt
+from silx.gui.plot.PlotWindow import Plot1D
+from silx.gui import qt
+from PyQt4.QtCore import pyqtRemoveInputHook
+from bliss.data.node import DataNodeIterator,_get_or_create_node
+import numpy
+import gevent
+
+try:
+    from collections import OrderedDict
+except ImportError:
+    from ordereddict import OrderedDict
+
+pyqtRemoveInputHook()
+
+def run_gevent():
+  gevent.wait(timeout=0.01)
+
+qapp = qt.QApplication([])
+
+events_processing = qt.QTimer()
+events_processing.setInterval(10)
+events_processing.timeout.connect(run_gevent)
+events_processing.start()
+
+PLOTS = dict()
+PLOT_DATA = dict()
+
+def update_plot(scan_node):
+    plot = PLOTS[scan_node]
+    data = PLOT_DATA[scan_node]
+    x = data.get('timestamp',[])
+    y = data.get('i0', [])
+    if len(x) == len(y):
+        plot.addCurve(x, y, legend='i0')
+
+def copy_data(scan_node,zerod,channel_name,zerod_index):
+    data_channel = zerod.get_channel(channel_name)
+    from_index = zerod_index.get(channel_name,0)
+    data = data_channel.get(from_index,-1)
+    zerod_index[channel_name] = from_index + len(data)
+    if data:
+        channel_data = PLOT_DATA.setdefault(scan_node, {}).setdefault(channel_name, [])
+        channel_data.extend(data)
+        print channel_data
+        update_plot(scan_node)
+
+def watch_data(scan_node):
+    print '*'*50
+    print 'in watch data',scan_node
+    PLOTS[scan_node]=Plot1D()
+    PLOTS[scan_node].show()
+
+    scan_data_iterator = DataNodeIterator(scan_node)
+    pubsub = scan_data_iterator.children_event_register()
+    zerod_index = dict()
+    for zerod in scan_data_iterator.walk(filter='zerod',wait=False):
+        scan_data_iterator.child_register_new_data(zerod,pubsub)
+        for channel_name in zerod.channels_name():
+            copy_data(scan_node, zerod,channel_name,zerod_index)
+
+    for event_type,zerod in scan_data_iterator.wait_for_event(pubsub,filter='zerod'):
+        if event_type is scan_data_iterator.NEW_CHILD_EVENT:
+            #scan_data_iterator.child_register_new_data(zerod,pubsub)
+            for channel_name in zerod.channels_name():
+                copy_data(scan_node,zerod,channels_name,zerod_index)
+        elif event_type is scan_data_iterator.NEW_DATA_IN_CHANNEL_EVENT:
+            print '#'*4, channel_name
+            zerod,channel_name = zerod
+            copy_data(scan_node,zerod,channel_name,zerod_index)
+
+def watch_session(session_name):
+    session_node = _get_or_create_node(session_name,node_type='session')
+    if session_node is not None:
+        data_iterator = DataNodeIterator(session_node)
+        pubsub = data_iterator.children_event_register()
+        last_scan_node = None
+        for last_scan_node in data_iterator.walk(filter='scan',wait=False):
+            pass
+        watch_data_task = None
+        if last_scan_node is not None:
+            watch_data_task = gevent.spawn(watch_data,last_scan_node)
+
+        for event_type,scan_node in data_iterator.wait_for_event(pubsub,filter='scan'):
+            if watch_data_task:
+                watch_data_task.kill()
+            watch_data_task = gevent.spawn(watch_data,scan_node)
+
+def main():
+    try:
+        # Parse arguments, use file docstring as a parameter definition
+        arguments = docopt.docopt(__doc__)
+        sessions_name = arguments['<name>']
+    except docopt.DocoptExit as e:
+        print e.message
+    else:
+        tasks = list()
+        for session in sessions_name:
+            tasks.append(gevent.spawn(watch_session,session))
+  
+        qapp.exec_()
+
+if __name__ == '__main__':
+   main()
+
+
+

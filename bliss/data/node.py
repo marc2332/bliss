@@ -147,7 +147,7 @@ class DataNodeIterator(object):
         else:
             pass                # warning not managed yet
 
-    def emit_zerod_channels_events(self, pubsub, zerod, filter):
+    def zerod_channels_events(self, pubsub, zerod, filter):
         events = list()
         print filter, zerod.type()
         filter = filter is None or zerod.type() in filter
@@ -189,14 +189,14 @@ class DataNodeIterator(object):
                             yield self.NEW_CHILD_EVENT,child
                         if child.type() == 'zerod':
                             zerod = child
-                            for event in self.emit_zerod_channels_events(pubsub, zerod, filter):
+                            for event in self.zerod_channels_events(pubsub, zerod, filter):
                                 yield event
                 else:
                     new_channel_event = DataNodeIterator.NEW_CHANNEL_REGEX.match(channel)
                     if new_channel_event:
                         zerod_db_name = new_channel_event.groups()[0]
                         zerod = get_node(zerod_db_name)
-                        for event in self.emit_zerod_channels_events(pubsub, zerod, filter):
+                        for event in self.zerod_channels_events(pubsub, zerod, filter):
                             yield event
                     else:
                         new_data_in_channel = self.zerod_channel_event.get(channel)

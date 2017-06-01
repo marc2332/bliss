@@ -74,11 +74,10 @@ class DataNodeIterator(object):
 
     def walk(self, filter=None, wait=True):  
         #print self.node.db_name(),id(self.node)
-        try:
-            it = iter(filter)
-        except TypeError:
-            if filter is not None:
-                filter = [filter]
+        if isinstance(filter, (str,unicode)):
+            filter = (filter, )
+        else:
+            filter = tuple(filter)
         
         if wait:
             pubsub = self.children_event_register()
@@ -103,18 +102,42 @@ class DataNodeIterator(object):
     def children_event_register(self):
         redis = self.node.db_connection
         pubsub = redis.pubsub()
-        pubsub.psubscribe("__keyspace*__:%s*_children_list" % self.node.db_name())
-        pubsub.psubscribe("__keyspace*__:%s*_channels" % self.node.db_name())
+        pubsub.psubscribe("__keyspace@1__:%s*_children_list" % self.node.db_name())
+        pubsub.psubscribe("__keyspace@1__:%s*_channels" % self.node.db_name())
         return pubsub
     
     def child_register_new_data(self,child_node,pubsub):
         if child_node.type() == 'zerod':
             for channel_name in child_node.channels_name():
-                pubsub.subscribe("__keyspace@1__:%s_%s" % (child_node.db_name(),channel_name))
+                zerod_db_name = child_node.db_name()
+                event_key = "__keyspace@1__:%s_%s" % (zerod_db_name, channel_name)
+                pubsub.subscribe(event_key)
+                self.zerod_channel_event[event_key] = zerod_db_name
         else:
             pass                # warning not managed yet
 
-    def wait_for_event(self,pubsub,filter = None):
+    def emit_zerod_channels_events(self, pubsub, zerod, filter):
+        events = list()
+        print filter, zerod.type()
+        filter = filter is None or zerod.type() in filter
+
+        for channel_name in zerod.channels_name():
+            zerod_db_name = zerod.db_name()
+            event_key = "__keyspace@1__:%s_%s" % (zerod_db_name,channel_name)
+            if event_key in self.zerod_channel_event:
+                continue
+            else:
+                if filter:
+                    pubsub.subscribe(event_key)
+                    self.zerod_channel_event[event_key] = zerod_db_name
+                    events.append((self.NEW_DATA_IN_CHANNEL_EVENT, (zerod, channel_name)))
+
+        if filter and events:
+            events.insert(0, (self.NEW_CHANNEL_EVENT,zerod))
+
+        return events
+
+    def wait_for_event(self, pubsub, filter = None):
         try:
             it = iter(filter)
         except TypeError:
@@ -135,25 +158,15 @@ class DataNodeIterator(object):
                             yield self.NEW_CHILD_EVENT,child
                         if child.type() == 'zerod':
                             zerod = child
-                            for channel_name in zerod.channels_name():
-                                zerod_db_name = zerod.db_name()
-                                event_key = "__keyspace@1__:%s_%s" % (zerod_db_name,channel_name)
-                                pubsub.subscribe(event_key)
-                                self.zerod_channel_event[event_key] = zerod_db_name
-                            if filter is None or zerod.type() in filter:
-                                yield self.NEW_CHANNEL_EVENT,zerod
+                            for event in self.emit_zerod_channels_events(pubsub, zerod, filter):
+                                yield event
                 else:
                     new_channel_event = DataNodeIterator.NEW_CHANNEL_REGEX.match(channel)
                     if new_channel_event:
                         zerod_db_name = new_channel_event.groups()[0]
                         zerod = get_node(zerod_db_name)
-                        for channel_name in zerod.channels_name():
-                            event_key = "__keyspace@1__:%s_%s" % (zerod.db_name(),channel_name)
-                            pubsub.subscribe(event_key)
-                            self.zerod_channel_event[event_key] = zerod_db_name
-                        if filter is None or zerod.type() in filter:
-                            yield self.NEW_CHANNEL_EVENT,zerod
-                            yield self.NEW_DATA_IN_CHANNEL_EVENT,(zerod,channel_name)
+                        for event in self.emit_zerod_channels_events(pubsub, zerod, filter):
+                            yield event
                     else:
                         new_data_in_channel = self.zerod_channel_event.get(channel)
                         if new_data_in_channel is not None:

@@ -77,7 +77,6 @@ class DataNodeIterator(object):
 
            If wait is True (default), the function blocks until a new node appears
         """ 
-        #print self.node.db_name(),id(self.node)
         if isinstance(filter, (str,unicode)):
             filter = (filter, )
         else:
@@ -171,11 +170,10 @@ class DataNodeIterator(object):
         return events
 
     def wait_for_event(self, pubsub, filter = None):
-        try:
-            it = iter(filter)
-        except TypeError:
-            if filter is not None:
-                filter = set(filter)
+        if isinstance(filter, (str,unicode)):
+            filter = (filter, )
+        else:
+            filter = tuple(filter)
 
         for msg in pubsub.listen():
             if msg['data'] == 'rpush':

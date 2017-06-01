@@ -101,7 +101,8 @@ class DataNodeIterator(object):
         if wait:
             #yield from self.wait_for_event(pubsub)
             for event_type,value in self.wait_for_event(pubsub,filter):
-                yield value
+                if event_type is self.NEW_CHILD_EVENT:
+                    yield value
 
     def walk_from_last(self, filter=None, wait=True):
         """Walk from the last child node (see walk)
@@ -115,7 +116,8 @@ class DataNodeIterator(object):
             yield last_node
 
         for event_type, node in self.wait_for_event(pubsub, filter=filter):
-            yield node
+            if event_type is self.NEW_CHILD_EVENT:
+                yield node
 
     def walk_events(self, filter=None):
         """Walk through child nodes, just like `walk` function, yielding node events

@@ -7,7 +7,7 @@
 
 import os, sys
 import argparse
-from distutils.core import setup
+from setuptools import setup
 from distutils.command.build import build
 from distutils.command.install import install
 from distutils.unixccompiler import UnixCCompiler
@@ -138,8 +138,12 @@ setup(name="bliss",
                                              "js/*.*",
                                              "res/*.*"],
                     'bliss.shell.web':['*.html', 'css/*.css', "js/*.js"]},
-      scripts=["bin/beacon-server", "bin/beacon-server-list","bin/bliss", 'bin/bliss_webserver',
+      scripts=["bin/beacon-server-list","bin/bliss", 'bin/bliss_webserver',
                'bin/sps_data_watch'],
+      entry_points={
+          'console_scripts':
+              ['bliss-emulator=bliss.controllers.emulator:main',
+               'beacon-server=bliss.config.conductor.server:main']},
       cmdclass=cmdclass,
 )
 

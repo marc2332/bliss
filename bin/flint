@@ -64,38 +64,25 @@ def watch_data(scan_node):
     print 'in watch data',scan_node
     PLOTS[scan_node]=Plot1D()
     PLOTS[scan_node].show()
+    zerod_index = dict()
 
     scan_data_iterator = DataNodeIterator(scan_node)
-    pubsub = scan_data_iterator.children_event_register()
-    zerod_index = dict()
-    for zerod in scan_data_iterator.walk(filter='zerod',wait=False):
-        scan_data_iterator.child_register_new_data(zerod,pubsub)
-        for channel_name in zerod.channels_name():
-            copy_data(scan_node, zerod,channel_name,zerod_index)
-
-    for event_type,zerod in scan_data_iterator.wait_for_event(pubsub,filter='zerod'):
+    for event_type, event_data in scan_data_iterator.walk_events(filter="zerod"):
         if event_type is scan_data_iterator.NEW_CHILD_EVENT:
-            #scan_data_iterator.child_register_new_data(zerod,pubsub)
+            zerod = event_data
             for channel_name in zerod.channels_name():
-                copy_data(scan_node,zerod,channels_name,zerod_index)
+                copy_data(scan_node, zerod, channel_name, zerod_index)
         elif event_type is scan_data_iterator.NEW_DATA_IN_CHANNEL_EVENT:
-            print '#'*4, channel_name
-            zerod,channel_name = zerod
-            copy_data(scan_node,zerod,channel_name,zerod_index)
-
+            zerod, channel_name = event_data
+            copy_data(scan_node, zerod, channel_name, zerod_index)
+    
 def watch_session(session_name):
     session_node = _get_or_create_node(session_name,node_type='session')
     if session_node is not None:
         data_iterator = DataNodeIterator(session_node)
-        pubsub = data_iterator.children_event_register()
-        last_scan_node = None
-        for last_scan_node in data_iterator.walk(filter='scan',wait=False):
-            pass
-        watch_data_task = None
-        if last_scan_node is not None:
-            watch_data_task = gevent.spawn(watch_data,last_scan_node)
 
-        for event_type,scan_node in data_iterator.wait_for_event(pubsub,filter='scan'):
+        watch_data_task = None
+        for scan_node in data_iterator.walk_from_last(filter='scan'):
             if watch_data_task:
                 watch_data_task.kill()
             watch_data_task = gevent.spawn(watch_data,scan_node)

@@ -72,7 +72,11 @@ class DataNodeIterator(object):
         self.last_child_id = dict() if last_child_id is None else last_child_id
         self.zerod_channel_event = dict()
 
-    def walk(self, filter=None, wait=True):  
+    def walk(self, filter=None, wait=True):
+        """Iterate over child nodes that match the `filter` argument
+
+           If wait is True (default), the function blocks until a new node appears
+        """ 
         #print self.node.db_name(),id(self.node)
         if isinstance(filter, (str,unicode)):
             filter = (filter, )
@@ -98,6 +102,33 @@ class DataNodeIterator(object):
             #yield from self.wait_for_event(pubsub)
             for event_type,value in self.wait_for_event(pubsub,filter):
                 yield value
+
+    def walk_from_last(self, filter=None, wait=True):
+        """Walk from the last child node (see walk)
+        """
+        pubsub = self.children_event_register()
+        last_node = None
+        for last_node in self.walk(filter, wait=False):
+            pass
+
+        if last_node is not None:
+            yield last_node
+
+        for event_type, node in self.wait_for_event(pubsub, filter=filter):
+            yield node
+
+    def walk_events(self, filter=None):
+        """Walk through child nodes, just like `walk` function, yielding node events
+        (like NEW_CHILD_EVENT or NEW_DATA_IN_CHANNEL_EVENT) instead of node objects
+        """
+        pubsub = self.children_event_register()
+ 
+        for node in self.walk(filter, wait=False):
+            self.child_register_new_data(node, pubsub)
+            yield self.NEW_CHILD_EVENT, node 
+
+        for event_type, event_data in self.wait_for_event(pubsub, filter=filter):
+            yield event_type, event_data
 
     def children_event_register(self):
         redis = self.node.db_connection

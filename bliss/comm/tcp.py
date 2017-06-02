@@ -299,19 +299,26 @@ class Command:
             return self
 
         def __exit__(self, *args):
-            while not self.__transaction.empty():
-                read_value = self.__transaction.get()
-                if not isinstance(read_value,socket.error):
-                    self.data += read_value
+            with self.__socket._lock:
+                try:
+                    trans_index = self.__socket._transaction_list.index(self.__transaction)
+                except ValueError: # not in list weird
+                    return
 
-            if self.__clear_transaction and \
-               len(self.__socket._transaction_list) > 1:
-                self.__socket._transaction_list[1].put(self.data)
-            else:
-                self.__transaction.put(self.data)
+                if trans_index is 0:
+                    while not self.__transaction.empty():
+                        read_value = self.__transaction.get()
+                        if not isinstance(read_value,socket.error):
+                            self.data += read_value
 
-            if self.__clear_transaction:
-                self.__socket._transaction_list.pop(0)
+                    if self.__clear_transaction and \
+                       len(self.__socket._transaction_list) > 1:
+                        self.__socket._transaction_list[1].put(self.data)
+                    else:
+                        self.__transaction.put(self.data)
+
+                if self.__clear_transaction:
+                    self.__socket._transaction_list.pop(trans_index)
 
     def __init__(self, host, port,
                  eol='\n',      # end of line for each rx message
@@ -487,10 +494,11 @@ class Command:
         try:
             while(1):
                 raw_data = fd.recv(16 * 1024)
-                if raw_data and command._transaction_list:
-                    command._transaction_list[0].put(raw_data)
-                else:
-                    break
+                with command._lock:
+                    if raw_data and command._transaction_list:
+                        command._transaction_list[0].put(raw_data)
+                    else:
+                        break
         except:
             pass
         finally:
@@ -499,8 +507,9 @@ class Command:
                 command._connected = False
                 command._fd = None
                 #inform all pending transaction that the socket is closed
-                for trans in command._transaction_list:
-                    trans.put(socket.error(errno.EPIPE,"Broken pipe"))
+                with command._lock:
+                    for trans in command._transaction_list:
+                        trans.put(socket.error(errno.EPIPE,"Broken pipe"))
             except ReferenceError:
                 pass
 

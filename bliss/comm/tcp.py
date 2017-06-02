@@ -23,6 +23,8 @@ from .exceptions import CommunicationError, CommunicationTimeout
 from ..common.greenlet_utils import KillMask
 from .util import HexMsg
 
+from bliss.common.task_utils import error_cleanup
+
 class SocketTimeout(CommunicationTimeout):
     '''Socket timeout error'''
 
@@ -436,7 +438,8 @@ class Command:
             if transaction is None and create_transaction:
                 transaction = self.new_transaction()
             self._debug("Tx: %r %r",msg, HexMsg(msg))
-            self._fd.sendall(msg)
+            with error_cleanup(self._pop_transaction,transaction=transaction):
+                self._fd.sendall(msg)
         return transaction
 
     def write(self, msg, timeout=None):
@@ -519,6 +522,9 @@ class Command:
         self._transaction_list.append(data_queue)
         return data_queue
 
+    def _pop_transaction(self,transaction=None):
+        index = self._transaction_list.index(transaction)
+        self._transaction_list.pop(index)
 
 class TcpError(CommunicationError):
     '''TCP communication error'''

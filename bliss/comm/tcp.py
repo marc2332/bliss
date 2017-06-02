@@ -302,7 +302,7 @@ class Command:
             while not self.__transaction.empty():
                 read_value = self.__transaction.get()
                 if not isinstance(read_value,socket.error):
-                    self.data += self.__transaction.get()
+                    self.data += read_value
 
             if self.__clear_transaction and \
                len(self.__socket._transaction_list) > 1:

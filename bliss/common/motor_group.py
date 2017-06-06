@@ -121,8 +121,8 @@ class _Group(object):
             for motion in motions:
                 motion.axis._start_move_task(motion.axis._do_handle_move,
                                              motion, polling_time)
-            for motion in motions:
-                motion.axis.wait_move()
+            wait_motions = [gevent.spawn(motion.axis.wait_move) for motion in motions]
+            gevent.joinall(wait_motions,raise_error=True)
 
     def rmove(self, *args, **kwargs):
         kwargs["relative"] = True

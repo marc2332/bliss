@@ -748,9 +748,9 @@ class Axis(object):
         event.send(self, "move_done", False)
 
     def _set_move_done(self, move_task):
-        self.__move_done.set()
         self._update_settings(self.state(read_hw=True))
         event.send(self, "move_done", True)
+        self.__move_done.set()
 
     def _check_ready(self):
         initial_state = self.state()

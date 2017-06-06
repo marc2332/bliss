@@ -872,10 +872,7 @@ class Axis(object):
         """
         Wait for the axis to finish motion (blocks current :class:`Greenlet`)
 
-        If axis is not moving returns immediately
         """
-        if not self.is_moving:
-            return
         if self.__move_task is None:
             # move has been started externally
             with error_cleanup(self.stop):

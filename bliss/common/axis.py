@@ -881,11 +881,12 @@ class Axis(object):
             with error_cleanup(self.stop):
                 self.__move_done.wait()
         else:
-            self.__move_task._being_waited = True
+            move_task = self.__move_task
+            move_task._being_waited = True
             with error_cleanup(self.stop):
                 self.__move_done.wait()
             try:
-                self.__move_task.get()
+                move_task.get()
             except gevent.GreenletExit:
                 pass
 
@@ -912,7 +913,8 @@ class Axis(object):
 
     def _set_stopped(self):
         self.__stopped = True
-
+        if not self.is_moving:
+          self.__move_task = None
     @lazy_init
     def stop(self, wait=True):
         """

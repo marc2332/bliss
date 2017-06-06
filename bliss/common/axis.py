@@ -748,14 +748,6 @@ class Axis(object):
         event.send(self, "move_done", False)
 
     def _set_move_done(self, move_task):
-        if move_task is not None:
-            if not move_task._being_waited:
-                try:
-                    move_task.get()
-                except gevent.GreenletExit:
-                    pass
-                except:
-                    sys.excepthook(*sys.exc_info())
         self.__move_done.set()
         self._update_settings(self.state(read_hw=True))
         event.send(self, "move_done", True)

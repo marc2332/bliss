@@ -100,8 +100,8 @@ class _Group(object):
             gevent.joinall(controller_tasks, raise_error=True)
 
         if wait:
-            for motion in all_motions:
-                motion.axis.wait_move()
+            motions_wait = [gevent.spawn(motion.axis.wait_move) for motion in all_motions]
+            gevent.joinall(motions_wait, raise_error=True)
 
     def position(self):
         positions_dict = dict()

@@ -235,7 +235,7 @@ def __row(cols, fmt, sep=' '):
 def __umove(*args, **kwargs):
     kwargs['wait'] = False
     group, motor_pos = __move(*args, **kwargs)
-    try:
+    with error_cleanup(group.stop):
         motor_names = [axis.name for axis in motor_pos]
         col_len = max(max(map(len, motor_names)), 8)
         hfmt = '^{width}'.format(width=col_len)
@@ -253,9 +253,6 @@ def __umove(*args, **kwargs):
         row = __row_positions(positions, motor_pos, rfmt, sep='  ')
         print_("\r" + row, end='', flush=True)
         print_()
-    except KeyboardInterrupt:
-        print_("Ctrl+C pressed. Stopping all motors...")
-        group.stop()
 
     return group, motor_pos
 
@@ -266,11 +263,7 @@ def __move(*args, **kwargs):
     for m, p in zip(__get_objects_iter(*args[::2]), args[1::2]):
         motor_pos[m] = p
     group = Group(*motor_pos.keys())
-    try:
-        group.move(motor_pos, wait=wait, relative=relative)
-    except KeyboardInterrupt:
-        print_("Ctrl+C pressed. Stopping all motors...")
-        group.stop()
+    group.move(motor_pos, wait=wait, relative=relative)
 
     return group, motor_pos
 

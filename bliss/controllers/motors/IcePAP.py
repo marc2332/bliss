@@ -120,6 +120,7 @@ class IcePAP(Controller):
         # Add the axis to the default IcePAP lib group
         self.libgroup.add_axis(axis.libaxis)
 
+    def initialize_hardware_axis(self,axis):
         # Initialiaze hardware
         # if set_power fails, display exception but let axis
         # be created properly

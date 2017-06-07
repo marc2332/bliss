@@ -3,7 +3,8 @@ Oxford 700 Series Cryostream, acessible via serial line
 
 yml configuration example:
 class: oxford700
-SLdevice: "rfc2217://lid30b2:28003"       #serial line name
+serial:
+    url: rfc2217://lid30b2:28003       #serial line name
 outputs:
     -
         name: cryostream
@@ -30,7 +31,7 @@ from bliss.controllers.temperature.oxfordcryo.oxfordcryo import CSCOMMAND
 from bliss.controllers.temperature.oxfordcryo.oxfordcryo import split_bytes
 from warnings import warn
 
-from .oxford import Base
+from bliss.controllers.temperature.oxfordcryo.oxford import Base
 
 class OxfordCryostream(object):
     """
@@ -262,14 +263,15 @@ class OxfordCryostream(object):
 
 class oxford700(Base):
     def __init__(self, config, *args):
-        Controller.__init__(self, config, *args)
         try:
             port = config['serial']['url']
         except KeyError:
-            port = config["SLdevice"]
-            warn("'SLdevice' is deprecated. Use serial 'instead'",
+            port = config['SLdevice']
+            warn("'SLdevice' is deprecated. Use serial instead",
                  DeprecationWarning)
         self._oxford = OxfordCryostream(port)
+        Base.__init__(self, self._oxford, config, *args)
+
 
     def state_output(self, toutput):
         """Read the state parameters of the controller

@@ -584,7 +584,7 @@ class Axis(object):
         backlash_motion = Motion(self, final_pos, backlash)
         self.__controller.prepare_move(backlash_motion)
         self.__controller.start_one(backlash_motion)
-        self._handle_move(backlash_motion, polling_time)
+        return self._handle_move(backlash_motion, polling_time)
 
     def _handle_move(self, motion, polling_time):
         state = self._wait_move(polling_time)
@@ -606,12 +606,14 @@ class Axis(object):
             # axis has moved to target pos - backlash (or shorter, if stopped);
             # now do the final motion (backlash) relative to current/theo. pos
             elog.debug("doing backlash (%g)" % motion.backlash)
-            self._backlash_move(backlash_start, motion.backlash, polling_time)
+            return self._backlash_move(backlash_start, motion.backlash, polling_time)
         elif stopped:
             self._set_position(user_pos)
         elif self.config.get("check_encoder", bool, False) and self.encoder:
             self._do_encoder_reading()
-
+        else:
+          return state
+      
     def _jog_move(self, velocity, direction, polling_time):
         self._wait_move(polling_time)
 
@@ -748,7 +750,15 @@ class Axis(object):
         event.send(self, "move_done", False)
 
     def _set_move_done(self, move_task):
-        self._update_settings(self.state(read_hw=True))
+        try:
+          state = move_task.get()
+        except:                 # don't want to raise something here
+          state = self.state(read_hw=True)
+        else:
+          if state is None:
+            state = self.state(read_hw=True)
+        
+        self._update_settings(state)
         event.send(self, "move_done", True)
         self.__move_done.set()
 
@@ -838,7 +848,7 @@ class Axis(object):
 
     def _do_handle_move(self, motion, polling_time):
         with error_cleanup(self._cleanup_stop):
-            self._handle_move(motion, polling_time)
+            return self._handle_move(motion, polling_time)
 
     def _jog_cleanup(self, saved_velocity, reset_position):
         self.velocity(saved_velocity)

@@ -161,16 +161,6 @@ class _Group(object):
 
     def _set_move_done(self, move_task):
         self._reset_motions_dict()
-
-        if move_task is not None:
-            if not move_task._being_waited:
-                try:
-                    move_task.get()
-                except gevent.GreenletExit:
-                    pass
-                except:
-                    sys.excepthook(*sys.exc_info())
-
         self.__move_done.set()
         event.send(self, "move_done", True)
 
@@ -215,12 +205,14 @@ class _Group(object):
             self.wait_move()
 
     def wait_move(self):
-        if not self.is_moving:
-            return
-        self.__move_task._being_waited = True
-        with error_cleanup(self.stop):
-            self.__move_done.wait()
-        try:
-            self.__move_task.get()
-        except gevent.GreenletExit:
-            pass
+        if self.__move_task:
+            move_task = self.__move_task
+            move_task._being_waited = True
+            with error_cleanup(self.stop):
+                self.__move_done.wait()
+            self.__move_task = None 
+            try:
+                move_task.get()
+            except gevent.GreenletExit:
+                pass
+

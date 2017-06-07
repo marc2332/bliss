@@ -200,7 +200,7 @@ class Controller(object):
        
         if ENCODER_AXIS.get(encoder.name):
             axis_name = ENCODER_AXIS[encoder.name]
-            axis = get_axis(axis_name)
+            axis = self.get_axis(axis_name)
             axis.controller._initialize_axis(axis)
  
         self.initialize_encoder(encoder)

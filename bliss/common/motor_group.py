@@ -82,7 +82,7 @@ class _Group(object):
             if self.__move_task:
                 motion.axis._set_stopped()
             else:
-                motion.axis._wait_move()
+                motion.axis._move_loop()
                 motion.axis.sync_hard()
 
     def _do_stop(self,wait=True):

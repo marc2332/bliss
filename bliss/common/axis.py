@@ -587,7 +587,7 @@ class Axis(object):
         return self._handle_move(backlash_motion, polling_time)
 
     def _handle_move(self, motion, polling_time):
-        state = self._wait_move(polling_time)
+        state = self._move_loop(polling_time)
         if state in ['LIMPOS', 'LIMNEG']:
             raise RuntimeError(str(state))
 
@@ -615,7 +615,7 @@ class Axis(object):
           return state
       
     def _jog_move(self, velocity, direction, polling_time):
-        self._wait_move(polling_time)
+        self._move_loop(polling_time)
 
         dial_pos = self._read_dial_and_update()
         user_pos = self.dial2user(dial_pos)
@@ -768,15 +768,15 @@ class Axis(object):
             raise RuntimeError("axis %s state is \
                                 %r" % (self.name, str(initial_state)))
 
-    def _start_move_task(self, funct, *args, **kws):
+    def _start_move_task(self, funct, *args, **kwargs):
         start_event = gevent.event.Event()
         @task
-        def sync_funct(*args, **kws):
+        def sync_funct(*args, **kwargs):
             start_event.wait()
-            return funct(*args, **kws)
-        kws = dict(kws)
-        being_waited = kws.pop('being_waited', True)
-        self.__move_task = sync_funct(*args, wait=False, **kws)
+            return funct(*args, **kwargs)
+        kwargs = dict(kwargs)
+        being_waited = kwargs.pop('being_waited', True)
+        self.__move_task = sync_funct(*args, wait=False, **kwargs)
         self.__move_task._being_waited = being_waited
         self.__move_task.link(self._set_move_done)
         self._set_moving_state()
@@ -897,7 +897,7 @@ class Axis(object):
             except gevent.GreenletExit:
                 pass
 
-    def _wait_move(self, polling_time=DEFAULT_POLLING_TIME, ctrl_state_funct='state'):
+    def _move_loop(self, polling_time=DEFAULT_POLLING_TIME, ctrl_state_funct='state'):
         state_funct = getattr(self.__controller, ctrl_state_funct)
         while True:
             state = state_funct(self)
@@ -911,7 +911,7 @@ class Axis(object):
             self.__controller.stop_jog(self)
         else:
             self.__controller.stop(self)
-        self._wait_move()
+        self._move_loop()
         self.sync_hard()
 
     def _do_stop(self):
@@ -963,7 +963,7 @@ class Axis(object):
     def _wait_home(self, switch):
         with cleanup(self.sync_hard):
             with error_cleanup(self._cleanup_stop):
-                self._wait_move(ctrl_state_funct='home_state')
+                self._move_loop(ctrl_state_funct='home_state')
 
     @lazy_init
     def hw_limit(self, limit, wait=True):
@@ -987,7 +987,7 @@ class Axis(object):
     def _wait_limit_search(self, limit):
         with cleanup(self.sync_hard):
             with error_cleanup(self._cleanup_stop):
-                self._wait_move()
+                self._move_loop()
 
     def settings_to_config(self, velocity=True, acceleration=True, limits=True):
         """

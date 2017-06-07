@@ -24,11 +24,13 @@ class Aerotech_Taco(TacoMaxe):
         self.device.DevExecProg(0)
 
     def initialize_hardware_axis(self, axis):
-        encoder_divider = axis.config.get("encoder_divider",int)
-        self.device.DevSetParam((axis.channel,
-                                 self.ENCODER_DIVIDER_PARAMETER,
-                                 0,encoder_divider))
-        axis.encoder_divider = encoder_divider
+        if axis.encoder:
+            encoder_divider = axis.encoder.config.get("divider",int)
+            axis.encoder.axis = axis
+            axis.encoder.divider = encoder_divider
+            self.device.DevSetParam((axis.channel,
+                                     self.ENCODER_DIVIDER_PARAMETER,
+                                     0,encoder_divider))
 
     def start_jog(self, axis, velocity, direction):
         acceleration = axis.acceleration()
@@ -44,3 +46,9 @@ class Aerotech_Taco(TacoMaxe):
                                       0,
                                       0,
                                       0))
+
+    def initialize_encoder(self,encoder):
+        pass                    # noting to do
+
+    def read_encoder(self,encoder):
+        return self.read_position(encoder.axis) / encoder.divider

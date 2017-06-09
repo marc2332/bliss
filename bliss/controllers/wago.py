@@ -18,6 +18,7 @@ WAGO_CONTROLLERS = {}
 DIGI_IN, DIGI_OUT, ANA_IN, ANA_OUT, N_CHANNELS, READING_TYPE, READING_INFO, WRITING_INFO = (0,1,2,3,4,5,6,7)
 MODULES_CONFIG = { "750-402" : [4,0,0,0,4, "none"],
                    "750-408" : [4,0,0,0,4, "none"],
+                   "750-409" : [4,0,0,0,4, "none"], 
                    "750-414" : [4,0,0,0,4, "none"],
                    "750-430" : [8,0,0,0,8, "none"],
                    "750-1417": [8,0,0,0,8, "none"],

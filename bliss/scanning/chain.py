@@ -259,7 +259,7 @@ class AcquisitionDevice(object):
 	return True
 
 class AcquisitionChainIter(object):
-    def __init__(self,acquisition_chain,parallel_prepare = False):
+    def __init__(self,acquisition_chain,parallel_prepare = True):
         self.__sequence_index = -1
         self._parallel_prepare = parallel_prepare
         self.__acquisition_chain = weakref.proxy(acquisition_chain)

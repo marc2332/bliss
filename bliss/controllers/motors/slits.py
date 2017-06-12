@@ -62,6 +62,7 @@ class Slits(CalcController):
 
     def initialize_axis(self, axis):
         CalcController.initialize_axis(self, axis)
+        axis.no_offset = True
 
 
     def calc_from_real(self, positions_dict):

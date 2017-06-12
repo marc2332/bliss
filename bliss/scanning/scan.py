@@ -39,7 +39,7 @@ class StepScanDataWatch(object):
         self._channel_end_nb = 0
         self._init_done = False
 
-    def __call__(self,data_events,nodes):
+    def __call__(self,data_events,nodes,info):
         if self._init_done is False:
             for acq_device,data_node in nodes.iteritems():
                 if data_node.type() == 'zerod':
@@ -190,6 +190,8 @@ class Container(object):
         self.node = _get_or_create_node(self.__name, "container", parent=self.root_node)
 
 class Scan(object):
+    IDLE_STATE,PREPARE_STATE,START_STATE,STOP_STATE = range(4)
+
     def __init__(self,chain, name=None,
                  parent=None, scan_info=None, writer=None,
                  data_watch_callback=None):
@@ -208,6 +210,10 @@ class Scan(object):
         the callback will get:
             - data_event : a dict with Acq(Device/Master) as key and a set of signal as values
             - nodes : a dict with Acq(Device/Master) as key and the associated data node as value
+            - info : dictionnary which contains the current scan state...
+        if the callback is a class and have a method **on_state**, it will be called on each 
+        scan transition state. The return of this method will activate/deactivate
+        the calling of the callback during this stage.
         """
         if parent is None:
             self.root_node = None
@@ -258,6 +264,7 @@ class Scan(object):
         self._acq_chain = chain
         self._scan_info = scan_info if scan_info is not None else dict()
         self._scan_info['node_name'] = self._node.db_name()
+        self._state = self.IDLE_STATE
 
     @property
     def name(self):
@@ -300,7 +307,8 @@ class Scan(object):
                 while self._data_watch_running and not self._data_watch_task.ready():
                     self._data_watch_callback_done.wait()
                     self._data_watch_callback_done.clear()
-                self._data_watch_callback(data_events,self.nodes)
+                self._data_watch_callback(data_events,self.nodes,
+                                          {'state':self._state})
             else:
                 self._data_watch_callback_event.set()
 
@@ -330,16 +338,52 @@ class Scan(object):
         self._node.set_ttl()
     
     def run(self):
+        class _Wakeup(object):
+            def __init__(self,cnt,active):
+                self.__active = active
+                self.__task = None
+                self.__cnt = weakref.proxy(cnt)
+                
+            def __enter__(self):
+                if self.__active:
+                    self.__task = gevent.spawn(self._timer)
+
+            def __exit__(self,*args):
+                if self.__task is not None:
+                    gevent.kill(self.__task)
+                
+            def _timer(self):
+                try:
+                    while True:
+                        self.__cnt._data_watch_callback_event.set()
+                        gevent.sleep(0.1)
+                except ReferenceError:
+                    pass
+                
+        if hasattr(self._data_watch_callback,'on_state'):
+            call_on_prepare = self._data_watch_callback.on_state(self.PREPARE_STATE)
+            call_on_stop = self._data_watch_callback.on_state(self.STOP_STATE)
+        else:
+            call_on_prepare,call_on_stop = False,False
+
         try:
             for i in self.acq_chain:
-                i.prepare(self,self.scan_info)
+                self._state = self.PREPARE_STATE
+                with _Wakeup(self,call_on_prepare):
+                    i.prepare(self,self.scan_info)
+                self._state = self.START_STATE
                 i.start()
         except:
-            i.stop()
-            self.stop()
+            self._state = self.STOP_STATE
+            with _Wakeup(self,call_on_stop):
+                i.stop()
+                self.stop()
             raise
         else:
+            self._state = self.STOP_STATE
             i.stop()
+        finally:
+            self._state = self.IDLE_STATE
 
     @staticmethod
     def _data_watch(scan,event,event_done):
@@ -349,9 +393,9 @@ class Scan(object):
             try:
                 data_events = scan._data_events
                 scan._data_events = dict()
-                if not data_events : continue
                 scan._data_watch_running = True
-                scan._data_watch_callback(data_events,scan.nodes)
+                scan._data_watch_callback(data_events,scan.nodes,
+                                          {'state':scan._state})
                 scan._data_watch_running = False
             except ReferenceError:
                 break                

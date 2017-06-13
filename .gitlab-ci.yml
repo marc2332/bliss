@@ -1,20 +1,14 @@
 before_script:
-  # Add conda to path
-  - export PATH="$PWD/miniconda/bin:$PATH"
-  # Install miniconda
-  - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
-  - bash miniconda.sh -b -p ./miniconda -f
-  # Update conda
-  - conda update --yes conda
-  # Create build environment if it doesn't exist
-  - source activate buildenv || conda create --yes --name buildenv python=2.7
-  # Activate build environment
-  - source activate buildenv
-  # Install build dependencies
-  - conda install --yes -c tango-controls pytango
+  # Activate python2.7 tango environment
+  - source activate tango2.7
+  # Install redis
+  - conda install redis
+  # Install requirements
+  - pip install -r requirements.txt
   # pytest-cover has to be installed separately for some reasons
   - pip install pytest-cover
 
 run_tests:
-  # Run the tests
-  - python setup.py test
+  script:
+    # Run the tests
+    - python setup.py test

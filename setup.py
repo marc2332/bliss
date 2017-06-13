@@ -23,6 +23,8 @@ try:
 except ImportError:
     sipdistutils = None
 
+TESTING = any(x in sys.argv for x in ['test', 'pytest'])
+
 
 def abspath(*path):
     """A method to determine absolute path for a given relative path to the
@@ -163,6 +165,9 @@ setup(name="bliss",
               ['bliss-emulator=bliss.controllers.emulator:main',
                'beacon-server=bliss.config.conductor.server:main']},
       cmdclass=cmdclass,
+
+      tests_require=['pytest-mock', 'pytest-coverage', 'h5py'],
+      setup_requires=['pytest-runner'] if TESTING else [],
       )
 
 # remove user option from command argument

@@ -5,6 +5,7 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+import pytest
 import unittest
 import cStringIO
 import sys
@@ -48,6 +49,7 @@ class wrapped_stderr:
         sys.stderr = self.real_stderr
 
 
+@pytest.mark.usefixtures('beacon')
 class TestLogging(unittest.TestCase):
 
     def test_debug(self):
@@ -102,6 +104,7 @@ RuntimeError: BLA
             self.assertRaises(ValueError, log.exception, "expected exception")
             return
         self.assertTrue(False)
+
 
 if __name__ == '__main__':
     unittest.main()

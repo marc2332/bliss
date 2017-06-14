@@ -8,7 +8,23 @@ before_script:
   # pytest-cover has to be installed separately for some reasons
   - pip install pytest-cover
 
-run_tests:
+tests:
+  stage: test
   script:
-    # Run the tests
     - python setup.py test
+  artifacts:
+    paths:
+      - htmlcov/
+
+pages:
+  stage: deploy
+  dependencies:
+    - tests
+  script:
+    - mv htmlcov/ public/
+  artifacts:
+    paths:
+      - public
+    expire_in: 30 days
+  only:
+    - ci

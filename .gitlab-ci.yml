@@ -2,9 +2,8 @@ tests:
   stage: test
   script:
     - source activate tango2.7
-    - conda install redis
+    - conda install --yes --file requirements-conda.txt
     - pip install -r requirements.txt
-    - pip install pytest-cover
     - python setup.py test
   artifacts:
     paths:

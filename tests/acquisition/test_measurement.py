@@ -5,7 +5,6 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import math
 import time
 import random
 
@@ -29,7 +28,7 @@ class RandomCounter(CounterBase):
     def read(self):
         not self.nap or gevent.sleep(self.nap)
         self.nb_reads += 1
-        value = self.range[0] + random.random()*self.range[1]
+        value = self.range[0] + random.random() * self.range[1]
         return value
 
 
@@ -54,7 +53,7 @@ class TestMeasurements(unittest.TestCase):
             self._test_measurement(count_time)
 
     def _test_measurement(self, count_time):
-        msg="Failed when count_time={0}".format(count_time)
+        msg = "Failed when count_time={0}".format(count_time)
         window = self.counter.range[1] - self.counter.range[0]
         ideal_value = window / 2.
         ideal_nb_points = count_time / self.counter.nap
@@ -67,11 +66,11 @@ class TestMeasurements(unittest.TestCase):
         self.assertEqual(result.nb_points, self.counter.nb_reads, msg=msg)
         # allow 30% error. Seems a lot but it is the accumulation of sleep errors
         self.assertAlmostEqual(result.nb_points, ideal_nb_points,
-                               delta=ideal_nb_points*0.30, msg=msg)
+                               delta=ideal_nb_points * 0.30, msg=msg)
         # allow up to 10ms error in time calculation for pure software counter
         self.assertAlmostEqual(dt, count_time, delta=0.01, msg=msg)
         # variable error margin according to number of points
-        delta = window*100./ideal_nb_points
+        delta = window * 100. / ideal_nb_points
         self.assertAlmostEqual(result.value, ideal_value, delta=delta, msg=msg)
 
     def test_single_measurement(self):
@@ -87,14 +86,11 @@ class TestMeasurements(unittest.TestCase):
 
     def test_full_measurement(self):
         count_time = .1
-        ideal_value = 500
-        ideal_nb_points = count_time / self.counter.nap
 
-        start = time.time()
         result = self.counter.count(count_time, measurement=FullMeasurement())
-        dt = time.time() - start
 
         self.assertEqual(result.value, result.average)
         self.assertEqual(result.nb_points, self.counter.nb_reads)
         self.assertEqual(len(result.data), result.nb_points)
-        self.assertAlmostEqual(result.average, result.data[:,0].mean(), delta=0.1)
+        self.assertAlmostEqual(
+            result.average, result.data[:, 0].mean(), delta=0.1)

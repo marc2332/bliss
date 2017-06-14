@@ -8,6 +8,8 @@
 import math
 import time
 import random
+
+import pytest
 import unittest
 
 import gevent
@@ -31,6 +33,7 @@ class RandomCounter(CounterBase):
         return value
 
 
+@pytest.mark.usefixtures('beacon')
 class TestMeasurements(unittest.TestCase):
 
     def setUp(self):
@@ -62,9 +65,9 @@ class TestMeasurements(unittest.TestCase):
 
         self.assertEqual(result.value, result.average, msg=msg)
         self.assertEqual(result.nb_points, self.counter.nb_reads, msg=msg)
-        # allow 25% error. Seems a lot but it is the accumulation of sleep errors
-        self.assertAlmostEqual(result.nb_points, ideal_nb_points, 
-                               delta=ideal_nb_points*0.25, msg=msg)
+        # allow 30% error. Seems a lot but it is the accumulation of sleep errors
+        self.assertAlmostEqual(result.nb_points, ideal_nb_points,
+                               delta=ideal_nb_points*0.30, msg=msg)
         # allow up to 10ms error in time calculation for pure software counter
         self.assertAlmostEqual(dt, count_time, delta=0.01, msg=msg)
         # variable error margin according to number of points
@@ -80,7 +83,7 @@ class TestMeasurements(unittest.TestCase):
         # should be really fast
         self.assertAlmostEqual(dt, self.counter.nap, delta=1E-3)
         self.assertTrue(result.value >= self.counter.range[0])
-        self.assertTrue(result.value < self.counter.range[1])        
+        self.assertTrue(result.value < self.counter.range[1])
 
     def test_full_measurement(self):
         count_time = .1
@@ -90,7 +93,7 @@ class TestMeasurements(unittest.TestCase):
         start = time.time()
         result = self.counter.count(count_time, measurement=FullMeasurement())
         dt = time.time() - start
-        
+
         self.assertEqual(result.value, result.average)
         self.assertEqual(result.nb_points, self.counter.nb_reads)
         self.assertEqual(len(result.data), result.nb_points)

@@ -1,16 +1,10 @@
-before_script:
-  # Activate python2.7 tango environment
-  - source activate tango2.7
-  # Install redis
-  - conda install redis
-  # Install requirements
-  - pip install -r requirements.txt
-  # pytest-cover has to be installed separately for some reasons
-  - pip install pytest-cover
-
 tests:
   stage: test
   script:
+    - source activate tango2.7
+    - conda install redis
+    - pip install -r requirements.txt
+    - pip install pytest-cover
     - python setup.py test
   artifacts:
     paths:

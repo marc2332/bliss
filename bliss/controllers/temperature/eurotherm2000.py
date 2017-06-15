@@ -175,8 +175,10 @@ class Eurotherm2000:
 
         if resol is 0:
             self.scale = pow(10,decimal)
+            print "Resolution full, decimal %d" % (decimal)
         else:
             self.scale = 1
+            print "Resolution integer"
 
     def setpoint (self, value):
         self.setpointvalue=value
@@ -541,7 +543,16 @@ class eurotherm2000(Controller):
         Raises:
            NotImplementedError: when not defined by the inheriting class      
         """
-        pass
+        _status=self._dev.device_status()
+
+#        return _status
+    
+        if (0==_status):
+            return 'READY'
+        if (2==_status):
+            return 'RUNNING'
+        return 'ALARM'
+
 
     def state_output(self,toutput):
         """

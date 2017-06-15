@@ -173,7 +173,10 @@ class Eurotherm2000:
             self.close()
             return
 
-        self.scale = pow(10,decimal)
+        if resol is 0:
+            self.scale = pow(10,decimal)
+        else:
+            self.scale = 1
 
     def setpoint (self, value):
         self.setpointvalue=value
@@ -211,13 +214,13 @@ class Eurotherm2000:
 
     def set_ramprate (self,value):
         self.rate=value
-#        value*=self.scale
+        value*=self.scale
         self.device.write_registers(35,'H',value)
 
         
     def get_ramprate (self):
         value = self.device.read_holding_registers(35,'H')
-#        value/=self.scale
+        value/=self.scale
         self.rate=value
         return value
         
@@ -330,9 +333,11 @@ class eurotherm2000(Controller):
         """
         self._dev.setpoint(sp)
     
+    
     def get_setpoint(self, toutput):
         print "eurotherm2000:get_setpoint"
         return self._dev.setpointvalue
+
         '''
         or
         print "eurotherm2000:get_setpoint",toutput.config['type']
@@ -365,7 +370,11 @@ class eurotherm2000(Controller):
         Raises:
            NotImplementedError: when not defined by the inheriting class      
         """
-        pass
+        if self.ramp_rate:
+            self._dev.set_ramprate (self.ramp_rate)
+
+        self._dev.setpoint(sp)
+        
 
     def set_ramprate(self, toutput, rate):
         """
@@ -377,7 +386,9 @@ class eurotherm2000(Controller):
         Raises:
            NotImplementedError: when not defined by the inheriting class      
        """
-        pass
+        self.ramp_rate=rate
+        self._dev.set_ramprate (self.ramp_rate)
+
 
     def read_ramprate(self, toutput):
         """
@@ -390,8 +401,9 @@ class eurotherm2000(Controller):
         Raises:
            NotImplementedError: when not defined by the inheriting class      
         """
-        pass
+        self.ramp_rate = self._dev.get_ramprate()
 
+        
     def set_dwell(self, toutput, dwell):
         """
         Output type object only
@@ -529,7 +541,7 @@ class eurotherm2000(Controller):
         Raises:
            NotImplementedError: when not defined by the inheriting class      
         """
-
+        pass
 
     def state_output(self,toutput):
         """
@@ -542,7 +554,15 @@ class eurotherm2000(Controller):
         Raises:
            NotImplementedError: when not defined by the inheriting class      
         """
-        pass
+        _status=self._dev.device_status()
+
+#        return _status
+    
+        if (0==_status):
+            return 'READY'
+        if (2==_status):
+            return 'RUNNING'
+        return 'ALARM'
     
     def setpoint_stop(self,toutput):
         """

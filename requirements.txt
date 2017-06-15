@@ -3,7 +3,7 @@
 
 # --- mandatory dependencies -------------------------------
 
-gevent<1.1
+gevent >= 1.2.2
 redis  >= 2.8
 PyYaml
 netifaces < 0.10.5

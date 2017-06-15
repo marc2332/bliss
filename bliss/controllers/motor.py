@@ -164,9 +164,6 @@ class Controller(object):
             self.initialize_hardware_axis(axis)
             self.__initialized_hw_axis[axis].value = True
 
-            # force initialization of position and state settings
-	    axis.sync_hard()
-
     def get_axis(self, axis_name):
         axis = self._axes[axis_name]
 

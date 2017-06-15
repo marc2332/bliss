@@ -922,6 +922,7 @@ class Axis(object):
         self.__stopped = True
         if not self.is_moving:
           self.__move_task = None
+
     @lazy_init
     def stop(self, wait=True):
         """
@@ -937,6 +938,11 @@ class Axis(object):
             self._do_stop()
             if wait:
                 self.wait_move()
+        else:
+            # it is important to clean the move task,
+            # even if the moving flag is not set;
+            # otherwise wait_move may raise a previous exception
+            self._set_stopped()
 
     @lazy_init
     def home(self, switch=1, wait=True):

@@ -82,7 +82,7 @@ class _Group(object):
             if self.__move_task:
                 motion.axis._set_stopped()
             else:
-                motion.axis._wait_move()
+                motion.axis._move_loop()
                 motion.axis.sync_hard()
 
     def _do_stop(self,wait=True):
@@ -100,8 +100,8 @@ class _Group(object):
             gevent.joinall(controller_tasks, raise_error=True)
 
         if wait:
-            for motion in all_motions:
-                motion.axis.wait_move()
+            motions_wait = [gevent.spawn(motion.axis.wait_move) for motion in all_motions]
+            gevent.joinall(motions_wait, raise_error=True)
 
     def position(self):
         positions_dict = dict()
@@ -121,8 +121,8 @@ class _Group(object):
             for motion in motions:
                 motion.axis._start_move_task(motion.axis._do_handle_move,
                                              motion, polling_time)
-            wait_motions = [gevent.spawn(motion.axis.wait_move) for motion in motions]
-            gevent.joinall(wait_motions,raise_error=True)
+            motions_wait = [gevent.spawn(motion.axis.wait_move) for motion in motions]
+            gevent.joinall(motions_wait, raise_error=True)
 
     def rmove(self, *args, **kwargs):
         kwargs["relative"] = True
@@ -161,16 +161,6 @@ class _Group(object):
 
     def _set_move_done(self, move_task):
         self._reset_motions_dict()
-
-        if move_task is not None:
-            if not move_task._being_waited:
-                try:
-                    move_task.get()
-                except gevent.GreenletExit:
-                    pass
-                except:
-                    sys.excepthook(*sys.exc_info())
-
         self.__move_done.set()
         event.send(self, "move_done", True)
 
@@ -215,12 +205,14 @@ class _Group(object):
             self.wait_move()
 
     def wait_move(self):
-        if not self.is_moving:
-            return
-        self.__move_task._being_waited = True
-        with error_cleanup(self.stop):
-            self.__move_done.wait()
-        try:
-            self.__move_task.get()
-        except gevent.GreenletExit:
-            pass
+        if self.__move_task:
+            move_task = self.__move_task
+            move_task._being_waited = True
+            with error_cleanup(self.stop):
+                self.__move_done.wait()
+            self.__move_task = None 
+            try:
+                move_task.get()
+            except gevent.GreenletExit:
+                pass
+

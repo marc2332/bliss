@@ -584,10 +584,10 @@ class Axis(object):
         backlash_motion = Motion(self, final_pos, backlash)
         self.__controller.prepare_move(backlash_motion)
         self.__controller.start_one(backlash_motion)
-        self._handle_move(backlash_motion, polling_time)
+        return self._handle_move(backlash_motion, polling_time)
 
     def _handle_move(self, motion, polling_time):
-        state = self._wait_move(polling_time)
+        state = self._move_loop(polling_time)
         if state in ['LIMPOS', 'LIMNEG']:
             raise RuntimeError(str(state))
 
@@ -606,14 +606,16 @@ class Axis(object):
             # axis has moved to target pos - backlash (or shorter, if stopped);
             # now do the final motion (backlash) relative to current/theo. pos
             elog.debug("doing backlash (%g)" % motion.backlash)
-            self._backlash_move(backlash_start, motion.backlash, polling_time)
+            return self._backlash_move(backlash_start, motion.backlash, polling_time)
         elif stopped:
             self._set_position(user_pos)
         elif self.config.get("check_encoder", bool, False) and self.encoder:
             self._do_encoder_reading()
-
+        else:
+          return state
+      
     def _jog_move(self, velocity, direction, polling_time):
-        self._wait_move(polling_time)
+        self._move_loop(polling_time)
 
         dial_pos = self._read_dial_and_update()
         user_pos = self.dial2user(dial_pos)
@@ -748,17 +750,17 @@ class Axis(object):
         event.send(self, "move_done", False)
 
     def _set_move_done(self, move_task):
-        if move_task is not None:
-            if not move_task._being_waited:
-                try:
-                    move_task.get()
-                except gevent.GreenletExit:
-                    pass
-                except:
-                    sys.excepthook(*sys.exc_info())
-        self.__move_done.set()
-        self._update_settings(self.state(read_hw=True))
+        try:
+          state = move_task.get()
+        except:                 # don't want to raise something here
+          state = self.state(read_hw=True)
+        else:
+          if state is None:
+            state = self.state(read_hw=True)
+        
+        self._update_settings(state)
         event.send(self, "move_done", True)
+        self.__move_done.set()
 
     def _check_ready(self):
         initial_state = self.state()
@@ -766,15 +768,15 @@ class Axis(object):
             raise RuntimeError("axis %s state is \
                                 %r" % (self.name, str(initial_state)))
 
-    def _start_move_task(self, funct, *args, **kws):
+    def _start_move_task(self, funct, *args, **kwargs):
         start_event = gevent.event.Event()
         @task
-        def sync_funct(*args, **kws):
+        def sync_funct(*args, **kwargs):
             start_event.wait()
-            return funct(*args, **kws)
-        kws = dict(kws)
-        being_waited = kws.pop('being_waited', True)
-        self.__move_task = sync_funct(*args, wait=False, **kws)
+            return funct(*args, **kwargs)
+        kwargs = dict(kwargs)
+        being_waited = kwargs.pop('being_waited', True)
+        self.__move_task = sync_funct(*args, wait=False, **kwargs)
         self.__move_task._being_waited = being_waited
         self.__move_task.link(self._set_move_done)
         self._set_moving_state()
@@ -846,7 +848,7 @@ class Axis(object):
 
     def _do_handle_move(self, motion, polling_time):
         with error_cleanup(self._cleanup_stop):
-            self._handle_move(motion, polling_time)
+            return self._handle_move(motion, polling_time)
 
     def _jog_cleanup(self, saved_velocity, reset_position):
         self.velocity(saved_velocity)
@@ -880,24 +882,22 @@ class Axis(object):
         """
         Wait for the axis to finish motion (blocks current :class:`Greenlet`)
 
-        If axis is not moving returns immediately
         """
-        if not self.is_moving:
-            return
         if self.__move_task is None:
             # move has been started externally
             with error_cleanup(self.stop):
                 self.__move_done.wait()
         else:
-            self.__move_task._being_waited = True
+            move_task = self.__move_task
+            move_task._being_waited = True
             with error_cleanup(self.stop):
                 self.__move_done.wait()
             try:
-                self.__move_task.get()
+                move_task.get()
             except gevent.GreenletExit:
                 pass
 
-    def _wait_move(self, polling_time=DEFAULT_POLLING_TIME, ctrl_state_funct='state'):
+    def _move_loop(self, polling_time=DEFAULT_POLLING_TIME, ctrl_state_funct='state'):
         state_funct = getattr(self.__controller, ctrl_state_funct)
         while True:
             state = state_funct(self)
@@ -911,7 +911,7 @@ class Axis(object):
             self.__controller.stop_jog(self)
         else:
             self.__controller.stop(self)
-        self._wait_move()
+        self._move_loop()
         self.sync_hard()
 
     def _do_stop(self):
@@ -920,6 +920,8 @@ class Axis(object):
 
     def _set_stopped(self):
         self.__stopped = True
+        if not self.is_moving:
+          self.__move_task = None
 
     @lazy_init
     def stop(self, wait=True):
@@ -936,6 +938,11 @@ class Axis(object):
             self._do_stop()
             if wait:
                 self.wait_move()
+        else:
+            # it is important to clean the move task,
+            # even if the moving flag is not set;
+            # otherwise wait_move may raise a previous exception
+            self._set_stopped()
 
     @lazy_init
     def home(self, switch=1, wait=True):
@@ -956,7 +963,7 @@ class Axis(object):
     def _wait_home(self, switch):
         with cleanup(self.sync_hard):
             with error_cleanup(self._cleanup_stop):
-                self._wait_move(ctrl_state_funct='home_state')
+                self._move_loop(ctrl_state_funct='home_state')
 
     @lazy_init
     def hw_limit(self, limit, wait=True):
@@ -980,7 +987,7 @@ class Axis(object):
     def _wait_limit_search(self, limit):
         with cleanup(self.sync_hard):
             with error_cleanup(self._cleanup_stop):
-                self._wait_move()
+                self._move_loop()
 
     def settings_to_config(self, velocity=True, acceleration=True, limits=True):
         """

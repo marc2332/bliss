@@ -257,15 +257,26 @@ def test_home_search(roby):
     assert roby.position() == 38930
 
 def test_ctrlc(robz):
-    final_pos = robz.position() + 100
-    robz.move(final_pos, wait=False)
+    robz.move(100, wait=False)
     assert robz.state() == "MOVING"
-    time.sleep(0.5)
+    time.sleep(0.1)
     robz._Axis__move_task.kill(KeyboardInterrupt, block=False)
     with pytest.raises(KeyboardInterrupt):
         robz.wait_move()
+    assert not robz.is_moving 
     assert robz.state() == "READY"
-    assert robz.position() < final_pos
+    assert robz.position() < 100
+
+def test_simultaneous_waitmove_exception(robz):
+    robz.move(100, wait=False)
+    w1 = gevent.spawn(robz.wait_move)
+    w2 = gevent.spawn(robz.wait_move)
+    time.sleep(0.1)
+    robz._Axis__move_task.kill(KeyboardInterrupt, block=False)
+    with pytest.raises(KeyboardInterrupt):
+      w1.get()
+    with pytest.raises(KeyboardInterrupt):
+      w2.get()
 
 def test_on_off(robz):
     try:

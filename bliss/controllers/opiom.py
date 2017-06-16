@@ -10,6 +10,7 @@ import struct
 from warnings import warn
 
 from bliss.comm.util import get_comm, get_comm_type, SERIAL, TCP
+from bliss.comm import serial
 from bliss.common.greenlet_utils import KillMask,protect_from_kill
 OPIOM_PRG_ROOT='/users/blissadm/local/isg/opiom'
 
@@ -22,16 +23,18 @@ class Opiom:
         comm_type = None
         try:
             comm_type = get_comm_type(config_tree)
+            key = 'serial' if comm_type == SERIAL else 'tcp'
+            config_tree[key]['url'] # test if url is available
             comm_config = config_tree
         except:
             if "serial" in config_tree:
                 comm_type = SERIAL
-                comm_config = dict(tcp=dict(url=config_tree['serial']))
+                comm_config = dict(serial=dict(url=config_tree['serial']))
                 warn("'serial: <url>' is deprecated. " \
                      "Use 'serial: url: <url>' instead", DeprecationWarning)
             elif "socket" in config_tree:
                 comm_type = TCP
-                comm_config = dict(serial=dict(url=config_tree['socket']))
+                comm_config = dict(tcp=dict(url=config_tree['socket']))
                 warn("'socket: <url>' is deprecated. " \
                      "Use 'tcp: url: <url>' instead", DeprecationWarning)
             else:

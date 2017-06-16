@@ -713,7 +713,7 @@ class Parameters(object):
         d = dict(self._proxy.iteritems())
         max_len = max((len(x) for x in d.keys()))
         str_format = '  .%-' + '%ds' % max_len + ' = %r\n'
-        for key,value in d.iteritems():
+        for key,value in sorted(d.iteritems()):
             rep_str += str_format % (key,value)
         return rep_str
     

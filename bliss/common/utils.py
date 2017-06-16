@@ -84,7 +84,9 @@ def object_method_type(method=None, name=None, args=[], types_info=(None, None),
 
 
 def add_object_attribute(obj, name=None, fget=None, fset=None, args=[], type_info=None, filter=None):
-    cust_attr_dict = getattr(obj, "_Axis__custom_attributes_dict")
+    cust_attr_dict = dict()
+    for aname, a1, a2 in obj.custom_attributes_list:
+        cust_attr_dict[aname] = (a1, a2)
 
     if cust_attr_dict.get(name):
         access_mode = cust_attr_dict[name][1]

@@ -1,32 +1,16 @@
+# -*- coding: utf-8 -*-
+#
+# This file is part of the bliss project
+#
+# Copyright (c) 2016 Beamline Control Unit, ESRF
+# Distributed under the GNU LGPLv3. See LICENSE for more info.
+
 import pytest
-import sys
-import os
-import optparse
-import re
-import signal
 import gevent
-import pdb
-import time
 
 SP = 10
 SP = 15
 SP = 20
-
-"""
-Bliss generic library
-"""
-
-sys.path.insert(
-    0,
-    os.path.abspath(
-        os.path.join(
-            os.path.dirname(__file__),
-            os.path.pardir, os.path.pardir)))
-
-
-import bliss
-from bliss.common import log;
-from bliss.config import static
 
 """
 Pytest list of tests
@@ -39,10 +23,8 @@ def test_output_ramp(temp_tout):
     temp_tout.ramp(SP)
     print "Wait for end of setpoint (around %s seconds)" % (int(abs(SP-val))*2)
     temp_tout.wait()
-    myval = temp_tout.read()
-    myround = int(round(myval))
-    print "%s rounded to %s" % (myval,myround)            
-    assert abs(myround-SP)<0.1
+    myval = temp_tout.read()         
+    assert SP == pytest.approx(myval, 1e-02)
 
 def test_output_ramp_with_kwarg(temp_tout):
     SP=12
@@ -54,10 +36,8 @@ def test_output_ramp_with_kwarg(temp_tout):
     temp_tout.ramp(SP,ramp=KWRAMP,step=KWSTEP,dwell=KWDWELL)
     print "Wait for end of setpoint (around %s seconds)" % (int(abs(SP-val))*2)
     temp_tout.wait()
-    myval = temp_tout.read()
-    myround = int(round(myval))
-    print "%s rounded to %s" % (myval,myround)            
-    assert abs(myround-SP)<0.1
+    myval = temp_tout.read()    
+    assert SP == pytest.approx(myval, 1e-02)
     print "check ramp value by kwargs"
     myramp = temp_tout.ramprate()
     assert myramp == KWRAMP
@@ -94,9 +74,7 @@ def test_loop_output_ramp(temp_tloop):
     print "Wait for end of setpoint (around %s seconds)" % (int(abs(SP-val))*2)
     temp_tloop.output.wait()
     myval = temp_tloop.output.read()
-    myround = int(round(myval))
-    print "%s rounded to %s" % (myval,myround)            
-    assert abs(myround-SP)<0.1
+    assert SP == pytest.approx(myval, 1e-02)
 
 def test_loop_output_ramp_stop(temp_tloop):
     SP=20
@@ -116,10 +94,8 @@ def test_loop_ramp(temp_tloop):
     temp_tloop.ramp(SP)
     print "Wait for end of setpoint (around %s seconds)" % (int(abs(SP-val))*2)
     temp_tloop.output.wait()
-    myval = temp_tloop.output.read()
-    myround = int(round(myval))
-    print "%s rounded to %s" % (myval,myround)            
-    assert abs(myround-SP)<0.1
+    myval = temp_tloop.output.read()      
+    assert SP == pytest.approx(myval, 1e-02)
 
         
 

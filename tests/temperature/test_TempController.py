@@ -6,73 +6,13 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import pytest
-import sys
-import os
-import optparse
-import re
-import signal
-import gevent
-import pdb
-import time
 
 SP = 10
 KW = 1
 
 """
-Bliss generic library
+Pytest list of tests
 """
-
-sys.path.insert(
-    0,
-    os.path.abspath(
-        os.path.join(
-            os.path.dirname(__file__),
-            os.path.pardir, os.path.pardir)))
-
-"""
-.yml file used for test:
-in lid269:blissadm/local/beamline_configuration/temp/test.yml
------------------------------------
-controller:
-    class: mockup
-    host: lid269
-    inputs:
-        - 
-            name: thermo_sample
-            channel: A
-            unit: deg
-            tango_server: temp1
-        - 
-            name: sensor
-            channel: B
-            tango_server: temp1
-    outputs: 
-        -
-            name: heater
-            channel: B 
-            unit: deg
-            low_limit: 10
-            high_limit: 200
-            deadband: 0.1
-            tango_server: temp1
-    ctrl_loops:
-        -
-            name: sample_regulation
-            input: $thermo_sample
-            output: $heater
-            P: 2.2
-            I: 1.1
-            D: 0.1
-            frequency: 2
-            deadband: 5
-            tango_server: temp1
-------------------------------------
-"""
-
-
-import bliss
-from bliss.common import log;
-from bliss.config import static
 
 def test_read_input(temp_tin):       
     print "%s" % (temp_tin.read())            
@@ -123,9 +63,7 @@ def test_output_set(temp_tout):
     temp_tout.set(SP)
     temp_tout.wait()
     myval = temp_tout.read()
-    myround = int(round(myval))
-    print "%s rounded to %s" % (myval,myround)            
-    assert  abs(SP-myround)<0.1 
+    assert  SP == pytest.approx(myval, 1e-02) 
 
 def test_output_set_with_kwarg(temp_tout):
     SP=11
@@ -135,12 +73,9 @@ def test_output_set_with_kwarg(temp_tout):
     temp_tout.set(SP, step=KW)
     temp_tout.wait()
     myval = temp_tout.read()
-    myround = int(round(myval))
-    print "%s rounded to %s" % (myval,myround)            
-    assert abs(SP-myround)<0.1
+    assert SP == pytest.approx(myval, 1e-02)
     myset = temp_tout.set()
-    myroundset = int(round(myset))
-    assert abs(SP-myroundset)<0.1
+    assert SP == pytest.approx(myset, 1e-02)
     myval = temp_tout.step()
     assert myval == KW
 
@@ -152,10 +87,7 @@ def test_loop_set(temp_tloop):
     temp_tloop.set(SP)
     temp_tloop.output.wait()
     myval = temp_tloop.output.read()
-    print myval
-    myround = int(round(myval))
-    print "%s rounded to %s" % (myval,myround)            
-    assert abs(SP-myround)<0.1
+    assert SP == pytest.approx(myval, 1e-02)
 
 
 def test_loop_regulation(temp_tloop):
@@ -189,11 +121,11 @@ def test_read_input_counter(temp_tin):
     myval = temp_tin.read()
     print "%s" % (myval) 
     myvalcount = temp_tin.counter.read()
-    assert abs(myval-myvalcount)<0.1
+    assert myval == pytest.approx(myvalcount, 1e-02)
 
 def test_read_output_counter(temp_tout):       
     myval = temp_tout.read()
     print "%s" % (myval) 
     myvalcount = temp_tout.counter.read()
-    assert abs(myval-myvalcount)<0.1
+    assert myval == pytest.approx(myvalcount, 1e-02)
            

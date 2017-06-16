@@ -6,34 +6,10 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import pytest
-import sys
-import os
-import optparse
-import re
-import signal
-import gevent
-import pdb
-import time
 
 SP = 10
 SP = 15
 SP = 20
-
-"""
-Bliss generic library
-"""
-
-sys.path.insert(
-    0,
-    os.path.abspath(
-        os.path.join(
-            os.path.dirname(__file__),
-            os.path.pardir, os.path.pardir)))
-
-
-import bliss
-from bliss.common import log;
-from bliss.config import static
 
 """
 PyTest list of tests

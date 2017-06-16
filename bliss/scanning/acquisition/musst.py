@@ -34,11 +34,29 @@ class MusstAcquisitionDevice(AcquisitionDevice):
     store_list = store_list if store_list is not None else list()
     self.channels.extend((AcquisitionChannel(name,numpy.uint32, (1,)) for name in store_list))
 
-  def prepare(self):
-    self.musst.upload_file(self.program,
-                           template_replacement=self.program_template_replacement)
+    self.next_vars = None
+    self._iter_index = 0
     
-    for var_name, value in self.vars.iteritems():	
+  def __iter__(self):
+    if isinstance(self.vars,(list,tuple)):
+      vars_iter = iter(self.vars)
+      while True:
+        self.next_vars = vars_iter.next()
+        yield self
+        self._iter_index += 1
+    else:
+      self.next_vars = self.vars
+      self._iter_index = 0
+      while True:
+        yield self
+        self._iter_index += 1
+        
+  def prepare(self):
+    if self._iter_index == 0:
+      self.musst.upload_file(self.program,
+                             template_replacement=self.program_template_replacement)
+
+    for var_name, value in self.next_vars.iteritems():	
       self.musst.putget("VAR %s %s" %  (var_name,value))
 
   def start(self):

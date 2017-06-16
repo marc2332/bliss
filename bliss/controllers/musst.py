@@ -12,6 +12,7 @@ from bliss.comm.gpib import Gpib
 from bliss.comm import serial
 from bliss.common.greenlet_utils import KillMask,protect_from_kill
 from bliss.config.channels import Cache
+from bliss.config.conductor.client import remote_open
 Serial = serial.Serial
 
 def _get_simple_property(command_name,
@@ -312,7 +313,7 @@ class musst(object):
 
         if(self.__last_file_load.value != program_file or
            self.__last_template_replacement.value != str(template_replacement)):
-            with open(program_file) as program:
+            with remote_open(program_file) as program:
                 program_bytes = program.read()
                 for old,new in template_replacement.iteritems():
                     program_bytes = program_bytes.replace(old,new)

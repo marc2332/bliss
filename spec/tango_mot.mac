@@ -1104,7 +1104,7 @@ def tango_mot_print_status(motnum) '{
 
     split(tango_mot_status(motnum), TTT, "\n")
 
-    UUU = ass_arr_revrse(TTT)
+    UUU = ass_arr_reverse(TTT)
     for (ii in UUU){
         tango_mot_msg(UUU[ii])
     }

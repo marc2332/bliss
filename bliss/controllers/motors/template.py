@@ -22,8 +22,8 @@ Bliss controller for XXX.
 
 class XXX(Controller):
 
-    def __init__(self, name, config, axes, encoders):
-        Controller.__init__(self, name, config, axes, encoders)
+    def __init__(self, *args, **kwargs):
+        Controller.__init__(self, *args, **kwargs)
 
     def initialize(self):
         """

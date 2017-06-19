@@ -11,8 +11,8 @@ import gevent
 
 class MD2(Controller):
 
-    def __init__(self, name, config, axes, encoders):
-        Controller.__init__(self, name, config, axes, encoders)
+    def __init__(self, *args, **kwargs):
+        Controller.__init__(self, *args, **kwargs)
 
         host, port = self.config.get("exporter_address").split(":")
         self._exporter = Exporter(host, int(port))

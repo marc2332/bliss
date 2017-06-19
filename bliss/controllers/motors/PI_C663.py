@@ -24,13 +24,10 @@ Cyril Guilloud ESRF BLISS  2016
 
 class PI_C663(Controller):
 
-    def __init__(self, name, config, axes, encoders):
-        Controller.__init__(self, name, config, axes, encoders)
+    def __init__(self, *args, **kwargs):
+        Controller.__init__(self, *args, **kwargs)
 
         self.cname = "C663"
-
-    def __del__(self):
-        print "PI_C663 DESTRUCTORRRRRR******+++++++++++++++++++++++++++++++++"
 
     # Init of controller.
     def initialize(self):

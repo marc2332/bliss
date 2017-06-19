@@ -29,8 +29,8 @@ ENABLED = 1
 
 class GalilDMC213(Controller):
 
-    def __init__(self, name, config, axes, encoders):
-        Controller.__init__(self, name, config, axes, encoders)
+    def __init__(self, *args, **kwargs):
+        Controller.__init__(self, *args, **kwargs)
         self.socket_lock = lock.Semaphore()
 
     def initialize(self):

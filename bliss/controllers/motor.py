@@ -30,7 +30,7 @@ class Controller(object):
         :ref:`bliss-how-to-motor-controller`
     '''
 
-    def __init__(self, name, config, axes, encoders):
+    def __init__(self, name, config, axes, encoders, shutters, switches):
         self.__name = name
         self.__config = StaticConfig(config)
         self.__initialized_axis = dict()
@@ -39,6 +39,8 @@ class Controller(object):
         self.__initialized_hw_axis = dict()
         self._axes = dict()
         self._encoders = dict()
+        self._shutters = dict()
+        self._switches = dict()
         self.__initialized_encoder = dict()
         self._tagged = dict()
 
@@ -69,6 +71,12 @@ class Controller(object):
                 encoder_name = axis_config.get("encoder")
                 ENCODER_AXIS[encoder_name] = axis_name
 
+        for obj_config_list,object_dict in ((shutters,self._shutters),
+                                            (switches,self._switches)):
+            for obj_name, obj_class, obj_config in obj_config_list:
+                if obj_class is None:
+                    raise ValueError("You have to specify a **class** for object named: %s" % obj_name)
+                object_dict[obj_name] = obj_class(obj_name, self, obj_config)
     @property
     def axes(self):
         return self._axes
@@ -76,6 +84,20 @@ class Controller(object):
     @property
     def encoders(self):
         return self._encoders
+
+    @property
+    def shutters(self):
+        return self._shutters
+
+    def get_shutter(self, name):
+        return self._shutters[name]
+    
+    @property
+    def switchs(self):
+        return self._switches
+
+    def get_switch(self, name):
+        return self._switches[name]
 
     @property
     def name(self):

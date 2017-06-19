@@ -9,8 +9,8 @@ import itertools
 
 class NF8742(Controller):
 
-    def __init__(self, name, config, axes, encoders):
-        Controller.__init__(self, name, config, axes, encoders)
+    def __init__(self, *args, **kwargs):
+        Controller.__init__(self, *args, **kwargs)
 
         self.host = self.config.get("host")
 

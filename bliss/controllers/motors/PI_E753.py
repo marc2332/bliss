@@ -26,8 +26,8 @@ Cyril Guilloud ESRF BLISS  2014-2016
 
 class PI_E753(Controller):
 
-    def __init__(self, name, config, axes, encoders):
-        Controller.__init__(self, name, config, axes, encoders)
+    def __init__(self, *args, **kwargs):
+        Controller.__init__(self, *args, **kwargs)
 
         self.cname = "E753"
 

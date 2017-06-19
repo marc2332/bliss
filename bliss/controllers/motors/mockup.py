@@ -32,8 +32,8 @@ config :
 """
 
 class Mockup(Controller):
-    def __init__(self, name, config, axes, encoders):
-        Controller.__init__(self, name, config, axes, encoders)
+    def __init__(self, *args, **kwargs):
+        Controller.__init__(self, *args, **kwargs)
 
         self._axis_moves = {}
         self.__encoders = {}
@@ -52,7 +52,7 @@ class Mockup(Controller):
         try:
             self.host = self.config.get("host")
         except:
-            elog.debug("no 'host' defined in config for %s" % name)
+            elog.debug("no 'host' defined in config for %s" % self.name)
 
         # Adds Mockup-specific settings.
         self.axis_settings.add('init_count', int)

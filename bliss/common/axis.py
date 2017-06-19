@@ -763,7 +763,12 @@ class Axis(object):
         self.__move_done.set()
 
     def _check_ready(self):
+        if not self.state() in ("READY", "MOVING"):
+            # read state from hardware
+            self._update_settings(state=self.state(read_hw=True))
+
         initial_state = self.state()
+
         if initial_state != "READY":
             raise RuntimeError("axis %s state is \
                                 %r" % (self.name, str(initial_state)))
@@ -796,9 +801,9 @@ class Axis(object):
             polling_time (float): motion loop polling time (seconds)
         """
         elog.debug("user_target_pos=%g  wait=%r relative=%r" % (user_target_pos, wait, relative))
+        self._check_ready()
         if self.__controller.is_busy():
             raise RuntimeError("axis %s: controller is busy" % self.name)
-        self._check_ready()
 
         motion = self.prepare_move(user_target_pos, relative)
         if motion is None:
@@ -821,9 +826,9 @@ class Axis(object):
         Args:
             velocity: signed velocity for constant speed motion
         """
+        self._check_ready()
         if self.__controller.is_busy():
             raise RuntimeError("axis %s: controller is busy" % self.name)
-        self._check_ready()
        
         if velocity == 0:
             return

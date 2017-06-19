@@ -75,6 +75,7 @@ def m1enc(beacon):
 @pytest.fixture
 def s1ho(beacon):
   m = beacon.get("s1ho")
+  m.no_offset = False
   yield m
   m.stop()
   m.wait_move()
@@ -83,6 +84,7 @@ def s1ho(beacon):
 @pytest.fixture
 def s1hg(beacon):
   m = beacon.get("s1hg")
+  m.no_offset = False
   yield m
   m.stop()
   m.wait_move()
@@ -91,6 +93,7 @@ def s1hg(beacon):
 @pytest.fixture
 def s1vo(beacon):
   m = beacon.get("s1vo")
+  m.no_offset = False
   yield m
   m.stop()
   m.wait_move()
@@ -99,6 +102,7 @@ def s1vo(beacon):
 @pytest.fixture
 def s1vg(beacon):
   m = beacon.get("s1vg")
+  m.no_offset = False
   yield m
   m.stop()
   m.wait_move()

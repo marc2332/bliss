@@ -13,6 +13,12 @@ from bliss.comm import serial
 from bliss.common.greenlet_utils import KillMask,protect_from_kill
 from bliss.config.channels import Cache
 from bliss.config.conductor.client import remote_open
+from bliss.common.switch import Switch as BaseSwitch
+try:
+    from collections import OrderedDict
+except ImportError:
+    OrderedDict = None          # Don't support python2.6
+
 Serial = serial.Serial
 
 def _get_simple_property(command_name,
@@ -475,3 +481,57 @@ class musst(object):
         if channel is None:
             raise RuntimeError("musst doesn't have channel (%s) in his config" % channel_name)
         return channel
+
+
+#Musst switch
+
+class Switch(BaseSwitch):
+    """
+    This class wrapped musst command to emulate a switch.
+    the configuration may look like this:
+    musst: $musst_name
+    states:
+       - label: OPEN
+         set_cmd: "#BTRIG 1"
+         test_cmd: "?BTRIG"
+         test_cmd_reply: "1"
+       - label: CLOSED
+         set_cmd: "#BTRIG 0"
+         test_cmd: "?BTRIG"
+         test_cmd_reply: "0"
+    """
+    def __init__(self,name,config):
+        BaseSwitch.__init__(self,name,config)
+        self.__musst = None
+        self.__states = OrderedDict() if OrderedDict else dict()
+        self.__state_test = OrderedDict() if OrderedDict else dict()
+
+    def _init(self):
+        config = self.config
+        self.__musst = config['musst']
+        for state in config['states']:
+            label = state['label']
+            cmd = state['set_cmd']
+            self.__states[label] = cmd
+
+            t1 = {config['test_cmd_reply'] : label}
+            t = self.__state_test.setdefault(config['test_cmd'],result)
+            if t1 != t:
+                t.update(t1)
+
+    def _set(self,state):
+        cmd = self.__states.get(state)
+        if cmd is None:
+            raise RuntimeError("State %s don't exist" % state)
+        self.__musst.putget(cmd)
+
+    def _get(self):
+        for test_cmd,test_reply in self.__state_test.iteritems():
+            reply = self.__musst.putget(test_cmd)
+            state = test_reply.get(reply)
+            if state is not None:
+                return state
+        return 'UNKNOWN'
+
+    def _states_list(self):
+        return self.__states.keys()

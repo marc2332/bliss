@@ -324,3 +324,4 @@ def _ackcommand(cnx,cmd,data = None):
 
 def _round(x):
     return round(x+0.5 if x >= 0 else x-0.5)
+from .shutter import Shutter

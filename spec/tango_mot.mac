@@ -755,7 +755,7 @@ def tango_mot_par(motnum, key, action, p1, p2) '{
 def tango_mot_cmd(motnum, cmd, p1, p2) '{
 
     local _mot_mne _dev _attr _step_size _steps _cmd _ctrl_dev
-
+    local _msg
     _ctrl_dev = tango_mot_ADDR
 
     tango_mot_dbg(sprintf ("tango_mot_cmd(motnum=%s cmd=%s p1=%s p2=%s)", motnum, cmd, p1, p2))
@@ -800,7 +800,7 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
         # deg, mm, um)
         # parameters: none
         if (cmd == "position") {
-            local _pos _offset _diff _msg
+            local _pos _offset _diff
 
             _attr =  "position"
             _attr2 = "offset"
@@ -961,6 +961,34 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
                 printf("un-supported home or limit search\n")
                 return ".error."
             }
+        }
+
+        # slew_rate (p1=rate in Hz)
+        if (cmd == "slew_rate" || cmd == "velocity") {
+          if (motor_par(motnum, "in_config") == 1) {
+            tango_mot_dbg("set velocity : no write to DS while in_config")
+            return
+          } else {
+            tango_mot_dbg("set SPEC velocity (steps/s) to DS velocity (uu/s)")
+
+             local _attr  _velocity_in_steps  _steps_per_unit  _velo
+
+             _attr =  "velocity"
+             _velocity_in_steps  = p1
+             _steps_per_unit = motor_par(motnum, "step_size")
+
+             if (_steps_per_unit == 0) {
+               tango_mot_err("_steps_per_unit == 0")
+             } else {
+               _velo = _velocity_in_steps / fabs(_steps_per_unit)
+             }
+
+             # Writes "velocity" into ds.
+	     _msg = sprintf("_vel_in_steps=%g  _steps_per_unit=%g  _velo=%g", \
+	                    _velocity_in_steps, _steps_per_unit, _velo)
+             tango_mot_dbg(_msg)
+             tango_mot_set_attr(motnum, "velocity", _velo)
+          }
         }
 
         if (cmd == "test_error") {

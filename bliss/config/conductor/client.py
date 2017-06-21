@@ -12,6 +12,12 @@ from .connection import StolenLockException
 
 _default_connection = None
 
+def get_default_connection():
+    global _default_connection
+    if _default_connection is None:
+        _default_connection = connection.Connection()
+    return _default_connection
+
 class _StringIO(StringIO.StringIO):
     def __enter__(self,*args,**kwags):
         return self
@@ -20,12 +26,7 @@ class _StringIO(StringIO.StringIO):
 
 def check_connection(func):
     def f(*args,**keys):
-        global _default_connection
-        conn = keys.get("connection", _default_connection)
-        if conn is None and _default_connection is None:
-            _default_connection = connection.Connection()
-            conn = _default_connection
-	keys["connection"]=conn
+        keys["connection"] = keys.get("connection") or get_default_connection()
         return func(*args,**keys)
     return f
 

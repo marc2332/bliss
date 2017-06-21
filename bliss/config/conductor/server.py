@@ -663,37 +663,46 @@ def main():
       bosse = True
 
       while bosse:
-        rlist,_,_ = select.select(fd_list,[],[])
 
-        for s in rlist:
-            if s == udp:
-                buff,address = udp.recvfrom(8192)
-                if buff.find('Hello') > -1:
-                    udp.sendto('%s|%d' % (socket.gethostname(),beacon_port),address)
+        rlist,_,_ = select.select(fd_list,[],[], 1)
+        if rlist:
+            for s in rlist:
+                if s == udp:
+                    buff,address = udp.recvfrom(8192)
+                    if buff.find('Hello') > -1:
+                        udp.sendto('%s|%d' % (socket.gethostname(),beacon_port),address)
 
-            elif s == tcp:
-                newSocket, addr = tcp.accept()
-                newSocket.setsockopt(socket.IPPROTO_TCP,socket.TCP_NODELAY,1)
-                newSocket.setsockopt(socket.SOL_IP, socket.IP_TOS, 0x10)
-                localhost = addr[0] == '127.0.0.1'
-                gevent.spawn(_client_rx,newSocket,localhost)
+                elif s == tcp:
+                    newSocket, addr = tcp.accept()
+                    newSocket.setsockopt(socket.IPPROTO_TCP,socket.TCP_NODELAY,1)
+                    newSocket.setsockopt(socket.SOL_IP, socket.IP_TOS, 0x10)
+                    localhost = addr[0] == '127.0.0.1'
+                    gevent.spawn(_client_rx,newSocket,localhost)
 
-            elif s == sig_read:
-                bosse = False
-                break
-            else:
-                msg = os.read(s,8192)
-                if msg:
-                    print '%s: %s' % (msg_prefix.get(s,'[DEFAULT]'),msg)
+                elif s == sig_read:
+                    bosse = False
+                    break
                 else:
-                    fd_list.remove(tango_rp)
-                    os.close(tango_rp)
-                    print '%s: Warning Database exit' % (msg_prefix.get(s,'[DEFAULT]'))
-                break
+                    msg = os.read(s,8192)
+                    if msg:
+                        print '%s: %s' % (msg_prefix.get(s,'[DEFAULT]'),msg)
+                    else:
+                        fd_list.remove(tango_rp)
+                        os.close(tango_rp)
+                        print '%s: Warning: Database exit' % (msg_prefix.get(s,'[DEFAULT]'))
+                    break
+        else:
+            # Check if redis is alive
+            redis_exit_code = redis_process.poll()
+            if redis_exit_code is not None:
+                print '[REDIS]: Error: redis exited with code %s. Bailing out!' % (redis_exit_code)
+                redis_process = None
+                bosse = False
     except KeyboardInterrupt:
         pass
     finally:
-        redis_process.terminate()
+        if redis_process:
+            redis_process.terminate()
 
 if __name__ == "__main__" and __package__ is None:
     main()

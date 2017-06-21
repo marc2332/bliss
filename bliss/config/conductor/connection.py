@@ -182,7 +182,8 @@ class Connection(object):
                             timeout = 1.
                         else:
                             break
-                            
+                self._host = host
+                self._port = port
             self._fd = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
             self._fd.setsockopt(socket.IPPROTO_TCP,socket.TCP_NODELAY,1)
             self._fd.setsockopt(socket.SOL_IP, socket.IP_TOS, 0x10)
@@ -473,3 +474,7 @@ class Connection(object):
         except:
             pass
         self._redis_connection = {}
+
+    @check_connect
+    def __str__(self):
+        return 'Connection({0}:{1})'.format(self._host, self._port)

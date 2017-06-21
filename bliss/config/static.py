@@ -741,3 +741,6 @@ class Config(object):
 
     def pprint(self, indent=1, depth=None):
         self.root.pprint(indent=indent, depth=depth)
+
+    def __str__(self):
+        return '{0}({1})'.format(self.__class__.__name__, self._connection)

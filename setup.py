@@ -149,7 +149,6 @@ class BlissInstall(install):
 
 
 release = get_release()
-print(release)
 cmdclass = {'build': BlissBuild,
             'install': BlissInstall,
             'build_doc': BuildDoc, }

@@ -402,9 +402,9 @@ class Config(object):
 
     USER_TAG_KEY = 'user_tag'
 
-    def __init__(self, base_path, timeout=3):
+    def __init__(self, base_path, timeout=3, connection=None):
         self._base_path = base_path
-        
+        self._connection = connection or client.get_default_connection()
         self.reload(timeout=timeout)
 
     def reload(self, base_path=None, timeout=3):
@@ -435,7 +435,8 @@ class Config(object):
         self._clear_instances()
 
         path2file = client.get_config_db_files(base_path = base_path,
-                                               timeout = timeout)
+                                               timeout = timeout,
+                                               connection = self._connection)
 
         for path, file_content in path2file:
             if not file_content:
@@ -566,7 +567,8 @@ class Config(object):
         """
 
         full_filename = os.path.join(self._base_path,filename)
-        client.set_config_db_file(full_filename,content)
+        client.set_config_db_file(full_filename,content,
+                                  connection=self._connection)
 
     def _create_file_index(self,node,filename) :
         if filename:
@@ -739,3 +741,6 @@ class Config(object):
 
     def pprint(self, indent=1, depth=None):
         self.root.pprint(indent=indent, depth=depth)
+
+    def __str__(self):
+        return '{0}({1})'.format(self.__class__.__name__, self._connection)

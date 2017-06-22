@@ -427,7 +427,10 @@ class HashSetting(object):
     def get(self, key, default = None):
         v = self.raw_get(key)
         if v is None:
-            v = default
+            if self._write_type_conversion:
+                v = self._write_type_conversion(default)
+            else:
+                v = default
         return v 
 
     def _raw_get_all(self):

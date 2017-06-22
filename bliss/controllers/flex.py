@@ -228,17 +228,20 @@ class flex:
             logging.getLogger('flex').error("Timeout on robot port")
 
     def user_port(self, boolean):
-        self.set_io("dioOpenUsrPort", bool(boolean))
-        try:
-            with gevent.Timeout(10):
-                if bool(boolean) == True:
-                    while self.robot.getCachedVariable("data:dioUsrPtIsOp").getValue() == "false":
-                        self.robot.waitNotify("data:dioUsrPtIsOp")
-                else:
-                    while self.robot.getCachedVariable("data:dioUsrPtIsClo").getValue() == "false":
-                        self.robot.waitNotify("data:dioUsrPtIsClo")
-        except gevent.timeout.Timeout:
-            logging.getLogger('flex').error("Timeout on user port")
+        if self.config.get("HCD", "loading_port") == "robot_port":
+            self.robot_port(boolean)
+        else:
+            self.set_io("dioOpenUsrPort", bool(boolean))
+            try:
+                with gevent.Timeout(10):
+                    if bool(boolean) == True:
+                        while self.robot.getCachedVariable("data:dioUsrPtIsOp").getValue() == "false":
+                            self.robot.waitNotify("data:dioUsrPtIsOp")
+                    else:
+                        while self.robot.getCachedVariable("data:dioUsrPtIsClo").getValue() == "false":
+                            self.robot.waitNotify("data:dioUsrPtIsClo")
+            except gevent.timeout.Timeout:
+                logging.getLogger('flex').error("Timeout on user port")
 
     @notwhenbusy
     def moveDewar(self, cell, puck=1, user=False):
@@ -291,7 +294,10 @@ class flex:
                 VAL3_puck = int(self.robot.getCachedVariable('RequestedDewarPosition').getValue())
             except:
                 return None
-            cell = ((VAL3_puck // 3 + 3) % 8) + 1 
+            if self.config.get("HCD","loading_port") == "robot_port":
+                cell = self.get_cell_position()
+            else:
+                cell = ((VAL3_puck // 3 + 3) % 8) + 1 
             return cell
   
     def pin_on_gonio(self):

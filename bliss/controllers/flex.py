@@ -103,6 +103,11 @@ class flex:
         logging.getLogger('flex').info("pyFlex Initialised")
 
     def connect(self):
+        logging.getLogger('flex').info("reading config file")
+        self.config = ConfigParser.RawConfigParser()
+        cfg_file_path = os.path.dirname(self.calibration_file)+"/detection.cfg"
+        self.config.read(cfg_file_path)
+
         logging.getLogger('flex').info("connecting to Flex")
         self.onewire = OneWire(self.ow_port)
         self.cam = Ueye_cam(self.ueye_id)
@@ -126,10 +131,7 @@ class flex:
         return self.robot._cached_variables.keys()
 
     def get_detection_param(self, section, name_value):
-        parser = ConfigParser.RawConfigParser()
-        file_path = os.path.dirname(self.calibration_file)+"/detection.cfg"
-        parser.read(file_path)
-        val = ast.literal_eval(parser.get(section, name_value))
+        val = ast.literal_eval(self.config.get(section, name_value))
         if section == "acq_time":
             logging.getLogger('flex').info("Acquisition time is set to %s" %( str(val)))
         else:
@@ -137,19 +139,16 @@ class flex:
         return val
 
     def transfer_counter(self, success=True):
-        parser = ConfigParser.RawConfigParser()
-        file_path = os.path.dirname(self.calibration_file)+"/transfer_counter.log"
-        parser.read(file_path)
         if success:
-            transfer_iter = parser.getint("total transfer", "success") + 1
-            parser.set("total transfer", "success", str(transfer_iter))
+            transfer_iter = self.config.getint("total transfer", "success") + 1
+            self.config.set("total transfer", "success", str(transfer_iter))
             logging.getLogger('flex').info("total number of successful transfer: %d" %(transfer_iter))
         else:
-            transfer_iter = parser.getint("total transfer", "failure") + 1
-            parser.set("total transfer", "failure", str(transfer_iter))
+            transfer_iter = self.config.getint("total transfer", "failure") + 1
+            self.config.set("total transfer", "failure", str(transfer_iter))
             logging.getLogger('flex').info("total number of transfer with failure: %d" %(transfer_iter))
         with open(file_path, 'wb') as file:
-            parser.write(file)
+            self.config.write(file)
 
     @notwhenbusy
     def setSpeed(self, speed):
@@ -675,28 +674,22 @@ class flex:
             dm_reading.kill()
 
     def update_transfer_iteration(self, reset=False):
-        parser = ConfigParser.RawConfigParser()
-        file_path = os.path.dirname(self.calibration_file)+"/transfer_iteration.cfg"
-        parser.read(file_path)
         if reset:
             iter_nb = 0
         else:
-            iter_nb = parser.getfloat("transfer", "iter") + 1
-        parser.set("transfer", "iter", str(iter_nb))
+            iter_nb = self.config.getfloat("transfer", "iter") + 1
+        self.config.set("transfer", "iter", str(iter_nb))
         with open(file_path, 'wb') as file:
-            parser.write(file)
+            self.config.write(file)
         logging.getLogger('flex').info("number of sample transfer set to %d" %(int(iter_nb)))
         return iter_nb
 
     def save_loaded_position(self, cell, puck, sample):
-        parser = ConfigParser.RawConfigParser()
-        file_path = os.path.dirname(self.calibration_file)+"/loaded_position.cfg"
-        parser.read(file_path)
-        parser.set("position", "cell", str(cell))
-        parser.set("position", "puck", str(puck))
-        parser.set("position", "sample", str(sample))
+        self.config.set("position", "cell", str(cell))
+        self.config.set("position", "puck", str(puck))
+        self.config.set("position", "sample", str(sample))
         with open(file_path, 'wb') as file:
-            parser.write(file)
+            self.config.write(file)
         logging.getLogger('flex').info("loaded position written (%d, %d, %d)" %(cell, puck, sample))
 
     def reset_loaded_position(self):
@@ -704,12 +697,9 @@ class flex:
         self.save_loaded_position(-1, -1, -1)
 
     def read_loaded_position(self):
-        parser = ConfigParser.RawConfigParser()
-        file_path = os.path.dirname(self.calibration_file)+"/loaded_position.cfg"
-        parser.read(file_path)
-        cell = parser.getfloat("position", "cell")
-        puck = parser.getfloat("position", "puck")
-        sample = parser.getfloat("position", "sample")
+        cell = self.config.getfloat("position", "cell")
+        puck = self.config.getfloat("position", "puck")
+        sample = self.config.getfloat("position", "sample")
         return (int(cell), int(puck), int(sample))
 
     def set_cam(self, gripper_type):
@@ -1088,10 +1078,7 @@ class flex:
         self.robot.execute("data:pTemp = here(flange,world)")
         flipping_z_robot = self.robot.getVal3GlobalVariableDouble("pTemp.trsf.z")
         logging.getLogger('flex').info("from robot z is %s" %str(flipping_z_robot))
-        parser = ConfigParser.RawConfigParser()
-        file_path = self.calibration_file
-        parser.read(file_path)
-        calib_z_robot = parser.getfloat("Calibration", "z")
+        calib_z_robot = self.config.getfloat("Calibration", "z")
         logging.getLogger('flex').info("from reference %s" %str(calib_z_robot))
         diff_calib_flipping = (calib_z_robot - flipping_z_robot) - height_dewar
         flipping_gripper_z_dewar = self.robot.getVal3GlobalVariableDouble("tCalibration.trsf.z") - diff_calib_flipping
@@ -1210,17 +1197,14 @@ class flex:
             logging.getLogger('flex').error("problem with getVal3GlobalVariableDouble")
             raise RuntimeError("problem with getVal3GlobalVariableDouble")
 
-        parser = ConfigParser.RawConfigParser()
-        file_path = self.calibration_file
         saved_file_path = os.path.splitext(self.calibration_file)[0]+os.path.extsep+"sav"
-        parser.read(file_path)
         try:
             shutil.copy(file_path, saved_file_path)
         except IOError:
             logging.getLogger('flex').info("No such file %s" %file_path)
-        parser.set("Calibration", "z", str(tCalib))
+        self.config.set("Calibration", "z", str(tCalib))
         with open(file_path, 'wb') as file:
-            parser.write(file)
+            self.config.write(file)
         logging.getLogger('flex').info("file written")
         self.robot.setVal3GlobalVariableBoolean("bImageProcEnded", True)
 

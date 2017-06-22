@@ -721,6 +721,18 @@ class flex:
                                  self.sampleStatus, ("LoadSampleStatus",), self.PSS_light, ()) as X:
             return X.execute(self.robot.executeTask, "loadSample", timeout=200)
 
+    def check_gripper_type(self, cell):
+        gripper_type = self.get_gripper_type()
+        if gripper_type in [1, 3]:
+            unipuck_cell = cell in self.config.get("HCD", "unipuck_cells")
+            if (gripper_type == 1 and not unipuck_cell) or (gripper_type == 3 and unipuck_cell):
+                logging.getLogger('flex').error("gripper/puck mismatch")
+                raise RuntimeError("gripper/puck mismatch")
+        else:
+            logging.getLogger('flex').error("No or wrong gripper")
+            raise RuntimeError("No or wrong gripper")
+
+
     @notwhenbusy
     def loadSample(self, cell, puck, sample, ref=False):
         to_load = (cell, puck, sample)
@@ -740,17 +752,9 @@ class flex:
             gevent.sleep(3)
         self.set_io("dioLoadStReq", True)
 
-        #Get gripper type
-        gripper_type = self.get_gripper_type()
-        if gripper_type in [1, 3]:
-            if (gripper_type == 1 and cell in range(1,9,2)) or (gripper_type == 3 and cell in range(2,10,2)):
-                logging.getLogger('flex').error("gripper/puck mismatch")
-                raise RuntimeError("gripper/puck mismatch")
-            self.set_cam(gripper_type)
-            self.robot.setVal3GlobalVariableDouble("nGripperType", str(gripper_type))
-        else:
-            logging.getLogger('flex').error("No or wrong gripper")
-            raise RuntimeError("No or wrong gripper")
+        gripper_type = self.check_gripper_type(cell)
+        self.set_cam(gripper_type)
+        self.robot.setVal3GlobalVariableDouble("nGripperType", str(gripper_type))
 
         success = self.do_load_detection(gripper_type, ref)
         self.set_io("dioLoadStReq", False)
@@ -814,18 +818,9 @@ class flex:
             gevent.sleep(3)
         self.set_io("dioUnloadStReq", True)
 
-        #Get gripper type
-        gripper_type = self.get_gripper_type()
-
-        if gripper_type in [1, 3]:
-            if (gripper_type == 1 and cell in range(1,9,2)) or (gripper_type == 3 and cell in range(2,10,2)):
-                logging.getLogger('flex').error("gripper/puck mismatch")
-                raise RuntimeError('gripper/puck mismatch')
-            self.set_cam(gripper_type)
-            self.robot.setVal3GlobalVariableDouble("nGripperType", str(gripper_type))
-        else:
-            logging.getLogger('flex').error("No or wrong gripper")
-            raise RuntimeError("No or wrong gripper")
+        gripper_type = self.check_gripper_type(cell)
+        self.set_cam(gripper_type)
+        self.robot.setVal3GlobalVariableDouble("nGripperType", str(gripper_type))
 
         success =  self.do_unload_detection(gripper_type)
         self.set_io("dioUnloadStReq", False)
@@ -904,21 +899,10 @@ class flex:
             gevent.sleep(3)
         self.set_io("dioUnloadStReq", True)
 
-        #Get gripper type
-        gripper_type = self.get_gripper_type()
-        if gripper_type in [1, 3]:
-            if (gripper_type == 1 and unload_cell in range(1,9,2)) or (gripper_type == 3 and unload_cell in range(2,10,2)):
-                logging.getLogger('flex').error("gripper/puck mismatch in unload")
-                raise RuntimeError("gripper/puck mismatch in unload")
-            if (gripper_type == 1 and load_cell in range(1,9,2)) or (gripper_type == 3 and load_cell in range(2,10,2)):
-                logging.getLogger('flex').error("gripper/puck mismatch in load")
-                raise RuntimeError("gripper/puck mismatch in load")
-            self.set_cam(gripper_type)
-            self.robot.setVal3GlobalVariableDouble("nGripperType", str(gripper_type))
-        else:
-            logging.getLogger('flex').error("Wrong gripper")
-            raise RuntimeError("Wrong gripper")
-
+        gripper_type = self.check_gripper_type(cell)
+        self.set_cam(gripper_type)
+        self.robot.setVal3GlobalVariableDouble("nGripperType", str(gripper_type))
+        
         success =  self.do_chainedUnldLd_detection(gripper_type)
         self.set_io("dioUnloadStReq", False)
         self.set_io("dioLoadStReq", False)

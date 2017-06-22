@@ -76,7 +76,7 @@ class BackgroundGreenlets(object):
         pass
 
 
-class flex:
+class flex(object):
 
     def __init__(self, name, config):
         self.cs8_ip = config.get('ip')
@@ -102,17 +102,21 @@ class flex:
         logging.getLogger('flex').info("#" * 50)
         logging.getLogger('flex').info("pyFlex Initialised")
 
+    @property
+    def unipuck_cells(self):
+        return ast.literal_eval(self.config.get("HCD", "unipuck_cells"))
+
     def connect(self):
         logging.getLogger('flex').info("reading config file")
         self.config = ConfigParser.RawConfigParser()
-        cfg_file_path = os.path.dirname(self.calibration_file)+"/detection.cfg"
+        cfg_file_path = os.path.join(os.path.dirname(self.calibration_file),"detection.cfg")
         self.config.read(cfg_file_path)
 
         logging.getLogger('flex').info("connecting to Flex")
         self.onewire = OneWire(self.ow_port)
         self.cam = Ueye_cam(self.ueye_id, os.path.dirname(self.calibration_file))
-        all_unipucks = len(self.config.get("HCD", "unipuck_cells")) == 8
         self.microscan_hor = dm_reader(self.microscan_hor_ip)
+        all_unipucks = len(self.unipuck_cells) == 8
         if not all_unipucks:
           self.microscan_vert = dm_reader(self.microscan_vert_ip)
         self.proxisense = ProxiSense(self.proxisense_address, os.path.dirname(self.calibration_file))
@@ -422,7 +426,7 @@ class flex:
             if not puck in range(1,4):
                 logging.getLogger('flex').error("wrong puck number [1-3]")
                 raise ValueError("Wrong puck number [1-3]")
-            if cell in self.config.get("HCD", "unipuck_cells"):
+            if cell in self.unipuck_cells:
                 puckType = 2
                 if not sample in range(1,17):
                     logging.getLogger('flex').error("wrong sample number [1-16]")
@@ -732,7 +736,7 @@ class flex:
     def check_gripper_type(self, cell):
         gripper_type = self.get_gripper_type()
         if gripper_type in [1, 3]:
-            unipuck_cell = cell in self.config.get("HCD", "unipuck_cells")
+            unipuck_cell = cell in self.unipuck_cells
             if (gripper_type == 1 and not unipuck_cell) or (gripper_type == 3 and unipuck_cell):
                 logging.getLogger('flex').error("gripper/puck mismatch")
                 raise RuntimeError("gripper/puck mismatch")
@@ -959,7 +963,7 @@ class flex:
     def takeGripper(self, gripper_to_take):
         logging.getLogger('flex').info("Starting to take gripper on tool bank")
         self.onewire = OneWire(self.ow_port)
-        all_unipucks = len(self.config.get("HCD", "unipuck_cells")) == 8
+        all_unipucks = len(self.unipuck_cells) == 8
         if (gripper_to_take not in [1, 3, 9]) or (all_unipucks and gripper_to_take not in [1, 9]):
             logging.getLogger('flex').error("No or wrong gripper")
             raise RuntimeError("No or wrong gripper")

@@ -840,16 +840,14 @@ class flex:
             if not self.pin_on_gonio():
               self._loaded_sample = -1, -1, -1
 
+        self.save_loaded_position(*self._loaded_sample)
+
         if gripper_type == 3:
             gevent.spawn(self.defreezeGripper)
 
         if gripper_type == 1 and transfer_iter >= 16:
-            self.homeClear()
-            self.defreezeGripper()
+            gevent.spawn(self.defreezeGripper)
             self.update_transfer_iteration(reset=True)
- 
-
-        self.save_loaded_position(*self._loaded_sample)
 
         return success
 
@@ -922,16 +920,15 @@ class flex:
             if not self.pin_on_gonio():
               self._loaded_sample = -1, -1, -1
   
+        self.save_loaded_position(*self._loaded_sample)
+
         if gripper_type == 3:
             gevent.spawn(self.defreezeGripper)
 
         if gripper_type == 1 and transfer_iter >= 16:
-            self.homeClear()
-            self.defreezeGripper()
+            gevent.spawn(self.defreezeGripper)
             self.update_transfer_iteration(reset=True)
  
-        self.save_loaded_position(*self._loaded_sample)
-
         return success
 
     def sampleStatus(self, status_name):

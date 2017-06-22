@@ -420,16 +420,22 @@ class flex:
             if not puck in range(1,4):
                 logging.getLogger('flex').error("wrong puck number [1-3]")
                 raise ValueError("Wrong puck number [1-3]")
-            if cell in range(1,9,2):
-                puckType = 3
-                if not sample in range(1,11):
-                    logging.getLogger('flex').error("wrong sample number [1-10]")
-                    raise ValueError("wrong sample number [1-10]")
-            if cell in range(2,10,2):
+            if cell in self.config.get("HCD", "unipuck_cells"):
                 puckType = 2
                 if not sample in range(1,17):
                     logging.getLogger('flex').error("wrong sample number [1-16]")
                     raise ValueError("wrong sample number [1-16]")
+            else:
+                if cell in range(1,9,2):
+                    puckType = 3
+                    if not sample in range(1,11):
+                        logging.getLogger('flex').error("wrong sample number [1-10]")
+                        raise ValueError("wrong sample number [1-10]")
+                if cell in range(2,10,2):
+                    puckType = 2
+                    if not sample in range(1,17):
+                        logging.getLogger('flex').error("wrong sample number [1-16]")
+                        raise ValueError("wrong sample number [1-16]")
             puck = 3 * (cell -1) + puck - 1
             sample = sample - 1
             if puck == 23:

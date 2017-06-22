@@ -1160,8 +1160,7 @@ class flex:
         logging.getLogger('flex').info("width : center 1 %s, center 2 %s, center 3 %s" %(str(width_center1), str(width_center2), str(width_center3)))
         logging.getLogger('flex').info("height: center 1 %s, center 2 %s, center 3 %s" %(str(height_center1), str(height_center2), str(height_center3)))
         logging.getLogger('flex').info("radius 1 %s, radius 2 %s, radius 3 %s" %(str(radius1), str(radius2), str(radius3)))
-        # angle in degrees between the plan (x,y) of the robot and the plan of the camera 
-        angle_deg = 130.
+        angle_deg = self.get_detection_param("ball_center", "ref_angle")
         angle_rad = math.pi * angle_deg / 180.
         Xoffset = ((width_center1 + width_center3) / 2. - width_center1)
         Yoffset = ((width_center1 + width_center3) / 2. - width_center2)

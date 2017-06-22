@@ -954,7 +954,8 @@ class flex:
     def takeGripper(self, gripper_to_take):
         logging.getLogger('flex').info("Starting to take gripper on tool bank")
         self.onewire = OneWire(self.ow_port)
-        if gripper_to_take not in [1, 3, 9]:
+        all_unipucks = len(self.config.get("HCD", "unipuck_cells")) == 8
+        if (gripper_to_take not in [1, 3, 9]) or (all_unipucks and gripper_to_take not in [1, 9]):
             logging.getLogger('flex').error("No or wrong gripper")
             raise RuntimeError("No or wrong gripper")
         gripper_type = self.get_gripper_type()

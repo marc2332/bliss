@@ -16,3 +16,4 @@ doc/source/bliss.*rst
 beacon.rdb
 .cache/
 dump.rdb
+*.egg-info/

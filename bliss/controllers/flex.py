@@ -111,8 +111,10 @@ class flex:
         logging.getLogger('flex').info("connecting to Flex")
         self.onewire = OneWire(self.ow_port)
         self.cam = Ueye_cam(self.ueye_id, os.path.dirname(self.calibration_file))
+        all_unipucks = len(self.config.get("HCD", "unipuck_cells")) == 8
         self.microscan_hor = dm_reader(self.microscan_hor_ip)
-        self.microscan_vert = dm_reader(self.microscan_vert_ip)
+        if not all_unipucks:
+          self.microscan_vert = dm_reader(self.microscan_vert_ip)
         self.proxisense = ProxiSense(self.proxisense_address, os.path.dirname(self.calibration_file))
         self.robot = robot.Robot('flex', self.cs8_ip)
         event.connect(self.robot, "robot_exception", self._enqueue_robot_exception_msg)

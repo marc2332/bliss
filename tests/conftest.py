@@ -7,27 +7,31 @@
 
 import pytest
 import subprocess
-import sys
 import os
 import time
-
-BLISS = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-BEACON_PATH = os.path.join(BLISS, 'bin')
-BEACON = os.path.join(BEACON_PATH, "beacon-server")
-BEACON_DB_PATH = os.path.join(BLISS, 'tests', 'test_configuration')
-BEACON_PORT = 7655
 
 from bliss.config import static
 from bliss.config.conductor import client
 from bliss.config.conductor import connection
 import redis
 
+BLISS = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+BEACON = ['python', '-m', 'bliss.config.conductor.server']
+BEACON_DB_PATH = os.path.join(BLISS, 'tests', 'test_configuration')
+BEACON_PORT = 7655
+
 os.environ["PYTHONPATH"] = BLISS
+
 
 @pytest.fixture(scope="session")
 def beacon():
-    p = subprocess.Popen([BEACON, '--port=%d' % BEACON_PORT, '--redis_port=7654', '--db_path='+BEACON_DB_PATH, '--posix_queue=0'])
-    time.sleep(0.5) #wait for beacon to be really started
+    args = [
+        '--port=%d' % BEACON_PORT,
+        '--redis_port=7654',
+        '--db_path='+BEACON_DB_PATH,
+        '--posix_queue=0']
+    p = subprocess.Popen(BEACON + args)
+    time.sleep(0.5)  # wait for beacon to be really started
     redis_db = redis.Redis(port=7654)
     redis_db.flushdb()
     beacon_connection = connection.Connection("localhost", BEACON_PORT)
@@ -36,6 +40,3 @@ def beacon():
     yield cfg
     # finalization
     p.terminate()
-
-
-    

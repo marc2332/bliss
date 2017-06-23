@@ -5,6 +5,7 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+import pytest
 import unittest
 import cStringIO
 import sys
@@ -48,19 +49,17 @@ class wrapped_stderr:
         sys.stderr = self.real_stderr
 
 
+@pytest.mark.usefixtures('beacon')
 class TestLogging(unittest.TestCase):
 
     def test_debug(self):
         log.level(log.DEBUG)
         with wrapped_stdout() as stdout:
             log.debug("debugging test")
-        output = stdout.getvalue()[13:]
-        # 'DEBUG: 0.152 test_debug() (motors/TestLogging.py, l.49): debugging test\n'
-        # Musst suppress 13 firsts chars.
-        self.assertEquals(
-            output,
-            "test_debug() (motors/TestLogging.py, l.49): debugging test\n")
-
+        output = stdout.getvalue()
+        # Must suppress 13 firsts chars.
+        self.assertTrue(output.endswith(
+            "test_debug() (misc/test_logging.py, l.58): debugging test\n"))
 
     def test_error(self):
         log.level(log.ERROR)
@@ -86,14 +85,11 @@ class TestLogging(unittest.TestCase):
             with wrapped_stderr() as stderr:
                 log.exception("excepted exception", raise_exception=False)
         output = stderr.getvalue()
-        self.assertEquals(
-            output,
-            """ERROR: excepted exception
-Traceback (most recent call last):
-  File "tests/motors/TestLogging.py", line 77, in test_exception
+        self.assertTrue(output.endswith(
+            """tests/misc/test_logging.py", line 83, in test_exception
     raise RuntimeError("BLA")
 RuntimeError: BLA
-""")
+"""))
 
     def test_exception2(self):
         try:
@@ -102,6 +98,7 @@ RuntimeError: BLA
             self.assertRaises(ValueError, log.exception, "expected exception")
             return
         self.assertTrue(False)
+
 
 if __name__ == '__main__':
     unittest.main()

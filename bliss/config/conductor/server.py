@@ -148,7 +148,7 @@ def _lock(client_id,prio,lock_obj,raw_message) :
                 w.wait(3.)
         except RuntimeError:
             print "Warning: some client(s) didn't reply to the stolen lock"
-        
+
         obj_already_locked = _client_to_object.get(client_id,set())
         _client_to_object[client_id] = set(lock_obj).union(obj_already_locked)
 
@@ -239,9 +239,9 @@ def _get_python_module(client_id,message):
 
     __find_module(client_id,message_key,start_module_path)
     client_id.sendall(protocol.message(protocol.CONFIG_GET_PYTHON_MODULE_END, '%s|' % message_key))
-    
-                          
-    
+
+
+
 def __remove_empty_tree(base_dir=None, keep_empty_base=True):
     """
     Helper to remove empty directory tree.
@@ -704,5 +704,5 @@ def main():
         if redis_process:
             redis_process.terminate()
 
-if __name__ == "__main__" and __package__ is None:
+if __name__ == "__main__":
     main()

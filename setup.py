@@ -23,6 +23,8 @@ try:
 except ImportError:
     sipdistutils = None
 
+TESTING = any(x in sys.argv for x in ['test', 'pytest'])
+
 
 def abspath(*path):
     """A method to determine absolute path for a given relative path to the
@@ -33,12 +35,23 @@ def abspath(*path):
 
 def get_packages_path():
     packages_path = ['bliss']
-    for sub_package in [x for x in os.listdir('bliss') if os.path.isdir(os.path.join('bliss', x))]:
-        full_package_path = os.path.join('bliss', sub_package)
-        packages_path.extend((dirnames for dirnames, _, filenames in os.walk(
-            full_package_path) if '__init__.py' in filenames))
+    for sub_package in os.listdir('bliss'):
+        if os.path.isdir(os.path.join('bliss', sub_package)):
+            full_package_path = os.path.join('bliss', sub_package)
+            packages_path.extend(
+                dirnames
+                for dirnames, _, filenames in os.walk(full_package_path)
+                if '__init__.py' in filenames)
 
     return [dirname.replace(os.path.sep, '.') for dirname in packages_path]
+
+
+def get_release():
+    with open(abspath('bliss', '__init__.py')) as f:
+        raw = '\n'.join(line for line in f if line.startswith('__'))
+    dct = {}
+    exec(raw, dct)
+    return dct
 
 
 def get_options():
@@ -49,7 +62,8 @@ def get_options():
                 m = __import__('extensions.sip.%s' % (module_name),
                                None, None, 'extensions.sip.%s' % (module_name))
             except ImportError:
-                print "Warning optional sip module %s can't be compile, dependency not satisfied." % module_name
+                print("Warning optional sip module %s can't be compile, "
+                      "dependency not satisfied." % module_name)
                 continue
             else:
                 try:
@@ -134,18 +148,15 @@ class BlissInstall(install):
         _finalize_options(self)
 
 
-# make sure we use bliss from this source and not one that might be installed
-sys.path.insert(0, abspath())
-import bliss
-
+release = get_release()
 cmdclass = {'build': BlissBuild,
             'install': BlissInstall,
             'build_doc': BuildDoc, }
 
 setup(name="bliss",
-      version=bliss.__version__,
-      description=bliss.__description__,
-      author=bliss.__author__,
+      version=release['__version__'],
+      description=release['__description__'],
+      author=release['__author__'],
       package_dir={"bliss": "bliss"},
       packages=get_packages_path(),
       package_data={"bliss.config.redis": ["redis.conf"],
@@ -163,6 +174,9 @@ setup(name="bliss",
               ['bliss-emulator=bliss.controllers.emulator:main',
                'beacon-server=bliss.config.conductor.server:main']},
       cmdclass=cmdclass,
+
+      tests_require=['pytest-mock', 'pytest-coverage', 'h5py'],
+      setup_requires=['pytest-runner'] if TESTING else [],
       )
 
 # remove user option from command argument

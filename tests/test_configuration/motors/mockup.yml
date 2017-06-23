@@ -20,15 +20,15 @@ controller:
     steps_per_unit: 10000
     velocity: 2500.0
     acceleration: 1000.0
-    low_limit: null
-    high_limit: null
+    low_limit:
+    high_limit:
     default_cust_attr: 6.28
   - name: m1
     steps_per_unit: 1000
     velocity: 50
     acceleration: 1
     encoder: $m1enc
-    check_encoder: True
+    check_encoder: true
   - name: m0
     velocity: 1000
     acceleration: 100

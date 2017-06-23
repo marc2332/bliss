@@ -6,6 +6,8 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import unittest
+import pytest
+
 import time
 import socket
 import gevent
@@ -52,6 +54,7 @@ server_p.start()
 SERVER_PORT = PORT.get()
 
 
+@pytest.mark.usefixtures('beacon')
 class TestTcpComm(unittest.TestCase):
 
     def setUp(self):

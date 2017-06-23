@@ -5,18 +5,21 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+
 class Camera(object):
-    INVALID_SHUTTER,GLOBAL_SHUTTER,ROLLING_SHUTTER = (-1,0,1)
-    
-    def __init__(self,name,proxy):
+    INVALID_SHUTTER, GLOBAL_SHUTTER, ROLLING_SHUTTER = (-1, 0, 1)
+
+    def __init__(self, name, proxy):
         self.name = name
         self._proxy = proxy
 
-        rolling_shutter_conversion = (("-1",self.INVALID_SHUTTER),
-                                      ("0",self.GLOBAL_SHUTTER),
-                                      ("1",self.ROLLING_SHUTTER))
+        rolling_shutter_conversion = (("-1", self.INVALID_SHUTTER),
+                                      ("0", self.GLOBAL_SHUTTER),
+                                      ("1", self.ROLLING_SHUTTER))
         self.__rolling_shutter_from_str = dict(rolling_shutter_conversion)
-        self.__rolling_shutter_from_enum = dict(((y,x) for x,y in rolling_shutter_conversion))
+        self.__rolling_shutter_from_enum = dict(
+            ((y, x) for x, y in rolling_shutter_conversion))
+
     @property
     def last_error(self):
         """ Pco last error
@@ -109,7 +112,7 @@ class Camera(object):
                              "can only be those values: " + ','.join(pixel_rate_valid_values))
         else:
             self._proxy.pixelRate = str(int_val)
-    
+
     @property
     def pixel_rate_valid_values(self):
         """
@@ -159,5 +162,3 @@ class Camera(object):
         Maximum number of available ADC
         """
         return self._proxy.adcMax
-
-     

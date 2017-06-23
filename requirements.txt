@@ -28,6 +28,7 @@ ruamel.yaml == 0.11.15
 # --- test requirements ------------------------------------
 
 pytest
+pytest-cover
 
 # --- optional dependencies --------------------------------
 

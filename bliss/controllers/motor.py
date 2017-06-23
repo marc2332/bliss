@@ -34,6 +34,8 @@ class Controller(object):
         self.__name = name
         self.__config = StaticConfig(config)
         self.__initialized_axis = dict()
+        self.__initialized_hw = Cache(self, "initialized", default_value = False)
+        self.__lock = lock.Semaphore()
         self.__initialized_hw_axis = dict()
         self._axes = dict()
         self._encoders = dict()
@@ -62,8 +64,6 @@ class Controller(object):
 
             ##
             self.__initialized_axis[axis] = False
-            self.__lock = lock.Semaphore()
-            self.__initialized_hw = Cache(self, "initialized", default_value = False)
             self.__initialized_hw_axis[axis] = Cache(axis, "initialized", default_value = False)
             if axis_config.get("encoder"):
                 encoder_name = axis_config.get("encoder")

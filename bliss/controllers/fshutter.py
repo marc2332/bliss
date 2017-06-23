@@ -19,8 +19,7 @@ name: fshut
 fshutter_mot: $fshut_mot  #reference to the icepap motor
 musst:  $musst            #reference to the musst object (if any)
 step: 0.25                #relative move to open/close the shutter, if no musst
-shift: 580                #shift in icepap steps from the home search position
-                           to set as 0.
+shift: 0.16               #shift from the home search position to set as 0
 icepap_steps: 500         #icepap steps to move when external trigger received
 """
 class fshutter:
@@ -146,7 +145,11 @@ class fshutter:
       return s.recv(1024)
        
    def _cfg(self, up, down):
-      return self._icepap_query("#%%d:shcfg %d %d" % (up, down)) 
+      if up == down:
+           return self._icepap_query("#%d:stop")
+      else:
+           self._icepap_query("#%%d:listdat %d %d 2" % (up, down))
+           return self._icepap_query("#%d:ltrack inpos")
    
    def disable(self):
       self.enastate = False
@@ -154,32 +157,39 @@ class fshutter:
 
    def enable(self, steps=500):
       self.enastate = True
-      return self._cfg(steps, steps)
+      return self._cfg(0, steps)
 
    @task
    def home(self):
        def home_cleanup():
-           self.fshutter_mot.velocity(self.fshutter_mot.velocity(from_config=True)) 
-           self.enable(self.icepap_steps)
+           self.fshutter_mot.velocity(self.fshutter_mot.velocity(from_config=True))
+           self.enable()
 
        with cleanup(home_cleanup):
          self.disable()
+
+         self.fshutter_mot.velocity(0.3)
          if self.musst:
-            self.musst.putget("#BTRIG 0")
-         time.sleep(0.1)
-         self.fshutter_mot.home(-1)
+             self.musst.putget("#BTRIG 0")
+
+         status = self._icepap_query("#%d:?STATUS")
+         status = int(status.split()[1],16)
+         
+         if status & 0x00100000 == 0:
+           self.fshutter_mot.home(-1)
+           
+         elif status & 0x00100000 == 1048576:
+           self.fshutter_mot.home(1)
+         else:
+           raise RuntimeError, "bad status"
+
+         self.fshutter_mot.sync_hard()
+         self.fshutter_mot.rmove(self.shift)
          self.fshutter_mot.dial(0)
          self.fshutter_mot.position(0)
-         self.fshutter_mot.move(self.shift)
-         self.fshutter_mot.position(0)
-         self.fshutter_mot.dial(0)
-         self.fshutter_mot.move(0)
-
+         self._icepap_query("#%d:POS INPOS 0")
          if self.musst:
-            self.musst.putget("#ABORT")
-            self.musst.putget("#CH CH1 0")
-         time.sleep(1)
-         self.enable()
+             self.musst.putget("#ABORT")
+             self.musst.putget("#CH CH1 0")
 
-       self.state()
 

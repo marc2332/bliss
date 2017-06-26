@@ -922,6 +922,8 @@ def tango_mot_cmd(motnum, cmd, p1, p2) '{
 
         # home
         if (cmd == "search"){
+            local action
+
             if(p1 == "lim+") {
                 action = "SRCH" ; lim = "LIM+"
                 printf("not yet implemented\n")

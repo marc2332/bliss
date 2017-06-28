@@ -5,7 +5,6 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import pytest
 import unittest
 import cStringIO
 import sys
@@ -49,7 +48,6 @@ class wrapped_stderr:
         sys.stderr = self.real_stderr
 
 
-@pytest.mark.usefixtures('beacon')
 class TestLogging(unittest.TestCase):
 
     def test_debug(self):
@@ -59,7 +57,7 @@ class TestLogging(unittest.TestCase):
         output = stdout.getvalue()
         # Must suppress 13 firsts chars.
         self.assertTrue(output.endswith(
-            "test_debug() (misc/test_logging.py, l.58): debugging test\n"))
+            "test_debug() (misc/test_logging.py, l.56): debugging test\n"))
 
     def test_error(self):
         log.level(log.ERROR)
@@ -86,7 +84,7 @@ class TestLogging(unittest.TestCase):
                 log.exception("excepted exception", raise_exception=False)
         output = stderr.getvalue()
         self.assertTrue(output.endswith(
-            """tests/misc/test_logging.py", line 83, in test_exception
+            """tests/misc/test_logging.py", line 81, in test_exception
     raise RuntimeError("BLA")
 RuntimeError: BLA
 """))

@@ -8,7 +8,6 @@
 import time
 import random
 
-import pytest
 import unittest
 
 import gevent
@@ -32,7 +31,6 @@ class RandomCounter(CounterBase):
         return value
 
 
-@pytest.mark.usefixtures('beacon')
 class TestMeasurements(unittest.TestCase):
 
     def setUp(self):

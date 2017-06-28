@@ -15,6 +15,7 @@ __all__ = ['wa', 'wm', 'sta', 'mv', 'umv', 'mvr', 'umvr', 'move',
 import inspect
 import logging
 import functools
+import gevent
 
 from six import print_
 from gevent import sleep
@@ -94,13 +95,20 @@ def wa(**kwargs):
     print_("Current Positions (user, dial)")
     header, pos, dial = [], [], []
     tables = [(header, pos, dial)]
+    tasks = list()
+    def request(axis):
+        return axis.name,get(axis, "position"),get(axis, "dial")
     for axis in __get_axes_iter():
+        tasks.append(gevent.spawn(request,axis))
+
+    for task in tasks:
+        axis_name,position,dial_position = task.get()
         if len(header) == max_cols:
             header, pos, dial = [], [], []
             tables.append((header, pos, dial))
-        header.append(axis.name)
-        pos.append(get(axis, "position"))
-        dial.append(get(axis, "dial"))
+        header.append(axis_name)
+        pos.append(position)
+        dial.append(dial_position)
 
     for table in tables:
         print_()

@@ -17,3 +17,6 @@ beacon.rdb
 .cache/
 dump.rdb
 *.egg-info/
+htmlcov/
+.eggs
+.coverage*

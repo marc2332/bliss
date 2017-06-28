@@ -313,6 +313,21 @@ class Controller(object):
     def set_acceleration(self, axis, new_acc):
         raise NotImplementedError
 
+    def set_event_positions(self, axis_or_encoder, positions):
+        """
+        This method is use to load into the controller
+        a list of positions for event/trigger.
+        The controller should generate an event
+        (mainly electrical pulses) when the axis or
+        the encoder pass through one of this position.
+        """
+        raise NotImplementedError
+
+    def get_event_positions(self, axis_or_encoder):
+        """
+        @see set_event_position
+        """
+        raise NotImplementedError
 
 class CalcController(Controller):
 

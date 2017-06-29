@@ -304,7 +304,7 @@ class flex(object):
             except:
                 return None
             if self.config.get("HCD","loading_port") == "robot_port":
-                cell = self.get_cell_position()
+                cell = self.get_cell_position()[0]
             else:
                 cell = ((VAL3_puck // 3 + 3) % 8) + 1 
             return cell

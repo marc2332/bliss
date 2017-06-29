@@ -35,6 +35,8 @@ def grouper(iterable, n):
     return itertools.izip_longest(fillvalue=None, *args)
 
 BUSY = False
+DEFREEZING = False
+
 def notwhenbusy(func):
      def _(self, *args, **kw):
          # if caller is self, then we can always execute
@@ -44,7 +46,8 @@ def notwhenbusy(func):
            return func(self, *args, **kw)
          else:
            global BUSY
-           if BUSY: 
+           global DEFREEZING
+           if BUSY or DEFREEZING: 
                raise RuntimeError("Cannot execute while robot is busy")
            else:
                try:
@@ -404,6 +407,8 @@ class flex(object):
 
     @notwhenbusy
     def defreezeGripper(self):
+        global DEFREEZING
+        DEFREEZING = True
         logging.getLogger('flex').info("Starting defreeze gripper")
         gripper_type = self.get_gripper_type()
         logging.getLogger('flex').info("gripper type %s" %gripper_type)
@@ -420,6 +425,7 @@ class flex(object):
             self.do_defreezeGripper()
             self.update_transfer_iteration(reset=True)
         logging.getLogger('flex').info("Defreezing gripper finished")
+        DEFREEZING = False
 
     def check_coordinates(self, cell, puck, sample):
         if isinstance(cell, (int,long)) and isinstance(puck, (int,long)) and isinstance(sample, (int,long)):

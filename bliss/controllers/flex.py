@@ -755,7 +755,7 @@ class flex(object):
         else:
             logging.getLogger('flex').error("No or wrong gripper")
             raise RuntimeError("No or wrong gripper")
-
+        return gripper_type
 
     @notwhenbusy
     def loadSample(self, cell, puck, sample, ref=False):

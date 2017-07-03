@@ -32,7 +32,7 @@ class MusstAcquisitionDevice(AcquisitionDevice):
       self.program_template_replacement = dict()
     self.vars = vars if vars is not None else dict()
     store_list = store_list if store_list is not None else list()
-    self.channels.extend((AcquisitionChannel(name,numpy.uint32, (1,)) for name in store_list))
+    self.channels.extend((AcquisitionChannel(name,numpy.int32, (1,)) for name in store_list))
 
     self.next_vars = None
     self._iter_index = 0

@@ -63,7 +63,7 @@ def get_axis_setting(axis, setting_name):
         if setting_value is None:
             chan = channels.Channel(chan_name, callback=cb)
         else:
-            chan = channels.Channel(chan_name, setting_value, callback=cb)
+            chan = channels.Channel(chan_name, default_value=setting_value, callback=cb)
         chan._setting_update_cb = cb
         beacon_channels[setting_name] = chan
 

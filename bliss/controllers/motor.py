@@ -128,39 +128,40 @@ class Controller(object):
         self.initialize_axis(axis)
         self.__initialized_axis[axis] = True
 
-        # apply settings or config parameters
-        def get_setting_or_config_value(name, converter=float):
-            value = axis.settings.get(name)
-            if value is None:
-                try:
-                    value = axis.config.get(name, converter)
-                except:
-                    return None
-            return value
-
-        mandatory_config_list = list()
-
-        for config_param in ['velocity', 'acceleration']:
-            # Try to see if controller supports setting the <config_param> by
-            # checking if it oveloads default set_<config_name> method
-            set_name = "set_%s" % config_param
-            base_set_method = getattr(Controller, set_name)
-            set_method = getattr(axis.controller.__class__, set_name)
-            if base_set_method != set_method:
-                mandatory_config_list.append(config_param)
-
-        for setting_name in mandatory_config_list:
-            value = get_setting_or_config_value(setting_name)
-            if value is None:
-                raise RuntimeError("%s is missing in configuration for axis '%s`." % (setting_name, axis.name))
-            meth = getattr(axis, setting_name)
-            meth(value)
-
-        low_limit = get_setting_or_config_value("low_limit")
-        high_limit = get_setting_or_config_value("high_limit")
-        axis.limits(low_limit, high_limit)
-
         if not self.__initialized_hw_axis[axis].value:
+
+            # apply settings or config parameters
+            def get_setting_or_config_value(name, converter=float):
+                value = axis.settings.get(name)
+                if value is None:
+                    try:
+                        value = axis.config.get(name, converter)
+                    except:
+                        return None
+                return value
+
+            mandatory_config_list = list()
+
+            for config_param in ['velocity', 'acceleration']:
+                # Try to see if controller supports setting the <config_param> by
+                # checking if it oveloads default set_<config_name> method
+                set_name = "set_%s" % config_param
+                base_set_method = getattr(Controller, set_name)
+                set_method = getattr(axis.controller.__class__, set_name)
+                if base_set_method != set_method:
+                    mandatory_config_list.append(config_param)
+
+            for setting_name in mandatory_config_list:
+                value = get_setting_or_config_value(setting_name)
+                if value is None:
+                    raise RuntimeError("%s is missing in configuration for axis '%s`." % (setting_name, axis.name))
+                meth = getattr(axis, setting_name)
+                meth(value)
+
+            low_limit = get_setting_or_config_value("low_limit")
+            high_limit = get_setting_or_config_value("high_limit")
+            axis.limits(low_limit, high_limit)
+
             self.initialize_hardware_axis(axis)
             self.__initialized_hw_axis[axis].value = True
 

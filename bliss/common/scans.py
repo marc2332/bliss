@@ -29,7 +29,10 @@ from bliss.scanning import scan as scan_module
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 from bliss.scanning.acquisition.motor import LinearStepTriggerMaster, MeshStepTriggerMaster
 from bliss.session import session,measurementgroup
-from bliss.scanning.writer import hdf5
+try:
+    from bliss.scanning.writer import hdf5 as default_writer
+except ImportError:
+    default_writer = None
 from bliss.data.scan import get_data
 
 _log = logging.getLogger('bliss.scans')
@@ -93,11 +96,11 @@ def default_chain(chain,scan_pars,counters):
 
     return timer
 
-def step_scan(chain,scan_info,name=None,save=True):
+def step_scan(chain,scan_info,name=None,save=default_writer is not None):
     scandata = scan_module.ScanSaving()
     config = scandata.get()
     root_path = config.get('root_path')
-    writer = hdf5.Writer(root_path) if save else None
+    writer = default_writer.Writer(root_path) if save else None
     scan_info['root_path'] = root_path
     scan_info['session_name'] = scandata.session
     scan_info['user_name'] = scandata.user_name

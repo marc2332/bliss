@@ -308,15 +308,11 @@ class CalcController(Controller):
                 raise RuntimeError(
                     "Real axis '%s` doesn't exist" % real_axis.name)
             self.reals.append(real_axis)
+            real_axis.controller._initialize_axis(real_axis)
 
         self.pseudos = [axis for axis_name, axis in self.axes.iteritems()
                         if axis not in self.reals]
-
-        for real_axis in self.reals:
-            real_axis.controller._initialize_axis(real_axis)
-            event.connect(real_axis, 'position', self._calc_from_real)
-            event.connect(real_axis, '_set_position', self._real_setpos_update)
-
+        
         self._reals_group = Group(*self.reals)
         event.connect(self._reals_group, 'move_done', self._real_move_done)
 
@@ -324,6 +320,10 @@ class CalcController(Controller):
 	    self._Controller__initialized_hw_axis[pseudo_axis].value = True
             self._initialize_axis(pseudo_axis)
 	    event.connect(pseudo_axis, 'sync_hard', self._pseudo_sync_hard)
+
+        for real_axis in self.reals:
+            event.connect(real_axis, 'position', self._calc_from_real)
+            event.connect(real_axis, '_set_position', self._real_setpos_update)
 
 	self._calc_from_real()
 

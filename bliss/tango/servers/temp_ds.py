@@ -128,6 +128,10 @@ class BlissOutput(Device):
     def name(self):
         return self.channel_object.name
 
+    @attribute(dtype=float)
+    def value(self):
+        return self.channel_object.read()
+
     @attribute(dtype='string')
     def typedev(self):
         return "output"

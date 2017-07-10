@@ -117,6 +117,8 @@ class Session(object):
             else:
                exclude_objects = self._exclude_objects_names
 
+            exclude_objects.append(self.name)
+
             self._load_config(env_dict, config_objects, exclude_objects, verbose)
             
             env_dict['load_script'] = functools.partial(self._load_script, env_dict)

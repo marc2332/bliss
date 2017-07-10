@@ -24,7 +24,7 @@ class NF8742(Controller):
         comment = "<!--#response-->"
         r = requests.get("http://%s/cmd_send.cgi" % self.host, params={"cmd": "%d%s" % (axis.channel, cmd), "submit":"Send"})
         i = r.text.find(comment)
-        ans = "".join(itertools.takewhile(lambda c: c.isalnum(), r.text[i+len(comment):]))
+        ans = "".join(itertools.takewhile(lambda c: c.isalnum() or c=="-", r.text[i+len(comment):]))
         return ans
 
     def read_position(self, axis):

@@ -54,6 +54,7 @@ class Actuator:
                     gevent.sleep(0.5)
     finally:
         dispatcher.send("state", self, self.state())
+
   def set_out(self, timeout=8):
     self.__out = True
     self.__in = False
@@ -67,6 +68,7 @@ class Actuator:
                     gevent.sleep(0.5)
     finally:
         dispatcher.send("state", self, self.state())
+
   def is_in(self):
     if self._is_in is not None:
       return self._is_in()
@@ -75,6 +77,7 @@ class Actuator:
         return not self._is_out()
       else:
         return self.__in
+
   def is_out(self):
     if self._is_out is not None:
       return self._is_out()
@@ -83,6 +86,7 @@ class Actuator:
         return not self._is_in()
       else:
         return self.__out
+
   def state(self):
       state = ""
       if self.is_in():

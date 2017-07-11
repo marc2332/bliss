@@ -115,7 +115,7 @@ class Session(object):
             if isinstance(self._exclude_objects_names,(str,unicode)):
                exclude_objects = self._exclude_objects_names.split()
             else:
-               exclude_objects = self._exclude_objects_names
+               exclude_objects = self._exclude_objects_names or []
 
             exclude_objects.append(self.name)
 

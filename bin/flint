@@ -16,9 +16,11 @@ import docopt
 from silx.gui.plot.PlotWindow import Plot1D
 from silx.gui import qt
 from PyQt4.QtCore import pyqtRemoveInputHook
-from bliss.data.node import DataNodeIterator,_get_or_create_node
+from bliss.data.node import DataNodeIterator, _get_or_create_node
 import numpy
 import gevent
+import sys
+import weakref
 
 try:
     from collections import OrderedDict
@@ -42,14 +44,114 @@ events_processing.start()
 
 PLOTS = dict()
 PLOT_DATA = dict()
+AXIS_INFO = dict()
+
+class AxesDockWidget(qt.QDockWidget):
+    def __init__(self, parent=None, plot=None):
+        assert plot is not None
+        self._plotRef = weakref.ref(plot)
+        self._isConnected = False  # True if widget connected to plot signals
+
+        super(AxesDockWidget, self).__init__("Axes selection", parent)
+
+        self.layout().setContentsMargins(0, 0, 0, 0)
+        self.makeWidget()
+
+        self.visibilityChanged.connect(self._visibilityChangedHandler)
+
+    @property
+    def plot(self):
+        return self._plotRef()
+
+    def makeWidget(self):
+        self._widget = qt.QWidget(self)
+        qt.QGridLayout(self._widget)
+        self.setWidget(self._widget)
+
+    def checkboxStateChanged(self):
+        import pdb;pdb.set_trace()
+        self.axis_info["x"]=None
+        self.axis_info["y"]=None
+        for axis, checkbox in self.x_checkboxes.iteritems():
+          if checkbox.isChecked():
+            self.axis_info["x"] = axis
+            break
+        for axis, checkbox in self.y_checkboxes.iteritems():
+          if checkbox.isChecked():
+            self.axis_info["y"] = axis
+            break
+        self.plot.clear()
+        data = PLOT_DATA[self.plot._scan_node]
+        x = data.get(self.axis_info["x"],[])
+        y = data.get(self.axis_info["y"], [])
+        print self.axis_info
+        self.plot.addCurve(x, y, legend='%s / %s' % (self.axis_info["y"], self.axis_info["x"]))
+
+    def setAxisInfo(self, axis_info):
+        self.axis_info = axis_info
+        self.x_checkboxes = {}
+        self.y_checkboxes = {}
+
+        self._widget.close()
+        self.makeWidget()
+
+        grp = qt.QButtonGroup()
+        self._widget.layout().addWidget(qt.QLabel("label", self), 0, 0)
+        self._widget.layout().addWidget(qt.QLabel("x", self), 0, 1)
+        self._widget.layout().addWidget(qt.QLabel("y", self), 0, 2)
+        for i, axis in enumerate(axis_info.get("__all__", [])):
+          self._widget.layout().addWidget(qt.QLabel(axis, self), i+1, 0)
+          chk_x = qt.QCheckBox(self._widget)
+          chk_x.setChecked(axis_info["x"] == axis)
+          self.x_checkboxes[axis] = chk_x
+          chk_x.stateChanged.connect(self.checkboxStateChanged)
+          self._widget.layout().addWidget(chk_x, i+1, 1)
+          chk_y = qt.QCheckBox(self._widget)
+          chk_y.setChecked(axis_info["y"] == axis)
+          self.y_checkboxes[axis] = chk_y
+          chk_y.stateChanged.connect(self.checkboxStateChanged)
+          self._widget.layout().addWidget(chk_y, i+1, 2)
+
+    def updateAxes(self, *args):
+        axis_info = AXIS_INFO[self.plot._scan_node]
+        self.setAxisInfo(axis_info)
+
+    def _visibilityChangedHandler(self, visible):
+        if visible:
+            self.updateAxes()
+            if not self._isConnected:
+                self.plot.sigContentChanged.connect(self.updateAxes)
+                self.plot.sigActiveCurveChanged.connect(self.updateAxes)
+                self._isConnected = True
+        else:
+            if self._isConnected:
+                self.plot.sigContentChanged.disconnect(self.updateAxes)
+                self.plot.sigActiveCurveChanged.disconnect(self.updateAxes)
+                self._isConnected = False
+
+    def showEvent(self, event):
+        """Make sure this widget is raised when it is shown
+        (when it is first created as a tab in PlotWindow or when it is shown
+        again after hiding).
+        """
+        self.raise_()
 
 def update_plot(scan_node):
     plot = PLOTS[scan_node]
+    plot._scan_node = scan_node
     data = PLOT_DATA[scan_node]
-    x = data.get('timestamp',[])
-    y = data.get('i0', [])
+    
+    axes_list = data.keys()
+    try:
+      axis_info = AXIS_INFO.setdefault(scan_node, {"x": axes_list[0], "y": axes_list[1]})
+    except IndexError:
+      return
+
+    x = data.get(axis_info["x"],[])
+    y = data.get(axis_info["y"], [])
     if len(x) == len(y):
-        plot.addCurve(x, y, legend='i0')
+        axis_info["__all__"] = axes_list
+        plot.addCurve(x, y, legend='%s / %s' % (axis_info["y"], axis_info["x"]))
 
 def copy_data(scan_node,zerod,channel_name,zerod_index):
     data_channel = zerod.get_channel(channel_name)
@@ -61,9 +163,20 @@ def copy_data(scan_node,zerod,channel_name,zerod_index):
         channel_data.extend(data)
         update_plot(scan_node)
 
-def watch_data(scan_node):
-    PLOTS[scan_node]=Plot1D()
-    PLOTS[scan_node].show()
+def watch_data(scan_node, mdi_area):
+    plot_window = Plot1D()
+    PLOTS[scan_node] = plot_window
+    mdi_area.addSubWindow(plot_window)
+    controlMenu = plot_window.controlButton.menu()
+    def add_axes_selection(menu=controlMenu, plot_window=plot_window):
+        axes_widget = AxesDockWidget(plot_window, plot_window)
+        axes_widget.hide()
+        plot_window.addTabbedDockWidget(axes_widget)
+        menu.addAction(axes_widget.toggleViewAction())
+    controlMenu.aboutToShow.connect(add_axes_selection)
+
+    plot_window.show()
+
     zerod_index = dict()
 
     scan_data_iterator = DataNodeIterator(scan_node)
@@ -76,8 +189,8 @@ def watch_data(scan_node):
             zerod, channel_name = event_data
             copy_data(scan_node, zerod, channel_name, zerod_index)
     
-def watch_session(session_name):
-    session_node = _get_or_create_node(session_name,node_type='session')
+def watch_session(session_name, mdi):
+    session_node = _get_or_create_node(session_name, node_type='session')
     if session_node is not None:
         data_iterator = DataNodeIterator(session_node)
 
@@ -85,7 +198,7 @@ def watch_session(session_name):
         for scan_node in data_iterator.walk_from_last(filter='scan'):
             if watch_data_task:
                 watch_data_task.kill()
-            watch_data_task = gevent.spawn(watch_data,scan_node)
+            watch_data_task = gevent.spawn(watch_data, scan_node, mdi)
 
 def main():
     try:
@@ -95,9 +208,14 @@ def main():
     except docopt.DocoptExit as e:
         print e.message
     else:
+        win = qt.QMainWindow()
+        mdi_area = qt.QMdiArea(win)
+        win.setCentralWidget(mdi_area)
+        win.show()
+        
         tasks = list()
         for session in sessions_name:
-            tasks.append(gevent.spawn(watch_session,session))
+            tasks.append(gevent.spawn(watch_session, session, mdi_area))
   
         qapp.exec_()
 

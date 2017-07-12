@@ -1238,10 +1238,13 @@ class AxisState(object):
         # (copy constructor)
         if '(' in state:
             full_states = [s.strip() for s in state.split('|')]
-            p = re.compile('^([A-Z0-9]+)\s\((.+)\)$')
+            p = re.compile('^([A-Z0-9]+)\s\((.+)\)', re.DOTALL)
             for full_state in full_states:
                 m = p.match(full_state)
-                state = m.group(1)
+                try:
+                  state = m.group(1)
+                except Exception:
+                  sys.excepthook(*sys.exc_info())
                 desc = m.group(2)
                 self.create_state(state, desc)
                 self.set(state)

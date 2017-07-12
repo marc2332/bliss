@@ -259,7 +259,7 @@ class AcquisitionDevice(object):
 	return True
 
 class AcquisitionChainIter(object):
-    def __init__(self,acquisition_chain,parallel_prepare = False):
+    def __init__(self,acquisition_chain,parallel_prepare = True):
         self.__sequence_index = -1
         self._parallel_prepare = parallel_prepare
         self.__acquisition_chain = weakref.proxy(acquisition_chain)
@@ -306,9 +306,11 @@ class AcquisitionChainIter(object):
         self._execute("_start")
 
     def stop(self):
-        self._execute("stop", master_to_slave=True)
+        self._execute("stop", master_to_slave=True,wait_all_tasks=True)
 
         preset_tasks = [gevent.spawn(preset.stop) for preset in self.__acquisition_chain._presets_list]
+
+        gevent.joinall(preset_tasks) # wait to call all stop on preset
         gevent.joinall(preset_tasks, raise_error=True)
 
     def next(self):
@@ -331,7 +333,8 @@ class AcquisitionChainIter(object):
         return self
 
     def _execute(self, func_name,
-                 master_to_slave=False, wait_between_levels=True):
+                 master_to_slave=False, wait_between_levels=True,
+                 wait_all_tasks=False):
         tasks = list()
 
         prev_level = None
@@ -350,6 +353,11 @@ class AcquisitionChainIter(object):
                 prev_level = level
             func = getattr(dev, func_name)
             tasks.append(gevent.spawn(func))
+        # ensure that all tasks are executed
+        # (i.e: don't raise the first exception on stop)
+        if wait_all_tasks:
+            gevent.joinall(tasks)
+            
         gevent.joinall(tasks, raise_error=True)
 
 class AcquisitionChain(object):

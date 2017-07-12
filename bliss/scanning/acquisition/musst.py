@@ -8,6 +8,7 @@
 from ..chain import AcquisitionDevice, AcquisitionChannel
 from bliss.common.event import dispatcher
 import gevent
+from gevent import event
 import numpy
 
 class MusstAcquisitionDevice(AcquisitionDevice):
@@ -32,11 +33,13 @@ class MusstAcquisitionDevice(AcquisitionDevice):
       self.program_template_replacement = dict()
     self.vars = vars if vars is not None else dict()
     store_list = store_list if store_list is not None else list()
-    self.channels.extend((AcquisitionChannel(name,numpy.uint32, (1,)) for name in store_list))
+    self.channels.extend((AcquisitionChannel(name,numpy.int32, (1,)) for name in store_list))
 
     self.next_vars = None
     self._iter_index = 0
-    
+    self._ready_flag = True
+    self._ready_event = event.Event()
+
   def __iter__(self):
     if isinstance(self.vars,(list,tuple)):
       vars_iter = iter(self.vars)
@@ -58,24 +61,34 @@ class MusstAcquisitionDevice(AcquisitionDevice):
 
     for var_name, value in self.next_vars.iteritems():	
       self.musst.putget("VAR %s %s" %  (var_name,value))
-
+    self._ready_flag = True
+    
   def start(self):
     self.musst.run()
 
   def stop(self):
     self.musst.ABORT
 
+  def wait_ready(self):
+    while not self._ready_flag:
+      self._ready_event.wait()
+      self._ready_event.clear()
+      
   def reading(self):
     last_read_event = 0
-    while self.musst.STATE == self.musst.RUN_STATE:
-      new_read_event = self._send_data(last_read_event)
-      if new_read_event != last_read_event:
-        last_read_event = new_read_event
-        gevent.sleep(100e-6)   # be able to ABORT the musst card
-      else:
-        gevent.sleep(10e-3)   # relax a little bit.
-    self._send_data(last_read_event) # final send
-    
+    try:
+      while self.musst.STATE == self.musst.RUN_STATE:
+        new_read_event = self._send_data(last_read_event)
+        if new_read_event != last_read_event:
+          last_read_event = new_read_event
+          gevent.sleep(100e-6)   # be able to ABORT the musst card
+        else:
+          gevent.sleep(10e-3)   # relax a little bit.
+      self._send_data(last_read_event) # final send
+    finally:
+      self._ready_flag = True
+      self._ready_event.set()
+      
   def _send_data(self,last_read_event):
       data = self.musst.get_data(len(self.channels),last_read_event)
       if data.size > 0:

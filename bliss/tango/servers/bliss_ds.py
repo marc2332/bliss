@@ -25,6 +25,7 @@ import StringIO
 import functools
 import itertools
 import traceback
+import collections
 import cPickle
 import base64
 import datetime
@@ -42,6 +43,7 @@ from bliss import shell
 from bliss.common import event
 from bliss.common import data_manager
 from bliss.common.utils import grouped
+from bliss.config import settings
 from bliss.config.static import get_config
 from bliss.controllers.motor_group import Group
 
@@ -156,7 +158,7 @@ class Bliss(Device):
 
     #: Session names (default: None, meaning use server instance name as
     #: session name)
-    session_names = device_property(dtype=[str], default_value=None)
+    session_names = device_property(dtype=[str], default_value=[])
 
     #: Sanitize or not the command to be executed
     #: If True, it will allow you to send a command like: 'wm th phi'
@@ -179,7 +181,7 @@ class Bliss(Device):
         self.__tasks = {}
         self.__results = {}
 
-        if self.session_names is None:
+        if not self.session_names:
             util = Util.instance()
             self.session_names = [util.get_ds_inst_name()]
 
@@ -231,6 +233,10 @@ class Bliss(Device):
     @attribute(dtype=(str,), max_dim_x=10000)
     def object_names(self):
         return self._object_names
+
+    @attribute(dtype=(str,), max_dim_x=10000)
+    def axis_device_names(self):
+        return [dev.get_name() for dev in self.__get_axis_devices().values()]
 
     @attribute(dtype=(str,), max_dim_x=10000)
     def tasks(self):
@@ -305,6 +311,21 @@ class Bliss(Device):
         except Exception as e:
             sys.excepthook(*sys.exc_info())
 
+    def __reload(self):
+        get_config().reload()
+
+    def __get_axis_devices(self):
+        util = Util.instance()
+        result = dict()
+        for dev in util.get_device_list("*"):
+            dev_class = dev.get_device_class()
+            if dev_class:
+                class_name = dev_class.get_name()
+                if class_name.startswith("BlissAxis_"):
+                    axis = dev.axis
+                    result[axis.name] = dev
+        return result
+
     @command(dtype_in=str, dtype_out=int)
     def eval(self, cmd):
         self._log.info('evaluating: %s', cmd)
@@ -348,18 +369,18 @@ class Bliss(Device):
 
     @command(dtype_in=(str,), doc_in='Flat list of pairs motor, position',
              dtype_out=str, doc_out='Group identifier')
-    def motor_group_move(self, axes_pos):
+    def axis_group_move(self, axes_pos):
         axes = map(get_bliss_obj, axes_pos[::2])
         axes_positions = map(float, axes_pos[1::2])
         axes_pos_dict = dict(zip(axes, axes_positions))
         group = Group(*axes)
-        event.connect(group, 'move_done', self.__on_motor_group_move_done)
-        group.move(axes_pos_dict)
+        event.connect(group, 'move_done', self.__on_axis_group_move_done)
+        group.move(axes_pos_dict, wait=False)
         group_id = ','.join(map(':'.join, grouped(axes_pos, 2)))
         self.group_dict[group_id] = group
         return group_id
 
-    def __on_motor_group_move_done(self, move_done, **kwargs):
+    def __on_axis_group_move_done(self, move_done, **kwargs):
         if not move_done:
             return
         elif not self.group_dict:
@@ -378,8 +399,9 @@ class Bliss(Device):
 
         self.group_dict.pop(group_id)
 
-    @command(dtype_in=str, doc_in='Group identifier')
-    def motor_group_state(self, group_id):
+    @command(dtype_in=str, doc_in='Group identifier',
+             dtype_out=[str], doc_out='"flat list of pairs motor, status')
+    def axis_group_state(self, group_id):
         """
         Return the individual state of motors in the group
         """
@@ -393,7 +415,7 @@ class Bliss(Device):
         return list(itertools.chain(*name_state_list))
 
     @command(dtype_in=str, doc_in='Group identifier')
-    def motor_group_abort(self, group_id):
+    def axis_group_abort(self, group_id):
         """
         Abort motor group movement
         """
@@ -401,6 +423,41 @@ class Bliss(Device):
             return
         group = self.group_dict[group_id]
         group.stop(wait=False)
+
+    @command(dtype_in=str,
+             doc_in='JSON representation of a map: <setting_name, setting_value>')
+    def set_settings(self, json_value):
+        data = json.loads(json_value)
+        for key, value in data.items():
+            setting = settings.HashSetting(key)
+            setting.set(value)
+
+    @command(dtype_in=str, doc_in='JSON representation of list<setting_name>',
+             dtype_out=str, doc_out='')
+    def get_settings(self, json_value):
+        data = json.loads(json_value)
+        result = {}
+        if isinstance(data, dict):
+            data = data.values()
+        elif isinstance(data, (str, unicode)):
+            data = data,
+        for element in data:
+            if element:
+                setting = settings.HashSetting(element)
+                result[element] = setting.get_all()
+        return json.dumps(result)
+
+    @command
+    def reload_config(self):
+        self.__reload()
+
+    @command(dtype_in=bool, doc_in='reload (true to do a reload before ' \
+             'apply configuration, false not to)')
+    def apply_config(self, reload):
+        if reload:
+            self._reload()
+        for dev in self.__get_axis_devices().values():
+            dev.axis.apply_config(reload=False)
 
 
 def register_server(server_type, server_instance,
@@ -517,6 +574,8 @@ def __initialize(args, db=None):
                 shell_info=shell_info)
 
     for name in os.listdir(this_dir):
+        if name.startswith('.'):
+            continue
         if name.endswith(suffix):
             module_name = '{0}.{1}'.format(__package__, name[:-3])
             _log.info('searching for init in %s...', module_name)

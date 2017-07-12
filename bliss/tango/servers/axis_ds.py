@@ -202,7 +202,7 @@ class BlissAxisManager(Device):
         elif not self.group_dict:
             print 'BlissAxisManager: move_done event with no group'
             return
-        
+
         if 'sender' in kws:
             sender = kws['sender']
             groupid = [gid for gid, grp in self.group_dict.items()
@@ -620,7 +620,7 @@ class BlissAxis(Device):
         self.debug_stream("In read_Home_side()")
         return self.attr_Home_side_read
 
-    @attribute(dtype=float, 
+    @attribute(dtype=float,
                doc='Size of the relative step performed by the ' \
                'StepUp and StepDown commands.\nThe StepSize' \
                'is expressed in physical unit',
@@ -1143,6 +1143,9 @@ def initialize_bliss(info, db=None):
     axis_names = []
     for name in object_names:
         obj_cfg = cfg.get_config(name)
+        # if tango_server is defined it means it is manually added
+        if 'tango_server' in obj_cfg:
+            continue
         if obj_cfg.plugin == 'emotion':
             axis_names.append(name)
 

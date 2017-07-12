@@ -91,7 +91,6 @@ class ScanListener:
             names, values = scan_info['counter_names'], values
             # First value is elapsed time since timescan started. We don't need it here
             values = values[1:]
-            names = names[1:]
             norm_values = numpy.array(values) / scan_info['count_time']
             col_len = max(map(len, names)) + 2
             template = '{{0:>{0}}} = {{1: 10g}} ({{2: 10g}}/s)'.format(col_len)

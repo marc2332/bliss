@@ -33,7 +33,7 @@ from bliss.common.task_utils import *
 from bliss.common.motor_config import StaticConfig
 from bliss.common.motor_settings import AxisSettings
 from bliss.common import event
-from bliss.common.utils import Null
+from bliss.common.utils import Null, with_custom_members
 from bliss.config.static import get_config
 from bliss.common.encoder import Encoder
 import gevent
@@ -94,6 +94,7 @@ class Motion(object):
         return self.__axis
 
 
+@with_custom_members
 class Axis(object):
     """
     Bliss motor axis
@@ -116,8 +117,6 @@ class Axis(object):
         self.__settings = AxisSettings(self)
         self.__move_done = gevent.event.Event()
         self.__move_done.set()
-        self.__custom_methods_list = list()
-        self.__custom_attributes_dict = dict()
         self.__move_task = None
         self.__stopped = False
         self._in_group_move = False
@@ -204,29 +203,6 @@ class Axis(object):
         else:
             return get_encoder(encoder_name)
 
-    @property
-    def custom_methods_list(self):
-        """
-        List of custom methods defined for this axis.
-        Internal usage only
-        """
-        # Returns a *copy* of the custom methods list.
-        return self.__custom_methods_list[:]
-
-    @property
-    def custom_attributes_list(self):
-        """
-        List of custom attributes defined for this axis.
-        Internal usage only
-        """
-        ad = self.__custom_attributes_dict
-
-        # Converts dict into list...
-        _attr_list = [(a_name, ad[a_name][0], ad[a_name][1]) for i, a_name in enumerate(ad)]
-
-        # Returns a *copy* of the custom attributes list.
-        return _attr_list[:]
-
     def set_setting(self, *args):
         """Sets the given settings"""
         self.settings.set(*args)
@@ -251,10 +227,6 @@ class Axis(object):
             if self.name in [axis.name for axis in axis_list]:
                 return True
         return False
-
-    def _add_custom_method(self, method, name, types_info=(None, None)):
-        setattr(self, name, method)
-        self.__custom_methods_list.append((name, types_info))
 
     @lazy_init
     def on(self):

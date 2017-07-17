@@ -84,27 +84,7 @@ def object_method_type(method=None, name=None, args=[], types_info=(None, None),
 
 
 def add_object_attribute(obj, name=None, fget=None, fset=None, args=[], type_info=None, filter=None):
-    cust_attr_dict = dict()
-    for aname, a1, a2 in obj.custom_attributes_list:
-        cust_attr_dict[aname] = (a1, a2)
-
-    if cust_attr_dict.get(name):
-        access_mode = cust_attr_dict[name][1]
-        if fget and not 'r' in access_mode:
-            access_mode = "rw"
-
-        if fset and not 'w' in access_mode:
-            access_mode = "rw"
-
-        cust_attr_dict[name] = (type_info, access_mode)
-    else:
-        if fget:
-            cust_attr_dict[name] = (type_info, "r")
-        elif fset:
-            cust_attr_dict[name] = (type_info, "w")
-        else:
-            raise RuntimeError("impossible case: must have fget or fset...")
-
+    obj._add_custom_attribute(name, fget, fset, type_info)
 
 """
 decorators for set/get methods to access to custom attributes
@@ -181,6 +161,69 @@ def set_custom_members(src_obj, target_obj, pre_call=None):
                 add_object_method(target_obj, member, pre_call, **method_info)
         except AttributeError:
             pass
+
+
+def with_custom_members(klass):
+    """A class decorator to enable custom attributes and custom methods"""
+
+    def _get_custom_methods(self):
+        try:
+            return self.__custom_methods_list
+        except AttributeError:
+            self.__custom_methods_list = []
+            return self.__custom_methods_list
+
+    def custom_methods_list(self):
+        """ Returns a *copy* of the custom methods """
+        return self._get_custom_methods()[:]
+
+    def _add_custom_method(self, method, name, types_info=(None, None)):
+        setattr(self, name, method)
+        self._get_custom_methods().append((name, types_info))
+
+    def _get_custom_attributes(self):
+        try:
+            return self.__custom_attributes_dict
+        except AttributeError:
+            self.__custom_attributes_dict = {}
+            return self.__custom_attributes_dict
+
+    def custom_attributes_list(self):
+        """
+        List of custom attributes defined for this axis.
+        Internal usage only
+        """
+        ad = self._get_custom_attributes()
+
+        # Converts dict into list...
+        return [(a_name, ad[a_name][0], ad[a_name][1]) for a_name in ad]
+
+    def _add_custom_attribute(self, name, fget=None, fset=None, type_info=None):
+        custom_attrs = self._get_custom_attributes()
+        attr_info = custom_attrs.get(name)
+        if attr_info:
+            orig_type_info, access_mode = attr_info
+            if fget and not 'r' in access_mode:
+                access_mode = 'rw'
+            if fset and not 'w' in access_mode:
+                access_mode = 'rw'
+            assert type_info == orig_type_info, '%s get/set types mismatch' % name
+        else:
+            access_mode = 'r' if fget else ''
+            access_mode += 'w' if fset else ''
+            if fget is None and fset is None:
+                raise RuntimeError("impossible case: must have fget or fset...")
+        custom_attrs[name] = type_info, access_mode
+
+    klass._get_custom_methods = _get_custom_methods
+    klass.custom_methods_list = property(custom_methods_list)
+    klass._add_custom_method = _add_custom_method
+    klass._get_custom_attributes = _get_custom_attributes
+    klass.custom_attributes_list = property(custom_attributes_list)
+    klass._add_custom_attribute = _add_custom_attribute
+
+    return klass
+
 
 
 class Null(object):

@@ -15,6 +15,7 @@ import gevent.event
 import math
 from bliss.common import log
 from bliss.common.measurement import CounterBase
+from bliss.common.utils import with_custom_members
 
 
 class TempControllerCounter(CounterBase):
@@ -29,6 +30,7 @@ class TempControllerCounter(CounterBase):
         data = self.parent.read()
         return data
 
+@with_custom_members
 class Input(object):
     """ Implements the access to temperature sensors
     """
@@ -40,10 +42,6 @@ class Input(object):
         self.__controller = controller
         self.__name = config["name"]
         self.__config = config
-
-        # lists of custom attr and commands
-        self.__custom_methods_list = list()
-        self.__custom_attributes_dict = dict()
 
         # useful attribute for a temperature controller writer
         self._attr_dict = {}
@@ -64,22 +62,6 @@ class Input(object):
         return self.__config
 
     @property
-    def custom_methods_list(self):
-        """ Returns a *copy* of the custom methods list."""
-        return self.__custom_methods_list[:]
-
-    @property
-    def custom_attributes_list(self):
-        """ Returns a *copy* of the custom attributes list """
-        ad = self.__custom_attributes_dict
-
-        # Converts dict into list...
-        _attr_list = [(a_name, ad[a_name][0], ad[a_name][1]) for i, a_name in enumerate(ad)]
-
-        # Returns a *copy* of the custom attributes list.
-        return _attr_list[:]
-
-    @property
     def counter(self):
         """ returns the counter object """
         return TempControllerCounter(self.name, self)
@@ -94,11 +76,8 @@ class Input(object):
         log.debug("On Input:state")
         return self.controller.state_input(self)
 
-    def _add_custom_method(self, method, name, types_info=(None, None)):
-        """ necessary to add custom methods to a class """
-        setattr(self, name, method)
-        self.__custom_methods_list.append((name, types_info))
 
+@with_custom_members
 class Output(object):
     """ Implements the access to temperature heaters """
     def __init__(self, controller, config):
@@ -125,11 +104,6 @@ class Output(object):
         # if defined as  self.deadband, attribute available from the instance
         # if defined as  self.__deadband, not available.
         #     in that case, use of decorator property offers it (read only) to world
-
-
-        # lists of custom attr and commands
-        self.__custom_methods_list = list()
-        self.__custom_attributes_dict = dict()
 
         # useful attribute for a temperature controller writer
         self._attr_dict = {}
@@ -161,22 +135,6 @@ class Output(object):
             only if heater value is within the deadband.
             While the setpoint is not reached, a wait will block on it."""
         return self.__deadband
-
-    @property
-    def custom_methods_list(self):
-        """ Returns a *copy* of the custom methods """
-        return self.__custom_methods_list[:]
-
-    @property
-    def custom_attributes_list(self):
-        """ returns the list of attributes """
-        ad = self.__custom_attributes_dict
-
-        # Converts dict into list...
-        _attr_list = [(a_name, ad[a_name][0], ad[a_name][1]) for i, a_name in enumerate(ad)]
-
-        # Returns a *copy* of the custom attributes list.
-        return _attr_list[:]
 
     @property
     def counter(self):
@@ -418,6 +376,7 @@ class Output(object):
         self.__custom_methods_list.append((name, types_info))
 
 
+@with_custom_members
 class Loop(object):
     """ Implements the access to temperature regulation loop """
     def __init__(self, controller, config):
@@ -431,10 +390,6 @@ class Loop(object):
         self._Pval = None
         self._Ival = None
         self._Dval = None
-
-        # lists of custom attr and commands
-        self.__custom_methods_list = list()
-        self.__custom_attributes_dict = dict()
 
         # useful attribute for a temperature controller writer
         self._attr_dict = {}
@@ -463,21 +418,6 @@ class Loop(object):
     def output(self):
         """ returns the loop output object """
         return self.__output
-
-    @property
-    def custom_methods_list(self):
-        # Returns a *copy* of the custom methods list.
-        return self.__custom_methods_list[:]
-
-    @property
-    def custom_attributes_list(self):
-        ad = self.__custom_attributes_dict
-
-        # Converts dict into list...
-        _attr_list = [(a_name, ad[a_name][0], ad[a_name][1]) for i, a_name in enumerate(ad)]
-
-        # Returns a *copy* of the custom attributes list.
-        return _attr_list[:]
 
     def set(self, new_setpoint=None, wait=False,**kwargs):
         """ same as a call to the the method set on its output object """
@@ -542,12 +482,6 @@ class Loop(object):
            self.controller.set_kd(self,new_kd)
         else:
            return self.controller.read_kd(self)
-
-
-    def _add_custom_method(self, method, name, types_info=(None, None)):
-        """ necessary to add custom methods to this class """
-        setattr(self, name, method)
-        self.__custom_methods_list.append((name, types_info))
 
 
 

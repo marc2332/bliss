@@ -57,7 +57,7 @@ def _parse_dict(config,item_cfg_node,referenced_objects,
 def _parse_list(config,value):
     object_list = list()
     for node in value:
-        if isinstance(node,str) and node.startswith("$"):
+        if isinstance(node,(str,unicode)) and node.startswith("$"):
             object_list.append(weakref.proxy(config.get(node)))
         elif isinstance(node,dict):
             subdict = dict()

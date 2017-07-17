@@ -656,7 +656,6 @@ class Axis(object):
 
         dial_initial_pos = self.user2dial(user_initial_pos)
         dial_target_pos = self.user2dial(user_target_pos)
-        self._set_position(user_target_pos)
         if abs(dial_target_pos - dial_initial_pos) < 1E-6:
             return
 
@@ -711,6 +710,8 @@ class Axis(object):
         motion.backlash = backlash
 
         self.__controller.prepare_move(motion)
+
+        self._set_position(user_target_pos)
 
         return motion
 

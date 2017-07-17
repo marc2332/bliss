@@ -99,6 +99,9 @@ def test_axis_move(robz):
 
     assert robz.state() == "READY"
 
+    assert robz.position() == 180
+    assert robz._set_position() == 180
+
 def test_axis_multiple_move(robz):
     for i in range(250):
         assert robz.state() == "READY"
@@ -116,6 +119,8 @@ def test_stop(robz):
     assert robz.state() == "READY"
 
     robz.move(180, wait=False)
+
+    assert robz._set_position() == 180
 
     assert robz.state() == "MOVING"
 
@@ -169,27 +174,33 @@ def test_limit_search_stop(robz):
     assert robz.state() == "READY"
 
 def test_limits(robz):
+    iset_pos = robz._set_position()
     robz.limits(-1, 1)
     assert robz.limits() == (-1, 1)
     with pytest.raises(ValueError):
-      robz.move(1.1)
+        robz.move(1.1)
+    assert robz._set_position() == iset_pos
     with pytest.raises(ValueError):
-      robz.move(-1.1)
+        robz.move(-1.1)
+    assert robz._set_position() == iset_pos
     robz.limits(-2.1, 1.1)
     robz.rmove(1)
     robz.rmove(-2)
     assert robz.state() == 'READY'
 
 def test_limits2(robz, roby):
+    iset_pos = robz._set_position()
     assert robz.limits() == (-1000,1E9)
     assert roby.limits() == (None,None)
     with pytest.raises(ValueError):
         robz.move(-1001)
+    assert robz._set_position() == iset_pos
 
 def test_limits3(robz):
     robz.limits(-10,10)
     robz.position(10)
     assert robz.limits() == (0,20)
+    assert robz._set_position() == 10
 
 def test_backlash(roby):
     roby.move(-10, wait=False)
@@ -235,8 +246,19 @@ def test_axis_steps_per_unit(roby):
     assert roby.target_pos == roby.steps_per_unit * 180
 
 def test_axis_set_pos(roby):
-    roby.position(10)
-    assert roby.position(10) == pytest.approx(10)
+     roby.position(10)
+     assert roby.position(10) == pytest.approx(10)
+     ipos = roby.position()
+     fpos = 10
+     ilow_lim, ihigh_lim = roby.limits(-100, 100)
+     roby.position(fpos)
+     assert roby.position(fpos) == pytest.approx(fpos)
+     assert roby._set_position() == pytest.approx(fpos)
+     dpos = fpos - ipos
+     flow_lim, fhigh_lim = roby.limits()
+     dlow_lim, dhigh_lim = flow_lim - ilow_lim, fhigh_lim - ihigh_lim
+     assert dlow_lim == pytest.approx(dpos)
+     assert dhigh_lim == pytest.approx(dpos)
 
 def test_axis_set_velocity(roby):
     # vel is in user-unit per seconds.

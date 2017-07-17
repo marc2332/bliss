@@ -5,11 +5,18 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+import collections
+try:
+    OrderedDict = collections.OrderedDict
+except AttributeError:
+    from ordereddict import OrderedDict
+
 import gevent
+
 from .opiom import Opiom
 from bliss.config import static
 from bliss.config.settings import HashObjSetting
-from collections import OrderedDict
+
 
 class Output:
     class Node:

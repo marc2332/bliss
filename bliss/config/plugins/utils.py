@@ -37,7 +37,7 @@ def _checkref(config,item_cfg_node,referenced_objects,name,value):
 def _parse_dict(config,item_cfg_node,referenced_objects,
                 subdict):
     for name,node in subdict.iteritems():
-        if _checkref(config,item_cfg_node,referenced_objects,
+        if _checkref(config,subdict,referenced_objects,
                      name,node):
             continue
         elif isinstance(node,dict):
@@ -92,3 +92,4 @@ def replace_reference_by_object(config,item_cfg_node,ref_objects = None):
             if subref:
                 referenced_objects[name] = subref
             item_cfg_node.update(subdict)
+

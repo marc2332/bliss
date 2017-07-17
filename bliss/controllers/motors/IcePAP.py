@@ -35,9 +35,9 @@ class IcePAP(Controller):
     default_group    = None
     default_groupenc = None
 
-    def __init__(self, name, config, axes, encoders):
+    def __init__(self, *args, **kwargs):
         """Contructor"""
-        Controller.__init__(self, name, config, axes, encoders)
+        Controller.__init__(self, *args, **kwargs)
 
         self.libdevice = None
 

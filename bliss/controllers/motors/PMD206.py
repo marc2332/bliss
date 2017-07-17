@@ -57,8 +57,8 @@ class PMD206(Controller):
     - Thu 10 Apr 2014 09:18:51
     """
 
-    def __init__(self, name, config, axes, encoders):
-        Controller.__init__(self, name, config, axes, encoders)
+    def __init__(self, *args, **kwargs):
+        Controller.__init__(self, *args, **kwargs)
 
         self._controller_error_codes = [
             (0x8000, "Abnormal reset detected."),

@@ -10,7 +10,7 @@ import gevent
 import functools
 from bliss.common.greenlet_utils import protect_from_kill
 from bliss.controllers.motor import Controller
-from bliss.common.axis import AxisState
+from bliss.common.axis import AxisState,Axis
 from bliss.common.utils import object_method
 from bliss.comm.tcp import Command
 import struct
@@ -250,7 +250,59 @@ class Icepap(Controller):
         return int(value)
 
     def set_encoder(self,encoder,steps):
-        _ackcommand(self._cnx,"ENC %s %d %d" % (encoder.enctype,encoder.address,steps))
+        _ackcommand(self._cnx,"ENC %s %d %d" % 
+                    (encoder.enctype,encoder.address,steps))
+
+    def set_event_positions(self,axis_or_encoder,positions):
+        int_position = numpy.array(positions,dtype=numpy.int32)
+        #position has to be ordered
+        int_position.sort()
+        address = axis_or_encoder.address
+        if not len(int_position):
+            _ackcommand(self._cnx,"%d:ECAMDAT CLEAR" % address)
+            return
+
+        if isinstance(axis_or_encoder,Axis):
+            source = 'AXIS'
+        else:                   # encoder
+            source = 'MEASURE'
+
+        #load trigger positions
+        _ackcommand(self._cnx,"%d:*ECAMDAT %s DWORD" % (address,source),
+                    int_position)
+         # send the trigger on the multiplexer
+        _ackcommand(self._cnx,"%d:SYNCAUX eCAM" % address)
+
+    def get_event_positions(self,axis_or_encoder):
+        """
+        For this controller this method should be use
+        for debugging purposed only... 
+        """
+        address = axis_or_encoder.address
+        #Get the number of positions
+        reply = _command(self._cnx,"%d:?ECAMDAT" % address)
+        reply_exp = re.compile("(\w+) +([+-]?\d+) +([+-]?\d+) +(\d+)")
+        m = reply_exp.match(reply)
+        if m is None:
+            raise RuntimeError("Reply Didn't expected: %s" % reply)
+        source = m.group(1)
+        nb = int(m.group(4))
+        
+        if isinstance(axis_or_encoder,Axis):
+            nb = nb if source == 'AXIS' else 0
+        else:                   # encoder
+            nb = nb if source == "MEASURE" else 0
+
+        positions = numpy.zeros((nb,),dtype = numpy.int32)
+        if nb > 0:
+            reply_exp = re.compile(".+: +([+-]?\d+)")
+            reply = _command(self._cnx,"%d:?ECAMDAT %d" % (address,nb))
+            for i,line in enumerate(reply.split('\n')):
+                m = reply_exp.match(line)
+                if m:
+                    pos = int(m.group(1))
+                    positions[i] = pos
+        return positions
 
     @object_method(types_info=("bool","bool"))
     def activate_closed_loop(self,axis,active):
@@ -272,7 +324,82 @@ class Icepap(Controller):
     def temperature(self,axis):
         return int(_command(self._cnx,"%d:?MEAS T" % axis.address))
 
-    
+    @object_method(types_info=(("float","bool"),"None"))
+    def set_tracking_positions(self,axis,positions,cyclic = False):
+        """
+        Send position to the controller which will be tracked.
+
+        positions --  are expressed in user unit
+        cyclic -- cyclic position or not default False
+
+        @see activate_track method
+        """
+        address = axis.address
+        if not len(positions):
+            _ackcommand(self._cnx,"%d:LISTDAT CLEAR" % address)
+            return
+
+        dial_position = axis.user2dial(numpy.array(positions,dtype=numpy.float))
+        step_positions = numpy.array(dial_position * axis.steps_per_unit,
+                                     dtype=numpy.int32)
+        _ackcommand(self._cnx,"%d:*LISTDAT %s DWORD" % 
+                    (address, "CYCLIC" if cyclic else "NOCYCLIC"),
+                    step_positions)
+
+    @object_method(types_info=("None",("float","bool")))
+    def get_tracking_positions(self,axis):
+        """
+        Get the tacking positions.
+        This method should only be use for debugging
+        return a tuple with (positions,cyclic flag)
+        """
+        address = axis.address
+        #Get the number of positions
+        reply = _command(self._cnx,"%d:?LISTDAT" % address)
+        reply_exp = re.compile("(\d+) *(\w+)?")
+        m = reply_exp.match(reply)
+        if m is None:
+            raise RuntimeError("Reply didn't expected: %s" % reply)
+        nb = int(m.group(1))
+        positions = numpy.zeros((nb,),dtype = numpy.int32)
+        cyclic = True if m.group(2) == "CYCLIC" else False
+        if nb > 0:
+            reply_exp = re.compile(".+: +([+-]?\d+)")
+            reply = _command(self._cnx,"%d:?LISTDAT %d" % (address,nb))
+            for i,line in enumerate(reply.split('\n')):
+                m = reply_exp.match(line)
+                if m:
+                    pos = int(m.group(1))
+                    positions[i] = pos
+            dial_position = positions / axis.steps_per_unit
+            positions = axis.dial2user(dial_position)
+        return positions,cyclic
+
+    @object_method(types_info=(("bool","str"),"None"))
+    def activate_track(self,axis,activate,mode = None):
+        """
+        Activate/Deactivate the tracking position depending on
+        activate flag
+        mode -- default "INPOS" if None.
+        mode can be :
+           - SYNC   -> Internal SYNC signal
+           - ENCIN  -> ENCIN signal
+           - INPOS  -> INPOS signal
+           - ABSENC -> ABSENC signal
+        """
+        address = axis.address
+
+        if not activate:
+            _ackcommand(self._cnx,"STOP %d" % address)
+            axis.sync_hard()
+        else:
+            if mode is None: mode = "INPOS"
+            possibles_modes = ["SYNC","ENCIN","INPOS","ABSENC"]
+            if mode not in possibles_modes:
+                raise ValueError("mode %s is not managed, can only choose %s" % 
+                                 (mode,possibles_modes))
+            _ackcommand(self._cnx,"%d:LTRACK %s" % (address,mode))
+        
     def reset(self):
         _command(self._cnx,"RESET")
 
@@ -324,3 +451,6 @@ def _ackcommand(cnx,cmd,data = None):
 
 def _round(x):
     return round(x+0.5 if x >= 0 else x-0.5)
+
+from .shutter import Shutter
+from .switch import Switch

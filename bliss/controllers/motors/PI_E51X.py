@@ -27,8 +27,8 @@ Thu 13 Feb 2014 15:51:41
 
 class PI_E51X(Controller):
 
-    def __init__(self, name, config, axes, encoders):
-        Controller.__init__(self, name, config, axes, encoders)
+    def __init__(self, *args, **kwargs):
+        Controller.__init__(self, *args, **kwargs)
 
         self.__encoder_axis_map = {}
         for name, axis, config in axes:

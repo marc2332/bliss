@@ -16,8 +16,8 @@ DELAY = 0.02  # delay between 2 commands
 
 class NF8753(Controller):
 
-    def __init__(self, name, config, axes, encoders):
-        Controller.__init__(self, name, config, axes, encoders)
+    def __init__(self, *args, **kwargs):
+        Controller.__init__(self, *args, **kwargs)
 
         self.__current_selected_channel = None
         self.lock = gevent.lock.RLock()

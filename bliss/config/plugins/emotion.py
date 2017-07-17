@@ -9,6 +9,7 @@ from __future__ import absolute_import
 import os
 import sys
 import pkgutil
+import weakref
 
 from bliss.common.axis import Axis, AxisRef
 from bliss.common.encoder import Encoder
@@ -335,6 +336,10 @@ def create_objects_from_config_node(config, node):
     axes_names = list()
     encoders = list()
     encoders_names = list()
+    switches = list()
+    switches_names = list()
+    shutters = list()
+    shutters_names = list()
     for axis_config in node.get('axes'):
         axis_name = axis_config.get("name")
         if axis_name.startswith("$"):
@@ -348,37 +353,60 @@ def create_objects_from_config_node(config, node):
 		axis_class = getattr(controller_module, axis_class_name)
             axes_names.append(axis_name)
         axes.append((axis_name, axis_class, axis_config))
-    for encoder_config in node.get('encoders', []):
-        encoder_name = encoder_config.get("name")
-        encoder_class_name = encoder_config.get("class")
-        if encoder_class_name is None:
-            encoder_class = Encoder
-        else:
-            encoder_class = getattr(controller_module, encoder_class_name)
-        encoders_names.append(encoder_name)
-        encoders.append((encoder_name, encoder_class, encoder_config))
+        
+    for objects,objects_names,default_class,default_class_name,objects_config in\
+        ((encoders,encoders_names,Encoder,'',node.get('encoders',[])),
+         (shutters,shutters_names,None,'Shutter',node.get('shutters',[])),
+         (switches,switches_names,None,'Switch',node.get('switches',[])),
+         ):
+        for object_config in objects_config:
+            object_name = object_config.get("name")
+            object_class_name = object_config.get("class")
+            object_config = _checkref(config,object_config)
+            if object_class_name is None:
+                object_class = default_class
+                if object_class is None:
+                    try:
+                        object_class = getattr(controller_module, default_class_name)
+                    except AttributeError:
+                        pass
+            else:
+                object_class = getattr(controller_module, object_class_name)
+            objects_names.append(object_name)
+            objects.append((object_name, object_class, object_config))
 
-    controller = controller_class(controller_name, node, axes, encoders)
+    controller = controller_class(controller_name, node, axes,
+                                  encoders, shutters, switches)
     controller._update_refs(config)
     controller.initialize()
 
-    all_names = axes_names + encoders_names
+    all_names = axes_names + encoders_names + switches_names + shutters_names
     cache_dict = dict(zip(all_names, [controller]*len(all_names)))
-    if obj_name in axes_names:
-      cache_dict.pop(obj_name)
-      return { controller_name: controller, obj_name: controller.get_axis(obj_name) }, cache_dict
-    elif obj_name in encoders_names:
-      cache_dict.pop(obj_name)
-      return {controller_name: controller, obj_name: controller.get_encoder(obj_name) }, cache_dict
+    ctrl = cache_dict.pop(obj_name,None)
+    if ctrl is not None:
+        obj = create_object_from_cache(None, obj_name, controller)
+        return { controller_name: controller, obj_name: obj }, cache_dict
     else:
-      return {controller_name: controller }, cache_dict
+        return {controller_name: controller }, cache_dict
 
 
 def create_object_from_cache(config, name, controller):
-    try:
-        o = controller.get_axis(name)
-    except KeyError:
-        o = controller.get_encoder(name) 
+    for func in (controller.get_axis,
+                 controller.get_encoder,
+                 controller.get_switch,
+                 controller.get_shutter):
+        try:
+            return func(name)
+        except KeyError:
+            pass
+    raise KeyError(name)
 
-    return o
 
+def _checkref(config,cfg):
+    obj_cfg = cfg.deep_copy()
+    for key,value in obj_cfg.iteritems():
+        if isinstance(value,str) and value.startswith('$'):
+            # convert reference to item from config
+            obj = weakref.proxy(config.get(value))
+            obj_cfg[key] = obj
+    return obj_cfg

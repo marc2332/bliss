@@ -43,8 +43,8 @@ config example:
 
 class PI_E712(Controller):
 
-    def __init__(self, name, config, axes, encoders):
-        Controller.__init__(self, name, config, axes, encoders)
+    def __init__(self, *args, **kwargs):
+        Controller.__init__(self, *args, **kwargs)
 
         self.sock = None
         self.cname = "E712"

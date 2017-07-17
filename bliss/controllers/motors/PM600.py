@@ -28,8 +28,8 @@ Bliss controller for McLennan PM600/PM1000 motor controller.
 """
 class PM600(Controller):
 
-    def __init__(self, name, config, axes, encoders):
-        Controller.__init__(self, name, config, axes, encoders)
+    def __init__(self, *args, **kwargs):
+        Controller.__init__(self, *args, **kwargs)
 
         log.level(10)
 

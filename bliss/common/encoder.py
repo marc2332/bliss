@@ -62,3 +62,11 @@ class Encoder(object):
         self.controller.set_encoder(self, new_value*self.steps_per_unit)
         return self.read()
 
+    @lazy_init
+    def set_event_positions(self, positions):
+      return self.__controller.set_event_positions(self,positions)
+
+    @lazy_init
+    def get_event_positions(self, positions):
+      return self.__controller.get_event_positions(self)
+

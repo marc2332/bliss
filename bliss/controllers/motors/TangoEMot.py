@@ -25,8 +25,8 @@ computer.
 
 
 class TangoEMot(Controller):
-    def __init__(self, name, config, axes, encoders):
-        Controller.__init__(self, name, config, axes, encoders)
+    def __init__(self, *args, **kwargs):
+        Controller.__init__(self, *args, **kwargs)
 
         # Gets DS name from xml config.
         self.ds_name = self.config.get("ds_name")

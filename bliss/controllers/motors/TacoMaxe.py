@@ -47,9 +47,9 @@ class TacoMaxe(Controller):
 	- Dsc2p server to ETEL Dsc2p controller 
     """
 
-    def __init__(self, name, config, axes, encoders):
+    def __init__(self, *args, **kwargs):
         """Contructor"""
-        Controller.__init__(self, name, config, axes, encoders)
+        Controller.__init__(self, *args, **kwargs)
 
  
     def initialize(self):

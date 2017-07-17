@@ -61,12 +61,12 @@ class PiezoSize():
 
 class PiezoJack(Controller):
 
-    def __init__(self, name, config, axes, encoders):
+    def __init__(self, *args, **kwargs):
         """
 
         :type self: ???
         """
-        Controller.__init__(self, name, config, axes, encoders)
+        Controller.__init__(self, *args, **kwargs)
 
         # *Analog* limits of linear use of capacitive sensor.
         self.TADmin = self.config.get("TADmin", int, default=150000)

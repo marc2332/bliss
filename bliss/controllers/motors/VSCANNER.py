@@ -28,8 +28,8 @@ Mon 17 Nov 2014 16:53:47
 
 class VSCANNER(Controller):
 
-    def __init__(self, name, config, axes, encoders):
-        Controller.__init__(self, name, config, axes, encoders)
+    def __init__(self, *args, **kwargs):
+        Controller.__init__(self, *args, **kwargs)
         self._status = "uninitialized"
 
     def initialize(self):

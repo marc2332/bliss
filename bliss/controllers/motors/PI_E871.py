@@ -24,13 +24,10 @@ Cyril Guilloud ESRF BLISS  2016
 
 class PI_E871(Controller):
 
-    def __init__(self, name, config, axes, encoders):
-        Controller.__init__(self, name, config, axes, encoders)
+    def __init__(self, *args, **kwargs):
+        Controller.__init__(self, *args, **kwargs)
 
         self.cname = "E871"
-
-    def __del__(self):
-        print "PI_E871 DESTRUCTORRRRRR******+++++++++++++++++++++++++++++++++"
 
     # Init of controller.
     def initialize(self):

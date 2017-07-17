@@ -40,6 +40,7 @@ import gevent
 import re
 import types
 import functools
+import numpy
 
 #: Default polling time
 DEFAULT_POLLING_TIME = 0.02
@@ -1030,6 +1031,18 @@ class Axis(object):
 
         self.limits(*self.limits(from_config=True))
 
+    @lazy_init
+    def set_event_positions(self, positions):
+      dial_positions = self.user2dial(numpy.array(positions,dtype=numpy.float))
+      step_positions = dial_positions * self.steps_per_unit
+      return self.__controller.set_event_positions(self,step_positions)
+
+    @lazy_init
+    def get_event_positions(self):
+      step_positions = numpy.array(self.__controller.get_event_positions(self),
+                                   dtype=numpy.float)
+      dial_positions = self.dial2user(step_positions)
+      return dial_positions / self.steps_per_unit
 
 class AxisRef(object):
     """Object representing a named reference to an :class:`Axis`."""

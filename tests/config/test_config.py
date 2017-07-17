@@ -54,3 +54,17 @@ def test_config_save(beacon):
   
       rw_cfg2.save()
 
+def test_references(beacon):
+  refs_cfg = beacon.get("refs_test")
+  m0 = beacon.get("m0")
+  s1hg = beacon.get("s1hg")
+  s1vo = beacon.get("s1vo")
+
+  assert refs_cfg['scan']['axis'].__repr__() == repr(m0)
+  assert refs_cfg['slits'][0]['axis'].__repr__() == repr(s1hg)
+  assert refs_cfg['slits'][0]['position'] == 0
+  assert refs_cfg['slits'][1]['axis'].__repr__() == repr(s1vo)
+  assert refs_cfg['slits'][1]['position'] == 1
+  assert refs_cfg['m0'].__repr__() == repr(m0)
+
+

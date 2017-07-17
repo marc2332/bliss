@@ -747,6 +747,9 @@ class Axis(object):
             raise RuntimeError("axis %s state is \
                                 %r" % (self.name, str(initial_state)))
 
+        if self.__controller.is_busy():
+            raise RuntimeError("axis %s: controller is busy" % self.name)
+
     def _start_move_task(self, funct, *args, **kwargs):
         start_event = gevent.event.Event()
         @task
@@ -776,8 +779,6 @@ class Axis(object):
         """
         elog.debug("user_target_pos=%g  wait=%r relative=%r" % (user_target_pos, wait, relative))
         self._check_ready()
-        if self.__controller.is_busy():
-            raise RuntimeError("axis %s: controller is busy" % self.name)
 
         motion = self.prepare_move(user_target_pos, relative)
         if motion is None:
@@ -801,9 +802,7 @@ class Axis(object):
             velocity: signed velocity for constant speed motion
         """
         self._check_ready()
-        if self.__controller.is_busy():
-            raise RuntimeError("axis %s: controller is busy" % self.name)
-       
+
         if velocity == 0:
             return
 

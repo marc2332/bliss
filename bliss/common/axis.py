@@ -709,6 +709,8 @@ class Axis(object):
         motion = Motion(self, target_pos, delta)
         motion.backlash = backlash
 
+        self._check_ready()
+
         self.__controller.prepare_move(motion)
 
         self._set_position(user_target_pos)
@@ -778,7 +780,6 @@ class Axis(object):
             polling_time (float): motion loop polling time (seconds)
         """
         elog.debug("user_target_pos=%g  wait=%r relative=%r" % (user_target_pos, wait, relative))
-        self._check_ready()
 
         motion = self.prepare_move(user_target_pos, relative)
         if motion is None:

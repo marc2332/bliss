@@ -6,6 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import pytest
+import gevent
 from contextlib import contextmanager
 
 
@@ -19,7 +20,8 @@ def motor_context(beacon, name):
     m.controller.set_hw_limits(m, None, None)
     m.dial(0)
     m.position(0)
-    beacon.reload()
+    gevent.sleep(0)
+
 
 @contextmanager
 def calc_motor_context(beacon, name):
@@ -28,7 +30,7 @@ def calc_motor_context(beacon, name):
     yield m
     m.stop()
     m.wait_move()
-    # m.apply_config()
+    gevent.sleep(0)
 
 
 @pytest.fixture

@@ -64,9 +64,9 @@ def __get_axes_names_iter():
         yield axis.name
 
 
-def __safe_get(obj, member, on_error=_ERR):
+def __safe_get(obj, member, on_error=_ERR, **kwargs):
     try:
-        return getattr(obj, member)()
+        return getattr(obj, member)(**kwargs)
     except Exception as e:
         return on_error
 
@@ -173,11 +173,19 @@ def stm(*axes):
     raise NotImplementedError
 
 
-def sta():
-    """Displays state information about all axes"""
+def sta(read_hw=False):
+    """
+    Displays state information about all axes
+
+    Keyword Args:
+        read_hw (bool): If True, force communication with hardware, otherwise
+                        (default) use cached value.
+    """
     global __axes
     table = [("Axis", "Status")]
-    table += [(axis.name, __safe_get(axis, "state", "<status not available>"))
+    table += [(axis.name, __safe_get(axis, "state",
+                                     on_error="<status not available>",
+                                     read_hw=read_hw))
               for axis in __get_axes_iter()]
     print_(__tabulate(table))
 

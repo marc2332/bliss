@@ -78,9 +78,8 @@ class TestTcpComm(unittest.TestCase):
         self.assertEqual(s._readline(transaction), "WORLD")
 
     def test_write_readline2(self):
-        pytest.xfail()
         s = tcp.Command("127.0.0.1", self.server_socket_port)
-        self.assertEqual(s.write_readine("HELLO\n"), "HELLO")
+        self.assertEqual(s.write_readline("HELLO\n"), "HELLO")
         self.assertEqual(s.write_readline("WORLD\n"), "WORLD")
 
     def test_write_readlines(self):

@@ -78,7 +78,7 @@ class TestMeasurements(unittest.TestCase):
 
         self.assertEqual(self.counter.nb_reads, 1)
         # should be really fast
-        self.assertAlmostEqual(dt, self.counter.nap, delta=1E-3)
+        self.assertAlmostEqual(dt, self.counter.nap, delta=1e-2)
         self.assertTrue(result.value >= self.counter.range[0])
         self.assertTrue(result.value < self.counter.range[1])
 

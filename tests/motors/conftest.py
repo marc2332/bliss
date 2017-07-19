@@ -20,7 +20,6 @@ def motor_context(beacon, name):
     m.controller.set_hw_limits(m, None, None)
     m.dial(0)
     m.position(0)
-    gevent.sleep(0)
 
 
 @contextmanager
@@ -30,7 +29,6 @@ def calc_motor_context(beacon, name):
     yield m
     m.stop()
     m.wait_move()
-    gevent.sleep(0)
 
 
 @pytest.fixture

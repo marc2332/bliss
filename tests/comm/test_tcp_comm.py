@@ -6,6 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import unittest
+import pytest
 
 import time
 import socket
@@ -47,16 +48,14 @@ def server_loop():
                     client.close()
                     socket_list.remove(client)
 
-server_p = Process(target=server_loop)
-server_p.start()
-
-SERVER_PORT = PORT.get()
-
 
 class TestTcpComm(unittest.TestCase):
 
-    def setUp(self):
-        self.server_socket_port = SERVER_PORT
+    @classmethod
+    def setUpClass(cls):
+        cls.server_p = Process(target=server_loop)
+        cls.server_p.start()
+        cls.server_socket_port = PORT.get()
 
     def test_connect(self):
         s = tcp.Command("127.0.0.1", self.server_socket_port)
@@ -101,7 +100,6 @@ class TestTcpComm(unittest.TestCase):
             self.assertTrue(t - 1 < 0.1)
 
     def test_tryconnect(self):
-        import pytest
         pytest.xfail()
         s = tcp.Command("127.0.0.1", self.server_socket_port)
         s.connect()
@@ -181,7 +179,8 @@ class TestTcpComm(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        server_p.terminate()
+        cls.server_p.terminate()
+
 
 if __name__ == '__main__':
     unittest.main()

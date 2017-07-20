@@ -38,5 +38,4 @@ def beacon():
     client._default_connection = beacon_connection
     cfg = static.get_config()
     yield cfg
-    # finalization
     p.terminate()

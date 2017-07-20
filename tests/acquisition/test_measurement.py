@@ -62,9 +62,9 @@ class TestMeasurements(unittest.TestCase):
 
         self.assertEqual(result.value, result.average, msg=msg)
         self.assertEqual(result.nb_points, self.counter.nb_reads, msg=msg)
-        # allow 30% error. Seems a lot but it is the accumulation of sleep errors
+        # allow 50% error. Seems a lot but it is the accumulation of sleep errors
         self.assertAlmostEqual(result.nb_points, ideal_nb_points,
-                               delta=ideal_nb_points * 0.30, msg=msg)
+                               delta=ideal_nb_points * 0.50, msg=msg)
         # allow up to 10ms error in time calculation for pure software counter
         self.assertAlmostEqual(dt, count_time, delta=0.01, msg=msg)
         # variable error margin according to number of points
@@ -78,7 +78,7 @@ class TestMeasurements(unittest.TestCase):
 
         self.assertEqual(self.counter.nb_reads, 1)
         # should be really fast
-        self.assertAlmostEqual(dt, self.counter.nap, delta=1E-3)
+        self.assertAlmostEqual(dt, self.counter.nap, delta=1e-2)
         self.assertTrue(result.value >= self.counter.range[0])
         self.assertTrue(result.value < self.counter.range[1])
 

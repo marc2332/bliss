@@ -220,6 +220,11 @@ class Axis(object):
         else:
             return get_encoder(encoder_name)
 
+    @property
+    def motion_hooks(self):
+      """Registered motion hooks (:obj:`MotionHook`)"""
+      return self.__motion_hooks
+
     def set_setting(self, *args):
         """Sets the given settings"""
         self.settings.set(*args)

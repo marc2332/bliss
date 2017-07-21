@@ -9,9 +9,9 @@
 :func:`~bliss.comm.util.HexMsg`)"""
 
 __all__ = ['get_interface', 'get_comm_type', 'get_comm', 'HexMsg',
-           'TCP', 'SERIAL', 'GPIB']
+           'TCP', 'SERIAL', 'GPIB', 'UDP']
 
-TCP, SERIAL, GPIB = 'tcp', 'serial', 'gpib'
+TCP, SERIAL, GPIB, UDP = 'tcp', 'serial', 'gpib', 'udp'
 
 
 def get_interface(*args, **kwargs):
@@ -57,7 +57,8 @@ def get_interface(*args, **kwargs):
             from .tcp import Tcp
             from .gpib import Gpib
             from .serial import Serial
-            interfaces = dict(serial=Serial, gpib=Gpib, tcp=Tcp)
+            from .udp import Udp
+            interfaces = dict(serial=Serial, gpib=Gpib, tcp=Tcp, udp=Udp)
             for iname, iclass in interfaces.items():
                 if iname in kwargs:
                     ikwargs = kwargs.pop(iname)
@@ -81,7 +82,7 @@ def get_comm_type(config):
        config (dict): a dict like config object which contains communication
                       channel configuration
     Returns:
-        ``TCP``, ``GPIB`` or ``SERIAL``
+        ``TCP``, ``GPIB`` , ``SERIAL`` or ``UDP``
     Raises:
         ValueError: if no communication channel or more than one communication
                     channel is found in config
@@ -100,6 +101,10 @@ def get_comm_type(config):
         if comm_type:
             raise ValueError('More than one communication channel found')
         comm_type = SERIAL
+    if 'udp' in config:
+        if comm_type:
+            raise ValueError('More than one communication channel found')
+        comm_type = UDP
     if comm_type is None:
         raise ValueError('No communication channel found in config')
     return comm_type
@@ -148,18 +153,21 @@ def get_comm(config, ctype=None, **opts):
     else:
         proxy_config = None
 
-    if comm_type == TCP:
+    if comm_type == TCP or comm_type == UDP:
         default_port = opts.pop('port', None)
-        opts.update(config['tcp'])
+        opts.update(config[comm_type])
         url = opts['url']
         if isinstance(url, (str, unicode)):
             url = url.split(':', 1)
         if len(url) == 1:
             if default_port is None:
-                raise KeyError('Cannot create TCP object without port')
+                raise KeyError('Cannot create %s object without port' % comm_type.upper())
             url.append(default_port)
         opts['url'] = '{0[0]}:{0[1]}'.format(url)
-        from .tcp import Tcp as klass
+        if comm_type == TCP:
+            from .tcp import Tcp as klass
+        else:
+            from .udp import Udp as klass
     elif comm_type == GPIB:
         opts.update(config['gpib'])
         from .gpib import Gpib as klass

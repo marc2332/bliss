@@ -57,7 +57,7 @@ def try_connect_socket(fu):
     return rfunc
 
 
-class Socket:
+class BaseSocket:
     '''Raw socket class. Provides raw socket access.
     Consider using :class:`Tcp`.'''
 
@@ -103,20 +103,24 @@ class Socket:
             if self._connected:
                 return True
 
-            self._fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self._fd.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-            self._fd.setsockopt(socket.SOL_IP, socket.IP_TOS, 0x10)
-            self._fd.connect((local_host, local_port))
+            self._fd = self._connect(local_host,local_port)
             self._connected = True
 
         self._raw_read_task = gevent.spawn(self._raw_read,weakref.proxy(self),self._fd)
 
         return True
 
+    def _connect(self, host, port):
+        """
+        This method return a socket for a new connection.
+        Should be implemented in inherited classes
+        """
+        raise NotImplementedError
+    
     def close(self):
         if self._connected:
             try:
-                self._fd.shutdown(socket.SHUT_RDWR)
+                self._shutdown()
             except:             # probably closed one the server side
                 pass
             self._fd.close()
@@ -125,6 +129,13 @@ class Socket:
                 self._raw_read_task = None
             self._data = ''
 
+    def _shutdown(self):
+        """
+        This method disconnect properly the socket,
+        not always needed but could be implemented into inherited classes
+        """
+        pass
+    
     @try_connect_socket
     def raw_read(self, maxsize=None, timeout=None):
         timeout_errmsg = "timeout on socket(%s, %d)" % (self._host, self._port)
@@ -235,8 +246,26 @@ class Socket:
         self._data = ''
 
     def _sendall(self,data) :
+        raise NotImplementedError
+
+    @staticmethod
+    def _raw_read(sock,fd):
+        raise NotImplementedError
+    
+class Socket(BaseSocket):
+    def _connect(self, host, port):
+        fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        fd.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        fd.setsockopt(socket.SOL_IP, socket.IP_TOS, 0x10)
+        fd.connect((host, port))
+        return fd
+
+    def _shutdown(self):
+        self._fd.shutdown(socket.SHUT_RDWR)
+
+    def _sendall(self,data):
         self._debug("Tx: %r %r",data,HexMsg(data))
-        self._fd.sendall(data)
+        return self._fd.sendall(data)
 
     @staticmethod
     def _raw_read(sock,fd):
@@ -259,7 +288,6 @@ class Socket:
                 sock._event.set()
             except ReferenceError:
                 pass
-
 
 class CommandTimeout(CommunicationTimeout):
     '''Command timeout error'''

@@ -475,13 +475,13 @@ class MockupHook(MotionHook):
         self.last_pre_move_args = ()
         self.last_post_move_args = ()
 
-    def pre_move(self, *motion_list):
+    def pre_move(self, motion_list):
         if self.config.get('pre_move_error', False):
             raise self.Error('cannot pre_move')
         self.nb_pre_move += 1
         self.last_pre_move_args = motion_list
 
-    def post_move(self, *motion_list):
+    def post_move(self, motion_list):
         if self.config.get('post_move_error', False):
             raise self.Error('cannot post_move')
         self.nb_post_move += 1

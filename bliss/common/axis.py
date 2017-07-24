@@ -732,7 +732,7 @@ class Axis(object):
         motion.backlash = backlash
 
         for hook in self.__motion_hooks:
-            hook.pre_move(motion)
+            hook.pre_move([motion])
 
         self._check_ready()
 
@@ -761,7 +761,7 @@ class Axis(object):
 
         for hook in self.__motion_hooks:
             try:
-                hook.post_move(*self.__move_task._motions)
+                hook.post_move(self.__move_task._motions)
             except:
                 sys.excepthook(*sys.exc_info())
         self._update_settings(state)

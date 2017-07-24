@@ -13,7 +13,7 @@ import logging
 
 from gevent import sleep
 
-from bliss.common.axis import MotionHook
+from bliss.common.hook import MotionHook
 
 
 class SleepHook(MotionHook):
@@ -49,8 +49,8 @@ class SleepHook(MotionHook):
             sleep(t)
             self.debug('finished %s wait (%ss)', phase, t)
 
-    def pre_move(self, *motion_list):
+    def pre_move(self, motion_list):
         self.wait('pre_move')
 
-    def post_move(self, *motion_list):
+    def post_move(self, motion_list):
         self.wait('post_move')

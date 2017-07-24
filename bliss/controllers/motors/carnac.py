@@ -13,18 +13,37 @@ import logging
 
 import gevent
 
-from bliss.common.axis import MotionHook, AxisState
+from bliss.common.hook import MotionHook
 
 
 class CarnacHook(MotionHook):
     """
+    Motion hook specific for ID31 carnac motors.
+
     Configuration example:
 
     .. code-block:: yaml
 
-        name: carnac_hook
-        class: CarnacHook
-        module: motors.hooks
+        hooks:
+          - name: carnac_hook
+            class: CarnacHook
+            module: motors.hooks
+            plugin: bliss
+        controllers:
+          - name: ice313
+            class: IcePAP
+            host: iceid313
+            plugin: emotion
+            axes:
+              - name: cncx
+                motion_hooks:
+                  - $carnac_hook
+              - name: cncy
+                motion_hooks:
+                  - $carnac_hook
+              - name: cncz
+                motion_hooks:
+                  - $carnac_hook
     """
     def __init__(self, name, config):
         self._log = logging.getLogger('{0}({1})'.format(self.__class__.__name__,
@@ -42,7 +61,7 @@ class CarnacHook(MotionHook):
                     break
         self._log.debug('All motors ready!')
 
-    def pre_move(self, *motion_list):
+    def pre_move(self, motion_list):
         axes = [motion.axis for motion in motion_list]
         axes_names = ', '.join([axis.name for axis in axes])
         self._log.debug('Start power ON for %s', axes_names)
@@ -54,7 +73,7 @@ class CarnacHook(MotionHook):
         gevent.sleep(1.2)
         self._wait_ready(axes)
 
-    def post_move(self, *motion_list):
+    def post_move(self, motion_list):
         axes = [motion.axis for motion in motion_list]
         axes_names = ', '.join([axis.name for axis in axes])
         self._log.debug('Start power OFF for %s', axes_names)

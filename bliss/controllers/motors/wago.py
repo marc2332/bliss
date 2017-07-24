@@ -13,13 +13,13 @@ import logging
 
 from gevent import sleep
 
-from bliss.common.axis import MotionHook
+from bliss.common.hook import MotionHook
 
 
 class ValueHook(MotionHook):
     """
     Wago generic value hook. Apply *pre_value* before moving and *post_value* after moving.
-    
+
     Configuration example:
 
     .. code-block:: yaml
@@ -57,7 +57,7 @@ class ValueHook(MotionHook):
     def set(self, phase):
         value = self.config[phase]['value']
         wait = self.config[phase].get('wait', 0)
-        self.debug('start setting %s value to %s...', phase, value) 
+        self.debug('start setting %s value to %s...', phase, value)
         self.wago.set(self.channel, value)
         self.debug('finished setting %s value to %s', phase, value)
         if wait:
@@ -65,10 +65,10 @@ class ValueHook(MotionHook):
             sleep(wait)
             self.debug('finished %s wait (%ss)', phase, wait)
 
-    def pre_move(self, *motion_list):
+    def pre_move(self, motion_list):
         self.set('pre_move')
 
-    def post_move(self, *motion_list):
+    def post_move(self, motion_list):
         self.set('post_move')
 
 

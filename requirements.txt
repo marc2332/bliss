@@ -22,7 +22,7 @@ numpy < 1.12      ; python_version < '2.7'
 numpy             ; python_version >= '2.7'
 six >= 1.10
 tabulate
-sphinx == 1.4
+sphinx == 1.6.2
 sphinxcontrib-wavedrom >= 1.3
 pyserial == 2.7
 ruamel.yaml == 0.11.15 

@@ -3,7 +3,8 @@
 
 # --- mandatory dependencies -------------------------------
 
-gevent >= 1.2.2
+gevent <  1.2     ; python_version < '2.7'
+gevent >= 1.2.2   ; python_version >= '2.7'
 redis  >= 2.8
 PyYaml
 netifaces < 0.10.5
@@ -17,7 +18,8 @@ ptpython == 0.39
 pygments == 1.6.0 ; python_version < '2.7'
 docopt
 bottle
-numpy
+numpy < 1.12      ; python_version < '2.7'
+numpy             ; python_version >= '2.7'
 six >= 1.10
 tabulate
 sphinx == 1.4

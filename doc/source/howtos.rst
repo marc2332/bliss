@@ -10,3 +10,4 @@ How Tos
     howto_tango
     howto_ct2
     howto_emulator
+    howto_motion_hook

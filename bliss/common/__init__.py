@@ -17,6 +17,7 @@ This module gathers most common functionality to bliss (from
    axis
    encoder
    event
+   hook
    log
    measurement
    scans

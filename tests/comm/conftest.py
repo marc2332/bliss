@@ -44,3 +44,33 @@ def server_port():
     os.close(r)
     server_p.terminate()
     server_p.join()
+
+def upd_server_loop(PORT,rpipe):
+    udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    for port in range(8000,9000):
+        try:
+            udp.bind(("",port))
+        except socket.error:
+            pass
+        else:
+            PORT.put(port)
+            break
+    while True:
+        r, w, e = select.select([rpipe,udp], [], [])
+        if rpipe in r:
+            break
+        else:
+            buff,address = udp.recvfrom(8192)
+            udp.sendto(buff,address)
+
+@pytest.fixture(scope="session")
+def udp_port():
+    PORT = Queue()
+    r,w = os.pipe()
+    server_p = Process(target=upd_server_loop,args=(PORT,w))
+    server_p.start()
+    os.close(w)
+    yield PORT.get()
+    os.close(r)
+    server_p.terminate()
+    server_p.join()

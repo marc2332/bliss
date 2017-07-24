@@ -14,9 +14,9 @@ from bliss.common import log as elog
 from bliss.common.axis import Axis,AxisState
 from bliss.common import event
 
+from bliss.common.hook import MotionHook
 from bliss.common.utils import object_method
 from bliss.common.utils import object_attribute_get, object_attribute_set
-
 
 """
 mockup.py : a mockup controller for bliss.
@@ -458,3 +458,31 @@ class MockupAxis(Axis):
             self.steps_per_unit if motion.backlash else 0
         return Axis._handle_move(self, motion, polling_time)
 
+
+class MockupHook(MotionHook):
+    """Motion hook used for pytest"""
+
+    class Error(Exception):
+        """Mockup hook error"""
+        pass
+
+    def __init__(self, name, config):
+        super(MockupHook, self).__init__()
+        self.name = name
+        self.config = config
+        self.nb_pre_move = 0
+        self.nb_post_move = 0
+        self.last_pre_move_args = ()
+        self.last_post_move_args = ()
+
+    def pre_move(self, *motion_list):
+        if self.config.get('pre_move_error', False):
+            raise self.Error('cannot pre_move')
+        self.nb_pre_move += 1
+        self.last_pre_move_args = motion_list
+
+    def post_move(self, *motion_list):
+        if self.config.get('post_move_error', False):
+            raise self.Error('cannot post_move')
+        self.nb_post_move += 1
+        self.last_post_move_args = motion_list

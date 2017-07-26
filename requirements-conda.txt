@@ -22,7 +22,7 @@ six >= 1.10
 tabulate
 sphinx >= 1.4
 pyserial == 2.7
-
+h5py
 
 # Non-python requirements
 

@@ -26,6 +26,8 @@ nav:
                 - MCA:
                     - General: config_mca.md
                     - Rontec: configure_mca_rontec.md
+                    - XIA:
+                        - Handel: config_mca_handel.md
                 - Temperature or pressure controllers:
                       - Temperature contollers in Bliss: config_tempctrl.md
                       - Eurotherm: config_eurotherm.md

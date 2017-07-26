@@ -1,23 +1,41 @@
+before_script:
+  - source activate tango2.7
+  - conda install --yes --file requirements-conda.txt
+  - pip install -r requirements.txt
+
+stages:
+  - build
+  - test
+  - deploy
+
+build:
+  stage: build
+  script: python setup.py build build_doc
+  artifacts:
+    paths:
+      - build/
+    expire_in: 7 days
+
 tests:
   stage: test
-  script:
-    - source activate tango2.7
-    - conda install --yes --file requirements-conda.txt
-    - pip install -r requirements.txt
-    - python setup.py test
+  script: python setup.py test
   artifacts:
     paths:
       - htmlcov/
+    expire_in: 7 days
 
 pages:
   stage: deploy
   dependencies:
+    - build
     - tests
   script:
-    - mv htmlcov/ public/
+    - mv build/sphinx/html public
+    - mv htmlcov public/
+
   artifacts:
     paths:
       - public
-    expire_in: 30 days
+    expire_in: 7 days
   only:
-    - ci
+    - master

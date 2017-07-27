@@ -7,17 +7,19 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 """
-Usage: bliss [(-s | --session)] <name>...
+Usage: bliss [--log-level=<log_level>] [(-s | --session)] <name>...
        bliss [--show-sessions]
        bliss
        bliss (-h | --help)
 Options:
+    --log-level=<log_level>       Log level [default: WARN].
     --show-sessions               Display available sessions.
     -s, --session                 Starts with some session(s).
     -h, --help                    Show this screen.
 """
 import sys
 import os
+import logging
 import gevent
 import docopt
 from ptpython import repl
@@ -175,6 +177,10 @@ def main():
     except docopt.DocoptExit as e:
         print e.message
     else:
+        log_level = getattr(logging, arguments['--log-level'].upper())
+        fmt = '%(levelname)s %(asctime)-15s %(name)s: %(message)s'
+        logging.basicConfig(level=log_level, format=fmt)
+
         if arguments['--show-sessions']:
             config = static.get_config()
             print 'Session name(s):'

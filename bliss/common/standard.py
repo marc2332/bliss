@@ -10,7 +10,8 @@ from bliss.common.scans import *
 from bliss.common.task_utils import cleanup, error_cleanup
 
 __all__ = ['wa', 'wm', 'sta', 'mv', 'umv', 'mvr', 'umvr', 'move',
-           'prdef'] + scans.__all__ + ['cleanup', 'error_cleanup']
+           'prdef', 'set_log_level'] + scans.__all__ + \
+           ['cleanup', 'error_cleanup']
 
 import inspect
 import logging
@@ -302,3 +303,15 @@ def prdef(obj_or_name):
                  format(name, real_name, fname, line_nb)
     print_(header)
     print_(''.join(lines))
+
+
+def _check_log_level(level):
+    if isinstance(level, (int, long)):
+        rv = level
+    else:
+        rv = getattr(logging, level.upper())
+    return rv
+
+def set_log_level(level):
+    logging.root.setLevel(_check_log_level(level))
+        

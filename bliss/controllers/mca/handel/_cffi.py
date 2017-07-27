@@ -81,4 +81,4 @@ void xiaMemLeaks(char *);
 """
 )
 
-handel = ffi.dlopen("handel/handel.dll")
+handel = ffi.dlopen("handel.dll")

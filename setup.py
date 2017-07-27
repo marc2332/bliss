@@ -120,6 +120,7 @@ def main():
         'silx >= 0.8 ; platform_machine == "x86_64"',
         "psutil",
         "requests",
+        "cffi",
     ]
 
     tests_require = ["pytest", "pytest-mock", "pytest-cov", "scipy", "gipc"]

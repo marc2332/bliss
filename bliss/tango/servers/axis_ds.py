@@ -1083,12 +1083,8 @@ def __recreate_axes(server_name, manager_dev_name, axis_names,
             try:
                 get_axis(curr_axis_name)
             except:
-                elog.info("Error instantiating %s (%s): skipping!!" % (curr_axis_name, dev_name))
-                elog.info(" hint : Check beacon ")
-                elog.info(" hint : Check redis-server ")
-                elog.info(" hint : Check user running redis-server : must not be \"redis\" ")
+                elog.info("Error instantiating %s (%s):" % (curr_axis_name, dev_name))
                 traceback.print_exc()
-                continue
             curr_axes[curr_axis_name] = dev_name, dev_class
 
     axis_names_set = set(axis_names)
@@ -1121,7 +1117,7 @@ def __recreate_axes(server_name, manager_dev_name, axis_names,
             db.put_device_alias(dev_name, axis_name)
  
     axes, tango_classes = [], []
-    for axis_name in curr_axis_names_set:
+    for axis_name in axis_names_set:
         axis = get_axis(axis_name)
         axes.append(axis)
         tango_class = __create_tango_axis_class(axis)

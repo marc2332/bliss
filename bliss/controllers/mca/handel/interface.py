@@ -24,7 +24,20 @@ def new_detector(alias):
 # int xiaModifyDetectorItem(char *alias, char *name, void *value);
 # int xiaGetDetectorItem(char *alias, char *name, void *value);
 
-# int xiaGetNumDetectors(unsigned int *numDet);
+
+def get_num_detectors():
+    num = ffi.new("unsigned int *")
+    check_error(handel.xiaGetNumDetectors(num))
+    return num[0]
+
+
+def get_detectors():
+    n = get_num_detectors()
+    arg = [ffi.new("char []", 80) for _ in range(n)]
+    check_error(handel.xiaGetDetectors(arg))
+    return [ffi.string(x) for x in arg]
+
+
 # int xiaGetDetectors(char *detectors[]);
 # int xiaGetDetectors_VB(unsigned int index, char *alias);
 # int xiaRemoveDetector(char *alias);

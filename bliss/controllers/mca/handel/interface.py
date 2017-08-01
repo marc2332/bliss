@@ -167,10 +167,20 @@ def close_log():
 # int xiaRemoveChannelSet(unsigned int detChan);
 
 
-# Parameter
+# Parameters
 
-# int xiaSetAcquisitionValues(int detChan, char *name, void *value);
-# int xiaGetAcquisitionValues(int detChan, char *name, void *value);
+
+def set_acquisition_value(channel, name, value):
+    pointer = ffi.new("double *", value)
+    check_error(handel.xiaSetAcquisitionValues(channel, name, pointer))
+
+
+def get_acquisition_value(channel, name):
+    pointer = ffi.new("double *")
+    check_error(handel.xiaGetAcquisitionValues(channel, name, pointer))
+    return pointer[0]
+
+
 # int xiaRemoveAcquisitionValues(int detChan, char *name);
 # int xiaUpdateUserParams(int detChan);
 # int xiaGainOperation(int detChan, char *name, void *value);

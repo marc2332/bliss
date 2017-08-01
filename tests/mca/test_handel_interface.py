@@ -204,6 +204,31 @@ def test_close_log(interface):
     m.assert_called_once_with()
 
 
+# Parameters
+
+
+def test_set_acquisition_value(interface):
+    m = interface.handel.xiaSetAcquisitionValues
+    m.return_value = 0
+    assert interface.set_acquisition_value(1, "test", 2.3) is None
+    arg = m.call_args[0][2]
+    m.assert_called_once_with(1, "test", arg)
+    assert arg[0] == 2.3
+
+
+def test_get_acquistion_value(interface):
+    m = interface.handel.xiaGetAcquisitionValues
+
+    def side_effect(a, b, c):
+        c[0] = 2.3
+        return 0
+
+    m.side_effect = side_effect
+    assert interface.get_acquisition_value(1, "test") == 2.3
+    arg = m.call_args[0][2]
+    m.assert_called_once_with(1, "test", arg)
+
+
 # Debugging
 
 

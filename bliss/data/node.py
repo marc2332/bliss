@@ -19,7 +19,7 @@ def to_timestamp(dt, epoch=None):
     if epoch is None:
         epoch = datetime.datetime(1970,1,1)
     td = dt - epoch
-    return td.microseconds / 10**6 + td.seconds + td.days * 86400
+    return td.microseconds / float(10**6) + td.seconds + td.days * 86400
 
 # From continuous scan
 node_plugins = dict()

@@ -409,7 +409,8 @@ def timescan(count_time, *counters, **kwargs):
     scan = step_scan(chain, scan_info,
                      name=kwargs.setdefault("name","timescan"), save=scan_info['save'])
     scan.run()
-    return scan
+    if kwargs.get('return_scan', False):
+        return scan
 
 def ct(count_time, *counters, **kwargs):
     """
@@ -428,6 +429,7 @@ def ct(count_time, *counters, **kwargs):
         name (str): scan name in data nodes tree and directories [default: 'scan']
         title (str): scan title [default: 'ct <count_time>']
         save (bool): save scan data to file [default: True]
+        return_scan (bool): False by default
     """
     kwargs['type'] = 'ct'
     kwargs['save'] = False

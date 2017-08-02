@@ -7,12 +7,46 @@ import numpy
 from .error import check_return_value, check_error
 from ._cffi import handel, ffi
 
+__all__ = [
+    "init",
+    "init_handel",
+    "exit",
+    "new_detector",
+    "get_num_detectors",
+    "get_detectors",
+    "start_run",
+    "stop_run",
+    "get_run_data_length",
+    "get_run_data",
+    "load_system",
+    "save_system",
+    "start_system",
+    "enable_log_output",
+    "disable_log_output",
+    "set_log_output",
+    "set_log_level",
+    "close_log",
+    "set_acquisition_value",
+    "get_acquisition_value",
+    "get_handel_version",
+]
+
+
+# Helpers
+
+
+def to_bytes(arg):
+    if isinstance(arg, bytes):
+        return arg
+    return arg.encode()
+
 
 # Initializing handel
 
 
 @check_return_value
 def init(filename):
+    filename = to_bytes(filename)
     return handel.xiaInit(filename)
 
 
@@ -31,6 +65,7 @@ def exit():
 
 @check_return_value
 def new_detector(alias):
+    alias = to_bytes(alias)
     return handel.xiaNewDetector(alias)
 
 
@@ -44,7 +79,7 @@ def get_detectors():
     n = get_num_detectors()
     arg = [ffi.new("char []", 80) for _ in range(n)]
     check_error(handel.xiaGetDetectors(arg))
-    return tuple(ffi.string(x) for x in arg)
+    return tuple(ffi.string(x).decode() for x in arg)
 
 
 # int xiaAddDetectorItem(char *alias, char *name, void *value);
@@ -92,12 +127,14 @@ def get_run_data(channel):
 @check_return_value
 def load_system(filename):
     # Is this an alias to xiaInit?
-    return handel.xiaLoadSystem("handel_ini", filename)
+    filename = to_bytes(filename)
+    return handel.xiaLoadSystem(b"handel_ini", filename)
 
 
 @check_return_value
 def save_system(filename):
-    return handel.xiaSaveSystem("handel_ini", filename)
+    filename = to_bytes(filename)
+    return handel.xiaSaveSystem(b"handel_ini", filename)
 
 
 @check_return_value
@@ -125,6 +162,7 @@ def set_log_level(level):
 
 @check_return_value
 def set_log_output(filename):
+    filename = to_bytes(filename)
     return handel.xiaSetLogOutput(filename)
 
 
@@ -171,11 +209,13 @@ def close_log():
 
 
 def set_acquisition_value(channel, name, value):
+    name = to_bytes(name)
     pointer = ffi.new("double *", value)
     check_error(handel.xiaSetAcquisitionValues(channel, name, pointer))
 
 
 def get_acquisition_value(channel, name):
+    name = to_bytes(name)
     pointer = ffi.new("double *")
     check_error(handel.xiaGetAcquisitionValues(channel, name, pointer))
     return pointer[0]
@@ -208,7 +248,7 @@ def get_acquisition_value(channel, name):
 # Debugging
 
 
-def get_version_info():
+def get_handel_version():
     rel = ffi.new("int *")
     min = ffi.new("int *")
     maj = ffi.new("int *")

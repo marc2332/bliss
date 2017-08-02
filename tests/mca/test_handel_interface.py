@@ -19,7 +19,11 @@ def test_init(interface):
     m = interface.handel.xiaInit
     m.return_value = 0
     assert interface.init("somefile") is None
-    m.assert_called_once_with("somefile")
+    m.assert_called_once_with(b"somefile")
+    m.reset_mock()
+    # Should work with bytes too
+    assert interface.init(b"somefile") is None
+    m.assert_called_once_with(b"somefile")
 
 
 def test_init_handel(interface):
@@ -43,7 +47,7 @@ def test_new_detector(interface):
     m = interface.handel.xiaNewDetector
     m.return_value = 0
     assert interface.new_detector("somealias") is None
-    m.assert_called_once_with("somealias")
+    m.assert_called_once_with(b"somealias")
 
 
 def test_get_num_detectors(interface):
@@ -76,7 +80,7 @@ def test_get_detectors(interface):
 
     m1.side_effect = side_effect_1
     m2.side_effect = side_effect_2
-    expected = b"name1", b"name2", b"name3"
+    expected = "name1", "name2", "name3"
     assert interface.get_detectors() == expected
     m2.assert_called_once()
     arg = m2.call_args[0][0]
@@ -149,14 +153,14 @@ def test_load_system(interface):
     m = interface.handel.xiaLoadSystem
     m.return_value = 0
     assert interface.load_system("somefile") is None
-    m.assert_called_once_with("bliss.controllers.mca.handel_ini", "somefile")
+    m.assert_called_once_with(b"handel_ini", b"somefile")
 
 
 def test_save_system(interface):
     m = interface.handel.xiaSaveSystem
     m.return_value = 0
     assert interface.save_system("somefile") is None
-    m.assert_called_once_with("bliss.controllers.mca.handel_ini", "somefile")
+    m.assert_called_once_with(b"handel_ini", b"somefile")
 
 
 def test_start_system(interface):
@@ -194,7 +198,7 @@ def test_set_log_output(interface):
     m = interface.handel.xiaSetLogOutput
     m.return_value = 0
     assert interface.set_log_output("somefile") is None
-    m.assert_called_once_with("somefile")
+    m.assert_called_once_with(b"somefile")
 
 
 def test_close_log(interface):
@@ -212,7 +216,7 @@ def test_set_acquisition_value(interface):
     m.return_value = 0
     assert interface.set_acquisition_value(1, "test", 2.3) is None
     arg = m.call_args[0][2]
-    m.assert_called_once_with(1, "test", arg)
+    m.assert_called_once_with(1, b"test", arg)
     assert arg[0] == 2.3
 
 
@@ -226,18 +230,18 @@ def test_get_acquistion_value(interface):
     m.side_effect = side_effect
     assert interface.get_acquisition_value(1, "test") == 2.3
     arg = m.call_args[0][2]
-    m.assert_called_once_with(1, "test", arg)
+    m.assert_called_once_with(1, b"test", arg)
 
 
 # Debugging
 
 
-def test_get_version_info(interface):
+def test_get_handel_version(interface):
     m = interface.handel.xiaGetVersionInfo
 
     def side_effect(a, b, c, d):
         d[0], c[0], b[0], a[0] = b"v", 1, 2, 3
 
     m.side_effect = side_effect
-    assert interface.get_version_info() == (1, 2, 3)
+    assert interface.get_handel_version() == (1, 2, 3)
     m.assert_called_once()

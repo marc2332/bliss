@@ -239,7 +239,9 @@ class Scan(object):
         self._node = _create_node(self.__name, "scan", parent=self.root_node)
         if scan_info is not None:
             scan_info['scan_nb'] = run_number
+            scan_info['start_time'] = self._node._data.start_time
             scan_info['start_time_str'] = self._node._data.start_time_str
+            scan_info['start_time_stamp'] = self._node._data.start_time_stamp
             self._node._info.update(dict(scan_info))
         self._data_watch_callback = data_watch_callback
         self._data_events = dict()

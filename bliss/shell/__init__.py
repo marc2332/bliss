@@ -8,30 +8,24 @@
 '''Shell (:term:`CLI` and Web based)'''
 
 import os
-import yaml
 import sys
 import time
 import logging
-import functools
-from six import print_
-import numpy
 import datetime
+import functools
+
+import louie
+import numpy
+from six import print_
 
 from bliss import setup_globals
-from bliss.scanning import scan
 from bliss.common import event
+from bliss.config import static
+from bliss.scanning import scan
 
-try:
-    from bliss.config import static
-except ImportError:
-    sys.excepthook(*sys.exc_info())
-
-try:
-    from tabulate import tabulate
-except ImportError:
-    pass
 
 _log = logging.getLogger('bliss.shell')
+
 
 def initialize(*session_names):
     config = static.get_config()

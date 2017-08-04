@@ -72,7 +72,7 @@ def default_chain(chain,scan_pars,counters):
         raise ValueError("Missing counters, not in setup_globals: %s. Hint: disable inactive counters." % ", ".join(missing_counters))
 
     if not scan_counters:
-        raise ValueError("All counters are disabled...")
+        raise ValueError("No counters for scan. Hint: are all counters disabled ?")
 
     read_cnt_handler = dict()
     for cnt in set(scan_counters):

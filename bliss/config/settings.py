@@ -145,7 +145,11 @@ class SimpleSetting(object):
 
     def ttl(self,value = -1):
         return ttl_func(self._cnx(),self._name,value)
-
+    
+    def clear(self):
+        cnx = self._cnx()
+        cnx.delete(self._name)
+    
     def __add__(self,other):
         value = self.get()
         if isinstance(other,SimpleSetting):

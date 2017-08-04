@@ -129,8 +129,8 @@ class Session(object):
 
             from bliss.scanning.scan import ScanSaving
             env_dict['SCAN_SAVING'] = ScanSaving()
-            from bliss.session.measurementgroup import default_mg
-            env_dict['DEFAULT_MG'] = default_mg()
+            from bliss.session.measurementgroup import ACTIVE_MG
+            env_dict['ACTIVE_MG'] = ACTIVE_MG
 
             fullpath = self._config_tree.get('setup-file')
             code = compile(setup_file.read(), fullpath, 'exec')

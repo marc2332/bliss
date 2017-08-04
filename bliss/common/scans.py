@@ -11,7 +11,8 @@ Most common scan procedures (:func:`~bliss.common.scans.ascan`, \
 
 """
 
-__all__ = ['ascan', 'a2scan', 'mesh', 'dscan', 'd2scan', 'timescan', 'ct', 'get_data']
+__all__ = ['ascan', 'a2scan', 'mesh', 'dscan', 'd2scan', 'timescan', 'loopscan',
+           'ct', 'get_data']
 
 import time
 import logging
@@ -411,6 +412,30 @@ def timescan(count_time, *counters, **kwargs):
     scan.run()
     if kwargs.get('return_scan', False):
         return scan
+
+
+def loopscan(npoints, count_time, *counters, **kwargs):
+    """
+    Similar to :ref:`timescan` but npoints is mandatory
+
+    Args:
+        npoints (int): number of points
+        count_time (float): count time (seconds)
+        counters (BaseCounter or
+                  MeasurementGroup): change for those counters or measurement group.
+                                     if counter is empty use the active measurement group.
+
+    Keyword Args:
+        name (str): scan name in data nodes tree and directories [default: 'scan']
+        title (str): scan title [default: 'timescan <count_time>']
+        save (bool): save scan data to file [default: True]
+        sleep_time (float): sleep time between 2 points [default: None]
+        return_scan (bool): False by default
+    """
+    kwargs.setdefault('npoints', npoints)
+    kwargs.setdefault('name', 'loopscan')
+    return timescan(count_time, *counters, **kwargs)
+
 
 def ct(count_time, *counters, **kwargs):
     """

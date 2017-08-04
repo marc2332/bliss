@@ -121,7 +121,7 @@ class AcquisitionMaster(object):
     @channels.setter
     def channels(self, channels_list):
         if not isinstance(channels_list, list):
-            raise TypeError("A channels list is expected.")
+            raise TypeError("%s: A channels list is expected." % self.name)
         self.__channels = channels_list
     @property
     def npoints(self):
@@ -154,10 +154,12 @@ class AcquisitionMaster(object):
                 for slave, task in self.__triggers:
                     if not task.ready():
                         invalid_slaves.append(slave)
-                        task.kill(RuntimeError("Previous trigger is not done, aborting"))
+                        task.kill(RuntimeError("%s: Previous trigger is not done, aborting"
+                                               % self.name))
                     else:
                         task.kill()
-                raise RuntimeError("Aborted due to bad triggering on slaves: %s" % invalid_slaves)
+                raise RuntimeError("%s: Aborted due to bad triggering on slaves: %s" 
+                                   % (self.name, invalid_slaves))
         finally:
             self.__triggers = list()
 
@@ -218,7 +220,7 @@ class AcquisitionDevice(object):
     @channels.setter
     def channels(self, channels_list):
         if not isinstance(channels_list, list):
-            raise TypeError("A channels list is expected.")
+            raise TypeError("%s: A channels list is expected." % self.name)
         self.__channels = channels_list
     @property
     def npoints(self):
@@ -228,7 +230,7 @@ class AcquisitionDevice(object):
     #    self.__npoints = npoints
     def _prepare(self):
         if not self._check_ready():
-            raise RuntimeError("Last reading task is not finished.")
+            raise RuntimeError("%s: Last reading task is not finished." % self.name)
         return self.prepare()
     def prepare(self):
         raise NotImplementedError

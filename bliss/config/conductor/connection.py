@@ -39,6 +39,7 @@ def ip4_broadcast_addresses():
     for interface in netifaces.interfaces():
         for link in netifaces.ifaddresses(interface).get(netifaces.AF_INET, []):
             ip_list.append(link.get("broadcast"))
+    ip_list.insert(0, 'localhost')
     return filter(None, ip_list)
 
 def check_connect(func):

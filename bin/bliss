@@ -31,6 +31,7 @@ from prompt_toolkit.eventloop.select import fd_to_int
 from gevent import select
 import time
 import signal
+import functools
 from bliss.shell import initialize, ScanListener
 from bliss.config import static
 
@@ -226,11 +227,11 @@ def main():
                     CURRENT_TASK = None
             repl._execute = patched_execute
 
-        def stop_current_task(signum,frame):
+        def stop_current_task(signum, frame, exception=gevent.GreenletExit):
             if CURRENT_TASK:
-                CURRENT_TASK.kill(block=False)
-        signal.signal(signal.SIGINT,stop_current_task)
-        signal.signal(signal.SIGTERM,stop_current_task)
+                CURRENT_TASK.kill(block=False, exception=exception)
+        signal.signal(signal.SIGINT, functools.partial(stop_current_task, exception=KeyboardInterrupt))
+        signal.signal(signal.SIGTERM, stop_current_task)
 
         repl.embed(user_ns, None, vi_mode=False, history_filename=history_filename,
                    configure=patch_repl)

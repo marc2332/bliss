@@ -211,14 +211,17 @@ def main():
                 except:
                     return sys.exc_info()
 
-            def patched_execute(self,*args,**keys):
+            def patched_execute(*args, **keys):
                 global CURRENT_TASK
-                CURRENT_TASK = gevent.spawn(wrapped_f,self,*args,**keys)
+                CURRENT_TASK = gevent.spawn(wrapped_f, *args, **keys)
                 try:
-                    return_value = CURRENT_TASK.get()
-                    if(isinstance(return_value,tuple) and 
-                       isinstance(return_value[1],Exception)):
-                        raise return_value[0],return_value[1],return_value[2]
+                    try:
+                        return_value = CURRENT_TASK.get()
+                        if isinstance(return_value, tuple) and len(return_value) >= 3:
+                            if isinstance(return_value[1], (BaseException, Exception)):
+                                raise return_value[0], return_value[1], return_value[2]
+                    except gevent.Timeout as e:  #gevent.Timeout  doesn't inherit from Exception.
+                        repl._handle_exception(*args)
                 finally:
                     CURRENT_TASK = None
             repl._execute = patched_execute

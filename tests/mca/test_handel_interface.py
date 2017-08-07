@@ -6,10 +6,11 @@ import mock
 @pytest.fixture
 def interface():
     with mock.patch("cffi.FFI.dlopen") as dlopen:
-        from bliss.controllers.mca.handel import interface
+        with mock.patch("bliss.controllers.mca.handel.interface.check_error"):
+            from bliss.controllers.mca.handel import interface
 
-        interface.handel = dlopen.return_value
-        yield interface
+            interface.handel = dlopen.return_value
+            yield interface
 
 
 # Initializing handel
@@ -20,10 +21,16 @@ def test_init(interface):
     m.return_value = 0
     assert interface.init("somefile") is None
     m.assert_called_once_with(b"somefile")
+    # Make sure errors have been checked
+    interface.check_error.assert_called_once_with(0)
+    # Reset
     m.reset_mock()
+    interface.check_error.reset_mock()
     # Should work with bytes too
     assert interface.init(b"somefile") is None
     m.assert_called_once_with(b"somefile")
+    # Make sure errors have been checked
+    interface.check_error.assert_called_once_with(0)
 
 
 def test_init_handel(interface):
@@ -31,6 +38,8 @@ def test_init_handel(interface):
     m.return_value = 0
     assert interface.init_handel() is None
     m.assert_called_once_with()
+    # Make sure errors have been checked
+    interface.check_error.assert_called_once_with(0)
 
 
 def test_exit(interface):
@@ -38,6 +47,8 @@ def test_exit(interface):
     m.return_value = 0
     assert interface.exit() is None
     m.assert_called_once_with()
+    # Make sure errors have been checked
+    interface.check_error.assert_called_once_with(0)
 
 
 # Detectors
@@ -48,6 +59,8 @@ def test_new_detector(interface):
     m.return_value = 0
     assert interface.new_detector("somealias") is None
     m.assert_called_once_with(b"somealias")
+    # Make sure errors have been checked
+    interface.check_error.assert_called_once_with(0)
 
 
 def test_get_num_detectors(interface):
@@ -62,6 +75,8 @@ def test_get_num_detectors(interface):
     m.assert_called_once()
     arg = m.call_args[0][0]
     m.assert_called_once_with(arg)
+    # Make sure errors have been checked
+    interface.check_error.assert_called_once_with(0)
 
 
 def test_get_detectors(interface):
@@ -85,6 +100,8 @@ def test_get_detectors(interface):
     m2.assert_called_once()
     arg = m2.call_args[0][0]
     m2.assert_called_once_with(arg)
+    # Make sure errors have been checked
+    interface.check_error.assert_called_with(0)
 
 
 # Run control
@@ -93,21 +110,36 @@ def test_get_detectors(interface):
 def test_start_run(interface):
     m = interface.handel.xiaStartRun
     m.return_value = 0
+    # First test
     assert interface.start_run(1) is None
     m.assert_called_once_with(1, False)
+    # Make sure errors have been checked
+    interface.check_error.assert_called_once_with(0)
+    # Reset
     m.reset_mock()
+    interface.check_error.reset_mock()
+    # Second test
     assert interface.start_run(2, True) is None
     m.assert_called_once_with(2, True)
+    # Make sure errors have been checked
+    interface.check_error.assert_called_once_with(0)
 
 
 def test_stop_run(interface):
+    # Init
     m = interface.handel.xiaStopRun
     m.return_value = 0
+    # First test
     assert interface.stop_run(1) is None
     m.assert_called_once_with(1)
+    interface.check_error.assert_called_once_with(0)
+    # Reset
     m.reset_mock()
+    interface.check_error.reset_mock()
+    # Second test
     assert interface.stop_run(2) is None
     m.assert_called_once_with(2)
+    interface.check_error.assert_called_once_with(0)
 
 
 def test_get_run_data_length(interface):
@@ -122,6 +154,7 @@ def test_get_run_data_length(interface):
     m.assert_called_once()
     arg = m.call_args[0][2]
     m.assert_called_once_with(1, "mca_length", arg)
+    interface.check_error.assert_called_once_with(0)
 
 
 def test_get_run_data(interface):
@@ -144,6 +177,7 @@ def test_get_run_data(interface):
     m.assert_called()
     arg = m.call_args[0][2]
     m.assert_called_with(1, "mca", arg)
+    interface.check_error.assert_called_with(0)
 
 
 # System
@@ -154,6 +188,7 @@ def test_load_system(interface):
     m.return_value = 0
     assert interface.load_system("somefile") is None
     m.assert_called_once_with(b"handel_ini", b"somefile")
+    interface.check_error.assert_called_once_with(0)
 
 
 def test_save_system(interface):
@@ -161,6 +196,7 @@ def test_save_system(interface):
     m.return_value = 0
     assert interface.save_system("somefile") is None
     m.assert_called_once_with(b"handel_ini", b"somefile")
+    interface.check_error.assert_called_once_with(0)
 
 
 def test_start_system(interface):
@@ -168,6 +204,7 @@ def test_start_system(interface):
     m.return_value = 0
     assert interface.start_system() is None
     m.assert_called_once_with()
+    interface.check_error.assert_called_once_with(0)
 
 
 # Logging
@@ -178,6 +215,7 @@ def test_enable_log_output(interface):
     m.return_value = 0
     assert interface.enable_log_output() is None
     m.assert_called_once_with()
+    interface.check_error.assert_called_once_with(0)
 
 
 def test_disable_log_output(interface):
@@ -185,6 +223,7 @@ def test_disable_log_output(interface):
     m.return_value = 0
     assert interface.disable_log_output() is None
     m.assert_called_once_with()
+    interface.check_error.assert_called_once_with(0)
 
 
 def test_set_log_level(interface):
@@ -192,6 +231,7 @@ def test_set_log_level(interface):
     m.return_value = 0
     assert interface.set_log_level(3) is None
     m.assert_called_once_with(3)
+    interface.check_error.assert_called_once_with(0)
 
 
 def test_set_log_output(interface):
@@ -199,6 +239,7 @@ def test_set_log_output(interface):
     m.return_value = 0
     assert interface.set_log_output("somefile") is None
     m.assert_called_once_with(b"somefile")
+    interface.check_error.assert_called_once_with(0)
 
 
 def test_close_log(interface):
@@ -206,6 +247,7 @@ def test_close_log(interface):
     m.return_value = 0
     assert interface.close_log() is None
     m.assert_called_once_with()
+    interface.check_error.assert_called_once_with(0)
 
 
 # Parameters
@@ -218,6 +260,7 @@ def test_set_acquisition_value(interface):
     arg = m.call_args[0][2]
     m.assert_called_once_with(1, b"test", arg)
     assert arg[0] == 2.3
+    interface.check_error.assert_called_once_with(0)
 
 
 def test_get_acquistion_value(interface):
@@ -231,6 +274,7 @@ def test_get_acquistion_value(interface):
     assert interface.get_acquisition_value(1, "test") == 2.3
     arg = m.call_args[0][2]
     m.assert_called_once_with(1, b"test", arg)
+    interface.check_error.assert_called_once_with(0)
 
 
 # Debugging

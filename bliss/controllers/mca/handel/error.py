@@ -1,6 +1,5 @@
 """Error handling."""
 
-import functools
 
 ERROR_DICT = {
     0: ("SUCCESS", None),
@@ -267,11 +266,3 @@ class HandelError(IOError):
 def check_error(errno):
     if errno != 0:
         raise HandelError.from_errno(errno)
-
-
-def check_return_value(func):
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        check_error(func(*args, **kwargs))
-
-    return wrapper

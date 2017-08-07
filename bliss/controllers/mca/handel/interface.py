@@ -4,7 +4,7 @@ from __future__ import absolute_import
 
 import numpy
 
-from .error import check_return_value, check_error
+from .error import check_error
 from ._cffi import handel, ffi
 
 __all__ = [
@@ -44,41 +44,43 @@ def to_bytes(arg):
 # Initializing handel
 
 
-@check_return_value
 def init(filename):
     filename = to_bytes(filename)
-    return handel.xiaInit(filename)
+    code = handel.xiaInit(filename)
+    check_error(code)
 
 
-@check_return_value
 def init_handel():
-    return handel.xiaInitHandel()
+    code = handel.xiaInitHandel()
+    check_error(code)
 
 
-@check_return_value
 def exit():
-    return handel.xiaExit()
+    code = handel.xiaExit()
+    check_error(code)
 
 
 # Detectors
 
 
-@check_return_value
 def new_detector(alias):
     alias = to_bytes(alias)
-    return handel.xiaNewDetector(alias)
+    code = handel.xiaNewDetector(alias)
+    check_error(code)
 
 
 def get_num_detectors():
     num = ffi.new("unsigned int *")
-    check_error(handel.xiaGetNumDetectors(num))
+    code = handel.xiaGetNumDetectors(num)
+    check_error(code)
     return num[0]
 
 
 def get_detectors():
     n = get_num_detectors()
     arg = [ffi.new("char []", 80) for _ in range(n)]
-    check_error(handel.xiaGetDetectors(arg))
+    code = handel.xiaGetDetectors(arg)
+    check_error(code)
     return tuple(ffi.string(x).decode() for x in arg)
 
 
@@ -93,19 +95,20 @@ def get_detectors():
 # Run control
 
 
-@check_return_value
 def start_run(channel, resume=False):
-    return handel.xiaStartRun(channel, resume)
+    code = handel.xiaStartRun(channel, resume)
+    check_error(code)
 
 
-@check_return_value
 def stop_run(channel):
-    return handel.xiaStopRun(channel)
+    code = handel.xiaStopRun(channel)
+    check_error(code)
 
 
 def get_run_data_length(channel):
     length = ffi.new("unsigned long *")
-    check_error(handel.xiaGetRunData(channel, "mca_length", length))
+    code = handel.xiaGetRunData(channel, "mca_length", length)
+    check_error(code)
     return length[0]
 
 
@@ -113,7 +116,8 @@ def get_run_data(channel):
     length = get_run_data_length(channel)
     array = numpy.zeros(length, dtype="uint")
     data = ffi.cast("unsigned long *", array.ctypes.data)
-    check_error(handel.xiaGetRunData(channel, "mca", data))
+    code = handel.xiaGetRunData(channel, "mca", data)
+    check_error(code)
     return array
 
 
@@ -124,51 +128,51 @@ def get_run_data(channel):
 # System
 
 
-@check_return_value
 def load_system(filename):
     # Is this an alias to xiaInit?
     filename = to_bytes(filename)
-    return handel.xiaLoadSystem(b"handel_ini", filename)
+    code = handel.xiaLoadSystem(b"handel_ini", filename)
+    check_error(code)
 
 
-@check_return_value
 def save_system(filename):
     filename = to_bytes(filename)
-    return handel.xiaSaveSystem(b"handel_ini", filename)
+    code = handel.xiaSaveSystem(b"handel_ini", filename)
+    check_error(code)
 
 
-@check_return_value
 def start_system():
-    return handel.xiaStartSystem()
+    code = handel.xiaStartSystem()
+    check_error(code)
 
 
 # Logging
 
 
-@check_return_value
 def enable_log_output():
-    return handel.xiaEnableLogOutput()
+    code = handel.xiaEnableLogOutput()
+    check_error(code)
 
 
-@check_return_value
 def disable_log_output():
-    return handel.xiaSuppressLogOutput()
+    code = handel.xiaSuppressLogOutput()
+    check_error(code)
 
 
-@check_return_value
 def set_log_level(level):
-    return handel.xiaSetLogLevel(level)
+    code = handel.xiaSetLogLevel(level)
+    check_error(code)
 
 
-@check_return_value
 def set_log_output(filename):
     filename = to_bytes(filename)
-    return handel.xiaSetLogOutput(filename)
+    code = handel.xiaSetLogOutput(filename)
+    check_error(code)
 
 
-@check_return_value
 def close_log():
-    return handel.xiaCloseLog()
+    code = handel.xiaCloseLog()
+    check_error(code)
 
 
 # Firmware
@@ -211,13 +215,15 @@ def close_log():
 def set_acquisition_value(channel, name, value):
     name = to_bytes(name)
     pointer = ffi.new("double *", value)
-    check_error(handel.xiaSetAcquisitionValues(channel, name, pointer))
+    code = handel.xiaSetAcquisitionValues(channel, name, pointer)
+    check_error(code)
 
 
 def get_acquisition_value(channel, name):
     name = to_bytes(name)
     pointer = ffi.new("double *")
-    check_error(handel.xiaGetAcquisitionValues(channel, name, pointer))
+    code = handel.xiaGetAcquisitionValues(channel, name, pointer)
+    check_error(code)
     return pointer[0]
 
 

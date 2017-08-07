@@ -132,6 +132,9 @@ class Session(object):
             from bliss.session.measurementgroup import ACTIVE_MG
             env_dict['ACTIVE_MG'] = ACTIVE_MG
 
+            for obj_name, obj in env_dict.iteritems():
+                setattr(setup_globals, obj_name, obj)
+
             fullpath = self._config_tree.get('setup-file')
             if fullpath is None:
                 raise RuntimeError("No setup file.")

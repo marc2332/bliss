@@ -43,6 +43,7 @@ class TimestampPlaceholder:
     def __init__(self):
       self.name = 'timestamp'
 
+
 def _get_counters(mg, missing_list):
     counters = list()
     if mg is not None:
@@ -105,6 +106,7 @@ def default_chain(chain, scan_pars):
         else:
             raise TypeError("`%r' is not a supported counter type" % repr(cnt))
 
+    chain.timer = timer
     return timer
 
 def step_scan(chain,scan_info,name=None,save=default_writer is not None):

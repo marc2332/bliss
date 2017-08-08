@@ -68,6 +68,7 @@ class ScanListener:
         event.connect(scan, 'scan_end', self.__on_scan_end)
 
     def __on_scan_new(self, scan_info, filename, motor_names, nb_points, counter_names):
+        scan_info = dict(scan_info)
         if scan_info['type'] == 'ct':
             return
         if isinstance(motor_names, str):
@@ -79,6 +80,8 @@ class ScanListener:
         col_names.insert(0, '#')
         col_templs.insert(0, "{{0:>{0}}}".format(point_nb_col_len))
         col_header = "  ".join([col_templs[i].format(m) for i, m in enumerate(col_names)])
+        if not scan_info['save']:
+            scan_info['root_path'] = '<no file>'
         header = self.HEADER.format(column_header=col_header,**scan_info)
         self.col_templs = ["{{0:>{0}g}}".format(min(col_len, 8)) for col_len in col_lens]
         self.col_templs.insert(0, "{{0:>{0}g}}".format(point_nb_col_len))

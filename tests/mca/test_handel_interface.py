@@ -104,6 +104,21 @@ def test_get_detectors(interface):
     interface.check_error.assert_called_with(0)
 
 
+def test_get_detector_from_channel(interface):
+    m = interface.handel.xiaDetectorFromDetChan
+
+    def side_effect(channel, alias):
+        alias[0:5] = b"name1"
+        return 0
+
+    m.side_effect = side_effect
+    assert interface.get_detector_from_channel(1) == "name1"
+    arg = m.call_args[0][1]
+    m.assert_called_once_with(1, arg)
+    # Make sure errors have been checked
+    interface.check_error.assert_called_with(0)
+
+
 # Run control
 
 
@@ -132,6 +147,7 @@ def test_stop_run(interface):
     # First test
     assert interface.stop_run(1) is None
     m.assert_called_once_with(1)
+    # Make sure errors have been checked
     interface.check_error.assert_called_once_with(0)
     # Reset
     m.reset_mock()
@@ -139,6 +155,7 @@ def test_stop_run(interface):
     # Second test
     assert interface.stop_run(2) is None
     m.assert_called_once_with(2)
+    # Make sure errors have been checked
     interface.check_error.assert_called_once_with(0)
 
 
@@ -154,6 +171,7 @@ def test_get_run_data_length(interface):
     m.assert_called_once()
     arg = m.call_args[0][2]
     m.assert_called_once_with(1, b"mca_length", arg)
+    # Make sure errors have been checked
     interface.check_error.assert_called_once_with(0)
 
 
@@ -177,6 +195,77 @@ def test_get_run_data(interface):
     m.assert_called()
     arg = m.call_args[0][2]
     m.assert_called_with(1, b"mca", arg)
+    # Make sure errors have been checked
+    interface.check_error.assert_called_with(0)
+
+
+# Buffer
+
+
+def test_get_buffer_length(interface):
+    m = interface.handel.xiaGetRunData
+
+    def side_effect(channel, dtype, arg):
+        arg[0] = 10
+        return 0
+
+    m.side_effect = side_effect
+    assert interface.get_buffer_length(1) == 10
+    arg = m.call_args[0][2]
+    m.assert_called_once_with(1, b"buffer_len", arg)
+    # Make sure errors have been checked
+    interface.check_error.assert_called_with(0)
+
+
+def test_get_buffer_full(interface):
+    with pytest.raises(ValueError) as context:
+        interface.get_buffer_full(1, "very wrong")
+    assert "very wrong" in str(context.value)
+
+    m = interface.handel.xiaGetRunData
+
+    def side_effect(channel, dtype, arg):
+        arg[0] = 1
+        return 0
+
+    m.side_effect = side_effect
+    assert interface.get_buffer_full(1, "a") is True
+    arg = m.call_args[0][2]
+    m.assert_called_once_with(1, b"buffer_full_a", arg)
+    # Make sure errors have been checked
+    interface.check_error.assert_called_with(0)
+
+
+def test_get_buffer(interface):
+    m = interface.handel.xiaGetRunData
+
+    def side_effect(channel, dtype, arg):
+        if dtype == b"buffer_len":
+            arg[0] = 10
+            return 0
+        if dtype == b"buffer_a":
+            for x in range(10):
+                arg[x] = x
+            return 0
+        assert False
+
+    m.side_effect = side_effect
+    expected = numpy.array(range(10), dtype="uint")
+    diff = interface.get_buffer(1, "a") == expected
+    assert diff.all()
+    m.assert_called()
+    arg = m.call_args[0][2]
+    m.assert_called_with(1, b"buffer_a", arg)
+    # Make sure errors have been checked
+    interface.check_error.assert_called_with(0)
+
+
+def test_buffer_done(interface):
+    m = interface.handel.xiaBoardOperation
+    m.return_value = 0
+    assert interface.buffer_done(1, "b") is None
+    m.assert_called_with(1, b"buffer_done", b"b")
+    # Make sure errors have been checked
     interface.check_error.assert_called_with(0)
 
 
@@ -188,6 +277,7 @@ def test_load_system(interface):
     m.return_value = 0
     assert interface.load_system("somefile") is None
     m.assert_called_once_with(b"handel_ini", b"somefile")
+    # Make sure errors have been checked
     interface.check_error.assert_called_once_with(0)
 
 
@@ -196,6 +286,7 @@ def test_save_system(interface):
     m.return_value = 0
     assert interface.save_system("somefile") is None
     m.assert_called_once_with(b"handel_ini", b"somefile")
+    # Make sure errors have been checked
     interface.check_error.assert_called_once_with(0)
 
 
@@ -204,6 +295,7 @@ def test_start_system(interface):
     m.return_value = 0
     assert interface.start_system() is None
     m.assert_called_once_with()
+    # Make sure errors have been checked
     interface.check_error.assert_called_once_with(0)
 
 
@@ -215,6 +307,7 @@ def test_enable_log_output(interface):
     m.return_value = 0
     assert interface.enable_log_output() is None
     m.assert_called_once_with()
+    # Make sure errors have been checked
     interface.check_error.assert_called_once_with(0)
 
 
@@ -223,6 +316,7 @@ def test_disable_log_output(interface):
     m.return_value = 0
     assert interface.disable_log_output() is None
     m.assert_called_once_with()
+    # Make sure errors have been checked
     interface.check_error.assert_called_once_with(0)
 
 
@@ -231,6 +325,7 @@ def test_set_log_level(interface):
     m.return_value = 0
     assert interface.set_log_level(3) is None
     m.assert_called_once_with(3)
+    # Make sure errors have been checked
     interface.check_error.assert_called_once_with(0)
 
 
@@ -239,6 +334,7 @@ def test_set_log_output(interface):
     m.return_value = 0
     assert interface.set_log_output("somefile") is None
     m.assert_called_once_with(b"somefile")
+    # Make sure errors have been checked
     interface.check_error.assert_called_once_with(0)
 
 
@@ -247,7 +343,66 @@ def test_close_log(interface):
     m.return_value = 0
     assert interface.close_log() is None
     m.assert_called_once_with()
+    # Make sure errors have been checked
     interface.check_error.assert_called_once_with(0)
+
+
+# Modules
+
+
+def test_get_num_modules(interface):
+    m = interface.handel.xiaGetNumModules
+
+    def side_effect(arg):
+        arg[0] = 10
+        return 0
+
+    m.side_effect = side_effect
+    assert interface.get_num_modules() == 10
+    arg = m.call_args[0][0]
+    m.assert_called_once_with(arg)
+    # Make sure errors have been checked
+    interface.check_error.assert_called_once_with(0)
+
+
+def test_get_modules(interface):
+    m1 = interface.handel.xiaGetNumModules
+    m2 = interface.handel.xiaGetModules
+
+    def side_effect_1(arg):
+        arg[0] = 3
+        return 0
+
+    def side_effect_2(lst):
+        lst[0][0:5] = b"name1"
+        lst[1][0:5] = b"name2"
+        lst[2][0:5] = b"name3"
+        return 0
+
+    m1.side_effect = side_effect_1
+    m2.side_effect = side_effect_2
+    expected = "name1", "name2", "name3"
+    assert interface.get_modules() == expected
+    m2.assert_called_once()
+    arg = m2.call_args[0][0]
+    m2.assert_called_once_with(arg)
+    # Make sure errors have been checked
+    interface.check_error.assert_called_with(0)
+
+
+def test_get_module_from_channel(interface):
+    m = interface.handel.xiaModuleFromDetChan
+
+    def side_effect(channel, alias):
+        alias[0:5] = b"name1"
+        return 0
+
+    m.side_effect = side_effect
+    assert interface.get_module_from_channel(1) == "name1"
+    arg = m.call_args[0][1]
+    m.assert_called_once_with(1, arg)
+    # Make sure errors have been checked
+    interface.check_error.assert_called_with(0)
 
 
 # Parameters
@@ -260,6 +415,7 @@ def test_set_acquisition_value(interface):
     arg = m.call_args[0][2]
     m.assert_called_once_with(1, b"test", arg)
     assert arg[0] == 2.3
+    # Make sure errors have been checked
     interface.check_error.assert_called_once_with(0)
 
 
@@ -274,6 +430,26 @@ def test_get_acquistion_value(interface):
     assert interface.get_acquisition_value(1, "test") == 2.3
     arg = m.call_args[0][2]
     m.assert_called_once_with(1, b"test", arg)
+    # Make sure errors have been checked
+    interface.check_error.assert_called_once_with(0)
+
+
+def test_remove_acquisition_value(interface):
+    m = interface.handel.xiaRemoveAcquisitionValues
+    m.return_value = 0
+    assert interface.remove_acquisition_value(1, "test") is None
+    m.assert_called_once_with(1, b"test")
+    # Make sure errors have been checked
+    interface.check_error.assert_called_once_with(0)
+
+
+def test_apply_acquisition_value(interface):
+    m = interface.handel.xiaBoardOperation
+    m.return_value = 0
+    assert interface.apply_acquisition_value(1) is None
+    dummy = m.call_args[0][2]
+    m.assert_called_once_with(1, b"apply", dummy)
+    # Make sure errors have been checked
     interface.check_error.assert_called_once_with(0)
 
 
@@ -289,3 +465,4 @@ def test_get_handel_version(interface):
     m.side_effect = side_effect
     assert interface.get_handel_version() == (1, 2, 3)
     m.assert_called_once()
+    # xiaGetVersionInfo does not return an error code

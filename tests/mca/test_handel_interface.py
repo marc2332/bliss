@@ -153,7 +153,7 @@ def test_get_run_data_length(interface):
     assert interface.get_run_data_length(1) == 10
     m.assert_called_once()
     arg = m.call_args[0][2]
-    m.assert_called_once_with(1, "mca_length", arg)
+    m.assert_called_once_with(1, b"mca_length", arg)
     interface.check_error.assert_called_once_with(0)
 
 
@@ -161,10 +161,10 @@ def test_get_run_data(interface):
     m = interface.handel.xiaGetRunData
 
     def side_effect(channel, dtype, arg):
-        if dtype == "mca_length":
+        if dtype == b"mca_length":
             arg[0] = 10
             return 0
-        if dtype == "mca":
+        if dtype == b"mca":
             for x in range(10):
                 arg[x] = x
             return 0
@@ -176,7 +176,7 @@ def test_get_run_data(interface):
     assert diff.all()
     m.assert_called()
     arg = m.call_args[0][2]
-    m.assert_called_with(1, "mca", arg)
+    m.assert_called_with(1, b"mca", arg)
     interface.check_error.assert_called_with(0)
 
 

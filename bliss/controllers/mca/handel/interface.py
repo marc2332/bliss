@@ -107,7 +107,7 @@ def stop_run(channel):
 
 def get_run_data_length(channel):
     length = ffi.new("unsigned long *")
-    code = handel.xiaGetRunData(channel, "mca_length", length)
+    code = handel.xiaGetRunData(channel, b"mca_length", length)
     check_error(code)
     return length[0]
 
@@ -116,7 +116,7 @@ def get_run_data(channel):
     length = get_run_data_length(channel)
     array = numpy.zeros(length, dtype="uint")
     data = ffi.cast("unsigned long *", array.ctypes.data)
-    code = handel.xiaGetRunData(channel, "mca", data)
+    code = handel.xiaGetRunData(channel, b"mca", data)
     check_error(code)
     return array
 

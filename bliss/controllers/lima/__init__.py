@@ -5,7 +5,7 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 import importlib
-import PyTango
+import tango.gevent
 from bliss.config import settings
 
 class Lima(object):
@@ -185,7 +185,7 @@ class Lima(object):
         in this dictionary we need to have:
         tango_url -- tango main device url (from class LimaCCDs) 
         """
-        self._proxy = PyTango.DeviceProxy(config_tree.get("tango_url"))
+        self._proxy = tango.gevent.DeviceProxy(config_tree.get("tango_url"))
         self.name = name
         self._roi_counters = None
         self._camera = None
@@ -212,7 +212,7 @@ class Lima(object):
     def roi_counters(self):
         if self._roi_counters is None:
             roi_counters_proxy = self._get_proxy(self.ROI_COUNTERS)
-            proxy = PyTango.DeviceProxy(roi_counters_proxy)
+            proxy = tango.gevent.DeviceProxy(roi_counters_proxy)
             self._roi_counters= Lima.RoiCounters(self.name, proxy)
         return self._roi_counters
     
@@ -222,7 +222,7 @@ class Lima(object):
             camera_type = self._proxy.lima_type
             camera_proxy = self._get_proxy(camera_type)
             camera_module = importlib.import_module('.%s' % camera_type,__package__)
-            proxy = PyTango.DeviceProxy(camera_proxy)
+            proxy = tango.gevent.DeviceProxy(camera_proxy)
             self._camera = camera_module.Camera(self.name, proxy)
         return self._camera
     

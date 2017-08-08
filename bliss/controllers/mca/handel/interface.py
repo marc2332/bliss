@@ -37,7 +37,7 @@ __all__ = [
     "set_acquisition_value",
     "get_acquisition_value",
     "remove_acquisition_value",
-    "apply_acquisition_value",
+    "apply_acquisition_values",
     "get_handel_version",
 ]
 
@@ -324,7 +324,7 @@ def remove_acquisition_value(channel, name):
     check_error(code)
 
 
-def apply_acquisition_value(channel):
+def apply_acquisition_values(channel):
     dummy = ffi.new("int *")
     code = handel.xiaBoardOperation(channel, b"apply", dummy)
     check_error(code)

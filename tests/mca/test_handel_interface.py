@@ -443,10 +443,10 @@ def test_remove_acquisition_value(interface):
     interface.check_error.assert_called_once_with(0)
 
 
-def test_apply_acquisition_value(interface):
+def test_apply_acquisition_values(interface):
     m = interface.handel.xiaBoardOperation
     m.return_value = 0
-    assert interface.apply_acquisition_value(1) is None
+    assert interface.apply_acquisition_values(1) is None
     dummy = m.call_args[0][2]
     m.assert_called_once_with(1, b"apply", dummy)
     # Make sure errors have been checked

@@ -136,6 +136,9 @@ def ascan(motor, start, stop, npoints, count_time, *counters, **kwargs):
     `(*start*-*stop*)/(*npoints*-1)`. The number of intervals will be
     *npoints*-1. Count time is given by *count_time* (seconds).
 
+    Use `ascan(..., run=False, return_scan=True)` to create a scan object and
+    its acquisition chain without executing the actual scan.
+
     Args:
         motor (Axis): motor to scan
         start (float): motor start position
@@ -151,6 +154,8 @@ def ascan(motor, start, stop, npoints, count_time, *counters, **kwargs):
         title (str): scan title [default: 'ascan <motor> ... <count_time>']
         save (bool): save scan data to file [default: True]
         sleep_time (float): sleep time between 2 points [default: None]
+        run (bool): if True (default), run the scan. False means just create
+                    scan object and acquisition chain
         return_scan (bool): False by default
     """
     scan_info = { 'type': kwargs.get('type', 'ascan'),
@@ -182,7 +187,9 @@ def ascan(motor, start, stop, npoints, count_time, *counters, **kwargs):
     scan = step_scan(chain, scan_info,
                      name=kwargs.setdefault("name","ascan"), save=scan_info['save'])
 
-    scan.run()
+    if kwargs.get('run', True):
+        scan.run()
+
     if kwargs.get('return_scan',False):
         return scan
 
@@ -197,6 +204,9 @@ def dscan(motor, start, stop, npoints, count_time, *counters, **kwargs):
 
     At the end of the scan (even in case of error) the motor will return to
     its initial position
+
+    Use `dscan(..., run=False, return_scan=True)` to create a scan object and
+    its acquisition chain without executing the actual scan.
 
     Args:
         motor (Axis): motor to scan
@@ -213,6 +223,8 @@ def dscan(motor, start, stop, npoints, count_time, *counters, **kwargs):
         title (str): scan title [default: 'dscan <motor> ... <count_time>']
         save (bool): save scan data to file [default: True]
         sleep_time (float): sleep time between 2 points [default: None]
+        run (bool): if True (default), run the scan. False means just create
+                    scan object and acquisition chain
         return_scan (bool): False by default
     """
     kwargs['type'] = 'dscan'
@@ -233,6 +245,10 @@ def mesh(motor1, start1, stop1, npoints1, motor2, start2, stop2, npoints2, count
 
     The scan of motor1 is done at each point scanned by motor2.  That is, the
     first motor scan is nested within the second motor scan.
+
+    Use `mesh(..., run=False, return_scan=True)` to create a scan object and
+    its acquisition chain without executing the actual scan.
+
     """
     scan_info = { 'type': kwargs.get('type', 'mesh'),
                   'save': kwargs.get('save', True),
@@ -267,7 +283,8 @@ def mesh(motor1, start1, stop1, npoints1, motor2, start2, stop2, npoints2, count
     scan = step_scan(chain, scan_info,
                      name=kwargs.setdefault("name","mesh"), save=scan_info['save'])
 
-    scan.run()
+    if kwargs.get('run', True):
+        scan.run()
 
     if kwargs.get('return_scan', False):
         return scan
@@ -282,6 +299,9 @@ def a2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
     given by *stop1* and *stop2*. The step size for each motor is given by
     `(*start*-*stop*)/(*npoints*-1)`. The number of intervals will be
     *npoints*-1. Count time is given by *count_time* (seconds).
+
+    Use `a2scan(..., run=False, return_scan=True)` to create a scan object and
+    its acquisition chain without executing the actual scan.
 
     Args:
         motor1 (Axis): motor1 to scan
@@ -301,6 +321,8 @@ def a2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
         title (str): scan title [default: 'a2scan <motor1> ... <count_time>']
         save (bool): save scan data to file [default: True]
         sleep_time (float): sleep time between 2 points [default: None]
+        run (bool): if True (default), run the scan. False means just create
+                    scan object and acquisition chain
         return_scan (bool): False by default
     """
     scan_info = { 'type': kwargs.get('type', 'a2scan'),
@@ -336,7 +358,8 @@ def a2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
     scan = step_scan(chain, scan_info,
                      name=kwargs.setdefault("name","a2scan"), save=scan_info['save'])
     
-    scan.run()
+    if kwargs.get('run', True):
+        scan.run()
 
     if kwargs.get('return_scan',False):
         return scan
@@ -357,6 +380,9 @@ def d2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
     At the end of the scan (even in case of error) the motor will return to
     its initial position
 
+    Use `d2scan(..., run=False, return_scan=True)` to create a scan object and
+    its acquisition chain without executing the actual scan.
+
     Args:
         motor1 (Axis): motor1 to scan
         start1 (float): motor1 relative start position
@@ -375,6 +401,8 @@ def d2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
         title (str): scan title [default: 'd2scan <motor1> ... <count_time>']
         save (bool): save scan data to file [default: True]
         sleep_time (float): sleep time between 2 points [default: None]
+        run (bool): if True (default), run the scan. False means just create
+                    scan object and acquisition chain
         return_scan (bool): False by default
     """
     kwargs['type'] = 'd2scan'
@@ -396,6 +424,9 @@ def timescan(count_time, *counters, **kwargs):
     """
     Time scan
 
+    Use `timescan(..., run=False, return_scan=True)` to create a scan object and
+    its acquisition chain without executing the actual scan.
+
     Args:
         count_time (float): count time (seconds)
         counters (BaseCounter or
@@ -407,6 +438,8 @@ def timescan(count_time, *counters, **kwargs):
         title (str): scan title [default: 'timescan <count_time>']
         save (bool): save scan data to file [default: True]
         sleep_time (float): sleep time between 2 points [default: None]
+        run (bool): if True (default), run the scan. False means just create
+                    scan object and acquisition chain
         return_scan (bool): False by default
         npoints (int): number of points [default: 0, meaning infinite number of points]
     """
@@ -436,7 +469,10 @@ def timescan(count_time, *counters, **kwargs):
 
     scan = step_scan(chain, scan_info,
                      name=kwargs.setdefault("name","timescan"), save=scan_info['save'])
-    scan.run()
+
+    if kwargs.get('run', True):
+        scan.run()
+
     if kwargs.get('return_scan', False):
         return scan
 
@@ -444,6 +480,9 @@ def timescan(count_time, *counters, **kwargs):
 def loopscan(npoints, count_time, *counters, **kwargs):
     """
     Similar to :ref:`timescan` but npoints is mandatory
+
+    Use `loopscan(..., run=False, return_scan=True)` to create a scan object and
+    its acquisition chain without executing the actual scan.
 
     Args:
         npoints (int): number of points
@@ -457,6 +496,8 @@ def loopscan(npoints, count_time, *counters, **kwargs):
         title (str): scan title [default: 'timescan <count_time>']
         save (bool): save scan data to file [default: True]
         sleep_time (float): sleep time between 2 points [default: None]
+        run (bool): if True (default), run the scan. False means just create
+                    scan object and acquisition chain
         return_scan (bool): False by default
     """
     kwargs.setdefault('npoints', npoints)
@@ -467,6 +508,9 @@ def loopscan(npoints, count_time, *counters, **kwargs):
 def ct(count_time, *counters, **kwargs):
     """
     Count for a specified time
+
+    Use `ct(..., run=False, return_scan=True)` to create a count object and
+    its acquisition chain without executing the actual count.
 
     Note:
         This function blocks the current :class:`Greenlet`
@@ -481,6 +525,8 @@ def ct(count_time, *counters, **kwargs):
         name (str): scan name in data nodes tree and directories [default: 'scan']
         title (str): scan title [default: 'ct <count_time>']
         save (bool): save scan data to file [default: True]
+        run (bool): if True (default), run the scan. False means just create
+                    scan object and acquisition chain
         return_scan (bool): False by default
     """
     kwargs['type'] = 'ct'

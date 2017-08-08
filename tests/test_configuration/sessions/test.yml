@@ -1,9 +1,9 @@
 class: Session
-name: test
+name: test_session
 default: True
-setup-file: ./test.py
+setup-file: ./test_setup.py
 synoptic:
-    svg-file: ./test.svg
+    svg-file: ./test_synoptic.svg
     elements:
        -
           svg-id: wbv

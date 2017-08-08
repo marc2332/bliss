@@ -9,43 +9,74 @@ from bliss import setup_globals
 from bliss.config import settings
 from bliss.session.session import get_default as _default_session
 
-DEFAULT_MEASUREMENT = None
 
-def get_all() :
-    """
-    Return all available measurement group found in the global environment
-    """
-    return [x for x in setup_globals.__dict__.values() if isinstance(x,MeasurementGroup)]
+class _active_mg_proxy(object):
+    def __getattribute__(self, attr):
+        if attr == '__class__':
+            return MeasurementGroup
+        return getattr(get_active(), attr)
 
-def get_active() :
-    """
-    Return the MeasurementGroup which is active.
+    def __setattr__(self, name, value):
+        active = get_active()
+        return setattr(active, name, value)
+    
+    def __repr__(self):
+        return repr(get_active())
 
-    If no measurement group is set, try to find the last used
-    if still available or the first found in the global environment.
+
+ACTIVE_MG = _active_mg_proxy()
+
+
+def get_all():
     """
-    global DEFAULT_MEASUREMENT
-    if DEFAULT_MEASUREMENT is None:
-        measurement_grp = setup_globals.__dict__.get(_active_name())
-        if measurement_grp is None:
-            all_mes = get_all()
-            if all_mes:
-                set_active(all_mes[0])
+    Return all measurement groups found in the global environment
+    """
+    return [x for x in setup_globals.__dict__.values() if x != ACTIVE_MG and isinstance(x, MeasurementGroup)]
+
+
+def get_active():
+    """
+    Return the current active MeasurementGroup
+
+    Get the last known active measurement group from redis,
+    or get the first found in global environment (and set it as active).
+    If nothing works, returns a measurement group called None,
+    which does not specify any counter.
+    """
+    all_mg = get_all()
+    name = get_active_name()
+    try:
+        if name is None:
+            mg = all_mg[0]
+            set_active_name(mg.name)
+            return mg
         else:
-            DEFAULT_MEASUREMENT = measurement_grp
-    return DEFAULT_MEASUREMENT
+            for mg in all_mg:
+                if name == mg.name:
+                    return mg
+            raise IndexError
+    except IndexError:
+        set_active_name(None)
+        return MeasurementGroup(None, { "counters": [] })
 
-def set_active(measurementgroup):
-    """
-    Change the active measurement group.
-    """
-    global DEFAULT_MEASUREMENT
-    if measurementgroup is None:
-        _active_name(None)
-        DEFAULT_MEASUREMENT = None
+
+def get_active_name():
+    session = _default_session()
+    session_name = session.name if session is not None else 'unnamed'
+    active_mg_name = settings.SimpleSetting('%s:active_measurementgroup' % session_name)
+    return active_mg_name.get()
+
+
+def set_active_name(name):
+    session = _default_session()
+    session_name = session.name if session is not None else 'unnamed'
+    active_mg_name = settings.SimpleSetting('%s:active_measurementgroup' % 
+                                                 session_name)
+    if name is None:
+        active_mg_name.clear()
     else:
-        _active_name(measurementgroup.name)
-        DEFAULT_MEASUREMENT = measurementgroup
+        active_mg_name.set(name)
+
 
 class MeasurementGroup(object):
     def __init__(self,name,config_tree):
@@ -91,7 +122,7 @@ class MeasurementGroup(object):
         possible2disable = self._available_counters.intersection(counter2disable)
         unpos2disable = counter2disable.difference(possible2disable)
         if unpos2disable:
-            raise ValueError("MeasurementGroup: couldn't not disable counters (%s)" %
+            raise ValueError("MeasurementGroup: could not disable counters (%s)" %
                              (','.join(unpos2disable)))
         self._counters_settings.update(dict((name,True) for name in counter2disable))
     @property
@@ -106,7 +137,7 @@ class MeasurementGroup(object):
         possible2enable = self._available_counters.intersection(counters)
         unpos2enable = counters.difference(possible2enable)
         if unpos2enable:
-            raise ValueError("MeasurementGroup: couldn't not disable counters (%s)" %
+            raise ValueError("MeasurementGroup: could not disable counters (%s)" %
                              (','.join(unpos2enable)))
 
         self._counters_settings.remove(*counters)
@@ -154,27 +185,6 @@ class MeasurementGroup(object):
                                                      sorted(self.disable),fillvalue=''):
             s += str_format % (enable,disable)
         return s
+
         
 
-
-
-def _active_name(name = ""):
-    session = _default_session()
-    session_name = session.name if session is not None else 'unnamed'
-    active_measure_name = settings.SimpleSetting('%s:active_measurementgroup' % 
-                                                 session_name)
-    if name or name is None:
-        active_measure_name.set(name)
-    else:
-        return active_measure_name.get()
-
-class default_mg(object):
-  def __getattribute__(self, attr):
-    if attr == '__class__':
-      return MeasurementGroup
-    return getattr(get_active(), attr)
-  def __setattr__(self,name,value):
-    active = get_active()
-    return setattr(active,name,value)
-  def __repr__(self):
-    return repr(get_active())

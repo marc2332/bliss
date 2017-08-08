@@ -31,6 +31,8 @@ __all__ = [
     "get_handel_version",
 ]
 
+MAX_STRING_LENGTH = 80
+
 
 # Helpers
 
@@ -39,6 +41,14 @@ def to_bytes(arg):
     if isinstance(arg, bytes):
         return arg
     return arg.encode()
+
+
+def to_buffer_id(bid):
+    bid = to_bytes(bid.lower())
+    if bid in (b"a", b"b"):
+        return bid
+    msg = "{!r} is not a valid buffer id"
+    raise ValueError(msg.format(bid))
 
 
 # Initializing handel
@@ -78,18 +88,26 @@ def get_num_detectors():
 
 def get_detectors():
     n = get_num_detectors()
-    arg = [ffi.new("char []", 80) for _ in range(n)]
+    arg = [ffi.new("char []", MAX_STRING_LENGTH) for _ in range(n)]
     code = handel.xiaGetDetectors(arg)
     check_error(code)
     return tuple(ffi.string(x).decode() for x in arg)
 
+
+def get_detector_from_channel(channel):
+    alias = ffi.new("char []", MAX_STRING_LENGTH)
+    code = handel.xiaDetectorFromDetChan(channel, alias)
+    check_error(code)
+    return ffi.string(alias).decode()
+
+
+# Not exposed
 
 # int xiaAddDetectorItem(char *alias, char *name, void *value);
 # int xiaModifyDetectorItem(char *alias, char *name, void *value);
 # int xiaGetDetectorItem(char *alias, char *name, void *value);
 # int xiaGetDetectors_VB(unsigned int index, char *alias);
 # int xiaRemoveDetector(char *alias);
-# int xiaDetectorFromDetChan(int detChan, char *alias);
 
 
 # Run control
@@ -121,6 +139,44 @@ def get_run_data(channel):
     return array
 
 
+# Buffer
+
+
+def get_buffer_length(channel):
+    length = ffi.new("unsigned long *")
+    code = handel.xiaGetRunData(channel, b"buffer_len", length)
+    check_error(code)
+    return length[0]
+
+
+def get_buffer_full(channel, buffer_id):
+    bid = to_buffer_id(buffer_id)
+    command = b"buffer_full_%c" % bid
+    result = ffi.new("unsigned short *")
+    code = handel.xiaGetRunData(channel, command, result)
+    check_error(code)
+    return bool(result[0])
+
+
+def get_buffer(channel, buffer_id):
+    bid = to_buffer_id(buffer_id)
+    command = b"buffer_%c" % bid
+    length = get_buffer_length(channel)
+    array = numpy.zeros(length, dtype="uint")
+    data = ffi.cast("unsigned long *", array.ctypes.data)
+    code = handel.xiaGetRunData(channel, command, data)
+    check_error(code)
+    return array
+
+
+def buffer_done(channel, buffer_id):
+    bid = to_buffer_id(buffer_id)
+    code = handel.xiaBoardOperation(channel, b"buffer_done", bid)
+    check_error(code)
+
+
+# Not exposed
+
 # int xiaDoSpecialRun(int detChan, char *name, void *info);
 # int xiaGetSpecialRunData(int detChan, char *name, void *value);
 
@@ -129,7 +185,6 @@ def get_run_data(channel):
 
 
 def load_system(filename):
-    # Is this an alias to xiaInit?
     filename = to_bytes(filename)
     code = handel.xiaLoadSystem(b"handel_ini", filename)
     check_error(code)
@@ -177,6 +232,8 @@ def close_log():
 
 # Firmware
 
+# Not exposed
+
 # int xiaNewFirmware(char *alias);
 # int xiaAddFirmwareItem(char *alias, char *name, void *value);
 # int xiaModifyFirmwareItem(char *alias, unsigned short decimation, char *name, void *value);
@@ -191,18 +248,42 @@ def close_log():
 
 # Module
 
+
+def get_num_modules():
+    num_modules = ffi.new("unsigned int *")
+    code = handel.xiaGetNumModules(num_modules)
+    check_error(code)
+    return num_modules[0]
+
+
+def get_modules():
+    n = get_num_modules()
+    arg = [ffi.new("char []", MAX_STRING_LENGTH) for _ in range(n)]
+    code = handel.xiaGetModules(arg)
+    check_error(code)
+    return tuple(ffi.string(x).decode() for x in arg)
+
+
+def get_module_from_channel(channel):
+    alias = ffi.new("char []", MAX_STRING_LENGTH)
+    code = handel.xiaModuleFromDetChan(channel, alias)
+    check_error(code)
+    return ffi.string(alias).decode()
+
+
+# Not exposed
+
 # int xiaNewModule(char *alias);
 # int xiaAddModuleItem(char *alias, char *name, void *value);
 # int xiaModifyModuleItem(char *alias, char *name, void *value);
 # int xiaGetModuleItem(char *alias, char *name, void *value);
-# int xiaGetNumModules(unsigned int *numModules);
-# int xiaGetModules(char *modules[]);
 # int xiaGetModules_VB(unsigned int index, char *alias);
 # int xiaRemoveModule(char *alias);
-# int xiaModuleFromDetChan(int detChan, char *alias);
 
 
 # Channel set
+
+# Not exposed
 
 # int xiaAddChannelSetElem(unsigned int detChanSet, unsigned int newChan);
 # int xiaRemoveChannelSetElem(unsigned int detChan, unsigned int chan);
@@ -227,7 +308,20 @@ def get_acquisition_value(channel, name):
     return pointer[0]
 
 
-# int xiaRemoveAcquisitionValues(int detChan, char *name);
+def remove_acquisition_value(channel, name):
+    name = to_bytes(name)
+    code = handel.xiaRemoveAcquisitionValues(channel, name)
+    check_error(code)
+
+
+def apply_acquisition_value(channel):
+    dummy = ffi.new("int *")
+    code = handel.xiaBoardOperation(channel, b"apply", dummy)
+    check_error(code)
+
+
+# Not exposed
+
 # int xiaUpdateUserParams(int detChan);
 # int xiaGainOperation(int detChan, char *name, void *value);
 # int xiaGainCalibrate(int detChan, double deltaGain);
@@ -240,12 +334,16 @@ def get_acquisition_value(channel, name):
 
 # Operation
 
-# int xiaBoardOperation(int detChan, char *name, void *value);
+# Not exposed
+
+# int xiaBoardOperation(int detChan, char *name, void *value) with mapping_pixel_next (int 0);
 # int xiaMemoryOperation(int detChan, char *name, void *value);
 # int xiaCommandOperation(int detChan, byte_t cmd, unsigned int lenS, byte_t *send, unsigned int lenR, byte_t *recv);
 
 
 # Analysis
+
+# Not exposed
 
 # int xiaFitGauss(long data[], int lower, int upper, float *pos, float *fwhm);
 # int xiaFindPeak(long *data, int numBins, float thresh, int *lower, int *upper);
@@ -262,6 +360,8 @@ def get_handel_version():
     handel.xiaGetVersionInfo(rel, min, maj, pretty)
     return maj[0], min[0], rel[0]
 
+
+# Not exposed
 
 # int xiaSetIOPriority(int pri);
 # int xiaMemStatistics(unsigned long *total, unsigned long *current, unsigned long *peak);

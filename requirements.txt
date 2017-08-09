@@ -36,7 +36,7 @@ pytest-cover
 # --- optional dependencies --------------------------------
 
 posix_ipc
-pytest
+h5py
 
 # --- python < 2.7 dependencies ----------------------------
 

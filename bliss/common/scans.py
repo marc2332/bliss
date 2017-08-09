@@ -100,7 +100,9 @@ def step_scan(chain,scan_info,name=None,save=default_writer is not None):
     scandata = scan_module.ScanSaving()
     config = scandata.get()
     root_path = config.get('root_path')
+    save &= default_writer is not None
     writer = default_writer.Writer(root_path) if save else None
+    scan_info['save'] = save
     scan_info['root_path'] = root_path
     scan_info['session_name'] = scandata.session
     scan_info['user_name'] = scandata.user_name

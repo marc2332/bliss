@@ -22,6 +22,7 @@ import numpy
 import gevent
 
 from bliss import setup_globals
+from bliss.common.temperature import Input, Output, TempControllerCounter
 from bliss.common.task_utils import *
 from bliss.common.motor_group import Group
 from bliss.common.measurement import CounterBase
@@ -88,6 +89,9 @@ def default_chain(chain, scan_pars):
 
     read_cnt_handler = dict()
     for cnt in set(counters):
+        if isinstance(cnt, (Input, Output)):
+            cnt = TempControllerCounter(cnt.name, cnt)
+
         if isinstance(cnt, CounterBase):
             try:
                 read_all_handler = cnt.read_all_handler()

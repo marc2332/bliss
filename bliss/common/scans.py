@@ -22,6 +22,7 @@ import numpy
 import gevent
 
 from bliss import setup_globals
+from bliss.common.axis import MotionEstimation
 from bliss.common.temperature import Input, Output, TempControllerCounter
 from bliss.common.task_utils import *
 from bliss.common.motor_group import Group
@@ -174,11 +175,22 @@ def ascan(motor, start, stop, npoints, count_time, *counters, **kwargs):
 
     counters = _get_all_counters(counters)
 
-    scan_info.update({ 'npoints': npoints, 'total_acq_time': npoints * count_time,
+    # estimate scan time
+    step_size = abs(stop - start) / npoints
+    i_motion_t = MotionEstimation(motor, start).duration
+    n_motion_t = MotionEstimation(motor, start, start + step_size).duration
+    total_motion_t = i_motion_t + npoints * n_motion_t
+    total_count_t = npoints * count_time
+    estimation = {'total_motion_time': total_motion_t,
+                  'total_count_time': total_count_t,
+                  'total_time': total_motion_t + total_count_t}
+
+    scan_info.update({ 'npoints': npoints, 'total_acq_time': total_count_t,
                        'motors': [TimestampPlaceholder(), motor], 
                        'counters': counters,
                        'start': [start], 'stop': [stop],
-                       'count_time': count_time })
+                       'count_time': count_time,
+                       'estimation': estimation})
 
     chain = AcquisitionChain(parallel_prepare=True)
     timer = default_chain(chain,scan_info)
@@ -266,13 +278,34 @@ def mesh(motor1, start1, stop1, npoints1, motor2, start2, stop2, npoints2, count
         scan_info['title'] = template.format(*args)
 
     counters = _get_all_counters(counters)
+
+    # estimate scan time
+    step_size1 = abs(stop1 - start1) / npoints1
+    i_motion_t1 = MotionEstimation(motor1, start1).duration
+    n_motion_t1 = MotionEstimation(motor1, start1, start1 + step_size1).duration
+    total_motion_t1 = npoints1 *npoints2 * n_motion1_t
+
+    step_size2 = abs(stop2 - start2) / npoints2
+    i_motion_t2 = MotionEstimation(motor2, start2).duration
+    n_motion_t2 = max(MotionEstimation(motor2, start2, start2 + step_size2).duration,
+                      MotionEstimation(motor1, end1, start1).duration)
+    total_motion_t2 = npoints2 * n_motion2_t
+
+    imotion_t = max(i_motion_t1, i_motion_t2)
+
+    total_motion_t = imotion_t + total_motion_t1 + total_motion_t2
+    total_count_t = npoints1 * npoints2 * count_time
+    estimation = {'total_motion_time': total_motion_t,
+                  'total_count_time': total_count_t,
+                  'total_time': total_motion_t + total_count_t}
     
     scan_info.update({ 'npoints1': npoints1, 'npoints2': npoints2, 
-                       'total_acq_time': npoints1 * npoints2 * count_time,
+                       'total_acq_time': total_count_t,
                        'motors': [TimestampPlaceholder(), motor1, motor2],
                        'counters': counters,
                        'start': [start1, start2], 'stop': [stop1, stop2],
-                       'count_time': count_time })
+                       'count_time': count_time,
+                       'estimation': estimation})
 
     chain = AcquisitionChain(parallel_prepare=True)
     timer = default_chain(chain,scan_info)
@@ -342,11 +375,29 @@ def a2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
 
     counters = _get_all_counters(counters)
 
-    scan_info.update({ 'npoints': npoints, 'total_acq_time': npoints * count_time,
+    # estimate scan time
+    step_size1 = abs(stop1 - start1) / npoints
+    i_motion1_t = MotionEstimation(motor1, start1).duration
+    n_motion1_t = MotionEstimation(motor1, start1, start1 + step_size1).duration
+
+    step_size2 = abs(stop2 - start2) / npoints
+    i_motion2_t = MotionEstimation(motor2, start2).duration
+    n_motion2_t = MotionEstimation(motor2, start2, start2 + step_size2).duration
+
+    i_motion_t = max(i_motion1_t, i_motion2_t)
+    n_motion_t = max(n_motion1_t, n_motion2_t)
+    total_motion_t = i_motion_t + npoints * nmotion_t
+    total_count_t = npoints * count_time
+    estimation = {'total_motion_time': total_motion_t,
+                  'total_count_time': total_count_t,
+                  'total_time': total_motion_t + total_count_t}
+
+    scan_info.update({ 'npoints': npoints, 'total_acq_time': total_count_t,
                        'motors': [TimestampPlaceholder(), motor1, motor2],
                        'counters': counters,
                        'start': [start1, start2], 'stop': [stop1, stop2],
-                       'count_time': count_time })
+                       'count_time': count_time,
+                       'estimation': estimation })
 
     chain = AcquisitionChain(parallel_prepare=True)
     timer = default_chain(chain,scan_info)
@@ -460,11 +511,19 @@ def timescan(count_time, *counters, **kwargs):
     counters = _get_all_counters(counters)
     
     npoints = kwargs.get("npoints", 0)
-    scan_info.update({ 'npoints': npoints, 'total_acq_time': npoints * count_time,
+    total_count_t = npoints * count_time
+
+    scan_info.update({ 'npoints': npoints, 'total_acq_time': total_count_t,
                        'motors': [TimestampPlaceholder()], 
                        'counters': counters,
-                       'start': [], 'stop': [], 'count_time': count_time,
-                       'total_acq_time': npoints * count_time })
+                       'start': [], 'stop': [], 'count_time': count_time })
+
+    if npoints > 0:
+        # estimate scan time
+        estimation = {'total_motion_time': 0,
+                      'total_count_time': total_count_t,
+                      'total_time': total_count_t}
+        scan_info['estimation'] = estimation
 
     _log.info("Doing %s", scan_info['type'])
 

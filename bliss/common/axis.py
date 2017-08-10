@@ -39,6 +39,7 @@ from bliss.common.encoder import Encoder
 from bliss.common.hook import MotionHook
 import gevent
 import re
+import math
 import types
 import functools
 import numpy
@@ -103,6 +104,57 @@ class Motion(object):
     def axis(self):
         """Reference to :class:`Axis`"""
         return self.__axis
+
+
+class MotionEstimation(object):
+    """
+    Estimate motion time and displacement based on current axis position
+    and configuration
+    """
+
+    def __init__(self, axis, target_pos, initial_pos=None):
+        self.axis = axis
+        ipos = axis.position() if initial_pos is None else initial_pos
+        self.ipos = ipos
+        fpos = target_pos
+        delta = fpos - ipos
+        do_backlash = cmp(delta, 0) != cmp(axis.backlash, 0)
+        if do_backlash:
+            delta -= axis.backlash
+            fpos -= axis.backlash
+        self.fpos = fpos
+        self.displacement = displacement = abs(delta)
+        try:
+            self.vel = vel = axis.velocity()
+            self.accel = accel = axis.acceleration()
+        except NotImplementedError:
+            self.vel = float('+inf')
+            self.accel = float('+inf')
+            self.duration = 0
+            return
+
+        full_accel_time = vel / accel
+        full_accel_dplmnt = 0.5*accel * full_accel_time**2
+
+        full_dplmnt_non_const_vel = 2 * full_accel_dplmnt
+        reaches_max_velocity = displacement > full_dplmnt_non_const_vel
+        if reaches_max_velocity:
+            max_vel = vel
+            accel_time = full_accel_time
+            accel_dplmnt = full_accel_dplmnt
+            dplmnt_non_const_vel = full_dplmnt_non_const_vel
+        else:
+            max_vel = math.sqrt(2*displacement)
+            accel_time = max_vel / accel
+            accel_dplmnt = displacement / 2.0
+            dplmnt_non_const_vel = displacement
+        max_vel_dplmnt = displacement - dplmnt_non_const_vel
+        max_vel_time = max_vel_dplmnt / vel
+        self.duration = max_vel_time + 2*accel_time
+
+        if do_backlash:
+            backlash_estimation = MotionEstimation(axis, target_pos, self.fpos)
+            self.duration += backlash_estimation.duration
 
 
 @with_custom_members

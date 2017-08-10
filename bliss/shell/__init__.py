@@ -56,7 +56,7 @@ def initialize(*session_names):
 class ScanListener:
     '''listen to scan events and compose output'''
 
-    HEADER = "Total {npoints} points, {total_acq_time} seconds\n\n" + \
+    HEADER = "Total {npoints} points{estimation_str}\n\n" + \
              "Scan {scan_nb} {start_time_str} {root_path} " + \
              "{session_name} user = {user_name}\n" + \
              "{title}\n\n" + \
@@ -112,12 +112,23 @@ class ScanListener:
         if scan_info['type'] == 'ct':
             return
 
+        estimation = scan_info.get('estimation')
+        if estimation:
+            total = datetime.timedelta(seconds=estimation['total_time'])
+            motion = datetime.timedelta(seconds=estimation['total_motion_time'])
+            count = datetime.timedelta(seconds=estimation['total_count_time'])
+            estimation_str = ', {0} (motion: {1}, count: {2})'.format(total, motion, count)
+        else:
+            estimation_str = ''
+
         col_lens = map(lambda x: max(len(x), self.DEFAULT_WIDTH), col_labels)
         h_templ = ["{{0:>{width}}}".format(width=col_len)
                    for col_len in col_lens]
         header = "  ".join([templ.format(label)
                             for templ, label in zip(h_templ, col_labels)])
-        header = self.HEADER.format(column_header=header, **scan_info)
+        header = self.HEADER.format(column_header=header,
+                                    estimation_str=estimation_str,
+                                    **scan_info)
         self.col_templ = ["{{0: >{width}}}".format(width=col_len) 
                           for col_len in col_lens]
         print_(header)
@@ -151,6 +162,16 @@ class ScanListener:
         for motor in self.real_motors:
             dispatcher.disconnect(self.__on_motor_position_changed, 
                                   signal='position', sender=motor)
+
+        end = datetime.datetime.fromtimestamp(time.time())
+        start = datetime.datetime.fromtimestamp(scan_info['start_time_stamp'])
+        dt = end - start
+        msg = 'Took {0}'.format(dt)
+        if 'estimation' in scan_info:
+            time_estimation = scan_info['estimation']['total_time']
+            msg += ' (estimation was for {0})'.format(datetime.timedelta(seconds=time_estimation))
+        print_(msg)
+
 
     def __on_motor_position_changed(self, position, signal=None, sender=None):
         labels = []

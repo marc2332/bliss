@@ -78,8 +78,8 @@ class Modbus_ASCII:
         return lrc & 0xff
 
 class Modbus_RTU:
-    def __init__(self,node,*args) :
-        self._serial = serial.Serial(*args)
+    def __init__(self,node,*args,**kwargs) :
+        self._serial = serial.Serial(*args,**kwargs)
         self.node = node
         self.lock = lock.Semaphore()
 

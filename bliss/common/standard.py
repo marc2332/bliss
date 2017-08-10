@@ -294,11 +294,13 @@ def __move(*args, **kwargs):
 
     return group, motor_pos
 
+
 def prdef(obj_or_name):
     """
     Shows the text of the source code for an object or the name of an object.
     """
-    if isinstance(obj_or_name, (str, unicode)):
+    is_arg_str = isinstance(obj_or_name, (str, unicode))
+    if is_arg_str:
         obj, name = getattr(setup_globals, obj_or_name), obj_or_name
     else:
         obj = obj_or_name
@@ -310,10 +312,21 @@ def prdef(obj_or_name):
     if name is None:
         name = real_name
 
+    if inspect.ismodule(obj) or inspect.isclass(obj) or \
+       inspect.ismethod(obj) or inspect.isfunction(obj) or \
+       inspect.istraceback(obj) or inspect.isframe(obj) or \
+       inspect.iscode(obj):
+        pass
+    else:
+        try:
+            obj = type(obj)
+        except:
+            pass
+
     fname = inspect.getfile(obj)
     lines, line_nb = inspect.getsourcelines(obj)
-
-    if name == real_name:
+    
+    if name == real_name or is_arg_str:
         header = "'{0}' is defined in:\n{1}:{2}\n". \
                  format(name, fname, line_nb)
     else:

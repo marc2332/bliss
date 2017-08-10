@@ -203,8 +203,9 @@ def main():
         else:
             history_filename = ".%s_history" % os.path.basename(sys.argv[0])
         history_filename = os.path.join(os.environ["HOME"], history_filename)
-        
+
         def patch_repl(repl):
+            repl.get_globals()['REPL'] = repl
             prev_execute = repl._execute
             def wrapped_f(self,*args, **kwargs):
                 try:

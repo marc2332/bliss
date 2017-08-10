@@ -497,11 +497,15 @@ def timescan(count_time, *counters, **kwargs):
                     scan object and acquisition chain
         return_scan (bool): False by default
         npoints (int): number of points [default: 0, meaning infinite number of points]
+        output_mode (str): valid are 'tail' (append each line to output) or
+                           'monitor' (refresh output in single line)
+                           [default: 'tail']
     """
     scan_info = { 'type': kwargs.get('type', 'timescan'),
                   'save': kwargs.get('save', True),
                   'title': kwargs.get('title'),
-                  'sleep_time': kwargs.get('sleep_time') }
+                  'sleep_time': kwargs.get('sleep_time') ,
+                  'output_mode': kwargs.get('output_mode', 'tail') }
 
     if scan_info['title'] is None:
         args = scan_info['type'], count_time
@@ -562,6 +566,9 @@ def loopscan(npoints, count_time, *counters, **kwargs):
         run (bool): if True (default), run the scan. False means just create
                     scan object and acquisition chain
         return_scan (bool): False by default
+        output_mode (str): valid are 'tail' (append each line to output) or
+                           'monitor' (refresh output in single line)
+                           [default: 'tail']
     """
     kwargs.setdefault('npoints', npoints)
     kwargs.setdefault('name', 'loopscan')

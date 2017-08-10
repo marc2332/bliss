@@ -152,8 +152,10 @@ class ScanListener:
             self._point_nb += 1
             line = "  ".join([self.col_templ[i].format(v) for i, v in enumerate(values)])
             if self.term.is_a_tty:
-                print_(self.term.clear_bol + '\r', end='')
-            print_(line)
+                monitor = scan_info.get('output_mode', 'tail') == 'monitor'
+                print_(line, end=monitor and '\r' or '\n', flush=True)
+            else:
+                print_(line)
 
     def __on_scan_end(self, scan_info):
         if scan_info['type'] == 'ct':
@@ -166,7 +168,9 @@ class ScanListener:
         end = datetime.datetime.fromtimestamp(time.time())
         start = datetime.datetime.fromtimestamp(scan_info['start_time_stamp'])
         dt = end - start
-        msg = 'Took {0}'.format(dt)
+        if scan_info.get('output_mode', 'tail') == 'monitor' and self.term.is_a_tty:
+            print_()
+        msg = '\nTook {0}'.format(dt)
         if 'estimation' in scan_info:
             time_estimation = scan_info['estimation']['total_time']
             msg += ' (estimation was for {0})'.format(datetime.timedelta(seconds=time_estimation))

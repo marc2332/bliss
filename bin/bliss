@@ -23,11 +23,13 @@ import logging
 import gevent
 import docopt
 from ptpython import repl
+from ptpython.prompt_style import PromptStyle
 from prompt_toolkit.eventloop.base import EventLoop, INPUT_TIMEOUT
 from prompt_toolkit.terminal.vt100_input import InputStream
 from prompt_toolkit.eventloop.posix_utils import PosixStdinReader
 from prompt_toolkit.eventloop.posix import call_on_sigwinch, DummyContext, in_main_thread
 from prompt_toolkit.eventloop.select import fd_to_int
+from prompt_toolkit.token import Token
 from gevent import select
 import time
 import signal
@@ -168,6 +170,43 @@ class GeventEventLoop(EventLoop):
         except (AttributeError, IndexError, OSError):
             pass
 
+
+class BlissPrompt(PromptStyle):
+    """
+    A prompt resembling the IPython prompt.
+
+    To activate it, simply set it in the shell configure method:
+
+    def configure(repl):
+        repl.prompt_style = 'bliss'
+    """
+    def __init__(self, python_input, prompt_name):
+        self.python_input = python_input
+        self.prompt_name = prompt_name
+
+    def in_tokens(self, cli):
+        return [
+            (Token.In, self.prompt_name),
+            (Token.In, ' ['),
+            (Token.In.Number, '%s' % self.python_input.current_statement_index),
+            (Token.In, ']: '),
+        ]
+
+    def in2_tokens(self, cli, width):
+        return [
+            (Token.In, '...: '.rjust(width)),
+        ]
+
+    def out_tokens(self, cli):
+        return [
+            (Token.Out, '{0:>{width}}'.format('Out', width=len(self.prompt_name))),
+            (Token.Out, ' ['),
+            (Token.Out.Number, '%s' % self.python_input.current_statement_index),
+            (Token.Out, ']:'),
+            (Token, ' '),
+        ]    
+
+
 CURRENT_TASK = None
 
 def main():
@@ -201,10 +240,12 @@ def main():
             session_id  = '_'.join(sessions_name)
             session_title = u'Bliss shell ({0})'.format(', '.join(sessions_name))
             history_filename = ".%s_%s_history" % (os.path.basename(sys.argv[0]), session_id)
+            prompt_name = sessions_name[0].upper()
         else:
             session_id = 'unnamed'
             session_title = u'Bliss shell'
             history_filename = ".%s_history" % os.path.basename(sys.argv[0])
+            prompt_name = 'BLISS'
         history_filename = os.path.join(os.environ["HOME"], history_filename)
 
         def patch_repl(repl):
@@ -230,6 +271,8 @@ def main():
                 finally:
                     CURRENT_TASK = None
             repl._execute = patched_execute
+            repl.all_prompt_styles['bliss'] = BlissPrompt(repl, prompt_name)
+
             for configure in REPL_CONFIGS:
                 try:
                     configure(repl)

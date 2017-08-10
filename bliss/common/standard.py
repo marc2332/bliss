@@ -349,6 +349,17 @@ def _check_log_level(level):
         rv = getattr(logging, level.upper())
     return rv
 
-def set_log_level(level):
+
+def set_log_level(level=logging.root.level):
+    """
+    Adjusts the log level
+    
+    Without arguments, resets the level back to the one setup at
+    beginning of the session.
+
+    Args:
+        level (int or str): new log level can be constant (ex: logging.INFO) or
+                            case insensitive equivalent string (ex: 'Info')
+    """
     logging.root.setLevel(_check_log_level(level))
         

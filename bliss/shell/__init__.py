@@ -53,6 +53,18 @@ def initialize(*session_names):
     return user_ns,sessions
 
 
+def _find_unit(obj):
+    try:
+        if hasattr(obj, 'unit'):
+            return obj.unit
+        if hasattr(obj, 'config'):
+            return obj.config.get('unit')
+        if hasattr(obj, 'controller'):
+            return _find_unit(obj.controller)
+    except:
+        return
+
+
 class ScanListener:
     '''listen to scan events and compose output'''
 
@@ -97,7 +109,7 @@ class ScanListener:
 
         for counter in counters:
             counter_label = counter.name
-            unit = counter.config.get('unit', None)
+            unit = _find_unit(counter)
             if unit:
                 counter_label += '({0})'.format(unit)
             col_labels.append(counter_label)

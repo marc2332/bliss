@@ -53,32 +53,6 @@ def initialize(*session_names):
     return user_ns,sessions
 
 
-REPL_CONFIGS = []
-def repl_config(func):
-    """
-    Register decorated function to be called by ptpython's configure.
-    Here is an example on how to do it in your setup file::
-
-        from bliss.shell import repl_config
-
-        @repl_config
-        def configure(repl):
-        
-            # Use the classic prompt. (Display '>>>' instead of 'In [1]'.)
-            repl.prompt_style = 'classic' # 'classic' or 'ipython'
-
-    Args:
-        func (callable): a callable with one argument: the repl
-
-    Returns:
-        the same func callable
-    """
-    global REPL_CONFIGS
-    if func not in REPL_CONFIGS:
-        REPL_CONFIGS.append(func)
-    return func
-
-
 def _find_unit(obj):
     try:
         if hasattr(obj, 'unit'):
@@ -197,7 +171,7 @@ class ScanListener:
             line = "  ".join([self.col_templ[i].format(v) for i, v in enumerate(values)])
             if self.term.is_a_tty:
                 monitor = scan_info.get('output_mode', 'tail') == 'monitor'
-                print_(line, end=monitor and '\r' or '\n', flush=True)
+                print_('\r' + line, end=monitor and '\r' or '\n', flush=True)
             else:
                 print_(line)
 

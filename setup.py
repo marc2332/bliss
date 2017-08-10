@@ -167,11 +167,12 @@ setup(name="bliss",
                                                    "js/*.*",
                                                    "res/*.*"],
                     'bliss.shell.web': ['*.html', 'css/*.css', "js/*.js"]},
-      scripts=["bin/beacon-server-list", "bin/bliss", 'bin/bliss_webserver',
+      scripts=["bin/beacon-server-list", 'bin/bliss_webserver',
                'bin/sps_data_watch', 'bin/flint'],
       entry_points={
           'console_scripts':
-              ['bliss-emulator=bliss.controllers.emulator:main',
+              ['bliss=bliss.shell.cli.main:main',
+               'bliss-emulator=bliss.controllers.emulator:main',
                'beacon-server=bliss.config.conductor.server:main']},
       cmdclass=cmdclass,
 

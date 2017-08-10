@@ -110,10 +110,13 @@ class ScanListener:
     def __on_scan_new(self, scan_info):
         scan_info = dict(scan_info)
         self.term = term = Terminal(scan_info.get('stream'))
+        scan_info = dict(scan_info)
         
         motors = scan_info['motors']
         counters = scan_info['counters']
         nb_points = scan_info['npoints']
+        if not scan_info['save']:
+            scan_info['root_path'] = '<no saving>'
         col_labels = ['#']
         real_motors = []
         for motor in motors:

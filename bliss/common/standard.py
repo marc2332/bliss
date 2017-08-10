@@ -23,12 +23,13 @@ from gevent import sleep
 from tabulate import tabulate
 from bliss.common.utils import OrderedDict
 
+from pygments import highlight
+from pygments.lexers import PythonLexer
+from pygments.formatters import TerminalFormatter
+
 from bliss import setup_globals
-
 from bliss.common.axis import Axis
-
 from bliss.config.static import get_config
-
 from bliss.common.motor_group import Group
 
 
@@ -77,6 +78,11 @@ def __tabulate(data, **kwargs):
     kwargs.setdefault('numalign', 'right')
 
     return str(tabulate(data, **kwargs))
+
+
+def __pyhighlight(code, bg='dark', outfile=None):
+    formatter = TerminalFormatter(bg=bg)
+    return highlight(code, PythonLexer(), formatter, outfile=outfile)
 
 
 def sync(*axes):
@@ -333,7 +339,7 @@ def prdef(obj_or_name):
         header = "'{0}' is an alias for '{1}' which is defined in:\n{2}:{3}\n". \
                  format(name, real_name, fname, line_nb)
     print_(header)
-    print_(''.join(lines))
+    print_(__pyhighlight(''.join(lines)))
 
 
 def _check_log_level(level):

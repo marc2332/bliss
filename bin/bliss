@@ -32,7 +32,7 @@ from gevent import select
 import time
 import signal
 import functools
-from bliss.shell import initialize, ScanListener
+from bliss.shell import initialize, ScanListener, REPL_CONFIGS
 from bliss.config import static
 
 class GeventEventLoop(EventLoop):
@@ -226,6 +226,12 @@ def main():
                 finally:
                     CURRENT_TASK = None
             repl._execute = patched_execute
+            for configure in REPL_CONFIGS:
+                try:
+                    configure(repl)
+                except:
+                    sys.excepthook(*sys.exc_info())
+                
 
         def stop_current_task(signum, frame, exception=gevent.GreenletExit):
             if CURRENT_TASK:

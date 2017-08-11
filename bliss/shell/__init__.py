@@ -16,6 +16,7 @@ import functools
 
 import numpy
 from six import print_
+from blessings import Terminal
 
 from bliss import setup_globals
 from bliss.config import static
@@ -70,6 +71,8 @@ class ScanListener:
 
     def __on_scan_new(self, scan_info):
         scan_info = dict(scan_info)
+        self.term = term = Terminal(scan_info.get('stream'))
+        
         motors = scan_info['motors']
         counters = scan_info['counters']
         nb_points = scan_info['npoints']
@@ -83,8 +86,9 @@ class ScanListener:
                 unit = 's'
             else:
                 real_motors.append(motor)
-                dispatcher.connect(self.__on_motor_position_changed,
-                                   signal='position', sender=motor)
+                if term.is_a_tty:
+                    dispatcher.connect(self.__on_motor_position_changed,
+                                       signal='position', sender=motor)
                 unit = motor.config.get('unit', default=None)
             motor_label = motor_name
             if unit:
@@ -136,6 +140,8 @@ class ScanListener:
             values.insert(0, self._point_nb)
             self._point_nb += 1
             line = "  ".join([self.col_templ[i].format(v) for i, v in enumerate(values)])
+            if self.term.is_a_tty:
+                print_(self.term.clear_bol + '\r', end='')
             print_(line)
 
     def __on_scan_end(self, scan_info):
@@ -155,5 +161,5 @@ class ScanListener:
                 position += unit
             labels.append('{0}: {1}'.format(motor.name, position))
 
-        print_('\33[2K', end='')
-        print_(*labels, sep=', ', end='\r', flush=True)
+        print_(self.term.clear_bol + '\r', end='')
+        print_(*labels, sep=', ', end='', flush=True)

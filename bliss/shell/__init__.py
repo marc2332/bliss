@@ -14,15 +14,13 @@ import logging
 import datetime
 import functools
 
-import louie
 import numpy
 from six import print_
 
 from bliss import setup_globals
-from bliss.common import event
 from bliss.config import static
 from bliss.scanning import scan
-
+from bliss.common.event import dispatcher
 
 _log = logging.getLogger('bliss.shell')
 
@@ -54,23 +52,6 @@ def initialize(*session_names):
     return user_ns,sessions
 
 
-def _obj_unit(name):
-    config = static.get_config()
-    if isinstance(name, (str, unicode)):
-        try:
-            obj = config.get(name)
-        except:
-            return ''
-    else:
-        obj = name
-        name = obj.name
-    try:
-        return obj.unit or ''
-    except AttributeError:
-        obj_config = config.get_config(name)
-        return obj_config.get('unit', '')
-    
-
 class ScanListener:
     '''listen to scan events and compose output'''
 
@@ -83,34 +64,43 @@ class ScanListener:
     DEFAULT_WIDTH = 12
 
     def __init__(self):
-        event.connect(scan, 'scan_new', self.__on_scan_new)
-        event.connect(scan, 'scan_data', self.__on_scan_data)
-        event.connect(scan, 'scan_end', self.__on_scan_end)
+        dispatcher.connect(self.__on_scan_new, 'scan_new', scan)
+        dispatcher.connect(self.__on_scan_data, 'scan_data', scan)
+        dispatcher.connect(self.__on_scan_end, 'scan_end', scan)
 
-    def __on_scan_new(self, scan_info, filename, motor_names, nb_points, counter_names):
+    def __on_scan_new(self, scan_info):
         scan_info = dict(scan_info)
-        if isinstance(motor_names, str):
-            motor_names = [motor_names]
+        motors = scan_info['motors']
+        counters = scan_info['counters']
+        nb_points = scan_info['npoints']
         col_labels = ['#']
-        for motor_name in motor_names:
+        real_motors = []
+        for motor in motors:
+            motor_name = motor.name
             # replace time_stamp with elapsed_time
             if motor_name == 'timestamp':
                 motor_name = 'dt'
                 unit = 's'
             else:
-                unit = _obj_unit(motor_name)
+                real_motors.append(motor)
+                dispatcher.connect(self.__on_motor_position_changed,
+                                   signal='position', sender=motor)
+                unit = motor.config.get('unit', default=None)
             motor_label = motor_name
             if unit:
                 motor_label += '({0})'.format(unit)
             col_labels.append(motor_label)
-        for counter_name in counter_names:
-            counter_label = counter_name
-            unit = _obj_unit(counter_name)
+
+        for counter in counters:
+            counter_label = counter.name
+            unit = counter.config.get('unit', None)
             if unit:
                 counter_label += '({0})'.format(unit)
             col_labels.append(counter_label)
         
         self.col_labels = col_labels
+        self.real_motors = real_motors
+        self._point_nb = 0
 
         if not scan_info['save']:
             scan_info['root_path'] = '<no file>'
@@ -126,7 +116,6 @@ class ScanListener:
         header = self.HEADER.format(column_header=header, **scan_info)
         self.col_templ = ["{{0: >{width}}}".format(width=col_len) 
                           for col_len in col_lens]
-        self._point_nb = 0
         print_(header)
 
     def __on_scan_data(self, scan_info, values):
@@ -134,7 +123,6 @@ class ScanListener:
         values = [elapsed_time] + values[1:]
         if scan_info['type'] == 'ct':
             # ct is actually a timescan(npoints=1).
-            
             norm_values = numpy.array(values) / scan_info['count_time']
             col_len = max(map(len, self.col_labels)) + 2
             template = '{{label:>{0}}} = {{value: >12}} ({{norm: 12}}/s)'.format(col_len)
@@ -151,5 +139,21 @@ class ScanListener:
             print_(line)
 
     def __on_scan_end(self, scan_info):
-        pass
+        if scan_info['type'] == 'ct':
+            return
 
+        for motor in self.real_motors:
+            dispatcher.disconnect(self.__on_motor_position_changed, 
+                                  signal='position', sender=motor)
+
+    def __on_motor_position_changed(self, position, signal=None, sender=None):
+        labels = []
+        for motor in self.real_motors:
+            position = '{0:.03f}'.format(motor.position())
+            unit = motor.config.get('unit', default=None)
+            if unit:
+                position += unit
+            labels.append('{0}: {1}'.format(motor.name, position))
+
+        print_('\33[2K', end='')
+        print_(*labels, sep=', ', end='\r', flush=True)

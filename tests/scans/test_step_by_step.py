@@ -51,7 +51,7 @@ def test_scan_callbacks(beacon):
 
   res = { "new": False, "end": False, "values": [] }
 
-  def on_scan_new(scan_info, filename, motor_names, nb_points, counter_names):
+  def on_scan_new(scan_info):
     res["new"] = True
   def on_scan_data(scan_info, values):
     res["values"].append(values[1])

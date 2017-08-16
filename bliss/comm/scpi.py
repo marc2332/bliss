@@ -1,54 +1,374 @@
 """
-:term:`SCPI` helpers (:class:`~bliss.comm.scpi.Scpi` class and \
-:func:`~bliss.comm.scpi.scpify` class decorator)
+:term:`SCPI` helpers (:class:`~bliss.comm.scpi.SCPI` class and \
+:func:`~bliss.comm.scpi.BaseDevice` )
 
 Example::
 
-    from bliss.comm.scpi import Scpi
+    >>> from bliss.comm.scpi import SCPI
 
-    scpi = Scpi(gpib={'url': 'enet://example.com', 'pad': 15})
+    >>> # SCPI object initiated with standard SCPI commands (*IDN, *CLS, etc)
+    >>> scpi = SCPI(gpib={'url': 'enet://example.com', 'pad': 15})
 
-    # another way is to create the interface before and assign it to Scpi:
+    >>> # another way is to create the interface before and assign it to SCPI:
+    >>> from bliss.comm.gpib import Gpib
+    >>> interface = Gpib(url="enet://example.com", pad=15)
+    >>> scpi = SCPI(interface)
 
-    from bliss.comm.gpib import Gpib
-    interface = Gpib(url="enet://example.com", pad=15)
-    scpi = Scpi(interface)
+    # functional API
+    >>> scpi('*IDN?')
+    [('*idn?',
+      {'manufacturer': 'KEITHLEY INSTRUMENTS INC.',
+       'model': 'MODEL 6485',
+       'serial': '1008577',
+       'version': 'B03   Sep 25 2002 10:53:29/A02  /E'})]
 
-    print( scpi('*IDN?') )   # functional API
-    print( scpi['*IDN'] )    # dict like API
-    print( scpi.get_idn() )  # object API: get_<> and set_<>
+    # dict like API
+    >>> scpi['*IDN']
+    {'manufacturer': 'KEITHLEY INSTRUMENTS INC.',
+     'model': 'MODEL 6485',
+     'serial': '1008577',
+     'version': 'B03   Sep 25 2002 10:53:29/A02  /E'}
+
+     # dict assignment
+
 """
 
 from __future__ import absolute_import
 
+import re
 import inspect
 import logging
-import functools
+from  functools import partial
 
 import numpy
 
 from .util import get_interface
-from .scpi_mapping import commands
 from .exceptions import CommunicationError, CommunicationTimeout
 
-class ScpiError(CommunicationError):
+
+def decode_IDN(s):
+    manuf, model, serial, version = map(str.strip, s.split(','))
+    return dict(manufacturer=manuf, model=model, serial=serial, version=version)
+
+def __decode_Err(s):
+    code, desc = map(str.strip, s.split(',', 1))
+    return dict(code=int(code), desc=desc[1:-1])
+
+def __decode_ErrArray(s):
+    msgs = map(str.strip, s.split(','))
+    result = []
+    for i in range(0, len(msgs), 2):
+        code, desc = int(msgs[i]), msgs[i+1][1:-1]
+        if code == 0: continue
+        result.append(dict(code=code, desc=desc))
+    return result
+
+def __decode_OnOff(s):
+    su = s.upper()
+    if su in ("1", "ON"):
+        return True
+    elif su in ("0", "OFF"):
+        return False
+    else:
+        raise ValueError("Cannot decode OnOff value {0}".format(s))
+
+def __encode_OnOff(s):
+    if s in (0, False, "off", "OFF"):
+        return "OFF"
+    elif s in (1, True, "on", "ON"):
+        return "ON"
+    else:
+        raise ValueError("Cannot encode OnOff value {0}".format(s))
+
+__decode_IntArray = partial(numpy.fromstring, dtype=int, sep=',')
+__decode_FloatArray = partial(numpy.fromstring, dtype=float, sep=',')
+
+#: SCPI command
+#: accepts the following keys:
+#:
+#:   - func_name - functional API name (str, optional, default is the cmd_name)
+#:   - doc - command documentation (str, optional)
+#:   - get - translation function called on the result of a query.
+#:           If not present means command cannot be queried.
+#:           If present and is None means ignore query result
+#:   - set - translation function called before a write.
+#:           If not present means command cannot be written.
+#:           If present and is None means it doesn't receive any argument
+Cmd = dict
+
+FuncCmd = partial(Cmd, set=None)
+
+IntCmd = partial(Cmd, get=int, set=str)
+IntCmdRO = partial(Cmd, get=int)
+IntCmdWO = partial(Cmd, set=str)
+
+FloatCmd = partial(Cmd, get=float, set=str)
+FloatCmdRO = partial(Cmd, get=float)
+FloatCmdWO = partial(Cmd, set=str)
+
+StrCmd = partial(Cmd, get=str, set=str)
+StrCmdRO = partial(Cmd, get=str)
+StrCmdWO = partial(Cmd, set=str)
+
+IntArrayCmdRO = partial(Cmd, get=__decode_IntArray)
+FloatArrayCmdRO = partial(Cmd, get=__decode_FloatArray)
+StrArrayCmd = partial(Cmd, get=lambda x: x.split(','), set=lambda x: ",".join(x))
+StrArrayCmdRO = partial(Cmd, get=lambda x: x.split(','))
+
+OnOffCmd = partial(Cmd, get=__decode_OnOff, set=__encode_OnOff)
+OnOffCmdRO = partial(Cmd, get=__decode_OnOff)
+OnOffCmdWO = partial(Cmd, set=__encode_OnOff)
+BoolCmd = OnOffCmd
+BoolCmdRO = OnOffCmdRO
+BoolCmdWO = OnOffCmdWO
+
+IDNCmd = partial(Cmd, get=decode_IDN, doc='identification query')
+
+ErrCmd = partial(Cmd, get=__decode_Err)
+ErrArrayCmd = partial(Cmd, get=__decode_ErrArray)
+
+
+def min_max_cmd(cmd_expr):
+    """
+    Find the shortest and longest version of a SCPI command expression
+
+    Example::
+
+    >>> min_max_cmd('SYSTem:ERRor[:NEXT]')
+    ('SYST:ERR', 'SYSTEM:ERROR:NEXT')
+    """
+    result_min, optional = '', 0
+    for c in cmd_expr:
+        if c.islower():
+            continue
+        if c == '[':
+            optional += 1
+            continue
+        if c == ']':
+            optional -= 1
+            continue
+        if optional:
+            continue
+        result_min += c
+    result_min = result_min.lstrip(':')
+    result_max = cmd_expr.replace('[', '').replace(']', '').upper().lstrip(':')
+    return result_min, result_max
+
+
+def cmd_expr_to_reg_expr_str(cmd_expr):
+    """
+    Return a regular expression string from the given SCPI command expression.
+    """
+    # Basicaly we replace [] -> ()?, and LOWercase -> LOW(ercase)?
+    # Also we add :? optional to the start and $ to the end to make sure we have
+    # exact match
+    reg_expr, low_zone = '\:?', False
+    for c in cmd_expr:
+        cl = c.islower()
+        if not cl:
+            if low_zone:
+                reg_expr += ')?'
+            low_zone = False
+        if c == '[':
+            reg_expr += '('
+        elif c == ']':
+            reg_expr += ')?'
+        elif cl:
+            if not low_zone:
+                reg_expr += '('
+            low_zone = True
+            reg_expr += c.upper()
+        elif c in '*:':
+            reg_expr += '\\' + c
+        else:
+            reg_expr += c
+
+    # if cmd expr ends in lower case we close the optional zone 'by hand'
+    if low_zone:
+        reg_expr += ')?'
+
+    return reg_expr + '$'
+
+
+def cmd_expr_to_reg_expr(cmd_expr):
+    """
+    Return a compiled regular expression object from the given SCPI command
+    expression.
+    """
+    return re.compile(cmd_expr_to_reg_expr_str(cmd_expr), re.IGNORECASE)
+
+
+class Commands(object):
+    """
+    A dict like container for SCPI commands. Construct a Commands object like a
+    dict.  When creating a Commands object, *args* must either:
+
+    * another *Commands* object
+    * a dict where keys must be SCPI command expressions
+      (ex: `SYSTem:ERRor[:NEXT]`) and values instances of *Cmd*
+    * a sequence of pairs where first element must be SCPI command expression
+      and second element an instance of *Cmd*
+
+    *kwargs* should also be SCPI command expressions; *kwargs* values should be
+    instances of *Cmd*.
+
+    The same way, assignment keys should be SCPI command expressions and
+    assignment values should be instances of *Cmd*.
+
+    Examples::
+
+        from bliss.comm.scpi import FuncCmd, ErrCmd, IntCmd, Commands
+
+        # c1 will only have \*CLS command
+        c1 = Commands({'*CLS': FuncCmd(doc='clear status'),
+                       '*RST': FuncCmd(doc='reset')})
+
+        # c2 will have \*CLS and VOLTage commands
+        c2 = Commands(c1, VOLTage=IntCmd())
+
+        # add error command to c2
+        c2['SYSTem:ERRor[:NEXT]'] = ErrCmd()
+
+    Access to a command will return the same command for different SCPI command
+    alternatives. Note that access to command is done through a specific form
+    of SCPI command and not the entire SCPI command expression (as opposed to
+    the assignment):
+
+        >>> err_cmd1 = c2['SYST:ERR']
+        >>> err_cmd2 = c2[':system:error:next']
+        >>> print(err_cm1 == err_cmd2)
+        True
+    """
+
+    def __init__(self, *args, **kwargs):
+        self.command_expressions = {}
+        self._command_cache = {}
+        for arg in args:
+            self.update(arg)
+        self.update(kwargs)
+
+    def __setitem__(self, cmd_expr, command):
+        min_cmd, max_cmd = min_max_cmd(cmd_expr)
+        cmd_info = dict(command,
+                        re=cmd_expr_to_reg_expr(cmd_expr),
+                        min_command=min_cmd, max_command=max_cmd)
+        self.command_expressions[cmd_expr] = cmd_info
+        return cmd_info
+
+    def __getitem__(self, cmd_name):
+        cmd = self.get_command(cmd_name)
+        if cmd is None:
+            raise KeyError(cmd_name)
+        return cmd
+
+    def __contains__(self, cmd_name):
+        return self.get(cmd_name) is not None
+
+    def __len__(self):
+        return len(self.command_expressions)
+
+    def get_command(self, cmd_name):
+        cmd_expr = self.get_command_expression(cmd_name)
+        return self.command_expressions[cmd_expr]
+
+    def get_command_expression(self, cmd_name):
+        cmd_name_u = cmd_name.upper()
+        try:
+            return self._command_cache[cmd_name_u]
+        except KeyError:
+            for cmd_expr, cmd_info in self.command_expressions.items():
+                reg_expr = cmd_info['re']
+                if reg_expr.match(cmd_name):
+                    self._command_cache[cmd_name.upper()] = cmd_expr
+                    return cmd_expr
+        raise KeyError(cmd_name)
+
+    def get(self, cmd_name, default=None):
+        try:
+            return self.get_command(cmd_name)
+        except KeyError:
+            return default
+
+    def update(self, commands):
+        if isinstance(commands, Commands):
+            self.command_expressions.update(commands.command_expressions)
+            self._command_cache.update(commands._command_cache)
+        elif isinstance(commands, dict):
+            for cmd_expr, cmd in commands.items():
+                self[cmd_expr] = cmd
+        else:
+            for cmd_expr, cmd in commands:
+                self[cmd_expr] = cmd
+
+
+COMMANDS = Commands({
+    '*CLS': FuncCmd(doc='clear status'),
+    '*ESE': IntCmd(doc='standard event status enable register'),
+    '*ESR': IntCmdRO(doc='standard event event status register'),
+    '*IDN': IDNCmd(),
+    '*OPC': IntCmdRO(set=None, doc='operation complete'),
+    '*OPT': IntCmdRO(doc='return model number of any installed options'),
+    '*RCL': IntCmdWO(set=int, doc='return to user saved setup'),
+    '*RST': FuncCmd(doc='reset'),
+    '*SAV': IntCmdWO(doc='save the preset setup as the user-saved setup'),
+    '*SRE': IntCmdWO(doc='service request enable register'),
+    '*STB': StrCmdRO(doc='status byte register'),
+    '*TRG': FuncCmd(doc='bus trigger'),
+    '*TST': Cmd(get=lambda x : not decode_OnOff(x),
+                doc='self-test query'),
+    '*WAI': FuncCmd(doc='wait to continue'),
+
+    'SYSTem:ERRor[:NEXT]': ErrCmd(doc='return and clear oldest system error'),
+})
+
+
+class SCPIError(CommunicationError):
     """
     Base :term:`SCPI` error
     """
 
-def _sanatize_msgs(*msgs):
-    result = []
-    for msg in msgs:
-        msg = msg.replace('\n', ';')
-        for c in msg.split(";"):
-            c = c.upper().strip()
-            if not c: continue
-            if not c.startswith(":"):
-                c = ":" + c
-            result.append(c)
-    return ";".join(result)
+def sanitize_msgs(*msgs, **opts):
+    """
+    Transform a list of messages into a tuple  of
+    (<individual commands>, <individual queries>, <full_message>):
 
-class Scpi(object):
+    if strict_query=True, sep=';', eol='\n' (default):
+        msgs = ('*rst', '*idn?;*cls') =>
+            (['*RST', '*IDN?', '*CLS'], ['*IDN?'], '*RST\n*IDN?\n*CLS')
+
+    if strict_query=False, sep=';', eol='\n' (default):
+        msgs = ('*rst', '*idn?;*cls') =>
+            (['*RST', '*IDN?', '*CLS'], ['*IDN?'], '*RST\n*IDN?;*CLS')
+    """
+    eol = opts.get('eol', '\n')
+    sep = opts.get('sep', ';')
+    strict_query = opts.get('strict_query', True)
+    # in case a single message comes with several eol separated commands
+    msgs = eol.join(msgs).split(eol)
+    result, commands, queries = [], [], []
+    for msg in msgs:
+        sub_result = []
+        for cmd in msg.split(sep):
+            cmd = cmd.strip()
+            if not cmd:
+                continue
+            commands.append(cmd)
+            is_query = '?' in cmd
+            if is_query:
+                queries.append(cmd)
+            if is_query and strict_query:
+                if sub_result:
+                    result.append(sep.join(sub_result))
+                    sub_result = []
+                result.append(cmd)
+            else:
+                sub_result.append(cmd)
+        if sub_result:
+            result.append(sep.join(sub_result))
+    return commands, queries, eol.join(result) + eol
+
+
+class SCPI(object):
     """
     :term:`SCPI` language helper.
 
@@ -60,16 +380,16 @@ class Scpi(object):
         class Keithley6482(object):
 
             def __init__(self, interface):
-                cmds = dict(scpi.commands)
+                cmds = scpi.Commands(COMMANDS)
                 cmds['OUTP1'] = OnOffCmd()
                 cmds['OUTP2'] = OnOffCmd()
-                self.language = scpi.Scpi(interface=interface, commands=cmds)
+                self.language = scpi.SCPI(interface=interface, commands=cmds)
 
     Direct usage example::
 
-        from bliss.comm.scpi import Scpi
+        from bliss.comm.scpi import SCPI
 
-        scpi = Scpi(gpib=dict(url="enet://gpibhost", pad=10))
+        scpi = SCPI(gpib=dict(url="enet://gpibhost", pad=10))
 
         # functional API
         print scpi('*IDN?')
@@ -81,30 +401,39 @@ class Scpi(object):
     def __init__(self, *args, **kwargs):
         interface, args, kwargs = get_interface(*args, **kwargs)
         self.interface = interface
+        self._strict_query = kwargs.get('strict_query', True)
         self._logger = logging.getLogger(str(self))
         self._debug = self._logger.debug
-        cmds = kwargs.get('commands')
-        if cmds is None:
-            cmds = commands
-            self.register_commands(cmds)
+        self._contexts = []
+        try:
+            self._eol = interface._eol
+        except AttributeError:
+            self._eol = interface._eos
+        self.commands = Commands(kwargs.get('commands', COMMANDS))
+
+    def enter_context(self):
+        context = dict(commands=[], result=None)
+        self._contexts.append(context)
+        return context
+    __enter__ = enter_context
+
+    def exit_context(self, etype, evalue, etraceback):
+        context = self._contexts.pop()
+        commands = context['commands']
+        if commands and etype is None:
+            context['result'] = self(*commands, sep=';')
+    __exit__ = exit_context
 
     def __getitem__(self, cmd):
-        cmd = cmd.upper()
         command = self.commands[cmd]
         if not 'get' in command:
-            raise ScpiError('command {0} is not gettable'.format(cmd))
+            raise SCPIError('command {0} is not gettable'.format(cmd))
         result = self.command(cmd + "?")
         if result:
             return result[0][1]
 
     def __setitem__(self, cmd, value):
-        cmd = cmd.upper()
-        command = self.commands[cmd]
-        if not 'set' in command:
-            raise ScpiError('command {0} is not settable'.format(cmd))
-        setter = command['set']
-        if setter is not None:
-            cmd = "{0} {1}".format(cmd, setter(value))
+        cmd = self.__to_write_command(cmd, value)
         return self.write(cmd)
 
     def __str__(self):
@@ -133,25 +462,24 @@ class Scpi(object):
         """
         return self.command(*cmds, **kwargs)
 
-    def register_commands(self, cmds):
+    def __to_write_command(self, cmd, value=None):
         """
-        API for the instrument. Instrument should register its commands.
-        Any previously registered commands will be unset.
-
-        :param cmds: commands to be registered
-        :type cmds: dict<str:Cmd>
+        Transform <command> [<value>] into a string to be sent over the wire
         """
-        cmds = dict(cmds)
-        for k, v in cmds.items():
-            v['cmd_name'] = v.get('cmd_name', k)
+        command = self.commands[cmd]
+        is_set = 'set' in command
+        if not is_set:
+            raise SCPIError('command {0!r} is not settable'.format(cmd))
+        setter = command['set']
+        if setter is not None:
+            cmd = "{0} {1}".format(cmd, setter(value))
+        return cmd
 
-        self.commands = {}
-        for cmd_name, cmd in cmds.items():
-            # first add members to class
-            full_cmd_name, min_cmd_name, getter, setter = _safe_add_command(self, cmd_name, cmd)
-            # store commads as upper case to make search possible
-            self.commands[full_cmd_name.upper()] = cmd
-            self.commands[min_cmd_name.upper()] = cmd
+    def __to_write_commands(self, *args, **kwargs):
+        cmds, queries, msg = sanitize_msgs(*args, **kwargs)
+        if queries:
+            raise SCPIError("Cannot write a query")
+        return msg
 
     def command(self, *cmds, **kwargs):
         """
@@ -188,47 +516,65 @@ class Scpi(object):
 
     def read(self, *msgs, **kwargs):
         """
-        Perfoms query(ies). If raw is True a single string is returned.
-        Otherwise the result is a sequence where each item is the query result
-        processed according to the registered command data type.
+        Perfoms query(ies). If keyword argument *raw* is *True*, a single string
+        is returned. Otherwise (default), the result is a sequence where each
+        item is the query result processed according to the registered command
+        data type.
 
         The method supports interleaving query commands with operations. The
         resulting sequence length corresponds to the number of queries in the
-        message.
+        message. Each result is a pair (query, return value)
+
+        If inside a with statement, the command is buffered until the end of
+        the context exit.
 
         Examples::
 
-            # ask for instrument identification
-            idn = instrument.read('*IDN?')
+            >>> # ask for instrument identification
+            >>> instrument.read('*IDN?')
+            {'manufacturer': 'KEITHLEY INSTRUMENTS INC.',
+             'model': '6485',
+             'serial': '1008577',
+             'version': 'B03   Sep 25 2002 10:53:29/A02  /E'}
 
-            # reset the instrument (would be more correct to use
-            # instrumment('*RST') directly)
-            instrumment.read('*RST')
+            >>> # reset the instrument (would be more correct to use
+            >>> # instrumment('*RST') directly)
+            >>> instrumment.read('*RST')
 
-            # set ESE to 1 and ask for IDN and ESE
-            idn, ese = instrument.read('*ESE 1; *IDN?; *ESE?')
+            >>> # set ESE to 1 and ask for IDN and ESE
+            >>> (_, idn), (_, ese) = instrument.read('*ESE 1; *IDN?; *ESE?')
 
-        :param msg: raw message to be queried (ex: "\*IDN?")
-        :type msg: str
-        :return: the read result
-        :rtype: str
-        :raises ScpiError: in case an of unexpected result
+        Args:
+            *msgs (str): raw message to be queried (ex: "\*IDN?")
+            **kwargs: supported kwargs: *raw* (default: False), *eol*,
+                      *sep* (command separator)
+        Returns:
+            list: list of query results. Each result is a pair (query, return value)
+
+        Raises:
+            SCPIError: in case an of unexpected result
+            CommunicationError: in case of device not accessible
+            CommunicationTimeout: in case device does not respond
         """
+        if self._contexts:
+            context = self._contexts[-1]['commands'].extend(msgs)
+            return
         raw = kwargs.get('raw', False)
-        msg = _sanatize_msgs(*msgs)
-        self._logger.debug("[start] read '%s'", msg)
-        raw_result = self.interface.write_readline(msg)
-        self._logger.debug("[ end ] read '%s'='%s'", msg, raw_result)
+        eol = kwargs.setdefault('eol', self._eol)
+        strict_query = kwargs.setdefault('strict_query', self._strict_query)
+        cmds, queries, msg = sanitize_msgs(*msgs, **kwargs)
+        self._logger.debug("[start] read %r", msg)
+        raw_results = self.interface.write_readlines(msg, len(queries))
+        self._logger.debug("[ end ] read %r=%r", msg, raw_results)
         if raw:
-            return raw_result
-        queries = [q[1:-1] for q in msg.split(";") if q.endswith("?")]
-        raw_results = raw_result.split(";")
+            return raw_results
         if len(queries) != len(raw_results):
             msg = "expected {0} results (got {1}".format(queries, raw_results)
-            raise ScpiError(msg)
+            raise SCPIError(msg)
         results = []
         for query, result in zip(queries, raw_results):
-            command = self.commands.get(query)
+            query_cmd = query.split(' ', 1)[0].rstrip('?')
+            command = self.commands.get(query_cmd)
             if command:
                 getf = command.get('get', None)
                 if getf:
@@ -244,6 +590,9 @@ class Scpi(object):
         """
         Execute non query command(s).
 
+        If inside a with statement, the command is buffered until the end of
+        the context exit.
+
         Examples::
 
             # set ESE to 1
@@ -252,22 +601,29 @@ class Scpi(object):
             # reset the instrument
             instrumment.write('*RST')
 
-        :raises ScpiError: in case any of the messages is a query
+        Args:
+            *msgs (str): raw command (ex: "\*CLS")
+
+        Raises:
+            CommunicationError: in case of device not accessible
+            CommunicationTimeout: in case device does not respond
+
         """
-        if any(["?" in msg for msg in msgs]):
-            raise ScpiError("Cannot write a query")
-        msg = _sanatize_msgs(*msgs)
-        self._logger.debug("[start] write '%s'", msg)
+        if self._contexts:
+            context = self._contexts[-1]['commands'].extend(msgs)
+            return
+        msg = self.__to_write_commands(*msgs, **kwargs)
+        self._logger.debug("[start] write %r", msg)
         raw_result = self.interface.write(msg)
-        self._logger.debug("[ end ] write '%s'", msg)
+        self._logger.debug("[ end ] write %r", msg)
 
     _MAX_ERR_STACK_SIZE = 20
     def get_errors(self):
         """
         Return error stack or None if no errors in instrument queue
 
-        :return: error stack or None if no errors in instrument queue
-        :rtype: seq<str>
+        Returns:
+            list: error stack or None if no errors in instrument queue
         """
 
         stack, fix_retries, err = [], 5, dict(code=0)
@@ -286,227 +642,39 @@ class Scpi(object):
             err = self.get_syst_err()
         return stack or None
 
-def __to_cmd_name(cmd_name):
-    res, res_min, optional_zone = '', '', False
-    for c in cmd_name:
-        if c == ']':
-            optional_zone = False
-            continue
-        if c.islower() or optional_zone:
-            res += c
-            continue
-        if c == '[':
-            optional_zone = True
-            continue
-        res += c
-        res_min += c
-    return res, res_min
 
-def __to_func_name(cmd_name):
-    if cmd_name.startswith(':'):
-        cmd_name = cmd_name[1:]
-    return cmd_name.replace('*', '').replace(':', '_').lower()
+class BaseDevice(object):
+    """Base SCPI device class"""
 
-def __safe_add_method(klass, method, name=None):
-    name = name and name or method.__name__
-    if not hasattr(klass, name):
-        setattr(klass, name, method)
-
-def _safe_add_command(element, cmd_name, cmd):
-    is_class = inspect.isclass(element)
-    if is_class:
-        klass = element
-    else:
-        device = element
-        klass = element.__class__
-    class_name = klass.__name__
-    has_getter, has_setter = 'get' in cmd, 'set' in cmd
-    has_func_name = 'func_name' in cmd
-    getter, setter, doc = cmd.get('get'), cmd.get('set'), cmd.get('doc', '')
-
-    full_cmd_name, min_cmd_name = __to_cmd_name(cmd_name)
-
-    if has_func_name and not all((has_getter, has_setter)):
-        full_func_name = min_func_name = cmd['func_name']
-        get_name, set_name = full_func_name, full_func_name
-        get_min_name, set_min_name = full_func_name, full_func_name
-    else:
-        full_func_name = __to_func_name(full_cmd_name)
-        min_func_name = __to_func_name(min_cmd_name)
-        if has_setter and setter is None and not has_getter:
-            # pure command: method name without "set_" prefix
-            get_name, set_name = None,  full_func_name
-            get_min_name, set_min_name = None, min_func_name
-        else:
-            get_name, set_name = "get_" + full_func_name, "set_" + full_func_name
-            get_min_name, set_min_name = "get_" + min_func_name, "set_" + min_func_name
-
-    get_cmd, set_cmd = None, None
-
-    if has_getter:
-        if is_class:
-            def get_cmd(device):
-                return device[full_cmd_name]
-        else:
-            def get_cmd():
-                return device[full_cmd_name]
-        get_cmd.__name__ = get_name
-        get_cmd.__doc__ = doc
-        __safe_add_method(element, get_cmd, name=get_name)
-        __safe_add_method(element, get_cmd, name=get_min_name)
-
-    if has_setter:
-        if setter is None:
-            if is_class:
-                def set_cmd(device):
-                    device.write(full_cmd_name)
-            else:
-                def set_cmd():
-                    device.write(full_cmd_name)
-        else:
-            if is_class:
-                def set_cmd(device, value):
-                    device[full_cmd_name] = value
-            else:
-                def set_cmd(value):
-                    device[full_cmd_name] = value
-        set_cmd.__name__ = set_name
-        set_cmd.__doc__ = doc
-        __safe_add_method(element, set_cmd, name=set_name)
-        __safe_add_method(element, set_cmd, name=set_min_name)
-    return full_cmd_name, min_cmd_name, get_cmd, set_cmd
-
-def __scpify_init_cmds(device, cmds=None, model_cmds=None, patch_cmds=True):
-    all_cmds = {}
-    if cmds is not None:
-        all_cmds.update(cmds)
-
-    if model_cmds is not None and model_cmds:
-        try:
-            idn = device._language('*IDN?')[0][1]
-        except:
-            device._logger.warning('failed to initialize commands (comm error)')
-            device._logger.debug('Details:', exc_info=1)
-        else:
-            model = idn['model']
-            all_cmds.update(dict(model_cmds.get(model, {})))
-    device._commands = all_cmds
-    device._language.register_commands(all_cmds)
-
-    if patch_cmds:
-        for cmd_name, cmd in all_cmds.items():
-            _, _, getter, setter = _safe_add_command(device, cmd_name, cmd)
-            if getter:
-                device._dir.add(getter.__name__)
-            if setter:
-                device._dir.add(setter.__name__)
-
-def scpify(klass=None, cmds=None, model_cmds=None, patch_cmds=True):
-    """
-    Decorator to enable :term:`SCPI` capabilities on a class
-
-    This decorator overwrites the constructor(`__init__`) with one constructor
-    expecting an *interface* argument or an 'interface' keyword argument,
-    consuming it. The remaining arguments and keyword arguments are passed to
-    the original class `__init__` method.
-
-    When not implemented by the class, this decorator adds `__getitem__`,
-    `__setitem__`, `__getattr__`, `__dir__` methods and `language` and
-    `commands` python properties.
-
-    Example::
-
-        import collections
-
-        from bliss.comm.scpi import Scpi, scpify, commands, Cmd, OnOffCmd
-
-        # common keithley commands to all models
-        keithley_cmds = dict(commands)
-        keithley_cmds.update({
-            "REN": Cmd(doc="goes into remote when next addressed to listen"),
-            "IFC": Cmd(doc="reset interface; all devices go into talker and "
-                           "listener idle states"),
-        })
-
-        # specific commands to each model
-        keithley_model_cmds = collections.defaultdict(dict)
-        keithley_model_cmds.update({
-            "6482": {
-                "OUTP1": OnOffCmd(),
-                "OUTP2": OnOffCmd(),
-            },
-            "6485": {
-            }
-        })
-
-        @scpify(cmds=keithley_cmds, model_cmds=keithley_model_cmds)
-        class KeithleyScpi(object):
-            pass
-    """
-
-    if klass is None:
-        return functools.partial(scpify, cmds=cmds, model_cmds=model_cmds,
-                                 patch_cmds=patch_cmds)
-
-    if cmds is None:
-        cmds = {}
-    if model_cmds is None:
-        model_cmds = {}
-
-    def init(device, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         interface, args, kwargs = get_interface(*args, **kwargs)
-        device._interface = interface
-        device._language = Scpi(interface=interface)
-        device._dir = set(dir(device.__class__))
-        device._dir.update(set(dir(device._language)))
-        device.__init_orig__(*args, **kwargs)
+        commands = kwargs.pop('commands', {})
+        self.interface = interface
+        self.language = SCPI(interface=interface, commands=commands)
+        self._logger = logging.getLogger(str(self))
 
-    klass.__init_orig__ = klass.__init__
-    klass.__init__ = init
+    def __str__(self):
+        return '{0}({1})'.format(type(self).__name__, self.language)
 
-    if not hasattr(klass, "_init_cmds"):
-        def _init_cmds(device):
-            return __scpify_init_cmds(device, cmds=cmds, model_cmds=model_cmds,
-                                      patch_cmds=patch_cmds)
-        klass._init_cmds = _init_cmds
+    def __call__(self, *args, **kwargs):
+        return self.language(*args, **kwargs)
+    __call__.__doc__ = SCPI.__call__.__doc__
 
-    if not callable("__call__"):
-        def __call__(device, *args, **kwargs):
-            return device.language(*args, **kwargs)
-        __call__.__doc__ = Scpi.__call__.__doc__
-        klass.__call__ = __call__
+    def __getattr__(self, name):
+        return getattr(self.language, name)
 
-    def __getattr__(device, name):
-        return getattr(device._language, name)
-    __safe_add_method(klass, __getattr__)
+    def __getitem__(self, name):
+        return self.language[name]
 
-    def __getitem__(device, name):
-        return device.language[name]
-    __safe_add_method(klass, __getitem__)
+    def __setitem__(self, name, value):
+        self.language[name] = value
 
-    def __setitem__(device, name, value):
-        device.language[name] = value
-    __safe_add_method(klass, __setitem__)
+    def __enter__(self):
+        return self.language.enter_context()
 
-    def __dir__(device):
-        return list(device._dir)
-    __safe_add_method(klass, __dir__)
+    def __exit__(self, etype, evalue, etraceback):
+        return self.language.exit_context(etype, evalue, etraceback)
 
-    def language(device):
-        if not hasattr(device, '_commands'):
-            device._init_cmds()
-        return device._language
-    __safe_add_method(klass, property(language), name='language')
-
-    def _commands(device):
-        return device.language.commands
-    __safe_add_method(klass, property(_commands), name='commands')
-
-    if patch_cmds:
-        for cmd_name, cmd in cmds.items():
-            _safe_add_command(klass, cmd_name, cmd)
-
-    return klass
 
 def main(argv=None):
     """
@@ -559,7 +727,6 @@ def main(argv=None):
     add = tcp_parser.add_argument
     add('url', type=str,
         help='tcp instrument url (ex: host:5000, socket://host:5000)')
-    add('--port', required=True, type=int, help='port')
     add('--timeout', type=float, default=5, help='timeout')
     add('--eol', type=str, default='\n',
         help=r"end of line [default: '\n']")
@@ -598,9 +765,9 @@ def main(argv=None):
     gevent_arg = vargs.pop('gevent')
 
     conn = vargs.pop('connection')
-    kwargs = { conn: vargs }
+    kwargs = { conn: vargs, 'commands': COMMANDS }
     mode = not gevent_arg and "interactive, no gevent" or "gevent"
-    scpi = Scpi(**kwargs)
+    scpi = SCPI(**kwargs)
     scpi._logger.setLevel(scpi_log_level)
     local = dict(s=scpi)
     banner = "\nWelcome to SCPI console " \
@@ -619,6 +786,7 @@ def main(argv=None):
 
     import code
     code.interact(banner=banner, local=local)
+
 
 if __name__ == "__main__":
   main()

@@ -9,20 +9,28 @@ from functools import partial
 
 import numpy
 
-from bliss.comm.scpi_mapping import commands as _commands
-from bliss.comm.scpi_mapping import (Cmd, ErrCmd, ErrArrayCmd,
-                                                FuncCmd, OnOffCmd, BoolCmdRO,
-                                                IntCmd, IntCmdRO, IntCmdWO,
-                                                FloatCmd, FloatCmdRO, FloatCmdWO,
-                                                StrCmd, StrCmdRO, StrCmdWO,
-                                                IntArrayCmdRO,
-                                                StrArrayCmd, StrArrayCmdRO)
+from bliss.comm.scpi import Commands
+from bliss.comm.scpi import COMMANDS as _COMMANDS
+from bliss.comm.scpi import decode_IDN as _decode_IDN
+from bliss.comm.scpi import (Cmd, ErrCmd, ErrArrayCmd, FuncCmd, OnOffCmd,
+                             BoolCmdRO, IntCmd, IntCmdRO, IntCmdWO,
+                             FloatCmd, FloatCmdRO, FloatCmdWO,
+                             StrCmd, StrCmdRO, StrCmdWO,
+                             StrArrayCmd, StrArrayCmdRO,
+                             IntArrayCmdRO)
+
+# need to reimplement IDN decoding because keitheley return 'MODEL XXX' in the
+# model field. We just want XXX
+def decode_IDN(s):
+    idn = _decode_IDN(s)
+    idn['model'] = idn['model'].split(' ')[-1].strip()
+    return idn
 
 # arrays from keithley arrive sometimes with units (ex: A). We need to
 # strip them (in the furture maybe use actual units)
 def __decode_Array(s, sep=',', **kwargs):
     filt = "eE.+-," + sep
-    s = "".join([i for i in s if i.isdigit() or i in filt])    # strip units
+    filter(lambda x: x.isdigit() or x in filt, s)
     return numpy.fromstring(s, sep=sep, **kwargs)
 
 FloatArrayCmdRO = partial(Cmd, get=partial(__decode_Array, dtype=float))
@@ -31,8 +39,9 @@ FloatArrayCmdRO = partial(Cmd, get=partial(__decode_Array, dtype=float))
 # common commands to all Keithley
 # -------------------------------
 
-commands = dict(_commands)
-commands.update({
+COMMANDS = Commands(_COMMANDS, {
+    '*IDN': Cmd(get=decode_IDN, doc='identification query'),
+
     'REN': FuncCmd(doc='goes into remote when next addressed to listen'),
     'IFC': FuncCmd(doc='reset interface; all devices go into talker and listener idle states'),
     'LLO': FuncCmd(doc='LOCAL key locked out'),
@@ -43,9 +52,9 @@ commands.update({
     'ABORt': FuncCmd(doc='abort'),
     'READ': FloatArrayCmdRO(doc='trigger and return reading', func_name='read_data'),
     'FETCh': FloatArrayCmdRO(doc='request the latest reading(s)', func_name='fetch_data'),
-    'CONFigure[:CURRent:DC]': StrCmd(set=None, doc='places instrument in *one-shot* measurement mode'),
-    'MEASure[:CURRent:DC]': FloatArrayCmdRO(doc='single measurement mode (= CONF + READ?',
-                                            func_name='measure'),
+    'CONFigure[:CURRent[:DC]]': StrCmd(set=None, doc='places instrument in *one-shot* measurement mode'),
+    'MEASure[:CURRent[:DC]]': FloatArrayCmdRO(doc='single measurement mode (= CONF + READ?',
+                                              func_name='measure'),
 
     'SYSTem:ZCHeck[:STATe]': OnOffCmd(doc='zero check', default=True),
     'SYSTem:ZCORrect[:STATe]': OnOffCmd(doc='zero correct', default=False),
@@ -56,7 +65,7 @@ commands.update({
     'SYSTem:AZERo[:STATe]': OnOffCmd(doc='auto zero', default=True),
     'SYSTem:TIME:RESet': FuncCmd(doc='reset timestamp to 0s'),
     'SYSTem:POSetup': StrCmd(doc='power-on setup (RST,PRES, SAVx (x=0..2)', default='PRES'),
-    'SYSTem:VERsion': StrCmdRO(doc='return SCPI revision level'),
+    'SYSTem:VERSion': StrCmdRO(doc='return SCPI revision level'),
     'SYSTem:ERRor:ALL': ErrArrayCmd(doc='read and clear oldest errors'),
     'SYSTem:ERRor:COUNt': IntCmdRO(doc='return number of error messages in queue'),
     'SYSTem:ERRor:CODE[:NEXT]': IntCmdRO(doc='return and clear oldest error code'),
@@ -82,10 +91,10 @@ commands.update({
     # TODO missing STATUS:QUEUE:ENABLE,DISABLE
 
     # range, auto range and display
-    'CURRent:RANGe[:UPPer]': IntCmd(doc='measure current range selection'),
+    'CURRent:RANGe[:UPPer]': FloatCmd(doc='measure current range selection'),
     'CURRent:RANGe:AUTO': OnOffCmd(doc='measure current auto range'),
-    'CURRent:RANGe:AUTO:ULIMt': IntCmd(doc='measure current upper range limit for auto range'),
-    'CURRent:RANGe:AUTO:LLIMt': IntCmd(doc='measure current lower range limit for auto range'),
+    'CURRent:RANGe:AUTO:ULIMt': FloatCmd(doc='measure current upper range limit for auto range'),
+    'CURRent:RANGe:AUTO:LLIMt': FloatCmd(doc='measure current lower range limit for auto range'),
 
     # buffer (TRACE == DATA subsystem)
 
@@ -127,7 +136,6 @@ commands.update({
                                                                      default='NONE'),
 
     # display
-
 })
 
 # --------------------------------
@@ -175,7 +183,7 @@ _limits_commands = {
 _buffer_config_commands = {
     'FORMat': StrCmd(doc='buffer statistic (MINimum,MAXimum,MEAN,SDEViation,PKPK',
                      default='MEAN'),
-    'DATA': StrCmdRO(doc='read the selected buffer statistic'),
+    'DATA': FloatCmdRO(doc='read the selected buffer statistic'),
 }
 
 _ratio_commands = {
@@ -196,11 +204,11 @@ _sens_commands = {
     # SENSe1
     'FUNCtion': StrCmd(doc='measure function (CURRent:DC)', default='CURRent'),
     'DATA[:LATest]': StrCmdRO(doc='return last instrument reading'),
-    '[CURRent:DC:]NPLCycles': FloatCmd(doc='integration rate in line cycles (PLCs) (0.01..5/6)'),
-    '[CURRent:DC:]RANGe[:UPPer]': FloatCmd(doc='select range (A) (-0.021..0.021)'),
-    '[CURRent:DC:]RANGe:AUTO': OnOffCmd(doc='enable/disable auto-range'),
-    '[CURRent:DC:]RANGe[:AUTO]:ULIM': FloatCmd(doc='auto-range upper limit (A) (-0.021..0.021)'),
-    '[CURRent:DC:]RANGe[:AUTO]:LLIM': FloatCmd(doc='auto-range lower limit (A) (-0.021..0.021)'),
+    'CURRent[:DC]:NPLCycles': FloatCmd(doc='integration rate in line cycles (PLCs) (0.01..5/6)'),
+    'CURRent[:DC]:RANGe[:UPPer]': FloatCmd(doc='select range (A) (-0.021..0.021)'),
+    'CURRent[:DC]:RANGe:AUTO': OnOffCmd(doc='enable/disable auto-range'),
+    'CURRent[:DC]:RANGe[:AUTO]:ULIM': FloatCmd(doc='auto-range upper limit (A) (-0.021..0.021)'),
+    'CURRent[:DC]:RANGe[:AUTO]:LLIM': FloatCmd(doc='auto-range lower limit (A) (-0.021..0.021)'),
     # median filter
     'MEDian[:STATe]': OnOffCmd(doc='median filter enable', default=False),
     'MEDian:RANK': IntCmd(doc='median filter rank (1-5)', default=1),
@@ -215,7 +223,7 @@ _sens_commands = {
 def __get_commands(cmds, subsystem):
     r = {}
     for k, v in cmds.items():
-        k = '{0}:{1}'.format(subsystem, k)
+        k = '{0}{1}'.format(subsystem, k)
         r[k] = v
     return r
 
@@ -233,32 +241,32 @@ __get_buffer_config_commands = partial(__get_commands, _buffer_config_commands)
 __get_ratio_commands = partial(__get_commands, _ratio_commands)
 __get_sens_commands = partial(__get_commands, _sens_commands)
 
-_6482_commands = {}
-_6482_commands.update(__get_mXb_commands('CALCulate[1]'))
-_6482_commands.update(__get_mXb_commands('CALCulate2'))
-_6482_commands.update(__get_offset_commands('CALCulate3'))
-_6482_commands.update(__get_offset_commands('CALCulate4'))
-_6482_commands.update(__get_ratio_commands('CALCulate5'))
-_6482_commands.update(__get_ratio_commands('CALCulate6'))
-_6482_commands.update(__get_limits_commands('CALCulate7')) # TODO missing LIMitX, CLIMITs
-_6482_commands.update(__get_buffer_config_commands('CALCulate8'))
+_6482_commands = Commands()
+_6482_commands.update(__get_mXb_commands('CALCulate[1]:'))
+_6482_commands.update(__get_mXb_commands('CALCulate2:'))
+_6482_commands.update(__get_offset_commands('CALCulate3:'))
+_6482_commands.update(__get_offset_commands('CALCulate4:'))
+_6482_commands.update(__get_ratio_commands('CALCulate5:'))
+_6482_commands.update(__get_ratio_commands('CALCulate6:'))
+_6482_commands.update(__get_limits_commands('CALCulate7:')) # TODO missing LIMitX, CLIMITs
+_6482_commands.update(__get_buffer_config_commands('CALCulate8:'))
 _6482_commands.update(__get_display_commands('[:WINDow1]'))
 _6482_commands.update(__get_display_commands('[:WINDow2]'))
-_6482_commands.update(__get_sens_commands('[SENSe1]'))
-_6482_commands.update(__get_sens_commands('SENSe2'))
+_6482_commands.update(__get_sens_commands('[SENSe[1]:]'))
+_6482_commands.update(__get_sens_commands('SENSe2:'))
 
-_6485_commands = {}
-_6485_commands.update(__get_mXb_commands('CALCulate[1]'))
-_6485_commands.update(__get_offset_commands('CALCulate2'))
-_6485_commands.update(__get_limits_commands('CALCulate2'))
-_6485_commands.update(__get_buffer_config_commands('CALCulate3'))
+_6485_commands = Commands()
+_6485_commands.update(__get_mXb_commands('CALCulate[1]:'))
+_6485_commands.update(__get_offset_commands('CALCulate2:'))
+_6485_commands.update(__get_limits_commands('CALCulate2:'))
+_6485_commands.update(__get_buffer_config_commands('CALCulate3:'))
 _6485_commands.update(__get_display_commands('[:WINDow1]'))
-_6485_commands.update(__get_sens_commands('[SENSe1]'))
+_6485_commands.update(__get_sens_commands('[SENSe[1]:]'))
 
 import collections
 
-model_commands = collections.defaultdict(dict)
-model_commands.update({
+MODEL_COMMANDS = collections.defaultdict(Commands)
+MODEL_COMMANDS.update({
     '6482': _6482_commands,
     '6485': _6485_commands,
 })

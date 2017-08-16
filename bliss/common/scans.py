@@ -15,6 +15,7 @@ __all__ = ['ascan', 'a2scan', 'mesh', 'dscan', 'd2scan', 'timescan', 'ct', 'get_
 
 import time
 import logging
+import operator
 import functools
 import numpy
 import gevent
@@ -45,7 +46,7 @@ def _get_counters(mg, missing_list):
     counters = list()
     if mg is not None:
         for cnt_name in mg.enable:
-            cnt = setup_globals.__dict__.get(cnt_name)
+            cnt = operator.attrgetter(cnt_name)(setup_globals)
             if cnt:
                 counters.append(cnt)
             else:

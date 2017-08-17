@@ -32,6 +32,25 @@ controller:
   - name: m0
     velocity: 1000
     acceleration: 100
+  - name: hooked_m0
+    steps_per_unit: 1000
+    velocity: 500
+    acceleration: 300
+    backlash: 2
+    motion_hooks:
+    - $hook0
+  - name: hooked_m1
+    velocity: 1000
+    acceleration: 300
+    motion_hooks:
+    - $hook0
+    - $hook1
+  - name: hooked_error_m0
+    velocity: 1000
+    acceleration: 300
+    motion_hooks:
+    - $hook0
+    - $hook_error
   - name: s1f
     steps_per_unit: -1000
     velocity: 500
@@ -83,3 +102,17 @@ controller:
     low_limit: -15
   - name: s1ho
     tags: hoffset
+hooks:
+- name: hook0
+  plugin: bliss
+  class: MockupHook
+  module: motors.mockup
+- name: hook1
+  plugin: bliss
+  class: MockupHook
+  module: motors.mockup
+- name: hook_error
+  plugin: bliss
+  class: MockupHook
+  module: motors.mockup
+  pre_move_error: true

@@ -36,6 +36,7 @@ from bliss.common import event
 from bliss.common.utils import Null, with_custom_members
 from bliss.config.static import get_config
 from bliss.common.encoder import Encoder
+from bliss.common.hook import MotionHook
 import gevent
 import re
 import types
@@ -60,6 +61,16 @@ def get_axis(name):
   if not isinstance(axis, Axis):
     raise TypeError("%s is not an Axis" % name)
   return axis
+
+
+def get_motion_hook(name):
+    cfg = get_config()
+    if name.startswith('$'):
+        name = name[1:]
+    hook = cfg.get(name)
+    if not isinstance(hook, MotionHook):
+        raise TypeError("%s is not a MotionHook" % name)
+    return hook
 
 
 class Modulo(object):
@@ -121,6 +132,12 @@ class Axis(object):
         self.__stopped = False
         self._in_group_move = False
         self.no_offset = False
+        motion_hooks = []
+        for hook_ref in config.get('motion_hooks', ()):
+            hook = get_motion_hook(hook_ref)
+            hook.add_axis(self)
+            motion_hooks.append(hook)
+        self.__motion_hooks = motion_hooks
 
     @property
     def name(self):
@@ -202,6 +219,11 @@ class Axis(object):
             return None
         else:
             return get_encoder(encoder_name)
+
+    @property
+    def motion_hooks(self):
+      """Registered motion hooks (:obj:`MotionHook`)"""
+      return self.__motion_hooks
 
     def set_setting(self, *args):
         """Sets the given settings"""
@@ -656,7 +678,6 @@ class Axis(object):
 
         dial_initial_pos = self.user2dial(user_initial_pos)
         dial_target_pos = self.user2dial(user_target_pos)
-        self._set_position(user_target_pos)
         if abs(dial_target_pos - dial_initial_pos) < 1E-6:
             return
 
@@ -710,7 +731,14 @@ class Axis(object):
         motion = Motion(self, target_pos, delta)
         motion.backlash = backlash
 
+        for hook in self.__motion_hooks:
+            hook.pre_move([motion])
+
+        self._check_ready()
+
         self.__controller.prepare_move(motion)
+
+        self._set_position(user_target_pos) 
 
         return motion
 
@@ -730,7 +758,12 @@ class Axis(object):
         else:
           if state is None:
             state = self.state(read_hw=True)
-        
+
+        for hook in self.__motion_hooks:
+            try:
+                hook.post_move(self.__move_task._motions)
+            except:
+                sys.excepthook(*sys.exc_info())
         self._update_settings(state)
         event.send(self, "move_done", True)
         self.__move_done.set()
@@ -746,6 +779,9 @@ class Axis(object):
             raise RuntimeError("axis %s state is \
                                 %r" % (self.name, str(initial_state)))
 
+        if self.__controller.is_busy():
+            raise RuntimeError("axis %s: controller is busy" % self.name)
+
     def _start_move_task(self, funct, *args, **kwargs):
         start_event = gevent.event.Event()
         @task
@@ -759,6 +795,7 @@ class Axis(object):
         self.__move_task.link(self._set_move_done)
         self._set_moving_state()
         start_event.set()
+        return self.__move_task
 
     @lazy_init
     def move(self, user_target_pos, wait=True, relative=False, polling_time=DEFAULT_POLLING_TIME):
@@ -774,9 +811,6 @@ class Axis(object):
             polling_time (float): motion loop polling time (seconds)
         """
         elog.debug("user_target_pos=%g  wait=%r relative=%r" % (user_target_pos, wait, relative))
-        self._check_ready()
-        if self.__controller.is_busy():
-            raise RuntimeError("axis %s: controller is busy" % self.name)
 
         motion = self.prepare_move(user_target_pos, relative)
         if motion is None:
@@ -784,9 +818,10 @@ class Axis(object):
 
         with error_cleanup(self._cleanup_stop):
             self.__controller.start_one(motion)
-        
-        self._start_move_task(self._do_handle_move, motion, polling_time,
-                              being_waited=wait)
+
+        motion_task = self._start_move_task(self._do_handle_move, motion,
+                                            polling_time, being_waited=wait)
+        motion_task._motions = [motion]
 
         if wait:
             self.wait_move()
@@ -800,9 +835,7 @@ class Axis(object):
             velocity: signed velocity for constant speed motion
         """
         self._check_ready()
-        if self.__controller.is_busy():
-            raise RuntimeError("axis %s: controller is busy" % self.name)
-       
+
         if velocity == 0:
             return
 

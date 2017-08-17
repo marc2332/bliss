@@ -9,110 +9,51 @@ import pytest
 import gevent
 from contextlib import contextmanager
 
-
-@contextmanager
-def motor_context(beacon, name):
-    m = beacon.get(name)
-    yield m
-    m.stop()
-    m.wait_move()
-    m.apply_config()
-    m.controller.set_hw_limits(m, None, None)
-    m.dial(0)
-    m.position(0)
-
-
-@contextmanager
-def calc_motor_context(beacon, name):
-    m = beacon.get(name)
-    m.no_offset = False
-    yield m
-    m.stop()
-    m.wait_move()
-
-
-@pytest.fixture
-def robz(beacon):
-    with motor_context(beacon, 'robz') as m:
+def motor_fixture(name):
+    def get_motor(beacon):
+        m = beacon.get(name)
         yield m
+        m.stop()
+        m.wait_move()
+        m.apply_config()
+        m.controller.set_hw_limits(m, None, None)
+        m.dial(0)
+        m.position(0)
+        for hook in m.motion_hooks:
+            hook.nb_pre_move = 0
+            hook.nb_post_move = 0
+    get_motor.__name__ = name
+    return pytest.fixture(get_motor)
 
 
-@pytest.fixture
-def roby(beacon):
-    with motor_context(beacon, 'roby') as m:
+def calc_motor_fixture(name):
+    def get_motor(beacon):
+        m = beacon.get(name)
+        m.no_offset = False
         yield m
+        m.stop()
+        m.wait_move()
+    get_motor.__name__ = name
+    return pytest.fixture(get_motor)
 
 
-@pytest.fixture
-def robz2(beacon):
-    with motor_context(beacon, 'robz2') as m:
-        yield m
-
-
-@pytest.fixture
-def m0(beacon):
-    with motor_context(beacon, 'm0') as m:
-        yield m
-
-
-@pytest.fixture
-def jogger(beacon):
-    with motor_context(beacon, 'jogger') as m:
-        yield m
-
-
-@pytest.fixture
-def m1(beacon):
-    with motor_context(beacon, 'm1') as m:
-        yield m
-
-
-@pytest.fixture
-def s1ho(beacon):
-    with calc_motor_context(beacon, "s1ho") as m:
-        yield m
-
-
-@pytest.fixture
-def s1hg(beacon):
-    with calc_motor_context(beacon, "s1hg") as m:
-        yield m
-
-
-@pytest.fixture
-def s1vo(beacon):
-    with calc_motor_context(beacon, "s1vo") as m:
-        yield m
-
-
-@pytest.fixture
-def s1vg(beacon):
-    with calc_motor_context(beacon, "s1vg") as m:
-        yield m
-
-
-@pytest.fixture
-def s1f(beacon):
-    with motor_context(beacon, "s1f") as m:
-        yield m
-
-
-@pytest.fixture
-def s1b(beacon):
-    with motor_context(beacon, "s1b") as m:
-        yield m
-
-
-@pytest.fixture
-def s1u(beacon):
-    with motor_context(beacon, "s1u") as m:
-        yield m
-
-
-@pytest.fixture
-def s1d(beacon):
-    with motor_context(beacon, "s1d") as m:
-        yield m
+robz = motor_fixture('robz')
+roby = motor_fixture('roby')
+robz2 = motor_fixture('robz2')
+m0 = motor_fixture('m0')
+m1 = motor_fixture('m1')
+jogger = motor_fixture('jogger')
+hooked_m0 = motor_fixture('hooked_m0')
+hooked_m1 = motor_fixture('hooked_m1')
+hooked_error_m0 = motor_fixture('hooked_error_m0')
+s1ho = calc_motor_fixture('s1ho')
+s1hg = calc_motor_fixture('s1hg')
+s1vo = calc_motor_fixture('s1vo')
+s1vg = calc_motor_fixture('s1vg')
+s1f = motor_fixture('s1f')
+s1b = motor_fixture('s1b')
+s1u = motor_fixture('s1u')
+s1d = motor_fixture('s1d')
 
 
 @pytest.fixture

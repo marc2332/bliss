@@ -120,15 +120,15 @@ class IcePAP(Controller):
         # Add the axis to the default IcePAP lib group
         self.libgroup.add_axis(axis.libaxis)
 
-    def initialize_hardware_axis(self,axis):
+    def initialize_hardware_axis(self, axis):
         # Initialiaze hardware
         # if set_power fails, display exception but let axis
         # be created properly
-        try:
-            self.libgroup.set_power(libicepap.ON, axis.libaxis)
-        except:
-            sys.excepthook(*sys.exc_info())
-
+        if axis.config.get('autopower', converter=bool, default=True):
+            try:
+                self.set_on(axis)
+            except:
+                sys.excepthook(*sys.exc_info())
 
     def set_on(self, axis):
         """Switch power on"""

@@ -78,10 +78,11 @@ class Icepap(Controller):
         axis.address = axis.config.get("address",int)
 
     def initialize_hardware_axis(self,axis):
-        try:
-            self.set_on(axis)
-        except:
-            sys.excepthook(*sys.exc_info())
+        if axis.config.get('autopower', converter=bool, default=True):
+            try:
+                self.set_on(axis)
+            except:
+                sys.excepthook(*sys.exc_info())
 
     #Axis power management 
     def set_on(self,axis):
@@ -317,7 +318,8 @@ class Icepap(Controller):
     def reset_closed_loop(self,axis):
         measure_position = int(_command(self._cnx,"%d:?POS MEASURE" % axis.address))
         self.set_position(axis,measure_position)
-        self.set_on(axis)
+        if axis.config.get('autopower', converter=bool, default=True):
+            self.set_on(axis)
         axis.sync_hard()
         
     @object_method(types_info=("None","int"))

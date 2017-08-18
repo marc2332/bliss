@@ -23,18 +23,21 @@ class AcquisitionChannel(object):
       
 class DeviceIterator(object):
     def __init__(self,device,one_shot):
-        self.__device = weakref.proxy(device)
+        self.__device_ref = weakref.ref(device)
         self.__sequence_index = 0
         self._one_shot = one_shot
+
     def __getattr__(self,name):
-        return getattr(self.__device,name)
+        if name.startswith("__"):
+            raise AttributeError(name)
+        return getattr(self.device, name)
 
     @property
     def device(self):
-        return self.__device
+        return self.__device_ref()
 
     def next(self):
-        if(not self.device.prepare_once and not self.device.start_once and
+        if (not self.device.prepare_once and not self.device.start_once and
            self._one_shot):
             raise StopIteration
 
@@ -262,7 +265,8 @@ class AcquisitionChainIter(object):
     def __init__(self,acquisition_chain,parallel_prepare = True):
         self.__sequence_index = -1
         self._parallel_prepare = parallel_prepare
-        self.__acquisition_chain = weakref.proxy(acquisition_chain)
+        self.__acquisition_chain_ref = weakref.ref(acquisition_chain)
+
         #set all slaves into master
         for master in (x for x in acquisition_chain._tree.expand_tree() if isinstance(x,AcquisitionMaster)):
             del master.slaves[:]
@@ -280,18 +284,22 @@ class AcquisitionChainIter(object):
             try:
                 it = iter(dev)
             except TypeError:
-                one_shot = self.__acquisition_chain._device2one_shot_flag.get(dev,True)
+                one_shot = self.acquisition_chain._device2one_shot_flag.get(dev, True)
                 dev_iter = DeviceIterator(dev,one_shot)
             else:
                 dev_iter = DeviceIteratorWrapper(it)
             device2iter[dev] = dev_iter
             self._tree.create_node(tag=dev.name,identifier=dev_iter,parent=parent)
-            
+    
+    @property
+    def acquisition_chain(self):
+        return self.__acquisition_chain_ref()
+ 
     def prepare(self, scan, scan_info):
         preset_tasks = list()
         if self.__sequence_index == 0:
-            preset_tasks.extend([gevent.spawn(preset.prepare) for preset in self.__acquisition_chain._presets_list])
-            scan.prepare(scan_info, self.__acquisition_chain._tree)
+            preset_tasks.extend([gevent.spawn(preset.prepare) for preset in self.acquisition_chain._presets_list])
+            scan.prepare(scan_info, self.acquisition_chain._tree)
 
         self._execute("_prepare",wait_between_levels = not self._parallel_prepare)
 
@@ -300,7 +308,7 @@ class AcquisitionChainIter(object):
 
     def start(self):
         if self.__sequence_index == 0:
-	  preset_tasks = [gevent.spawn(preset.start) for preset in self.__acquisition_chain._presets_list]
+	  preset_tasks = [gevent.spawn(preset.start) for preset in self.acquisition_chain._presets_list]
 	  gevent.joinall(preset_tasks, raise_error=True)
 
         self._execute("_start")
@@ -308,7 +316,7 @@ class AcquisitionChainIter(object):
     def stop(self):
         self._execute("stop", master_to_slave=True,wait_all_tasks=True)
 
-        preset_tasks = [gevent.spawn(preset.stop) for preset in self.__acquisition_chain._presets_list]
+        preset_tasks = [gevent.spawn(preset.stop) for preset in self.acquisition_chain._presets_list]
 
         gevent.joinall(preset_tasks) # wait to call all stop on preset
         gevent.joinall(preset_tasks, raise_error=True)

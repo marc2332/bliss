@@ -29,6 +29,7 @@ two:
 
 TEST_FILE_PATH = os.path.join(os.path.dirname(__file__), "..", "test_configuration", "read_write.yml")
 
+@pytest.mark.xfail
 def test_config_save(beacon):
   rw_cfg = beacon.get_config("rw_test")
 

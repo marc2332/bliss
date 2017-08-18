@@ -79,7 +79,7 @@ class StepScanDataWatch(object):
         if min_nb_points is not None:
             self._last_point_display = min_nb_points
         #check end
-        for acq_device,event in data_events.iteritems():
+        for acq_device, event in data_events.iteritems():
             if 'end' in event:
                 data_node = nodes.get(acq_device)
                 if data_node.type() == 'zerod':
@@ -253,7 +253,7 @@ class Scan(object):
                 data_watch_callback_event.set()
             self._data_watch_running = False
             self._data_watch_task = gevent.spawn(Scan._data_watch,
-                                                 weakref.proxy(self,trig),
+                                                 weakref.proxy(self, trig),
                                                  data_watch_callback_event,
                                                  data_watch_callback_done)
             self._data_watch_callback_event = data_watch_callback_event

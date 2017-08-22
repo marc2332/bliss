@@ -86,8 +86,8 @@ class MD2S:
              values(list): pixel per mm on Y and Z axis
         """
         #the value depends on the zoom
-        px_mm_y = 1000000.0*self._exporter.readProperty("CoaxCamScaleX")
-        px_mm_z = 1000000.0*self._exporter.readProperty("CoaxCamScaleY")
+        px_mm_y = 1./self._exporter.readProperty("CoaxCamScaleX")
+        px_mm_z = 1./self._exporter.readProperty("CoaxCamScaleY")
         return [px_mm_y, px_mm_z]
 
     def move_motors(self, *args):

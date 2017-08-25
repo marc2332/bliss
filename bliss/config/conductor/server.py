@@ -33,8 +33,6 @@ from . import protocol
 from .. import redis as redis_conf
 from bliss.common import event
 
-REDIS_UNIX_SOCKET='/tmp/redis.sock'
-
 try:
     import posix_ipc
 except ImportError:
@@ -197,7 +195,7 @@ def _send_redis_info(client_id,local_connection):
     port = _options.redis_port
     host = socket.gethostname()
     if local_connection:
-        port = REDIS_UNIX_SOCKET
+        port = _options.redis_socket
         host = 'localhost'
 
     client_id.sendall(protocol.message(protocol.REDIS_QUERY_ANSWER,
@@ -588,6 +586,8 @@ def main():
                         help="tango debug level (default to 0: WARNING,1:INFO,2:DEBUG)")
     parser.add_argument("--webapp_port",dest="webapp_port",type=int,default=0,
                         help="web server port (default to 0: disable)")
+    parser.add_argument("--redis_socket", dest="redis_socket", default="/tmp/redis.sock",
+                        help="Unix socket for redis (default to /tmp/redis.sock)")
     global _options
     _options = parser.parse_args()
 
@@ -647,6 +647,8 @@ def main():
     #start redis
     rp,wp = os.pipe()
     redis_process = subprocess.Popen(['redis-server', _options.redis_conf,
+                                      '--unixsocket', _options.redis_socket,
+                                      '--unixsocketperm', '777',
                                       '--port','%d' % _options.redis_port],
                                      stdout=wp,stderr=subprocess.STDOUT,cwd=_options.db_path)
     # signal pipe

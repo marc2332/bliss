@@ -28,6 +28,7 @@ def beacon():
     args = [
         '--port=%d' % BEACON_PORT,
         '--redis_port=7654',
+        '--redis_socket=/tmp/redis_test.sock',
         '--db_path='+BEACON_DB_PATH,
         '--posix_queue=0']
     p = subprocess.Popen(BEACON + args)

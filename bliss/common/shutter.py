@@ -12,6 +12,30 @@ from gevent import lock
 from bliss.config.conductor.client import Lock
 from bliss.config.channels import Cache
 from bliss.config.settings import HashObjSetting
+from bliss.common.switch import Switch as BaseSwitch
+
+class ShutterSwitch(BaseSwitch):
+    def __init__(self, set_open, set_closed, is_opened):
+        BaseSwitch.__init__(self, "ShutterSwitch"+str(id(self)), {})
+
+        self._set_open = set_open
+        self._set_closed = set_closed
+        self._is_opened = is_opened
+
+    def _states_list(self):
+        return ["OPEN", "CLOSED"]
+
+    def _set(self, state):
+        if state == "OPEN":
+            return self._set_open()
+        else:
+            return self._set_closed()
+
+    def _get(self):
+        if self._is_opened():
+            return "OPEN"
+        else:
+            return "CLOSED"
 
 
 class Shutter(object):
@@ -125,14 +149,14 @@ class Shutter(object):
         """
         shutter mode can be MANUAL,EXTERNAL,CONFIGURATION
         
-        In CONFIGURATION mode, shutter can't be open/close.
+        In CONFIGURATION mode, shutter can't be opened/closed.
         **CONFIGURATION** could mean that the shutter is in tuning mode
         i.e: changing open/close position in case of a motor.
 
         In EXTERNAL mode, the shutter will be controlled
         through the external-control handler.
         If no external control is configured open/close
-        wont be authorized.
+        won't be authorized.
         """
         return self.__settings.get('mode',Shutter.MANUAL)
 
@@ -266,3 +290,15 @@ class Shutter(object):
 
     def _close(self):
         raise NotImplementedError
+
+    def set_external_control(self, set_open, set_closed, is_opened):
+        """
+        Programmatically set shutter in external control mode,
+        and create _external_ctrl switch using callback functions
+        """
+        if not all(map(callable, (set_open, set_closed, is_opened))):
+            raise TypeError("%s.set_external_control: set_open, set_closed, is_opened functions must be callable" % self.name)
+        switch = ShutterSwitch(set_open, set_closed, is_opened)
+        self._external_ctrl = switch
+        self.mode = self.EXTERNAL
+

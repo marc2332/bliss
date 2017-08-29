@@ -36,6 +36,7 @@ def initialize(*session_names):
     config = static.get_config()
     user_ns = { "config": config }
     sessions = list()
+    error_flag = False
 
     for sname in session_names:
         session = config.get(sname)
@@ -45,11 +46,15 @@ def initialize(*session_names):
         try:
             session.setup(env_dict = user_ns, verbose = True)
         except Exception:
+            error_flag = True
             sys.excepthook(*sys.exc_info())
 
         sessions.append(session)
 
-    print "Done."
+    if error_flag:
+        print "Warning: error(s) happened during setup, setup may not be complete."
+    else:
+        print "Done."
 
     return user_ns,sessions
 

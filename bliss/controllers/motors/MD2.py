@@ -5,26 +5,9 @@ protocol for communication.
 from bliss.controllers.motor import Controller
 from bliss.common import log as elog
 from bliss.common.axis import AxisState
-from bliss.common.switch import Switch as BaseSwitch
 from bliss.comm.Exporter import *
 import time
 import gevent
-
-class Switch(BaseSwitch):
-
-    def __init__(self, name, controller, config):
-        BaseSwitch.__init__(self, name, config)
-
-        self.md2 = controller
-
-    def _states_list(self):
-        return ["OPEN", "CLOSED"]
-
-    def _set(self, state):
-        self.md2._exporter.writeProperty("FastShutterIsOpen", "true" if state == "OPEN" else "false")
-
-    def _get(self):
-        return "OPEN" if self.md2._exporter.readProperty("FastShutterIsOpen") == "true" else "CLOSED"
 
 
 class MD2(Controller):

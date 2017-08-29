@@ -18,6 +18,7 @@ import time
 from bliss.common.task_utils import *
 from bliss.common.utils import grouped
 from bliss.comm.Exporter import *
+import functools
 
 class MD2S:
     def __init__(self, name, config):
@@ -25,6 +26,11 @@ class MD2S:
         self.timeout = 3 #s by default
         nn, port = config.get("exporter_addr").split(":")
         self._exporter = Exporter(nn, int(port))
+
+        fshutter = config.get("fshutter")
+        fshutter.set_external_control(functools.partial(self._exporter.writeProperty, "FastShutterIsOpen", "true"),
+                                      functools.partial(self._exporter.writeProperty, "FastShutterIsOpen", "false"),
+                                      lambda: self._exporter.readProperty("FastShutterIsOpen") == "true")
 
     def get_hwstate(self):
         """Read the hardware state (if implemented)

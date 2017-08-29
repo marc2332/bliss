@@ -196,8 +196,7 @@ class Shutter(object):
 
     @property
     def state_string(self):
-        state = self.state()
-        return self.STATE2STR.get(state,self.STATE2STR[self.UNKNOWN])
+        return self.STATE2STR.get(self.state,self.STATE2STR[self.UNKNOWN])
 
     @property
     def external_control(self):

@@ -133,6 +133,8 @@ class Session(object):
             env_dict['ACTIVE_MG'] = ACTIVE_MG
 
             fullpath = self._config_tree.get('setup-file')
+            if fullpath is None:
+                raise RuntimeError("No setup file.")
             code = compile(setup_file.read(), fullpath, 'exec')
             exec(code, env_dict)
             
@@ -140,8 +142,6 @@ class Session(object):
                 setattr(setup_globals, obj_name, obj)
 
             return True
-      except KeyError:
-         raise RuntimeError("No setup file.")
       except IOError:
          raise ValueError("Session: setup-file %s can't be found" % 
                           self._config_tree.get('setup-file'))

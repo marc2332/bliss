@@ -14,7 +14,8 @@ import math
 import itertools
 from bliss.common.utils import grouped
 from bliss.controllers.wago import WagoController
-
+from bliss.config import channels
+from bliss.common.event import dispatcher
 
 class TfWagoMapping:
     def __init__(self, nb_lens, nb_pinhole):
@@ -80,6 +81,7 @@ class Transfocator:
         self.wago = None
         self.empty_jacks = []
         self.pinhole = []
+        self._state_chan = channels.Channel("transfocator:%s" % name, callback=self.__state_changed)
 
         if 'lenses' in config:
             self.nb_lens = int(config["lenses"])
@@ -154,11 +156,14 @@ class Transfocator:
 
     def tfstatus_set(self, value):
         self.pos_write(value)
-        check = self.pos_read()
-        with gevent.Timeout(self.exec_timeout, RuntimeError("Timeout waiting for status to be %d" % value)):
-            while check != value:
-                time.sleep(0.2)
-                check = self.pos_read()
+        try:
+            check = self.pos_read()
+            with gevent.Timeout(self.exec_timeout, RuntimeError("Timeout waiting for status to be %d" % value)):
+                while check != value:
+                    time.sleep(0.2)
+                    check = self.pos_read()
+        finally:
+            self._state_chan.value = self.status_read()
 
     def status_read(self):
         stat = []
@@ -241,4 +246,6 @@ class Transfocator:
             else:
                 self.set_out(p)
 
-
+    def __state_changed(self, st):
+       dispatcher.send('state', self, st)
+    

@@ -284,6 +284,22 @@ def get_module_from_channel(channel):
     return ffi.string(alias).decode()
 
 
+def get_module_type(alias):
+    alias = to_bytes(alias)
+    value = ffi.new("char []", MAX_STRING_LENGTH)
+    code = handel.xiaGetModuleItem(alias, b"module_type", value)
+    check_error(code)
+    return ffi.string(value).decode()
+
+
+def get_module_interface(alias):
+    alias = to_bytes(alias)
+    value = ffi.new("char []", MAX_STRING_LENGTH)
+    code = handel.xiaGetModuleItem(alias, b"interface", value)
+    check_error(code)
+    return ffi.string(value).decode()
+
+
 # Not exposed
 
 # int xiaNewModule(char *alias);

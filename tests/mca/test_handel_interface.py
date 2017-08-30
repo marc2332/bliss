@@ -405,6 +405,36 @@ def test_get_module_from_channel(interface):
     interface.check_error.assert_called_with(0)
 
 
+def test_get_module_type(interface):
+    m = interface.handel.xiaGetModuleItem
+
+    def side_effect(a, b, c):
+        c[0:7] = b"mercury"
+        return 0
+
+    m.side_effect = side_effect
+    assert interface.get_module_type("module1") == "mercury"
+    arg = m.call_args[0][2]
+    m.assert_called_once_with(b"module1", b"module_type", arg)
+    # Make sure errors have been checked
+    interface.check_error.assert_called_with(0)
+
+
+def test_get_module_interface(interface):
+    m = interface.handel.xiaGetModuleItem
+
+    def side_effect(a, b, c):
+        c[0:4] = b"usb2"
+        return 0
+
+    m.side_effect = side_effect
+    assert interface.get_module_interface("module1") == "usb2"
+    arg = m.call_args[0][2]
+    m.assert_called_once_with(b"module1", b"interface", arg)
+    # Make sure errors have been checked
+    interface.check_error.assert_called_with(0)
+
+
 # Parameters
 
 

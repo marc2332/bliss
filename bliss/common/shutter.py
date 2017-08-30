@@ -299,5 +299,5 @@ class Shutter(object):
             raise TypeError("%s.set_external_control: set_open, set_closed, is_opened functions must be callable" % self.name)
         switch = ShutterSwitch(set_open, set_closed, is_opened)
         self._external_ctrl = switch
-        self.mode = self.EXTERNAL
+        self.init()
 

@@ -39,6 +39,9 @@ __all__ = [
     "get_module_from_channel",
     "get_module_type",
     "get_module_interface",
+    "get_module_channels",
+    "get_grouped_channels",
+    "get_channels",
     "set_acquisition_value",
     "get_acquisition_value",
     "remove_acquisition_value",
@@ -327,9 +330,19 @@ def get_module_channels(alias):
     )
 
 
-def get_all_channels():
+def get_grouped_channels():
     """Return the indexed channels grouped by modules."""
     return tuple(get_module_channels(alias) for alias in get_modules())
+
+
+def get_channels():
+    """Return all the enabled channels."""
+    return sorted(
+        channel
+        for channels in get_grouped_channels()
+        for channel in channels
+        if channel != -1
+    )
 
 
 # Not exposed

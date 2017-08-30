@@ -302,6 +302,14 @@ def get_module_interface(alias):
     return ffi.string(value).decode()
 
 
+def get_module_number_of_channels(alias):
+    alias = to_bytes(alias)
+    value = ffi.new("int *")
+    code = handel.xiaGetModuleItem(alias, b"number_of_channels", value)
+    check_error(code)
+    return value[0]
+
+
 # Not exposed
 
 # int xiaNewModule(char *alias);

@@ -310,6 +310,20 @@ def get_module_number_of_channels(alias):
     return value[0]
 
 
+def get_module_channel_at(alias, index):
+    alias = to_bytes(alias)
+    value = ffi.new("int *")
+    key = b"channel%d_alias" % index
+    code = handel.xiaGetModuleItem(alias, key, value)
+    check_error(code)
+    return value[0]
+
+
+def get_module_channels(alias):
+    number_of_channels = get_module_number_of_channels(alias)
+    return [get_module_channel_at(alias, index) for index in range(number_of_channels)]
+
+
 # Not exposed
 
 # int xiaNewModule(char *alias);

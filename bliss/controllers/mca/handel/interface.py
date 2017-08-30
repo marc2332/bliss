@@ -3,7 +3,7 @@
 from __future__ import absolute_import
 
 import os
-import configparser
+from six.moves import configparser
 
 import numpy
 
@@ -399,4 +399,4 @@ def get_config(filename):
     """Read and return the given config file as a dictionary."""
     config = configparser.ConfigParser(comment_prefixes=["START", "END", "#", "*****"])
     config.read(filename)
-    return {key: dict(section) for key, section in config.items()}
+    return {key: dict(section) for section in config.items()}

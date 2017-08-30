@@ -479,3 +479,4 @@ def test_get_config(interface):
     filename = interface.get_config_files(".")[0]
     d = interface.get_config(filename)
     assert d["detector definitions"]["alias"] == "detector1"
+    assert "DEFAULT" not in d

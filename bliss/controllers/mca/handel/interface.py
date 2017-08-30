@@ -399,4 +399,4 @@ def get_config(filename):
     """Read and return the given config file as a dictionary."""
     config = configparser.ConfigParser(comment_prefixes=["START", "END", "#", "*****"])
     config.read(filename)
-    return {key: dict(section) for section in config.items()}
+    return {section: dict(config[section]) for section in config.sections()}

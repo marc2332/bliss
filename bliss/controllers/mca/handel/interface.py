@@ -418,5 +418,5 @@ def get_config(filename):
     # Customize parser
     config = configparser.ConfigParser(comment_prefixes=["START", "END", "#", "*****"])
     # Read and parse
-    config.read(filename)
+    config.read([filename])
     return {section: dict(config[section]) for section in config.sections()}

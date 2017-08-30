@@ -37,6 +37,8 @@ __all__ = [
     "get_num_modules",
     "get_modules",
     "get_module_from_channel",
+    "get_module_type",
+    "get_module_interface",
     "set_acquisition_value",
     "get_acquisition_value",
     "remove_acquisition_value",

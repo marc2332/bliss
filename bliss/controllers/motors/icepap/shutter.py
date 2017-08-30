@@ -80,6 +80,9 @@ class Shutter(BaseShutter):
             ext_ctrl = self.external_control
             if ext_ctrl is not None:
                 ext_ctrl.set("CLOSED")
+            else:
+                raise RuntimeError("Mode is External but no external control object, aborting")
+
             closed_position = self.closed_position
             if closed_position is None:
                 raise RuntimeError("Shutter %s hasn't been configured, "

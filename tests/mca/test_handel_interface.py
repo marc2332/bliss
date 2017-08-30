@@ -19,7 +19,7 @@ def interface():
 def test_init(interface):
     m = interface.handel.xiaInit
     m.return_value = 0
-    assert interface.init("somefile") is None
+    assert interface.init(u"somefile") is None
     m.assert_called_once_with(b"somefile")
     # Make sure errors have been checked
     interface.check_error.assert_called_once_with(0)
@@ -480,5 +480,5 @@ def test_get_config(interface):
     d = interface.get_config(filename)
     assert d["detector definitions"]["alias"] == "detector1"
     assert "DEFAULT" not in d
-    with pytest.raises(FileNotFoundError):
+    with pytest.raises(IOError):
         interface.get_config("i_dont_exist.ini")

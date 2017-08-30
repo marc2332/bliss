@@ -480,3 +480,5 @@ def test_get_config(interface):
     d = interface.get_config(filename)
     assert d["detector definitions"]["alias"] == "detector1"
     assert "DEFAULT" not in d
+    with pytest.raises(FileNotFoundError):
+        interface.get_config("i_dont_exist.ini")

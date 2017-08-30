@@ -320,8 +320,16 @@ def get_module_channel_at(alias, index):
 
 
 def get_module_channels(alias):
+    """Return the module channels properly indexed."""
     number_of_channels = get_module_number_of_channels(alias)
-    return [get_module_channel_at(alias, index) for index in range(number_of_channels)]
+    return tuple(
+        get_module_channel_at(alias, index) for index in range(number_of_channels)
+    )
+
+
+def get_all_channels():
+    """Return the indexed channels grouped by modules."""
+    return tuple(get_module_channels(alias) for alias in get_modules())
 
 
 # Not exposed

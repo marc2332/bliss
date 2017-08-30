@@ -20,10 +20,7 @@ try:
 except ImportError:
     from pydispatch import saferef
     saferef.safe_ref = saferef.safeRef
-try:
-    from collections import OrderedDict
-except ImportError:
-    from ordereddict import OrderedDict
+from bliss.common.utils import OrderedDict
 import weakref
 import sys
 import os

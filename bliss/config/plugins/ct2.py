@@ -10,13 +10,7 @@ from __future__ import absolute_import
 import os
 import shlex
 
-try:
-    from collections import OrderedDict
-except ImportError:
-    try:
-        from ordereddict import OrderedDict
-    except ImportError:
-        OrderedDict = dict
+from bliss.common.utils import OrderedDict
 
 __this_path = os.path.dirname(os.path.realpath(__file__))
 

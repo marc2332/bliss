@@ -22,10 +22,7 @@ import gevent
 import sys
 import weakref
 
-try:
-    from collections import OrderedDict
-except ImportError:
-    from ordereddict import OrderedDict
+from bliss.common.utils import OrderedDict
 
 pyqtRemoveInputHook()
 

@@ -13,7 +13,7 @@ import struct
 import math
 import logging
 from warnings import warn
-from collections import OrderedDict
+from bliss.common.utils import OrderedDict
 import gevent
 from gevent import lock
 

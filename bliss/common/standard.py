@@ -21,13 +21,7 @@ import gevent
 from six import print_
 from gevent import sleep
 from tabulate import tabulate
-try:
-    from collections import OrderedDict
-except ImportError:
-    try:
-        from ordereddict import OrderedDict
-    except ImportError:
-        OrderedDict = dict
+from bliss.common.utils import OrderedDict
 
 from bliss import setup_globals
 

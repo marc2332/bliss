@@ -2,6 +2,9 @@
 
 from __future__ import absolute_import
 
+import os
+import configparser
+
 import numpy
 
 from .error import check_error
@@ -377,3 +380,23 @@ def get_handel_version():
 # int xiaMemStatistics(unsigned long *total, unsigned long *current, unsigned long *peak);
 # void xiaMemSetCheckpoint(void);
 # void xiaMemLeaks(char *);
+
+
+# Files
+
+
+def get_config_files(path):
+    """Return all the ini files in path (including subdirectories)."""
+    return [
+        os.path.join(dp, f)
+        for dp, dn, fn in os.walk(path)
+        for f in fn
+        if f.endswith(".ini")
+    ]
+
+
+def get_config(filename):
+    """Read and return the given config file as a dictionary."""
+    config = configparser.ConfigParser(comment_prefixes=["START", "END", "#", "*****"])
+    config.read(filename)
+    return {key: dict(section) for key, section in config.items()}

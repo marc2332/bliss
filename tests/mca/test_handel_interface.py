@@ -466,3 +466,16 @@ def test_get_handel_version(interface):
     assert interface.get_handel_version() == (1, 2, 3)
     m.assert_called_once()
     # xiaGetVersionInfo does not return an error code
+
+
+# Files
+
+
+def test_get_config_files(interface):
+    assert interface.get_config_files(".") == ["./xmap.ini"]
+
+
+def test_get_config(interface):
+    filename = interface.get_config_files(".")[0]
+    d = interface.get_config(filename)
+    assert d["detector definitions"]["alias"] == "detector1"

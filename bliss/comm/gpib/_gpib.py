@@ -17,13 +17,7 @@ from ..tcp import Socket
 from ..exceptions import CommunicationError, CommunicationTimeout
 from ...common.greenlet_utils import KillMask, protect_from_kill
 
-try:
-    from collections import OrderedDict
-except (AttributeError,ImportError):
-    try:
-        from ordereddict import OrderedDict
-    except ImportError:
-        OrderedDict = dict
+from bliss.common.utils import OrderedDict
 
 __TMO_TUPLE = (0., 10E-6, 30E-6, 100E-6, 300E-6,
                1E-3, 3E-3, 10E-3, 30E-3, 100E-3, 300E-3,

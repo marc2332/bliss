@@ -12,6 +12,9 @@ from warnings import warn
 from bliss.comm.util import get_comm, get_comm_type, SERIAL, TCP
 from bliss.comm import serial
 from bliss.common.greenlet_utils import KillMask,protect_from_kill
+from bliss.common.switch import Switch as BaseSwitch
+from bliss.common.utils import OrderedDict
+
 OPIOM_PRG_ROOT='/users/blissadm/local/isg/opiom'
 
 class Opiom:
@@ -218,3 +221,62 @@ class Opiom:
             subline = line[begin + len(PROJECT_TOKEN):]
             project = subline[:subline.find(PROJECT_TOKEN)]
             return pldid,project
+
+class Switch(BaseSwitch):
+    """
+    This class wrapped opiom command to emulate a switch
+    the configuration may look like this:
+    opiom: $opiom_name
+    register: IMA
+    mask: 0x3
+    shift: 1
+    states:
+       - label: OPEN
+         value: 1
+       - label: CLOSED
+         value: 0
+       - label: MUSST
+         value: 2
+       - label: COUNTER_CARD
+         value: 3
+    """
+    def __init__(self,name,config):
+        BaseSwitch.__init__(self,name,config)
+        self.__opiom = None
+        self.__register = None
+        self.__mask = None
+        self.__shift = None
+        self.__states = OrderedDict() if OrderedDict else dict()
+
+    def _init(self):
+        config = self.config
+        self.__opiom = config['opiom']
+        self.__register = config['register']
+        self.__mask = config['mask']
+        self.__shift = config['shift']
+        for state in config['states']:
+            label = state['label']
+            value = state['value']
+            self.__states[label] = value
+
+    def _set(self,state):
+        value = self.__states.get(state)
+        if value is None:
+            raise RuntimeError("State %s don't exist" % state)
+        mask = self.__mask << self.__shift
+        value <<= self.__shift
+        cmd = '%s 0x%x 0x%x' % (self.__register,value,mask)
+        self.__opiom.comm_ack(cmd)
+
+    def _get(self):
+        cmd = '?%s' % self.__register
+        value = int(self.__opiom.comm_ack(cmd),base=16)
+        value >>= self.__shift
+        value &= self.__mask
+        for label,state_value in self.__states.iteritems():
+            if state_value == value:
+                return label
+        return 'UNKNOWN'
+
+    def _states_list(self):
+        return self.__states.keys()

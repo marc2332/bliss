@@ -14,10 +14,7 @@ from bliss.common.greenlet_utils import KillMask,protect_from_kill
 from bliss.config.channels import Cache
 from bliss.config.conductor.client import remote_open
 from bliss.common.switch import Switch as BaseSwitch
-try:
-    from collections import OrderedDict
-except ImportError:
-    OrderedDict = None          # Don't support python2.6
+from bliss.common.utils import OrderedDict
 
 Serial = serial.Serial
 
@@ -503,8 +500,8 @@ class Switch(BaseSwitch):
     def __init__(self,name,config):
         BaseSwitch.__init__(self,name,config)
         self.__musst = None
-        self.__states = OrderedDict() if OrderedDict else dict()
-        self.__state_test = OrderedDict() if OrderedDict else dict()
+        self.__states = OrderedDict()
+        self.__state_test = OrderedDict()
 
     def _init(self):
         config = self.config

@@ -6,10 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import collections
-try:
-    OrderedDict = collections.OrderedDict
-except AttributeError:
-    from ordereddict import OrderedDict
+from bliss.common.utils import OrderedDict
 
 import gevent
 

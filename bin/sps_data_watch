@@ -18,10 +18,7 @@ import gevent
 
 import json
 
-try:
-    from collections import OrderedDict
-except ImportError:
-    from ordereddict import OrderedDict
+from bliss.common.utils import OrderedDict
 
 try:
     import sps

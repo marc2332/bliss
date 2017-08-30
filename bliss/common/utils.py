@@ -10,6 +10,12 @@ import types
 import itertools
 import functools
 
+try:
+  from collections import OrderedDict
+except ImportError:             # python2.6 compatibility
+  from ordereddict import OrderedDict
+  
+
 class WrappedMethod(object):
   def __init__(self, control, method_name):
     self.method_name = method_name

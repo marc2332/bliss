@@ -458,10 +458,5 @@ def get_config_files(path):
 
 def get_config(filename):
     """Read and return the given config file as a dictionary."""
-    # Make sure the file exists
-    open(filename).close()
-    # Customize parser
-    config = configparser.ConfigParser(comment_prefixes=["START", "END", "#", "*****"])
-    # Read and parse
-    config.read([filename])
-    return {section: dict(config[section]) for section in config.sections()}
+    with open(filename) as f:
+        return f.read()

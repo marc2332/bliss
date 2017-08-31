@@ -565,6 +565,7 @@ def start_webserver(webapp_port, beacon_port, debug=True):
     web_app.debug = debug
     web_app.beacon_port = beacon_port
     http_server = WSGIServer(('', webapp_port), DebuggedApplication(web_app, evalex=True))
+    http_server.family = socket.AF_INET
     gevent.spawn(http_server.serve_forever)
 
 def main():

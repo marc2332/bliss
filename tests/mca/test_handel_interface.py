@@ -189,7 +189,7 @@ def test_get_run_data(interface):
         assert False
 
     m.side_effect = side_effect
-    expected = numpy.array(range(10), dtype="uint")
+    expected = numpy.array(range(10), dtype="uint32")
     diff = interface.get_run_data(1) == expected
     assert diff.all()
     m.assert_called()
@@ -250,7 +250,7 @@ def test_get_buffer(interface):
         assert False
 
     m.side_effect = side_effect
-    expected = numpy.array(range(10), dtype="uint")
+    expected = numpy.array(range(10), dtype="uint32")
     diff = interface.get_buffer(1, "a") == expected
     assert diff.all()
     m.assert_called()
@@ -507,8 +507,7 @@ def test_get_config_files(interface):
 
 def test_get_config(interface):
     filename = interface.get_config_files(".")[0]
-    d = interface.get_config(filename)
-    assert d["detector definitions"]["alias"] == "detector1"
-    assert "DEFAULT" not in d
+    conf = interface.get_config(filename)
+    assert "alias = detector1" in conf
     with pytest.raises(IOError):
         interface.get_config("i_dont_exist.ini")

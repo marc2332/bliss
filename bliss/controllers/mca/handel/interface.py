@@ -150,8 +150,8 @@ def get_run_data_length(channel):
 
 def get_run_data(channel):
     length = get_run_data_length(channel)
-    array = numpy.zeros(length, dtype="uint")
-    data = ffi.cast("unsigned long *", array.ctypes.data)
+    array = numpy.zeros(length, dtype="uint32")
+    data = ffi.cast("uint32_t *", array.ctypes.data)
     code = handel.xiaGetRunData(channel, b"mca", data)
     check_error(code)
     return array
@@ -180,8 +180,8 @@ def get_buffer(channel, buffer_id):
     bid = to_buffer_id(buffer_id)
     command = b"buffer_%c" % bid
     length = get_buffer_length(channel)
-    array = numpy.zeros(length, dtype="uint")
-    data = ffi.cast("unsigned long *", array.ctypes.data)
+    array = numpy.zeros(length, dtype="uint32")
+    data = ffi.cast("uint32_t *", array.ctypes.data)
     code = handel.xiaGetRunData(channel, command, data)
     check_error(code)
     return array

@@ -106,7 +106,7 @@ class Icepap(Controller):
         return int(_command(self._cnx,"?%s %d" % (pos_cmd,axis.address)))
     
     def set_position(self,axis,new_pos):
-        _ackcommand(self._cnx,"POS %d %d" % (axis.address,_round(new_pos)))
+        _ackcommand(self._cnx,"POS %d %d" % (axis.address,int(round(new_pos))))
         return self.read_position(axis,cache=False)
 
     def read_velocity(self,axis):
@@ -374,8 +374,8 @@ class Icepap(Controller):
                 if m:
                     pos = int(m.group(1))
                     positions[i] = pos
-            dial_position = positions / axis.steps_per_unit
-            positions = axis.dial2user(dial_position)
+            dial_positions = positions / axis.steps_per_unit
+            positions = axis.dial2user(dial_positions)
         return positions,cyclic
 
     @object_method(types_info=(("bool","str"),"None"))
@@ -451,9 +451,6 @@ def _ackcommand(cnx,cmd,data = None):
     if not cmd.startswith('#') and not cmd.startswith('?'):
         cmd = '#' + cmd
     return _command(cnx,cmd,data)
-
-def _round(x):
-    return round(x+0.5 if x >= 0 else x-0.5)
 
 from .shutter import Shutter
 from .switch import Switch

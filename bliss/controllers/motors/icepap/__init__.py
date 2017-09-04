@@ -101,12 +101,13 @@ class Icepap(Controller):
         _ackcommand(self._cnx,"POWER %s %d" % 
                     ("ON" if power else "OFF",axis.address))
 
-    def read_position(self,axis):
-        return int(_command(self._cnx,"?FPOS %d" % axis.address))
+    def read_position(self,axis,cache=True):
+        pos_cmd = "FPOS" if cache else "POS"
+        return int(_command(self._cnx,"?%s %d" % (pos_cmd,axis.address)))
     
     def set_position(self,axis,new_pos):
         _ackcommand(self._cnx,"POS %d %d" % (axis.address,_round(new_pos)))
-        return self.read_position(axis)
+        return self.read_position(axis,cache=False)
 
     def read_velocity(self,axis):
         return float(_command(self._cnx,"?VELOCITY %d" % axis.address))

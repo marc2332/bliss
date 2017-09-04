@@ -73,8 +73,7 @@ class Shutter(BaseShutter):
         self.mode = self.mode
         
     def _set_mode(self,mode):
-        _ackcommand(self.__controller._cnx,
-                    "#STOP %d" % self._axis.address)
+        self._axis.activate_tracking(False)
 
         if mode == self.EXTERNAL:
             ext_ctrl = self.external_control
@@ -93,32 +92,16 @@ class Shutter(BaseShutter):
                 raise RuntimeError("Shutter %s hasn't been configured, "
                                    "missing opened_position" % self.name)
             self._load_position(closed_position,opened_position)
-            try:
-                _ackcommand(self.__controller._cnx,
-                            "%d:LTRACK INPOS" % self._axis.address)
-            except RuntimeError,err:
-                raise RuntimeError("Shutter %s can't change to mode %s (%s)" % 
-                                   (self.name,self.MODE2STR.get(mode),err.message))
-        else:
-            self._axis.sync_hard()
-            steps = 0
+            self._axis.activate_tracking(True)
 
     def _load_position(self,closed_position,opened_position):
         current_closed,current_opened = self._position_loaded.value
         if(current_closed != closed_position or 
            current_opened != opened_position):
-            positions = [x * self._axis.steps_per_unit for x in (closed_position,opened_position)]
-            data = numpy.array(positions,dtype=numpy.int32)
-            try:
-                _ackcommand(self.__controller._cnx,
-                            "%d:*LISTDAT CYCLIC DWORD" % (self._axis.address),data)
-            except RuntimeError,err:
-                raise RuntimeError("Shutter %s can't load position for the shutter (%s)" %
-                                   (self.name,err.message))
-            else:
-                self.settings.update({'closed_position':closed_position,
-                                      'opened_position':opened_position})
-                self._position_loaded.value = (closed_position,opened_position)
+            self._axis.set_tracking_positions([closed_position, opened_position], cyclic=True)
+            self.settings.update({'closed_position':closed_position,
+                                  'opened_position':opened_position})
+            self._position_loaded.value = (closed_position,opened_position)
 
     def _opening_time(self):
         return self._move_time()

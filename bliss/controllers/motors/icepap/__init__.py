@@ -101,12 +101,13 @@ class Icepap(Controller):
         _ackcommand(self._cnx,"POWER %s %d" % 
                     ("ON" if power else "OFF",axis.address))
 
-    def read_position(self,axis):
-        return int(_command(self._cnx,"?FPOS %d" % axis.address))
+    def read_position(self,axis,cache=True):
+        pos_cmd = "FPOS" if cache else "POS"
+        return int(_command(self._cnx,"?%s %d" % (pos_cmd,axis.address)))
     
     def set_position(self,axis,new_pos):
-        _ackcommand(self._cnx,"POS %d %d" % (axis.address,_round(new_pos)))
-        return self.read_position(axis)
+        _ackcommand(self._cnx,"POS %d %d" % (axis.address,int(round(new_pos))))
+        return self.read_position(axis,cache=False)
 
     def read_velocity(self,axis):
         return float(_command(self._cnx,"?VELOCITY %d" % axis.address))
@@ -226,7 +227,10 @@ class Icepap(Controller):
         gevent.sleep(0.2)
 
     def home_state(self,axis):
-        return self.state(axis)
+        s = self.state(axis)
+        if s != 'READY' and s != 'POWEROFF':
+             s.set('MOVING')
+        return s
 
     def limit_search(self,axis,limit):
         cmd = "SRCH LIM" + ("+" if limit>0 else "-")
@@ -341,8 +345,8 @@ class Icepap(Controller):
             _ackcommand(self._cnx,"%d:LISTDAT CLEAR" % address)
             return
 
-        dial_position = axis.user2dial(numpy.array(positions,dtype=numpy.float))
-        step_positions = numpy.array(dial_position * axis.steps_per_unit,
+        dial_positions = axis.user2dial(numpy.array(positions, dtype=numpy.float))
+        step_positions = numpy.array(dial_positions * axis.steps_per_unit,
                                      dtype=numpy.int32)
         _ackcommand(self._cnx,"%d:*LISTDAT %s DWORD" % 
                     (address, "CYCLIC" if cyclic else "NOCYCLIC"),
@@ -373,12 +377,12 @@ class Icepap(Controller):
                 if m:
                     pos = int(m.group(1))
                     positions[i] = pos
-            dial_position = positions / axis.steps_per_unit
-            positions = axis.dial2user(dial_position)
+            dial_positions = positions / axis.steps_per_unit
+            positions = axis.dial2user(dial_positions)
         return positions,cyclic
 
     @object_method(types_info=(("bool","str"),"None"))
-    def activate_track(self,axis,activate,mode = None):
+    def activate_tracking(self,axis,activate,mode = None):
         """
         Activate/Deactivate the tracking position depending on
         activate flag
@@ -400,6 +404,8 @@ class Icepap(Controller):
             if mode not in possibles_modes:
                 raise ValueError("mode %s is not managed, can only choose %s" % 
                                  (mode,possibles_modes))
+            if mode == "INPOS":
+                _ackcommand(self._cnx, "%d:POS INPOS 0" % address)
             _ackcommand(self._cnx,"%d:LTRACK %s" % (address,mode))
         
     def reset(self):
@@ -450,9 +456,6 @@ def _ackcommand(cnx,cmd,data = None):
     if not cmd.startswith('#') and not cmd.startswith('?'):
         cmd = '#' + cmd
     return _command(cnx,cmd,data)
-
-def _round(x):
-    return round(x+0.5 if x >= 0 else x-0.5)
 
 from .shutter import Shutter
 from .switch import Switch

@@ -227,7 +227,10 @@ class Icepap(Controller):
         gevent.sleep(0.2)
 
     def home_state(self,axis):
-        return self.state(axis)
+        s = self.state(axis)
+        if s != 'READY' and s != 'POWEROFF':
+             s.set('MOVING')
+        return s
 
     def limit_search(self,axis,limit):
         cmd = "SRCH LIM" + ("+" if limit>0 else "-")

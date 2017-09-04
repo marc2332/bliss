@@ -404,6 +404,8 @@ class Icepap(Controller):
             if mode not in possibles_modes:
                 raise ValueError("mode %s is not managed, can only choose %s" % 
                                  (mode,possibles_modes))
+            if mode == "INPOS":
+                _ackcommand(self._cnx, "%d:POS INPOS 0" % address)
             _ackcommand(self._cnx,"%d:LTRACK %s" % (address,mode))
         
     def reset(self):

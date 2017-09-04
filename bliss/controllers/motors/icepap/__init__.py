@@ -345,8 +345,8 @@ class Icepap(Controller):
             _ackcommand(self._cnx,"%d:LISTDAT CLEAR" % address)
             return
 
-        dial_position = axis.user2dial(numpy.array(positions,dtype=numpy.float))
-        step_positions = numpy.array(dial_position * axis.steps_per_unit,
+        dial_positions = axis.user2dial(numpy.array(positions, dtype=numpy.float))
+        step_positions = numpy.array(dial_positions * axis.steps_per_unit,
                                      dtype=numpy.int32)
         _ackcommand(self._cnx,"%d:*LISTDAT %s DWORD" % 
                     (address, "CYCLIC" if cyclic else "NOCYCLIC"),
@@ -382,7 +382,7 @@ class Icepap(Controller):
         return positions,cyclic
 
     @object_method(types_info=(("bool","str"),"None"))
-    def activate_track(self,axis,activate,mode = None):
+    def activate_tracking(self,axis,activate,mode = None):
         """
         Activate/Deactivate the tracking position depending on
         activate flag

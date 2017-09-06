@@ -168,6 +168,7 @@ class musst(object):
         gpib_timeout -- communication timeout, default is 1s
         gpib_eos -- end of line termination
         musst_prg_root -- default path for musst programs
+        block_size -- default is 8k but can be lowered to 512 depend on gpib.
         channels: -- list of configured channels
         in this dictionary we need to have:
         label: -- the name alias for the channels
@@ -219,7 +220,8 @@ class musst(object):
         self.__last_file_load = Cache(self,'last_file_load')
         self.__last_template_replacement = Cache(self,"last_template")
         self.__prg_root = config_tree.get('musst_prg_root')
-
+        self.__block_size = config_tree.get('block_size',8*1024)
+        
         #Configured channels
         self._channels = dict()
         channels_list = config_tree.get('channels',list())
@@ -369,7 +371,7 @@ class musst(object):
         return data
 
     def _read_data(self,from_offset,to_offset,data):
-        BLOCK_SIZE = 8*1024
+        BLOCK_SIZE = self.__block_size
         total_int32 = to_offset - from_offset
         data_pt = data.flat
         dt = numpy.dtype(numpy.int32)

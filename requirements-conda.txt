@@ -23,6 +23,8 @@ tabulate
 sphinx >= 1.4
 pyserial == 2.7
 h5py
+msgpack-python
+pyzmq
 
 # Non-python requirements
 

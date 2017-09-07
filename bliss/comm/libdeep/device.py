@@ -22,10 +22,6 @@ from . import log
 from sockdeep import SockDeep
 from sldeep import SLDeep
 
-
-
-
-
 # End of Command character and other special ones
 COMM_EOL    = "\n"
 COMM_ACK    = "#"
@@ -56,22 +52,14 @@ BIN_16 = 2
 BIN_32 = 4
 BIN_64 = 8
 
-
 #
 #
 #
-class DeviceError(Exception):
+class DeepDeviceError(Exception):
+    pass
 
-  #
-  #
-  def __init__(self, device, message):
-	  Exception.__init__(self, device.hostname() + ': ' + message) 
-
-
-
-
-
-
+def DeviceError(device, message):
+    return DeepDeviceError(device.hostname() + ': ' + message)
 
 #
 #

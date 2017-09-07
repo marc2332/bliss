@@ -160,7 +160,7 @@ class DeepCmd():
             print "===>", cmd
             answer = self.device.ackcommand(cmd)
             print answer
-        except DeviceError, errmsg:
+        except DeepDeviceError, errmsg:
             print "Error:", errmsg
         except:
             raise

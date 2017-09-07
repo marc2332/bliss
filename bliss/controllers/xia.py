@@ -1,0 +1,95 @@
+"""Controller classes for XIA multichannel analyzer"""
+
+# Imports
+import zerorpc
+import msgpack_numpy
+
+from .mca import BaseMCA, Brand, DetectorType
+
+# Patch msgpack
+msgpack_numpy.patch()
+
+
+# Mercury controller
+
+class Mercury(BaseMCA):
+    """Controller class for the Mercury (a XIA MCA).
+    """
+
+    def __init__(self, name, config):
+        """Initialize the controller."""
+        super(Mercury, self).__init__(name, config)
+        self.url = config['url']
+        self.current_config = None
+        self.config_dir = config['configuration_directory']
+        self.default_config = config['default_configuration']
+        self.proxy = zerorpc.Client(self.url)
+        self.load_configuration(self.default_config)
+
+    # Configuration
+
+    def load_configuration(self, filename):
+        """Load the configuration.
+
+        The filename is relative to the configuration directory.
+        """
+        try:
+            config = '\\'.join((self.config_dir, filename))
+            self.proxy.init(config)
+            self.proxy.start_system()  # Takes about 5 seconds
+            self.run_checks()
+        except:
+            self.current_config = None
+            raise
+        else:
+            self.current_config = config
+
+    def run_checks(self):
+        """Make sure the configuration corresponds to a mercury.
+
+        - One and only one detector (hardware controller)
+        - One and only one acquisition module
+        - One and only one detector channel (a.k.a as element)
+        - By convention, the channel is numbered 0.
+        """
+        detectors = self.proxy.get_detectors()
+        assert len(detectors) == 1
+        modules = self.proxy.get_modules()
+        assert len(modules) == 1
+        channels = self.proxy.get_channels()
+        assert len(channels) == 1
+        assert channels == (0,)
+        grouped_channels = self.proxy.get_grouped_channels()
+        assert grouped_channels == ((0, ), )
+
+    @property
+    def connected(self):
+        return bool(self.current_config)
+
+    # Acquisition
+
+    def prepare_acquisition(self):
+        pass
+
+    def start_acquisition(self):
+        self.proxy.start_run(0)
+
+    def stop_acquisition(self):
+        self.proxy.stop_run(0)
+
+    def get_acquisition_status(self):
+        return ""
+
+    def get_acquisition_data(self):
+        return [self.proxy.get_run_data(0)]
+
+    # Infos
+
+    def get_detector_brand(self):
+        return Brand.XIA
+
+    def get_detector_type(self):
+        return DetectorType.MERCURY
+
+    def get_element_count(self):
+        return 1

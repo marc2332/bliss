@@ -1,5 +1,5 @@
 name: mercury-test
-module: mca
+module: xia
 class: Mercury
 plugin: bliss
 url: tcp://welisa.esrf.fr:8000

@@ -12,6 +12,7 @@ import re
 import logging
 import gevent
 from gevent import lock
+import numpy
 from .libnienet import EnetSocket
 from ..tcp import Socket
 from ..exceptions import CommunicationError, CommunicationTimeout
@@ -176,7 +177,48 @@ def TangoGpib(cnt,**keys) :
     from PyTango.client import Object
     return Object(keys.pop('url'), green_mode=GreenMode.Gevent)
 
+class TangoDeviceServer:
+    def __init__(self,cnt,**keys):
+        self._logger = logging.getLogger(str(self))
+        self._debug = self._logger.debug
+        url = keys.pop('url')
+        url_tocken = 'tango_gpib_device_server://'
+        if not url.startswith(url_tocken):
+            raise GpibError("Tango_Gpib_Device_Server: url is not valid (%s)" % url)
+        self._tango_url = url[len(url_tocken):]
+        self.name = self._tango_url
+        self._proxy = None
+        self._gpib_kwargs = keys
+        self._pad = keys['pad']
+        self._sad = keys.get('sad',0)
+        self._pad_sad = self._pad + (self._sad << 8)
+        
+    def init(self):
+        self._debug("TangoDeviceServer::init()")
+        import PyTango
+        if self._proxy is None:
+            self._proxy = PyTango.DeviceProxy(self._tango_url)
+        
+    def close(self):
+        self._proxy = None
 
+    def ibwrt(self, cmd):
+        self._debug("Sent: %s" % cmd)
+        ncmd = numpy.zeros(4 + len(cmd),dtype=numpy.uint8)
+        ncmd[3] = self._pad
+        ncmd[2] = self._sad
+        ncmd[4:] = [ord(x) for x in cmd]
+        self._proxy.SendBinData(ncmd)
+
+    def ibrd(self, length) :
+        self._proxy.SetTimeout([self._pad_sad,self._gpib_kwargs.get('tmo',12)])
+        msg = self._proxy.ReceiveBinData([self._pad_sad,length])
+        self._debug("Received: %s" % msg)
+        return msg.tostring()
+
+    def _raw(self, length):
+        return self.ibrd(length)
+    
 class LocalGpibError(GpibError):
     pass
 
@@ -246,7 +288,7 @@ class Gpib:
     interface = Gpib(url="enet://gpibid00a.esrf.fr", pad=15)
     '''
 
-    ENET, TANGO, PROLOGIX, LOCAL = range(4)
+    ENET, TANGO, TANGO_DEVICE_SERVER, PROLOGIX, LOCAL = range(5)
     READ_BLOCK_SIZE = 64 * 1024
 
     def __init__(self,url = None,pad = 0,sad = 0,timeout = 1.,tmo = 13,
@@ -280,6 +322,9 @@ class Gpib:
                 self._raw_handler.init()
             elif self.gpib_type == self.TANGO:
                 self._raw_handler = TangoGpib(self,**self._gpib_kwargs)
+            elif self.gpib_type == self.TANGO_DEVICE_SERVER:
+                self._raw_handler = TangoDeviceServer(self,**self._gpib_kwargs)
+                self._raw_handler.init()
             elif self.gpib_type == self.LOCAL:
                 self._raw_handler = LocalGpib(self,**self._gpib_kwargs)
                 self._raw_handler.init()
@@ -367,6 +412,8 @@ class Gpib:
             return self.PROLOGIX
         elif url_lower.startswith("tango://") :
             return self.TANGO
+        elif url_lower.startswith("tango_gpib_device_server://"):
+            return self.TANGO_DEVICE_SERVER
         elif url_lower.startswith("local://") :
             return self.LOCAL
         else:

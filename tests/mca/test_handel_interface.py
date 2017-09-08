@@ -502,7 +502,7 @@ def test_get_handel_version(interface):
 
 
 def test_get_config_files(interface):
-    assert interface.get_config_files(".") == ["./xmap.ini"]
+    assert interface.get_config_files(".") == ["./scripts/handel/mercury.ini"]
 
 
 def test_get_config(interface):

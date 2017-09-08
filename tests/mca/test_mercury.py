@@ -14,18 +14,28 @@ def test_get_mercury_from_config(beacon, mocker):
     client.get_modules.return_value = ['module1']
     client.get_channels.return_value = (0,)
     client.get_grouped_channels.return_value = ((0, ), )
+    client.get_config_files.return_value = ['default.ini']
+    client.get_config.return_value = {'my': 'config'}
 
     # Instantiating the mercury
     mercury = beacon.get('mercury-test')
     m.assert_called_once_with('tcp://welisa.esrf.fr:8000')
     client.init.assert_called_once_with(
-        'C:\\\\blissadm\\\\mercury\\default.ini')
+        'C:\\\\blissadm\\\\mercury', 'default.ini')
     assert mercury.connected
 
     # Infos
     assert mercury.get_detector_brand() == Brand.XIA
     assert mercury.get_detector_type() == DetectorType.MERCURY
     assert mercury.get_element_count() == 1
+
+    # Configuration
+    assert mercury.get_available_configurations() == ['default.ini']
+    client.get_config_files.assert_called_once_with(
+        'C:\\\\blissadm\\\\mercury')
+    assert mercury.get_configuration() == {'my': 'config'}
+    client.get_config.assert_called_once_with(
+        'C:\\\\blissadm\\\\mercury', 'default.ini')
 
     # Acquisition
     client.get_run_data.return_value = [3, 2, 1]

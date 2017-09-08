@@ -72,8 +72,8 @@ def to_buffer_id(bid):
 # Initializing handel
 
 
-def init(filename):
-    filename = to_bytes(filename)
+def init(*path):
+    filename = to_bytes(os.path.join(*path))
     code = handel.xiaInit(filename)
     check_error(code)
 
@@ -202,14 +202,14 @@ def buffer_done(channel, buffer_id):
 # System
 
 
-def load_system(filename):
-    filename = to_bytes(filename)
+def load_system(*path):
+    filename = to_bytes(os.path.join(*path))
     code = handel.xiaLoadSystem(b"handel_ini", filename)
     check_error(code)
 
 
-def save_system(filename):
-    filename = to_bytes(filename)
+def save_system(*path):
+    filename = to_bytes(os.path.join(*path))
     code = handel.xiaSaveSystem(b"handel_ini", filename)
     check_error(code)
 
@@ -449,8 +449,9 @@ def get_handel_version():
 def get_config_files(path):
     """Return all the ini files in path (including subdirectories)."""
     ext = b".ini" if isinstance(path, bytes) else ".ini"
+    sep = b"/" if isinstance(path, bytes) else "/"
     return [
-        os.path.join(dp, f).lstrip(path).lstrip("/")
+        os.path.join(dp, f).lstrip(path).lstrip(sep)
         for dp, dn, fn in os.walk(path)
         for f in fn
         if f.endswith(ext)

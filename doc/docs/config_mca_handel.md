@@ -88,6 +88,20 @@ The tests are run for python 2.7 and 3.6
 The coverage report are published [here](http://bliss.gitlab-pages.esrf.fr/python-handel/).
 
 
+Scripts
+-------
+
+A few scripts are provided:
+
+- `parse_error_header.py` which parses `handel_errors.h` and output a dictionnary of handel errors
+
+- `handel-server` which servers the handel interface over the network using zerorpc. It requires:
+  * python3
+  * handel
+  * zerorpc
+  * msgpack_numpy
+
+
 TODO
 ----
 
@@ -99,6 +113,7 @@ TODO
   * get_module_channels(alias)
   * get_channels()
 
+- Improve `handel-server` using argparse.
 
 Contact
 -------

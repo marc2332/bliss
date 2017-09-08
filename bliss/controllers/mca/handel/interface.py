@@ -446,8 +446,9 @@ def get_handel_version():
 # Files
 
 
-def get_config_files(path):
+def get_config_files(*path):
     """Return all the ini files in path (including subdirectories)."""
+    path = os.path.join(*path)
     ext = b".ini" if isinstance(path, bytes) else ".ini"
     sep = b"/" if isinstance(path, bytes) else "/"
     return [
@@ -458,8 +459,8 @@ def get_config_files(path):
     ]
 
 
-def get_config(path, filename):
+def get_config(*path):
     """Read and return the given config file as a dictionary."""
-    filename = os.path.join(path, filename)
+    filename = os.path.join(*path)
     with open(filename) as f:
         return parse_xia_ini_file(f.read())

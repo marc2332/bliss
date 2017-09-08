@@ -14,36 +14,40 @@ def parse_xia_ini_file(content):
             pass
         # New section
         elif line.startswith("[") and line.endswith("]"):
+            if item is not None:
+                msg = "New section within section {} item {}"
+                raise ValueError(msg.format(section, item))
+            item = None
             section = line[1:-1].strip()
             dct[section] = []
         # New item
         elif line.startswith("START #"):
+            if item is not None:
+                msg = "New item within section {} item {}"
+                raise ValueError(msg.format(section, item))
             item = int(line.split("#")[1])
-            if item != len(dct[section]):
-                msg = "Corrupted start (section {}, {} != {})"
-                msg = msg.format(section, item, len(dct[section]))
-                raise ValueError(msg)
             if section is None:
                 msg = "Item {} outside of section"
                 raise ValueError(msg.format(item))
+            if item != len(dct[section]):
+                msg = "Corrupted start (section {}, {} should be {})"
+                msg = msg.format(section, item, len(dct[section]))
+                raise ValueError(msg)
             dct[section].append(OrderedDict())
         # End item
         elif line.startswith("END #"):
+            if item is None:
+                msg = "End markup outside of item"
+                raise ValueError(msg)
             item = int(line.split("#")[1])
             if item != len(dct[section]) - 1:
-                msg = "Corrupted end (section {}, {} != {})"
+                msg = "Corrupted end (section {}, {} should be {})"
                 msg = msg.format(section, item, len(dct[section]) - 1)
                 raise ValueError(msg)
-            if section is None:
-                msg = "Item {} outside of section"
-                raise ValueError(msg.format(item))
             item = None
         # New pair
         elif "=" in line:
             key, value = map(str.strip, line.split("="))
-            if section is None:
-                msg = "Key/value pair {} outside of section"
-                raise ValueError(msg.format((key, value)))
             if item is None:
                 msg = "Key/value pair {} outside of item"
                 raise ValueError(msg.format((key, value)))

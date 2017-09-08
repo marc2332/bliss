@@ -56,10 +56,10 @@ END #1
 
 
 def test_invalid_line():
-    content = "hello world!"
+    content = "hello!"
     with pytest.raises(ValueError) as ctx:
         parse(content)
-    assert "Line not recognized" in str(ctx.value)
+    assert "Line not recognized: 'hello!'" in str(ctx.value)
 
 
 def test_item_outside_of_section():

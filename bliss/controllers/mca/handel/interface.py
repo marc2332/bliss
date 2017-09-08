@@ -450,14 +450,15 @@ def get_config_files(path):
     """Return all the ini files in path (including subdirectories)."""
     ext = b".ini" if isinstance(path, bytes) else ".ini"
     return [
-        os.path.join(dp, f)
+        os.path.join(dp, f).lstrip(path).lstrip("/")
         for dp, dn, fn in os.walk(path)
         for f in fn
         if f.endswith(ext)
     ]
 
 
-def get_config(filename):
+def get_config(path, filename):
     """Read and return the given config file as a dictionary."""
+    filename = os.path.join(path, filename)
     with open(filename) as f:
         return parse_xia_ini_file(f.read())

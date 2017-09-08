@@ -3,12 +3,12 @@
 from __future__ import absolute_import
 
 import os
-import configparser
 
 import numpy
 
 from .error import check_error
 from ._cffi import handel, ffi
+from .parser import parse_xia_ini_file
 
 __all__ = [
     "init",
@@ -448,15 +448,16 @@ def get_handel_version():
 
 def get_config_files(path):
     """Return all the ini files in path (including subdirectories)."""
+    ext = b".ini" if isinstance(path, bytes) else ".ini"
     return [
         os.path.join(dp, f)
         for dp, dn, fn in os.walk(path)
         for f in fn
-        if f.endswith(".ini")
+        if f.endswith(ext)
     ]
 
 
 def get_config(filename):
     """Read and return the given config file as a dictionary."""
     with open(filename) as f:
-        return f.read()
+        return parse_xia_ini_file(f.read())

@@ -22,7 +22,6 @@ Run requirements:
 
 - cffi
 - numpy
-- configparser
 
 Test requirements:
 

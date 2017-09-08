@@ -503,11 +503,12 @@ def test_get_handel_version(interface):
 
 def test_get_config_files(interface):
     assert interface.get_config_files(".") == ["./scripts/handel/mercury.ini"]
+    assert interface.get_config_files(b".") == [b"./scripts/handel/mercury.ini"]
 
 
 def test_get_config(interface):
     filename = interface.get_config_files(".")[0]
     conf = interface.get_config(filename)
-    assert "alias = detector1" in conf
+    assert conf["detector definitions"][0]["alias"] == "detector1"
     with pytest.raises(IOError):
         interface.get_config("i_dont_exist.ini")

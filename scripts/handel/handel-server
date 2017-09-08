@@ -1,0 +1,65 @@
+#!/usr/bin/env python3
+
+"""Serve the handel interface over the network using zerorpc.
+
+This requires python3, handel, zerorpc and msgpack_numpy.
+
+Usage:
+
+    $ ./handel-server 8888
+    Serving handel on tcp://0.0.0.0:8888 ... 
+
+Test on the client machine using:
+
+    $ zerorpc tcp://hostname:8888 -?
+"""
+
+# Imports
+
+import sys
+import functools
+
+import zerorpc
+import msgpack_numpy
+
+import bliss.controllers.mca.handel.interface as hi
+
+
+# Patching
+
+msgpack_numpy.patch()
+print = functools.partial(print, flush=True)
+
+
+# Run server
+
+def run(bind='0.0.0.0', port=8000):
+    access = "tcp://{}:{}".format(bind, port)
+    try:
+        hi.init_handel()
+        server = zerorpc.Server(hi)
+        server.bind(access)
+        print(f'Serving handel on {access} ...')
+        try:
+            server.run()
+        except KeyboardInterrupt:
+            print('Interrupted.')
+        finally:
+            server.close()
+    finally:
+        hi.exit()
+
+
+# Main function 
+
+def main(args=None):
+    if args is None:
+        args = sys.argv
+    if len(args) > 1:
+        run(port=int(args[1]))
+    else:
+        run()
+
+
+if __name__ == '__main__':
+    main()

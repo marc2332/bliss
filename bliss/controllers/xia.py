@@ -34,15 +34,34 @@ class Mercury(BaseMCA):
         The filename is relative to the configuration directory.
         """
         try:
-            config = '\\'.join((self.config_dir, filename))
-            self.proxy.init(config)
+            self.proxy.init(self.config_dir, filename)
             self.proxy.start_system()  # Takes about 5 seconds
             self.run_checks()
         except:
             self.current_config = None
             raise
         else:
-            self.current_config = config
+            self.current_config = filename
+
+    def get_available_configurations(self):
+        """List all available configurations in the configuration directory.
+
+        The returned filenames can be fetched for inspection using the
+        get_configuration method.
+        """
+        return self.proxy.get_config_files(self.config_dir)
+
+    def get_configuration(self, filename=None):
+        """Fetch the configuration of corresponding to the given filename.
+
+        The returned object is an ordered dict of <section_name: list> where
+        each item in the list is an ordered dict of <key: value>.
+
+        It the filename is ommited, it fetches the current configuration.
+        """
+        if filename is None:
+            filename = self.current_config
+        return self.proxy.get_config(self.config_dir, filename)
 
     def run_checks(self):
         """Make sure the configuration corresponds to a mercury.

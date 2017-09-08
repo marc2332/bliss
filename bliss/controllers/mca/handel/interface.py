@@ -337,11 +337,13 @@ def get_grouped_channels():
 
 def get_channels():
     """Return all the enabled channels."""
-    return sorted(
-        channel
-        for channels in get_grouped_channels()
-        for channel in channels
-        if channel != -1
+    return tuple(
+        sorted(
+            channel
+            for channels in get_grouped_channels()
+            for channel in channels
+            if channel != -1
+        )
     )
 
 

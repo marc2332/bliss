@@ -402,7 +402,7 @@ def test_get_module_from_channel(interface):
     arg = m.call_args[0][1]
     m.assert_called_once_with(1, arg)
     # Make sure errors have been checked
-    interface.check_error.assert_called_with(0)
+    interface.check_error.assert_called_once_with(0)
 
 
 def test_get_module_type(interface):
@@ -417,7 +417,7 @@ def test_get_module_type(interface):
     arg = m.call_args[0][2]
     m.assert_called_once_with(b"module1", b"module_type", arg)
     # Make sure errors have been checked
-    interface.check_error.assert_called_with(0)
+    interface.check_error.assert_called_once_with(0)
 
 
 def test_get_module_interface(interface):
@@ -431,6 +431,104 @@ def test_get_module_interface(interface):
     assert interface.get_module_interface("module1") == "usb2"
     arg = m.call_args[0][2]
     m.assert_called_once_with(b"module1", b"interface", arg)
+    # Make sure errors have been checked
+    interface.check_error.assert_called_once_with(0)
+
+
+def test_get_module_number_of_channels(interface):
+    m = interface.handel.xiaGetModuleItem
+
+    def side_effect(a, b, c):
+        c[0] = 4
+        return 0
+
+    m.side_effect = side_effect
+    assert interface.get_module_number_of_channels("module1") == 4
+    arg = m.call_args[0][2]
+    m.assert_called_once_with(b"module1", b"number_of_channels", arg)
+    # Make sure errors have been checked
+    interface.check_error.assert_called_once_with(0)
+
+
+def test_get_module_channel_at(interface):
+    m = interface.handel.xiaGetModuleItem
+
+    def side_effect(a, b, c):
+        c[0] = 3
+        return 0
+
+    m.side_effect = side_effect
+    assert interface.get_module_channel_at("module1", 2) == 3
+    arg = m.call_args[0][2]
+    m.assert_called_once_with(b"module1", b"channel2_alias", arg)
+    # Make sure errors have been checked
+    interface.check_error.assert_called_once_with(0)
+
+
+def test_get_module_channels(interface):
+    m = interface.handel.xiaGetModuleItem
+    results = [3, 2, 1, 0, 4]
+
+    def side_effect(a, b, c):
+        c[0] = results.pop()
+        return 0
+
+    m.side_effect = side_effect
+    assert interface.get_module_channels("module1") == (0, 1, 2, 3)
+    # Make sure errors have been checked
+    interface.check_error.assert_called_with(0)
+
+
+def test_get_grouped_channels(interface):
+    m1 = interface.handel.xiaGetNumModules
+    m2 = interface.handel.xiaGetModules
+    m3 = interface.handel.xiaGetModuleItem
+    results = [3, 2, 1, 0, 4, 7, 6, 5, 4, 4]
+
+    def side_effect_1(arg):
+        arg[0] = 2
+        return 0
+
+    def side_effect_2(lst):
+        lst[0][0:5] = b"name1"
+        lst[1][0:5] = b"name2"
+        return 0
+
+    def side_effect_3(a, b, c):
+        c[0] = results.pop()
+        return 0
+
+    m1.side_effect = side_effect_1
+    m2.side_effect = side_effect_2
+    m3.side_effect = side_effect_3
+    assert interface.get_grouped_channels() == ((4, 5, 6, 7), (0, 1, 2, 3))
+    # Make sure errors have been checked
+    interface.check_error.assert_called_with(0)
+
+
+def test_get_channels(interface):
+    m1 = interface.handel.xiaGetNumModules
+    m2 = interface.handel.xiaGetModules
+    m3 = interface.handel.xiaGetModuleItem
+    results = [3, 2, 1, 0, 4, 7, 6, 5, 4, 4]
+
+    def side_effect_1(arg):
+        arg[0] = 2
+        return 0
+
+    def side_effect_2(lst):
+        lst[0][0:5] = b"name1"
+        lst[1][0:5] = b"name2"
+        return 0
+
+    def side_effect_3(a, b, c):
+        c[0] = results.pop()
+        return 0
+
+    m1.side_effect = side_effect_1
+    m2.side_effect = side_effect_2
+    m3.side_effect = side_effect_3
+    assert interface.get_channels() == (0, 1, 2, 3, 4, 5, 6, 7)
     # Make sure errors have been checked
     interface.check_error.assert_called_with(0)
 

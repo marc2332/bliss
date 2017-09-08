@@ -104,15 +104,8 @@ A few scripts are provided:
 TODO
 ----
 
-- Parsing of the weird XIA INI file format.
-
-- Missing tests:
-  * get_module_number_of_channels(alias)
-  * get_module_channel_at(alias, index)
-  * get_module_channels(alias)
-  * get_channels()
-
 - Improve `handel-server` using argparse.
+
 
 Contact
 -------

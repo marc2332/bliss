@@ -92,9 +92,9 @@ Scripts
 
 A few scripts are provided:
 
-- `parse_error_header.py` which parses `handel_errors.h` and output a dictionnary of handel errors
+- `parse_error_header.py` which parses `handel_errors.h` and output a python dictionnary of handel errors
 
-- `handel-server` which servers the handel interface over the network using zerorpc. It requires:
+- `handel-server` which serves the handel interface over the network using zerorpc. It requires:
   * python3
   * handel
   * zerorpc

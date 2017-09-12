@@ -22,18 +22,18 @@ def test_get_mercury_from_config(beacon, mocker):
     m.assert_called_once_with('tcp://welisa.esrf.fr:8000')
     client.init.assert_called_once_with(
         'C:\\\\blissadm\\\\mercury', 'default.ini')
-    assert mercury.connected
+    assert mercury.configured
 
     # Infos
-    assert mercury.get_detector_brand() == Brand.XIA
-    assert mercury.get_detector_type() == DetectorType.MERCURY
-    assert mercury.get_element_count() == 1
+    assert mercury.detector_brand == Brand.XIA
+    assert mercury.detector_type == DetectorType.MERCURY
+    assert mercury.element_count == 1
 
     # Configuration
-    assert mercury.get_available_configurations() == ['default.ini']
+    assert mercury.available_configurations == ['default.ini']
     client.get_config_files.assert_called_once_with(
         'C:\\\\blissadm\\\\mercury')
-    assert mercury.get_configuration() == {'my': 'config'}
+    assert mercury.current_configuration_values == {'my': 'config'}
     client.get_config.assert_called_once_with(
         'C:\\\\blissadm\\\\mercury', 'default.ini')
 
@@ -48,7 +48,7 @@ def test_get_mercury_from_config(beacon, mocker):
     client.init.side_effect = IOError('File not found!')
     with pytest.raises(IOError):
         mercury.load_configuration('i-dont-exist')
-    assert not mercury.connected
+    assert not mercury.configured
 
 
 def test_get_mercury_from_wrong_config(beacon, mocker):

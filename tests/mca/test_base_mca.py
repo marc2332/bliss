@@ -11,28 +11,43 @@ def test_mca_enums():
 
 def test_base_mca():
 
-    class IncompleteMCA(BaseMCA):
+    # No initialize_attributes method
+    class IncompleteMCA1(BaseMCA):
         pass
+
+    with pytest.raises(NotImplementedError):
+        IncompleteMCA1('incomplete', {})
+
+    # No initialize_hardware method
+    class IncompleteMCA2(BaseMCA):
+
+        def initialize_attributes(self):
+            pass
+
+    with pytest.raises(NotImplementedError):
+        IncompleteMCA2('incomplete', {})
+
+    # Missing methods and properties
+    class IncompleteMCA3(BaseMCA):
+
+        def initialize_attributes(self):
+            pass
+
+        def initialize_hardware(self):
+            pass
 
     # Create an incomplete mca
     config = {}
-    mca = IncompleteMCA('incomplete', config)
+    mca = IncompleteMCA3('incomplete', config)
     assert mca.name == 'incomplete'
-    assert mca.config is config
+    assert mca._config is config
 
     # Method dict
     methods = {
-        mca.get_detector_brand: (),
-        mca.get_detector_type: (),
-        mca.get_element_count: (),
-        mca.get_supported_preset_modes: (),
+        mca.finalize: (),
         mca.set_preset_mode: ('some_mode',),
-        mca.get_supported_acquisition_modes: (),
         mca.set_acquisition_mode: ('some_mode',),
-        mca.get_supported_trigger_mode: (),
         mca.set_trigger_mode: ('some_mode',),
-        mca.has_calibration: (),
-        mca.get_calibration_type: (),
         mca.set_spectrum_range: ('some', 'range'),
         mca.prepare_acquisition: (),
         mca.start_acquisition: (),
@@ -45,10 +60,31 @@ def test_base_mca():
         with pytest.raises(NotImplementedError):
             method(*args)
 
+    # Property list
+    properties = [
+        'detector_brand',
+        'detector_type',
+        'element_count',
+        'supported_preset_modes',
+        'supported_acquisition_modes',
+        'supported_trigger_modes',
+        'calibration_type']
+
+    # Test properties
+    for prop in properties:
+        with pytest.raises(NotImplementedError):
+            getattr(mca, prop)
+
 
 def test_base_mca_logic(mocker):
 
     class TestMCA(BaseMCA):
+
+        def initialize_attributes(self):
+            pass
+
+        def initialize_hardware(self):
+            pass
 
         def prepare_acquisition(self):
             pass
@@ -69,7 +105,7 @@ def test_base_mca_logic(mocker):
     config = {}
     mca = TestMCA('incomplete', config)
     assert mca.name == 'incomplete'
-    assert mca.config is config
+    assert mca._config is config
 
     # Run a single acquisition
     sleep = mocker.patch('time.sleep')

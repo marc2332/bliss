@@ -16,17 +16,61 @@ class Mercury(BaseMCA):
     """Controller class for the Mercury (a XIA MCA).
     """
 
-    def __init__(self, name, config):
-        """Initialize the controller."""
-        super(Mercury, self).__init__(name, config)
-        self.url = config['url']
-        self.current_config = None
-        self.config_dir = config['configuration_directory']
-        self.default_config = config['default_configuration']
-        self.proxy = zerorpc.Client(self.url)
-        self.load_configuration(self.default_config)
+    # Life cycle
+
+    def initialize_attributes(self):
+        self._proxy = None
+        self._current_config = None
+        self._url = self._config['url']
+        self._config_dir = self._config['configuration_directory']
+        self._default_config = self._config['default_configuration']
+
+    def initialize_hardware(self):
+        self._proxy = zerorpc.Client(self._url)
+        self.load_configuration(self._default_config)
+
+    def finalize(self):
+        self._proxy.close()
 
     # Configuration
+
+    @property
+    def current_configuration(self):
+        """The current configuration filename loaded by the hardware."""
+        return self._current_config
+
+    @property
+    def configured(self):
+        """Whether the hardware is properly configured or not."""
+        return bool(self._current_config)
+
+    @property
+    def available_configurations(self):
+        """List of all available configurations in the configuration directory.
+
+        The returned filenames can be fetched for inspection using the
+        get_configuration method.
+        """
+        return self._proxy.get_config_files(self._config_dir)
+
+    @property
+    def current_configuration_values(self):
+        """The current configuration values.
+
+        The returned object is an ordered dict of <section_name: list> where
+        each item in the list is an ordered dict of <key: value>.
+        """
+        if not self._current_config:
+            return None
+        return self.fetch_configuration_values(self._current_config)
+
+    def fetch_configuration_values(self, filename):
+        """Fetch the configuration values corresponding to the given filename.
+
+        The returned object is an ordered dict of <section_name: list> where
+        each item in the list is an ordered dict of <key: value>.
+        """
+        return self._proxy.get_config(self._config_dir, filename)
 
     def load_configuration(self, filename):
         """Load the configuration.
@@ -34,36 +78,16 @@ class Mercury(BaseMCA):
         The filename is relative to the configuration directory.
         """
         try:
-            self.proxy.init(self.config_dir, filename)
-            self.proxy.start_system()  # Takes about 5 seconds
-            self.run_checks()
+            self._proxy.init(self._config_dir, filename)
+            self._proxy.start_system()  # Takes about 5 seconds
+            self._run_checks()
         except:
-            self.current_config = None
+            self._current_config = None
             raise
         else:
-            self.current_config = filename
+            self._current_config = filename
 
-    def get_available_configurations(self):
-        """List all available configurations in the configuration directory.
-
-        The returned filenames can be fetched for inspection using the
-        get_configuration method.
-        """
-        return self.proxy.get_config_files(self.config_dir)
-
-    def get_configuration(self, filename=None):
-        """Fetch the configuration of corresponding to the given filename.
-
-        The returned object is an ordered dict of <section_name: list> where
-        each item in the list is an ordered dict of <key: value>.
-
-        It the filename is ommited, it fetches the current configuration.
-        """
-        if filename is None:
-            filename = self.current_config
-        return self.proxy.get_config(self.config_dir, filename)
-
-    def run_checks(self):
+    def _run_checks(self):
         """Make sure the configuration corresponds to a mercury.
 
         - One and only one detector (hardware controller)
@@ -71,19 +95,15 @@ class Mercury(BaseMCA):
         - One and only one detector channel (a.k.a as element)
         - By convention, the channel is numbered 0.
         """
-        detectors = self.proxy.get_detectors()
+        detectors = self._proxy.get_detectors()
         assert len(detectors) == 1
-        modules = self.proxy.get_modules()
+        modules = self._proxy.get_modules()
         assert len(modules) == 1
-        channels = self.proxy.get_channels()
+        channels = self._proxy.get_channels()
         assert len(channels) == 1
         assert channels == (0,)
-        grouped_channels = self.proxy.get_grouped_channels()
+        grouped_channels = self._proxy.get_grouped_channels()
         assert grouped_channels == ((0, ), )
-
-    @property
-    def connected(self):
-        return bool(self.current_config)
 
     # Acquisition
 
@@ -91,24 +111,27 @@ class Mercury(BaseMCA):
         pass
 
     def start_acquisition(self):
-        self.proxy.start_run(0)
+        self._proxy.start_run(0)
 
     def stop_acquisition(self):
-        self.proxy.stop_run(0)
+        self._proxy.stop_run(0)
 
     def get_acquisition_status(self):
         return ""
 
     def get_acquisition_data(self):
-        return [self.proxy.get_run_data(0)]
+        return [self._proxy.get_run_data(0)]
 
     # Infos
 
-    def get_detector_brand(self):
+    @property
+    def detector_brand(self):
         return Brand.XIA
 
-    def get_detector_type(self):
+    @property
+    def detector_type(self):
         return DetectorType.MERCURY
 
-    def get_element_count(self):
+    @property
+    def element_count(self):
         return 1

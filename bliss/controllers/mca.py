@@ -35,36 +35,61 @@ PresetMode = enum.Enum(
 class BaseMCA(object):
     """Generic MCA controller."""
 
+    # Life cycle
+
     def __init__(self, name, config):
-        self.name = name
-        self.config = config
+        self._name = name
+        self._config = config
+        self.initialize_attributes()
+        self.initialize_hardware()
+
+    def initialize_attributes(self):
+        raise NotImplementedError
+
+    def initialize_hardware(self):
+        raise NotImplementedError
+
+    def finalize(self):
+        raise NotImplementedError
+
+    # General properties
+
+    @property
+    def name(self):
+        return self._name
 
     # Information
 
-    def get_detector_brand(self):
+    @property
+    def detector_brand(self):
         raise NotImplementedError
 
-    def get_detector_type(self):
+    @property
+    def detector_type(self):
         raise NotImplementedError
 
-    def get_element_count(self):
+    @property
+    def element_count(self):
         raise NotImplementedError
 
     # Modes
 
-    def get_supported_preset_modes(self):
+    @property
+    def supported_preset_modes(self):
         raise NotImplementedError
 
     def set_preset_mode(self, mode, *args):
         raise NotImplementedError
 
-    def get_supported_acquisition_modes(self):
+    @property
+    def supported_acquisition_modes(self):
         raise NotImplementedError
 
     def set_acquisition_mode(self, mode):
         raise NotImplementedError
 
-    def get_supported_trigger_mode(self):
+    @property
+    def supported_trigger_modes(self):
         raise NotImplementedError
 
     def set_trigger_mode(self, mode):
@@ -72,10 +97,8 @@ class BaseMCA(object):
 
     # Settings
 
-    def has_calibration(self):
-        raise NotImplementedError
-
-    def get_calibration_type(self):
+    @property
+    def calibration_type(self):
         raise NotImplementedError
 
     def set_spectrum_range(self, first, last):

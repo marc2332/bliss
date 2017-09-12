@@ -610,7 +610,7 @@ def __create_tango_class(obj, klass):
             def write(self, attr):
                 method = getattr(self.channel_object, "set_" + attr.get_name())
                 value = attr.get_write_value()
-                method(value)
+                get_worker().execute(method, value)
             setattr(new_class, "write_%s" % name, write)
 
         write_dict = {'r': 'READ', 'w': 'WRITE', 'rw': 'READ_WRITE'}

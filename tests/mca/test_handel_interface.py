@@ -159,7 +159,7 @@ def test_stop_run(interface):
     interface.check_error.assert_called_once_with(0)
 
 
-def test_get_run_data_length(interface):
+def test_get_spectrum_length(interface):
     m = interface.handel.xiaGetRunData
 
     def side_effect(channel, dtype, arg):
@@ -167,7 +167,7 @@ def test_get_run_data_length(interface):
         return 0
 
     m.side_effect = side_effect
-    assert interface.get_run_data_length(1) == 10
+    assert interface.get_spectrum_length(1) == 10
     m.assert_called_once()
     arg = m.call_args[0][2]
     m.assert_called_once_with(1, b"mca_length", arg)
@@ -175,7 +175,7 @@ def test_get_run_data_length(interface):
     interface.check_error.assert_called_once_with(0)
 
 
-def test_get_run_data(interface):
+def test_get_spectrum(interface):
     m = interface.handel.xiaGetRunData
 
     def side_effect(channel, dtype, arg):
@@ -190,7 +190,7 @@ def test_get_run_data(interface):
 
     m.side_effect = side_effect
     expected = numpy.array(range(10), dtype="uint32")
-    diff = interface.get_run_data(1) == expected
+    diff = interface.get_spectrum(1) == expected
     assert diff.all()
     m.assert_called()
     arg = m.call_args[0][2]
@@ -536,17 +536,6 @@ def test_get_channels(interface):
 # Parameters
 
 
-def test_set_acquisition_value(interface):
-    m = interface.handel.xiaSetAcquisitionValues
-    m.return_value = 0
-    assert interface.set_acquisition_value(1, "test", 2.3) is None
-    arg = m.call_args[0][2]
-    m.assert_called_once_with(1, b"test", arg)
-    assert arg[0] == 2.3
-    # Make sure errors have been checked
-    interface.check_error.assert_called_once_with(0)
-
-
 def test_get_acquistion_value(interface):
     m = interface.handel.xiaGetAcquisitionValues
 
@@ -555,30 +544,72 @@ def test_get_acquistion_value(interface):
         return 0
 
     m.side_effect = side_effect
-    assert interface.get_acquisition_value(1, "test") == 2.3
+    assert interface.get_acquisition_value("test", channel=1) == 2.3
     arg = m.call_args[0][2]
     m.assert_called_once_with(1, b"test", arg)
     # Make sure errors have been checked
     interface.check_error.assert_called_once_with(0)
 
 
+def test_set_acquisition_value(interface):
+    m = interface.handel.xiaSetAcquisitionValues
+    m.return_value = 0
+
+    # Single channel
+    assert interface.set_acquisition_value("test", 2.3, channel=1) is None
+    arg = m.call_args[0][2]
+    m.assert_called_once_with(1, b"test", arg)
+    assert arg[0] == 2.3
+
+    # Make sure errors have been checked
+    interface.check_error.assert_called_once_with(0)
+    m.reset_mock()
+
+    # All channels
+    assert interface.set_acquisition_value("test", 2.3) is None
+    arg = m.call_args[0][2]
+    m.assert_called_once_with(-1, b"test", arg)
+    assert arg[0] == 2.3
+
+
 def test_remove_acquisition_value(interface):
     m = interface.handel.xiaRemoveAcquisitionValues
     m.return_value = 0
-    assert interface.remove_acquisition_value(1, "test") is None
+
+    # Single channel
+    assert interface.remove_acquisition_value("test", channel=1) is None
     m.assert_called_once_with(1, b"test")
+
     # Make sure errors have been checked
     interface.check_error.assert_called_once_with(0)
+    m.reset_mock()
+
+    # Multiple channels
+    assert interface.remove_acquisition_value("test") is None
+    m.assert_called_once_with(-1, b"test")
 
 
 def test_apply_acquisition_values(interface):
     m = interface.handel.xiaBoardOperation
     m.return_value = 0
-    assert interface.apply_acquisition_values(1) is None
+
+    # Single channel
+    assert interface.apply_acquisition_values(channel=1) is None
     dummy = m.call_args[0][2]
     m.assert_called_once_with(1, b"apply", dummy)
+
     # Make sure errors have been checked
     interface.check_error.assert_called_once_with(0)
+    m.reset_mock()
+
+    # Multiple channel
+    with mock.patch(
+        "bliss.controllers.mca.handel.interface.get_grouped_channels"
+    ) as m2:
+        m2.return_value = ((0,),)
+        assert interface.apply_acquisition_values() is None
+        dummy = m.call_args[0][2]
+        m.assert_called_once_with(0, b"apply", dummy)
 
 
 # Debugging

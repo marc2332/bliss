@@ -20,8 +20,13 @@ __all__ = [
     "get_detector_from_channel",
     "start_run",
     "stop_run",
-    "get_run_data_length",
-    "get_run_data",
+    "get_spectrum_length",
+    "get_spectrum",
+    "get_spectrums",
+    "is_channel_running",
+    "is_running",
+    "get_module_statistics",
+    "get_statistics",
     "get_buffer_length",
     "get_buffer_full",
     "get_buffer",
@@ -131,30 +136,77 @@ def get_detector_from_channel(channel):
 # Run control
 
 
-def start_run(channel, resume=False):
+def start_run(channel=None, resume=False):
+    if channel is None:
+        channel = -1  # All channels
     code = handel.xiaStartRun(channel, resume)
     check_error(code)
 
 
-def stop_run(channel):
+def stop_run(channel=None):
+    if channel is None:
+        channel = -1  # All channels
     code = handel.xiaStopRun(channel)
     check_error(code)
 
 
-def get_run_data_length(channel):
+def get_spectrum_length(channel):
     length = ffi.new("unsigned long *")
     code = handel.xiaGetRunData(channel, b"mca_length", length)
     check_error(code)
     return length[0]
 
 
-def get_run_data(channel):
-    length = get_run_data_length(channel)
+def get_spectrum(channel):
+    length = get_spectrum_length(channel)
     array = numpy.zeros(length, dtype="uint32")
     data = ffi.cast("uint32_t *", array.ctypes.data)
     code = handel.xiaGetRunData(channel, b"mca", data)
     check_error(code)
     return array
+
+
+def get_spectrums():
+    """Return the spectrums for all enabled channels as a dictionary."""
+    return {channel: get_spectrum(channel) for channel in get_channels()}
+
+
+def is_channel_running(channel):
+    running = ffi.new("short *")
+    code = handel.xiaGetRunData(channel, b"run_active", running)
+    check_error(code)
+    return bool(running[0])
+
+
+def is_running():
+    """Return True if any channel is running, False otherwise."""
+    return any(map(is_channel_running, get_channels()))
+
+
+# Statistics
+
+
+def get_module_statistics(module):
+    channels = get_module_channels(module)
+    data_size = 7 * len(channels)
+    master = next(c for c in channels if c != -1)
+    array = numpy.zeros(data_size, dtype="double")
+    data = ffi.cast("double *", array.ctypes.data)
+    code = handel.xiaGetRunData(master, b"module_statistics", data)
+    check_error(code)
+    return {
+        channel: array[index : index + 7].tolist()
+        for index, channel in enumerate(channels)
+        if channel != -1
+    }
+
+
+def get_statistics():
+    """Return the statistics for all enabled channels as a dictionary."""
+    result = {}
+    for module in get_modules():
+        result.update(get_module_statistics(module))
+    return result
 
 
 # Buffer
@@ -305,6 +357,9 @@ def get_module_interface(alias):
     return ffi.string(value).decode()
 
 
+# Channels
+
+
 def get_module_number_of_channels(alias):
     alias = to_bytes(alias)
     value = ffi.new("int *")
@@ -369,14 +424,7 @@ def get_channels():
 # Parameters
 
 
-def set_acquisition_value(channel, name, value):
-    name = to_bytes(name)
-    pointer = ffi.new("double *", value)
-    code = handel.xiaSetAcquisitionValues(channel, name, pointer)
-    check_error(code)
-
-
-def get_acquisition_value(channel, name):
+def get_acquisition_value(name, channel):
     name = to_bytes(name)
     pointer = ffi.new("double *")
     code = handel.xiaGetAcquisitionValues(channel, name, pointer)
@@ -384,13 +432,32 @@ def get_acquisition_value(channel, name):
     return pointer[0]
 
 
-def remove_acquisition_value(channel, name):
+def set_acquisition_value(name, value, channel=None):
+    if channel is None:
+        channel = -1  # All channels
+    name = to_bytes(name)
+    pointer = ffi.new("double *", value)
+    code = handel.xiaSetAcquisitionValues(channel, name, pointer)
+    check_error(code)
+
+
+def remove_acquisition_value(name, channel=None):
+    if channel is None:
+        channel = -1  # All channels
     name = to_bytes(name)
     code = handel.xiaRemoveAcquisitionValues(channel, name)
     check_error(code)
 
 
-def apply_acquisition_values(channel):
+def apply_acquisition_values(channel=None):
+    # Apply all
+    if channel is None:
+        # Only one apply operation by module is required
+        grouped = get_grouped_channels()
+        for master in map(max, grouped):
+            apply_acquisition_values(master)
+        return
+    # Apply single
     dummy = ffi.new("int *")
     code = handel.xiaBoardOperation(channel, b"apply", dummy)
     check_error(code)

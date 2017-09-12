@@ -46,6 +46,7 @@ Accessing the configured elements from python is easy
 """
 
 import os
+import gc
 import yaml
 import weakref
 import functools
@@ -521,7 +522,8 @@ class Config(object):
                         fs_node[fs_key] = [children,parents]
             else:
                 fs_node[fs_key] = parents
-
+        while gc.collect():
+            pass        
     @property
     def names_list(self):
         """

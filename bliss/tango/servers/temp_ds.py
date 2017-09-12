@@ -237,6 +237,9 @@ class BlissOutput(Device):
         return argout
 
     def dev_state(self):
+        return get_worker().execute(self._dev_state)
+
+    def _dev_state(self):
         state = self.channel_object.state()
         return _STATE_MAP[state]
 
@@ -332,6 +335,9 @@ class BlissLoop(Device):
         return self.channel_object.input.read()       
 
     def dev_state(self):
+        return get_worker().execute(self._dev_state)
+
+    def _dev_state(self):
         state = self.channel_object.input.state()
         return _STATE_MAP[state]
 

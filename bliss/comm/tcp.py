@@ -125,9 +125,11 @@ class BaseSocket:
                 pass
             self._fd.close()
             if self._raw_read_task:
-                self._raw_read_task.join()
+                self._raw_read_task.kill()
                 self._raw_read_task = None
             self._data = ''
+            self._connected = False
+            self._fd = None
 
     def _shutdown(self):
         """
@@ -281,7 +283,10 @@ class Socket(BaseSocket):
         except:
             pass
         finally:
-            fd.close()
+            try:
+                fd.close()
+            except socket.error:
+                pass
             try:
                 sock._connected = False
                 sock._fd = None
@@ -415,10 +420,10 @@ class Command:
                     pass
                 self._fd.close()
                 if self._raw_read_task:
-                    self._raw_read_task.join()
+                    self._raw_read_task.kill()
                     self._raw_read_task = None
                 self._transaction_list = []
-
+                
     @try_connect_command
     def _read(self, transaction, size=1, timeout=None, clear_transaction=True):
         with Command.Transaction(self, transaction, clear_transaction) as ctx:
@@ -533,7 +538,10 @@ class Command:
         except:
             pass
         finally:
-            fd.close()
+            try:
+                fd.close()
+            except socket.error:
+                pass
             try:
                 command._connected = False
                 command._fd = None

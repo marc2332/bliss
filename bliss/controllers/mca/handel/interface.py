@@ -60,7 +60,7 @@ MAX_STRING_LENGTH = 80
 
 # Helpers
 
-Stats = namedtuple("Stats", "realtime livetime triggers events icr ocr")
+Stats = namedtuple("Stats", "realtime livetime triggers events icr ocr deadtime")
 
 
 def to_bytes(arg):
@@ -190,6 +190,7 @@ def is_running():
 
 
 def get_module_statistics(module):
+    # Get raw data
     channels = get_module_channels(module)
     data_size = 7 * len(channels)
     master = next(c for c in channels if c != -1)
@@ -197,18 +198,21 @@ def get_module_statistics(module):
     data = ffi.cast("double *", array.ctypes.data)
     code = handel.xiaGetRunData(master, b"module_statistics", data)
     check_error(code)
-    return {
-        channel: Stats(
-            array[index * 7 + 0],  # Realtime
-            array[index * 7 + 1],  # Livetime
-            int(array[index * 7 + 3]),  # Triggers
-            int(array[index * 7 + 4]),  # MCA events
-            int(array[index * 7 + 5]),  # Input count rate
-            int(array[index * 7 + 6]),
-        )  # Output count rate
-        for index, channel in enumerate(channels)
-        if channel != -1
-    }
+    # Parse raw data
+    result = {}
+    for index, channel in enumerate(channels):
+        if channel != -1:
+            realtime = array[index * 7 + 0]
+            livetime = array[index * 7 + 1]
+            triggers = int(array[index * 7 + 3])
+            events = int(array[index * 7 + 4])
+            icr = int(array[index * 7 + 5])
+            ocr = int(array[index * 7 + 6])
+            deadtime = 1 - float(ocr) / icr if icr != 0 else 1.0
+            result[channel] = Stats(
+                realtime, livetime, triggers, events, icr, ocr, deadtime
+            )
+    return result
 
 
 def get_statistics():

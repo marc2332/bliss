@@ -3,6 +3,7 @@
 from __future__ import absolute_import
 
 import os
+from collections import namedtuple
 
 import numpy
 
@@ -58,6 +59,8 @@ MAX_STRING_LENGTH = 80
 
 
 # Helpers
+
+Stats = namedtuple("Stats", "realtime livetime triggers events icr ocr")
 
 
 def to_bytes(arg):
@@ -195,7 +198,14 @@ def get_module_statistics(module):
     code = handel.xiaGetRunData(master, b"module_statistics", data)
     check_error(code)
     return {
-        channel: array[index : index + 7].tolist()
+        channel: Stats(
+            array[index * 7 + 0],  # Realtime
+            array[index * 7 + 1],  # Livetime
+            int(array[index * 7 + 3]),  # Triggers
+            int(array[index * 7 + 4]),  # MCA events
+            int(array[index * 7 + 5]),  # Input count rate
+            int(array[index * 7 + 6]),
+        )  # Output count rate
         for index, channel in enumerate(channels)
         if channel != -1
     }

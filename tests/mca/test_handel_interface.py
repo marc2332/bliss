@@ -138,6 +138,14 @@ def test_start_run(interface):
     m.assert_called_once_with(2, True)
     # Make sure errors have been checked
     interface.check_error.assert_called_once_with(0)
+    # Reset
+    m.reset_mock()
+    interface.check_error.reset_mock()
+    # Third test
+    assert interface.start_run() is None
+    m.assert_called_once_with(-1, False)
+    # Make sure errors have been checked
+    interface.check_error.assert_called_once_with(0)
 
 
 def test_stop_run(interface):
@@ -155,6 +163,14 @@ def test_stop_run(interface):
     # Second test
     assert interface.stop_run(2) is None
     m.assert_called_once_with(2)
+    # Make sure errors have been checked
+    interface.check_error.assert_called_once_with(0)
+    # Reset
+    m.reset_mock()
+    interface.check_error.reset_mock()
+    # Second test
+    assert interface.stop_run() is None
+    m.assert_called_once_with(-1)
     # Make sure errors have been checked
     interface.check_error.assert_called_once_with(0)
 
@@ -197,6 +213,91 @@ def test_get_spectrum(interface):
     m.assert_called_with(1, b"mca", arg)
     # Make sure errors have been checked
     interface.check_error.assert_called_with(0)
+
+
+def test_get_spectrums(interface):
+    with mock.patch("bliss.controllers.mca.handel.interface.get_channels") as m1:
+        with mock.patch("bliss.controllers.mca.handel.interface.get_spectrum") as m2:
+            m1.return_value = [0, 1]
+            # First test
+            spectrums = [[0, 1, 2], [2, 3, 4]]
+            m2.side_effect = lambda x: spectrums[x]
+            expected = {0: [0, 1, 2], 1: [2, 3, 4]}
+            assert interface.get_spectrums() == expected
+            m1.assert_called_once_with()
+            m2.assert_called_with(1)
+
+
+def test_is_channel_running(interface):
+    m = interface.handel.xiaGetRunData
+
+    def side_effect(channel, dtype, arg):
+        arg[0] = 1
+        return 0
+
+    m.side_effect = side_effect
+    assert interface.is_channel_running(2) is True
+    arg = m.call_args[0][2]
+    m.assert_called_once_with(2, b"run_active", arg)
+    # Make sure errors have been checked
+    interface.check_error.assert_called_with(0)
+
+
+def test_is_running(interface):
+    with mock.patch("bliss.controllers.mca.handel.interface.get_channels") as m1:
+        with mock.patch(
+            "bliss.controllers.mca.handel.interface.is_channel_running"
+        ) as m2:
+            m1.return_value = [0, 1, 2]
+            # First test
+            m2.side_effect = lambda x: x == 1
+            assert interface.is_running() is True
+            m1.assert_called_once_with()
+            m2.assert_called_with(1)
+            # Second test
+            m2.side_effect = lambda x: False
+            assert interface.is_running() is False
+
+
+# Statistics
+
+
+def test_get_module_statistics(interface):
+    m = interface.handel.xiaGetRunData
+
+    def side_effect(channel, dtype, arg):
+        arg[3 * 7 : 4 * 7] = [1.0, 2.0, 255, 3, 4, 8, 6]
+        return 0
+
+    m.side_effect = side_effect
+    with mock.patch("bliss.controllers.mca.handel.interface.get_module_channels") as m2:
+        m2.return_value = [-1, -1, -1, 8]
+        expected = {8: interface.Stats(1.0, 2.0, 3, 4, 8, 6, 0.25)}
+        assert interface.get_module_statistics("module3") == expected
+        m2.assert_called_once_with("module3")
+        arg = m.call_args[0][2]
+        m.assert_called_once_with(8, b"module_statistics", arg)
+
+    # Make sure errors have been checked
+    interface.check_error.assert_called_with(0)
+
+
+def test_get_statistics(interface):
+    with mock.patch("bliss.controllers.mca.handel.interface.get_modules") as m1:
+        with mock.patch(
+            "bliss.controllers.mca.handel.interface.get_module_statistics"
+        ) as m2:
+            m1.return_value = ["module1", "module2"]
+            # First test
+            stats = {
+                "module1": {0: "some", 1: "stats"},
+                "module2": {2: "and", 3: "some more"},
+            }
+            m2.side_effect = lambda x: stats[x]
+            expected = {0: "some", 1: "stats", 2: "and", 3: "some more"}
+            assert interface.get_statistics() == expected
+            m1.assert_called_once_with()
+            m2.assert_called_with("module2")
 
 
 # Buffer

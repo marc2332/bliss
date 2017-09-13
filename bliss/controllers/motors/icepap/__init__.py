@@ -74,6 +74,10 @@ class Icepap(Controller):
             for state,desc in codes.values():
                 self._icestate.create_state(state,desc)
 
+    def finalize(self):
+        if self._cnx is not None:
+            self._cnx.close()
+            
     def initialize_axis(self,axis):
         axis.address = axis.config.get("address",int)
 

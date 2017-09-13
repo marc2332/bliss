@@ -130,8 +130,8 @@ class Controller(object):
         """
         pass
 
-    def __del__(self):
-        self.finalize()
+#    def __del__(self):
+#        self.finalize()
 
     def finalize(self):
         pass

@@ -183,7 +183,7 @@ def is_channel_running(channel):
 
 def is_running():
     """Return True if any channel is running, False otherwise."""
-    return any(map(is_channel_running, get_channels()))
+    return any(is_channel_running(channel) for channel in get_channels())
 
 
 # Statistics

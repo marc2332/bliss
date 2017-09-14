@@ -10,7 +10,7 @@ from bliss.common.scans import *
 from bliss.common.task_utils import cleanup, error_cleanup
 
 __all__ = ['wa', 'wm', 'sta', 'mv', 'umv', 'mvr', 'umvr', 'move',
-           'prdef', 'set_log_level'] + scans.__all__ + \
+           'prdef', 'set_log_level', 'sync'] + scans.__all__ + \
            ['cleanup', 'error_cleanup']
 
 import inspect
@@ -64,9 +64,9 @@ def __get_axes_names_iter():
         yield axis.name
 
 
-def __safe_get(obj, member, on_error=_ERR):
+def __safe_get(obj, member, on_error=_ERR, **kwargs):
     try:
-        return getattr(obj, member)()
+        return getattr(obj, member)(**kwargs)
     except Exception as e:
         return on_error
 
@@ -77,6 +77,22 @@ def __tabulate(data, **kwargs):
     kwargs.setdefault('numalign', 'right')
 
     return str(tabulate(data, **kwargs))
+
+
+def sync(*axes):
+    """
+    Forces axes synchronization with the hardware
+
+    Args:
+        axes: list of axis objects or names. If no axis is given, it syncs all
+              all axes present in the session
+    """
+    if axes:
+        axes = __get_objects_iter(*axes)
+    else:
+        axes = __get_axes_iter()
+    for axis in axes:
+        axis.sync_hard()
 
 
 def wa(**kwargs):
@@ -157,11 +173,19 @@ def stm(*axes):
     raise NotImplementedError
 
 
-def sta():
-    """Displays state information about all axes"""
+def sta(read_hw=False):
+    """
+    Displays state information about all axes
+
+    Keyword Args:
+        read_hw (bool): If True, force communication with hardware, otherwise
+                        (default) use cached value.
+    """
     global __axes
     table = [("Axis", "Status")]
-    table += [(axis.name, __safe_get(axis, "state", "<status not available>"))
+    table += [(axis.name, __safe_get(axis, "state",
+                                     on_error="<status not available>",
+                                     read_hw=read_hw))
               for axis in __get_axes_iter()]
     print_(__tabulate(table))
 

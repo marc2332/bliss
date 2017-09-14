@@ -178,7 +178,11 @@ def is_channel_running(channel):
     running = ffi.new("short *")
     code = handel.xiaGetRunData(channel, b"run_active", running)
     check_error(code)
-    return bool(running[0])
+    # It turns out running contains 2 bits of information
+    # - bit 0: whether the channel is acquiring
+    # - bit 1: whether the channel is running (in the start_run/stop_run sense)
+    # We're interested in the first bit of information here
+    return bool(running[0] & 0x1)
 
 
 def is_running():

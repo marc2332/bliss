@@ -229,6 +229,7 @@ def test_get_spectrums(interface):
 
 
 def test_is_channel_running(interface):
+    # First test
     m = interface.handel.xiaGetRunData
 
     def side_effect(channel, dtype, arg):
@@ -240,7 +241,22 @@ def test_is_channel_running(interface):
     arg = m.call_args[0][2]
     m.assert_called_once_with(2, b"run_active", arg)
     # Make sure errors have been checked
-    interface.check_error.assert_called_with(0)
+    interface.check_error.assert_called_once_with(0)
+
+    # Second test
+    m.reset_mock()
+    interface.check_error.reset_mock()
+
+    def side_effect(channel, dtype, arg):
+        arg[0] = 2  # 2 is actually a valid value for a non-running channel
+        return 0
+
+    m.side_effect = side_effect
+    assert interface.is_channel_running(2) is False
+    arg = m.call_args[0][2]
+    m.assert_called_once_with(2, b"run_active", arg)
+    # Make sure errors have been checked
+    interface.check_error.assert_called_once_with(0)
 
 
 def test_is_running(interface):

@@ -1,7 +1,7 @@
 """Test module for MCA base class."""
 
 import pytest
-from bliss.controllers.mca import BaseMCA, Brand, DetectorType
+from bliss.controllers.mca import BaseMCA, Brand, DetectorType, PresetMode
 
 
 def test_mca_enums():
@@ -52,8 +52,9 @@ def test_base_mca():
         mca.prepare_acquisition: (),
         mca.start_acquisition: (),
         mca.stop_acquisition: (),
-        mca.get_acquisition_status: (),
-        mca.get_acquisition_data: ()}
+        mca.is_acquiring: (),
+        mca.get_acquisition_data: (),
+        mca.get_acquisition_statistics: ()}
 
     # Test methods
     for method, args in methods.items():
@@ -80,6 +81,11 @@ def test_base_mca_logic(mocker):
 
     class TestMCA(BaseMCA):
 
+        supported_preset_modes = [PresetMode.NONE]
+
+        def set_preset_mode(self, mode):
+            assert mode in (None, PresetMode.NONE)
+
         def initialize_attributes(self):
             pass
 
@@ -95,11 +101,14 @@ def test_base_mca_logic(mocker):
         def stop_acquisition(self):
             pass
 
-        def get_acquisition_status(self):
-            return ""
+        def is_running(self):
+            return False
 
         def get_acquisition_data(self):
             return [[3, 2, 1]]
+
+        def get_acquisition_statistics(self):
+            return ['some_stats']
 
     # Create a test mca
     config = {}
@@ -109,5 +118,5 @@ def test_base_mca_logic(mocker):
 
     # Run a single acquisition
     sleep = mocker.patch('time.sleep')
-    assert mca.run_single_acquisition(3.) == [[3, 2, 1]]
+    assert mca.run_single_acquisition(3.) == ([[3, 2, 1]], ['some_stats'])
     sleep.assert_called_once_with(3.)

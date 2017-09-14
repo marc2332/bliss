@@ -33,7 +33,8 @@ class LimaAcquisitionDevice(AcquisitionDevice):
         device = device.proxy
       AcquisitionDevice.__init__(self, device, device.user_detector_name, "lima", acq_nb_frames,
                                  trigger_type = trigger_type)
-              
+      self._latency = self.device.latency_time
+
   def prepare(self):
       for param_name, param_value in self.parameters.iteritems():
           setattr(self.device, param_name, param_value)

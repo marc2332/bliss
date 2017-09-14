@@ -2,7 +2,7 @@
 
 import pytest
 
-from bliss.controllers.mca import Brand, DetectorType
+from bliss.controllers.mca import Brand, DetectorType, Stats
 
 
 def test_get_mercury_from_config(beacon, mocker):
@@ -16,12 +16,13 @@ def test_get_mercury_from_config(beacon, mocker):
     client.get_grouped_channels.return_value = ((0, ), )
     client.get_config_files.return_value = ['default.ini']
     client.get_config.return_value = {'my': 'config'}
+    client.is_running.return_value = False
 
     # Instantiating the mercury
     mercury = beacon.get('mercury-test')
     m.assert_called_once_with('tcp://welisa.esrf.fr:8000')
     client.init.assert_called_once_with(
-        'C:\\\\blissadm\\\\mercury', 'default.ini')
+        'C:\\\\blissadm\\\\mercury', 'mercury_src.ini')
     assert mercury.configured
 
     # Infos
@@ -35,14 +36,13 @@ def test_get_mercury_from_config(beacon, mocker):
         'C:\\\\blissadm\\\\mercury')
     assert mercury.current_configuration_values == {'my': 'config'}
     client.get_config.assert_called_once_with(
-        'C:\\\\blissadm\\\\mercury', 'default.ini')
+        'C:\\\\blissadm\\\\mercury', 'mercury_src.ini')
 
     # Acquisition
-    client.get_run_data.return_value = [3, 2, 1]
-    sleep = mocker.patch('time.sleep')
-    assert mercury.run_single_acquisition(3.) == [[3, 2, 1]]
-    sleep.assert_called_once_with(3.)
-    assert mercury.get_acquisition_status() == ''  # TODO
+    client.get_spectrums.return_value = {0: [3, 2, 1]}
+    client.get_statistics.return_value = {0: range(7)}
+    stats = Stats(*range(7))
+    assert mercury.run_single_acquisition(3.) == ([[3, 2, 1]], [stats])
 
     # Load configuration
     client.init.side_effect = IOError('File not found!')

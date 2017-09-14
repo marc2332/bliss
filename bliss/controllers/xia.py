@@ -1,10 +1,12 @@
 """Controller classes for XIA multichannel analyzer"""
 
 # Imports
+from numbers import Number
+
 import zerorpc
 import msgpack_numpy
 
-from .mca import BaseMCA, Brand, DetectorType
+from .mca import BaseMCA, Brand, DetectorType, PresetMode, Stats
 
 # Patch msgpack
 msgpack_numpy.patch()
@@ -111,16 +113,23 @@ class Mercury(BaseMCA):
         pass
 
     def start_acquisition(self):
-        self._proxy.start_run(0)
+        self._proxy.start_run()
 
     def stop_acquisition(self):
-        self._proxy.stop_run(0)
+        self._proxy.stop_run()
 
-    def get_acquisition_status(self):
-        return ""
+    def is_acquiring(self):
+        return self._proxy.is_running()
 
     def get_acquisition_data(self):
-        return [self._proxy.get_run_data(0)]
+        spectrums = self._proxy.get_spectrums()
+        nb = len(spectrums)
+        return [spectrums[i] for i in range(nb)]
+
+    def get_acquisition_statistics(self):
+        stats = self._proxy.get_statistics()
+        nb = len(stats)
+        return [Stats(*stats[i]) for i in range(nb)]
 
     # Infos
 
@@ -135,3 +144,37 @@ class Mercury(BaseMCA):
     @property
     def element_count(self):
         return 1
+
+    # Modes
+
+    @property
+    def supported_preset_modes(self):
+        return [PresetMode.NONE,
+                PresetMode.REALTIME,
+                PresetMode.LIVETIME,
+                PresetMode.EVENTS,
+                PresetMode.TRIGGERS]
+
+    def set_preset_mode(self, mode, value=None):
+        # Cast arguments
+        if mode is None:
+            mode = PresetMode.NONE
+        # Check arguments
+        if mode == PresetMode.NONE and value is not None:
+            raise TypeError(
+                'P1reset value should be None when no preset mode is set')
+        if mode != PresetMode.NONE and not isinstance(value, Number):
+            raise TypeError(
+                'Preset value should be a number when a preset mode is set')
+        # Get hw values
+        ptype, pcast = {
+            PresetMode.NONE: (0., lambda x: 0),
+            PresetMode.REALTIME: (1., float),
+            PresetMode.LIVETIME: (2., float),
+            PresetMode.EVENTS: (3., int),
+            PresetMode.TRIGGERS: (4., int)}[mode]
+        pvalue = pcast(value)
+        # Configure
+        self._proxy.set_acquisition_value('preset_type', ptype)
+        self._proxy.set_acquisition_value('preset_value', pvalue)
+        self._proxy.apply_acquisition_values()

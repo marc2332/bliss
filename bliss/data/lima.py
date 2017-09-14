@@ -112,8 +112,8 @@ class LimaDataNode(DataNode):
         while True:
             self._new_image_status_event.wait()
             self._new_image_status_event.clear()
-            local_dict = self._new_image_status_event
-            self._new_image_status_event = dict()
+            local_dict = self._new_image_status
+            self._new_image_status = dict()
             if local_dict:
                 self.db_connection.hmset(self.db_name(),local_dict)
             if self._stop_flag :

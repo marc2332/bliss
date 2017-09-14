@@ -202,7 +202,6 @@ class Output(object):
         """ Waits on a setpoint task
         """
         log.debug("On Output:wait")
-        print "On Output:wait"
 	try:
             self.__setpoint_event.wait()
         except KeyboardInterrupt:
@@ -241,7 +240,7 @@ class Output(object):
         """ Stops a setpoint task.
             Calls the controller method setpoint_stop
         """
-        print "On Output: stop"
+        log.debug("On Output: stop")
         if self.__setpoint_task and not self.__setpoint_task.ready():
             self.__setpoint_task.kill()
             #added lines
@@ -255,7 +254,7 @@ class Output(object):
         """ Aborts a setpoint task.
             Calls the controller method setpoint_abort
         """
-        print "On Output: abort"
+        log.debug("On Output: abort")
         if self.__setpoint_task and not self.__setpoint_task.ready():
             self.__setpoint_task.kill()
             #added lines
@@ -282,7 +281,6 @@ class Output(object):
         """ stop the setpoint tasks
         """
         log.debug("On Output:__setpoint_done")
-        print "On Output:__setpoint_done"
         try:
             try:
                 task.get()
@@ -313,7 +311,6 @@ class Output(object):
         """ launches the coroutine doing the setpoint
         """
         log.debug("On Output:_start_setpoint")
-        print "On Output:_start_setpoint"
         self.__setpoint_event.clear()
         # the "task" decorator automatically turns a function into a gevent coroutine,
         # and adds a 'wait' keyword argument, whose value is True by default;

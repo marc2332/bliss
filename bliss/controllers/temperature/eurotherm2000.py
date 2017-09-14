@@ -54,8 +54,9 @@ class Eurotherm2000(object):
     def __init__(self, modbus_address, serialport):
         """RS232 settings: 9600 baud, 8 bits, no parity, 1 stop bit
         """
-        log.debug("Eurotherm2000: __init__(address %d, port %s)" %
-                  (modbus_address, serialport))
+        self.log = logging.getLogger('Eurotherm2000.' + serialport)
+        self.log.debug("Eurotherm2000: __init__(address %d, port %s)",
+                       modbus_address, serialport)
         self.device = modbus.Modbus_RTU(modbus_address, serialport, baudrate=9600, eol='\r')
         self.setpointvalue = None
         self._scale = None
@@ -69,18 +70,18 @@ class Eurotherm2000(object):
     def close(self):
         """Close the serial line
         """
-        log.debug("Eurotherm2000: close()")
+        self.log.debug("close()")
         self.device._serial.close()
 
     def initialize(self):
         """Get the model, the firmware version and the resolution of the module.
         """
-        log.debug("Eurotherm2000:initialize")
+        self.log.debug("initialize")
         self.identification()
         version = self.firmware()
         self.resolution()
-        print "Eurotherm %x (firmware: %x), connected to serial port: %s" \
-            % (self._ident, version, self.device._serial)
+        self.log.info("Eurotherm %x (firmware: %x), connected to serial port: %s",
+                      self._ident, version, self.device._serial)
 
     def identification(self):
         """ Ident contains a number in hex format which will identify
@@ -94,7 +95,7 @@ class Eurotherm2000(object):
         self.device._serial.flush()
         ident = self.device.read_holding_registers(122, 'H')
         if ident >> 12 == 2:
-            log.debug("Connected to Eurotherm model %x" % ident)
+            self.log.debug("Connected to Eurotherm model %x" % ident)
             self._ident = ident
             self._model = (ident & 0xf00) >> 8
         else:
@@ -110,7 +111,7 @@ class Eurotherm2000(object):
         """
 
         version = self.device.read_holding_registers(107, 'H')
-        log.info("Firmware V%x.%x" %
+        self.log.info("Firmware V%x.%x" %
                  ((version & 0xff00) >> 8, (version & 0x00ff)))
         return version
 
@@ -135,10 +136,10 @@ class Eurotherm2000(object):
 
         if resol == 0:
             self._scale = pow(10, decimal)
-            log.debug("Resolution full, decimal %d" % decimal)
+            self.log.debug("Resolution full, decimal %d" % decimal)
         else:
             self._scale = 1
-            log.debug("Resolution integer")
+            self.log.debug("Resolution integer")
 
     def ramprate_units(self, value=None):
         """ Get/Set the ramprate time unit.
@@ -296,7 +297,8 @@ class eurotherm2000(Controller):
         """
         controller configuration
         """
-        log.debug("eurotherm2000:__init__ (%s %s)" % (config, args))
+        self.log = logging.getLogger('eurotherm2000')
+        self.log.debug("eurotherm2000:__init__ (%s %s)" % (config, args))
 
         try:
             port = config['serial']['url']
@@ -308,16 +310,16 @@ class eurotherm2000(Controller):
         Controller.__init__(self, config, *args)
 
     def initialize(self):
-        log.debug("eurotherm2000: initialize")
+        self.log.debug("initialize")
         self._dev.initialize()
 
     def initialize_input(self, tinput):
-        log.debug("eurotherm2000: initialize_input")
+        self.log.debug("initialize_input")
         if 'type' not in tinput.config:
             tinput.config['type'] = 'pv'
 
     def initialize_output(self, toutput):
-        log.debug("eurotherm2000: initialize_output")
+        self.log.debug("initialize_output")
 
         self.ramp_rate = None
 
@@ -331,7 +333,7 @@ class eurotherm2000(Controller):
            Returns:
               (float): current temperature [degC]
         """
-        log.info("eurotherm2000:read_output %s" % toutput.config['type'])
+        self.log.info("read_output %s" % toutput.config['type'])
         typ = toutput.config['type']
         if typ is 'wsp':
             return self._dev.get_setpoint(5)
@@ -343,7 +345,7 @@ class eurotherm2000(Controller):
               toutput (object): Output class type object
               sp (float): final temperature [degC]
         """
-        log.debug("eurotherm2000: set() %r" % sp)
+        self.log.debug("set() %r" % sp)
 
         # Ramprate should be 0 in order to get there AQAP
         self._dev.set_ramprate(0)
@@ -356,7 +358,7 @@ class eurotherm2000(Controller):
            Returns:
               (float): current temperature setpoint
         """
-        log.debug("eurotherm2000:get_setpoint")
+        self.log.debug("get_setpoint")
         return self._dev.setpointvalue
 
         '''
@@ -417,7 +419,7 @@ class eurotherm2000(Controller):
         return 'ALARM'
 
     def read_input(self, tinput):
-        log.debug("eurotherm2000: read_input")
+        self.log.debug("read_input")
         typ = tinput.config['type']
         if typ is 'op':
             return self._dev.op()

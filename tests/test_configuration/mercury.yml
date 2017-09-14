@@ -5,4 +5,4 @@ plugin: bliss
 url: tcp://welisa.esrf.fr:8000
 configuration_directory: C:\\blissadm\\mercury
 default_configuration: default.ini
-detector_mapping: Ge13elts
+detector_mapping: sdd3elts

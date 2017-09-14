@@ -282,13 +282,32 @@ def test_get_module_statistics(interface):
     m = interface.handel.xiaGetRunData
 
     def side_effect(channel, dtype, arg):
-        arg[3 * 7 : 4 * 7] = [1.0, 2.0, 255, 3, 4, 8, 6]
+        arg[3 * 7 : 4 * 7] = [
+            1.00758784,
+            0.98603936,
+            255.0,
+            3088.0,
+            2742.0,
+            3131.0,
+            2721.0,
+        ]
         return 0
+
+    expected = {
+        8: interface.Stats(
+            1.00758784,
+            0.98603936,
+            3088.0,
+            2742.0,
+            3131.720827046904,
+            2721.350825353351,
+            0.13103658479051494,
+        )
+    }
 
     m.side_effect = side_effect
     with mock.patch("bliss.controllers.mca.handel.interface.get_module_channels") as m2:
         m2.return_value = [-1, -1, -1, 8]
-        expected = {8: interface.Stats(1.0, 2.0, 3, 4, 8, 6, 0.25)}
         assert interface.get_module_statistics("module3") == expected
         m2.assert_called_once_with("module3")
         arg = m.call_args[0][2]

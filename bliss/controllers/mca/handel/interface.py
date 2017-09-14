@@ -63,6 +63,28 @@ MAX_STRING_LENGTH = 80
 Stats = namedtuple("Stats", "realtime livetime triggers events icr ocr deadtime")
 
 
+def stats_from_buffer(array):
+    # Raw statistics
+    realtime = float(array[0])
+    livetime = float(array[1])
+    triggers = int(array[3])
+    events = int(array[4])
+
+    # ICR/OCR computation
+    # It turns out the hardware only keeps the integer part of the rate
+    # computations. It is improved here.
+    icr = triggers / livetime
+    ocr = events / realtime
+    assert int(icr) == int(array[5])
+    assert int(ocr) == int(array[6])
+
+    # Deadtime computation
+    # It's unclear whether icr=ocr=0 should result in a 0.0 or 1.0 deadtime
+    deadtime = 1 - float(ocr) / icr if icr != 0 else 1.0
+
+    return Stats(realtime, livetime, triggers, events, icr, ocr, deadtime)
+
+
 def to_bytes(arg):
     if isinstance(arg, bytes):
         return arg
@@ -203,20 +225,11 @@ def get_module_statistics(module):
     code = handel.xiaGetRunData(master, b"module_statistics", data)
     check_error(code)
     # Parse raw data
-    result = {}
-    for index, channel in enumerate(channels):
-        if channel != -1:
-            realtime = array[index * 7 + 0]
-            livetime = array[index * 7 + 1]
-            triggers = int(array[index * 7 + 3])
-            events = int(array[index * 7 + 4])
-            icr = int(array[index * 7 + 5])
-            ocr = int(array[index * 7 + 6])
-            deadtime = 1 - float(ocr) / icr if icr != 0 else 1.0
-            result[channel] = Stats(
-                realtime, livetime, triggers, events, icr, ocr, deadtime
-            )
-    return result
+    return {
+        channel: stats_from_buffer(array[index * 7 :])
+        for index, channel in enumerate(channels)
+        if channel != -1
+    }
 
 
 def get_statistics():

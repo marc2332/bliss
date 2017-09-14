@@ -279,8 +279,7 @@ class BlissAxis(Device):
 
     @property
     def axis(self):
-        self.__axis = get_axis(self._axis_name)
-        return self.__axis
+        return get_axis(self._axis_name)
 
     def delete_device(self):
         self.debug_stream("In delete_device() of axis")

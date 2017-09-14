@@ -168,11 +168,11 @@ class Mercury(BaseMCA):
                 'Preset value should be a number when a preset mode is set')
         # Get hw values
         ptype, pcast = {
-            PresetMode.NONE: (0., lambda x: 0),
-            PresetMode.REALTIME: (1., float),
-            PresetMode.LIVETIME: (2., float),
-            PresetMode.EVENTS: (3., int),
-            PresetMode.TRIGGERS: (4., int)}[mode]
+            PresetMode.NONE: (0, lambda x: 0),
+            PresetMode.REALTIME: (1, float),
+            PresetMode.LIVETIME: (2, float),
+            PresetMode.EVENTS: (3, int),
+            PresetMode.TRIGGERS: (4, int)}[mode]
         pvalue = pcast(value)
         # Configure
         self._proxy.set_acquisition_value('preset_type', ptype)

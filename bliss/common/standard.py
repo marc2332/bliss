@@ -10,7 +10,7 @@ from bliss.common.scans import *
 from bliss.common.task_utils import cleanup, error_cleanup
 
 __all__ = ['wa', 'wm', 'sta', 'mv', 'umv', 'mvr', 'umvr', 'move',
-           'prdef', 'set_log_level'] + scans.__all__ + \
+           'prdef', 'set_log_level', 'sync'] + scans.__all__ + \
            ['cleanup', 'error_cleanup']
 
 import inspect
@@ -77,6 +77,22 @@ def __tabulate(data, **kwargs):
     kwargs.setdefault('numalign', 'right')
 
     return str(tabulate(data, **kwargs))
+
+
+def sync(*axes):
+    """
+    Forces axes synchronization with the hardware
+
+    Args:
+        axes: list of axis objects or names. If no axis is given, it syncs all
+              all axes present in the session
+    """
+    if axes:
+        axes = __get_objects_iter(*axes)
+    else:
+        axes = __get_axes_iter()
+    for axis in axes:
+        axis.sync_hard()
 
 
 def wa(**kwargs):

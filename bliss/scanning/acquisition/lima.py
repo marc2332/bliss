@@ -77,7 +77,6 @@ class LimaAcquisitionDevice(AcquisitionDevice):
                                            })
           gevent.sleep(self.parameters['acq_expo_time']/2.0)
       # TODO: self.dm.send_new_ref(self, {...}) ? or DataManager.send_new_ref(...) ?
-      print "end of read_data", self.device.acq_status.lower()
       dispatcher.send("new_ref", self, { "type":"lima/image",
                                          "last_image_acquired":self.device.last_image_acquired,
                                          "last_image_saved":self.device.last_image_saved,

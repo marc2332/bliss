@@ -1,7 +1,8 @@
 """Test module for MCA base class."""
 
 import pytest
-from bliss.controllers.mca import BaseMCA, Brand, DetectorType, PresetMode
+from bliss.controllers.mca import BaseMCA, Brand, DetectorType
+from bliss.controllers.mca import PresetMode, TriggerMode
 
 
 def test_mca_enums():
@@ -49,7 +50,6 @@ def test_base_mca():
         mca.set_acquisition_mode: ('some_mode',),
         mca.set_trigger_mode: ('some_mode',),
         mca.set_spectrum_range: ('some', 'range'),
-        mca.prepare_acquisition: (),
         mca.start_acquisition: (),
         mca.stop_acquisition: (),
         mca.is_acquiring: (),
@@ -86,13 +86,15 @@ def test_base_mca_logic(mocker):
         def set_preset_mode(self, mode):
             assert mode in (None, PresetMode.NONE)
 
+        supported_trigger_modes = [TriggerMode.SOFTWARE]
+
+        def set_trigger_mode(self, mode):
+            assert mode in (None, TriggerMode.SOFTWARE)
+
         def initialize_attributes(self):
             pass
 
         def initialize_hardware(self):
-            pass
-
-        def prepare_acquisition(self):
             pass
 
         def start_acquisition(self):

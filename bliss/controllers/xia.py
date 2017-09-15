@@ -6,7 +6,7 @@ from numbers import Number
 import zerorpc
 import msgpack_numpy
 
-from .mca import BaseMCA, Brand, DetectorType, PresetMode, Stats
+from .mca import BaseMCA, Brand, DetectorType, PresetMode, Stats, TriggerMode
 
 # Patch msgpack
 msgpack_numpy.patch()
@@ -109,9 +109,6 @@ class Mercury(BaseMCA):
 
     # Acquisition
 
-    def prepare_acquisition(self):
-        pass
-
     def start_acquisition(self):
         self._proxy.start_run()
 
@@ -160,13 +157,15 @@ class Mercury(BaseMCA):
         if mode is None:
             mode = PresetMode.NONE
         # Check arguments
+        if mode not in self.supported_preset_modes:
+            raise ValueError('{:s} preset mode not supported'.format(mode))
         if mode == PresetMode.NONE and value is not None:
             raise TypeError(
-                'P1reset value should be None when no preset mode is set')
+                'Preset value should be None when no preset mode is set')
         if mode != PresetMode.NONE and not isinstance(value, Number):
             raise TypeError(
                 'Preset value should be a number when a preset mode is set')
-        # Get hw values
+        # Get hardware values
         ptype, pcast = {
             PresetMode.NONE: (0, lambda x: 0),
             PresetMode.REALTIME: (1, float),
@@ -177,4 +176,22 @@ class Mercury(BaseMCA):
         # Configure
         self._proxy.set_acquisition_value('preset_type', ptype)
         self._proxy.set_acquisition_value('preset_value', pvalue)
+        self._proxy.apply_acquisition_values()
+
+    @property
+    def supported_trigger_modes(self):
+        return [TriggerMode.SOFTWARE,
+                TriggerMode.GATE]
+
+    def set_trigger_mode(self, mode):
+        # Cast arguments
+        if mode is None:
+            mode = TriggerMode.SOFTWARE
+        # Check arguments
+        if mode not in self.supported_trigger_modes:
+            raise ValueError('{:s} trigger mode not supported'.format(mode))
+        # Get hardware value
+        value = 0 if mode == TriggerMode.GATE else 1
+        # Configure
+        self._proxy.set_acquisition_value('gate_ignore', value)
         self._proxy.apply_acquisition_values()

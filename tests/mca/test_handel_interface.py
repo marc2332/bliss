@@ -282,16 +282,10 @@ def test_get_module_statistics(interface):
     m = interface.handel.xiaGetRunData
 
     def side_effect(channel, dtype, arg):
-        arg[3 * 7 : 4 * 7] = [
-            1.00758784,
-            0.98603936,
-            255.0,
-            3088.0,
-            2742.0,
-            3131.0,
-            2721.0,
-        ]
+        arg[3 * 7 : 4 * 7] = raw
         return 0
+
+    raw = [1.00758784, 0.98603936, 255.0, 3088.0, 2742.0, 3131.0, 2721.0]
 
     expected = {
         8: interface.Stats(
@@ -308,10 +302,25 @@ def test_get_module_statistics(interface):
     m.side_effect = side_effect
     with mock.patch("bliss.controllers.mca.handel.interface.get_module_channels") as m2:
         m2.return_value = [-1, -1, -1, 8]
+        # First test
         assert interface.get_module_statistics("module3") == expected
         m2.assert_called_once_with("module3")
         arg = m.call_args[0][2]
         m.assert_called_once_with(8, b"module_statistics", arg)
+        # Second test
+        raw[6] = 1.23  # OCR inconsistency
+        with pytest.raises(ValueError) as ctx:
+            interface.get_module_statistics("module3")
+        assert "OCR" in str(ctx.value)
+        assert "1.23" in str(ctx.value)
+        assert "2721.3508" in str(ctx.value)
+        # Second test
+        raw[5] = 4.56  # ICR inconsistency
+        with pytest.raises(ValueError) as ctx:
+            interface.get_module_statistics("module3")
+        assert "ICR" in str(ctx.value)
+        assert "4.56" in str(ctx.value)
+        assert "3131.7208" in str(ctx.value)
 
     # Make sure errors have been checked
     interface.check_error.assert_called_with(0)
@@ -323,7 +332,6 @@ def test_get_statistics(interface):
             "bliss.controllers.mca.handel.interface.get_module_statistics"
         ) as m2:
             m1.return_value = ["module1", "module2"]
-            # First test
             stats = {
                 "module1": {0: "some", 1: "stats"},
                 "module2": {2: "and", 3: "some more"},

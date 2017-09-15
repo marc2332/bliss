@@ -84,7 +84,8 @@ def stats_from_buffer(array):
 
     # Deadtime computation
     # It's unclear whether icr=ocr=0 should result in a 0.0 or 1.0 deadtime
-    deadtime = 1 - float(ocr) / icr if icr != 0 else 1.0
+    # Prospect uses 0% so 0. it is.
+    deadtime = 1 - float(ocr) / icr if icr != 0 else 0.0
 
     return Stats(realtime, livetime, triggers, events, icr, ocr, deadtime)
 

@@ -4,11 +4,13 @@
 #
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
+
+import time
 import datetime
 import numpy
 import pickle
 
-from bliss.data.node import DataNode,to_timestamp
+from bliss.data.node import DataNode
 
 def _transform_dict_obj(dict_object) :
     return_dict = dict()
@@ -44,17 +46,20 @@ class Scan(DataNode):
         DataNode.__init__(self,'scan',name,create=create,**keys)
         self.__create = create
         if create:
-            self._data.start_time = start_time = datetime.datetime.now()
+            start_time_stamp = time.time()
+            start_time = datetime.datetime.fromtimestamp(start_time_stamp)
+            self._data.start_time = start_time
             self._data.start_time_str = start_time.strftime("%a %b %d %H:%M:%S %Y")
-            self.start_time_stamp = to_timestamp(start_time)
+            self._data.start_time_stamp = start_time_stamp
         self._info._write_type_conversion = pickle_dump
 
     def end(self):
         if self.__create:
-            end_time = datetime.datetime.now()
+            end_time_stamp = time.time()
+            end_time = datetime.datetime.fromtimestamp(end_time_stamp)
             self._data.end_time = end_time
             self._data.end_time_str = end_time.strftime("%a %b %d %H:%M:%S %Y")
-            self._data.end_time_stamp = to_timestamp(end_time)
+            self._data.end_time_stamp = end_time_stamp
 
 def get_data(scan):
     """

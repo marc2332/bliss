@@ -29,14 +29,12 @@ class StepScanDataWatch(object):
     an acquisition chain with motor(s) as the top-master.
     This produce event compatible with the ScanListener class (bliss.shell)
     """
-    def __init__(self,root_path,scan_info):
+    def __init__(self,scan_info):
         self._motors = scan_info['motors']
         self._motors_name = [x.name for x in self._motors]
         self._last_point_display = -1
         self._channel_name_2_channel = dict()
         self._scan_info = scan_info
-        self._root_path = root_path
-        self._channel_end_nb = 0
         self._init_done = False
 
     def __call__(self,data_events,nodes,info):
@@ -49,12 +47,6 @@ class StepScanDataWatch(object):
             self._init_done = True
 
         if self._last_point_display == -1:
-            counter_names = [x for x in self._channel_name_2_channel.keys() if x not in self._motors_name]
-            self._scan_info['counter_names'] = counter_names
-            send(current_module,"scan_new",
-                 self._scan_info,self._root_path,
-                 self._motors_name,self._scan_info['npoints'],
-                 counter_names)
             self._last_point_display += 1
 
         min_nb_points = None
@@ -78,14 +70,7 @@ class StepScanDataWatch(object):
                  self._scan_info,values)
         if min_nb_points is not None:
             self._last_point_display = min_nb_points
-        #check end
-        for acq_device, event in data_events.iteritems():
-            if 'end' in event:
-                data_node = nodes.get(acq_device)
-                if data_node.type() == 'zerod':
-                    self._channel_end_nb += len(data_node.channels_name())
-        if self._channel_end_nb == len(self._channel_name_2_channel):
-            send(current_module,"scan_end",self._scan_info)
+
 
 class ScanSaving(Parameters):
     SLOTS = []
@@ -239,7 +224,9 @@ class Scan(object):
         self._node = _create_node(self.__name, "scan", parent=self.root_node)
         if scan_info is not None:
             scan_info['scan_nb'] = run_number
+            scan_info['start_time'] = self._node._data.start_time
             scan_info['start_time_str'] = self._node._data.start_time_str
+            scan_info['start_time_stamp'] = self._node._data.start_time_stamp
             self._node._info.update(dict(scan_info))
         self._data_watch_callback = data_watch_callback
         self._data_events = dict()
@@ -366,6 +353,7 @@ class Scan(object):
         else:
             call_on_prepare,call_on_stop = False,False
 
+        send(current_module, "scan_new", self.scan_info)
         try:
             for i in self.acq_chain:
                 self._state = self.PREPARE_STATE
@@ -384,6 +372,7 @@ class Scan(object):
             i.stop()
         finally:
             self._state = self.IDLE_STATE
+            send(current_module, "scan_end", self.scan_info)
 
     @staticmethod
     def _data_watch(scan,event,event_done):

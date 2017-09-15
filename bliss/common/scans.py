@@ -11,7 +11,8 @@ Most common scan procedures (:func:`~bliss.common.scans.ascan`, \
 
 """
 
-__all__ = ['ascan', 'a2scan', 'mesh', 'dscan', 'd2scan', 'timescan', 'ct', 'get_data']
+__all__ = ['ascan', 'a2scan', 'mesh', 'dscan', 'd2scan', 'timescan', 'loopscan',
+           'ct', 'get_data']
 
 import time
 import logging
@@ -53,30 +54,39 @@ def _get_counters(mg, missing_list):
                 missing_list.append(cnt_name)
     return counters
 
-def default_chain(chain,scan_pars,counters):
-    count_time = scan_pars.get('count_time', 1)
-    sleep_time = scan_pars.get('sleep_time')
-    npoints = scan_pars.get('npoints', 1)
-    timer = SoftwareTimerMaster(count_time, npoints=npoints, sleep_time=sleep_time)
-    scan_counters = list()
-    missing_counters = list()
+
+def _get_all_counters(counters):
+    all_counters, missing_counters = [], []
     if counters:
         for cnt in counters:
             if isinstance(cnt, measurementgroup.MeasurementGroup):
-                scan_counters.extend(_get_counters(cnt, missing_counters))
+                all_counters.extend(_get_counters(cnt, missing_counters))
             else:
-                scan_counters.append(cnt)
+                all_counters.append(cnt)
     else:
-        scan_counters.extend(_get_counters(measurementgroup.get_active(), missing_counters))
+        all_counters.extend(_get_counters(measurementgroup.get_active(), 
+                                          missing_counters))
     
     if missing_counters:
-        raise ValueError("Missing counters, not in setup_globals: %s. Hint: disable inactive counters." % ", ".join(missing_counters))
+        raise ValueError("Missing counters, not in setup_globals: %s. " \
+                         "Hint: disable inactive counters."
+                         % ", ".join(missing_counters))
+    return all_counters
+    
 
-    if not scan_counters:
+def default_chain(chain, scan_pars):
+    count_time = scan_pars.get('count_time', 1)
+    sleep_time = scan_pars.get('sleep_time')
+    npoints = scan_pars.get('npoints', 1)
+    counters = scan_pars.get('counters')
+
+    if not counters:
         raise ValueError("No counters for scan. Hint: are all counters disabled ?")
 
+    timer = SoftwareTimerMaster(count_time, npoints=npoints, sleep_time=sleep_time)
+
     read_cnt_handler = dict()
-    for cnt in set(scan_counters):
+    for cnt in set(counters):
         if isinstance(cnt, CounterBase):
             try:
                 read_all_handler = cnt.read_all_handler()
@@ -107,7 +117,7 @@ def step_scan(chain,scan_info,name=None,save=default_writer is not None):
     scan_info['root_path'] = root_path
     scan_info['session_name'] = scandata.session
     scan_info['user_name'] = scandata.user_name
-    scan_data_watch = scan_module.StepScanDataWatch(root_path,scan_info)
+    scan_data_watch = scan_module.StepScanDataWatch(scan_info)
     return scan_module.Scan(chain,
                             name=name,
                             parent=config['parent'],
@@ -151,12 +161,16 @@ def ascan(motor, start, stop, npoints, count_time, *counters, **kwargs):
         template = " ".join(['{{{0}}}'.format(i) for i in range(len(args))])
         scan_info['title'] = template.format(*args)
 
+    counters = _get_all_counters(counters)
+
     scan_info.update({ 'npoints': npoints, 'total_acq_time': npoints * count_time,
-                       'motors': [TimestampPlaceholder(), motor], 'start': [start], 'stop': [stop],
+                       'motors': [TimestampPlaceholder(), motor], 
+                       'counters': counters,
+                       'start': [start], 'stop': [stop],
                        'count_time': count_time })
 
     chain = AcquisitionChain(parallel_prepare=True)
-    timer = default_chain(chain,scan_info,counters)
+    timer = default_chain(chain,scan_info)
     top_master = LinearStepTriggerMaster(npoints,motor,start,stop)
     chain.add(top_master,timer)
 
@@ -165,6 +179,7 @@ def ascan(motor, start, stop, npoints, count_time, *counters, **kwargs):
 
     scan = step_scan(chain, scan_info,
                      name=kwargs.setdefault("name","ascan"), save=scan_info['save'])
+
     scan.run()
     if kwargs.get('return_scan',False):
         return scan
@@ -228,14 +243,17 @@ def mesh(motor1, start1, stop1, npoints1, motor2, start2, stop2, npoints2, count
         template = " ".join(['{{{0}}}'.format(i) for i in range(len(args))])
         scan_info['title'] = template.format(*args)
 
+    counters = _get_all_counters(counters)
+    
     scan_info.update({ 'npoints1': npoints1, 'npoints2': npoints2, 
                        'total_acq_time': npoints1 * npoints2 * count_time,
                        'motors': [TimestampPlaceholder(), motor1, motor2],
+                       'counters': counters,
                        'start': [start1, start2], 'stop': [stop1, stop2],
                        'count_time': count_time })
 
     chain = AcquisitionChain(parallel_prepare=True)
-    timer = default_chain(chain,scan_info,counters)
+    timer = default_chain(chain,scan_info)
     top_master = MeshStepTriggerMaster(motor1, start1, stop1, npoints1,
                                        motor2, start2, stop2, npoints2)
     chain.add(top_master,timer)
@@ -294,13 +312,16 @@ def a2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
         template = " ".join(['{{{0}}}'.format(i) for i in range(len(args))])
         scan_info['title'] = template.format(*args)
 
+    counters = _get_all_counters(counters)
+
     scan_info.update({ 'npoints': npoints, 'total_acq_time': npoints * count_time,
                        'motors': [TimestampPlaceholder(), motor1, motor2],
+                       'counters': counters,
                        'start': [start1, start2], 'stop': [stop1, stop2],
                        'count_time': count_time })
 
     chain = AcquisitionChain(parallel_prepare=True)
-    timer = default_chain(chain,scan_info,counters)
+    timer = default_chain(chain,scan_info)
     top_master = LinearStepTriggerMaster(npoints,
                                          motor1,start1,stop1,
                                          motor2,start2,stop2)
@@ -385,6 +406,7 @@ def timescan(count_time, *counters, **kwargs):
         save (bool): save scan data to file [default: True]
         sleep_time (float): sleep time between 2 points [default: None]
         return_scan (bool): False by default
+        npoints (int): number of points [default: 0, meaning infinite number of points]
     """
     scan_info = { 'type': kwargs.get('type', 'timescan'),
                   'save': kwargs.get('save', True),
@@ -396,20 +418,49 @@ def timescan(count_time, *counters, **kwargs):
         template = " ".join(['{{{0}}}'.format(i) for i in range(len(args))])
         scan_info['title'] = template.format(*args)
 
+    counters = _get_all_counters(counters)
+    
     npoints = kwargs.get("npoints", 0)
     scan_info.update({ 'npoints': npoints, 'total_acq_time': npoints * count_time,
-                       'motors': [TimestampPlaceholder()], 'start': [], 'stop': [], 'count_time': count_time,
+                       'motors': [TimestampPlaceholder()], 
+                       'counters': counters,
+                       'start': [], 'stop': [], 'count_time': count_time,
                        'total_acq_time': npoints * count_time })
 
     _log.info("Doing %s", scan_info['type'])
 
     chain = AcquisitionChain(parallel_prepare=True)
-    timer = default_chain(chain,scan_info,counters)
+    timer = default_chain(chain,scan_info)
 
     scan = step_scan(chain, scan_info,
                      name=kwargs.setdefault("name","timescan"), save=scan_info['save'])
     scan.run()
-    return scan
+    if kwargs.get('return_scan', False):
+        return scan
+
+
+def loopscan(npoints, count_time, *counters, **kwargs):
+    """
+    Similar to :ref:`timescan` but npoints is mandatory
+
+    Args:
+        npoints (int): number of points
+        count_time (float): count time (seconds)
+        counters (BaseCounter or
+                  MeasurementGroup): change for those counters or measurement group.
+                                     if counter is empty use the active measurement group.
+
+    Keyword Args:
+        name (str): scan name in data nodes tree and directories [default: 'scan']
+        title (str): scan title [default: 'timescan <count_time>']
+        save (bool): save scan data to file [default: True]
+        sleep_time (float): sleep time between 2 points [default: None]
+        return_scan (bool): False by default
+    """
+    kwargs.setdefault('npoints', npoints)
+    kwargs.setdefault('name', 'loopscan')
+    return timescan(count_time, *counters, **kwargs)
+
 
 def ct(count_time, *counters, **kwargs):
     """
@@ -428,6 +479,7 @@ def ct(count_time, *counters, **kwargs):
         name (str): scan name in data nodes tree and directories [default: 'scan']
         title (str): scan title [default: 'ct <count_time>']
         save (bool): save scan data to file [default: True]
+        return_scan (bool): False by default
     """
     kwargs['type'] = 'ct'
     kwargs['save'] = False

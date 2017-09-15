@@ -7,10 +7,12 @@
 import importlib
 import tango.gevent
 from bliss.config import settings
+from .bpm import Bpm
 
 class Lima(object):
     ROI_COUNTERS = 'roicounter'
-    
+    BPM = 'beamviewer'
+
     class Roi(object):
         def __init__(self,x,y,width,height,name = None):
             self.x = x
@@ -176,7 +178,7 @@ class Lima(object):
                                     roi.x,roi.y,
                                     roi.width,roi.height))
             self._proxy.setRois(rois_values)
-            
+
     def __init__(self,name,config_tree):
         """Lima controller.
 
@@ -229,6 +231,11 @@ class Lima(object):
     @property
     def camera_type(self):
         return self._proxy.camera_type
+
+    @property
+    def bpm(self):
+        bpm_proxy = self._get_proxy(self.BPM)
+        return Bpm(self.name,PyTango.DeviceProxy(bpm_proxy))
 
     @property
     def available_triggers(self):

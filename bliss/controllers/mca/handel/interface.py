@@ -73,10 +73,14 @@ def stats_from_buffer(array):
     # ICR/OCR computation
     # It turns out the hardware only keeps the integer part of the rate
     # computations. It is improved here.
-    icr = triggers / livetime
-    ocr = events / realtime
-    assert int(icr) == int(array[5])
-    assert int(ocr) == int(array[6])
+    icr = triggers / livetime if livetime != 0 else 0.0
+    ocr = events / realtime if realtime != 0 else 0.0
+    if int(icr) != int(array[5]):
+        msg = "ICR buffer inconsistency: int({}) != int({})"
+        raise ValueError(msg.format(icr, array[5]))
+    if int(ocr) != int(array[6]):
+        msg = "OCR buffer inconsistency: int({}) != int({})"
+        raise ValueError(msg.format(ocr, array[6]))
 
     # Deadtime computation
     # It's unclear whether icr=ocr=0 should result in a 0.0 or 1.0 deadtime

@@ -23,7 +23,7 @@ def test_get_mercury_from_config(beacon, mocker):
         client.is_running.return_value = False
 
     # Instantiating the mercury
-    mercury = beacon.get('mercury-test')
+    mercury = beacon.get('mercury1')
     m.assert_called_once_with('tcp://welisa.esrf.fr:8000')
     client.init.assert_called_once_with(
         'C:\\\\blissadm\\\\mercury', 'mercury_src.ini')
@@ -81,11 +81,11 @@ def test_get_mercury_from_wrong_config(beacon, mocker):
     m = mocker.patch('zerorpc.Client')
     m.side_effect = IOError('Cannot connect!')
     with pytest.raises(IOError):
-        beacon.get('mercury-test')
+        beacon.get('mercury1')
 
     # Handel error
     m = mocker.patch('zerorpc.Client')
     client = m.return_value
     client.init.side_effect = IOError('File not found!')
     with pytest.raises(IOError):
-        beacon.get('mercury-test')
+        beacon.get('mercury1')

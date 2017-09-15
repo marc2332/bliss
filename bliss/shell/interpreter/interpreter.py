@@ -72,18 +72,32 @@ def stdout_redirected(client_uuid, new_stdout):
 
 
 def init_scans_callbacks(interpreter, output_queue):
-    def new_scan_callback(scan_info, root_path, scan_actuators, npoints, counters_list):
+    def new_scan_callback(scan_info):
+        scan_actuators = scan_info['motors']
         if len(scan_actuators) > 1:
             scan_actuators = scan_actuators[1:]
-        output_queue.put((interpreter.get_last_client_uuid(), {"scan_id": scan_info["node_name"], "filename": root_path,
-                          "scan_actuators": scan_actuators, "npoints": npoints,
-                          "counters": counters_list}))
+        data = (interpreter.get_last_client_uuid(),
+                {"scan_id": scan_info["node_name"],
+                 "filename": scan_info['root_path'],
+                 "scan_actuators": [actuator.name for actuator in scan_actuators],
+                 "npoints": scan_info['npoints'],
+                 "counters": [ct.name for ct in scan_info['counters']]})
+        output_queue.put(data)
+
     def update_scan_callback(scan_info, values):
+        value_list = [values[m.name] for m in scan_info['motors']]
+        value_list += [values[c.name] for c in scan_info['counters']]
         if scan_info["type"] != "timescan":
-            values = values[1:]
-        output_queue.put((interpreter.get_last_client_uuid(), {"scan_id": scan_info["node_name"], "values":values}))
+            value_list = value_list[1:]
+        data = (interpreter.get_last_client_uuid(),
+                {"scan_id": scan_info["node_name"],
+                 "values":value_list})
+        output_queue.put(data)
+
     def scan_end_callback(scan_info):
-        output_queue.put((interpreter.get_last_client_uuid(), {"scan_id": scan_info["node_name"]}))
+        data = (interpreter.get_last_client_uuid(),
+                {"scan_id": scan_info["node_name"]})
+        output_queue.put(data)
 
     # keep callbacks references
     output_queue.callbacks["scans"]["new"] = new_scan_callback

@@ -59,13 +59,8 @@ class StepScanDataWatch(object):
  
         point_nb = self._last_point_display
         for point_nb in range(self._last_point_display,min_nb_points):
-            motor_channels = [self._channel_name_2_channel.get(channel_name)
-                              for channel_name in self._motors_name]
-            values = [channel.get(point_nb) for channel in motor_channels]
-            motor_channels = set(motor_channels)
-            values.extend((channel.get(point_nb)
-                           for channel in self._channel_name_2_channel.values()
-                           if channel not in motor_channels))
+            values = dict([(ch_name, ch.get(point_nb))
+                      for ch_name, ch in self._channel_name_2_channel.iteritems()])
             send(current_module,"scan_data",
                  self._scan_info,values)
         if min_nb_points is not None:

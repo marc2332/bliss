@@ -129,13 +129,14 @@ class ScanListener:
         header = self.HEADER.format(column_header=header,
                                     estimation_str=estimation_str,
                                     **scan_info)
-        self.col_templ = ["{{0: >{width}}}".format(width=col_len) 
+        self.col_templ = ["{{0: >{width}g}}".format(width=col_len)
                           for col_len in col_lens]
         print_(header)
 
     def __on_scan_data(self, scan_info, values):
-        elapsed_time = time.time() - scan_info['start_time_stamp']
-        values = [elapsed_time] + values[1:]
+        elapsed_time = values['timestamp'] - scan_info['start_time_stamp']
+        counter_values = [values[c.name] for c in scan_info['counters']]
+        values = [elapsed_time] + counter_values
         if scan_info['type'] == 'ct':
             # ct is actually a timescan(npoints=1).
             norm_values = numpy.array(values) / scan_info['count_time']

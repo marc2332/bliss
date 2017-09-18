@@ -187,5 +187,5 @@ class ScanListener:
                 position += unit
             labels.append('{0}: {1}'.format(motor.name, position))
 
-        print_(self.term.clear_bol + '\r', end='')
-        print_(*labels, sep=', ', end='', flush=True)
+        print_('\33[2K', end='')
+        print_(*labels, sep=', ', end='\r', flush=True)

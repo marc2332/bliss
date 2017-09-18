@@ -237,7 +237,7 @@ def get_module_statistics(module):
     check_error(code)
     # Parse raw data
     return {
-        channel: stats_from_buffer(array[index * 7 :])
+        channel: stats_from_buffer(array[index * 9 :])
         for index, channel in enumerate(channels)
         if channel != -1
     }

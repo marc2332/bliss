@@ -282,17 +282,27 @@ def test_get_module_statistics(interface):
     m = interface.handel.xiaGetRunData
 
     def side_effect(channel, dtype, arg):
-        arg[3 * 7 : 4 * 7] = raw
+        arg[3 * 9 : 4 * 9] = raw
         return 0
 
-    raw = [1.00758784, 0.98603936, 255.0, 3088.0, 2742.0, 3131.0, 2721.0]
+    raw = [
+        1.00758784,
+        0.98603936,
+        255.0,
+        3088.0,
+        2742.0,
+        3131.720827046904,
+        2721.350825353351,
+        0.0,
+        0.0,
+    ]
 
     expected = {
         8: interface.Stats(
             1.00758784,
             0.98603936,
-            3088.0,
-            2742.0,
+            3088,
+            2742,
             3131.720827046904,
             2721.350825353351,
             0.13103658479051494,
@@ -306,21 +316,22 @@ def test_get_module_statistics(interface):
         assert interface.get_module_statistics("module3") == expected
         m2.assert_called_once_with("module3")
         arg = m.call_args[0][2]
-        m.assert_called_once_with(8, b"module_statistics", arg)
-        # Second test
-        raw[6] = 1.23  # OCR inconsistency
-        with pytest.raises(ValueError) as ctx:
-            interface.get_module_statistics("module3")
-        assert "OCR" in str(ctx.value)
-        assert "1.23" in str(ctx.value)
-        assert "2721.3508" in str(ctx.value)
+        m.assert_called_once_with(8, b"module_statistics_2", arg)
         # Second test
         raw[5] = 4.56  # ICR inconsistency
-        with pytest.raises(ValueError) as ctx:
+        raw[6] = 1.23  # OCR inconsistency
+        with pytest.warns(UserWarning) as ctx:
             interface.get_module_statistics("module3")
-        assert "ICR" in str(ctx.value)
-        assert "4.56" in str(ctx.value)
-        assert "3131.7208" in str(ctx.value)
+        assert (
+            ctx[0]
+            .message.args[0]
+            .startswith("ICR buffer inconsistency: 4.56 != 3131.7208")
+        )
+        assert (
+            ctx[1]
+            .message.args[0]
+            .startswith("OCR buffer inconsistency: 1.23 != 2721.3508")
+        )
 
     # Make sure errors have been checked
     interface.check_error.assert_called_with(0)

@@ -107,9 +107,38 @@ class Mercury(BaseMCA):
         grouped_channels = self._proxy.get_grouped_channels()
         assert grouped_channels == ((0, ), )
 
+    # Acquisition number
+
+    @property
+    def acquisition_number(self):
+        mapping = int(self._proxy.get_acquisition_value('mapping_mode', 0))
+        if mapping == 0:
+            return 1
+        # Should be:
+        # self._proxy.get_acquisition_value('num_map_pixels', 0)
+        raise NotImplementedError
+
+    def set_acquisition_number(self, value):
+        # Invalid argument
+        if value < 1:
+            raise ValueError('Acquisition number should be strictly positive')
+        # Single mode
+        if value == 1:
+            self._proxy.set_acquisition_value('mapping_mode', 0)
+            self._proxy.apply_acquisition_values()
+            return
+        # Multiple mode
+        # Should be:
+        # self._proxy.set_acquisition_value('mapping_mode', 1)
+        # self._proxy.set_acquisition_value('num_map_pixels, value)
+        # self._proxy.apply_acquisition_values()
+        raise NotImplementedError
+
     # Acquisition
 
     def start_acquisition(self):
+        # Make sure the acquisition is stopped first
+        self._proxy.stop_run()
         self._proxy.start_run()
 
     def stop_acquisition(self):
@@ -158,7 +187,7 @@ class Mercury(BaseMCA):
             mode = PresetMode.NONE
         # Check arguments
         if mode not in self.supported_preset_modes:
-            raise ValueError('{:s} preset mode not supported'.format(mode))
+            raise ValueError('{!s} preset mode not supported'.format(mode))
         if mode == PresetMode.NONE and value is not None:
             raise TypeError(
                 'Preset value should be None when no preset mode is set')
@@ -189,7 +218,7 @@ class Mercury(BaseMCA):
             mode = TriggerMode.SOFTWARE
         # Check arguments
         if mode not in self.supported_trigger_modes:
-            raise ValueError('{:s} trigger mode not supported'.format(mode))
+            raise ValueError('{!s} trigger mode not supported'.format(mode))
         # Get hardware value
         value = 0 if mode == TriggerMode.GATE else 1
         # Configure

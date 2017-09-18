@@ -135,8 +135,10 @@ class ScanListener:
 
     def __on_scan_data(self, scan_info, values):
         elapsed_time = values['timestamp'] - scan_info['start_time_stamp']
+        motors = scan_info['motors'][1:] # take out timestamp placeholder
+        motor_values = [values[m.name] for m in motors]
         counter_values = [values[c.name] for c in scan_info['counters']]
-        values = [elapsed_time] + counter_values
+        values = [elapsed_time] + motor_values + counter_values
         if scan_info['type'] == 'ct':
             # ct is actually a timescan(npoints=1).
             norm_values = numpy.array(values) / scan_info['count_time']

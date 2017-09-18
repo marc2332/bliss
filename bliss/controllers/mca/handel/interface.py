@@ -3,6 +3,7 @@
 from __future__ import absolute_import
 
 import os
+from warnings import warn
 from collections import namedtuple
 
 import numpy
@@ -69,18 +70,23 @@ def stats_from_buffer(array):
     livetime = float(array[1])
     triggers = int(array[3])
     events = int(array[4])
+    icr = float(array[5])
+    ocr = float(array[6])
+    underflows = int(array[7])
+    overflows = int(array[8])
 
-    # ICR/OCR computation
-    # It turns out the hardware only keeps the integer part of the rate
-    # computations. It is improved here.
-    icr = triggers / livetime if livetime != 0 else 0.0
-    ocr = events / realtime if realtime != 0 else 0.0
-    if int(icr) != int(array[5]):
-        msg = "ICR buffer inconsistency: int({}) != int({})"
-        raise ValueError(msg.format(icr, array[5]))
-    if int(ocr) != int(array[6]):
-        msg = "OCR buffer inconsistency: int({}) != int({})"
-        raise ValueError(msg.format(ocr, array[6]))
+    # Double check the ICR computation
+    expected_icr = triggers / livetime if livetime != 0 else 0.0
+    if expected_icr != icr:
+        msg = "ICR buffer inconsistency: {} != {} (expected)"
+        warn(msg.format(icr, expected_icr))
+
+    # Double check the OCR computation
+    total = events + underflows + overflows
+    expected_ocr = total / realtime if realtime != 0 else 0.0
+    if expected_ocr != ocr:
+        msg = "OCR buffer inconsistency: {} != {} (expected)"
+        warn(msg.format(ocr, expected_ocr))
 
     # Deadtime computation
     # It's unclear whether icr=ocr=0 should result in a 0.0 or 1.0 deadtime
@@ -223,11 +229,11 @@ def is_running():
 def get_module_statistics(module):
     # Get raw data
     channels = get_module_channels(module)
-    data_size = 7 * len(channels)
+    data_size = 9 * len(channels)
     master = next(c for c in channels if c != -1)
     array = numpy.zeros(data_size, dtype="double")
     data = ffi.cast("double *", array.ctypes.data)
-    code = handel.xiaGetRunData(master, b"module_statistics", data)
+    code = handel.xiaGetRunData(master, b"module_statistics_2", data)
     check_error(code)
     # Parse raw data
     return {

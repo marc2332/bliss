@@ -7,37 +7,47 @@
 
 from bliss.common.task_utils import cleanup, error_cleanup, task
 from bliss.common.utils import add_property
-from bliss.common.measurement import SamplingDevice
+from bliss.common.measurement import SamplingCounter
 from bliss.common import Actuator
 import gevent
 from gevent import event
 import PyTango.gevent
 import numpy
 
+class BpmGroupedReadHandler(SamplingCounter.GroupedReadHandler):
+    def __init__(self, *args):
+        SamplingCounter.GroupedReadHandler.__init__(self,*args)
+        self.__back_to_live = False
+        self.__video = False
+
+    def prepare(self, *counters):
+        self.__back_to_live = False
+        self.__video = False
+        if self.controller.is_video_live():
+            self.__back_to_live = True
+            self.__video = True
+            self.controller.stop(video=True)
+        elif self.controller.is_live():
+            self.__back_to_live = True
+            self.controller.stop()
+
+    def end(self, *counters):
+        if self.__back_to_live:
+            self.controller.live(video=self.__video)
+
+    def read(self, *counters):
+        result = self.__control.GetPosition()
+        return [result[cnt.index] for cnt in counters]
+
+class BpmCounter(SamplingCounter):
     def __init__(self, name, controller, index):
-        SamplingDevice.__init__(self, controller.name+'.'+name, controller)
-        self.index = index
+        SamplingCounter.__init__(self, controller.name+'.'+name, controller, BpmGroupedReadHandler)
+        self.__index = index
 
-    def read(self):
-        data = self.parent.last_acq
-        try:
-            value = data[self.index]
-        except TypeError:
-            raise RuntimeError("No data available, hint: acquire data with `.count(acq_time)` first")
-        else:
-            return value 
+    @property
+    def index(self):
+        return self.__index
 
-    def count(self, acq_time):
-        meas = self.Measurement()
-
-        if not self.parent._acquisition_event.is_set():
-            # acquisition in progress
-            self.parent._acquisition_event.wait()
-        else:
-            self.parent.read(acq_time)
-        meas._add_value(self.parent.last_acq[self.index], self.parent.last_acq[0])
-        return meas
- 
 class tango_bpm(object):
    def __init__(self, name, config):
        self.name = name
@@ -164,10 +174,15 @@ class tango_bpm(object):
 
    def live(self, video=False):
      if video and self.__lima_control:
-         self.__lima_control.video_exposure = video
          self.__lima_control.video_live = True
      else:
          return self.__control.Live()
+
+   def is_live(self):
+       return str(self.__control.LiveState) == 'RUNNING'
+
+   def is_video_live(self):
+       return self.__lima_control and self.__lima_control.video_live
 
    def stop(self, video=False):
      if video and self.__lima_control:

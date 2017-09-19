@@ -95,7 +95,7 @@ def default_master_configuration(device, scan_pars):
                                            acq_nb_frames = acq_nb_frames,
                                            acq_expo_time = acq_expo_time,
                                            acq_trigger_mode = acq_trigger_mode,
-                                           save_flag = save,
+                                           save_flag = save_flag,
                                            prepare_once = multi_mode)
         return acq_device,{prepare_once : multi_mode,start_once : multi_mode}
     else:

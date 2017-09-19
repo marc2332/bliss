@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
 # This file is part of the bliss project
@@ -6,41 +5,27 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-"""
-Usage: bliss [--log-level=<log_level>] [(-s | --session)] <name>...
-       bliss [--show-sessions]
-       bliss
-       bliss (-h | --help)
-Options:
-    --log-level=<log_level>       Log level [default: WARN].
-    --show-sessions               Display available sessions.
-    -s, --session                 Starts with some session(s).
-    -h, --help                    Show this screen.
-"""
-import sys
-import os
-import logging
-import gevent
-import docopt
-from ptpython import repl
-from prompt_toolkit.eventloop.base import EventLoop, INPUT_TIMEOUT
-from prompt_toolkit.terminal.vt100_input import InputStream
-from prompt_toolkit.eventloop.posix_utils import PosixStdinReader
-from prompt_toolkit.eventloop.posix import call_on_sigwinch, DummyContext, in_main_thread
-from prompt_toolkit.eventloop.select import fd_to_int
-from gevent import select
-import time
-import signal
-import functools
-from bliss.shell import initialize, ScanListener
-from bliss.config import static
+__all__ = ['PosixGeventEventLoop']
 
-class GeventEventLoop(EventLoop):
+import os
+
+import gevent
+from gevent import select
+
+from prompt_toolkit.utils import DummyContext
+from prompt_toolkit.terminal.vt100_input import InputStream
+from prompt_toolkit.eventloop.posix import call_on_sigwinch, in_main_thread
+from prompt_toolkit.eventloop.select import fd_to_int
+from prompt_toolkit.eventloop.posix_utils import PosixStdinReader
+from prompt_toolkit.eventloop.base import EventLoop, INPUT_TIMEOUT
+
+
+class PosixGeventEventLoop(EventLoop):
     def __init__(self, *args, **kwargs):
         super(EventLoop, self).__init__()
         self.readers = dict()
         self._running = True
-        self._schedule_pipe_read,self._schedule_pipe_write = os.pipe()
+        self._schedule_pipe_read, self._schedule_pipe_write = os.pipe()
         self._calls_from_executor = list()
         self._callbacks = None
         self._winch_callback_done = True
@@ -164,78 +149,6 @@ class GeventEventLoop(EventLoop):
                 callback()
             self._calls_from_executor.append(postpone)
         try:
-            os.write(self._schedule_pipe_write,'x')
+            os.write(self._schedule_pipe_write, 'x')
         except (AttributeError, IndexError, OSError):
             pass
-
-CURRENT_TASK = None
-
-def main():
-    try:
-        # Parse arguments, use file docstring as a parameter definition
-        arguments = docopt.docopt(__doc__)
-        sessions_name = arguments['<name>']
-    except docopt.DocoptExit as e:
-        print e.message
-    else:
-        log_level = getattr(logging, arguments['--log-level'].upper())
-        fmt = '%(levelname)s %(asctime)-15s %(name)s: %(message)s'
-        logging.basicConfig(level=log_level, format=fmt)
-
-        if arguments['--show-sessions']:
-            config = static.get_config()
-            print 'Session name(s):'
-            for name in config.names_list:
-                c = config.get_config(name)
-                if c.get('class') != 'Session': continue
-                if c.get_inherited('plugin') != 'session': continue
-                print ' '*4,name
-            exit(0)
-        repl.create_eventloop = GeventEventLoop
-
-        scan_listener = ScanListener()
-
-        user_ns, sessions = initialize(*sessions_name)
-
-        if sessions_name:
-            session_id  = '_'.join(sessions_name)
-            history_filename = ".%s_%s_history" % (os.path.basename(sys.argv[0]), session_id)
-        else:
-            history_filename = ".%s_history" % os.path.basename(sys.argv[0])
-        history_filename = os.path.join(os.environ["HOME"], history_filename)
-        
-        def patch_repl(repl):
-            prev_execute = repl._execute
-            def wrapped_f(self,*args, **kwargs):
-                try:
-                    return prev_execute(self,*args,**kwargs)
-                except:
-                    return sys.exc_info()
-
-            def patched_execute(*args, **keys):
-                global CURRENT_TASK
-                CURRENT_TASK = gevent.spawn(wrapped_f, *args, **keys)
-                try:
-                    try:
-                        return_value = CURRENT_TASK.get()
-                        if isinstance(return_value, tuple) and len(return_value) >= 3:
-                            if isinstance(return_value[1], (BaseException, Exception)):
-                                raise return_value[0], return_value[1], return_value[2]
-                    except gevent.Timeout as e:  #gevent.Timeout  doesn't inherit from Exception.
-                        repl._handle_exception(*args)
-                finally:
-                    CURRENT_TASK = None
-            repl._execute = patched_execute
-
-        def stop_current_task(signum, frame, exception=gevent.GreenletExit):
-            if CURRENT_TASK:
-                CURRENT_TASK.kill(block=False, exception=exception)
-        signal.signal(signal.SIGINT, functools.partial(stop_current_task, exception=KeyboardInterrupt))
-        signal.signal(signal.SIGTERM, stop_current_task)
-
-        repl.embed(user_ns, None, vi_mode=False, history_filename=history_filename,
-                   configure=patch_repl)
-
-
-if __name__ == '__main__':
-    main()

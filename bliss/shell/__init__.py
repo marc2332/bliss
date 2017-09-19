@@ -53,6 +53,18 @@ def initialize(*session_names):
     return user_ns,sessions
 
 
+def _find_unit(obj):
+    try:
+        if hasattr(obj, 'unit'):
+            return obj.unit
+        if hasattr(obj, 'config'):
+            return obj.config.get('unit')
+        if hasattr(obj, 'controller'):
+            return _find_unit(obj.controller)
+    except:
+        return
+
+
 class ScanListener:
     '''listen to scan events and compose output'''
 
@@ -72,10 +84,13 @@ class ScanListener:
     def __on_scan_new(self, scan_info):
         scan_info = dict(scan_info)
         self.term = term = Terminal(scan_info.get('stream'))
+        scan_info = dict(scan_info)
         
         motors = scan_info['motors']
         counters = scan_info['counters']
         nb_points = scan_info['npoints']
+        if not scan_info['save']:
+            scan_info['root_path'] = '<no saving>'
         col_labels = ['#']
         real_motors = []
         for motor in motors:
@@ -97,7 +112,7 @@ class ScanListener:
 
         for counter in counters:
             counter_label = counter.name
-            unit = counter.config.get('unit', None)
+            unit = _find_unit(counter)
             if unit:
                 counter_label += '({0})'.format(unit)
             col_labels.append(counter_label)
@@ -156,7 +171,7 @@ class ScanListener:
             line = "  ".join([self.col_templ[i].format(v) for i, v in enumerate(values)])
             if self.term.is_a_tty:
                 monitor = scan_info.get('output_mode', 'tail') == 'monitor'
-                print_(line, end=monitor and '\r' or '\n', flush=True)
+                print_('\r' + line, end=monitor and '\r' or '\n', flush=True)
             else:
                 print_(line)
 

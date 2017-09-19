@@ -23,12 +23,13 @@ from gevent import sleep
 from tabulate import tabulate
 from bliss.common.utils import OrderedDict
 
+from pygments import highlight
+from pygments.lexers import PythonLexer
+from pygments.formatters import TerminalFormatter
+
 from bliss import setup_globals
-
 from bliss.common.axis import Axis
-
 from bliss.config.static import get_config
-
 from bliss.common.motor_group import Group
 
 
@@ -77,6 +78,11 @@ def __tabulate(data, **kwargs):
     kwargs.setdefault('numalign', 'right')
 
     return str(tabulate(data, **kwargs))
+
+
+def __pyhighlight(code, bg='dark', outfile=None):
+    formatter = TerminalFormatter(bg=bg)
+    return highlight(code, PythonLexer(), formatter, outfile=outfile)
 
 
 def sync(*axes):
@@ -294,11 +300,13 @@ def __move(*args, **kwargs):
 
     return group, motor_pos
 
+
 def prdef(obj_or_name):
     """
     Shows the text of the source code for an object or the name of an object.
     """
-    if isinstance(obj_or_name, (str, unicode)):
+    is_arg_str = isinstance(obj_or_name, (str, unicode))
+    if is_arg_str:
         obj, name = getattr(setup_globals, obj_or_name), obj_or_name
     else:
         obj = obj_or_name
@@ -310,17 +318,28 @@ def prdef(obj_or_name):
     if name is None:
         name = real_name
 
+    if inspect.ismodule(obj) or inspect.isclass(obj) or \
+       inspect.ismethod(obj) or inspect.isfunction(obj) or \
+       inspect.istraceback(obj) or inspect.isframe(obj) or \
+       inspect.iscode(obj):
+        pass
+    else:
+        try:
+            obj = type(obj)
+        except:
+            pass
+
     fname = inspect.getfile(obj)
     lines, line_nb = inspect.getsourcelines(obj)
-
-    if name == real_name:
+    
+    if name == real_name or is_arg_str:
         header = "'{0}' is defined in:\n{1}:{2}\n". \
                  format(name, fname, line_nb)
     else:
         header = "'{0}' is an alias for '{1}' which is defined in:\n{2}:{3}\n". \
                  format(name, real_name, fname, line_nb)
     print_(header)
-    print_(''.join(lines))
+    print_(__pyhighlight(''.join(lines)))
 
 
 def _check_log_level(level):
@@ -330,6 +349,17 @@ def _check_log_level(level):
         rv = getattr(logging, level.upper())
     return rv
 
-def set_log_level(level):
+
+def set_log_level(level=logging.root.level):
+    """
+    Adjusts the log level
+    
+    Without arguments, resets the level back to the one setup at
+    beginning of the session.
+
+    Args:
+        level (int or str): new log level can be constant (ex: logging.INFO) or
+                            case insensitive equivalent string (ex: 'Info')
+    """
     logging.root.setLevel(_check_log_level(level))
         

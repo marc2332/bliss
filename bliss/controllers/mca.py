@@ -97,8 +97,8 @@ class BaseMCA(object):
     def set_spectrum_range(self, first, last):
         raise NotImplementedError
 
-    # Acquisition number
-
+    # Acquisition number (number of points in acquisition)
+    
     @property
     def acquisition_number(self):
         raise NotImplementedError

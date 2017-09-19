@@ -492,6 +492,10 @@ class BaseMultimeter(KeithleySCPI):
     def read(self):
         return self['READ']
 
+    def read_all(self,*counters):
+        values = self.read()
+        return [values[int(cnt)] for cnt in counters]
+
     def data(self):
         return self['DATA']
 

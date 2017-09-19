@@ -1,4 +1,4 @@
-name: mercury-test
+name: mercury1
 module: xia
 class: Mercury
 plugin: bliss

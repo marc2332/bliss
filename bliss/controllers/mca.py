@@ -17,10 +17,6 @@ DetectorType = enum.Enum(
     'FALCONX1 FALCONX4 FALCONX8 XMAP MERCURY MERCURY4 MICRO_DXP DXP_2X '
     'MAYA2000 MUSST_MCA MCA8000D DSA1000 MULTIMAX')
 
-AcquisitionMode = enum.Enum(
-    'AcquisitionMode',
-    'SINGLE MULTIPLE')
-
 TriggerMode = enum.Enum(
     'TriggerMode',
     'SOFTWARE EXTERNAL GATE')
@@ -31,7 +27,8 @@ PresetMode = enum.Enum(
 
 Stats = collections.namedtuple(
     'Stats',
-    'realtime livetime triggers events icr ocr deadtime')
+    'realtime livetime triggers events icr ocr deadtime '
+    'underflows overflows')
 
 
 # Base class
@@ -86,13 +83,6 @@ class BaseMCA(object):
         raise NotImplementedError
 
     @property
-    def supported_acquisition_modes(self):
-        raise NotImplementedError
-
-    def set_acquisition_mode(self, mode):
-        raise NotImplementedError
-
-    @property
     def supported_trigger_modes(self):
         raise NotImplementedError
 
@@ -108,10 +98,20 @@ class BaseMCA(object):
     def set_spectrum_range(self, first, last):
         raise NotImplementedError
 
-    # Acquisition
+    # Acquisition number (number of points in acquisition)
 
-    def prepare_acquisition(self):
+    @property
+    def acquisition_number(self):
         raise NotImplementedError
+
+    def set_acquisition_number(self, value):
+        raise NotImplementedError
+
+    @property
+    def multiple_acquisition(self):
+        return self.acquisition_number > 1
+
+    # Acquisition
 
     def start_acquisition(self):
         raise NotImplementedError
@@ -131,13 +131,16 @@ class BaseMCA(object):
     # Extra logic
 
     def run_single_acquisition(self, acquisition_time=1., polling_time=0.1):
-        # Prepare
+        # Acquisition number
+        self.set_acquisition_number(1)
+        # Trigger mode
+        self.set_trigger_mode(None)
+        # Preset mode
         realtime = PresetMode.REALTIME in self.supported_preset_modes
         if realtime:
             self.set_preset_mode(PresetMode.REALTIME, acquisition_time)
         else:
             self.set_preset_mode(None)
-        self.prepare_acquisition()
         # Start and wait
         self.start_acquisition()
         if realtime:
@@ -145,6 +148,30 @@ class BaseMCA(object):
                 time.sleep(polling_time)
         else:
             time.sleep(acquisition_time)
+        # Stop and return data
+        self.stop_acquisition()
+        return self.get_acquisition_data(), self.get_acquisition_statistics()
+
+    def run_external_acquisition(self, acquistion_time=None, polling_time=0.1):
+        # Acquisition number
+        self.set_acquisition_number(1)
+        # Trigger mode
+        mode = TriggerMode.EXTERNAL if acquistion_time else TriggerMode.GATE
+        if mode not in self.supported_trigger_modes:
+            raise ValueError('{} is not supported'.format(mode))
+        self.set_trigger_mode(mode)
+        # Preset mode
+        if acquistion_time:
+            self.set_preset_mode(PresetMode.REALTIME, acquistion_time)
+        else:
+            self.set_preset_mode(None)
+        # Start and wait
+        self.start_acquisition()
+        get_realtime = lambda: self.get_acquisition_statistics()[0].realtime
+        previous, current = 0., get_realtime()
+        while current == 0. or previous != current:
+            time.sleep(polling_time)
+            previous, current = current, get_realtime()
         # Stop and return data
         self.stop_acquisition()
         return self.get_acquisition_data(), self.get_acquisition_statistics()

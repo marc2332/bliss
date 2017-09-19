@@ -292,9 +292,9 @@ def test_get_module_statistics(interface):
         3088.0,
         2742.0,
         3131.720827046904,
-        2721.350825353351,
-        0.0,
-        0.0,
+        2724.3282332585513,
+        1.0,
+        2.0,
     ]
 
     expected = {
@@ -304,8 +304,10 @@ def test_get_module_statistics(interface):
             3088,
             2742,
             3131.720827046904,
-            2721.350825353351,
-            0.13103658479051494,
+            2724.3282332585513,
+            0.1300858589533055,
+            1,
+            2,
         )
     }
 
@@ -330,7 +332,7 @@ def test_get_module_statistics(interface):
         assert (
             ctx[1]
             .message.args[0]
-            .startswith("OCR buffer inconsistency: 1.23 != 2721.3508")
+            .startswith("OCR buffer inconsistency: 1.23 != 2724.3282")
         )
 
     # Make sure errors have been checked

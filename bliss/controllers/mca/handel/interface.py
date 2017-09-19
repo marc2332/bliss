@@ -61,7 +61,10 @@ MAX_STRING_LENGTH = 80
 
 # Helpers
 
-Stats = namedtuple("Stats", "realtime livetime triggers events icr ocr deadtime")
+Stats = namedtuple(
+    "Stats",
+    "realtime livetime triggers events icr ocr deadtime " "underflows overflows",
+)
 
 
 def stats_from_buffer(array):
@@ -93,7 +96,9 @@ def stats_from_buffer(array):
     # Prospect uses 0% so 0. it is.
     deadtime = 1 - float(ocr) / icr if icr != 0 else 0.0
 
-    return Stats(realtime, livetime, triggers, events, icr, ocr, deadtime)
+    return Stats(
+        realtime, livetime, triggers, events, icr, ocr, deadtime, underflows, overflows
+    )
 
 
 def to_bytes(arg):

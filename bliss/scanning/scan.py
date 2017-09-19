@@ -499,7 +499,7 @@ class FileWriter(object):
                             lima_dev.saving_frame_per_file = 1
                             camera_name = lima_dev.camera_type
                             scan_name = scan_recorder.node.name()
-                            lima_dev.saving_directory=full_path
+                            lima_dev.saving_directory=scan_file_dir
                             lima_dev.saving_prefix='%s_%s' % (scan_name,camera_name)
                             lima_dev.saving_suffix='.edf'
                             pass # link

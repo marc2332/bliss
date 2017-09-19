@@ -5,7 +5,7 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 import importlib
-import PyTango
+import tango.gevent
 from bliss.config import settings
 
 class Lima(object):
@@ -185,33 +185,46 @@ class Lima(object):
         in this dictionary we need to have:
         tango_url -- tango main device url (from class LimaCCDs) 
         """
-        self._proxy = PyTango.DeviceProxy(config_tree.get("tango_url"))
+        self._proxy = tango.gevent.DeviceProxy(config_tree.get("tango_url"))
         self.name = name
-        
+        self._roi_counters = None
+        self._camera = None
+        self._image = None
+        self._acquisition = None
+
     @property
     def proxy(self):
         return self._proxy
 
     @property
     def image(self):
-        return Lima.Image(self._proxy)
+        if self._image is None:
+            self._image = Lima.Image(self._proxy)
+        return self._image
 
     @property
     def acquisition(self):
-        return Lima.Acquisition(self._proxy)
+        if self._acquisition is None:
+            self._acquisition = Lima.Acquisition(self._proxy)
+        return self._acquisition
     
     @property
     def roi_counters(self):
-        roi_counters_proxy = self._get_proxy(self.ROI_COUNTERS)
-        return Lima.RoiCounters(self.name,
-                                PyTango.DeviceProxy(roi_counters_proxy))
+        if self._roi_counters is None:
+            roi_counters_proxy = self._get_proxy(self.ROI_COUNTERS)
+            proxy = tango.gevent.DeviceProxy(roi_counters_proxy)
+            self._roi_counters= Lima.RoiCounters(self.name, proxy)
+        return self._roi_counters
     
     @property
     def camera(self):
-        camera_type = self._proxy.lima_type
-        camera_proxy = self._get_proxy(camera_type)
-        camera_module = importlib.import_module('.%s' % camera_type,__package__)
-        return camera_module.Camera(self.name,PyTango.DeviceProxy(camera_proxy))
+        if self._camera is None:
+            camera_type = self._proxy.lima_type
+            camera_proxy = self._get_proxy(camera_type)
+            camera_module = importlib.import_module('.%s' % camera_type,__package__)
+            proxy = tango.gevent.DeviceProxy(camera_proxy)
+            self._camera = camera_module.Camera(self.name, proxy)
+        return self._camera
     
     def prepareAcq(self):
         self._proxy.prepareAcq()

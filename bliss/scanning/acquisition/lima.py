@@ -33,7 +33,8 @@ class LimaAcquisitionDevice(AcquisitionDevice):
         device = device.proxy
       AcquisitionDevice.__init__(self, device, device.user_detector_name, "lima", acq_nb_frames,
                                  trigger_type = trigger_type)
-              
+      self._latency = self.device.latency_time
+
   def prepare(self):
       for param_name, param_value in self.parameters.iteritems():
           setattr(self.device, param_name, param_value)
@@ -76,7 +77,6 @@ class LimaAcquisitionDevice(AcquisitionDevice):
                                            })
           gevent.sleep(self.parameters['acq_expo_time']/2.0)
       # TODO: self.dm.send_new_ref(self, {...}) ? or DataManager.send_new_ref(...) ?
-      print "end of read_data", self.device.acq_status.lower()
       dispatcher.send("new_ref", self, { "type":"lima/image",
                                          "last_image_acquired":self.device.last_image_acquired,
                                          "last_image_saved":self.device.last_image_saved,

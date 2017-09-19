@@ -106,7 +106,6 @@ def test_mercury_acquisition_number(mercury):
     mercury.acquisition_number == 1
     client.get_acquisition_value.assert_called_once_with('mapping_mode', 0)
 
-
     # Error tests
     with pytest.raises(ValueError):
         mercury.set_acquisition_number(0)
@@ -117,8 +116,8 @@ def test_mercury_acquisition(mercury, mocker):
     sleep = mocker.patch('time.sleep')
     sleep.side_effect = lambda x: client.mock_not_running()
     client.get_spectrums.return_value = {0: [3, 2, 1]}
-    client.get_statistics.return_value = {0: range(7)}
-    stats = Stats(*range(7))
+    client.get_statistics.return_value = {0: range(9)}
+    stats = Stats(*range(9))
     assert mercury.run_single_acquisition(3.) == ([[3, 2, 1]], [stats])
     sleep.assert_called_once_with(0.1)
 

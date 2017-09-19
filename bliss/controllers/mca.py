@@ -27,7 +27,8 @@ PresetMode = enum.Enum(
 
 Stats = collections.namedtuple(
     'Stats',
-    'realtime livetime triggers events icr ocr deadtime')
+    'realtime livetime triggers events icr ocr deadtime '
+    'underflows overflows')
 
 
 # Base class
@@ -98,7 +99,7 @@ class BaseMCA(object):
         raise NotImplementedError
 
     # Acquisition number (number of points in acquisition)
-    
+
     @property
     def acquisition_number(self):
         raise NotImplementedError

@@ -54,7 +54,7 @@ def test_scan_callbacks(beacon):
   def on_scan_new(scan_info):
     res["new"] = True
   def on_scan_data(scan_info, values):
-    res["values"].append(values[1])
+    res["values"].append(values[counter.name])
   def on_scan_end(scan_info):
     res["end"] = True
 

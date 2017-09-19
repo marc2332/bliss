@@ -16,6 +16,7 @@ import functools
 
 import numpy
 from six import print_
+from blessings import Terminal
 
 from bliss import setup_globals
 from bliss.config import static
@@ -55,7 +56,7 @@ def initialize(*session_names):
 class ScanListener:
     '''listen to scan events and compose output'''
 
-    HEADER = "Total {npoints} points, {total_acq_time} seconds\n\n" + \
+    HEADER = "Total {npoints} points{estimation_str}\n\n" + \
              "Scan {scan_nb} {start_time_str} {root_path} " + \
              "{session_name} user = {user_name}\n" + \
              "{title}\n\n" + \
@@ -70,6 +71,8 @@ class ScanListener:
 
     def __on_scan_new(self, scan_info):
         scan_info = dict(scan_info)
+        self.term = term = Terminal(scan_info.get('stream'))
+        
         motors = scan_info['motors']
         counters = scan_info['counters']
         nb_points = scan_info['npoints']
@@ -83,8 +86,9 @@ class ScanListener:
                 unit = 's'
             else:
                 real_motors.append(motor)
-                dispatcher.connect(self.__on_motor_position_changed,
-                                   signal='position', sender=motor)
+                if term.is_a_tty:
+                    dispatcher.connect(self.__on_motor_position_changed,
+                                       signal='position', sender=motor)
                 unit = motor.config.get('unit', default=None)
             motor_label = motor_name
             if unit:
@@ -108,19 +112,33 @@ class ScanListener:
         if scan_info['type'] == 'ct':
             return
 
+        estimation = scan_info.get('estimation')
+        if estimation:
+            total = datetime.timedelta(seconds=estimation['total_time'])
+            motion = datetime.timedelta(seconds=estimation['total_motion_time'])
+            count = datetime.timedelta(seconds=estimation['total_count_time'])
+            estimation_str = ', {0} (motion: {1}, count: {2})'.format(total, motion, count)
+        else:
+            estimation_str = ''
+
         col_lens = map(lambda x: max(len(x), self.DEFAULT_WIDTH), col_labels)
         h_templ = ["{{0:>{width}}}".format(width=col_len)
                    for col_len in col_lens]
         header = "  ".join([templ.format(label)
                             for templ, label in zip(h_templ, col_labels)])
-        header = self.HEADER.format(column_header=header, **scan_info)
-        self.col_templ = ["{{0: >{width}}}".format(width=col_len) 
+        header = self.HEADER.format(column_header=header,
+                                    estimation_str=estimation_str,
+                                    **scan_info)
+        self.col_templ = ["{{0: >{width}g}}".format(width=col_len)
                           for col_len in col_lens]
         print_(header)
 
     def __on_scan_data(self, scan_info, values):
-        elapsed_time = time.time() - scan_info['start_time_stamp']
-        values = [elapsed_time] + values[1:]
+        elapsed_time = values['timestamp'] - scan_info['start_time_stamp']
+        motors = scan_info['motors'][1:] # take out timestamp placeholder
+        motor_values = [values[m.name] for m in motors]
+        counter_values = [values[c.name] for c in scan_info['counters']]
+        values = [elapsed_time] + motor_values + counter_values
         if scan_info['type'] == 'ct':
             # ct is actually a timescan(npoints=1).
             norm_values = numpy.array(values) / scan_info['count_time']
@@ -136,7 +154,11 @@ class ScanListener:
             values.insert(0, self._point_nb)
             self._point_nb += 1
             line = "  ".join([self.col_templ[i].format(v) for i, v in enumerate(values)])
-            print_(line)
+            if self.term.is_a_tty:
+                monitor = scan_info.get('output_mode', 'tail') == 'monitor'
+                print_(line, end=monitor and '\r' or '\n', flush=True)
+            else:
+                print_(line)
 
     def __on_scan_end(self, scan_info):
         if scan_info['type'] == 'ct':
@@ -145,6 +167,18 @@ class ScanListener:
         for motor in self.real_motors:
             dispatcher.disconnect(self.__on_motor_position_changed, 
                                   signal='position', sender=motor)
+
+        end = datetime.datetime.fromtimestamp(time.time())
+        start = datetime.datetime.fromtimestamp(scan_info['start_time_stamp'])
+        dt = end - start
+        if scan_info.get('output_mode', 'tail') == 'monitor' and self.term.is_a_tty:
+            print_()
+        msg = '\nTook {0}'.format(dt)
+        if 'estimation' in scan_info:
+            time_estimation = scan_info['estimation']['total_time']
+            msg += ' (estimation was for {0})'.format(datetime.timedelta(seconds=time_estimation))
+        print_(msg)
+
 
     def __on_motor_position_changed(self, position, signal=None, sender=None):
         labels = []

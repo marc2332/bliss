@@ -4,5 +4,5 @@ class: Mercury
 plugin: bliss
 url: tcp://welisa.esrf.fr:8000
 configuration_directory: C:\\blissadm\\mercury
-default_configuration: default.ini
+default_configuration: mercury_src.ini
 detector_mapping: sdd3elts

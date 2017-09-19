@@ -3,6 +3,7 @@
 # Imports
 import time
 import enum
+import collections
 
 
 # Enums
@@ -18,16 +19,19 @@ DetectorType = enum.Enum(
 
 AcquisitionMode = enum.Enum(
     'AcquisitionMode',
-    'MCA_NORMAL MCA_MAPPING SCA_MAPPING LIST_MODE SCA_HARD')
+    'SINGLE MULTIPLE')
 
 TriggerMode = enum.Enum(
     'TriggerMode',
-    'INTERNAL SOFTWARE EXTERNAL_GATE EXTERNAL_MULTI_GATE '
-    'EXTERNAL_MULTI_TRIGGER')
+    'SOFTWARE EXTERNAL GATE')
 
 PresetMode = enum.Enum(
     'PresetMode',
-    'NONE REAL_TIME LIVE_TIME')
+    'NONE REALTIME LIVETIME EVENTS TRIGGERS')
+
+Stats = collections.namedtuple(
+    'Stats',
+    'realtime livetime triggers events icr ocr deadtime')
 
 
 # Base class
@@ -115,17 +119,32 @@ class BaseMCA(object):
     def stop_acquisition(self):
         raise NotImplementedError
 
-    def get_acquisition_status(self):
+    def is_acquiring(self):
         raise NotImplementedError
 
     def get_acquisition_data(self):
         raise NotImplementedError
 
+    def get_acquisition_statistics(self):
+        raise NotImplementedError
+
     # Extra logic
 
-    def run_single_acquisition(self, acquisition_time=1.):
+    def run_single_acquisition(self, acquisition_time=1., polling_time=0.1):
+        # Prepare
+        realtime = PresetMode.REALTIME in self.supported_preset_modes
+        if realtime:
+            self.set_preset_mode(PresetMode.REALTIME, acquisition_time)
+        else:
+            self.set_preset_mode(None)
         self.prepare_acquisition()
+        # Start and wait
         self.start_acquisition()
-        time.sleep(acquisition_time)
+        if realtime:
+            while self.is_acquiring():
+                time.sleep(polling_time)
+        else:
+            time.sleep(acquisition_time)
+        # Stop and return data
         self.stop_acquisition()
-        return self.get_acquisition_data()
+        return self.get_acquisition_data(), self.get_acquisition_statistics()

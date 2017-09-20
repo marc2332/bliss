@@ -5,7 +5,16 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 import importlib
-import tango.gevent
+try:
+    from tango.gevent import DeviceProxy
+except ImportError:
+    try:
+        from PyTango.gevent import DeviceProxy
+    except ImportError:
+        import warnings
+        from PyTango import DeviceProxy
+        warnings.warn("Tango does not support gevent, please update your Python tango version", RuntimeWarning)
+    
 from bliss.config import settings
 from .bpm import Bpm
 
@@ -187,7 +196,7 @@ class Lima(object):
         in this dictionary we need to have:
         tango_url -- tango main device url (from class LimaCCDs) 
         """
-        self._proxy = tango.gevent.DeviceProxy(config_tree.get("tango_url"))
+        self._proxy = DeviceProxy(config_tree.get("tango_url"))
         self.name = name
         self._roi_counters = None
         self._camera = None
@@ -214,17 +223,15 @@ class Lima(object):
     def roi_counters(self):
         if self._roi_counters is None:
             roi_counters_proxy = self._get_proxy(self.ROI_COUNTERS)
-            proxy = tango.gevent.DeviceProxy(roi_counters_proxy)
-            self._roi_counters= Lima.RoiCounters(self.name, proxy)
+            self._roi_counters= Lima.RoiCounters(self.name, roi_counters_proxy)
         return self._roi_counters
     
     @property
     def camera(self):
         if self._camera is None:
             camera_type = self._proxy.lima_type
-            camera_proxy = self._get_proxy(camera_type)
+            proxy = self._get_proxy(camera_type)
             camera_module = importlib.import_module('.%s' % camera_type,__package__)
-            proxy = tango.gevent.DeviceProxy(camera_proxy)
             self._camera = camera_module.Camera(self.name, proxy)
         return self._camera
     
@@ -235,7 +242,7 @@ class Lima(object):
     @property
     def bpm(self):
         bpm_proxy = self._get_proxy(self.BPM)
-        return Bpm(self.name,PyTango.DeviceProxy(bpm_proxy))
+        return Bpm(self.name, bpm_proxy, self)
 
     @property
     def available_triggers(self):
@@ -251,4 +258,13 @@ class Lima(object):
         self._proxy.startAcq()
 
     def _get_proxy(self,type_name):
-        return self._proxy.getPluginDeviceNameFromType(type_name)
+        device_name = self._proxy.getPluginDeviceNameFromType(type_name)
+        if not device_name.startswith("//"):
+            # build 'fully qualified domain' name
+            # '.get_fqdn()' doesn't work
+            db_host = self._proxy.get_db_host()
+            db_port = self._proxy.get_db_port()
+            device_name = "//%s:%s/%s" % (db_host, db_port, device_name)
+        return DeviceProxy(device_name)
+
+

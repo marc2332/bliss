@@ -122,8 +122,8 @@ def default_chain(chain, scan_pars, counters):
 
     timer = SoftwareTimerMaster(count_time, npoints=npoints, sleep_time=sleep_time)
 
-    grouped_read_handler = dict()
-    integrating_cnt_handler = dict()
+    grouped_read_handlers_dict = dict()
+    integrating_cnt_handlers_dict = dict()
     master_integrating_counter = dict()
     for cnt in set(counters):
         if isinstance(cnt, (Input, Output)):
@@ -136,11 +136,11 @@ def default_chain(chain, scan_pars, counters):
                 chain.add(timer, SamplingCounterAcquisitionDevice(cnt, count_time=count_time, npoints=npoints))
             else:
                 uniq_id = grouped_read_handler.id
-                cnt_acq_device = grouped_read_handler.get(uniq_id)
+                cnt_acq_device = grouped_read_handlers_dict.get(uniq_id)
                 if cnt_acq_device is None:
                     cnt_acq_device = SamplingCounterAcquisitionDevice(grouped_read_handler, count_time=count_time, npoints=npoints)
                     chain.add(timer, cnt_acq_device)
-                    grouped_read_handler[uniq_id] = cnt_acq_device
+                    grouped_read_handlers_dict[uniq_id] = cnt_acq_device
                 cnt_acq_device.add_counter_to_read(cnt)
         elif isinstance(cnt,IntegratingCounter):
             master_acq_device = master_integrating_counter.get(cnt.acquisition_controller)
@@ -159,11 +159,11 @@ def default_chain(chain, scan_pars, counters):
                 chain.add(master_acq_device,IntegratingCounterAcquisitionDevice(cnt,count_time=count_time,npoints=npoints))
             else:
                 uniq_id = grouped_read_handler.id
-                cnt_acq_device = integrating_cnt_handler.get(uniq_id)
+                cnt_acq_device = integrating_cnt_handlers_dict.get(uniq_id)
                 if cnt_acq_device is None:
                     cnt_acq_device = IntegratingCounterAcquisitionDevice(grouped_read_handler,count_time=count_time,npoints=npoints)
                     chain.add(master_acq_device, cnt_acq_device)
-                    integrating_cnt_handler[uniq_id] = cnt_acq_device
+                    integrating_cnt_handlers_dict[uniq_id] = cnt_acq_device
                 cnt_acq_device.add_counter_to_read(cnt)
         else:
             master_acq_device = master_integrating_counter.get(cnt)

@@ -45,11 +45,13 @@ class SoftwareTimerMaster(AcquisitionMaster):
         if self._nb_point > 0 and self.sleep_time:
             gevent.sleep(self.sleep_time)
 
+        start_trigger = time.time()
         dispatcher.send("new_data",self,
                         {"channel_data":{'timestamp':numpy.double(time.time())}})
 
         self.trigger_slaves()
-        gevent.sleep(self.count_time)
+        elapsed_trigger = time.time()-start_trigger
+        gevent.sleep(self.count_time - elapsed_trigger)
 
     def stop(self):
         pass

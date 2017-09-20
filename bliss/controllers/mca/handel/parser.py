@@ -1,6 +1,8 @@
-"""Parser for the specific XIA INI file format."""
+"""Parsers for the specific XIA INI file format and the mapping mode buffer."""
 
 from collections import OrderedDict
+
+from .stats import stats_from_mapping_mode
 
 
 def parse_xia_ini_file(content):
@@ -130,8 +132,9 @@ def parse_mapping_buffer(raw):
             current += size
 
             # Set data
+            stats = stats_from_mapping_mode(stats_block[index])
             spectrums[pixel][channel_id] = spectrum
-            statistics[pixel][channel_id] = tuple(stats_block[index])
+            statistics[pixel][channel_id] = stats
 
         # Checks
         assert remaining == 0

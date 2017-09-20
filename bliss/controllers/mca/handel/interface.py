@@ -3,13 +3,12 @@
 from __future__ import absolute_import
 
 import os
-from warnings import warn
-from collections import namedtuple
 
 import numpy
 
 from .error import check_error
 from ._cffi import handel, ffi
+from .stats import stats_from_normal_mode
 from .parser import parse_xia_ini_file, parse_mapping_buffer
 
 __all__ = [
@@ -71,45 +70,6 @@ MAX_STRING_LENGTH = 80
 
 
 # Helpers
-
-Stats = namedtuple(
-    "Stats",
-    "realtime livetime triggers events icr ocr deadtime " "underflows overflows",
-)
-
-
-def stats_from_buffer(array):
-    # Raw statistics
-    realtime = float(array[0])
-    livetime = float(array[1])
-    triggers = int(array[3])
-    events = int(array[4])
-    icr = float(array[5])
-    ocr = float(array[6])
-    underflows = int(array[7])
-    overflows = int(array[8])
-
-    # Double check the ICR computation
-    expected_icr = triggers / livetime if livetime != 0 else 0.0
-    if expected_icr != icr:
-        msg = "ICR buffer inconsistency: {} != {} (expected)"
-        warn(msg.format(icr, expected_icr))
-
-    # Double check the OCR computation
-    total = events + underflows + overflows
-    expected_ocr = total / realtime if realtime != 0 else 0.0
-    if expected_ocr != ocr:
-        msg = "OCR buffer inconsistency: {} != {} (expected)"
-        warn(msg.format(ocr, expected_ocr))
-
-    # Deadtime computation
-    # It's unclear whether icr=ocr=0 should result in a 0.0 or 1.0 deadtime
-    # Prospect uses 0% so 0. it is.
-    deadtime = 1 - float(ocr) / icr if icr != 0 else 0.0
-
-    return Stats(
-        realtime, livetime, triggers, events, icr, ocr, deadtime, underflows, overflows
-    )
 
 
 def to_bytes(arg):
@@ -253,7 +213,7 @@ def get_module_statistics(module):
     check_error(code)
     # Parse raw data
     return {
-        channel: stats_from_buffer(array[index * 9 :])
+        channel: stats_from_normal_mode(array[index * 9 :])
         for index, channel in enumerate(channels)
         if channel != -1
     }

@@ -2,6 +2,8 @@ import pytest
 import numpy
 import mock
 
+from bliss.controllers.mca.handel.stats import Stats
+
 
 @pytest.fixture
 def interface():
@@ -298,16 +300,14 @@ def test_get_module_statistics(interface):
     ]
 
     expected = {
-        8: interface.Stats(
+        8: Stats(
             1.00758784,
             0.98603936,
             3088,
-            2742,
+            2745,
             3131.720827046904,
             2724.3282332585513,
             0.1300858589533055,
-            1,
-            2,
         )
     }
 

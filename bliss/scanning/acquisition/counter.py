@@ -117,10 +117,11 @@ class SamplingCounterAcquisitionDevice(AcquisitionDevice):
                 end_read = time.time()
                 read_time = end_read - start_read
                 
-                if self.__mode != SamplingCounterAcquisitionDevice.TIME_AVERAGE:
-                    acc_value += read_value
-                else:
+                if self.__mode == SamplingCounterAcquisitionDevice.TIME_AVERAGE:
                     acc_value += read_value * (end_read - start_read)
+                else:
+                    acc_value += read_value
+
                 nb_read += 1
                 acc_read_time += end_read - start_read
 
@@ -130,9 +131,9 @@ class SamplingCounterAcquisitionDevice(AcquisitionDevice):
                 gevent.sleep(0) # Be able to kill the task
             self._nb_acq_points += 1
             if self.__mode == SamplingCounterAcquisitionDevice.TIME_AVERAGE:
-                data = acc_value / nb_read
-            else:
                 data = acc_value / acc_read_time
+            else:
+                data = acc_value / nb_read
                 
             if self.__mode == SamplingCounterAcquisitionDevice.INTEGRATE:
                 data *= self.count_time

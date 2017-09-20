@@ -203,9 +203,11 @@ class FullMeasurement(Measurement):
 class GroupedReadMixin(object):
     def __init__(self, controller):
         self.__controller_ref = weakref.ref(controller)
+
     @property
     def controller(self):
         return self.__controller_ref()
+
     @property
     def id(self):
         return id(self.controller)

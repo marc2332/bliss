@@ -135,7 +135,7 @@ def default_chain(chain, scan_pars, counters):
             except NotImplementedError:
                 chain.add(timer, SamplingCounterAcquisitionDevice(cnt, count_time=count_time, npoints=npoints))
             else:
-                uniq_id = grouped_read_handler.id()
+                uniq_id = grouped_read_handler.id
                 cnt_acq_device = grouped_read_handler.get(uniq_id)
                 if cnt_acq_device is None:
                     cnt_acq_device = SamplingCounterAcquisitionDevice(grouped_read_handler, count_time=count_time, npoints=npoints)
@@ -158,7 +158,7 @@ def default_chain(chain, scan_pars, counters):
             except NotImplementedError:
                 chain.add(master_acq_device,IntegratingCounterAcquisitionDevice(cnt,count_time=count_time,npoints=npoints))
             else:
-                uniq_id = grouped_read_handler.id()
+                uniq_id = grouped_read_handler.id
                 cnt_acq_device = integrating_cnt_handler.get(uniq_id)
                 if cnt_acq_device is None:
                     cnt_acq_device = IntegratingCounterAcquisitionDevice(grouped_read_handler,count_time=count_time,npoints=npoints)

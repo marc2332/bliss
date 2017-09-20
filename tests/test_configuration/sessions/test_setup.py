@@ -5,7 +5,7 @@ import gevent
 
 class TestScanGaussianCounter(SamplingCounter):
     def __init__(self, name, npts, center=0, stddev=1, cnt_time=0.1):
-      SamplingCounter.__init__(self, None, name)
+      SamplingCounter.__init__(self, name, None)
      
       self.data = numpy.random.normal(center, stddev, npts)
       self.i = 0

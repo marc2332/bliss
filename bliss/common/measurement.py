@@ -205,6 +205,10 @@ class GroupedReadMixin(object):
         self.__controller_ref = weakref.ref(controller)
 
     @property
+    def name(self):
+        return self.controller.name
+
+    @property
     def controller(self):
         return self.__controller_ref()
 

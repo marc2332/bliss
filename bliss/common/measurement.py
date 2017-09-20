@@ -228,6 +228,8 @@ class GroupedReadMixin(object):
 class Counter(object):
     def __init__(self,name,controller,default_grouped_read_handler = None):
         self.__name = name
+        self.__controller_ref = weakref.ref(controller) if controller is not None else None
+
         if hasattr(controller,'read_all') and default_grouped_read_handler:
             self.__default_grouped_read_handler = default_grouped_read_handler(controller)
         else:

@@ -111,7 +111,7 @@ def default_master_configuration(counter, scan_pars):
 def activate_master_saving(acq_device,activate_flag):
     acq_device.save_flag = activate_flag
 
-def default_chain(chain,scan_pars,counters):
+def default_chain(chain, scan_pars, counters):
     count_time = scan_pars.get('count_time', 1)
     sleep_time = scan_pars.get('sleep_time')
     npoints = scan_pars.get('npoints', 1)
@@ -257,7 +257,7 @@ def ascan(motor, start, stop, npoints, count_time, *counters, **kwargs):
                        'estimation': estimation})
 
     chain = AcquisitionChain(parallel_prepare=True)
-    timer = default_chain(chain,scan_info)
+    timer = default_chain(chain, scan_info, counters)
     top_master = LinearStepTriggerMaster(npoints,motor,start,stop)
     chain.add(top_master,timer)
 
@@ -372,7 +372,7 @@ def mesh(motor1, start1, stop1, npoints1, motor2, start2, stop2, npoints2, count
                        'estimation': estimation})
 
     chain = AcquisitionChain(parallel_prepare=True)
-    timer = default_chain(chain,scan_info)
+    timer = default_chain(chain, scan_info, counters)
     top_master = MeshStepTriggerMaster(motor1, start1, stop1, npoints1,
                                        motor2, start2, stop2, npoints2)
     chain.add(top_master,timer)
@@ -464,7 +464,7 @@ def a2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
                        'estimation': estimation })
 
     chain = AcquisitionChain(parallel_prepare=True)
-    timer = default_chain(chain,scan_info)
+    timer = default_chain(chain, scan_info, counters)
     top_master = LinearStepTriggerMaster(npoints,
                                          motor1,start1,stop1,
                                          motor2,start2,stop2)
@@ -596,7 +596,7 @@ def timescan(count_time, *counters, **kwargs):
     _log.info("Doing %s", scan_info['type'])
 
     chain = AcquisitionChain(parallel_prepare=True)
-    timer = default_chain(chain,scan_info)
+    timer = default_chain(chain, scan_info, counters)
 
     scan = step_scan(chain, scan_info,
                      name=kwargs.setdefault("name","timescan"), save=scan_info['save'])

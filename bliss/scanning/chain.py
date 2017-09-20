@@ -379,6 +379,12 @@ class AcquisitionChain(object):
         self._parallel_prepare = parallel_prepare
         self._device2one_shot_flag = weakref.WeakKeyDictionary()
 
+    @property
+    def nodes_list(self):
+        nodes_gen = self._tree.expand_tree()
+        nodes_gen.next() # first node is 'root'
+        return list(nodes_gen)
+         
     def add(self, master, slave):
         self._device2one_shot_flag.setdefault(slave, False)
 

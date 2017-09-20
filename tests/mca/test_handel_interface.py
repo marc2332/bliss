@@ -374,9 +374,9 @@ def test_get_buffer_length(interface):
     interface.check_error.assert_called_with(0)
 
 
-def test_get_buffer_full(interface):
+def test_is_buffer_full(interface):
     with pytest.raises(ValueError) as context:
-        interface.get_buffer_full(1, "very wrong")
+        interface.is_buffer_full(1, "very wrong")
     assert "very wrong" in str(context.value)
 
     m = interface.handel.xiaGetRunData
@@ -386,14 +386,14 @@ def test_get_buffer_full(interface):
         return 0
 
     m.side_effect = side_effect
-    assert interface.get_buffer_full(1, "a") is True
+    assert interface.is_buffer_full(1, "a") is True
     arg = m.call_args[0][2]
     m.assert_called_once_with(1, b"buffer_full_a", arg)
     # Make sure errors have been checked
     interface.check_error.assert_called_with(0)
 
 
-def test_get_buffer(interface):
+def test_get_raw_buffer(interface):
     m = interface.handel.xiaGetRunData
 
     def side_effect(channel, dtype, arg):
@@ -408,7 +408,7 @@ def test_get_buffer(interface):
 
     m.side_effect = side_effect
     expected = numpy.array(range(10), dtype="uint32")
-    diff = interface.get_buffer(1, "a") == expected
+    diff = interface.get_raw_buffer(1, "a") == expected
     assert diff.all()
     m.assert_called()
     arg = m.call_args[0][2]
@@ -417,10 +417,10 @@ def test_get_buffer(interface):
     interface.check_error.assert_called_with(0)
 
 
-def test_buffer_done(interface):
+def test_set_buffer_done(interface):
     m = interface.handel.xiaBoardOperation
     m.return_value = 0
-    assert interface.buffer_done(1, "b") is None
+    assert interface.set_buffer_done(1, "b") is None
     m.assert_called_with(1, b"buffer_done", b"b")
     # Make sure errors have been checked
     interface.check_error.assert_called_with(0)

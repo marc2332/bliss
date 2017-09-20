@@ -10,7 +10,7 @@ import numpy
 
 from .error import check_error
 from ._cffi import handel, ffi
-from .parser import parse_xia_ini_file
+from .parser import parse_xia_ini_file, parse_mapping_buffer
 
 __all__ = [
     "init",
@@ -30,9 +30,10 @@ __all__ = [
     "get_module_statistics",
     "get_statistics",
     "get_buffer_length",
-    "get_buffer_full",
+    "get_raw_buffer",
     "get_buffer",
-    "buffer_done",
+    "is_buffer_full",
+    "set_buffer_done",
     "load_system",
     "save_system",
     "start_system",
@@ -266,7 +267,7 @@ def get_buffer_length(channel):
     return length[0]
 
 
-def get_buffer_full(channel, buffer_id):
+def is_buffer_full(channel, buffer_id):
     bid = to_buffer_id(buffer_id)
     command = b"buffer_full_%c" % bid
     result = ffi.new("unsigned short *")
@@ -275,21 +276,59 @@ def get_buffer_full(channel, buffer_id):
     return bool(result[0])
 
 
-def get_buffer(channel, buffer_id):
+def is_overrun(channel):
+    result = ffi.new("unsigned short *")
+    code = handel.xiaGetRunData(channel, b"buffer_overrun", result)
+    check_error(code)
+    return bool(result[0])
+
+
+def get_raw_buffer(channel, buffer_id):
     bid = to_buffer_id(buffer_id)
     command = b"buffer_%c" % bid
     length = get_buffer_length(channel)
-    array = numpy.zeros(length, dtype="uint32")
+    array = numpy.zeros(length * 2, dtype="uint16")
     data = ffi.cast("uint32_t *", array.ctypes.data)
     code = handel.xiaGetRunData(channel, command, data)
     check_error(code)
-    return array
+    return array[::2]
 
 
-def buffer_done(channel, buffer_id):
+def get_buffer(channel, buffer_id):
+    raw = get_raw_buffer(channel, buffer_id)
+    return parse_mapping_buffer(raw)
+
+
+def get_current_pixel(channel):
+    current = ffi.new("unsigned long *")
+    code = handel.xiaGetRunData(channel, b"current_pixel", current)
+    check_error(code)
+    return current[0]
+
+
+def set_buffer_done(channel, buffer_id):
     bid = to_buffer_id(buffer_id)
     code = handel.xiaBoardOperation(channel, b"buffer_done", bid)
     check_error(code)
+
+
+# Baseline
+
+
+def get_baseline_length(channel):
+    length = ffi.new("unsigned long *")
+    code = handel.xiaGetRunData(channel, b"baseline_length", length)
+    check_error(code)
+    return length[0]
+
+
+def get_baseline(channel):
+    length = get_baseline_length(channel)
+    array = numpy.zeros(length, dtype="uint32")
+    data = ffi.cast("uint32_t *", array.ctypes.data)
+    code = handel.xiaGetRunData(channel, b"baseline", data)
+    check_error(code)
+    return array
 
 
 # Not exposed

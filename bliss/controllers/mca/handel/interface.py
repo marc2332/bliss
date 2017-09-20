@@ -31,11 +31,17 @@ __all__ = [
     "get_statistics",
     "get_buffer_length",
     "get_raw_buffer",
-    "get_buffer",
+    "get_buffer_data",
     "is_buffer_full",
-    "is_overrun",
+    "is_buffer_overrun",
     "set_buffer_done",
+    "get_buffer_current_pixel",
     "get_current_pixel",
+    "any_buffer_overrun",
+    "all_buffer_full",
+    "set_all_buffer_done",
+    "get_all_buffer_data",
+    "synchronized_poll_data",
     "get_baseline_length",
     "get_baseline",
     "load_system",
@@ -240,7 +246,7 @@ def get_module_statistics(module):
     # Get raw data
     channels = get_module_channels(module)
     data_size = 9 * len(channels)
-    master = next(c for c in channels if c != -1)
+    master = next(c for c in channels if c >= 0)
     array = numpy.zeros(data_size, dtype="double")
     data = ffi.cast("double *", array.ctypes.data)
     code = handel.xiaGetRunData(master, b"module_statistics_2", data)
@@ -264,56 +270,99 @@ def get_statistics():
 # Buffer
 
 
-def get_buffer_length(channel):
+def get_buffer_length(master):
     length = ffi.new("unsigned long *")
-    code = handel.xiaGetRunData(channel, b"buffer_len", length)
+    code = handel.xiaGetRunData(master, b"buffer_len", length)
     check_error(code)
     return length[0]
 
 
-def is_buffer_full(channel, buffer_id):
+def is_buffer_full(master, buffer_id):
     bid = to_buffer_id(buffer_id)
     command = b"buffer_full_%c" % bid
     result = ffi.new("unsigned short *")
-    code = handel.xiaGetRunData(channel, command, result)
+    code = handel.xiaGetRunData(master, command, result)
     check_error(code)
     return bool(result[0])
 
 
-def is_overrun(channel):
+def is_buffer_overrun(master):
     result = ffi.new("unsigned short *")
-    code = handel.xiaGetRunData(channel, b"buffer_overrun", result)
+    code = handel.xiaGetRunData(master, b"buffer_overrun", result)
     check_error(code)
     return bool(result[0])
 
 
-def get_raw_buffer(channel, buffer_id):
+def get_raw_buffer(master, buffer_id):
     bid = to_buffer_id(buffer_id)
     command = b"buffer_%c" % bid
-    length = get_buffer_length(channel)
+    length = get_buffer_length(master)
     array = numpy.zeros(length * 2, dtype="uint16")
     data = ffi.cast("uint32_t *", array.ctypes.data)
-    code = handel.xiaGetRunData(channel, command, data)
+    code = handel.xiaGetRunData(master, command, data)
     check_error(code)
     return array[::2]
 
 
-def get_buffer(channel, buffer_id):
-    raw = get_raw_buffer(channel, buffer_id)
+def get_buffer_data(master, buffer_id):
+    raw = get_raw_buffer(master, buffer_id)
     return parse_mapping_buffer(raw)
 
 
-def get_current_pixel(channel):
+def get_buffer_current_pixel(master):
     current = ffi.new("unsigned long *")
-    code = handel.xiaGetRunData(channel, b"current_pixel", current)
+    code = handel.xiaGetRunData(master, b"current_pixel", current)
     check_error(code)
     return current[0]
 
 
-def set_buffer_done(channel, buffer_id):
+def set_buffer_done(master, buffer_id):
     bid = to_buffer_id(buffer_id)
-    code = handel.xiaBoardOperation(channel, b"buffer_done", bid)
+    code = handel.xiaBoardOperation(master, b"buffer_done", bid)
     check_error(code)
+
+
+# Synchronized run
+
+
+def any_buffer_overrun():
+    return any(is_buffer_overrun(master) for master in get_master_channels())
+
+
+def all_buffer_full(buffer_id):
+    return all(is_buffer_full(master, buffer_id) for master in get_master_channels())
+
+
+def set_all_buffer_done(buffer_id):
+    for master in get_master_channels():
+        set_buffer_done(master, buffer_id)
+
+
+def get_current_pixel():
+    return max(get_buffer_current_pixel(master) for master in get_master_channels())
+
+
+def get_all_buffer_data(buffer_id):
+    result = {}, {}
+    for master in get_master_channels():
+        sources = get_buffer_data(master, buffer_id)
+        for source, dest in zip(sources, result):
+            for key, dct in source.items():
+                dest.setdefault(key, {})
+                dest[key].update(dct)
+    return result
+
+
+def synchronized_poll_data():
+    if any_buffer_overrun():
+        raise RuntimeError("Buffer overrun!")
+    current_pixel = get_current_pixel()
+    for bid in ("a", "b"):
+        if all_buffer_full(bid):
+            spectrums, statistics = get_all_buffer_data(bid)
+            set_all_buffer_done(bid)
+            return current_pixel, spectrums, statistics
+    return current_pixel, None, None
 
 
 # Baseline
@@ -490,6 +539,14 @@ def get_channels():
             if channel != -1
         )
     )
+
+
+def get_master_channels():
+    """Return one active channel for each module."""
+    return [
+        next(channel for channel in groups if channel >= 0)
+        for groups in get_grouped_channels()
+    ]
 
 
 # Not exposed

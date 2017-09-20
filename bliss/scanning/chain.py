@@ -380,7 +380,7 @@ class AcquisitionChain(object):
       self._device2one_shot_flag = weakref.WeakKeyDictionary()
 
   def add(self, master, slave):
-      self._device2one_shot_flag.setdefault(slave,False)
+      self._device2one_shot_flag.setdefault(slave, False)
 
       slave_node = self._tree.get_node(slave)
       master_node = self._tree.get_node(master)

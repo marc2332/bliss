@@ -122,7 +122,7 @@ def default_chain(chain,scan_pars,counters):
 
     timer = SoftwareTimerMaster(count_time, npoints=npoints, sleep_time=sleep_time)
 
-    read_cnt_handler = dict()
+    read_all_handler = dict()
     integrating_cnt_handler = dict()
     master_integrating_counter = dict()
     for cnt in set(counters):
@@ -136,11 +136,11 @@ def default_chain(chain,scan_pars,counters):
                 chain.add(timer, SamplingCounterAcquisitionDevice(cnt, count_time=count_time, npoints=npoints))
             else:
                 uniq_id = read_all_handler.id()
-                cnt_acq_device = read_cnt_handler.get(uniq_id)
+                cnt_acq_device = read_all_handler.get(uniq_id)
                 if cnt_acq_device is None:
                     cnt_acq_device = SamplingCounterAcquisitionDevice(read_all_handler, count_time=count_time, npoints=npoints)
                     chain.add(timer, cnt_acq_device)
-                    read_cnt_handler[uniq_id] = cnt_acq_device
+                    read_all_handler[uniq_id] = cnt_acq_device
                 cnt_acq_device.add_counter_to_read(cnt)
         elif isinstance(cnt,IntegratingCounter):
             master_acq_device = master_integrating_counter.get(cnt.acquisition_controller)

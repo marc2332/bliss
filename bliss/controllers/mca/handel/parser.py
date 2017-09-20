@@ -121,4 +121,4 @@ def parse_mapping_buffer(raw):
             lst.append(spectrum)
         assert remaining == 0
     # Return result
-    return spectrum, statistics
+    return spectrums, statistics

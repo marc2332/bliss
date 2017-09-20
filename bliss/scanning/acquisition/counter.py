@@ -39,7 +39,7 @@ class SamplingCounterAcquisitionDevice(AcquisitionDevice):
                                    prepare_once=prepare_once,
                                    start_once=start_once,
                                    **keys)
-        self._count_time = count_time
+        self.count_time = count_time
         if not isinstance(counter, SamplingCounter.GroupedReadHandler):
             self.channels.append(AcquisitionChannel(counter.name,numpy.double, (1,)))
         self._nb_acq_points = 0
@@ -109,7 +109,7 @@ class SamplingCounterAcquisitionDevice(AcquisitionDevice):
             nb_read = 0
             acc_read_time = 0
             acc_value = numpy.zeros((len(counter_name),),dtype=numpy.double)
-            stop_time = trig_time + self._count_time or 0
+            stop_time = trig_time + self.count_time or 0
             #Counter integration loop
             while not self._stop_flag:
                 start_read = time.time()
@@ -135,7 +135,7 @@ class SamplingCounterAcquisitionDevice(AcquisitionDevice):
                 data = acc_value / acc_read_time
                 
             if self.__mode == SamplingCounterAcquisitionDevice.INTEGRATE:
-                data *= self._count_time
+                data *= self.count_time
             
             channel_data = {name:data[index] for index,name in enumerate(counter_name)}
             dispatcher.send("new_data",self,
@@ -155,7 +155,7 @@ class IntegratingCounterAcquisitionDevice(AcquisitionDevice):
                                    prepare_once=prepare_once,
                                    start_once=start_once,
                                    **keys)
-        self._count_time = count_time
+        self.count_time = count_time
         self.channels.append(AcquisitionChannel(counter.name,numpy.double, (1,)))
         self._nb_acq_points = 0
 

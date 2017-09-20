@@ -237,7 +237,7 @@ class Counter(object):
 
     def read_all_handler(self):
         """
-        Should return a handler which is has the interface of SamplingCounter.ReadAllHandler.
+        Should return a handler which is has the interface of SamplingCounter.GroupedReadHandler.
         This Handler will be used to group counters to read all values at once.
         """
         if self.__default_read_all_handler:
@@ -255,7 +255,7 @@ class SamplingCounter(Counter):
             raise NotImplementedError
 
     def __init__(self, name, controller):
-        Counter.__init__(self,name,controller,DefaultSamplingReadAllHandler)
+        Counter.__init__(self,name,controller,DefaultSamplingCounterGroupedReadHandler)
 
     def read(self):
         handler = self.read_all_handler()

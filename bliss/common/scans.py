@@ -27,7 +27,7 @@ from bliss.common.temperature import Input, Output, TempControllerCounter
 from bliss.common.task_utils import *
 from bliss.common.motor_group import Group
 from bliss.common.measurement import SamplingCounter, IntegratingCounter
-from bliss.scanning.acquisition.counter import CounterAcqDevice, IntegratingAcqDevice
+from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionDevice, IntegratingCounterAcquisitionDevice
 from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning import scan as scan_module
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
@@ -41,10 +41,10 @@ from bliss.data.scan import get_data
 
 _log = logging.getLogger('bliss.scans')
 
+
 class TimestampPlaceholder:
     def __init__(self):
       self.name = 'timestamp'
-
 
 def _get_counters(mg, missing_list):
     counters = list()
@@ -56,7 +56,6 @@ def _get_counters(mg, missing_list):
             else:
                 missing_list.append(cnt_name)
     return counters
-
 
 def _get_all_counters(counters):
     all_counters, missing_counters = [], []
@@ -75,12 +74,11 @@ def _get_all_counters(counters):
                          "Hint: disable inactive counters."
                          % ", ".join(missing_counters))
     return all_counters
-    
 
 def default_master_configuration(device, scan_pars):
     """
-    This function should create and configured
-    a device acquisition which could also
+    This function should create and configure
+    an acquisition device which could also
     be a master for other devices.
 
     @returns the acq_device + counters parameters
@@ -128,12 +126,12 @@ def default_chain(chain,scan_pars,counters):
             try:
                 read_all_handler = cnt.read_all_handler()
             except NotImplementedError:
-                chain.add(timer, CounterAcqDevice(cnt, count_time=count_time, npoints=npoints))
+                chain.add(timer, SamplingCounterAcquisitionDevice(cnt, count_time=count_time, npoints=npoints))
             else:
                 uniq_id = read_all_handler.id()
                 cnt_acq_device = read_cnt_handler.get(uniq_id)
                 if cnt_acq_device is None:
-                    cnt_acq_device = CounterAcqDevice(read_all_handler, count_time=count_time, npoints=npoints)
+                    cnt_acq_device = SamplingCounterAcquisitionDevice(read_all_handler, count_time=count_time, npoints=npoints)
                     chain.add(timer, cnt_acq_device)
                     read_cnt_handler[uniq_id] = cnt_acq_device
                 cnt_acq_device.add_counter_to_read(cnt)
@@ -151,12 +149,12 @@ def default_chain(chain,scan_pars,counters):
             try:
                 read_all_handler = cnt.read_cnt_handler()
             except NotImplementedError:
-                chain.add(master_acq_device,IntegratingAcqDevice(cnt,count_time=count_time,npoints=npoints))
+                chain.add(master_acq_device,IntegratingCounterAcquisitionDevice(cnt,count_time=count_time,npoints=npoints))
             else:
                 uniq_id = read_all_handler.id()
                 cnt_acq_device = integrating_cnt_handler.get(uniq_id)
                 if cnt_acq_device is None:
-                    cnt_acq_device = IntegratingAcqDevice(read_all_handler,count_time=count_time,npoints=npoints)
+                    cnt_acq_device = IntegratingCounterAcquisitionDevice(read_all_handler,count_time=count_time,npoints=npoints)
                     chain.add(master_acq_device, cnt_acq_device)
                     integrating_cnt_handler[uniq_id] = cnt_acq_device
                 cnt_acq_device.add_counter_to_read(cnt)

@@ -7,17 +7,18 @@
 
 import numpy
 import time
-from gevent import event,sleep
+import gevent
+from gevent import event
 from bliss.common.event import dispatcher
-from ..chain import AcquisitionDevice,AcquisitionChannel
+from ..chain import AcquisitionDevice, AcquisitionChannel
 from bliss.common.measurement import SamplingCounter
 
-class CounterAcqDevice(AcquisitionDevice):
+class SamplingCounterAcquisitionDevice(AcquisitionDevice):
     SIMPLE_AVERAGE,TIME_AVERAGE,INTEGRATE = range(3)
 
     def __init__(self,counter,
-                 count_time=None,npoints=1,
-                 mode=SIMPLE_AVERAGE,**keys):
+                 count_time=None, npoints=1,
+                 mode=SIMPLE_AVERAGE, **keys):
         """
         Helper to manage acquisition of a sampling counter.
 
@@ -29,8 +30,8 @@ class CounterAcqDevice(AcquisitionDevice):
         of time spend to measure all values. And *INTEGRATION* which sum all integration
         and then normalize it when the *count_time*.
         """
-        prepare_once = keys.pop('prepare_once',npoints > 1 and True or False)
-        start_once = keys.pop('start_once',npoints > 1 and True or False)
+        prepare_once = keys.pop('prepare_once', npoints > 1)
+        start_once = keys.pop('start_once', npoints > 1)
         npoints = max(1,npoints)
         AcquisitionDevice.__init__(self, counter, counter.name, "zerod",
                                    npoints=npoints,
@@ -39,7 +40,7 @@ class CounterAcqDevice(AcquisitionDevice):
                                    start_once=start_once,
                                    **keys)
         self._count_time = count_time
-        if not isinstance(counter,SamplingCounter.ReadAllHandler):
+        if not isinstance(counter, SamplingCounter.GroupedReadHandler):
             self.channels.append(AcquisitionChannel(counter.name,numpy.double, (1,)))
         self._nb_acq_points = 0
         self._event = event.Event()
@@ -92,7 +93,7 @@ class CounterAcqDevice(AcquisitionDevice):
             def read():
                 return numpy.array(self.device.read(*self.__counters_list),
                                    dtype=numpy.double)
-        else:                   # read_all
+        else:
             def read():
                 return numpy.array(self.device.read(),
                                    dtype=numpy.double)
@@ -116,7 +117,7 @@ class CounterAcqDevice(AcquisitionDevice):
                 end_read = time.time()
                 read_time = end_read - start_read
                 
-                if self.__mode != CounterAcqDevice.TIME_AVERAGE:
+                if self.__mode != SamplingCounterAcquisitionDevice.TIME_AVERAGE:
                     acc_value += read_value
                 else:
                     acc_value += read_value * (end_read - start_read)
@@ -126,14 +127,14 @@ class CounterAcqDevice(AcquisitionDevice):
                 current_time = time.time()
                 if (current_time + (acc_read_time / nb_read)) > stop_time:
                     break
-                sleep(0) # Be able to kill the task
+                gevent.sleep(0) # Be able to kill the task
             self._nb_acq_points += 1
-            if self.__mode == CounterAcqDevice.TIME_AVERAGE:
+            if self.__mode == SamplingCounterAcquisitionDevice.TIME_AVERAGE:
                 data = acc_value / nb_read
             else:
                 data = acc_value / acc_read_time
                 
-            if self.__mode == CounterAcqDevice.INTEGRATE:
+            if self.__mode == SamplingCounterAcquisitionDevice.INTEGRATE:
                 data *= self._count_time
             
             channel_data = {name:data[index] for index,name in enumerate(counter_name)}
@@ -143,20 +144,19 @@ class CounterAcqDevice(AcquisitionDevice):
             self._ready_event.set()
             
 
-class IntegratingAcqDevice(AcquisitionDevice):
-    def __init__(self,integrating_device,
-                 count_time=None,npoints=1,**keys):
-        prepare_once = keys.pop('prepare_once',npoints > 1 and True or False)
-        start_once = keys.pop('start_once',npoints > 1 and True or False)
+class IntegratingCounterAcquisitionDevice(AcquisitionDevice):
+    def __init__(self, counter, count_time=None, npoints=1, **keys):
+        prepare_once = keys.pop('prepare_once', npoints > 1)
+        start_once = keys.pop('start_once', npoints > 1)
         npoints = max(1,npoints)
-        AcquisitionDevice.__init__(self, counter, integrating_device.name, "zerod",
+        AcquisitionDevice.__init__(self, counter, counter.name, "zerod",
                                    npoints=npoints,
                                    trigger_type=AcquisitionDevice.SOFTWARE,
                                    prepare_once=prepare_once,
                                    start_once=start_once,
                                    **keys)
         self._count_time = count_time
-        self.channels.append(AcquisitionChannel(integrating_device.name,numpy.double, (1,)))
+        self.channels.append(AcquisitionChannel(counter.name,numpy.double, (1,)))
         self._nb_acq_points = 0
 
     def prepare(self):

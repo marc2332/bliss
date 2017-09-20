@@ -77,7 +77,7 @@ def _get_all_counters(counters):
                          % ", ".join(missing_counters))
     return all_counters
 
-def default_master_configuration(device, scan_pars):
+def default_master_configuration(counter, scan_pars):
     """
     This function should create and configure
     an acquisition device which could also
@@ -85,7 +85,12 @@ def default_master_configuration(device, scan_pars):
 
     @returns the acq_device + counters parameters
     """
-    if isinstance(device,Lima):
+    try:
+        device = counter.acquisition_controller
+    except AttributeError:
+        device = counter
+
+    if isinstance(device, Lima):
         multi_mode = 'INTERNAL_TRIGGER_MULTI' in device.available_triggers
         save_flag = scan_pars.get('save',False)
         acq_nb_frames = scan_pars.get('npoints',1) if multi_mode else 1
@@ -99,9 +104,9 @@ def default_master_configuration(device, scan_pars):
                                            acq_trigger_mode = acq_trigger_mode,
                                            save_flag = save_flag,
                                            prepare_once = multi_mode)
-        return acq_device,{prepare_once : multi_mode,start_once : multi_mode}
+        return acq_device, { "prepare_once": multi_mode, "start_once": multi_mode }
     else:
-        raise TypeError("`%r' is not a supported counter type" % repr(cnt))
+        raise TypeError("`%r' is not a supported acquisition controller for counter `%s'" % (device, counter.name))
 
 def activate_master_saving(acq_device,activate_flag):
     acq_device.save_flag = activate_flag
@@ -144,9 +149,9 @@ def default_chain(chain,scan_pars,counters):
                 # by default don't save data from master
                 # so pop **save** flag
                 tmp_scan_pars.pop('save',None)
-                master_acq_device = default_master_configuration(cnt.acquisition_controller,tmp_scan_pars)
-                chain.add(timer,master_acq_device)
-                master_integrating_counter[cnt.master] = master_acq_device
+                master_acq_device, _ = default_master_configuration(cnt, tmp_scan_pars)
+                chain.add(timer, master_acq_device)
+                master_integrating_counter[cnt.acquisition_controller] = master_acq_device
 
             try:
                 read_all_handler = cnt.read_cnt_handler()
@@ -163,8 +168,8 @@ def default_chain(chain,scan_pars,counters):
         else:
             master_acq_device = master_integrating_counter.get(cnt)
             if master_acq_device is None:
-                master_acq_device = default_master_configuration(cnt,scan_pars)
-                chain.add(timer,master_acq_device)
+                master_acq_device, _ = default_master_configuration(cnt, scan_pars)
+                chain.add(timer, master_acq_device)
                 master_integrating_counter[cnt] = master_acq_device
             else:
                 if scan_pars.get('save',False):

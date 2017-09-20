@@ -1,0 +1,4 @@
+name: diode
+plugin: bliss
+class: simulation_diode
+

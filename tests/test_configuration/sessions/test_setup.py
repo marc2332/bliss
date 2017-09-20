@@ -3,10 +3,6 @@ from bliss.common.measurement import SamplingCounter
 import numpy
 import gevent
 
-class TestCounter(SamplingCounter):
-    def read(self):
-        return random.random()*1000.
-
 class TestScanGaussianCounter(SamplingCounter):
     def __init__(self, name, npts, center=0, stddev=1, cnt_time=0.1):
       SamplingCounter.__init__(self, None, name)
@@ -20,6 +16,4 @@ class TestScanGaussianCounter(SamplingCounter):
       x = self.data[self.i]
       self.i += 1
       return x
-
-diode = TestCounter(None, 'diode')
 

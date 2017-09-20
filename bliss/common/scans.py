@@ -24,6 +24,7 @@ import gevent
 from bliss import setup_globals
 from bliss.common.axis import MotionEstimation
 from bliss.common.temperature import Input, Output, TempControllerCounter
+from bliss.controllers.lima import Lima
 from bliss.common.task_utils import *
 from bliss.common.motor_group import Group
 from bliss.common.measurement import SamplingCounter, IntegratingCounter
@@ -32,6 +33,7 @@ from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning import scan as scan_module
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 from bliss.scanning.acquisition.motor import LinearStepTriggerMaster, MeshStepTriggerMaster
+from bliss.scanning.acquisition.lima import LimaAcquisitionDevice
 from bliss.session import session,measurementgroup
 try:
     from bliss.scanning.writer import hdf5 as default_writer

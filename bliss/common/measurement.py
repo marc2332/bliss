@@ -220,12 +220,12 @@ class GroupedReadMixin(object):
         pass
 
 class Counter(object):
-    def __init__(self,name,controller,default_read_all_handler = None):
+    def __init__(self,name,controller,default_grouped_read_handler = None):
         self.__name = name
-        if hasattr(controller,'read_all') and default_read_all_handler:
-            self.__default_read_all_handler = default_read_all_handler(controller)
+        if hasattr(controller,'read_all') and default_grouped_read_handler:
+            self.__default_grouped_read_handler = default_grouped_read_handler(controller)
         else:
-            self.__default_read_all_handler = None
+            self.__default_grouped_read_handler = None
 
     @property
     def name(self):
@@ -235,13 +235,13 @@ class Counter(object):
     def controller(self):
         return self.__controller_ref() if self.__controller_ref is not None else None
 
-    def read_all_handler(self):
+    def grouped_read_handler(self):
         """
         Should return a handler which is has the interface of SamplingCounter.GroupedReadHandler.
         This Handler will be used to group counters to read all values at once.
         """
-        if self.__default_read_all_handler:
-            return self.__default_read_all_handler
+        if self.__default_grouped_read_handler:
+            return self.__default_grouped_read_handler
         raise NotImplementedError
 
 
@@ -258,7 +258,7 @@ class SamplingCounter(Counter):
         Counter.__init__(self,name,controller,DefaultSamplingCounterGroupedReadHandler)
 
     def read(self):
-        handler = self.read_all_handler()
+        handler = self.grouped_read_handler()
         try:
             handler.prepare(self)
             return handler.read_all(self)[0]

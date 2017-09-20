@@ -122,7 +122,7 @@ def default_chain(chain,scan_pars,counters):
 
     timer = SoftwareTimerMaster(count_time, npoints=npoints, sleep_time=sleep_time)
 
-    read_all_handler = dict()
+    grouped_read_handler = dict()
     integrating_cnt_handler = dict()
     master_integrating_counter = dict()
     for cnt in set(counters):
@@ -131,16 +131,16 @@ def default_chain(chain,scan_pars,counters):
 
         if isinstance(cnt, SamplingCounter):
             try:
-                read_all_handler = cnt.read_all_handler()
+                grouped_read_handler = cnt.grouped_read_handler()
             except NotImplementedError:
                 chain.add(timer, SamplingCounterAcquisitionDevice(cnt, count_time=count_time, npoints=npoints))
             else:
-                uniq_id = read_all_handler.id()
-                cnt_acq_device = read_all_handler.get(uniq_id)
+                uniq_id = grouped_read_handler.id()
+                cnt_acq_device = grouped_read_handler.get(uniq_id)
                 if cnt_acq_device is None:
-                    cnt_acq_device = SamplingCounterAcquisitionDevice(read_all_handler, count_time=count_time, npoints=npoints)
+                    cnt_acq_device = SamplingCounterAcquisitionDevice(grouped_read_handler, count_time=count_time, npoints=npoints)
                     chain.add(timer, cnt_acq_device)
-                    read_all_handler[uniq_id] = cnt_acq_device
+                    grouped_read_handler[uniq_id] = cnt_acq_device
                 cnt_acq_device.add_counter_to_read(cnt)
         elif isinstance(cnt,IntegratingCounter):
             master_acq_device = master_integrating_counter.get(cnt.acquisition_controller)
@@ -154,14 +154,14 @@ def default_chain(chain,scan_pars,counters):
                 master_integrating_counter[cnt.acquisition_controller] = master_acq_device
 
             try:
-                read_all_handler = cnt.read_all_handler()
+                grouped_read_handler = cnt.grouped_read_handler()
             except NotImplementedError:
                 chain.add(master_acq_device,IntegratingCounterAcquisitionDevice(cnt,count_time=count_time,npoints=npoints))
             else:
-                uniq_id = read_all_handler.id()
+                uniq_id = grouped_read_handler.id()
                 cnt_acq_device = integrating_cnt_handler.get(uniq_id)
                 if cnt_acq_device is None:
-                    cnt_acq_device = IntegratingCounterAcquisitionDevice(read_all_handler,count_time=count_time,npoints=npoints)
+                    cnt_acq_device = IntegratingCounterAcquisitionDevice(grouped_read_handler,count_time=count_time,npoints=npoints)
                     chain.add(master_acq_device, cnt_acq_device)
                     integrating_cnt_handler[uniq_id] = cnt_acq_device
                 cnt_acq_device.add_counter_to_read(cnt)

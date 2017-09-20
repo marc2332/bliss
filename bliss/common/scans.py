@@ -154,7 +154,7 @@ def default_chain(chain,scan_pars,counters):
                 master_integrating_counter[cnt.acquisition_controller] = master_acq_device
 
             try:
-                read_all_handler = cnt.read_cnt_handler()
+                read_all_handler = cnt.read_all_handler()
             except NotImplementedError:
                 chain.add(master_acq_device,IntegratingCounterAcquisitionDevice(cnt,count_time=count_time,npoints=npoints))
             else:

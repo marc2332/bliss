@@ -20,7 +20,7 @@ def test_ascan(beacon):
   m0 = getattr(setup_globals, 'm0')
   assert m0.position() == 0
   counter = counter_class("gaussian", 10, cnt_time=0)
-  s = scans.ascan(m0, 0, 10, 10, 0, counter, return_scan=True)
+  s = scans.ascan(m0, 0, 10, 10, 0, counter, return_scan=True, save=False)
   assert m0.position() == 10
   scan_data = scans.get_data(s)
   assert numpy.array_equal(scan_data['gaussian'], counter.data)
@@ -31,7 +31,7 @@ def test_dscan(beacon):
   counter_class = getattr(setup_globals, 'TestScanGaussianCounter')
   counter = counter_class("gaussian", 10, cnt_time=0)
   m0 = getattr(setup_globals, 'm0')
-  s = scans.dscan(m0, 0, 2, 10, 0, counter, return_scan=True)
+  s = scans.dscan(m0, 0, 2, 10, 0, counter, return_scan=True, save=False)
   assert m0.position() == 10
   scan_data = scans.get_data(s)
   assert numpy.array_equal(scan_data['gaussian'], counter.data)
@@ -41,7 +41,7 @@ def test_timescan(beacon):
   session.setup()
   counter_class = getattr(setup_globals, 'TestScanGaussianCounter')
   counter = counter_class("gaussian", 10, cnt_time=0.1)
-  s = scans.timescan(0.1, counter, npoints=10, return_scan=True)
+  s = scans.timescan(0.1, counter, npoints=10, return_scan=True, save=False)
   scan_data = scans.get_data(s)
   assert numpy.array_equal(scan_data['gaussian'], counter.data)
 
@@ -64,7 +64,7 @@ def test_scan_callbacks(beacon):
   
   counter_class = getattr(setup_globals, 'TestScanGaussianCounter')
   counter = counter_class("gaussian", 10, cnt_time=0.1)
-  s = scans.timescan(0.1, counter, npoints=10, return_scan=True)
+  s = scans.timescan(0.1, counter, npoints=10, return_scan=True, save=False)
   assert res["new"]
   assert res["end"]
   assert numpy.array_equal(numpy.array(res["values"]), counter.data)

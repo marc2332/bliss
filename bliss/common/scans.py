@@ -27,7 +27,7 @@ from bliss.common.temperature import Input, Output, TempControllerCounter
 from bliss.controllers.lima import Lima
 from bliss.common.task_utils import *
 from bliss.common.motor_group import Group
-from bliss.common.measurement import SamplingCounter, IntegratingCounter
+from bliss.common.measurement import Counter, SamplingCounter, IntegratingCounter
 from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionDevice, IntegratingCounterAcquisitionDevice
 from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning import scan as scan_module
@@ -40,6 +40,7 @@ try:
 except ImportError:
     default_writer = None
 from bliss.data.scan import get_data
+from bliss.common.utils import OrderedDict as ordereddict
 
 _log = logging.getLogger('bliss.scans')
 
@@ -111,69 +112,81 @@ def default_master_configuration(counter, scan_pars):
 def activate_master_saving(acq_device,activate_flag):
     acq_device.save_flag = activate_flag
 
-def default_chain(chain, scan_pars, counters):
+def _counters_tree(counters, scan_pars):
     count_time = scan_pars.get('count_time', 1)
-    sleep_time = scan_pars.get('sleep_time')
     npoints = scan_pars.get('npoints', 1)
-    timer = SoftwareTimerMaster(count_time, npoints=npoints, sleep_time=sleep_time)
-
-    if not counters:
-        raise ValueError("No counters for scan. Hint: are all counters disabled ?")
-
-    timer = SoftwareTimerMaster(count_time, npoints=npoints, sleep_time=sleep_time)
-
-    grouped_read_handlers_dict = dict()
-    integrating_cnt_handlers_dict = dict()
     master_integrating_counter = dict()
-    for cnt in set(counters):
+    tree = ordereddict()
+ 
+    reader_counters = ordereddict()
+    for cnt in counters:
+        ###THIS SHOULD GO AWAY
         if isinstance(cnt, (Input, Output)):
             cnt = TempControllerCounter(cnt.name, cnt)
+        ###
+        grouped_read_handler = Counter.GROUPED_READ_HANDLERS.get(cnt)
+        if grouped_read_handler:
+            reader_counters.setdefault(grouped_read_handler, list()).append(cnt)
+        else:
+            reader_counters[cnt] = []
 
-        if isinstance(cnt, SamplingCounter):
+    for reader, counters in reader_counters.iteritems():
+        if isinstance(reader, (SamplingCounter.GroupedReadHandler, SamplingCounter)):
+            acq_device = SamplingCounterAcquisitionDevice(reader, auto_add_channel=len(counters)==0, **scan_pars)
+            for cnt in counters:
+                acq_device.add_counter(cnt)
+            tree.setdefault(None, list()).append(acq_device)
+        elif isinstance(reader, (IntegratingCounter.GroupedReadHandler, IntegratingCounter)):
             try:
-                grouped_read_handler = cnt.grouped_read_handler()
-            except NotImplementedError:
-                chain.add(timer, SamplingCounterAcquisitionDevice(cnt, count_time=count_time, npoints=npoints))
-            else:
-                uniq_id = grouped_read_handler.id
-                cnt_acq_device = grouped_read_handlers_dict.get(uniq_id)
-                if cnt_acq_device is None:
-                    cnt_acq_device = SamplingCounterAcquisitionDevice(grouped_read_handler, count_time=count_time, npoints=npoints)
-                    chain.add(timer, cnt_acq_device)
-                    grouped_read_handlers_dict[uniq_id] = cnt_acq_device
-                cnt_acq_device.add_counter_to_read(cnt)
-        elif isinstance(cnt,IntegratingCounter):
+                cnt = counters[0] #the first counter is used to determine master acq device
+            except IndexError:
+                cnt = reader
             master_acq_device = master_integrating_counter.get(cnt.acquisition_controller)
-            if master_acq_device is None :
+            if master_acq_device is None:
                 tmp_scan_pars = scan_pars.copy()
                 # by default don't save data from master
                 # so pop **save** flag
                 tmp_scan_pars.pop('save',None)
                 master_acq_device, _ = default_master_configuration(cnt, tmp_scan_pars)
-                chain.add(timer, master_acq_device)
                 master_integrating_counter[cnt.acquisition_controller] = master_acq_device
-
-            try:
-                grouped_read_handler = cnt.grouped_read_handler()
-            except NotImplementedError:
-                chain.add(master_acq_device,IntegratingCounterAcquisitionDevice(cnt,count_time=count_time,npoints=npoints))
+            if isinstance(reader, IntegratingCounter.GroupedReadHandler):
+                acq_device = IntegratingCounterAcquisitionDevice(reader, auto_add_channel=len(counters)==0, **scan_pars)
+                for cnt in counters:
+                    acq_device.add_counter(cnt)
+                tree.setdefault(master_acq_device, list()).append(acq_device)
             else:
-                uniq_id = grouped_read_handler.id
-                cnt_acq_device = integrating_cnt_handlers_dict.get(uniq_id)
-                if cnt_acq_device is None:
-                    cnt_acq_device = IntegratingCounterAcquisitionDevice(grouped_read_handler,count_time=count_time,npoints=npoints)
-                    chain.add(master_acq_device, cnt_acq_device)
-                    integrating_cnt_handlers_dict[uniq_id] = cnt_acq_device
-                cnt_acq_device.add_counter_to_read(cnt)
+                tree.setdefault(master_acq_device, list()).extend([IntegratingCounterAcquisitionDevice(cnt, **scan_pars) for cnt in counters])
         else:
-            master_acq_device = master_integrating_counter.get(cnt)
-            if master_acq_device is None:
-                master_acq_device, _ = default_master_configuration(cnt, scan_pars)
-                chain.add(timer, master_acq_device)
-                master_integrating_counter[cnt] = master_acq_device
-            else:
-                if scan_pars.get('save',False):
-                    activate_master_saving(master_acq_device,True)
+            pass
+            #master_acq_device = master_integrating_counter.get(cnt)
+            #if master_acq_device is None:
+            #    master_acq_device, _ = default_master_configuration(cnt, scan_pars)
+            #    master_integrating_counter[cnt] = master_acq_device
+            #    tree.append((None, master_acq_device))
+            #else:
+            #    if scan_pars.get('save',False):
+            #        activate_master_saving(master_acq_device,True)
+    print tree
+    return tree
+
+def default_chain(chain, scan_pars, counters):
+    count_time = scan_pars.get('count_time', 1)
+    sleep_time = scan_pars.get('sleep_time')
+    npoints = scan_pars.get('npoints', 1)
+    
+    if not counters:
+        raise ValueError("No counters for scan. Hint: are all counters disabled ?")
+
+    counters = set(counters) #eliminate duplicated counters, if any
+    timer = SoftwareTimerMaster(count_time, npoints=npoints, sleep_time=sleep_time)
+    
+    for acq_master, acq_devices in _counters_tree(counters, scan_pars).iteritems():
+        if acq_master:
+            chain.add(timer, acq_master)
+        else:
+            acq_master = timer
+        for acq_device in acq_devices:
+            chain.add(acq_master, acq_device)
 
     chain.timer = timer
     return timer

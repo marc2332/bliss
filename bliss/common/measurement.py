@@ -226,76 +226,69 @@ class GroupedReadMixin(object):
         pass
 
 class Counter(object):
-    def __init__(self,name,controller,default_grouped_read_handler = None):
-        self.__name = name
-        self.__controller_ref = weakref.ref(controller) if controller is not None else None
+    GROUPED_READ_HANDLERS = weakref.WeakKeyDictionary()
 
-        if hasattr(controller,'read_all') and default_grouped_read_handler:
-            self.__default_grouped_read_handler = default_grouped_read_handler(controller)
-        else:
-            self.__default_grouped_read_handler = None
+    def __init__(self, name, grouped_read_handler = None):
+        self.__name = name
+
+        if grouped_read_handler:
+            Counter.GROUPED_READ_HANDLERS[self] = grouped_read_handler
 
     @property
     def name(self):
         return self.__name
     
-    @property
-    def controller(self):
-        return self.__controller_ref() if self.__controller_ref is not None else None
-
-    def grouped_read_handler(self):
-        """
-        Should return a handler which is has the interface of SamplingCounter.GroupedReadHandler.
-        This Handler will be used to group counters to read all values at once.
-        """
-        if self.__default_grouped_read_handler:
-            return self.__default_grouped_read_handler
-        raise NotImplementedError
-
-
 class SamplingCounter(Counter):
     class GroupedReadHandler(GroupedReadMixin):
         def read(self, *counters):
             """
-            this method should return a list of reads values in the same order 
+            this method should return a list of read values in the same order 
             as counters
             """
             raise NotImplementedError
 
-    def __init__(self, name, controller):
-        Counter.__init__(self,name,controller,DefaultSamplingCounterGroupedReadHandler)
+    def __init__(self, name, controller, grouped_read_handler = None):
+        if grouped_read_handler is None and hasattr(controller, "read_all"):
+            grouped_read_handler = DefaultSamplingCounterGroupedReadHandler(controller)
+
+        Counter.__init__(self, name, grouped_read_handler)
 
     def read(self):
-        handler = self.grouped_read_handler()
         try:
-            handler.prepare(self)
-            return handler.read_all(self)[0]
-        finally:
-            handler.end(self)
+            grouped_read_handler = Counter.GROUPED_READ_HANDLERS[self]
+        except KeyError:
+            raise NotImplementedError
+        else:
+            grouped_read_handler.prepare(self)
+            try:
+                return grouped_read_handler.read(self)[0]
+            finally:
+                grouped_read_handler.end(self)
 
-
-class DefaultSamplingCounterGroupedReadHandler(SamplingCounter.GroupedReadHandler):
-    """
-    Default read all handler for controller which have read_all method
-    """
-    def read(self, *counters):
-        return self.controller.read_all(*counters)
-
+def DefaultSamplingCounterGroupedReadHandler(controller, handlers=weakref.WeakValueDictionary()):
+    class DefaultSamplingCounterGroupedReadHandler(SamplingCounter.GroupedReadHandler):
+        """
+        Default read all handler for controller which have read_all method
+        """
+        def read(self, *counters):
+            return self.controller.read_all(*counters)
+    return handlers.setdefault(controller, DefaultSamplingCounterGroupedReadHandler(controller))
 
 class IntegratingCounter(Counter):
     class GroupedReadHandler(GroupedReadMixin):
         def get_values(self, from_index, *counters):
             """
-            this method should return a list of reads values in the same order 
+            this method should return a list of numpy arrays in the same order 
             as the counter_name
             """
             raise NotImplementedError
 
-    """
-    Base class for integrated counters.
-    """
-    def __init__(self, name, controller, acquisition_controller):
-        Counter.__init__(self, name, controller, DefaultIntegratingCounterGroupedReadHandler)
+    def __init__(self, name, controller, acquisition_controller, grouped_read_handler=None):
+        if grouped_read_handler is None and hasattr(controller, "get_values"):
+            grouped_read_handler = DefaultIntegratingCounterGroupedReadHandler(controller)
+
+        Counter.__init__(self, name, grouped_read_handler)
+
         self.__acquisition_controller_ref = weakref.ref(acquisition_controller)
 
     def get_values(self, from_index=0):
@@ -313,10 +306,12 @@ class IntegratingCounter(Counter):
     def acquisition_controller(self):
         return self.__acquisition_controller_ref()
 
-class DefaultIntegratingCounterGroupedReadHandler(IntegratingCounter.GroupedReadHandler):
-    """
-    Default read all handler for controller which have read_all method
-    """
-    def get_values(self, from_index, *counters):
-        return self.controller.get_values(from_index, *counters)
+def DefaultIntegratingCounterGroupedReadHandler(controller, handlers=weakref.WeakValueDictionary()):
+    class DefaultIntegratingCounterGroupedReadHandler(IntegratingCounter.GroupedReadHandler):
+        """
+        Default read all handler for controller which have get_values method
+        """
+        def get_values(self, from_index, *counters):
+            return self.controller.get_values(from_index, *counters)
+    return handlers.setdefault(controller, DefaultIntegratingCounterGroupedReadHandler(controller))
 

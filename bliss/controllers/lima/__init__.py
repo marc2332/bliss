@@ -198,7 +198,8 @@ class Lima(object):
         """
         self._proxy = DeviceProxy(config_tree.get("tango_url"))
         self.name = name
-        self._roi_counters = None
+        self.__bpm = None
+        self.__roi_counters = None
         self._camera = None
         self._image = None
         self._acquisition = None
@@ -221,10 +222,10 @@ class Lima(object):
     
     @property
     def roi_counters(self):
-        if self._roi_counters is None:
+        if self.__roi_counters is None:
             roi_counters_proxy = self._get_proxy(self.ROI_COUNTERS)
-            self._roi_counters= Lima.RoiCounters(self.name, roi_counters_proxy)
-        return self._roi_counters
+            self.__roi_counters = Lima.RoiCounters(self.name, roi_counters_proxy)
+        return self.__roi_counters
     
     @property
     def camera(self):
@@ -241,8 +242,10 @@ class Lima(object):
 
     @property
     def bpm(self):
-        bpm_proxy = self._get_proxy(self.BPM)
-        return Bpm(self.name, bpm_proxy, self)
+        if self.__bpm is None:
+          bpm_proxy = self._get_proxy(self.BPM)
+          self.__bpm = Bpm(self.name, bpm_proxy, self)
+        return self.__bpm
 
     @property
     def available_triggers(self):

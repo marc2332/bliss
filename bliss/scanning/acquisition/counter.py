@@ -11,44 +11,81 @@ import gevent
 from gevent import event
 from bliss.common.event import dispatcher
 from ..chain import AcquisitionDevice, AcquisitionChannel
-from bliss.common.measurement import SamplingCounter
+from bliss.common.measurement import GroupedReadMixin
+from bliss.common.utils import all_equal
 
-class SamplingCounterAcquisitionDevice(AcquisitionDevice):
+class BaseCounterAcquisitionDevice(AcquisitionDevice):
+    def __init__(self, counter, count_time, auto_add_channel, **keys):
+        npoints = max(1, keys.pop('npoints', 1))
+        prepare_once = keys.pop('prepare_once', npoints > 1)
+        start_once = keys.pop('start_once', npoints > 1)
+
+        AcquisitionDevice.__init__(self, counter, counter.name, "zerod",
+                                   npoints=npoints,
+                                   trigger_type=AcquisitionDevice.SOFTWARE,
+                                   prepare_once=prepare_once,
+                                   start_once=start_once)
+
+        self.__count_time = count_time
+        self.__grouped_read_counters_list = list()
+        self.__counter_names = list()
+        self._nb_acq_points = 0
+
+        if auto_add_channel:
+            self.channels.append(AcquisitionChannel(counter.name, numpy.double, (1,)))
+            self.__counter_names.append(counter.name)
+        
+    @property
+    def count_time(self):
+        return self.__count_time
+       
+    @property
+    def grouped_read_counters(self):
+        return self.__grouped_read_counters_list
+ 
+    @property
+    def counter_names(self):
+        return self.__counter_names
+
+    def add_counter(self, counter):
+        if not isinstance(self.device, GroupedReadMixin):
+            raise RuntimeError("Cannot add counter to single-read counter acquisition device")
+
+        self.__grouped_read_counters_list.append(counter)
+        self.__counter_names.append(counter.name)
+        self.channels.append(AcquisitionChannel(counter.name, numpy.double, (1,)))
+
+    def _emit_new_data(self, data):
+        channel_data = dict([ (name, data[i]) for i, name in enumerate(self.counter_names) ])
+        dispatcher.send("new_data", self, {"channel_data": channel_data})
+
+
+class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
     SIMPLE_AVERAGE,TIME_AVERAGE,INTEGRATE = range(3)
 
-    def __init__(self,counter,
-                 count_time=None, npoints=1,
-                 mode=SIMPLE_AVERAGE, **keys):
+    def __init__(self, counter, count_time=None, mode=SIMPLE_AVERAGE, auto_add_channel=True, **keys):
         """
         Helper to manage acquisition of a sampling counter.
 
         count_time -- the master integration time.
-        npoints -- number of point for this acquisition
         mode -- three mode are available *SIMPLE_AVERAGE* (the default)
         which sum all the sampling values and divide by the number of read value.
         the *TIME_AVERAGE* which sum all integration  then divide by the sum
         of time spend to measure all values. And *INTEGRATION* which sum all integration
         and then normalize it when the *count_time*.
+        auto_add_channel -- specify if channel is directly added from counter (default: True)
+        Other keys are:
+          * npoints -- number of point for this acquisition
+          * prepare_once --
+          * start_once --
         """
-        prepare_once = keys.pop('prepare_once', npoints > 1)
-        start_once = keys.pop('start_once', npoints > 1)
-        npoints = max(1,npoints)
-        AcquisitionDevice.__init__(self, counter, counter.name, "zerod",
-                                   npoints=npoints,
-                                   trigger_type=AcquisitionDevice.SOFTWARE,
-                                   prepare_once=prepare_once,
-                                   start_once=start_once,
-                                   **keys)
-        self.count_time = count_time
-        if not isinstance(counter, SamplingCounter.GroupedReadHandler):
-            self.channels.append(AcquisitionChannel(counter.name,numpy.double, (1,)))
-        self._nb_acq_points = 0
+        BaseCounterAcquisitionDevice.__init__(self, counter, count_time, auto_add_channel, **keys)
+
         self._event = event.Event()
         self._stop_flag = False
         self._ready_event = event.Event()
         self._ready_flag = True
         self.__mode = mode
-        self.__counters_list = list()
 
     @property
     def mode(self):
@@ -56,10 +93,6 @@ class SamplingCounterAcquisitionDevice(AcquisitionDevice):
     @mode.setter
     def mode(self,value):
         self.__mode = value
-
-    def add_counter_to_read(self,counter):
-        self.__counters_list.append(counter)
-        self.channels.append(AcquisitionChannel(counter.name,numpy.double, (1,)))
 
     def prepare(self):
         self._nb_acq_points = 0
@@ -88,15 +121,6 @@ class SamplingCounterAcquisitionDevice(AcquisitionDevice):
             self._ready_event.clear()
 
     def reading(self):
-        counter_name = [x.name for x in self.channels]
-        if isinstance(self.device, SamplingCounter.GroupedReadHandler):
-            def read():
-                return numpy.array(self.device.read(*self.__counters_list),
-                                   dtype=numpy.double)
-        else:
-            def read():
-                return numpy.array(self.device.read(),
-                                   dtype=numpy.double)
         while self._nb_acq_points < self.npoints:
             #trigger wait
             self._event.wait()
@@ -108,12 +132,12 @@ class SamplingCounterAcquisitionDevice(AcquisitionDevice):
 
             nb_read = 0
             acc_read_time = 0
-            acc_value = numpy.zeros((len(counter_name),),dtype=numpy.double)
+            acc_value = numpy.zeros((len(self.counter_names),), dtype=numpy.double)
             stop_time = trig_time + self.count_time or 0
             #Counter integration loop
             while not self._stop_flag:
                 start_read = time.time()
-                read_value = read()
+                read_value = numpy.array(self.device.read(*self.grouped_read_counters), dtype=numpy.double)
                 end_read = time.time()
                 read_time = end_read - start_read
                 
@@ -138,27 +162,15 @@ class SamplingCounterAcquisitionDevice(AcquisitionDevice):
             if self.__mode == SamplingCounterAcquisitionDevice.INTEGRATE:
                 data *= self.count_time
             
-            channel_data = {name:data[index] for index,name in enumerate(counter_name)}
-            dispatcher.send("new_data",self,
-                            {"channel_data": channel_data})
+            self._emit_new_data(data)
+
             self._ready_flag = True
             self._ready_event.set()
             
 
-class IntegratingCounterAcquisitionDevice(AcquisitionDevice):
-    def __init__(self, counter, count_time=None, npoints=1, **keys):
-        prepare_once = keys.pop('prepare_once', npoints > 1)
-        start_once = keys.pop('start_once', npoints > 1)
-        npoints = max(1,npoints)
-        AcquisitionDevice.__init__(self, counter, counter.name, "zerod",
-                                   npoints=npoints,
-                                   trigger_type=AcquisitionDevice.SOFTWARE,
-                                   prepare_once=prepare_once,
-                                   start_once=start_once,
-                                   **keys)
-        self.count_time = count_time
-        self.channels.append(AcquisitionChannel(counter.name,numpy.double, (1,)))
-        self._nb_acq_points = 0
+class IntegratingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
+    def __init__(self, counter, count_time=None, auto_add_channel=True, **keys):
+        BaseCounterAcquisitionDevice.__init__(self, counter, count_time, auto_add_channel, **keys)
 
     def prepare(self):
         self._nb_acq_points = 0
@@ -173,16 +185,20 @@ class IntegratingCounterAcquisitionDevice(AcquisitionDevice):
     def trigger(self):
         pass
     
+    def _read_data(self, from_index):
+        if self.grouped_read_counters:
+            return self.device.get_values(from_index, *self.grouped_read_counters)
+        else:
+            return [numpy.array(self.device.get_value(from_index), dtype=numpy.double)]
+
     def reading(self):
-        from_point_index = 0
+        from_index = 0
         while self._nb_acq_points < self.npoints and not self._stop_flag:
-            data = self.device.get_value(from_point_index)
-            if data:
-                from_point_index += len(data)
-                self._nb_acq_points += len(data)
-                channel_data = {self.name:data}
-                dispatcher.send("new_data",self,
-                                {"channel_data": channel_data})
+            data = self._read_data(from_index)
+            if all_equal([len(d) for d in data]) and len(data[0]) > 0:
+                from_index += len(data[0])
+                self._nb_acq_points += len(data[0])
+                self._emit_new_data(data)
                 gevent.idle()
             else:
                 gevent.sleep(count_time/2.)

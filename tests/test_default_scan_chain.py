@@ -12,6 +12,7 @@ from bliss.scanning.acquisition.lima import LimaAcquisitionDevice
 from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionDevice, IntegratingCounterAcquisitionDevice 
 from bliss.controllers.simulation_diode import CONTROLLER as diode23_controller
 
+
 def test_default_chain_with_sampling_counter(beacon):
     """Want to build the following acquisition chain:
 
@@ -59,8 +60,8 @@ def test_default_chain_with_three_sampling_counters(beacon):
     assert diode2
     assert diode3
 
-    assert diode.controller is None
-    assert diode2.controller == diode3.controller == diode23_controller
+    #assert diode.controller is None
+    #assert diode2.controller == diode3.controller == diode23_controller
 
     scan_pars = { "npoints": 10,
                   "count_time": 0.1 }
@@ -84,13 +85,11 @@ def test_default_chain_with_three_sampling_counters(beacon):
     # this should be true:
     #   assert len(nodes[1].channels) == 2
     #   assert nodes[2].channels.pop().name == 'diode'
-    # whereas in fact, nodes[2] is the one with 2 channels:
-    assert len(nodes[2].channels) == 2
-
-    assert nodes[1].channels.pop().name == 'diode'
-    assert nodes[2].channels.pop().name == 'diode2'
-    assert nodes[2].channels.pop().name == 'diode3'
-
+    # whereas in fact, nodes[2] is the one with 2 channels
+    #assert nodes[1].counter_names == ['diode']
+    #assert nodes[2].counter_names == ['diode2', 'diode3']
+    assert len(nodes[1].counter_names) == 1
+    assert len(nodes[2].counter_names) == 2
 
 def test_default_chain_with_bpm(beacon):
     """Want to build the following acquisition chain:
@@ -119,19 +118,15 @@ def test_default_chain_with_bpm(beacon):
     assert timer.count_time == 0.1
 
     nodes = chain.nodes_list
-    assert len(nodes) == 5 
+    assert len(nodes) == 3 
     assert isinstance(nodes[0], timer.__class__)
     assert isinstance(nodes[1], LimaAcquisitionDevice)
     assert isinstance(nodes[2], IntegratingCounterAcquisitionDevice)
-    assert isinstance(nodes[3], IntegratingCounterAcquisitionDevice)
-    assert isinstance(nodes[4], IntegratingCounterAcquisitionDevice)
 
-    assert nodes[2] == nodes[3] == nodes[4]   
- 
+    assert len(nodes[2].counter_names) == 3
     assert nodes[2].count_time == timer.count_time
 
     assert nodes[1].save_flag == False
-
 
 def test_default_chain_with_bpm_and_diode(beacon):
     """Want to build the following acquisition chain:
@@ -202,4 +197,3 @@ def test_default_chain_with_bpm_and_image(beacon):
     assert nodes[2].parent == nodes[1]
 
     assert nodes[1].save_flag == True
-

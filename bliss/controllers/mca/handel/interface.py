@@ -504,10 +504,10 @@ def get_channels():
 
 def get_master_channels():
     """Return one active channel for each module."""
-    return [
+    return tuple(
         next(channel for channel in groups if channel >= 0)
         for groups in get_grouped_channels()
-    ]
+    )
 
 
 # Not exposed

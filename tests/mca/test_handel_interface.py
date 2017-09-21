@@ -393,6 +393,21 @@ def test_is_buffer_full(interface):
     interface.check_error.assert_called_with(0)
 
 
+def test_is_buffer_overrun(interface):
+    m = interface.handel.xiaGetRunData
+
+    def side_effect(channel, dtype, arg):
+        arg[0] = 1
+        return 0
+
+    m.side_effect = side_effect
+    assert interface.is_buffer_overrun(1) is True
+    arg = m.call_args[0][2]
+    m.assert_called_once_with(1, b"buffer_overrun", arg)
+    # Make sure errors have been checked
+    interface.check_error.assert_called_with(0)
+
+
 def test_get_raw_buffer(interface):
     m = interface.handel.xiaGetRunData
 
@@ -417,11 +432,189 @@ def test_get_raw_buffer(interface):
     interface.check_error.assert_called_with(0)
 
 
+def test_get_buffer_data(interface):
+    with mock.patch("bliss.controllers.mca.handel.interface.get_raw_buffer") as m1:
+        with mock.patch(
+            "bliss.controllers.mca.handel.interface.parse_mapping_buffer"
+        ) as m2:
+            assert interface.get_buffer_data(3, "b") is m2.return_value
+            m1.assert_called_once_with(3, "b")
+            m2.assert_called_once_with(m1.return_value)
+
+
+def test_get_buffer_current_pixel(interface):
+    m = interface.handel.xiaGetRunData
+
+    def side_effect(channel, dtype, arg):
+        arg[0] = 10
+        return 0
+
+    m.side_effect = side_effect
+    assert interface.get_buffer_current_pixel(1) == 10
+    arg = m.call_args[0][2]
+    m.assert_called_once_with(1, b"current_pixel", arg)
+    # Make sure errors have been checked
+    interface.check_error.assert_called_with(0)
+
+
 def test_set_buffer_done(interface):
     m = interface.handel.xiaBoardOperation
     m.return_value = 0
     assert interface.set_buffer_done(1, "b") is None
     m.assert_called_with(1, b"buffer_done", b"b")
+    # Make sure errors have been checked
+    interface.check_error.assert_called_with(0)
+
+
+# Synchronized run
+
+
+def test_any_buffer_overrun(interface):
+    with mock.patch("bliss.controllers.mca.handel.interface.get_master_channels") as m1:
+        with mock.patch(
+            "bliss.controllers.mca.handel.interface.is_buffer_overrun"
+        ) as m2:
+            m1.return_value = [0, 4]
+            m2.side_effect = lambda x: x != 0
+            assert interface.any_buffer_overrun() is True
+            m1.assert_called_once_with()
+            m2.assert_called_with(4)
+
+
+def test_all_buffer_full(interface):
+    with mock.patch("bliss.controllers.mca.handel.interface.get_master_channels") as m1:
+        with mock.patch("bliss.controllers.mca.handel.interface.is_buffer_full") as m2:
+            m1.return_value = [0, 4]
+            m2.return_value = True
+            assert interface.all_buffer_full("b") is True
+            m1.assert_called_once_with()
+            m2.assert_called_with(4, "b")
+
+
+def test_set_all_buffer_done(interface):
+    with mock.patch("bliss.controllers.mca.handel.interface.get_master_channels") as m1:
+        with mock.patch("bliss.controllers.mca.handel.interface.set_buffer_done") as m2:
+            m1.return_value = [0, 4]
+            assert interface.set_all_buffer_done("b") is None
+            m1.assert_called_once_with()
+            m2.assert_called_with(4, "b")
+
+
+def test_get_current_pixel(interface):
+    with mock.patch("bliss.controllers.mca.handel.interface.get_master_channels") as m1:
+        with mock.patch(
+            "bliss.controllers.mca.handel.interface.get_buffer_current_pixel"
+        ) as m2:
+            m1.return_value = [0, 4]
+            m2.side_effect = lambda x: 1 if x == 0 else 2
+            assert interface.get_current_pixel() == 2
+            m1.assert_called_once_with()
+            m2.assert_called_with(4)
+
+
+def test_get_all_buffer_data(interface):
+    with mock.patch("bliss.controllers.mca.handel.interface.get_master_channels") as m1:
+        with mock.patch("bliss.controllers.mca.handel.interface.get_buffer_data") as m2:
+            m1.return_value = [0, 4]
+            first = {11: {0: "spectrum1"}}, {11: {0: "stats1"}}
+            second = {11: {4: "spectrum2"}}, {11: {4: "stats2"}}
+            expected = (
+                {11: {0: "spectrum1", 4: "spectrum2"}},
+                {11: {0: "stats1", 4: "stats2"}},
+            )
+            m2.side_effect = lambda x, y: first if x == 0 else second
+            assert interface.get_all_buffer_data("b") == expected
+            m1.assert_called_once_with()
+            m2.assert_called_with(4, "b")
+
+
+def test_synchronized_poll_data(interface):
+    with mock.patch.multiple(
+        "bliss.controllers.mca.handel.interface",
+        any_buffer_overrun=mock.DEFAULT,
+        get_current_pixel=mock.DEFAULT,
+        all_buffer_full=mock.DEFAULT,
+        get_all_buffer_data=mock.DEFAULT,
+        set_all_buffer_done=mock.DEFAULT,
+    ) as ms:
+        # Overrun
+        ms["any_buffer_overrun"].return_value = True
+        with pytest.raises(RuntimeError) as ctx:
+            interface.synchronized_poll_data()
+        assert "Buffer overrun!" in str(ctx.value)
+        ms["any_buffer_overrun"].assert_called_once_with()
+        ms["get_current_pixel"].assert_not_called()
+        ms["all_buffer_full"].assert_not_called()
+        ms["get_all_buffer_data"].assert_not_called()
+        ms["set_all_buffer_done"].assert_not_called()
+        # Reset
+        for m in ms.values():
+            m.reset_mock()
+        # Data not ready
+        ms["any_buffer_overrun"].return_value = False
+        ms["get_current_pixel"].return_value = 10
+        ms["all_buffer_full"].return_value = False
+        assert interface.synchronized_poll_data() == (10, None, None)
+        ms["any_buffer_overrun"].assert_called_once_with()
+        ms["get_current_pixel"].assert_called_once_with()
+        assert ms["all_buffer_full"].call_args_list == [(("a",),), (("b",),)]
+        ms["get_all_buffer_data"].assert_not_called()
+        ms["set_all_buffer_done"].assert_not_called()
+        # Reset
+        for m in ms.values():
+            m.reset_mock()
+        # Data ready
+        ms["any_buffer_overrun"].return_value = False
+        ms["get_current_pixel"].return_value = 20
+        ms["all_buffer_full"].side_effect = lambda x: x == "b"
+        ms["get_all_buffer_data"].return_value = "spectrums", "stats"
+        assert interface.synchronized_poll_data() == (20, "spectrums", "stats")
+        ms["any_buffer_overrun"].assert_called_once_with()
+        ms["get_current_pixel"].assert_called_once_with()
+        assert ms["all_buffer_full"].call_args_list == [(("a",),), (("b",),)]
+        ms["get_all_buffer_data"].assert_called_once_with("b")
+        ms["set_all_buffer_done"].assert_called_once_with("b")
+
+
+# Baseline
+
+
+def test_get_baseline_length(interface):
+    m = interface.handel.xiaGetRunData
+
+    def side_effect(channel, dtype, arg):
+        arg[0] = 10
+        return 0
+
+    m.side_effect = side_effect
+    assert interface.get_baseline_length(1) == 10
+    m.assert_called_once()
+    arg = m.call_args[0][2]
+    m.assert_called_once_with(1, b"baseline_length", arg)
+    # Make sure errors have been checked
+    interface.check_error.assert_called_once_with(0)
+
+
+def test_get_baseline(interface):
+    m = interface.handel.xiaGetRunData
+
+    def side_effect(channel, dtype, arg):
+        if dtype == b"baseline_length":
+            arg[0] = 10
+            return 0
+        if dtype == b"baseline":
+            for x in range(10):
+                arg[x] = x
+            return 0
+        assert False
+
+    m.side_effect = side_effect
+    expected = numpy.array(range(10), dtype="uint32")
+    diff = interface.get_baseline(1) == expected
+    assert diff.all()
+    m.assert_called()
+    arg = m.call_args[0][2]
+    m.assert_called_with(1, b"baseline", arg)
     # Make sure errors have been checked
     interface.check_error.assert_called_with(0)
 
@@ -688,6 +881,13 @@ def test_get_channels(interface):
     assert interface.get_channels() == (0, 1, 2, 3, 4, 5, 6, 7)
     # Make sure errors have been checked
     interface.check_error.assert_called_with(0)
+
+
+def test_get_master_channels(interface):
+    with mock.patch("bliss.controllers.mca.handel.interface.get_grouped_channels") as m:
+        m.return_value = [(0, 1, 2, 3), (-1, 5, 6, 7)]
+        assert interface.get_master_channels() == (0, 5)
+        m.assert_called_once_with()
 
 
 # Parameters

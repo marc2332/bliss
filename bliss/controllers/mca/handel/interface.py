@@ -9,7 +9,8 @@ import numpy
 from .error import check_error
 from ._cffi import handel, ffi
 from .stats import stats_from_normal_mode
-from .parser import parse_xia_ini_file, parse_mapping_buffer
+from .parser import parse_xia_ini_file
+from .mapping import parse_mapping_buffer
 
 __all__ = [
     "init",

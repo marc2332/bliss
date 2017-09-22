@@ -85,4 +85,6 @@ class LimaAcquisitionDevice(AcquisitionDevice):
                                          "last_image_acquired":self.device.last_image_acquired,
                                          "last_image_saved":self.device.last_image_saved,
                                        })
+      if self.device.acq_status.lower() == 'fault':
+        raise RuntimeError("Device %s (%s) is in Fault state" % (self.device,self.device.user_detector_name))
 

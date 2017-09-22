@@ -295,7 +295,7 @@ def set_buffer_done(master, buffer_id):
     """Flag the the buffer as read and return an overrun detection.
 
     False means no overrun have been detected.
-    True means an overrun have been detected.
+    True means a possible overrun have been detected.
     """
     bid = to_buffer_id(buffer_id)
     code = handel.xiaBoardOperation(master, b"buffer_done", bid)

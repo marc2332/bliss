@@ -200,7 +200,9 @@ class IntegratingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         from_index = 0
         while self._nb_acq_points < self.npoints and not self._stop_flag:
             data = self._read_data(from_index)
-            if all_equal([len(d) for d in data]) and len(data[0]) > 0:
+            if not all_equal([len(d) for d in data]):
+                raise RuntimeError("Can't have a different data length")
+            if len(data[0]) > 0:
                 from_index += len(data[0])
                 self._nb_acq_points += len(data[0])
                 self._emit_new_data(data)

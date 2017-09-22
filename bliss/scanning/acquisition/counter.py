@@ -208,5 +208,5 @@ class IntegratingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
                 self._emit_new_data(data)
                 gevent.idle()
             else:
-                gevent.sleep(count_time/2.)
+                gevent.sleep(self.count_time/2.)
             

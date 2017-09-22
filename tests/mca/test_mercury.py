@@ -115,19 +115,63 @@ def test_mercury_trigger_mode(mercury):
 def test_mercury_acquisition_number(mercury):
     client = mercury._proxy
 
-    # Test setter
+    # Test single setter
     mercury.set_acquisition_number(1)
     client.set_acquisition_value.assert_called_once_with('mapping_mode', 0)
     client.apply_acquisition_values.assert_called_once_with()
 
-    # Test getter
+    # Test single getter
     client.get_acquisition_value.return_value = 0.
-    mercury.acquisition_number == 1
+    assert mercury.acquisition_number == 1
     client.get_acquisition_value.assert_called_once_with('mapping_mode', 0)
+
+    # Test multi setter
+    client.set_acquisition_value.reset_mock()
+    client.apply_acquisition_values.reset_mock()
+    mercury.set_acquisition_number(2)
+    assert client.set_acquisition_value.call_args_list == [
+        (('mapping_mode', 1),), (('num_map_pixels', 2),)]
+    client.apply_acquisition_values.assert_called_once_with()
+
+    # Test multi getter
+    values = [1, 2]
+    client.get_acquisition_value.reset_mock()
+    client.get_acquisition_value.side_effect = lambda *args: values.pop(0)
+    assert mercury.acquisition_number == 2
+    assert client.get_acquisition_value.call_args_list == [
+        (('mapping_mode', 0),), (('num_map_pixels', 0),)]
 
     # Error tests
     with pytest.raises(ValueError):
         mercury.set_acquisition_number(0)
+
+
+def test_mercury_block_size(mercury):
+    client = mercury._proxy
+
+    # Test simple setter
+    assert mercury.set_block_size(3) is None
+    client.set_acquisition_value.assert_called_once_with(
+        'num_map_pixels_per_buffer', 3)
+    client.apply_acquisition_values.assert_called_once_with()
+
+    # Test simple getter
+    client.get_acquisition_value.return_value = 3
+    mercury.block_size == 3
+    client.get_acquisition_value.assert_called_once_with(
+        'num_map_pixels_per_buffer', 0)
+
+    # Test default setter
+    client.set_acquisition_value.reset_mock()
+    client.get_acquisition_value.reset_mock()
+    client.apply_acquisition_values.reset_mock()
+    client.get_acquisition_value.return_value = 10.
+    assert mercury.set_block_size() is None
+    assert client.set_acquisition_value.call_args_list == [
+        (('num_map_pixels_per_buffer', -1),),
+        (('num_map_pixels_per_buffer', 10),)]
+    client.get_acquisition_value.assert_called_once_with(
+        'num_map_pixels_per_buffer', 0)
 
 
 def test_mercury_acquisition(mercury, mocker):
@@ -139,6 +183,25 @@ def test_mercury_acquisition(mercury, mocker):
     stats = Stats(*range(9))
     assert mercury.run_single_acquisition(3.) == ([[3, 2, 1]], [stats])
     sleep.assert_called_once_with(0.1)
+
+
+def test_mercury_multiple_acquisition(mercury, mocker):
+    client = mercury._proxy
+    sleep = mocker.patch('time.sleep')
+    sleep.side_effect = lambda x: client.mock_not_running()
+    client.get_acquisition_value.return_value = 2
+    client.get_spectrums.return_value = {0: [3, 2, 1]}
+    client.get_statistics.return_value = {0: range(9)}
+    client.synchronized_poll_data.side_effect = lambda: data.pop(0)
+
+    data = [(0, {}, {}),
+            (1, {0: {3: 'spectrum0'}}, {0: {3: 'stat0'}}),
+            (2, {1: {3: 'spectrum1'}}, {1: {3: 'stat1'}})]
+
+    data, stats = mercury.run_multiple_acquisitions(3)
+    assert data == {0: {3: 'spectrum0'}, 1: {3: 'spectrum1'}}
+    assert stats == {0: {3: 'stat0'}, 1: {3: 'stat1'}}
+    assert sleep.call_args_list == [((0.1,),), ((0.1,),)]
 
 
 def test_mercury_configuration_error(mercury):

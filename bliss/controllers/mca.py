@@ -108,6 +108,13 @@ class BaseMCA(object):
         raise NotImplementedError
 
     @property
+    def block_size(self):
+        raise NotImplementedError
+
+    def set_block_size(self, value=None):
+        raise NotImplementedError
+
+    @property
     def multiple_acquisition(self):
         return self.acquisition_number > 1
 
@@ -177,8 +184,8 @@ class BaseMCA(object):
         self.stop_acquisition()
         return self.get_acquisition_data(), self.get_acquisition_statistics()
 
-    def run_multiple_acquistion(self, acquisition_number,
-                                block_size=None, gate=False, polling_time=0.1):
+    def run_multiple_acquisitions(self, acquisition_number,
+                                  block_size=None, gate=False, polling_time=0.1):
         # Acquisition number
         self.set_acquisition_number(acquisition_number)
         self.set_block_size(block_size)

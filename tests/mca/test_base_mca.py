@@ -81,7 +81,7 @@ def test_base_mca():
 
 
 def test_base_mca_logic(mocker):
-    stats = Stats(*range(1, 10))
+    stats = Stats(*range(1, 8))
 
     class TestMCA(BaseMCA):
 

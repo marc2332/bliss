@@ -27,8 +27,7 @@ PresetMode = enum.Enum(
 
 Stats = collections.namedtuple(
     'Stats',
-    'realtime livetime triggers events icr ocr deadtime '
-    'underflows overflows')
+    'realtime livetime triggers events icr ocr deadtime')
 
 
 # Base class
@@ -200,15 +199,8 @@ class BaseMCA(object):
         while current != self.acquisition_number:
             time.sleep(polling_time)
             current, extra_data, extra_statistics = self.poll_data()
-            self._merge_data(extra_data, data)
-            self._merge_data(extra_statistics, statistics)
+            data.update(extra_data)
+            statistics.update(extra_statistics)
         # Stop and return data
         self.stop_acquisition()
         return data, statistics
-
-    # Internal helpers
-
-    def _merge_data(self, source, dest):
-        for key, dct in source.items():
-            dest.setdefault(key, {})
-            dest[key].update(dct)

@@ -165,16 +165,27 @@ class Mercury(BaseMCA):
 
     def get_acquisition_data(self):
         spectrums = self._proxy.get_spectrums()
-        nb = len(spectrums)
-        return [spectrums[i] for i in range(nb)]
+        return self._convert_spectrums(spectrums)
 
     def get_acquisition_statistics(self):
         stats = self._proxy.get_statistics()
-        nb = len(stats)
-        return [Stats(*stats[i]) for i in range(nb)]
+        return self._convert_statistics(stats)
 
     def poll_data(self):
-        return self._proxy.synchronized_poll_data()
+        current, spectrums, statistics = self._proxy.synchronized_poll_data()
+        spectrums = {key: self._convert_spectrums(value)
+                     for key, value in spectrums.items()}
+        statistics = {key: self._convert_statistics(value)
+                      for key, value in statistics.items()}
+        return current, spectrums, statistics
+
+    def _convert_spectrums(self, spectrums):
+        nb = len(spectrums)
+        return [spectrums[i] for i in range(nb)]
+
+    def _convert_statistics(self, stats):
+        nb = len(stats)
+        return [Stats(*stats[i]) for i in range(nb)]
 
     # Infos
 

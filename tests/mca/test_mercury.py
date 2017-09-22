@@ -179,8 +179,8 @@ def test_mercury_acquisition(mercury, mocker):
     sleep = mocker.patch('time.sleep')
     sleep.side_effect = lambda x: client.mock_not_running()
     client.get_spectrums.return_value = {0: [3, 2, 1]}
-    client.get_statistics.return_value = {0: range(9)}
-    stats = Stats(*range(9))
+    client.get_statistics.return_value = {0: range(7)}
+    stats = Stats(*range(7))
     assert mercury.run_single_acquisition(3.) == ([[3, 2, 1]], [stats])
     sleep.assert_called_once_with(0.1)
 
@@ -195,12 +195,13 @@ def test_mercury_multiple_acquisition(mercury, mocker):
     client.synchronized_poll_data.side_effect = lambda: data.pop(0)
 
     data = [(0, {}, {}),
-            (1, {0: {3: 'spectrum0'}}, {0: {3: 'stat0'}}),
-            (2, {1: {3: 'spectrum1'}}, {1: {3: 'stat1'}})]
+            (1, {0: {0: 'spectrum0'}}, {0: {0: range(7)}}),
+            (2, {1: {0: 'spectrum1'}}, {1: {0: range(10, 17)}})]
+    stats0, stats1 = Stats(*range(7)), Stats(*range(10, 17))
 
     data, stats = mercury.run_multiple_acquisitions(3)
-    assert data == {0: {3: 'spectrum0'}, 1: {3: 'spectrum1'}}
-    assert stats == {0: {3: 'stat0'}, 1: {3: 'stat1'}}
+    assert data == {0: ['spectrum0'], 1: ['spectrum1']}
+    assert stats == {0: [stats0], 1: [stats1]}
     assert sleep.call_args_list == [((0.1,),), ((0.1,),)]
 
 

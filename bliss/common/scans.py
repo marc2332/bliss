@@ -132,7 +132,7 @@ def _counters_tree(counters, scan_pars):
 
     for reader, counters in reader_counters.iteritems():
         if isinstance(reader, (SamplingCounter.GroupedReadHandler, SamplingCounter)):
-            acq_device = SamplingCounterAcquisitionDevice(reader, auto_add_channel=len(counters)==0, **scan_pars)
+            acq_device = SamplingCounterAcquisitionDevice(reader, **scan_pars)
             for cnt in counters:
                 acq_device.add_counter(cnt)
             tree.setdefault(None, list()).append(acq_device)
@@ -150,7 +150,7 @@ def _counters_tree(counters, scan_pars):
                 master_acq_device, _ = default_master_configuration(cnt, tmp_scan_pars)
                 master_integrating_counter[cnt.acquisition_controller] = master_acq_device
             if isinstance(reader, IntegratingCounter.GroupedReadHandler):
-                acq_device = IntegratingCounterAcquisitionDevice(reader, auto_add_channel=len(counters)==0, **scan_pars)
+                acq_device = IntegratingCounterAcquisitionDevice(reader, **scan_pars)
                 for cnt in counters:
                     acq_device.add_counter(cnt)
                 tree.setdefault(master_acq_device, list()).append(acq_device)

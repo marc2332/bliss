@@ -15,7 +15,7 @@ from bliss.common.measurement import GroupedReadMixin
 from bliss.common.utils import all_equal
 
 class BaseCounterAcquisitionDevice(AcquisitionDevice):
-    def __init__(self, counter, count_time, auto_add_channel, **keys):
+    def __init__(self, counter, count_time, **keys):
         npoints = max(1, keys.pop('npoints', 1))
         prepare_once = keys.pop('prepare_once', npoints > 1)
         start_once = keys.pop('start_once', npoints > 1)
@@ -31,7 +31,7 @@ class BaseCounterAcquisitionDevice(AcquisitionDevice):
         self.__counter_names = list()
         self._nb_acq_points = 0
 
-        if auto_add_channel:
+        if not isinstance(counter, GroupedReadMixin):
             self.channels.append(AcquisitionChannel(counter.name, numpy.double, (1,)))
             self.__counter_names.append(counter.name)
         
@@ -63,7 +63,7 @@ class BaseCounterAcquisitionDevice(AcquisitionDevice):
 class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
     SIMPLE_AVERAGE,TIME_AVERAGE,INTEGRATE = range(3)
 
-    def __init__(self, counter, count_time=None, mode=SIMPLE_AVERAGE, auto_add_channel=True, **keys):
+    def __init__(self, counter, count_time=None, mode=SIMPLE_AVERAGE, **keys):
         """
         Helper to manage acquisition of a sampling counter.
 
@@ -73,13 +73,12 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         the *TIME_AVERAGE* which sum all integration  then divide by the sum
         of time spend to measure all values. And *INTEGRATION* which sum all integration
         and then normalize it when the *count_time*.
-        auto_add_channel -- specify if channel is directly added from counter (default: True)
         Other keys are:
           * npoints -- number of point for this acquisition
           * prepare_once --
           * start_once --
         """
-        BaseCounterAcquisitionDevice.__init__(self, counter, count_time, auto_add_channel, **keys)
+        BaseCounterAcquisitionDevice.__init__(self, counter, count_time, **keys)
 
         self._event = event.Event()
         self._stop_flag = False
@@ -173,8 +172,8 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
             
 
 class IntegratingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
-    def __init__(self, counter, count_time=None, auto_add_channel=True, **keys):
-        BaseCounterAcquisitionDevice.__init__(self, counter, count_time, auto_add_channel, **keys)
+    def __init__(self, counter, count_time=None, **keys):
+        BaseCounterAcquisitionDevice.__init__(self, counter, count_time, **keys)
 
     def prepare(self):
         self.device.prepare(*self.grouped_read_counters)

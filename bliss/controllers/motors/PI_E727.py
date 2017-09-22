@@ -23,7 +23,6 @@ Bliss controller for ethernet PI E727 piezo controller.
 CG+MP ESRF BLISS  2014-2017
 """
 
-MYVAR = None
 
 class PI_E727(Controller):
 
@@ -36,17 +35,11 @@ class PI_E727(Controller):
         """
         Controller intialization : opens a single socket for all 3 axes.
         """
-        global MYVAR
 
-        print "----------------------","controller initialize"
+        self.trace("controller initialize")
         self.host = self.config.get("host")
-        if not MYVAR:
-            print "----------------------","opening socket"
-            self.sock = pi_gcs.get_pi_comm(self.config, TCP)
-            MYVAR = self.sock
-        else:
-            print "----------------------","reusing socket"
-            self.sock = MYVAR 
+        self.trace("opening socket")
+        self.sock = pi_gcs.get_pi_comm(self.config, TCP)
 
         # just in case
         self.sock.flush()
@@ -58,41 +51,37 @@ class PI_E727(Controller):
         """
         # not called at end of device server ??? :(
         # called on a new axis creation ???
-        print "----------------------","controller finalize"
+        self.trace("controller finalize")
         try:
-            print "----------------------","closing socket"
+            self.trace("closing socket")
             self.sock.close()
         except:
             pass
 
+    def trace(self, str):
+        elog.debug('{s:{c}<{n}}'.format(s=str,n=80,c='-'))
+
     # Init of each axis.
     def initialize_axis(self, axis):
-        elog.debug("axis initialization")
-        print "----------------------","axis initialization"
-
-        ## To purge controller.
-        #try:
-        #    self.sock._raw_read()
-        #except:
-        #    pass
+        self.trace("axis initialization")
 
         axis.channel = axis.config.get("channel", int)
 
         # check communication
         try:
-            self.sock._timeout = .1
-            _ans =  self.get_identifier(axis)
+            _ans =  self.get_identifier(axis, 0.1)
         except Exception as ex:
-            print ex
-            _str = "ERROR on \"%s\": switch on the controller" % (self.host)
-            print _str
-            raise RuntimeError(_str)
+            _str = "%r\nERROR on \"%s\": switch on the controller" % \
+                (ex, self.host)
+            # by default, an exception will be raised
+            elog.error(_str)
 
         # Enables the closed-loop.
         self._set_closed_loop(axis, True)
 
     def initialize_encoder(self, encoder):
         pass
+
 
     """
     ON / OFF
@@ -127,7 +116,7 @@ class PI_E727(Controller):
 
     """ STATE """
     def state(self, axis):
-        print "----------------------","axis state"
+        self.trace("axis state")
         if self._get_closed_loop_status(axis):
             if self._get_on_target_status(axis):
                 return AxisState("READY")
@@ -143,6 +132,9 @@ class PI_E727(Controller):
     def start_one(self, motion):
         elog.debug("start_one target_pos = %f" % self._target_pos)
 
+        # the controller latches the previous error
+        self.clear_error()
+
         axis = motion.axis
         _cmd = "MOV %s %g" % (axis.channel, self._target_pos)
         self.send_no_ans(axis, _cmd)
@@ -150,24 +142,27 @@ class PI_E727(Controller):
         self.check_error(_cmd)
 
     def stop(self, axis):
-        # to check : copy of current position into target position ???
-        self.send_no_ans(axis, "STP")
+        elog.debug("stop requested")
+        self.send_no_ans(axis, "STP %s" %(axis.channel))
 
 
     """ COMMUNICATIONS"""
-    def send(self, axis, cmd):
+    def send(self, axis, cmd, timeout=None):
         _cmd = self._append_eoc(cmd)
-        _ans = self.sock.write_readline(_cmd)
+        _ans = self.sock.write_readline(_cmd, timeout=timeout)
         _ans = self._remove_eoc(_ans)
         return _ans
+
+    def clear_error(self):
+        self._get_error()
 
     def check_error(self, cmd):
         # Check error code
         (_err_nb, _err_str) = self._get_error()
         if _err_nb != 0:
             _str = "ERROR on cmd \"%s\": #%d(%s)" % (cmd, _err_nb, _err_str)
-            print _str
-            raise RuntimeError(_str)
+            # by default, an exception will be raised
+            elog.error(_str)
 
     def send_no_ans(self, axis, cmd):
         _cmd = self._append_eoc(cmd)
@@ -208,20 +203,20 @@ class PI_E727(Controller):
         _cmd = cmd.strip()
         if not _cmd.endswith("\n"):
             _cmd = cmd + "\n"
-	print ">>>> %s"%(_cmd.strip("\n"))
+	elog.debug(">>>> %s"%(_cmd.strip("\n")))
         return _cmd
 
     def _remove_eoc(self, ans):
         _ans = ans.strip().strip("\n\r")
-	print "<<<< %s"%(_ans)
+	elog.debug("<<<< %s"%(_ans))
         return _ans
 
     """
     E727 specific
     """
     @object_method(types_info=("None", "str"))
-    def get_identifier(self, axis):
-        return self.send(axis, "IDN?")
+    def get_identifier(self, axis, timeout=None):
+        return self.send(axis, "IDN?", timeout)
 
 
     def get_voltage(self, axis):
@@ -277,7 +272,8 @@ class PI_E727(Controller):
         elif _status == "0":
             return False
         else:
-            print "err _get_on_target_status, _ans=%r" % _ans
+            elog.error("ERROR on _get_on_target_status, _ans=%r" % \
+                _ans, raise_exception=False)
             return -1
 
     """ CLOSED LOOP"""
@@ -291,7 +287,8 @@ class PI_E727(Controller):
         elif _status == "0":
             return False
         else:
-            print "err _get_closed_loop_status, _ans=%r" % _ans
+            elog.error("ERROR on _get_closed_loop_status, _ans=%r" % \
+                _ans, raise_exception=False)
             return -1
 
     def _set_closed_loop(self, axis, state):
@@ -312,14 +309,10 @@ class PI_E727(Controller):
 
     def _get_error(self):
         # Does not use send() to be able to call _get_error in send().
-        _error_number = int(self.sock.write_readline("ERR?\n"))
+        _error_number = int(self.raw_write_read("ERR?"))
         _error_str = pi_gcs.get_error_str(int(_error_number))
 
         return (_error_number, _error_str)
-
-    def _stop(self, axis):
-        print "????????? PI_E727.py received _stop ???"
-        self.send_no_ans(axis, "STP")
 
     def get_info(self, axis):
         """

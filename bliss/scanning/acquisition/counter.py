@@ -95,15 +95,19 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         self.__mode = value
 
     def prepare(self):
+        self.device.prepare(*self.grouped_read_counters)
+
         self._nb_acq_points = 0
         self._stop_flag = False
         self._ready_flag = True
         self._event.clear()
 
     def start(self):
-        pass
+        self.device.start(*self.grouped_read_counters)
 
     def stop(self):
+        self.device.stop(*self.grouped_read_counters)
+
         self._stop_flag = True
         self._trig_time = None
         self._event.set()
@@ -173,13 +177,15 @@ class IntegratingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         BaseCounterAcquisitionDevice.__init__(self, counter, count_time, auto_add_channel, **keys)
 
     def prepare(self):
+        self.device.prepare(*self.grouped_read_counters)
         self._nb_acq_points = 0
         self._stop_flag = False
 
     def start(self):
-        pass
+        self.device.start(*self.grouped_read_counters)
 
     def stop(self):
+        self.device.stop(*self.grouped_read_counters)
         self._stop_flag = True
 
     def trigger(self):

@@ -222,7 +222,7 @@ class GroupedReadMixin(object):
     def start(self, *counters):
         pass
 
-    def end(self, *counters):
+    def stop(self, *counters):
         pass
 
 class Counter(object):
@@ -237,6 +237,15 @@ class Counter(object):
     @property
     def name(self):
         return self.__name
+
+    def prepare(self):
+        pass
+
+    def start(self):
+        pass
+
+    def stop(self):
+        pass
     
 class SamplingCounter(Counter):
     class GroupedReadHandler(GroupedReadMixin):
@@ -263,7 +272,7 @@ class SamplingCounter(Counter):
             try:
                 return grouped_read_handler.read(self)[0]
             finally:
-                grouped_read_handler.end(self)
+                grouped_read_handler.stop(self)
 
 def DefaultSamplingCounterGroupedReadHandler(controller, handlers=weakref.WeakValueDictionary()):
     class DefaultSamplingCounterGroupedReadHandler(SamplingCounter.GroupedReadHandler):

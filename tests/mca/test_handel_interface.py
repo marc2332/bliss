@@ -458,12 +458,18 @@ def test_get_buffer_current_pixel(interface):
 
 
 def test_set_buffer_done(interface):
-    m = interface.handel.xiaBoardOperation
-    m.return_value = 0
-    assert interface.set_buffer_done(1, "b") is None
-    m.assert_called_with(1, b"buffer_done", b"b")
-    # Make sure errors have been checked
-    interface.check_error.assert_called_with(0)
+    with mock.patch("bliss.controllers.mca.handel.interface.is_channel_running") as m1:
+        with mock.patch("bliss.controllers.mca.handel.interface.is_buffer_full") as m2:
+            m = interface.handel.xiaBoardOperation
+            m.return_value = 0
+            m1.return_value = True
+            m2.return_value = True
+            assert interface.set_buffer_done(1, "b") is True
+            m.assert_called_with(1, b"buffer_done", b"b")
+            m1.assert_called_once_with(1)
+            m2.assert_called_once_with(1, b"a")
+            # Make sure errors have been checked
+            interface.check_error.assert_called_once_with(0)
 
 
 # Synchronized run
@@ -495,7 +501,8 @@ def test_set_all_buffer_done(interface):
     with mock.patch("bliss.controllers.mca.handel.interface.get_master_channels") as m1:
         with mock.patch("bliss.controllers.mca.handel.interface.set_buffer_done") as m2:
             m1.return_value = [0, 4]
-            assert interface.set_all_buffer_done("b") is None
+            m2.side_effect = lambda x, y: x == 0
+            assert interface.set_all_buffer_done("b") is True
             m1.assert_called_once_with()
             m2.assert_called_with(4, "b")
 
@@ -531,46 +538,71 @@ def test_get_all_buffer_data(interface):
 def test_synchronized_poll_data(interface):
     with mock.patch.multiple(
         "bliss.controllers.mca.handel.interface",
-        any_buffer_overrun=mock.DEFAULT,
         get_current_pixel=mock.DEFAULT,
+        any_buffer_overrun=mock.DEFAULT,
         all_buffer_full=mock.DEFAULT,
         get_all_buffer_data=mock.DEFAULT,
         set_all_buffer_done=mock.DEFAULT,
     ) as ms:
-        # Overrun
+
+        # First hard overrun
         ms["any_buffer_overrun"].return_value = True
         with pytest.raises(RuntimeError) as ctx:
             interface.synchronized_poll_data()
         assert "Buffer overrun!" in str(ctx.value)
-        ms["any_buffer_overrun"].assert_called_once_with()
-        ms["get_current_pixel"].assert_not_called()
-        ms["all_buffer_full"].assert_not_called()
-        ms["get_all_buffer_data"].assert_not_called()
-        ms["set_all_buffer_done"].assert_not_called()
-        # Reset
-        for m in ms.values():
-            m.reset_mock()
-        # Data not ready
-        ms["any_buffer_overrun"].return_value = False
-        ms["get_current_pixel"].return_value = 10
-        ms["all_buffer_full"].return_value = False
-        assert interface.synchronized_poll_data() == (10, None, None)
-        ms["any_buffer_overrun"].assert_called_once_with()
         ms["get_current_pixel"].assert_called_once_with()
+        ms["any_buffer_overrun"].assert_called_once_with()
         assert ms["all_buffer_full"].call_args_list == [(("a",),), (("b",),)]
         ms["get_all_buffer_data"].assert_not_called()
         ms["set_all_buffer_done"].assert_not_called()
+
         # Reset
         for m in ms.values():
             m.reset_mock()
-        # Data ready
+
+        # Data not ready
+        ms["get_current_pixel"].return_value = 10
         ms["any_buffer_overrun"].return_value = False
+        ms["all_buffer_full"].return_value = False
+        assert interface.synchronized_poll_data() == (10, {}, {})
+        ms["get_current_pixel"].assert_called_once_with()
+        ms["any_buffer_overrun"].assert_called_once_with()
+        assert ms["all_buffer_full"].call_args_list == [(("a",),), (("b",),)]
+        ms["get_all_buffer_data"].assert_not_called()
+        ms["set_all_buffer_done"].assert_not_called()
+
+        # Reset
+        for m in ms.values():
+            m.reset_mock()
+
+        # Soft overrun
         ms["get_current_pixel"].return_value = 20
+        ms["any_buffer_overrun"].return_value = False
+        ms["all_buffer_full"].side_effect = lambda x: x == "a"
+        ms["get_all_buffer_data"].return_value = "spectrums", "stats"
+        ms["set_all_buffer_done"].return_value = True
+        with pytest.raises(RuntimeError) as ctx:
+            interface.synchronized_poll_data()
+        assert "Buffer overrun!" in str(ctx.value)
+        ms["get_current_pixel"].assert_called_once_with()
+        ms["any_buffer_overrun"].assert_called_once_with()
+        assert ms["all_buffer_full"].call_args_list == [(("a",),), (("b",),)]
+        ms["get_all_buffer_data"].assert_called_once_with("a")
+        ms["set_all_buffer_done"].assert_called_once_with("a")
+
+        # Reset
+        for m in ms.values():
+            m.reset_mock()
+
+        # Data ready
+        ms["get_current_pixel"].return_value = 20
+        ms["any_buffer_overrun"].return_value = False
         ms["all_buffer_full"].side_effect = lambda x: x == "b"
         ms["get_all_buffer_data"].return_value = "spectrums", "stats"
+        ms["set_all_buffer_done"].return_value = False
         assert interface.synchronized_poll_data() == (20, "spectrums", "stats")
-        ms["any_buffer_overrun"].assert_called_once_with()
         ms["get_current_pixel"].assert_called_once_with()
+        ms["any_buffer_overrun"].assert_called_once_with()
         assert ms["all_buffer_full"].call_args_list == [(("a",),), (("b",),)]
         ms["get_all_buffer_data"].assert_called_once_with("b")
         ms["set_all_buffer_done"].assert_called_once_with("b")

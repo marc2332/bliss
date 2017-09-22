@@ -87,6 +87,20 @@ def to_buffer_id(bid):
     raise ValueError(msg.format(bid))
 
 
+def merge_buffer_data(*data):
+    if not data:
+        return {}, {}
+    # Use first argument as result
+    result, data = data[0], data[1:]
+    # Copy other arguments into the result
+    for sources in data:
+        for source, dest in zip(sources, result):
+            for key, dct in source.items():
+                dest.setdefault(key, {})
+                dest[key].update(dct)
+    return result
+
+
 # Initializing handel
 
 
@@ -278,52 +292,98 @@ def get_buffer_current_pixel(master):
 
 
 def set_buffer_done(master, buffer_id):
+    """Flag the the buffer as read and return an overrun detection.
+
+    False means no overrun have been detected.
+    True means an overrun have been detected.
+    """
     bid = to_buffer_id(buffer_id)
     code = handel.xiaBoardOperation(master, b"buffer_done", bid)
     check_error(code)
+    other = b"b" if bid == b"a" else b"a"
+    return is_buffer_full(master, other) and is_channel_running(master)
 
 
 # Synchronized run
 
 
 def any_buffer_overrun():
+    """Return True if an overrun has been detected by the hardware on any
+    module, False otherwise.
+    """
     return any(is_buffer_overrun(master) for master in get_master_channels())
 
 
 def all_buffer_full(buffer_id):
+    """Return True if all the given buffers are full and ready to be read,
+    False otherwise.
+    """
     return all(is_buffer_full(master, buffer_id) for master in get_master_channels())
 
 
 def set_all_buffer_done(buffer_id):
-    for master in get_master_channels():
-        set_buffer_done(master, buffer_id)
+    """Flag all the given buffers as read and return an overrun detection.
+
+    False means no overrun have been detected.
+    True means an overrun have been detected.
+    """
+    overruns = [set_buffer_done(master, buffer_id) for master in get_master_channels()]
+    return any(overruns)
 
 
 def get_current_pixel():
+    """Get the current pixel reported by the hardware."""
     return max(get_buffer_current_pixel(master) for master in get_master_channels())
 
 
 def get_all_buffer_data(buffer_id):
-    result = {}, {}
-    for master in get_master_channels():
-        sources = get_buffer_data(master, buffer_id)
-        for source, dest in zip(sources, result):
-            for key, dct in source.items():
-                dest.setdefault(key, {})
-                dest[key].update(dct)
-    return result
+    """Get and merge all the buffer data from the different channels.
+
+    Return a tuple (spectrums, statistics) where both values are dictionaries
+    of dictionaries, first indexed by pixel and then by channel."""
+    data = [get_buffer_data(master, buffer_id) for master in get_master_channels()]
+    return merge_buffer_data(*data)
 
 
 def synchronized_poll_data():
-    if any_buffer_overrun():
-        raise RuntimeError("Buffer overrun!")
+    """Convenient helper for buffer management in mapping mode.
+
+    It assumes that all the modules are configured with the same number
+    of pixels per buffer.
+
+    It includes:
+    - Hardware overrun detection
+    - Software overrun detection
+    - Current pixel readout
+    - Buffer readout and data parsing
+    - Buffer flaging after readout
+
+    If an overrun is detected, a RuntimeError exception is raised.
+
+    Return a tuple (current_pixel, spectrums, statistics) where both
+    the spectrums and statistics values are dictionaries of dictionaries,
+    first indexed by pixel and then by channel. If there is no data to
+    report, those values are empty dicts.
+    """
+    data = {"a": None, "b": None}
+    overrun_error = RuntimeError("Buffer overrun!")
+    # Get info from hardware
     current_pixel = get_current_pixel()
-    for bid in ("a", "b"):
-        if all_buffer_full(bid):
-            spectrums, statistics = get_all_buffer_data(bid)
-            set_all_buffer_done(bid)
-            return current_pixel, spectrums, statistics
-    return current_pixel, None, None
+    full_lst = [x for x in data if all_buffer_full(x)]
+    # Overrun from hardware
+    if any_buffer_overrun():
+        raise overrun_error
+    # Read data from buffers
+    for x in full_lst:
+        data[x] = get_all_buffer_data(x)
+        # Overrun from set_buffer_done
+        if set_all_buffer_done(x):
+            raise overrun_error
+    # Extract data
+    args = filter(None, data.values())
+    spectrums, stats = merge_buffer_data(*args)
+    # Return
+    return current_pixel, spectrums, stats
 
 
 # Baseline

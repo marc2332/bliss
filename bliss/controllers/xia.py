@@ -115,8 +115,8 @@ class Mercury(BaseMCA):
         if mapping == 0:
             return 1
         # Should be:
-        # self._proxy.get_acquisition_value('num_map_pixels', 0)
-        raise NotImplementedError
+        num = self._proxy.get_acquisition_value('num_map_pixels', 0)
+        return int(num)
 
     def set_acquisition_number(self, value):
         # Invalid argument
@@ -125,14 +125,30 @@ class Mercury(BaseMCA):
         # Single mode
         if value == 1:
             self._proxy.set_acquisition_value('mapping_mode', 0)
-            self._proxy.apply_acquisition_values()
-            return
         # Multiple mode
-        # Should be:
-        # self._proxy.set_acquisition_value('mapping_mode', 1)
-        # self._proxy.set_acquisition_value('num_map_pixels, value)
-        # self._proxy.apply_acquisition_values()
-        raise NotImplementedError
+        else:
+            self._proxy.set_acquisition_value('mapping_mode', 1)
+            self._proxy.set_acquisition_value('num_map_pixels', value)
+        # Apply
+        self._proxy.apply_acquisition_values()
+
+    @property
+    def block_size(self):
+        pixels_per_buffer = self._proxy.get_acquisition_value(
+            'num_map_pixels_per_buffer', 0)
+        return int(pixels_per_buffer)
+
+    def set_block_size(self, value=None):
+        # Get default block size
+        if value is None:
+            self._proxy.set_acquisition_value('num_map_pixels_per_buffer', -1)
+            value = min(
+                self._proxy.get_acquisition_value('num_map_pixels_per_buffer', i)
+                for i in range(self.element_count))
+        # Set value
+        self._proxy.set_acquisition_value('num_map_pixels_per_buffer', value)
+        # Apply
+        self._proxy.apply_acquisition_values()
 
     # Acquisition
 
@@ -156,6 +172,9 @@ class Mercury(BaseMCA):
         stats = self._proxy.get_statistics()
         nb = len(stats)
         return [Stats(*stats[i]) for i in range(nb)]
+
+    def poll_data(self):
+        return self._proxy.synchronized_poll_data()
 
     # Infos
 
@@ -210,6 +229,7 @@ class Mercury(BaseMCA):
     @property
     def supported_trigger_modes(self):
         return [TriggerMode.SOFTWARE,
+                TriggerMode.EXTERNAL,
                 TriggerMode.GATE]
 
     def set_trigger_mode(self, mode):
@@ -219,8 +239,13 @@ class Mercury(BaseMCA):
         # Check arguments
         if mode not in self.supported_trigger_modes:
             raise ValueError('{!s} trigger mode not supported'.format(mode))
+        if mode == TriggerMode.EXTERNAL and self.acquisition_number == 1:
+            raise ValueError(
+                'External trigger mode not supported in single acquisition mode')
         # Get hardware value
-        value = 0 if mode == TriggerMode.GATE else 1
+        gate_ignore = 0 if mode == TriggerMode.GATE else 1
+        advance_mode = 0 if mode == TriggerMode.SOFTWARE else 1
         # Configure
-        self._proxy.set_acquisition_value('gate_ignore', value)
+        self._proxy.set_acquisition_value('gate_ignore', gate_ignore)
+        self._proxy.set_acquisition_value('pixel_advance_mode', advance_mode)
         self._proxy.apply_acquisition_values()

@@ -128,6 +128,9 @@ class BaseMCA(object):
     def get_acquisition_statistics(self):
         raise NotImplementedError
 
+    def poll_data(self):
+        raise NotImplementedError
+
     # Extra logic
 
     def run_single_acquisition(self, acquisition_time=1., polling_time=0.1):
@@ -157,8 +160,6 @@ class BaseMCA(object):
         self.set_acquisition_number(1)
         # Trigger mode
         mode = TriggerMode.EXTERNAL if acquistion_time else TriggerMode.GATE
-        if mode not in self.supported_trigger_modes:
-            raise ValueError('{} is not supported'.format(mode))
         self.set_trigger_mode(mode)
         # Preset mode
         if acquistion_time:
@@ -175,3 +176,32 @@ class BaseMCA(object):
         # Stop and return data
         self.stop_acquisition()
         return self.get_acquisition_data(), self.get_acquisition_statistics()
+
+    def run_multiple_acquistion(self, acquisition_number,
+                                block_size=None, gate=False, polling_time=0.1):
+        # Acquisition number
+        self.set_acquisition_number(acquisition_number)
+        self.set_block_size(block_size)
+        # Trigger mode
+        mode = TriggerMode.GATE if gate else TriggerMode.EXTERNAL
+        self.set_trigger_mode(mode)
+        # Preset mode
+        self.set_preset_mode(None)
+        # Start and wait
+        self.start_acquisition()
+        current, data, statistics = self.poll_data()
+        while current != self.acquisition_number:
+            time.sleep(polling_time)
+            current, extra_data, extra_statistics = self.poll_data()
+            self._merge_data(extra_data, data)
+            self._merge_data(extra_statistics, statistics)
+        # Stop and return data
+        self.stop_acquisition()
+        return data, statistics
+
+    # Internal helpers
+
+    def _merge_data(self, source, dest):
+        for key, dct in source.items():
+            dest.setdefault(key, {})
+            dest[key].update(dct)

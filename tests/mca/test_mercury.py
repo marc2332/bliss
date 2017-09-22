@@ -78,19 +78,38 @@ def test_mercury_trigger_mode(mercury):
 
     # First test
     mercury.set_trigger_mode(None)
-    client.set_acquisition_value.assert_called_once_with('gate_ignore', 1)
+    assert client.set_acquisition_value.call_args_list == [
+        (('gate_ignore', 1),),
+        (('pixel_advance_mode', 0),)]
     client.apply_acquisition_values.assert_called_once_with()
 
     # Second test
     client.set_acquisition_value.reset_mock()
     client.apply_acquisition_values.reset_mock()
     mercury.set_trigger_mode(TriggerMode.GATE)
-    client.set_acquisition_value.assert_called_once_with('gate_ignore', 0)
+    assert client.set_acquisition_value.call_args_list == [
+        (('gate_ignore', 0),),
+        (('pixel_advance_mode', 1),)]
     client.apply_acquisition_values.assert_called_once_with()
 
-    # Error tests
+    # Third test
+    client.set_acquisition_value.reset_mock()
+    client.apply_acquisition_values.reset_mock()
+    client.get_acquisition_value.return_value = 2  # Multiple
+    mercury.set_trigger_mode(TriggerMode.EXTERNAL)
+    assert client.set_acquisition_value.call_args_list == [
+        (('gate_ignore', 1),),
+        (('pixel_advance_mode', 1),)]
+    client.apply_acquisition_values.assert_called_once_with()
+
+    # First error tests
+    client.get_acquisition_value.return_value = 0  # Single
     with pytest.raises(ValueError):
-        mercury.set_trigger_mode(3)
+        mercury.set_trigger_mode(TriggerMode.EXTERNAL)
+
+    # Second error tests
+    with pytest.raises(ValueError):
+        mercury.set_trigger_mode(13)
 
 
 def test_mercury_acquisition_number(mercury):

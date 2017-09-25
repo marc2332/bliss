@@ -76,7 +76,15 @@ def _get_all_counters(counters):
         raise ValueError("Missing counters, not in setup_globals: %s. " \
                          "Hint: disable inactive counters."
                          % ", ".join(missing_counters))
-    return all_counters
+
+    zerod_counters = list()
+    other_counters = list()
+    for counter in all_counters:
+        if isinstance(counter, Counter):
+            zerod_counters.append(counter)
+        else:
+            other_counters.append(counter)
+    return zerod_counters,other_counters
 
 def default_master_configuration(counter, scan_pars):
     """
@@ -248,7 +256,7 @@ def ascan(motor, start, stop, npoints, count_time, *counters, **kwargs):
         template = " ".join(['{{{0}}}'.format(i) for i in range(len(args))])
         scan_info['title'] = template.format(*args)
 
-    counters = _get_all_counters(counters)
+    counters,other_counters = _get_all_counters(counters)
 
     # estimate scan time
     step_size = abs(stop - start) / npoints
@@ -263,12 +271,13 @@ def ascan(motor, start, stop, npoints, count_time, *counters, **kwargs):
     scan_info.update({ 'npoints': npoints, 'total_acq_time': total_count_t,
                        'motors': [TimestampPlaceholder(), motor], 
                        'counters': counters,
+                       'other_counters': other_counters,
                        'start': [start], 'stop': [stop],
                        'count_time': count_time,
                        'estimation': estimation})
 
     chain = AcquisitionChain(parallel_prepare=True)
-    timer = default_chain(chain, scan_info, counters)
+    timer = default_chain(chain, scan_info, counters + other_counters)
     top_master = LinearStepTriggerMaster(npoints,motor,start,stop)
     chain.add(top_master,timer)
 
@@ -352,7 +361,7 @@ def mesh(motor1, start1, stop1, npoints1, motor2, start2, stop2, npoints2, count
         template = " ".join(['{{{0}}}'.format(i) for i in range(len(args))])
         scan_info['title'] = template.format(*args)
 
-    counters = _get_all_counters(counters)
+    counters,other_counters = _get_all_counters(counters)
 
     # estimate scan time
     step_size1 = abs(stop1 - start1) / npoints1
@@ -378,12 +387,13 @@ def mesh(motor1, start1, stop1, npoints1, motor2, start2, stop2, npoints2, count
                        'total_acq_time': total_count_t,
                        'motors': [TimestampPlaceholder(), motor1, motor2],
                        'counters': counters,
+                       'other_counters': counters,
                        'start': [start1, start2], 'stop': [stop1, stop2],
                        'count_time': count_time,
                        'estimation': estimation})
 
     chain = AcquisitionChain(parallel_prepare=True)
-    timer = default_chain(chain, scan_info, counters)
+    timer = default_chain(chain, scan_info, counters + other_counters)
     top_master = MeshStepTriggerMaster(motor1, start1, stop1, npoints1,
                                        motor2, start2, stop2, npoints2)
     chain.add(top_master,timer)
@@ -448,7 +458,7 @@ def a2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
         template = " ".join(['{{{0}}}'.format(i) for i in range(len(args))])
         scan_info['title'] = template.format(*args)
 
-    counters = _get_all_counters(counters)
+    counters,other_counters = _get_all_counters(counters)
 
     # estimate scan time
     step_size1 = abs(stop1 - start1) / npoints
@@ -470,12 +480,13 @@ def a2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
     scan_info.update({ 'npoints': npoints, 'total_acq_time': total_count_t,
                        'motors': [TimestampPlaceholder(), motor1, motor2],
                        'counters': counters,
+                       'other_counters': other_counters,
                        'start': [start1, start2], 'stop': [stop1, stop2],
                        'count_time': count_time,
                        'estimation': estimation })
 
     chain = AcquisitionChain(parallel_prepare=True)
-    timer = default_chain(chain, scan_info, counters)
+    timer = default_chain(chain, scan_info, counters + other_counters)
     top_master = LinearStepTriggerMaster(npoints,
                                          motor1,start1,stop1,
                                          motor2,start2,stop2)
@@ -587,7 +598,7 @@ def timescan(count_time, *counters, **kwargs):
         template = " ".join(['{{{0}}}'.format(i) for i in range(len(args))])
         scan_info['title'] = template.format(*args)
 
-    counters = _get_all_counters(counters)
+    counters,other_counters = _get_all_counters(counters)
     
     npoints = kwargs.get("npoints", 0)
     total_count_t = npoints * count_time
@@ -595,6 +606,7 @@ def timescan(count_time, *counters, **kwargs):
     scan_info.update({ 'npoints': npoints, 'total_acq_time': total_count_t,
                        'motors': [TimestampPlaceholder()], 
                        'counters': counters,
+                       'other_counters': other_counters,
                        'start': [], 'stop': [], 'count_time': count_time })
 
     if npoints > 0:
@@ -607,7 +619,7 @@ def timescan(count_time, *counters, **kwargs):
     _log.info("Doing %s", scan_info['type'])
 
     chain = AcquisitionChain(parallel_prepare=True)
-    timer = default_chain(chain, scan_info, counters)
+    timer = default_chain(chain, scan_info, counters + other_counters)
 
     scan = step_scan(chain, scan_info,
                      name=kwargs.setdefault("name","timescan"), save=scan_info['save'])

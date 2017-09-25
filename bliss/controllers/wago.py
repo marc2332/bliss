@@ -10,7 +10,7 @@ import ctypes
 import sys
 import struct
 import socket
-from bliss.common.measurement import CounterBase
+from bliss.common.measurement import SamplingCounter
 from bliss.common.utils import add_property
 from bliss.comm.modbus import ModbusTcp
 
@@ -464,13 +464,13 @@ class _WagoController:
         else:
           print 'Module %d' % (m)
 
-class WagoCounter(CounterBase):
-  def __init__(self, parent, name, index=None):
+class WagoCounter(SamplingCounter):
+  def __init__(self, name, parent, index=None):
 
     if index is None:
-      CounterBase.__init__(self, parent, name)
+      SamplingCounter.__init__(self, name, parent)
     else:
-      CounterBase.__init__(self, parent, parent.name+'.'+name)
+      SamplingCounter.__init__(self, parent.name+'.'+name, parent)
     self.index = index
     self.parent = parent
     self.cntname = name
@@ -534,7 +534,7 @@ class wago(object):
     else:
       for i, name in enumerate(self.cnt_names):
         self.cnt_dict[name] = i
-        add_property(self, name, WagoCounter(self, name, i))
+        add_property(self, name, WagoCounter(name, self, i))
 
   def connect(self):
     self.controller = WagoController(self.wago_ip)
@@ -568,7 +568,7 @@ class wago(object):
     else:
       return self.get(*self.cnt_names)
 
-  def read_all(self,*counter_name):
-    cnt_name = [n.replace(self.name + '.','') for n in counter_name]
-    result = self.get(*cnt_name)
+  def read_all(self,*counters):
+    cnt_names = [cnt.name.replace(self.name + '.','') for cnt in counters]
+    result = self.get(*cnt_names)
     return result if isinstance(result,list) else [result]

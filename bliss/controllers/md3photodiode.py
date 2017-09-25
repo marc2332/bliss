@@ -6,15 +6,15 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss.common.task_utils import cleanup, error_cleanup, task
-from bliss.common.measurement import CounterBase
+from bliss.common.measurement import SamplingCounter
 from bliss.common import Actuator
 from bliss.comm.Exporter import *
 import time
 import numpy
 
-class md3photodiode(CounterBase, Actuator):
+class md3photodiode(SamplingCounter, Actuator):
     def __init__(self, name, config):
-        CounterBase.__init__(self, None, name)
+        SamplingCounter.__init__(self, name, None)
         Actuator.__init__(self)
 
         self.host, self.port = config.get("exporter_address").split(":")

@@ -12,14 +12,14 @@ import unittest
 
 import gevent
 
-from bliss.common.measurement import CounterBase
+from bliss.common.measurement import SamplingCounter
 from bliss.common.measurement import SingleMeasurement, FullMeasurement
 
 
-class RandomCounter(CounterBase):
+class RandomCounter(SamplingCounter):
 
     def __init__(self, name, range=(0., 1000.), nap=1E-3):
-        CounterBase.__init__(self, None, name)
+        SamplingCounter.__init__(self, None, name)
         self.range = range
         self.nb_reads = 0
         self.nap = nap

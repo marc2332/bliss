@@ -10,7 +10,7 @@ import time
 from gevent import event,sleep
 from bliss.common.event import dispatcher
 from ..chain import AcquisitionDevice,AcquisitionChannel
-from bliss.common.measurement import CounterBase
+from bliss.common.measurement import SamplingCounter
 
 class CounterAcqDevice(AcquisitionDevice):
     SIMPLE_AVERAGE,TIME_AVERAGE,INTEGRATE = range(3)
@@ -39,7 +39,7 @@ class CounterAcqDevice(AcquisitionDevice):
                                    start_once=start_once,
                                    **keys)
         self._count_time = count_time
-        if not isinstance(counter,CounterBase.ReadAllHandler):
+        if not isinstance(counter,SamplingCounter.ReadAllHandler):
             self.channels.append(AcquisitionChannel(counter.name,numpy.double, (1,)))
         self._nb_acq_points = 0
         self._event = event.Event()
@@ -47,6 +47,7 @@ class CounterAcqDevice(AcquisitionDevice):
         self._ready_event = event.Event()
         self._ready_flag = True
         self.__mode = mode
+        self.__counters_list = list()
 
     @property
     def mode(self):
@@ -56,6 +57,7 @@ class CounterAcqDevice(AcquisitionDevice):
         self.__mode = value
 
     def add_counter_to_read(self,counter):
+        self.__counters_list.append(counter)
         self.channels.append(AcquisitionChannel(counter.name,numpy.double, (1,)))
 
     def prepare(self):
@@ -86,9 +88,9 @@ class CounterAcqDevice(AcquisitionDevice):
 
     def reading(self):
         counter_name = [x.name for x in self.channels]
-        if isinstance(self.device,CounterBase.ReadAllHandler):
+        if isinstance(self.device, SamplingCounter.GroupedReadHandler):
             def read():
-                return numpy.array(self.device.read_all(*counter_name),
+                return numpy.array(self.device.read(*self.__counters_list),
                                    dtype=numpy.double)
         else:                   # read_all
             def read():

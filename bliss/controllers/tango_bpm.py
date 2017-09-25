@@ -7,17 +7,15 @@
 
 from bliss.common.task_utils import cleanup, error_cleanup, task
 from bliss.common.utils import add_property
-from bliss.common.measurement import CounterBase
+from bliss.common.measurement import SamplingDevice
 from bliss.common import Actuator
 import gevent
 from gevent import event
 import PyTango.gevent
 import numpy
 
-class BpmCounter(CounterBase):
-    def __init__(self, parent, name, index):
-        CounterBase.__init__(self, parent, parent.name+'.'+name)
-        self.parent = parent
+    def __init__(self, name, controller, index):
+        SamplingDevice.__init__(self, controller.name+'.'+name, controller)
         self.index = index
 
     def read(self):
@@ -71,7 +69,7 @@ class tango_bpm(object):
                                            self.__control.LedOff,
                                            lambda: self.__control.LedStatus > 0)
            def diode_current(*args):
-               return BpmCounter(self, "diode_current", "_read_diode_current")
+               return BpmCounter("diode_current", self,  "_read_diode_current")
            add_property(self, "diode_current", diode_current)
            def diode_actuator(*args):
                return self.__diode_actuator
@@ -92,23 +90,23 @@ class tango_bpm(object):
 
    @property
    def x(self):
-     return BpmCounter(self, "x", 1)
+     return BpmCounter("x", self, 1)
 
    @property
    def y(self):
-     return BpmCounter(self, "y", 2)
+     return BpmCounter("y", self, 2)
 
    @property
    def intensity(self):
-     return BpmCounter(self, "intensity", 3)
+     return BpmCounter("intensity", self, 3)
 
    @property
    def fwhm_x(self):
-     return BpmCounter(self, "fwhm_x", 4)
+     return BpmCounter("fwhm_x", self, 4)
  
    @property
    def fwhm_y(self):
-     return BpmCounter(self, "fwhm_y", 5)
+     return BpmCounter("fwhm_y", self, 5)
 
    @property
    def last_acq(self):

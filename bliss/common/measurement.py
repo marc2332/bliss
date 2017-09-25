@@ -12,11 +12,11 @@ Examples::
 
   from random import random
 
-  from bliss.common.measurement import CounterBase
+  from bliss.common.measurement import SamplingCounter
 
   # Write a new counter and counting
 
-  class MyCounter(CounterBase):
+  class MyCounter(SamplingCounter):
     def read(self):
       return random()*1000.
 
@@ -37,7 +37,7 @@ Examples::
 
   # Overwriting the default measurement for your counter class
 
-  class MyCounter(CounterBase):
+  class MyCounter(SamplingCounter):
 
     Measurement = SingleMeasurement
 
@@ -200,108 +200,77 @@ class FullMeasurement(Measurement):
         Measurement._add_value(self, value, timestamp)
         self.__data.append((value, timestamp))
 
-class CounterBase(object):
-    """
-    Base class for counters.
-    When defining a new sub-class you are only obliged to overwrite the
-    :meth:`read` method which should return the value that was read.
+class GroupedReadMixin(object):
+    def __init__(self, controller):
+        self.__controller_ref = weakref.ref(controller)
+    @property
+    def controller(self):
+        return self.__controller_ref()
+    @property
+    def id(self):
+        return id(self.controller)
 
-    If your read source also provides a timestamp (ex: tango), you can
-    overwrite the :meth:`read_timestamp` method instead. It should
-    return a tuple with a value and a timestamp.
+    def prepare(self, *counters):
+        pass
 
-    By default, counting uses the :class:`Measurement` class which will read
-    read as fast as it can. The measurement value obtained from a :meth:`count`
-    will then be an average of all values.
+    def start(self, *counters):
+        pass
 
-    You can override the default behavior for your own class by pointing
-    `Measurement` to your desired class (the measurement class must be able
-    to be constructed without arguments).
+    def end(self, *counters):
+        pass
 
-    You can also override the behavior of a specific :meth:`count` call
-    by providing a measurement argument.
-    """
-
-    #: default measurement class
-    Measurement = Measurement
-
-    class ReadAllHandler(object):
-        def name(self):
-            """
-            Should return a human readable name
-            """
-            raise NotImplementedError
-        def id(self) :
-            """
-            Should return a unique id to be able to group Counters per ReadAllHandler
-            """
-            raise NotImplementedError
-        def read_all(self,*counter_name):
-            """
-            this method should return a list of reads values in the same order 
-            as the counter_name
-            """
-            raise NotImplementedError
-
-    def __init__(self, controller, name):
+class Counter(object):
+    def __init__(self,name,controller,default_read_all_handler = None):
         self.__name = name
-        self.__controller = weakref.proxy(controller) if controller is not None else None
+        if hasattr(controller,'read_all') and default_read_all_handler:
+            self.__default_read_all_handler = default_read_all_handler(controller)
+        else:
+            self.__default_read_all_handler = None
 
     @property
     def name(self):
         return self.__name
-
+    
     @property
     def controller(self):
-        return self.__controller
+        return self.__controller_ref() if self.__controller_ref is not None else None
 
     def read_all_handler(self):
         """
-        Should return a handler which is has the interface of CounterBase.ReadAllHandler.
+        Should return a handler which is has the interface of SamplingCounter.ReadAllHandler.
         This Handler will be used to group counters to read all values at once.
         """
-        if hasattr(self.__controller,'read_all'):
-            return DefaultReadAllHandler(self.__controller)
+        if self.__default_read_all_handler:
+            return self.__default_read_all_handler
         raise NotImplementedError
+
+
+class SamplingCounter(Counter):
+    class GroupedReadHandler(GroupedReadMixin):
+        def read(self, *counters):
+            """
+            this method should return a list of reads values in the same order 
+            as counters
+            """
+            raise NotImplementedError
+
+    def __init__(self, name, controller):
+        Counter.__init__(self,name,controller,DefaultSamplingReadAllHandler)
 
     def read(self):
-        """Overwrite in your class to provide a useful counter class"""
-        raise NotImplementedError
+        handler = self.read_all_handler()
+        try:
+            handler.prepare(self)
+            return handler.read_all(self)[0]
+        finally:
+            handler.end(self)
 
-    def read_timestamp(self):
-        """
-        Read the value and timestamp. Default implementation calls
-        :meth:`read` and a timestamp just after the read.
-        """
-        value = self.read()
-        return value, time.time()
 
-    def count(self, time=None, measurement=None):
-        """
-        Count for the specified time.
-
-        :return: a measurement object representing the count that was made
-        :rtype: :class:`MeasurementBase`
-        """
-        meas = measurement or self.Measurement()
-        for reading in meas(time):
-            reading.value, reading.timestamp = self.read_timestamp()
-        return meas
-
-class DefaultReadAllHandler(CounterBase.ReadAllHandler):
+class DefaultSamplingCounterGroupedReadHandler(SamplingCounter.GroupedReadHandler):
     """
     Default read all handler for controller which have read_all method
     """
-    def __init__(self,controller):
-        if isinstance(controller,weakref.ProxyType):
-            self.__controller = controller
-        else:
-            self.__controller = weakref.proxy(controller)
-    @property
-    def name(self):
-        return self.__controller.name
-    def id(self):
-        return id(self.__controller)
-    def read_all(self,*counter_name):
-        return self.__controller.read_all(*counter_name)
+    def read(self, *counters):
+        return self.controller.read_all(*counters)
+
 

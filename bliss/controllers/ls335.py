@@ -6,15 +6,15 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss.common.task_utils import cleanup, error_cleanup, task
-from bliss.common.measurement import CounterBase, AverageMeasurement
+from bliss.common.measurement import SamplingCounter, AverageMeasurement
 from bliss.common.greenlet_utils import protect_from_kill
 import time
 import gevent
 import socket
 
-class LSCounter(CounterBase):
-   def __init__(self, parent, name, index):
-     CounterBase.__init__(self, parent, parent.name+'.'+name)
+class LSCounter(SamplingCounter):
+   def __init__(self, name, parent, index):
+     SamplingCounter.__init__(self, parent.name+'.'+name, parent)
      self.parent = parent
      self.index = index
 
@@ -53,11 +53,11 @@ class ls335(object):
 
    @property
    def A(self):
-       return LSCounter(self, "A", 0)
+       return LSCounter("A", self, 0)
 
    @property
    def B(self):
-       return LSCounter(self, "B", 1)
+       return LSCounter("B", self, 1)
 
    def _read(self, acq_time=None):
        self.acquisition_event.clear()

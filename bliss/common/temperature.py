@@ -14,16 +14,16 @@ import gevent
 import gevent.event
 import math
 from bliss.common import log
-from bliss.common.measurement import CounterBase
+from bliss.common.measurement import SamplingCounter
 from bliss.common.utils import with_custom_members
 
 
-class TempControllerCounter(CounterBase):
+class TempControllerCounter(SamplingCounter):
     """ Implements access to counter object for
         Input and Output type objects
     """
     def __init__(self, name, parent):
-        CounterBase.__init__(self, parent, name)
+        SamplingCounter.__init__(self, name, parent)
         self.parent = parent
 
     def read(self):

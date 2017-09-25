@@ -1,15 +1,15 @@
 import random
-from bliss.common.measurement import CounterBase
+from bliss.common.measurement import SamplingCounter
 import numpy
 import gevent
 
-class TestCounter(CounterBase):
+class TestCounter(SamplingCounter):
     def read(self):
         return random.random()*1000.
 
-class TestScanGaussianCounter(CounterBase):
+class TestScanGaussianCounter(SamplingCounter):
     def __init__(self, name, npts, center=0, stddev=1, cnt_time=0.1):
-      CounterBase.__init__(self, None, name)
+      SamplingCounter.__init__(self, None, name)
      
       self.data = numpy.random.normal(center, stddev, npts)
       self.i = 0

@@ -26,8 +26,9 @@ from bliss.common.axis import MotionEstimation
 from bliss.common.temperature import Input, Output, TempControllerCounter
 from bliss.common.task_utils import *
 from bliss.common.motor_group import Group
-from bliss.common.measurement import CounterBase
+from bliss.common.measurement import SamplingCounter
 from bliss.scanning.acquisition.counter import CounterAcqDevice
+
 from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning import scan as scan_module
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
@@ -93,7 +94,7 @@ def default_chain(chain, scan_pars):
         if isinstance(cnt, (Input, Output)):
             cnt = TempControllerCounter(cnt.name, cnt)
 
-        if isinstance(cnt, CounterBase):
+        if isinstance(cnt, SamplingCounter):
             try:
                 read_all_handler = cnt.read_all_handler()
             except NotImplementedError:

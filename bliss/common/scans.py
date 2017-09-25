@@ -157,16 +157,14 @@ def _counters_tree(counters, scan_pars):
             else:
                 tree.setdefault(master_acq_device, list()).extend([IntegratingCounterAcquisitionDevice(cnt, **scan_pars) for cnt in counters])
         else:
-            pass
-            #master_acq_device = master_integrating_counter.get(cnt)
-            #if master_acq_device is None:
-            #    master_acq_device, _ = default_master_configuration(cnt, scan_pars)
-            #    master_integrating_counter[cnt] = master_acq_device
-            #    tree.append((None, master_acq_device))
-            #else:
-            #    if scan_pars.get('save',False):
-            #        activate_master_saving(master_acq_device,True)
-    print tree
+            master_acq_device = master_integrating_counter.get(reader)
+            if master_acq_device is None:
+                master_acq_device, _ = default_master_configuration(reader, scan_pars)
+                master_integrating_counter[reader] = master_acq_device
+                tree.setdefault(master_acq_device, list())
+            else:
+                if scan_pars.get('save',False):
+                    activate_master_saving(master_acq_device,True)
     return tree
 
 def default_chain(chain, scan_pars, counters):

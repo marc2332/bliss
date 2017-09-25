@@ -81,15 +81,10 @@ def test_default_chain_with_three_sampling_counters(beacon):
 
     assert nodes[2] != nodes[1]
     
-    # is counters order important ?
-    # this should be true:
-    #   assert len(nodes[1].channels) == 2
-    #   assert nodes[2].channels.pop().name == 'diode'
-    # whereas in fact, nodes[2] is the one with 2 channels
-    #assert nodes[1].counter_names == ['diode']
-    #assert nodes[2].counter_names == ['diode2', 'diode3']
-    assert len(nodes[1].counter_names) == 1
-    assert len(nodes[2].counter_names) == 2
+    assert nodes[1].counter_names == ['diode']
+    # counters order is not important
+    # as we use **set** to eliminate duplicated counters
+    assert set(nodes[2].counter_names) == set(['diode2', 'diode3'])
 
 def test_default_chain_with_bpm(beacon):
     """Want to build the following acquisition chain:
@@ -183,12 +178,14 @@ def test_default_chain_with_bpm_and_image(beacon):
     lima_sim = beacon.get("lima_simulator")
 
     scan_pars = { "npoints": 10,
-                  "count_time": 0.1 }
+                  "count_time": 0.1,
+                  "save": True,
+              }
 
     chain = AcquisitionChain(parallel_prepare=True)
     timer = default_chain(chain, scan_pars, [lima_sim.bpm.x, lima_sim])
    
-    nodes = chain.nodes_list 
+    nodes = chain.nodes_list
     assert len(nodes) == 3
     assert isinstance(nodes[0], timer.__class__)
     assert isinstance(nodes[1], LimaAcquisitionDevice)

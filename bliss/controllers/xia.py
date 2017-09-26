@@ -14,8 +14,14 @@ msgpack_numpy.patch()
 
 # Mercury controller
 
-class Mercury(BaseMCA):
-    """Controller class for the Mercury (a XIA MCA).
+class BaseXIA(BaseMCA):
+    """Base controller class for the XIA MCAs.
+
+    This includes the following equipments:
+    - Mercury-1
+    - Mercury-4
+    - XMAP
+    - FalconX
     """
 
     # Life cycle
@@ -100,21 +106,26 @@ class Mercury(BaseMCA):
         detectors = self._proxy.get_detectors()
         assert len(detectors) == 1
         modules = self._proxy.get_modules()
-        assert len(modules) == 1
+        assert len(modules) >= 1
         channels = self._proxy.get_channels()
-        assert len(channels) == 1
-        assert channels == (0,)
-        grouped_channels = self._proxy.get_grouped_channels()
-        assert grouped_channels == ((0, ), )
+        assert len(channels) >= 1
+        assert channels == tuple(range(len(channels)))
+        self._run_type_specific_checks()
+
+    def _run_type_specific_checks(self):
+        """Extra checks to be performed for the corresponding
+        detector type (Mercury, Mercury4, Xmap or FalconX).
+        """
+        raise NotImplementedError
 
     # Acquisition number
 
     @property
     def acquisition_number(self):
-        mapping = int(self._proxy.get_acquisition_value('mapping_mode', 0))
+        mapping = int(self._proxy.get_acquisition_value('mapping_mode'))
         if mapping == 0:
             return 1
-        num = self._proxy.get_acquisition_value('num_map_pixels', 0)
+        num = self._proxy.get_acquisition_value('num_map_pixels')
         # The first acquistion will be discarded
         return int(num) - 1
 
@@ -135,19 +146,17 @@ class Mercury(BaseMCA):
 
     @property
     def block_size(self):
-        pixels_per_buffer = self._proxy.get_acquisition_value(
-            'num_map_pixels_per_buffer', 0)
-        return int(pixels_per_buffer)
+        size = self._proxy.get_acquisition_value('num_map_pixels_per_buffer')
+        return int(size)
 
     def set_block_size(self, value=None):
-        # Get default block size
+        # Set the default value
         if value is None:
-            self._proxy.set_acquisition_value('num_map_pixels_per_buffer', -1)
-            value = min(
-                self._proxy.get_acquisition_value('num_map_pixels_per_buffer', i)
-                for i in range(self.element_count))
-        # Set value
-        self._proxy.set_acquisition_value('num_map_pixels_per_buffer', value)
+            self._proxy.set_maximum_pixels_per_buffer()
+        # Set the specified value
+        else:
+            self._proxy.set_acquisition_value(
+                'num_map_pixels_per_buffer', value)
         # Apply
         self._proxy.apply_acquisition_values()
 
@@ -199,11 +208,12 @@ class Mercury(BaseMCA):
 
     @property
     def detector_type(self):
-        return DetectorType.MERCURY
+        value = self._proxy.get_module_type()
+        return getattr(DetectorType, value.upper())
 
     @property
     def element_count(self):
-        return 1
+        return len(self._proxy.get_channels())
 
     # Modes
 
@@ -264,3 +274,43 @@ class Mercury(BaseMCA):
         self._proxy.set_acquisition_value('gate_ignore', gate_ignore)
         self._proxy.set_acquisition_value('pixel_advance_mode', advance_mode)
         self._proxy.apply_acquisition_values()
+
+
+# Specific XIA classes
+
+class XIA(BaseXIA):
+    """Generic controller class for a XIA MCA."""
+
+    def _run_type_specific_checks(self):
+        assert self.detector_type in DetectorType
+
+
+class Mercury(BaseXIA):
+    """Controller class for the Mercury (a XIA MCA)."""
+
+    def _run_type_specific_checks(self):
+        assert self.detector_type == DetectorType.MERCURY
+        assert self.element_count == 1
+
+
+class Mercury4(BaseXIA):
+    """Controller class for the Mercury4 (a XIA MCA)."""
+
+    def _run_type_specific_checks(self):
+        assert self.detector_type == DetectorType.MERCURY4
+        assert self.element_count in (1, 2, 3, 4)
+
+
+class XMAP(BaseXIA):
+    """Controller class for the XMAP (a XIA MCA)."""
+
+    def _run_type_specific_checks(self):
+        assert self.detector_type == DetectorType.XMAP
+        assert self.element_count in range(1, 17)
+
+
+class FalconX(BaseXIA):
+    """Controller class for the FalconX (a XIA MCA)."""
+
+    def _run_type_specific_checks(self):
+        assert self.detector_type == DetectorType.FALCONX

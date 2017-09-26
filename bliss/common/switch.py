@@ -29,6 +29,7 @@ class Switch(object):
         self.__config = config
         self.__initialized_hw = Cache(self,"initialized",
                                       default_value = False)
+        self.__state = Cache(self,"state")
         self._init_flag = False
         self.__lock = lock.Semaphore()
 
@@ -73,14 +74,24 @@ class Switch(object):
 
     @lazy_init
     def set(self,state):
-        return self._set(state.upper())
-    
+        state_upper = state.upper()
+        if self.__state.value != state_upper:
+            try:
+                self._set(state_upper)
+            except:
+                self.__state.value = None
+                raise
+            else:
+                self.__state.value = state_upper
+
     def _set(self,state):
         raise NotImplementedError
 
     @lazy_init
     def get(self):
-        return self._get().upper()
+        state = self._get().upper()
+        self.__state.value = state
+        return state
 
     def _get(self):
         raise NotImplementedError

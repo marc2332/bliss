@@ -517,7 +517,17 @@ def get_module_from_channel(channel):
     return ffi.string(alias).decode()
 
 
-def get_module_type(alias):
+def get_module_type(alias=None):
+    if alias is None:
+        # Get all the values
+        values = [get_module_type(alias) for alias in get_modules()]
+        # Compare the values
+        value = reduce(lambda c, x: c if c == x else None, values)
+        # Inconsistency
+        if value is None:
+            raise ValueError("The module type differs from module to module")
+        # Return
+        return value
     alias = to_bytes(alias)
     value = ffi.new("char []", MAX_STRING_LENGTH)
     code = handel.xiaGetModuleItem(alias, b"module_type", value)

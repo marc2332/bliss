@@ -827,6 +827,36 @@ def test_get_module_type(interface):
     # Make sure errors have been checked
     interface.check_error.assert_called_once_with(0)
 
+    # All channels
+    m.reset_mock()
+    interface.check_error.reset_mock()
+    with mock.patch("bliss.controllers.mca.handel.interface.get_modules") as m2:
+        m2.return_value = ["module1", "module2"]
+        assert interface.get_module_type() == "mercury"
+    arg = m.call_args[0][2]
+    m.assert_called_with(b"module2", b"module_type", arg)
+    m2.assert_called_once_with()
+    # Make sure errors have been checked
+    interface.check_error.assert_called_with(0)
+
+    def side_effect(a, b, c):
+        c[0:7] = b"mercury" if a == b"module1" else b"xmap\x00\x00\x00"
+        return 0
+
+    # All channels with error
+    m.reset_mock()
+    interface.check_error.reset_mock()
+    m.side_effect = side_effect
+    with mock.patch("bliss.controllers.mca.handel.interface.get_modules") as m2:
+        m2.return_value = ["module1", "module2"]
+        with pytest.raises(ValueError):
+            interface.get_module_type()
+    arg = m.call_args[0][2]
+    m.assert_called_with(b"module2", b"module_type", arg)
+    m2.assert_called_once_with()
+    # Make sure errors have been checked
+    interface.check_error.assert_called_with(0)
+
 
 def test_get_module_interface(interface):
     m = interface.handel.xiaGetModuleItem

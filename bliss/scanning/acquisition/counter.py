@@ -17,7 +17,7 @@ from bliss.common.utils import all_equal
 class BaseCounterAcquisitionDevice(AcquisitionDevice):
     def __init__(self, counter, count_time, **keys):
         npoints = max(1, keys.pop('npoints', 1))
-        prepare_once = keys.pop('prepare_once', npoints > 1)
+        prepare_once = keys.pop('prepare_once', True)
         start_once = keys.pop('start_once', npoints > 1)
 
         AcquisitionDevice.__init__(self, counter, counter.name, "zerod",
@@ -96,12 +96,12 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
     def prepare(self):
         self.device.prepare(*self.grouped_read_counters)
 
+    def start(self):
         self._nb_acq_points = 0
         self._stop_flag = False
         self._ready_flag = True
         self._event.clear()
 
-    def start(self):
         self.device.start(*self.grouped_read_counters)
 
     def stop(self):
@@ -177,10 +177,11 @@ class IntegratingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
 
     def prepare(self):
         self.device.prepare(*self.grouped_read_counters)
+
+    def start(self):
         self._nb_acq_points = 0
         self._stop_flag = False
 
-    def start(self):
         self.device.start(*self.grouped_read_counters)
 
     def stop(self):

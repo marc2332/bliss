@@ -3,6 +3,7 @@
 from __future__ import absolute_import
 
 import os
+from functools import reduce
 
 import numpy
 
@@ -592,7 +593,19 @@ def get_master_channels():
 # Parameters
 
 
-def get_acquisition_value(name, channel):
+def get_acquisition_value(name, channel=None):
+    # Get values for all channels
+    if channel is None:
+        # Get all the values
+        values = [get_acquisition_value(name, channel) for channel in get_channels()]
+        # Compare the values
+        value = reduce(lambda c, x: c if c == x else None, values)
+        # Inconsistency
+        if value is None:
+            raise ValueError("The acquisition value differs from channel to channel")
+        # Return
+        return value
+    # Get value for a single channel
     name = to_bytes(name)
     pointer = ffi.new("double *")
     code = handel.xiaGetAcquisitionValues(channel, name, pointer)
@@ -621,8 +634,7 @@ def apply_acquisition_values(channel=None):
     # Apply all
     if channel is None:
         # Only one apply operation by module is required
-        grouped = get_grouped_channels()
-        for master in map(max, grouped):
+        for master in get_master_channels():
             apply_acquisition_values(master)
         return
     # Apply single

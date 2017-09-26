@@ -932,12 +932,43 @@ def test_get_acquistion_value(interface):
         c[0] = 2.3
         return 0
 
+    # Single channel
     m.side_effect = side_effect
     assert interface.get_acquisition_value("test", channel=1) == 2.3
     arg = m.call_args[0][2]
     m.assert_called_once_with(1, b"test", arg)
     # Make sure errors have been checked
     interface.check_error.assert_called_once_with(0)
+
+    # All channels
+    m.reset_mock()
+    interface.check_error.reset_mock()
+    with mock.patch("bliss.controllers.mca.handel.interface.get_channels") as m2:
+        m2.return_value = [0, 1, 2]
+        assert interface.get_acquisition_value("test") == 2.3
+    arg = m.call_args[0][2]
+    m.assert_called_with(2, b"test", arg)
+    m2.assert_called_once_with()
+    # Make sure errors have been checked
+    interface.check_error.assert_called_with(0)
+
+    def side_effect(a, b, c):
+        c[0] = a  # Channel number
+        return 0
+
+    # All channels with error
+    m.reset_mock()
+    interface.check_error.reset_mock()
+    m.side_effect = side_effect
+    with mock.patch("bliss.controllers.mca.handel.interface.get_channels") as m2:
+        m2.return_value = [0, 1, 2]
+        with pytest.raises(ValueError):
+            interface.get_acquisition_value("test")
+    arg = m.call_args[0][2]
+    m.assert_called_with(2, b"test", arg)
+    m2.assert_called_once_with()
+    # Make sure errors have been checked
+    interface.check_error.assert_called_with(0)
 
 
 def test_set_acquisition_value(interface):

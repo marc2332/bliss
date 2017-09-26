@@ -136,14 +136,12 @@ class MKS910Counter(WagoCounter):
     def __init__(self, wago_counter):
         WagoCounter.__init__(self, wago_counter.parent,
                              wago_counter.cntname,
-                             wago_counter.index)
+                             index=wago_counter.index,
+                             conversion_function = MKS910Counter.adc_to_mbar)
 
     @staticmethod
     def adc_to_mbar(adcval):
         return 10**(adcval - 6.0) * 1.33322368
-
-    def read(self):
-        return self.adc_to_mbar(WagoCounter.read(self))
 
 
 class GasRig(object):

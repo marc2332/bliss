@@ -465,12 +465,12 @@ class _WagoController:
           print 'Module %d' % (m)
 
 class WagoCounter(SamplingCounter):
-  def __init__(self, name, parent, index=None):
+  def __init__(self, name, parent, index=None,**kwargs):
 
     if index is None:
-      SamplingCounter.__init__(self, name, parent)
+      SamplingCounter.__init__(self, name, parent,**kwargs)
     else:
-      SamplingCounter.__init__(self, parent.name+'.'+name, parent)
+      SamplingCounter.__init__(self, parent.name+'.'+name, parent,**kwargs)
     self.index = index
     self.parent = parent
     self.cntname = name

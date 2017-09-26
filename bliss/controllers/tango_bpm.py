@@ -15,8 +15,8 @@ import PyTango.gevent
 import numpy
 
 class BpmGroupedReadHandler(SamplingCounter.GroupedReadHandler):
-    def __init__(self, *args):
-        SamplingCounter.GroupedReadHandler.__init__(self,*args)
+    def __init__(self, controller):
+        SamplingCounter.GroupedReadHandler.__init__(self, controller)
         self.__back_to_live = False
         self.__video = False
 
@@ -31,17 +31,17 @@ class BpmGroupedReadHandler(SamplingCounter.GroupedReadHandler):
             self.__back_to_live = True
             self.controller.stop()
 
-    def end(self, *counters):
+    def stop(self, *counters):
         if self.__back_to_live:
             self.controller.live(video=self.__video)
 
     def read(self, *counters):
-        result = self.__control.GetPosition()
+        result = self.controller.tango_proxy.GetPosition()
         return [result[cnt.index] for cnt in counters]
 
 class BpmCounter(SamplingCounter):
-    def __init__(self, name, controller, index):
-        SamplingCounter.__init__(self, controller.name+'.'+name, controller, BpmGroupedReadHandler)
+    def __init__(self, name, controller, index, **kwargs):
+        SamplingCounter.__init__(self, controller.name+'.'+name, controller, **kwargs)
         self.__index = index
 
     @property
@@ -51,6 +51,7 @@ class BpmCounter(SamplingCounter):
 class tango_bpm(object):
    def __init__(self, name, config):
        self.name = name
+       self.__counters_grouped_read_handler = BpmGroupedReadHandler(self)
 
        tango_uri = config.get("uri")
        tango_lima_uri = config.get("lima_uri")
@@ -99,24 +100,28 @@ class tango_bpm(object):
            add_property(self, foil_actuator_name, foil_actuator)
 
    @property
+   def tango_proxy(self):
+       return self.__control
+
+   @property
    def x(self):
-     return BpmCounter("x", self, 1)
+     return BpmCounter("x", self, 1, grouped_read_handler=self.__counters_grouped_read_handler)
 
    @property
    def y(self):
-     return BpmCounter("y", self, 2)
+     return BpmCounter("y", self, 2, grouped_read_handler=self.__counters_grouped_read_handler)
 
    @property
    def intensity(self):
-     return BpmCounter("intensity", self, 3)
+     return BpmCounter("intensity", self, 3, grouped_read_handler=self.__counters_grouped_read_handler)
 
    @property
    def fwhm_x(self):
-     return BpmCounter("fwhm_x", self, 4)
+     return BpmCounter("fwhm_x", self, 4, grouped_read_handler=self.__counters_grouped_read_handler)
  
    @property
    def fwhm_y(self):
-     return BpmCounter("fwhm_y", self, 5)
+     return BpmCounter("fwhm_y", self, 5, grouped_read_handler=self.__counters_grouped_read_handler)
 
    @property
    def last_acq(self):

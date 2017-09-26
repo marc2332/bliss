@@ -66,7 +66,6 @@ class tango_bpm(object):
            self.__lima_control = None
        self._acquisition_event = event.Event()
        self._acquisition_event.set()
-       self.__last_acq = None
        self.__diode_actuator = None
        self.__led_actuator = None
        self.__foil_actuator  = None
@@ -124,38 +123,6 @@ class tango_bpm(object):
    @property
    def fwhm_y(self):
      return BpmCounter("fwhm_y", self, 5, grouped_read_handler=self.__counters_grouped_read_handler)
-
-   @property
-   def last_acq(self):
-     return self.__last_acq
-
-   def read(self, acq_time=0):
-     self._acquisition_event.clear()
-     self.__last_acq = None
-     back_to_live = False
-     video = False
-     exp_time = self.__control.ExposureTime
-     try:
-       if self.__lima_control and self.__lima_control.video_live:
-           back_to_live = True
-           video = self.__lima_control.video_exposure
-           self.stop(video=video)
-       if str(self.__control.LiveState) == 'RUNNING':
-           back_to_live = True
-           self.stop()
-       self.__control.AcquirePositions(acq_time)
-       gevent.sleep(acq_time)
-       while self.is_acquiring():
-         gevent.sleep(exp_time)
-       data = self.__control.AcquisitionSpectrum
-       timestamp = data[0][0]
-       self.__last_acq = numpy.mean(data, axis=1)
-       self.__last_acq[0] = timestamp
-       if back_to_live:
-         self.live(video=video)
-       return self.__last_acq
-     finally:
-       self._acquisition_event.set()
 
    def _read_diode_current(self, acq_time=None):
      meas = AverageMeasurement()

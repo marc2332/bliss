@@ -475,6 +475,32 @@ def test_set_buffer_done(interface):
 # Synchronized run
 
 
+def test_set_maximum_pixels_per_buffer(interface):
+    with mock.patch(
+        "bliss.controllers.mca.handel.interface.set_acquisition_value"
+    ) as m1:
+        with mock.patch(
+            "bliss.controllers.mca.handel.interface.get_acquisition_value"
+        ) as m2:
+            with mock.patch(
+                "bliss.controllers.mca.handel.interface.get_master_channels"
+            ) as m3:
+                m1.return_value = None
+                m2.side_effect = lambda x, y: 400 if y == 7 else 100
+                m3.return_value = [0, 3, 7]
+                assert interface.set_maximum_pixels_per_buffer() is None
+                assert m1.call_args_list == [
+                    (("num_map_pixels_per_buffer", -1),),
+                    (("num_map_pixels_per_buffer", 100),),
+                ]
+                assert m2.call_args_list == [
+                    (("num_map_pixels_per_buffer", 0),),
+                    (("num_map_pixels_per_buffer", 3),),
+                    (("num_map_pixels_per_buffer", 7),),
+                ]
+                m3.assert_called_once_with()
+
+
 def test_any_buffer_overrun(interface):
     with mock.patch("bliss.controllers.mca.handel.interface.get_master_channels") as m1:
         with mock.patch(

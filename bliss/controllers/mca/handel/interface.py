@@ -38,6 +38,7 @@ __all__ = [
     "set_buffer_done",
     "get_buffer_current_pixel",
     "get_current_pixel",
+    "set_maximum_pixels_per_buffer",
     "any_buffer_overrun",
     "all_buffer_full",
     "set_all_buffer_done",
@@ -306,6 +307,20 @@ def set_buffer_done(master, buffer_id):
 
 
 # Synchronized run
+
+
+def set_maximum_pixels_per_buffer():
+    """Set the maximum number of pixels per buffer.
+
+    It makes sure all the modules are configured with the same value,
+    in order to be able to perform synchronized run.
+    """
+    set_acquisition_value("num_map_pixels_per_buffer", -1)
+    value = min(
+        get_acquisition_value("num_map_pixels_per_buffer", master)
+        for master in get_master_channels()
+    )
+    set_acquisition_value("num_map_pixels_per_buffer", value)
 
 
 def any_buffer_overrun():

@@ -18,10 +18,12 @@ class BaseXIA(BaseMCA):
     """Base controller class for the XIA MCAs.
 
     This includes the following equipments:
-    - Mercury-1
+    - Mercury
     - Mercury-4
     - XMAP
     - FalconX
+    - FalconX-4
+    - FalconX-8
     """
 
     # Life cycle
@@ -114,7 +116,7 @@ class BaseXIA(BaseMCA):
 
     def _run_type_specific_checks(self):
         """Extra checks to be performed for the corresponding
-        detector type (Mercury, Mercury4, Xmap or FalconX).
+        detector type (Mercury, Xmap, FalconX, etc.).
         """
         raise NotImplementedError
 
@@ -294,7 +296,7 @@ class Mercury(BaseXIA):
 
 
 class Mercury4(BaseXIA):
-    """Controller class for the Mercury4 (a XIA MCA)."""
+    """Controller class for the Mercury-4 (a XIA MCA)."""
 
     def _run_type_specific_checks(self):
         assert self.detector_type == DetectorType.MERCURY4
@@ -314,3 +316,17 @@ class FalconX(BaseXIA):
 
     def _run_type_specific_checks(self):
         assert self.detector_type == DetectorType.FALCONX
+
+
+class FalconX4(BaseXIA):
+    """Controller class for the FalconX-4 (a XIA MCA)."""
+
+    def _run_type_specific_checks(self):
+        assert self.detector_type == DetectorType.FALCONX4
+
+
+class FalconX8(BaseXIA):
+    """Controller class for the FalconX-8 (a XIA MCA)."""
+
+    def _run_type_specific_checks(self):
+        assert self.detector_type == DetectorType.FALCONX8

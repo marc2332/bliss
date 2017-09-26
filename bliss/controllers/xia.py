@@ -114,9 +114,9 @@ class Mercury(BaseMCA):
         mapping = int(self._proxy.get_acquisition_value('mapping_mode', 0))
         if mapping == 0:
             return 1
-        # Should be:
         num = self._proxy.get_acquisition_value('num_map_pixels', 0)
-        return int(num)
+        # The first acquistion will be discarded
+        return int(num) - 1
 
     def set_acquisition_number(self, value):
         # Invalid argument
@@ -128,7 +128,8 @@ class Mercury(BaseMCA):
         # Multiple mode
         else:
             self._proxy.set_acquisition_value('mapping_mode', 1)
-            self._proxy.set_acquisition_value('num_map_pixels', value)
+            # The first acquisition will be discarded
+            self._proxy.set_acquisition_value('num_map_pixels', value + 1)
         # Apply
         self._proxy.apply_acquisition_values()
 
@@ -173,11 +174,14 @@ class Mercury(BaseMCA):
 
     def poll_data(self):
         current, spectrums, statistics = self._proxy.synchronized_poll_data()
-        spectrums = {key: self._convert_spectrums(value)
-                     for key, value in spectrums.items()}
-        statistics = {key: self._convert_statistics(value)
-                      for key, value in statistics.items()}
-        return current, spectrums, statistics
+        # The first acquisition is discarded
+        spectrums = {key - 1: self._convert_spectrums(value)
+                     for key, value in spectrums.items()
+                     if key > 0}
+        statistics = {key - 1: self._convert_statistics(value)
+                      for key, value in statistics.items()
+                      if key > 0}
+        return current - 1, spectrums, statistics
 
     def _convert_spectrums(self, spectrums):
         nb = len(spectrums)

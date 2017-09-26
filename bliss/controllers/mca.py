@@ -184,7 +184,8 @@ class BaseMCA(object):
         return self.get_acquisition_data(), self.get_acquisition_statistics()
 
     def run_multiple_acquisitions(self, acquisition_number,
-                                  block_size=None, gate=False, polling_time=0.1):
+                                  block_size=None, gate=False,
+                                  polling_time=0.1):
         # Acquisition number
         self.set_acquisition_number(acquisition_number)
         self.set_block_size(block_size)
@@ -196,7 +197,7 @@ class BaseMCA(object):
         # Start and wait
         self.start_acquisition()
         current, data, statistics = self.poll_data()
-        while current != self.acquisition_number:
+        while current != acquisition_number:
             time.sleep(polling_time)
             current, extra_data, extra_statistics = self.poll_data()
             data.update(extra_data)

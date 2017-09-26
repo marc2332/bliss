@@ -95,7 +95,7 @@ def test_mercury_trigger_mode(mercury):
     # Third test
     client.set_acquisition_value.reset_mock()
     client.apply_acquisition_values.reset_mock()
-    client.get_acquisition_value.return_value = 2  # Multiple
+    client.get_acquisition_value.return_value = 3  # Multiple
     mercury.set_trigger_mode(TriggerMode.EXTERNAL)
     assert client.set_acquisition_value.call_args_list == [
         (('gate_ignore', 1),),
@@ -130,11 +130,11 @@ def test_mercury_acquisition_number(mercury):
     client.apply_acquisition_values.reset_mock()
     mercury.set_acquisition_number(2)
     assert client.set_acquisition_value.call_args_list == [
-        (('mapping_mode', 1),), (('num_map_pixels', 2),)]
+        (('mapping_mode', 1),), (('num_map_pixels', 3),)]
     client.apply_acquisition_values.assert_called_once_with()
 
     # Test multi getter
-    values = [1, 2]
+    values = [1, 3]
     client.get_acquisition_value.reset_mock()
     client.get_acquisition_value.side_effect = lambda *args: values.pop(0)
     assert mercury.acquisition_number == 2
@@ -189,17 +189,17 @@ def test_mercury_multiple_acquisition(mercury, mocker):
     client = mercury._proxy
     sleep = mocker.patch('time.sleep')
     sleep.side_effect = lambda x: client.mock_not_running()
-    client.get_acquisition_value.return_value = 2
+    #client.get_acquisition_value.return_value = 3
     client.get_spectrums.return_value = {0: [3, 2, 1]}
     client.get_statistics.return_value = {0: range(9)}
     client.synchronized_poll_data.side_effect = lambda: data.pop(0)
 
-    data = [(0, {}, {}),
-            (1, {0: {0: 'spectrum0'}}, {0: {0: range(7)}}),
-            (2, {1: {0: 'spectrum1'}}, {1: {0: range(10, 17)}})]
+    data = [(1, {0: 'discarded'}, {0: 'discarded'}),
+            (2, {1: {0: 'spectrum0'}}, {1: {0: range(7)}}),
+            (3, {2: {0: 'spectrum1'}}, {2: {0: range(10, 17)}})]
     stats0, stats1 = Stats(*range(7)), Stats(*range(10, 17))
 
-    data, stats = mercury.run_multiple_acquisitions(3)
+    data, stats = mercury.run_multiple_acquisitions(2)
     assert data == {0: ['spectrum0'], 1: ['spectrum1']}
     assert stats == {0: [stats0], 1: [stats1]}
     assert sleep.call_args_list == [((0.1,),), ((0.1,),)]

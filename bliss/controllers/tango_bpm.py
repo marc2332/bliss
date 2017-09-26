@@ -33,6 +33,8 @@ class BpmGroupedReadHandler(SamplingCounter.GroupedReadHandler):
 
     def stop(self, *counters):
         if self.__back_to_live:
+            while self.controller.is_acquiring():
+                gevent.idle()
             self.controller.live(video=self.__video)
 
     def read(self, *counters):
@@ -174,14 +176,14 @@ class tango_bpm(object):
    def exposure_time(self):
      return self.__control.ExposureTime 
 
-   def is_acquiring(self):
-     return str(self.__control.State()) == 'MOVING'
-
    def live(self, video=False):
      if video and self.__lima_control:
          self.__lima_control.video_live = True
      else:
          return self.__control.Live()
+
+   def is_acquiring(self):
+       return str(self.__control.State()) == 'MOVING'
 
    def is_live(self):
        return str(self.__control.LiveState) == 'RUNNING'

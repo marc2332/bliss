@@ -34,22 +34,22 @@ class SocketTimeout(CommunicationTimeout):
 def try_connect_socket(fu):
     def rfunc(self, *args, **kwarg):
         write_func = fu.func_name.startswith('write')
+        prev_timeout = kwarg.get('timeout', None)
 
         if((not self._connected) and ((not self._data) or write_func)):
             # connects if :
             #   not already connected
             #   AND
             #   "write"-function   OR   no data are present.
-            self.connect()
+            self.connect(timeout=prev_timeout)
 
         if not self._connected:
-            prev_timeout = kwarg.get('timeout', None)
             kwarg.update({'timeout': 0.})
             try:
                 with KillMask():
                     return fu(self, *args, **kwarg)
             except SocketTimeout:
-                self.connect()
+                self.connect(timeout=prev_timeout)
                 kwarg.update({'timeout': prev_timeout})
 
         with KillMask():
@@ -89,9 +89,10 @@ class BaseSocket:
         if not self._connected:
             self.connect()
     
-    def connect(self, host=None, port=None):
+    def connect(self, host=None, port=None, timeout=None):
         local_host = host or self._host
         local_port = port or self._port
+        local_timeout = timeout if timeout is not None else self._timeout
         self._debug("connect(host=%s,port=%d)",local_host,local_port)
 
         self.close()
@@ -102,8 +103,10 @@ class BaseSocket:
         with self._lock:
             if self._connected:
                 return True
-
-            self._fd = self._connect(local_host,local_port)
+            err_message = "connection timeout on socket(%s, %d)" %\
+                          (self._host,self._port)
+            with gevent.Timeout(local_timeout,SocketTimeout(err_message)):
+                self._fd = self._connect(local_host,local_port)
             self._connected = True
 
         self._raw_read_task = gevent.spawn(self._raw_read,weakref.proxy(self),self._fd)
@@ -300,8 +303,9 @@ class CommandTimeout(CommunicationTimeout):
 
 def try_connect_command(fu):
     def rfunc(self, *args, **kwarg):
+        timeout = kwarg.get('timeout')
         if(not self._connected):
-            self.connect()
+            self.connect(timeout=timeout)
 
         if not self._connected:
             prev_timeout = kwarg.get('timeout', None)
@@ -310,7 +314,7 @@ def try_connect_command(fu):
                 with KillMask():
                     return fu(self, *args, **kwarg)
             except CommandTimeout:
-                self.connect()
+                self.connect(timeout=timeout)
                 kwarg.update({'timeout': prev_timeout})
         with KillMask():
             return fu(self, *args, **kwarg)
@@ -379,10 +383,10 @@ class Command:
         if not self._connected:
             self.connect()
         
-    def connect(self, host=None, port=None):
+    def connect(self, host=None, port=None, timeout=None):
         local_host = host or self._host
         local_port = port or self._port
-
+        local_timeout = timeout if timeout is not None else self._timeout
         if self._connected:
             prev_ip_host,prev_port = s.getpeername()
             try:
@@ -401,7 +405,9 @@ class Command:
                 return True
 
             self._fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self._fd.connect((local_host, local_port))
+            err_msg = "timeout on command(%s, %d)" % (local_host,local_port)
+            with gevent.Timeout(local_timeout, CommandTimeout(err_msg)):
+                self._fd.connect((local_host, local_port))
             self._fd.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
             self._fd.setsockopt(socket.SOL_IP, socket.IP_TOS, 0x10)
             self._host = local_host

@@ -40,9 +40,6 @@ class Pace:
         self.units={1:"MBAR", 2:"BAR", 3:"PA", 4:"HPA", 5:"KPA",
                     12: "KG/M2", 19:"TORR", 20:"ATM"}
 
-    def __del__(self):
-        self._sock.close()
-
     def exit(self):
         self._sock.close()
 

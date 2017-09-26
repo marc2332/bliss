@@ -74,9 +74,6 @@ class VSCANNER(Controller):
 
         elog.debug(self._status)
 
-    def __del__(self):
-        print "__del__ from VSCANNER"
-
     def finalize(self):
         """
         Closes the serial object.

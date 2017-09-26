@@ -1,32 +1,45 @@
-"""Test module for the Mercury MCA."""
+"""Test module for the XIA MCAs."""
 
 import pytest
 
 from bliss.controllers.mca import Brand, DetectorType, Stats
 from bliss.controllers.mca import PresetMode, TriggerMode
+from bliss.controllers.xia import XIA, Mercury
 
 
-@pytest.fixture
-def xia(beacon, mocker):
+@pytest.fixture(
+    params=['xia', 'mercury', 'mercury4', 'xmap',
+            'falconx', 'falconx4', 'falconx8'])
+def xia(request, beacon, mocker):
     beacon.reload()
+
+    # Mocking
     m = mocker.patch('zerorpc.Client')
     client = m.return_value
+
+    # Modules
     client.get_detectors.return_value = ['detector1']
     client.get_modules.return_value = ['module1']
-    client.get_channels.return_value = (0,)
-    client.get_grouped_channels.return_value = ((0, ), )
+
+    # Element count
+    channels = (0,) if request.param == 'mercury' else (0, 1, 2, 3)
+    client.get_channels.return_value = channels
+
+    # Configuration
     client.get_config_files.return_value = ['default.ini']
     client.get_config.return_value = {'my': 'config'}
-    client.is_running.return_value = True
-    client.get_module_type.return_value = 'mercury4'
+    mtype = 'mercury4' if request.param == 'xia' else request.param
+    client.get_module_type.return_value = mtype
 
     # Emulate running behavior
+    client.is_running.return_value = True
+
     def mock_not_running():
         client.is_running.return_value = False
     client.mock_not_running = mock_not_running
 
     # Instantiating the xia
-    xia = beacon.get('xia1')
+    xia = beacon.get(request.param + '1')
     assert xia._proxy is client
     m.assert_called_once_with('tcp://welisa.esrf.fr:8000')
     yield xia
@@ -42,8 +55,15 @@ def test_xia_instanciation(xia):
 
 def test_xia_infos(xia):
     assert xia.detector_brand == Brand.XIA
-    assert xia.detector_type == DetectorType.MERCURY4
-    assert xia.element_count == 1
+    if type(xia) is XIA:
+        assert xia.detector_type == DetectorType.MERCURY4
+    else:
+        name = type(xia).__name__.upper()
+        assert xia.detector_type == getattr(DetectorType, name)
+    if type(xia) is Mercury:
+        assert xia.element_count == 1
+    else:
+        assert xia.element_count == 4
 
 
 def test_xia_configuration(xia):
@@ -215,17 +235,20 @@ def test_xia_finalization(xia):
     client.close.assert_called_once_with()
 
 
-def test_xia_from_wrong_beacon_config(beacon, mocker):
+@pytest.mark.parametrize(
+    'dtype',
+    ['xia', 'mercury', 'mercury4', 'xmap', 'falconx', 'falconx4', 'falconx8'])
+def test_xia_from_wrong_beacon_config(dtype, beacon, mocker):
     # ZeroRPC error
     beacon.reload()
     m = mocker.patch('zerorpc.Client')
     m.side_effect = IOError('Cannot connect!')
     with pytest.raises(IOError):
-        beacon.get('xia1')
+        beacon.get(dtype + '1')
 
     # Handel error
     m = mocker.patch('zerorpc.Client')
     client = m.return_value
     client.init.side_effect = IOError('File not found!')
     with pytest.raises(IOError):
-        beacon.get('xia1')
+        beacon.get(dtype + '1')

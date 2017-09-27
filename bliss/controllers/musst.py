@@ -205,12 +205,12 @@ class musst(object):
             }
 
         self.__frequency_conversion = {
-            self.F_1KHZ   : "1KHZ",
-            self.F_10KHZ  : "10KHZ",
-            self.F_100KHZ : "100KHZ",
-            self.F_1MHZ   : "1MHZ",
-            self.F_10MHZ  : "10MHZ",
-            self.F_50MHZ  : "50MHZ",
+            self.F_1KHZ   : ("1KHZ"   ,1e3),
+            self.F_10KHZ  : ("10KHZ"  ,10e3,
+            self.F_100KHZ : ("100KHZ" ,100e3),
+            self.F_1MHZ   : ("1MHZ"   ,1e6),
+            self.F_10MHZ  : ("10MHZ"  ,10e6),
+            self.F_50MHZ  : ("50MHZ"  ,50e6),
 
             "1KHZ"        : self.F_1KHZ,
             "10KHZ"       : self.F_10KHZ,
@@ -461,7 +461,11 @@ class musst(object):
     def TMRCFG(self):
         """ Set/query main timer timebase """
         return self.__frequency_conversion.get(self.putget("?TMRCFG"))
-    
+
+    def get_timer_factor(self):
+        str_freq,freq = self.TMRCFG
+        return freq
+            
     @TMRCFG.setter
     def TMRCFG(self,value):
         if value not in self.__frequency_conversion:

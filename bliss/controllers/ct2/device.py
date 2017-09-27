@@ -729,7 +729,7 @@ class CT2Device(BaseCT2Device):
         if self.acq_status != AcqStatus.Running:
             raise ValueError('No acquisition is running')
         elif self.__has_soft_start() and not self.__soft_started:
-            self.__soft_started = True
+            pass
         elif self.__has_int_trig():
             raise ValueError('Cannot trigger point in int-trig modes')
 
@@ -739,11 +739,15 @@ class CT2Device(BaseCT2Device):
             point_nb_ct = self.internal_point_nb_counter
             point_nb = self.card.get_counter_value(point_nb_ct)
             self.card.stop_counters_software(counters)
-            restart = (point_nb < self.acq_nb_points - 1)
+            start = not self.__soft_started
+            restart = start or (point_nb < self.acq_nb_points - 1)
         elif self.acq_mode == AcqMode.IntTrigMulti:
             counters_status = self.card.get_counters_status()
             if counters_status[counters[0]]['run']:
                 raise RuntimeError('Counter still running')
+
+        if self.__has_soft_start():
+            self.__soft_started = True
 
         if restart:
             self.card.start_counters_software(counters)

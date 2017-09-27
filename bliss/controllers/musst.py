@@ -185,10 +185,12 @@ class musst(object):
                              timeout = config_tree.get("gpib_timeout",5))
             self._txterm = ''
             self._rxterm = '\n'
+            self._binary_data_read = True
         elif "serial_url" in config_tree:
             self._cnx = Serial(config_tree["serial_url"])
             self._txterm = '\r'
             self._rxterm = '\r\n'
+            self._binary_data_read = False
         else:
             raise ValueError, "Must specify gpib_url or serial_url"
 
@@ -203,12 +205,12 @@ class musst(object):
             }
 
         self.__frequency_conversion = {
-            self.F_1KHZ   : "1KHZ",
-            self.F_10KHZ  : "10KHZ",
-            self.F_100KHZ : "100KHZ",
-            self.F_1MHZ   : "1MHZ",
-            self.F_10MHZ  : "10MHZ",
-            self.F_50MHZ  : "50MHZ",
+            self.F_1KHZ   : ("1KHZ"   ,1e3),
+            self.F_10KHZ  : ("10KHZ"  ,10e3,
+            self.F_100KHZ : ("100KHZ" ,100e3),
+            self.F_1MHZ   : ("1MHZ"   ,1e6),
+            self.F_10MHZ  : ("10MHZ"  ,10e6),
+            self.F_50MHZ  : ("50MHZ"  ,50e6),
 
             "1KHZ"        : self.F_1KHZ,
             "10KHZ"       : self.F_10KHZ,
@@ -379,15 +381,21 @@ class musst(object):
                                       xrange(0,total_int32,BLOCK_SIZE)):
             size_to_read = min(BLOCK_SIZE,total_int32)
             total_int32 -= BLOCK_SIZE
-            with self._cnx._lock:
-                self._cnx.open()
-                with KillMask():
-                    self._cnx._write("?*EDAT %d %d %d" % (size_to_read,0,offset))
-                    raw_data = ''
-                    while(len(raw_data) < (size_to_read * 4)):
-                        raw_data += self._cnx.raw_read()
-                    data_pt[data_offset:data_offset+size_to_read] = \
-                    numpy.frombuffer(raw_data,dtype=numpy.int32)
+            if self._binary_data_read:
+                with self._cnx._lock:
+                    self._cnx.open()
+                    with KillMask():
+                        self._cnx._write("?*EDAT %d %d %d" % (size_to_read,0,offset))
+                        raw_data = ''
+                        while(len(raw_data) < (size_to_read * 4)):
+                            raw_data += self._cnx.raw_read()
+                        data_pt[data_offset:data_offset+size_to_read] = \
+                        numpy.frombuffer(raw_data,dtype=numpy.int32)
+            else:
+                raw_data = self.putget("?EDAT %d %d %d" % (size_to_read,0,offset))
+                data_pt[data_offset:data_offset+size_to_read] = \
+                [int(x,16) for x in raw_data.split(self._rxterm) if x]
+                                                                
 
     def get_event_buffer_size(self):
         """ query event buffer size.
@@ -453,7 +461,11 @@ class musst(object):
     def TMRCFG(self):
         """ Set/query main timer timebase """
         return self.__frequency_conversion.get(self.putget("?TMRCFG"))
-    
+
+    def get_timer_factor(self):
+        str_freq,freq = self.TMRCFG
+        return freq
+            
     @TMRCFG.setter
     def TMRCFG(self,value):
         if value not in self.__frequency_conversion:

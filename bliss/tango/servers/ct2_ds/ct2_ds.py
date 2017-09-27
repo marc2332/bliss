@@ -192,6 +192,13 @@ class CT2(Device):
     def data(self):
         return self.device.read_data()
 
+    @attribute(dtype=(int,), max_dim_x=12)
+    def counters_status(self):
+        status = self.device.card.get_counters_status()
+        return [int(status[i].enable) | (int(status[i].run) << 1)
+                for i in self.device.card.COUNTERS]
+
+
     @command
     def apply_config(self):
         # first, empty FIFO

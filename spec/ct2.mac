@@ -82,6 +82,23 @@ def ct2_cmd(cnum, key, p1, p2) '{
     }
 }'
 
+def ct2_par(cnum, key, action, p1) '{
+    local ctrl_dev chan val[] int_cnt
+
+    ctrl_dev = ct2_ADDR
+    if (cnum != "..")
+        chan = counter_par(cnum, "channel")
+
+    if (key == "status") {
+        tango_get(ctrl_dev, "counters_status", val)
+        int_cnt = CT2_MAC_HDW[ctrl_dev]["int_cnt"]
+        cnt_idx = (chan ? chan : int_cnt) - 1
+        return val[cnt_idx]
+    }
+
+}'
+
+
 def ct2_get(cnum, key, val_arr) '{
     local ctrl_dev arr_keys 
 
@@ -94,7 +111,7 @@ def ct2_get(cnum, key, val_arr) '{
 	return
     }
 
-    arr_keys = " acq_channels counters latches data "
+    arr_keys = " acq_channels counters latches data counters_status "
     if (index(arr_keys, sprintf(" %s ", key)) > 0) {
         return tango_get(ctrl_dev, key, val_arr)
     } else {

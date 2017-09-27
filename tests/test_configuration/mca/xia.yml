@@ -1,0 +1,8 @@
+name: xia1
+module: xia
+class: XIA
+plugin: bliss
+url: tcp://welisa.esrf.fr:8000
+configuration_directory: C:\\blissadm\\mercury
+default_configuration: mercury_src.ini
+detector_mapping: sdd3elts

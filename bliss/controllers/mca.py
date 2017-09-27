@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+#
+# This file is part of the bliss project
+#
+# Copyright (c) 2017 Beamline Control Unit, ESRF
+# Distributed under the GNU LGPLv3. See LICENSE for more info.
+
 """Base class and enumerations for multichannel analyzers."""
 
 # Imports
@@ -14,7 +21,7 @@ Brand = enum.Enum(
 
 DetectorType = enum.Enum(
     'DetectorType',
-    'FALCONX1 FALCONX4 FALCONX8 XMAP MERCURY MERCURY4 MICRO_DXP DXP_2X '
+    'FALCONX FALCONX4 FALCONX8 XMAP MERCURY MERCURY4 MICRO_DXP DXP_2X '
     'MAYA2000 MUSST_MCA MCA8000D DSA1000 MULTIMAX')
 
 TriggerMode = enum.Enum(
@@ -27,8 +34,7 @@ PresetMode = enum.Enum(
 
 Stats = collections.namedtuple(
     'Stats',
-    'realtime livetime triggers events icr ocr deadtime '
-    'underflows overflows')
+    'realtime livetime triggers events icr ocr deadtime')
 
 
 # Base class
@@ -108,6 +114,13 @@ class BaseMCA(object):
         raise NotImplementedError
 
     @property
+    def block_size(self):
+        raise NotImplementedError
+
+    def set_block_size(self, value=None):
+        raise NotImplementedError
+
+    @property
     def multiple_acquisition(self):
         return self.acquisition_number > 1
 
@@ -126,6 +139,9 @@ class BaseMCA(object):
         raise NotImplementedError
 
     def get_acquisition_statistics(self):
+        raise NotImplementedError
+
+    def poll_data(self):
         raise NotImplementedError
 
     # Extra logic
@@ -157,8 +173,6 @@ class BaseMCA(object):
         self.set_acquisition_number(1)
         # Trigger mode
         mode = TriggerMode.EXTERNAL if acquistion_time else TriggerMode.GATE
-        if mode not in self.supported_trigger_modes:
-            raise ValueError('{} is not supported'.format(mode))
         self.set_trigger_mode(mode)
         # Preset mode
         if acquistion_time:
@@ -175,3 +189,26 @@ class BaseMCA(object):
         # Stop and return data
         self.stop_acquisition()
         return self.get_acquisition_data(), self.get_acquisition_statistics()
+
+    def run_multiple_acquisitions(self, acquisition_number,
+                                  block_size=None, gate=False,
+                                  polling_time=0.1):
+        # Acquisition number
+        self.set_acquisition_number(acquisition_number)
+        self.set_block_size(block_size)
+        # Trigger mode
+        mode = TriggerMode.GATE if gate else TriggerMode.EXTERNAL
+        self.set_trigger_mode(mode)
+        # Preset mode
+        self.set_preset_mode(None)
+        # Start and wait
+        self.start_acquisition()
+        current, data, statistics = self.poll_data()
+        while current != acquisition_number:
+            time.sleep(polling_time)
+            current, extra_data, extra_statistics = self.poll_data()
+            data.update(extra_data)
+            statistics.update(extra_statistics)
+        # Stop and return data
+        self.stop_acquisition()
+        return data, statistics

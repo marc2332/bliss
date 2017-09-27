@@ -48,13 +48,15 @@ def test_base_mca():
         mca.finalize: (),
         mca.set_preset_mode: ('some_mode',),
         mca.set_acquisition_number: (12,),
+        mca.set_block_size: (6,),
         mca.set_trigger_mode: ('some_mode',),
         mca.set_spectrum_range: ('some', 'range'),
         mca.start_acquisition: (),
         mca.stop_acquisition: (),
         mca.is_acquiring: (),
         mca.get_acquisition_data: (),
-        mca.get_acquisition_statistics: ()}
+        mca.get_acquisition_statistics: (),
+        mca.poll_data: ()}
 
     # Test methods
     for method, args in methods.items():
@@ -67,6 +69,7 @@ def test_base_mca():
         'detector_type',
         'element_count',
         'acquisition_number',
+        'block_size',
         'supported_preset_modes',
         'supported_trigger_modes',
         'calibration_type']
@@ -78,7 +81,7 @@ def test_base_mca():
 
 
 def test_base_mca_logic(mocker):
-    stats = Stats(*range(1, 10))
+    stats = Stats(*range(1, 8))
 
     class TestMCA(BaseMCA):
 

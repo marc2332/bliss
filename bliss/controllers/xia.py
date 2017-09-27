@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+#
+# This file is part of the bliss project
+#
+# Copyright (c) 2017 Beamline Control Unit, ESRF
+# Distributed under the GNU LGPLv3. See LICENSE for more info.
+
 """Controller classes for XIA multichannel analyzer"""
 
 # Imports
@@ -14,8 +21,16 @@ msgpack_numpy.patch()
 
 # Mercury controller
 
-class Mercury(BaseMCA):
-    """Controller class for the Mercury (a XIA MCA).
+class BaseXIA(BaseMCA):
+    """Base controller class for the XIA MCAs.
+
+    This includes the following equipments:
+    - Mercury
+    - Mercury-4
+    - XMAP
+    - FalconX
+    - FalconX-4
+    - FalconX-8
     """
 
     # Life cycle
@@ -100,23 +115,28 @@ class Mercury(BaseMCA):
         detectors = self._proxy.get_detectors()
         assert len(detectors) == 1
         modules = self._proxy.get_modules()
-        assert len(modules) == 1
+        assert len(modules) >= 1
         channels = self._proxy.get_channels()
-        assert len(channels) == 1
-        assert channels == (0,)
-        grouped_channels = self._proxy.get_grouped_channels()
-        assert grouped_channels == ((0, ), )
+        assert len(channels) >= 1
+        assert channels == tuple(range(len(channels)))
+        self._run_type_specific_checks()
+
+    def _run_type_specific_checks(self):
+        """Extra checks to be performed for the corresponding
+        detector type (Mercury, Xmap, FalconX, etc.).
+        """
+        raise NotImplementedError
 
     # Acquisition number
 
     @property
     def acquisition_number(self):
-        mapping = int(self._proxy.get_acquisition_value('mapping_mode', 0))
+        mapping = int(self._proxy.get_acquisition_value('mapping_mode'))
         if mapping == 0:
             return 1
-        # Should be:
-        # self._proxy.get_acquisition_value('num_map_pixels', 0)
-        raise NotImplementedError
+        num = self._proxy.get_acquisition_value('num_map_pixels')
+        # The first acquistion will be discarded
+        return int(num) - 1
 
     def set_acquisition_number(self, value):
         # Invalid argument
@@ -125,14 +145,29 @@ class Mercury(BaseMCA):
         # Single mode
         if value == 1:
             self._proxy.set_acquisition_value('mapping_mode', 0)
-            self._proxy.apply_acquisition_values()
-            return
         # Multiple mode
-        # Should be:
-        # self._proxy.set_acquisition_value('mapping_mode', 1)
-        # self._proxy.set_acquisition_value('num_map_pixels, value)
-        # self._proxy.apply_acquisition_values()
-        raise NotImplementedError
+        else:
+            self._proxy.set_acquisition_value('mapping_mode', 1)
+            # The first acquisition will be discarded
+            self._proxy.set_acquisition_value('num_map_pixels', value + 1)
+        # Apply
+        self._proxy.apply_acquisition_values()
+
+    @property
+    def block_size(self):
+        size = self._proxy.get_acquisition_value('num_map_pixels_per_buffer')
+        return int(size)
+
+    def set_block_size(self, value=None):
+        # Set the default value
+        if value is None:
+            self._proxy.set_maximum_pixels_per_buffer()
+        # Set the specified value
+        else:
+            self._proxy.set_acquisition_value(
+                'num_map_pixels_per_buffer', value)
+        # Apply
+        self._proxy.apply_acquisition_values()
 
     # Acquisition
 
@@ -149,11 +184,28 @@ class Mercury(BaseMCA):
 
     def get_acquisition_data(self):
         spectrums = self._proxy.get_spectrums()
-        nb = len(spectrums)
-        return [spectrums[i] for i in range(nb)]
+        return self._convert_spectrums(spectrums)
 
     def get_acquisition_statistics(self):
         stats = self._proxy.get_statistics()
+        return self._convert_statistics(stats)
+
+    def poll_data(self):
+        current, spectrums, statistics = self._proxy.synchronized_poll_data()
+        # The first acquisition is discarded
+        spectrums = {key - 1: self._convert_spectrums(value)
+                     for key, value in spectrums.items()
+                     if key > 0}
+        statistics = {key - 1: self._convert_statistics(value)
+                      for key, value in statistics.items()
+                      if key > 0}
+        return current - 1, spectrums, statistics
+
+    def _convert_spectrums(self, spectrums):
+        nb = len(spectrums)
+        return [spectrums[i] for i in range(nb)]
+
+    def _convert_statistics(self, stats):
         nb = len(stats)
         return [Stats(*stats[i]) for i in range(nb)]
 
@@ -165,11 +217,12 @@ class Mercury(BaseMCA):
 
     @property
     def detector_type(self):
-        return DetectorType.MERCURY
+        value = self._proxy.get_module_type()
+        return getattr(DetectorType, value.upper())
 
     @property
     def element_count(self):
-        return 1
+        return len(self._proxy.get_channels())
 
     # Modes
 
@@ -210,6 +263,7 @@ class Mercury(BaseMCA):
     @property
     def supported_trigger_modes(self):
         return [TriggerMode.SOFTWARE,
+                TriggerMode.EXTERNAL,
                 TriggerMode.GATE]
 
     def set_trigger_mode(self, mode):
@@ -219,8 +273,67 @@ class Mercury(BaseMCA):
         # Check arguments
         if mode not in self.supported_trigger_modes:
             raise ValueError('{!s} trigger mode not supported'.format(mode))
+        if mode == TriggerMode.EXTERNAL and self.acquisition_number == 1:
+            raise ValueError(
+                'External trigger mode not supported in single acquisition mode')
         # Get hardware value
-        value = 0 if mode == TriggerMode.GATE else 1
+        gate_ignore = 0 if mode == TriggerMode.GATE else 1
+        advance_mode = 0 if mode == TriggerMode.SOFTWARE else 1
         # Configure
-        self._proxy.set_acquisition_value('gate_ignore', value)
+        self._proxy.set_acquisition_value('gate_ignore', gate_ignore)
+        self._proxy.set_acquisition_value('pixel_advance_mode', advance_mode)
         self._proxy.apply_acquisition_values()
+
+
+# Specific XIA classes
+
+class XIA(BaseXIA):
+    """Generic controller class for a XIA MCA."""
+
+    def _run_type_specific_checks(self):
+        assert self.detector_type in DetectorType
+
+
+class Mercury(BaseXIA):
+    """Controller class for the Mercury (a XIA MCA)."""
+
+    def _run_type_specific_checks(self):
+        assert self.detector_type == DetectorType.MERCURY
+        assert self.element_count == 1
+
+
+class Mercury4(BaseXIA):
+    """Controller class for the Mercury-4 (a XIA MCA)."""
+
+    def _run_type_specific_checks(self):
+        assert self.detector_type == DetectorType.MERCURY4
+        assert self.element_count in (1, 2, 3, 4)
+
+
+class XMAP(BaseXIA):
+    """Controller class for the XMAP (a XIA MCA)."""
+
+    def _run_type_specific_checks(self):
+        assert self.detector_type == DetectorType.XMAP
+        assert self.element_count in range(1, 17)
+
+
+class FalconX(BaseXIA):
+    """Controller class for the FalconX (a XIA MCA)."""
+
+    def _run_type_specific_checks(self):
+        assert self.detector_type == DetectorType.FALCONX
+
+
+class FalconX4(BaseXIA):
+    """Controller class for the FalconX-4 (a XIA MCA)."""
+
+    def _run_type_specific_checks(self):
+        assert self.detector_type == DetectorType.FALCONX4
+
+
+class FalconX8(BaseXIA):
+    """Controller class for the FalconX-8 (a XIA MCA)."""
+
+    def _run_type_specific_checks(self):
+        assert self.detector_type == DetectorType.FALCONX8

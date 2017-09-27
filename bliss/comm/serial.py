@@ -590,12 +590,8 @@ class Serial:
             self._raw_handler.close()
             self._raw_handler = None
         
-    def raw_read(self,maxsize = None,timeout = None) :
-        with self._lock:
-            return self._raw_read(maxsize,timeout)
-                
     @try_open
-    def _raw_read(self,maxsize = None,timeout = None) :
+    def raw_read(self,maxsize = None,timeout = None) :
         local_timeout = timeout or self._timeout
         return self._raw_handler.raw_read(maxsize,local_timeout)
                 

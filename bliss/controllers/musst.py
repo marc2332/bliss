@@ -206,7 +206,7 @@ class musst(object):
 
         self.__frequency_conversion = {
             self.F_1KHZ   : ("1KHZ"   ,1e3),
-            self.F_10KHZ  : ("10KHZ"  ,10e3,
+            self.F_10KHZ  : ("10KHZ"  ,10e3),
             self.F_100KHZ : ("100KHZ" ,100e3),
             self.F_1MHZ   : ("1MHZ"   ,1e6),
             self.F_10MHZ  : ("10MHZ"  ,10e6),

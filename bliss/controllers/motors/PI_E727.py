@@ -44,7 +44,6 @@ class PI_E727(Controller):
         # just in case
         self.sock.flush()
 
-
     def finalize(self):
         """
         Closes the controller socket.
@@ -59,7 +58,7 @@ class PI_E727(Controller):
             pass
 
     def trace(self, str):
-        elog.debug('{s:{c}<{n}}'.format(s=str,n=80,c='-'))
+        elog.debug('{s:{c}<{n}}'.format(s=str, n=80, c='-'))
 
     # Init of each axis.
     def initialize_axis(self, axis):
@@ -69,10 +68,9 @@ class PI_E727(Controller):
 
         # check communication
         try:
-            _ans =  self.get_identifier(axis, 0.1)
+            _ans = self.get_identifier(axis, 0.1)
         except Exception as ex:
-            _str = "%r\nERROR on \"%s\": switch on the controller" % \
-                (ex, self.host)
+            _str = "%r\nERROR on \"%s\": switch on the controller" % (ex, self.host)
             # by default, an exception will be raised
             elog.error(_str)
 
@@ -81,7 +79,6 @@ class PI_E727(Controller):
 
     def initialize_encoder(self, encoder):
         pass
-
 
     """
     ON / OFF
@@ -143,8 +140,7 @@ class PI_E727(Controller):
 
     def stop(self, axis):
         elog.debug("stop requested")
-        self.send_no_ans(axis, "STP %s" %(axis.channel))
-
+        self.send_no_ans(axis, "STP %s" % (axis.channel))
 
     """ COMMUNICATIONS"""
     def send(self, axis, cmd, timeout=None):
@@ -172,7 +168,6 @@ class PI_E727(Controller):
     def raw_flush(self, axis):
         self.sock.flush()
 
-
     """ RAW COMMANDS """
     def raw_write(self, cmd):
         _cmd = self._append_eoc(cmd)
@@ -180,7 +175,7 @@ class PI_E727(Controller):
 
     def raw_write_read(self, cmd):
         _cmd = self._append_eoc(cmd)
-        _ans = self.sock.write_readline(_cmd) 
+        _ans = self.sock.write_readline(_cmd)
 
         # handle multiple lines answer
         _ans = _ans + "\n"
@@ -191,7 +186,7 @@ class PI_E727(Controller):
             pass
 
         _ans = self._remove_eoc(_ans)
-        return  _ans
+        return _ans
 
     def raw_write_readlines(self, cmd, lines):
         _cmd = self._append_eoc(cmd)
@@ -203,12 +198,12 @@ class PI_E727(Controller):
         _cmd = cmd.strip()
         if not _cmd.endswith("\n"):
             _cmd = cmd + "\n"
-	elog.debug(">>>> %s"%(_cmd.strip("\n")))
+        elog.debug(">>>> %s" % (_cmd.strip("\n")))
         return _cmd
 
     def _remove_eoc(self, ans):
         _ans = ans.strip().strip("\n\r")
-	elog.debug("<<<< %s"%(_ans))
+        elog.debug("<<<< %s" % _ans)
         return _ans
 
     """
@@ -217,7 +212,6 @@ class PI_E727(Controller):
     @object_method(types_info=("None", "str"))
     def get_identifier(self, axis, timeout=None):
         return self.send(axis, "IDN?", timeout)
-
 
     def get_voltage(self, axis):
         """ Returns voltage read from controller."""
@@ -231,12 +225,11 @@ class PI_E727(Controller):
         self.send_no_ans(axis, _cmd)
         self.check_error(_cmd)
 
-
     def _get_velocity(self, axis):
         """
         Returns velocity taken from controller.
         """
-        _ans = self.send(axis, "VEL? %s"%(axis.channel))
+        _ans = self.send(axis, "VEL? %s" % (axis.channel))
         _velocity = float(_ans.split("=")[1])
 
         return _velocity
@@ -245,25 +238,23 @@ class PI_E727(Controller):
         """
         Returns real position read by capacitive sensor.
         """
-        _ans = self.send(axis, "POS? %s"%(axis.channel))
+        _ans = self.send(axis, "POS? %s" % (axis.channel))
         _pos = float(_ans.split("=")[1])
         return _pos
 
-
-
-    """ON TARGET """
+    """ ON TARGET """
     def _get_target_pos(self, axis):
         """
         Returns last target position (setpoint value).
         """
-        _ans = self.send(axis, "MOV? %s"%(axis.channel))
+        _ans = self.send(axis, "MOV? %s" % (axis.channel))
         # _ans should looks like "1=-8.45709419e+01"
         _pos = float(_ans.split("=")[1])
 
         return _pos
 
     def _get_on_target_status(self, axis):
-        _ans = self.send(axis, "ONT? %s"%(axis.channel))
+        _ans = self.send(axis, "ONT? %s" % (axis.channel))
 
         _status = _ans.split("=")[1]
 
@@ -272,13 +263,13 @@ class PI_E727(Controller):
         elif _status == "0":
             return False
         else:
-            elog.error("ERROR on _get_on_target_status, _ans=%r" % \
-                _ans, raise_exception=False)
+            elog.error("ERROR on _get_on_target_status, _ans=%r" %
+                       _ans, raise_exception=False)
             return -1
 
     """ CLOSED LOOP"""
     def _get_closed_loop_status(self, axis):
-        _ans = self.send(axis, "SVO? %s"%(axis.channel))
+        _ans = self.send(axis, "SVO? %s" % (axis.channel))
 
         _status = _ans.split("=")[1]
 
@@ -287,8 +278,8 @@ class PI_E727(Controller):
         elif _status == "0":
             return False
         else:
-            elog.error("ERROR on _get_closed_loop_status, _ans=%r" % \
-                _ans, raise_exception=False)
+            elog.error("ERROR on _get_closed_loop_status, _ans=%r" %
+                       _ans, raise_exception=False)
             return -1
 
     def _set_closed_loop(self, axis, state):

@@ -2,6 +2,7 @@ class: Session
 name: test_session
 default: True
 setup-file: ./test_setup.py
+exclude-objects: lima_simulator mercury1 opiom1
 synoptic:
     svg-file: ./test_synoptic.svg
     elements:

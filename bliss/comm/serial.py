@@ -644,6 +644,19 @@ class Serial:
             if write_synchro: write_synchro.notify()
             return self._readline(eol,timeout)
 
+    def write_readlines(self, msg, nb_lines, write_synchro=None, eol=None, timeout=None):
+        with self._lock:
+            self._write(msg,timeout)
+            if write_synchro: write_synchro.notify()
+
+            str_list = []
+            for ii in range(nb_lines):
+                str_list.append(self.readline(eol=eol, timeout=timeout))
+
+            return str_list
+            
+
+        
     @try_open
     def flush(self) :
         self._raw_handler.flushInput()

@@ -8,7 +8,9 @@
 import weakref
 
 def find_class(cfg_node,base_path='bliss.controllers'):
-    klass_name = cfg_node['class']
+    klass_name = cfg_node.get_inherited('class')
+    if klass_name is None:
+        raise KeyError("class")
 
     if 'package' in cfg_node:
         module_name = cfg_node['package']

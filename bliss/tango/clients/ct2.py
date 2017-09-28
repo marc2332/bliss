@@ -19,20 +19,20 @@ class CT2Device(BaseCT2Device):
     Helper for a remote TANGO device CT2 card (P201/C208).
     """
 
-    def __init__(self):
+    def __init__(self, device_name):
         BaseCT2Device.__init__(self)
-        device_name = self.card_config['tango name']
-        
+
         self.__tango_device = DeviceProxy(device_name)
-        self.__tango_device.subscribe_event("acq_status",
-                                            EventType.CHANGE_EVENT,
-                                            self.__on_status)
-        self.__tango_device.subscribe_event("last_point_nb",
-                                            EventType.CHANGE_EVENT,
-                                            self.__on_point_nb)
-        self.__tango_device.subscribe_event("last_error",
-                                            EventType.CHANGE_EVENT,
-                                            self.__on_error)
+#       Uncomment when CT2 server supports events again (tango bug solved)
+#        self.__tango_device.subscribe_event("acq_status",
+#                                            EventType.CHANGE_EVENT,
+#                                            self.__on_status)
+#        self.__tango_device.subscribe_event("last_point_nb",
+#                                            EventType.CHANGE_EVENT,
+#                                            self.__on_point_nb)
+#        self.__tango_device.subscribe_event("last_error",
+#                                            EventType.CHANGE_EVENT,
+#                                            self.__on_error)
 
     def __on_status(self, event):
         self._send_status(AcqStatus[event.attr_value.value])

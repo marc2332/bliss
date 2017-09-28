@@ -249,8 +249,9 @@ class Modbus_RTU:
 
 def try_connect_modbustcp(fu):
     def rfunc(self, *args, **kwarg):
+        timeout = kwarg.get('timeout')
         if(not self._connected):
-            self.connect()
+            self.connect(timeout=timeout)
         try:
             with KillMask():
                 return fu(self, *args, **kwarg)
@@ -259,7 +260,7 @@ def try_connect_modbustcp(fu):
                 # some modbus controller close the connection
                 # give a chance to _raw_read_task to detect it
                 gevent.sleep(0)
-                self.connect()
+                self.connect(timeout=timeout)
                 with KillMask():
                     return fu(self,*args,**kwarg)
             else:
@@ -372,17 +373,17 @@ class ModbusTcp:
          value = 0xff00 if on_off else 0x0000
          self._write(0x05,address,'H',value,timeout_errmsg,timeout)
 
-    def connect(self, host=None, port=None):
+    def connect(self, host=None, port=None, timeout=None):
         local_host = host or self._host
         local_port = port or self._port
-
+        local_timeout = timeout if timeout is not None else self._timeout
         self.close()
 
         with self._lock: 
             if self._connected:
                 return True
 
-            with gevent.Timeout(self._timeout, RuntimeError("Cannot connect to %s" % self._host)):
+            with gevent.Timeout(local_timeout, RuntimeError("Cannot connect to %s" % self._host)):
                 self._fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 self._fd.connect((local_host,local_port))
                 self._fd.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)

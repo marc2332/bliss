@@ -181,6 +181,9 @@ class BaseCT2Device(object):
     def trigger_point(self):
         self._device.trigger_point()
 
+    def dump_memory(self):
+        return self._device.dump_memory()
+
     @property
     def counters(self):
         return self._device.counters
@@ -751,6 +754,9 @@ class CT2Device(BaseCT2Device):
 
         if restart:
             self.card.start_counters_software(counters)
+
+    def dump_memory(self):
+        return self.card.dump_memory()
 
     @property
     def acq_mode(self):

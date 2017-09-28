@@ -56,3 +56,6 @@ class CT2Device(BaseCT2Device):
         if data is None:
             data = numpy.array([[]], dtype=numpy.uint32)
         return data
+
+    def dump_memory(self):
+        return bytes(super(CT2Device, self).dump_memory().data)

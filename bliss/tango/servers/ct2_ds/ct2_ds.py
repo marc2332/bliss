@@ -14,6 +14,7 @@ __all__ = ["CT2", "main"]
 
 import time
 
+import numpy
 import gevent
 from gevent import select
 
@@ -232,6 +233,11 @@ class CT2(Device):
     @command
     def trigger_point(self):
         self.device.trigger_point()
+
+    @command(dtype_out='DevVarCharArray')
+    def dump_memory(self):
+        data = self.device.dump_memory()
+        return numpy.ndarray(shape=(len(data),), dtype=numpy.uint8, buffer=data)
 
     @property
     def card(self):

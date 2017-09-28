@@ -28,6 +28,7 @@ import string
 
 import enum
 
+import numpy
 
 # low level pread and pwrite calls for the p201/c208 driver.
 
@@ -99,7 +100,7 @@ if not hasattr(time, "clock_gettime"):
     time.monotonic = functools.partial(time.clock_gettime, time.CLOCK_MONOTONIC_RAW)
 time.monotonic_raw = functools.partial(time.clock_gettime, time.CLOCK_MONOTONIC_RAW)
 
-def preadn(fd, offset, n=CT2_REG_SIZE):
+def pread(fd, offset, n=CT2_REG_SIZE):
     """
     :param fd: fileno
     :type fd: int
@@ -123,8 +124,6 @@ def preadn(fd, offset, n=CT2_REG_SIZE):
                       .format(read_n, n))
     return buff[:]
 
-pread = functools.partial(preadn, n=CT2_REG_SIZE)
-
 
 def pwrite(fd, buff, offset):
     length = len(buff)
@@ -142,6 +141,125 @@ def pwrite(fd, buff, offset):
         raise OSError("pwrite error: wrote only {0} bytes (expected {1})"
                       .format(write_n, length))
     return write_n
+
+
+class BaseCardInterface(object):
+
+    def connect(self):
+        pass
+
+    def disconnect(self):
+        pass
+
+    def pread(self, offset, n=CT2_REG_SIZE):
+        raise NotImplementedError
+
+    def pwrite(self, buff, offset):
+        raise NotImplementedError
+
+    def ioctl(self, op, *args, **kwargs):
+        raise NotImplementedError
+
+    def read_offset(self, offset):
+        result = self.pread(offset)
+        iresult = struct.unpack("I", result)[0]
+        return iresult
+
+    def read_offset_array(self, offset, nb_reg=1):
+        result = self.pread(offset, n=CT2_REG_SIZE*nb_reg)
+        return numpy.frombuffer(result, dtype=numpy.uint32)
+
+    def write_offset(self, offset, ivalue):
+        svalue = struct.pack("I", int(ivalue))
+        return self.pwrite(svalue, offset)
+
+    def write_offset_array(self, offset, array):
+        return self.pwrite(array.tostring(), offset)
+
+
+class CardInterface(BaseCardInterface):
+    """
+    Standard card interface
+    """
+
+    def __init__(self, address='/dev/ct2_0'):
+        self.address = address
+        self.__log = logging.getLogger(str(self))
+        self.__dev = None
+
+    def connect(self):
+        self.disconnect()
+        self.__log.info("connecting to %s", self.address)
+        self.__dev = open(self.address, "rwb+", 0)
+
+    def disconnect(self):
+        if self.__dev:
+            self.__log.info("disconnecting from %s", self.address)
+            self.__dev.close()
+        self.__dev = None
+
+    def fileno(self):
+        """
+        internal card file descriptor (don't use this member directly on your
+        code)
+        """
+        if self.__dev is None:
+            raise CT2Exception("Card not connected to device")
+        return self.__dev.fileno()
+
+    def ioctl(self, op, *args, **kwargs):
+        try:
+            fcntl.ioctl(self.fileno(), op[0], *args, **kwargs)
+            self.__log.debug("ioctl %020s", op[1])
+        except (IOError, OSError) as exc:
+            if exc.errno in op[2]:
+                raise CT2Exception("{0} error: {1}".format(op[1],
+                                                           op[2][exc.errno]))
+            else:
+                raise
+
+    def pread(self, offset, n=CT2_REG_SIZE):
+        return pread(self.fileno(), offset, n=n)
+
+    def pwrite(self, buff, offset):
+        return pwrite(self.fileno(), buff, offset)
+
+    def __str__(self):
+        return '{0.__class__.__name__}({0.address})'.format(self)
+
+    def __repr__(self):
+        return str(self)
+
+
+class MemoryInterface(BaseCardInterface):
+    """
+    Emulate a card interface. You can use the result of
+    method:`BaseCard.dump_memory()` as argument to construct
+    this object and then create a card object. Example::
+
+        from bliss.controllers.ct2 import P201Card, MemoryInterface
+
+        real_card = P201Card()
+        memory = real_card.dump_memory()
+
+        memory_card = P201Card(MemoryInterface(memory))
+        print(memory_card.get_counters_status())
+    """
+
+    def __init__(self, buff):
+        self.buff = bytearray(buff)
+
+    def pread(self, offset, n=CT2_REG_SIZE):
+        return bytes(self.buff[offset:offset+n])
+
+    def pwrite(self, buff, offset):
+        self.buff[offset:offset+len(buff)] = buff
+
+    def __str__(self):
+        return '{0.__class__.__name__}()'.format(self)
+
+    def __repr__(self):
+        return str(self)
 
 
 #--------------------------------------------------------------------------
@@ -235,59 +353,63 @@ CT2_R1_OFFSET = 0
 
 CT2_R1_SEQ = [
 # addr        name      read  write             description
-[0x00, "COM_GENE",      True, True,  "General control"],
-[0x04, "CTRL_GENE",     True, False, "General status"],
-
-[0x0C, "NIVEAU_OUT",    True, True,  "Output enable and type (TTL or NIM)"],
-[0x10, "ADAPT_50",      True, True,  "Input 50 ohms loads selector"],
-[0x14, "SOFT_OUT",      True, True,  "Output status control (when enabled)"],
-[0x18, "RD_IN_OUT",     True, False, "Input and output readback"],
-[0x1C, "RD_CTRL_CMPT",  True, False, "Counter ENABLE and RUN readback"],
-[0x20, "CMD_DMA",       True, True,  "DMA enable and trigger source, counters for storing selector"],
-[0x24, "CTRL_FIFO_DMA", True, False, "FIFO status"],
-[0x28, "SOURCE_IT_A",   True, True,  "Interrupt source A selector"],
-[0x2C, "SOURCE_IT_B",   True, True,  "Interrupt source B selector"],
-[0x30, "CTRL_IT",       True, False, "Interrupt status and clear"],
-[0x34, "NIVEAU_IN",     True, True,  "Input level (TTL or NIM), selector"],
-
-[0x40, "RD_CMPT_1",  True, False, "Counter 1 direct readout"],
-[0x44, "RD_CMPT_2",  True, False, "Counter 2 direct readout"],
-[0x48, "RD_CMPT_3",  True, False, "Counter 3 direct readout"],
-[0x4C, "RD_CMPT_4",  True, False, "Counter 4 direct readout"],
-[0x50, "RD_CMPT_5",  True, False, "Counter 5 direct readout"],
-[0x54, "RD_CMPT_6",  True, False, "Counter 6 direct readout"],
-[0x58, "RD_CMPT_7",  True, False, "Counter 7 direct readout"],
-[0x5C, "RD_CMPT_8",  True, False, "Counter 8 direct readout"],
-[0x60, "RD_CMPT_9",  True, False, "Counter 9 direct readout"],
-[0x64, "RD_CMPT_10", True, False, "Counter 10 direct readout"],
-[0x68, "RD_CMPT_11", True, False, "Counter 11 direct readout"],
-[0x6C, "RD_CMPT_12", True, False, "Counter 12 direct readout"],
-
-[0x70, "RD_LATCH_CMPT_1", True, False,  "Latch counter 1 readout"],
-[0x74, "RD_LATCH_CMPT_2", True, False,  "Latch counter 2 readout"],
-[0x78, "RD_LATCH_CMPT_3", True, False,  "Latch counter 3 readout"],
-[0x7C, "RD_LATCH_CMPT_4", True, False,  "Latch counter 4 readout"],
-[0x80, "RD_LATCH_CMPT_5", True, False,  "Latch counter 5 readout"],
-[0x84, "RD_LATCH_CMPT_6", True, False,  "Latch counter 6 readout"],
-[0x88, "RD_LATCH_CMPT_7", True, False,  "Latch counter 7 readout"],
-[0x8C, "RD_LATCH_CMPT_8", True, False,  "Latch counter 8 readout"],
-[0x90, "RD_LATCH_CMPT_9", True, False,  "Latch counter 9 readout"],
-[0x94, "RD_LATCH_CMPT_10", True, False, "Latch counter 10 readout"],
-[0x98, "RD_LATCH_CMPT_11", True, False, "Latch counter 11 readout"],
-[0x9C, "RD_LATCH_CMPT_12", True, False, "Latch counter 12 readout"],
-
-[0xFC, "TEST_REG", True, True, "Test data register"],
-]
+[
+ [0x00, "COM_GENE",      True, True,  "General control"],
+ [0x04, "CTRL_GENE",     True, False, "General status"],
+], [
+ [0x0C, "NIVEAU_OUT",    True, True,  "Output enable and type (TTL or NIM)"],
+ [0x10, "ADAPT_50",      True, True,  "Input 50 ohms loads selector"],
+ [0x14, "SOFT_OUT",      True, True,  "Output status control (when enabled)"],
+ [0x18, "RD_IN_OUT",     True, False, "Input and output readback"],
+ [0x1C, "RD_CTRL_CMPT",  True, False, "Counter ENABLE and RUN readback"],
+ [0x20, "CMD_DMA",       True, True,  "DMA enable and trigger source, counters for storing selector"],
+ [0x24, "CTRL_FIFO_DMA", True, False, "FIFO status"],
+ [0x28, "SOURCE_IT_A",   True, True,  "Interrupt source A selector"],
+ [0x2C, "SOURCE_IT_B",   True, True,  "Interrupt source B selector"],
+], [
+ [0x30, "CTRL_IT",       True, False, "Interrupt status and clear"],
+], [
+ [0x34, "NIVEAU_IN",     True, True,  "Input level (TTL or NIM), selector"],
+], [
+ [0x40, "RD_CMPT_1",  True, False, "Counter 1 direct readout"],
+ [0x44, "RD_CMPT_2",  True, False, "Counter 2 direct readout"],
+ [0x48, "RD_CMPT_3",  True, False, "Counter 3 direct readout"],
+ [0x4C, "RD_CMPT_4",  True, False, "Counter 4 direct readout"],
+ [0x50, "RD_CMPT_5",  True, False, "Counter 5 direct readout"],
+ [0x54, "RD_CMPT_6",  True, False, "Counter 6 direct readout"],
+ [0x58, "RD_CMPT_7",  True, False, "Counter 7 direct readout"],
+ [0x5C, "RD_CMPT_8",  True, False, "Counter 8 direct readout"],
+ [0x60, "RD_CMPT_9",  True, False, "Counter 9 direct readout"],
+ [0x64, "RD_CMPT_10", True, False, "Counter 10 direct readout"],
+ [0x68, "RD_CMPT_11", True, False, "Counter 11 direct readout"],
+ [0x6C, "RD_CMPT_12", True, False, "Counter 12 direct readout"],
+], [
+ [0x70, "RD_LATCH_CMPT_1", True, False,  "Latch counter 1 readout"],
+ [0x74, "RD_LATCH_CMPT_2", True, False,  "Latch counter 2 readout"],
+ [0x78, "RD_LATCH_CMPT_3", True, False,  "Latch counter 3 readout"],
+ [0x7C, "RD_LATCH_CMPT_4", True, False,  "Latch counter 4 readout"],
+ [0x80, "RD_LATCH_CMPT_5", True, False,  "Latch counter 5 readout"],
+ [0x84, "RD_LATCH_CMPT_6", True, False,  "Latch counter 6 readout"],
+ [0x88, "RD_LATCH_CMPT_7", True, False,  "Latch counter 7 readout"],
+ [0x8C, "RD_LATCH_CMPT_8", True, False,  "Latch counter 8 readout"],
+ [0x90, "RD_LATCH_CMPT_9", True, False,  "Latch counter 9 readout"],
+ [0x94, "RD_LATCH_CMPT_10", True, False, "Latch counter 10 readout"],
+ [0x98, "RD_LATCH_CMPT_11", True, False, "Latch counter 11 readout"],
+ [0x9C, "RD_LATCH_CMPT_12", True, False, "Latch counter 12 readout"],
+], [
+ [0xFC, "TEST_REG", True, True, "Test data register"],
+]]
 
 # make a dict, change the address: divide by register size + add the register map offset
 
 CT2_R1_DICT = {}
-for reg_info in CT2_R1_SEQ:
-    addr, name, r, w, desc = reg_info
-    addr = CT2_R1_OFFSET + addr
-    reg_info[0] = addr
-    CT2_R1_DICT[name] = addr, r, w, desc
-del reg_info, addr, name, r, w, desc
+for zone in CT2_R1_SEQ:
+    for reg_info in zone:
+        addr, name, r, w, desc = reg_info
+        addr = CT2_R1_OFFSET + addr
+        reg_info[0] = addr
+        CT2_R1_DICT[name] = addr, r, w, desc
+del reg_info, addr, name, r, w, desc, zone
 
 #--------------------------------------------------------------------------
 #                       PCI I/O Space 2 Registers Map
@@ -297,20 +419,21 @@ CT2_R2_OFFSET = 64 * CT2_REG_SIZE
 
 CT2_R2_SEQ = [
 # addr        name           read  write             description
-[0x00, "SEL_FILTRE_INPUT_A", True, True, "Input 1 to 6: filter configuration and deglitcher enable"],
-[0x04, "SEL_FILTRE_INPUT_B", True, True, "Input 7 to 10: filter configuration and deglitcher enable"],
-
+[
+ [0x00, "SEL_FILTRE_INPUT_A", True, True, "Input 1 to 6: filter configuration and deglitcher enable"],
+ [0x04, "SEL_FILTRE_INPUT_B", True, True, "Input 7 to 10: filter configuration and deglitcher enable"],
+], [
 [0x10, "SEL_FILTRE_OUTPUT", True, True, "Output 9 and 10: filter configuration and polarity selection"],
-
+], [
 [0x1C, "SEL_SOURCE_OUTPUT", True, True, "Output 9 and 10: source selection"],
-
+], [
 [0x20, "SEL_LATCH_A", True, True, "Counter 1 and 2: latch source"],
 [0x24, "SEL_LATCH_B", True, True, "Counter 3 and 4: latch source"],
 [0x28, "SEL_LATCH_C", True, True, "Counter 5 and 6: latch source"],
 [0x2C, "SEL_LATCH_D", True, True, "Counter 7 and 8: latch source"],
 [0x30, "SEL_LATCH_E", True, True, "Counter 9 and 10: latch source"],
 [0x34, "SEL_LATCH_F", True, True, "Counter 11 and 12: latch source"],
-
+], [
 [0x38, "CONF_CMPT_1", True, True,  "Counter 1: clk, gate_cmpt, hard_start, hard_stop source and reset / stop enable"],
 [0x3C, "CONF_CMPT_2", True, True,  "Counter 2: clk, gate_cmpt, hard_start, hard_stop source and reset / stop enable"],
 [0x40, "CONF_CMPT_3", True, True,  "Counter 3: clk, gate_cmpt, hard_start, hard_stop source and reset / stop enable"],
@@ -323,11 +446,11 @@ CT2_R2_SEQ = [
 [0x5C, "CONF_CMPT_10", True, True, "Counter 10: clk, gate_cmpt, hard_start, hard_stop source and reset / stop enable"],
 [0x60, "CONF_CMPT_11", True, True, "Counter 11: clk, gate_cmpt, hard_start, hard_stop source and reset / stop enable"],
 [0x64, "CONF_CMPT_12", True, True, "Counter 12: clk, gate_cmpt, hard_start, hard_stop source and reset / stop enable"],
-
+], [
 [0x68, "SOFT_ENABLE_DISABLE", False, True, "Counters 1 to 12: software enable, disable"],
 [0x6C, "SOFT_START_STOP",     False, True, "Counters 1 to 12: software start, stop"],
 [0x70, "SOFT_LATCH",          False, True, "Counters 1 to 12: software latch"],
-
+], [
 [0x74, "COMPARE_CMPT_1", True, True,  "Counter 1 comparator value"],
 [0x78, "COMPARE_CMPT_2", True, True,  "Counter 2 comparator value"],
 [0x7C, "COMPARE_CMPT_3", True, True,  "Counter 3 comparator value"],
@@ -340,17 +463,18 @@ CT2_R2_SEQ = [
 [0x98, "COMPARE_CMPT_10", True, True, "Counter 10 comparator value"],
 [0x9C, "COMPARE_CMPT_11", True, True, "Counter 11 comparator value"],
 [0xA0, "COMPARE_CMPT_12", True, True, "Counter 12 comparator value"],
-]
+]]
 
 # make a dict, change the address: divide by register size + add the register map offset
 
 CT2_R2_DICT = {}
-for reg_info in CT2_R2_SEQ:
-    addr, name, r, w, desc = reg_info
-    addr = CT2_R2_OFFSET + addr
-    reg_info[0] = addr
-    CT2_R2_DICT[name] = addr, r, w, desc
-del reg_info, addr, name, r, w, desc
+for zone in CT2_R2_SEQ:
+    for reg_info in zone:
+        addr, name, r, w, desc = reg_info
+        addr = CT2_R2_OFFSET + addr
+        reg_info[0] = addr
+        CT2_R2_DICT[name] = addr, r, w, desc
+del reg_info, addr, name, r, w, desc, zone
 
 #--------------------------------------------------------------------------
 #                       PCI I/O Registers Map
@@ -1818,52 +1942,17 @@ class BaseCard:
     #: fifo size (bytes)
     FIFO_SIZE = 0
 
-    def __init__(self, address="/dev/ct2_0"):
-        self.__log = logging.getLogger("P201." + address)
-        self.__address = address
-        self.__dev = None
+    def __init__(self, interface=None):
+        self.interface = CardInterface() if interface is None else interface
         self.__interrupt_buffer_size = 0
-        self.connect(address)
+        self.__log = logging.getLogger(str(self))
+        self.connect()
 
     def __str__(self):
-        address = self.__address or ""
-        return "{0}({1})".format(self.__class__.__name__, address)
+        return "{0.__class__.__name__}({0.interface})".format(self)
 
     def __repr__(self):
         return str(self)
-
-    def __ioctl(self, op, *args, **kwargs):
-        try:
-            fcntl.ioctl(self.fileno(), op[0], *args, **kwargs)
-            self.__log.debug("ioctl %020s", op[1])
-        except (IOError, OSError) as exc:
-            if exc.errno in op[2]:
-                raise CT2Exception("{0} error: {1}".format(op[1],
-                                                           op[2][exc.errno]))
-            else:
-                raise
-
-    def _read_offset(self, offset):
-        result = preadn(self.fileno(), offset, n=CT2_REG_SIZE)
-        iresult = struct.unpack("I", result)[0]
-        return iresult
-
-    def _read_offset_array(self, offset, nb_reg=1):
-        result = preadn(self.fileno(), offset, n=CT2_REG_SIZE*nb_reg)
-        import numpy
-        return numpy.frombuffer(result, dtype=numpy.uint32)
-
-    def _write_offset(self, offset, ivalue):
-        """ """
-        svalue = struct.pack("I", int(ivalue))
-        return pwrite(self.fileno(), svalue, offset)
-
-    def _write_offset_array(self, offset, array):
-        return pwrite(self.fileno(), array.tostring(), offset)
-
-    @property
-    def address(self):
-        return self.__address
 
     @property
     def fifo(self):
@@ -1893,19 +1982,12 @@ class BaseCard:
         return mmap.mmap(self.fileno(), length, flags=mmap.MAP_PRIVATE,
                          prot=mmap.PROT_READ, offset=CT2_MM_FIFO_OFF)
 
-    def connect(self, address):
-        if address is None:
-            self.disconnect()
-        else:
-            if self.__dev:
-                self.__log.info("connecting card to %s", address)
-            self.__dev = open(address, "rwb+", 0)
-            self.__exclusive = False
+    def connect(self):
+        self.interface.connect()
+        self.__exclusive = False
 
     def disconnect(self):
-        if self.__dev:
-            self.__dev.close()
-        self.__dev = None
+        self.interface.disconnect()
         self.__exclusive = False
 
     def fileno(self):
@@ -1913,9 +1995,7 @@ class BaseCard:
         internal card file descriptor (don't use this member directly on your
         code)
         """
-        if self.__dev is None:
-            raise CT2Exception("Card not connected to device")
-        return self.__dev.fileno()
+        return self.interface.fileno()
 
     def request_exclusive_access(self):
         """
@@ -1924,14 +2004,14 @@ class BaseCard:
 
         :raises CT2Exception: if fails to get exclusive access
         """
-        self.__ioctl(CT2_IOC_QXA)
+        self.interface.ioctl(CT2_IOC_QXA)
         self.__exclusive = True
 
     def relinquish_exclusive_access(self):
         """
         Relinquish exclusive access. Always succeeds.
         """
-        self.__ioctl(CT2_IOC_LXA)
+        self.interface.ioctl(CT2_IOC_LXA)
         self.__exclusive = False
 
     def has_exclusive_access(self):
@@ -1949,7 +2029,7 @@ class BaseCard:
 
         :raises CT2Exception: if fails to reset the card
         """
-        self.__ioctl(CT2_IOC_DEVRST)
+        self.interface.ioctl(CT2_IOC_DEVRST)
 
     def __enable_interrupts(self, fifo_size):
         """
@@ -1960,13 +2040,13 @@ class BaseCard:
 
         :raises CT2Exception: if fails to enable interrupts
         """
-        self.__ioctl(CT2_IOC_EDINT, fifo_size)
+        self.interface.ioctl(CT2_IOC_EDINT, fifo_size)
 
     def __disable_interrupts(self):
         """
         Disables the driver IRQ handler
         """
-        self.__ioctl(CT2_IOC_DDINT)
+        self.interface.ioctl(CT2_IOC_DDINT)
 
     def __source_irq_reg_name(self, reg):
         return "SOURCE_IT_" + reg
@@ -2020,7 +2100,7 @@ class BaseCard:
             tuple( tuple(set<int>, set<int>, bool, bool, bool), float )
         """
         data = ct2_in()
-        self.__ioctl(CT2_IOC_ACKINT, data, True)
+        self.interface.ioctl(CT2_IOC_ACKINT, data, True)
         t = data.stamp.tv_sec + data.stamp.tv_nsec * 1E-9
         return self.__decode_ctrl_it(data.ctrl_it), t
 
@@ -2039,7 +2119,7 @@ class BaseCard:
         """
         register_name = register_name.upper()
         offset = CT2_R_DICT[register_name][0]
-        iresult = self._read_offset(offset)
+        iresult = self.interface.read_offset(offset)
         self.__log.debug(" read %020s (addr=%06s) = %010s", register_name,
                          hex(offset), hex(iresult))
         return iresult
@@ -2062,7 +2142,7 @@ class BaseCard:
         offset = CT2_R_DICT[register_name][0]
         self.__log.debug("write %020s (addr=%06s, value=%010s)", register_name,
                          hex(offset), hex(ivalue))
-        return self._write_offset(offset, ivalue)
+        return self.interface.write_offset(offset, ivalue)
 
     def read_fifo(self, nb_events=0, use_mmap=False):
         etl = self.get_DMA_enable_trigger_latch()
@@ -2077,9 +2157,8 @@ class BaseCard:
             buff = self.fifo[:read_len]
         else:
             fifo_offset = CT2_RW_FIFO_OFF * CT2_REG_SIZE
-            buff = preadn(self.fileno(), fifo_offset, n=read_len)
+            buff = self.interface.pread(fifo_offset, n=read_len)
 
-        import numpy
         return numpy.ndarray((nb_events, nb_counters), dtype=numpy.uint32,
                              buffer=buff), fifo_status
 
@@ -2679,11 +2758,11 @@ class BaseCard:
         :raises OSError: in case the operation fails
         """
         offset = CT2_R_DICT["RD_CMPT_1"][0] + (counter - 1) * CT2_REG_SIZE
-        return self._read_offset(offset)
+        return self.interface.read_offset(offset)
 
     def get_counters_values(self):
         offset = CT2_R_DICT["RD_CMPT_1"][0]
-        return self._read_offset_array(offset, len(self.COUNTERS))
+        return self.interface.read_offset_array(offset, len(self.COUNTERS))
 
     def get_latch_value(self, latch):
         """
@@ -2697,11 +2776,11 @@ class BaseCard:
         :raises OSError: in case the operation fails
         """
         offset = CT2_R_DICT["RD_LATCH_CMPT_1"][0] + (latch - 1) * CT2_REG_SIZE
-        return self._read_offset(offset)
+        return self.interface.read_offset(offset)
 
     def get_latches_values(self):
         offset = CT2_R_DICT["RD_LATCH_CMPT_1"][0]
-        return self._read_offset_array(offset, len(self.COUNTERS))
+        return self.interface.read_offset_array(offset, len(self.COUNTERS))
 
     def set_test_reg(self, value):
         """
@@ -3079,7 +3158,7 @@ class BaseCard:
 
     def get_counters_comparators_values(self):
         offset = CT2_R_DICT["COMPARE_CMPT_1"][0]
-        return self._read_offset_array(offset, len(self.COUNTERS))
+        return self.interface.read_offset_array(offset, len(self.COUNTERS))
 
     def set_counter_comparator_value(self, counter, value):
         """
@@ -3266,6 +3345,46 @@ class BaseCard:
             ct[counter] = False
         self.set_counters_software_enable_disable(ct)
 
+    def dump_memory_zones(self):
+        """
+        Dump internal card register memory
+
+        Result is a sequence of memory zones. Each memory zone consists of an
+        offset, and a copy of the card memory
+
+        :return: the card memory dump separated by zones
+
+        :rtype: sequence<sequence<offset, buffer>>
+        """
+        memory_zones = []
+        last_zone = None
+        for zone in CT2_R_SEQ:
+            r0 = zone[0]
+            offset, size = r0[0], len(zone) * CT2_REG_SIZE
+            if r0[1] in ('CTRL_IT', 'SOFT_ENABLE_DISABLE'):
+                continue
+            dump = self.interface.pread(offset, size)
+            memory_zones.append((offset, dump))
+        return memory_zones
+
+    def dump_memory(self):
+        """
+        Dump internal card register memory
+
+        :return:
+            a buffer representing a copy of the card internal register memory
+        :rtype: bytes
+        """
+        memory = []
+        next_addr = None
+        for offset, mem in self.dump_memory_zones():
+            if next_addr is not None:
+                # if there is a gap fill it with 0xFE
+                memory.append((offset - next_addr)*b'\xFE')
+            memory.append(mem)
+            next_addr = offset + len(mem)
+        return b''.join(memory)
+
 
 class P201Card(BaseCard):
     """
@@ -3303,13 +3422,13 @@ def get_ct2_card_class(card_type):
     return klass
 
 
-def CT2Card(card_type, name):
+def CT2Card(card_type, address):
     klass = get_ct2_card_class(card_type)
     if not klass:
         raise ValueError("Invalid card_type: %s" % card_type)
 
-    name = name if name else "/dev/ct2_0"
-    return klass(name)
+    address = address if address else "/dev/ct2_0"
+    return klass(CardInterface(address))
 
 
 # -----------------------------------------------------------------------------

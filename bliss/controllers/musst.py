@@ -62,9 +62,9 @@ class musst(object):
                 #check if has the good interface
                 if switch_name is None:
                     raise RuntimeError('musst: channel (%d) with external switch musst have a switch_name defined' % channel_id)
-                if not hasattr(switch,'switch'):
-                    raise RuntimeError("musst: channel (%d), switch object doesn't have a switch method" % channel_id)
-                self._switch = weakref.proxy(switch)
+                if not hasattr(switch,'set'):
+                    raise RuntimeError("musst: channel (%d), switch object doesn't have a set method" % channel_id)
+                self._switch = switch
                 self._switch_name = switch_name
             else:
                 self._switch = None
@@ -72,7 +72,7 @@ class musst(object):
         @property
         def value(self):
             if self._switch is not None:
-                self._switch.switch(self._switch_name)
+                self._switch.set(self._switch_name)
             musst = self._musst()
             string_value = musst.putget("?CH CH%d" % self._channel_id).split()[0]
             return self._convert(string_value)
@@ -80,7 +80,7 @@ class musst(object):
         @value.setter
         def value(self,val):
             if self._switch is not None:
-                self._switch.switch(self._switch_name)
+                self._switch.set(self._switch_name)
             musst = self._musst()
             musst.putget("CH CH%d %s" % (self._channel_id,val))
 
@@ -239,19 +239,15 @@ class musst(object):
                     raise RuntimeError("musst: channel in config must have a label")
                 self._channels[channel_name.upper()] = self.get_channel(channel_number,type=channel_type)
             elif channel_type == 'switch':
-                ext_switch_name = channel_config.get('name')
-                if ext_switch_name is None:
-                    raise RuntimeError("musst: channel (%s) with type switch must have a reference to an object name" % channel_number)
+                ext_switch = channel_config.get('name')
+                if not hasattr(ext_switch,'states_list'):
+                    raise RuntimeError("musst: channels (%s) switch object must have states_list method" % channel_number)
 
-                ext_switch = config_tree.get(ext_switch_name)
-                if not hasattr(ext_switch,'getSwitchList'):
-                    raise RuntimeError("musst: channels (%s) switch object must have getSwitchList method" % channel_number)
-
-                for channel_name in ext_switch.getSwitchList():
-                    self._channels[channel_name.upper()] = self.get_channel(channel_number,
-                                                                            type=channel_type,
-                                                                            switch=ext_switch,
-                                                                            switch_name=channel_name)
+                for channel_name in ext_switch.states_list():
+                    self._channels[channel_name] = self.get_channel(channel_number,
+                                                                    type=channel_type,
+                                                                    switch=ext_switch,
+                                                                    switch_name=channel_name)
             else:
                 raise RuntimeError("musst: channel type can only be of type (cnt,encoder,ssi,adc5,adc10,switch)")
 

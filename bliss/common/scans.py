@@ -33,7 +33,7 @@ from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning import scan as scan_module
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 from bliss.scanning.acquisition.motor import LinearStepTriggerMaster, MeshStepTriggerMaster
-from bliss.scanning.acquisition.lima import LimaAcquisitionDevice
+from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
 from bliss.session import session,measurementgroup
 try:
     from bliss.scanning.writer import hdf5 as default_writer
@@ -107,7 +107,7 @@ def default_master_configuration(counter, scan_pars):
         acq_trigger_mode = scan_pars.get('acq_trigger_mode',
                                          'INTERNAL_TRIGGER_MULTI' \
                                          if multi_mode else 'INTERNAL_TRIGGER')
-        acq_device = LimaAcquisitionDevice(device,
+        acq_device = LimaAcquisitionMaster(device,
                                            acq_nb_frames = acq_nb_frames,
                                            acq_expo_time = acq_expo_time,
                                            acq_trigger_mode = acq_trigger_mode,

@@ -8,7 +8,7 @@
 import pytest
 from bliss.scanning.chain import AcquisitionChain
 from bliss.common.scans import default_chain
-from bliss.scanning.acquisition.lima import LimaAcquisitionDevice
+from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
 from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionDevice, IntegratingCounterAcquisitionDevice 
 from bliss.controllers.simulation_diode import CONTROLLER as diode23_controller
 
@@ -94,7 +94,7 @@ def test_default_chain_with_bpm(beacon):
       |
       |-Timer
         |
-        |-LimaAcquisitionDevice
+        |-LimaAcquisitionMaster
           |
           |-X
           |-Y
@@ -116,7 +116,7 @@ def test_default_chain_with_bpm(beacon):
     nodes = chain.nodes_list
     assert len(nodes) == 3 
     assert isinstance(nodes[0], timer.__class__)
-    assert isinstance(nodes[1], LimaAcquisitionDevice)
+    assert isinstance(nodes[1], LimaAcquisitionMaster)
     assert isinstance(nodes[2], IntegratingCounterAcquisitionDevice)
 
     assert len(nodes[2].counter_names) == 3
@@ -132,7 +132,7 @@ def test_default_chain_with_bpm_and_diode(beacon):
       |
       |-Timer
         |
-        |-LimaAcquisitionDevice
+        |-LimaAcquisitionMaster
           |
           |-intensity
         |
@@ -154,7 +154,7 @@ def test_default_chain_with_bpm_and_diode(beacon):
     nodes = chain.nodes_list
     assert len(nodes) == 4
     assert isinstance(nodes[0], timer.__class__)
-    assert isinstance(nodes[1], LimaAcquisitionDevice)
+    assert isinstance(nodes[1], LimaAcquisitionMaster)
     assert isinstance(nodes[2], IntegratingCounterAcquisitionDevice)
     assert isinstance(nodes[3], SamplingCounterAcquisitionDevice)
 
@@ -173,7 +173,7 @@ def test_default_chain_with_bpm_and_image(beacon):
       |
       |-Timer
         |
-        |-LimaAcquisitionDevice => saves image
+        |-LimaAcquisitionMaster => saves image
           |
           |-X
     """
@@ -191,7 +191,7 @@ def test_default_chain_with_bpm_and_image(beacon):
     nodes = chain.nodes_list
     assert len(nodes) == 3
     assert isinstance(nodes[0], timer.__class__)
-    assert isinstance(nodes[1], LimaAcquisitionDevice)
+    assert isinstance(nodes[1], LimaAcquisitionMaster)
     assert isinstance(nodes[2], IntegratingCounterAcquisitionDevice)
     assert nodes[1].parent == timer
     assert nodes[2].parent == nodes[1]

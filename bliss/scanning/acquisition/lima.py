@@ -5,14 +5,14 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from ..chain import AcquisitionDevice, AcquisitionMaster, AcquisitionChannel
+from ..chain import AcquisitionMaster, AcquisitionChannel
 from bliss.common.event import dispatcher
 from bliss.controllers import lima
 import gevent
 import time
 import numpy
 
-class LimaAcquisitionDevice(AcquisitionDevice):
+class LimaAcquisitionMaster(AcquisitionMaster):
   def __init__(self, device,
                acq_nb_frames=1, acq_expo_time=1,
                acq_trigger_mode='INTERNAL_TRIGGER', acq_mode="SINGLE",
@@ -31,14 +31,15 @@ class LimaAcquisitionDevice(AcquisitionDevice):
       del self.parameters['save_flag']
       del self.parameters['keys']
       self.parameters.update(keys)
-      trigger_type = AcquisitionDevice.SOFTWARE if 'INTERNAL' in acq_trigger_mode else AcquisitionDevice.HARDWARE
+      trigger_type = AcquisitionMaster.SOFTWARE if 'INTERNAL' in acq_trigger_mode else AcquisitionMaster.HARDWARE
       if isinstance(device,lima.Lima):
         device = device.proxy
-      AcquisitionDevice.__init__(self, device, device.user_detector_name, "lima", acq_nb_frames,
+      AcquisitionMaster.__init__(self, device, device.user_detector_name, "lima", acq_nb_frames,
                                  trigger_type = trigger_type,
                                  prepare_once = prepare_once,start_once = start_once)
       self.save_flag = save_flag
-              
+      self._reading_task = None
+
   def prepare(self):
       for param_name, param_value in self.parameters.iteritems():
           setattr(self.device, param_name, param_value)
@@ -50,13 +51,20 @@ class LimaAcquisitionDevice(AcquisitionDevice):
                (1,4): numpy.int32,
                (0,1): numpy.uint8,
                (1,1): numpy.int8 }
-      self.channels = [ AcquisitionChannel("image", dtype[(signed, depth)], (h,w)) ] 
+      self.channels = [ ] 
       self._latency = self.device.latency_time
 
+      if self._reading_task:
+        self._reading_task.kill()
+        self._reading_task = None
+
   def start(self):
-      if self.trigger_type == AcquisitionDevice.SOFTWARE:
+      if self.trigger_type == AcquisitionMaster.SOFTWARE:
           return
       self.trigger()
+
+      if self._reading_task is None:
+        self._reading_task = gevent.spawn(self.reading)
 
   def stop(self):
       self.device.stopAcq()
@@ -66,6 +74,9 @@ class LimaAcquisitionDevice(AcquisitionDevice):
       while not self.device.ready_for_next_image:
         if (wait_start + self._latency) >= time.time():
           break
+
+      if self._reading_task is not None:
+        self._reading_task.get()
 
   def trigger(self):
       self.device.startAcq()

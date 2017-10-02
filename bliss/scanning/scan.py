@@ -484,30 +484,29 @@ class FileWriter(object):
         for dev, node in scan_recorder.nodes.iteritems():
             if isinstance(dev, AcquisitionMaster):
                 master_entry = self.new_master(dev, scan_file_dir)
+
+                if dev.type == 'lima':
+                    try:
+                        save_flag = dev.save_flag
+                    except AttributeError:
+                        save_flag = True
+
+                    parameters  = dev.parameters
+                    camera_name = dev.device.camera_type
+                    scan_name   = scan_recorder.node.name()
+                    full_path = os.path.join(scan_file_dir,dev.device.user_detector_name)
+
+                    parameters.setdefault('saving_mode', 'AUTO_FRAME' if save_flag else 'MANUAL')
+                    if save_flag :
+                        parameters.setdefault('saving_format', 'EDF')
+                        parameters.setdefault('saving_frame_per_file', 1)
+                        parameters.setdefault('saving_directory', full_path)
+                        parameters.setdefault('saving_prefix', '%s_%s' % (scan_name,camera_name))
+                        parameters.setdefault('saving_suffix', '.edf')
                                 
                 for slave in dev.slaves:
                     if isinstance(slave, AcquisitionDevice):
-                        if slave.type == 'lima':
-                            try:
-                                save_flag = slave.save_flag
-                            except AttributeError:
-                                save_flag = True
-
-                            parameters  = slave.parameters
-                            camera_name = slave.device.camera_type
-                            scan_name   = scan_recorder.node.name()
-                            full_path = os.path.join(scan_file_dir,slave.device.user_detector_name)
-
-                            parameters.setdefault('saving_mode', 'AUTO_FRAME' if save_flag else 'MANUAL')
-                            if not save_flag : continue
-
-                            parameters.setdefault('saving_format', 'EDF')
-                            parameters.setdefault('saving_frame_per_file', 1)
-                            parameters.setdefault('saving_directory', full_path)
-                            parameters.setdefault('saving_prefix', '%s_%s' % (scan_name,camera_name))
-                            parameters.setdefault('saving_suffix', '.edf')
-                        else:
-                            self._event_receivers.append(self._device_event_receiver(slave, master_entry))
+                        self._event_receivers.append(self._device_event_receiver(slave, master_entry))
                     elif isinstance(slave,AcquisitionMaster):
                         self._event_receivers.append(self._master_event_receiver(slave, slave, master_entry))
                 self._event_receivers.append(self._device_event_receiver(dev, master_entry))

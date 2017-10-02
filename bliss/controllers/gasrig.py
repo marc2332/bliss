@@ -134,8 +134,8 @@ def _get_gasrig_valve_names(wago):
 
 class MKS910Counter(WagoCounter):
     def __init__(self, wago_counter):
-        WagoCounter.__init__(self, wago_counter.parent,
-                             wago_counter.cntname,
+        WagoCounter.__init__(self, wago_counter.cntname,
+                             wago_counter.parent,
                              index=wago_counter.index,
                              conversion_function = MKS910Counter.adc_to_mbar)
 

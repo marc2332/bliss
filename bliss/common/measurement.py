@@ -266,19 +266,21 @@ class SamplingCounter(Counter):
             """
             raise NotImplementedError
 
+    class ConvertValue(object):
+        def __init__(self, grouped_read_handler):
+            self.read = grouped_read_handler.read
+        def __call__(self, *counters):
+            return [cnt.conversion_function(x) if cnt.conversion_function else x for x, cnt in \
+                    zip(self.read(*counters), counters)]
+
     def __init__(self, name, controller, 
                  grouped_read_handler = None,conversion_function = None):
         if grouped_read_handler is None and hasattr(controller, "read_all"):
             grouped_read_handler = DefaultSamplingCounterGroupedReadHandler(controller)
-            
+
         if grouped_read_handler:
-            class ConvertValue(object):
-                def __init__(self, grouped_read_handler):
-                    self.read = grouped_read_handler.read
-                def __call__(self, *counters):
-                    return [cnt.conversion_function(x) if cnt.conversion_function else x for x, cnt in \
-                            zip(self.read(*counters), counters)]
-            grouped_read_handler.read = ConvertValue(grouped_read_handler)
+            if not isinstance(grouped_read_handler.read,self.ConvertValue):
+                grouped_read_handler.read = self.ConvertValue(grouped_read_handler)
         else:
             if callable(conversion_function):
                 add_conversion_function(self, 'read', conversion_function)

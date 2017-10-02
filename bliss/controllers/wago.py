@@ -478,12 +478,6 @@ class WagoCounter(SamplingCounter):
   def __call__(self, *args, **kwargs):
     return self
  
-  def read(self):
-    data = self.parent._cntread()
-    if isinstance(self.cntname, str):
-      data = data[self.parent.cnt_dict[self.cntname]]
-    return data
-
   def gain(self, gain=None, name=None):
     name = name or self.cntname
     try:

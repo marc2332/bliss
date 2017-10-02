@@ -43,9 +43,10 @@ class Bpm(object):
         self._proxy = bpm_proxy
         self._acquisition_proxy = acquisition_proxy
         self._name2index = {
-            "x" : 1,
-            "y" : 2,
-            "intensity" : 3,
+            "acq_time": 0,
+            "intensity" : 1,
+            "x" : 2,
+            "y" : 3,
             "fwhm_x" : 4,
             "fwhm_y" : 5
         }

@@ -53,6 +53,11 @@ class Bpm(object):
         self._grouped_read_handler = _GroupReadHandler(self)
 
     @property
+    def acq_time(self):
+        return LimaBpmCounter("acq_time", self, self._acquisition_proxy,
+                              grouped_read_handler = self._grouped_read_handler)
+
+    @property
     def x(self):
         return LimaBpmCounter("x", self, self._acquisition_proxy,
                               grouped_read_handler = self._grouped_read_handler)

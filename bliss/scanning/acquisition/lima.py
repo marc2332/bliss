@@ -74,15 +74,25 @@ class LimaAcquisitionMaster(AcquisitionMaster):
       while not self.device.ready_for_next_image:
         if (wait_start + self._latency) >= time.time():
           break
+        else:
+          gevent.idle()
 
       if self._reading_task is not None:
-        self._reading_task.get()
+        try:
+          # checkfor execption from reading task
+          self._reading_task.get(block=False)
+        except gevent.Timeout:
+          pass
 
   def trigger(self):
       self.device.startAcq()
 
+      if self.trigger_type == AcquisitionMaster.SOFTWARE:
+        if self._reading_task is None:
+          self._reading_task = gevent.spawn(self.reading)
+
   def reading(self):
-      parameters = {"type":"lima/parameters"}
+      parameters = {"type":"lima/parameters",'channel_data':dict()}
       parameters.update(self.parameters)
       dispatcher.send("new_data",self,parameters)
       while self.device.acq_status.lower() == 'running':
@@ -90,7 +100,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
                                              "last_image_acquired":self.device.last_image_acquired,
                                              "last_image_saved":self.device.last_image_saved,
                                            })
-          gevent.sleep(self.parameters['acq_expo_time']/2.0)
+          gevent.sleep(max(self.parameters['acq_expo_time']/10.0,10e-3))
       # TODO: self.dm.send_new_ref(self, {...}) ? or DataManager.send_new_ref(...) ?
       dispatcher.send("new_ref", self, { "type":"lima/image",
                                          "last_image_acquired":self.device.last_image_acquired,
@@ -98,4 +108,4 @@ class LimaAcquisitionMaster(AcquisitionMaster):
                                        })
       if self.device.acq_status.lower() == 'fault':
         raise RuntimeError("Device %s (%s) is in Fault state" % (self.device,self.device.user_detector_name))
-
+      self._reading_task = None

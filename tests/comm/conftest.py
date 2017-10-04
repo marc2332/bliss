@@ -7,70 +7,35 @@
 
 import os
 import pytest
-from multiprocessing import Process, Queue
-import socket
-import select
+from gevent.server import StreamServer, DatagramServer
+from gevent import select, socket
 
-def server_loop(port,rpipe):
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.bind(("", 0))
-    port.put(server_socket.getsockname()[-1])
-    server_socket.listen(20)
-    socket_list = [server_socket,rpipe]
+def tcp_echo_func(socket,address):
     while True:
-        r, w, e = select.select(socket_list, [], [])
-        if server_socket in r:
-            client_socket, addr = server_socket.accept()
-            socket_list.append(client_socket)
-        elif rpipe in r:
-            break
-        else:
-            for client in r:
-                data = client.recv(1024)
-                if data:
-                    client.sendall(data)
-                else:
-                    client.close()
-                    socket_list.remove(client)
+        r,_,_ = select.select([socket],[],[],3.)
 
+        if r:
+            msg = socket.recv(8192)
+            socket.sendall(msg)
+        
 @pytest.fixture(scope="session")
 def server_port():
-    PORT = Queue()
-    r,w = os.pipe()
-    server_p = Process(target=server_loop,args=(PORT,w))
-    server_p.start()
-    os.close(w)
-    yield PORT.get()
-    os.close(r)
-    server_p.terminate()
-    server_p.join()
+    server = StreamServer(('',0),handle=tcp_echo_func)
+    server.family = socket.AF_INET
+    server.start()
+    yield server.address[1]
+    server.stop()
 
-def upd_server_loop(PORT,rpipe):
-    udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    for port in range(8000,9000):
-        try:
-            udp.bind(("",port))
-        except socket.error:
-            pass
-        else:
-            PORT.put(port)
-            break
-    while True:
-        r, w, e = select.select([rpipe,udp], [], [])
-        if rpipe in r:
-            break
-        else:
-            buff,address = udp.recvfrom(8192)
-            udp.sendto(buff,address)
+class UdpEcho(object):
+    def __call__(self,msg,add):
+        self.server.sendto(msg,add)
 
 @pytest.fixture(scope="session")
 def udp_port():
-    PORT = Queue()
-    r,w = os.pipe()
-    server_p = Process(target=upd_server_loop,args=(PORT,w))
-    server_p.start()
-    os.close(w)
-    yield PORT.get()
-    os.close(r)
-    server_p.terminate()
-    server_p.join()
+    callback = UdpEcho()
+    server = DatagramServer(('',0),handle=callback)
+    callback.server = server
+    server.family = socket.AF_INET
+    server.start()
+    yield server.address[1]
+    server.stop()

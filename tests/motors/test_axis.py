@@ -135,17 +135,19 @@ def test_asynchronous_stop(robz):
 
     assert robz.state() == "MOVING"
 
+    started_time = time.time()
     time.sleep(1+robz.acctime())
 
     robz.stop(wait=False)
 
+    elapsed_time = time.time() - started_time
     assert robz.state() == "MOVING"
 
     robz.wait_move()
 
     assert robz.state() == "READY"
 
-    assert robz.position() == pytest.approx(1+robz.acceleration()*0.5*robz.acctime()**2, 1e-2)
+    assert robz.position() == pytest.approx(elapsed_time+robz.acceleration()*robz.acctime()**2, 1e-2)
 
 def test_home_stop(robz):
     robz.home(wait=False)
@@ -450,8 +452,10 @@ def test_jog(robz):
     robz.jog(300)
     assert robz.velocity() == 300
     t = 1+robz.acctime()
+    start_time = time.time()
     time.sleep(t)
-    assert robz._hw_position() == pytest.approx(300+robz.acceleration()*0.5*robz.acctime()**2, 1e-2)
+    elapsed_time = (time.time()-start_time) - robz.acctime()
+    assert robz._hw_position() == pytest.approx(300*elapsed_time+robz.acceleration()*0.5*robz.acctime()**2, 1e-2)
     assert robz.state() == "MOVING"
     robz.stop()
     assert robz.state() == "READY"
@@ -460,8 +464,10 @@ def test_jog(robz):
     assert robz.velocity() == 10
     robz.jog(-300, reset_position=0)
     assert robz.velocity() == 300
+    start_time = time.time()
     time.sleep(t)
-    assert robz._hw_position() == pytest.approx(-300-robz.acceleration()*0.5*robz.acctime()**2, 1e-2)
+    elapsed_time = (time.time()-start_time) - robz.acctime()
+    assert robz._hw_position() == pytest.approx(-300*elapsed_time-robz.acceleration()*0.5*robz.acctime()**2, 1e-2)
     robz.stop()
     assert robz.dial() == 0
     assert robz.velocity() == 10
@@ -473,8 +479,10 @@ def test_jog(robz):
 def test_jog2(jogger):
     jogger.jog(300) #this should go in the opposite direction because steps_per_unit < 0
     t = 1+jogger.acctime()
+    start_time = time.time()
     time.sleep(t)
-    assert jogger._hw_position() == pytest.approx(300+jogger.acceleration()*0.5*jogger.acctime()**2, 1e-2)
+    elapsed_time = (time.time()-start_time) - jogger.acctime()
+    assert jogger._hw_position() == pytest.approx(300*elapsed_time+jogger.acceleration()*0.5*jogger.acctime()**2, 1e-2)
     jogger.stop()
 
 def test_measured_position(m1, roby):

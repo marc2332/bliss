@@ -18,20 +18,19 @@ class Socket(BaseSocket):
     def _connect(self, host, port):
         fd = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         fd.setsockopt(socket.SOL_IP, socket.IP_TOS, 0x10)
+        fd.connect((host,port))
         return fd
 
     def _sendall(self,data):
         self._debug("Tx: %r %r",data,HexMsg(data))
-        return self._fd.sendto(data,(self._host,self._port))
+        return self._fd.send(data)
 
     @staticmethod
     def _raw_read(sock,fd):
         try:
             while(1):
-                raw_data,from_host = fd.recvfrom(16 * 1024)
-                #should test where data is comming from (todo)
-                # from_host should be == to host,port
-                sock._debug("Rx: %r %r from %s",raw_data,HexMsg(raw_data),from_host)
+                raw_data = fd.recv(16 * 1024)
+                sock._debug("Rx: %r %r",raw_data,HexMsg(raw_data))
                 if raw_data:
                     sock._data += raw_data
                     sock._event.set()

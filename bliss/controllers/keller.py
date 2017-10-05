@@ -72,7 +72,7 @@ import collections
 import gevent.lock
 
 from bliss.comm.util import get_comm
-from bliss.common.measurement import CounterBase
+from bliss.common.measurement import SamplingCounter
 
 
 BROADCAST_ADDR = 0
@@ -326,10 +326,11 @@ PT_PPRINT_TEMPLATE = """\
     status: {pt.init_info.status}"""
 
 
-class Counter(CounterBase):
+class KellerCounter(SamplingCounter):
 
-    def __init__(self, controller, name, channel, unit=None):
-        CounterBase.__init__(self, controller, name)
+    def __init__(self, name, controller, channel, unit=None):
+        SamplingCounter.__init__(self, name, controller)
+        self.controller = controller
         self.channel = channel
         self.unit = unit
 
@@ -433,7 +434,7 @@ class PressureTransmitter(object):
 
     def __create_counter(self, name, channel='P1'):
         cname, unit = self._CHANNEL_MAP[channel.upper()]
-        return Counter(self, name, cname, unit=unit)
+        return KellerCounter(name, self, cname, unit=unit)
 
     def pprint(self):
         print(PT_PPRINT_TEMPLATE.format(pt=self))

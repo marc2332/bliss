@@ -26,7 +26,7 @@ try:
   from bliss.scanning.acquisition.motor import  SoftwarePositionTriggerMaster
   from bliss.scanning.acquisition.motor import  MeshStepTriggerMaster,LinearStepTriggerMaster
   from bliss.scanning.acquisition.timer import SoftwareTimerMaster
-  from bliss.scanning.acquisition.lima import LimaAcquisitionDevice
+  from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
   import bliss 
   from PyTango.gevent import DeviceProxy
 except ImportError:
@@ -132,7 +132,7 @@ def test_lima():
   params = { "acq_nb_frames": 10,
              "acq_expo_time": 3/10.0,
              "acq_trigger_mode": "INTERNAL_TRIGGER_MULTI" }
-  lima_acq_dev = LimaAcquisitionDevice(lima_dev, **params)
+  lima_acq_dev = LimaAcquisitionMaster(lima_dev, **params)
   dispatcher.connect(cb, sender=lima_acq_dev) 
   chain.add(emotion_master, lima_acq_dev)
   scan = Scan(chain)
@@ -162,7 +162,7 @@ def test_dm_lima():
   params = { "acq_nb_frames": 5,
              "acq_expo_time": 3/10.0,
              "acq_trigger_mode": "INTERNAL_TRIGGER_MULTI" }
-  lima_acq_dev = LimaAcquisitionDevice(lima_dev, **params)
+  lima_acq_dev = LimaAcquisitionMaster(lima_dev, **params)
   chain.add(emotion_master, lima_acq_dev)
 
   toto = Container('toto')
@@ -194,7 +194,7 @@ def test_hdf5_lima():
   params = { "acq_nb_frames": 5,
              "acq_expo_time": 3/10.0,
              "acq_trigger_mode": "INTERNAL_TRIGGER_MULTI" }
-  lima_acq_dev = LimaAcquisitionDevice(lima_dev, **params)
+  lima_acq_dev = LimaAcquisitionMaster(lima_dev, **params)
   chain.add(emotion_master, lima_acq_dev)
 
   file_organizer = Hdf5Organizer(root_path = '/tmp')
@@ -345,7 +345,7 @@ def test_lima_basler():
   params = { "acq_nb_frames": nb_points,
              "acq_expo_time": 10e-3,
              "acq_trigger_mode": "INTERNAL_TRIGGER_MULTI" }
-  lima_acq_dev = LimaAcquisitionDevice(lima_dev, **params)
+  lima_acq_dev = LimaAcquisitionMaster(lima_dev, **params)
   chain.add(emotion_master, lima_acq_dev)
 
   hdf5_writer = hdf5.Writer(root_path = '/tmp')

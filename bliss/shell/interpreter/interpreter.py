@@ -223,7 +223,7 @@ def get_object_type(obj):
         return "motor"
 
     # is it a counter?
-    if isinstance(obj, measurement.CounterBase):
+    if isinstance(obj, measurement.SamplingCounter):
         return "counter" 
 
     # has it in/out capability?
@@ -250,7 +250,7 @@ def get_objects_by_type(objects_dict):
             motors[name]=obj
 
         # is it a counter?
-        if isinstance(obj, measurement.CounterBase):
+        if isinstance(obj, measurement.SamplingCounter):
             counters[name]=obj
         else:
             if not inspect.ismodule(obj):
@@ -260,7 +260,7 @@ def get_objects_by_type(objects_dict):
                 pass
               else:
                 for member_name, member in obj_dict.iteritems():
-                    if isinstance(member, measurement.CounterBase):
+                    if isinstance(member, measurement.SamplingCounter):
                         counters["%s.%s" % (name, member_name)]=member
         
         # has it in/out capability?

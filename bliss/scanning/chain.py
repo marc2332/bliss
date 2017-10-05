@@ -371,47 +371,54 @@ class AcquisitionChainIter(object):
         gevent.joinall(tasks, raise_error=True)
 
 class AcquisitionChain(object):
-  def __init__(self, parallel_prepare = False):
-      self._tree = Tree()
-      self._root_node = self._tree.create_node("acquisition chain","root")
-      self._device_to_node = dict()
-      self._presets_list = list()
-      self._parallel_prepare = parallel_prepare
-      self._device2one_shot_flag = weakref.WeakKeyDictionary()
+    def __init__(self, parallel_prepare = False):
+        self._tree = Tree()
+        self._root_node = self._tree.create_node("acquisition chain","root")
+        self._device_to_node = dict()
+        self._presets_list = list()
+        self._parallel_prepare = parallel_prepare
+        self._device2one_shot_flag = weakref.WeakKeyDictionary()
 
-  def add(self, master, slave):
-      self._device2one_shot_flag.setdefault(slave,False)
+    @property
+    def nodes_list(self):
+        nodes_gen = self._tree.expand_tree()
+        nodes_gen.next() # first node is 'root'
+        return list(nodes_gen)
+         
+    def add(self, master, slave):
+        self._device2one_shot_flag.setdefault(slave, False)
 
-      slave_node = self._tree.get_node(slave)
-      master_node = self._tree.get_node(master)
-      if slave_node is not None and isinstance(slave,AcquisitionDevice):
-          if(slave_node.bpointer is not self._root_node and 
-             master_node is not slave_node.bpointer):
-              raise RuntimeError("Cannot add acquisition device %s to multiple masters, current master is %s" % (slave, slave_node._bpointer))
-          else:                 # user error, multiple add, ignore for now
-              return
+        slave_node = self._tree.get_node(slave)
+        master_node = self._tree.get_node(master)
+        if slave_node is not None and isinstance(slave,AcquisitionDevice):
+            if(slave_node.bpointer is not self._root_node and 
+               master_node is not slave_node.bpointer):
+                raise RuntimeError("Cannot add acquisition device %s to multiple masters, current master is %s" % (slave, slave_node._bpointer))
+            else:                 # user error, multiple add, ignore for now
+                return
 
-      if master_node is None:
-          master_node = self._tree.create_node(tag=master.name,identifier=master,parent="root")
-      if slave_node is None:
-          slave_node = self._tree.create_node(tag=slave.name,identifier=slave,parent=master)
-      else:
-          self._tree.move_node(slave,master)
-      slave.parent = master
+        if master_node is None:
+            master_node = self._tree.create_node(tag=master.name,identifier=master,parent="root")
+        if slave_node is None:
+            slave_node = self._tree.create_node(tag=slave.name,identifier=slave,parent=master)
+        else:
+            self._tree.move_node(slave,master)
+        slave.parent = master
 
-  def add_preset(self, preset):
-      self._presets_list.append(preset)
+    def add_preset(self, preset):
+        self._presets_list.append(preset)
 
-  def set_stopper(self,device,stop_flag):
-      """
-      By default any top master device will stop the scan.
-      In case of several top master, you can define which one won't
-      stop the scan
-      """
-      self._device2one_shot_flag[device] = not stop_flag
+    def set_stopper(self,device,stop_flag):
+        """
+        By default any top master device will stop the scan.
+        In case of several top master, you can define which one won't
+        stop the scan
+        """
+        self._device2one_shot_flag[device] = not stop_flag
 
-  def __iter__(self):
-      if len(self._tree) > 1:
-          return AcquisitionChainIter(self,parallel_prepare = self._parallel_prepare)
-      else:
-          return iter(())
+    def __iter__(self):
+        if len(self._tree) > 1:
+            return AcquisitionChainIter(self,parallel_prepare = self._parallel_prepare)
+        else:
+            return iter(())
+

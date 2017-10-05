@@ -5,14 +5,31 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from bliss.common.measurement import CounterBase
+from bliss.common.measurement import SamplingCounter
 import random
-from gevent import sleep
+import gevent
 
-class simulation_diode(CounterBase):
+class simulation_diode_controller(object):
+    @property
+    def name(self):
+        return 'simulation_diode_controller'
+
+    def read_all(self, *counters):
+        gevent.sleep(0.01)
+        return [cnt.read(sleep=False) for cnt in counters]
+
+CONTROLLER = simulation_diode_controller()
+
+class simulation_diode(SamplingCounter):
     def __init__(self, name, config):
-        CounterBase.__init__(self, None, name)
+        if config.get("independent"):
+            controller = None
+        else:
+            controller = CONTROLLER
 
-    def read(self):
-        sleep(0.01) # simulate hw reading
+        SamplingCounter.__init__(self, name, controller)
+
+    def read(self, sleep=True):
+        if sleep:
+            gevent.sleep(0.01) # simulate hw reading
         return random.randint(-100,100)

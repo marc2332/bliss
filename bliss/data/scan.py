@@ -71,7 +71,7 @@ def get_data(scan):
     """
     dtype = list()
     chanlist = list()
-    chan_len_max = 0
+    max_channel_len = 0
     connection = scan.node.db_connection
     pipeline = connection.pipeline()
     for device,node in scan.nodes.iteritems():
@@ -83,8 +83,8 @@ def get_data(scan):
                 dtype.append((channel_name,'f8'))
 
     result = pipeline.execute()
-    chan_len_max = max((len(values) for values in result))
-    data = numpy.zeros(chan_len_max,dtype=dtype)
+    max_channel_len = max((len(values) for values in result))
+    data = numpy.zeros(max_channel_len,dtype=dtype)
     for channel_name,values in zip(chanlist,result):
         a = data[channel_name]
         nb_data = len(values)

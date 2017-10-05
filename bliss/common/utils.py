@@ -24,12 +24,28 @@ class WrappedMethod(object):
   def __call__(self, this, *args, **kwargs):
     return getattr(self.control, self.method_name)(*args, **kwargs)
 
+
 def wrap_methods(from_object, target_object):
    for name in dir(from_object):
        if inspect.ismethod(getattr(from_object, name)):
          if hasattr(target_object, name) and inspect.ismethod(getattr(target_object, name)):
            continue
          setattr(target_object, name, types.MethodType(WrappedMethod(from_object, name), target_object, target_object.__class__))
+
+
+def add_conversion_function(obj, method_name, function):
+    meth = getattr(obj, method_name)
+    if inspect.ismethod(meth):
+        if callable(function):
+            def new_method(*args, **kwargs):
+                values = meth(*args, **kwargs)
+                return function(values)
+            setattr(obj, method_name, new_method)   
+        else:
+            raise ValueError("conversion function must be callable")
+    else:
+        raise ValueError("'%s` is not a method" % method_name)
+
 
 def add_property(inst, name, method):
   cls = type(inst)
@@ -44,6 +60,9 @@ def grouped(iterable, n):
     "s -> (s0,s1,s2,...sn-1), (sn,sn+1,sn+2,...s2n-1), (s2n,s2n+1,s2n+2,...s3n-1), ..."
     return itertools.izip(*[iter(iterable)]*n)
 
+def all_equal(iterable):
+    g = itertools.groupby(iterable)
+    return next(g, True) and not next(g, False)
 
 """
 functions to add custom attributes and commands to an object.

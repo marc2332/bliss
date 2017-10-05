@@ -7,42 +7,53 @@
 
 from bliss.common.task_utils import cleanup, error_cleanup, task
 from bliss.common.utils import add_property
-from bliss.common.measurement import CounterBase
+from bliss.common.measurement import SamplingCounter
 from bliss.common import Actuator
 import gevent
 from gevent import event
 import PyTango.gevent
 import numpy
 
-class BpmCounter(CounterBase):
-    def __init__(self, parent, name, index):
-        CounterBase.__init__(self, parent, parent.name+'.'+name)
-        self.parent = parent
-        self.index = index
+class BpmGroupedReadHandler(SamplingCounter.GroupedReadHandler):
+    def __init__(self, controller):
+        SamplingCounter.GroupedReadHandler.__init__(self, controller)
+        self.__back_to_live = False
+        self.__video = False
 
-    def read(self):
-        data = self.parent.last_acq
-        try:
-            value = data[self.index]
-        except TypeError:
-            raise RuntimeError("No data available, hint: acquire data with `.count(acq_time)` first")
-        else:
-            return value 
+    def prepare(self, *counters):
+        self.__back_to_live = False
+        self.__video = False
+        if self.controller.is_video_live():
+            self.__back_to_live = True
+            self.__video = True
+            self.controller.stop(video=True)
+        elif self.controller.is_live():
+            self.__back_to_live = True
+            self.controller.stop()
 
-    def count(self, acq_time):
-        meas = self.Measurement()
+    def stop(self, *counters):
+        if self.__back_to_live:
+            while self.controller.is_acquiring():
+                gevent.idle()
+            self.controller.live(video=self.__video)
 
-        if not self.parent._acquisition_event.is_set():
-            # acquisition in progress
-            self.parent._acquisition_event.wait()
-        else:
-            self.parent.read(acq_time)
-        meas._add_value(self.parent.last_acq[self.index], self.parent.last_acq[0])
-        return meas
- 
+    def read(self, *counters):
+        result = self.controller.tango_proxy.GetPosition()
+        return [result[cnt.index] for cnt in counters]
+
+class BpmCounter(SamplingCounter):
+    def __init__(self, name, controller, index, **kwargs):
+        SamplingCounter.__init__(self, controller.name+'.'+name, controller, **kwargs)
+        self.__index = index
+
+    @property
+    def index(self):
+        return self.__index
+
 class tango_bpm(object):
    def __init__(self, name, config):
        self.name = name
+       self.__counters_grouped_read_handler = BpmGroupedReadHandler(self)
 
        tango_uri = config.get("uri")
        tango_lima_uri = config.get("lima_uri")
@@ -55,7 +66,6 @@ class tango_bpm(object):
            self.__lima_control = None
        self._acquisition_event = event.Event()
        self._acquisition_event.set()
-       self.__last_acq = None
        self.__diode_actuator = None
        self.__led_actuator = None
        self.__foil_actuator  = None
@@ -71,7 +81,7 @@ class tango_bpm(object):
                                            self.__control.LedOff,
                                            lambda: self.__control.LedStatus > 0)
            def diode_current(*args):
-               return BpmCounter(self, "diode_current", "_read_diode_current")
+               return BpmCounter("diode_current", self,  "_read_diode_current")
            add_property(self, "diode_current", diode_current)
            def diode_actuator(*args):
                return self.__diode_actuator
@@ -91,56 +101,28 @@ class tango_bpm(object):
            add_property(self, foil_actuator_name, foil_actuator)
 
    @property
+   def tango_proxy(self):
+       return self.__control
+
+   @property
    def x(self):
-     return BpmCounter(self, "x", 1)
+     return BpmCounter("x", self, 1, grouped_read_handler=self.__counters_grouped_read_handler)
 
    @property
    def y(self):
-     return BpmCounter(self, "y", 2)
+     return BpmCounter("y", self, 2, grouped_read_handler=self.__counters_grouped_read_handler)
 
    @property
    def intensity(self):
-     return BpmCounter(self, "intensity", 3)
+     return BpmCounter("intensity", self, 3, grouped_read_handler=self.__counters_grouped_read_handler)
 
    @property
    def fwhm_x(self):
-     return BpmCounter(self, "fwhm_x", 4)
+     return BpmCounter("fwhm_x", self, 4, grouped_read_handler=self.__counters_grouped_read_handler)
  
    @property
    def fwhm_y(self):
-     return BpmCounter(self, "fwhm_y", 5)
-
-   @property
-   def last_acq(self):
-     return self.__last_acq
-
-   def read(self, acq_time=0):
-     self._acquisition_event.clear()
-     self.__last_acq = None
-     back_to_live = False
-     video = False
-     exp_time = self.__control.ExposureTime
-     try:
-       if self.__lima_control and self.__lima_control.video_live:
-           back_to_live = True
-           video = self.__lima_control.video_exposure
-           self.stop(video=video)
-       if str(self.__control.LiveState) == 'RUNNING':
-           back_to_live = True
-           self.stop()
-       self.__control.AcquirePositions(acq_time)
-       gevent.sleep(acq_time)
-       while self.is_acquiring():
-         gevent.sleep(exp_time)
-       data = self.__control.AcquisitionSpectrum
-       timestamp = data[0][0]
-       self.__last_acq = numpy.mean(data, axis=1)
-       self.__last_acq[0] = timestamp
-       if back_to_live:
-         self.live(video=video)
-       return self.__last_acq
-     finally:
-       self._acquisition_event.set()
+     return BpmCounter("fwhm_y", self, 5, grouped_read_handler=self.__counters_grouped_read_handler)
 
    def _read_diode_current(self, acq_time=None):
      meas = AverageMeasurement()
@@ -161,15 +143,20 @@ class tango_bpm(object):
    def exposure_time(self):
      return self.__control.ExposureTime 
 
-   def is_acquiring(self):
-     return str(self.__control.State()) == 'MOVING'
-
    def live(self, video=False):
      if video and self.__lima_control:
-         self.__lima_control.video_exposure = video
          self.__lima_control.video_live = True
      else:
          return self.__control.Live()
+
+   def is_acquiring(self):
+       return str(self.__control.State()) == 'MOVING'
+
+   def is_live(self):
+       return str(self.__control.LiveState) == 'RUNNING'
+
+   def is_video_live(self):
+       return self.__lima_control and self.__lima_control.video_live
 
    def stop(self, video=False):
      if video and self.__lima_control:

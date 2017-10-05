@@ -85,7 +85,7 @@ import collections
 import numpy
 import gevent
 
-from bliss.common.measurement import CounterBase
+from bliss.common.measurement import SamplingCounter
 from bliss.comm.util import get_interface
 from bliss.config.settings import HashSetting
 from bliss.comm.exceptions import CommunicationError
@@ -121,17 +121,21 @@ class KeithleySCPI(BaseDeviceSCPI):
         super(KeithleySCPI, self).__init__(*args, **kwargs)
 
 
-class Sensor(CounterBase):
+class Sensor(SamplingCounter):
 
     def __init__(self, config, controller):
         name = config['name']
-        CounterBase.__init__(self, controller, name)
+        SamplingCounter.__init__(self, name, controller)
+        self.__controller = controller
         self.config = config
         self.address = int(config['address'])
         self.index = self.address - 1
         self.controller.initialize_sensor(self)
 
-
+    @property
+    def controller(self):
+        return self.__controller
+    
     def __int__(self):
         return self.address
 
@@ -140,9 +144,6 @@ class Sensor(CounterBase):
 
     def measure(self, func=None):
         return self.controller.measure(func=func)[self.index]
-
-    def read(self):
-        return self.controller.read()[self.index]
 
     def data(self):
         return self.controller.data()[self.index]
@@ -491,6 +492,10 @@ class BaseMultimeter(KeithleySCPI):
     
     def read(self):
         return self['READ']
+
+    def read_all(self,*counters):
+        values = self.read()
+        return [values[int(cnt) - 1] for cnt in counters]
 
     def data(self):
         return self['DATA']

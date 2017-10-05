@@ -24,27 +24,30 @@ import gevent
 from bliss import setup_globals
 from bliss.common.axis import MotionEstimation
 from bliss.common.temperature import Input, Output, TempControllerCounter
+from bliss.controllers.lima import Lima
 from bliss.common.task_utils import *
 from bliss.common.motor_group import Group
-from bliss.common.measurement import CounterBase
-from bliss.scanning.acquisition.counter import CounterAcqDevice
+from bliss.common.measurement import Counter, SamplingCounter, IntegratingCounter
+from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionDevice, IntegratingCounterAcquisitionDevice
 from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning import scan as scan_module
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 from bliss.scanning.acquisition.motor import LinearStepTriggerMaster, MeshStepTriggerMaster
+from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
 from bliss.session import session,measurementgroup
 try:
     from bliss.scanning.writer import hdf5 as default_writer
 except ImportError:
     default_writer = None
 from bliss.data.scan import get_data
+from bliss.common.utils import OrderedDict as ordereddict
 
 _log = logging.getLogger('bliss.scans')
+
 
 class TimestampPlaceholder:
     def __init__(self):
       self.name = 'timestamp'
-
 
 def _get_counters(mg, missing_list):
     counters = list()
@@ -56,7 +59,6 @@ def _get_counters(mg, missing_list):
             else:
                 missing_list.append(cnt_name)
     return counters
-
 
 def _get_all_counters(counters):
     all_counters, missing_counters = [], []
@@ -74,42 +76,123 @@ def _get_all_counters(counters):
         raise ValueError("Missing counters, not in setup_globals: %s. " \
                          "Hint: disable inactive counters."
                          % ", ".join(missing_counters))
-    return all_counters
-    
 
-def default_chain(chain, scan_pars):
+    zerod_counters = list()
+    other_counters = list()
+    for counter in all_counters:
+        if isinstance(counter, Counter):
+            zerod_counters.append(counter)
+        else:
+            other_counters.append(counter)
+    return zerod_counters,other_counters
+
+def default_master_configuration(counter, scan_pars):
+    """
+    This function should create and configure
+    an acquisition device which could also
+    be a master for other devices.
+
+    @returns the acq_device + counters parameters
+    """
+    try:
+        device = counter.acquisition_controller
+    except AttributeError:
+        device = counter
+
+    if isinstance(device, Lima):
+        multi_mode = 'INTERNAL_TRIGGER_MULTI' in device.available_triggers
+        save_flag = scan_pars.get('save',False)
+        acq_nb_frames = scan_pars.get('npoints',1) if multi_mode else 1
+        acq_expo_time = scan_pars['count_time']
+        acq_trigger_mode = scan_pars.get('acq_trigger_mode',
+                                         'INTERNAL_TRIGGER_MULTI' \
+                                         if multi_mode else 'INTERNAL_TRIGGER')
+        acq_device = LimaAcquisitionMaster(device,
+                                           acq_nb_frames = acq_nb_frames,
+                                           acq_expo_time = acq_expo_time,
+                                           acq_trigger_mode = acq_trigger_mode,
+                                           save_flag = save_flag,
+                                           prepare_once = multi_mode)
+        return acq_device, { "prepare_once": multi_mode, "start_once": multi_mode }
+    else:
+        raise TypeError("`%r' is not a supported acquisition controller for counter `%s'" % (device, counter.name))
+
+def activate_master_saving(acq_device,activate_flag):
+    acq_device.save_flag = activate_flag
+
+def _counters_tree(counters, scan_pars):
+    count_time = scan_pars.get('count_time', 1)
+    npoints = scan_pars.get('npoints', 1)
+    master_integrating_counter = dict()
+    tree = ordereddict()
+ 
+    reader_counters = ordereddict()
+    for cnt in counters:
+        ###THIS SHOULD GO AWAY
+        if isinstance(cnt, (Input, Output)):
+            cnt = TempControllerCounter(cnt.name, cnt)
+        ###
+        grouped_read_handler = Counter.GROUPED_READ_HANDLERS.get(cnt)
+        if grouped_read_handler:
+            reader_counters.setdefault(grouped_read_handler, list()).append(cnt)
+        else:
+            reader_counters[cnt] = []
+
+    for reader, counters in reader_counters.iteritems():
+        if isinstance(reader, (SamplingCounter.GroupedReadHandler, SamplingCounter)):
+            acq_device = SamplingCounterAcquisitionDevice(reader, **scan_pars)
+            for cnt in counters:
+                acq_device.add_counter(cnt)
+            tree.setdefault(None, list()).append(acq_device)
+        elif isinstance(reader, (IntegratingCounter.GroupedReadHandler, IntegratingCounter)):
+            try:
+                cnt = counters[0] #the first counter is used to determine master acq device
+            except IndexError:
+                cnt = reader
+            master_acq_device = master_integrating_counter.get(cnt.acquisition_controller)
+            if master_acq_device is None:
+                tmp_scan_pars = scan_pars.copy()
+                # by default don't save data from master
+                # so pop **save** flag
+                tmp_scan_pars.pop('save',None)
+                master_acq_device, _ = default_master_configuration(cnt, tmp_scan_pars)
+                master_integrating_counter[cnt.acquisition_controller] = master_acq_device
+            if isinstance(reader, IntegratingCounter.GroupedReadHandler):
+                acq_device = IntegratingCounterAcquisitionDevice(reader, **scan_pars)
+                for cnt in counters:
+                    acq_device.add_counter(cnt)
+                tree.setdefault(master_acq_device, list()).append(acq_device)
+            else:
+                tree.setdefault(master_acq_device, list()).extend([IntegratingCounterAcquisitionDevice(cnt, **scan_pars) for cnt in counters])
+        else:
+            master_acq_device = master_integrating_counter.get(reader)
+            if master_acq_device is None:
+                master_acq_device, _ = default_master_configuration(reader, scan_pars)
+                master_integrating_counter[reader] = master_acq_device
+                tree.setdefault(master_acq_device, list())
+            else:
+                if scan_pars.get('save',False):
+                    activate_master_saving(master_acq_device,True)
+    return tree
+
+def default_chain(chain, scan_pars, counters):
     count_time = scan_pars.get('count_time', 1)
     sleep_time = scan_pars.get('sleep_time')
     npoints = scan_pars.get('npoints', 1)
-    counters = scan_pars.get('counters')
-
+    
     if not counters:
         raise ValueError("No counters for scan. Hint: are all counters disabled ?")
 
+    counters = set(counters) #eliminate duplicated counters, if any
     timer = SoftwareTimerMaster(count_time, npoints=npoints, sleep_time=sleep_time)
-
-    read_cnt_handler = dict()
-    for cnt in set(counters):
-        if isinstance(cnt, (Input, Output)):
-            cnt = TempControllerCounter(cnt.name, cnt)
-
-        if isinstance(cnt, CounterBase):
-            try:
-                read_all_handler = cnt.read_all_handler()
-            except NotImplementedError:
-                chain.add(timer, CounterAcqDevice(cnt, count_time=count_time, npoints=npoints))
-            else:
-                uniq_id = read_all_handler.id()
-                cnt_acq_device = read_cnt_handler.get(uniq_id)
-                if cnt_acq_device is None:
-                    cnt_acq_device = CounterAcqDevice(read_all_handler, count_time=count_time, npoints=npoints)
-                    chain.add(timer, cnt_acq_device)
-                    read_cnt_handler[uniq_id] = cnt_acq_device
-                cnt_acq_device.add_counter_to_read(cnt)
-        # elif isinstance(cnt,Lima):
-        #   chain.add(timer, LimaAcqDevice()))
+    
+    for acq_master, acq_devices in _counters_tree(counters, scan_pars).iteritems():
+        if acq_master:
+            chain.add(timer, acq_master)
         else:
-            raise TypeError("`%r' is not a supported counter type" % repr(cnt))
+            acq_master = timer
+        for acq_device in acq_devices:
+            chain.add(acq_master, acq_device)
 
     chain.timer = timer
     return timer
@@ -173,7 +256,7 @@ def ascan(motor, start, stop, npoints, count_time, *counters, **kwargs):
         template = " ".join(['{{{0}}}'.format(i) for i in range(len(args))])
         scan_info['title'] = template.format(*args)
 
-    counters = _get_all_counters(counters)
+    counters,other_counters = _get_all_counters(counters)
 
     # estimate scan time
     step_size = abs(stop - start) / npoints
@@ -188,12 +271,13 @@ def ascan(motor, start, stop, npoints, count_time, *counters, **kwargs):
     scan_info.update({ 'npoints': npoints, 'total_acq_time': total_count_t,
                        'motors': [TimestampPlaceholder(), motor], 
                        'counters': counters,
+                       'other_counters': other_counters,
                        'start': [start], 'stop': [stop],
                        'count_time': count_time,
                        'estimation': estimation})
 
     chain = AcquisitionChain(parallel_prepare=True)
-    timer = default_chain(chain,scan_info)
+    timer = default_chain(chain, scan_info, counters + other_counters)
     top_master = LinearStepTriggerMaster(npoints,motor,start,stop)
     chain.add(top_master,timer)
 
@@ -277,7 +361,7 @@ def mesh(motor1, start1, stop1, npoints1, motor2, start2, stop2, npoints2, count
         template = " ".join(['{{{0}}}'.format(i) for i in range(len(args))])
         scan_info['title'] = template.format(*args)
 
-    counters = _get_all_counters(counters)
+    counters,other_counters = _get_all_counters(counters)
 
     # estimate scan time
     step_size1 = abs(stop1 - start1) / npoints1
@@ -303,12 +387,13 @@ def mesh(motor1, start1, stop1, npoints1, motor2, start2, stop2, npoints2, count
                        'total_acq_time': total_count_t,
                        'motors': [TimestampPlaceholder(), motor1, motor2],
                        'counters': counters,
+                       'other_counters': counters,
                        'start': [start1, start2], 'stop': [stop1, stop2],
                        'count_time': count_time,
                        'estimation': estimation})
 
     chain = AcquisitionChain(parallel_prepare=True)
-    timer = default_chain(chain,scan_info)
+    timer = default_chain(chain, scan_info, counters + other_counters)
     top_master = MeshStepTriggerMaster(motor1, start1, stop1, npoints1,
                                        motor2, start2, stop2, npoints2)
     chain.add(top_master,timer)
@@ -373,7 +458,7 @@ def a2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
         template = " ".join(['{{{0}}}'.format(i) for i in range(len(args))])
         scan_info['title'] = template.format(*args)
 
-    counters = _get_all_counters(counters)
+    counters,other_counters = _get_all_counters(counters)
 
     # estimate scan time
     step_size1 = abs(stop1 - start1) / npoints
@@ -395,12 +480,13 @@ def a2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
     scan_info.update({ 'npoints': npoints, 'total_acq_time': total_count_t,
                        'motors': [TimestampPlaceholder(), motor1, motor2],
                        'counters': counters,
+                       'other_counters': other_counters,
                        'start': [start1, start2], 'stop': [stop1, stop2],
                        'count_time': count_time,
                        'estimation': estimation })
 
     chain = AcquisitionChain(parallel_prepare=True)
-    timer = default_chain(chain,scan_info)
+    timer = default_chain(chain, scan_info, counters + other_counters)
     top_master = LinearStepTriggerMaster(npoints,
                                          motor1,start1,stop1,
                                          motor2,start2,stop2)
@@ -512,7 +598,7 @@ def timescan(count_time, *counters, **kwargs):
         template = " ".join(['{{{0}}}'.format(i) for i in range(len(args))])
         scan_info['title'] = template.format(*args)
 
-    counters = _get_all_counters(counters)
+    counters,other_counters = _get_all_counters(counters)
     
     npoints = kwargs.get("npoints", 0)
     total_count_t = npoints * count_time
@@ -520,6 +606,7 @@ def timescan(count_time, *counters, **kwargs):
     scan_info.update({ 'npoints': npoints, 'total_acq_time': total_count_t,
                        'motors': [TimestampPlaceholder()], 
                        'counters': counters,
+                       'other_counters': other_counters,
                        'start': [], 'stop': [], 'count_time': count_time })
 
     if npoints > 0:
@@ -532,7 +619,7 @@ def timescan(count_time, *counters, **kwargs):
     _log.info("Doing %s", scan_info['type'])
 
     chain = AcquisitionChain(parallel_prepare=True)
-    timer = default_chain(chain,scan_info)
+    timer = default_chain(chain, scan_info, counters + other_counters)
 
     scan = step_scan(chain, scan_info,
                      name=kwargs.setdefault("name","timescan"), save=scan_info['save'])

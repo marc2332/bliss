@@ -68,7 +68,8 @@ def _find_unit(obj):
 class ScanListener:
     '''listen to scan events and compose output'''
 
-    HEADER = "Total {npoints} points{estimation_str}\n\n" + \
+    HEADER = "Total {npoints} points{estimation_str}\n" + \
+             "{not_shown_counters_str}\n" + \
              "Scan {scan_nb} {start_time_str} {root_path} " + \
              "{session_name} user = {user_name}\n" + \
              "{title}\n\n" + \
@@ -136,6 +137,13 @@ class ScanListener:
         else:
             estimation_str = ''
 
+        other_counters = scan_info.get('other_counters',list())
+        if other_counters:
+            not_shown_counters_str = 'Activated counters not shown: %s\n' % \
+                                     ', '.join((c.name for c in other_counters))
+        else:
+            not_shown_counters_str = ''
+
         col_lens = map(lambda x: max(len(x), self.DEFAULT_WIDTH), col_labels)
         h_templ = ["{{0:>{width}}}".format(width=col_len)
                    for col_len in col_lens]
@@ -143,6 +151,7 @@ class ScanListener:
                             for templ, label in zip(h_templ, col_labels)])
         header = self.HEADER.format(column_header=header,
                                     estimation_str=estimation_str,
+                                    not_shown_counters_str=not_shown_counters_str,
                                     **scan_info)
         self.col_templ = ["{{0: >{width}g}}".format(width=col_len)
                           for col_len in col_lens]

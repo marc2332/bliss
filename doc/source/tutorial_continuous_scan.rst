@@ -67,7 +67,7 @@ time for moving from 5 to 10 set to 5 seconds, velocity will be set to
 Slave object creation
 ^^^^^^^^^^^^^^^^^^^^^
 
-Bliss comes with the ``LimaAcquisitionDevice`` class, encapsulating a Tango
+Bliss comes with the ``LimaAcquisitionMaster`` class, encapsulating a Tango
 Lima device for use within an acquisition chain:
 
 .. code-block:: python
@@ -75,7 +75,7 @@ Lima device for use within an acquisition chain:
    params = { "acq_nb_frames": 10,
               "acq_expo_time": 0.3,
               "acq_trigger_mode": "INTERNAL_TRIGGER_MULTI" }
-   lima_acq_dev = LimaAcquisitionDevice(lima_dev, **params)
+   lima_acq_dev = LimaAcquisitionMaster(lima_dev, **params)
 
 Acquisition is configured to take 10 frames of 300 milliseconds exposure time,
 each frame capture being triggered by software.
@@ -98,7 +98,7 @@ as nodes in a tree:
 
     . chain(AcquisitionChain)
     └── emotion_master(SoftwarePositionTriggerMaster)
-        └── lima_dev(LimaAcquisitionDevice)
+        └── lima_dev(LimaAcquisitionMaster)
 
 
 Second step: data storage configuration

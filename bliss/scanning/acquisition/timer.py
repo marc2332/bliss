@@ -10,6 +10,7 @@ from bliss.common.event import dispatcher
 import time
 import gevent
 import numpy
+import weakref
 
 class SoftwareTimerMaster(AcquisitionMaster):
     def __init__(self,count_time,sleep_time=None, **keys):
@@ -54,4 +55,31 @@ class SoftwareTimerMaster(AcquisitionMaster):
         gevent.sleep(self.count_time - elapsed_trigger)
 
     def stop(self):
+        pass
+
+class IntegratingTimerMaster(object):
+    def __init__(self):
+        self.__count_time = 1.
+    @property
+    def count_time(self):
+        return self.__count_time
+    @count_time.setter
+    def count_time(self,value):
+        self.__count_time = value
+    def prepare(self):
+        integrated_devices = [x.device for x in self.slaves]
+        self._prepare(integrated_devices)
+
+    def start(self):
+        self._start()
+
+    def trigger(self):
+        pass
+
+    def _prepare(self,integrated_devices):
+        """ Overwrite in your class if you need it """
+        pass
+
+    def _start(self):
+        """ Overwrite in your class if you need it """
         pass

@@ -6,14 +6,14 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss.common.task_utils import cleanup, error_cleanup, task
-from bliss.common.measurement import CounterBase
+from bliss.common.measurement import SamplingCounter
 import PyTango.gevent
 import time
 import numpy
 
-class tango_keithley(CounterBase):
+class tango_keithley(SamplingCounter):
     def __init__(self, name, config):
-        CounterBase.__init__(self, None, name)
+        SamplingCounter.__init__(self, name, None)
         tango_uri = config["uri"]
         self.__control = PyTango.gevent.DeviceProxy(tango_uri)
 

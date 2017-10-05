@@ -5,12 +5,23 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 import importlib
-import tango.gevent
+try:
+    from tango.gevent import DeviceProxy
+except ImportError:
+    try:
+        from PyTango.gevent import DeviceProxy
+    except ImportError:
+        import warnings
+        from PyTango import DeviceProxy
+        warnings.warn("Tango does not support gevent, please update your Python tango version", RuntimeWarning)
+    
 from bliss.config import settings
+from .bpm import Bpm
 
 class Lima(object):
     ROI_COUNTERS = 'roicounter'
-    
+    BPM = 'beamviewer'
+
     class Roi(object):
         def __init__(self,x,y,width,height,name = None):
             self.x = x
@@ -176,7 +187,7 @@ class Lima(object):
                                     roi.x,roi.y,
                                     roi.width,roi.height))
             self._proxy.setRois(rois_values)
-            
+
     def __init__(self,name,config_tree):
         """Lima controller.
 
@@ -185,9 +196,10 @@ class Lima(object):
         in this dictionary we need to have:
         tango_url -- tango main device url (from class LimaCCDs) 
         """
-        self._proxy = tango.gevent.DeviceProxy(config_tree.get("tango_url"))
+        self._proxy = DeviceProxy(config_tree.get("tango_url"))
         self.name = name
-        self._roi_counters = None
+        self.__bpm = None
+        self.__roi_counters = None
         self._camera = None
         self._image = None
         self._acquisition = None
@@ -210,22 +222,38 @@ class Lima(object):
     
     @property
     def roi_counters(self):
-        if self._roi_counters is None:
+        if self.__roi_counters is None:
             roi_counters_proxy = self._get_proxy(self.ROI_COUNTERS)
-            proxy = tango.gevent.DeviceProxy(roi_counters_proxy)
-            self._roi_counters= Lima.RoiCounters(self.name, proxy)
-        return self._roi_counters
+            self.__roi_counters = Lima.RoiCounters(self.name, roi_counters_proxy)
+        return self.__roi_counters
     
     @property
     def camera(self):
         if self._camera is None:
             camera_type = self._proxy.lima_type
-            camera_proxy = self._get_proxy(camera_type)
+            proxy = self._get_proxy(camera_type)
             camera_module = importlib.import_module('.%s' % camera_type,__package__)
-            proxy = tango.gevent.DeviceProxy(camera_proxy)
             self._camera = camera_module.Camera(self.name, proxy)
         return self._camera
     
+    @property
+    def camera_type(self):
+        return self._proxy.camera_type
+
+    @property
+    def bpm(self):
+        if self.__bpm is None:
+          bpm_proxy = self._get_proxy(self.BPM)
+          self.__bpm = Bpm(self.name, bpm_proxy, self)
+        return self.__bpm
+
+    @property
+    def available_triggers(self):
+        """
+        This will returns all availables triggers for the camera
+        """
+        return self._proxy.getAttrStringValueList('acq_trigger_mode')
+
     def prepareAcq(self):
         self._proxy.prepareAcq()
 
@@ -233,4 +261,13 @@ class Lima(object):
         self._proxy.startAcq()
 
     def _get_proxy(self,type_name):
-        return self._proxy.getPluginDeviceNameFromType(type_name)
+        device_name = self._proxy.getPluginDeviceNameFromType(type_name)
+        if not device_name.startswith("//"):
+            # build 'fully qualified domain' name
+            # '.get_fqdn()' doesn't work
+            db_host = self._proxy.get_db_host()
+            db_port = self._proxy.get_db_port()
+            device_name = "//%s:%s/%s" % (db_host, db_port, device_name)
+        return DeviceProxy(device_name)
+
+

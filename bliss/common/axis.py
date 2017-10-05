@@ -143,14 +143,11 @@ class MotionEstimation(object):
             accel_time = full_accel_time
             accel_dplmnt = full_accel_dplmnt
             dplmnt_non_const_vel = full_dplmnt_non_const_vel
+            max_vel_dplmnt = displacement - dplmnt_non_const_vel
+            max_vel_time = max_vel_dplmnt / vel
+            self.duration = max_vel_time + 2*accel_time
         else:
-            max_vel = math.sqrt(2*displacement)
-            accel_time = max_vel / accel
-            accel_dplmnt = displacement / 2.0
-            dplmnt_non_const_vel = displacement
-        max_vel_dplmnt = displacement - dplmnt_non_const_vel
-        max_vel_time = max_vel_dplmnt / vel
-        self.duration = max_vel_time + 2*accel_time
+            self.duration = math.sqrt(2*displacement/accel)
 
         if do_backlash:
             backlash_estimation = MotionEstimation(axis, target_pos, self.fpos)

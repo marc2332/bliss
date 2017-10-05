@@ -9,7 +9,7 @@
 class Camera(object):
     INVALID_SHUTTER, GLOBAL_SHUTTER, ROLLING_SHUTTER = (-1, 0, 1)
 
-    def __init__(self, name, proxy):
+    def __init__(self, lima_device, name, proxy):
         self.name = name
         self._proxy = proxy
 

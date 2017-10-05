@@ -167,7 +167,7 @@ class Lima(object):
             camera_type = self._proxy.lima_type
             proxy = self._get_proxy(camera_type)
             camera_module = importlib.import_module('.%s' % camera_type,__package__)
-            self._camera = camera_module.Camera(self.name, proxy)
+            self._camera = camera_module.Camera(self.name, self, proxy)
         return self._camera
 
     @property

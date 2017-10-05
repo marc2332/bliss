@@ -37,7 +37,7 @@ class GalilDMC213(Controller):
         try:
             self.sock = get_comm(self.config.config_dict, ctype=TCP, port=23)
         except ValueError:
-            host = config.get("host")
+            host = self.config.get("host")
             warn("'host' keyword is deprecated. Use 'tcp' instead", DeprecationWarning)
             comm_cfg = {'tcp': {'url': host } }
             self.sock = get_comm(comm_cfg, port=23)

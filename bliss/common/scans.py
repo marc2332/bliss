@@ -259,7 +259,7 @@ def ascan(motor, start, stop, npoints, count_time, *counters, **kwargs):
     counters,other_counters = _get_all_counters(counters)
 
     # estimate scan time
-    step_size = abs(stop - start) / npoints
+    step_size = abs(stop - start) / float(npoints)
     i_motion_t = MotionEstimation(motor, start).duration
     n_motion_t = MotionEstimation(motor, start, start + step_size).duration
     total_motion_t = i_motion_t + npoints * n_motion_t
@@ -364,12 +364,12 @@ def mesh(motor1, start1, stop1, npoints1, motor2, start2, stop2, npoints2, count
     counters,other_counters = _get_all_counters(counters)
 
     # estimate scan time
-    step_size1 = abs(stop1 - start1) / npoints1
+    step_size1 = abs(stop1 - start1) / float(npoints1)
     i_motion_t1 = MotionEstimation(motor1, start1).duration
     n_motion_t1 = MotionEstimation(motor1, start1, start1 + step_size1).duration
     total_motion_t1 = npoints1 *npoints2 * n_motion1_t
 
-    step_size2 = abs(stop2 - start2) / npoints2
+    step_size2 = abs(stop2 - start2) / float(npoints2)
     i_motion_t2 = MotionEstimation(motor2, start2).duration
     n_motion_t2 = max(MotionEstimation(motor2, start2, start2 + step_size2).duration,
                       MotionEstimation(motor1, end1, start1).duration)
@@ -461,11 +461,11 @@ def a2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
     counters,other_counters = _get_all_counters(counters)
 
     # estimate scan time
-    step_size1 = abs(stop1 - start1) / npoints
+    step_size1 = abs(stop1 - start1) / float(npoints)
     i_motion1_t = MotionEstimation(motor1, start1).duration
     n_motion1_t = MotionEstimation(motor1, start1, start1 + step_size1).duration
 
-    step_size2 = abs(stop2 - start2) / npoints
+    step_size2 = abs(stop2 - start2) / float(npoints)
     i_motion2_t = MotionEstimation(motor2, start2).duration
     n_motion2_t = MotionEstimation(motor2, start2, start2 + step_size2).duration
 

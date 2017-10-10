@@ -64,3 +64,5 @@ class tango_attr_as_counter(SamplingCounter):
         self._ctrl.add_counter(name)
         SamplingCounter.__init__(self, name, self._ctrl)
 
+TangoAttrCounter = tango_attr_as_counter
+

@@ -50,6 +50,14 @@ class BpmCounter(SamplingCounter):
     def index(self):
         return self.__index
 
+class BpmDiodeCounter(SamplingCounter):
+    def __init__(self, name, controller, control):
+        SamplingCounter.__init__(self, controller.name+"."+name, None)
+        self.__control = control
+
+    def read(self):
+        return self.__control.DiodeCurrent
+
 class tango_bpm(object):
    def __init__(self, name, config):
        self.name = name
@@ -81,7 +89,7 @@ class tango_bpm(object):
                                            self.__control.LedOff,
                                            lambda: self.__control.LedStatus > 0)
            def diode_current(*args):
-               return BpmCounter("diode_current", self,  "_read_diode_current")
+               return BpmDiodeCounter("diode_current", self, self.__control)
            add_property(self, "diode_current", diode_current)
            def diode_actuator(*args):
                return self.__diode_actuator
@@ -123,12 +131,6 @@ class tango_bpm(object):
    @property
    def fwhm_y(self):
      return BpmCounter("fwhm_y", self, 5, grouped_read_handler=self.__counters_grouped_read_handler)
-
-   def _read_diode_current(self, acq_time=None):
-     meas = AverageMeasurement()
-     for reading in meas(acq_time):
-         reading.value = self.__control.DiodeCurrent
-     return meas.average
 
    def set_diode_range(self, range):
      self.__control.DiodeRange = range

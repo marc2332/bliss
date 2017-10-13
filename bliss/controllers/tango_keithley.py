@@ -7,7 +7,7 @@
 
 from bliss.common.task_utils import cleanup, error_cleanup, task
 from bliss.common.measurement import SamplingCounter
-import PyTango.gevent
+from bliss.common.tango import DeviceProxy
 import time
 import numpy
 
@@ -15,7 +15,7 @@ class tango_keithley(SamplingCounter):
     def __init__(self, name, config):
         SamplingCounter.__init__(self, name, None)
         tango_uri = config["uri"]
-        self.__control = PyTango.gevent.DeviceProxy(tango_uri)
+        self.__control = DeviceProxy(tango_uri)
 
     def read(self):
         self.__control.MeasureSingle()

@@ -10,9 +10,7 @@
 from os import environ
 from datetime import timedelta
 from collections import namedtuple
-
-import tango
-import tango.gevent
+from bliss.common.tango import DeviceProxy, AttrQuality
 
 from prompt_toolkit.token import Token
 
@@ -36,17 +34,17 @@ Attribute = namedtuple('Attribute', 'label attr_name unit display')
 
 
 QMAP = {
-    tango.AttrQuality.ATTR_VALID: StatusToken.Ok,
-    tango.AttrQuality.ATTR_WARNING: StatusToken.Warning,
-    tango.AttrQuality.ATTR_ALARM: StatusToken.Alarm,
-    tango.AttrQuality.ATTR_CHANGING: StatusToken.Changing,
+    AttrQuality.ATTR_VALID: StatusToken.Ok,
+    AttrQuality.ATTR_WARNING: StatusToken.Warning,
+    AttrQuality.ATTR_ALARM: StatusToken.Alarm,
+    AttrQuality.ATTR_CHANGING: StatusToken.Changing,
 }
 
 
 
 def tango_value(attr, value):
     if value is None or value.has_failed or value.is_empty or \
-       value.quality == tango.AttrQuality.ATTR_INVALID:
+       value.quality == AttrQuality.ATTR_INVALID:
         token, v = StatusToken.Error, '-----'
     elif attr.display is None:
         token, v = QMAP[value.quality], value.value
@@ -62,7 +60,7 @@ class DeviceStatus(object):
     def __init__(self, device, attributes=None):
         if attributes is not None:
             self.attributes = attributes
-        self.device = tango.gevent.DeviceProxy(device)
+        self.device = DeviceProxy(device)
 
     def __call__(self, cli):
         n = len(self.attributes)

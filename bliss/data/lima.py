@@ -7,7 +7,7 @@
 
 import struct
 import numpy
-from PyTango.gevent import DeviceProxy
+from bliss.common.tango import DeviceProxy
 from bliss.data.node import DataNode
 from bliss.config.settings import QueueObjSetting
 from bliss.config.conductor import client
@@ -47,7 +47,7 @@ class LimaDataNode(DataNode):
             if to_index is None:
                 
                 #first we try to get image directly from the server
-                if current_lima_acq == lima_acq_nb and DeviceProxy: # current acquisition
+                if current_lima_acq == lima_acq_nb: # current acquisition
                     if LastImageAcquired < from_index: # image is not yet available
                         raise RuntimeError('image is not yet available')
                     #should be still in server memory

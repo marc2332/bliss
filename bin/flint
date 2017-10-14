@@ -65,8 +65,7 @@ class AxesDockWidget(qt.QDockWidget):
         qt.QGridLayout(self._widget)
         self.setWidget(self._widget)
 
-    def checkboxStateChanged(self):
-        import pdb;pdb.set_trace()
+    def checkboxStateChanged(self,state):
         self.axis_info["x"]=None
         self.axis_info["y"]=None
         for axis, checkbox in self.x_checkboxes.iteritems():
@@ -81,8 +80,7 @@ class AxesDockWidget(qt.QDockWidget):
         data = PLOT_DATA[self.plot._scan_node]
         x = data.get(self.axis_info["x"],[])
         y = data.get(self.axis_info["y"], [])
-        print self.axis_info
-        self.plot.addCurve(x, y, legend='%s / %s' % (self.axis_info["y"], self.axis_info["x"]))
+        self.plot.addCurve(x, y, legend='BLISS')
 
     def setAxisInfo(self, axis_info):
         self.axis_info = axis_info
@@ -92,18 +90,21 @@ class AxesDockWidget(qt.QDockWidget):
         self._widget.close()
         self.makeWidget()
 
-        grp = qt.QButtonGroup()
+        grpx = qt.QButtonGroup(self._widget)
+        grpy = qt.QButtonGroup(self._widget)
         self._widget.layout().addWidget(qt.QLabel("label", self), 0, 0)
         self._widget.layout().addWidget(qt.QLabel("x", self), 0, 1)
         self._widget.layout().addWidget(qt.QLabel("y", self), 0, 2)
         for i, axis in enumerate(axis_info.get("__all__", [])):
           self._widget.layout().addWidget(qt.QLabel(axis, self), i+1, 0)
           chk_x = qt.QCheckBox(self._widget)
+          grpx.addButton(chk_x)
           chk_x.setChecked(axis_info["x"] == axis)
           self.x_checkboxes[axis] = chk_x
           chk_x.stateChanged.connect(self.checkboxStateChanged)
           self._widget.layout().addWidget(chk_x, i+1, 1)
           chk_y = qt.QCheckBox(self._widget)
+          grpy.addButton(chk_y)
           chk_y.setChecked(axis_info["y"] == axis)
           self.y_checkboxes[axis] = chk_y
           chk_y.stateChanged.connect(self.checkboxStateChanged)
@@ -148,7 +149,7 @@ def update_plot(scan_node):
     y = data.get(axis_info["y"], [])
     if len(x) == len(y):
         axis_info["__all__"] = axes_list
-        plot.addCurve(x, y, legend='%s / %s' % (axis_info["y"], axis_info["x"]))
+        plot.addCurve(x, y, legend='BLISS')
 
 def copy_data(scan_node,zerod,channel_name,zerod_index):
     data_channel = zerod.get_channel(channel_name)

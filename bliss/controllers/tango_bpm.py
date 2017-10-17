@@ -114,15 +114,15 @@ class tango_bpm(object):
 
    @property
    def x(self):
-     return BpmCounter("x", self, 1, grouped_read_handler=self.__counters_grouped_read_handler)
+     return BpmCounter("x", self, 2, grouped_read_handler=self.__counters_grouped_read_handler)
 
    @property
    def y(self):
-     return BpmCounter("y", self, 2, grouped_read_handler=self.__counters_grouped_read_handler)
+     return BpmCounter("y", self, 3, grouped_read_handler=self.__counters_grouped_read_handler)
 
    @property
    def intensity(self):
-     return BpmCounter("intensity", self, 3, grouped_read_handler=self.__counters_grouped_read_handler)
+     return BpmCounter("intensity", self, 1, grouped_read_handler=self.__counters_grouped_read_handler)
 
    @property
    def fwhm_x(self):

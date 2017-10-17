@@ -9,7 +9,7 @@ from bliss.controllers.motor import Controller
 from bliss.common import log as elog
 
 from bliss.common.axis import AxisState
-from bliss.common.tango import PyTango, DeviceProxy
+from bliss.common.tango import DevState, DeviceProxy
 
 
 """
@@ -80,9 +80,9 @@ class TangoEMot(Controller):
 
     def state(self, axis):
         _state = self.axis_proxy.state()
-        if _state == PyTango.DevState.ON:
+        if _state == DevState.ON:
             return AxisState("READY")
-        elif _state == PyTango.DevState.MOVING:
+        elif _state == DevState.MOVING:
             return AxisState("MOVING")
         else:
             return AxisState("READY")

@@ -1,5 +1,4 @@
 from mock import Mock
-import warnings
 import sys
 
 def DeviceProxy(*args, **kwargs):
@@ -14,19 +13,18 @@ except ImportError:
     try:
         from PyTango.gevent import DeviceProxy
     except ImportError:
-        try:
-            from PyTango import DeviceProxy
-        except ImportError:
-            PyTango = Mock()
-            PyTango.DeviceProxy = DeviceProxy
-            PyTango.AttributeProxy = AttributeProxy
-            sys.modules['PyTango'] = PyTango
-        else:
-            warnings.warn("Tango does not support gevent, please update your Python tango version", RuntimeWarning)
+        PyTango = Mock()
+        PyTango.DeviceProxy = DeviceProxy
+        PyTango.AttributeProxy = AttributeProxy
+        sys.modules['PyTango'] = PyTango
     else:
+        from PyTango import AttributeProxy
         import PyTango
 else:
+    from tango.gevent import AttributeProxy
     import tango as PyTango
 
-from PyTango import AttributeProxy
 AttrQuality = PyTango.AttrQuality
+DevState = PyTango.DevState
+EventType = PyTango.EventType
+

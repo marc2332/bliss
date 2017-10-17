@@ -10,7 +10,7 @@ import time
 from bliss.controllers.motor import Controller
 from bliss.common import log as elog
 from bliss.common.axis import AxisState
-from bliss.common.tango import PyTango, DeviceProxy, AttributeProxy
+from bliss.common.tango import DevState, DeviceProxy, AttributeProxy
 
 """
 undulator.py : a undulator controller for bliss.
@@ -129,9 +129,9 @@ class Undulator(Controller):
     def state(self, axis):
         _state = self.device.state()
 
-        if _state == PyTango.DevState.ON:
+        if _state == DevState.ON:
             return AxisState("READY")
-        elif _state == PyTango.DevState.MOVING:
+        elif _state == DevState.MOVING:
             return AxisState("MOVING")
         else:
             return AxisState("READY")

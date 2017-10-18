@@ -1,6 +1,6 @@
 before_script:
   - source activate tango2.7
-  - conda install --yes --file requirements-conda.txt
+  - conda install --yes --channel esrf-bcu --file requirements-conda.txt
   - pip install -r requirements.txt
 
 stages:

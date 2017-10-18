@@ -3,8 +3,10 @@
 # This should accelerate and simplify the installation procedure
 # since conda provide binary packages for gevent, h5py, etc.
 
-# First run: conda install --file requirements-conda.txt
-# Then: pip install -r requirements.txt
+# First run:
+# $ conda install --channel esrf-bcu --file requirements-conda.txt
+# Then:
+# $ pip install -r requirements.txt
 
 
 # Requirements
@@ -25,6 +27,7 @@ pyserial == 2.7
 h5py
 msgpack-python
 pyzmq
+pytango
 
 # Non-python requirements
 

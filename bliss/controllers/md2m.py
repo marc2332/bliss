@@ -11,7 +11,7 @@ import numpy
 import math
 import os
 import logging
-from PyTango.gevent import DeviceProxy
+from bliss.common.tango import DeviceProxy
 from bliss.common.scans import *
 from bliss.controllers.motor_group import Group
 from bliss.common.task_utils import *

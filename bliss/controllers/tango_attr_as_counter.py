@@ -22,7 +22,7 @@ YAML_ configuration example:
 """
 import weakref
 from bliss.common.measurement import SamplingCounter
-import PyTango.gevent
+from bliss.common.tango import DeviceProxy
 
 _CtrGroupReadDict = weakref.WeakValueDictionary()
 
@@ -38,7 +38,7 @@ class _CtrGroupRead(object):
 
     def read_all(self,*counters):
         if self._control is None:
-            self._control = PyTango.gevent.DeviceProxy(self._tango_uri)
+            self._control = DeviceProxy(self._tango_uri)
 
         dev_attrs = self._control.read_attributes([cnt.attribute for cnt in counters])
         #Check error

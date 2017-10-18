@@ -14,7 +14,7 @@ import weakref
 from bliss.common.axis import Axis, AxisRef
 from bliss.common.encoder import Encoder
 from bliss.config.static import Config, get_config
-import bliss.controllers.motors
+from bliss.common.tango import DeviceProxy
 import gevent
 import hashlib
 import sys
@@ -170,17 +170,15 @@ def get_ctrl_html(cfg):
 
 def __is_tango_device(name):
     try:
-        import PyTango
-        return PyTango.DeviceProxy(name) is not None
+        return DeviceProxy(name) is not None
     except:
         pass
     return False
 
 
 def __tango_apply_config(name):
-    import PyTango.gevent
     try:
-        device = PyTango.gevent.DeviceProxy(name)
+        device = DeviceProxy(name)
         device.command_inout("ApplyConfig", True)
         msg = "'%s' configuration saved and applied to server!" % name
         msg_type = "success"

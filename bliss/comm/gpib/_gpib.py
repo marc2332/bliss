@@ -19,6 +19,7 @@ from ..exceptions import CommunicationError, CommunicationTimeout
 from ...common.greenlet_utils import KillMask, protect_from_kill
 
 from bliss.common.utils import OrderedDict
+from bliss.common.tango import DeviceProxy
 
 __TMO_TUPLE = (0., 10E-6, 30E-6, 100E-6, 300E-6,
                1E-3, 3E-3, 10E-3, 30E-3, 100E-3, 300E-3,
@@ -195,9 +196,8 @@ class TangoDeviceServer:
         
     def init(self):
         self._debug("TangoDeviceServer::init()")
-        import PyTango
         if self._proxy is None:
-            self._proxy = PyTango.DeviceProxy(self._tango_url)
+            self._proxy = DeviceProxy(self._tango_url)
         
     def close(self):
         self._proxy = None

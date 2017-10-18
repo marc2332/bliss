@@ -5,13 +5,13 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import PyTango.gevent
+from bliss.common.tango import DeviceProxy
 import time
 
 class tango_shutter:
    def __init__(self, name, config):
       tango_uri = config.get("uri")
-      self.__control = PyTango.gevent.DeviceProxy(tango_uri)
+      self.__control = DeviceProxy(tango_uri)
       try:
          self.manual = config.get("attr_mode")
       except:

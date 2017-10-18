@@ -8,8 +8,7 @@
 from __future__ import absolute_import
 
 import numpy
-import PyTango.gevent
-
+from bliss.common.tango import PyTango, EventType, DeviceProxy 
 from bliss.controllers.ct2 import BaseCT2Device, AcqMode, AcqStatus
 
 PyTango.requires_pytango('8.1.8')
@@ -24,15 +23,15 @@ class CT2Device(BaseCT2Device):
         BaseCT2Device.__init__(self)
         device_name = self.card_config['tango name']
         
-        self.__tango_device = PyTango.gevent.DeviceProxy(device_name)
+        self.__tango_device = DeviceProxy(device_name)
         self.__tango_device.subscribe_event("acq_status",
-                                            PyTango.EventType.CHANGE_EVENT,
+                                            EventType.CHANGE_EVENT,
                                             self.__on_status)
         self.__tango_device.subscribe_event("last_point_nb",
-                                            PyTango.EventType.CHANGE_EVENT,
+                                            EventType.CHANGE_EVENT,
                                             self.__on_point_nb)
         self.__tango_device.subscribe_event("last_error",
-                                            PyTango.EventType.CHANGE_EVENT,
+                                            EventType.CHANGE_EVENT,
                                             self.__on_error)
 
     def __on_status(self, event):

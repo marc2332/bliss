@@ -14,9 +14,7 @@ import time
 
 import gevent.event
 from bliss.common import event
-
-from PyTango.gevent import AttributeProxy
-from PyTango.gevent import DeviceProxy
+from bliss.common.tango import AttributeProxy, DeviceProxy
 
 """
 setpoint.py : 'setpoint' EMotion controller is a close copy of mockup

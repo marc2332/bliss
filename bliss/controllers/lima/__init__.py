@@ -5,16 +5,7 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 import importlib
-try:
-    from tango.gevent import DeviceProxy
-except ImportError:
-    try:
-        from PyTango.gevent import DeviceProxy
-    except ImportError:
-        import warnings
-        from PyTango import DeviceProxy
-        warnings.warn("Tango does not support gevent, please update your Python tango version", RuntimeWarning)
-    
+from bliss.common.tango import DeviceProxy
 from bliss.config import settings
 from .bpm import Bpm
 

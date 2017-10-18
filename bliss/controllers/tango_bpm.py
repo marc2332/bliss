@@ -7,11 +7,11 @@
 
 from bliss.common.task_utils import cleanup, error_cleanup, task
 from bliss.common.utils import add_property
+from bliss.common.tango import DeviceProxy
 from bliss.common.measurement import SamplingCounter
 from bliss.common import Actuator
 import gevent
 from gevent import event
-import PyTango.gevent
 import numpy
 
 class BpmGroupedReadHandler(SamplingCounter.GroupedReadHandler):
@@ -67,9 +67,9 @@ class tango_bpm(object):
        tango_lima_uri = config.get("lima_uri")
        foil_actuator_name = config.get("foil_name")
 
-       self.__control = PyTango.gevent.DeviceProxy(tango_uri)
+       self.__control = DeviceProxy(tango_uri)
        if tango_lima_uri:
-           self.__lima_control = PyTango.gevent.DeviceProxy(tango_lima_uri)
+           self.__lima_control = DeviceProxy(tango_lima_uri)
        else:
            self.__lima_control = None
        self._acquisition_event = event.Event()

@@ -1,4 +1,5 @@
 import random
+from bliss.common.scans import *
 from bliss.common.measurement import SamplingCounter
 import numpy
 import gevent

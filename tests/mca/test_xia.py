@@ -100,8 +100,7 @@ def test_xia_trigger_mode(xia):
     # First test
     xia.set_trigger_mode(None)
     assert client.set_acquisition_value.call_args_list == [
-        (('gate_ignore', 1),),
-        (('pixel_advance_mode', 0),)]
+        (('gate_ignore', 1),)]
     client.apply_acquisition_values.assert_called_once_with()
 
     # Second test
@@ -109,8 +108,7 @@ def test_xia_trigger_mode(xia):
     client.apply_acquisition_values.reset_mock()
     xia.set_trigger_mode(TriggerMode.GATE)
     assert client.set_acquisition_value.call_args_list == [
-        (('gate_ignore', 0),),
-        (('pixel_advance_mode', 1),)]
+        (('gate_ignore', 0),)]
     client.apply_acquisition_values.assert_called_once_with()
 
     # Third test

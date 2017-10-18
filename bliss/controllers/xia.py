@@ -31,6 +31,13 @@ class BaseXIA(BaseMCA):
     - FalconX
     - FalconX-4
     - FalconX-8
+
+    The configuration methods are expected to be called in the following order:
+    - load_configuration
+    - set_acquisition_number
+    - set_block_size (ignored for single acquisition)
+    - set_trigger_mode
+    - set_preset_mode (can be disabled using None)
     """
 
     # Life cycle
@@ -267,6 +274,12 @@ class BaseXIA(BaseMCA):
                 TriggerMode.GATE]
 
     def set_trigger_mode(self, mode):
+        """Set the trigger mode.
+
+        Warning: this method assumes the correct number of acquisition
+        is already set correctly. If the number of acquistion changes,
+        this methods needs to be reinvoked.
+        """
         # Cast arguments
         if mode is None:
             mode = TriggerMode.SOFTWARE
@@ -276,12 +289,13 @@ class BaseXIA(BaseMCA):
         if mode == TriggerMode.EXTERNAL and self.acquisition_number == 1:
             raise ValueError(
                 'External trigger mode not supported in single acquisition mode')
-        # Get hardware value
+        # Get gate ignore
         gate_ignore = 0 if mode == TriggerMode.GATE else 1
-        advance_mode = 0 if mode == TriggerMode.SOFTWARE else 1
-        # Configure
         self._proxy.set_acquisition_value('gate_ignore', gate_ignore)
-        self._proxy.set_acquisition_value('pixel_advance_mode', advance_mode)
+        # Configure advance mode
+        if self.acquisition_number > 1:
+            advance_mode = 0 if mode == TriggerMode.SOFTWARE else 1
+            self._proxy.set_acquisition_value('pixel_advance_mode', advance_mode)
         self._proxy.apply_acquisition_values()
 
 

@@ -9,9 +9,12 @@ import time
 import datetime
 import numpy
 import pickle
-
-from bliss.data.node import DataNodeContainer, is_zerod
-
+import gevent
+from bliss.common.utils import all_equal
+from bliss.common.task_utils import task
+from bliss.data.node import DataNodeIterator, _get_or_create_node, DataNodeContainer
+import logging
+import sys
 
 def _transform_dict_obj(dict_object):
     return_dict = dict()
@@ -109,3 +112,66 @@ def get_data(scan):
         data[channel_name] = result[i]
 
     return data
+
+def _watch_data(scan_node, scan_new_callback, scan_new_child_callback, scan_data_callback):
+    scan_info = None
+    scan_data = dict()
+    data_indexes = dict()
+ 
+    scan_info = scan_node.info.get_all()
+    if scan_info.get('type') == 'ct':
+        return
+
+    scan_new_callback(scan_info)
+    
+    scan_data_iterator = DataNodeIterator(scan_node)
+    for event_type, data_channel in scan_data_iterator.walk_events():
+        if event_type == scan_data_iterator.NEW_CHILD_EVENT:
+            scan_new_child_callback(scan_info, data_channel)
+        elif event_type == scan_data_iterator.NEW_DATA_IN_CHANNEL_EVENT:
+            data = data_channel.get(data_indexes.setdefault(data_channel.db_name, 0), -1)
+            data_indexes[data_channel.db_name] += len(data)
+
+            for master, channels in scan_info["acquisition_chain"].iteritems():
+                master_channels = channels["master"]
+                master_scalar_channel_name = None
+
+                for channel_name in master_channels["scalars"]:
+                    scan_data.setdefault(channel_name, [])
+                    if data_channel.db_name.endswith(channel_name):
+                        scan_data[channel_name] = numpy.concatenate((scan_data[channel_name], data))
+
+                for channel_name in channels["scalars"]:
+                    scan_data.setdefault(channel_name, [])
+                    if data_channel.db_name.endswith(channel_name):
+                        scan_data[channel_name] = numpy.concatenate((scan_data.get(channel_name, []), data))
+                        scan_data_callback("0d", master, { "master_channels": master_channels["scalars"],
+                                                           "data": scan_data })
+                        break
+
+            """if data_channel.name == 'image' and len(data)>0:
+                print data, len(data)
+                print iter(data).next()
+            scan_data.setdefault(data_channel.name, []).extend(data)
+            if len(scan_data) == ndata and all_equal(data_indexes.itervalues()):
+                scan_data_callback(scan_info, scan_data)
+                scan_data = dict()
+            """
+@task
+def watch_session_scans(session_name, scan_new_callback, scan_new_child_callback, scan_data_callback):
+    session_node = _get_or_create_node(session_name, node_type='session')
+    if session_node is not None:
+        data_iterator = DataNodeIterator(session_node)
+
+        watch_data_task = None
+        last = True
+        for scan_node in data_iterator.walk_from_last(filter='scan'):
+            if last:
+                # skip the last one, we are interested in new ones only
+                last = False
+                continue
+            if watch_data_task:
+                watch_data_task.kill()
+
+            watch_data_task = gevent.spawn(_watch_data, scan_node, scan_new_callback, scan_new_child_callback, scan_data_callback)
+

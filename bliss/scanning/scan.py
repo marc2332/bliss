@@ -275,12 +275,12 @@ class Scan(object):
                 "%s_last_run_number" % name, 1)
         self.__name = '%s_%d' % (name, run_number)
         self._node = _create_node(self.__name, "scan", parent=self.root_node)
-        if scan_info is not None:
-            scan_info['scan_nb'] = run_number
-            scan_info['start_time'] = self._node._data.start_time
-            scan_info['start_time_str'] = self._node._data.start_time_str
-            scan_info['start_time_stamp'] = self._node._data.start_time_stamp
-            self._node._info.update(dict(scan_info))
+        self._scan_info = scan_info if scan_info is not None else dict()
+        self._scan_info['node_name'] = self._node.db_name
+        self._scan_info['scan_nb'] = run_number
+        self._scan_info['start_time'] = self._node._data.start_time
+        self._scan_info['start_time_str'] = self._node._data.start_time_str
+        self._scan_info['start_time_stamp'] = self._node._data.start_time_stamp
         self._data_watch_callback = data_watch_callback
         self._data_events = dict()
 
@@ -303,9 +303,14 @@ class Scan(object):
             self._data_watch_task = None
 
         self._acq_chain = chain
-        self._scan_info = scan_info if scan_info is not None else dict()
-        self._scan_info['node_name'] = self._node.db_name
+
+        # go through acq chain, get acq channels to build labels list
+        self._scan_info["labels"] = []
+        for acq_object in self._acq_chain.nodes_list:
+          for acq_chan in acq_object.channels:
+            self._scan_info['labels'].append(acq_chan.name)
         self._state = self.IDLE_STATE
+        self._node._info.update(self._scan_info)
 
     @property
     def name(self):

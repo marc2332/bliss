@@ -174,6 +174,8 @@ class Session(object):
          if verbose:
             print "Initializing '%s`" % item_name
          try:
+            if cfg.get_config(item_name).plugin == 'session': 
+              continue
             o = cfg.get(item_name)
          except:
             sys.excepthook(*sys.exc_info())

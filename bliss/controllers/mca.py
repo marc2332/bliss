@@ -180,19 +180,26 @@ class BaseMCA(object):
         else:
             self.set_preset_mode(None)
         # Start and wait
-        self.start_acquisition()
-        get_realtime = lambda: self.get_acquisition_statistics()[0].realtime
-        previous, current = 0., get_realtime()
-        while current == 0. or previous != current:
-            time.sleep(polling_time)
-            previous, current = current, get_realtime()
-        # Stop and return data
-        self.stop_acquisition()
+        try:
+            self.start_acquisition()
+            get_realtime = lambda: self.get_acquisition_statistics()[0].realtime
+            previous, current = 0., get_realtime()
+            while current == 0. or previous != current:
+                time.sleep(polling_time)
+                previous, current = current, get_realtime()
+        # Stop in any case
+        finally:
+            self.stop_acquisition()
+        # Return data
         return self.get_acquisition_data(), self.get_acquisition_statistics()
 
     def run_multiple_acquisitions(self, acquisition_number,
                                   block_size=None, gate=False,
                                   polling_time=0.1):
+        # Check acquisition number
+        if acquisition_number < 2:
+            raise ValueError(
+                'Acquisition number must be stricty greater than 1')
         # Acquisition number
         self.set_acquisition_number(acquisition_number)
         self.set_block_size(block_size)
@@ -202,13 +209,18 @@ class BaseMCA(object):
         # Preset mode
         self.set_preset_mode(None)
         # Start and wait
-        self.start_acquisition()
-        current, data, statistics = self.poll_data()
-        while current != acquisition_number:
-            time.sleep(polling_time)
-            current, extra_data, extra_statistics = self.poll_data()
-            data.update(extra_data)
-            statistics.update(extra_statistics)
-        # Stop and return data
-        self.stop_acquisition()
+        try:
+            self.start_acquisition()
+            current, data, statistics = self.poll_data()
+            while current != acquisition_number:
+                time.sleep(polling_time)
+                current, extra_data, extra_statistics = self.poll_data()
+                data.update(extra_data)
+                statistics.update(extra_statistics)
+        # Stop in any case
+        finally:
+            self.stop_acquisition()
+        # Convert and return data
+        data = [data[n] for n in range(acquisition_number)]
+        statistics = [statistics[n] for n in range(acquisition_number)]
         return data, statistics

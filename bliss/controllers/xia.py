@@ -115,9 +115,8 @@ class BaseXIA(BaseMCA):
         """Make sure the configuration corresponds to a mercury.
 
         - One and only one detector (hardware controller)
-        - One and only one acquisition module
-        - One and only one detector channel (a.k.a as element)
-        - By convention, the channel is numbered 0.
+        - At least one acquisition module
+        - At least one detector channel (a.k.a as element)
         """
         detectors = self._proxy.get_detectors()
         assert len(detectors) == 1
@@ -125,7 +124,6 @@ class BaseXIA(BaseMCA):
         assert len(modules) >= 1
         channels = self._proxy.get_channels()
         assert len(channels) >= 1
-        assert channels == tuple(range(len(channels)))
         self._run_type_specific_checks()
 
     def _run_type_specific_checks(self):
@@ -209,12 +207,10 @@ class BaseXIA(BaseMCA):
         return current - 1, spectrums, statistics
 
     def _convert_spectrums(self, spectrums):
-        nb = len(spectrums)
-        return [spectrums[i] for i in range(nb)]
+        return spectrums
 
     def _convert_statistics(self, stats):
-        nb = len(stats)
-        return [Stats(*stats[i]) for i in range(nb)]
+        return {k: Stats(*v) for k, v in stats.items()}
 
     # Infos
 
@@ -289,7 +285,7 @@ class BaseXIA(BaseMCA):
         if mode == TriggerMode.EXTERNAL and self.acquisition_number == 1:
             raise ValueError(
                 'External trigger mode not supported in single acquisition mode')
-        # Get gate ignore
+        # Configure gate ignore
         gate_ignore = 0 if mode == TriggerMode.GATE else 1
         self._proxy.set_acquisition_value('gate_ignore', gate_ignore)
         # Configure advance mode
@@ -330,6 +326,12 @@ class XMAP(BaseXIA):
     def _run_type_specific_checks(self):
         assert self.detector_type == DetectorType.XMAP
         assert self.element_count in range(1, 17)
+
+    def set_trigger_mode(self, mode, master=None):
+        if master is None:
+            master = self._proxy.get_master_channels()[0]
+        self._proxy.set_acquisition_value('gate_master', True, master)
+        super(XMAP, self).set_trigger_mode(mode)
 
 
 class FalconX(BaseXIA):

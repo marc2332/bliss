@@ -367,13 +367,13 @@ def mesh(motor1, start1, stop1, npoints1, motor2, start2, stop2, npoints2, count
     step_size1 = abs(stop1 - start1) / float(npoints1)
     i_motion_t1 = MotionEstimation(motor1, start1).duration
     n_motion_t1 = MotionEstimation(motor1, start1, start1 + step_size1).duration
-    total_motion_t1 = npoints1 *npoints2 * n_motion1_t
+    total_motion_t1 = npoints1 *npoints2 * n_motion_t1
 
     step_size2 = abs(stop2 - start2) / float(npoints2)
     i_motion_t2 = MotionEstimation(motor2, start2).duration
     n_motion_t2 = max(MotionEstimation(motor2, start2, start2 + step_size2).duration,
                       MotionEstimation(motor1, end1, start1).duration)
-    total_motion_t2 = npoints2 * n_motion2_t
+    total_motion_t2 = npoints2 * n_motion_t2
 
     imotion_t = max(i_motion_t1, i_motion_t2)
 
@@ -471,7 +471,7 @@ def a2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
 
     i_motion_t = max(i_motion1_t, i_motion2_t)
     n_motion_t = max(n_motion1_t, n_motion2_t)
-    total_motion_t = i_motion_t + npoints * nmotion_t
+    total_motion_t = i_motion_t + npoints * n_motion_t
     total_count_t = npoints * count_time
     estimation = {'total_motion_time': total_motion_t,
                   'total_count_time': total_count_t,

@@ -43,6 +43,13 @@ PLOTS = dict()
 PLOT_DATA = dict()
 AXIS_INFO = dict()
 
+def _update(data, axis_info, plot):
+    x_data = data.get(axis_info["x"],[])
+    for y_axis in axis_info["y"]:
+        y_data = data.get(y_axis, [])
+        if len(x_data) == len(y_data):
+            plot.addCurve(x_data, y_data, legend='%s / %s' % (y_axis, axis_info['x']))
+
 class AxesDockWidget(qt.QDockWidget):
     def __init__(self, parent=None, plot=None):
         assert plot is not None
@@ -67,20 +74,17 @@ class AxesDockWidget(qt.QDockWidget):
 
     def checkboxStateChanged(self,state):
         self.axis_info["x"]=None
-        self.axis_info["y"]=None
+        self.axis_info["y"]=[]
         for axis, checkbox in self.x_checkboxes.iteritems():
           if checkbox.isChecked():
             self.axis_info["x"] = axis
             break
         for axis, checkbox in self.y_checkboxes.iteritems():
           if checkbox.isChecked():
-            self.axis_info["y"] = axis
-            break
+            self.axis_info["y"].append(axis)
         self.plot.clear()
         data = PLOT_DATA[self.plot._scan_node]
-        x = data.get(self.axis_info["x"],[])
-        y = data.get(self.axis_info["y"], [])
-        self.plot.addCurve(x, y, legend='BLISS')
+        _update(data, self.axis_info, self.plot)
 
     def setAxisInfo(self, axis_info):
         self.axis_info = axis_info
@@ -92,23 +96,24 @@ class AxesDockWidget(qt.QDockWidget):
 
         grpx = qt.QButtonGroup(self._widget)
         grpy = qt.QButtonGroup(self._widget)
+        grpy.setExclusive(False)
         self._widget.layout().addWidget(qt.QLabel("label", self), 0, 0)
         self._widget.layout().addWidget(qt.QLabel("x", self), 0, 1)
         self._widget.layout().addWidget(qt.QLabel("y", self), 0, 2)
         for i, axis in enumerate(axis_info.get("__all__", [])):
-          self._widget.layout().addWidget(qt.QLabel(axis, self), i+1, 0)
-          chk_x = qt.QCheckBox(self._widget)
-          grpx.addButton(chk_x)
-          chk_x.setChecked(axis_info["x"] == axis)
-          self.x_checkboxes[axis] = chk_x
-          chk_x.stateChanged.connect(self.checkboxStateChanged)
-          self._widget.layout().addWidget(chk_x, i+1, 1)
-          chk_y = qt.QCheckBox(self._widget)
-          grpy.addButton(chk_y)
-          chk_y.setChecked(axis_info["y"] == axis)
-          self.y_checkboxes[axis] = chk_y
-          chk_y.stateChanged.connect(self.checkboxStateChanged)
-          self._widget.layout().addWidget(chk_y, i+1, 2)
+            self._widget.layout().addWidget(qt.QLabel(axis, self), i+1, 0)
+            chk_x = qt.QCheckBox(self._widget)
+            grpx.addButton(chk_x)
+            chk_x.setChecked(axis_info["x"] == axis)
+            self.x_checkboxes[axis] = chk_x
+            chk_x.stateChanged.connect(self.checkboxStateChanged)
+            self._widget.layout().addWidget(chk_x, i+1, 1)
+            chk_y = qt.QCheckBox(self._widget)
+            grpy.addButton(chk_y)
+            chk_y.setChecked(axis in axis_info["y"])
+            self.y_checkboxes[axis] = chk_y
+            chk_y.stateChanged.connect(self.checkboxStateChanged)
+            self._widget.layout().addWidget(chk_y, i+1, 2)
 
     def updateAxes(self, *args):
         axis_info = AXIS_INFO[self.plot._scan_node]
@@ -141,15 +146,13 @@ def update_plot(scan_node):
     
     axes_list = data.keys()
     try:
-      axis_info = AXIS_INFO.setdefault(scan_node, {"x": axes_list[0], "y": axes_list[1]})
+      axis_info = AXIS_INFO.setdefault(scan_node, {"x": axes_list[0], "y": [axes_list[1]] })
     except IndexError:
       return
 
-    x = data.get(axis_info["x"],[])
-    y = data.get(axis_info["y"], [])
-    if len(x) == len(y):
-        axis_info["__all__"] = axes_list
-        plot.addCurve(x, y, legend='BLISS')
+    axis_info["__all__"] = axes_list[:]
+
+    _update(data, axis_info, plot)
 
 def copy_data(scan_node,zerod,channel_name,zerod_index):
     data_channel = zerod.get_channel(channel_name)

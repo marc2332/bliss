@@ -224,8 +224,8 @@ class BaseXIA(BaseMCA):
         return getattr(DetectorType, value.upper())
 
     @property
-    def element_count(self):
-        return len(self._proxy.get_channels())
+    def elements(self):
+        return self._proxy.get_channels()
 
     # Modes
 
@@ -302,6 +302,7 @@ class XIA(BaseXIA):
 
     def _run_type_specific_checks(self):
         assert self.detector_type in DetectorType
+        assert all(e in range(16) for e in self.elements)
 
 
 class Mercury(BaseXIA):
@@ -309,7 +310,7 @@ class Mercury(BaseXIA):
 
     def _run_type_specific_checks(self):
         assert self.detector_type == DetectorType.MERCURY
-        assert self.element_count == 1
+        assert self.elements == (0,)
 
 
 class Mercury4(BaseXIA):
@@ -317,7 +318,7 @@ class Mercury4(BaseXIA):
 
     def _run_type_specific_checks(self):
         assert self.detector_type == DetectorType.MERCURY4
-        assert self.element_count in (1, 2, 3, 4)
+        assert all(e in range(4) for e in self.elements)
 
 
 class XMAP(BaseXIA):
@@ -325,12 +326,26 @@ class XMAP(BaseXIA):
 
     def _run_type_specific_checks(self):
         assert self.detector_type == DetectorType.XMAP
-        assert self.element_count in range(1, 17)
+        assert all(e in range(16) for e in self.elements)
 
-    def set_trigger_mode(self, mode, master=None):
-        if master is None:
-            master = self._proxy.get_master_channels()[0]
-        self._proxy.set_acquisition_value('gate_master', True, master)
+    def set_trigger_mode(self, mode, channel=None):
+        # Add extra logic for external and gate trigger mode
+        if mode in (TriggerMode.EXTERNAL, TriggerMode.GATE):
+            available = self._proxy.get_trigger_channels()
+            # Check available trigger channels
+            if not available:
+                raise ValueError(
+                    'This configuration does not support trigger signals')
+            # Check channel argument
+            if channel is not None and channel not in available:
+                raise ValueError(
+                    'The given channel is not a valid trigger channel')
+            # Set default channel value
+            if channel is None:
+                channel = available[0]
+            # Set gate master parameter
+            self._proxy.set_acquisition_value('gate_master', True, channel)
+        # Parent call
         super(XMAP, self).set_trigger_mode(mode)
 
 
@@ -339,6 +354,7 @@ class FalconX(BaseXIA):
 
     def _run_type_specific_checks(self):
         assert self.detector_type == DetectorType.FALCONX
+        assert self.elements == (0,)
 
 
 class FalconX4(BaseXIA):
@@ -346,6 +362,7 @@ class FalconX4(BaseXIA):
 
     def _run_type_specific_checks(self):
         assert self.detector_type == DetectorType.FALCONX4
+        assert all(e in range(4) for e in self.elements)
 
 
 class FalconX8(BaseXIA):
@@ -353,3 +370,4 @@ class FalconX8(BaseXIA):
 
     def _run_type_specific_checks(self):
         assert self.detector_type == DetectorType.FALCONX8
+        assert all(e in range(8) for e in self.elements)

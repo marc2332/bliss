@@ -4,7 +4,7 @@ import pytest
 
 from bliss.controllers.mca import Brand, DetectorType, Stats
 from bliss.controllers.mca import PresetMode, TriggerMode
-from bliss.controllers.xia import XIA, Mercury, XMAP
+from bliss.controllers.xia import XIA, Mercury, XMAP, FalconX
 
 
 @pytest.fixture(
@@ -21,8 +21,8 @@ def xia(request, beacon, mocker):
     client.get_detectors.return_value = ['detector1']
     client.get_modules.return_value = ['module1']
 
-    # Element count
-    channels = (0,) if request.param == 'mercury' else (0, 1, 2, 3)
+    # Elements
+    channels = (0,) if request.param in ('mercury', 'falconx') else (0, 1, 2, 3)
     client.get_channels.return_value = channels
 
     # Configuration
@@ -61,10 +61,10 @@ def test_xia_infos(xia):
     else:
         name = type(xia).__name__.upper()
         assert xia.detector_type == getattr(DetectorType, name)
-    if type(xia) is Mercury:
-        assert xia.element_count == 1
+    if type(xia) in (Mercury, FalconX):
+        assert xia.elements == (0,)
     else:
-        assert xia.element_count == 4
+        assert xia.elements == (0, 1, 2, 3)
 
 
 def test_xia_configuration(xia):
@@ -99,15 +99,16 @@ def test_xia_trigger_mode(xia):
     client = xia._proxy
 
     # XMAP specific tests
-    if isinstance(xia, XMAP):
-        client.get_master_channels.return_value = [0]
+    xmap = isinstance(xia, XMAP)
+    if xmap:
+        client.get_trigger_channels.return_value = [0]
         xmap_prefix = [(('gate_master', True, 0),)]
     else:
         xmap_prefix = []
 
     # First test
     xia.set_trigger_mode(None)
-    assert client.set_acquisition_value.call_args_list == xmap_prefix + [
+    assert client.set_acquisition_value.call_args_list == [
         (('gate_ignore', 1),)]
     client.apply_acquisition_values.assert_called_once_with()
 
@@ -137,6 +138,18 @@ def test_xia_trigger_mode(xia):
     # Second error tests
     with pytest.raises(ValueError):
         xia.set_trigger_mode(13)
+
+    # XMAP specific
+    if xmap:
+        client.get_trigger_channels.return_value = []
+        with pytest.raises(ValueError):
+            xia.set_trigger_mode(TriggerMode.GATE)
+
+    # XMAP specific
+    if xmap:
+        client.get_trigger_channels.return_value = [0]
+        with pytest.raises(ValueError):
+            xia.set_trigger_mode(TriggerMode.GATE, channel=1)
 
 
 def test_xia_acquisition_number(xia):

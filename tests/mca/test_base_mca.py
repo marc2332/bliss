@@ -67,7 +67,7 @@ def test_base_mca():
     properties = [
         'detector_brand',
         'detector_type',
-        'element_count',
+        'elements',
         'acquisition_number',
         'block_size',
         'supported_preset_modes',

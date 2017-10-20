@@ -62,6 +62,7 @@ __all__ = [
     "get_module_channels",
     "get_grouped_channels",
     "get_channels",
+    "get_trigger_channels",
     "set_acquisition_value",
     "get_acquisition_value",
     "remove_acquisition_value",

@@ -76,7 +76,7 @@ class BaseMCA(object):
         raise NotImplementedError
 
     @property
-    def element_count(self):
+    def elements(self):
         raise NotImplementedError
 
     # Modes

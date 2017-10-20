@@ -235,16 +235,10 @@ class CT2Device(BaseCT2Device):
         AcqMode.ExtTrigMulti,
     ]
 
-    ExtStartModes = [
-        AcqMode.ExtTrigSingle, 
-        AcqMode.ExtTrigMulti, 
-        AcqMode.ExtGate,
-        AcqMode.ExtTrigReadout,
-    ]
-
     ExtTrigModes = [
         AcqMode.ExtTrigMulti, 
         AcqMode.ExtGate,
+        AcqMode.ExtTrigReadout,
     ]
 
     ExtExpModes = [
@@ -643,7 +637,7 @@ class CT2Device(BaseCT2Device):
         return self.acq_mode in self.IntExpModes
         
     def __has_ext_start(self):
-        return self.acq_mode in self.ExtStartModes
+        return not self.__has_soft_start()
 
     def __has_ext_trig(self):
         return self.acq_mode in self.ExtTrigModes
@@ -651,6 +645,10 @@ class CT2Device(BaseCT2Device):
     def __has_ext_exp(self):
         return self.acq_mode in self.ExtExpModes
 
+    def __has_ext_sync(self):
+        return (self.__has_ext_start() or self.__has_ext_trig() or
+                self.__has_ext_exp())
+    
     def __in_ext_trig_readout(self):
         return self.acq_mode == AcqMode.ExtTrigReadout
 
@@ -669,7 +667,7 @@ class CT2Device(BaseCT2Device):
                 raise ValueError('Acq. point period must be greater than expo.')
         elif has_period:
             raise ValueError('Acq. point period only allowed in %s' % mode_str)
-        if self.__has_ext_trig() and not self.in_channel:
+        if self.__has_ext_sync() and not self.in_channel:
             raise ValueError('Must provide in_config in ext-trig modes')
 
         self.stop_acq()

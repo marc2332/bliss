@@ -978,6 +978,13 @@ def test_get_master_channels(interface):
         m.assert_called_once_with()
 
 
+def test_get_trigger_channels(interface):
+    with mock.patch("bliss.controllers.mca.handel.interface.get_grouped_channels") as m:
+        m.return_value = [(0, 1, 2, 3), (-1, 5, 6, 7)]
+        assert interface.get_trigger_channels() == (0,)
+        m.assert_called_once_with()
+
+
 # Parameters
 
 

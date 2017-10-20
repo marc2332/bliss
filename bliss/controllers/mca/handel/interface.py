@@ -232,7 +232,7 @@ def get_module_statistics(module):
     return {
         channel: stats_from_normal_mode(array[index * 9 :])
         for index, channel in enumerate(channels)
-        if channel != -1
+        if channel >= 0
     }
 
 
@@ -583,7 +583,7 @@ def get_channels():
             channel
             for channels in get_grouped_channels()
             for channel in channels
-            if channel != -1
+            if channel >= 0
         )
     )
 
@@ -593,6 +593,14 @@ def get_master_channels():
     return tuple(
         next(channel for channel in groups if channel >= 0)
         for groups in get_grouped_channels()
+    )
+
+
+def get_trigger_channels():
+    """Return the list of channels that can be used
+    as gate master or sync master."""
+    return tuple(
+        groups[0] for groups in get_grouped_channels() if groups and groups[0] >= 0
     )
 
 

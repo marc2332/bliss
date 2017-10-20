@@ -68,7 +68,8 @@ def read_decorator(func):
                     tmp.update(value)
                     value = tmp
             else:
-                value = self._read_type_conversion(value)
+                if value is not None:
+                    value = self._read_type_conversion(value)
         if value is None:
             if hasattr(self,'_default_value'):
                 value = self._default_value

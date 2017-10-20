@@ -2,7 +2,7 @@ name: xmap1
 module: xia
 class: XMAP
 plugin: bliss
-url: tcp://welisa.esrf.fr:8000
-configuration_directory: C:\\blissadm\\mercury
-default_configuration: mercury_src.ini
+url: tcp://isg-xmap4.esrf.fr:8000
+configuration_directory: C:\\blissadm\\xmap
+default_configuration: default.ini
 detector_mapping: sdd3elts

@@ -4,7 +4,7 @@ import pytest
 
 from bliss.controllers.mca import Brand, DetectorType, Stats
 from bliss.controllers.mca import PresetMode, TriggerMode
-from bliss.controllers.xia import XIA, Mercury
+from bliss.controllers.xia import XIA, Mercury, XMAP, FalconX
 
 
 @pytest.fixture(
@@ -21,12 +21,12 @@ def xia(request, beacon, mocker):
     client.get_detectors.return_value = ['detector1']
     client.get_modules.return_value = ['module1']
 
-    # Element count
-    channels = (0,) if request.param == 'mercury' else (0, 1, 2, 3)
+    # Elements
+    channels = (0,) if request.param in ('mercury', 'falconx') else (0, 1, 2, 3)
     client.get_channels.return_value = channels
 
     # Configuration
-    client.get_config_files.return_value = ['default.ini']
+    client.get_config_files.return_value = ['some_config.ini']
     client.get_config.return_value = {'my': 'config'}
     mtype = 'mercury4' if request.param == 'xia' else request.param
     client.get_module_type.return_value = mtype
@@ -41,15 +41,16 @@ def xia(request, beacon, mocker):
     # Instantiating the xia
     xia = beacon.get(request.param + '1')
     assert xia._proxy is client
-    m.assert_called_once_with('tcp://welisa.esrf.fr:8000')
+    m.assert_called_once_with(xia._config['url'])
     yield xia
 
 
 def test_xia_instanciation(xia):
     client = xia._proxy
-    client.init.assert_called_once_with(
-        'C:\\\\blissadm\\\\mercury', 'mercury_src.ini')
-    assert xia.current_configuration == 'mercury_src.ini'
+    config_dir = xia._config['configuration_directory']
+    default = xia._config['default_configuration']
+    client.init.assert_called_once_with(config_dir, default)
+    assert xia.current_configuration == default
     assert xia.configured
 
 
@@ -60,20 +61,20 @@ def test_xia_infos(xia):
     else:
         name = type(xia).__name__.upper()
         assert xia.detector_type == getattr(DetectorType, name)
-    if type(xia) is Mercury:
-        assert xia.element_count == 1
+    if type(xia) in (Mercury, FalconX):
+        assert xia.elements == (0,)
     else:
-        assert xia.element_count == 4
+        assert xia.elements == (0, 1, 2, 3)
 
 
 def test_xia_configuration(xia):
     client = xia._proxy
-    assert xia.available_configurations == ['default.ini']
-    client.get_config_files.assert_called_once_with(
-        'C:\\\\blissadm\\\\mercury')
+    config_dir = xia._config['configuration_directory']
+    default = xia._config['default_configuration']
+    assert xia.available_configurations == ['some_config.ini']
+    client.get_config_files.assert_called_once_with(config_dir)
     assert xia.current_configuration_values == {'my': 'config'}
-    client.get_config.assert_called_once_with(
-        'C:\\\\blissadm\\\\mercury', 'mercury_src.ini')
+    client.get_config.assert_called_once_with(config_dir, default)
 
 
 def test_xia_preset_mode(xia):
@@ -97,20 +98,26 @@ def test_xia_preset_mode(xia):
 def test_xia_trigger_mode(xia):
     client = xia._proxy
 
+    # XMAP specific tests
+    xmap = isinstance(xia, XMAP)
+    if xmap:
+        client.get_trigger_channels.return_value = [0]
+        xmap_prefix = [(('gate_master', True, 0),)]
+    else:
+        xmap_prefix = []
+
     # First test
     xia.set_trigger_mode(None)
     assert client.set_acquisition_value.call_args_list == [
-        (('gate_ignore', 1),),
-        (('pixel_advance_mode', 0),)]
+        (('gate_ignore', 1),)]
     client.apply_acquisition_values.assert_called_once_with()
 
     # Second test
     client.set_acquisition_value.reset_mock()
     client.apply_acquisition_values.reset_mock()
     xia.set_trigger_mode(TriggerMode.GATE)
-    assert client.set_acquisition_value.call_args_list == [
-        (('gate_ignore', 0),),
-        (('pixel_advance_mode', 1),)]
+    assert client.set_acquisition_value.call_args_list == xmap_prefix + [
+        (('gate_ignore', 0),)]
     client.apply_acquisition_values.assert_called_once_with()
 
     # Third test
@@ -118,7 +125,7 @@ def test_xia_trigger_mode(xia):
     client.apply_acquisition_values.reset_mock()
     client.get_acquisition_value.return_value = 3  # Multiple
     xia.set_trigger_mode(TriggerMode.EXTERNAL)
-    assert client.set_acquisition_value.call_args_list == [
+    assert client.set_acquisition_value.call_args_list == xmap_prefix + [
         (('gate_ignore', 1),),
         (('pixel_advance_mode', 1),)]
     client.apply_acquisition_values.assert_called_once_with()
@@ -131,6 +138,18 @@ def test_xia_trigger_mode(xia):
     # Second error tests
     with pytest.raises(ValueError):
         xia.set_trigger_mode(13)
+
+    # XMAP specific
+    if xmap:
+        client.get_trigger_channels.return_value = []
+        with pytest.raises(ValueError):
+            xia.set_trigger_mode(TriggerMode.GATE)
+
+    # XMAP specific
+    if xmap:
+        client.get_trigger_channels.return_value = [0]
+        with pytest.raises(ValueError):
+            xia.set_trigger_mode(TriggerMode.GATE, channel=1)
 
 
 def test_xia_acquisition_number(xia):
@@ -196,7 +215,9 @@ def test_xia_acquisition(xia, mocker):
     client.get_spectrums.return_value = {0: [3, 2, 1]}
     client.get_statistics.return_value = {0: range(7)}
     stats = Stats(*range(7))
-    assert xia.run_single_acquisition(3.) == ([[3, 2, 1]], [stats])
+    assert xia.run_single_acquisition(3.) == (
+        {0: [3, 2, 1]},
+        {0: stats})
     sleep.assert_called_once_with(0.1)
 
 
@@ -214,8 +235,8 @@ def test_xia_multiple_acquisition(xia, mocker):
     stats0, stats1 = Stats(*range(7)), Stats(*range(10, 17))
 
     data, stats = xia.run_multiple_acquisitions(2)
-    assert data == {0: ['spectrum0'], 1: ['spectrum1']}
-    assert stats == {0: [stats0], 1: [stats1]}
+    assert data == [{0: 'spectrum0'}, {0: 'spectrum1'}]
+    assert stats == [{0: stats0}, {0: stats1}]
     assert sleep.call_args_list == [((0.1,),), ((0.1,),)]
 
 

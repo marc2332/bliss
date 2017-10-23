@@ -7,7 +7,7 @@ This requires python3, handel, zerorpc and msgpack_numpy.
 Usage:
 
     $ ./handel-server 8888
-    Serving handel on tcp://0.0.0.0:8888 ... 
+    Serving handel on tcp://0.0.0.0:8888 ...
 
 Test on the client machine using:
 
@@ -17,7 +17,6 @@ Test on the client machine using:
 # Imports
 
 import sys
-import functools
 
 import zerorpc
 import msgpack_numpy
@@ -28,7 +27,6 @@ import bliss.controllers.mca.handel.interface as hi
 # Patching
 
 msgpack_numpy.patch()
-print = functools.partial(print, flush=True)
 
 
 # Run server
@@ -39,7 +37,7 @@ def run(bind='0.0.0.0', port=8000):
         hi.init_handel()
         server = zerorpc.Server(hi)
         server.bind(access)
-        print(f'Serving handel on {access} ...')
+        print('Serving handel on {} ...'.format(access))
         try:
             server.run()
         except KeyboardInterrupt:
@@ -50,7 +48,7 @@ def run(bind='0.0.0.0', port=8000):
         hi.exit()
 
 
-# Main function 
+# Main function
 
 def main(args=None):
     if args is None:

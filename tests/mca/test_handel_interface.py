@@ -56,15 +56,6 @@ def test_exit(interface):
 # Detectors
 
 
-def test_new_detector(interface):
-    m = interface.handel.xiaNewDetector
-    m.return_value = 0
-    assert interface.new_detector("somealias") is None
-    m.assert_called_once_with(b"somealias")
-    # Make sure errors have been checked
-    interface.check_error.assert_called_once_with(0)
-
-
 def test_get_num_detectors(interface):
     m = interface.handel.xiaGetNumDetectors
 

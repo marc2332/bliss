@@ -256,6 +256,8 @@ class Lima(object):
 
     def _get_proxy(self,type_name):
         device_name = self._proxy.getPluginDeviceNameFromType(type_name)
+        if not device_name:
+            return
         if not device_name.startswith("//"):
             # build 'fully qualified domain' name
             # '.get_fqdn()' doesn't work

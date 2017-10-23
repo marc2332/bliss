@@ -636,7 +636,9 @@ def get_acquisition_value(name, channel=None):
         value = reduce(lambda c, x: c if c == x else None, values)
         # Inconsistency
         if value is None:
-            raise ValueError("The acquisition value differs from channel to channel")
+            raise ValueError(
+                "The acquisition value {} differs from channel to channel".format(name)
+            )
         # Return
         return value
     # Get value for a single channel

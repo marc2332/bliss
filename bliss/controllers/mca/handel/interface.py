@@ -126,12 +126,6 @@ def exit():
 # Detectors
 
 
-def new_detector(alias):
-    alias = to_bytes(alias)
-    code = handel.xiaNewDetector(alias)
-    check_error(code)
-
-
 def get_num_detectors():
     num = ffi.new("unsigned int *")
     code = handel.xiaGetNumDetectors(num)
@@ -156,12 +150,8 @@ def get_detector_from_channel(channel):
 
 # Not exposed
 
-# int xiaAddDetectorItem(char *alias, char *name, void *value);
-# int xiaModifyDetectorItem(char *alias, char *name, void *value);
 # int xiaGetDetectorItem(char *alias, char *name, void *value);
 # int xiaGetDetectors_VB(unsigned int index, char *alias);
-# int xiaRemoveDetector(char *alias);
-
 
 # Run control
 
@@ -481,16 +471,11 @@ def close_log():
 
 # Not exposed
 
-# int xiaNewFirmware(char *alias);
-# int xiaAddFirmwareItem(char *alias, char *name, void *value);
-# int xiaModifyFirmwareItem(char *alias, unsigned short decimation, char *name, void *value);
 # int xiaGetFirmwareItem(char *alias, unsigned short decimation, char *name, void *value);
 # int xiaGetNumFirmwareSets(unsigned int *numFirmware);
 # int xiaGetFirmwareSets(char *firmware[]);
 # int xiaGetFirmwareSets_VB(unsigned int index, char *alias);
 # int xiaGetNumPTRRs(char *alias, unsigned int *numPTRR);
-# int xiaRemoveFirmware(char *alias);
-# int xiaDownloadFirmware(int detChan, char *type);
 
 
 # Module
@@ -607,21 +592,8 @@ def get_trigger_channels():
 
 # Not exposed
 
-# int xiaNewModule(char *alias);
-# int xiaAddModuleItem(char *alias, char *name, void *value);
-# int xiaModifyModuleItem(char *alias, char *name, void *value);
 # int xiaGetModuleItem(char *alias, char *name, void *value);
 # int xiaGetModules_VB(unsigned int index, char *alias);
-# int xiaRemoveModule(char *alias);
-
-
-# Channel set
-
-# Not exposed
-
-# int xiaAddChannelSetElem(unsigned int detChanSet, unsigned int newChan);
-# int xiaRemoveChannelSetElem(unsigned int detChan, unsigned int chan);
-# int xiaRemoveChannelSet(unsigned int detChan);
 
 
 # Parameters
@@ -681,7 +653,6 @@ def apply_acquisition_values(channel=None):
 
 # Not exposed
 
-# int xiaUpdateUserParams(int detChan);
 # int xiaGainOperation(int detChan, char *name, void *value);
 # int xiaGainCalibrate(int detChan, double deltaGain);
 # int xiaGetParameter(int detChan, const char *name, unsigned short *value);
@@ -700,14 +671,6 @@ def apply_acquisition_values(channel=None):
 # int xiaCommandOperation(int detChan, byte_t cmd, unsigned int lenS, byte_t *send, unsigned int lenR, byte_t *recv);
 
 
-# Analysis
-
-# Not exposed
-
-# int xiaFitGauss(long data[], int lower, int upper, float *pos, float *fwhm);
-# int xiaFindPeak(long *data, int numBins, float thresh, int *lower, int *upper);
-
-
 # Debugging
 
 
@@ -723,9 +686,6 @@ def get_handel_version():
 # Not exposed
 
 # int xiaSetIOPriority(int pri);
-# int xiaMemStatistics(unsigned long *total, unsigned long *current, unsigned long *peak);
-# void xiaMemSetCheckpoint(void);
-# void xiaMemLeaks(char *);
 
 
 # Files

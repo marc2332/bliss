@@ -9,24 +9,27 @@ from bliss.common.tango import DeviceProxy
 from bliss.config import settings
 from .bpm import Bpm
 
+
+class Roi(object):
+    def __init__(self,x,y,width,height,name = None):
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+        self.name = name
+
+    def is_valid(self):
+        return (self.x >=0 and self.y >= 0 and
+                self.width >= 0 and self.height >=0)
+
+    def __repr__(self):
+        return "<%s,%s> <%s x %s>" % (self.x,self.y,
+                                      self.width,self.height)
+
+
 class Lima(object):
     ROI_COUNTERS = 'roicounter'
     BPM = 'beamviewer'
-
-    class Roi(object):
-        def __init__(self,x,y,width,height,name = None):
-            self.x = x
-            self.y = y
-            self.width = width
-            self.height = height
-            self.name = name
-        def is_valid(self):
-            return (self.x >=0 and self.y >= 0 and
-                    self.width >= 0 and self.height >=0)
-        
-        def __repr__(self):
-            return "<%s,%s> <%s x %s>" % (self.x,self.y,
-                                          self.width,self.height)
 
     class Image(object):
         ROTATION_0,ROTATION_90,ROTATION_180,ROTATION_270 = range(4)
@@ -53,12 +56,12 @@ class Lima(object):
 
         @property
         def roi(self):
-            return Lima.Roi(*self._proxy.image_roi)
+            return Roi(*self._proxy.image_roi)
         @roi.setter
         def roi(self,roi_values):
             if len(roi_values) == 4:
                 self._proxy.image_roi = roi_values
-            elif isinstance(roi_values[0],Lima.Roi):
+            elif isinstance(roi_values[0],Roi):
                 roi = roi_values[0]
                 self._proxy.image_roi = (roi.x,roi.y,
                                          roi.width,roi.height)
@@ -142,8 +145,8 @@ class Lima(object):
 
         def set_roi(self,name,roi_values):
             if len(roi_values) == 4:
-                roi = Lima.Roi(*roi_values)
-            elif isinstance(roi_values[0],Lima.Roi):
+                roi = Roi(*roi_values)
+            elif isinstance(roi_values[0],Roi):
                 roi = roi_values[0]
             else:
                 raise TypeError("Lima.RoiCounters: roi accepts roi (class)"

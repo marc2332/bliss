@@ -21,11 +21,12 @@ import sys
 import zerorpc
 import msgpack_numpy
 
+import bliss.controllers.mca.handel.gevent
 import bliss.controllers.mca.handel.interface as hi
 
 
 # Patching
-
+handel.gevent.patch()
 msgpack_numpy.patch()
 
 

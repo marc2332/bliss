@@ -22,6 +22,7 @@ Run requirements:
 
 - cffi
 - numpy
+- gevent (optional)
 
 Test requirements:
 
@@ -62,6 +63,16 @@ Example usage:
 >>> stop_run(0)
 >>> get_run_data(0)
 array([13260, 52275,   256, ...,     0,     0,     0], dtype=uint32)
+```
+
+Gevent mode
+-----------
+
+Make the interface gevent-compatible using:
+
+``` python
+>>> from handel.gevent import patch
+>>> patch()
 ```
 
 

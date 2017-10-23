@@ -10,7 +10,7 @@ from __future__ import absolute_import
 from functools import wraps
 from gevent import threadpool
 
-from .interface import handel
+from . import interface
 
 
 # Green pool
@@ -43,7 +43,12 @@ def patch():
     >>> from handel.gevent import patch
     >>> patch()
     """
-    for name in dir(handel):
+    # Gevent-compatible version of handel FFI library
+    gevent_handel = type("GeventFFILibrary", (), {})()
+    # Populate gevent_handel
+    for name in dir(interface.handel):
         if name.startswith("xia"):
-            func = getattr(handel, name)
-            setattr(handel, name, green(func))
+            func = getattr(interface.handel, name)
+            setattr(gevent_handel, name, green(func))
+    # Patch
+    interface.handel = gevent_handel

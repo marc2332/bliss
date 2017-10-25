@@ -2,5 +2,3 @@
 install_lib=/users/blissadm/python/bliss_modules
 install_scripts=/users/blissadm/local/bin
 
-[build]
-executable=/usr/bin/env python

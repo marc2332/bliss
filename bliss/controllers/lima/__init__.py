@@ -150,9 +150,9 @@ class Lima(object):
                                 " or (x,y,width,height) values")
             roi.name = name
             roi_id = self._proxy.addNames((name,))
-            self._proxy.setRois(roi_id,
-                                roi.x,roi.y,
-                                roi.width,roi.height)
+            self._proxy.setRois((roi_id,
+                                 roi.x,roi.y,
+                                 roi.width,roi.height,))
             self._save_rois[name] = roi
             
         def get_rois(self):

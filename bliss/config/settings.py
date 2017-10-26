@@ -549,6 +549,14 @@ class HashSetting(object):
             value = self._write_type_conversion(value)
         cnx.hset(self._name,key,value)
 
+    def __contains__(self,key):
+        try:
+            self[key]
+            return True
+        except KeyError:
+            return False
+
+
 class HashSettingProp(object):        
     def __init__(self,name,connection = None,
                  read_type_conversion = auto_conversion,

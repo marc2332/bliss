@@ -158,7 +158,8 @@ class Session(object):
          return        
 
       if names_list is None:
-         names_list = cfg.names_list
+         names_list = [x for x in cfg.names_list \
+                       if cfg.get_config(x).get('class','').lower() != 'session']
          if exclude_list:
             for name in exclude_list:
                try:
@@ -174,8 +175,6 @@ class Session(object):
          if verbose:
             print "Initializing '%s`" % item_name
          try:
-            if cfg.get_config(item_name).plugin == 'session': 
-              continue
             o = cfg.get(item_name)
          except:
             sys.excepthook(*sys.exc_info())

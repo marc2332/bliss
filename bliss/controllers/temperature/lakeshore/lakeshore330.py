@@ -26,20 +26,19 @@ from bliss.comm import serial
 
 from bliss.controllers.temperature.lakeshore.lakeshore import Base
 
-
 class LakeShore330(object):
     def __init__(self, comm_type, url, *kwargs):
         eos = kwargs.get('eos', '\r\n')
-        timeout = kwargs.get('timeout', 0.5))
+        timeout = kwargs.get('timeout', 0.5)
         if 'gpib' in comm_type:
             self._comm = Gpib(url, pad=kwargs['addr'], eos=eos,
                               timeout=timeout)
-        elif 'serial' ot 'usb' in comm_type:
+        elif 'serial' or 'usb' in comm_type:
             baudrate = kwargs.get('addr', 9600)
             self._comm = serial.Serial(url, baudrate=baudrate,
                                        bytesize=serial.SEVENBITS,
                                        parity=serial.PARITY_ODD,
-                                       stopbits=serial.STOPBITS_ONE.
+                                       stopbits=serial.STOPBITS_ONE,
                                        eol=eos)
         else:
             return RuntimeError("Unknown communication  protocol")
@@ -76,9 +75,9 @@ class LakeShore330(object):
         self.send_cmd("SETP %d" % self.channel, value)
 
     def read_ramp_rate(self):
-        """ Read the current ramprate
+        """ Read the current ramp rate
             Returns:
-              (float): current ramprate [K/min]
+              (float): current ramp rate [K/min]
         """
         asw = self.send_cmd("RAMP? %d" % self.channel)
         try:
@@ -144,9 +143,9 @@ class lakeshore330(Base):
             raise ValueError("Must specify gpib or serial url")
 
         _lakeshore = LakeShore330(comm_type, url,
-                                       addr=addr,
-                                       eso=eos,
-                                       channel=channel)
+                                  addr=addr,
+                                  eso=eos,
+                                  channel=channel)
         Base.__init__(self, _lakeshore, config, *args)
 
 

@@ -269,7 +269,18 @@ def get_raw_buffer(master, buffer_id):
     data = ffi.cast("uint32_t *", array.ctypes.data)
     code = handel.xiaGetRunData(master, command, data)
     check_error(code)
-    return array[::2]
+    # Check magic number
+    if array[0] == 0:
+        raise RuntimeError(
+            "The buffer {} associated with channel {} is empty".format(
+                str(buffer_id), master
+            )
+        )
+    # XMAP/Mercury
+    if array[1] == 0:
+        return array[::2]
+    # FalconX
+    return array
 
 
 def get_buffer_data(master, buffer_id):

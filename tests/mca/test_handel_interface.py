@@ -404,16 +404,15 @@ def test_get_raw_buffer(interface):
 
     def side_effect(channel, dtype, arg):
         if dtype == b"buffer_len":
-            arg[0] = 10
+            arg[0] = 5
             return 0
         if dtype == b"buffer_a":
-            for x in range(10):
-                arg[x] = x
+            arg[0:5] = range(1, 6)
             return 0
         assert False
 
     m.side_effect = side_effect
-    expected = numpy.array(range(10), dtype="uint32")
+    expected = numpy.array(range(1, 6), dtype="uint32")
     diff = interface.get_raw_buffer(1, "a") == expected
     assert diff.all()
     m.assert_called()

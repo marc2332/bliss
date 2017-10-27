@@ -8,25 +8,12 @@ import importlib
 from bliss.common.tango import DeviceProxy
 from bliss.config import settings
 from .bpm import Bpm
+from .roi import Roi, RoiCounters
+
 
 class Lima(object):
     ROI_COUNTERS = 'roicounter'
     BPM = 'beamviewer'
-
-    class Roi(object):
-        def __init__(self,x,y,width,height,name = None):
-            self.x = x
-            self.y = y
-            self.width = width
-            self.height = height
-            self.name = name
-        def is_valid(self):
-            return (self.x >=0 and self.y >= 0 and
-                    self.width >= 0 and self.height >=0)
-        
-        def __repr__(self):
-            return "<%s,%s> <%s x %s>" % (self.x,self.y,
-                                          self.width,self.height)
 
     class Image(object):
         ROTATION_0,ROTATION_90,ROTATION_180,ROTATION_270 = range(4)
@@ -53,12 +40,12 @@ class Lima(object):
 
         @property
         def roi(self):
-            return Lima.Roi(*self._proxy.image_roi)
+            return Roi(*self._proxy.image_roi)
         @roi.setter
         def roi(self,roi_values):
             if len(roi_values) == 4:
                 self._proxy.image_roi = roi_values
-            elif isinstance(roi_values[0],Lima.Roi):
+            elif isinstance(roi_values[0],Roi):
                 roi = roi_values[0]
                 self._proxy.image_roi = (roi.x,roi.y,
                                          roi.width,roi.height)
@@ -130,55 +117,7 @@ class Lima(object):
         @trigger_mode.setter
         def trigger_mode(self,value):
             pass
-            
-    class RoiCounters(object):
-        def __init__(self,name,proxy):
-            self._proxy = proxy
-            self._proxy.Start()
-            self.name = '%s:RoiCounters' % name
-            self._current_config = settings.SimpleSetting(self.name,default_value = 'default')
-            self._save_rois = settings.HashObjSetting('%s:%s' % (self.name,
-                                                                 self._current_config.get()))
-
-        def set_roi(self,name,roi_values):
-            if len(roi_values) == 4:
-                roi = Lima.Roi(*roi_values)
-            elif isinstance(roi_values[0],Lima.Roi):
-                roi = roi_values[0]
-            else:
-                raise TypeError("Lima.RoiCounters: roi accepts roi (class)"
-                                " or (x,y,width,height) values")
-            roi.name = name
-            roi_id = self._proxy.addNames((name,))
-            self._proxy.setRois(roi_id,
-                                roi.x,roi.y,
-                                roi.width,roi.height)
-            self._save_rois[name] = roi
-            
-        def get_rois(self):
-            return self._save_rois.values()
-
-        def get_saved_config_names(self):
-            return list(settings.scan(match='%s:*' % self.name))
-
-        @property
-        def config_name(self):
-            return self._current_config.get()
-        @config_name.setter
-        def config_name(self,name):
-            self._current_config.set(name)
-            self._save_rois = settings.HashObjSetting('%s:%s' % (self.name,name))
-
-        def upload_rois(self):
-            roi_list = [roi for roi in self.get_rois() if roi.is_valid()]
-            roi_id_list = self._proxy.addNames([x.name for x in roi_list])
-            rois_values = list()
-            for roi_id,roi in zip(roi_id_list,roi_list):
-                rois_values.extend((roi_id,
-                                    roi.x,roi.y,
-                                    roi.width,roi.height))
-            self._proxy.setRois(rois_values)
-
+    
     def __init__(self,name,config_tree):
         """Lima controller.
 
@@ -215,7 +154,7 @@ class Lima(object):
     def roi_counters(self):
         if self.__roi_counters is None:
             roi_counters_proxy = self._get_proxy(self.ROI_COUNTERS)
-            self.__roi_counters = Lima.RoiCounters(self.name, roi_counters_proxy)
+            self.__roi_counters = RoiCounters(self.name, roi_counters_proxy, self)
         return self.__roi_counters
     
     @property
@@ -253,6 +192,8 @@ class Lima(object):
 
     def _get_proxy(self,type_name):
         device_name = self._proxy.getPluginDeviceNameFromType(type_name)
+        if not device_name:
+            return
         if not device_name.startswith("//"):
             # build 'fully qualified domain' name
             # '.get_fqdn()' doesn't work

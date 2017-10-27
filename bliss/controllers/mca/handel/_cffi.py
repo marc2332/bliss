@@ -40,21 +40,12 @@ int xiaDoSpecialRun(int detChan, char *name, void *info);
 int xiaGetSpecialRunData(int detChan, char *name, void *value);
 int xiaLoadSystem(char *type, char *filename);
 int xiaSaveSystem(char *type, char *filename);
-int xiaGetParameter(int detChan, const char *name, unsigned short *value);
-int xiaSetParameter(int detChan, const char *name, unsigned short value);
-int xiaGetNumParams(int detChan, unsigned short *numParams);
-int xiaGetParamData(int detChan, char *name, void *value);
-int xiaGetParamName(int detChan, unsigned short index, char *name);
 int xiaBoardOperation(int detChan, char *name, void *value);
-int xiaMemoryOperation(int detChan, char *name, void *value);
-int xiaCommandOperation(int detChan, byte_t cmd, unsigned int lenS, byte_t *send, unsigned int lenR, byte_t *recv);
 int xiaExit(void);
 int xiaEnableLogOutput(void);
 int xiaSuppressLogOutput(void);
 int xiaSetLogLevel(int level);
 int xiaSetLogOutput(char *fileName);
-int xiaCloseLog(void);
-int xiaSetIOPriority(int pri);
 void xiaGetVersionInfo(int *rel, int *min, int *maj, char *pretty);
 """
 )

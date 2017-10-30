@@ -14,22 +14,21 @@ from bliss.common import measurement
 
 def test_default_mg(beacon):
   session = beacon.get("test_session")
-  session.setup()
-  default_mg = getattr(setup_globals, 'ACTIVE_MG')
-  assert isinstance(default_mg, measurementgroup.MeasurementGroup)
+  mg = measurementgroup.ACTIVE_MG
+  assert isinstance(mg, measurementgroup.MeasurementGroup)
   assert measurementgroup.get_all() == []
-  assert default_mg.name is None
+  assert mg.name is None
   assert measurementgroup.get_active_name() is None
 
 def test_scan_fail():
   with pytest.raises(ValueError):
     scans.ct(0.1)
 
-def test_mg():
+def test_mg(beacon):
+  session = beacon.get("test_session")
+  session.setup() 
   default_mg = getattr(setup_globals, 'ACTIVE_MG')
-  test_mg = measurementgroup.MeasurementGroup('test_mg', { 'counters': ['diode'] })
-  setattr(setup_globals, 'test_mg', test_mg)
-
+  test_mg = getattr(setup_globals, 'test_mg')
   assert measurementgroup.get_all() == [test_mg]
   assert default_mg.name == 'test_mg'
   assert measurementgroup.get_active_name() == 'test_mg'

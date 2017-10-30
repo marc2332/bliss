@@ -15,6 +15,8 @@ from bliss.common import measurement
 def test_default_session(beacon):
   session = beacon.get("test_session")
   session.setup()
+  assert getattr(setup_globals, "test_session")
+  assert getattr(setup_globals, "test_mg")
   assert pytest.raises(AttributeError, getattr, setup_globals, "freddy")
 
 

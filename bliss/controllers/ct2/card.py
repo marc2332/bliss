@@ -30,6 +30,7 @@ import enum
 
 import numpy
 
+
 # low level pread and pwrite calls for the p201/c208 driver.
 
 # even if we are using python >=  3.3 we cannot use os.pread/pwrite calls
@@ -311,7 +312,7 @@ def NOT(a):
 
 
 @enum.unique
-class Edge(enum.Enum):
+class Edge(enum.IntEnum):
     """Edge enumeration"""
     DISABLE        = 0b00
     RISING         = 0b01
@@ -320,7 +321,7 @@ class Edge(enum.Enum):
 
 
 @enum.unique
-class Level(enum.Enum):
+class Level(enum.IntEnum):
     """TTL/NIM level enumeration"""
     DISABLE       = 0b00
     TTL           = 0b01
@@ -523,7 +524,7 @@ CT2_COM_GENE_FREQ_MSK   = 0x0000000f # Frequency bitmask
 CT2_COM_GENE_FREQ_OFF   = 0          # Frequency offset
 
 @enum.unique
-class Clock(enum.Enum):
+class Clock(enum.IntEnum):
     """
     Clock enumeration
     """
@@ -755,7 +756,7 @@ CT2_FILTRE_OUTPUT_POLARITY_OFF   =  4   # offset of polarity inversion
                                         #         bit within 5 bits
 
 @enum.unique
-class FilterClock(enum.Enum):
+class FilterClock(enum.IntEnum):
     """Clock enumeration to be used in input and output filter configuration"""
     CLK_100_MHz  = 0x0
     CLK_12_5_MHz = 0x1
@@ -766,7 +767,7 @@ class FilterClock(enum.Enum):
 
 
 @enum.unique
-class FilterInputSelection(enum.Enum):
+class FilterInputSelection(enum.IntEnum):
     """Input selection to be used in input filter configuration"""
     SINGLE_SHORT_PULSE_CAPTURE = (0 << 3)
     SAMPLING_WITHOUT_FILTERING = (1 << 3)
@@ -782,7 +783,7 @@ C208_SOURCE_OUTPUT_UMSK = 0x7f7f7f7f  # used bits mask
 P201_SOURCE_OUTPUT_UMSK = 0x00007f7f  # used bits mask
 
 @enum.unique
-class OutputSrc(enum.Enum):
+class OutputSrc(enum.IntEnum):
     """Output channel source enumeration"""
     SOFTWARE     = 0x00
     CLK_1_25_KHz = 0x01
@@ -932,7 +933,7 @@ def CT2_SEL_LATCH_OFF(ctn):
     return CT2_HI12BITS_OFF
 
 @enum.unique
-class LatchCtSrc(enum.Enum):
+class LatchCtSrc(enum.IntEnum):
     """
     Select counter source for latch
     """
@@ -958,7 +959,7 @@ CT2_CONF_CMPT_RESET_MSK   =  1 << CT2_CONF_CMPT_RESET_BIT
 CT2_CONF_CMPT_STOP_MSK    =  1 << CT2_CONF_CMPT_STOP_BIT
 
 @enum.unique
-class CtClockSrc(enum.Enum):
+class CtClockSrc(enum.IntEnum):
     """
     Counts clock source enumeration. To be used in :class:`CtConfig`.
     """
@@ -1063,7 +1064,7 @@ class CtClockSrc(enum.Enum):
 
 
 @enum.unique
-class CtGateSrc(enum.Enum):
+class CtGateSrc(enum.IntEnum):
     """Couter Gate source enumeration. To be used in :class:`CtConfig`."""
     GATE_CMPT = 0x00 << CT2_CONF_CMPT_GATE_OFF
 
@@ -1117,7 +1118,7 @@ class CtGateSrc(enum.Enum):
 
 
 @enum.unique
-class CtHardStartSrc(enum.Enum):
+class CtHardStartSrc(enum.IntEnum):
     """Couter hardware start source enumeration. To be used in :class:`CtConfig`."""
     SOFTWARE = 0x00 << CT2_CONF_CMPT_HSTART_OFF
 
@@ -1208,7 +1209,7 @@ class CtHardStartSrc(enum.Enum):
 
 
 @enum.unique
-class CtHardStopSrc(enum.Enum):
+class CtHardStopSrc(enum.IntEnum):
     """Couter hardware stop source enumeration. To be used in :class:`CtConfig`."""
     SOFTWARE = 0x00 << CT2_CONF_CMPT_HSTOP_OFF
 
@@ -1702,178 +1703,93 @@ CT2_IOC_FINQ = _IOR(CT2_IOC_MAGIC, 14, ctypes.sizeof(ctypes.POINTER(timespec))),
     __CT2_ERRORS("flush INQ")
 
 
-class BaseParam(object):
-    """
-    Base class for parameters
-    """
-
-    _FLAG_MAP = {}
-
-    def __init__(self, value=None, **kwargs):
-        self.__value = 0
-        if value is None:
-            self.set(**kwargs)
-        else:
-            if isinstance(value, self.__class__):
-                value = value.value
-            self.__value = value
-
-    @property
-    def value(self):
-        """
-        The parameter integer representation (R/W). To be interpreted as a 32bit unsigned integer
-
-        It supports setting the value with either an integer or a dictionary
-        """
-        return self.__value
-
-    @value.setter
-    def value(self, config):
-        if isinstance(config, dict):
-            self.__value = 0
-            self.set(**config)
-        else:
-            self.__value = config
-
-    def set(self, **kwargs):
-        """Sets/unsets the specified fields (convenience method)
-
-        This is a convenience method for doing multiple ``param["<arg>"] = value``
-        calls in one.
-
-        The supported keywords are the same as returned by :meth:`keys`
-        """
-        for k, v in kwargs.items():
-            self[k] = v
-
-    def keys(self):
-        """
-        Returns the list of keys
-
-        :return: the list of keys
-        :rtype: list<str>
-        """
-        return self._FLAG_MAP.keys()
-
-    def items(self):
-        """
-        Returns the list of parameter's (key, value) pairs, as 2-tuples
-
-        :return: the list of parameter's (key, value) pairs, as 2-tuples
-        :rtype: list<tuple(str, obj)>
-        """
-        return dict(self).items()
-
-    def __getitem__(self, key):
-        klass, mask = self._FLAG_MAP[key]
-        return klass(self.value & mask)
-
-    def __setitem__(self, key, value):
-        klass, mask = self._FLAG_MAP[key]
-        if not isinstance(value, klass):
-            raise TypeError("{0} must be instance of {1}".format(key, klass.__name__ ))
-        if value:
-            self.value |= mask
-        else:
-            self.value &= NOT(mask)
-
-    def __getattr__(self, name):
-        return self[name]
-
-    def __setattr__(self, name, value):
-        if name.startswith("_") or name == "value":
-            object.__setattr__(self, name, value)
-        else:
-            self[name] = value
-
-    def __str__(self):
-        pars = "\n  ".join(["{0}={1}".format(k, v) for k, v in self.items()])
-        return "{0}(\n  {1})".format(self.__class__.__name__, pars)
-
-    def __repr__(self):
-        pars = ", ".join(["{0}={1}".format(k, v) for k, v in self.items()])
-        return "{0}({1})".format(self.__class__.__name__, pars)
-
-    def __eq__(self, other):
-        if not isinstance(other, BaseParam):
-            return False
-        return self.__value == other.__value
+def i2bool(value, bit=0):
+    return bool(value & (1 << bit))
 
 
-class CtStatus(BaseParam):
-    """
-    Counter status (enabled and running)
-    """
-
-    _FLAG_MAP = { 'enable': (bool, 1<< 0),
-                  'run':    (bool, 1<< 16), }
+def i2enum(value, enu, mask):
+    return enu(value & mask)
 
 
-class FilterInput(BaseParam):
-    """
-    Channel input filter (clock freq., selection)
-    """
-
-    _FLAG_MAP = { 'clock':     (FilterClock,            0b111),
-                  'selection': (FilterInputSelection, 0b11000), }
-
-    def __setitem__(self, key, value):
-        klass, mask = self._FLAG_MAP[key]
-        self.value = (self.value & NOT(mask)) | value.value
+def i2int(value, mask, shift=0):
+    if shift < 0:
+        return (value >> shift) & mask
+    return (value << shift) & mask
 
 
-class FilterOutput(BaseParam):
-    """
-    Channel output filter (clock freq., enabled, polarity_inverted)
-    """
-
-    _FLAG_MAP = { 'clock':    (FilterClock, 0b111),
-                  'enable':   (bool, 1 << 3),
-                  'polarity_inverted': (bool, 1 << 4) }
-
-    def __setitem__(self, key, value):
-        if key == 'clock':
-            klass, mask = self._FLAG_MAP[key]
-            self.value = (self.value & NOT(mask)) | value.value
-        else:
-            super(FilterOutput, self).__setitem__(key, value)
+def __build_type(name, fromint, toint=None, doc=None):
+    def build(**kwargs):
+        result = fromint(0)
+        result.update(kwargs)
+        return result
+    build.__name__= name
+    build.__doct__ = doc
+    build.fromint = fromint
+    if toint:
+        build.toint = toint
+    return build
 
 
-class AMCCFIFOStatus(BaseParam):
-    """
-    Card general status.
-
-    Returned by :meth:`P201.get_general_status`
-    """
-
-    _FLAG_MAP = { 'read_empty': (bool, 1 << 0),
-                  'write_full': (bool, 1 << 1),
-                  'read_full':  (bool, 1 << 2),
-                  'write_empty':(bool, 1 << 3), }
+CtStatus = __build_type(
+    'CtStatus',
+    lambda v: dict(enable=i2bool(v, 0), run=i2bool(v, 16)),
+    doc='Counter status (enabled and running)')
 
 
-class FIFOStatus(BaseParam):
-    """
-    FIFO status
-
-    Returned by :meth:`P201.get_FIFO_status`
-    """
-
-    _FLAG_MAP = { 'size':          (int,  0x1FFF),
-                  'overrun_error': (bool, 1 << 16),
-                  'read_error':    (bool, 1 << 17),
-                  'write_error':   (bool, 1 << 18),
-                  'empty':         (bool, 1 << 19),
-                  'full':          (bool, 1 << 20), }
-
-    def __setitem__(self, key, value):
-        raise ValueError("FIFOStatus is read-only")
+FilterInput = __build_type(
+    'FilterInput',
+    lambda v: dict(clock=i2enum(v, FilterClock, 0b111),
+                   selection=i2enum(v,
+                                    FilterInputSelection,
+                                    0b11000)),
+    lambda d: d['clock'] | d['selection'],
+    doc='Channel input filter (clock freq., selection)')
 
 
-class CtConfig(BaseParam):
-    """
-    Counter configuration class
+FilterOutput = __build_type(
+    'FilterOutput',
+    lambda v: dict(clock=i2enum(v, FilterClock, 0b111),
+                   enable=i2bool(v, 3),
+                   polarity_inverted=i2bool(v, 4)),
+    lambda d: d['clock'] | d['enable'] << 3 | d['polarity_inverted'] << 4,
+    doc='Channel output filter (clock freq., enabled, polarity_inverted)')
 
+
+AMCCFIFOStatus = __build_type(
+    'AMCCFIFOStatus',
+    lambda v: dict(read_empty=i2bool(v, 0),
+                   write_full=i2bool(v, 1),
+                   read_full=i2bool(v, 2),
+                   write_empty=i2bool(v, 3)),
+    doc='Card general status. Returned by :meth:`P201.get_general_status`')
+
+
+FIFOStatus = __build_type(
+    'FIFOStatus',
+    lambda v: dict(size=i2int(v, 0x1FFF),
+                   overrun_error=i2bool(v, 16),
+                   read_error=i2bool(v, 17),
+                   write_error=i2bool(v, 18),
+                   empty=i2bool(v, 19),
+                   full=i2bool(v, 20)),
+    doc='FIFO status. Returned by :meth:`P201.get_FIFO_status`')
+
+
+CtConfig = __build_type(
+    'CtConfig',
+    lambda v: dict(clock_source=i2enum(v, CtClockSrc, 0x7F),
+                   gate_source=i2enum(v, CtGateSrc, 0x1F80),
+                   hard_start_source=i2enum(v, CtHardStartSrc, 0xFE000),
+                   hard_stop_source=i2enum(v, CtHardStopSrc, 0x7F00000),
+                   reset_from_hard_soft_stop=i2bool(v, 30),
+                   stop_from_hard_stop=i2bool(v, 31)),
+    lambda d: d['clock_source'] | \
+              d['gate_source'] | \
+              d['hard_start_source'] | \
+              d['hard_stop_source'] | \
+              d['reset_from_hard_soft_stop'] << 30 | \
+              d['stop_from_hard_stop'] << 31,
+    doc="""Counter configuration
     clock_source
         Describes the source that triggers a counter event
 
@@ -1897,37 +1813,21 @@ class CtConfig(BaseParam):
         hardware stop signal is received.
 
     To be used with methods :meth:`P201.get_counter_config` and
-    :meth:`P201.set_counter_config`
-    """
-
-    _FLAG_MAP = { 'clock_source':              (CtClockSrc,     CT2_CONF_CMPT_CLK_MSK),
-                  'gate_source':               (CtGateSrc,      CT2_CONF_CMPT_GATE_MSK),
-                  'hard_start_source':         (CtHardStartSrc, CT2_CONF_CMPT_HSTART_MSK),
-                  'hard_stop_source':          (CtHardStopSrc,  CT2_CONF_CMPT_HSTOP_MSK),
-                  'reset_from_hard_soft_stop': (bool,           CT2_CONF_CMPT_RESET_MSK),
-                  'stop_from_hard_stop':       (bool,           CT2_CONF_CMPT_STOP_MSK), }
-
-    def __setitem__(self, key, value):
-        klass, mask = self._FLAG_MAP[key]
-        if not isinstance(value, klass):
-            raise TypeError("{0} must be instance of {1}".format(key, klass.__name__ ))
-        if key in ('reset_from_hard_soft_stop', 'stop_from_hard_stop'):
-            super(CtConfig, self).__setitem__(key, value)
-        else:
-            self.value = (self.value & NOT(mask)) | value.value
+    :meth:`P201.set_counter_config`""")
 
 
-class TriggerInterrupt(BaseParam):
-    """
-    Trigger interrupt information.
+TriggerInterrupt = __build_type(
+    'TriggerInterrupt',
+    lambda v: dict(rising=i2bool(v, 0),
+                   falling=i2bool(v, 16)),
+    lambda d: d['rising'] << 0 | d['falling'] << 16,
+    doc="""Trigger interrupt information.
 
     To be used with methods :meth:`P201.get_channels_interrupts` and
     :meth:`P201.set_channels_interrupts`.
 
     Also the result of :meth:`P201.get_interrupts`.
-    """
-    _FLAG_MAP = { 'rising': (bool, 1 << 0),
-                  'falling': (bool, 1 << 16) }
+    """)
 
 
 class BaseCard:
@@ -2067,7 +1967,7 @@ class BaseCard:
 
     def __write_source_irq_reg(self, reg, val):
         """
-        Writes on source IRQ register and enable/disable IRQ handler 
+        Writes on source IRQ register and enable/disable IRQ handler
         """
         # Ensure that the kernel will handle IRQs before enabling ...
         if val:
@@ -2156,7 +2056,7 @@ class BaseCard:
         etl = self.get_DMA_enable_trigger_latch()
         nb_counters = etl[1].values().count(True)
         fifo_status = self.get_FIFO_status()
-        data_len = min(fifo_status.size, self.FIFO_SIZE / CT2_REG_SIZE)
+        data_len = min(fifo_status['size'], self.FIFO_SIZE / CT2_REG_SIZE)
         max_events = data_len / nb_counters
         if not nb_events or nb_events > max_events:
             nb_events = max_events
@@ -2189,7 +2089,7 @@ class BaseCard:
         """
         result = self.read_reg("CTRL_GENE")
         card_id = (result & CT2_CTRL_GENE_CARDN_MSK) >> CT2_CTRL_GENE_CARDN_OFF
-        return card_id, AMCCFIFOStatus(result)
+        return card_id, AMCCFIFOStatus.fromint(result)
 
     def get_output_channels_level(self):
         """
@@ -2372,7 +2272,7 @@ class BaseCard:
         result = {}
         register = self.read_reg("SEL_FILTRE_OUTPUT")
         for n, channel in enumerate(self.OUTPUT_CHANNELS):
-            result[channel] = FilterOutput((register >> (n*8)) & 0xFF)
+            result[channel] = FilterOutput.fromint((register >> (n*8)) & 0xFF)
         return result
 
     def set_output_channels_filter(self, filter):
@@ -2388,7 +2288,7 @@ class BaseCard:
         register = 0
         for n, channel in enumerate(self.OUTPUT_CHANNELS):
             try:
-                register |= filter[channel].value << (n*8)
+                register |= FilterOutput.toint(filter[channel]) << (n*8)
             except KeyError:
                 pass
         self.write_reg("SEL_FILTRE_OUTPUT", register)
@@ -2411,7 +2311,7 @@ class BaseCard:
                 value = (reg_a >> (n*5)) & 0b11111
             else:
                 value = (reg_b >> ((n-6)*5)) & 0b11111
-            result[channel] = FilterInput(value)
+            result[channel] = FilterInput.fromint(value)
         return result
 
     def set_input_channels_filter(self, filter):
@@ -2419,9 +2319,9 @@ class BaseCard:
         for n, channel in enumerate(self.INPUT_CHANNELS):
             try:
                 if channel < 7:
-                    reg_a |= filter[channel].value << (n*5)
+                    reg_a |= FilterInput.toint(filter[channel]) << (n*5)
                 else:
-                    reg_b |= filter[channel].value << ((n-6)*5)
+                    reg_b |= FilterInput.toint(filter[channel]) << ((n-6)*5)
             except KeyError:
                 pass
         self.write_reg("SEL_FILTRE_INPUT_A", reg_a)
@@ -2503,7 +2403,7 @@ class BaseCard:
         :rtype: class:`FIFOStatus`
         """
         register = self.read_reg("CTRL_FIFO_DMA")
-        return FIFOStatus(register)
+        return FIFOStatus.fromint(register)
 
     def get_channels_interrupts(self):
         """
@@ -2519,7 +2419,7 @@ class BaseCard:
         mask = (1<<0) | (1<<16)
         for channel in self.CHANNELS:
             reg = (register >> (channel-1)) & mask
-            result[channel] = TriggerInterrupt(reg)
+            result[channel] = TriggerInterrupt.fromint(reg)
         return result
 
     def set_channels_interrupts(self, channels_triggers=None):
@@ -2537,7 +2437,7 @@ class BaseCard:
             channels_triggers = {}
         register = 0
         for channel, triggers in channels_triggers.items():
-            register |= triggers.value << (channel-1)
+            register |= TriggerInterrupt.toint(triggers) << (channel-1)
         self.__write_source_irq_reg("A", register)
 
     def __get_source_it_b(self):
@@ -2654,7 +2554,7 @@ class BaseCard:
         :return: channels, counters, DMA, FIFO and error interrupt information
         :rtype: tuple(dict<int: class:`TriggerInterrupt`>, dict<int: bool>, bool, bool, bool)
         """
-        channels = get_channels_interrupts(self)
+        channels = self.get_channels_interrupts(self)
         counters, dma, fifo_half_full, error = self.__get_source_it_b()
         return channels, counters, dma, fifo_half_full, error
 
@@ -2751,7 +2651,7 @@ class BaseCard:
         result, mask = {}, (1<<0) | (1<<16)
         for i, c in enumerate(self.COUNTERS):
             reg = (register >> i) & mask
-            result[c] = CtStatus(reg)
+            result[c] = CtStatus.fromint(reg)
         return result
 
     def get_counter_value(self, counter):
@@ -2835,7 +2735,7 @@ class BaseCard:
         :raises OSError: in case the operation fails
         """
         register = self.read_reg("CONF_CMPT_{0}".format(counter))
-        return CtConfig(register)
+        return CtConfig.fromint(register)
 
     def set_counter_config(self, counter, config):
         """
@@ -2865,8 +2765,8 @@ class BaseCard:
 
         :raises OSError: in case the operation fails
         """
-        config = CtConfig(config)
-        self.write_reg("CONF_CMPT_{0}".format(counter), config.value)
+        config = CtConfig.toint(config)
+        self.write_reg("CONF_CMPT_{0}".format(counter), config)
 
     def set_counters_config(self, counters_cfg):
         """
@@ -3421,7 +3321,7 @@ class C208Card(BaseCard):
 
 
 def get_ct2_card_class(card_type):
-    if "P201" in card_type:
+    if card_type is None or "P201" in card_type:
         klass = P201Card
     elif "C208" in card_type:
         klass = C208Card
@@ -3443,10 +3343,61 @@ def CT2Card(card_type, address):
 # Configuration helpers
 # -----------------------------------------------------------------------------
 
+DEFAULT_COUNTER_CONFIG = {
+    'gate source': 'GATE_CMPT',
+    'start source': 'SOFTWARE',
+    'stop source': 'SOFTWARE',
+    'reset': False,
+    'stop': False,
+    'latch sources': (),
+    'software enable': False,
+    'interrupt': False,
+    'latch triggers dma': False,
+    'fifo on dma trigger': False,
+    'comparator': 0,
+    'clock source': None,
+}
+
+def default_counter_config(card, counter):
+    ct_cfg = dict(DEFAULT_COUNTER_CONFIG, address=counter)
+    if counter in card.CHANNELS:
+        clock_source = 'INC_CH_{0}_PULSE'.format(counter)
+    else:
+        clock_source = 'CLK_100_MHz'
+    ct_cfg['clock source'] = clock_source
+    return ct_cfg
+
+
+DEFAULT_CHANNEL_INPUT_CONFIG = {
+    'interrupt': (),
+    '50 ohm': False,
+    'level': 'TTL',
+}
+
+
+DEFAULT_CHANNEL_OUTPUT_CONFIG = {
+    'level': 'TTL',
+    'software enable': False,
+    'source': 'SOFTWARE',
+    'filter clock': 'CLK_100_MHz',
+    'filter enable': False,
+    'polarity inverted': False,
+}
+
+
+def default_channel_config(card, channel):
+    ch_cfg = dict(address=channel)
+    if channel in card.INPUT_CHANNELS:
+        ch_cfg['input'] = dict(DEFAULT_CHANNEL_INPUT_CONFIG)
+    if channel in card.OUTPUT_CHANNELS:
+        ch_cfg['output'] = dict(DEFAULT_CHANNEL_OUTPUT_CONFIG)
+    return ch_cfg
+
+
 __enum_meta = {
     #   enum           optional      default
     #                  prefixes       value
-    Clock:          ( ("CLK_",), Clock.CLK_DISABLE ),
+    Clock:          ( ("CLK_",), Clock.CLK_100_MHz),
     FilterClock:    ( ("CLK_",), FilterClock.CLK_100_MHz),
     CtClockSrc:     ( ("CLK_",), CtClockSrc.CLK_1_25_KHz),
     CtGateSrc:      ( (),        CtGateSrc.GATE_CMPT),
@@ -3492,7 +3443,7 @@ def __get_card_config(name):
     return card_config
 
 
-def create_objects_from_config_node(config, node):
+def create_object_from_config_node(config, node):
     """
     To be used by the ct2 bliss config plugin
     """
@@ -3507,9 +3458,6 @@ def create_and_configure_card(config_or_name):
     else:
         card_config = config_or_name
     card = create_card_from_configure(card_config)
-    card.request_exclusive_access()
-    card.set_interrupts()
-    card.reset_FIFO_error_flags()
     configure_card(card, card_config)
     return card
 
@@ -3537,17 +3485,22 @@ def configure_card(card, config):
     :param config: configuration dictionary or dictionary like object
     :type config: dict
     """
+    card.request_exclusive_access()
+    card.set_interrupts()
+    card.reset_FIFO_error_flags()
 
     if __get(config, 'hard reset on init', False):
         card.reset()
     if __get(config, 'soft reset on init', True):
         card.software_reset()
 
-    card.set_clock(__get(config, 'clock', klass=Clock))
+    card.set_clock(__get(config, 'clock', klass=Clock, default='CLK_100_MHz'))
 
     dma_int = __get(config, 'dma interrupt', False)
     fifo_hf_int = __get(config, 'fifo half full interrupt', False)
     error_int = __get(config, 'error interrupt', False)
+
+    # Counters configuration
 
     ct_cfgs = {}
     ct_latch_srcs = {}
@@ -3556,31 +3509,35 @@ def configure_card(card, config):
     ct_latch_triggers_dma = {}
     ct_fifo_dma_trigger = {}
     ct_cmpts = {}
+
+    ct_cfg_dict = dict([(addr, default_counter_config(card, addr))
+                        for addr in card.COUNTERS])
+    
     for counter in config.get("counters", ()):
-        addr = counter['address']
+        addr = int(counter['address'])
+        ct_cfg_dict[addr].update(counter)
+
+    for addr, counter in ct_cfg_dict.items():
         ct_cfgs[addr] = CtConfig(
             clock_source=__get(counter, "clock source", klass=CtClockSrc),
             gate_source=__get(counter, "gate source", klass=CtGateSrc),
-            hard_start_source=__get(counter, "start source", klass=CtHardStartSrc),
-            hard_stop_source=__get(counter, "stop source", klass=CtHardStopSrc),
-            reset_from_hard_soft_stop=__get(counter, "reset", False),
-            stop_from_hard_stop=__get(counter, "stop", False))
+            hard_start_source=__get(counter, "start source",
+                                    klass=CtHardStartSrc),
+            hard_stop_source=__get(counter, "stop source",
+                                   klass=CtHardStopSrc),
+            reset_from_hard_soft_stop=__get(counter, "reset"),
+            stop_from_hard_stop=__get(counter, "stop"))
 
-        for ct_latched in __get(counter, "latch sources", ()):
+        for ct_latched in __get(counter, "latch sources"):
             ct_latch_srcs[ct_latched] = addr
-        #ct_latch_srcs[addr] = __get(counter, "latch sources", ())
 
-        ct_sw_enables[addr] = __get(counter, "software enable", False)
+        ct_sw_enables[addr] = __get(counter, "software enable")
+        ct_ints[addr] =  __get(counter, "interrupt")
+        ct_latch_triggers_dma[addr] = __get(counter, "latch triggers dma")
+        ct_fifo_dma_trigger[addr] = __get(counter, "fifo on dma trigger")
+        ct_cmpts[addr] = __get(counter, "comparator")
 
-        ct_ints[addr] =  __get(counter, "interrupt", False)
-
-        ct_latch_triggers_dma[addr] = __get(counter, "latch triggers dma", False)
-
-        ct_fifo_dma_trigger[addr] = __get(counter, "fifo on dma trigger", False)
-
-        cmpt = __get(counter, "comparator")
-        if cmpt is not None:
-            ct_cmpts[addr] = cmpt
+    # Channels configuration
 
     ch_50_ohms = {}
     ch_ints = {}
@@ -3589,35 +3546,43 @@ def configure_card(card, config):
     ch_out_sw = {}
     ch_out_srcs = {}
     ch_out_filters = {}
+
+    ch_cfg_dict = dict([(addr, default_channel_config(card, addr))
+                        for addr in card.CHANNELS])
+
     for channel in config.get("channels", ()):
-        addr = channel['address']
-        ints = map(string.lower, __get(channel, "interrupt", []))
-        ch_ints[addr] = TriggerInterrupt(rising="rising" in ints,
-                                         falling="falling" in ints)
+        addr = int(channel['address'])
+        ch_cfg = ch_cfg_dict[addr]
         if addr in card.INPUT_CHANNELS:
-            inp = channel.get('input')
-            if inp is not None:
-                ch_50_ohms[addr] = __get(inp, "50 ohm", False)
-                level = __get(inp, "level", "").upper()
-                try:
-                    level = Level[level]
-                except KeyError:
-                    level = Level.DISABLE
-                ch_in_levels[addr] = level
+            ch_cfg['input'].update(channel.get('input', {}))
+        if addr in card.OUTPUT_CHANNELS:
+            ch_cfg['output'].update(channel.get('output', {}))
+
+    for addr, channel in ch_cfg_dict.items():
+        if addr in card.INPUT_CHANNELS:
+            inp = channel['input']
+            ints = map(string.lower, __get(inp, "interrupt"))
+            ch_ints[addr] = TriggerInterrupt(rising="rising" in ints,
+                                             falling="falling" in ints)
+            ch_50_ohms[addr] = __get(inp, "50 ohm")
+            level = __get(inp, "level").upper()
+            try:
+                level = Level[level]
+            except KeyError:
+                level = Level.DISABLE
+            ch_in_levels[addr] = level
 
         if addr in card.OUTPUT_CHANNELS:
-            out = channel.get('output')
-            if out is not None:
-                ch_out_levels[addr] = __get(out, "level", "DISABLE",
-                                            klass=Level)
-                ch_out_sw[addr] = __get(out, "software enable", False)
-                ch_out_srcs[addr] = __get(out, "source", klass=OutputSrc)
-                f_clk = __get(out, "filter clock", klass=FilterClock)
-                f_enable = __get(out, "filter enable", False)
-                f_pol_inv = __get(out, "polarity inverted", False)
-                ch_out_filters[addr] = FilterOutput(clock=f_clk,
-                                                    enable=f_enable,
-                                                    polarity_inverted=f_pol_inv)
+            out = channel['output']
+            ch_out_levels[addr] = __get(out, "level", klass=Level)
+            ch_out_sw[addr] = __get(out, "software enable")
+            ch_out_srcs[addr] = __get(out, "source", klass=OutputSrc)
+            f_clk = __get(out, "filter clock", klass=FilterClock)
+            f_enable = __get(out, "filter enable")
+            f_pol_inv = __get(out, "polarity inverted")
+            ch_out_filters[addr] = FilterOutput(clock=f_clk,
+                                                enable=f_enable,
+                                                polarity_inverted=f_pol_inv)
 
     card.set_input_channels_50ohm_adapter(ch_50_ohms)
     card.set_input_channels_level(ch_in_levels)

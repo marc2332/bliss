@@ -108,6 +108,16 @@ level.
    http://intranet.esrf.fr/ISDD/detector-and-electronics/electronics/DigitalElectronicsLab/Publications/released/c208
 """
 
-from .ct2 import *
-from .device import *
 
+def create_objects_from_config_node(config, node):
+    name = node.get("name")
+    klass = node.get("class")
+    if klass == 'CT2':
+        address = node['address']
+        if address.startswith('tcp://'):
+            from . import client as module
+        else:
+            from . import device as module
+    else:
+        from . import card as module
+    return module.create_object_from_config_node(config, node)

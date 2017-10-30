@@ -12,7 +12,7 @@
 # See LICENSE.txt for more info.
 
 from bliss.config.static import get_config
-from bliss.controllers import ct2
+from bliss.controllers.ct2 import device
 from bliss.controllers import musst
 
 import gevent
@@ -69,7 +69,8 @@ def get_ct2_dev(dev_name, in_config):
         cfg = get_config()
     else:
         cfg.reload()
-    dev = ct2.CT2Device(config=cfg, name=dev_name, in_config=in_config)
+    dev = cfg.get(dev_name)
+    dev.input_config = in_config
     return dev
 
 def has_soft_trig(acq_mode):
@@ -113,16 +114,16 @@ def start_acq(dev, acq_mode, expo_time, point_period, nb_points,
               static_cb_list=[]):
     acq_end = Event()
     def acq_status_cb(status, **kws):
-        if status == ct2.AcqStatus.Ready:
+        if status == device.AcqStatus.Ready:
             acq_end.set()
     static_cb_list.append(acq_status_cb)
     
-    dev.acq_mode = getattr(ct2.AcqMode, acq_mode)
+    dev.acq_mode = getattr(device.AcqMode, acq_mode)
     dev.acq_expo_time = expo_time
     dev.acq_point_period = point_period
     dev.acq_nb_points = nb_points
     dev.prepare_acq()
-    dispatcher.connect(acq_status_cb, ct2.StatusSignal, dev)
+    dispatcher.connect(acq_status_cb, device.StatusSignal, dev)
     dev.start_acq()
     return acq_end
 
@@ -233,9 +234,9 @@ def test(dev, acq_mode, *args, **kws):
         gevent.sleep(sleep_time)
 
 def main():
-    parser = argparse.ArgumentParser(description='Test the CT2Device class')
+    parser = argparse.ArgumentParser(description='Test the CT2 device class')
     
-    parser.add_argument('--dev_name', default='p201_lid00c_0', type=str,
+    parser.add_argument('--dev_name', default='p201', type=str,
                         help='Device name in config')
     parser.add_argument('--hard_reset', default=0, type=int,
                         help='Perform a hard reset')
@@ -268,7 +269,7 @@ def main():
     args = parser.parse_args()
 
     try:
-        getattr(ct2.AcqMode, args.acq_mode)
+        getattr(device.AcqMode, args.acq_mode)
     except:
         raise ValueError('Invalid acquisition mode: %s' % args.acq_mode)
 
@@ -308,7 +309,7 @@ def main():
                 if acq_mode not in strict_multi_point_modes:
                     test(dev, acq_mode, args.expo_time, point_period, 1,
                          args.acq_nb_points * args.nb_acqs, args.sleep_time)
-            
+
     if args.all_tests & 2:
         for acq_mode in ExtTrigModes:
             test(dev, acq_mode, args.expo_time, args.point_period,

@@ -1,0 +1,254 @@
+<!--
+ This file is part of the bliss project
+
+ Copyright (c) 2016 Beamline Control Unit, ESRF
+ Distributed under the GNU LGPLv3. See LICENSE for more info.
+  -->
+<div class="container">
+<div class="row">
+  <div class="btn-group btn-group" role="group" aria-label="global functionality">
+    <a class="btn btn-default" href="javascript:void(0)">
+      {{ config['filename'] if config['filename'] else "unknown file" }}
+    </a>
+    <button id="apply" type="button" class="btn btn-primary"
+	    data-toggle="tooltip" title="save changes">
+      Save
+     <span class="fa fa-save"></span>
+    </button>
+    <button id="revert" type="button" class="btn btn-primary"
+	    data-toggle="tooltip" title="revert changes">
+      Revert
+      <span class="fa fa-undo"></span>
+    </button>
+  </div>
+</div>
+</div>
+<div style="height:10px;"></div>
+<form id="device_form" class="form-horizontal">
+  <fieldset>
+    <div class="form-group">
+      <label class="col-md-4 control-label" for="device-name"
+  	     data-toggle="tooltip" title="card name">
+	Name
+      </label>
+      <div class="col-md-4">
+	<input id="device-name" name="device-name"
+ 	       class="form-control input-md" type="text"
+	       value="{{ config['name']}}" />
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="col-md-4 control-label" for="device-name"
+  	     data-toggle="tooltip" title="type of card">
+	Type
+      </label>
+      <div class="col-md-4">
+	<select class="selectpicker" id="device-type" name="device-type">
+	  <option {{ "selected" if config["type"] == "P201"}}>P201</option>
+	  <option {{ "selected" if config["type"] == "C208"}}>C208</option>
+	</select>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="col-md-4 control-label" for="device-address"
+  	     data-toggle="tooltip" title="device address">
+	Address
+      </label>
+      <div class="col-md-4">
+	<input id="device-address" name="device-address"
+ 	       class="form-control input-md" type="text"
+	       value="{{ config['address']}}" />
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="col-md-4 control-label" for="device-clock"
+  	     data-toggle="tooltip" title="internal clock speed">
+	Clock
+      </label>
+      <div class="col-md-4">
+	<select class="selectpicker" id="device-clock" name="device-clock">
+	  {% for clock in card.Clock %}
+	  <option {{ "selected" if clock.name == config["clock"] }}>{{ clock.name }}</option>
+	  {% endfor %}
+	</select>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="col-md-4 control-label" for="input-polarity"
+  	     data-toggle="tooltip" title="If an input channel is selected invert or not its polarity">
+	Trig./Gate Input polarity inverted
+      </label>
+      <div class="col-md-4">
+	<input id="input-polarity" name="input-polarity"
+  	       class="form-control input-md" type="checkbox"
+ 	       {{ "checked" if config["external sync"]["input"]["polarity inverted"] }} />
+      </div>
+    </div>
+
+    <div class="panel panel-default">
+
+      <table id="ct2_channels_extra" class="table table-striped table-bordered"
+	     data-toggle="table" data-show-toggle="true"
+	     data-show-columns="true" style="tr, th, td {padding:2px;}">
+	<thead>
+	  <tr>
+	    <th>#</th>
+	    <th>Counter name</th>
+	    <th>Level</th>
+	    <th>50 &#8486;</th>
+	    <th>Trig./Gate Input</th>
+	    <th>Gate Output</th>
+	  </tr>
+	</thead>
+	<tbody>
+	  {% for ch in config["channels"] %}
+	  {% set ch_id = ch["address"] %}
+	  <tr>
+	    <td>{{ ch_id }}</td>
+	    <td>
+	      <input id="ch-{{ch_id}}-counter-name"
+		     name="ch-{{ch_id}}-counter-name"
+	             class="form-control input-sm" type="text"
+	             value="{{ ch['counter name'] }}"
+		     style="border-radius: 0px;" />
+	    </td>
+	    <td>
+	      <select class="selectpicker" id="ch-{{ch_id}}-level"
+		      name="ch-{{ch_id}}-level">
+		{% for level in card.Level %}
+		<option {{ "selected" if ch["level"] == level.name }}>
+		  {{ level.name }}
+		</option>
+		{% endfor %}
+	      </select>
+	    </td>
+	    <td>
+              <input id="ch-{{ch_id}}-50-ohm" name="ch-{{ch_id}}-50-ohm"
+	             class="form-control input-sm" type="checkbox"
+	             {{ "checked" if ch["50 ohm"] == True }} />
+	    </td>
+	    <td>
+	      {% if ch_id in klass.INPUT_CHANNELS %}
+              {% set ch_input = ch_id == config["external sync"]["input"].get("channel") %}
+	      <input id="ch-{{ch_id}}-input" name="ch-input"
+	             class="form-control input-sm" type="radio"
+		     value="{{ch_id}}"
+	             {{ "checked" if ch_input }} />
+	      {% endif %}
+	    </td>
+	    <td>
+	      {% if ch_id in klass.OUTPUT_CHANNELS %}
+              {% set ch_output = ch_id == config["external sync"]["output"].get("channel") %}
+	      <input id="ch-{{ch_id}}-output" name="ch-output"
+	             class="form-control input-sm" type="radio"
+		     value="{{ch_id}}"
+	             {{ "checked" if ch_output }} />
+	      {% endif %}
+	    </td>
+  	  </tr>
+	  {% endfor %}
+	  <tr>
+	    <td colspan="4"></td>
+	    <td align="center">
+	      <button type="button" class="btn btn-default"
+		      id="clear-input">Clear</button>
+	    <td align="center">
+	      <button type="button" class="btn btn-default"
+		      id="clear-output">Clear</button>
+	</tbody>
+      </table>
+  </fieldset>
+</form>
+
+<script type="text/javascript">
+
+  function submit_form(form) {
+    var formData = new FormData(form);
+    formData.append("__original_name__", "{{ config['name'] }}");
+    $.ajax({
+      url: "plugin/ct2/device_edit",
+      type: "POST",
+      cache: false,
+      contentType: false,
+      processData: false,
+      data: formData,
+      success: function(result) {
+        data = $.parseJSON(result);
+        show_item(data.name);
+        show_notification(data.message, data.type);
+      }
+    });
+  }
+
+  function update_fields() {
+    var any_in = false;
+    for(ch = 1; ch <= {{ klass.CHANNELS|length }}; ch++) {
+      var in_ch = $("#ch-" + ch + "-input").prop("checked");
+      var out_ch = $("#ch-" + ch + "-output").prop("checked");
+      var text_field = $("#ch-" + ch + "-counter-name");
+      any_in |= in_ch;		      
+      if (in_ch || out_ch) {
+        text_field.hide();
+      }
+      else {
+        text_field.show();
+      }
+    }
+    if (!any_in) {
+      $("#input-polarity").prop("checked", false);
+    }
+    $("#input-polarity").prop("disabled", !any_in);
+  }
+
+  $(document).ready(function() {
+    $(".selectpicker option").addClass("small");
+
+    $(".selectpicker")
+      .addClass("show-tick")
+      .selectpicker({
+        style: "btn-sm btn-default",
+        selectedTextFormat: "count>6",
+        width: "100%",
+      });
+
+    $("#apply").on("click", function() {
+      submit_form($("#device_form")[0]);
+      return false;
+    });
+
+    $("#revert").on("click", function() {
+      show_item("{{ config["name"] }}");
+      return false;
+    });
+
+    $("#reset").on("click", function() {
+      // TODO
+      return false;
+    });
+
+    $("#clear-input").on("click", function() {
+      $("input[name*=input]").prop("checked", false);
+      update_fields();
+    });
+
+    $("#clear-output").on("click", function() {
+      $("input[name*=output]").prop("checked", false);
+      update_fields();
+    });
+
+    $("input[name*=input]").on("click", function() {
+      update_fields();
+    });
+
+    $("input[name*=output]").on("click", function() {
+      update_fields();
+    });
+
+    update_fields();
+});
+
+</script>

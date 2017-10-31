@@ -102,8 +102,20 @@ def load_script(env_dict, script_module_name):
 class Session(object):
     def __init__(self, name, config_tree):
         self.__name = name
-        self._config_tree = config_tree
-        self._synoptic_file = config_tree.get('svg-file')
+        self.__config = static.get_config()
+
+        self.init(config_tree)
+
+    def init(self, config_tree):
+        try:
+            self.__setup_file = os.path.normpath(os.path.join(
+                os.path.dirname(config_tree.filename), config_tree.get("setup-file")))
+        except TypeError:
+            self.__setup_file = None
+        try:
+            self.__synoptic_file = config_tree.get("synoptic").get("svg-file")
+        except AttributeError:
+            self.__synoptic_file = None
 
         config_objects = config_tree.get("config-objects")
         if isinstance(config_objects, (str, unicode)):
@@ -116,7 +128,7 @@ class Session(object):
         else:
             self.__exclude_objects_names = exclude_objects
 
-        self.__config = static.get_config()
+        self.__objects_names = None
 
         global DEFAULT_SESSION
         if DEFAULT_SESSION is None or config_tree.get('default', False):
@@ -131,56 +143,63 @@ class Session(object):
         return self.__config
 
     @property
+    def setup_file(self):
+        return self.__setup_file
+
+    @property
+    def synoptic_file(self):
+        return self.__synoptic_file
+
+    @property
     def object_names(self):
-        if self.__config_objects_names is None:
-            names_list = [x for x in self.config.names_list
-                          if self.config.get_config(x).get('class', '').lower() != 'session']
+        if self.__objects_names is None:
+            if self.__config_objects_names is None:
+                names_list = [x for x in self.config.names_list
+                              if self.config.get_config(x).get('class', '').lower() != 'session']
+            else:
+                names_list = self.__config_objects_names[:]
+
             for name in self.__exclude_objects_names:
                 try:
                     names_list.remove(name)
                 except (ValueError, AttributeError):
                     pass
-            self.__config_objects_names = names_list[:]
 
-        return self.__config_objects_names
+            self.__objects_names = names_list[:]
+
+        return self.__objects_names
 
     def setup(self, env_dict=None, verbose=False):
+        if env_dict is None:
+            env_dict = self._get_global_env_dict()
+
+        self._load_config(env_dict, verbose)
+
+        env_dict['load_script'] = functools.partial(
+            load_script, env_dict)
+
+        from bliss.scanning.scan import ScanSaving
+        env_dict['SCAN_SAVING'] = ScanSaving()
+        from bliss.session.measurementgroup import ACTIVE_MG
+        env_dict['ACTIVE_MG'] = ACTIVE_MG
+
+        for obj_name, obj in env_dict.iteritems():
+            setattr(setup_globals, obj_name, obj)
+
+        if self.setup_file is None:
+            raise RuntimeError("No setup file.")
+
         try:
-            with get_file(self._config_tree, 'setup-file') as setup_file:
-                base_path = os.path.dirname(self._config_tree.filename)
+            with get_file({"setup_file": self.setup_file}, 'setup_file') as setup_file:
+                base_path = os.path.dirname(self.setup_file)
                 module_path = os.path.join(base_path, 'scripts')
-
-                if env_dict is None:
-                    # does Python run in interactive mode?
-                    import __main__ as main
-                    if not hasattr(main, '__file__'):
-                        # interactive interpreter
-                        env_dict = main.__dict__
-                    else:
-                        env_dict = globals()
-
-                self._load_config(env_dict, verbose)
-
-                env_dict['load_script'] = functools.partial(
-                    load_script, env_dict)
 
                 if module_path not in _importer_path:
                     sys.meta_path.append(
                         _StringImporter(module_path, self.name))
                     _importer_path.add(module_path)
 
-                from bliss.scanning.scan import ScanSaving
-                env_dict['SCAN_SAVING'] = ScanSaving()
-                from bliss.session.measurementgroup import ACTIVE_MG
-                env_dict['ACTIVE_MG'] = ACTIVE_MG
-
-                for obj_name, obj in env_dict.iteritems():
-                    setattr(setup_globals, obj_name, obj)
-
-                fullpath = self._config_tree.get('setup-file')
-                if fullpath is None:
-                    raise RuntimeError("No setup file.")
-                code = compile(setup_file.read(), fullpath, 'exec')
+                code = compile(setup_file.read(), self.setup_file, 'exec')
                 exec(code, env_dict)
 
                 for obj_name, obj in env_dict.iteritems():
@@ -189,7 +208,7 @@ class Session(object):
                 return True
         except IOError:
             raise ValueError("Session: setup-file %s can't be found" %
-                             self._config_tree.get('setup-file'))
+                             self.setup_file)
 
     def _load_config(self, env_dict, verbose=True):
         for item_name in self.object_names:
@@ -199,10 +218,12 @@ class Session(object):
 
             if verbose:
                 print "Initializing '%s`" % item_name
-            self.__add_from_config(item_name, env_dict)
-        self.__add_from_config(self.name, env_dict)
 
-    def __add_from_config(self, item_name, env_dict):
+            self._add_from_config(item_name, env_dict)
+
+        self._add_from_config(self.name, env_dict)
+
+    def _add_from_config(self, item_name, env_dict):
         try:
             o = self.config.get(item_name)
         except:
@@ -211,3 +232,30 @@ class Session(object):
             env_dict[item_name] = o
             setattr(setup_globals, item_name, o)
             del o
+
+    def _get_global_env_dict(self):
+        # does Python run in interactive mode?
+        import __main__ as main
+        if not hasattr(main, '__file__'):
+            # interactive interpreter
+            env_dict = main.__dict__
+        else:
+            env_dict = globals()
+        return env_dict
+
+    def resetup(self, env_dict=None, verbose=False):
+        if env_dict is None:
+            env_dict = self._get_global_env_dict()
+
+        for name in self.object_names:
+            delattr(setup_globals, name)
+            try:
+                del env_dict[name]
+            except KeyError:
+                pass
+
+        self.config.reload()
+
+        self.init(self.config.get_config(self.name))
+
+        self.setup(env_dict, verbose)

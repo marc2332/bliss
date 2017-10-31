@@ -12,18 +12,6 @@ from bliss import setup_globals
 from bliss.common import scans
 from bliss.common import measurement
 
-def test_default_mg(beacon):
-  session = beacon.get("test_session")
-  mg = measurementgroup.ACTIVE_MG
-  assert isinstance(mg, measurementgroup.MeasurementGroup)
-  assert measurementgroup.get_all() == []
-  assert mg.name is None
-  assert measurementgroup.get_active_name() is None
-
-def test_scan_fail():
-  with pytest.raises(ValueError):
-    scans.ct(0.1)
-
 def test_mg(beacon):
   session = beacon.get("test_session")
   session.setup() 
@@ -51,4 +39,8 @@ def test_clear_mg():
   delattr(setup_globals, 'test_mg')  
   assert default_mg.name is None
   assert measurementgroup.get_active_name() is None
+
+def test_scan_fail():
+  with pytest.raises(ValueError):
+    scans.ct(0.1)
 

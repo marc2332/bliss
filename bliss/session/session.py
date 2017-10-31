@@ -116,6 +116,8 @@ class Session(object):
         else:
             self.__exclude_objects_names = exclude_objects
 
+        self.__config = static.get_config()
+
         global DEFAULT_SESSION
         if DEFAULT_SESSION is None or config_tree.get('default', False):
             DEFAULT_SESSION = self
@@ -126,14 +128,13 @@ class Session(object):
 
     @property
     def config(self):
-        return static.get_config()
+        return self.__config
 
     @property
     def object_names(self):
-        cfg = self.config
         if self.__config_objects_names is None:
             names_list = [x for x in self.config.names_list
-                          if cfg.get_config(x).get('class', '').lower() != 'session']
+                          if self.config.get_config(x).get('class', '').lower() != 'session']
             for name in self.__exclude_objects_names:
                 try:
                     names_list.remove(name)
@@ -191,8 +192,6 @@ class Session(object):
                              self._config_tree.get('setup-file'))
 
     def _load_config(self, env_dict, verbose=True):
-        cfg = self.config
-
         for item_name in self.object_names:
             if hasattr(setup_globals, item_name):
                 env_dict[item_name] = getattr(setup_globals, item_name)
@@ -200,13 +199,12 @@ class Session(object):
 
             if verbose:
                 print "Initializing '%s`" % item_name
-            self.__add_from_config(cfg, item_name, env_dict)
+            self.__add_from_config(item_name, env_dict)
+        self.__add_from_config(self.name, env_dict)
 
-        self.__add_from_config(cfg, self.name, env_dict)
-
-    def __add_from_config(self, cfg, item_name, env_dict):
+    def __add_from_config(self, item_name, env_dict):
         try:
-            o = cfg.get(item_name)
+            o = self.config.get(item_name)
         except:
             sys.excepthook(*sys.exc_info())
         else:

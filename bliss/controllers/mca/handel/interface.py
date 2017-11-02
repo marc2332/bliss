@@ -211,12 +211,18 @@ def is_running():
 
 
 def get_module_statistics(module):
-    # Get raw data
     channels = get_module_channels(module)
+    # FalconX requires a spectrum read for the statistics to be updated
+    if get_module_type(module).startswith(u"falconx"):
+        for channel in channels:
+            if channel >= 0:
+                get_spectrum(channel)
+    # Prepare buffer
     data_size = 9 * len(channels)
     master = next(c for c in channels if c >= 0)
     array = numpy.zeros(data_size, dtype="double")
     data = ffi.cast("double *", array.ctypes.data)
+    # Run handel call
     code = handel.xiaGetRunData(master, b"module_statistics_2", data)
     check_error(code)
     # Parse raw data
@@ -230,6 +236,9 @@ def get_module_statistics(module):
 def get_statistics():
     """Return the statistics for all enabled channels as a dictionary."""
     result = {}
+    # We're not using get_master_channels here.
+    # That's because each FalconX channels is its own master, even though
+    # the statistics can be accessed with a single call per module.
     for module in get_modules():
         result.update(get_module_statistics(module))
     return result
@@ -363,7 +372,7 @@ def get_all_buffer_data(buffer_id):
     return merge_buffer_data(*data)
 
 
-def synchronized_poll_data():
+def synchronized_poll_data(done=set()):
     """Convenient helper for buffer management in mapping mode.
 
     It assumes that all the modules are configured with the same number
@@ -387,12 +396,15 @@ def synchronized_poll_data():
     overrun_error = RuntimeError("Buffer overrun!")
     # Get info from hardware
     current_pixel = get_current_pixel()
-    full_lst = [x for x in data if all_buffer_full(x)]
+    full = {x for x in data if all_buffer_full(x)}
     # Overrun from hardware
     if any_buffer_overrun():
         raise overrun_error
+    # Hack: use the done argument
+    done &= full
+    full -= done
     # Read data from buffers
-    for x in full_lst:
+    for x in full:
         data[x] = get_all_buffer_data(x)
         # Overrun from set_buffer_done
         if set_all_buffer_done(x):
@@ -586,7 +598,11 @@ def get_channels():
 
 
 def get_master_channels():
-    """Return one active channel for each module."""
+    """Return one active channel for each buffer."""
+    # For the FalconX, each channel has its own buffer
+    if get_module_type().startswith(u"falconx"):
+        return get_channels()
+    # Otherwise, one channel per module is enough
     return tuple(
         next(channel for channel in groups if channel >= 0)
         for groups in get_grouped_channels()

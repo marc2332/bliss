@@ -304,27 +304,33 @@ def test_get_module_statistics(interface):
 
     m.side_effect = side_effect
     with mock.patch("bliss.controllers.mca.handel.interface.get_module_channels") as m2:
-        m2.return_value = [-1, -1, -1, 8]
-        # First test
-        assert interface.get_module_statistics("module3") == expected
-        m2.assert_called_once_with("module3")
-        arg = m.call_args[0][2]
-        m.assert_called_once_with(8, b"module_statistics_2", arg)
-        # Second test
-        raw[5] = 4.56  # ICR inconsistency
-        raw[6] = 1.23  # OCR inconsistency
-        with pytest.warns(UserWarning) as ctx:
-            interface.get_module_statistics("module3")
-        assert (
-            ctx[0]
-            .message.args[0]
-            .startswith("ICR buffer inconsistency: 4.56 != 3131.7208")
-        )
-        assert (
-            ctx[1]
-            .message.args[0]
-            .startswith("OCR buffer inconsistency: 1.23 != 2724.3282")
-        )
+        with mock.patch("bliss.controllers.mca.handel.interface.get_module_type") as m3:
+            with mock.patch(
+                "bliss.controllers.mca.handel.interface.get_spectrum"
+            ) as m4:
+                m2.return_value = [-1, -1, -1, 8]
+                m3.return_value = u"falconxn"
+                # First test
+                assert interface.get_module_statistics("module3") == expected
+                m2.assert_called_once_with("module3")
+                arg = m.call_args[0][2]
+                m.assert_called_once_with(8, b"module_statistics_2", arg)
+                m4.assert_called_once_with(8)
+                # Second test
+                raw[5] = 4.56  # ICR inconsistency
+                raw[6] = 1.23  # OCR inconsistency
+                with pytest.warns(UserWarning) as ctx:
+                    interface.get_module_statistics("module3")
+                assert (
+                    ctx[0]
+                    .message.args[0]
+                    .startswith("ICR buffer inconsistency: 4.56 != 3131.7208")
+                )
+                assert (
+                    ctx[1]
+                    .message.args[0]
+                    .startswith("OCR buffer inconsistency: 1.23 != 2724.3282")
+                )
 
     # Make sure errors have been checked
     interface.check_error.assert_called_with(0)
@@ -407,10 +413,12 @@ def test_get_raw_buffer(interface):
             arg[0] = 5
             return 0
         if dtype == b"buffer_a":
-            arg[0:5] = range(1, 6)
+            arg[0:5] = buff
             return 0
         assert False
 
+    # First test
+    buff = range(1, 6)
     m.side_effect = side_effect
     expected = numpy.array(range(1, 6), dtype="uint32")
     diff = interface.get_raw_buffer(1, "a") == expected
@@ -420,6 +428,23 @@ def test_get_raw_buffer(interface):
     m.assert_called_with(1, b"buffer_a", arg)
     # Make sure errors have been checked
     interface.check_error.assert_called_with(0)
+
+    # Second test
+    buff = [2 * x + ((2 * x + 1) << 16) for x in range(1, 6)]
+    expected = numpy.array(range(2, 12), dtype="uint32")
+    diff = interface.get_raw_buffer(1, "a") == expected
+    assert diff.all()
+    m.assert_called()
+    arg = m.call_args[0][2]
+    m.assert_called_with(1, b"buffer_a", arg)
+    # Make sure errors have been checked
+    interface.check_error.assert_called_with(0)
+
+    # Second test
+    buff = [0] * 5
+    with pytest.raises(RuntimeError) as ctx:
+        interface.get_raw_buffer(1, "a")
+    assert "The buffer a associated with channel 1 is empty" in str(ctx.value)
 
 
 def test_get_buffer_data(interface):
@@ -962,10 +987,20 @@ def test_get_channels(interface):
 
 
 def test_get_master_channels(interface):
-    with mock.patch("bliss.controllers.mca.handel.interface.get_grouped_channels") as m:
-        m.return_value = [(0, 1, 2, 3), (-1, 5, 6, 7)]
-        assert interface.get_master_channels() == (0, 5)
-        m.assert_called_once_with()
+    with mock.patch(
+        "bliss.controllers.mca.handel.interface.get_grouped_channels"
+    ) as m1:
+        with mock.patch("bliss.controllers.mca.handel.interface.get_module_type") as m2:
+            m1.return_value = [(0, 1, 2, 3), (-1, 5, 6, 7)]
+            m2.return_value = u"notfalconx"
+            assert interface.get_master_channels() == (0, 5)
+            m1.assert_called_once_with()
+    with mock.patch("bliss.controllers.mca.handel.interface.get_channels") as m1:
+        with mock.patch("bliss.controllers.mca.handel.interface.get_module_type") as m2:
+            m1.return_value = (0, 1, 2)
+            m2.return_value = u"falconxn"
+            assert interface.get_master_channels() == (0, 1, 2)
+            m1.assert_called_once_with()
 
 
 def test_get_trigger_channels(interface):
@@ -1079,10 +1114,12 @@ def test_apply_acquisition_values(interface):
     with mock.patch(
         "bliss.controllers.mca.handel.interface.get_grouped_channels"
     ) as m2:
-        m2.return_value = ((0,),)
-        assert interface.apply_acquisition_values() is None
-        dummy = m.call_args[0][2]
-        m.assert_called_once_with(0, b"apply", dummy)
+        with mock.patch("bliss.controllers.mca.handel.interface.get_module_type") as m3:
+            m2.return_value = ((0,),)
+            m3.return_value = u"notfalconx"
+            assert interface.apply_acquisition_values() is None
+            dummy = m.call_args[0][2]
+            m.assert_called_once_with(0, b"apply", dummy)
 
 
 # Debugging

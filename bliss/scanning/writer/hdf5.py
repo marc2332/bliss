@@ -31,9 +31,6 @@ def _on_event(obj, event_dict, signal, device):
             if len(data.shape) == 1:
                 # this is to make h5py happy
                 data.shape = (-1, 1)
-            elif not data.shape:  # not an array
-                data = numpy.array(data)
-                data.shape = (1, 1)
 
             data_len = data.shape[0]
             new_point_index = dataset.last_point_index + data_len

@@ -10,6 +10,7 @@
 # Imports
 import time
 import enum
+import warnings
 import collections
 
 
@@ -146,7 +147,7 @@ class BaseMCA(object):
 
     # Extra logic
 
-    def run_single_acquisition(self, acquisition_time=1., polling_time=0.1):
+    def run_single_acquisition(self, acquisition_time=1., polling_time=0.2):
         # Acquisition number
         self.set_acquisition_number(1)
         # Trigger mode
@@ -171,7 +172,7 @@ class BaseMCA(object):
         # Return data
         return self.get_acquisition_data(), self.get_acquisition_statistics()
 
-    def run_external_acquisition(self, acquistion_time=None, polling_time=0.1):
+    def run_external_acquisition(self, acquistion_time=None, polling_time=0.2):
         # Acquisition number
         self.set_acquisition_number(1)
         # Trigger mode
@@ -206,7 +207,7 @@ class BaseMCA(object):
 
     def run_multiple_acquisitions(self, acquisition_number,
                                   block_size=None, gate=False,
-                                  polling_time=0.1):
+                                  polling_time=0.2):
         # Check acquisition number
         if acquisition_number < 2:
             raise ValueError(
@@ -226,6 +227,9 @@ class BaseMCA(object):
             while current != acquisition_number:
                 time.sleep(polling_time)
                 current, extra_data, extra_statistics = self.poll_data()
+                if set(data) & set(extra_data):
+                    warnings.warn(
+                        'The polled data overlapped during the acquisition')
                 data.update(extra_data)
                 statistics.update(extra_statistics)
         # Stop in any case

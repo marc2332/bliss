@@ -217,7 +217,7 @@ def test_xia_acquisition(xia, mocker):
     assert xia.run_single_acquisition(3.) == (
         {0: [3, 2, 1]},
         {0: stats})
-    sleep.assert_called_once_with(0.1)
+    sleep.assert_called_once_with(0.2)
 
 
 def test_xia_multiple_acquisition(xia, mocker):
@@ -236,7 +236,7 @@ def test_xia_multiple_acquisition(xia, mocker):
     data, stats = xia.run_multiple_acquisitions(2)
     assert data == [{0: 'spectrum0'}, {0: 'spectrum1'}]
     assert stats == [{0: stats0}, {0: stats1}]
-    assert sleep.call_args_list == [((0.1,),), ((0.1,),)]
+    assert sleep.call_args_list == [((0.2,),), ((0.2,),)]
 
 
 def test_xia_configuration_error(xia):

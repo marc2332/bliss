@@ -7,7 +7,7 @@ from functools import reduce
 
 import numpy
 
-from .error import check_error
+from .error import check_error, HandelError
 from ._cffi import handel, ffi
 from .stats import stats_from_normal_mode
 from .parser import parse_xia_ini_file
@@ -170,6 +170,13 @@ def stop_run(channel=None):
     check_error(code)
 
 
+def get_channel_realtime(channel):
+    time = ffi.new("double *")
+    code = handel.xiaGetRunData(channel, b"realtime", time)
+    check_error(code)
+    return time[0]
+
+
 def get_spectrum_length(channel):
     length = ffi.new("unsigned long *")
     code = handel.xiaGetRunData(channel, b"mca_length", length)
@@ -216,7 +223,10 @@ def get_module_statistics(module):
     if get_module_type(module).startswith(u"falconx"):
         for channel in channels:
             if channel >= 0:
-                get_spectrum(channel)
+                try:
+                    get_spectrum(channel)
+                except HandelError:
+                    pass
     # Prepare buffer
     data_size = 9 * len(channels)
     master = next(c for c in channels if c >= 0)

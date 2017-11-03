@@ -8,8 +8,7 @@ from bliss.controllers.xia import XIA, Mercury, XMAP, FalconX
 
 
 @pytest.fixture(
-    params=['xia', 'mercury', 'mercury4', 'xmap',
-            'falconx', 'falconx4', 'falconx8'])
+    params=['xia', 'mercury', 'mercury4', 'xmap', 'falconx'])
 def xia(request, beacon, mocker):
     beacon.reload()
 
@@ -258,7 +257,7 @@ def test_xia_finalization(xia):
 
 @pytest.mark.parametrize(
     'dtype',
-    ['xia', 'mercury', 'mercury4', 'xmap', 'falconx', 'falconx4', 'falconx8'])
+    ['xia', 'mercury', 'mercury4', 'xmap', 'falconx'])
 def test_xia_from_wrong_beacon_config(dtype, beacon, mocker):
     # ZeroRPC error
     beacon.reload()

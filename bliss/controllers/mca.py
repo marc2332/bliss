@@ -21,7 +21,7 @@ Brand = enum.Enum(
 
 DetectorType = enum.Enum(
     'DetectorType',
-    'FALCONX FALCONX4 FALCONX8 XMAP MERCURY MERCURY4 MICRO_DXP DXP_2X '
+    'FALCONX FALCONXN XMAP MERCURY MERCURY4 MICRO_DXP DXP_2X '
     'MAYA2000 MUSST_MCA MCA8000D DSA1000 MULTIMAX')
 
 TriggerMode = enum.Enum(
@@ -185,11 +185,15 @@ class BaseMCA(object):
         # Start and wait
         try:
             self.start_acquisition()
+
             # This is a hackish trick:
             # We stop acquisition when the realtime is getting stable
             # (i.e. the gate is over)
-            get_realtime = lambda: next(
-                s.realtime for s in self.get_acquisition_statistics().values())
+
+            def get_realtime():
+                stats = self.get_acquisition_statistics()
+                return next(iter(stats.values())).realtime
+
             previous, current = 0., get_realtime()
             while current == 0. or previous != current:
                 time.sleep(polling_time)

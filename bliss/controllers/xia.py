@@ -359,21 +359,9 @@ class FalconX(BaseXIA):
     """Controller class for the FalconX (a XIA MCA)."""
 
     def _run_type_specific_checks(self):
-        assert self.detector_type == DetectorType.FALCONX
-        assert self.elements == (0,)
-
-
-class FalconX4(BaseXIA):
-    """Controller class for the FalconX-4 (a XIA MCA)."""
-
-    def _run_type_specific_checks(self):
-        assert self.detector_type == DetectorType.FALCONX4
-        assert all(e in range(4) for e in self.elements)
-
-
-class FalconX8(BaseXIA):
-    """Controller class for the FalconX-8 (a XIA MCA)."""
-
-    def _run_type_specific_checks(self):
-        assert self.detector_type == DetectorType.FALCONX8
-        assert all(e in range(8) for e in self.elements)
+        if self.detector_type == DetectorType.FALCONX:
+            assert self.elements == (0,)
+        elif self.detector_type == DetectorType.FALCONXN:
+            assert all(e in range(8) for e in self.elements)
+        else:
+            assert False

@@ -3,6 +3,7 @@ import numpy
 import mock
 
 from bliss.controllers.mca.handel.stats import Stats
+from bliss.controllers.mca.handel.error import HandelError
 
 
 @pytest.fixture
@@ -168,6 +169,22 @@ def test_stop_run(interface):
     interface.check_error.assert_called_once_with(0)
 
 
+def test_get_channel_realtime(interface):
+    m = interface.handel.xiaGetRunData
+
+    def side_effect(channel, dtype, arg):
+        arg[0] = 1.23
+        return 0
+
+    m.side_effect = side_effect
+    assert interface.get_channel_realtime(1) == 1.23
+    m.assert_called_once()
+    arg = m.call_args[0][2]
+    m.assert_called_once_with(1, b"realtime", arg)
+    # Make sure errors have been checked
+    interface.check_error.assert_called_once_with(0)
+
+
 def test_get_spectrum_length(interface):
     m = interface.handel.xiaGetRunData
 
@@ -310,12 +327,15 @@ def test_get_module_statistics(interface):
             ) as m4:
                 m2.return_value = [-1, -1, -1, 8]
                 m3.return_value = u"falconxn"
+                m4.side_effect = HandelError(12, "hello")
+
                 # First test
                 assert interface.get_module_statistics("module3") == expected
                 m2.assert_called_once_with("module3")
                 arg = m.call_args[0][2]
                 m.assert_called_once_with(8, b"module_statistics_2", arg)
                 m4.assert_called_once_with(8)
+
                 # Second test
                 raw[5] = 4.56  # ICR inconsistency
                 raw[6] = 1.23  # OCR inconsistency

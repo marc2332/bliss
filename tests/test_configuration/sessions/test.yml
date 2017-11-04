@@ -1,18 +1,18 @@
-class: Session
-name: test_session
-default: True
-setup-file: ./test_setup.py
-exclude-objects:
- - lima_simulator
- - opiom1
- - xia1
- - mercury1
- - mercury41
- - xmap1
- - falconx1
- - falconx41
- - falconx81
-synoptic:
+- class: Session
+  name: test_session
+  default: True
+  setup-file: ./test_setup.py
+  exclude-objects:
+   - lima_simulator
+   - opiom1
+   - xia1
+   - mercury1
+   - mercury41
+   - xmap1
+   - falconx1
+   - falconx41
+   - falconx81
+  synoptic:
     svg-file: ./test_synoptic.svg
     elements:
        -
@@ -47,3 +47,7 @@ synoptic:
           svg-id: sslits2
           top: m1
           bottom:
+- class: MeasurementGroup
+  name: test_mg
+  counters: [diode]
+

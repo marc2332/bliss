@@ -415,9 +415,14 @@ def synchronized_poll_data(done=set()):
     # Overrun from hardware
     if any_buffer_overrun():
         raise overrun_error
-    # Hack: use the done argument
-    done &= full
-    full -= done
+    # FalconX hack
+    # The buffer_done command does not reset the full flag.
+    # It's only reset when the buffer starts being filled up again.
+    # For this reason, we need to remember full flags from the previous call.
+    # This is exactly what the done set does.
+    done &= full  # Reset done flags
+    full -= done  # Don't read twice
+    done |= full  # Set done flags
     # Read data from buffers
     for x in full:
         data[x] = get_all_buffer_data(x)

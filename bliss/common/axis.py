@@ -814,8 +814,8 @@ class Axis(object):
             except:
                 sys.excepthook(*sys.exc_info())
         self._update_settings(state)
-        event.send(self, "move_done", True)
         self.__move_done.set()
+        event.send(self, "move_done", True)
 
     def _check_ready(self):
         if not self.state() in ("READY", "MOVING"):

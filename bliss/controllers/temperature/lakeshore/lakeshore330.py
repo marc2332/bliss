@@ -221,8 +221,8 @@ class lakeshore330(Base):
             raise ValueError("Must specify gpib or serial url")
 
         _lakeshore = LakeShore330(comm_type, url,
-                             extra_param=extra_param,
-                             eos=eos)
+                                  extra_param=extra_param,
+                                  eos=eos)
         Base.__init__(self, _lakeshore, config, *args)
 
 

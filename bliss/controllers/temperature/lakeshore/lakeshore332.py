@@ -5,7 +5,6 @@ from bliss.controllers.temperature.lakeshore.lakeshore330 import LakeShore330
 
 
 class LakeShore332(LakeShore330):
-
     MODE332 = ('Off', 'Manual PID', 'Zone', 'Open Loop', 'Auto Tune PID',
                'Auto Tune PI', 'Auto Tune P')
 
@@ -46,8 +45,8 @@ class LakeShore332(LakeShore330):
         else:
             return LakeShore332.MODE332[int(self.send_cmd('CMODE?'))]
 
-class lakeshore332(Base):
 
+class lakeshore332(Base):
     def __init__(self, config, *args):
         comm_type = None
         extra_param = None

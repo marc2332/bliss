@@ -18,18 +18,23 @@ dspace: monochromator crystal d-spacing
 Antonia Beteva ESRF BCU
 """
 
-from bliss.controllers.motor import CalcController; from bliss.common import event
+from bliss.controllers.motor import CalcController
+from bliss.common import event
 import numpy
 
 
 class energy_wl(CalcController):
+
     def __init__(self, *args, **kwargs):
         CalcController.__init__(self, *args, **kwargs)
+
+        self.no_offset = self.config.get('no_offset', bool, True)
 
         self.axis_settings.add("dspace", float)
 
     def initialize_axis(self, axis):
         CalcController.initialize_axis(self, axis)
+        axis.no_offset = self.no_offset
         event.connect(axis, "dspace", self._calc_from_real)
 
     def calc_from_real(self, positions_dict):

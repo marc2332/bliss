@@ -83,10 +83,16 @@ class tab3(CalcController):
         self.d2 = self.config.get("d2", float)
         try:
             self.d4 = self.config.get("d4", float)
-        except:
+        except KeyError:
             self.d4 = self.d1 / 2
         if self.geometry in (5, 8):
             self.d3 = self.config.get("d3", float)
+
+        self.no_offset = self.config.get('no_offset', bool, True)
+
+    def initialize_axis(self, axis):
+        CalcController.initialize_axis(self, axis)
+        axis.no_offset = self.no_offset
 
     def calc_from_real(self, positions_dict):
         front = positions_dict["front"]

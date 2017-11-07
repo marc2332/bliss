@@ -22,7 +22,7 @@ Brand = enum.Enum(
 
 DetectorType = enum.Enum(
     'DetectorType',
-    'FALCONX FALCONXN XMAP MERCURY MERCURY4 MICRO_DXP DXP_2X '
+    'FALCONX XMAP MERCURY MICRO_DXP DXP_2X '
     'MAYA2000 MUSST_MCA MCA8000D DSA1000 MULTIMAX')
 
 TriggerMode = enum.Enum(

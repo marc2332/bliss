@@ -4,11 +4,11 @@ import pytest
 
 from bliss.controllers.mca import Brand, DetectorType, Stats
 from bliss.controllers.mca import PresetMode, TriggerMode
-from bliss.controllers.xia import XIA, Mercury, XMAP, FalconX
+from bliss.controllers.xia import XIA, XMAP
 
 
 @pytest.fixture(
-    params=['xia', 'mercury', 'mercury4', 'xmap', 'falconx'])
+    params=['xia', 'mercury', 'xmap', 'falconx'])
 def xia(request, beacon, mocker):
     beacon.reload()
 
@@ -21,13 +21,12 @@ def xia(request, beacon, mocker):
     client.get_modules.return_value = ['module1']
 
     # Elements
-    channels = (0,) if request.param in ('mercury', 'falconx') else (0, 1, 2, 3)
-    client.get_channels.return_value = channels
+    client.get_channels.return_value = (0, 1, 2, 3)
 
     # Configuration
     client.get_config_files.return_value = ['some_config.ini']
     client.get_config.return_value = {'my': 'config'}
-    mtype = 'mercury4' if request.param == 'xia' else request.param
+    mtype = 'mercury' if request.param == 'xia' else request.param
     client.get_module_type.return_value = mtype
 
     # Emulate running behavior
@@ -56,14 +55,11 @@ def test_xia_instanciation(xia):
 def test_xia_infos(xia):
     assert xia.detector_brand == Brand.XIA
     if type(xia) is XIA:
-        assert xia.detector_type == DetectorType.MERCURY4
+        assert xia.detector_type == DetectorType.MERCURY
     else:
         name = type(xia).__name__.upper()
         assert xia.detector_type == getattr(DetectorType, name)
-    if type(xia) in (Mercury, FalconX):
-        assert xia.elements == (0,)
-    else:
-        assert xia.elements == (0, 1, 2, 3)
+    assert xia.elements == (0, 1, 2, 3)
 
 
 def test_xia_configuration(xia):
@@ -257,7 +253,7 @@ def test_xia_finalization(xia):
 
 @pytest.mark.parametrize(
     'dtype',
-    ['xia', 'mercury', 'mercury4', 'xmap', 'falconx'])
+    ['xia', 'mercury', 'xmap', 'falconx'])
 def test_xia_from_wrong_beacon_config(dtype, beacon, mocker):
     # ZeroRPC error
     beacon.reload()

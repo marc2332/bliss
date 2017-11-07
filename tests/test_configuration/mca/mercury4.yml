@@ -1,8 +1,8 @@
-name: mercury41
+name: mercury2
 module: xia
-class: Mercury4
+class: Mercury
 plugin: bliss
-url: tcp://welisa.esrf.fr:8000
-configuration_directory: C:\\blissadm\\mercury
-default_configuration: mercury_src.ini
+url: tcp://wduxia.esrf.fr:8001
+configuration_directory: C:\\blissadm\\config\\mercury
+default_configuration: mercury4_bruit.ini
 detector_mapping: sdd3elts

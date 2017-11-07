@@ -220,8 +220,10 @@ class BaseXIA(BaseMCA):
 
     @property
     def detector_type(self):
-        value = self._proxy.get_module_type()
-        return getattr(DetectorType, value.upper())
+        value = self._proxy.get_module_type().upper()
+        if value == 'FALCONXN':
+            return DetectorType.FALCONX
+        return getattr(DetectorType, value)
 
     @property
     def elements(self):
@@ -336,14 +338,6 @@ class Mercury(BaseXIA):
 
     def _run_type_specific_checks(self):
         assert self.detector_type == DetectorType.MERCURY
-        assert self.elements == (0,)
-
-
-class Mercury4(BaseXIA):
-    """Controller class for the Mercury-4 (a XIA MCA)."""
-
-    def _run_type_specific_checks(self):
-        assert self.detector_type == DetectorType.MERCURY4
         assert all(e in range(4) for e in self.elements)
 
 
@@ -359,9 +353,5 @@ class FalconX(BaseXIA):
     """Controller class for the FalconX (a XIA MCA)."""
 
     def _run_type_specific_checks(self):
-        if self.detector_type == DetectorType.FALCONX:
-            assert self.elements == (0,)
-        elif self.detector_type == DetectorType.FALCONXN:
-            assert all(e in range(8) for e in self.elements)
-        else:
-            assert False
+        assert self.detector_type == DetectorType.FALCONX
+        assert all(e in range(8) for e in self.elements)

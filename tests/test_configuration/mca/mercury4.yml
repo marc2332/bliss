@@ -4,5 +4,5 @@ class: Mercury
 plugin: bliss
 url: tcp://wduxia.esrf.fr:8001
 configuration_directory: C:\\blissadm\\config\\mercury
-default_configuration: mercury4_bruit.ini
+default_configuration: mercury1_bruit.ini
 detector_mapping: sdd3elts

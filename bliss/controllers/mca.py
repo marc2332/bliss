@@ -224,7 +224,7 @@ class BaseMCA(object):
         try:
             self.start_acquisition()
             current, data, statistics = self.poll_data()
-            while current != acquisition_number:
+            while not (len(data) == current == acquisition_number):
                 time.sleep(polling_time)
                 current, extra_data, extra_statistics = self.poll_data()
                 if set(data) & set(extra_data):

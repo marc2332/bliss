@@ -111,6 +111,14 @@ class BaseXIA(BaseMCA):
         else:
             self._current_config = filename
 
+    def reload_configuration(self):
+        """Force a reload of the current configuration.
+
+        Useful when the file has changed or when the hardware or hardware
+        server have been restarted.
+        """
+        self.load_configuration(self._current_config)
+
     def _run_checks(self):
         """Make sure the configuration corresponds to a mercury.
 
@@ -119,7 +127,7 @@ class BaseXIA(BaseMCA):
         - At least one detector channel (a.k.a as element)
         """
         detectors = self._proxy.get_detectors()
-        assert len(detectors) == 1
+        assert len(detectors) >= 1
         modules = self._proxy.get_modules()
         assert len(modules) >= 1
         channels = self._proxy.get_channels()

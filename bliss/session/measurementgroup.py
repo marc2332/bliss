@@ -93,9 +93,10 @@ class MeasurementGroup(object):
         if counters_list is None:
             raise ValueError("MeasurementGroup: should have a counters list")
         self.name = name
-        self._available_counters = set(counters_list)
+        self._available_counters = list(counters_list)
         self._current_config = settings.SimpleSetting('%s' % name,
                                                       default_value='default')
+        # disabled counters
         self._counters_settings = settings.HashSetting('%s:%s' %
                                                        (name, self._current_config.get()))
 
@@ -115,32 +116,35 @@ class MeasurementGroup(object):
     def disable(self):
         """  disabled counters name
         """
-        return self._available_counters.intersection(self._counters_settings.keys())
+        return [name for name in self.available if name in self._counters_settings]
+
     @disable.setter
     def disable(self,counters):
         counter2disable = self.__counters2set(counters)
-        possible2disable = self._available_counters.intersection(counter2disable)
+        possible2disable = set(self._available_counters).intersection(counter2disable)
         unpos2disable = counter2disable.difference(possible2disable)
         if unpos2disable:
             raise ValueError("MeasurementGroup: could not disable counters (%s)" %
                              (','.join(unpos2disable)))
         self._counters_settings.update(dict((name,True) for name in counter2disable))
+
     @property
     def enable(self):
         """ enabled counters name
         """
-        disabled_counters = set(self._counters_settings.keys())
-        return self._available_counters.difference(disabled_counters)
+        return [name for name in self.available if name not in self._counters_settings]
+
     @enable.setter
     def enable(self,counters):
         counters = self.__counters2set(counters)
-        possible2enable = self._available_counters.intersection(counters)
+        possible2enable = set(self._available_counters).intersection(counters)
         unpos2enable = counters.difference(possible2enable)
         if unpos2enable:
             raise ValueError("MeasurementGroup: could not disable counters (%s)" %
                              (','.join(unpos2enable)))
 
         self._counters_settings.remove(*counters)
+
     @property
     def state_names(self):
         """ current configuration name for the measurment
@@ -177,12 +181,13 @@ class MeasurementGroup(object):
     def __repr__(self):
         s = 'MeasurementGroup:  %s (%s)\n\n' % (self.name,self._current_config.get())
         enabled = list(self.enable) + ['Enabled']
+        
         max_len = max((len(x) for x in enabled))
         str_format = '  %-' + '%ds' % max_len + '  %s\n'
         s += str_format % ('Enabled','Disabled')
         s += str_format % ('-' * max_len,'-' * max_len)
-        for enable,disable in itertools.izip_longest(sorted(self.enable),
-                                                     sorted(self.disable),fillvalue=''):
+        for enable,disable in itertools.izip_longest(self.enable,
+                                                     self.disable,fillvalue=''):
             s += str_format % (enable,disable)
         return s
 

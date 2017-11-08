@@ -12,7 +12,6 @@ import gevent.event
 from bliss.common import event
 from bliss.common.axis import get_axis, Modulo
 
-
 def test_property_setting(robz):
     assert robz.velocity() == 100
 
@@ -20,18 +19,29 @@ def test_controller_from_axis(robz):
     assert robz.controller.name == "test"
 
 def test_state_callback(robz):
-    ready_event = gevent.event.Event()
+    ready_event = gevent.event.AsyncResult()
     def callback(state):
-        if state == 'READY':
-          ready_event.set()
+      ready_event.set(state == 'READY')
 
     event.connect(robz, "state", callback)
 
-    robz.rmove(10, wait=False)
+    robz.rmove(1)
 
-    ready_event.wait()
+    assert ready_event.get(timeout=0.1)
+    assert robz.state() == "READY"
 
-    assert robz.state()=="READY"
+def test_move_done_callback(robz):
+    ready_event = gevent.event.AsyncResult()
+    
+    def callback(move_done):
+        if move_done:
+            ready_event.set(robz.is_moving is False)
+
+    event.connect(robz, "move_done", callback)
+   
+    robz.rmove(1)
+
+    assert ready_event.get(timeout=0.1)
 
 def test_position_callback(robz):
     storage={"last_pos":None, "last_dial_pos":None}
@@ -75,18 +85,6 @@ def test_acceleration(robz):
 def test_axis_set_acctime(roby):
     acc = 0.250
     assert roby.acctime(acc) == acc
-
-def test_move_done_event(robz):
-    res = {"ok": False}
-
-    def callback(move_done, res=res):
-        if move_done:
-            res["ok"] = True
-
-    event.connect(robz, "move_done", callback)
-    robz.rmove(10)
-    robz.wait_move()
-    assert res["ok"]
 
 def test_axis_move(robz):
     assert robz.state() == "READY"

@@ -140,4 +140,4 @@ def test_base_mca_logic(mocker):
     assert mca.run_external_acquisition() == (
         {0: [3, 2, 1]},
         {0: stats})
-    sleep.assert_called_once_with(.1)
+    sleep.assert_called_once_with(.2)

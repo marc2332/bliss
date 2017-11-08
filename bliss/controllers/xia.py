@@ -111,6 +111,14 @@ class BaseXIA(BaseMCA):
         else:
             self._current_config = filename
 
+    def reload_configuration(self):
+        """Force a reload of the current configuration.
+
+        Useful when the file has changed or when the hardware or hardware
+        server have been restarted.
+        """
+        self.load_configuration(self._current_config)
+
     def _run_checks(self):
         """Make sure the configuration corresponds to a mercury.
 
@@ -119,7 +127,7 @@ class BaseXIA(BaseMCA):
         - At least one detector channel (a.k.a as element)
         """
         detectors = self._proxy.get_detectors()
-        assert len(detectors) == 1
+        assert len(detectors) >= 1
         modules = self._proxy.get_modules()
         assert len(modules) >= 1
         channels = self._proxy.get_channels()
@@ -220,8 +228,10 @@ class BaseXIA(BaseMCA):
 
     @property
     def detector_type(self):
-        value = self._proxy.get_module_type()
-        return getattr(DetectorType, value.upper())
+        value = self._proxy.get_module_type().upper()
+        if value == 'FALCONXN':
+            return DetectorType.FALCONX
+        return getattr(DetectorType, value)
 
     @property
     def elements(self):
@@ -269,7 +279,7 @@ class BaseXIA(BaseMCA):
                 TriggerMode.EXTERNAL,
                 TriggerMode.GATE]
 
-    def set_trigger_mode(self, mode):
+    def set_trigger_mode(self, mode, channel=None):
         """Set the trigger mode.
 
         Warning: this method assumes the correct number of acquisition
@@ -284,15 +294,41 @@ class BaseXIA(BaseMCA):
             raise ValueError('{!s} trigger mode not supported'.format(mode))
         if mode == TriggerMode.EXTERNAL and self.acquisition_number == 1:
             raise ValueError(
-                'External trigger mode not supported in single acquisition mode')
+                'External trigger mode not supported for single acquisition')
+        # XMAP Trigger
+        if self.detector_type == DetectorType.XMAP:
+            self.set_xmap_trigger_mode(mode, channel=channel)
+        elif channel is not None:
+            raise ValueError(
+                'Channel argument can only provided for XMAP detector')
         # Configure gate ignore
         gate_ignore = 0 if mode == TriggerMode.GATE else 1
         self._proxy.set_acquisition_value('gate_ignore', gate_ignore)
         # Configure advance mode
         if self.acquisition_number > 1:
-            advance_mode = 0 if mode == TriggerMode.SOFTWARE else 1
-            self._proxy.set_acquisition_value('pixel_advance_mode', advance_mode)
+            soft, gate, sync = 0, 1, 2
+            self._proxy.set_acquisition_value(
+                'pixel_advance_mode',
+                soft if mode == TriggerMode.SOFTWARE else gate)
         self._proxy.apply_acquisition_values()
+
+    def set_xmap_trigger_mode(self, mode, channel=None):
+        # Add extra logic for external and gate trigger mode
+        if mode in (TriggerMode.EXTERNAL, TriggerMode.GATE):
+            available = self._proxy.get_trigger_channels()
+            # Check available trigger channels
+            if not available:
+                raise ValueError(
+                    'This configuration does not support trigger signals')
+            # Check channel argument
+            if channel is not None and channel not in available:
+                raise ValueError(
+                    'The given channel is not a valid trigger channel')
+            # Set default channel value
+            if channel is None:
+                channel = available[0]
+            # Set gate master parameter
+            self._proxy.set_acquisition_value('gate_master', True, channel)
 
 
 # Specific XIA classes
@@ -310,14 +346,6 @@ class Mercury(BaseXIA):
 
     def _run_type_specific_checks(self):
         assert self.detector_type == DetectorType.MERCURY
-        assert self.elements == (0,)
-
-
-class Mercury4(BaseXIA):
-    """Controller class for the Mercury-4 (a XIA MCA)."""
-
-    def _run_type_specific_checks(self):
-        assert self.detector_type == DetectorType.MERCURY4
         assert all(e in range(4) for e in self.elements)
 
 
@@ -328,46 +356,10 @@ class XMAP(BaseXIA):
         assert self.detector_type == DetectorType.XMAP
         assert all(e in range(16) for e in self.elements)
 
-    def set_trigger_mode(self, mode, channel=None):
-        # Add extra logic for external and gate trigger mode
-        if mode in (TriggerMode.EXTERNAL, TriggerMode.GATE):
-            available = self._proxy.get_trigger_channels()
-            # Check available trigger channels
-            if not available:
-                raise ValueError(
-                    'This configuration does not support trigger signals')
-            # Check channel argument
-            if channel is not None and channel not in available:
-                raise ValueError(
-                    'The given channel is not a valid trigger channel')
-            # Set default channel value
-            if channel is None:
-                channel = available[0]
-            # Set gate master parameter
-            self._proxy.set_acquisition_value('gate_master', True, channel)
-        # Parent call
-        super(XMAP, self).set_trigger_mode(mode)
-
 
 class FalconX(BaseXIA):
     """Controller class for the FalconX (a XIA MCA)."""
 
     def _run_type_specific_checks(self):
         assert self.detector_type == DetectorType.FALCONX
-        assert self.elements == (0,)
-
-
-class FalconX4(BaseXIA):
-    """Controller class for the FalconX-4 (a XIA MCA)."""
-
-    def _run_type_specific_checks(self):
-        assert self.detector_type == DetectorType.FALCONX4
-        assert all(e in range(4) for e in self.elements)
-
-
-class FalconX8(BaseXIA):
-    """Controller class for the FalconX-8 (a XIA MCA)."""
-
-    def _run_type_specific_checks(self):
-        assert self.detector_type == DetectorType.FALCONX8
         assert all(e in range(8) for e in self.elements)

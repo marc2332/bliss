@@ -10,6 +10,7 @@
 # Imports
 import time
 import enum
+import warnings
 import collections
 
 
@@ -21,7 +22,7 @@ Brand = enum.Enum(
 
 DetectorType = enum.Enum(
     'DetectorType',
-    'FALCONX FALCONX4 FALCONX8 XMAP MERCURY MERCURY4 MICRO_DXP DXP_2X '
+    'FALCONX XMAP MERCURY MICRO_DXP DXP_2X '
     'MAYA2000 MUSST_MCA MCA8000D DSA1000 MULTIMAX')
 
 TriggerMode = enum.Enum(
@@ -146,7 +147,7 @@ class BaseMCA(object):
 
     # Extra logic
 
-    def run_single_acquisition(self, acquisition_time=1., polling_time=0.1):
+    def run_single_acquisition(self, acquisition_time=1., polling_time=0.2):
         # Acquisition number
         self.set_acquisition_number(1)
         # Trigger mode
@@ -171,7 +172,7 @@ class BaseMCA(object):
         # Return data
         return self.get_acquisition_data(), self.get_acquisition_statistics()
 
-    def run_external_acquisition(self, acquistion_time=None, polling_time=0.1):
+    def run_external_acquisition(self, acquistion_time=None, polling_time=0.2):
         # Acquisition number
         self.set_acquisition_number(1)
         # Trigger mode
@@ -185,11 +186,15 @@ class BaseMCA(object):
         # Start and wait
         try:
             self.start_acquisition()
+
             # This is a hackish trick:
             # We stop acquisition when the realtime is getting stable
             # (i.e. the gate is over)
-            get_realtime = lambda: next(
-                s.realtime for s in self.get_acquisition_statistics().values())
+
+            def get_realtime():
+                stats = self.get_acquisition_statistics()
+                return next(iter(stats.values())).realtime
+
             previous, current = 0., get_realtime()
             while current == 0. or previous != current:
                 time.sleep(polling_time)
@@ -202,7 +207,7 @@ class BaseMCA(object):
 
     def run_multiple_acquisitions(self, acquisition_number,
                                   block_size=None, gate=False,
-                                  polling_time=0.1):
+                                  polling_time=0.2):
         # Check acquisition number
         if acquisition_number < 2:
             raise ValueError(
@@ -219,9 +224,12 @@ class BaseMCA(object):
         try:
             self.start_acquisition()
             current, data, statistics = self.poll_data()
-            while current != acquisition_number:
+            while not (len(data) == current == acquisition_number):
                 time.sleep(polling_time)
                 current, extra_data, extra_statistics = self.poll_data()
+                if set(data) & set(extra_data):
+                    warnings.warn(
+                        'The polled data overlapped during the acquisition')
                 data.update(extra_data)
                 statistics.update(extra_statistics)
         # Stop in any case

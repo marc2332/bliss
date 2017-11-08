@@ -5,6 +5,22 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+"""
+CT2 (P201/C208) ESRF PCI counter card device
+
+Minimalistic configuration example:
+
+.. code-block:: yaml
+
+   plugin: ct2
+   name: p201
+   class: CT2
+   type: P201
+   address: /dev/ct2_0
+
+
+(for the complete CT2 YAML_ specification see :ref:`bliss-ct2-yaml`)
+"""
 
 
 import sys

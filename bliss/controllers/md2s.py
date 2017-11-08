@@ -20,23 +20,27 @@ from bliss.common.utils import grouped
 from bliss.comm.Exporter import *
 import functools
 
-class MD2S:
+
+class MD2S(object):
+
     def __init__(self, name, config):
-        self.phases = {"Centring":1, "BeamLocation":2, "DataCollection":3, "Transfer":4}
-        self.timeout = 3 #s by default
+        self.phases = {"Centring": 1, "BeamLocation": 2,
+                       "DataCollection": 3, "Transfer": 4}
+        self.timeout = 3  # s by default
         nn, port = config.get("exporter_addr").split(":")
         self._exporter = Exporter(nn, int(port))
 
         fshutter = config.get("fshutter")
-        fshutter.set_external_control(functools.partial(self._exporter.writeProperty, "FastShutterIsOpen", "true"),
-                                      functools.partial(self._exporter.writeProperty, "FastShutterIsOpen", "false"),
-                                      lambda: self._exporter.readProperty("FastShutterIsOpen") == "true")
+        if fshutter:
+            fshutter.set_external_control(functools.partial(self._exporter.writeProperty, "FastShutterIsOpen", "true"),
+                                          functools.partial(self._exporter.writeProperty, "FastShutterIsOpen", "false"),
+                                          lambda: self._exporter.readProperty("FastShutterIsOpen") == "true")
 
     def get_hwstate(self):
         """Read the hardware state (if implemented)
            Returns:
              state(str): the hardware state or Ready (if not implemented)
-        """ 
+        """
         try:
             return self._exporter.readProperty("HardwareState")
         except Exception:
@@ -46,7 +50,7 @@ class MD2S:
         """Read the software state.
            Returns:
              state(str): the software state
-        """ 
+        """
         return self._exporter.readProperty("State")
 
     def _ready(self):
@@ -59,10 +63,10 @@ class MD2S:
             timeout = self.timeout
         tt1 = time.time()
         while time.time() - tt1 < timeout:
-             if self._ready():
-                 break
-             else:
-                 time.sleep(0.5)
+            if self._ready():
+                break
+            else:
+                time.sleep(0.5)
 
     def get_phase(self):
         """Read the current phase
@@ -81,7 +85,7 @@ class MD2S:
            Returns:
             None
         """
-        if self.phases.has_key(phase):
+        if phase in self.phases:
             self._exporter.execute("startSetPhase", phase)
             if wait:
                 self._wait_ready(timeout)
@@ -91,7 +95,7 @@ class MD2S:
            Returns:
              values(list): pixel per mm on Y and Z axis
         """
-        #the value depends on the zoom
+        # the value depends on the zoom
         px_mm_y = 1./self._exporter.readProperty("CoaxCamScaleX")
         px_mm_z = 1./self._exporter.readProperty("CoaxCamScaleY")
         return [px_mm_y, px_mm_z]
@@ -104,21 +108,20 @@ class MD2S:
         par = ""
         for axis, target in grouped(args, 2):
             par += "%s=%f," % (axis.root_name, target)
-        self._exporter.execute("startSimultaneousMoveMotors",par)
+        self._exporter.execute("startSimultaneousMoveMotors", par)
         self._wait_ready(20)
 
     @task
     def _simultaneous_move(self, *args):
-        axis_list = [] 
+        axis_list = []
         for axis, target in grouped(args, 2):
             axis_list.append(axis)
             axis.move(target, wait=False)
         return [axis.wait_move() for axis in axis_list]
 
-
     @task
     def _simultaneous_rmove(self, *args):
-        axis_list = [] 
+        axis_list = []
         for axis, target in grouped(args, 2):
             axis_list.append(axis)
             axis.rmove(target, wait=False)
@@ -155,11 +158,11 @@ class MD2S:
              state(bool): on (True)or off (False) - when no args
         """
         if state:
-            self._exporter.writeProperty("FrontLightIsOn",state)
+            self._exporter.writeProperty("FrontLightIsOn", state)
         else:
             return self._exporter.readProperty("FrontLightIsOn")
 
-    def blight(self,  state=None):
+    def blight(self, state=None):
         """Switch the back light on/off or read the state
            Args:
              state(bool): on (True), off (False) or None (read only)
@@ -167,11 +170,11 @@ class MD2S:
              state(bool): on (True)or off (False) - when no args
         """
         if state:
-            self._exporter.writeProperty("BackLightIsOn",state)
+            self._exporter.writeProperty("BackLightIsOn", state)
         else:
             return self._exporter.readProperty("BackLightIsOn")
 
-    def cryo(self,  state=None):
+    def cryo(self, state=None):
         """Set the cryostat close to/far from the sample or read the position
            Args:
              state(bool): close to (True), far from (False) or None (read only)
@@ -179,11 +182,11 @@ class MD2S:
              state(bool): close to(True) or far from(False) - when no args
         """
         if state:
-            self._exporter.writeProperty("CryoIsBack",state)
+            self._exporter.writeProperty("CryoIsBack", state)
         else:
             return self._exporter.readProperty("CryoIsBack")
 
-    def microdiff_init(self,wait=True):
+    def microdiff_init(self, wait=True):
         """Do the homing of all the motors
            Args:
              wait(bool): Wait until finished (True/False)
@@ -192,10 +195,10 @@ class MD2S:
         if wait:
             self._wait_ready(60)
 
-    def diffractometer_init(self,wait=True):
+    def diffractometer_init(self, wait=True):
         self.microdiff_init(wait)
 
-    def phi_init(self,wait=True):
+    def phi_init(self, wait=True):
         """Do the homing of omega
            Args:
              wait(bool): Wait until finished (True/False)
@@ -204,7 +207,7 @@ class MD2S:
         if wait:
             self._wait_ready(10)
 
-    def zoom_init(self,wait=True):
+    def zoom_init(self, wait=True):
         """Do the homing of the zoom
            Args:
              wait(bool): Wait until finished (True/False)
@@ -213,7 +216,7 @@ class MD2S:
         if wait:
             self._wait_ready(10)
 
-    def kappa_init(self,wait=True):
+    def kappa_init(self, wait=True):
         """Do the homing of the kappa
            Args:
              wait(bool): Wait until finished (True/False)
@@ -234,13 +237,15 @@ class MD2S:
            Keyword Args:
              zoom_level(int): where to move the zoom to
            Returns:
-             zoom_level(int): position before the execition of the action, if relevant
+             zoom_level(int): position before the execition of the action,
+                              if relevant
         """
         if what == "data_collect":
             self.set_phase("DataCollection", wait=True, timeout=100)
-            if kwargs.has_key("zoom_level"):
-                self._exporter.writeProperty("CoaxialCameraZoomValue", kwargs["zoom_level"])
-                self._wait_ready(20) 
+            if "zoom_level" in kwargs:
+                self._exporter.writeProperty("CoaxialCameraZoomValue",
+                                             kwargs["zoom_level"])
+                self._wait_ready(20)
 
         if what == "see_beam":
             zoom_level = kwargs.get("zoom_level", 5)
@@ -249,7 +254,7 @@ class MD2S:
             self._wait_ready(20)
             self._exporter.writeProperty("AperturePosition", "OFF")
             self._wait_ready(20)
-            #get the current zoom position and move zoom to zoom_level
+            # get the current zoom position and move zoom to zoom_level
             curr_zoom = self._exporter.readProperty("CoaxialCameraZoomValue")
             self._exporter.writeProperty("CoaxialCameraZoomValue", zoom_level)
             self._wait_ready(20)

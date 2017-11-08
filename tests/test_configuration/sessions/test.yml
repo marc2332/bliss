@@ -7,11 +7,9 @@
    - opiom1
    - xia1
    - mercury1
-   - mercury41
+   - mercury2
    - xmap1
    - falconx1
-   - falconx41
-   - falconx81
   synoptic:
     svg-file: ./test_synoptic.svg
     elements:
@@ -50,4 +48,3 @@
 - class: MeasurementGroup
   name: test_mg
   counters: [diode]
-

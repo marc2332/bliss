@@ -300,10 +300,7 @@ def get_raw_buffer(master, buffer_id):
                 str(buffer_id), master
             )
         )
-    # XMAP/Mercury
-    if array[1] == 0:
-        return array[::2]
-    # FalconX
+    # Return array
     return array
 
 

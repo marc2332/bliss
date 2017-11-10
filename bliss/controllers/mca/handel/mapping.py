@@ -18,6 +18,14 @@ def parse_mapping_buffer(raw):
     """
     spectrums, statistics = {}, {}
 
+    # XMAP/Mercury parsing
+    if raw[1] == 0:
+        raw = raw[::2]
+        spectrum_type = "uint16"
+    # FalconX parsing
+    else:
+        spectrum_type = "uint32"
+
     # Header advance
     header = raw[0:256]
     current = 256
@@ -79,6 +87,7 @@ def parse_mapping_buffer(raw):
 
             # Sectrum Advance
             spectrum = raw[current : current + size]
+            spectrum.dtype = spectrum_type
             current += size
 
             # Set data

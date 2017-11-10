@@ -181,6 +181,9 @@ class BaseCT2Device(object):
     def trigger_point(self):
         self._device.trigger_point()
 
+    def dump_memory(self):
+        return self._device.dump_memory()
+
     @property
     def counters(self):
         return self._device.counters
@@ -232,16 +235,10 @@ class CT2Device(BaseCT2Device):
         AcqMode.ExtTrigMulti,
     ]
 
-    ExtStartModes = [
-        AcqMode.ExtTrigSingle, 
-        AcqMode.ExtTrigMulti, 
-        AcqMode.ExtGate,
-        AcqMode.ExtTrigReadout,
-    ]
-
     ExtTrigModes = [
         AcqMode.ExtTrigMulti, 
         AcqMode.ExtGate,
+        AcqMode.ExtTrigReadout,
     ]
 
     ExtExpModes = [
@@ -640,7 +637,7 @@ class CT2Device(BaseCT2Device):
         return self.acq_mode in self.IntExpModes
         
     def __has_ext_start(self):
-        return self.acq_mode in self.ExtStartModes
+        return not self.__has_soft_start()
 
     def __has_ext_trig(self):
         return self.acq_mode in self.ExtTrigModes
@@ -648,6 +645,10 @@ class CT2Device(BaseCT2Device):
     def __has_ext_exp(self):
         return self.acq_mode in self.ExtExpModes
 
+    def __has_ext_sync(self):
+        return (self.__has_ext_start() or self.__has_ext_trig() or
+                self.__has_ext_exp())
+    
     def __in_ext_trig_readout(self):
         return self.acq_mode == AcqMode.ExtTrigReadout
 
@@ -666,7 +667,7 @@ class CT2Device(BaseCT2Device):
                 raise ValueError('Acq. point period must be greater than expo.')
         elif has_period:
             raise ValueError('Acq. point period only allowed in %s' % mode_str)
-        if self.__has_ext_trig() and not self.in_channel:
+        if self.__has_ext_sync() and not self.in_channel:
             raise ValueError('Must provide in_config in ext-trig modes')
 
         self.stop_acq()
@@ -729,7 +730,7 @@ class CT2Device(BaseCT2Device):
         if self.acq_status != AcqStatus.Running:
             raise ValueError('No acquisition is running')
         elif self.__has_soft_start() and not self.__soft_started:
-            self.__soft_started = True
+            pass
         elif self.__has_int_trig():
             raise ValueError('Cannot trigger point in int-trig modes')
 
@@ -739,14 +740,21 @@ class CT2Device(BaseCT2Device):
             point_nb_ct = self.internal_point_nb_counter
             point_nb = self.card.get_counter_value(point_nb_ct)
             self.card.stop_counters_software(counters)
-            restart = (point_nb < self.acq_nb_points - 1)
+            start = not self.__soft_started
+            restart = start or (point_nb < self.acq_nb_points - 1)
         elif self.acq_mode == AcqMode.IntTrigMulti:
             counters_status = self.card.get_counters_status()
             if counters_status[counters[0]]['run']:
                 raise RuntimeError('Counter still running')
 
+        if self.__has_soft_start():
+            self.__soft_started = True
+
         if restart:
             self.card.start_counters_software(counters)
+
+    def dump_memory(self):
+        return self.card.dump_memory()
 
     @property
     def acq_mode(self):

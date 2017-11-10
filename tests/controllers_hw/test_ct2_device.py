@@ -260,7 +260,8 @@ def main():
     parser.add_argument('--acq_timeout', default='', type=str,
                         help='Timeout aborting acquisition sequence')
     parser.add_argument('--all_tests', default=1, type=int,
-                        help='Execute all tests: 1=Int+Soft, 2=Int+Soft+Ext')
+                        help='Execute all tests: 1=Int+Soft, 2=Ext, '
+                                                '3=Int+Soft+Ext')
     parser.add_argument('--sleep_time', default=2, type=float,
                         help='Sleep time between test')
 
@@ -296,14 +297,17 @@ def main():
     if args.all_tests & 1:
         mode_lists = ((False, ['IntTrigReadout', 'SoftTrigReadout']),
                       (True, ['IntTrigSingle', 'IntTrigMulti']))
+        strict_multi_point_modes = ['IntTrigMulti']
         for has_point_period, mode_list in mode_lists:
             point_period = args.point_period if has_point_period else 0
             for acq_mode in mode_list:
+                # multi-point acquisitions
                 test(dev, acq_mode, args.expo_time, point_period,
                      args.acq_nb_points, args.nb_acqs, args.sleep_time)
-            acq_mode = mode_list[0]
-            test(dev, acq_mode, args.expo_time, point_period, 1,
-                 args.acq_nb_points * args.nb_acqs, args.sleep_time)
+                # multiple single-point acquisitions
+                if acq_mode not in strict_multi_point_modes:
+                    test(dev, acq_mode, args.expo_time, point_period, 1,
+                         args.acq_nb_points * args.nb_acqs, args.sleep_time)
             
     if args.all_tests & 2:
         for acq_mode in ExtTrigModes:

@@ -153,6 +153,12 @@ class MotionEstimation(object):
             backlash_estimation = MotionEstimation(axis, target_pos, self.fpos)
             self.duration += backlash_estimation.duration
 
+def lazy_init(func):
+    @functools.wraps(func)
+    def func_wrapper(self, *args, **kwargs):
+        self.controller._initialize_axis(self)
+        return func(self, *args, **kwargs)
+    return func_wrapper
 
 @with_custom_members
 class Axis(object):
@@ -162,13 +168,6 @@ class Axis(object):
     Typical usage goes through the bliss configuration (see this module
     documentation above for an example)
     """
-
-    def lazy_init(func):
-        @functools.wraps(func)
-        def func_wrapper(self, *args, **kwargs):
-            self.controller._initialize_axis(self)
-            return func(self, *args, **kwargs)
-        return func_wrapper
 
     def __init__(self, name, controller, config):
         self.__name = name

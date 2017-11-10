@@ -79,7 +79,10 @@ class Icepap(Controller):
             self._cnx.close()
             
     def initialize_axis(self,axis):
-        axis.address = axis.config.get("address",int)
+        axis.address = axis.config.get("address",lambda x: x)
+
+        if hasattr(axis,'_init_software'):
+            axis._init_software()
 
     def initialize_hardware_axis(self,axis):
         if axis.config.get('autopower', converter=bool, default=True):
@@ -87,6 +90,9 @@ class Icepap(Controller):
                 self.set_on(axis)
             except:
                 sys.excepthook(*sys.exc_info())
+
+        if hasattr(axis,'_init_hardware'):
+            axis._init_hardware()
 
     #Axis power management 
     def set_on(self,axis):
@@ -102,27 +108,32 @@ class Icepap(Controller):
         self._power(axis,False)
 
     def _power(self,axis,power):
-        _ackcommand(self._cnx,"POWER %s %d" % 
+        _ackcommand(self._cnx,"POWER %s %s" % 
                     ("ON" if power else "OFF",axis.address))
 
     def read_position(self,axis,cache=True):
         pos_cmd = "FPOS" if cache else "POS"
-        return int(_command(self._cnx,"?%s %d" % (pos_cmd,axis.address)))
+        return int(_command(self._cnx,"?%s %s" % (pos_cmd,axis.address)))
     
     def set_position(self,axis,new_pos):
-        _ackcommand(self._cnx,"POS %d %d" % (axis.address,int(round(new_pos))))
+        if isinstance(axis,SlaveAxis):
+            pre_cmd = "%d:DISPROT LINKED;" % axis.address
+        else:
+            pre_cmd = None
+        _ackcommand(self._cnx,"POS %s %d" % (axis.address,int(round(new_pos))),
+                    pre_cmd = pre_cmd)
         return self.read_position(axis,cache=False)
 
     def read_velocity(self,axis):
-        return float(_command(self._cnx,"?VELOCITY %d" % axis.address))
+        return float(_command(self._cnx,"?VELOCITY %s" % axis.address))
 
     def set_velocity(self,axis,new_velocity):
-        _ackcommand(self._cnx,"VELOCITY %d %f" % 
+        _ackcommand(self._cnx,"VELOCITY %s %f" % 
                     (axis.address,new_velocity))
         return self.read_velocity(axis)
 
     def read_acceleration(self,axis):
-        acctime = float(_command(self._cnx,"?ACCTIME %d" % axis.address))
+        acctime = float(_command(self._cnx,"?ACCTIME %s" % axis.address))
         velocity = self.read_velocity(axis)
         return velocity/float(acctime)
 
@@ -130,11 +141,11 @@ class Icepap(Controller):
         velocity = self.read_velocity(axis)
         new_acctime = velocity/new_acc
 
-        _ackcommand(self._cnx,"ACCTIME %d %f" % (axis.address,new_acctime))
+        _ackcommand(self._cnx,"ACCTIME %s %f" % (axis.address,new_acctime))
         return self.read_acceleration(axis)
 
     def state(self,axis):
-        status = int(_command(self._cnx,"?FSTATUS %d" % (axis.address)),16)
+        status = int(_command(self._cnx,"?FSTATUS %s" % (axis.address)),16)
         status ^= 1<<23 #neg POWERON FLAG
         state = self._icestate.new()
         for mask,value in (((1<<9),"READY"),
@@ -166,13 +177,13 @@ class Icepap(Controller):
             # it seems it is not safe to call warning and/or alarm commands
             # while homing motor, so let's not ask if motor is moving
             if status & (1<<13):
-                warning = _command(self._cnx,"?WARNING %d" % axis.address)
+                warning = _command(self._cnx,"?WARNING %s" % axis.address)
                 warn_str =  "warning condition: \n" + warning
                 status.create_state("WARNING",warn_str)
                 status.set("WARNING")
 
             try:
-                alarm = _command(self._cnx,"?ALARM %d" % axis.address)
+                alarm = _command(self._cnx,"?ALARM %s" % axis.address)
             except RuntimeError:
                 pass
             else:
@@ -184,16 +195,16 @@ class Icepap(Controller):
         return state
 
     def get_info(self,axis):
-        pre_cmd = '%d:' % axis.address
+        pre_cmd = '%s:' % axis.address
         r =  "MOTOR   : %s\n" % axis.name
         r += "SYSTEM  : %s (ID: %s) (VER: %s)\n" % (self._cnx._host,
                                                     _command(self._cnx,"0:?ID"),
                                                     _command(self._cnx,"?VER"))
-        r += "DRIVER  : %d\n" % axis.address
-        r += "POWER   : %s\n" % _command(self._cnx,pre_cmd + "?power")
-        r += "CLOOP   : %s\n" % _command(self._cnx,pre_cmd + "?pcloop")
-        r += "WARNING : %s\n" % _command(self._cnx,pre_cmd + "?warning")
-        r += "ALARM   : %s\n" % _command(self._cnx,pre_cmd + "?alarm")
+        r += "DRIVER  : %s\n" % axis.address
+        r += "POWER   : %s\n" % _command(self._cnx,pre_cmd + "?POWER")
+        r += "CLOOP   : %s\n" % _command(self._cnx,pre_cmd + "?PCLOOP")
+        r += "WARNING : %s\n" % _command(self._cnx,pre_cmd + "?WARNING")
+        r += "ALARM   : %s\n" % _command(self._cnx,pre_cmd + "?ALARM")
         return r
     
     def raw_write(self,message,data = None):
@@ -206,19 +217,25 @@ class Icepap(Controller):
         pass
 
     def start_one(self,motion):
-        _ackcommand(self._cnx,"MOVE %d %d" % (motion.axis.address,
-                                              motion.target_pos))
+        if isinstance(motion.axis,SlaveAxis):
+            pre_cmd = "%d:DISPROT LINKED;" % motion.axis.address
+        else:
+            pre_cmd = None
+
+        _ackcommand(self._cnx,"MOVE %s %d" % (motion.axis.address,
+                                              motion.target_pos),
+                    pre_cmd = pre_cmd)
 
     def start_all(self,*motions):
         if motions > 1:
             cmd = "MOVE GROUP "
-            cmd += ' '.join(["%d %d" % (m.axis.address,m.target_pos) for m in motions])
+            cmd += ' '.join(["%s %d" % (m.axis.address,m.target_pos) for m in motions])
             _ackcommand(self._cnx,cmd)
         elif motions:
             self.start_one(motions[0])
 
     def stop(self,axis):
-        _command(self._cnx,"STOP %d" % axis.address)
+        _command(self._cnx,"STOP %s" % axis.address)
 
     def stop_all(self,*motions):
         for motion in motions:
@@ -226,7 +243,7 @@ class Icepap(Controller):
 
     def home_search(self,axis,switch):
         cmd = "HOME " + ("+1" if switch > 0 else "-1")
-        _ackcommand(self._cnx,"%d:%s" % (axis.address,cmd))
+        _ackcommand(self._cnx,"%s:%s" % (axis.address,cmd))
         # IcePAP status is not immediately MOVING after home search command is sent
         gevent.sleep(0.2)
 
@@ -238,7 +255,7 @@ class Icepap(Controller):
 
     def limit_search(self,axis,limit):
         cmd = "SRCH LIM" + ("+" if limit>0 else "-")
-        _ackcommand(self._cnx,"%d:%s" % (axis.address,cmd))
+        _ackcommand(self._cnx,"%s:%s" % (axis.address,cmd))
         # TODO: MG18Nov14: remove this sleep (state is not immediately MOVING)
         gevent.sleep(0.1)
 
@@ -268,7 +285,7 @@ class Icepap(Controller):
         int_position.sort()
         address = axis_or_encoder.address
         if not len(int_position):
-            _ackcommand(self._cnx,"%d:ECAMDAT CLEAR" % address)
+            _ackcommand(self._cnx,"%s:ECAMDAT CLEAR" % address)
             return
 
         if isinstance(axis_or_encoder,Axis):
@@ -277,10 +294,10 @@ class Icepap(Controller):
             source = 'MEASURE'
 
         #load trigger positions
-        _ackcommand(self._cnx,"%d:*ECAMDAT %s DWORD" % (address,source),
+        _ackcommand(self._cnx,"%s:*ECAMDAT %s DWORD" % (address,source),
                     int_position)
          # send the trigger on the multiplexer
-        _ackcommand(self._cnx,"%d:SYNCAUX eCAM" % address)
+        _ackcommand(self._cnx,"%s:SYNCAUX eCAM" % address)
 
     def get_event_positions(self,axis_or_encoder):
         """
@@ -313,18 +330,26 @@ class Icepap(Controller):
                     positions[i] = pos
         return positions
 
+    def get_linked_axis(self):
+        reply = _command(self._cnx,"?LINKED")
+        linked = dict()
+        for line in reply.strip().split('\n'):
+            values = line.split()
+            linked[values[0]] = [int(x) for x in values[1:]]
+        return linked
+
     @object_method(types_info=("bool","bool"))
     def activate_closed_loop(self,axis,active):
-        _command(self._cnx,"#%d:PCLOOP %s" % (axis.address,"ON" if active else "OFF"))
+        _command(self._cnx,"#%s:PCLOOP %s" % (axis.address,"ON" if active else "OFF"))
         return active
 
     @object_method(types_info=("None","bool"))
     def is_closed_loop_activate(self,axis):
-        return True if _command(self._cnx,"%d:?PCLOOP" % axis.address) == 'ON' else False
+        return True if _command(self._cnx,"%s:?PCLOOP" % axis.address) == 'ON' else False
 
     @object_method(types_info=("None","None"))
     def reset_closed_loop(self,axis):
-        measure_position = int(_command(self._cnx,"%d:?POS MEASURE" % axis.address))
+        measure_position = int(_command(self._cnx,"%s:?POS MEASURE" % axis.address))
         self.set_position(axis,measure_position)
         if axis.config.get('autopower', converter=bool, default=True):
             self.set_on(axis)
@@ -332,7 +357,7 @@ class Icepap(Controller):
         
     @object_method(types_info=("None","int"))
     def temperature(self,axis):
-        return int(_command(self._cnx,"%d:?MEAS T" % axis.address))
+        return int(_command(self._cnx,"%s:?MEAS T" % axis.address))
 
     @object_method(types_info=(("float","bool"),"None"))
     def set_tracking_positions(self,axis,positions,cyclic = False):
@@ -346,7 +371,7 @@ class Icepap(Controller):
         """
         address = axis.address
         if not len(positions):
-            _ackcommand(self._cnx,"%d:LISTDAT CLEAR" % address)
+            _ackcommand(self._cnx,"%s:LISTDAT CLEAR" % address)
             return
 
         dial_positions = axis.user2dial(numpy.array(positions, dtype=numpy.float))
@@ -423,11 +448,11 @@ class Icepap(Controller):
 
     def reboot(self):
         _command(self._cnx,"REBOOT")
-    
+        self._cnx.close()
+
 _check_reply = re.compile("^[#?]|^[0-9]+:\?")
 @protect_from_kill
-def _command(cnx,cmd,data = None):
-    cmd = cmd.upper()
+def _command(cnx,cmd,data = None,pre_cmd = None):
     if data is not None:
         uint16_view = data.view(dtype=numpy.uint16)
         data_checksum = uint16_view.sum()
@@ -442,7 +467,8 @@ def _command(cnx,cmd,data = None):
         full_cmd = "%s\n%s%s" % (cmd,header,data.tostring())
         transaction = cnx._write(full_cmd)
     else:
-        transaction = cnx._write(cmd + '\n')
+        full_cmd = "%s%s\n" % (pre_cmd or '',cmd)
+        transaction = cnx._write(full_cmd)
     with cnx.Transaction(cnx,transaction) :
         if _check_reply.match(cmd):
             msg = cnx._readline(transaction=transaction,
@@ -456,10 +482,11 @@ def _command(cnx,cmd,data = None):
                 raise RuntimeError(msg.replace('ERROR ',''))
             return msg.strip(' ')
 
-def _ackcommand(cnx,cmd,data = None):
+def _ackcommand(cnx,cmd,data = None,pre_cmd = None):
     if not cmd.startswith('#') and not cmd.startswith('?'):
         cmd = '#' + cmd
-    return _command(cnx,cmd,data)
+    return _command(cnx,cmd,data,pre_cmd)
 
 from .shutter import Shutter
 from .switch import Switch
+from .linked import LinkedAxis, SlaveAxis

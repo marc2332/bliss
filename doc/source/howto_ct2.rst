@@ -25,17 +25,234 @@ The CT2 card has two models:
 
     * **one** card.
     * Only the *P201* has been fully tested (*C208* not tested).
-    * When card software is initialized, channel 10 is automatically
-      configured to generate *output_gate* in :term:`TTL` level
 
     Please contact the bliss development team if any of these missing
     features is blocking for you.
 
+
+.. _bliss-ct2-driver-how-to:
+
+Driver installation
+-------------------
+
+The driver is available as an external project. If you are at ESRF_ you
+can install it with blissinstaller tool.
+
+For reference, here is a link to the
+`CT2 driver project on gitlab <http://gitlab.esrf.fr/Hardware/P201>`_.
+
+
+Configuration
+-------------
+
+There are three possibilities to configure a CT2 card, depending on what you
+want to achieve.
+
+
+.. _bliss-ct2-bliss-config:
+
+1. Remote configuration
+~~~~~~~~~~~~~~~~~~~~~~~
+
+This is probably the most interesting configuration: a zerorpc server running
+on the PC where the card is installed which talks directly with the linux driver
+of the card:
+
+.. graphviz::
+
+   digraph G {
+     rankdir="LR";
+
+     driver [label="driver", shape="box"];
+     card [label="Card", shape="component"];
+
+     subgraph cluster_zerorpc {
+       label = "CT2 zerorpc server";
+       color = black;
+       node [shape=rectangle];
+
+       CT2_Device [label="bliss\ndevice.CT2"];
+
+     }
+
+     subgraph cluster_client {
+       label = "bliss shell";
+       node [shape=rectangle];
+
+       CT2_Client [label="bliss\nclient.CT2"];
+     }
+
+     driver -> card [dir="both", label="PCI bus"];
+     CT2_Device -> driver[dir=both];
+     CT2_Client -> CT2_Device [dir="both", label="zerorpc\nreq/rep & stream"];
+   }
+
+
+First, you need run :program:`bliss-ct2-server` on the PC where the card is
+installed by typing:
+
+.. code-block:: bash
+
+   $ bliss-ct2-server
+   INFO 2017-10-30 15:14:57,680 CardInterface(/dev/ct2_0): connecting to /dev/ct2_0
+   INFO 2017-10-30 15:14:57,684 CT2Server: Serving CT2 on tcp://0.0.0.0:8909...
+
+
+By default it runs on port **8909**. To run in a different options type
+argument ``bliss-ct2-server --help``.
+
+Second, the YAML_ configuration:
+
+.. code-block:: yaml
+
+   plugin: ct2
+   class: CT2
+   name: p201_remote
+   address: tcp://lid312:8909
+
+
+(replace the address with the one that makes sence to you)
+
+Finally, the remote card is seen on bliss *almost* transparently as if it
+was a local card::
+
+    from bliss.config.static import get_config
+
+    config = get_config()
+    p201 = config.get('p201_remote')
+
+
+.. _bliss-ct2-tango-spec-config:
+
+2. Spec & TANGO_ configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Bliss provides a TANGO_ server and a set of spec macros in case you need to
+control the card through Spec:
+
+.. graphviz::
+
+   digraph G {
+     rankdir="LR";
+     node [shape="box"];
+
+     driver [label="driver"];
+     card [label="Card", shape="component"];
+     bliss [label="bliss shell"];
+     zerorpc [label="CT2 zerorpc server"];
+     tango [label="CT2 TANGO server"];
+     spec  [label="Spec"];
+
+     driver -> card [dir="both"];
+     zerorpc -> driver [dir=both];
+     tango -> zerorpc [dir="both"];
+     spec -> tango [dir="both"];
+     bliss -> zerorpc [dir="both"];
+   }
+
+
+First you need to have a running ``bliss-ct2-server``. See
+:ref:`bliss-ct2-bliss-config` to find out how to do it.
+
+
+.. _bliss-ct2-tango-config:
+
+TANGO configuration
+^^^^^^^^^^^^^^^^^^^
+
+After, you need to configure a CT2 TANGO_ server. In Jive just go to the menu
+bar, select :menuselection:`Edit --> Create server` and type in the following:
+
+.. image:: _static/CT2/tango_create_server.png
+
+You should replace *p201_lid001_0* with a name at your choosing.
+
+The final step in configuring the server is to add a property called
+*card_name*. Its value should be the name of the object you gave in the YAML_
+configuration:
+
+.. image:: _static/CT2/tango_create_server_property.png
+
+
+.. _bliss-ct2-spec-config:
+
+
+SPEC configuration
+^^^^^^^^^^^^^^^^^^
+
+bliss also provides a *ct2.mac* macro counter/timer so it can be used from spec.
+
+To configure the CT2 you need to have previously configured TANGO_ CT2 device
+(see :ref:`bliss-ct2-tango-config`).
+
+Don't forget to add in setup *need ct2*.
+
+Enter **config** and in the *Motor and Counter Device Configuration (Not CAMAC)*
+screen, in the SCALERS list add a new item so it looks like this::
+
+    SCALERS        DEVICE                    ADDR  <>MODE  NUM                 <>TYPE
+        YES           ct2  id00/ct2/p201_lid001_0           11    Macro Counter/Timer
+
+After, in the *Scaler (Counter) Configuration* screen, add the counters and/or
+timer (don't forget that the *Unit* is the nth-1 device in the list of Macro
+Counter or Macro Counter/Timer on the previous screen).
+
+If you add a CT2 timer, the *Chan* must be **0**. The CT2 timer is capable of
+working in 6 different frequencies: 1.25 KHz, 10 KHz, 125 KHz, 1 MHz, 12.5 MHz
+and 100 MHz. The spec *Scale Factor* selects this frequency. The standard
+working frequency is 1 MHz which correspondes to a *Scale Factor* of 1E6.
+Example::
+
+    Scaler (Counter) Configuration
+
+    Number        Name  Mnemonic  <>Device  Unit  Chan   <>Use As  Scale Factor
+         0     Seconds       sec   MAC_CNT     0     0   timebase       1000000
+         1      p201_3    p201_3   MAC_CNT     0     3    counter             1
+
+
+.. _bliss-ct2-local-config:
+
+3. Local configuration
+~~~~~~~~~~~~~~~~~~~~~~
+
+No server required; only accessible on the PC the card is physically
+installed. Useful for a standalone installation or debugging directly on
+the PC where the card is installed.
+
+You can work directly with the card without beacon::
+
+    from bliss.controllers.ct2.card import P201Card, CardInterface
+    from bliss.controllers.ct2.device import CT2
+
+    iface = CardInterface('/dev/ct2_0')
+    p201_card = P201Card(iface)
+    p201_card.request_exclusive_access()
+    p201_card.reset_software()
+
+    p201 = CT2(p201_card)
+
+...or with the following beacon configuration:
+
+.. code-block:: yaml
+
+   plugin: ct2
+   class: CT2
+   name: p201_local
+   address: /dev/ct2_0
+
+
+like this::
+
+    from bliss.config.static import get_config
+
+    config = get_config()
+    p201 = config.get('p201_local')
+
+
 Supported acquisition types
 ---------------------------
 
-Before explaining how to configure and run the CT2 card, here is a brief
-summary of the current acquisition types supported by the CT2:
+Here is a brief summary of the current acquisition types supported by the CT2:
 
 Point period
     The time which corresponds to acquisition of one single point.
@@ -87,13 +304,13 @@ Exposure time
 .. wavedrom::
     {
       signal: [
-        { node: "..a...........................b", period: 0.5 },
+        { node: "..a.........................b", period: 0.5 },
         { name: "soft. start",
           wave: "l.Pd.", period: 0.5 },
         { name: "soft. trigger",
-         wave: "l.........Pl..Pl........Pd.", period: 0.5 },
+         wave: "l........Pl..Pl.......Pd.", period: 0.5 },
         { name: "out. gate",
-          wave: "l.H....l..H...lH...l......H...l", period: 0.5 },
+          wave: "l.H...l..H...lH...l.....H...l", period: 0.5 },
         { node: "..c...d", period: 0.5 },
       ],
 
@@ -222,12 +439,12 @@ Exposure time
 .. wavedrom::
     {
       signal: [
-        { node: "..a...........................b", period: 0.5 },
+        { node: "..a..........................b", period: 0.5 },
         { name: "ext. trigger",
-          wave: "l.Pl.....Pl..Pl........Pd.", period: 0.5 },
+          wave: "l.Pl....Pl..Pl........Pd.", period: 0.5 },
         { name: "out. gate",
-          wave: "l.H....l..H...lH...l......H...l", period: 0.5 },
-        { node: "..c....d", period: 0.5 },
+          wave: "l.H...l..H...lH...l......H...l", period: 0.5 },
+        { node: "..c...d", period: 0.5 },
       ],
 
       edge: [ "a<->b Nb. points (N) = 4",
@@ -259,15 +476,13 @@ Exposure time
     {
       signal: [
         { node: "..a...........................b", period: 0.5 },
-        { name: "ext. trigger",
-          wave: "l.Pl..Pl.Pl.PPl.Pl.Pl..Pd.", period: 0.5 },
+        { name: "ext. gate",
+          wave: "l.H....L...H...LH.L.....H.....L", period: 0.5 },
         { name: "out. gate",
-          wave: "l.H....L...H...L.H...L...H....L", period: 0.5 },
-        { node: "..c....d", period: 0.5 },
+          wave: "l.H....L...H...LH.L.....H.....L", period: 0.5 },
       ],
 
-      edge: [ "a<->b Nb. points (N) = 4",
-              "c<->d Exp. time" ],
+      edge: [ "a<->b Nb. points (N) = 4" ],
 
       head: {
         text: "External gate",
@@ -275,13 +490,12 @@ Exposure time
       },
 
       foot:{
-        text: "2 x N ext. triggers",
+        text: "N ext. gates",
       },
     }
 
 .. pull-quote::
-    Start by external trigger. Trigger by odd external trigger numbers.
-    Exposure time determined by even external trigger numbers.
+    Start by external trigger. Exposure time determined by input gate signal.
 
 .. rubric:: External Trigger Readout
 
@@ -317,183 +531,81 @@ Exposure time
     software trigger.
 
 
-.. _bliss-ct2-driver-how-to:
-
-Driver installation
+.. _bliss-ct2-yaml:
+    
+YAML_ specification
 -------------------
 
-The driver is available as an external project. If you are at ESRF_ you
-can install it with blissinstaller tool.
-
-For reference, here is a link to the
-`CT2 driver project on gitlab <http://gitlab.esrf.fr/Hardware/P201>`_.
-
-.. _bliss-ct2-yaml-how-to:
-
-YAML_ configuration
--------------------
-
-First, you need a valid CT2 card configuration in beacon:
+Minimalistic configuration example:
 
 .. code-block:: yaml
 
-   plugin: ct2           # (1)
-   class: P201           # (2)
-   name: p201_lid001_0   # (3)
-   address: /dev/ct2_0   # (4)
+   plugin: ct2                   (1)
+   name: p201                    (2)
+   class: CT2                    (3)
+   address: tcp://lid312:8909    (4)
 
-#. plugin name: mandatory, must be the string *ct2*
-#. class: mandatory, either *P201* (PCI card) or *C208* (compact PCI card)
-#. card name: mandatory, unique name
-#. card address: mandatory, */dev/ct2_<N>* where *N* is the card index,
-   starting at 0.
 
-After saving the file, we propose to configure the different card channels
-using the bliss configuration web GUI. Start a web browser pointing to the
-beacon host and web app port (ex: lid001:9030) and you should see your newly
-created YAML_ file. Clicking on the *p201_lid001_0* node will show the CT2
-configuration panel which you can use to configure the different channels
-TTL/NIM level, 50ohm:
+Then, the web will provide you with a more user friendly page:
 
 .. image:: _static/CT2/config.png
 
-.. important::
-    In this preliminary version, by default, the channel 10 is assigned
-    to generate gate output in TTL so any YAML_ configuration will be
-    overwritten on this channel.
+
+More complete example including channel configuration and
+external trigger/gate:
+
+.. code-block:: yaml
+
+   plugin: ct2                    (1)
+   name: p201                     (2)
+   class: CT2                     (3)
+   address: tcp://lid312:8909     (4)
+   type: P201                     (5)
+   clock: CLK_100_MHz             (6)
+   external sync:                 (7)
+     input:                       (8)
+       channel: 7                 (9)
+       polarity inverted: False  (10)
+     output:                     (11)
+       channel: 10               (12)
+       mode: gate                (13)
+   channels:                     (14)
+   - address: 1                  (15)
+     counter name: pC1           (16)
+     level: NIM                  (17)
+   - address: 10
+     level: NIM                  (18)
+
+#. plugin name (mandatory: ct2)
+#. controller name (mandatory)
+#. plugin class (mandatory)
+#. card address (mandatory). Use `/dev/ct_<card_nb>` for a local card or
+   `tcp://<host>:<port>` to connect to a remote zerorpc CT2 server.
+#. card type (optional, default: P201). Valid values are P201, C208
+#. card clock (optional, default: CLK_100_MHz)
+#. External synchronization signal configuration
+#. Input signal: used for external trigger/gate (optional, default: no input)
+#. Input signal channel (mandatory if input keyword is given).
+   Valid: P201: [1, 10]; C208: [1,12]
+#. Interpret input signal polarity inverted (optional, default: False)
+#. Output signal: used for output gate signal
+#. Output signal channel (mandatory if ouput keyword is given).
+   Valid: P201: [9, 10]; C208: [11,12]
+#. Output signal mode (optional, default: gate).
+   Only possible value today is gate
+#. Channel configuration
+#. channel address (mandatory). Valid: P201: [1, 10]; C208: [1, 12]
+#. counter name (optional). Needed if want to count on this channel.
+#. channel input level (optional, default: TTL)
+#. channel input/output level (optional, default: TTL)
+
+.. note::
+
+   if external sync input/output channel is given, the channel counter name
+   is ignored as this channel cannot be used to count
 
 
-The card is now accessible from a python program/console *on the same
-machine the card is installed*::
+.. note::
 
-    from gevent.event import Event
-
-    from bliss.common.event import connect
-    from bliss.controllers.ct2 import AcqMode, AcqStatus, StatusSignal
-    from bliss.controllers.ct2 import CT2Device
-
-    p201 = CT2Device(name='p201_lid001_0')
-
-    p201.acq_mode = AcqMode.IntTrigReadout
-    p201.acq_expo_time = 1E-3               # 1ms acq time
-    p201.acq_nb_points = 5000               # 5000 points
-    p201.acq_channels = 3, 5                # use channels 3 and 5
-
-    finish_event = Event()
-
-    def on_card_status_changed(status):
-        print status
-        if status == AcqStatus.Ready:
-            finish_event.set()
-
-    connect(p201, StatusSignal, on_card_status_changed)
-
-    p201.prepare_acq()
-    p201.start_acq()
-
-    finish_event.wait()
-
-    data = p201.read_data()
-
-This is usually not very useful since you need to be on the same machine were the
-card is installed.
-
-.. _bliss-ct2-tango-how-to:
-
-TANGO_ configuration
---------------------
-
-To work around this limitation bliss provides two CT2 TANGO_ components that
-help access CT2 as if you were using it locally:
-
-* The server class: :class:`bliss.tango.servers.ct2_ds.CT2`
-  (and a CT2 server script to launch a server capable of handling CT2 devices)
-* The client class: :class:`bliss.tango.clients.ct2.CT2Device`
-
-To configure a new CT2 server in Jive just go to the menu bar, select
-:menuselection:`Edit --> Create server` and type in the following:
-
-.. image:: _static/CT2/tango_create_server.png
-
-You should replace *p201_lid001_0* with a name at your choosing.
-
-The final step in configuring the server is to add a property called
-*card_name*. Its value should be the name of the object you gave in the YAML_
-configuration:
-
-.. image:: _static/CT2/tango_create_server_property.png
-
-.. versionadded:: 0.2
-    If the *server instance name* matches the *card_name* (which is the case in
-    the previous example), it is not necessary to specify the *card_name*
-    property.
-
-After starting the device server, you can access the CT2 card remotely from
-python as if you were using the local
-:class:`~bliss.controllers.ct2.device.CT2Device`. The only differences are you
-get the :class:`~bliss.tango.clients.ct2.CT2Device` object from
-:mod:`bliss.tango.clients.ct2` instead of :mod:`bliss.controllers.ct2` and in
-the constructor you pass in the TANGO_ device name::
-
-    from gevent.event import Event
-
-    from bliss.common.event import connect
-    from bliss.config.static import get_config
-    from bliss.controllers.ct2 import AcqMode, AcqStatus, StatusSignal
-    from bliss.tango.clients.ct2 import CT2Device
-
-    p201 = CT2Device('id00/ct2/p201_lid001_0')
-
-    p201.acq_mode = AcqMode.IntTrigReadout
-    p201.acq_expo_time = 1E-3               # 1ms acq time
-    p201.acq_nb_points = 5000               # 5000 points
-    p201.acq_channels = 3, 5                # use channels 3 and 5
-
-    finish_event = Event()
-
-    def on_card_status_changed(status):
-        print status
-        if status == AcqStatus.Ready:
-            finish_event.set()
-
-    connect(p201, StatusSignal, on_card_status_changed)
-
-    p201.prepare_acq()
-    p201.start_acq()
-
-    finish_event.wait()
-
-    data = p201.read_data()
-
-
-SPEC configuration
-------------------
-
-bliss also provides a *ct2.mac* macro counter/timer so it can be used from spec.
-
-To configure the CT2 you need to have previously configured TANGO_ CT2 device
-(see :ref:`bliss-ct2-tango-how-to`).
-
-Don't forget to add in setup *need ct2*.
-
-Enter **config** and in the *Motor and Counter Device Configuration (Not CAMAC)*
-screen, in the SCALERS list add a new item so it looks like this::
-
-    SCALERS        DEVICE                    ADDR  <>MODE  NUM                 <>TYPE
-        YES           ct2  id00/ct2/p201_lid001_0           11    Macro Counter/Timer
-
-After, in the *Scaler (Counter) Configuration* screen, add the counters and/or
-timer (don't forget that the *Unit* is the nth-1 device in the list of Macro
-Counter or Macro Counter/Timer on the previous screen).
-
-If you add a CT2 timer, the *Chan* must be **0**. The CT2 timer is capable of
-working in 6 different frequencies: 1.25 KHz, 10 KHz, 125 KHz, 1 MHz, 12.5 MHz
-and 100 MHz. The spec *Scale Factor* selects this frequency. The standard
-working frequency is 1 MHz which correspondes to a *Scale Factor* of 1E6.
-Example::
-
-    Scaler (Counter) Configuration
-
-    Number        Name  Mnemonic  <>Device  Unit  Chan   <>Use As  Scale Factor
-         0     Seconds       sec   MAC_CNT     0     0   timebase       1000000
-         1      p201_3    p201_3   MAC_CNT     0     3    counter             1
+   If a zerorpc *address* is set, the *type* is ignored. In this case it is
+   specified at the zerorpc server command line.

@@ -37,6 +37,7 @@ extensions = [
     'sphinx.ext.coverage',
     'sphinx.ext.imgmath',
     'sphinx.ext.viewcode',
+    'sphinx.ext.graphviz',
     'sphinxcontrib.wavedrom',  # wavedrom diagrams
 ]
 

@@ -7,67 +7,67 @@
 
 import unittest
 
-from bliss.controllers import ct2
+from bliss.controllers.ct2 import card
 
 
 class TestCtConfig(unittest.TestCase):
 
     def test_ctconfig_empty(self):
-        cfg = ct2.CtConfig()
+        cfg = card.CtConfig()
         self.assertEqual(cfg.value, 0)
 
     def test_ctconfig_init_with_1_param(self):
         clock_1_mhz = 0x03
-        self.assertEqual(clock_1_mhz, ct2.CtClockSrc.CLK_1_MHz.value)
+        self.assertEqual(clock_1_mhz, card.CtClockSrc.CLK_1_MHz.value)
 
-        cfg = ct2.CtConfig(clock_source=ct2.CtClockSrc.CLK_1_MHz)
+        cfg = card.CtConfig(clock_source=card.CtClockSrc.CLK_1_MHz)
 
-        self.assertEqual(cfg.value, ct2.CtClockSrc.CLK_1_MHz.value)
-        self.assertEqual(cfg.clock_source, ct2.CtClockSrc.CLK_1_MHz)
+        self.assertEqual(cfg.value, card.CtClockSrc.CLK_1_MHz.value)
+        self.assertEqual(cfg.clock_source, card.CtClockSrc.CLK_1_MHz)
 
     def test_ctconfig_init_with_params(self):
         reg = 0x04 | (0x1E << 7) | (0x09 << 13) | (0x52 << 20) | (1 << 30) | (0 << 31)
 
-        cfg = ct2.CtConfig(clock_source=ct2.CtClockSrc.CLK_12_5_MHz,
-                           gate_source=ct2.CtGateSrc.CT_6_GATE_ENVELOP,
-                           hard_start_source=ct2.CtHardStartSrc.CH_9_RISING_EDGE,
-                           hard_stop_source=ct2.CtHardStopSrc.CT_10_EQ_CMP_10,
+        cfg = card.CtConfig(clock_source=card.CtClockSrc.CLK_12_5_MHz,
+                           gate_source=card.CtGateSrc.CT_6_GATE_ENVELOP,
+                           hard_start_source=card.CtHardStartSrc.CH_9_RISING_EDGE,
+                           hard_stop_source=card.CtHardStopSrc.CT_10_EQ_CMP_10,
                            reset_from_hard_soft_stop=True, 
                            stop_from_hard_stop=False)
 
         self.assertEqual(cfg.value, reg)
-        self.assertEqual(cfg.clock_source, ct2.CtClockSrc.CLK_12_5_MHz)
-        self.assertEqual(cfg.gate_source, ct2.CtGateSrc.CT_6_GATE_ENVELOP)
-        self.assertEqual(cfg.hard_start_source, ct2.CtHardStartSrc.CH_9_RISING_EDGE)
-        self.assertEqual(cfg.hard_stop_source, ct2.CtHardStopSrc.CT_10_EQ_CMP_10)
+        self.assertEqual(cfg.clock_source, card.CtClockSrc.CLK_12_5_MHz)
+        self.assertEqual(cfg.gate_source, card.CtGateSrc.CT_6_GATE_ENVELOP)
+        self.assertEqual(cfg.hard_start_source, card.CtHardStartSrc.CH_9_RISING_EDGE)
+        self.assertEqual(cfg.hard_stop_source, card.CtHardStopSrc.CT_10_EQ_CMP_10)
         self.assertTrue(cfg.reset_from_hard_soft_stop)
         self.assertFalse(cfg.stop_from_hard_stop)
 
     def test_ctconfig_set(self):
-        cfg = ct2.CtConfig()
+        cfg = card.CtConfig()
         self.assertEqual(cfg.value, 0)
         
-        cfg['clock_source'] = ct2.CtClockSrc.CLK_10_KHz
+        cfg['clock_source'] = card.CtClockSrc.CLK_10_KHz
         reg = 0x1
-        self.assertEqual(cfg.clock_source, ct2.CtClockSrc.CLK_10_KHz)
-        self.assertEqual(cfg['clock_source'], ct2.CtClockSrc.CLK_10_KHz)
-        self.assertEqual(cfg.value, ct2.CtClockSrc.CLK_10_KHz.value)
+        self.assertEqual(cfg.clock_source, card.CtClockSrc.CLK_10_KHz)
+        self.assertEqual(cfg['clock_source'], card.CtClockSrc.CLK_10_KHz)
+        self.assertEqual(cfg.value, card.CtClockSrc.CLK_10_KHz.value)
         self.assertEqual(cfg.value, reg)
 
-        cfg['hard_start_source'] = ct2.CtHardStartSrc.CT_6_START_STOP
+        cfg['hard_start_source'] = card.CtHardStartSrc.CT_6_START_STOP
         reg = 0x1 | (0x42 << 13)
-        self.assertEqual(cfg.clock_source, ct2.CtClockSrc.CLK_10_KHz)
-        self.assertEqual(cfg['clock_source'], ct2.CtClockSrc.CLK_10_KHz)
+        self.assertEqual(cfg.clock_source, card.CtClockSrc.CLK_10_KHz)
+        self.assertEqual(cfg['clock_source'], card.CtClockSrc.CLK_10_KHz)
 
-        self.assertEqual(cfg.hard_start_source, ct2.CtHardStartSrc.CT_6_START_STOP)
-        self.assertEqual(cfg['hard_start_source'], ct2.CtHardStartSrc.CT_6_START_STOP)
+        self.assertEqual(cfg.hard_start_source, card.CtHardStartSrc.CT_6_START_STOP)
+        self.assertEqual(cfg['hard_start_source'], card.CtHardStartSrc.CT_6_START_STOP)
         self.assertEqual(cfg.value, reg)
 
 
 class TestP201(unittest.TestCase):
 
     def setUp(self):
-        self.p201 = ct2.P201Card()
+        self.p201 = card.P201Card()
         self.p201.set_interrupts()
         self.p201.reset()
         self.p201.software_reset()
@@ -78,25 +78,25 @@ class TestP201(unittest.TestCase):
         self.p201.software_reset()
 
     def test_clock(self):
-        self.p201.set_clock(ct2.Clock.CLK_DISABLE)
+        self.p201.set_clock(card.Clock.CLK_DISABLE)
         clock = self.p201.get_clock()
-        self.assertEqual(clock, ct2.Clock.CLK_DISABLE)
+        self.assertEqual(clock, card.Clock.CLK_DISABLE)
 
-        self.p201.set_clock(ct2.Clock.CLK_66_66_MHz)
+        self.p201.set_clock(card.Clock.CLK_66_66_MHz)
         clock = self.p201.get_clock()
-        self.assertEqual(clock, ct2.Clock.CLK_66_66_MHz)
+        self.assertEqual(clock, card.Clock.CLK_66_66_MHz)
 
     def test_output_level(self):
-        for c in ({9: ct2.Level.DISABLE,
-                   10: ct2.Level.DISABLE },
-                  {9: ct2.Level.TTL,
-                   10: ct2.Level.NIM },
-                  {9: ct2.Level.NIM,
-                   10: ct2.Level.TTL },
-                  {9: ct2.Level.TTL,
-                   10: ct2.Level.TTL },
-                  {9: ct2.Level.NIM,
-                   10: ct2.Level.NIM },):
+        for c in ({9: card.Level.DISABLE,
+                   10: card.Level.DISABLE },
+                  {9: card.Level.TTL,
+                   10: card.Level.NIM },
+                  {9: card.Level.NIM,
+                   10: card.Level.TTL },
+                  {9: card.Level.TTL,
+                   10: card.Level.TTL },
+                  {9: card.Level.NIM,
+                   10: card.Level.NIM },):
             self.p201.set_output_channels_level(c)
             r = self.p201.get_output_channels_level()
             self.assertEqual(c, r)
@@ -108,21 +108,21 @@ class TestP201(unittest.TestCase):
             self.assertEqual(c, r)
 
     def test_output_channels_source(self):
-        srcs = ({9: ct2.OutputSrc.CLK_1_MHz,
-                 10: ct2.OutputSrc.DISABLE },
-                {9: ct2.OutputSrc.DISABLE,
-                 10: ct2.OutputSrc.CH_1_RISING_FALLING },
-                {9: ct2.OutputSrc.CT_6_START_STOP,
-                 10: ct2.OutputSrc.CT_8_SWITCH })
+        srcs = ({9: card.OutputSrc.CLK_1_MHz,
+                 10: card.OutputSrc.DISABLE },
+                {9: card.OutputSrc.DISABLE,
+                 10: card.OutputSrc.CH_1_RISING_FALLING },
+                {9: card.OutputSrc.CT_6_START_STOP,
+                 10: card.OutputSrc.CT_8_SWITCH })
         for src in srcs:
             self.p201.set_output_channels_source(src)
             result = self.p201.get_output_channels_source()
             self.assertEqual(src, result)
 
     def test_output_channels_filter(self):
-        filters = ({ 9: ct2.FilterOutput(clock=ct2.FilterClock.CLK_12_5_MHz,
+        filters = ({ 9: card.FilterOutput(clock=card.FilterClock.CLK_12_5_MHz,
                                          enable=True, polarity=0),
-                     10: ct2.FilterOutput(clock=ct2.FilterClock.CLK_10_KHz,
+                     10: card.FilterOutput(clock=card.FilterClock.CLK_10_KHz,
                                           enable=False, polarity=1),},)
         for filter in filters:
             self.p201.set_output_channels_filter(filter)
@@ -130,13 +130,13 @@ class TestP201(unittest.TestCase):
             self.assertEqual(filter, result)
 
     def test_channels_interrupts(self):
-        triggers = { 1: ct2.TriggerInterrupt(rising=True), 
-                     5: ct2.TriggerInterrupt(falling=True), 
-                     10: ct2.TriggerInterrupt(rising=True, falling=True), }
+        triggers = { 1: card.TriggerInterrupt(rising=True), 
+                     5: card.TriggerInterrupt(falling=True), 
+                     10: card.TriggerInterrupt(rising=True, falling=True), }
         
         self.p201.set_channels_interrupts(triggers)
         for ch in (2,3,4,6,7,8,9):
-            triggers[ch] = ct2.TriggerInterrupt()
+            triggers[ch] = card.TriggerInterrupt()
         result = self.p201.get_channels_interrupts()
         
         

@@ -112,12 +112,6 @@ A few scripts are provided:
   * msgpack_numpy
 
 
-TODO
-----
-
-- Improve `handel-server` using argparse.
-
-
 Contact
 -------
 

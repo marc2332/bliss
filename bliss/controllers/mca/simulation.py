@@ -13,6 +13,7 @@ class SimulatedMCA(BaseMCA):
     _init_time = 1.
     _prepare_time = 0.5
     _cleanup_time = 0.5
+    _gate_end = 0.5
 
     # Initialization
 
@@ -72,7 +73,7 @@ class SimulatedMCA(BaseMCA):
     def block_size(self):
         return self._block_size or 100
 
-    def set_block_size(self, value=None):
+    def set_block_size(elf, value=None):
         self._block_size = value
 
     # Acquisition control
@@ -94,7 +95,10 @@ class SimulatedMCA(BaseMCA):
 
     @property
     def delta(self):
-        return time.time() - self.t0 if self.is_acquiring() else self._delta
+        d = time.time() - self._t0 if self.is_acquiring() else self._delta
+        if self._trigger_mode == TriggerMode.GATE:
+            return min(d, self._gate_end)
+        return d
 
     # Get data
 

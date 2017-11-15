@@ -1,5 +1,5 @@
 name: mercury1
-module: xia
+module: mca
 class: Mercury
 plugin: bliss
 url: tcp://welisa.esrf.fr:8000

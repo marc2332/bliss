@@ -13,7 +13,7 @@ from numbers import Number
 import zerorpc
 import msgpack_numpy
 
-from .mca import BaseMCA, Brand, DetectorType, PresetMode, Stats, TriggerMode
+from .base import BaseMCA, Brand, DetectorType, PresetMode, Stats, TriggerMode
 
 # Patch msgpack
 msgpack_numpy.patch()
@@ -206,11 +206,11 @@ class BaseXIA(BaseMCA):
     def poll_data(self):
         current, spectrums, statistics = self._proxy.synchronized_poll_data()
         # The first acquisition is discarded
-        spectrums = dict((key - 1, self._convert_spectrums(value)) 
-                         for key, value in spectrums.items() 
+        spectrums = dict((key - 1, self._convert_spectrums(value))
+                         for key, value in spectrums.items()
                          if key > 0)
-        statistics = dict((key - 1, self._convert_statistics(value)) 
-                           for key, value in statistics.items() 
+        statistics = dict((key - 1, self._convert_statistics(value))
+                           for key, value in statistics.items()
                            if key > 0)
         return current - 1, spectrums, statistics
 

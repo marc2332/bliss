@@ -34,13 +34,30 @@ try:
 except ImportError:
     posix_ipc = None
 
-def ip4_broadcast_addresses():
-    ip_list = []
-    for interface in netifaces.interfaces():
-        for link in netifaces.ifaddresses(interface).get(netifaces.AF_INET, []):
-            ip_list.append(link.get("broadcast"))
-    ip_list.insert(0, 'localhost')
-    return filter(None, ip_list)
+def ip4_broadcast_addresses(only_main_network=True, only_local=False):
+    if only_local:
+        return ['localhost']
+    else:
+        ifaces = []
+        if only_main_network:
+            # get default route interface, if any
+            gws = netifaces.gateways()
+            try:
+                interface = gws['default'][netifaces.AF_INET][1]
+                ifaces.append(interface)
+            except Exception:
+                pass
+        else:
+            ifaces.extend(netifaces.interfaces())
+
+        ip_list = []
+        for interface in ifaces:
+            for link in netifaces.ifaddresses(interface).get(netifaces.AF_INET, []):
+                ip_list.append(link.get("broadcast"))
+        # try localhost first
+        ip_list.insert(0, 'localhost')
+
+        return filter(None, ip_list)
 
 def check_connect(func):
     def f(self,*args,**keys):
@@ -152,7 +169,7 @@ class Connection(object):
                 udp.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
                 udp.bind(("",protocol.DEFAULT_UDP_CLIENT_PORT))
                 # go through all interfaces, and issue broadcast on each
-                for addr in ip4_broadcast_addresses():
+                for addr in ip4_broadcast_addresses(host is None):
                     udp.sendto('Hello',(addr,protocol.DEFAULT_UDP_SERVER_PORT))
                 timeout = 3.
                 server_found = []
@@ -162,7 +179,7 @@ class Connection(object):
                         if port is None:
                             if server_found:
                                 msg = "Could not find the conductor on host %s\n" % self._host
-                                msg += "But other conductor server reply:\n"
+                                msg += "But other conductor servers replied:\n"
                                 msg += '\n'.join(('%s on port %s' % (host,port) for host,port in server_found))
                                 raise ConnectionException(msg)
                             else:

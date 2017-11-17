@@ -34,10 +34,10 @@ class BaseXIA(BaseMCA):
 
     The configuration methods are expected to be called in the following order:
     - load_configuration
-    - set_acquisition_number
-    - set_block_size (ignored for single acquisition)
     - set_trigger_mode
-    - set_preset_mode (can be disabled using None)
+    - set_preset_mode (for SOFTWARE trigger mode)
+    - set_hardware_points (for SYNC and GATE trigger modes)
+    - set_block_size (for SYNC and GATE trigger modes)
     """
 
     # Life cycle
@@ -140,38 +140,46 @@ class BaseXIA(BaseMCA):
         """
         raise NotImplementedError
 
-    # Acquisition number
+    # Buffer settings
 
     @property
-    def acquisition_number(self):
+    def hardware_points(self):
         mapping = int(self._proxy.get_acquisition_value('mapping_mode'))
         if mapping == 0:
             return 1
         num = self._proxy.get_acquisition_value('num_map_pixels')
-        # The first acquistion will be discarded
-        return int(num) - 1
+        return int(num)
 
-    def set_acquisition_number(self, value):
+    def set_hardware_points(self, value):
         # Invalid argument
         if value < 1:
             raise ValueError('Acquisition number should be strictly positive')
-        # Single mode
-        if value == 1:
-            self._proxy.set_acquisition_value('mapping_mode', 0)
-        # Multiple mode
-        else:
-            self._proxy.set_acquisition_value('mapping_mode', 1)
-            # The first acquisition will be discarded
-            self._proxy.set_acquisition_value('num_map_pixels', value + 1)
+        mapping = int(self._proxy.get_acquisition_value('mapping_mode'))
+        # MCA mode
+        if mapping == 0 and value not in (None, 1):
+            raise ValueError('None and 1 are the only valid values in MCA mode')
+        elif mapping == 0:
+            return
+        # Configure
+        self._proxy.set_acquisition_value('num_map_pixels', value)
         # Apply
         self._proxy.apply_acquisition_values()
 
     @property
     def block_size(self):
+        mapping = int(self._proxy.get_acquisition_value('mapping_mode'))
+        if mapping == 0:
+            return 1
         size = self._proxy.get_acquisition_value('num_map_pixels_per_buffer')
         return int(size)
 
     def set_block_size(self, value=None):
+        mapping = int(self._proxy.get_acquisition_value('mapping_mode'))
+        # MCA mode
+        if mapping == 0 and value not in (None, 1):
+            raise ValueError('None and 1 are the only valid values in MCA mode')
+        elif mapping == 0:
+            return
         # Set the default value
         if value is None:
             self._proxy.set_maximum_pixels_per_buffer()
@@ -205,14 +213,11 @@ class BaseXIA(BaseMCA):
 
     def poll_data(self):
         current, spectrums, statistics = self._proxy.synchronized_poll_data()
-        # The first acquisition is discarded
-        spectrums = dict((key - 1, self._convert_spectrums(value))
-                         for key, value in spectrums.items()
-                         if key > 0)
-        statistics = dict((key - 1, self._convert_statistics(value))
-                           for key, value in statistics.items()
-                           if key > 0)
-        return current - 1, spectrums, statistics
+        spectrums = dict((key, self._convert_spectrums(value))
+                         for key, value in spectrums.items())
+        statistics = dict((key, self._convert_statistics(value))
+                          for key, value in statistics.items())
+        return current, spectrums, statistics
 
     def _convert_spectrums(self, spectrums):
         return spectrums
@@ -276,45 +281,37 @@ class BaseXIA(BaseMCA):
     @property
     def supported_trigger_modes(self):
         return [TriggerMode.SOFTWARE,
-                TriggerMode.EXTERNAL,
+                TriggerMode.SYNC,
                 TriggerMode.GATE]
 
     def set_trigger_mode(self, mode, channel=None):
-        """Set the trigger mode.
-
-        Warning: this method assumes the correct number of acquisition
-        is already set correctly. If the number of acquistion changes,
-        this methods needs to be reinvoked.
-        """
+        """Set the trigger mode."""
         # Cast arguments
         if mode is None:
             mode = TriggerMode.SOFTWARE
         # Check arguments
         if mode not in self.supported_trigger_modes:
             raise ValueError('{!s} trigger mode not supported'.format(mode))
-        if mode == TriggerMode.EXTERNAL and self.acquisition_number == 1:
-            raise ValueError(
-                'External trigger mode not supported for single acquisition')
         # XMAP Trigger
         if self.detector_type == DetectorType.XMAP:
             self.set_xmap_trigger_mode(mode, channel=channel)
         elif channel is not None:
             raise ValueError(
                 'Channel argument can only provided for XMAP detector')
-        # Configure gate ignore
+        # Configure mapping mode and gate ignore
         gate_ignore = 0 if mode == TriggerMode.GATE else 1
+        mapping_mode = 0 if mode == TriggerMode.SOFTWARE else 1
         self._proxy.set_acquisition_value('gate_ignore', gate_ignore)
+        self._proxy.set_acquisition_value('mapping_mode', mapping_mode)
         # Configure advance mode
-        if self.acquisition_number > 1:
-            soft, gate, sync = 0, 1, 2
-            self._proxy.set_acquisition_value(
-                'pixel_advance_mode',
-                soft if mode == TriggerMode.SOFTWARE else gate)
+        if mode != TriggerMode.SOFTWARE:
+            gate = 1
+            self._proxy.set_acquisition_value('pixel_advance_mode', gate)
         self._proxy.apply_acquisition_values()
 
     def set_xmap_trigger_mode(self, mode, channel=None):
         # Add extra logic for external and gate trigger mode
-        if mode in (TriggerMode.EXTERNAL, TriggerMode.GATE):
+        if mode in (TriggerMode.SYNC, TriggerMode.GATE):
             available = self._proxy.get_trigger_channels()
             # Check available trigger channels
             if not available:

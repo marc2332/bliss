@@ -11,8 +11,8 @@ from .base import BaseMCA, PresetMode, TriggerMode, Stats
 class SimulatedMCA(BaseMCA):
 
     _init_time = 1.
-    _prepare_time = 0.5
-    _cleanup_time = 0.5
+    _prepare_time = 0.1
+    _cleanup_time = 0.1
     _gate_end = 0.5
     _mapping_modulo = 2
 
@@ -96,7 +96,7 @@ class SimulatedMCA(BaseMCA):
         self._running = False
 
     def is_acquiring(self):
-        return self._running and self.delta > self._realtime
+        return self._running and self.delta < self._realtime
 
     @property
     def delta(self):

@@ -29,7 +29,7 @@ DetectorType = enum.Enum(
 
 TriggerMode = enum.Enum(
     'TriggerMode',
-    'SOFTWARE EXTERNAL GATE')
+    'SOFTWARE SYNC GATE')
 
 PresetMode = enum.Enum(
     'PresetMode',
@@ -107,13 +107,13 @@ class BaseMCA(object):
     def set_spectrum_range(self, first, last):
         raise NotImplementedError
 
-    # Acquisition number (number of points in acquisition)
+    # Buffer settings
 
     @property
-    def acquisition_number(self):
+    def hardware_points(self):
         raise NotImplementedError
 
-    def set_acquisition_number(self, value):
+    def set_hardware_points(self, value):
         raise NotImplementedError
 
     @property
@@ -122,10 +122,6 @@ class BaseMCA(object):
 
     def set_block_size(self, value=None):
         raise NotImplementedError
-
-    @property
-    def multiple_acquisition(self):
-        return self.acquisition_number > 1
 
     # Acquisition
 
@@ -149,95 +145,86 @@ class BaseMCA(object):
 
     # Extra logic
 
-    def run_single_acquisition(self, acquisition_time=1., polling_time=0.2):
-        # Acquisition number
-        self.set_acquisition_number(1)
-        # Trigger mode
-        self.set_trigger_mode(None)
-        # Preset mode
-        realtime = PresetMode.REALTIME in self.supported_preset_modes
-        if realtime:
-            self.set_preset_mode(PresetMode.REALTIME, acquisition_time)
-        else:
-            self.set_preset_mode(None)
-        # Start and wait
-        try:
-            self.start_acquisition()
-            if realtime:
+    def software_controlled_run(self, acquisition_number, polling_time):
+        # Loop over acquisitions
+        for _ in range(acquisition_number):
+            # Start and wait
+            try:
+                self.start_acquisition()
                 while self.is_acquiring():
                     gevent.sleep(polling_time)
-            else:
-                gevent.sleep(acquisition_time)
-        # Stop in any case
-        finally:
-            self.stop_acquisition()
-        # Return data
-        return self.get_acquisition_data(), self.get_acquisition_statistics()
+            # Stop in any case
+            finally:
+                self.stop_acquisition()
+            # Send the data
+            yield (self.get_acquisition_data(),
+                   self.get_acquisition_statistics())
 
-    def run_external_acquisition(self, acquistion_time=None, polling_time=0.2):
-        # Acquisition number
-        self.set_acquisition_number(1)
-        # Trigger mode
-        mode = TriggerMode.EXTERNAL if acquistion_time else TriggerMode.GATE
-        self.set_trigger_mode(mode)
-        # Preset mode
-        if acquistion_time:
-            self.set_preset_mode(PresetMode.REALTIME, acquistion_time)
-        else:
-            self.set_preset_mode(None)
-        # Start and wait
+    def hardware_controlled_run(self, acquisition_number, polling_time):
+        # Start acquisition
         try:
             self.start_acquisition()
-
-            # This is a hackish trick:
-            # We stop acquisition when the realtime is getting stable
-            # (i.e. the gate is over)
-
-            def get_realtime():
-                stats = self.get_acquisition_statistics()
-                return next(iter(stats.values())).realtime
-
-            previous, current = 0., get_realtime()
-            while current == 0. or previous != current:
-                gevent.sleep(polling_time)
-                previous, current = current, get_realtime()
-        # Stop in any case
-        finally:
-            self.stop_acquisition()
-        # Return data
-        return self.get_acquisition_data(), self.get_acquisition_statistics()
-
-    def run_multiple_acquisitions(self, acquisition_number,
-                                  block_size=None, gate=False,
-                                  polling_time=0.2):
-        # Check acquisition number
-        if acquisition_number < 2:
-            raise ValueError(
-                'Acquisition number must be stricty greater than 1')
-        # Acquisition number
-        self.set_acquisition_number(acquisition_number)
-        self.set_block_size(block_size)
-        # Trigger mode
-        mode = TriggerMode.GATE if gate else TriggerMode.EXTERNAL
-        self.set_trigger_mode(mode)
-        # Preset mode
-        self.set_preset_mode(None)
-        # Start and wait
-        try:
-            self.start_acquisition()
-            current, data, statistics = self.poll_data()
-            while not (len(data) == current == acquisition_number):
-                gevent.sleep(polling_time)
-                current, extra_data, extra_statistics = self.poll_data()
-                if set(data) & set(extra_data):
-                    warnings.warn(
+            sent = current = 0
+            # Loop over polled commands
+            while not (sent == current == acquisition_number):
+                # Poll data
+                current, data, statistics = self.poll_data()
+                points = range(sent, sent + len(data))
+                sent += len(data)
+                # Check data integrity
+                if sorted(data) != sorted(statistics) != points:
+                    raise RuntimeError(
                         'The polled data overlapped during the acquisition')
-                data.update(extra_data)
-                statistics.update(extra_statistics)
+                # Send the data
+                for n in points:
+                    yield data[n], statistics[n]
+                # Sleep
+                if not points:
+                    gevent.sleep(polling_time)
         # Stop in any case
         finally:
             self.stop_acquisition()
-        # Convert and return data
-        data = [data[n] for n in range(acquisition_number)]
-        statistics = [statistics[n] for n in range(acquisition_number)]
-        return data, statistics
+
+    def run_software_acquisition(self, acquisition_number,
+                                 acquisition_time=1., polling_time=0.1):
+        # Trigger mode
+        self.set_trigger_mode(TriggerMode.SOFTWARE)
+        # Preset mode
+        self.set_preset_mode(PresetMode.REALTIME, acquisition_time)
+        # Run acquisition
+        data, statistics = zip(*self.software_controlled_run(
+            acquisition_number, polling_time))
+        # Return result
+        return list(data), list(statistics)
+
+    def run_gate_acquisition(self, acquisition_number,
+                             block_size=None, polling_time=0.1):
+        # Trigger mode
+        self.set_trigger_mode(TriggerMode.GATE)
+        # Acquisition number
+        self.set_hardware_points(acquisition_number)
+        # Block size
+        self.set_block_size(block_size)
+        # Run acquisition
+        data, statistics = zip(*self.hardware_controlled_run(
+            acquisition_number, polling_time))
+        # Return result
+        return list(data), list(statistics)
+
+    def run_synchronized_acquisition(self, acquisition_number,
+                                     block_size=None, polling_time=0.1):
+        # Trigger mode
+        self.set_trigger_mode(TriggerMode.SYNC)
+        # Acquisition number
+        self.set_hardware_points(acquisition_number+1)
+        # Block size
+        self.set_block_size(block_size)
+        # Create generator
+        data_generator = self.hardware_controlled_run(
+            acquisition_number+1, polling_time)
+        # Discard first point
+        next(data_generator)
+        # Get all the points
+        data, statistics = zip(*data_generator)
+        # Return result
+        return list(data), list(statistics)

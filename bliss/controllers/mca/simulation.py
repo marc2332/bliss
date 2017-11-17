@@ -50,12 +50,13 @@ class SimulatedMCA(BaseMCA):
     def supported_preset_modes(self):
         return PresetMode.NONE,
 
-    def set_preset_mode(self, mode):
-        assert mode in (None, PresetMode.NONE)
+    def set_preset_mode(self, mode, value=None):
+        assert mode is PresetMode.REALTIME
+        self._realtime = value
 
     @property
     def supported_trigger_modes(self):
-        return TriggerMode.SOFTWARE, TriggerMode.GATE, TriggerMode.EXTERNAL
+        return TriggerMode.SOFTWARE, TriggerMode.GATE, TriggerMode.SYNC
 
     def set_trigger_mode(self, mode):
         if mode is None:
@@ -64,11 +65,11 @@ class SimulatedMCA(BaseMCA):
         self._trigger_mode = mode
 
     @property
-    def acquisition_number(self):
-        return self._acquistion_number
+    def hardware_points(self):
+        return self._hardware_points
 
-    def set_acquisition_number(self, value):
-        self._acquistion_number = value
+    def set_hardware_points(self, value):
+        self._hardware_points = value
 
     @property
     def block_size(self):
@@ -84,6 +85,8 @@ class SimulatedMCA(BaseMCA):
             gevent.sleep(self._prepare_time)
             self._t0 = time.time()
             self._count = -1
+            self._data_buffer = {}
+            self._stats_buffer = {}
         self._running = True
 
     def stop_acquisition(self):
@@ -93,13 +96,15 @@ class SimulatedMCA(BaseMCA):
         self._running = False
 
     def is_acquiring(self):
-        return self._running
+        return self._running and self.delta > self._realtime
 
     @property
     def delta(self):
-        d = time.time() - self._t0 if self.is_acquiring() else self._delta
+        d = time.time() - self._t0 if self._running else self._delta
         if self._trigger_mode == TriggerMode.GATE:
             return min(d, self._gate_end)
+        if self._trigger_mode == TriggerMode.SOFTWARE:
+            return min(d, self._realtime)
         return d
 
     # Get data
@@ -113,30 +118,33 @@ class SimulatedMCA(BaseMCA):
         return b
 
     def poll_data(self):
+        # Update
         self._count += 1
         current = self._count // self._mapping_modulo
-        # Nothing happened
-        if self._count % self._mapping_modulo != 0:
-            return current, {}, {}
-        # New buffer
-        if current and current % self.block_size == 0:
-            a, b = self._generate_pixels(current-self.block_size, current)
-            return current, a, b
-        # Finished
-        if current == self.acquisition_number:
-            start = (current // self.block_size) * self.block_size
-            a, b = self._generate_pixels(start, current)
-            return current, a, b
+        # Realtime
+        if self._trigger_mode == TriggerMode.SYNC:
+            delta = 0.2 * self._mapping_modulo
+        else:
+            delta = self._gate_end
+        # Flags
+        new_pixel = self._count % self._mapping_modulo != 0
+        full_buffer = current and current % self.block_size == 0
+        finished = current == self.hardware_points
         # A new pixel has been generated
+        if current > 0 and new_pixel:
+            a, b = self._generate_pixel(delta)
+            self._data_buffer[current-1] = a
+            self._stats_buffer[current-1] = b
+        # Available data
+        if new_pixel and (full_buffer or finished):
+            a, b = self._data_buffer, self._stats_buffer
+            self._data_buffer = {}
+            self._stats_buffer = {}
+            return current, a, b
+        # Nothing to return yet
         return current, {}, {}
 
     # Data generation
-
-    def _generate_pixels(self, start, stop):
-        da, db = {}, {}
-        for i in range(start, stop):
-            da[i], db[i] = self._generate_pixel(0.2 * self._mapping_modulo)
-        return da, db
 
     def _generate_pixel(self, delta):
         realtime = delta

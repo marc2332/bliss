@@ -2445,7 +2445,7 @@ class BaseCard:
         register = self.__read_source_irq_reg("B")
         for counter in self.COUNTERS:
             counters[counter] = (register & 1 << (counter-1)) != 0
-        dma, fifo, error = (register & (1 << 12)) != 0
+        dma = (register & (1 << 12)) != 0
         fifo_half_full = (register & (1 << 13)) != 0
         error = (register & (1 << 14)) != 0
         return counters, dma, fifo_half_full, error
@@ -2554,7 +2554,7 @@ class BaseCard:
         :return: channels, counters, DMA, FIFO and error interrupt information
         :rtype: tuple(dict<int: class:`TriggerInterrupt`>, dict<int: bool>, bool, bool, bool)
         """
-        channels = self.get_channels_interrupts(self)
+        channels = self.get_channels_interrupts()
         counters, dma, fifo_half_full, error = self.__get_source_it_b()
         return channels, counters, dma, fifo_half_full, error
 

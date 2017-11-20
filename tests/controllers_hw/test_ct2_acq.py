@@ -5,6 +5,14 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+"""
+Required hardware: P201 card installed in lid00c
+Required software: Running bliss-ct2-server on tcp::/lid00c:8909
+
+To change PC replace in `../test-configuration/ct2.yml` the address
+of the P201 card
+"""
+
 import time
 import contextlib
 
@@ -20,10 +28,11 @@ from bliss.controllers.ct2.device import AcqMode, AcqStatus, StatusSignal
 
 
 TEN_KHz = 10000
+ERROR_MARGIN = 10E-3   # 10ms
 
 
 class EventReceiver(object):
-
+    """Context manager which accumulates data"""
     def __init__(self, device):
         self.device = device
         self.finish = Event()
@@ -46,13 +55,20 @@ class EventReceiver(object):
         dispatcher.disconnect(self, sender=self.device)
 
 
-@pytest.fixture(params=[1, 5], ids=['1 point', '5 points'])
+@pytest.fixture(params=[1, 10, 100], ids=['1 point', '10 points', '100 points'])
 def device(request, beacon):
-    #beacon.reload()
+    """
+    Requirements to run this fixture:
+
+    hardware: P201 card installed in lid00c
+    software: Running bliss-ct2-server on tcp::/lid00c:8909
+    """
+    beacon.reload()
     device = beacon.get('p201')
-    device.timer_freq = 1E8
+    device.timer_freq = 12.5E6
     device.acq_nb_points = request.param
-    return device
+    yield device
+    device.close()
 
 
 def data_tests(device, expected_data):
@@ -79,10 +95,11 @@ def data_tests(device, expected_data):
 
 
 def soft_trigger_points(device, n, period):
-    while n > 0:
-        sleep(period)
+    i, start = 0, time.time()
+    while i < n:
+        sleep((start + (i+1)*period) - time.time())
         device.trigger_point()
-        n -= 1
+        i += 1
 
 
 def test_internal_trigger_single_wrong_config(device):
@@ -105,11 +122,13 @@ def test_internal_trigger_single(device):
     Required hardware: P201 card installed in lid00c
     Required software: Running bliss-ct2-server on tcp::/lid00c:8909
     """
+    expo_time = 0.02
+    point_period = expo_time + 0.01
     freq = device.timer_freq
     nb_points = device.acq_nb_points
     device.acq_mode = AcqMode.IntTrigSingle
-    device.acq_expo_time = expo_time = 0.09
-    device.acq_point_period = point_period = 0.11
+    device.acq_expo_time = expo_time
+    device.acq_point_period = point_period
     device.acq_channels = 3,
 
     with EventReceiver(device) as receiver:
@@ -117,16 +136,43 @@ def test_internal_trigger_single(device):
         device.start_acq()
         receiver.finish.wait()
 
-    # allow 10ms for communication
     elapsed = receiver.end - receiver.start
     expected_elapsed = nb_points * point_period
-    assert elapsed == pytest.approx(expected_elapsed, abs=1e-2)
+    assert elapsed == pytest.approx(expected_elapsed, abs=ERROR_MARGIN)
 
     timer_ticks = int(freq * expo_time)
     ch_3_value = int(TEN_KHz * expo_time)
     expected_data = numpy.array([(ch_3_value, timer_ticks, i)
                                  for i in range(nb_points)])
     data_tests(device, expected_data)
+
+
+def test_internal_trigger_single_stop_acq(device):
+    """
+    Required hardware: P201 card installed in lid00c
+    Required software: Running bliss-ct2-server on tcp::/lid00c:8909
+    """
+    expo_time = 0.02
+    point_period = expo_time + 0.01
+    freq = device.timer_freq
+    nb_points = device.acq_nb_points
+    device.acq_mode = AcqMode.IntTrigSingle
+    device.acq_expo_time = expo_time
+    device.acq_point_period = point_period
+    device.acq_channels = 3,
+
+    expected_elapsed = nb_points * point_period
+
+    with EventReceiver(device) as receiver:
+        device.prepare_acq()
+        device.start_acq()
+        # stop around 10%
+        sleep(0.1 * expected_elapsed)
+        device.stop_acq()
+        start_stop = time.time()
+        receiver.finish.wait()
+        end_stop = time.time()
+        assert (end_stop - start_stop) < 10E-3  # allow 10ms for stop
 
 
 def test_internal_trigger_multi_wrong_config(device):
@@ -149,15 +195,16 @@ def test_internal_trigger_multi(device):
     Required hardware: Only P201 card is required
     Required software: Running bliss-ct2-server on tcp::/lid00c:8909
     """
-    soft_point_period = 0.2
+    expo_time = 0.02
+    soft_point_period = expo_time + 0.01
     freq = device.timer_freq
     nb_points = device.acq_nb_points
     device.acq_mode = AcqMode.IntTrigMulti
-    device.acq_expo_time = expo_time = 0.09
+    device.acq_expo_time = expo_time
     device.acq_point_period = None
     device.acq_channels = 3,
     nb_triggers = nb_points - 1
-    
+
     with EventReceiver(device) as receiver:
         device.prepare_acq()
         device.start_acq()
@@ -168,10 +215,9 @@ def test_internal_trigger_multi(device):
     assert trigger_task.ready()
     assert trigger_task.exception == None
 
-    # allow 10ms for communication
     elapsed = receiver.end - receiver.start
     expected_elapsed = (nb_points - 1) * soft_point_period + 1 * expo_time
-    assert elapsed == pytest.approx(expected_elapsed, abs=1e-2)
+    assert elapsed == pytest.approx(expected_elapsed, abs=ERROR_MARGIN)
 
     timer_ticks = int(freq * expo_time)
     ch_3_value = int(TEN_KHz * expo_time)
@@ -193,24 +239,18 @@ def test_software_trigger_readout_wrong_config(device):
     with pytest.raises(zerorpc.RemoteError):
         device.prepare_acq()
 
-#    device.acq_expo_time = 1.1
-#    device.acq_point_period = None
-#    
-#    # Should not be able to prepare soft trigger readout with expo time
-#    with pytest.raises(zerorpc.RemoteError):
-#        device.prepare_acq()
-
 
 def test_software_trigger_readout(device):
+    expo_time = None
     soft_point_period = 0.11
     freq = device.timer_freq
     nb_points = device.acq_nb_points
     device.acq_mode = AcqMode.SoftTrigReadout
-    device.acq_expo_time = expo_time = None
+    device.acq_expo_time = expo_time
     device.acq_point_period = None
     device.acq_channels = 3,
     nb_triggers = nb_points
-    
+
     with EventReceiver(device) as receiver:
         device.prepare_acq()
         device.start_acq()
@@ -221,14 +261,12 @@ def test_software_trigger_readout(device):
     assert trigger_task.ready()
     assert trigger_task.exception == None
 
-    # allow 10ms for communication
     elapsed = receiver.end - receiver.start
     expected_elapsed = nb_points * soft_point_period
-    assert elapsed == pytest.approx(expected_elapsed, abs=1e-2)
+    assert elapsed == pytest.approx(expected_elapsed, abs=ERROR_MARGIN)
 
     timer_ticks = int(freq * soft_point_period)
     ch_3_value = int(TEN_KHz * soft_point_period)
     expected_data = numpy.array([(ch_3_value, timer_ticks, i)
                                  for i in range(nb_points)])
     data_tests(device, expected_data)
-    

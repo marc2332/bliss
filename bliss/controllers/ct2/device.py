@@ -773,9 +773,12 @@ class CT2(object):
     def get_data(self, from_index=None):
         if from_index is None:
             from_index = 0
+        data = None
         with self.__buffer_lock:
             if self.__buffer:
-                return numpy.vstack(self.__buffer[from_index:])
+                data = self.__buffer[from_index:]
+        if data:
+            return numpy.vstack(data)
         return numpy.array([[]], dtype=numpy.uint32)
 
     def configure(self, device_config):

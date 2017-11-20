@@ -175,7 +175,7 @@ class CT2(object):
         self.__acq_point_period = None
         self.__acq_nb_points = 1
         self.__acq_channels = ()
-        self.__timer_freq = 1E8
+        self.__timer_freq = 12.5E6
         self.__event_loop = None
         self.__trigger_on_start = True
         self.__soft_started = False

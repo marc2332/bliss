@@ -24,6 +24,7 @@ Minimalistic configuration example:
 
 
 import sys
+import logging
 import functools
 
 import numpy
@@ -164,6 +165,7 @@ class CT2(object):
     DefaultOutputConfig = {'channel': 10, 'counter': 10}
 
     def __init__(self, card):
+        self._log = logging.getLogger(type(self).__name__)
         self._card = card
         self.__buffer = []
         self.__buffer_lock = lock.RLock()
@@ -676,6 +678,9 @@ class CT2(object):
     def timer_freq(self, timer_freq):
         if timer_freq not in self.IntClockSrc:
             raise ValueError('Invalid timer clock: %s' % timer_freq)
+        if timer_freq > 12.5E6:
+            self._log.warning('The P201 has known bugs using frequencies ' \
+                              'above 12.5Mhz. Use it at your own risk')
         self.__timer_freq = timer_freq
 
     @property

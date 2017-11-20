@@ -21,57 +21,9 @@ Minimalistic configuration example:
 (for the complete CT2 YAML_ specification see :ref:`bliss-ct2-yaml`)
 """
 
-import inspect
+from bliss.comm.rpc import Client
 
-import gevent
-import zerorpc
-import msgpack_numpy
-
-from . import device
-from bliss.common.event import dispatcher
-
-msgpack_numpy.patch()
-
-
-def __create_property(name, member):
-    def fget(self):
-        return self.get_property(name)
-    def fset(self, value):
-        self.set_property(name, value)
-    return property(fget, fset, doc=member.__doc__)
-
-
-def __fill_properties(this, klass):
-    # Workaround to create property access on this class since
-    # RPC only supports method calls.
-    # This adds to *this* the same properties as *klass*.
-    # Each property getter/setter will call RPC *get/set_property*
-    for name, member in inspect.getmembers(klass):
-        if name.startswith('_') or not inspect.isdatadescriptor(member):
-            continue
-        setattr(this, name, __create_property(name, member))
-    return this
-
-
-class CT2(zerorpc.Client):
-
-    def connect(self, *args, **kwargs):
-        super(CT2, self).connect(*args, **kwargs)
-        self.__events_task = gevent.spawn(self.__dispatch_events)
-
-    def close(self):
-        self.__events_task.kill()
-        super(CT2, self).close()
-
-    def __dispatch_events(self):
-        events = self.events()
-        for event in events:
-            dispatcher.send(event[0], self, event[1])
-
-
-
-__fill_properties(CT2, device.CT2)
-
+CT2 = Client
 
 def __get_device_config(name):
     from bliss.config.static import get_config
@@ -99,8 +51,35 @@ def create_and_configure_device(config_or_name):
         device_config = config_or_name
         name = device_config['name']
 
-    timeout = device_config.get('timeout', 1)
-    device = CT2(device_config['address'], timeout=timeout)
+    kwargs = {}
+    if 'timeout' in device_config:
+        kwargs['timeout'] = device_config['timeout']
+    device = CT2(device_config['address'], **kwargs)
+    device.name = name
+    device.acq_counters = {}
+    device.acq_counter_group = CounterGroup(device)
+
+    orig_configure = device.configure
+    def configure(device_config):
+        orig_configure(device_config)
+        device.acq_counters = {}
+        for channel in device_config.get('channels', ()):
+            ct_name = channel.get('counter name', None)
+            if ct_name:
+                address = int(channel['address'])
+                ct = Counter(ct_name, address, controller=device,
+                             acquisition_controller=device,
+                             grouped_read_handler=device.acq_counter_group)
+                device.acq_counters[ct_name] = ct
+        timer = device_config.get('timer', None)
+        if timer is not None:
+            ct_name = timer.get('counter name', None)
+            if ct_name:
+                ct = CounterTimer(ct_name, controller=device,
+                                  acquisition_controller=device,
+                                  grouped_read_handler=device.acq_counter_group)
+                device.acq_counters[ct_name] = ct
+    device.configure = configure
     device.configure(device_config)
     return device
 

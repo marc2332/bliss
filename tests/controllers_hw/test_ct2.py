@@ -14,7 +14,7 @@ class TestCtConfig(unittest.TestCase):
 
     def test_ctconfig_empty(self):
         cfg = card.CtConfig()
-        self.assertEqual(cfg.value, 0)
+        self.assertEqual(card.CtConfig.toint(cfg), 0)
 
     def test_ctconfig_init_with_1_param(self):
         clock_1_mhz = 0x03
@@ -35,13 +35,13 @@ class TestCtConfig(unittest.TestCase):
                            reset_from_hard_soft_stop=True, 
                            stop_from_hard_stop=False)
 
-        self.assertEqual(cfg.value, reg)
-        self.assertEqual(cfg.clock_source, card.CtClockSrc.CLK_12_5_MHz)
-        self.assertEqual(cfg.gate_source, card.CtGateSrc.CT_6_GATE_ENVELOP)
-        self.assertEqual(cfg.hard_start_source, card.CtHardStartSrc.CH_9_RISING_EDGE)
-        self.assertEqual(cfg.hard_stop_source, card.CtHardStopSrc.CT_10_EQ_CMP_10)
-        self.assertTrue(cfg.reset_from_hard_soft_stop)
-        self.assertFalse(cfg.stop_from_hard_stop)
+        self.assertEqual(card.CtConfig.toint(cfg), reg)
+        self.assertEqual(cfg['clock_source'], card.CtClockSrc.CLK_12_5_MHz)
+        self.assertEqual(cfg['gate_source'], card.CtGateSrc.CT_6_GATE_ENVELOP)
+        self.assertEqual(cfg['hard_start_source'], card.CtHardStartSrc.CH_9_RISING_EDGE)
+        self.assertEqual(cfg['hard_stop_source'], card.CtHardStopSrc.CT_10_EQ_CMP_10)
+        self.assertTrue(cfg['reset_from_hard_soft_stop'])
+        self.assertFalse(cfg['stop_from_hard_stop'])
 
     def test_ctconfig_set(self):
         cfg = card.CtConfig()
@@ -49,7 +49,6 @@ class TestCtConfig(unittest.TestCase):
         
         cfg['clock_source'] = card.CtClockSrc.CLK_10_KHz
         reg = 0x1
-        self.assertEqual(cfg.clock_source, card.CtClockSrc.CLK_10_KHz)
         self.assertEqual(cfg['clock_source'], card.CtClockSrc.CLK_10_KHz)
         self.assertEqual(cfg.value, card.CtClockSrc.CLK_10_KHz.value)
         self.assertEqual(cfg.value, reg)

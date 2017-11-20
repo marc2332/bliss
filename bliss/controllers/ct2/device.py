@@ -160,8 +160,8 @@ class CT2(object):
     ]
 
     DefaultAcqMode = AcqMode.IntTrigReadout
-    DefaultInputConfig = {'channel': None, 'polarity inverted': False}
-    DefaultOutputConfig = {'channel': 10}
+    DefaultInputConfig = {'channel': None, 'polarity inverted': False, 'counter': None}
+    DefaultOutputConfig = {'channel': 10, 'counter': 10}
 
     def __init__(self, card):
         self._card = card
@@ -686,6 +686,7 @@ class CT2(object):
     def input_config(self, config):
         config = config or {}
         channel = config.setdefault('channel', None)
+        counter = config.setdefault('counter', channel)
         polarity = config.setdefault('polarity inverted', False)
         if channel is not None and channel not in self._card.INPUT_CHANNELS:
             raise ValueError('invalid input config channel %r', channel)
@@ -702,11 +703,12 @@ class CT2(object):
     def input_channel(self, channel):
         trig = self.input_config
         trig['channel'] = channel
+        trig['counter'] = channel
         self.input_config = trig
 
     @property
     def input_counter(self):
-        return self.input_channel
+        return self.input_config['counter']
 
     @property
     def output_config(self):
@@ -716,6 +718,7 @@ class CT2(object):
     def output_config(self, config):
         config = config or {}
         channel = config.setdefault('channel', None)
+        counter = config.setdefault('counter', channel)
         mode = config.setdefault('mode', 'gate')
         if channel is not None and channel not in self._card.OUTPUT_CHANNELS:
             raise ValueError('invalid output config channel %r', channel)
@@ -731,11 +734,12 @@ class CT2(object):
     def output_channel(self, channel):
         trig = self.output_config
         trig['channel'] = channel
+        trig['counter'] = channel
         self.output_config = trig
 
     @property
     def output_counter(self):
-        return self.output_channel
+        return self.output_config['counter']
 
     @property
     def counters(self):

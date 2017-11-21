@@ -107,6 +107,13 @@ class BaseMCA(object):
     def set_spectrum_range(self, first, last):
         raise NotImplementedError
 
+    @property
+    def spectrum_size(self):
+        raise NotImplementedError
+
+    def set_spectrum_size(self, size):
+        raise NotImplementedError
+
     # Buffer settings
 
     @property

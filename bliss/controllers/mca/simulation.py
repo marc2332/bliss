@@ -21,6 +21,7 @@ class SimulatedMCA(BaseMCA):
     def initialize_attributes(self):
         self._running = False
         self._block_size = None
+        self._spectrum_size = 1024
         self._acquistion_number = 1
         self._trigger_mode = TriggerMode.SOFTWARE
 
@@ -45,6 +46,13 @@ class SimulatedMCA(BaseMCA):
         return 4
 
     # Settings
+
+    @property
+    def spectrum_size(self):
+        return self._spectrum_size
+
+    def set_spectrum_size(self, size):
+        self._spectrum_size = size
 
     @property
     def supported_preset_modes(self):
@@ -156,10 +164,11 @@ class SimulatedMCA(BaseMCA):
         deadtime = 1 - ocr / icr
         st = Stats(realtime, livetime, triggers, events, icr, ocr, deadtime)
         stats = dict((i, st) for i in range(self.elements))
-        data = dict((i, numpy.zeros(1024)) for i in range(self.elements))
+        size = self._spectrum_size
+        data = dict((i, numpy.zeros(size)) for i in range(self.elements))
         for _ in range(events):
-            loc = numpy.random.normal(512, 64)
+            loc = numpy.random.normal(size//2, size//16)
             for i in range(self.elements):
-                e = int(numpy.random.normal(loc, 64))
+                e = int(numpy.random.normal(loc, size//16))
                 data[i][e] += 1
         return data, stats

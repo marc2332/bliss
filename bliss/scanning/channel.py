@@ -17,8 +17,9 @@ class AcquisitionChannelList(list):
            values_dict - { channel_name: value, ... }
         """
         for channel in self:
-            channel.emit(values_dict[channel.name])
-      
+            if channel.name in values_dict:
+                channel.emit(values_dict[channel.name])
+
     def update_from_iterable(self, iterable):
         for i, channel in enumerate(self):
             channel.emit(iterable[i])
@@ -71,7 +72,7 @@ class AcquisitionChannel(object):
             try:
                 data.shape = (-1, ) + self.shape
             except ValueError:
-                raise ValueError("Channel value dimension and shape does not correspond to new value shape and dimension")          
+                raise ValueError("Channel value dimension and shape does not correspond to new value shape and dimension")
         else:
             raise ValueError("Channel value does not have the right dimension or shape.")
 
@@ -84,6 +85,6 @@ class AcquisitionChannel(object):
                                                 "description": self.__description,
                                                 "data": data,
                                                 "channel": self })
-      
+
     def data_node(self, parent_node):
         return _get_or_create_node(self.name, "channel", parent_node, shape=self.shape, dtype=self.dtype)

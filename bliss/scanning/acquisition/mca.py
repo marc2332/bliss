@@ -5,9 +5,10 @@
 # Copyright (c) 2017 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+from collections import defaultdict
+
 import numpy
-import gevent.lock
-import gevent._threading
+import gevent.event
 
 from ..chain import AcquisitionDevice, AcquisitionChannel
 from ...controllers.mca import TriggerMode, PresetMode
@@ -16,32 +17,28 @@ from ...controllers.mca import TriggerMode, PresetMode
 class StateMachine(object):
     def __init__(self, state):
         self._state = state
-        self._lock = gevent.lock.RLock()
-        self._condition = gevent._threading.Condition(self._lock)
+        self._state_dict = defaultdict(gevent.event.Event)
+        self._state_dict[state].set()
 
     @property
     def state(self):
         return self._state
 
     def wait(self, state):
-        with self._condition:
-            while self._state != state:
-                self._condition.wait()
+        self._state_dict[state].wait()
 
     def goto(self, state):
-        with self._condition:
-            self._state = state
-            self._condition.notify_all()
+        self._state_dict[self._state].clear()
+        self._state = state
+        self._state_dict[state].set()
 
     def move(self, source, destination):
-        with self._condition:
-            self.wait(source)
-            self.goto(destination)
+        self.wait(source)
+        self.goto(destination)
 
 
 class McaAcquisitionDevice(AcquisitionDevice):
 
-    IDLE = 'IDLE'
     READY = 'READY'
     TRIGGERED = 'TRIGGERED'
     ACQUIRING = 'ACQUIRING'
@@ -50,7 +47,7 @@ class McaAcquisitionDevice(AcquisitionDevice):
     SYNC = TriggerMode.SYNC
     GATE = TriggerMode.GATE
 
-    def __init__(self, mca, trigger_mode=SOFT, npoints=1,
+    def __init__(self, mca, npoints, trigger_mode=SOFT,
                  preset_time=1., block_size=None, polling_time=0.1,
                  spectrum_size=None, prepare_once=True, start_once=True):
         # Checks
@@ -73,7 +70,7 @@ class McaAcquisitionDevice(AcquisitionDevice):
 
         # Internals
         self.acquisition_gen = None
-        self.acquisition_state = StateMachine(self.IDLE)
+        self.acquisition_state = StateMachine(self.READY)
 
         # Default value
         if spectrum_size is None:
@@ -147,16 +144,17 @@ class McaAcquisitionDevice(AcquisitionDevice):
     def stop(self):
         """Stop the acquistion."""
         self.acquisition_gen.close()
-        self.acquisition_state.goto(self.IDLE)
+        self.acquisition_state.goto(self.READY)
 
     def trigger(self):
+        print('trigger')
         """Send a software trigger."""
-        self.acquisition_state.goto(self.TRIGGERED)
+        self.acquisition_state.move(self.READY, self.TRIGGERED)
 
     def wait_ready(self):
         """Block until finished."""
         if self.soft_trigger_mode:
-            self.acquisition_state.move(self.IDLE, self.READY)
+            self.acquisition_state.wait(self.READY)
 
     def reading(self):
         """Spawn by the chain."""
@@ -176,14 +174,16 @@ class McaAcquisitionDevice(AcquisitionDevice):
             self._publish(spectrums, stats)
 
     def _soft_reading(self):
-        self.acquisition_state.move(self.TRIGGERED, self.ACQUIRING)
         # Acquire data
-        for spectrums, stats in self.acquisition_gen:
+        for i in range(self.npoints):
+            # Software sync
+            self.acquisition_state.move(self.TRIGGERED, self.ACQUIRING)
+            # Get data
+            spectrums, stats = next(self.acquisition_gen)
             # Publish
             self._publish(spectrums, stats)
             # Software sync
-            self.acquisition_state.goto(self.IDLE)
-            self.acquisition_state.move(self.TRIGGERED, self.ACQUIRING)
+            self.acquisition_state.goto(self.READY)
 
     def _publish(self, data, stats):
         data_dict = {}

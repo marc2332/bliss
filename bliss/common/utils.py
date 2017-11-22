@@ -255,3 +255,39 @@ class Null(object):
     __slots__ = []
 
 
+class StripIt(object):
+    """
+    Encapsulate object with a short str/repr/format.
+    Useful to have in log messages since it only computes the representation
+    if the log message is recorded. Example::
+
+        >>> import logging
+        >>> logging.basicConfig(level=logging.DEBUG)
+
+        >>> from bliss.common.utils import StripIt
+
+        >>> msg_from_socket = 'Here it is my testament: ' + 50*'bla '
+        >>> logging.debug('Received: %s', StripIt(msg_from_socket))
+        DEBUG:root:Received: Here it is my testament: bla bla bla bla bla [...]
+    """
+    __slots__ = 'obj', 'max_len'
+
+    def __init__(self, obj, max_len=50):
+        self.obj = obj
+        self.max_len = max_len
+
+    def __strip(self, s):
+        max_len = self.max_len
+        if len(s) > max_len:
+            suffix = ' [...]'
+            s = s[:max_len - len(suffix)] + suffix
+        return s
+
+    def __str__(self):
+        return self.__strip(str(self.obj))
+
+    def __repr__(self):
+        return self.__strip(repr(self.obj))
+
+    def __format__(self, format_spec):
+        return self.__strip(format(self.obj, format_spec))

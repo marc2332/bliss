@@ -147,7 +147,6 @@ class McaAcquisitionDevice(AcquisitionDevice):
         self.acquisition_state.goto(self.READY)
 
     def trigger(self):
-        print('trigger')
         """Send a software trigger."""
         self.acquisition_state.move(self.READY, self.TRIGGERED)
 

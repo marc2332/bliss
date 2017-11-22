@@ -15,7 +15,7 @@ from bliss.common.axis import AxisState
 from bliss.common.hook import MotionHook
 from bliss.common.utils import object_method
 from bliss.controllers.motor import Controller
-from bliss.controllers.motors.XPS import XPS
+from bliss.controllers.motors.newport.XPS import XPS
 
 """
 Bliss controller for XPS-Q motor controller.
@@ -164,12 +164,15 @@ class NewportXPS(Controller):
 
     def start_all(self, *motion_list):
         elog.debug("start_all() called")
-        target_positions = [None for _ in len(motion_list)]
-        for motion in motion_list:
-            target_positions[int(motion.axis.channel)-1] = motion.target_pos
-        error, reply = self.__xps.GroupMoveAbsolute(motion.axis.group, target_positions)
-        if error != 0:
-            elog.error("NewportXPS Error: ", reply)
+        if motions > 1:
+            target_positions = [None for _ in len(motion_list)]
+            for motion in motion_list:
+                target_positions[int(motion.axis.channel)-1] = motion.target_pos
+                error, reply = self.__xps.GroupMoveAbsolute(motion.axis.group, target_positions)
+                if error != 0:
+                    elog.error("NewportXPS Error: ", reply)
+        elif motions:
+            self.start_one(motions[0])
 
     def stop(self, motion):
         elog.debug("stop() called")

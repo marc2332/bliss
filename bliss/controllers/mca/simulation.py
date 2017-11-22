@@ -43,7 +43,7 @@ class SimulatedMCA(BaseMCA):
 
     @property
     def elements(self):
-        return 4
+        return (0, 1, 2, 3)
 
     # Settings
 
@@ -163,12 +163,12 @@ class SimulatedMCA(BaseMCA):
         ocr = events / livetime
         deadtime = 1 - ocr / icr
         st = Stats(realtime, livetime, triggers, events, icr, ocr, deadtime)
-        stats = dict((i, st) for i in range(self.elements))
+        stats = dict((i, st) for i in self.elements)
         size = self._spectrum_size
-        data = dict((i, numpy.zeros(size)) for i in range(self.elements))
+        data = dict((i, numpy.zeros(size)) for i in self.elements)
         for _ in range(events):
             loc = numpy.random.normal(size//2, size//16)
-            for i in range(self.elements):
+            for i in self.elements:
                 e = int(numpy.random.normal(loc, size//16))
                 data[i][e] += 1
         return data, stats

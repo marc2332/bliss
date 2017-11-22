@@ -88,7 +88,7 @@ class McaAcquisitionDevice(AcquisitionDevice):
 
         # Channels
         metadata = [
-            ('spectrum', numpy.uint32, (self.spectrum_size,))
+            ('spectrum', numpy.uint32, (self.spectrum_size,)),
             ('realtime', numpy.float,  ()),
             ('livetime', numpy.float,  ()),
             ('triggers', numpy.int,    ()),
@@ -96,7 +96,7 @@ class McaAcquisitionDevice(AcquisitionDevice):
             ('icr',      numpy.float,  ()),
             ('ocr',      numpy.float,  ()),
             ('deadtime', numpy.float,  ())]
-        for n in self.mca.elements:
+        for n in mca.elements:
             prefix = 'det{}_'.format(n)
             for name, dtype, shape in metadata:
                 self.channels.append(

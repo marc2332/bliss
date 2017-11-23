@@ -457,9 +457,9 @@ class HashSetting(object):
     def ttl(self, value=-1):
         return ttl_func(self._cnx(), self._name, value)
 
-    def raw_get(self, key):
+    def raw_get(self, *keys):
         cnx = self._cnx()
-        return cnx.hget(self._name, key)
+        return cnx.hget(self._name, *keys)
 
     @read_decorator
     def get(self, key, default=None):
@@ -533,9 +533,9 @@ class HashSetting(object):
         return [(k, v) for k, v in values.iteritems()]
 
     @read_decorator
-    def fromkeys(self, keys):
+    def fromkeys(self, *keys):
         cnx = self._cnx()
-        return cnx.hmget(self._name, keys)
+        return cnx.hmget(self._name, *keys)
 
     def has_key(self, key):
         cnx = self._cnx()

@@ -15,6 +15,7 @@ import pytest
 from bliss.config import static
 from bliss.config.conductor import client
 from bliss.config.conductor import connection
+from bliss.config.conductor.client import get_default_connection
 
 BLISS = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 BEACON_DB_PATH = os.path.join(BLISS, 'tests', 'test_configuration')
@@ -40,3 +41,10 @@ def beacon():
     cfg = static.get_config()
     yield cfg
     proc.terminate()
+
+
+@pytest.fixture
+def redis_data_conn():
+    cnx = get_default_connection()
+    redis_conn = cnx.get_redis_connection(db=1)
+    yield redis_conn

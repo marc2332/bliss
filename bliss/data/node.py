@@ -69,16 +69,17 @@ def _get_node_object(node_type, name, parent, connection, create=False, **keys):
         return klass(name, parent=parent, connection=connection, create=create, **keys)
 
 
-def get_node(name, node_type=None, parent=None, connection=None):
+def get_node(db_name, connection=None):
     if connection is None:
         connection = client.get_cache(db=1)
-    data = Struct(name, connection=connection)
-    if node_type is None:
-        node_type = data.node_type
-        if node_type is None:       # node has been deleted
-            return None
+    data = Struct(db_name, connection=connection)
+    name = data.name
+    if name is None:       # node has been deleted
+        return None
 
-    return _get_node_object(node_type, name, parent, connection)
+    node_type = data.node_type
+
+    return _get_node_object(node_type, db_name, None, connection)
 
 
 def _create_node(name, node_type=None, parent=None, connection=None, **keys):
@@ -99,13 +100,12 @@ def _get_or_create_node(name, node_type=None, parent=None, connection=None, **ke
 
 class DataNodeIterator(object):
     NEW_CHILD_REGEX = re.compile("^__keyspace@.*?:(.*)_children_list$")
-    NEW_CHANNEL_REGEX = re.compile("^__keyspace@.*?:(.*)_channels$")
-    NEW_CHILD_EVENT, NEW_CHANNEL_EVENT, NEW_DATA_IN_CHANNEL_EVENT = range(3)
+    NEW_DATA_IN_CHANNEL_REGEX = re.compile("^__keyspace@.*?:(.*)_data$")
+    NEW_CHILD_EVENT, NEW_DATA_IN_CHANNEL_EVENT = range(2)
 
     def __init__(self, node, last_child_id=None):
         self.node = node
         self.last_child_id = dict() if last_child_id is None else last_child_id
-        self.zerod_channel_event = dict()
 
     def walk(self, filter=None, wait=True):
         """Iterate over child nodes that match the `filter` argument
@@ -114,7 +114,7 @@ class DataNodeIterator(object):
         """
         if isinstance(filter, (str, unicode)):
             filter = (filter, )
-        else:
+        elif filter:
             filter = tuple(filter)
 
         if wait:
@@ -126,13 +126,14 @@ class DataNodeIterator(object):
         if filter is None or self.node.type in filter:
             yield self.node
 
-        for i, child in enumerate(self.node.children()):
-            iterator = DataNodeIterator(
-                child, last_child_id=self.last_child_id)
-            for n in iterator.walk(filter, wait=False):
-                self.last_child_id[db_name] = i + 1
-                if filter is None or n.type in filter:
-                    yield n
+        if isinstance(self.node, DataNodeContainer):
+            for i, child in enumerate(self.node.children()):
+                iterator = DataNodeIterator(
+                    child, last_child_id=self.last_child_id)
+                for n in iterator.walk(filter, wait=False):
+                    self.last_child_id[db_name] = i + 1
+                    if filter is None or n.type in filter:
+                        yield n
         if wait:
             # yield from self.wait_for_event(pubsub)
             for event_type, value in self.wait_for_event(pubsub, filter):
@@ -161,7 +162,6 @@ class DataNodeIterator(object):
         pubsub = self.children_event_register()
 
         for node in self.walk(filter, wait=False):
-            self.child_register_new_data(node, pubsub)
             yield self.NEW_CHILD_EVENT, node
 
         for event_type, event_data in self.wait_for_event(pubsub, filter=filter):
@@ -172,46 +172,13 @@ class DataNodeIterator(object):
         pubsub = redis.pubsub()
         pubsub.psubscribe("__keyspace@1__:%s*_children_list" %
                           self.node.db_name)
-        pubsub.psubscribe("__keyspace@1__:%s*_channels" % self.node.db_name)
+        pubsub.psubscribe("__keyspace@1__:%s*_data" % self.node.db_name)
         return pubsub
-
-    def child_register_new_data(self, child_node, pubsub):
-        if child_node.type == 'zerod':
-            for channel_name in child_node.channels_name():
-                zerod_db_name = child_node.db_name
-                event_key = "__keyspace@1__:%s_%s" % (
-                    zerod_db_name, channel_name)
-                pubsub.subscribe(event_key)
-                self.zerod_channel_event[event_key] = zerod_db_name
-        else:
-            pass                # warning not managed yet
-
-    def zerod_channels_events(self, pubsub, zerod, filter):
-        events = list()
-        print filter, zerod.type
-        filter = filter is None or zerod.type in filter
-
-        for channel_name in zerod.channels_name():
-            zerod_db_name = zerod.db_name
-            event_key = "__keyspace@1__:%s_%s" % (zerod_db_name, channel_name)
-            if event_key in self.zerod_channel_event:
-                continue
-            else:
-                if filter:
-                    pubsub.subscribe(event_key)
-                    self.zerod_channel_event[event_key] = zerod_db_name
-                    events.append(
-                        (self.NEW_DATA_IN_CHANNEL_EVENT, (zerod, channel_name)))
-
-        if filter and events:
-            events.insert(0, (self.NEW_CHANNEL_EVENT, zerod))
-
-        return events
 
     def wait_for_event(self, pubsub, filter=None):
         if isinstance(filter, (str, unicode)):
             filter = (filter, )
-        else:
+        elif filter:
             filter = tuple(filter)
 
         for msg in pubsub.listen():
@@ -228,27 +195,16 @@ class DataNodeIterator(object):
                         self.last_child_id[parent_db_name] = first_child + i + 1
                         if filter is None or child.type in filter:
                             yield self.NEW_CHILD_EVENT, child
-                        if child.type == 'zerod':
-                            zerod = child
-                            for event in self.zerod_channels_events(pubsub, zerod, filter):
-                                yield event
+                        if child.type == 'channel':
+                            yield self.NEW_DATA_IN_CHANNEL_EVENT, child
                 else:
-                    new_channel_event = DataNodeIterator.NEW_CHANNEL_REGEX.match(
+                    new_channel_event = DataNodeIterator.NEW_DATA_IN_CHANNEL_REGEX.match(
                         channel)
                     if new_channel_event:
-                        zerod_db_name = new_channel_event.groups()[0]
-                        zerod = get_node(zerod_db_name)
-                        for event in self.zerod_channels_events(pubsub, zerod, filter):
-                            yield event
-                    else:
-                        new_data_in_channel = self.zerod_channel_event.get(
-                            channel)
-                        if new_data_in_channel is not None:
-                            zerod = get_node(new_data_in_channel)
-                            db_name = zerod.db_name + '_'
-                            channel_name = channel.split(db_name)[-1]
-                            if filter is None or zerod.type in filter:
-                                yield self.NEW_DATA_IN_CHANNEL_EVENT, (zerod, channel_name)
+                        channel_db_name = new_channel_event.group(1)
+                        channel_node = get_node(channel_db_name)
+                        if channel_node:
+                            yield self.NEW_DATA_IN_CHANNEL_EVENT, channel_node
 
 
 class _TTL_setter(object):

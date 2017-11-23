@@ -25,15 +25,12 @@ Here are the main bliss sub-systems:
     tango
 '''
 
-from __future__ import division
+from .import release
 
-# version should be valid according to distutils.version.StrictVersion
-__author__ = 'BCU (ESRF)'
-__version__ = '0.2.dev0'
-__short_version__ = '.'.join(__version__.split('.')[:2])
-__license__ = 'LGPLv3'
-__copyright__ = '2016 Beamline Control Unit, ESRF'
-__description__ = 'BeamLine Instrumentation Support Software'
+__version__ = release.version
+__author__ = release.author
+__license__ = release.license
+version_info = release.version_info
 
 from gevent import monkey
 monkey.patch_all(thread=False)

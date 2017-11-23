@@ -25,7 +25,7 @@ try:
 except ImportError:
     from PyMca import sps
 
-from bliss.data.node import DataNodeIterator,_get_or_create_node
+from bliss.data.node import DataNodeIterator,_get_or_create_node,is_zerod
 
 ARRAY_NAME = "SCAN_D"
 
@@ -38,9 +38,10 @@ class _MaxCounterReach(Exception):
 class _NewCounter(Exception):
     pass
 
-def copy_data(zerod,channel_name,zerod_index,
+def copy_data(zerod,zerod_index,
               session_name,max_nb_counter,max_nb_points):
-    data_channel = zerod.get_channel(channel_name)
+    data_channel = zerod
+    channel_name = zerod.name
     previous_cnt_number = len(zerod_index)
     channel_info = zerod_index.setdefault(channel_name,
                                           {'from':0, 'index':len(zerod_index)})
@@ -56,7 +57,7 @@ def copy_data(zerod,channel_name,zerod_index,
         raise _MaxPointReach()
 
     channel_info['from'] = nb_points
-    if data:
+    if len(data):
         sps_index = channel_info['index']
         sps_data = sps.getdata(session_name,ARRAY_NAME)
         sps_data.T[sps_index][from_index:from_index+len(data)] = data
@@ -75,23 +76,22 @@ def new_scanno(last={"scanno": 0}):
     return last["scanno"]
  
 def watch_data(scan_node,session_name):
-    npoints = max(scan_node.info_get("npoints"),4096)
-    title = scan_node.info_get("title") or "unknown scan"
+    npoints = max(scan_node.info.get("npoints"),4096)
+    title = scan_node.info.get("title") or "unknown scan"
     nbcounters = 64
     
-    scan_data_iterator = DataNodeIterator(scan_node)
-    pubsub = scan_data_iterator.children_event_register()
 
     while True:
         try:
+            scan_data_iterator = DataNodeIterator(scan_node)
+            pubsub = scan_data_iterator.children_event_register()
             sps.create(session_name,ARRAY_NAME,npoints,nbcounters)
             zerod_index = OrderedDict()
-            for zerod in scan_data_iterator.walk(filter='zerod',wait=False):
-                scan_data_iterator.child_register_new_data(zerod,pubsub)
-                for channel_name in zerod.channels_name():
-                    channel_info = zerod_index.setdefault(channel_name,
-                                                          {'from':0, 'index':len(zerod_index)})
-                    copy_data(zerod,channel_name,zerod_index,
+            for channel in scan_data_iterator.walk(filter='channel',wait=False):
+                if is_zerod(channel):
+                    channel_name = channel.name
+                    zerod_index.setdefault(channel_name,{'from':0, 'index':len(zerod_index)})
+                    copy_data(channel,zerod_index,
                               session_name,nbcounters,npoints)
 
             allcountersdict = dict([(i,"") for i in range(nbcounters)])
@@ -109,20 +109,15 @@ def watch_data(scan_node,session_name):
                                          "selectedcounters" : ';'.join(zerod_index.keys())},
                                         {})))
 
-            for event_type,zerod in scan_data_iterator.wait_for_event(pubsub,filter='zerod'):
+            for event_type, zerod in scan_data_iterator.wait_for_event(pubsub, filter='channel'):
+                if not is_zerod(zerod):
+                    continue
                 if event_type is scan_data_iterator.NEW_CHILD_EVENT:
-                    scan_data_iterator.child_register_new_data(zerod,pubsub)
-                    for channel_name in zerod.channels_name():
-                        copy_data(zerod,channel_name,zerod_index,
-                                  session_name,nbcounters,npoints)
-                elif event_type is scan_data_iterator.NEW_CHANNEL_REGEX:
-                    for channel_name in zerod.channels_name():
-                        copy_data(zerod,channel_name,zerod_index,
-                                  session_name,nbcounters,npoints)
+                    copy_data(zerod, zerod_index,
+                              session_name, nbcounters, npoints)
                 elif event_type is scan_data_iterator.NEW_DATA_IN_CHANNEL_EVENT:
-                    zerod,channel_name = zerod
-                    copy_data(zerod,channel_name,zerod_index,
-                              session_name,nbcounters,npoints)
+                    copy_data(zerod, zerod_index,
+                              session_name, nbcounters, npoints)
         except _MaxCounterReach:
             nbcounters *= 2
         except _MaxPointReach:
@@ -145,6 +140,8 @@ def watch_session(session_name):
         if last_scan_node is not None:
             watch_data_task = gevent.spawn(watch_data,last_scan_node,session_name)
         for event_type,scan_node in data_iterator.wait_for_event(pubsub,filter='scan'):
+            if event_type != data_iterator.NEW_CHILD_EVENT:
+                continue
             if watch_data_task:
                 watch_data_task.kill()
             watch_data_task = gevent.spawn(watch_data,scan_node,session_name)

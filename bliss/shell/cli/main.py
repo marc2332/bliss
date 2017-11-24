@@ -8,7 +8,7 @@
 """
 Usage: bliss [--log-level=<log_level>] [(-s | --session)] <name>...
        bliss [--show-sessions]
-       bliss
+       bliss [--log-level=<log_level>]
        bliss (-h | --help)
 Options:
     --log-level=<log_level>       Log level [default: WARN].

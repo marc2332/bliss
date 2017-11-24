@@ -28,7 +28,7 @@ from bliss.controllers.ct2.device import AcqMode, AcqStatus, StatusSignal
 
 
 TEN_KHz = 10000
-ERROR_MARGIN = 10E-3   # 10ms
+ERROR_MARGIN = 10E-2   # 100ms
 
 
 class EventReceiver(object):

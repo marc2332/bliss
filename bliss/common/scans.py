@@ -25,6 +25,7 @@ from bliss import setup_globals
 from bliss.common.axis import MotionEstimation
 from bliss.common.temperature import Input, Output, TempControllerCounter
 from bliss.controllers.lima import Lima
+from bliss.controllers.ct2.client import CT2
 from bliss.common.task_utils import *
 from bliss.common.motor_group import Group
 from bliss.common.measurement import Counter, SamplingCounter, IntegratingCounter
@@ -34,6 +35,7 @@ from bliss.scanning import scan as scan_module
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 from bliss.scanning.acquisition.motor import LinearStepTriggerMaster, MeshStepTriggerMaster
 from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
+from bliss.scanning.acquisition.ct2 import CT2AcquisitionMaster
 from bliss.session import session,measurementgroup
 try:
     from bliss.scanning.writer import hdf5 as default_writer
@@ -99,11 +101,12 @@ def default_master_configuration(counter, scan_pars):
     except AttributeError:
         device = counter
 
+    npoints = scan_pars.get('npoints', 1)
+    acq_expo_time = scan_pars['count_time']
     if isinstance(device, Lima):
         multi_mode = 'INTERNAL_TRIGGER_MULTI' in device.available_triggers
         save_flag = scan_pars.get('save',False)
-        acq_nb_frames = scan_pars.get('npoints',1) if multi_mode else 1
-        acq_expo_time = scan_pars['count_time']
+        acq_nb_frames = npoints if multi_mode else 1
         acq_trigger_mode = scan_pars.get('acq_trigger_mode',
                                          'INTERNAL_TRIGGER_MULTI' \
                                          if multi_mode else 'INTERNAL_TRIGGER')
@@ -114,6 +117,11 @@ def default_master_configuration(counter, scan_pars):
                                            save_flag = save_flag,
                                            prepare_once = multi_mode)
         return acq_device, { "prepare_once": multi_mode, "start_once": multi_mode }
+    elif type(device).__name__ == 'CT2':
+        acq_device = CT2AcquisitionMaster(device, npoints=npoints,
+                                          acq_expo_time=acq_expo_time)
+        return acq_device, { "prepare_once": acq_device.prepare_once,
+                             "start_once": acq_device.start_once }
     else:
         raise TypeError("`%r' is not a supported acquisition controller for counter `%s'" % (device, counter.name))
 

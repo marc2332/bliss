@@ -21,9 +21,71 @@ Minimalistic configuration example:
 (for the complete CT2 YAML_ specification see :ref:`bliss-ct2-yaml`)
 """
 
+import numpy
+
 from bliss.comm.rpc import Client
+from bliss.common.measurement import IntegratingCounter
+
 
 CT2 = Client
+
+
+class CounterGroup(IntegratingCounter.GroupedReadHandler):
+
+    def prepare(self, *counters):
+        counter_indexes = {}
+        ctrl = self.controller
+        in_channels = ctrl.INPUT_CHANNELS
+        channels = []
+        timer_counter = ctrl.internal_timer_counter
+        point_nb_counter = ctrl.internal_point_nb_counter
+        nb_non_acq_channels = 0
+        for i, counter in enumerate(counters):
+            channel = counter.channel
+            counter_index = i - nb_non_acq_channels
+            if channel in in_channels:
+                channels.append(channel)
+            elif channel == timer_counter:
+                counter_index = -2
+                nb_non_acq_channels += 1
+                counter.timer_freq = ctrl.timer_freq
+            elif channel == point_nb_counter:
+                counter_index = -1
+                nb_non_acq_channels += 1
+            counter_indexes[counter] = counter_index
+        ctrl.acq_channels =  channels
+        # counter_indexes dict<counter: index in data array>
+        self.counter_indexes = counter_indexes
+
+    def get_values(self, from_index, *counters):
+        data = self.controller.get_data(from_index).T
+        if not data.size:
+            return len(counters)*(numpy.array(()),)
+        return [counter.convert(data[self.counter_indexes[counter]])
+                for counter in counters]
+
+
+class Counter(IntegratingCounter):
+
+    def __init__(self, name, channel, **kwargs):
+        self.channel = channel
+        super(Counter, self).__init__(name, **kwargs)
+
+    def convert(self, data):
+        return data
+
+
+class CounterTimer(Counter):
+
+    def __init__(self, name, **kwargs):
+        ctrl = kwargs['controller']
+        self.timer_freq = ctrl.timer_freq
+        super(CounterTimer, self).__init__(name, ctrl.internal_timer_counter,
+                                           **kwargs)
+
+    def convert(self, ticks):
+        return ticks / self.timer_freq
+
 
 def __get_device_config(name):
     from bliss.config.static import get_config

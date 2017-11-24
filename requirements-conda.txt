@@ -28,11 +28,11 @@ h5py
 msgpack-python
 pyzmq
 pytango
+python-graphviz
 
 # Non-python requirements
 
 redis
-
 
 # Test requirements
 

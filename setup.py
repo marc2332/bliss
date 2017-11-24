@@ -138,7 +138,7 @@ def main():
     ]
 
     setup_requires = [
-        'setuptools >= 37',
+#        'setuptools >= 37',
     ]
 
     if TESTING:

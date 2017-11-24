@@ -69,9 +69,11 @@ def main():
     """run setup"""
 
     py_xy = sys.version_info[:2]
+    py_xy_str = '.'.join(map(str, py_xy))
 
-    if py_xy < (2, 6):
-        print("Python version too old. Need at least 2.6")
+    if py_xy < (2, 7) or py_xy >= (3, 0):
+        print("Incompatible python version ({0}). Needs python 2.x " \
+              "(where x > 6).".format(py_xy_str))
         sys.exit(1)
 
     meta = {}
@@ -80,7 +82,8 @@ def main():
     packages = find_packages(where=abspath(), exclude=('extensions*',))
 
     cmd_class = find_extensions()
-    if BuildDoc is not None and py_xy > (2, 6):
+
+    if BuildDoc is not None::
         cmd_class['build_doc'] = BuildDoc
 
     install_requires = [
@@ -93,56 +96,43 @@ def main():
         "treelib",
         "gipc",
         "jedi",
-        "ptpython == 0.39",                 # !!!!!!
+        "ptpython >= 0.39",
         "docopt",
         "bottle",
         "six >= 1.10",
         "tabulate",
-        "pyserial == 2.7",                  # !!!!!!
+        "pyserial",
         "ruamel.yaml >= 0.11.15",
         "zerorpc",
         "msgpack_numpy",
         "blessings",
         "posix_ipc",
         "h5py",
+        "gevent >= 1.2.2",
+        "pygments",
+        "numpy",
+        "ruamel.yaml",
+        'enum34 ; python_version < "3.4"',
+
+        # Documentation
+        "sphinx",
+        "sphinxcontrib-wavedrom >= 1.3",
+        "graphviz",
     ]
-
-    if py_xy < (2, 7):
-        install_requires += [
-            "gevent <  1.2",
-            "pygments < 1.7",
-            "numpy < 1.12",
-            "ruamel.yaml <= 0.11.15",
-            "ordereddict",
-            "importlib",
-            "weakrefset",
-            "unittest2",
-        ]
-    else:
-        install_requires += [
-            "sphinx",
-            "sphinxcontrib-wavedrom >= 1.3",
-            "gevent >= 1.2.2",
-            "pygments",
-            "numpy",
-            "ruamel.yaml",
-        ]
-
-    if py_xy < (3, 4):
-        install_requires += [
-            'enum34',
-        ]
 
     tests_require = [
         'pytest-mock',
         'pytest-coverage',
+        'mock',
         'h5py',
     ]
 
-    if py_xy < (3, 3):
-        tests_require += [
-            'mock',
-        ]
+    setup_requires = [
+        'setuptools >= 37',
+    ]
+
+    if TESTING:
+        setup_requires += ['pytest-runner']
 
     setup(name=meta['name'],
           author=meta['author'],
@@ -186,8 +176,7 @@ def main():
           },
           install_requires=install_requires,
           tests_require=tests_require,
-          setup_requires=['pytest-runner'] if TESTING else [],
-         )
+          setup_requires=setup_requires)
 
 
 if __name__ == "__main__":

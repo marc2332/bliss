@@ -68,14 +68,81 @@ def find_extensions():
 def main():
     """run setup"""
 
+    py_xy = sys.version_info[:2]
+
+    if py_xy < (2, 6):
+        print("Python version too old. Need at least 2.6")
+        sys.exit(1)
+
     meta = {}
     execfile(abspath('bliss', 'release.py'), meta)
 
     packages = find_packages(where=abspath(), exclude=('extensions*',))
 
     cmd_class = find_extensions()
-    if BuildDoc is not None:
+    if BuildDoc is not None and py_xy > (2, 6):
         cmd_class['build_doc'] = BuildDoc
+
+    install_requires = [
+        "redis  >= 2.8",
+        "PyYaml",
+        "netifaces < 0.10.5",
+        "louie",
+        "jinja2 >= 2.7",
+        "flask",
+        "treelib",
+        "gipc",
+        "jedi",
+        "ptpython == 0.39",                 # !!!!!!
+        "docopt",
+        "bottle",
+        "six >= 1.10",
+        "tabulate",
+        "pyserial == 2.7",                  # !!!!!!
+        "ruamel.yaml >= 0.11.15",
+        "zerorpc",
+        "msgpack_numpy",
+        "blessings",
+        "posix_ipc",
+        "h5py",
+    ]
+
+    if py_xy < (2, 7):
+        install_requires += [
+            "gevent <  1.2",
+            "pygments < 1.7",
+            "numpy < 1.12",
+            "ruamel.yaml <= 0.11.15",
+            "ordereddict",
+            "importlib",
+            "weakrefset",
+            "unittest2",
+        ]
+    else:
+        install_requires += [
+            "sphinx",
+            "sphinxcontrib-wavedrom >= 1.3",
+            "gevent >= 1.2.2",
+            "pygments",
+            "numpy",
+            "ruamel.yaml",
+        ]
+
+    if py_xy < (3, 4):
+        install_requires += [
+            'enum34',
+        ]
+
+    tests_require = [
+        'pytest-mock',
+        'pytest-coverage',
+        'h5py',
+    ]
+
+    if py_xy < (3, 3):
+        tests_require += [
+            'mock',
+        ]
 
     setup(name=meta['name'],
           author=meta['author'],
@@ -117,7 +184,8 @@ def main():
                   'NanoBpmServo = bliss.tango.servers.nanobpm_servo_ds:main'
               ],
           },
-          tests_require=['pytest-mock', 'pytest-coverage', 'h5py'],
+          install_requires=install_requires,
+          tests_require=tests_require,
           setup_requires=['pytest-runner'] if TESTING else [],
          )
 

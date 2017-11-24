@@ -31,7 +31,7 @@ def abspath(*path):
 def find_commands(module):
     """
     Finds instances of distutils.Command in a module.
-    Returns an iterator
+    Returns a dict<command name: command class>
     """
     items = (getattr(module, item) for item in dir(module)
              if not item.startswith('_'))
@@ -45,23 +45,33 @@ def find_commands(module):
 def find_extensions():
     """Find bliss extensions. Returns a list of distutils.Command"""
     top = abspath('extensions')
-    # list with 'extension.sip', 'extension.cython', ...
-    ext_type_names = ('extensions.' + name for name in os.listdir(top)
-                      if not name.startswith('__') and \
-                         os.path.isdir(os.path.join(top, name)))
-
     commands = {}
-    for ext_type_name in ext_type_names:
-        try:
-            ext_type_module = __import__(ext_type_name, None, None,
-                                         ext_type_name)
-            for ext_name in ext_type_module.__all__:
-                ext_name = ext_type_name + '.' + ext_name
+    for name in os.listdir(top):
+        if name.startswith('_'):
+            continue
+        full_name = os.path.join(top, name)
+        if os.path.isdir(full_name):
+            ext_type_name = 'extensions.' + name
+            try:
+                ext_type_module = __import__(ext_type_name, None, None,
+                                             ext_type_name)
+                for ext_name in ext_type_module.__all__:
+                    ext_name = ext_type_name + '.' + ext_name
+                    ext_module = __import__(ext_name, None, None, ext_name)
+                    commands.update(find_commands(ext_module))
+            except Exception:
+                continue
+        else:
+            # must be a python module
+            name, ext = os.path.splitext(name)
+            if ext != '.py':
+                continue
+            ext_name = 'extensions.' + name
+            try:
                 ext_module = __import__(ext_name, None, None, ext_name)
                 commands.update(find_commands(ext_module))
-        except Exception:
-            continue
-
+            except Exception:
+                continue
     return commands
 
 
@@ -83,7 +93,7 @@ def main():
 
     cmd_class = find_extensions()
 
-    if BuildDoc is not None::
+    if BuildDoc is not None:
         cmd_class['build_doc'] = BuildDoc
 
     install_requires = [

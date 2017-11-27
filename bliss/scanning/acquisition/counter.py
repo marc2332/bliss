@@ -21,7 +21,7 @@ class BaseCounterAcquisitionDevice(AcquisitionDevice):
         prepare_once = keys.pop('prepare_once', True)
         start_once = keys.pop('start_once', npoints > 1)
 
-        AcquisitionDevice.__init__(self, counter, counter.name, "zerod",
+        AcquisitionDevice.__init__(self, counter, counter.name,
                                    npoints=npoints,
                                    trigger_type=AcquisitionDevice.SOFTWARE,
                                    prepare_once=prepare_once,

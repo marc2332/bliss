@@ -8,9 +8,9 @@ import sys
 
 
 class CalcAcquisitionDevice(AcquisitionDevice):
-    def __init__(self, name, src_acq_devices_list, func, output_channels_list, type="zerod"):
+    def __init__(self, name, src_acq_devices_list, func, output_channels_list):
         AcquisitionDevice.__init__(
-            self, None, name, type, trigger_type=AcquisitionDevice.HARDWARE)
+            self, None, name, trigger_type=AcquisitionDevice.HARDWARE)
         self.src_acq_devices_list = src_acq_devices_list
         self.func = func
         self.channels.extend(output_channels_list)

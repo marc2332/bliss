@@ -26,7 +26,7 @@ class MusstAcquisitionDevice(AcquisitionDevice):
         vars -- all variable you want to set before the musst program starts
         """
         AcquisitionDevice.__init__(
-            self, musst_dev, "musst", "zerod", trigger_type=AcquisitionDevice.HARDWARE)
+            self, musst_dev, musst_dev.name, trigger_type=AcquisitionDevice.HARDWARE)
         self.musst = musst_dev
         self.program = program
         if program_template_replacement is not None:

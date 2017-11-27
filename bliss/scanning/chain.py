@@ -124,20 +124,17 @@ class DeviceIteratorWrapper(object):
 
 
 class AcquisitionMaster(object):
-    #SAFE, FAST = (0, 1)
     HARDWARE, SOFTWARE = range(2)
 
-    def __init__(self, device, name, type, npoints=None, trigger_type=SOFTWARE,
-                 prepare_once=False, start_once=False):  # , trigger_mode=AcquisitionMaster.FAST):
+    def __init__(self, device, name, npoints=None, trigger_type=SOFTWARE,
+                 prepare_once=False, start_once=False):
         self.__device = device
         self.__name = name
-        self.__type = type
         self.__parent = None
         self.__slaves = list()
         self.__triggers = list()
         self.__channels = AcquisitionChannelList(self)
         self.__npoints = npoints
-        #self.__trigger_mode = trigger_mode
         self.__trigger_type = trigger_type
         self.__prepare_once = prepare_once
         self.__start_once = start_once
@@ -161,10 +158,6 @@ class AcquisitionMaster(object):
     @property
     def name(self):
         return self.__name
-
-    @property
-    def type(self):
-        return self.__type
 
     @property
     def slaves(self):
@@ -244,18 +237,17 @@ class AcquisitionMaster(object):
 class AcquisitionDevice(object):
     HARDWARE, SOFTWARE = range(2)
 
-    def __init__(self, device, name, data_type, npoints=0, trigger_type=SOFTWARE,
+    def __init__(self, device, name, npoints=0, trigger_type=SOFTWARE,
                  prepare_once=False, start_once=False):
         self.__device = device
         self.__parent = None
         self.__name = name
-        self.__type = data_type
-        self._reading_task = None
         self.__trigger_type = trigger_type
         self.__channels = AcquisitionChannelList(self)
         self.__npoints = npoints
         self.__prepare_once = prepare_once
         self.__start_once = start_once
+        self._reading_task = None
 
     @property
     def parent(self):
@@ -284,10 +276,6 @@ class AcquisitionDevice(object):
     @property
     def name(self):
         return self.__name
-
-    @property
-    def type(self):
-        return self.__type
 
     @property
     def channels(self):

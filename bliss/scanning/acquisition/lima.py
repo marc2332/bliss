@@ -35,7 +35,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         trigger_type = AcquisitionMaster.SOFTWARE if 'INTERNAL' in acq_trigger_mode else AcquisitionMaster.HARDWARE
         if isinstance(device, lima.Lima):
             device = device.proxy
-        AcquisitionMaster.__init__(self, device, device.user_detector_name, "lima", acq_nb_frames,
+        AcquisitionMaster.__init__(self, device, device.user_detector_name, acq_nb_frames,
                                    trigger_type=trigger_type,
                                    prepare_once=prepare_once, start_once=start_once)
         self.save_flag = save_flag

@@ -15,8 +15,7 @@ import weakref
 
 class SoftwareTimerMaster(AcquisitionMaster):
     def __init__(self, count_time, sleep_time=None, **keys):
-        AcquisitionMaster.__init__(self, None, "timer", "zerod",
-                                   **keys)
+        AcquisitionMaster.__init__(self, None, 'timer', **keys)
         self.count_time = count_time
         self.sleep_time = sleep_time
         self.channels.append(AcquisitionChannel(

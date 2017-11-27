@@ -22,8 +22,8 @@ import sys
 class MotorMaster(AcquisitionMaster):
     def __init__(self, axis, start, end, time=0, undershoot=None,
                  trigger_type=AcquisitionMaster.HARDWARE,
-                 backnforth=False, type="axis", **keys):
-        AcquisitionMaster.__init__(self, axis, axis.name, type,
+                 backnforth=False, **keys):
+        AcquisitionMaster.__init__(self, axis, axis.name,
                                    trigger_type=trigger_type, **keys)
         self.movable = axis
         self.start_pos = start
@@ -75,7 +75,7 @@ class MotorMaster(AcquisitionMaster):
 class SoftwarePositionTriggerMaster(MotorMaster):
     def __init__(self, axis, start, end, npoints=1, **kwargs):
         self._positions = numpy.linspace(start, end, npoints + 1)[:-1]
-        MotorMaster.__init__(self, axis, start, end, type="zerod", **kwargs)
+        MotorMaster.__init__(self, axis, start, end, **kwargs)
         self.channels.append(AcquisitionChannel(axis.name, numpy.double, (1,)))
         self.__nb_points = npoints
 
@@ -132,7 +132,7 @@ class JogMotorMaster(AcquisitionMaster):
         Stop the movement if return value != True
         if end_jog_func is None should be stopped externally.
         """
-        AcquisitionMaster.__init__(self, axis, axis.name, "axis")
+        AcquisitionMaster.__init__(self, axis, axis.name)
         self.movable = axis
         self.start_pos = start
         self.undershoot = undershoot
@@ -217,7 +217,7 @@ class _StepTriggerMaster(AcquisitionMaster):
         mot_group = Group(*self._axes)
         group_name = '/'.join((x.name for x in self._axes))
 
-        AcquisitionMaster.__init__(self, mot_group, group_name, "zerod",
+        AcquisitionMaster.__init__(self, mot_group, group_name,
                                    trigger_type=trigger_type, **keys)
 
         self.channels.extend(
@@ -247,7 +247,8 @@ class _StepTriggerMaster(AcquisitionMaster):
     def trigger(self):
         self.trigger_slaves()
 
-        self.channels.update_from_iterable([axis.position() for axis in self._axes])
+        self.channels.update_from_iterable(
+            [axis.position() for axis in self._axes])
 
         self.wait_slaves()
 

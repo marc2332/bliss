@@ -124,6 +124,8 @@ def create_and_configure_device(config_or_name):
     orig_configure = device.configure
     def configure(device_config):
         orig_configure(device_config)
+        for counter_name in device.acq_counters:
+            delattr(device, counter_name)
         device.acq_counters = {}
         for channel in device_config.get('channels', ()):
             ct_name = channel.get('counter name', None)
@@ -133,6 +135,7 @@ def create_and_configure_device(config_or_name):
                              acquisition_controller=device,
                              grouped_read_handler=device.acq_counter_group)
                 device.acq_counters[ct_name] = ct
+                setattr(device, ct_name, ct)
         timer = device_config.get('timer', None)
         if timer is not None:
             ct_name = timer.get('counter name', None)
@@ -141,6 +144,8 @@ def create_and_configure_device(config_or_name):
                                   acquisition_controller=device,
                                   grouped_read_handler=device.acq_counter_group)
                 device.acq_counters[ct_name] = ct
+                setattr(device, ct_name, ct)
+
     device.configure = configure
     device.configure(device_config)
     return device

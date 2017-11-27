@@ -13,6 +13,27 @@ import weakref
 import numpy as np
 
 
+class AcquisitionChannelList(list):
+    def __init__(self, parent, *args, **kwargs):
+        list.__init__(self, *args, **kwargs)
+
+        self.__parent = parent
+
+    def update(self, values_dict=None):
+        """Update all channels and emit the new_data event
+
+        Input:
+
+           values_dict - { channel_name: value, ... }
+        """
+        if values_dict:
+            for channel in self:
+                channel.value = values_dict[channel.name]
+
+        dispatcher.send("new_data", self.__parent, {
+                        "channel_data": dict([(c.name, c.value) for c in self])})
+
+
 class AcquisitionChannel(object):
     def __init__(self, name, dtype, shape):
         self.__name = name
@@ -99,7 +120,7 @@ class AcquisitionMaster(object):
         self.__parent = None
         self.__slaves = list()
         self.__triggers = list()
-        self.__channels = list()
+        self.__channels = AcquisitionChannelList(self)
         self.__npoints = npoints
         #self.__trigger_mode = trigger_mode
         self.__trigger_type = trigger_type
@@ -145,12 +166,6 @@ class AcquisitionMaster(object):
     @property
     def channels(self):
         return self.__channels
-
-    @channels.setter
-    def channels(self, channels_list):
-        if not isinstance(channels_list, list):
-            raise TypeError("%s: A channels list is expected." % self.name)
-        self.__channels = channels_list
 
     @property
     def npoints(self):
@@ -222,7 +237,7 @@ class AcquisitionDevice(object):
         self.__type = data_type
         self._reading_task = None
         self.__trigger_type = trigger_type
-        self.__channels = list()
+        self.__channels = AcquisitionChannelList(self)
         self.__npoints = npoints
         self.__prepare_once = prepare_once
         self.__start_once = start_once
@@ -262,12 +277,6 @@ class AcquisitionDevice(object):
     @property
     def channels(self):
         return self.__channels
-
-    @channels.setter
-    def channels(self, channels_list):
-        if not isinstance(channels_list, list):
-            raise TypeError("%s: A channels list is expected." % self.name)
-        self.__channels = channels_list
 
     @property
     def npoints(self):

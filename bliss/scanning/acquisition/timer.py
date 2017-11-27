@@ -49,8 +49,8 @@ class SoftwareTimerMaster(AcquisitionMaster):
             gevent.sleep(self.sleep_time)
 
         start_trigger = time.time()
-        dispatcher.send("new_data", self,
-                        {"channel_data": {'timestamp': numpy.double(time.time())}})
+        self.channels[0].value = start_trigger
+        self.channels.update()
 
         self.trigger_slaves()
         elapsed_trigger = time.time() - start_trigger

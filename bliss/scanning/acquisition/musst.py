@@ -95,9 +95,7 @@ class MusstAcquisitionDevice(AcquisitionDevice):
     def _send_data(self, last_read_event):
         data = self.musst.get_data(len(self.channels), last_read_event)
         if data.size > 0:
-            channel_data = dict(zip((c.name for c in self.channels), [
-                                data[:, i] for i in range(len(self.channels))]))
-            dispatcher.send("new_data", self, {"channel_data": channel_data})
+            self.channels.update_from_array(data)
             nb_event_read = data.shape[0]
             last_read_event += nb_event_read
         return last_read_event

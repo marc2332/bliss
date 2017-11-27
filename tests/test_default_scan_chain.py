@@ -82,10 +82,12 @@ def test_default_chain_with_three_sampling_counters(beacon):
 
     assert nodes[2] != nodes[1]
 
-    assert nodes[1].counter_names == ['diode']
+    counter_names = [c.name for c in nodes[1].channels]
+    assert counter_names == ['diode']
     # counters order is not important
     # as we use **set** to eliminate duplicated counters
-    assert set(nodes[2].counter_names) == set(['diode2', 'diode3'])
+    counter_names = set([c.name for c in nodes[2].channels])
+    assert counter_names == set(['diode2', 'diode3'])
 
 
 def test_default_chain_with_bpm(beacon):
@@ -122,7 +124,7 @@ def test_default_chain_with_bpm(beacon):
     assert isinstance(nodes[1], LimaAcquisitionMaster)
     assert isinstance(nodes[2], IntegratingCounterAcquisitionDevice)
 
-    assert len(nodes[2].counter_names) == 3
+    assert len(nodes[2].channels) == 3
     assert nodes[2].count_time == timer.count_time
 
     assert nodes[1].save_flag == False

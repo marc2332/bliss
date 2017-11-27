@@ -110,8 +110,8 @@ class SoftwarePositionTriggerMaster(MotorMaster):
                 self.movable.stop(wait=False)
                 self.exception = sys.exc_info()
             else:
-                dispatcher.send("new_data", self,
-                                {"channel_data": {self.movable.name: numpy.double(position)}})
+                self.channels[0].value = position
+                self.channels.update()
 
     def move_done(self, done):
         if done:
@@ -247,9 +247,7 @@ class _StepTriggerMaster(AcquisitionMaster):
     def trigger(self):
         self.trigger_slaves()
 
-        dispatcher.send("new_data", self,
-                        {"channel_data": dict((axis.name, numpy.double(axis.position()))
-                                              for axis in self._axes)})
+        self.channels.update_from_iterable([axis.position() for axis in self._axes])
 
         self.wait_slaves()
 

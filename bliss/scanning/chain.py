@@ -19,6 +19,10 @@ class AcquisitionChannelList(list):
 
         self.__parent = parent
 
+    def __emit_new_data(self):
+        dispatcher.send("new_data", self.__parent, {
+                        "channel_data": dict(((c.name, c.value) for c in self))})
+
     def update(self, values_dict=None):
         """Update all channels and emit the new_data event
 
@@ -30,8 +34,19 @@ class AcquisitionChannelList(list):
             for channel in self:
                 channel.value = values_dict[channel.name]
 
-        dispatcher.send("new_data", self.__parent, {
-                        "channel_data": dict([(c.name, c.value) for c in self])})
+        self.__emit_new_data()
+
+    def update_from_iterable(self, iterable):
+        for i, channel in enumerate(self):
+            channel.value = iterable[i]
+
+        self.__emit_new_data()
+
+    def update_from_array(self, array):
+        for i, channel in enumerate(self):
+            channel.value = array[:, i]
+
+        self.__emit_new_data()
 
 
 class AcquisitionChannel(object):

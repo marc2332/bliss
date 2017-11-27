@@ -10,17 +10,31 @@ import gevent
 from bliss.common.event import dispatcher
 import time
 import weakref
+import numpy as np
 
 
 class AcquisitionChannel(object):
     def __init__(self, name, dtype, shape):
         self.__name = name
+        self.__value = None
         self.dtype = dtype
         self.shape = shape
 
     @property
     def name(self):
         return self.__name
+
+    @property
+    def value(self):
+        return self.__value
+
+    @value.setter
+    def value(self, value):
+        value = np.atleast_1d(value).astype(self.dtype, copy=False)
+        if value.shape != self.shape:
+            raise ValueError("Channel value shape '%s` does not correspond to new value shape: %s" % (
+                self.shape, value.shape))
+        self.__value = value
 
 
 class DeviceIterator(object):

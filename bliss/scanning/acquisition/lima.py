@@ -21,6 +21,14 @@ LIMA_DTYPE = {(0, 2): numpy.uint16,
               (1, 1): numpy.int8}
 
 
+class LimaImageChannel(AcquisitionChannel):
+    def __init__(self):
+        AcquisitionChannel.__init__(self, 'image', None, ())
+
+    def emit(self, data):
+        pass
+
+
 class LimaAcquisitionMaster(AcquisitionMaster):
     def __init__(self, device,
                  acq_nb_frames=1, acq_expo_time=1,
@@ -50,9 +58,8 @@ class LimaAcquisitionMaster(AcquisitionMaster):
                                    trigger_type=trigger_type,
                                    prepare_once=prepare_once, start_once=start_once)
 
-        self.channels.append(AcquisitionChannel(self.name, dict, {}))
-        self.channels.append(AcquisitionChannel(
-            self.name + ".image", numpy.uint8, (1, 1)))
+        self._image_channel = LimaImageChannel()
+        self.channels.append(self._image_channel)
 
         self.save_flag = save_flag
         self._reading_task = None

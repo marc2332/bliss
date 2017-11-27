@@ -328,6 +328,7 @@ class Scan(object):
                     self._nodes[channel] = channel.data_node(
                         data_container_node)
                     connect(channel, 'new_data', self._channel_event)
+                    connect(channel, 'new_ref', self._channel_event)
                 for signal in ('start', 'end'):
                     connect(dev, signal, self._device_event)
 

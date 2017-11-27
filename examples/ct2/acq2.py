@@ -17,15 +17,10 @@ try:
 except ImportError:
     from select import select
 
-try:
-    from bliss.controllers import ct2
-except:
-    this_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), os.path.pardir))
-    sys.path.append(this_dir)
-    from bliss.controllers import ct2
 
-from bliss.controllers.ct2 import P201Card, Clock, Level, CtConfig, OutputSrc
-from bliss.controllers.ct2 import CtClockSrc, CtGateSrc, CtHardStartSrc, CtHardStopSrc
+from bliss.controllers.ct2.card import (P201Card, Clock, Level, CtConfig, \
+                                        OutputSrc, CtClockSrc, CtGateSrc,
+                                        CtHardStartSrc, CtHardStopSrc)
 
 
 def configure(device, channels):
@@ -101,7 +96,7 @@ def prepare_slaves(device, acq_time, nb_points, channels, accumulate=False):
 
     for ch_name, ch_nb in channels.iteritems():
         ct_config = device.get_counter_config(ch_nb)
-        ct_config = CtConfig(clock_source=ct_config.clock_source,
+        ct_config = CtConfig(clock_source=ct_config['clock_source'],
                              gate_source=CtGateSrc.CT_12_GATE_ENVELOP,
                              hard_start_source=CtHardStartSrc.CT_12_START,
                              hard_stop_source=CtHardStopSrc.CT_11_EQ_CMP_11,

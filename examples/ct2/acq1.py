@@ -14,15 +14,9 @@ import datetime
 
 import numpy
 
-try:
-    from bliss.controllers import ct2
-except:
-    this_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), os.path.pardir))
-    sys.path.append(this_dir)
-    from bliss.controllers import ct2
-
-from bliss.controllers.ct2 import P201Card, Clock, Level, CtConfig, OutputSrc
-from bliss.controllers.ct2 import CtClockSrc, CtGateSrc, CtHardStartSrc, CtHardStopSrc
+from bliss.controllers.ct2.card import (P201Card, Clock, Level, CtConfig, \
+                                        OutputSrc, CtClockSrc, CtGateSrc,
+                                        CtHardStartSrc, CtHardStopSrc)
 
 
 def configure(device, channels):
@@ -81,11 +75,11 @@ def prepare_slaves(device, acq_time, nb_points, channels):
     channel_nbs = list(channels.values())
     for ch_name, ch_nb in channels.iteritems():
         ct_config = device.get_counter_config(ch_nb)
-        ct_config.gate_source = CtGateSrc.CT_11_GATE_ENVELOP
-        ct_config.hard_start_source = CtHardStartSrc.SOFTWARE
-        ct_config.hard_stop_source = CtHardStopSrc.CT_11_EQ_CMP_11
-        ct_config.reset_from_hard_soft_stop = True
-        ct_config.stop_from_hard_stop = False
+        ct_config['gate_source'] = CtGateSrc.CT_11_GATE_ENVELOP
+        ct_config['hard_start_source'] = CtHardStartSrc.SOFTWARE
+        ct_config['hard_stop_source'] = CtHardStopSrc.CT_11_EQ_CMP_11
+        ct_config['reset_from_hard_soft_stop'] = True
+        ct_config['stop_from_hard_stop'] = False
         device.set_counter_config(ch_nb, ct_config)
         device.set_counter_config(ch_nb, ct_config)        
 
@@ -147,7 +141,7 @@ def main():
         counter_values = device.get_counters_values()
         latch_values = device.get_latches_values()
         status = device.get_counters_status()
-        if not status[12].run:
+        if not status[12]['run']:
             stop_time = time.time()
             break
         msg = "\r{0} {1}".format(to_str(counter_values), to_str(latch_values))

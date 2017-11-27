@@ -14,20 +14,17 @@ from __future__ import print_function
 import os
 import sys
 import pprint
-import select
 import logging
 import argparse
+import select
+from select import epoll
 
-try:
-    from bliss.controllers import ct2
-except:
-    this_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), os.path.pardir))
-    sys.path.append(this_dir)
-    from bliss.controllers import ct2
 
-from bliss.controllers.ct2 import P201Card, Clock, Level, CtConfig, OutputSrc, FilterOutput, FilterClock
-from bliss.controllers.ct2 import FilterInput, FilterInputSelection
-from bliss.controllers.ct2 import CtClockSrc, CtGateSrc, CtHardStartSrc, CtHardStopSrc
+from bliss.controllers.ct2.card import (P201Card, Clock, Level, CtConfig,
+                                        OutputSrc, FilterOutput, FilterClock,
+                                        FilterInput, FilterInputSelection,
+                                        CtClockSrc, CtGateSrc,
+                                        CtHardStartSrc, CtHardStopSrc)
 
 # s_si  ... scan initiation signal
 # s_en  ... encoder signal
@@ -233,9 +230,9 @@ def go(card):
 
     card.set_input_channels_level({1: Level.TTL, 2: Level.TTL})
 
-    fifo = ct2.create_fifo_mmap(card)
+    fifo = card.fifo
 
-    poll = select.epoll()
+    poll = epoll()
     poll.register(card, select.EPOLLIN | select.EPOLLHUP | select.EPOLLERR)
     
     card.set_interrupts(counters=counter_interrupts,

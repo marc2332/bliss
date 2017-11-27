@@ -16,12 +16,7 @@ except ImportError:
 
 from PyQt4 import Qt
 
-try:
-    from bliss.controllers import ct2
-except ImportError:
-    this_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), os.path.pardir))
-    sys.path.append(this_dir)
-    from bliss.controllers import ct2
+from bliss.controllers.ct2 import card as card_module
 
 
 _FMT = """\
@@ -263,7 +258,7 @@ class CT2Window(Qt.QMainWindow):
         card.reset()
         card.software_reset()
         card_cfg = cfg.get_config(self.__card.name)
-        ct2.configure_card(self.__card, card_cfg)
+        ct2_module.configure_card(self.__card, card_cfg)
 
 
 def get_config(reload=False):
@@ -310,7 +305,7 @@ def main():
     window.show()
 
     card_config = get_card_config(args.card)
-    card = ct2.create_and_configure_card(card_config)
+    card = ct2_module.create_and_configure_card(card_config)
     card.name = args.card
 
     window.setCard(card)

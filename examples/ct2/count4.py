@@ -10,15 +10,9 @@ import pprint
 
 import argparse
 
-try:
-    from bliss.controllers import ct2
-except:
-    this_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), os.path.pardir))
-    sys.path.append(this_dir)
-    from bliss.controllers import ct2
-
-from bliss.controllers.ct2 import P201, Clock, Level, CtConfig, OutputSrc
-from bliss.controllers.ct2 import CtClockSrc, CtGateSrc, CtHardStartSrc, CtHardStopSrc
+from bliss.controllers.ct2.card import (P201Card, Clock, Level, CtConfig,
+                                        OutputSrc, CtClockSrc, CtGateSrc,
+                                        CtHardStartSrc, CtHardStopSrc)
 
 
 def main():
@@ -35,7 +29,7 @@ def main():
         sys.stdout.write(msg)
         sys.stdout.flush()
 
-    p201 = P201()
+    p201 = P201Card()
     p201.request_exclusive_access()
     p201.reset()
     p201.software_reset()
@@ -86,7 +80,7 @@ def main():
             break
         p201.set_counters_software_start_stop(dict([(c, True) for c in p201.COUNTERS]))
         status = p201.get_counters_status()
-        started = status[1].run
+        started = status[1]['run']
 
     if start_count > 1:
         logging.warning("took %d times to start", start_count)
@@ -99,7 +93,7 @@ def main():
             counter_values = p201.get_counters_values()
             latch_values = p201.get_latches_values()
             status = p201.get_counters_status()
-            if not status[counter].run:
+            if not status[counter]['run']:
                 break
             msg = "\r{0} {1}".format(counter_values.tolist(), latch_values.tolist())
             out(msg)

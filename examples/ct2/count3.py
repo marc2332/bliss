@@ -15,15 +15,9 @@ import argparse
 
 import numpy
 
-try:
-    from bliss.controllers import ct2
-except:
-    this_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), os.path.pardir))
-    sys.path.append(this_dir)
-    from bliss.controllers import ct2
-
-from bliss.controllers.ct2 import P201Card, Clock, Level, CtConfig, OutputSrc
-from bliss.controllers.ct2 import CtClockSrc, CtGateSrc, CtHardStartSrc, CtHardStopSrc
+from bliss.controllers.ct2.card import (P201Card, Clock, Level, CtConfig,
+                                        OutputSrc, CtClockSrc, CtGateSrc,
+                                        CtHardStartSrc, CtHardStopSrc)
 
 
 def out(msg=""):
@@ -102,7 +96,7 @@ def main():
         latches_values = card.get_latches_values()[:nb_counters]
         run = False
         for ct_status in card.get_counters_status().values():
-            run = run or ct_status.run
+            run = run or ct_status['run']
         if not run:
             break
         out("\r{0} {1}".format(counters_values, latches_values))

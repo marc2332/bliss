@@ -141,9 +141,6 @@ class AcquisitionMaster(object):
     @property
     def npoints(self):
         return self.__npoints
-    #@npoints.setter
-    # def npoints(self, npoints):
-    #    self.__npoints = npoints
 
     def _prepare(self):
         return self.prepare()
@@ -261,9 +258,6 @@ class AcquisitionDevice(object):
     @property
     def npoints(self):
         return self.__npoints
-    #@npoints.setter
-    # def npoints(self, npoints):
-    #    self.__npoints = npoints
 
     def _prepare(self):
         if not self._check_ready():

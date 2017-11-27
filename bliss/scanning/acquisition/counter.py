@@ -166,7 +166,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
                 current_time = time.time()
                 if (current_time + (acc_read_time / nb_read)) > stop_time:
                     break
-                gevent.sleep(0)  # Be able to kill the task
+                gevent.sleep(0)  # to be able to kill the task
             self._nb_acq_points += 1
             if self.__mode == SamplingCounterAcquisitionDevice.TIME_AVERAGE:
                 data = acc_value / acc_read_time
@@ -214,7 +214,7 @@ class IntegratingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         while self._nb_acq_points < self.npoints and not self._stop_flag:
             data = self._read_data(from_index)
             if not all_equal([len(d) for d in data]):
-                raise RuntimeError("Can't have a different data length")
+                raise RuntimeError("Read data can't have different sizes")
             if len(data[0]) > 0:
                 from_index += len(data[0])
                 self._nb_acq_points += len(data[0])

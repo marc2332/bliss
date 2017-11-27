@@ -516,27 +516,7 @@ class FileWriter(object):
             if isinstance(dev, AcquisitionMaster):
                 master_entry = self.new_master(dev, scan_file_dir)
 
-                if dev.type == 'lima':
-                    try:
-                        save_flag = dev.save_flag
-                    except AttributeError:
-                        save_flag = True
-
-                    parameters = dev.parameters
-                    camera_name = dev.device.camera_type
-                    scan_name = scan_recorder.node.name()
-                    full_path = os.path.join(
-                        scan_file_dir, dev.device.user_detector_name)
-
-                    parameters.setdefault(
-                        'saving_mode', 'AUTO_FRAME' if save_flag else 'MANUAL')
-                    if save_flag:
-                        parameters.setdefault('saving_format', 'EDF')
-                        parameters.setdefault('saving_frame_per_file', 1)
-                        parameters.setdefault('saving_directory', full_path)
-                        parameters.setdefault(
-                            'saving_prefix', '%s_%s' % (scan_name, camera_name))
-                        parameters.setdefault('saving_suffix', '.edf')
+                dev.prepare_saving(scan_recorder.node.name(), scan_file_dir)
 
                 for slave in dev.slaves:
                     if isinstance(slave, AcquisitionDevice):

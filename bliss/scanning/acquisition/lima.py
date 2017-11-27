@@ -11,6 +11,7 @@ from bliss.controllers import lima
 import gevent
 import time
 import numpy
+import os
 
 
 class LimaAcquisitionMaster(AcquisitionMaster):
@@ -40,6 +41,21 @@ class LimaAcquisitionMaster(AcquisitionMaster):
                                    prepare_once=prepare_once, start_once=start_once)
         self.save_flag = save_flag
         self._reading_task = None
+
+    def prepare_saving(self, scan_name, scan_file_dir):
+        camera_name = self.device.camera_type
+        full_path = os.path.join(scan_file_dir, self.device.user_detector_name)
+
+        if save_flag:
+            self.parameters.setdefault('saving_mode', 'AUTO_FRAME')
+            self.parameters.setdefault('saving_format', 'EDF')
+            self.parameters.setdefault('saving_frame_per_file', 1)
+            self.parameters.setdefault('saving_directory', full_path)
+            self.parameters.setdefault(
+                'saving_prefix', '%s_%s' % (scan_name, camera_name))
+            self.parameters.setdefault('saving_suffix', '.edf')
+        else:
+            self.parameters.setdefault('saving_mode', 'MANUAL')
 
     def prepare(self):
         for param_name, param_value in self.parameters.iteritems():

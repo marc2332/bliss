@@ -185,6 +185,9 @@ class AcquisitionMaster(object):
     def prepare(self):
         raise NotImplementedError
 
+    def prepare_saving(self, scan_name, scan_file_directory):
+        pass
+
     def start(self):
         raise NotImplementedError
 

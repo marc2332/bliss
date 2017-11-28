@@ -13,6 +13,7 @@ import weakref
 import sys
 from treelib import Tree
 import time
+import logging
 
 from bliss.common.event import connect,send
 from bliss.config.conductor import client
@@ -370,6 +371,8 @@ class Scan(object):
         finally:
             self._state = self.IDLE_STATE
             send(current_module, "scan_end", self.scan_info)
+            if self._writer:
+                self._writer.close()
 
     @staticmethod
     def _data_watch(scan,event,event_done):
@@ -449,6 +452,7 @@ class FileWriter(object):
         detector_temporay_path -- temporary path for a detector
         i.e: {detector: {'/data/visitor':'/tmp/data/visitor'}}
         """
+        self.log = logging.getLogger(type(self).__name__)
         self._root_path = root_path
         self._windows_path_mapping = windows_path_mapping or dict()
         self._detector_temporay_path = detector_temporay_path or dict()
@@ -457,6 +461,7 @@ class FileWriter(object):
         self._master_event_receiver = master_event_receiver
         self._device_event_receiver = device_event_receiver
         self._event_receivers = list()
+        self.closed = True
 
     def create_path(self, scan_recorder):
         path_suffix = scan_recorder.node.name()
@@ -477,6 +482,9 @@ class FileWriter(object):
         raise NotImplementedError
 
     def prepare(self, scan_recorder, scan_info, devices_tree):
+        if not self.closed:
+            self.log.warn('Last write may not have finished correctly. I will cleanup')
+
         scan_file_dir = self.create_path(scan_recorder)
         
         self.new_file(scan_file_dir, scan_recorder)
@@ -512,3 +520,7 @@ class FileWriter(object):
                     elif isinstance(slave,AcquisitionMaster):
                         self._event_receivers.append(self._master_event_receiver(slave, slave, master_entry))
                 self._event_receivers.append(self._device_event_receiver(dev, master_entry))
+        self._closed = False
+
+    def close(self):
+        self.closed = True

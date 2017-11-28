@@ -21,6 +21,9 @@ def _on_event(obj, event_dict, signal, device):
     elif signal == 'new_data':
         for channel_name, data in event_dict['channel_data'].iteritems():
             dataset = obj.dataset[channel_name]
+            if not dataset.id.valid:
+                print('writer is closed. Spurious data point ignored')
+                return
             last_point_index = dataset.last_point_index
 
             if len(data.shape) == 1:
@@ -39,7 +42,6 @@ def _on_event(obj, event_dict, signal, device):
             dataset[last_point_index:new_point_index] = data
 
             dataset.last_point_index += data_len
-
 
 
 class Hdf5MasterEventReceiver(AcquisitionMasterEventReceiver):
@@ -74,6 +76,7 @@ class Writer(FileWriter):
         self.measurement = None
         
     def new_file(self, scan_file_dir, scan_recorder):
+        self.close()
         self.file = h5py.File(os.path.join(scan_file_dir,'..','data.h5'))
         self.scan_entry = self.file.create_group(scan_recorder.name)
         self.scan_entry.attrs['NX_class'] = 'NXentry'
@@ -81,4 +84,11 @@ class Writer(FileWriter):
 
     def new_master(self, master, scan):
         return self.measurement.create_group(master.name.replace('/','_') + '_master')
-                
+
+    def close(self):
+        super(Writer, self).close()
+        if self.file is not None:
+            self.file.close()
+            self.file = None
+        self.scan_entry = None
+        self.measurement = None

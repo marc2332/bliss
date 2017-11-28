@@ -15,6 +15,8 @@ from bliss.common.axis import Axis, AxisRef
 from bliss.common.encoder import Encoder
 from bliss.config.static import Config, get_config
 from bliss.common.tango import DeviceProxy
+from bliss.config.plugins.bliss import find_class
+
 import gevent
 import hashlib
 import sys
@@ -40,22 +42,6 @@ __this_path = os.path.realpath(os.path.dirname(__file__))
 
 def __get_controller_class_names():
     return bliss.controllers.motors.__all__
-
-
-def get_controller_class(name):
-    module = __import__('bliss.controllers.motors.%s' % name,fromlist=[''])
-
-    try:
-        controller_class = getattr(module, name)
-    except AttributeError:
-        try:
-            controller_class = getattr(module, name.title())
-        except AttributeError:
-            raise RuntimeError("could not find class '%s` or '%s` in module '%s`" % (name, name.title(), module))
-        else:
-            return controller_class, module
-    else:
-        return controller_class, module
 
 
 def get_jinja2():
@@ -329,7 +315,8 @@ def create_objects_from_config_node(config, node):
             if name is not None:
                 h.update(name)
         controller_name = h.hexdigest()
-    controller_class, controller_module = get_controller_class(controller_class_name)
+    controller_class = find_class(node, "bliss.controllers.motors") 
+    controller_module = sys.modules[controller_class.__module__]
     axes = list()
     axes_names = list()
     encoders = list()

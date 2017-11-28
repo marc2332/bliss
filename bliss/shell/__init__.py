@@ -56,7 +56,7 @@ def initialize(*session_names):
     try:
         _conda_env = "(in {t.blue}%s{t.normal} Conda environment)".format(t=t) % os.environ['CONDA_DEFAULT_ENV']
     except KeyError:
-        pass
+        _conda_env = ""
 
     print_rainbow_banner()
     print_("")

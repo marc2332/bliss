@@ -1,0 +1,1292 @@
+#%TITLE% tango_mot.mac
+
+#%NAME%
+#  tango_mot.mac
+
+#%DESCRIPTION%
+# tango_mot macros allow to configure a SPEC hardware macro-motor to be used to  %BR% \
+# interface a tango motor device server. Mainly used with EMotion Tango          %BR% \
+# motors.   %BR% \
+#
+#%EXAMPLE%
+#%DL%
+#%SETUP%
+# Configuration is done in SPEC config (nothing in SPEC setup).%BR%
+#
+# --Controller------------------------------------------------------------------ %BR% \
+# Motor and Counter Device Configuration (Not CAMAC)
+#
+# MOTORS\0\0\0DEVICE\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0ADDR\0\0<>MODE\0\0NUM\0\0\0\0\0\0\0\0\0\0\0<>TYPE %BR% \
+# \0\0\0YES\0\0\0tango_mot\0idXX/bliss/exp\0\0\0\0\0\0\0\0\0\0\0\01\0\0\0\0\0Macro\0Motors          %BR% \
+# \0\0\0\0NO                                                                                          %BR% \
+# ------------------------------------------------------------------------------ %BR% \
+# %BR% \
+# %BR% \
+# --Axis------------------------------------------------------------------------ %BR% \
+# Number:\0<>Controller\0\0\0\0\0\0\0\00:\0\0\0\0NONE\0\0\0\01:\0MAC_MOT                       %BR% \
+# Unit/[Module/]Channel\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\00/0             %BR% \
+# Name\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0unused\0\0\0\0\0\0\0\0\0\0\0fdc  %BR% \
+# Mnemonic\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0unused\0\0\0\0\0\0\0\0\0\0\0fdc      %BR% \
+# ------------------------------------------------------------------------------ %BR%
+#
+# Set the custom parameter "axis_name" to use a name different from spec mnemonic.%BR% \
+#
+# Set "use_spec_config" to 1 to use spec configuration parameters rather than    %BR% \
+# EMotion/tango ones.
+#
+# --Custom Parameters for Motor "ma" (ma)--------------------------------------- %BR% \
+# NAME\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0VALUE                          %BR% \
+# axis_name\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0roba                                %BR% \
+# use_spec_config\0\0\0\0\0\0\0\0\0\0\01                                         %BR% \
+# ------------------------------------------------------------------------------ %BR% \
+#
+#
+#%END%
+
+######################################################################
+###########################  Macro motors  ###########################
+######################################################################
+
+need spec_utils
+need hg
+
+# Messages styles configuration.
+hg_config_style("tango_mot",  1, 0, 3)
+hg_config_indent("tango_mot", 0, 0, 0)
+hg_config_headers("tango_mot", "TANGO_MOT", "TANGO_MOT", "TANGO_MOT")
+hg_generate("tango_mot")
+
+global EMOTION_COMP_FUNC[]
+
+
+def bliss_get_axes(mot_name) '{
+    local  TTT[]
+    # Do not remove the following line...
+    TTT[0] = TTT[0]
+    tango_io(motor_par(mot_name, "bliss_axis_master_ds"), "GetAxisList", TTT)
+    return TTT
+}'
+
+
+def is_motor_BlissAxis(mot_num) '{
+    return ((motor_par(mot_num, "device_id") == "tango_mot") && \
+            (motor_par(mot_num, "bliss_axis_master_ds") != ""))
+}'
+
+def tango_mot_info(mot_num) '{ bliss_axis_get_infos(mot_num) }'
+def emotion_infos(mot_num)  '{ bliss_axis_get_infos(mot_num) }'
+def bliss_axis_get_infos(mot_num) '{
+    printf("========= Bliss Axis ========\n")
+    printf("mnemonic = \"%s\"\n",motor_mne(mot_num))
+    printf("num = %d\n", mot_num)
+    printf("unit = %s\n", motor_par(mot_num, "unit") )
+    printf("module = %s\n", motor_par(mot_num, "module") )
+    printf("channel = %s\n", motor_par(mot_num, "channel") )
+    printf("address = %s\n", motor_par(mot_num, "address") )
+    printf("ICE number = %s\n",  motor_par(mot_num, "module")*10 + motor_par(mot_num, "channel") )
+    printf("disable = %s\n", motor_par(mot_num, "disable") )
+    printf("responsive = %s\n", motor_par(mot_num, "responsive") )
+    printf("controller = %s\n", motor_par(mot_num, "controller") )
+    printf("device_id = %s\n", motor_par(mot_num, "device_id") )
+
+    printf("dev_name = %s\n", motor_par(mot_num, "dev_name") )
+    printf("bliss_axis_master_ds = %s\n", motor_par(mot_num, "bliss_axis_master_ds") )
+
+    printf("active = %s\n", motor_par(mot_num, "active") )
+    printf("status = %s\n", motor_par(mot_num, "status") )
+    printf("==============================\n")
+
+    # EX :
+    #8.BATEST> bliss_axis_get_infos(ba1)
+    #========= Bliss Axis ========
+    #mnemonic = "ba1"
+    #num = 1
+    #unit = 0
+    #module = 0
+    #channel = 0
+    #address = id26/BlissAxisManager/batest
+    #ICE number = 0
+    #disable = 0
+    #responsive = 1
+    #controller = PSE_MAC_MOT
+    #device_id = tango_mot
+    #dev_name = id26/BlissAxisManager_batest/ba1
+    #bliss_axis_master_ds = id26/BlissAxisManager/batest
+    #active = 0
+    #status = 192
+    #===============================
+}'
+
+# Test macro to run on a mockup configuration
+# - axis must be named "ba1"
+# - instance must be named "batest"
+def ba_test '{
+    local mot_num
+
+    mot_num = motor_num("ba1")
+
+    printf("ba_test : motor_par(mot_num, \"controller\")")
+    if (motor_par(mot_num, "controller") != "PSE_MAC_MOT")
+        print " ERROR"
+    else
+        print " OK"
+
+    printf("ba_test : motor_par(mot_num, \"tango_mot\")")
+    if (motor_par(mot_num, "device_id") != "tango_mot")
+        print " ERROR"
+    else
+        print " OK"
+
+    printf("ba_test : motor_par(mot_num, \"dev_name\")")
+    if (motor_par(mot_num, "dev_name") != "id26/BlissAxisManager_batest/ba1")
+        print " ERROR"
+    else
+        print " OK"
+
+    printf("ba_test : motor_par(mot_num, \"bliss_axis_master_ds\")")
+    if (motor_par(mot_num, "bliss_axis_master_ds") != "id26/BlissAxisManager/batest")
+        print " ERROR"
+    else
+        print " OK"
+
+    # to be completed...
+}'
+
+def bliss_get_custom_commands(mot_name) '{
+    local ccList[]  ii
+    local controller_name
+
+    tango_io(motor_par(mot_name, "dev_name"), "GetCustomCommandList", ccList)
+
+    # print ccList
+    # ccList["0"] = "["custom_get_twice", ["int", "int"]]"
+    # ccList["1"] = "["custom_get_chapi", ["str", "str"]]"
+    # ccList["2"] = "["custom_send_command", ["str", "None"]]"
+    # ccList["3"] = "["custom_command_no_types", ["None", "None"]]"
+    # ccList["4"] = "["custom_set_measured_noise", ["float", "None"]]"
+    # ccList["5"] = "["Set_Closed_Loop", ["bool", null]]"
+    # ccList["6"] = "["put_discrepancy", ["int", "None"]]"
+
+    # decorated method with types
+    # ccList["7"] = "["custom_get_forty_two", ["None", "int"]]"
+
+    # decorated method
+    # ccList["8"] = "["custom_park", [null, null]]"
+
+    controller_name = motor_par(mot_name, "bliss_controller_name")
+
+    for (ii in ccList) {
+        local _fct_name  _cmd_string   _reste  _length
+        local uuu[]   _tin  _tout
+
+        _cmd_string = ccList[ii]
+
+        # print  _cmd_string
+        # ["custom_park", [null, null]]
+        # ["custom_get_forty_two", ["None", "int"]]
+        # ["put_discrepancy", ["int", "None"]]
+        # ["Set_Closed_Loop", ["bool", "None"]]
+        # ["custom_command_no_types", ["None", "None"]]
+        # ["custom_send_command", ["str", "None"]]
+        # ["custom_get_chapi", ["str", "str"]]
+        # ["custom_get_twice", ["int", "int"]]
+
+        # ["custom_set_measured_noise", ["float", "None"]]
+
+        _length = length(_cmd_string)
+        _fct_name = substr(_cmd_string, 3, index(_cmd_string, ",")-4)
+        # _fct_name = custom_set_measured_noise
+        # print _fct_name
+
+        _fct_length = index(_cmd_string, ",")+2
+        _reste = substr(_cmd_string, _fct_length  , _length-_fct_length )
+        # print _reste
+        # ["float", "None"]
+        # [null, null]
+
+        # in and out types.
+        split(_reste, uuu, ", ")
+        if (uuu[0] == "[null") {
+            # Checks for decorated methods without parameters...
+            _tin = "None"
+        }
+        else{
+            _tin = string_remove_last_N_chars(substr(uuu[0], 3), 1)
+        }
+
+        if (uuu[1] == "null]") {
+            _tout = "None"
+        }
+        else{
+            _tout = string_remove_last_N_chars(substr(uuu[1], 2), 2)
+        }
+
+        # printf("%s(%s) --> %s \n", _fct_name, _tin, _tout)
+
+        # Check for complementary functions.
+        # Functions accessible via "motor_par(<mne>, XXX)"
+        if (_fct_name == "closed_loop"){
+            EMOTION_COMP_FUNC["closed_loop"] = 1
+        }
+        else{
+            # Not a complementary function => custom command.
+            # accessible via "bliss_custom_XXX"
+            bliss_declare_func(controller_name, _fct_name, _tin, _tout)
+        }
+    }
+}'
+
+
+# Forges SPEC functions for custom commands.
+# Functions test if controller is of the good type.
+def bliss_declare_func(controller_name, fct_name, type_in, type_out) '{
+    local _arg _ret _sign _dev _body _cmd
+
+    _arg = (type_in != "None") ? ", argin" : ""
+    _ret = (type_out != "None") ? "return " : ""
+    _sign = sprintf("%s_%s(mot_name%s)", controller_name, fct_name, _arg)
+    _dev = "motor_par(mot_name, \"dev_name\")"
+    _body = sprintf("%stango_io(%s, \"%s\"%s)", _ret, _dev, fct_name, _arg)
+    _cmd = sprintf("rdef %s \\\'{\n    %s\n}\\\'\n", _sign, _body)
+    eval(_cmd)
+}'
+
+
+#%UU% <motor_name> [<mode>]
+#%MDESC%
+#Launches atkpanel GUI on the device of motor <motor_name>. %BR% \
+#Use expert mode if <mode> is "expert".
+def econfig '{
+    local _nb_param  _device_name  _axis_name
+
+    _nb_param = $#
+
+    _axis_name = "$1"
+    _device_name = motor_par(_axis_name, "dev_name")
+
+    if (_nb_param == 2 && ("$2" == "expert")){
+        printf("Launching expert GUI for Bliss axis \"%s\" (device=\"%s\")\n", _axis_name,  _device_name)
+        _cmd = sprintf("/users/blissadm/bin/atkpanel -expert %s  >/dev/null 2>&1 &", _device_name)
+    }
+    else{
+        printf("Launching GUI for Bliss axis \"%s\" (device=\"%s\")\n", _axis_name,  _device_name)
+        _cmd = sprintf("/users/blissadm/bin/atkpanel %s  >/dev/null 2>&1 & ", _device_name)
+    }
+
+    unix(_cmd)
+}'
+
+
+#%UU% <motor_name>
+#%MDESC% \
+#    Launches atkpanel GUI in expert mode on the device of motor
+#<motor_name>.
+def eeconfig '{
+    econfig "$1" "expert"
+}'
+
+
+#%IU%
+#%MDESC% \
+#    Called on config/reconfig
+def tango_mot_config(motnum, type, unit, module, channel) '{
+    local _ctrl_ds_name _msg
+
+    _ctrl_ds_name = tango_mot_ADDR
+
+    if((motnum == "..") && (type == "ctrl")) {
+
+        # Checks controller DS field.
+        if (_ctrl_ds_name == ""){
+            tango_mot_err( "config : tango_mot_ADDR is empty ?")
+            return ".error."
+        }
+
+        # Checks that Tango DS is running, however ds_is_reponsive provokes undesired
+        # error messages, use ds_is_tango
+        if(!ds_is_tango(_ctrl_ds_name)) {
+            tango_mot_err(sprintf("%s unresponsive -> disabling motor controller.", \
+                                  _ctrl_ds_name))
+            return ".error."
+        }
+        else{
+            tango_mot_dbg(sprintf("EMotion Controller %s is responding", _ctrl_ds_name))
+        }
+
+        tango_mot_reset_motion(_ctrl_ds_name)
+
+	tango_io(_ctrl_ds_name, "ReloadConfig")
+        if (TANGO_ERR != "0"){
+            _msg = sprintf("Cmd=ReloadConfig: controller %d (%s) ", \
+                           unit, _ctrl_ds_name)
+            _tango_mot_error_desc(_msg)
+            return ".error."
+        }
+
+        return
+    }
+
+    if(type == "mot") {
+        local _mot_mne _axis_ds_name  _axis_name
+        local TTT[]
+        local spec_bk emot_bk
+        local emot_sign
+        local user_pos
+
+        _mot_mne = motor_mne(motnum)
+
+        # Always include the "in_config" internal flag
+        motor_par(motnum, "in_config", 0, "add")
+
+        # Builds axis DS name from controller DS name.
+        # ex : id26/bliss/cyrtest -> id26/bliss_cyrtest/roba
+        tango_mot_dbg(sprintf("CTRL DS NAME = %s", _ctrl_ds_name))
+
+        # Get axis name from spec config:
+        # Use "axis_name" field if present, otherwise, use motor mnemonic.
+        _axis_name = motor_par(motnum, "axis_name")
+        if (_axis_name == 0 ){
+            _axis_name = _mot_mne
+            _msg = sprintf("motor %s (no%d) : \"axis_name\" parameter is empty. Spec will use it.s mnemonic (%s)", \
+                           _mot_mne, motnum, _mot_mne )
+            tango_mot_dbg(_msg)
+            motor_par(motnum, "axis_name", _axis_name, "add")
+        }
+        else{
+            tango_mot_dbg(sprintf("axis_name in SPEC config = %s", _axis_name))
+        }
+
+        if (split(_ctrl_ds_name, TTT, "/") == 3){
+            _axis_ds_name = sprintf("%s/%s_%s/%s", TTT[0], TTT[1], TTT[2], _axis_name)
+            tango_mot_dbg(sprintf("AXIS DS NAME = %s", _axis_ds_name))
+        }
+        else{
+            tango_mot_err(sprintf("wrong Tango DS name in ADDR field ?", _ctrl_ds_name ))
+            return ".error."
+        }
+
+        # ds_is_reponsive provokes undesired error messages, use ds_is_tango
+        if (!ds_is_tango(_axis_ds_name)){
+            tango_mot_err(sprintf("Axis %s is not responding", _axis_ds_name))
+            return ".error."
+        }
+        else{
+            tango_mot_dbg(sprintf("Motor \"%s\" linked to Tango EMotion axis : %s ", \
+                                  _mot_mne, _axis_ds_name))
+        }
+
+        # Registers axis Tango DS name in parameters of the motor.
+        tango_mot_dbg(sprintf("Registering axis DS name : \"%s\"  and ctrl DS name : \"%s\" for motor \"%s\"", \
+                              _axis_ds_name, _ctrl_ds_name, _mot_mne))
+
+        # Store the BlissAxis master DS name for future refs
+        motor_par(motnum, "bliss_axis_master_ds", _ctrl_ds_name, "add")
+        motor_par(motnum, "dev_name", _axis_ds_name, "add")
+
+        # On a reconfig, restores config value of axis (no_reload=1).
+        motor_par(motnum, "apply_config", 1)
+
+        # Try to switch power on.
+        TANGO_ERR = -1
+        tango_io(_axis_ds_name, "On")
+        if ((TANGO_ERR != "0") && !_tango_mot_error_notimpl()) {
+            _tango_mot_error_desc(sprintf("Cmd=On: %s", _axis_ds_name))
+            return ".error."
+        }
+
+        # Queries Bliss DS to know the state of the axis.
+        local _state
+        _state = tango_io(_axis_ds_name, "State")
+        if (TANGO_ERR != "0"){
+            _tango_mot_error_desc(sprintf("Cmd=State: %s", _axis_ds_name))
+            return ".error."
+        }
+
+        # Disables motor if not ready.
+        if (_state != 0){
+            _msg = sprintf("Motor %s is not ready, disabling it !!!", _mot_mne)
+            tango_mot_err(_msg)
+            motor_par(motnum ,"disable", 1)
+
+            tango_mot_print_status(motnum)
+
+            return ".error."
+        }
+
+        # STEPS PER UNIT
+        # The step_size SPEC value is only used to define the
+        # granularity of the movement. We do not use it to convert
+        # movements.
+        # Read _steps_per_unit from SPEC config to be able to deal
+        # with spec units which are steps-oriented...
+        local _steps_per_unit
+        _steps_per_unit = motor_par(motnum, "step_size")
+
+        # VELOCITY / ACCELERATION
+        local _velo _velo_steps _use_spec_config
+        local _acc_time _acc_time_ms
+
+        # 2 modes for acceleration / velocity
+        # use_spec_config = 0 (default) : values are read from DS and set to
+        #                                 spec internals
+        # use_spec_config = 1 : use values from spec config and write it to DS
+        # use_spec_config can be added in optionnal motor parameters in config
+
+        _use_spec_config = motor_par(motnum, "use_spec_config")
+        tango_mot_dbg(sprintf("Use %s values for velocity/acceleration ", \
+                              _use_spec_config?"SPEC":"SERVER"))
+
+        if (_use_spec_config == 1) {
+            # Writes SPEC config values to the server.
+
+            tango_mot_msg(sprintf("Motor %s uses acc/velocity from spec config", _mot_mne))
+
+            _velo_steps = motor_par(motnum, "velocity")
+            tango_mot_dbg(sprintf("set velocity to : %g steps/s", _velo_steps))
+            if (!tango_mot_check_attr(motnum, "velocity", "w", _velo_steps)) {
+                tango_mot_err("\"velocity\" is not implemented. Disabling!")
+                motor_par(motnum ,"disable", 1)
+                return ".error."
+            }
+            tango_mot_par(motnum, "velocity", "set", _velo_steps)
+
+            _acc_time_ms = motor_par(motnum, "acceleration")
+            tango_mot_dbg(sprintf("set acceleration to : %g ms", _acc_time_ms))
+            if (!tango_mot_check_attr(motnum, "acceleration", "set", \
+                                      _acc_time_ms)) {
+                tango_mot_err("\"acceleration\" is not implemented. Disabling!")
+                motor_par(motnum ,"disable", 1)
+                return ".error."
+            }
+            tango_mot_par(motnum, "acceleration", "set", _acc_time_ms)
+
+        }
+        else if (tango_mot_check_attr(motnum, "velocity", "r")) {
+            # WE only need to set spec internals (no write to DS)
+
+            tango_mot_dbg("----------------configuring SPEC from DS values---------------")
+
+            # To inform macro func tango_mot_par to not set acc/velo
+            # to DS we use this custom [in_config] motor_par flag
+            motor_par(motnum, "in_config", 1)
+
+            # Reads "velocity" from server and set SPEC internal
+            # "velocity" (different from "config_velocity").
+            _velo = tango_mot_get_attr(motnum, "velocity")
+            _velo_steps = _velo * _steps_per_unit
+            tango_mot_dbg(sprintf("DS velocity=%g  SSS=%g _velo_steps=%g ", \
+                                  _velo, _steps_per_unit, _velo_steps))
+            motor_par(motnum, "velocity", _velo_steps)
+
+            # Reads "acctime" from server and sets spec internal
+            # "acceleration" value.
+            _acc_time = tango_mot_get_attr(motnum, "acctime")
+            _acc_time_ms = _acc_time * 1000
+            tango_mot_dbg(sprintf("DS acc_time=%g  _acc_time_ms=%g ", _acc_time, _acc_time_ms))
+            motor_par(motnum, "acceleration", _acc_time_ms)
+
+            # Reset custom [in_config] flag, so motor_par set by user
+            # works fine.
+            motor_par(motnum, "in_config", 0)
+        }
+
+        # Handles the specific case of the backlash which can not be
+        # set in EMotion from Spec. Therefore the flag use_spec_config
+        # can not be used neither.
+        spec_bk = motor_par(motnum, "backlash")
+        emot_bk = tango_mot_get_attr(motnum, "backlash")
+        if((emot_bk != 0) && (spec_bk != 0)) {
+            _msg = sprintf("Motor %s has backlash in Spec AND in EMotion, disabling it!!!", _mot_mne)
+            tango_mot_err(_msg)
+            motor_par(motnum ,"disable", 1)
+            return ".error."
+        }
+
+        # Handle sign & offset
+
+        emot_sign = tango_mot_get_attr(motnum, "Sign")
+        if (emot_sign != motor_par(motnum, "sign")) {
+            _msg = sprintf("Motor %s has different sign in Spec AND in EMotion, disabling it!!!", _mot_mne)
+            tango_mot_err(_msg)
+            motor_par(motnum ,"disable", 1)
+            return ".error."
+        }
+
+        user_pos = tango_mot_get_attr(motnum, "Position")
+        motor_par(motnum, "in_config", 1)
+        if (chg_offset(motnum, user_pos) < 0)
+            printf("chg_offset(%s, %s) failed\n", _mot_mne, user_pos)
+        motor_par(motnum, "in_config", 0)
+    }
+
+}'
+
+
+#%IU% (motnum, key, action, p1, p2)
+#%MDESC% \
+#    The hmacmot_par function is called when various motor parameters are set   %BR% \
+# and when the motor_par() function is used to retrieve a user-defined          %BR% \
+# parameter. \
+#%DL% \
+#%UL% \
+#%LI%<motnum> : motor number     \
+#%LI%<key>    : parameter name   \
+#%LI%<action> : "set" / "get"    \
+#%LI%<p1>     :    \
+#%LI%<p2>     :    \
+#%XUL%
+def tango_mot_par(motnum, key, action, p1, p2) '{
+    local _mot_mne
+    local _msg
+    local _axis_ds_name
+    local _bliss_controller
+
+    if (key == "dev_name")
+        return
+
+    _msg = sprintf ("---tango_mot_par(motnum=%s key=\"%s\", action=\"%s\", p1=\"%s\", p2=\"%s\")", \
+                    motnum, key, action, p1, p2)
+    tango_mot_dbg(_msg)
+
+    # Returns the list of non standard motor parameters implemented.
+    # !!! :   motor_par("svg", "?")   will not show nerw parameters.
+    #       p motor_par("svg", "?")   will do.
+    if ( key == "?" && action == "get") {
+        return("dev_name, bliss_controller_name, power, axisstatus, apply_config, settings_to_config, closed_loop")
+    }
+
+    _mot_mne = motor_mne(motnum)
+    _axis_ds_name = motor_par(motnum, "dev_name")
+
+    if (key == "bliss_controller_name") {
+        _bliss_controller = tango_io(_axis_ds_name, "GetControllerClassName")
+        return (_bliss_controller)
+    }
+
+    # Control motor power
+    if (key == "power") {
+        local _state _cmd
+
+        if (action == "set") {
+            # Try to switch power on or off according to argin given
+            _cmd = (p1==1 ? "On" : "Off")
+            TANGO_ERR = -1
+            tango_io(_axis_ds_name, _cmd)
+            if (TANGO_ERR != "0"){
+                _tango_mot_error_desc(sprintf("Cmd=%s: %s", _cmd, \
+                                                            _axis_ds_name))
+                exit
+            }
+        }
+
+        # In any case, returns the current state (0 == ON)
+        _state = tango_io(_axis_ds_name, "State")
+        return (_state == 0)
+    }
+
+    if (key == "apply_config") {
+        local _state _cmd
+
+        # motor_par(mne, "apply_config", no_reload=0)
+        if (action == "set") {
+            local do_reload
+            do_reload = !p1
+            _cmd = "ApplyConfig"
+            TANGO_ERR = -1
+            tango_io(_axis_ds_name, _cmd, do_reload)
+            if (TANGO_ERR != "0"){
+                _tango_mot_error_desc(sprintf("Cmd=%s: %s", _cmd, \
+                                                            _axis_ds_name))
+                exit
+            }
+	}
+
+        # in any case, returns the current state (0 == ON)
+        _state = tango_io(_axis_ds_name, "State")
+        return (_state == 0)
+    }
+
+    if (key == "settings_to_config") {
+        local _state _cmd
+
+        _cmd = "SettingsToConfig"
+        TANGO_ERR = -1
+        tango_io(_axis_ds_name, _cmd)
+        if (TANGO_ERR != "0"){
+            _tango_mot_error_desc(sprintf("Cmd=%s: %s", _cmd, _axis_ds_name))
+            exit
+        }
+
+        # in any case, returns the current state (0 == ON)
+        _state = tango_io(_axis_ds_name, "State")
+        return (_state == 0)
+    }
+
+    if (key == "closed_loop"){
+        local _cl_state
+
+        if (action == "set"){
+            print "not yet implemented..."
+        }
+
+        _cl_state = tango_io(_axis_ds_name, "closed_loop")
+        return (_cl_state)
+    }
+
+
+    if (key == "offset"){
+        local curr_offset
+
+        curr_offset = tango_mot_get_attr(motnum, "Offset")
+        if ((action == "set") && (p1 != curr_offset) && \
+            !motor_par(motnum, "in_config")) {
+            tango_mot_set_attr(motnum, "Offset", p1)
+        } else {
+            tango_mot_dbg("motor_par: getting the offset!")
+        }
+        return curr_offset
+    }
+
+    if (key == "limits") {
+        if (action == "set") {
+       	    local sw_limit[] curr_offset offset_diff _msg
+
+	    curr_offset = tango_mot_get_attr(motnum, "Offset")
+            offset_diff = fabs(curr_offset - motor_par(motnum, "offset"))
+            if (offset_diff > fabs(1.5/motor_par(motnum, "step_size"))) {
+                _msg = sprintf("%g discrepancy with TANGO on %s offset", \
+                               offset_diff, _mot_mne)
+                printf("\nError: %s. Please do reconfig!\n", _msg)
+		return -1
+            }
+
+	    sw_limit[0] = user(motnum, p1)
+	    sw_limit[1] = user(motnum, p2)
+	    tango_put(_axis_ds_name, "limits", sw_limit)
+        }
+    }
+
+    if (action == "get") {
+        if ( key == "axisstatus"){
+            return (tango_mot_status(motnum))
+        }
+        else {
+            # Other keys can be used by SPEC.
+        }
+    }
+    else if (action == "set"){
+
+        if (key == "acceleration"){
+            # Writes both Acceleration AND Acceleration time ...
+
+            if (motor_par(motnum, "in_config") == 1) {
+                tango_mot_dbg("set acc_time and acceleration : no write to DS while in_config")
+                return
+            }
+            else{
+                tango_mot_dbg("set SPEC acceleration (ms) to DS acceleration (uu/s2)")
+
+                local _acc  _attr _acc_time  _acc_time_ms  _velocity
+
+                # re-read "velocity" from DS
+                _velocity = tango_mot_get_attr(motnum, "velocity")
+
+                _attr =  "acceleration"
+                _acc_time_ms  = p1
+                _acc_time = _acc_time_ms / 1000
+
+                if (_acc_time == 0){
+                    tango_mot_err("_acc_time ==0")
+                }
+                else{
+                    _acc = _velocity / _acc_time
+                }
+
+                # Writes "acceleration" in DS
+                tango_mot_dbg(sprintf("_velocity=%g  _acc_time=%g  _acc=%g ", _velocity, _acc_time, _acc))
+                tango_mot_set_attr(motnum, "acceleration", _acc)
+
+                # Writes "acctime" in DS
+                tango_mot_dbg("set SPEC acceleration (ms) to DS acc_time (s)")
+                tango_mot_set_attr(motnum, "acctime", _acc_time)
+            }
+        }
+        else if (key == "slew_rate" || key == "velocity") {
+
+            if (motor_par(motnum, "in_config") == 1) {
+                tango_mot_dbg("set velocity : no write to DS while in_config")
+                return
+            }
+            else{
+
+                tango_mot_dbg("set SPEC velocity (steps/s) to DS velocity (uu/s)")
+
+                local _attr  _velocity_in_steps  _steps_per_unit  _velo
+
+                _attr =  "velocity"
+                _velocity_in_steps  = p1
+                _steps_per_unit = motor_par(motnum, "step_size")
+
+                if (_steps_per_unit == 0){
+                    tango_mot_err("_steps_per_unit == 0")
+                }
+                else{
+                    _velo = _velocity_in_steps / fabs(_steps_per_unit)
+                }
+
+                # Writes "velocity" into ds.
+                tango_mot_dbg(sprintf("_velocity_in_steps=%g  _steps_per_unit=%g  _velo=%g", \
+                                      _velocity_in_steps, _steps_per_unit, _velo))
+                tango_mot_set_attr(motnum, "velocity", _velo)
+            }
+        }
+    }
+    else{
+        tango_mot_dbg(sprintf ("tango_mot_par()--action \"%s\" is not recognized. (key=%s) ", action, key))
+    }
+
+    return(0)
+}'
+
+
+#%IU%
+#%MDESC%
+#    debug 128 can help here.
+def tango_mot_cmd(motnum, cmd, p1, p2) '{
+
+    local _mot_mne _dev _attr _step_size _steps _cmd _ctrl_dev
+    local _msg
+    _ctrl_dev = tango_mot_ADDR
+
+    tango_mot_dbg(sprintf ("tango_mot_cmd(motnum=%s cmd=%s p1=%s p2=%s)", motnum, cmd, p1, p2))
+
+    if(motnum == ".."){
+        # <cmd> command applying to all motors.
+
+        #-------------------------------------
+        # "prestart_all"
+        if (cmd == "prestart_all")
+            tango_mot_reset_motion(_ctrl_dev)
+
+        #-------------------------------------
+        # "start_all"
+        if (cmd == "start_all")
+            tango_mot_start_motion(_ctrl_dev)
+
+        #-------------------------------------
+        # "abort_all"
+        if (cmd == "abort_all")
+            tango_mot_abort_motion(_ctrl_dev)
+    }
+    else{
+        # <cmd> command applies to individual motor.
+
+        _mot_mne = motor_mne(motnum)
+        _dev = motor_par(motnum, "dev_name")
+        if (_dev == 1){
+            # on a fresh start, "_dev" can be badly defined...
+            # I do not know why but this is a workaround.
+            if (split(_ctrl_dev, TTT, "/") == 3){
+                _dev = sprintf("%s/%s_%s/%s", TTT[0], TTT[1], TTT[2], _mot_mne)
+                tango_mot_dbg(sprintf("_DEV = %s", _dev))
+            }
+            else{
+                tango_mot_err(sprintf("wrong Tango DS name in ADDR field ?", _ctrl_dev ))
+                return ".error."
+            }
+        }
+
+        # "position" must return dial position in prefered units( ex :
+        # deg, mm, um)
+        # parameters: none
+        if (cmd == "position") {
+            local _pos _offset _diff
+
+            _attr =  "position"
+            _attr2 = "offset"
+            tango_get(_dev, _attr, _pos, _attr2, _offset)
+            if (TANGO_ERR != "0"){
+                _tango_mot_error_desc(sprintf("GetAttr=[%s,%s]: %s", \
+                                              _attr, _attr2, _dev))
+                exit
+            }
+	    _diff = fabs(_offset - motor_par(motnum, "offset"))
+	    if ((_diff > fabs(1.5/motor_par(motnum, "step_size"))) && \
+                !motor_par(motnum, "in_config")) {
+                _msg = sprintf("%g discrepancy with TANGO on %s offset", \
+                               _diff, _mot_mne)
+                printf("\nWarning: %s. Please do reconfig!\n", _msg)
+            }
+            _pos -= _offset
+            _pos /= motor_par(motnum, "sign")
+
+            _step_size = motor_par(motnum, "step_size")
+            _steps = _pos * _step_size
+            tango_mot_dbg(sprintf( "cmd=position mot=%s pos=%s  ss=%s steps=%s", _mot_mne, _pos , _step_size, _steps))
+
+            return (_pos)
+        }
+
+        # "get_status" called during the motion, must return a bit mask
+        # bits meaning: 0 if motor idle
+        #               2 if motor moving
+        #               4 if negative limit on
+        #               8 if positive limit on
+        if (cmd == "get_status"){
+            local _state  _ret  _cmd
+
+            tango_mot_check_motion(_ctrl_dev)
+
+            _ret = 0
+            if(tango_mot_get_attr(motnum, "HardLimitHigh")) {
+                _ret |= 8
+            }
+            if(tango_mot_get_attr(motnum, "HardLimitLow")) {
+                _ret |= 4
+            }
+
+            _cmd = "State"
+            _state = tango_io(_dev, _cmd)
+            if (TANGO_ERR != "0"){
+                _tango_mot_error_desc(sprintf("Cmd=%s: %s", _cmd, _dev))
+                exit
+            }
+
+            tango_mot_dbg(sprintf( "tango_mot_cmd get_status State=%s  (%s)" , _state, tango_state_to_str(_state)))
+
+            # tango_state : -1   "FAULT"
+            # tango_state : 0    "ON"
+            # tango_state : 1    "OFF"
+            # tango_state : 2    "CLOSED"  (or CLOSE?)
+            # tango_state : 3    "OPEN"
+            # tango_state : 4    "INSERT"
+            # tango_state : 5    "EXTRACT"
+            # tango_state : 6    "MOVING"
+            # tango_state : 7    "STANDBY"
+            # tango_state : 8    "FAULT"
+            # tango_state : 9    "INIT"
+            # tango_state : 10   "RUNNING"
+            # tango_state : 11   "ALARM"
+            # tango_state : 12   "DISABLED" (or DISABLE?)
+            # tango_state : 13   "UNKNOWN"
+
+            # MOVING
+            if (_state == 6) {
+                _ret |= 2
+            }
+
+            return _ret
+        }
+
+        #-------------------------------------
+        # "start_one"
+        # parameters: p2 is relative motion, p1 is absolute requested position
+        if (cmd == "start_one"){
+            tango_mot_add_motion(_ctrl_dev, motnum, p1)
+        }
+
+        #-------------------------------------
+        # "set_position" called on "set_dial motor newpos"
+        # parameters: p1 is the new position in user units
+        #
+        if (cmd == "set_position") {
+            tango_mot_dbg(sprintf("new dial position in user units: %g", p1))
+            _cmd = "SetDial"
+            TANGO_ERR = -1
+            tango_io(_dev, _cmd, p1)
+            if (TANGO_ERR != "0"){
+                _tango_mot_error_desc(sprintf("Cmd=%s: %s", _cmd, _dev))
+                exit
+            }
+        }
+
+        # "abort_one" called on <Ctrl-C>
+        if ((cmd == "abort_one") && \
+            !tango_mot_concerns_motion(_ctrl_dev, motnum)) {
+            _cmd = "Abort"
+            tango_io(_dev, _cmd)
+            if (TANGO_ERR != "0"){
+                _tango_mot_error_desc(sprintf("Cmd=%s: %s", _cmd, _dev))
+                exit
+            }
+        }
+
+#        chg_dial(i, s [, u]) - Starts motor i on a home or limit search, according to the value of s, as follows:
+#
+#          "home+" - move to home switch in positive direction.
+#          "home-" - move to home switch in negative direction.
+#          "home" - move to home switch in positive direction if current dial position is less than zero, otherwise move to home
+#               switch in negative direction.
+#          "lim+" - move to limit switch in positive direction.
+#          "lim-" - move to limit switch in negative direction.
+
+        # home
+        if (cmd == "search"){
+            local action
+
+            if(p1 == "lim+") {
+                action = "SRCH" ; lim = "LIM+"
+                printf("not yet implemented\n")
+            }
+            else if(p1 == "lim-") {
+                action = "SRCH" ; lim = "LIM-"
+                printf("not yet implemented\n")
+            }
+            else if(p1 == "lim+edge") {
+                action = "SRCH" ; lim = "LIM+"
+                printf("not yet implemented\n")
+            }
+            else if(p1 == "lim-edge") {
+                action = "SRCH" ; lim = "LIM-"
+                printf("not yet implemented\n")
+            }
+            else if(p1 == "home") {
+                # humm : must do : << move to home switch in positive
+                # direction if current dial position is less than
+                # zero, otherwise move to home switch in negative
+                # direction >>
+                _cmd = "GoHome"
+                printf("GoHome 1 \n")
+                tango_io(_dev, _cmd, 1)
+            }
+            else if(p1 == "home+") {
+                _cmd = "GoHome"
+                printf("GoHome 1 \n")
+                tango_io(_dev, _cmd, 1)
+            }
+            else if(p1 == "home-") {
+                _cmd = "GoHome"
+                printf("GoHome -1 \n")
+                tango_io(_dev, _cmd, -1)
+            }
+            else {
+                printf("un-supported home or limit search\n")
+                return ".error."
+            }
+        }
+
+        # slew_rate (p1=rate in Hz)
+        if (cmd == "slew_rate" || cmd == "velocity") {
+          if (motor_par(motnum, "in_config") == 1) {
+            tango_mot_dbg("set velocity : no write to DS while in_config")
+            return
+          } else {
+            tango_mot_dbg("set SPEC velocity (steps/s) to DS velocity (uu/s)")
+
+             local _attr  _velocity_in_steps  _steps_per_unit  _velo
+
+             _attr =  "velocity"
+             _velocity_in_steps  = p1
+             _steps_per_unit = motor_par(motnum, "step_size")
+
+             if (_steps_per_unit == 0) {
+               tango_mot_err("_steps_per_unit == 0")
+             } else {
+               _velo = _velocity_in_steps / fabs(_steps_per_unit)
+             }
+
+             # Writes "velocity" into ds.
+	     _msg = sprintf("_vel_in_steps=%g  _steps_per_unit=%g  _velo=%g", \
+	                    _velocity_in_steps, _steps_per_unit, _velo)
+             tango_mot_dbg(_msg)
+             tango_mot_set_attr(motnum, "velocity", _velo)
+          }
+        }
+
+        if (cmd == "test_error") {
+            _cmd = "generate_error"
+            tango_io(_dev, _cmd)
+
+            if (TANGO_ERR != "0"){
+                _tango_mot_error_desc(sprintf("Error in : tango_io(\"%s\", \"%s\")",  _dev , _cmd ))
+                exit
+            }
+
+        }
+    }
+}'
+
+
+#%IU% (<ctrl_dev>)
+#%MDESC%
+#    Reset (prepare) the motion on a ctrl device
+def tango_mot_reset_motion(ctrl_dev) '{
+    global TANGO_MOT_CTRL[]
+    TANGO_MOT_CTRL[ctrl_dev]["grpmotion"] = ""
+    TANGO_MOT_CTRL[ctrl_dev]["grpid"] = ""
+}'
+
+#%IU% (<ctrl_dev>, <motnum>, <pos>)
+#%MDESC%
+#    Add a motion to the specified ctrl device
+def tango_mot_add_motion(ctrl_dev, motnum, pos) '{
+    local motion axis_name mot_mne sep pos_str
+
+    motion = TANGO_MOT_CTRL[ctrl_dev]["grpmotion"]
+    mot_mne = motor_mne(motnum)
+    axis_name = motor_par(motnum, "axis_name")
+    sep = (length(motion) > 0) ? "," : ""
+    pos_str = sprintf("%.20g", user(motnum, pos))
+    motion = sprintf("%s%s%s:%s:%s", motion, sep, mot_mne, axis_name, pos_str)
+    TANGO_MOT_CTRL[ctrl_dev]["grpmotion"] = motion
+}'
+
+#%IU% (<ctrl_dev>, <motnum>)
+#%MDESC%
+#    Check if motion includes motor
+def tango_mot_concerns_motion(ctrl_dev, motnum) '{
+    local motion nb_mot grptok[] mottok[] i
+
+    motion = TANGO_MOT_CTRL[ctrl_dev]["grpmotion"]
+    nb_mot = split(motion, grptok, ",")
+    for (i = 0; i < nb_mot; i++) {
+        split(grptok[i], mottok, ":")
+        if (motor_num(mottok[0]) == motnum)
+            return 1
+    }
+
+    return 0
+}'
+
+#%IU% (<ctrl_dev>)
+#%MDESC%
+#    Start a motion on the specified ctrl device
+def tango_mot_start_motion(ctrl_dev) '{
+    local motion nb_mot grptok[] mottok[] arr_mot[] arr_in[] i j ret
+
+    motion = TANGO_MOT_CTRL[ctrl_dev]["grpmotion"]
+    nb_mot = split(motion, grptok, ",")
+    if (nb_mot == 0)
+        return
+
+    for (i = j = 0; i < nb_mot; i++) {
+        split(grptok[i], mottok, ":")
+        arr_mot[i] = mottok[0]
+        arr_in[j++] = mottok[1]
+        arr_in[j++] = mottok[2]
+    }
+
+    TANGO_ERR = -1
+    ret = tango_io(ctrl_dev, "GroupMove", arr_in)
+    if (TANGO_ERR != "0") {
+        local _msg axis_name
+        _msg = sprintf("Cmd=GroupMove: %s: ", ctrl_dev)
+        for (i = 0; i < nb_mot; i++) {
+            _msg = sprintf("%s%s%s", _msg, i ? "," : "", arr_mot[i])
+            axis_name = arr_in[i * 2]
+            if (axis_name != arr_mot[i])
+                _msg = sprintf("%s(%s)", _msg, axis_name)
+        }
+        _tango_mot_error_desc(_msg)
+        for (i = 0; i < nb_mot; i++)
+            tango_mot_print_status(motor_num(arr_mot[i]))
+        exit
+    }
+
+    TANGO_MOT_CTRL[ctrl_dev]["grpid"] = ret
+}'
+
+#%IU% (<ctrl_dev>)
+#%MDESC%
+#    Poll motion state and record if it is finished
+def tango_mot_check_motion(ctrl_dev) '{
+    local motionid arr_out[] ret
+
+    motionid = TANGO_MOT_CTRL[ctrl_dev]["grpid"]
+    if (!motionid)
+        return
+
+    TANGO_ERR = -1
+    ret = tango_io(ctrl_dev, "GroupState", motionid, arr_out)
+    if (TANGO_ERR != "0") {
+        local _msg
+        _msg = sprintf("Cmd=GroupState: %s: ", ctrl_dev)
+        _tango_mot_error_desc(sprintf("%s: %s", _msg, motionid))
+    } else if (ret == 0) {
+        tango_mot_reset_motion(ctrl_dev)
+    }
+}'
+
+#%IU% (<ctrl_dev>)
+#%MDESC%
+#    Abort motion
+def tango_mot_abort_motion(ctrl_dev) '{
+    local motionid ret
+
+    motionid = TANGO_MOT_CTRL[ctrl_dev]["grpid"]
+    if (!motionid)
+        return
+
+    TANGO_ERR = -1
+    ret = tango_io(ctrl_dev, "GroupAbort", motionid)
+    if (TANGO_ERR != "0") {
+        local _msg
+        _msg = sprintf("Cmd=GroupAbort: %s: ", ctrl_dev)
+        _tango_mot_error_desc(sprintf("%s: %s", _msg, motionid))
+    }
+}'
+
+#%IU% (<motnum>)
+#%MDESC%
+#    Prettier print of status.
+def tango_mot_print_status(motnum) '{
+    local ii  TTT[]  UUU[]
+
+    split(tango_mot_status(motnum), TTT, "\n")
+
+    UUU = ass_arr_reverse(TTT)
+    for (ii in UUU){
+        tango_mot_msg(UUU[ii])
+    }
+}'
+
+
+#%IU% (<motnum>)
+#%MDESC%
+#    Returns status string(s) for motor <motnum>
+# Possibly many status -> many lines.
+def tango_mot_status(motnum) '{
+    local _status tt[] ii
+    local _axis_ds_name
+    local _mot_mne
+
+    _mot_mne = motor_mne(motnum)
+    _axis_ds_name = motor_par(motnum, "dev_name")
+    _status = tango_io(_axis_ds_name, "Status")
+    split(_status, tt, " | ")
+    _msg = sprintf("Current motor %s status:\n", _mot_mne)
+
+    for(ii in tt) {
+        _msg = sprintf("%s\t%s\n", _msg, tt[ii])
+    }
+
+    return(_msg)
+}'
+
+
+######################################################################
+#####################                            #####################
+#####################   TANGO ATTRIBUTES ACCESS  #####################
+#####################                            #####################
+######################################################################
+
+# Macros to read/write Tango attributes with tango errror management.
+
+def tango_mot_get_attr(motnum, attr_name) '{
+    local _attr_val _dev _mot_mne
+    _dev = motor_par (motnum, "dev_name")
+    _mot_mne = motor_mne(motnum)
+
+    _attr_val = tango_get(_dev, attr_name)
+    if (TANGO_ERR != "0"){
+        _tango_mot_error_desc(sprintf("GetAttr=%s: %s", attr_name, _dev))
+        exit
+    }
+    return _attr_val
+}'
+
+def tango_mot_set_attr(motnum, attr_name, attr_value) '{
+    local _dev _mot_mne
+    _dev = motor_par (motnum, "dev_name")
+    _mot_mne = motor_mne(motnum)
+
+    tango_put(_dev, attr_name, attr_value)
+    if (TANGO_ERR != "0"){
+        _tango_mot_error_desc(sprintf("SetAttr=%s: %s", attr_name, _dev))
+        exit
+    }
+}'
+
+def tango_mot_check_attr(motnum, attr_name, access, attr_value) '{
+    local _dev
+    _dev = motor_par (motnum, "dev_name")
+
+    TANGO_ERR = -1
+    if (index(access, "r") > 0) {
+        attr_value = tango_get(_dev, attr_name)
+        if ((TANGO_ERR != "0") && _tango_mot_error_notimpl())
+            return 0
+    }
+    if (index(access, "w") > 0) {
+        tango_put(_dev, attr_name, attr_value)
+        if ((TANGO_ERR != "0") && _tango_mot_error_notimpl())
+            return 0
+    }
+    return 1
+}'
+
+def _tango_mot_error_stack(motmne, devname, attr_cmd) '{
+    tty_cntl("md")
+    print "\n TANGO_MOT_ERROR " motmne " " devname  "/"  attr_cmd
+    printf ("TANGO_ERR_MSG = \"%s\" \n\n", TANGO_ERR)
+    print TANGO_ERR_STACK
+    tty_cntl("me")
+}'
+
+def _tango_mot_error_desc(msg) '{
+    # Prints <msg> message.
+    # Prints only "desc" field of the TANGO_ERR_STACK
+    # other fields are too useless for users
+
+# MP: the exception error stack is not (yet) returned by TANGO API
+
+    # Stack example:
+    # TANGO_ERR_STACK["0"]["desc"] = "Failed to execute DeviceProxy::write_attributes on
+    #                                 device id26/bliss_cyrtest/ra, object(s) position"
+    # TANGO_ERR_STACK["0"]["origin"] = "DeviceProxy::write_attributes"
+    # TANGO_ERR_STACK["0"]["reason"] = "API_AttributeFailed"
+    # TANGO_ERR_STACK["0"]["severity"] = 1
+
+    tango_mot_msg(msg)
+    for (item in TANGO_ERR_STACK) {
+        if (index(item, "desc")) {
+            tango_mot_msg(TANGO_ERR_STACK[item])
+        }
+    }
+}'
+
+def _tango_mot_error_notimpl() '{
+    return (index(TANGO_ERR_STACK[0]["desc"], "NotImplementedError") > 0)
+}'
+
+
+
+# 489.CYRIL> p motor_par(rup, "?")
+# disable, unit, module, channel,
+# responsive, controller, device_id
+# active, status, step_size, sign, offset, writable,
+# high_lim_set, low_lim_set,
+# acceleration, velocity|slew_rate, base_rate, backlash,
+# powder_base, powder_slew, powder_acceleration,
+# config_step_size, config_backlash, config_acceleration,
+# config_base_rate, config_velocity|config_slew_rate
+# dev_name, power, axisstatus, apply_config, settings_to_config, closed_loop
+
+# 490.CYRIL>  p motor_par(rup, "unit")
+# 2
+# 491.CYRIL> print motor_par(rup, "unit")
+# 2
+# 492.CYRIL> print motor_par(rup, "module")
+# 0
+# 493.CYRIL> print motor_par(rup, "channel")
+# 2
+# 494.CYRIL> print motor_par(rup, "responsive")
+# 1
+# 495.CYRIL> print motor_par(rup, "controller")
+# PSE_MAC_MOT
+# 496.CYRIL> print motor_par(rup, "device_id")
+# tango_mot
+# 497.CYRIL> print motor_par(rup, "dev_name")
+# id26/blissaxismanager_cyrtest/rup
+
+
+
+
+
+
+
+
+#%MACROS%
+#%IMACROS%
+#%AUTHOR%  Cyril Guilloud - BLISS - 2014-2015
+

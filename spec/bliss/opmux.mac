@@ -1,0 +1,281 @@
+
+#%TITLE% opmux.mac
+#%NAME%
+#  
+#%CATEGORY%
+#%DESCRIPTION%
+#  
+#%EXAMPLE%
+#%DL%
+#%DT%XXXsetup%DD%
+#%SETUP%
+#%UL%
+#%LI% 
+#%XUL%
+
+need spec_utils
+
+#%IU% <tangourl>
+#%MDESC%
+# Basic setup
+#
+def opmuxsetup '{
+  local _err_msg
+
+  if($# < 1)
+  {
+   print "Usage: $0 <TANGO_URL>\n"
+   exit
+  }
+
+  global OPMUX_SERVER_URL
+  OPMUX_SERVER_URL = "$1"
+
+  if (!opmux_aware())
+  {
+    _err_msg = sprintf("OPIOM multiplexer device server \"%s\" is not responding.\n", OPMUX_SERVER_URL)
+    cprint_red(_err_msg)
+  }
+}'
+
+#%IU% <parma>
+#%MDESC%
+#    Returns 1 if device server OPMUX_SERVER_URL is responding.
+# Test could be more clever and call a status command if it exists...
+def opmux_aware() '{
+    return ds_is_responsive(OPMUX_SERVER_URL)
+}'
+
+#%IU% [<output name> [<output val>]]
+#%MDESC%
+#    Switches <output name> output to value <output val>.
+# If no <output name> is provided, prints possible values.
+# If no <output val> is provided, prints possible values.
+def opmuxset '{
+  if($# == 0)
+  {
+    _opmux_printlist();
+  }
+  else if($# == 1)
+  {
+    _opmux_printpossiblelist("$1")
+  }
+  else
+  {
+    _opmux_set("$1","$2")
+  }
+}'
+
+
+#%IU% (output name)
+#%MDESC%
+# get the output stat
+#
+def opmuxget '{
+  if($# == 0)
+  {
+    _opmux_printlist()
+  }
+  else
+  {
+   print _opmux_get("$1")
+  }
+}'
+
+
+#%IU% (output name)
+#%MDESC%
+# Displays a menu to :
+# -select state of the various outputs of the multiplexer.
+# -save/load a state.
+# -remove a saved state.
+def opmuxmenu '{
+  local option nl output_status[] nbResult i
+  option = 1
+  while((option != "quit") && (option != "q"))
+  {
+    tty_cntl("cl")
+    nl = 0
+    tty_move(0, nl++, "Multiplexer Status:")
+    nl++
+    tty_cntl("so")
+    tty_cntl("md")
+    tty_move(4, nl, "Output name")
+    tty_move(32, nl++, "Output status")
+    tty_cntl("se")
+    tty_cntl("me")
+
+    nbResult = tango_get(OPMUX_SERVER_URL, "outputs_status", output_status)
+    for(i = 0;i < nbResult;i += 2)
+    {
+      tty_move(0, nl, sprintf("%d)", i / 2))
+      tty_move(4, nl, output_status[i])
+      tty_move(32, nl++, output_status[i+1])
+    }
+    ++nl
+    tty_move(0, nl++, "a) Save current state")
+    tty_move(0, nl++, "b) Restore a saved state")
+    tty_move(0, nl++, "c) Remove a saved state")
+
+    option= getval("\n\n\tSwitch outputs  ---> ", "[q]uit")
+    if((option != "quit") && (option != "q"))
+    {
+      if(option == "a")
+      {
+        nbResult = tango_io(OPMUX_SERVER_URL, "getSavedStats", output_status)
+        printf("Already saved states :\n")
+        for (i = 0;i < nbResult;++i)
+          printf("* %s\n", output_status[i])
+
+	      option = getval("\nWhat\'s the name of this state?", "default")
+	      tango_io(OPMUX_SERVER_URL, "storeCurrentStat", option)
+      }
+      else if(option == "b" || option == "c")
+      {
+	      nbResult = tango_io(OPMUX_SERVER_URL, "getSavedStats", output_status)
+	      if(!nbResult)
+	      {
+	       tty_cntl("cl")
+	       tty_move(0, 0, "No stat was saved!")
+	       getval("")
+	      }
+	      else
+	      {
+	        if(nbResult == 1)
+	        {
+	          if(option == "b")
+	            tango_io(OPMUX_SERVER_URL, "restoreStat", output_status[0])
+	          else
+	            tango_io(OPMUX_SERVER_URL, "removeSavedStat", output_status[0])
+	        }
+	        else
+	        {
+	          local suboption
+	          nl = nl + 2
+	          if(option == "b")
+	            tty_move(0, nl++, "Restore stat:")
+	          else
+	            tty_move(0, nl++, "Remove stat:")
+
+            for(i = 0;i < nbResult;++i)
+	          {
+	            tty_move(0, nl, sprintf("%d)", i))
+	            tty_move(4, nl++, output_status[i])
+	          }
+	          suboption = getval("\n\n\tOption ---> ","do nothing")
+	          if(suboption != "do nothing")
+	         {
+	          optionVal = int(suboption)
+	          if(optionVal >= 0 && optionVal < nbResult)
+	          {
+	            if(option == "b")
+	              tango_io(OPMUX_SERVER_URL, "restoreStat", output_status[optionVal])
+	            else
+	              tango_io(OPMUX_SERVER_URL, "removeSavedStat", output_status[optionVal])
+	          }
+	         }
+	        }
+	      }
+      }
+      else if(is_number(option))
+      {
+	local optionVal
+	optionVal = int(option)
+	if(optionVal < nbResult / 2 && optionVal >= 0)
+	{
+	  local output_name
+	  output_name = output_status[optionVal * 2]
+	  nbResult = tango_io(OPMUX_SERVER_URL, "getPossibleOutputValues", output_name, output_status)
+	  if(nbResult == 2)
+	  {
+	    local currentOutputStatus
+	    currentOutputStatus = tango_io(OPMUX_SERVER_URL, "getOutputStat", output_name)
+	    for(i = 0;i < nbResult;++i)
+	    {
+	     if(output_status[i] != currentOutputStatus)
+	     {
+	       local switchArr[]
+	       switchArr[0] = output_name
+	       switchArr[1] = output_status[i]
+	       tango_io(OPMUX_SERVER_URL, "switch", switchArr)
+	       break
+	     }
+	   }
+	  }
+	  else
+	  {
+	    tty_cntl("cl")
+	    nl = 0
+	    tty_move(0, nl++, sprintf("Switch output %s to :", output_name))
+	    ++nl
+	    for(i = 0;i < nbResult;++i)
+	    {
+	      tty_move(0, nl, sprintf("%d)", i))
+	      tty_move(4, nl++, output_status[i])
+	    }
+	    option = getval("\n\n\tOption ---> ", "don\'t switch")
+	    if(option != "don\'t switch")
+	    {
+	      optionVal = int(option)
+	      if(optionVal < nbResult && optionVal >= 0)
+	      {
+		      local switchArr[]
+		      switchArr[0] = output_name
+		      switchArr[1] = output_status[optionVal]
+		      tango_io(OPMUX_SERVER_URL, "switch", switchArr)
+	      }
+	    }
+	  }
+	}
+      }
+      else
+      {
+          print "no comprendo"
+      }
+    }
+  }
+}'
+
+
+#%IU% ()
+#%MDESC%
+#    Prints on screen list of multiplexer outputs.
+def _opmux_printlist() '{
+  local tmpArray[], nbVal, i
+  nbVal = tango_get(OPMUX_SERVER_URL, "outputs", tmpArray)
+  for(i = 0 ; i < nbVal ; ++i)
+  {
+    print tmpArray[i]
+  }
+}'
+
+
+#%IU% (<output>)
+#%MDESC%
+#    
+# <output> : Returns the current output state of <output> output.
+def _opmux_get(output) '{
+  return tango_io(OPMUX_SERVER_URL, "getOutputStat", output)
+}'
+
+def _opmux_printpossiblelist(output_name) '{
+  local tmpArr[], nbVal, i
+  nbVal = tango_io(OPMUX_SERVER_URL, "getPossibleOutputValues", output_name, tmpArr)
+  for(i=0 ; i < nbVal ; ++i)
+  {
+   print tmpArr[i]
+  }
+}'
+
+#%IU% (<output_name>, <output_val>, <synchronous>)
+#%MDESC%
+# <output_name> : 
+# <output_val>  : 
+# <synchronous> : 
+def _opmux_set(output_name, output_val, synchronous) '{
+  local tmpArr[]
+  tmpArr[0] = output_name
+  tmpArr[1] = output_val
+  tmpArr[2] = synchronous
+  tango_io(OPMUX_SERVER_URL, "switch", tmpArr)
+}'

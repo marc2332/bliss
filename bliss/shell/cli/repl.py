@@ -4,7 +4,7 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-"""Bliss REPL"""
+"""Bliss REPL (Read Eval Print Loop)"""
 
 import os
 import sys

@@ -8,6 +8,7 @@
 import numpy
 import weakref
 import os
+import gevent
 import hashlib
 from bliss.comm.gpib import Gpib
 from bliss.comm import serial
@@ -277,25 +278,34 @@ class musst(object):
                 else:
                     return answer
 
-    def run(self,entryPoint=""):
+    def _wait(self):
+        while self.STATE == self.RUN_STATE:
+            gevent.idle() 
+
+    def run(self, entryPoint="", wait=False):
         """ Execute program.
 
         entryPoint -- program name or a program label that
         indicates the point from where the execution should be carried out
         """
-        return self.putget("#RUN %s" % entryPoint)
+        self.putget("#RUN %s" % entryPoint)
+        if wait:
+            self._wait()
 
-    def ct(self,time=None):
+    def ct(self, time=None, wait=True):
         """Starts the system timer, all the counting channels
         and the MCA. All the counting channels
         are previously cleared.
 
-        time -- If specified, the counters run for that time.
+        time -- If specified, the counters run for that time (in s.)
         """
         if time is not None:
-            return self.putget("#RUNCT %d" % time)
+            time *= self.get_timer_factor()
+            self.putget("#RUNCT %d" % time)
         else:
-            return self.putget("#RUNCT")
+            self.putget("#RUNCT")
+        if wait:
+            self._wait()
 
     def upload_file(self, fname, prg_root=None,
                     template_replacement = {}):
@@ -462,7 +472,7 @@ class musst(object):
     @property
     def TMRCFG(self):
         """ Set/query main timer timebase """
-        return self.__frequency_conversion.get(self.putget("?TMRCFG"))
+        return self.__frequency_conversion[self.__frequency_conversion.get(self.putget("?TMRCFG"))]
 
     def get_timer_factor(self):
         str_freq,freq = self.TMRCFG

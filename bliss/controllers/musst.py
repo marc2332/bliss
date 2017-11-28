@@ -8,6 +8,8 @@
 import numpy
 import weakref
 import os
+import gevent
+import hashlib
 from bliss.comm.gpib import Gpib
 from bliss.comm import serial
 from bliss.common.greenlet_utils import KillMask,protect_from_kill
@@ -219,8 +221,7 @@ class musst(object):
             "10MHZ"       : self.F_10MHZ,
             "50MHZ"       : self.F_50MHZ
             }
-        self.__last_file_load = Cache(self,'last_file_load')
-        self.__last_template_replacement = Cache(self,"last_template")
+        self.__last_md5 = Cache(self,'last__md5')
         self.__prg_root = config_tree.get('musst_prg_root')
         self.__block_size = config_tree.get('block_size',8*1024)
         
@@ -273,29 +274,40 @@ class musst(object):
                 if answer == '$':
                     return self._cnx._readline('$' + self._rxterm)
                 elif ack:
-                    return answer == "OK"
+                    if answer != "OK":
+                        raise RuntimeError("%s: invalid answer: %r", self.name, answer)
+                    return True
                 else:
                     return answer
 
-    def run(self,entryPoint=""):
+    def _wait(self):
+        while self.STATE == self.RUN_STATE:
+            gevent.idle() 
+
+    def run(self, entryPoint="", wait=False):
         """ Execute program.
 
         entryPoint -- program name or a program label that
         indicates the point from where the execution should be carried out
         """
-        return self.putget("#RUN %s" % entryPoint)
+        self.putget("#RUN %s" % entryPoint)
+        if wait:
+            self._wait()
 
-    def ct(self,time=None):
+    def ct(self, time=None, wait=True):
         """Starts the system timer, all the counting channels
         and the MCA. All the counting channels
         are previously cleared.
 
-        time -- If specified, the counters run for that time.
+        time -- If specified, the counters run for that time (in s.)
         """
         if time is not None:
-            return self.putget("#RUNCT %d" % time)
+            time *= self.get_timer_factor()
+            self.putget("#RUNCT %d" % time)
         else:
-            return self.putget("#RUNCT")
+            self.putget("#RUNCT")
+        if wait:
+            self._wait()
 
     def upload_file(self, fname, prg_root=None,
                     template_replacement = {}):
@@ -314,21 +326,24 @@ class musst(object):
         else:
             program_file = fname
 
-        if(self.__last_file_load.value != program_file or
-           self.__last_template_replacement.value != str(template_replacement)):
-            with remote_open(program_file) as program:
-                program_bytes = program.read()
-                for old,new in template_replacement.iteritems():
-                    program_bytes = program_bytes.replace(old,new)
-                self.upload_program(program_bytes)
-            self.__last_file_load.value = program_file
-            self.__last_template_replacement.value = str(template_replacement)
+        with remote_open(program_file) as program:
+            program_bytes = program.read()
+            for old,new in template_replacement.iteritems():
+                program_bytes = program_bytes.replace(old,new)
+
+        self.upload_program(program_bytes)
 
     def upload_program(self, program_data):
         """ Upload a program.
 
         program_data -- program data you want to upload
         """
+        m = hashlib.md5()
+        m.update(program_data)
+        md5sum = m.hexdigest()
+        if self.__last_md5.value == md5sum:
+            return
+
         self.putget("#CLEAR")
         # split into lines for Prologix
         for l in program_data.splitlines():
@@ -336,6 +351,9 @@ class musst(object):
         if self.STATE != self.IDLE_STATE:
             err = self.putget("?LIST ERR")
             raise RuntimeError(err)
+
+        self.__last_md5.value = md5sum
+
         return True
 
     #    def get_data(self, nlines, npts, buf=0):
@@ -456,7 +474,7 @@ class musst(object):
     @property
     def TMRCFG(self):
         """ Set/query main timer timebase """
-        return self.__frequency_conversion.get(self.putget("?TMRCFG"))
+        return self.__frequency_conversion[self.__frequency_conversion.get(self.putget("?TMRCFG"))]
 
     def get_timer_factor(self):
         str_freq,freq = self.TMRCFG

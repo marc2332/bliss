@@ -350,6 +350,7 @@ class Scan(object):
 
         send(current_module, "scan_new", self.scan_info)
         try:
+            i = None
             for i in self.acq_chain:
                 self._state = self.PREPARE_STATE
                 with _Wakeup(self,call_on_prepare):
@@ -364,7 +365,8 @@ class Scan(object):
             raise
         else:
             self._state = self.STOP_STATE
-            i.stop()
+            if i is not None:
+                i.stop()
         finally:
             self._state = self.IDLE_STATE
             send(current_module, "scan_end", self.scan_info)

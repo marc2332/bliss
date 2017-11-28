@@ -274,7 +274,9 @@ class musst(object):
                 if answer == '$':
                     return self._cnx._readline('$' + self._rxterm)
                 elif ack:
-                    return answer == "OK"
+                    if answer != "OK":
+                        raise RuntimeError("%s: invalid answer: %r", self.name, answer)
+                    return True
                 else:
                     return answer
 

@@ -12,6 +12,7 @@ import sys
 import time
 import logging
 import datetime
+import platform
 import functools
 
 import numpy
@@ -22,23 +23,56 @@ from bliss import setup_globals
 from bliss.config import static
 from bliss.scanning import scan
 from bliss.common.event import dispatcher
-
+from bliss.config.conductor.client import get_default_connection
+from bliss.shell.bliss_banners import print_rainbow_banner
 _log = logging.getLogger('bliss.shell')
 
 
 def initialize(*session_names):
     config = static.get_config()
-    user_ns = { "config": config }
+    user_ns = {"config": config}
     sessions = list()
     error_flag = False
 
+    """ BLISS CLI welcome messages """
+    t = Terminal()
+
+    # Version
+    # TODO : define an elegant version numbering.
+    _version = "version 0.01"
+
+    # Hostname
+    _hostname = platform.node()
+
+    # Beacon host/port
+    try:
+        _host = get_default_connection()._host
+        _port = str(get_default_connection()._port)
+    except:
+        _host = "UNKNOWN"
+        _port = "UNKNOWN"
+
+    # Conda environment
+    try:
+        _conda_env = "(in {t.blue}%s{t.normal} Conda environment)".format(t=t) % os.environ['CONDA_DEFAULT_ENV']
+    except KeyError:
+        pass
+
+    print_rainbow_banner()
+    print_("")
+    print_("Welcome to BLISS %s running on {t.blue}%s{t.normal} %s".format(t=t) % (_version, _hostname, _conda_env))
+    print_("Copyright (c) ESRF, 2015-2017")
+    print_("-")
+    print_("Connected to Beacon server on {t.blue}%s{t.normal} (port %s)".format(t=t) % (_host, _port))
+
+    """ Setup(s) """
     for sname in session_names:
         session = config.get(sname)
 
         print "%s: Executing setup..." % session.name
-        
+
         try:
-            session.setup(env_dict = user_ns, verbose = True)
+            session.setup(env_dict=user_ns, verbose=True)
         except Exception:
             error_flag = True
             sys.excepthook(*sys.exc_info())
@@ -48,9 +82,10 @@ def initialize(*session_names):
     if error_flag:
         print "Warning: error(s) happened during setup, setup may not be complete."
     else:
-        print "Done."
+        print_("Done.")
+        print_("")
 
-    return user_ns,sessions
+    return user_ns, sessions
 
 
 def _find_unit(obj):
@@ -86,7 +121,7 @@ class ScanListener:
         scan_info = dict(scan_info)
         self.term = term = Terminal(scan_info.get('stream'))
         scan_info = dict(scan_info)
-        
+
         motors = scan_info['motors']
         counters = scan_info['counters']
         nb_points = scan_info['npoints']
@@ -117,7 +152,7 @@ class ScanListener:
             if unit:
                 counter_label += '({0})'.format(unit)
             col_labels.append(counter_label)
-        
+
         self.col_labels = col_labels
         self.real_motors = real_motors
         self._point_nb = 0
@@ -137,7 +172,7 @@ class ScanListener:
         else:
             estimation_str = ''
 
-        other_counters = scan_info.get('other_counters',list())
+        other_counters = scan_info.get('other_counters', list())
         if other_counters:
             not_shown_counters_str = 'Activated counters not shown: %s\n' % \
                                      ', '.join((c.name for c in other_counters))
@@ -159,7 +194,7 @@ class ScanListener:
 
     def __on_scan_data(self, scan_info, values):
         elapsed_time = values['timestamp'] - scan_info['start_time_stamp']
-        motors = scan_info['motors'][1:] # take out timestamp placeholder
+        motors = scan_info['motors'][1:]  # take out timestamp placeholder
         motor_values = [values[m.name] for m in motors]
         counter_values = [values[c.name] for c in scan_info['counters']]
         values = [elapsed_time] + motor_values + counter_values
@@ -169,8 +204,8 @@ class ScanListener:
             col_len = max(map(len, self.col_labels)) + 2
             template = '{{label:>{0}}} = {{value: >12}} ({{norm: 12}}/s)'.format(col_len)
             lines = "\n".join([template.format(label=label, value=v, norm=nv)
-                               for label, v, nv in zip(self.col_labels[1:], 
-                                                      values, norm_values)])
+                               for label, v, nv in zip(self.col_labels[1:],
+                                                       values, norm_values)])
             end_time_str = datetime.datetime.now().strftime("%a %b %d %H:%M:%S %Y")
             msg = '\n{0}\n\n{1}'.format(end_time_str, lines)
             print_(msg)
@@ -189,7 +224,7 @@ class ScanListener:
             return
 
         for motor in self.real_motors:
-            dispatcher.disconnect(self.__on_motor_position_changed, 
+            dispatcher.disconnect(self.__on_motor_position_changed,
                                   signal='position', sender=motor)
 
         end = datetime.datetime.fromtimestamp(time.time())
@@ -202,7 +237,6 @@ class ScanListener:
             time_estimation = scan_info['estimation']['total_time']
             msg += ' (estimation was for {0})'.format(datetime.timedelta(seconds=time_estimation))
         print_(msg)
-
 
     def __on_motor_position_changed(self, position, signal=None, sender=None):
         labels = []

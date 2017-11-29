@@ -5,6 +5,7 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+import os
 import struct
 import math
 import weakref
@@ -26,11 +27,12 @@ except ImportError:
 
 class LimaImageChannelDataNode(DataNode):
     class _GetView(object):
-        def __init__(self, ref_status, parameters, acq_params,
+        DataArrayMagic = struct.unpack('>I', 'DTAY')[0]
+
+        def __init__(self, ref_status, parameters,
                      from_index, to_index):
             self.ref_status = ref_status
             self.parameters = parameters
-            self.acq_params = acq_params
             self._update()
             self.from_index = from_index
             self.to_index = to_index
@@ -49,20 +51,22 @@ class LimaImageChannelDataNode(DataNode):
             """
             if self.to_index >= 0:
                 return self.to_index
-            return self.last_image_acquired
+            return self.last_image_acquired if self.last_image_acquired > 0 else 0
 
         @property
         def current_lima_acq(self):
             """ return the current server acquisition number
             """
-            return int(self.ref_status.db_connection.get(self.url_server, -1))
+            cnx = self.ref_status._cnx()
+            lima_acq = cnx.get(self.url_server)
+            return int(lima_acq if lima_acq is not None else -1)
 
         def __iter__(self):
             self._update()
             proxy = DeviceProxy(self.url_server) if self.url_server else None
             for image_nb in range(self.from_index, self.last_index):
                 data = self._get_from_server_memory(proxy, image_nb)
-                if not data:
+                if data is None:
                     yield self._get_from_file(image_nb)
                 else:
                     yield data
@@ -70,7 +74,7 @@ class LimaImageChannelDataNode(DataNode):
 
         def __len__(self):
             self._update()
-            return self.to_index - self.from_index
+            return self.last_index - self.from_index
 
         def _update(self):
             """ update view status
@@ -96,11 +100,50 @@ class LimaImageChannelDataNode(DataNode):
                     else:
                         return self._tango_unpack(raw_msg[-1])
 
+        def _get_filenames(self, parameters, *image_nbs):
+            saving_mode = parameters.get('saving_mode', 'MANUAL')
+            if saving_mode == 'MANUAL': # file are not saved
+                raise RuntimeError("Image were not saved")
+
+            overwrite_policy = parameters.get('saving_overwrite',
+                                              'ABORT').lower()
+            if overwrite_policy == 'multiset':
+                nb_image_per_file = parameters['acq_nb_frames']
+            else:
+                nb_image_per_file = parameters.get('saving_frame_per_file', 1)
+
+
+            last_image_saved = self.last_image_saved
+            first_file_number = parameters.get('saving_next_number', 0)
+            path_format = os.path.join(parameters['saving_directory'],
+                                       '%s%s%s' % (parameters['saving_prefix'],
+                                                   parameters.get('saving_index_format', '%04d'),
+                                                   parameters['saving_suffix']))
+            returned_params = list()
+            file_format = parameters['saving_format']
+            for image_nb in image_nbs:
+                if image_nb > last_image_saved:
+                    raise RuntimeError("Image %d was not saved" % image_nb)
+
+                image_index_in_file = image_nb % nb_image_per_file
+                file_nb = first_file_number + image_index_in_file
+                file_path = path_format % file_nb
+                if file_format == 'HDF5':
+                    returned_params.append((file_path, "/entry_%04d" % 1,
+                                            image_index_in_file, file_format))
+                else:
+                    returned_params.append((file_path, '',
+                                            image_index_in_file, file_format))
+            return returned_params
+
         def _get_from_file(self, image_nb):
             for parameters in self.parameters:
-                filename, path_in_file, image_index, file_format = \
-                    self._get_filename(parameters, image_nb)
+                values = self._get_filenames(parameters, image_nb)
+                filename, path_in_file, image_index, file_format = values[0]
+
                 if file_format in ('EDF', 'EDFGZ', 'EDFConcat'):
+                    if file_format == 'EDFConcat':
+                        image_index = 0
                     if EdfFile is not None:
                         f = EdfFile.EdfFile(filename)
                         return f.GetData(image_index)
@@ -121,12 +164,12 @@ class LimaImageChannelDataNode(DataNode):
         def _tango_unpack(self, msg):
             struct_format = '<IHHIIHHHHHHHHHHHHHHHHHHIII'
             header_size = struct.calcsize(struct_format)
-            values = struct.unpack(msg[:header_size])
-            if values[0] != 0x44544159:
+            values = struct.unpack(struct_format, msg[:header_size])
+            if values[0] != self.DataArrayMagic:
                 raise RuntimeError('Not a lima data')
             header_offset = values[2]
             data = numpy.fromstring(
-                msg[header_offset:], data=self._image_mode.get(values[4]))
+                msg[header_offset:], dtype=self._image_mode.get(values[4]))
             data.shape = values[8], values[7]
             return data
 
@@ -206,8 +249,7 @@ class LimaImageChannelDataNode(DataNode):
             if to_index is None => only one image which as index from_index
             if to_index < 0 => to the end of acquisition
         """
-        return self._GetView(self._ref_status, self.params,
-                             self.info['acq_params'], from_index,
+        return self._GetView(self._ref_status, self.params, from_index,
                              to_index if to_index is not None else from_index + 1)
 
     def store(self, signal, event_dict):

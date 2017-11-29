@@ -42,7 +42,7 @@ def switch_state(tg_dev, state=None, status=None):
 
 
 def _to_enum(value, etype):
-    if isinstance(value, (etype, str, unicode)):
+    if isinstance(value, (str, unicode)):
         return etype[value]
     return etype(value)
 

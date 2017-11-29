@@ -371,7 +371,7 @@ class QueueSetting(object):
         else:
             return value
 
-    def __iter__(self, cnx):
+    def __iter__(self, cnx = None):
         if cnx is None:
             cnx = self._cnx()
         lsize = cnx.llen(self._name)

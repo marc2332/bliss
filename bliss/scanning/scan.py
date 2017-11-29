@@ -319,8 +319,7 @@ class Scan(object):
                 prev_level = level
                 parent_node = self._nodes[dev_node.bpointer]
 
-            if isinstance(dev, AcquisitionDevice) or \
-               isinstance(dev, AcquisitionMaster):
+            if isinstance(dev, (AcquisitionDevice, AcquisitionMaster)):
                 data_container_node = _create_node(
                     dev.name, parent=parent_node)
                 self._nodes[dev] = data_container_node
@@ -400,7 +399,8 @@ class AcquisitionMasterEventReceiver(object):
 
         for signal in ('start', 'end'):
             connect(slave, signal, self)
-
+            for channel in slave.channels:
+                connect(channel, 'new_data', self)
     @property
     def parent(self):
         return self._parent
@@ -423,6 +423,8 @@ class AcquisitionDeviceEventReceiver(object):
 
         for signal in ('start', 'end'):
             connect(device, signal, self)
+            for channel in device.channels:
+                connect(channel, 'new_data', self)
 
     @property
     def parent(self):

@@ -12,7 +12,7 @@ def _on_event(obj, event_dict, signal, device):
             maxshape = tuple([None] + list(channel.shape))
             npoints = device.npoints or 1
             shape = tuple([npoints] + list(channel.shape))
-            if channel.name not in obj.dataset:
+            if not channel.reference and channel.name not in obj.dataset:
                 obj.dataset[channel.name] = obj.parent.create_dataset(device.name.replace('/', '_') +
                                                                       ':' + channel.name,
                                                                       shape=shape,
@@ -21,26 +21,34 @@ def _on_event(obj, event_dict, signal, device):
                                                                       maxshape=maxshape)
                 obj.dataset[channel.name].last_point_index = 0
     elif signal == 'new_data':
-        for channel_name, data in event_dict['channel_data'].iteritems():
-            dataset = obj.dataset[channel_name]
-            if not dataset.id.valid:
-                print('writer is closed. Spurious data point ignored')
-                return
-            last_point_index = dataset.last_point_index
+        data = event_dict.get('data')
+        channel = event_dict.get('channel')
+        if channel is None:
+            return
 
-            if len(data.shape) == 1:
-                # this is to make h5py happy
-                data.shape = (-1, 1)
+        channel_name = channel.name
+        dataset = obj.dataset.get(channel_name)
+        if dataset is None:
+            return
+        elif not dataset.id.valid:
+            print('writer is closed. Spurious data point ignored')
+            return
 
-            data_len = data.shape[0]
-            new_point_index = dataset.last_point_index + data_len
+        last_point_index = dataset.last_point_index
 
-            if dataset.shape[0] < new_point_index:
-                dataset.resize(new_point_index, axis=0)
+        if len(data.shape) == 1:
+            # this is to make h5py happy
+            data.shape = (-1, 1)
 
-            dataset[last_point_index:new_point_index] = data
+        data_len = data.shape[0]
+        new_point_index = dataset.last_point_index + data_len
 
-            dataset.last_point_index += data_len
+        if dataset.shape[0] < new_point_index:
+            dataset.resize(new_point_index, axis=0)
+
+        dataset[last_point_index:new_point_index] = data
+
+        dataset.last_point_index += data_len
 
 
 class Hdf5MasterEventReceiver(AcquisitionMasterEventReceiver):

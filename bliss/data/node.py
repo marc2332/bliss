@@ -101,6 +101,7 @@ def _get_or_create_node(name, node_type=None, parent=None, connection=None, **ke
 class DataNodeIterator(object):
     NEW_CHILD_REGEX = re.compile("^__keyspace@.*?:(.*)_children_list$")
     NEW_DATA_IN_CHANNEL_REGEX = re.compile("^__keyspace@.*?:(.*)_data$")
+    NEW_REF_IN_CHANNEL_REGEX = re.compile("^__keyspace@.*?:(.*)_ref$")
     NEW_CHILD_EVENT, NEW_DATA_IN_CHANNEL_EVENT = range(2)
 
     def __init__(self, node, last_child_id=None):
@@ -174,6 +175,7 @@ class DataNodeIterator(object):
         pubsub.psubscribe("__keyspace@1__:%s*_children_list" %
                           self.node.db_name)
         pubsub.psubscribe("__keyspace@1__:%s*_data" % self.node.db_name)
+        pubsub.psubscribe("__keyspace@1__:%s*_ref" % self.node.db_name)
         return pubsub
 
     def wait_for_event(self, pubsub, filter=None):
@@ -196,7 +198,7 @@ class DataNodeIterator(object):
                         self.last_child_id[parent_db_name] = first_child + i + 1
                         if filter is None or child.type in filter:
                             yield self.NEW_CHILD_EVENT, child
-                        if child.type == 'channel':
+                        if child.type in ('channel', 'lima'):
                             yield self.NEW_DATA_IN_CHANNEL_EVENT, child
                 else:
                     new_channel_event = DataNodeIterator.NEW_DATA_IN_CHANNEL_REGEX.match(
@@ -206,7 +208,15 @@ class DataNodeIterator(object):
                         channel_node = get_node(channel_db_name)
                         if channel_node:
                             yield self.NEW_DATA_IN_CHANNEL_EVENT, channel_node
-
+            elif msg['data'] == 'hset':
+                channel = msg['channel']
+                new_channel_event = DataNodeIterator.\
+                NEW_REF_IN_CHANNEL_REGEX.match(channel)
+                if new_channel_event:
+                    channel_db_name = new_channel_event.group(1)
+                    channel_node = get_node(channel_db_name)
+                    if channel_node:
+                        yield self.NEW_DATA_IN_CHANNEL_EVENT, channel_node
 
 class _TTL_setter(object):
     def __init__(self, db_name):

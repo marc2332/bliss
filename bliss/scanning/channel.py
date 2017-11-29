@@ -55,9 +55,17 @@ class AcquisitionChannel(object):
     def dtype(self):
         return self.__dtype
 
+    @dtype.setter
+    def dtype(self, value):
+        self.__dtype = value
+
     @property
     def shape(self):
         return self.__shape
+
+    @shape.setter
+    def shape(self, value):
+        self.__shape = value
 
     def emit(self, data):
         ndim = len(self.shape)

@@ -75,18 +75,18 @@ class LimaImageChannelDataNode(DataNode):
         def _update(self):
             """ update view status
             """
-            (self.url_server, self.lima_acq_nb, self.acq_nb_buffer,
+            (self.url_server, self.lima_acq_nb, self.buffer_max_number,
              self.last_image_acquired, self.last_image_ready,
              self.last_counter_ready, self.last_image_saved) = self.ref_status.fromkeys(
-                 'url_server', 'lima_acq_nb', 'acq_nb_buffer', 'LastImageAcquired',
-                 'LastImageReady', 'LastCounterReady', 'LastImageSaved')
+                 'url_server', 'lima_acq_nb', 'buffer_max_number', 'last_image_acquired',
+                 'last_image_ready', 'last_counter_ready', 'last_image_saved')
 
         def _get_from_server_memory(self, proxy, image_nb):
             if self.current_lima_acq == self.lima_acq_nb:  # current acquisition is this one
                 if self.last_image_ready < image_nb:      # image not yet available
                     raise RuntimeError('image is not yet available')
                 # should be in memory
-                if self.acq_nb_buffer > (self.last_image_ready - image_nb):
+                if self.buffer_max_number > (self.last_image_ready - image_nb):
                     try:
                         raw_msg = proxy.readImage(image_nb)
                     except:
@@ -172,7 +172,7 @@ class LimaImageChannelDataNode(DataNode):
             self._new_image_status.update(new_status)
             self._new_image_status_event.set()
 
-        def stop(self):
+        def stop(self, ref = None):
             """
             This method should be called to stop the store task.
             """
@@ -182,7 +182,14 @@ class LimaImageChannelDataNode(DataNode):
                 self._storage_task.join()
 
     def __init__(self, name, **keys):
+        shape = keys.pop('shape', None)
+        dtype = keys.pop('dtype', None)
+
         DataNode.__init__(self, 'lima', name, **keys)
+
+        if keys.get('create', False):
+            self.info['shape'] = shape
+            self.info['dtype'] = dtype
 
         cnx = self.db_connection
         self._ref_status = HashSetting('%s_ref' % self.db_name, connection=cnx)
@@ -216,11 +223,6 @@ class LimaImageChannelDataNode(DataNode):
                 self.add_parameters(local_dict)
             elif data_type == 'lima/server_url':
                 self.set_server_url(local_dict['url'])
-
-    def set_nb_buffer(self, acq_nb_buffer):
-        """set the number of buffer for this acquisition
-        """
-        self._ref_status['acq_nb_buffer'] = acq_nb_buffer
 
     def set_server_url(self, url):
         """set the server url and calculate an
@@ -268,7 +270,8 @@ class LimaImageChannelDataNode(DataNode):
 
     def _get_db_names(self):
         db_name = DataNode._get_db_names(self)
-        db_name.extend(['%s%s' % self.db_name + suffix
+        node_db_name = self.db_name
+        db_name.extend(['%s%s' % (node_db_name, suffix)
                         for suffix in ['_ref', '_parameters']])
         url = self._ref_status.get('url_server')
         if url is not None:

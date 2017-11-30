@@ -21,7 +21,10 @@ def find_class(cfg_node,base_path='bliss.controllers'):
         module_name = '%s.%s' % (base_path,klass_name.lower())
 
     module = __import__(module_name, fromlist=[''])
-    klass = getattr(module, klass_name)
+    try:
+        klass = getattr(module, klass_name)
+    except AttributeError:
+        klass = getattr(module, klass_name.title())
 
     return klass
 

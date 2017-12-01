@@ -20,6 +20,7 @@ import sys
 import ConfigParser
 import ast
 import inspect
+import numpy
 
 import logging
 from logging.handlers import TimedRotatingFileHandler
@@ -1380,21 +1381,22 @@ class flex:
 
     def get_phases(self, cell, frequency):
         logging.getLogger('flex').info("Get phases on cell %d at %s Hz" %(cell, str(frequency)))
+        channel = self.proxisense.selectTrioSlot(cell)
         self.proxisense.set_frequency(frequency)
-        self.proxisense.deGauss(cell)
-        phase_puck1, phase_puck2, phase_puck3 = self.proxisense.getPhaseShift(cell)
-        logging.getLogger('flex').info("phase (microsec)  at %s Hz for puck 1 %s, puck 2 %s, puck 3 %s" %(str(frequency), str(phase_puck1), str(phase_puck2), str(phase_puck3)))
+        self.proxisense.deGauss()
+        phase_puck1, phase_puck2, phase_puck3 = self.proxisense.getPhaseShift()
+        logging.getLogger('flex').info("phases at %s Hz for puck 1 %s, puck 2 %s, puck 3 %s" %(str(frequency), str(phase_puck1), str(phase_puck2), str(phase_puck3)))
         return [phase_puck1, phase_puck2, phase_puck3]
 
     def find_ref(self, frequency, cell):
         ref = self.proxisense.get_config(frequency)
-        logging.getLogger('flex').info("Reference phases at %s" %str(frequency))
+        logging.getLogger('flex').info("Phases reference at %sHz in cell %s" %(str(frequency), str(cell)))
         section = "Cell%d" %int(cell)
         i = 0
         for list in ref:
             if list[0] == section:
                 rank = i
-                logging.getLogger('flex').info("Found the refence in %s" %str(list[0]))
+                #logging.getLogger('flex').info("Found the reference in %s" %str(list[0]))
                 break
             if list == ref[-1:]:
                 logging.getLogger('flex').error("Reference not found")
@@ -1406,40 +1408,66 @@ class flex:
         for i in range(0, nb_puckType):
             ref_phase.append([ref[rank + (3 * i)][2], ref[rank + 1 + (3 * i)][2], ref[rank + 2 + (3 * i)][2]])
             ref_puckType.append(str(ref[rank + (3 * i)][1]).split("_")[0])
+        logging.getLogger('flex').info("Phases reference %s for type %s" %(str(ref_phase,), str(ref_puckType)))
         return ref_phase, ref_puckType
 
-    def detect_puck(self, cell):
-        if cell in range(1,9,2):
-            tolerance_800 = self.proxisense.typeDetectionTolerance_SC3_800
-            tolerance_2000 = self.proxisense.typeDetectionTolerance_SC3_2000
-        if cell in range(2,10,2):
-            tolerance_800 = self.proxisense.typeDetectionTolerance_Unipuck_800
-            tolerance_2000 = self.proxisense.typeDetectionTolerance_Unipuck_2000
+    def get_tolerance(self, frequency):
+        tolerance = []
+        parser = ConfigParser.RawConfigParser()
+        file_path = os.path.dirname(self.calibration_file)+"/proxisense_%d.cfg" %int(frequency)
+        parser.read(file_path)
+        value = parser.getfloat("Tolerance", "sc3")
+        tolerance.append(value)
+        value = parser.getfloat("Tolerance", "unipuck")
+        tolerance.append(value)
+        logging.getLogger('flex').info("tolerance at %sHz for SC3 and Unipuck : %s, %s" %(str(frequency), str(tolerance[0]), str(tolerance[1])))
+        return tolerance
+
+    def set_threshold(self, cell):
+        self.proxisense.selectTrioSlot(cell)
+        self.proxisense.set_frequency()
+        self.proxisense.deGauss()
+        phase_puck1, phase_puck2, phase_puck3 = self.proxisense.getPhaseShift()
+        logging.getLogger('flex').info("phase shift puck1, puck2, puck3 : %f, %f, %f" %(phase_puck1, phase_puck2, phase_puck3))
+        ref_threshold = self.get_detection_param("proxisense", "threshold")
+        ref_empty_puck1, ref_empty_puck2, ref_empty_puck3 = self.find_ref(2000, cell)[0][1]
+        logging.getLogger('flex').info("empty reference puck1, puck2, puck3 : %f, %f, %f" %(ref_empty_puck1, ref_empty_puck2, ref_empty_puck3))
+        threshold_puck1 = min(phase_puck1 + ref_threshold, ref_empty_puck1 - 0.5)
+        threshold_puck2 = min(phase_puck2 + ref_threshold, ref_empty_puck2 - 0.5)
+        threshold_puck3 = min(phase_puck3 + ref_threshold, ref_empty_puck3 - 0.5)
+        self.proxisense.writeThreshold(cell, 1, threshold_puck1)
+        self.proxisense.writeThreshold(cell, 2, threshold_puck2)
+        self.proxisense.writeThreshold(cell, 3, threshold_puck3)
+        logging.getLogger('flex').info("set threshold in %s for puck1, puck2 and puck3 to %s, %s, %s" %(str(cell), str(threshold_puck1), str(threshold_puck2), str(threshold_puck3)))
+
+    def detect_puck_type(self, cell):
+        tolerance_800 = self.get_tolerance(800)
+        tolerance_2000 = self.get_tolerance(2000)
         ref_phase_800, ref_puckType = self.find_ref(800, cell)
         ref_phase_2000, ref_puckType = self.find_ref(2000, cell)
         phases_800 = self.get_phases(cell, 800)
         phases_2000 = self.get_phases(cell, 2000)
-      
+
         if len(ref_phase_800) != len(ref_phase_2000):
             logging.getLogger('flex').error("config files have different length")
             raise RuntimeError("corrupted config files ")
-        len_ref = len(ref_phase_800)
-        logging.getLogger('flex').info("%d puck types to checked, including empty" %len_ref)
-        
+        logging.getLogger('flex').info("%d puck types to checked, including empty" %len(ref_phase_800))
+
         result=[]
-        for puckType in range(0, len_ref):
+        for puckType in range(0, len(ref_phase_800)):
             list_res=[]
             for i in range(0,3):
                 diff_800 = abs(ref_phase_800[puckType][i] - phases_800[i])
                 diff_2000 = abs(ref_phase_2000[puckType][i] - phases_2000[i])
-                logging.getLogger('flex').info("difference at 800Hz %s" %str(diff_800))
-                logging.getLogger('flex').info("difference at 2000Hz %s" %str(diff_2000))
-                if diff_800 < tolerance_800 and diff_2000 < tolerance_2000:
+                logging.getLogger('flex').info("difference at 800Hz in and 2000Hz: %s, %s" %(str(diff_800), str(diff_2000)))
+                if diff_800 < tolerance_800[puckType] and diff_2000 < tolerance_2000[puckType]:
+                    #logging.getLogger('flex').info("list append with %s" %str(ref_puckType[puckType]))
                     list_res.append(ref_puckType[puckType])
                 else:
+                    #logging.getLogger('flex').info("list append with None")
                     list_res.append(None)
             result.append(list_res)
-        logging.getLogger('flex').info("list of detection before filtering %s" %str(result))
+        #logging.getLogger('flex').info("list of detection before filtering %s" %str(result))
 
         def f(*elements):
             try:
@@ -1448,80 +1476,76 @@ class flex:
                 return None
 
         res = list(itertools.imap(f, *result))
-        return res
 
-    def _scanSlot(self, cell, puck="all"):
-        pucks_detected = self.detect_puck(cell)
-        logging.getLogger('flex').info("puck 1 detected %s, puck 2 detected %s, puck 3 detected %s" %(str(pucks_detected[0]), str(pucks_detected[1]), str(pucks_detected[2])))
+        parser = ConfigParser.RawConfigParser()
+        file_path = os.path.dirname(self.calibration_file)+"/puck_detection.cfg"
+        parser.read(file_path)
+        parser.set("Cell%d" %cell, "puck1", str(res[0]))
+        parser.set("Cell%d" %cell, "puck2", str(res[1]))
+        parser.set("Cell%d" %cell, "puck3", str(res[2]))
+        with open(file_path, 'wb') as file:
+            parser.write(file)
+
+        logging.getLogger('flex').info("Puck type in cell %s for puck1, puck2 and puck3: %s, %s and %s" %(str(cell), str(res[0]), str(res[1]), str(res[2])))
+        return res, phases_800, phases_2000
+
+    def _scanSlot(self, cell):
+        pucks_detected, phases_800, phases_2000 = self.detect_puck_type(cell)
+        threshold_ct = self.get_detection_param("proxisense", "threshold")
         threshold_us = self.proxisense.ct_to_us(self.proxisense.detection_threshold_ct)
-        logging.getLogger('flex').info("threshold in microsecond %s" %str(threshold_us))
-        if puck == "all":
-            for i in range(0,3):
-                if pucks_detected[i] == "empty":
-                    threshold = phases_2000[i] - threshold_us
-                    logging.getLogger('flex').info("Puck not detected")
-                else:
-                    threshold = phases_2000[i] + threshold_us
-                    logging.getLogger('flex').info("Puck detected")
-                logging.getLogger('flex').info("Puck %d, threshold %s" %((i + 1), str(threshold)))
-                self.proxisense.writeThreshold(cell, i + 1, threshold)
-        else:
-            puck_detected = pucks_detected[puck - 1]
-            if puck_detected == "empty":
-                threshold = phases_2000[puck - 1] - threshold_us
-                logging.getLogger('flex').info("Puck not detected")
+        logging.getLogger('flex').info("threshold (us) %s" %str(threshold_us))
+        for i in range(0,3):
+            if pucks_detected[i] == "empty":
+                #threshold_puck1 = min(phase_puck1 + ref_threshold, ref_empty_puck1 - 0.5)
+                threshold = phases_2000[i] - threshold_us
+                self.proxisense.writeThreshold(cell, i+1, threshold)
+                #logging.getLogger('flex').info("Puck not detected")
             else:
-                threshold = phases_2000[puck - 1] + threshold_us
-                logging.getLogger('flex').info("Puck detected")
-            logging.getLogger('flex').info("Puck %d, threshold %s" %(puck, str(threshold)))
-            self.proxisense.writeThreshold(cell, puck, threshold)
+                threshold = phases_2000[i] + threshold_us
+                self.proxisense.writeThreshold(cell, i+1, threshold)
+                #logging.getLogger('flex').info("Puck detected")
+            logging.getLogger('flex').info("Puck%d threshold %s" %((i + 1), str(threshold)))
+            self.proxisense.writeThreshold(cell, i + 1, threshold)
 
-    def scanSlot (self, cell="all", puck="all"):
+    def scanSlot (self, cell="all"):
         if cell != "all" and isinstance(cell, (int,long)) and not cell in range(1,9):
             logging.getLogger('flex').error("Wrong cell number [1-8]")
             raise ValueError("Wrong cell number [1-8]")
-        if puck != "all" and isinstance(puck, (int,long)) and not puck in range(1,4):
-            logging.getLogger('flex').error("wrong puck number[1-3]")
-            raise ValueError("Wrong puck number[1-3]")
-        logging.getLogger('flex').info("Starting to scan on cell %s and puck %s" %(str(cell), str(puck)))
-        if cell == "all":
-            for cell in range(1,9):
-                logging.getLogger('flex').info("Scan slot cell %d" %cell)
-                self._scanSlot(cell, puck="all")
+        logging.getLogger('flex').info("Starting to scan on cell %s" %(str(cell)))
+
+        if cell is "all":
+            cell_start = 1
+            cell_stop = 9
         else:
+            cell_start = int(cell)
+            cell_stop = cell_start + 1
+
+        for cell in range(cell_start, cell_stop):
             logging.getLogger('flex').info("Scan slot cell %d" %cell)
-            self._scanSlot(cell, puck) 
+            self._scanSlot(cell)
 
     def proxisenseCalib(self, cell="all", empty=True):
         if cell != "all" and isinstance(cell, (int,long)) and not cell in range(1,9):
             logging.getLogger('flex').error("Wrong cell number [1-8]")
             raise ValueError("Wrong cell number [1-8]")
+
         if cell is "all":
-            for i in range(1,9):
-                if empty:
-                    puckType = "empty"
-                else:
-                    if i in range(1,8,2):
-                        puckType = "sc3"
-                    else:
-                        puckType = "uni"
-                self.proxisense.set_frequency(800)
-                res = self.get_phases(i,800)
-                self.proxisense.set_config(i, 800, puckType, res[0], res[1], res[2])
-                res = self.get_phases(i,2000)
-                self.proxisense.set_config(i, 2000, puckType, res[0], res[1], res[2])
+            i_start = 1
+            i_stop = 9
         else:
+            i_start = int(cell)
+            i_stop = i_start + 1
+
+        for i in range(i_start, i_stop):
             if empty:
                 puckType = "empty"
             else:
-                if cell in range(1,8,2):
+                if i in range(1,8,2):
                     puckType = "sc3"
                 else:
                     puckType = "uni"
-            res = self.get_phases(cell,800)
-            self.proxisense.set_config(cell, 800, puckType, res[0], res[1], res[2])
-            res = self.get_phases(cell,2000)
-            self.proxisense.set_config(cell, 2000, puckType, res[0], res[1], res[2])
-                
-
+            res = self.get_phases(i,800)
+            self.proxisense.set_config(i, 800, puckType, res[0], res[1], res[2])
+            res = self.get_phases(i,2000)
+            self.proxisense.set_config(i, 2000, puckType, res[0], res[1], res[2])
 

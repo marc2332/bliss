@@ -266,8 +266,9 @@ class QueueSetting(object):
         self._write_type_conversion = write_type_conversion
 
     @read_decorator
-    def get(self, first=0, last=-1):
-        cnx = self._cnx()
+    def get(self, first=0, last=-1, cnx=None):
+        if cnx is None:
+            cnx = self._cnx()
         if first == last:
             l = cnx.lindex(self._name, first)
         else:
@@ -277,74 +278,86 @@ class QueueSetting(object):
         return l
 
     @write_decorator
-    def append(self, value):
-        cnx = self._cnx()
+    def append(self, value, cnx=None):
+        if cnx is None:
+            cnx = self._cnx()
         return cnx.rpush(self._name, value)
 
-    def clear(self):
-        cnx = self._cnx()
+    def clear(self, cnx=None):
+        if cnx is None:
+            cnx = self._cnx()
         cnx.delete(self._name)
 
     @write_decorator
-    def prepend(self, value):
-        cnx = self._cnx()
+    def prepend(self, value, cnx=None):
+        if cnx is None:
+            cnx = self._cnx()
         return cnx.lpush(self._name, value)
 
     @write_decorator_multiple
-    def extend(self, values):
+    def extend(self, values, cnx=None):
         cnx = self._cnx()
         return cnx.rpush(self._name, *values)
 
     @write_decorator
-    def remove(self, value):
-        cnx = self._cnx()
+    def remove(self, value, cnx=None):
+        if cnx is None:
+            cnx = self._cnx()
         cnx.lrem(self._name, value)
 
     @write_decorator_multiple
-    def set(self, values):
-        cnx = self._cnx()
+    def set(self, values, cnx=None):
+        if cnx is None:
+            cnx = self._cnx()
         cnx.delete(self._name)
         if values is not None:
             cnx.rpush(self._name, *values)
 
     @write_decorator
-    def set_item(self, value, pos=0):
-        cnx = self._cnx()
+    def set_item(self, value, pos=0, cnx=None):
+        if cnx is None:
+            cnx = self._cnx()
         cnx.lset(self._name, pos, value)
 
     @read_decorator
-    def pop_front(self):
-        cnx = self._cnx()
+    def pop_front(self, cnx=None):
+        if cnx is None:
+            cnx = self._cnx()
         value = cnx.lpop(self._name)
         if self._read_type_conversion:
             value = self._read_type_conversion(value)
         return value
 
     @read_decorator
-    def pop_back(self):
-        cnx = self._cnx()
+    def pop_back(self, cnx=None):
+        if cnx is None:
+            cnx = self._cnx()
         value = cnx.rpop(self._name)
         if self._read_type_conversion:
             value = self._read_type_conversion(value)
         return value
 
-    def ttl(self, value=-1):
-        return ttl_func(self._cnx(), self._name, value)
+    def ttl(self, value=-1, cnx=None):
+        if cnx is None:
+            cnx = self._cnx()
+        return ttl_func(cnx, self._name, value)
 
-    def __len__(self):
-        cnx = self._cnx()
+    def __len__(self, cnx=None):
+        if cnx is None:
+            cnx = self._cnx()
         return cnx.llen(self._name)
 
-    def __repr__(self):
-        cnx = self._cnx()
+    def __repr__(self, cnx=None):
+        if cnx is None:
+            cnx = self._cnx()
         value = cnx.lrange(self._name, 0, -1)
         return '<QueueSetting name=%s value=%s>' % (self._name, value)
 
-    def __iadd__(self, other):
-        self.extend(other)
+    def __iadd__(self, other, cnx=None):
+        self.extend(other, cnx)
         return self
 
-    def __getitem__(self, ran):
+    def __getitem__(self, ran, cnx=None):
         if isinstance(ran, slice):
             i = ran.start is not None and ran.start or 0
             j = ran.stop is not None and ran.stop or -1
@@ -352,14 +365,15 @@ class QueueSetting(object):
             i = j = ran
         else:
             raise TypeError('indices must be integers')
-        value = self.get(first=i, last=j)
+        value = self.get(first=i, last=j, cnx=cnx)
         if value is None:
             raise StopIteration
         else:
             return value
 
-    def __iter__(self):
-        cnx = self._cnx()
+    def __iter__(self, cnx):
+        if cnx is None:
+            cnx = self._cnx()
         lsize = cnx.llen(self._name)
         for first in xrange(0, lsize, 1024):
             last = first + 1024
@@ -368,12 +382,12 @@ class QueueSetting(object):
             for value in self.get(first, last):
                 yield value
 
-    def __setitem__(self, ran, value):
+    def __setitem__(self, ran, value, cnx=None):
         if isinstance(ran, slice):
             for i, v in zip(range(ran.start, ran.stop), value):
-                self.set_item(v, pos=i)
+                self.set_item(v, pos=i, cnx=cnx)
         elif isinstance(ran, int):
-            self.set_item(value, pos=ran)
+            self.set_item(value, pos=ran, cnx=cnx)
         else:
             raise TypeError('indices must be integers')
         return self

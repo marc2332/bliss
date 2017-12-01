@@ -42,7 +42,7 @@ def switch_state(tg_dev, state=None, status=None):
 
 
 def _to_enum(value, etype):
-    if isinstance(value, (etype, str, unicode)):
+    if isinstance(value, (str, unicode)):
         return etype[value]
     return etype(value)
 
@@ -210,6 +210,11 @@ class CT2(Device):
 
 def main(args=None, **kwargs):
     from PyTango.server import run
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(levelname)s %(asctime)-15s %(name)s: %(message)s')
+
     kwargs['green_mode'] = kwargs.get('green_mode', GreenMode.Gevent)
     return run((CT2,), args=args, **kwargs)
 

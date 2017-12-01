@@ -1,0 +1,85 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# This file is part of the bliss project
+#
+# Copyright (c) 2016 Beamline Control Unit, ESRF
+# Distributed under the GNU LGPLv3. See LICENSE for more info.
+
+"""
+Example showing how to make a customized loopscan using the CT2
+as master
+"""
+
+import logging
+
+import louie
+from six import print_
+
+from bliss.config.static import get_config
+from bliss.scanning.scan import Scan, StepScanDataWatch
+from bliss.scanning.chain import AcquisitionChain
+from bliss.scanning.acquisition.ct2 import CT2AcquisitionMaster
+from bliss.scanning.acquisition.counter import IntegratingCounterAcquisitionDevice
+from bliss.scanning.acquisition.timer import SoftwareTimerMaster
+
+
+def loopscan(npoints, acq_time, p201):
+    counters = p201.acq_counters.values()
+    counter_group = p201.acq_counter_group
+
+    name = 'p201_loopscan'
+    
+    scan_info = dict(count_time=acq_time,
+                     npoints=npoints,
+                     name=name,
+                     save=False,
+                     motors=[],
+                     counters=counters)
+
+    # Build acquisition chain
+    chain = AcquisitionChain(parallel_prepare=True)
+
+    acq_counter_group = IntegratingCounterAcquisitionDevice(counter_group,
+                                                            **scan_info)
+    for counter in counters:
+        acq_counter_group.add_counter(counter)
+
+    timer = SoftwareTimerMaster(acq_time, npoints=npoints)
+    acq_master = CT2AcquisitionMaster(p201, npoints=npoints,
+                                      acq_expo_time=acq_time)
+    chain.add(timer, acq_master)
+    chain.add(acq_master, acq_counter_group)
+    chain.timer = timer
+    watch = StepScanDataWatch(scan_info)
+    scan = Scan(chain, name=name, scan_info=scan_info,
+                data_watch_callback=watch)
+
+    louie.connect(on_new_scan, 'scan_new')
+    louie.connect(on_scan_point, 'scan_data')
+    louie.connect(on_scan_end, 'scan_end')
+
+    scan.run()
+
+
+def on_new_scan(scan_info):
+    print_('started scan # {0} {1!r} at {2}'.format(scan_info['scan_nb'],
+                                                    scan_info['name'],
+                                                    scan_info['start_time']))
+    print_('counters: ', [c.name for c in scan_info['counters']])
+        
+def on_scan_point(scan_info, values):
+    print_('scan_point: ', values.values())
+
+def on_scan_end(scan_info):
+    print_('scan ended')
+    
+    
+if __name__ == '__main__':
+    logging.basicConfig(
+        format='%(levelname)s %(asctime)-15s %(name)s: %(message)s',
+        level=logging.INFO)    
+    config = get_config()
+    p201 = config.get('p201_remote')
+
+    loopscan(10, 0.1, p201)

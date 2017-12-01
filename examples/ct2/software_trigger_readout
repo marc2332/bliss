@@ -1,0 +1,81 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# This file is part of the bliss project
+#
+# Copyright (c) 2016 Beamline Control Unit, ESRF
+# Distributed under the GNU LGPLv3. See LICENSE for more info.
+
+"""
+Example showing how to use the CT2 in *software trigger readout*.
+It requires a CT2 card configuration in bliss.
+
+Press Ctrl-C to trigger a point.
+"""
+
+import time
+import logging
+import argparse
+import contextlib
+
+from gevent import sleep
+from gevent.event import Event
+
+from bliss.common.event import dispatcher
+from bliss.config.static import get_config
+from bliss.controllers.ct2.client import CT2
+from bliss.controllers.ct2.device import AcqMode, AcqStatus, StatusSignal
+
+
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--log-level', default='INFO',
+                    choices=['CRITICAL', 'ERROR', 'WARNING', 'INFO',
+                             'DEBUG'],
+                    help='log level',  type=lambda c: c.upper())
+parser.add_argument('card_name', help='bliss configuration name of the CT2 card')
+parser.add_argument('nb_points', default=1, type=int,
+                    help='number of acquisition points [default: %(default)s]')
+
+args = parser.parse_args()
+
+logging.basicConfig(format='%(levelname)s %(asctime)-15s %(name)s: %(message)s',
+                    level=getattr(logging, args.log_level))
+
+config = get_config()
+
+device = config.get(args.card_name)
+
+with contextlib.closing(device):
+    device.acq_mode = AcqMode.SoftTrigReadout
+    device.acq_expo_time = None
+    device.acq_point_period = None
+    device.acq_nb_points = args.nb_points
+    device.acq_channels = 3, 2
+
+    finish_event = Event()
+
+    last = time.time()
+    def on_card_event(value, signal):
+        global last
+        curr = time.time()
+        dt = curr - last
+        last = curr
+        logging.info('Event signal=%s value=%s elapsed=%s', signal, value, dt)
+        if signal == StatusSignal and value == AcqStatus.Ready:
+            finish_event.set()
+
+    dispatcher.connect(on_card_event, sender=device)
+    device.prepare_acq()
+    start = time.time()
+    device.start_acq()
+
+    while True:
+        logging.info('Waiting for another Ctrl-C to trigger point')
+        try:
+            if finish_event.wait():
+                break
+        except KeyboardInterrupt:
+            device.trigger_point()
+
+    end = time.time()
+    print('Took %fs' % (end-start))

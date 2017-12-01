@@ -30,11 +30,9 @@ import argparse
 import six
 import louie
 import gevent.queue
-import zerorpc
-import msgpack_numpy
 
-from bliss.controllers.ct2 import card
-from bliss.controllers.ct2 import device
+from bliss.comm.rpc import Server
+from bliss.controllers.ct2 import card, device
 
 
 DEFAULT_BIND = '0.0.0.0'
@@ -46,11 +44,7 @@ DEFAULT_LOG_LEVEL = 'INFO'
 
 log = logging.getLogger('CT2Server')
 
-# Patching
-
-msgpack_numpy.patch()
-
-
+'''
 class CT2(device.CT2):
 
     def __init__(self, *args, **kwargs):
@@ -76,7 +70,7 @@ class CT2(device.CT2):
 
     def set_property(self, key, value):
         setattr(self, key, value)
-
+'''
 
 def create_device(card_type, address):
     config = {
@@ -84,15 +78,14 @@ def create_device(card_type, address):
         'address': address,
     }
     card_obj = card.create_and_configure_card(config)
-    device = CT2(card_obj)
-    return device
+    return device.CT2(card_obj)
 
 
 def run(bind=DEFAULT_BIND, port=DEFAULT_PORT, heartbeat=DEFAULT_HEARTBEAT,
         card_type=DEFAULT_CARD_TYPE, address=DEFAULT_CARD_ADDRESS):
     access = "tcp://{}:{}".format(bind, port)
     device = create_device(card_type, address)
-    server = zerorpc.Server(device, heartbeat=heartbeat)
+    server = Server(device, stream=True, heartbeat=heartbeat)
     server.bind(access)
     log.info('Serving CT2 on {access}...'.format(access=access))
     try:

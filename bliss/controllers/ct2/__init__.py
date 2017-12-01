@@ -41,7 +41,7 @@ remote.
    need complete control over the card configuration).
 
 
-You can instantiate the :class:`CT2` from a beacon configured card::
+You can instantiate the :class:`CT2` from a beacon configured card:
 
 .. code-block:: yaml
 

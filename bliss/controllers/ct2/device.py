@@ -24,6 +24,7 @@ Minimalistic configuration example:
 
 
 import sys
+import logging
 import functools
 
 import numpy
@@ -160,10 +161,11 @@ class CT2(object):
     ]
 
     DefaultAcqMode = AcqMode.IntTrigReadout
-    DefaultInputConfig = {'channel': None, 'polarity inverted': False}
-    DefaultOutputConfig = {'channel': 10}
+    DefaultInputConfig = {'channel': None, 'polarity inverted': False, 'counter': None}
+    DefaultOutputConfig = {'channel': 10, 'counter': 10}
 
     def __init__(self, card):
+        self._log = logging.getLogger(type(self).__name__)
         self._card = card
         self.__buffer = []
         self.__buffer_lock = lock.RLock()
@@ -173,7 +175,7 @@ class CT2(object):
         self.__acq_point_period = None
         self.__acq_nb_points = 1
         self.__acq_channels = ()
-        self.__timer_freq = 1E8
+        self.__timer_freq = 12.5E6
         self.__event_loop = None
         self.__trigger_on_start = True
         self.__soft_started = False
@@ -676,6 +678,9 @@ class CT2(object):
     def timer_freq(self, timer_freq):
         if timer_freq not in self.IntClockSrc:
             raise ValueError('Invalid timer clock: %s' % timer_freq)
+        if timer_freq > 12.5E6:
+            self._log.warning('The P201 has known bugs using frequencies ' \
+                              'above 12.5Mhz. Use it at your own risk')
         self.__timer_freq = timer_freq
 
     @property
@@ -686,6 +691,7 @@ class CT2(object):
     def input_config(self, config):
         config = config or {}
         channel = config.setdefault('channel', None)
+        counter = config.setdefault('counter', channel)
         polarity = config.setdefault('polarity inverted', False)
         if channel is not None and channel not in self._card.INPUT_CHANNELS:
             raise ValueError('invalid input config channel %r', channel)
@@ -702,11 +708,12 @@ class CT2(object):
     def input_channel(self, channel):
         trig = self.input_config
         trig['channel'] = channel
+        trig['counter'] = channel
         self.input_config = trig
 
     @property
     def input_counter(self):
-        return self.input_channel
+        return self.input_config['counter']
 
     @property
     def output_config(self):
@@ -716,6 +723,7 @@ class CT2(object):
     def output_config(self, config):
         config = config or {}
         channel = config.setdefault('channel', None)
+        counter = config.setdefault('counter', channel)
         mode = config.setdefault('mode', 'gate')
         if channel is not None and channel not in self._card.OUTPUT_CHANNELS:
             raise ValueError('invalid output config channel %r', channel)
@@ -731,11 +739,12 @@ class CT2(object):
     def output_channel(self, channel):
         trig = self.output_config
         trig['channel'] = channel
+        trig['counter'] = channel
         self.output_config = trig
 
     @property
     def output_counter(self):
-        return self.output_channel
+        return self.output_config['counter']
 
     @property
     def counters(self):
@@ -769,9 +778,12 @@ class CT2(object):
     def get_data(self, from_index=None):
         if from_index is None:
             from_index = 0
+        data = None
         with self.__buffer_lock:
             if self.__buffer:
-                return numpy.vstack(self.__buffer[from_index:])
+                data = self.__buffer[from_index:]
+        if data:
+            return numpy.vstack(data)
         return numpy.array([[]], dtype=numpy.uint32)
 
     def configure(self, device_config):

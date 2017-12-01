@@ -10,60 +10,6 @@ import unittest
 from bliss.controllers.ct2 import card
 
 
-class TestCtConfig(unittest.TestCase):
-
-    def test_ctconfig_empty(self):
-        cfg = card.CtConfig()
-        self.assertEqual(cfg.value, 0)
-
-    def test_ctconfig_init_with_1_param(self):
-        clock_1_mhz = 0x03
-        self.assertEqual(clock_1_mhz, card.CtClockSrc.CLK_1_MHz.value)
-
-        cfg = card.CtConfig(clock_source=card.CtClockSrc.CLK_1_MHz)
-
-        self.assertEqual(cfg.value, card.CtClockSrc.CLK_1_MHz.value)
-        self.assertEqual(cfg.clock_source, card.CtClockSrc.CLK_1_MHz)
-
-    def test_ctconfig_init_with_params(self):
-        reg = 0x04 | (0x1E << 7) | (0x09 << 13) | (0x52 << 20) | (1 << 30) | (0 << 31)
-
-        cfg = card.CtConfig(clock_source=card.CtClockSrc.CLK_12_5_MHz,
-                           gate_source=card.CtGateSrc.CT_6_GATE_ENVELOP,
-                           hard_start_source=card.CtHardStartSrc.CH_9_RISING_EDGE,
-                           hard_stop_source=card.CtHardStopSrc.CT_10_EQ_CMP_10,
-                           reset_from_hard_soft_stop=True, 
-                           stop_from_hard_stop=False)
-
-        self.assertEqual(cfg.value, reg)
-        self.assertEqual(cfg.clock_source, card.CtClockSrc.CLK_12_5_MHz)
-        self.assertEqual(cfg.gate_source, card.CtGateSrc.CT_6_GATE_ENVELOP)
-        self.assertEqual(cfg.hard_start_source, card.CtHardStartSrc.CH_9_RISING_EDGE)
-        self.assertEqual(cfg.hard_stop_source, card.CtHardStopSrc.CT_10_EQ_CMP_10)
-        self.assertTrue(cfg.reset_from_hard_soft_stop)
-        self.assertFalse(cfg.stop_from_hard_stop)
-
-    def test_ctconfig_set(self):
-        cfg = card.CtConfig()
-        self.assertEqual(cfg.value, 0)
-        
-        cfg['clock_source'] = card.CtClockSrc.CLK_10_KHz
-        reg = 0x1
-        self.assertEqual(cfg.clock_source, card.CtClockSrc.CLK_10_KHz)
-        self.assertEqual(cfg['clock_source'], card.CtClockSrc.CLK_10_KHz)
-        self.assertEqual(cfg.value, card.CtClockSrc.CLK_10_KHz.value)
-        self.assertEqual(cfg.value, reg)
-
-        cfg['hard_start_source'] = card.CtHardStartSrc.CT_6_START_STOP
-        reg = 0x1 | (0x42 << 13)
-        self.assertEqual(cfg.clock_source, card.CtClockSrc.CLK_10_KHz)
-        self.assertEqual(cfg['clock_source'], card.CtClockSrc.CLK_10_KHz)
-
-        self.assertEqual(cfg.hard_start_source, card.CtHardStartSrc.CT_6_START_STOP)
-        self.assertEqual(cfg['hard_start_source'], card.CtHardStartSrc.CT_6_START_STOP)
-        self.assertEqual(cfg.value, reg)
-
-
 class TestP201(unittest.TestCase):
 
     def setUp(self):

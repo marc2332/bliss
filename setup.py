@@ -101,6 +101,7 @@ def main():
                   'bliss = bliss.shell.cli.main:main',
                   'bliss-emulator = bliss.controllers.emulator:main',
                   'beacon-server = bliss.config.conductor.server:main',
+                  'bliss-ct2-server = bliss.controllers.ct2.server:main',
               ],
           },
           tests_require=['pytest-mock', 'pytest-coverage', 'h5py'],

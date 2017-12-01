@@ -11,18 +11,14 @@ import select
 import logging
 import argparse
 import datetime
+from select import epoll
 
 import numpy
 
-try:
-    from bliss.controllers import ct2
-except:
-    this_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), os.path.pardir))
-    sys.path.append(this_dir)
-    from bliss.controllers import ct2
 
-from bliss.controllers.ct2 import P201Card, Clock, Level, CtConfig, OutputSrc
-from bliss.controllers.ct2 import CtClockSrc, CtGateSrc, CtHardStartSrc, CtHardStopSrc
+from bliss.controllers.ct2.card import (P201Card, Clock, Level, CtConfig,
+                                        OutputSrc, CtClockSrc, CtGateSrc,
+                                        CtHardStartSrc, CtHardStopSrc)
 
 
 class TestContext:
@@ -131,7 +127,7 @@ def main():
     p201.software_reset()
     p201.reset_FIFO_error_flags()
     
-    poll = select.epoll()
+    poll = epoll()
     poll.register(p201, select.EPOLLIN | select.EPOLLHUP | select.EPOLLERR)
     poll.register(sys.stdin, select.EPOLLIN)
 
@@ -196,7 +192,6 @@ def handle_cmd(context, fd, event):
 
 
 def handle_card(context, fd, event):
-    t = ct2.time.monotonic_raw()
     card = context.card
     if event & (select.EPOLLHUP):
         print("error: epoll hang up event on {0}, bailing out".format(fd))

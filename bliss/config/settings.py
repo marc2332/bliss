@@ -10,6 +10,7 @@ from bliss.common.utils import Null
 from bliss import setup_globals
 import weakref
 import pickle
+import numpy
 
 
 class InvalidValue(Null):
@@ -104,8 +105,8 @@ def write_decorator_dict(func):
 def write_decorator_multiple(func):
     def _write(self, values, **keys):
         if self._write_type_conversion:
-            if not isinstance(values, (list, tuple)) and values is not None:
-                raise TypeError('can only be tuple or list')
+            if not isinstance(values, (list, tuple, numpy.ndarray)) and values is not None:
+                raise TypeError('Can only be tuple, list or numpy array')
             if values is not None:
                 values = [self._write_type_conversion(x) for x in values]
         return func(self, values, **keys)
@@ -301,9 +302,6 @@ class QueueSetting(object):
 
     @write_decorator_multiple
     def set(self, values):
-        if not isinstance(values, (list, tuple)) and values is not None:
-            raise TypeError('can only be tuple or list')
-
         cnx = self._cnx()
         cnx.delete(self._name)
         if values is not None:

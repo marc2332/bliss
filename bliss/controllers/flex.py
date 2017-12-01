@@ -1341,17 +1341,14 @@ class flex(object):
             logging.getLogger('flex').error("problem with getVal3GlobalVariableDouble")
             raise RuntimeError("problem with getVal3GlobalVariableDouble")
 
-        parser = ConfigParser.RawConfigParser()
-        file_path = self.calibration_file
         saved_file_path = os.path.splitext(self.calibration_file)[0]+os.path.extsep+"sav"
-        parser.read(file_path)
         try:
             shutil.copy(file_path, saved_file_path)
         except IOError:
             logging.getLogger('flex').info("No such file %s" %file_path)
-        parser.set("Calibration", "z", str(tCalib))
+        self.config.set("Calibration", "z", str(tCalib))
         with open(file_path, 'wb') as file:
-            parser.write(file)
+            self.config.write(file)
         logging.getLogger('flex').info("file written")
         self.robot.setVal3GlobalVariableBoolean("bImageProcEnded", True)
 

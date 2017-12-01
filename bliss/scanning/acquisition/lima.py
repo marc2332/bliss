@@ -61,7 +61,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         camera_name = self.device.camera_type
         full_path = os.path.join(scan_file_dir, self.device.user_detector_name)
 
-        if save_flag:
+        if self.save_flag:
             self.parameters.setdefault('saving_mode', 'AUTO_FRAME')
             self.parameters.setdefault('saving_format', 'EDF')
             self.parameters.setdefault('saving_frame_per_file', 1)

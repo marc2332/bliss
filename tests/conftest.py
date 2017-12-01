@@ -34,7 +34,7 @@ def beacon():
     proc.start()
     time.sleep(0.5)  # wait for beacon to be really started
     redis_db = redis.Redis(port=7654)
-    redis_db.flushdb()
+    redis_db.flushall()
     beacon_connection = connection.Connection("localhost", BEACON_PORT)
     client._default_connection = beacon_connection
     cfg = static.get_config()

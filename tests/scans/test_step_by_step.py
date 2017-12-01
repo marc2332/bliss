@@ -19,7 +19,6 @@ def test_ascan(beacon):
     session.setup()
     counter_class = getattr(setup_globals, 'TestScanGaussianCounter')
     m0 = getattr(setup_globals, 'm0')
-    assert m0.position() == 0
     counter = counter_class("gaussian", 10, cnt_time=0)
     s = scans.ascan(m0, 0, 10, 10, 0, counter, return_scan=True, save=False)
     assert m0.position() == 10

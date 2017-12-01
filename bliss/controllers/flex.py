@@ -132,6 +132,13 @@ class flex:
         val = ast.literal_eval(parser.get(section, name_value))
         if section == "acq_time":
             logging.getLogger('flex').info("Acquisition time is set to %s" %( str(val)))
+        elif section == "distance_from_ref":
+            logging.getLogger('flex').info("Distance from reference is %s" %(str(val)))
+        elif section == "distance_pin_gripper":
+            logging.getLogger('flex').info("Reference distance pin-gripper is %s" %(str(val)))
+        elif section == "proxisense":
+            logging.getLogger('flex').info("Proxisense threshold is %s" %(str(val)))
+
         else:
             logging.getLogger('flex').info("Roi for %s detection is %s" %(section, str(val)))
         return val
@@ -243,7 +250,7 @@ class flex:
 
     @notwhenbusy
     def moveDewar(self, cell, puck=1, user=False):
-        logging.getLogger('flex').info("Starting to move the Dewar")
+        logging.getLogger('flex').info("Dewar moves to cell %d" %cell)
         if isinstance(cell, (int,long)) and isinstance(puck, (int,long)):
             if not cell in range(1,9):
                 logging.getLogger('flex').error("Wrong cell number [1-8]")
@@ -255,7 +262,6 @@ class flex:
             cell = cell + 5
             if cell > 8:
                 cell = math.fmod(cell,8)
-        logging.getLogger('flex').info("Dewar to move to %d" %cell)
         self.robot.setVal3GlobalVariableDouble("nDewarDest", str(3 * (int(cell) - 1)))
         self.robot.executeTask("moveDewar", timeout=60)
         gevent.sleep(0.5) #give time to have DewarInPosition updated
@@ -267,7 +273,7 @@ class flex:
             self.stopDewar()
             logging.getLogger('flex').error("Timeout")
             raise
-        logging.getLogger('flex').info("Dewar moved to %d" %cell)
+        logging.getLogger('flex').info("Done.")
 
     def get_loaded_sample(self):
         if self._loaded_sample == None:
@@ -557,9 +563,7 @@ class flex:
     def vial_center_detection(self):
         acq_time = self.get_detection_param("acq_time","vial")
         image = self.waiting_for_image(acq_time=acq_time, timeout=60)
-        #roi_left = [[0,0],[400,400]]
         roi_left = self.get_detection_param("vial_center", "roi_left")
-        #roi_right = [[700,0],[1100,400]]
         roi_right = self.get_detection_param("vial_center", "roi_right")
         left_edge =  self.cam.vertical_edge(image, roi_left)
         right_edge = self.cam.vertical_edge(image, roi_right)
@@ -933,7 +937,6 @@ class flex:
 
         if success:
             self.transfer_counter(success=True)
-
         else:
             self.transfer_counter(success=False)
 

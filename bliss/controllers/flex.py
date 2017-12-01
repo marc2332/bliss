@@ -135,7 +135,7 @@ class flex:
         parser.read(file_path)
         val = ast.literal_eval(parser.get(section, name_value))
         if section == "acq_time":
-            logging.getLogger('flex').info("Acquisition time is set to %s" %( str(val)))
+            logging.getLogger('flex').info("Acquisition time is set to %s" %(str(val)))
         elif section == "distance_from_ref":
             logging.getLogger('flex').info("Distance from reference is %s" %(str(val)))
         elif section == "distance_pin_gripper":
@@ -1079,6 +1079,93 @@ class flex:
         else:
             logging.getLogger('flex').error("Wrong gripper on arm")
             raise RuntimeError("Wrong gripper on arm")
+
+    def yag_pos(self):
+        x = self.robot.getVal3GlobalVariableDouble("trsfYagMove.x")
+        rz = self.robot.getVal3GlobalVariableDouble("trsfYagMove.rz")
+        logging.getLogger('flex').info("YAG focus and rotation: %s, %s" %(str(x), str(rz)))
+        return x, rz
+
+    def yag_reset(self):
+        logging.getLogger('flex').info("reset Yag positions")
+        self.swap_gripper = False
+        self.robot.setVal3GlobalVariableDouble("trsfYagMove.x", 0)
+        self.robot.setVal3GlobalVariableDouble("trsfYagMove.y", 0)
+        self.robot.setVal3GlobalVariableDouble("trsfYagMove.z", 0)
+        self.robot.setVal3GlobalVariableDouble("trsfYagMove.rx", 0)
+        self.robot.setVal3GlobalVariableDouble("trsfYagMove.ry", 0)
+        self.robot.setVal3GlobalVariableDouble("trsfYagMove.rz", 0)
+
+    def do_yag_in(self):
+        with BackgroundGreenlets(self.PSS_light, ()) as X:
+                return X.execute(self.robot.executeTask, "yag_in", timeout=90)
+
+    def yag_in(self):
+        logging.getLogger('flex').info("Starting YAG in")
+        if self.robot.getCachedVariable("data:dioPinOnGonio").getValue() == "true":
+            logging.getLogger('flex').error("Sample on SmartMagnet")
+            raise RuntimeError("Sample on SmartMagnet")
+        self.yag_reset()
+        gripper_type = self.get_gripper_type()
+        if gripper_type == 1:
+            logging.getLogger('flex').info("Change gripper")
+            self.swap_gripper = True
+            self.changeGripper()
+            self.do_yag_in()
+        elif gripper_type == 3:
+            self.do_yag_in()        
+        else:
+            logging.getLogger('flex').info("Please change gripper")
+            return
+        logging.getLogger('flex').info("YAG in done")
+
+    def do_yag_out(self):
+        with BackgroundGreenlets(self.PSS_light, ()) as X:
+                return X.execute(self.robot.executeTask, "yag_out", timeout=90)
+
+    def yag_out(self):
+        logging.getLogger('flex').info("Starting YAG out")
+        self.do_yag_out()
+        if self.swap_gripper is True:
+            self.changeGripper()
+        self.yag_reset()
+        logging.getLogger('flex').info("YAG out done")
+
+    def do_yag_focus(self):
+        with BackgroundGreenlets(self.PSS_light, ()) as X:
+                return X.execute(self.robot.executeTask, "yag_move", timeout=20)
+
+    def yag_focus(self,focus=0):
+        start_focus = self.robot.getVal3GlobalVariableDouble("trsfYagMove.x")
+        focus = float(focus)
+        if start_focus == focus:
+            logging.getLogger('flex').info("No need to move")
+            return
+        if (focus < -5) or (focus > 5):
+            logging.getLogger('flex').error("focus must be in range -5 and +5 mm")
+            raise RuntimeError("angle must be in range -5 and +5 mm")
+        logging.getLogger('flex').info("Yag focus is %s, translate to %s" %(str(start_focus), str(focus)))
+        self.robot.setVal3GlobalVariableDouble("trsfYagMove.x", str(focus))
+        self.do_yag_focus()
+        logging.getLogger('flex').info("Done")
+
+    def do_yag_rot(self):
+        with BackgroundGreenlets(self.PSS_light, ()) as X:
+                return X.execute(self.robot.executeTask, "yag_move", timeout=20)
+
+    def yag_rot(self, angle=0):
+        start_angle = self.robot.getVal3GlobalVariableDouble("trsfYagMove.rz")
+        angle = float(angle)
+        if start_angle == angle:
+            logging.getLogger('flex').info("No need to move")
+            return
+        if (angle < -90) or (angle > 90):
+            logging.getLogger('flex').error("angle must be in range -90 and +90 degrees")
+            raise RuntimeError("angle must be in range -90 and +90 degrees")
+        logging.getLogger('flex').info("Yag rotation is %s, rotate to %s" %(str(start_angle), str(angle)))
+        self.robot.setVal3GlobalVariableDouble("trsfYagMove.rz", str(angle))
+        self.do_yag_rot()
+        logging.getLogger('flex').info("Done")
 
     def spine_gripper_center_detection(self):
         acq_time = self.get_detection_param("acq_time","pin")

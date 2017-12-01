@@ -9,6 +9,7 @@ import inspect
 import types
 import itertools
 import functools
+from bliss.common.event import saferef
 
 try:
     from collections import OrderedDict
@@ -305,3 +306,31 @@ class StripIt(object):
 
     def __format__(self, format_spec):
         return self.__strip(format(self.obj, format_spec))
+
+class periodic_exec(object):
+    def __init__(self, period_in_s, func):
+        if not callable(func):
+            self.func_ref = None
+        else:
+            self.func_ref = saferef.safe_ref(func)
+        self.period = period_in_s
+        self.__task = None
+
+    def __enter__(self):
+        if self.period > 0 and self.func_ref:
+            self.__task = gevent.spawn(self._timer)
+
+    def __exit__(self, *args):
+        if self.__task is not None:
+            gevent.kill(self.__task)
+
+    def _timer(self):
+        while True:
+            func = self.func_ref()
+            if func is None:
+                return
+            else:
+                func()
+                del func
+                gevent.sleep(self.period)
+

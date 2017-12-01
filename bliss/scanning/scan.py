@@ -16,6 +16,7 @@ import time
 import logging
 
 from bliss.common.event import connect, send
+from bliss.common.utils import periodic_exec
 from bliss.config.conductor import client
 from bliss.config.settings import Parameters, _change_to_obj_marshalling
 from bliss.data.node import _get_or_create_node, _create_node, DataNode
@@ -338,28 +339,6 @@ class Scan(object):
         self._node.set_ttl()
 
     def run(self):
-        class _Wakeup(object):
-            def __init__(self, cnt, active):
-                self.__active = active
-                self.__task = None
-                self.__cnt = weakref.proxy(cnt)
-
-            def __enter__(self):
-                if self.__active:
-                    self.__task = gevent.spawn(self._timer)
-
-            def __exit__(self, *args):
-                if self.__task is not None:
-                    gevent.kill(self.__task)
-
-            def _timer(self):
-                try:
-                    while True:
-                        self.__cnt._data_watch_callback_event.set()
-                        gevent.sleep(0.1)
-                except ReferenceError:
-                    pass
-
         if hasattr(self._data_watch_callback, 'on_state'):
             call_on_prepare = self._data_watch_callback.on_state(
                 self.PREPARE_STATE)
@@ -372,20 +351,21 @@ class Scan(object):
             i = None
             for i in self.acq_chain:
                 self._state = self.PREPARE_STATE
-                with _Wakeup(self, call_on_prepare):
+                with periodic_exec(0.1 if call_on_prepare else 0, set_watch_event):
                     i.prepare(self, self.scan_info)
                 self._state = self.START_STATE
                 i.start()
         except:
             self._state = self.STOP_STATE
-            with _Wakeup(self, call_on_stop):
+            with periodic_exec(0.1 if call_on_stop else 0, set_watch_event):
                 i.stop()
                 self.stop()
             raise
         else:
             self._state = self.STOP_STATE
             if i is not None:
-                i.stop()
+                with periodic_exec(0.1 if call_on_stop else 0, set_watch_event):
+                    i.stop()
         finally:
             self._state = self.IDLE_STATE
             send(current_module, "scan_end", self.scan_info)

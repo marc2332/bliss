@@ -20,14 +20,14 @@ from bliss.common.data_manager import get_node
 
 toto = get_node("toto")
 
-for node in toto.iterator().walk(filter=('scan', 'lima')):
-    print node.db_name()
+for node in toto.iterator.walk(filter=('scan', 'lima')):
+    print node.db_name
 
 """
-for node in toto.iterator().walk(filter='lima'):
+for node in toto.iterator.walk(filter='lima'):
   gevent.spawn(analyse_data, node)
 
 def analyse_data(node):
-  for data in node.iterator().walk_data():
+  for data in node.iterator.walk_data():
       print data
 """

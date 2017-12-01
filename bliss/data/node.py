@@ -93,10 +93,10 @@ class DataNodeIterator(object):
         if wait:
             pubsub = self.children_event_register()
 
-        db_name = self.node.db_name()
+        db_name = self.node.db_name
         self.last_child_id[db_name] = 0
 
-        if filter is None or self.node.type() in filter:
+        if filter is None or self.node.type in filter:
             yield self.node
 
         for i, child in enumerate(self.node.children()):
@@ -104,7 +104,7 @@ class DataNodeIterator(object):
                 child, last_child_id=self.last_child_id)
             for n in iterator.walk(filter, wait=False):
                 self.last_child_id[db_name] = i + 1
-                if filter is None or n.type() in filter:
+                if filter is None or n.type in filter:
                     yield n
         if wait:
             # yield from self.wait_for_event(pubsub)
@@ -144,14 +144,13 @@ class DataNodeIterator(object):
         redis = self.node.db_connection
         pubsub = redis.pubsub()
         pubsub.psubscribe("__keyspace@1__:%s*_children_list" %
-                          self.node.db_name())
-        pubsub.psubscribe("__keyspace@1__:%s*_channels" % self.node.db_name())
+                          self.node.db_name)
         return pubsub
 
     def child_register_new_data(self, child_node, pubsub):
         if child_node.type() == 'zerod':
             for channel_name in child_node.channels_name():
-                zerod_db_name = child_node.db_name()
+                zerod_db_name = child_node.db_name
                 event_key = "__keyspace@1__:%s_%s" % (
                     zerod_db_name, channel_name)
                 pubsub.subscribe(event_key)
@@ -161,11 +160,11 @@ class DataNodeIterator(object):
 
     def zerod_channels_events(self, pubsub, zerod, filter):
         events = list()
-        print filter, zerod.type()
-        filter = filter is None or zerod.type() in filter
+        print filter, zerod.type
+        filter = filter is None or zerod.type in filter
 
         for channel_name in zerod.channels_name():
-            zerod_db_name = zerod.db_name()
+            zerod_db_name = zerod.db_name
             event_key = "__keyspace@1__:%s_%s" % (zerod_db_name, channel_name)
             if event_key in self.zerod_channel_event:
                 continue
@@ -199,9 +198,9 @@ class DataNodeIterator(object):
                         parent_db_name, 0)
                     for i, child in enumerate(parent_node.children(first_child, -1)):
                         self.last_child_id[parent_db_name] = first_child + i + 1
-                        if filter is None or child.type() in filter:
+                        if filter is None or child.type in filter:
                             yield self.NEW_CHILD_EVENT, child
-                        if child.type() == 'zerod':
+                        if child.type == 'zerod':
                             zerod = child
                             for event in self.zerod_channels_events(pubsub, zerod, filter):
                                 yield event
@@ -218,9 +217,9 @@ class DataNodeIterator(object):
                             channel)
                         if new_data_in_channel is not None:
                             zerod = get_node(new_data_in_channel)
-                            db_name = zerod.db_name() + '_'
+                            db_name = zerod.db_name + '_'
                             channel_name = channel.split(db_name)[-1]
-                            if filter is None or zerod.type() in filter:
+                            if filter is None or zerod.type in filter:
                                 yield self.NEW_DATA_IN_CHANNEL_EVENT, (zerod, channel_name)
 
 
@@ -246,13 +245,13 @@ class DataNode(object):
     def exists(name, parent=None, connection=None):
         if connection is None:
             connection = client.get_cache(db=1)
-        db_name = '%s:%s' % (parent.db_name(), name) if parent else name
+        db_name = '%s:%s' % (parent.db_name, name) if parent else name
         return db_name if connection.exists(db_name) else None
 
     def __init__(self, node_type, name, parent=None, connection=None, create=False):
         if connection is None:
             connection = client.get_cache(db=1)
-        db_name = '%s:%s' % (parent.db_name(), name) if parent else name
+        db_name = '%s:%s' % (parent.db_name, name) if parent else name
         self._data = Struct(db_name,
                             connection=connection)
         children_queue_name = '%s_children_list' % db_name
@@ -268,24 +267,29 @@ class DataNode(object):
             self._data.db_name = db_name
             self._data.node_type = node_type
             if parent:
-                self._data.parent = parent.db_name()
+                self._data.parent = parent.db_name
                 parent.add_children(self)
-            self._ttl_setter = _TTL_setter(self.db_name())
+            self._ttl_setter = _TTL_setter(self.db_name)
         else:
             self._ttl_setter = None
 
+    @property
     def db_name(self):
         return self._data.db_name
 
+    @property
     def name(self):
         return self._data.name
 
+    @property
     def type(self):
         return self._data.node_type
 
+    @property
     def iterator(self):
         return DataNodeIterator(self)
 
+    @property
     def add_children(self, *child):
         if len(child) > 1:
             children_no = self._children.extend([c.db_name() for c in child])
@@ -347,11 +351,11 @@ class DataNode(object):
         pipeline.execute()
 
     def _get_db_names(self):
-        db_name = self.db_name()
+        db_name = self.db_name
         children_queue_name = '%s_children_list' % db_name
         info_hash_name = '%s_info' % db_name
         db_names = [db_name, children_queue_name, info_hash_name]
-        parent = self.parent()
+        parent = self.parent
         if parent:
             db_names.extend(parent._get_db_names())
         return db_names

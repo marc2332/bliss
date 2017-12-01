@@ -86,7 +86,7 @@ class LimaDataNode(DataNode):
 
     def __init__(self, name, **keys):
         DataNode.__init__(self, 'lima', name, **keys)
-        saving_params_name = '%s_saving_params' % self.db_name()
+        saving_params_name = '%s_saving_params' % self.db_name
         self._saving_params = QueueObjSetting(
             saving_params_name, connection=self.db_connection)
         self._storage_task = None
@@ -98,7 +98,7 @@ class LimaDataNode(DataNode):
     #
     def update_status(self, image_status):
         cnx = self._data._cnx()
-        db_name = self.db_name()
+        db_name = self.db_name
 
         pipeline = cnx.pipeline()
         for key, value in image_status.iteritems():
@@ -118,7 +118,7 @@ class LimaDataNode(DataNode):
             local_dict = self._new_image_status
             self._new_image_status = dict()
             if local_dict:
-                self.db_connection.hmset(self.db_name(), local_dict)
+                self.db_connection.hmset(self.db_name, local_dict)
             if self._stop_flag:
                 break
             gevent.idle()

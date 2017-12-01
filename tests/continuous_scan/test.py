@@ -406,7 +406,7 @@ def test_emotion_p201():
 
 
 def _walk_children(parent, index=0):
-    print ' ' * index, parent.db_name(), parent.name(), client.get_cache(db=1).ttl(parent.db_name())
+    print ' ' * index, parent.db_name, parent.name(), client.get_cache(db=1).ttl(parent.db_name)
     for child in parent.children():
         _walk_children(child, index=index + 1)
 

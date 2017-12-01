@@ -29,10 +29,10 @@ class Dataset0D(DataNode):
         DataNode.__init__(self, 'zerod', name, **keys)
         cnx = self.db_connection
         self._channels_name = QueueSetting(
-            '%s_channels' % self.db_name(), connection=cnx)
+            '%s_channels' % self.db_name, connection=cnx)
         self._channels = {}
         for channel_name in self._channels_name:
-            self._channels[channel_name] = QueueSetting('%s_%s' % (self.db_name(), channel_name),
+            self._channels[channel_name] = QueueSetting('%s_%s' % (self.db_name, channel_name),
                                                         connection=cnx)
 
     def channels_name(self):
@@ -50,7 +50,7 @@ class Dataset0D(DataNode):
                 queue = self._channels.get(channel_name)
                 if queue is None:
                     self._channels_name.append(channel_name)
-                    queue = QueueSetting('%s_%s' % (self.db_name(), channel_name),
+                    queue = QueueSetting('%s_%s' % (self.db_name, channel_name),
                                          connection=self.db_connection)
                     self._channels[channel_name] = queue
                 try:
@@ -67,7 +67,7 @@ class Dataset0D(DataNode):
         elif check_exists and channel_name not in self._channels_name:
             raise ValueError("Unknown channel %s" % channel_name)
 
-        channel_db_name = '%s_%s' % (self.db_name(), channel_name)
+        channel_db_name = '%s_%s' % (self.db_name, channel_name)
         return Dataset0D.DataChannel(channel_db_name, self.db_connection if cnx is None else cnx)
 
     def get_all_channels(self):

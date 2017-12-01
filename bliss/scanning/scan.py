@@ -218,7 +218,7 @@ class Scan(object):
         name = name if name else "scan"
 
         if parent:
-            key = self.root_node.db_name()
+            key = self.root_node.db_name
             run_number = client.get_cache(db=1).hincrby(
                 key, "%s_last_run_number" % name, 1)
         else:
@@ -255,7 +255,7 @@ class Scan(object):
 
         self._acq_chain = chain
         self._scan_info = scan_info if scan_info is not None else dict()
-        self._scan_info['node_name'] = self._node.db_name()
+        self._scan_info['node_name'] = self._node.db_name
         self._state = self.IDLE_STATE
 
     @property
@@ -484,7 +484,7 @@ class FileWriter(object):
         self.closed = True
 
     def create_path(self, scan_recorder):
-        path_suffix = scan_recorder.node.name()
+        path_suffix = scan_recorder.node.name
         full_path = os.path.join(self._root_path, path_suffix)
         try:
             os.makedirs(full_path)
@@ -516,7 +516,7 @@ class FileWriter(object):
             if isinstance(dev, AcquisitionMaster):
                 master_entry = self.new_master(dev, scan_file_dir)
 
-                dev.prepare_saving(scan_recorder.node.name(), scan_file_dir)
+                dev.prepare_saving(scan_recorder.node.name, scan_file_dir)
 
                 for slave in dev.slaves:
                     if isinstance(slave, AcquisitionDevice):

@@ -848,15 +848,14 @@ class flex:
             if not self.pin_on_gonio():
               self._loaded_sample = -1, -1, -1
 
+        self.save_loaded_position(*self._loaded_sample)
+
         if gripper_type == 3:
             gevent.spawn(self.defreezeGripper)
 
         if gripper_type == 1 and transfer_iter >= 16:
             gevent.spawn(self.defreezeGripper)
             self.update_transfer_iteration(reset=True)
- 
-
-        self.save_loaded_position(*self._loaded_sample)
 
         return success
 
@@ -932,14 +931,20 @@ class flex:
         self.set_io("dioLoadStReq", False)
         transfer_iter = self.update_transfer_iteration()
 
-        if success and self.get_robot_cache_variable("SampleCentringReady") == "True" and self.pin_on_gonio():
+        if success:
             self.transfer_counter(success=True)
-            self._loaded_sample = tuple(load)
+
         else:
             self.transfer_counter(success=False)
-            if not self.pin_on_gonio():
-              self._loaded_sample = -1, -1, -1
-  
+
+        nUnldLdState = int(self.get_robot_cache_variable("data:nUnldLdState"))
+        if nUnldLdState == 1:
+            self._loaded_sample = -1, -1, -1
+            self.save_loaded_position(*self._loaded_sample)
+        elif nUnldLdState == 2:
+            self._loaded_sample = tuple(load)
+            self.save_loaded_position(*self._loaded_sample)
+ 
         if gripper_type == 3:
             gevent.spawn(self.defreezeGripper)
 
@@ -947,8 +952,6 @@ class flex:
             gevent.spawn(self.defreezeGripper)
             self.update_transfer_iteration(reset=True)
  
-        self.save_loaded_position(*self._loaded_sample)
-
         return success
 
     def do_trashSample(self):

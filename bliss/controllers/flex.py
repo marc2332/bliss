@@ -852,8 +852,7 @@ class flex:
             gevent.spawn(self.defreezeGripper)
 
         if gripper_type == 1 and transfer_iter >= 16:
-            self.homeClear()
-            self.defreezeGripper()
+            gevent.spawn(self.defreezeGripper)
             self.update_transfer_iteration(reset=True)
  
 
@@ -945,8 +944,7 @@ class flex:
             gevent.spawn(self.defreezeGripper)
 
         if gripper_type == 1 and transfer_iter >= 16:
-            self.homeClear()
-            self.defreezeGripper()
+            gevent.spawn(self.defreezeGripper)
             self.update_transfer_iteration(reset=True)
  
         self.save_loaded_position(*self._loaded_sample)

@@ -1190,7 +1190,7 @@ class flex:
                 raise RuntimeError("stallion centering not in dewar or gonio orientation")
 
     def ball_center_detection(self):
-        acq_time = self.get_detection_param("acq_time","unipuck")
+        acq_time = self.get_detection_param("acq_time","vial")
         image = self.waiting_for_image(acq_time=acq_time, timeout=60)
         #roi = [[300,200],[1100,800]]
         roi = self.get_detection_param("ball_center", "roi")

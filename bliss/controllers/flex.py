@@ -564,12 +564,17 @@ class flex:
         left_edge =  self.cam.vertical_edge(image, roi_left)
         right_edge = self.cam.vertical_edge(image, roi_right)
         logging.getLogger('flex').info("Vial left edge %s right_edge %s" %(str(left_edge), str(right_edge)))
+        if left_edge is None or right_edge is None:
+            return None
         center = (left_edge + right_edge) / 2.
         logging.getLogger('flex').info("center %s" %str(center))
         return center
 
     def vial_centering(self, center_1, center_2, center_3):
         logging.getLogger('flex').info("center 1 %s, center 2 %s, center 3 %s" %(str(center_1), str(center_2), str(center_3)))
+        if center_1 is None or center_2 is None or center_3 is None:
+            logging.getLogger('flex').error("Correction not applicable")
+            raise RuntimeError("Correction not applicable")
         # angle in degrees between the plan (x,y) of the robot and the plan of the camera 
         angle_deg = 130.
         angle_rad = math.pi * angle_deg / 180.

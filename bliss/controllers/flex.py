@@ -948,6 +948,33 @@ class flex:
 
         return success
 
+    def do_trashSample(self):
+        with BackgroundGreenlets(self.PSS_light, ()) as X:
+            return X.execute(self.robot.executeTask, "trashSample", timeout=120)
+
+    def trashSample(self):
+        logging.getLogger('flex').info("#################")
+        if self.robot.getCachedVariable("data:dioPinOnGonio").getValue()  == "false":
+            logging.getLogger('flex').error("No sample on SmartMagnet")
+            raise RuntimeError("No sample on SmartMagnet")
+
+        gripper_type = self.get_gripper_type()
+        logging.getLogger('flex').info("Starting trash sample")
+        if gripper_type == 3:
+           self.homeClear()
+           self.poseGripper()
+           self.takeGripper(1, defreeze=False)
+           self.do_trashSample()
+           self.poseGripper()
+           self.takeGripper(3)
+        else:
+           logging.getLogger('flex').info("Trash sample available only with Flipping gripper")
+
+        if self.pin_on_gonio() == False:
+           self._loaded_sample = -1, -1, -1
+           self.save_loaded_position(*self._loaded_sample)
+        logging.getLogger('flex').info("Trash sample finished")
+
     def sampleStatus(self, status_name):
         while True:
             notify = self.robot.waitNotify(status_name)

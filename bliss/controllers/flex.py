@@ -998,7 +998,7 @@ class flex:
                 return X.execute(self.robot.executeTask, "takeGripper", timeout=60)
 
     @notwhenbusy
-    def takeGripper(self, gripper_to_take):
+    def takeGripper(self, gripper_to_take, defreeze = True):
         logging.getLogger('flex').info("Starting to take gripper on tool bank")
         self.onewire = OneWire(self.ow_port)
         if gripper_to_take not in [1, 3, 9]:
@@ -1020,10 +1020,11 @@ class flex:
             self.robot.setVal3GlobalVariableBoolean("bGripperIsOnArm", True)
             self.robot.setVal3GlobalVariableDouble("nGripperType", str(gripper_type))
         logging.getLogger('flex').info("Gripper on robot")
-        logging.getLogger('flex').info("Starting defreezing gripper")
-        self.do_defreezeGripper()
+        logging.getLogger('flex').info("Starting defreezing gripper if needed")
+        if defreeze == True:
+            self.do_defreezeGripper()
         self.update_transfer_iteration(reset=True)
-        logging.getLogger('flex').info("Defreezing gripper finished")
+        logging.getLogger('flex').info("Take gripper finished")
 
     def get_gripper_type(self):
         curr_type = -1

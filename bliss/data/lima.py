@@ -7,8 +7,8 @@
 
 import struct
 import numpy
-from PyTango.gevent import DeviceProxy
-from bliss.common.data_manager import DataNode
+from bliss.common.tango import DeviceProxy
+from bliss.data.node import DataNode
 from bliss.config.settings import QueueObjSetting
 from bliss.config.conductor import client
 from bliss.config import channels
@@ -47,7 +47,7 @@ class LimaDataNode(DataNode):
             if to_index is None:
                 
                 #first we try to get image directly from the server
-                if current_lima_acq == lima_acq_nb and DeviceProxy: # current acquisition
+                if current_lima_acq == lima_acq_nb: # current acquisition
                     if LastImageAcquired < from_index: # image is not yet available
                         raise RuntimeError('image is not yet available')
                     #should be still in server memory
@@ -103,7 +103,7 @@ class LimaDataNode(DataNode):
         pipeline.execute()
 
     def _end_storage(self):
-        self._new_image_status = None
+        self._stop_flag = True
         if self._storage_task is not None:
             self._new_image_status_event.set()
             self._storage_task.join()
@@ -112,24 +112,29 @@ class LimaDataNode(DataNode):
         while True:
             self._new_image_status_event.wait()
             self._new_image_status_event.clear()
-            if self._new_image_status is None:
+            local_dict = self._new_image_status
+            self._new_image_status = dict()
+            if local_dict:
+                self.db_connection.hmset(self.db_name(),local_dict)
+            if self._stop_flag :
                 break
-            self.db_connection.hmset(self.db_name(), self._new_image_status)
-            #TODO: remove the comment, for use without simulator
-            #gevent.idle()
+            gevent.idle()
 
     def store(self, signal, event_dict):
         if signal == 'start':
             self._end_storage()
             self._new_image_status_event = gevent.event.Event()
+            self._new_image_status = dict()
+            self._stop = False
             self._storage_task = gevent.spawn(self._do_store)
         elif signal == 'end':
             self._end_storage()
         else:
             local_dict = dict(event_dict)
             data_type = local_dict.pop('type')
-            if data_type == 'lima/image':
-                self._new_image_status = local_dict
+            if(data_type == 'lima/image' or
+               data_type == 'lima/parameters'):
+                self._new_image_status.update(local_dict)
                 self._new_image_status_event.set()
 
 

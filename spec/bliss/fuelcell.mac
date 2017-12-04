@@ -1,0 +1,585 @@
+#%TITLE% fuelcell.mac
+#%NAME%
+#   Macros to handle fuellcell potentiostat
+#%DESCRIPTION%
+# 
+#%SETUP%
+# fuelcell has to be configured by %B%fcsetup%B%
+#%END%
+
+#%UU%
+#%MDESC%
+# Setup the device name for the fuellcell
+#%BR% fcsetup <device_name>
+# %BR%Example: fcsetup id31/fuellcell/1
+#
+def fcsetup '{
+
+    if ($#!=1) {
+	print "Usage is $0 <device_name>\nExample: fcsetup id31/fuellcell/1\n "
+	exit
+    }
+    global FC
+
+    FC["device_name"]= "$1"
+
+    setup_tail("fc")
+}'
+
+#%IU%
+#%MDESC%
+# Remove the global variable and run fuelcelloff
+#
+def fcunsetup '{
+    unglobal FC
+    fcfuelcelloff
+
+}'
+
+#%UU%
+#%MDESC%
+# Run _fc_write_state_in_file before each scan.
+#%BR% _fc_write_state_in_file store in the spec file the state of
+#%BR% the valves, pressures, temperatures before each count.
+#
+def fcfuelcellon '{
+    cdef("user_Fheader", " _fc_write_state_in_file;", "_fuelcell_")
+
+}' 
+
+
+
+#%UU%
+#%MDESC%
+# The states for the valves, pressures and temperature are not anymore written in the spec file.
+#
+def fcfuelcelloff '{
+    cdef("", "", "_fuelcell_", "delete")
+}'
+
+#%IU%
+#%MDESC%
+# Write the time and the state of the valves, pressures, temperature 
+#%BR% in the header spec file with the help of user_Fheader
+def _fc_write_state_in_file '{
+
+        local i d[] cmd
+
+	# pressure status
+	for (i=0; i< 4; i++) {
+	    cmd = sprintf("_fc_get_p(%d)", i+1)
+	    d[i] = eval(cmd)
+	    fprintf(DATAFILE, "#C P%d is %s\n", i+1, d[i])       
+	}
+
+	# temperatures status
+	for (i=0; i< 8; i++) {
+	    cmd = sprintf("_fc_get_t\(%d\)", i+1)
+	    d[i] = eval(cmd)
+	    fprintf(DATAFILE, "#C T%d is %s\n", i+1, d[i])
+	}
+	
+	# valves status
+	for (i=0; i< 28; i++) {
+	    cmd = sprintf("_fc_get_v(%d)", i+1)
+	    d[i] = eval(cmd)
+	    x[0] = "closed"
+	    x[1] = "open"
+	    fprintf(DATAFILE, "#C V%d is %s\n", i+1, x[d[i]])
+	}
+}'
+
+#%UU%
+#%MDESC%
+# Switch  ON or OFF the power
+#%BR%  fcpower <on | off>
+# %BR%Example: fcpower on
+#
+def fcpower '{
+
+    if ($#!=1) {
+	print "Usage is $0 <on|off>\nExample: fcpower on\n "
+	exit
+    }
+    local state state_before state_after
+    
+
+    TANGO_ERR = "-1"
+    state_before = tango_get(FC["device_name"], "power")
+    if (TANGO_ERR){
+        print_tango_err()
+        return ".error."
+    }
+
+    if (state_before == 1){
+        state = "on"
+    }
+    else{
+        state = "off"
+    }
+    
+    printf("Power WAS %s", state)
+
+
+    state = "$1"
+    if (state == "on"){
+        state = 1
+    }
+    else{
+        state = 0
+    }
+    TANGO_ERR = "-1"
+    tango_put(FC["device_name"], "power",state)
+    if (TANGO_ERR){
+        print_tango_err()
+        return ".error."
+    }
+
+    TANGO_ERR = "-1"
+    state_after = tango_get(FC["device_name"], "power")
+    if (TANGO_ERR){
+        print_tango_err()
+        return ".error."
+    }
+
+    if (state_after == 1){
+        state = "on"
+    }
+    else{
+        state = "off"
+    }
+    
+
+    printf(", now IS %s", state)
+
+}'
+
+
+#%UU%
+#%MDESC%
+# Set the voltage "vsense"
+#%BR%  fcsetv <value>
+# %BR%Example: fcsetv 2.1
+#
+def fcsetv '{
+
+    if ($#!=1) {
+	print "Usage is $0 <voltage>\nExample: fcsetv 2.1\n "
+	exit
+    }
+    local vsense vsense_before vsense_after
+    
+
+    TANGO_ERR = "-1"
+    vsense_before = tango_get(FC["device_name"], "vsense")
+    if (TANGO_ERR){
+        print_tango_err()
+        return ".error."
+    }
+    
+    printf("Vsense WAS %g",  vsense_before)
+
+
+    vsense = "$1"
+
+    TANGO_ERR = "-1"
+    tango_put(FC["device_name"], "vsense",vsense)
+    if (TANGO_ERR){
+        print_tango_err()
+        return ".error."
+    }
+
+    TANGO_ERR = "-1"
+    vsense_after = tango_get(FC["device_name"], "vsense")
+    if (TANGO_ERR){
+        print_tango_err()
+        return ".error."
+    }
+  
+
+    printf(", now IS %g",  vsense_after)
+
+}'
+
+#%UU%
+#%MDESC%
+# Set the Current "current"
+#%BR%  fcseti <value>
+# %BR%Example: fcseti 1.2
+#
+def fcseti '{
+
+    if ($#!=1) {
+	print "Usage is $0 <current>\nExample: fcseti 1.2\n "
+	exit
+    }
+    local current current_before current_after
+    
+
+    TANGO_ERR = "-1"
+    current_before = tango_get(FC["device_name"], "current")
+    if (TANGO_ERR){
+        print_tango_err()
+        return ".error."
+    }
+    
+    printf("Current WAS %g",  current_before)
+
+
+    current = "$1"
+
+    TANGO_ERR = "-1"
+    tango_put(FC["device_name"], "current",current)
+    if (TANGO_ERR){
+        print_tango_err()
+        return ".error."
+    }
+
+    TANGO_ERR = "-1"
+    current_after = tango_get(FC["device_name"], "current")
+    if (TANGO_ERR){
+        print_tango_err()
+        return ".error."
+    }
+  
+
+    printf(", now IS %g",  current_after)
+
+}'
+
+
+#%UU%
+#%MDESC%
+# Start a potentiostat cyclic voltametry scan and (optionally) 
+# wait a fcstopacq or a CTR-C to finish.
+#%BR% sample_reduction (int): step dividing speed (1=> 50 sample/s,
+# 10=> 5 sample/s). Max is 255 (~0.2 sample/s). (default: 1)
+#%BR% nb_samples_avg (int): number of samples to average ([1..sample_reduction]) (default: 1)
+# %BR% All the channels are acquired: Vout, Vsense, I, Vref
+#
+def fctimescan '{
+
+    if ($# > 2) {
+        print "Usage is $0 <sample_reduction> <nb_samples_avg>\n"
+        print "Example: fctimescan 10 5\n"
+        print "Or fctimescan does by default fctimescan 1 1\n"
+        exit
+    }
+    else{
+
+        local arr[]
+
+        cdef("cleanup_once", "fcstopacq\n", "_fuelcell_")
+
+        if ($# == 0) {
+
+            arr[0] = 1
+            arr[1] = 1
+
+            TANGO_ERR = "-1"
+            tango_io(FC["device_name"], "timescan",arr)
+            if (TANGO_ERR){
+                print_tango_err()
+                return ".error."
+            }
+        }
+        else {
+            arr[0] = "$1"
+            arr[1] = "$2"
+
+            TANGO_ERR = "-1"
+            tango_io(FC["device_name"], "timescan",arr)
+            if (TANGO_ERR){
+                print_tango_err()
+                return ".error."
+            }
+        }
+ 
+    }
+
+}'
+#%UU%
+#%MDESC%
+# Start a potentiostat cyclic voltametry scan and (optionally) 
+# wait for it to finish.
+#%BR% channel: either Attr or string representing channel name). Valid are: Vout, Vsense, Vref
+#%BR% start (float): starting voltage (V)
+#%BR% stop (float): starting voltage (V)
+#%BR% margin1 (float): scan to margin1 (V)
+#%BR% margin2 (float): scan to margin2 (V)
+#%BR% speed (float) : speed (mV/s)
+#%BR% sweeps: number of sweeps
+#
+def fccv '{
+
+    if ($# != 7) {
+	print "Usage is $0 <Vout|Vsense|Vref> <start> <stop> <margin1> <margin2> <speed> <sweeps>\n"
+        print "Example: fccv vsense 1 2 0.2 -0.2 10 2\n"
+	exit
+    }
+ 
+    local args[]
+
+    cdef("cleanup_once", "fcstopacq\n", "_fuelcell_")
+
+
+    args[0] = "$1"
+    args[1] = "$2"
+    args[2] = "$3"
+    args[3] = "$4"
+    args[4] = "$5"
+    args[5] = "$6"
+    args[6] = "$7"
+
+    TANGO_ERR = "-1"
+    tango_io(FC["device_name"], "cv",args)
+    if (TANGO_ERR){
+        print_tango_err()
+        return ".error."
+    }
+}'
+
+#%
+
+#%UU%
+#%MDESC%
+# fcshow [v | t | p]
+#%BR% Without arguments, it prints out the 4 pressures or the 8 temperatures or the 28 valves state
+#%BR% Example: fcshow or fcshow v, etc.
+#
+def fcshow '{
+      
+    if($#==0) {
+       _fcshow("v")    
+       _fcshow("t")    
+       _fcshow("p")    
+    }
+    else if ($#==1) {
+       _fcshow("$1")    
+    }
+    else{
+	print "Usage is $0 or $0 [v | t | p]>\nExample: fcshow or fcshow v for valves or\
+ fcshow t for temperatures or fcshow p for pressures\n "
+		exit
+    }
+
+
+}'
+
+#%IU%
+#%MDESC%
+# _fcshow(arg)
+#%BR% Prints out the 4 pressures with v as argument.
+#%BR% Prints out the 8 temperatures with t as argument.
+#%BR% Prints out the 28 valves state with v as argument.
+#%BR% Example:_fcshow(v)
+#
+def _fcshow(arg)'{
+
+    local i d[] itmax x[] cmd
+
+    x["p"] =  4
+    x["t"] =  8
+    x["v"] = 28
+    itmax = x[arg]
+
+    for (i=0; i<itmax; i++) {
+        cmd = sprintf("_fc_get_%s\(%d\)", arg, i+1)
+        d[i] = eval(cmd)
+        # v[i] = _fc_get_v(i+1)
+        if (arg == "v"){
+            x[0] = "closed"
+            x[1] = "open"
+            printf("V%d is %s\n", i+1, x[d[i]])
+        }
+        else{
+            printf("%s%d is %s\n", arg, i+1, d[i])
+        }
+    }
+
+}'
+
+#%UU%
+#%MDESC%
+# Enable or disable the power
+#%BR% fcoutputenable <on | off>
+#%BR% Example: fcoutputenable on
+#
+def fcoutputenable '{
+
+    if ($#!=1) {
+	print "Usage is $0 <on | off>\n"
+	exit
+    }
+    
+    local state state_before state_after
+    
+
+    TANGO_ERR = "-1"
+    state_before = tango_get(FC["device_name"], "output_enabled")
+    if (TANGO_ERR){
+        print_tango_err()
+        return ".error."
+    }
+
+    if (state_before == 1){
+        state = "on"
+    }
+    else{
+        state = "off"
+    }
+    
+    printf("Output WAS %s", state)
+
+
+    state = "$1"
+    if (state == "on"){
+        state = 1
+    }
+    else{
+        state = 0
+    }
+    TANGO_ERR = "-1"
+    tango_put(FC["device_name"], "output_enabled",state)
+    if (TANGO_ERR){
+        print_tango_err()
+        return ".error."
+    }
+
+    TANGO_ERR = "-1"
+    state_after = tango_get(FC["device_name"], "output_enabled")
+    if (TANGO_ERR){
+        print_tango_err()
+        return ".error."
+    }
+
+    if (state_after == 1){
+        state = "on"
+    }
+    else{
+        state = "off"
+    }
+
+    printf(", now IS %s", state)
+
+}'
+
+
+
+#%UU%
+#%MDESC%
+# Stop the acquisition for a time scan or cv scan
+#
+def fcstopacq '{
+
+    TANGO_ERR = "-1"
+    tango_io(FC["device_name"], "stop")
+    if (TANGO_ERR){
+        print_tango_err()
+        return ".error."
+    }
+
+}'
+
+
+
+#%UU%
+#%MDESC%
+# Init the tango device server
+#
+def fcinit '{
+
+    TANGO_ERR = "-1"
+    tango_io(FC["device_name"], "init")
+    if (TANGO_ERR){
+        print_tango_err()
+        return ".error."
+    }
+
+}'
+
+
+
+#%IU% (nb)
+#%MDESC%
+# return the valve state
+#
+def _fc_get_v(nb) '{
+
+    if ((nb<1)||(nb>28)) {
+	printf("Valve number %d is not defined. The range is [1..28]\n", nb)
+        return -1
+    }
+    else {    
+        local statev 
+    
+        TANGO_ERR = "-1"
+        statev = tango_get(FC["device_name"], sprintf("v%d", nb))
+        if (TANGO_ERR){
+            print_tango_err()
+            return ".error."
+        }
+        else{
+            return statev
+        }
+    }
+}'
+
+
+#%IU% (nb)
+#%MDESC%
+# return the temperature
+
+def _fc_get_t(nb) '{
+
+    if ((nb<1)||(nb>8)) {
+	printf("Temperature number %d is not defined. The range is [1..8]\n", nb)
+        return -1
+    }
+    else {    
+        local temp 
+    
+        TANGO_ERR = "-1"
+        temp = tango_get(FC["device_name"], sprintf("t%d", nb))
+        if (TANGO_ERR){
+            print_tango_err()
+            return ".error."
+        }
+        else{
+            return temp
+        }
+    }
+}'
+#%IU% (nb)
+#%MDESC%
+# return the pressure
+
+def _fc_get_p(nb) '{
+
+    if ((nb<1)||(nb>4)) {
+	printf("Prssure number %d is not defined. The range is [1..4]\n", nb)
+        return -1
+    }
+    else {    
+        local pressure
+    
+        TANGO_ERR = "-1"
+        pressure = tango_get(FC["device_name"], sprintf("p%d", nb))
+        if (TANGO_ERR){
+            print_tango_err()
+            return ".error."
+        }
+        else{
+            return pressure
+        }
+    }
+}'
+
+
+
+
+#%MACROS%
+#%IMACROS%
+#%AUTHOR% AM 
+#  $Revision: 1.1 $ / $Date: Fri Jul 21 17:13:39 CEST 2017
+#%TOC%

@@ -11,11 +11,10 @@ from bliss.common.utils import object_method
 from bliss.common.axis import AxisState
 
 import pi_gcs
-from bliss.comm import tcp
+from bliss.comm.util import SERIAL
 
 import sys
 import time
-import serial
 
 """
 Bliss controller for ethernet PI C663 piezo controller.
@@ -25,22 +24,17 @@ Cyril Guilloud ESRF BLISS  2016
 
 class PI_C663(Controller):
 
-    def __init__(self, name, config, axes, encoders):
-        Controller.__init__(self, name, config, axes, encoders)
-
-        self.serial_line = self.config.get("serial_line")
+    def __init__(self, *args, **kwargs):
+        Controller.__init__(self, *args, **kwargs)
 
         self.cname = "C663"
-
-    def __del__(self):
-        print "PI_C663 DESTRUCTORRRRRR******+++++++++++++++++++++++++++++++++"
 
     # Init of controller.
     def initialize(self):
         """
         Controller intialization : opens a single serial for all axes.
         """
-        self.serial = serial.Serial(self.serial_line, 9600, bytesize=8, parity='N', stopbits=1, timeout=1)
+        self.serial = pi_gcs.get_pi_comm(self.config, SERIAL)
 
         self._status = ""
         try:

@@ -9,9 +9,7 @@ from bliss.controllers.motor import Controller
 from bliss.common import log as elog
 
 from bliss.common.axis import AxisState
-
-from PyTango.gevent import DeviceProxy
-from PyTango import DevState
+from bliss.common.tango import DevState, DeviceProxy
 
 
 """
@@ -25,8 +23,8 @@ computer.
 
 
 class TangoEMot(Controller):
-    def __init__(self, name, config, axes, encoders):
-        Controller.__init__(self, name, config, axes, encoders)
+    def __init__(self, *args, **kwargs):
+        Controller.__init__(self, *args, **kwargs)
 
         # Gets DS name from xml config.
         self.ds_name = self.config.get("ds_name")

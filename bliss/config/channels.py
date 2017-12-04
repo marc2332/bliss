@@ -20,10 +20,7 @@ try:
 except ImportError:
     from pydispatch import saferef
     saferef.safe_ref = saferef.safeRef
-try:
-    from collections import OrderedDict
-except ImportError:
-    from ordereddict import OrderedDict
+from bliss.common.utils import OrderedDict
 import weakref
 import sys
 import os
@@ -180,7 +177,13 @@ class _Bus(object):
             if pending_channel_value:
                 pipeline = self._redis.pipeline()
                 for name,channel_value in pending_channel_value.iteritems():
-                    pipeline.publish(name,cPickle.dumps(channel_value,protocol=-1))
+                    try:
+                        pipeline.publish(name,cPickle.dumps(channel_value,protocol=-1))
+                    except cPickle.PicklingError:
+                        exctype,value,traceback = sys.exc_info()
+                        message = "Can't pickle in channel <%s> %r with values <%r> " % \
+                        (name,type(channel_value.value),channel_value.value)
+                        sys.excepthook(exctype,message,traceback)
                 pipeline.execute()
 
             if pending_init:

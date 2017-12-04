@@ -25,28 +25,12 @@ Here are the main bliss sub-systems:
     tango
 '''
 
-from __future__ import division
+from .import release
 
-# version should be valid according to distutils.version.StrictVersion
-__author__ = 'BCU (ESRF)'
-__version__ = '0.2.dev0'
-__short_version__ = '.'.join(__version__.split('.')[:2])
-__license__ = 'LGPLv3'
-__copyright__ = '2016 Beamline Control Unit, ESRF'
-__description__ = 'BeamLine Instrumentation Support Software'
+__version__ = release.version
+__author__ = release.author
+__license__ = release.license
+version_info = release.version_info
 
 from gevent import monkey
 monkey.patch_all(thread=False)
-
-## TODO: remove those exported functions ; need changes in motor tests
-from bliss.config.motors import load_cfg, load_cfg_fromstring, get_axis, get_encoder
-from bliss.controllers.motor_group import Group
-##
-from bliss.common.task_utils import cleanup, error_cleanup
-from bliss.common.scans import *
-from bliss.common.standard import *
-from bliss.common.continuous_scan import Scan
-from bliss.common.continuous_scan import AcquisitionChain
-from bliss.common.continuous_scan import AcquisitionDevice
-from bliss.common.continuous_scan import AcquisitionMaster
-from bliss.common.axis import Axis

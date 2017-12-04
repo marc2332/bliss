@@ -1,0 +1,6 @@
+class: Session
+name: freddy
+setup-file: ./mercury.py
+config-objects:
+  - mercury1
+  - opiom1

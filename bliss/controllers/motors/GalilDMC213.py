@@ -1,11 +1,14 @@
 """
 Bliss controller for ethernet Galil DC controller.
 """
+
+from warnings import warn
+
 from bliss.controllers.motor import Controller
 from bliss.common import log as elog
 
 from bliss.common.axis import AxisState
-from bliss.comm import tcp
+from bliss.comm.util import get_comm, TCP
 from bliss.common.greenlet_utils import protect_from_kill
 from gevent import lock
 
@@ -24,16 +27,23 @@ REVERSED_PULSE = 3
 DISABLED = 0
 ENABLED = 1
 
+
 class GalilDMC213(Controller):
 
-    def __init__(self, name, config, axes, encoders):
-        Controller.__init__(self, name, config, axes, encoders)
-
-        self.host = self.config.get("host")
+    def __init__(self, *args, **kwargs):
+        Controller.__init__(self, *args, **kwargs)
         self.socket_lock = lock.Semaphore()
 
     def initialize(self):
-        self.sock = tcp.Socket(self.host, 23)
+        try:
+            self.sock = get_comm(self.config.config_dict, ctype=TCP, port=23)
+        except ValueError:
+            host = self.config.get("host")
+            warn("'host' keyword is deprecated. Use 'tcp' instead", DeprecationWarning)
+            comm_cfg = {'tcp': {'url': host}}
+            self.sock = get_comm(comm_cfg, port=23)
+
+    def initialize_hardware(self):
         # perform hw reset
         self._galil_query("RS")
         # set default sample time
@@ -49,16 +59,17 @@ class GalilDMC213(Controller):
     def initialize_axis(self, axis):
         axis.channel = axis.config.get("channel")
         if not axis.channel in "ABCDEFGH":
-          raise RuntimeError("Invalid channel, should be one of: A,B,C,D,E,F,G,H")
+            raise RuntimeError("Invalid channel, should be one of: A,B,C,D,E,F,G,H")
 
+    def initialize_hardware_axis(self, axis):
         axis_type = axis.config.get("type", int, default=SERVO)
         axis_vect_acc = axis.config.get("vect_acceleration", int, default=262144)
         axis_vect_dec = axis.config.get("vect_deceleration", int, default=262144)
         axis_vect_slewrate = axis.config.get("vect_slewrate", int, default=8192)
         axis_encoder_type = axis.config.get("encoder_type", int, default=QUADRA)
-        axis_kp = axis.config.get("kp",float,default=1.0)
-        axis_ki = axis.config.get("ki",float,default=6.0)
-        axis_kd = axis.config.get("kd",float,default=7.0)
+        axis_kp = axis.config.get("kp", float, default=1.0)
+        axis_ki = axis.config.get("ki", float, default=6.0)
+        axis_kd = axis.config.get("kd", float, default=7.0)
         axis_integ_limit = axis.config.get("integrator_limit", float, default=9.998)
         axis_smoothing = axis.config.get("smoothing", float, default=1.0)
         axis_acceleration = axis.config.get("acceleration", float, default=100000)
@@ -110,8 +121,8 @@ class GalilDMC213(Controller):
 
     def initialize_encoder(self, encoder):
         encoder.channel = encoder.config.get("channel")
-        if not encoder.channel in "ABCDEFGH":
-          raise RuntimeError("Invalid encoder channel, should be one of: A,B,C,D,E,F,G,H")
+        if encoder.channel not in "ABCDEFGH":
+            raise RuntimeError("Invalid encoder channel, should be one of: A,B,C,D,E,F,G,H")
 
     def read_position(self, axis):
         """
@@ -147,7 +158,7 @@ class GalilDMC213(Controller):
     def state(self, axis):
         sta = int(self._galil_query("TS%s" % axis.channel))
         if sta & (1<<7):
-          return AxisState("MOVING")
+            return AxisState("MOVING")
         '''
         elif sta & (1<<6):
           # on limit
@@ -171,11 +182,6 @@ class GalilDMC213(Controller):
         """
         start home search.
         """
-        # removed by DvS 22.Feb.2016 BECAUSE IT STOPS THE SERVER
-	# FROM STARTING AGAIN AFTER THE BOARD HAS LOST POWER:
-	#
-        # if int(self._galil_query("TS%s" % axis.channel)) & (1<<5):
-        #   raise RuntimeError("Motor is OFF")
         self._galil_query("OE%s=0" % axis.channel)
         self._galil_query("SH%s" % axis.channel)
         self._galil_query("FI%s" % axis.channel)
@@ -189,18 +195,17 @@ class GalilDMC213(Controller):
     @protect_from_kill
     def _galil_query(self, cmd, raw=False):
         if not cmd.endswith(";"):
-          cmd += ";"
+            cmd += ";"
 
         with self.socket_lock:
-          #print "SENDING: %r" % cmd
-          self.sock.write(cmd)
-          ans = self.sock.raw_read()
-          if ans[0]=='?':
-            raise RuntimeError("Invalid command") 
-          ans = ans.strip(": \r\n") 
-          #print 'received',repr(ans)
-          return ans or None
+            #print "SENDING: %r" % cmd
+            self.sock.write(cmd)
+            ans = self.sock.raw_read()
+            if ans[0] == '?':
+                raise RuntimeError("Invalid command")
+            ans = ans.strip(": \r\n")
+            #print 'received',repr(ans)
+            return ans or None
 
-    
     def raw_write_read(self, cmd):
         return self._galil_query(cmd)

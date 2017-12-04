@@ -9,11 +9,11 @@
 '''Bliss axis TANGO_ DS class (:class:`BlissAxisManager` and :class:`BlissAxis`)
 '''
 
-import bliss
-import bliss.config.motors as bliss_config
 import bliss.common.log as elog
+from bliss.common.axis import get_axis
 from bliss.common import event
 from bliss.common.utils import grouped
+from bliss.config.static import get_config as beacon_get_config
 
 import PyTango
 from PyTango.server import Device, DeviceMeta, device_property
@@ -42,7 +42,7 @@ except:
     class ConnectionException(Exception):
         pass
 
-from bliss.controllers.motor_group import Group
+from bliss.common.motor_group import Group
 
 
 class bcolors:
@@ -103,6 +103,8 @@ class BlissAxisManager(Device):
                                     locals={'axis_manager': self})
             gevent.spawn(server.serve_forever)
             self.__backdoor_server = server
+        else:
+            print " no backdoor"
 
     def _get_axis_devices(self):
         util = PyTango.Util.instance()
@@ -200,7 +202,7 @@ class BlissAxisManager(Device):
         elif not self.group_dict:
             print 'BlissAxisManager: move_done event with no group'
             return
-        
+
         if 'sender' in kws:
             sender = kws['sender']
             groupid = [gid for gid, grp in self.group_dict.items()
@@ -240,7 +242,7 @@ class BlissAxisManager(Device):
         group.stop(wait=False)
 
     def _reload(self):
-        bliss_config.beacon_get_config().reload()
+        beacon_get_config().reload()
 
     @command
     def ReloadConfig(self):
@@ -252,7 +254,7 @@ class BlissAxisManager(Device):
         if reload:
             self._reload()
         for dev in self._get_axis_devices().values():
-            dev.axis.apply_config(reload=False)
+            dev.axis.apply_config()
 
 
 # Device States Description
@@ -277,8 +279,7 @@ class BlissAxis(Device):
 
     @property
     def axis(self):
-        self.__axis = bliss.get_axis(self._axis_name)
-        return self.__axis
+        return get_axis(self._axis_name)
 
     def delete_device(self):
         self.debug_stream("In delete_device() of axis")
@@ -402,7 +403,7 @@ class BlissAxis(Device):
 
     @property
     def axis(self):
-        return bliss.get_axis(self._axis_name)
+        return get_axis(self._axis_name)
 
     @attribute(dtype=float, label='Steps per user unit', unit='steps/uu',
                format='%7.1f')
@@ -523,7 +524,6 @@ class BlissAxis(Device):
                doc='Backlash to be applied to each motor movement')
     def Backlash(self):
         self.debug_stream("In read_Backlash()")
-        print 'bacl', self.axis.backlash
         return self.axis.backlash
 
     @attribute(dtype='int16', label='Sign', unit='unitless', format='%d',
@@ -619,7 +619,7 @@ class BlissAxis(Device):
         self.debug_stream("In read_Home_side()")
         return self.attr_Home_side_read
 
-    @attribute(dtype=float, 
+    @attribute(dtype=float,
                doc='Size of the relative step performed by the ' \
                'StepUp and StepDown commands.\nThe StepSize' \
                'is expressed in physical unit',
@@ -928,7 +928,7 @@ def get_server_axis_names(instance_name=None):
     if instance_name is None:
         _, instance_name, _ = get_server_info()
 
-    cfg = bliss_config.beacon_get_config()
+    cfg = beacon_get_config()
     result = []
     for item_name in cfg.names_list:
         item_cfg = cfg.get_config(item_name)
@@ -1078,12 +1078,12 @@ def __recreate_axes(server_name, manager_dev_name, axis_names,
             continue
         for dev_name in dev_names:
             curr_axis_name = dev_name.rsplit("/", 1)[-1]
+
             try:
-                bliss.get_axis(curr_axis_name)
+                get_axis(curr_axis_name)
             except:
-                elog.info("Error instantiating %s (%s): skipping!!" % (curr_axis_name, dev_name))
+                elog.info("Error instantiating %s (%s):" % (curr_axis_name, dev_name))
                 traceback.print_exc()
-                continue
             curr_axes[curr_axis_name] = dev_name, dev_class
 
     axis_names_set = set(axis_names)
@@ -1116,8 +1116,8 @@ def __recreate_axes(server_name, manager_dev_name, axis_names,
             db.put_device_alias(dev_name, axis_name)
  
     axes, tango_classes = [], []
-    for axis_name in curr_axis_names_set:
-        axis = bliss.get_axis(axis_name)
+    for axis_name in axis_names_set:
+        axis = get_axis(axis_name)
         axes.append(axis)
         tango_class = __create_tango_axis_class(axis)
         tango_classes.append(tango_class)
@@ -1133,11 +1133,14 @@ def initialize_bliss(info, db=None):
     server_instance = info['server_instance']
     server_name = server_type + '/' + server_instance
 
-    cfg = bliss_config.beacon_get_config()
+    cfg = beacon_get_config()
 
     axis_names = []
     for name in object_names:
         obj_cfg = cfg.get_config(name)
+        # if tango_server is defined it means it is manually added
+        if 'tango_server' in obj_cfg:
+            continue
         if obj_cfg.plugin == 'emotion':
             axis_names.append(name)
 
@@ -1205,7 +1208,7 @@ def __create_tango_axis_class(axis):
             def write(self, attr):
                 method = getattr(self.axis, "set_" + attr.get_name())
                 value = attr.get_write_value()
-                method(value)
+                get_worker().execute(method, value)
             setattr(new_axis_class, "write_%s" % name, write)
 
         write_dict = {'r': 'READ', 'w': 'WRITE', 'rw': 'READ_WRITE'}
@@ -1270,8 +1273,6 @@ def main(argv=None):
     try:
         # initialize logging as soon as possible
         initialize_logging(argv)
-
-        bliss_config.set_backend('beacon')
 
         # if querying list of instances, just return
         if len(argv) < 2 or argv[1] == '-?':

@@ -30,16 +30,48 @@ as calls to :meth:`~bliss.config.static.Config.get`. Example::
 
 from bliss.common import log as elog
 from bliss.common.task_utils import *
-from bliss.controllers.motor_settings import AxisSettings
+from bliss.common.motor_config import StaticConfig
+from bliss.common.motor_settings import AxisSettings
 from bliss.common import event
-from bliss.common.utils import Null
+from bliss.common.utils import Null, with_custom_members
+from bliss.config.static import get_config
+from bliss.common.encoder import Encoder
+from bliss.common.hook import MotionHook
 import gevent
 import re
+import math
 import types
 import functools
+import numpy
 
 #: Default polling time
 DEFAULT_POLLING_TIME = 0.02
+
+
+def get_encoder(name):
+  cfg = get_config()
+  enc = cfg.get(name)
+  if not isinstance(enc, Encoder):
+    raise TypeError("%s is not an Encoder" % name)
+  return enc
+
+
+def get_axis(name):
+  cfg = get_config()
+  axis = cfg.get(name)
+  if not isinstance(axis, Axis):
+    raise TypeError("%s is not an Axis" % name)
+  return axis
+
+
+def get_motion_hook(name):
+    cfg = get_config()
+    if name.startswith('$'):
+        name = name[1:]
+    hook = cfg.get(name)
+    if not isinstance(hook, MotionHook):
+        raise TypeError("%s is not a MotionHook" % name)
+    return hook
 
 
 class Modulo(object):
@@ -48,8 +80,7 @@ class Modulo(object):
 
     def __call__(self, axis):
         dial_pos = axis.dial()
-        axis.dial(dial_pos % self.modulo)    	
-        axis.position(dial_pos % self.modulo)
+        axis._Axis__do_set_dial(dial_pos % self.modulo, True)
 
 
 class Motion(object):
@@ -75,6 +106,61 @@ class Motion(object):
         return self.__axis
 
 
+class MotionEstimation(object):
+    """
+    Estimate motion time and displacement based on current axis position
+    and configuration
+    """
+
+    def __init__(self, axis, target_pos, initial_pos=None):
+        self.axis = axis
+        ipos = axis.position() if initial_pos is None else initial_pos
+        self.ipos = ipos
+        fpos = target_pos
+        delta = fpos - ipos
+        do_backlash = cmp(delta, 0) != cmp(axis.backlash, 0)
+        if do_backlash:
+            delta -= axis.backlash
+            fpos -= axis.backlash
+        self.fpos = fpos
+        self.displacement = displacement = abs(delta)
+        try:
+            self.vel = vel = axis.velocity()
+            self.accel = accel = axis.acceleration()
+        except NotImplementedError:
+            self.vel = float('+inf')
+            self.accel = float('+inf')
+            self.duration = 0
+            return
+
+        full_accel_time = vel / accel
+        full_accel_dplmnt = 0.5*accel * full_accel_time**2
+
+        full_dplmnt_non_const_vel = 2 * full_accel_dplmnt
+        reaches_max_velocity = displacement > full_dplmnt_non_const_vel
+        if reaches_max_velocity:
+            max_vel = vel
+            accel_time = full_accel_time
+            accel_dplmnt = full_accel_dplmnt
+            dplmnt_non_const_vel = full_dplmnt_non_const_vel
+            max_vel_dplmnt = displacement - dplmnt_non_const_vel
+            max_vel_time = max_vel_dplmnt / vel
+            self.duration = max_vel_time + 2*accel_time
+        else:
+            self.duration = math.sqrt(2*displacement/accel)
+
+        if do_backlash:
+            backlash_estimation = MotionEstimation(axis, target_pos, self.fpos)
+            self.duration += backlash_estimation.duration
+
+def lazy_init(func):
+    @functools.wraps(func)
+    def func_wrapper(self, *args, **kwargs):
+        self.controller._initialize_axis(self)
+        return func(self, *args, **kwargs)
+    return func_wrapper
+
+@with_custom_members
 class Axis(object):
     """
     Bliss motor axis
@@ -83,27 +169,23 @@ class Axis(object):
     documentation above for an example)
     """
 
-    def lazy_init(func):
-        @functools.wraps(func)
-        def func_wrapper(self, *args, **kwargs):
-            self.controller._initialize_axis(self)
-            return func(self, *args, **kwargs)
-        return func_wrapper
-
     def __init__(self, name, controller, config):
         self.__name = name
         self.__controller = controller
-        from bliss.config.motors import StaticConfig
         self.__config = StaticConfig(config)
         self.__settings = AxisSettings(self)
         self.__move_done = gevent.event.Event()
         self.__move_done.set()
-        self.__custom_methods_list = list()
-        self.__custom_attributes_dict = dict()
         self.__move_task = None
         self.__stopped = False
         self._in_group_move = False
         self.no_offset = False
+        motion_hooks = []
+        for hook_ref in config.get('motion_hooks', ()):
+            hook = get_motion_hook(hook_ref)
+            hook.add_axis(self)
+            motion_hooks.append(hook)
+        self.__motion_hooks = motion_hooks
 
     @property
     def name(self):
@@ -117,7 +199,7 @@ class Axis(object):
 
     @property
     def config(self):
-        """Reference to the :class:`~bliss.config.motors.StaticConfig`"""
+        """Reference to the :class:`~bliss.common.motor_config.StaticConfig`"""
         return self.__config
 
     @property
@@ -169,14 +251,6 @@ class Axis(object):
         return self.config.get("steps_per_unit", float, 1)
 
     @property
-    def encoder_steps_per_unit(self):
-        """Current encoder steps per unit (:obj:`float`)"""
-        if self.encoder is not None:
-            return self.encoder.steps_per_unit
-        else:
-            return self.config.get("encoder_steps_per_unit",float,
-                                   self.steps_per_unit)
-    @property
     def tolerance(self):
         """Current tolerance in dial units (:obj:`float`)"""
         return self.config.get("tolerance", float, 1E-4)
@@ -192,31 +266,12 @@ class Axis(object):
         except KeyError:
             return None
         else:
-            from bliss.config.motors import get_encoder
             return get_encoder(encoder_name)
 
     @property
-    def custom_methods_list(self):
-        """
-        List of custom methods defined for this axis.
-        Internal usage only
-        """
-        # Returns a *copy* of the custom methods list.
-        return self.__custom_methods_list[:]
-
-    @property
-    def custom_attributes_list(self):
-        """
-        List of custom attributes defined for this axis.
-        Internal usage only
-        """
-        ad = self.__custom_attributes_dict
-
-        # Converts dict into list...
-        _attr_list = [(a_name, ad[a_name][0], ad[a_name][1]) for i, a_name in enumerate(ad)]
-
-        # Returns a *copy* of the custom attributes list.
-        return _attr_list[:]
+    def motion_hooks(self):
+      """Registered motion hooks (:obj:`MotionHook`)"""
+      return self.__motion_hooks
 
     def set_setting(self, *args):
         """Sets the given settings"""
@@ -242,10 +297,6 @@ class Axis(object):
             if self.name in [axis.name for axis in axis_list]:
                 return True
         return False
-
-    def _add_custom_method(self, method, name, types_info=(None, None)):
-        setattr(self, name, method)
-        self.__custom_methods_list.append((name, types_info))
 
     @lazy_init
     def on(self):
@@ -302,7 +353,29 @@ class Axis(object):
         Returns:
             float: dial encoder position
         """
-        return self.__controller.read_encoder(self.encoder) / self.encoder.steps_per_unit
+        if self.encoder is not None:
+            return self.encoder.read()
+        else:
+            raise RuntimeError("Axis '%s` has no encoder." % self.name)
+
+    def __do_set_dial(self, new_dial, no_offset):
+        user_pos = self.position()
+
+        try:
+            # Send the new value in motor units to the controller
+            # and read back the (atomically) reported position
+            new_hw = new_dial * self.steps_per_unit
+            hw_pos = self.__controller.set_position(self, new_hw)
+            dial_pos = hw_pos / self.steps_per_unit
+            self.settings.set("dial_position", dial_pos)
+        except NotImplementedError:
+            dial_pos = self._read_dial_and_update(update_user=False)
+
+        # update user_pos or offset setting
+        if no_offset:
+            user_pos = dial_pos
+        self._set_position_and_offset(user_pos)
+        return dial_pos
 
     @lazy_init
     def dial(self, new_dial=None):
@@ -327,23 +400,13 @@ class Axis(object):
             raise RuntimeError("%s: can't set axis dial position " 
                                "while moving" % self.name)
 
-        user_pos = self.position()
+        return self.__do_set_dial(new_dial, no_offset=self.no_offset)
 
-        try:
-            # Send the new value in motor units to the controller
-            # and read back the (atomically) reported position
-            new_hw = new_dial * self.steps_per_unit
-            hw_pos = self.__controller.set_position(self, new_hw)
-            dial_pos = hw_pos / self.steps_per_unit
-            self.settings.set("dial_position", dial_pos)
-        except NotImplementedError:
-            dial_pos = self._read_dial_and_update(update_user=False)
-
-        # update user_pos or offset setting
-        if self.no_offset:
-            user_pos = dial_pos 
-        self._set_position_and_offset(user_pos)
-        return dial_pos
+    def __do_set_position(self, new_pos, no_offset):
+        if no_offset:
+            return self.__do_set_dial(new_pos, no_offset)
+        else:
+            return self._set_position_and_offset(new_pos)
 
     @lazy_init
     def position(self, new_pos=None):
@@ -369,10 +432,8 @@ class Axis(object):
             raise RuntimeError("%s: can't set axis user position "
                                "while moving" % self.name)
 
-        if self.no_offset:
-            return self.dial(new_pos)
-        else:
-            return self._set_position_and_offset(new_pos)
+        return self.__do_set_position(new_pos, self.no_offset)
+
 
     @lazy_init 
     def _read_dial_and_update(self, update_user=True, write=True):
@@ -566,10 +627,10 @@ class Axis(object):
         backlash_motion = Motion(self, final_pos, backlash)
         self.__controller.prepare_move(backlash_motion)
         self.__controller.start_one(backlash_motion)
-        self._handle_move(backlash_motion, polling_time)
+        return self._handle_move(backlash_motion, polling_time)
 
     def _handle_move(self, motion, polling_time):
-        state = self._wait_move(polling_time)
+        state = self._move_loop(polling_time)
         if state in ['LIMPOS', 'LIMNEG']:
             raise RuntimeError(str(state))
 
@@ -588,14 +649,16 @@ class Axis(object):
             # axis has moved to target pos - backlash (or shorter, if stopped);
             # now do the final motion (backlash) relative to current/theo. pos
             elog.debug("doing backlash (%g)" % motion.backlash)
-            self._backlash_move(backlash_start, motion.backlash, polling_time)
+            return self._backlash_move(backlash_start, motion.backlash, polling_time)
         elif stopped:
             self._set_position(user_pos)
-        elif self.encoder is not None:
+        elif self.config.get("check_encoder", bool, False) and self.encoder:
             self._do_encoder_reading()
-
+        else:
+          return state
+      
     def _jog_move(self, velocity, direction, polling_time):
-        self._wait_move(polling_time)
+        self._move_loop(polling_time)
 
         dial_pos = self._read_dial_and_update()
         user_pos = self.dial2user(dial_pos)
@@ -663,7 +726,6 @@ class Axis(object):
 
         dial_initial_pos = self.user2dial(user_initial_pos)
         dial_target_pos = self.user2dial(user_target_pos)
-        self._set_position(user_target_pos)
         if abs(dial_target_pos - dial_initial_pos) < 1E-6:
             return
 
@@ -717,7 +779,14 @@ class Axis(object):
         motion = Motion(self, target_pos, delta)
         motion.backlash = backlash
 
+        for hook in self.__motion_hooks:
+            hook.pre_move([motion])
+
+        self._check_ready()
+
         self.__controller.prepare_move(motion)
+
+        self._set_position(user_target_pos) 
 
         return motion
 
@@ -730,36 +799,51 @@ class Axis(object):
         event.send(self, "move_done", False)
 
     def _set_move_done(self, move_task):
-        if move_task is not None:
-            if not move_task._being_waited:
-                try:
-                    move_task.get()
-                except gevent.GreenletExit:
-                    pass
-                except:
-                    sys.excepthook(*sys.exc_info())
+        try:
+          state = move_task.get()
+        except:                 # don't want to raise something here
+          state = self.state(read_hw=True)
+        else:
+          if state is None:
+            state = self.state(read_hw=True)
+
+        for hook in self.__motion_hooks:
+            try:
+                hook.post_move(self.__move_task._motions)
+            except:
+                sys.excepthook(*sys.exc_info())
+        self._update_settings(state)
         self.__move_done.set()
         event.send(self, "move_done", True)
 
     def _check_ready(self):
+        if not self.state() in ("READY", "MOVING"):
+            # read state from hardware
+            self._update_settings(state=self.state(read_hw=True))
+
         initial_state = self.state()
+
         if initial_state != "READY":
             raise RuntimeError("axis %s state is \
                                 %r" % (self.name, str(initial_state)))
 
-    def _start_move_task(self, funct, *args, **kws):
+        if self.__controller.is_busy():
+            raise RuntimeError("axis %s: controller is busy" % self.name)
+
+    def _start_move_task(self, funct, *args, **kwargs):
         start_event = gevent.event.Event()
         @task
-        def sync_funct(*args, **kws):
+        def sync_funct(*args, **kwargs):
             start_event.wait()
-            return funct(*args, **kws)
-        kws = dict(kws)
-        being_waited = kws.pop('being_waited', True)
-        self.__move_task = sync_funct(*args, wait=False, **kws)
+            return funct(*args, **kwargs)
+        kwargs = dict(kwargs)
+        being_waited = kwargs.pop('being_waited', True)
+        self.__move_task = sync_funct(*args, wait=False, **kwargs)
         self.__move_task._being_waited = being_waited
         self.__move_task.link(self._set_move_done)
         self._set_moving_state()
         start_event.set()
+        return self.__move_task
 
     @lazy_init
     def move(self, user_target_pos, wait=True, relative=False, polling_time=DEFAULT_POLLING_TIME):
@@ -775,9 +859,6 @@ class Axis(object):
             polling_time (float): motion loop polling time (seconds)
         """
         elog.debug("user_target_pos=%g  wait=%r relative=%r" % (user_target_pos, wait, relative))
-        if self.__controller.is_busy():
-            raise RuntimeError("axis %s: controller is busy" % self.name)
-        self._check_ready()
 
         motion = self.prepare_move(user_target_pos, relative)
         if motion is None:
@@ -785,9 +866,10 @@ class Axis(object):
 
         with error_cleanup(self._cleanup_stop):
             self.__controller.start_one(motion)
-        
-        self._start_move_task(self._do_handle_move, motion, polling_time,
-                              being_waited=wait)
+
+        motion_task = self._start_move_task(self._do_handle_move, motion,
+                                            polling_time, being_waited=wait)
+        motion_task._motions = [motion]
 
         if wait:
             self.wait_move()
@@ -800,10 +882,8 @@ class Axis(object):
         Args:
             velocity: signed velocity for constant speed motion
         """
-        if self.__controller.is_busy():
-            raise RuntimeError("axis %s: controller is busy" % self.name)
         self._check_ready()
-       
+
         if velocity == 0:
             return
 
@@ -827,20 +907,15 @@ class Axis(object):
 
     def _do_handle_move(self, motion, polling_time):
         with error_cleanup(self._cleanup_stop):
-            self._handle_move(motion, polling_time)
+            return self._handle_move(motion, polling_time)
 
     def _jog_cleanup(self, saved_velocity, reset_position):
         self.velocity(saved_velocity)
 
         if reset_position == 0:
-            def reset_dial(_):
-                self.dial(0)
-                self.position(0)
-            self.__move_task.link(reset_dial)
+            self.__do_set_dial(0, True)
         elif callable(reset_position):
-            def reset_pos(_):
-                reset_position(self)
-            self.__move_task.link(reset_pos)
+            reset_position(self)
 
     def _do_jog_move(self, saved_velocity, velocity, direction, reset_position, polling_time):
         with cleanup(functools.partial(self._jog_cleanup, saved_velocity, reset_position)):
@@ -866,28 +941,26 @@ class Axis(object):
         """
         Wait for the axis to finish motion (blocks current :class:`Greenlet`)
 
-        If axis is not moving returns immediately
         """
-        if not self.is_moving:
-            return
         if self.__move_task is None:
             # move has been started externally
             with error_cleanup(self.stop):
                 self.__move_done.wait()
         else:
-            self.__move_task._being_waited = True
+            move_task = self.__move_task
+            move_task._being_waited = True
             with error_cleanup(self.stop):
                 self.__move_done.wait()
             try:
-                self.__move_task.get()
+                move_task.get()
             except gevent.GreenletExit:
                 pass
 
-    def _wait_move(self, polling_time=DEFAULT_POLLING_TIME, ctrl_state_funct='state'):
+    def _move_loop(self, polling_time=DEFAULT_POLLING_TIME, ctrl_state_funct='state'):
+        state_funct = getattr(self.__controller, ctrl_state_funct)
         while True:
-            state_funct = getattr(self.__controller, ctrl_state_funct)
             state = state_funct(self)
-            self._update_settings(state)
+            self._update_settings()
             if state != "MOVING":
                 return state
             gevent.sleep(polling_time)
@@ -897,7 +970,7 @@ class Axis(object):
             self.__controller.stop_jog(self)
         else:
             self.__controller.stop(self)
-        self._wait_move()
+        self._move_loop()
         self.sync_hard()
 
     def _do_stop(self):
@@ -906,6 +979,8 @@ class Axis(object):
 
     def _set_stopped(self):
         self.__stopped = True
+        if not self.is_moving:
+          self.__move_task = None
 
     @lazy_init
     def stop(self, wait=True):
@@ -922,6 +997,11 @@ class Axis(object):
             self._do_stop()
             if wait:
                 self.wait_move()
+        else:
+            # it is important to clean the move task,
+            # even if the moving flag is not set;
+            # otherwise wait_move may raise a previous exception
+            self._set_stopped()
 
     @lazy_init
     def home(self, switch=1, wait=True):
@@ -942,7 +1022,7 @@ class Axis(object):
     def _wait_home(self, switch):
         with cleanup(self.sync_hard):
             with error_cleanup(self._cleanup_stop):
-                self._wait_move(ctrl_state_funct='home_state')
+                self._move_loop(ctrl_state_funct='home_state')
 
     @lazy_init
     def hw_limit(self, limit, wait=True):
@@ -966,7 +1046,7 @@ class Axis(object):
     def _wait_limit_search(self, limit):
         with cleanup(self.sync_hard):
             with error_cleanup(self._cleanup_stop):
-                self._wait_move()
+                self._move_loop()
 
     def settings_to_config(self, velocity=True, acceleration=True, limits=True):
         """
@@ -985,13 +1065,12 @@ class Axis(object):
         if any((velocity, acceleration, limits)):
             self.__config.save()
 
-    def apply_config(self, reload=True):
+    def apply_config(self, reload=False):
         """
         Applies configuration values to settings (ie: reset axis)
         """
         if reload:
             self.config.reload()
-
         # Applies velocity and acceleration only if possible.
         # Try to execute <config_name> function to check if axis supports it.
         for config_param in ['velocity', 'acceleration']:
@@ -1005,6 +1084,18 @@ class Axis(object):
 
         self.limits(*self.limits(from_config=True))
 
+    @lazy_init
+    def set_event_positions(self, positions):
+      dial_positions = self.user2dial(numpy.array(positions,dtype=numpy.float))
+      step_positions = dial_positions * self.steps_per_unit
+      return self.__controller.set_event_positions(self,step_positions)
+
+    @lazy_init
+    def get_event_positions(self):
+      step_positions = numpy.array(self.__controller.get_event_positions(self),
+                                   dtype=numpy.float)
+      dial_positions = self.dial2user(step_positions)
+      return dial_positions / self.steps_per_unit
 
 class AxisRef(object):
     """Object representing a named reference to an :class:`Axis`."""
@@ -1021,7 +1112,7 @@ class AxisRef(object):
 
     @property
     def config(self):
-        """Reference to the :class:`~bliss.config.motors.StaticConfig`"""
+        """Reference to the :class:`~bliss.common.motor_config.StaticConfig`"""
         return self.__config
 
 
@@ -1213,10 +1304,13 @@ class AxisState(object):
         # (copy constructor)
         if '(' in state:
             full_states = [s.strip() for s in state.split('|')]
-            p = re.compile('^([A-Z0-9]+)\s\((.+)\)$')
+            p = re.compile('^([A-Z0-9]+)\s\((.+)\)', re.DOTALL)
             for full_state in full_states:
                 m = p.match(full_state)
-                state = m.group(1)
+                try:
+                  state = m.group(1)
+                except Exception:
+                  sys.excepthook(*sys.exc_info())
                 desc = m.group(2)
                 self.create_state(state, desc)
                 self.set(state)

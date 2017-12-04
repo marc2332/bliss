@@ -12,18 +12,14 @@ import re
 import logging
 import gevent
 from gevent import lock
+import numpy
 from .libnienet import EnetSocket
 from ..tcp import Socket
 from ..exceptions import CommunicationError, CommunicationTimeout
-from ...common.greenlet_utils import KillMask
+from ...common.greenlet_utils import KillMask, protect_from_kill
 
-try:
-    from collections import OrderedDict
-except (AttributeError,ImportError):
-    try:
-        from ordereddict import OrderedDict
-    except ImportError:
-        OrderedDict = dict
+from bliss.common.utils import OrderedDict
+from bliss.common.tango import DeviceProxy
 
 __TMO_TUPLE = (0., 10E-6, 30E-6, 100E-6, 300E-6,
                1E-3, 3E-3, 10E-3, 30E-3, 100E-3, 300E-3,
@@ -68,15 +64,14 @@ class Enet(EnetSocket):
         match = url_parse.match(url)
         if match is None:
             raise EnetError('Enet: url is not valid (%s)' % url)
-        hostname = match.group(2)
-        port = match.group(3) and int(match.group(3)) or 5000
-        self._sock = Socket(hostname,port,
+        self._host = match.group(2)
+        self._port = match.group(3) and int(match.group(3)) or 5000
+        self._sock = Socket(self._host,self._port,
                             timeout = keys.get('timeout'))
         self._gpib_kwargs = keys
 
     def init(self) :
         if self._sock._fd is None:
-            self._sock.connect()
             self.ibdev(pad = self._gpib_kwargs.get('pad'),
                        sad = self._gpib_kwargs.get('sad'),
                        tmo = self._gpib_kwargs.get('tmo'))
@@ -183,6 +178,94 @@ def TangoGpib(cnt,**keys) :
     from PyTango.client import Object
     return Object(keys.pop('url'), green_mode=GreenMode.Gevent)
 
+class TangoDeviceServer:
+    def __init__(self,cnt,**keys):
+        self._logger = logging.getLogger(str(self))
+        self._debug = self._logger.debug
+        url = keys.pop('url')
+        url_tocken = 'tango_gpib_device_server://'
+        if not url.startswith(url_tocken):
+            raise GpibError("Tango_Gpib_Device_Server: url is not valid (%s)" % url)
+        self._tango_url = url[len(url_tocken):]
+        self.name = self._tango_url
+        self._proxy = None
+        self._gpib_kwargs = keys
+        self._pad = keys['pad']
+        self._sad = keys.get('sad',0)
+        self._pad_sad = self._pad + (self._sad << 8)
+        
+    def init(self):
+        self._debug("TangoDeviceServer::init()")
+        if self._proxy is None:
+            self._proxy = DeviceProxy(self._tango_url)
+        
+    def close(self):
+        self._proxy = None
+
+    def ibwrt(self, cmd):
+        self._debug("Sent: %s" % cmd)
+        ncmd = numpy.zeros(4 + len(cmd),dtype=numpy.uint8)
+        ncmd[3] = self._pad
+        ncmd[2] = self._sad
+        ncmd[4:] = [ord(x) for x in cmd]
+        self._proxy.SendBinData(ncmd)
+
+    def ibrd(self, length) :
+        self._proxy.SetTimeout([self._pad_sad,self._gpib_kwargs.get('tmo',12)])
+        msg = self._proxy.ReceiveBinData([self._pad_sad,length])
+        self._debug("Received: %s" % msg)
+        return msg.tostring()
+
+    def _raw(self, length):
+        return self.ibrd(length)
+    
+class LocalGpibError(GpibError):
+    pass
+
+class LocalGpib(object):
+
+    URL_RE = re.compile("^(local://)?([0-9]{1,2})$")
+
+    def __init__(self, cnt, **keys):
+        url = keys.pop('url')
+        match = self.URL_RE.match(url)
+        if match is None:
+            raise LocalGpibError('LocalGpib: url is not valid (%s)' % url)
+        self.board_index = int(match.group(2))
+        if self.board_index < 0 or self.board_index > 15:
+            raise LocalGpibError('LocalGpib: url is not valid (%s)' % url)
+        self._logger = logging.getLogger(str(self))
+        self._debug = self._logger.debug
+        self._gpib_kwargs = keys
+
+    def __str__(self):
+        return '{0}(board={1})'.format(type(self).__name__, self.board_index)
+
+    def init(self) :
+        self._debug("init()")
+        opts = self._gpib_kwargs
+        from . import libgpib
+        self.gpib = libgpib
+        self._debug("libgpib version %s", self.gpib.ibvers())
+        self.gpib.GPIBError = LocalGpibError
+        self.ud = self.gpib.ibdev(self.board_index, pad=opts['pad'],
+                                  sad=opts['sad'], tmo=opts['tmo'])
+
+    def ibwrt(self, cmd):
+        self._debug("Sent: %r" % cmd)
+        tp = gevent.get_hub().threadpool
+        return tp.spawn(self.gpib.ibwrt, self.ud, cmd).get()
+
+    def ibrd(self, length):
+        tp = gevent.get_hub().threadpool
+        return tp.spawn(self.gpib.ibrd, self.ud, length).get()
+
+    def ibtmo(self, tmo):
+        return self.gpib.ibtmo(self.ud, tmo)
+
+    def close(self):
+        pass
+
 
 def try_open(fu) :
     def rfunc(self,*args,**keys) :
@@ -205,7 +288,7 @@ class Gpib:
     interface = Gpib(url="enet://gpibid00a.esrf.fr", pad=15)
     '''
 
-    ENET, TANGO, PROLOGIX = range(3)
+    ENET, TANGO, TANGO_DEVICE_SERVER, PROLOGIX, LOCAL = range(5)
     READ_BLOCK_SIZE = 64 * 1024
 
     def __init__(self,url = None,pad = 0,sad = 0,timeout = 1.,tmo = 13,
@@ -239,6 +322,12 @@ class Gpib:
                 self._raw_handler.init()
             elif self.gpib_type == self.TANGO:
                 self._raw_handler = TangoGpib(self,**self._gpib_kwargs)
+            elif self.gpib_type == self.TANGO_DEVICE_SERVER:
+                self._raw_handler = TangoDeviceServer(self,**self._gpib_kwargs)
+                self._raw_handler.init()
+            elif self.gpib_type == self.LOCAL:
+                self._raw_handler = LocalGpib(self,**self._gpib_kwargs)
+                self._raw_handler.init()
 
     def close(self) :
         if self._raw_handler is not None:
@@ -285,12 +374,14 @@ class Gpib:
     def _write(self,msg) :
         return self._raw_handler.ibwrt(msg)
 
+    @protect_from_kill
     def write_read(self,msg,write_synchro = None,size = 1,timeout = None) :
         with self._lock:
             self._write(msg)
             if write_synchro: write_synchro.notify()
             return self._read(size)
 
+    @protect_from_kill
     def write_readline(self,msg,write_synchro = None,
                        eol = None,timeout = None) :
         with self._lock:
@@ -298,6 +389,7 @@ class Gpib:
             if write_synchro: write_synchro.notify()
             return self._readline(eol)
 
+    @protect_from_kill
     def write_readlines(self,msg,nb_lines,write_synchro = None,
                         eol = None,timeout = None):
         with self._lock:
@@ -320,6 +412,10 @@ class Gpib:
             return self.PROLOGIX
         elif url_lower.startswith("tango://") :
             return self.TANGO
+        elif url_lower.startswith("tango_gpib_device_server://"):
+            return self.TANGO_DEVICE_SERVER
+        elif url_lower.startswith("local://") :
+            return self.LOCAL
         else:
             return None
 

@@ -33,8 +33,6 @@ from . import protocol
 from .. import redis as redis_conf
 from bliss.common import event
 
-REDIS_UNIX_SOCKET='/tmp/redis.sock'
-
 try:
     import posix_ipc
 except ImportError:
@@ -62,6 +60,39 @@ else:
             for i in xrange(0,len(msg),max_message_size):
                 self._wqueue.send(msg[i:i+max_message_size])
 
+_waitstolen = dict()
+
+class _WaitStolenReply(object):
+    def __init__(self,stolen_lock):
+        self._stolen_lock = dict()
+        for client,objects in stolen_lock.iteritems():
+            self._stolen_lock[client] = '|'.join(objects)
+        self._client2info = dict()
+
+    def __enter__(self):
+        for client,message in self._stolen_lock.iteritems():
+            event = gevent.event.Event()
+            client2sync = _waitstolen.setdefault(message,dict())
+            client2sync[client] = event
+            client.sendall(protocol.message(protocol.LOCK_STOLEN,message))
+        return self
+
+    def __exit__(self,*args,**keys):
+        for client,message in self._stolen_lock.iteritems():
+            client2sync = _waitstolen.pop(message,None)
+            if client2sync is not None:
+                client2sync.pop(client,None)
+            if client2sync:
+                _waitstolen[message] = client2sync
+
+    def wait(self,timeout):
+        with gevent.Timeout(timeout,
+                            RuntimeError("some client(s) didn't reply to stolen lock")):
+            for client,message in self._stolen_lock.iteritems():
+                client2sync = _waitstolen.get(message)
+                if client2sync is not None:
+                    sync = client2sync.get(client)
+                    sync.wait()
 _options = None
 _lock_object = {}
 _client_to_object = weakref.WeakKeyDictionary()
@@ -73,6 +104,13 @@ def _releaseAllLock(client_id):
     for obj in objset:
 #        print 'release',obj
         _lock_object.pop(obj)
+    #Inform waiting client
+    tmp_dict = dict(_waiting_lock)
+    for client_sock,tlo in tmp_dict.iteritems():
+        try_lock_object = set(tlo)
+        if try_lock_object.intersection(objset):
+            objs = _waiting_lock.pop(client_sock)
+            client_sock.sendall(protocol.message(protocol.LOCK_RETRY))
 
 def _lock(client_id,prio,lock_obj,raw_message) :
 #    print '_lock_object',_lock_object
@@ -103,8 +141,11 @@ def _lock(client_id,prio,lock_obj,raw_message) :
                 new_prio = lock_prio > prio and lock_prio or prio
                 _lock_object[obj] = (client_id,compteur,new_prio)
 
-        for client,objects in stolen_lock.iteritems():
-            client.sendall(protocol.message(protocol.LOCK_STOLEN,'|'.join(objects)))
+        try:
+            with _WaitStolenReply(stolen_lock) as w:
+                w.wait(3.)
+        except RuntimeError:
+            print "Warning: some client(s) didn't reply to the stolen lock"
 
         obj_already_locked = _client_to_object.get(client_id,set())
         _client_to_object[client_id] = set(lock_obj).union(obj_already_locked)
@@ -154,7 +195,7 @@ def _send_redis_info(client_id,local_connection):
     port = _options.redis_port
     host = socket.gethostname()
     if local_connection:
-        port = REDIS_UNIX_SOCKET
+        port = _options.redis_socket
         host = 'localhost'
 
     client_id.sendall(protocol.message(protocol.REDIS_QUERY_ANSWER,
@@ -196,9 +237,9 @@ def _get_python_module(client_id,message):
 
     __find_module(client_id,message_key,start_module_path)
     client_id.sendall(protocol.message(protocol.CONFIG_GET_PYTHON_MODULE_END, '%s|' % message_key))
-    
-                          
-    
+
+
+
 def __remove_empty_tree(base_dir=None, keep_empty_base=True):
     """
     Helper to remove empty directory tree.
@@ -298,19 +339,21 @@ def _send_config_db_files(client_id,message):
     try:
         for root,dirs,files in os.walk(look_path):
             for filename in files:
-                basename,ext = os.path.splitext(filename)
+                basename, ext = os.path.splitext(filename)
                 if ext == '.yml':
                     full_path = os.path.join(root,filename)
                     rel_path = full_path[len(_options.db_path) + 1:]
-                    with codecs.open(full_path, "r", "utf-8") as f:
-                        try:
+                    try:
+                        with codecs.open(full_path, "r", "utf-8") as f:
                             raw_buffer = f.read().encode('utf-8')
                             msg = protocol.message(protocol.CONFIG_DB_FILE_RX,'%s|%s|%s' % (message_key,rel_path,raw_buffer))
                             client_id.sendall(msg)
-                        except Exception as e:
-                            sys.excepthook(*sys.exc_info())
-    except:
+                    except Exception as e:
+                        sys.excepthook(*sys.exc_info())
+                        client_id.sendall(protocol.message(protocol.CONFIG_DB_FAILED, "%s|%s" % (message_key, e)))
+    except Exception as e:
         sys.excepthook(*sys.exc_info())
+        client_id.sendall(protocol.message(protocol.CONFIG_DB_FAILED, "%s|%s" % (message_key, e)))
     finally:
         client_id.sendall(protocol.message(protocol.CONFIG_DB_END,"%s|" % (message_key)))
 
@@ -439,6 +482,12 @@ def _client_rx(client,local_connection):
                             lock_objects = message.split('|')
                             prio = int(lock_objects.pop(0))
                             _unlock(c_id,prio,lock_objects)
+                        elif messageType == protocol.LOCK_STOLEN_OK_REPLY:
+                            client2sync = _waitstolen.get(message)
+                            if client2sync is not None:
+                                sync = client2sync.get(c_id)
+                                if sync is not None:
+                                    sync.set()
                         elif messageType == protocol.REDIS_QUERY:
                             _send_redis_info(c_id,local_connection)
                         elif messageType == protocol.POSIX_MQ_QUERY:
@@ -516,11 +565,12 @@ def start_webserver(webapp_port, beacon_port, debug=True):
     web_app.debug = debug
     web_app.beacon_port = beacon_port
     http_server = WSGIServer(('', webapp_port), DebuggedApplication(web_app, evalex=True))
+    http_server.family = socket.AF_INET
     gevent.spawn(http_server.serve_forever)
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--db_path",dest="db_path",default="./db",
+    parser.add_argument("--db_path",dest="db_path",default=os.environ.get("BEACON_DB_PATH", "./db"),
                         help="database path")
     parser.add_argument("--redis_port",dest="redis_port",default=6379,type=int,
                         help="redis connection port")
@@ -537,6 +587,8 @@ def main():
                         help="tango debug level (default to 0: WARNING,1:INFO,2:DEBUG)")
     parser.add_argument("--webapp_port",dest="webapp_port",type=int,default=0,
                         help="web server port (default to 0: disable)")
+    parser.add_argument("--redis_socket", dest="redis_socket", default="/tmp/redis.sock",
+                        help="Unix socket for redis (default to /tmp/redis.sock)")
     global _options
     _options = parser.parse_args()
 
@@ -596,6 +648,8 @@ def main():
     #start redis
     rp,wp = os.pipe()
     redis_process = subprocess.Popen(['redis-server', _options.redis_conf,
+                                      '--unixsocket', _options.redis_socket,
+                                      '--unixsocketperm', '777',
                                       '--port','%d' % _options.redis_port],
                                      stdout=wp,stderr=subprocess.STDOUT,cwd=_options.db_path)
     # signal pipe
@@ -612,36 +666,46 @@ def main():
       bosse = True
 
       while bosse:
-        rlist,_,_ = select.select(fd_list,[],[])
 
-        for s in rlist:
-            if s == udp:
-                buff,address = udp.recvfrom(8192)
-                if buff.find('Hello') > -1:
-                    udp.sendto('%s|%d' % (socket.gethostname(),beacon_port),address)
+        rlist,_,_ = select.select(fd_list,[],[], 1)
+        if rlist:
+            for s in rlist:
+                if s == udp:
+                    buff,address = udp.recvfrom(8192)
+                    if buff.find('Hello') > -1:
+                        udp.sendto('%s|%d' % (socket.gethostname(),beacon_port),address)
 
-            elif s == tcp:
-                newSocket, addr = tcp.accept()
-                newSocket.setsockopt(socket.IPPROTO_TCP,socket.TCP_NODELAY,1)
-                localhost = addr[0] == '127.0.0.1'
-                gevent.spawn(_client_rx,newSocket,localhost)
+                elif s == tcp:
+                    newSocket, addr = tcp.accept()
+                    newSocket.setsockopt(socket.IPPROTO_TCP,socket.TCP_NODELAY,1)
+                    newSocket.setsockopt(socket.SOL_IP, socket.IP_TOS, 0x10)
+                    localhost = addr[0] == '127.0.0.1'
+                    gevent.spawn(_client_rx,newSocket,localhost)
 
-            elif s == sig_read:
-                bosse = False
-                break
-            else:
-                msg = os.read(s,8192)
-                if msg:
-                    print '%s: %s' % (msg_prefix.get(s,'[DEFAULT]'),msg)
+                elif s == sig_read:
+                    bosse = False
+                    break
                 else:
-                    fd_list.remove(tango_rp)
-                    os.close(tango_rp)
-                    print '%s: Warning Database exit' % (msg_prefix.get(s,'[DEFAULT]'))
-                break
+                    msg = os.read(s,8192)
+                    if msg:
+                        print '%s: %s' % (msg_prefix.get(s,'[DEFAULT]'),msg)
+                    else:
+                        fd_list.remove(tango_rp)
+                        os.close(tango_rp)
+                        print '%s: Warning: Database exit' % (msg_prefix.get(s,'[DEFAULT]'))
+                    break
+        else:
+            # Check if redis is alive
+            redis_exit_code = redis_process.poll()
+            if redis_exit_code is not None:
+                print '[REDIS]: Error: redis exited with code %s. Bailing out!' % (redis_exit_code)
+                redis_process = None
+                bosse = False
     except KeyboardInterrupt:
         pass
     finally:
-        redis_process.terminate()
+        if redis_process:
+            redis_process.terminate()
 
-if __name__ == "__main__" and __package__ is None:
+if __name__ == "__main__":
     main()

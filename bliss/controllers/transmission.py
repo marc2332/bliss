@@ -56,6 +56,8 @@ class transmission:
             raise RuntimeError("Wrong energy input %g" % en)
 
         transm, vals = _transmission_calc.getAttenuation(en, transm, self.datafile)
+        if not vals:
+            raise RuntimeError("No attenuators combination found for this energy: '%f`" % en)
         if -1 in vals:
             value = 0
         else:

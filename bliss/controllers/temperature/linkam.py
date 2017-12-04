@@ -3,13 +3,13 @@ import time
 import bisect
 import logging
 import datetime
+from warnings import warn
 
 import gevent
 from gevent import lock
 import serial.serialutil as serial
 
-from bliss.comm.tcp import Tcp
-from bliss.comm._serial import Serial
+from bliss.comm.util import get_comm, SERIAL
 from bliss.common.event import dispatcher
 from bliss.common.data_manager import ScanFile
 
@@ -63,10 +63,17 @@ class LinkamDsc(object):
         self.name = name
         self._logger = logging.getLogger(str(self))
         logging.basicConfig(level=10)
-        if "serial_url" in config:
-            self._cnx = Serial(config['serial_url'], 19200, bytesize=8, parity='N', stopbits=1, eol='\r', timeout=10)
-        else:
-            raise ValueError, "Must specify serial_url"
+        try:
+            self._cnx = get_comm(config, SERIAL, baudrate=19200, eol='\r',
+                                 timeout=10)
+        except ValueError:
+            if "serial_url" in config:
+                warn("'serial_url' keyword is deprecated. Use 'serial' instead",
+                     DeprecationWarning)
+                comm_cfg = {'serial': {'url': config['serial_url'] }}
+                self._cnx = get_comm(comm_cfg, baudrate=19200, eol='\r', timeout=10)
+            else:
+                raise ValueError, "Must specify serial"
 
         #Possible values of the status byte
         self.STOPPED = 0x1

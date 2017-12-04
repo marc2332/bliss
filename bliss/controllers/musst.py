@@ -8,10 +8,16 @@
 import numpy
 import weakref
 import os
+import gevent
+import hashlib
 from bliss.comm.gpib import Gpib
 from bliss.comm import serial
 from bliss.common.greenlet_utils import KillMask,protect_from_kill
 from bliss.config.channels import Cache
+from bliss.config.conductor.client import remote_open
+from bliss.common.switch import Switch as BaseSwitch
+from bliss.common.utils import OrderedDict
+
 Serial = serial.Serial
 
 def _get_simple_property(command_name,
@@ -58,9 +64,9 @@ class musst(object):
                 #check if has the good interface
                 if switch_name is None:
                     raise RuntimeError('musst: channel (%d) with external switch musst have a switch_name defined' % channel_id)
-                if not hasattr(switch,'switch'):
-                    raise RuntimeError("musst: channel (%d), switch object doesn't have a switch method" % channel_id)
-                self._switch = weakref.proxy(switch)
+                if not hasattr(switch,'set'):
+                    raise RuntimeError("musst: channel (%d), switch object doesn't have a set method" % channel_id)
+                self._switch = switch
                 self._switch_name = switch_name
             else:
                 self._switch = None
@@ -68,7 +74,7 @@ class musst(object):
         @property
         def value(self):
             if self._switch is not None:
-                self._switch.switch(self._switch_name)
+                self._switch.set(self._switch_name)
             musst = self._musst()
             string_value = musst.putget("?CH CH%d" % self._channel_id).split()[0]
             return self._convert(string_value)
@@ -76,7 +82,7 @@ class musst(object):
         @value.setter
         def value(self,val):
             if self._switch is not None:
-                self._switch.switch(self._switch_name)
+                self._switch.set(self._switch_name)
             musst = self._musst()
             musst.putget("CH CH%d %s" % (self._channel_id,val))
 
@@ -164,6 +170,7 @@ class musst(object):
         gpib_timeout -- communication timeout, default is 1s
         gpib_eos -- end of line termination
         musst_prg_root -- default path for musst programs
+        block_size -- default is 8k but can be lowered to 512 depend on gpib.
         channels: -- list of configured channels
         in this dictionary we need to have:
         label: -- the name alias for the channels
@@ -180,10 +187,12 @@ class musst(object):
                              timeout = config_tree.get("gpib_timeout",5))
             self._txterm = ''
             self._rxterm = '\n'
+            self._binary_data_read = True
         elif "serial_url" in config_tree:
             self._cnx = Serial(config_tree["serial_url"])
             self._txterm = '\r'
             self._rxterm = '\r\n'
+            self._binary_data_read = False
         else:
             raise ValueError, "Must specify gpib_url or serial_url"
 
@@ -198,12 +207,12 @@ class musst(object):
             }
 
         self.__frequency_conversion = {
-            self.F_1KHZ   : "1KHZ",
-            self.F_10KHZ  : "10KHZ",
-            self.F_100KHZ : "100KHZ",
-            self.F_1MHZ   : "1MHZ",
-            self.F_10MHZ  : "10MHZ",
-            self.F_50MHZ  : "50MHZ",
+            self.F_1KHZ   : ("1KHZ"   ,1e3),
+            self.F_10KHZ  : ("10KHZ"  ,10e3),
+            self.F_100KHZ : ("100KHZ" ,100e3),
+            self.F_1MHZ   : ("1MHZ"   ,1e6),
+            self.F_10MHZ  : ("10MHZ"  ,10e6),
+            self.F_50MHZ  : ("50MHZ"  ,50e6),
 
             "1KHZ"        : self.F_1KHZ,
             "10KHZ"       : self.F_10KHZ,
@@ -212,10 +221,10 @@ class musst(object):
             "10MHZ"       : self.F_10MHZ,
             "50MHZ"       : self.F_50MHZ
             }
-        self.__last_file_load = Cache(self,'last_file_load')
-        self.__last_template_replacement = Cache(self,"last_template")
+        self.__last_md5 = Cache(self,'last__md5')
         self.__prg_root = config_tree.get('musst_prg_root')
-
+        self.__block_size = config_tree.get('block_size',8*1024)
+        
         #Configured channels
         self._channels = dict()
         channels_list = config_tree.get('channels',list())
@@ -231,19 +240,15 @@ class musst(object):
                     raise RuntimeError("musst: channel in config must have a label")
                 self._channels[channel_name.upper()] = self.get_channel(channel_number,type=channel_type)
             elif channel_type == 'switch':
-                ext_switch_name = channel_config.get('name')
-                if ext_switch_name is None:
-                    raise RuntimeError("musst: channel (%s) with type switch must have a reference to an object name" % channel_number)
+                ext_switch = channel_config.get('name')
+                if not hasattr(ext_switch,'states_list'):
+                    raise RuntimeError("musst: channels (%s) switch object must have states_list method" % channel_number)
 
-                ext_switch = config_tree.get(ext_switch_name)
-                if not hasattr(ext_switch,'getSwitchList'):
-                    raise RuntimeError("musst: channels (%s) switch object must have getSwitchList method" % channel_number)
-
-                for channel_name in ext_switch.getSwitchList():
-                    self._channels[channel_name.upper()] = self.get_channel(channel_number,
-                                                                            type=channel_type,
-                                                                            switch=ext_switch,
-                                                                            switch_name=channel_name)
+                for channel_name in ext_switch.states_list():
+                    self._channels[channel_name] = self.get_channel(channel_number,
+                                                                    type=channel_type,
+                                                                    switch=ext_switch,
+                                                                    switch_name=channel_name)
             else:
                 raise RuntimeError("musst: channel type can only be of type (cnt,encoder,ssi,adc5,adc10,switch)")
 
@@ -269,29 +274,40 @@ class musst(object):
                 if answer == '$':
                     return self._cnx._readline('$' + self._rxterm)
                 elif ack:
-                    return answer == "OK"
+                    if answer != "OK":
+                        raise RuntimeError("%s: invalid answer: %r", self.name, answer)
+                    return True
                 else:
                     return answer
 
-    def run(self,entryPoint=""):
+    def _wait(self):
+        while self.STATE == self.RUN_STATE:
+            gevent.idle() 
+
+    def run(self, entryPoint="", wait=False):
         """ Execute program.
 
         entryPoint -- program name or a program label that
         indicates the point from where the execution should be carried out
         """
-        return self.putget("#RUN %s" % entryPoint)
+        self.putget("#RUN %s" % entryPoint)
+        if wait:
+            self._wait()
 
-    def ct(self,time=None):
+    def ct(self, time=None, wait=True):
         """Starts the system timer, all the counting channels
         and the MCA. All the counting channels
         are previously cleared.
 
-        time -- If specified, the counters run for that time.
+        time -- If specified, the counters run for that time (in s.)
         """
         if time is not None:
-            return self.putget("#RUNCT %d" % time)
+            time *= self.get_timer_factor()
+            self.putget("#RUNCT %d" % time)
         else:
-            return self.putget("#RUNCT")
+            self.putget("#RUNCT")
+        if wait:
+            self._wait()
 
     def upload_file(self, fname, prg_root=None,
                     template_replacement = {}):
@@ -310,21 +326,24 @@ class musst(object):
         else:
             program_file = fname
 
-        if(self.__last_file_load.value != program_file or
-           self.__last_template_replacement.value != str(template_replacement)):
-            with open(program_file) as program:
-                program_bytes = program.read()
-                for old,new in template_replacement.iteritems():
-                    program_bytes = program_bytes.replace(old,new)
-                self.upload_program(program_bytes)
-            self.__last_file_load.value = program_file
-            self.__last_template_replacement.value = str(template_replacement)
+        with remote_open(program_file) as program:
+            program_bytes = program.read()
+            for old,new in template_replacement.iteritems():
+                program_bytes = program_bytes.replace(old,new)
+
+        self.upload_program(program_bytes)
 
     def upload_program(self, program_data):
         """ Upload a program.
 
         program_data -- program data you want to upload
         """
+        m = hashlib.md5()
+        m.update(program_data)
+        md5sum = m.hexdigest()
+        if self.__last_md5.value == md5sum:
+            return
+
         self.putget("#CLEAR")
         # split into lines for Prologix
         for l in program_data.splitlines():
@@ -332,6 +351,9 @@ class musst(object):
         if self.STATE != self.IDLE_STATE:
             err = self.putget("?LIST ERR")
             raise RuntimeError(err)
+
+        self.__last_md5.value = md5sum
+
         return True
 
     #    def get_data(self, nlines, npts, buf=0):
@@ -365,7 +387,7 @@ class musst(object):
         return data
 
     def _read_data(self,from_offset,to_offset,data):
-        BLOCK_SIZE = 8*1024
+        BLOCK_SIZE = self.__block_size
         total_int32 = to_offset - from_offset
         data_pt = data.flat
         dt = numpy.dtype(numpy.int32)
@@ -373,15 +395,21 @@ class musst(object):
                                       xrange(0,total_int32,BLOCK_SIZE)):
             size_to_read = min(BLOCK_SIZE,total_int32)
             total_int32 -= BLOCK_SIZE
-            with self._cnx._lock:
-                self._cnx.open()
-                with KillMask():
-                    self._cnx._write("?*EDAT %d %d %d" % (size_to_read,0,offset))
-                    raw_data = ''
-                    while(len(raw_data) < (size_to_read * 4)):
-                        raw_data += self._cnx.raw_read()
-                    data_pt[data_offset:data_offset+size_to_read] = \
-                    numpy.frombuffer(raw_data,dtype=numpy.int32)
+            if self._binary_data_read:
+                with self._cnx._lock:
+                    self._cnx.open()
+                    with KillMask():
+                        self._cnx._write("?*EDAT %d %d %d" % (size_to_read,0,offset))
+                        raw_data = ''
+                        while(len(raw_data) < (size_to_read * 4)):
+                            raw_data += self._cnx.raw_read()
+                        data_pt[data_offset:data_offset+size_to_read] = \
+                        numpy.frombuffer(raw_data,dtype=numpy.int32)
+            else:
+                raw_data = self.putget("?EDAT %d %d %d" % (size_to_read,0,offset))
+                data_pt[data_offset:data_offset+size_to_read] = \
+                [int(x,16) for x in raw_data.split(self._rxterm) if x]
+                                                                
 
     def get_event_buffer_size(self):
         """ query event buffer size.
@@ -446,8 +474,12 @@ class musst(object):
     @property
     def TMRCFG(self):
         """ Set/query main timer timebase """
-        return self.__frequency_conversion.get(self.putget("?TMRCFG"))
-    
+        return self.__frequency_conversion[self.__frequency_conversion.get(self.putget("?TMRCFG"))]
+
+    def get_timer_factor(self):
+        str_freq,freq = self.TMRCFG
+        return freq
+            
     @TMRCFG.setter
     def TMRCFG(self,value):
         if value not in self.__frequency_conversion:
@@ -474,3 +506,57 @@ class musst(object):
         if channel is None:
             raise RuntimeError("musst doesn't have channel (%s) in his config" % channel_name)
         return channel
+
+
+#Musst switch
+
+class Switch(BaseSwitch):
+    """
+    This class wrapped musst command to emulate a switch.
+    the configuration may look like this:
+    musst: $musst_name
+    states:
+       - label: OPEN
+         set_cmd: "#BTRIG 1"
+         test_cmd: "?BTRIG"
+         test_cmd_reply: "1"
+       - label: CLOSED
+         set_cmd: "#BTRIG 0"
+         test_cmd: "?BTRIG"
+         test_cmd_reply: "0"
+    """
+    def __init__(self,name,config):
+        BaseSwitch.__init__(self,name,config)
+        self.__musst = None
+        self.__states = OrderedDict()
+        self.__state_test = OrderedDict()
+
+    def _init(self):
+        config = self.config
+        self.__musst = config['musst']
+        for state in config['states']:
+            label = state['label']
+            cmd = state['set_cmd']
+            self.__states[label] = cmd
+
+            t1 = {config['test_cmd_reply'] : label}
+            t = self.__state_test.setdefault(config['test_cmd'],result)
+            if t1 != t:
+                t.update(t1)
+
+    def _set(self,state):
+        cmd = self.__states.get(state)
+        if cmd is None:
+            raise RuntimeError("State %s don't exist" % state)
+        self.__musst.putget(cmd)
+
+    def _get(self):
+        for test_cmd,test_reply in self.__state_test.iteritems():
+            reply = self.__musst.putget(test_cmd)
+            state = test_reply.get(reply)
+            if state is not None:
+                return state
+        return 'UNKNOWN'
+
+    def _states_list(self):
+        return self.__states.keys()

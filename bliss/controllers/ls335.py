@@ -6,25 +6,25 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss.common.task_utils import cleanup, error_cleanup, task
-from bliss.common.measurement import CounterBase, AverageMeasurement
+from bliss.common.measurement import SamplingCounter
 from bliss.common.greenlet_utils import protect_from_kill
+from gevent.lock import Semaphore
 import time
 import gevent
 import socket
 
-class LSCounter(CounterBase):
-   def __init__(self, parent, name, index):
-     CounterBase.__init__(self, parent.name+'.'+name)
-     self.parent = parent
-     self.index = index
+class LSCounter(SamplingCounter):
+   def __init__(self, name, controller, channel):
+     SamplingCounter.__init__(self, controller.name+'.'+name, controller)
+     self.__controller = controller
+     self.__channel = channel
 
-   def count(self, time=None, measurement=None):
-     if not self.parent.acquisition_event.is_set():
-       self.parent.acquisition_event.wait()
-       data = self.parent.last_acq
-     else:
-       data = self.parent._read(time)
-     return data[self.index]
+   @property
+   def channel(self):
+     return self.__channel
+
+   def read(self):
+     return float(self.__controller._putget("krdg? %s" % self.channel))
 
 
 class ls335(object):
@@ -34,11 +34,10 @@ class ls335(object):
        self.gpib_controller_host = config.get("gpib_controller_host")
        self.gpib_address = config.get("gpib_address")
 
-       self.acquisition_event = gevent.event.Event()
-       self.acquisition_event.set()
+       self.__lock = Semaphore()
        self.__control = None
 
-   def connect(self):
+   def __connect(self):
        self.__control = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
        self.__control.connect((self.gpib_controller_host, 1234))
        self.__control.sendall('++mode 1\r\n++addr %d\r\n++auto 0\r\nmode 0\r\n' % self.gpib_address)
@@ -46,25 +45,17 @@ class ls335(object):
 
    @protect_from_kill
    def _putget(self, cmd):
-       if self.__control is None:
-           self.connect()
-       self.__control.sendall("%s\r\n++read eoi\r\n" % cmd)
-       return self.__control.recv(1024)
+       with self.__lock:
+           if self.__control is None:
+               self.__connect()
+           self.__control.sendall("%s\r\n++read eoi\r\n" % cmd)
+           return self.__control.recv(1024)
 
    @property
    def A(self):
-       return LSCounter(self, "A", 0)
+       return LSCounter("A", self, "a")
 
    @property
    def B(self):
-       return LSCounter(self, "B", 1)
+       return LSCounter("B", self, "b") 
 
-   def _read(self, acq_time=None):
-       self.acquisition_event.clear()
-       try:
-           chan_a_K = float(self._putget("krdg? a"))
-           chan_b_K = float(self._putget("krdg? b"))
-           self.last_acq = (chan_a_K, chan_b_K)
-           return self.last_acq
-       finally:
-           self.acquisition_event.set()

@@ -11,6 +11,11 @@ from bliss import setup_globals
 import weakref
 import pickle
 
+class InvalidValue(Null):
+    def __str__(self):
+        raise ValueError
+    def __repr__(self):
+        return '#ERR'
 
 def get_cache():
     return client.get_cache(db=0)
@@ -29,14 +34,17 @@ def auto_conversion(var):
     for caster in (boolify,int, float):
         try:
             return caster(var)
-        except ValueError:
+        except (ValueError,TypeError):
             pass
     return var
 
 def pickle_loads(var):
     if var is None:
         return None
-    return pickle.loads(var)
+    try:
+        return pickle.loads(var)
+    except Exception:
+        return InvalidValue()
 
 def ttl_func(cnx,name,value = -1):
     if value is None:
@@ -60,7 +68,8 @@ def read_decorator(func):
                     tmp.update(value)
                     value = tmp
             else:
-                value = self._read_type_conversion(value)
+                if value is not None:
+                    value = self._read_type_conversion(value)
         if value is None:
             if hasattr(self,'_default_value'):
                 value = self._default_value
@@ -137,7 +146,11 @@ class SimpleSetting(object):
 
     def ttl(self,value = -1):
         return ttl_func(self._cnx(),self._name,value)
-
+    
+    def clear(self):
+        cnx = self._cnx()
+        cnx.delete(self._name)
+    
     def __add__(self,other):
         value = self.get()
         if isinstance(other,SimpleSetting):
@@ -267,7 +280,7 @@ class QueueSetting(object):
     @write_decorator
     def remove(self,value):
         cnx = self._cnx()
-        cnx.lrem(self._name,1,value)
+        cnx.lrem(self._name,value)
 
     @write_decorator_multiple
     def set(self,values):
@@ -411,16 +424,35 @@ class HashSetting(object):
     def ttl(self,value = -1):
         return ttl_func(self._cnx(),self._name,value)
 
-    @read_decorator
-    def get(self,key,default = None):
+    def raw_get(self, key):
         cnx = self._cnx()
-        return_val = cnx.hget(self._name,key)
-        if return_val is None:
-            return_val = default
-        return return_val
+        return cnx.hget(self._name, key)
 
     @read_decorator
-    def pop(self,key,default = Null()):
+    def get(self, key, default = None):
+        v = self.raw_get(key)
+        if v is None:
+            if self._write_type_conversion:
+                v = self._write_type_conversion(default)
+            else:
+                v = default
+        return v 
+
+    def _raw_get_all(self):
+        cnx = self._cnx()
+        return cnx.hgetall(self._name)
+    
+    def get_all(self):
+        all_dict = dict(self._default_values)
+        for k, raw_v in self._raw_get_all().iteritems():
+          v = self._read_type_conversion(raw_v)
+          if isinstance(v, InvalidValue):
+              raise ValueError("%s: Invalid value '%s` (cannot deserialize %r)" % (self._name, k, raw_v))
+          all_dict[k] = v
+        return all_dict
+    
+    @read_decorator
+    def pop(self, key, default = Null()):
         cnx = self._cnx().pipeline()
         cnx.hget(self._name,key)
         cnx.hdel(self._name,key)
@@ -432,15 +464,10 @@ class HashSetting(object):
                 value = default
         return value
     
-    def remove(self,*key):
+    def remove(self, *keys):
         cnx = self._cnx()
-        cnx.hdel(self._name,*key)
+        cnx.hdel(self._name, *keys)
 
-    @read_decorator
-    def get_all(self):
-        cnx = self._cnx()
-        return cnx.hgetall(self._name)
-    
     def keys(self):
         return list(self.iterkeys())
 
@@ -464,7 +491,8 @@ class HashSetting(object):
     @write_decorator_dict
     def update(self,values):
         cnx = self._cnx()
-        cnx.hmset(self._name,values)
+        if values:
+            cnx.hmset(self._name,values)
 
     def items(self):
         values = self.get_all()
@@ -520,6 +548,14 @@ class HashSetting(object):
         if self._write_type_conversion:
             value = self._write_type_conversion(value)
         cnx.hset(self._name,key,value)
+
+    def __contains__(self,key):
+        try:
+            self[key]
+            return True
+        except KeyError:
+            return False
+
 
 class HashSettingProp(object):        
     def __init__(self,name,connection = None,
@@ -654,14 +690,17 @@ class ParamDescriptor(object):
     def assign(self, value):
         if hasattr(value, 'name') and hasattr(setup_globals, value.name):
             value = '%s%s' % (ParamDescriptor.OBJECT_PREFIX, value.name)
-        self.proxy[self.name] = value
+        try:
+            self.proxy[self.name] = value
+        except Exception:
+            raise ValueError("%s.%s: cannot set value" % (self.proxy._name, self.name))
 
     def __get__(self, obj, obj_type):
         value = self.proxy[self.name]
         if isinstance(value, (str,unicode)) and value.startswith(ParamDescriptor.OBJECT_PREFIX):
             value = value[len(ParamDescriptor.OBJECT_PREFIX):]
             return getattr(setup_globals, value)
-        return self.proxy[self.name]
+        return value
 
     def __set__(self, obj, value):
         return self.assign(value)
@@ -686,11 +725,11 @@ class Parameters(object):
         return self._proxy.keys() + ['add','remove','switch','configs']
     
     def __repr__(self):
-        rep_str = "Parameters : (%s)\n" % self.__current_config.get()
+        rep_str = "Parameters (%s)\n" % self.__current_config.get()
         d = dict(self._proxy.iteritems())
         max_len = max((len(x) for x in d.keys()))
-        str_format = '  %-' + '%ds' % max_len + ' = %s\n'
-        for key,value in d.iteritems():
+        str_format = '  .%-' + '%ds' % max_len + ' = %r\n'
+        for key,value in sorted(d.iteritems()):
             rep_str += str_format % (key,value)
         return rep_str
     

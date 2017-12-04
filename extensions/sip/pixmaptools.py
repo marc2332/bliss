@@ -6,7 +6,10 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import os
-from distutils.core import setup, Extension
+
+from sipdistutils import build_ext
+from distutils.core import Extension
+
 import numpy
 
 try:
@@ -30,19 +33,85 @@ except ImportError:
 
 base_path = os.path.join('bliss','data','routines','pixmaptools')
 
-def get_options():
-    return [
-        ("with-pixmaptools-qt4",None,"compile/install pixmaptools for qt4"),
-        ("with-pixmaptools-qt3",None,"compile/install pixmaptools for qt3"),
-    ]
 
-def get_sip_extension(extra_option):
-    modules = []
-    qt4 = extra_option.get("with_pixmaptools_qt4",False)
-    if qt4:
+class _BaseBuild(build_ext):
+
+    user_options = []
+
+    def initialize_options(self):
+        build_ext.initialize_options(self)
+        self.extension, sip_opts = self.initialize_sip_extension()
+        self.sip_opts = ' '.join(('-g', '-e', sip_opts))
+
+    def finalize_options(self):
+        build_ext.finalize_options(self)
+        self.extensions = [self.extension]
+
+    def build_extensions(self):
+        compiler_pars = self.compiler.compiler_so
+        while '-Wstrict-prototypes' in compiler_pars:
+            del compiler_pars[compiler_pars.index(
+                '-Wstrict-prototypes')]
+        build_ext.build_extensions(self)
+
+
+class BuildPixmaptoolsQt3(_BaseBuild):
+
+    cmd_name = 'build_pixmaptools_qt3'
+    description = "Build pixmaptools extension for Qt3"
+
+    def initialize_sip_extension(self):
+        if pyqtconfig is None:
+            raise RuntimeError("PyQt3 dev is not installed. Can't build " \
+                               "pixmaptools extension")
+        # Get the PyQt configuration information.
+        config = pyqtconfig.Configuration()
+        qt_sip_flags = config.pyqt_qt_sip_flags
+
+        #Local include
+        include_dirs = [os.path.dirname(os.path.realpath(__file__))]
+        #Extra include for numpy
+        include_dirs += [numpy.get_include()]
+        #Extra include for pyqt
+        include_dirs += [config.qt_inc_dir]
+        include_dirs.append(os.path.join(base_path,'qt3'))
+
+        extra_compile_args = pyqtconfig._default_macros['CXXFLAGS'].split()
+        extra_compile_args += pyqtconfig._default_macros['CXXFLAGS_THREAD'].split()
+        extra_compile_args += pyqtconfig._default_macros['CXXFLAGS_WARN_ON'].split()
+
+        extra_link_args = pyqtconfig._default_macros['LFLAGS'].split()
+
+        library_dirs = pyqtconfig._default_macros['LIBDIR_QT'].split()
+        extra_libs = ['qt-mt']
+        sources = ['pixmaptools_io.cpp','pixmaptools_lut.cpp','pixmaptools_stat.cpp']
+        if major == 4 and minor < 12:
+            sources.append('pixmaptools_qt3_before_4_12.sip')
+        else:
+            sources.append('pixmaptools_qt3.sip')
+
+        ext = Extension("bliss.data.routines.pixmaptools.qt3",
+                        sources = [os.path.join(base_path,'qt3',x) for x in sources],
+                        include_dirs = include_dirs,
+                        extra_compile_args=extra_compile_args,
+                        extra_link_args = extra_link_args,
+                        library_dirs = library_dirs,
+                        libraries = extra_libs,
+                        language = 'c++',
+                        )
+        sip_flags = ' '.join(('-I', config.pyqt_sip_dir, qt_sip_flags))
+        return ext, sip_flags
+
+
+class BuildPixmaptoolsQt4(_BaseBuild):
+
+    cmd_name = 'build_pixmaptools_qt4'
+    description = "Build pixmaptools extension for Qt4"
+
+    def initialize_sip_extension(self):
         if pyqtconfig_qt4 is None:
-            raise RuntimeError("PyQt4 dev is not install can't build pixmaptools extension")
-
+            raise RuntimeError("PyQt4 dev is not installed. Can't build " \
+                               "pixmaptools extension")
         # Get the PyQt configuration information.
         config = pyqtconfig_qt4.Configuration()
         qt_sip_flags = config.pyqt_sip_flags
@@ -80,47 +149,6 @@ def get_sip_extension(extra_option):
                     )
 
         sip_flags =  ' '.join(('-I', config.pyqt_sip_dir,qt_sip_flags))
-        modules.append((ext,sip_flags))
-    
-    qt3 = extra_option.get("with_pixmaptools_qt3",False)
-    if qt3:
-        if pyqtconfig is None:
-             raise RuntimeError("PyQt3 dev is not install can't build pixmaptools extension")
-        # Get the PyQt configuration information.
-        config = pyqtconfig.Configuration()
-        qt_sip_flags = config.pyqt_qt_sip_flags
+        return ext, sip_flags
 
-        #Local include
-        include_dirs = [os.path.dirname(os.path.realpath(__file__))]
-        #Extra include for numpy
-        include_dirs += [numpy.get_include()]
-        #Extra include for pyqt
-        include_dirs += [config.qt_inc_dir]
-        include_dirs.append(os.path.join(base_path,'qt3'))
 
-        extra_compile_args = pyqtconfig._default_macros['CXXFLAGS'].split()
-        extra_compile_args += pyqtconfig._default_macros['CXXFLAGS_THREAD'].split()
-        extra_compile_args += pyqtconfig._default_macros['CXXFLAGS_WARN_ON'].split()
-
-        extra_link_args = pyqtconfig._default_macros['LFLAGS'].split()
-
-        library_dirs = pyqtconfig._default_macros['LIBDIR_QT'].split()
-        extra_libs = ['qt-mt']
-        sources = ['pixmaptools_io.cpp','pixmaptools_lut.cpp','pixmaptools_stat.cpp']
-        if major == 4 and minor < 12:
-            sources.append('pixmaptools_qt3_before_4_12.sip')
-        else:
-            sources.append('pixmaptools_qt3.sip')
-
-        ext = Extension("bliss.data.routines.pixmaptools.qt3",
-                        sources = [os.path.join(base_path,'qt3',x) for x in sources],
-                        include_dirs = include_dirs,
-                        extra_compile_args=extra_compile_args,
-                        extra_link_args = extra_link_args,
-                        library_dirs = library_dirs,
-                        libraries = extra_libs,
-                        language = 'c++',
-                        )
-        sip_flags = ' '.join(('-I', config.pyqt_sip_dir,qt_sip_flags))
-        modules.append((ext,sip_flags))
-    return modules

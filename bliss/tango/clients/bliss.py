@@ -14,8 +14,8 @@ Example::
 
 import sys
 import functools
-
 import gevent
+from bliss.common.tango import DeviceProxy
 
 def output(stream, msg):
     if not msg or not stream:
@@ -29,8 +29,7 @@ class Bliss(object):
     LOOP_TIME = 1/25. # 25x per second
 
     def __init__(self, dev_name, out_stream=sys.stdout, err_stream=sys.stderr):
-        import PyTango.gevent
-        self.__dev = PyTango.gevent.DeviceProxy(dev_name)
+        self.__dev = DeviceProxy(dev_name)
         self.__out_stream = out_stream
         self.__err_stream = err_stream
         self.__curr_cmd = None

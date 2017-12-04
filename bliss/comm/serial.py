@@ -225,6 +225,7 @@ class RFC2217(_BaseSerial):
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._socket.connect((local_host, local_port))
         self._socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        self._socket.setsockopt(socket.SOL_IP, socket.IP_TOS, 0x10)
         self.fd = self._socket.fileno()
         self._init()
 
@@ -415,12 +416,12 @@ class SER2NET(RFC2217):
         rx = comm.write_readline(msg)
         msg_pos = rx.find(msg)
         rx = rx[msg_pos + len(msg):]
-        parameters = [re.split('[ ]{2,}',l) for l in rx.split('\n\r')]
-        port_parse = re.compile('.+?%s$' % match.group(4))
+        port_parse = re.compile('^([0-9]+).+?%s' % match.group(4))
         rfc2217_port = None
-        for p in parameters:
-            if port_parse.match(p[2]):
-                rfc2217_port = int(p[0])
+        for line in rx.split('\n\r'):
+            g = port_parse.match(line)
+            if g:
+                rfc2217_port = int(g.group(1))
                 break
         if rfc2217_port is None:
             raise SER2NETError('port %s is not found on server' % match.group(4))
@@ -589,12 +590,8 @@ class Serial:
             self._raw_handler.close()
             self._raw_handler = None
         
-    def raw_read(self,maxsize = None,timeout = None) :
-        with self._lock:
-            return self._raw_read(maxsize,timeout)
-                
     @try_open
-    def _raw_read(self,maxsize = None,timeout = None) :
+    def raw_read(self,maxsize = None,timeout = None) :
         local_timeout = timeout or self._timeout
         return self._raw_handler.raw_read(maxsize,local_timeout)
                 

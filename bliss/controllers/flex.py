@@ -18,6 +18,9 @@ import os
 import shutil
 import sys
 import ConfigParser
+import ast
+import inspect
+import numpy
 
 import logging
 from logging.handlers import TimedRotatingFileHandler
@@ -32,6 +35,28 @@ def grouper(iterable, n):
     args = [iter(iterable)]*n
     return itertools.izip_longest(fillvalue=None, *args)
 
+BUSY = False
+DEFREEZING = False
+
+def notwhenbusy(func):
+     def _(self, *args, **kw):
+         # if caller is self, then we can always execute
+         frame = inspect.currentframe(1)
+         caller = frame.f_locals.get("self", None)
+         if self == caller:
+           return func(self, *args, **kw)
+         else:
+           global BUSY
+           global DEFREEZING
+           if BUSY or DEFREEZING: 
+               raise RuntimeError("Cannot execute while robot is busy")
+           else:
+               try:
+                   BUSY = True
+                   return func(self, *args, **kw)
+               finally:
+                   BUSY = False
+     return _
 
 class BackgroundGreenlets(object):
     def __init__(self, *args):
@@ -43,7 +68,7 @@ class BackgroundGreenlets(object):
 
     def __enter__(self):
         for f, fargs in grouper(self.func_args, 2):
-            self.greenlets.append(gevent.spawn(f, *fargs))
+            self.greenlets.append(gevent.spawn_later(0.2, f, *fargs))
         return self
 
     def execute(self, func, *args, **kwargs):
@@ -55,7 +80,7 @@ class BackgroundGreenlets(object):
         pass
 
 
-class flex:
+class flex(object):
 
     def __init__(self, name, config):
         self.cs8_ip = config.get('ip')
@@ -81,12 +106,23 @@ class flex:
         logging.getLogger('flex').info("#" * 50)
         logging.getLogger('flex').info("pyFlex Initialised")
 
+    @property
+    def unipuck_cells(self):
+        return ast.literal_eval(self.config.get("HCD", "unipuck_cells"))
+
     def connect(self):
+        logging.getLogger('flex').info("reading config file")
+        self.config = ConfigParser.RawConfigParser()
+        cfg_file_path = os.path.join(os.path.dirname(self.calibration_file),"detection.cfg")
+        self.config.read(cfg_file_path)
+
         logging.getLogger('flex').info("connecting to Flex")
         self.onewire = OneWire(self.ow_port)
-        self.cam = Ueye_cam(self.ueye_id)
+        self.cam = Ueye_cam(self.ueye_id, os.path.dirname(self.calibration_file))
         self.microscan_hor = dm_reader(self.microscan_hor_ip)
-        self.microscan_vert = dm_reader(self.microscan_vert_ip)
+        all_unipucks = len(self.unipuck_cells) == 8
+        if not all_unipucks:
+          self.microscan_vert = dm_reader(self.microscan_vert_ip)
         self.proxisense = ProxiSense(self.proxisense_address, os.path.dirname(self.calibration_file))
         self.robot = robot.Robot('flex', self.cs8_ip)
         event.connect(self.robot, "robot_exception", self._enqueue_robot_exception_msg)
@@ -101,6 +137,41 @@ class flex:
         self.robot_exceptions = []
         return ret
 
+    def get_cachedVariable_list(self):
+        return self.robot._cached_variables.keys()
+
+    def get_detection_param(self, section, name_value):
+        val = ast.literal_eval(self.config.get(section, name_value))
+        if section == "acq_time":
+            logging.getLogger('flex').info("Acquisition time is set to %s" %( str(val)))
+        else:
+            logging.getLogger('flex').info("Roi for %s detection is %s" %(section, str(val)))
+        return val
+
+    def transfer_counter(self, success=True):
+        parser = ConfigParser.RawConfigParser()
+        file_path = os.path.dirname(self.calibration_file)+"/transfer_counter.log"
+        parser.read(file_path)
+        if success:
+            transfer_iter = parser.getint("total transfer", "success") + 1
+            parser.set("total transfer", "success", str(transfer_iter))
+            logging.getLogger('flex').info("total number of successful transfer: %d" %(transfer_iter))
+        else:
+            transfer_iter = parser.getint("total transfer", "failure") + 1
+            parser.set("total transfer", "failure", str(transfer_iter))
+            logging.getLogger('flex').info("total number of transfer with failure: %d" %(transfer_iter))
+        with open(file_path, 'wb') as file:
+            parser.write(file)
+
+    @notwhenbusy
+    def setSpeed(self, speed):
+        if 0 <= speed <= 100:
+            logging.getLogger('flex').info("Set speed to %d" %speed)
+            self.robot.setSpeed(speed)
+            logging.getLogger('flex').info("Speed is at %s" %str(self.robot.getSpeed()))
+
+
+    @notwhenbusy
     def enablePower(self, state):
         state = bool(state)
         for i in range(0,10):
@@ -120,14 +191,18 @@ class flex:
 
     def abort(self):
         self.robot.abort()
+        self.set_io("dioUnloadStReq", False)
+        self.set_io("dioLoadStReq", False)
+        self.robot.setVal3GlobalVariableBoolean("bEnable_PSS", False)
+
         logging.getLogger('flex').info("Robot aborted")
 
     def set_io(self, dio, boolean):
         logging.getLogger('flex').info("Set IO %s to %s" %(dio, str(bool(boolean))))
         if bool(boolean):
-            self.robot.execute("data:" + dio + "= true")
+            self.robot.execute("data:" + dio + "=true")
         else:
-            self.robot.execute("data:" + dio + "= false")
+            self.robot.execute("data:" + dio + "=false")
 
     def PSS_light(self):
         self.robot.setVal3GlobalVariableBoolean("bEnable_PSS", True)
@@ -137,7 +212,7 @@ class flex:
         finally:
             self.robot.setVal3GlobalVariableBoolean("bEnable_PSS", False)
         
-
+    @notwhenbusy
     def gripper_port(self, boolean):
         self.set_io("dioOpenGrpPort", bool(boolean))
         try:
@@ -151,6 +226,7 @@ class flex:
         except gevent.timeout.Timeout:
             logging.getLogger('flex').error("Timeout on gripper port")
 
+    @notwhenbusy
     def robot_port(self, boolean):
         self.set_io("dioOpenRbtPort", bool(boolean))
         try:
@@ -165,18 +241,22 @@ class flex:
             logging.getLogger('flex').error("Timeout on robot port")
 
     def user_port(self, boolean):
-        self.set_io("dioOpenUsrPort", bool(boolean))
-        try:
-            with gevent.Timeout(10):
-                if bool(boolean) == True:
-                    while self.robot.getCachedVariable("data:dioUsrPtIsOp").getValue() == "false":
-                        self.robot.waitNotify("data:dioUsrPtIsOp")
-                else:
-                    while self.robot.getCachedVariable("data:dioUsrPtIsClo").getValue() == "false":
-                        self.robot.waitNotify("data:dioUsrPtIsClo")
-        except gevent.timeout.Timeout:
-            logging.getLogger('flex').error("Timeout on user port")
+        if self.config.get("HCD", "loading_port") == "robot_port":
+            self.robot_port(boolean)
+        else:
+            self.set_io("dioOpenUsrPort", bool(boolean))
+            try:
+                with gevent.Timeout(10):
+                    if bool(boolean) == True:
+                        while self.robot.getCachedVariable("data:dioUsrPtIsOp").getValue() == "false":
+                            self.robot.waitNotify("data:dioUsrPtIsOp")
+                    else:
+                        while self.robot.getCachedVariable("data:dioUsrPtIsClo").getValue() == "false":
+                            self.robot.waitNotify("data:dioUsrPtIsClo")
+            except gevent.timeout.Timeout:
+                logging.getLogger('flex').error("Timeout on user port")
 
+    @notwhenbusy
     def moveDewar(self, cell, puck=1, user=False):
         logging.getLogger('flex').info("Starting to move the Dewar")
         if isinstance(cell, (int,long)) and isinstance(puck, (int,long)):
@@ -187,11 +267,9 @@ class flex:
             logging.getLogger('flex').error("Cell must be integer")
             raise ValueError("Cell must be integer")
         if user:
-            cell = cell - 3
-            if cell <= 0:
-                cell = math.fmod(cell,8) + 8
-            else:
-                cell = math.fmod((cell - 1), 8) + 1
+            cell = cell + 5
+            if cell > 8:
+                cell = math.fmod(cell,8)
         logging.getLogger('flex').info("Dewar to move to %d" %cell)
         self.robot.setVal3GlobalVariableDouble("nDewarDest", str(3 * (int(cell) - 1)))
         self.robot.executeTask("moveDewar", timeout=60)
@@ -207,14 +285,8 @@ class flex:
         logging.getLogger('flex').info("Dewar moved to %d" %cell)
 
     def get_loaded_sample(self):
-        #if self.robot.getCachedVariable("data:dioPinOnGonio").getValue() == 'false':
-        #    return -1,-1,-1
-        #VAL3_puck = int(self.robot.getVal3GlobalVariableDouble("nLoadPuckPos"))
-        #VAL3_sample = int(self.robot.getVal3GlobalVariableDouble("nLoadSamplePos"))
-        #cell = VAL3_puck // 3 + 1
-        #puck = VAL3_puck % 3 + 1
-        #sample = VAL3_sample + 1
-        #return cell, puck, sample
+        if self._loaded_sample == None:
+            self._loaded_sample = self.read_loaded_position()
         return self._loaded_sample
 
     def get_cell_position(self):
@@ -234,8 +306,11 @@ class flex:
             try:
                 VAL3_puck = int(self.robot.getCachedVariable('RequestedDewarPosition').getValue())
             except:
-                return None, None
-            cell = ((VAL3_puck // 3 + 3) % 8) + 1 
+                return None
+            if self.config.get("HCD","loading_port") == "robot_port":
+                cell = self.get_cell_position()[0]
+            else:
+                cell = ((VAL3_puck // 3 + 3) % 8) + 1 
             return cell
   
     def pin_on_gonio(self):
@@ -264,12 +339,32 @@ class flex:
  
     def get_robot_cache_variable(self, varname):
         try:
+            #logging.getLogger('flex').info("cache variable %s is %s", str(varname), str(self.robot.getCachedVariable(varname).getValue()))
             return self.robot.getCachedVariable(varname).getValue()
         except Exception:
             return ''
 
+    def set_massCompensation(self,x,y,z,rx=0,ry=0,rz=0):
+        logging.getLogger('flex').info("set mass compensation to x=%s, y=%s, z=%s, rx=%s, ry=%s, rz=%s", str(x), str(y), str(z), str(rx), str(ry), str(rz))
+        if abs(x) > 1 or abs(y) > 1 or abs(z) > 1 or abs(rx) > 1 or abs(ry) > 1 or abs(rz) > 1:
+            logging.getLogger('flex').error("Mass compensation too high, all coordinates must be less than 1.0")  
+        self.robot.setVal3GlobalVariableDouble("trFpGripMasComp.x", str(x)) 
+        self.robot.setVal3GlobalVariableDouble("trFpGripMasComp.y", str(y)) 
+        self.robot.setVal3GlobalVariableDouble("trFpGripMasComp.z", str(z)) 
+        self.robot.setVal3GlobalVariableDouble("trFpGripMasComp.rx", str(rx)) 
+        self.robot.setVal3GlobalVariableDouble("trFpGripMasComp.ry", str(ry)) 
+        self.robot.setVal3GlobalVariableDouble("trFpGripMasComp.rz", str(rz)) 
+        self.savedata()
+
+
+    def do_homeClear(self):
+        with BackgroundGreenlets(self.PSS_light, ()) as X:
+            return X.execute(self.robot.executeTask, "homeClear", timeout=60)
+
+    @notwhenbusy
     def homeClear(self):
         logging.getLogger('flex').info("Starting homing")
+        self.set_io("dioEnablePress", True)
         gripper_type = self.get_gripper_type()
         if gripper_type not in [-1, 0, 1, 3, 9]:
             logging.getLogger('flex').error("No or wrong gripper")
@@ -278,14 +373,20 @@ class flex:
         if gripper_type == -1:
             self.robot.setVal3GlobalVariableBoolean("bGripperIsOnArm", False)
         else:
+            #self.robot.setVal3GlobalVariableDouble("nGripperType", str(gripper_type))
             self.robot.setVal3GlobalVariableBoolean("bGripperIsOnArm", True)
-        #self.robot.execute("data:dioEnablePress=true")
-        with BackgroundGreenlets(self.PSS_light, ()) as X:
-            return X.execute(self.robot.executeTask, "homeClear", timeout=60)
+        if gripper_type in [-1, 1, 3, 9]:
+            self.do_homeClear()
+            self.update_transfer_iteration(reset=True)
         logging.getLogger('flex').info("Homing done")
 
-    def defreezeGripper(self):
-        logging.getLogger('flex').info("Starting defreeze gripper")
+    def do_dryWithoutPloun(self):
+        with BackgroundGreenlets(self.PSS_light, ()) as X:
+            return X.execute(self.robot.executeTask, "dryWithoutPloun", timeout=90)
+
+    @notwhenbusy
+    def dryWithoutPloun(self):
+        logging.getLogger('flex').info("Starting defreeze gripper and stay parked")
         gripper_type = self.get_gripper_type()
         logging.getLogger('flex').info("gripper type %s" %gripper_type)
         if gripper_type not in [-1, 0, 1, 3, 9]:
@@ -297,9 +398,37 @@ class flex:
         else:
             self.robot.setVal3GlobalVariableBoolean("bGripperIsOnArm", True)
             self.robot.setVal3GlobalVariableDouble("nGripperType", str(gripper_type))
-        with BackgroundGreenlets(self.PSS_light, ()) as X:
-            return X.execute(self.robot.executeTask, "defreezeGripper", timeout=90)
+        if gripper_type in [1, 3, 9]:
+            self.do_dryWithoutPloun()
+            self.update_transfer_iteration(reset=True)
         logging.getLogger('flex').info("Defreezing gripper finished")
+
+    def do_defreezeGripper(self):
+        with BackgroundGreenlets(self.PSS_light, ()) as X:
+            return X.execute(self.robot.executeTask, "defreezeGripper", timeout=200)
+
+    @notwhenbusy
+    def defreezeGripper(self):
+        global DEFREEZING
+        DEFREEZING = True
+        logging.getLogger('flex').info("Starting defreeze gripper")
+        self.set_io("dioEnablePress", True)
+        gripper_type = self.get_gripper_type()
+        logging.getLogger('flex').info("gripper type %s" %gripper_type)
+        if gripper_type not in [-1, 0, 1, 3, 9]:
+            logging.getLogger('flex').error("No or wrong gripper")
+            raise ValueError("No or wrong gripper")
+        if gripper_type == -1:
+            self.robot.setVal3GlobalVariableBoolean("bGripperIsOnArm", False)
+            self.robot.setVal3GlobalVariableDouble("nGripperType", "0")
+        else:
+            self.robot.setVal3GlobalVariableBoolean("bGripperIsOnArm", True)
+            self.robot.setVal3GlobalVariableDouble("nGripperType", str(gripper_type))
+        if gripper_type in [1, 3, 9]:
+            self.do_defreezeGripper()
+            self.update_transfer_iteration(reset=True)
+        logging.getLogger('flex').info("Defreezing gripper finished")
+        DEFREEZING = False
 
     def check_coordinates(self, cell, puck, sample):
         if isinstance(cell, (int,long)) and isinstance(puck, (int,long)) and isinstance(sample, (int,long)):
@@ -309,16 +438,22 @@ class flex:
             if not puck in range(1,4):
                 logging.getLogger('flex').error("wrong puck number [1-3]")
                 raise ValueError("Wrong puck number [1-3]")
-            if cell in range(1,9,2):
-                puckType = 3
-                if not sample in range(1,11):
-                    logging.getLogger('flex').error("wrong sample number [1-10]")
-                    raise ValueError("wrong sample number [1-10]")
-            if cell in range(2,10,2):
+            if cell in self.unipuck_cells:
                 puckType = 2
                 if not sample in range(1,17):
                     logging.getLogger('flex').error("wrong sample number [1-16]")
                     raise ValueError("wrong sample number [1-16]")
+            else:
+                if cell in range(1,9,2):
+                    puckType = 3
+                    if not sample in range(1,11):
+                        logging.getLogger('flex').error("wrong sample number [1-10]")
+                        raise ValueError("wrong sample number [1-10]")
+                if cell in range(2,10,2):
+                    puckType = 2
+                    if not sample in range(1,17):
+                        logging.getLogger('flex').error("wrong sample number [1-16]")
+                        raise ValueError("wrong sample number [1-16]")
             puck = 3 * (cell -1) + puck - 1
             sample = sample - 1
             if puck == 23:
@@ -329,8 +464,8 @@ class flex:
             raise ValueError("cell, puck and sample must be integer")
         return cell, puck, sample, puckType
 
-    def waiting_for_image(self, timeout = 60):
-        self.cam.prepare()
+    def waiting_for_image(self, acq_time = 0.001, timeout = 60):
+        self.cam.prepare(acq_time)
         prev_imgNb = int(self.cam.control.getImageStatus().LastImageAcquired)
         logging.getLogger('flex').info("Image number %d" %prev_imgNb)
         imgNb = prev_imgNb
@@ -369,27 +504,30 @@ class flex:
 
     def pin_detection(self, gripper_type, ref):
         logging.getLogger('flex').info("Pin detection")
-        image = self.waiting_for_image()
+        acq_time = self.get_detection_param("acq_time", "pin")
+        image = self.waiting_for_image(acq_time=acq_time, timeout=60)
         if int(gripper_type) == 1:
             if ref == "True":
                 filename = "ref_spine_with_pin"
                 self.save_ref_image(image, filename)
-            roi = [[800,800], [900,1023]]
+            #roi = [[700,800], [800,1023]]
+            roi = self.get_detection_param("pin_unipuck", "roi")
             PinIsInGripper = not(self.cam.is_empty(image, roi))
-            logging.getLogger('flex').info("Pin is the gripper %s" %str(PinIsInGripper))
+            logging.getLogger('flex').info("Pin is in the gripper %s" %str(PinIsInGripper))
             if PinIsInGripper:
                 self.robot.setVal3GlobalVariableBoolean("bPinIsInGripper", True)
-            roi = [[800,700], [1100,1023]]
-            edge = self.cam.vertical_edge(image, roi)
+            #roi = [[600,700], [900,1023]]
+            roi_edge = self.get_detection_param("pin_unipuck", "roi_edge")
+            edge = self.cam.vertical_edge(image, roi_edge)
             logging.getLogger('flex').info("Vertical edge of the pin %s" %str(edge))
             if edge is not None:
                 sp_ref_file = os.path.join(os.path.dirname(self.calibration_file), "ref_spine_with_pin.edf")
                 ref_image = self.cam.image_read(sp_ref_file)
-                ref_image_edge = self.cam.vertical_edge(ref_image, roi)
+                ref_image_edge = self.cam.vertical_edge(ref_image, roi_edge)
                 logging.getLogger('flex').info("edge position on the reference image %s" %str(ref_image_edge))
                 distance_from_ref = self.cam.edge_distance(ref_image_edge, edge)
                 logging.getLogger('flex').info("distance of the pin from the reference  %s" %str(distance_from_ref))
-                if abs(distance_from_ref)  < 0.6:
+                if abs(distance_from_ref)  <= self.get_detection_param("distance_from_ref", "unipuck"):
                     self.robot.setVal3GlobalVariableBoolean("bPinIsOkInGrip", True)
         if int(gripper_type) == 3:
             if ref == "True":
@@ -397,7 +535,8 @@ class flex:
                 self.save_ref_image(image, filename)
             logging.getLogger('flex').info("gripper for pin detection is %s" %gripper_type)
             #roi_pin = [[350,200], [630,450]]
-            roi_pin = [[200,300], [800,600]]
+            #roi_pin = [[400,550], [800,750]]
+            roi_pin = self.get_detection_param("pin_flipping", "roi_pin")
             PinIsInGripper = not(self.cam.is_empty(image, roi_pin))
             if PinIsInGripper:
                 logging.getLogger('flex').info("Pin is in gripper")
@@ -411,12 +550,13 @@ class flex:
                     logging.getLogger('flex').info("edge position on the reference image %s" %str(ref_image_edge))
                     distance_from_ref = self.cam.edge_distance(self.cam.horizontal_edge(ref_image, roi_pin), edge)
                     logging.getLogger('flex').info("distance of the pin from the reference %s" %str(distance_from_ref))
-                    if abs(distance_from_ref)  <= 2.0:
+                    if abs(distance_from_ref)  <= self.get_detection_param("distance_from_ref", "spine"):
                         self.robot.setVal3GlobalVariableBoolean("bPinIsOkInGrip", True)
                     else:
                         logging.getLogger('flex').error("distance from reference is too high")
                 
-                roi_gripper = [[0,300], [70,900]]
+                #roi_gripper = [[0,550], [70,900]]
+                roi_gripper = self.get_detection_param("pin_flipping", "roi_gripper")
                 if roi_gripper[0][1] != roi_pin[0][1]:
                     logging.getLogger('flex').error("2 rois must be on the same horizontal line from top")
                     raise ValueError("2 rois must be on the same horizontal line from top")
@@ -427,11 +567,13 @@ class flex:
                     distance_pin_gripper = self.cam.edge_distance(edge_pin, edge_gripper)
                     logging.getLogger('flex').info("distance between pin and gripper %s" %str(distance_pin_gripper))
                     # DN must be negative if the pin stands out of the gripper if not VAL3 will care about the error
-                    if 0.5 <= abs(distance_pin_gripper) <= 4:
+                    min_dist_pin_gripper = self.get_detection_param("distance_pin_gripper", "min")
+                    max_dist_pin_gripper = self.get_detection_param("distance_pin_gripper", "max")
+                    if min_dist_pin_gripper <= abs(distance_pin_gripper) <= max_dist_pin_gripper:
                         self.robot.setVal3GlobalVariableDouble("trsfPutFpGonio.z", str(distance_pin_gripper)) 
                         logging.getLogger('flex').info("distance saved in robot")
                     else:
-                        logging.getLogger('flex').error("distance pin gripper is %s should be between 0.5-4mm" %str(abs(distance_pin_gripper)))
+                        logging.getLogger('flex').error("distance pin gripper is %s should be between %s-%smm" %(str(abs(distance_pin_gripper)), str(min_dist_pin_gripper), str(max_dist_pin_gripper)))
                 else:
                     logging.getLogger('flex').error("Edge of the gripper or of the pin not found")
                     raise RuntimeError("Edge of the gripper or of the pin not found")
@@ -442,18 +584,24 @@ class flex:
                 self.vial_detection(image)
 
     def vial_center_detection(self):
-        image = self.waiting_for_image()
-        roi_left = [[0,0],[400,400]]
-        roi_right = [[700,0],[1100,400]]
+        acq_time = self.get_detection_param("acq_time","vial")
+        image = self.waiting_for_image(acq_time=acq_time, timeout=60)
+        roi_left = self.get_detection_param("vial_center", "roi_left")
+        roi_right = self.get_detection_param("vial_center", "roi_right")
         left_edge =  self.cam.vertical_edge(image, roi_left)
         right_edge = self.cam.vertical_edge(image, roi_right)
         logging.getLogger('flex').info("Vial left edge %s right_edge %s" %(str(left_edge), str(right_edge)))
+        if left_edge is None or right_edge is None:
+            return None
         center = (left_edge + right_edge) / 2.
         logging.getLogger('flex').info("center %s" %str(center))
         return center
 
     def vial_centering(self, center_1, center_2, center_3):
         logging.getLogger('flex').info("center 1 %s, center 2 %s, center 3 %s" %(str(center_1), str(center_2), str(center_3)))
+        if center_1 is None or center_2 is None or center_3 is None:
+            logging.getLogger('flex').error("Correction not applicable")
+            raise RuntimeError("Correction not applicable")
         # angle in degrees between the plan (x,y) of the robot and the plan of the camera 
         angle_deg = 130.
         angle_rad = math.pi * angle_deg / 180.
@@ -474,7 +622,8 @@ class flex:
     def vial_detection(self, image):
         #roi = [[350,600], [650,1023]]
         #roi = [[200,500], [350,1023]]
-        roi = [[500,500], [700,1023]]
+        #roi = [[500,500], [700,1023]]
+        roi = self.get_detection_param("vial","roi")
         VialIsNotInGripper = self.cam.is_empty(image, roi)
         if VialIsNotInGripper:
             logging.getLogger('flex').info("Vial is not in gripper")
@@ -484,7 +633,8 @@ class flex:
             logging.getLogger('flex').info("Vial edge position %s" %str(vial_edge))
             fp_ref_file = os.path.join(os.path.dirname(self.calibration_file), "ref_flipping_with_pin.edf")
             ref_image = self.cam.image_read(fp_ref_file)
-            roi_ref = [[200,300], [800,600]]
+            #roi_ref = [[200,300], [800,600]]
+            roi_ref = self.get_detection_param("vial","roi_ref")
             ref_image_edge = self.cam.horizontal_edge(ref_image, roi_ref)
             logging.getLogger('flex').info("Ref pin edge position %s" %str(ref_image_edge))
             cap_height = 3.0
@@ -514,7 +664,6 @@ class flex:
         logging.getLogger('flex').info("Data matrix is %s" %dm)
 
     def detection(self, gripper_type, ref):
-        centers = []
         ref_already_saved = False
         dm_reading = None
 
@@ -536,29 +685,40 @@ class flex:
                     else:
                         logging.getLogger('flex').info("DM not needed")
                 elif notify.startswith("VialDetection"):
+                    run = notify.split("_")[1]
+                    if run == "1":
+                        centers = []
                     logging.getLogger('flex').info("Starting vial center detection")
-                    logging.getLogger('flex').info("length of centers list is  %s" %str(len(centers)))
+                    logging.getLogger('flex').info("length of centers list is  %s and run is %s" %(str(len(centers)), str(run)))
                     vial_center = self.vial_center_detection()
                     logging.getLogger('flex').info("center is at %s" %str(vial_center))
                     centers.append(vial_center)
-                    logging.getLogger('flex').info("length of centers list is  %s" %str(len(centers)))
-                    if notify.split("_")[1] != str(len(centers)):
+                    logging.getLogger('flex').info("length of centers list is  %s and run is %s" %(str(len(centers)), str(run)))
+                    if run != str(len(centers)):
                         logging.getLogger('flex').error("image lost in vial detection") 
-                        raise RuntimeError("image lost in vial detection")
+                        #raise RuntimeError("image lost in vial detection")
                     if len(centers) == 3:
                         logging.getLogger('flex').info("Calling Vial centering")
                         self.vial_centering(*centers)
-                        centers = []
                 else:
                     logging.getLogger('flex').info("detection loop")
         finally:
           if dm_reading:
             dm_reading.kill()
 
-    def do_load_detection(self, gripper_type, ref):
-        with BackgroundGreenlets(self.detection, (str(gripper_type), str(ref)), 
-                                 self.sampleStatus, ("LoadSampleStatus",), self.PSS_light, ()) as X:
-            return X.execute(self.robot.executeTask, "loadSample", timeout=200)
+    def update_transfer_iteration(self, reset=False):
+        parser = ConfigParser.RawConfigParser()
+        file_path = os.path.dirname(self.calibration_file)+"/transfer_iteration.cfg"
+        parser.read(file_path)
+        if reset:
+            iter_nb = 0
+        else:
+            iter_nb = parser.getfloat("transfer", "iter") + 1
+        parser.set("transfer", "iter", str(iter_nb))
+        with open(file_path, 'wb') as file:
+            parser.write(file)
+        logging.getLogger('flex').info("number of sample transfer set to %d" %(int(iter_nb)))
+        return iter_nb
 
     def save_loaded_position(self, cell, puck, sample):
         parser = ConfigParser.RawConfigParser()
@@ -584,41 +744,74 @@ class flex:
         sample = parser.getfloat("position", "sample")
         return (int(cell), int(puck), int(sample))
 
+    def set_cam(self, gripper_type):
+        self.cam.stop_cam()
+        if gripper_type == 1 or gripper_type == 9:
+            acq_time = self.get_detection_param("acq_time", "unipuck")
+        if gripper_type == 3:
+            acq_time = self.get_detection_param("acq_time", "pin")
+        self.cam.prepare(acq_time) 
+
+    def do_load_detection(self, gripper_type, ref):
+        with BackgroundGreenlets(self.detection, (str(gripper_type), str(ref)), 
+                                 self.sampleStatus, ("LoadSampleStatus",), self.PSS_light, ()) as X:
+            return X.execute(self.robot.executeTask, "loadSample", timeout=200)
+
+    def check_gripper_type(self, cell):
+        gripper_type = self.get_gripper_type()
+        if gripper_type in [1, 3]:
+            unipuck_cell = cell in self.unipuck_cells
+            if (gripper_type == 1 and not unipuck_cell) or (gripper_type == 3 and unipuck_cell):
+                logging.getLogger('flex').error("gripper/puck mismatch")
+                raise RuntimeError("gripper/puck mismatch")
+        else:
+            logging.getLogger('flex').error("No or wrong gripper")
+            raise RuntimeError("No or wrong gripper")
+        return gripper_type
+
+    @notwhenbusy
     def loadSample(self, cell, puck, sample, ref=False):
         to_load = (cell, puck, sample)
         cell, PuckPos, sample, PuckType = self.check_coordinates(cell, puck, sample)
+        logging.getLogger('flex').info("#################")
         logging.getLogger('flex').info("Loading sample cell %d, puck %d, sample %d" %(cell, puck, (sample + 1)))
         if self.robot.getCachedVariable("data:dioPinOnGonio").getValue() == "true":
             logging.getLogger('flex').error("Sample already on SmartMagnet")
             raise RuntimeError("Sample already on SmartMagnet")
 
         #set variables at the beginning
+        self.set_io("dioEnablePress", True)
         self.robot.setVal3GlobalVariableDouble("nPuckType", str(PuckType))
         self.robot.setVal3GlobalVariableDouble("nLoadPuckPos", str(PuckPos))
         self.robot.setVal3GlobalVariableDouble("nLoadSamplePos", str(sample))
+        if self.robot.getCachedVariable("data:dioLoadStReq").getValue() == 'true':
+            self.set_io("dioLoadStReq", False)
+            gevent.sleep(3)
+        self.set_io("dioLoadStReq", True)
 
-        #Get gripper type
-        gripper_type = self.get_gripper_type()
-        if gripper_type in [1, 3]:
-            if (gripper_type == 1 and cell in range(1,9,2)) or (gripper_type == 3 and cell in range(2,10,2)):
-                logging.getLogger('flex').error("gripper/puck mismatch")
-                raise RuntimeError("gripper/puck mismatch")
-            self.robot.setVal3GlobalVariableDouble("nGripperType", str(gripper_type))
-        else:
-            logging.getLogger('flex').error("No or wrong gripper")
-            raise RuntimeError("No or wrong gripper")
+        gripper_type = self.check_gripper_type(cell)
+        self.set_cam(gripper_type)
+        self.robot.setVal3GlobalVariableDouble("nGripperType", str(gripper_type))
 
         success = self.do_load_detection(gripper_type, ref)
-        if success: 
+        self.set_io("dioLoadStReq", False)
+        transfer_iter = self.update_transfer_iteration()
+        if success and self.pin_on_gonio(): 
+            self.transfer_counter(success=True)
             self._loaded_sample = to_load
         else:
-            if not self.pin_on_gonio():
-              self._loaded_sample = -1, -1, -1
+            self.transfer_counter(success=False)
+            #if not self.pin_on_gonio():
+            self._loaded_sample = -1, -1, -1
 
         if gripper_type == 3:
             gevent.spawn(self.defreezeGripper)
 
-        self.save_loaded_position(*to_load)
+        if gripper_type == 1 and transfer_iter >= 16:
+            self.homeClear()
+            self.defreezeGripper()
+            self.update_transfer_iteration(reset=True)
+        self.save_loaded_position(*self._loaded_sample)
  
         return success
 
@@ -634,7 +827,9 @@ class flex:
         self.robot.setVal3GlobalVariableDouble("nLoadPuckPos", "24")
         self.robot.setVal3GlobalVariableDouble("nLoadSamplePos", "16")
 
+    @notwhenbusy
     def unloadSample(self, cell, puck, sample):
+        logging.getLogger('flex').info("#################")
         logging.getLogger('flex').info("Unloading sample cell %d, puck %d, sample %d" %(cell, puck, sample))
         cell, PuckPos, sample, PuckType = self.check_coordinates(cell, puck, sample)
         loaded_puck_pos = self.robot.getVal3GlobalVariableDouble("nLoadPuckPos")
@@ -651,33 +846,40 @@ class flex:
                     #raise RuntimeError(errstr)
 
         #set variables at the beginning
+        self.set_io("dioEnablePress", True)
         self.robot.setVal3GlobalVariableDouble("nPuckType", str(PuckType))
         self.robot.setVal3GlobalVariableDouble("nUnldPuckPos", str(PuckPos))
         self.robot.setVal3GlobalVariableDouble("nUnldSamplePos", str(sample))
 
-        #Get gripper type
-        gripper_type = self.get_gripper_type()
+        if self.robot.getCachedVariable("data:dioUnloadStReq").getValue() == 'true':
+            self.set_io("dioUnloadStReq", False)
+            gevent.sleep(3)
+        self.set_io("dioUnloadStReq", True)
 
-        if gripper_type in [1, 3]:
-            if (gripper_type == 1 and cell in range(1,9,2)) or (gripper_type == 3 and cell in range(2,10,2)):
-                logging.getLogger('flex').error("gripper/puck mismatch")
-                raise RuntimeError('gripper/puck mismatch')
-            self.robot.setVal3GlobalVariableDouble("nGripperType", str(gripper_type))
-        else:
-            logging.getLogger('flex').error("No or wrong gripper")
-            raise RuntimeError("No or wrong gripper")
+        gripper_type = self.check_gripper_type(cell)
+        self.set_cam(gripper_type)
+        self.robot.setVal3GlobalVariableDouble("nGripperType", str(gripper_type))
 
         success =  self.do_unload_detection(gripper_type)
-        if success:
+        self.set_io("dioUnloadStReq", False)
+        transfer_iter = self.update_transfer_iteration()
+
+        if success and not self.pin_on_gonio():
+            self.transfer_counter(success=True)
             self._loaded_sample = (-1, -1, -1)
         else:
+            self.transfer_counter(success=False)
             if not self.pin_on_gonio():
               self._loaded_sample = -1, -1, -1
+
+        self.save_loaded_position(*self._loaded_sample)
 
         if gripper_type == 3:
             gevent.spawn(self.defreezeGripper)
 
-        self.save_loaded_position(-1,-1,-1)
+        if gripper_type == 1 and transfer_iter >= 16:
+            gevent.spawn(self.defreezeGripper)
+            self.update_transfer_iteration(reset=True)
 
         return success
 
@@ -688,7 +890,9 @@ class flex:
                                  self.PSS_light, ()) as X:
             return X.execute(self.robot.executeTask, "chainedUnldLd", timeout=200)
  
+    @notwhenbusy
     def chainedUnldLd(self, unload, load):
+        logging.getLogger('flex').info("#################")
         if not isinstance(unload, list) or not isinstance(load, list):
             logging.getLogger('flex').error("unload/load pos must be list")
             raise TypeError("unload/load pos must be list")
@@ -720,65 +924,108 @@ class flex:
                     #raise RuntimeError(errstr)
 
         #set variables at the beginning
+        self.set_io("dioEnablePress", True)
         self.robot.setVal3GlobalVariableDouble("nPuckType", str(unload_PuckType))
         self.robot.setVal3GlobalVariableDouble("nUnldPuckPos", str(unload_PuckPos))
         self.robot.setVal3GlobalVariableDouble("nUnldSamplePos", str(unload_sample))
         self.robot.setVal3GlobalVariableDouble("nLoadPuckPos", str(load_PuckPos))
         self.robot.setVal3GlobalVariableDouble("nLoadSamplePos", str(load_sample))
 
-        #Get gripper type
-        gripper_type = self.get_gripper_type()
-        if gripper_type in [1, 3]:
-            if (gripper_type == 1 and unload_cell in range(1,9,2)) or (gripper_type == 3 and unload_cell in range(2,10,2)):
-                logging.getLogger('flex').error("gripper/puck mismatch in unload")
-                raise RuntimeError("gripper/puck mismatch in unload")
-            if (gripper_type == 1 and load_cell in range(1,9,2)) or (gripper_type == 3 and load_cell in range(2,10,2)):
-                logging.getLogger('flex').error("gripper/puck mismatch in load")
-                raise RuntimeError("gripper/puck mismatch in load")
-            self.robot.setVal3GlobalVariableDouble("nGripperType", str(gripper_type))
-        else:
-            logging.getLogger('flex').error("Wrong gripper")
-            raise RuntimeError("Wrong gripper")
+        if self.robot.getCachedVariable("data:dioUnloadStReq").getValue() == 'true':
+            self.set_io("dioUnloadStReq", False)
+            gevent.sleep(3)
+        self.set_io("dioUnloadStReq", True)
 
+        gripper_type = self.check_gripper_type(unload_cell)
+        self.set_cam(gripper_type)
+        self.robot.setVal3GlobalVariableDouble("nGripperType", str(gripper_type))
+        
         success =  self.do_chainedUnldLd_detection(gripper_type)
+        self.set_io("dioUnloadStReq", False)
+        self.set_io("dioLoadStReq", False)
+        transfer_iter = self.update_transfer_iteration()
+
         if success:
-            self._loaded_sample = tuple(load)
+            self.transfer_counter(success=True)
         else:
-            if not self.pin_on_gonio():
-              self._loaded_sample = -1, -1, -1
-  
+            self.transfer_counter(success=False)
+
+        nUnldLdState = int(self.get_robot_cache_variable("data:nUnldLdState"))
+        if nUnldLdState == 1:
+            self._loaded_sample = -1, -1, -1
+            self.save_loaded_position(*self._loaded_sample)
+        elif nUnldLdState == 2:
+            self._loaded_sample = tuple(load)
+            self.save_loaded_position(*self._loaded_sample)
+ 
         if gripper_type == 3:
             gevent.spawn(self.defreezeGripper)
 
-        self.save_loaded_position(*load)
-
+        if gripper_type == 1 and transfer_iter >= 16:
+            gevent.spawn(self.defreezeGripper)
+            self.update_transfer_iteration(reset=True)
+ 
         return success
+
+    def do_trashSample(self):
+        with BackgroundGreenlets(self.PSS_light, ()) as X:
+            return X.execute(self.robot.executeTask, "trashSample", timeout=120)
+
+    def trashSample(self):
+        logging.getLogger('flex').info("#################")
+        if self.robot.getCachedVariable("data:dioPinOnGonio").getValue()  == "false":
+            logging.getLogger('flex').error("No sample on SmartMagnet")
+            raise RuntimeError("No sample on SmartMagnet")
+
+        gripper_type = self.get_gripper_type()
+        logging.getLogger('flex').info("Starting trash sample")
+        if gripper_type == 3:
+           self.homeClear()
+           self.poseGripper()
+           self.takeGripper(1, defreeze=False)
+           self.do_trashSample()
+           self.poseGripper()
+           self.takeGripper(3)
+        else:
+           logging.getLogger('flex').info("Trash sample available only with Flipping gripper")
+
+        if self.pin_on_gonio() == False:
+           self._loaded_sample = -1, -1, -1
+           self.save_loaded_position(*self._loaded_sample)
+        logging.getLogger('flex').info("Trash sample finished")
 
     def sampleStatus(self, status_name):
         while True:
             notify = self.robot.waitNotify(status_name)
             logging.getLogger('flex').info("From Robot: %s %s" %(status_name, notify))
 
+    def do_poseGripper(self):
+        with BackgroundGreenlets(self.PSS_light, ()) as X:
+            return X.execute(self.robot.executeTask, "poseGripper", timeout=60)
+
+    @notwhenbusy
     def poseGripper(self):
         self.homeClear()
         logging.getLogger('flex').info("Putting the gripper back in tool bank")
-        try:
-            self.onewire.close()
-            self.robot.executeTask("poseGripper", timeout=30)
-        except:
-            self.robot.setVal3GlobalVariableDouble("nGripperType", "0")
-            logging.getLogger('flex').error("Deposing gripper failed, gripper type unknown")
-            raise RuntimeError("Deposing gripper failed, gripper type unknown")
+        self.onewire.close()
+        self.do_poseGripper()
         self.robot.setVal3GlobalVariableDouble("nGripperType", "-1")
         logging.getLogger('flex').info("Gripper back on tool bank")
 
-    def takeGripper(self, gripper_to_take):
+    def do_takeGripper(self):
+        with BackgroundGreenlets(self.PSS_light, ()) as X:
+                return X.execute(self.robot.executeTask, "takeGripper", timeout=60)
+
+    @notwhenbusy
+    def takeGripper(self, gripper_to_take, defreeze = True):
         logging.getLogger('flex').info("Starting to take gripper on tool bank")
         self.onewire = OneWire(self.ow_port)
-        if gripper_to_take not in [1, 3, 9]:
+        all_unipucks = len(self.unipuck_cells) == 8
+        if (gripper_to_take not in [1, 3, 9]) or (all_unipucks and gripper_to_take not in [1, 9]):
             logging.getLogger('flex').error("No or wrong gripper")
             raise RuntimeError("No or wrong gripper")
         gripper_type = self.get_gripper_type()
+        logging.getLogger('flex').info("Gripper is %s" %str(gripper_type))
         if gripper_type not in [-1, 0, 1, 3, 9]:
             logging.getLogger('flex').error("wrong gripper on arm")
             raise RuntimeError("wrong gripper on arm")
@@ -788,45 +1035,41 @@ class flex:
                 logging.getLogger('flex').error("Wrong gripper")
                 raise RuntimeError("Wrong gripper")
             self.robot.setVal3GlobalVariableDouble("nGripperType", str(gripper_to_take))
-            try:
-                self.robot.executeTask("takeGripper", timeout=60)
-            except:
-                logging.getLogger('flex').error("No gripper in bank")
-                raise RuntimeError("No gripper in bank")
+            self.do_takeGripper()
         else:
             self.robot.setVal3GlobalVariableBoolean("bGripperIsOnArm", True)
             self.robot.setVal3GlobalVariableDouble("nGripperType", str(gripper_type))
         logging.getLogger('flex').info("Gripper on robot")
         logging.getLogger('flex').info("Starting defreezing gripper if needed")
-        self.robot.executeTask("defreezeGripper", timeout=60)
+        if defreeze == True:
+            self.do_defreezeGripper()
+        self.update_transfer_iteration(reset=True)
         logging.getLogger('flex').info("Defreezing gripper finished")
 
     def get_gripper_type(self):
-        iter = 0
-        previous_type = self.onewire.read()[1]
-        for i in range(0,10):
-            gevent.sleep(0.1)
-            curr_type = self.onewire.read()[1]
-            if curr_type != previous_type:
-                previous_type = curr_type
-                iter = 0
-            else:
-                previous_type = curr_type
-                iter += 1
-                if iter == 3:
-                    break
-        return previous_type
+        curr_type = -1
+        if (self.get_robot_cache_variable("data:dioFlipGonPos") != self.get_robot_cache_variable("data:dioFlipDwPos")) or int(self.get_robot_cache_variable("data:aioGripperTemp")) < 3000: 
+            iter = 0
+            previous_type = self.onewire.read()[1]
+            for i in range(0,20):
+                gevent.sleep(0.1)
+                curr_type = self.onewire.read()[1]
+                if curr_type in [1,3,9]:
+                    return curr_type
+            if curr_type == -1:
+                #if gripper is present but not defined (pb with 1-wire) return 0
+                curr_type = 0        
+        return curr_type     
 
+    @notwhenbusy
     def changeGripper(self, gripper_to_take=1, user_mode=True):
         gripper_type = self.get_gripper_type()
         if gripper_type in [1,3,9]:
+            logging.getLogger('flex').info("first pose gripper %d" %gripper_type)
+            self.poseGripper()
             if user_mode == False:
-                logging.getLogger('flex').info("first pose gripper %d" %gripper_type)
-                self.poseGripper()
                 self.takeGripper(int(gripper_to_take))
             else:
-                gripper_type = self.get_gripper_type()
-                self.poseGripper()
                 if gripper_type == 1:
                     self.takeGripper(3)
                 elif gripper_type == 3:
@@ -841,15 +1084,106 @@ class flex:
             logging.getLogger('flex').error("Wrong gripper on arm")
             raise RuntimeError("Wrong gripper on arm")
 
+    def yag_pos(self):
+        x = self.robot.getVal3GlobalVariableDouble("trsfYagMove.x")
+        rz = self.robot.getVal3GlobalVariableDouble("trsfYagMove.rz")
+        logging.getLogger('flex').info("YAG focus and rotation: %s, %s" %(str(x), str(rz)))
+        return x, rz
+
+    def yag_reset(self):
+        logging.getLogger('flex').info("reset Yag positions")
+        self.swap_gripper = False
+        self.robot.setVal3GlobalVariableDouble("trsfYagMove.x", 0)
+        self.robot.setVal3GlobalVariableDouble("trsfYagMove.y", 0)
+        self.robot.setVal3GlobalVariableDouble("trsfYagMove.z", 0)
+        self.robot.setVal3GlobalVariableDouble("trsfYagMove.rx", 0)
+        self.robot.setVal3GlobalVariableDouble("trsfYagMove.ry", 0)
+        self.robot.setVal3GlobalVariableDouble("trsfYagMove.rz", 0)
+
+    def do_yag_in(self):
+        with BackgroundGreenlets(self.PSS_light, ()) as X:
+                return X.execute(self.robot.executeTask, "yag_in", timeout=90)
+
+    def yag_in(self):
+        logging.getLogger('flex').info("Starting YAG in")
+        if self.robot.getCachedVariable("data:dioPinOnGonio").getValue() == "true":
+            logging.getLogger('flex').error("Sample on SmartMagnet")
+            raise RuntimeError("Sample on SmartMagnet")
+        self.yag_reset()
+        gripper_type = self.get_gripper_type()
+        if gripper_type == 1:
+            logging.getLogger('flex').info("Change gripper")
+            self.swap_gripper = True
+            self.changeGripper()
+            self.do_yag_in()
+        elif gripper_type == 3:
+            self.do_yag_in()        
+        else:
+            logging.getLogger('flex').info("Please change gripper")
+            return
+        logging.getLogger('flex').info("YAG in done")
+
+    def do_yag_out(self):
+        with BackgroundGreenlets(self.PSS_light, ()) as X:
+                return X.execute(self.robot.executeTask, "yag_out", timeout=90)
+
+    def yag_out(self):
+        logging.getLogger('flex').info("Starting YAG out")
+        self.do_yag_out()
+        if self.swap_gripper is True:
+            self.changeGripper()
+        self.yag_reset()
+        logging.getLogger('flex').info("YAG out done")
+
+    def do_yag_focus(self):
+        with BackgroundGreenlets(self.PSS_light, ()) as X:
+                return X.execute(self.robot.executeTask, "yag_move", timeout=20)
+
+    def yag_focus(self,focus=0):
+        start_focus = self.robot.getVal3GlobalVariableDouble("trsfYagMove.x")
+        focus = float(focus)
+        if start_focus == focus:
+            logging.getLogger('flex').info("No need to move")
+            return
+        if (focus < -5) or (focus > 5):
+            logging.getLogger('flex').error("focus must be in range -5 and +5 mm")
+            raise RuntimeError("angle must be in range -5 and +5 mm")
+        logging.getLogger('flex').info("Yag focus is %s, translate to %s" %(str(start_focus), str(focus)))
+        self.robot.setVal3GlobalVariableDouble("trsfYagMove.x", str(focus))
+        self.do_yag_focus()
+        logging.getLogger('flex').info("Done")
+
+    def do_yag_rot(self):
+        with BackgroundGreenlets(self.PSS_light, ()) as X:
+                return X.execute(self.robot.executeTask, "yag_move", timeout=20)
+
+    def yag_rot(self, angle=0):
+        start_angle = self.robot.getVal3GlobalVariableDouble("trsfYagMove.rz")
+        angle = float(angle)
+        if start_angle == angle:
+            logging.getLogger('flex').info("No need to move")
+            return
+        if (angle < -90) or (angle > 90):
+            logging.getLogger('flex').error("angle must be in range -90 and +90 degrees")
+            raise RuntimeError("angle must be in range -90 and +90 degrees")
+        logging.getLogger('flex').info("Yag rotation is %s, rotate to %s" %(str(start_angle), str(angle)))
+        self.robot.setVal3GlobalVariableDouble("trsfYagMove.rz", str(angle))
+        self.do_yag_rot()
+        logging.getLogger('flex').info("Done")
+
     def spine_gripper_center_detection(self):
-        image = self.waiting_for_image()
-        roi_left = [[300,0], [500, 200]]
-        roi_right = [[800,0], [1000,200]]
+        acq_time = self.get_detection_param("acq_time","pin")
+        image = self.waiting_for_image(acq_time=acq_time, timeout=60)
+        #roi_left = [[300,0], [500, 100]]
+        roi_left = self.get_detection_param("spine_gripper_center","roi_left")
+        #roi_right = [[800,0], [1000,100]]
+        roi_right = self.get_detection_param("spine_gripper_center","roi_right")
         left_edge =  self.cam.vertical_edge(image, roi_left)
         right_edge = self.cam.vertical_edge(image, roi_right)
         logging.getLogger('flex').info("left edge %s, right edge %s" %(str(left_edge), str(right_edge)))
         center = (left_edge + right_edge) / 2.
-        roi_bottom = [[500,450], [800,650]]
+        #roi_bottom = [[500,450], [800,650]]
+        roi_bottom = self.get_detection_param("spine_gripper_center","roi_bottom")
         bottom_edge = self.cam.horizontal_edge(image, roi_bottom)
         logging.getLogger('flex').info("center is %s bottom of the gripper is %s" %(str(center), str(bottom_edge)))
         return center, bottom_edge
@@ -878,8 +1212,10 @@ class flex:
             raise RuntimeError("gripper offsets are wrong")
 
     def flipping_gripper_height_detections(self):
-        image = self.waiting_for_image()
-        roi_dewar = [[0,150], [250,550]]
+        acq_time = self.get_detection_param("acq_time","pin")
+        image = self.waiting_for_image(acq_time=acq_time, timeout=60)
+        #roi_dewar = [[0,150], [250,550]]
+        roi_dewar = self.get_detection_param("flipping_gripper_height","roi_dewar")
         image_dewar_height = self.cam.horizontal_edge(image, roi_dewar)
         logging.getLogger('flex').info("image height in dewar orientation %s" %str(self.cam.horizontal_edge(image, roi_dewar)))
         height_dewar = (image_dewar_height - self.cam.image_height / 2.0) / self.cam.pixels_per_mm
@@ -887,18 +1223,17 @@ class flex:
         self.robot.execute("data:pTemp = here(flange,world)")
         flipping_z_robot = self.robot.getVal3GlobalVariableDouble("pTemp.trsf.z")
         logging.getLogger('flex').info("from robot z is %s" %str(flipping_z_robot))
-        parser = ConfigParser.RawConfigParser()
-        file_path = self.calibration_file
-        parser.read(file_path)
-        calib_z_robot = parser.getfloat("Calibration", "z")
+        calib_z_robot = self.config.getfloat("Calibration", "z")
         logging.getLogger('flex').info("from reference %s" %str(calib_z_robot))
         diff_calib_flipping = (calib_z_robot - flipping_z_robot) - height_dewar
         flipping_gripper_z_dewar = self.robot.getVal3GlobalVariableDouble("tCalibration.trsf.z") - diff_calib_flipping
         logging.getLogger('flex').info("error in Z in the dewar orientation %s" %str(diff_calib_flipping))
         self.robot.setVal3GlobalVariableBoolean("bImageProcEnded", True)
 
-        image = self.waiting_for_image()
-        roi_gonio = [[0,150], [250,550]]
+        acq_time = self.get_detection_param("acq_time","pin")
+        image = self.waiting_for_image(acq_time=acq_time, timeout=60)
+        #roi_gonio = [[0,150], [250,550]]
+        roi_gonio = self.get_detection_param("flipping_gripper_height","roi_gonio")
         image_gonio_height = self.cam.horizontal_edge(image, roi_gonio)
         logging.getLogger('flex').info("image height in gonio orientation %s" %str(image_gonio_height))
         height_gonio = (image_gonio_height - self.cam.image_height / 2.0) / self.cam.pixels_per_mm
@@ -922,9 +1257,12 @@ class flex:
             raise RuntimeError("Vertical correction too high")
 
     def stallion_center_detection(self):
-        image = self.waiting_for_image()
-        roi_left = [[300,50], [600,400]]
-        roi_right = [[600,50], [900,400]]
+        acq_time = self.get_detection_param("acq_time","pin")
+        image = self.waiting_for_image(acq_time=acq_time, timeout=60)
+        #roi_left = [[300,50], [600,400]]
+        roi_left = self.get_detection_param("stallion_center","roi_left")
+        #roi_right = [[600,50], [900,400]]
+        roi_right = self.get_detection_param("stallion_center","roi_right")
         left_edge =  self.cam.vertical_edge(image, roi_left)
         right_edge =  self.cam.vertical_edge(image, roi_right)
         logging.getLogger('flex').info("Stallion left edge %s, right edge %s" %(str(left_edge), str(right_edge)))
@@ -957,11 +1295,13 @@ class flex:
                 raise RuntimeError("stallion centering not in dewar or gonio orientation")
 
     def ball_center_detection(self):
-        image = self.waiting_for_image()
-        roi = [[100,200],[1100,600]]
+        acq_time = self.get_detection_param("acq_time","vial")
+        image = self.waiting_for_image(acq_time=acq_time, timeout=60)
+        #roi = [[300,200],[1100,800]]
+        roi = self.get_detection_param("ball_center", "roi")
         x_center, y_center, rad1, rad2 = self.cam.fitEllipse(image, roi)
         logging.getLogger('flex').info("ball center in X %s, in Y %s, radius 1 %s, radius %s" %(str(x_center), str(y_center), str(rad1), str(rad2)))
-        if abs(rad1 - rad2) > 2:
+        if abs(rad1 - rad2) > 20:
             logging.getLogger('flex').error("ellipse radii are too different")
             raise RuntimeError("ellipse radii are too different")
         radius = (rad1 + rad2) / 2.0
@@ -971,8 +1311,7 @@ class flex:
         logging.getLogger('flex').info("width : center 1 %s, center 2 %s, center 3 %s" %(str(width_center1), str(width_center2), str(width_center3)))
         logging.getLogger('flex').info("height: center 1 %s, center 2 %s, center 3 %s" %(str(height_center1), str(height_center2), str(height_center3)))
         logging.getLogger('flex').info("radius 1 %s, radius 2 %s, radius 3 %s" %(str(radius1), str(radius2), str(radius3)))
-        # angle in degrees between the plan (x,y) of the robot and the plan of the camera 
-        angle_deg = 130.
+        angle_deg = self.get_detection_param("ball_center", "ref_angle")
         angle_rad = math.pi * angle_deg / 180.
         Xoffset = ((width_center1 + width_center3) / 2. - width_center1)
         Yoffset = ((width_center1 + width_center3) / 2. - width_center2)
@@ -983,7 +1322,7 @@ class flex:
         logging.getLogger('flex').info("average height %s average radius %s" %(str(average_height_center), str(average_radius)))
         gripper_Zoffset = (average_radius + average_height_center - self.cam.image_height / 2.0) / self.cam.pixels_per_mm 
         # if gripper above the middle of the image the correction is <0 as it is in JLib
-        logging.getLogger('flex').info("Calibration gripper offsetin X %s, in Y %s, in Z %s" %(str(gripper_Xoffset), str(gripper_Yoffset), str(gripper_Zoffset)))
+        logging.getLogger('flex').info("Calibration gripper offset in X %s, in Y %s, in Z %s" %(str(gripper_Xoffset), str(gripper_Yoffset), str(gripper_Zoffset)))
         if abs(gripper_Xoffset) < 1 or abs(gripper_Yoffset) < 1 or abs(gripper_Zoffset) < 1:
             self.robot.execute("data:tCalibration.trsf.x = data:tCalibration.trsf.x + (%s)" %str(gripper_Xoffset))
             self.robot.execute("data:tCalibration.trsf.y = data:tCalibration.trsf.y + (%s)" %str(gripper_Yoffset))
@@ -1002,17 +1341,14 @@ class flex:
             logging.getLogger('flex').error("problem with getVal3GlobalVariableDouble")
             raise RuntimeError("problem with getVal3GlobalVariableDouble")
 
-        parser = ConfigParser.RawConfigParser()
-        file_path = self.calibration_file
         saved_file_path = os.path.splitext(self.calibration_file)[0]+os.path.extsep+"sav"
-        parser.read(file_path)
         try:
             shutil.copy(file_path, saved_file_path)
         except IOError:
             logging.getLogger('flex').info("No such file %s" %file_path)
-        parser.set("Calibration", "z", str(tCalib))
+        self.config.set("Calibration", "z", str(tCalib))
         with open(file_path, 'wb') as file:
-            parser.write(file)
+            self.config.write(file)
         logging.getLogger('flex').info("file written")
         self.robot.setVal3GlobalVariableBoolean("bImageProcEnded", True)
 
@@ -1056,28 +1392,29 @@ class flex:
                 centers = []
 
     def do_calib_detection(self, gripper_type):
-        gripperCalib_task = gevent.spawn(self.robot.executeTask, "gripperCalib", timeout=200)
-        do_detection_if_needed_task = gevent.spawn(self.calib_detection, str(gripper_type))
-        try:
-            gripperCalib_task.get()
-        finally:
-            do_detection_if_needed_task.kill()
+        with BackgroundGreenlets(self.calib_detection, (str(gripper_type)),
+                                 self.PSS_light, ()) as X:
+            return X.execute(self.robot.executeTask, "gripperCalib", timeout=200)
 
+    @notwhenbusy
     def gripperCalib(self):
         logging.getLogger('flex').info("Starting calibration tool")
         gripper_type = self.get_gripper_type()
         if gripper_type in [1,3,9]:
             self.robot.setVal3GlobalVariableDouble("nGripperType", str(gripper_type))
+            self.set_cam(gripper_type)
         else:
             logging.getLogger('flex').error("Wrong gripper")
             raise RuntimeError("Wrong gripper")
         self.do_calib_detection(gripper_type)
         logging.getLogger('flex').info("Calibration finished")
 
+    @notwhenbusy
     def disableDewar(self):
         self.robot.executeTask("disableDewar", timeout=5)
         logging.getLogger('flex').info("Dewar disable")
 
+    @notwhenbusy
     def stopDewar(self):
         self.robot.executeTask("stopDewar", timeout=10)
         logging.getLogger('flex').info("Dewar stop")
@@ -1086,15 +1423,27 @@ class flex:
         self.robot.executeTask("savedata", timeout=5)
         logging.getLogger('flex').info("VAL3 library saved")
 
+    def do_gonioAlign(self, timeout):
+        with BackgroundGreenlets(self.PSS_light, ()) as X:
+            return X.execute(self.robot.executeTask, "gonioAlignment", timeout)
+
+    @notwhenbusy
     def gonioAlignment(self):
         logging.getLogger('flex').info("Starting calibration of the SmartMagnet position")
         gripper_type = self.get_gripper_type()
         if gripper_type != 9:
             logging.getLogger('flex').error("Need calibration gripper")
             raise RuntimeError("Need calibration gripper")
-        self.robot.executeTask("gonioAlignment", timeout=200)
+        self.set_io("dioUnloadStReq", True)
+        self.do_gonioAlign(200)
         logging.getLogger('flex').info("calibration of the SmartMagnet position finished")
+        self.set_io("dioUnloadStReq", False)
 
+    def do_dewar_align(self, timeout):
+        with BackgroundGreenlets(self.PSS_light, ()) as X:
+            return X.execute(self.robot.executeTask, "autoAlignment", timeout=timeout)
+
+    @notwhenbusy
     def dewarAlignment(self, cell="all"):
         logging.getLogger('flex').info("Starting calibration of the Dewar position")
         gripper_type = self.get_gripper_type()
@@ -1105,10 +1454,10 @@ class flex:
         if cell == "all":
             for i in range(0, 22, 3):
                 self.robot.setVal3GlobalVariableDouble("nLoadPuckPos", str(i))
-                self.robot.executeTask("autoAlignment", timeout=200)
+                self.do_dewar_align(1000)
         elif cell in range(1,9):
             self.robot.setVal3GlobalVariableDouble("nLoadPuckPos", str((cell - 1) * 3))
-            self.robot.executeTask("autoAlignment", timeout=200)
+            self.do_dewar_align(200)
         else:
             logging.getLogger('flex').error("Wrong cell (default all or 1-8)")
             raise RuntimeError("Wrong cell (default all or 1-8)")
@@ -1116,21 +1465,22 @@ class flex:
 
     def get_phases(self, cell, frequency):
         logging.getLogger('flex').info("Get phases on cell %d at %s Hz" %(cell, str(frequency)))
+        channel = self.proxisense.selectTrioSlot(cell)
         self.proxisense.set_frequency(frequency)
-        self.proxisense.deGauss(cell)
-        phase_puck1, phase_puck2, phase_puck3 = self.proxisense.getPhaseShift(cell)
-        logging.getLogger('flex').info("phase (microsec) for puck 1 %s, puck 2 %s, puck 3 %s" %(str(frequency), str(phase_puck1), str(phase_puck2), str(phase_puck3)))
+        self.proxisense.deGauss()
+        phase_puck1, phase_puck2, phase_puck3 = self.proxisense.getPhaseShift()
+        logging.getLogger('flex').info("phases at %s Hz for puck 1 %s, puck 2 %s, puck 3 %s" %(str(frequency), str(phase_puck1), str(phase_puck2), str(phase_puck3)))
         return [phase_puck1, phase_puck2, phase_puck3]
 
     def find_ref(self, frequency, cell):
         ref = self.proxisense.get_config(frequency)
-        logging.getLogger('flex').info("Reference phases at %s" %str(frequency))
+        logging.getLogger('flex').info("Phases reference at %sHz in cell %s" %(str(frequency), str(cell)))
         section = "Cell%d" %int(cell)
         i = 0
         for list in ref:
             if list[0] == section:
                 rank = i
-                logging.getLogger('flex').info("Found the refence in %s" %str(list[0]))
+                #logging.getLogger('flex').info("Found the reference in %s" %str(list[0]))
                 break
             if list == ref[-1:]:
                 logging.getLogger('flex').error("Reference not found")
@@ -1142,40 +1492,66 @@ class flex:
         for i in range(0, nb_puckType):
             ref_phase.append([ref[rank + (3 * i)][2], ref[rank + 1 + (3 * i)][2], ref[rank + 2 + (3 * i)][2]])
             ref_puckType.append(str(ref[rank + (3 * i)][1]).split("_")[0])
+        logging.getLogger('flex').info("Phases reference %s for type %s" %(str(ref_phase,), str(ref_puckType)))
         return ref_phase, ref_puckType
 
-    def detect_puck(self, cell):
-        if cell in range(1,9,2):
-            tolerance_800 = self.proxisense.typeDetectionTolerance_SC3_800
-            tolerance_2000 = self.proxisense.typeDetectionTolerance_SC3_2000
-        if cell in range(2,10,2):
-            tolerance_800 = self.proxisense.typeDetectionTolerance_Unipuck_800
-            tolerance_2000 = self.proxisense.typeDetectionTolerance_Unipuck_2000
+    def get_tolerance(self, frequency):
+        tolerance = []
+        parser = ConfigParser.RawConfigParser()
+        file_path = os.path.dirname(self.calibration_file)+"/proxisense_%d.cfg" %int(frequency)
+        parser.read(file_path)
+        value = parser.getfloat("Tolerance", "sc3")
+        tolerance.append(value)
+        value = parser.getfloat("Tolerance", "unipuck")
+        tolerance.append(value)
+        logging.getLogger('flex').info("tolerance at %sHz for SC3 and Unipuck : %s, %s" %(str(frequency), str(tolerance[0]), str(tolerance[1])))
+        return tolerance
+
+    def set_threshold(self, cell):
+        self.proxisense.selectTrioSlot(cell)
+        self.proxisense.set_frequency()
+        self.proxisense.deGauss()
+        phase_puck1, phase_puck2, phase_puck3 = self.proxisense.getPhaseShift()
+        logging.getLogger('flex').info("phase shift puck1, puck2, puck3 : %f, %f, %f" %(phase_puck1, phase_puck2, phase_puck3))
+        ref_threshold = self.get_detection_param("proxisense", "threshold")
+        ref_empty_puck1, ref_empty_puck2, ref_empty_puck3 = self.find_ref(2000, cell)[0][1]
+        logging.getLogger('flex').info("empty reference puck1, puck2, puck3 : %f, %f, %f" %(ref_empty_puck1, ref_empty_puck2, ref_empty_puck3))
+        threshold_puck1 = min(phase_puck1 + ref_threshold, ref_empty_puck1 - 0.5)
+        threshold_puck2 = min(phase_puck2 + ref_threshold, ref_empty_puck2 - 0.5)
+        threshold_puck3 = min(phase_puck3 + ref_threshold, ref_empty_puck3 - 0.5)
+        self.proxisense.writeThreshold(cell, 1, threshold_puck1)
+        self.proxisense.writeThreshold(cell, 2, threshold_puck2)
+        self.proxisense.writeThreshold(cell, 3, threshold_puck3)
+        logging.getLogger('flex').info("set threshold in %s for puck1, puck2 and puck3 to %s, %s, %s" %(str(cell), str(threshold_puck1), str(threshold_puck2), str(threshold_puck3)))
+
+    def detect_puck_type(self, cell):
+        tolerance_800 = self.get_tolerance(800)
+        tolerance_2000 = self.get_tolerance(2000)
         ref_phase_800, ref_puckType = self.find_ref(800, cell)
         ref_phase_2000, ref_puckType = self.find_ref(2000, cell)
         phases_800 = self.get_phases(cell, 800)
         phases_2000 = self.get_phases(cell, 2000)
-      
+
         if len(ref_phase_800) != len(ref_phase_2000):
             logging.getLogger('flex').error("config files have different length")
             raise RuntimeError("corrupted config files ")
-        len_ref = len(ref_phase_800)
-        logging.getLogger('flex').info("%d puck types to checked, including empty" %len_ref)
-        
+        logging.getLogger('flex').info("%d puck types to checked, including empty" %len(ref_phase_800))
+
         result=[]
-        for puckType in range(0, len_ref):
+        for puckType in range(0, len(ref_phase_800)):
             list_res=[]
             for i in range(0,3):
                 diff_800 = abs(ref_phase_800[puckType][i] - phases_800[i])
                 diff_2000 = abs(ref_phase_2000[puckType][i] - phases_2000[i])
-                logging.getLogger('flex').info("difference at 800Hz %s" %str(diff_800))
-                logging.getLogger('flex').info("difference at 2000Hz %s" %str(diff_2000))
-                if diff_800 < tolerance_800 and diff_2000 < tolerance_2000:
+                logging.getLogger('flex').info("difference at 800Hz in and 2000Hz: %s, %s" %(str(diff_800), str(diff_2000)))
+                if diff_800 < tolerance_800[puckType] and diff_2000 < tolerance_2000[puckType]:
+                    #logging.getLogger('flex').info("list append with %s" %str(ref_puckType[puckType]))
                     list_res.append(ref_puckType[puckType])
                 else:
+                    #logging.getLogger('flex').info("list append with None")
                     list_res.append(None)
             result.append(list_res)
-        logging.getLogger('flex').info("list of detection before filtering %s" %str(result))
+        #logging.getLogger('flex').info("list of detection before filtering %s" %str(result))
 
         def f(*elements):
             try:
@@ -1184,70 +1560,67 @@ class flex:
                 return None
 
         res = list(itertools.imap(f, *result))
-        return res
 
-    def _scanSlot(self, cell, puck="all"):
-        pucks_detected = self.detect_puck(cell)
-        logging.getLogger('flex').info("puck 1 detected %s, puck 2 detected %s, puck 3 detected %s" %(str(pucks_detected[0]), str(pucks_detected[1]), str(pucks_detected[2])))
+        parser = ConfigParser.RawConfigParser()
+        file_path = os.path.dirname(self.calibration_file)+"/puck_detection.cfg"
+        parser.read(file_path)
+        parser.set("Cell%d" %cell, "puck1", str(res[0]))
+        parser.set("Cell%d" %cell, "puck2", str(res[1]))
+        parser.set("Cell%d" %cell, "puck3", str(res[2]))
+        with open(file_path, 'wb') as file:
+            parser.write(file)
+
+        logging.getLogger('flex').info("Puck type in cell %s for puck1, puck2 and puck3: %s, %s and %s" %(str(cell), str(res[0]), str(res[1]), str(res[2])))
+        return res, phases_800, phases_2000
+
+    def _scanSlot(self, cell):
+        pucks_detected, phases_800, phases_2000 = self.detect_puck_type(cell)
+        threshold_ct = self.get_detection_param("proxisense", "threshold")
         threshold_us = self.proxisense.ct_to_us(self.proxisense.detection_threshold_ct)
-        logging.getLogger('flex').info("threshold in microsecond %s" %str(threshold_us))
-        if puck == "all":
-            for i in range(0,3):
-                if pucks_detected[i] == "empty":
-                    threshold = phases_2000[i] - threshold_us
-                    logging.getLogger('flex').info("Puck not detected")
-                else:
-                    threshold = phases_2000[i] + threshold_us
-                    logging.getLogger('flex').info("Puck detected")
-                logging.getLogger('flex').info("Puck %d, threshold %s" %((i + 1), str(threshold)))
-                self.proxisense.writeThreshold(cell, i + 1, threshold)
-        else:
-            puck_detected = pucks_detected[puck - 1]
-            if puck_detected == "empty":
-                threshold = phases_2000[puck - 1] - threshold_us
-                logging.getLogger('flex').info("Puck not detected")
+        logging.getLogger('flex').info("threshold (us) %s" %str(threshold_us))
+        for i in range(0,3):
+            if pucks_detected[i] == "empty":
+                #threshold_puck1 = min(phase_puck1 + ref_threshold, ref_empty_puck1 - 0.5)
+                threshold = phases_2000[i] - threshold_us
+                self.proxisense.writeThreshold(cell, i+1, threshold)
+                #logging.getLogger('flex').info("Puck not detected")
             else:
-                threshold = phases_2000[puck - 1] + threshold_us
-                logging.getLogger('flex').info("Puck detected")
-            logging.getLogger('flex').info("Puck %d, threshold %s" %(puck, str(threshold)))
-            self.proxisense.writeThreshold(cell, puck, threshold)
+                threshold = phases_2000[i] + threshold_us
+                self.proxisense.writeThreshold(cell, i+1, threshold)
+                #logging.getLogger('flex').info("Puck detected")
+            logging.getLogger('flex').info("Puck%d threshold %s" %((i + 1), str(threshold)))
+            self.proxisense.writeThreshold(cell, i + 1, threshold)
 
-    def scanSlot (self, cell="all", puck="all"):
+    def scanSlot (self, cell="all"):
         if cell != "all" and isinstance(cell, (int,long)) and not cell in range(1,9):
             logging.getLogger('flex').error("Wrong cell number [1-8]")
             raise ValueError("Wrong cell number [1-8]")
-        if puck != "all" and isinstance(puck, (int,long)) and not puck in range(1,4):
-            logging.getLogger('flex').error("wrong puck number[1-3]")
-            raise ValueError("Wrong puck number[1-3]")
-        logging.getLogger('flex').info("Starting to scan on cell %s and puck %s" %(str(cell), str(puck)))
-        if cell == "all":
-            for cell in range(1,9):
-                logging.getLogger('flex').info("Scan slot cell %d" %cell)
-                self._scanSlot(cell, puck="all")
+        logging.getLogger('flex').info("Starting to scan on cell %s" %(str(cell)))
+
+        if cell is "all":
+            cell_start = 1
+            cell_stop = 9
         else:
+            cell_start = int(cell)
+            cell_stop = cell_start + 1
+
+        for cell in range(cell_start, cell_stop):
             logging.getLogger('flex').info("Scan slot cell %d" %cell)
-            self._scanSlot(cell, puck) 
+            self._scanSlot(cell)
 
     def proxisenseCalib(self, cell="all", empty=True):
         if cell != "all" and isinstance(cell, (int,long)) and not cell in range(1,9):
             logging.getLogger('flex').error("Wrong cell number [1-8]")
             raise ValueError("Wrong cell number [1-8]")
+
         if cell is "all":
-            for i in range(1,9):
-                if empty:
-                    puckType = "empty"
-                else:
-                    if i in range(1,8,2):
-                        puckType = "sc3"
-                    else:
-                        puckType = "uni"
-                self.proxisense.set_frequency(800)
-                res = self.proxisense.getPhaseShift(i)
-                self.proxisense.set_config(i, 800, puckType, res[0], res[1], res[2])
-                self.proxisense.set_frequency(2000)
-                res = self.proxisense.getPhaseShift(i)
-                self.proxisense.set_config(i, 2000, puckType, res[0], res[1], res[2])
+            i_start = 1
+            i_stop = 9
         else:
+            i_start = int(cell)
+            i_stop = i_start + 1
+
+        for i in range(i_start, i_stop):
             if empty:
                 puckType = "empty"
             else:
@@ -1255,12 +1628,8 @@ class flex:
                     puckType = "sc3"
                 else:
                     puckType = "uni"
-            self.proxisense.set_frequency(800)
-            res = self.proxisense.getPhaseShift(cell)
-            self.proxisense.set_config(cell, 800, puckType, res[0], res[1], res[2])
-            self.proxisense.set_frequency(2000)
-            res = self.proxisense.getPhaseShift(cell)
-            self.proxisense.set_config(cell, 2000, puckType, res[0], res[1], res[2])
-                
-
+            res = self.get_phases(i,800)
+            self.proxisense.set_config(i, 800, puckType, res[0], res[1], res[2])
+            res = self.get_phases(i,2000)
+            self.proxisense.set_config(i, 2000, puckType, res[0], res[1], res[2])
 

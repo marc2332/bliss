@@ -1,0 +1,3 @@
+print "Deprecation warning: fuelcell.mac is deprecated. " \
+      "Use bliss/fuelcell.mac instead"
+jdo bliss/fuelcell.mac

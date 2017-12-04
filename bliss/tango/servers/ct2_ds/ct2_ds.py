@@ -13,9 +13,10 @@ CT2 (P201/C208) ESRF counter card TANGO device
 __all__ = ["CT2", "main"]
 
 import time
+import logging
+import warnings
 
-import gevent
-from gevent import select
+import numpy
 
 from PyTango import Util, GreenMode
 from PyTango import AttrQuality, AttrWriteType, DispLevel, DevState
@@ -23,24 +24,27 @@ from PyTango.server import Device, DeviceMeta
 from PyTango.server import attribute, command
 from PyTango.server import class_property, device_property
 
-from bliss.common.event import connect
 from bliss.config.static import get_config
-from bliss.controllers.ct2 import CT2Device, AcqMode, AcqStatus
-from bliss.controllers.ct2 import ErrorSignal, PointNbSignal, StatusSignal
+from bliss.controllers.ct2.card import BaseCard
+from bliss.controllers.ct2.device import AcqMode, AcqStatus
 
 
 def switch_state(tg_dev, state=None, status=None):
     """Helper to switch state and/or status and send event"""
     if state is not None:
         tg_dev.set_state(state)
-        tg_dev.push_change_event("state")
         if state in (DevState.ALARM, DevState.UNKNOWN, DevState.FAULT):
             msg = "State changed to " + str(state)
             if status is not None:
                 msg += ": " + status
     if status is not None:
         tg_dev.set_status(status)
-        tg_dev.push_change_event("status")
+
+
+def _to_enum(value, etype):
+    if isinstance(value, (str, unicode)):
+        return etype[value]
+    return etype(value)
 
 
 class CT2(Device):
@@ -50,37 +54,23 @@ class CT2(Device):
     __metaclass__ = DeviceMeta
 
     card_name = device_property(dtype='str', default_value="p201")
-    def_acq_mode = device_property(dtype='str', default_value="IntTrigReadout")
-    out_chan = device_property(dtype='int', default_value=10)
 
     def __init__(self, *args, **kwargs):
         Device.__init__(self, *args, **kwargs)
 
     def init_device(self):
         Device.init_device(self)
-        for attr in ("state", "status", "last_error", "last_point_nb",
-                     "acq_status", "acq_mode", "acq_expo_time",
-                     "acq_nb_points", "acq_channels"):
-            self.set_change_event(attr, True, False)
-
-        self.__last_error = ""
-        self.__last_point_nb_info = -1, 0, AttrQuality.ATTR_VALID
+        self.device = None
 
         try:
             config = get_config()
             util = Util.instance()
-            if util.is_svr_starting():
-                acq_mode = AcqMode[self.def_acq_mode]
-                out_config = {'chan': self.out_chan} if self.out_chan else None
-                print "out_config=%s" % out_config
-                self.device = CT2Device(config=config, name=self.card_name, 
-                                        acq_mode=acq_mode, 
-                                        out_config=out_config)
-                connect(self.device, ErrorSignal, self.__on_error)
-                connect(self.device, PointNbSignal, self.__on_point_nb)
-                connect(self.device, StatusSignal, self.__on_status)
-            else:
-                self.apply_config()
+            if not util.is_svr_starting():
+                config.reload()
+            self.device = config.get(self.card_name)
+            if isinstance(self.device, BaseCard):
+                raise ValueError('ct2 card config is not supported anymore')
+
             switch_state(self, DevState.ON, "Ready!")
         except Exception as e:
             msg = "Exception initializing device: {0}".format(e)
@@ -88,15 +78,17 @@ class CT2(Device):
             switch_state(self, DevState.FAULT, msg)
 
     def delete_device(self):
-        self.device.event_loop.kill()
+        if self.device:
+            self.device.stop_acq()
 
     @attribute(dtype='str', label="Last error")
     def last_error(self):
-        return self.__last_error
+        return self.device.last_error or ''
 
-    @attribute(dtype='int32', label="Last point nb.")
+    @attribute(dtype='int32', label='Last point nb.',
+               doc="Last acquisition point ready")
     def last_point_nb(self):
-        return self.__last_point_nb_info
+        return self.device.last_point_nb
 
     @attribute(dtype='str', label="Acq. mode",
                memorized=True, hw_memorized=True,
@@ -104,17 +96,16 @@ class CT2(Device):
                                                 "'SoftTrigReadout', " \
                                                 "'IntTrigMulti')")
     def acq_mode(self):
-        return self.device.acq_mode.name
+        return _to_enum(self.device.acq_mode, AcqMode).name
 
     @acq_mode.setter
     def acq_mode(self, acq_mode):
         self.device.acq_mode = AcqMode[acq_mode]
-        self.push_change_event("acq_mode", acq_mode)
 
     @attribute(dtype='str', label="Acq. status",
                doc="Acquisition status")
     def acq_status(self):
-        return self.device.acq_status.name
+        return _to_enum(self.device.acq_status, AcqStatus).name
 
     @attribute(dtype='float64', label="Acq. expo. time", unit="s",
                standard_unit="s", display_unit="s", format="%6.3f",
@@ -126,7 +117,17 @@ class CT2(Device):
     @acq_expo_time.setter
     def acq_expo_time(self, acq_expo_time):
         self.device.acq_expo_time = acq_expo_time
-        self.push_change_event("acq_expo_time", acq_expo_time)
+
+    @attribute(dtype='float64', label="Acq. expo. time", unit="s",
+               standard_unit="s", display_unit="s", format="%6.3f",
+               memorized=True, hw_memorized=True,
+               doc="Acquisition point period (s)")
+    def acq_point_period(self):
+        return self.device.acq_point_period
+
+    @acq_point_period.setter
+    def acq_point_period(self, acq_point_period):
+        self.device.acq_point_period = acq_point_period
 
     @attribute(dtype='uint32', label="Acq. nb. points",
                memorized=True, hw_memorized=True,
@@ -137,7 +138,6 @@ class CT2(Device):
     @acq_nb_points.setter
     def acq_nb_points(self, acq_nb_points):
         self.device.acq_nb_points = acq_nb_points
-        self.push_change_event("acq_nb_points", acq_nb_points)
 
     @attribute(dtype=('int16',), max_dim_x=12, label="Active channels",
                doc="List of active channels (first is 1)")
@@ -147,7 +147,6 @@ class CT2(Device):
     @acq_channels.setter
     def acq_channels(self, acq_channels):
         self.device.acq_channels = acq_channels
-        self.push_change_event("acq_channels", acq_channels)
 
     @attribute(dtype='float64', label="Timer clock freq.", unit="Hz",
                standard_unit="Hz", display_unit="Hz", format="%10.3g",
@@ -159,7 +158,6 @@ class CT2(Device):
     @timer_freq.setter
     def timer_freq(self, timer_freq):
         self.device.timer_freq = timer_freq
-        self.push_change_event("timer_freq", timer_freq)
 
     @attribute(dtype=('uint32',), max_dim_x=12)
     def counters(self):
@@ -173,14 +171,11 @@ class CT2(Device):
     def data(self):
         return self.device.read_data()
 
-    @command
-    def apply_config(self):
-        # first, empty FIFO
-        self.device.read_data()
-        # then, reload config and apply it to the device
-        if self.device.config:
-            self.device.config.reload()
-        self.device.apply_config()
+    @attribute(dtype=(int,), max_dim_x=12)
+    def counters_status(self):
+        status = self.device.get_counters_status()
+        return [int(status[i]['enable']) | (int(status[i]['run']) << 1)
+                for i in sorted(status)]
 
     @command
     def reset(self):
@@ -207,46 +202,19 @@ class CT2(Device):
     def trigger_point(self):
         self.device.trigger_point()
 
-    @property
-    def card(self):
-        return self.device.card
-
-    def __set_last_point_nb(self, point_nb, timestamp=None, quality=None):
-        if timestamp is None:
-            timestamp = time.time()
-        if quality is None:
-            if self.device.acq_status == AcqStatus.Running:
-                quality = AttrQuality.ATTR_CHANGING
-            else:
-                quality = AttrQuality.ATTR_VALID
-        self.__last_point_nb = int(point_nb), timestamp, quality
-        self.__last_point_nb_timestamp = timestamp
-        self.push_change_event("last_point_nb", *self.__last_point_nb)
-
-    def __set_last_error(self, error):
-        self.__last_error = error
-        self.push_change_event("last_error", error)
-
-    def __on_error(self, error):
-        self.__set_last_error(error)
-
-    def __on_status(self, status):
-        if status == AcqStatus.Ready:
-            quality = AttrQuality.ATTR_VALID
-            switch_state(self, DevState.ON, "Ready!")
-        elif status == AcqStatus.Running:
-            quality = AttrQuality.ATTR_CHANGING
-            acq_mode = self.device.acq_mode.name
-            switch_state(self, DevState.RUNNING,
-                         "acquiring in {0} mode".format(acq_mode))            
-        self.push_change_event("acq_status", status.name, time.time(), quality)
-
-    def __on_point_nb(self, point_nb):
-        self.__set_last_point_nb(point_nb)
+    @command(dtype_out='DevVarCharArray')
+    def dump_memory(self):
+        data = self.device.dump_memory()
+        return numpy.ndarray(shape=(len(data),), dtype=numpy.uint8, buffer=data)
 
 
 def main(args=None, **kwargs):
     from PyTango.server import run
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(levelname)s %(asctime)-15s %(name)s: %(message)s')
+
     kwargs['green_mode'] = kwargs.get('green_mode', GreenMode.Gevent)
     return run((CT2,), args=args, **kwargs)
 

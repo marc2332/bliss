@@ -1,6 +1,6 @@
 import os, errno
 import h5py
-from bliss.common.continuous_scan import AcquisitionDevice,AcquisitionMaster
+from bliss.scanning.chain import AcquisitionDevice,AcquisitionMaster
 
 class FileOrganizer(object):
     def __init__(self,root_path,

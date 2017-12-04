@@ -1,0 +1,8 @@
+name: falconx1
+module: xia
+class: FalconX
+plugin: bliss
+url: tcp://wduxia.esrf.fr:8000
+configuration_directory: C:\\blissadm\\config\\FALCONX\\26102017-multi
+default_configuration: test.ini
+detector_mapping: sdd3elts

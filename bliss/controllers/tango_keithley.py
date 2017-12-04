@@ -6,16 +6,16 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss.common.task_utils import cleanup, error_cleanup, task
-from bliss.common.measurement import CounterBase
-import PyTango.gevent
+from bliss.common.measurement import SamplingCounter
+from bliss.common.tango import DeviceProxy
 import time
 import numpy
 
-class tango_keithley(CounterBase):
+class tango_keithley(SamplingCounter):
     def __init__(self, name, config):
-        CounterBase.__init__(self, name)
+        SamplingCounter.__init__(self, name, None)
         tango_uri = config["uri"]
-        self.__control = PyTango.gevent.DeviceProxy(tango_uri)
+        self.__control = DeviceProxy(tango_uri)
 
     def read(self):
         self.__control.MeasureSingle()
@@ -31,3 +31,11 @@ class tango_keithley(CounterBase):
         else:
             self.__control.autorange = autorange_on
 
+    def autozero(self, autozero_on=None):
+        if autozero_on is None:
+            return self.__control.autozero
+        else:
+            self.__control.autozero = autozero_on
+
+    def init(self):
+        return self.__control.init()

@@ -4,34 +4,33 @@
 Standard bliss macros (:func:`~bliss.common.standard.wa`, \
 :func:`~bliss.common.standard.mv`, etc)
 """
+from bliss.common import scans
+from bliss.common.scans import *
+
+from bliss.common.task_utils import cleanup, error_cleanup
 
 __all__ = ['wa', 'wm', 'sta', 'mv', 'umv', 'mvr', 'umvr', 'move',
-           'enable', 'disable', 'lsct', 'prdef']
+           'prdef', 'set_log_level', 'sync'] + scans.__all__ + \
+           ['cleanup', 'error_cleanup']
 
 import inspect
 import logging
 import functools
+import gevent
 
 from six import print_
 from gevent import sleep
 from tabulate import tabulate
-try:
-    from collections import OrderedDict
-except ImportError:
-    try:
-        from ordereddict import OrderedDict
-    except ImportError:
-        OrderedDict = dict
+from bliss.common.utils import OrderedDict
+
+from pygments import highlight
+from pygments.lexers import PythonLexer
+from pygments.formatters import TerminalFormatter
 
 from bliss import setup_globals
-
 from bliss.common.axis import Axis
-from bliss.common.measurement import CounterBase
-
 from bliss.config.static import get_config
-from bliss.config.settings import QueueSetting
-
-from bliss.controllers.motor_group import Group
+from bliss.common.motor_group import Group
 
 
 _ERR = '!ERR'
@@ -66,17 +65,9 @@ def __get_axes_names_iter():
         yield axis.name
 
 
-__get_counters_iter = functools.partial(__get_objects_type_iter, CounterBase)
-
-
-def __get_counters_names_iter():
-    for counter in __get_counters_iter():
-        yield counter.name
-
-
-def __safe_get(obj, member, on_error=_ERR):
+def __safe_get(obj, member, on_error=_ERR, **kwargs):
     try:
-        return getattr(obj, member)()
+        return getattr(obj, member)(**kwargs)
     except Exception as e:
         return on_error
 
@@ -89,71 +80,25 @@ def __tabulate(data, **kwargs):
     return str(tabulate(data, **kwargs))
 
 
-MEASUREMENT_GROUP = None
-def active_measurement_group():
+def __pyhighlight(code, bg='dark', outfile=None):
+    formatter = TerminalFormatter(bg=bg)
+    return highlight(code, PythonLexer(), formatter, outfile=outfile)
+
+
+def sync(*axes):
     """
-    Returns the active measurement group
-
-    Returns:
-        QueueSetting: a list of active counters
-    """
-    global MEASUREMENT_GROUP
-    if MEASUREMENT_GROUP is not None:
-        return MEASUREMENT_GROUP
-    def write(value):
-        if not isinstance(value, (str, unicode)):
-            value = value.name
-        return value
-    MEASUREMENT_GROUP = QueueSetting('measurement_group.active',
-                                     write_type_conversion=write)
-    MEASUREMENT_GROUP.set(tuple(__get_counters_names_iter()))
-    return MEASUREMENT_GROUP
-
-
-def get_active_counters_iter():
-    cfg = get_config()
-    for name in active_measurement_group():
-        yield cfg.get(name)
-
-
-def __enable_ct(counters):
-    amg = active_measurement_group()
-    amg.extend([counter.name for counter in counters])
-
-
-def __disable_ct(counters):
-    amg = active_measurement_group()
-    for counter in counters:
-        print 'removing', counter.name
-        amg.remove(counter.name)
-
-
-def enable(*elems):
-    """
-    Enables given elements.
+    Forces axes synchronization with the hardware
 
     Args:
-        elem: a object or object name
+        axes: list of axis objects or names. If no axis is given, it syncs all
+              all axes present in the session
     """
-    counters = []
-    for elem in __get_objects_iter(*elems):
-        if isinstance(elem, CounterBase):
-            counters.append(elem)
-    __enable_ct(counters)
-
-
-def disable(*elems):
-    """
-    Disables given elements.
-
-    Args:
-        elem: object or object name
-    """
-    counters = []
-    for elem in __get_objects_iter(*elems):
-        if isinstance(elem, CounterBase):
-            counters.append(elem)
-    __disable_ct(counters)
+    if axes:
+        axes = __get_objects_iter(*axes)
+    else:
+        axes = __get_axes_iter()
+    for axis in axes:
+        axis.sync_hard()
 
 
 def wa(**kwargs):
@@ -167,13 +112,20 @@ def wa(**kwargs):
     print_("Current Positions (user, dial)")
     header, pos, dial = [], [], []
     tables = [(header, pos, dial)]
+    tasks = list()
+    def request(axis):
+        return axis.name,get(axis, "position"),get(axis, "dial")
     for axis in __get_axes_iter():
+        tasks.append(gevent.spawn(request,axis))
+
+    for task in tasks:
+        axis_name,position,dial_position = task.get()
         if len(header) == max_cols:
             header, pos, dial = [], [], []
             tables.append((header, pos, dial))
-        header.append(axis.name)
-        pos.append(get(axis, "position"))
-        dial.append(get(axis, "dial"))
+        header.append(axis_name)
+        pos.append(position)
+        dial.append(dial_position)
 
     for table in tables:
         print_()
@@ -227,11 +179,19 @@ def stm(*axes):
     raise NotImplementedError
 
 
-def sta():
-    """Displays state information about all axes"""
+def sta(read_hw=False):
+    """
+    Displays state information about all axes
+
+    Keyword Args:
+        read_hw (bool): If True, force communication with hardware, otherwise
+                        (default) use cached value.
+    """
     global __axes
     table = [("Axis", "Status")]
-    table += [(axis.name, __safe_get(axis, "state", "<status not available>"))
+    table += [(axis.name, __safe_get(axis, "state",
+                                     on_error="<status not available>",
+                                     read_hw=read_hw))
               for axis in __get_axes_iter()]
     print_(__tabulate(table))
 
@@ -308,7 +268,7 @@ def __row(cols, fmt, sep=' '):
 def __umove(*args, **kwargs):
     kwargs['wait'] = False
     group, motor_pos = __move(*args, **kwargs)
-    try:
+    with error_cleanup(group.stop):
         motor_names = [axis.name for axis in motor_pos]
         col_len = max(max(map(len, motor_names)), 8)
         hfmt = '^{width}'.format(width=col_len)
@@ -326,9 +286,6 @@ def __umove(*args, **kwargs):
         row = __row_positions(positions, motor_pos, rfmt, sep='  ')
         print_("\r" + row, end='', flush=True)
         print_()
-    except KeyboardInterrupt:
-        print_("Ctrl+C pressed. Stopping all motors...")
-        group.stop()
 
     return group, motor_pos
 
@@ -339,30 +296,17 @@ def __move(*args, **kwargs):
     for m, p in zip(__get_objects_iter(*args[::2]), args[1::2]):
         motor_pos[m] = p
     group = Group(*motor_pos.keys())
-    try:
-        group.move(motor_pos, wait=wait, relative=relative)
-    except KeyboardInterrupt:
-        print_("Ctrl+C pressed. Stopping all motors...")
-        group.stop()
+    group.move(motor_pos, wait=wait, relative=relative)
 
     return group, motor_pos
-
-
-def lsct():
-    """Displays list of all counters"""
-    table = [('Counter', 'Type', 'Active')]
-    active_counters = tuple(get_active_counters_iter())
-    for counter in __get_counters_iter():
-        table.append((counter.name, counter.__class__.__name__,
-                      '*' if counter in active_counters else ''))
-    print_(__tabulate(table))
 
 
 def prdef(obj_or_name):
     """
     Shows the text of the source code for an object or the name of an object.
     """
-    if isinstance(obj_or_name, (str, unicode)):
+    is_arg_str = isinstance(obj_or_name, (str, unicode))
+    if is_arg_str:
         obj, name = getattr(setup_globals, obj_or_name), obj_or_name
     else:
         obj = obj_or_name
@@ -374,14 +318,48 @@ def prdef(obj_or_name):
     if name is None:
         name = real_name
 
+    if inspect.ismodule(obj) or inspect.isclass(obj) or \
+       inspect.ismethod(obj) or inspect.isfunction(obj) or \
+       inspect.istraceback(obj) or inspect.isframe(obj) or \
+       inspect.iscode(obj):
+        pass
+    else:
+        try:
+            obj = type(obj)
+        except:
+            pass
+
     fname = inspect.getfile(obj)
     lines, line_nb = inspect.getsourcelines(obj)
-
-    if name == real_name:
+    
+    if name == real_name or is_arg_str:
         header = "'{0}' is defined in:\n{1}:{2}\n". \
                  format(name, fname, line_nb)
     else:
         header = "'{0}' is an alias for '{1}' which is defined in:\n{2}:{3}\n". \
                  format(name, real_name, fname, line_nb)
     print_(header)
-    print_(''.join(lines))
+    print_(__pyhighlight(''.join(lines)))
+
+
+def _check_log_level(level):
+    if isinstance(level, (int, long)):
+        rv = level
+    else:
+        rv = getattr(logging, level.upper())
+    return rv
+
+
+def set_log_level(level=logging.root.level):
+    """
+    Adjusts the log level
+    
+    Without arguments, resets the level back to the one setup at
+    beginning of the session.
+
+    Args:
+        level (int or str): new log level can be constant (ex: logging.INFO) or
+                            case insensitive equivalent string (ex: 'Info')
+    """
+    logging.root.setLevel(_check_log_level(level))
+        

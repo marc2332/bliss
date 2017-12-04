@@ -1,0 +1,13 @@
+-
+  name: diode
+  plugin: bliss
+  class: simulation_diode
+  independent: True
+-
+  name: diode2
+  plugin: bliss
+  class: simulation_diode
+-
+  name: diode3
+  plugin: bliss
+  class: simulation_diode

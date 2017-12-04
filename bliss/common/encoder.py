@@ -6,6 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss.common import log as elog
+from bliss.common.motor_config import StaticConfig
 from bliss.common.task_utils import *
 from bliss.common import event
 import time
@@ -24,7 +25,6 @@ class Encoder(object):
     def __init__(self, name, controller, config):
         self.__name = name
         self.__controller = controller
-        from bliss.config.motors import StaticConfig
         self.__config = StaticConfig(config)
 
     @property
@@ -61,4 +61,12 @@ class Encoder(object):
         """
         self.controller.set_encoder(self, new_value*self.steps_per_unit)
         return self.read()
+
+    @lazy_init
+    def set_event_positions(self, positions):
+      return self.__controller.set_event_positions(self,positions)
+
+    @lazy_init
+    def get_event_positions(self, positions):
+      return self.__controller.get_event_positions(self)
 

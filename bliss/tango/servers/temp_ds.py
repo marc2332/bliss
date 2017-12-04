@@ -68,6 +68,10 @@ class BlissInput(Device):
     def name(self):
         return self.channel_object.name
 
+    @attribute(dtype='string')
+    def typedev(self):
+        return "input"
+
     @command(dtype_out='DevVarStringArray')
     def GetCustomCommandList(self):
         """
@@ -123,6 +127,14 @@ class BlissOutput(Device):
     @attribute(dtype='string')
     def name(self):
         return self.channel_object.name
+
+    @attribute(dtype=float)
+    def value(self):
+        return self.channel_object.read()
+
+    @attribute(dtype='string')
+    def typedev(self):
+        return "output"
 
     @attribute(dtype=float)
     def limit_low(self):
@@ -225,6 +237,9 @@ class BlissOutput(Device):
         return argout
 
     def dev_state(self):
+        return get_worker().execute(self._dev_state)
+
+    def _dev_state(self):
         state = self.channel_object.state()
         return _STATE_MAP[state]
 
@@ -247,6 +262,10 @@ class BlissLoop(Device):
     @attribute(dtype='string')
     def name(self):
         return self.channel_object.name
+
+    @attribute(dtype='string')
+    def typedev(self):
+        return "loop"
 
     @attribute(dtype='string')
     def input_name(self):
@@ -316,6 +335,9 @@ class BlissLoop(Device):
         return self.channel_object.input.read()       
 
     def dev_state(self):
+        return get_worker().execute(self._dev_state)
+
+    def _dev_state(self):
         state = self.channel_object.input.state()
         return _STATE_MAP[state]
 
@@ -588,7 +610,7 @@ def __create_tango_class(obj, klass):
             def write(self, attr):
                 method = getattr(self.channel_object, "set_" + attr.get_name())
                 value = attr.get_write_value()
-                method(value)
+                get_worker().execute(method, value)
             setattr(new_class, "write_%s" % name, write)
 
         write_dict = {'r': 'READ', 'w': 'WRITE', 'rw': 'READ_WRITE'}

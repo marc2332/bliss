@@ -5,8 +5,6 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import time
-
 """ Oxford Cryosystems 700 Series
     cryo_700_series_manual.pdf, pages 38-39:
 
@@ -97,11 +95,15 @@ import time
         AlarmConditionPsuOverheat, /* = 15: Power supply overheating */
         AlarmConditionPowerLoss /* = 16: Power failure */
      };
-  
+
 """
-class StatusPacket:
-    #0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
-    #L T GS  2GT 2GE R P 2RR   2TT   2ET   2ST   2R    GF GH EH SH LP AC 2RT   2CN   SV EA
+
+
+class StatusPacket(object):
+    """
+    bytes 0 to 31
+    L T GS 2GT 2GE R P 2RR 2TT 2ET 2ST 2R GF GH EH SH LP AC 2RT 2CN SV EA
+    """
     Length_c_idx = 0
     Type_c_idx = 1
     GasSetPoint_s_idx = 2
@@ -125,27 +127,52 @@ class StatusPacket:
     SoftwareVersion_c_idx = 30
     EvapAdjust_c_idx = 31
 
-    RUNMODE_CODES = ['StartUp','StartUpFail','StartUpOK','Run','SetUp','ShutdownOK','ShutdownFail']
+    RUNMODE_CODES = ['StartUp',
+                     'StartUpFail',
+                     'StartUpOK',
+                     'Run',
+                     'SetUp',
+                     'ShutdownOK',
+                     'ShutdownFail']
 
-    PHASE_CODES = ['Ramp','Cool','Plat','Hold','End','Purge','DeletePhase','LoadProgram','SaveProgram','Soak','Wait']
+    PHASE_CODES = ['Ramp', 'Cool', 'Plat',
+                   'Hold', 'End', 'Purge',
+                   'DeletePhase', 'LoadProgram', 'SaveProgram',
+                   'Soak', 'Wait']
 
-    ALARM_CODES = ['AlarmConditionNone','AlarmConditionStopPressed','AlarmConditionStopCommand','AlarmConditionEnd','AlarmConditionPurge','AlarmConditionTempWarning','AlarmConditionHighPressure','AlarmConditionVacuum','AlarmConditionStartUpFail','AlarmConditionLowFlow','AlarmConditionTempFail','AlarmConditionTempReadingError','AlarmConditionSensorFail','AlarmConditionBrownOut','AlarmConditionHeatsinkOverheat','AlarmConditionPsuOverheat','AlarmConditionPowerLoss']
+    ALARM_CODES = ['AlarmConditionNone', 'AlarmConditionStopPressed',
+                   'AlarmConditionStopCommand', 'AlarmConditionEnd',
+                   'AlarmConditionPurge', 'AlarmConditionTempWarning',
+                   'AlarmConditionHighPressure', 'AlarmConditionVacuum',
+                   'AlarmConditionStartUpFail', 'AlarmConditionLowFlow',
+                   'AlarmConditionTempFail', 'AlarmConditionTempReadingError',
+                   'AlarmConditionSensorFail', 'AlarmConditionBrownOut',
+                   'AlarmConditionHeatsinkOverheat',
+                   'AlarmConditionPsuOverheat', 'AlarmConditionPowerLoss']
 
     def __init__(self, data):
         self.length = data[self.Length_c_idx]
         self.type = data[self.Type_c_idx]
-        self.gas_set_point = self.getShort(data[self.GasSetPoint_s_idx:self.GasSetPoint_s_idx+2])/100.
-        self.gas_temp = self.getShort(data[self.GasTemp_s_idx:self.GasTemp_s_idx+2])/100.
-        self.gas_error = self.getSignedShort(data[self.GasError_s_idx:self.GasError_s_idx+2])/100.
+        self.gas_set_point = self.get_short(
+            data[self.GasSetPoint_s_idx:self.GasSetPoint_s_idx+2])/100.
+        self.gas_temp = self.get_short(
+            data[self.GasTemp_s_idx:self.GasTemp_s_idx+2])/100.
+        self.gas_error = self.get_signed_short(
+            data[self.GasError_s_idx:self.GasError_s_idx+2])/100.
         self.run_mode_code = data[self.RunMode_c_idx]
         self.run_mode = self.RUNMODE_CODES[self.run_mode_code]
         self.phase_code = data[self.PhaseId_c_idx]
         self.phase = self.PHASE_CODES[self.phase_code]
-        self.ramp_rate = self.getShort(data[self.RampRate_s_idx:self.RampRate_s_idx+2])
-        self.target_temp = self.getShort(data[self.TargetTemp_s_idx:self.TargetTemp_s_idx+2])/100.
-        self.evap_temp = self.getShort(data[self.EvapTemp_s_idx:self.EvapTemp_s_idx+2])/100.
-        self.suct_temp = self.getShort(data[self.SuctTemp_s_idx:self.SuctTemp_s_idx+2])/100.
-        self.remaining = self.getShort(data[self.Remaining_s_idx:self.Remaining_s_idx+2])
+        self.ramp_rate = self.get_short(
+            data[self.RampRate_s_idx:self.RampRate_s_idx+2])
+        self.target_temp = self.get_short(
+            data[self.TargetTemp_s_idx:self.TargetTemp_s_idx+2])/100.
+        self.evap_temp = self.get_short(
+            data[self.EvapTemp_s_idx:self.EvapTemp_s_idx+2])/100.
+        self.suct_temp = self.get_short(
+            data[self.SuctTemp_s_idx:self.SuctTemp_s_idx+2])/100.
+        self.remaining = self.get_short(
+            data[self.Remaining_s_idx:self.Remaining_s_idx+2])
         self.gas_flow = data[self.GasFlow_c_idx]/10.
         self.gas_heat = data[self.GasHeat_c_idx]
         self.evap_heat = data[self.EvapHeat_c_idx]
@@ -153,26 +180,41 @@ class StatusPacket:
         self.line_pressure = data[self.LinePressure_c_idx]
         self.alarm_code = data[self.AlarmCode_c_idx]
         self.alarm = self.ALARM_CODES[self.alarm_code]
-        self.run_time = self.getShort(data[self.RunTime_s_idx:self.RunTime_s_idx+2])
+        self.run_time = self.get_short(
+            data[self.RunTime_s_idx:self.RunTime_s_idx+2])
         self.run_days = self.run_time / (60*24)
         self.run_hours = (self.run_time - (self.run_days * 24 * 60)) / 60
-        self.run_mins = self.run_time - (self.run_days * 24 * 60) - (self.run_hours * 60)
-        self.controller_nb = self.getShort(data[self.ControllerNumber_s_idx:self.ControllerNumber_s_idx+2])
+        self.run_mins = self.run_time - (self.run_days * 24 * 60) - \
+            (self.run_hours * 60)
+        self.controller_nb = self.get_short(
+            data[self.ControllerNumber_s_idx:self.ControllerNumber_s_idx+2])
         self.software_version = data[self.SoftwareVersion_c_idx]
         self.evap_adjust = data[self.EvapAdjust_c_idx]
 
-    def getShort(self, data):
-        return (data[0]<<8)+data[1]
+    def get_short(self, data):
+        """Construct short from two bytes
+           Args:
+             (list): data from the controller
+           Returns:
+              (short): the constructed short value
+        """
+        return (data[0] << 8) + data[1]
 
-    def getSignedShort(self, data):
-        """reverting two's complement if necessary"""
-        short = self.getShort(data)
-        #checking if value is negative
+    def get_signed_short(self, data):
+        """Construct signed short from two bytes
+           Args:
+             (list): data from the controller
+           Returns:
+              (short): the constructed short value
+        """
+        # reverting two's complement if necessary
+        short = self.get_short(data)
+        # checking if value is negative
         if (short & 0b1000000000000000) >> 15:
             short = ~short
             short += 1
             short &= 0b1111111111111111
-            short *= -1 #returning the negative value
+            short *= -1  # returning the negative value
         return short
 
     def __repr__(self):
@@ -198,22 +240,31 @@ class StatusPacket:
         pretty_print += '\nline pressure: %d (100*bar)' % self.line_pressure
         pretty_print += '\nalarm code: %d' % self.alarm_code
         pretty_print += '\nalarm: %s' % self.alarm
-        pretty_print += '\nrun time: %d (min): %dd %dh %dm' % (self.run_time, self.run_days, self.run_hours, self.run_mins)
+        pretty_print += '\nrun time: %d (min): %dd %dh %dm' % \
+                        (self.run_time, self.run_days,
+                         self.run_hours, self.run_mins)
         pretty_print += '\ncontroller number: %d' % self.controller_nb
         pretty_print += '\nsoftware version: %d' % self.software_version
         pretty_print += '\nevap adjust: %d' % self.evap_adjust
         return pretty_print
 
-class Struct:
-    def __init__(self, **entries): self.__dict__.update(entries)
+
+class Struct(object):
+    """Make an enum"""
+    def __init__(self, **entries):
+        self.__dict__.update(entries)
 
 Enum = Struct
-CSCOMMAND = Enum(RESTART=10, RAMP=11, PLAT=12, HOLD=13, COOL=14, END=15, PURGE=16, PAUSE=17, RESUME=18, STOP=19, TURBO=20)
+CSCOMMAND = Enum(RESTART=10, RAMP=11, PLAT=12, HOLD=13, COOL=14,
+                 END=15, PURGE=16, PAUSE=17, RESUME=18, STOP=19, TURBO=20)
 
-def splitBytes(number):
-    """splits high and low byte (two less significant bytes) of an integer, and returns them as chars"""
-    if not isinstance(number,int):
-        raise Exception("splitBytes(number): Wrong function parameter. It must be an integer.")
+
+def split_bytes(number):
+    """splits high and low byte (two less significant bytes)
+       of an integer, and returns them as chars
+    """
+    if not isinstance(number, int):
+        raise Exception("split_bytes: Wrong imput - should be an integer.")
     low = chr(number & 0b11111111)
     high = chr((number >> 8) & 0b11111111)
-    return high,low
+    return high, low

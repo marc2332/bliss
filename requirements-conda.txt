@@ -1,0 +1,54 @@
+# Conda requirement file (python 2.7)
+
+# This should accelerate and simplify the installation procedure
+# since conda provide binary packages for gevent, h5py, etc.
+
+# First run:
+# $ conda install --channel esrf-bcu --file requirements-conda.txt
+# Then:
+# $ pip install -r requirements.txt
+
+
+# Requirements
+
+enum34
+gevent >= 1.2.2
+redis  >= 2.8
+PyYaml
+jinja2 >= 2.7
+flask
+jedi
+docopt
+numpy
+six >= 1.10
+tabulate
+sphinx >= 1.4
+pyserial == 2.7
+h5py
+msgpack-python
+pyzmq
+pytango
+python-graphviz
+
+# Non-python requirements
+
+redis
+
+# Test requirements
+
+pytest
+pytest-mock
+posix_ipc
+h5py
+
+
+# Requirements not yet provided by conda
+
+# louie
+# treelib
+# gipc
+# bottle
+# ptpython == 0.39
+# sphinxcontrib-wavedrom >= 1.3
+# netifaces < 0.10.5
+# ruamel.yaml == 0.11.15

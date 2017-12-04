@@ -47,9 +47,9 @@ class TacoMaxe(Controller):
 	- Dsc2p server to ETEL Dsc2p controller 
     """
 
-    def __init__(self, name, config, axes, encoders):
+    def __init__(self, *args, **kwargs):
         """Contructor"""
-        Controller.__init__(self, name, config, axes, encoders)
+        Controller.__init__(self, *args, **kwargs)
 
  
     def initialize(self):
@@ -220,15 +220,13 @@ class TacoMaxe(Controller):
 
     def stop(self, axis):
         """Stops an axis motion"""
-        tacomaxe_info("stop() called for axis \"%s\"" % axis.name)
 	self.device.DevAbortCommand(axis.channel)
 
 
     def stop_all(self, *motion_list):
         """Stops all the moving axis given"""
-        tacomaxe_info("stop_all() called for axis \"%s\"" % axis.name)
         for motion in motion_list:
-            self.stop(motion)
+            self.stop(motion.axis)
 
     @object_method(types_info=("None", "float"))
     def custom_read_firststeprate(self,axis):

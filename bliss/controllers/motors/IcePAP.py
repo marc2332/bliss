@@ -21,7 +21,7 @@ from bliss.common.axis import AxisState
 """
 Extra modules
 """
-import libicepap
+from bliss.comm import libicepap
 
 """
 Global resources
@@ -35,9 +35,9 @@ class IcePAP(Controller):
     default_group    = None
     default_groupenc = None
 
-    def __init__(self, name, config, axes, encoders):
+    def __init__(self, *args, **kwargs):
         """Contructor"""
-        Controller.__init__(self, name, config, axes, encoders)
+        Controller.__init__(self, *args, **kwargs)
 
         self.libdevice = None
 
@@ -120,14 +120,15 @@ class IcePAP(Controller):
         # Add the axis to the default IcePAP lib group
         self.libgroup.add_axis(axis.libaxis)
 
+    def initialize_hardware_axis(self, axis):
         # Initialiaze hardware
         # if set_power fails, display exception but let axis
         # be created properly
-        try:
-            self.libgroup.set_power(libicepap.ON, axis.libaxis)
-        except:
-            sys.excepthook(*sys.exc_info())
-
+        if axis.config.get('autopower', converter=bool, default=True):
+            try:
+                self.set_on(axis)
+            except:
+                sys.excepthook(*sys.exc_info())
 
     def set_on(self, axis):
         """Switch power on"""
@@ -139,7 +140,7 @@ class IcePAP(Controller):
 
     def read_position(self, axis):
         """Returns axis position in motor units"""
-        self.log_info("position() called for axis %r" % axis.name)
+        self.log_info("read_position() called for axis %r" % axis.name)
         return self.libgroup.pos(axis.libaxis)
 
 
@@ -154,7 +155,10 @@ class IcePAP(Controller):
     def read_velocity(self, axis):
         """Returns axis current velocity in user units/sec"""
         #TODO: wouldn't be better in steps/s ?
-        return self.libgroup.velocity(axis.libaxis)
+        velocity = self.libgroup.velocity(axis.libaxis)
+        self.log_info("read_velocity() returns %fstps/sec for axis %r" %
+                      (velocity, axis.name))
+        return velocity
 
 
     def set_velocity(self, axis, new_velocity):
@@ -418,7 +422,27 @@ class IcePAP(Controller):
         """Logging method"""
         log.info(_ICEPAP_TAB + msg)
 
+    @object_method()
     def get_id(self, axis):
         """Returns the unique string identifier of the specified axis"""
-        self.log_info("get_identifier() called for axis %r" % axis.name)
+        self.log_info("get_id() called for axis %r" % axis.name)
         return self.libgroup.command("?ID", axis.libaxis)
+
+    @object_method(name='MotToSync')
+    def mot_to_sync(self, axis):
+        """
+        Broadcast the concerned DRIVER signal to all IcePAP system
+        components (DRIVERs, CONTROLLERs, MASTER DB9 SYNCHRO connector)
+        """
+
+        # remove any previous multiplexer rule
+        _cmd = "PMUX REMOVE"
+        axis.libaxis.system().command(_cmd)
+
+	# set the new multiplexer rule
+        _cmd = "PMUX HARD B%d"%(axis.address)
+        axis.libaxis.system().command(_cmd)
+
+	# set which signal the DRIVER has to send to multiplexer
+        _cmd = "SYNCPOS MEASURE"
+        axis.libaxis.ackcommand(_cmd)

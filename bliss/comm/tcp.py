@@ -12,6 +12,7 @@
 __all__ = ['Tcp', 'Socket', 'Command']
 
 import re
+import errno
 import gevent
 from gevent import socket, event, queue, lock
 import time
@@ -20,6 +21,9 @@ import weakref
 
 from .exceptions import CommunicationError, CommunicationTimeout
 from ..common.greenlet_utils import KillMask
+from .util import HexMsg
+
+from bliss.common.task_utils import error_cleanup
 
 class SocketTimeout(CommunicationTimeout):
     '''Socket timeout error'''
@@ -30,28 +34,30 @@ class SocketTimeout(CommunicationTimeout):
 def try_connect_socket(fu):
     def rfunc(self, *args, **kwarg):
         write_func = fu.func_name.startswith('write')
+        prev_timeout = kwarg.get('timeout', None)
 
         if((not self._connected) and ((not self._data) or write_func)):
             # connects if :
             #   not already connected
             #   AND
             #   "write"-function   OR   no data are present.
-            self.connect()
+            self.connect(timeout=prev_timeout)
 
         if not self._connected:
-            prev_timeout = kwarg.get('timeout', None)
             kwarg.update({'timeout': 0.})
             try:
                 with KillMask():
                     return fu(self, *args, **kwarg)
             except SocketTimeout:
-                self.connect()
+                self.connect(timeout=prev_timeout)
                 kwarg.update({'timeout': prev_timeout})
-        return fu(self, *args, **kwarg)
+
+        with KillMask():
+            return fu(self, *args, **kwarg)
     return rfunc
 
 
-class Socket:
+class BaseSocket:
     '''Raw socket class. Provides raw socket access.
     Consider using :class:`Tcp`.'''
 
@@ -83,9 +89,10 @@ class Socket:
         if not self._connected:
             self.connect()
     
-    def connect(self, host=None, port=None):
+    def connect(self, host=None, port=None, timeout=None):
         local_host = host or self._host
         local_port = port or self._port
+        local_timeout = timeout if timeout is not None else self._timeout
         self._debug("connect(host=%s,port=%d)",local_host,local_port)
 
         self.close()
@@ -96,28 +103,44 @@ class Socket:
         with self._lock:
             if self._connected:
                 return True
-
-            self._fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self._fd.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-            self._fd.connect((local_host, local_port))
+            err_message = "connection timeout on socket(%s, %d)" %\
+                          (self._host,self._port)
+            with gevent.Timeout(local_timeout,SocketTimeout(err_message)):
+                self._fd = self._connect(local_host,local_port)
             self._connected = True
 
         self._raw_read_task = gevent.spawn(self._raw_read,weakref.proxy(self),self._fd)
 
         return True
 
+    def _connect(self, host, port):
+        """
+        This method return a socket for a new connection.
+        Should be implemented in inherited classes
+        """
+        raise NotImplementedError
+    
     def close(self):
         if self._connected:
             try:
-                self._fd.shutdown(socket.SHUT_RDWR)
+                self._shutdown()
             except:             # probably closed one the server side
                 pass
             self._fd.close()
             if self._raw_read_task:
-                self._raw_read_task.join()
+                self._raw_read_task.kill()
                 self._raw_read_task = None
             self._data = ''
+            self._connected = False
+            self._fd = None
 
+    def _shutdown(self):
+        """
+        This method disconnect properly the socket,
+        not always needed but could be implemented into inherited classes
+        """
+        pass
+    
     @try_connect_socket
     def raw_read(self, maxsize=None, timeout=None):
         timeout_errmsg = "timeout on socket(%s, %d)" % (self._host, self._port)
@@ -126,6 +149,8 @@ class Socket:
             while not self._data:
                 self._event.wait()
                 self._event.clear()
+                if not self._connected:
+                    raise socket.error(errno.EPIPE,"Broken pipe")
         if maxsize:
             msg = self._data[:maxsize]
             self._data = self._data[maxsize:]
@@ -142,6 +167,8 @@ class Socket:
             while len(self._data) < size:
                 self._event.wait()
                 self._event.clear()
+                if not self._connected:
+                    raise socket.error(errno.EPIPE,"Broken pipe")
         msg = self._data[:size]
         self._data = self._data[size:]
         return msg
@@ -161,6 +188,8 @@ class Socket:
             while eol_pos == -1:
                 self._event.wait()
                 self._event.clear()
+                if not self._connected:
+                    raise socket.error(errno.EPIPE,"Broken pipe")
                 eol_pos = self._data.find(local_eol)
 
         msg = self._data[:eol_pos]
@@ -198,7 +227,7 @@ class Socket:
             self, msg, nb_lines, write_synchro=None, eol=None, timeout=None):
         with self._lock:
             with gevent.Timeout(timeout or self._timeout,
-                                SocketTimeout("write_readlines(%s, %d) timed out" % (msg, nb_lines))):
+                                SocketTimeout("write_readlines(%r, %d) timed out" % (msg, nb_lines))):
                 self._sendall(msg)
                 if write_synchro:
                     write_synchro.notify()
@@ -222,18 +251,33 @@ class Socket:
         self._data = ''
 
     def _sendall(self,data) :
-        if logging.getLogger().isEnabledFor(logging.DEBUG):
-            self._debug("Tx: %s %s",data,['0x%.2x' % ord(x) for x in data])
-        self._fd.sendall(data)
+        raise NotImplementedError
+
+    @staticmethod
+    def _raw_read(sock,fd):
+        raise NotImplementedError
+    
+class Socket(BaseSocket):
+    def _connect(self, host, port):
+        fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        fd.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        fd.setsockopt(socket.SOL_IP, socket.IP_TOS, 0x10)
+        fd.connect((host, port))
+        return fd
+
+    def _shutdown(self):
+        self._fd.shutdown(socket.SHUT_RDWR)
+
+    def _sendall(self,data):
+        self._debug("Tx: %r %r",data,HexMsg(data))
+        return self._fd.sendall(data)
 
     @staticmethod
     def _raw_read(sock,fd):
         try:
             while(1):
                 raw_data = fd.recv(16 * 1024)
-                if logging.getLogger().isEnabledFor(logging.DEBUG):
-                    sock._debug("Rx: %s %s",raw_data,
-                                ['0x%.2x' % ord(x) for x in raw_data])
+                sock._debug("Rx: %r %r",raw_data,HexMsg(raw_data))
                 if raw_data:
                     sock._data += raw_data
                     sock._event.set()
@@ -242,13 +286,16 @@ class Socket:
         except:
             pass
         finally:
-            fd.close()
+            try:
+                fd.close()
+            except socket.error:
+                pass
             try:
                 sock._connected = False
                 sock._fd = None
+                sock._event.set()
             except ReferenceError:
                 pass
-
 
 class CommandTimeout(CommunicationTimeout):
     '''Command timeout error'''
@@ -256,9 +303,9 @@ class CommandTimeout(CommunicationTimeout):
 
 def try_connect_command(fu):
     def rfunc(self, *args, **kwarg):
-        with self._lock:
-            if(not self._connected):
-                self.connect()
+        timeout = kwarg.get('timeout')
+        if(not self._connected):
+            self.connect(timeout=timeout)
 
         if not self._connected:
             prev_timeout = kwarg.get('timeout', None)
@@ -267,9 +314,10 @@ def try_connect_command(fu):
                 with KillMask():
                     return fu(self, *args, **kwarg)
             except CommandTimeout:
-                self.connect()
+                self.connect(timeout=timeout)
                 kwarg.update({'timeout': prev_timeout})
-        return fu(self, *args, **kwarg)
+        with KillMask():
+            return fu(self, *args, **kwarg)
     return rfunc
 
 
@@ -290,17 +338,26 @@ class Command:
             return self
 
         def __exit__(self, *args):
-            while not self.__transaction.empty():
-                self.data += self.__transaction.get()
+            with self.__socket._lock:
+                try:
+                    trans_index = self.__socket._transaction_list.index(self.__transaction)
+                except ValueError: # not in list weird
+                    return
 
-            if self.__clear_transaction and \
-               len(self.__socket._transaction_list) > 1:
-                self.__socket._transaction_list[1].put(self.data)
-            else:
-                self.__transaction.put(self.data)
+                if trans_index is 0:
+                    while not self.__transaction.empty():
+                        read_value = self.__transaction.get()
+                        if not isinstance(read_value,socket.error):
+                            self.data += read_value
 
-            if self.__clear_transaction:
-                self.__socket._transaction_list.pop(0)
+                    if self.__clear_transaction and \
+                       len(self.__socket._transaction_list) > 1:
+                        self.__socket._transaction_list[1].put(self.data)
+                    else:
+                        self.__transaction.put(self.data)
+
+                if self.__clear_transaction:
+                    self.__socket._transaction_list.pop(trans_index)
 
     def __init__(self, host, port,
                  eol='\n',      # end of line for each rx message
@@ -326,19 +383,33 @@ class Command:
         if not self._connected:
             self.connect()
         
-    def connect(self, host=None, port=None):
+    def connect(self, host=None, port=None, timeout=None):
         local_host = host or self._host
         local_port = port or self._port
+        local_timeout = timeout if timeout is not None else self._timeout
+        if self._connected:
+            prev_ip_host,prev_port = s.getpeername()
+            try:
+                prev_name, aliaslist, _ = socket.gethostbyaddr(prev_ip_host)
+            except socket.herror:
+                prev_name = prev_ip_host
 
-        self.close()
+            fqdn_host = socket.getfqdn(host)
+            if(port != prev_port or
+               (fqdn_host != prev_name and 
+                name not in aliaslist)):
+               self.close()
 
         with self._lock:
             if self._connected:
                 return True
 
             self._fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self._fd.connect((local_host, local_port))
+            err_msg = "timeout on command(%s, %d)" % (local_host,local_port)
+            with gevent.Timeout(local_timeout, CommandTimeout(err_msg)):
+                self._fd.connect((local_host, local_port))
             self._fd.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+            self._fd.setsockopt(socket.SOL_IP, socket.IP_TOS, 0x10)
             self._host = local_host
             self._port = local_port
             self._raw_read_task = gevent.spawn(self._raw_read,weakref.proxy(self),self._fd)
@@ -347,17 +418,18 @@ class Command:
         return True
 
     def close(self):
-        if self._connected:
-            try:
-                self._fd.shutdown(socket.SHUT_RDWR)
-            except:             # probably closed one the server side
-                pass
-            self._fd.close()
-            if self._raw_read_task:
-                self._raw_read_task.join()
-                self._raw_read_task = None
-            self._transaction_list = []
-
+        with self._lock:
+            if self._connected:
+                try:
+                    self._fd.shutdown(socket.SHUT_RDWR)
+                except:             # probably closed one the server side
+                    pass
+                self._fd.close()
+                if self._raw_read_task:
+                    self._raw_read_task.kill()
+                    self._raw_read_task = None
+                self._transaction_list = []
+                
     @try_connect_command
     def _read(self, transaction, size=1, timeout=None, clear_transaction=True):
         with Command.Transaction(self, transaction, clear_transaction) as ctx:
@@ -367,7 +439,10 @@ class Command:
                                 CommandTimeout(timeout_errmsg)):
                 ctx.data = ''
                 while len(ctx.data) < size:
-                    ctx.data += transaction.get()
+                    read_value = transaction.get()
+                    if isinstance(read_value,socket.error):
+                        raise read_value
+                    ctx.data += read_value
 
                 msg = ctx.data[:size]
                 ctx.data = ctx.data[size:]
@@ -384,7 +459,10 @@ class Command:
                 ctx.data = ''
                 eol_pos = -1
                 while eol_pos == -1:
-                    ctx.data += transaction.get()
+                    read_value = transaction.get()
+                    if isinstance(read_value,socket.error):
+                        raise read_value
+                    ctx.data += read_value
                     eol_pos = ctx.data.find(local_eol)
 
                 msg = ctx.data[:eol_pos]
@@ -398,9 +476,9 @@ class Command:
         with self._lock:
             if transaction is None and create_transaction:
                 transaction = self.new_transaction()
-            if logging.getLogger().isEnabledFor(logging.DEBUG):
-                self._debug("Tx: %s %s",msg,['0x%x' % ord(x) for x in msg])
-            self._fd.sendall(msg)
+            self._debug("Tx: %r %r",msg, HexMsg(msg))
+            with error_cleanup(self._pop_transaction,transaction=transaction):
+                self._fd.sendall(msg)
         return transaction
 
     def write(self, msg, timeout=None):
@@ -458,17 +536,25 @@ class Command:
         try:
             while(1):
                 raw_data = fd.recv(16 * 1024)
-                if raw_data and command._transaction_list:
-                    command._transaction_list[0].put(raw_data)
-                else:
-                    break
+                with command._lock:
+                    if raw_data and command._transaction_list:
+                        command._transaction_list[0].put(raw_data)
+                    else:
+                        break
         except:
             pass
         finally:
-            fd.close()
+            try:
+                fd.close()
+            except socket.error:
+                pass
             try:
                 command._connected = False
                 command._fd = None
+                #inform all pending transaction that the socket is closed
+                with command._lock:
+                    for trans in command._transaction_list:
+                        trans.put(socket.error(errno.EPIPE,"Broken pipe"))
             except ReferenceError:
                 pass
 
@@ -478,6 +564,9 @@ class Command:
         self._transaction_list.append(data_queue)
         return data_queue
 
+    def _pop_transaction(self,transaction=None):
+        index = self._transaction_list.index(transaction)
+        self._transaction_list.pop(index)
 
 class TcpError(CommunicationError):
     '''TCP communication error'''

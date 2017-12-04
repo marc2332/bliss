@@ -15,10 +15,9 @@ This module gathers most common functionality to bliss (from
    :toctree:
 
    axis
-   continuous_scan
-   data_manager
    encoder
    event
+   hook
    log
    measurement
    scans
@@ -56,6 +55,7 @@ class Actuator:
                     gevent.sleep(0.5)
     finally:
         dispatcher.send("state", self, self.state())
+
   def set_out(self, timeout=8):
     self.__out = True
     self.__in = False
@@ -69,6 +69,7 @@ class Actuator:
                     gevent.sleep(0.5)
     finally:
         dispatcher.send("state", self, self.state())
+
   def is_in(self):
     if self._is_in is not None:
       return self._is_in()
@@ -77,6 +78,7 @@ class Actuator:
         return not self._is_out()
       else:
         return self.__in
+
   def is_out(self):
     if self._is_out is not None:
       return self._is_out()
@@ -85,6 +87,7 @@ class Actuator:
         return not self._is_in()
       else:
         return self.__out
+
   def state(self):
       state = ""
       if self.is_in():
@@ -95,49 +98,3 @@ class Actuator:
           return "UNKNOWN"
       return state
 
-class Shutter:
-  def __init__(self, open=None, close=None, state=None):
-    self.__open = open
-    self.__close = close
-    self.__state = state
-    self.__opened = False
-    self.__closed = False
-
-  def open(self,timeout=5):
-    # this is to know which command was asked for,
-    # in case we don't have a return
-    self.__opened = True
-    self.__closed = False
-    try:
-        with gevent.Timeout(timeout):
-            while True:
-                self.__open()
-                if self.state() == 'OPENED':
-                    break
-                else:
-                    gevent.sleep(0.5)
-    finally:
-        dispatcher.send("state", self, self.state())
-  def close(self, timeout=5):
-    self.__opened = False
-    self.__closed = True
-    try:
-        with gevent.Timeout(timeout):
-            while True:
-                self.__close()
-		if self.state() == 'CLOSED':
-                    break
-                else:
-                    gevent.sleep(0.5)
-    finally:
-        dispatcher.send("state", self, self.state())
-  def state(self):
-      if self.__state is not None:
-	  return self.__state()
-      else:
-	  if self.__opened:
-	      return "OPENED"
-	  elif self.__closed:
-	      return "CLOSED"
-	  else:
-	      return "UNKNOWN"

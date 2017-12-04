@@ -46,6 +46,7 @@ Accessing the configured elements from python is easy
 """
 
 import os
+import gc
 import yaml
 import weakref
 import functools
@@ -57,11 +58,7 @@ from .conductor import client
 
 try:
     from ruamel import yaml as ordered_yaml
-    try:
-        from collections import OrderedDict as ordereddict
-    except ImportError:
-        # Python 2.6 ?
-        from ordereddict import OrderedDict as ordereddict
+    from bliss.common.utils import OrderedDict as ordereddict
     NodeDict = ordereddict
     class RoundTripRepresenter(ordered_yaml.representer.RoundTripRepresenter):
         def __init__(self,*args,**keys):
@@ -186,13 +183,6 @@ class Node(NodeDict):
     def __hash__(self):
         return id(self)
 
-    def __setstate__(self, d):
-        self.update(d)
-
-    def __reduce__(self):
-        kwargs = dict(parent=None, filename=self.filename)
-        return self.__class__, (None, kwargs), dict(self)
-
     @property
     def filename(self):
         """Filename where the cofiguration of this node is located"""
@@ -273,14 +263,68 @@ class Node(NodeDict):
         """
         parent,filename = self.get_node_filename()
         if filename is None: return # Memory
-        save_file_tree =  self._get_save_dict(parent,filename)
+        nodes_2_save = self._config._file2node[filename]
+        if len(nodes_2_save) == 1:
+            node = tuple(nodes_2_save)[0]
+            save_nodes = self._get_save_dict(node,filename)
+        else:
+            save_nodes = self._get_save_list(nodes_2_save,filename)
         if ordered_yaml:
-            file_content = ordered_yaml.dump(save_file_tree,
+            file_content = ordered_yaml.dump(save_nodes,
                                              Dumper=RoundTripDumper,
                                              default_flow_style=False)
         else:
-            file_content = yaml.dump(save_file_tree,default_flow_style=False)
+            file_content = yaml.dump(save_nodes,default_flow_style=False)
         self._config.set_config_db_file(filename,file_content)
+
+    def deep_copy(self):
+        """
+        full copy of this node an it's children
+        """
+        node = Node()
+        node._config = self._config
+        node._parent = self._parent
+        for key,value in self.iteritems():
+            if isinstance(value,Node):
+                child_node = value.deep_copy()
+                node[key] = child_node
+            elif isinstance(value,list):
+                new_list = Node._copy_list(value)
+                node[key] = new_list
+            else:
+                node[key] = value
+        return node
+    
+    def to_dict(self):
+        """
+        full copy and transform all node to dict object.
+        
+        the return object is a simple dictionary
+        """
+        newdict = dict()
+        for key,value in self.iteritems():
+            if isinstance(value,Node):
+                child_dict = value.to_dict()
+                newdict[key] = child_dict
+            elif isinstance(value,list):
+                new_list = Node._copy_list(value,dict_mode = True)
+                newdict[key] = new_list
+            else:
+                newdict[key] = value
+        return newdict
+    @staticmethod
+    def _copy_list(l,dict_mode = False):
+        new_list = list()
+        for v in l:
+            if isinstance(v,Node):
+                new_node = v.deep_copy() if not dict_mode else v.to_dict()
+                new_list.append(new_node)
+            elif isinstance(v,list):
+                child_list = Node._copy_list(v,dict_mode=dict_mode)
+                new_list.append(child_list)
+            else:
+                new_list.append(v)
+        return new_list
 
     def _get_save_dict(self,src_node,filename):
         return_dict = NodeDict()
@@ -355,9 +399,9 @@ class Config(object):
 
     USER_TAG_KEY = 'user_tag'
 
-    def __init__(self, base_path, timeout=3):
+    def __init__(self, base_path, timeout=3, connection=None):
         self._base_path = base_path
-        
+        self._connection = connection or client.get_default_connection()
         self.reload(timeout=timeout)
 
     def reload(self, base_path=None, timeout=3):
@@ -388,7 +432,8 @@ class Config(object):
         self._clear_instances()
 
         path2file = client.get_config_db_files(base_path = base_path,
-                                               timeout = timeout)
+                                               timeout = timeout,
+                                               connection = self._connection)
 
         for path, file_content in path2file:
             if not file_content:
@@ -477,7 +522,8 @@ class Config(object):
                         fs_node[fs_key] = [children,parents]
             else:
                 fs_node[fs_key] = parents
-
+        while gc.collect():
+            pass        
     @property
     def names_list(self):
         """
@@ -519,7 +565,8 @@ class Config(object):
         """
 
         full_filename = os.path.join(self._base_path,filename)
-        client.set_config_db_file(full_filename,content)
+        client.set_config_db_file(full_filename,content,
+                                  connection=self._connection)
 
     def _create_file_index(self,node,filename) :
         if filename:
@@ -692,3 +739,6 @@ class Config(object):
 
     def pprint(self, indent=1, depth=None):
         self.root.pprint(indent=indent, depth=depth)
+
+    def __str__(self):
+        return '{0}({1})'.format(self.__class__.__name__, self._connection)

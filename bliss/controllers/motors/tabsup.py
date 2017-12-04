@@ -43,8 +43,8 @@ class tabsup(CalcController):
         d1 = self.d1
         d2 = self.d2
 
-        return {"ttrans": (d1*tyb+d2*tyf)/(d1+d2),
-                "trot": math.degrees(math.atan((tyf-tyb)/(d1+d2))) }
+        return {"ttrans": (d1*tyb-d2*tyf)/(d1-d2),
+                "trot": math.atan((tyf-tyb)/(d2-d1)) }
 
     def calc_to_real(self, positions_dict):
         ttrans = positions_dict["ttrans"]
@@ -52,5 +52,5 @@ class tabsup(CalcController):
         d1 = self.d1
         d2 = self.d2
 
-        return {"back": ttrans - d2*math.tan(math.radians(trot)),
-                "front": ttrans + d1*math.tan(math.radians(trot)) }
+        return {"back": ttrans - d2*math.tan(trot),
+                "front": ttrans - d1*math.tan(trot) }

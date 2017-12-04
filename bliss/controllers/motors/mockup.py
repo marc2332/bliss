@@ -11,12 +11,12 @@ import random
 
 from bliss.controllers.motor import Controller
 from bliss.common import log as elog
-from bliss.common.axis import AxisState
+from bliss.common.axis import Axis,AxisState
 from bliss.common import event
 
+from bliss.common.hook import MotionHook
 from bliss.common.utils import object_method
 from bliss.common.utils import object_attribute_get, object_attribute_set
-
 
 """
 mockup.py : a mockup controller for bliss.
@@ -31,23 +31,9 @@ config :
  'backlash' in unit
 """
 
-config_xml = """
-<config>
-  <controller class="mockup">
-    <axis name="robx" class="MockupAxis">
-      <velocity  value="1"/>
-      <acceleration value="3"/>
-      <steps_per_unit value="10"/>
-      <backlash value="2"/>
-    </axis>
-  </controller>
-</config>
-"""
-
-
 class Mockup(Controller):
-    def __init__(self, name, config, axes, encoders):
-        Controller.__init__(self, name, config, axes, encoders)
+    def __init__(self, *args, **kwargs):
+        Controller.__init__(self, *args, **kwargs)
 
         self._axis_moves = {}
         self.__encoders = {}
@@ -57,16 +43,16 @@ class Mockup(Controller):
         self.__cust_attr_float = {}
 
         self.__error_mode = False
-        self._hw_status = AxisState("READY")
+        self._hw_state = AxisState("READY")
         self.__hw_limit = (None, None)
 
-        self._hw_status.create_state("PARKED", "mot au parking")
+        self._hw_state.create_state("PARKED", "mot au parking")
 
         # Access to the config.
         try:
             self.host = self.config.get("host")
         except:
-            elog.debug("no 'host' defined in config for %s" % name)
+            elog.debug("no 'host' defined in config for %s" % self.name)
 
         # Adds Mockup-specific settings.
         self.axis_settings.add('init_count', int)
@@ -91,6 +77,8 @@ class Mockup(Controller):
                            default=False, inherited=True):
             try:
                 dial_pos = axis.settings.get("dial_position")
+                if dial_pos is None:
+                    dial_pos = 0 # init
             except:
                 pass
 
@@ -127,7 +115,7 @@ class Mockup(Controller):
     def finalize(self):
         pass
 
-    def set_hw_limit(self, axis, low_limit, high_limit):
+    def set_hw_limits(self, axis, low_limit, high_limit):
         if low_limit is not None:
             ll= axis.user2dial(low_limit)*axis.steps_per_unit
         else:
@@ -210,29 +198,31 @@ class Mockup(Controller):
         returns encoder position.
         unit : 'encoder steps'
         """
-
-        axis = self.__encoders[encoder]["axis"]
-
-        if self.__encoders[encoder]["measured_noise"] != 0.0:
-            # Simulates noisy encoder.
-            amplitude = self.__encoders[encoder]["measured_noise"]
-            noise_mm = random.uniform(-amplitude, amplitude)
-
-            _pos = self.read_position(axis, t=t) / axis.steps_per_unit
-            _pos += noise_mm
-
-            self.__encoders[encoder]["steps"] = _pos * encoder.steps_per_unit
-
+        if self.__encoders[encoder]["steps"] is not None:
+            enc_steps = self.__encoders[encoder]["steps"]
         else:
-            # print "Perfect encoder"
-            if self.__encoders[encoder]["steps"] is None:
-                _axis_pos = self.read_position(axis, t=t) / axis.steps_per_unit
-                self.__encoders[encoder]["steps"] = _axis_pos * encoder.steps_per_unit
+            axis = self.__encoders[encoder]["axis"]
 
-        return self.__encoders[encoder]["steps"]
+            if self.__encoders[encoder]["measured_noise"] != 0.0:
+                # Simulates noisy encoder.
+                amplitude = self.__encoders[encoder]["measured_noise"]
+                noise_mm = random.uniform(-amplitude, amplitude)
+
+                _pos = self.read_position(axis, t=t) / axis.steps_per_unit
+                _pos += noise_mm
+
+                enc_steps = _pos * encoder.steps_per_unit
+            else:
+                # print "Perfect encoder"
+                _pos = self.read_position(axis, t=t) / axis.steps_per_unit
+                enc_steps = _pos * encoder.steps_per_unit
+
+        self.__encoders[encoder]["steps"] = None
+
+        return enc_steps
 
     def set_encoder(self, encoder, encoder_steps):
-        self.__encoders[encoder]["steps"]=encoder_steps
+        self.__encoders[encoder]["steps"] = encoder_steps
 
     """
     VELOCITY
@@ -269,10 +259,11 @@ class Mockup(Controller):
     ON / OFF
     """
     def set_on(self, axis):
-        self._hw_status = "READY"
+        self._hw_state.clear()
+        self._hw_state.set("READY")
 
     def set_off(self, axis):
-        self._hw_status = "OFF"
+        self._hw_state.set("OFF")
 
     """
     Hard limits
@@ -284,18 +275,17 @@ class Mockup(Controller):
             return AxisState("READY", "LIMNEG")
         elif hl is not None and pos >= hl:
             return AxisState("READY", "LIMPOS")
-        return AxisState("READY")
+        if self._hw_state == "OFF":
+            return AxisState("OFF")
+        else:
+            s = AxisState(self._hw_state)
+            s.set("READY")
+            return s
 
     """
     STATE
     """
     def state(self, axis):
-        if self._hw_status == "PARKED":
-            return AxisState("PARKED")
-
-        if self._hw_status == "OFF":
-            return AxisState("OFF")
-
         if self._axis_moves[axis]["end_t"] > time.time():
            return AxisState("MOVING")
         else:
@@ -370,8 +360,7 @@ class Mockup(Controller):
     @object_method
     def custom_park(self, axis):
         elog.debug("custom_park : parking")
-        self._hw_status.clear()
-        self._hw_status.set("PARKED")
+        self._hw_state.set("PARKED")
 
     # VOID LONG
     @object_method(types_info=("None", "int"))
@@ -401,7 +390,7 @@ class Mockup(Controller):
     # BOOL NONE
     @object_method(name="Set_Closed_Loop", types_info=("bool", "None"))
     def _set_closed_loop(self, axis, onoff = True):
-        print "I set the closed loop ", onoff
+        pass #print "I set the closed loop ", onoff
 
     # Types by default (None, None)
     @object_method
@@ -454,3 +443,46 @@ class Mockup(Controller):
     def set_cust_attr_float(self, axis, value):
         self.__cust_attr_float[axis] = value
 
+class MockupAxis(Axis):
+
+    def __init__(self, *args, **kwargs):
+        Axis.__init__(self, *args, **kwargs)
+
+    def prepare_move(self, *args, **kwargs):
+        self.backlash_move = 0
+        return Axis.prepare_move(self, *args, **kwargs)
+
+    def _handle_move(self, motion, polling_time):
+        self.target_pos = motion.target_pos
+        self.backlash_move = motion.target_pos / \
+            self.steps_per_unit if motion.backlash else 0
+        return Axis._handle_move(self, motion, polling_time)
+
+
+class MockupHook(MotionHook):
+    """Motion hook used for pytest"""
+
+    class Error(Exception):
+        """Mockup hook error"""
+        pass
+
+    def __init__(self, name, config):
+        super(MockupHook, self).__init__()
+        self.name = name
+        self.config = config
+        self.nb_pre_move = 0
+        self.nb_post_move = 0
+        self.last_pre_move_args = ()
+        self.last_post_move_args = ()
+
+    def pre_move(self, motion_list):
+        if self.config.get('pre_move_error', False):
+            raise self.Error('cannot pre_move')
+        self.nb_pre_move += 1
+        self.last_pre_move_args = motion_list
+
+    def post_move(self, motion_list):
+        if self.config.get('post_move_error', False):
+            raise self.Error('cannot post_move')
+        self.nb_post_move += 1
+        self.last_post_move_args = motion_list

@@ -33,7 +33,7 @@ function Shell(client_uuid, cmdline_div_id, shell_output_div_id, setup_div_id, l
     var table = $('<div style="width:100%; display:table;"></div>');
     this.hint_row = $($.parseHTML('<div style="display:table-row;"><label style="display:table-cell; width:1%;">&nbsp;</label></div>'));
     this.hint_row.appendTo(table);
-    this.hint = $('<label class="hint" style="display:table-cell;"></label>');
+    this.hint = $('<label class="hint" style="display:table-cell; padding: 1.1em;"></label>');
     this.hint.appendTo(this.hint_row);
     this.cmdline_row = $($.parseHTML('<div style="display:table-row;"></div>'));
     this.cmdline_row.appendTo(table);
@@ -474,12 +474,16 @@ Shell.prototype = {
             this.last_output_div.append(plot_div);
             this.output_div.scrollTop(0);
             //this.scrollToBottom(this.output_div);
+	    var labels = [];
+	    if (data.scan_actuators.length > 0) {
+		labels = labels.concat(data.scan_actuators);
+            }
             this.plot[data.scan_id] = {
                 "div": inner_plot_div[0],
                 "data": [],
                 "obj": null,
                 "title": data.filename,
-                "labels": [data.scan_actuators[0]].concat(data.counters)
+                "labels": labels.concat(data.counters)
             };
         }
     },

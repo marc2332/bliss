@@ -9,6 +9,7 @@ import time
 import serial
 
 from bliss.controllers.motor import Controller
+from bliss.comm.util import get_comm
 from bliss.common import log as elog
 
 from bliss.common.axis import AxisState
@@ -21,20 +22,18 @@ Bliss controller for XXX.
 
 class XXX(Controller):
 
-    def __init__(self, name, config, axes, encoders):
-        Controller.__init__(self, name, config, axes, encoders)
-
-        # self.com = self.config.get("com")
+    def __init__(self, *args, **kwargs):
+        Controller.__init__(self, *args, **kwargs)
 
     def initialize(self):
         """
         """
-        # opens communication
+        self.comm = get_comm(self.config)
 
     def finalize(self):
         """
         """
-        # Closes communication
+        self.comm.close()
 
     def initialize_axis(self, axis):
         """
@@ -82,41 +81,26 @@ class XXX(Controller):
     def start_one(self, motion):
         """
         """
-        _cmd = ""
-        self.send(motion.axis, _cmd)
+        self.comm.write('MOVE')
 
     def stop(self, axis):
         # Halt a scan (not a movement ?)
-        self.send(axis, "STOP")
+        self.comm.write("STOP")
 
     def raw_write(self, axis, cmd):
-        self.serial.write(cmd)
+        self.comm.write(cmd)
 
     def raw_write_read(self, axis, cmd):
-        self.serial.write(cmd)
-        _ans = self.serial.readlines()
-        return _ans
+        return self.comm.write_readline(cmd)
 
     def get_id(self, axis):
         """
         Returns firmware version.
         """
-        return self.send(axis, "?VER")
+        return self.comm.write_readline("?VER")
 
     def get_info(self, axis):
         """
         Returns information about controller.
         """
-
-        _txt = ""
-
-        return _txt
-
-    """
-    VSCANNER Com
-    """
-    def send(self, axis, cmd):
-        return _ans
-
-    def send_no_ans(self, axis, cmd):
-        pass
+        return ''

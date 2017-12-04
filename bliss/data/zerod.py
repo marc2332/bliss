@@ -7,7 +7,7 @@
 
 import collections
 from bliss.config.settings import QueueSetting
-from bliss.common.data_manager import DataNode
+from bliss.data.node import DataNode
 
 class Dataset0D(DataNode):
     class DataChannel(object):
@@ -21,7 +21,7 @@ class Dataset0D(DataNode):
                 return self._queue[from_index:to_index]
 
         def __len__(self):
-            return len(self._queue)
+            return self._queue.__len__()
         
     def __init__(self,name,**keys):
         DataNode.__init__(self,'zerod',name,**keys)
@@ -48,26 +48,33 @@ class Dataset0D(DataNode):
                     self._channels_name.append(channel_name)
                     queue = QueueSetting('%s_%s' % (self.db_name(),channel_name),
                                          connection=self.db_connection)
-                    queue.extend(data)
                     self._channels[channel_name] = queue
+                try:
+                    iter(data)
+                except:
+                    queue.append(data)
                 else:
                     queue.extend(data)
 
     #@brief get data channel object
-    def get_channel(self,channel_name = None) :
+    def get_channel(self,channel_name = None,check_exists = True,cnx = None) :
         if channel_name is None:
-            channel_name = self._channels[0]
+            channel_name = self._channels_name[0]
+        elif check_exists and channel_name not in self._channels_name:
+            raise ValueError("Unknown channel %s" % channel_name)
+
         channel_db_name = '%s_%s' % (self.db_name(),channel_name)
-        return Dataset0D.DataChannel(channel_db_name,self.db_connection)
+        return Dataset0D.DataChannel(channel_db_name,self.db_connection if cnx is None else cnx)
 
     def get_all_channels(self):
         """
         return all channels for this node
         the return is a dict {channel_name:DataChannel}
         """
-        return dict(((chan_name,get_channel(chan_name))
+        return dict(((chan_name,self.get_channel(chan_name))
                      for chan_name in self._channels_name))
-    def set_ttl(self):
-        DataNode.set_ttl(self)
-        for channel in self._channels.itervalues():
-            channel.ttl(DataNode.default_time_to_live)
+    def _get_db_names(self):
+        db_names = DataNode._get_db_names(self)
+        db_names.append(self._channels_name._name)
+        db_names.extend((channel._name for channel in self._channels.itervalues()))
+        return db_names

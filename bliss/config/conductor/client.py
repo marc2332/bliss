@@ -5,22 +5,61 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+import os
+import StringIO
 from . import connection
+from .connection import StolenLockException
 
 _default_connection = None
 
+def get_default_connection():
+    global _default_connection
+    if _default_connection is None:
+        _default_connection = connection.Connection()
+    return _default_connection
+
+class _StringIO(StringIO.StringIO):
+    def __enter__(self,*args,**kwags):
+        return self
+    def __exit__(self,*args,**kwags):
+        pass
 
 def check_connection(func):
     def f(*args,**keys):
-        global _default_connection
-        conn = keys.get("connection", _default_connection)
-        if conn is None and _default_connection is None:
-            _default_connection = connection.Connection()
-            conn = _default_connection
-	keys["connection"]=conn
+        keys["connection"] = keys.get("connection") or get_default_connection()
         return func(*args,**keys)
     return f
 
+class Lock(object):
+    def __init__(self,*devices,**params):
+        """
+        This class is an helper to lock object using context manager
+        :params timeout default 10s
+        :params priority default 50
+        """
+        self._devices = devices
+        self._params = params
+
+    def __enter__(self):
+        lock(*self._devices,**self._params)
+        return self
+
+    def __exit__(self,*args,**kwags):
+        unlock(*self._devices,**self._params)
+
+def synchronized(**params):
+    """ 
+    Synchronization decorator.
+    
+    This is an helper to lock during the method call.
+    :params are the lock's parameters (see Lock helper)
+    """
+    def wrap(f):
+        def func(self,*args,**keys):
+            with Lock(self,**params):
+                return f(self,*args,**keys)
+        return func
+    return wrap
 
 @check_connection
 def lock(*devices,**params):
@@ -48,6 +87,54 @@ def get_cache(db=0, connection=None):
 def get_config_file(file_path, connection=None) :
     return connection.get_config_file(file_path)
 
+def get_file(config_node,key,local=False,base_path=None,raise_on_none_path=True) :
+    """
+    return an open file object in read only mode.
+
+    This function first try to open a remote file store on the global configuration.
+    If it failed it try to open it locally like python *open*.
+
+    :params config_node basically the controller's configuration node.
+    :params key the config_node[key] where the file path is stored.
+    If config_node[key] start with './' => the path will be relative to the config_node file.
+    :params local if set to True, just use python *open*
+    :params base_path path prepended if not None to the path return by config_node[key]
+    :params raise_on_none_path if False and config_node[key] == None, return empty file. Otherwise raise KeyError.
+    this parameters may be useful if the key is optional.
+    """
+    path = config_node.get(key)
+    if path is not None:
+        if base_path is not None:
+            path = os.path.join(base_path,path)
+        elif path.startswith('.'): # relative from current config_node
+            base_path = os.path.dirname(config_node.filename)
+            path = os.path.join(base_path,path)
+    elif raise_on_none_path:
+        raise KeyError(key)
+    return _open_file(path,local)
+
+def remote_open(file_path,local=False):
+    """
+    return an open file object in read only mode
+    
+    :params file_path the full path to the file if None return an empty file
+    :params local if set to True, just use python *open*
+    """
+    return _open_file(file_path,local)
+
+def _open_file(file_path,local) :
+    if file_path is None:
+        return _StringIO()
+
+    if local:
+        return open(file_path)
+
+    try:
+        file_content = get_config_file(file_path.strip('/'))
+    except RuntimeError:
+        return open(file_path)
+    else:
+        return _StringIO(file_content)
 
 @check_connection
 def get_config_db_files(base_path='', timeout=3., connection=None):

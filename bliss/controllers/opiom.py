@@ -7,10 +7,14 @@
 
 import os
 import struct
+from warnings import warn
 
+from bliss.comm.util import get_comm, get_comm_type, SERIAL, TCP
 from bliss.comm import serial
-from bliss.comm import tcp
 from bliss.common.greenlet_utils import KillMask,protect_from_kill
+from bliss.common.switch import Switch as BaseSwitch
+from bliss.common.utils import OrderedDict
+
 OPIOM_PRG_ROOT='/users/blissadm/local/isg/opiom'
 
 class Opiom:
@@ -18,21 +22,39 @@ class Opiom:
 
     def __init__(self,name,config_tree):
         self.name = name
-        if "serial" in config_tree:
-            self._cnx = serial.Serial(config_tree['serial'],timeout = 3)
-        elif "socket" in config_tree:
-            self._cnx = tcp.Tcp(config_tree['socket'],timeout = 3)
-        else:
-            raise RuntimeError("opiom: need to specify a communication url")
-        
+
+        comm_type = None
+        try:
+            comm_type = get_comm_type(config_tree)
+            key = 'serial' if comm_type == SERIAL else 'tcp'
+            config_tree[key]['url'] # test if url is available
+            comm_config = config_tree
+        except:
+            if "serial" in config_tree:
+                comm_type = SERIAL
+                comm_config = dict(serial=dict(url=config_tree['serial']))
+                warn("'serial: <url>' is deprecated. " \
+                     "Use 'serial: url: <url>' instead", DeprecationWarning)
+            elif "socket" in config_tree:
+                comm_type = TCP
+                comm_config = dict(tcp=dict(url=config_tree['socket']))
+                warn("'socket: <url>' is deprecated. " \
+                     "Use 'tcp: url: <url>' instead", DeprecationWarning)
+            else:
+                raise RuntimeError("opiom: need to specify a communication url")
+
+        if comm_type not in (SERIAL, TCP):
+            raise TypeError('opiom: invalid communication type %r' % comm_type)
+
+        self._cnx = get_comm(comm_config, ctype=comm_type, timeout=3)
         self._cnx.flush()
         self.__program = config_tree['program']
         self.__base_path = config_tree.get('opiom_prg_root',OPIOM_PRG_ROOT)
         self.__debug = False
         try:
-            msg = self.comm("?VER")
+            msg = self.comm("?VER",timeout=50e-3)
         except serial.SerialTimeout:
-            msg = self.comm("?VER")
+            msg = self.comm("?VER",timeout=50e-3)
             
         if not msg.startswith('OPIOM') :
             raise IOError("No opiom connected at %s" % serial)
@@ -99,14 +121,14 @@ class Opiom:
         return self.comm('#' + msg)
 
     @protect_from_kill
-    def comm(self,msg) :
+    def comm(self,msg,timeout = None) :
         self._cnx.open()
         with self._cnx._lock:
             self._cnx._write(msg + '\r\n')
             if msg.startswith('?') or msg.startswith('#') :
-                msg = self._cnx._readline()
+                msg = self._cnx._readline(timeout = timeout)
                 if msg.startswith('$') :
-                    msg = self._cnx._readline('$\r\n')
+                    msg = self._cnx._readline('$\r\n',timeout = timeout)
                 self.__debugMsg("Read", msg.strip('\n\r'))
                 return msg.strip('\r\n')
                 
@@ -199,3 +221,62 @@ class Opiom:
             subline = line[begin + len(PROJECT_TOKEN):]
             project = subline[:subline.find(PROJECT_TOKEN)]
             return pldid,project
+
+class Switch(BaseSwitch):
+    """
+    This class wrapped opiom command to emulate a switch
+    the configuration may look like this:
+    opiom: $opiom_name
+    register: IMA
+    mask: 0x3
+    shift: 1
+    states:
+       - label: OPEN
+         value: 1
+       - label: CLOSED
+         value: 0
+       - label: MUSST
+         value: 2
+       - label: COUNTER_CARD
+         value: 3
+    """
+    def __init__(self,name,config):
+        BaseSwitch.__init__(self,name,config)
+        self.__opiom = None
+        self.__register = None
+        self.__mask = None
+        self.__shift = None
+        self.__states = OrderedDict() if OrderedDict else dict()
+
+    def _init(self):
+        config = self.config
+        self.__opiom = config['opiom']
+        self.__register = config['register']
+        self.__mask = config['mask']
+        self.__shift = config['shift']
+        for state in config['states']:
+            label = state['label']
+            value = state['value']
+            self.__states[label] = value
+
+    def _set(self,state):
+        value = self.__states.get(state)
+        if value is None:
+            raise RuntimeError("State %s don't exist" % state)
+        mask = self.__mask << self.__shift
+        value <<= self.__shift
+        cmd = '%s 0x%x 0x%x' % (self.__register,value,mask)
+        self.__opiom.comm_ack(cmd)
+
+    def _get(self):
+        cmd = '?%s' % self.__register
+        value = int(self.__opiom.comm_ack(cmd),base=16)
+        value >>= self.__shift
+        value &= self.__mask
+        for label,state_value in self.__states.iteritems():
+            if state_value == value:
+                return label
+        return 'UNKNOWN'
+
+    def _states_list(self):
+        return self.__states.keys()

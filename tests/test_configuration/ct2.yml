@@ -1,0 +1,19 @@
+plugin: ct2
+class: CT2
+name: p201
+address: tcp://lid00c:8909
+clock: CLK_100_MHz
+type: P201
+external sync: {}
+timer:
+  counter name: sec
+counters:
+- address: 3
+  clock source: CLK_10_KHz
+channels:
+- address: 1
+  level: NIM
+- counter name: freq_gen
+  address: 2
+- counter name: clk
+  address: 3

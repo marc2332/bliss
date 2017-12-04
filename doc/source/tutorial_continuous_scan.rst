@@ -67,7 +67,7 @@ time for moving from 5 to 10 set to 5 seconds, velocity will be set to
 Slave object creation
 ^^^^^^^^^^^^^^^^^^^^^
 
-Bliss comes with the ``LimaAcquisitionDevice`` class, encapsulating a Tango
+Bliss comes with the ``LimaAcquisitionMaster`` class, encapsulating a Tango
 Lima device for use within an acquisition chain:
 
 .. code-block:: python
@@ -75,7 +75,7 @@ Lima device for use within an acquisition chain:
    params = { "acq_nb_frames": 10,
               "acq_expo_time": 0.3,
               "acq_trigger_mode": "INTERNAL_TRIGGER_MULTI" }
-   lima_acq_dev = LimaAcquisitionDevice(lima_dev, **params)
+   lima_acq_dev = LimaAcquisitionMaster(lima_dev, **params)
 
 Acquisition is configured to take 10 frames of 300 milliseconds exposure time,
 each frame capture being triggered by software.
@@ -98,29 +98,29 @@ as nodes in a tree:
 
     . chain(AcquisitionChain)
     └── emotion_master(SoftwarePositionTriggerMaster)
-        └── lima_dev(LimaAcquisitionDevice)
+        └── lima_dev(LimaAcquisitionMaster)
 
 
 Second step: data storage configuration
 ---------------------------------------
 
 Once a continuous scan is started, data is produced from the masters and slaves
-devices in the acquisition chain. A ``ScanRecorder`` object has to be created,
+devices in the acquisition chain. A ``Scan`` object has to be created,
 in order to specify how data is saved and made accessible for other programs
 like Online Data Analysis.
 
 A scan is identified by its name ; the full name is made of a prefix, plus
 a run number. The default prefix is *scan*, so the first scan is called
 *scan_1*, the second scan is called *scan_2* and so on. The first argument to
-``ScanRecorder`` is the scan name prefix.
+``Scan`` is the scan name prefix.
 
 In the same way the ``AcquisitionChain`` can be represented as a tree, the
-``ScanRecorder`` saves data in a tree-like structure within the **Redis**
+``Scan`` saves data in a tree-like structure within the **Redis**
 cache. A scan node contains meta-data (``scan_info``), plus a ``data``
 member. If data is too big, only a reference to the data is saved. For example,
 in the case of images, the file name is stored instead of the image bytes.
 
-``ScanRecorder`` objects can be placed inside a ``Container``, in order to
+``Scan`` objects can be placed inside a ``Container``, in order to
 match data acquisition with data analysis logic. A ``Container`` is only
 identified by its name. Typically, a container will have a sample name,
 an each scan on this sample can be stored inside the container. ``Container``
@@ -128,29 +128,13 @@ objects can be nested without limitation.
 
 .. code-block:: python
 
-   from bliss.common.data_manager import Container, ScanRecorder
+   from bliss.common.data_manager import Container, Scan
 
    sample = Container('my_sample`')
-   recorder = ScanRecorder('scan', sample)
+   scan = Scan(name='scan', chain=chain, parent=sample)
 
-
-Third step: starting a continuous scan
---------------------------------------
-
-The ``Scan`` object takes 2 arguments:
-
-- acquisition chain object
-- scan recorder object
+Launching a scan is done by calling run method :
 
 .. code-block:: python
 
-    from bliss.common.continuous_scan import Scan
-
-    scan = Scan(chain, recorder)
-
-Launching a scan is done in 2 steps, first preparing then starting :
-
-.. code-block:: python
-
-   scan.prepare()
-   scan.start()
+   scan.run()

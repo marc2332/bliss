@@ -6,9 +6,10 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import time
-import serial
-
+import sys
+import traceback
 from bliss.controllers.motor import Controller
+from bliss.comm.util import get_comm
 from bliss.common import log as elog
 from bliss.common.axis import AxisState
 from bliss.common import event
@@ -16,6 +17,7 @@ from bliss.common import event
 from bliss.common.utils import object_method
 from bliss.common.utils import object_attribute_get, object_attribute_set
 
+from bliss.comm.util import SERIAL
 
 """
 Bliss controller for ESRF ISG VSCANNER voltage scanner unit.
@@ -26,33 +28,57 @@ Mon 17 Nov 2014 16:53:47
 
 class VSCANNER(Controller):
 
-    def __init__(self, name, config, axes, encoders):
-        Controller.__init__(self, name, config, axes, encoders)
-
-        self.serial_line = self.config.get("serial_line")
+    def __init__(self, *args, **kwargs):
+        Controller.__init__(self, *args, **kwargs)
+        self._status = "uninitialized"
 
     def initialize(self):
         """
-        Opens a single socket for all 2
+        Opens one socket for 2 channels.
         """
-        self.serial = serial.Serial(self.serial_line, 9600, bytesize=8, parity='N', stopbits=1, timeout=1)
-
-        self._status = ""
         try:
-            self.serial.write("?VER\r\n")
-            _ans = self.serial.readline()
-            # _ans =='VSCANNER 01.02\r\n'
-            elog.debug(_ans)
-            if _ans.index("VSCANNER") == 0:
-                elog.debug("?VER -> %s" % _ans.rstrip())
-        except:
-            self._status = "communication error : no VSCANNER found on serial \"%s\"" % self.serial_line
+            self.serial = get_comm(self.config.config_dict, SERIAL, timeout=1)
+            self._status = "SERIAL communication configuration found"
             elog.debug(self._status)
+        except ValueError:
+            try:
+                serial_line = self.config.get("serial_line")
+                warn("'serial_line' keyword is deprecated. Use 'serial' instead",
+                     DeprecationWarning)
+                comm_cfg = {'serial': {'url': serial_line } }
+                self.serial = get_comm(comm_cfg, timeout=1)
+            except:
+                self._status = "Cannot find serial configuration"
+                elog.error(self._status)
+
+        try:
+            # should be : 'VSCANNER 01.02\r\n'
+            _ans = self.serial.write_readline("?VER\r\n")
+            self._status += "\ncommunication ok "
+            elog.debug(self._status + _ans)
+        except OSError:
+            _ans = "no ans"
+            self._status = sys.exc_info()[1]
+            elog.error(self._status)
+        except:
+            _ans = "no ans"
+            self._status = "communication error : cannot communicate with serial \"%s\"" % self.serial
+            elog.error(self._status)
+            traceback.print_exc()
+
+        try:
+            _ans.index("VSCANNER")
+            self._status += "VSCANNER found (substring VSCANNER found in answer to ?VER)."
+        except:
+            self._status = "communication error : no VSCANNER found on serial \"%s\"" % self.serial
+
+        elog.debug(self._status)
 
     def finalize(self):
         """
         Closes the serial object.
         """
+        print "finalize() from VSCANNER"
         self.serial.close()
 
     def initialize_axis(self, axis):
@@ -60,11 +86,8 @@ class VSCANNER(Controller):
         - Reads specific config
         - Adds specific methods
         """
-        # can be "X" or "Y"
+        # Can be "X" or "Y".
         axis.chan_letter = axis.config.get("chan_letter")
-
-
-        axis.config.config_dict.update({"steps_per_unit": {"value": axis.config.get("steps_per_unit")}})
 
         ini_pos = self.read_position(axis)
         if ini_pos < 0:
@@ -76,9 +99,6 @@ class VSCANNER(Controller):
             elog.info("reseting VSCANNER >10-position to 10 !!")
             _cmd = "V%s 10" % (axis.chan_letter)
             self.send_no_ans(axis, _cmd)
-
-        # ???
-        # self.send(axis, "NOECHO")
 
     def read_position(self, axis):
         """
@@ -92,7 +112,7 @@ class VSCANNER(Controller):
         Returns:
             - <position> : float : axis setpoint in Volts.
         """
-        _cmd = "?V%s\r\n" % axis.chan_letter
+        _cmd = "?V%s" % axis.chan_letter
         _ans = self.send(axis, _cmd)
         # elog.debug("_ans =%s" % _ans)
         _pos = float(_ans)
@@ -120,7 +140,7 @@ class VSCANNER(Controller):
         elif len(_float_ans) == 2:
             (_vel, _line_waiting) = _float_ans
         else:
-            print "WHAT THE F.... ?VEL answer is there ???"
+            elog.info("WHAT THE F.... ?VEL answer is there ???")
 
         #     V/s = V/ms * 1000
         _velocity = _vel * 1000
@@ -221,12 +241,12 @@ class VSCANNER(Controller):
         _ans = self.serial.readlines()
         return _ans
 
-    @object_method(types_info=("None", "str"))
     def get_id(self, axis):
         """
         Returns firmware version.
         """
-        return self.send(axis, "?VER")
+        _ans = self.send(axis, "?VER")
+        return _ans
 
     def get_error(self, axis):
         _ans = self.send(axis, "?ERR")
@@ -239,7 +259,6 @@ class VSCANNER(Controller):
         Returns a set of usefull information about controller.
         Helpful to tune the device.
         """
-
         _txt = ""
         _txt = _txt + "###############################\n"
         _txt = _txt + "firmware version   : " + self.send(axis, "?VER") + "\n"
@@ -249,7 +268,6 @@ class VSCANNER(Controller):
         self.send_no_ans(axis, "?INFO")
         _txt = _txt + "    %s  \n%s\n" % ("Communication parameters",
                                           " ".join(self.serial.readlines()))
-
         _txt = _txt + "###############################\n"
 
         return _txt
@@ -275,11 +293,17 @@ class VSCANNER(Controller):
         Raises:
             ?
         """
-        elog.debug("cmd=%s" % repr(cmd))
+        elog.debug("cmd=%r" % cmd)
         _cmd = cmd + "\r\n"
         self.serial.write(_cmd)
+
+        # _t0 = time.time()
+
         _ans = self.serial.readline().rstrip()
         elog.debug("ans=%s" % repr(_ans))
+
+        # _duration = time.time() - _t0
+        # print "    Sending: %r Receiving: %r  (duration : %g)" % (_cmd, _ans, _duration)
         return _ans
 
     def send_no_ans(self, axis, cmd):
@@ -290,6 +314,7 @@ class VSCANNER(Controller):
         - <axis> is passed for debugging purposes.
         - Used for answer-less commands, then returns nothing.
         """
-        elog.debug("cmd=\"%s\" " % cmd)
+        elog.debug("send_no_ans : cmd=%r" % cmd)
         _cmd = cmd + "\r\n"
         self.serial.write(_cmd)
+

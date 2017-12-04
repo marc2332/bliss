@@ -13,6 +13,9 @@ from . import protocol
 import redis
 import netifaces
 
+class StolenLockException(RuntimeError):
+    '''This exception is raise in case of a stolen lock'''
+
 try:
     import posix_ipc
     class _PosixQueue(posix_ipc.MessageQueue):
@@ -31,12 +34,30 @@ try:
 except ImportError:
     posix_ipc = None
 
-def ip4_broadcast_addresses():
-    ip_list = []
-    for interface in netifaces.interfaces():
-        for link in netifaces.ifaddresses(interface).get(netifaces.AF_INET, []):
-            ip_list.append(link.get("broadcast"))
-    return filter(None, ip_list)
+def ip4_broadcast_addresses(only_main_network=True, only_local=False):
+    if only_local:
+        return ['localhost']
+    else:
+        ifaces = []
+        if only_main_network:
+            # get default route interface, if any
+            gws = netifaces.gateways()
+            try:
+                interface = gws['default'][netifaces.AF_INET][1]
+                ifaces.append(interface)
+            except Exception:
+                pass
+        else:
+            ifaces.extend(netifaces.interfaces())
+
+        ip_list = []
+        for interface in ifaces:
+            for link in netifaces.ifaddresses(interface).get(netifaces.AF_INET, []):
+                ip_list.append(link.get("broadcast"))
+        # try localhost first
+        ip_list.insert(0, 'localhost')
+
+        return filter(None, ip_list)
 
 def check_connect(func):
     def f(self,*args,**keys):
@@ -127,6 +148,7 @@ class Connection(object):
         self._fd = None
         self._cnx = None
         self._raw_read_task = None
+        self._greenlet_to_lockobjects = weakref.WeakKeyDictionary()
 
     def close(self):
         if self._fd:
@@ -147,7 +169,7 @@ class Connection(object):
                 udp.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
                 udp.bind(("",protocol.DEFAULT_UDP_CLIENT_PORT))
                 # go through all interfaces, and issue broadcast on each
-                for addr in ip4_broadcast_addresses():
+                for addr in ip4_broadcast_addresses(host is None):
                     udp.sendto('Hello',(addr,protocol.DEFAULT_UDP_SERVER_PORT))
                 timeout = 3.
                 server_found = []
@@ -157,7 +179,7 @@ class Connection(object):
                         if port is None:
                             if server_found:
                                 msg = "Could not find the conductor on host %s\n" % self._host
-                                msg += "But other conductor server reply:\n"
+                                msg += "But other conductor servers replied:\n"
                                 msg += '\n'.join(('%s on port %s' % (host,port) for host,port in server_found))
                                 raise ConnectionException(msg)
                             else:
@@ -178,9 +200,11 @@ class Connection(object):
                             timeout = 1.
                         else:
                             break
-                            
+                self._host = host
+                self._port = port
             self._fd = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
             self._fd.setsockopt(socket.IPPROTO_TCP,socket.TCP_NODELAY,1)
+            self._fd.setsockopt(socket.SOL_IP, socket.IP_TOS, 0x10)
             self._fd.connect((host,port))
             self._raw_read_task = gevent.spawn(self._raw_read)
             self._cnx = self._fd
@@ -201,6 +225,10 @@ class Connection(object):
                     self._cnx.sendall(protocol.message(protocol.LOCK,wait_lock.msg()))
                     status = wait_lock.get()
                     if status == protocol.LOCK_OK_REPLY: break
+        locked_objects = self._greenlet_to_lockobjects.setdefault(gevent.getcurrent(),dict())
+        for device in devices_name:
+            nb_lock = locked_objects.get(device,0)
+            locked_objects[device] = nb_lock + 1
 
     @check_connect
     def unlock(self,devices_name,**params):
@@ -210,6 +238,16 @@ class Connection(object):
         msg = "%d|%s" % (priority,'|'.join(devices_name))
         with gevent.Timeout(timeout,RuntimeError("unlock timeout (%s)" % str(devices_name))):
             self._cnx.sendall(protocol.message(protocol.UNLOCK,msg))
+        locked_objects = self._greenlet_to_lockobjects.setdefault(gevent.getcurrent(),dict())
+        max_lock = 0;
+        for device in devices_name:
+            nb_lock = locked_objects.get(device,0)
+            nb_lock -= 1
+            if nb_lock > max_lock :
+                max_lock = nb_lock
+            locked_objects[device] = nb_lock
+        if max_lock <= 0:
+            self._greenlet_to_lockobjects.pop(gevent.getcurrent(),None)
 
     @check_connect
     def get_redis_connection_address(self):
@@ -230,7 +268,7 @@ class Connection(object):
             if host != 'localhost':
                 cnx = redis.Redis(host=host,port=port,db=db)
             else:
-                cnx = redis.Redis(unix_socket_path=port)
+                cnx = redis.Redis(unix_socket_path=port,db=db)
             self._redis_connection[db] = cnx
         return cnx
 
@@ -330,6 +368,18 @@ class Connection(object):
             for m,l in self._pending_lock.iteritems():
                 for e in l: e.put(messageType)
             return True
+        elif messageType == protocol.LOCK_STOLEN:
+            stolen_object_lock = set(message.split('|'))
+            greenlet_to_objects = self._greenlet_to_lockobjects.copy()
+            for greenlet,locked_objects in greenlet_to_objects.iteritems():
+                locked_object_name = set((name for name,nb_lock in locked_objects.iteritems() if nb_lock > 0))
+                if locked_object_name.intersection(stolen_object_lock):
+                    try:
+                        greenlet.kill(exception=StolenLockException)
+                    except AttributeError:
+                        pass
+            fd.sendall(protocol.message(protocol.LOCK_STOLEN_OK_REPLY,message))
+            return True
         return False
 
     def _get_msg_key(self,message):
@@ -362,6 +412,7 @@ class Connection(object):
                             queue = self._message_queue.get(message_key)
                             if queue is not None: queue.put(value)
                         elif messageType in (protocol.CONFIG_GET_FILE_FAILED,
+                                             protocol.CONFIG_DB_FAILED,
                                              protocol.CONFIG_SET_DB_FILE_FAILED,
                                              protocol.CONFIG_GET_DB_TREE_FAILED,
                                              protocol.CONFIG_REMOVE_FILE_FAILED,
@@ -441,3 +492,7 @@ class Connection(object):
         except:
             pass
         self._redis_connection = {}
+
+    @check_connect
+    def __str__(self):
+        return 'Connection({0}:{1})'.format(self._host, self._port)

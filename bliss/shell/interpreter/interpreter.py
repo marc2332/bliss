@@ -26,7 +26,7 @@ from bliss.config import static as static_config
 from bliss.config.conductor import connection as conductor_connection
 from bliss.config.conductor import client as conductor_client
 from bliss.common.event import dispatcher
-from bliss.common import data_manager
+from bliss.scanning import scan
 from bliss.common import measurement
 jedi.settings.case_insensitive_completion = False
 
@@ -72,14 +72,32 @@ def stdout_redirected(client_uuid, new_stdout):
 
 
 def init_scans_callbacks(interpreter, output_queue):
-    def new_scan_callback(scan, filename, scan_actuators, npoints, counters_list):
-        output_queue.put((interpreter.get_last_client_uuid(), {"scan_id": id(scan), "filename": filename,
-                          "scan_actuators": scan_actuators, "npoints": npoints,
-                          "counters": counters_list}))
-    def update_scan_callback(scan, values):
-        output_queue.put((interpreter.get_last_client_uuid(), {"scan_id": id(scan), "values":values}))
-    def scan_end_callback(scan):
-        output_queue.put((interpreter.get_last_client_uuid(), {"scan_id": id(scan)}))
+    def new_scan_callback(scan_info):
+        scan_actuators = scan_info['motors']
+        if len(scan_actuators) > 1:
+            scan_actuators = scan_actuators[1:]
+        data = (interpreter.get_last_client_uuid(),
+                {"scan_id": scan_info["node_name"],
+                 "filename": scan_info['root_path'],
+                 "scan_actuators": [actuator.name for actuator in scan_actuators],
+                 "npoints": scan_info['npoints'],
+                 "counters": [ct.name for ct in scan_info['counters']]})
+        output_queue.put(data)
+
+    def update_scan_callback(scan_info, values):
+        value_list = [values[m.name] for m in scan_info['motors']]
+        value_list += [values[c.name] for c in scan_info['counters']]
+        if scan_info["type"] != "timescan":
+            value_list = value_list[1:]
+        data = (interpreter.get_last_client_uuid(),
+                {"scan_id": scan_info["node_name"],
+                 "values":value_list})
+        output_queue.put(data)
+
+    def scan_end_callback(scan_info):
+        data = (interpreter.get_last_client_uuid(),
+                {"scan_id": scan_info["node_name"]})
+        output_queue.put(data)
 
     # keep callbacks references
     output_queue.callbacks["scans"]["new"] = new_scan_callback
@@ -87,11 +105,11 @@ def init_scans_callbacks(interpreter, output_queue):
     output_queue.callbacks["scans"]["end"] = scan_end_callback
 
     dispatcher.connect(
-        new_scan_callback, "scan_new", data_manager.DataManager())
+        new_scan_callback, "scan_new", scan)
     dispatcher.connect(
-        update_scan_callback, "scan_data", data_manager.DataManager())
+        update_scan_callback, "scan_data", scan)
     dispatcher.connect(
-        scan_end_callback, "scan_end", data_manager.DataManager())
+        scan_end_callback, "scan_end", scan)
 
 
 class InteractiveInterpreter(code.InteractiveInterpreter):
@@ -205,7 +223,7 @@ def get_object_type(obj):
         return "motor"
 
     # is it a counter?
-    if isinstance(obj, measurement.CounterBase):
+    if isinstance(obj, measurement.SamplingCounter):
         return "counter" 
 
     # has it in/out capability?
@@ -232,7 +250,7 @@ def get_objects_by_type(objects_dict):
             motors[name]=obj
 
         # is it a counter?
-        if isinstance(obj, measurement.CounterBase):
+        if isinstance(obj, measurement.SamplingCounter):
             counters[name]=obj
         else:
             if not inspect.ismodule(obj):
@@ -242,7 +260,7 @@ def get_objects_by_type(objects_dict):
                 pass
               else:
                 for member_name, member in obj_dict.iteritems():
-                    if isinstance(member, measurement.CounterBase):
+                    if isinstance(member, measurement.SamplingCounter):
                         counters["%s.%s" % (name, member_name)]=member
         
         # has it in/out capability?

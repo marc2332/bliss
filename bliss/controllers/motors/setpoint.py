@@ -14,9 +14,7 @@ import time
 
 import gevent.event
 from bliss.common import event
-
-from PyTango.gevent import AttributeProxy
-from PyTango.gevent import DeviceProxy
+from bliss.common.tango import AttributeProxy, DeviceProxy
 
 """
 setpoint.py : 'setpoint' EMotion controller is a close copy of mockup
@@ -42,8 +40,8 @@ as rampe generator for hexapiezo for example.
 
 class setpoint(Controller):
 
-    def __init__(self, name, config, axes, encoders):
-        Controller.__init__(self, name, config, axes, encoders)
+    def __init__(self, *args, **kwargs):
+        Controller.__init__(self, *args, **kwargs)
 
         self._axis_moves = {}
 

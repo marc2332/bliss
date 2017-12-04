@@ -18,12 +18,15 @@ sys.path.insert(
 
 from bliss.common.continuous_scan import AcquisitionChain
 from bliss.common.continuous_scan import Scan
-from bliss.common.data_manager import Container, ScanRecorder, get_node
-from bliss.acquisition.test import TestAcquisitionDevice
-from bliss.acquisition.test import TestAcquisitionMaster
+from bliss.scanning.scan import Container, Scan
+from bliss.data.node import get_node
+from bliss.scanning.acquisition.test import TestAcquisitionDevice
+from bliss.scanning.acquisition.test import TestAcquisitionMaster
 try:
-  from bliss.acquisition.motor import  SoftwarePositionTriggerMaster
-  from bliss.acquisition.lima import LimaAcquisitionDevice
+  from bliss.scanning.acquisition.motor import  SoftwarePositionTriggerMaster
+  from bliss.scanning.acquisition.motor import  MeshStepTriggerMaster,LinearStepTriggerMaster
+  from bliss.scanning.acquisition.timer import SoftwareTimerMaster
+  from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
   import bliss 
   from PyTango.gevent import DeviceProxy
 except ImportError:
@@ -33,7 +36,7 @@ except ImportError:
 from bliss.common.event import dispatcher
 from bliss.config.conductor import client
 from bliss.config.static import get_config as beacon_get_config
-
+from bliss.config.motors import load_cfg_fromstring,get_axis
 try:
   #P201
   from bliss.acquisition.p201 import P201AcquisitionMaster,P201AcquisitionDevice
@@ -66,9 +69,8 @@ def test():
   chain.add(timer_master, c1_dev)
   chain._tree.show()
   
-  scan = Scan(chain, ScanRecorder())
-  scan.prepare()
-  scan.start()
+  scan = Scan(chain)
+  scan.run()
 
 def test2():
   chain = AcquisitionChain()
@@ -79,10 +81,8 @@ def test2():
   chain.add(p201_master, p201_acq_dev)
   chain._tree.show()
   
-  scan = Scan(chain, ScanRecorder())
-  scan.prepare()
-  scan.start()
-
+  scan = Scan(chain)
+  scan.run()
 
 def test_emotion_master():
   config_xml = """
@@ -104,9 +104,8 @@ def test_emotion_master():
   emotion_master = SoftwarePositionTriggerMaster(m0, 5, 10, 7)
   test_acq_dev = TestAcquisitionDevice("c0", 0)
   chain.add(emotion_master, test_acq_dev)
-  scan = Scan(chain, ScanRecorder())
-  scan.prepare()
-  scan.start()
+  scan = Scan(chain)
+  scan.run()
 
 def test_lima():
   config_xml = """
@@ -133,12 +132,11 @@ def test_lima():
   params = { "acq_nb_frames": 10,
              "acq_expo_time": 3/10.0,
              "acq_trigger_mode": "INTERNAL_TRIGGER_MULTI" }
-  lima_acq_dev = LimaAcquisitionDevice(lima_dev, **params)
+  lima_acq_dev = LimaAcquisitionMaster(lima_dev, **params)
   dispatcher.connect(cb, sender=lima_acq_dev) 
   chain.add(emotion_master, lima_acq_dev)
-  scan = Scan(chain, ScanRecorder())
-  scan.prepare()
-  scan.start()
+  scan = Scan(chain)
+  scan.run()
   m0.wait_move()
   print m0.velocity()==10 
 
@@ -164,15 +162,15 @@ def test_dm_lima():
   params = { "acq_nb_frames": 5,
              "acq_expo_time": 3/10.0,
              "acq_trigger_mode": "INTERNAL_TRIGGER_MULTI" }
-  lima_acq_dev = LimaAcquisitionDevice(lima_dev, **params)
+  lima_acq_dev = LimaAcquisitionMaster(lima_dev, **params)
   chain.add(emotion_master, lima_acq_dev)
 
   toto = Container('toto')
-  dm = ScanRecorder('test_acq', toto)
+  scan = Scan(chain,
+              name='test_acq',
+              parent=toto)
 
-  scan = Scan(chain, dm)
-  scan.prepare()
-  scan.start()
+  scan.run()
 
 def test_hdf5_lima():
   config_xml = """
@@ -196,7 +194,7 @@ def test_hdf5_lima():
   params = { "acq_nb_frames": 5,
              "acq_expo_time": 3/10.0,
              "acq_trigger_mode": "INTERNAL_TRIGGER_MULTI" }
-  lima_acq_dev = LimaAcquisitionDevice(lima_dev, **params)
+  lima_acq_dev = LimaAcquisitionMaster(lima_dev, **params)
   chain.add(emotion_master, lima_acq_dev)
 
   file_organizer = Hdf5Organizer(root_path = '/tmp')
@@ -223,9 +221,8 @@ def test_p201():
   p201_counters = P201AcquisitionDevice(p201_device,nb_points=100000,acq_expo_time=50e-6,
                                         channels={"c0":1,"c1":2,"timer":11})
   chain.add(p201_master,p201_counters)
-  scan = Scan(chain, ScanRecorder())
-  scan.prepare()
-  scan.start()
+  scan = Scan(chain)
+  scan.run()
 
 def test_p201_hdf5():
   chain = AcquisitionChain()
@@ -243,10 +240,9 @@ def test_p201_hdf5():
   chain.add(p201_master,p201_counters)
   hdf5_writer = hdf5.Writer(root_path = '/tmp')
   toto = Container('toto')
-  dm = ScanRecorder('test_acq', toto, writer=hdf5_writer)
-  scan = Scan(chain, dm)
-  scan.prepare()
-  scan.start()
+  scan = Scan(chain,name='test_acq',
+              parent=toto, writer=hdf5_writer)
+  scan.run()
 
 def test_lima_basler_musst():
   config = beacon_get_config()
@@ -349,17 +345,14 @@ def test_lima_basler():
   params = { "acq_nb_frames": nb_points,
              "acq_expo_time": 10e-3,
              "acq_trigger_mode": "INTERNAL_TRIGGER_MULTI" }
-  lima_acq_dev = LimaAcquisitionDevice(lima_dev, **params)
+  lima_acq_dev = LimaAcquisitionMaster(lima_dev, **params)
   chain.add(emotion_master, lima_acq_dev)
 
   hdf5_writer = hdf5.Writer(root_path = '/tmp')
   toto = Container('test_lima_basler')
-  dm = ScanRecorder('test_acq', toto,writer=hdf5_writer)
+  scan = Scan(chain,name='test_acq',parent=toto,writer=hdf5_writer)
 
-  scan = Scan(chain, dm)
-  scan.prepare()
-  scan.start()
-
+  scan.run()
 
 def test_emotion_p201():
   config_xml = """
@@ -392,9 +385,8 @@ def test_emotion_p201():
   chain.add(emotion_master, p201_master)
   chain.add(p201_master,p201_counters)
   chain._tree.show()
-  scan = Scan(chain, ScanRecorder())
-  scan.prepare()
-  scan.start()
+  scan = Scan(chain)
+  scan.run()
   
   
 def _walk_children(parent,index = 0) :
@@ -407,6 +399,113 @@ def test_dm_client():
   toto = get_node("toto")
   _walk_children(toto)
 
+def test_step_cont():
+  config_xml = """
+<config>
+  <controller class="mockup">
+    <axis name="m0">
+      <steps_per_unit value="10000"/>
+      <!-- degrees per second -->
+      <velocity value="10"/>
+      <acceleration value="100"/>
+    </axis>
+    <axis name="m1">
+      <steps_per_unit value="10000"/>
+      <!-- degrees per second -->
+      <velocity value="1"/>
+      <acceleration value="10"/>
+    </axis>
+    <axis name="m2">
+      <steps_per_unit value="10000"/>
+      <!-- degrees per second -->
+      <velocity value="10"/>
+      <acceleration value="100"/>
+    </axis>
+  </controller>
+</config>"""
+
+  load_cfg_fromstring(config_xml)
+  m0 = get_axis("m0")
+  m1 = get_axis("m1")
+  m2 = get_axis("m2")
+
+  ascan = AcquisitionChain(parallel_prepare=True)
+  ascan_mot = LinearStepTriggerMaster(11,m0,10,20)
+  timer = SoftwareTimerMaster(0.1)
+  ascan.add(ascan_mot,timer)
+  test_acq_dev = TestAcquisitionDevice("timer_test", 2,prepare_once=True,start_once=True)
+  ascan.add(timer,test_acq_dev)
+  test2_acq_dev = TestAcquisitionDevice("timer_test2", 2,prepare_once=True,start_once=True)
+  ascan.add(timer,test2_acq_dev)
+  step_scan = Container('step_scan')
+  scan = Scan(chain)
+  scan.run()
+
+
+
+  chain = AcquisitionChain(parallel_prepare=True)
+  
+  step_master = MeshStepTriggerMaster(m1, -2, 2, 5,
+                                      m2, -5, 5, 3,
+                                      backnforth=True)
+  emotion_master = SoftwarePositionTriggerMaster(m0, 5, 10, 7,time=1)
+  chain.add(step_master,emotion_master)
+  chain.add(emotion_master, test_acq_dev)
+  scan = Scan(chain,
+              name='super_zap_image',
+              parent=step_scan)
+  scan.run()
+
+  print "next scan"
+  chain = AcquisitionChain()
+  emotion_master = SoftwarePositionTriggerMaster(m0,5,10,7)
+  test_acq_dev = TestAcquisitionDevice("super_mario", 0)
+  chain.add(emotion_master, test_acq_dev)
+  scan = Scan(chain,name='soft_zapline',parent=step_scan)
+  scan.run()
+
+def test_sps():
+  config_xml = """
+<config>
+  <controller class="mockup">
+    <axis name="m0">
+      <steps_per_unit value="10000"/>
+      <!-- degrees per second -->
+      <velocity value="10"/>
+      <acceleration value="100"/>
+    </axis>
+    <axis name="m1">
+      <steps_per_unit value="10000"/>
+      <!-- degrees per second -->
+      <velocity value="1"/>
+      <acceleration value="10"/>
+    </axis>
+    <axis name="m2">
+      <steps_per_unit value="10000"/>
+      <!-- degrees per second -->
+      <velocity value="10"/>
+      <acceleration value="100"/>
+    </axis>
+  </controller>
+</config>"""
+
+  load_cfg_fromstring(config_xml)
+  m0 = get_axis("m0")
+ 
+  chain = AcquisitionChain()
+  emotion_master = SoftwarePositionTriggerMaster(m0, 5, 10, 7,time=1)
+  c0_dev = TestAcquisitionDevice("c0")
+  c1_dev = TestAcquisitionDevice("c1")
+  chain.add(emotion_master, c0_dev)
+  chain.add(emotion_master,c1_dev)
+  chain._tree.show()
+
+  session_cnt = Container('sps_test')
+  recorder = ScanRecorder('test_scan',session_cnt)
+  scan = Scan(chain, recorder)
+  scan.prepare()
+  scan.start()
+
 if __name__ == '__main__':
   #test()
   #test2()
@@ -417,4 +516,6 @@ if __name__ == '__main__':
   #test_p201()
   #test_emotion_p201()
   #test_p201_hdf5()
-  test_lima_basler()
+  #test_lima_basler()
+  #test_step_cont()
+  test_sps()

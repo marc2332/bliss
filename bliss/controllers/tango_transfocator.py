@@ -6,14 +6,14 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss.common.task_utils import *
-import PyTango.gevent
+from bliss.common.tango import DeviceProxy
 
 class tango_transfocator:
    def __init__(self, name, config):
       tango_uri = config.get("uri")
       self.__control = None
       try:
-         self.__control = PyTango.gevent.DeviceProxy(tango_uri)
+         self.__control = DeviceProxy(tango_uri)
       except PyTango.DevFailed, traceback:
          last_error = traceback[-1]
          print "%s: %s"  % (tango_uri, last_error['desc'])
@@ -23,7 +23,7 @@ class tango_transfocator:
             self.__control.ping()
          except PyTango.ConnectionFailed:
             self.__control = None
-            raise ConnectionError
+            raise RuntimeError("Connection error")
 
    def status_read(self):
       return self.__control.ShowLenses

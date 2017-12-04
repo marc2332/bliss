@@ -6,6 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import time
+from warnings import warn
 
 from bliss.controllers.motor import Controller
 from bliss.common import log as elog
@@ -14,7 +15,7 @@ from bliss.common.utils import object_method
 from bliss.common.axis import AxisState
 
 import pi_gcs
-from bliss.comm import tcp
+from bliss.comm.util import TCP
 from bliss.common import event
 
 """
@@ -25,11 +26,9 @@ Thu 13 Feb 2014 15:51:41
 """
 
 class PI_E51X(Controller):
-    __sock_map = dict()
 
-    def __init__(self, name, config, axes, encoders):
-        Controller.__init__(self, name, config, axes, encoders)
-        self.host = self.config.get("host")
+    def __init__(self, *args, **kwargs):
+        Controller.__init__(self, *args, **kwargs)
 
         self.__encoder_axis_map = {}
         for name, axis, config in axes:
@@ -51,15 +50,7 @@ class PI_E51X(Controller):
                 elog.debug("mvt started, gate set to 1")
 
     def initialize(self):
-        """
-        Opens a single socket for all 3 axes.
-        """
-        if self.host in self.__sock_map:
-            print "sock already defined ----------------------"
-            self.sock = self.__sock_map[self.host]
-        else:
-            self.sock = tcp.Socket(self.host, 50000)
-            self.__sock_map[self.host] = self.sock
+        self.sock = pi_gcs.get_pi_comm(self.config, TCP)
 
     def finalize(self):
         """

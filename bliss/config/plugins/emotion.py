@@ -9,11 +9,18 @@ from __future__ import absolute_import
 import os
 import sys
 import pkgutil
+import weakref
 
-from bliss.config.static import Config
-from bliss.config.motors.beacon_backend import create_objects_from_config_node, create_object_from_cache
-import bliss.controllers.motor as bliss_motor_controller
-import bliss.controllers.motors
+from bliss.common.axis import Axis, AxisRef
+from bliss.common.encoder import Encoder
+from bliss.config.static import Config, get_config
+from bliss.common.tango import DeviceProxy
+from bliss.config.plugins.bliss import find_class
+
+import gevent
+import hashlib
+import sys
+
 
 __KNOWN_AXIS_PARAMS = {
     "name": str,
@@ -33,13 +40,8 @@ __KNOWN_CONTROLLER_PARAMS = ("name", "class", "plugin", "axes")
 __this_path = os.path.realpath(os.path.dirname(__file__))
 
 
-def __get_controller_importer():
-    controllers_path = os.path.dirname(bliss.controllers.motors.__file__)
-    return pkgutil.ImpImporter(path=controllers_path)
-
-
 def __get_controller_class_names():
-    return [name for name, _ in __get_controller_importer().iter_modules()]
+    return bliss.controllers.motors.__all__
 
 
 def get_jinja2():
@@ -154,17 +156,15 @@ def get_ctrl_html(cfg):
 
 def __is_tango_device(name):
     try:
-        import PyTango
-        return PyTango.DeviceProxy(name) is not None
+        return DeviceProxy(name) is not None
     except:
         pass
     return False
 
 
 def __tango_apply_config(name):
-    import PyTango.gevent
     try:
-        device = PyTango.gevent.DeviceProxy(name)
+        device = DeviceProxy(name)
         device.command_inout("ApplyConfig", True)
         msg = "'%s' configuration saved and applied to server!" % name
         msg_type = "success"
@@ -296,3 +296,102 @@ def add_axis(cfg, request):
     if request.method == "GET":
         return flask.json.dumps(dict(html="<h1>TODO</h1>",
                                      message="not implemented", type="danger"))
+
+
+def create_objects_from_config_node(config, node):
+    if 'axes' in node or 'encoders' in node:
+        # asking for a controller
+        obj_name = None
+    else:
+        obj_name = node.get('name')
+        node = node.parent
+
+    controller_class_name = node.get('class')
+    controller_name = node.get('name')
+    if controller_name is None:
+        h = hashlib.md5()
+        for axis_config in node.get('axes'):
+            name = axis_config.get('name')
+            if name is not None:
+                h.update(name)
+        controller_name = h.hexdigest()
+    controller_class = find_class(node, "bliss.controllers.motors") 
+    controller_module = sys.modules[controller_class.__module__]
+    axes = list()
+    axes_names = list()
+    encoders = list()
+    encoders_names = list()
+    switches = list()
+    switches_names = list()
+    shutters = list()
+    shutters_names = list()
+    for axis_config in node.get('axes'):
+        axis_name = axis_config.get("name")
+        if axis_name.startswith("$"):
+            axis_class = AxisRef
+            axis_name = axis_name.lstrip('$')
+        else:
+            axis_class_name = axis_config.get("class")
+            if axis_class_name is None:
+        	axis_class = Axis
+            else:
+		axis_class = getattr(controller_module, axis_class_name)
+            axes_names.append(axis_name)
+        axes.append((axis_name, axis_class, axis_config))
+        
+    for objects,objects_names,default_class,default_class_name,objects_config in\
+        ((encoders,encoders_names,Encoder,'',node.get('encoders',[])),
+         (shutters,shutters_names,None,'Shutter',node.get('shutters',[])),
+         (switches,switches_names,None,'Switch',node.get('switches',[])),
+         ):
+        for object_config in objects_config:
+            object_name = object_config.get("name")
+            object_class_name = object_config.get("class")
+            object_config = _checkref(config,object_config)
+            if object_class_name is None:
+                object_class = default_class
+                if object_class is None:
+                    try:
+                        object_class = getattr(controller_module, default_class_name)
+                    except AttributeError:
+                        pass
+            else:
+                object_class = getattr(controller_module, object_class_name)
+            objects_names.append(object_name)
+            objects.append((object_name, object_class, object_config))
+
+    controller = controller_class(controller_name, node, axes,
+                                  encoders, shutters, switches)
+    controller._update_refs(config)
+    controller.initialize()
+
+    all_names = axes_names + encoders_names + switches_names + shutters_names
+    cache_dict = dict(zip(all_names, [controller]*len(all_names)))
+    ctrl = cache_dict.pop(obj_name,None)
+    if ctrl is not None:
+        obj = create_object_from_cache(None, obj_name, controller)
+        return { controller_name: controller, obj_name: obj }, cache_dict
+    else:
+        return {controller_name: controller }, cache_dict
+
+
+def create_object_from_cache(config, name, controller):
+    for func in (controller.get_axis,
+                 controller.get_encoder,
+                 controller.get_switch,
+                 controller.get_shutter):
+        try:
+            return func(name)
+        except KeyError:
+            pass
+    raise KeyError(name)
+
+
+def _checkref(config,cfg):
+    obj_cfg = cfg.deep_copy()
+    for key,value in obj_cfg.iteritems():
+        if isinstance(value,str) and value.startswith('$'):
+            # convert reference to item from config
+            obj = weakref.proxy(config.get(value))
+            obj_cfg[key] = obj
+    return obj_cfg

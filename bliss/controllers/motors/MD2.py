@@ -5,15 +5,15 @@ protocol for communication.
 from bliss.controllers.motor import Controller
 from bliss.common import log as elog
 from bliss.common.axis import AxisState
-
 from bliss.comm.Exporter import *
 import time
+import gevent
 
 
 class MD2(Controller):
 
-    def __init__(self, name, config, axes, encoders):
-        Controller.__init__(self, name, config, axes, encoders)
+    def __init__(self, *args, **kwargs):
+        Controller.__init__(self, *args, **kwargs)
 
         host, port = self.config.get("exporter_address").split(":")
         self._exporter = Exporter(host, int(port))
@@ -62,17 +62,12 @@ class MD2(Controller):
         return self._exporter.readProperty("State")
 
     def _ready(self):
-        if self._get_hwstate() == "Ready" and self._get_swstate() == "Ready":
+        if self._get_swstate() == "Ready" and self._get_hwstate() == "Ready":
             return True
         return False
 
-    def _wait_ready(self, timeout=None):
-        if timeout <= 0:
-            timeout = 3   #3 s by default
-        tt1 = time.time()
-        while time.time() - tt1 < timeout:
-            if self._ready():
-                break
-            else:
-                time.sleep(0.5)
+    def _wait_ready(self, timeout=3):
+        with gevent.Timeout(timeout):
+            while not self._ready():
+                gevent.sleep(0.01)  
 

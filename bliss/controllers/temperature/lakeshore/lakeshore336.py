@@ -12,10 +12,13 @@ class LakeShore336(LakeShore330):
     def __init__(self, comm_type, url, **kwargs):
         _ls = LakeShore330(comm_type, url, **kwargs)
         self._comm = _ls._comm
+        self.eos = _ls.eos
 
-    def outmode(self, **kwargs):
+    def outmode(self, channel, **kwargs):
         """ Read/Set Output Mode Parameters. Modes 4 and 5 are only valid for
             Analog Outputs (3 and 4)
+            Args:
+               channel(int): output channel. Valid entries: 1 - 4
             Kwargs:
                mode (int): control mode: 0=Off, 1=Closed Loop PID,
                            2=Zone, 3=Open Loop, 4=Monitor Out,
@@ -28,6 +31,7 @@ class LakeShore336(LakeShore330):
                mode (str): control mode
                input (int): input channel
         """
+        self._channel = channel
         mode = kwargs.get('mode')
         inp = kwargs.get('input')
         if None not in (mode, inp):

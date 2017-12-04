@@ -19,20 +19,15 @@ class Base(Controller):
         """
         self._lakeshore.clear()
 
-    def initialize_input(self, tinput):
-        self._lakeshore.init(tinput.config.get('channel'))
-
     def initialize_output(self, toutput):
         """Initialize the output device
         """
-        self._lakeshore.init(toutput.config.get('channel'))
         self.__ramp_rate = None
         self.__set_point = None
 
     def initialize_loop(self, tloop):
         """Initialize the loop device
         """
-        self._lakeshore.init(tloop.config.get('channel'))
         self.__kp = None
         self.__ki = None
         self.__kd = None
@@ -42,7 +37,8 @@ class Base(Controller):
            Returns:
               (float): current temperature
         """
-        return self._lakeshore.read_temperature()
+        channel = tinput.config.get('channel')
+        return self._lakeshore.read_temperature(channel)
 
     def start_ramp(self, toutput, sp, **kwargs):
         """Start ramping to setpoint
@@ -53,11 +49,12 @@ class Base(Controller):
            Returns:
               None
         """
+        channel = toutput.config.get('channel')
         try:
             rate = float(kwargs.get("rate", self.__ramp_rate))
         except TypeError:
             raise RuntimeError("Cannot start ramping, ramp rate not set")
-        self._lakeshore.ramp(sp, rate)
+        self._lakeshore.ramp(channel, sp, rate)
 
     def set_ramprate(self, toutput, rate):
         """Set the ramp rate
@@ -82,14 +79,16 @@ class Base(Controller):
            Returns:
               (float): current gas temperature setpoint
         """
-        return self._lakeshore.setpoint(sp)
+        channel = toutput.config.get('channel')
+        return self._lakeshore.setpoint(channel, sp)
 
     def get_setpoint(self, toutput):
         """Read the value of the output setpoint
            Returns:
               (float): current gas temperature setpoint
         """
-        self.__set_point = self._lakeshore.setpoint()
+        channel = toutput.config.get('channel')
+        self.__set_point = self._lakeshore.setpoint(channel)
         return self.__set_point
 
     def set_kp(self, tloop, kp):
@@ -99,7 +98,8 @@ class Base(Controller):
             Returns:
                None
         """
-        self._lakeshore.pid(P=kp)
+        channel = tloop.config.get('channel')
+        self._lakeshore.pid(channel, P=kp)
         self.__kp = kp
 
     def read_kp(self, tloop):
@@ -107,7 +107,8 @@ class Base(Controller):
             Returns:
                kp (float): gain value - 0.1 to 1000
         """
-        self.__kp, self.__ki,  self.__kd = self._lakeshore.pid()
+        channel = tloop.config.get('channel')
+        self.__kp, self.__ki,  self.__kd = self._lakeshore.pid(channel)
         return self.__kp
 
     def set_ki(self, tloop, ki):
@@ -117,7 +118,8 @@ class Base(Controller):
             Returns:
                None
         """
-        self._lakeshore.pid(I=ki)
+        channel = tloop.config.get('channel')
+        self._lakeshore.pid(channel, I=ki)
         self.__ki = ki
 
     def read_ki(self, tloop):
@@ -125,7 +127,8 @@ class Base(Controller):
             Returns:
                ki (float): value - 0.1 to 1000
         """
-        self.__kp, self.__ki,  self.__kd = self._lakeshore.pid()
+        channel = tloop.config.get('channel')
+        self.__kp, self.__ki,  self.__kd = self._lakeshore.pid(channel)
         return self.__ki
 
     def set_kd(self, tloop, kd):
@@ -135,7 +138,8 @@ class Base(Controller):
             Returns:
                None
         """
-        self._lakeshore.pid(D=kd)
+        channel = tloop.config.get('channel')
+        self._lakeshore.pid(channel, D=kd)
         self.__kd = kd
 
     def read_kd(self, tloop):
@@ -143,5 +147,6 @@ class Base(Controller):
             Returns:
                kd (float): value - 0 - 200
         """
-        self.__kp, self.__ki,  self.__kd = self._lakeshore.pid()
+        channel = tloop.config.get('channel')
+        self.__kp, self.__ki,  self.__kd = self._lakeshore.pid(channel)
         return self.__kd

@@ -123,17 +123,8 @@ class Session(object):
         except AttributeError:
             self.__synoptic_file = None
 
-        config_objects = config_tree.get("config-objects")
-        if isinstance(config_objects, (str, unicode)):
-            self.__config_objects_names = config_objects.split()
-        else:
-            self.__config_objects_names = config_objects
-        exclude_objects = config_tree.get("exclude-objects") or []
-        if isinstance(exclude_objects, (str, unicode)):
-            self.__exclude_objects_names = exclude_objects.split()
-        else:
-            self.__exclude_objects_names = exclude_objects
-
+        self.__config_objects_names = config_tree.get("config-objects")
+        self.__exclude_objects_names = config_tree.get("exclude-objects",list())
         self.__objects_names = None
 
         global DEFAULT_SESSION

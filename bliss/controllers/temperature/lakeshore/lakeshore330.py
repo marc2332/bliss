@@ -202,14 +202,17 @@ class LakeShore330(object):
            Returns:
               None
         """
-        if '?' in command:
+        if command.startswith('*'):
+            if '?' in command:
+                return self._comm.write_readline(command + self.eos)
+            else:
+                self._comm.write(command + self.eos)
+        elif '?' in command:
             if isinstance(self._channel, str):
                 cmd = command + ' %s' % self._channel
             else:
                 cmd = command + ' %r' % self._channel
             return self._comm.write_readline(cmd + self.eos)
-        elif command.startswith('*'):
-            self._comm.write(command + self.eos)
         else:
             inp = ','.join(str(x) for x in args)
             self._comm.write(command + ' %d,%s *OPC' %

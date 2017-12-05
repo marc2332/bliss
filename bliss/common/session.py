@@ -237,7 +237,7 @@ class Session(object):
 
         from bliss.scanning.scan import ScanSaving
         env_dict['SCAN_SAVING'] = ScanSaving()
-        from bliss.session.measurementgroup import ACTIVE_MG
+        from bliss.common.measurementgroup import ACTIVE_MG
         env_dict['ACTIVE_MG'] = ACTIVE_MG
 
         sessions_tree = self.sessions_tree

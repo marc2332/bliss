@@ -36,7 +36,7 @@ from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 from bliss.scanning.acquisition.motor import LinearStepTriggerMaster, MeshStepTriggerMaster
 from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
 from bliss.scanning.acquisition.ct2 import CT2AcquisitionMaster
-from bliss.session import session,measurementgroup
+from bliss.common import session,measurementgroup
 try:
     from bliss.scanning.writer import hdf5 as default_writer
 except ImportError:

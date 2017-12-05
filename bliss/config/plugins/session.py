@@ -9,10 +9,10 @@ import os
 import collections
 
 from .utils import find_class
-from ...session.measurementgroup import MeasurementGroup
+from ...common.measurementgroup import MeasurementGroup
 
 def create_objects_from_config_node(config, item_cfg_node):
-    klass = find_class(item_cfg_node,'bliss.session')
+    klass = find_class(item_cfg_node,'bliss.common')
     
     item_name = item_cfg_node["name"]
     if issubclass(klass,MeasurementGroup):

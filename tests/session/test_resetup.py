@@ -7,7 +7,7 @@
 
 import pytest
 import time
-from bliss.session import measurementgroup
+from bliss.common import measurementgroup
 from bliss import setup_globals
 from bliss.common import scans
 from bliss.common import measurement

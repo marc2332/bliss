@@ -14,7 +14,7 @@ from bliss.common.tango import DeviceProxy, AttrQuality
 
 from prompt_toolkit.token import Token
 
-from bliss.session.session import get_current as current_session
+from bliss.common.session import get_current as current_session
 
 from .layout import StatusToken, Separator
 

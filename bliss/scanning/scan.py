@@ -19,7 +19,7 @@ from bliss.common.event import connect,send
 from bliss.config.conductor import client
 from bliss.config.settings import Parameters,_change_to_obj_marshalling
 from bliss.data.node import _get_or_create_node,_create_node,DataNode
-from bliss.session.session import get_current as _current_session
+from bliss.common.session import get_current as _current_session
 from .chain import AcquisitionDevice, AcquisitionMaster
 
 current_module = sys.modules[__name__]

@@ -7,7 +7,7 @@
 import itertools
 from bliss import setup_globals
 from bliss.config import settings
-from bliss.session.session import get_current as _current_session
+from .session import get_current as _current_session
 
 
 class _active_mg_proxy(object):

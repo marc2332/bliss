@@ -25,27 +25,21 @@ def get_current():
     return CURRENT_SESSION
 
 
-_importer_path = set()
+_importer_session = set()
 
 
 class _StringImporter(object):
-    BASE_MODULE_NAME_SPACE = 'bliss.setup'
-    SUB_NAME_SPACE = 'scripts'
+    BASE_MODULE_NAME_SPACE = 'bliss.session'
 
     def __init__(self, path, session_name):
         self._modules = dict()
-        global_module_name_space = '%s.%s' % (self.BASE_MODULE_NAME_SPACE,
-                                              self.SUB_NAME_SPACE)
         session_module_name_space = '%s.%s' % (self.BASE_MODULE_NAME_SPACE,
                                                session_name)
         for module_name, file_path in get_python_modules(path):
-            for mod_namespace in (global_module_name_space, session_module_name_space):
-                self._modules['%s.%s' %
-                              (mod_namespace, module_name)] = file_path
+            self._modules['%s.%s' %
+                          (session_module_name_space, module_name)] = file_path
         if self._modules:
             self._modules[self.BASE_MODULE_NAME_SPACE] = None
-            self._modules['%s.%s' %
-                          (self.BASE_MODULE_NAME_SPACE, self.SUB_NAME_SPACE)] = None
             self._modules['%s.%s' %
                           (self.BASE_MODULE_NAME_SPACE, session_name)] = None
 
@@ -81,14 +75,29 @@ class _StringImporter(object):
         return new_module
 
 
-def load_script(env_dict, script_module_name):
+def load_script(env_dict, script_module_name,
+                session=None, reload_module=True):
+    """
+    load a script name script_module_name and export all public
+    (not starting with _) object and function in env_dict.
+    just print execption but not throwing it.
+
+    Args:
+    	env_dict (python dictionnary) where object will be exported
+    	script_module_name the python file you want to load
+    	session from which session name you want to load your script,
+        default (None) is the current.
+    """
+    if session is None:
+        session = get_current()
+    elif isinstance(session, (str, unicode)):
+        session = static.get_config().get(session)
+
     module_name = '%s.%s.%s' % (_StringImporter.BASE_MODULE_NAME_SPACE,
-                                _StringImporter.SUB_NAME_SPACE,
+                                session.name,
                                 script_module_name)
 
-    if module_name in sys.modules:
-        reload_module = True
-    else:
+    if module_name not in sys.modules:
         reload_module = False
     try:
         script_module = __import__(module_name, env_dict, {}, ['*'])
@@ -232,8 +241,6 @@ class Session(object):
 
         self._load_config(env_dict, verbose)
 
-        env_dict['load_script'] = functools.partial(
-            load_script, env_dict)
 
         from bliss.scanning.scan import ScanSaving
         env_dict['SCAN_SAVING'] = ScanSaving()
@@ -247,7 +254,15 @@ class Session(object):
         for obj_name, obj in env_dict.iteritems():
             setattr(setup_globals, obj_name, obj)
 
+        self._setup(env_dict)
+
+        env_dict['load_script'] = functools.partial(
+            load_script, env_dict)
+
     def _setup(self, env_dict):
+        env_dict['load_script'] = functools.partial(
+            load_script, env_dict, session=self, reload_module=False)
+
         if self.setup_file is None:
             return
 
@@ -256,10 +271,9 @@ class Session(object):
                 base_path = os.path.dirname(self.setup_file)
                 module_path = os.path.join(base_path, 'scripts')
 
-                if module_path not in _importer_path:
-                    sys.meta_path.append(
-                        _StringImporter(module_path, self.name))
-                    _importer_path.add(module_path)
+                if self.name not in _importer_session:
+                    sys.meta_path.append(_StringImporter(module_path, self.name))
+                    _importer_session.add(self.name)
 
                 code = compile(setup_file.read(), self.setup_file, 'exec')
                 exec(code, env_dict)

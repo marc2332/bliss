@@ -47,7 +47,8 @@ def main():
                 c = config.get_config(name)
                 if c.get('class') != 'Session': continue
                 if c.get_inherited('plugin') != 'session': continue
-                print ' '*4,name
+                session = config.get(name)
+                session.sessions_tree.show()
             exit(0)
 
         embed(session_name=session_name)

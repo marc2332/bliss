@@ -9,6 +9,7 @@ import os
 import sys
 from types import ModuleType
 import functools
+from treelib import Tree
 
 from bliss import setup_globals
 from bliss.config import static
@@ -127,12 +128,15 @@ class Session(object):
             self.__synoptic_file = None
 
         self.__config_objects_names = config_tree.get("config-objects")
-        self.__exclude_objects_names = config_tree.get("exclude-objects",list())
+        self.__exclude_objects_names = config_tree.get("exclude-objects", list())
         self.__objects_names = None
 
         global CURRENT_SESSION
         if CURRENT_SESSION is None:
             CURRENT_SESSION = self
+
+        self.__children_tree = None
+        self.__include_sessions = config_tree.get('include-sessions')
 
     @property
     def name(self):
@@ -153,11 +157,16 @@ class Session(object):
     @property
     def object_names(self):
         if self.__objects_names is None:
+            names_list = list()
+            sessions_tree = self.sessions_tree
+            for child_session in reversed(list(sessions_tree.expand_tree(mode=Tree.WIDTH))[1:]):
+                names_list.extend(child_session.object_names)
+
             if self.__config_objects_names is None:
                 names_list = [x for x in self.config.names_list
                               if self.config.get_config(x).get('class', '').lower() != 'session']
             else:
-                names_list = self.__config_objects_names[:]
+                names_list.extend(self.__config_objects_names[:])
                 #Check if other session in config-objects
                 for name in names_list:
                     object_config = self.config.get_config(name)
@@ -175,10 +184,47 @@ class Session(object):
                     names_list.remove(name)
                 except (ValueError, AttributeError):
                     pass
-
-            self.__objects_names = names_list[:]
+            seen = set()
+            self.__objects_names = [x for x in names_list\
+                                    if not (x in seen or seen.add(x))]
 
         return self.__objects_names
+
+    @property
+    def sessions_tree(self):
+        """
+        return children session as a tree
+        """
+        if self.__children_tree is None:
+            childrens = {self.name : (1, list())}
+            tree = Tree()
+            tree.create_node(tag=self.name, identifier=self)
+            tree = self._build_children_tree(tree, self, childrens)
+            multiple_ref_child = [(name, parents) for name, (ref, parents) in \
+                                  childrens.items() if ref > 1]
+            if multiple_ref_child:
+                msg = "Session %s as cyclic references to sessions:\n" % self.name
+                msg += '\n'.join('session %s is referenced in %r' % (session_name, parents)\
+                                 for session_name, parents in multiple_ref_child)
+                raise RuntimeError(msg)
+            self.__children_tree = tree
+        return self.__children_tree
+
+    def _build_children_tree(self, tree, parent, childrens) :
+        if self.__include_sessions is not None:
+            for session_name in self.__include_sessions:
+                nb_ref, parents = childrens.get(session_name, (0, list()))
+                nb_ref += 1
+                childrens[session_name] = (nb_ref, parents)
+                parents.append(self.name)
+                if nb_ref > 1:  # avoid cyclic reference
+                    continue
+
+                child = self.config.get(session_name)
+                child_node = tree.create_node(tag=session_name,
+                                              identifier=child, parent=parent)
+                child._build_children_tree(tree, child, childrens)
+        return tree
 
     def setup(self, env_dict=None, verbose=False):
         if env_dict is None:
@@ -194,9 +240,14 @@ class Session(object):
         from bliss.session.measurementgroup import ACTIVE_MG
         env_dict['ACTIVE_MG'] = ACTIVE_MG
 
+        sessions_tree = self.sessions_tree
+        for child_session in reversed(list(sessions_tree.expand_tree(mode=Tree.WIDTH))[1:]):
+            child_session._setup(env_dict)
+
         for obj_name, obj in env_dict.iteritems():
             setattr(setup_globals, obj_name, obj)
 
+    def _setup(self, env_dict):
         if self.setup_file is None:
             return
 

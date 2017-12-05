@@ -14,7 +14,7 @@ from bliss.common.tango import DeviceProxy, AttrQuality
 
 from prompt_toolkit.token import Token
 
-from bliss.session.session import get_default as default_session
+from bliss.session.session import get_current as current_session
 
 from .layout import StatusToken, Separator
 
@@ -116,7 +116,7 @@ class IDStatus(DeviceStatus):
 
     def __init__(self, device=ID_DEVICE, **kwargs):
         super(IDStatus, self).__init__(device, **kwargs)
-        session = default_session()
+        session = current_session()
         if session:
             name = ' ' + session.name.upper()
         else:

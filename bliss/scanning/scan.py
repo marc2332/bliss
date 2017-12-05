@@ -19,7 +19,7 @@ from bliss.common.event import connect,send
 from bliss.config.conductor import client
 from bliss.config.settings import Parameters,_change_to_obj_marshalling
 from bliss.data.node import _get_or_create_node,_create_node,DataNode
-from bliss.session.session import get_default as _default_session
+from bliss.session.session import get_current as _current_session
 from .chain import AcquisitionDevice, AcquisitionMaster
 
 current_module = sys.modules[__name__]
@@ -107,7 +107,7 @@ class ScanSaving(Parameters):
     @property
     def session(self):
         """ This give the name of the default session or unnamed if no default session is defined """
-        session = _default_session()
+        session = _current_session()
         return session.name if session is not None else 'unnamed'
 
     @property

@@ -7,7 +7,7 @@
 import itertools
 from bliss import setup_globals
 from bliss.config import settings
-from bliss.session.session import get_default as _default_session
+from bliss.session.session import get_current as _current_session
 
 
 class _active_mg_proxy(object):
@@ -61,14 +61,14 @@ def get_active():
 
 
 def get_active_name():
-    session = _default_session()
+    session = _current_session()
     session_name = session.name if session is not None else 'unnamed'
     active_mg_name = settings.SimpleSetting('%s:active_measurementgroup' % session_name)
     return active_mg_name.get()
 
 
 def set_active_name(name):
-    session = _default_session()
+    session = _current_session()
     session_name = session.name if session is not None else 'unnamed'
     active_mg_name = settings.SimpleSetting('%s:active_measurementgroup' % 
                                                  session_name)

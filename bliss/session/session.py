@@ -14,11 +14,14 @@ from bliss import setup_globals
 from bliss.config import static
 from bliss.config.conductor.client import get_config_file, get_python_modules, get_file
 
-DEFAULT_SESSION = None
+CURRENT_SESSION = None
 
 
-def get_default():
-    return DEFAULT_SESSION
+def get_current():
+    """
+    return the current session object
+    """
+    return CURRENT_SESSION
 
 
 _importer_path = set()
@@ -127,9 +130,9 @@ class Session(object):
         self.__exclude_objects_names = config_tree.get("exclude-objects",list())
         self.__objects_names = None
 
-        global DEFAULT_SESSION
-        if DEFAULT_SESSION is None or config_tree.get('default', False):
-            DEFAULT_SESSION = self
+        global CURRENT_SESSION
+        if CURRENT_SESSION is None:
+            CURRENT_SESSION = self
 
     @property
     def name(self):

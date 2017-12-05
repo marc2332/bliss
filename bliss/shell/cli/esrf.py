@@ -125,8 +125,8 @@ class IDStatus(DeviceStatus):
                                                           session=name)
 
     def __call__(self, cli):
-        if cli.python_input.bliss_sessions:
-            session = ' ' + cli.python_input.bliss_sessions[0].name.upper()
+        if cli.python_input.bliss_session:
+            session = ' ' + cli.python_input.bliss_session.name.upper()
         else:
             session = ''
         return [(Token.Toolbar.Status.Name, self.title), Separator] + \

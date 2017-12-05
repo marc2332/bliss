@@ -158,6 +158,17 @@ class Session(object):
                               if self.config.get_config(x).get('class', '').lower() != 'session']
             else:
                 names_list = self.__config_objects_names[:]
+                #Check if other session in config-objects
+                for name in names_list:
+                    object_config = self.config.get_config(name)
+                    if object_config is None:
+                        raise RuntimeError("Session %s contains object %s which doesn't exist" %
+                                           (self.name, name))
+
+                    class_name = object_config.get('class', '')
+                    if class_name.lower() == 'session':
+                        raise RuntimeError('Session %s contains session %s in config-objects' %
+                                           (self.name, name))
 
             for name in self.__exclude_objects_names:
                 try:

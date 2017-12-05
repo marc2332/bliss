@@ -108,10 +108,16 @@ class Session(object):
 
     def init(self, config_tree):
         try:
-            self.__setup_file = os.path.normpath(os.path.join(
-                os.path.dirname(config_tree.filename), config_tree.get("setup-file")))
-        except TypeError:
+            setup_file_path = config_tree["setup-file"]
+        except KeyError:
             self.__setup_file = None
+        else:
+            try:
+                self.__setup_file = os.path.normpath(os.path.join(
+                    os.path.dirname(config_tree.filename), setup_file_path))
+            except TypeError:
+                self.__setup_file = None
+
         try:
             self.__synoptic_file = config_tree.get("synoptic").get("svg-file")
         except AttributeError:
@@ -198,7 +204,7 @@ class Session(object):
             setattr(setup_globals, obj_name, obj)
 
         if self.setup_file is None:
-            raise RuntimeError("No setup file.")
+            return
 
         try:
             with get_file({"setup_file": self.setup_file}, 'setup_file') as setup_file:

@@ -57,6 +57,11 @@ class CounterGroup(IntegratingCounter.GroupedReadHandler):
         # counter_indexes dict<counter: index in data array>
         self.counter_indexes = counter_indexes
 
+        # a hack here: since this prepare is called AFTER the
+        # CT2AcquisitionDevice prepare, we do a "second" prepare
+        # here after the acq_channels have been configured
+        self.controller.prepare_acq()
+
     def get_values(self, from_index, *counters):
         data = self.controller.get_data(from_index).T
         if not data.size:

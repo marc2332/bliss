@@ -11,7 +11,6 @@ from __future__ import absolute_import
 import gevent
 
 from bliss.common import log as elog
-from bliss.comm.util import get_comm
 from bliss.common.axis import AxisState
 from bliss.common.hook import MotionHook
 from bliss.common.utils import object_method
@@ -69,7 +68,6 @@ class NewportXPS(Controller):
         Controller.__init__(self, *args, **kwargs)
         elog.level(10)
 
-
     def initialize(self):
         elog.debug("initialize() called")
         comm_cfg = ({'tcp': {'url': self.config.get('tcp')}})
@@ -89,7 +87,7 @@ class NewportXPS(Controller):
         axis.minJerkTime = axis.config.get("minJerkTime")
         axis.maxJerkTime = axis.config.get("maxJerkTime")
         axis.gpioConn = axis.config.get("gpio_conn")
-        
+
         error, reply = self.__xps.GroupInitialize(axis.group)
         if error == 0:
             elog.debug("NewportXPS: initialisation successful")
@@ -161,14 +159,14 @@ class NewportXPS(Controller):
         elog.debug("start_one() called")
         self.cv_trigger(motion.axis)
         motor_name = motion.axis.group + "." + motion.axis.name
-        error, reply = self.__xps.GroupMoveAbsolute(motor_name, [motion.target_pos,])
+        error, reply = self.__xps.GroupMoveAbsolute(motor_name, [motion.target_pos, ])
         print("Reply:", reply)
         if error != 0:
             elog.error("NewportXPS Error: Unexpected response to move absolute", reply)
 
     def start_all(self, *motion_list):
         elog.debug("start_all() called")
-        target_positions = [0,0]
+        target_positions = [0, 0]
         for motion in motion_list:
             target_positions[int(motion.axis.channel)-1] = motion.target_pos
         error, reply = self.__xps.GroupMoveAbsolute(motion.axis.group, target_positions)
@@ -185,12 +183,12 @@ class NewportXPS(Controller):
 
     def stop_all(self, *motion_list):
         elog.debug("stop_all() called")
-        error, reply = self.__xps.GroupMoveAbort(motion[0].axis.group)
+        error, reply = self.__xps.GroupMoveAbort(motion_list[0].axis.group)
         if error == -22:
             elog.info("NewportXPS: All positioners idle")
         elif error != 0:
             elog.error("NewportXPS Error: ", reply)
-        
+
     def home_search(self, axis, switch):
         elog.debug("home_search() called")
         # Moves the motor to a repeatable starting location allows
@@ -215,7 +213,7 @@ class NewportXPS(Controller):
         elog.debug("state() called")
         error, status = self.__xps.GroupStatusGet(axis.group)
         if error != 0:
-            elog.error("NewportXPS Error: Failed to read status", reply[1])
+            elog.error("NewportXPS Error: Failed to read status", status)
             return AxisState('FAULT')
         if status in [0,   # NOTINIT state
                       1,   # NOTINIT state due to an emergency brake: see positioner status
@@ -326,7 +324,7 @@ class NewportXPS(Controller):
                       105]:  # Jitter initialization
             return AxisState("UNDECIDED", "Not categorised yet")
         return AxisState("UNKNOWN", "This should not happen")
-    
+
     @object_method()
     def abort(self, axis):
         elog.debug("abort() called")
@@ -339,18 +337,18 @@ class NewportXPS(Controller):
         """
         Generate a pulses on the GPIO connector when the positioner reaches
         constant velocity motion.
-        """ 
+        """
         elog.debug("cv_trigger start")
         motor_name = axis.group + "." + axis.name
         category = ".SGamma"
         event1 = motor_name + category + ".ConstantVelocityStart"
         action = axis.gpioConn + ".DO.DOPulse"
-        error, reply = self.__xps.EventExtendedConfigurationTriggerSet (
+        error, reply = self.__xps.EventExtendedConfigurationTriggerSet(
             [event1], [0], [0], [0], [0])
         if error != 0:
             elog.error("NewportXPS Error: ", reply)
         else:
-            error, reply = self.__xps.EventExtendedConfigurationActionSet (
+            error, reply = self.__xps.EventExtendedConfigurationActionSet(
                 [action], [4], [0], [0], [0])
             if error != 0:
                 elog.error("NewportXPS Error: ", reply)
@@ -391,7 +389,7 @@ class NewportXPS(Controller):
         error, reply = self.__xps.PositionerPositionCompareDisable(motor_name)
         if error != 0:
             elog.error("NewportXPS Error: ", reply)
-              
+
     @object_method()
     def event_list(self, axis):
         error, reply = self.__xps.EventExtendedAllGet()
@@ -405,4 +403,3 @@ class NewportXPS(Controller):
     @object_method()
     def event_remove(self, axis, id):
         error, reply = self.__xps.EventExtendedRemove(id)
- 

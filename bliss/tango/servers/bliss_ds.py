@@ -34,18 +34,15 @@ import six
 import gevent
 import gevent.event
 
-from PyTango import DevState, Util, Database, DbDevInfo
-from PyTango.server import device_property
-from PyTango.server import Device, DeviceMeta
-from PyTango.server import attribute, command
+from tango import DevState, Util, Database, DbDevInfo
+from tango.server import Device, attribute, command, device_property
 
 from bliss import shell
 from bliss.common import event
-from bliss.common import data_manager
 from bliss.common.utils import grouped
 from bliss.config import settings
 from bliss.config.static import get_config
-from bliss.controllers.motor_group import Group
+from bliss.common.motor_group import Group
 
 from . import utils
 
@@ -152,7 +149,6 @@ def load_shell(*session_names):
     return result
 
 
-@six.add_metaclass(DeviceMeta)
 class Bliss(Device):
     """Bliss TANGO device class"""
 
@@ -171,11 +167,11 @@ class Bliss(Device):
     def __init__(self, *args, **kwargs):
         self._log = logging.getLogger('bliss.tango.Bliss')
         self.__startup = True
-        Device.__init__(self, *args, **kwargs)
+        super(Bliss, self).__init__(*args, **kwargs)
         self.show_traceback = False
 
     def init_device(self):
-        Device.init_device(self)
+        super(Bliss, self).init_device()
         self.set_state(DevState.INIT)
         self._log.info('Initializing device...')
         self.__tasks = {}
@@ -599,8 +595,8 @@ def __initialize(args, db=None):
 
 
 def main(args=None, **kwargs):
-    from PyTango import GreenMode
-    from PyTango.server import run
+    from tango import GreenMode
+    from tango.server import run
     kwargs['green_mode'] = GreenMode.Gevent
 
     args = list(sys.argv if args is None else args)

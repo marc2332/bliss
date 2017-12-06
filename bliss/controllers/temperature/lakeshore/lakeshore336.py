@@ -6,35 +6,46 @@ from bliss.controllers.temperature.lakeshore.lakeshore330 import LakeShore330
 
 class LakeShore336(LakeShore330):
 
-    MODE336 = ('Off', 'Closed Loop' 'Zone', 'Open Loop', 'Monitor Out',
+    MODE336 = ('Off', 'Closed Loop', 'Zone', 'Open Loop', 'Monitor Out',
                'Warmup Supply', 'Auto Tune P', 'Auto Tune PI', 'Auto Tune PID')
 
     def __init__(self, comm_type, url, **kwargs):
         _ls = LakeShore330(comm_type, url, **kwargs)
         self._comm = _ls._comm
+        self.eos = _ls.eos
 
-    def outmode(self, **kwargs):
+    def outmode(self, channel, **kwargs):
         """ Read/Set Output Mode Parameters. Modes 4 and 5 are only valid for
             Analog Outputs (3 and 4)
             Kwargs:
                mode (int): control mode: 0=Off, 1=Closed Loop PID,
                            2=Zone, 3=Open Loop, 4=Monitor Out,
                            5=Warmup Supply.
-               input (int): input to use for control: 0=None), 1=A,
+               inp (int): input to use for control: 0=None), 1=A,
                             2=B, 3=C, 4=D (5=Input D2, 6=Input D3,
                             7=Input D4, 8=Input D5 for 3062 option)
+               powerup (int): output state after power cycle:
+                              0=powerup enable off, 1=on
           Returns:
                None if set
                mode (str): control mode
-               input (int): input channel
+               inp (int): input channel
+               powerup (int): output state after power cycle
         """
+        self._channel = channel
         mode = kwargs.get('mode')
-        inp = kwargs.get('input')
+        inp = kwargs.get('inp')
         if None not in (mode, inp):
-            self.send_cmd('OUTMODE', mode, inp)
+            powerup = kwargs.get('powerup', 0)
+            self.send_cmd('OUTMODE', mode, inp, powerup)
         else:
-            mode, inp = send_cmd('OUTMODE?').split(',')
-            return LakeShore336.MODE336[int(mode)], int(inp)
+            ret = self.send_cmd('OUTMODE?').split(',')
+            try:
+                powerup = int(ret[2])
+            except (ValueError, IndexError):
+                powerup = None
+            import pdb; pdb.set_trace()
+            return LakeShore336.MODE336[int(ret[0])], int(ret[1]), powerup
 
 
 class lakeshore336(Base):

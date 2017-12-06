@@ -11,9 +11,12 @@ class LakeShore332(LakeShore330):
     def __init__(self, comm_type, url, **kwargs):
         _ls = LakeShore330(comm_type, url, **kwargs)
         self._comm = _ls._comm
+        self.eos = _ls.eos
 
-    def cset(self, **kwargs):
+    def cset(self, channel, **kwargs):
         """ Read/Set Control Loop Parameters
+            Args:
+               channel(int): loop channel. Valid entries: 1 or 2
             Kwargs:
                input (str): which input to control from. Valid entries: A or B
                off (bool): switch on (True) or off (False) the control loop
@@ -22,6 +25,7 @@ class LakeShore332(LakeShore330):
                input (str): which input to control from
                off (bool): control loop on/off
         """
+        self._channel = channel
         inp = kwargs.get('input', '')
         off = kwargs.get('off')
         if isinstance(off, bool):
@@ -30,9 +34,10 @@ class LakeShore332(LakeShore330):
             asw = send_cmd('CSET?').split(',')
             return asw[1], bool(asw[3])
 
-    def cmode(self, mode=None):
+    def cmode(self, channel, mode=None):
         """ Read/Set Control Loop Mode
             Args:
+               channel(int): loop channel. Valid entries: 1 or 2
                mode (int): control mode. Valid entries: 1=Manual PID,
                            2=Zone, 3=Open Loop, 4=AutoTune PID,
                            5=AutoTune PI, 6=AutoTune P
@@ -40,6 +45,7 @@ class LakeShore332(LakeShore330):
                None if set
                mode (int): mode
         """
+        self._channel = channel
         if mode:
             self.send_cmd('CMODE', mode)
         else:

@@ -50,28 +50,24 @@ from bliss.controllers.temperature.lakeshore.lakeshore import Base
 class LakeShore330(object):
 
     def __init__(self, comm_type, url, **kwargs):
-        eos = kwargs.get('eos', '\r\n')
+        self.eos = kwargs.get('eos', '\r\n')
         timeout = kwargs.get('timeout', 0.5)
         if 'gpib' in comm_type:
-            self._comm = Gpib(url, pad=kwargs['extra_param'], eos=eos,
+            self._comm = Gpib(url, pad=kwargs['extra_param'], eos=self.eos,
                               timeout=timeout)
-        elif 'serial' or 'usb' in comm_type:
+        elif ('serial' or 'usb') in comm_type:
             baudrate = kwargs.get('extra_param', 9600)
             self._comm = serial.Serial(url, baudrate=baudrate,
                                        bytesize=serial.SEVENBITS,
                                        parity=serial.PARITY_ODD,
                                        stopbits=serial.STOPBITS_ONE,
                                        timeout=timeout,
-                                       eol=eos)
+                                       eol=self.eos)
         elif 'tcp' in comm_type:
-            self._comm = Tcp(url, eol=eos, timeout=timeout)
+            self._comm = Tcp(url, eol=self.eos, timeout=timeout)
         else:
             return RuntimeError("Unknown communication  protocol")
-
-    def init(self, channel):
-        """Set the channel name
-        """
-        self.channel = channel
+        self._channel = None
 
     def clear(self):
         """Clears the bits in the Status Byte, Standard Event and Operation
@@ -90,86 +86,102 @@ class LakeShore330(object):
         model = self.send_cmd("*IDN?").split(',')[1]
         return int(model[5:])
 
-    def read_temperature(self):
+    def read_temperature(self, channel):
         """ Read the current temperature
+            Args:
+              channel (int): input channel. Valid entries: A or B
             Returns:
               (float): current temperature [K]
         """
+        self._channel = channel
         return self.send_cmd("KRDG?")
 
-    def setpoint(self, value=None):
+    def setpoint(self, channel, value=None):
         """ Set/Read the control setpoint
            Args:
+              channel (int): output channel. Valid entries: 1 or 2
               value (float): The value of the setpoint if set
                              None if read
            Returns:
               None if set
               value (float): The value of the setpoint if read
         """
+        self._channel = channel
         if value is None:
             return float(self.send_cmd("SETP?"))
         # send the setpoint
         self.send_cmd("SETP", value)
 
-    def range(self, range=None):
+    def range(self, channel, range=None):
         """ Set/Read the heater range (0=off 1=low 2=medium 3=high)
             Args:
+              channel (int): output channel. Valid entries: 1 or 2
               value (int): The value of the range if set
                              None if read
            Returns:
               None if set
               value (int): The value of the range if read
         """
+        self._channel = channel
         if value is None:
             return float(self.send_cmd("RANGE?"))
         # send the range
         self.send_cmd("RANGE", value)
 
-    def read_ramp_rate(self):
+    def read_ramp_rate(self, channel):
         """ Read the current ramprate
+            Args:
+              channel (int): output channel. Valid entries: 1 or 2
             Returns:
               (float): current ramprate [K/min]
         """
+        self._channel = channel
         try:
             value = self.send_cmd("RAMP?").split(',')[1]
             return float(value)
         except (ValueError, AttributeError):
             raise RuntimeError("Invalid answer from the controller")
 
-    def set_ramp_rate(self, value):
+    def set_ramp_rate(self, channel, value):
         """ Set the control setpoint ramp rate. Explicitly stop the ramping.
             Args:
+              channel (int): output channel. Valid entries: 1 or 2
               value (float): The ramp rate [K/min] 0.1 - 100
               start (int):   0 (stop) or 1 (start) the ramping
             Returns:
               None
         """
+        self._channel = channel
         self.send_cmd("RAMP", 0, value)
 
-    def ramp(self, sp, rate):
+    def ramp(self, channel, sp, rate):
         """Change temperature to a set value at a controlled rate
             Args:
+              channel (int): output channel. Valid entries: 1 or 2
               rate (float): ramp rate [K/min], values 0.1 to 100
               sp (float): target setpoint [K]
             Returns:
               None
         """
-        self.setpoint(sp)
+        self._channel = channel
+        self.setpoint(sp, channel)
         self.send_cmd("RAMP", 1, rate)
 
-    def pid(self, **kwargs):
+    def pid(self, channel, **kwargs):
         """ Read/Set Control Loop PID Values (P, I, D)
            Args:
-               P (float): Proportional gain (0.1 to 1000)
-               I (float): Integral reset (0.1 to 1000) [value/s]
-               D (float): Derivative rate (0 to 200) [%]
-               None if read
+              channel (int): loop channel. Valid entries: 1 or 2
+              P (float): Proportional gain (0.1 to 1000)
+              I (float): Integral reset (0.1 to 1000) [value/s]
+              D (float): Derivative rate (0 to 200) [%]
+              None if read
            Returns:
-               None if set
-               p (float): P
-               i (float): I
-               d (float): D
+              None if set
+              p (float): P
+              i (float): I
+              d (float): D
         """
+        self._channel = channel
         kp = kwargs.get('P')
         ki = kwargs.get('I')
         kd = kwargs.get('D')
@@ -190,13 +202,21 @@ class LakeShore330(object):
            Returns:
               None
         """
-        if '?' in command:
-            return self._comm.write_readline(command + ' %r' % self.channel)
-        elif command.startswith('*'):
-            self._comm.write(command)
+        if command.startswith('*'):
+            if '?' in command:
+                return self._comm.write_readline(command + self.eos)
+            else:
+                self._comm.write(command + self.eos)
+        elif '?' in command:
+            if isinstance(self._channel, str):
+                cmd = command + ' %s' % self._channel
+            else:
+                cmd = command + ' %r' % self._channel
+            return self._comm.write_readline(cmd + self.eos)
         else:
             inp = ','.join(str(x) for x in args)
-            self._comm.write(command + ' %d,%s *OPC' % (self.channel, inp))
+            self._comm.write(command + ' %d,%s *OPC' %
+                             (self._channel, inp) + self.eos)
 
 
 class lakeshore330(Base):

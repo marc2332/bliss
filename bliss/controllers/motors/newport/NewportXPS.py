@@ -338,13 +338,12 @@ class NewportXPS(Controller):
     def cv_trigger(self, axis):
         """
         Generate a pulses on the GPIO connector when the positioner reaches
-        and leaves constant velocity motion.
+        constant velocity motion.
         """ 
         elog.debug("cv_trigger start")
         motor_name = axis.group + "." + axis.name
         category = ".SGamma"
         event1 = motor_name + category + ".ConstantVelocityStart"
-        event2 = motor_name + category + ".ConstantVelocityEnd"
         action = axis.gpioConn + ".DO.DOPulse"
         error, reply = self.__xps.EventExtendedConfigurationTriggerSet (
             [event1], [0], [0], [0], [0])

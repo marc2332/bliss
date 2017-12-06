@@ -51,6 +51,7 @@ from bliss.comm.tcp import SocketTimeout
 from bliss.common.axis import AxisState
 from bliss.controllers.motor import Controller
 
+from bliss.controllers.motors.SHexapodV1 import *
 
 ROLES = 'tx', 'ty', 'tz', 'rx', 'ry', 'rz'
 Pose = namedtuple('Pose', ROLES)
@@ -446,16 +447,6 @@ class HexapodV2Error(BaseHexapodError):
             code = -1000
         msg = 'Error {0}: {1}'.format(code, msg)
         super(HexapodV2Error, self).__init__(msg)
-
-
-class HexapodProtocolV1(BaseHexapodProtocol):
-
-    DEFAULT_PORT = 1025
-
-    def __init__(self, config):
-        BaseHexapodProtocol.__init__(self, config)
-
-    # TODO
 
 
 class HexapodProtocolV2(BaseHexapodProtocol):
@@ -1031,7 +1022,7 @@ Maximum rotational acceleration: {accelerations[max_racceleration]} mm/s/s
                 ['Object pose'] + list(object_pose),
                 ['Platform pose'] + list(platform_pose),
                 ['Low user limits'] + list(user_limits['low_pose']),
-                ['High machine limits'] + list(machine_limits['high_pose']),
+                ['High user limits'] + list(user_limits['high_pose']),
                 ['Low machine limits'] + list(machine_limits['low_pose']),
                 ['High machine limits'] + list(machine_limits['high_pose'])]
 
@@ -1066,6 +1057,8 @@ class SHexapod(Controller):
                 self._protocol = protocol
                 break
             except gevent.socket.error:
+                pass
+            except SocketTimeout:
                 pass
         else:
             raise ValueError('Could not find Hexapod (is it connected?)')

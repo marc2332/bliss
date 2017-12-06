@@ -57,7 +57,10 @@ class HMT330(object):
       flow control: None
     - serial mode: STOP
     - echo: OFF
-    
+    - no date
+    - no time
+    - metric unit
+
     Example of YAML configuration:
 
     .. code-block:: yaml
@@ -83,22 +86,7 @@ class HMT330(object):
         self.config = config
         self.name = name
         self.comm = get_comm(config, eol='\r')
-
-        self.__echo = None
-        self.__ftime = None
-        self.__fdate = None
-        self.__unit = None
-        self.__serial_mode = None
-        self.__formatter = None
-
-        # initialize response format: date/time, units, labels
         self.comm.flush()
-        self.echo = False
-        self.serial_mode = 'STOP'
-        self.stop()
-        self.ftime = False
-        self.fdate = False
-        self.unit = 'metric'
 
         form = []
         self.__formatter = OrderedDict()
@@ -127,12 +115,7 @@ class HMT330(object):
             self.log.debug('Tx: %r', msg)
             self.comm.write(msg)
 
-    @property
-    def echo(self):
-        return self.__echo
-
-    @echo.setter
-    def echo(self, onoff):
+    def __set_echo(self, onoff):
         if onoff in (True, 'on', 'ON', 1):
             self.__echo = True
         else:
@@ -141,6 +124,8 @@ class HMT330(object):
         result = self._command('ECHO', onoff)
         if onoff not in result:
             pass
+
+    echo = property(fset=__set_echo)
     
     @property
     def configuration(self):
@@ -165,13 +150,15 @@ class HMT330(object):
 
     @property
     def unit(self):
-        return self.__unit
+        result = self._query('UNIT')
+        if 'non metric' in result:
+            return 'non metric'
+        return 'metric'
 
     @unit.setter
     def unit(self, unit):
         u0 = unit[0].upper()
-        self.__unit = 'metric' if u0.startswith('M') else 'non-metric'
-        self._command('UNIT', u0)
+        self._command('UNIT', unit[0].upper())
 
     def set_default_formatter(self):
         return self._command('FORM', '/')
@@ -186,12 +173,7 @@ class HMT330(object):
         if result != b'OK':
             raise ValueError(result)
 
-    @property
-    def ftime(self):
-        return self.__ftime
-
-    @ftime.setter
-    def ftime(self, onoff):
+    def __set_ftime(self, onoff):
         if onoff in (True, 'on', 'ON', 1):
             self.__ftime = True
         else:
@@ -199,12 +181,9 @@ class HMT330(object):
         onoff = 'ON' if self.__fdate else 'OFF'
         self._command('FTIME', onoff)
 
-    @property
-    def fdate(self):
-        return self.__fdate
+    ftime = property(fset=__set_ftime)
 
-    @fdate.setter
-    def fdate(self, onoff):
+    def __set_fdate(self, onoff):
         if onoff in (True, 'on', 'ON', 1):
             self.__fdate = True
         else:
@@ -212,17 +191,15 @@ class HMT330(object):
         onoff = 'ON' if self.__fdate else 'OFF'
         self._command('FDATE', onoff)
 
-    @property
-    def serial_mode(self):
-        return self._query('SMODE')
+    fdate = property(fset=__set_fdate)
 
-    @serial_mode.setter
-    def serial_mode(self, mode):
+    def __set_serial_mode(self, mode):
         mode = mode.upper()
         assert mode in ('STOP', 'SEND', 'RUN', 'POLL', 'MODBUS')
-        self.__serial_mode = mode
         self._command('SMODE', mode, wait_reply=False)
         assert mode in self.comm.readline()
+
+    serial_mode = property(fset=__set_serial_mode)
 
     def reset(self):
         self._command('RESET', wait_reply=False)
@@ -260,18 +237,10 @@ class HMT330(object):
                 self.log.debug('got garbage')
         
     def read(self):
-        if self.__serial_mode == 'RUN':
-            raise NotImplementedError
-            #return dict(self._latest_point)
-        else:
-            return self.measure()
+        return self.measure()
 
     def __getitem__(self, name):
-        if self.__serial_mode == 'RUN':
-            raise NotImplementedError
-            #data = self._latest_point
-        else:
-            data = self.measure()
+        data = self.measure()
         if isinstance(name, (str, unicode)):
             return data[name.upper()]
         return [data[n.upper()] for n in name]

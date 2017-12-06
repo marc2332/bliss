@@ -6,7 +6,7 @@
 #
 # These are modified versions of the original XPS python driver code,
 # found at https://www.newport.com/p/XPS-Q4 link XPS-Q_Drivers, modified to
-# use Bliss comm sockets with considerable tidying. 
+# use Bliss comm sockets with considerable tidying.
 # Each method returns a list comprising [errorcode, values ...]
 
 from __future__ import print_function
@@ -78,6 +78,7 @@ class XPS:
     # Read slave controller status
     def ControllerSlaveStatusGet(self):
         command = 'ControllerSlaveStatusGet(int *)'
+        return self.__sendAndReceive(command)
 
     # Return the slave controller status string
     def ControllerSlaveStatusStringGet(self, SlaveControllerStatusCode):
@@ -210,7 +211,7 @@ class XPS:
                                              EventParameter2, EventParameter3, EventParameter4):
         command = 'EventExtendedConfigurationTriggerSet('
         for i in range(len(ExtendedEventName)):
-            command += ',' if i>0 else ''
+            command += ',' if i > 0 else ''
             command += str(ExtendedEventName[i]) + ',' + str(EventParameter1[i]) + ','
             command += str(EventParameter2[i]) + ',' + str(EventParameter3[i]) + ','
             command += str(EventParameter4[i])
@@ -227,7 +228,7 @@ class XPS:
                                             ActionParameter2, ActionParameter3, ActionParameter4):
         command = 'EventExtendedConfigurationActionSet('
         for i in range(len(ExtendedActionName)):
-            command += ',' if i>0 else ''
+            command += ',' if i > 0 else ''
             command += ExtendedActionName[i] + ',' + str(ActionParameter1[i]) + ','
             command += str(ActionParameter2[i]) + ',' + str(ActionParameter3[i]) + ','
             command += str(ActionParameter4[i])
@@ -272,9 +273,7 @@ class XPS:
     # Configuration acquisition
     def GatheringConfigurationSet(self, Type):
         command = 'GatheringConfigurationSet('
-        for i in range(len(Type)):
-            command += ',' if i>0 else ''
-            command += Type[i]
+        command += ','.join([a for a in Type])
         command += ')'
         return self.__sendAndReceive(command)
 
@@ -327,9 +326,7 @@ class XPS:
     # Configuration acquisition
     def GatheringExternalConfigurationSet(self, Type):
         command = 'GatheringExternalConfigurationSet('
-        for i in range(len(Type)):
-            command += ',' if i>0 else ''
-            command += Type[i]
+        command += ','.join([a for a in Type])
         command += ')'
         return self.__sendAndReceive(command)
 
@@ -376,38 +373,30 @@ class XPS:
     # Read analog input or analog output for one or few input
     def GPIOAnalogGet(self, GPIOName):
         command = 'GPIOAnalogGet('
-        for i in range(len(GPIOName)):
-            command += ',' if i>0 else ''
-            command += GPIOName[i] + ',' + 'double *'
+        command += ','.join([name + ',double *' for name in GPIOName])
         command += ')'
         return self.__sendAndReceiveWithDecode(command)
 
     # Set analog output for one or few output
     def GPIOAnalogSet(self, GPIOName, AnalogOutputValue):
         command = 'GPIOAnalogSet('
-        for i in range(len(GPIOName)):
-            command += ',' if i>0 else ''
-            command += GPIOName[i] + ',' + str(AnalogOutputValue[i])
+        command += ','.join([GPIOName[i] + ',' + str(AnalogOutputValue[i])
+                             for i in range(len(GPIOName))])
         command += ')'
         return self.__sendAndReceive(command)
 
     # Read analog input gain (1, 2, 4 or 8) for one or few input
     def GPIOAnalogGainGet(self, GPIOName):
         command = 'GPIOAnalogGainGet('
-        for i in range(len(GPIOName)):
-            if (i > 0):
-                command += ','
-            command += GPIOName[i] + ',' + 'int *'
+        command += ','.join([name + ',int *' for name in GPIOName])
         command += ')'
         return self.__sendAndReceiveWithDecode(command)
 
     # Set analog input gain (1, 2, 4 or 8) for one or few input
     def GPIOAnalogGainSet(self, GPIOName, AnalogInputGainValue):
         command = 'GPIOAnalogGainSet('
-        for i in range(len(GPIOName)):
-            if (i > 0):
-                command += ','
-            command += GPIOName[i] + ',' + str(AnalogInputGainValue[i])
+        command += ','.join([GPIOName[i] + ',' + str(AnalogInputGainValue[i])
+                             for i in range(len(GPIOName))])
         command += ')'
         return self.__sendAndReceive(command)
 
@@ -424,8 +413,7 @@ class XPS:
     # Return setpoint accelerations
     def GroupAccelerationSetpointGet(self, GroupName, nbElement):
         command = 'GroupAccelerationSetpointGet(' + GroupName
-        for i in range(nbElement):
-            command += ',double *'
+        command += ''.join([',double *' for i in range(nbElement)])
         command += ')'
         return self.__sendAndReceiveWithDecode(command)
 
@@ -442,16 +430,14 @@ class XPS:
     # Return corrector outputs
     def GroupCorrectorOutputGet(self, GroupName, nbElement):
         command = 'GroupCorrectorOutputGet(' + GroupName
-        for i in range(nbElement):
-            command += ',double *'
+        command += ''.join([',double *' for i in range(nbElement)])
         command += ')'
         return self.__sendAndReceiveWithDecode(command)
 
     # Return current following errors
     def GroupCurrentFollowingErrorGet(self, GroupName, nbElement):
         command = 'GroupCurrentFollowingErrorGet(' + GroupName
-        for i in range(nbElement):
-            command += ',double *'
+        command += ''.join([',double *' for i in range(nbElement)])
         command += ')'
         return self.__sendAndReceiveWithDecode(command)
 
@@ -463,8 +449,7 @@ class XPS:
     # Start home search sequence and execute a displacement
     def GroupHomeSearchAndRelativeMove(self, GroupName, TargetDisplacement):
         command = 'GroupHomeSearchAndRelativeMove(' + GroupName
-        for i in range(len(TargetDisplacement)):
-            command += ',' + str(TargetDisplacement[i])
+        command += ''.join([',' + str(Target) for Target in TargetDisplacement])
         command += ')'
         return self.__sendAndReceive(command)
 
@@ -504,16 +489,14 @@ class XPS:
     # Get Jog parameters on selected group
     def GroupJogParametersGet(self, GroupName, nbElement):
         command = 'GroupJogParametersGet(' + GroupName
-        for i in range(nbElement):
-            command += ',double *,double *'
+        command += ''.join([',double *,double *' for i in range(nbElement)])
         command += ')'
         return self.__sendAndReceiveWithDecode(command)
 
     # Get Jog current on selected group
     def GroupJogCurrentGet(self, GroupName, nbElement):
         command = 'GroupJogCurrentGet(' + GroupName
-        for i in range(nbElement):
-            command += ',double *,double *'
+        command += ''.join([',double *,double *' for i in range(nbElement)])
         command += ')'
         return self.__sendAndReceiveWithDecode(command)
 
@@ -545,8 +528,7 @@ class XPS:
     # Return group or positioner status
     def GroupMotionStatusGet(self, GroupName, nbElement):
         command = 'GroupMotionStatusGet(' + GroupName
-        for i in range(nbElement):
-            command += ',int *'
+        command += ''.join([',int *' for i in range(nbElement)])
         command += ')'
         return self.__sendAndReceiveWithDecode(command)
 
@@ -563,16 +545,14 @@ class XPS:
     # Do an absolute move
     def GroupMoveAbsolute(self, GroupName, TargetPositions):
         command = 'GroupMoveAbsolute(' + GroupName
-        for pos in TargetPositions:
-            command += ',' + str(pos)
+        command += ''.join([',' + str(pos) for pos in TargetPositions])
         command += ')'
         return self.__sendAndReceive(command)
 
     # Do a relative move
     def GroupMoveRelative(self, GroupName, TargetDisplacements):
         command = 'GroupMoveRelative(' + GroupName
-        for pos in TargetDisplacements:
-            command += ',' + str(pos)
+        command += ''.join([',' + str(pos) for pos in TargetDisplacements])
         command += ')'
         return self.__sendAndReceive(command)
 
@@ -585,8 +565,7 @@ class XPS:
     # GroupPositionCurrentGet :  Return current positions
     def GroupPositionCurrentGet(self, GroupName, nbElement):
         command = 'GroupPositionCurrentGet(' + GroupName
-        for i in range(nbElement):
-            command += ',double *'
+        command += ''.join([',double *' for i in range(nbElement)])
         command += ')'
         return self.__sendAndReceiveWithDecode(command)
 
@@ -599,16 +578,14 @@ class XPS:
     # Return setpoint positions
     def GroupPositionSetpointGet(self, GroupName, nbElement):
         command = 'GroupPositionSetpointGet(' + GroupName
-        for i in range(nbElement):
-            command += ',double *'
+        command += ''.join([',double *' for i in range(nbElement)])
         command += ')'
         return self.__sendAndReceiveWithDecode(command)
 
     # Return target positions
     def GroupPositionTargetGet(self, GroupName, nbElement):
         command = 'GroupPositionTargetGet(' + GroupName
-        for i in range(nbElement):
-            command += ',double *'
+        command += ''.join([',double *' for i in range(nbElement)])
         command += ')'
         return self.__sendAndReceiveWithDecode(command)
 
@@ -642,8 +619,7 @@ class XPS:
     # Return current velocities
     def GroupVelocityCurrentGet(self, GroupName, nbElement):
         command = 'GroupVelocityCurrentGet(' + GroupName
-        for i in range(nbElement):
-            command += ',double *'
+        command += ''.join([',double *' for i in range(nbElement)])
         command += ')'
         return self.__sendAndReceiveWithDecode(command)
 
@@ -740,8 +716,7 @@ class XPS:
     # Prepare data for CIE08 compensated PCO mode
     def PositionerCompensatedPCOPrepare(self, PositionerName, ScanDirection, StartPosition):
         command = 'PositionerCompensatedPCOPrepare(' + PositionerName + ',' + ScanDirection
-        for i in range(len(StartPosition)):
-            command += ',', str(StartPosition[i])
+        command += ''.join([',' + str(pos) for pos in StartPosition])
         command += ')'
         return self.__sendAndReceive(command)
 

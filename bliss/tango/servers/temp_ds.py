@@ -16,6 +16,7 @@ from PyTango.server import Device, DeviceMeta, attribute, command
 from PyTango.server import get_worker
 
 import bliss.common.log as elog
+from bliss.common import temperature
 from bliss.config.static import get_config
 
 types_conv_tab_inv = {
@@ -67,6 +68,10 @@ class BlissInput(Device):
     @attribute(dtype='string')
     def name(self):
         return self.channel_object.name
+
+    @attribute(dtype=float)
+    def value(self):
+        return self.channel_object.read()
 
     @attribute(dtype='string')
     def typedev(self):
@@ -373,6 +378,7 @@ def recreate(db=None, new_server=False, typ='inputs'):
         sys.exit(255)
 
     server_name, instance_name, server_instance = get_server_info()
+
     registered_servers = set(db.get_instance_name_list('BlissTempManager'))
 
     # check if server exists in database. If not, create it.
@@ -381,7 +387,7 @@ def recreate(db=None, new_server=False, typ='inputs'):
             register_server(db=db)
         else:
             print "The device server %s is not defined in database. " \
-                  "Exiting!" % server_instance
+                "Exiting!" % server_instance
             print "hint: start with '-n' to create a new one automatically"
             sys.exit(255)
 
@@ -619,6 +625,104 @@ def __create_tango_class(obj, klass):
         new_class_class.attr_list[name] = [attr_info]
 
     return new_class
+
+
+def __get_type_name(temp):
+    temp_type = None
+    if isinstance(temp, temperature.Input):
+        temp_type = 'Input'
+    elif isinstance(temp, temperature.Output):
+        temp_type = 'Output'
+    elif isinstance(temp, temperature.Loop):
+        temp_type = 'Loop'
+    return temp_type
+
+
+def recreate_bliss(server_name, manager_dev_name, temp_names,
+                   dev_map, db=None):
+    db = db or PyTango.Database()
+    config = get_config()
+    curr_temps = {}
+    for dev_class, dev_names in dev_map.items():
+        if not dev_class.startswith('BlissInput_') and \
+           not dev_class.startswith('BlissOutput_') and \
+           not dev_class.startswith('BlissLoop_'):
+            continue
+        for dev_name in dev_names:
+            curr_temp_name = dev_name.rsplit("/", 1)[-1]
+
+            try:
+                config.get(curr_temp_name)
+            except:
+                elog.info("Error instantiating %s (%s):" % (curr_temp_name, dev_name))
+                traceback.print_exc()
+            curr_temps[curr_temp_name] = dev_name, dev_class
+
+    temp_names_set = set(temp_names)
+    curr_temp_names_set = set(curr_temps)
+    new_temp_names = temp_names_set.difference(curr_temp_names_set)
+    old_temp_names = curr_temp_names_set.difference(temp_names_set)
+
+    domain, family, member = manager_dev_name.split('/', 2)
+
+    # remove old temps
+    for temp_name in old_temp_names:
+        dev_name, klass_name = curr_temps[temp_name]
+        elog.debug('removing old temp %s (%s)' % (dev_name, temp_name))
+        db.delete_device(dev_name)
+
+    # add new temps
+    for temp_name in new_temp_names:
+        temp = config.get(temp_name)
+        temp_type = __get_type_name(temp)
+        dev_name = "%s/%s_%s/%s" % (domain, family, member, temp_name)
+        info = PyTango.DbDevInfo()
+        info.server = server_name
+        info._class = 'Bliss%s_%s' % (temp_type, temp_name)
+        info.name = dev_name
+        elog.debug('adding new temp %s (%s)' % (dev_name, temp_name))
+        db.add_device(info)
+        # try to create alias if it doesn't exist yet
+        try:
+            db.get_device_alias(temp_name)
+        except PyTango.DevFailed:
+            elog.debug('registering alias for %s (%s)' % (dev_name, temp_name))
+            db.put_device_alias(dev_name, temp_name)
+ 
+    temps, tango_classes = [], []
+    for temp_name in temp_names_set:
+        temp = config.get(temp_name)
+        temp_type = __get_type_name(temp)
+        temps.append(temp)
+        tango_base_class = globals()['Bliss' + temp_type]
+        tango_class = __create_tango_class(temp, tango_base_class)
+        tango_classes.append(tango_class)
+
+    return temps, tango_classes
+    
+
+# callback from the Bliss server
+def initialize_bliss(info, db=None):
+    shell_info = info['shell_info']
+    object_names = info['object_names']
+    server_type  = info['server_type']
+    server_instance = info['server_instance']
+    server_name = server_type + '/' + server_instance
+
+    cfg = get_config()
+
+    temp_names = []
+    for name in object_names:
+        obj_cfg = cfg.get_config(name)
+        # if tango_server is defined it means it is manually added
+        if 'tango_server' in obj_cfg:
+            continue
+        if obj_cfg.plugin == 'temperature':
+            temp_names.append(name)
+
+    objs, classes = recreate_bliss(server_name, info['manager_device_name'],
+                                   temp_names, info['device_map'], db=db)
+    return classes
 
 
 def main(argv=None):

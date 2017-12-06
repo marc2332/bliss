@@ -6,7 +6,7 @@
 #
 # These are modified versions of the original XPS python driver code,
 # found at https://www.newport.com/p/XPS-Q4 link XPS-Q_Drivers, modified to
-# use Bliss comm sockets with considerable tidying.
+# use Bliss comm sockets with considerable tidying. 
 # Each method returns a list comprising [errorcode, values ...]
 
 from __future__ import print_function
@@ -78,7 +78,6 @@ class XPS:
     # Read slave controller status
     def ControllerSlaveStatusGet(self):
         command = 'ControllerSlaveStatusGet(int *)'
-        return self.__sendAndReceiveWithDecode(command)
 
     # Return the slave controller status string
     def ControllerSlaveStatusStringGet(self, SlaveControllerStatusCode):
@@ -211,9 +210,10 @@ class XPS:
                                              EventParameter2, EventParameter3, EventParameter4):
         command = 'EventExtendedConfigurationTriggerSet('
         for i in range(len(ExtendedEventName)):
-            command += ',' if i > 0 else ''
-            command += ExtendedEventName[i] + ',' + EventParameter1[i] + ','
-            command += EventParameter2[i] + ',' + EventParameter3[i] + ',' + EventParameter4[i]
+            command += ',' if i>0 else ''
+            command += str(ExtendedEventName[i]) + ',' + str(EventParameter1[i]) + ','
+            command += str(EventParameter2[i]) + ',' + str(EventParameter3[i]) + ','
+            command += str(EventParameter4[i])
         command += ')'
         return self.__sendAndReceive(command)
 
@@ -227,9 +227,10 @@ class XPS:
                                             ActionParameter2, ActionParameter3, ActionParameter4):
         command = 'EventExtendedConfigurationActionSet('
         for i in range(len(ExtendedActionName)):
-            command += ',' if i > 0 else ''
-            command += ExtendedActionName[i] + ',' + ActionParameter1[i] + ','
-            command += ActionParameter2[i] + ',' + ActionParameter3[i] + ',' + ActionParameter4[i]
+            command += ',' if i>0 else ''
+            command += ExtendedActionName[i] + ',' + str(ActionParameter1[i]) + ','
+            command += str(ActionParameter2[i]) + ',' + str(ActionParameter3[i]) + ','
+            command += str(ActionParameter4[i])
         command += ')'
         return self.__sendAndReceive(command)
 
@@ -272,7 +273,7 @@ class XPS:
     def GatheringConfigurationSet(self, Type):
         command = 'GatheringConfigurationSet('
         for i in range(len(Type)):
-            command += ',' if i > 0 else ''
+            command += ',' if i>0 else ''
             command += Type[i]
         command += ')'
         return self.__sendAndReceive(command)
@@ -327,7 +328,7 @@ class XPS:
     def GatheringExternalConfigurationSet(self, Type):
         command = 'GatheringExternalConfigurationSet('
         for i in range(len(Type)):
-            command += ',' if i > 0 else ''
+            command += ',' if i>0 else ''
             command += Type[i]
         command += ')'
         return self.__sendAndReceive(command)
@@ -376,7 +377,7 @@ class XPS:
     def GPIOAnalogGet(self, GPIOName):
         command = 'GPIOAnalogGet('
         for i in range(len(GPIOName)):
-            command += ',' if i > 0 else ''
+            command += ',' if i>0 else ''
             command += GPIOName[i] + ',' + 'double *'
         command += ')'
         return self.__sendAndReceiveWithDecode(command)
@@ -385,7 +386,7 @@ class XPS:
     def GPIOAnalogSet(self, GPIOName, AnalogOutputValue):
         command = 'GPIOAnalogSet('
         for i in range(len(GPIOName)):
-            command += ',' if i > 0 else ''
+            command += ',' if i>0 else ''
             command += GPIOName[i] + ',' + str(AnalogOutputValue[i])
         command += ')'
         return self.__sendAndReceive(command)
@@ -782,8 +783,7 @@ class XPS:
 
     # PositionerCompensationNotchModeFiltersGet :  Read notch mode filters parameters
     def PositionerCompensationNotchModeFiltersGet(self, PositionerName):
-        command = ('PositionerCompensationNotchModeFiltersGet(' + PositionerName +
-                   ',double *,double *,double *,double *,double *,double *,double *,double *)')
+        command = 'PositionerCompensationNotchModeFiltersGet(' + PositionerName + ',double *,double *,double *,double *,double *,double *,double *,double *)'
         return self.__sendAndReceiveWithDecode(command)
 
     # Update notch mode filters parameters
@@ -1018,8 +1018,7 @@ class XPS:
 
     # Get driver filters parameters
     def PositionerDriverFiltersGet(self, PositionerName):
-        command = ('PositionerDriverFiltersGet(' + PositionerName +
-                   ',double *,double *,double *,double *,double *)')
+        command = 'PositionerDriverFiltersGet(' + PositionerName + ',double *,double *,double *,double *,double *)'
         return self.__sendAndReceiveWithDecode(command)
 
     # Set driver filters parameters
@@ -1546,13 +1545,13 @@ class XPS:
     # XYZ trajectory verification result get
     def XYZSplineVerificationResultGet(self, PositionerName):
         command = ('XYZSplineVerificationResultGet(' + PositionerName +
-                   ',char *,double *,double *,double *,double *)')
+                  ',char *,double *,double *,double *,double *)')
         return self.__sendAndReceiveWithDecode(command)
 
     # XYZ trajectory execution
     def XYZSplineExecution(self, GroupName, TrajectoryFileName, Velocity, Acceleration):
         command = ('XYZSplineExecution(' + GroupName + ',' + TrajectoryFileName + ',' +
-                   str(Velocity) + ',' + str(Acceleration) + ')')
+                  str(Velocity) + ',' + str(Acceleration) + ')')
         return self.__sendAndReceive(command)
 
     # XYZ trajectory get parameters
@@ -1568,13 +1567,13 @@ class XPS:
     # TZ PVT trajectory verification result get
     def TZPVTVerificationResultGet(self, PositionerName):
         command = ('TZPVTVerificationResultGet(' + PositionerName +
-                   ',char *,double *,double *,double *,double *)')
+                  ',char *,double *,double *,double *,double *)')
         return self.__sendAndReceiveWithDecode(command)
 
     # TZ PVT trajectory execution
     def TZPVTExecution(self, GroupName, TrajectoryFileName, ExecutionNumber):
         command = ('TZPVTExecution(' + GroupName + ',' + TrajectoryFileName + ',' +
-                   str(ExecutionNumber) + ')')
+                  str(ExecutionNumber) + ')')
         return self.__sendAndReceive(command)
 
     # TZ PVT trajectory get parameters
@@ -1585,7 +1584,7 @@ class XPS:
     # Configure pulse output on trajectory
     def TZPVTPulseOutputSet(self, GroupName, StartElement, EndElement, TimeInterval):
         command = ('TZPVTPulseOutputSet(' + GroupName + ',' + str(StartElement) + ',' +
-                   str(EndElement) + ',' + str(TimeInterval) + ')')
+                  str(EndElement) + ',' + str(TimeInterval) + ')')
         return self.__sendAndReceive(command)
 
     # Get pulse output on trajectory configuration
@@ -1622,7 +1621,7 @@ class XPS:
     def TZTrackingUserMaximumZZZTargetDifferenceSet(self, GroupName,
                                                     UserMaximumZZZTargetDifference):
         command = ('TZTrackingUserMaximumZZZTargetDifferenceSet(' + GroupName + ',' +
-                   str(UserMaximumZZZTargetDifference) + ')')
+                  str(UserMaximumZZZTargetDifference) + ')')
         return self.__sendAndReceive(command)
 
     # Set user maximum ZZZ target difference for tracking control
@@ -1638,7 +1637,7 @@ class XPS:
     # Get soft (user defined) motor output DAC offsets
     def PositionerMotorOutputOffsetGet(self, PositionerName):
         command = ('PositionerMotorOutputOffsetGet(' + PositionerName +
-                   ',double *,double *,double *,double *)')
+                  ',double *,double *,double *,double *)')
         return self.__sendAndReceiveWithDecode(command)
 
     # Set soft (user defined) motor output DAC offsets
@@ -1662,7 +1661,7 @@ class XPS:
     # Get raw encoder positions for single axis theta encoder
     def EEPROMDACOffsetCIESet(self, PlugNumber, DAC1Offset, DAC2Offset):
         command = ('EEPROMDACOffsetCIESet(' + str(PlugNumber) + ',' + str(DAC1Offset) +
-                   ',' + str(DAC2Offset) + ')')
+                  ',' + str(DAC2Offset) + ')')
         return self.__sendAndReceive(command)
 
     # Get raw encoder positions for single axis theta encoder
@@ -1678,7 +1677,7 @@ class XPS:
     # Get raw encoder positions for single axis theta encoder
     def CPUCoreAndBoardSupplyVoltagesGet(self):
         command = ('CPUCoreAndBoardSupplyVoltagesGet('
-                   'double *,double *,double *,double *,double *,double *,double *,double *)')
+                  'double *,double *,double *,double *,double *,double *,double *,double *)')
         return self.__sendAndReceiveWithDecode(command)
 
     # Get raw encoder positions for single axis theta encoder
@@ -1784,13 +1783,13 @@ class XPS:
     # Return UserDatas values
     def GatheringUserDatasGet(self):
         command = ('GatheringUserDatasGet(' +
-                   'double *,double *,double *,double *,double *,double *,double *,double *)')
+                  'double *,double *,double *,double *,double *,double *,double *,double *)')
         return self.__sendAndReceiveWithDecode(command)
 
     # Get controller motion kernel min/max periods
     def ControllerMotionKernelPeriodMinMaxGet(self):
         command = ('ControllerMotionKernelPeriodMinMaxGet(' +
-                   'double *,double *,double *,double *,double *,double *)')
+                  'double *,double *,double *,double *,double *,double *)')
         return self.__sendAndReceiveWithDecode(command)
 
     # Reset controller motion kernel min/max periods

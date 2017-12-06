@@ -11,6 +11,7 @@ from __future__ import absolute_import
 import gevent
 
 from bliss.common import log as elog
+from bliss.comm.util import get_comm
 from bliss.common.axis import AxisState
 from bliss.common.hook import MotionHook
 from bliss.common.utils import object_method
@@ -30,7 +31,7 @@ controller:
     -
       name: omega
       group: M1
-      address: 1
+      address: 1             # first address should be 1
       velocity: 70.0
       acceleration: 320.0
       minJerkTime: 0.005
@@ -43,8 +44,9 @@ controller:
       unit: deg
       autoHome: True
       user_tag: Omega
+      gpio_conn: GPIO3        # GPIO connector for constant velocity pulse
       motion_hooks:
-        - $newport_hook
+        - $newport_hook       # execute post motion
 """
 
 
@@ -63,10 +65,10 @@ class NewportHook(MotionHook):
 
 
 class NewportXPS(Controller):
-
     def __init__(self, *args, **kwargs):
         Controller.__init__(self, *args, **kwargs)
         elog.level(10)
+
 
     def initialize(self):
         elog.debug("initialize() called")
@@ -86,7 +88,8 @@ class NewportXPS(Controller):
         axis.autoHome = axis.config.get("autoHome")
         axis.minJerkTime = axis.config.get("minJerkTime")
         axis.maxJerkTime = axis.config.get("maxJerkTime")
-
+        axis.gpioConn = axis.config.get("gpio_conn")
+        
         error, reply = self.__xps.GroupInitialize(axis.group)
         if error == 0:
             elog.debug("NewportXPS: initialisation successful")
@@ -156,23 +159,21 @@ class NewportXPS(Controller):
 
     def start_one(self, motion):
         elog.debug("start_one() called")
+        self.cv_trigger(motion.axis)
         motor_name = motion.axis.group + "." + motion.axis.name
-        error, reply = self.__xps.GroupMoveAbsolute(motor_name, [motion.target_pos, ])
+        error, reply = self.__xps.GroupMoveAbsolute(motor_name, [motion.target_pos,])
         print("Reply:", reply)
         if error != 0:
             elog.error("NewportXPS Error: Unexpected response to move absolute", reply)
 
     def start_all(self, *motion_list):
         elog.debug("start_all() called")
-        if motions > 1:
-            target_positions = [None for _ in len(motion_list)]
-            for motion in motion_list:
-                target_positions[int(motion.axis.channel)-1] = motion.target_pos
-                error, reply = self.__xps.GroupMoveAbsolute(motion.axis.group, target_positions)
-                if error != 0:
-                    elog.error("NewportXPS Error: ", reply)
-        elif motions:
-            self.start_one(motions[0])
+        target_positions = [0,0]
+        for motion in motion_list:
+            target_positions[int(motion.axis.channel)-1] = motion.target_pos
+        error, reply = self.__xps.GroupMoveAbsolute(motion.axis.group, target_positions)
+        if error != 0:
+            elog.error("NewportXPS Error: ", reply)
 
     def stop(self, motion):
         elog.debug("stop() called")
@@ -184,12 +185,12 @@ class NewportXPS(Controller):
 
     def stop_all(self, *motion_list):
         elog.debug("stop_all() called")
-        error, reply = self.__xps.GroupMoveAbort(motion_list[0].axis.group)
+        error, reply = self.__xps.GroupMoveAbort(motion[0].axis.group)
         if error == -22:
             elog.info("NewportXPS: All positioners idle")
         elif error != 0:
             elog.error("NewportXPS Error: ", reply)
-
+        
     def home_search(self, axis, switch):
         elog.debug("home_search() called")
         # Moves the motor to a repeatable starting location allows
@@ -214,7 +215,7 @@ class NewportXPS(Controller):
         elog.debug("state() called")
         error, status = self.__xps.GroupStatusGet(axis.group)
         if error != 0:
-            elog.error("NewportXPS Error: Failed to read status", status)
+            elog.error("NewportXPS Error: Failed to read status", reply[1])
             return AxisState('FAULT')
         if status in [0,   # NOTINIT state
                       1,   # NOTINIT state due to an emergency brake: see positioner status
@@ -275,12 +276,9 @@ class NewportXPS(Controller):
                       39,   # Disable state due to an emergency stop on auto-tuning state
                       58,   # Disabled state due to a following error during clamped
                       59,   # Disabled state due to a motion done timeout during clamped
-                      74,   # Disable state due to a following error on excitation
-                            # signal generation state
-                      75,   # Disable state due to a master/slave error on excitation
-                            # signal generation state
-                      76,   # Disable state due to an emergency stop on excitation
-                            # signal generation state
+                      74,   # Disable state due to a following error on excitation signal generation state
+                      75,   # Disable state due to a master/slave error on excitation signal generation state
+                      76,   # Disable state due to an emergency stop on excitation signal generation state
                       80,   # Disable state due to a following error on focus state
                       81,   # Disable state due to a master/slave error on focus state
                       82,   # Disable state due to an emergency stop on focus state
@@ -292,8 +290,7 @@ class NewportXPS(Controller):
                       89,   # Disable state due to a group interlock error during spinning
                       90,   # Disable state due to a group interlock error on ready state
                       91,   # Disable state due to a group interlock error on auto-tuning state
-                      92,   # Disable state due to a group interlock error on excitation
-                            # signal generation state
+                      92,   # Disable state due to a group interlock error on excitation signal generation state
                       93,   # Disable state due to a group interlock error on focus state
                       94,   # Disabled state due to a motion done timeout during jogging
                       95,   # Disabled state due to a motion done timeout during spinning
@@ -329,10 +326,84 @@ class NewportXPS(Controller):
                       105]:  # Jitter initialization
             return AxisState("UNDECIDED", "Not categorised yet")
         return AxisState("UNKNOWN", "This should not happen")
-
+    
     @object_method()
     def abort(self, axis):
         elog.debug("abort() called")
         error, reply = self.__xps.GroupKill(axis.group)
         if error != 0:
             elog.error("NewportXPS Error: abort failed", reply)
+
+    @object_method()
+    def cv_trigger(self, axis):
+        """
+        Generate a pulses on the GPIO connector when the positioner reaches
+        and leaves constant velocity motion.
+        """ 
+        elog.debug("cv_trigger start")
+        motor_name = axis.group + "." + axis.name
+        category = ".SGamma"
+        event1 = motor_name + category + ".ConstantVelocityStart"
+        event2 = motor_name + category + ".ConstantVelocityEnd"
+        action = axis.gpioConn + ".DO.DOPulse"
+        error, reply = self.__xps.EventExtendedConfigurationTriggerSet (
+            [event1], [0], [0], [0], [0])
+        if error != 0:
+            elog.error("NewportXPS Error: ", reply)
+        else:
+            error, reply = self.__xps.EventExtendedConfigurationActionSet (
+                [action], [4], [0], [0], [0])
+            if error != 0:
+                elog.error("NewportXPS Error: ", reply)
+            else:
+                error, reply = self.__xps.EventExtendedStart()
+                if error != 0:
+                    elog.error("NewportXPS Error: ", reply)
+                elog.debug("cv_trigger eventid ", reply)
+        elog.debug("cv_trigger stop")
+
+    @object_method()
+    def enable_position_compare(self, axis, start, stop, step):
+        """
+        Generate output pulse on the PCO connector. The first pulse is output when
+        the positioner crosses the start position and the last pulse is given at the
+        stop position. The difference between the start and the stop position should
+        be an integer multiple of the position step.
+
+        example: Pos.setPositionCompare(5.0, 25.0, 0.002)
+                 will generate pulses between 5mm and 25mm every 0.002mm
+        """
+        motor_name = axis.group + "." + axis.name
+        elog.debug(motor_name, start, stop, step)
+        error, reply = self.__xps.PositionerPositionCompareSet(motor_name, start, stop, step)
+        if error != 0:
+            elog.error("NewportXPS Error: ", reply)
+        else:
+            error, reply = self.__xps.PositionerPositionCompareEnable(motor_name)
+            if error != 0:
+                elog.error("NewportXPS Error: ", reply)
+
+    @object_method()
+    def disable_position_compare(self, axis):
+        """
+        Disable output pulses on the PCO connector
+        """
+        motor_name = axis.group + "." + axis.name
+        error, reply = self.__xps.PositionerPositionCompareDisable(motor_name)
+        if error != 0:
+            elog.error("NewportXPS Error: ", reply)
+              
+    @object_method()
+    def event_list(self, axis):
+        error, reply = self.__xps.EventExtendedAllGet()
+        if error == -83:
+            elog.debug("NewportXPS: No events in list")
+        elif error != 0:
+            elog.error("NewportXPS Error: ", reply)
+        else:
+            elog.debug("Event id list: ", reply)
+
+    @object_method()
+    def event_remove(self, axis, id):
+        error, reply = self.__xps.EventExtendedRemove(id)
+ 

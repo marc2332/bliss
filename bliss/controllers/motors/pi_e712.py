@@ -26,18 +26,29 @@ Holger Witsch ESRF BLISS
 Oct 2014
 
 config example:
-<config>
-  <controller class="PI_E712">
-    <host value="blabla" />
-    <port value="50000" />
-    <!-- unnecessary, as the port is always 50000-->
-    <axis name="e712">
-      <channel value="1" />
-      <velocity value="1" />
-    </axis>
-  </controller>
-</config>
+- class: PI_E712
+  tcp:
+    url: nscopepi712
+  axes:
+  - name: py
+    channel: 1
+    velocity: 100
+    acceleration: 1.
+    steps_per_unit: 1
+    dc_dead_band: 10000000
+    dc_settle_time: 0.05
+    slop: 160000
+    servo_mode: 1
 
+  - name: px
+    channel: 2
+    velocity: 100
+    acceleration: 1.
+    steps_per_unit: 1
+    dc_dead_band: 10000000
+    dc_settle_time: 0.05
+    slop: 80000
+    servo_mode: 1
 """
 
 
@@ -85,21 +96,6 @@ class PI_E712(Controller):
                   TypeError: check_power_cut() takes exactly 1 argument (2 given)
         """
         axis.channel = axis.config.get("channel", int)
-
-#        add_axis_method(axis, self.check_power_cut, name = "CheckPowerCut", types_info = (None, None))
-#        add_axis_method(axis, self._get_tns, name = "Get_TNS", types_info = (None, float))
-#        add_axis_method(axis, self._get_tsp, name = "Get_TSP", types_info = (None, float))
-#        add_axis_method(axis, self._get_sva, name = "Get_SVA", types_info = (None, float))
-#        add_axis_method(axis, self._get_vol, name = "Get_VOL", types_info = (None, float))
-#        add_axis_method(axis, self._get_mov, name = "Get_MOV", types_info = (None, float))
-#        add_axis_method(axis, self._get_offset, name = "Get_Offset", types_info = (None, float))
-#        add_axis_method(axis, self._put_offset, name = "Put_Offset", types_info = (float, None))
-#        add_axis_method(axis, self._get_tad, name = "Get_TAD", types_info = (None, float))
-#        add_axis_method(axis, self._get_closed_loop_status, name = "Get_Closed_Loop_Status", types_info = (None, bool))
-#        add_axis_method(axis, self._set_closed_loop, name = "Set_Closed_Loop", types_info = (bool, None))
-#        #add_axis_method(axis, self._get_on_target_status, name = "Get_On_Target_Status", types_info = (None, bool))
-#        add_axis_method(axis, self._get_pos, name = "Get_Pos", types_info = (None, float))
-
         try:
             axis.paranoia_mode = axis.config.get("paranoia_mode")  # check error after each command
         except KeyError :
@@ -134,14 +130,6 @@ class PI_E712(Controller):
         elog.debug("position setpoint read : %g" % _pos)
 
         return _pos
-
-#   def read_encoder(self, encoder):
-#       axis = self.__encoders[encoder]["axis"]
-
-#       elog.debug("read_encoder measured = %r" % encoder)
-#       _ans = self._get_pos(axis)
-#       elog.debug("read_encoder measured = %r" % _ans)
-#       return _ans
 
     """ VELOCITY """
     def read_velocity(self, axis):
@@ -407,38 +395,6 @@ class PI_E712(Controller):
         else:
             return False
 
-    def gate_on(self, axis, state):
-        """
-        CTO  [<TrigOutID> <CTOPam> <Value>]+
-         - <TrigOutID> : {1, 2, 3}
-         - <CTOPam> :
-             - 3: trigger mode
-                      - <Value> : {0, 2, 3, 4}
-                      - 0 : position distance
-                      - 2 : OnTarget
-                      - 3 : MinMaxThreshold   <----
-                      - 4 : Wave Generator
-             - 5: min threshold
-             - 6: max threshold
-             - 7: polarity : 0 / 1
-
-        ex : CTO 1 3 3   1 5 0   1 6 100   1 7 1
-
-        Args:
-            - <state> : True / False
-        Returns:
-            -
-        Raises:
-            ?
-        """
-
-        if state:
-            _cmd = "CTO %d 3 3 1 5 0 1 6 100 1 7 1" % (axis.channel)
-        else:
-            _cmd = "CTO %d 3 3 1 5 0 1 6 100 1 7 0" % (axis.channel)
-
-        self.send_no_ans(axis, _cmd)
-
     def get_error(self):
         _t0 = time.time()
         _error_number = self.sock.write_readline("ERR?\n")
@@ -510,11 +466,6 @@ class PI_E712(Controller):
             ("\nCommunication parameters",
             "\n".join(self.sock.write_readlines("IFC?\n", 5)))
 
-        """ my e712 didn't answer anything here
-#         _txt = _txt + "    %s  \n%s\n" % \
-#             ("\nFirmware version",
-#                 "\n".join(self.sock.write_readlines("VER?\n", 1)))
-        """
         return _txt
 
     def check_power_cut(self, axis):

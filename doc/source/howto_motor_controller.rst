@@ -47,6 +47,5 @@ Example of custom commands
 --------------------------
 
 - ``raw_com(self, axis, cmd)``
-- ``gate_on(self, axis, state)``
 - ``get_id(self, axis)``
 

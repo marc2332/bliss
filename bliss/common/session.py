@@ -113,6 +113,48 @@ def load_script(env_dict, script_module_name,
 
 
 class Session(object):
+    """
+    Bliss session.
+
+    The session is use to group object with a setup.
+    
+    example of Yaml file:
+     - plugin: session          # could be defined in parents
+       class: Session
+       name: super_mario        # session name
+
+       # 'config-objects' contains
+       # object name you want to export
+       # either in yaml compact list
+       config-objects: [seby,diode2]
+       # or standard yaml list
+       config-objects:
+       - seby
+       - diode2
+       # if config-objects key doesn't exist,
+       # session will exported all objects
+       # then you can use 'exclude-objects' to do
+       # the reversed.
+       exclude-objects: [seby]
+
+       # you can also include other session
+       # with the 'include-sessions'
+       include-sessions: [luigi]
+       
+       # finally yo can define a setup file
+       # which will be executed for the session.
+       # moreover all object, function defined in
+       # setup file will be exported in the environment.
+       # the file path is relative to yaml file
+       # if it starts with a './'
+       # otherwise it is absolute from the root of the
+       # beacon file data base.
+       setup-file: ./super_mario.py
+
+       # you may also add a svg synoptic (Web shell)
+       synoptic:
+         svg-file: super_mario.svg
+    """
     def __init__(self, name, config_tree):
         self.__name = name
         self.__config = static.get_config()

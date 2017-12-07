@@ -15,6 +15,7 @@ from bliss.common.utils import object_method
 from bliss.comm.tcp import Command
 import struct
 import numpy
+import sys
 
 
 class Icepap(Controller):

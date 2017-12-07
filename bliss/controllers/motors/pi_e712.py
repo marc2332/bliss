@@ -421,38 +421,30 @@ class PI_E712(Controller):
         """
         _infos = [
             ("Identifier                 ", "*IDN?"),
-            ("Serial Number              ", "SSN?"),
             ("Com level                  ", "CCL?"),
             ("GCS Syntax version         ", "CSV?"),
             ("Last error code            ", "ERR?"),
             ("Real Position              ", "POS? %s" % axis.channel),
-            ("Position low limit         ", "NLM? %s" % axis.channel),
-            ("Position high limit        ", "PLM? %s" % axis.channel),
             ("Closed loop status         ", "SVO? %s" % axis.channel),
-            ("Voltage output high limit  ", "VMA? %s" % axis.channel),
-            ("Voltage output low limit   ", "VMI? %s" % axis.channel),
             ("Output Voltage             ", "VOL? %s" % axis.channel),
             ("Setpoint Position          ", "MOV? %s" % axis.channel),
-            ("Drift compensation Offset  ", "DCO? %s" % axis.channel),
-            ("Online                     ", "ONL? %s" % axis.channel),
             ("On target                  ", "ONT? %s" % axis.channel),
-            ("On target window           ", "SPA? %s 0x07000900" % axis.channel),
-            ("On target settling time    ", "SPA? %s 0x07000901" % axis.channel),
+            ("On target window           ", "SPA? %s 0x7000900" % axis.channel),
+            ("On target settling time    ", "SPA? %s 0x7000901" % axis.channel),
             ("ADC Value of input signal  ", "TAD? %s" % axis.channel),
             ("Input Signal Position value", "TSP? %s" % axis.channel),
-            ("Velocity control mode      ", "VCO? %s" % axis.channel),
             ("Velocity                   ", "VEL? %s" % axis.channel),
-            ("sensor Offset              ", "SPA? %s 0x02000200" % axis.channel),
-            ("sensor Gain                ", "SPA? %s 0x02000300" % axis.channel),
-            ("sensor gain 2nd order      ", "SPA? %s 0x02000400" % axis.channel),
-            ("sensor gain 3rd order      ", "SPA? %s 0x02000500" % axis.channel),
-            ("sensor gain 4th order      ", "SPA? %s 0x02000600" % axis.channel),
+            ("sensor Offset              ", "SPA? %s 0x2000200" % axis.channel),
+            ("sensor Gain                ", "SPA? %s 0x2000300" % axis.channel),
+            ("sensor gain 2nd order      ", "SPA? %s 0x2000400" % axis.channel),
+            ("sensor gain 3rd order      ", "SPA? %s 0x2000500" % axis.channel),
+            ("sensor gain 4th order      ", "SPA? %s 0x2000600" % axis.channel),
 
-            ("Digital filter type        ", "SPA? %s 0x05000000" %
+            ("Digital filter type        ", "SPA? %s 0x5000000" %
              axis.channel),
-            ("Digital filter Bandwidth   ", "SPA? %s 0x05000001" %
+            ("Digital filter Bandwidth   ", "SPA? %s 0x5000001" %
              axis.channel),
-            ("Digital filter order       ", "SPA? %s 0x05000002" %
+            ("Digital filter order       ", "SPA? %s 0x5000002" %
              axis.channel),
         ]
 

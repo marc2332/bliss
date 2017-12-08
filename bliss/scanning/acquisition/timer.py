@@ -18,8 +18,7 @@ class SoftwareTimerMaster(AcquisitionMaster):
         AcquisitionMaster.__init__(self, None, 'timer', **keys)
         self.count_time = count_time
         self.sleep_time = sleep_time
-        self.channels.append(AcquisitionChannel(
-            'timestamp', numpy.double, (1,)))
+        self.channels.append(AcquisitionChannel('timestamp', numpy.double, ()))
 
         self._nb_point = 0
 
@@ -48,8 +47,7 @@ class SoftwareTimerMaster(AcquisitionMaster):
             gevent.sleep(self.sleep_time)
 
         start_trigger = time.time()
-        self.channels[0].value = start_trigger
-        self.channels.update()
+        self.channels[0].emit(start_trigger)
 
         self.trigger_slaves()
         elapsed_trigger = time.time() - start_trigger

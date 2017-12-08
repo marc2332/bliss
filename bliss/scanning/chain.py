@@ -8,69 +8,9 @@
 from treelib import Tree
 import gevent
 from bliss.common.event import dispatcher
+from .channel import AcquisitionChannelList, AcquisitionChannel
 import time
 import weakref
-import numpy as np
-
-
-class AcquisitionChannelList(list):
-    def __init__(self, parent, *args, **kwargs):
-        list.__init__(self, *args, **kwargs)
-
-        self.__parent = parent
-
-    def __emit_new_data(self):
-        dispatcher.send("new_data", self.__parent, {
-                        "channel_data": dict(((c.name, c.value) for c in self))})
-
-    def update(self, values_dict=None):
-        """Update all channels and emit the new_data event
-
-        Input:
-
-           values_dict - { channel_name: value, ... }
-        """
-        if values_dict:
-            for channel in self:
-                channel.value = values_dict[channel.name]
-
-        self.__emit_new_data()
-
-    def update_from_iterable(self, iterable):
-        for i, channel in enumerate(self):
-            channel.value = iterable[i]
-
-        self.__emit_new_data()
-
-    def update_from_array(self, array):
-        for i, channel in enumerate(self):
-            channel.value = array[:, i]
-
-        self.__emit_new_data()
-
-
-class AcquisitionChannel(object):
-    def __init__(self, name, dtype, shape):
-        self.__name = name
-        self.__value = None
-        self.dtype = dtype
-        self.shape = shape
-
-    @property
-    def name(self):
-        return self.__name
-
-    @property
-    def value(self):
-        return self.__value
-
-    @value.setter
-    def value(self, value):
-        value = np.atleast_1d(value).astype(self.dtype, copy=False)
-        if value.shape != self.shape:
-            raise ValueError("Channel value shape '%s` does not correspond to new value shape: %s" % (
-                self.shape, value.shape))
-        self.__value = value
 
 
 class DeviceIterator(object):
@@ -133,7 +73,7 @@ class AcquisitionMaster(object):
         self.__parent = None
         self.__slaves = list()
         self.__triggers = list()
-        self.__channels = AcquisitionChannelList(self)
+        self.__channels = AcquisitionChannelList()
         self.__npoints = npoints
         self.__trigger_type = trigger_type
         self.__prepare_once = prepare_once
@@ -246,7 +186,7 @@ class AcquisitionDevice(object):
         self.__parent = None
         self.__name = name
         self.__trigger_type = trigger_type
-        self.__channels = AcquisitionChannelList(self)
+        self.__channels = AcquisitionChannelList()
         self.__npoints = npoints
         self.__prepare_once = prepare_once
         self.__start_once = start_once

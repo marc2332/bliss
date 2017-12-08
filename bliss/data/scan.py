@@ -10,7 +10,7 @@ import datetime
 import numpy
 import pickle
 
-from bliss.data.node import DataNode
+from bliss.data.node import DataNodeContainer, is_zerod
 
 
 def _transform_dict_obj(dict_object):
@@ -46,9 +46,9 @@ def pickle_dump(var):
     return pickle.dumps(var)
 
 
-class Scan(DataNode):
+class Scan(DataNodeContainer):
     def __init__(self, name, create=False, **keys):
-        DataNode.__init__(self, 'scan', name, create=create, **keys)
+        DataNodeContainer.__init__(self, 'scan', name, create=create, **keys)
         self.__create = create
         if create:
             start_time_stamp = time.time()
@@ -82,19 +82,30 @@ def get_data(scan):
     connection = scan.node.db_connection
     pipeline = connection.pipeline()
     for device, node in scan.nodes.iteritems():
-        if node.type() == 'zerod':
-            for channel_name in node.channels_name():
-                chan = node.get_channel(
-                    channel_name, check_exists=False, cnx=pipeline)
-                chanlist.append(channel_name)
-                chan.get(0, -1)       # all data
-                dtype.append((channel_name, 'f8'))
+        if node.type == 'channel':
+            channel_name = node.name
+            chan = node
+            # append channel name and get all data from channel;
+            # as it is in a Redis pipeline, get returns the
+            # conversion function only - data will be received
+            # after .execute()
+            chanlist.append((channel_name,
+                             chan.get(0, -1, cnx=pipeline)))
 
     result = pipeline.execute()
+
+    structured_array_dtype = []
+    for i, (channel_name, get_data_func) in enumerate(chanlist):
+        channel_data = get_data_func(result[i])
+        result[i] = channel_data
+        structured_array_dtype.append(
+            (channel_name, channel_data.dtype, channel_data.shape[1:]))
+
     max_channel_len = max((len(values) for values in result))
-    data = numpy.zeros(max_channel_len, dtype=dtype)
-    for channel_name, values in zip(chanlist, result):
-        a = data[channel_name]
-        nb_data = len(values)
-        a[0:nb_data] = values[0:nb_data]
+
+    data = numpy.zeros(max_channel_len, dtype=structured_array_dtype)
+
+    for i, (channel_name, _) in enumerate(chanlist):
+        data[channel_name] = result[i]
+
     return data

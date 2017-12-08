@@ -19,7 +19,7 @@ from bliss.common.event import connect, send
 from bliss.common.utils import periodic_exec
 from bliss.config.conductor import client
 from bliss.config.settings import Parameters, _change_to_obj_marshalling
-from bliss.data.node import _get_or_create_node, _create_node, DataNode
+from bliss.data.node import _get_or_create_node, _create_node, DataNodeContainer, is_zerod
 from bliss.common.session import get_current as _current_session
 from .chain import AcquisitionDevice, AcquisitionMaster
 
@@ -43,11 +43,10 @@ class StepScanDataWatch(object):
 
     def __call__(self, data_events, nodes, info):
         if self._init_done is False:
-            for acq_device, data_node in nodes.iteritems():
-                if data_node.type() == 'zerod':
-                    self._channel_name_2_channel.update(
-                        ((channel.name, data_node.get_channel(channel.name, check_exists=False))
-                         for channel in acq_device.channels))
+            for acq_device_or_channel, data_node in nodes.iteritems():
+                if is_zerod(data_node):
+                    channel = data_node
+                    self._channel_name_2_channel[channel.name] = channel
             self._init_done = True
 
         if self._last_point_display == -1:
@@ -122,7 +121,7 @@ class ScanSaving(Parameters):
         This method will compute all configurations needed for a new acquisition.
         It will return a dictionary with:
             root_path -- compute root path with *base_path* and *template* attribute
-            parent -- this DataNode should be used as a parent for new acquisition
+            parent -- DataNodeContainer to be used as a parent for new acquisition
         """
         try:
             template = self.template
@@ -142,11 +141,11 @@ class ScanSaving(Parameters):
                 if callable(value):
                     value = value(self)  # call the function
                     cache_dict[key] = value
-                if value is not None:
-                    parent = _get_or_create_node(value, "container",
-                                                 parent=parent)
-
             sub_path = template.format(**cache_dict)
+            for path_item in sub_path.split(os.path.sep):
+                parent = _get_or_create_node(path_item, "container",
+                                             parent=parent)
+
         except KeyError, keyname:
             raise RuntimeError("Missing %s attribute in ScanSaving" % keyname)
         else:
@@ -166,14 +165,6 @@ class ScanSaving(Parameters):
         This method return the parent node which should be used to publish new data
         """
         return self.get()['parent']
-
-
-class Container(object):
-    def __init__(self, name, parent=None):
-        self.root_node = parent.node if parent is not None else None
-        self.__name = name
-        self.node = _get_or_create_node(
-            self.__name, "container", parent=self.root_node)
 
 
 class Scan(object):
@@ -198,20 +189,18 @@ class Scan(object):
             - data_event : a dict with Acq(Device/Master) as key and a set of signal as values
             - nodes : a dict with Acq(Device/Master) as key and the associated data node as value
             - info : dictionnary which contains the current scan state...
-        if the callback is a class and have a method **on_state**, it will be called on each 
+        if the callback is a class and have a method **on_state**, it will be called on each
         scan transition state. The return of this method will activate/deactivate
         the calling of the callback during this stage.
         """
         if parent is None:
             self.root_node = None
         else:
-            if isinstance(parent, DataNode):
+            if isinstance(parent, DataNodeContainer):
                 self.root_node = parent
-            elif isinstance(parent, Container):
-                self.root_node = parent.node
             else:
                 raise ValueError(
-                    "parent must be a DataNode or Container object, or None")
+                    "parent must be a DataNodeContainer object, or None")
 
         self._nodes = dict()
         self._writer = writer
@@ -287,30 +276,36 @@ class Scan(object):
     def scan_info(self):
         return self._scan_info
 
+    def __trigger_data_watch_callback(self, signal, sender, sync=False):
+        if self._data_watch_callback is not None:
+            event_set = self._data_events.setdefault(sender, set())
+            event_set.add(signal)
+            if sync:
+                data_events = self._data_events
+                self._data_events = dict()
+                while self._data_watch_running and not self._data_watch_task.ready():
+                    self._data_watch_callback_done.wait()
+                    self._data_watch_callback_done.clear()
+                self._data_watch_callback(data_events, self._nodes,
+                                          {'state': self._state})
+            else:
+                self._data_watch_callback_event.set()
+
+    def _channel_event(self, event_dict, signal=None, sender=None):
+        node = self._nodes[sender]
+
+        node.store(signal, event_dict)
+
+        self.__trigger_data_watch_callback(signal, sender)
+
     def _device_event(self, event_dict=None, signal=None, sender=None):
         if signal == 'end':
             for node in self._nodes.itervalues():
                 node.set_ttl()
             self._node.set_ttl()
             self._node.end()
-        node = self._nodes[sender]
-        if not hasattr(node, 'store'):
-            return
-        node.store(signal, event_dict)
 
-        if self._data_watch_callback is not None:
-            event_set = self._data_events.setdefault(sender, set())
-            event_set.add(signal)
-            if signal == 'end':
-                data_events = self._data_events
-                self._data_events = dict()
-                while self._data_watch_running and not self._data_watch_task.ready():
-                    self._data_watch_callback_done.wait()
-                    self._data_watch_callback_done.clear()
-                self._data_watch_callback(data_events, self.nodes,
-                                          {'state': self._state})
-            else:
-                self._data_watch_callback_event.set()
+            self.__trigger_data_watch_callback(signal, sender, sync=True)
 
     def prepare(self, scan_info, devices_tree):
         parent_node = self._node
@@ -324,19 +319,20 @@ class Scan(object):
                 prev_level = level
                 parent_node = self._nodes[dev_node.bpointer]
 
-            if isinstance(dev, AcquisitionDevice) or isinstance(dev, AcquisitionMaster):
-                self._nodes[dev] = _create_node(
-                    dev.name, dev.type, parent_node)
-                for signal in ('start', 'end', 'new_ref', 'new_data'):
+            if isinstance(dev, AcquisitionDevice) or \
+               isinstance(dev, AcquisitionMaster):
+                data_container_node = _create_node(
+                    dev.name, parent=parent_node)
+                self._nodes[dev] = data_container_node
+                for channel in dev.channels:
+                    self._nodes[channel] = channel.data_node(
+                        data_container_node)
+                    connect(channel, 'new_data', self._channel_event)
+                for signal in ('start', 'end'):
                     connect(dev, signal, self._device_event)
 
         if self._writer:
             self._writer.prepare(self, scan_info, devices_tree)
-
-    def stop(self):
-        for node in self._nodes.itervalues():
-            node.set_ttl()
-        self._node.set_ttl()
 
     def run(self):
         if hasattr(self._data_watch_callback, 'on_state'):
@@ -347,6 +343,12 @@ class Scan(object):
             call_on_prepare, call_on_stop = False, False
 
         send(current_module, "scan_new", self.scan_info)
+
+        if self._data_watch_callback:
+            set_watch_event = self._data_watch_callback_event.set
+        else:
+            set_watch_event = None
+
         try:
             i = None
             for i in self.acq_chain:
@@ -359,7 +361,6 @@ class Scan(object):
             self._state = self.STOP_STATE
             with periodic_exec(0.1 if call_on_stop else 0, set_watch_event):
                 i.stop()
-                self.stop()
             raise
         else:
             self._state = self.STOP_STATE
@@ -396,7 +397,7 @@ class AcquisitionMasterEventReceiver(object):
         self._master = master
         self._parent = parent
 
-        for signal in ('start', 'end', 'new_data'):
+        for signal in ('start', 'end'):
             connect(slave, signal, self)
 
     @property
@@ -419,7 +420,7 @@ class AcquisitionDeviceEventReceiver(object):
         self._device = device
         self._parent = parent
 
-        for signal in ('start', 'end', 'new_data'):
+        for signal in ('start', 'end'):
             connect(device, signal, self)
 
     @property

@@ -33,7 +33,7 @@ class BaseCounterAcquisitionDevice(AcquisitionDevice):
 
         if not isinstance(counter, GroupedReadMixin):
             self.channels.append(AcquisitionChannel(
-                counter.name, numpy.double, (1,)))
+                counter.name, numpy.double, ()))
 
     @property
     def count_time(self):
@@ -50,7 +50,7 @@ class BaseCounterAcquisitionDevice(AcquisitionDevice):
 
         self.__grouped_read_counters_list.append(counter)
         self.channels.append(AcquisitionChannel(
-            counter.name, numpy.double, (1,)))
+            counter.name, numpy.double, ()))
 
     def _emit_new_data(self, data):
         self.channels.update_from_iterable(data)

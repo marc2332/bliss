@@ -4,7 +4,28 @@
 #
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
+"""
+Redis structure
 
+--eh3 (DataNodeContainer - inherits from DataNode)
+   |
+   --scan1 (Scan - inherits from DataNode)
+     |
+     --P201 (DataNodeContainer - inherits from DataNode)
+       |
+       --c0 (ChannelDataNode - inherits from DataNode)
+
+DataNode is the base class.
+A data node has 3 Redis keys to represent it:
+
+{db_name} -> Struct { name, db_name, node_type, parent=(parent db_name) }
+{db_name}_info -> HashObjSetting, free dictionary
+{db_name}_children -> QueueSetting, list of db names
+
+The channel data node extends the structure above with:
+
+{db_name}_channel -> QueueSetting, list of channel values
+"""
 import pkgutil
 import inspect
 import re
@@ -16,6 +37,10 @@ from bliss.config.conductor import client
 from bliss.config.settings import Struct, QueueSetting, HashObjSetting
 
 
+def is_zerod(node):
+    return node.type == 'channel' and len(node.shape) == 0
+
+
 def to_timestamp(dt, epoch=None):
     if epoch is None:
         epoch = datetime.datetime(1970, 1, 1)
@@ -23,23 +48,25 @@ def to_timestamp(dt, epoch=None):
     return td.microseconds / float(10**6) + td.seconds + td.days * 86400
 
 
-# From continuous scan
+# make list of available plugins for generating DataNode objects
 node_plugins = dict()
-for importer, module_name, _ in pkgutil.iter_modules([os.path.join(os.path.dirname(__file__), '..', 'data')]):
-    node_plugins[module_name] = importer
+for importer, module_name, _ in pkgutil.iter_modules([os.path.dirname(__file__)],
+                                                     prefix="bliss.data."):
+    node_type = module_name.replace("bliss.data.", "")
+    node_plugins[node_type] = module_name
 
 
-def _get_node_object(node_type, name, parent, connection, create=False):
-    importer = node_plugins.get(node_type)
-    if importer is None:
-        return DataNode(node_type, name, parent, connection=connection, create=create)
+def _get_node_object(node_type, name, parent, connection, create=False, **keys):
+    module_name = node_plugins.get(node_type)
+    if module_name is None:
+        return DataNodeContainer(node_type, name, parent, connection=connection, create=create, **keys)
     else:
-        m = importer.find_module(node_type).load_module(node_type)
-        classes = inspect.getmembers(m, lambda x: inspect.isclass(
-            x) and issubclass(x, DataNode) and x != DataNode)
+        m = __import__(module_name, globals(), locals(), [''], -1)
+        classes = inspect.getmembers(m, lambda x: inspect.isclass(x) and issubclass(x, DataNode) and
+                                     x not in (DataNode, DataNodeContainer))
         # there should be only 1 class inheriting from DataNode in the plugin
         klass = classes[0][-1]
-        return klass(name, parent=parent, connection=connection, create=create)
+        return klass(name, parent=parent, connection=connection, create=create, **keys)
 
 
 def get_node(name, node_type=None, parent=None, connection=None):
@@ -54,20 +81,20 @@ def get_node(name, node_type=None, parent=None, connection=None):
     return _get_node_object(node_type, name, parent, connection)
 
 
-def _create_node(name, node_type=None, parent=None, connection=None):
+def _create_node(name, node_type=None, parent=None, connection=None, **keys):
     if connection is None:
         connection = client.get_cache(db=1)
-    return _get_node_object(node_type, name, parent, connection, create=True)
+    return _get_node_object(node_type, name, parent, connection, create=True, **keys)
 
 
-def _get_or_create_node(name, node_type=None, parent=None, connection=None):
+def _get_or_create_node(name, node_type=None, parent=None, connection=None, **keys):
     if connection is None:
         connection = client.get_cache(db=1)
     db_name = DataNode.exists(name, parent, connection)
     if db_name:
         return get_node(db_name, connection=connection)
     else:
-        return _create_node(name, node_type, parent, connection)
+        return _create_node(name, node_type, parent, connection, **keys)
 
 
 class DataNodeIterator(object):
@@ -145,10 +172,11 @@ class DataNodeIterator(object):
         pubsub = redis.pubsub()
         pubsub.psubscribe("__keyspace@1__:%s*_children_list" %
                           self.node.db_name)
+        pubsub.psubscribe("__keyspace@1__:%s*_channels" % self.node.db_name)
         return pubsub
 
     def child_register_new_data(self, child_node, pubsub):
-        if child_node.type() == 'zerod':
+        if child_node.type == 'zerod':
             for channel_name in child_node.channels_name():
                 zerod_db_name = child_node.db_name
                 event_key = "__keyspace@1__:%s_%s" % (
@@ -248,15 +276,20 @@ class DataNode(object):
         db_name = '%s:%s' % (parent.db_name, name) if parent else name
         return db_name if connection.exists(db_name) else None
 
-    def __init__(self, node_type, name, parent=None, connection=None, create=False):
+    @staticmethod
+    def _set_ttl(db_names):
+        redis_conn = client.get_cache(db=1)
+        pipeline = redis_conn.pipeline()
+        for name in db_names:
+            pipeline.expire(name, DataNode.default_time_to_live)
+        pipeline.execute()
+
+    def __init__(self, node_type, name, parent=None, connection=None, create=False, **keys):
         if connection is None:
             connection = client.get_cache(db=1)
         db_name = '%s:%s' % (parent.db_name, name) if parent else name
         self._data = Struct(db_name,
                             connection=connection)
-        children_queue_name = '%s_children_list' % db_name
-        self._children = QueueSetting(children_queue_name,
-                                      connection=connection)
         info_hash_name = '%s_info' % db_name
         self._info = HashObjSetting(info_hash_name,
                                     connection=connection)
@@ -290,15 +323,6 @@ class DataNode(object):
         return DataNodeIterator(self)
 
     @property
-    def add_children(self, *child):
-        if len(child) > 1:
-            children_no = self._children.extend([c.db_name() for c in child])
-        else:
-            children_no = self._children.append(child[0].db_name())
-
-    def connect(self, signal, callback):
-        dispatcher.connect(callback, signal, self)
-
     def parent(self):
         parent_name = self._data.parent
         if parent_name:
@@ -307,48 +331,18 @@ class DataNode(object):
                 del self._data.parent
             return parent
 
-    #@brief iter over children
-    #@return an iterator
-    #@param from_id start child index
-    #@param to_id last child index
-    def children(self, from_id=0, to_id=-1):
-        for child_name in self._children.get(from_id, to_id):
-            new_child = get_node(child_name)
-            if new_child is not None:
-                yield new_child
-            else:
-                self._children.remove(child_name)  # clean
+    @property
+    def info(self):
+        return self._info
 
-    def last_child(self):
-        return get_node(self._children.get(-1))
-
-    def set_info(self, key, values):
-        self._info[keys] = values
-        if self._ttl > 0:
-            self._info.ttl(self._ttl)
-
-    def info_iteritems(self):
-        return self._info.iteritems()
-
-    def info_get(self, name):
-        return self._info.get(name)
-
-    def data_update(self, keys):
-        self._data.update(keys)
+    def connect(self, signal, callback):
+        dispatcher.connect(callback, signal, self)
 
     def set_ttl(self):
         db_names = set(self._get_db_names())
         self._set_ttl(db_names)
         if self._ttl_setter is not None:
             self._ttl_setter.disable()
-
-    @staticmethod
-    def _set_ttl(db_names):
-        redis_conn = client.get_cache(db=1)
-        pipeline = redis_conn.pipeline()
-        for name in db_names:
-            pipeline.expire(name, DataNode.default_time_to_live)
-        pipeline.execute()
 
     def _get_db_names(self):
         db_name = self.db_name
@@ -360,5 +354,36 @@ class DataNode(object):
             db_names.extend(parent._get_db_names())
         return db_names
 
-    def store(self, signal, event_dict):
-        pass
+
+class DataNodeContainer(DataNode):
+    def __init__(self, node_type, name, parent=None, connection=None, create=False):
+        DataNode.__init__(self, node_type, name,
+                          parent=parent, connection=connection, create=create)
+
+        children_queue_name = '%s_children_list' % self.db_name
+        self._children = QueueSetting(
+            children_queue_name, connection=connection)
+
+    def add_children(self, *child):
+        if len(child) > 1:
+            self._children.extend([c.db_name for c in child])
+        else:
+            self._children.append(child[0].db_name)
+
+    def children(self, from_id=0, to_id=-1):
+        """Iter over children.
+
+        @return an iterator
+        @param from_id start child index
+        @param to_id last child index
+        """
+        for child_name in self._children.get(from_id, to_id):
+            new_child = get_node(child_name)
+            if new_child is not None:
+                yield new_child
+            else:
+                self._children.remove(child_name)  # clean
+
+    @property
+    def last_child(self):
+        return get_node(self._children.get(-1))

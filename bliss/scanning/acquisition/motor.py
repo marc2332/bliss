@@ -76,7 +76,7 @@ class SoftwarePositionTriggerMaster(MotorMaster):
     def __init__(self, axis, start, end, npoints=1, **kwargs):
         self._positions = numpy.linspace(start, end, npoints + 1)[:-1]
         MotorMaster.__init__(self, axis, start, end, **kwargs)
-        self.channels.append(AcquisitionChannel(axis.name, numpy.double, (1,)))
+        self.channels.append(AcquisitionChannel(axis.name, numpy.double, ()))
         self.__nb_points = npoints
 
     @property
@@ -110,8 +110,7 @@ class SoftwarePositionTriggerMaster(MotorMaster):
                 self.movable.stop(wait=False)
                 self.exception = sys.exc_info()
             else:
-                self.channels[0].value = position
-                self.channels.update()
+                self.channels[0].emit(position)
 
     def move_done(self, done):
         if done:
@@ -221,7 +220,7 @@ class _StepTriggerMaster(AcquisitionMaster):
                                    trigger_type=trigger_type, **keys)
 
         self.channels.extend(
-            (AcquisitionChannel(axis.name, numpy.double, (1,)) for axis in self._axes))
+            (AcquisitionChannel(axis.name, numpy.double, ()) for axis in self._axes))
 
     @property
     def npoints(self):

@@ -4,7 +4,7 @@ import pytest
 
 from bliss.controllers.mca import Brand, DetectorType, Stats
 from bliss.controllers.mca import PresetMode, TriggerMode
-from bliss.controllers.xia import XIA, XMAP
+from bliss.controllers.mca import XIA, XMAP
 
 
 @pytest.fixture(
@@ -205,7 +205,7 @@ def test_xia_block_size(xia):
 
 def test_xia_acquisition(xia, mocker):
     client = xia._proxy
-    sleep = mocker.patch('time.sleep')
+    sleep = mocker.patch('gevent.sleep')
     sleep.side_effect = lambda x: client.mock_not_running()
     client.get_spectrums.return_value = {0: [3, 2, 1]}
     client.get_statistics.return_value = {0: range(7)}
@@ -218,7 +218,7 @@ def test_xia_acquisition(xia, mocker):
 
 def test_xia_multiple_acquisition(xia, mocker):
     client = xia._proxy
-    sleep = mocker.patch('time.sleep')
+    sleep = mocker.patch('gevent.sleep')
     sleep.side_effect = lambda x: client.mock_not_running()
     client.get_spectrums.return_value = {0: [3, 2, 1]}
     client.get_statistics.return_value = {0: range(9)}

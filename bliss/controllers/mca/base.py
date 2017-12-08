@@ -8,10 +8,12 @@
 """Base class and enumerations for multichannel analyzers."""
 
 # Imports
-import time
+
 import enum
 import warnings
 import collections
+
+import gevent
 
 
 # Enums
@@ -163,9 +165,9 @@ class BaseMCA(object):
             self.start_acquisition()
             if realtime:
                 while self.is_acquiring():
-                    time.sleep(polling_time)
+                    gevent.sleep(polling_time)
             else:
-                time.sleep(acquisition_time)
+                gevent.sleep(acquisition_time)
         # Stop in any case
         finally:
             self.stop_acquisition()
@@ -197,7 +199,7 @@ class BaseMCA(object):
 
             previous, current = 0., get_realtime()
             while current == 0. or previous != current:
-                time.sleep(polling_time)
+                gevent.sleep(polling_time)
                 previous, current = current, get_realtime()
         # Stop in any case
         finally:
@@ -225,7 +227,7 @@ class BaseMCA(object):
             self.start_acquisition()
             current, data, statistics = self.poll_data()
             while not (len(data) == current == acquisition_number):
-                time.sleep(polling_time)
+                gevent.sleep(polling_time)
                 current, extra_data, extra_statistics = self.poll_data()
                 if set(data) & set(extra_data):
                     warnings.warn(

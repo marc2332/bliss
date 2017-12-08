@@ -11,6 +11,7 @@
    - xmap1
    - falconx1
    - p201
+   - simu1
   synoptic:
     svg-file: ./test_synoptic.svg
     elements:

@@ -129,14 +129,14 @@ def test_base_mca_logic(mocker):
     assert mca.multiple_acquisition is False
 
     # Run a single acquisition
-    sleep = mocker.patch('time.sleep')
+    sleep = mocker.patch('gevent.sleep')
     assert mca.run_single_acquisition(3.) == (
         {0: [3, 2, 1]},
         {0: stats})
     sleep.assert_called_once_with(3.)
 
     # Run an external acquisition
-    sleep = mocker.patch('time.sleep')
+    sleep = mocker.patch('gevent.sleep')
     assert mca.run_external_acquisition() == (
         {0: [3, 2, 1]},
         {0: stats})

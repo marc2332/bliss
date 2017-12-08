@@ -25,7 +25,7 @@ def get_current():
     return CURRENT_SESSION
 
 
-_importer_session = set()
+_SESSION_IMPORTERS = set()
 
 
 class _StringImporter(object):
@@ -162,6 +162,8 @@ class Session(object):
         self.init(config_tree)
 
     def init(self, config_tree):
+        self.__scripts_module_path = os.path.normpath(os.path.join(os.path.dirname(config_tree.filename), "scripts"))
+
         try:
             setup_file_path = config_tree["setup-file"]
         except KeyError:
@@ -172,6 +174,8 @@ class Session(object):
                     os.path.dirname(config_tree.filename), setup_file_path))
             except TypeError:
                 self.__setup_file = None
+            else:
+                self.__scripts_module_path = os.path.join(os.path.dirname(self.__setup_file), "scripts")
 
         try:
             self.__synoptic_file = config_tree.get("synoptic").get("svg-file")
@@ -300,6 +304,10 @@ class Session(object):
             load_script, env_dict)
 
     def _setup(self, env_dict):
+        if self.name not in _SESSION_IMPORTERS:
+            sys.meta_path.append(_StringImporter(self.__scripts_module_path, self.name))
+            _SESSION_IMPORTERS.add(self.name)
+
         env_dict['load_script'] = functools.partial(
             load_script, env_dict, session=self, reload_module=False)
 
@@ -308,13 +316,6 @@ class Session(object):
 
         try:
             with get_file({"setup_file": self.setup_file}, 'setup_file') as setup_file:
-                base_path = os.path.dirname(self.setup_file)
-                module_path = os.path.join(base_path, 'scripts')
-
-                if self.name not in _importer_session:
-                    sys.meta_path.append(_StringImporter(module_path, self.name))
-                    _importer_session.add(self.name)
-
                 code = compile(setup_file.read(), self.setup_file, 'exec')
                 exec(code, env_dict)
 

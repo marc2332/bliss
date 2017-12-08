@@ -13,8 +13,6 @@ from bliss.common import scans
 from bliss.common import measurement
 from bliss.common.session import get_current
 from treelib import Tree
-import cStringIO
-import sys
 
 def test_session_does_not_load_session(beacon):
   session = beacon.get("test_session")
@@ -65,10 +63,19 @@ def test_load_script(beacon, capsys):
   assert env_dict.get('_hidden_func') is None
   assert env_dict.get('visible_func') is not None
 
+  env_dict = dict()
+  session = beacon.get("test_session4")
+  session.setup(env_dict)
   assert env_dict["load_script"] is not None
   load_script = env_dict["load_script"]
   load_script("script3", "test_session5")
   assert env_dict.get("test_func") is not None 
+
+  from bliss.session.test_session5 import script3
+  assert script3.test_func == env_dict.get("test_func")
+  load_script("script1")
+  from bliss.session.test_session4 import script1
+  assert script1.visible_func == env_dict.get("visible_func")
 
   env_dict = dict()
   session = beacon.get("test_session4")

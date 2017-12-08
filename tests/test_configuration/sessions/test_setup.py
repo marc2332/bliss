@@ -18,3 +18,8 @@ class TestScanGaussianCounter(SamplingCounter):
       self.i += 1
       return x
 
+load_script("script1")
+
+# Do not remove this print (used in tests)
+print 'TEST_SESSION INITIALIZED'
+#

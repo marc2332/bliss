@@ -23,6 +23,10 @@ controller:
     low_limit:
     high_limit:
     default_cust_attr: 6.28
+  - name: m2
+    steps_per_unit: 1000
+    velocity: 50
+    acceleration: 1
   - name: m1
     steps_per_unit: 1000
     velocity: 50

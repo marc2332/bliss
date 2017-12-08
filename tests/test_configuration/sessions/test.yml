@@ -1,8 +1,8 @@
 - class: Session
   name: test_session
-  default: True
   setup-file: ./test_setup.py
   exclude-objects:
+   - m2
    - lima_simulator
    - opiom1
    - xia1
@@ -10,6 +10,7 @@
    - mercury2
    - xmap1
    - falconx1
+   - p201
   synoptic:
     svg-file: ./test_synoptic.svg
     elements:
@@ -48,3 +49,17 @@
 - class: MeasurementGroup
   name: test_mg
   counters: [diode]
+- class: Session
+  name: test_session2
+  setup-file: ./test_setup2.py
+  config-objects: [m2]
+  include-sessions: [test_session]
+- class: Session
+  name: test_session3
+  config-objects: [test_session2]
+- class: Session
+  name: test_session4
+  setup-file: ./test_setup4.py
+  include-sessions: [test_session5]
+  config-objects: [m2]
+

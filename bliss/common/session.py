@@ -282,7 +282,6 @@ class Session(object):
 
         self._load_config(env_dict, verbose)
 
-
         from bliss.scanning.scan import ScanSaving
         env_dict['SCAN_SAVING'] = ScanSaving()
         from bliss.common.measurementgroup import ACTIVE_MG
@@ -357,7 +356,7 @@ class Session(object):
             # interactive interpreter
             env_dict = main.__dict__
         else:
-            env_dict = globals()
+            env_dict = setup_globals.__dict__
         return env_dict
 
     def resetup(self, env_dict=None, verbose=False):

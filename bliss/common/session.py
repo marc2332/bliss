@@ -95,10 +95,11 @@ def load_script(env_dict, script_module_name,
 
     module_name = '%s.%s.%s' % (_StringImporter.BASE_MODULE_NAMESPACE,
                                 session.name,
-                                script_module_name)
+                                os.path.splitext(script_module_name)[0])
 
     if module_name not in sys.modules:
         reload_module = False
+
     try:
         script_module = __import__(module_name, env_dict, {}, ['*'])
     except Exception:

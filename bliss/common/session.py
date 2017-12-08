@@ -181,11 +181,6 @@ class Session(object):
         self.__config_objects_names = config_tree.get("config-objects")
         self.__exclude_objects_names = config_tree.get("exclude-objects", list())
         self.__objects_names = None
-
-        global CURRENT_SESSION
-        if CURRENT_SESSION is None:
-            CURRENT_SESSION = self
-
         self.__children_tree = None
         self.__include_sessions = config_tree.get('include-sessions')
 
@@ -292,6 +287,9 @@ class Session(object):
         sessions_tree = self.sessions_tree
         for child_session in reversed(list(sessions_tree.expand_tree(mode=Tree.WIDTH))[1:]):
             child_session._setup(env_dict)
+
+        global CURRENT_SESSION
+        CURRENT_SESSION = self
 
         for obj_name, obj in env_dict.iteritems():
             setattr(setup_globals, obj_name, obj)

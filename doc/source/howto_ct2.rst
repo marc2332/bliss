@@ -23,7 +23,6 @@ The CT2 card has two models:
 .. important::
     The CT2 bliss software has only been tested in a limited environment:
 
-    * **one** card.
     * Only the *P201* has been fully tested (*C208* not tested).
 
     Please contact the bliss development team if any of these missing
@@ -88,7 +87,7 @@ of the card:
    }
 
 
-First, you need run :program:`bliss-ct2-server` on the PC where the card is
+First, you need to run :program:`bliss-ct2-server` on the PC where the card is
 installed by typing:
 
 .. code-block:: bash
@@ -249,6 +248,8 @@ like this::
     p201 = config.get('p201_local')
 
 
+.. _bliss-ct2-acquisition-types:
+
 Supported acquisition types
 ---------------------------
 
@@ -263,6 +264,8 @@ Exposure time
 
 .. the following diagrams need wavedrom sphinx extension
 .. I used a WYSIWYG editor: www.wavedrom.com/editor.html
+
+.. _bliss-ct2-internal-trigger-single:
 
 .. rubric:: Internal Trigger Single
 
@@ -299,6 +302,8 @@ Exposure time
     *point period*, where in non *single* modes it ends right after *exposure
     time* ends.
 
+.. _bliss-ct2-internal-trigger-multi:
+
 .. rubric:: Internal Trigger Multi
 
 .. wavedrom::
@@ -331,6 +336,8 @@ Exposure time
 .. pull-quote::
     Start by software. Hardware takes one single point. Each point is
     triggered by software. Internal clock determines exposure time (constant).
+
+.. _bliss-ct2-internal-trigger-readout:
 
 .. rubric:: Internal Trigger Readout
 
@@ -366,6 +373,8 @@ Exposure time
     This mode is similar to *Internal Trigger Single* when *point period*
     equals *exposure time* (ie, no dead time).
 
+.. _bliss-ct2-software-trigger-readout:
+
 .. rubric:: Software Trigger Readout
 
 .. wavedrom::
@@ -395,6 +404,8 @@ Exposure time
 .. pull-quote::
     Start by software; trigger by software. Trigger ends previous acquisition
     and starts next with no dead time. Exposure time determined by trigger.
+
+.. _bliss-ct2-external-trigger-single:
 
 .. rubric:: External Trigger Single
 
@@ -434,6 +445,8 @@ Exposure time
     This mode is similar to *Internal Trigger Single* except that the start
     is done by an external trigger instead of software.
 
+.. _bliss-ct2-external-trigger-multi:
+
 .. rubric:: External Trigger Multi
 
 .. wavedrom::
@@ -470,6 +483,8 @@ Exposure time
 
 .. TODO document what happens if an external trigger arrives before the exposure time is finished
 
+.. _bliss-ct2-external-gate:
+
 .. rubric:: External gate
 
 .. wavedrom::
@@ -496,6 +511,8 @@ Exposure time
 
 .. pull-quote::
     Start by external trigger. Exposure time determined by input gate signal.
+
+.. _bliss-ct2-external-trigger-readout:
 
 .. rubric:: External Trigger Readout
 
@@ -530,9 +547,253 @@ Exposure time
     the triggers are by an external trigger instead of software start and
     software trigger.
 
+.. _bliss-ct2-multiple-cards:
+
+Using 2 or more cards
+---------------------
+
+Sometimes, the 10 channels provided by a single CT2 card are not enough.
+You may need two or more cards in order to fulfill your needs.
+
+There are at least two ways to configure multiple cards depending on the
+type of manipulation you need.
+
+.. _bliss-ct2-multiple-independent-cards:
+
+*Independent* cards configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If the acquisition of the CT2 cards is triggered by an external signal, we say
+that all the CT2 cards are *slaves* since the control of the acquisition is done
+by another hardware. This is a simplest case since it is sufficient to configure
+each card individually.
+
+Here is an example how to configure and run two P201 cards:
+
+* syncronized by an external trigger on input channel 8
+* both cards in :ref:`external trigger multi <bliss-ct2-external-trigger-multi>`
+  acquisition mode
+* 10 acquisition points
+* with an exposure time of 0.1s.
+* Card A with channels 1, 2 and 3 (counter names: C01, C02 and C03)
+* Card B with channels 1 and 2 (counter names: C04 and C05)
+
+.. image:: _static/CT2/two_cards.png
+    :scale: 50%
+
+First, start two CT2 zerorpc servers:
+
+.. code-block:: bash
+
+   $ bliss-ct2-server --port=8909 --address=/dev/ct2_0
+   INFO 2017-10-30 15:14:57,680 CardInterface(/dev/ct2_0): connecting to /dev/ct2_0
+   INFO 2017-10-30 15:14:57,684 CT2Server: Serving CT2 on tcp://0.0.0.0:8909...
+
+   $ bliss-ct2-server --port=8910 --address=/dev/ct2_1
+   INFO 2017-10-30 15:16:32,456 CardInterface(/dev/ct2_1): connecting to /dev/ct2_1
+   INFO 2017-10-30 15:16:32,458 CT2Server: Serving CT2 on tcp://0.0.0.0:8910...
+
+The YAML configuration should look something like this:
+
+.. code-block:: yaml
+
+   plugin: ct2
+   cards:
+   - name: p201_A
+     class: CT2
+     address: tcp://lid312:8909
+     external sync:
+       input:
+         channel: 8
+         polarity inverted: false
+     counters:
+     - address: 1
+       counter name: C01
+     - address: 2
+       counter name: C02
+     - address: 3
+       counter name: C03
+
+   - name: p201_B
+     class: CT2
+     address: tcp://lid312:8910
+     external sync:
+       input:
+         channel: 8
+         polarity inverted: false
+     counters:
+     - address: 1
+       counter name: C04
+     - address: 2
+       counter name: C05
+
+...a simple demonstration program::
+
+    from gevent import sleep, spawn, wait
+    from gevent.event import Event
+
+    from bliss.common.event import dispatcher
+    from bliss.config.static import get_config
+    from bliss.controllers.ct2.client import CT2
+    from bliss.controllers.ct2.device import AcqMode, AcqStatus, StatusSignal
+
+    config = get_config()
+
+    p201_A = config.get('p201_A')
+    p201_B = config.get('p201_B')
+
+    for card in (p201_A, p201_B):
+        card.acq_mode = AcqMode.ExtTrigMulti
+        card.acq_expo_time = 0.1
+        card.acq_point_period = None
+        card.acq_nb_points = 10
+
+    p201_A.acq_channels = 1, 2, 3
+    p201_B.acq_channels = 1, 2
+
+    finish_A, finish_B = Event(), Event()
+    def on_state_changed(value, finish=None):
+        if value == AcqStatus.Ready:
+            finish.set()
+
+    dispatcher.connect(functools(on_state_changed, finish=finish_A),
+                       sender=p201_A, signal=StatusSignal)
+    dispatcher.connect(functools(on_state_changed, finish=finish_B),
+                       sender=p201_B, signal=StatusSignal)
+
+    p201_A.prepare_acq()
+    p201_B.prepare_acq()
+    p201_A.start_acq()
+    p201_B.start_acq()
+
+    wait([finish_A, finish_B])
+    print('Done!')
+
+.. _bliss-ct2-multiple-master-slave-cards:
+
+*Master*/*slave* cards configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If the acquisition is triggered by one of the CT2 cards, this card is named the *master*
+card and the other(s) cards are slave cards. The *master* card will syncronize all other
+hardware (other CT2 cards, detectors, multiplexers, etc) via an output gate signal.
+The *slave* card(s) will follow this signal by configuring its acquisition mode to
+:ref:`external gate <bliss-ct2-external-gate>`.
+
+Here is an example how to configure and run two P201 cards:
+
+* Card A is master, with output gate signal channel 10
+* Card B is slave, syncronized by an external trigger on input channel 8
+* Card A in :ref:`internal trigger single <bliss-ct2-internal-trigger-single>`)
+  acquisition mode
+* 10 acquisition points
+* with an exposure time of 0.1s.
+* with a point period of 0.15s
+* Card A with channels 1, 2 and 3 (counter names: C01, C02 and C03)
+* Card B with channels 1 and 2 (counter names: C04 and C05)
+
+.. image:: _static/CT2/master_slave.png
+    :scale: 50%
+
+First, start two CT2 zerorpc servers:
+
+.. code-block:: bash
+
+   $ bliss-ct2-server --port=8909 --address=/dev/ct2_0
+   INFO 2017-10-30 15:14:57,680 CardInterface(/dev/ct2_0): connecting to /dev/ct2_0
+   INFO 2017-10-30 15:14:57,684 CT2Server: Serving CT2 on tcp://0.0.0.0:8909...
+
+   $ bliss-ct2-server --port=8910 --address=/dev/ct2_1
+   INFO 2017-10-30 15:16:32,456 CardInterface(/dev/ct2_1): connecting to /dev/ct2_1
+   INFO 2017-10-30 15:16:32,458 CT2Server: Serving CT2 on tcp://0.0.0.0:8910...
+
+The YAML configuration should look something like this:
+
+.. code-block:: yaml
+
+   plugin: ct2
+   cards:
+   - name: p201_A
+     class: CT2
+     address: tcp://lid312:8909
+     external sync:
+       output:
+         channel: 10
+     counters:
+     - address: 1
+       counter name: C01
+     - address: 2
+       counter name: C02
+     - address: 3
+       counter name: C03
+
+   - name: p201_B
+     class: CT2
+     address: tcp://lid312:8910
+     external sync:
+       input:
+         channel: 8
+         polarity inverted: false
+     counters:
+     - address: 1
+       counter name: C04
+     - address: 2
+       counter name: C05
+
+...a simple demonstration program::
+
+    from gevent import sleep, spawn, wait
+    from gevent.event import Event
+
+    from bliss.common.event import dispatcher
+    from bliss.config.static import get_config
+    from bliss.controllers.ct2.client import CT2
+    from bliss.controllers.ct2.device import AcqMode, AcqStatus, StatusSignal
+
+    config = get_config()
+
+    master = config.get('p201_A')
+    slave = config.get('p201_B')
+
+    master.acq_mode = AcqMode.IntTrigSingle
+    master.acq_expo_time = 0.1
+    master.acq_point_period = 0.15
+    master.acq_nb_points = 10
+    master.acq_channels = 1, 2, 3
+
+    slave.acq_mode = AcqMode.ExtGate
+    slave.acq_expo_time = None
+    slave.acq_point_period = None
+    slave.acq_nb_points = 10
+    slave.acq_channels = 1, 2
+
+    finish_master, finish_slave = Event(), Event()
+    def on_state_changed(value, finish=None):
+        if value == AcqStatus.Ready:
+            finish.set()
+
+    dispatcher.connect(functools(on_state_changed, finish=finish_master),
+                       sender=master, signal=StatusSignal)
+    dispatcher.connect(functools(on_state_changed, finish=finish_slave),
+                       sender=slave, signal=StatusSignal)
+
+    master.prepare_acq()
+    slave.prepare_acq()
+    master.start_acq()
+    slave.start_acq()
+
+    wait([finish_master, finish_slave])
+    print('Done!')
+
+
+.. note::
+
+   you can change the input and output channels at any time in a program by means
+   of `<dev>.input_channel = <channel number>` and
+   `<dev>.output_channel = <channel number>`,  respectively.
 
 .. _bliss-ct2-yaml:
-    
+
 YAML_ specification
 -------------------
 

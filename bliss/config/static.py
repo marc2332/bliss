@@ -185,7 +185,7 @@ class Node(NodeDict):
 
     @property
     def filename(self):
-        """Filename where the cofiguration of this node is located"""
+        """Filename where the configuration of this node is located"""
         return self.get_node_filename()[1]
 
     @property
@@ -655,6 +655,9 @@ class Config(object):
         Raises:
             RuntimeError: if name is not found in configuration
         """
+        if name is None:
+            raise RuntimeError("Can't get Object without a name == None")
+
         name = name.lstrip('$')
         instance_object = self._name2instance.get(name)
         if instance_object is None: # we will create it

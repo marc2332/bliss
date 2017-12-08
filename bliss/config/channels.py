@@ -259,8 +259,8 @@ class _Channel(object):
                     with self._bus.wait_event_on(self.__name) as we:
                         we.wait()
                         value = CHANNELS_VALUE.get(self.__name)
-        elif self.__name not in self._bus._pubsub.channels: # not yet subscibe
-            with gevent.Timeout(self.__timeout, RuntimeError("%s: timeout to subscibe channel" % self.__name)):
+        elif self.__name not in self._bus._pubsub.channels: # not subscribed yet
+            with gevent.Timeout(self.__timeout, RuntimeError("%s: timeout to subscribe to channel" % self.__name)):
                 while self.__name not in self._bus._pubsub.channels:
                     with self._bus.wait_event_on(self.__name) as we:
                         we.wait()

@@ -6,7 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 """
-Usage: bliss [--log-level=<log_level>] [(-s | --session)] <name>...
+Usage: bliss [--log-level=<log_level>] [(-s | --session)] <name>
        bliss [--show-sessions]
        bliss [--log-level=<log_level>]
        bliss (-h | --help)
@@ -32,7 +32,7 @@ def main():
     try:
         # Parse arguments, use file docstring as a parameter definition
         arguments = docopt.docopt(__doc__)
-        session_names = arguments['<name>']
+        session_name = arguments['<name>']
     except docopt.DocoptExit as e:
         print e.message
     else:
@@ -47,10 +47,11 @@ def main():
                 c = config.get_config(name)
                 if c.get('class') != 'Session': continue
                 if c.get_inherited('plugin') != 'session': continue
-                print ' '*4,name
+                session = config.get(name)
+                session.sessions_tree.show()
             exit(0)
 
-        embed(session_names=session_names)
+        embed(session_name=session_name)
         
 
 if __name__ == '__main__':

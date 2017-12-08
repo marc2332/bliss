@@ -34,7 +34,7 @@ class BlissRepl(PythonRepl):
         prompt_label = kwargs.pop('prompt_label', 'BLISS')
         title = kwargs.pop('title', None)
         scan_listener = kwargs.pop('scan_listener')
-        sessions = kwargs.pop('sessions')
+        session = kwargs.pop('session')
         bliss_bar = status_bar(self)
         toolbars = list(kwargs.pop('extra_toolbars', ()))
         kwargs['_extra_toolbars'] = [bliss_bar] + toolbars
@@ -48,7 +48,7 @@ class BlissRepl(PythonRepl):
         self.bliss_bar = bliss_bar
         self.bliss_bar_format = 'normal'
         self.bliss_prompt_label = prompt_label
-        self.bliss_sessions = sessions
+        self.bliss_session = session
         self.bliss_scan_listener = scan_listener
         self.all_prompt_styles[u'bliss'] = BlissPrompt(self)
         self.install_ui_colorscheme(u'bliss', bliss_ui_style)
@@ -104,7 +104,7 @@ def configure(func):
     return func
 
 
-def cli(locals=None, session_names=(), vi_mode=False,
+def cli(locals=None, session_name=None, vi_mode=False,
         startup_paths=None, eventloop=None, refresh_interval=.25):
     """
     Create a command line interface without running it::
@@ -116,7 +116,7 @@ def cli(locals=None, session_names=(), vi_mode=False,
         cmd_line_iface.run()
 
     Args:
-        session_names (seq<str>): list of sessions to initialize (default: ())
+        session_name : session to initialize (default: None)
         vi_mode (bool): Use Vi instead of Emacs key bindings.
         eventloop: use a specific eventloop (default: PosixGeventLoop)
         refresh_interval (float): cli refresh interval (seconds) 
@@ -124,7 +124,7 @@ def cli(locals=None, session_names=(), vi_mode=False,
                                   deactivate refresh.
     """
     
-    user_ns, sessions = initialize(*session_names)
+    user_ns, session = initialize(session_name)
 
     locals = locals or user_ns
 
@@ -134,11 +134,11 @@ def cli(locals=None, session_names=(), vi_mode=False,
     def get_locals():
         return locals
 
-    if session_names:
-        session_id  = '_'.join(session_names)
-        session_title = u'Bliss shell ({0})'.format(', '.join(session_names))
+    if session_name:
+        session_id = session_name
+        session_title = u'Bliss shell ({0})'.format(session_name)
         history_filename = ".%s_%s_history" % (os.path.basename(sys.argv[0]), session_id)
-        prompt_label = session_names[0].upper()
+        prompt_label = session_name.upper()
     else:
         session_id = 'unnamed'
         session_title = u'Bliss shell'
@@ -153,7 +153,7 @@ def cli(locals=None, session_names=(), vi_mode=False,
     scan_listener = ScanListener()
 
     # Create REPL.
-    repl = BlissRepl(get_globals, get_locals, sessions=sessions,
+    repl = BlissRepl(get_globals, get_locals, session=session,
                      scan_listener=scan_listener, vi_mode=vi_mode, 
                      prompt_label=prompt_label, title=session_title,
                      history_filename=history_filename,
@@ -180,7 +180,7 @@ def embed(*args, **kwargs):
         embed(locals=locals())
 
     Args:
-        session_names (seq<str>): list of sessions to initialize (default: ())
+        session_name : session to initialize (default: None)
         vi_mode (bool): Use Vi instead of Emacs key bindings.
         eventloop: use a specific eventloop (default: PosixGeventLoop)
         refresh_interval (float): cli refresh interval (seconds) 

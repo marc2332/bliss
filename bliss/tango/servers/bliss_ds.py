@@ -142,8 +142,8 @@ class InputChannel(object):
 
 
 _SHELL_INFO = None
-def load_shell(*session_names):
-    result = shell.initialize(*session_names)
+def load_shell(session_name):
+    result = shell.initialize(session_name)
     global _SHELL_INFO
     _SHELL_INFO = result
     return result
@@ -152,9 +152,9 @@ def load_shell(*session_names):
 class Bliss(Device):
     """Bliss TANGO device class"""
 
-    #: Session names (default: None, meaning use server instance name as
+    #: Session name (default: None, meaning use server instance name as
     #: session name)
-    session_names = device_property(dtype=[str], default_value=[])
+    session_name = device_property(dtype=str, default_value=None)
 
     #: Sanitize or not the command to be executed
     #: If True, it will allow you to send a command like: 'wm th phi'
@@ -177,16 +177,16 @@ class Bliss(Device):
         self.__tasks = {}
         self.__results = {}
 
-        if not self.session_names:
+        if not self.session_name:
             util = Util.instance()
-            self.session_names = [util.get_ds_inst_name()]
+            self.session_name = util.get_ds_inst_name()
 
         self.__scan_listener = shell.ScanListener()
         if self.__startup:
             shell_info = _SHELL_INFO
         else:
-            shell_info = shell.initialize(*self.session_names)
-        self.__user_ns, self.__sessions = shell_info
+            shell_info = shell.initialize(self.session_name)
+        self.__user_ns, self.__session = shell_info
         self.__startup = False
 
         # redirect output
@@ -217,14 +217,11 @@ class Bliss(Device):
 
     @property
     def _object_names(self):
-        objs = []
-        for session in self.__sessions:
-            objs.extend(session.object_names)
-        return objs
+        return self.__session.object_names or []
 
     @attribute(dtype=[str])
-    def sessions(self):
-        return self.session_names
+    def session(self):
+        return self.session_name
 
     @attribute(dtype=(str,), max_dim_x=10000)
     def object_names(self):
@@ -500,7 +497,7 @@ def __register_server(server_type, server_instance,
 
     # ask the user for the session name
     session_name = server_instance
-    session_name = raw_input('session name [{0}]? '.format(session_name)) or \
+    session_name = raw_input('session name {0}? '.format(session_name)) or \
                    session_name
     if session_name != server_instance:
         properties['session_name'] = session_name
@@ -546,24 +543,21 @@ def __initialize(args, db=None):
 
     bliss_dev_name = device_map['Bliss'][0]
 
-    props = db.get_device_property(bliss_dev_name, ('session_names',))
-    session_names = props['session_names']
-    session_names = session_names if session_names else [server_instance]
+    props = db.get_device_property(bliss_dev_name, ('session_name',))
+    session_name = props['session_name']
+    session_name = session_name if session_name else server_instance
 
     this_dir = os.path.dirname(os.path.abspath(__file__))
     suffix = '_ds.py'
     inits = []
 
-    shell_info = ns, sessions = load_shell(*session_names)
+    shell_info = ns, session = load_shell(session_name)
 
-    object_names = []
-    for session in sessions:
-        if session.object_names:
-            object_names.extend(session.object_names)
+    object_names = session.object_names or []
 
     info = dict(server_type=server_type,
                 server_instance=server_instance,
-                session_names=session_names,
+                session_name=session_name,
                 device_map=device_map,
                 manager_device_name=bliss_dev_name,
                 object_names=object_names,

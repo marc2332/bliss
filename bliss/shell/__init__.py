@@ -28,10 +28,9 @@ from bliss.shell.bliss_banners import print_rainbow_banner
 _log = logging.getLogger('bliss.shell')
 
 
-def initialize(*session_names):
+def initialize(session_name):
     config = static.get_config()
     user_ns = {"config": config}
-    sessions = list()
     error_flag = False
 
     """ BLISS CLI welcome messages """
@@ -66,8 +65,8 @@ def initialize(*session_names):
     print_("Connected to Beacon server on {t.blue}%s{t.normal} (port %s)".format(t=t) % (_host, _port))
 
     """ Setup(s) """
-    for sname in session_names:
-        session = config.get(sname)
+    if session_name is not None:
+        session = config.get(session_name)
 
         print "%s: Executing setup..." % session.name
 
@@ -76,8 +75,8 @@ def initialize(*session_names):
         except Exception:
             error_flag = True
             sys.excepthook(*sys.exc_info())
-
-        sessions.append(session)
+    else:
+        session = None
 
     if error_flag:
         print "Warning: error(s) happened during setup, setup may not be complete."
@@ -85,7 +84,7 @@ def initialize(*session_names):
         print_("Done.")
         print_("")
 
-    return user_ns, sessions
+    return user_ns, session
 
 
 def _find_unit(obj):

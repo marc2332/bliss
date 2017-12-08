@@ -33,30 +33,28 @@ CT2 = Client
 class CounterGroup(IntegratingCounter.GroupedReadHandler):
 
     def prepare(self, *counters):
+        channels = []
         counter_indexes = {}
         ctrl = self.controller
         in_channels = ctrl.INPUT_CHANNELS
-        channels = []
         timer_counter = ctrl.internal_timer_counter
         point_nb_counter = ctrl.internal_point_nb_counter
-        nb_non_acq_channels = 0
-        for i, counter in enumerate(counters):
-            channel = counter.channel
-            counter_index = i - nb_non_acq_channels
+        channel_counters = dict([(counter.channel, counter)
+                                 for counter in counters])
+
+        for i, channel in enumerate(sorted(channel_counters)):
+            counter = channel_counters[channel]
             if channel in in_channels:
                 channels.append(channel)
             elif channel == timer_counter:
-                counter_index = -2
-                nb_non_acq_channels += 1
+                i = -2
                 counter.timer_freq = ctrl.timer_freq
             elif channel == point_nb_counter:
-                counter_index = -1
-                nb_non_acq_channels += 1
-            counter_indexes[counter] = counter_index
+                i = -1
+            counter_indexes[counter] = i
         ctrl.acq_channels =  channels
         # counter_indexes dict<counter: index in data array>
         self.counter_indexes = counter_indexes
-
         # a hack here: since this prepare is called AFTER the
         # CT2AcquisitionDevice prepare, we do a "second" prepare
         # here after the acq_channels have been configured
@@ -66,8 +64,9 @@ class CounterGroup(IntegratingCounter.GroupedReadHandler):
         data = self.controller.get_data(from_index).T
         if not data.size:
             return len(counters)*(numpy.array(()),)
-        return [counter.convert(data[self.counter_indexes[counter]])
-                for counter in counters]
+        result = [counter.convert(data[self.counter_indexes[counter]])
+                  for counter in counters]
+        return result
 
 
 class Counter(IntegratingCounter):
@@ -79,6 +78,9 @@ class Counter(IntegratingCounter):
     def convert(self, data):
         return data
 
+    def __repr__(self):
+        return '{0}({1!r}, ch={2})'.format(type(self).__name__, self.name,
+                                           self.channel)
 
 class CounterTimer(Counter):
 

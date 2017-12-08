@@ -12,16 +12,18 @@ import gevent
 import numpy
 import weakref
 
+
 class SoftwareTimerMaster(AcquisitionMaster):
-    def __init__(self,count_time,sleep_time=None, **keys):
-        AcquisitionMaster.__init__(self,None,"timer","zerod",
+    def __init__(self, count_time, sleep_time=None, **keys):
+        AcquisitionMaster.__init__(self, None, "timer", "zerod",
                                    **keys)
         self.count_time = count_time
         self.sleep_time = sleep_time
-        self.channels.append(AcquisitionChannel('timestamp', numpy.double, (1,)))
-        
+        self.channels.append(AcquisitionChannel(
+            'timestamp', numpy.double, (1,)))
+
         self._nb_point = 0
-    
+
     def __iter__(self):
         npoints = self.npoints
         if npoints > 0:
@@ -38,7 +40,7 @@ class SoftwareTimerMaster(AcquisitionMaster):
         pass
 
     def start(self):
-        #if we are the top master
+        # if we are the top master
         if self.parent is None:
             self.trigger()
 
@@ -47,25 +49,29 @@ class SoftwareTimerMaster(AcquisitionMaster):
             gevent.sleep(self.sleep_time)
 
         start_trigger = time.time()
-        dispatcher.send("new_data",self,
-                        {"channel_data":{'timestamp':numpy.double(time.time())}})
+        dispatcher.send("new_data", self,
+                        {"channel_data": {'timestamp': numpy.double(time.time())}})
 
         self.trigger_slaves()
-        elapsed_trigger = time.time()-start_trigger
+        elapsed_trigger = time.time() - start_trigger
         gevent.sleep(self.count_time - elapsed_trigger)
 
     def stop(self):
         pass
 
+
 class IntegratingTimerMaster(object):
     def __init__(self):
         self.__count_time = 1.
+
     @property
     def count_time(self):
         return self.__count_time
+
     @count_time.setter
-    def count_time(self,value):
+    def count_time(self, value):
         self.__count_time = value
+
     def prepare(self):
         integrated_devices = [x.device for x in self.slaves]
         self._prepare(integrated_devices)
@@ -76,7 +82,7 @@ class IntegratingTimerMaster(object):
     def trigger(self):
         pass
 
-    def _prepare(self,integrated_devices):
+    def _prepare(self, integrated_devices):
         """ Overwrite in your class if you need it """
         pass
 

@@ -15,14 +15,15 @@ from treelib import Tree
 import time
 import logging
 
-from bliss.common.event import connect,send
+from bliss.common.event import connect, send
 from bliss.config.conductor import client
-from bliss.config.settings import Parameters,_change_to_obj_marshalling
-from bliss.data.node import _get_or_create_node,_create_node,DataNode
+from bliss.config.settings import Parameters, _change_to_obj_marshalling
+from bliss.data.node import _get_or_create_node, _create_node, DataNode
 from bliss.common.session import get_current as _current_session
 from .chain import AcquisitionDevice, AcquisitionMaster
 
 current_module = sys.modules[__name__]
+
 
 class StepScanDataWatch(object):
     """
@@ -30,7 +31,8 @@ class StepScanDataWatch(object):
     an acquisition chain with motor(s) as the top-master.
     This produce event compatible with the ScanListener class (bliss.shell)
     """
-    def __init__(self,scan_info):
+
+    def __init__(self, scan_info):
         self._motors = scan_info['motors']
         self._motors_name = [x.name for x in self._motors]
         self._last_point_display = -1
@@ -38,12 +40,12 @@ class StepScanDataWatch(object):
         self._scan_info = scan_info
         self._init_done = False
 
-    def __call__(self,data_events,nodes,info):
+    def __call__(self, data_events, nodes, info):
         if self._init_done is False:
-            for acq_device,data_node in nodes.iteritems():
+            for acq_device, data_node in nodes.iteritems():
                 if data_node.type() == 'zerod':
                     self._channel_name_2_channel.update(
-                        ((channel.name,data_node.get_channel(channel.name,check_exists=False)) 
+                        ((channel.name, data_node.get_channel(channel.name, check_exists=False))
                          for channel in acq_device.channels))
             self._init_done = True
 
@@ -51,19 +53,19 @@ class StepScanDataWatch(object):
             self._last_point_display += 1
 
         min_nb_points = None
-        for channels_name,channel in self._channel_name_2_channel.iteritems():
+        for channels_name, channel in self._channel_name_2_channel.iteritems():
             nb_points = len(channel)
             if min_nb_points is None:
                 min_nb_points = nb_points
             elif min_nb_points > nb_points:
                 min_nb_points = nb_points
- 
+
         point_nb = self._last_point_display
-        for point_nb in range(self._last_point_display,min_nb_points):
+        for point_nb in range(self._last_point_display, min_nb_points):
             values = dict([(ch_name, ch.get(point_nb))
-                      for ch_name, ch in self._channel_name_2_channel.iteritems()])
-            send(current_module,"scan_data",
-                 self._scan_info,values)
+                           for ch_name, ch in self._channel_name_2_channel.iteritems()])
+            send(current_module, "scan_data",
+                 self._scan_info, values)
         if min_nb_points is not None:
             self._last_point_display = min_nb_points
 
@@ -93,16 +95,16 @@ class ScanSaving(Parameters):
 
         keys = dict()
         _change_to_obj_marshalling(keys)
-        Parameters.__init__(self,'%s:scan_data' % self.session,
-                            default_values = {'base_path': '/tmp/scans',
-                                              'user_name': getpass.getuser(),
-                                              'template' : '{session}/',
-                                              'date_format': '%Y%m%d' },
+        Parameters.__init__(self, '%s:scan_data' % self.session,
+                            default_values={'base_path': '/tmp/scans',
+                                            'user_name': getpass.getuser(),
+                                            'template': '{session}/',
+                                            'date_format': '%Y%m%d'},
                             **keys)
 
-    def __dir__(self) :
+    def __dir__(self):
         keys = Parameters.__dir__(self)
-        return keys + ['session','get','get_path','get_parent_node']
+        return keys + ['session', 'get', 'get_path', 'get_parent_node']
 
     @property
     def session(self):
@@ -132,24 +134,24 @@ class ScanSaving(Parameters):
             if 'session' in template_keys:
                 parent = None
             else:
-                parent = _get_or_create_node(self.session,"container")
+                parent = _get_or_create_node(self.session, "container")
 
             for key in template_keys:
                 value = cache_dict.get(key)
                 if callable(value):
-                    value = value(self) # call the function
+                    value = value(self)  # call the function
                     cache_dict[key] = value
                 if value is not None:
-                    parent = _get_or_create_node(value,"container",
+                    parent = _get_or_create_node(value, "container",
                                                  parent=parent)
-            
+
             sub_path = template.format(**cache_dict)
-        except KeyError,keyname:
+        except KeyError, keyname:
             raise RuntimeError("Missing %s attribute in ScanSaving" % keyname)
         else:
-            return {'root_path' : os.path.join(cache_dict.get('base_path'),sub_path),
-                    'parent' : parent}
-                    
+            return {'root_path': os.path.join(cache_dict.get('base_path'), sub_path),
+                    'parent': parent}
+
     def get_path(self):
         """
         This method return the current saving path.
@@ -164,21 +166,24 @@ class ScanSaving(Parameters):
         """
         return self.get()['parent']
 
+
 class Container(object):
-    def __init__(self, name, parent=None) :
+    def __init__(self, name, parent=None):
         self.root_node = parent.node if parent is not None else None
         self.__name = name
-        self.node = _get_or_create_node(self.__name, "container", parent=self.root_node)
+        self.node = _get_or_create_node(
+            self.__name, "container", parent=self.root_node)
+
 
 class Scan(object):
-    IDLE_STATE,PREPARE_STATE,START_STATE,STOP_STATE = range(4)
+    IDLE_STATE, PREPARE_STATE, START_STATE, STOP_STATE = range(4)
 
-    def __init__(self,chain, name=None,
+    def __init__(self, chain, name=None,
                  parent=None, scan_info=None, writer=None,
                  data_watch_callback=None):
         """
         This class publish data and trig the writer if any.
-        
+
         chain -- acquisition chain you want to use for this scan.
         name -- usually the scan name if None set default name *scan"
         parent -- the parent is the root node of the data tree.
@@ -199,12 +204,13 @@ class Scan(object):
         if parent is None:
             self.root_node = None
         else:
-            if isinstance(parent,DataNode):
+            if isinstance(parent, DataNode):
                 self.root_node = parent
-            elif isinstance(parent,Container):
-                self.root_node = parent.node         
+            elif isinstance(parent, Container):
+                self.root_node = parent.node
             else:
-                raise ValueError("parent must be a DataNode or Container object, or None")
+                raise ValueError(
+                    "parent must be a DataNode or Container object, or None")
 
         self._nodes = dict()
         self._writer = writer
@@ -212,11 +218,13 @@ class Scan(object):
         name = name if name else "scan"
 
         if parent:
-            key = self.root_node.db_name() 
-            run_number = client.get_cache(db=1).hincrby(key, "%s_last_run_number" % name, 1)
+            key = self.root_node.db_name()
+            run_number = client.get_cache(db=1).hincrby(
+                key, "%s_last_run_number" % name, 1)
         else:
-            run_number = client.get_cache(db=1).incrby("%s_last_run_number" % name, 1)
-	self.__name = '%s_%d' % (name, run_number)
+            run_number = client.get_cache(db=1).incrby(
+                "%s_last_run_number" % name, 1)
+        self.__name = '%s_%d' % (name, run_number)
         self._node = _create_node(self.__name, "scan", parent=self.root_node)
         if scan_info is not None:
             scan_info['scan_nb'] = run_number
@@ -226,12 +234,13 @@ class Scan(object):
             self._node._info.update(dict(scan_info))
         self._data_watch_callback = data_watch_callback
         self._data_events = dict()
-        
+
         if data_watch_callback is not None:
             if not callable(data_watch_callback):
                 raise TypeError("data_watch_callback needs to be callable")
             data_watch_callback_event = gevent.event.Event()
             data_watch_callback_done = gevent.event.Event()
+
             def trig(*args):
                 data_watch_callback_event.set()
             self._data_watch_running = False
@@ -252,25 +261,31 @@ class Scan(object):
     @property
     def name(self):
         return self.__name
+
     @property
     def writer(self):
         return self._writer
+
     @writer.setter
     def writer(self, writer):
         self._writer = writer
+
     @property
     def node(self):
         return self._node
+
     @property
     def nodes(self):
         return self._nodes
+
     @property
     def acq_chain(self):
         return self._acq_chain
+
     @property
     def scan_info(self):
         return self._scan_info
-        
+
     def _device_event(self, event_dict=None, signal=None, sender=None):
         if signal == 'end':
             for node in self._nodes.itervalues():
@@ -278,11 +293,12 @@ class Scan(object):
             self._node.set_ttl()
             self._node.end()
         node = self._nodes[sender]
-        if not hasattr(node,'store'): return
+        if not hasattr(node, 'store'):
+            return
         node.store(signal, event_dict)
-        
+
         if self._data_watch_callback is not None:
-            event_set = self._data_events.setdefault(sender,set())
+            event_set = self._data_events.setdefault(sender, set())
             event_set.add(signal)
             if signal == 'end':
                 data_events = self._data_events
@@ -290,8 +306,8 @@ class Scan(object):
                 while self._data_watch_running and not self._data_watch_task.ready():
                     self._data_watch_callback_done.wait()
                     self._data_watch_callback_done.clear()
-                self._data_watch_callback(data_events,self.nodes,
-                                          {'state':self._state})
+                self._data_watch_callback(data_events, self.nodes,
+                                          {'state': self._state})
             else:
                 self._data_watch_callback_event.set()
 
@@ -307,10 +323,11 @@ class Scan(object):
                 prev_level = level
                 parent_node = self._nodes[dev_node.bpointer]
 
-            if isinstance(dev,AcquisitionDevice) or isinstance(dev,AcquisitionMaster):
-                self._nodes[dev] = _create_node(dev.name, dev.type, parent_node) 
-                for signal in ('start', 'end', 'new_ref','new_data'):
-                    connect(dev,signal,self._device_event)
+            if isinstance(dev, AcquisitionDevice) or isinstance(dev, AcquisitionMaster):
+                self._nodes[dev] = _create_node(
+                    dev.name, dev.type, parent_node)
+                for signal in ('start', 'end', 'new_ref', 'new_data'):
+                    connect(dev, signal, self._device_event)
 
         if self._writer:
             self._writer.prepare(self, scan_info, devices_tree)
@@ -319,22 +336,22 @@ class Scan(object):
         for node in self._nodes.itervalues():
             node.set_ttl()
         self._node.set_ttl()
-    
+
     def run(self):
         class _Wakeup(object):
-            def __init__(self,cnt,active):
+            def __init__(self, cnt, active):
                 self.__active = active
                 self.__task = None
                 self.__cnt = weakref.proxy(cnt)
-                
+
             def __enter__(self):
                 if self.__active:
                     self.__task = gevent.spawn(self._timer)
 
-            def __exit__(self,*args):
+            def __exit__(self, *args):
                 if self.__task is not None:
                     gevent.kill(self.__task)
-                
+
             def _timer(self):
                 try:
                     while True:
@@ -342,25 +359,26 @@ class Scan(object):
                         gevent.sleep(0.1)
                 except ReferenceError:
                     pass
-                
-        if hasattr(self._data_watch_callback,'on_state'):
-            call_on_prepare = self._data_watch_callback.on_state(self.PREPARE_STATE)
+
+        if hasattr(self._data_watch_callback, 'on_state'):
+            call_on_prepare = self._data_watch_callback.on_state(
+                self.PREPARE_STATE)
             call_on_stop = self._data_watch_callback.on_state(self.STOP_STATE)
         else:
-            call_on_prepare,call_on_stop = False,False
+            call_on_prepare, call_on_stop = False, False
 
         send(current_module, "scan_new", self.scan_info)
         try:
             i = None
             for i in self.acq_chain:
                 self._state = self.PREPARE_STATE
-                with _Wakeup(self,call_on_prepare):
-                    i.prepare(self,self.scan_info)
+                with _Wakeup(self, call_on_prepare):
+                    i.prepare(self, self.scan_info)
                 self._state = self.START_STATE
                 i.start()
         except:
             self._state = self.STOP_STATE
-            with _Wakeup(self,call_on_stop):
+            with _Wakeup(self, call_on_stop):
                 i.stop()
                 self.stop()
             raise
@@ -375,7 +393,7 @@ class Scan(object):
                 self._writer.close()
 
     @staticmethod
-    def _data_watch(scan,event,event_done):
+    def _data_watch(scan, event, event_done):
         while True:
             event.wait()
             event.clear()
@@ -383,14 +401,15 @@ class Scan(object):
                 data_events = scan._data_events
                 scan._data_events = dict()
                 scan._data_watch_running = True
-                scan._data_watch_callback(data_events,scan.nodes,
-                                          {'state':scan._state})
+                scan._data_watch_callback(data_events, scan.nodes,
+                                          {'state': scan._state})
                 scan._data_watch_running = False
             except ReferenceError:
-                break                
+                break
             else:
                 event_done.set()
                 gevent.idle()
+
 
 class AcquisitionMasterEventReceiver(object):
     def __init__(self, master, slave, parent):
@@ -419,10 +438,10 @@ class AcquisitionDeviceEventReceiver(object):
     def __init__(self, device, parent):
         self._device = device
         self._parent = parent
-                
+
         for signal in ('start', 'end', 'new_data'):
             connect(device, signal, self)
-    
+
     @property
     def parent(self):
         return self._parent
@@ -439,7 +458,7 @@ class AcquisitionDeviceEventReceiver(object):
 
 
 class FileWriter(object):
-    def __init__(self,root_path,
+    def __init__(self, root_path,
                  windows_path_mapping=None,
                  detector_temporay_path=None,
                  master_event_receiver=None,
@@ -457,7 +476,8 @@ class FileWriter(object):
         self._windows_path_mapping = windows_path_mapping or dict()
         self._detector_temporay_path = detector_temporay_path or dict()
         if None in (master_event_receiver, device_event_receiver):
-            raise ValueError("master_event_receiver and device_event_receiver keyword arguments have to be specified.")
+            raise ValueError(
+                "master_event_receiver and device_event_receiver keyword arguments have to be specified.")
         self._master_event_receiver = master_event_receiver
         self._device_event_receiver = device_event_receiver
         self._event_receivers = list()
@@ -468,7 +488,7 @@ class FileWriter(object):
         full_path = os.path.join(self._root_path, path_suffix)
         try:
             os.makedirs(full_path)
-        except OSError as exc: # Python >2.5
+        except OSError as exc:  # Python >2.5
             if exc.errno == errno.EEXIST and os.path.isdir(full_path):
                 pass
             else:
@@ -483,10 +503,11 @@ class FileWriter(object):
 
     def prepare(self, scan_recorder, scan_info, devices_tree):
         if not self.closed:
-            self.log.warn('Last write may not have finished correctly. I will cleanup')
+            self.log.warn(
+                'Last write may not have finished correctly. I will cleanup')
 
         scan_file_dir = self.create_path(scan_recorder)
-        
+
         self.new_file(scan_file_dir, scan_recorder)
 
         self._event_receivers = list()
@@ -501,25 +522,31 @@ class FileWriter(object):
                     except AttributeError:
                         save_flag = True
 
-                    parameters  = dev.parameters
+                    parameters = dev.parameters
                     camera_name = dev.device.camera_type
-                    scan_name   = scan_recorder.node.name()
-                    full_path = os.path.join(scan_file_dir,dev.device.user_detector_name)
+                    scan_name = scan_recorder.node.name()
+                    full_path = os.path.join(
+                        scan_file_dir, dev.device.user_detector_name)
 
-                    parameters.setdefault('saving_mode', 'AUTO_FRAME' if save_flag else 'MANUAL')
-                    if save_flag :
+                    parameters.setdefault(
+                        'saving_mode', 'AUTO_FRAME' if save_flag else 'MANUAL')
+                    if save_flag:
                         parameters.setdefault('saving_format', 'EDF')
                         parameters.setdefault('saving_frame_per_file', 1)
                         parameters.setdefault('saving_directory', full_path)
-                        parameters.setdefault('saving_prefix', '%s_%s' % (scan_name,camera_name))
+                        parameters.setdefault(
+                            'saving_prefix', '%s_%s' % (scan_name, camera_name))
                         parameters.setdefault('saving_suffix', '.edf')
-                                
+
                 for slave in dev.slaves:
                     if isinstance(slave, AcquisitionDevice):
-                        self._event_receivers.append(self._device_event_receiver(slave, master_entry))
-                    elif isinstance(slave,AcquisitionMaster):
-                        self._event_receivers.append(self._master_event_receiver(slave, slave, master_entry))
-                self._event_receivers.append(self._device_event_receiver(dev, master_entry))
+                        self._event_receivers.append(
+                            self._device_event_receiver(slave, master_entry))
+                    elif isinstance(slave, AcquisitionMaster):
+                        self._event_receivers.append(
+                            self._master_event_receiver(slave, slave, master_entry))
+                self._event_receivers.append(
+                    self._device_event_receiver(dev, master_entry))
         self._closed = False
 
     def close(self):

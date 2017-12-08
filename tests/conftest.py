@@ -28,7 +28,7 @@ def beacon():
         '--port=%d' % BEACON_PORT,
         '--redis_port=7654',
         '--redis_socket=/tmp/redis_test.sock',
-        '--db_path='+BEACON_DB_PATH,
+        '--db_path=' + BEACON_DB_PATH,
         '--posix_queue=0']
     proc = multiprocessing.Process(target=server.main, args=(args,))
     proc.start()

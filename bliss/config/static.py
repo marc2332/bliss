@@ -185,7 +185,7 @@ class Node(NodeDict):
 
     @property
     def filename(self):
-        """Filename where the cofiguration of this node is located"""
+        """Filename where the configuration of this node is located"""
         return self.get_node_filename()[1]
 
     @property

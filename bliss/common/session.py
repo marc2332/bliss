@@ -29,19 +29,19 @@ _importer_session = set()
 
 
 class _StringImporter(object):
-    BASE_MODULE_NAME_SPACE = 'bliss.session'
+    BASE_MODULE_NAMESPACE = 'bliss.session'
 
     def __init__(self, path, session_name):
         self._modules = dict()
-        session_module_name_space = '%s.%s' % (self.BASE_MODULE_NAME_SPACE,
-                                               session_name)
+        session_module_namespace = '%s.%s' % (self.BASE_MODULE_NAMESPACE,
+                                              session_name)
         for module_name, file_path in get_python_modules(path):
             self._modules['%s.%s' %
-                          (session_module_name_space, module_name)] = file_path
+                          (session_module_namespace, module_name)] = file_path
         if self._modules:
-            self._modules[self.BASE_MODULE_NAME_SPACE] = None
+            self._modules[self.BASE_MODULE_NAMESPACE] = None
             self._modules['%s.%s' %
-                          (self.BASE_MODULE_NAME_SPACE, session_name)] = None
+                          (self.BASE_MODULE_NAMESPACE, session_name)] = None
 
     def find_module(self, fullname, path):
         if fullname in self._modules:
@@ -93,7 +93,7 @@ def load_script(env_dict, script_module_name,
     elif isinstance(session, (str, unicode)):
         session = static.get_config().get(session)
 
-    module_name = '%s.%s.%s' % (_StringImporter.BASE_MODULE_NAME_SPACE,
+    module_name = '%s.%s.%s' % (_StringImporter.BASE_MODULE_NAMESPACE,
                                 session.name,
                                 script_module_name)
 
@@ -116,9 +116,9 @@ class Session(object):
     """
     Bliss session.
 
-    The session is use to group object with a setup.
+    Sessions group objects with a setup.
     
-    example of Yaml file:
+    YAML file example:
      - plugin: session          # could be defined in parents
        class: Session
        name: super_mario        # session name
@@ -132,26 +132,25 @@ class Session(object):
        - seby
        - diode2
        # if config-objects key doesn't exist,
-       # session will exported all objects
-       # then you can use 'exclude-objects' to do
-       # the reversed.
+       # session will export all objects;
+       # 'exclude-objects' can be used to exclude objects
        exclude-objects: [seby]
 
        # you can also include other session
        # with the 'include-sessions'
        include-sessions: [luigi]
        
-       # finally yo can define a setup file
-       # which will be executed for the session.
-       # moreover all object, function defined in
+       # finally a setup file can be defined to be
+       # executed for the session.
+       # All objects or functions defined in the
        # setup file will be exported in the environment.
-       # the file path is relative to yaml file
-       # if it starts with a './'
+       # The file path is relative to the session yaml file
+       # location if it starts with a './'
        # otherwise it is absolute from the root of the
        # beacon file data base.
        setup-file: ./super_mario.py
 
-       # you may also add a svg synoptic (Web shell)
+       # A svg synoptic (Web shell) can be added:
        synoptic:
          svg-file: super_mario.svg
     """
@@ -247,12 +246,12 @@ class Session(object):
         return children session as a tree
         """
         if self.__children_tree is None:
-            childrens = {self.name : (1, list())}
+            children = {self.name : (1, list())}
             tree = Tree()
             tree.create_node(tag=self.name, identifier=self)
-            tree = self._build_children_tree(tree, self, childrens)
+            tree = self._build_children_tree(tree, self, children)
             multiple_ref_child = [(name, parents) for name, (ref, parents) in \
-                                  childrens.items() if ref > 1]
+                                  children.items() if ref > 1]
             if multiple_ref_child:
                 msg = "Session %s as cyclic references to sessions:\n" % self.name
                 msg += '\n'.join('session %s is referenced in %r' % (session_name, parents)\
@@ -261,12 +260,12 @@ class Session(object):
             self.__children_tree = tree
         return self.__children_tree
 
-    def _build_children_tree(self, tree, parent, childrens) :
+    def _build_children_tree(self, tree, parent, children):
         if self.__include_sessions is not None:
             for session_name in self.__include_sessions:
-                nb_ref, parents = childrens.get(session_name, (0, list()))
+                nb_ref, parents = children.get(session_name, (0, list()))
                 nb_ref += 1
-                childrens[session_name] = (nb_ref, parents)
+                children[session_name] = (nb_ref, parents)
                 parents.append(self.name)
                 if nb_ref > 1:  # avoid cyclic reference
                     continue
@@ -274,7 +273,7 @@ class Session(object):
                 child = self.config.get(session_name)
                 child_node = tree.create_node(tag=session_name,
                                               identifier=child, parent=parent)
-                child._build_children_tree(tree, child, childrens)
+                child._build_children_tree(tree, child, children)
         return tree
 
     def setup(self, env_dict=None, verbose=False):
@@ -325,7 +324,7 @@ class Session(object):
 
                 return True
         except IOError:
-            raise ValueError("Session: setup-file %s can't be found" %
+            raise ValueError("Session: setup-file %s cannot be found" %
                              self.setup_file)
 
     def _load_config(self, env_dict, verbose=True):

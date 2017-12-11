@@ -105,7 +105,7 @@ class PI_E712(Controller):
 
         # Updates cached value of closed loop status.
         axis.closed_loop = self._get_closed_loop_status(axis)
-        self.check_power_cut(axis)
+        self.check_power_cut()
 
         elog.debug("axis = %r" % axis.name)
         #elog.debug("axis.encoder = %r" % axis.encoder)
@@ -135,17 +135,15 @@ class PI_E712(Controller):
     def read_velocity(self, axis):
         """
         """
-        _ans = self.send(axis, "VEL? %s" % axis.channel)
         # _ans should look like "A=+0012.0000"
         # removes 'X=' prefix
-        _velocity = float(_ans[2:])
-
+        _velocity = float(self.command("VEL? %s" % axis.channel))
         elog.debug("read_velocity : %g " % _velocity)
         return _velocity
 
     def set_velocity(self, axis, new_velocity):
-        self.send_no_ans(axis, "VEL %s %f" %
-                         (axis.channel, new_velocity))
+        self.command("VEL %s %f" %
+                     (axis.channel, new_velocity))
         elog.debug("velocity set : %g" % new_velocity)
         return self.read_velocity(axis)
 
@@ -184,17 +182,17 @@ class PI_E712(Controller):
 ###
         if motion.axis.closed_loop:
             # Command in position.
-            self.send_no_ans(motion.axis, "MOV %s %g" %
-                             (motion.axis.channel, motion.target_pos))
+            self.command("MOV %s %g" %
+                         (motion.axis.channel, motion.target_pos))
             elog.debug("Command to piezo MOV %s %g"%
-                             (motion.axis.channel, motion.target_pos))
+                       (motion.axis.channel, motion.target_pos))
 
         else:
             # Command in voltage.
-            self.send_no_ans(motion.axis, "SVA %s %g" %
-                             (motion.axis.channel, motion.target_pos))
+            self.command("SVA %s %g" %
+                         (motion.axis.channel, motion.target_pos))
             elog.debug("Command to piezo SVA %s %g"%
-                             (motion.axis.channel, motion.target_pos))
+                       (motion.axis.channel, motion.target_pos))
 
     def stop(self, axis):
         """
@@ -211,79 +209,65 @@ class PI_E712(Controller):
         self.sock.write("%s\n" % com)
 
     def raw_write_read(self, axis, com):
-        return self.sock.write_read("%s\n" % com)
+        return self.sock.write_readline("%s\n" % com)
 
     def get_identifier(self, axis):
         """
         Returns Identification information (\*IDN? command).
         """
-        return self.send(axis, "*IDN?\n")
+        return self.command("*IDN?\n")
 
-    """
-    E712 specific
-    """
-    def send(self, axis, cmd):
+
+    def command(self, cmd, nb_line=1):
         """
-        - Adds the 'newline' terminator character : "\\\\n"
-        - Sends command <cmd> to the PI controller.
-        - Channel is defined in <cmd>.
-        - <axis> is passed for debugging purposes.
-        - checks error and in case raises .... what ?
-        - Returns answer from controller.
-
-        Args:
-            - <axis> : passed for debugging purposes.
-            - <cmd> : GCS command to send to controller (Channel is already mentionned  in <cmd>).
-
-        Returns:
-            - 1-line answer received from the controller (without "\\\\n" terminator).
-
-        Raises:
-            -
+        Method to send command to the controller
         """
-        _cmd = cmd + "\n"
-        #elog.debug("Send %s" % (cmd))
-        _t0 = time.time()
+        cmd = cmd.strip()
+        need_reply = cmd.find('?') > -1
+        if need_reply:
+            if nb_line > 1:
+                reply = self.sock.write_readlines(cmd + '\n', nb_line)
+            else:
+                reply = self.sock.write_readline(cmd + '\n')
 
-        # PC
-        _ans = "toto"
-        _ans = self.sock.write_readline(_cmd)
-        #elog.debug("Answer %s" % (_ans))
-        _duration = time.time() - _t0
-        if _duration > 0.05:
-            elog.info("%s Received %s from Send \"%s\" (duration : %g ms) " % (self.cname, repr(_ans), _cmd.rstrip(), _duration * 1000))
+            if not reply:       # it's an error
+                errors = [self.name] + list(self.get_error())
+                raise RuntimeError("Device {0} error nb {1} => ({2})".format(*errors))
 
-        # ZARBI :  _ans = self.sock.write_readline(_cmd)
+            if nb_line > 1:
+                parsed_reply = list()
+                commands = cmd.split('\n')
+                if len(commands) == nb_line: # one reply per command
+                    for cmd, rep in zip(commands, reply):
+                        space_pos = cmd.find(' ')
+                        if space_pos > -1:
+                            args = cmd[space_pos+1:]
+                            parsed_reply.append(self._parse_reply(rep, args))
+                        else:
+                            parsed_reply.append(rep)
+                else:           # a command with several replies
+                    space_pos = cmd.find(' ')
+                    if space_pos > -1:
+                        args = cmd[space_pos+1:]
+                        for arg, rep in zip(args.split(), reply):
+                            parsed_reply.append(self._parse_reply(rep, arg))
+                reply = parsed_reply
+            else:
+                space_pos = cmd.find(' ')
+                if space_pos > -1:
+                    reply = self._parse_reply(reply, cmd[space_pos+1:])
+            return reply
+        else:
+            self.sock.write(cmd + '\n')
 
-        if axis is not None and axis.paranoia_mode:
-            self.get_error()  # should raise exc.
-
-        return _ans
-
-    def send_no_ans(self, axis, cmd):
-        """
-        - Adds the 'newline' terminator character : "\\\\n"
-        - Sends command <cmd> to the PI controller.
-        - Channel is defined in <cmd>.
-        - <axis> is passed for debugging purposes.
-        - Used for answer-less commands, then returns nothing.
-
-        Args:
-            - <axis> :
-            - <cmd> :
-
-        Returns:
-            - None
-
-        Raises:
-            ?
-        """
-        _cmd = cmd + "\n"
-        self.sock.write(_cmd)
-        if axis is not None and axis.paranoia_mode:
-            self.get_error()  # should raise exc.
-
-
+    def _parse_reply(self, reply, args):
+        args_pos = reply.find('=')
+        if reply[:args_pos] != args: # weird
+            print 'Weird thing happens with connection of %s' % self.name
+            return reply
+        else:
+            return reply[args_pos+1:]
+        
     def _get_pos(self, axis):
         """
         Args:
@@ -294,8 +278,7 @@ class PI_E712(Controller):
         Raises:
             ?
         """
-        _ans = self.send(axis, "POS? %s" % axis.channel)
-        _pos = float(_ans[2:])
+        _pos = float(self.command("POS? %s" % axis.channel))
 
         return _pos
 
@@ -305,28 +288,24 @@ class PI_E712(Controller):
         """
         axis.closed_loop = self._get_closed_loop_status(axis)
         if axis.closed_loop:
-            _ans = self.send(axis, "MOV? %s" % axis.channel)
+            _ans = self.command("MOV? %s" % axis.channel)
         else:
-            _ans = self.send(axis, "SVA? %s" % axis.channel)
+            _ans = self.command("SVA? %s" % axis.channel)
 
-        _pos = float(_ans[2:])
-        return _pos
+        return float(_ans)
 
     def _get_target_voltage(self, axis):
         """
         Returns last valid voltage setpoint ('SVA?' command).
         """
-        _ans = self.send(axis, "SVA? %s" % axis.channel)
-        _pos = float(_ans[2:])
-        return _pos
+        return float(self.command("SVA? %s" % axis.channel))
+
 
     def _get_voltage(self, axis):
         """
         Returns Read Voltage Of Output Signal Channel (VOL? command)
         """
-        _ans = self.send(axis, "VOL? %s" % axis.channel)
-        _vol = float(_ans.split("=")[-1])
-        return _vol
+        return float(self.command("VOL? %s" % axis.channel))
 
     def _set_closed_loop(self, axis, onoff = True):
         """
@@ -334,7 +313,7 @@ class PI_E712(Controller):
         """
 
         axis.closed_loop = onoff
-        self.send_no_ans(axis, "SVO %s %d" % (axis.channel, onoff))
+        self.command("SVO %s %d" % (axis.channel, onoff))
         elog.debug("Piezo Servo %r" % onoff)
 
 
@@ -345,13 +324,14 @@ class PI_E712(Controller):
 
             _ont_state = self._get_on_target_status(axis)
             elog.info(u'axis {0:s} waiting to be ONTARGET'.format(axis.name))
-            while((not _ont_state)  and  (time.time() - _t0) < cl_timeout):
+            while (not _ont_state) and (time.time() - _t0) < cl_timeout:
                 time.sleep(0.01)
                 print ".",
                 _ont_state = self._get_on_target_status(axis)
             if not _ont_state:
                 elog.error('axis {0:s} NOT on-target'.format(axis.name))
-                raise RuntimeError("Unable to close the loop : not ON-TARGET after %gs :( " % cl_timeout)
+                raise RuntimeError("Unable to close the loop : "
+                                   "not ON-TARGET after %gs :( " % cl_timeout)
             else:
                 elog.info('axis {0:s} ONT ok after {1:g} s'.format(axis.name, time.time() - _t0))
 
@@ -364,13 +344,7 @@ class PI_E712(Controller):
         Returns Closed loop status (Servo state) (SVO? command)
         -> True/False
         """
-        _ans = self.send(axis, "SVO? %s" % axis.channel)
-        _status = int(_ans[2:])
-
-        if _status == 1:
-            return True
-        else:
-            return False
+        return bool(int(self.command("SVO? %s" % axis.channel)))
 
     def _get_on_target_status(self, axis):
         """
@@ -387,13 +361,7 @@ class PI_E712(Controller):
         Returns On Target status (ONT? command).
         True/False
         """
-        _ans = self.send(axis, "ONT? %s" % axis.channel)
-        _status = float(_ans[2:])
-
-        if _status == 1:
-            return True
-        else:
-            return False
+        return bool(int(self.command("ONT? %s" % axis.channel)))
 
     def get_error(self):
         _error_number = int(self.sock.write_readline("ERR?\n"))
@@ -444,25 +412,24 @@ class PI_E712(Controller):
 
         _txt = ""
 
-        for i in _infos:
-            _txt = _txt + "    %s %s\n" % \
-                (i[0], self.send(axis, i[1]))
+        for text, cmd in _infos:
+            _txt = _txt + "    %s %s\n" % (text, self.command(cmd))
 
         _txt = _txt + "    %s  \n%s\n" % \
             ("\nCommunication parameters",
-            "\n".join(self.sock.write_readlines("IFC?\n", 5)))
+             "\n".join(self.command("IFC?", 5)))
 
         return _txt
 
-    def check_power_cut(self, axis):
+    def check_power_cut(self):
         """
         checks if command level is on 1, if 0 means power has been cut
         in that case, set command level to 1
         """
-        _ans = self.send(None, "CCL?")  # get command level
+        _ans = self.command("CCL?")  # get command level
         elog.debug("command_level was : %d " % int(_ans))
-        if _ans is "0":
-            self.send_no_ans(None, "CCL 1 advanced")
+        if _ans == "0":
+            self.command("CCL 1 advanced")
 
     def get_sensor_coeffs(self, axis):
         """
@@ -473,12 +440,9 @@ class PI_E712(Controller):
         * Gain 3rd order
         * Gain 4th order
         """
-        axis.coeffs = list()
-
-        for ii in range(5):
-            _ans = self.send(axis, "SPA? %d 0x2000%d00" % (axis.channel, ii+2))
-            # _ans looks like : "2 0x2000200=-2.25718141e+005"
-            axis.coeffs.append(float(_ans.split("=")[1]))
+        commands = '\n'.join(("SPA? %d 0x2000%d00" % (axis.channel, i+2))
+                             for i in range(5))
+        axis.coeffs = [float(x) for x in self.command(commands, 5)]
         return axis.coeffs
 
     def set_sensor_coeffs(self, axis, coeff, value):
@@ -491,17 +455,17 @@ class PI_E712(Controller):
         * Gain 3rd order
         * Gain 4th order
         """
-        self.send_no_ans(axis, "SPA %s 0x2000%d00 %f" % (axis.channel, coeff+2, value))
+        self.command("SPA %s 0x2000%d00 %f" % (axis.channel, coeff+2, value))
 
     def _get_tns(self, axis):
         """Get Normalized Input Signal Value. Loop 10 times to straighten out noise"""
         accu = 0
         for _ in range(10):
             time.sleep(0.01)
-            _ans = self.send(axis, "TNS? %s" % axis.channel)
+            _ans = self.command("TNS? %s" % axis.channel)
             #elog.debug("TNS? %d : %r" % (axis.channel, _ans))
             if _ans != '0':
-                accu += float(_ans[2:])
+                accu += float(_ans)
                 accu /= 2
         elog.debug("TNS? %r" % accu)
         # during tests with the piezojack, problems with a blocked socket
@@ -511,49 +475,46 @@ class PI_E712(Controller):
         # Use self.finalize() to close the socket, it should be reopened
         # by the next communication attempt.
         if accu == 0:
-            elog.info("%s##########################################################%s" % (bcolors.GREEN+bcolors.BOLD, bcolors.ENDC))
-            elog.info("%sPIEZO READ TNS, accu is zero, resetting socket connection!%s" % (bcolors.GREEN+bcolors.BOLD, bcolors.ENDC))
-            elog.info("%s##########################################################%s" % (bcolors.GREEN+bcolors.BOLD, bcolors.ENDC))
+            elog.info("%s##########################################################%s" %
+                      (bcolors.GREEN+bcolors.BOLD, bcolors.ENDC))
+            elog.info("%sPIEZO READ TNS, accu is zero, resetting socket connection!%s" %
+                      (bcolors.GREEN+bcolors.BOLD, bcolors.ENDC))
+            elog.info("%s##########################################################%s" %
+                      (bcolors.GREEN+bcolors.BOLD, bcolors.ENDC))
             self.finalize()
         return accu
 
     def _get_tsp(self, axis):
         """Get Input Signal Position Value"""
-        _ans = self.send(axis, "TSP? %s" % axis.channel)
+        _ans = self.command("TSP? %s" % axis.channel)
         elog.debug("TSP? %s" % _ans)
-        _ans = float(_ans[2:])
-        return _ans
+        return float(_ans)
 
     def _get_sva(self, axis):
         """Get Input Signal Position Value"""
-        _ans = self.send(axis, "SVA? %s" % axis.channel)
+        _ans = self.command("SVA? %s" % axis.channel)
         elog.debug("SVA? %s" % _ans)
-        _ans = float(_ans[2:])
-        return _ans
+        return float(_ans)
 
     def _get_vol(self, axis):
         """Get Input Signal Position Value"""
-        _ans = self.send(axis, "VOL? %s" % axis.channel)
+        _ans = self.command("VOL? %s" % axis.channel)
         elog.debug("VOL? %s" % _ans)
-        _ans = float(_ans[2:])
-        return _ans
+        return float(_ans)
 
     def _get_mov(self, axis):
         """Get Input Signal Position Value"""
-        _ans = self.send(axis, "MOV? %s" % axis.channel)
+        _ans = self.command("MOV? %s" % axis.channel)
         elog.debug("MOV? %s" % _ans)
-        _ans = float(_ans[2:])
-        return _ans
+        return float(_ans)
 
     def _get_offset(self, axis):
         """read the offset SPA? 4 0x2000200 will yield 4 0x2000200=0.yxyxyxy+00"""
-        _ans = self.send(axis, "SPA? %s 0x2000200" % axis.channel)
-        offs = float(_ans.split("=")[-1])
-        return offs
+        return float(self.command("SPA? %s 0x2000200" % axis.channel))
 
     def _put_offset(self, axis, value):
         """write offset"""
-        self.send_no_ans(axis, "SPA %s 0x2000200 %f" % (axis.channel, value))
+        self.command("SPA %s 0x2000200 %f" % (axis.channel, value))
         axis.coeffs[0] = value
 
     def _get_tad(self, axis):
@@ -562,10 +523,9 @@ class PI_E712(Controller):
         accu = 0
         for _ in range(10):
             time.sleep(0.01)
-            _ans = self.send(axis, "TAD? %s" % axis.channel)
-            #elog.debug("TAD? %d : %r" % (axis.channel, _ans))
+            _ans = self.command("TAD? %s" % axis.channel)
             if _ans != '0':
-                accu += float(_ans[2:])
+                accu += float(_ans)
                 accu /= 2
         elog.debug("TAD? %r" % accu)
         return accu

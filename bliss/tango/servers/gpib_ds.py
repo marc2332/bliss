@@ -16,14 +16,13 @@ the direct Gpib class from Salsa directly.
 
 """
 
-from PyTango.server import (Device, DeviceMeta, attribute, command,
+from PyTango.server import (Device, attribute, command,
                             device_property)
 
 from bliss.comm.gpib import Gpib as _Gpib
 
 
 class Gpib(Device):
-    __metaclass__ = DeviceMeta
 
     url = device_property(dtype=str,
                           doc='* `enet://<host>:<port>` for NI ENET adapter\n'

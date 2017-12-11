@@ -16,7 +16,7 @@ from bliss.common.utils import grouped
 from bliss.config.static import get_config as beacon_get_config
 
 import PyTango
-from PyTango.server import Device, DeviceMeta, device_property
+from PyTango.server import Device, device_property
 from PyTango.server import attribute, command, get_worker
 
 PyTango.requires_pytango('8.1.9', software_name='BlissAxis')
@@ -83,7 +83,7 @@ access_conv_tab = {
 
 access_conv_tab_inv = dict((v, k) for k, v in access_conv_tab.items())
 
-@six.add_metaclass(DeviceMeta)
+
 class BlissAxisManager(Device):
 
     BackdoorPort = device_property(dtype=int, default_value=None,
@@ -265,7 +265,7 @@ class BlissAxisManager(Device):
 # a limit switch.
 # OFF : The power on the moror drive is switched off.
 # DISABLE : The motor is in slave mode and disabled for normal use
-@six.add_metaclass(DeviceMeta)
+
 class BlissAxis(Device):
 
     write_position_wait = device_property(dtype=bool, default_value=False,
@@ -1114,7 +1114,7 @@ def __recreate_axes(server_name, manager_dev_name, axis_names,
         except PyTango.DevFailed:
             elog.debug('registering alias for %s (%s)' % (dev_name, axis_name))
             db.put_device_alias(dev_name, axis_name)
- 
+
     axes, tango_classes = [], []
     for axis_name in axis_names_set:
         axis = get_axis(axis_name)

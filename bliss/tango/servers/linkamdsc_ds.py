@@ -2,7 +2,7 @@
 #
 # This file is part of the LinkamDsc project
 #
-# 
+#
 #
 # Distributed under the terms of the GPL license.
 # See LICENSE.txt for more info.
@@ -18,7 +18,7 @@ from functools import wraps
 import PyTango
 from PyTango import DebugIt
 from PyTango.server import run
-from PyTango.server import Device, DeviceMeta
+from PyTango.server import Device
 from PyTango.server import attribute, command
 from PyTango.server import class_property, device_property
 from PyTango import AttrQuality, AttrWriteType, DispLevel, DevState
@@ -47,7 +47,6 @@ class LinkamDsc(Device):
     """
     Class for controlling the Linkam T94.
     """
-    __metaclass__ = DeviceMeta
 
     # -----------------
     # Device Properties
@@ -125,7 +124,7 @@ class LinkamDsc(Device):
     def temperature(self, temp):
         self._linkam.setTemperature(temp)
 
-    @attribute(label='DSC data', dtype=['float',], fisallowed="is_attr_allowed", max_dim_x=3, 
+    @attribute(label='DSC data', dtype=['float',], fisallowed="is_attr_allowed", max_dim_x=3,
         description="Current temperature and dsc data")
     @DebugIt()
     def dscData(self):

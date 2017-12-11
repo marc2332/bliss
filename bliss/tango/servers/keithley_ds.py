@@ -6,9 +6,8 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import six
 from PyTango import DevState
-from PyTango.server import Device, DeviceMeta
+from PyTango.server import Device
 from PyTango.server import attribute, command, device_property
 
 from bliss.config.static import get_config
@@ -28,14 +27,13 @@ def switch_state(tg_dev, state=None, status=None):
 #        tg_dev.push_change_event("status")
 
 
-@six.add_metaclass(DeviceMeta)
 class Multimeter(Device):
 
     name = device_property(dtype=str, doc='keithley bliss object name')
 
     def init_device(self):
         Device.init_device(self)
-        
+
         try:
             config = get_config()
             self.device = config.get(self.name)
@@ -44,7 +42,7 @@ class Multimeter(Device):
             msg = "Exception initializing device: {0}".format(e)
             self.error_stream(msg)
             switch_state(self, DevState.FAULT, msg)
-            
+
     def delete_device(self):
         if self.device:
             self.device.abort()
@@ -64,7 +62,7 @@ class Multimeter(Device):
     @range.setter
     def range(self, range):
         self.set_range(range)
-    
+
     @attribute(dtype=float)
     def nplc(self):
         return self.device.get_nplc()
@@ -81,7 +79,7 @@ def main():
     import logging
     fmt='%(levelname)s %(asctime)-15s %(name)s: %(message)s'
     logging.basicConfig(format=fmt, level=logging.DEBUG)
-    
+
     run([Multimeter], green_mode=GreenMode.Gevent)
 
 

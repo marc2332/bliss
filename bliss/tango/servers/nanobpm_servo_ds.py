@@ -14,7 +14,7 @@ import PyTango
 from PyTango import GreenMode
 from PyTango import DebugIt
 from PyTango.server import run
-from PyTango.server import Device, DeviceMeta
+from PyTango.server import Device
 from PyTango.server import attribute, command
 from PyTango.server import device_property
 
@@ -34,8 +34,8 @@ def is_cmd_allowed(fisallowed):
         return rfunc
     return is_allowed
 
+
 class NanoBpmServo(Device):
-    __metaclass__ = DeviceMeta
 
     # -------------------------------------------------------------------------
     # Device Properties
@@ -98,7 +98,7 @@ class NanoBpmServo(Device):
     @DebugIt()
     def minimumXMovement(self):
         return self._minimumXMove
- 
+
     @minimumXMovement.write
     @DebugIt()
     def minimumXMovement(self, minMove):
@@ -109,7 +109,7 @@ class NanoBpmServo(Device):
     @DebugIt()
     def minimumYMovement(self):
         return self._minimumYMove
- 
+
     @minimumYMovement.write
     @DebugIt()
     def minimumYMovement(self, minMove):
@@ -120,7 +120,7 @@ class NanoBpmServo(Device):
     @DebugIt()
     def maximumXMovement(self):
         return self._maximumXMove
- 
+
     @maximumXMovement.write
     @DebugIt()
     def maximumXMovement(self, minMove):
@@ -131,7 +131,7 @@ class NanoBpmServo(Device):
     @DebugIt()
     def maximumYMovement(self):
         return self._maximumYMove
- 
+
     @maximumYMovement.write
     @DebugIt()
     def maximumYMovement(self, minMove):
@@ -142,7 +142,7 @@ class NanoBpmServo(Device):
     @DebugIt()
     def xmovePerPixel(self):
         return self._xmovePerPixel
- 
+
     @xmovePerPixel.write
     @DebugIt()
     def xmovePerPixel(self, movePerPixel):
@@ -153,7 +153,7 @@ class NanoBpmServo(Device):
     @DebugIt()
     def ymovePerPixel(self):
         return self._ymovePerPixel
- 
+
     @ymovePerPixel.write
     @DebugIt()
     def ymovePerPixel(self, movePerPixel):
@@ -165,7 +165,7 @@ class NanoBpmServo(Device):
     @DebugIt()
     def xcentre(self):
         return self._xcentre
- 
+
     @xcentre.write
     @DebugIt()
     def xcentre(self, centre):
@@ -176,7 +176,7 @@ class NanoBpmServo(Device):
     @DebugIt()
     def ycentre(self):
         return self._ycentre
- 
+
     @ycentre.write
     @DebugIt()
     def ycentre(self, centre):
@@ -203,7 +203,7 @@ class NanoBpmServo(Device):
                         xpos = self._xcontrolProxy.read_attribute("position").value
                         self._xcontrolProxy.write_attribute("position", xpos + incx)
             if self._ycoord != 0.0:
-                incy = (self._ycentre - self._ycoord) * self._ymovePerPixel 
+                incy = (self._ycentre - self._ycoord) * self._ymovePerPixel
                 if abs(incy) > self._minimumYMove and abs(incy) < self._maximumYMove:
                     self._logger.debug("Need to move Y by {0} minY {1}, maxY {2}".format(incy,
                                         self._minimumYMove, self._maximumYMove))

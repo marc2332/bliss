@@ -20,7 +20,7 @@ import numpy
 
 from PyTango import Util, GreenMode
 from PyTango import AttrQuality, AttrWriteType, DispLevel, DevState
-from PyTango.server import Device, DeviceMeta
+from PyTango.server import Device
 from PyTango.server import attribute, command
 from PyTango.server import class_property, device_property
 
@@ -51,7 +51,6 @@ class CT2(Device):
     """
     CT2 (P201/C208) ESRF counter card TANGO device
     """
-    __metaclass__ = DeviceMeta
 
     card_name = device_property(dtype='str', default_value="p201")
 

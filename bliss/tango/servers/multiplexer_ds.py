@@ -8,15 +8,15 @@
 import sys
 import PyTango
 from PyTango import GreenMode
-from PyTango.server import Device, DeviceMeta
+from PyTango.server import Device
 from PyTango.server import device_property
 from PyTango.server import attribute, command
 from bliss.config import static
 
+
 class Multiplexer(Device):
-    __metaclass__ = DeviceMeta
     multiplexer_name = device_property(dtype='str')
-    
+
     def __init__(self,*args,**kwargs) :
         Device.__init__(self,*args,**kwargs)
         self.__multiplexer = None
@@ -99,7 +99,7 @@ class Multiplexer(Device):
     @command
     def dumpOpiomSource(self) :
         self.__multiplexer.dumpOpiomSource()
-    
+
 def main(args=None,**kwargs) :
     from PyTango.server import run
     kwargs['green_mode'] = kwargs.get('green_mode', GreenMode.Gevent)

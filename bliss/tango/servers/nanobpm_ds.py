@@ -17,7 +17,7 @@ import PyTango
 from PyTango import GreenMode
 from PyTango import DebugIt
 from PyTango.server import run
-from PyTango.server import Device, DeviceMeta
+from PyTango.server import Device
 from PyTango.server import attribute, command
 from PyTango.server import device_property
 
@@ -38,8 +38,8 @@ def is_cmd_allowed(fisallowed):
         return rfunc
     return is_allowed
 
+
 class NanoBpm(Device):
-    __metaclass__ = DeviceMeta
 
     CONTINUOUS, STREAMING = range(2)
     BPP8, BPP16, BPP32 = range(3)

@@ -12,7 +12,7 @@ import types
 import json
 
 import PyTango
-from PyTango.server import Device, DeviceMeta, attribute, command
+from PyTango.server import Device, attribute, command
 from PyTango.server import get_worker
 
 import bliss.common.log as elog
@@ -56,14 +56,14 @@ _STATE_MAP = {
   'RUNNING': PyTango.DevState.RUNNING,
 }
 
+
 class BlissInput(Device):
-    __metaclass__ = DeviceMeta
 
     @property
     def channel_object(self):
         config = get_config()
-        name = self.get_name().rsplit('/', 1)[-1] 
-	return config.get(name) 
+        name = self.get_name().rsplit('/', 1)[-1]
+	return config.get(name)
 
     @attribute(dtype='string')
     def name(self):
@@ -100,14 +100,14 @@ class BlissInput(Device):
     @command(dtype_out='string')
     def Rraw(self):
         return self.channel_object.controller.Rraw()
-     
+
     @command(dtype_in='string',dtype_out='string')
     def WRraw(self,st):
         return self.channel_object.controller.WRraw(st)
 
     @command(dtype_out=float)
     def read(self):
-        return self.channel_object.read()       
+        return self.channel_object.read()
 
     def dev_state(self):
         state = self.channel_object.state()
@@ -120,14 +120,14 @@ class BlissInput(Device):
     def init_device(self):
         Device.init_device(self)
 
+
 class BlissOutput(Device):
-    __metaclass__ = DeviceMeta
 
     @property
     def channel_object(self):
         config = get_config()
-        name = self.get_name().rsplit('/', 1)[-1] 
-	return config.get(name) 
+        name = self.get_name().rsplit('/', 1)[-1]
+	return config.get(name)
 
     @attribute(dtype='string')
     def name(self):
@@ -195,7 +195,7 @@ class BlissOutput(Device):
 
     @command(dtype_out=float)
     def read(self):
-        return self.channel_object.read() 
+        return self.channel_object.read()
 
     @command(dtype_in=float)
     def ramp(self,sp):
@@ -211,7 +211,7 @@ class BlissOutput(Device):
 
     @command
     def abort(self):
-        self.channel_object.abort()  
+        self.channel_object.abort()
 
     @command(dtype_in='string')
     def Wraw(self,st):
@@ -220,7 +220,7 @@ class BlissOutput(Device):
     @command(dtype_out='string')
     def Rraw(self):
         return self.channel_object.controller.Rraw()
-     
+
     @command(dtype_in='string',dtype_out='string')
     def WRraw(self,st):
         return self.channel_object.controller.WRraw(st)
@@ -255,14 +255,14 @@ class BlissOutput(Device):
     def init_device(self):
         Device.init_device(self)
 
+
 class BlissLoop(Device):
-    __metaclass__ = DeviceMeta
 
     @property
     def channel_object(self):
         config = get_config()
-        name = self.get_name().rsplit('/', 1)[-1] 
-	return config.get(name) 
+        name = self.get_name().rsplit('/', 1)[-1]
+	return config.get(name)
 
     @attribute(dtype='string')
     def name(self):
@@ -337,7 +337,7 @@ class BlissLoop(Device):
 
     @command(dtype_out=float)
     def read_input(self):
-        return self.channel_object.input.read()       
+        return self.channel_object.input.read()
 
     def dev_state(self):
         return get_worker().execute(self._dev_state)
@@ -356,7 +356,7 @@ class BlissLoop(Device):
 def getdevicefromname(klass=None,name=None):
     mykey = klass + '_' + name
     return dev_map.get(mykey,None)[0]
-               
+
 def recreate(db=None, new_server=False, typ='inputs'):
     global dev_map
 #    import pdb; pdb.set_trace()
@@ -418,7 +418,7 @@ def recreate(db=None, new_server=False, typ='inputs'):
     # remove old io
     for io_name in old_io_names:
         dev_name, klass_name = curr_ios[io_name]
-        elog.debug('removing old %s %s (%s)' % (classmsg, dev_name, io_name))    
+        elog.debug('removing old %s %s (%s)' % (classmsg, dev_name, io_name))
         db.delete_device(dev_name)
 
     # add new io
@@ -688,7 +688,7 @@ def recreate_bliss(server_name, manager_dev_name, temp_names,
         except PyTango.DevFailed:
             elog.debug('registering alias for %s (%s)' % (dev_name, temp_name))
             db.put_device_alias(dev_name, temp_name)
- 
+
     temps, tango_classes = [], []
     for temp_name in temp_names_set:
         temp = config.get(temp_name)
@@ -699,7 +699,7 @@ def recreate_bliss(server_name, manager_dev_name, temp_names,
         tango_classes.append(tango_class)
 
     return temps, tango_classes
-    
+
 
 # callback from the Bliss server
 def initialize_bliss(info, db=None):
@@ -740,12 +740,11 @@ def main(argv=None):
         new_server = False
 
     initialize_logging(argv)
-    inputs, tango_input_classes   = recreate(new_server=new_server,typ='inputs')  
-    outputs, tango_output_classes = recreate(new_server=new_server,typ='outputs') 
-    loops, tango_loop_classes     = recreate(new_server=new_server,typ='ctrl_loops')  
+    inputs, tango_input_classes   = recreate(new_server=new_server,typ='inputs')
+    outputs, tango_output_classes = recreate(new_server=new_server,typ='outputs')
+    loops, tango_loop_classes     = recreate(new_server=new_server,typ='ctrl_loops')
     tango_classes = tango_input_classes + tango_output_classes + tango_loop_classes
     run(tango_classes, args=argv, green_mode=GreenMode.Gevent)
 
 if __name__ == "__main__":
     main()
-

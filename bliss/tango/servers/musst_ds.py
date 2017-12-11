@@ -17,7 +17,7 @@ import sys
 import PyTango
 from PyTango import DebugIt
 from PyTango.server import run
-from PyTango.server import Device, DeviceMeta
+from PyTango.server import Device
 from PyTango.server import attribute, command
 from PyTango.server import class_property, device_property
 from PyTango import AttrQuality, AttrWriteType, DispLevel, DevState
@@ -27,7 +27,6 @@ from bliss.controllers.musst import musst as musst_ctrl
 
 
 class Musst(Device):
-    __metaclass__ = DeviceMeta
 
     # -----------------
     # Device Properties

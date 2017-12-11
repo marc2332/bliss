@@ -15,7 +15,7 @@ It allows reading fuel cell parameters
 import inspect
 
 from PyTango import DevState, CmdArgType, AttrWriteType, AttrDataFormat
-from PyTango.server import (Device, DeviceMeta, attribute, command,
+from PyTango.server import (Device, attribute, command,
                             device_property, get_worker)
 
 from bliss.config.static import get_config
@@ -62,7 +62,6 @@ def fuelcell_device(klass):
 
 @fuelcell_device
 class FuelCell(Device):
-    __metaclass__ = DeviceMeta
 
     url = device_property(dtype=str, doc='fuell cell hostname')
     name = device_property(dtype=str, default_value=None)

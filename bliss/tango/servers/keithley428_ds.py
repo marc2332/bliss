@@ -16,7 +16,7 @@ __all__ = ["Keithley428", "main"]
 import PyTango
 from PyTango import DebugIt
 from PyTango.server import run
-from PyTango.server import Device, DeviceMeta
+from PyTango.server import Device
 from PyTango.server import attribute, command
 from PyTango.server import class_property, device_property
 from PyTango import AttrQuality, AttrWriteType, DispLevel, DevState
@@ -40,7 +40,6 @@ class Keithley428(Device):
     """
     Class for controlling the Keithley428 current amplifier.
     """
-    __metaclass__ = DeviceMeta
 
     # -----------------
     # Device Properties

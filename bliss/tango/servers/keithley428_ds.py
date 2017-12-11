@@ -12,14 +12,14 @@ Class for controlling the Keithley428 current amplifier.
 
 __all__ = ["Keithley428", "main"]
 
-# PyTango imports
-import PyTango
-from PyTango import DebugIt
-from PyTango.server import run
-from PyTango.server import Device, DeviceMeta
-from PyTango.server import attribute, command
-from PyTango.server import class_property, device_property
-from PyTango import AttrQuality, AttrWriteType, DispLevel, DevState
+# tango imports
+import tango
+from tango import DebugIt
+from tango.server import run
+from tango.server import Device
+from tango.server import attribute, command
+from tango.server import class_property, device_property
+from tango import AttrQuality, AttrWriteType, DispLevel, DevState
 # Additional import
 from bliss.controllers.keithley428 import keithley428 as keithley
 from functools import wraps
@@ -40,7 +40,6 @@ class Keithley428(Device):
     """
     Class for controlling the Keithley428 current amplifier.
     """
-    __metaclass__ = DeviceMeta
 
     # -----------------
     # Device Properties
@@ -77,7 +76,7 @@ class Keithley428(Device):
                   'gpib_eos' : self.eos
         }
         self._keithley = keithley(self.name, kwargs)
-        self.set_state(PyTango.DevState.ON)
+        self.set_state(tango.DevState.ON)
 
     def always_executed_hook(self):
         pass
@@ -268,8 +267,8 @@ class Keithley428(Device):
 # ----------
 
 def main():
-    from PyTango import GreenMode
-    from PyTango.server import run
+    from tango import GreenMode
+    from tango.server import run
     run([Keithley428,], green_mode=GreenMode.Gevent)
 
 if __name__ == '__main__':

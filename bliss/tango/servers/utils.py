@@ -7,7 +7,7 @@ tango server utilities
 import os
 import sys
 
-import PyTango
+import tango
 
 
 def get_server_info(argv=None):
@@ -31,7 +31,7 @@ def get_devices_from_server(argv=None, db=None):
     Returns the devices already registered. dict< str(tango class name): list(device names) >
     '''
     argv = argv or sys.argv
-    db = db or PyTango.Database()
+    db = db or tango.Database()
 
     # get sub devices
     _, _, personal_name = get_server_info(argv)

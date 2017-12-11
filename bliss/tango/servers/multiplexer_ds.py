@@ -6,17 +6,17 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import sys
-import PyTango
-from PyTango import GreenMode
-from PyTango.server import Device, DeviceMeta
-from PyTango.server import device_property
-from PyTango.server import attribute, command
+import tango
+from tango import GreenMode
+from tango.server import Device
+from tango.server import device_property
+from tango.server import attribute, command
 from bliss.config import static
 
+
 class Multiplexer(Device):
-    __metaclass__ = DeviceMeta
     multiplexer_name = device_property(dtype='str')
-    
+
     def __init__(self,*args,**kwargs) :
         Device.__init__(self,*args,**kwargs)
         self.__multiplexer = None
@@ -24,12 +24,12 @@ class Multiplexer(Device):
 
     def init_device(self) :
         Device.init_device(self)
-        self.set_state(PyTango.DevState.FAULT)
+        self.set_state(tango.DevState.FAULT)
         self.get_device_properties(self.get_device_class())
         config = static.get_config()
         self.__multiplexer = config.get(self.multiplexer_name)
         self.__multiplexer.load_program()
-        self.set_state(PyTango.DevState.ON)
+        self.set_state(tango.DevState.ON)
 
     @attribute(dtype=('str',),max_dim_x=1024,label='Output list')
     def outputs(self) :
@@ -99,9 +99,9 @@ class Multiplexer(Device):
     @command
     def dumpOpiomSource(self) :
         self.__multiplexer.dumpOpiomSource()
-    
+
 def main(args=None,**kwargs) :
-    from PyTango.server import run
+    from tango.server import run
     kwargs['green_mode'] = kwargs.get('green_mode', GreenMode.Gevent)
     return run((Multiplexer,),args=args,**kwargs)
 

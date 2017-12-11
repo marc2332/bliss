@@ -9,14 +9,14 @@ import sys
 import logging
 from functools import wraps
 
-# PyTango imports
-import PyTango
-from PyTango import GreenMode
-from PyTango import DebugIt
-from PyTango.server import run
-from PyTango.server import Device, DeviceMeta
-from PyTango.server import attribute, command
-from PyTango.server import device_property
+# tango imports
+import tango
+from tango import GreenMode
+from tango import DebugIt
+from tango.server import run
+from tango.server import Device
+from tango.server import attribute, command
+from tango.server import device_property
 
 import gevent
 from gevent import event
@@ -34,8 +34,8 @@ def is_cmd_allowed(fisallowed):
         return rfunc
     return is_allowed
 
+
 class NanoBpmServo(Device):
-    __metaclass__ = DeviceMeta
 
     # -------------------------------------------------------------------------
     # Device Properties
@@ -70,11 +70,11 @@ class NanoBpmServo(Device):
         logging.basicConfig(level=logging.INFO)
         self._logger.setLevel(logging.DEBUG)
         try:
-            self._nanoBpmProxy = PyTango.get_device_proxy(self.NanoBPM, green_mode=GreenMode.Gevent, wait=True, timeout=True)
+            self._nanoBpmProxy = tango.get_device_proxy(self.NanoBPM, green_mode=GreenMode.Gevent, wait=True, timeout=True)
             if self.XController is not None:
-                self._xcontrolProxy = PyTango.DeviceProxy(self.XController)
+                self._xcontrolProxy = tango.DeviceProxy(self.XController)
             if self.YController is not None:
-                self._ycontrolProxy = PyTango.DeviceProxy(self.YController)
+                self._ycontrolProxy = tango.DeviceProxy(self.YController)
             self._event = gevent.event.Event()
             self._servoId = None
             self._xcoord = 0
@@ -88,17 +88,17 @@ class NanoBpmServo(Device):
             self._maximumXMove = 100.0
             self._maximumYMove = 100.0
             if self._nanoBpmProxy is not None:
-                self._centreId = self._nanoBpmProxy.subscribe_event("Centre", PyTango.EventType.CHANGE_EVENT, self)
-            self.set_state(PyTango.DevState.ON)
+                self._centreId = self._nanoBpmProxy.subscribe_event("Centre", tango.EventType.CHANGE_EVENT, self)
+            self.set_state(tango.DevState.ON)
         except:
-            self.set_state(PyTango.DevState.FAULT)
+            self.set_state(tango.DevState.FAULT)
 
     @attribute(label="MinimumXMovement", dtype=float, memorized=True,
                unit="mm", description="Minimum X motor movement")
     @DebugIt()
     def minimumXMovement(self):
         return self._minimumXMove
- 
+
     @minimumXMovement.write
     @DebugIt()
     def minimumXMovement(self, minMove):
@@ -109,7 +109,7 @@ class NanoBpmServo(Device):
     @DebugIt()
     def minimumYMovement(self):
         return self._minimumYMove
- 
+
     @minimumYMovement.write
     @DebugIt()
     def minimumYMovement(self, minMove):
@@ -120,7 +120,7 @@ class NanoBpmServo(Device):
     @DebugIt()
     def maximumXMovement(self):
         return self._maximumXMove
- 
+
     @maximumXMovement.write
     @DebugIt()
     def maximumXMovement(self, minMove):
@@ -131,7 +131,7 @@ class NanoBpmServo(Device):
     @DebugIt()
     def maximumYMovement(self):
         return self._maximumYMove
- 
+
     @maximumYMovement.write
     @DebugIt()
     def maximumYMovement(self, minMove):
@@ -142,7 +142,7 @@ class NanoBpmServo(Device):
     @DebugIt()
     def xmovePerPixel(self):
         return self._xmovePerPixel
- 
+
     @xmovePerPixel.write
     @DebugIt()
     def xmovePerPixel(self, movePerPixel):
@@ -153,7 +153,7 @@ class NanoBpmServo(Device):
     @DebugIt()
     def ymovePerPixel(self):
         return self._ymovePerPixel
- 
+
     @ymovePerPixel.write
     @DebugIt()
     def ymovePerPixel(self, movePerPixel):
@@ -165,7 +165,7 @@ class NanoBpmServo(Device):
     @DebugIt()
     def xcentre(self):
         return self._xcentre
- 
+
     @xcentre.write
     @DebugIt()
     def xcentre(self, centre):
@@ -176,7 +176,7 @@ class NanoBpmServo(Device):
     @DebugIt()
     def ycentre(self):
         return self._ycentre
- 
+
     @ycentre.write
     @DebugIt()
     def ycentre(self, centre):
@@ -186,7 +186,7 @@ class NanoBpmServo(Device):
     @DebugIt()
     @is_cmd_allowed("is_command_allowed")
     def StartServo(self):
-        self.set_state(PyTango.DevState.RUNNING)
+        self.set_state(tango.DevState.RUNNING)
         self._servoId = gevent.spawn(self._doServo)
 
     def _doServo(self):
@@ -203,7 +203,7 @@ class NanoBpmServo(Device):
                         xpos = self._xcontrolProxy.read_attribute("position").value
                         self._xcontrolProxy.write_attribute("position", xpos + incx)
             if self._ycoord != 0.0:
-                incy = (self._ycentre - self._ycoord) * self._ymovePerPixel 
+                incy = (self._ycentre - self._ycoord) * self._ymovePerPixel
                 if abs(incy) > self._minimumYMove and abs(incy) < self._maximumYMove:
                     self._logger.debug("Need to move Y by {0} minY {1}, maxY {2}".format(incy,
                                         self._minimumYMove, self._maximumYMove))
@@ -218,12 +218,12 @@ class NanoBpmServo(Device):
         self._servoId.kill()
         gevent.joinall([self._servoId])
         self._servoId = None
-        self.set_state(PyTango.DevState.ON)
+        self.set_state(tango.DevState.ON)
 
     @DebugIt()
     def is_command_allowed(self):
-        return self.get_state() not in [PyTango.DevState.UNKNOWN, PyTango.DevState.FAULT,
-                                        PyTango.DevState.RUNNING]
+        return self.get_state() not in [tango.DevState.UNKNOWN, tango.DevState.FAULT,
+                                        tango.DevState.RUNNING]
 
     def push_event(self, ev):
         if ev is not None:
@@ -237,8 +237,8 @@ class NanoBpmServo(Device):
 # Run server
 # -------------------------------------------------------------------------
 def main():
-    from PyTango import GreenMode
-    from PyTango.server import run
+    from tango import GreenMode
+    from tango.server import run
     run([NanoBpmServo, ], green_mode=GreenMode.Gevent)
 
 if __name__ == "__main__":

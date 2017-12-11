@@ -12,14 +12,14 @@ import struct
 import logging
 import threading
 
-# PyTango imports
-import PyTango
-from PyTango import GreenMode
-from PyTango import DebugIt
-from PyTango.server import run
-from PyTango.server import Device, DeviceMeta
-from PyTango.server import attribute, command
-from PyTango.server import device_property
+# tango imports
+import tango
+from tango import GreenMode
+from tango import DebugIt
+from tango.server import run
+from tango.server import Device
+from tango.server import attribute, command
+from tango.server import device_property
 
 # Add additional imports
 import gevent
@@ -38,8 +38,8 @@ def is_cmd_allowed(fisallowed):
         return rfunc
     return is_allowed
 
+
 class NanoBpm(Device):
-    __metaclass__ = DeviceMeta
 
     CONTINUOUS, STREAMING = range(2)
     BPP8, BPP16, BPP32 = range(3)
@@ -122,7 +122,7 @@ class NanoBpm(Device):
             attr = self.get_device_attr().get_attr_by_name("maxIter")
             attr.set_write_value(self._nanoBpm.MAXITER)
 
-        self.set_state(PyTango.DevState.ON)
+        self.set_state(tango.DevState.ON)
 
     def always_executed_hook(self):
         pass
@@ -332,21 +332,21 @@ class NanoBpm(Device):
     def is_attr_allowed(self, attr):
         """ Allow reading but not writing of attributes whilst running
         """
-        if attr==PyTango.AttReqType.READ_REQ:
-            return self.get_state() not in [PyTango.DevState.UNKNOWN, PyTango.DevState.FAULT]
+        if attr==tango.AttReqType.READ_REQ:
+            return self.get_state() not in [tango.DevState.UNKNOWN, tango.DevState.FAULT]
         else:
-            return self.get_state() not in [PyTango.DevState.UNKNOWN, PyTango.DevState.FAULT,
-                                            PyTango.DevState.RUNNING]
+            return self.get_state() not in [tango.DevState.UNKNOWN, tango.DevState.FAULT,
+                                            tango.DevState.RUNNING]
     @DebugIt()
     def is_attr_rw_allowed(self, attr):
         """ Prohibit reading & writing of attributes whilst running
         """
-        if attr==PyTango.AttReqType.READ_REQ:
-            return self.get_state() not in [PyTango.DevState.UNKNOWN, PyTango.DevState.FAULT,
-                                            PyTango.DevState.RUNNING]
+        if attr==tango.AttReqType.READ_REQ:
+            return self.get_state() not in [tango.DevState.UNKNOWN, tango.DevState.FAULT,
+                                            tango.DevState.RUNNING]
         else:
-            return self.get_state() not in [PyTango.DevState.UNKNOWN, PyTango.DevState.FAULT,
-                                            PyTango.DevState.RUNNING]
+            return self.get_state() not in [tango.DevState.UNKNOWN, tango.DevState.FAULT,
+                                            tango.DevState.RUNNING]
 
 
     def bpmCallback(self, cog, xprofile, yprofile, xfit, yfit, imageData):
@@ -431,7 +431,7 @@ class NanoBpm(Device):
     def CollectDark(self):
         """ Collect and store a dark current image.
         """
-        self.set_state(PyTango.DevState.RUNNING)
+        self.set_state(tango.DevState.RUNNING)
         gevent.spawn(self._doCollectDark)
 
     def _doCollectDark(self):
@@ -442,15 +442,15 @@ class NanoBpm(Device):
         self._logger.info("CollectDark(): Dark current image collection complete")
         with self._lock:
             if self._imageData is not None:
-                self.set_state(PyTango.DevState.ON)
+                self.set_state(tango.DevState.ON)
             else:
-                self.set_state(PyTango.DevState.FAULT)
+                self.set_state(tango.DevState.FAULT)
 
     @command
     @DebugIt()
     @is_cmd_allowed("is_command_allowed")
     def Collect(self):
-        self.set_state(PyTango.DevState.RUNNING)
+        self.set_state(tango.DevState.RUNNING)
         gevent.spawn(self._doCollect)
 
     def _doCollect(self):
@@ -467,15 +467,15 @@ class NanoBpm(Device):
 
         with self._lock:
             if self._imageData is not None:
-                self.set_state(PyTango.DevState.ON)
+                self.set_state(tango.DevState.ON)
             else:
-                self.set_state(PyTango.DevState.FAULT)
+                self.set_state(tango.DevState.FAULT)
 
     @command
     @DebugIt()
     @is_cmd_allowed("is_command_allowed")
     def Start(self):
-        self.set_state(PyTango.DevState.RUNNING)
+        self.set_state(tango.DevState.RUNNING)
         if self._acqMode == self.CONTINUOUS:
             self._nanoBpm.startContinuousFrame()
         else:
@@ -489,19 +489,19 @@ class NanoBpm(Device):
         else:
             self._nanoBpm.stopDataStreaming()
 
-        self.set_state(PyTango.DevState.ON)
+        self.set_state(tango.DevState.ON)
 
     @DebugIt()
     def is_command_allowed(self):
-        return self.get_state() not in [PyTango.DevState.UNKNOWN, PyTango.DevState.FAULT,
-                                        PyTango.DevState.RUNNING]
+        return self.get_state() not in [tango.DevState.UNKNOWN, tango.DevState.FAULT,
+                                        tango.DevState.RUNNING]
 
 # -------------------------------------------------------------------------
 # Run server
 # -------------------------------------------------------------------------
 def main():
-    from PyTango import GreenMode
-    from PyTango.server import run
+    from tango import GreenMode
+    from tango.server import run
     run([NanoBpm,], green_mode=GreenMode.Gevent)
 
 if __name__ == "__main__":

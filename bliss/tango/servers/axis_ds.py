@@ -15,11 +15,11 @@ from bliss.common import event
 from bliss.common.utils import grouped
 from bliss.config.static import get_config as beacon_get_config
 
-import PyTango
-from PyTango.server import Device, DeviceMeta, device_property
-from PyTango.server import attribute, command, get_worker
+import tango
+from tango.server import Device, device_property
+from tango.server import attribute, command, get_worker
 
-PyTango.requires_pytango('8.1.9', software_name='BlissAxis')
+tango.requires_pytango('9.2.0', software_name='BlissAxis')
 
 import os
 import sys
@@ -54,36 +54,36 @@ class bcolors:
     ENDC = '\033[0m'
 
 types_conv_tab_inv = {
-    PyTango.DevVoid: 'None',
-    PyTango.DevDouble: 'float',
-    PyTango.DevString: 'str',
-    PyTango.DevLong: 'int',
-    PyTango.DevBoolean: 'bool',
-    PyTango.DevVarFloatArray: "float_array",
-    PyTango.DevVarDoubleArray: "double_array",
-    PyTango.DevVarLongArray: "long_array",
-    PyTango.DevVarStringArray: "string_array",
-    PyTango.DevVarBooleanArray: "bool_array",
+    tango.DevVoid: 'None',
+    tango.DevDouble: 'float',
+    tango.DevString: 'str',
+    tango.DevLong: 'int',
+    tango.DevBoolean: 'bool',
+    tango.DevVarFloatArray: "float_array",
+    tango.DevVarDoubleArray: "double_array",
+    tango.DevVarLongArray: "long_array",
+    tango.DevVarStringArray: "string_array",
+    tango.DevVarBooleanArray: "bool_array",
 }
 
 types_conv_tab = dict((v, k) for k, v in types_conv_tab_inv.items())
 types_conv_tab.update({
-    None: PyTango.DevVoid,
-    str: PyTango.DevString,
-    int: PyTango.DevLong,
-    float: PyTango.DevDouble,
-    bool: PyTango.DevBoolean,
+    None: tango.DevVoid,
+    str: tango.DevString,
+    int: tango.DevLong,
+    float: tango.DevDouble,
+    bool: tango.DevBoolean,
 })
 
 access_conv_tab = {
-    'r': PyTango.AttrWriteType.READ,
-    'w': PyTango.AttrWriteType.WRITE,
-    'rw': PyTango.AttrWriteType.READ_WRITE,
+    'r': tango.AttrWriteType.READ,
+    'w': tango.AttrWriteType.WRITE,
+    'rw': tango.AttrWriteType.READ_WRITE,
 }
 
 access_conv_tab_inv = dict((v, k) for k, v in access_conv_tab.items())
 
-@six.add_metaclass(DeviceMeta)
+
 class BlissAxisManager(Device):
 
     BackdoorPort = device_property(dtype=int, default_value=None,
@@ -107,7 +107,7 @@ class BlissAxisManager(Device):
             print " no backdoor"
 
     def _get_axis_devices(self):
-        util = PyTango.Util.instance()
+        util = tango.Util.instance()
         dev_list = util.get_device_list("*")
         result = dict()
         for dev in dev_list:
@@ -124,11 +124,11 @@ class BlissAxisManager(Device):
         data member) and returns it to the caller.
 
         :param : none
-        :type: PyTango.DevVoid
+        :type: tango.DevVoid
         :return: Device state
-        :rtype: PyTango.CmdArgType.DevState """
+        :rtype: tango.CmdArgType.DevState """
 #        self.debug_stream("In BlissAxisManager dev_state()")
-        argout = PyTango.DevState.UNKNOWN
+        argout = tango.DevState.UNKNOWN
 
         # [BlissAxisManager(id26/bliss/cyrtest),
         # BlissAxis_robd(id26/bliss_cyrtest/robd),
@@ -146,19 +146,19 @@ class BlissAxisManager(Device):
         for dev in devs:
             _axis_state = dev.get_state()
 
-            _axis_on = (_axis_state == PyTango.DevState.ON or _axis_state == PyTango.DevState.OFF)
-            _axis_moving = (_axis_state == PyTango.DevState.MOVING)
+            _axis_on = (_axis_state == tango.DevState.ON or _axis_state == tango.DevState.OFF)
+            _axis_moving = (_axis_state == tango.DevState.MOVING)
 
             _axis_working = _axis_on or _axis_moving
             _bliss_working = _bliss_working and _axis_working
             _bliss_moving = _bliss_moving or _axis_moving
 
         if _bliss_moving:
-            self.set_state(PyTango.DevState.MOVING)
+            self.set_state(tango.DevState.MOVING)
         elif _bliss_working:
-            self.set_state(PyTango.DevState.ON)
+            self.set_state(tango.DevState.ON)
         else:
-            self.set_state(PyTango.DevState.FAULT)
+            self.set_state(tango.DevState.FAULT)
             self.set_status("FAULT ???")
 
         # Builds the status for BlissAxisManager device from BlissAxis status
@@ -265,7 +265,7 @@ class BlissAxisManager(Device):
 # a limit switch.
 # OFF : The power on the moror drive is switched off.
 # DISABLE : The motor is in slave mode and disabled for normal use
-@six.add_metaclass(DeviceMeta)
+
 class BlissAxis(Device):
 
     write_position_wait = device_property(dtype=bool, default_value=False,
@@ -360,23 +360,23 @@ class BlissAxis(Device):
         data member) and returns it to the caller.
 
         :param : none
-        :type: PyTango.DevVoid
+        :type: tango.DevVoid
         :return: Device state
-        :rtype: PyTango.CmdArgType.DevState """
+        :rtype: tango.CmdArgType.DevState """
 #        self.debug_stream("In AmotionAxis dev_state()")
-        argout = PyTango.DevState.UNKNOWN
+        argout = tango.DevState.UNKNOWN
 
         try:
             _state = self.axis.state()
 
             if _state.READY:
-                self.set_state(PyTango.DevState.ON)
+                self.set_state(tango.DevState.ON)
             elif _state.MOVING:
-                self.set_state(PyTango.DevState.MOVING)
+                self.set_state(tango.DevState.MOVING)
             elif _state.OFF:
-                self.set_state(PyTango.DevState.OFF)
+                self.set_state(tango.DevState.OFF)
             else:
-                self.set_state(PyTango.DevState.FAULT)
+                self.set_state(tango.DevState.FAULT)
 
             self.set_status(_state.current_states())
 
@@ -384,10 +384,10 @@ class BlissAxis(Device):
             self.attr_HardLimitHigh_read = _state.LIMPOS
 
         except:
-            self.set_state(PyTango.DevState.FAULT)
+            self.set_state(tango.DevState.FAULT)
             self.set_status(traceback.format_exc())
 
-        if argout != PyTango.DevState.ALARM:
+        if argout != tango.DevState.ALARM:
             Device.dev_state(self)
 
         # print "dev_state %s" % self.get_state()
@@ -433,9 +433,9 @@ class BlissAxis(Device):
         _t = time.time()
 
         if self.axis.is_moving:
-            quality = PyTango.AttrQuality.ATTR_CHANGING
+            quality = tango.AttrQuality.ATTR_CHANGING
         else:
-            quality = PyTango.AttrQuality.ATTR_VALID
+            quality = tango.AttrQuality.ATTR_VALID
         result = self.axis.position(), _t, quality
 
         _duration = time.time() - _t
@@ -454,13 +454,13 @@ class BlissAxis(Device):
         """
         self.debug_stream("In write_Position()")
 
-        self.set_state(PyTango.DevState.MOVING)
+        self.set_state(tango.DevState.MOVING)
         self.axis.move(new_position, wait=self.write_position_wait)
-        self.set_state(PyTango.DevState.ON)
+        self.set_state(tango.DevState.ON)
 
     def is_position_allowed(self, req_type):
         try:
-            if req_type == PyTango.AttReqType.WRITE_REQ:
+            if req_type == tango.AttReqType.WRITE_REQ:
                 if self.get_state() == "MOVING":
                     return False
                 else:
@@ -557,7 +557,7 @@ class BlissAxis(Device):
 
     @attribute(dtype=float, label='Home position', unit='uu', format='%7.3f',
                doc='Position of the home switch',
-               display_level=PyTango.DispLevel.EXPERT)
+               display_level=tango.DispLevel.EXPERT)
     def Home_Position(self):
         self.debug_stream("In read_Home_position()")
         return self.attr_Home_position_read
@@ -583,7 +583,7 @@ class BlissAxis(Device):
 
     @attribute(dtype=float, label='Preset Position', unit='uu', format='%10.3f',
                doc='preset the position in the step counter',
-               display_level=PyTango.DispLevel.EXPERT)
+               display_level=tango.DispLevel.EXPERT)
     def PresetPosition(self):
         self.debug_stream("In read_PresetPosition()")
         return self.attr_PresetPosition_read
@@ -601,7 +601,7 @@ class BlissAxis(Device):
 
     @attribute(dtype=float, label='first step velocity', unit='units/s',
                format='%10.3f', doc='number of unit/s for the first step and ' \
-               'for the move reference', display_level=PyTango.DispLevel.EXPERT)
+               'for the move reference', display_level=tango.DispLevel.EXPERT)
     def FirstVelocity(self):
         self.debug_stream("In read_FirstVelocity()")
         return self.attr_FirstVelocity_read
@@ -623,7 +623,7 @@ class BlissAxis(Device):
                doc='Size of the relative step performed by the ' \
                'StepUp and StepDown commands.\nThe StepSize' \
                'is expressed in physical unit',
-               display_level=PyTango.DispLevel.EXPERT)
+               display_level=tango.DispLevel.EXPERT)
     def StepSize(self):
         self.debug_stream("In read_StepSize()")
         return self.attr_StepSize_read
@@ -648,7 +648,7 @@ class BlissAxis(Device):
 
     @attribute(dtype=[float], unit='uu', format='%10.3f', max_dim_x=2,
                doc='Software limits expressed in physical unit',
-               display_level=PyTango.DispLevel.EXPERT)
+               display_level=tango.DispLevel.EXPERT)
     def Limits(self):
         self.debug_stream("In read_Limits()")
         return self.axis.limits()
@@ -668,16 +668,16 @@ class BlissAxis(Device):
         """ Enable power on motor
 
         :param :
-        :type: PyTango.DevVoid
+        :type: tango.DevVoid
         :return:
-        :rtype: PyTango.DevVoid """
+        :rtype: tango.DevVoid """
         self.debug_stream("In On()")
         self.axis.on()
 
         if self.axis.state().READY:
-            self.set_state(PyTango.DevState.ON)
+            self.set_state(tango.DevState.ON)
         else:
-            self.set_state(PyTango.DevState.FAULT)
+            self.set_state(tango.DevState.FAULT)
             self.set_status("ON command was not executed as expected.")
 
     @command
@@ -685,15 +685,15 @@ class BlissAxis(Device):
         """ Disable power on motor
 
         :param :
-        :type: PyTango.DevVoid
+        :type: tango.DevVoid
         :return:
-        :rtype: PyTango.DevVoid """
+        :rtype: tango.DevVoid """
         self.debug_stream("In Off()")
         self.axis.off()
         if self.axis.state().OFF:
-            self.set_state(PyTango.DevState.OFF)
+            self.set_state(tango.DevState.OFF)
         else:
-            self.set_state(PyTango.DevState.FAULT)
+            self.set_state(tango.DevState.FAULT)
             self.set_status("OFF command was not executed as expected.")
 
     @command(dtype_in=int, doc_in='homing direction')
@@ -720,9 +720,9 @@ class BlissAxis(Device):
         """ Stop immediately the motor
 
         :param :
-        :type: PyTango.DevVoid
+        :type: tango.DevVoid
         :return:
-        :rtype: PyTango.DevVoid """
+        :rtype: tango.DevVoid """
         self.debug_stream("In Abort()")
         self.axis.stop(wait=False)
 
@@ -731,9 +731,9 @@ class BlissAxis(Device):
         """ Stop gently the motor
 
         :param :
-        :type: PyTango.DevVoid
+        :type: tango.DevVoid
         :return:
-        :rtype: PyTango.DevVoid """
+        :rtype: tango.DevVoid """
         self.debug_stream("In Stop()")
         self.axis.stop(wait=False)
 
@@ -744,9 +744,9 @@ class BlissAxis(Device):
          device.
 
         :param :
-        :type: PyTango.DevVoid
+        :type: tango.DevVoid
         :return:
-        :rtype: PyTango.DevVoid """
+        :rtype: tango.DevVoid """
         self.debug_stream("In StepUp(); stepsize=%f" % self.attr_StepSize_read)
         self.axis.rmove(self.attr_StepSize_read, wait=self.write_position_wait)
 
@@ -757,9 +757,9 @@ class BlissAxis(Device):
          device.
 
         :param :
-        :type: PyTango.DevVoid
+        :type: tango.DevVoid
         :return:
-        :rtype: PyTango.DevVoid """
+        :rtype: tango.DevVoid """
         self.debug_stream("In StepDown(); stepsize=%f" % self.attr_StepSize_read)
         self.axis.rmove(-self.attr_StepSize_read, wait=self.write_position_wait)
 
@@ -768,9 +768,9 @@ class BlissAxis(Device):
         """ provide information about the axis.
 
         :param :
-        :type: PyTango.DevVoid
+        :type: tango.DevVoid
         :return:
-        :rtype: PyTango.DevString """
+        :rtype: tango.DevString """
         self.debug_stream("In GetInfo()")
         return self.axis.get_info()
 
@@ -779,7 +779,7 @@ class BlissAxis(Device):
         """ Sends a raw command to the axis. Be carefull!
 
         :param argin: String with command
-        :type: PyTango.DevString
+        :type: tango.DevString
         :return: None
         """
         self.debug_stream("In RawWrite()")
@@ -793,9 +793,9 @@ class BlissAxis(Device):
         Be carefull!
 
         :param argin: String with command
-        :type: PyTango.DevString
+        :type: tango.DevString
         :return: answer from controller.
-        :rtype: PyTango.DevString """
+        :rtype: tango.DevString """
         self.debug_stream("In RawWriteRead()")
 
         return self.axis.controller.raw_write_read(argin)
@@ -805,9 +805,9 @@ class BlissAxis(Device):
         """ Returns raw axis position read by controller.
 
         :param argin: None
-        :type: PyTango.DevVoid
+        :type: tango.DevVoid
         :return: answer from controller.
-        :rtype: PyTango.DevFloat """
+        :rtype: tango.DevFloat """
         self.debug_stream("In CtrlPosition()")
 
         return self.axis.read_position()
@@ -822,9 +822,9 @@ class BlissAxis(Device):
         """ Waits end of last motion
 
         :param :
-        :type: PyTango.DevVoid
+        :type: tango.DevVoid
         :return:
-        :rtype: PyTango.DevVoid """
+        :rtype: tango.DevVoid """
         self.debug_stream("In WaitMove()")
         return self.axis.wait_move()
 
@@ -951,14 +951,14 @@ def get_server_info(argv=None):
 
 def register_server(db=None):
     if db is None:
-        db = PyTango.Database()
+        db = tango.Database()
 
     server_name, instance_name, server_instance = get_server_info()
 
     domain = os.environ.get('BEAMLINENAME', 'bliss')
     dev_name = '{0}/BlissAxisManager/{1}'.format(domain, instance_name)
     elog.info(" registering new server: %s" % dev_name)
-    info = PyTango.DbDevInfo()
+    info = tango.DbDevInfo()
     info.server = server_instance
     info._class = 'BlissAxisManager'
     info.name = dev_name
@@ -967,7 +967,7 @@ def register_server(db=None):
 
 def get_devices_from_server(argv=None, db=None):
     if db is None:
-        db = PyTango.Database()
+        db = tango.Database()
 
     if argv is None:
         argv = sys.argv
@@ -1014,7 +1014,7 @@ def initialize_logging(argv):
             # by default : show INFO
             elog.level(20)
             tango_log_level = 0
-    except PyTango.DevFailed:
+    except tango.DevFailed:
         print traceback.format_exc()
         elog.exception("Error in initializing logging")
         sys.exit(0)
@@ -1023,7 +1023,7 @@ def initialize_logging(argv):
 def __recreate(db=None, new_server=False):
 
     if db is None:
-        db = PyTango.Database()
+        db = tango.Database()
 
     server_name, server_instance, server_name = get_server_info()
     registered_servers = set(db.get_instance_name_list('BlissAxisManager'))
@@ -1070,7 +1070,7 @@ def __recreate(db=None, new_server=False):
 
 def __recreate_axes(server_name, manager_dev_name, axis_names,
                     dev_map, db=None):
-    db = db or PyTango.Database()
+    db = db or tango.Database()
 
     curr_axes = {}
     for dev_class, dev_names in dev_map.items():
@@ -1102,7 +1102,7 @@ def __recreate_axes(server_name, manager_dev_name, axis_names,
     # add new axes
     for axis_name in new_axis_names:
         dev_name = "%s/%s_%s/%s" % (domain, family, member, axis_name)
-        info = PyTango.DbDevInfo()
+        info = tango.DbDevInfo()
         info.server = server_name
         info._class = 'BlissAxis_' + axis_name
         info.name = dev_name
@@ -1111,10 +1111,10 @@ def __recreate_axes(server_name, manager_dev_name, axis_names,
         # try to create alias if it doesn't exist yet
         try:
             db.get_device_alias(axis_name)
-        except PyTango.DevFailed:
+        except tango.DevFailed:
             elog.debug('registering alias for %s (%s)' % (dev_name, axis_name))
             db.put_device_alias(dev_name, axis_name)
- 
+
     axes, tango_classes = [], []
     for axis_name in axis_names_set:
         axis = get_axis(axis_name)
@@ -1197,7 +1197,7 @@ def __create_tango_axis_class(axis):
 
     for name, t, access in _attr_list:
         attr_info = [types_conv_tab[t],
-                     PyTango.AttrDataFormat.SCALAR]
+                     tango.AttrDataFormat.SCALAR]
         if 'r' in access:
             def read(self, attr):
                 method = getattr(self.axis, "get_" + attr.get_name())
@@ -1212,7 +1212,7 @@ def __create_tango_axis_class(axis):
             setattr(new_axis_class, "write_%s" % name, write)
 
         write_dict = {'r': 'READ', 'w': 'WRITE', 'rw': 'READ_WRITE'}
-        attr_write = getattr(PyTango.AttrWriteType, write_dict[access])
+        attr_write = getattr(tango.AttrWriteType, write_dict[access])
         attr_info.append(attr_write)
         new_axis_class_class.attr_list[name] = [attr_info]
 
@@ -1233,9 +1233,9 @@ def __create_tango_axis_class(axis):
             # Updates Attributes list.
             new_axis_class_class.attr_list.update({setting_name:
                                                    [[_attr_type,
-                                                     PyTango.AttrDataFormat.SCALAR,
-                                                      PyTango.AttrWriteType.READ_WRITE], {
-                'Display level': PyTango.DispLevel.OPERATOR,
+                                                     tango.AttrDataFormat.SCALAR,
+                                                      tango.AttrWriteType.READ_WRITE], {
+                'Display level': tango.DispLevel.OPERATOR,
                 'format': '%10.3f',
                 'description': '%s : u 2' % setting_name,
                 'unit': 'user units/s^2',
@@ -1276,7 +1276,7 @@ def main(argv=None):
 
         # if querying list of instances, just return
         if len(argv) < 2 or argv[1] == '-?':
-            util = PyTango.Util(argv)
+            util = tango.Util(argv)
             # no need since tango exits the process when it finds '-?'
             # (tango is not actually a library :-)
             return
@@ -1284,10 +1284,10 @@ def main(argv=None):
         axes, axes_classes = __recreate(new_server=new_server)
         del axes
 
-        util = PyTango.Util(argv)
+        util = tango.Util(argv)
         db = util.get_database()
 
-    except PyTango.DevFailed:
+    except tango.DevFailed:
         print traceback.format_exc()
         elog.exception(
             "Error in server initialization")
@@ -1298,8 +1298,8 @@ def main(argv=None):
     dt = time.time() - start_time
     elog.info('server configured (took %6.3fs)' % dt)
 
-    from PyTango import GreenMode
-    from PyTango.server import run
+    from tango import GreenMode
+    from tango.server import run
     run(klasses, green_mode=GreenMode.Gevent)
 
 

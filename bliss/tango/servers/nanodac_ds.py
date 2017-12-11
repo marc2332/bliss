@@ -6,7 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import sys
-import PyTango
+import tango
 import TgGevent
 from bliss.controllers.temperature.eurotherm import nanodac
 
@@ -28,13 +28,13 @@ class _CallableWrite:
         o_property = getattr(self.__obj,self.__name,value)
         o_property(value)
 
-class Nanodac(PyTango.Device_4Impl) :
+class Nanodac(tango.Device_4Impl) :
     def __init__(self,*args) :
-        PyTango.Device_4Impl.__init__(self,*args)
+        tango.Device_4Impl.__init__(self,*args)
         self.init_device()
 
     def init_device(self) :
-        self.set_state(PyTango.DevState.ON)
+        self.set_state(tango.DevState.ON)
         self.get_device_properties(self.get_device_class())
         self._nanodac = TgGevent.get_proxy(nanodac.nanodac,'server',{"controller_ip":self.controller_ip})
         self._ramp1 = TgGevent.get_proxy(self._nanodac.get_soft_ramp,1)
@@ -67,7 +67,7 @@ class Nanodac(PyTango.Device_4Impl) :
     def stop(self):
         self._ramp.stop()
 
-class NanodacClass(PyTango.DeviceClass) :
+class NanodacClass(tango.DeviceClass) :
     #    Class Properties
     class_property_list = {
         }
@@ -75,152 +75,152 @@ class NanodacClass(PyTango.DeviceClass) :
     #    Device Properties
     device_property_list = {
         'controller_ip' :
-        [PyTango.DevString,
+        [tango.DevString,
          "Ethernet ip address",[]],
         }
     #    Command definitions
     cmd_list = {
         'stop':
-        [[PyTango.DevVoid, ""],
-         [PyTango.DevVoid, ""]],
+        [[tango.DevVoid, ""],
+         [tango.DevVoid, ""]],
        }
 
      #    Attribute definitions
     attr_list = {
         #Ramp1
         'ramp1_slope':
-        [[PyTango.DevDouble,
-          PyTango.SCALAR,
-          PyTango.READ_WRITE]],
+        [[tango.DevDouble,
+          tango.SCALAR,
+          tango.READ_WRITE]],
         'ramp1_workingsp':
-        [[PyTango.DevDouble,
-          PyTango.SCALAR,
-          PyTango.READ]],
+        [[tango.DevDouble,
+          tango.SCALAR,
+          tango.READ]],
         'ramp1_targetsp':
-        [[PyTango.DevDouble,
-          PyTango.SCALAR,
-          PyTango.READ_WRITE]],
+        [[tango.DevDouble,
+          tango.SCALAR,
+          tango.READ_WRITE]],
         'ramp1_pv':
-        [[PyTango.DevDouble,
-          PyTango.SCALAR,
-          PyTango.READ]],
+        [[tango.DevDouble,
+          tango.SCALAR,
+          tango.READ]],
         'ramp1_pid_derivativetime':
-        [[PyTango.DevDouble,
-          PyTango.SCALAR,
-          PyTango.READ_WRITE]],
+        [[tango.DevDouble,
+          tango.SCALAR,
+          tango.READ_WRITE]],
         'ramp1_pid_integraltime':
-        [[PyTango.DevDouble,
-          PyTango.SCALAR,
-          PyTango.READ_WRITE]],
+        [[tango.DevDouble,
+          tango.SCALAR,
+          tango.READ_WRITE]],
         'ramp1_pid_proportionalband':
-        [[PyTango.DevDouble,
-          PyTango.SCALAR,
-          PyTango.READ_WRITE]],
+        [[tango.DevDouble,
+          tango.SCALAR,
+          tango.READ_WRITE]],
         #Ramp2
         'ramp2_slope':
-        [[PyTango.DevDouble,
-          PyTango.SCALAR,
-          PyTango.READ_WRITE]],
+        [[tango.DevDouble,
+          tango.SCALAR,
+          tango.READ_WRITE]],
         'ramp2_workingsp':
-        [[PyTango.DevDouble,
-          PyTango.SCALAR,
-          PyTango.READ]],
+        [[tango.DevDouble,
+          tango.SCALAR,
+          tango.READ]],
         'ramp2_targetsp':
-        [[PyTango.DevDouble,
-          PyTango.SCALAR,
-          PyTango.READ_WRITE]],
+        [[tango.DevDouble,
+          tango.SCALAR,
+          tango.READ_WRITE]],
         'ramp2_pv':
-        [[PyTango.DevDouble,
-          PyTango.SCALAR,
-          PyTango.READ]],
+        [[tango.DevDouble,
+          tango.SCALAR,
+          tango.READ]],
         'ramp2_pid_derivativetime':
-        [[PyTango.DevDouble,
-          PyTango.SCALAR,
-          PyTango.READ_WRITE]],
+        [[tango.DevDouble,
+          tango.SCALAR,
+          tango.READ_WRITE]],
         'ramp2_pid_integraltime':
-        [[PyTango.DevDouble,
-          PyTango.SCALAR,
-          PyTango.READ_WRITE]],
+        [[tango.DevDouble,
+          tango.SCALAR,
+          tango.READ_WRITE]],
         'ramp2_pid_proportionalband':
-        [[PyTango.DevDouble,
-          PyTango.SCALAR,
-          PyTango.READ_WRITE]],
+        [[tango.DevDouble,
+          tango.SCALAR,
+          tango.READ_WRITE]],
         #Channel 1
         'c1_pv':
-        [[PyTango.DevDouble,
-          PyTango.SCALAR,
-          PyTango.READ]],
+        [[tango.DevDouble,
+          tango.SCALAR,
+          tango.READ]],
         'c1_pv2':
-        [[PyTango.DevDouble,
-          PyTango.SCALAR,
-          PyTango.READ]],
+        [[tango.DevDouble,
+          tango.SCALAR,
+          tango.READ]],
         'c1_type':
-        [[PyTango.DevString,
-          PyTango.SCALAR,
-          PyTango.READ]],
+        [[tango.DevString,
+          tango.SCALAR,
+          tango.READ]],
         'c1_lintype':
-        [[PyTango.DevString,
-          PyTango.SCALAR,
-          PyTango.READ]],
+        [[tango.DevString,
+          tango.SCALAR,
+          tango.READ]],
         #Channel 2
         'c2_pv':
-        [[PyTango.DevDouble,
-          PyTango.SCALAR,
-          PyTango.READ]],
+        [[tango.DevDouble,
+          tango.SCALAR,
+          tango.READ]],
         'c2_pv2':
-        [[PyTango.DevDouble,
-          PyTango.SCALAR,
-          PyTango.READ]],
+        [[tango.DevDouble,
+          tango.SCALAR,
+          tango.READ]],
         'c2_type':
-        [[PyTango.DevString,
-          PyTango.SCALAR,
-          PyTango.READ]],
+        [[tango.DevString,
+          tango.SCALAR,
+          tango.READ]],
         'c2_lintype':
-        [[PyTango.DevString,
-          PyTango.SCALAR,
-          PyTango.READ]],
+        [[tango.DevString,
+          tango.SCALAR,
+          tango.READ]],
         #Channel 3
         'c3_pv':
-        [[PyTango.DevDouble,
-          PyTango.SCALAR,
-          PyTango.READ]],
+        [[tango.DevDouble,
+          tango.SCALAR,
+          tango.READ]],
         'c3_pv2':
-        [[PyTango.DevDouble,
-          PyTango.SCALAR,
-          PyTango.READ]],
+        [[tango.DevDouble,
+          tango.SCALAR,
+          tango.READ]],
         'c3_type':
-        [[PyTango.DevString,
-          PyTango.SCALAR,
-          PyTango.READ]],
+        [[tango.DevString,
+          tango.SCALAR,
+          tango.READ]],
         'c3_lintype':
-        [[PyTango.DevString,
-          PyTango.SCALAR,
-          PyTango.READ]],
+        [[tango.DevString,
+          tango.SCALAR,
+          tango.READ]],
         #Channel 4
         'c4_pv':
-        [[PyTango.DevDouble,
-          PyTango.SCALAR,
-          PyTango.READ]],
+        [[tango.DevDouble,
+          tango.SCALAR,
+          tango.READ]],
         'c4_pv2':
-        [[PyTango.DevDouble,
-          PyTango.SCALAR,
-          PyTango.READ]],
+        [[tango.DevDouble,
+          tango.SCALAR,
+          tango.READ]],
         'c4_type':
-        [[PyTango.DevString,
-          PyTango.SCALAR,
-          PyTango.READ]],
+        [[tango.DevString,
+          tango.SCALAR,
+          tango.READ]],
         'c4_lintype':
-        [[PyTango.DevString,
-          PyTango.SCALAR,
-          PyTango.READ]],
+        [[tango.DevString,
+          tango.SCALAR,
+          tango.READ]],
 
         }
 
 def main():
     try:
-        py = PyTango.Util(sys.argv)
+        py = tango.Util(sys.argv)
         py.add_TgClass(NanodacClass,Nanodac,'Nanodac')
-        U = PyTango.Util.instance()
+        U = tango.Util.instance()
         U.server_init()
         U.server_run()
     except:

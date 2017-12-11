@@ -2,7 +2,7 @@
 #
 # This file is part of the LinkamDsc project
 #
-# 
+#
 #
 # Distributed under the terms of the GPL license.
 # See LICENSE.txt for more info.
@@ -14,14 +14,14 @@ Class for controlling the Linkam T94 with Dsc stage.
 import numpy
 from functools import wraps
 
-# PyTango imports
-import PyTango
-from PyTango import DebugIt
-from PyTango.server import run
-from PyTango.server import Device, DeviceMeta
-from PyTango.server import attribute, command
-from PyTango.server import class_property, device_property
-from PyTango import AttrQuality, AttrWriteType, DispLevel, DevState
+# tango imports
+import tango
+from tango import DebugIt
+from tango.server import run
+from tango.server import Device
+from tango.server import attribute, command
+from tango.server import class_property, device_property
+from tango import AttrQuality, AttrWriteType, DispLevel, DevState
 
 import gevent
 from gevent import lock
@@ -47,7 +47,6 @@ class LinkamDsc(Device):
     """
     Class for controlling the Linkam T94.
     """
-    __metaclass__ = DeviceMeta
 
     # -----------------
     # Device Properties
@@ -76,7 +75,7 @@ class LinkamDsc(Device):
         if self._linkam is not None:
             attr = self.get_device_attr().get_attr_by_name("temperature")
             attr.set_write_value(self._linkam.getTemperature())
-        self.set_state(PyTango.DevState.ON)
+        self.set_state(tango.DevState.ON)
 
     def always_executed_hook(self):
         pass
@@ -125,7 +124,7 @@ class LinkamDsc(Device):
     def temperature(self, temp):
         self._linkam.setTemperature(temp)
 
-    @attribute(label='DSC data', dtype=['float',], fisallowed="is_attr_allowed", max_dim_x=3, 
+    @attribute(label='DSC data', dtype=['float',], fisallowed="is_attr_allowed", max_dim_x=3,
         description="Current temperature and dsc data")
     @DebugIt()
     def dscData(self):
@@ -220,21 +219,21 @@ class LinkamDsc(Device):
     @is_cmd_allowed("is_command_allowed")
     def Hold(self):
         self._linkam.hold()
-        self.set_state(PyTango.DevState.ON)
+        self.set_state(tango.DevState.ON)
 
     @command
     @DebugIt()
     @is_cmd_allowed("is_command_allowed")
     def Start(self):
         self._linkam.start()
-        self.set_state(PyTango.DevState.RUNNING)
+        self.set_state(tango.DevState.RUNNING)
 
     @command
     @DebugIt()
     @is_cmd_allowed("is_command_allowed")
     def Stop(self):
         self._linkam.stop()
-        self.set_state(PyTango.DevState.ON)
+        self.set_state(tango.DevState.ON)
 
     @command
     @DebugIt()
@@ -258,21 +257,21 @@ class LinkamDsc(Device):
         if self._filename:
             self._scan = linkamScan(self._linkam, self._filename)
         self._linkam.profile(ramplist)
-        self.set_state(PyTango.DevState.RUNNING)
+        self.set_state(tango.DevState.RUNNING)
 
     def is_command_allowed(self):
         return self.get_state() not in [DevState.FAULT, DevState.OFF, DevState.UNKNOWN]
 
     def _profileCompleteCallback(self):
-        self.set_state(PyTango.DevState.ON)
+        self.set_state(tango.DevState.ON)
 
 # ----------
 # Run server
 # ----------
 
 def main():
-    from PyTango import GreenMode
-    from PyTango.server import run
+    from tango import GreenMode
+    from tango.server import run
     run([LinkamDsc,], green_mode=GreenMode.Gevent)
 
 if __name__ == '__main__':

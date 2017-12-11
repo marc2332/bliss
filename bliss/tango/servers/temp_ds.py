@@ -11,59 +11,59 @@ import types
 
 import json
 
-import PyTango
-from PyTango.server import Device, DeviceMeta, attribute, command
-from PyTango.server import get_worker
+import tango
+from tango.server import Device, attribute, command
+from tango.server import get_worker
 
 import bliss.common.log as elog
 from bliss.common import temperature
 from bliss.config.static import get_config
 
 types_conv_tab_inv = {
-    PyTango.DevVoid: 'None',
-    PyTango.DevDouble: 'float',
-    PyTango.DevString: 'str',
-    PyTango.DevLong: 'int',
-    PyTango.DevBoolean: 'bool',
-    PyTango.DevVarFloatArray: "float_array",
-    PyTango.DevVarDoubleArray: "double_array",
-    PyTango.DevVarLongArray: "long_array",
-    PyTango.DevVarStringArray: "string_array",
-    PyTango.DevVarBooleanArray: "bool_array",
+    tango.DevVoid: 'None',
+    tango.DevDouble: 'float',
+    tango.DevString: 'str',
+    tango.DevLong: 'int',
+    tango.DevBoolean: 'bool',
+    tango.DevVarFloatArray: "float_array",
+    tango.DevVarDoubleArray: "double_array",
+    tango.DevVarLongArray: "long_array",
+    tango.DevVarStringArray: "string_array",
+    tango.DevVarBooleanArray: "bool_array",
 }
 
 types_conv_tab = dict((v, k) for k, v in types_conv_tab_inv.items())
 types_conv_tab.update({
-    None: PyTango.DevVoid,
-    str: PyTango.DevString,
-    int: PyTango.DevLong,
-    float: PyTango.DevDouble,
-    bool: PyTango.DevBoolean,
+    None: tango.DevVoid,
+    str: tango.DevString,
+    int: tango.DevLong,
+    float: tango.DevDouble,
+    bool: tango.DevBoolean,
 })
 
 access_conv_tab = {
-    'r': PyTango.AttrWriteType.READ,
-    'w': PyTango.AttrWriteType.WRITE,
-    'rw': PyTango.AttrWriteType.READ_WRITE,
+    'r': tango.AttrWriteType.READ,
+    'w': tango.AttrWriteType.WRITE,
+    'rw': tango.AttrWriteType.READ_WRITE,
 }
 
 access_conv_tab_inv = dict((v, k) for k, v in access_conv_tab.items())
 
 _STATE_MAP = {
-  'READY': PyTango.DevState.ON,
-  'FAULT': PyTango.DevState.FAULT,
-  'ALARM': PyTango.DevState.ALARM,
-  'RUNNING': PyTango.DevState.RUNNING,
+  'READY': tango.DevState.ON,
+  'FAULT': tango.DevState.FAULT,
+  'ALARM': tango.DevState.ALARM,
+  'RUNNING': tango.DevState.RUNNING,
 }
 
+
 class BlissInput(Device):
-    __metaclass__ = DeviceMeta
 
     @property
     def channel_object(self):
         config = get_config()
-        name = self.get_name().rsplit('/', 1)[-1] 
-	return config.get(name) 
+        name = self.get_name().rsplit('/', 1)[-1]
+	return config.get(name)
 
     @attribute(dtype='string')
     def name(self):
@@ -100,14 +100,14 @@ class BlissInput(Device):
     @command(dtype_out='string')
     def Rraw(self):
         return self.channel_object.controller.Rraw()
-     
+
     @command(dtype_in='string',dtype_out='string')
     def WRraw(self,st):
         return self.channel_object.controller.WRraw(st)
 
     @command(dtype_out=float)
     def read(self):
-        return self.channel_object.read()       
+        return self.channel_object.read()
 
     def dev_state(self):
         state = self.channel_object.state()
@@ -120,14 +120,14 @@ class BlissInput(Device):
     def init_device(self):
         Device.init_device(self)
 
+
 class BlissOutput(Device):
-    __metaclass__ = DeviceMeta
 
     @property
     def channel_object(self):
         config = get_config()
-        name = self.get_name().rsplit('/', 1)[-1] 
-	return config.get(name) 
+        name = self.get_name().rsplit('/', 1)[-1]
+	return config.get(name)
 
     @attribute(dtype='string')
     def name(self):
@@ -195,7 +195,7 @@ class BlissOutput(Device):
 
     @command(dtype_out=float)
     def read(self):
-        return self.channel_object.read() 
+        return self.channel_object.read()
 
     @command(dtype_in=float)
     def ramp(self,sp):
@@ -211,7 +211,7 @@ class BlissOutput(Device):
 
     @command
     def abort(self):
-        self.channel_object.abort()  
+        self.channel_object.abort()
 
     @command(dtype_in='string')
     def Wraw(self,st):
@@ -220,7 +220,7 @@ class BlissOutput(Device):
     @command(dtype_out='string')
     def Rraw(self):
         return self.channel_object.controller.Rraw()
-     
+
     @command(dtype_in='string',dtype_out='string')
     def WRraw(self,st):
         return self.channel_object.controller.WRraw(st)
@@ -255,14 +255,14 @@ class BlissOutput(Device):
     def init_device(self):
         Device.init_device(self)
 
+
 class BlissLoop(Device):
-    __metaclass__ = DeviceMeta
 
     @property
     def channel_object(self):
         config = get_config()
-        name = self.get_name().rsplit('/', 1)[-1] 
-	return config.get(name) 
+        name = self.get_name().rsplit('/', 1)[-1]
+	return config.get(name)
 
     @attribute(dtype='string')
     def name(self):
@@ -337,7 +337,7 @@ class BlissLoop(Device):
 
     @command(dtype_out=float)
     def read_input(self):
-        return self.channel_object.input.read()       
+        return self.channel_object.input.read()
 
     def dev_state(self):
         return get_worker().execute(self._dev_state)
@@ -356,12 +356,12 @@ class BlissLoop(Device):
 def getdevicefromname(klass=None,name=None):
     mykey = klass + '_' + name
     return dev_map.get(mykey,None)[0]
-               
+
 def recreate(db=None, new_server=False, typ='inputs'):
     global dev_map
 #    import pdb; pdb.set_trace()
     if db is None:
-        db = PyTango.Database()
+        db = tango.Database()
 
     # some io definitions.
     if typ == 'inputs':
@@ -418,13 +418,13 @@ def recreate(db=None, new_server=False, typ='inputs'):
     # remove old io
     for io_name in old_io_names:
         dev_name, klass_name = curr_ios[io_name]
-        elog.debug('removing old %s %s (%s)' % (classmsg, dev_name, io_name))    
+        elog.debug('removing old %s %s (%s)' % (classmsg, dev_name, io_name))
         db.delete_device(dev_name)
 
     # add new io
     for io_name in new_io_names:
         dev_name = "%s/%s_%s/%s" % (domain, family, member, io_name)
-        info = PyTango.DbDevInfo()
+        info = tango.DbDevInfo()
         info.server = server_instance
         info._class = "%s_%s" % (classname, io_name)
         info.name = dev_name
@@ -433,7 +433,7 @@ def recreate(db=None, new_server=False, typ='inputs'):
         # try to create alias if it doesn't exist yet
         try:
             db.get_device_alias(io_name)
-        except PyTango.DevFailed:
+        except tango.DevFailed:
             elog.debug('registering alias for %s (%s)' % (dev_name, io_name))
             db.put_device_alias(dev_name, io_name)
 
@@ -451,7 +451,7 @@ def recreate(db=None, new_server=False, typ='inputs'):
 
 def get_devices_from_server(argv=None, db=None):
     if db is None:
-        db = PyTango.Database()
+        db = tango.Database()
 
     if argv is None:
         argv = sys.argv
@@ -474,14 +474,14 @@ def get_devices_from_server(argv=None, db=None):
 
 def register_server(db=None):
     if db is None:
-        db = PyTango.Database()
+        db = tango.Database()
 
     server_name, instance_name, server_instance = get_server_info()
 
     domain = os.environ.get('BEAMLINENAME', 'bliss')
     dev_name = '{0}/temperature/{1}'.format(domain, instance_name)
     elog.info(" registering new server: %s" % dev_name)
-    info = PyTango.DbDevInfo()
+    info = tango.DbDevInfo()
     info.server = server_instance
     info._class = 'DServer'
     info.name = 'DServer/' + server_instance
@@ -549,7 +549,7 @@ def initialize_logging(argv):
             # by default : show INFO
             elog.level(20)
             tango_log_level = 0
-    except PyTango.DevFailed:
+    except tango.DevFailed:
         print traceback.format_exc()
         elog.exception("Error in initializing logging")
         sys.exit(0)
@@ -605,7 +605,7 @@ def __create_tango_class(obj, klass):
 
     for name, t, access in _attr_list:
         attr_info = [types_conv_tab[t],
-                     PyTango.AttrDataFormat.SCALAR]
+                     tango.AttrDataFormat.SCALAR]
         if 'r' in access:
             def read(self, attr):
                 method = getattr(self.channel_object, "get_" + attr.get_name())
@@ -620,7 +620,7 @@ def __create_tango_class(obj, klass):
             setattr(new_class, "write_%s" % name, write)
 
         write_dict = {'r': 'READ', 'w': 'WRITE', 'rw': 'READ_WRITE'}
-        attr_write = getattr(PyTango.AttrWriteType, write_dict[access])
+        attr_write = getattr(tango.AttrWriteType, write_dict[access])
         attr_info.append(attr_write)
         new_class_class.attr_list[name] = [attr_info]
 
@@ -640,7 +640,7 @@ def __get_type_name(temp):
 
 def recreate_bliss(server_name, manager_dev_name, temp_names,
                    dev_map, db=None):
-    db = db or PyTango.Database()
+    db = db or tango.Database()
     config = get_config()
     curr_temps = {}
     for dev_class, dev_names in dev_map.items():
@@ -676,7 +676,7 @@ def recreate_bliss(server_name, manager_dev_name, temp_names,
         temp = config.get(temp_name)
         temp_type = __get_type_name(temp)
         dev_name = "%s/%s_%s/%s" % (domain, family, member, temp_name)
-        info = PyTango.DbDevInfo()
+        info = tango.DbDevInfo()
         info.server = server_name
         info._class = 'Bliss%s_%s' % (temp_type, temp_name)
         info.name = dev_name
@@ -685,10 +685,10 @@ def recreate_bliss(server_name, manager_dev_name, temp_names,
         # try to create alias if it doesn't exist yet
         try:
             db.get_device_alias(temp_name)
-        except PyTango.DevFailed:
+        except tango.DevFailed:
             elog.debug('registering alias for %s (%s)' % (dev_name, temp_name))
             db.put_device_alias(dev_name, temp_name)
- 
+
     temps, tango_classes = [], []
     for temp_name in temp_names_set:
         temp = config.get(temp_name)
@@ -699,7 +699,7 @@ def recreate_bliss(server_name, manager_dev_name, temp_names,
         tango_classes.append(tango_class)
 
     return temps, tango_classes
-    
+
 
 # callback from the Bliss server
 def initialize_bliss(info, db=None):
@@ -726,8 +726,8 @@ def initialize_bliss(info, db=None):
 
 
 def main(argv=None):
-    from PyTango import GreenMode
-    from PyTango.server import run
+    from tango import GreenMode
+    from tango.server import run
 
     if argv is None:
         argv = sys.argv
@@ -740,12 +740,11 @@ def main(argv=None):
         new_server = False
 
     initialize_logging(argv)
-    inputs, tango_input_classes   = recreate(new_server=new_server,typ='inputs')  
-    outputs, tango_output_classes = recreate(new_server=new_server,typ='outputs') 
-    loops, tango_loop_classes     = recreate(new_server=new_server,typ='ctrl_loops')  
+    inputs, tango_input_classes   = recreate(new_server=new_server,typ='inputs')
+    outputs, tango_output_classes = recreate(new_server=new_server,typ='outputs')
+    loops, tango_loop_classes     = recreate(new_server=new_server,typ='ctrl_loops')
     tango_classes = tango_input_classes + tango_output_classes + tango_loop_classes
     run(tango_classes, args=argv, green_mode=GreenMode.Gevent)
 
 if __name__ == "__main__":
     main()
-

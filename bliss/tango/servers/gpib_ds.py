@@ -16,7 +16,7 @@ the direct Gpib class from Salsa directly.
 
 """
 
-from PyTango.server import (Device, attribute, command,
+from tango.server import (Device, attribute, command,
                             device_property)
 
 from bliss.comm.gpib import Gpib as _Gpib
@@ -107,8 +107,8 @@ class Gpib(Device):
 
 
 def main():
-    from PyTango import GreenMode
-    from PyTango.server import run
+    from tango import GreenMode
+    from tango.server import run
     run([Gpib,], green_mode=GreenMode.Gevent)
 
 

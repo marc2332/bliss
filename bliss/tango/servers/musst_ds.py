@@ -12,16 +12,16 @@ Multipurpose Unit for Synchronisation, Sequencing and Triggering
 
 __all__ = ["Musst", "main"]
 
-# PyTango imports
+# tango imports
 import sys
-import PyTango
-from PyTango import DebugIt
-from PyTango.server import run
-from PyTango.server import Device
-from PyTango.server import attribute, command
-from PyTango.server import class_property, device_property
-from PyTango import AttrQuality, AttrWriteType, DispLevel, DevState
-from PyTango.server import get_worker
+import tango
+from tango import DebugIt
+from tango.server import run
+from tango.server import Device
+from tango.server import attribute, command
+from tango.server import class_property, device_property
+from tango import AttrQuality, AttrWriteType, DispLevel, DevState
+from tango.server import get_worker
 # Additional import
 from bliss.controllers.musst import musst as musst_ctrl
 
@@ -73,13 +73,13 @@ class Musst(Device):
         Device.__init__(self, *args, **kwargs)
 
         self._musst2tangostate = {
-            musst_ctrl.NOPROG_STATE  : PyTango.DevState.OFF,
-            musst_ctrl.BADPROG_STATE : PyTango.DevState.UNKNOWN,
-            musst_ctrl.IDLE_STATE    : PyTango.DevState.ON,
-            musst_ctrl.RUN_STATE     : PyTango.DevState.RUNNING,
-            musst_ctrl.BREAK_STATE   : PyTango.DevState.STANDBY,
-            musst_ctrl.STOP_STATE    : PyTango.DevState.STANDBY,
-            musst_ctrl.ERROR_STATE   : PyTango.DevState.FAULT
+            musst_ctrl.NOPROG_STATE  : tango.DevState.OFF,
+            musst_ctrl.BADPROG_STATE : tango.DevState.UNKNOWN,
+            musst_ctrl.IDLE_STATE    : tango.DevState.ON,
+            musst_ctrl.RUN_STATE     : tango.DevState.RUNNING,
+            musst_ctrl.BREAK_STATE   : tango.DevState.STANDBY,
+            musst_ctrl.STOP_STATE    : tango.DevState.STANDBY,
+            musst_ctrl.ERROR_STATE   : tango.DevState.FAULT
             }
 
         self._musststate2string = {
@@ -130,11 +130,11 @@ class Musst(Device):
                 name,type,var = line.split()
                 if type == "FLOAT":
                     print "adding float variable attribute ", var
-                    floatVarAttr = PyTango.Attr(var, PyTango.DevDouble, PyTango.READ_WRITE)
+                    floatVarAttr = tango.Attr(var, tango.DevDouble, tango.READ_WRITE)
                     self.add_attribute(floatVarAttr,Musst.read_floatVarAttr, Musst.write_floatVarAttr, None)
                 elif type == "UNSIGNED":
                     print "adding unsigned variable attribute ", var
-                    longVarAttr = PyTango.Attr(var, PyTango.DevLong, PyTango.READ_WRITE)
+                    longVarAttr = tango.Attr(var, tango.DevLong, tango.READ_WRITE)
                     self.add_attribute(longVarAttr,Musst.read_longVarAttr, Musst.write_longVarAttr, None)
             elif line == "Scalars:":
                 add = True
@@ -242,8 +242,8 @@ class Musst(Device):
 # ----------
 
 def main():
-    from PyTango import GreenMode
-    from PyTango.server import run
+    from tango import GreenMode
+    from tango.server import run
     run([Musst,], green_mode=GreenMode.Gevent)
 
 

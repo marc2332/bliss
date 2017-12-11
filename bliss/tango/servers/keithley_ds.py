@@ -6,9 +6,9 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from PyTango import DevState
-from PyTango.server import Device
-from PyTango.server import attribute, command, device_property
+from tango import DevState
+from tango.server import Device
+from tango.server import attribute, command, device_property
 
 from bliss.config.static import get_config
 
@@ -73,8 +73,8 @@ class Multimeter(Device):
 
 
 def main():
-    from PyTango import GreenMode
-    from PyTango.server import run
+    from tango import GreenMode
+    from tango.server import run
 
     import logging
     fmt='%(levelname)s %(asctime)-15s %(name)s: %(message)s'

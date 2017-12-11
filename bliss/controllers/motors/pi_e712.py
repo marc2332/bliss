@@ -396,13 +396,7 @@ class PI_E712(Controller):
             return False
 
     def get_error(self):
-        _t0 = time.time()
-        _error_number = self.sock.write_readline("ERR?\n")
-        _duration = time.time() - _t0
-        #if _duration > 0.005:
-            #print "%s Received %s from Send %s (duration : %g ms) " % \
-                    #(self.cname, repr(_error_number), "ERR?", _duration * 1000)
-
+        _error_number = int(self.sock.write_readline("ERR?\n"))
         _error_str = pi_gcs.get_error_str(_error_number)
 
         return (_error_number, _error_str)

@@ -19,7 +19,7 @@ import tango
 from tango.server import Device, device_property
 from tango.server import attribute, command, get_worker
 
-tango.requires_pytango('8.1.9', software_name='BlissAxis')
+tango.requires_pytango('9.2.0', software_name='BlissAxis')
 
 import os
 import sys

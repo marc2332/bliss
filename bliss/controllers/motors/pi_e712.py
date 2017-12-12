@@ -6,10 +6,14 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import time
+import re
+import numpy
 
 from bliss.controllers.motor import Controller
 from bliss.common import log as elog
 from bliss.common.utils import object_method
+from bliss.common.utils import OrderedDict
+from bliss.common.utils import grouped
 
 from bliss.common.axis import AxisState
 
@@ -53,6 +57,11 @@ config example:
 
 
 class PI_E712(Controller):
+    #POSSIBLE DATA TRIGGER SOURCE
+    WAVEFORM=0
+    MOTION=1
+    EXTERNAL=3
+    IMMEDIATELY=4
 
     def __init__(self, *args, **kwargs):
         Controller.__init__(self, *args, **kwargs)
@@ -112,7 +121,27 @@ class PI_E712(Controller):
         #if axis.encoder:
             #elog.debug("axis = %r" % axis)
 
+        #POSSIBLE DATA RECORDER TYPE
+        axis.TARGET_POSITION_OF_AXIS=1
+        axis.CURRENT_POSITION_OF_AXIS=2
+        axis.POSITION_ERROR_OF_AXIS=3
+        axis.CONTROL_VOLTAGE_OF_OUTPUT_CHAN=7
+        axis.DDL_OUTPUT_OF_AXIS=13
+        axis.OPEN_LOOP_CONTROL_OF_AXIS=14
+        axis.CONTROL_OUTPUT_OF_AXIS=15
+        axis.VOLTAGE_OF_OUTPUT_CHAN=16
+        axis.SENSOR_NORMALIZED_OF_INPUT_CHAN=17
+        axis.SENSOR_FILTERED_OF_INPUT_CHAN=18
+        axis.SENSOR_ELECLINEAR_OF_INPUT_CHAN=19
+        axis.SENSOR_MECHLINEAR_OF_INPUT_CHAN=20
+        axis.SLOWED_TARGET_OF_AXIS=22
 
+        #POSSIBLE DATA TRIGGER SOURCE
+        axis.WAVEFORM=0
+        axis.MOTION=1
+        axis.EXTERNAL=3
+        axis.IMMEDIATELY=4
+        
     def read_position(self, axis):
         """
         Returns position's setpoint or measured position.
@@ -260,6 +289,154 @@ class PI_E712(Controller):
         else:
             self.sock.write(cmd + '\n')
 
+    def get_data(self, from_event_id=0, npoints=None, rec_table_id=None):
+        """
+        retrieved store data as a numpy structured array,
+        struct name will be the data_type + motor name.
+        i.e:
+        Target_Position_of_<motor_name> or Current_Position_of_<motor_name>
+
+        Args:
+         - from_event_id from which point id you want to read
+         - rec_table_id list of table you want to read, None means all
+        """
+        if rec_table_id is None: # All table
+            #just ask the first table because they have the same synchronization
+            nb_availabe_points = int(self.command("DRL? 1"))
+            nb_availabe_points -= from_event_id
+            if npoints is None:
+                npoints = nb_availabe_points
+            else:
+                npoints = min(nb_availabe_points,npoints)
+            cmd = "DRR? %d %d\n" % ((from_event_id + 1),npoints)
+        else:
+            rec_tables = ' '.join((str(x) for x in rec_table_id))
+            nb_points = self.command("DRL? %s" % rec_tables,len(rec_table_id))
+            if isinstance(nb_points, list):
+                nb_points = min([int(x) for x in nb_points])
+            else:
+                nb_points = int(nb_points)
+            point_2_read = nb_points - from_event_id
+            if point_2_read < 0:
+                point_2_read = 0
+            elif(npoints is not None and
+                 point_2_read > npoints):
+                point_2_read = npoints
+            cmd = "DRR? %d %d %s\n" % (from_event_id + 1, point_2_read,
+                                       rec_tables)
+
+        try:
+            with self.sock._lock:
+                self.sock._write(cmd)
+                #HEADER
+                header = dict()
+                while 1:
+                    line = self.sock.readline()
+                    if not line:
+                        return      # no data available
+                    if line.find("END_HEADER") > -1:
+                        break
+
+                    key,value = (x.strip() for x in line[1:].split('='))
+                    header[key] = value
+
+                ndata = int(header['NDATA'])
+                separator = chr(int(header['SEPARATOR']))
+                sample_time = float(header['SAMPLE_TIME'])
+                dim = int(header['DIM'])
+                column_info = dict()
+                keep_axes = {x.channel : x for x in self.axes.values()}
+                for name_id in range(8):
+                    try:
+                        desc = header['NAME%d' % name_id]
+                    except KeyError:
+                        break
+                    else:
+                        axis_pos = desc.find('axis')
+                        if axis_pos < 0:
+                            axis_pos = desc.find('chan')
+                        axis_id = int(desc[axis_pos+len('axis'):])
+                        if axis_id in keep_axes:
+                             new_desc = desc[:axis_pos] + \
+                                        keep_axes[axis_id].name
+                             column_info[name_id] = new_desc.replace(' ','_')
+
+                dtype = [('timestamp','f8')]
+                dtype += [(name,'f8') for name in column_info.values()]
+                data = numpy.zeros(ndata,dtype=dtype)
+                data['timestamp'] = numpy.arange(from_event_id,
+                                                 from_event_id + ndata) * sample_time
+                for line_id in range(ndata):
+                    line = self.sock.readline().strip()
+                    values = line.split(separator)
+                    for column_id, name in column_info.iteritems():
+                        data[name][line_id] = values[column_id]
+                return data
+        except:
+            self.sock.close()   # safe in case of ctrl-c
+            raise
+        
+    def set_recorder_data_type(self,*motor_data_type):
+        """
+        Configure the data recorder
+
+        Args:
+          motor_data_type should be a list of tuple with motor and datatype
+          i.e: motor_data_type=[px,px.CURRENT_POSITION_OF_AXIS,
+                                py,py.CURRENT_POSITION_OF_AXIS]
+        """
+        nb_recorder_table = len(motor_data_type) / 2
+        if nb_recorder_table * 2 != len(motor_data_type):
+            raise RuntimeError("Argument must be grouped by 2 "
+                               "(motor1,data_type1,motor2,data_type2...)")
+        
+        self.command("SPA 1 0x16000300 %d" % nb_recorder_table)
+        max_nb_recorder = int(self.command("TNR?"))
+        if nb_recorder_table > max_nb_recorder:
+            raise RuntimeError("Device %s too many recorder data, can only record %d" %
+                               (self.name,max_nb_recorder))
+        cmd = "DRC "
+        cmd += ' '.join(('%d %s %d' % (rec_id+1,motor.channel,data_type)
+                         for rec_id,(motor,data_type) in
+                         enumerate(grouped(motor_data_type,2))))
+        self.command(cmd)
+
+    def start_recording(self, trigger_source, value=0, recorder_rate=None):
+        """
+        start recording data according to what was asked to record.
+        @see set_recorder_data_type
+
+        Args:
+          - trigger_source could be WAVEFORM,MOTION,EXTERNAL,IMMEDIATELY
+          - value for EXTERNAL value is the trigger input line (0 mean all)
+          - recorder_rate if None max speed otherwise the period in seconds
+        """
+        if trigger_source not in (self.WAVEFORM,self.MOTION,
+                                  self.EXTERNAL,self.IMMEDIATELY):
+            raise RuntimeError("Device %s trigger source can only be:"
+                               "WAVEFORM,MOTION,EXTERNAL or IMMEDIATELY")
+
+        if recorder_rate is not None:
+            cycle_time = float(self.command("SPA? 1 0xe000200"))
+            rate = int(recorder_rate / cycle_time) # should be faster than asked
+        else:
+            rate = 1
+
+        self.command("RTR %d" % rate)
+        
+        nb_recorder = int(self.command("TNR?"))
+        cmd = "DRT "
+        cmd += ' '.join(('%d %d %d' % (rec_id,trigger_source,value)
+                         for rec_id in range(1,nb_recorder+1)))
+        self.command(cmd)
+
+    def get_recorder_data_rate(self):
+        """
+        return the rate of the data recording in seconds
+        """
+        cycle_time,rtr = self.command("SPA? 1 0xe000200\nRTR?",2)
+        return float(cycle_time) * int(rtr)
+    
     def _parse_reply(self, reply, args):
         args_pos = reply.find('=')
         if reply[:args_pos] != args: # weird

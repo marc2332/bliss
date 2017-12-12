@@ -544,8 +544,7 @@ def __initialize(args, db=None):
     bliss_dev_name = device_map['Bliss'][0]
 
     props = db.get_device_property(bliss_dev_name, ('session_name',))
-    session_name = props['session_name']
-    session_name = session_name if session_name else server_instance
+    session_name = props.get('session_name', [None])[0] or server_instance
 
     this_dir = os.path.dirname(os.path.abspath(__file__))
     suffix = '_ds.py'

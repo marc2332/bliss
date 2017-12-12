@@ -436,6 +436,25 @@ class PI_E712(Controller):
         """
         cycle_time,rtr = self.command("SPA? 1 0xe000200\nRTR?",2)
         return float(cycle_time) * int(rtr)
+
+    def output_position_gate(self, axis,
+                             position_1, position_2, output=1):
+        """
+        This program an external gate on the specified output.
+        If the motor position is in between the programmed positions,
+        the signal is high.
+
+        Args:
+          - output by default first external output
+        """
+        cmd = "CTO {0} 2 {1} {0} 3 3 {0} 5 {2} {0} 6 {3} {0} 7 1".\
+        format(output,axis.channel,position_1,position_2)
+        self.command(cmd)
+        error_id,error_msg = self.get_error()
+        if error_id:
+            errors = [self.name,error_id,error_msg]
+            raise RuntimeError("Device {0} error nb {1} => ({2})".format(*errors))
+
     
     def _parse_reply(self, reply, args):
         args_pos = reply.find('=')

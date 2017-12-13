@@ -1184,8 +1184,12 @@ def __create_tango_axis_class(axis):
 
         setattr(new_axis_class, fname, create_cmd(fname))
 
-        tin = types_conv_tab[t1]
-        tout = types_conv_tab[t2]
+        try:
+            tin = types_conv_tab[t1]
+            tout = types_conv_tab[t2]
+        except KeyError:
+            # skip incompatible command (multiple args, or multiple return values)
+            continue
 
         new_axis_class_class.cmd_list.update({fname: [[tin, ""], [tout, ""]]})
 

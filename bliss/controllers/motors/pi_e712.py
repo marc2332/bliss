@@ -141,6 +141,9 @@ class PI_E712(Controller):
         axis.MOTION=1
         axis.EXTERNAL=3
         axis.IMMEDIATELY=4
+
+        # supposed that we are on target on init
+        axis._last_on_target = True
         
     def read_position(self, axis):
         """
@@ -155,8 +158,12 @@ class PI_E712(Controller):
         Returns:
             - <position> : float : piezo position in Micro-meters or in Volts.
         """
-        _pos = self._get_target_pos(axis)
-        elog.debug("position setpoint read : %g" % _pos)
+        if axis._last_on_target:
+            _pos = self._get_target_pos(axis)
+            elog.debug("position read : %g" % _pos)
+        else:                   # if moving return real position
+            _pos = self._get_pos(axis)
+
 
         return _pos
 
@@ -557,7 +564,9 @@ class PI_E712(Controller):
         Returns On Target status (ONT? command).
         True/False
         """
-        return bool(int(self.command("ONT? %s" % axis.channel)))
+        last_on_target = bool(int(self.command("ONT? %s" % axis.channel)))
+        axis._last_on_target = last_on_target
+        return last_on_target
 
     def get_error(self):
         _error_number = int(self.sock.write_readline("ERR?\n"))

@@ -10,6 +10,7 @@ import sys
 from types import ModuleType
 import functools
 from treelib import Tree
+import tempfile
 
 from bliss import setup_globals
 from bliss.config import static
@@ -52,17 +53,17 @@ class _StringImporter(object):
         if not fullname in self._modules.keys():
             raise ImportError(fullname)
 
-        file_name = self._modules.get(fullname)
-        if file_name:
-            data_file = get_config_file(file_name)
+        filename = self._modules.get(fullname)
+        if filename:
+            s_code = get_config_file(filename)
         else:
-            file_name = '%s (__init__ memory)' % fullname
-            data_file = ''         # empty __init__.py
+            filename = '%s (__init__ memory)' % fullname
+            s_code = ''         # empty __init__.py
 
         new_module = sys.modules.get(fullname,
                                      ModuleType(fullname))
         new_module.__loader__ = self
-        module_filename = 'beacon://%s' % file_name
+        module_filename = 'beacon://%s' % filename
         new_module.__file__ = module_filename
         new_module.__name__ = fullname
         if file_name.find('__init__') > -1:
@@ -71,7 +72,7 @@ class _StringImporter(object):
         else:
             new_module.__package__ = fullname.rpartition('.')[0]
         sys.modules.setdefault(fullname, new_module)
-        c_code = compile(data_file, module_filename, 'exec')
+        c_code = compile(s_code, module_filename, 'exec')
         exec(c_code, new_module.__dict__)
         return new_module
 
@@ -100,24 +101,29 @@ def load_script(env_dict, script_module_name,
     elif isinstance(session, (str, unicode)):
         session = static.get_config().get(session)
 
+    importer = _StringImporter(session._scripts_module_path, session.name)
     module_name = '%s.%s.%s' % (_StringImporter.BASE_MODULE_NAMESPACE,
                                 session.name,
                                 os.path.splitext(script_module_name)[0])
+    filename = importer._modules.get(module_name)
+    if not filename:
+        raise RuntimeError("Cannot find module %s" % module_name)
 
-    if module_name not in sys.modules:
-        reload_module = False
+    s_code = get_config_file(filename)
+    with tempfile.NamedTemporaryFile(suffix=".py") as tmp_file:
+        tmp_file.write(s_code)
+        tmp_file.seek(0)
+        globals_dict = env_dict.copy()
 
-    try:
-        script_module = __import__(module_name, env_dict, {}, ['*'])
-    except Exception:
-        sys.excepthook(*sys.exc_info())
-    else:
-        if reload_module:
-            reload(script_module)
-        for k, v in script_module.__dict__.iteritems():
-            if k.startswith('_'):
-                continue
-            env_dict[k] = v
+        try:
+            execfile(tmp_file.name, globals_dict)
+        except Exception:
+            sys.excepthook(*sys.exc_info())
+    
+    for k in globals_dict.iterkeys():
+        if k.startswith('_'):
+            continue
+        env_dict[k] = globals_dict[k]
 
 
 class Session(object):
@@ -210,6 +216,10 @@ class Session(object):
     @property
     def synoptic_file(self):
         return self.__synoptic_file
+
+    @property
+    def _scripts_module_path(self):
+        return self.__scripts_module_path
 
     @property
     def object_names(self):

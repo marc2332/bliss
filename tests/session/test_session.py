@@ -22,6 +22,12 @@ def test_session_does_not_load_session(beacon):
   assert pytest.raises(AttributeError, getattr, setup_globals, "freddy")
   assert get_current() == session
 
+def test_session_does_not_contain_default_plugin_objs(beacon):
+  session = beacon.get("test_session")
+  session.setup()
+  assert beacon.get("refs_test")
+  assert pytest.raises(AttributeError, getattr, setup_globals, "refs_test")
+
 def test_session_exclude_objects(beacon):
   session = beacon.get("test_session")
   session.setup()

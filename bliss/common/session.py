@@ -225,8 +225,14 @@ class Session(object):
                 names_list.extend(child_session.object_names)
 
             if self.__config_objects_names is None:
-                names_list = [x for x in self.config.names_list
-                              if self.config.get_config(x).get('class', '').lower() != 'session']
+                names_list = list()
+                for name in self.config.names_list:
+                    cfg = self.config.get_config(name)
+                    if cfg.get('class', '').lower() == 'session':
+                      continue
+                    if cfg.get_inherited('plugin') == 'default':
+                      continue
+                    names_list.append(name)
             else:
                 names_list.extend(self.__config_objects_names[:])
                 #Check if other session in config-objects

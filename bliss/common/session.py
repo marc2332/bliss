@@ -86,7 +86,7 @@ def load_script(env_dict, script_module_name, session=None):
     """
     load a script name script_module_name and export all public
     (not starting with _) object and function in env_dict.
-    just print execption but not throwing it.
+    just print exception but not throwing it.
 
     Args:
     	env_dict (python dictionnary) where object will be exported

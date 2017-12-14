@@ -10,7 +10,6 @@ import sys
 from types import ModuleType
 import functools
 from treelib import Tree
-import tempfile
 
 from bliss import setup_globals
 from bliss.config import static
@@ -83,8 +82,7 @@ class _StringImporter(object):
         file_name = self._modules.get(fullname)
         return get_config_file(file_name) if file_name else ''
 
-def load_script(env_dict, script_module_name,
-                session=None, reload_module=True):
+def load_script(env_dict, script_module_name, session=None):
     """
     load a script name script_module_name and export all public
     (not starting with _) object and function in env_dict.
@@ -110,15 +108,12 @@ def load_script(env_dict, script_module_name,
         raise RuntimeError("Cannot find module %s" % module_name)
 
     s_code = get_config_file(filename)
-    with tempfile.NamedTemporaryFile(suffix=".py") as tmp_file:
-        tmp_file.write(s_code)
-        tmp_file.seek(0)
-        globals_dict = env_dict.copy()
-
-        try:
-            execfile(tmp_file.name, globals_dict)
-        except Exception:
-            sys.excepthook(*sys.exc_info())
+    c_code = compile(s_code, filename, 'exec')
+    globals_dict = env_dict.copy()
+    try:
+        exec(c_code, globals_dict)
+    except Exception:
+        sys.excepthook(*sys.exc_info())
     
     for k in globals_dict.iterkeys():
         if k.startswith('_'):
@@ -316,16 +311,12 @@ class Session(object):
 
         self._setup(env_dict)
 
-        env_dict['load_script'] = functools.partial(
-            load_script, env_dict)
-
-    def _setup(self, env_dict):
+    def _setup(self, env_dict, load_script=load_script):
         if self.name not in _SESSION_IMPORTERS:
             sys.meta_path.append(_StringImporter(self.__scripts_module_path, self.name))
             _SESSION_IMPORTERS.add(self.name)
 
-        env_dict['load_script'] = functools.partial(
-            load_script, env_dict, session=self, reload_module=False)
+        env_dict['load_script'] = functools.partial(load_script, env_dict)
 
         if self.setup_file is None:
             return
@@ -373,7 +364,7 @@ class Session(object):
             # interactive interpreter
             env_dict = main.__dict__
         else:
-            env_dict = setup_globals.__dict__
+            env_dict = globals()
         return env_dict
 
     def resetup(self, env_dict=None, verbose=False):

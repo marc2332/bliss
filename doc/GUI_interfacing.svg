@@ -1,0 +1,710 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="1122.5197"
+   height="793.70081"
+   id="svg2"
+   version="1.1"
+   inkscape:version="0.92.1 r15371"
+   sodipodi:docname="GUI_interfacing.svg">
+  <defs
+     id="defs4">
+    <marker
+       inkscape:stockid="Arrow1Mend"
+       orient="auto"
+       refY="0"
+       refX="0"
+       id="Arrow1Mend"
+       style="overflow:visible">
+      <path
+         id="path5096"
+         d="M -4.2666667,0 -6.4,2.1333333 1.0666667,0 -6.4,-2.1333333 Z"
+         style="fill-rule:evenodd;stroke:#000000;stroke-width:0.42666668pt"
+         inkscape:connector-curvature="0" />
+    </marker>
+    <marker
+       inkscape:stockid="Arrow1Mend"
+       orient="auto"
+       refY="0"
+       refX="0"
+       id="Arrow1Mend-9"
+       style="overflow:visible">
+      <path
+         inkscape:connector-curvature="0"
+         id="path5096-1"
+         d="M -4.2666667,0 -6.4,2.1333333 1.0666667,0 -6.4,-2.1333333 Z"
+         style="fill-rule:evenodd;stroke:#000000;stroke-width:0.42666668pt" />
+    </marker>
+    <marker
+       inkscape:stockid="Arrow1Mend"
+       orient="auto"
+       refY="0"
+       refX="0"
+       id="Arrow1Mend-7"
+       style="overflow:visible">
+      <path
+         inkscape:connector-curvature="0"
+         id="path5096-0"
+         d="M -4.2666667,0 -6.4,2.1333333 1.0666667,0 -6.4,-2.1333333 Z"
+         style="fill-rule:evenodd;stroke:#000000;stroke-width:0.42666668pt" />
+    </marker>
+    <marker
+       inkscape:stockid="Arrow1Mend"
+       orient="auto"
+       refY="0"
+       refX="0"
+       id="Arrow1Mend-3"
+       style="overflow:visible">
+      <path
+         inkscape:connector-curvature="0"
+         id="path5096-6"
+         d="M -4.2666667,0 -6.4,2.1333333 1.0666667,0 -6.4,-2.1333333 Z"
+         style="fill-rule:evenodd;stroke:#000000;stroke-width:0.42666668pt" />
+    </marker>
+    <marker
+       inkscape:stockid="Arrow1Mend"
+       orient="auto"
+       refY="0"
+       refX="0"
+       id="Arrow1Mend-6"
+       style="overflow:visible">
+      <path
+         inkscape:connector-curvature="0"
+         id="path5096-2"
+         d="M -4.2666667,0 -6.4,2.1333333 1.0666667,0 -6.4,-2.1333333 Z"
+         style="fill-rule:evenodd;stroke:#000000;stroke-width:0.42666668pt" />
+    </marker>
+    <marker
+       inkscape:stockid="Arrow1Mend"
+       orient="auto"
+       refY="0"
+       refX="0"
+       id="Arrow1Mend-73"
+       style="overflow:visible">
+      <path
+         inkscape:connector-curvature="0"
+         id="path5096-61"
+         d="M -4.2666667,0 -6.4,2.1333333 1.0666667,0 -6.4,-2.1333333 Z"
+         style="fill-rule:evenodd;stroke:#000000;stroke-width:0.42666668pt" />
+    </marker>
+    <marker
+       inkscape:stockid="Arrow1Mend"
+       orient="auto"
+       refY="0"
+       refX="0"
+       id="Arrow1Mend-93"
+       style="overflow:visible">
+      <path
+         inkscape:connector-curvature="0"
+         id="path5096-19"
+         d="M -4.2666667,0 -6.4,2.1333333 1.0666667,0 -6.4,-2.1333333 Z"
+         style="fill-rule:evenodd;stroke:#000000;stroke-width:0.42666668pt" />
+    </marker>
+    <marker
+       inkscape:stockid="Arrow1Mend"
+       orient="auto"
+       refY="0"
+       refX="0"
+       id="Arrow1Mend-4"
+       style="overflow:visible">
+      <path
+         inkscape:connector-curvature="0"
+         id="path5096-3"
+         d="M -4.2666667,0 -6.4,2.1333333 1.0666667,0 -6.4,-2.1333333 Z"
+         style="fill-rule:evenodd;stroke:#000000;stroke-width:0.42666668pt" />
+    </marker>
+    <marker
+       inkscape:stockid="Arrow1Mend"
+       orient="auto"
+       refY="0"
+       refX="0"
+       id="Arrow1Mend-49"
+       style="overflow:visible">
+      <path
+         inkscape:connector-curvature="0"
+         id="path5096-20"
+         d="M -4.2666667,0 -6.4,2.1333333 1.0666667,0 -6.4,-2.1333333 Z"
+         style="fill-rule:evenodd;stroke:#000000;stroke-width:0.42666668pt" />
+    </marker>
+    <marker
+       inkscape:stockid="Arrow1Mend"
+       orient="auto"
+       refY="0"
+       refX="0"
+       id="Arrow1Mend-2"
+       style="overflow:visible">
+      <path
+         inkscape:connector-curvature="0"
+         id="path5096-66"
+         d="M -4.2666667,0 -6.4,2.1333333 1.0666667,0 -6.4,-2.1333333 Z"
+         style="fill-rule:evenodd;stroke:#000000;stroke-width:0.42666668pt" />
+    </marker>
+    <marker
+       inkscape:stockid="Arrow1Mend"
+       orient="auto"
+       refY="0"
+       refX="0"
+       id="Arrow1Mend-71"
+       style="overflow:visible">
+      <path
+         inkscape:connector-curvature="0"
+         id="path5096-7"
+         d="M -4.2666667,0 -6.4,2.1333333 1.0666667,0 -6.4,-2.1333333 Z"
+         style="fill-rule:evenodd;stroke:#000000;stroke-width:0.42666668pt" />
+    </marker>
+  </defs>
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="0.9899495"
+     inkscape:cx="513.66462"
+     inkscape:cy="443.91657"
+     inkscape:document-units="px"
+     inkscape:current-layer="layer1"
+     showgrid="true"
+     showguides="true"
+     inkscape:guide-bbox="true"
+     inkscape:snap-grids="true"
+     inkscape:window-width="1940"
+     inkscape:window-height="1245"
+     inkscape:window-x="187"
+     inkscape:window-y="28"
+     inkscape:window-maximized="0">
+    <inkscape:grid
+       type="xygrid"
+       id="grid3005"
+       units="mm"
+       empspacing="5"
+       visible="true"
+       enabled="true"
+       snapvisiblegridlinesonly="true"
+       originx="0"
+       originy="0"
+       spacingx="1.0666667"
+       spacingy="1.0666667" />
+  </sodipodi:namedview>
+  <metadata
+     id="metadata7">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(0,-328.81888)">
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12.80000019px;line-height:0%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans';text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1.06666672"
+       x="434.64566"
+       y="385.51178"
+       id="text3007"><tspan
+         sodipodi:role="line"
+         id="tspan3009"
+         x="434.64566"
+         y="385.51178"
+         style="font-size:34.13333511px;line-height:1;stroke-width:1.06666672">GUI interfacing</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12.80000019px;line-height:0%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans';text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1.06666672"
+       x="359.05511"
+       y="839.05505"
+       id="text3015"><tspan
+         sodipodi:role="line"
+         id="tspan3017"
+         x="359.05511"
+         y="839.05505"
+         style="font-size:21.33333397px;line-height:1;stroke-width:1.06666672">REDIS</tspan><tspan
+         sodipodi:role="line"
+         x="359.05511"
+         y="860.38837"
+         id="tspan3019"
+         style="font-size:21.33333397px;line-height:1;stroke-width:1.06666672">DATABASE</tspan></text>
+    <g
+       id="g3206"
+       transform="translate(294.95756,46.595219)">
+      <rect
+         y="905.8457"
+         x="-30.390629"
+         height="132.28346"
+         width="566.92914"
+         id="rect4145"
+         style="fill:#ff85fb;fill-opacity:0.11627909;fill-rule:evenodd;stroke:#7b000c;stroke-width:3.20000005;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+      <text
+         id="text4915"
+         y="980.59473"
+         x="209.53217"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12.80000019px;line-height:0%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans';text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1.06666672"
+         xml:space="preserve"><tspan
+           y="980.59473"
+           x="209.53217"
+           id="tspan4917"
+           sodipodi:role="line"
+           style="font-size:21.33333397px;line-height:1;stroke-width:1.06666672">BLISS</tspan></text>
+    </g>
+    <path
+       style="fill:none;stroke:#000000;stroke-width:2.66666675;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;marker-end:url(#Arrow1Mend)"
+       d="M 415.74803,952.44092 V 876.85037"
+       id="path5081-2-9-0-6"
+       inkscape:connector-curvature="0"
+       sodipodi:nodetypes="cc" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12.80000019px;line-height:0%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans';text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1.06666672"
+       x="359.05511"
+       y="914.64563"
+       id="text5599-1"><tspan
+         sodipodi:role="line"
+         id="tspan5601-8"
+         x="359.05511"
+         y="914.64563"
+         style="font-size:12.80000019px;line-height:1;stroke-width:1.06666672">Publish</tspan></text>
+    <g
+       id="g5063-6-2"
+       transform="translate(-884.57508,43.613681)">
+      <g
+         id="g3297"
+         transform="translate(274.18141,-24.716044)">
+        <rect
+           style="fill:#000093;fill-opacity:0.11627909;fill-rule:evenodd;stroke:#00177b;stroke-width:3.20000005;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+           id="rect4145-6-7-6"
+           width="275.90546"
+           height="181.41733"
+           x="667.08661"
+           y="423.30707" />
+        <text
+           xml:space="preserve"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12.80000019px;line-height:0%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans';text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1.06666672"
+           x="737.86615"
+           y="453.5433"
+           id="text3025-5-1"><tspan
+             sodipodi:role="line"
+             id="tspan3027-3-8"
+             x="737.86615"
+             y="453.5433"
+             style="font-size:21.33333397px;line-height:1;stroke-width:1.06666672">TAURUS GUI</tspan></text>
+        <text
+           xml:space="preserve"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12.80000019px;line-height:0%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans';text-align:center;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1.06666672"
+           x="799.57629"
+           y="563.1496"
+           id="text4962-5-7"><tspan
+             sodipodi:role="line"
+             id="tspan4964-6-9"
+             x="799.57629"
+             y="563.1496"
+             style="font-size:12.80000019px;line-height:1.5;stroke-width:1.06666672">status</tspan><tspan
+             sodipodi:role="line"
+             x="799.57629"
+             y="582.34961"
+             id="tspan4996-2-2"
+             style="font-size:12.80000019px;line-height:1.5;stroke-width:1.06666672">SHUTTER IS : OPEN</tspan></text>
+        <g
+           id="g3285">
+          <rect
+             y="476.22043"
+             x="699.21259"
+             height="37.795242"
+             width="86.929108"
+             id="rect4966-3-1-2"
+             style="fill:#000093;fill-opacity:0.11627909;fill-rule:evenodd;stroke:#00177b;stroke-width:3.20000005;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+          <text
+             id="text4958-2-3"
+             y="493.37744"
+             x="742.51154"
+             style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12.80000019px;line-height:0%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans';text-align:center;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1.06666672"
+             xml:space="preserve"><tspan
+               y="493.37744"
+               x="742.51154"
+               id="tspan4960-7-7"
+               sodipodi:role="line"
+               style="font-size:12.80000019px;line-height:1;stroke-width:1.06666672">CLOSE</tspan><tspan
+               y="506.17743"
+               x="742.51154"
+               sodipodi:role="line"
+               id="tspan4998-0-5"
+               style="font-size:12.80000019px;line-height:1;stroke-width:1.06666672">the shutter</tspan></text>
+        </g>
+        <g
+           transform="translate(8.1380208e-6)"
+           id="g3291">
+          <text
+             id="text4954-3-2"
+             y="493.37744"
+             x="867.2359"
+             style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12.80000019px;line-height:0%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans';text-align:center;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1.06666672"
+             xml:space="preserve"><tspan
+               y="493.37744"
+               x="867.2359"
+               id="tspan4956-6-2"
+               sodipodi:role="line"
+               style="font-size:12.80000019px;line-height:1;stroke-width:1.06666672">OPEN</tspan><tspan
+               y="506.17743"
+               x="867.2359"
+               sodipodi:role="line"
+               id="tspan5000-0-8"
+               style="font-size:12.80000019px;line-height:1;stroke-width:1.06666672">the shutter</tspan></text>
+          <rect
+             y="476.22043"
+             x="823.93695"
+             height="37.795242"
+             width="86.929108"
+             id="rect4966-3-5-6-9"
+             style="fill:#000093;fill-opacity:0.11627909;fill-rule:evenodd;stroke:#00177b;stroke-width:3.20000005;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+        </g>
+      </g>
+    </g>
+    <g
+       id="g5063-6-2-5"
+       transform="translate(-525.51997,43.613681)">
+      <g
+         id="g3297-0"
+         transform="translate(274.18141,-24.716044)">
+        <rect
+           style="fill:#f1774f;fill-opacity:0.11627909;fill-rule:evenodd;stroke:#00177b;stroke-width:3.20000005;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+           id="rect4145-6-7-6-3"
+           width="275.90546"
+           height="181.41733"
+           x="667.08661"
+           y="423.30707" />
+        <text
+           xml:space="preserve"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12.80000019px;line-height:0%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans';text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1.06666672"
+           x="758.50287"
+           y="453.5433"
+           id="text3025-5-1-6"><tspan
+             sodipodi:role="line"
+             id="tspan3027-3-8-1"
+             x="758.50287"
+             y="453.5433"
+             style="font-size:21.33333397px;line-height:1;stroke-width:1.06666672">WEB GUI</tspan></text>
+        <text
+           xml:space="preserve"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12.80000019px;line-height:0%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans';text-align:center;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1.06666672"
+           x="799.57629"
+           y="563.1496"
+           id="text4962-5-7-0"><tspan
+             sodipodi:role="line"
+             id="tspan4964-6-9-6"
+             x="799.57629"
+             y="563.1496"
+             style="font-size:12.80000019px;line-height:1.5;stroke-width:1.06666672">status</tspan><tspan
+             sodipodi:role="line"
+             x="799.57629"
+             y="582.34961"
+             id="tspan4996-2-2-3"
+             style="font-size:12.80000019px;line-height:1.5;stroke-width:1.06666672">SHUTTER IS : OPEN</tspan></text>
+        <g
+           id="g3285-2">
+          <rect
+             y="476.22043"
+             x="699.21259"
+             height="37.795242"
+             width="86.929108"
+             id="rect4966-3-1-2-0"
+             style="fill:#f1774f;fill-opacity:0.11627909;fill-rule:evenodd;stroke:#00177b;stroke-width:3.20000005;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+          <text
+             id="text4958-2-3-6"
+             y="493.37744"
+             x="742.51154"
+             style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12.80000019px;line-height:0%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans';text-align:center;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1.06666672"
+             xml:space="preserve"><tspan
+               y="493.37744"
+               x="742.51154"
+               id="tspan4960-7-7-1"
+               sodipodi:role="line"
+               style="font-size:12.80000019px;line-height:1;stroke-width:1.06666672">CLOSE</tspan><tspan
+               y="506.17743"
+               x="742.51154"
+               sodipodi:role="line"
+               id="tspan4998-0-5-5"
+               style="font-size:12.80000019px;line-height:1;stroke-width:1.06666672">the shutter</tspan></text>
+        </g>
+        <g
+           transform="translate(8.1380208e-6)"
+           id="g3291-5">
+          <text
+             id="text4954-3-2-4"
+             y="493.37744"
+             x="867.2359"
+             style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12.80000019px;line-height:0%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans';text-align:center;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1.06666672"
+             xml:space="preserve"><tspan
+               y="493.37744"
+               x="867.2359"
+               id="tspan4956-6-2-7"
+               sodipodi:role="line"
+               style="font-size:12.80000019px;line-height:1;stroke-width:1.06666672">OPEN</tspan><tspan
+               y="506.17743"
+               x="867.2359"
+               sodipodi:role="line"
+               id="tspan5000-0-8-6"
+               style="font-size:12.80000019px;line-height:1;stroke-width:1.06666672">the shutter</tspan></text>
+          <rect
+             y="476.22043"
+             x="823.93695"
+             height="37.795242"
+             width="86.929108"
+             id="rect4966-3-5-6-9-5"
+             style="fill:#f1774f;fill-opacity:0.11627909;fill-rule:evenodd;stroke:#00177b;stroke-width:3.20000005;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+        </g>
+      </g>
+    </g>
+    <g
+       id="g5063-6-2-6"
+       transform="translate(-166.46484,43.613681)">
+      <g
+         id="g3297-9"
+         transform="translate(274.18141,-24.716044)">
+        <rect
+           style="fill:#e4ff63;fill-opacity:0.11627909;fill-rule:evenodd;stroke:#00177b;stroke-width:3.20000005;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+           id="rect4145-6-7-6-37"
+           width="275.90546"
+           height="181.41733"
+           x="667.08661"
+           y="423.30707" />
+        <text
+           xml:space="preserve"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12.80000019px;line-height:0%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans';text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1.06666672"
+           x="754.74768"
+           y="453.5433"
+           id="text3025-5-1-4"><tspan
+             sodipodi:role="line"
+             id="tspan3027-3-8-5"
+             x="754.74768"
+             y="453.5433"
+             style="font-size:21.33333397px;line-height:1;stroke-width:1.06666672">PyQT GUI</tspan></text>
+        <text
+           xml:space="preserve"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12.80000019px;line-height:0%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans';text-align:center;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1.06666672"
+           x="799.57629"
+           y="563.1496"
+           id="text4962-5-7-2"><tspan
+             sodipodi:role="line"
+             id="tspan4964-6-9-5"
+             x="799.57629"
+             y="563.1496"
+             style="font-size:12.80000019px;line-height:1.5;stroke-width:1.06666672">status</tspan><tspan
+             sodipodi:role="line"
+             x="799.57629"
+             y="582.34961"
+             id="tspan4996-2-2-4"
+             style="font-size:12.80000019px;line-height:1.5;stroke-width:1.06666672">SHUTTER IS : OPEN</tspan></text>
+        <g
+           id="g3285-7">
+          <rect
+             y="476.22043"
+             x="699.21259"
+             height="37.795242"
+             width="86.929108"
+             id="rect4966-3-1-2-4"
+             style="fill:#966b03;fill-opacity:0.11627909;fill-rule:evenodd;stroke:#00177b;stroke-width:3.20000005;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+          <text
+             id="text4958-2-3-4"
+             y="493.37744"
+             x="742.51154"
+             style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12.80000019px;line-height:0%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans';text-align:center;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1.06666672"
+             xml:space="preserve"><tspan
+               y="493.37744"
+               x="742.51154"
+               id="tspan4960-7-7-3"
+               sodipodi:role="line"
+               style="font-size:12.80000019px;line-height:1;stroke-width:1.06666672">CLOSE</tspan><tspan
+               y="506.17743"
+               x="742.51154"
+               sodipodi:role="line"
+               id="tspan4998-0-5-0"
+               style="font-size:12.80000019px;line-height:1;stroke-width:1.06666672">the shutter</tspan></text>
+        </g>
+        <g
+           transform="translate(8.1380208e-6)"
+           id="g3291-7">
+          <text
+             id="text4954-3-2-8"
+             y="493.37744"
+             x="867.2359"
+             style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12.80000019px;line-height:0%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans';text-align:center;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1.06666672"
+             xml:space="preserve"><tspan
+               y="493.37744"
+               x="867.2359"
+               id="tspan4956-6-2-6"
+               sodipodi:role="line"
+               style="font-size:12.80000019px;line-height:1;stroke-width:1.06666672">OPEN</tspan><tspan
+               y="506.17743"
+               x="867.2359"
+               sodipodi:role="line"
+               id="tspan5000-0-8-8"
+               style="font-size:12.80000019px;line-height:1;stroke-width:1.06666672">the shutter</tspan></text>
+          <rect
+             y="476.22043"
+             x="823.93695"
+             height="37.795242"
+             width="86.929108"
+             id="rect4966-3-5-6-9-8"
+             style="fill:#966b03;fill-opacity:0.11627909;fill-rule:evenodd;stroke:#00177b;stroke-width:3.20000005;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+        </g>
+      </g>
+    </g>
+    <path
+       style="fill:none;stroke:#000000;stroke-width:3.20000005;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:9.6, 3.2;stroke-dashoffset:0;stroke-opacity:1;marker-end:url(#Arrow1Mend)"
+       d="M 434.64567,820.15746 925.98426,668.97635 v -60.47244"
+       id="path5081-2-6-4"
+       inkscape:connector-curvature="0"
+       sodipodi:nodetypes="ccc" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12.80000019px;line-height:0%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans';text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1.06666672"
+       x="888.18903"
+       y="831.49603"
+       id="text3021-6-0"><tspan
+         sodipodi:role="line"
+         id="tspan3023-2-4"
+         x="888.18903"
+         y="831.49603"
+         style="font-size:21.33333397px;line-height:1;stroke-width:1.06666672">DIRECT </tspan><tspan
+         sodipodi:role="line"
+         x="888.18903"
+         y="852.82935"
+         id="tspan5061-8"
+         style="font-size:21.33333397px;line-height:1;stroke-width:1.06666672">LIBRARY CALL</tspan></text>
+    <path
+       style="fill:none;stroke:#000000;stroke-width:2.66666675;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;marker-end:url(#Arrow1Mend)"
+       d="M 1001.5748,532.91337 V 706.77163 L 737.00787,895.74801 v 56.69291"
+       id="path5081-2-9-0-6-4-1-2"
+       inkscape:connector-curvature="0"
+       sodipodi:nodetypes="cccc" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12.80000019px;line-height:0%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans';text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1.06666672"
+       x="642.51965"
+       y="767.24408"
+       id="text5599-7"><tspan
+         sodipodi:role="line"
+         id="tspan5601-2"
+         x="642.51965"
+         y="767.24408"
+         style="font-size:12.80000019px;line-height:1;stroke-width:1.06666672">event</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12.80000019px;line-height:0%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans';text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1.06666672"
+       x="720.5553"
+       y="380.53818"
+       id="text3021-4-2"><tspan
+         sodipodi:role="line"
+         id="tspan3023-7-8"
+         x="720.5553"
+         y="380.53818"
+         style="font-size:21.33333397px;line-height:1;stroke-width:1.06666672">???</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12.80000019px;line-height:0%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans';text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1.06666672"
+       x="112.5553"
+       y="689.87152"
+       id="text3021-4-4"><tspan
+         sodipodi:role="line"
+         id="tspan3023-7-7"
+         x="112.5553"
+         y="689.87152"
+         style="font-size:21.33333397px;line-height:1;stroke-width:1.06666672">???</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12.80000019px;line-height:0%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans';text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1.06666672"
+       x="907.73651"
+       y="972.26929"
+       id="text3021-4-24"><tspan
+         sodipodi:role="line"
+         id="tspan3023-7-0"
+         x="907.73651"
+         y="972.26929"
+         style="font-size:21.33333397px;line-height:1;stroke-width:1.06666672">concurential </tspan><tspan
+         sodipodi:role="line"
+         x="907.73651"
+         y="993.6026"
+         style="font-size:21.33333397px;line-height:1;stroke-width:1.06666672"
+         id="tspan4826">access ???</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12.80000019px;line-height:0%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans';text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1.06666672"
+       x="144.5553"
+       y="828.53821"
+       id="text3021-4-6"><tspan
+         sodipodi:role="line"
+         id="tspan3023-7-2"
+         x="144.5553"
+         y="828.53821"
+         style="font-size:21.33333397px;line-height:1;stroke-width:1.06666672">???</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12.80000019px;line-height:0%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans';text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1.06666672"
+       x="208.5553"
+       y="711.20483"
+       id="text3021-4-0"><tspan
+         sodipodi:role="line"
+         id="tspan3023-7-81"
+         x="208.5553"
+         y="711.20483"
+         style="font-size:21.33333397px;line-height:1;stroke-width:1.06666672">???</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12.80000019px;line-height:0%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans';text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1.06666672"
+       x="27.221964"
+       y="913.87152"
+       id="text3021-4-3"><tspan
+         sodipodi:role="line"
+         id="tspan3023-7-1"
+         x="27.221964"
+         y="913.87152"
+         style="font-size:21.33333397px;line-height:1;stroke-width:1.06666672">???</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12.80000019px;line-height:0%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans';text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1.06666672"
+       x="123.22197"
+       y="1052.5382"
+       id="text3021-4-1"><tspan
+         sodipodi:role="line"
+         id="tspan3023-7-03"
+         x="123.22197"
+         y="1052.5382"
+         style="font-size:21.33333397px;line-height:1;stroke-width:1.06666672">???</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12.80000019px;line-height:0%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans';text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1.06666672"
+       x="197.88864"
+       y="935.20483"
+       id="text3021-4-40"><tspan
+         sodipodi:role="line"
+         id="tspan3023-7-3"
+         x="197.88864"
+         y="935.20483"
+         style="font-size:21.33333397px;line-height:1;stroke-width:1.06666672">???</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12.80000019px;line-height:0%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans';text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1.06666672"
+       x="69.888634"
+       y="785.87152"
+       id="text3021-4-91"><tspan
+         sodipodi:role="line"
+         id="tspan3023-7-96"
+         x="69.888634"
+         y="785.87152"
+         style="font-size:21.33333397px;line-height:1;stroke-width:1.06666672">???</tspan></text>
+  </g>
+</svg>

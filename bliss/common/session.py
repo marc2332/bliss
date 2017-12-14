@@ -65,7 +65,7 @@ class _StringImporter(object):
         module_filename = 'beacon://%s' % filename
         new_module.__file__ = module_filename
         new_module.__name__ = fullname
-        if file_name.find('__init__') > -1:
+        if filename.find('__init__') > -1:
             new_module.__path__ = []
             new_module.__package__ = fullname
         else:
@@ -79,8 +79,8 @@ class _StringImporter(object):
         if not fullname in self._modules.keys():
             raise ImportError(fullname)
 
-        file_name = self._modules.get(fullname)
-        return get_config_file(file_name) if file_name else ''
+        filename = self._modules.get(fullname)
+        return get_config_file(filename) if filename else ''
 
 def load_script(env_dict, script_module_name, session=None):
     """

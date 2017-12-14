@@ -72,13 +72,15 @@ def test_load_script(beacon, capsys):
   assert env_dict.get("test_func") is not None 
 
   from bliss.session.test_session5 import script3
-  assert script3.test_func == env_dict.get("test_func")
-  load_script("script1")
-  from bliss.session.test_session4 import script1
-  assert script1.visible_func == env_dict.get("visible_func")
+  assert script3.test_func
 
   env_dict = dict()
   session = beacon.get("test_session4")
   session.setup(env_dict)
   assert 'RuntimeError' in capsys.readouterr()[1]
 
+def test_load_script_namespace(beacon):
+  env_dict = dict()
+  session = beacon.get("test_session4")
+  session.setup(env_dict)
+  assert env_dict['a'] == 2

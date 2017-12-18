@@ -11,3 +11,4 @@ How Tos
     howto_ct2
     howto_emulator
     howto_motion_hook
+    howto_session

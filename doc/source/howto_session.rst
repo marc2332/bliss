@@ -1,10 +1,9 @@
-
 .. _bliss-session-how-to:
 
 Bliss session how to
 ====================
 
-This chapters explains::
+This chapter explains::
  * how to create a BLISS custom session (named *eh1* in this example).
  * how to create a setup file to configure your session.
 
@@ -46,7 +45,7 @@ Create your python setup file (ex: ``eh1_setup.py``):
 
 Then you can start your session::
 
-    (bliss) pcsht:~ % bliss -s eh1
+    % bliss -s eh1
                            __         __   __
                           |__) |   | /__` /__`
                           |__) |__ | .__/ .__/
@@ -60,7 +59,7 @@ Then you can start your session::
     Initializing 'pzth`
     Initializing 'simul_mca`
     Initializing 'pzth_enc`
-    hello eh1 !!
+    Hello eh1 session !!
     Done.
 
     EH1 [1]:
@@ -118,7 +117,7 @@ Load script file from the setup of your session::
 
   % cat ~/local/beamline_configuration/sessions/eh1_setup.py
   load_script("eh1_alignments")
-  print "hello eh1 session !!"
+  print "Hello eh1 session !!"
 
 Now, ``eh1_align()`` script is available in *eh1* session:
 

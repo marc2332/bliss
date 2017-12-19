@@ -340,6 +340,12 @@ class PI_E712(Controller):
         else:
             self.sock.write(cmd + '\n')
 
+    def get_data_len(self):
+        """
+        return how many point you can get from recorder
+        """
+        return int(self.command("DRL? 1"))
+
     def get_data(self, from_event_id=0, npoints=None, rec_table_id=None):
         """
         retrieved store data as a numpy structured array,

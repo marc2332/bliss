@@ -22,22 +22,6 @@ LIMA_DTYPE = {(0, 2): numpy.uint16,
               (1, 1): numpy.int8}
 
 
-class LimaImageChannel(AcquisitionChannel):
-    def __init__(self):
-        AcquisitionChannel.__init__(self, 'image', None, (), reference=True)
-
-    def emit(self, image_ref):
-        """
-        Emit the new image reference to **LimaImageChannelDataNode**
-
-        This is called when there is a new Lima ImageStatus event.
-        """
-        dispatcher.send("new_data", self, dict(image_ref)) #local_dict)
- 
-    def data_node(self, parent_node):
-        return _get_or_create_node(self.name, "lima", parent_node, shape=self.shape, dtype=self.dtype)
-
-
 class LimaAcquisitionMaster(AcquisitionMaster):
     def __init__(self, device,
                  acq_nb_frames=1, acq_expo_time=1,
@@ -67,7 +51,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
                                    trigger_type=trigger_type,
                                    prepare_once=prepare_once, start_once=start_once)
 
-        self._image_channel = LimaImageChannel()
+        self._image_channel = AcquisitionChannel('image', None, (), reference=True, data_node_type='lima')
         self.channels.append(self._image_channel)
 
         self.save_flag = save_flag

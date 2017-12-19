@@ -30,12 +30,14 @@ class AcquisitionChannelList(list):
 
 
 class AcquisitionChannel(object):
-    def __init__(self, name, dtype, shape, description=None, reference=False):
+    def __init__(self, name, dtype, shape, description=None, reference=False, data_node_type="channel"):
         self.__name = name
         self.__dtype = dtype
         self.__shape = shape
         self.__reference = reference
         self.__description = dict()
+        self.__data_node_type = data_node_type
+
         if isinstance(description, dict):
             self.__description.update(description)
 
@@ -93,4 +95,4 @@ class AcquisitionChannel(object):
                                             "reference": self.reference })
 
     def data_node(self, parent_node):
-        return _get_or_create_node(self.name, "channel", parent_node, shape=self.shape, dtype=self.dtype)
+        return _get_or_create_node(self.name, self.__data_node_type, parent_node, shape=self.shape, dtype=self.dtype)

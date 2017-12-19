@@ -438,6 +438,13 @@ class Icepap(Controller):
                 _ackcommand(self._cnx, "%d:POS INPOS 0" % address)
             _ackcommand(self._cnx,"%d:LTRACK %s" % (address,mode))
         
+    @object_method(types_info=("float", "None"))
+    def blink(self, axis, second=3.):
+        """
+        Blink axis driver
+        """
+        _command(self._cnx,"%d:BLINK %f" % (axis.address, second))
+
     def reset(self):
         _command(self._cnx,"RESET")
 

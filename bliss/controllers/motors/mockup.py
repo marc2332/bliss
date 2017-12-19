@@ -65,22 +65,31 @@ class Mockup(Controller):
         for axis_name, axis in self.axes.iteritems():
             axis.settings.set('init_count', 0)
 
-            axis.__vel = None
-            axis.__acc = None
-
     """
     Axes initialization actions.
     """
     def initialize_axis(self, axis):
         dial_pos = 0
-        if axis.config.get("persistent_position", bool, 
-                           default=False, inherited=True):
+        if True:
             try:
                 dial_pos = axis.settings.get("dial_position")
                 if dial_pos is None:
                     dial_pos = 0 # init
             except:
                 pass
+
+            try:
+                vel = axis.settings.get("velocity")
+            except:
+                vel = None
+            
+            try:
+                acc = axis.settings.get("acceleration")
+            except:
+                acc = None
+        
+            axis.__vel = vel
+            axis.__acc = acc
 
         def set_pos(move_done, axis=axis):
             if move_done:

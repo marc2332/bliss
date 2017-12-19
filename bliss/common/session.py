@@ -52,26 +52,26 @@ class _StringImporter(object):
         if not fullname in self._modules.keys():
             raise ImportError(fullname)
 
-        file_name = self._modules.get(fullname)
-        if file_name:
-            data_file = get_config_file(file_name)
+        filename = self._modules.get(fullname)
+        if filename:
+            s_code = get_config_file(filename)
         else:
-            file_name = '%s (__init__ memory)' % fullname
-            data_file = ''         # empty __init__.py
+            filename = '%s (__init__ memory)' % fullname
+            s_code = ''         # empty __init__.py
 
         new_module = sys.modules.get(fullname,
                                      ModuleType(fullname))
         new_module.__loader__ = self
-        module_filename = 'beacon://%s' % file_name
+        module_filename = 'beacon://%s' % filename
         new_module.__file__ = module_filename
         new_module.__name__ = fullname
-        if file_name.find('__init__') > -1:
+        if filename.find('__init__') > -1:
             new_module.__path__ = []
             new_module.__package__ = fullname
         else:
             new_module.__package__ = fullname.rpartition('.')[0]
         sys.modules.setdefault(fullname, new_module)
-        c_code = compile(data_file, module_filename, 'exec')
+        c_code = compile(s_code, module_filename, 'exec')
         exec(c_code, new_module.__dict__)
         return new_module
 
@@ -79,15 +79,14 @@ class _StringImporter(object):
         if not fullname in self._modules.keys():
             raise ImportError(fullname)
 
-        file_name = self._modules.get(fullname)
-        return get_config_file(file_name) if file_name else ''
+        filename = self._modules.get(fullname)
+        return get_config_file(filename) if filename else ''
 
-def load_script(env_dict, script_module_name,
-                session=None, reload_module=True):
+def load_script(env_dict, script_module_name, session=None):
     """
     load a script name script_module_name and export all public
     (not starting with _) object and function in env_dict.
-    just print execption but not throwing it.
+    just print exception but not throwing it.
 
     Args:
     	env_dict (python dictionnary) where object will be exported
@@ -100,24 +99,26 @@ def load_script(env_dict, script_module_name,
     elif isinstance(session, (str, unicode)):
         session = static.get_config().get(session)
 
+    importer = _StringImporter(session._scripts_module_path, session.name)
     module_name = '%s.%s.%s' % (_StringImporter.BASE_MODULE_NAMESPACE,
                                 session.name,
                                 os.path.splitext(script_module_name)[0])
+    filename = importer._modules.get(module_name)
+    if not filename:
+        raise RuntimeError("Cannot find module %s" % module_name)
 
-    if module_name not in sys.modules:
-        reload_module = False
-
+    s_code = get_config_file(filename)
+    c_code = compile(s_code, filename, 'exec')
+    globals_dict = env_dict.copy()
     try:
-        script_module = __import__(module_name, env_dict, {}, ['*'])
+        exec(c_code, globals_dict)
     except Exception:
         sys.excepthook(*sys.exc_info())
-    else:
-        if reload_module:
-            reload(script_module)
-        for k, v in script_module.__dict__.iteritems():
-            if k.startswith('_'):
-                continue
-            env_dict[k] = v
+    
+    for k in globals_dict.iterkeys():
+        if k.startswith('_'):
+            continue
+        env_dict[k] = globals_dict[k]
 
 
 class Session(object):
@@ -212,6 +213,10 @@ class Session(object):
         return self.__synoptic_file
 
     @property
+    def _scripts_module_path(self):
+        return self.__scripts_module_path
+
+    @property
     def object_names(self):
         if self.__objects_names is None:
             names_list = list()
@@ -220,8 +225,14 @@ class Session(object):
                 names_list.extend(child_session.object_names)
 
             if self.__config_objects_names is None:
-                names_list = [x for x in self.config.names_list
-                              if self.config.get_config(x).get('class', '').lower() != 'session']
+                names_list = list()
+                for name in self.config.names_list:
+                    cfg = self.config.get_config(name)
+                    if cfg.get('class', '').lower() == 'session':
+                      continue
+                    if cfg.get_inherited('plugin') == 'default':
+                      continue
+                    names_list.append(name)
             else:
                 names_list.extend(self.__config_objects_names[:])
                 #Check if other session in config-objects
@@ -306,16 +317,12 @@ class Session(object):
 
         self._setup(env_dict)
 
-        env_dict['load_script'] = functools.partial(
-            load_script, env_dict)
-
-    def _setup(self, env_dict):
+    def _setup(self, env_dict, load_script=load_script):
         if self.name not in _SESSION_IMPORTERS:
             sys.meta_path.append(_StringImporter(self.__scripts_module_path, self.name))
             _SESSION_IMPORTERS.add(self.name)
 
-        env_dict['load_script'] = functools.partial(
-            load_script, env_dict, session=self, reload_module=False)
+        env_dict['load_script'] = functools.partial(load_script, env_dict)
 
         if self.setup_file is None:
             return
@@ -363,7 +370,7 @@ class Session(object):
             # interactive interpreter
             env_dict = main.__dict__
         else:
-            env_dict = setup_globals.__dict__
+            env_dict = globals()
         return env_dict
 
     def resetup(self, env_dict=None, verbose=False):

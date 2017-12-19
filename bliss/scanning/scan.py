@@ -177,7 +177,7 @@ class Scan(object):
         This class publish data and trig the writer if any.
 
         chain -- acquisition chain you want to use for this scan.
-        name -- usually the scan name if None set default name *scan"
+        name -- scan name, if None set default name *scan"
         parent -- the parent is the root node of the data tree.
         usually the parent is a Container like to a session,sample,experiment...
         i.e: parent = Container('eh3')

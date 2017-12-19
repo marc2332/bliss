@@ -253,19 +253,14 @@ class LimaImageChannelDataNode(DataNode):
                              to_index if to_index is not None else from_index + 1)
 
     def store(self, signal, event_dict):
-        if signal == 'new_ref':
-            local_dict = dict(event_dict)
-            data_type = local_dict.pop('type')
-            if data_type == 'lima/image':
-                self._merge_store.update_status(event_dict)
-        elif signal == 'new_data':
-            local_dict = dict(event_dict)
-            data_type = local_dict.pop('type')
-            if data_type == 'lima/parameters':
-                self.add_parameters(local_dict)
-            elif data_type == 'lima/server_url':
-                self.set_server_url(local_dict['url'])
-
+        desc = event_dict['description']
+        if desc.pop('new_acquisition', False):
+            url = desc.pop('server_url')
+            self.set_server_url(url)
+            self.add_parameters(desc)
+        else:
+            self._merge_store.update_status(event_dict['data'])
+            
     def set_server_url(self, url):
         """set the server url and calculate an
         unique id for this acquisition
@@ -281,12 +276,11 @@ class LimaImageChannelDataNode(DataNode):
 
     def get_file_references(self):
         """
-        this methode should retrives all files
-        references for this data set
+        Retrieve all files references for this data set
         """
         # take the last in list because it's should be the final
         final_params = self.params[-1]
-        # in that case only one reference will be return
+        # in that case only one reference will be returned
         overwrite_policy = final_params['overwritePolicy'].lower()
         if overwrite_policy == 'multiset':
             last_file_number = final_params['nextNumber'] + 1
@@ -319,3 +313,4 @@ class LimaImageChannelDataNode(DataNode):
         if url is not None:
             db_name.append(url)
         return db_name
+

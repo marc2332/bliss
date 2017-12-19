@@ -35,7 +35,7 @@ class AcquisitionChannel(object):
         self.__dtype = dtype
         self.__shape = shape
         self.__reference = reference
-        self.__description = { 'reference': reference }
+        self.__description = dict()
         if isinstance(description, dict):
             self.__description.update(description)
 
@@ -84,15 +84,13 @@ class AcquisitionChannel(object):
         else:
             raise ValueError("Channel value does not have the right dimension or shape.")
 
-        if self.reference:
-            pass
-        else:
-            self.__description['dtype'] = self.dtype
-            self.__description['shape'] = self.shape
-            dispatcher.send("new_data", self, { "name": self.name,
-                                                "description": self.__description,
-                                                "data": data,
-                                                "channel": self })
+        self.__description['dtype'] = self.dtype
+        self.__description['shape'] = self.shape
+        dispatcher.send("new_data", self, { "name": self.name,
+                                            "description": self.__description,
+                                            "data": data,
+                                            "channel": self,
+                                            "reference": self.reference })
 
     def data_node(self, parent_node):
         return _get_or_create_node(self.name, "channel", parent_node, shape=self.shape, dtype=self.dtype)

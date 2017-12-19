@@ -26,40 +26,17 @@ class LimaImageChannel(AcquisitionChannel):
     def __init__(self):
         AcquisitionChannel.__init__(self, 'image', None, (), reference=True)
 
-    def emit(self, values):
+    def emit(self, image_ref):
         """
-        Should not use this method, look for emit_xxx instead
-        """
-        raise RuntimeError("Shouldn't use this method")
+        Emit the new image reference to **LimaImageChannelDataNode**
 
-    def emit_parameters(self, parameters):
+        This is called when there is a new Lima ImageStatus event.
         """
-        Emit lima acquisition parameters to **LimaImageChannelDataNode**
-        """
-        local_dict = dict(parameters)
-        local_dict['type'] = 'lima/parameters'
-        dispatcher.send("new_data", self, local_dict)
-
-    def start_new_acquisition(self, url):
-        """
-        It will emit the server url to **LimaImageChannelDataNode**.
-        This method should be call just before the start of Lima
-        device.
-        """
-        dispatcher.send("new_data", self, {'type' : 'lima/server_url',
-                                           'url' : url})
-
-    def emit_reference(self, image_ref):
-        """
-        It will emit the new image reference to **LimaImageChannelDataNode**
-        This should be called when there is a new Lima ImageStatus event.
-        """
-        local_dict = dict(image_ref)
-        local_dict['type'] = 'lima/image'
-        dispatcher.send("new_ref", self, local_dict)
+        dispatcher.send("new_data", self, dict(image_ref)) #local_dict)
  
     def data_node(self, parent_node):
         return _get_or_create_node(self.name, "lima", parent_node, shape=self.shape, dtype=self.dtype)
+
 
 class LimaAcquisitionMaster(AcquisitionMaster):
     def __init__(self, device,
@@ -112,9 +89,13 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             self.parameters.setdefault('saving_mode', 'MANUAL')
 
     def prepare(self):
+        self._image_channel.description.update(self.parameters) 
+
         for param_name, param_value in self.parameters.iteritems():
             setattr(self.device, param_name, param_value)
+
         self.device.prepareAcq()
+
         signed, depth, w, h = self.device.image_sizes
         self._image_channel.dtype = LIMA_DTYPE[(signed, depth)]
         self._image_channel.shape = (h, w)
@@ -124,8 +105,9 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         if self._reading_task:
             self._reading_task.kill()
             self._reading_task = None
-        self._image_channel.start_new_acquisition(self.device.dev_name())
-
+        self._image_channel.description.update({ 'server_url': self.device.dev_name(),
+                                                 'new_acquisition': True })
+                                                 
     def start(self):
         if self.trigger_type == AcquisitionMaster.SOFTWARE:
             return
@@ -167,12 +149,10 @@ class LimaAcquisitionMaster(AcquisitionMaster):
                                                   self.device.read_attributes(attr_names))}
 
     def reading(self):
-        self._image_channel.emit_parameters(self.parameters)
-
         while self.device.acq_status.lower() == 'running':
-            self._image_channel.emit_reference(self._get_lima_status())
+            self._image_channel.emit(self._get_lima_status())
             gevent.sleep(max(self.parameters['acq_expo_time'] / 10.0, 10e-3))
-        self._image_channel.emit_reference(self._get_lima_status())
+        self._image_channel.emit(self._get_lima_status())
         if self.device.acq_status.lower() == 'fault':
             raise RuntimeError("Device %s (%s) is in Fault state" % (
                 self.device, self.device.user_detector_name))

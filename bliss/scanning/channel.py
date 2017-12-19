@@ -70,21 +70,22 @@ class AcquisitionChannel(object):
         self.__shape = value
 
     def emit(self, data):
-        ndim = len(self.shape)
-        data = numpy.atleast_1d(data)
-        if data.size == 0:
-            return
+        if not self.reference:
+            ndim = len(self.shape)
+            data = numpy.atleast_1d(data)
+            if data.size == 0:
+                return
 
-        if data.ndim == ndim:
-            if data.shape != self.shape:
-                raise ValueError("Channel value shape '%s` does not correspond to new value shape: %s" % (self.shape, data.shape))
-        elif data.ndim == ndim+1:
-            try:
-                data.shape = (-1, ) + self.shape
-            except ValueError:
-                raise ValueError("Channel value dimension and shape does not correspond to new value shape and dimension")
-        else:
-            raise ValueError("Channel value does not have the right dimension or shape.")
+            if data.ndim == ndim:
+                if data.shape != self.shape:
+                    raise ValueError("Channel value shape '%s` does not correspond to new value shape: %s" % (self.shape, data.shape))
+            elif data.ndim == ndim+1:
+                try:
+                    data.shape = (-1, ) + self.shape
+                except ValueError:
+                    raise ValueError("Channel value dimension and shape does not correspond to new value shape and dimension")
+            else:
+                raise ValueError("Channel value does not have the right dimension or shape.")
 
         self.__description['dtype'] = self.dtype
         self.__description['shape'] = self.shape

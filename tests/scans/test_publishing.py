@@ -120,11 +120,9 @@ def test_data_iterator_event(beacon, redis_data_conn):
 
 def test_reference(beacon):
     session = beacon.get("lima_test_session")
-    import pdb;pdb.set_trace()
-    
     session.setup()
-
     lima_sim = getattr(setup_globals, "lima_simulator")
+    scans.timescan(0.1, lima_sim, npoints=10)
     """
     redis_keys = set(redis_scan(session.name+"*", connection=redis_data_conn))
     session_node = get_node(session.name)

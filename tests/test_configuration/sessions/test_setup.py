@@ -1,6 +1,7 @@
 import random
 from bliss.common.scans import *
 from bliss.common.measurement import SamplingCounter
+from bliss.common.session import get_current
 import numpy
 import gevent
 
@@ -19,6 +20,8 @@ class TestScanGaussianCounter(SamplingCounter):
       return x
 
 load_script("script1")
+
+SESSION_NAME = get_current().name
 
 # Do not remove this print (used in tests)
 print 'TEST_SESSION INITIALIZED'

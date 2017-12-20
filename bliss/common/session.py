@@ -300,6 +300,9 @@ class Session(object):
 
         self._load_config(env_dict, verbose)
 
+        global CURRENT_SESSION
+        CURRENT_SESSION = self
+
         from bliss.scanning.scan import ScanSaving
         env_dict['SCAN_SAVING'] = ScanSaving()
         from bliss.common.measurementgroup import ACTIVE_MG
@@ -308,9 +311,6 @@ class Session(object):
         sessions_tree = self.sessions_tree
         for child_session in reversed(list(sessions_tree.expand_tree(mode=Tree.WIDTH))[1:]):
             child_session._setup(env_dict)
-
-        global CURRENT_SESSION
-        CURRENT_SESSION = self
 
         for obj_name, obj in env_dict.iteritems():
             setattr(setup_globals, obj_name, obj)

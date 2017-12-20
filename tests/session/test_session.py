@@ -33,6 +33,12 @@ def test_session_exclude_objects(beacon):
   session.setup()
   assert pytest.raises(AttributeError, getattr, setup_globals, "m2")
 
+def test_current_session(beacon):
+  env_dict = dict()
+  session = beacon.get("test_session")
+  session.setup(env_dict)
+  assert env_dict['SESSION_NAME'] == 'test_session'
+
 def test_session_tree(beacon, capsys):
   session = beacon.get("test_session2")
   session.sessions_tree.show()
@@ -56,6 +62,7 @@ def test_include_sessions(beacon, capsys):
   assert getattr(setup_globals, "m2")
   assert getattr(setup_globals, "m0")
 
+  assert get_current().name == setup_globals.SESSION_NAME
   assert get_current() == session
 
 def test_no_session_in_objects_list(beacon):
@@ -102,5 +109,4 @@ def test_prdef(beacon, capsys):
   env_dict['prdef'](script1.visible_func)
   output = capsys.readouterr()[0]
   assert output.endswith(visible_func_code)
-
 

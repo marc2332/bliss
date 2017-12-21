@@ -118,13 +118,19 @@ def test_data_iterator_event(beacon, redis_data_conn):
       assert n.get(0, -1) == channels_data[n.name]
     assert isinstance(n, ChannelDataNode)
 
-def test_reference(beacon):
+def test_reference(beacon, redis_data_conn, scan_tmpdir):
     session = beacon.get("lima_test_session")
     session.setup()
+    setup_globals.SCAN_SAVING.base_path=str(scan_tmpdir)
     lima_sim = getattr(setup_globals, "lima_simulator")
-    scans.timescan(0.1, lima_sim, npoints=10)
-    """
+    timescan = scans.timescan(0.1, lima_sim, npoints=3, return_scan=True)
+
     redis_keys = set(redis_scan(session.name+"*", connection=redis_data_conn))
     session_node = get_node(session.name)
     db_names = set([n.db_name for n in DataNodeIterator(session_node).walk(wait=False)])
-    """
+
+    image_node_db_name = '%s:timer:Simulator:image' % timescan.node.db_name
+    assert  image_node_db_name in db_names
+    ref_status = redis_data_conn.hgetall("%s_ref" % image_node_db_name)
+    assert ref_status['last_image_saved'] == 2 #npoints-1
+     

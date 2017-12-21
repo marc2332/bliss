@@ -48,3 +48,9 @@ def redis_data_conn():
     cnx = get_default_connection()
     redis_conn = cnx.get_redis_connection(db=1)
     yield redis_conn
+
+
+@pytest.fixture
+def scan_tmpdir(tmpdir):
+    yield tmpdir
+    tmpdir.remove()

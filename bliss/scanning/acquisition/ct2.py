@@ -59,11 +59,10 @@ class CT2AcquisitionMaster(AcquisitionMaster):
         device.acq_mode = self.acq_mode
         device.acq_expo_time = self.acq_expo_time
         device.acq_nb_points = self.npoints
+        self.device.prepare_acq()
 
     def start(self):
-        # the prepare is done in the start to give a chance to the slave
-        # CT2 counters to register themselves
-        self.device.prepare_acq()
+        pass
 
     def stop(self):
         self.device.stop_acq()

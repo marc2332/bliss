@@ -145,24 +145,54 @@ These widgets can represent:
 To include some of these widgets, you must define, in your setup file,
 a *config function* decorated with the ``@configure`` decorator.
 
-Example to add a simple label and the position of a motor:
+You can also add a *generic widget* to be used with a custom function.
+
+Example to add a simple label, the position of a motor and a function to display time:
 
 .. code-block:: python
 
     from bliss.shell.cli import configure
-    from bliss.shell.cli.layout import AxisStatus, LabelWidget
+    from bliss.shell.cli.layout import AxisStatus, LabelWidget, DynamicWidget
     from bliss.shell.cli.esrf import Attribute, FEStatus, IDStatus, BEAMLINE
+
+    import time
+  
+    def what_time_is_it():
+        return time.ctime()
 
     @configure
     def config(repl):
         repl.bliss_bar.items.append(LabelWidget("BL=ID245c"))
         repl.bliss_bar.items.append(AxisStatus('simot1'))
+        repl.bliss_bar.items.append(DynamicWidget(what_time_is_it))
 
-This code will add in your toolbar something like :
+This code will make your session to look like:
 
 .. code-block:: sourcecode
 
-    BL=ID245c | simot1: 8.65
+ (bliss) pcsht:~ % bliss -s eh1
+                        __         __   __          
+                       |__) |   | /__` /__`         
+                       |__) |__ | .__/ .__/         
+ 
+ 
+ Welcome to BLISS version 0.01 running on pcsht (in bliss Conda environment)
+ Copyright (c) ESRF, 2015-2017
+ -
+ Connected to Beacon server on pcsht (port 3412)
+ eh1: Executing setup...
+ Initializing 'simot1`
+ Initializing 'pzth`
+ Initializing 'simul_mca`
+ Initializing 'pzth_enc`
+ hello eh1 session !! 
+ Done.
+ 
+ EH1 [1]: 
+ 
+ 
+ 
+ simot1: 12.05 | salut | Thu Dec 21 15:01:38 2017    
 
 
 More widgets can be defined using the same model:
@@ -175,21 +205,7 @@ More widgets can be defined using the same model:
         repl.bliss_bar.items.append(FEStatus(attributes=fe_attrs))  # Front-End infos
         repl.bliss_bar.items.append(IDStatus(attributes=(ugap,)))   # Insertion Device position
 
-You can also add a *generic widget* to be used with a custom function:
 
-.. code-block:: python
-
- from bliss.shell.cli import configure
- from bliss.shell.cli.layout import AxisStatus, LabelWidget, DynamicWidget
- 
- import time
- 
- def what_time_is_it():
-     return time.time()
- 
- @configure
- def config(repl):
-     repl.bliss_bar.items.append(DynamicWidget(what_time_is_it))
 
 You can switch for a more compact view (for compliant widgets like AxisStatus) with :
 

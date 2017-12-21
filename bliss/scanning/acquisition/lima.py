@@ -129,8 +129,8 @@ class LimaAcquisitionMaster(AcquisitionMaster):
     def _get_lima_status(self):
         attr_names = ['buffer_max_number', 'last_image_acquired',
                       'last_image_ready', 'last_counter_ready', 'last_image_saved']
-        return {name : att.value for name, att in zip(attr_names,
-                                                  self.device.read_attributes(attr_names))}
+        return { name: att.value for name, att in zip(attr_names,
+                                                      self.device.read_attributes(attr_names)) }
 
     def reading(self):
         while self.device.acq_status.lower() == 'running':

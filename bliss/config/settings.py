@@ -367,7 +367,7 @@ class QueueSetting(object):
             raise TypeError('indices must be integers')
         value = self.get(first=i, last=j, cnx=cnx)
         if value is None:
-            raise StopIteration
+            raise IndexError
         else:
             return value
 

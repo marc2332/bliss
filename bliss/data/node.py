@@ -229,7 +229,7 @@ class DataNodeIterator(object):
                     channel_db_name = new_channel_event.group(1)
                     channel_node = get_node(channel_db_name)
                     if channel_node and \
-                       (filter is None or channel_node.type is filter):
+                       (filter is None or channel_node.type in filter):
                         yield self.NEW_DATA_IN_CHANNEL_EVENT, channel_node
 
 class _TTL_setter(object):

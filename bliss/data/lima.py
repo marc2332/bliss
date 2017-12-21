@@ -158,8 +158,8 @@ class LimaImageChannelDataNode(DataNode):
                         f = EdfFile.EdfFile(filename)
                         return f.GetData(image_index)
                     else:
-                        raise RuntimeError("EdfFile module is not available,"
-                                           "Can't return image data")
+                        raise RuntimeError("EdfFile module is not available, "
+                                           "cannot return image data.")
                 elif file_format == 'HDF5':
                     if h5py is not None:
                         with h5py.File(filename) as f:

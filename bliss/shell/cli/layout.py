@@ -19,7 +19,7 @@ from prompt_toolkit.layout.screen import Char
 from bliss.common.axis import Axis
 from bliss.config.static import get_config
 
-__all__ = ('status_bar', 'AxisStatus', 'StatusToken', 'Separator')
+__all__ = ('status_bar', 'AxisStatus', 'StatusToken', 'Separator', 'LabelWidget', 'DynamicWidget')
 
 
 StatusToken = Token.Toolbar.Status
@@ -43,9 +43,10 @@ class StatusToolbar(TokenListToolbar):
 
             # add the theta axis status
             repl.bliss_bar.items.append(AxisStatus('theta'))
-            
+
             # add a fixed message
-            repl.bliss_bar.items.append([[StatusToken, 'a fixed status message']])
+            repl.bliss_bar.items.append(LabelWidget('a fixed status message'))
+
     """
     def __init__(self, items, *args, **kwargs):
         self.items = list(items)
@@ -69,29 +70,29 @@ class StatusToolbar(TokenListToolbar):
 
 def status_bar(python_input, *items):
     return StatusToolbar(items,
-        default_char=Char(token=StatusToken),
-        filter=~IsDone() & RendererHeightIsKnown() &
-        Condition(lambda cli: python_input.show_bliss_bar and
-                  python_input.bliss_bar.items and
-                  not python_input.show_exit_confirmation))
+                         default_char=Char(token=StatusToken),
+                         filter=~IsDone() & RendererHeightIsKnown() &
+                         Condition(lambda cli: python_input.show_bliss_bar and
+                                   python_input.bliss_bar.items and
+                                   not python_input.show_exit_confirmation))
 
 
 class AxisStatus(object):
-    
+
     def __init__(self, axis):
         self.name = axis.name if isinstance(axis, Axis) else axis
-    
+
     def __call__(self, cli):
         config = get_config()
         axis = config.get(self.name)
         label = axis.config.get('label', default=self.name)
         unit = axis.config.get('unit', default='')
         state, position = axis.state(), axis.position()
-        
+
         result = []
         if cli.python_input.bliss_bar_format != 'compact':
             result.append((StatusToken, label + ': '))
-        
+
         if state == 'MOVING':
             token = StatusToken.Changing
         else:
@@ -99,4 +100,22 @@ class AxisStatus(object):
         value = '{0:.4}{1}'.format(position, unit)
         result.append((token, value))
         return result
-        
+
+
+class LabelWidget(object):
+
+    def __init__(self, message):
+        self._message = message
+
+    def __call__(self, cli):
+        return [(StatusToken.Label, self._message)]
+
+
+class DynamicWidget(object):
+
+    def __init__(self, func):
+        self.func = func
+
+    def __call__(self, cli):
+        _ans = str(self.func())
+        return [(StatusToken.Label, _ans)]

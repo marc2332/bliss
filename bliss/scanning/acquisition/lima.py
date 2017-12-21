@@ -8,7 +8,6 @@
 from ..chain import AcquisitionMaster, AcquisitionChannel
 from bliss.common.event import dispatcher
 from bliss.controllers import lima
-from bliss.data.node import _get_or_create_node
 import gevent
 import time
 import numpy
@@ -89,9 +88,10 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         if self._reading_task:
             self._reading_task.kill()
             self._reading_task = None
-        self._image_channel.description.update({ 'server_url': self.device.dev_name(),
-                                                 'new_acquisition': True })
-                                                 
+
+        server_url = self.device.dev_name()
+        self._image_channel.emit({ "server_url": server_url })
+
     def start(self):
         if self.trigger_type == AcquisitionMaster.SOFTWARE:
             return
@@ -114,7 +114,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
 
         if self._reading_task is not None:
             try:
-                # checkfor execption from reading task
+                # check for exception from reading task
                 self._reading_task.get(block=False)
             except gevent.Timeout:
                 pass

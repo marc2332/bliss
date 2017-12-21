@@ -35,7 +35,7 @@ class AcquisitionChannel(object):
         self.__dtype = dtype
         self.__shape = shape
         self.__reference = reference
-        self.__description = dict()
+        self.__description = dict({ 'reference': reference })
         self.__data_node_type = data_node_type
 
         if isinstance(description, dict):
@@ -92,8 +92,7 @@ class AcquisitionChannel(object):
         dispatcher.send("new_data", self, { "name": self.name,
                                             "description": self.__description,
                                             "data": data,
-                                            "channel": self,
-                                            "reference": self.reference })
+                                            "channel": self })
 
     def data_node(self, parent_node):
         return _get_or_create_node(self.name, self.__data_node_type, parent_node, shape=self.shape, dtype=self.dtype)

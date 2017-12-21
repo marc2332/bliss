@@ -25,6 +25,19 @@ A data node has 3 Redis keys to represent it:
 The channel data node extends the structure above with:
 
 {db_name}_channel -> QueueSetting, list of channel values
+
+When a Lima channel is published:
+
+--eh3
+   |
+   --scan1
+     |
+     --P201
+       |
+       -- frelon (LimaChannelDataNode - inherits from DataNode)
+
+{db_name}_info -> HashObjSetting with some extra keys like reference: True
+{db_name}_data -> QueueObjSetting, list of reference data ; first item is the 'live' reference
 """
 import pkgutil
 import inspect
@@ -101,7 +114,6 @@ def _get_or_create_node(name, node_type=None, parent=None, connection=None, **ke
 class DataNodeIterator(object):
     NEW_CHILD_REGEX = re.compile("^__keyspace@.*?:(.*)_children_list$")
     NEW_DATA_IN_CHANNEL_REGEX = re.compile("^__keyspace@.*?:(.*)_data$")
-    NEW_REF_IN_CHANNEL_REGEX = re.compile("^__keyspace@.*?:(.*)_ref$")
     NEW_CHILD_EVENT, NEW_DATA_IN_CHANNEL_EVENT = range(2)
 
     def __init__(self, node, last_child_id=None):
@@ -209,10 +221,10 @@ class DataNodeIterator(object):
                         if channel_node and \
                            (filter is None or channel_node.type in filter):
                             yield self.NEW_DATA_IN_CHANNEL_EVENT, channel_node
-            elif msg['data'] == 'hset':
+            elif msg['data'] == 'lset':
                 channel = msg['channel']
                 new_channel_event = DataNodeIterator.\
-                NEW_REF_IN_CHANNEL_REGEX.match(channel)
+                NEW_DATA_IN_CHANNEL_REGEX.match(channel)
                 if new_channel_event:
                     channel_db_name = new_channel_event.group(1)
                     channel_node = get_node(channel_db_name)
@@ -356,3 +368,4 @@ class DataNodeContainer(DataNode):
     @property
     def last_child(self):
         return get_node(self._children.get(-1))
+

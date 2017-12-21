@@ -130,7 +130,70 @@ Now, ``eh1_align()`` script is available in *eh1* session:
 
 
 
-To add info in a toolbar
-~~~~~~~~~~~~~~~~~~~~~~~~
+To add info in the toolbar
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+To customize the toolbar of your session, you must define some special *Widgets* and insert them into the toolbar item list.
+
+These widgets can represent:
+ * A simple label
+ * The status of an axis
+ * The status of a Tango Attribute
+ * The status or value of a special device (Insertion Device, Front-End, BEAMLINE)
+ * Any result defined by a user-defined functions.
+
+To include some of these widgets, you must define, in your setup file,
+a *config function* decorated with the ``@configure`` decorator.
+
+Example to add a simple label and the position of a motor:
+
+.. code-block:: python
+
+    from bliss.shell.cli import configure
+    from bliss.shell.cli.layout import AxisStatus, LabelWidget
+    from bliss.shell.cli.esrf import Attribute, FEStatus, IDStatus, BEAMLINE
+
+    @configure
+    def config(repl):
+        repl.bliss_bar.items.append(LabelWidget("BL=ID245c"))
+        repl.bliss_bar.items.append(AxisStatus('simot1'))
+
+This code will add in your toolbar something like :
+
+.. code-block:: sourcecode
+
+    BL=ID245c | simot1: 8.65
+
+
+More widgets can be defined using the same model:
+
+.. code-block:: python
+
+        ugap = Attribute('UGap: ', 'CPM14-1B_GAP_Position', 'mm', None)
+        fe_attrs = FEStatus.state, FEStatus.current, FEStatus.refill, FEStatus.mode
+
+        repl.bliss_bar.items.append(FEStatus(attributes=fe_attrs))  # Front-End infos
+        repl.bliss_bar.items.append(IDStatus(attributes=(ugap,)))   # Insertion Device position
+
+You can also add a *generic widget* to be used with a custom function:
+
+.. code-block:: python
+
+ from bliss.shell.cli import configure
+ from bliss.shell.cli.layout import AxisStatus, LabelWidget, DynamicWidget
+ 
+ import time
+ 
+ def what_time_is_it():
+     return time.time()
+ 
+ @configure
+ def config(repl):
+     repl.bliss_bar.items.append(DynamicWidget(what_time_is_it))
+
+You can switch for a more compact view (for compliant widgets like AxisStatus) with :
+
+.. code-block:: python
+
+        repl.bliss_bar_format = 'compact'
 

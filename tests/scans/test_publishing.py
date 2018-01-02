@@ -18,6 +18,7 @@ from bliss.scanning.acquisition.motor import SoftwarePositionTriggerMaster
 from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionDevice
 from bliss.data.node import DataNodeContainer
 from bliss.config.settings import scan as redis_scan
+from bliss.config.settings import QueueObjSetting
 from bliss.data.scan import Scan as ScanNode
 from bliss.data.node import get_node, DataNodeIterator
 from bliss.data.channel import ChannelDataNode
@@ -131,6 +132,50 @@ def test_reference(beacon, redis_data_conn, scan_tmpdir):
 
     image_node_db_name = '%s:timer:Simulator:image' % timescan.node.db_name
     assert  image_node_db_name in db_names
-    ref_status = redis_data_conn.hgetall("%s_ref" % image_node_db_name)
-    assert ref_status['last_image_saved'] == 2 #npoints-1
-     
+ 
+    live_ref_status = QueueObjSetting("%s_data" % image_node_db_name, connection=redis_data_conn)[0]
+    assert live_ref_status['last_image_saved'] == 2 #npoints-1
+
+def test_iterator_over_reference(beacon, redis_data_conn, scan_tmpdir):
+    npoints = 5
+    exp_time = 1
+
+    session = beacon.get("lima_test_session")
+    session.setup()
+    setup_globals.SCAN_SAVING.base_path=str(scan_tmpdir)
+    lima_sim = getattr(setup_globals, "lima_simulator")
+
+    scan_greenlet = gevent.spawn(scans.timescan, exp_time, lima_sim, npoints=npoints)
+
+    gevent.sleep(exp_time) #sleep time to let time for session creation
+
+    session_node = get_node(session.name)
+    iterator = DataNodeIterator(session_node)
+
+    with gevent.Timeout((npoints+1)*exp_time):
+        for event_type, node in iterator.walk_events(filter='lima'):
+            if event_type == DataNodeIterator.NEW_DATA_IN_CHANNEL_EVENT:
+                view = node.get(from_index=0, to_index=-1)
+                if len(view) == npoints:
+                    break
+
+    view_iterator = iter(view)
+    img0 = view_iterator.next()
+
+    # make another scan -> this should make a new buffer on Lima server,
+    # so images from previous view cannot be retrieved from server anymore
+    scans.timescan(exp_time, lima_sim, npoints=1)
+   
+    view_iterator2 = iter(view)
+
+    # retrieve from file
+    assert view_iterator2.next() == img0
+    
+
+
+
+
+    
+
+ 
+

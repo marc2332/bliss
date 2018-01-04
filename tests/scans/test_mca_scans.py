@@ -12,33 +12,55 @@ from bliss.scanning.acquisition.motor import LinearStepTriggerMaster
 
 def test_mca_continuous_soft_scan(beacon):
     m0 = beacon.get("roby")
+    # Get mca
     simu = beacon.get("simu1")
     mca_device = McaAcquisitionDevice(simu, npoints=3, preset_time=0.1)
+    # Add counters
+    for counter in simu.spectrum.values():
+        mca_device.add_counter(counter)
+    for counter in simu.realtime.values():
+        mca_device.add_counter(counter)
+    for counter in simu.events.values():
+        mca_device.add_counter(counter)
+    # Create chain
     chain = AcquisitionChain()
     chain.add(SoftwarePositionTriggerMaster(m0, 0, 1, 3, time=1.2), mca_device)
+    # Run scan
     scan = Scan(chain, 'mca_test', None)
     scan.run()
     scan_data = scans.get_data(scan)
+    # Checks
     for i in range(4):
-        prefix = 'det{}_'.format(i)
+        suffix = '_det{}'.format(i)
         assert np.array_equal(
-            np.array(list(map(sum, scan_data[prefix+'spectrum']))),
-            scan_data[prefix+'events'])
-        assert all(x == 0.1 for x in scan_data[prefix + 'realtime'])
+            np.array(list(map(sum, scan_data['spectrum' + suffix]))),
+            scan_data['events' + suffix])
+        assert all(x == 0.1 for x in scan_data['realtime' + suffix])
 
 
 def test_mca_step_soft_scan(beacon):
     m0 = beacon.get("roby")
+    # Get mca
     simu = beacon.get("simu1")
     mca_device = McaAcquisitionDevice(simu, npoints=3, preset_time=0.1)
+    # Add counters
+    for counter in simu.spectrum.values():
+        mca_device.add_counter(counter)
+    for counter in simu.realtime.values():
+        mca_device.add_counter(counter)
+    for counter in simu.events.values():
+        mca_device.add_counter(counter)
+    # Create chain
     chain = AcquisitionChain()
     chain.add(LinearStepTriggerMaster(3, m0, 0, 1), mca_device)
+    # Run scan
     scan = Scan(chain, 'mca_test', None)
     scan.run()
     scan_data = scans.get_data(scan)
+    # Checks
     for i in range(4):
-        prefix = 'det{}_'.format(i)
+        suffix = '_det{}'.format(i)
         assert np.array_equal(
-            np.array(list(map(sum, scan_data[prefix + 'spectrum']))),
-            scan_data[prefix+'events'])
-        assert all(x == 0.1 for x in scan_data[prefix + 'realtime'])
+            np.array(list(map(sum, scan_data['spectrum' + suffix]))),
+            scan_data['events' + suffix])
+        assert all(x == 0.1 for x in scan_data['realtime' + suffix])

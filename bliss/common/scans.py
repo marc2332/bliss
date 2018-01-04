@@ -36,6 +36,7 @@ from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 from bliss.scanning.acquisition.motor import LinearStepTriggerMaster, MeshStepTriggerMaster
 from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
 from bliss.scanning.acquisition.ct2 import CT2AcquisitionMaster
+from bliss.scanning.acquisition.mca import BaseMcaCounter, McaAcquisitionDevice, StatisticsMcaCounter
 from bliss.common import session,measurementgroup
 try:
     from bliss.scanning.writer import hdf5 as default_writer
@@ -71,9 +72,9 @@ def _get_all_counters(counters):
             else:
                 all_counters.append(cnt)
     else:
-        all_counters.extend(_get_counters(measurementgroup.get_active(), 
+        all_counters.extend(_get_counters(measurementgroup.get_active(),
                                           missing_counters))
-    
+
     if missing_counters:
         raise ValueError("Missing counters, not in setup_globals: %s. " \
                          "Hint: disable inactive counters."
@@ -82,7 +83,7 @@ def _get_all_counters(counters):
     zerod_counters = list()
     other_counters = list()
     for counter in all_counters:
-        if isinstance(counter, Counter):
+        if isinstance(counter, (Counter, StatisticsMcaCounter)):
             zerod_counters.append(counter)
         else:
             other_counters.append(counter)
@@ -133,7 +134,23 @@ def _counters_tree(counters, scan_pars):
     npoints = scan_pars.get('npoints', 1)
     master_integrating_counter = dict()
     tree = ordereddict()
- 
+
+    # MCA specific block
+
+    mca_counters = {}
+    for counter in counters:
+        if isinstance(counter, BaseMcaCounter):
+            mca_counters.setdefault(counter.mca, []).append(counter)
+    for counter_list in mca_counters.values():
+        counters -= set(counter_list)
+    for mca, counter_list in mca_counters.items():
+        acq_device = McaAcquisitionDevice(
+            mca, npoints=npoints, preset_time=count_time)
+        acq_device.add_counters(counter_list)
+        tree.setdefault(None, []).append(acq_device)
+
+    # End MCA specific block #
+
     reader_counters = ordereddict()
     for cnt in counters:
         ###THIS SHOULD GO AWAY
@@ -187,13 +204,13 @@ def default_chain(chain, scan_pars, counters):
     count_time = scan_pars.get('count_time', 1)
     sleep_time = scan_pars.get('sleep_time')
     npoints = scan_pars.get('npoints', 1)
-    
+
     if not counters:
         raise ValueError("No counters for scan. Hint: are all counters disabled ?")
 
     counters = set(counters) #eliminate duplicated counters, if any
     timer = SoftwareTimerMaster(count_time, npoints=npoints, sleep_time=sleep_time)
-    
+
     for acq_master, acq_devices in _counters_tree(counters, scan_pars).iteritems():
         if acq_master:
             chain.add(timer, acq_master)
@@ -277,7 +294,7 @@ def ascan(motor, start, stop, npoints, count_time, *counters, **kwargs):
                   'total_time': total_motion_t + total_count_t}
 
     scan_info.update({ 'npoints': npoints, 'total_acq_time': total_count_t,
-                       'motors': [TimestampPlaceholder(), motor], 
+                       'motors': [TimestampPlaceholder(), motor],
                        'counters': counters,
                        'other_counters': other_counters,
                        'start': [start], 'stop': [stop],
@@ -390,8 +407,8 @@ def mesh(motor1, start1, stop1, npoints1, motor2, start2, stop2, npoints2, count
     estimation = {'total_motion_time': total_motion_t,
                   'total_count_time': total_count_t,
                   'total_time': total_motion_t + total_count_t}
-    
-    scan_info.update({ 'npoints1': npoints1, 'npoints2': npoints2, 
+
+    scan_info.update({ 'npoints1': npoints1, 'npoints2': npoints2,
                        'total_acq_time': total_count_t,
                        'motors': [TimestampPlaceholder(), motor1, motor2],
                        'counters': counters,
@@ -506,7 +523,7 @@ def a2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
 
     scan = step_scan(chain, scan_info,
                      name=kwargs.setdefault("name","a2scan"), save=scan_info['save'])
-    
+
     if kwargs.get('run', True):
         scan.run()
 
@@ -546,7 +563,7 @@ def d2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
                                      if counter is empty use the active measurement group.
 
     Keyword Args:
-        name (str): scan name in data nodes tree and directories [default: 'scan']    
+        name (str): scan name in data nodes tree and directories [default: 'scan']
         title (str): scan title [default: 'd2scan <motor1> ... <count_time>']
         save (bool): save scan data to file [default: True]
         sleep_time (float): sleep time between 2 points [default: None]
@@ -607,12 +624,12 @@ def timescan(count_time, *counters, **kwargs):
         scan_info['title'] = template.format(*args)
 
     counters,other_counters = _get_all_counters(counters)
-    
+
     npoints = kwargs.get("npoints", 0)
     total_count_t = npoints * count_time
 
     scan_info.update({ 'npoints': npoints, 'total_acq_time': total_count_t,
-                       'motors': [TimestampPlaceholder()], 
+                       'motors': [TimestampPlaceholder()],
                        'counters': counters,
                        'other_counters': other_counters,
                        'start': [], 'stop': [], 'count_time': count_time })
@@ -701,4 +718,3 @@ def ct(count_time, *counters, **kwargs):
     kwargs.setdefault("name","ct")
 
     return timescan(count_time, *counters, **kwargs)
-

@@ -91,6 +91,10 @@ class McaAcquisitionDevice(AcquisitionDevice):
         self.counters.append(counter)
         counter.register_device(self)
 
+    def add_counters(self, counters):
+        for counter in counters:
+            self.add_counter(counter)
+
     # Mode properties
 
     @property
@@ -135,7 +139,8 @@ class McaAcquisitionDevice(AcquisitionDevice):
 
     def stop(self):
         """Stop the acquistion."""
-        self.acquisition_gen.close()
+        if self.acquisition_gen:
+            self.acquisition_gen.close()
         self.acquisition_state.goto(self.READY)
 
     def trigger(self):

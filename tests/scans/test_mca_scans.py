@@ -58,3 +58,24 @@ def test_mca_step_soft_scan(beacon):
             np.array(list(map(sum, scan_data['spectrum' + suffix]))),
             scan_data['events' + suffix])
         assert all(x == 0.1 for x in scan_data['realtime' + suffix])
+
+
+def test_mca_default_chain_ascan(beacon):
+    # Get controllers
+    m0 = beacon.get('m0')
+    mca = beacon.get('simu1')
+    # Counters
+    counters = mca.counters.spectrum.values()
+    counters += mca.counters.realtime.values()
+    counters += mca.counters.events.values()
+    # Run scan
+    scan = scans.ascan(
+        m0, 0, 10, 3, 0.1, *counters, return_scan=True, save=False)
+    scan_data = scans.get_data(scan)
+    # Checks
+    for i in range(4):
+        suffix = '_det{}'.format(i)
+        assert np.array_equal(
+            np.array(list(map(sum, scan_data['spectrum' + suffix]))),
+            scan_data['events' + suffix])
+        assert all(x == 0.1 for x in scan_data['realtime' + suffix])

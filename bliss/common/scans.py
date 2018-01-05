@@ -145,8 +145,8 @@ def _counters_tree(counters, scan_pars):
         counters -= set(counter_list)
     for mca, counter_list in mca_counters.items():
         acq_device = McaAcquisitionDevice(
-            mca, npoints=npoints, preset_time=count_time)
-        acq_device.add_counters(counter_list)
+            mca, npoints=npoints, preset_time=count_time,
+            counters=counter_list)
         tree.setdefault(None, []).append(acq_device)
 
     # End MCA specific block #

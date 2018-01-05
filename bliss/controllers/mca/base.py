@@ -151,18 +151,10 @@ class BaseMCA(object):
 
     # Counters shortcut
 
-    def __getattr__(self, key):
-        if key == 'spectrum':
-            from bliss.scanning.acquisition.mca import SpectrumMcaCounter
-            return dict(
-                (element, SpectrumMcaCounter(self, element))
-                for element in self.elements)
-        if key in Stats._fields:
-            from bliss.scanning.acquisition.mca import StatisticsMcaCounter
-            return dict(
-                (element, StatisticsMcaCounter(self, key, element))
-                for element in self.elements)
-        raise AttributeError(key)
+    @property
+    def counters(self):
+        from bliss.scanning.acquisition.mca import McaCounters
+        return McaCounters(self)
 
     # Extra logic
 

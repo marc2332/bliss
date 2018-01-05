@@ -16,12 +16,9 @@ def test_mca_continuous_soft_scan(beacon):
     simu = beacon.get("simu1")
     mca_device = McaAcquisitionDevice(simu, npoints=3, preset_time=0.1)
     # Add counters
-    for counter in simu.spectrum.values():
-        mca_device.add_counter(counter)
-    for counter in simu.realtime.values():
-        mca_device.add_counter(counter)
-    for counter in simu.events.values():
-        mca_device.add_counter(counter)
+    mca_device.add_counters(simu.counters.spectrum.values())
+    mca_device.add_counters(simu.counters.realtime.values())
+    mca_device.add_counters(simu.counters.events.values())
     # Create chain
     chain = AcquisitionChain()
     chain.add(SoftwarePositionTriggerMaster(m0, 0, 1, 3, time=1.2), mca_device)
@@ -44,12 +41,9 @@ def test_mca_step_soft_scan(beacon):
     simu = beacon.get("simu1")
     mca_device = McaAcquisitionDevice(simu, npoints=3, preset_time=0.1)
     # Add counters
-    for counter in simu.spectrum.values():
-        mca_device.add_counter(counter)
-    for counter in simu.realtime.values():
-        mca_device.add_counter(counter)
-    for counter in simu.events.values():
-        mca_device.add_counter(counter)
+    mca_device.add_counters(simu.counters.spectrum.values())
+    mca_device.add_counters(simu.counters.realtime.values())
+    mca_device.add_counters(simu.counters.events.values())
     # Create chain
     chain = AcquisitionChain()
     chain.add(LinearStepTriggerMaster(3, m0, 0, 1), mca_device)

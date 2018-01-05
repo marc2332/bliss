@@ -24,6 +24,8 @@ class SimulatedMCA(BaseMCA):
         self._spectrum_size = 1024
         self._acquistion_number = 1
         self._trigger_mode = TriggerMode.SOFTWARE
+        self._current_data = None
+        self._current_stats = None
 
     def initialize_hardware(self):
         gevent.sleep(self._init_time)
@@ -102,6 +104,8 @@ class SimulatedMCA(BaseMCA):
             self._delta = time.time() - self._t0
             gevent.sleep(self._cleanup_time)
         self._running = False
+        pixel = self._generate_pixel(self.delta)
+        self._current_data, self._current_stats = pixel
 
     def is_acquiring(self):
         return self._running and self.delta < self._realtime
@@ -118,12 +122,10 @@ class SimulatedMCA(BaseMCA):
     # Get data
 
     def get_acquisition_data(self):
-        a, b = self._generate_pixel(self.delta)
-        return a
+        return self._current_data
 
     def get_acquisition_statistics(self):
-        a, b = self._generate_pixel(self.delta)
-        return b
+        return self._current_stats
 
     def poll_data(self):
         # Update

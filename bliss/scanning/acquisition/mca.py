@@ -49,7 +49,8 @@ class McaAcquisitionDevice(AcquisitionDevice):
 
     def __init__(self, mca, npoints, trigger_mode=SOFT,
                  preset_time=1., block_size=None, polling_time=0.1,
-                 spectrum_size=None, prepare_once=True, start_once=True):
+                 spectrum_size=None, counters=(),
+                 prepare_once=True, start_once=True):
         # Checks
         assert start_once
         assert prepare_once
@@ -84,6 +85,10 @@ class McaAcquisitionDevice(AcquisitionDevice):
         self.trigger_mode = trigger_mode
         self.polling_time = polling_time
         self.spectrum_size = spectrum_size
+
+        # Add counters
+        for counter in counters:
+            self.add_counter(counter)
 
     # Counter management
 
@@ -264,3 +269,32 @@ class SpectrumMcaCounter(BaseMcaCounter):
 
     def feed_point(self, spectrums, stats):
         self.emit_data_point(spectrums[self.detector])
+
+
+class McaCounters:
+    """Provide a convenient access to the MCA counters.
+
+    - counters.spectrum[det]
+    - counters.statistics[stat][det]
+    - counters.realtime[det]
+    - counters.livetime[det]
+    - counters.triggers[det]
+    - counters.events[det]
+    - counters.icr[det]
+    - counters.ocr[det]
+    - counters.deadtime[det]
+    """
+
+    def __init__(self, mca):
+        self.mca = mca
+        # Spectrums
+        self.spectrum = dict(
+            (element, SpectrumMcaCounter(self.mca, element))
+            for element in self.mca.elements)
+        # Statistics
+        self.statistics = {}
+        for stat in Stats._fields:
+            self.statistics[stat] = dict(
+                (element, StatisticsMcaCounter(self.mca, stat, element))
+                for element in self.mca.elements)
+            setattr(self, stat, self.statistics[stat])

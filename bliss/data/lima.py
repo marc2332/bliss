@@ -83,7 +83,7 @@ class LimaImageChannelDataNode(DataNode):
 
         def __len__(self):
             self._update()
-            return self.last_index - self.from_index
+            return 1+(self.last_index - self.from_index)
 
         def _update(self):
             """ update view status

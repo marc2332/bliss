@@ -15,7 +15,10 @@ Options:
 import docopt
 from silx.gui.plot.PlotWindow import Plot1D
 from silx.gui import qt
-from PyQt4.QtCore import pyqtRemoveInputHook
+try:
+    from PyQt4.QtCore import pyqtRemoveInputHook
+except ImportError:
+    from PyQt5.QtCore import pyqtRemoveInputHook
 from bliss.data.node import DataNodeIterator, _get_or_create_node, is_zerod
 import numpy
 import gevent

@@ -116,4 +116,17 @@ def test_data_iterator_event(beacon, redis_data_conn):
 
     for n in DataNodeIterator(get_node(s.node.db_name)).walk_from_last(filter='channel', wait=False):
       assert n.get(0, -1) == channels_data[n.name]
-    assert isinstance(n, ChannelDataNode) 
+    assert isinstance(n, ChannelDataNode)
+
+def test_reference(beacon):
+    session = beacon.get("lima_test_session")
+    import pdb;pdb.set_trace()
+    
+    session.setup()
+
+    lima_sim = getattr(setup_globals, "lima_simulator")
+    """
+    redis_keys = set(redis_scan(session.name+"*", connection=redis_data_conn))
+    session_node = get_node(session.name)
+    db_names = set([n.db_name for n in DataNodeIterator(session_node).walk(wait=False)])
+    """

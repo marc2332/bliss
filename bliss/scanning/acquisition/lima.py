@@ -141,3 +141,6 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             raise RuntimeError("Device %s (%s) is in Fault state" % (
                 self.device, self.device.user_detector_name))
         self._reading_task = None
+
+    def wait_reading(self):
+        return self._reading_task.get() if self._reading_task is not None else True

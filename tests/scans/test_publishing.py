@@ -27,20 +27,22 @@ try:
 except ImportError:
   EdfFile = None
 
-def test_parent_node(beacon):
+def test_parent_node(beacon, scan_tmpdir):
     session = beacon.get("test_session")
     session.setup()
     scan_saving = getattr(setup_globals, "SCAN_SAVING")
+    scan_saving.base_path=str(scan_tmpdir)
     scan_saving.template="{session}/{date}/test"
     parent_node = scan_saving.get_parent_node()
     assert parent_node.db_name == "test_session:%s:test" % scan_saving.date
     assert parent_node.type == "container"
     assert isinstance(parent_node, DataNodeContainer)
 
-def test_scan_node(beacon, redis_data_conn):
+def test_scan_node(beacon, redis_data_conn, scan_tmpdir):
     session = beacon.get("test_session")
     session.setup()
     scan_saving = getattr(setup_globals, "SCAN_SAVING")
+    scan_saving.base_path=str(scan_tmpdir)
     parent = scan_saving.get_parent_node()
     m = getattr(setup_globals, "roby")
     m.velocity(10)
@@ -90,13 +92,14 @@ def test_data_iterator(beacon, redis_data_conn):
     assert len(db_names) > 0
     assert db_names == redis_keys.intersection(db_names)
 
-def test_data_iterator_event(beacon, redis_data_conn):
+def test_data_iterator_event(beacon, redis_data_conn, scan_tmpdir):
     def iterate_channel_events(scan_db_name, channels):
       for e, n in DataNodeIterator(get_node(scan_db_name)).walk_events():
         if n.type == 'channel':
           channels[n.name] = n.get(0, -1)
   
     scan_saving = getattr(setup_globals, "SCAN_SAVING")
+    scan_saving.base_path=str(scan_tmpdir)
     parent = scan_saving.get_parent_node()
     m = getattr(setup_globals, "roby")
     m.velocity(10)
@@ -150,7 +153,7 @@ def test_iterator_over_reference(beacon, redis_data_conn, scan_tmpdir):
     lima_sim = getattr(setup_globals, "lima_simulator")
 
     scan_greenlet = gevent.spawn(scans.timescan, exp_time, lima_sim, npoints=npoints)
-
+    
     gevent.sleep(exp_time) #sleep time to let time for session creation
 
     session_node = get_node(session.name)

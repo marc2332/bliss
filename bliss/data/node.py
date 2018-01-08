@@ -125,6 +125,9 @@ class DataNodeIterator(object):
 
            If wait is True (default), the function blocks until a new node appears
         """
+        if self.node is None:
+            raise ValueError("Invalid node: node is None.")
+
         if isinstance(filter, (str, unicode)):
             filter = (filter, )
         elif filter:

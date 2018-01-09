@@ -12,12 +12,6 @@ import inspect
 from distutils.cmd import Command
 from setuptools import setup, find_packages
 
-try:
-    from sphinx.setup_command import BuildDoc
-except ImportError:
-    BuildDoc = None
-
-
 TESTING = any(x in sys.argv for x in ['test', 'pytest'])
 
 
@@ -93,9 +87,6 @@ def main():
 
     cmd_class = find_extensions()
 
-    if BuildDoc is not None:
-        cmd_class['build_doc'] = BuildDoc
-
     install_requires = [
         "redis  >= 2.8",
         "PyYaml",
@@ -123,12 +114,7 @@ def main():
         "numpy",
         "ruamel.yaml",
         'enum34 ; python_version < "3.4"',
-        "h5py",
-
-        # Documentation
-        "sphinx",
-        "sphinxcontrib-wavedrom >= 1.3",
-        "graphviz",
+        "h5py"
     ]
 
     tests_require = [

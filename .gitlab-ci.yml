@@ -1,15 +1,14 @@
-before_script:
-  - source activate tango2.7
-  - conda install --yes --channel esrf-bcu --file requirements-conda.txt
-  - conda install --yes --channel esrf-bcu --file requirements-test-conda.txt
-
 stages:
-  - test
+  - tests
   - build_doc
   - deploy
 
 tests:
-  stage: test
+  stage: tests
+  before_script:
+    - source activate tango2.7
+    - conda install --yes --channel esrf-bcu --file requirements-conda.txt
+    - conda install --yes --channel esrf-bcu --file requirements-test-conda.txt
   script: python setup.py test
   artifacts:
     paths:
@@ -18,7 +17,11 @@ tests:
 
 build_doc:
   stage: build_doc
-  script: python setup.py build build_doc
+  before_script:
+    - source activate tango2.7
+    - conda install --yes --channel esrf-bcu --file requirements-conda.txt
+    - pip install -r requirements-doc.txt
+  script: python setup.py build_sphinx
   artifacts:
     paths:
       - build/

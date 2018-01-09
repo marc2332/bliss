@@ -10,13 +10,11 @@ docopt
 numpy
 six >= 1.10
 tabulate
-sphinx
 pyserial == 2.7
 h5py
 msgpack-python
 pyzmq
 pytango
-python-graphviz
 posix_ipc
 h5py
 pygments

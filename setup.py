@@ -123,6 +123,7 @@ def main():
         "numpy",
         "ruamel.yaml",
         'enum34 ; python_version < "3.4"',
+        "h5py",
 
         # Documentation
         "sphinx",
@@ -131,10 +132,10 @@ def main():
     ]
 
     tests_require = [
+        'pytest',
         'pytest-mock',
         'pytest-coverage',
-        'mock',
-        'h5py',
+        'mock ; python_version < "3.3"',
     ]
 
     setup_requires = [

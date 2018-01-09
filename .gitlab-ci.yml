@@ -2,20 +2,11 @@ before_script:
   - source activate tango2.7
   - conda install --yes --channel esrf-bcu --file requirements-conda.txt
   - conda install --yes --channel esrf-bcu --file requirements-test-conda.txt
-  - pip install .
 
 stages:
-  - build
   - test
+  - build_doc
   - deploy
-
-build:
-  stage: build
-  script: python setup.py build build_doc
-  artifacts:
-    paths:
-      - build/
-    expire_in: 7 days
 
 tests:
   stage: test
@@ -25,10 +16,18 @@ tests:
       - htmlcov/
     expire_in: 7 days
 
+build_doc:
+  stage: build_doc
+  script: python setup.py build build_doc
+  artifacts:
+    paths:
+      - build/
+    expire_in: 7 days
+
 pages:
   stage: deploy
   dependencies:
-    - build
+    - build_doc
     - tests
   script:
     - mv build/sphinx/html public

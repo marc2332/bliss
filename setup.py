@@ -134,7 +134,7 @@ def main():
     tests_require = [
         'pytest',
         'pytest-mock',
-        'pytest-coverage',
+        'pytest-cov',
         'mock ; python_version < "3.3"',
     ]
 

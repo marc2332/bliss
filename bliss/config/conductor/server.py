@@ -568,7 +568,7 @@ def start_webserver(webapp_port, beacon_port, debug=True):
     http_server.family = socket.AF_INET
     gevent.spawn(http_server.serve_forever)
 
-def main():
+def main(args=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("--db_path",dest="db_path",default=os.environ.get("BEACON_DB_PATH", "./db"),
                         help="database path")
@@ -590,7 +590,7 @@ def main():
     parser.add_argument("--redis_socket", dest="redis_socket", default="/tmp/redis.sock",
                         help="Unix socket for redis (default to /tmp/redis.sock)")
     global _options
-    _options = parser.parse_args()
+    _options = parser.parse_args(args)
 
     # Binds system signals.
     signal.signal(signal.SIGTERM, sigterm_handler)

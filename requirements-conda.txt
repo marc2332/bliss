@@ -1,4 +1,4 @@
-# Conda requirement file (python 2.7)
+# Conda requirements file (python 2.7)
 enum34
 gevent >= 1.2.2
 redis  >= 2.8
@@ -19,17 +19,5 @@ pytango
 python-graphviz
 posix_ipc
 h5py
-blessings
-zerorpc
-msgpack_numpy
 pygments
-pip:
-  - louie
-  - treelib
-  - gipc
-  - bottle
-  - ptpython == 0.39
-  - sphinxcontrib-wavedrom >= 1.3
-  - netifaces < 0.10.5
-  - ruamel.yaml 
 

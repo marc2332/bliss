@@ -103,7 +103,7 @@ def main():
         "six >= 1.10",
         "tabulate",
         "pyserial",
-        "ruamel.yaml >= 0.11.15",
+        "ruamel.yaml == 0.11.15",
         "zerorpc",
         "msgpack_numpy",
         "blessings",

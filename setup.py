@@ -112,7 +112,6 @@ def main():
         "gevent >= 1.2.2",
         "pygments",
         "numpy",
-        "ruamel.yaml",
         'enum34 ; python_version < "3.4"',
         "h5py"
     ]

@@ -1,0 +1,9 @@
+# Conda requirement file (python 2.7)
+# Test requirements
+
+mock
+pytest
+pytest-mock
+pytest-cov
+lima
+

@@ -20,8 +20,6 @@ BEACON = ['python', '-m', 'bliss.config.conductor.server']
 BEACON_DB_PATH = os.path.join(BLISS, 'tests', 'test_configuration')
 BEACON_PORT = 7655
 
-#os.environ["PYTHONPATH"] = BLISS
-
 
 @pytest.fixture(scope="session")
 def beacon():

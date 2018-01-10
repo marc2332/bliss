@@ -1,5 +1,5 @@
 name: lima_simulator
 plugin: bliss
 class: Lima
-tango_url: tango://localhost:12345/id00/limaccds/simulator1
+tango_url: id00/limaccds/simulator1
 

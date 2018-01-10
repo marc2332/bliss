@@ -62,7 +62,7 @@ def scan_tmpdir(tmpdir):
 @pytest.fixture(scope="session")
 def lima_simulator(beacon):
     from Lima.Server.LimaCCDs import main
-    from tango import Database, DeviceProxy, DevFailed
+    from tango import DeviceProxy, DevFailed
 
     device_name = "id00/limaccds/simulator1"
 

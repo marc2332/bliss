@@ -178,14 +178,18 @@ class Icepap(Controller):
             # it seems it is not safe to call warning and/or alarm commands
             # while homing motor, so let's not ask if motor is moving
             if status & (1<<13):
-                warning = _command(self._cnx,"?WARNING %s" % axis.address)
-                warn_str =  "warning condition: \n" + warning
-                status.create_state("WARNING",warn_str)
-                status.set("WARNING")
+                try:
+                    warning = _command(self._cnx,"%d:?WARNING" % axis.address)
+                except TypeError:
+                    pass
+                else:
+                    warn_str =  "warning condition: \n" + warning
+                    status.create_state("WARNING",warn_str)
+                    status.set("WARNING")
 
             try:
-                alarm = _command(self._cnx,"?ALARM %s" % axis.address)
-            except RuntimeError:
+                alarm = _command(self._cnx,"%d:?ALARM" % axis.address)
+            except (RuntimeError,TypeError):
                 pass
             else:
                 if alarm != "NO":
@@ -438,6 +442,13 @@ class Icepap(Controller):
                 _ackcommand(self._cnx, "%d:POS INPOS 0" % address)
             _ackcommand(self._cnx,"%d:LTRACK %s" % (address,mode))
         
+    @object_method(types_info=("float", "None"))
+    def blink(self, axis, second=3.):
+        """
+        Blink axis driver
+        """
+        _command(self._cnx,"%d:BLINK %f" % (axis.address, second))
+
     def reset(self):
         _command(self._cnx,"RESET")
 

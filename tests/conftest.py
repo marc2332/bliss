@@ -11,6 +11,8 @@ import multiprocessing
 
 import redis
 import pytest
+import gevent
+import sys
 
 from bliss.config import static
 from bliss.config.conductor import client
@@ -30,7 +32,8 @@ def beacon():
         '--redis_port=7654',
         '--redis_socket=/tmp/redis_test.sock',
         '--db_path=' + BEACON_DB_PATH,
-        '--posix_queue=0']
+        '--posix_queue=0',
+        '--tango_port=12345']
     proc = multiprocessing.Process(target=server.main, args=(args,))
     proc.start()
     time.sleep(0.5)  # wait for beacon to be really started
@@ -54,3 +57,36 @@ def redis_data_conn():
 def scan_tmpdir(tmpdir):
     yield tmpdir
     tmpdir.remove()
+
+
+@pytest.fixture(scope="session")
+def lima_simulator(beacon):
+    from Lima.Server.LimaCCDs import main
+    from tango import Database, DeviceProxy, DevFailed
+
+    device_name = "id00/limaccds/simulator1"
+
+    def run_lima_simulator():
+        os.environ["TANGO_HOST"]="localhost:12345"
+        sys.argv=['LimaCCDs', 'simulator']
+        main()
+
+    device_fqdn = "tango://localhost:12345/%s" % device_name
+
+    p = multiprocessing.Process(target=run_lima_simulator)
+    p.start()
+
+    with gevent.Timeout(3, RuntimeError("Lima simulator is not running")):
+        while True:
+            try:
+                dev_proxy = DeviceProxy(device_fqdn)
+                dev_proxy.ping()
+                dev_proxy.state()
+            except DevFailed as e:
+                gevent.sleep(0.5)
+            else:
+                break
+
+    yield device_fqdn, dev_proxy
+
+    p.terminate()

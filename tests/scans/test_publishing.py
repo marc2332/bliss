@@ -126,7 +126,7 @@ def test_data_iterator_event(beacon, redis_data_conn, scan_tmpdir):
       assert n.get(0, -1) == channels_data[n.name]
     assert isinstance(n, ChannelDataNode)
 
-def test_reference(beacon, redis_data_conn, scan_tmpdir):
+def test_reference_with_lima(beacon, redis_data_conn, scan_tmpdir, lima_simulator):
     session = beacon.get("lima_test_session")
     session.setup()
     setup_globals.SCAN_SAVING.base_path=str(scan_tmpdir)
@@ -143,7 +143,7 @@ def test_reference(beacon, redis_data_conn, scan_tmpdir):
     live_ref_status = QueueObjSetting("%s_data" % image_node_db_name, connection=redis_data_conn)[0]
     assert live_ref_status['last_image_saved'] == 2 #npoints-1
 
-def test_iterator_over_reference(beacon, redis_data_conn, scan_tmpdir):
+def test_iterator_over_reference_with_lima(beacon, redis_data_conn, scan_tmpdir, lima_simulator):
     npoints = 5
     exp_time = 1
 
@@ -182,9 +182,6 @@ def test_iterator_over_reference(beacon, redis_data_conn, scan_tmpdir):
         assert pytest.raises(RuntimeError, view_iterator2.next)
     else:
         assert view_iterator2.next() == img0
-    
-
-
 
 
     

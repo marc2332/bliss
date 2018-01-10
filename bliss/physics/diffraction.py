@@ -172,13 +172,9 @@ class CrystalPlane(object):
     def __init__(self, crystal, plane):
         self.crystal = crystal
         self.plane = plane
-
-    @property
-    def d(self):
-        # may optimize in future: self.d = ... in the constructor
-        h, k, l = self.plane
-        a = self.crystal.lattice_constant
-        return distance_cubic_lattice_diffraction_plane(h, k, l, a)
+        # may optimize in the future
+        (h, k, l), a = self.plane, self.crystal.lattice_constant
+        self.d = distance_cubic_lattice_diffraction_plane(h, k, l, a)
 
     def bragg_wavelength(self, theta, n=1):
         """

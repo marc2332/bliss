@@ -158,14 +158,14 @@ def bragg_angle(energy, d, n=1):
 
 
 
-class CubicCrystalPlane(object):
+class CrystalPlane(object):
     """
     Cubic crystal plane.
 
     Example::
 
-        >>> Si = CubicCrystal('Si', 5.4307e-10)
-        >>> Si111 = CubicCrystalPlane(Si, HKL(1, 1, 0))
+        >>> Si = Crystal('Si', 5.4307e-10)
+        >>> Si111 = CrystalPlane(Si, HKL(1, 1, 0))
         >>> e_at_3deg = Si111.bragg_energy(numpy.deg2rad(3))
     """
 
@@ -220,13 +220,13 @@ class CubicCrystalPlane(object):
         return '{0}({1})'.format(self.crystal, self.plane.tostring())
 
 
-class CubicCrystal(object):
+class Crystal(object):
     """
     Cubic crystal.
 
     Example::
 
-        >>> Si = CubicCrystal()
+        >>> Si = Crystal()
         >>> Si111 = Si('111')
     """
 
@@ -237,19 +237,19 @@ class CubicCrystal(object):
             name, a = element.symbol, element.lattice_constant * 1e-10
         self.name = name
         self.lattice_constant = a
-        #: diffraction planes cache dict<hkl(str): planes(CubicCrystalPlane)>
+        #: diffraction planes cache dict<hkl(str): planes(CrystalPlane)>
         self._planes = {}
 
     def __call__(self, plane):
         """Helper to get a crystal plane from a string (ex: '110')"""
-        if isinstance(plane, CubicCrystalPlane):
+        if isinstance(plane, CrystalPlane):
             self._planes[plane.tostring()] = plane
             return plane
         try:
             return self._planes[plane]
         except KeyError:
             pass
-        result = CubicCrystalPlane(self, HKL.fromstring(plane))
+        result = CrystalPlane(self, HKL.fromstring(plane))
         self._planes[plane] = result
         return result
 
@@ -259,7 +259,7 @@ class CubicCrystal(object):
         
         Args:
             theta (float): scattering angle (rad)
-            plane (str or CubicCrystalPlane): crystal plane
+            plane (str or CrystalPlane): crystal plane
             n (int): non zero positive integer (default: 1)
         Returns:
             float: bragg wavelength (m) for the given theta and lattice distance
@@ -272,7 +272,7 @@ class CubicCrystal(object):
         
         Args:
             theta (float): scattering angle (rad)
-            plane (str or CubicCrystalPlane): crystal plane
+            plane (str or CrystalPlane): crystal plane
             n (int): non zero positive integer (default: 1)
         Returns:
             float: bragg energy (J) for the given theta and lattice distance
@@ -285,7 +285,7 @@ class CubicCrystal(object):
         
         Args:
             energy (float): energy (J)
-            plane (str or CubicCrystalPlane): crystal plane
+            plane (str or CrystalPlane): crystal plane
             n (int): non zero positive integer (default: 1)
         Returns:
             float: bragg energy (J) for the given theta and lattice distance
@@ -303,7 +303,7 @@ def get_all_cubic_crystals():
     for elem_symbol in mendeleev.elements.__all__:
         elem = getattr(mendeleev.elements, elem_symbol)
         if elem.lattice_constant is not None:
-            result.append(CubicCrystal(elem))
+            result.append(Crystal(elem))
     return result
 
 globals().update({c.name: c for c in get_all_cubic_crystals()})

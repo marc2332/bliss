@@ -11,7 +11,7 @@ import pytest
 
 from math import pi
 
-from bliss.physics.diffraction import HKL, CubicCrystal, CubicCrystalPlane, Si
+from bliss.physics.diffraction import HKL, Crystal, CrystalPlane, Si
 from bliss.physics.diffraction import distance_cubic_lattice_diffraction_plane
 
 
@@ -58,23 +58,33 @@ def test_distance_cubic_lattice_diffraction_plane():
 
 
 def test_cubic_crystal():
-    b_theta = pi / 8       # (rad)  
+    b_theta = pi / 8       # (rad)
     b_energy = 6.759e-16   # (J)
-    
-    assert isinstance(Si, CubicCrystal)
+
+    assert isinstance(Si, Crystal)
 
     assert repr(Si) == 'Si'
-    assert Si.bragg_energy(b_theta, '110') == pytest.approx(b_energy, 0.1)
-    assert Si.bragg_angle(b_energy, '110') == pytest.approx(b_theta, 0.1)
-    
+    assert Si.bragg_energy(b_theta, '110') == pytest.approx(b_energy, 1e-3)
+    assert Si.bragg_angle(b_energy, '110') == pytest.approx(b_theta, 1e-3)
+
+    Si_2 = Crystal(('Si', 5.4307e-10))
+
+    assert repr(Si_2) == 'Si'
+    assert Si_2.bragg_energy(b_theta, '110') == pytest.approx(b_energy, 1e-3)
+    assert Si_2.bragg_angle(b_energy, '110') == pytest.approx(b_theta, 1e-3)
+
 
 def test_cubic_crystal_plane():
-    b_theta = pi / 8       # (rad)  
+    b_theta = pi / 8       # (rad)
     b_energy = 6.759e-16   # (J)
 
     Si110 = Si('110')
-    
+
     assert repr(Si110) == 'Si(110)'
-    assert Si110.bragg_energy(b_theta) == pytest.approx(b_energy, 0.1)
-    assert Si110.bragg_angle(b_energy) == pytest.approx(b_theta, 0.1)
-    
+    assert Si110.bragg_energy(b_theta) == pytest.approx(b_energy, 1e-3)
+    assert Si110.bragg_angle(b_energy) == pytest.approx(b_theta, 1e-3)
+
+    Si110_2 = CrystalPlane(Si, HKL(1, 1, 0))
+
+    assert Si110_2.bragg_energy(b_theta) == pytest.approx(b_energy, 1e-3)
+    assert Si110_2.bragg_angle(b_energy) == pytest.approx(b_theta, 1e-3)

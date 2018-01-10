@@ -8,6 +8,7 @@ flask
 jedi
 docopt
 numpy
+scipy
 six >= 1.10
 tabulate
 pyserial == 2.7

@@ -15,12 +15,12 @@ import shutil
 import logging
 import argparse
 import weakref
+import multiprocessing
 import subprocess
 import socket
 import signal
 import traceback
 import pkgutil
-
 import gevent
 from gevent import select
 
@@ -73,8 +73,10 @@ _wlog = _log.getChild('web')
 
 # Helpers
 
-def start_database_ds(tango_port = 20000,personal_name='2',debug_level = 0):
+def start_database_ds(tango_port = 20000,personal_name='2',debug_level = 0, beacon_host=None):
     from PyTango.databaseds import database
+    if beacon_host is not None:
+        os.environ["BEACON_HOST"] = beacon_host
     argv = debug_level and ['-l',str(debug_level)] or []
     argv.extend(['--db_access','beacon','--port',str(tango_port),'2'])
     database.main(argv=argv)
@@ -659,21 +661,12 @@ def main(args=None):
     #Tango databaseds
     if _options.tango_port > 0:
         _tlog.info('Database started on port:',_options.tango_port)
-        tango_rp,tango_wp = os.pipe()
-        child_pid = os.fork()
-        if child_pid == 0:
-            os.close(tango_rp)
-            os.dup2(tango_wp,sys.stdout.fileno())
-            os.dup2(tango_wp,sys.stderr.fileno())
-            os.close(tango_wp)
-            this_host = socket.gethostname()
-            os.environ['BEACON_HOST'] = '%s:%d' % (this_host, beacon_port)
-            start_database_ds(tango_port = _options.tango_port,debug_level = _options.tango_debug_level)
-            sys.exit(0)
-        else:
-            os.close(tango_wp)
+        tango_db = multiprocessing.Process(target=start_database_ds, kwargs={ "tango_port": _options.tango_port,
+                                                                              "debug_level": _options.tango_debug_level,
+                                                                              "beacon_host": '%s:%d' % ('localhost', beacon_port) })
+        tango_db.start()
     else:
-        tango_rp = None
+        tango_db = None
 
     #web application
     if _options.webapp_port > 0:
@@ -692,16 +685,12 @@ def main(args=None):
 
     try:
       fd_list = [udp,tcp,rp,sig_read]
-      if tango_rp:
-          fd_list.append(tango_rp)
-      logger = {tango_rp: _tlog,
-                rp: _rlog}
+      logger = {rp: _rlog}
 
       bosse = True
 
       udp_reply = '%s|%d' % (socket.gethostname(),beacon_port)
       while bosse:
-
         rlist,_,_ = select.select(fd_list,[],[], 1)
         if rlist:
             for s in rlist:
@@ -725,10 +714,6 @@ def main(args=None):
                     msg = os.read(s,8192)
                     if msg:
                         logger.get(s, _log).info(msg)
-                    else:
-                        fd_list.remove(tango_rp)
-                        os.close(tango_rp)
-                        logger.get(s, _log).warning('database exit')
                     break
         else:
             # Check if redis is alive
@@ -742,6 +727,8 @@ def main(args=None):
     finally:
         if redis_process:
             redis_process.terminate()
+        if tango_db:
+            tango_db.terminate()
 
 
 if __name__ == "__main__":

@@ -165,9 +165,7 @@ class Connection(object):
             #try to find the server on the same sub-net
             if host is None or port is None:
                 udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                udp.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 udp.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-                udp.bind(("",protocol.DEFAULT_UDP_CLIENT_PORT))
                 # go through all interfaces, and issue broadcast on each
                 for addr in ip4_broadcast_addresses(host is None):
                     udp.sendto('Hello',(addr,protocol.DEFAULT_UDP_SERVER_PORT))

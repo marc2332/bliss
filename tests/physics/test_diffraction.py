@@ -12,6 +12,7 @@ import pytest
 from math import pi
 
 from bliss.physics.diffraction import HKL, Crystal, CrystalPlane, Si
+from bliss.physics.diffraction import string_to_crystal_plane
 from bliss.physics.diffraction import distance_cubic_lattice_diffraction_plane
 
 
@@ -88,3 +89,28 @@ def test_cubic_crystal_plane():
 
     assert Si110_2.bragg_energy(b_theta) == pytest.approx(b_energy, 1e-3)
     assert Si110_2.bragg_angle(b_energy) == pytest.approx(b_theta, 1e-3)
+
+
+def test_string_to_crystal_plane():
+
+    crystal_plane110 = 'Si110'
+
+    Si110 = Si('110')
+    Si110_parse1 = string_to_crystal_plane(crystal_plane110)
+    Si110_parse2 = CrystalPlane.fromstring(crystal_plane110)
+
+    assert isinstance(Si110_parse1, CrystalPlane)
+    assert isinstance(Si110_parse2, CrystalPlane)
+    assert Si110 is Si110_parse1
+    assert Si110 is Si110_parse2
+
+    crystal_plane111111 = 'Si(11 11 11)'
+
+    Si111111 = Si('11 11 11')
+    Si111111_parse1 = string_to_crystal_plane(crystal_plane111111)
+    Si111111_parse2 = CrystalPlane.fromstring(crystal_plane111111)
+
+    assert isinstance(Si111111_parse1, CrystalPlane)
+    assert isinstance(Si111111_parse2, CrystalPlane)
+    assert Si111111 is Si111111_parse1
+    assert Si111111 is Si111111_parse2

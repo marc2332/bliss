@@ -225,6 +225,30 @@ def bragg_angle(energy, d, n=1):
     return arcsin( n * hc / (2 * d * energy))
 
 
+def string_to_crystal_plane(text):
+    """
+    Return a crystal plane from a string. Accepts format:
+    <symbol>['(']<plane>[')'].
+
+    Examples: Si(11 00 11), Si110
+
+    Args:
+        text (str): text representing a crystal plane
+    Returns:
+        CrystalPlane: the corresponding crystal plane object
+    Raises:
+        KeyError: if crystal is not registered
+        ValueError: is plane is in wrong format
+    """
+    symbol, plane = '', ''
+    for c in text:
+        if c.isdigit() or c.isspace():
+            plane += c
+        elif c.isalpha():
+            symbol += c
+    return globals()[symbol](plane)
+
+
 class CrystalPlane(object):
     """
     Cubic crystal plane.
@@ -281,6 +305,10 @@ class CrystalPlane(object):
 
     def __repr__(self):
         return '{0}({1})'.format(self.crystal, self.plane.tostring())
+
+    @staticmethod
+    def fromstring(text):
+        return string_to_crystal_plane(text)
 
 
 class Crystal(object):

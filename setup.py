@@ -112,8 +112,10 @@ def main():
         "gevent >= 1.2.2",
         "pygments",
         "numpy",
+        "scipy",
         'enum34 ; python_version < "3.4"',
-        "h5py"
+        "h5py",
+        "mendeleev",
     ]
 
     tests_require = [

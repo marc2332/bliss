@@ -628,6 +628,10 @@ def main(args=None):
     log_fmt = '%(levelname)s %(asctime)-15s %(name)s: %(message)s'
     logging.basicConfig(level=log_level, format=log_fmt)
 
+    # signal pipe
+    global sig_write
+    sig_read, sig_write = os.pipe()
+
     # Binds system signals.
     signal.signal(signal.SIGTERM, sigterm_handler)
     signal.signal(signal.SIGINT, sigterm_handler)
@@ -679,9 +683,6 @@ def main(args=None):
                                       '--unixsocketperm', '777',
                                       '--port','%d' % _options.redis_port],
                                      stdout=wp,stderr=subprocess.STDOUT,cwd=_options.db_path)
-    # signal pipe
-    global sig_write
-    sig_read, sig_write = os.pipe()
 
     try:
       fd_list = [udp,tcp,rp,sig_read]

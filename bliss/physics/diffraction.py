@@ -11,41 +11,85 @@ Disclaimer
 ----------
 
 The following module uses the SI system of units.
-All arguments which represent physical quantities must be given 
+All arguments which represent physical quantities must be given
 in the corresponding SI value. Failure to comply will result
 in unexpected values for the user.
 
 Theory
 ------
 
-Bragg's law: nλ = 2dsin(θ)
-  n: integer plane number [1..]
-  λ: wavelength incident angle
-  θ: scattering angle
-  d: interplanar distance between lattice planes
+De Broglie
+~~~~~~~~~~
 
-Cubic crystal diffraction: d = a / √(h²+k²+l²)
-  d: interplanar distance between lattice planes
-  a: lattice spacing of the cubic crystal
+λ = h/p
 
-  E = nhc / 2dsin(θ)
+* λ: wavelength
+* h: Planck constant
+* p: momentum
 
-De Broglie: λ = h/p
-  λ: wavelength
-  h: Planck constant
-  p: momomentum
+
+Bragg's law
+~~~~~~~~~~~
+
+nλ = 2dsin(θ)
+
+**X-rays**
+
+Since v = c, E=mc² and p=mv then λ = hc / E <=> E = hc / λ
+
+E = nhc / 2dsin(θ)
+
+* n: order of reflection [1..]
+* λ: wavelength incident angle
+* θ: scattering angle
+* d: interplanar distance between lattice planes
+
+**Cubic crystal diffraction**
+
+d = a / √(h²+k²+l²)
+
+* d: interplanar distance between lattice planes
+* a: lattice spacing of the cubic crystal
 
 Examples
 --------
 
-How to find the bragg angle (in rad) for a silicon crystal and you want to
-know the bragg angle for the 110 plane when the energy is 12.5 keV::
+Bragg energy & angle
+~~~~~~~~~~~~~~~~~~~~
 
+How to find the bragg angle (in degrees) for a silicon crystal at the 110 plane
+when the energy is 12.5 keV::
+
+    >>> from numpy import rad2deg
     >>> from bliss.physics.diffraction import Si
     >>> Si110 = Si('110')
-    >>> energy_keV = 12.5    # energy in keV 
+    >>> energy_keV = 12.5    # energy in keV
     >>> energy_J = energy_keV  * 1.60218e-16
-    >>> angle_rad = Si110.bragg_angle(energy_keV / J)
+    >>> angle_rad = Si110.bragg_angle(energy_J)
+    >>> angle_deg = rad2deg(angle_rad)
+
+How to find the bragg energy (keV) for a germanium crystal at 444 plane when
+the angle is 2.4 degrees
+
+    >>> from numpy import deg2rad
+    >>> from bliss.physics.diffraction import Ge
+    >>> Ge444 = Ge('444')
+    >>> angle_deg = 2.4
+    >>> angle_rad = deg2rad(angle_deg)
+    >>> energy_J = Ge444.bragg_energy(angle_rad)
+    >>> energy_keV = energy_J / 1.60218e-16
+
+New crystal
+~~~~~~~~~~~
+
+The library provides *pure single element cubic crystal object*. If you need a
+new exotic crystal with a specific lattice you can just create a new crystal
+like this::
+
+    SiGeMix = Crystal(('SiGe hybrid', 3.41e-10))
+
+More complex crystals may require you to inherit from Crystal or create your own
+object with the same interface as Crystal (ie. duck typing)
 """
 
 from collections import namedtuple
@@ -60,28 +104,28 @@ hc = h * c
 HKL = namedtuple('HKL', 'h k l')
 
 
-def string_to_hkl(splane):
+def string_to_hkl(text):
     """
     Convert a string representing hkl plane to a HKL object.
 
     Args:
-        plane (str): string with three integers separated by single space
-                     (ex: '1 1 0', '10 10 0'). If all planes are one digit
-                     long, it also accepts a compact format without spaces
-                     (ex: '111', '110').
+        text (str): string with three integers separated by single space
+                    (ex: '1 1 0', '10 10 0'). If all planes are one digit
+                    long, it also accepts a compact format without spaces
+                    (ex: '111', '110').
     Returns:
         HKL: the crystal plane for the given hkl coordinates
     Raises:
         ValueError: if argument is not in the correct format
     """
     try:
-        if len(splane) == 3:
-            return HKL(*map(int, splane))
-        elif ' ' in splane:
-            return HKL(*map(int, splane.split()))
+        if len(text) == 3:
+            return HKL(*map(int, text))
+        elif ' ' in text:
+            return HKL(*map(int, text.split()))
     except Exception as err:
-        raise ValueError('Invalid crystal plane {0!r}: {1}'.format(splane, err))
-    raise ValueError('Invalid crystal plane {0!r}'.format(splane))
+        raise ValueError('Invalid crystal plane {0!r}: {1}'.format(text, err))
+    raise ValueError('Invalid crystal plane {0!r}'.format(text))
 
 
 def hkl_to_string(hkl):
@@ -91,6 +135,30 @@ def hkl_to_string(hkl):
 
 HKL.fromstring = staticmethod(string_to_hkl)
 HKL.tostring = hkl_to_string
+
+
+def wavelength_to_energy(wavelength):
+    """
+    Returns photon energy (J) for the given wavelength (m)
+
+    Args:
+        wavelength (float): photon wavelength (m)
+    Returns:
+        float: photon energy (J)
+    """
+    return hc / wavelength
+
+
+def energy_to_wavelength(energy):
+    """
+    Returns photon wavelength (m) for the given energy (J)
+
+    Args:
+        energy (float): photon energy (J)
+    Returns:
+        float: photon wavelength (m)
+    """
+    return hc / energy
 
 
 def distance_cubic_lattice_diffraction_plane(h, k, l, a):
@@ -120,7 +188,7 @@ def bragg_wavelength(theta, d, n=1):
     Args:
         theta (float): scattering angle (rad)
         d (float): interplanar distance between lattice planes (m)
-        n (int): non zero positive integer (default: 1)
+        n (int): order of reflection. Non zero positive integer (default: 1)
     Returns:
         float: bragg wavelength (m) for the given theta and lattice distance
     """
@@ -135,11 +203,11 @@ def bragg_energy(theta, d, n=1):
     Args:
         theta (float): scattering angle (rad)
         d (float): interplanar distance between lattice planes (m)
-        n (int): non zero positive integer (default: 1)
+        n (int): order of reflection. Non zero positive integer (default: 1)
     Returns:
         float: bragg energy (J) for the given theta and lattice distance
     """
-    return hc / bragg_wavelength(theta, d, n=n)
+    return wavelength_to_energy(bragg_wavelength(theta, d, n=n))
 
 
 def bragg_angle(energy, d, n=1):
@@ -150,12 +218,11 @@ def bragg_angle(energy, d, n=1):
     Args:
         energy (float): energy (J)
         d (float): interplanar distance between lattice planes (m)
-        n (int): non zero positive integer (default: 1)
+        n (int): order of reflection. Non zero positive integer (default: 1)
     Returns:
         float: bragg angle (rad) for the given theta and lattice distance
     """
     return arcsin( n * hc / (2 * d * energy))
-
 
 
 class CrystalPlane(object):
@@ -179,22 +246,22 @@ class CrystalPlane(object):
     def bragg_wavelength(self, theta, n=1):
         """
         Returns a bragg wavelength (m) for the given theta on this crystal plane
-        
+
         Args:
             theta (float): scattering angle (rad)
-            n (int): non zero positive integer (default: 1)
+            n (int): order of reflection. Non zero positive integer (default: 1)
         Returns:
             float: bragg wavelength (m) for the given theta and lattice distance
         """
         return bragg_wavelength(theta, self.d, n=n)
-    
+
     def bragg_energy(self, theta, n=1):
         """
         Returns a bragg energy (J) for the given theta on this crystal plane
-        
+
         Args:
             theta (float): scattering angle (rad)
-            n (int): non zero positive integer (default: 1)
+            n (int): order of reflection. Non zero positive integer (default: 1)
         Returns:
             float: bragg energy (J) for the given theta and lattice distance
         """
@@ -203,10 +270,10 @@ class CrystalPlane(object):
     def bragg_angle(self, energy, n=1):
         """
         Returns a bragg angle (rad) for the given energy on this crystal plane
-        
+
         Args:
             energy (float): energy (J)
-            n (int): non zero positive integer (default: 1)
+            n (int): order of reflection. Non zero positive integer (default: 1)
         Returns:
             float: bragg angle (rad) for the given theta and lattice distance
         """
@@ -252,11 +319,11 @@ class Crystal(object):
     def bragg_wavelength(self, theta, plane, n=1):
         """
         Returns a bragg wavelength (m) for the given theta on the given plane
-        
+
         Args:
             theta (float): scattering angle (rad)
             plane (str or CrystalPlane): crystal plane
-            n (int): non zero positive integer (default: 1)
+            n (int): order of reflection. Non zero positive integer (default: 1)
         Returns:
             float: bragg wavelength (m) for the given theta and lattice distance
         """
@@ -265,24 +332,24 @@ class Crystal(object):
     def bragg_energy(self, theta, plane, n=1):
         """
         Returns a bragg energy (J) for the given theta on the given plane
-        
+
         Args:
             theta (float): scattering angle (rad)
             plane (str or CrystalPlane): crystal plane
-            n (int): non zero positive integer (default: 1)
+            n (int): order of reflection. Non zero positive integer (default: 1)
         Returns:
             float: bragg energy (J) for the given theta and lattice distance
         """
         return self(plane).bragg_energy(theta, n=n)
-        
+
     def bragg_angle(self, energy, plane, n=1):
         """
         Returns a bragg angle (read) for the given energy on the given plane
-        
+
         Args:
             energy (float): energy (J)
             plane (str or CrystalPlane): crystal plane
-            n (int): non zero positive integer (default: 1)
+            n (int): order of reflection. Non zero positive integer (default: 1)
         Returns:
             float: bragg energy (J) for the given theta and lattice distance
         """
@@ -291,6 +358,8 @@ class Crystal(object):
     def __repr__(self):
         return self.name
 
+
+# export all periodic table element cubic crystals
 
 import mendeleev.elements
 
@@ -303,4 +372,3 @@ def get_all_cubic_crystals():
     return result
 
 globals().update({c.name: c for c in get_all_cubic_crystals()})
-

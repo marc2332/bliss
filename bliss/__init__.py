@@ -21,6 +21,7 @@ Here are the main bliss sub-systems:
     config
     controllers
     data
+    physics
     shell
     tango
 '''

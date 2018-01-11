@@ -21,7 +21,9 @@ Theory
 De Broglie
 ~~~~~~~~~~
 
-λ = h/p
+:math:`{\\lambda} = h / p`
+
+where:
 
 * λ: wavelength
 * h: Planck constant
@@ -31,13 +33,18 @@ De Broglie
 Bragg's law
 ~~~~~~~~~~~
 
-nλ = 2dsin(θ)
+:math:`n{\\lambda} = 2dsin({\\theta})`
 
 **X-rays**
 
-Since v = c, E=mc² and p=mv then λ = hc / E <=> E = hc / λ
+Since :math:`v = c`, :math:`E = mc^2` and :math:`p = mv` then
+:math:`{\\lambda} = hc / E {\\Leftrightarrow} E = hc / {\\lambda}`
 
-E = nhc / 2dsin(θ)
+and:
+
+:math:`E = nhc / 2dsin({\\theta})`
+
+where:
 
 * n: order of reflection [1..]
 * λ: wavelength incident angle
@@ -46,7 +53,9 @@ E = nhc / 2dsin(θ)
 
 **Cubic crystal diffraction**
 
-d = a / √(h²+k²+l²)
+:math:`d = a / {\\sqrt{h^2+k^2+l^2}}`
+
+where:
 
 * d: interplanar distance between lattice planes
 * a: lattice spacing of the cubic crystal
@@ -63,13 +72,13 @@ when the energy is 12.5 keV::
     >>> from numpy import rad2deg
     >>> from bliss.physics.diffraction import Si
     >>> Si110 = Si('110')
-    >>> energy_keV = 12.5    # energy in keV
+    >>> energy_keV = 12.5
     >>> energy_J = energy_keV  * 1.60218e-16
     >>> angle_rad = Si110.bragg_angle(energy_J)
     >>> angle_deg = rad2deg(angle_rad)
 
 How to find the bragg energy (keV) for a germanium crystal at 444 plane when
-the angle is 2.4 degrees
+the angle is 2.4 degrees::
 
     >>> from numpy import deg2rad
     >>> from bliss.physics.diffraction import Ge
@@ -129,6 +138,7 @@ def string_to_hkl(text):
 
 
 def hkl_to_string(hkl):
+    """Returns string representation of a HKL plane"""
     join = '' if all(map(lambda i: i<10, hkl)) else ' '
     return join.join(map(str, hkl))
 
@@ -161,13 +171,11 @@ def energy_to_wavelength(energy):
     return hc / energy
 
 
-def distance_cubic_lattice_diffraction_plane(h, k, l, a):
+def distance_lattice_diffraction_plane(h, k, l, a):
     """
     Calculates the interplanar distance between lattice planes for a specific
     diffraction plane (given by h, k, l) and a specific lattice with lattice
-    parameter *a*.
-
-    d = a / √(h²+k²+l²)
+    parameter *a*: :math:`d = a / {\\sqrt{h^2+k^2+l^2}}`
 
     Args:
         h (float): a diffraction plane *h*
@@ -230,7 +238,12 @@ def string_to_crystal_plane(text):
     Return a crystal plane from a string. Accepts format:
     <symbol>['(']<plane>[')'].
 
-    Examples: Si(11 00 11), Si110
+    Examples::
+
+        >>> from bliss.physics.diffraction import string_to_crystal_plane
+
+        >>> Si110011 = string_to_crystal_plane('Si(11 00 11)')
+        >>> Si110 = string_to_crystal_plane('Si110')
 
     Args:
         text (str): text representing a crystal plane
@@ -253,11 +266,13 @@ class CrystalPlane(object):
     """
     Cubic crystal plane.
 
-    Example::
+    This object should not be created directly. Instead you should
+    get it from the Crystal::
 
-        >>> Si = Crystal('Si', 5.4307e-10)
-        >>> Si111 = CrystalPlane(Si, HKL(1, 1, 0))
-        >>> e_at_3deg = Si111.bragg_energy(numpy.deg2rad(3))
+        >>> from bliss.physics.diffraction import Si
+
+        >>> Si111 = Si('111')
+        >>> e_at_50mrad = Si111.bragg_energy(50e-3)
     """
 
     def __init__(self, crystal, plane):
@@ -265,7 +280,7 @@ class CrystalPlane(object):
         self.plane = plane
         # may optimize in the future
         (h, k, l), a = self.plane, self.crystal.lattice_constant
-        self.d = distance_cubic_lattice_diffraction_plane(h, k, l, a)
+        self.d = distance_lattice_diffraction_plane(h, k, l, a)
 
     def bragg_wavelength(self, theta, n=1):
         """
@@ -307,7 +322,26 @@ class CrystalPlane(object):
         return '{0}({1})'.format(self.crystal, self.plane.tostring())
 
     @staticmethod
-    def fromstring(text):
+    def fromstring(text): 
+        """
+        Return a crystal plane from a string. Accepts format:
+        <symbol>['(']<plane>[')'].
+
+        Examples::
+
+            >>> from bliss.physics.diffraction import CrystalPlane
+
+            >>> Si110011 = CrystalPlane.fromstring('Si(11 00 11)')
+            >>> Si110 = CrystalPlane.fromstring('Si110')
+
+        Args:
+            text (str): text representing a crystal plane
+        Returns:
+            CrystalPlane: the corresponding crystal plane object
+        Raises:
+            KeyError: if crystal is not registered
+            ValueError: is plane is in wrong format
+        """
         return string_to_crystal_plane(text)
 
 
@@ -317,8 +351,18 @@ class Crystal(object):
 
     Example::
 
+        >>> from bliss.physics.diffraction import Crystal
         >>> Si = Crystal()
         >>> Si111 = Si('111')
+
+    Note that most crystals are already available at the module level
+    so you rarely need to create an instance of this class::
+
+        >>> bliss.physics.diffraction.Si
+        Si
+        >>> bliss.physics.diffraction.Ge
+        Ge
+    
     """
 
     def __init__(self, element):
@@ -391,7 +435,7 @@ class Crystal(object):
 
 import mendeleev.elements
 
-def get_all_cubic_crystals():
+def _get_all_crystals():
     result = []
     for elem_symbol in mendeleev.elements.__all__:
         elem = getattr(mendeleev.elements, elem_symbol)
@@ -399,4 +443,4 @@ def get_all_cubic_crystals():
             result.append(Crystal(elem))
     return result
 
-globals().update({c.name: c for c in get_all_cubic_crystals()})
+globals().update({c.name: c for c in _get_all_crystals()})

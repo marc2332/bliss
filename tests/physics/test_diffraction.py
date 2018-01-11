@@ -13,7 +13,7 @@ from math import pi
 
 from bliss.physics.diffraction import HKL, Crystal, CrystalPlane, Si
 from bliss.physics.diffraction import string_to_crystal_plane
-from bliss.physics.diffraction import distance_cubic_lattice_diffraction_plane
+from bliss.physics.diffraction import distance_lattice_diffraction_plane
 
 
 def test_hkl():
@@ -27,6 +27,9 @@ def test_hkl():
 
     with pytest.raises(ValueError) as err:
         HKL.fromstring('1 1 0 0')
+
+    with pytest.raises(ValueError) as err:
+        HKL.fromstring('nil')
 
     # valid hkl
 
@@ -50,15 +53,15 @@ def test_hkl():
     assert plane111111.tostring() == '11 11 11'
 
 
-def test_distance_cubic_lattice_diffraction_plane():
+def test_distance_lattice_diffraction_plane():
     Si_a = 5.4307e-10      # (m)
     Si_110_d = 3.8401e-10  # (m)
 
-    d1 = distance_cubic_lattice_diffraction_plane(1, 1, 0, Si_a)
+    d1 = distance_lattice_diffraction_plane(1, 1, 0, Si_a)
     assert d1 == pytest.approx(Si_110_d)
 
 
-def test_cubic_crystal():
+def test_crystal():
     b_theta = pi / 8       # (rad)
     b_energy = 6.759e-16   # (J)
 
@@ -75,9 +78,12 @@ def test_cubic_crystal():
     assert Si_2.bragg_angle(b_energy, '110') == pytest.approx(b_theta, 1e-3)
 
 
-def test_cubic_crystal_plane():
+def test_crystal_plane():
     b_theta = pi / 8       # (rad)
     b_energy = 6.759e-16   # (J)
+
+    crystal_plane110 = 'Si110'
+    crystal_plane111111 = 'Si(11 11 11)'
 
     Si110 = Si('110')
 
@@ -90,12 +96,6 @@ def test_cubic_crystal_plane():
     assert Si110_2.bragg_energy(b_theta) == pytest.approx(b_energy, 1e-3)
     assert Si110_2.bragg_angle(b_energy) == pytest.approx(b_theta, 1e-3)
 
-
-def test_string_to_crystal_plane():
-
-    crystal_plane110 = 'Si110'
-
-    Si110 = Si('110')
     Si110_parse1 = string_to_crystal_plane(crystal_plane110)
     Si110_parse2 = CrystalPlane.fromstring(crystal_plane110)
 
@@ -103,8 +103,6 @@ def test_string_to_crystal_plane():
     assert isinstance(Si110_parse2, CrystalPlane)
     assert Si110 is Si110_parse1
     assert Si110 is Si110_parse2
-
-    crystal_plane111111 = 'Si(11 11 11)'
 
     Si111111 = Si('11 11 11')
     Si111111_parse1 = string_to_crystal_plane(crystal_plane111111)

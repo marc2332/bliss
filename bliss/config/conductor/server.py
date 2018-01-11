@@ -5,6 +5,9 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+
+# Imports
+
 import os
 import sys
 import codecs
@@ -12,26 +15,20 @@ import shutil
 import argparse
 import weakref
 import subprocess
-import gevent
-#monkey patch needed for web server
-#just keep for consistency because it's already patched
-#in __init__ in bliss project
-from gevent import monkey; monkey.patch_all()
 import socket
-from gevent import select
 import signal
 import traceback
 import pkgutil
 
-def start_database_ds(tango_port = 20000,personal_name='2',debug_level = 0):
-    from PyTango.databaseds import database
-    argv = debug_level and ['-l',str(debug_level)] or []
-    argv.extend(['--db_access','beacon','--port',str(tango_port),'2'])
-    database.main(argv=argv)
+import gevent
+from gevent import select
 
+from bliss.common import event
 from . import protocol
 from .. import redis as redis_conf
-from bliss.common import event
+
+
+# Conditional imports
 
 try:
     import posix_ipc
@@ -40,27 +37,44 @@ except ImportError:
 else:
     class _PosixQueue(posix_ipc.MessageQueue):
         def __init__(self):
-            posix_ipc.MessageQueue.__init__(self,None,mode=0666,
-                                            flags=posix_ipc.O_CREX)
-            self._wqueue = posix_ipc.MessageQueue(None,mode=0666,
-                                                  flags=posix_ipc.O_CREX)
-        def unlink(self) :
+            posix_ipc.MessageQueue.__init__(
+                self, None, mode=0o666, flags=posix_ipc.O_CREX)
+            self._wqueue = posix_ipc.MessageQueue(
+                None, mode=0o666, flags=posix_ipc.O_CREX)
+
+        def unlink(self):
             posix_ipc.MessageQueue.unlink(self)
             self._wqueue.unlink()
 
-        def close(self) :
+        def close(self):
             posix_ipc.MessageQueue.close(self)
             self._wqueue.close()
 
         def names(self):
-            return self._wqueue.name,self.name
+            return self._wqueue.name, self.name
 
-        def sendall(self,msg) :
+        def sendall(self, msg):
             max_message_size = self.max_message_size
-            for i in xrange(0,len(msg),max_message_size):
+            for i in xrange(0, len(msg), max_message_size):
                 self._wqueue.send(msg[i:i+max_message_size])
 
+# Globals
+
 _waitstolen = dict()
+_options = None
+_lock_object = {}
+_client_to_object = weakref.WeakKeyDictionary()
+_waiting_lock = weakref.WeakKeyDictionary()
+
+
+# Helpers
+
+def start_database_ds(tango_port = 20000,personal_name='2',debug_level = 0):
+    from PyTango.databaseds import database
+    argv = debug_level and ['-l',str(debug_level)] or []
+    argv.extend(['--db_access','beacon','--port',str(tango_port),'2'])
+    database.main(argv=argv)
+
 
 class _WaitStolenReply(object):
     def __init__(self,stolen_lock):
@@ -93,10 +107,8 @@ class _WaitStolenReply(object):
                 if client2sync is not None:
                     sync = client2sync.get(client)
                     sync.wait()
-_options = None
-_lock_object = {}
-_client_to_object = weakref.WeakKeyDictionary()
-_waiting_lock = weakref.WeakKeyDictionary()
+
+# Methods
 
 def _releaseAllLock(client_id):
 #    print '_releaseAllLock',client_id
@@ -568,7 +580,17 @@ def start_webserver(webapp_port, beacon_port, debug=True):
     http_server.family = socket.AF_INET
     gevent.spawn(http_server.serve_forever)
 
-def main():
+
+# Main execution
+
+def main(args=None):
+    # Monkey patch needed for web server
+    # just keep for consistency because it's already patched
+    # in __init__ in bliss project
+    from gevent import monkey
+    monkey.patch_all(thread=False)
+
+    # Argument parsing
     parser = argparse.ArgumentParser()
     parser.add_argument("--db_path",dest="db_path",default=os.environ.get("BEACON_DB_PATH", "./db"),
                         help="database path")
@@ -590,7 +612,7 @@ def main():
     parser.add_argument("--redis_socket", dest="redis_socket", default="/tmp/redis.sock",
                         help="Unix socket for redis (default to /tmp/redis.sock)")
     global _options
-    _options = parser.parse_args()
+    _options = parser.parse_args(args)
 
     # Binds system signals.
     signal.signal(signal.SIGTERM, sigterm_handler)
@@ -706,6 +728,7 @@ def main():
     finally:
         if redis_process:
             redis_process.terminate()
+
 
 if __name__ == "__main__":
     main()

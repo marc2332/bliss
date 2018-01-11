@@ -12,12 +12,6 @@ import inspect
 from distutils.cmd import Command
 from setuptools import setup, find_packages
 
-try:
-    from sphinx.setup_command import BuildDoc
-except ImportError:
-    BuildDoc = None
-
-
 TESTING = any(x in sys.argv for x in ['test', 'pytest'])
 
 
@@ -31,7 +25,7 @@ def abspath(*path):
 def find_commands(module):
     """
     Finds instances of distutils.Command in a module.
-    Returns an iterator
+    Returns a dict<command name: command class>
     """
     items = (getattr(module, item) for item in dir(module)
              if not item.startswith('_'))
@@ -45,28 +39,46 @@ def find_commands(module):
 def find_extensions():
     """Find bliss extensions. Returns a list of distutils.Command"""
     top = abspath('extensions')
-    # list with 'extension.sip', 'extension.cython', ...
-    ext_type_names = ('extensions.' + name for name in os.listdir(top)
-                      if not name.startswith('__') and \
-                         os.path.isdir(os.path.join(top, name)))
-
     commands = {}
-    for ext_type_name in ext_type_names:
-        try:
-            ext_type_module = __import__(ext_type_name, None, None,
-                                         ext_type_name)
-            for ext_name in ext_type_module.__all__:
-                ext_name = ext_type_name + '.' + ext_name
+    for name in os.listdir(top):
+        if name.startswith('_'):
+            continue
+        full_name = os.path.join(top, name)
+        if os.path.isdir(full_name):
+            ext_type_name = 'extensions.' + name
+            try:
+                ext_type_module = __import__(ext_type_name, None, None,
+                                             ext_type_name)
+                for ext_name in ext_type_module.__all__:
+                    ext_name = ext_type_name + '.' + ext_name
+                    ext_module = __import__(ext_name, None, None, ext_name)
+                    commands.update(find_commands(ext_module))
+            except Exception:
+                continue
+        else:
+            # must be a python module
+            name, ext = os.path.splitext(name)
+            if ext != '.py':
+                continue
+            ext_name = 'extensions.' + name
+            try:
                 ext_module = __import__(ext_name, None, None, ext_name)
                 commands.update(find_commands(ext_module))
-        except Exception:
-            continue
-
+            except Exception:
+                continue
     return commands
 
 
 def main():
     """run setup"""
+
+    py_xy = sys.version_info[:2]
+    py_xy_str = '.'.join(map(str, py_xy))
+
+    if py_xy < (2, 7) or py_xy >= (3, 0):
+        print("Incompatible python version ({0}). Needs python 2.x " \
+              "(where x > 6).".format(py_xy_str))
+        sys.exit(1)
 
     meta = {}
     execfile(abspath('bliss', 'release.py'), meta)
@@ -74,8 +86,49 @@ def main():
     packages = find_packages(where=abspath(), exclude=('extensions*',))
 
     cmd_class = find_extensions()
-    if BuildDoc is not None:
-        cmd_class['build_doc'] = BuildDoc
+
+    install_requires = [
+        "redis  >= 2.8",
+        "PyYaml",
+        "netifaces < 0.10.5",
+        "louie",
+        "jinja2 >= 2.7",
+        "flask",
+        "treelib",
+        "gipc",
+        "jedi",
+        "ptpython >= 0.39",
+        "docopt",
+        "bottle",
+        "six >= 1.10",
+        "tabulate",
+        "pyserial",
+        "ruamel.yaml == 0.11.15",
+        "zerorpc",
+        "msgpack_numpy",
+        "blessings",
+        "posix_ipc",
+        "h5py",
+        "gevent >= 1.2.2",
+        "pygments",
+        "numpy",
+        'enum34 ; python_version < "3.4"',
+        "h5py"
+    ]
+
+    tests_require = [
+        'pytest',
+        'pytest-mock',
+        'pytest-cov',
+        'mock ; python_version < "3.3"',
+    ]
+
+    setup_requires = [
+#        'setuptools >= 37',
+    ]
+
+    if TESTING:
+        setup_requires += ['pytest-runner']
 
     setup(name=meta['name'],
           author=meta['author'],
@@ -117,9 +170,9 @@ def main():
                   'NanoBpmServo = bliss.tango.servers.nanobpm_servo_ds:main'
               ],
           },
-          tests_require=['pytest-mock', 'pytest-coverage', 'h5py'],
-          setup_requires=['pytest-runner'] if TESTING else [],
-         )
+          install_requires=install_requires,
+          tests_require=tests_require,
+          setup_requires=setup_requires)
 
 
 if __name__ == "__main__":

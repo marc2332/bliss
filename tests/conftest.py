@@ -7,6 +7,7 @@
 
 import os
 import time
+import subprocess
 import multiprocessing
 
 import redis
@@ -20,13 +21,13 @@ from bliss.config.conductor import connection
 from bliss.config.conductor.client import get_default_connection
 
 BLISS = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+BEACON = [sys.executable, '-m', 'bliss.config.conductor.server']
 BEACON_DB_PATH = os.path.join(BLISS, 'tests', 'test_configuration')
 BEACON_PORT = 7655
 
 
 @pytest.fixture(scope="session")
 def beacon():
-    from bliss.config.conductor import server
     args = [
         '--port=%d' % BEACON_PORT,
         '--redis_port=7654',
@@ -34,14 +35,14 @@ def beacon():
         '--db_path=' + BEACON_DB_PATH,
         '--posix_queue=0',
         '--tango_port=12345']
-    proc = multiprocessing.Process(target=server.main, args=(args,))
-    proc.start()
+    proc = subprocess.Popen(BEACON + args)
     time.sleep(0.5)  # wait for beacon to be really started
     redis_db = redis.Redis(port=7654)
     redis_db.flushall()
     beacon_connection = connection.Connection("localhost", BEACON_PORT)
     client._default_connection = beacon_connection
     cfg = static.get_config()
+    os.environ["TANGO_HOST"] = "localhost:12345"
     yield cfg
     proc.terminate()
 
@@ -67,8 +68,8 @@ def lima_simulator(beacon):
     device_name = "id00/limaccds/simulator1"
 
     def run_lima_simulator():
-        os.environ["TANGO_HOST"]="localhost:12345"
-        sys.argv=['LimaCCDs', 'simulator']
+        os.environ["TANGO_HOST"] = "localhost:12345"
+        sys.argv = ['LimaCCDs', 'simulator']
         main()
 
     device_fqdn = "tango://localhost:12345/%s" % device_name

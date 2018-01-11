@@ -588,7 +588,7 @@ def main(args=None):
     # just keep for consistency because it's already patched
     # in __init__ in bliss project
     from gevent import monkey
-    monkey.patch_all()
+    monkey.patch_all(thread=False)
 
     # Argument parsing
     parser = argparse.ArgumentParser()

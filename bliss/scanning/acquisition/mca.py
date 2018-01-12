@@ -265,6 +265,8 @@ class SpectrumMcaCounter(BaseMcaCounter):
 
     @property
     def shape(self):
+        if self.device is None:
+            return (self.mca.spectrum_size,)
         return (self.device.spectrum_size,)
 
     def feed_point(self, spectrums, stats):

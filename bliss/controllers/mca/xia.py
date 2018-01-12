@@ -144,7 +144,7 @@ class BaseXIA(BaseMCA):
 
     @property
     def spectrum_size(self):
-        return self._proxy.get_acquisition_value('number_mca_channels')
+        return int(self._proxy.get_acquisition_value('number_mca_channels'))
 
     def set_spectrum_size(self, size):
         self._proxy.set_acquisition_value('number_mca_channels', size)

@@ -15,7 +15,6 @@ import shutil
 import logging
 import argparse
 import weakref
-import multiprocessing
 import subprocess
 import socket
 import signal
@@ -71,16 +70,8 @@ _tlog = _log.getChild('tango')
 _rlog = _log.getChild('redis')
 _wlog = _log.getChild('web')
 
+
 # Helpers
-
-def start_database_ds(tango_port = 20000,personal_name='2',debug_level = 0, beacon_host=None):
-    from PyTango.databaseds import database
-    if beacon_host is not None:
-        os.environ["BEACON_HOST"] = beacon_host
-    argv = debug_level and ['-l',str(debug_level)] or []
-    argv.extend(['--db_access','beacon','--port',str(tango_port),'2'])
-    database.main(argv=argv)
-
 
 class _WaitStolenReply(object):
     def __init__(self,stolen_lock):
@@ -662,21 +653,39 @@ def main(args=None):
     _log.info("configuration path: %s", _options.db_path)
     tcp.listen(512)        # limit to 512 clients
 
-    #Tango databaseds
+    # Tango databaseds
     if _options.tango_port > 0:
-        _tlog.info('Database started on port:',_options.tango_port)
-        tango_db = multiprocessing.Process(target=start_database_ds, kwargs={ "tango_port": _options.tango_port,
-                                                                              "debug_level": _options.tango_debug_level,
-                                                                              "beacon_host": '%s:%d' % ('localhost', beacon_port) })
-        tango_db.start()
+        # Stdout pipe
+        _tlog.info('Database started on port: %s',_options.tango_port)
+        tango_rp, tango_wp = os.pipe()
+        # Environment
+        env = dict(os.environ)
+        env["BEACON_HOST"] = '%s:%d' % ('localhost', beacon_port)
+        # Tango database executable
+        args = [sys.executable]
+        # Should be:
+        # args += ['-m', 'tango.databaseds.database']
+        # But because of a pytango bug:
+        code = 'import tango.databaseds.db_access.beacon\n'
+        code += 'import tango.databaseds.database\n'
+        code += 'tango.databaseds.database.main()'
+        args += ['-c', code]
+        # Arguments
+        args += ['-l', str(_options.tango_debug_level)]
+        args += ['--db_access', 'beacon']
+        args += ['--port', str(_options.tango_port)]
+        args += ['2']
+        # Fire up process
+        tango_process = subprocess.Popen(
+            args, stdout=tango_wp, stderr=subprocess.STDOUT, env=env)
     else:
-        tango_db = None
+        tango_rp = tango_process = None
 
-    #web application
+    # Web application
     if _options.webapp_port > 0:
         start_webserver(_options.webapp_port, beacon_port)
 
-    #start redis
+    # Start redis
     rp,wp = os.pipe()
     redis_process = subprocess.Popen(['redis-server', _options.redis_conf,
                                       '--unixsocket', _options.redis_socket,
@@ -685,8 +694,8 @@ def main(args=None):
                                      stdout=wp,stderr=subprocess.STDOUT,cwd=_options.db_path)
 
     try:
-      fd_list = [udp,tcp,rp,sig_read]
-      logger = {rp: _rlog}
+      fd_list = [udp, tcp, rp, sig_read] + ([tango_rp] if tango_rp else [])
+      logger = {rp: _rlog, tango_rp: _tlog}
 
       bosse = True
 
@@ -715,6 +724,10 @@ def main(args=None):
                     msg = os.read(s,8192)
                     if msg:
                         logger.get(s, _log).info(msg)
+                    else:
+                        fd_list.remove(tango_rp)
+                        os.close(tango_rp)
+                        logger.get(s, _log).warning('database exit')
                     break
         else:
             # Check if redis is alive
@@ -728,8 +741,8 @@ def main(args=None):
     finally:
         if redis_process:
             redis_process.terminate()
-        if tango_db:
-            tango_db.terminate()
+        if tango_process:
+            tango_process.terminate()
 
 
 if __name__ == "__main__":

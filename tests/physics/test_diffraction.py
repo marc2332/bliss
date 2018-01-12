@@ -7,9 +7,8 @@
 
 """Test diffraction physics"""
 
-import pytest
-
-from math import pi
+from numpy import pi, array
+from pytest import raises, approx
 
 from bliss.physics.diffraction import HKL, Crystal, CrystalPlane, Si
 from bliss.physics.diffraction import string_to_crystal_plane
@@ -19,16 +18,16 @@ from bliss.physics.diffraction import distance_lattice_diffraction_plane
 def test_hkl():
     # invalid hkl formats
 
-    with pytest.raises(ValueError) as err:
+    with raises(ValueError) as err:
         HKL.fromstring('1234')
 
-    with pytest.raises(ValueError) as err:
+    with raises(ValueError) as err:
         HKL.fromstring('1 10')
 
-    with pytest.raises(ValueError) as err:
+    with raises(ValueError) as err:
         HKL.fromstring('1 1 0 0')
 
-    with pytest.raises(ValueError) as err:
+    with raises(ValueError) as err:
         HKL.fromstring('nil')
 
     # valid hkl
@@ -58,29 +57,39 @@ def test_distance_lattice_diffraction_plane():
     Si_110_d = 3.8401e-10  # (m)
 
     d1 = distance_lattice_diffraction_plane(1, 1, 0, Si_a)
-    assert d1 == pytest.approx(Si_110_d)
+    assert d1 == approx(Si_110_d)
 
 
 def test_crystal():
     b_theta = pi / 8       # (rad)
     b_energy = 6.759e-16   # (J)
 
+    b_thetas = array((pi / 8, pi / 12))
+    b_energies = array((6.759e-16, 9.995e-16))
+
     assert isinstance(Si, Crystal)
 
     assert repr(Si) == 'Si'
-    assert Si.bragg_energy(b_theta, '110') == pytest.approx(b_energy, 1e-3)
-    assert Si.bragg_angle(b_energy, '110') == pytest.approx(b_theta, 1e-3)
-
+    assert Si.bragg_energy(b_theta, '110') == approx(b_energy, 1e-3)
+    assert Si.bragg_angle(b_energy, '110') == approx(b_theta, 1e-3)
+    assert Si.bragg_energy(b_thetas, '110') == approx(b_energies, 1e-3)
+    assert Si.bragg_angle(b_energies, '110') == approx(b_thetas, 1e-3)
+    
     Si_2 = Crystal(('Si', 5.4307e-10))
 
     assert repr(Si_2) == 'Si'
-    assert Si_2.bragg_energy(b_theta, '110') == pytest.approx(b_energy, 1e-3)
-    assert Si_2.bragg_angle(b_energy, '110') == pytest.approx(b_theta, 1e-3)
+    assert Si_2.bragg_energy(b_theta, '110') == approx(b_energy, 1e-3)
+    assert Si_2.bragg_angle(b_energy, '110') == approx(b_theta, 1e-3)
+    assert Si_2.bragg_energy(b_thetas, '110') == approx(b_energies, 1e-3)
+    assert Si_2.bragg_angle(b_energies, '110') == approx(b_thetas, 1e-3)
 
 
 def test_crystal_plane():
     b_theta = pi / 8       # (rad)
     b_energy = 6.759e-16   # (J)
+
+    b_thetas = array((pi / 8, pi / 12))
+    b_energies = array((6.759e-16, 9.995e-16))
 
     crystal_plane110 = 'Si110'
     crystal_plane111111 = 'Si(11 11 11)'
@@ -88,13 +97,17 @@ def test_crystal_plane():
     Si110 = Si('110')
 
     assert repr(Si110) == 'Si(110)'
-    assert Si110.bragg_energy(b_theta) == pytest.approx(b_energy, 1e-3)
-    assert Si110.bragg_angle(b_energy) == pytest.approx(b_theta, 1e-3)
+    assert Si110.bragg_energy(b_theta) == approx(b_energy, 1e-3)
+    assert Si110.bragg_angle(b_energy) == approx(b_theta, 1e-3)
+    assert Si110.bragg_energy(b_thetas) == approx(b_energies, 1e-3)
+    assert Si110.bragg_angle(b_energies) == approx(b_thetas, 1e-3)
 
     Si110_2 = CrystalPlane(Si, HKL(1, 1, 0))
 
-    assert Si110_2.bragg_energy(b_theta) == pytest.approx(b_energy, 1e-3)
-    assert Si110_2.bragg_angle(b_energy) == pytest.approx(b_theta, 1e-3)
+    assert Si110_2.bragg_energy(b_theta) == approx(b_energy, 1e-3)
+    assert Si110_2.bragg_angle(b_energy) == approx(b_theta, 1e-3)
+    assert Si110_2.bragg_energy(b_thetas) == approx(b_energies, 1e-3)
+    assert Si110_2.bragg_angle(b_energies) == approx(b_thetas, 1e-3)
 
     Si110_parse1 = string_to_crystal_plane(crystal_plane110)
     Si110_parse2 = CrystalPlane.fromstring(crystal_plane110)
@@ -112,3 +125,4 @@ def test_crystal_plane():
     assert isinstance(Si111111_parse2, CrystalPlane)
     assert Si111111 is Si111111_parse1
     assert Si111111 is Si111111_parse2
+

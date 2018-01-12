@@ -76,17 +76,31 @@ when the energy is 12.5 keV::
     >>> energy_J = energy_keV  * 1.60218e-16
     >>> angle_rad = Si110.bragg_angle(energy_J)
     >>> angle_deg = rad2deg(angle_rad)
+    >>> angle_deg
+    7.42127016
+
+... it also works for an arrays::
+
+    >>> from numpy import array
+    >>> energies_keV = numpy.array((5.1, 12.5, 17.4))
+    >>> energies_J = energies_keV  * 1.60218e-16
+    >>> angles_rad = Si110.bragg_angle(energies_J)
+    >>> angles_deg = rad2deg(angles_rad)
+    >>> angles_deg
+    array([18.45608863,  7.42127016,  5.32413629])
 
 How to find the bragg energy (keV) for a germanium crystal at 444 plane when
-the angle is 2.4 degrees::
+the angle is 25.6 degrees::
 
     >>> from numpy import deg2rad
     >>> from bliss.physics.diffraction import Ge
     >>> Ge444 = Ge('444')
-    >>> angle_deg = 2.4
+    >>> angle_deg = 25.6
     >>> angle_rad = deg2rad(angle_deg)
     >>> energy_J = Ge444.bragg_energy(angle_rad)
     >>> energy_keV = energy_J / 1.60218e-16
+    >>> energy_keV
+    17.561825936657083
 
 New crystal
 ~~~~~~~~~~~

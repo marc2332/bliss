@@ -6,6 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import re
+import time
 import gevent
 import functools
 from bliss.common.greenlet_utils import protect_from_kill
@@ -64,6 +65,7 @@ class Icepap(Controller):
     def __init__(self,*args,**kwargs):
         Controller.__init__(self,*args,**kwargs)
         self._cnx = None
+        self._last_axis_power_time = dict()
 
     def initialize(self):
         hostname = self.config.get("host")
@@ -111,6 +113,7 @@ class Icepap(Controller):
     def _power(self,axis,power):
         _ackcommand(self._cnx,"POWER %s %s" % 
                     ("ON" if power else "OFF",axis.address))
+        self._last_axis_power_time[axis] = time.time()
 
     def read_position(self,axis,cache=True):
         pos_cmd = "FPOS" if cache else "POS"
@@ -146,7 +149,15 @@ class Icepap(Controller):
         return self.read_acceleration(axis)
 
     def state(self,axis):
-        status = int(_command(self._cnx,"?FSTATUS %s" % (axis.address)),16)
+        last_power_time = self._last_axis_power_time.get(axis,0)
+        if time.time() - last_power_time < 1.:
+            status_cmd = "?STATUS"
+        else:
+            self._last_axis_power_time.pop(axis,None)
+            status_cmd = "?FSTATUS"
+
+        status = int(_command(self._cnx,"%s %s" %
+                              (status_cmd,axis.address)),16)
         status ^= 1<<23 #neg POWERON FLAG
         state = self._icestate.new()
         for mask,value in (((1<<9),"READY"),

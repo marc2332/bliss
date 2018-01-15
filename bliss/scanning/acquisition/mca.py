@@ -125,10 +125,10 @@ class McaAcquisitionDevice(AcquisitionDevice):
             self.device.set_preset_mode(PresetMode.REALTIME, self.preset_time)
         elif self.sync_trigger_mode:
             self.device.set_hardware_points(self.npoints + 1)
-            self.set_block_size(self.block_size)
+            self.device.set_block_size(self.block_size)
         elif self.gate_trigger_mode:
             self.device.set_hardware_points(self.npoints)
-            self.set_block_size(self.block_size)
+            self.device.set_block_size(self.block_size)
 
     def start(self):
         """Start the acquisition."""

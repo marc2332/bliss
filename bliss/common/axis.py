@@ -436,12 +436,12 @@ class Axis(object):
 
 
     @lazy_init 
-    def _read_dial_and_update(self, update_user=True, write=True):
+    def _read_dial_and_update(self, update_user=True):
         dial_pos = self._hw_position()
-        self.settings.set("dial_position", dial_pos, write=write)
+        self.settings.set("dial_position", dial_pos)
         if update_user:
             user_pos = self.dial2user(dial_pos, self.offset)
-            self.settings.set("position", user_pos, write=write)
+            self.settings.set("position", user_pos)
         return dial_pos
 
     @lazy_init
@@ -467,7 +467,7 @@ class Axis(object):
         lim_delta = self.offset - prev_offset
         self.limits(ll + lim_delta if ll is not None else ll,
                     hl + lim_delta if hl is not None else hl)
-        self.settings.set("position", new_pos, write=True)
+        self.settings.set("position", new_pos)
         return new_pos
 
     @lazy_init
@@ -499,7 +499,7 @@ class Axis(object):
 
     def sync_hard(self):
         """Forces an axis synchronization with the hardware"""
-        self.settings.set("state", self.state(read_hw=True), write=True) 
+        self.settings.set("state", self.state(read_hw=True)) 
         self._read_dial_and_update()
         self._set_position(self.position())
         event.send(self, "sync_hard")
@@ -619,8 +619,9 @@ class Axis(object):
         return self.settings.get('low_limit'), self.settings.get('high_limit')
 
     def _update_settings(self, state=None):
-        self.settings.set("state", state if state is not None else self.state(), write=self._hw_control) 
-        self._read_dial_and_update(write=self._hw_control)
+        if self._hw_control:
+            self.settings.set("state", state) 
+            self._read_dial_and_update()
  
     def _backlash_move(self, backlash_start, backlash, polling_time):
         final_pos = backlash_start + backlash
@@ -795,7 +796,8 @@ class Axis(object):
         self.__move_done.clear()
         if from_channel:
             self.__move_task = None
-        self.settings.set("state", AxisState("MOVING"), write=not from_channel)
+        else:
+            self.settings.set("state", AxisState("MOVING"))
         event.send(self, "move_done", False)
 
     def _set_move_done(self, move_task):

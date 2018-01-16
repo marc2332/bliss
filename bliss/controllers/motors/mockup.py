@@ -56,6 +56,7 @@ class Mockup(Controller):
 
         # Adds Mockup-specific settings.
         self.axis_settings.add('init_count', int)
+        self.axis_settings.add('hw_position', float)
 
     """
     Controller initialization actions.
@@ -69,37 +70,18 @@ class Mockup(Controller):
     Axes initialization actions.
     """
     def initialize_axis(self, axis):
-        dial_pos = 0
-        if True:
-            try:
-                dial_pos = axis.settings.get("dial_position")
-                if dial_pos is None:
-                    dial_pos = 0 # init
-            except:
-                pass
-
-            try:
-                vel = axis.settings.get("velocity")
-            except:
-                vel = None
-            
-            try:
-                acc = axis.settings.get("acceleration")
-            except:
-                acc = None
-        
-            axis.__vel = vel
-            axis.__acc = acc
-
         def set_pos(move_done, axis=axis):
             if move_done:
                 self.set_position(axis, axis.dial()*axis.steps_per_unit)
 
         self._axis_moves[axis] = {
-            "measured_simul": False,
             "end_t": 0,
-            "end_pos": dial_pos * axis.steps_per_unit,
             "move_done_cb": set_pos }
+
+        if axis.settings.get('hw_position') is None:
+            axis.settings.set('hw_position', 0)
+        self._axis_moves[axis]['start_pos']=self.read_position(axis)
+        self._axis_moves[axis]['target']=self._axis_moves[axis]['start_pos']
 
         event.connect(axis, "move_done", set_pos)
 
@@ -162,8 +144,8 @@ class Mockup(Controller):
         self._axis_moves[axis].update({
             "start_pos": pos,
             "delta": delta,
-            "end_pos": end_pos,
             "end_t": t0 + math.fabs(delta) / float(v),
+            "target": end_pos,
             "t0": t0})
 
     def start_jog(self, axis, velocity, direction):
@@ -173,16 +155,14 @@ class Mockup(Controller):
         self._axis_moves[axis].update({ 
             "start_pos": pos,
             "delta": direction,
-            "end_pos": None,
             "end_t": t0+1E9,
-            "t0": t0}) 
+            "t0": t0})
 
     def read_position(self, axis, t=None):
         """
         Returns the position (measured or desired) taken from controller
         in controller unit (steps).
         """
-
         # handle read out during a motion
         t = t or time.time()
         end_t = self._axis_moves[axis]["end_t"]
@@ -197,8 +177,9 @@ class Mockup(Controller):
             pos = self._axis_moves[axis]["start_pos"] + d*a*0.5*acctime**2 
             if dt > 0:
                 pos += d * dt * v
+            axis.settings.set('hw_position', pos)
         else:
-            pos = self._axis_moves[axis]["end_pos"]
+            pos = axis.settings.get('hw_position')
 
         return int(round(pos))
 
@@ -241,13 +222,15 @@ class Mockup(Controller):
         Returns the current velocity taken from controller
         in motor units.
         """
-        return axis.__vel
+        return axis.settings.get('velocity')*abs(axis.steps_per_unit)
 
     def set_velocity(self, axis, new_velocity):
         """
         <new_velocity> is in motor units
         """
-        axis.__vel = new_velocity
+        vel = new_velocity/abs(axis.steps_per_unit)
+        axis.settings.set('velocity', vel)
+        return vel
 
     """
     ACCELERATION
@@ -256,13 +239,15 @@ class Mockup(Controller):
         """
         must return acceleration in controller units / s2
         """
-        return axis.__acc
+        return axis.settings.get('acceleration')*abs(axis.steps_per_unit)
 
     def set_acceleration(self, axis, new_acceleration):
         """
         <new_acceleration> is in controller units / s2
         """
-        axis.__acc = new_acceleration
+        acc = new_acceleration/abs(axis.steps_per_unit)
+        axis.settings.set('acceleration', acc) 
+        return acc
 
     """
     ON / OFF
@@ -298,6 +283,11 @@ class Mockup(Controller):
         if self._axis_moves[axis]["end_t"] > time.time():
            return AxisState("MOVING")
         else:
+           if self._axis_moves[axis]['target']=='limit':
+             self._axis_moves[axis]['target'] = 1e6*self._axis_moves[axis]['delta']*axis.steps_per_unit
+             axis.settings.set('hw_position', self._axis_moves[axis]['target'])
+           else:
+             axis.settings.set('hw_position', self._axis_moves[axis]['target'])
            self._axis_moves[axis]["end_t"]=0
            return self._check_hw_limits(axis)
 
@@ -306,7 +296,7 @@ class Mockup(Controller):
     """
     def stop(self, axis, t=None):
         if self._axis_moves[axis]["end_t"]:
-            self._axis_moves[axis]["end_pos"] = self.read_position(axis, t=t)
+            self._axis_moves[axis]["target"] = self.read_position(axis, t=t)
             self._axis_moves[axis]["end_t"] = 0
 
     def stop_all(self, *motion_list):
@@ -318,9 +308,7 @@ class Mockup(Controller):
     HOME and limits search
     """
     def home_search(self, axis, switch):
-        self._axis_moves[axis]["start_pos"] = self._axis_moves[axis]["end_pos"]
-        self._axis_moves[axis]["end_pos"] = 0
-        self._axis_moves[axis]["delta"] = 0
+        self._axis_moves[axis]["delta"] = switch
         self._axis_moves[axis]["end_t"] = 0
         self._axis_moves[axis]["t0"] = time.time()
         self._axis_moves[axis]["home_search_start_time"] = time.time()
@@ -329,17 +317,16 @@ class Mockup(Controller):
 #        raise NotImplementedError
 
     def home_state(self, axis):
-        if(time.time() - self._axis_moves[axis]["home_search_start_time"]) > 2:
+        if(time.time() - self._axis_moves[axis]["home_search_start_time"]) > 1:
+            axis.settings.set("hw_position", 0)
             return AxisState("READY")
         else:
             return AxisState("MOVING")
 
     def limit_search(self, axis, limit):
-        self._axis_moves[axis]["start_pos"] = self._axis_moves[axis]["end_pos"]
-        self._axis_moves[axis]["end_pos"] = 1E6 if limit > 0 else -1E6
-        self._axis_moves[axis]["delta"] = self._axis_moves[axis]["end_pos"] #this is just for direction sign
-        self._axis_moves[axis]["end_pos"] *= axis.steps_per_unit
-        self._axis_moves[axis]["end_t"] = time.time() + 2
+        self._axis_moves[axis]["target"] = 'limit'
+        self._axis_moves[axis]["delta"] = limit
+        self._axis_moves[axis]["end_t"] = time.time() + 1
         self._axis_moves[axis]["t0"] = time.time()
 
     def get_info(self, axis):
@@ -348,21 +335,16 @@ class Mockup(Controller):
     def get_id(self, axis):
         return "MOCKUP AXIS %s" % (axis.name)
 
-    def raw_write(self, axis, com):
-        print ("raw_write:  com = %s" % com)
-
-    def raw_write_read(self, axis, com):
-        return com + ">-<" + com
-
     def set_position(self, axis, pos):
-        if self._axis_moves[axis]["end_t"] != 0:
+        if self._axis_moves[axis]["end_t"]:
             raise RuntimeError("Cannot set position while moving !")
-        self._axis_moves[axis]["end_pos"] = pos
+        axis.settings.set('hw_position', pos)
+        self._axis_moves[axis]['target'] = pos
         self._axis_moves[axis]["end_t"] = 0
         return pos
 
     def put_discrepancy(self, axis, disc):
-        self._axis_moves[axis]["end_pos"] += disc
+        self.set_position(axis, self.read_position(axis)+disc)
 
     """
     Custom axis methods

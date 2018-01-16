@@ -10,10 +10,13 @@
 Disclaimer
 ----------
 
-The following module uses the SI system of units.
-All arguments which represent physical quantities must be given
-in the corresponding SI value. Failure to comply will result
-in unexpected values for the user.
+When an argument to any function represents a physical quantity, the library
+expects the units to be coherent. Passing Quantity objects makes sure you are
+coherent.
+
+The implementation is permissive, which means that if you pass a float/int
+instead of a Quantity, the library assumes the argument to be in the correct
+units which are SI units. Failure to comply will result in unexpected values.
 
 Theory
 ------
@@ -69,8 +72,51 @@ Bragg energy & angle
 How to find the bragg angle (in degrees) for a silicon crystal at the 110 plane
 when the energy is 12.5 keV::
 
-    >>> from numpy import rad2deg
+    >>> from bliss.physics.units import ur
     >>> from bliss.physics.diffraction import Si
+    >>> keV, deg = ur.keV, ur.deg
+
+    >>> Si110 = Si('110')
+
+    >>> energy = 12.5*keV
+    >>> angle = Si110.bragg_angle(energy)
+
+    # angle is a Quantity (radians)
+    >>> print( angle )
+    0.12952587191 radian
+
+    # view it as a Quantity (degrees)
+    >>> print( angle.to(deg) )
+    7.42127016 degree
+
+    # get the float in degrees
+    >>> print( angle.to('deg').magnitude )
+    7.42127016
+
+
+... it also works for an arrays::
+
+    >>> from numpy import array
+    >>> energies = array([5.1, 12.5, 17.4])*keV
+    >>> angles = Si110.bragg_angle(energies)
+
+    # angles is a numpy array of Quantity (radians)
+    >>> print( angles )
+    [ 0.32212021  0.12952587  0.0929239 ] radian
+
+    # view as numpy array of Quantity (degrees)
+    >>> print( angles.to(deg) )
+    [ 18.45612869   7.4212858    5.32414748] degree
+
+    # get the underlying numpy of float64
+    >>> print( angles.to(deg).magnitude )
+    [ 18.45612869   7.4212858    5.32414748]
+
+
+...if you want to handle units yourself (disadvised):
+
+    >>> from numpy import rad2deg
+
     >>> Si110 = Si('110')
     >>> energy_keV = 12.5
     >>> energy_J = energy_keV  * 1.60218e-16
@@ -79,28 +125,22 @@ when the energy is 12.5 keV::
     >>> angle_deg
     7.42127016
 
-... it also works for an arrays::
-
-    >>> from numpy import array
-    >>> energies_keV = numpy.array((5.1, 12.5, 17.4))
-    >>> energies_J = energies_keV  * 1.60218e-16
-    >>> angles_rad = Si110.bragg_angle(energies_J)
-    >>> angles_deg = rad2deg(angles_rad)
-    >>> angles_deg
-    array([18.45608863,  7.42127016,  5.32413629])
 
 How to find the bragg energy (keV) for a germanium crystal at 444 plane when
 the angle is 25.6 degrees::
 
-    >>> from numpy import deg2rad
     >>> from bliss.physics.diffraction import Ge
+    >>> deg = ur.deg
+
     >>> Ge444 = Ge('444')
-    >>> angle_deg = 25.6
-    >>> angle_rad = deg2rad(angle_deg)
-    >>> energy_J = Ge444.bragg_energy(angle_rad)
-    >>> energy_keV = energy_J / 1.60218e-16
-    >>> energy_keV
-    17.561825936657083
+    >>> angle = 25.6*deg
+    >>> energy = Ge444.bragg_energy(angle)
+
+    >>> print( energy.to(keV) )
+    17.5618627264 kiloelectron_volt
+
+    >>> print( energy.to(ur.keV).magnitude )
+    17.5618627264
 
 New crystal
 ~~~~~~~~~~~
@@ -118,9 +158,10 @@ object with the same interface as Crystal (ie. duck typing)
 from collections import namedtuple
 
 from numpy import sqrt, sin, arcsin
-from scipy.constants import h, c
 
-hc = h * c
+from .units import ur
+
+hc = (1*(ur.h * ur.c)).to(ur.kg * ur.m**3 / ur.s**2)
 
 
 #: A crystal Plane in hkl coordinates
@@ -161,6 +202,7 @@ HKL.fromstring = staticmethod(string_to_hkl)
 HKL.tostring = hkl_to_string
 
 
+@ur.units(wavelength='m', result='J')
 def wavelength_to_energy(wavelength):
     """
     Returns photon energy (J) for the given wavelength (m)
@@ -173,6 +215,7 @@ def wavelength_to_energy(wavelength):
     return hc / wavelength
 
 
+@ur.units(energy='J', result='m')
 def energy_to_wavelength(energy):
     """
     Returns photon wavelength (m) for the given energy (J)
@@ -185,6 +228,7 @@ def energy_to_wavelength(energy):
     return hc / energy
 
 
+@ur.units(a='m', result='m')
 def distance_lattice_diffraction_plane(h, k, l, a):
     """
     Calculates the interplanar distance between lattice planes for a specific
@@ -202,6 +246,7 @@ def distance_lattice_diffraction_plane(h, k, l, a):
     return a / sqrt(h**2 + k**2 + l**2)
 
 
+@ur.units(theta='rad', d='m', result='m')
 def bragg_wavelength(theta, d, n=1):
     """
     Return a bragg wavelength (m) for the given theta and distance between
@@ -217,6 +262,7 @@ def bragg_wavelength(theta, d, n=1):
     return 2 * d * sin(theta) / n
 
 
+@ur.units(theta='rad', d='m', result='J')
 def bragg_energy(theta, d, n=1):
     """
     Return a bragg energy for the given theta and distance between lattice
@@ -232,6 +278,7 @@ def bragg_energy(theta, d, n=1):
     return wavelength_to_energy(bragg_wavelength(theta, d, n=n))
 
 
+@ur.units(energy='J', d='m', result='rad')
 def bragg_angle(energy, d, n=1):
     """
     Return a bragg angle (rad) for the given theta and distance between
@@ -244,7 +291,7 @@ def bragg_angle(energy, d, n=1):
     Returns:
         float: bragg angle (rad) for the given theta and lattice distance
     """
-    return arcsin( n * hc / (2 * d * energy))
+    return arcsin(n * hc / (2 * d * energy))
 
 
 def string_to_crystal_plane(text):
@@ -336,7 +383,7 @@ class CrystalPlane(object):
         return '{0}({1})'.format(self.crystal, self.plane.tostring())
 
     @staticmethod
-    def fromstring(text): 
+    def fromstring(text):
         """
         Return a crystal plane from a string. Accepts format:
         <symbol>['(']<plane>[')'].
@@ -376,7 +423,7 @@ class Crystal(object):
         Si
         >>> bliss.physics.diffraction.Ge
         Ge
-    
+
     """
 
     def __init__(self, element):

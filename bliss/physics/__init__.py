@@ -10,5 +10,6 @@
 .. autosummary::
    :toctree:
 
+    units
     diffraction
 """

@@ -618,7 +618,7 @@ class Axis(object):
             self.settings.set("high_limit", high_limit)
         return self.settings.get('low_limit'), self.settings.get('high_limit')
 
-    def _update_settings(self, state=None):
+    def _update_settings(self, state):
         if self._hw_control:
             self.settings.set("state", state) 
             self._read_dial_and_update()
@@ -962,7 +962,7 @@ class Axis(object):
         state_funct = getattr(self.__controller, ctrl_state_funct)
         while True:
             state = state_funct(self)
-            self._update_settings()
+            self._update_settings(state)
             if state != "MOVING":
                 return state
             gevent.sleep(polling_time)

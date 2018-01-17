@@ -189,6 +189,9 @@ class _Bus(object):
             if pending_init:
                 pipeline = self._redis.pipeline()
                 for name,default_value in pending_init:
+                    if name in CHANNELS_VALUE:
+                        # we got an update
+                        continue
                     if name not in no_listener_4_values:
                         pipeline.publish(name,cPickle.dumps(ValueQuery(),protocol=-1))
                     else: # we are alone

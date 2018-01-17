@@ -157,6 +157,7 @@ object with the same interface as Crystal (ie. duck typing)
 
 from collections import namedtuple
 
+from mendeleev import elements
 from numpy import sqrt, sin, arcsin
 
 from .units import ur, units
@@ -183,18 +184,15 @@ def string_to_hkl(text):
         ValueError: if argument is not in the correct format
     """
     try:
-        if len(text) == 3:
-            return HKL(*map(int, text))
-        elif ' ' in text:
-            return HKL(*map(int, text.split()))
+        strings = list(text) if len(text) <= 3 else text.split()
+        return HKL(*map(int, strings))
     except Exception as err:
         raise ValueError('Invalid crystal plane {0!r}: {1}'.format(text, err))
-    raise ValueError('Invalid crystal plane {0!r}'.format(text))
 
 
 def hkl_to_string(hkl):
     """Returns string representation of a HKL plane"""
-    join = '' if all(map(lambda i: i<10, hkl)) else ' '
+    join = '' if all(map(lambda i: i < 10, hkl)) else ' '
     return join.join(map(str, hkl))
 
 
@@ -492,16 +490,15 @@ class Crystal(object):
         return self.name
 
 
-# export all periodic table element cubic crystals
-
-import mendeleev.elements
+# Export all periodic table element cubic crystals
 
 def _get_all_crystals():
     result = []
-    for elem_symbol in mendeleev.elements.__all__:
-        elem = getattr(mendeleev.elements, elem_symbol)
+    for elem_symbol in elements.__all__:
+        elem = getattr(elements, elem_symbol)
         if elem.lattice_constant is not None:
             result.append(Crystal(elem))
     return result
+
 
 globals().update({c.name: c for c in _get_all_crystals()})

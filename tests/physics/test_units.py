@@ -2,7 +2,7 @@ import pytest
 
 from numpy import sin, sqrt, pi
 
-from bliss.physics.units import ur
+from bliss.physics.units import ur, units
 
 # shortcuts
 
@@ -17,21 +17,21 @@ rad = ur.rad
 def test_units_decorator_errors():
 
     with pytest.raises(TypeError):
-        @ur.units('J', 'kg')
+        @units('J', 'kg')
         def E_err1(mass):
             return mass * c**2
 
     with pytest.raises(TypeError):
-        @ur.units(mess='kg')
+        @units(mess='kg')
         def E_err2(mass):
             return mass * c**2
 
     with pytest.raises(TypeError):
-        @ur.units(mass='kg', mess='J')
+        @units(mass='kg', mess='J')
         def E_err3(mass):
             return mass * c**2
 
-    @ur.units(mass=kg, result=J)
+    @units(mass=kg, result=J)
     def E_err4(mass):
         return 0
 
@@ -43,7 +43,7 @@ def test_units_decorator_1_arg():
 
     # string params
 
-    @ur.units(d1='m', result='m')
+    @units(d1='m', result='m')
     def twice(d1):
         return 2.0*d1
 
@@ -54,7 +54,7 @@ def test_units_decorator_1_arg():
 
     # quantity params
 
-    @ur.units(mass=kg, result=J)
+    @units(mass=kg, result=J)
     def E(mass):
         return mass * c**2
 
@@ -65,7 +65,7 @@ def test_units_decorator_1_arg():
 
 
 def test_units_decorator_n_args():
-    @ur.units(p1=m/s, p2=m/s, result=m/s)
+    @units(p1=m/s, p2=m/s, result=m/s)
     def sum_speeds1(p1, p2):
         return p1 + p2
 
@@ -74,7 +74,7 @@ def test_units_decorator_n_args():
     assert sum_speeds1(10.0*m/s, -5.0) == 5.0*m/s
     assert sum_speeds1(10.0*m/s, -5.0*m/s) == 5.0*m/s
 
-    @ur.units(p1=m/s, result=m/s)
+    @units(p1=m/s, result=m/s)
     def sum_speeds2(p1, p2):
         return p1
 
@@ -86,19 +86,19 @@ def test_units_decorator_n_args():
 
 def test_inner_calls():
 
-    @ur.units(wavelength=m, result=J)
+    @units(wavelength=m, result=J)
     def wavelength_to_energy(wavelength):
         return h * c / wavelength
 
-    @ur.units(theta=rad, d=m, result=m)
+    @units(theta=rad, d=m, result=m)
     def bragg_wavelength(theta, d, n=1):
         return 2 * d * sin(theta) / n
 
-    @ur.units(a=m)
+    @units(a=m)
     def distance(h, k, l, a):
         return a / sqrt(h**2 + k**2 + l**2)
 
-    @ur.units(theta=rad, d=m, result=J)
+    @units(theta=rad, d=m, result=J)
     def bragg_energy(theta, d, n=1):
         return wavelength_to_energy(bragg_wavelength(theta, d, n=n))
 
@@ -120,5 +120,3 @@ def test_inner_calls():
     assert bragg_energy(q_theta, f_Si110_d) == q_energy
     assert bragg_energy(f_theta, q_Si110_d) == q_energy
     assert bragg_energy(q_theta, q_Si110_d) == q_energy
-
-

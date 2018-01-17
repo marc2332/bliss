@@ -159,7 +159,7 @@ from collections import namedtuple
 
 from numpy import sqrt, sin, arcsin
 
-from .units import ur
+from .units import ur, units
 
 hc = (1*(ur.h * ur.c)).to(ur.kg * ur.m**3 / ur.s**2)
 
@@ -202,7 +202,7 @@ HKL.fromstring = staticmethod(string_to_hkl)
 HKL.tostring = hkl_to_string
 
 
-@ur.units(wavelength='m', result='J')
+@units(wavelength='m', result='J')
 def wavelength_to_energy(wavelength):
     """
     Returns photon energy (J) for the given wavelength (m)
@@ -215,7 +215,7 @@ def wavelength_to_energy(wavelength):
     return hc / wavelength
 
 
-@ur.units(energy='J', result='m')
+@units(energy='J', result='m')
 def energy_to_wavelength(energy):
     """
     Returns photon wavelength (m) for the given energy (J)
@@ -228,7 +228,7 @@ def energy_to_wavelength(energy):
     return hc / energy
 
 
-@ur.units(a='m', result='m')
+@units(a='m', result='m')
 def distance_lattice_diffraction_plane(h, k, l, a):
     """
     Calculates the interplanar distance between lattice planes for a specific
@@ -246,7 +246,7 @@ def distance_lattice_diffraction_plane(h, k, l, a):
     return a / sqrt(h**2 + k**2 + l**2)
 
 
-@ur.units(theta='rad', d='m', result='m')
+@units(theta='rad', d='m', result='m')
 def bragg_wavelength(theta, d, n=1):
     """
     Return a bragg wavelength (m) for the given theta and distance between
@@ -262,7 +262,7 @@ def bragg_wavelength(theta, d, n=1):
     return 2 * d * sin(theta) / n
 
 
-@ur.units(theta='rad', d='m', result='J')
+@units(theta='rad', d='m', result='J')
 def bragg_energy(theta, d, n=1):
     """
     Return a bragg energy for the given theta and distance between lattice
@@ -278,7 +278,7 @@ def bragg_energy(theta, d, n=1):
     return wavelength_to_energy(bragg_wavelength(theta, d, n=n))
 
 
-@ur.units(energy='J', d='m', result='rad')
+@units(energy='J', d='m', result='rad')
 def bragg_angle(energy, d, n=1):
     """
     Return a bragg angle (rad) for the given theta and distance between

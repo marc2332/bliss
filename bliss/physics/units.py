@@ -51,8 +51,8 @@ this as soon as possible in the code of your application::
     import pint
     ureg = UnitRegistry()
 
-    from bliss.physics import ur
-    ur.registry = ureg
+    from bliss.physics import units
+    units.ur = ureg
 
 """
 
@@ -61,54 +61,38 @@ from inspect import getargspec
 
 import pint
 
-_UnitNull = lambda value: value
+__all__ = ['ur', 'units']
 
-_to_arg_type = lambda a: _UnitNull(a) if a is None else ur.Unit(a)
-
-def _to_arg_types(kwarg_types):
-    return {k:_to_arg_type(a) for k, a in kwarg_types.items()}
-
-def _to_arg(arg, arg_type):
-    if arg is None:
-        return None, True
-    is_unit = isinstance(arg_type, ur.Unit)
-    is_quantity = isinstance(arg, ur.Quantity)
-    if is_unit:
-        arg = arg.to(arg_type) if is_quantity else arg*arg_type
-    return arg, is_quantity and is_unit
-
-def _create_args_converter(kwarg_types):
-    kwarg_types = _to_arg_types(kwarg_types)
-    def convert(kwargs):
-        any_quantity_arg = False
-        result = {}
-        for arg_name, arg in kwargs.iteritems():
-            arg_type = kwarg_types.get(arg_name)
-            arg, is_quantity = _to_arg(arg, arg_type)
-            any_quantity_arg |= is_quantity
-            result[arg_name] = arg
-        return result, any_quantity_arg
-    return convert
-
-def _create_result_converter(result_type):
-    result_type = _to_arg_type(result_type)
-    is_unit = isinstance(result_type, ur.Unit)
-    if is_unit:
-        def convert(result, no_quantity):
-            if isinstance(result, ur.Quantity):
-                result = result.to(result_type)
-                if no_quantity:
-                    result = result.magnitude
-                return result
-            raise TypeError('Method does not return a quantity')
-
-    else:
-        def convert(result, no_quantity):
-            return result
-    return convert
+#: unit registry
+ur = pint.UnitRegistry()
 
 
-def units(**kwarg_types):
+def is_quantity(arg):
+    """Return whether the given argument is a quantity."""
+    return isinstance(arg, ur.Quantity)
+
+
+def to_unit(arg):
+    """Permissively cast the given argument into a unit."""
+    return ur.Unit(arg) if arg else None
+
+
+def values_to_units(dct):
+    """Cast the values of the given dict into units"""
+    return {k: to_unit(v) for k, v in dct.items()}
+
+
+def convert_to(arg, unit):
+    """Permissively convert the given argument into the given unit.
+
+    The argument can either be a number or a quantity.
+    """
+    if not unit:
+        return arg
+    return arg.to(unit) if is_quantity(arg) else arg * unit
+
+
+def units(**kwarg_units):
     """
     Use as a decorator to protect your function against unit errors.
 
@@ -135,66 +119,40 @@ def units(**kwarg_types):
     of the arguments is a Quantity the result is a float with a value in the
     units specified by *result*
     """
-    result_type = kwarg_types.pop('result', None)
-    convert_args = _create_args_converter(kwarg_types)
-    convert_result = _create_result_converter(result_type)
+    result_unit = to_unit(kwarg_units.pop('result', None))
+    kwarg_units = values_to_units(kwarg_units)
 
     def decorator(func):
         arg_spec = getargspec(func).args
-#        if set(arg_spec) != kwarg_names:
-        if not set(arg_spec).issuperset(kwarg_types):
-            raise TypeError('units argument names differ from ' \
-                            'function argument names')
+        if not set(arg_spec).issuperset(kwarg_units):
+            raise TypeError(
+                'units argument names differ from function argument names')
+
         @wraps(func)
         def wrapper(*args, **kwargs):
+            # Everything is a kwargs
             kwargs.update(zip(arg_spec, args))
-            kwargs, any_quantity_arg = convert_args(kwargs)
+            # Check for quantity-free use case
+            all_magnitude = all(
+                not is_quantity(value)
+                for key, value in kwargs.items()
+                if key in kwarg_units)
+            # Kwargs conversion
+            kwargs = {
+                key: convert_to(value, kwarg_units.get(key))
+                for key, value in kwargs.items()}
+            # Call the actual func
             result = func(**kwargs)
-            result = convert_result(result, not any_quantity_arg)
-            return result
+            if not result_unit:
+                return result
+            # Safety check
+            if not is_quantity(result):
+                raise TypeError(
+                    'Function {!r} did not return a quantity'.format(func))
+            # Convert the result and return magnitude or quantity
+            result = convert_to(result, result_unit)
+            return result.magnitude if all_magnitude else result
+
         return wrapper
+
     return decorator
-
-
-class Units(object):
-    """Wrapper around the pint.UnitRegistry to make the API
-    a little bit more friendly. Don't use this directly on your code"""
-
-    def __init__(self):
-        self.__dict__['__unit_registry'] = None
-
-    @property
-    def registry(self):
-        ur = self.__dict__['__unit_registry']
-        if ur is None:
-            import pint
-            self.__dict__['__unit_registry'] = ur = pint.UnitRegistry()
-        return ur
-
-    def __dir__(self):
-        return dir(self.registry) + ['registry', 'units']
-
-    @registry.setter
-    def registry(self, reg):
-        self.__unit_registry = reg
-
-    def units(self, **kwargs):
-        return units(**kwargs)
-
-    def __getattr__(self, name):
-        return getattr(self.registry, name)
-
-    def __setattr__(self, key, value):
-        setattr(self.registry, key, value)
-
-    def __call__(self, *args, **kwargs):
-        return self.registry(*args, **kwargs)
-
-    def __getitem__(self, key):
-        return self.registry[key]
-
-    def __setitem__(self, key, value):
-        self.registry[key] = value
-
-#: unit registry
-ur = Units()

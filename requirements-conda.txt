@@ -18,4 +18,3 @@ pytango
 posix_ipc
 h5py
 pygments
-

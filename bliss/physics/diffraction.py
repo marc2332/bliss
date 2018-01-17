@@ -151,8 +151,19 @@ like this::
 
     SiGeMix = Crystal(('SiGe hybrid', 3.41e-10))
 
-More complex crystals may require you to inherit from Crystal or create your own
-object with the same interface as Crystal (ie. duck typing)
+More complex crystals may require you to inherit from Crystal or create your
+own object with the same interface as Crystal (ie. duck typing)
+
+Multi-crystal plane
+~~~~~~~~~~~~~~~~~~~
+
+It is possible to define multi-crystal planes by providing the interplanar
+distance::
+
+    >>> from bliss.physics.diffraction import MultiPlane
+
+    >>> my_plane = MultiPlane(distance=5.0e-10)
+    >>> e = my_plane.bragg_energy(50e-3)
 """
 
 from collections import namedtuple
@@ -321,25 +332,15 @@ def string_to_crystal_plane(text):
     return globals()[symbol](plane)
 
 
-class CrystalPlane(object):
+class BasePlane(object):
     """
-    Cubic crystal plane.
+    Base crystal plane.
 
-    This object should not be created directly. Instead you should
-    get it from the Crystal::
-
-        >>> from bliss.physics.diffraction import Si
-
-        >>> Si111 = Si('111')
-        >>> e_at_50mrad = Si111.bragg_energy(50e-3)
+    This object should not be created directly.
     """
 
-    def __init__(self, crystal, plane):
-        self.crystal = crystal
-        self.plane = plane
-        # may optimize in the future
-        (h, k, l), a = self.plane, self.crystal.lattice_constant
-        self.d = distance_lattice_diffraction_plane(h, k, l, a)
+    def __init__(self, distance):
+        self.d = distance
 
     def bragg_wavelength(self, theta, n=1):
         """
@@ -377,8 +378,29 @@ class CrystalPlane(object):
         """
         return bragg_angle(energy, self.d, n=n)
 
+
+class CrystalPlane(BasePlane):
+    """
+    Cubic crystal plane.
+
+    This object should not be created directly. Instead you should
+    get it from the Crystal::
+
+        >>> from bliss.physics.diffraction import Si
+
+        >>> Si111 = Si('111')
+        >>> e_at_50mrad = Si111.bragg_energy(50e-3)
+    """
+
+    def __init__(self, crystal, plane):
+        self.crystal = crystal
+        self.plane = plane
+        (h, k, l), a = self.plane, self.crystal.lattice_constant
+        distance = distance_lattice_diffraction_plane(h, k, l, a)
+        super(CrystalPlane, self).__init__(distance)
+
     def __repr__(self):
-        return '{0}({1})'.format(self.crystal, self.plane.tostring())
+        return '{}({})'.format(self.crystal, self.plane.tostring())
 
     @staticmethod
     def fromstring(text):
@@ -402,6 +424,23 @@ class CrystalPlane(object):
             ValueError: is plane is in wrong format
         """
         return string_to_crystal_plane(text)
+
+
+class MultiPlane(BasePlane):
+    """
+    Multi crystal plane.
+
+    Examples::
+
+        >>> from bliss.physics.diffraction import MultiPlane
+
+        >>> my_plane = MultiPlane(distance=5.0e-10)
+        >>> e = my_plane.bragg_energy(50e-3)
+    """
+
+    def __repr__(self):
+        name = type(self).__name__
+        return '{}(distance={})'.format(name, self.d)
 
 
 class Crystal(object):

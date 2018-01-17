@@ -116,6 +116,7 @@ def main():
         'enum34 ; python_version < "3.4"',
         "h5py",
         "mendeleev",
+        "pint",
     ]
 
     tests_require = [

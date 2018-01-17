@@ -175,7 +175,9 @@ class Axis(object):
         self.__config = StaticConfig(config)
         self.__settings = AxisSettings(self)
         self.__move_done = gevent.event.Event()
+        self.__move_done_callback = gevent.event.Event()
         self.__move_done.set()
+        self.__move_done_callback.set()
         self.__move_task = None
         self.__stopped = False
         self._in_group_move = False
@@ -791,9 +793,18 @@ class Axis(object):
 
         return motion
 
+    def __emit_move_done(self):
+        self.__move_done.wait()
+        try:
+            event.send(self, "move_done", True)
+        finally:
+            self.__move_done_callback.set()
+
     def _set_moving_state(self, from_channel=False):
         self.__stopped = False
         self.__move_done.clear()
+        self.__move_done_callback.clear()
+        gevent.spawn(self.__emit_move_done)
         if from_channel:
             self.__move_task = None
         else:
@@ -814,9 +825,9 @@ class Axis(object):
                 hook.post_move(self.__move_task._motions)
             except:
                 sys.excepthook(*sys.exc_info())
+
         self._update_settings(state)
         self.__move_done.set()
-        event.send(self, "move_done", True)
 
     def _check_ready(self):
         if not self.state() in ("READY", "MOVING"):
@@ -944,15 +955,16 @@ class Axis(object):
         Wait for the axis to finish motion (blocks current :class:`Greenlet`)
 
         """
+        wait = self.__move_done_callback.wait
         if self.__move_task is None:
             # move has been started externally
             with error_cleanup(self.stop):
-                self.__move_done.wait()
+                wait()
         else:
             move_task = self.__move_task
             move_task._being_waited = True
             with error_cleanup(self.stop):
-                self.__move_done.wait()
+                wait()
             try:
                 move_task.get()
             except gevent.GreenletExit:

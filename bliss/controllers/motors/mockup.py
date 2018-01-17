@@ -355,6 +355,8 @@ class Mockup(Controller):
         return com + ">-<" + com
 
     def set_position(self, axis, pos):
+        if self._axis_moves[axis]["end_t"] != 0:
+            raise RuntimeError("Cannot set position while moving !")
         self._axis_moves[axis]["end_pos"] = pos
         self._axis_moves[axis]["end_t"] = 0
         return pos

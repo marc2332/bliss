@@ -6,9 +6,11 @@ import numpy
 import gevent
 import sys
 
+
 class CalcAcquisitionDevice(AcquisitionDevice):
-    def __init__(self, name, src_acq_devices_list, func, output_channels_list, type="zerod"):
-        AcquisitionDevice.__init__(self, None, name, type, trigger_type=AcquisitionDevice.HARDWARE)
+    def __init__(self, name, src_acq_devices_list, func, output_channels_list):
+        AcquisitionDevice.__init__(
+            self, None, name, trigger_type=AcquisitionDevice.HARDWARE)
         self.src_acq_devices_list = src_acq_devices_list
         self.func = func
         self.channels.extend(output_channels_list)
@@ -25,7 +27,8 @@ class CalcAcquisitionDevice(AcquisitionDevice):
         output_channels_data_dict = self.func(sender, channel_data)
 
         if output_channels_data_dict:
-            dispatcher.send("new_data", self, { "channel_data": output_channels_data_dict })
+            dispatcher.send("new_data", self, {
+                            "channel_data": output_channels_data_dict})
 
     def start(self):
         return

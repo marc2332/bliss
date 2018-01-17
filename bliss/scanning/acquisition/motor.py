@@ -18,26 +18,28 @@ import numpy
 import gevent
 import sys
 
+
 class MotorMaster(AcquisitionMaster):
     def __init__(self, axis, start, end, time=0, undershoot=None,
                  trigger_type=AcquisitionMaster.HARDWARE,
-                 backnforth=False,type="axis",**keys):
-        AcquisitionMaster.__init__(self, axis, axis.name, type,
-                                   trigger_type=trigger_type,**keys)
-        self.movable = axis    
+                 backnforth=False, **keys):
+        AcquisitionMaster.__init__(self, axis, axis.name,
+                                   trigger_type=trigger_type, **keys)
+        self.movable = axis
         self.start_pos = start
         self.end_pos = end
         self.undershoot = undershoot
-        self.velocity = abs(end-start)/float(time) if time > 0 else axis.velocity()
+        self.velocity = abs(end - start) / \
+            float(time) if time > 0 else axis.velocity()
         self.backnforth = backnforth
 
-    def _calculate_undershoot(self, pos, end = False):
+    def _calculate_undershoot(self, pos, end=False):
         if self.undershoot is None:
-            acctime = float(self.velocity)/self.movable.acceleration()
-            undershoot = self.velocity*acctime/2
+            acctime = float(self.velocity) / self.movable.acceleration()
+            undershoot = self.velocity * acctime / 2
         d = 1 if self.end_pos >= self.start_pos else -1
         d *= -1 if end else 1
-        pos -= d*undershoot
+        pos -= d * undershoot
         return pos
 
     def prepare(self):
@@ -51,14 +53,14 @@ class MotorMaster(AcquisitionMaster):
 
     def trigger(self):
         self.initial_velocity = self.movable.velocity()
-        self.movable.velocity(self.velocity) 
-        end = self._calculate_undershoot(self.end_pos,end=True)
+        self.movable.velocity(self.velocity)
+        end = self._calculate_undershoot(self.end_pos, end=True)
         event.connect(self.movable, "move_done", self.move_done)
         self.movable.move(end)
         if self.backnforth:
-            self.start_pos,self.end_pos = self.end_pos,self.start_pos
+            self.start_pos, self.end_pos = self.end_pos, self.start_pos
 
-    def wait_ready(self) :
+    def wait_ready(self):
         return self.movable.wait_move()
 
     def stop(self):
@@ -67,13 +69,14 @@ class MotorMaster(AcquisitionMaster):
     def move_done(self, done):
         if done:
             self.movable.velocity(self.initial_velocity)
-            event.disconnect(self.movable, "move_done", self.move_done)    
+            event.disconnect(self.movable, "move_done", self.move_done)
+
 
 class SoftwarePositionTriggerMaster(MotorMaster):
     def __init__(self, axis, start, end, npoints=1, **kwargs):
-	self._positions = numpy.linspace(start, end, npoints+1)[:-1]
-        MotorMaster.__init__(self, axis, start, end,type="zerod", **kwargs)
-        self.channels.append(AcquisitionChannel(axis.name,numpy.double, (1,)))
+        self._positions = numpy.linspace(start, end, npoints + 1)[:-1]
+        MotorMaster.__init__(self, axis, start, end, **kwargs)
+        self.channels.append(AcquisitionChannel(axis.name, numpy.double, ()))
         self.__nb_points = npoints
 
     @property
@@ -87,7 +90,7 @@ class SoftwarePositionTriggerMaster(MotorMaster):
         MotorMaster.start(self)
         if self.exception:
             raise self.exception[0], self.exception[1], self.exception[2]
-        
+
     def stop(self):
         self.movable.stop()
 
@@ -97,30 +100,30 @@ class SoftwarePositionTriggerMaster(MotorMaster):
         except IndexError:
             return
         if ((self.end_pos >= self.start_pos and position >= next_trigger_pos) or
-            (self.start_pos > self.end_pos and position <= next_trigger_pos)):
-          self.index += 1
-          try:
-              self.trigger_slaves()
-          except Exception:
-              event.disconnect(self.movable, "position", self.position_changed)
-              self.movable.stop(wait=False)
-              self.exception = sys.exc_info()
-          else:
-              dispatcher.send("new_data",self,
-                              {"channel_data": {self.movable.name : numpy.double(position)}})
+                (self.start_pos > self.end_pos and position <= next_trigger_pos)):
+            self.index += 1
+            try:
+                self.trigger_slaves()
+            except Exception:
+                event.disconnect(self.movable, "position",
+                                 self.position_changed)
+                self.movable.stop(wait=False)
+                self.exception = sys.exc_info()
+            else:
+                self.channels[0].emit(position)
 
     def move_done(self, done):
         if done:
             event.disconnect(self.movable, "position", self.position_changed)
-        MotorMaster.move_done(self, done) 
-       
+        MotorMaster.move_done(self, done)
+
 
 class JogMotorMaster(AcquisitionMaster):
-    def __init__(self, axis, start, jog_speed, end_jog_func = None,
+    def __init__(self, axis, start, jog_speed, end_jog_func=None,
                  undershoot=None):
         """
         Helper to driver a motor in constant speed in jog mode.
-        
+
         axis -- a motor axis
         start -- position where you want to have your motor in constant speed
         jog_speed -- constant velocity during the movement
@@ -128,18 +131,18 @@ class JogMotorMaster(AcquisitionMaster):
         Stop the movement if return value != True
         if end_jog_func is None should be stopped externally.
         """
-        AcquisitionMaster.__init__(self, axis, axis.name, "axis")
-        self.movable = axis    
+        AcquisitionMaster.__init__(self, axis, axis.name)
+        self.movable = axis
         self.start_pos = start
         self.undershoot = undershoot
         self.jog_speed = jog_speed
         self.end_jog_func = end_jog_func
         self.__end_jog_task = None
-        
-    def _calculate_undershoot(self, pos) :
+
+    def _calculate_undershoot(self, pos):
         if self.undershoot is None:
-            acctime = abs(float(self.jog_speed)/self.movable.acceleration())
-            undershoot = self.jog_speed*acctime/2
+            acctime = abs(float(self.jog_speed) / self.movable.acceleration())
+            undershoot = self.jog_speed * acctime / 2
         pos -= undershoot
         return pos
 
@@ -154,7 +157,8 @@ class JogMotorMaster(AcquisitionMaster):
     def start(self, polling_time=axis.DEFAULT_POLLING_TIME):
         with error_cleanup(self.stop):
             self.movable.jog(self.jog_speed)
-            self.__end_jog_task = gevent.spawn(self._end_jog_watch,polling_time)
+            self.__end_jog_task = gevent.spawn(
+                self._end_jog_watch, polling_time)
             self.__end_jog_task.join()
 
     def stop(self):
@@ -165,7 +169,7 @@ class JogMotorMaster(AcquisitionMaster):
             self.movable.velocity(self.initial_velocity)
             event.disconnect(self.movable, "move_done", self.move_done)
 
-    def _end_jog_watch(self,polling_time):
+    def _end_jog_watch(self, polling_time):
         try:
             while self.movable.is_moving:
                 stopFlag = True
@@ -181,9 +185,10 @@ class JogMotorMaster(AcquisitionMaster):
                 except:
                     self.movable.stop()
                     raise
-                
+
         finally:
             self.__end_jog_task = None
+
 
 class _StepTriggerMaster(AcquisitionMaster):
     """
@@ -195,24 +200,27 @@ class _StepTriggerMaster(AcquisitionMaster):
 
         _StepTriggerMaster(mota,0,10,20,motb,-1,1,20)
     """
-    def __init__(self,*args,**keys):
-        trigger_type= keys.pop('trigger_type',AcquisitionMaster.SOFTWARE)
+
+    def __init__(self, *args, **keys):
+        trigger_type = keys.pop('trigger_type', AcquisitionMaster.SOFTWARE)
         self.next_mv_cmd_arg = list()
         if len(args) % 4:
-            raise TypeError('_StepTriggerMaster: argument is a mot1,start,stop,nb points,mot2,start2...')
+            raise TypeError(
+                '_StepTriggerMaster: argument is a mot1,start,stop,nb points,mot2,start2...')
         self._motor_pos = list()
         self._axes = list()
-        for axis,start,stop,nb_point in grouped(args,4):
+        for axis, start, stop, nb_point in grouped(args, 4):
             self._axes.append(axis)
-            self._motor_pos.append(numpy.linspace(start,stop,nb_point))
+            self._motor_pos.append(numpy.linspace(start, stop, nb_point))
 
         mot_group = Group(*self._axes)
         group_name = '/'.join((x.name for x in self._axes))
 
-        AcquisitionMaster.__init__(self,mot_group,group_name,"zerod",
-                                   trigger_type=trigger_type,**keys)
+        AcquisitionMaster.__init__(self, mot_group, group_name,
+                                   trigger_type=trigger_type, **keys)
 
-        self.channels.extend((AcquisitionChannel(axis.name,numpy.double, (1,)) for axis in self._axes))
+        self.channels.extend(
+            (AcquisitionChannel(axis.name, numpy.double, ()) for axis in self._axes))
 
     @property
     def npoints(self):
@@ -222,8 +230,8 @@ class _StepTriggerMaster(AcquisitionMaster):
         iter_pos = [iter(x) for x in self._motor_pos]
         while True:
             self.next_mv_cmd_arg = list()
-            for axis,pos in zip(self._axes,iter_pos):
-                self.next_mv_cmd_arg.extend((axis,pos.next()))
+            for axis, pos in zip(self._axes, iter_pos):
+                self.next_mv_cmd_arg.extend((axis, pos.next()))
             yield self
 
     def prepare(self):
@@ -231,18 +239,18 @@ class _StepTriggerMaster(AcquisitionMaster):
 
     def start(self):
         self.trigger()
-            
+
     def stop(self):
         self.device.stop()
 
     def trigger(self):
         self.trigger_slaves()
 
-        dispatcher.send("new_data",self,
-                        {"channel_data":dict((axis.name,numpy.double(axis.position()))
-                                             for axis in self._axes)})
+        self.channels.update_from_iterable(
+            [axis.position() for axis in self._axes])
 
         self.wait_slaves()
+
 
 class MeshStepTriggerMaster(_StepTriggerMaster):
     """
@@ -254,33 +262,36 @@ class MeshStepTriggerMaster(_StepTriggerMaster):
 
         MeshStepTriggerMaster(mota,0,10,20,motb,-1,1,5)
     """
-    def __init__(self,*args,**keys):
-        backnforth = keys.pop('backnforth',False)
-        _StepTriggerMaster.__init__(self,*args,**keys)
-        
+
+    def __init__(self, *args, **keys):
+        backnforth = keys.pop('backnforth', False)
+        _StepTriggerMaster.__init__(self, *args, **keys)
+
         self._motor_pos = numpy.meshgrid(*self._motor_pos)
         if backnforth:
-            self._motor_pos[0][::2] = self._motor_pos[0][::2,::-1]
+            self._motor_pos[0][::2] = self._motor_pos[0][::2, ::-1]
 
         for x in self._motor_pos:       # flatten
             x.shape = -1,
- 
+
 
 class LinearStepTriggerMaster(_StepTriggerMaster):
     """
     Generic motor master for step by step acquisition.
-    
+
     :param nb_point the number of position generated
     :param *args == mot1,start1,stop1,mot2,start2,stop2,...
     Example::
 
         LinearStepTriggerMaster(20,mota,0,10,motb,-1,1)
     """
-    def __init__(self,nb_point,*args,**keys):
+
+    def __init__(self, nb_point, *args, **keys):
         if len(args) % 3:
-            raise TypeError('LinearStepTriggerMaster: argument is a nb_point,mot1,start1,stop1,mot2,start2,stop2,...')
+            raise TypeError(
+                'LinearStepTriggerMaster: argument is a nb_point,mot1,start1,stop1,mot2,start2,stop2,...')
 
         params = list()
-        for axis,start,stop in grouped(args,3):
-            params.extend((axis,start,stop,nb_point))
-        _StepTriggerMaster.__init__(self,*params,**keys)
+        for axis, start, stop in grouped(args, 3):
+            params.extend((axis, start, stop, nb_point))
+        _StepTriggerMaster.__init__(self, *params, **keys)

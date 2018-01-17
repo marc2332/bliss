@@ -14,13 +14,14 @@ from ..chain import AcquisitionDevice, AcquisitionChannel
 from bliss.common.measurement import GroupedReadMixin
 from bliss.common.utils import all_equal
 
+
 class BaseCounterAcquisitionDevice(AcquisitionDevice):
     def __init__(self, counter, count_time, **keys):
         npoints = max(1, keys.pop('npoints', 1))
         prepare_once = keys.pop('prepare_once', True)
         start_once = keys.pop('start_once', npoints > 1)
 
-        AcquisitionDevice.__init__(self, counter, counter.name, "zerod",
+        AcquisitionDevice.__init__(self, counter, counter.name,
                                    npoints=npoints,
                                    trigger_type=AcquisitionDevice.SOFTWARE,
                                    prepare_once=prepare_once,
@@ -28,40 +29,35 @@ class BaseCounterAcquisitionDevice(AcquisitionDevice):
 
         self.__count_time = count_time
         self.__grouped_read_counters_list = list()
-        self.__counter_names = list()
         self._nb_acq_points = 0
 
         if not isinstance(counter, GroupedReadMixin):
-            self.channels.append(AcquisitionChannel(counter.name, numpy.double, (1,)))
-            self.__counter_names.append(counter.name)
-        
+            self.channels.append(AcquisitionChannel(
+                counter.name, numpy.double, ()))
+
     @property
     def count_time(self):
         return self.__count_time
-       
+
     @property
     def grouped_read_counters(self):
         return self.__grouped_read_counters_list
- 
-    @property
-    def counter_names(self):
-        return self.__counter_names
 
     def add_counter(self, counter):
         if not isinstance(self.device, GroupedReadMixin):
-            raise RuntimeError("Cannot add counter to single-read counter acquisition device")
+            raise RuntimeError(
+                "Cannot add counter to single-read counter acquisition device")
 
         self.__grouped_read_counters_list.append(counter)
-        self.__counter_names.append(counter.name)
-        self.channels.append(AcquisitionChannel(counter.name, numpy.double, (1,)))
+        self.channels.append(AcquisitionChannel(
+            counter.name, numpy.double, ()))
 
     def _emit_new_data(self, data):
-        channel_data = dict([ (name, data[i]) for i, name in enumerate(self.counter_names) ])
-        dispatcher.send("new_data", self, {"channel_data": channel_data})
+        self.channels.update_from_iterable(data)
 
 
 class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
-    SIMPLE_AVERAGE,TIME_AVERAGE,INTEGRATE = range(3)
+    SIMPLE_AVERAGE, TIME_AVERAGE, INTEGRATE = range(3)
 
     def __init__(self, counter, count_time=None, mode=SIMPLE_AVERAGE, **keys):
         """
@@ -78,7 +74,8 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
           * prepare_once --
           * start_once --
         """
-        BaseCounterAcquisitionDevice.__init__(self, counter, count_time, **keys)
+        BaseCounterAcquisitionDevice.__init__(
+            self, counter, count_time, **keys)
 
         self._event = event.Event()
         self._stop_flag = False
@@ -89,8 +86,9 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
     @property
     def mode(self):
         return self.__mode
+
     @mode.setter
-    def mode(self,value):
+    def mode(self, value):
         self.__mode = value
 
     def prepare(self):
@@ -125,25 +123,28 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
 
     def reading(self):
         while self._nb_acq_points < self.npoints:
-            #trigger wait
+            # trigger wait
             self._event.wait()
             self._event.clear()
             self._ready_flag = False
             trig_time = self._trig_time
-            if trig_time is None: continue
-            if self._stop_flag: break
+            if trig_time is None:
+                continue
+            if self._stop_flag:
+                break
 
             nb_read = 0
             acc_read_time = 0
-            acc_value = numpy.zeros((len(self.counter_names),), dtype=numpy.double)
+            acc_value = numpy.zeros((len(self.channels),), dtype=numpy.double)
             stop_time = trig_time + self.count_time or 0
-            #Counter integration loop
+            # Counter integration loop
             while not self._stop_flag:
                 start_read = time.time()
-                read_value = numpy.array(self.device.read(*self.grouped_read_counters), dtype=numpy.double)
+                read_value = numpy.array(self.device.read(
+                    *self.grouped_read_counters), dtype=numpy.double)
                 end_read = time.time()
                 read_time = end_read - start_read
-                
+
                 if self.__mode == SamplingCounterAcquisitionDevice.TIME_AVERAGE:
                     acc_value += read_value * (end_read - start_read)
                 else:
@@ -155,25 +156,26 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
                 current_time = time.time()
                 if (current_time + (acc_read_time / nb_read)) > stop_time:
                     break
-                gevent.sleep(0) # Be able to kill the task
+                gevent.sleep(0)  # to be able to kill the task
             self._nb_acq_points += 1
             if self.__mode == SamplingCounterAcquisitionDevice.TIME_AVERAGE:
                 data = acc_value / acc_read_time
             else:
                 data = acc_value / nb_read
-                
+
             if self.__mode == SamplingCounterAcquisitionDevice.INTEGRATE:
                 data *= self.count_time
-            
+
             self._emit_new_data(data)
 
             self._ready_flag = True
             self._ready_event.set()
-            
+
 
 class IntegratingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
     def __init__(self, counter, count_time=None, **keys):
-        BaseCounterAcquisitionDevice.__init__(self, counter, count_time, **keys)
+        BaseCounterAcquisitionDevice.__init__(
+            self, counter, count_time, **keys)
 
     def prepare(self):
         self.device.prepare(*self.grouped_read_counters)
@@ -190,7 +192,7 @@ class IntegratingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
 
     def trigger(self):
         pass
-    
+
     def _read_data(self, from_index):
         if self.grouped_read_counters:
             return self.device.get_values(from_index, *self.grouped_read_counters)
@@ -202,12 +204,11 @@ class IntegratingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         while self._nb_acq_points < self.npoints and not self._stop_flag:
             data = self._read_data(from_index)
             if not all_equal([len(d) for d in data]):
-                raise RuntimeError("Can't have a different data length")
+                raise RuntimeError("Read data can't have different sizes")
             if len(data[0]) > 0:
                 from_index += len(data[0])
                 self._nb_acq_points += len(data[0])
                 self._emit_new_data(data)
                 gevent.idle()
             else:
-                gevent.sleep(self.count_time/2.)
-            
+                gevent.sleep(self.count_time / 2.)

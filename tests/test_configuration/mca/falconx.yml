@@ -1,5 +1,5 @@
 name: falconx1
-module: xia
+module: mca
 class: FalconX
 plugin: bliss
 url: tcp://wduxia.esrf.fr:8000

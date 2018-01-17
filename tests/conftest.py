@@ -7,36 +7,87 @@
 
 import os
 import time
+import subprocess
 import multiprocessing
 
 import redis
 import pytest
+import gevent
+import sys
 
 from bliss.config import static
 from bliss.config.conductor import client
 from bliss.config.conductor import connection
+from bliss.config.conductor.client import get_default_connection
 
 BLISS = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+BEACON = [sys.executable, '-m', 'bliss.config.conductor.server']
 BEACON_DB_PATH = os.path.join(BLISS, 'tests', 'test_configuration')
 BEACON_PORT = 7655
 
 
 @pytest.fixture(scope="session")
 def beacon():
-    from bliss.config.conductor import server
     args = [
         '--port=%d' % BEACON_PORT,
         '--redis_port=7654',
         '--redis_socket=/tmp/redis_test.sock',
-        '--db_path='+BEACON_DB_PATH,
-        '--posix_queue=0']
-    proc = multiprocessing.Process(target=server.main, args=(args,))
-    proc.start()
+        '--db_path=' + BEACON_DB_PATH,
+        '--posix_queue=0',
+        '--tango_port=12345']
+    proc = subprocess.Popen(BEACON + args)
     time.sleep(0.5)  # wait for beacon to be really started
     redis_db = redis.Redis(port=7654)
-    redis_db.flushdb()
+    redis_db.flushall()
     beacon_connection = connection.Connection("localhost", BEACON_PORT)
     client._default_connection = beacon_connection
     cfg = static.get_config()
+    os.environ["TANGO_HOST"] = "localhost:12345"
     yield cfg
     proc.terminate()
+
+
+@pytest.fixture
+def redis_data_conn():
+    cnx = get_default_connection()
+    redis_conn = cnx.get_redis_connection(db=1)
+    yield redis_conn
+
+
+@pytest.fixture
+def scan_tmpdir(tmpdir):
+    yield tmpdir
+    tmpdir.remove()
+
+
+@pytest.fixture(scope="session")
+def lima_simulator(beacon):
+    from Lima.Server.LimaCCDs import main
+    from tango import DeviceProxy, DevFailed
+
+    device_name = "id00/limaccds/simulator1"
+
+    def run_lima_simulator():
+        os.environ["TANGO_HOST"] = "localhost:12345"
+        sys.argv = ['LimaCCDs', 'simulator']
+        main()
+
+    device_fqdn = "tango://localhost:12345/%s" % device_name
+
+    p = multiprocessing.Process(target=run_lima_simulator)
+    p.start()
+
+    with gevent.Timeout(3, RuntimeError("Lima simulator is not running")):
+        while True:
+            try:
+                dev_proxy = DeviceProxy(device_fqdn)
+                dev_proxy.ping()
+                dev_proxy.state()
+            except DevFailed as e:
+                gevent.sleep(0.5)
+            else:
+                break
+
+    yield device_fqdn, dev_proxy
+
+    p.terminate()

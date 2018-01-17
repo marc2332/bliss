@@ -47,7 +47,7 @@ def test_base_mca():
     methods = {
         mca.finalize: (),
         mca.set_preset_mode: ('some_mode',),
-        mca.set_acquisition_number: (12,),
+        mca.set_hardware_points: (12,),
         mca.set_block_size: (6,),
         mca.set_trigger_mode: ('some_mode',),
         mca.set_spectrum_range: ('some', 'range'),
@@ -68,7 +68,7 @@ def test_base_mca():
         'detector_brand',
         'detector_type',
         'elements',
-        'acquisition_number',
+        'hardware_points',
         'block_size',
         'supported_preset_modes',
         'supported_trigger_modes',
@@ -80,25 +80,25 @@ def test_base_mca():
             getattr(mca, prop)
 
 
-def test_base_mca_logic(mocker):
+def test_base_mca_logic():
     stats = Stats(*range(1, 8))
 
     class TestMCA(BaseMCA):
 
-        supported_preset_modes = [PresetMode.NONE]
+        supported_preset_modes = [PresetMode.NONE, PresetMode.REALTIME]
 
-        def set_preset_mode(self, mode):
-            assert mode in (None, PresetMode.NONE)
+        def set_preset_mode(self, mode, value):
+            assert mode is None or mode in self.supported_preset_modes
 
         supported_trigger_modes = [TriggerMode.SOFTWARE, TriggerMode.GATE]
 
         def set_trigger_mode(self, mode):
             assert mode is None or mode in self.supported_trigger_modes
 
-        def set_acquisition_number(self, value):
+        def set_hardware_points(self, value):
             assert value == 1
 
-        acquisition_number = 1
+        hardware_points = 1
 
         def initialize_attributes(self):
             pass
@@ -112,7 +112,7 @@ def test_base_mca_logic(mocker):
         def stop_acquisition(self):
             pass
 
-        def is_running(self):
+        def is_acquiring(self):
             return False
 
         def get_acquisition_data(self):
@@ -126,18 +126,8 @@ def test_base_mca_logic(mocker):
     mca = TestMCA('incomplete', config)
     assert mca.name == 'incomplete'
     assert mca._config is config
-    assert mca.multiple_acquisition is False
 
     # Run a single acquisition
-    sleep = mocker.patch('time.sleep')
-    assert mca.run_single_acquisition(3.) == (
-        {0: [3, 2, 1]},
-        {0: stats})
-    sleep.assert_called_once_with(3.)
-
-    # Run an external acquisition
-    sleep = mocker.patch('time.sleep')
-    assert mca.run_external_acquisition() == (
-        {0: [3, 2, 1]},
-        {0: stats})
-    sleep.assert_called_once_with(.2)
+    assert mca.run_software_acquisition(1, 3.) == (
+        [{0: [3, 2, 1]}],
+        [{0: stats}])

@@ -1,0 +1,6 @@
+- class: Session
+  name: lima_test_session
+  #setup-file: ./test_lima_setup.py
+  config-objects:
+   - lima_simulator
+

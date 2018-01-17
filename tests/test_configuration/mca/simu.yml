@@ -1,0 +1,4 @@
+name: simu1
+module: mca
+class: SimulatedMCA
+plugin: bliss

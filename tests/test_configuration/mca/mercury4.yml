@@ -1,5 +1,5 @@
 name: mercury2
-module: xia
+module: mca
 class: Mercury
 plugin: bliss
 url: tcp://wduxia.esrf.fr:8001

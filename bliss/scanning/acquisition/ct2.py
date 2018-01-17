@@ -39,8 +39,7 @@ class CT2AcquisitionMaster(AcquisitionMaster):
             trigger_type = self.HARDWARE
         kwargs = dict(npoints=npoints, prepare_once=True, start_once=True,
                       trigger_type=trigger_type)
-        super(CT2AcquisitionMaster, self).__init__(device, name, "zerod",
-                                                   **kwargs)
+        super(CT2AcquisitionMaster, self).__init__(device, name, **kwargs)
         dispatcher.connect(self.__on_event, sender=device)
 
     def __on_event(self, value, signal):

@@ -15,8 +15,11 @@ Options:
 import docopt
 from silx.gui.plot.PlotWindow import Plot1D
 from silx.gui import qt
-from PyQt4.QtCore import pyqtRemoveInputHook
-from bliss.data.node import DataNodeIterator, _get_or_create_node
+try:
+    from PyQt4.QtCore import pyqtRemoveInputHook
+except ImportError:
+    from PyQt5.QtCore import pyqtRemoveInputHook
+from bliss.data.node import DataNodeIterator, _get_or_create_node, is_zerod
 import numpy
 import gevent
 import sys
@@ -154,8 +157,9 @@ def update_plot(scan_node):
 
     _update(data, axis_info, plot)
 
-def copy_data(scan_node,zerod,channel_name,zerod_index):
-    data_channel = zerod.get_channel(channel_name)
+def copy_data(scan_node,zerod,zerod_index):
+    channel_name = zerod.name
+    data_channel = zerod
     from_index = zerod_index.get(channel_name,0)
     data = data_channel.get(from_index,-1)
     zerod_index[channel_name] = from_index + len(data)
@@ -181,14 +185,13 @@ def watch_data(scan_node, mdi_area):
     zerod_index = dict()
 
     scan_data_iterator = DataNodeIterator(scan_node)
-    for event_type, event_data in scan_data_iterator.walk_events(filter="zerod"):
-        if event_type is scan_data_iterator.NEW_CHILD_EVENT:
-            zerod = event_data
-            for channel_name in zerod.channels_name():
-                copy_data(scan_node, zerod, channel_name, zerod_index)
-        elif event_type is scan_data_iterator.NEW_DATA_IN_CHANNEL_EVENT:
-            zerod, channel_name = event_data
-            copy_data(scan_node, zerod, channel_name, zerod_index)
+    for event_type, event_data in scan_data_iterator.walk_events(filter="channel"):
+        if not is_zerod(event_data):
+            continue
+        zerod = event_data
+        if event_type in (scan_data_iterator.NEW_CHILD_EVENT,
+                          scan_data_iterator.NEW_DATA_IN_CHANNEL_EVENT):
+            copy_data(scan_node, zerod, zerod_index)
     
 def watch_session(session_name, mdi):
     session_node = _get_or_create_node(session_name, node_type='session')

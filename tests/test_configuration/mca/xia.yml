@@ -1,5 +1,5 @@
 name: xia1
-module: xia
+module: mca
 class: XIA
 plugin: bliss
 url: tcp://welisa.esrf.fr:8000

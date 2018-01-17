@@ -20,7 +20,6 @@ import socket
 import signal
 import traceback
 import pkgutil
-
 import gevent
 from gevent import select
 
@@ -71,14 +70,8 @@ _tlog = _log.getChild('tango')
 _rlog = _log.getChild('redis')
 _wlog = _log.getChild('web')
 
+
 # Helpers
-
-def start_database_ds(tango_port = 20000,personal_name='2',debug_level = 0):
-    from PyTango.databaseds import database
-    argv = debug_level and ['-l',str(debug_level)] or []
-    argv.extend(['--db_access','beacon','--port',str(tango_port),'2'])
-    database.main(argv=argv)
-
 
 class _WaitStolenReply(object):
     def __init__(self,stolen_lock):
@@ -596,35 +589,53 @@ def main(args=None):
 
     # Argument parsing
     parser = argparse.ArgumentParser()
-    parser.add_argument("--db_path",dest="db_path",default=os.environ.get("BEACON_DB_PATH", "./db"),
-                        help="database path")
-    parser.add_argument("--redis_port",dest="redis_port",default=6379,type=int,
-                        help="redis connection port")
-    parser.add_argument("--redis_conf",dest="redis_conf",
-                        default=redis_conf.get_redis_config_path(),
-                        help="path to alternative redis configuration file")
-    parser.add_argument("--posix_queue",dest="posix_queue",type=int,default=1,
-                        help="enable/disable posix_queue connection")
-    parser.add_argument("--port",dest="port",type=int,default=int(os.environ.get("BEACON_PORT", 0)),
-                        help="server port (default to BEACON_PORT environment variable, otherwise takes a free port)")
-    parser.add_argument("--tango_port",dest="tango_port",type=int,default=0,
-                        help="tango server port (default to 0: disable)")
-    parser.add_argument("--tango_debug_level",dest="tango_debug_level",type=int,default=0,
-                        help="tango debug level (default to 0: WARNING,1:INFO,2:DEBUG)")
-    parser.add_argument("--webapp_port",dest="webapp_port",type=int,default=0,
-                        help="web server port (default to 0: disable)")
-    parser.add_argument("--redis_socket", dest="redis_socket", default="/tmp/redis.sock",
-                        help="Unix socket for redis (default to /tmp/redis.sock)")
-    parser.add_argument('--log_level', default='INFO', type=str,
-                        help='log level',
-                        choices=['DEBUG', 'INFO', 'WARN', 'ERROR'])
+    parser.add_argument(
+        "--db_path", dest="db_path",
+        default=os.environ.get("BEACON_DB_PATH", "./db"),
+        help="database path")
+    parser.add_argument(
+        "--redis_port", dest="redis_port", default=6379, type=int,
+        help="redis connection port")
+    parser.add_argument(
+        "--redis_conf", dest="redis_conf",
+        default=redis_conf.get_redis_config_path(),
+        help="path to alternative redis configuration file")
+    parser.add_argument(
+        "--posix_queue", dest="posix_queue", type=int, default=1,
+        help="enable/disable posix_queue connection")
+    parser.add_argument(
+        "--port", dest="port", type=int,
+        default=int(os.environ.get("BEACON_PORT", 0)),
+        help="server port (default to BEACON_PORT environment variable, "
+        "otherwise takes a free port)")
+    parser.add_argument(
+        "--tango_port", dest="tango_port", type=int, default=0,
+        help="tango server port (default to 0: disable)")
+    parser.add_argument(
+        "--tango_debug_level", dest="tango_debug_level", type=int, default=0,
+        help="tango debug level (default to 0: WARNING,1:INFO,2:DEBUG)")
+    parser.add_argument(
+        "--webapp_port", dest="webapp_port", type=int, default=0,
+        help="web server port (default to 0: disable)")
+    parser.add_argument(
+        "--redis_socket", dest="redis_socket", default="/tmp/redis.sock",
+        help="Unix socket for redis (default to /tmp/redis.sock)")
+    parser.add_argument(
+        '--log_level', default='INFO', type=str,
+        choices=['DEBUG', 'INFO', 'WARN', 'ERROR'],
+        help='log level')
 
     global _options
     _options = parser.parse_args(args)
 
+    # Logging configuration
     log_level = _options.log_level.upper()
     log_fmt = '%(levelname)s %(asctime)-15s %(name)s: %(message)s'
     logging.basicConfig(level=log_level, format=log_fmt)
+
+    # Signal pipe
+    global sig_write
+    sig_read, sig_write = os.pipe()
 
     # Binds system signals.
     signal.signal(signal.SIGTERM, sigterm_handler)
@@ -632,116 +643,126 @@ def main(args=None):
     signal.signal(signal.SIGHUP, sigterm_handler)
     signal.signal(signal.SIGQUIT, sigterm_handler)
 
-    # pimp my path
+    # Pimp my path
     _options.db_path = os.path.abspath(os.path.expanduser(_options.db_path))
 
-    #posix queues
+    # Posix queues
     if not _options.posix_queue:
         global posix_ipc
         posix_ipc = None
 
-    #broadcast
+    # Broadcast
     udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     udp.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     udp.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-    udp.bind(("",protocol.DEFAULT_UDP_SERVER_PORT))
+    udp.bind(("", protocol.DEFAULT_UDP_SERVER_PORT))
 
-    #tcp
-    connectedFlag = False
-    tcp = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-    tcp.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
-    tcp.bind(("",_options.port))
+    # TCP
+    tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    tcp.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    tcp.bind(("", _options.port))
     beacon_port = tcp.getsockname()[1]
     _log.info("server sitting on port: %s", beacon_port)
     _log.info("configuration path: %s", _options.db_path)
     tcp.listen(512)        # limit to 512 clients
 
-    #Tango databaseds
+    # Tango databaseds
     if _options.tango_port > 0:
-        _tlog.info('Database started on port:',_options.tango_port)
-        tango_rp,tango_wp = os.pipe()
-        child_pid = os.fork()
-        if child_pid == 0:
-            os.close(tango_rp)
-            os.dup2(tango_wp,sys.stdout.fileno())
-            os.dup2(tango_wp,sys.stderr.fileno())
-            os.close(tango_wp)
-            this_host = socket.gethostname()
-            os.environ['BEACON_HOST'] = '%s:%d' % (this_host, beacon_port)
-            start_database_ds(tango_port = _options.tango_port,debug_level = _options.tango_debug_level)
-            sys.exit(0)
-        else:
-            os.close(tango_wp)
+        # Stdout pipe
+        _tlog.info('Database started on port: %s', _options.tango_port)
+        tango_rp, tango_wp = os.pipe()
+        # Environment
+        env = dict(os.environ)
+        env["BEACON_HOST"] = '%s:%d' % ('localhost', beacon_port)
+        # Tango database executable
+        args = [sys.executable]
+        # Should be:
+        # args += ['-m', 'tango.databaseds.database']
+        # But because of a pytango bug:
+        code = 'import tango.databaseds.db_access.beacon\n'
+        code += 'import tango.databaseds.database\n'
+        code += 'tango.databaseds.database.main()'
+        args += ['-c', code]
+        # Arguments
+        args += ['-l', str(_options.tango_debug_level)]
+        args += ['--db_access', 'beacon']
+        args += ['--port', str(_options.tango_port)]
+        args += ['2']
+        # Fire up process
+        tango_process = subprocess.Popen(
+            args, stdout=tango_wp, stderr=subprocess.STDOUT, env=env)
     else:
-        tango_rp = None
+        tango_rp = tango_process = None
 
-    #web application
+    # Web application
     if _options.webapp_port > 0:
         start_webserver(_options.webapp_port, beacon_port)
 
-    #start redis
-    rp,wp = os.pipe()
+    # Start redis
+    rp, wp = os.pipe()
     redis_process = subprocess.Popen(['redis-server', _options.redis_conf,
                                       '--unixsocket', _options.redis_socket,
                                       '--unixsocketperm', '777',
-                                      '--port','%d' % _options.redis_port],
-                                     stdout=wp,stderr=subprocess.STDOUT,cwd=_options.db_path)
-    # signal pipe
-    global sig_write
-    sig_read, sig_write = os.pipe()
+                                      '--port', '%d' % _options.redis_port],
+                                     stdout=wp, stderr=subprocess.STDOUT,
+                                     cwd=_options.db_path)
 
     try:
-      fd_list = [udp,tcp,rp,sig_read]
-      if tango_rp:
-          fd_list.append(tango_rp)
-      logger = {tango_rp: _tlog,
-                rp: _rlog}
+        fd_list = [udp, tcp, rp, sig_read] + ([tango_rp] if tango_rp else [])
+        logger = {rp: _rlog, tango_rp: _tlog}
 
-      bosse = True
+        bosse = True
 
-      udp_reply = '%s|%d' % (socket.gethostname(),beacon_port)
-      while bosse:
+        udp_reply = '%s|%d' % (socket.gethostname(), beacon_port)
+        while bosse:
+            rlist, _, _ = select.select(fd_list, [], [], 1)
+            if rlist:
+                for s in rlist:
+                    if s == udp:
+                        buff, address = udp.recvfrom(8192)
+                        if buff.find('Hello') > -1:
+                            _log.info(
+                                'address request from %s. Replying with %r',
+                                address, udp_reply)
+                            udp.sendto(udp_reply, address)
 
-        rlist,_,_ = select.select(fd_list,[],[], 1)
-        if rlist:
-            for s in rlist:
-                if s == udp:
-                    buff,address = udp.recvfrom(8192)
-                    if buff.find('Hello') > -1:
-                        _log.info('address request from %s. Replying with %r', address, udp_reply)
-                        udp.sendto(udp_reply,address)
+                    elif s == tcp:
+                        newSocket, addr = tcp.accept()
+                        newSocket.setsockopt(
+                            socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+                        newSocket.setsockopt(
+                            socket.SOL_IP, socket.IP_TOS, 0x10)
+                        localhost = addr[0] == '127.0.0.1'
+                        gevent.spawn(_client_rx, newSocket, localhost)
 
-                elif s == tcp:
-                    newSocket, addr = tcp.accept()
-                    newSocket.setsockopt(socket.IPPROTO_TCP,socket.TCP_NODELAY,1)
-                    newSocket.setsockopt(socket.SOL_IP, socket.IP_TOS, 0x10)
-                    localhost = addr[0] == '127.0.0.1'
-                    gevent.spawn(_client_rx,newSocket,localhost)
-
-                elif s == sig_read:
-                    bosse = False
-                    break
-                else:
-                    msg = os.read(s,8192)
-                    if msg:
-                        logger.get(s, _log).info(msg)
+                    elif s == sig_read:
+                        bosse = False
+                        break
                     else:
-                        fd_list.remove(tango_rp)
-                        os.close(tango_rp)
-                        logger.get(s, _log).warning('database exit')
-                    break
-        else:
-            # Check if redis is alive
-            redis_exit_code = redis_process.poll()
-            if redis_exit_code is not None:
-                _rlog.critical('redis exited with code %s. Bailing out!', redis_exit_code)
-                redis_process = None
-                bosse = False
+                        msg = os.read(s, 8192)
+                        if msg:
+                            logger.get(s, _log).info(msg)
+                        elif s == tango_rp:
+                            fd_list.remove(tango_rp)
+                            os.close(tango_rp)
+                            logger.get(s, _log).warning('database exit')
+                        break
+            else:
+                # Check if redis is alive
+                redis_exit_code = redis_process.poll()
+                if redis_exit_code is not None:
+                    _rlog.critical(
+                        'redis exited with code %s. Bailing out!',
+                        redis_exit_code)
+                    redis_process = None
+                    bosse = False
     except KeyboardInterrupt:
         pass
     finally:
         if redis_process:
             redis_process.terminate()
+        if tango_process:
+            tango_process.terminate()
 
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@ import pytest
 
 from bliss.controllers.mca import Brand, DetectorType, Stats
 from bliss.controllers.mca import PresetMode, TriggerMode
-from bliss.controllers.xia import XIA, XMAP
+from bliss.controllers.mca import XIA, XMAP
 
 
 @pytest.fixture(
@@ -104,7 +104,8 @@ def test_xia_trigger_mode(xia):
     # First test
     xia.set_trigger_mode(None)
     assert client.set_acquisition_value.call_args_list == [
-        (('gate_ignore', 1),)]
+        (('gate_ignore', 1),),
+        (('mapping_mode', 0),)]
     client.apply_acquisition_values.assert_called_once_with()
 
     # Second test
@@ -112,25 +113,23 @@ def test_xia_trigger_mode(xia):
     client.apply_acquisition_values.reset_mock()
     xia.set_trigger_mode(TriggerMode.GATE)
     assert client.set_acquisition_value.call_args_list == xmap_prefix + [
-        (('gate_ignore', 0),)]
+        (('gate_ignore', 0),),
+        (('mapping_mode', 1),),
+        (('pixel_advance_mode', 1),)]
     client.apply_acquisition_values.assert_called_once_with()
 
     # Third test
     client.set_acquisition_value.reset_mock()
     client.apply_acquisition_values.reset_mock()
     client.get_acquisition_value.return_value = 3  # Multiple
-    xia.set_trigger_mode(TriggerMode.EXTERNAL)
+    xia.set_trigger_mode(TriggerMode.SYNC)
     assert client.set_acquisition_value.call_args_list == xmap_prefix + [
         (('gate_ignore', 1),),
+        (('mapping_mode', 1),),
         (('pixel_advance_mode', 1),)]
     client.apply_acquisition_values.assert_called_once_with()
 
-    # First error tests
-    client.get_acquisition_value.return_value = 0  # Single
-    with pytest.raises(ValueError):
-        xia.set_trigger_mode(TriggerMode.EXTERNAL)
-
-    # Second error tests
+    # Error tests
     with pytest.raises(ValueError):
         xia.set_trigger_mode(13)
 
@@ -147,38 +146,27 @@ def test_xia_trigger_mode(xia):
             xia.set_trigger_mode(TriggerMode.GATE, channel=1)
 
 
-def test_xia_acquisition_number(xia):
+def test_xia_hardware_points(xia):
     client = xia._proxy
 
     # Test single setter
-    xia.set_acquisition_number(1)
-    client.set_acquisition_value.assert_called_once_with('mapping_mode', 0)
+    client.get_acquisition_value.return_value = 1.
+    xia.set_hardware_points(3)
+    client.set_acquisition_value.assert_called_once_with('num_map_pixels', 3)
     client.apply_acquisition_values.assert_called_once_with()
 
     # Test single getter
-    client.get_acquisition_value.return_value = 0.
-    assert xia.acquisition_number == 1
-    client.get_acquisition_value.assert_called_once_with('mapping_mode')
-
-    # Test multi setter
-    client.set_acquisition_value.reset_mock()
-    client.apply_acquisition_values.reset_mock()
-    xia.set_acquisition_number(2)
-    assert client.set_acquisition_value.call_args_list == [
-        (('mapping_mode', 1),), (('num_map_pixels', 3),)]
-    client.apply_acquisition_values.assert_called_once_with()
-
-    # Test multi getter
-    values = [1, 3]
+    values = [1., 3.]
     client.get_acquisition_value.reset_mock()
     client.get_acquisition_value.side_effect = lambda *args: values.pop(0)
-    assert xia.acquisition_number == 2
+    assert xia.hardware_points == 3
     assert client.get_acquisition_value.call_args_list == [
-        (('mapping_mode',),), (('num_map_pixels',),)]
+        (('mapping_mode',),),
+        (('num_map_pixels',),)]
 
     # Error tests
     with pytest.raises(ValueError):
-        xia.set_acquisition_number(0)
+        xia.set_hardware_points(0)
 
 
 def test_xia_block_size(xia):
@@ -191,10 +179,12 @@ def test_xia_block_size(xia):
     client.apply_acquisition_values.assert_called_once_with()
 
     # Test simple getter
+    client.get_acquisition_value.reset_mock()
     client.get_acquisition_value.return_value = 3
     xia.block_size == 3
-    client.get_acquisition_value.assert_called_once_with(
-        'num_map_pixels_per_buffer')
+    assert client.get_acquisition_value.call_args_list == [
+        (('mapping_mode',),),
+        (('num_map_pixels_per_buffer',),)]
 
     # Test default setter
     client.apply_acquisition_values.reset_mock()
@@ -203,36 +193,32 @@ def test_xia_block_size(xia):
     client.apply_acquisition_values.assert_called_once_with()
 
 
-def test_xia_acquisition(xia, mocker):
+def test_xia_software_acquisition(xia, mocker):
     client = xia._proxy
-    sleep = mocker.patch('time.sleep')
+    sleep = mocker.patch('gevent.sleep')
     sleep.side_effect = lambda x: client.mock_not_running()
     client.get_spectrums.return_value = {0: [3, 2, 1]}
     client.get_statistics.return_value = {0: range(7)}
     stats = Stats(*range(7))
-    assert xia.run_single_acquisition(3.) == (
-        {0: [3, 2, 1]},
-        {0: stats})
-    sleep.assert_called_once_with(0.2)
+    assert xia.run_software_acquisition(1, 3.) == (
+        [{0: [3, 2, 1]}],
+        [{0: stats}])
 
 
 def test_xia_multiple_acquisition(xia, mocker):
     client = xia._proxy
-    sleep = mocker.patch('time.sleep')
-    sleep.side_effect = lambda x: client.mock_not_running()
     client.get_spectrums.return_value = {0: [3, 2, 1]}
     client.get_statistics.return_value = {0: range(9)}
     client.synchronized_poll_data.side_effect = lambda: data.pop(0)
 
-    data = [(1, {0: 'discarded'}, {0: 'discarded'}),
+    data = [(1, {0: {0: 'discarded'}}, {0: {0: [0]*7}}),
             (2, {1: {0: 'spectrum0'}}, {1: {0: range(7)}}),
             (3, {2: {0: 'spectrum1'}}, {2: {0: range(10, 17)}})]
     stats0, stats1 = Stats(*range(7)), Stats(*range(10, 17))
 
-    data, stats = xia.run_multiple_acquisitions(2)
+    data, stats = xia.run_synchronized_acquisition(2)
     assert data == [{0: 'spectrum0'}, {0: 'spectrum1'}]
     assert stats == [{0: stats0}, {0: stats1}]
-    assert sleep.call_args_list == [((0.2,),), ((0.2,),)]
 
 
 def test_xia_configuration_error(xia):

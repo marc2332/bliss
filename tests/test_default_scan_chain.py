@@ -9,7 +9,7 @@ import pytest
 from bliss.scanning.chain import AcquisitionChain
 from bliss.common.scans import default_chain
 from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
-from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionDevice, IntegratingCounterAcquisitionDevice 
+from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionDevice, IntegratingCounterAcquisitionDevice
 from bliss.controllers.simulation_diode import CONTROLLER as diode23_controller
 
 
@@ -25,8 +25,8 @@ def test_default_chain_with_sampling_counter(beacon):
     diode = beacon.get("diode")
     assert diode
 
-    scan_pars = { "npoints": 10,
-                  "count_time": 0.1 }
+    scan_pars = {"npoints": 10,
+                 "count_time": 0.1}
 
     chain = AcquisitionChain(parallel_prepare=True)
     timer = default_chain(chain, scan_pars, [diode])
@@ -39,7 +39,8 @@ def test_default_chain_with_sampling_counter(beacon):
     assert isinstance(nodes[1], SamplingCounterAcquisitionDevice)
 
     assert nodes[1].count_time == timer.count_time
-    
+
+
 def test_default_chain_with_three_sampling_counters(beacon):
     """Want to build the following acquisition chain:
 
@@ -63,8 +64,8 @@ def test_default_chain_with_three_sampling_counters(beacon):
     #assert diode.controller is None
     #assert diode2.controller == diode3.controller == diode23_controller
 
-    scan_pars = { "npoints": 10,
-                  "count_time": 0.1 }
+    scan_pars = {"npoints": 10,
+                 "count_time": 0.1}
 
     chain = AcquisitionChain(parallel_prepare=True)
     timer = default_chain(chain, scan_pars, [diode2, diode, diode3])
@@ -80,11 +81,14 @@ def test_default_chain_with_three_sampling_counters(beacon):
     assert nodes[1].count_time == timer.count_time == nodes[2].count_time
 
     assert nodes[2] != nodes[1]
-    
-    assert nodes[1].counter_names == ['diode']
+
+    counter_names = [c.name for c in nodes[1].channels]
+    assert counter_names == ['diode']
     # counters order is not important
     # as we use **set** to eliminate duplicated counters
-    assert set(nodes[2].counter_names) == set(['diode2', 'diode3'])
+    counter_names = set([c.name for c in nodes[2].channels])
+    assert counter_names == set(['diode2', 'diode3'])
+
 
 def test_default_chain_with_bpm(beacon):
     pytest.xfail()
@@ -105,24 +109,26 @@ def test_default_chain_with_bpm(beacon):
     assert lima_sim.bpm.y
     assert lima_sim.bpm.intensity
 
-    scan_pars = { "npoints": 10,
-                  "count_time": 0.1 }
+    scan_pars = {"npoints": 10,
+                 "count_time": 0.1}
 
     chain = AcquisitionChain(parallel_prepare=True)
-    timer = default_chain(chain, scan_pars, [lima_sim.bpm.x, lima_sim.bpm.y, lima_sim.bpm.intensity])
-    
+    timer = default_chain(
+        chain, scan_pars, [lima_sim.bpm.x, lima_sim.bpm.y, lima_sim.bpm.intensity])
+
     assert timer.count_time == 0.1
 
     nodes = chain.nodes_list
-    assert len(nodes) == 3 
+    assert len(nodes) == 3
     assert isinstance(nodes[0], timer.__class__)
     assert isinstance(nodes[1], LimaAcquisitionMaster)
     assert isinstance(nodes[2], IntegratingCounterAcquisitionDevice)
 
-    assert len(nodes[2].counter_names) == 3
+    assert len(nodes[2].channels) == 3
     assert nodes[2].count_time == timer.count_time
 
     assert nodes[1].save_flag == False
+
 
 def test_default_chain_with_bpm_and_diode(beacon):
     pytest.xfail()
@@ -143,8 +149,8 @@ def test_default_chain_with_bpm_and_diode(beacon):
     assert lima_sim.bpm.intensity
     assert diode
 
-    scan_pars = { "npoints": 10,
-                  "count_time": 0.1 }
+    scan_pars = {"npoints": 10,
+                 "count_time": 0.1}
 
     chain = AcquisitionChain(parallel_prepare=True)
     timer = default_chain(chain, scan_pars, [lima_sim.bpm.intensity, diode])
@@ -180,14 +186,14 @@ def test_default_chain_with_bpm_and_image(beacon):
 
     lima_sim = beacon.get("lima_simulator")
 
-    scan_pars = { "npoints": 10,
-                  "count_time": 0.1,
-                  "save": True,
-              }
+    scan_pars = {"npoints": 10,
+                 "count_time": 0.1,
+                 "save": True,
+                 }
 
     chain = AcquisitionChain(parallel_prepare=True)
     timer = default_chain(chain, scan_pars, [lima_sim.bpm.x, lima_sim])
-   
+
     nodes = chain.nodes_list
     assert len(nodes) == 3
     assert isinstance(nodes[0], timer.__class__)

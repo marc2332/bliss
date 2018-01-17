@@ -1073,6 +1073,7 @@ def __recreate_axes(server_name, manager_dev_name, axis_names,
     db = db or tango.Database()
 
     curr_axes = {}
+ 
     for dev_class, dev_names in dev_map.items():
         if not dev_class.startswith('BlissAxis_'):
             continue
@@ -1142,7 +1143,11 @@ def initialize_bliss(info, db=None):
         if 'tango_server' in obj_cfg:
             continue
         if obj_cfg.plugin == 'emotion':
-            axis_names.append(name)
+            try:
+                if name in [x['name'] for x in obj_cfg.parent['axes']]:
+                    axis_names.append(name)
+            except KeyError:
+                continue
 
     axes, classes = __recreate_axes(server_name, info['manager_device_name'],
                                     axis_names, info['device_map'], db=db)

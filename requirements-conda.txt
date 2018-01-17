@@ -8,7 +8,6 @@ flask
 jedi
 docopt
 numpy
-scipy
 six >= 1.10
 tabulate
 pyserial == 2.7
@@ -19,4 +18,3 @@ pytango
 posix_ipc
 h5py
 pygments
-

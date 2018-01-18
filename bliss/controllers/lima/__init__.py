@@ -17,7 +17,7 @@ class Lima(object):
 
     class Image(object):
         ROTATION_0,ROTATION_90,ROTATION_180,ROTATION_270 = range(4)
-        
+
         def __init__(self,proxy):
             self._proxy = proxy
         @property
@@ -75,7 +75,7 @@ class Lima(object):
 
     class Acquisition(object):
         ACQ_MODE_SINGLE,ACQ_MODE_CONCATENATION,ACQ_MODE_ACCUMULATION = range(3)
-        
+
         def __init__(self,proxy):
             self._proxy = proxy
             acq_mode = (("SINGLE",self.ACQ_MODE_SINGLE),
@@ -117,14 +117,14 @@ class Lima(object):
         @trigger_mode.setter
         def trigger_mode(self,value):
             pass
-    
+
     def __init__(self,name,config_tree):
         """Lima controller.
 
         name -- the controller's name
         config_tree -- controller configuration
         in this dictionary we need to have:
-        tango_url -- tango main device url (from class LimaCCDs) 
+        tango_url -- tango main device url (from class LimaCCDs)
         """
         self._proxy = DeviceProxy(config_tree.get("tango_url"))
         self.name = name
@@ -145,18 +145,22 @@ class Lima(object):
         return self._image
 
     @property
+    def shape(self):
+        return (-1, -1)
+
+    @property
     def acquisition(self):
         if self._acquisition is None:
             self._acquisition = Lima.Acquisition(self._proxy)
         return self._acquisition
-    
+
     @property
     def roi_counters(self):
         if self.__roi_counters is None:
             roi_counters_proxy = self._get_proxy(self.ROI_COUNTERS)
             self.__roi_counters = RoiCounters(self.name, roi_counters_proxy, self)
         return self.__roi_counters
-    
+
     @property
     def camera(self):
         if self._camera is None:
@@ -165,7 +169,7 @@ class Lima(object):
             camera_module = importlib.import_module('.%s' % camera_type,__package__)
             self._camera = camera_module.Camera(self.name, proxy)
         return self._camera
-    
+
     @property
     def camera_type(self):
         return self._proxy.camera_type
@@ -201,5 +205,3 @@ class Lima(object):
             db_port = self._proxy.get_db_port()
             device_name = "//%s:%s/%s" % (db_host, db_port, device_name)
         return DeviceProxy(device_name)
-
-

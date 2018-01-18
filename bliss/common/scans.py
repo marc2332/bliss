@@ -36,7 +36,7 @@ from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 from bliss.scanning.acquisition.motor import LinearStepTriggerMaster, MeshStepTriggerMaster
 from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
 from bliss.scanning.acquisition.ct2 import CT2AcquisitionMaster
-from bliss.scanning.acquisition.mca import BaseMcaCounter, McaAcquisitionDevice, StatisticsMcaCounter
+from bliss.scanning.acquisition.mca import BaseMcaCounter, McaAcquisitionDevice
 from bliss.common import session,measurementgroup
 try:
     from bliss.scanning.writer import hdf5 as default_writer
@@ -83,7 +83,7 @@ def _get_all_counters(counters):
     zerod_counters = list()
     other_counters = list()
     for counter in all_counters:
-        if isinstance(counter, (Counter, StatisticsMcaCounter)):
+        if counter.shape == ():
             zerod_counters.append(counter)
         else:
             other_counters.append(counter)

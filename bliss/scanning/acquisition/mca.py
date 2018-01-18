@@ -194,17 +194,17 @@ class McaAcquisitionDevice(AcquisitionDevice):
 class BaseMcaCounter(object):
 
     def __init__(self, mca, base_name, detector=None):
-        self.mca = mca
-        self.device = None
+        self.controller = mca
+        self.acquisition_controller = None
         self.data_points = []
-        self.detector = detector
+        self.detector_channel = detector
         self.base_name = base_name
 
     @property
     def name(self):
-        if self.detector is None:
+        if self.detector_channel is None:
             return self.base_name
-        return '{}_det{}'.format(self.base_name, self.detector)
+        return '{}_det{}'.format(self.base_name, self.detector_channel)
 
     @property
     def dtype(self):
@@ -216,21 +216,21 @@ class BaseMcaCounter(object):
 
     def register_device(self, device):
         # Current device
-        self.device = device
         self.data_points = []
+        self.acquisition_controller = device
         # Consistency checks
-        assert self.mca is self.device.mca
-        if self.detector is not None:
-            assert self.detector in self.device.mca.elements
+        assert self.controller is self.acquisition_controller.mca
+        if self.detector_channel is not None:
+            assert self.detector_channel in self.controller.elements
         # Acquisition channel
-        self.device.channels.append(
+        self.acquisition_controller.channels.append(
             AcquisitionChannel(self.name, self.dtype, self.shape))
 
     def feed_point(self, spectrums, stats):
         raise NotImplementedError
 
     def emit_data_point(self, data_point):
-        self.device.channels.update({self.name: data_point})
+        self.acquisition_controller.channels.update({self.name: data_point})
         self.data_points.append(data_point)
 
 
@@ -249,7 +249,7 @@ class StatisticsMcaCounter(BaseMcaCounter):
         return numpy.float
 
     def feed_point(self, spectrums, stats):
-        point = getattr(stats[self.detector], self.stat_name)
+        point = getattr(stats[self.detector_channel], self.stat_name)
         self.emit_data_point(point)
 
 
@@ -265,12 +265,12 @@ class SpectrumMcaCounter(BaseMcaCounter):
 
     @property
     def shape(self):
-        if self.device is None:
-            return (self.mca.spectrum_size,)
-        return (self.device.spectrum_size,)
+        if self.acquisition_controller is None:
+            return (self.controller.spectrum_size,)
+        return (self.acquisition_controller.spectrum_size,)
 
     def feed_point(self, spectrums, stats):
-        self.emit_data_point(spectrums[self.detector])
+        self.emit_data_point(spectrums[self.detector_channel])
 
 
 def mca_counters(mca):

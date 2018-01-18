@@ -140,7 +140,7 @@ def _counters_tree(counters, scan_pars):
     mca_counters = {}
     for counter in counters:
         if isinstance(counter, BaseMcaCounter):
-            mca_counters.setdefault(counter.mca, []).append(counter)
+            mca_counters.setdefault(counter.controller, []).append(counter)
     for counter_list in mca_counters.values():
         counters -= set(counter_list)
     for mca, counter_list in mca_counters.items():

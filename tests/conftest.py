@@ -66,16 +66,9 @@ def lima_simulator(beacon):
     from tango import DeviceProxy, DevFailed
 
     device_name = "id00/limaccds/simulator1"
-
-    def run_lima_simulator():
-        os.environ["TANGO_HOST"] = "localhost:12345"
-        sys.argv = ['LimaCCDs', 'simulator']
-        main()
-
     device_fqdn = "tango://localhost:12345/%s" % device_name
-
-    p = multiprocessing.Process(target=run_lima_simulator)
-    p.start()
+    
+    p = subprocess.Popen(['LimaCCDs', 'simulator']) 
 
     with gevent.Timeout(3, RuntimeError("Lima simulator is not running")):
         while True:

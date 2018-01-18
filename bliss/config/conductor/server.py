@@ -555,15 +555,18 @@ def _client_rx(client,local_connection):
             posix_queue.close()
             _clean(posix_queue)
 
+
 def sigterm_handler(_signo, _stack_frame):
-    # On signal received, close the signal pipe to do a clean exit.
+    """On signal received, close the signal pipe to do a clean exit."""
     os.close(sig_write)
+
 
 def start_webserver(webapp_port, beacon_port, debug=True):
     try:
         import flask
     except ImportError:
-        _wlog.error("flask cannot be imported: web application won't be available")
+        _wlog.error(
+            "flask cannot be imported: web application won't be available")
         return
 
     from gevent.wsgi import WSGIServer
@@ -573,7 +576,8 @@ def start_webserver(webapp_port, beacon_port, debug=True):
     _wlog.info("Web application sitting on port: %s", webapp_port)
     web_app.debug = debug
     web_app.beacon_port = beacon_port
-    http_server = WSGIServer(('', webapp_port), DebuggedApplication(web_app, evalex=True))
+    application = DebuggedApplication(web_app, evalex=True)
+    http_server = WSGIServer(('', webapp_port), application)
     http_server.family = socket.AF_INET
     gevent.spawn(http_server.serve_forever)
 
@@ -639,7 +643,6 @@ def main(args=None):
 
     # Binds system signals.
     signal.signal(signal.SIGTERM, sigterm_handler)
-    signal.signal(signal.SIGINT, sigterm_handler)
     signal.signal(signal.SIGHUP, sigterm_handler)
     signal.signal(signal.SIGQUIT, sigterm_handler)
 
@@ -707,58 +710,82 @@ def main(args=None):
                                      stdout=wp, stderr=subprocess.STDOUT,
                                      cwd=_options.db_path)
 
+    # Safe context
     try:
         fd_list = [udp, tcp, rp, sig_read] + ([tango_rp] if tango_rp else [])
         logger = {rp: _rlog, tango_rp: _tlog}
-
-        bosse = True
-
         udp_reply = '%s|%d' % (socket.gethostname(), beacon_port)
-        while bosse:
-            rlist, _, _ = select.select(fd_list, [], [], 1)
-            if rlist:
+
+        def events():
+            """Flatten the selector events."""
+            while True:
+                rlist, _, _ = select.select(fd_list, [], [], 1)
                 for s in rlist:
-                    if s == udp:
-                        buff, address = udp.recvfrom(8192)
-                        if buff.find('Hello') > -1:
-                            _log.info(
-                                'address request from %s. Replying with %r',
-                                address, udp_reply)
-                            udp.sendto(udp_reply, address)
+                    yield s
+                if not rlist:
+                    yield None
 
-                    elif s == tcp:
-                        newSocket, addr = tcp.accept()
-                        newSocket.setsockopt(
-                            socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-                        newSocket.setsockopt(
-                            socket.SOL_IP, socket.IP_TOS, 0x10)
-                        localhost = addr[0] == '127.0.0.1'
-                        gevent.spawn(_client_rx, newSocket, localhost)
+        # Event loop
+        for s in events():
 
-                    elif s == sig_read:
-                        bosse = False
-                        break
-                    else:
-                        msg = os.read(s, 8192)
-                        if msg:
-                            logger.get(s, _log).info(msg)
-                        elif s == tango_rp:
-                            fd_list.remove(tango_rp)
-                            os.close(tango_rp)
-                            logger.get(s, _log).warning('database exit')
-                        break
-            else:
-                # Check if redis is alive
+            # UDP case
+            if s == udp:
+                buff, address = udp.recvfrom(8192)
+                if buff.find('Hello') > -1:
+                    _log.info(
+                        'address request from %s. Replying with %r',
+                        address, udp_reply)
+                    udp.sendto(udp_reply, address)
+
+            # TCP case
+            elif s == tcp:
+                newSocket, addr = tcp.accept()
+                newSocket.setsockopt(
+                    socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+                newSocket.setsockopt(
+                    socket.SOL_IP, socket.IP_TOS, 0x10)
+                localhost = addr[0] == '127.0.0.1'
+                gevent.spawn(_client_rx, newSocket, localhost)
+
+            # Signal interruption case
+            elif s == sig_read:
+                _log.info('Received an interruption signal!')
+                return
+
+            # Timeout case
+            elif s is None:
                 redis_exit_code = redis_process.poll()
+                # Redis is not alive
                 if redis_exit_code is not None:
                     _rlog.critical(
                         'redis exited with code %s. Bailing out!',
                         redis_exit_code)
                     redis_process = None
-                    bosse = False
+                    return
+
+            # Logging case
+            else:
+                msg = os.read(s, 8192)
+                # Log the message properly
+                if msg:
+                    logger.get(s, _log).info(msg)
+                # Tango DB is not alive
+                elif s == tango_rp:
+                    fd_list.remove(tango_rp)
+                    os.close(tango_rp)
+                    logger.get(s, _log).warning('database exit')
+
+    # Ignore keyboard interrupt
     except KeyboardInterrupt:
-        pass
+        _log.info('Received a keyboard interrupt!')
+        return
+
+    except Exception as exc:
+        _log.critical('An expected exception occured:\n%r', exc)
+
+    # Cleanup
     finally:
+        _log.info('Cleaning up the subprocesses')
         if redis_process:
             redis_process.terminate()
         if tango_process:

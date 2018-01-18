@@ -24,6 +24,8 @@ class SimulatedMCA(BaseMCA):
         self._spectrum_size = 1024
         self._acquistion_number = 1
         self._trigger_mode = TriggerMode.SOFTWARE
+        self._current_data = None
+        self._current_stats = None
 
     def initialize_hardware(self):
         gevent.sleep(self._init_time)
@@ -102,6 +104,8 @@ class SimulatedMCA(BaseMCA):
             self._delta = time.time() - self._t0
             gevent.sleep(self._cleanup_time)
         self._running = False
+        pixel = self._generate_pixel(self.delta)
+        self._current_data, self._current_stats = pixel
 
     def is_acquiring(self):
         return self._running and self.delta < self._realtime
@@ -118,12 +122,10 @@ class SimulatedMCA(BaseMCA):
     # Get data
 
     def get_acquisition_data(self):
-        a, b = self._generate_pixel(self.delta)
-        return a
+        return self._current_data
 
     def get_acquisition_statistics(self):
-        a, b = self._generate_pixel(self.delta)
-        return b
+        return self._current_stats
 
     def poll_data(self):
         # Update
@@ -156,12 +158,12 @@ class SimulatedMCA(BaseMCA):
 
     def _generate_pixel(self, delta):
         realtime = delta
-        livetime = realtime * 0.9
-        triggers = int(livetime * 10000)
+        livetime = realtime * numpy.random.normal(0.9, 0.01)
+        triggers = int(10000 * numpy.random.normal(livetime, livetime*0.2))
         events = triggers // 2
-        icr = triggers / realtime
-        ocr = events / livetime
-        deadtime = 1 - ocr / icr
+        icr = triggers / realtime if realtime else 0.
+        ocr = events / livetime if livetime else 0.
+        deadtime = 1 - ocr / icr if icr else 0.
         st = Stats(realtime, livetime, triggers, events, icr, ocr, deadtime)
         stats = dict((i, st) for i in self.elements)
         size = self._spectrum_size

@@ -42,26 +42,35 @@ class GroupedReadMixin(object):
     def stop(self, *counters):
         pass
 
+
 class Counter(object):
     GROUPED_READ_HANDLERS = weakref.WeakKeyDictionary()
 
-    def __init__(self, name, 
+    def __init__(self, name,
                  grouped_read_handler = None, conversion_function = None):
         self.__name = name
-        
+
         if grouped_read_handler:
             Counter.GROUPED_READ_HANDLERS[self] = grouped_read_handler
-            
+
         self.__conversion_function = conversion_function
 
     @property
     def name(self):
         return self.__name
-        
+
+    @property
+    def dtype(self):
+        return numpy.float
+
+    @property
+    def shape(self):
+        return ()
+
     @property
     def conversion_function(self):
         return self.__conversion_function
-        
+
     def prepare(self):
         pass
 
@@ -76,7 +85,7 @@ class SamplingCounter(Counter):
     class GroupedReadHandler(GroupedReadMixin):
         def read(self, *counters):
             """
-            this method should return a list of read values in the same order 
+            this method should return a list of read values in the same order
             as counters
             """
             raise NotImplementedError
@@ -88,7 +97,7 @@ class SamplingCounter(Counter):
             return [cnt.conversion_function(x) if cnt.conversion_function else x for x, cnt in \
                     zip(self.read(*counters), counters)]
 
-    def __init__(self, name, controller, 
+    def __init__(self, name, controller,
                  grouped_read_handler = None,conversion_function = None):
         if grouped_read_handler is None and hasattr(controller, "read_all"):
             grouped_read_handler = DefaultSamplingCounterGroupedReadHandler(controller)
@@ -127,7 +136,7 @@ class IntegratingCounter(Counter):
     class GroupedReadHandler(GroupedReadMixin):
         def get_values(self, from_index, *counters):
             """
-            this method should return a list of numpy arrays in the same order 
+            this method should return a list of numpy arrays in the same order
             as the counter_name
             """
             raise NotImplementedError
@@ -177,4 +186,3 @@ def DefaultIntegratingCounterGroupedReadHandler(controller, handlers=weakref.Wea
             return [cnt.conversion_function(x) if cnt.conversion_function else x for x,cnt in \
                     zip(self.controller.get_values(*counters),counters)]
     return handlers.setdefault(controller, DefaultIntegratingCounterGroupedReadHandler(controller))
-

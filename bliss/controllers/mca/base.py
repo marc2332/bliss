@@ -10,7 +10,6 @@
 # Imports
 
 import enum
-import warnings
 import collections
 
 import gevent
@@ -149,6 +148,13 @@ class BaseMCA(object):
 
     def poll_data(self):
         raise NotImplementedError
+
+    # Counters shortcut
+
+    @property
+    def counters(self):
+        from bliss.scanning.acquisition.mca import mca_counters
+        return mca_counters(self)
 
     # Extra logic
 

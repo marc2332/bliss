@@ -5,13 +5,13 @@
 # Copyright (c) 2017 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 
 import numpy
 import gevent.event
 
 from ..chain import AcquisitionDevice, AcquisitionChannel
-from ...controllers.mca import TriggerMode, PresetMode
+from ...controllers.mca import TriggerMode, PresetMode, Stats
 
 
 class StateMachine(object):
@@ -49,7 +49,8 @@ class McaAcquisitionDevice(AcquisitionDevice):
 
     def __init__(self, mca, npoints, trigger_mode=SOFT,
                  preset_time=1., block_size=None, polling_time=0.1,
-                 spectrum_size=None, prepare_once=True, start_once=True):
+                 spectrum_size=None, counters=(),
+                 prepare_once=True, start_once=True):
         # Checks
         assert start_once
         assert prepare_once
@@ -69,6 +70,8 @@ class McaAcquisitionDevice(AcquisitionDevice):
             start_once=True)
 
         # Internals
+        self.mca = mca
+        self.counters = []
         self.acquisition_gen = None
         self.acquisition_state = StateMachine(self.READY)
 
@@ -83,21 +86,19 @@ class McaAcquisitionDevice(AcquisitionDevice):
         self.polling_time = polling_time
         self.spectrum_size = spectrum_size
 
-        # Channels
-        metadata = [
-            ('spectrum', numpy.uint32, (self.spectrum_size,)),
-            ('realtime', numpy.float,  ()),
-            ('livetime', numpy.float,  ()),
-            ('triggers', numpy.int,    ()),
-            ('events',   numpy.int,    ()),
-            ('icr',      numpy.float,  ()),
-            ('ocr',      numpy.float,  ()),
-            ('deadtime', numpy.float,  ())]
-        for n in mca.elements:
-            prefix = 'det{}_'.format(n)
-            for name, dtype, shape in metadata:
-                self.channels.append(
-                    AcquisitionChannel(prefix + name, dtype, shape))
+        # Add counters
+        for counter in counters:
+            self.add_counter(counter)
+
+    # Counter management
+
+    def add_counter(self, counter):
+        self.counters.append(counter)
+        counter.register_device(self)
+
+    def add_counters(self, counters):
+        for counter in counters:
+            self.add_counter(counter)
 
     # Mode properties
 
@@ -124,10 +125,10 @@ class McaAcquisitionDevice(AcquisitionDevice):
             self.device.set_preset_mode(PresetMode.REALTIME, self.preset_time)
         elif self.sync_trigger_mode:
             self.device.set_hardware_points(self.npoints + 1)
-            self.set_block_size(self.block_size)
+            self.device.set_block_size(self.block_size)
         elif self.gate_trigger_mode:
             self.device.set_hardware_points(self.npoints)
-            self.set_block_size(self.block_size)
+            self.device.set_block_size(self.block_size)
 
     def start(self):
         """Start the acquisition."""
@@ -143,7 +144,8 @@ class McaAcquisitionDevice(AcquisitionDevice):
 
     def stop(self):
         """Stop the acquistion."""
-        self.acquisition_gen.close()
+        if self.acquisition_gen:
+            self.acquisition_gen.close()
         self.acquisition_state.goto(self.READY)
 
     def trigger(self):
@@ -184,15 +186,117 @@ class McaAcquisitionDevice(AcquisitionDevice):
             # Software sync
             self.acquisition_state.goto(self.READY)
 
-    def _publish(self, data, stats):
-        data_dict = {}
-        # Loop over detectors
-        for n, spectrum in data.items():
-            stat = stats[n]
-            prefix = 'det{}_'.format(n)
-            # Update data dict
-            data_dict[prefix + 'spectrum'] = spectrum
-            for name, value in stat._asdict().items():
-                data_dict[prefix + name] = value
-        # Emit data
-        self.channels.update(data_dict)
+    def _publish(self, spectrums, stats):
+        for counter in self.counters:
+            counter.feed_point(spectrums, stats)
+
+
+class BaseMcaCounter(object):
+
+    def __init__(self, mca, base_name, detector=None):
+        self.controller = mca
+        self.acquisition_controller = None
+        self.data_points = []
+        self.detector_channel = detector
+        self.base_name = base_name
+
+    @property
+    def name(self):
+        if self.detector_channel is None:
+            return self.base_name
+        return '{}_det{}'.format(self.base_name, self.detector_channel)
+
+    @property
+    def dtype(self):
+        return numpy.float
+
+    @property
+    def shape(self):
+        return ()
+
+    def register_device(self, device):
+        # Current device
+        self.data_points = []
+        self.acquisition_controller = device
+        # Consistency checks
+        assert self.controller is self.acquisition_controller.mca
+        if self.detector_channel is not None:
+            assert self.detector_channel in self.controller.elements
+        # Acquisition channel
+        self.acquisition_controller.channels.append(
+            AcquisitionChannel(self.name, self.dtype, self.shape))
+
+    def feed_point(self, spectrums, stats):
+        raise NotImplementedError
+
+    def emit_data_point(self, data_point):
+        self.acquisition_controller.channels.update({self.name: data_point})
+        self.data_points.append(data_point)
+
+
+class StatisticsMcaCounter(BaseMcaCounter):
+
+    def __init__(self, mca, stat_name, detector):
+        self.stat_name = stat_name
+        assert stat_name in Stats._fields
+        super(StatisticsMcaCounter, self).__init__(
+            mca, stat_name, detector)
+
+    @property
+    def dtype(self):
+        if self.stat_name in ('triggers', 'events'):
+            return numpy.int
+        return numpy.float
+
+    def feed_point(self, spectrums, stats):
+        point = getattr(stats[self.detector_channel], self.stat_name)
+        self.emit_data_point(point)
+
+
+class SpectrumMcaCounter(BaseMcaCounter):
+
+    def __init__(self, mca, detector):
+        super(SpectrumMcaCounter, self).__init__(
+            mca, 'spectrum', detector)
+
+    @property
+    def dtype(self):
+        return numpy.uint32
+
+    @property
+    def shape(self):
+        if self.acquisition_controller is None:
+            return (self.controller.spectrum_size,)
+        return (self.acquisition_controller.spectrum_size,)
+
+    def feed_point(self, spectrums, stats):
+        self.emit_data_point(spectrums[self.detector_channel])
+
+
+def mca_counters(mca):
+    """Provide a convenient access to the MCA counters.
+
+    - counters.spectrum[det]
+    - counters.statistics[stat][det]
+    - counters.realtime[det]
+    - counters.livetime[det]
+    - counters.triggers[det]
+    - counters.events[det]
+    - counters.icr[det]
+    - counters.ocr[det]
+    - counters.deadtime[det]
+    """
+    # Spectrum
+    spectrum = {
+        element: SpectrumMcaCounter(mca, element)
+        for element in mca.elements}
+    # Stats
+    statistics = {
+        stat: {
+            element: StatisticsMcaCounter(mca, stat, element)
+            for element in mca.elements}
+        for stat in Stats._fields}
+    # Instance
+    fields = ('spectrum', 'statistics') + Stats._fields
+    cls = namedtuple('McaCounters', fields)
+    return cls(spectrum, statistics, **statistics)

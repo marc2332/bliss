@@ -18,10 +18,10 @@ def test_ascan(beacon):
     session = beacon.get("test_session")
     session.setup()
     counter_class = getattr(setup_globals, 'TestScanGaussianCounter')
-    m0 = getattr(setup_globals, 'm0')
+    m1 = getattr(setup_globals, 'm1')
     counter = counter_class("gaussian", 10, cnt_time=0)
-    s = scans.ascan(m0, 0, 10, 10, 0, counter, return_scan=True, save=False)
-    assert m0.position() == 10
+    s = scans.ascan(m1, 0, 10, 10, 0, counter, return_scan=True, save=False)
+    assert m1.position() == 10
     scan_data = scans.get_data(s)
     assert numpy.array_equal(scan_data['gaussian'], counter.data)
 
@@ -31,10 +31,13 @@ def test_dscan(beacon):
     session.setup()
     counter_class = getattr(setup_globals, 'TestScanGaussianCounter')
     counter = counter_class("gaussian", 10, cnt_time=0)
-    m0 = getattr(setup_globals, 'm0')
-    s = scans.dscan(m0, 0, 2, 10, 0, counter, return_scan=True, save=False)
-    assert m0.position() == 10
+    m1 = getattr(setup_globals, 'm1')
+    # contrary to ascan, dscan returns to start pos
+    start_pos = m1.position()
+    s = scans.dscan(m1, -2, 2, 10, 0, counter, return_scan=True, save=False)
+    assert m1.position() == start_pos
     scan_data = scans.get_data(s)
+    assert numpy.allclose(scan_data['m1'], numpy.linspace(start_pos-2, start_pos+2, 10), atol=5e-4)
     assert numpy.array_equal(scan_data['gaussian'], counter.data)
 
 

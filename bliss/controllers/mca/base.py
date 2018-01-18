@@ -153,8 +153,8 @@ class BaseMCA(object):
 
     @property
     def counters(self):
-        from bliss.scanning.acquisition.mca import McaCounters
-        return McaCounters(self)
+        from bliss.scanning.acquisition.mca import mca_counters
+        return mca_counters(self)
 
     # Extra logic
 

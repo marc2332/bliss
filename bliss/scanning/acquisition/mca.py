@@ -5,7 +5,7 @@
 # Copyright (c) 2017 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 
 import numpy
 import gevent.event
@@ -273,7 +273,7 @@ class SpectrumMcaCounter(BaseMcaCounter):
         self.emit_data_point(spectrums[self.detector])
 
 
-class McaCounters:
+def mca_counters(mca):
     """Provide a convenient access to the MCA counters.
 
     - counters.spectrum[det]
@@ -286,17 +286,17 @@ class McaCounters:
     - counters.ocr[det]
     - counters.deadtime[det]
     """
-
-    def __init__(self, mca):
-        self.mca = mca
-        # Spectrums
-        self.spectrum = dict(
-            (element, SpectrumMcaCounter(self.mca, element))
-            for element in self.mca.elements)
-        # Statistics
-        self.statistics = {}
-        for stat in Stats._fields:
-            self.statistics[stat] = dict(
-                (element, StatisticsMcaCounter(self.mca, stat, element))
-                for element in self.mca.elements)
-            setattr(self, stat, self.statistics[stat])
+    # Spectrum
+    spectrum = {
+        element: SpectrumMcaCounter(mca, element)
+        for element in mca.elements}
+    # Stats
+    statistics = {
+        stat: {
+            element: StatisticsMcaCounter(mca, stat, element)
+            for element in mca.elements}
+        for stat in Stats._fields}
+    # Instance
+    fields = ('spectrum', 'statistics') + Stats._fields
+    cls = namedtuple('McaCounters', fields)
+    return cls(spectrum, statistics, **statistics)

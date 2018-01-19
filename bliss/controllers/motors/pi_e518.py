@@ -2,7 +2,7 @@
 #
 # This file is part of the bliss project
 #
-# Copyright (c) 2016 Beamline Control Unit, ESRF
+# Copyright (c) 2016-2018 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import time
@@ -28,8 +28,8 @@ Thu 13 Feb 2014 15:51:41
 
 class PI_E518(PI_E51X):
 
-    def __init__(self, name, config, axes, encoders):
-        PI_E51X.__init__(self, name, config, axes, encoders)
+    def __init__(self, *args, **kwargs):
+        PI_E51X.__init__(self, *args, **kwargs)
 
     def _get_cto(self, axis):
         _ans = self.sock.write_readlines("CTO?\n", 24)       # 24 also for 518 ????

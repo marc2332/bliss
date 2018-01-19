@@ -2,7 +2,7 @@
 #
 # This file is part of the bliss project
 #
-# Copyright (c) 2016 Beamline Control Unit, ESRF
+# Copyright (c) 2016-2018 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import time
@@ -25,20 +25,15 @@ Cyril Guilloud ESRF BLISS
 Thu 13 Feb 2014 15:51:41
 """
 
+
 class PI_E51X(Controller):
 
     def __init__(self, *args, **kwargs):
         Controller.__init__(self, *args, **kwargs)
 
-        self.__encoder_axis_map = {}
-        for name, axis, config in axes:
-            enc_name = config.get('encoder')
-            if enc_name:
-                self.__encoder_axis_map[enc_name[1:]] = name
-
     def move_done_event_received(self, state, sender=None):
         # <sender> is the axis.
-        elog.info("move_done_event_received(state=%s axis.sender=%s)"%(state, sender.name))
+        elog.info("move_done_event_received(state=%s axis.sender=%s)" % (state, sender.name))
         if self.auto_gate_enabled:
             if state is True:
                 elog.info("PI_E51X.py : movement is finished")
@@ -94,13 +89,12 @@ class PI_E51X(Controller):
         self.closed_loop = self._get_closed_loop_status(axis)
 
         # Reads high/low limits of the piezo to use in set_gate
-        self.low_limit  = self._get_low_limit(axis)
+        self.low_limit = self._get_low_limit(axis)
         self.high_limit = self._get_high_limit(axis)
 
     def initialize_encoder(self, encoder):
         encoder.channel = encoder.config.get("channel", int)
         encoder.chan_letter = encoder.config.get("chan_letter")
-
 
     """
     ON / OFF
@@ -110,7 +104,6 @@ class PI_E51X(Controller):
 
     def set_off(self, axis):
         pass
-
 
     def read_position(self, axis, last_read={"t": time.time(), "pos": [None, None, None]}):
         """
@@ -172,7 +165,6 @@ class PI_E51X(Controller):
                          (axis.chan_letter, new_velocity))
         elog.debug("velocity set : %g" % new_velocity)
         return self.read_velocity(axis)
-
 
     def state(self, axis):
         # if self._get_closed_loop_status(axis):
@@ -259,7 +251,8 @@ class PI_E51X(Controller):
         _ans = self.sock.write_readline(_cmd)
         _duration = time.time() - _t0
         if _duration > 0.005:
-            elog.info("PI_E51X.py : Received %r from Send %s (duration : %g ms) " % (_ans, _cmd, _duration * 1000))
+            elog.info("PI_E51X.py : Received %r from Send %s (duration : %g ms) " % (
+                _ans, _cmd, _duration * 1000))
 
         # self.check_error(axis)
 
@@ -284,11 +277,9 @@ class PI_E51X(Controller):
         if _err_nb != 0:
             print ":( error #%d (%s) in send_no_ans(%r)" % (_err_nb, _err_str, cmd)
 
-
     """
     E51X specific
     """
-
     def _get_pos(self):
         """
         Args:
@@ -347,8 +338,6 @@ class PI_E51X(Controller):
     1 12=1            ???
     ...
     """
-
-
 
     def _get_low_limit(self, axis):
         _ans = self.send(axis, "NLM? %s" % axis.chan_letter)
@@ -422,10 +411,10 @@ class PI_E51X(Controller):
         if value:
             # auto gating
             self.auto_gate_enabled = True
-            elog.info("PI_E51X.py : enable_gate %s for axis.channel %s " %(str(value) , axis.channel) )
+            elog.info("PI_E51X.py : enable_gate %s for axis.channel %s " % (
+                str(value), axis.channel))
         else:
             self.auto_gate_enabled = False
-
 
     @object_method(types_info=("bool", "None"))
     def set_gate(self, axis, state):
@@ -456,9 +445,11 @@ class PI_E51X(Controller):
         """
         _ch = axis.channel
         if state:
-            _cmd = "CTO %d 3 3 %d 5 %g %d 6 %g %d 7 1" % (_ch, _ch, self.low_limit, _ch, self.high_limit, _ch)
+            _cmd = "CTO %d 3 3 %d 5 %g %d 6 %g %d 7 1" % (
+                _ch, _ch, self.low_limit, _ch, self.high_limit, _ch)
         else:
-            _cmd = "CTO %d 3 3 %d 5 %g %d 6 %g %d 7 0" % (_ch, _ch, self.low_limit, _ch, self.high_limit, _ch)
+            _cmd = "CTO %d 3 3 %d 5 %g %d 6 %g %d 7 0" % (
+                _ch, _ch, self.low_limit, _ch, self.high_limit, _ch)
 
         elog.debug("set_gate :  _cmd = %s" % _cmd)
 
@@ -474,7 +465,6 @@ class PI_E51X(Controller):
         # Does not use send() to be able to call _get_error in send().
         _error_number = int(self.sock.write_readline("ERR?\n"))
         _error_str = pi_gcs.get_error_str(int(_error_number))
-
 
         _error_str = pi_gcs.get_error_str(_error_number)
 

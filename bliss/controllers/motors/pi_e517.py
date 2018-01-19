@@ -2,7 +2,7 @@
 #
 # This file is part of the bliss project
 #
-# Copyright (c) 2016 Beamline Control Unit, ESRF
+# Copyright (c) 2016-2018 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import time
@@ -16,7 +16,7 @@ import pi_gcs
 from bliss.comm import tcp
 from bliss.common import event
 
-from PI_E51X import PI_E51X
+from pi_e51x import PI_E51X
 
 """
 Bliss controller for ethernet PI E517 piezo controller.
@@ -27,10 +27,10 @@ Cyril Guilloud ESRF BLISS
 Thu 13 Feb 2014 15:51:41
 """
 
-class PI_E517(PI_E51X):
 
-    def __init__(self, name, config, axes, encoders):
-        PI_E51X.__init__(self, name, config, axes, encoders)
+class PI_E517(PI_E51X):
+    def __init__(self, *args, **kwargs):
+        PI_E51X.__init__(self, *args, **kwargs)
 
     def _get_cto(self, axis):
         _ans = self.sock.write_readlines("CTO?\n", 24)
@@ -77,11 +77,12 @@ class PI_E517(PI_E51X):
         """
         _ch = axis.channel
         if state:
-            _cmd = "CTO %d 3 3 %d 5 %g %d 6 %g %d 7 1" % (_ch, _ch, self.low_limit, _ch, self.high_limit, _ch)
+            _cmd = "CTO %d 3 3 %d 5 %g %d 6 %g %d 7 1" % (
+                _ch, _ch, self.low_limit, _ch, self.high_limit, _ch)
         else:
-            _cmd = "CTO %d 3 3 %d 5 %g %d 6 %g %d 7 0" % (_ch, _ch, self.low_limit, _ch, self.high_limit, _ch)
+            _cmd = "CTO %d 3 3 %d 5 %g %d 6 %g %d 7 0" % (
+                _ch, _ch, self.low_limit, _ch, self.high_limit, _ch)
 
         elog.debug("set_gate :  _cmd = %s" % _cmd)
 
         self.send_no_ans(axis, _cmd)
-

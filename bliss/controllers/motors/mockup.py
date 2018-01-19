@@ -70,18 +70,22 @@ class Mockup(Controller):
     Axes initialization actions.
     """
     def initialize_axis(self, axis):
+        # this is to protect position reading,
+        # indeed the mockup controller uses redis to store
+        # a 'hardware position', and it is not allowed
+        # to read a position before it has been written
         def set_pos(move_done, axis=axis):
             if move_done:
                 self.set_position(axis, axis.dial()*axis.steps_per_unit)
 
         self._axis_moves[axis] = {
-            "end_t": 0,
+            "end_t": None,
             "move_done_cb": set_pos }
 
         if axis.settings.get('hw_position') is None:
             axis.settings.set('hw_position', 0)
-        self._axis_moves[axis]['start_pos']=self.read_position(axis)
-        self._axis_moves[axis]['target']=self._axis_moves[axis]['start_pos']
+        self._axis_moves[axis]['start_pos'] = self.read_position(axis)
+        self._axis_moves[axis]['target'] = self._axis_moves[axis]['start_pos']
 
         event.connect(axis, "move_done", set_pos)
 
@@ -97,7 +101,7 @@ class Mockup(Controller):
             self.__encoders.setdefault(axis.encoder, {})["axis"] = axis
 
     def initialize_encoder(self, encoder):
-        self.__encoders.setdefault(encoder, {})["measured_noise"] = 0.0
+        self.__encoders.setdefault(encoder, {})["measured_noise"] = None
         self.__encoders[encoder]["steps"] = None
 
     """
@@ -163,10 +167,13 @@ class Mockup(Controller):
         Returns the position (measured or desired) taken from controller
         in controller unit (steps).
         """
-        # handle read out during a motion
         t = t or time.time()
+        # handle read out during a motion
         end_t = self._axis_moves[axis]["end_t"]
-        if end_t and t < end_t:
+        if end_t is not None and t >= end_t:
+            pos = self._axis_moves[axis]["target"]
+            axis.settings.set('hw_position', pos)
+        elif end_t:
             # motor is moving
             v = self.read_velocity(axis)
             a = self.read_acceleration(axis)
@@ -183,7 +190,7 @@ class Mockup(Controller):
 
         return int(round(pos))
 
-    def read_encoder(self, encoder, t=None):
+    def read_encoder(self, encoder):
         """
         returns encoder position.
         unit : 'encoder steps'
@@ -193,18 +200,18 @@ class Mockup(Controller):
         else:
             axis = self.__encoders[encoder]["axis"]
 
-            if self.__encoders[encoder]["measured_noise"] != 0.0:
+            _pos = self.read_position(axis) / float(axis.steps_per_unit)
+
+            if self.__encoders[encoder]["measured_noise"] > 0:
                 # Simulates noisy encoder.
                 amplitude = self.__encoders[encoder]["measured_noise"]
                 noise_mm = random.uniform(-amplitude, amplitude)
 
-                _pos = self.read_position(axis, t=t) / axis.steps_per_unit
                 _pos += noise_mm
 
                 enc_steps = _pos * encoder.steps_per_unit
             else:
-                # print "Perfect encoder"
-                _pos = self.read_position(axis, t=t) / axis.steps_per_unit
+                # "Perfect" encoder
                 enc_steps = _pos * encoder.steps_per_unit
 
         self.__encoders[encoder]["steps"] = None
@@ -283,12 +290,9 @@ class Mockup(Controller):
         if self._axis_moves[axis]["end_t"] > time.time():
            return AxisState("MOVING")
         else:
-           if self._axis_moves[axis]['target']=='limit':
-             self._axis_moves[axis]['target'] = 1e6*self._axis_moves[axis]['delta']*axis.steps_per_unit
-             axis.settings.set('hw_position', self._axis_moves[axis]['target'])
-           else:
-             axis.settings.set('hw_position', self._axis_moves[axis]['target'])
-           self._axis_moves[axis]["end_t"]=0
+           self.read_position(axis, t=self._axis_moves[axis]["end_t"])
+           self._axis_moves[axis]["end_t"] = None
+           self._axis_moves[axis]["delta"] = 0
            return self._check_hw_limits(axis)
 
     """
@@ -297,7 +301,7 @@ class Mockup(Controller):
     def stop(self, axis, t=None):
         if self._axis_moves[axis]["end_t"]:
             self._axis_moves[axis]["target"] = self.read_position(axis, t=t)
-            self._axis_moves[axis]["end_t"] = 0
+            self._axis_moves[axis]["end_t"] = None
 
     def stop_all(self, *motion_list):
         t = time.time()
@@ -309,7 +313,7 @@ class Mockup(Controller):
     """
     def home_search(self, axis, switch):
         self._axis_moves[axis]["delta"] = switch
-        self._axis_moves[axis]["end_t"] = 0
+        self._axis_moves[axis]["end_t"] = None
         self._axis_moves[axis]["t0"] = time.time()
         self._axis_moves[axis]["home_search_start_time"] = time.time()
 
@@ -324,7 +328,7 @@ class Mockup(Controller):
             return AxisState("MOVING")
 
     def limit_search(self, axis, limit):
-        self._axis_moves[axis]["target"] = 'limit'
+        self._axis_moves[axis]["target"] = 1e6*limit*axis.steps_per_unit
         self._axis_moves[axis]["delta"] = limit
         self._axis_moves[axis]["end_t"] = time.time() + 1
         self._axis_moves[axis]["t0"] = time.time()
@@ -338,9 +342,11 @@ class Mockup(Controller):
     def set_position(self, axis, pos):
         if self._axis_moves[axis]["end_t"]:
             raise RuntimeError("Cannot set position while moving !")
+        
         axis.settings.set('hw_position', pos)
         self._axis_moves[axis]['target'] = pos
-        self._axis_moves[axis]["end_t"] = 0
+        self._axis_moves[axis]["end_t"] = None
+
         return pos
 
     def put_discrepancy(self, axis, disc):
@@ -400,7 +406,7 @@ class Mockup(Controller):
         if not axis.encoder in self.__encoders:
             raise KeyError("cannot read measured noise: %s "
                            "doesn't have encoder" % axis.name)
-        noise = self.__encoders[axis.encoder].get("measured_noise", 0.0)
+        noise = self.__encoders[axis.encoder].get("measured_noise", None)
 
     @object_method(types_info=("float", "None"))
     def custom_set_measured_noise(self, axis, noise):

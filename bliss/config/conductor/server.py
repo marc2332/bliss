@@ -558,7 +558,7 @@ def _client_rx(client,local_connection):
 
 def sigterm_handler(_signo, _stack_frame):
     """On signal received, close the signal pipe to do a clean exit."""
-    os.close(sig_write)
+    os.write(sig_write, '!')
 
 
 def start_webserver(webapp_port, beacon_port, debug=True):

@@ -113,6 +113,30 @@ class Motion(object):
         return self.__type
 
 
+class Trajectory(object):
+    """ Trajectory information
+  
+    Represents a specific trajectory motion.
+
+    """
+    def __init__(self, axis, pvt) :
+      """
+      Args:
+          axis -- the axis to which this motion corresponds to
+          pvt  -- numpy array with tree field ('position','velocity','time')
+          target -- 
+      """
+      self.__axis = axis
+      self.__pvt = pvt
+
+    @property
+    def axis(self):
+        return self.__axis
+
+    @property
+    def pvt(self):
+        return self.__pvt
+    
 class MotionEstimation(object):
     """
     Estimate motion time and displacement based on current axis position

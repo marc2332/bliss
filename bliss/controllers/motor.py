@@ -225,6 +225,16 @@ class Controller(object):
     def initialize_encoder(self, encoder):
         raise NotImplementedError
 
+    def has_trajectory(self):
+        """
+        should return True if trajectory is available
+        on this controller.
+        """
+        return False
+
+    def prepare_trajectory(self, *trajectories):
+        pass
+    
     def prepare_move(self, motion):
         return
 
@@ -237,6 +247,18 @@ class Controller(object):
     def start_all(self, *motion_list):
         raise NotImplementedError
 
+    def start_trajectory(self, *trajectories):
+        """
+        Should go move to the first point of the trajectory
+        """
+        raise NotImplementedError
+
+    def end_trajectory(self, *trajectories):
+        """
+        Should move to the last point of the trajectory
+        """
+        raise NotImplementedError
+    
     def stop(self, axis):
         raise NotImplementedError
 
@@ -246,6 +268,9 @@ class Controller(object):
     def stop_all(self, *motions):
         raise NotImplementedError
 
+    def stop_trajectory(self, *trajectories):
+        raise NotImplementedError
+    
     def state(self, axis):
         raise NotImplementedError
 

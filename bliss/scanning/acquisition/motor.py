@@ -295,3 +295,63 @@ class LinearStepTriggerMaster(_StepTriggerMaster):
         for axis, start, stop in grouped(args, 3):
             params.extend((axis, start, stop, nb_point))
         _StepTriggerMaster.__init__(self, *params, **keys)
+
+
+class VariableStepTriggerMaster(AcquisitionMaster):
+    """
+    Generic motor master helper for a variable step by step acquisition.
+
+    :param *args == mot1, positions,...
+    Example::
+
+        _VariableStepTriggerMaster(mot1, positions, mot2, positions2)
+    """
+    def __init__(self, *args, **keys):
+        trigger_type = keys.pop('trigger_type', AcquisitionMaster.SOFTWARE)
+        self.next_mv_cmd_arg = list()
+        if len(args) % 2:
+            raise TypeError('_VariableStepTriggerMaster: argument is a mot, positions ...')
+
+        self._motor_pos = list()
+        self._axes = list()
+        for _axis, pos_list in grouped(args, 2):
+            self._axes.append(_axis)
+            self._motor_pos.append(pos_list)
+
+        mot_group = Group(*self._axes)
+        group_name = '/'.join((x.name for x in self._axes))
+
+        AcquisitionMaster.__init__(self, mot_group, group_name, "zerod",
+                                   trigger_type=trigger_type, **keys)
+
+        self.channels.extend(
+            (AcquisitionChannel(axis.name, numpy.double, ()) for axis in self._axes))
+
+    @property
+    def npoints(self):
+        return min((len(x) for x in self._motor_pos))
+
+    def __iter__(self):
+        iter_pos = [iter(x) for x in self._motor_pos]
+        while True:
+            self.next_mv_cmd_arg = list()
+            for _axis, pos in zip(self._axes, iter_pos):
+                self.next_mv_cmd_arg.extend((_axis, pos.next()))
+            yield self
+
+    def prepare(self):
+        self.device.move(*self.next_mv_cmd_arg)
+
+    def start(self):
+        self.trigger()
+
+    def stop(self):
+        self.device.stop()
+
+    def trigger(self):
+        self.trigger_slaves()
+
+        self.channels.update_from_iterable(
+            [axis.position() for axis in self._axes])
+
+        self.wait_slaves()

@@ -33,6 +33,7 @@ from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionDevice,
 from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning import scan as scan_module
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
+from bliss.scanning.acquisition.motor import VariableStepTriggerMaster
 from bliss.scanning.acquisition.motor import LinearStepTriggerMaster, MeshStepTriggerMaster
 from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
 from bliss.scanning.acquisition.ct2 import CT2AcquisitionMaster
@@ -718,3 +719,59 @@ def ct(count_time, *counters, **kwargs):
     kwargs.setdefault("name","ct")
 
     return timescan(count_time, *counters, **kwargs)
+
+
+def pointscan(motor, positions, count_time, *counters, **kwargs):
+    """
+    Point scan
+
+    Scans one motor, as specified by *motor*. The motor starts at the position
+    given by the first value in *positions* and ends at the position given by last value *positions*.
+    Count time is given by *count_time* (seconds).
+
+    Args:
+        motor (Axis): motor to scan
+        positions (list): a list of positions
+        count_time (float): count time (seconds)
+        counters (BaseCounter or
+                  MeasurementGroup): change for those counters or measurement group.
+                                     if counter is empty use the active measurement group.
+
+    Keyword Args:
+        name (str): scan name in data nodes tree and directories [default: 'scan']
+        title (str): scan title [default: 'pointscan <motor> <positions>']
+        save (bool): save scan data to file [default: True]
+        return_scan (bool): False by default
+    """
+    scan_info = {'type': kwargs.get('type', 'pointscan'),
+                 'save': kwargs.get('save', True),
+                 'title': kwargs.get('title')}
+
+    npoints = len(positions)
+    if scan_info['title'] is None:
+        args = scan_info['type'], motor.name, positions[0], positions[npoints-1], npoints, count_time
+        template = " ".join(['{{{0}}}'.format(i) for i in range(len(args))])
+        scan_info['title'] = template.format(*args)
+
+    counters,other_counters = _get_all_counters(counters)
+
+    scan_info.update({'npoints': npoints, 'total_acq_time':  npoints * count_time,
+                      'motors': [TimestampPlaceholder(), motor],
+                      'start': positions[0], 'stop': positions[npoints-1],
+                      'counters': counters,
+                      'other_counters': other_counters,
+                      'count_time': count_time})
+
+    chain = AcquisitionChain(parallel_prepare=True)
+    timer = default_chain(chain, scan_info, counters)
+    top_master = VariableStepTriggerMaster(motor, positions)
+    chain.add(top_master, timer)
+
+    _log.info("Scanning %s from %f to %f in %d points",
+              motor.name, positions[0], positions[npoints-1], npoints)
+
+    scan = step_scan(chain, scan_info,
+                     name=kwargs.setdefault("name", "pointscan"), save=scan_info['save'])
+    scan.run()
+    if kwargs.get('return_scan', False):
+        return scan

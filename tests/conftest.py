@@ -43,10 +43,8 @@ def beacon():
     client._default_connection = beacon_connection
     cfg = static.get_config()
     os.environ["TANGO_HOST"] = "localhost:12345"
-    try:
-        yield cfg
-    finally:
-        proc.terminate()
+    yield cfg
+    proc.terminate()
 
 
 @pytest.fixture
@@ -90,7 +88,5 @@ def lima_simulator(beacon):
             else:
                 break
 
-    try:
-        yield device_fqdn, dev_proxy
-    finally:
-        p.terminate()
+    yield device_fqdn, dev_proxy
+    p.terminate()

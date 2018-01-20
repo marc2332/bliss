@@ -67,7 +67,8 @@ def test_scan_node(beacon, redis_data_conn, scan_tmpdir):
     scan_info_dict = redis_data_conn.hgetall(s.node.db_name+"_info")
     assert pickle.loads(scan_info_dict['metadata']) == 42
     
-    s.run()
+    with gevent.Timeout(5): 
+        s.run()
 
     m0_node_db_name = s.node.db_name+":roby"
     assert redis_data_conn.lrange(s.node.db_name+"_children_list", 0, -1) == [m0_node_db_name]

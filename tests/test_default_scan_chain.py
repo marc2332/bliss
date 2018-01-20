@@ -90,8 +90,7 @@ def test_default_chain_with_three_sampling_counters(beacon):
     assert counter_names == set(['diode2', 'diode3'])
 
 
-def test_default_chain_with_bpm(beacon):
-    pytest.xfail()
+def test_default_chain_with_bpm(beacon, lima_simulator):
     """Want to build the following acquisition chain:
 
     root
@@ -130,8 +129,7 @@ def test_default_chain_with_bpm(beacon):
     assert nodes[1].save_flag == False
 
 
-def test_default_chain_with_bpm_and_diode(beacon):
-    pytest.xfail()
+def test_default_chain_with_bpm_and_diode(beacon, lima_simulator):
     """Want to build the following acquisition chain:
 
     root
@@ -171,8 +169,7 @@ def test_default_chain_with_bpm_and_diode(beacon):
     assert nodes[3].count_time == nodes[2].count_time
 
 
-def test_default_chain_with_bpm_and_image(beacon):
-    pytest.xfail()
+def test_default_chain_with_bpm_and_image(beacon, lima_simulator):
     """Want to build the following acquisition chain:
 
     root

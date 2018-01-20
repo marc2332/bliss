@@ -48,6 +48,20 @@ def test_timescan(beacon):
     assert numpy.array_equal(scan_data['gaussian'], counter.data)
 
 
+def test_pointscan(beacon):
+    session = beacon.get("test_session")
+    session.setup()
+    m0 = getattr(setup_globals, 'm0')
+    counter_class = getattr(setup_globals, 'TestScanGaussianCounter')
+    counter = counter_class("gaussian", 10, cnt_time=0)
+    print counter.data
+    points = [0.0, 1.0, 3.0, 7.0, 8.0, 10.0, 12.0, 15.0, 20.0, 50.0]
+    s = scans.pointscan(m0, points, 0, counter, return_scan=True, save=False)
+    assert m0.position() == 50.0
+    scan_data = scans.get_data(s)
+    assert numpy.array_equal(scan_data['m0'], points)
+    assert numpy.array_equal(scan_data['gaussian'], counter.data)
+
 def test_scan_callbacks(beacon):
     session = beacon.get("test_session")
     session.setup()

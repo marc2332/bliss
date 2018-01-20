@@ -321,7 +321,7 @@ class VariableStepTriggerMaster(AcquisitionMaster):
         mot_group = Group(*self._axes)
         group_name = '/'.join((x.name for x in self._axes))
 
-        AcquisitionMaster.__init__(self, mot_group, group_name, "zerod",
+        AcquisitionMaster.__init__(self, mot_group, group_name,
                                    trigger_type=trigger_type, **keys)
 
         self.channels.extend(

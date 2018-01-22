@@ -255,8 +255,8 @@ class Icepap(Controller):
         _command(self._cnx,"STOP %s" % axis.address)
 
     def stop_all(self,*motions):
-        for motion in motions:
-            self.stop(motion.axis)
+        axes_addr = ' '.join('%s' % m.axis.address for m in motions)
+        _command(self._cnx,"STOP %s" % axes_addr)
 
     def home_search(self,axis,switch):
         cmd = "HOME " + ("+1" if switch > 0 else "-1")

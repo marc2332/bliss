@@ -8,8 +8,10 @@
 import re
 import time
 import gevent
+import hashlib
 import functools
 from bliss.common.greenlet_utils import protect_from_kill
+from bliss.config.channels import Cache
 from bliss.controllers.motor import Controller
 from bliss.common.axis import AxisState,Axis
 from bliss.common.utils import object_method
@@ -83,6 +85,7 @@ class Icepap(Controller):
             
     def initialize_axis(self,axis):
         axis.address = axis.config.get("address",lambda x: x)
+        axis._trajectory_cache = Cache(axis, "trajectory_cache")
 
         if hasattr(axis,'_init_software'):
             axis._init_software()
@@ -355,6 +358,60 @@ class Icepap(Controller):
             linked[values[0]] = [int(x) for x in values[1:]]
         return linked
 
+    def has_trajectory(self):
+        return True
+
+    def prepare_trajectory(self, *trajectories):
+        if not trajectories:
+            raise ValueError("no trajectory provided")
+
+        update_cache = list()
+        data = numpy.array([],dtype=numpy.int8)
+        for traj in trajectories:
+            pvt = traj.pvt
+            axis = traj.axis
+            axis_data = _vdata_header(pvt['position'], axis, POSITION)
+            axis_data = numpy.append(axis_data, _vdata_header(pvt['time'],
+                                                              axis, PARAMETER))
+            axis_data = numpy.append(axis_data, _vdata_header(pvt['velocity'],
+                                                              axis, SLOPE))
+            h = hashlib.md5()
+            h.update(axis_data.tostring())
+            digest = h.hexdigest()
+            if axis._trajectory_cache.value != digest:
+                data = numpy.append(data, axis_data)
+                update_cache.append((axis._trajectory_cache, digest))
+
+        if not data.size:       # nothing to do
+            return
+
+        _command(self._cnx, "#*PARDAT", data=data)
+        #update axis trajectory cache
+        for cache, value in update_cache:
+            cache.value = value
+
+        axes_str = ' '.join(('%s' % traj.axis.address for traj in trajectories))
+        _command(self._cnx,"#PARVEL 1 %s" % axes_str)
+        _command(self._cnx,"#PARACCT 0 {}".format(axes_str))
+        
+    def start_trajectory(self, *trajectories):
+        axes_str = ' '.join(('%s' % traj.axis.address for traj in trajectories))
+        #Doesn't work yet
+        #_command(self._cnx,"#MOVEP 0 GROUP %s" % axes_str)
+        _command(self._cnx,"#MOVEP 0 %s" % axes_str)
+        
+    def end_trajectory(self, *trajectories):
+        axes_str = ' '.join(('%s' % traj.axis.address for traj in trajectories))
+        traj1 = trajectories[0]
+        endtime = traj1.pvt['time'][-1]
+        #Doesn't work yet
+        #_command(self._cnx,"#PMOVE %lf GROUP %s" % (endtime,axes_str))
+        _command(self._cnx,"#PMOVE {} {}".format(endtime,axes_str))
+
+    def stop_trajectory(self, *trajectories):
+        axes_str = ' '.join(('%s' % traj.axis.address for traj in trajectories))
+        _command(self._cnx,"STOP %s" % axes_str)
+
     @object_method(types_info=("bool","bool"))
     def activate_closed_loop(self,axis,active):
         _command(self._cnx,"#%s:PCLOOP %s" % (axis.address,"ON" if active else "OFF"))
@@ -475,6 +532,49 @@ class Icepap(Controller):
         self._cnx.close()
 
 _check_reply = re.compile("^[#?]|^[0-9]+:\?")
+PARAMETER,POSITION,SLOPE = (0x1000, 0x2000, 0x4000)
+ 
+def _vdata_header(data,axis,vdata_type):
+    PARDATA_HEADER_FORMAT='<HBBLLBBHd'
+    numpydtype_2_dtype = {
+        numpy.dtype(numpy.int8)    :0x00,
+        numpy.dtype(numpy.int16)   :0x01,
+        numpy.dtype(numpy.int32)   :0x02,
+        numpy.dtype(numpy.int64)   :0x03,
+        numpy.dtype(numpy.float32) :0x04,
+        numpy.dtype(numpy.float64) :0x05,
+        numpy.dtype(numpy.uint8)   :0x10, 
+        numpy.dtype(numpy.uint16)  :0x11,
+        numpy.dtype(numpy.uint32)  :0x12,
+        numpy.dtype(numpy.uint64)  :0x13
+    }
+    if not data.size:
+        raise RuntimeError("Nothing to send")
+    elif len(data) > 0xFFFF:
+        raise ValueError("too many data values, max: 0xFFFF")
+
+    dtype = numpydtype_2_dtype[data.dtype]
+    data_test = data.newbyteorder('<')
+    if data_test[0] != data[0]: # not good endianness
+        data = data.byteswap()
+        
+    header_size = struct.calcsize(PARDATA_HEADER_FORMAT)
+    full_size = header_size + len(data.tostring())
+    aligned_full_size = (full_size + 3) & ~3 # alignment 32 bits
+    flags = vdata_type | axis.address
+    bin_header = struct.pack(PARDATA_HEADER_FORMAT,
+                             0xCAFE,			# vdata signature
+                             0,				# Version = 0
+                             header_size / 4,		# Data offset in dwords
+                             aligned_full_size / 4, 	# Full vector size in dwords
+                             len(data),			# number of values in the vector
+                             dtype,             	# Data type 
+                             0,                 	# no compression
+                             flags,             	# format + address
+                             0)	           		# first data value for incremental coding
+    return numpy.fromstring(bin_header + data.tostring() + \
+                            '\0' * (aligned_full_size-full_size),dtype=numpy.int8)
+    
 @protect_from_kill
 def _command(cnx,cmd,data = None,pre_cmd = None):
     if data is not None:

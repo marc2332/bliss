@@ -5,9 +5,6 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import types
-import inspect
-import functools
 from bliss.common.motor_config import StaticConfig
 from bliss.common.motor_settings import ControllerAxisSettings
 from bliss.common.axis import Axis, AxisRef

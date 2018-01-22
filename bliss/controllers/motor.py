@@ -5,12 +5,13 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+import numpy
 from bliss.common.motor_config import StaticConfig
 from bliss.common.motor_settings import ControllerAxisSettings
-from bliss.common.axis import Axis, AxisRef
-from bliss.common.motor_group import Group
-from bliss.common import event
-from bliss.common.utils import set_custom_members
+from bliss.common.axis import Axis, AxisRef, Trajectory
+from bliss.common.motor_group import Group, TrajectoryGroup
+from bliss.common import event, trajectory
+from bliss.common.utils import set_custom_members, object_method
 from bliss.config.channels import Cache
 from gevent import lock
 
@@ -490,3 +491,125 @@ class CalcController(Controller):
 
         return new_positions[self._axis_tag(axis)]
 
+    @object_method(types_info=(("float", "float", "int", "float"), "object"))
+    def scan_on_trajectory(self, calc_axis, start_point, end_point,
+                           nb_points, time_per_point,
+                           interpolation_factor=1):
+        """
+        helper to create a trajectories handler for a scan.
+
+        Args:
+            start -- first point of the trajectory
+            end -- the last point of the trajectory
+            nb_points -- the number of point created for this trajectory
+            time_per_point -- the time between each points.
+        """
+        #check if real motor has trajectory capability
+        real_axes = list()
+        for real in self.reals:
+            axis, raxes = self._check_trajectory(real)
+            real_axes.append((axis, raxes))
+
+        calc_positions = numpy.linspace(start_point, end_point, nb_points)
+        positions = {self._axis_tag(calc_axis) : calc_positions}
+        #other virtual axis stays at the same position
+        for caxis in self.pseudos:
+            if caxis is calc_axis:
+                continue
+            cpos = numpy.zeros(len(calc_positions), dtype=numpy.float)
+            cpos[:] = caxis.position()
+            positions[self._axis_tag(caxis)] = cpos
+
+        time = numpy.linspace(0., nb_points * time_per_point, nb_points)
+        real_positions = self.calc_to_real(positions)
+        final_real_axes_position = dict()
+        self._get_real_position(real_axes, real_positions,
+                                final_real_axes_position)
+
+
+        pt = trajectory.PointTrajectory()
+        spline_nb_points = 0 if interpolation_factor == 1 \
+                           else len(time) * interpolation_factor
+        pt.build(time, {axis.name:position
+                        for axis, position in final_real_axes_position.iteritems()},
+                 spline_nb_points=spline_nb_points)
+        #check velocity and acceleration
+        max_velocity = pt.max_velocity()
+        max_acceleration = pt.max_acceleration()
+        limits = pt.limits()
+        error_list = list()
+        start_stop_acceleration = dict()
+        for axis in final_real_axes_position:
+            vel = axis.velocity()
+            acc = axis.acceleration()
+            axis_limits = axis.limits()
+            traj_vel = max_velocity[axis.name]
+            traj_acc = max_acceleration[axis.name]
+            traj_limits = limits[axis.name]
+            if traj_acc > acc:
+                error_list.append("Axis %s reach %f acceleration on this trajectory,"
+                                  "max acceleration is %f" % (axis.name,  traj_acc, acc))
+            if traj_vel > vel:
+                error_list.append("Axis %s reach %f velocity on this trajectory,"
+                                  "max velocity is %f" % (axis.name, traj_vel, vel))
+            for lm in traj_limits:
+                if not axis_limits[0] <= lm <= axis_limits[1]:
+                    error_list.append("Axis %s go beyond limits (%f <= %f <= %f)" %
+                                      (axis.name, axis_limits[0],
+                                       traj_limits[0], axis_limits[1]))
+
+            start_stop_acceleration[axis.name] = acc
+
+        if error_list:
+            error_message = "Trajectory on calc axis **%s** can not be done.\n" % calc_axis.name
+            error_message += '\n'.join(error_list)
+            raise ValueError(error_message)
+
+        pvt = pt.pvt(acceleration_start_end=start_stop_acceleration)
+        trajectories = [Trajectory(axis, pvt[axis.name]) \
+                        for axis in final_real_axes_position]
+
+        return TrajectoryGroup(*trajectories, calc_axis=calc_axis)
+
+    def _check_trajectory(self, axis):
+        if axis.controller.has_trajectory():
+            return axis, []
+        else:                   # check if axis is part of calccontroller
+            ctrl = axis.controller
+            if isinstance(ctrl, CalcController):
+                real_axes = list()
+                for real in ctrl.reals:
+                    raxis, axes = self._check_trajectory(real)
+                    real_axes.append((raxis, axes))
+                return axis, real_axes
+            else:
+                raise ValueError("Controller for axis %s doesn't "
+                                 "has the trajectory capability" % axis.name)
+
+    def _get_real_position(self, real_axes, real_positions,
+                           final_real_axes_position):
+
+        local_real_positions = dict()
+        for axis, dep_real_axes in real_axes:
+            axis_position = real_positions.get(self._axis_tag(axis))
+            if not dep_real_axes:
+                if axis_position is None:
+                    raise RuntimeError("Couldn't get position "
+                                       "for axis %s" % axis.name)
+                else:
+                    final_real_axes_position[axis] = axis_position
+            else:
+                ctrl = axis.controller
+                local_real_positions = {ctrl._axis_tag(axis) : axis_position}
+                for caxis in ctrl.pseudos:
+                    axis_tag = ctrl._axis_tag(caxis)
+                    if caxis is axis or \
+                       axis_tag in local_real_positions:
+                        continue
+                    cpos = numpy.zeros(len(axis_position), dtype=numpy.float)
+                    cpos[:] = caxis.position()
+                    local_real_positions[ctrl._axis_tag(caxis)] = cpos
+
+                dep_real_position = ctrl.calc_to_real(local_real_positions)
+                ctrl._get_real_position(dep_real_axes, dep_real_position,
+                                        final_real_axes_position)

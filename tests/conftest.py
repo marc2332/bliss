@@ -66,18 +66,36 @@ def lima_simulator(beacon):
     from tango import DeviceProxy, DevFailed
 
     device_name = "id00/limaccds/simulator1"
-
-    def run_lima_simulator():
-        os.environ["TANGO_HOST"] = "localhost:12345"
-        sys.argv = ['LimaCCDs', 'simulator']
-        main()
-
     device_fqdn = "tango://localhost:12345/%s" % device_name
-
-    p = multiprocessing.Process(target=run_lima_simulator)
-    p.start()
+    
+    p = subprocess.Popen(['LimaCCDs', 'simulator']) 
 
     with gevent.Timeout(3, RuntimeError("Lima simulator is not running")):
+        while True:
+            try:
+                dev_proxy = DeviceProxy(device_fqdn)
+                dev_proxy.ping()
+                dev_proxy.state()
+            except DevFailed as e:
+                gevent.sleep(0.5)
+            else:
+                break
+
+    yield device_fqdn, dev_proxy
+    p.terminate()
+
+
+@pytest.fixture(scope="session")
+def bliss_tango_server(beacon):
+    from tango import DeviceProxy, DevFailed
+
+    device_name = "id00/bliss/test"
+    device_fqdn = "tango://localhost:12345/%s" % device_name
+
+    bliss_ds = [sys.executable, '-m', 'bliss.tango.servers.bliss_ds']
+    p = subprocess.Popen(bliss_ds+["test"])
+
+    with gevent.Timeout(3, RuntimeError("Bliss tango server is not running")):
         while True:
             try:
                 dev_proxy = DeviceProxy(device_fqdn)

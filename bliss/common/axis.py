@@ -175,7 +175,9 @@ class Axis(object):
         self.__config = StaticConfig(config)
         self.__settings = AxisSettings(self)
         self.__move_done = gevent.event.Event()
+        self.__move_done_callback = gevent.event.Event()
         self.__move_done.set()
+        self.__move_done_callback.set()
         self.__move_task = None
         self.__stopped = False
         self._in_group_move = False
@@ -436,12 +438,12 @@ class Axis(object):
 
 
     @lazy_init 
-    def _read_dial_and_update(self, update_user=True, write=True):
+    def _read_dial_and_update(self, update_user=True):
         dial_pos = self._hw_position()
-        self.settings.set("dial_position", dial_pos, write=write)
+        self.settings.set("dial_position", dial_pos)
         if update_user:
             user_pos = self.dial2user(dial_pos, self.offset)
-            self.settings.set("position", user_pos, write=write)
+            self.settings.set("position", user_pos)
         return dial_pos
 
     @lazy_init
@@ -467,7 +469,7 @@ class Axis(object):
         lim_delta = self.offset - prev_offset
         self.limits(ll + lim_delta if ll is not None else ll,
                     hl + lim_delta if hl is not None else hl)
-        self.settings.set("position", new_pos, write=True)
+        self.settings.set("position", new_pos)
         return new_pos
 
     @lazy_init
@@ -499,7 +501,7 @@ class Axis(object):
 
     def sync_hard(self):
         """Forces an axis synchronization with the hardware"""
-        self.settings.set("state", self.state(read_hw=True), write=True) 
+        self.settings.set("state", self.state(read_hw=True)) 
         self._read_dial_and_update()
         self._set_position(self.position())
         event.send(self, "sync_hard")
@@ -618,9 +620,10 @@ class Axis(object):
             self.settings.set("high_limit", high_limit)
         return self.settings.get('low_limit'), self.settings.get('high_limit')
 
-    def _update_settings(self, state=None):
-        self.settings.set("state", state if state is not None else self.state(), write=self._hw_control) 
-        self._read_dial_and_update(write=self._hw_control)
+    def _update_settings(self, state):
+        if self._hw_control:
+            self.settings.set("state", state) 
+            self._read_dial_and_update()
  
     def _backlash_move(self, backlash_start, backlash, polling_time):
         final_pos = backlash_start + backlash
@@ -790,12 +793,22 @@ class Axis(object):
 
         return motion
 
+    def __emit_move_done(self):
+        self.__move_done.wait()
+        try:
+            event.send(self, "move_done", True)
+        finally:
+            self.__move_done_callback.set()
+
     def _set_moving_state(self, from_channel=False):
         self.__stopped = False
         self.__move_done.clear()
+        self.__move_done_callback.clear()
+        gevent.spawn(self.__emit_move_done)
         if from_channel:
             self.__move_task = None
-        self.settings.set("state", AxisState("MOVING"), write=not from_channel)
+        else:
+            self.settings.set("state", AxisState("MOVING"))
         event.send(self, "move_done", False)
 
     def _set_move_done(self, move_task):
@@ -812,9 +825,9 @@ class Axis(object):
                 hook.post_move(self.__move_task._motions)
             except:
                 sys.excepthook(*sys.exc_info())
+
         self._update_settings(state)
         self.__move_done.set()
-        event.send(self, "move_done", True)
 
     def _check_ready(self):
         if not self.state() in ("READY", "MOVING"):
@@ -942,15 +955,16 @@ class Axis(object):
         Wait for the axis to finish motion (blocks current :class:`Greenlet`)
 
         """
+        wait = self.__move_done_callback.wait
         if self.__move_task is None:
             # move has been started externally
             with error_cleanup(self.stop):
-                self.__move_done.wait()
+                wait()
         else:
             move_task = self.__move_task
             move_task._being_waited = True
             with error_cleanup(self.stop):
-                self.__move_done.wait()
+                wait()
             try:
                 move_task.get()
             except gevent.GreenletExit:
@@ -960,7 +974,7 @@ class Axis(object):
         state_funct = getattr(self.__controller, ctrl_state_funct)
         while True:
             state = state_funct(self)
-            self._update_settings()
+            self._update_settings(state)
             if state != "MOVING":
                 return state
             gevent.sleep(polling_time)

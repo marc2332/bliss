@@ -593,6 +593,7 @@ def main(args=None, **kwargs):
     kwargs['green_mode'] = GreenMode.Gevent
 
     args = list(sys.argv if args is None else args)
+    args[0] = 'Bliss'
 
     if len(args) == 1:
         args.append('-?')

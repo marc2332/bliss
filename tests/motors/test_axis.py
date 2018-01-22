@@ -292,7 +292,6 @@ def test_ctrlc(robz):
     assert robz.position() < 100
 
 def test_simultaneous_waitmove_exception(robz):
-    pytest.xfail()
     robz.move(100, wait=False)
     w1 = gevent.spawn(robz.wait_move)
     w2 = gevent.spawn(robz.wait_move)

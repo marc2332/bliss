@@ -1371,3 +1371,29 @@ class AxisState(object):
         else:
             result._state_desc = self._state_desc
         return result
+
+class ModuloAxis(Axis):
+    def __init__(self, *args, **kwargs):
+        Axis.__init__(self, *args, **kwargs)
+
+        self._modulo = self.config.get("modulo", float)
+        self._in_prepare_move = False
+
+    def __calc_modulo(self, pos):
+        return pos % self._modulo
+
+    def dial(self, *args, **kwargs):
+        d = Axis.dial(self, *args, **kwargs)
+        if self._in_prepare_move:
+            return d
+        else:
+            return self.__calc_modulo(d)
+        
+    def prepare_move(self, user_target_pos, *args, **kwargs):
+        user_target_pos = self.__calc_modulo(user_target_pos)
+        self._in_prepare_move = True
+        try:
+            return Axis.prepare_move(self, user_target_pos, *args, **kwargs)
+        finally:
+            self._in_prepare_move = False
+

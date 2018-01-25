@@ -83,6 +83,12 @@ controller:
     steps_per_unit: -500
     velocity: 100
     acceleration: 300
+  - name: omega
+    class: ModuloAxis
+    modulo: 360
+    steps_per_unit: 1000
+    velocity: 1000
+    acceleration: 300
   encoders:
   - name: m1enc
     steps_per_unit: 50

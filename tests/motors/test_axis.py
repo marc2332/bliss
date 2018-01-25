@@ -10,7 +10,7 @@ import time
 import gevent
 import gevent.event
 from bliss.common import event
-from bliss.common.axis import get_axis, Modulo
+from bliss.common.axis import Modulo
 
 def test_property_setting(robz):
     assert robz.velocity() == 100

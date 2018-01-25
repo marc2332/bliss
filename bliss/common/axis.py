@@ -1337,15 +1337,22 @@ class AxisState(object):
         return self.current_states()
 
     def __eq__(self, other):
-        if isinstance(other, AxisState):
-            other = str(other)
         if isinstance(other, str):
-            state = self.current_states()
-            return other in state
-        return NotImplemented
+            if not self._current_states:
+                return other == "UNKNOWN"
+            return other in self._current_states
+        elif isinstance(other, AxisState): 
+            s1 = set(self._current_states)
+            s2 = set(other._current_states)
+            return s1 == s2
+        else:
+            return NotImplemented
 
     def __ne__(self, other):
-        return not self.__eq__(other)
+        x = self.__eq__(other)
+        if x is not NotImplemented:
+            return not x
+        return NotImplemented
 
     def new(self, share_states=True):
         """

@@ -73,3 +73,22 @@ def test_clear_state():
     s.set("MOVING")
     assert s == "MOVING"
 
+def test_state_equality():
+    s = AxisState("READY")
+    s.create_state("STOPPED", "stopped")
+    s.set("STOPPED")
+    u = s.new()
+    u.clear()
+    u.set("STOPPED")
+    # u has STOPPED but not READY, s has both STOPPED and READY
+    assert s != u
+    assert u != s
+    u.set("READY")
+    assert u == s
+    assert s == u
+  
+def test_notimplemented():
+    s = AxisState("READY")
+    assert s != None
+    assert not s == None
+ 

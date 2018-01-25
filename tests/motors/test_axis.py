@@ -291,6 +291,18 @@ def test_ctrlc(robz):
     assert robz.state() == "READY"
     assert robz.position() < 100
 
+def test_simultaneous_move(robz):
+    # this test, before the bug was found, was *sometimes*
+    # giving discrepancy error instead of MOVING state error
+    # because _check_ready() was called too late in prepare_move()
+    move_greenlet = gevent.spawn(robz.move, 10)
+    gevent.sleep(0.01)
+    assert robz.state() == 'MOVING' 
+    try:
+      robz.move(-10)
+    except Exception, e:
+      assert 'MOVING' in str(e)
+
 def test_simultaneous_waitmove_exception(robz):
     robz.move(100, wait=False)
     w1 = gevent.spawn(robz.wait_move)

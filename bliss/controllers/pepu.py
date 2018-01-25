@@ -5,6 +5,73 @@
 # Copyright (c) 2017 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+"""ESRF - PePU controller
+
+Example YAML_ configuration:
+
+.. code-block:: yaml
+
+    plugin: bliss
+    class: PEPU
+    module: pepu
+    name: pepudcm2
+    tcp:
+      url: pepudcm2
+
+
+Usage::
+
+    >>> from bliss.config.static import get_config()
+    >>> config = get_config()
+
+    >>> pepudcm2 = config.get('pepudcm2')
+
+    >>> # Read device parameters:
+    >>> pepudcm2.sys_info
+    'DANCE version: 00.01 , build: 2016/11/28 13:02:35, versions: none'
+    >>> pepudcm2.version
+    '00.01'
+
+    >>> # Get the input channel 1 and read the current value:
+    >>> in1 = pepudcm2.in_channels[1]
+    >>> print(in1.value)
+
+    >>> # Define a calculation
+    >>> calc1 = pepudcm2.calc_channels[1]
+    >>> calc1.formula = '0.25 * IN1 + 3'
+
+    >>> # Create a global inactive and unitialized stream and then initialize
+    >>> from bliss.controllers.pepu import Stream, Trigger, Signal
+    >>> s0 = pepu.Stream(pepudcm2, 'S0')
+    >>> s0.trigger = Trigger(start=Signal.SOFT, clock=Signal.SOFT)
+    >>> s0.frequency = 1
+    >>> s0.nb_points = 10
+    >>> s0.sources = ['CALC1']
+    >>> pepudcm2.add_stream(s0)
+
+    >>> # Create a fully intialized stream in one go
+    >>> s1 = pepu.Stream(pepudcm2, name='S1',
+                         trigger=Trigger(Signal.SOFT, Signal.SOFT),
+                         frequency=10, nb_points=4,
+                         sources=('CALC1', 'CALC2'))
+    >>> pepudcm2.add_stream(s1)
+
+    >>> # Do an acquisition:
+    >>> s1.start()
+    >>> pepudcm2.software_trigger()
+    >>> s1.nb_points
+    1
+    >>> p1.read(1)
+    array([ 2.75, -3.])
+    >>> pepudcm2.software_trigger()
+    >>> pepudcm2.software_trigger()
+    >>> pepudcm2.software_trigger()
+    >>> s1.nb_points
+    3
+    >>> p1.read(3)
+    array([ 2.75, -3.  ,  2.75, -3.  ,  2.75, -3.  ])
+"""
+
 import enum
 import logging
 import weakref
@@ -12,6 +79,29 @@ import collections
 
 from bliss.comm.util import get_comm, TCP
 from bliss.controllers.motors.icepap import _command, _ackcommand
+
+
+def from_48bit(a):
+    a.dtype = '<i8'
+    b = a.copy()
+    b &= 1 << 47
+    b *= -2
+    a |= b
+    a = a / float(1<<8)
+    return a
+
+
+def frequency_fromstring(text):
+    text = text.upper()
+    if 'MHZ' in text:
+        frequency = float(text.replace('MHZ', '')) * 1e6
+    elif 'KHZ' in text:
+        frequency = float(text.replace('KHZ', '')) * 1e3
+    elif 'HZ' in text:
+        frequency = float(text.replace('HZ', ''))
+    else:
+        ValueError('Unrecognized frequency {0!r}'.format(text))
+    return frequency
 
 
 class Scope(enum.Enum):
@@ -56,7 +146,7 @@ ChannelConfig.tostring = ChannelConfig_tostring
 class QuadConfig(enum.Enum):
     X1 = 'X1'
     X2 = 'X2'
-    x4 = 'X4'
+    X4 = 'X4'
 
 
 BissConfig = collections.namedtuple('BissConfig', 'bits frequency')
@@ -64,16 +154,11 @@ BissConfig = collections.namedtuple('BissConfig', 'bits frequency')
 
 def BissConfig_fromstring(text):
     for elem in text.split():
+        elem = elem.upper()
         if 'BITS' in elem:
             bits = int(elem.replace('BITS', ''))
-        elif 'MHZ' in elem:
-            frequency = float(elem.replace('MHZ', '')) * 1e6
-        elif 'KHZ' in elem:
-            frequency = float(elem.replace('KHZ', '')) * 1e3
-        elif 'HZ' in elem:
-            frequency = float(elem.replace('HZ', ''))
         else:
-            ValueError('Unknown BISS config value {0!r}'.format(elem))
+            frequency = frequency_fromstring(elem)
     return BissConfig(bits, frequency)
 
 
@@ -115,7 +200,7 @@ class ChannelAttr(BaseAttr):
         if self.decode is None:
             raise RuntimeError('Cannot get {0}'.format(self.name))
         request = '?{0} {1}'.format(self.name, instance.name)
-        reply = instance.raw_write(equest)
+        reply = instance.pepu.raw_write(request)
         return self.decode(reply)
 
     def __set__(self, instance, value):
@@ -123,7 +208,7 @@ class ChannelAttr(BaseAttr):
             raise RuntimeError('Cannot set {0}'.format(self.name))
         value = self.encode(value)
         command = '{0} {1} {2}'.format(self.name, instance.name, value)
-        return instance.raw_write_read(command)
+        return instance.pepu.raw_write_read(command)
 
 
 class BaseChannel(object):
@@ -182,7 +267,7 @@ class ChannelOUT(BaseChannelINOUT):
 
 class ChannelCALC(BaseChannel):
 
-    calc_config = ChannelAttr('CALCCFG')
+    formula = ChannelAttr('CALCCFG')
 
     def __init__(self, pepu, id):
         super(ChannelCALC, self).__init__(pepu, 'CALC', id)
@@ -197,61 +282,138 @@ class Signal(enum.Enum):
 
 Trigger = collections.namedtuple('Trigger', 'start clock')
 
+def Trigger_fromstring(text):
+    return Trigger(*map(Signal, text.split()[:2]))
+
+def Trigger_tostring(trigger):
+    return '{0} {1}'.format(trigger.start.value, trigger.clock.value)
+
+Trigger.fromstring = staticmethod(Trigger_fromstring)
+Trigger.tostring = Trigger_tostring
+
+
+StreamInfo = collections.namedtuple('StreamInfo', 'name active scope trigger ' \
+                                    'frequency nb_points sources')
+
+def StreamInfo_fromstring(text):
+    args = text.strip().split()
+    (name, state, scope), args = args[:3], args[3:]
+    active = state.upper() == 'ON'
+    scope = Scope(scope)
+    items = dict(name=name, active=active, scope=scope,
+                 trigger=None, frequency=None, nb_points=None, sources=None)
+    i = 0
+    while i < len(args):
+        item = args[i]
+        if item == 'TRIG':
+            items['trigger'] = Trigger.fromstring(args[i+1] + ' ' + args[i+2])
+            i += 1
+        elif item == 'FSAMPL':
+            items['frequency'] = frequency_fromstring(args[i+1])
+        elif item == 'NSAMPL':
+            items['nb_points'] = int(args[i+1])
+        elif item == 'SRC':
+            items['sources'] = args[i+1:]
+            break
+        else:
+            #raise ValueError('Unrecognized DSTREAM {0!r}'.format(text))
+            raise ValueError('Unrecognized {0!r} in DSTREAM'.format(item))
+        i += 2
+    return StreamInfo(**items)
+
+
+def StreamInfo_tostring(s):
+    result = [s.name, 'ON' if s else 'OFF', s.scope.value]
+    if s.trigger is not None:
+        result += 'TRIG', s.trigger.tostring()
+    if s.frequency is not None:
+        result += 'FSAMPL', '{0}HZ'.format(s.frequency)
+    if s.nb_points is not None:
+        result += 'NSAMPL', str(s.nb_points)
+    if s.sources is not None:
+        result.append('SRC')
+        result += s.sources
+    return ' '.join(result)
+
+StreamInfo.fromstring = staticmethod(StreamInfo_fromstring)
+StreamInfo.tostring = StreamInfo_tostring
+
 
 class StreamAttr(BaseAttr):
+    # many stream parameters are set through a specific command
+    # (ex: DSTREAM toto NSAMPL 100) but to know the current value
+    # you have to execute the '?DSTREAM <stream name>'
 
     def __get__(self, instance, owner):
         if self.decode is None:
             raise RuntimeError('Cannot get {0}'.format(self.name))
-        request = instance._cmd(self.name, query=True)
-        reply = instance.raw_write(request)
-        return self.decode(reply)
+        request = instance._cmd(query=True)
+        reply = instance.pepu.raw_write(request)
+        new_info = StreamInfo.fromstring(reply)
+        instance.info = new_info
+        return self.decode(new_info)
 
     def __set__(self, instance, value):
         if self.encode is None:
             raise RuntimeError('Cannot set {0}'.format(self.name))
         value = self.encode(value)
         command = instance._cmd(self.name, value)
-        return instance.raw_write_read(command)
+        return instance.pepu.raw_write_read(command)
+
+
+class NbPointsStreamAttr(StreamAttr):
+
+    def __get__(self, instance, owner):
+        request = instance._cmd(self.name, query=True)
+        reply = instance.pepu.raw_write(request)
+        return self.decode(reply)
 
 
 class Stream(object):
 
     active = StreamAttr('',
-                        lambda x: x.split()[1].upper() == 'ON',
-                        lambda x: 'ON' and x or 'OFF')
+                        decode=lambda x: x.active,
+                        encode=lambda x: 'ON' if x else 'OFF')
     status = StreamAttr('STATUS', str, None)
     trigger = StreamAttr('TRIG',
-                         None,
-                         lambda trigger: '{0.start.value} {0.clock.value}' \
-                         .format(trigger))
+                         decode=lambda x: x.trigger,
+                         encode=lambda x: x.tostring())
     frequency = StreamAttr('FSAMPL',
-                           None,
-                           lambda frequency: '{0}HZ'.format(frequency))
-    nb_points = StreamAttr('NSAMPL', int, str)
+                           decode=lambda x: x.frequency,
+                           encode=lambda x: '{0}HZ'.format(x))
+    nb_points = NbPointsStreamAttr('NSAMPL', decode=int)
 
-    def __init__(self, pepu, name, scope=Scope.GLOBAL):
+
+    def __init__(self, pepu, info=None, name=None, active=False,
+                 scope=Scope.GLOBAL, trigger=None, frequency=None,
+                 nb_points=None, sources=None):
+        if info is None:
+            info = StreamInfo(name, active, scope, trigger, frequency,
+                              nb_points, sources)
         self._pepu = weakref.ref(pepu)
-        self.name = name
-        self.scope = scope
+        self.info = info
 
     @property
     def pepu(self):
         return self._pepu()
 
+    @property
+    def name(self):
+        return self.info.name
+
     @staticmethod
     def fromstring(pepu, text):
-        name, _, scope = text.split()
-        scope = Scope(scope)
-        return Stream(pepu, name, scope=scope)
+        info = StreamInfo.fromstring(text)
+        return Stream(pepu, info=info)
 
     def add_source(self, channel):
         command = 'DSTREAM {0} SRC {1}'.format(self.name, channel.name)
         return self.pepu.raw_write_read(command)
 
-    def _cmd(self, *args. query=False):
-        return ' '.join('?DSTREAM' if query else 'DSTREAM', self.name,
-                        *map(str, args))
+    def _cmd(self, *args, **kwargs):
+        query = kwargs.get('query', False)
+        return ' '.join(['?DSTREAM' if query else 'DSTREAM', self.name] +
+                        list(map(str, args)))
 
     def start(self):
         self._buffer = []
@@ -264,14 +426,23 @@ class Stream(object):
         return self.pepu.raw_write_read(self._cmd('FLUSH'))
 
     def _remove(self):
-        return self.pepu.raw_write_read(self._cmd('DEL', self.scope.value))
+        cmd = self._cmd('DEL', self.info.scope.value)
+        print cmd
+        return self.pepu.raw_write_read(cmd)
 
     def _add(self):
-        return self.pepu.raw_write_read(self._cmd(self.scope.value))
+        return self.pepu.raw_write_read('DSTREAM ' + self.info.tostring())
 
-    def _read(self, n=1):
-        #command = '?*DSTREAM {0} READ {1}'.format(self.name, n)
-        raise NotImplementedError
+    def read(self, n=1):
+        command = '?*DSTREAM {0} READ {1}'.format(self.name, n)
+        raw_data = self.pepu.raw_write_read(command)
+        return from_48bit(raw_data)
+
+    def idata(self, n):
+        while n > 0:
+            available = self.nb_points
+            yield self.read(n=available) if available else []
+            n -= available
 
 
 class PEPU(object):
@@ -334,6 +505,7 @@ class PEPU(object):
     def add_stream(self, stream):
         self.remove_stream(stream)
         stream._add()
+        self.streams[stream.name] = stream
 
     def remove_stream(self, stream):
         if stream.name in self.streams:

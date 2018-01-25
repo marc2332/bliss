@@ -33,6 +33,14 @@ def _simple_cmd(command_name,doc_sring):
         return self.putget(command_name)
     return property(exec_cmd,doc=doc_sring)
 
+def _clear_cmd():
+    def exec_cmd(self):
+        try:
+            return self.putget("CLEAR")
+        finally:
+            self._musst__last_md5.value = None
+    return property(exec_cmd, doc="Delete the current program")
+
 class musst(object):
     class channel(object):
         COUNTER,ENCODER,SSI,ADC10,ADC5,SWITCH = range(6)
@@ -143,7 +151,7 @@ class musst(object):
     STOP    = _simple_cmd("STOP","Program stop")
     RESET   = _simple_cmd("RESET","Musst reset")
     CONT    = _simple_cmd("CONT","Continue the program when stopped in STOP or BREAK states")
-    CLEAR   = _simple_cmd("CLEAR","Delete the current program")
+    CLEAR   = _clear_cmd()
     LIST    = _simple_cmd("?LIST CODE","List the current program")
     LISTVAR = _simple_cmd("?LIST VAR","List the current program")
     DBINFO  = _simple_cmd("?DBINFO *","Returns the list of installed daughter boards")

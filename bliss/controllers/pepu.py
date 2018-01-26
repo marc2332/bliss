@@ -153,6 +153,20 @@ class ChannelState(enum.Enum):
     DISABLED = 'DISABLE'
 
 
+class QuadConfig(enum.Enum):
+    X1 = 'X1'
+    X2 = 'X2'
+    X4 = 'X4'
+
+
+class Signal(enum.Enum):
+    SOFT = 'SOFT'
+    DI1 = 'DI1'
+    DI2 = 'DI2'
+    FREQ = 'FREQ'
+
+
+
 ChannelConfig = collections.namedtuple('ChannelConfig', 'mode state')
 
 
@@ -173,12 +187,6 @@ ChannelConfig.fromstring = staticmethod(ChannelConfig_fromstring)
 ChannelConfig.tostring = ChannelConfig_tostring
 
 
-class QuadConfig(enum.Enum):
-    X1 = 'X1'
-    X2 = 'X2'
-    X4 = 'X4'
-
-
 BissConfig = collections.namedtuple('BissConfig', 'bits frequency')
 
 
@@ -195,8 +203,73 @@ def BissConfig_fromstring(text):
 def BissConfig_tostring(cfg):
     return '{0}BITS {1}HZ'.format(cfg.bits, cfg.frequency)
 
+
 BissConfig.fromstring = staticmethod(BissConfig_fromstring)
 BissConfig.tostring = BissConfig_tostring
+
+
+Trigger = collections.namedtuple('Trigger', 'start clock')
+
+
+def Trigger_fromstring(text):
+    return Trigger(*map(Signal, text.split()[:2]))
+
+
+def Trigger_tostring(trigger):
+    return '{0} {1}'.format(trigger.start.value, trigger.clock.value)
+
+
+Trigger.fromstring = staticmethod(Trigger_fromstring)
+Trigger.tostring = Trigger_tostring
+
+
+StreamInfo = collections.namedtuple('StreamInfo', 'name active scope trigger ' \
+                                    'frequency nb_points sources')
+
+
+def StreamInfo_fromstring(text):
+    args = text.strip().split()
+    (name, state, scope), args = args[:3], args[3:]
+    active = state.upper() == 'ON'
+    scope = Scope(scope)
+    items = dict(name=name, active=active, scope=scope,
+                 trigger=None, frequency=None, nb_points=None, sources=None)
+    i = 0
+    while i < len(args):
+        item = args[i]
+        if item == 'TRIG':
+            items['trigger'] = Trigger.fromstring(args[i+1] + ' ' + args[i+2])
+            i += 1
+        elif item == 'FSAMPL':
+            items['frequency'] = frequency_fromstring(args[i+1])
+        elif item == 'NSAMPL':
+            items['nb_points'] = int(args[i+1])
+        elif item == 'SRC':
+            items['sources'] = args[i+1:]
+            break
+        else:
+            #raise ValueError('Unrecognized DSTREAM {0!r}'.format(text))
+            raise ValueError('Unrecognized {0!r} in DSTREAM'.format(item))
+        i += 2
+    return StreamInfo(**items)
+
+
+def StreamInfo_tostring(s):
+    result = [s.name, 'ON' if s else 'OFF', s.scope.value]
+    if s.trigger is not None:
+        result += 'TRIG', s.trigger.tostring()
+    if s.frequency is not None:
+        result += 'FSAMPL', '{0}HZ'.format(s.frequency)
+    if s.nb_points is not None:
+        result += 'NSAMPL', str(s.nb_points)
+    if s.sources is not None:
+        result.append('SRC')
+        result += s.sources
+    return ' '.join(result)
+
+
+StreamInfo.fromstring = staticmethod(StreamInfo_fromstring)
+StreamInfo.tostring = StreamInfo_tostring
 
 
 class BaseAttr(object):
@@ -302,71 +375,6 @@ class ChannelCALC(BaseChannel):
     def __init__(self, pepu, id):
         super(ChannelCALC, self).__init__(pepu, 'CALC', id)
 
-
-class Signal(enum.Enum):
-    SOFT = 'SOFT'
-    DI1 = 'DI1'
-    DI2 = 'DI2'
-    FREQ = 'FREQ'
-
-
-Trigger = collections.namedtuple('Trigger', 'start clock')
-
-def Trigger_fromstring(text):
-    return Trigger(*map(Signal, text.split()[:2]))
-
-def Trigger_tostring(trigger):
-    return '{0} {1}'.format(trigger.start.value, trigger.clock.value)
-
-Trigger.fromstring = staticmethod(Trigger_fromstring)
-Trigger.tostring = Trigger_tostring
-
-
-StreamInfo = collections.namedtuple('StreamInfo', 'name active scope trigger ' \
-                                    'frequency nb_points sources')
-
-def StreamInfo_fromstring(text):
-    args = text.strip().split()
-    (name, state, scope), args = args[:3], args[3:]
-    active = state.upper() == 'ON'
-    scope = Scope(scope)
-    items = dict(name=name, active=active, scope=scope,
-                 trigger=None, frequency=None, nb_points=None, sources=None)
-    i = 0
-    while i < len(args):
-        item = args[i]
-        if item == 'TRIG':
-            items['trigger'] = Trigger.fromstring(args[i+1] + ' ' + args[i+2])
-            i += 1
-        elif item == 'FSAMPL':
-            items['frequency'] = frequency_fromstring(args[i+1])
-        elif item == 'NSAMPL':
-            items['nb_points'] = int(args[i+1])
-        elif item == 'SRC':
-            items['sources'] = args[i+1:]
-            break
-        else:
-            #raise ValueError('Unrecognized DSTREAM {0!r}'.format(text))
-            raise ValueError('Unrecognized {0!r} in DSTREAM'.format(item))
-        i += 2
-    return StreamInfo(**items)
-
-
-def StreamInfo_tostring(s):
-    result = [s.name, 'ON' if s else 'OFF', s.scope.value]
-    if s.trigger is not None:
-        result += 'TRIG', s.trigger.tostring()
-    if s.frequency is not None:
-        result += 'FSAMPL', '{0}HZ'.format(s.frequency)
-    if s.nb_points is not None:
-        result += 'NSAMPL', str(s.nb_points)
-    if s.sources is not None:
-        result.append('SRC')
-        result += s.sources
-    return ' '.join(result)
-
-StreamInfo.fromstring = staticmethod(StreamInfo_fromstring)
-StreamInfo.tostring = StreamInfo_tostring
 
 
 class StreamAttr(BaseAttr):

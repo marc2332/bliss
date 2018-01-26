@@ -457,6 +457,7 @@ class Stream(object):
     def read(self, n=1):
         command = '?*DSTREAM {0} READ {1}'.format(self.name, n)
         raw_data = self.pepu.raw_write_read(command)
+        raw_data.dtype = '<i8'
         return idint_to_float(raw_data)
 
     def idata(self, n):

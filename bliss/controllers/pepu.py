@@ -255,7 +255,7 @@ def StreamInfo_fromstring(text):
 
 
 def StreamInfo_tostring(s):
-    result = [s.name, 'ON' if s else 'OFF', s.scope.value]
+    result = [s.name, 'ON', s.scope.value]
     if s.trigger is not None:
         result += 'TRIG', s.trigger.tostring()
     if s.frequency is not None:
@@ -426,6 +426,10 @@ class Stream(object):
                                          decode=int,
                                          encode=None)
 
+    sources = StreamAttr('SRC',
+                        decode=lambda x: x.sources,
+                        encode=' '.join)
+
     def __init__(self, pepu, info):
         self._pepu = weakref.ref(pepu)
         self.info = info
@@ -466,7 +470,9 @@ class Stream(object):
         command = '?*DSTREAM {0} READ {1}'.format(self.name, n)
         raw_data = self.pepu.raw_write_read(command)
         raw_data.dtype = '<i8'
-        return idint_to_float(raw_data)
+        array = idint_to_float(raw_data)
+        array.shape = (n, -1)
+        return array
 
     def idata(self, n):
         while n > 0:
@@ -558,6 +564,7 @@ class PEPU(object):
         stream = Stream(self, stream_info)
         if write:
             self.raw_write_read('DSTREAM ' + stream_info.tostring())
+            stream.active = stream_info.active
         self.streams[stream.name] = stream
         return stream
 

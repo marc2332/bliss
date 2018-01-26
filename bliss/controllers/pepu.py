@@ -42,19 +42,17 @@ Usage::
 
     >>> # Create a global inactive and unitialized stream and then initialize
     >>> from bliss.controllers.pepu import Stream, Trigger, Signal
-    >>> s0 = pepu.Stream(pepudcm2, 'S0')
+    >>> s0 = pepudcm2.create_stream('S0')
     >>> s0.trigger = Trigger(start=Signal.SOFT, clock=Signal.SOFT)
     >>> s0.frequency = 1
     >>> s0.nb_points = 10
     >>> s0.sources = ['CALC1']
-    >>> pepudcm2.add_stream(s0)
 
     >>> # Create a fully intialized stream in one go
-    >>> s1 = pepu.Stream(pepudcm2, name='S1',
-                         trigger=Trigger(Signal.SOFT, Signal.SOFT),
-                         frequency=10, nb_points=4,
-                         sources=('CALC1', 'CALC2'))
-    >>> pepudcm2.add_stream(s1)
+    >>> s1 = pepudcm2.create_stream(name='S1',
+                                    trigger=Trigger(Signal.SOFT, Signal.SOFT),
+                                    frequency=10, nb_points=4,
+                                    sources=('CALC1', 'CALC2'))
 
     >>> # Do an acquisition:
     >>> s1.start()
@@ -80,15 +78,47 @@ import collections
 from bliss.comm.util import get_comm, TCP
 from bliss.controllers.motors.icepap import _command, _ackcommand
 
+def idint_to_float(value, integer=40, decimal=8):
+    """Convert the given 0...0i...id...d value
+    into the corresponding float.
 
-def from_48bit(a):
-    a.dtype = '<i8'
-    b = a.copy()
-    b &= 1 << 47
-    b *= -2
-    a |= b
-    a = a / float(1<<8)
-    return a
+    Trick: the missing sign bits can be padded using
+    the following formula:
+
+        value |= -2 * mask(value, sign_bit)
+
+    Load data:
+
+    >>> import numpy as np
+    >>> data = (
+    ...    b'\\x00\\x00\\x00\\x00\\x00\\x00\\x01\\x80'
+    ...    b'\\x00\\x00\\xff\\xff\\xff\\xff\\xfe\\x80')
+    >>> a = np.fromstring(data, dtype='>i8')
+    >>> x, y = a
+
+    Cast numpy integers:
+
+    >>> idint_to_float(x)
+    1.5
+    >>> idint_to_float(y)
+    -1.5
+
+    Cast python integers:
+
+    >>> idint_to_float(int(x))
+    1.5
+    >>> idint_to_float(int(y))
+    -1.5
+
+    Cast numpy arrays
+
+    >>> idint_to_float(a)
+    array([ 1.5, -1.5])
+    """
+    mask = value & (1 << integer + decimal - 1)
+    mask *= -2
+    value |= mask
+    return value / float(1 << decimal)
 
 
 def frequency_fromstring(text):
@@ -436,7 +466,7 @@ class Stream(object):
     def read(self, n=1):
         command = '?*DSTREAM {0} READ {1}'.format(self.name, n)
         raw_data = self.pepu.raw_write_read(command)
-        return from_48bit(raw_data)
+        return idint_to_float(raw_data)
 
     def idata(self, n):
         while n > 0:
@@ -489,6 +519,22 @@ class PEPU(object):
             stream = Stream.fromstring(self, str_stream)
             self.streams[stream.name] = stream
 
+    def __getitem__(self, text_or_seq):
+        if isinstance(text_or_seq, (str, unicode)):
+            return self[(text_or_seq,)][0]
+        items = []
+        for text in text_or_seq:
+            if text.startswith('IN'):
+                item = self.in_channels[int(text[2:])]
+            elif text.startswith('OUT'):
+                item = self.out_channels[int(text[3:])]
+            elif text.startswith('CALC'):
+                item = self.calc_channels[int(text[4:])]
+            else:
+                item = self.streams[text]
+            items.append(item)
+        return items
+
     def raw_write(self, message, data = None):
         return _command(self.conn, message, data=data)
 
@@ -502,7 +548,7 @@ class PEPU(object):
     def software_trigger(self):
         return self.raw_write_read('STRIG')
 
-    def add_stream(self, stream):
+    def create_stream(self, ):
         self.remove_stream(stream)
         stream._add()
         self.streams[stream.name] = stream

@@ -466,6 +466,11 @@ class Stream(object):
             yield self.read(n=available) if available else []
             n -= available
 
+    def __repr__(self):
+        return '{0}(pepu={1!r}, {2})'.format(type(self).__name__,
+                                             self.pepu.name,
+                                             self.info.tostring())
+
 
 class PEPU(object):
     """
@@ -569,3 +574,6 @@ class PEPU(object):
             stream = self.streams.pop(name)
             cmd = 'DSTREAM {0.name} DEL {0.scope.value}'.format(stream.info)
             return self.raw_write_read(cmd)
+
+    def __repr__(self):
+        return '{0}(name={1!r})'.format(type(self).__name__, self.name)

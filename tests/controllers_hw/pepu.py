@@ -10,10 +10,13 @@ Run with:
 import pytest
 from bliss.controllers.pepu import PEPU, Signal, Trigger
 
+pytestmark = pytest.mark.pepu
+
 
 @pytest.fixture
-def pepu():
-    pepu = PEPU('test', {'tcp': {'url': 'pepudcm2'}})
+def pepu(request):
+    hostname = request.config.getoption('--pepu')
+    pepu = PEPU('test', {'tcp': {'url': hostname}})
     try:
         pepu.calc_channels[1].formula = '1.5'
         pepu.calc_channels[2].formula = '-1.5'

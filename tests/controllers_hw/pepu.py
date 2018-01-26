@@ -87,4 +87,4 @@ def test_streams_acquisition(pepu, acquisitions, blocks, block_size):
             assert stream.nb_points_ready == block_size
             data = stream.read(n=block_size)
             expected = [[1.5, -1.5]] * block_size
-            assert pytest.approx(data, expected)
+            assert data.tolist() == expected

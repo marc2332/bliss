@@ -57,14 +57,14 @@ Usage::
     >>> # Do an acquisition:
     >>> s1.start()
     >>> pepudcm2.software_trigger()
-    >>> s1.nb_points
+    >>> s1.nb_points_ready
     1
     >>> p1.read(1)
     array([ 2.75, -3.])
     >>> pepudcm2.software_trigger()
     >>> pepudcm2.software_trigger()
     >>> pepudcm2.software_trigger()
-    >>> s1.nb_points
+    >>> s1.nb_points_ready
     3
     >>> p1.read(3)
     array([ 2.75, -3.  ,  2.75, -3.  ,  2.75, -3.  ])
@@ -411,7 +411,12 @@ class Stream(object):
     frequency = StreamAttr('FSAMPL',
                            decode=lambda x: x.frequency,
                            encode=lambda x: '{0}HZ'.format(x))
-    nb_points = NbPointsStreamAttr('NSAMPL', decode=int)
+    nb_points = StreamAttr('NSAMPL',
+                           decode=lambda x: x.nb_points,
+                           encode=str)
+    nb_points_ready = NbPointsStreamAttr('NSAMPL',
+                                         decode=int,
+                                         encode=None)
 
 
     def __init__(self, pepu, info=None, name=None, active=False,
@@ -470,7 +475,7 @@ class Stream(object):
 
     def idata(self, n):
         while n > 0:
-            available = self.nb_points
+            available = self.nb_points_ready
             yield self.read(n=available) if available else []
             n -= available
 

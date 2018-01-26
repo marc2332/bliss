@@ -418,13 +418,7 @@ class Stream(object):
                                          decode=int,
                                          encode=None)
 
-
-    def __init__(self, pepu, info=None, name=None, active=False,
-                 scope=Scope.GLOBAL, trigger=None, frequency=None,
-                 nb_points=None, sources=None):
-        if info is None:
-            info = StreamInfo(name, active, scope, trigger, frequency,
-                              nb_points, sources)
+    def __init__(self, pepu, info):
         self._pepu = weakref.ref(pepu)
         self.info = info
 
@@ -459,14 +453,6 @@ class Stream(object):
 
     def flush(self):
         return self.pepu.raw_write_read(self._cmd('FLUSH'))
-
-    def _remove(self):
-        cmd = self._cmd('DEL', self.info.scope.value)
-        print cmd
-        return self.pepu.raw_write_read(cmd)
-
-    def _add(self):
-        return self.pepu.raw_write_read('DSTREAM ' + self.info.tostring())
 
     def read(self, n=1):
         command = '?*DSTREAM {0} READ {1}'.format(self.name, n)
@@ -521,14 +507,15 @@ class PEPU(object):
                        for stream in self.raw_write_read('?DSTREAM').split('\n')
                        if stream)
         for str_stream in str_streams:
-            stream = Stream.fromstring(self, str_stream)
-            self.streams[stream.name] = stream
+            stream_info = StreamInfo.fromstring(str_stream)
+            self._create_stream(stream_info, write=False)
 
     def __getitem__(self, text_or_seq):
         if isinstance(text_or_seq, (str, unicode)):
             return self[(text_or_seq,)][0]
         items = []
         for text in text_or_seq:
+            text = text.upper()
             if text.startswith('IN'):
                 item = self.in_channels[int(text[2:])]
             elif text.startswith('OUT'):
@@ -553,12 +540,31 @@ class PEPU(object):
     def software_trigger(self):
         return self.raw_write_read('STRIG')
 
-    def create_stream(self, ):
-        self.remove_stream(stream)
-        stream._add()
+    def _create_stream(self, stream_info, write=True):
+        stream = Stream(self, stream_info)
+        if write:
+            self.raw_write_read('DSTREAM ' + stream_info.tostring())
         self.streams[stream.name] = stream
+        return stream
+
+    def create_stream(self, name, active=False,
+                      scope=Scope.GLOBAL, trigger=None, frequency=None,
+                      nb_points=None, sources=None, overwrite=False):
+        name = name.upper()
+        if overwrite:
+            self.remove_stream(name)
+        elif name in self.streams:
+            raise ValueError('Stream {0!r} already exists'.format(name))
+        info = StreamInfo(name, active, scope, trigger, frequency, nb_points,
+                          sources)
+        return self._create_stream(info)
 
     def remove_stream(self, stream):
-        if stream.name in self.streams:
-            stream = self.streams.pop(stream.name)
-            stream._remove()
+        if isinstance(stream, Stream):
+            name = stream.name
+        else:
+            name = stream
+        if name in self.streams:
+            stream = self.streams.pop(name)
+            cmd = 'DSTREAM {0.name} DEL {0.scope.value}'.format(stream.info)
+            return self.raw_write_read(cmd)

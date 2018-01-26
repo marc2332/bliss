@@ -20,29 +20,32 @@ from bliss.config.conductor import client
 from bliss.config.conductor import connection
 from bliss.config.conductor.client import get_default_connection
 
+REDIS_PORT = 7654
+TANGO_PORT = 12345
+BEACON_PORT = 7655
 BLISS = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 BEACON = [sys.executable, '-m', 'bliss.config.conductor.server']
 BEACON_DB_PATH = os.path.join(BLISS, 'tests', 'test_configuration')
-BEACON_PORT = 7655
 
 
 @pytest.fixture(scope="session")
 def beacon():
     args = [
         '--port=%d' % BEACON_PORT,
-        '--redis_port=7654',
+        '--redis_port=%d' % REDIS_PORT,
         '--redis_socket=/tmp/redis_test.sock',
         '--db_path=' + BEACON_DB_PATH,
         '--posix_queue=0',
-        '--tango_port=12345']
+        '--tango_port=%d' % TANGO_PORT]
     proc = subprocess.Popen(BEACON + args, close_fds=True)
     time.sleep(0.5)  # wait for beacon to be really started
-    redis_db = redis.Redis(port=7654)
+    redis_db = redis.Redis(port=REDIS_PORT)
     redis_db.flushall()
     beacon_connection = connection.Connection("localhost", BEACON_PORT)
     client._default_connection = beacon_connection
     cfg = static.get_config()
-    os.environ["TANGO_HOST"] = "localhost:12345"
+    os.environ["TANGO_HOST"] = "localhost:%d" % TANGO_PORT
+    os.environ["BEACON_HOST"] = "localhost:%d" % BEACON_PORT
     yield cfg
     proc.terminate()
 

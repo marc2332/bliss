@@ -178,7 +178,7 @@ def get_card_html(cfg):
     general_params = dict([(k, cfg[k]) for k in GENERAL_PARAMS if k in cfg])
 
     params = dict(
-        ct2=ct2,
+        ct2=card,
         GENERAL_PARAMS=GENERAL_PARAMS,
         COUNTER_PARAMS=COUNTER_PARAMS,
         IN_CHANNEL_PARAMS=IN_CHANNEL_PARAMS,

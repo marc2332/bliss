@@ -228,9 +228,6 @@ class Controller(object):
     def initialize_encoder(self, encoder):
         raise NotImplementedError
 
-    def is_busy(self):
-        return False
-
     def prepare_move(self, motion):
         return
 

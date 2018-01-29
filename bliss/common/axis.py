@@ -850,9 +850,6 @@ class Axis(object):
             raise RuntimeError("axis %s state is \
                                 %r" % (self.name, str(initial_state)))
 
-        if self.__controller.is_busy():
-            raise RuntimeError("axis %s: controller is busy" % self.name)
-
     def _start_move_task(self, funct, *args, **kwargs):
         kwargs = dict(kwargs)
         being_waited = kwargs.pop('being_waited', True)

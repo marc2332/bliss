@@ -798,18 +798,10 @@ class Axis(object):
 
         return motion
 
-    def __emit_move_done(self):
-        self.__move_done.wait()
-        try:
-            event.send(self, "move_done", True)
-        finally:
-            self.__move_done_callback.set()
-
     def _set_moving_state(self, from_channel=False):
         self.__stopped = False
         self.__move_done.clear()
         self.__move_done_callback.clear()
-        gevent.spawn(self.__emit_move_done)
         if from_channel:
             self.__move_task = None
         else:
@@ -838,6 +830,11 @@ class Axis(object):
                     sys.excepthook(*sys.exc_info())
 
         self.__move_done.set()
+
+        try:
+            event.send(self, "move_done", True)
+        finally:
+            self.__move_done_callback.set()
 
     def _check_ready(self):
         if not self.state() in ("READY", "MOVING"):

@@ -379,7 +379,7 @@ class Axis(object):
             dial_pos = hw_pos / self.steps_per_unit
             self.settings.set("dial_position", dial_pos)
         except NotImplementedError:
-            dial_pos = self._read_dial_and_update(update_user=False)
+            dial_pos = self._update_dial(update_user=False)
 
         # update user_pos or offset setting
         if no_offset:
@@ -403,7 +403,7 @@ class Axis(object):
         if new_dial is None:
             dial_pos = self.settings.get("dial_position")
             if dial_pos is None:
-                dial_pos = self._read_dial_and_update() 
+                dial_pos = self._update_dial() 
             return dial_pos
 
         if self.is_moving:
@@ -444,9 +444,8 @@ class Axis(object):
 
         return self.__do_set_position(new_pos, self.no_offset)
 
-
     @lazy_init 
-    def _read_dial_and_update(self, update_user=True):
+    def _update_dial(self, update_user=True):
         dial_pos = self._hw_position()
         self.settings.set("dial_position", dial_pos)
         if update_user:
@@ -510,7 +509,7 @@ class Axis(object):
     def sync_hard(self):
         """Forces an axis synchronization with the hardware"""
         self.settings.set("state", self.state(read_hw=True)) 
-        self._read_dial_and_update()
+        self._update_dial()
         self._set_position(self.position())
         event.send(self, "sync_hard")
         
@@ -631,7 +630,7 @@ class Axis(object):
     def _update_settings(self, state):
         if self._hw_control:
             self.settings.set("state", state) 
-            self._read_dial_and_update()
+            self._update_dial()
  
     def _backlash_move(self, backlash_start, backlash, polling_time):
         final_pos = backlash_start + backlash
@@ -648,7 +647,7 @@ class Axis(object):
         # gevent-atomic
         stopped, self.__stopped = self.__stopped, False
         if stopped or motion.backlash:
-            dial_pos = self._read_dial_and_update()
+            dial_pos = self._update_dial()
             user_pos = self.dial2user(dial_pos)
 
         if motion.backlash:
@@ -671,7 +670,7 @@ class Axis(object):
     def _jog_move(self, velocity, direction, polling_time):
         self._move_loop(polling_time)
 
-        dial_pos = self._read_dial_and_update()
+        dial_pos = self._update_dial()
         user_pos = self.dial2user(dial_pos)
 
         if self.backlash:
@@ -720,8 +719,7 @@ class Axis(object):
         """Prepare a motion. Internal usage only"""
         elog.debug("user_target_pos=%g, relative=%r" % (user_target_pos, relative))
         user_initial_dial_pos = self.dial()
-        hw_pos = self._read_dial_and_update()
-
+        hw_pos = self._hw_position() #self._update_dial()
         elog.debug("hw_position=%g user_initial_dial_pos=%g" % (hw_pos, user_initial_dial_pos))
 
         if abs(user_initial_dial_pos - hw_pos) > self.tolerance:
@@ -924,7 +922,7 @@ class Axis(object):
 
     def _do_encoder_reading(self):
         enc_dial = self.encoder.read()
-        curr_pos = self._read_dial_and_update()
+        curr_pos = self._update_dial()
         if abs(curr_pos - enc_dial) > self.encoder.tolerance:
             raise RuntimeError("'%s' didn't reach final position.(enc_dial=%g, curr_pos=%g)" %
                                (self.name, enc_dial, curr_pos))

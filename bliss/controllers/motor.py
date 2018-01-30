@@ -389,7 +389,16 @@ class CalcController(Controller):
 	    self._calc_from_real()
 
     def initialize_axis(self, axis):
-	pass
+        try:
+            axis.trajectory_minimum_resolution = \
+            axis.config.get('trajectory_minimum_resolution', float)
+        except KeyError:
+            axis.trajectory_minimum_resolution = None
+        try:
+            axis.trajectory_maximum_resolution = \
+            axis.config.get('trajectory_maximum_resolution', float)
+        except KeyError:
+            axis.trajectory_maximum_resolution = None
 
     def _pseudo_sync_hard(self):
         for real_axis in self.reals:
@@ -498,6 +507,12 @@ class CalcController(Controller):
         """
         helper to create a trajectories handler for a scan.
 
+        It will check the **trajectory_minimum_resolution** and
+        **trajectory_maximum_resolution** axis property.
+        If the trajectory resolution asked is lower than the trajectory_minimum_resolution,
+        the trajectory will be over sampled.
+        And if the trajectory resolution asked is higher than the trajectory_maximum_resolution
+        the trajectory will be down sampled.
         Args:
             start -- first point of the trajectory
             end -- the last point of the trajectory
@@ -509,6 +524,34 @@ class CalcController(Controller):
         for real in self.reals:
             axis, raxes = self._check_trajectory(real)
             real_axes.append((axis, raxes))
+
+        #Check if the resolution is enough
+        total_distance = abs(end_point - start_point)
+        trajectory_resolution = total_distance / float(nb_points)
+        used_resolution = None
+
+        if calc_axis.trajectory_minimum_resolution is not None and\
+           calc_axis.trajectory_maximum_resolution is not None:
+            trajectory_maximum_resolution = calc_axis.trajectory_maximum_resolution
+            trajectory_minimum_resolution = calc_axis.trajectory_minimum_resolution
+            if not (trajectory_maximum_resolution >= trajectory_resolution
+                    >= trajectory_minimum_resolution):
+                if trajectory_resolution > trajectory_minimum_resolution:
+                    used_resolution = trajectory_minimum_resolution
+                else:
+                    used_resolution = trajectory_maximum_resolution
+        elif calc_axis.trajectory_minimum_resolution is not None:
+            if trajectory_resolution > calc_axis.trajectory_minimum_resolution:
+                used_resolution = calc_axis.trajectory_minimum_resolution
+        elif calc_axis.trajectory_maximum_resolution is not None:
+            if trajectory_resolution < calc_axis.trajectory_maximum_resolution:
+                used_resolution = calc_axis.trajectory_maximum_resolution
+
+        if used_resolution is not None:
+            new_nb_points = int(round(total_distance / used_resolution))
+            new_time_point = float(time_per_point * nb_points) / new_nb_points
+            nb_points = new_nb_points
+            time_per_point = new_time_point
 
         calc_positions = numpy.linspace(start_point, end_point, nb_points)
         positions = {self._axis_tag(calc_axis) : calc_positions}

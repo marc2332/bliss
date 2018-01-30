@@ -628,9 +628,8 @@ class Axis(object):
         return self.settings.get('low_limit'), self.settings.get('high_limit')
 
     def _update_settings(self, state):
-        if self._hw_control:
-            self.settings.set("state", state) 
-            self._update_dial()
+        self.settings.set("state", state) 
+        self._update_dial()
  
     def _backlash_move(self, backlash_start, backlash, polling_time):
         final_pos = backlash_start + backlash
@@ -819,20 +818,25 @@ class Axis(object):
 
     def _set_move_done(self, move_task):
         try:
-          state = move_task.get()
+            state = move_task.get()
         except:                 # don't want to raise something here
-          state = self.state(read_hw=True)
+            state = None
+
+        if move_task is None:
+            # move started from another BLISS session
+            pass
         else:
-          if state is None:
-            state = self.state(read_hw=True)
+            if state is None:
+                state = self.state(read_hw=True)
 
-        for hook in self.__motion_hooks:
-            try:
-                hook.post_move(self.__move_task._motions)
-            except:
-                sys.excepthook(*sys.exc_info())
+            self._update_settings(state)
 
-        self._update_settings(state)
+            for hook in self.__motion_hooks:
+                try:
+                    hook.post_move(move_task._motions)
+                except:
+                    sys.excepthook(*sys.exc_info())
+
         self.__move_done.set()
 
     def _check_ready(self):

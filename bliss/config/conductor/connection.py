@@ -280,7 +280,7 @@ class Connection(object):
                 if isinstance(value,RuntimeError):
                     raise value
                 else:
-                    return value.decode("utf-8")
+                    return value
 
     @check_connect
     def get_config_db_tree(self, base_path='', timeout=1.):

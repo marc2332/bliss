@@ -14,3 +14,4 @@ How Tos
     howto_session
     howto_settings
     howto_measurement_group
+    howto_simulation

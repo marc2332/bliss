@@ -92,10 +92,13 @@ class Motion(object):
     * *target_pos* (:obj:`float`): final motion position
     * *delta* (:obj:`float`): motion displacement
     * *backlash* (:obj:`float`): motion backlash
+    
+    Note: target_pos and delta can be None, in case of specific motion
+    types like homing or limit search
     """
-
-    def __init__(self, axis, target_pos, delta):
+    def __init__(self, axis, target_pos, delta, motion_type="move"):
         self.__axis = axis
+        self.__type = motion_type
         self.target_pos = target_pos
         self.delta = delta
         self.backlash = 0
@@ -104,6 +107,10 @@ class Motion(object):
     def axis(self):
         """Reference to :class:`Axis`"""
         return self.__axis
+
+    @property
+    def type(self):
+        return self.__type
 
 
 class MotionEstimation(object):
@@ -1029,6 +1036,9 @@ class Axis(object):
 
         self.__controller.home_search(self, switch)
         self._start_move_task(self._wait_home, switch, being_waited=wait)
+   
+        # create motion object for hooks
+        self.__move_task._motions = [Motion(self, None, None, "homing")]
 
         if wait:
             self.wait_move()
@@ -1054,6 +1064,9 @@ class Axis(object):
         self.__controller.limit_search(self, limit)
         self._start_move_task(self._wait_limit_search, limit, being_waited=wait)
 
+        # create motion object for hooks
+        self.__move_task._motions = [Motion(self, None, None, "limit_search")]
+        
         if wait:
             self.wait_move()
 

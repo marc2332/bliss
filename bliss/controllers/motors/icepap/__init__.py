@@ -194,9 +194,10 @@ class Icepap(Controller):
                 except TypeError:
                     pass
                 else:
-                    warn_str =  "warning condition: \n" + warning
-                    status.create_state("WARNING",warn_str)
-                    status.set("WARNING")
+                    warn_str =  "Axis %s warning condition: \n" % axis.name
+                    warn_str +=  warning
+                    state.create_state("WARNING",warn_str)
+                    state.set("WARNING")
 
             try:
                 alarm = _command(self._cnx,"%d:?ALARM" % axis.address)

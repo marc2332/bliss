@@ -10,7 +10,7 @@ import functools
 from gevent import lock
 
 from bliss.config.conductor.client import Lock
-from bliss.config.channels import Cache
+from bliss.config.channels import Cache, Channel
 from bliss.config.settings import HashObjSetting
 from bliss.common.switch import Switch as BaseSwitch
 
@@ -78,6 +78,7 @@ class Shutter(object):
                                       default_value = False)
         self.__state = Cache(self,"state",
                               default_value = Shutter.UNKNOWN)
+        self.__shutter_state = Channel(name+":shutter_state", default_value=Shutter.UNKNOWN)
         self._init_flag = False
         self.__lock = lock.Semaphore()
 
@@ -172,6 +173,9 @@ class Shutter(object):
             self.__state.value = self.UNKNOWN
         self.__settings['mode'] = value
 
+    def _set_mode(self, value):
+        raise NotImplementedError
+
     @property
     def state(self):
         self.init()
@@ -264,11 +268,14 @@ class Shutter(object):
                 raise RuntimeError("Can't open the shutter because no "
                                    "external-control is configured")
             else:
-                return self._external_ctrl.set("OPEN")
+                ret = self._external_ctrl.set("OPEN")
         elif mode != self.MANUAL:
             raise RuntimeError("Can't open the shutter, in %s" %\
                                self.MODE2STR.get(mode,"Unknown"))
-        return self._open()
+        else:
+            ret = self._open()
+        self.__shutter_state.value = self.state
+        return ret
 
     def _open(self):
         raise NotImplementedError
@@ -281,11 +288,14 @@ class Shutter(object):
                 raise RuntimeError("Can't close the shutter because no "
                                    "external-control is configured")
             else:
-                return self._external_ctrl.set("CLOSED")
+                ret = self._external_ctrl.set("CLOSED")
         elif mode != self.MANUAL:
             raise RuntimeError("Can't close the shutter, in %s" %\
                                self.MODE2STR.get(mode,"Unknown"))
-        return self._close()
+        else:
+            ret = self._close()
+        self.__shutter_state.value = self.state
+        return ret
 
     def _close(self):
         raise NotImplementedError

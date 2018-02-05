@@ -17,7 +17,7 @@ Example YAML_ configuration:
     name: pepudcm2
     tcp:
       url: pepudcm2
-
+    template: renishaw    # optional
 
 Usage::
 
@@ -48,7 +48,7 @@ Usage::
     >>> s0.nb_points = 10
     >>> s0.sources = ['CALC1']
 
-    >>> # Create a fully intialized stream in one go
+    >>> # Create a fully initialized stream in one go
     >>> s1 = pepudcm2.create_stream(name='S1',
                                     trigger=Trigger(Signal.SOFT, Signal.SOFT),
                                     frequency=10, nb_points=4,
@@ -77,6 +77,38 @@ import collections
 
 from bliss.comm.util import get_comm, TCP
 from bliss.controllers.motors.icepap import _command, _ackcommand
+
+TEMPLATE_RENISHAW = """\
+CHCFG IN1 BISS
+CHCFG IN2 BISS
+CHCFG IN3 BISS
+CHCFG IN4 BISS
+CHCFG IN5 BISS
+CHCFG IN6 BISS
+BISSCFG IN1 32BITS 2500000HZ
+BISSCFG IN2 32BITS 2500000HZ
+BISSCFG IN3 32BITS 2500000HZ
+BISSCFG IN4 32BITS 2500000HZ
+BISSCFG IN5 32BITS 2500000HZ
+BISSCFG IN6 32BITS 2500000HZ
+CHCFG IN1 ENABLE
+CHCFG IN2 ENABLE
+CHCFG IN3 ENABLE
+CHCFG IN4 ENABLE
+CHCFG IN5 ENABLE
+CHCFG IN6 ENABLE
+
+CHCFG OUT7 BISS
+CHCFG OUT8 BISS
+BISSCFG OUT7 32BITS
+BISSCFG OUT8 32BITS
+CHCFG OUT7 ENABLE
+CHCFG OUT8 ENABLE
+
+CALCCFG CALC1 (IN1+IN2+IN3+IN4)/4
+CHSRC OUT8 CALC1
+"""
+
 
 def idint_to_float(value, integer=40, decimal=8):
     """Convert the given 0...0i...id...d value
@@ -486,6 +518,15 @@ class Stream(object):
                                              self.info.tostring())
 
 
+class DeviceConfigAttr(DeviceAttr):
+
+    def __init__(self):
+        super(DeviceAttr, self).__init__('DCONFIG')
+
+    def __set__(self, instance, value):
+        return instance.raw_write(value)
+
+
 class PEPU(object):
     """
     ESRF - PePU controller
@@ -502,7 +543,7 @@ class PEPU(object):
     up_time = DeviceAttr('UPTIME', float, None)
     sys_info = DeviceAttr('SYSINFO', str,None)
     dance_info = DeviceAttr('DINFO', str, None)
-    config = DeviceAttr('DCONFIG')
+    config = DeviceConfigAttr()
 
     def __init__(self, name, config):
         self.name = name
@@ -521,6 +562,11 @@ class PEPU(object):
         self.in_channels = {i:ChannelIN(self, i) for i in self.IN_CHANNELS}
         self.out_channels = {i:ChannelOUT(self, i) for i in self.OUT_CHANNELS}
         self.calc_channels = {i:ChannelCALC(self, i) for i in self.CALC_CHANNELS}
+
+        if 'template' in config:
+            template_name = 'TEMPLATE_' + config['template'].upper()
+            template = globals()[template_name]
+            self.config = template.format(pepu=self)
 
         # initialize with existing streams
         str_streams = (stream
@@ -584,7 +630,7 @@ class PEPU(object):
         if isinstance(stream, Stream):
             name = stream.name
         else:
-            name = stream
+            name = stream.upper()
         if name in self.streams:
             stream = self.streams.pop(name)
             cmd = 'DSTREAM {0.name} DEL {0.scope.value}'.format(stream.info)

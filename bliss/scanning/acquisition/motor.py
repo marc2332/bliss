@@ -379,3 +379,33 @@ class VariableStepTriggerMaster(AcquisitionMaster):
             [axis.position() for axis in self._axes])
 
         self.wait_slaves()
+
+class TrajectoryMaster(AcquisitionMaster):
+    def __init__(self, axis, start, end, nb_points, time_per_point,
+                 trigger_type=AcquisitionMaster.HARDWARE,
+                 type="axis", **keys):
+        AcquisitionMaster.__init__(self, axis, axis.name, type,
+                                   trigger_type=trigger_type, **keys)
+        self.movable = axis
+        self.trajectory = axis.scan_on_trajectory(start, end, nb_points, time_per_point)
+
+    def prepare(self):
+        self.trajectory.prepare()
+        self.trajectory.move_to_start()
+
+    def start(self):
+        if self.trigger_type == AcquisitionMaster.SOFTWARE:
+            return
+        self.trigger()
+
+    def trigger(self):
+        if self.trigger_type == AcquisitionMaster.SOFTWARE:
+            self.trigger_slaves()
+
+        self.trajectory.move_to_end()
+
+    def wait_ready(self):
+        self.trajectory.wait_move()
+
+    def stop(self):
+        self.trajectory.stop()

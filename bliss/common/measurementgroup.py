@@ -146,7 +146,7 @@ class MeasurementGroup(object):
         self._counters_settings.remove(*counters)
 
     @property
-    def state_names(self):
+    def active_state_name(self):
         """ current configuration name for the measurment
         """
         return self._current_config.get()
@@ -179,7 +179,7 @@ class MeasurementGroup(object):
         return set((x.name if hasattr(x,'name') else x for x in counters))
 
     def __repr__(self):
-        s = 'MeasurementGroup:  %s (%s)\n\n' % (self.name,self._current_config.get())
+        s = 'MeasurementGroup:  %s (%s)\n\n' % (self.name, self.active_state_name)
         enabled = list(self.enable) + ['Enabled']
         
         max_len = max((len(x) for x in enabled))

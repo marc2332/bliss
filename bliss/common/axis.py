@@ -851,9 +851,7 @@ class Axis(object):
 
     def _start_move_task(self, funct, *args, **kwargs):
         kwargs = dict(kwargs)
-        being_waited = kwargs.pop('being_waited', True)
         self.__move_task = gevent.spawn(funct, *args, **kwargs)
-        self.__move_task._being_waited = being_waited
         self.__move_task.link(self._set_move_done)
         self._set_moving_state()
         return self.__move_task
@@ -882,9 +880,8 @@ class Axis(object):
             with error_cleanup(self._cleanup_stop):
                 self.__controller.start_one(motion)
 
-            motion_task = self._start_move_task(self._do_handle_move, motion,
-                                                polling_time, being_waited=wait)
-            motion_task._motions = [motion]
+            move_task = self._start_move_task(self._do_handle_move, motion, polling_time)
+            move_task._motions = [motion]
 
         if wait:
             self.wait_move()
@@ -912,7 +909,7 @@ class Axis(object):
                 direction = 1 if velocity_in_steps > 0 else -1
                 self.__controller.start_jog(self, abs(velocity_in_steps), direction)
 
-            self._start_move_task(self._do_jog_move, saved_velocity, velocity, direction, reset_position, polling_time, being_waited=False)
+            self._start_move_task(self._do_jog_move, saved_velocity, velocity, direction, reset_position, polling_time)
 
     def _do_encoder_reading(self):
         enc_dial = self.encoder.read()
@@ -965,7 +962,6 @@ class Axis(object):
                 self.stop()
                 raise
         else:
-            self.__move_task._being_waited = True
             self.__move_task.unlink(self._set_move_done)
             try:
                 self.__move_task.get()
@@ -1061,7 +1057,7 @@ class Axis(object):
                 raise RuntimeError("axis %s state is %r" % (self.name, "MOVING"))
 
             self.__controller.limit_search(self, limit)
-            self._start_move_task(self._wait_limit_search, limit, being_waited=wait)
+            self._start_move_task(self._wait_limit_search, limit)
 
         # create motion object for hooks
         self.__move_task._motions = [Motion(self, None, None, "limit_search")]

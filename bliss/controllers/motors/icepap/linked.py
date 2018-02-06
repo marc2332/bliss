@@ -137,7 +137,7 @@ class LinkedAxis(Axis):
             # IcePAP status is not immediately MOVING after home search command is sent
             gevent.sleep(0.2)
 
-            self._start_move_task(self._wait_home, switch, being_waited=wait)
+            self._start_move_task(self._wait_home, switch)
 
         if wait:
             self.wait_move()

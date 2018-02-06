@@ -117,7 +117,6 @@ class Controller(object):
                     raise TypeError("%s: invalid axis '%s`, not an Axis" % (self.name, axis.name))
                 self.axes[axis.name] = referenced_axis
                 axis_list[i] = referenced_axis
-                referenced_axis.controller._tagged.setdefault(tag, []).append(referenced_axis)
 
     def initialize(self):
         pass

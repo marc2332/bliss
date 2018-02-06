@@ -89,16 +89,21 @@ class MeasurementGroup(object):
         counters -- a name list of available counters
         default -- if True set as default measurement
         """
+        self.__name = name
+
         counters_list = config_tree.get('counters')
         if counters_list is None:
             raise ValueError("MeasurementGroup: should have a counters list")
-        self.name = name
         self._available_counters = list(counters_list)
         self._current_config = settings.SimpleSetting('%s' % name,
                                                       default_value='default')
         # disabled counters
         self._counters_settings = settings.HashSetting('%s:%s' %
                                                        (name, self._current_config.get()))
+
+    @property
+    def name(self):
+        return self.__name
 
     @property
     def state_names(self):

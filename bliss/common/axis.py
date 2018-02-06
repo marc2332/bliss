@@ -877,9 +877,8 @@ class Axis(object):
         """
         elog.debug("user_target_pos=%g  wait=%r relative=%r" % (user_target_pos, wait, relative))
         with self._lock:
-            if self.is_moving:
-              raise RuntimeError("Axis %s already MOVING" % self.name)
-            
+            self._check_ready()
+ 
             motion = self.prepare_move(user_target_pos, relative)
             if motion is None:
                 return

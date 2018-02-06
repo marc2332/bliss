@@ -499,8 +499,9 @@ def test_jog2(jogger):
     t = 1+jogger.acctime()
     start_time = time.time()
     time.sleep(t)
+    hw_position = jogger._hw_position()
     elapsed_time = (time.time()-start_time) - jogger.acctime()
-    assert jogger._hw_position() == pytest.approx(300*elapsed_time+jogger.acceleration()*0.5*jogger.acctime()**2, 1e-2)
+    assert hw_position == pytest.approx(300*elapsed_time+jogger.acceleration()*0.5*jogger.acctime()**2, 1e-2)
     jogger.stop()
 
 def test_measured_position(m1, roby):

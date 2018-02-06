@@ -854,18 +854,12 @@ class Axis(object):
             raise RuntimeError("axis %s: controller is busy" % self.name)
 
     def _start_move_task(self, funct, *args, **kwargs):
-        start_event = gevent.event.Event()
-        @task
-        def sync_funct(*args, **kwargs):
-            start_event.wait()
-            return funct(*args, **kwargs)
         kwargs = dict(kwargs)
         being_waited = kwargs.pop('being_waited', True)
-        self.__move_task = sync_funct(*args, wait=False, **kwargs)
+        self.__move_task = gevent.spawn(funct, *args, **kwargs)
         self.__move_task._being_waited = being_waited
         self.__move_task.link(self._set_move_done)
         self._set_moving_state()
-        start_event.set()
         return self.__move_task
 
     @lazy_init

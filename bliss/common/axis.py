@@ -901,21 +901,22 @@ class Axis(object):
         Args:
             velocity: signed velocity for constant speed motion
         """
-        self._check_ready()
+        with self._lock:
+            self._check_ready()
 
-        if velocity == 0:
-            return
+            if velocity == 0:
+                return
 
-        saved_velocity = self.velocity()
+            saved_velocity = self.velocity()
 
-        with error_cleanup(functools.partial(self._cleanup_stop, jog=True), 
+            with error_cleanup(functools.partial(self._cleanup_stop, jog=True), 
                            functools.partial(self._jog_cleanup, saved_velocity, reset_position)):
-            self.velocity(abs(velocity)) #change velocity, to have settings updated accordingly
-            velocity_in_steps = velocity * self.steps_per_unit
-            direction = 1 if velocity_in_steps > 0 else -1
-            self.__controller.start_jog(self, abs(velocity_in_steps), direction)
+                self.velocity(abs(velocity)) #change velocity, to have settings updated accordingly
+                velocity_in_steps = velocity * self.steps_per_unit
+                direction = 1 if velocity_in_steps > 0 else -1
+                self.__controller.start_jog(self, abs(velocity_in_steps), direction)
 
-        self._start_move_task(self._do_jog_move, saved_velocity, velocity, direction, reset_position, polling_time, being_waited=False)
+            self._start_move_task(self._do_jog_move, saved_velocity, velocity, direction, reset_position, polling_time, being_waited=False)
 
     def _do_encoder_reading(self):
         enc_dial = self.encoder.read()
@@ -1031,13 +1032,14 @@ class Axis(object):
         Args:
             wait (bool): wait for search to finish [default: True]
         """
-        self._check_ready()
+        with self._lock:
+            self._check_ready()
 
-        self.__controller.home_search(self, switch)
-        self._start_move_task(self._wait_home, switch, being_waited=wait)
+            self.__controller.home_search(self, switch)
+            self._start_move_task(self._wait_home, switch)
    
-        # create motion object for hooks
-        self.__move_task._motions = [Motion(self, None, None, "homing")]
+            # create motion object for hooks
+            self.__move_task._motions = [Motion(self, None, None, "homing")]
 
         if wait:
             self.wait_move()
@@ -1058,10 +1060,12 @@ class Axis(object):
             [default: True]
         """
         limit = int(limit)
-        self._check_ready()
+        with self._lock:
+            if self.is_moving:
+                raise RuntimeError("axis %s state is %r" % (self.name, "MOVING"))
 
-        self.__controller.limit_search(self, limit)
-        self._start_move_task(self._wait_limit_search, limit, being_waited=wait)
+            self.__controller.limit_search(self, limit)
+            self._start_move_task(self._wait_limit_search, limit, being_waited=wait)
 
         # create motion object for hooks
         self.__move_task._motions = [Motion(self, None, None, "limit_search")]

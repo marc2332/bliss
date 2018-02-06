@@ -28,7 +28,6 @@ def test_has_tag(s1ho, s1vg, s1u):
     assert s1ho.has_tag("hoffset")
     assert not s1ho.has_tag("vgap")
     assert not s1vg.has_tag("real")
-    assert s1u.has_tag("real")
 
 def test_reals_list(s1ho):
     controller = s1ho.controller
@@ -159,4 +158,13 @@ def test_offset_set_position(s1hg):
     assert s1hg._set_position() == pytest.approx(1)
     s1hg.move(0.1)
     assert s1hg._set_position() == pytest.approx(0.1)
+
+def test_calc_in_calc(roby, calc_mot1, calc_mot2):
+    calc_mot1.move(1)
+    assert pytest.approx(calc_mot1.position(), 1)
+    assert pytest.approx(roby.position(), 0.5)
+    calc_mot2.move(1)
+    assert pytest.approx(calc_mot1.position(), 0.5)
+    assert pytest.approx(calc_mot2.position(), 1)
+    assert pytest.approx(roby.position(), 0.25)
 

@@ -470,8 +470,9 @@ def test_jog(robz):
     t = 1+robz.acctime()
     start_time = time.time()
     time.sleep(t)
+    hw_position = robz._hw_position()
     elapsed_time = (time.time()-start_time) - robz.acctime()
-    assert robz._hw_position() == pytest.approx(300*elapsed_time+robz.acceleration()*0.5*robz.acctime()**2, 1e-2)
+    assert hw_position == pytest.approx(300*elapsed_time+robz.acceleration()*0.5*robz.acctime()**2, 1e-2)
     assert robz.state() == "MOVING"
     robz.stop()
     assert robz.state() == "READY"
@@ -482,8 +483,9 @@ def test_jog(robz):
     assert robz.velocity() == 300
     start_time = time.time()
     time.sleep(t)
+    hw_position = robz._hw_position()
     elapsed_time = (time.time()-start_time) - robz.acctime()
-    assert robz._hw_position() == pytest.approx(-300*elapsed_time-robz.acceleration()*0.5*robz.acctime()**2, 1e-2)
+    assert hw_position == pytest.approx(-300*elapsed_time-robz.acceleration()*0.5*robz.acctime()**2, 1e-2)
     robz.stop()
     assert robz.dial() == 0
     assert robz.velocity() == 10

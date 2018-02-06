@@ -284,7 +284,7 @@ def test_ctrlc(robz):
     robz.move(100, wait=False)
     assert robz.state() == "MOVING"
     time.sleep(0.1)
-    robz._Axis__move_task.kill(KeyboardInterrupt, block=False)
+    robz._move_task.kill(KeyboardInterrupt, block=False)
     with pytest.raises(KeyboardInterrupt):
         robz.wait_move()
     assert not robz.is_moving
@@ -294,9 +294,16 @@ def test_ctrlc(robz):
 def test_simultaneous_move(robz):
     # this test, before the bug was found, was *sometimes*
     # giving discrepancy error instead of MOVING state error
-    # because _check_ready() was called too late in prepare_move()
-    move_greenlet = gevent.spawn(robz.move, 10)
-    gevent.sleep(0.01)
+    move_started = gevent.event.Event()
+    def start_move(target):
+      robz.move(target, wait=False)
+      move_started.set()
+      robz.wait_move()
+
+    move_greenlet = gevent.spawn(start_move, 10)
+
+    move_started.wait()
+
     assert robz.state() == 'MOVING' 
     try:
       robz.move(-10)
@@ -307,11 +314,11 @@ def test_simultaneous_waitmove_exception(robz):
     robz.move(100, wait=False)
     w1 = gevent.spawn(robz.wait_move)
     w2 = gevent.spawn(robz.wait_move)
-    time.sleep(0.1)
-    robz._Axis__move_task.kill(KeyboardInterrupt, block=False)
-    with pytest.raises(KeyboardInterrupt):
+    time.sleep(0.2)
+    robz._move_task.kill(RuntimeError, block=False)
+    with pytest.raises(RuntimeError):
       w1.get()
-    with pytest.raises(KeyboardInterrupt):
+    with pytest.raises(RuntimeError):
       w2.get()
     robz.off()
     assert robz.state() == 'OFF'
@@ -373,7 +380,7 @@ def test_set_position(m0):
     assert m0.position() == m0._set_position()
     m0.move(2, wait=False)
     time.sleep(0.01)
-    m0._Axis__move_task.kill(KeyboardInterrupt)
+    m0._move_task.kill(KeyboardInterrupt, block=False)
     try:
         m0.wait_move()
     except KeyboardInterrupt:

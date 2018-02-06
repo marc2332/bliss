@@ -14,7 +14,6 @@ def motor_fixture(name):
         m = beacon.get(name)
         yield m
         m.stop()
-        m.wait_move()
         m.apply_config()
         m.controller.set_hw_limits(m, None, None)
         m.dial(0)
@@ -32,7 +31,6 @@ def calc_motor_fixture(name):
         m.no_offset = False
         yield m
         m.stop()
-        m.wait_move()
     get_motor.__name__ = name
     return pytest.fixture(get_motor)
 

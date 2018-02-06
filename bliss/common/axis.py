@@ -189,6 +189,7 @@ class Axis(object):
         self.__stopped = False
         self._in_group_move = False
         self.no_offset = False
+        self._lock = gevent.lock.Semaphore()
         motion_hooks = []
         for hook_ref in config.get('motion_hooks', ()):
             hook = get_motion_hook(hook_ref)
@@ -879,17 +880,20 @@ class Axis(object):
             polling_time (float): motion loop polling time (seconds)
         """
         elog.debug("user_target_pos=%g  wait=%r relative=%r" % (user_target_pos, wait, relative))
+        with self._lock:
+            if self.is_moving:
+              raise RuntimeError("Axis %s already MOVING" % self.name)
+            
+            motion = self.prepare_move(user_target_pos, relative)
+            if motion is None:
+                return
 
-        motion = self.prepare_move(user_target_pos, relative)
-        if motion is None:
-            return
+            with error_cleanup(self._cleanup_stop):
+                self.__controller.start_one(motion)
 
-        with error_cleanup(self._cleanup_stop):
-            self.__controller.start_one(motion)
-
-        motion_task = self._start_move_task(self._do_handle_move, motion,
-                                            polling_time, being_waited=wait)
-        motion_task._motions = [motion]
+            motion_task = self._start_move_task(self._do_handle_move, motion,
+                                                polling_time, being_waited=wait)
+            motion_task._motions = [motion]
 
         if wait:
             self.wait_move()

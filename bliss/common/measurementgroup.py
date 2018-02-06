@@ -95,11 +95,11 @@ class MeasurementGroup(object):
         if counters_list is None:
             raise ValueError("MeasurementGroup: should have a counters list")
         self._available_counters = list(counters_list)
-        self._current_config = settings.SimpleSetting('%s' % name,
+        self._current_state = settings.SimpleSetting('%s' % name,
                                                       default_value='default')
         # disabled counters
         self._counters_settings = settings.HashSetting('%s:%s' %
-                                                       (name, self._current_config.get()))
+                                                       (name, self._current_state.get()))
 
     @property
     def name(self):
@@ -154,10 +154,10 @@ class MeasurementGroup(object):
     def active_state_name(self):
         """ current configuration name for the measurment
         """
-        return self._current_config.get()
+        return self._current_state.get()
 
     def switch_state(self,name):
-        self._current_config.set(name)
+        self._current_state.set(name)
         self._counters_settings = settings.HashSetting('%s:%s' %
                                                        (self.name,name))
     def remove_states(self,*state_names):
@@ -165,7 +165,7 @@ class MeasurementGroup(object):
         will remove one or several state(s) for this measurement
         state_name -- the state name(s) you want to remove
         """
-        cnx = self._current_config._cnx()
+        cnx = self._current_state._cnx()
         names = ['%s:%s' % (self.name,name) for name in state_names]
         cnx.delete(*names)
         

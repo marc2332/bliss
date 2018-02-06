@@ -809,6 +809,8 @@ class Axis(object):
         event.send(self, "move_done", False)
 
     def _set_move_done(self, move_task):
+        self.__move_task = None
+
         try:
             state = move_task.get()
         except:                 # don't want to raise something here
@@ -994,8 +996,6 @@ class Axis(object):
 
     def _set_stopped(self):
         self.__stopped = True
-        if not self.is_moving:
-          self.__move_task = None
 
     @lazy_init
     def stop(self, wait=True):

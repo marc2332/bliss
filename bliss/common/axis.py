@@ -956,22 +956,24 @@ class Axis(object):
     def wait_move(self):
         """
         Wait for the axis to finish motion (blocks current :class:`Greenlet`)
-
         """
-        wait = self.__move_done_callback.wait
         if self.__move_task is None:
             # move has been started externally
-            with error_cleanup(self.stop):
-                wait()
-        else:
-            move_task = self.__move_task
-            move_task._being_waited = True
-            with error_cleanup(self.stop):
-                wait()
             try:
-                move_task.get()
-            except gevent.GreenletExit:
-                pass
+                self.__move_done_callback.wait()
+            except:
+                self.stop()
+                raise
+        else:
+            self.__move_task._being_waited = True
+            self.__move_task.unlink(self._set_move_done)
+            try:
+                self.__move_task.get()
+            except:
+                self._set_move_done(self.__move_task)
+                raise
+            else:
+                self._set_move_done(self.__move_task) 
 
     def _move_loop(self, polling_time=DEFAULT_POLLING_TIME, ctrl_state_funct='state'):
         state_funct = getattr(self.__controller, ctrl_state_funct)

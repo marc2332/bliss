@@ -284,7 +284,7 @@ def test_ctrlc(robz):
     robz.move(100, wait=False)
     assert robz.state() == "MOVING"
     time.sleep(0.1)
-    robz._move_task.kill(KeyboardInterrupt, block=False)
+    robz._Axis__move_task.kill(KeyboardInterrupt, block=False)
     with pytest.raises(KeyboardInterrupt):
         robz.wait_move()
     assert not robz.is_moving
@@ -315,7 +315,7 @@ def test_simultaneous_waitmove_exception(robz):
     w1 = gevent.spawn(robz.wait_move)
     w2 = gevent.spawn(robz.wait_move)
     time.sleep(0.2)
-    robz._move_task.kill(RuntimeError, block=False)
+    robz._Axis__move_task.kill(RuntimeError, block=False)
     with pytest.raises(RuntimeError):
       w1.get()
     with pytest.raises(RuntimeError):
@@ -380,7 +380,7 @@ def test_set_position(m0):
     assert m0.position() == m0._set_position()
     m0.move(2, wait=False)
     time.sleep(0.01)
-    m0._move_task.kill(KeyboardInterrupt, block=False)
+    m0._Axis__move_task.kill(KeyboardInterrupt, block=False)
     try:
         m0.wait_move()
     except KeyboardInterrupt:

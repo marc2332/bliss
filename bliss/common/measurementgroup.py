@@ -119,12 +119,12 @@ class MeasurementGroup(object):
 
     @property
     def disable(self):
-        """  disabled counters name
+        """Disabled counter names
         """
         return [name for name in self.available if name in self._counters_settings]
 
     @disable.setter
-    def disable(self,counters):
+    def disable(self, counters):
         counter2disable = self.__counters2set(counters)
         possible2disable = set(self._available_counters).intersection(counter2disable)
         unpos2disable = counter2disable.difference(possible2disable)
@@ -135,12 +135,12 @@ class MeasurementGroup(object):
 
     @property
     def enable(self):
-        """ enabled counters name
+        """Enabled counter names
         """
         return [name for name in self.available if name not in self._counters_settings]
 
     @enable.setter
-    def enable(self,counters):
+    def enable(self, counters):
         counters = self.__counters2set(counters)
         possible2enable = set(self._available_counters).intersection(counters)
         unpos2enable = counters.difference(possible2enable)
@@ -169,7 +169,7 @@ class MeasurementGroup(object):
         names = ['%s:%s' % (self.name,name) for name in state_names]
         cnx.delete(*names)
         
-    def copy_from_state(self,name):
+    def copy_from_state(self, name):
         """
         this will copy the configuration into the current
         """

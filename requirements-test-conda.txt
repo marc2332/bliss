@@ -1,6 +1,7 @@
 # Conda requirement file (python 2.7)
 # Test requirements
 
+py
 mock
 pytest
 pytest-mock

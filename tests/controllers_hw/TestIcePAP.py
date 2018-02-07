@@ -26,7 +26,7 @@ sys.path.insert(
 
 import bliss
 from bliss.config.motors import load_cfg_fromstring, get_axis, get_encoder
-from bliss.controllers.motor_group import Group
+from bliss.common.motor_group import Group
 
 
 """

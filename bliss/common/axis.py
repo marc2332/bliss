@@ -880,7 +880,7 @@ class Axis(object):
             with error_cleanup(self._cleanup_stop):
                 self.__controller.start_one(motion)
 
-            move_task = self._start_move_task(self._do_handle_move, motion, polling_time)
+            move_task = self._start_move_task(self._do_move, motion, polling_time)
             move_task._motions = [motion]
 
         if wait:
@@ -918,7 +918,7 @@ class Axis(object):
             raise RuntimeError("'%s' didn't reach final position.(enc_dial=%g, curr_pos=%g)" %
                                (self.name, enc_dial, curr_pos))
 
-    def _do_handle_move(self, motion, polling_time):
+    def _do_move(self, motion, polling_time):
         with error_cleanup(self._cleanup_stop):
             return self._handle_move(motion, polling_time)
 

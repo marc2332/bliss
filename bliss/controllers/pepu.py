@@ -366,6 +366,13 @@ class BaseChannel(object):
     def pepu(self):
         return self._pepu()
 
+    # Counter shortcut
+
+    @property
+    def counters(self):
+        from bliss.scanning.acquisition.pepu import PepuCounter
+        return PepuCounter(self)
+
 
 class BaseChannelINOUT(BaseChannel):
 
@@ -668,3 +675,10 @@ class PEPU(object):
 
     def __repr__(self):
         return '{0}(name={1!r})'.format(type(self).__name__, self.name)
+
+    # Counter shortcut
+
+    @property
+    def counters(self):
+        from bliss.scanning.acquisition.pepu import pepu_counters
+        return pepu_counters(self)

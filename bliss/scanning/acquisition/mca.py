@@ -41,7 +41,6 @@ class McaAcquisitionDevice(AcquisitionDevice):
 
     READY = 'READY'
     TRIGGERED = 'TRIGGERED'
-    ACQUIRING = 'ACQUIRING'
 
     SOFT = TriggerMode.SOFTWARE
     SYNC = TriggerMode.SYNC
@@ -117,6 +116,7 @@ class McaAcquisitionDevice(AcquisitionDevice):
     # Standard methods
 
     def prepare(self):
+        """Prepare the acquisition."""
         # Generic configuration
         self.device.set_trigger_mode(self.trigger_mode)
         self.device.set_spectrum_size(self.spectrum_size)
@@ -178,7 +178,7 @@ class McaAcquisitionDevice(AcquisitionDevice):
         # Acquire data
         for i in range(self.npoints):
             # Software sync
-            self.acquisition_state.move(self.TRIGGERED, self.ACQUIRING)
+            self.acquisition_state.wait(self.TRIGGERED)
             # Get data
             spectrums, stats = next(self.acquisition_gen)
             # Publish

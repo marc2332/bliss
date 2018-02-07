@@ -60,7 +60,8 @@ def pepu_assert_block(pepu, n, name='TEST'):
 
 @pytest.fixture
 def pepu():
-    with mock.patch('bliss.controllers.pepu.get_comm') as get_comm:
+    with mock.patch('bliss.controllers.pepu.get_comm',
+                    autospec=True) as get_comm:
         pepu = PEPU('test', {'tcp': {'url': 'pepudcm2'}})
         pepu.assert_block = partial(pepu_assert_block, pepu)
         pepu.assert_command = partial(pepu_assert_command, pepu)

@@ -159,8 +159,6 @@ def test_streams_acquisition(pepu, acquisitions, blocks, block_size):
         assert stream.nb_points == blocks * block_size
     with pepu.assert_command(command, return_value):
         assert stream.sources == ['CALC1', 'CALC2']
-    with pepu.assert_command(command, return_value):
-        assert not stream.active
 
     # Loop over acquisitions
     for _ in range(acquisitions):
@@ -186,5 +184,5 @@ def test_streams_acquisition(pepu, acquisitions, blocks, block_size):
                 data = stream.read(n=block_size)
 
             # Test
-            expected = [[1.5, -1.5]] * block_size
-            assert data.tolist() == expected
+            assert data['CALC1'].tolist() == [1.5] * block_size
+            assert data['CALC2'].tolist() == [-1.5] * block_size

@@ -558,19 +558,6 @@ class DeviceConfigAttr(DeviceAttr):
         return instance.raw_write(value)
 
 
-class Counters(object):
-
-    def __init__(self, pepu):
-        self.__pepu = weakref.proxy(pepu)
-
-    def __getattr__(self, channel_name):
-        from bliss.scanning.acquisition.pepu import PEPUCounter
-        return PEPUCounter(self.__pepu[channel_name])
-
-    def __dir__(self):
-        pepu = self.__pepu
-        return pepu.in_channels.keys() + pepu.calc_channels.keys()
-
 class PEPU(object):
     """
     ESRF - PePU controller
@@ -623,7 +610,6 @@ class PEPU(object):
         for str_stream in str_streams:
             stream_info = StreamInfo.fromstring(str_stream)
             self._create_stream(stream_info, write=False)
-        self.counters = Counters(self)
 
     def __getitem__(self, text_or_seq):
         if isinstance(text_or_seq, basestring):

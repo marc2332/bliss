@@ -603,9 +603,12 @@ class PEPU(object):
 
         self.conn = get_comm(config, TCP, eol='\n')
 
-        self.in_channels = {i: ChannelIN(self, i) for i in self.IN_CHANNELS}
-        self.out_channels = {i: ChannelOUT(self, i) for i in self.OUT_CHANNELS}
-        self.calc_channels = {i: ChannelCALC(self, i) for i in self.CALC_CHANNELS}
+        self.in_channels = collections.OrderedDict([
+            (i, ChannelIN(self, i)) for i in self.IN_CHANNELS])
+        self.out_channels = collections.OrderedDict([
+            (i, ChannelOUT(self, i)) for i in self.OUT_CHANNELS])
+        self.calc_channels = collections.OrderedDict([
+            (i, ChannelCALC(self, i)) for i in self.CALC_CHANNELS])
 
         if 'template' in config:
             template_name = 'TEMPLATE_' + config['template'].upper()

@@ -52,14 +52,28 @@ def test_axis_move(hooked_m0):
     assert hooked_m0.state() == "MOVING"
 
     hooked_m0.wait_move()
-
+    
+    assert hook0.last_post_move_args[-1].type == 'move'
     assert hook0.nb_pre_move == 1
     assert hook0.nb_post_move == 1
     assert hooked_m0.state() == "READY"
     assert hooked_m0.position() == 180
     assert hooked_m0._set_position() == 180
 
+def test_axis_homing(hooked_m0):
+    hook0 = hooked_m0.motion_hooks[0]
+   
+    hooked_m0.home()
 
+    assert hook0.last_post_move_args[-1].type == 'homing'
+ 
+def test_axis_limit(hooked_m0):
+    hook0 = hooked_m0.motion_hooks[0]
+   
+    hooked_m0.hw_limit(1)
+
+    assert hook0.last_post_move_args[-1].type == 'limit_search'
+    
 def test_axis_move2(hooked_m1):
     """test multiple motion hooks works in single axis motion"""
     assert hooked_m1.state() == "READY"

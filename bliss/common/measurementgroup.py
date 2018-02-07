@@ -109,7 +109,10 @@ class MeasurementGroup(object):
     def state_names(self):
         """ list of states for this measurement
         """
-        return ['default']+list((x.split(':')[-1] for x in settings.scan(match='%s:*' % self.name)))
+        states = list((x.split(':')[-1] for x in settings.scan(match='%s:*' % self.name)))
+        if not 'default' in states:
+            states.insert(0, "default")
+        return states
 
     @property
     def available(self):

@@ -212,7 +212,7 @@ def ChannelConfig_fromstring(text):
 
 
 def ChannelConfig_tostring(cfg):
-    return ' '.join(cfg.mode.value, cfg.state.value)
+    return ' '.join((cfg.mode.value, cfg.state.value))
 
 
 ChannelConfig.fromstring = staticmethod(ChannelConfig_fromstring)

@@ -30,6 +30,14 @@ class tango_keithley(SamplingCounter):
             return self.__control.autorange   
         else:
             self.__control.autorange = autorange_on
+ 
+    @property
+    def range(self):
+        return self.__control.range
+
+    @range.setter
+    def range(self, range):
+        self.__control.range = range
 
     def autozero(self, autozero_on=None):
         if autozero_on is None:

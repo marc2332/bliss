@@ -163,7 +163,7 @@ def frequency_fromstring(text):
         frequency = float(text.replace('HZ', ''))
     else:
         ValueError('Unrecognized frequency {0!r}'.format(text))
-    return frequency
+    return int(frequency)
 
 
 class Scope(enum.Enum):
@@ -291,7 +291,7 @@ def StreamInfo_tostring(s):
     if s.trigger is not None:
         result += 'TRIG', s.trigger.tostring()
     if s.frequency is not None:
-        result += 'FSAMPL', '{0}HZ'.format(s.frequency)
+        result += 'FSAMPL', '{0}HZ'.format(int(s.frequency))
     if s.nb_points is not None:
         result += 'NSAMPL', str(s.nb_points)
     if s.sources is not None:
@@ -450,7 +450,7 @@ class Stream(object):
                          encode=lambda x: x.tostring())
     frequency = StreamAttr('FSAMPL',
                            decode=lambda x: x.frequency,
-                           encode=lambda x: '{0}HZ'.format(x))
+                           encode=lambda x: '{0}HZ'.format(int(x)))
     nb_points = StreamAttr('NSAMPL',
                            decode=lambda x: x.nb_points,
                            encode=str)

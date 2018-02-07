@@ -408,6 +408,14 @@ class ChannelCALC(BaseChannel):
         super(ChannelCALC, self).__init__(pepu, 'CALC', id)
 
 
+class ChannelAUX(BaseChannel):
+
+    value = ChannelAttr('CHVAL', float, None)
+
+    def __init__(self, pepu, id):
+        super(ChannelAUX, self).__init__(pepu, 'AUX', id)
+
+
 
 class StreamAttr(BaseAttr):
     # many stream parameters are set through a specific command

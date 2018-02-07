@@ -11,6 +11,7 @@ import sys
 import pkgutil
 import weakref
 
+from bliss.common import axis as axis_module
 from bliss.common.axis import Axis, AxisRef
 from bliss.common.encoder import Encoder
 from bliss.config.static import Config, get_config
@@ -335,7 +336,10 @@ def create_objects_from_config_node(config, node):
             if axis_class_name is None:
         	axis_class = Axis
             else:
-		axis_class = getattr(controller_module, axis_class_name)
+                try:
+                    axis_class = getattr(axis_module, axis_class_name)
+                except AttributeError:
+                    axis_class = getattr(controller_module, axis_class_name)
             axes_names.append(axis_name)
         axes.append((axis_name, axis_class, axis_config))
         

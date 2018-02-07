@@ -200,7 +200,6 @@ class Signal(enum.Enum):
     FREQ = 'FREQ'
 
 
-
 ChannelConfig = collections.namedtuple('ChannelConfig', 'mode state')
 
 
@@ -257,8 +256,8 @@ Trigger.fromstring = staticmethod(Trigger_fromstring)
 Trigger.tostring = Trigger_tostring
 
 
-StreamInfo = collections.namedtuple('StreamInfo', 'name active scope trigger ' \
-                                    'frequency nb_points sources')
+StreamInfo = collections.namedtuple(
+    'StreamInfo', 'name active scope trigger frequency nb_points sources')
 
 
 def StreamInfo_fromstring(text):
@@ -282,7 +281,6 @@ def StreamInfo_fromstring(text):
             items['sources'] = args[i+1:]
             break
         else:
-            #raise ValueError('Unrecognized DSTREAM {0!r}'.format(text))
             raise ValueError('Unrecognized {0!r} in DSTREAM'.format(item))
         i += 2
     return StreamInfo(**items)
@@ -351,6 +349,7 @@ class ChannelAttr(BaseAttr):
 class BaseChannel(object):
 
     value = ChannelAttr('CHVAL', float, None)
+
     set_value = ChannelAttr('CHSET', None, str)
 
     def __init__(self, pepu, ctype, id):
@@ -390,9 +389,9 @@ class BaseChannelINOUT(BaseChannel):
 
 class ChannelIN(BaseChannelINOUT):
 
-    biss_config = ChannelAttr('BISSCFG',
-                              BissConfig.fromstring,
-                              BissConfig.tostring)
+    biss_config = ChannelAttr(
+        'BISSCFG', BissConfig.fromstring, BissConfig.tostring)
+
     # TODO: SSI, ENDAT, HSSL
 
     def __init__(self, pepu, id):
@@ -402,9 +401,12 @@ class ChannelIN(BaseChannelINOUT):
 class ChannelOUT(BaseChannelINOUT):
 
     source = ChannelAttr('CHSRC')
-    biss_config = ChannelAttr('BISSCFG',
-                              BissConfig.fromstring,
-                              lambda x: x.tostring().rsplit(' ', 1)[0])
+
+    biss_config = ChannelAttr(
+        'BISSCFG',
+        BissConfig.fromstring,
+        lambda x: x.tostring().rsplit(' ', 1)[0])
+
     # TODO: SSI, ENDAT, HSSL
 
     def __init__(self, pepu, id):
@@ -427,8 +429,8 @@ class ChannelAUX(BaseChannel):
         super(ChannelAUX, self).__init__(pepu, 'AUX', id)
 
 
-
 class StreamAttr(BaseAttr):
+
     # many stream parameters are set through a specific command
     # (ex: DSTREAM toto NSAMPL 100) but to know the current value
     # you have to execute the '?DSTREAM <stream name>'
@@ -460,26 +462,32 @@ class NbPointsStreamAttr(StreamAttr):
 
 class Stream(object):
 
-    active = StreamAttr('',
-                        decode=lambda x: x.active,
-                        encode=lambda x: 'ON' if x else 'OFF')
     status = StreamAttr('STATUS', str, None)
-    trigger = StreamAttr('TRIG',
-                         decode=lambda x: x.trigger,
-                         encode=lambda x: x.tostring())
-    frequency = StreamAttr('FSAMPL',
-                           decode=lambda x: x.frequency,
-                           encode=lambda x: '{0}HZ'.format(int(x)))
-    nb_points = StreamAttr('NSAMPL',
-                           decode=lambda x: x.nb_points,
-                           encode=str)
-    nb_points_ready = NbPointsStreamAttr('NSAMPL',
-                                         decode=int,
-                                         encode=None)
 
-    sources = StreamAttr('SRC',
-                        decode=lambda x: x.sources,
-                        encode=' '.join)
+    trigger = StreamAttr(
+        'TRIG',
+        decode=lambda x: x.trigger,
+        encode=lambda x: x.tostring())
+
+    frequency = StreamAttr(
+        'FSAMPL',
+        decode=lambda x: x.frequency,
+        encode=lambda x: '{0}HZ'.format(int(x)))
+
+    nb_points = StreamAttr(
+        'NSAMPL',
+        decode=lambda x: x.nb_points,
+        encode=str)
+
+    nb_points_ready = NbPointsStreamAttr(
+        'NSAMPL',
+        decode=int,
+        encode=None)
+
+    sources = StreamAttr(
+        'SRC',
+        decode=lambda x: x.sources,
+        encode=' '.join)
 
     def __init__(self, pepu, info):
         self._pepu = weakref.ref(pepu)
@@ -577,7 +585,7 @@ class PEPU(object):
     app_name = DeviceAttr('APPNAME', str, None)
     version = DeviceAttr('VERSION', str, None)
     up_time = DeviceAttr('UPTIME', float, None)
-    sys_info = DeviceAttr('SYSINFO', str,None)
+    sys_info = DeviceAttr('SYSINFO', str, None)
     dance_info = DeviceAttr('DINFO', str, None)
     config = DeviceConfigAttr()
 
@@ -588,16 +596,16 @@ class PEPU(object):
 
         url = config['tcp']['url'] + ':5000'
         if not url.startswith('command://'):
-            url = 'command://'+ url
+            url = 'command://' + url
         config['tcp']['url'] = url
 
         self._log = logging.getLogger('PEPU({0})'.format(url))
 
         self.conn = get_comm(config, TCP, eol='\n')
 
-        self.in_channels = {i:ChannelIN(self, i) for i in self.IN_CHANNELS}
-        self.out_channels = {i:ChannelOUT(self, i) for i in self.OUT_CHANNELS}
-        self.calc_channels = {i:ChannelCALC(self, i) for i in self.CALC_CHANNELS}
+        self.in_channels = {i: ChannelIN(self, i) for i in self.IN_CHANNELS}
+        self.out_channels = {i: ChannelOUT(self, i) for i in self.OUT_CHANNELS}
+        self.calc_channels = {i: ChannelCALC(self, i) for i in self.CALC_CHANNELS}
 
         if 'template' in config:
             template_name = 'TEMPLATE_' + config['template'].upper()
@@ -605,16 +613,17 @@ class PEPU(object):
             self.config = template.format(pepu=self)
 
         # initialize with existing streams
-        str_streams = (stream
-                       for stream in self.raw_write_read('?DSTREAM').split('\n')
-                       if stream)
+        str_streams = (
+            stream
+            for stream in self.raw_write_read('?DSTREAM').split('\n')
+            if stream)
         for str_stream in str_streams:
             stream_info = StreamInfo.fromstring(str_stream)
             self._create_stream(stream_info, write=False)
         self.counters = Counters(self)
 
     def __getitem__(self, text_or_seq):
-        if isinstance(text_or_seq, (str, unicode)):
+        if isinstance(text_or_seq, basestring):
             return self[(text_or_seq,)][0]
         items = []
         for text in text_or_seq:
@@ -630,10 +639,10 @@ class PEPU(object):
             items.append(item)
         return items
 
-    def raw_write(self, message, data = None):
+    def raw_write(self, message, data=None):
         return _command(self.conn, message, data=data)
 
-    def raw_write_read(self, message, data = None):
+    def raw_write_read(self, message, data=None):
         return _ackcommand(self.conn, message, data=data)
 
     def reboot(self):

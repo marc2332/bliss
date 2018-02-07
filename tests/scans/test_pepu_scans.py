@@ -46,8 +46,8 @@ def pepu():
         pepu.software_trigger.side_effect = lambda: trigger.put(None)
         pepu.mock_points = []
         yield pepu
-        # stream.start.assert_called_once_with()
-        # stream.stop.assert_called_once_with()
+        stream.start.assert_called_once_with()
+        stream.stop.assert_called_once_with()
 
 
 def test_pepu_soft_scan(beacon, pepu):
@@ -95,14 +95,13 @@ def test_pepu_continuous_soft_scan(beacon, pepu):
 
 
 def test_pepu_default_chain_ascan(beacon, pepu):
-    pytest.xfail()
     # Get controllers
     m0 = beacon.get('m0')
     # Add data
     pepu.mock_points = [[y+x/10. for y in range(1, 15)] for x in range(10)]
     # Run scan
     scan = scans.ascan(
-        m0, 0, 10, 3, 0.1, *pepu.counters, return_scan=True, save=False)
+        m0, 0, 10, 10, 0.01, *pepu.counters, return_scan=True, save=False)
     # Checks
     data = scans.get_data(scan)
     for i, counter in enumerate(pepu.counters, 1):

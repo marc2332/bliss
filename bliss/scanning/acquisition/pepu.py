@@ -69,8 +69,9 @@ class PepuAcquisitionDevice(AcquisitionDevice):
 
         self.pepu = pepu
         self.stream = None
+        self.counters = []
         self.frequency = frequency
-        self.counters = list(counters)
+        self.add_counters(counters)
         self.trig = Trigger(start, trigger)
 
     # Counter management
@@ -125,6 +126,10 @@ class PepuCounter(object):
     def __init__(self, channel):
         self.channel = channel
         self.acquisition_controller = None
+
+    @property
+    def controller(self):
+        return self.channel.pepu
 
     @property
     def name(self):

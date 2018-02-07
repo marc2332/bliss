@@ -89,22 +89,30 @@ class MeasurementGroup(object):
         counters -- a name list of available counters
         default -- if True set as default measurement
         """
+        self.__name = name
+
         counters_list = config_tree.get('counters')
         if counters_list is None:
             raise ValueError("MeasurementGroup: should have a counters list")
-        self.name = name
         self._available_counters = list(counters_list)
-        self._current_config = settings.SimpleSetting('%s' % name,
+        self._current_state = settings.SimpleSetting('%s' % name,
                                                       default_value='default')
         # disabled counters
         self._counters_settings = settings.HashSetting('%s:%s' %
-                                                       (name, self._current_config.get()))
+                                                       (name, self._current_state.get()))
+
+    @property
+    def name(self):
+        return self.__name
 
     @property
     def state_names(self):
         """ list of states for this measurement
         """
-        return list((x.split(':')[-1] for x in settings.scan(match='%s:*' % self.name)))
+        states = list((x.split(':')[-1] for x in settings.scan(match='%s:*' % self.name)))
+        if not 'default' in states:
+            states.insert(0, "default")
+        return states
 
     @property
     def available(self):
@@ -114,12 +122,12 @@ class MeasurementGroup(object):
 
     @property
     def disable(self):
-        """  disabled counters name
+        """Disabled counter names
         """
         return [name for name in self.available if name in self._counters_settings]
 
     @disable.setter
-    def disable(self,counters):
+    def disable(self, counters):
         counter2disable = self.__counters2set(counters)
         possible2disable = set(self._available_counters).intersection(counter2disable)
         unpos2disable = counter2disable.difference(possible2disable)
@@ -130,12 +138,12 @@ class MeasurementGroup(object):
 
     @property
     def enable(self):
-        """ enabled counters name
+        """Enabled counter names
         """
         return [name for name in self.available if name not in self._counters_settings]
 
     @enable.setter
-    def enable(self,counters):
+    def enable(self, counters):
         counters = self.__counters2set(counters)
         possible2enable = set(self._available_counters).intersection(counters)
         unpos2enable = counters.difference(possible2enable)
@@ -146,13 +154,13 @@ class MeasurementGroup(object):
         self._counters_settings.remove(*counters)
 
     @property
-    def state_names(self):
+    def active_state_name(self):
         """ current configuration name for the measurment
         """
-        return self._current_config.get()
+        return self._current_state.get()
 
     def switch_state(self,name):
-        self._current_config.set(name)
+        self._current_state.set(name)
         self._counters_settings = settings.HashSetting('%s:%s' %
                                                        (self.name,name))
     def remove_states(self,*state_names):
@@ -160,11 +168,11 @@ class MeasurementGroup(object):
         will remove one or several state(s) for this measurement
         state_name -- the state name(s) you want to remove
         """
-        cnx = self._current_config._cnx()
+        cnx = self._current_state._cnx()
         names = ['%s:%s' % (self.name,name) for name in state_names]
         cnx.delete(*names)
         
-    def copy_from_state(self,name):
+    def copy_from_state(self, name):
         """
         this will copy the configuration into the current
         """
@@ -179,7 +187,7 @@ class MeasurementGroup(object):
         return set((x.name if hasattr(x,'name') else x for x in counters))
 
     def __repr__(self):
-        s = 'MeasurementGroup:  %s (%s)\n\n' % (self.name,self._current_config.get())
+        s = 'MeasurementGroup:  %s (%s)\n\n' % (self.name, self.active_state_name)
         enabled = list(self.enable) + ['Enabled']
         
         max_len = max((len(x) for x in enabled))

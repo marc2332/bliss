@@ -21,7 +21,23 @@ def test_mg(beacon):
   assert default_mg.name == 'test_mg'
   assert measurementgroup.get_active_name() == 'test_mg'
 
-def test_mg_enable_disable():
+def test_mg_states(beacon):
+  session = beacon.get("test_session")
+  session.setup() 
+  default_mg = getattr(setup_globals, 'ACTIVE_MG')
+  assert default_mg.active_state_name == 'default'
+  default_mg.switch_state("state2")
+  default_mg.disable = 'diode'
+  assert default_mg.state_names == ['default', "state2"]
+  assert default_mg.active_state_name == 'state2'
+  assert list(default_mg.enable) == []
+  default_mg.switch_state("default")
+  assert list(default_mg.enable) == ["diode"]
+  assert default_mg.active_state_name == 'default'
+
+def test_mg_enable_disable(beacon):
+  session = beacon.get("test_session")
+  session.setup() 
   default_mg = getattr(setup_globals, 'ACTIVE_MG')
   assert list(default_mg.available) == ['diode']
   default_mg.disable = 'diode'

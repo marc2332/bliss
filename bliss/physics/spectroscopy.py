@@ -27,8 +27,7 @@ def energy_to_wavevector(edge_energy, energy):
     """
     energy_diff = (energy - edge_energy)
     sqroot = ((2.0 * ur('electron_mass')) * energy_diff) ** 0.5
-    result = sqroot / (1.0 * ur('hbar'))
-    return result.to('angstrom ** -1')
+    return sqroot / (1.0 * ur('hbar'))
 
 
 @units(edge_energy='eV', k='angstrom ** -1', result='eV')
@@ -50,5 +49,4 @@ def wavevector_to_energy(edge_energy, k):
     """
     khbar = k * (1.0 * ur('hbar'))
     result = (khbar * khbar) / (2.0 * ur('electron_mass'))
-    result += edge_energy
-    return result.to('eV')
+    return result + edge_energy

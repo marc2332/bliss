@@ -75,6 +75,8 @@ import logging
 import weakref
 import collections
 
+import numpy
+
 from bliss.comm.util import get_comm, TCP
 from bliss.controllers.motors.icepap import _command, _ackcommand
 
@@ -508,19 +510,23 @@ class Stream(object):
     def flush(self):
         return self.pepu.raw_write_read(self._cmd('FLUSH'))
 
-    def read(self, n=1):
+    def read(self, n=None):
+        if n is None:
+            n = self.nb_points_ready
+        if n == 0:
+            return numpy.array([])
         command = '?*DSTREAM {0} READ {1}'.format(self.name, n)
         raw_data = self.pepu.raw_write_read(command)
         raw_data.dtype = '<i8'
         array = idint_to_float(raw_data)
-        array.shape = (n, -1)
+        array.dtype = [(source, array.dtype) for source in self.info.sources]
         return array
 
     def idata(self, n):
         while n > 0:
-            available = self.nb_points_ready
-            yield self.read(n=available) if available else []
-            n -= available
+            data = self.read()
+            n -= data.shape[0]
+            yield data
 
     def __repr__(self):
         return '{0}(pepu={1!r}, {2})'.format(type(self).__name__,

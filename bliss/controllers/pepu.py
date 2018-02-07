@@ -348,12 +348,8 @@ class ChannelAttr(BaseAttr):
 
 class BaseChannel(object):
 
-    value = ChannelAttr('CHVAL', float, str)
+    value = ChannelAttr('CHVAL', float, None)
     set_value = ChannelAttr('CHSET', None, str)
-    config = ChannelAttr('CHCFG',
-                         ChannelConfig.fromstring,
-                         ChannelConfig.tostring)
-    error = ChannelAttr('CHERR', str, None)
 
     def __init__(self, pepu, ctype, id):
         self._pepu = weakref.ref(pepu)
@@ -370,6 +366,12 @@ class BaseChannel(object):
 
 
 class BaseChannelINOUT(BaseChannel):
+
+    value = ChannelAttr('CHVAL', float, str)
+    error = ChannelAttr('CHERR', str, None)
+    config = ChannelAttr('CHCFG',
+                         ChannelConfig.fromstring,
+                         ChannelConfig.tostring)
     quad_config = ChannelAttr('QUADCFG', QuadConfig, lambda x: x.value)
 
     def reset(self):

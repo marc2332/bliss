@@ -8,6 +8,8 @@ Run with:
 """
 
 import pytest
+
+from bliss.common import scans
 from bliss.controllers.pepu import PEPU, Signal, Trigger
 
 pytestmark = pytest.mark.pepu
@@ -89,5 +91,14 @@ def test_streams_acquisition(pepu, acquisitions, blocks, block_size):
             # Read block
             assert stream.nb_points_ready == block_size
             data = stream.read(n=block_size)
-            expected = [[1.5, -1.5]] * block_size
-            assert data.tolist() == expected
+            assert data['CALC1'].tolist() == [1.5] * block_size
+            assert data['CALC2'].tolist() == [-1.5] * block_size
+
+
+def test_timescan(pepu):
+    scan = scans.timescan(
+        0.1, pepu.counters.CALC1, pepu.counters.CALC2,
+        npoints=3, return_scan=True, save=False)
+    data = scans.get_data(scan)
+    assert data['CALC1'].tolist() == [1.5] * 3
+    assert data['CALC2'].tolist() == [-1.5] * 3

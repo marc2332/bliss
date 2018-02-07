@@ -116,7 +116,7 @@ class PepuAcquisitionDevice(AcquisitionDevice):
 
     def reading(self):
         """Spawn by the chain."""
-        for data in self.stream.idata():
+        for data in self.stream.idata(self.npoints):
             if data:
                 self.publish(data)
 

@@ -537,7 +537,9 @@ class Stream(object):
         array.dtype = [(source, array.dtype) for source in self.info.sources]
         return array
 
-    def idata(self, n):
+    def idata(self, n=None):
+        if n is None:
+            n = self.nb_points
         while n > 0:
             data = self.read()
             n -= data.shape[0]
@@ -657,6 +659,9 @@ class PEPU(object):
             self.remove_stream(name)
         elif name in self.streams:
             raise ValueError('Stream {0!r} already exists'.format(name))
+        # Hack: the PEPU does NOT preserve the source order
+        if sources:
+            sources = sorted(sources)
         info = StreamInfo(name, active, scope, trigger, frequency, nb_points,
                           sources)
         return self._create_stream(info)

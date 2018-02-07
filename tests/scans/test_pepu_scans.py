@@ -24,7 +24,8 @@ def pepu():
 
     trigger = gevent.queue.Queue()
 
-    def idata():
+    def idata(n):
+        assert n == len(pepu.mock_points)
         for point in pepu.mock_points:
             data = np.array(point)
             data.dtype = [(counter.name, float) for counter in pepu.counters]

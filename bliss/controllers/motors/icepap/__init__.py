@@ -20,6 +20,10 @@ import struct
 import numpy
 import sys
 
+def _object_method_filter(obj):
+    if isinstance(obj, (LinkedAxis, TrajectoryAxis)):
+        return False
+    return True
 
 class Icepap(Controller):
     """
@@ -84,8 +88,9 @@ class Icepap(Controller):
             self._cnx.close()
             
     def initialize_axis(self,axis):
-        axis.address = axis.config.get("address",lambda x: x)
-        axis._trajectory_cache = Cache(axis, "trajectory_cache")
+        if not isinstance(axis, TrajectoryAxis):
+            axis.address = axis.config.get("address",lambda x: x)
+            axis._trajectory_cache = Cache(axis, "trajectory_cache")
 
         if hasattr(axis,'_init_software'):
             axis._init_software()
@@ -114,11 +119,17 @@ class Icepap(Controller):
         self._power(axis,False)
 
     def _power(self,axis,power):
+        if isinstance(axis, TrajectoryAxis):
+            return
+        
         _ackcommand(self._cnx,"POWER %s %s" % 
                     ("ON" if power else "OFF",axis.address))
         self._last_axis_power_time[axis] = time.time()
 
     def read_position(self,axis,cache=True):
+        if isinstance(axis, TrajectoryAxis):
+            return axis._read_position()
+        
         pos_cmd = "FPOS" if cache else "POS"
         return int(_command(self._cnx,"?%s %s" % (pos_cmd,axis.address)))
     
@@ -132,15 +143,24 @@ class Icepap(Controller):
         return self.read_position(axis,cache=False)
 
     def read_velocity(self,axis):
+        if isinstance(axis, TrajectoryAxis):
+            return axis._get_velocity()
+        
         return float(_command(self._cnx,"?VELOCITY %s" % axis.address))
 
     def set_velocity(self,axis,new_velocity):
+        if isinstance(axis, TrajectoryAxis):
+            return axis._set_velocity(new_velocity)
+        
         _ackcommand(self._cnx,"VELOCITY %s %f" % 
                     (axis.address,new_velocity))
         return self.read_velocity(axis)
 
     def read_acceleration(self,axis):
-        acctime = float(_command(self._cnx,"?ACCTIME %s" % axis.address))
+        if isinstance(axis, TrajectoryAxis):
+            acctime = axis._get_acceleration_time()
+        else:
+            acctime = float(_command(self._cnx,"?ACCTIME %s" % axis.address))
         velocity = self.read_velocity(axis)
         return velocity/float(acctime)
 
@@ -148,19 +168,25 @@ class Icepap(Controller):
         velocity = self.read_velocity(axis)
         new_acctime = velocity/new_acc
 
+        if isinstance(axis, TrajectoryAxis):
+            return axis._set_acceleration_time(new_acctime)
+
         _ackcommand(self._cnx,"ACCTIME %s %f" % (axis.address,new_acctime))
         return self.read_acceleration(axis)
 
     def state(self,axis):
-        last_power_time = self._last_axis_power_time.get(axis,0)
-        if time.time() - last_power_time < 1.:
-            status_cmd = "?STATUS"
+        if isinstance(axis, TrajectoryAxis):
+            status = axis._state()
         else:
-            self._last_axis_power_time.pop(axis,None)
-            status_cmd = "?FSTATUS"
+            last_power_time = self._last_axis_power_time.get(axis,0)
+            if time.time() - last_power_time < 1.:
+                status_cmd = "?STATUS"
+            else:
+                self._last_axis_power_time.pop(axis,None)
+                status_cmd = "?FSTATUS"
 
-        status = int(_command(self._cnx,"%s %s" %
-                              (status_cmd,axis.address)),16)
+            status = int(_command(self._cnx,"%s %s" %
+                                  (status_cmd,axis.address)),16)
         status ^= 1<<23 #neg POWERON FLAG
         state = self._icestate.new()
         for mask,value in (((1<<9),"READY"),
@@ -194,7 +220,7 @@ class Icepap(Controller):
             if status & (1<<13):
                 try:
                     warning = _command(self._cnx,"%d:?WARNING" % axis.address)
-                except TypeError:
+                except (TypeError, AttributeError):
                     pass
                 else:
                     warn_str =  "Axis %s warning condition: \n" % axis.name
@@ -204,7 +230,7 @@ class Icepap(Controller):
 
             try:
                 alarm = _command(self._cnx,"%d:?ALARM" % axis.address)
-            except (RuntimeError,TypeError):
+            except (RuntimeError, TypeError, AttributeError):
                 pass
             else:
                 if alarm != "NO":
@@ -237,7 +263,9 @@ class Icepap(Controller):
         pass
 
     def start_one(self,motion):
-        if isinstance(motion.axis,SlaveAxis):
+        if isinstance(motion.axis, TrajectoryAxis):
+            return motion.axis._start_one(motion)
+        elif isinstance(motion.axis,SlaveAxis):
             pre_cmd = "%d:DISPROT LINKED;" % motion.axis.address
         else:
             pre_cmd = None
@@ -247,7 +275,7 @@ class Icepap(Controller):
                     pre_cmd = pre_cmd)
 
     def start_all(self,*motions):
-        if motions > 1:
+        if len(motions) > 1:
             cmd = "MOVE GROUP "
             cmd += ' '.join(["%s %d" % (m.axis.address,m.target_pos) for m in motions])
             _ackcommand(self._cnx,cmd)
@@ -255,11 +283,17 @@ class Icepap(Controller):
             self.start_one(motions[0])
 
     def stop(self,axis):
-        _command(self._cnx,"STOP %s" % axis.address)
+        if isinstance(axis, TrajectoryAxis):
+            return axis._stop()
+        else:
+            _command(self._cnx,"STOP %s" % axis.address)
 
     def stop_all(self,*motions):
-        axes_addr = ' '.join('%s' % m.axis.address for m in motions)
-        _command(self._cnx,"STOP %s" % axes_addr)
+        if len(motions) > 1:
+            axes_addr = ' '.join('%s' % m.axis.address for m in motions)
+            _command(self._cnx,"STOP %s" % axes_addr)
+        else:
+            self.stop(motions[0].axis)
 
     def home_search(self,axis,switch):
         cmd = "HOME " + ("+1" if switch > 0 else "-1")
@@ -412,16 +446,16 @@ class Icepap(Controller):
         axes_str = ' '.join(('%s' % traj.axis.address for traj in trajectories))
         _command(self._cnx,"STOP %s" % axes_str)
 
-    @object_method(types_info=("bool","bool"))
+    @object_method(types_info=("bool","bool"), filter=_object_method_filter)
     def activate_closed_loop(self,axis,active):
         _command(self._cnx,"#%s:PCLOOP %s" % (axis.address,"ON" if active else "OFF"))
         return active
 
-    @object_method(types_info=("None","bool"))
+    @object_method(types_info=("None","bool"), filter=_object_method_filter)
     def is_closed_loop_activate(self,axis):
         return True if _command(self._cnx,"%s:?PCLOOP" % axis.address) == 'ON' else False
 
-    @object_method(types_info=("None","None"))
+    @object_method(types_info=("None","None"), filter=_object_method_filter)
     def reset_closed_loop(self,axis):
         measure_position = int(_command(self._cnx,"%s:?POS MEASURE" % axis.address))
         self.set_position(axis,measure_position)
@@ -429,11 +463,11 @@ class Icepap(Controller):
             self.set_on(axis)
         axis.sync_hard()
         
-    @object_method(types_info=("None","int"))
+    @object_method(types_info=("None","int"), filter=_object_method_filter)
     def temperature(self,axis):
         return int(_command(self._cnx,"%s:?MEAS T" % axis.address))
 
-    @object_method(types_info=(("float","bool"),"None"))
+    @object_method(types_info=(("float","bool"),"None"), filter=_object_method_filter)
     def set_tracking_positions(self,axis,positions,cyclic = False):
         """
         Send position to the controller which will be tracked.
@@ -455,7 +489,7 @@ class Icepap(Controller):
                     (address, "CYCLIC" if cyclic else "NOCYCLIC"),
                     step_positions)
 
-    @object_method(types_info=("None",("float","bool")))
+    @object_method(types_info=("None",("float","bool")), filter=_object_method_filter)
     def get_tracking_positions(self,axis):
         """
         Get the tacking positions.
@@ -484,7 +518,7 @@ class Icepap(Controller):
             positions = axis.dial2user(dial_positions)
         return positions,cyclic
 
-    @object_method(types_info=(("bool","str"),"None"))
+    @object_method(types_info=(("bool","str"),"None"), filter=_object_method_filter)
     def activate_tracking(self,axis,activate,mode = None):
         """
         Activate/Deactivate the tracking position depending on
@@ -511,7 +545,7 @@ class Icepap(Controller):
                 _ackcommand(self._cnx, "%d:POS INPOS 0" % address)
             _ackcommand(self._cnx,"%d:LTRACK %s" % (address,mode))
         
-    @object_method(types_info=("float", "None"))
+    @object_method(types_info=("float", "None"), filter=_object_method_filter)
     def blink(self, axis, second=3.):
         """
         Blink axis driver
@@ -614,3 +648,4 @@ def _ackcommand(cnx,cmd,data = None,pre_cmd = None):
 from .shutter import Shutter
 from .switch import Switch
 from .linked import LinkedAxis, SlaveAxis
+from .trajectory import TrajectoryAxis

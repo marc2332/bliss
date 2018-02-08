@@ -43,7 +43,10 @@ class Switch(BaseSwitch):
             for axis in self.__controller._axes.values():
                 # be sure that axis is initialized
                 axis.position()
-                include_rack.add(axis.address // 10)
+                try:
+                    include_rack.add(axis.address // 10)
+                except (AttributeError, TypeError): # LinkedAxis and TrajectoryAxis
+                    continue
         else:
             include_rack = set(include_rack)
 
@@ -56,7 +59,10 @@ class Switch(BaseSwitch):
         managed_rack = include_rack - exclude_rack
         self.__axes = weakref.WeakValueDictionary()
         for axis_name,axis in self.__controller._axes.iteritems():
-            rack_id = axis.address // 10
+            try:
+                rack_id = axis.address // 10
+            except (AttributeError, TypeError):
+                continue
             if rack_id in managed_rack:
                 self.__axes[axis_name.upper()] = axis
     

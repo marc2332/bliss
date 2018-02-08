@@ -4,7 +4,10 @@ import string
 import numpy
 from collections import namedtuple
 
-from bliss.controllers.motors.SHexapod import *
+from bliss.controllers.motors.shexapod import ROLES, Pose, BaseHexapodError, BaseHexapodProtocol
+
+class HexapodV1Error(BaseHexapodError):
+    pass
 
 class TurboPmacCommand(object):
     VR_DOWNLOAD = 0x40
@@ -48,8 +51,7 @@ class TurboPmacCommand(object):
 
     def __send(self, requestType, request, command, convtype):
         data= self.__data.pack(requestType, request, 0, 0, socket.htons(len(command)))
-        self.__s.write(data+command)
-        raw= self.__s.readline("\x06")
+        raw= self.__s.write_readline(data+command,eol="\x06")
         if len(raw):
             ans= map(string.strip, raw.split("\r")[:-1])
             if convtype is not None:
@@ -75,7 +77,8 @@ class HexapodProtocolV1(BaseHexapodProtocol):
                             "encoder_error", "phasing_error",
                             "homing_error", "kinematic_error",
                             "abort_input_error", "memory_error",
-                            "homing_virtual")
+                            "homing_virtual",
+                            "moving")
 
     SystemStatus= namedtuple("SystemStatus", SYSTEM_STATUS_FIELDS)
 
@@ -94,6 +97,7 @@ class HexapodProtocolV1(BaseHexapodProtocol):
         BaseHexapodProtocol.__init__(self, config)
         self.pmac= TurboPmacCommand(self.comm)
         self.__read_api_version()
+        self.__set_pose= None
 
     def __read_api_version(self):
         self.pmac("&2 Q20=55")
@@ -112,9 +116,58 @@ class HexapodProtocolV1(BaseHexapodProtocol):
 
     def wait_command(self):
         ack= 1
-        while ack > 1:
+        while ack >= 1:
             ack= self.pmac("&2 Q20", int)
         return ack
+
+    @property
+    def control(self):
+        return self.system_status.control
+
+    @control.setter
+    def control(self, control):
+        status= self.system_status
+        curr_control= status.control
+        if control and not curr_control:
+            # control ON
+            self.pmac("&2 Q20=3")
+            err= self.wait_command()
+            if err == -1:
+                raise HexapodV1Error("Command ignored (emergency button engaged or ctrl in error state)")
+            elif err == -2:
+                raise HexapodV1Error("Control of the servo motors has failed")
+        elif not control and curr_control:
+            # control OFF
+            self.pmac("&2 Q20=4")
+            self.wait_command()
+
+    def _stop(self):
+        self.pmac("&2 Q20=2")
+        
+    def _homing(self, async=False):
+        self.pmac("&2 Q20=1")
+        if async is False:
+            self.wait_command()
+
+    def _reset(self):
+        self.pmac("$$$")
+
+    def _move(self, pose, async=False):
+        set_pose_dict = self.set_pose._asdict()
+        # any coordinate which is None will be replaced by the latest set_pose
+        pose = Pose(*[set_pose_dict[i] if v is None else v
+                      for i, v in enumerate(pose)])
+        set_pos_cmd = "Q70=0 Q71=%f Q72=%f Q73=%f Q74=%f Q75=%f Q76=%f Q20=11"%\
+                      (pose.tx, pose.ty, pose.tz, pose.rx, pose.ry, pose.rz)
+        self.pmac(set_pos_cmd)
+        err= self.wait_command()
+        if err == -1:
+            raise HexapodV1Error("Command ignored. Conditions of move not met.")
+        elif err == -1:
+            raise HexapodV2Error("Invalid movement command.")
+
+    def is_moving(self):
+        pass
 
     def __to_status(self, status, klass):
         istatus = int(status)
@@ -124,13 +177,22 @@ class HexapodProtocolV1(BaseHexapodProtocol):
     @property
     def system_status(self):
         status= self.pmac("&2 Q36", int)
-        return self.__to_status(status, self.SystemStatus)
+        conv_status= self.__to_status(status, self.SystemStatus)
+        moving= conv_status.control and not conv_status.error and not conv_status.in_position
+        return conv_status._replace(moving=moving)
+        
 
     @property
     def axis_status(self):
         status= self.pmac("&2 Q30,6,1", int)
         conv_status= [self.__to_status(x, self.AxisStatus) for x in status]
         return conv_status
+
+    @property
+    def set_pose(self):
+        if self.__set_pose is None:
+             self.__set_pose = self.object_pose
+        return self.__set_pose
 
     @property
     def object_pose(self):

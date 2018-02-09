@@ -291,15 +291,34 @@ def test_ctrlc(robz):
     assert robz.state() == "READY"
     assert robz.position() < 100
 
+def test_simultaneous_move(robz):
+    # this test, before the bug was found, was *sometimes*
+    # giving discrepancy error instead of MOVING state error
+    move_started = gevent.event.Event()
+    def start_move(target):
+      robz.move(target, wait=False)
+      move_started.set()
+      robz.wait_move()
+
+    move_greenlet = gevent.spawn(start_move, 10)
+
+    move_started.wait()
+
+    assert robz.state() == 'MOVING' 
+    try:
+      robz.move(-10)
+    except Exception, e:
+      assert 'MOVING' in str(e)
+
 def test_simultaneous_waitmove_exception(robz):
     robz.move(100, wait=False)
     w1 = gevent.spawn(robz.wait_move)
     w2 = gevent.spawn(robz.wait_move)
-    time.sleep(0.1)
-    robz._Axis__move_task.kill(KeyboardInterrupt, block=False)
-    with pytest.raises(KeyboardInterrupt):
+    time.sleep(0.2)
+    robz._Axis__move_task.kill(RuntimeError, block=False)
+    with pytest.raises(RuntimeError):
       w1.get()
-    with pytest.raises(KeyboardInterrupt):
+    with pytest.raises(RuntimeError):
       w2.get()
     robz.off()
     assert robz.state() == 'OFF'
@@ -361,7 +380,7 @@ def test_set_position(m0):
     assert m0.position() == m0._set_position()
     m0.move(2, wait=False)
     time.sleep(0.01)
-    m0._Axis__move_task.kill(KeyboardInterrupt)
+    m0._Axis__move_task.kill(KeyboardInterrupt, block=False)
     try:
         m0.wait_move()
     except KeyboardInterrupt:
@@ -451,8 +470,9 @@ def test_jog(robz):
     t = 1+robz.acctime()
     start_time = time.time()
     time.sleep(t)
+    hw_position = robz._hw_position()
     elapsed_time = (time.time()-start_time) - robz.acctime()
-    assert robz._hw_position() == pytest.approx(300*elapsed_time+robz.acceleration()*0.5*robz.acctime()**2, 1e-2)
+    assert hw_position == pytest.approx(300*elapsed_time+robz.acceleration()*0.5*robz.acctime()**2, 1e-2)
     assert robz.state() == "MOVING"
     robz.stop()
     assert robz.state() == "READY"
@@ -463,8 +483,9 @@ def test_jog(robz):
     assert robz.velocity() == 300
     start_time = time.time()
     time.sleep(t)
+    hw_position = robz._hw_position()
     elapsed_time = (time.time()-start_time) - robz.acctime()
-    assert robz._hw_position() == pytest.approx(-300*elapsed_time-robz.acceleration()*0.5*robz.acctime()**2, 1e-2)
+    assert hw_position == pytest.approx(-300*elapsed_time-robz.acceleration()*0.5*robz.acctime()**2, 1e-2)
     robz.stop()
     assert robz.dial() == 0
     assert robz.velocity() == 10
@@ -478,8 +499,9 @@ def test_jog2(jogger):
     t = 1+jogger.acctime()
     start_time = time.time()
     time.sleep(t)
+    hw_position = jogger._hw_position()
     elapsed_time = (time.time()-start_time) - jogger.acctime()
-    assert jogger._hw_position() == pytest.approx(300*elapsed_time+jogger.acceleration()*0.5*jogger.acctime()**2, 1e-2)
+    assert hw_position == pytest.approx(300*elapsed_time+jogger.acceleration()*0.5*jogger.acctime()**2, 1e-2)
     jogger.stop()
 
 def test_measured_position(m1, roby):

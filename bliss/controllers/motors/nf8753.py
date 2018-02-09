@@ -95,6 +95,8 @@ class NF8753(Controller):
         return self.read_velocity(axis)
 
     def state(self, axis):
+        if self.__busy:
+            return AxisState("BUSY")
         sta = self._write_read(axis, "STA", eol='\r\n>', raw=True)
         for line in sta.split("\n"):
             if line.startswith(axis.driver):
@@ -103,9 +105,6 @@ class NF8753(Controller):
                     return AxisState("MOVING")
                 else:
                     return AxisState("READY")
-
-    def is_busy(self):
-        return self.__busy
 
     def prepare_move(self, motion):
         self.__busy = True

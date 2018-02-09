@@ -8,6 +8,7 @@
 import math
 import time
 import random
+import gevent
 
 from bliss.controllers.motor import Controller
 from bliss.common import log as elog
@@ -167,8 +168,9 @@ class Mockup(Controller):
         Returns the position (measured or desired) taken from controller
         in controller unit (steps).
         """
+        gevent.sleep(0.005) #simulate I/O
+
         t = t or time.time()
-        # handle read out during a motion
         end_t = self._axis_moves[axis]["end_t"]
         if end_t is not None and t >= end_t:
             pos = self._axis_moves[axis]["target"]
@@ -287,6 +289,7 @@ class Mockup(Controller):
     STATE
     """
     def state(self, axis):
+        gevent.sleep(0.005) #simulate I/O
         if self._axis_moves[axis]["end_t"] > time.time():
            return AxisState("MOVING")
         else:

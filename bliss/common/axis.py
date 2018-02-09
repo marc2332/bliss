@@ -189,6 +189,7 @@ class Axis(object):
         self.__stopped = False
         self._in_group_move = False
         self.no_offset = False
+        self._lock = gevent.lock.Semaphore()
         motion_hooks = []
         for hook_ref in config.get('motion_hooks', ()):
             hook = get_motion_hook(hook_ref)
@@ -378,7 +379,7 @@ class Axis(object):
             dial_pos = hw_pos / self.steps_per_unit
             self.settings.set("dial_position", dial_pos)
         except NotImplementedError:
-            dial_pos = self._read_dial_and_update(update_user=False)
+            dial_pos = self._update_dial(update_user=False)
 
         # update user_pos or offset setting
         if no_offset:
@@ -402,7 +403,7 @@ class Axis(object):
         if new_dial is None:
             dial_pos = self.settings.get("dial_position")
             if dial_pos is None:
-                dial_pos = self._read_dial_and_update() 
+                dial_pos = self._update_dial() 
             return dial_pos
 
         if self.is_moving:
@@ -443,9 +444,8 @@ class Axis(object):
 
         return self.__do_set_position(new_pos, self.no_offset)
 
-
     @lazy_init 
-    def _read_dial_and_update(self, update_user=True):
+    def _update_dial(self, update_user=True):
         dial_pos = self._hw_position()
         self.settings.set("dial_position", dial_pos)
         if update_user:
@@ -509,7 +509,7 @@ class Axis(object):
     def sync_hard(self):
         """Forces an axis synchronization with the hardware"""
         self.settings.set("state", self.state(read_hw=True)) 
-        self._read_dial_and_update()
+        self._update_dial()
         self._set_position(self.position())
         event.send(self, "sync_hard")
         
@@ -628,9 +628,8 @@ class Axis(object):
         return self.settings.get('low_limit'), self.settings.get('high_limit')
 
     def _update_settings(self, state):
-        if self._hw_control:
-            self.settings.set("state", state) 
-            self._read_dial_and_update()
+        self.settings.set("state", state) 
+        self._update_dial()
  
     def _backlash_move(self, backlash_start, backlash, polling_time):
         final_pos = backlash_start + backlash
@@ -647,7 +646,7 @@ class Axis(object):
         # gevent-atomic
         stopped, self.__stopped = self.__stopped, False
         if stopped or motion.backlash:
-            dial_pos = self._read_dial_and_update()
+            dial_pos = self._update_dial()
             user_pos = self.dial2user(dial_pos)
 
         if motion.backlash:
@@ -670,7 +669,7 @@ class Axis(object):
     def _jog_move(self, velocity, direction, polling_time):
         self._move_loop(polling_time)
 
-        dial_pos = self._read_dial_and_update()
+        dial_pos = self._update_dial()
         user_pos = self.dial2user(dial_pos)
 
         if self.backlash:
@@ -714,13 +713,25 @@ class Axis(object):
         """
         return (position - self.offset) / self.sign
 
+    def __execute_pre_move_hook(self, motion):
+        for hook in self.__motion_hooks:
+            hook.pre_move([motion])
+
+        self._check_ready()
+
+    def __execute_post_move_hook(self, motions):
+        for hook in self.__motion_hooks:
+            try:
+                hook.post_move(motions)
+            except:
+                sys.excepthook(*sys.exc_info())
+
     @lazy_init
     def prepare_move(self, user_target_pos, relative=False):
         """Prepare a motion. Internal usage only"""
         elog.debug("user_target_pos=%g, relative=%r" % (user_target_pos, relative))
         user_initial_dial_pos = self.dial()
-        hw_pos = self._read_dial_and_update()
-
+        hw_pos = self._hw_position() #self._update_dial()
         elog.debug("hw_position=%g user_initial_dial_pos=%g" % (hw_pos, user_initial_dial_pos))
 
         if abs(user_initial_dial_pos - hw_pos) > self.tolerance:
@@ -789,10 +800,7 @@ class Axis(object):
         motion = Motion(self, target_pos, delta)
         motion.backlash = backlash
 
-        for hook in self.__motion_hooks:
-            hook.pre_move([motion])
-
-        self._check_ready()
+        self.__execute_pre_move_hook(motion)
 
         self.__controller.prepare_move(motion)
 
@@ -800,18 +808,10 @@ class Axis(object):
 
         return motion
 
-    def __emit_move_done(self):
-        self.__move_done.wait()
-        try:
-            event.send(self, "move_done", True)
-        finally:
-            self.__move_done_callback.set()
-
     def _set_moving_state(self, from_channel=False):
         self.__stopped = False
         self.__move_done.clear()
         self.__move_done_callback.clear()
-        gevent.spawn(self.__emit_move_done)
         if from_channel:
             self.__move_task = None
         else:
@@ -819,22 +819,30 @@ class Axis(object):
         event.send(self, "move_done", False)
 
     def _set_move_done(self, move_task):
+        self.__move_task = None
+
         try:
-          state = move_task.get()
+            state = move_task.get()
         except:                 # don't want to raise something here
-          state = self.state(read_hw=True)
+            state = None
+
+        if move_task is None:
+            # move started from another BLISS session
+            pass
         else:
-          if state is None:
-            state = self.state(read_hw=True)
+            if state is None:
+                state = self.state(read_hw=True)
 
-        for hook in self.__motion_hooks:
-            try:
-                hook.post_move(self.__move_task._motions)
-            except:
-                sys.excepthook(*sys.exc_info())
+            self._update_settings(state)
 
-        self._update_settings(state)
+            self.__execute_post_move_hook(move_task._motions)
+        
         self.__move_done.set()
+
+        try:
+            event.send(self, "move_done", True)
+        finally:
+            self.__move_done_callback.set()
 
     def _check_ready(self):
         if not self.state() in ("READY", "MOVING"):
@@ -847,22 +855,11 @@ class Axis(object):
             raise RuntimeError("axis %s state is \
                                 %r" % (self.name, str(initial_state)))
 
-        if self.__controller.is_busy():
-            raise RuntimeError("axis %s: controller is busy" % self.name)
-
     def _start_move_task(self, funct, *args, **kwargs):
-        start_event = gevent.event.Event()
-        @task
-        def sync_funct(*args, **kwargs):
-            start_event.wait()
-            return funct(*args, **kwargs)
         kwargs = dict(kwargs)
-        being_waited = kwargs.pop('being_waited', True)
-        self.__move_task = sync_funct(*args, wait=False, **kwargs)
-        self.__move_task._being_waited = being_waited
+        self.__move_task = gevent.spawn(funct, *args, **kwargs)
         self.__move_task.link(self._set_move_done)
         self._set_moving_state()
-        start_event.set()
         return self.__move_task
 
     @lazy_init
@@ -879,17 +876,19 @@ class Axis(object):
             polling_time (float): motion loop polling time (seconds)
         """
         elog.debug("user_target_pos=%g  wait=%r relative=%r" % (user_target_pos, wait, relative))
+        with self._lock:
+            if self.is_moving:
+                raise RuntimeError("axis %s state is %r" % (self.name, 'MOVING'))
+ 
+            motion = self.prepare_move(user_target_pos, relative)
+            if motion is None:
+                return
 
-        motion = self.prepare_move(user_target_pos, relative)
-        if motion is None:
-            return
+            with error_cleanup(self._cleanup_stop):
+                self.__controller.start_one(motion)
 
-        with error_cleanup(self._cleanup_stop):
-            self.__controller.start_one(motion)
-
-        motion_task = self._start_move_task(self._do_handle_move, motion,
-                                            polling_time, being_waited=wait)
-        motion_task._motions = [motion]
+            move_task = self._start_move_task(self._do_move, motion, polling_time)
+            move_task._motions = [motion]
 
         if wait:
             self.wait_move()
@@ -902,30 +901,36 @@ class Axis(object):
         Args:
             velocity: signed velocity for constant speed motion
         """
-        self._check_ready()
+        with self._lock:
+            if self.is_moving:
+                raise RuntimeError("axis %s state is %r" % (self.name, 'MOVING'))
 
-        if velocity == 0:
-            return
+            if velocity == 0:
+                return
 
-        saved_velocity = self.velocity()
+            saved_velocity = self.velocity()
 
-        with error_cleanup(functools.partial(self._cleanup_stop, jog=True), 
+            motion = Motion(self, None, None, "jog")
+            self.__execute_pre_move_hook(motion)
+
+            with error_cleanup(functools.partial(self._cleanup_stop, jog=True), 
                            functools.partial(self._jog_cleanup, saved_velocity, reset_position)):
-            self.velocity(abs(velocity)) #change velocity, to have settings updated accordingly
-            velocity_in_steps = velocity * self.steps_per_unit
-            direction = 1 if velocity_in_steps > 0 else -1
-            self.__controller.start_jog(self, abs(velocity_in_steps), direction)
+                self.velocity(abs(velocity)) #change velocity, to have settings updated accordingly
+                velocity_in_steps = velocity * self.steps_per_unit
+                direction = 1 if velocity_in_steps > 0 else -1
+                self.__controller.start_jog(self, abs(velocity_in_steps), direction)
 
-        self._start_move_task(self._do_jog_move, saved_velocity, velocity, direction, reset_position, polling_time, being_waited=False)
+            self._start_move_task(self._do_jog_move, saved_velocity, velocity, direction, reset_position, polling_time)
+            self.__move_task._motions = [motion]
 
     def _do_encoder_reading(self):
         enc_dial = self.encoder.read()
-        curr_pos = self._read_dial_and_update()
+        curr_pos = self._update_dial()
         if abs(curr_pos - enc_dial) > self.encoder.tolerance:
             raise RuntimeError("'%s' didn't reach final position.(enc_dial=%g, curr_pos=%g)" %
                                (self.name, enc_dial, curr_pos))
 
-    def _do_handle_move(self, motion, polling_time):
+    def _do_move(self, motion, polling_time):
         with error_cleanup(self._cleanup_stop):
             return self._handle_move(motion, polling_time)
 
@@ -960,22 +965,23 @@ class Axis(object):
     def wait_move(self):
         """
         Wait for the axis to finish motion (blocks current :class:`Greenlet`)
-
         """
-        wait = self.__move_done_callback.wait
         if self.__move_task is None:
             # move has been started externally
-            with error_cleanup(self.stop):
-                wait()
-        else:
-            move_task = self.__move_task
-            move_task._being_waited = True
-            with error_cleanup(self.stop):
-                wait()
             try:
-                move_task.get()
-            except gevent.GreenletExit:
-                pass
+                self.__move_done_callback.wait()
+            except:
+                self.stop()
+                raise
+        else:
+            self.__move_task.unlink(self._set_move_done)
+            try:
+                self.__move_task.get()
+            except:
+                self._set_move_done(self.__move_task)
+                raise
+            else:
+                self._set_move_done(self.__move_task) 
 
     def _move_loop(self, polling_time=DEFAULT_POLLING_TIME, ctrl_state_funct='state'):
         state_funct = getattr(self.__controller, ctrl_state_funct)
@@ -1000,8 +1006,6 @@ class Axis(object):
 
     def _set_stopped(self):
         self.__stopped = True
-        if not self.is_moving:
-          self.__move_task = None
 
     @lazy_init
     def stop(self, wait=True):
@@ -1032,13 +1036,19 @@ class Axis(object):
         Args:
             wait (bool): wait for search to finish [default: True]
         """
-        self._check_ready()
+        with self._lock:
+            if self.is_moving:
+                raise RuntimeError("axis %s state is %r" % (self.name, 'MOVING'))
 
-        self.__controller.home_search(self, switch)
-        self._start_move_task(self._wait_home, switch, being_waited=wait)
+            # create motion object for hooks
+            motion = Motion(self, None, None, "homing")
+            self.__execute_pre_move_hook(motion)
+
+            self.__controller.home_search(self, switch)
+            self._start_move_task(self._wait_home, switch)
    
-        # create motion object for hooks
-        self.__move_task._motions = [Motion(self, None, None, "homing")]
+            # create motion object for hooks
+            self.__move_task._motions = [motion]
 
         if wait:
             self.wait_move()
@@ -1059,14 +1069,17 @@ class Axis(object):
             [default: True]
         """
         limit = int(limit)
-        self._check_ready()
+        with self._lock:
+            if self.is_moving:
+                raise RuntimeError("axis %s state is %r" % (self.name, 'MOVING'))
 
-        self.__controller.limit_search(self, limit)
-        self._start_move_task(self._wait_limit_search, limit, being_waited=wait)
+            motion = Motion(self, None, None, "limit_search")
+            self.__execute_pre_move_hook(motion)
 
-        # create motion object for hooks
-        self.__move_task._motions = [Motion(self, None, None, "limit_search")]
-        
+            self.__controller.limit_search(self, limit)
+            self._start_move_task(self._wait_limit_search, limit)
+            self.__move_task._motions = [motion]
+
         if wait:
             self.wait_move()
 

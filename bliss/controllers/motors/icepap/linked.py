@@ -128,14 +128,23 @@ class LinkedAxis(Axis):
 
     @lazy_init
     def home(self,switch=1,wait=True):
-        self._check_ready()
+        with self._lock:
+            if self.is_moving:
+                raise RuntimeError("axis %s state is %r" % (self.name, 'MOVING'))
 
-        cnx = self.controller._cnx
-        cmd = "HOME STRICT %s %s" % (self.address,("+1" if switch > 0 else "-1"))
-        _ackcommand(cnx,cmd)
-        # IcePAP status is not immediately MOVING after home search command is sent
-        gevent.sleep(0.2)
+            # create motion object for hooks
+            motion = Motion(self, None, None, "homing")
+            self.__execute_pre_move_hook(motion)
 
-        self._start_move_task(self._wait_home, switch, being_waited=wait)
+            cnx = self.controller._cnx
+            cmd = "HOME STRICT %s %s" % (self.address,("+1" if switch > 0 else "-1"))
+            _ackcommand(cnx,cmd)
+            # IcePAP status is not immediately MOVING after home search command is sent
+            gevent.sleep(0.2)
+
+            self._start_move_task(self._wait_home, switch)
+            
+            self.__move_task._motions = [motion]
+
         if wait:
             self.wait_move()

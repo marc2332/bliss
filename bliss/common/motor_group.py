@@ -119,7 +119,7 @@ class _Group(object):
     def _handle_move(self, motions, polling_time):
         with error_cleanup(self._do_stop): 
             for motion in motions:
-                motion_task = motion.axis._start_move_task(motion.axis._do_handle_move,
+                motion_task = motion.axis._start_move_task(motion.axis._do_move,
                                                            motion, polling_time)
                 motion_task._motions = [motion_task]
             motions_wait = [gevent.spawn(motion.axis.wait_move) for motion in motions]
@@ -199,7 +199,6 @@ class _Group(object):
         all_motions = self._start_motion(self._motions_dict)
         self.__move_done.clear() 
         self.__move_task = self._handle_move(all_motions, polling_time, wait=False)
-        self.__move_task._being_waited = wait
         self.__move_task._motions = all_motions
         self.__move_task.link(self._set_move_done)
  
@@ -209,7 +208,6 @@ class _Group(object):
     def wait_move(self):
         if self.__move_task:
             move_task = self.__move_task
-            move_task._being_waited = True
             with error_cleanup(self.stop):
                 self.__move_done.wait()
             self.__move_task = None 

@@ -71,7 +71,7 @@ def test_streams_acquisition(pepu, acquisitions, blocks, block_size):
         name='TEST',
         trigger=Trigger(Signal.SOFT, Signal.SOFT),
         frequency=10, nb_points=blocks * block_size,
-        sources=('CALC1', 'CALC2'),
+        sources=('CALC2', 'CALC1'),
         overwrite=True)
     # Argument testing
     assert stream.name == 'TEST'

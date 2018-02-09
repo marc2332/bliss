@@ -287,7 +287,7 @@ def StreamInfo_fromstring(text):
 
 
 def StreamInfo_tostring(s):
-    result = [s.name, 'ON', s.scope.value]
+    result = [s.name, 'ON' if s.active else 'OFF', s.scope.value]
     if s.trigger is not None:
         result += 'TRIG', s.trigger.tostring()
     if s.frequency is not None:
@@ -461,6 +461,11 @@ class NbPointsStreamAttr(StreamAttr):
 
 
 class Stream(object):
+
+    active = StreamAttr(
+        '',
+        decode=lambda x: x.active,
+        encode=lambda x: 'ON' if x else 'OFF')
 
     status = StreamAttr('STATUS', str, None)
 
@@ -644,10 +649,21 @@ class PEPU(object):
         return self.raw_write_read('STRIG')
 
     def _create_stream(self, stream_info, write=True):
-        stream = Stream(self, stream_info)
         if write:
+            assert stream_info.scope == Scope.GLOBAL
+            active = stream_info.active
+            # global streams must be created active
+            stream_info = stream_info._replace(active=True)
             self.raw_write_read('DSTREAM ' + stream_info.tostring())
-            stream.active = stream_info.active
+            # read back stream info because it may not be exactly what we asked for
+            raw_stream_info = self.raw_write_read('?DSTREAM ' + stream_info.name)
+            stream_info = StreamInfo.fromstring(raw_stream_info)
+            stream = Stream(self, stream_info)
+            # deactivate if necessary
+            if not active:
+                stream.active = False
+        else:
+            stream = Stream(self, stream_info)
         self.streams[stream.name] = stream
         return stream
 
@@ -659,9 +675,6 @@ class PEPU(object):
             self.remove_stream(name)
         elif name in self.streams:
             raise ValueError('Stream {0!r} already exists'.format(name))
-        # Hack: the PEPU does NOT preserve the source order
-        if sources:
-            sources = sorted(sources)
         info = StreamInfo(name, active, scope, trigger, frequency, nb_points,
                           sources)
         return self._create_stream(info)

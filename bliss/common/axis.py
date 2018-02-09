@@ -713,6 +713,19 @@ class Axis(object):
         """
         return (position - self.offset) / self.sign
 
+    def __execute_pre_move_hook(self, motion):
+        for hook in self.__motion_hooks:
+            hook.pre_move([motion])
+
+        self._check_ready()
+
+    def __execute_post_move_hook(self, motions):
+        for hook in self.__motion_hooks:
+            try:
+                hook.post_move(motions)
+            except:
+                sys.excepthook(*sys.exc_info())
+
     @lazy_init
     def prepare_move(self, user_target_pos, relative=False):
         """Prepare a motion. Internal usage only"""
@@ -787,10 +800,7 @@ class Axis(object):
         motion = Motion(self, target_pos, delta)
         motion.backlash = backlash
 
-        for hook in self.__motion_hooks:
-            hook.pre_move([motion])
-
-        self._check_ready()
+        self.__execute_pre_move_hook(motion)
 
         self.__controller.prepare_move(motion)
 
@@ -825,12 +835,8 @@ class Axis(object):
 
             self._update_settings(state)
 
-            for hook in self.__motion_hooks:
-                try:
-                    hook.post_move(move_task._motions)
-                except:
-                    sys.excepthook(*sys.exc_info())
-
+            self.__execute_post_move_hook(move_task._motions)
+        
         self.__move_done.set()
 
         try:
@@ -871,7 +877,8 @@ class Axis(object):
         """
         elog.debug("user_target_pos=%g  wait=%r relative=%r" % (user_target_pos, wait, relative))
         with self._lock:
-            self._check_ready()
+            if self.is_moving:
+                raise RuntimeError("axis %s state is %r" % (self.name, 'MOVING'))
  
             motion = self.prepare_move(user_target_pos, relative)
             if motion is None:
@@ -895,12 +902,16 @@ class Axis(object):
             velocity: signed velocity for constant speed motion
         """
         with self._lock:
-            self._check_ready()
+            if self.is_moving:
+                raise RuntimeError("axis %s state is %r" % (self.name, 'MOVING'))
 
             if velocity == 0:
                 return
 
             saved_velocity = self.velocity()
+
+            motion = Motion(self, None, None, "jog")
+            self.__execute_pre_move_hook(motion)
 
             with error_cleanup(functools.partial(self._cleanup_stop, jog=True), 
                            functools.partial(self._jog_cleanup, saved_velocity, reset_position)):
@@ -910,6 +921,7 @@ class Axis(object):
                 self.__controller.start_jog(self, abs(velocity_in_steps), direction)
 
             self._start_move_task(self._do_jog_move, saved_velocity, velocity, direction, reset_position, polling_time)
+            self.__move_task._motions = [motion]
 
     def _do_encoder_reading(self):
         enc_dial = self.encoder.read()
@@ -1025,13 +1037,18 @@ class Axis(object):
             wait (bool): wait for search to finish [default: True]
         """
         with self._lock:
-            self._check_ready()
+            if self.is_moving:
+                raise RuntimeError("axis %s state is %r" % (self.name, 'MOVING'))
+
+            # create motion object for hooks
+            motion = Motion(self, None, None, "homing")
+            self.__execute_pre_move_hook(motion)
 
             self.__controller.home_search(self, switch)
             self._start_move_task(self._wait_home, switch)
    
             # create motion object for hooks
-            self.__move_task._motions = [Motion(self, None, None, "homing")]
+            self.__move_task._motions = [motion]
 
         if wait:
             self.wait_move()
@@ -1054,14 +1071,15 @@ class Axis(object):
         limit = int(limit)
         with self._lock:
             if self.is_moving:
-                raise RuntimeError("axis %s state is %r" % (self.name, "MOVING"))
+                raise RuntimeError("axis %s state is %r" % (self.name, 'MOVING'))
+
+            motion = Motion(self, None, None, "limit_search")
+            self.__execute_pre_move_hook(motion)
 
             self.__controller.limit_search(self, limit)
             self._start_move_task(self._wait_limit_search, limit)
+            self.__move_task._motions = [motion]
 
-        # create motion object for hooks
-        self.__move_task._motions = [Motion(self, None, None, "limit_search")]
-        
         if wait:
             self.wait_move()
 

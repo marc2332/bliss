@@ -129,7 +129,12 @@ class LinkedAxis(Axis):
     @lazy_init
     def home(self,switch=1,wait=True):
         with self._lock:
-            self._check_ready()
+            if self.is_moving:
+                raise RuntimeError("axis %s state is %r" % (self.name, 'MOVING'))
+
+            # create motion object for hooks
+            motion = Motion(self, None, None, "homing")
+            self.__execute_pre_move_hook(motion)
 
             cnx = self.controller._cnx
             cmd = "HOME STRICT %s %s" % (self.address,("+1" if switch > 0 else "-1"))
@@ -138,6 +143,8 @@ class LinkedAxis(Axis):
             gevent.sleep(0.2)
 
             self._start_move_task(self._wait_home, switch)
+            
+            self.__move_task._motions = [motion]
 
         if wait:
             self.wait_move()

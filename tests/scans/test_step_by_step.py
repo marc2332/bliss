@@ -10,7 +10,8 @@ import time
 import numpy
 from bliss import setup_globals
 from bliss.common import scans
-from bliss.scanning import scan
+from bliss.scanning import scan, chain
+from bliss.scanning.acquisition import timer, calc, motor, counter
 from bliss.common import event
 
 
@@ -90,3 +91,25 @@ def test_scan_callbacks(beacon):
     assert res["new"]
     assert res["end"]
     assert numpy.array_equal(numpy.array(res["values"]), counter.data)
+
+def test_calc_counters(beacon):
+    session = beacon.get("test_session")
+    session.setup()
+    m1 = getattr(setup_globals, 'm1')
+    c = chain.AcquisitionChain()
+    counter_class = getattr(setup_globals, 'TestScanGaussianCounter')
+    cnt = counter_class("gaussian", 10, cnt_time=0)
+    t = timer.SoftwareTimerMaster(0, npoints=10)
+    cnt_acq_device = counter.SamplingCounterAcquisitionDevice(cnt, count_time=0)
+    c.add(t, cnt_acq_device)
+    calc_cnt = calc.CalcAcquisitionDevice('bla',(cnt_acq_device,),
+                                          lambda y,x: {'pow':x['gaussian']**2},
+                                          (chain.AcquisitionChannel('pow',numpy.float,()),))
+    c.add(t, calc_cnt)
+    top_master = motor.LinearStepTriggerMaster(10,m1,0,1)
+    c.add(top_master,t)
+
+    s = scan.Scan(c, name='calc_scan',)
+    s.run()
+    scan_data = scans.get_data(s)
+    assert numpy.array_equal(scan_data['gaussian']**2,scan_data['pow'])

@@ -8,27 +8,46 @@ import sys
 
 
 class CalcAcquisitionDevice(AcquisitionDevice):
+    """
+    Helper to do some extra Calculation on counters.
+    i.e: compute encoder position to user position
+    Args:
+        src_acq_devices_list -- list or tuple of acq(device/master) you want to listen to.
+        func -- the transformation function. This will have has input a  dictionary
+        with the name of counter as the key and the value has the data of source data channel.
+        This function should return a dictionary with the name of the destination channel as key,
+        and the value as its data.
+    """
     def __init__(self, name, src_acq_devices_list, func, output_channels_list):
         AcquisitionDevice.__init__(
             self, None, name, trigger_type=AcquisitionDevice.HARDWARE)
         self.src_acq_devices_list = src_acq_devices_list
         self.func = func
+        self._already_prepared = False
         self.channels.extend(output_channels_list)
 
     def prepare(self):
-        for acq_device in self.src_acq_devices_list:
-            dispatcher.connect(self.new_data_received, "new_data", acq_device)
+        if not self._already_prepared:
+            for acq_device in self.src_acq_devices_list:
+                for channel in acq_device.channels:
+                    dispatcher.connect(self.new_data_received, "new_data", channel)
+            self._already_prepared = True
+
+    def trigger(self):
+        pass                    # nothing to do
 
     def new_data_received(self, event_dict=None, signal=None, sender=None):
-        channel_data = event_dict.get("channel_data")
+        channel_data = event_dict.get("data")
         if channel_data is None:
             return
-
-        output_channels_data_dict = self.func(sender, channel_data)
+        channel = event_dict.get('channel')
+        output_channels_data_dict = self.func(sender, {channel.name:channel_data})
 
         if output_channels_data_dict:
-            dispatcher.send("new_data", self, {
-                            "channel_data": output_channels_data_dict})
+            for channel in self.channels:
+                channel_data = output_channels_data_dict.get(channel.name)
+                if channel_data is not None:
+                    channel.emit(channel_data)
 
     def start(self):
         return

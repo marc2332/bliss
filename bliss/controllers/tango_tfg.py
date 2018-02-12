@@ -42,7 +42,7 @@ Usage:
                                   'series_terminated': False},
                                   ],
                     'scalerMode': 'Scaler64'
-                    'scalerChannels': [{'name': 'ScalIn0', 
+                    'scalerChannels': [{'name': 'ScalIn0',
                                         'option': 'count_rising_edges'}
                                        ]
                     }

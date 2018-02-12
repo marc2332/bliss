@@ -48,7 +48,7 @@ Usage:
                     }
 
     timer = TangoTfg2(name, config)
-    timer.prepare(timing_config)
+    timer.prepare(timing_info)
     timer.start()
 """
 from __future__ import absolute_import
@@ -179,7 +179,7 @@ class TangoTfg2(object):
             live_pause = trigger
 
         inversion = 0
-        drive = 0
+        drive_strength = 0
         for frameset in timing_info['framesets']:
             frame_count += frameset['nb_frames']
             if (pause_trigger.get('trig_when', self.ALL_FRAMES) == self.ALL_FRAMES) or \
@@ -300,7 +300,7 @@ class TangoTfg2(object):
     def __setup_scaler_channels(self, timing_info):
         scaler_mode = timing_info.get('scalerMode', 'Scaler64')
         self._control.setupCCMode(self.ScalerMode[scaler_mode])
-        
+
         scaler_channels = timing_info.get('scalerChannels', self.ALL_CHAN)
         if scaler_channels == self.ALL_CHAN:
             self._control.setupCCChan([self.ScalerOptions['count_rising_edges'], self.ALL_CHAN])
@@ -308,5 +308,5 @@ class TangoTfg2(object):
             # set all channels to default in case options for every channel not specified
             self._control.setupCCChan([self.ScalerOptions['count_rising_edges'], self.ALL_CHAN])
             for channel in scaler_channels:
-                self._control.setupCCChan([self.ScalerOptions[channel.get('option', 'count_rising_edges')], 
+                self._control.setupCCChan([self.ScalerOptions[channel.get('option', 'count_rising_edges')],
                                            self.ScalerInput[channel.get('name', self.ALL_CHAN)]])

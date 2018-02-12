@@ -252,19 +252,17 @@ class Mockup(Controller):
 
     def set_hw_limits(self, axis, low_limit, high_limit):
         if low_limit is None:
-            if axis.steps_per_unit > 0:
-                low_limit = float('-inf')
-            else:
-                low_limit = float('+inf')
+            low_limit = float('-inf')
         if high_limit is None:
-            if axis.steps_per_unit > 0:
-                high_limit = float('+inf')
-            else:
-                high_limit = float('-inf')
-        ll= axis.user2dial(low_limit)*axis.steps_per_unit
-        hl = axis.user2dial(high_limit)*axis.steps_per_unit
-        if hl < ll:
+            high_limit = float('+inf')
+        if high_limit < low_limit:
             raise ValueError('Cannot set hard low limit > high limit')
+        ll = axis.user2dial(low_limit)*axis.steps_per_unit
+        hl = axis.user2dial(high_limit)*axis.steps_per_unit
+        # low limit and high limits may now be exchanged,
+        # because of the signs or steps per unit or user<->dial conversion
+        if hl < ll:
+            ll, hl = hl, ll
         self.__hw_limit = (ll, hl)
 
     def start_all(self, *motion_list):

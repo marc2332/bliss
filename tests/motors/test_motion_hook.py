@@ -69,7 +69,8 @@ def test_axis_homing(hooked_m0):
  
 def test_axis_limit(hooked_m0):
     hook0 = hooked_m0.motion_hooks[0]
-   
+
+    hooked_m0.controller.set_hw_limits(hooked_m0, -2, 2)
     hooked_m0.hw_limit(1)
 
     assert hook0.last_post_move_args[-1].type == 'limit_search'

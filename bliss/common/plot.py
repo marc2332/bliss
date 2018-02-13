@@ -9,6 +9,7 @@ FLINT_PROCESS = None
 FLINT_CHANNEL = None
 FLINT_READY = gevent.event.Event()
 
+
 class Plot(object):
     def __init__(self, session_id):
         self.channel = Channel("flint:%s:%s" % (session_id, id(self)), callback=self.channel_update)
@@ -26,6 +27,7 @@ def flint_channel_update(event):
     if event == 'connected':
         FLINT_READY.set()
 
+
 def plot(data_or_scan_obj=None):
     """Plot data (numpy array) or scan object
 
@@ -34,13 +36,13 @@ def plot(data_or_scan_obj=None):
     scan_saving = scan_module.ScanSaving()
     session_name = scan_saving.session
     session_id = uuid.uuid1()
-    
+
     global FLINT_PROCESS
     if FLINT_PROCESS is None:
         global FLINT_CHANNEL
         FLINT_PROCESS = subprocess.Popen('flint -s %s:%s' % (session_name, session_id), shell=True)
-        FLINT_CHANNEL = Channel("flint:%s" % session_id, callback=flint_channel_update)    
- 
+        FLINT_CHANNEL = Channel("flint:%s" % session_id, callback=flint_channel_update)
+
     FLINT_READY.wait()
 
     p = Plot(session_id)
@@ -49,5 +51,7 @@ def plot(data_or_scan_obj=None):
 
     p.connected.wait()
 
-    return p 
- 
+    if data_or_scan_obj is not None:
+        p.display(data_or_scan_obj)
+
+    return p

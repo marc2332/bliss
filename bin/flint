@@ -46,7 +46,7 @@ def copy_data(scan_node,zerod,zerod_index):
     from_index = zerod_index.get(channel_name,0)
     data = data_channel.get(from_index,-1)
     zerod_index[channel_name] = from_index + len(data)
-    print data
+    # print 'copying', data
 
 
 def watch_data(scan_node):
@@ -62,7 +62,6 @@ def watch_data(scan_node):
             copy_data(scan_node, zerod, zerod_index)
 
 def plot_update(event, plot_channel_name=None):
-    print '*'*10,plot_channel_name, event
     if event == 'connected':
         return
     EVENTS_QUEUE.put(event)
@@ -82,7 +81,7 @@ def flint_channel_update(plot_channel_name):
     GEVENT_PLOTS[plot_channel_name] = c
 
 
-    
+
 def watch_session(session_name, session_id=None):
     if session_id:
         global FLINT_CHANNEL
@@ -102,6 +101,19 @@ def watch_session(session_name, session_id=None):
             watch_data_task = gevent.spawn(watch_data, scan_node)
 
 
+def plot_data(window, data):
+    if data.ndim == 1:
+        xs = numpy.arange(len(data))
+        if data.dtype.fields is None:
+            window.addCurve(xs, data)
+        else:
+            for field in data.dtype.fields:
+                print(field, xs, data[field])
+                window.addCurve(xs, data[field], legend=field)
+        return
+    raise NotImplementedError
+
+
 def main():
     try:
         # Parse arguments, use file docstring as a parameter definition
@@ -110,12 +122,13 @@ def main():
     except docopt.DocoptExit as e:
         print e.message
     else:
+        global qapp
         qapp = qt.QApplication([])
         win = qt.QMainWindow()
         mdi_area = qt.QMdiArea(win)
         win.setCentralWidget(mdi_area)
         win.show()
-     
+
         try:
             session_name, session_id = session_name.split(":")
         except ValueError:
@@ -141,7 +154,7 @@ def main():
                     elif ev['event'] == 'data':
                         plot_channel_name, data = ev['data']
                         plot_window = PLOTS[plot_channel_name]
-                        print plot_window, len(data)
+                        plot_data(plot_window, data)
                     elif ev['event'] == 'scan':
                         plot_channel_name, scan_node_name = ev['data']
                         plot_window = PLOTS[plot_channel_name]
@@ -158,6 +171,3 @@ def main():
 
 if __name__ == '__main__':
    main()
-
-
-

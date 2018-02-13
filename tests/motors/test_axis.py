@@ -161,6 +161,7 @@ def test_home_stop(robz):
     assert robz.state() == "READY"
 
 def test_limit_search_stop(robz):
+    robz.controller.set_hw_limits(robz, -5, 5)
     robz.hw_limit(1, wait=False)
 
     time.sleep(0.1)
@@ -359,10 +360,11 @@ def test_dial(robz):
     assert robz.position() == 2
 
 def test_limit_search(robz):
+    robz.controller.set_hw_limits(robz, -11.5, 12.4)
     robz.hw_limit(1)
-    assert robz.dial() == 1E6
+    assert robz.dial() == 12.4
     robz.hw_limit(-1)
-    assert robz.dial() == -1E6
+    assert robz.dial() == -11.5
 
 def test_set_position(m0):
     assert m0.position() == m0._set_position()

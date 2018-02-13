@@ -12,7 +12,7 @@ import gevent
 
 from bliss.controllers.motor import Controller
 from bliss.common import log as elog
-from bliss.common.axis import Axis,AxisState
+from bliss.common.axis import Axis, AxisState, MotionEstimation
 from bliss.common import event
 
 from bliss.common.hook import MotionHook
@@ -32,6 +32,133 @@ config :
  'backlash' in unit
 """
 
+class Trajectory(object):
+    """
+    Trajectory representation for a motion
+
+    v|  pa,ta_________pb,tb
+     |      //        \\
+     |_____//__________\\_______> t
+       pi,ti             pf,tf
+           <--duration-->
+    """
+    def __init__(self, pi, pf, velocity, acceleration, ti=None):
+        if ti is None:
+            ti = time.time()
+        self.ti = ti
+        self.pi = pi = float(pi)
+        self.pf = pf = float(pf)
+        self.velocity = velocity = float(velocity)
+        self.acceleration = acceleration = float(acceleration)
+        self.p = pf - pi
+        self.dp = abs(self.p)
+        self.positive = pf > pi
+
+        full_accel_time = velocity / acceleration
+        full_accel_dp = 0.5 * acceleration * full_accel_time**2
+
+        full_dp_non_const_vel = 2 * full_accel_dp
+        self.reaches_top_vel = self.dp > full_dp_non_const_vel
+        if self.reaches_top_vel:
+            self.top_vel_dp = self.dp - full_dp_non_const_vel
+            self.top_vel_time = self.top_vel_dp / velocity
+            self.accel_dp = full_accel_dp
+            self.accel_time = full_accel_time
+            self.duration = self.top_vel_time + 2 * self.accel_time
+            self.ta = self.ti + self.accel_time
+            self.tb = self.ta + self.top_vel_time
+            if self.positive:
+                self.pa = pi + self.accel_dp
+                self.pb = self.pa + self.top_vel_dp
+            else:
+                self.pa = pi - self.accel_dp
+                self.pb = self.pa - self.top_vel_dp
+        else:
+            self.top_vel_dp = 0
+            self.top_vel_time = 0
+            self.accel_dp = self.dp / 2
+            self.accel_time = math.sqrt(2 * self.accel_dp / acceleration)
+            self.duration = 2 * self.accel_time
+            self.velocity = acceleration * self.accel_time
+            self.ta = self.tb = self.ti + self.accel_time
+            if self.positive:
+                pa_pb = pi + self.accel_dp
+            else:
+                pa_pb = pi - self.accel_dp
+            self.pa = self.pb = pa_pb
+        self.tf = self.ti + self.duration
+
+    def position(self, instant=None):
+        """Position at a given instant in time"""
+        if instant is None:
+            instant = time.time()
+        if instant < self.ti:
+            raise ValueError('instant cannot be less than start time')
+        if instant > self.tf:
+            return self.pf
+        dt = instant - self.ti
+        p = self.pi
+        f = 1 if self.positive else -1
+        if instant < self.ta:
+            accel_dp = 0.5 * self.acceleration * dt**2
+            return p + f * accel_dp
+
+        p += f * self.accel_dp
+
+        # went through the initial acceleration
+        if instant < self.tb:
+            t_at_max = dt - self.accel_time
+            dp_at_max = self.velocity * t_at_max
+            return p + f * dp_at_max
+        else:
+            dp_at_max = self.top_vel_dp
+            decel_time = instant - self.tb
+            decel_dp = 0.5 * self.acceleration * decel_time**2
+            return p + f * dp_at_max + f * decel_dp
+
+    def instant(self, position):
+        """Instant when the trajectory passes at the given position"""
+        d = position - self.pi
+        dp = abs(d)
+        if dp > self.dp:
+           raise ValueError('position outside trajectory')
+
+        dt = self.ti
+        if dp > self.accel_dp:
+            dt += self.accel_time
+        else:
+            return math.sqrt(2 * dp / self.acceleration) + dt
+
+        top_vel_dp = dp - self.accel_dp
+        if top_vel_dp > self.top_vel_dp:
+            # starts deceleration
+            dt += self.top_vel_time
+            decel_dp = abs(position- self.pb)
+            dt += math.sqrt(2 * decel_dp / self.acceleration)
+        else:
+            dt += top_vel_dp / self.velocity
+        return dt
+
+    def __repr__(self):
+        return '{0}({1.pi}, {1.pf}, {1.velocity}, {1.acceleration}, {1.ti})' \
+               .format(type(self).__name__, self)
+
+
+class Motion(object):
+    """Describe a single motion"""
+
+    def __init__(self, pi, pf, velocity, acceleration, hard_limits, ti=None):
+
+        # TODO: take hard limits into account (complicated).
+        # For now just shorten the movement
+        self.hard_limits = low_limit, high_limit = hard_limits
+        if pf > high_limit:
+            pf = high_limit
+        if pf < low_limit:
+            pf = low_limit
+        self.trajectory = Trajectory(pi, pf, velocity, acceleration, ti)
+
+
 class Mockup(Controller):
     def __init__(self, *args, **kwargs):
         Controller.__init__(self, *args, **kwargs)
@@ -45,7 +172,7 @@ class Mockup(Controller):
 
         self.__error_mode = False
         self._hw_state = AxisState("READY")
-        self.__hw_limit = (None, None)
+        self.__hw_limit = float('-inf'), float('+inf')
 
         self._hw_state.create_state("PARKED", "mot au parking")
 
@@ -80,17 +207,15 @@ class Mockup(Controller):
                 self.set_position(axis, axis.dial()*axis.steps_per_unit)
 
         self._axis_moves[axis] = {
-            "end_t": None,
+            "motion": None,
             "move_done_cb": set_pos }
 
         if axis.settings.get('hw_position') is None:
             axis.settings.set('hw_position', 0)
-        self._axis_moves[axis]['start_pos'] = self.read_position(axis)
-        self._axis_moves[axis]['target'] = self._axis_moves[axis]['start_pos']
 
         event.connect(axis, "move_done", set_pos)
 
-        self.__voltages[axis] = axis.config.get("default_voltage", 
+        self.__voltages[axis] = axis.config.get("default_voltage",
                                                 int, default=220)
         self.__cust_attr_float[axis] = axis.config.get("default_cust_attr",
                                                        float, default=3.14)
@@ -111,19 +236,34 @@ class Mockup(Controller):
     def finalize(self):
         pass
 
+    def _get_axis_motion(self, axis, t=None):
+        """Get an updated motion object.
+           Also updates the motor hardware position setting if a motion is
+           occuring"""
+        motion = self._axis_moves[axis]['motion']
+        if motion:
+            if t is None:
+                t = time.time()
+            pos = motion.trajectory.position(t)
+            axis.settings.set('hw_position', pos)
+            if t > motion.trajectory.tf:
+                self._axis_moves[axis]['motion'] = motion = None
+        return motion
+
     def set_hw_limits(self, axis, low_limit, high_limit):
-        if low_limit is not None:
-            ll= axis.user2dial(low_limit)*axis.steps_per_unit
-        else:
-            ll = None
-        if high_limit is not None:
-            hl = axis.user2dial(high_limit)*axis.steps_per_unit
-        else:
-            hl = None
-        if hl is not None and hl < ll:
-          self.__hw_limit = (hl, ll)
-        else:
-          self.__hw_limit = (ll, hl)
+        if low_limit is None:
+            low_limit = float('-inf')
+        if high_limit is None:
+            high_limit = float('+inf')
+        if high_limit < low_limit:
+            raise ValueError('Cannot set hard low limit > high limit')
+        ll = axis.user2dial(low_limit)*axis.steps_per_unit
+        hl = axis.user2dial(high_limit)*axis.steps_per_unit
+        # low limit and high limits may now be exchanged,
+        # because of the signs or steps per unit or user<->dial conversion
+        if hl < ll:
+            ll, hl = hl, ll
+        self.__hw_limit = (ll, hl)
 
     def start_all(self, *motion_list):
         if self.__error_mode:
@@ -136,32 +276,25 @@ class Mockup(Controller):
         if self.__error_mode:
             raise RuntimeError("Cannot start because error mode is set")
         axis = motion.axis
-        t0 = t0 or time.time()
+        if t0 is None:
+            t0 = time.time()
+        if self._get_axis_motion(axis):
+            raise RuntimeError('Cannot start motion. Motion already in place')
         pos = self.read_position(axis)
-        v = self.read_velocity(axis)
-        ll, hl = self.__hw_limit
+        vel = self.read_velocity(axis)
+        accel = self.read_acceleration(axis)
         end_pos = motion.target_pos
-        if hl is not None and end_pos > hl:
-            end_pos = hl
-        if ll is not None and end_pos < ll:
-            end_pos = ll
-        delta = motion.delta + end_pos - motion.target_pos
-        self._axis_moves[axis].update({
-            "start_pos": pos,
-            "delta": delta,
-            "end_t": t0 + math.fabs(delta) / float(v),
-            "target": end_pos,
-            "t0": t0})
+        axis_motion = Motion(pos, end_pos, vel, accel, self.__hw_limit, ti=t0)
+        self._axis_moves[axis]['motion'] = axis_motion
 
     def start_jog(self, axis, velocity, direction):
-        t0 = time.time() 
+        t0 = time.time()
         pos = self.read_position(axis)
         self.set_velocity(axis, velocity)
-        self._axis_moves[axis].update({ 
-            "start_pos": pos,
-            "delta": direction,
-            "end_t": t0+1E9,
-            "t0": t0})
+        accel = self.read_acceleration(axis)
+        target = float('+inf') if direction > 0 else float('-inf')
+        motion = Motion(pos, target, velocity, accel, self.__hw_limit, ti=t0)
+        self._axis_moves[axis]['motion'] = motion
 
     def read_position(self, axis, t=None):
         """
@@ -171,25 +304,11 @@ class Mockup(Controller):
         gevent.sleep(0.005) #simulate I/O
 
         t = t or time.time()
-        end_t = self._axis_moves[axis]["end_t"]
-        if end_t is not None and t >= end_t:
-            pos = self._axis_moves[axis]["target"]
-            axis.settings.set('hw_position', pos)
-        elif end_t:
-            # motor is moving
-            v = self.read_velocity(axis)
-            a = self.read_acceleration(axis)
-            d = math.copysign(1, self._axis_moves[axis]["delta"])
-            dt = t - self._axis_moves[axis]["t0"]  # t0=time at start_one.
-            acctime = min(dt, v/a)
-            dt -= acctime
-            pos = self._axis_moves[axis]["start_pos"] + d*a*0.5*acctime**2 
-            if dt > 0:
-                pos += d * dt * v
-            axis.settings.set('hw_position', pos)
-        else:
+        motion = self._get_axis_motion(axis, t)
+        if motion is None:
             pos = axis.settings.get('hw_position')
-
+        else:
+            pos = motion.trajectory.position(t)
         return int(round(pos))
 
     def read_encoder(self, encoder):
@@ -255,7 +374,7 @@ class Mockup(Controller):
         <new_acceleration> is in controller units / s2
         """
         acc = new_acceleration/abs(axis.steps_per_unit)
-        axis.settings.set('acceleration', acc) 
+        axis.settings.set('acceleration', acc)
         return acc
 
     """
@@ -274,9 +393,9 @@ class Mockup(Controller):
     def _check_hw_limits(self, axis):
         ll, hl = self.__hw_limit
         pos = self.read_position(axis)
-        if ll is not None and pos <= ll:
+        if pos <= ll:
             return AxisState("READY", "LIMNEG")
-        elif hl is not None and pos >= hl:
+        elif pos >= hl:
             return AxisState("READY", "LIMPOS")
         if self._hw_state == "OFF":
             return AxisState("OFF")
@@ -290,21 +409,19 @@ class Mockup(Controller):
     """
     def state(self, axis):
         gevent.sleep(0.005) #simulate I/O
-        if self._axis_moves[axis]["end_t"] > time.time():
-           return AxisState("MOVING")
-        else:
-           self.read_position(axis, t=self._axis_moves[axis]["end_t"])
-           self._axis_moves[axis]["end_t"] = None
-           self._axis_moves[axis]["delta"] = 0
+        motion = self._get_axis_motion(axis)
+        if motion is None:
            return self._check_hw_limits(axis)
+        else:
+           return AxisState("MOVING")
 
     """
     Must send a command to the controller to abort the motion of given axis.
     """
     def stop(self, axis, t=None):
-        if self._axis_moves[axis]["end_t"]:
-            self._axis_moves[axis]["target"] = self.read_position(axis, t=t)
-            self._axis_moves[axis]["end_t"] = None
+        motion = self._get_axis_motion(axis, t)
+        if motion:
+            self._axis_moves[axis]['motion'] = None
 
     def stop_all(self, *motion_list):
         t = time.time()
@@ -331,10 +448,12 @@ class Mockup(Controller):
             return AxisState("MOVING")
 
     def limit_search(self, axis, limit):
-        self._axis_moves[axis]["target"] = 1e6*limit*axis.steps_per_unit
-        self._axis_moves[axis]["delta"] = limit
-        self._axis_moves[axis]["end_t"] = time.time() + 1
-        self._axis_moves[axis]["t0"] = time.time()
+        target = float('+inf') if limit > 0 else float('-inf')
+        pos = self.read_position(axis)
+        vel = self.read_velocity(axis)
+        accel = self.read_acceleration(axis)
+        motion = Motion(pos, target, vel, accel, self.__hw_limit)
+        self._axis_moves[axis]['motion'] = motion
 
     def get_info(self, axis):
         return "turlututu chapo pointu : %s" % (axis.name)
@@ -343,9 +462,10 @@ class Mockup(Controller):
         return "MOCKUP AXIS %s" % (axis.name)
 
     def set_position(self, axis, pos):
-        if self._axis_moves[axis]["end_t"]:
+        motion = self._get_axis_motion(axis)
+        if motion:
             raise RuntimeError("Cannot set position while moving !")
-        
+
         axis.settings.set('hw_position', pos)
         self._axis_moves[axis]['target'] = pos
         self._axis_moves[axis]["end_t"] = None

@@ -52,6 +52,8 @@ class MotorMaster(AcquisitionMaster):
         self.trigger()
 
     def trigger(self):
+        if self.trigger_type == AcquisitionMaster.SOFTWARE:
+            self.trigger_slaves()
         self.initial_velocity = self.movable.velocity()
         self.movable.velocity(self.velocity)
         end = self._calculate_undershoot(self.end_pos, end=True)

@@ -6,156 +6,39 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 """
-Usage: flint [(-s | --session)] <name>...
+Usage: flint (-s | --session) <name>
        flint (-h | --help)
 Options:
-    -s, --session                 Follow data from session(s).
+    -s, --session                 Follow data from session.
     -h, --help                    Show this screen.
 """
 import docopt
-from silx.gui.plot.PlotWindow import Plot1D
+from silx.gui.plot.PlotWindow import Plot1D,PlotWindow
 from silx.gui import qt
 try:
     from PyQt4.QtCore import pyqtRemoveInputHook
 except ImportError:
     from PyQt5.QtCore import pyqtRemoveInputHook
 from bliss.data.node import DataNodeIterator, _get_or_create_node, is_zerod
+from bliss.config.channels import Channel
 import numpy
 import gevent
+import gevent.monkey
 import sys
 import weakref
-
+import functools
 from bliss.common.utils import OrderedDict
 
 pyqtRemoveInputHook()
 
-def run_gevent():
-  try:
-      gevent.wait(timeout=0.01)
-  except KeyboardInterrupt:
-      sys.exit(1)
-
-qapp = qt.QApplication([])
-
-events_processing = qt.QTimer()
-events_processing.setInterval(10)
-events_processing.timeout.connect(run_gevent)
-events_processing.start()
+Queue = gevent.monkey.get_original("Queue","Queue")
+QueueEmpty = gevent.monkey.get_original("Queue", "Empty")
+start_new_thread = gevent.monkey.get_original("thread","start_new_thread")
 
 PLOTS = dict()
-PLOT_DATA = dict()
-AXIS_INFO = dict()
+GEVENT_PLOTS = dict()
+FLINT_CHANNEL = None
 
-def _update(data, axis_info, plot):
-    x_data = data.get(axis_info["x"],[])
-    for y_axis in axis_info["y"]:
-        y_data = data.get(y_axis, [])
-        if len(x_data) == len(y_data):
-            plot.addCurve(x_data, y_data, legend='%s / %s' % (y_axis, axis_info['x']))
-
-class AxesDockWidget(qt.QDockWidget):
-    def __init__(self, parent=None, plot=None):
-        assert plot is not None
-        self._plotRef = weakref.ref(plot)
-        self._isConnected = False  # True if widget connected to plot signals
-
-        super(AxesDockWidget, self).__init__("Axes selection", parent)
-
-        self.layout().setContentsMargins(0, 0, 0, 0)
-        self.makeWidget()
-
-        self.visibilityChanged.connect(self._visibilityChangedHandler)
-
-    @property
-    def plot(self):
-        return self._plotRef()
-
-    def makeWidget(self):
-        self._widget = qt.QWidget(self)
-        qt.QGridLayout(self._widget)
-        self.setWidget(self._widget)
-
-    def checkboxStateChanged(self,state):
-        self.axis_info["x"]=None
-        self.axis_info["y"]=[]
-        for axis, checkbox in self.x_checkboxes.iteritems():
-          if checkbox.isChecked():
-            self.axis_info["x"] = axis
-            break
-        for axis, checkbox in self.y_checkboxes.iteritems():
-          if checkbox.isChecked():
-            self.axis_info["y"].append(axis)
-        self.plot.clear()
-        data = PLOT_DATA[self.plot._scan_node]
-        _update(data, self.axis_info, self.plot)
-
-    def setAxisInfo(self, axis_info):
-        self.axis_info = axis_info
-        self.x_checkboxes = {}
-        self.y_checkboxes = {}
-
-        self._widget.close()
-        self.makeWidget()
-
-        grpx = qt.QButtonGroup(self._widget)
-        grpy = qt.QButtonGroup(self._widget)
-        grpy.setExclusive(False)
-        self._widget.layout().addWidget(qt.QLabel("label", self), 0, 0)
-        self._widget.layout().addWidget(qt.QLabel("x", self), 0, 1)
-        self._widget.layout().addWidget(qt.QLabel("y", self), 0, 2)
-        for i, axis in enumerate(axis_info.get("__all__", [])):
-            self._widget.layout().addWidget(qt.QLabel(axis, self), i+1, 0)
-            chk_x = qt.QCheckBox(self._widget)
-            grpx.addButton(chk_x)
-            chk_x.setChecked(axis_info["x"] == axis)
-            self.x_checkboxes[axis] = chk_x
-            chk_x.stateChanged.connect(self.checkboxStateChanged)
-            self._widget.layout().addWidget(chk_x, i+1, 1)
-            chk_y = qt.QCheckBox(self._widget)
-            grpy.addButton(chk_y)
-            chk_y.setChecked(axis in axis_info["y"])
-            self.y_checkboxes[axis] = chk_y
-            chk_y.stateChanged.connect(self.checkboxStateChanged)
-            self._widget.layout().addWidget(chk_y, i+1, 2)
-
-    def updateAxes(self, *args):
-        axis_info = AXIS_INFO[self.plot._scan_node]
-        self.setAxisInfo(axis_info)
-
-    def _visibilityChangedHandler(self, visible):
-        if visible:
-            self.updateAxes()
-            if not self._isConnected:
-                self.plot.sigContentChanged.connect(self.updateAxes)
-                self.plot.sigActiveCurveChanged.connect(self.updateAxes)
-                self._isConnected = True
-        else:
-            if self._isConnected:
-                self.plot.sigContentChanged.disconnect(self.updateAxes)
-                self.plot.sigActiveCurveChanged.disconnect(self.updateAxes)
-                self._isConnected = False
-
-    def showEvent(self, event):
-        """Make sure this widget is raised when it is shown
-        (when it is first created as a tab in PlotWindow or when it is shown
-        again after hiding).
-        """
-        self.raise_()
-
-def update_plot(scan_node):
-    plot = PLOTS[scan_node]
-    plot._scan_node = scan_node
-    data = PLOT_DATA[scan_node]
-    
-    axes_list = data.keys()
-    try:
-      axis_info = AXIS_INFO.setdefault(scan_node, {"x": axes_list[0], "y": [axes_list[1]] })
-    except IndexError:
-      return
-
-    axis_info["__all__"] = axes_list[:]
-
-    _update(data, axis_info, plot)
 
 def copy_data(scan_node,zerod,zerod_index):
     channel_name = zerod.name
@@ -163,25 +46,10 @@ def copy_data(scan_node,zerod,zerod_index):
     from_index = zerod_index.get(channel_name,0)
     data = data_channel.get(from_index,-1)
     zerod_index[channel_name] = from_index + len(data)
-    if data:
-        channel_data = PLOT_DATA.setdefault(scan_node, {}).setdefault(channel_name, [])
-        channel_data.extend(data)
-        update_plot(scan_node)
+    print data
 
-def watch_data(scan_node, mdi_area):
-    plot_window = Plot1D()
-    PLOTS[scan_node] = plot_window
-    mdi_area.addSubWindow(plot_window)
-    controlMenu = plot_window.controlButton.menu()
-    def add_axes_selection(menu=controlMenu, plot_window=plot_window):
-        axes_widget = AxesDockWidget(plot_window, plot_window)
-        axes_widget.hide()
-        plot_window.addTabbedDockWidget(axes_widget)
-        menu.addAction(axes_widget.toggleViewAction())
-    controlMenu.aboutToShow.connect(add_axes_selection)
 
-    plot_window.show()
-
+def watch_data(scan_node):
     zerod_index = dict()
 
     scan_data_iterator = DataNodeIterator(scan_node)
@@ -192,8 +60,35 @@ def watch_data(scan_node, mdi_area):
         if event_type in (scan_data_iterator.NEW_CHILD_EVENT,
                           scan_data_iterator.NEW_DATA_IN_CHANNEL_EVENT):
             copy_data(scan_node, zerod, zerod_index)
+
+def plot_update(event, plot_channel_name=None):
+    print '*'*10,plot_channel_name, event
+    if event == 'connected':
+        return
+    EVENTS_QUEUE.put(event)
+
+def flint_channel_update(plot_channel_name):
+    if plot_channel_name == 'connected':
+        return
+
+    # new plot
+    plot_update_cb = functools.partial(plot_update, plot_channel_name=plot_channel_name)
+    c = Channel(plot_channel_name, callback=plot_update_cb)
+    c._plot_update_cb = plot_update_cb
+    c.value = "connected"
+
+    EVENTS_QUEUE.put({"event":"new_plot", "data":plot_channel_name})
+
+    GEVENT_PLOTS[plot_channel_name] = c
+
+
     
-def watch_session(session_name, mdi):
+def watch_session(session_name, session_id=None):
+    if session_id:
+        global FLINT_CHANNEL
+        FLINT_CHANNEL = Channel("flint:%s" % session_id, callback=flint_channel_update)
+        FLINT_CHANNEL.value = "connected"
+
     session_node = _get_or_create_node(session_name, node_type='session')
     if session_node is not None:
         data_iterator = DataNodeIterator(session_node)
@@ -202,25 +97,63 @@ def watch_session(session_name, mdi):
         for scan_node in data_iterator.walk_from_last(filter='scan'):
             if watch_data_task:
                 watch_data_task.kill()
-            watch_data_task = gevent.spawn(watch_data, scan_node, mdi)
+            print 'new scan node',scan_node
+            EVENTS_QUEUE.put({"event":"new_scan", "data":None})
+            watch_data_task = gevent.spawn(watch_data, scan_node)
+
 
 def main():
     try:
         # Parse arguments, use file docstring as a parameter definition
         arguments = docopt.docopt(__doc__)
-        sessions_name = arguments['<name>']
+        session_name = arguments['<name>']
     except docopt.DocoptExit as e:
         print e.message
     else:
+        qapp = qt.QApplication([])
         win = qt.QMainWindow()
         mdi_area = qt.QMdiArea(win)
         win.setCentralWidget(mdi_area)
         win.show()
-        
-        tasks = list()
-        for session in sessions_name:
-            tasks.append(gevent.spawn(watch_session, session, mdi_area))
-  
+     
+        try:
+            session_name, session_id = session_name.split(":")
+        except ValueError:
+            session_id = None
+
+        global EVENTS_QUEUE
+        EVENTS_QUEUE = Queue()
+
+        def process_queue(mdi=mdi_area):
+            while True:
+                try:
+                    ev = EVENTS_QUEUE.get_nowait()
+                except QueueEmpty:
+                    return
+                else:
+                    print '!'*10, 'in Qt', ev
+                    if ev['event'] == 'new_plot':
+                        plot_channel_name = ev['data']
+                        plot_window = PlotWindow(mdi)
+                        PLOTS[plot_channel_name] = plot_window
+                        mdi.addSubWindow(plot_window)
+                        plot_window.show()
+                    elif ev['event'] == 'data':
+                        plot_channel_name, data = ev['data']
+                        plot_window = PLOTS[plot_channel_name]
+                        print plot_window, len(data)
+                    elif ev['event'] == 'scan':
+                        plot_channel_name, scan_node_name = ev['data']
+                        plot_window = PLOTS[plot_channel_name]
+
+
+        events_processing = qt.QTimer()
+        events_processing.setInterval(10)
+        events_processing.timeout.connect(process_queue)
+        events_processing.start()
+
+        start_new_thread(watch_session, (session_name, session_id))
+
         qapp.exec_()
 
 if __name__ == '__main__':

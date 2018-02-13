@@ -36,7 +36,6 @@ from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 from bliss.scanning.acquisition.motor import VariableStepTriggerMaster
 from bliss.scanning.acquisition.motor import LinearStepTriggerMaster, MeshStepTriggerMaster
 from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
-from bliss.scanning.acquisition.ct2 import CT2AcquisitionMaster
 from bliss.scanning.acquisition.mca import BaseMcaCounter, McaAcquisitionDevice
 from bliss.scanning.acquisition.pepu import PepuCounter, PepuAcquisitionDevice
 from bliss.common import session,measurementgroup
@@ -121,6 +120,7 @@ def default_master_configuration(counter, scan_pars):
                                            prepare_once = multi_mode)
         return acq_device, { "prepare_once": multi_mode, "start_once": multi_mode }
     elif type(device).__name__ == 'CT2':
+        from bliss.scanning.acquisition.ct2 import CT2AcquisitionMaster
         acq_device = CT2AcquisitionMaster(device, npoints=npoints,
                                           acq_expo_time=acq_expo_time)
         return acq_device, { "prepare_once": acq_device.prepare_once,

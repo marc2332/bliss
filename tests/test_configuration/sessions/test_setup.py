@@ -1,5 +1,5 @@
 import random
-from bliss.common.scans import *
+from bliss.common.standard import *
 from bliss.common.measurement import SamplingCounter
 from bliss.common.session import get_current
 import numpy

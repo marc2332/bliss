@@ -157,20 +157,21 @@ class SimulatedMCA(BaseMCA):
     # Data generation
 
     def _generate_pixel(self, delta):
-        realtime = delta
-        livetime = realtime * numpy.random.normal(0.9, 0.01)
-        triggers = int(10000 * numpy.random.normal(livetime, livetime*0.2))
-        events = triggers // 2
-        icr = triggers / realtime if realtime else 0.
-        ocr = events / livetime if livetime else 0.
-        deadtime = 1 - ocr / icr if icr else 0.
-        st = Stats(realtime, livetime, triggers, events, icr, ocr, deadtime)
-        stats = dict((i, st) for i in self.elements)
-        size = self._spectrum_size
-        data = dict((i, numpy.zeros(size)) for i in self.elements)
-        for _ in range(events):
-            loc = numpy.random.normal(size//2, size//16)
-            for i in self.elements:
+        data, stats = {}, {}
+        for i in self.elements:
+            realtime = delta
+            livetime = realtime * numpy.random.normal(0.9, 0.01)
+            triggers = int(10000 * numpy.random.normal(livetime, livetime*0.2))
+            events = triggers // 2
+            icr = triggers / realtime if realtime else 0.
+            ocr = events / livetime if livetime else 0.
+            deadtime = 1 - ocr / icr if icr else 0.
+            stats[i] = Stats(
+                realtime, livetime, triggers, events, icr, ocr, deadtime)
+            size = self._spectrum_size
+            data[i] = numpy.zeros(size)
+            for _ in range(events):
+                loc = numpy.random.normal(size//2, size//16)
                 e = int(numpy.random.normal(loc, size//16))
                 data[i][e] += 1
         return data, stats

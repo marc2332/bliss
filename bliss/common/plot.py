@@ -4,6 +4,7 @@ import gevent.event
 from bliss.scanning import scan as scan_module
 from bliss.config.channels import Channel
 import uuid
+import itertools
 
 FLINT_PROCESS = None
 FLINT_CHANNEL = None
@@ -11,9 +12,17 @@ FLINT_READY = gevent.event.Event()
 
 
 class Plot(object):
-    def __init__(self, session_id):
-        self.channel = Channel("flint:%s:%s" % (session_id, id(self)), callback=self.channel_update)
+
+    # Count the plots
+    gen = itertools.count(1)
+
+    def __init__(self, session_id, name=None):
         self.connected = gevent.event.Event()
+        index = next(self.gen)
+        self.name = name or "Plot {}".format(index)
+        self.channel = Channel(
+            "flint:%s:%s:%s" % (session_id, id(self), self.name),
+            callback=self.channel_update)
 
     def channel_update(self, event):
         if event == 'connected':
@@ -28,7 +37,7 @@ def flint_channel_update(event):
         FLINT_READY.set()
 
 
-def plot(data_or_scan_obj=None):
+def plot(data_or_scan_obj=None, name=None):
     """Plot data (numpy array) or scan object
 
     If data_or_scan_obj is None, open user interface with tree
@@ -45,7 +54,7 @@ def plot(data_or_scan_obj=None):
 
     FLINT_READY.wait()
 
-    p = Plot(session_id)
+    p = Plot(session_id, name=name)
     # notify flint there is a new plot
     FLINT_CHANNEL.value = p.channel.name
 

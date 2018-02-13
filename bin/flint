@@ -147,7 +147,9 @@ def main():
                     print '!'*10, 'in Qt', ev
                     if ev['event'] == 'new_plot':
                         plot_channel_name = ev['data']
+                        title = plot_channel_name.split(':')[-1]
                         plot_window = PlotWindow(mdi)
+                        plot_window.setWindowTitle(title)
                         PLOTS[plot_channel_name] = plot_window
                         mdi.addSubWindow(plot_window)
                         plot_window.show()

@@ -183,17 +183,22 @@ def get_param_value(handle, param):
     return values
 
 
+def set_param_value_from_name(handle, block, name, value):
+    idx = get_param_idx(handle, block, name)
+    return set_param_value_from_idx(handle, idx, value)
+
+
 def set_param_value_from_idx(handle, idx, value):
     param = get_param(handle, idx)
     return set_param_value(handle, param, value)
 
 
 def set_param_value(handle, param, value):
-    size, dtype = param["size"], param["dtype"]
-    if size == 1:
-        buff = ffi.new("double[]", (value,))
-    else:
-        buff = ffi.cast("double *", values.ctypes.data)
+    shape, size, dtype = param["shape"], param["size"], param["dtype"]
+    value = numpy.array(value, dtype="double", copy=False, order="F")
+    value.shape = shape
+    assert value.size == size, "size mismatch"
+    buff = ffi.cast("double *", value.ctypes.data)
     xpc.xPCSetParam(handle, param["idx"], buff)
 
 
@@ -237,31 +242,7 @@ def get_signal_values(handle, signals=None):
     return values
 
 
-"""
-# This that should probably go on the client
-
-from collections import defaultdict
-
-def get_param_map(handle):
-    blocks = defaultdict(dict)
-    for param in get_params(handle):
-        param = get_param(handle, idx)
-        blocks[param['path']][param['name']] = param
-    return blocks
-
-Node = lambda : defaultdict(Node)
-
-def get_param_tree(handle):
-    map = get_param_map(handle)
-    tree = Node()
-    for block, params in map.items():
-        node = tree
-        for item in block.split('/'):
-            node = node[item]
-        for param_name, param_data in params.items():
-            node[param_name] = param_data
-    return tree
-"""
+# Main
 
 
 def main(argv=None):

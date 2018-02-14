@@ -5,8 +5,10 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import numpy
+import random
+
 import pytest
+import numpy.random
 
 from bliss.controller.speedgoat import xpc
 
@@ -143,3 +145,124 @@ def test_read_2d_types(speedgoat):
     assert double_2d.size == 12
     assert double_2d.shape == (3, 4)
     assert pytest.approx(double_2d) == 3 * [[1.1, -2.23, 4.4, 55.32]]
+
+
+def test_write_scalar_types(speedgoat):
+    get = xpc.get_param_value_from_name
+    set = xpc.set_param_value_from_name
+
+    set(speedgoat, "bool_false_scalar_rw", "Value", True)
+    set(speedgoat, "bool_true_scalar_rw", "Value", False)
+    set(speedgoat, "uint8_scalar_rw", "Value", 123)
+    set(speedgoat, "int8_scalar_rw", "Value", -111)
+    set(speedgoat, "uint16_scalar_rw", "Value", 4567)
+    set(speedgoat, "int16_scalar_rw", "Value", -7654)
+    set(speedgoat, "uint32_scalar_rw", "Value", 456789)
+    set(speedgoat, "int32_scalar_rw", "Value", -987654)
+    set(speedgoat, "single_scalar_rw", "Value", -4.3e-2)
+    set(speedgoat, "double_scalar_rw", "Value", 19.711e11)
+
+    assert get(speedgoat, "bool_false_scalar_rw", "Value") == True
+    assert get(speedgoat, "bool_true_scalar_rw", "Value") == False
+    assert get(speedgoat, "uint8_scalar_rw", "Value") == 123
+    assert get(speedgoat, "int8_scalar_rw", "Value") == -111
+    assert get(speedgoat, "uint16_scalar_rw", "Value") == 4567
+    assert get(speedgoat, "int16_scalar_rw", "Value") == -7654
+    assert get(speedgoat, "uint32_scalar_rw", "Value") == 456789
+    assert get(speedgoat, "int32_scalar_rw", "Value") == -987654
+    assert get(speedgoat, "single_scalar_rw", "Value") == pytest.approx(-4.3e-2)
+    assert get(speedgoat, "double_scalar_rw", "Value") == pytest.approx(19.711e11)
+
+
+def test_write_1d_types(speedgoat):
+    get = xpc.get_param_value_from_name
+    set = xpc.set_param_value_from_name
+
+    ex_bool_1d = [bool(random.getrandbits(1)) for i in range(4)]
+    ex_uint8_1d = [random.randrange(0, 2 ** 8) for i in range(7)]
+    ex_int8_1d = [random.randrange(-2 ** 7, 2 ** 7) for i in range(7)]
+    ex_uint16_1d = [random.randrange(0, 2 ** 16) for i in range(7)]
+    ex_int16_1d = [random.randrange(-2 ** 15, 2 ** 15) for i in range(7)]
+    ex_uint32_1d = [random.randrange(0, 2 ** 32) for i in range(7)]
+    ex_int32_1d = [random.randrange(-2 ** 31, 2 ** 31) for i in range(7)]
+    ex_single_1d = [random.random() for i in range(4)]
+    ex_double_1d = [random.random() for i in range(4)]
+
+    set(speedgoat, "bool_1d_rw", "Value", ex_bool_1d)
+    set(speedgoat, "uint8_1d_rw", "Value", ex_uint8_1d)
+    set(speedgoat, "int8_1d_rw", "Value", ex_int8_1d)
+    set(speedgoat, "uint16_1d_rw", "Value", ex_uint16_1d)
+    set(speedgoat, "int16_1d_rw", "Value", ex_int16_1d)
+    set(speedgoat, "uint32_1d_rw", "Value", ex_uint32_1d)
+    set(speedgoat, "int32_1d_rw", "Value", ex_int32_1d)
+    set(speedgoat, "single_1d_rw", "Value", ex_single_1d)
+    set(speedgoat, "double_1d_rw", "Value", ex_double_1d)
+
+    bool_1d = get(speedgoat, "bool_1d_rw", "Value")
+    assert bool_1d.dtype == "bool"
+    assert bool_1d.size == 4
+    assert bool_1d.shape == (4,)
+    assert numpy.array_equal(bool_1d, ex_bool_1d)
+
+    uint8_1d = get(speedgoat, "uint8_1d_rw", "Value")
+    assert uint8_1d.dtype == "uint8"
+    assert uint8_1d.size == 7
+    assert uint8_1d.shape == (7,)
+    assert numpy.array_equal(uint8_1d, ex_uint8_1d)
+
+    int8_1d = get(speedgoat, "int8_1d_rw", "Value")
+    assert int8_1d.dtype == "int8"
+    assert int8_1d.size == 7
+    assert int8_1d.shape == (7,)
+    assert numpy.array_equal(int8_1d, ex_int8_1d)
+
+    uint16_1d = get(speedgoat, "uint16_1d_rw", "Value")
+    assert uint16_1d.dtype == "uint16"
+    assert uint16_1d.size == 7
+    assert uint16_1d.shape == (7,)
+    assert numpy.array_equal(uint16_1d, ex_uint16_1d)
+
+    int16_1d = get(speedgoat, "int16_1d_rw", "Value")
+    assert int16_1d.dtype == "int16"
+    assert int16_1d.size == 7
+    assert int16_1d.shape == (7,)
+    assert numpy.array_equal(int16_1d, ex_int16_1d)
+
+    uint32_1d = get(speedgoat, "uint32_1d_rw", "Value")
+    assert uint32_1d.dtype == "uint32"
+    assert uint32_1d.size == 7
+    assert uint32_1d.shape == (7,)
+    assert numpy.array_equal(uint32_1d, ex_uint32_1d)
+
+    int32_1d = get(speedgoat, "int32_1d_rw", "Value")
+    assert int32_1d.dtype == "int32"
+    assert int32_1d.size == 7
+    assert int32_1d.shape == (7,)
+    assert numpy.array_equal(int32_1d, ex_int32_1d)
+
+    single_1d = get(speedgoat, "single_1d_rw", "Value")
+    assert single_1d.dtype == "single"
+    assert single_1d.size == 4
+    assert single_1d.shape == (4,)
+    assert pytest.approx(single_1d) == ex_single_1d
+
+    double_1d = get(speedgoat, "double_1d_rw", "Value")
+    assert double_1d.dtype == "double"
+    assert double_1d.size == 4
+    assert double_1d.shape == (4,)
+    assert pytest.approx(double_1d) == ex_double_1d
+
+
+def test_write_2d_types(speedgoat):
+    get = xpc.get_param_value_from_name
+    set = xpc.set_param_value_from_name
+
+    ex_double_2d = numpy.random.random((3, 4))
+
+    set(speedgoat, "double_2d_rw", "Value", ex_double_2d)
+
+    double_2d = get(speedgoat, "double_2d_rw", "Value")
+    assert double_2d.dtype == "double"
+    assert double_2d.size == 12
+    assert double_2d.shape == (3, 4)
+    assert pytest.approx(double_2d) == ex_double_2d

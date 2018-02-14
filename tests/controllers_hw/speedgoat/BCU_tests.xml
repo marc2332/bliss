@@ -2,20 +2,20 @@
       
       
             <block>
-            <blkName>angle</blkName>
-            <xpcblkName>angle</xpcblkName>
-            <SLblockPath>BCU_tests/angle</SLblockPath>
+            <blkName>bool_1d</blkName>
+            <xpcblkName>bool_1d</xpcblkName>
+            <SLblockPath>BCU_tests/bool_1d</SLblockPath>
             <isSrc>[1 0 1]</isSrc>
           <parameter>
           <paramName>Value</paramName>
-          <dim>[1, 1]</dim>  
+          <dim>[1, 4]</dim>  
 		  <SubSystemName>BCU_tests</SubSystemName>
           </parameter>
           </block>
             <block>
-            <blkName>bool_1d</blkName>
-            <xpcblkName>bool_1d</xpcblkName>
-            <SLblockPath>BCU_tests/bool_1d</SLblockPath>
+            <blkName>bool_1d_rw</blkName>
+            <xpcblkName>bool_1d_rw</xpcblkName>
+            <SLblockPath>BCU_tests/bool_1d_rw</SLblockPath>
             <isSrc>[1 0 1]</isSrc>
           <parameter>
           <paramName>Value</paramName>
@@ -35,9 +35,31 @@
           </parameter>
           </block>
             <block>
+            <blkName>bool_2d_rw</blkName>
+            <xpcblkName>bool_2d_rw</xpcblkName>
+            <SLblockPath>BCU_tests/bool_2d_rw</SLblockPath>
+            <isSrc>[1 0 1]</isSrc>
+          <parameter>
+          <paramName>Value</paramName>
+          <dim>[2, 4]</dim>  
+		  <SubSystemName>BCU_tests</SubSystemName>
+          </parameter>
+          </block>
+            <block>
             <blkName>bool_false_scalar</blkName>
             <xpcblkName>bool_false_scalar</xpcblkName>
             <SLblockPath>BCU_tests/bool_false_scalar</SLblockPath>
+            <isSrc>[1 0 1]</isSrc>
+          <parameter>
+          <paramName>Value</paramName>
+          <dim>[1, 1]</dim>  
+		  <SubSystemName>BCU_tests</SubSystemName>
+          </parameter>
+          </block>
+            <block>
+            <blkName>bool_false_scalar_rw</blkName>
+            <xpcblkName>bool_false_scalar_rw</xpcblkName>
+            <SLblockPath>BCU_tests/bool_false_scalar_rw</SLblockPath>
             <isSrc>[1 0 1]</isSrc>
           <parameter>
           <paramName>Value</paramName>
@@ -57,9 +79,31 @@
           </parameter>
           </block>
             <block>
+            <blkName>bool_true_scalar_rw</blkName>
+            <xpcblkName>bool_true_scalar_rw</xpcblkName>
+            <SLblockPath>BCU_tests/bool_true_scalar_rw</SLblockPath>
+            <isSrc>[1 0 1]</isSrc>
+          <parameter>
+          <paramName>Value</paramName>
+          <dim>[1, 1]</dim>  
+		  <SubSystemName>BCU_tests</SubSystemName>
+          </parameter>
+          </block>
+            <block>
             <blkName>double_1d</blkName>
             <xpcblkName>double_1d</xpcblkName>
             <SLblockPath>BCU_tests/double_1d</SLblockPath>
+            <isSrc>[1 0 1]</isSrc>
+          <parameter>
+          <paramName>Value</paramName>
+          <dim>[1, 4]</dim>  
+		  <SubSystemName>BCU_tests</SubSystemName>
+          </parameter>
+          </block>
+            <block>
+            <blkName>double_1d_rw</blkName>
+            <xpcblkName>double_1d_rw</xpcblkName>
+            <SLblockPath>BCU_tests/double_1d_rw</SLblockPath>
             <isSrc>[1 0 1]</isSrc>
           <parameter>
           <paramName>Value</paramName>
@@ -79,9 +123,31 @@
           </parameter>
           </block>
             <block>
+            <blkName>double_2d_rw</blkName>
+            <xpcblkName>double_2d_rw</xpcblkName>
+            <SLblockPath>BCU_tests/double_2d_rw</SLblockPath>
+            <isSrc>[1 0 1]</isSrc>
+          <parameter>
+          <paramName>Value</paramName>
+          <dim>[3, 4]</dim>  
+		  <SubSystemName>BCU_tests</SubSystemName>
+          </parameter>
+          </block>
+            <block>
             <blkName>double_scalar</blkName>
             <xpcblkName>double_scalar</xpcblkName>
             <SLblockPath>BCU_tests/double_scalar</SLblockPath>
+            <isSrc>[1 0 1]</isSrc>
+          <parameter>
+          <paramName>Value</paramName>
+          <dim>[1, 1]</dim>  
+		  <SubSystemName>BCU_tests</SubSystemName>
+          </parameter>
+          </block>
+            <block>
+            <blkName>double_scalar_rw</blkName>
+            <xpcblkName>double_scalar_rw</xpcblkName>
+            <SLblockPath>BCU_tests/double_scalar_rw</SLblockPath>
             <isSrc>[1 0 1]</isSrc>
           <parameter>
           <paramName>Value</paramName>
@@ -101,9 +167,31 @@
           </parameter>
           </block>
             <block>
+            <blkName>int16_1d_rw</blkName>
+            <xpcblkName>int16_1d_rw</xpcblkName>
+            <SLblockPath>BCU_tests/int16_1d_rw</SLblockPath>
+            <isSrc>[1 0 1]</isSrc>
+          <parameter>
+          <paramName>Value</paramName>
+          <dim>[1, 7]</dim>  
+		  <SubSystemName>BCU_tests</SubSystemName>
+          </parameter>
+          </block>
+            <block>
             <blkName>int16_2d</blkName>
             <xpcblkName>int16_2d</xpcblkName>
             <SLblockPath>BCU_tests/int16_2d</SLblockPath>
+            <isSrc>[1 0 1]</isSrc>
+          <parameter>
+          <paramName>Value</paramName>
+          <dim>[4, 7]</dim>  
+		  <SubSystemName>BCU_tests</SubSystemName>
+          </parameter>
+          </block>
+            <block>
+            <blkName>int16_2d_rw</blkName>
+            <xpcblkName>int16_2d_rw</xpcblkName>
+            <SLblockPath>BCU_tests/int16_2d_rw</SLblockPath>
             <isSrc>[1 0 1]</isSrc>
           <parameter>
           <paramName>Value</paramName>
@@ -123,9 +211,31 @@
           </parameter>
           </block>
             <block>
+            <blkName>int16_scalar_rw</blkName>
+            <xpcblkName>int16_scalar_rw</xpcblkName>
+            <SLblockPath>BCU_tests/int16_scalar_rw</SLblockPath>
+            <isSrc>[1 0 1]</isSrc>
+          <parameter>
+          <paramName>Value</paramName>
+          <dim>[1, 1]</dim>  
+		  <SubSystemName>BCU_tests</SubSystemName>
+          </parameter>
+          </block>
+            <block>
             <blkName>int32_1d</blkName>
             <xpcblkName>int32_1d</xpcblkName>
             <SLblockPath>BCU_tests/int32_1d</SLblockPath>
+            <isSrc>[1 0 1]</isSrc>
+          <parameter>
+          <paramName>Value</paramName>
+          <dim>[1, 7]</dim>  
+		  <SubSystemName>BCU_tests</SubSystemName>
+          </parameter>
+          </block>
+            <block>
+            <blkName>int32_1d_rw</blkName>
+            <xpcblkName>int32_1d_rw</xpcblkName>
+            <SLblockPath>BCU_tests/int32_1d_rw</SLblockPath>
             <isSrc>[1 0 1]</isSrc>
           <parameter>
           <paramName>Value</paramName>
@@ -145,9 +255,31 @@
           </parameter>
           </block>
             <block>
+            <blkName>int32_2d_rw</blkName>
+            <xpcblkName>int32_2d_rw</xpcblkName>
+            <SLblockPath>BCU_tests/int32_2d_rw</SLblockPath>
+            <isSrc>[1 0 1]</isSrc>
+          <parameter>
+          <paramName>Value</paramName>
+          <dim>[4, 7]</dim>  
+		  <SubSystemName>BCU_tests</SubSystemName>
+          </parameter>
+          </block>
+            <block>
             <blkName>int32_scalar</blkName>
             <xpcblkName>int32_scalar</xpcblkName>
             <SLblockPath>BCU_tests/int32_scalar</SLblockPath>
+            <isSrc>[1 0 1]</isSrc>
+          <parameter>
+          <paramName>Value</paramName>
+          <dim>[1, 1]</dim>  
+		  <SubSystemName>BCU_tests</SubSystemName>
+          </parameter>
+          </block>
+            <block>
+            <blkName>int32_scalar_rw</blkName>
+            <xpcblkName>int32_scalar_rw</xpcblkName>
+            <SLblockPath>BCU_tests/int32_scalar_rw</SLblockPath>
             <isSrc>[1 0 1]</isSrc>
           <parameter>
           <paramName>Value</paramName>
@@ -167,9 +299,31 @@
           </parameter>
           </block>
             <block>
+            <blkName>int8_1d_rw</blkName>
+            <xpcblkName>int8_1d_rw</xpcblkName>
+            <SLblockPath>BCU_tests/int8_1d_rw</SLblockPath>
+            <isSrc>[1 0 1]</isSrc>
+          <parameter>
+          <paramName>Value</paramName>
+          <dim>[1, 7]</dim>  
+		  <SubSystemName>BCU_tests</SubSystemName>
+          </parameter>
+          </block>
+            <block>
             <blkName>int8_2d</blkName>
             <xpcblkName>int8_2d</xpcblkName>
             <SLblockPath>BCU_tests/int8_2d</SLblockPath>
+            <isSrc>[1 0 1]</isSrc>
+          <parameter>
+          <paramName>Value</paramName>
+          <dim>[4, 7]</dim>  
+		  <SubSystemName>BCU_tests</SubSystemName>
+          </parameter>
+          </block>
+            <block>
+            <blkName>int8_2d_rw</blkName>
+            <xpcblkName>int8_2d_rw</xpcblkName>
+            <SLblockPath>BCU_tests/int8_2d_rw</SLblockPath>
             <isSrc>[1 0 1]</isSrc>
           <parameter>
           <paramName>Value</paramName>
@@ -189,9 +343,31 @@
           </parameter>
           </block>
             <block>
+            <blkName>int8_scalar_rw</blkName>
+            <xpcblkName>int8_scalar_rw</xpcblkName>
+            <SLblockPath>BCU_tests/int8_scalar_rw</SLblockPath>
+            <isSrc>[1 0 1]</isSrc>
+          <parameter>
+          <paramName>Value</paramName>
+          <dim>[1, 1]</dim>  
+		  <SubSystemName>BCU_tests</SubSystemName>
+          </parameter>
+          </block>
+            <block>
             <blkName>single_1d</blkName>
             <xpcblkName>single_1d</xpcblkName>
             <SLblockPath>BCU_tests/single_1d</SLblockPath>
+            <isSrc>[1 0 1]</isSrc>
+          <parameter>
+          <paramName>Value</paramName>
+          <dim>[1, 4]</dim>  
+		  <SubSystemName>BCU_tests</SubSystemName>
+          </parameter>
+          </block>
+            <block>
+            <blkName>single_1d_rw</blkName>
+            <xpcblkName>single_1d_rw</xpcblkName>
+            <SLblockPath>BCU_tests/single_1d_rw</SLblockPath>
             <isSrc>[1 0 1]</isSrc>
           <parameter>
           <paramName>Value</paramName>
@@ -211,9 +387,31 @@
           </parameter>
           </block>
             <block>
+            <blkName>single_2d_rw</blkName>
+            <xpcblkName>single_2d_rw</xpcblkName>
+            <SLblockPath>BCU_tests/single_2d_rw</SLblockPath>
+            <isSrc>[1 0 1]</isSrc>
+          <parameter>
+          <paramName>Value</paramName>
+          <dim>[3, 4]</dim>  
+		  <SubSystemName>BCU_tests</SubSystemName>
+          </parameter>
+          </block>
+            <block>
             <blkName>single_scalar</blkName>
             <xpcblkName>single_scalar</xpcblkName>
             <SLblockPath>BCU_tests/single_scalar</SLblockPath>
+            <isSrc>[1 0 1]</isSrc>
+          <parameter>
+          <paramName>Value</paramName>
+          <dim>[1, 1]</dim>  
+		  <SubSystemName>BCU_tests</SubSystemName>
+          </parameter>
+          </block>
+            <block>
+            <blkName>single_scalar_rw</blkName>
+            <xpcblkName>single_scalar_rw</xpcblkName>
+            <SLblockPath>BCU_tests/single_scalar_rw</SLblockPath>
             <isSrc>[1 0 1]</isSrc>
           <parameter>
           <paramName>Value</paramName>
@@ -233,9 +431,31 @@
           </parameter>
           </block>
             <block>
+            <blkName>uint16_1d_rw</blkName>
+            <xpcblkName>uint16_1d_rw</xpcblkName>
+            <SLblockPath>BCU_tests/uint16_1d_rw</SLblockPath>
+            <isSrc>[1 0 1]</isSrc>
+          <parameter>
+          <paramName>Value</paramName>
+          <dim>[1, 7]</dim>  
+		  <SubSystemName>BCU_tests</SubSystemName>
+          </parameter>
+          </block>
+            <block>
             <blkName>uint16_2d</blkName>
             <xpcblkName>uint16_2d</xpcblkName>
             <SLblockPath>BCU_tests/uint16_2d</SLblockPath>
+            <isSrc>[1 0 1]</isSrc>
+          <parameter>
+          <paramName>Value</paramName>
+          <dim>[4, 7]</dim>  
+		  <SubSystemName>BCU_tests</SubSystemName>
+          </parameter>
+          </block>
+            <block>
+            <blkName>uint16_2d_rw</blkName>
+            <xpcblkName>uint16_2d_rw</xpcblkName>
+            <SLblockPath>BCU_tests/uint16_2d_rw</SLblockPath>
             <isSrc>[1 0 1]</isSrc>
           <parameter>
           <paramName>Value</paramName>
@@ -255,9 +475,31 @@
           </parameter>
           </block>
             <block>
+            <blkName>uint16_scalar_rw</blkName>
+            <xpcblkName>uint16_scalar_rw</xpcblkName>
+            <SLblockPath>BCU_tests/uint16_scalar_rw</SLblockPath>
+            <isSrc>[1 0 1]</isSrc>
+          <parameter>
+          <paramName>Value</paramName>
+          <dim>[1, 1]</dim>  
+		  <SubSystemName>BCU_tests</SubSystemName>
+          </parameter>
+          </block>
+            <block>
             <blkName>uint32_1d</blkName>
             <xpcblkName>uint32_1d</xpcblkName>
             <SLblockPath>BCU_tests/uint32_1d</SLblockPath>
+            <isSrc>[1 0 1]</isSrc>
+          <parameter>
+          <paramName>Value</paramName>
+          <dim>[1, 7]</dim>  
+		  <SubSystemName>BCU_tests</SubSystemName>
+          </parameter>
+          </block>
+            <block>
+            <blkName>uint32_1d_rw</blkName>
+            <xpcblkName>uint32_1d_rw</xpcblkName>
+            <SLblockPath>BCU_tests/uint32_1d_rw</SLblockPath>
             <isSrc>[1 0 1]</isSrc>
           <parameter>
           <paramName>Value</paramName>
@@ -277,9 +519,31 @@
           </parameter>
           </block>
             <block>
+            <blkName>uint32_2d_rw</blkName>
+            <xpcblkName>uint32_2d_rw</xpcblkName>
+            <SLblockPath>BCU_tests/uint32_2d_rw</SLblockPath>
+            <isSrc>[1 0 1]</isSrc>
+          <parameter>
+          <paramName>Value</paramName>
+          <dim>[4, 7]</dim>  
+		  <SubSystemName>BCU_tests</SubSystemName>
+          </parameter>
+          </block>
+            <block>
             <blkName>uint32_scalar</blkName>
             <xpcblkName>uint32_scalar</xpcblkName>
             <SLblockPath>BCU_tests/uint32_scalar</SLblockPath>
+            <isSrc>[1 0 1]</isSrc>
+          <parameter>
+          <paramName>Value</paramName>
+          <dim>[1, 1]</dim>  
+		  <SubSystemName>BCU_tests</SubSystemName>
+          </parameter>
+          </block>
+            <block>
+            <blkName>uint32_scalar_rw</blkName>
+            <xpcblkName>uint32_scalar_rw</xpcblkName>
+            <SLblockPath>BCU_tests/uint32_scalar_rw</SLblockPath>
             <isSrc>[1 0 1]</isSrc>
           <parameter>
           <paramName>Value</paramName>
@@ -299,9 +563,31 @@
           </parameter>
           </block>
             <block>
+            <blkName>uint8_1d_rw</blkName>
+            <xpcblkName>uint8_1d_rw</xpcblkName>
+            <SLblockPath>BCU_tests/uint8_1d_rw</SLblockPath>
+            <isSrc>[1 0 1]</isSrc>
+          <parameter>
+          <paramName>Value</paramName>
+          <dim>[1, 7]</dim>  
+		  <SubSystemName>BCU_tests</SubSystemName>
+          </parameter>
+          </block>
+            <block>
             <blkName>uint8_2d</blkName>
             <xpcblkName>uint8_2d</xpcblkName>
             <SLblockPath>BCU_tests/uint8_2d</SLblockPath>
+            <isSrc>[1 0 1]</isSrc>
+          <parameter>
+          <paramName>Value</paramName>
+          <dim>[4, 7]</dim>  
+		  <SubSystemName>BCU_tests</SubSystemName>
+          </parameter>
+          </block>
+            <block>
+            <blkName>uint8_2d_rw</blkName>
+            <xpcblkName>uint8_2d_rw</xpcblkName>
+            <SLblockPath>BCU_tests/uint8_2d_rw</SLblockPath>
             <isSrc>[1 0 1]</isSrc>
           <parameter>
           <paramName>Value</paramName>
@@ -321,18 +607,13 @@
           </parameter>
           </block>
             <block>
-            <blkName>sinTable</blkName>
-            <xpcblkName>sinTable</xpcblkName>
-            <SLblockPath>BCU_tests/sinTable</SLblockPath>
-            <isSrc>[0 1 1]</isSrc>
+            <blkName>uint8_scalar_rw</blkName>
+            <xpcblkName>uint8_scalar_rw</xpcblkName>
+            <SLblockPath>BCU_tests/uint8_scalar_rw</SLblockPath>
+            <isSrc>[1 0 1]</isSrc>
           <parameter>
-          <paramName>Table</paramName>
-          <dim>[1, 11]</dim>  
-		  <SubSystemName>BCU_tests</SubSystemName>
-          </parameter>
-          <parameter>
-          <paramName>BreakpointsForDimension1</paramName>
-          <dim>[1, 11]</dim>  
+          <paramName>Value</paramName>
+          <dim>[1, 1]</dim>  
 		  <SubSystemName>BCU_tests</SubSystemName>
           </parameter>
           </block>
@@ -341,6 +622,16 @@
               <signal>
               <sigName>bool_1d</sigName>
               <xpcsigName>bool_1d</xpcsigName>
+              <sigWidth>4</sigWidth>
+              <sigDim>[4, 1]</sigDim>
+			  <SubSystemName>BCU_tests</SubSystemName>
+			  <sigTestPoint>false</sigTestPoint>
+            </signal>
+			  
+			  
+              <signal>
+              <sigName>bool_1d_rw</sigName>
+              <xpcsigName>bool_1d_rw</xpcsigName>
               <sigWidth>4</sigWidth>
               <sigDim>[4, 1]</sigDim>
 			  <SubSystemName>BCU_tests</SubSystemName>
@@ -359,8 +650,28 @@
 			  
 			  
               <signal>
+              <sigName>bool_2d_rw</sigName>
+              <xpcsigName>bool_2d_rw</xpcsigName>
+              <sigWidth>8</sigWidth>
+              <sigDim>[2, 4]</sigDim>
+			  <SubSystemName>BCU_tests</SubSystemName>
+			  <sigTestPoint>false</sigTestPoint>
+            </signal>
+			  
+			  
+              <signal>
               <sigName>bool_false_scalar</sigName>
               <xpcsigName>bool_false_scalar</xpcsigName>
+              <sigWidth>1</sigWidth>
+              <sigDim>[1, 1]</sigDim>
+			  <SubSystemName>BCU_tests</SubSystemName>
+			  <sigTestPoint>false</sigTestPoint>
+            </signal>
+			  
+			  
+              <signal>
+              <sigName>bool_false_scalar_rw</sigName>
+              <xpcsigName>bool_false_scalar_rw</xpcsigName>
               <sigWidth>1</sigWidth>
               <sigDim>[1, 1]</sigDim>
 			  <SubSystemName>BCU_tests</SubSystemName>
@@ -379,8 +690,28 @@
 			  
 			  
               <signal>
+              <sigName>bool_true_scalar_rw</sigName>
+              <xpcsigName>bool_true_scalar_rw</xpcsigName>
+              <sigWidth>1</sigWidth>
+              <sigDim>[1, 1]</sigDim>
+			  <SubSystemName>BCU_tests</SubSystemName>
+			  <sigTestPoint>false</sigTestPoint>
+            </signal>
+			  
+			  
+              <signal>
               <sigName>double_1d</sigName>
               <xpcsigName>double_1d</xpcsigName>
+              <sigWidth>4</sigWidth>
+              <sigDim>[4, 1]</sigDim>
+			  <SubSystemName>BCU_tests</SubSystemName>
+			  <sigTestPoint>false</sigTestPoint>
+            </signal>
+			  
+			  
+              <signal>
+              <sigName>double_1d_rw</sigName>
+              <xpcsigName>double_1d_rw</xpcsigName>
               <sigWidth>4</sigWidth>
               <sigDim>[4, 1]</sigDim>
 			  <SubSystemName>BCU_tests</SubSystemName>
@@ -399,8 +730,28 @@
 			  
 			  
               <signal>
+              <sigName>double_2d_rw</sigName>
+              <xpcsigName>double_2d_rw</xpcsigName>
+              <sigWidth>12</sigWidth>
+              <sigDim>[3, 4]</sigDim>
+			  <SubSystemName>BCU_tests</SubSystemName>
+			  <sigTestPoint>false</sigTestPoint>
+            </signal>
+			  
+			  
+              <signal>
               <sigName>double_scalar</sigName>
               <xpcsigName>double_scalar</xpcsigName>
+              <sigWidth>1</sigWidth>
+              <sigDim>[1, 1]</sigDim>
+			  <SubSystemName>BCU_tests</SubSystemName>
+			  <sigTestPoint>false</sigTestPoint>
+            </signal>
+			  
+			  
+              <signal>
+              <sigName>double_scalar_rw</sigName>
+              <xpcsigName>double_scalar_rw</xpcsigName>
               <sigWidth>1</sigWidth>
               <sigDim>[1, 1]</sigDim>
 			  <SubSystemName>BCU_tests</SubSystemName>
@@ -419,8 +770,28 @@
 			  
 			  
               <signal>
+              <sigName>int16_1d_rw</sigName>
+              <xpcsigName>int16_1d_rw</xpcsigName>
+              <sigWidth>7</sigWidth>
+              <sigDim>[7, 1]</sigDim>
+			  <SubSystemName>BCU_tests</SubSystemName>
+			  <sigTestPoint>false</sigTestPoint>
+            </signal>
+			  
+			  
+              <signal>
               <sigName>int16_2d</sigName>
               <xpcsigName>int16_2d</xpcsigName>
+              <sigWidth>28</sigWidth>
+              <sigDim>[4, 7]</sigDim>
+			  <SubSystemName>BCU_tests</SubSystemName>
+			  <sigTestPoint>false</sigTestPoint>
+            </signal>
+			  
+			  
+              <signal>
+              <sigName>int16_2d_rw</sigName>
+              <xpcsigName>int16_2d_rw</xpcsigName>
               <sigWidth>28</sigWidth>
               <sigDim>[4, 7]</sigDim>
 			  <SubSystemName>BCU_tests</SubSystemName>
@@ -439,8 +810,28 @@
 			  
 			  
               <signal>
+              <sigName>int16_scalar_rw</sigName>
+              <xpcsigName>int16_scalar_rw</xpcsigName>
+              <sigWidth>1</sigWidth>
+              <sigDim>[1, 1]</sigDim>
+			  <SubSystemName>BCU_tests</SubSystemName>
+			  <sigTestPoint>false</sigTestPoint>
+            </signal>
+			  
+			  
+              <signal>
               <sigName>int32_1d</sigName>
               <xpcsigName>int32_1d</xpcsigName>
+              <sigWidth>7</sigWidth>
+              <sigDim>[7, 1]</sigDim>
+			  <SubSystemName>BCU_tests</SubSystemName>
+			  <sigTestPoint>false</sigTestPoint>
+            </signal>
+			  
+			  
+              <signal>
+              <sigName>int32_1d_rw</sigName>
+              <xpcsigName>int32_1d_rw</xpcsigName>
               <sigWidth>7</sigWidth>
               <sigDim>[7, 1]</sigDim>
 			  <SubSystemName>BCU_tests</SubSystemName>
@@ -459,8 +850,28 @@
 			  
 			  
               <signal>
+              <sigName>int32_2d_rw</sigName>
+              <xpcsigName>int32_2d_rw</xpcsigName>
+              <sigWidth>28</sigWidth>
+              <sigDim>[4, 7]</sigDim>
+			  <SubSystemName>BCU_tests</SubSystemName>
+			  <sigTestPoint>false</sigTestPoint>
+            </signal>
+			  
+			  
+              <signal>
               <sigName>int32_scalar</sigName>
               <xpcsigName>int32_scalar</xpcsigName>
+              <sigWidth>1</sigWidth>
+              <sigDim>[1, 1]</sigDim>
+			  <SubSystemName>BCU_tests</SubSystemName>
+			  <sigTestPoint>false</sigTestPoint>
+            </signal>
+			  
+			  
+              <signal>
+              <sigName>int32_scalar_rw</sigName>
+              <xpcsigName>int32_scalar_rw</xpcsigName>
               <sigWidth>1</sigWidth>
               <sigDim>[1, 1]</sigDim>
 			  <SubSystemName>BCU_tests</SubSystemName>
@@ -479,8 +890,28 @@
 			  
 			  
               <signal>
+              <sigName>int8_1d_rw</sigName>
+              <xpcsigName>int8_1d_rw</xpcsigName>
+              <sigWidth>7</sigWidth>
+              <sigDim>[7, 1]</sigDim>
+			  <SubSystemName>BCU_tests</SubSystemName>
+			  <sigTestPoint>false</sigTestPoint>
+            </signal>
+			  
+			  
+              <signal>
               <sigName>int8_2d</sigName>
               <xpcsigName>int8_2d</xpcsigName>
+              <sigWidth>28</sigWidth>
+              <sigDim>[4, 7]</sigDim>
+			  <SubSystemName>BCU_tests</SubSystemName>
+			  <sigTestPoint>false</sigTestPoint>
+            </signal>
+			  
+			  
+              <signal>
+              <sigName>int8_2d_rw</sigName>
+              <xpcsigName>int8_2d_rw</xpcsigName>
               <sigWidth>28</sigWidth>
               <sigDim>[4, 7]</sigDim>
 			  <SubSystemName>BCU_tests</SubSystemName>
@@ -499,8 +930,28 @@
 			  
 			  
               <signal>
+              <sigName>int8_scalar_rw</sigName>
+              <xpcsigName>int8_scalar_rw</xpcsigName>
+              <sigWidth>1</sigWidth>
+              <sigDim>[1, 1]</sigDim>
+			  <SubSystemName>BCU_tests</SubSystemName>
+			  <sigTestPoint>false</sigTestPoint>
+            </signal>
+			  
+			  
+              <signal>
               <sigName>single_1d</sigName>
               <xpcsigName>single_1d</xpcsigName>
+              <sigWidth>4</sigWidth>
+              <sigDim>[4, 1]</sigDim>
+			  <SubSystemName>BCU_tests</SubSystemName>
+			  <sigTestPoint>false</sigTestPoint>
+            </signal>
+			  
+			  
+              <signal>
+              <sigName>single_1d_rw</sigName>
+              <xpcsigName>single_1d_rw</xpcsigName>
               <sigWidth>4</sigWidth>
               <sigDim>[4, 1]</sigDim>
 			  <SubSystemName>BCU_tests</SubSystemName>
@@ -519,8 +970,28 @@
 			  
 			  
               <signal>
+              <sigName>single_2d_rw</sigName>
+              <xpcsigName>single_2d_rw</xpcsigName>
+              <sigWidth>12</sigWidth>
+              <sigDim>[3, 4]</sigDim>
+			  <SubSystemName>BCU_tests</SubSystemName>
+			  <sigTestPoint>false</sigTestPoint>
+            </signal>
+			  
+			  
+              <signal>
               <sigName>single_scalar</sigName>
               <xpcsigName>single_scalar</xpcsigName>
+              <sigWidth>1</sigWidth>
+              <sigDim>[1, 1]</sigDim>
+			  <SubSystemName>BCU_tests</SubSystemName>
+			  <sigTestPoint>false</sigTestPoint>
+            </signal>
+			  
+			  
+              <signal>
+              <sigName>single_scalar_rw</sigName>
+              <xpcsigName>single_scalar_rw</xpcsigName>
               <sigWidth>1</sigWidth>
               <sigDim>[1, 1]</sigDim>
 			  <SubSystemName>BCU_tests</SubSystemName>
@@ -539,8 +1010,28 @@
 			  
 			  
               <signal>
+              <sigName>uint16_1d_rw</sigName>
+              <xpcsigName>uint16_1d_rw</xpcsigName>
+              <sigWidth>7</sigWidth>
+              <sigDim>[7, 1]</sigDim>
+			  <SubSystemName>BCU_tests</SubSystemName>
+			  <sigTestPoint>false</sigTestPoint>
+            </signal>
+			  
+			  
+              <signal>
               <sigName>uint16_2d</sigName>
               <xpcsigName>uint16_2d</xpcsigName>
+              <sigWidth>28</sigWidth>
+              <sigDim>[4, 7]</sigDim>
+			  <SubSystemName>BCU_tests</SubSystemName>
+			  <sigTestPoint>false</sigTestPoint>
+            </signal>
+			  
+			  
+              <signal>
+              <sigName>uint16_2d_rw</sigName>
+              <xpcsigName>uint16_2d_rw</xpcsigName>
               <sigWidth>28</sigWidth>
               <sigDim>[4, 7]</sigDim>
 			  <SubSystemName>BCU_tests</SubSystemName>
@@ -559,8 +1050,28 @@
 			  
 			  
               <signal>
+              <sigName>uint16_scalar_rw</sigName>
+              <xpcsigName>uint16_scalar_rw</xpcsigName>
+              <sigWidth>1</sigWidth>
+              <sigDim>[1, 1]</sigDim>
+			  <SubSystemName>BCU_tests</SubSystemName>
+			  <sigTestPoint>false</sigTestPoint>
+            </signal>
+			  
+			  
+              <signal>
               <sigName>uint32_1d</sigName>
               <xpcsigName>uint32_1d</xpcsigName>
+              <sigWidth>7</sigWidth>
+              <sigDim>[7, 1]</sigDim>
+			  <SubSystemName>BCU_tests</SubSystemName>
+			  <sigTestPoint>false</sigTestPoint>
+            </signal>
+			  
+			  
+              <signal>
+              <sigName>uint32_1d_rw</sigName>
+              <xpcsigName>uint32_1d_rw</xpcsigName>
               <sigWidth>7</sigWidth>
               <sigDim>[7, 1]</sigDim>
 			  <SubSystemName>BCU_tests</SubSystemName>
@@ -579,8 +1090,28 @@
 			  
 			  
               <signal>
+              <sigName>uint32_2d_rw</sigName>
+              <xpcsigName>uint32_2d_rw</xpcsigName>
+              <sigWidth>28</sigWidth>
+              <sigDim>[4, 7]</sigDim>
+			  <SubSystemName>BCU_tests</SubSystemName>
+			  <sigTestPoint>false</sigTestPoint>
+            </signal>
+			  
+			  
+              <signal>
               <sigName>uint32_scalar</sigName>
               <xpcsigName>uint32_scalar</xpcsigName>
+              <sigWidth>1</sigWidth>
+              <sigDim>[1, 1]</sigDim>
+			  <SubSystemName>BCU_tests</SubSystemName>
+			  <sigTestPoint>false</sigTestPoint>
+            </signal>
+			  
+			  
+              <signal>
+              <sigName>uint32_scalar_rw</sigName>
+              <xpcsigName>uint32_scalar_rw</xpcsigName>
               <sigWidth>1</sigWidth>
               <sigDim>[1, 1]</sigDim>
 			  <SubSystemName>BCU_tests</SubSystemName>
@@ -599,8 +1130,28 @@
 			  
 			  
               <signal>
+              <sigName>uint8_1d_rw</sigName>
+              <xpcsigName>uint8_1d_rw</xpcsigName>
+              <sigWidth>7</sigWidth>
+              <sigDim>[7, 1]</sigDim>
+			  <SubSystemName>BCU_tests</SubSystemName>
+			  <sigTestPoint>false</sigTestPoint>
+            </signal>
+			  
+			  
+              <signal>
               <sigName>uint8_2d</sigName>
               <xpcsigName>uint8_2d</xpcsigName>
+              <sigWidth>28</sigWidth>
+              <sigDim>[4, 7]</sigDim>
+			  <SubSystemName>BCU_tests</SubSystemName>
+			  <sigTestPoint>false</sigTestPoint>
+            </signal>
+			  
+			  
+              <signal>
+              <sigName>uint8_2d_rw</sigName>
+              <xpcsigName>uint8_2d_rw</xpcsigName>
               <sigWidth>28</sigWidth>
               <sigDim>[4, 7]</sigDim>
 			  <SubSystemName>BCU_tests</SubSystemName>
@@ -619,8 +1170,8 @@
 			  
 			  
               <signal>
-              <sigName>sinTable</sigName>
-              <xpcsigName>sinTable</xpcsigName>
+              <sigName>uint8_scalar_rw</sigName>
+              <xpcsigName>uint8_scalar_rw</xpcsigName>
               <sigWidth>1</sigWidth>
               <sigDim>[1, 1]</sigDim>
 			  <SubSystemName>BCU_tests</SubSystemName>

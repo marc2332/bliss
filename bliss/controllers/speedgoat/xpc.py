@@ -236,9 +236,22 @@ def get_signal_values(handle, signals=None):
     if signals is None:
         signals = tuple(range(get_num_signals(handle)))
     n = len(signals)
-    values = numpy.empty(n)
+    values = numpy.empty(n, order="F")
     buff = ffi.cast("double *", values.ctypes.data)
     xpc.xPCGetSignals(handle, n, signals, buff)
+    return values
+
+
+# Scopes
+
+## Scope Signals
+
+
+def sc_get_signal_list(handle, scope_idx):
+    nb_signals = sc_get_num_signals(handle, scope_idx)
+    values = numpy.empty(nb_signals, dtype="int", order="F")
+    buff = ffi.cast("int *", values.ctypes.data)
+    xpc.xPCScGetSignalList(handle, scope_idx, buff)
     return values
 
 

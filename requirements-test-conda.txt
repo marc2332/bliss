@@ -2,7 +2,6 @@
 # Test requirements
 
 py
-mock
 pytest
 pytest-mock
 pytest-cov

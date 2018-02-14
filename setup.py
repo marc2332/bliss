@@ -116,13 +116,13 @@ def main():
         "h5py",
         "mendeleev",
         "pint",
+        'mock ; python_version < "3.3"',
     ]
 
     tests_require = [
         'pytest',
         'pytest-mock',
         'pytest-cov',
-        'mock ; python_version < "3.3"',
     ]
 
     setup_requires = [

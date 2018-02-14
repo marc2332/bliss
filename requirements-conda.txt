@@ -20,3 +20,4 @@ h5py
 pygments
 sqlalchemy
 pandas
+mock

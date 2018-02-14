@@ -134,19 +134,20 @@ def test_read_calc_channels(pepu, channel_id):
 @pytest.mark.parametrize("block_size", [1, 2, 10])
 def test_streams_acquisition(pepu, acquisitions, blocks, block_size):
 
+    # Mocking
+    command = '?DSTREAM TEST'
+    return_value = (
+        'TEST OFF GLOBAL TRIG SOFT SOFT FSAMPL 10HZ NSAMPL {} SRC CALC1 CALC2'
+        .format(blocks * block_size))
+
     # Create stream
+    pepu.conn._readline.return_value = return_value
     stream = pepu.create_stream(
         name='TEST',
         trigger=Trigger(Signal.SOFT, Signal.SOFT),
         frequency=10, nb_points=blocks * block_size,
         sources=('CALC1', 'CALC2'),
         overwrite=True)
-
-    # Mocking
-    command = '?DSTREAM TEST'
-    return_value = (
-        'TEST OFF GLOBAL TRIG SOFT SOFT FSAMPL 10HZ NSAMPL {} SRC CALC1 CALC2'
-        .format(blocks * block_size))
 
     # General testing
 

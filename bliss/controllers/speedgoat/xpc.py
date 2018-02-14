@@ -159,7 +159,7 @@ def get_params(handle):
     return [get_param(handle, i) for i in range(get_num_params(handle))]
 
 
-def get_param_value_from_name(handle, block, name="Value"):
+def get_param_value_from_name(handle, block, name):
     idx = get_param_idx(handle, block, name)
     return get_param_value_from_idx(handle, idx)
 

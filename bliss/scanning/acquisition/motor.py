@@ -85,9 +85,13 @@ class SoftwarePositionTriggerMaster(MotorMaster):
     def npoints(self):
         return self.__nb_points
 
+    @property
+    def forward(self):
+        return self.start_pos <= self.end_pos
+
     def start(self):
         self.exception = None
-        self.index = 0
+        self.next_trigger_positions = list(self._positions)
         event.connect(self.movable, "position", self.position_changed)
         MotorMaster.start(self)
         if self.exception:
@@ -97,20 +101,28 @@ class SoftwarePositionTriggerMaster(MotorMaster):
         self.movable.stop()
 
     def position_changed(self, position):
-        try:
-            next_trigger_pos = self._positions[self.index]
-        except IndexError:
-            return
-        if ((self.end_pos >= self.start_pos and position >= next_trigger_pos) or
-                (self.start_pos > self.end_pos and position <= next_trigger_pos)):
-            self.index += 1
+        # Iterate over available points
+        while True:
+            # No more positions available
+            if not self.next_trigger_positions:
+                return
+            # Next trigger position is not reached
+            if self.forward and position < self.next_trigger_positions[0]:
+                return
+            if not self.forward and position > self.next_trigger_positions[0]:
+                return
+            # Next trigger position is reached
+            self.next_trigger_positions.pop(0)
+            # Trigger the slaves
             try:
                 self.trigger_slaves()
+            # Handel slave exception
             except Exception:
-                event.disconnect(self.movable, "position",
-                                 self.position_changed)
+                event.disconnect(
+                    self.movable, "position", self.position_changed)
                 self.movable.stop(wait=False)
                 self.exception = sys.exc_info()
+            # Emit motor position
             else:
                 self.channels[0].emit(position)
 
@@ -129,7 +141,7 @@ class JogMotorMaster(AcquisitionMaster):
         axis -- a motor axis
         start -- position where you want to have your motor in constant speed
         jog_speed -- constant velocity during the movement
-        end_jog_func -- function to stop the jog movement. 
+        end_jog_func -- function to stop the jog movement.
         Stop the movement if return value != True
         if end_jog_func is None should be stopped externally.
         """

@@ -356,7 +356,7 @@ class Scan(object):
                     i.prepare(self, self.scan_info)
                 self._state = self.START_STATE
                 i.start()
-        except:
+        except Exception as exc:
             self._state = self.STOP_STATE
             with periodic_exec(0.1 if call_on_stop else 0, set_watch_event):
                 i.stop()

@@ -51,11 +51,11 @@ def test_tango_tfg_timing_info(tfg):
             'cycles': 4,
             'extInhibit': True,
             'framesets': [{'nb_frames': 5, 'latency': 1e-07, 'acq_time': 0.1},
-                          {'nb_frames': 2, 'latency': 1e-07, 'acq_time': 0.5}]
+                          {'nb_frames': 2, 'latency': 1e-07, 'acq_time': 0.1}]
             }
     tfg._control.setupGroups.reset_mock()
     tfg.prepare(timing_info)
-    tfg._control.setupGroups.assert_called_once_with([12, 4, 5, 1e-07, 0.1, 0, 0, 0, 0, 2, 1e-07, 0.5, 0, 0, 0, 0, -1])
+    tfg._control.setupGroups.assert_called_once_with([12, 4, 7, 1e-07, 0.1, 0, 0, 0, 0, -1])
     assert tfg.external_start is False
     assert tfg.external_inhibit is True
     assert tfg.nbframes == 7

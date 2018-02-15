@@ -153,6 +153,7 @@ class TangoTfg2(object):
         self.__external_inhibit = timing_info.get('extInhibit', False)
 
         start_trigger = timing_info.get('startTrigger', {'name': 'Software'})
+        print(start_trigger['name'])
         self.set_start_trigger(start_trigger['name'],
                                start_trigger.get('edge', 'rising'),
                                start_trigger.get('debounce', 0.0),
@@ -183,7 +184,7 @@ class TangoTfg2(object):
         for frameset in timing_info['framesets']:
             frame_count += frameset['nb_frames']
             if (pause_trigger.get('trig_when', self.ALL_FRAMES) == self.ALL_FRAMES) or \
-                (frameset['nb_frames'] == 1 and frame_count in pause_trigger.get('trig_when', [])):
+                    (frameset['nb_frames'] == 1 and frame_count in pause_trigger.get('trig_when', [])):
                 dpause = dead_pause
                 lpause = live_pause
             else:
@@ -201,7 +202,7 @@ class TangoTfg2(object):
                 if trigger_out.get('series_terminated', False) is True:
                     drive_strength |= self.TriggerOutputs[port]
                 if (trigger_out.get('trig_when', self.ALL_FRAMES) == self.ALL_FRAMES) or \
-                    (frameset['nb_frames'] == 1 and frame_count in trigger_out.get('trig_when', [])):
+                        (frameset['nb_frames'] == 1 and frame_count in trigger_out.get('trig_when', [])):
                     trig = self.TriggerOutputs[trigger_out['port']]
                     if trigger_out.get('period', None) == 'dead':
                         dead_port |= trig
@@ -210,7 +211,7 @@ class TangoTfg2(object):
 
             frame_list.extend((frameset['nb_frames'], frameset['latency'], frameset['acq_time'],
                                dead_port, live_port, dpause, lpause))
-        self.__setup_groups(frame_list)
+        self.__setup_groups(self.__compress(frame_list))
         self.__setup_port(inversion, drive_strength)
         self.__setup_scaler_channels(timing_info)
 
@@ -240,6 +241,19 @@ class TangoTfg2(object):
     def disable(self):
         self._control.disable()
 
+    def __compress(self, framelist):
+        compressed = []
+        for i in range(0,len(framelist),7):
+           if i == 0:
+               last = framelist[0:7]
+           elif framelist[i+1:i+7] == last[1:7]:
+               last[0] += framelist[i]
+           else:
+               compressed.extend(last)
+               last = framelist[i:i+7]
+        compressed.extend(last)
+        return compressed
+
     def __setup_groups(self, framesets):
         args = []
         qualifiers = 0
@@ -253,7 +267,7 @@ class TangoTfg2(object):
         args.append(self.__cycles)
         args.extend(framesets)
         args.append(-1)
-        self.__configuration = args
+        print(args)
         self.__nframes = self._control.setupGroups(args)
 
     def __setup_port(self, invert, drive_strength):
@@ -295,6 +309,7 @@ class TangoTfg2(object):
                 if trigger_nb == 16 and threshold != 0.0:
                     args[0] |= self.TrigOptions.get("threshold")
                     args[3] = threshold
+            print(args)
             self._control.setupTrig(args)
 
     def __setup_scaler_channels(self, timing_info):

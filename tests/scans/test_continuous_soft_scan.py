@@ -53,5 +53,5 @@ def test_software_position_trigger_master(beacon):
     # Check data
     data = scans.get_data(s)
     # Typical position error is +0.025 in position unit
-    # That's because of redis + gevent delays (~0.0025 ms)
+    # That's because of redis + gevent delays (~2.5 ms)
     assert data['roby'] == pytest.approx(data['debug'], abs=0.05)

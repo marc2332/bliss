@@ -23,7 +23,7 @@ def setting_update_from_channel(value, setting_name=None, axis=None):
                     axis._set_move_done(None)
 
     event.send(axis, setting_name, value)
-    
+
 
 def get_from_config(axis, setting_name):
     try:
@@ -71,7 +71,7 @@ def get_axis_setting(axis, setting_name):
             setting_value = chan.value
 
     return setting_value
-                                          
+
 
 def floatOrNone(x):
     if x is not None:
@@ -127,7 +127,7 @@ class ControllerAxisSettings:
         old_value = get_axis_setting(axis, setting_name)
         if value == old_value:
             return
-        
+
         convert_func = self.convert_funcs.get(setting_name)
         if convert_func is not None:
             value = convert_func(value)

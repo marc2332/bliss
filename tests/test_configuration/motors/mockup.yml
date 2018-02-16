@@ -114,20 +114,16 @@ controller:
     tags: hoffset
 - class: calc_motor_mockup
   axes:
-  -
-    name: $roby
+  - name: $roby
     tags: real real_mot
-  -
-    name: calc_mot1
+  - name: calc_mot1
     tags: calc_mot
     s_param: 2
 - class: calc_motor_mockup
   axes:
-  -
-    name: $calc_mot1
+  - name: $calc_mot1
     tags: real real_mot
-  -
-    name: calc_mot2
+  - name: calc_mot2
     tags: calc_mot
     s_param: 2
 hooks:

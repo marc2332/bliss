@@ -30,18 +30,25 @@ def test_state_callback(robz):
     assert ready_event.get(timeout=0.1)
     assert robz.state() == "READY"
 
+
 def test_move_done_callback(robz):
     ready_event = gevent.event.AsyncResult()
-    
+    dial_event = gevent.event.AsyncResult()
+
     def callback(move_done):
         if move_done:
             ready_event.set(robz.is_moving is False)
+            dial_event.set(robz.dial())
 
     event.connect(robz, "move_done", callback)
-   
+
     robz.rmove(1)
 
     assert ready_event.get(timeout=0.1)
+    assert dial_event.get() == 1
+
+    event.disconnect(robz, "move_done", callback)
+
 
 def test_position_callback(robz):
     storage={"last_pos":None, "last_dial_pos":None}
@@ -101,7 +108,9 @@ def test_axis_move(robz):
     assert robz._set_position() == 180
 
 def test_axis_multiple_move(robz):
-    for i in range(250):
+    robz.velocity(1000)
+    robz.acceleration(10000)
+    for i in range(10):
         assert robz.state() == "READY"
         robz.move((i+1)*2, wait=False)
         assert robz.state() == "MOVING"
@@ -305,7 +314,7 @@ def test_simultaneous_move(robz):
 
     move_started.wait()
 
-    assert robz.state() == 'MOVING' 
+    assert robz.state() == 'MOVING'
     try:
       robz.move(-10)
     except Exception, e:

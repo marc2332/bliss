@@ -186,6 +186,12 @@ class Mockup(Controller):
         self.axis_settings.add('init_count', int)
         self.axis_settings.add('hw_position', float)
 
+    def get_hw_position(self, axis):
+        return axis.settings.get('hw_position')
+
+    def set_hw_position(self, axis, position):
+        axis.settings.set('hw_position', position)
+
     """
     Controller initialization actions.
     """
@@ -198,22 +204,12 @@ class Mockup(Controller):
     Axes initialization actions.
     """
     def initialize_axis(self, axis):
-        # this is to protect position reading,
-        # indeed the mockup controller uses redis to store
-        # a 'hardware position', and it is not allowed
-        # to read a position before it has been written
-        def set_pos(move_done, axis=axis):
-            if move_done:
-                self.set_position(axis, axis.dial()*axis.steps_per_unit)
 
         self._axis_moves[axis] = {
-            "motion": None,
-            "move_done_cb": set_pos }
+            "motion": None}
 
-        if axis.settings.get('hw_position') is None:
-            axis.settings.set('hw_position', 0)
-
-        event.connect(axis, "move_done", set_pos)
+        if self.get_hw_position(axis) is None:
+            self.set_hw_position(axis, 0)
 
         self.__voltages[axis] = axis.config.get("default_voltage",
                                                 int, default=220)
@@ -245,7 +241,7 @@ class Mockup(Controller):
             if t is None:
                 t = time.time()
             pos = motion.trajectory.position(t)
-            axis.settings.set('hw_position', pos)
+            self.set_hw_position(axis, pos)
             if t > motion.trajectory.tf:
                 self._axis_moves[axis]['motion'] = motion = None
         return motion
@@ -276,14 +272,14 @@ class Mockup(Controller):
         if self.__error_mode:
             raise RuntimeError("Cannot start because error mode is set")
         axis = motion.axis
-        if t0 is None:
-            t0 = time.time()
         if self._get_axis_motion(axis):
             raise RuntimeError('Cannot start motion. Motion already in place')
         pos = self.read_position(axis)
         vel = self.read_velocity(axis)
         accel = self.read_acceleration(axis)
         end_pos = motion.target_pos
+        if t0 is None:
+            t0 = time.time()
         axis_motion = Motion(pos, end_pos, vel, accel, self.__hw_limit, ti=t0)
         self._axis_moves[axis]['motion'] = axis_motion
 
@@ -306,7 +302,7 @@ class Mockup(Controller):
         t = t or time.time()
         motion = self._get_axis_motion(axis, t)
         if motion is None:
-            pos = axis.settings.get('hw_position')
+            pos = self.get_hw_position(axis)
         else:
             pos = motion.trajectory.position(t)
         return int(round(pos))
@@ -442,7 +438,7 @@ class Mockup(Controller):
 
     def home_state(self, axis):
         if(time.time() - self._axis_moves[axis]["home_search_start_time"]) > 1:
-            axis.settings.set("hw_position", 0)
+            self.set_hw_position(axis, 0)
             return AxisState("READY")
         else:
             return AxisState("MOVING")
@@ -466,7 +462,7 @@ class Mockup(Controller):
         if motion:
             raise RuntimeError("Cannot set position while moving !")
 
-        axis.settings.set('hw_position', pos)
+        self.set_hw_position(axis, pos)
         self._axis_moves[axis]['target'] = pos
         self._axis_moves[axis]["end_t"] = None
 

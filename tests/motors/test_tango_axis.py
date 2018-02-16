@@ -25,9 +25,9 @@ def test_2_library_instances(bliss_tango_server, s1hg, s1f, s1b):
     dev_name, proxy = bliss_tango_server
     tango_s1hg = DeviceProxy("tango://localhost:12345/id00/bliss_test/s1hg")
 
-    assert tango_s1hg.position == 1
-    assert tango_s1hg.offset == 0
- 
+    assert tango_s1hg.read_attribute('position').value == 1
+    assert tango_s1hg.read_attribute('offset').value == 0
+
     s1f.velocity(0.1)
     s1b.velocity(0.1)
 
@@ -40,7 +40,7 @@ def test_2_library_instances(bliss_tango_server, s1hg, s1f, s1b):
     tango_s1hg.position = 2
 
     gevent.sleep(0.1)
- 
+
     assert s1hg.state() == "MOVING"
 
     s1hg.wait_move()
@@ -49,5 +49,5 @@ def test_2_library_instances(bliss_tango_server, s1hg, s1f, s1b):
 
     s1hg.rmove(1)
 
-    assert pytest.approx(tango_s1hg.position, 3)
-
+    value = tango_s1hg.read_attribute('position').value
+    assert pytest.approx(value, 3)

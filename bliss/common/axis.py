@@ -92,7 +92,7 @@ class Motion(object):
     * *target_pos* (:obj:`float`): final motion position
     * *delta* (:obj:`float`): motion displacement
     * *backlash* (:obj:`float`): motion backlash
-    
+
     Note: target_pos and delta can be None, in case of specific motion
     types like homing or limit search
     """
@@ -233,7 +233,7 @@ class Axis(object):
         if self._in_group_move:
             return True
         if self.__move_task is not None:
-            return self.is_moving 
+            return self.is_moving
         return False
 
     @property
@@ -403,11 +403,11 @@ class Axis(object):
         if new_dial is None:
             dial_pos = self.settings.get("dial_position")
             if dial_pos is None:
-                dial_pos = self._update_dial() 
+                dial_pos = self._update_dial()
             return dial_pos
 
         if self.is_moving:
-            raise RuntimeError("%s: can't set axis dial position " 
+            raise RuntimeError("%s: can't set axis dial position "
                                "while moving" % self.name)
 
         return self.__do_set_dial(new_dial, no_offset=self.no_offset)
@@ -444,7 +444,7 @@ class Axis(object):
 
         return self.__do_set_position(new_pos, self.no_offset)
 
-    @lazy_init 
+    @lazy_init
     def _update_dial(self, update_user=True):
         dial_pos = self._hw_position()
         self.settings.set("dial_position", dial_pos)
@@ -508,11 +508,11 @@ class Axis(object):
 
     def sync_hard(self):
         """Forces an axis synchronization with the hardware"""
-        self.settings.set("state", self.state(read_hw=True)) 
+        self.settings.set("state", self.state(read_hw=True))
         self._update_dial()
         self._set_position(self.position())
         event.send(self, "sync_hard")
-        
+
     @lazy_init
     def velocity(self, new_velocity=None, from_config=False):
         """
@@ -628,9 +628,9 @@ class Axis(object):
         return self.settings.get('low_limit'), self.settings.get('high_limit')
 
     def _update_settings(self, state):
-        self.settings.set("state", state) 
+        self.settings.set("state", state)
         self._update_dial()
- 
+
     def _backlash_move(self, backlash_start, backlash, polling_time):
         final_pos = backlash_start + backlash
         backlash_motion = Motion(self, final_pos, backlash)
@@ -665,7 +665,7 @@ class Axis(object):
             self._do_encoder_reading()
         else:
           return state
-      
+
     def _jog_move(self, velocity, direction, polling_time):
         self._move_loop(polling_time)
 
@@ -804,7 +804,7 @@ class Axis(object):
 
         self.__controller.prepare_move(motion)
 
-        self._set_position(user_target_pos) 
+        self._set_position(user_target_pos)
 
         return motion
 
@@ -836,7 +836,7 @@ class Axis(object):
             self._update_settings(state)
 
             self.__execute_post_move_hook(move_task._motions)
-        
+
         self.__move_done.set()
 
         try:
@@ -879,7 +879,7 @@ class Axis(object):
         with self._lock:
             if self.is_moving:
                 raise RuntimeError("axis %s state is %r" % (self.name, 'MOVING'))
- 
+
             motion = self.prepare_move(user_target_pos, relative)
             if motion is None:
                 return
@@ -913,7 +913,7 @@ class Axis(object):
             motion = Motion(self, None, None, "jog")
             self.__execute_pre_move_hook(motion)
 
-            with error_cleanup(functools.partial(self._cleanup_stop, jog=True), 
+            with error_cleanup(functools.partial(self._cleanup_stop, jog=True),
                            functools.partial(self._jog_cleanup, saved_velocity, reset_position)):
                 self.velocity(abs(velocity)) #change velocity, to have settings updated accordingly
                 velocity_in_steps = velocity * self.steps_per_unit
@@ -981,7 +981,7 @@ class Axis(object):
                 self._set_move_done(self.__move_task)
                 raise
             else:
-                self._set_move_done(self.__move_task) 
+                self._set_move_done(self.__move_task)
 
     def _move_loop(self, polling_time=DEFAULT_POLLING_TIME, ctrl_state_funct='state'):
         state_funct = getattr(self.__controller, ctrl_state_funct)
@@ -991,7 +991,7 @@ class Axis(object):
             if state != "MOVING":
                 return state
             gevent.sleep(polling_time)
-        
+
     def _cleanup_stop(self, jog=False):
         if jog:
             self.__controller.stop_jog(self)
@@ -1046,7 +1046,7 @@ class Axis(object):
 
             self.__controller.home_search(self, switch)
             self._start_move_task(self._wait_home, switch)
-   
+
             # create motion object for hooks
             self.__move_task._motions = [motion]
 
@@ -1367,7 +1367,7 @@ class AxisState(object):
             if not self._current_states:
                 return other == "UNKNOWN"
             return other in self._current_states
-        elif isinstance(other, AxisState): 
+        elif isinstance(other, AxisState):
             s1 = set(self._current_states)
             s2 = set(other._current_states)
             return s1 == s2
@@ -1421,7 +1421,7 @@ class ModuloAxis(Axis):
             return d
         else:
             return self.__calc_modulo(d)
-        
+
     def prepare_move(self, user_target_pos, *args, **kwargs):
         user_target_pos = self.__calc_modulo(user_target_pos)
         self._in_prepare_move = True
@@ -1429,4 +1429,3 @@ class ModuloAxis(Axis):
             return Axis.prepare_move(self, user_target_pos, *args, **kwargs)
         finally:
             self._in_prepare_move = False
-

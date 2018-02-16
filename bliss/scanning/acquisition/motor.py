@@ -6,17 +6,22 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from __future__ import absolute_import
-from ..chain import AcquisitionMaster, AcquisitionChannel
+
+import sys
+import time
+
+import numpy
+import gevent.event
+
+import bliss
 from bliss.common import axis
 from bliss.common import event
 from bliss.common.event import dispatcher
 from bliss.common.task_utils import error_cleanup
 from bliss.common.utils import grouped
 from bliss.common.motor_group import Group
-import bliss
-import numpy
-import gevent
-import sys
+
+from ..chain import AcquisitionMaster, AcquisitionChannel
 
 
 class MotorMaster(AcquisitionMaster):
@@ -28,18 +33,22 @@ class MotorMaster(AcquisitionMaster):
         self.movable = axis
         self.start_pos = start
         self.end_pos = end
-        self.undershoot = undershoot
+        self._undershoot = undershoot
         self.velocity = abs(end - start) / \
             float(time) if time > 0 else axis.velocity()
         self.backnforth = backnforth
 
+    @property
+    def undershoot(self):
+        if self._undershoot is not None:
+            return self._undershoot
+        acctime = float(self.velocity) / self.movable.acceleration()
+        return self.velocity * acctime / 2
+
     def _calculate_undershoot(self, pos, end=False):
-        if self.undershoot is None:
-            acctime = float(self.velocity) / self.movable.acceleration()
-            undershoot = self.velocity * acctime / 2
         d = 1 if self.end_pos >= self.start_pos else -1
         d *= -1 if end else 1
-        pos -= d * undershoot
+        pos -= d * self.undershoot
         return pos
 
     def prepare(self):
@@ -55,23 +64,20 @@ class MotorMaster(AcquisitionMaster):
         if self.trigger_type == AcquisitionMaster.SOFTWARE:
             self.trigger_slaves()
         self.initial_velocity = self.movable.velocity()
-        self.movable.velocity(self.velocity)
-        end = self._calculate_undershoot(self.end_pos, end=True)
-        event.connect(self.movable, "move_done", self.move_done)
-        self.movable.move(end)
-        if self.backnforth:
-            self.start_pos, self.end_pos = self.end_pos, self.start_pos
+        try:
+            self.movable.velocity(self.velocity)
+            end = self._calculate_undershoot(self.end_pos, end=True)
+            self.movable.move(end)
+            if self.backnforth:
+                self.start_pos, self.end_pos = self.end_pos, self.start_pos
+        finally:
+            self.movable.velocity(self.initial_velocity)
 
     def wait_ready(self):
-        return self.movable.wait_move()
+        self.movable.wait_move()
 
     def stop(self):
         self.movable.stop()
-
-    def move_done(self, done):
-        if done:
-            self.movable.velocity(self.initial_velocity)
-            event.disconnect(self.movable, "move_done", self.move_done)
 
 
 class SoftwarePositionTriggerMaster(MotorMaster):
@@ -80,44 +86,60 @@ class SoftwarePositionTriggerMaster(MotorMaster):
         MotorMaster.__init__(self, axis, start, end, **kwargs)
         self.channels.append(AcquisitionChannel(axis.name, numpy.double, ()))
         self.__nb_points = npoints
+        self.task = None
+        self.started = gevent.event.Event()
 
     @property
     def npoints(self):
         return self.__nb_points
 
     def start(self):
-        self.exception = None
-        self.index = 0
-        event.connect(self.movable, "position", self.position_changed)
+        self.started.clear()
+        self.task = gevent.spawn(self.timer_task)
+        event.connect(self.movable, 'internal_state', self.on_state_change)
         MotorMaster.start(self)
-        if self.exception:
-            raise self.exception[0], self.exception[1], self.exception[2]
+
+    def on_state_change(self, state):
+        if state == 'MOVING':
+            self.started.set()
 
     def stop(self):
         self.movable.stop()
 
-    def position_changed(self, position):
-        try:
-            next_trigger_pos = self._positions[self.index]
-        except IndexError:
-            return
-        if ((self.end_pos >= self.start_pos and position >= next_trigger_pos) or
-                (self.start_pos > self.end_pos and position <= next_trigger_pos)):
-            self.index += 1
+    def get_trigger(self, position):
+        t0 = self.velocity / (2. * self.movable.acceleration())
+        t0 += abs(self.undershoot) / float(self.velocity)
+        distance = abs(self.start_pos - position)
+        return t0 + distance / float(self.velocity)
+
+    def timer_task(self):
+        # Wait for motor start
+        self.started.wait()
+        # Take a time reference
+        ref = time.time()
+        # Iterate over trigger
+        for position in self._positions:
+            # Sleep
+            trigger = self.get_trigger(position)
+            current_time = time.time() - ref
+            gevent.sleep(trigger - current_time)
+            # Trigger the slaves
             try:
                 self.trigger_slaves()
+            # Handle slave exception
             except Exception:
-                event.disconnect(self.movable, "position",
-                                 self.position_changed)
                 self.movable.stop(wait=False)
-                self.exception = sys.exc_info()
+                raise
+            # Emit motor position
             else:
                 self.channels[0].emit(position)
 
-    def move_done(self, done):
-        if done:
-            event.disconnect(self.movable, "position", self.position_changed)
-        MotorMaster.move_done(self, done)
+    def wait_ready(self):
+        if self.task is not None:
+            self.task.get()
+            self.task = None
+        event.disconnect(self.movable, 'internal_state', self.on_state_change)
+        MotorMaster.wait_ready(self)
 
 
 class JogMotorMaster(AcquisitionMaster):
@@ -129,7 +151,7 @@ class JogMotorMaster(AcquisitionMaster):
         axis -- a motor axis
         start -- position where you want to have your motor in constant speed
         jog_speed -- constant velocity during the movement
-        end_jog_func -- function to stop the jog movement. 
+        end_jog_func -- function to stop the jog movement.
         Stop the movement if return value != True
         if end_jog_func is None should be stopped externally.
         """

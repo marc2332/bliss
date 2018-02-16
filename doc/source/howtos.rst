@@ -12,3 +12,5 @@ How Tos
     howto_emulator
     howto_motion_hook
     howto_session
+    howto_settings
+

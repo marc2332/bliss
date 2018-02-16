@@ -18,6 +18,51 @@ def test_simple_setting(beacon):
     sss.set("V2")  # 'V2' key exists now in redis
     assert sss.get() == 'V2'
 
+def test_simple_setting_types(beacon):
+    session = beacon.get("test_session")
+    session.setup()
+
+    # INT
+    anIntValue = 666
+    iii = settings.SimpleSetting('myIntkey', default_value=anIntValue)
+    assert iii.get() == anIntValue
+    iii.set(63825363)
+    assert iii.get() == 63825363
+    assert type(iii.get()) is int
+
+    # FLOAT
+    aFloatValue = 3.14159
+    fff = settings.SimpleSetting('myFloatkey', default_value=aFloatValue)
+    assert fff.get() == aFloatValue
+    fff.set(2.71)
+    assert fff.get() == pytest.approx(2.71, 0.001)
+    assert type(fff.get()) is float
+
+    # STRING
+    aStringValue = "Hello World !"
+    sss = settings.SimpleSetting('myStringKey', default_value=aStringValue)
+    assert sss.get() == aStringValue
+    sss.set("Good bye")
+    assert sss.get() == "Good bye"
+    assert type(sss.get()) is str
+
+    # BOOLEAN
+    aBoolValue = False
+    bbb = settings.SimpleSetting('myBoolKey', default_value=aBoolValue)
+    assert bbb.get() == aBoolValue
+    bbb.set(True)
+    assert bbb.get() == True
+    assert type(bbb.get()) is bool
+
+    # TUPLE
+    aTupleValue = (1, 2, 3)
+    ttt = settings.SimpleSetting('myTupleKey', default_value=aTupleValue)
+    assert ttt.get() == aTupleValue
+    ttt.set(('a', 'b', 'c'))
+    # Oh oH !!! this is now a string.
+    assert ttt.get() == "('a', 'b', 'c')"
+    assert type(ttt.get()) is str
+
 def test_hash_setting(beacon):
     session = beacon.get("test_session")
     session.setup()

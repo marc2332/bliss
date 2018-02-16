@@ -31,13 +31,15 @@ _SESSION_IMPORTERS = set()
 class _StringImporter(object):
     BASE_MODULE_NAMESPACE = 'bliss.session'
 
-    def __init__(self, path, session_name):
+    def __init__(self, path, session_name, in_load_script=False):
         self._modules = dict()
         session_module_namespace = '%s.%s' % (self.BASE_MODULE_NAMESPACE,
                                               session_name)
         for module_name, file_path in get_python_modules(path):
             self._modules['%s.%s' %
                           (session_module_namespace, module_name)] = file_path
+            if in_load_script:
+                self._modules[module_name] = file_path
         if self._modules:
             self._modules[self.BASE_MODULE_NAMESPACE] = None
             self._modules['%s.%s' %
@@ -99,22 +101,28 @@ def load_script(env_dict, script_module_name, session=None):
     elif isinstance(session, (str, unicode)):
         session = static.get_config().get(session)
 
-    importer = _StringImporter(session._scripts_module_path, session.name)
-    module_name = '%s.%s.%s' % (_StringImporter.BASE_MODULE_NAMESPACE,
-                                session.name,
-                                os.path.splitext(script_module_name)[0])
-    filename = importer._modules.get(module_name)
-    if not filename:
-        raise RuntimeError("Cannot find module %s" % module_name)
-
-    s_code = get_config_file(filename)
-    c_code = compile(s_code, filename, 'exec')
-    globals_dict = env_dict.copy()
+    importer = _StringImporter(session._scripts_module_path, session.name, in_load_script=True)
     try:
-        exec(c_code, globals_dict)
-    except Exception:
-        sys.excepthook(*sys.exc_info())
+        sys.meta_path.insert(0, importer)
+
+        module_name = '%s.%s.%s' % (_StringImporter.BASE_MODULE_NAMESPACE,
+                                    session.name,
+                                    os.path.splitext(script_module_name)[0])
+        filename = importer._modules.get(module_name)
+        if not filename:
+            raise RuntimeError("Cannot find module %s" % module_name)
+
+        s_code = get_config_file(filename)
+        c_code = compile(s_code, filename, 'exec')
     
+        globals_dict = env_dict.copy()
+        try:
+            exec(c_code, globals_dict)
+        except Exception:
+            sys.excepthook(*sys.exc_info())
+    finally:
+        sys.meta_path.remove(importer)
+
     for k in globals_dict.iterkeys():
         if k.startswith('_'):
             continue

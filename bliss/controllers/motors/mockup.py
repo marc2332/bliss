@@ -276,14 +276,14 @@ class Mockup(Controller):
         if self.__error_mode:
             raise RuntimeError("Cannot start because error mode is set")
         axis = motion.axis
-        if t0 is None:
-            t0 = time.time()
         if self._get_axis_motion(axis):
             raise RuntimeError('Cannot start motion. Motion already in place')
         pos = self.read_position(axis)
         vel = self.read_velocity(axis)
         accel = self.read_acceleration(axis)
         end_pos = motion.target_pos
+        if t0 is None:
+            t0 = time.time()
         axis_motion = Motion(pos, end_pos, vel, accel, self.__hw_limit, ti=t0)
         self._axis_moves[axis]['motion'] = axis_motion
 

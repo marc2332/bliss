@@ -96,11 +96,11 @@ class SoftwarePositionTriggerMaster(MotorMaster):
     def start(self):
         self.started.clear()
         self.task = gevent.spawn(self.timer_task)
-        event.connect(self.movable, 'move_done', self.on_move_done)
+        event.connect(self.movable, 'internal_state', self.on_state_change)
         MotorMaster.start(self)
 
-    def on_move_done(self, done):
-        if not done:
+    def on_state_change(self, state):
+        if state == 'MOVING':
             self.started.set()
 
     def stop(self):
@@ -108,7 +108,7 @@ class SoftwarePositionTriggerMaster(MotorMaster):
 
     def get_trigger(self, position):
         t0 = self.velocity / (2. * self.movable.acceleration())
-        t0 += self.undershoot / float(self.velocity)
+        t0 += abs(self.undershoot) / float(self.velocity)
         distance = abs(self.start_pos - position)
         return t0 + distance / float(self.velocity)
 
@@ -126,7 +126,7 @@ class SoftwarePositionTriggerMaster(MotorMaster):
             # Trigger the slaves
             try:
                 self.trigger_slaves()
-            # Handel slave exception
+            # Handle slave exception
             except Exception:
                 self.movable.stop(wait=False)
                 raise
@@ -138,7 +138,7 @@ class SoftwarePositionTriggerMaster(MotorMaster):
         if self.task is not None:
             self.task.get()
             self.task = None
-        event.disconnect(self.movable, 'move_done', self.on_move_done)
+        event.disconnect(self.movable, 'internal_state', self.on_state_change)
         MotorMaster.wait_ready(self)
 
 

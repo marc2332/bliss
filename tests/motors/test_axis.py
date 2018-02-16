@@ -30,18 +30,25 @@ def test_state_callback(robz):
     assert ready_event.get(timeout=0.1)
     assert robz.state() == "READY"
 
+
 def test_move_done_callback(robz):
     ready_event = gevent.event.AsyncResult()
+    dial_event = gevent.event.AsyncResult()
 
     def callback(move_done):
         if move_done:
             ready_event.set(robz.is_moving is False)
+            dial_event.set(robz.dial())
 
     event.connect(robz, "move_done", callback)
 
     robz.rmove(1)
 
     assert ready_event.get(timeout=0.1)
+    assert dial_event.get() == 1
+
+    event.disconnect(robz, "move_done", callback)
+
 
 def test_position_callback(robz):
     storage={"last_pos":None, "last_dial_pos":None}

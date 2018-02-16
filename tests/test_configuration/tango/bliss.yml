@@ -54,5 +54,14 @@ device:
 - tango_name: id00/bliss_test/s1d
   class: BlissAxis_s1d
   alias: s1d
+- tango_name: id00/bliss_test/calc_mot2
+  class: BlissAxis_calc_mot2
+  alias: calc_mot2
+- tango_name: id00/bliss_test/calc_mot1
+  class: BlissAxis_calc_mot1
+  alias: calc_mot1
+- tango_name: id00/bliss_test/omega
+  class: BlissAxis_omega
+  alias: omega
 personal_name: test
 server: Bliss

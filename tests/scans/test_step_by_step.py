@@ -42,6 +42,36 @@ def test_dscan(beacon):
     assert numpy.array_equal(scan_data['gaussian'], counter.data)
 
 
+def test_dscan_move_done(beacon):
+    session = beacon.get("test_session")
+    session.setup()
+    counter_class = getattr(setup_globals, 'TestScanGaussianCounter')
+    counter = counter_class("gaussian", 10, cnt_time=0)
+    m1 = getattr(setup_globals, 'm1')
+
+    # Callback
+    positions = []
+
+    def target(done):
+        if done:
+            positions.append(m1.dial())
+
+    event.connect(m1, 'move_done', target)
+
+    # contrary to ascan, dscan returns to start pos
+    start_pos = m1.position()
+    s = scans.dscan(m1, -2, 2, 10, 0, counter, return_scan=True, save=False)
+    assert m1.position() == start_pos
+    scan_data = scans.get_data(s)
+    assert numpy.allclose(scan_data['m1'], numpy.linspace(start_pos-2, start_pos+2, 10), atol=5e-4)
+    assert numpy.array_equal(scan_data['gaussian'], counter.data)
+    assert positions[0] == 8.0
+    assert positions[-2] == 12.0
+    assert positions[-1] == 10.0
+
+    event.disconnect(m1, 'move_done', target)
+
+
 def test_timescan(beacon):
     session = beacon.get("test_session")
     session.setup()

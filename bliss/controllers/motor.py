@@ -7,7 +7,7 @@
 
 import numpy
 from bliss.common.motor_config import StaticConfig
-from bliss.common.motor_settings import ControllerAxisSettings
+from bliss.common.motor_settings import ControllerAxisSettings, floatOrNone
 from bliss.common.axis import Axis, AxisRef, Trajectory
 from bliss.common.motor_group import Group, TrajectoryGroup
 from bliss.common import event
@@ -390,16 +390,7 @@ class CalcController(Controller):
 	    self._calc_from_real()
 
     def initialize_axis(self, axis):
-        try:
-            axis.trajectory_minimum_resolution = \
-            axis.config.get('trajectory_minimum_resolution', float)
-        except KeyError:
-            axis.trajectory_minimum_resolution = None
-        try:
-            axis.trajectory_maximum_resolution = \
-            axis.config.get('trajectory_maximum_resolution', float)
-        except KeyError:
-            axis.trajectory_maximum_resolution = None
+        pass
 
     def _pseudo_sync_hard(self):
         for real_axis in self.reals:
@@ -526,27 +517,30 @@ class CalcController(Controller):
             axis, raxes = self._check_trajectory(real)
             real_axes.append((axis, raxes))
 
+        trajectory_minimum_resolution = \
+            calc_axis.config.get('trajectory_minimum_resolution', floatOrNone, None)
+        trajectory_maximum_resolution = \
+            calc_axis.config.get('trajectory_maximum_resolution', floatOrNone, None)
+
         #Check if the resolution is enough
         total_distance = abs(end_point - start_point)
         trajectory_resolution = total_distance / float(nb_points)
         used_resolution = None
 
-        if calc_axis.trajectory_minimum_resolution is not None and\
-           calc_axis.trajectory_maximum_resolution is not None:
-            trajectory_maximum_resolution = calc_axis.trajectory_maximum_resolution
-            trajectory_minimum_resolution = calc_axis.trajectory_minimum_resolution
+        if trajectory_minimum_resolution is not None and\
+           trajectory_maximum_resolution is not None:
             if not (trajectory_maximum_resolution >= trajectory_resolution
                     >= trajectory_minimum_resolution):
                 if trajectory_resolution > trajectory_minimum_resolution:
                     used_resolution = trajectory_minimum_resolution
                 else:
                     used_resolution = trajectory_maximum_resolution
-        elif calc_axis.trajectory_minimum_resolution is not None:
-            if trajectory_resolution > calc_axis.trajectory_minimum_resolution:
-                used_resolution = calc_axis.trajectory_minimum_resolution
-        elif calc_axis.trajectory_maximum_resolution is not None:
-            if trajectory_resolution < calc_axis.trajectory_maximum_resolution:
-                used_resolution = calc_axis.trajectory_maximum_resolution
+        elif trajectory_minimum_resolution is not None:
+            if trajectory_resolution > trajectory_minimum_resolution:
+                used_resolution = trajectory_minimum_resolution
+        elif trajectory_maximum_resolution is not None:
+            if trajectory_resolution < trajectory_maximum_resolution:
+                used_resolution = trajectory_maximum_resolution
 
         if used_resolution is not None:
             new_nb_points = int(round(total_distance / used_resolution))

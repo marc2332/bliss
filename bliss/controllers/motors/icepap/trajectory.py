@@ -12,12 +12,12 @@ import mock
 from bliss.common.axis import Axis, lazy_init, DEFAULT_POLLING_TIME
 from . import _command, _vdata_header, POSITION, PARAMETER
 
-def check_initilized(func):
+def check_initialized(func):
     @functools.wraps(func)
     def func_wrapper(self, *args, **kwargs):
         if self._axes is None:
             raise RuntimeError("Axis ** %s ** not initialized, "
-                               "hints: call set_positions" % self.name)
+                               "hint: call set_positions" % self.name)
         return func(self, *args, **kwargs)
     return func_wrapper
 
@@ -114,7 +114,7 @@ class TrajectoryAxis(Axis):
         return self._parameter, self._positions
 
     @property
-    @check_initilized
+    @check_initialized
     def real_motor_names(self):
         """
         Return a list of real motor linked to this virtual axis
@@ -122,14 +122,14 @@ class TrajectoryAxis(Axis):
         return self._axes.keys()
 
     @property
-    @check_initilized
+    @check_initialized
     def real_axes(self):
         """
         Return a list of real axis linked to this virtual axis
         """
         return self._axes.values()
 
-    @check_initilized
+    @check_initialized
     def movep(self, user_target_pos, wait=True, relative=False,
               polling_time=DEFAULT_POLLING_TIME):
         """
@@ -196,7 +196,7 @@ class TrajectoryAxis(Axis):
             axis._trajectory_cache.value = value
             self._hash_cache[axis.name] = value
 
-    @check_initilized
+    @check_initialized
     def _start_one(self, motion):
         target_pos = motion.target_pos
         #check if trajectories are loaded

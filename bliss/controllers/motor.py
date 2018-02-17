@@ -626,8 +626,8 @@ class CalcController(Controller):
                     real_axes.append((raxis, axes))
                 return axis, real_axes
             else:
-                raise ValueError("Controller for axis %s doesn't "
-                                 "has the trajectory capability" % axis.name)
+                raise ValueError("Controller for axis %s does not support "
+                                 "trajectories" % axis.name)
 
     def _get_real_position(self, real_axes, real_positions,
                            final_real_axes_position):
@@ -637,7 +637,7 @@ class CalcController(Controller):
             axis_position = real_positions.get(self._axis_tag(axis))
             if not dep_real_axes:
                 if axis_position is None:
-                    raise RuntimeError("Couldn't get position "
+                    raise RuntimeError("Could not get position "
                                        "for axis %s" % axis.name)
                 else:
                     final_real_axes_position[axis] = axis_position

@@ -10,7 +10,8 @@ from bliss.common.motor_config import StaticConfig
 from bliss.common.motor_settings import ControllerAxisSettings
 from bliss.common.axis import Axis, AxisRef, Trajectory
 from bliss.common.motor_group import Group, TrajectoryGroup
-from bliss.common import event, trajectory
+from bliss.common import event
+from bliss.physics import trajectory
 from bliss.common.utils import set_custom_members, object_method
 from bliss.config.channels import Cache
 from gevent import lock

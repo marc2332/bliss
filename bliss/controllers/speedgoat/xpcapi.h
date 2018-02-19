@@ -249,132 +249,194 @@ typedef enum ErrorValues_tag {
     EINTERNAL            = 999,
 } xPCErrorValue;
 
-/* --------------------------------------------------- */
+/* Connection ------------------------------------------------------------- */
 int xPCReOpenPort(int port);
-int xPCOpenSerialPort(int comport, int baudRate);
 void xPCClosePort(int port);
+int xPCOpenSerialPort(int comport, int baudRate);
+int xPCOpenTcpIpPort(const char* address, const char* port);
+void xPCOpenConnection(int port);
+void xPCCloseConnection(int port);
+
+/* Reboot ----------------------------------------------------------------- */
+void xPCReboot(int port);
+
+/* Error handling --------------------------------------------------------- */
 int xPCGetLastError(void);
 void xPCSetLastError(int error);
+const char * xPCErrorMsg(int errorno, char *errmsg);
+
+/* Global configuration --------------------------------------------------- */
+const char * xPCGetAPIVersion(void);
+void xPCGetTargetVersion(int port, char *ver);
+
 double xPCGetExecTime(int port);
-void xPCSetStopTime(int port, double tfinal);
+int xPCGetSimMode(int port);
+void xPCGetPCIInfo(int port, char *buf);
+double xPCGetSessionTime(int port);
+
 double xPCGetStopTime(int port);
-void xPCSetSampleTime(int port, double ts);
+void xPCSetStopTime(int port, double tfinal);
+void xPCSetDefaultStopTime(int port);
+
+int xPCGetLoadTimeOut(int port);
+void xPCSetLoadTimeOut(int port, int timeOut);
+
 double xPCGetSampleTime(int port);
-void xPCSetEcho(int port, int mode);
+void xPCSetSampleTime(int port, double ts);
+
 int xPCGetEcho(int port);
-void xPCSetHiddenScopeEcho(int port, int mode);
+void xPCSetEcho(int port, int mode);
+
 int xPCGetHiddenScopeEcho(int port);
-double xPCAverageTET(int port);
-int xPCGetNumParams(int port);
-int xPCGetNumSignals(int port);
+void xPCSetHiddenScopeEcho(int port, int mode);
+
+/* Application ------------------------------------------------------------ */
 char * xPCGetAppName(int port, char *modelname);
-void xPCUnloadApp(int port);
 void xPCStartApp(int port);
 void xPCStopApp(int port);
 int xPCIsAppRunning(int port);
 int xPCIsOverloaded(int port);
-int xPCGetNumOutputs(int port);
-int xPCGetNumStates(int port);
+
+void xPCLoadApp(int port, const char* pathstr, const char* filename);
+void xPCUnloadApp(int port);
+
+/* Parameters ------------------------------------------------------------- */
+int xPCGetNumParams(int port);
+void xPCGetParamName(int port, int parIdx, char *block, char *param);
+void xPCGetParamSourceName(int port, int amiIdx, int parIdx, char *block, char *param);
+int xPCGetParamIdx(int port, const char *block, const char *parameter);
+void xPCGetParamType(int port, int parIdx, char *paramType);
+void xPCGetParamDims(int port, int parIdx, int *dims);
+int xPCGetParamDimsSize(int port, int parIdx);
+
 void xPCGetParam(int port, int parIdx, double *paramValue);
-void xPCSetLogMode(int port, lgmode lgdata);
 void xPCSetParam(int port, int parIdx, const double *paramValue);
+
+/* Logging ---------------------------------------------------------------- */
 lgmode xPCGetLogMode(int port);
+void xPCSetLogMode(int port, lgmode lgdata);
+void xPCGetLogStatus(int port, int *logArray);
 int xPCNumLogSamples(int port);
 int xPCMaxLogSamples(int port);
 int xPCNumLogWraps(int port);
-void xPCReboot(int port);
+int xPCGetNumOutputs(int port);
 void xPCGetOutputLog(int port, int start, int numsamples,
                                   int decimation, int output_id, double *data);
+                                  int xPCGetNumStates(int port);
 void xPCGetStateLog(int port, int start, int numsamples,
                                  int decimation, int state_id, double *data);
 void xPCGetTimeLog(int port, int start, int numsamples,
                                 int decimation, double *data);
 void xPCGetTETLog(int port, int start, int numsamples,
                                int decimation, double *data);
-void xPCScGetData(int port, int scNum , int signal_id, int start,
-                               int numsamples, int decimation, double *data);
+
+/* TET -------------------------------------------------------------------- */
+double xPCAverageTET(int port);
 void xPCMinimumTET(int port, double *data);
 void xPCMaximumTET(int port, double *data);
+
+/* Global signals --------------------------------------------------------- */
+int xPCGetNumSignals(int port);
+int xPCGetSignalIdx(int port, const char *sigName );
+char * xPCGetSignalName(int port, int sigIdx, char *sigName);
+char * xPCGetSignalLabel(int port, int sigIdx, char *sigLabel);
+int xPCGetSigLabelWidth(int port, const char *sigName);
+int xPCGetSigIdxfromLabel(int port, const char *sigName, int *sigIds);
+double xPCGetSignal(int port,  int sigNum);
 int xPCGetSignals(int port, int numSignals, const int *signals,
                                double *values);
-double xPCGetSignal(int port,  int sigNum);
+int xPCGetSignalWidth(int port, int sigIdx);
+
+/* Scopes ----------------------------------------------------------------- */
+int  xPCGetNumScopes(int port);
+int  xPCGetNumHiddenScopes(int port);
+void xPCGetScopes(int port, int *data);
+void xPCGetScopeList(int port, int *data);  /* what is the difference with xPCGetScopes ??? */
+void xPCGetHiddenList(int port, int *data);
+void xPCGetHiddenScopes(int port, int *data);
+int xPCScGetType(int port, int scNum);
+
 void xPCAddScope(int port, int type, int scNum);
 void xPCRemScope(int port, int scNum);
+
+scopedata xPCGetScope(int port, int scNum);
+void xPCSetScope(int port, scopedata state);
+
 void xPCScAddSignal(int port, int scNum, int sigNum);
 void xPCScRemSignal(int port, int scNum, int sigNum);
-void xPCScSetAutoRestart(int port, int scNum, int autorestart);
-int  xPCScGetAutoRestart(int port, int scNum);
-void xPCGetScopes(int port, int *data);
-void xPCGetHiddenScopes(int port, int *data);
-void xPCScGetSignals(int port, int scNum, int *data);
-void xPCScSetDecimation(int port, int scNum, int decimation);
+
 int xPCScGetNumSignals(int port, int scNum);
-int xPCScGetDecimation(int port, int scNum);
-void xPCScSetNumSamples(int port, int scNum, int samples);
-int xPCScGetNumSamples(int port, int scNum);
+void xPCScGetSignals(int port, int scNum, int *data);
+void xPCScGetSignalList(int port, int scNum, int *data); /* what is the difference with xPCScGetSignals ??? */
+
 double xPCScGetStartTime(int port, int scNum);
+
 int xPCScGetState(int port, int scNum);
-void xPCScSetTriggerLevel(int port, int scNum, double level);
-double xPCScGetTriggerLevel(int port, int scNum);
-void xPCScSetTriggerMode(int port, int scNum, int mode);
-int xPCScGetTriggerMode(int port, int scNum);
-void xPCScSetTriggerScope(int port, int scNum, int trigMode);
-int xPCScGetTriggerScope(int port, int scNum);
-void xPCScSetTriggerScopeSample(int port, int scNum, int trigScSamp);
-int xPCScGetTriggerScopeSample(int port, int scNum);
-void xPCScSetTriggerSignal(int port, int scNum, int trigSig);
-int xPCScGetTriggerSignal(int port, int scNum);
-void xPCScSetTriggerSlope(int port, int scNum, int trigSlope);
-int xPCScGetTriggerSlope(int port, int scNum);
 void xPCScSoftwareTrigger(int port, int scNum);
 void xPCScStart(int port, int scNum);
 void xPCScStop(int port, int scNum);
 int xPCIsScFinished(int port, int scNum);
+
+void xPCScGetData(int port, int scNum , int signal_id, int start,
+                  int numsamples, int decimation, double *data);
+
+int  xPCScGetAutoRestart(int port, int scNum);
+void xPCScSetAutoRestart(int port, int scNum, int autorestart);
+
+int xPCScGetDecimation(int port, int scNum);
+void xPCScSetDecimation(int port, int scNum, int decimation);
+
+int xPCScGetNumSamples(int port, int scNum);
+void xPCScSetNumSamples(int port, int scNum, int samples);
+
+double xPCScGetTriggerLevel(int port, int scNum);
+void xPCScSetTriggerLevel(int port, int scNum, double level);
+
+int xPCScGetTriggerMode(int port, int scNum);
+void xPCScSetTriggerMode(int port, int scNum, int mode);
+
+int xPCScGetTriggerScope(int port, int scNum);
+void xPCScSetTriggerScope(int port, int scNum, int trigMode);
+
+int xPCScGetTriggerScopeSample(int port, int scNum);
+void xPCScSetTriggerScopeSample(int port, int scNum, int trigScSamp);
+
+int xPCScGetTriggerSignal(int port, int scNum);
+void xPCScSetTriggerSignal(int port, int scNum, int trigSig);
+
+int xPCScGetTriggerSlope(int port, int scNum);
+void xPCScSetTriggerSlope(int port, int scNum, int trigSlope);
+
 int xPCScGetNumPrePostSamples(int port, int scNum);
 void xPCScSetNumPrePostSamples(int port, int scNum, int prepost);
-scopedata xPCGetScope(int port, int scNum);
-void xPCSetScope(int port, scopedata state);
-void xPCLoadApp(int port, const char* pathstr,
-                             const char* filename);
-void xPCGetParamDims(int port, int parIdx, int *dims);
-int xPCGetParamDimsSize(int port, int parIdx);
-int xPCGetSignalWidth(int port, int sigIdx);
-int xPCGetSignalIdx(int port, const char *sigName );
 
-int xPCGetSigLabelWidth(int port, const char *sigName);
-int xPCGetSigIdxfromLabel(int port, const char *sigName, int *sigIds);
-char * xPCGetSignalLabel(int port, int sigIdx, char *sigLabel);
-
-int xPCGetParamIdx(int port, const char *block,
-                                const char *parameter);
-void xPCGetParamName(int port, int parIdx, char *block, char *param);
-void xPCGetParamSourceName(int port, int amiIdx, int parIdx, char *block, char *param);
-void xPCGetParamType(int port, int parIdx, char *paramType);
-char * xPCGetSignalName(int port, int sigIdx, char *sigName);
+/* Target scope */
 int xPCTgScGetGrid(int port, int scNum);
-int xPCTgScGetMode(int port, int scNum);
-int xPCTgScGetViewMode(int port);
-void xPCTgScGetYLimits(int port, int scNum, double *limits);
 void xPCTgScSetGrid(int port, int scNum, int flag);
+
+int xPCTgScGetMode(int port, int scNum);
 void xPCTgScSetMode(int port, int scNum, int flag);
+
+int xPCTgScGetViewMode(int port);
 void xPCTgScSetViewMode(int port, int scNum);
+
+void xPCTgScGetYLimits(int port, int scNum, double *limits);
 void xPCTgScSetYLimits(int port, int scNum, const double *limits);
-void xPCTgScSetSignalFormat(int port, int scNum, int signalNo, const char *signalFormat);
+
 char * xPCTgScGetSignalFormat(int port,int scNum, int signalNo, char *signalFormat);
-void xPCSetLoadTimeOut(int port, int timeOut);
-const char * xPCErrorMsg(int errorno, char *errmsg);
-int xPCScGetType(int port, int scNum);
-int xPCGetLoadTimeOut(int port);
-int xPCOpenTcpIpPort(const char* address, const char* port);
-void xPCOpenConnection(int port);
-void xPCCloseConnection(int port);
+void xPCTgScSetSignalFormat(int port, int scNum, int signalNo, const char *signalFormat);
+
 int xPCRegisterTarget(int commType, const char *ipAddress,
                                    const char *ipPort,
                                    int comPort, int baudRate);
 void xPCDeRegisterTarget(int port);
-const char * xPCGetAPIVersion(void);
-void xPCGetTargetVersion(int port, char *ver);
+
 int xPCTargetPing(int port);
+
+int xPCIsTargetScope(int port);
+void xPCSetTargetScopeUpdate(int port,int value);
+
+/* File system ------------------------------------------------------------ */
 void xPCFSReadFile(int port, int fileHandle, unsigned int start,
                                unsigned int numsamples, unsigned char *data);
 unsigned int xPCFSRead(int port, int fileHandle, unsigned int start,
@@ -398,8 +460,6 @@ int xPCFSDirSize(int port, const char *path);
 void xPCFSGetError(int            port,
                                 unsigned int   errCode,
                                 unsigned char *message);
-void xPCSaveParamSet(int port, const char *filename);
-void xPCLoadParamSet(int port, const char *filename);
 
 void xPCFSScSetFilename(int port, int scopeId,
                                      const char *filename);
@@ -418,26 +478,18 @@ diskinfo xPCFSDiskInfo(int port, const char *driveLetter);
 const char * xPCFSFileTable(int port, char *tableBuffer);
 void xPCFSDirItems(int port, const char *path, dirStruct *dirs, int numDirItems);
 int xPCFSDirStructSize(int port, const char *path);
-int  xPCGetNumScopes(int port);
-int  xPCGetNumHiddenScopes(int port);
-void xPCGetScopeList(int port, int *data);
-void xPCGetHiddenList(int port, int *data);
-void xPCScGetSignalList(int port, int scNum, int *data);
-int  xPCGetSimMode(int port);
-void xPCGetPCIInfo(int port, char *buf);
-double xPCGetSessionTime(int port);
-void xPCGetLogStatus(int port, int *logArray);
 fileinfo xPCFSFileInfo(int port, int fileHandle);
-void  xPCSetDefaultStopTime(int port);
-int xPCGetXMLSize(int port);
-int xPCIsTargetScope(int port);
-void xPCSetTargetScopeUpdate(int port,int value);
 void xPCFSReNameFile(int port, const char *fsName, const char *newName);
 void xPCFSScSetDynamicMode(int port, int scopeId, int onoff);
 int xPCFSScGetDynamicMode(int port, int scopeId);
 void xPCFSScSetMaxWriteFileSize(int port, int scopeId,
-                                     unsigned int maxWriteFileSize);
-unsigned int xPCFSScGetMaxWriteFileSize(int port, int scopeId);
+  unsigned int maxWriteFileSize);
+  unsigned int xPCFSScGetMaxWriteFileSize(int port, int scopeId);
+int xPCGetXMLSize(int port);
+void xPCSaveParamSet(int port, const char *filename);
+void xPCLoadParamSet(int port, const char *filename);
+
+/* Params ??? */
 int xPCGetParamsCount(int port);
 void xPCGetParameterMap(int port, const char *blockName,const char *paramName, int* mapinfo);
 int xPCGetParameterRecLength(int port, int* mapinfo);
@@ -445,4 +497,3 @@ char * xPCGetParameterXMLInfo(int port, int* mapinfo, char *xmlRec);
 void xPCGetParameterStructureMember(int port, int* mapinfo, char* membername, double *values);
 void xPCGetParameterValue(int port, int* mapinfo, int offset, char* membername, char* cPartName, double *values);
 void xPCSetParameterValue(int port, int* mapinfo, int offset, char* membername, char *cPartName, int size, const double *paramValue);
-/* --------------------------------------------------- */

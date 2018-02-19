@@ -21,6 +21,31 @@ class SimulinkError(Exception):
     pass
 
 
+def _to_bytes(arg):
+    if isinstance(arg, bytes):
+        return arg
+    return arg.encode()
+
+
+def _error(result):
+    err = get_last_error_msg()
+    if err is None:
+        return result
+    raise SimulinkError(err)
+
+
+def _error_handle(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        return _error(func(*args, **kwargs))
+
+    return wrapper
+
+
+def struct_to_dict(data):
+    return {k: getattr(data, k) for k in dir(data) if not k.startswith("_")}
+
+
 def _discover():
     """
     In case most of the functions don't need translation we can apply this to
@@ -40,7 +65,7 @@ def _discover():
         item = getattr(xpc, name)
         if name.startswith("xPC") and callable(item):
             name = camelCase_to_snake(name[3:])
-            items[name] = item
+            items[name] = _error_handle(item)
     globals().update(items)
 
 
@@ -50,9 +75,9 @@ _discover()
 
 
 def tcp_connect(host, port):
-    host = host.encode("ascii")
-    port = str(port).encode("ascii")
-    handle = xpc.xPCOpenTcpIpPort(host, port)
+    bhost = _to_bytes(host)
+    bport = _to_bytes(str(port))
+    handle = xpc.xPCOpenTcpIpPort(bhost, bport)
     if handle == -1:
         raise SimulinkError("Unable to connect to {}:{}".format(host, port))
     return handle
@@ -67,7 +92,7 @@ def close_port(handle):
 # Miscellaneous
 
 
-def get_api_version(handle=None):
+def get_api_version():
     buff = xpc.xPCGetAPIVersion()
     return ffi.string(buff).decode()
 
@@ -78,17 +103,57 @@ def get_target_version(handle):
     return ffi.string(buff).decode()
 
 
+def get_sim_mode(handle):
+    return True if _error(xpc.xPCGetSimMode(handle)) else False
+
+
+def get_pci_info(handle):
+    buff = ffi.new("char[8192]")
+    _error(xpc.xPCGetPCIInfo(handle, buff))
+    return ffi.string(buff).decode()
+
+
 def ping(handle):
-    return xpc.xPCTargetPing(handle)
+    return _error(xpc.xPCTargetPing(handle))
 
 
-def get_last_error_message(handle):
-    errno = xpc.xPCGetLastError()
+def get_last_error():
+    return xpc.xPCGetLastError()
+
+
+def error_msg(errno):
+    buff = ffi.new("char[256]")
+    xpc.xPCErrorMsg(errno, buff)
+    return ffi.string(buff).decode()
+
+
+def get_last_error_msg():
+    errno = get_last_error()
     if errno == xpc.ENOERR:
         return
-    buff = ffi.new("char[256]")
-    xpc.xPCErrorMsg(handle, errno, buff)
-    return ffi.string(buff).decode()
+    return error_msg(errno)
+
+
+def get_system_state(handle):
+    """Helper to get all system information"""
+    attrs = (
+        "target_version",
+        "exec_time",
+        "sim_mode",
+        "session_time",
+        "stop_time",
+        "load_time_out",
+        "sample_time",
+        "echo",
+        "hidden_scope_echo",
+        "app_name",
+    )
+    space = globals()
+    result = {name: space["get_" + name](handle) for name in attrs}
+    result["api_version"] = get_api_version()
+    result["is_app_running"] = is_app_running(handle)
+    result["is_overloaded"] = is_overloaded(handle)
+    return result
 
 
 # Application
@@ -96,7 +161,7 @@ def get_last_error_message(handle):
 
 def get_app_name(handle):
     buff = ffi.new("char[256]")
-    xpc.xPCGetAppName(handle, buff)
+    _error(xpc.xPCGetAppName(handle, buff))
     return ffi.string(buff).decode()
 
 
@@ -107,7 +172,7 @@ def get_app_name(handle):
 
 
 def load_app(handle, path, fname):
-    xpc.xPCLoadApp(handle, path.encode("ascii"), fname.encode("ascii"))
+    _error(xpc.xPCLoadApp(handle, _to_bytes(path), _to_bytes(fname)))
 
 
 # Parameters
@@ -119,68 +184,111 @@ def get_num_params(handle):
 
 
 def get_param_idx(handle, block, name):
-    return xpc.xPCGetParamIdx(handle, block.encode("ascii"), name.encode("ascii"))
+    return _error(xpc.xPCGetParamIdx(handle, _to_bytes(block), _to_bytes(name)))
 
 
-def get_param(handle, idx):
+def get_param_idxs(handle, *block_names):
+    if not block_names:
+        return range(get_num_params(handle))
+    return [get_param_idx(handle, *block_name) for block_name in block_names]
+
+
+def get_param_name(handle, idx):
     block = ffi.new("char[2048]")
-    param = ffi.new("char[256]")
-    ptype = ffi.new("char[64]")
+    name = ffi.new("char[256]")
+    _error(xpc.xPCGetParamName(handle, idx, block, name))
+    return ffi.string(block).decode(), ffi.string(name).decode()
+
+
+def get_param_type(handle, idx):
+    ptype = ffi.new("char[32]")
+    _error(xpc.xPCGetParamType(handle, idx, ptype))
+    dtype = ffi.string(ptype).decode().lower()
+    if dtype == "boolean":
+        dtype = "bool"
+    return dtype
+
+
+def get_param_shape(handle, idx):
     dims = ffi.new("int[8]")
-    xpc.xPCGetParamName(handle, idx, block, param)
-    xpc.xPCGetParamType(handle, idx, ptype)
-    num_dims = xpc.xPCGetParamDimsSize(handle, idx)
-    xpc.xPCGetParamDims(handle, idx, dims)
+    num_dims = _error(xpc.xPCGetParamDimsSize(handle, idx))
+    _error(xpc.xPCGetParamDims(handle, idx, dims))
     shape, size = [], 1
     for dim in dims[0:num_dims]:
         if size == 1 and dim == 1:
             continue
-        empty = False
         shape.append(dim)
         size *= dim
-    path = ffi.string(block).decode()
-    name = ffi.string(param).decode()
-    dtype = ffi.string(ptype).decode().lower()
-    if dtype == "boolean":
-        dtype = "bool"
-    full_name = "{}@{}".format(name, path)
-    return dict(
-        name=name,
-        path=path,
-        full_name=full_name,
-        dtype=dtype,
-        idx=idx,
-        shape=shape,
-        size=size,
-    )
+    return shape, size
 
 
-def get_params(handle):
-    return [get_param(handle, i) for i in range(get_num_params(handle))]
+def get_param_info(handle, idx):
+    block, name = get_param_name(handle, idx)
+    dtype = get_param_type(handle, idx)
+    shape, size = get_param_shape(handle, idx)
+    return dict(name=name, block=block, dtype=dtype, idx=idx, shape=shape, size=size)
+
+
+def get_param_infos(handle, *idxs):
+    if not idxs:
+        idxs = range(get_num_params(handle))
+    return [get_param_info(handle, idx) for idx in idxs]
+
+
+def get_param_from_name(handle, block, name):
+    idx = get_param_idx(handle, block, name)
+    return get_param_from_idx(handle, idx)
+
+
+def get_param_from_names(handle, *block_names):
+    idxs = get_param_idxs(handle, *block_names)
+    return get_param_from_idxs(handle, *idxs)
 
 
 def get_param_value_from_name(handle, block, name):
-    idx = get_param_idx(handle, block, name)
-    return get_param_value_from_idx(handle, idx)
+    return get_param_from_name(handle, block, name)["value"]
+
+
+def get_param_value_from_names(handle, *block_names):
+    return [p["value"] for p in get_param_from_names(handle, *block_names)]
+
+
+def get_param_from_idx(handle, idx):
+    param_info = get_param_info(handle, idx)
+    return get_param(handle, param_info)
+
+
+def get_param_from_idxs(handle, *idxs):
+    if not idxs:
+        idxs = range(get_num_params(handle))
+    return [get_param_from_idx(handle, idx) for idx in idxs]
 
 
 def get_param_value_from_idx(handle, idx):
-    param = get_param(handle, idx)
-    return get_param_value(handle, param)
+    return get_param_from_idx(handle, idx)["value"]
 
 
-def get_param_value(handle, param):
-    shape, size, dtype = param["shape"], param["size"], param["dtype"]
-    # if dtype != 'double':
-    #    raise NotImplementedError('Cannot handle {!r} type yet!'.format(dtype))
-    values = numpy.empty(shape, dtype="double", order="F")
-    buff = ffi.cast("double *", values.ctypes.data)
-    xpc.xPCGetParam(handle, param["idx"], buff)
-    values = values.astype(dtype)
+def get_param_value_from_idxs(handle, *idxs):
+    return [p["value"] for p in get_param_from_idxs(handle, *idxs)]
+
+
+def get_param(handle, param_info):
+    shape, size, dtype = param_info["shape"], param_info["size"], param_info["dtype"]
+    value = numpy.empty(shape, dtype="double", order="F")
+    buff = ffi.cast("double *", value.ctypes.data)
+    _error(xpc.xPCGetParam(handle, param_info["idx"], buff))
+    value = value.astype(dtype)
     if size == 1:
-        return numpy.asscalar(values)
-    # values.shape = param['shape']
-    return values
+        value = numpy.asscalar(value)
+    return dict(param_info, value=value)
+
+
+def get_param_value(handle, param_info):
+    return get_param(handle, param_info)["value"]
+
+
+def get_params(handle):
+    return [get_param_from_idx(handle, i) for i in range(get_num_params(handle))]
 
 
 def set_param_value_from_name(handle, block, name, value):
@@ -189,17 +297,17 @@ def set_param_value_from_name(handle, block, name, value):
 
 
 def set_param_value_from_idx(handle, idx, value):
-    param = get_param(handle, idx)
-    return set_param_value(handle, param, value)
+    param_info = get_param_info(handle, idx)
+    return set_param_value(handle, param_info, value)
 
 
-def set_param_value(handle, param, value):
-    shape, size, dtype = param["shape"], param["size"], param["dtype"]
+def set_param_value(handle, param_info, value):
+    shape, size, dtype = param_info["shape"], param_info["size"], param_info["dtype"]
     value = numpy.array(value, dtype="double", copy=False, order="F")
     value.shape = shape
     assert value.size == size, "size mismatch"
     buff = ffi.cast("double *", value.ctypes.data)
-    xpc.xPCSetParam(handle, param["idx"], buff)
+    _error(xpc.xPCSetParam(handle, param_info["idx"], buff))
 
 
 # Signals
@@ -210,16 +318,19 @@ def get_num_signals(handle):
 """
 
 
-def get_signal(handle, idx):
-    width = xpc.xPCGetSignalWidth(handle, idx)
+def get_signal_name(handle, idx):
     name = ffi.new("char[256]")
-    xpc.xPCGetSignalName(handle, idx, name)
-    name = ffi.string(name)
+    _error(xpc.xPCGetSignalName(handle, idx, name))
+    return ffi.string(name).decode()
+
+
+def get_signal(handle, idx):
+    width = xpc.get_signal_width(handle, idx)
     result = dict(name=name, width=width, idx=idx)
-    label_size = xpc.xPCGetSigLabelWidth(handle, name)
+    label_size = _error(xpc.xPCGetSigLabelWidth(handle, name))
     if label_size > 0:
         label = ffi.new("char[{}]".format(label_size))
-        xpc.xPCGetSignalLabel(handle, idx, label)
+        _error(xpc.xPCGetSignalLabel(handle, idx, label))
         result["label"] = ffi.string(label)
     return result
 
@@ -229,7 +340,7 @@ def get_signals(handle):
 
 
 def get_signal_value(handle, idx):
-    return xpc.xPCGetSignal(handle, idx)
+    return _error(xpc.xPCGetSignal(handle, idx))
 
 
 def get_signal_values(handle, signals=None):
@@ -238,22 +349,84 @@ def get_signal_values(handle, signals=None):
     n = len(signals)
     values = numpy.empty(n, order="F")
     buff = ffi.cast("double *", values.ctypes.data)
-    xpc.xPCGetSignals(handle, n, signals, buff)
+    _error(xpc.xPCGetSignals(handle, n, signals, buff))
     return values
 
 
 # Scopes
 
+
+def get_scope_list(handle):
+    n_scopes = get_num_scopes(handle)
+    buff = ffi.new("int[{}]".format(n_scopes))
+    _error(xpc.xPCGetScopeList(handle, buff))
+    return list(buff)
+
+
+def get_scope(handle, scope_idx):
+    sd = _error(xpc.xPCGetScope(handle, scope_idx))
+    result = _struct_to_dict(sd)
+    signals = []
+    for s in result["signals"]:
+        if s == -1:
+            break
+        signals.append(s)
+    result["signals"] = signals
+    return result
+
+
+def set_scope(handle, scope_dict):
+    raise NotImplementedError
+
+
 ## Scope Signals
 
 
-def sc_get_signal_list(handle, scope_idx):
-    nb_signals = sc_get_num_signals(handle, scope_idx)
-    values = numpy.empty(nb_signals, dtype="int", order="F")
-    buff = ffi.cast("int *", values.ctypes.data)
-    xpc.xPCScGetSignalList(handle, scope_idx, buff)
+def sc_get_auto_restart(handle, scope_id):
+    return True if _error(xpc.xPCScGetAutoRestart(handle, scope_id)) else False
+
+
+def sc_set_auto_restart(handle, scope_id, auto_restart):
+    return _error(
+        xpc.xPCScSetAutoRestart(handle, scope_id, 1 if auto_restart else False)
+    )
+
+
+def sc_get_signals(handle, scope_id):
+    nb_signals = sc_get_num_signals(handle, scope_id)
+    buff = ffi.new("int[{}]".format(nb_signals))
+    _error(xpc.xPCScGetSignals(handle, scope_id, buff))
+    return list(buff)
+
+
+def sc_get_data(
+    handle, scope_id, signal_id, first_point=0, num_points=None, decimation=1
+):
+    if num_points is None:
+        num_points = sc_get_num_samples(handle, scope_id) - first_point
+    values = numpy.empty(num_points, order="F")
+    buff = ffi.cast("double *", values.ctypes.data)
+    _error(
+        xpc.xPCScGetData(
+            handle, scope_id, signal_id, first_point, num_points, decimation, buff
+        )
+    )
     return values
 
+
+# Target scope
+
+
+def tg_sc_get_grid(handle, scope_id):
+    return True if _error(xpc.xPCTgScGetGrid(handle, scope_id)) else False
+
+
+def tg_sc_set_auto_restart(handle, scope_id, grid):
+    return _error(xpc.xPCTgScSetGrid(handle, scope_id, 1 if grid else False))
+
+
+# missing tg_sc_get_y_limits, set_y_limits
+# missing tg_sc_get_signal_format, tg_sc_set_signal_format
 
 # Main
 

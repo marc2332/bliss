@@ -29,7 +29,7 @@ def run(url, bind=DEFAULT_BIND, port=DEFAULT_PORT):
         except KeyboardInterrupt:
             print("Interrupted.")
         finally:
-            pass
+            speedgoat.close_connection()
     finally:
         pass
 

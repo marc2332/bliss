@@ -147,6 +147,9 @@ def get_system_state(handle):
         "echo",
         "hidden_scope_echo",
         "app_name",
+        "num_params",
+        "num_signals",
+        "num_scopes",
     )
     space = globals()
     result = {name: space["get_" + name](handle) for name in attrs}

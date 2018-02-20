@@ -55,7 +55,8 @@ class LimaAcquisitionMaster(AcquisitionMaster):
 
         self.save_flag = save_flag
         self._reading_task = None
-
+        self._latency = latency_time
+        
     def prepare_saving(self, scan_name, scan_file_dir):
         camera_name = self.device.camera_type
         full_path = os.path.join(scan_file_dir, self.device.user_detector_name)
@@ -93,7 +94,8 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         self._image_channel.emit({ "server_url": server_url })
 
     def start(self):
-        if self.trigger_type == AcquisitionMaster.SOFTWARE:
+        if(self.trigger_type == AcquisitionMaster.SOFTWARE and
+           self.parent):    # top master trigger will be never called otherwise
             return
 
         self.trigger()
@@ -105,21 +107,17 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         self.device.stopAcq()
 
     def wait_ready(self):
-        wait_start = time.time()
-        while not self.device.ready_for_next_image:
-            if (wait_start + self._latency) >= time.time():
-                break
-            else:
+        acq_trigger_mode = self.parameters.get('acq_trigger_mode','INTERNAL_TRIGGER')
+        
+        if acq_trigger_mode == 'INTERNAL_TRIGGER_MULTI':
+            while(self.device.acq_status.lower() == 'running' and
+                  not self.device.ready_for_next_image):
                 gevent.idle()
 
-        if self._reading_task is not None:
-            try:
-                # check for exception from reading task
-                self._reading_task.get(block=False)
-            except gevent.Timeout:
-                pass
+        self.wait_reading(block=(acq_trigger_mode!='INTERNAL_TRIGGER_MULTI'))
 
     def trigger(self):
+        self.trigger_slaves()
         self.device.startAcq()
 
         if self.trigger_type == AcquisitionMaster.SOFTWARE:
@@ -141,6 +139,9 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             raise RuntimeError("Device %s (%s) is in Fault state" % (
                 self.device, self.device.user_detector_name))
         self._reading_task = None
-
-    def wait_reading(self):
-        return self._reading_task.get() if self._reading_task is not None else True
+        
+    def wait_reading(self, block=True):
+        try:
+            return self._reading_task.get(block=block) if self._reading_task is not None else True
+        except gevent.Timeout:
+            return False

@@ -359,7 +359,8 @@ class Scan(object):
         except BaseException as exc:
             self._state = self.STOP_STATE
             with periodic_exec(0.1 if call_on_stop else 0, set_watch_event):
-                i.stop()
+                if i is not None:
+                    i.stop()
             raise
         else:
             self._state = self.STOP_STATE

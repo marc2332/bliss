@@ -103,10 +103,6 @@ def get_target_version(handle):
     return ffi.string(buff).decode()
 
 
-def get_sim_mode(handle):
-    return True if _error(xpc.xPCGetSimMode(handle)) else False
-
-
 def get_pci_info(handle):
     buff = ffi.new("char[8192]")
     _error(xpc.xPCGetPCIInfo(handle, buff))
@@ -166,6 +162,14 @@ def get_app_name(handle):
     buff = ffi.new("char[256]")
     _error(xpc.xPCGetAppName(handle, buff))
     return ffi.string(buff).decode()
+
+
+def is_app_running(handle):
+    return bool(_error(xpc.xPCIsAppRunning(handle)))
+
+
+def is_overloaded(handle):
+    return bool(_error(xpc.xPCIsOverloaded(handle)))
 
 
 # discovered:
@@ -383,16 +387,6 @@ def set_scope(handle, scope_dict):
 
 
 ## Scope Signals
-
-
-def sc_get_auto_restart(handle, scope_id):
-    return True if _error(xpc.xPCScGetAutoRestart(handle, scope_id)) else False
-
-
-def sc_set_auto_restart(handle, scope_id, auto_restart):
-    return _error(
-        xpc.xPCScSetAutoRestart(handle, scope_id, 1 if auto_restart else False)
-    )
 
 
 def sc_get_signals(handle, scope_id):

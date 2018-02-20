@@ -4,7 +4,7 @@ def spec2yml '{
 
     local _ctrl _device_id  _name  _module _chan _host _address
     local _velocity _acceleration _backlash _high_limit _low_limit
-    local _steps_per_unit _enc_steps_per_unit _slop
+    local _steps_per_unit _enc_steps_per_unit _slop _sign
 
     local ALREADY_SEEN[]
 
@@ -24,8 +24,8 @@ def spec2yml '{
             _acceleration    = _velocity / (motor_par(ii, "config_acceleration") / 1000)
             _high_limit      = get_lim(ii, +1)
             _low_limit       = get_lim(ii, -1)
-            (_steps_per_unit < 0) ? (sign = -1): (sign = 1)
-            _backlash        = sign* motor_par(ii, "config_backlash") / _steps_per_unit
+            _sign = (_steps_per_unit < 0) ? -1 : 1
+            _backlash        = _sign* motor_par(ii, "config_backlash") / _steps_per_unit
             _module          = motor_par(ii, "module")
             _chan            = motor_par(ii, "channel")
             _host            = motor_par(ii, "address")    # iceid42

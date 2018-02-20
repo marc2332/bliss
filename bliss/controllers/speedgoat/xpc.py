@@ -370,6 +370,10 @@ def get_scope_list(handle):
     return list(buff)
 
 
+def _struct_to_dict(structure):
+    return {n: getattr(structure, n) for n in dir(structure)}
+
+
 def get_scope(handle, scope_idx):
     sd = _error(xpc.xPCGetScope(handle, scope_idx))
     result = _struct_to_dict(sd)

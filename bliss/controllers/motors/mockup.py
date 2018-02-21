@@ -5,14 +5,14 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import math
 import time
 import random
 import gevent
 
+from bliss.physics.trajectory import LinearTrajectory
 from bliss.controllers.motor import Controller
 from bliss.common import log as elog
-from bliss.common.axis import Axis, AxisState, MotionEstimation
+from bliss.common.axis import Axis, AxisState
 from bliss.common import event
 
 from bliss.common.hook import MotionHook
@@ -32,118 +32,6 @@ config :
  'backlash' in unit
 """
 
-class Trajectory(object):
-    """
-    Trajectory representation for a motion
-
-    v|  pa,ta_________pb,tb
-     |      //        \\
-     |_____//__________\\_______> t
-       pi,ti             pf,tf
-           <--duration-->
-    """
-    def __init__(self, pi, pf, velocity, acceleration, ti=None):
-        if ti is None:
-            ti = time.time()
-        self.ti = ti
-        self.pi = pi = float(pi)
-        self.pf = pf = float(pf)
-        self.velocity = velocity = float(velocity)
-        self.acceleration = acceleration = float(acceleration)
-        self.p = pf - pi
-        self.dp = abs(self.p)
-        self.positive = pf > pi
-
-        full_accel_time = velocity / acceleration
-        full_accel_dp = 0.5 * acceleration * full_accel_time**2
-
-        full_dp_non_const_vel = 2 * full_accel_dp
-        self.reaches_top_vel = self.dp > full_dp_non_const_vel
-        if self.reaches_top_vel:
-            self.top_vel_dp = self.dp - full_dp_non_const_vel
-            self.top_vel_time = self.top_vel_dp / velocity
-            self.accel_dp = full_accel_dp
-            self.accel_time = full_accel_time
-            self.duration = self.top_vel_time + 2 * self.accel_time
-            self.ta = self.ti + self.accel_time
-            self.tb = self.ta + self.top_vel_time
-            if self.positive:
-                self.pa = pi + self.accel_dp
-                self.pb = self.pa + self.top_vel_dp
-            else:
-                self.pa = pi - self.accel_dp
-                self.pb = self.pa - self.top_vel_dp
-        else:
-            self.top_vel_dp = 0
-            self.top_vel_time = 0
-            self.accel_dp = self.dp / 2
-            self.accel_time = math.sqrt(2 * self.accel_dp / acceleration)
-            self.duration = 2 * self.accel_time
-            self.velocity = acceleration * self.accel_time
-            self.ta = self.tb = self.ti + self.accel_time
-            if self.positive:
-                pa_pb = pi + self.accel_dp
-            else:
-                pa_pb = pi - self.accel_dp
-            self.pa = self.pb = pa_pb
-        self.tf = self.ti + self.duration
-
-    def position(self, instant=None):
-        """Position at a given instant in time"""
-        if instant is None:
-            instant = time.time()
-        if instant < self.ti:
-            raise ValueError('instant cannot be less than start time')
-        if instant > self.tf:
-            return self.pf
-        dt = instant - self.ti
-        p = self.pi
-        f = 1 if self.positive else -1
-        if instant < self.ta:
-            accel_dp = 0.5 * self.acceleration * dt**2
-            return p + f * accel_dp
-
-        p += f * self.accel_dp
-
-        # went through the initial acceleration
-        if instant < self.tb:
-            t_at_max = dt - self.accel_time
-            dp_at_max = self.velocity * t_at_max
-            return p + f * dp_at_max
-        else:
-            dp_at_max = self.top_vel_dp
-            decel_time = instant - self.tb
-            decel_dp = 0.5 * self.acceleration * decel_time**2
-            return p + f * dp_at_max + f * decel_dp
-
-    def instant(self, position):
-        """Instant when the trajectory passes at the given position"""
-        d = position - self.pi
-        dp = abs(d)
-        if dp > self.dp:
-           raise ValueError('position outside trajectory')
-
-        dt = self.ti
-        if dp > self.accel_dp:
-            dt += self.accel_time
-        else:
-            return math.sqrt(2 * dp / self.acceleration) + dt
-
-        top_vel_dp = dp - self.accel_dp
-        if top_vel_dp > self.top_vel_dp:
-            # starts deceleration
-            dt += self.top_vel_time
-            decel_dp = abs(position- self.pb)
-            dt += math.sqrt(2 * decel_dp / self.acceleration)
-        else:
-            dt += top_vel_dp / self.velocity
-        return dt
-
-    def __repr__(self):
-        return '{0}({1.pi}, {1.pf}, {1.velocity}, {1.acceleration}, {1.ti})' \
-               .format(type(self).__name__, self)
-
-
 class Motion(object):
     """Describe a single motion"""
 
@@ -156,7 +44,7 @@ class Motion(object):
             pf = high_limit
         if pf < low_limit:
             pf = low_limit
-        self.trajectory = Trajectory(pi, pf, velocity, acceleration, ti)
+        self.trajectory = LinearTrajectory(pi, pf, velocity, acceleration, ti)
 
 
 class Mockup(Controller):
@@ -560,6 +448,23 @@ class Mockup(Controller):
     @object_attribute_set(type_info="float")
     def set_cust_attr_float(self, axis, value):
         self.__cust_attr_float[axis] = value
+
+
+    def has_trajectory(self):
+        return True
+
+    def prepare_trajectory(self, trajectories):
+        pass
+
+    def start_trajectory(self, *trajectories):
+        pass
+
+    def end_trajectory(self, *trajectories):
+        pass
+    
+    def stop_trajectory(self, *trajectories):
+        pass
+
 
 class MockupAxis(Axis):
 

@@ -37,6 +37,7 @@ from bliss.common.utils import Null, with_custom_members
 from bliss.config.static import get_config
 from bliss.common.encoder import Encoder
 from bliss.common.hook import MotionHook
+from bliss.physics.trajectory import LinearTrajectory
 import gevent
 import re
 import math
@@ -136,53 +137,34 @@ class Trajectory(object):
     def pvt(self):
         return self.__pvt
 
-    
-class MotionEstimation(object):
+
+def estimate_duration(axis, target_pos, initial_pos=None):
     """
-    Estimate motion time and displacement based on current axis position
+    Estimate motion time based on current axis position
     and configuration
     """
+    ipos = axis.position() if initial_pos is None else initial_pos
+    fpos = target_pos
+    delta = fpos - ipos
+    do_backlash = cmp(delta, 0) != cmp(axis.backlash, 0)
+    if do_backlash:
+      delta -= axis.backlash
+      fpos -= axis.backlash
 
-    def __init__(self, axis, target_pos, initial_pos=None):
-        self.axis = axis
-        ipos = axis.position() if initial_pos is None else initial_pos
-        self.ipos = ipos
-        fpos = target_pos
-        delta = fpos - ipos
-        do_backlash = cmp(delta, 0) != cmp(axis.backlash, 0)
-        if do_backlash:
-            delta -= axis.backlash
-            fpos -= axis.backlash
-        self.fpos = fpos
-        self.displacement = displacement = abs(delta)
-        try:
-            self.vel = vel = axis.velocity()
-            self.accel = accel = axis.acceleration()
-        except NotImplementedError:
-            self.vel = float('+inf')
-            self.accel = float('+inf')
-            self.duration = 0
-            return
+    try:
+      acc = axis.acceleration()
+      vel = axis.velocity()
+    except NotImplementedError:
+      # calc axes do not implement acceleration and velocity by default
+      return 0
 
-        full_accel_time = vel / accel
-        full_accel_dplmnt = 0.5*accel * full_accel_time**2
+    linear_trajectory = LinearTrajectory(ipos, fpos, vel, acc)
+    duration = linear_trajectory.duration
+    if do_backlash:
+      backlash_estimation = estimate_duration(axis, target_pos, fpos)
+      duration += backlash_estimation
+    return duration
 
-        full_dplmnt_non_const_vel = 2 * full_accel_dplmnt
-        reaches_max_velocity = displacement > full_dplmnt_non_const_vel
-        if reaches_max_velocity:
-            max_vel = vel
-            accel_time = full_accel_time
-            accel_dplmnt = full_accel_dplmnt
-            dplmnt_non_const_vel = full_dplmnt_non_const_vel
-            max_vel_dplmnt = displacement - dplmnt_non_const_vel
-            max_vel_time = max_vel_dplmnt / vel
-            self.duration = max_vel_time + 2*accel_time
-        else:
-            self.duration = math.sqrt(2*displacement/accel)
-
-        if do_backlash:
-            backlash_estimation = MotionEstimation(axis, target_pos, self.fpos)
-            self.duration += backlash_estimation.duration
 
 def lazy_init(func):
     @functools.wraps(func)

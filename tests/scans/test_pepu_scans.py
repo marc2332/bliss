@@ -26,14 +26,21 @@ def pepu():
     trigger = gevent.queue.Queue()
 
     def idata(n):
-        assert n == len(pepu.mock_points)
-        for point in pepu.mock_points:
+        nb_points = pepu.create_stream.call_args[1]['nb_points']
+        assert n == nb_points
+        points = [[y+x/10. for y in range(1, 15)] for x in range(n)]
+        for point in points:
             data = np.array(point)
             data.dtype = [(counter.name, float) for counter in pepu.counters]
             mode = pepu.create_stream.call_args[1]['trigger']
             if mode.clock == Signal.SOFT:
                 trigger.get()
             yield data
+
+    def assert_data(data, n):
+        for i, counter in enumerate(pepu.counters, 1):
+            expecting = [i+x/10. for x in range(n)]
+            assert list(data[counter.name]) == expecting
 
     with mock.patch('bliss.controllers.pepu.PEPU', autospec=True) as PEPU:
         pepu = PEPU.return_value
@@ -48,7 +55,7 @@ def pepu():
         stream = pepu.create_stream.return_value
         stream.idata.side_effect = idata
         pepu.software_trigger.side_effect = lambda: trigger.put(None)
-        pepu.mock_points = []
+        pepu.assert_data = assert_data
         yield pepu
         stream.start.assert_called_once_with()
         stream.stop.assert_called_once_with()
@@ -63,17 +70,13 @@ def test_pepu_soft_scan(beacon, pepu):
     # Create chain
     chain = AcquisitionChain()
     chain.add(LinearStepTriggerMaster(10, m0, 0, 1), device)
-    # Add data
-    pepu.mock_points = [[y+x/10. for y in range(1, 15)] for x in range(10)]
     # Run scan
     scan = Scan(chain, 'pepu_test', None)
     scan.run()
     gevent.sleep(0.)
     # Checks
     data = scans.get_data(scan)
-    for i, counter in enumerate(pepu.counters, 1):
-        expecting = [i+x/10. for x in range(10)]
-        assert list(data[counter.name]) == expecting
+    pepu.assert_data(data, 10)
 
 
 def test_pepu_continuous_soft_scan(beacon, pepu):
@@ -85,32 +88,24 @@ def test_pepu_continuous_soft_scan(beacon, pepu):
     # Create chain
     chain = AcquisitionChain()
     chain.add(SoftwarePositionTriggerMaster(m0, 0, 1, 10, time=1.0), device)
-    # Add data
-    pepu.mock_points = [[y+x/10. for y in range(1, 15)] for x in range(10)]
     # Run scan
     scan = Scan(chain, 'pepu_test', None)
     scan.run()
     gevent.sleep(0.)
     # Checks
     data = scans.get_data(scan)
-    for i, counter in enumerate(pepu.counters, 1):
-        expecting = [i+x/10. for x in range(10)]
-        assert list(data[counter.name]) == expecting
+    pepu.assert_data(data, 10)
 
 
 def test_pepu_default_chain_ascan(beacon, pepu):
     # Get controllers
     m0 = beacon.get('m0')
-    # Add data
-    pepu.mock_points = [[y+x/10. for y in range(1, 15)] for x in range(10)]
     # Run scan
     scan = scans.ascan(
         m0, 0, 10, 10, 0.01, *pepu.counters, return_scan=True, save=False)
     # Checks
     data = scans.get_data(scan)
-    for i, counter in enumerate(pepu.counters, 1):
-        expecting = [i+x/10. for x in range(10)]
-        assert list(data[counter.name]) == expecting
+    pepu.assert_data(data, 10)
 
 
 def test_pepu_continuous_scan(beacon, pepu):
@@ -122,13 +117,9 @@ def test_pepu_continuous_scan(beacon, pepu):
     # Create chain
     chain = AcquisitionChain()
     chain.add(MotorMaster(m0, 0, 1, time=1.0), device)
-    # Add data
-    pepu.mock_points = [[y+x/10. for y in range(1, 15)] for x in range(10)]
     # Run scan
     scan = Scan(chain, 'test', None)
     scan.run()
     # Checks
     data = scans.get_data(scan)
-    for i, counter in enumerate(pepu.counters, 1):
-        expecting = [i+x/10. for x in range(10)]
-        assert list(data[counter.name]) == expecting
+    pepu.assert_data(data, 10)

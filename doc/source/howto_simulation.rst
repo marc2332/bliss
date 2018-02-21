@@ -28,7 +28,7 @@ To create a simulation motor, you have to use the `mockup` class:
          acceleration: 10
          steps_per_unit: 100
 
-Do not forget to declare the  lpugin to use in a ` __init__.yml ` file::
+Do not forget to declare the plugin to use in a ` __init__.yml ` file::
 
   plugin: emotion
 

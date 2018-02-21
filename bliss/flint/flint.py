@@ -171,5 +171,6 @@ def main():
 
         qapp.exec_()
 
+
 if __name__ == '__main__':
-   main()
+    main()

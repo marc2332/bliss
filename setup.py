@@ -157,6 +157,7 @@ def main():
                   'bliss-emulator = bliss.controllers.emulator:main',
                   'beacon-server = bliss.config.conductor.server:main',
                   'bliss-ct2-server = bliss.controllers.ct2.server:main',
+                  'flint = bliss.flint.main',
                   'CT2 = bliss.tango.servers.ct2_ds:main',
                   'Bliss = bliss.tango.servers.bliss_ds:main',
                   'BlissAxisManager =  bliss.tango.servers.axis_ds:main',

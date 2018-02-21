@@ -1,3 +1,4 @@
+import sys
 import subprocess
 import gevent
 import gevent.event
@@ -29,7 +30,9 @@ class Plot(object):
             self.connected.set()
 
     def display(self, data_or_scan_obj):
-        self.channel.value = { "event":"data", "data":(self.channel.name, data_or_scan_obj) }
+        self.channel.value = {
+            "event": "data",
+            "data": (self.channel.name, data_or_scan_obj)}
 
 
 def flint_channel_update(event):
@@ -49,8 +52,12 @@ def plot(data_or_scan_obj=None, name=None):
     global FLINT_PROCESS
     if FLINT_PROCESS is None:
         global FLINT_CHANNEL
-        FLINT_PROCESS = subprocess.Popen('flint -s %s:%s' % (session_name, session_id), shell=True)
-        FLINT_CHANNEL = Channel("flint:%s" % session_id, callback=flint_channel_update)
+        FLINT_PROCESS = subprocess.Popen(
+            [sys.executable,
+             'flint'
+             '-s', '%s:%s' % (session_name, session_id)])
+        FLINT_CHANNEL = Channel(
+            "flint:%s" % session_id, callback=flint_channel_update)
 
     FLINT_READY.wait()
 

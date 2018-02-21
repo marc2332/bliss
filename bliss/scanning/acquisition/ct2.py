@@ -23,10 +23,12 @@ class CT2AcquisitionMaster(AcquisitionMaster):
 
     def __init__(self, device, npoints=1, acq_expo_time=1.,
                  acq_point_period=None,
-                 acq_mode=AcqMode.IntTrigMulti):
+                 acq_mode=AcqMode.IntTrigMulti,
+                 prepare_once=True, start_once=True):
         name = type(device).__name__
         self.acq_expo_time = acq_expo_time
         self.acq_mode = acq_mode
+        self.acq_point_period = acq_point_period
         self.first_trigger = None
         self.status = None
         self.last_point_ready = None
@@ -37,7 +39,9 @@ class CT2AcquisitionMaster(AcquisitionMaster):
             trigger_type = self.SOFTWARE
         else:
             trigger_type = self.HARDWARE
-        kwargs = dict(npoints=npoints, prepare_once=True, start_once=True,
+        self.use_internal_clock = acq_mode == AcqMode.IntTrigSingle
+        kwargs = dict(npoints=npoints, prepare_once=prepare_once,
+                      start_once=prepare_once,
                       trigger_type=trigger_type)
         super(CT2AcquisitionMaster, self).__init__(device, name, **kwargs)
         dispatcher.connect(self.__on_event, sender=device)
@@ -45,9 +49,11 @@ class CT2AcquisitionMaster(AcquisitionMaster):
     def __on_event(self, value, signal):
         if signal == StatusSignal:
             self.status = value
+            if value == AcqStatus.Ready:
+                self.point_event.set()
         elif signal == PointNbSignal:
             self.last_point_ready = value
-            if value >= 0:
+            if value >= 0 and not self.use_internal_clock:
                 self.point_event.set()
         elif signal == ErrorSignal:
             self.last_error = value
@@ -58,15 +64,19 @@ class CT2AcquisitionMaster(AcquisitionMaster):
         device.acq_mode = self.acq_mode
         device.acq_expo_time = self.acq_expo_time
         device.acq_nb_points = self.npoints
+        device.acq_point_period = self.acq_point_period
         self.device.prepare_acq()
 
     def start(self):
-        pass
+        if self.parent is None: # top master
+            self.trigger()
 
     def stop(self):
         self.device.stop_acq()
 
     def trigger(self):
+        self.trigger_slaves()
+
         if self.first_trigger:
             self.first_trigger = False
             self.device.start_acq()

@@ -1,11 +1,21 @@
+"""Interface with flint."""
+
+# Imports
+
+import os
 import sys
-import subprocess
-import gevent
-import gevent.event
-from bliss.scanning import scan as scan_module
-from bliss.config.channels import Channel
 import uuid
 import itertools
+import subprocess
+
+import gevent
+import gevent.event
+
+from bliss.config.channels import Channel
+from bliss.scanning import scan as scan_module
+from bliss.config.conductor.client import get_default_connection
+
+# Globals
 
 FLINT_PROCESS = None
 FLINT_CHANNEL = None
@@ -52,10 +62,16 @@ def plot(data_or_scan_obj=None, name=None):
     global FLINT_PROCESS
     if FLINT_PROCESS is None:
         global FLINT_CHANNEL
+        env = dict(os.environ)
+        connection = get_default_connection()
+        beacon_host = '{}:{}'.format(connection._host, connection._port)
+        env['BEACON_HOST'] = beacon_host
+        print(beacon_host)
         FLINT_PROCESS = subprocess.Popen(
-            [sys.executable,
-             'flint'
-             '-s', '%s:%s' % (session_name, session_id)])
+            [sys.executable, '-m',
+             'bliss.flint',
+             '-s', '%s:%s' % (session_name, session_id)],
+            env=env)
         FLINT_CHANNEL = Channel(
             "flint:%s" % session_id, callback=flint_channel_update)
 

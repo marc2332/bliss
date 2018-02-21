@@ -12,11 +12,12 @@ from bliss.scanning.scan import Scan
 from bliss.scanning.chain import AcquisitionChain
 
 from bliss.controllers.pepu import PEPU as PepuClass
-from bliss.controllers.pepu import ChannelIN, ChannelOUT, ChannelCALC
+from bliss.controllers.pepu import ChannelIN, ChannelOUT, ChannelCALC, Signal
 
 from bliss.scanning.acquisition.pepu import PepuAcquisitionDevice
 from bliss.scanning.acquisition.motor import SoftwarePositionTriggerMaster
 from bliss.scanning.acquisition.motor import LinearStepTriggerMaster
+from bliss.scanning.acquisition.motor import MotorMaster
 
 
 @pytest.fixture
@@ -29,7 +30,9 @@ def pepu():
         for point in pepu.mock_points:
             data = np.array(point)
             data.dtype = [(counter.name, float) for counter in pepu.counters]
-            trigger.get()
+            mode = pepu.create_stream.call_args[1]['trigger']
+            if mode.clock == Signal.SOFT:
+                trigger.get()
             yield data
 
     with mock.patch('bliss.controllers.pepu.PEPU', autospec=True) as PEPU:
@@ -53,7 +56,7 @@ def pepu():
 
 def test_pepu_soft_scan(beacon, pepu):
     m0 = beacon.get("roby")
-    # Get mca
+    # Get pepu
     device = PepuAcquisitionDevice(pepu, 10)
     # Add counters
     device.add_counters(pepu.counters)
@@ -75,7 +78,7 @@ def test_pepu_soft_scan(beacon, pepu):
 
 def test_pepu_continuous_soft_scan(beacon, pepu):
     m0 = beacon.get("roby")
-    # Get mca
+    # Get pepu
     device = PepuAcquisitionDevice(pepu, 10)
     # Add counters
     device.add_counters(pepu.counters)
@@ -103,6 +106,27 @@ def test_pepu_default_chain_ascan(beacon, pepu):
     # Run scan
     scan = scans.ascan(
         m0, 0, 10, 10, 0.01, *pepu.counters, return_scan=True, save=False)
+    # Checks
+    data = scans.get_data(scan)
+    for i, counter in enumerate(pepu.counters, 1):
+        expecting = [i+x/10. for x in range(10)]
+        assert list(data[counter.name]) == expecting
+
+
+def test_pepu_continuous_scan(beacon, pepu):
+    m0 = beacon.get("roby")
+    # Get pepu
+    device = PepuAcquisitionDevice(pepu, 10, trigger=Signal.DI1)
+    # Add counters
+    device.add_counters(pepu.counters)
+    # Create chain
+    chain = AcquisitionChain()
+    chain.add(MotorMaster(m0, 0, 1, time=1.0), device)
+    # Add data
+    pepu.mock_points = [[y+x/10. for y in range(1, 15)] for x in range(10)]
+    # Run scan
+    scan = Scan(chain, 'test', None)
+    scan.run()
     # Checks
     data = scans.get_data(scan)
     for i, counter in enumerate(pepu.counters, 1):

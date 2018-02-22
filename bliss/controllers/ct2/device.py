@@ -274,7 +274,7 @@ class CT2(object):
 
                 if dma:
                     with self.__buffer_lock:
-                        self.__buffer.append(data)
+                        self.__buffer.extend(data)
                     self.__last_point_nb = point_nb
                     self._send_point_nb(point_nb)
 
@@ -783,7 +783,7 @@ class CT2(object):
             if self.__buffer:
                 data = self.__buffer[from_index:]
         if data:
-            return numpy.vstack(data)
+            return numpy.array(data, dtype=numpy.uint32)
         return numpy.array([[]], dtype=numpy.uint32)
 
     def configure(self, device_config):

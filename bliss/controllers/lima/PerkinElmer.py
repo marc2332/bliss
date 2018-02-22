@@ -8,7 +8,7 @@
 class Camera(object):
     NO,OFFSET_ONLY,OFFSET_AND_GAIN = range(3)
     
-    def __init__(self,name,proxy):
+    def __init__(self, lima_device,name,proxy):
         self.name = name
         self._proxy = proxy
         corr_convertion = (("NO",self.NO),

@@ -10,8 +10,9 @@ from silx.third_party.concurrent_futures import Future
 
 # Global
 
-__all__ = ['submit_to_qt', 'connect_to_qt', 'disconnect_from_qt',
-           'queue_from_qt_signal', 'disconnect_queue_from_qt']
+__all__ = ['submit_to_qt_application',
+           'connect_to_qt_signal', 'disconnect_from_qt_signal',
+           'create_queue_from_qt_signal', 'disconnect_queue_from_qt_signal']
 
 EXECUTOR = None
 
@@ -71,7 +72,10 @@ def concurrent_to_gevent(future):
 
 # Exposed functions
 
-def submit_to_qt(fn, *args, **kwargs):
+def submit_to_qt_application(fn, *args, **kwargs):
+    """Submit a task to safely run in the qt loop
+    and return the task result.
+    """
     global EXECUTOR
     # Lazy loading
     if EXECUTOR is None:
@@ -80,7 +84,11 @@ def submit_to_qt(fn, *args, **kwargs):
     return concurrent_to_gevent(future).get()
 
 
-def connect_to_qt(obj, callback):
+def connect_to_qt_signal(signal, callback):
+    """Connect to a given qt signal.
+
+    The callback safely runs in the current gevent loop.
+    """
     watcher = gevent.get_hub().loop.async()
 
     def slot(*args):
@@ -88,25 +96,32 @@ def connect_to_qt(obj, callback):
         watcher.send()
 
     callback._qt_slot = slot
-    submit_to_qt(obj.connect, slot)
+    submit_to_qt_application(signal.connect, slot)
 
 
-def disconnect_from_qt(obj, callback):
+def disconnect_from_qt_signal(signal, callback):
+    """Disconnect from the given qt signal."""
     slot = callback._qt_slot
-    submit_to_qt(obj.disconnect, slot)
+    submit_to_qt_application(signal.disconnect, slot)
 
 
-def queue_from_qt_signal(obj):
-    queue = gevent.queue.Queue()
+def create_queue_from_qt_signal(signal, maxsize=None):
+    """Return a queue accumulating the emitted arguments
+    of the given qt signal.
+    """
+    queue = gevent.queue.Queue(maxsize=maxsize)
 
     def callback(*args):
         queue.put(args)
 
-    queue._qt_args = obj, callback
-    connect_to_qt(*queue._qt_args)
+    queue._qt_args = signal, callback
+    connect_to_qt_signal(*queue._qt_args)
     return queue
 
 
-def disconnect_queue_from_qt(queue):
-    disconnect_from_qt(*queue._qt_args)
+def disconnect_queue_from_qt_signal(queue):
+    """Disconnect the given queue from its qt signal
+    and interrupt the iterating process.
+    """
+    disconnect_from_qt_signal(*queue._qt_args)
     queue.put(StopIteration)

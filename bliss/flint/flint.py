@@ -5,7 +5,7 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 """
-Usage: flint (-s | --session) <name>
+Usage: flint (-s | --session) <sid>
        flint (-h | --help)
 Options:
     -s, --session                 Follow data from session.
@@ -14,16 +14,21 @@ Options:
 
 # Imports
 
+import os
 import docopt
+import tempfile
 import warnings
-import functools
+import contextlib
 
-import numpy
 import gevent
+import zerorpc
+import msgpack_numpy
 import gevent.monkey
+from concurrent.futures import Future
 
-from bliss.config.channels import Channel
-from bliss.data.node import DataNodeIterator, _get_or_create_node, is_zerod
+from bliss.flint.executor import concurrent_to_gevent
+from bliss.flint.executor import submit_to_qt_application
+from bliss.config.conductor.client import get_default_connection
 
 try:
     from PyQt4.QtCore import pyqtRemoveInputHook
@@ -37,91 +42,75 @@ with warnings.catch_warnings():
 
 # Globals
 
+msgpack_numpy.patch()
 pyqtRemoveInputHook()
-
-Queue = gevent.monkey.get_original("Queue", "Queue")
-QueueEmpty = gevent.monkey.get_original("Queue", "Empty")
-start_new_thread = gevent.monkey.get_original("thread", "start_new_thread")
+Thread = gevent.monkey.get_original('threading', 'Thread')
+Event = gevent.monkey.get_original('threading', 'Event')
 
 PLOTS = dict()
 GEVENT_PLOTS = dict()
 FLINT_CHANNEL = None
 
 
-# Helpers
+# Gevent functions
 
-def copy_data(scan_node, zerod, zerod_index):
-    channel_name = zerod.name
-    data_channel = zerod
-    from_index = zerod_index.get(channel_name, 0)
-    data = data_channel.get(from_index, -1)
-    zerod_index[channel_name] = from_index + len(data)
-
-
-def watch_data(scan_node):
-    zerod_index = dict()
-    scan_data_iterator = DataNodeIterator(scan_node)
-    walk = scan_data_iterator.walk_events(filter="channel")
-    for event_type, event_data in walk:
-        if not is_zerod(event_data):
-            continue
-        zerod = event_data
-        if event_type in (scan_data_iterator.NEW_CHILD_EVENT,
-                          scan_data_iterator.NEW_DATA_IN_CHANNEL_EVENT):
-            copy_data(scan_node, zerod, zerod_index)
+@contextlib.contextmanager
+def safe_rpc_server(obj):
+    with tempfile.NamedTemporaryFile() as f:
+        url = 'ipc://{}'.format(f.name)
+        server = zerorpc.Server(obj)
+        try:
+            server.bind(url)
+            os.chmod(f.name, 0o700)
+            task = gevent.spawn(server.run)
+            yield task, url
+        finally:
+            task.kill()
+            task.join()
+            server.close()
 
 
-def plot_update(event, plot_channel_name=None):
-    if event == 'connected':
-        return
-    EVENTS_QUEUE.put(event)
+@contextlib.contextmanager
+def maintain_value(key, value):
+    beacon = get_default_connection()
+    redis = beacon.get_redis_connection()
+    redis.lpush(key, value)
+    try:
+        yield
+    finally:
+        redis.rpop(key)
 
 
-def flint_channel_update(plot_channel_name):
-    if plot_channel_name == 'connected':
-        return
-
-    # new plot
-    plot_update_cb = functools.partial(
-        plot_update, plot_channel_name=plot_channel_name)
-    c = Channel(plot_channel_name, callback=plot_update_cb)
-    c._plot_update_cb = plot_update_cb
-    c.value = "connected"
-
-    EVENTS_QUEUE.put({"event": "new_plot", "data": plot_channel_name})
-
-    GEVENT_PLOTS[plot_channel_name] = c
+def background_task(flint, session_id, stop):
+    key = "flint:%s" % session_id
+    stop = concurrent_to_gevent(stop)
+    with safe_rpc_server(flint) as (task, url):
+        with maintain_value(key, url):
+            gevent.wait([stop, task], count=1)
 
 
-def watch_session(session_name, session_id=None):
-    if session_id:
-        global FLINT_CHANNEL
-        FLINT_CHANNEL = Channel(
-            "flint:%s" % session_id, callback=flint_channel_update)
-        FLINT_CHANNEL.value = "connected"
+# Flint interface
 
-    session_node = _get_or_create_node(session_name, node_type='session')
-    if session_node is not None:
-        data_iterator = DataNodeIterator(session_node)
+class Flint:
 
-        watch_data_task = None
-        for scan_node in data_iterator.walk_from_last(filter='scan'):
-            if watch_data_task:
-                watch_data_task.kill()
-            EVENTS_QUEUE.put({"event": "new_scan", "data": None})
-            watch_data_task = gevent.spawn(watch_data, scan_node)
+    _submit = staticmethod(submit_to_qt_application)
 
+    def __init__(self, main_window, mdi_area):
+        self.mdi_area = mdi_area
+        self.main_window = main_window
+        self.window_dict = {}
+        self.window_dict[0] = main_window
 
-def plot_data(window, data):
-    if data.ndim == 1:
-        xs = numpy.arange(len(data))
-        if data.dtype.fields is None:
-            window.addCurve(xs, data)
-        else:
-            for field in data.dtype.fields:
-                window.addCurve(xs, data[field], legend=field)
-        return
-    raise NotImplementedError
+    def run_method(self, key, method, *args, **kwargs):
+        window = self.window_dict[key]
+        method = getattr(window, method)
+        return self._submit(method, *args, **kwargs)
+
+    def add_window(self, key):
+        window = self._submit(PlotWindow, self.mdi_area)
+        self._submit(self.mdi_area.addSubWindow, window)
+        self._submit(window.show)
+        self.window_dict[key] = window
 
 
 # Main execution
@@ -130,56 +119,28 @@ def main():
     try:
         # Parse arguments, use file docstring as a parameter definition
         arguments = docopt.docopt(__doc__)
-        session_name = arguments['<name>']
+        session_id = arguments['<sid>']
     except docopt.DocoptExit as e:
         print(e.message)
-    else:
-        global qapp
-        qapp = qt.QApplication([])
-        win = qt.QMainWindow()
-        mdi_area = qt.QMdiArea(win)
-        win.setCentralWidget(mdi_area)
-        win.show()
+        return
 
-        try:
-            session_name, session_id = session_name.split(":")
-        except ValueError:
-            session_id = None
+    qapp = qt.QApplication([])
+    win = qt.QMainWindow()
+    mdi_area = qt.QMdiArea(win)
+    win.setCentralWidget(mdi_area)
+    win.show()
 
-        global EVENTS_QUEUE
-        EVENTS_QUEUE = Queue()
-
-        def process_queue(mdi=mdi_area):
-            while True:
-                try:
-                    ev = EVENTS_QUEUE.get_nowait()
-                except QueueEmpty:
-                    return
-                else:
-                    if ev['event'] == 'new_plot':
-                        plot_channel_name = ev['data']
-                        title = plot_channel_name.split(':')[-1]
-                        plot_window = PlotWindow(mdi)
-                        plot_window.setWindowTitle(title)
-                        PLOTS[plot_channel_name] = plot_window
-                        mdi.addSubWindow(plot_window)
-                        plot_window.show()
-                    elif ev['event'] == 'data':
-                        plot_channel_name, data = ev['data']
-                        plot_window = PLOTS[plot_channel_name]
-                        plot_data(plot_window, data)
-                    elif ev['event'] == 'scan':
-                        plot_channel_name, scan_node_name = ev['data']
-                        plot_window = PLOTS[plot_channel_name]
-
-        events_processing = qt.QTimer()
-        events_processing.setInterval(10)
-        events_processing.timeout.connect(process_queue)
-        events_processing.start()
-
-        start_new_thread(watch_session, (session_name, session_id))
-
+    stop = Future()
+    flint = Flint(win, mdi_area)
+    thread = Thread(
+        target=background_task,
+        args=(flint, session_id, stop))
+    thread.start()
+    try:
         qapp.exec_()
+    finally:
+        stop.set_result(None)
+        thread.join(1.)
 
 
 if __name__ == '__main__':

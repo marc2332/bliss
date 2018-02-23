@@ -117,6 +117,7 @@ def main():
         "mendeleev",
         "pint",
         'mock ; python_version < "3.3"',
+        'futures',
     ]
 
     tests_require = [

@@ -6,7 +6,7 @@ import gevent.event
 import gevent.queue
 
 from silx.gui import qt
-from silx.third_party.concurrent_futures import Future
+from concurrent.futures import Future
 
 # Global
 
@@ -33,7 +33,6 @@ class QtExecutor(qt.QObject):
             self.moveToThread(mainThread)
         # Connect signals
         self._submit.connect(self._run)
-        self._connect.connect(self._run_connect)
 
     def submit(self, fn, *args, **kwargs):
         future = Future()
@@ -55,16 +54,17 @@ class QtExecutor(qt.QObject):
 
 def concurrent_to_gevent(future):
     asyncresult = gevent.event.AsyncResult()
+    watcher = asyncresult.hub.loop.async()
 
     def callback(_):
         try:
-            result = future.get()
+            result = future.result()
         except BaseException as e:
             asyncresult.set_exception(e)
         else:
             asyncresult.set(result)
         finally:
-            asyncresult.hub.loop.async().send()
+            watcher.send()
 
     future.add_done_callback(callback)
     return asyncresult
@@ -81,7 +81,8 @@ def submit_to_qt_application(fn, *args, **kwargs):
     if EXECUTOR is None:
         EXECUTOR = QtExecutor()
     future = EXECUTOR.submit(fn, *args, **kwargs)
-    return concurrent_to_gevent(future).get()
+    # Hack: add a timeout so gevent doesn't freak out
+    return concurrent_to_gevent(future).get(timeout=float('inf'))
 
 
 def connect_to_qt_signal(signal, callback):

@@ -428,13 +428,13 @@ class Icepap(Controller):
         _command(self._cnx,"#PARVEL 1 %s" % axes_str)
         _command(self._cnx,"#PARACCT 0 {}".format(axes_str))
         
-    def start_trajectory(self, *trajectories):
+    def move_to_trajectory(self, *trajectories):
         axes_str = ' '.join(('%s' % traj.axis.address for traj in trajectories))
         #Doesn't work yet
         #_command(self._cnx,"#MOVEP 0 GROUP %s" % axes_str)
         _command(self._cnx,"#MOVEP 0 %s" % axes_str)
         
-    def end_trajectory(self, *trajectories):
+    def start_trajectory(self, *trajectories):
         axes_str = ' '.join(('%s' % traj.axis.address for traj in trajectories))
         traj1 = trajectories[0]
         endtime = traj1.pvt['time'][-1]

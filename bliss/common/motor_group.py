@@ -327,7 +327,7 @@ class _TrajectoryGroup(object):
             motion.backlash = 0
             all_motions.append(motion)
 
-        self._exec_func_on_controller('start_trajectory')
+        self._exec_func_on_controller('move_to_trajectory')
         self.__group._handle_motions(all_motions, wait, polling_time)
 
     def move_to_end(self, wait=True, polling_time=DEFAULT_POLLING_TIME):
@@ -342,7 +342,7 @@ class _TrajectoryGroup(object):
             motion = trajectory.axis.prepare_move(final_pos)
             all_motions.append(motion)
 
-        self._exec_func_on_controller('end_trajectory')
+        self._exec_func_on_controller('start_trajectory')
         self.__group._handle_motions(all_motions, wait, polling_time)
 
     def stop(self, wait=True):

@@ -456,10 +456,10 @@ class Mockup(Controller):
     def prepare_trajectory(self, trajectories):
         pass
 
-    def start_trajectory(self, *trajectories):
+    def move_to_trajectory(self, *trajectories):
         pass
 
-    def end_trajectory(self, *trajectories):
+    def start_trajectory(self, *trajectories):
         pass
     
     def stop_trajectory(self, *trajectories):

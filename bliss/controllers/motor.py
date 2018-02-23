@@ -249,13 +249,13 @@ class Controller(object):
     def start_all(self, *motion_list):
         raise NotImplementedError
 
-    def start_trajectory(self, *trajectories):
+    def move_to_trajectory(self, *trajectories):
         """
         Should go move to the first point of the trajectory
         """
         raise NotImplementedError
 
-    def end_trajectory(self, *trajectories):
+    def start_trajectory(self, *trajectories):
         """
         Should move to the last point of the trajectory
         """

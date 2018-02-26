@@ -9,7 +9,9 @@ tests:
     - source activate tango2.7
     - conda install --yes --channel http://bcu-ci.esrf.fr/stable --file requirements-conda.txt
     - conda install --yes --channel http://bcu-ci.esrf.fr/stable --file requirements-test-conda.txt
-  script: python setup.py test
+  script:
+      - pip install .
+      - python setup.py test
   artifacts:
     paths:
       - htmlcov/

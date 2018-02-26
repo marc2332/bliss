@@ -14,6 +14,7 @@ from bliss.comm import serial
 from bliss.common.greenlet_utils import KillMask,protect_from_kill
 from bliss.common.switch import Switch as BaseSwitch
 from bliss.common.utils import OrderedDict
+from bliss.config.conductor.client import remote_open
 
 OPIOM_PRG_ROOT='/users/blissadm/local/isg/opiom'
 
@@ -77,7 +78,7 @@ class Opiom:
         return self.comm("?INFO")
 
     def source(self) :
-        return self.comm("?SRC")
+        return self.comm("?SRC", timeout=30.)
 
     def prog(self) :
         info = self.info()
@@ -192,11 +193,12 @@ class Opiom:
         print
 
     def _getoffset(self) :
-        f = file(os.path.join(self.__base_path,self.__program + '.opm'))
-        line = f.read(14)
-        f.seek(0)
-        opmfile = f.read()
-        size = f.tell()
+        with remote_open(os.path.join(self.__base_path,
+                                      self.__program + '.opm')) as f:
+            line = f.read(14)
+            f.seek(0)
+            opmfile = f.read()
+            size = f.tell()
         header,src,src_cc,src_c,jed = struct.unpack('<5H',line[3:13])
         return {'header' : header,'src' : src,
                 'src_cc': src_cc,'src_c' : src_c,
@@ -205,22 +207,22 @@ class Opiom:
     def _getFilePLDIDandPROJECT(self) :
         TOKEN = '#pldid#'
         PROJECT_TOKEN= '#project#'
+        with remote_open(os.path.join(self.__base_path,
+                                      self.__program + '.opm')) as f:
+            begin = -1
+            for line in f:
+                begin = line.find(TOKEN)
+                if begin > -1:
+                    break
+            if begin > -1 :
+                subline = line[begin + len(TOKEN):]
+                end = subline.find(TOKEN)
+                pldid = subline[:end]
 
-        f = file(os.path.join(self.__base_path,self.__program + '.opm'))
-        begin = -1
-        for line in f:
-            begin = line.find(TOKEN)
-            if begin > -1:
-                break
-        if begin > -1 :
-            subline = line[begin + len(TOKEN):]
-            end = subline.find(TOKEN)
-            pldid = subline[:end]
-
-            begin = line.find(PROJECT_TOKEN)
-            subline = line[begin + len(PROJECT_TOKEN):]
-            project = subline[:subline.find(PROJECT_TOKEN)]
-            return pldid,project
+                begin = line.find(PROJECT_TOKEN)
+                subline = line[begin + len(PROJECT_TOKEN):]
+                project = subline[:subline.find(PROJECT_TOKEN)]
+                return pldid,project
 
 class Switch(BaseSwitch):
     """

@@ -29,7 +29,7 @@ class DeviceIterator(object):
         return self.__device_ref()
 
     def next(self):
-        if (not self.device.prepare_once and not self.device.start_once and
+        if ((not self.device.prepare_once and not self.device.start_once) or
                 self._one_shot):
             raise StopIteration
 

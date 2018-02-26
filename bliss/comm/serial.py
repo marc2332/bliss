@@ -411,14 +411,14 @@ class SER2NET(RFC2217):
         match = port_parse.match(port)
         if match is None:
             raise SER2NETError('port is not a valid url (%s)' % port)
-        comm = tcp.Command(match.group(2),int(match.group(3)),eol='\n\r->')
+        comm = tcp.Command(match.group(2),int(match.group(3)),eol='\r\n->')
         msg = 'showshortport\n\r'
         rx = comm.write_readline(msg)
         msg_pos = rx.find(msg)
         rx = rx[msg_pos + len(msg):]
         port_parse = re.compile('^([0-9]+).+?%s' % match.group(4))
         rfc2217_port = None
-        for line in rx.split('\n\r'):
+        for line in rx.split('\r\n'):
             g = port_parse.match(line)
             if g:
                 rfc2217_port = int(g.group(1))

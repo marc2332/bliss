@@ -255,3 +255,12 @@ class Multiplexer:
             print "Prog.Source:"
             print source.get()
             print "End of Prog.Source."
+
+    def __repr__(self):
+        rep_str =  "Multiplexer Status:\n\n"
+        format = "{:<32}{:<32}\n"
+        rep_str += format.format("Output name","Output status")
+        rep_str += '\n'
+        for key, value in self.getGlobalStat().iteritems():
+            rep_str += format.format(key, value)
+        return rep_str

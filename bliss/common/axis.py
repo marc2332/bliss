@@ -618,14 +618,20 @@ class Axis(object):
             tuple<float, float>: axis software limits (user units)
         """
         if from_config:
-            ll = self.config.get("low_limit", float, None)
-            hl = self.config.get("high_limit", float, None)
+            ll = self.config.get("low_limit", float, float('-inf'))
+            hl = self.config.get("high_limit", float, float('+inf'))
             return map(self.dial2user, (ll, hl))
         if not isinstance(low_limit, Null):
             self.settings.set("low_limit", low_limit)
         if not isinstance(high_limit, Null):
             self.settings.set("high_limit", high_limit)
-        return self.settings.get('low_limit'), self.settings.get('high_limit')
+        low_limit = self.settings.get('low_limit')
+        if low_limit is None:
+          low_limit = float('-inf')
+        high_limit = self.settings.get('high_limit')
+        if high_limit is None:
+          high_limit = float('+inf')
+        return low_limit, high_limit
 
     def _update_settings(self, state):
         self.settings.set("state", state)
@@ -773,29 +779,21 @@ class Axis(object):
 
         # check software limits
         user_low_limit, user_high_limit = self.limits()
-        if user_low_limit is not None:
-            low_limit = self.user2dial(user_low_limit) * self.steps_per_unit
-        else:
-            low_limit = None
-        if user_high_limit is not None:
-            high_limit = self.user2dial(user_high_limit) * self.steps_per_unit
-        else:
-            high_limit = None
-        if high_limit is not None and high_limit < low_limit:
+        low_limit = self.user2dial(user_low_limit) * self.steps_per_unit
+        high_limit = self.user2dial(user_high_limit) * self.steps_per_unit
+        if high_limit < low_limit:
             high_limit, low_limit = low_limit, high_limit
             user_high_limit, user_low_limit = user_low_limit, user_high_limit
 
         backlash_str = " (with %f backlash)" % self.backlash if backlash else ""
-        if user_low_limit is not None:
-            if target_pos < low_limit:
-                raise ValueError(
-                    "%s: move to `%f'%s would go below low limit (%f)" %
-                    (self.name, user_target_pos, backlash_str, user_low_limit))
-        if user_high_limit is not None:
-            if target_pos > high_limit:
-                raise ValueError(
-                    "%s: move to `%f' %s would go beyond high limit (%f)" %
-                    (self.name, user_target_pos, backlash_str, user_high_limit))
+        if target_pos < low_limit:
+          raise ValueError(
+            "%s: move to `%f'%s would go below low limit (%f)" %
+            (self.name, user_target_pos, backlash_str, user_low_limit))
+        if target_pos > high_limit:
+          raise ValueError(
+            "%s: move to `%f' %s would go beyond high limit (%f)" %
+            (self.name, user_target_pos, backlash_str, user_high_limit))
 
         motion = Motion(self, target_pos, delta)
         motion.backlash = backlash

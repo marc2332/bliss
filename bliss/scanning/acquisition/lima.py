@@ -98,10 +98,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
            self.parent):    # top master trigger will be never called otherwise
             return
 
-        self.trigger()
-
-        if self._reading_task is None:
-            self._reading_task = gevent.spawn(self.reading)
+        self.trigger(from_start=True)
 
     def stop(self):
         self.device.stopAcq()
@@ -116,13 +113,17 @@ class LimaAcquisitionMaster(AcquisitionMaster):
 
         self.wait_reading(block=(acq_trigger_mode!='INTERNAL_TRIGGER_MULTI'))
 
-    def trigger(self):
+    def trigger(self, from_start=False):
         self.trigger_slaves()
+        
+        if(self.trigger_type != AcquisitionMaster.SOFTWARE and\
+           from_start is False):
+            return              # don't trigger lima camera in external-mode
+
         self.device.startAcq()
 
-        if self.trigger_type == AcquisitionMaster.SOFTWARE:
-            if self._reading_task is None:
-                self._reading_task = gevent.spawn(self.reading)
+        if self._reading_task is None:
+            self._reading_task = gevent.spawn(self.reading)
 
     def _get_lima_status(self):
         attr_names = ['buffer_max_number', 'last_image_acquired',

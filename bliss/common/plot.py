@@ -98,11 +98,11 @@ class Plot(object):
 
     # Plot helpers
 
-    def plot(self, data):
+    def plot(self, data, legend=None):
         if data.ndim == 1:
             xs = numpy.arange(len(data))
             if data.dtype.fields is None:
-                self._submit('addCurve', xs, data)
+                self._submit('addCurve', xs, data, legend=legend)
             else:
                 for field in data.dtype.fields:
                     self._submit('addCurve', xs, data[field], legend=field)

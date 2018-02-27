@@ -120,8 +120,10 @@ class ScanListener:
         scan_info = dict(scan_info)
         self.term = term = Terminal(scan_info.get('stream'))
         scan_info = dict(scan_info)
-
-        motors = scan_info['motors']
+        try:
+            motors = scan_info['motors']
+        except KeyError:        # @todo  remove this
+            return              # silently ignoring for continuous scan
         counters = scan_info['counters']
         nb_points = scan_info['npoints']
         if not scan_info['save']:
@@ -219,7 +221,12 @@ class ScanListener:
                 print_(line)
 
     def __on_scan_end(self, scan_info):
-        if scan_info['type'] == 'ct':
+        try:
+            scan_type = scan_info['type']
+        except KeyError:        # @todo  remove this
+            return              # silently ignoring for continuous scan
+
+        if scan_type == 'ct':
             return
 
         for motor in self.real_motors:

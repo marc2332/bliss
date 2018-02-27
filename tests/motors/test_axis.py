@@ -201,7 +201,7 @@ def test_limits(robz):
 def test_limits2(robz, roby):
     iset_pos = robz._set_position()
     assert robz.limits() == (-1000,1E9)
-    assert roby.limits() == (None,None)
+    assert roby.limits() == (float('-inf'),float('+inf'))
     with pytest.raises(ValueError):
         robz.move(-1001)
     assert robz._set_position() == iset_pos
@@ -472,7 +472,7 @@ def test_apply_config(roby):
     roby.apply_config()
     assert roby.velocity() == 2500
     assert roby.acceleration() == 1000
-    assert roby.limits() == (None, None)
+    assert roby.limits() == (float('-inf'), float('+inf'))
 
 def test_jog(robz):
     robz.velocity(10)

@@ -37,6 +37,7 @@ from bliss.common.utils import Null, with_custom_members
 from bliss.config.static import get_config
 from bliss.common.encoder import Encoder
 from bliss.common.hook import MotionHook
+from bliss.physics.trajectory import LinearTrajectory
 import gevent
 import re
 import math
@@ -113,52 +114,57 @@ class Motion(object):
         return self.__type
 
 
-class MotionEstimation(object):
+class Trajectory(object):
+    """ Trajectory information
+  
+    Represents a specific trajectory motion.
+
     """
-    Estimate motion time and displacement based on current axis position
+    def __init__(self, axis, pvt):
+      """
+      Args:
+          axis -- axis to which this motion corresponds to
+          pvt  -- numpy array with three fields ('position','velocity','time')
+      """
+      self.__axis = axis
+      self.__pvt = pvt
+
+    @property
+    def axis(self):
+        return self.__axis
+
+    @property
+    def pvt(self):
+        return self.__pvt
+
+
+def estimate_duration(axis, target_pos, initial_pos=None):
+    """
+    Estimate motion time based on current axis position
     and configuration
     """
+    ipos = axis.position() if initial_pos is None else initial_pos
+    fpos = target_pos
+    delta = fpos - ipos
+    do_backlash = cmp(delta, 0) != cmp(axis.backlash, 0)
+    if do_backlash:
+      delta -= axis.backlash
+      fpos -= axis.backlash
 
-    def __init__(self, axis, target_pos, initial_pos=None):
-        self.axis = axis
-        ipos = axis.position() if initial_pos is None else initial_pos
-        self.ipos = ipos
-        fpos = target_pos
-        delta = fpos - ipos
-        do_backlash = cmp(delta, 0) != cmp(axis.backlash, 0)
-        if do_backlash:
-            delta -= axis.backlash
-            fpos -= axis.backlash
-        self.fpos = fpos
-        self.displacement = displacement = abs(delta)
-        try:
-            self.vel = vel = axis.velocity()
-            self.accel = accel = axis.acceleration()
-        except NotImplementedError:
-            self.vel = float('+inf')
-            self.accel = float('+inf')
-            self.duration = 0
-            return
+    try:
+      acc = axis.acceleration()
+      vel = axis.velocity()
+    except NotImplementedError:
+      # calc axes do not implement acceleration and velocity by default
+      return 0
 
-        full_accel_time = vel / accel
-        full_accel_dplmnt = 0.5*accel * full_accel_time**2
+    linear_trajectory = LinearTrajectory(ipos, fpos, vel, acc)
+    duration = linear_trajectory.duration
+    if do_backlash:
+      backlash_estimation = estimate_duration(axis, target_pos, fpos)
+      duration += backlash_estimation
+    return duration
 
-        full_dplmnt_non_const_vel = 2 * full_accel_dplmnt
-        reaches_max_velocity = displacement > full_dplmnt_non_const_vel
-        if reaches_max_velocity:
-            max_vel = vel
-            accel_time = full_accel_time
-            accel_dplmnt = full_accel_dplmnt
-            dplmnt_non_const_vel = full_dplmnt_non_const_vel
-            max_vel_dplmnt = displacement - dplmnt_non_const_vel
-            max_vel_time = max_vel_dplmnt / vel
-            self.duration = max_vel_time + 2*accel_time
-        else:
-            self.duration = math.sqrt(2*displacement/accel)
-
-        if do_backlash:
-            backlash_estimation = MotionEstimation(axis, target_pos, self.fpos)
-            self.duration += backlash_estimation.duration
 
 def lazy_init(func):
     @functools.wraps(func)
@@ -618,14 +624,20 @@ class Axis(object):
             tuple<float, float>: axis software limits (user units)
         """
         if from_config:
-            ll = self.config.get("low_limit", float, None)
-            hl = self.config.get("high_limit", float, None)
+            ll = self.config.get("low_limit", float, float('-inf'))
+            hl = self.config.get("high_limit", float, float('+inf'))
             return map(self.dial2user, (ll, hl))
         if not isinstance(low_limit, Null):
             self.settings.set("low_limit", low_limit)
         if not isinstance(high_limit, Null):
             self.settings.set("high_limit", high_limit)
-        return self.settings.get('low_limit'), self.settings.get('high_limit')
+        low_limit = self.settings.get('low_limit')
+        if low_limit is None:
+          low_limit = float('-inf')
+        high_limit = self.settings.get('high_limit')
+        if high_limit is None:
+          high_limit = float('+inf')
+        return low_limit, high_limit
 
     def _update_settings(self, state):
         self.settings.set("state", state)
@@ -773,29 +785,21 @@ class Axis(object):
 
         # check software limits
         user_low_limit, user_high_limit = self.limits()
-        if user_low_limit is not None:
-            low_limit = self.user2dial(user_low_limit) * self.steps_per_unit
-        else:
-            low_limit = None
-        if user_high_limit is not None:
-            high_limit = self.user2dial(user_high_limit) * self.steps_per_unit
-        else:
-            high_limit = None
-        if high_limit is not None and high_limit < low_limit:
+        low_limit = self.user2dial(user_low_limit) * self.steps_per_unit
+        high_limit = self.user2dial(user_high_limit) * self.steps_per_unit
+        if high_limit < low_limit:
             high_limit, low_limit = low_limit, high_limit
             user_high_limit, user_low_limit = user_low_limit, user_high_limit
 
         backlash_str = " (with %f backlash)" % self.backlash if backlash else ""
-        if user_low_limit is not None:
-            if target_pos < low_limit:
-                raise ValueError(
-                    "%s: move to `%f'%s would go below low limit (%f)" %
-                    (self.name, user_target_pos, backlash_str, user_low_limit))
-        if user_high_limit is not None:
-            if target_pos > high_limit:
-                raise ValueError(
-                    "%s: move to `%f' %s would go beyond high limit (%f)" %
-                    (self.name, user_target_pos, backlash_str, user_high_limit))
+        if target_pos < low_limit:
+          raise ValueError(
+            "%s: move to `%f'%s would go below low limit (%f)" %
+            (self.name, user_target_pos, backlash_str, user_low_limit))
+        if target_pos > high_limit:
+          raise ValueError(
+            "%s: move to `%f' %s would go beyond high limit (%f)" %
+            (self.name, user_target_pos, backlash_str, user_high_limit))
 
         motion = Motion(self, target_pos, delta)
         motion.backlash = backlash

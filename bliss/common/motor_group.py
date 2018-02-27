@@ -7,8 +7,10 @@
 
 import gevent
 import itertools
+import numpy
 from bliss.common.task_utils import *
 from bliss.common.axis import Axis, AxisState, DEFAULT_POLLING_TIME
+from bliss.common.axis import Trajectory
 from bliss.common import event
 from bliss.common.utils import grouped
 
@@ -165,11 +167,13 @@ class _Group(object):
         self.__move_done.set()
         event.send(self, "move_done", True)
 
-    def move(self, *args, **kwargs):
+    def _check_ready(self):
         initial_state = self.state()
         if initial_state != "READY":
             raise RuntimeError("all motors are not ready")
 
+    def move(self, *args, **kwargs):
+        self._check_ready()
         self._reset_motions_dict()
         self.__move_task = None
 
@@ -197,7 +201,10 @@ class _Group(object):
                     motion)
 
         all_motions = self._start_motion(self._motions_dict)
-        self.__move_done.clear() 
+        self._handle_motions(all_motions, wait, polling_time)
+
+    def _handle_motions(self, all_motions, wait, polling_time):
+        self.__move_done.clear()
         self.__move_task = self._handle_move(all_motions, polling_time, wait=False)
         self.__move_task._motions = all_motions
         self.__move_task.link(self._set_move_done)
@@ -216,3 +223,165 @@ class _Group(object):
             except gevent.GreenletExit:
                 pass
 
+
+def TrajectoryGroup(*trajectories, **keys):
+    """
+    Create an helper for a trajectory movement
+    Keys:
+        calc_axis -- calc axis link which has created this trajectory
+    """
+    calc_axis = keys.pop('calc_axis', None)
+    traj = _TrajectoryGroup(calc_axis=calc_axis)
+    traj.trajectories = trajectories
+    return traj
+
+class _TrajectoryGroup(object):
+    """
+    Group for motor trajectory
+    """
+    def __init__(self, calc_axis=None):
+        self.__trajectories = None
+        self.__trajectories_dialunit = None
+        self.__group = None
+        self.__calc_axis = calc_axis
+        self.__disabled_axes = set()
+
+    @property
+    def trajectories(self):
+        """
+        Get/Set trajectories for this movement
+        """
+        return self.__trajectories
+    @trajectories.setter
+    def trajectories(self, trajectories):
+        self.__trajectories = trajectories
+        self.__trajectories_dialunit = None
+        self.__group = Group(*self.axes)
+        self.__group.stop = self.stop
+
+    @property
+    def axes(self):
+        """
+        Axes for this motion
+        """
+        return [t.axis for t in self.__trajectories]
+
+    @property
+    def disabled_axes(self):
+        """
+        Axes which are disabled for the next motion
+        """
+        return self.__disabled_axes
+
+    def disable_axis(self, axis):
+        """
+        Disable an axis for the next motion
+        """
+        self.__disabled_axes.add(axis)
+
+    def enable_axis(self, axis):
+        """
+        Enable an axis for the next motion
+        """
+        try:
+            self.__disabled_axes.remove(axis)
+        except KeyError:        # was already enable
+            pass                # should we raise?
+
+    @property
+    def calc_axis(self):
+        """
+        calculation axis if any
+        """
+        return self.__calc_axis
+
+    def prepare(self):
+        """
+        prepare/load trajectories in controllers
+        """
+        if self.__trajectories_dialunit is None:
+            trajectories = list()
+            for trajectory in self.__trajectories:
+                user_pos = trajectory.pvt['position']
+                user_velocity = trajectory.pvt['velocity']
+                pvt = numpy.copy(trajectory.pvt)
+                pvt['position'] = trajectory.axis.user2dial(user_pos) * \
+                                  trajectory.axis.steps_per_unit
+                pvt['velocity'] *= trajectory.axis.steps_per_unit
+                trajectories.append(Trajectory(trajectory.axis, pvt))
+            self.__trajectories_dialunit = trajectories
+        self._exec_func_on_controller('prepare_trajectory')
+
+    def move_to_start(self, wait=True, polling_time=DEFAULT_POLLING_TIME):
+        """
+        Move all enabled motors to the first point of the trajectory
+        """
+        self.__group._check_ready()
+        all_motions = list()
+        for trajectory in self.__trajectories:
+            pvt = trajectory.pvt
+            final_pos = pvt['position'][0]
+            motion = trajectory.axis.prepare_move(final_pos)
+            if not motion:
+                # already at final pos
+                continue
+            #no backlash to go to the first position
+            #otherwise it may break next trajectory motion (move_to_end)
+            motion.backlash = 0
+            all_motions.append(motion)
+
+        self._exec_func_on_controller('move_to_trajectory')
+        self.__group._handle_motions(all_motions, wait, polling_time)
+
+    def move_to_end(self, wait=True, polling_time=DEFAULT_POLLING_TIME):
+        """
+        Move all enabled motors to the last point of the trajectory
+        """
+        self.__group._check_ready()
+        all_motions = list()
+        for trajectory in self.__trajectories:
+            pvt = trajectory.pvt
+            final_pos = pvt['position'][-1]
+            motion = trajectory.axis.prepare_move(final_pos)
+            if not motion:
+                continue
+            all_motions.append(motion)
+
+        self._exec_func_on_controller('start_trajectory')
+        self.__group._handle_motions(all_motions, wait, polling_time)
+
+    def stop(self, wait=True):
+        """
+        Stop the motion an all motors
+        """
+        self._exec_func_on_controller('stop_trajectory')
+        if wait:
+            self.__group.wait_move()
+
+    def state(self):
+        """
+        Get the trajectory group status
+        """
+        return self.__group.state()
+
+    def wait_move(self):
+        """
+        Wait the end of motion
+        """
+        self.__group.wait_move()
+
+    def _exec_func_on_controller(self, funct_name):
+        tasks = list()
+        for ctrl, trajectories in self._group_per_controller().iteritems():
+            funct = getattr(ctrl, funct_name)
+            tasks.append(gevent.spawn(funct, *trajectories))
+        gevent.joinall(tasks, raise_error=True)
+
+    def _group_per_controller(self):
+        controller_trajectories = dict()
+        for traj in self.__trajectories_dialunit:
+            if traj.axis in self.__disabled_axes:
+                continue
+            tlist = controller_trajectories.setdefault(traj.axis.controller, [])
+            tlist.append(traj)
+        return controller_trajectories

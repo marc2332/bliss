@@ -5,7 +5,7 @@ from collections import OrderedDict
 
 import pytest
 
-from bliss.controllers.motors.mockup import Trajectory
+from bliss.physics.trajectory import LinearTrajectory
 
 
 parameters = [
@@ -64,7 +64,7 @@ parameters = [
                           for param in parameters],
                          ids=[param['desc'] for param in parameters])
 def test_trajectory(motion, expected_trajectory):
-    traj = Trajectory(**motion)
+    traj = LinearTrajectory(**motion)
 
     for param, value in expected_trajectory.items():
         assert value == pytest.approx(getattr(traj, param), param)
@@ -75,7 +75,7 @@ def test_trajectory(motion, expected_trajectory):
                           for param in parameters],
                          ids=[param['desc'] for param in parameters])
 def test_trajectory_instant(motion, positions, expected_instants):
-    traj = Trajectory(**motion)
+    traj = LinearTrajectory(**motion)
 
     for position, expected_instant in zip(positions, expected_instants):
         assert traj.instant(position) == pytest.approx(expected_instant)
@@ -86,7 +86,7 @@ def test_trajectory_instant(motion, positions, expected_instants):
                           for param in parameters],
                          ids=[param['desc'] for param in parameters])
 def test_trajectory_positions(motion, instants, expected_positions):
-    traj = Trajectory(**motion)
+    traj = LinearTrajectory(**motion)
 
     for instant, expected_position in zip(instants, expected_positions):
         assert traj.position(instant) == pytest.approx(expected_position)

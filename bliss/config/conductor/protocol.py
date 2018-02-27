@@ -7,7 +7,6 @@
 
 import struct
 
-DEFAULT_UDP_CLIENT_PORT = 8021
 DEFAULT_UDP_SERVER_PORT = 8020
 
 HEADER_SIZE = struct.calcsize('<ii')

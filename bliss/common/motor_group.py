@@ -322,6 +322,9 @@ class _TrajectoryGroup(object):
             pvt = trajectory.pvt
             final_pos = pvt['position'][0]
             motion = trajectory.axis.prepare_move(final_pos)
+            if not motion:
+                # already at final pos
+                continue
             #no backlash to go to the first position
             #otherwise it may break next trajectory motion (move_to_end)
             motion.backlash = 0
@@ -340,6 +343,8 @@ class _TrajectoryGroup(object):
             pvt = trajectory.pvt
             final_pos = pvt['position'][-1]
             motion = trajectory.axis.prepare_move(final_pos)
+            if not motion:
+                continue
             all_motions.append(motion)
 
         self._exec_func_on_controller('start_trajectory')

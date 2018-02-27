@@ -453,7 +453,7 @@ class Mockup(Controller):
     def has_trajectory(self):
         return True
 
-    def prepare_trajectory(self, trajectories):
+    def prepare_trajectory(self, *trajectories):
         pass
 
     def move_to_trajectory(self, *trajectories):

@@ -56,13 +56,15 @@ class MotorMaster(AcquisitionMaster):
         self.movable.move(start)
 
     def start(self):
-        if self.trigger_type == AcquisitionMaster.SOFTWARE:
+        if self.parent:
             return
         self.trigger()
 
     def trigger(self):
-        if self.trigger_type == AcquisitionMaster.SOFTWARE:
-            self.trigger_slaves()
+        self.trigger_slaves()
+        return self._start_move()
+    
+    def _start_move(self):
         self.initial_velocity = self.movable.velocity()
         try:
             self.movable.velocity(self.velocity)
@@ -82,8 +84,11 @@ class MotorMaster(AcquisitionMaster):
 
 class SoftwarePositionTriggerMaster(MotorMaster):
     def __init__(self, axis, start, end, npoints=1, **kwargs):
+        # remove trigger type kw arg, since in this case it is always software
+        kwargs.pop('trigger_type', None)
         self._positions = numpy.linspace(start, end, npoints + 1)[:-1]
-        MotorMaster.__init__(self, axis, start, end, **kwargs)
+        MotorMaster.__init__(self, axis, start, end,
+                             trigger_type=AcquisitionMaster.SOFTWARE, **kwargs)
         self.channels.append(AcquisitionChannel(axis.name, numpy.double, ()))
         self.__nb_points = npoints
         self.task = None
@@ -105,6 +110,9 @@ class SoftwarePositionTriggerMaster(MotorMaster):
 
     def stop(self):
         self.movable.stop()
+
+    def trigger(self):
+        return self._start_move()
 
     def get_trigger(self, position):
         t0 = self.velocity / (2. * self.movable.acceleration())

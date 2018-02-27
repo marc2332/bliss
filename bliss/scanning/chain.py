@@ -165,7 +165,8 @@ class AcquisitionMaster(object):
             self.__triggers = list()
 
         for slave in self.slaves:
-            self.__triggers.append((slave, gevent.spawn(slave._trigger)))
+            if slave.trigger_type == AcquisitionMaster.SOFTWARE:
+                self.__triggers.append((slave, gevent.spawn(slave._trigger)))
 
     def wait_slaves(self):
         gevent.joinall(

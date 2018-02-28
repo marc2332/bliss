@@ -81,6 +81,7 @@ import time
 import weakref
 import functools
 import collections
+import functools
 
 import numpy
 import gevent
@@ -131,7 +132,8 @@ class Sensor(SamplingCounter):
         self.address = int(config['address'])
         self.index = self.address - 1
         self.controller.initialize_sensor(self)
-
+        self.__init()
+        
     @property
     def controller(self):
         return self.__controller
@@ -139,26 +141,26 @@ class Sensor(SamplingCounter):
     def __int__(self):
         return self.address
 
+    def __init(self):
+        for attr_name in ['get_auto_range', 'set_auto_range',
+                          'get_nplc', 'set_nplc',
+                          'get_range', 'set_range']:
+            try:
+                attr = getattr(self, attr_name)
+            except AttributeError:
+                pass
+            else:
+                setattr(self, attr_name, attr)
+        
     def __getattr__(self, name):
-        return getattr(self.controller, name)
+        attr = getattr(self.controller, name)
+        return functools.partial(attr,self)
 
     def measure(self, func=None):
         return self.controller.measure(func=func)[self.index]
 
     def data(self):
         return self.controller.data()[self.index]
-
-    def get_auto_range(self):
-        return self.controller.get_auto_range(self)
-
-    def set_auto_range(self, auto_range):
-        self.controller.set_auto_range(self, auto_range)
-
-    def get_nplc(self):
-        return self.controller.get_nplc(self)
-
-    def set_nplc(self, nplc):
-        self.controller.set_nplc(self, nplc)
 
 
 class BaseAcquisition(object):
@@ -546,6 +548,7 @@ class BaseAmmeter(BaseMultimeter):
         self.set_current_dc_auto_range(sensor)
         self.set_current_dc_nplc(sensor)
 
+    get_range = read_sensor_cmd('CURRent:RANGe')
 
 class Ammeter6485(BaseAmmeter):
 
@@ -576,6 +579,22 @@ class Ammeter6485(BaseAmmeter):
             self.set_zero_correct(zero_correct)   # restore zero correct state
             self.set_zero_check(zero_check)       # restore zero check
 
+    def set_range(self, sensor, range_value):
+        """
+        Select a fixed measure range
+        """
+        address = int(sensor)
+        cmd = self._sensor_cmd(sensor, 'CURRent:RANGe:UPPer')
+        possible_range = [2e-9, 20e-9, 200e-9,
+                          2e-6, 20e-6, 200e-6,
+                          2e-3, 20e-3]
+        for value in possible_range:
+            if value >= range_value:
+                break
+
+        self.set_auto_range(sensor, False)
+        self[cmd] = value
+        return value
 
 class Ammeter6482(BaseAmmeter):
 

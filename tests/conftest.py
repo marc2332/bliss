@@ -35,7 +35,7 @@ def beacon():
         '--db_path=' + BEACON_DB_PATH,
         '--posix_queue=0',
         '--tango_port=12345']
-    proc = subprocess.Popen(BEACON + args)
+    proc = subprocess.Popen(BEACON + args, close_fds=True)
     time.sleep(0.5)  # wait for beacon to be really started
     redis_db = redis.Redis(port=7654)
     redis_db.flushall()

@@ -39,9 +39,10 @@ def get_flint_process():
     return FLINT_PROCESS.pid
 
 
-def get_flint():
+def get_flint(pid=None):
     # Make sure flint is running
-    pid = get_flint_process()
+    if pid is None:
+        pid = get_flint_process()
     # Get redis connection
     beacon = get_default_connection()
     redis = beacon.get_redis_connection()
@@ -58,9 +59,8 @@ def get_flint():
 
 class Plot(object):
 
-    def __init__(self, name=None, existing_id=None, flint=None):
-        if flint is None:
-            self._flint = get_flint()
+    def __init__(self, name=None, existing_id=None, flint_pid=None):
+        self._flint = get_flint(pid=flint_pid)
         # Create plot window
         if existing_id is None:
             self._plot_id = self._flint.add_window()
@@ -107,14 +107,24 @@ class Plot(object):
                 for field in data.dtype.fields:
                     self._submit('addCurve', xs, data[field], legend=field)
             return
-        raise NotImplementedError
+        if data.ndim > 2:
+            self._submit('addImage', data, legend=legend)
+            return
 
     def close(self):
         self._flint.remove_window(self.plot_id)
 
+    # Interaction
 
-def plot(data=None, name=None):
-    plot = Plot(name=name)
+    def select_points(self, nb):
+        return self._flint.select_points(self._plot_id, nb)
+
+    def select_shape(self, shape):
+        return self._flint.select_shape(self._plot_id, shape)
+
+
+def plot(data=None, name=None, existing_id=None, flint_pid=None):
+    plot = Plot(name=name, existing_id=existing_id, flint_pid=flint_pid)
     if data is not None:
         plot.plot(data)
     return plot

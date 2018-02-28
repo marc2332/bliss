@@ -21,6 +21,8 @@ from concurrent.futures import Future
 
 from bliss.flint.executor import concurrent_to_gevent
 from bliss.flint.executor import submit_to_qt_application
+from bliss.flint.executor import create_queue_from_qt_signal
+from bliss.flint.executor import disconnect_queue_from_qt_signal
 from bliss.config.conductor.client import get_default_connection
 
 try:
@@ -32,6 +34,8 @@ with warnings.catch_warnings():
     warnings.simplefilter("ignore")
     from silx.gui.plot.PlotWindow import PlotWindow
     from silx.gui import qt
+
+from .interaction import PointsSelector, ShapeSelector
 
 # Globals
 
@@ -105,7 +109,25 @@ class Flint:
 
     def remove_window(self, wid):
         window = self.window_dict.pop(wid)
-        self._submit(self.mdi_area.removeSubWindow, window)
+        # self._submit(self.mdi_area.removeSubWindow, window)
+        window.parent().close()
+
+    def _selection(self, wid, cls, *args):
+        window = self.window_dict[wid]
+        selector = self._submit(cls, window)
+        self._submit(selector.start, *args)
+        queue = create_queue_from_qt_signal(selector.selectionFinished)
+        try:
+            positions, = queue.get()
+        finally:
+            disconnect_queue_from_qt_signal(queue)
+        return positions
+
+    def select_points(self, wid, nb):
+        return self._selection(wid, PointsSelector, nb)
+
+    def select_shape(self, wid, shape):
+        return self._selection(wid, ShapeSelector, shape)
 
 
 # Main execution
@@ -113,6 +135,8 @@ class Flint:
 def main():
     qapp = qt.QApplication(sys.argv)
     win = qt.QMainWindow()
+    title = 'Flint (PID={})'.format(os.getpid())
+    win.setWindowTitle(title)
     mdi_area = qt.QMdiArea(win)
     win.setCentralWidget(mdi_area)
     win.show()

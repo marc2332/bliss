@@ -26,7 +26,7 @@ from ..chain import AcquisitionMaster, AcquisitionChannel
 
 class MotorMaster(AcquisitionMaster):
     def __init__(self, axis, start, end, time=0, undershoot=None,
-                 trigger_type=AcquisitionMaster.HARDWARE,
+                 trigger_type=AcquisitionMaster.SOFTWARE,
                  backnforth=False, **keys):
         AcquisitionMaster.__init__(self, axis, axis.name,
                                    trigger_type=trigger_type, **keys)

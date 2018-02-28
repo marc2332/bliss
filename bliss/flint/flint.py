@@ -12,6 +12,7 @@ import tempfile
 import warnings
 import itertools
 import contextlib
+import collections
 
 import gevent
 import zerorpc
@@ -32,7 +33,7 @@ except ImportError:
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
-    from silx.gui.plot.PlotWindow import PlotWindow
+    from silx.gui import plot
     from silx.gui import qt
 
 from .interaction import PointsSelector, ShapeSelector
@@ -93,15 +94,17 @@ class Flint:
         self.main_window = main_window
         self.main_index = next(self._id_generator)
         self.window_dict = {self.main_index: self.main_window}
+        self.selector_dict = collections.defaultdict(list)
 
     def run_method(self, key, method, args, kwargs):
         window = self.window_dict[key]
         method = getattr(window, method)
         return self._submit(method, *args, **kwargs)
 
-    def add_window(self):
+    def add_window(self, cls_name):
         wid = next(self._id_generator)
-        window = self._submit(PlotWindow, self.mdi_area)
+        cls = getattr(plot, cls_name)
+        window = self._submit(cls, self.mdi_area)
         self._submit(self.mdi_area.addSubWindow, window)
         self._submit(window.show)
         self.window_dict[wid] = window
@@ -109,12 +112,15 @@ class Flint:
 
     def remove_window(self, wid):
         window = self.window_dict.pop(wid)
-        # self._submit(self.mdi_area.removeSubWindow, window)
         window.parent().close()
 
     def _selection(self, wid, cls, *args):
+        # Instanciate selector
         window = self.window_dict[wid]
         selector = self._submit(cls, window)
+        # Save it for future cleanup
+        self.selector_dict[wid].append(selector)
+        # Run the selection
         self._submit(selector.start, *args)
         queue = create_queue_from_qt_signal(selector.selectionFinished)
         try:
@@ -128,6 +134,10 @@ class Flint:
 
     def select_shape(self, wid, shape):
         return self._selection(wid, ShapeSelector, shape)
+
+    def clear_selections(self, wid):
+        for selector in self.selector_dict.pop(wid):
+            self._submit(selector.reset)
 
 
 # Main execution

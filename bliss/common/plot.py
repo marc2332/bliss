@@ -15,6 +15,7 @@ from bliss.config.channels import Channel
 from bliss.scanning import scan as scan_module
 from bliss.config.conductor.client import get_default_connection
 
+
 # Globals
 
 msgpack_numpy.patch()
@@ -59,11 +60,12 @@ def get_flint(pid=None):
 
 class Plot(object):
 
-    def __init__(self, name=None, existing_id=None, flint_pid=None):
+    def __init__(self, name=None, existing_id=None, flint_pid=None,
+                 cls_name='PlotWindow'):
         self._flint = get_flint(pid=flint_pid)
         # Create plot window
         if existing_id is None:
-            self._plot_id = self._flint.add_window()
+            self._plot_id = self._flint.add_window(cls_name)
         else:
             self._plot_id = existing_id
         # Set plot title
@@ -121,6 +123,9 @@ class Plot(object):
 
     def select_shape(self, shape):
         return self._flint.select_shape(self._plot_id, shape)
+
+    def clear_selections(self):
+        return self._flint.clear_selections(self._plot_id)
 
 
 def plot(data=None, name=None, existing_id=None, flint_pid=None):

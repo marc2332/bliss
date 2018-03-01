@@ -22,6 +22,8 @@ Example YAML_ configuration:
 Usage::
 
     >>> from bliss.config.static import get_config()
+    >>> from bliss.controllers.pepu import Stream, Trigger, Signal, ChannelMode
+
     >>> config = get_config()
 
     >>> pepudcm2 = config.get('pepudcm2')
@@ -36,12 +38,19 @@ Usage::
     >>> in1 = pepudcm2.in_channels[1]
     >>> print(in1.value)
 
+    >>> # enable / disable the channel
+    >>> in1.enabled = True
+
+    >>> # read/change the channel mode
+    >>> in1.mode
+    <ChannelMode.BISS: 'BISS'>
+    >>> in1.mode = ChannelMode.QUAD
+
     >>> # Define a calculation
     >>> calc1 = pepudcm2.calc_channels[1]
     >>> calc1.formula = '0.25 * IN1 + 3'
 
     >>> # Create a global inactive and unitialized stream and then initialize
-    >>> from bliss.controllers.pepu import Stream, Trigger, Signal
     >>> s0 = pepudcm2.create_stream('S0')
     >>> s0.trigger = Trigger(start=Signal.SOFT, clock=Signal.SOFT)
     >>> s0.frequency = 1

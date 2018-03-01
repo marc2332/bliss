@@ -693,7 +693,8 @@ def main(args=None):
         args += ['2']
         # Fire up process
         tango_process = subprocess.Popen(
-            args, stdout=tango_wp, stderr=subprocess.STDOUT, env=env)
+            args, stdout=tango_wp, stderr=subprocess.STDOUT,
+            close_fds=True, env=env)
     else:
         tango_rp = tango_process = None
 
@@ -708,7 +709,7 @@ def main(args=None):
                                       '--unixsocketperm', '777',
                                       '--port', '%d' % _options.redis_port],
                                      stdout=wp, stderr=subprocess.STDOUT,
-                                     cwd=_options.db_path)
+                                     close_fds=True, cwd=_options.db_path)
 
     # Safe context
     try:

@@ -11,7 +11,7 @@ name = 'bliss'
 author = 'BCU (ESRF)'
 author_email = ''
 license = 'LGPLv3'
-copyright = '2016 Beamline Control Unit, ESRF'
+copyright = '2016-2018 Beamline Control Unit, ESRF'
 description = 'BeamLine Instrumentation Support Software'
 url = 'bliss.gitlab-pages.esrf.fr/bliss'
 

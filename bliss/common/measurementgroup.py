@@ -159,6 +159,9 @@ class MeasurementGroup(object):
         """
         return self._current_state.get()
 
+    def set_active(self):
+        set_active_name(self.name)
+
     def switch_state(self,name):
         self._current_state.set(name)
         self._counters_settings = settings.HashSetting('%s:%s' %

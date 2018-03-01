@@ -13,4 +13,4 @@ How Tos
     howto_motion_hook
     howto_session
     howto_settings
-
+    howto_measurement_group

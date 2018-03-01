@@ -15,7 +15,7 @@ Bliss is a python_ library focused on beamline control and data acquisition.
 It is an acronym for BeamLine Instrumentation Support Software. It is also
 the old name of the ESRF_ Beamline Control Unit (BCU).
 
-Spolier alert: Bliss is as easy as::
+Spolier alert: Bliss is as "easy" as::
 
     >>> from bliss.config.static import get_config
 

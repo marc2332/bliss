@@ -182,11 +182,6 @@ class ChannelMode(enum.Enum):
     ENDAT = 'ENDAT'
 
 
-class ChannelState(enum.Enum):
-    ENABLED = 'ENABLE'
-    DISABLED = 'DISABLE'
-
-
 class QuadConfig(enum.Enum):
     X1 = 'X1'
     X2 = 'X2'
@@ -208,12 +203,12 @@ def ChannelConfig_fromstring(text):
         try:
             mode = ChannelMode(elem)
         except ValueError:
-            state = ChannelState(elem)
+            state = elem.lower() == 'enable'
     return ChannelConfig(mode, state)
 
 
 def ChannelConfig_tostring(cfg):
-    return ' '.join((cfg.mode.value, cfg.state.value))
+    return ' '.join((cfg.mode.value, 'ENABLE' if cfg.state else 'DISABLE'))
 
 
 ChannelConfig.fromstring = staticmethod(ChannelConfig_fromstring)
@@ -377,10 +372,26 @@ class BaseChannelINOUT(BaseChannel):
 
     value = ChannelAttr('CHVAL', float, str)
     error = ChannelAttr('CHERR', str, None)
-    config = ChannelAttr('CHCFG',
-                         ChannelConfig.fromstring,
-                         ChannelConfig.tostring)
+    _config = ChannelAttr('CHCFG',
+                          ChannelConfig.fromstring,
+                          ChannelConfig.tostring)
     quad_config = ChannelAttr('QUADCFG', QuadConfig, lambda x: x.value)
+
+    @property
+    def enabled(self):
+        return self._config.state
+
+    @enabled.setter
+    def enabled(self, enabled):
+        self._config = self._config._replace(state=enabled)
+
+    @property
+    def mode(self):
+        return self._config.mode
+
+    @mode.setter
+    def mode(self, mode):
+        self._config = self._config._replace(mode=mode)
 
     def reset(self):
         command = 'CHRESET {0}'.format(self.name)

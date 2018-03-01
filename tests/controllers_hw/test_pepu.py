@@ -10,7 +10,7 @@ Run with:
 import pytest
 
 from bliss.common import scans
-from bliss.controllers.pepu import PEPU, Signal, Trigger
+from bliss.controllers.pepu import PEPU, Signal, Trigger, ChannelMode
 
 pytestmark = pytest.mark.pepu
 
@@ -44,6 +44,27 @@ def test_simple_connection(pepu):
 def test_read_in_channels(pepu, channel_id):
     channel = pepu.in_channels[channel_id]
     assert channel.value in [-1., 0.]
+
+
+@pytest.mark.parametrize("channel_id", range(1, 7))
+def test_in_channel_config(pepu, channel_id):
+    channel = pepu.in_channels[channel_id]
+
+    # test state
+    enabled = channel.enabled
+    assert channel.enabled is True or channel.enabled is False
+
+    # disabled the state
+    channel.enabled = False
+    assert channel.enabled is False
+
+    # test mode
+    mode = channel.mode
+    assert channel.mode in tuple(ChannelMode)
+
+    channel.mode = ChannelMode.BISS
+    assert channel.mode == ChannelMode.BISS
+
 
 
 @pytest.mark.parametrize("channel_id", [7, 8])

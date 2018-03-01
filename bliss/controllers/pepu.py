@@ -195,6 +195,10 @@ class Signal(enum.Enum):
     FREQ = 'FREQ'
 
 
+class PEPUError(Exception):
+    pass
+
+
 ChannelConfig = collections.namedtuple('ChannelConfig', 'mode state')
 
 
@@ -311,14 +315,14 @@ class DeviceAttr(BaseAttr):
 
     def __get__(self, instance, owner):
         if self.decode is None:
-            raise RuntimeError('Cannot get {0}'.format(self.name))
+            raise PEPUError('Cannot get {0}'.format(self.name))
         request = '?{0}'.format(self.name)
         reply = instance.raw_write(request)
         return self.decode(reply)
 
     def __set__(self, instance, value):
         if self.encode is None:
-            raise RuntimeError('Cannot set {0}'.format(self.name))
+            raise PEPUError('Cannot set {0}'.format(self.name))
         value = self.encode(value)
         command = '{0} {1}'.format(self.name, value)
         return instance.raw_write_read(command)
@@ -328,14 +332,14 @@ class ChannelAttr(BaseAttr):
 
     def __get__(self, instance, owner):
         if self.decode is None:
-            raise RuntimeError('Cannot get {0}'.format(self.name))
+            raise PEPUError('Cannot get {0}'.format(self.name))
         request = '?{0} {1}'.format(self.name, instance.name)
         reply = instance.pepu.raw_write(request)
         return self.decode(reply)
 
     def __set__(self, instance, value):
         if self.encode is None:
-            raise RuntimeError('Cannot set {0}'.format(self.name))
+            raise PEPUError('Cannot set {0}'.format(self.name))
         value = self.encode(value)
         command = '{0} {1} {2}'.format(self.name, instance.name, value)
         return instance.pepu.raw_write_read(command)
@@ -448,7 +452,7 @@ class StreamAttr(BaseAttr):
 
     def __get__(self, instance, owner):
         if self.decode is None:
-            raise RuntimeError('Cannot get {0}'.format(self.name))
+            raise PEPUError('Cannot get {0}'.format(self.name))
         request = instance._cmd(query=True)
         reply = instance.pepu.raw_write(request)
         new_info = StreamInfo.fromstring(reply)
@@ -457,7 +461,7 @@ class StreamAttr(BaseAttr):
 
     def __set__(self, instance, value):
         if self.encode is None:
-            raise RuntimeError('Cannot set {0}'.format(self.name))
+            raise PEPUError('Cannot set {0}'.format(self.name))
         value = self.encode(value)
         command = instance._cmd(self.name, value)
         return instance.pepu.raw_write_read(command)

@@ -158,7 +158,7 @@ def get_comm(config, ctype=None, **opts):
         opts.update(config[comm_type])
         url = opts['url']
         if isinstance(url, (str, unicode)):
-            url = url.split(':', 1)
+            url = url.rsplit(':', 1)
         if len(url) == 1:
             if default_port is None:
                 raise KeyError('Cannot create %s object without port' % comm_type.upper())

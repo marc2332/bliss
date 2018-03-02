@@ -22,6 +22,7 @@ Here are the main bliss sub-systems:
     controllers
     data
     physics
+    scanning
     shell
     tango
 '''

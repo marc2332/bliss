@@ -38,6 +38,7 @@ from bliss.scanning.acquisition.motor import LinearStepTriggerMaster, MeshStepTr
 from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
 from bliss.scanning.acquisition.ct2 import CT2AcquisitionMaster
 from bliss.scanning.acquisition.mca import BaseMcaCounter, McaAcquisitionDevice
+from bliss.scanning.acquisition.pepu import PepuCounter, PepuAcquisitionDevice
 from bliss.common import session,measurementgroup
 try:
     from bliss.scanning.writer import hdf5 as default_writer
@@ -150,7 +151,20 @@ def _counters_tree(counters, scan_pars):
             counters=counter_list)
         tree.setdefault(None, []).append(acq_device)
 
-    # End MCA specific block #
+    # PEPU specific block
+
+    pepu_counters = {}
+    for counter in counters:
+        if isinstance(counter, PepuCounter):
+            pepu_counters.setdefault(counter.controller, []).append(counter)
+    for counter_list in pepu_counters.values():
+        counters -= set(counter_list)
+    for pepu, counter_list in pepu_counters.items():
+        acq_device = PepuAcquisitionDevice(
+            pepu, npoints=npoints, counters=counter_list)
+        tree.setdefault(None, []).append(acq_device)
+
+    # End specific block #
 
     reader_counters = ordereddict()
     for cnt in counters:

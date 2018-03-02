@@ -32,6 +32,7 @@ and their common API and functionality can be determined
     multiplexer
     musst
     opiom
+    pepu
     rontec
     simulation_diode
     tango_attr_as_counter

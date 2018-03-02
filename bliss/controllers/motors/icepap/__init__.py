@@ -638,6 +638,16 @@ def _command(cnx,cmd,data = None,pre_cmd = None):
                                     clear_transaction=False,eol='$\n')
             elif msg.startswith('ERROR'):
                 raise RuntimeError(msg.replace('ERROR ',''))
+            elif msg.startswith('?*'):
+                # a binary reply
+                header = cnx._read(transaction, size=12,
+                                   clear_transaction=False)
+                dfmt, magic, size, checksum = struct.unpack('<HHII', header)
+                assert magic == 0xa5a5
+                dsize = dfmt & 0xF     # data size (bytes)
+                data = cnx._read(transaction, size=dsize*size,
+                                 clear_transaction=False)
+                return numpy.fromstring(data, dtype='u{0}'.format(dsize))
             return msg.strip(' ')
 
 def _ackcommand(cnx,cmd,data = None,pre_cmd = None):

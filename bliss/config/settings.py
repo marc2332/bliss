@@ -96,8 +96,10 @@ def write_decorator_dict(func):
                 raise TypeError('can only be dict')
 
             if values is not None:
+                new_dict = dict()
                 for k, v in values.iteritems():
-                    values[k] = self._write_type_conversion(v)
+                    new_dict[k] = self._write_type_conversion(v)
+                values = new_dict
         return func(self, values, **keys)
     return _write
 

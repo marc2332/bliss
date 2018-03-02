@@ -14,7 +14,6 @@ from bliss.scanning import scan, chain
 from bliss.scanning.acquisition import timer, calc, motor, counter
 from bliss.common import event
 
-
 def test_ascan(beacon):
     session = beacon.get("test_session")
     session.setup()
@@ -26,6 +25,16 @@ def test_ascan(beacon):
     scan_data = scans.get_data(s)
     assert numpy.array_equal(scan_data['gaussian'], counter.data)
 
+def test_ascan_gauss(beacon):
+    session = beacon.get("test_session")
+    session.setup()
+    counter_class = getattr(setup_globals, 'AutoScanGaussianCounter')
+    m1 = getattr(setup_globals, 'm1')
+    counter = counter_class("gaussianCurve")
+    s = scans.ascan(m1, 0, 10, 10, 0, counter, return_scan=True, save=False)
+    assert m1.position() == 10
+    scan_data = scans.get_data(s)
+    assert numpy.array_equal(scan_data['gaussianCurve'], counter.data)
 
 def test_dscan(beacon):
     session = beacon.get("test_session")
@@ -40,7 +49,6 @@ def test_dscan(beacon):
     scan_data = scans.get_data(s)
     assert numpy.allclose(scan_data['m1'], numpy.linspace(start_pos-2, start_pos+2, 10), atol=5e-4)
     assert numpy.array_equal(scan_data['gaussian'], counter.data)
-
 
 def test_dscan_move_done(beacon):
     session = beacon.get("test_session")

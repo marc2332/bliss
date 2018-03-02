@@ -169,7 +169,7 @@ class _Group(object):
 
     def _check_ready(self):
         initial_state = self.state()
-        if initial_state != "READY":
+        if not initial_state.READY:
             raise RuntimeError("all motors are not ready")
 
     def move(self, *args, **kwargs):

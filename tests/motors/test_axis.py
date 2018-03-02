@@ -21,14 +21,14 @@ def test_controller_from_axis(robz):
 def test_state_callback(robz):
     ready_event = gevent.event.AsyncResult()
     def callback(state):
-      ready_event.set(state == 'READY')
+      ready_event.set(state.READY)
 
     event.connect(robz, "state", callback)
 
     robz.rmove(1)
 
     assert ready_event.get(timeout=0.1)
-    assert robz.state() == "READY"
+    assert robz.state().READY
 
 
 def test_move_done_callback(robz):
@@ -94,15 +94,15 @@ def test_axis_set_acctime(roby):
     assert roby.acctime(acc) == acc
 
 def test_axis_move(robz):
-    assert robz.state() == "READY"
+    assert robz.state().READY
 
     robz.move(180, wait=False)
 
-    assert robz.state() == "MOVING"
+    assert robz.state().MOVING
 
     robz.wait_move()
 
-    assert robz.state() == "READY"
+    assert robz.state().READY
 
     assert robz.position() == 180
     assert robz._set_position() == 180
@@ -111,36 +111,36 @@ def test_axis_multiple_move(robz):
     robz.velocity(1000)
     robz.acceleration(10000)
     for i in range(10):
-        assert robz.state() == "READY"
+        assert robz.state().READY
         robz.move((i+1)*2, wait=False)
-        assert robz.state() == "MOVING"
+        assert robz.state().MOVING
         robz.wait_move()
-        assert robz.state() == "READY"
+        assert robz.state().READY
 
 def test_axis_init(robz):
-    assert robz.state() == "READY"
+    assert robz.state().READY
     assert robz.settings.get("init_count") == 1
 
 
 def test_stop(robz):
-    assert robz.state() == "READY"
+    assert robz.state().READY
 
     robz.move(180, wait=False)
 
     assert robz._set_position() == 180
 
-    assert robz.state() == "MOVING"
+    assert robz.state().MOVING
 
     robz.stop()
 
-    assert robz.state() == "READY"
+    assert robz.state().READY
 
 def test_asynchronous_stop(robz):
     robz.velocity(1)
 
     robz.move(180, wait=False)
 
-    assert robz.state() == "MOVING"
+    assert robz.state().MOVING
 
     started_time = time.time()
     time.sleep(1+robz.acctime())
@@ -148,11 +148,11 @@ def test_asynchronous_stop(robz):
     robz.stop(wait=False)
 
     elapsed_time = time.time() - started_time
-    assert robz.state() == "MOVING"
+    assert robz.state().MOVING
 
     robz.wait_move()
 
-    assert robz.state() == "READY"
+    assert robz.state().READY
 
     assert robz.position() == pytest.approx(elapsed_time+robz.acceleration()*robz.acctime()**2, 1e-2)
 
@@ -161,13 +161,13 @@ def test_home_stop(robz):
 
     time.sleep(0.1)
 
-    assert robz.state() == "MOVING"
+    assert robz.state().MOVING
 
     robz.stop()
 
     robz.wait_move()
 
-    assert robz.state() == "READY"
+    assert robz.state().READY
 
 def test_limit_search_stop(robz):
     robz.controller.set_hw_limits(robz, -5, 5)
@@ -175,13 +175,13 @@ def test_limit_search_stop(robz):
 
     time.sleep(0.1)
 
-    assert robz.state() == "MOVING"
+    assert robz.state().MOVING
 
     robz.stop()
 
     robz.wait_move()
 
-    assert robz.state() == "READY"
+    assert robz.state().READY
 
 def test_limits(robz):
     iset_pos = robz._set_position()
@@ -196,7 +196,7 @@ def test_limits(robz):
     robz.limits(-2.1, 1.1)
     robz.rmove(1)
     robz.rmove(-2)
-    assert robz.state() == 'READY'
+    assert robz.state().READY
 
 def test_limits2(robz, roby):
     iset_pos = robz._set_position()
@@ -248,7 +248,7 @@ def test_backlash3(roby):
 
     assert roby.backlash_move == 0
 
-    assert roby.state() == 'READY'
+    assert roby.state().READY
 
 def test_axis_steps_per_unit(roby):
     roby.move(180, wait=False)
@@ -282,9 +282,9 @@ def test_custom_method(roby):
 
 def test_home_search(roby):
     roby.home(wait=False)
-    assert roby.state() == 'MOVING'
+    assert roby.state().MOVING
     roby.wait_move()
-    assert roby.state() == 'READY'
+    assert roby.state().READY
     roby.dial(38930)
     roby.position(38930)
     assert roby.offset == 0
@@ -292,13 +292,13 @@ def test_home_search(roby):
 
 def test_ctrlc(robz):
     robz.move(100, wait=False)
-    assert robz.state() == "MOVING"
+    assert robz.state().MOVING
     time.sleep(0.1)
     robz._Axis__move_task.kill(KeyboardInterrupt, block=False)
     with pytest.raises(KeyboardInterrupt):
         robz.wait_move()
     assert not robz.is_moving
-    assert robz.state() == "READY"
+    assert robz.state().READY
     assert robz.position() < 100
 
 def test_simultaneous_move(robz):
@@ -314,7 +314,7 @@ def test_simultaneous_move(robz):
 
     move_started.wait()
 
-    assert robz.state() == 'MOVING'
+    assert robz.state().MOVING
     try:
       robz.move(-10)
     except Exception, e:
@@ -331,19 +331,19 @@ def test_simultaneous_waitmove_exception(robz):
     with pytest.raises(RuntimeError):
       w2.get()
     robz.off()
-    assert robz.state() == 'OFF'
+    assert 'OFF' in robz.state()
     robz.on()
-    assert robz.state() == 'READY'
+    assert 'READY' in robz.state()
 
 
 def test_on_off(robz):
     try:
         robz.off()
-        assert robz.state() == 'OFF'
+        assert robz.state().OFF
         with pytest.raises(RuntimeError):
             robz.move(1)
         robz.on()
-        assert robz.state() == 'READY'
+        assert robz.state().READY
         robz.move(1)
         assert robz.position() == pytest.approx(1)
         robz.move(2, wait=False)
@@ -351,7 +351,7 @@ def test_on_off(robz):
             robz.off()
         robz.wait_move()
         robz.off()
-        assert robz.state() == 'OFF'
+        assert robz.state().OFF
     finally:
         robz.on()
 
@@ -405,7 +405,7 @@ def test_interrupted_waitmove(m0):
     time.sleep(0.01)
     with pytest.raises(KeyboardInterrupt):
         waitmove.kill(KeyboardInterrupt)
-    assert m0.state() == "READY"
+    assert m0.state().READY
 
 def test_hardware_limits(roby):
     try:
@@ -436,7 +436,7 @@ def test_bad_start(roby):
         with pytest.raises(RuntimeError):
             roby.move(1)
 
-        assert roby.state() == 'READY'
+        assert roby.state().READY
         assert roby.position() == 0
     finally:
         roby.controller.set_error(False)
@@ -484,9 +484,9 @@ def test_jog(robz):
     hw_position = robz._hw_position()
     elapsed_time = (time.time()-start_time) - robz.acctime()
     assert hw_position == pytest.approx(300*elapsed_time+robz.acceleration()*0.5*robz.acctime()**2, 1e-2)
-    assert robz.state() == "MOVING"
+    assert robz.state().MOVING
     robz.stop()
-    assert robz.state() == "READY"
+    assert robz.state().READY
     assert robz._set_position() == robz.position()
     robz.dial(0); robz.position(0)
     assert robz.velocity() == 10

@@ -10,13 +10,13 @@ from bliss.common.axis import AxisState
 
 def test_empty_state():
     s = AxisState()
-    assert s == 'UNKNOWN'
+    assert "UNKNOWN" in s
 
 def test_mutually_exclusive():
     s = AxisState()
 
     s.set("MOVING")
-    assert s == "MOVING"
+    assert s.MOVING
     assert not s.READY
 
     s.set("READY")
@@ -29,7 +29,7 @@ def test_custom_state():
     s.create_state("PARKED", "here I am")
     s.set("PARKED")
     assert s.READY
-    assert s == "PARKED"
+    assert "PARKED" in s
 
 def test_state_print():
     s = AxisState()
@@ -68,10 +68,10 @@ def test_state_from_state():
 def test_clear_state():
     s = AxisState("READY")
     s.clear()
-    assert s == "UNKNOWN"
+    assert "UNKNOWN" in s
 
     s.set("MOVING")
-    assert s == "MOVING"
+    assert s.MOVING
 
 def test_state_equality():
     s = AxisState("READY")

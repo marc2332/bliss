@@ -54,21 +54,21 @@ class Scan(DataNodeContainer):
         DataNodeContainer.__init__(self, 'scan', name, create=create, **keys)
         self.__create = create
         if create:
-            start_time_stamp = time.time()
-            start_time = datetime.datetime.fromtimestamp(start_time_stamp)
+            start_timestamp = time.time()
+            start_time = datetime.datetime.fromtimestamp(start_timestamp)
             self._data.start_time = start_time
             self._data.start_time_str = start_time.strftime(
                 "%a %b %d %H:%M:%S %Y")
-            self._data.start_time_stamp = start_time_stamp
+            self._data.start_timestamp = start_timestamp
         self._info._write_type_conversion = pickle_dump
 
     def end(self):
         if self.__create:
-            end_time_stamp = time.time()
-            end_time = datetime.datetime.fromtimestamp(end_time_stamp)
+            end_timestamp = time.time()
+            end_time = datetime.datetime.fromtimestamp(end_timestamp)
             self._data.end_time = end_time
             self._data.end_time_str = end_time.strftime("%a %b %d %H:%M:%S %Y")
-            self._data.end_time_stamp = end_time_stamp
+            self._data.end_timestamp = end_timestamp
 
 
 def get_data(scan):

@@ -132,7 +132,7 @@ class ScanListener:
         real_motors = []
         for motor in motors:
             motor_name = motor.name
-            # replace time_stamp with elapsed_time
+            # replace timestamp with elapsed_time
             if motor_name == 'timestamp':
                 motor_name = 'dt'
                 unit = 's'
@@ -194,7 +194,7 @@ class ScanListener:
         print_(header)
 
     def __on_scan_data(self, scan_info, values):
-        elapsed_time = values['timestamp'] - scan_info['start_time_stamp']
+        elapsed_time = values['timestamp'] - scan_info['start_timestamp']
         motors = scan_info['motors'][1:]  # take out timestamp placeholder
         motor_values = [values[m.name] for m in motors]
         counter_values = [values[c.name] for c in scan_info['counters']]
@@ -234,7 +234,7 @@ class ScanListener:
                                   signal='position', sender=motor)
 
         end = datetime.datetime.fromtimestamp(time.time())
-        start = datetime.datetime.fromtimestamp(scan_info['start_time_stamp'])
+        start = datetime.datetime.fromtimestamp(scan_info['start_timestamp'])
         dt = end - start
         if scan_info.get('output_mode', 'tail') == 'monitor' and self.term.is_a_tty:
             print_()

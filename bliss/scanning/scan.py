@@ -280,7 +280,7 @@ class Scan(object):
         self._scan_info['scan_nb'] = run_number
         self._scan_info['start_time'] = self._node._data.start_time
         self._scan_info['start_time_str'] = self._node._data.start_time_str
-        self._scan_info['start_time_stamp'] = self._node._data.start_time_stamp
+        self._scan_info['start_timestamp'] = self._node._data.start_timestamp
         self._data_watch_callback = data_watch_callback
         self._data_events = dict()
 

@@ -147,6 +147,7 @@ from collections import OrderedDict
 import zerorpc
 import msgpack_numpy
 
+from bliss.common import session
 from bliss.config.channels import Channel
 from bliss.config.conductor.client import get_default_connection
 
@@ -189,6 +190,7 @@ def get_flint(pid=None):
     url = redis.brpoplpush(key, key, timeout=3000)
     # Return flint proxy
     proxy = zerorpc.Client(url)
+    proxy.set_session(session.get_current().name)
     proxy._pid = pid
     return proxy
 

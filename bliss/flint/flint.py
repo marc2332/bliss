@@ -21,6 +21,7 @@ import msgpack_numpy
 import gevent.monkey
 from concurrent.futures import Future
 
+from bliss.data.scan import watch_session_scans
 from bliss.flint.executor import concurrent_to_gevent
 from bliss.flint.executor import submit_to_qt_application
 from bliss.flint.executor import create_queue_from_qt_signal
@@ -99,14 +100,27 @@ class Flint:
         self.window_dict = {self.main_index: self.main_window}
         self.selector_dict = collections.defaultdict(list)
         self.data_dict = collections.defaultdict(dict)
+        self.scans_watch_task = None
 
     def run_method(self, key, method, args, kwargs):
         window = self.window_dict[key]
         method = getattr(window, method)
         return self._submit(method, *args, **kwargs)
 
-    # Window management
+    def set_session(self, session_name):
+        print 'Listening to session', session_name
+        self.scans_watch_task = watch_session_scans(session_name, self.new_scan, self.new_data, self.scan_ended, wait=False)
 
+    def new_scan(self, *args):
+        self.main_window.setWindowTitle("scan started %r" % args)
+
+    def new_data(self, *args):
+        self.main_window.setWindowTitle("DATA %r" % args)
+
+    def scan_ended(self, *args):
+        self.main_window.setWindowTitle("scan done %r" % args)
+
+    # Window management
     def add_window(self, cls_name):
         wid = next(self._id_generator)
         cls = getattr(plot, cls_name)

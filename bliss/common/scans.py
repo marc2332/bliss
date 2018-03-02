@@ -56,7 +56,7 @@ class TimestampPlaceholder:
 def _get_counters(mg, missing_list):
     counters = list()
     if mg is not None:
-        for cnt_name in mg.enable:
+        for cnt_name in mg.enabled:
             cnt = operator.attrgetter(cnt_name)(setup_globals)
             if cnt:
                 counters.append(cnt)

@@ -1,6 +1,6 @@
 controller:
     class: mockup
-    host: lid269
+    host: lid42
     inputs:
         - 
             name: thermo_sample

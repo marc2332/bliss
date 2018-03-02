@@ -9,5 +9,6 @@ This module provides an acquisition interface for existing devices
    motor
    musst
    p201
+   pepu
 
 '''

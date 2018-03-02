@@ -11,6 +11,86 @@
 # Copyright (c) 2017 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+"""\
+PePU scan support
+=================
+
+The PePU can be integrated in step-by-step scans using the counters
+provided by the controller itself::
+
+    # IN channel counters
+    >>> pepu.counters.IN1 # to ...
+    >>> pepu.counters.IN6
+
+    # CALC channel counters
+    >>> pepu.counters.CALC1  # to ...
+    >>> pepu.counters.CALC8
+
+    # All channel counters
+    >>> list(pepu.counters)
+
+Here's an working example::
+
+    >>> from bliss.config.static import get_config
+    >>> from bliss.common.scans import timescan, get_data
+
+    >>> config = get_config()
+    >>> pepu = config.get('pepudcm2')
+
+    >>> scan = timescan(1., *pepu.counters, npoints=3)
+    [...] # Run the scan for 3 seconds
+    >>> data = get_data(scan)
+    >>> data['CALC1']
+    array([1., 2., 3.])
+
+Note that the values are acquired at the software trigger, not the end of the
+integration time.
+
+The PePU is integrated in continuous scans by instanciating the
+`PepuAcquisitionDevice` class. It takes the following arguments:
+
+ - `pepu`: the pepu controller
+ - `npoints`: the number of points to acquire
+ - `start`: the start trigger, default is Signal.SOFT
+ - `trigger`: the point trigger, default is Signal.SOFT
+ - `frequency`: only used in Signal.FREQ trigger mode
+ - `counters`: the PEPU counters to broadcast
+
+
+Here's an example of a continuous scan using a PePU::
+
+    # Imports
+    from bliss.scanning.scan import Scan
+    from bliss.controllers.pepu import Signal
+    from bliss.config.static import get_config
+    from bliss.scanning.chain import AcquisitionChain
+    from bliss.scanning.acquisition.motor import MotorMaster
+    from bliss.scanning.acquisition.pepu import PepuAcquisitionDevice
+
+    # Get controllers from config
+    config = get_config()
+    m0 = config.get("roby")
+    pepu = config.get("pepudcm2")
+
+    # Instanciate the acquisition device
+    device = PepuAcquisitionDevice(pepu, 10, trigger=Signal.DI1)
+
+    # Counters can be added after instanciation
+    device.add_counters(pepu.counters)
+
+    # Create chain
+    chain = AcquisitionChain()
+    chain.add(MotorMaster(m0, 0, 1, time=1.0, npoints=10), device)
+
+    # Run scan
+    scan = Scan(chain)
+    scan.run()
+
+    # Get the data
+    data = scans.get_data(scan)
+    print(data['CALC2'])
+"""
+
 from collections import namedtuple
 
 from ..chain import AcquisitionDevice, AcquisitionChannel

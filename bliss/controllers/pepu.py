@@ -21,7 +21,7 @@ Example YAML_ configuration:
 
 Usage::
 
-    >>> from bliss.config.static import get_config()
+    >>> from bliss.config.static import get_config
     >>> from bliss.controllers.pepu import Stream, Trigger, Signal, ChannelMode
 
     >>> config = get_config()
@@ -77,6 +77,9 @@ Usage::
     3
     >>> p1.read(3)
     array([ 2.75, -3.  ,  2.75, -3.  ,  2.75, -3.  ])
+
+For the counter interface, see the
+`PePU scan support documentation <bliss.scanning.acquisition.pepu.html>`__.
 """
 
 import enum

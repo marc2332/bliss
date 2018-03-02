@@ -71,7 +71,7 @@ def lima_simulator(beacon):
     device_name = "id00/limaccds/simulator1"
     device_fqdn = "tango://localhost:12345/%s" % device_name
 
-    p = subprocess.Popen(['LimaCCDs', 'simulator'])
+    p = subprocess.Popen(['LimaCCDs', 'simulator'], close_fds=True)
 
     with gevent.Timeout(3, RuntimeError("Lima simulator is not running")):
         while True:
@@ -96,7 +96,7 @@ def bliss_tango_server(beacon):
     device_fqdn = "tango://localhost:12345/%s" % device_name
 
     bliss_ds = [sys.executable, '-m', 'bliss.tango.servers.bliss_ds']
-    p = subprocess.Popen(bliss_ds+["test"])
+    p = subprocess.Popen(bliss_ds+["test"], close_fds=True)
 
     with gevent.Timeout(3, RuntimeError("Bliss tango server is not running")):
         while True:

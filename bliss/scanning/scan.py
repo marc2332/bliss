@@ -284,6 +284,19 @@ class Scan(object):
         self._data_watch_callback = data_watch_callback
         self._data_events = dict()
 
+        self._acq_chain = chain
+        self._scan_info = scan_info if scan_info is not None else dict()
+        self._scan_info['node_name'] = self._node.db_name
+
+        # go through acq chain, get acq channels to build labels list
+        self._scan_info["labels"] = []
+        for acq_object in self._acq_chain.nodes_list:
+            for acq_chan in acq_object.channels:
+                self._scan_info['labels'].append(acq_chan.name)
+
+        self._state = self.IDLE_STATE
+        self._node._info.update(self._scan_info)
+        
         if data_watch_callback is not None:
             if not callable(data_watch_callback):
                 raise TypeError("data_watch_callback needs to be callable")
@@ -301,16 +314,6 @@ class Scan(object):
             self._data_watch_callback_done = data_watch_callback_done
         else:
             self._data_watch_task = None
-
-        self._acq_chain = chain
-
-        # go through acq chain, get acq channels to build labels list
-        self._scan_info["labels"] = []
-        for acq_object in self._acq_chain.nodes_list:
-          for acq_chan in acq_object.channels:
-            self._scan_info['labels'].append(acq_chan.name)
-        self._state = self.IDLE_STATE
-        self._node._info.update(self._scan_info)
 
     @property
     def name(self):

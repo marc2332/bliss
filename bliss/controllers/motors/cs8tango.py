@@ -43,7 +43,7 @@ class cs8tango(Controller):
     name = axis.config.get("cs8name")
     val3_varname = "n_Read%s" % name
     r = setup_globals.robodiff.robot
-    if self.state(axis) == "READY":
+    if self.state(axis).READY:
         with self._lock:
             r.executeTask('Read%s' % name)
     return float(r.getVal3GlobalVariableDouble(val3_varname))

@@ -44,6 +44,8 @@ import math
 import types
 import functools
 import numpy
+import warnings
+warnings.simplefilter('once')
 
 #: Default polling time
 DEFAULT_POLLING_TIME = 0.02
@@ -652,7 +654,7 @@ class Axis(object):
 
     def _handle_move(self, motion, polling_time):
         state = self._move_loop(polling_time)
-        if state in ['LIMPOS', 'LIMNEG']:
+        if state.LIMPOS or state.LIMNEG:
             raise RuntimeError(str(state))
 
         # gevent-atomic
@@ -849,13 +851,13 @@ class Axis(object):
             self.__move_done_callback.set()
 
     def _check_ready(self):
-        if not self.state() in ("READY", "MOVING"):
-            # read state from hardware
-            self._update_settings(state=self.state(read_hw=True))
-
         initial_state = self.state()
+        if not initial_state.READY and not initial_state.MOVING:
+            # read state from hardware
+            initial_state = self.state(read_hw=True)
+            self._update_settings(state=initial_state)
 
-        if initial_state != "READY":
+        if not initial_state.READY:
             raise RuntimeError("axis %s state is \
                                 %r" % (self.name, str(initial_state)))
 
@@ -992,7 +994,7 @@ class Axis(object):
         while True:
             state = state_funct(self)
             self._update_settings(state)
-            if state != "MOVING":
+            if not state.MOVING:
                 return state
             gevent.sleep(polling_time)
 
@@ -1366,19 +1368,32 @@ class AxisState(object):
     def __str__(self):
         return self.current_states()
 
-    def __eq__(self, other):
+    def __repr__(self):
+        return "AxisState: %s" % self.__str__()
+
+    def __contains__(self, other):
         if isinstance(other, str):
             if not self._current_states:
                 return other == "UNKNOWN"
             return other in self._current_states
-        elif isinstance(other, AxisState):
-            s1 = set(self._current_states)
-            s2 = set(other._current_states)
-            return s1 == s2
         else:
             return NotImplemented
 
+    def __eq__(self, other):
+      if isinstance(other, str):
+        warnings.warn('Use: **%s in state** instead' % other,
+                      DeprecationWarning)
+        return self.__contains__(other)
+      elif isinstance(other, AxisState):
+        return set(self._current_states) == \
+          set(other._current_states)
+      else:
+        return NotImplemented
+      
     def __ne__(self, other):
+        if isinstance(other, str):
+          warnings.warn('Use: **%s in state** instead' % other,
+                        DeprecationWarning)
         x = self.__eq__(other)
         if x is not NotImplemented:
             return not x

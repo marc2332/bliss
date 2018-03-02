@@ -303,7 +303,7 @@ class Icepap(Controller):
 
     def home_state(self,axis):
         s = self.state(axis)
-        if s != 'READY' and s != 'POWEROFF':
+        if 'READY' not in s and 'POWEROFF' not in s:
              s.set('MOVING')
         return s
 

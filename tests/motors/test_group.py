@@ -15,45 +15,45 @@ def test_group_move(robz, roby):
     roby_pos = roby.position()
     grp = Group(robz, roby)
 
-    assert grp.state() == "READY"
+    assert grp.state().READY
 
     target_robz = robz_pos + 50
     target_roby = roby_pos + 50
 
     grp.move(robz, target_robz, roby, target_roby, wait=False)
 
-    assert grp.state() == "MOVING"
-    #assert robz.state() == "MOVING"
-    #assert roby.state() == "MOVING"
+    assert grp.state().MOVING
+    #assert robz.state().MOVING
+    #assert roby.state().MOVING
 
     grp.wait_move()
 
-    assert robz.state() == "READY"
-    assert roby.state() == "READY"
-    assert grp.state() == "READY"
+    assert robz.state().READY
+    assert roby.state().READY
+    assert grp.state().READY
 
 def test_stop(roby, robz):
     grp = Group(robz, roby)
     grp.move(robz, 1, roby, 1)
 
-    assert robz.state() == "READY"
-    assert roby.state() == "READY"
-    assert grp.state() == "READY"
+    assert robz.state().READY
+    assert roby.state().READY
+    assert grp.state().READY
 
     grp.move({robz: 0, roby: 0}, wait=False)
-    assert grp.state() == "MOVING"
+    assert grp.state().MOVING
 
     grp.stop()
 
-    assert grp.state() == "READY"
-    assert robz.state() == "READY"
-    assert roby.state() == "READY"
+    assert grp.state().READY
+    assert robz.state().READY
+    assert roby.state().READY
 
 def test_ctrlc(roby, robz):
     grp = Group(robz, roby)
-    assert robz.state() == "READY"
-    assert roby.state() == "READY"
-    assert grp.state() == "READY"
+    assert robz.state().READY
+    assert roby.state().READY
+    assert grp.state().READY
 
     grp.move({robz: -10, roby: -10}, wait=False)
     
@@ -64,9 +64,9 @@ def test_ctrlc(roby, robz):
     with pytest.raises(KeyboardInterrupt):
         grp.wait_move()
 
-    assert grp.state() == "READY"
-    assert robz.state() == "READY"
-    assert grp.state() == "READY"
+    assert grp.state().READY
+    assert robz.state().READY
+    assert grp.state().READY
 
 def test_position_reading(beacon, robz, roby):
     grp = Group(robz, roby)
@@ -104,7 +104,7 @@ def test_bad_startall(robz, robz2):
         robz.controller.set_error(True)
         with pytest.raises(RuntimeError):
            grp.move({ robz: 1, robz2: 2 })
-        assert grp.state() == 'READY'
+        assert grp.state().READY
         assert robz.position() == 0
         assert robz2.position() == 0
     finally:

@@ -43,7 +43,7 @@ def test_exported_pseudo_axes(s1vg, s1vo, s1hg, s1ho):
     assert all((s1vg, s1vo, s1hg, s1ho))
     controller = s1vg.controller
     assert all((axis.controller == controller for axis in (s1vg, s1vo, s1hg, s1ho)))
-    assert all([axis.state() == 'READY' for axis in controller.pseudos])
+    assert all(['READY' in axis.state() for axis in controller.pseudos])
 
 def test_real_axis_is_right_object(s1f, s1ho, m1):
     controller = s1ho.controller
@@ -65,8 +65,8 @@ def test_pseudo_axes_move(s1b, s1f, s1hg, s1ho):
     assert s1hg.position() == pytest.approx(.5)
     hgap = s1hg.position()
     s1ho.move(2)
-    assert s1b.state() == "READY"
-    assert s1f.state() == "READY"
+    assert s1b.state().READY
+    assert s1f.state().READY
     assert s1hg.position() == pytest.approx(hgap)
     assert s1ho.position() == pytest.approx(2)
     assert s1b.position() == pytest.approx(2 + (hgap / 2.0))

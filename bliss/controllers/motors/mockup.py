@@ -281,7 +281,7 @@ class Mockup(Controller):
             return AxisState("READY", "LIMNEG")
         elif pos >= hl:
             return AxisState("READY", "LIMPOS")
-        if self._hw_state == "OFF":
+        if self._hw_state.OFF:
             return AxisState("OFF")
         else:
             s = AxisState(self._hw_state)

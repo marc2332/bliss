@@ -474,7 +474,7 @@ class CalcController(Controller):
 
     def state(self, axis, new_state=None):
         st = self._reals_group.state()
-        if st == 'READY':
+        if st.READY:
             self._calc_from_real()
         return st
      

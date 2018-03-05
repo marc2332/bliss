@@ -354,19 +354,7 @@ class Scan(object):
         self._data_watch_callback = data_watch_callback
         self._data_events = dict()
         self._acq_chain = chain
-
-        for i, m in enumerate(scan_info.get("motors", [])):
-            self._scan_info['motors'][i] = m.name
-        self._scan_info['counters'] = list()
-        self._scan_info['other_counters'] = list()
         self._scan_info['acquisition_chain'] = _get_masters_and_channels(self._acq_chain)
-
-        for acq_object in self._acq_chain.nodes_list:
-            for acq_chan in acq_object.channels:
-                if len(acq_chan.shape) == 0:
-                    self._scan_info['counters'].append(acq_chan.name)
-                else:
-                    self._scan_info['other_counters'].append(acq_chan.name)
 
         scan_display_params = ScanDisplay()
         if scan_display_params.auto:

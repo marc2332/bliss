@@ -34,6 +34,7 @@ class LimaImageChannelDataNode(DataNode):
             self._update()
             self.from_index = from_index
             self.to_index = to_index
+            self.last_image_acquired = -1
             self._image_mode = {
                 0: numpy.uint8,
                 1: numpy.uint16,
@@ -57,7 +58,7 @@ class LimaImageChannelDataNode(DataNode):
             """
             if self.to_index >= 0:
                 return self.to_index
-            return self.last_image_acquired if self.last_image_acquired > 0 else 0
+            return self.last_image_acquired+1
 
         @property
         def current_lima_acq(self):
@@ -83,7 +84,7 @@ class LimaImageChannelDataNode(DataNode):
 
         def __len__(self):
             self._update()
-            return 1+(self.last_index - self.from_index)
+            return self.last_index - self.from_index
 
         def _update(self):
             """ update view status

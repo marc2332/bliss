@@ -8,6 +8,7 @@
 # Imports
 import os
 import sys
+import platform
 import tempfile
 import warnings
 import itertools
@@ -75,7 +76,7 @@ def maintain_value(key, value):
 
 
 def background_task(flint, stop):
-    key = "flint:%s" % os.getpid()
+    key = "flint:{}:{}".format(platform.node(), os.getpid())
     stop = concurrent_to_gevent(stop)
     with safe_rpc_server(flint) as (task, url):
         with maintain_value(key, url):
@@ -95,11 +96,14 @@ class Flint:
         self.main_index = next(self._id_generator)
         self.window_dict = {self.main_index: self.main_window}
         self.selector_dict = collections.defaultdict(list)
+        self.data_dict = collections.defaultdict(dict)
 
     def run_method(self, key, method, args, kwargs):
         window = self.window_dict[key]
         method = getattr(window, method)
         return self._submit(method, *args, **kwargs)
+
+    # Window management
 
     def add_window(self, cls_name):
         wid = next(self._id_generator)
@@ -112,7 +116,46 @@ class Flint:
 
     def remove_window(self, wid):
         window = self.window_dict.pop(wid)
-        window.parent().close()
+        parent = self._submit(window.parent)
+        self._submit(parent.close)
+
+    def get_interface(self, wid):
+        window = self.window_dict[wid]
+        names = self._submit(dir, window)
+        return [name for name in names
+                if not name.startswith('_')
+                if callable(getattr(window, name))]
+
+    # Data management
+
+    def add_data(self, wid, field, data):
+        self.data_dict[wid][field] = data
+
+    def remove_data(self, wid, field):
+        del self.data_dict[wid][field]
+
+    def select_data(self, wid, method, names, kwargs):
+        window = self.window_dict[wid]
+        # Hackish legend handling
+        if 'legend' not in kwargs and method.startswith('add'):
+            kwargs['legend'] = ' -> '.join(names)
+        # Get the data to plot
+        args = tuple(self.data_dict[wid][name] for name in names)
+        method = getattr(window, method)
+        # Plot
+        self._submit(method, *args, **kwargs)
+
+    def deselect_data(self, wid, names):
+        window = self.window_dict[wid]
+        legend = ' -> '.join(names)
+        self._submit(window.remove, legend)
+
+    def clear_data(self, wid):
+        del self.data_dict[wid]
+        window = self.window_dict[wid]
+        self._submit(window.clear)
+
+    # User interaction
 
     def _selection(self, wid, cls, *args):
         # Instanciate selector

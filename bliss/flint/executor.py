@@ -2,6 +2,9 @@
 
 # Import
 
+import sys
+
+import six
 import gevent.event
 import gevent.queue
 
@@ -44,8 +47,10 @@ class QtExecutor(qt.QObject):
             return
         try:
             result = fn(*args, **kwargs)
-        except BaseException as e:
-            future.set_exception(e)
+        except BaseException:
+            # Forward the traceback
+            _, exc, tb = sys.exc_info()
+            future.set_exception_info(exc, tb)
         else:
             future.set_result(result)
 
@@ -59,8 +64,10 @@ def concurrent_to_gevent(future):
     def callback(_):
         try:
             result = future.result()
-        except BaseException as e:
-            asyncresult.set_exception(e)
+        except BaseException as exc:
+            # Forward the traceback
+            info = sys.exc_info()
+            asyncresult.set_exception(exc, info)
         else:
             asyncresult.set(result)
         finally:

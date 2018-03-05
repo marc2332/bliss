@@ -7,6 +7,7 @@ import sys
 import numpy
 import platform
 import subprocess
+from collections import OrderedDict
 
 import zerorpc
 import msgpack_numpy
@@ -16,7 +17,7 @@ from bliss.scanning import scan as scan_module
 from bliss.config.conductor.client import get_default_connection
 
 __all__ = ['plot', 'plot_curve', 'plot_curve_list', 'plot_image',
-           'plot_single_image', 'plot_image_stack']
+           'plot_scatter', 'plot_single_image', 'plot_image_stack']
 
 # Globals
 
@@ -147,10 +148,10 @@ class BasePlot(object):
             fields = numpy.array(data).dtype.fields
         # Single data
         if fields is None:
-            data_dict = {default_field: data}
+            data_dict = OrderedDict([(default_field, data)])
         # Multiple data
         else:
-            data_dict = {field: data[field] for field in fields}
+            data_dict = OrderedDict((field, data[field]) for field in fields)
         # Send data
         for field, value in data_dict.items():
             self.add_single_data(field, value)
@@ -170,7 +171,7 @@ class BasePlot(object):
     # Plotting
 
     def plot(self, data, **kwargs):
-        fields = self.add_data(data)
+        fields = list(self.add_data(data))
         names = fields[:self.DATA_INPUT_NUMBER]
         self.select_data(*names, **kwargs)
 
@@ -248,7 +249,7 @@ class CurvePlot(BasePlot):
 class ScatterPlot(BasePlot):
 
     # Name of the corresponding silx widget
-    WIDGET = 'ScatterPlot'
+    WIDGET = 'Plot1D'
 
     # Name of the method to add data to the plot
     METHOD = 'addScatter'
@@ -339,6 +340,7 @@ class ImageStackPlot(BasePlot):
 
 plot_curve = CurvePlot.instanciate
 plot_curve_list = CurveListPlot.instanciate
+plot_scatter = ScatterPlot.instanciate
 plot_image = ImagePlot.instanciate
 plot_single_image = SingleImagePlot.instanciate
 plot_image_stack = ImageStackPlot.instanciate

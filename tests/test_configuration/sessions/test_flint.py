@@ -7,6 +7,7 @@ from bliss.common.plot import *
 
 colored_image = scipy.misc.face()
 grey_image = colored_image[:, :, 0]
+image_stack = [colored_image[:, :, i] for i in range(3)]
 
 x_data = numpy.linspace(0, 10, 1000)
 cos_data = numpy.cos(x_data)

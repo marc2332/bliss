@@ -122,9 +122,14 @@ class Flint:
     def get_interface(self, wid):
         window = self.window_dict[wid]
         names = self._submit(dir, window)
-        return [name for name in names
-                if not name.startswith('_')
-                if callable(getattr(window, name))]
+
+        # Factorize the calls
+        def wrapper():
+            return [name for name in names
+                    if not name.startswith('_')
+                    if callable(getattr(window, name))]
+
+        return self._submit(wrapper)
 
     # Data management
 

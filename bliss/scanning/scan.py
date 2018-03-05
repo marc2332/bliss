@@ -452,8 +452,9 @@ class Scan(object):
                 data_events = scan._data_events
                 scan._data_events = dict()
                 scan._data_watch_running = True
+                scan.scan_info['state'] = scan._state
                 scan._data_watch_callback(data_events, scan.nodes,
-                                          {'state': scan._state})
+                                          scan.scan_info)
                 scan._data_watch_running = False
             except ReferenceError:
                 break

@@ -213,8 +213,6 @@ class DataNodeIterator(object):
                         self.last_child_id[parent_db_name] = first_child + i + 1
                         if filter is None or child.type in filter:
                             yield self.NEW_CHILD_EVENT, child
-                        if child.type in ('channel', 'lima'):
-                            yield self.NEW_DATA_IN_CHANNEL_EVENT, child
                 else:
                     new_channel_event = DataNodeIterator.NEW_DATA_IN_CHANNEL_REGEX.match(
                         channel)

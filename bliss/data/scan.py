@@ -52,18 +52,14 @@ def pickle_dump(var):
 class Scan(DataNodeContainer):
     def __init__(self, name, create=False, **keys):
         DataNodeContainer.__init__(self, 'scan', name, create=create, **keys)
-        self.__create = create
-        if create:
-            start_timestamp = time.time()
-            start_time = datetime.datetime.fromtimestamp(start_timestamp)
-            self._data.start_time = start_time
-            self._data.start_time_str = start_time.strftime(
-                "%a %b %d %H:%M:%S %Y")
-            self._data.start_timestamp = start_timestamp
         self._info._write_type_conversion = pickle_dump
+        if self.new_node:
+            self._data.start_time = self._info['start_time']
+            self._data.start_time_str = self._info['start_time_str']
+            self._data.start_timestamp = self._info['start_timestamp']
 
     def end(self):
-        if self.__create:
+        if self.new_node:
             end_timestamp = time.time()
             end_time = datetime.datetime.fromtimestamp(end_timestamp)
             self._data.end_time = end_time

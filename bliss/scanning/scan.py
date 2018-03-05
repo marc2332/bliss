@@ -14,6 +14,7 @@ import sys
 from treelib import Tree
 import time
 import logging
+import datetime
 
 from bliss.common.event import connect, send
 from bliss.common.utils import periodic_exec
@@ -274,19 +275,18 @@ class Scan(object):
             run_number = client.get_cache(db=1).incrby(
                 "%s_last_run_number" % name, 1)
         self.__name = '%s_%d' % (name, run_number)
-        self._node = _create_node(self.__name, "scan", parent=self.root_node)
-        self._scan_info = scan_info if scan_info is not None else dict()
-        self._scan_info['node_name'] = self._node.db_name
+        self._scan_info = dict(scan_info) if scan_info is not None else dict()
         self._scan_info['scan_nb'] = run_number
-        self._scan_info['start_time'] = self._node._data.start_time
-        self._scan_info['start_time_str'] = self._node._data.start_time_str
-        self._scan_info['start_timestamp'] = self._node._data.start_timestamp
+        start_timestamp = time.time()
+        start_time = datetime.datetime.fromtimestamp(start_timestamp)
+        start_time_str = start_time.strftime("%a %b %d %H:%M:%S %Y")
+        self._scan_info['start_time'] = start_time
+        self._scan_info['start_time_str'] = start_time_str
+        self._scan_info['start_timestamp'] = start_timestamp
         self._data_watch_callback = data_watch_callback
         self._data_events = dict()
-
         self._acq_chain = chain
-        self._scan_info = scan_info if scan_info is not None else dict()
-        self._scan_info['node_name'] = self._node.db_name
+
 
         # go through acq chain, get acq channels to build labels list
         self._scan_info["labels"] = []
@@ -295,7 +295,7 @@ class Scan(object):
                 self._scan_info['labels'].append(acq_chan.name)
 
         self._state = self.IDLE_STATE
-        self._node._info.update(self._scan_info)
+        self._node = _create_node(self.__name, "scan", parent=self.root_node, info=self._scan_info)
         
         if data_watch_callback is not None:
             if not callable(data_watch_callback):

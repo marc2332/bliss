@@ -267,6 +267,7 @@ class DataNode(object):
         pipeline.execute()
 
     def __init__(self, node_type, name, parent=None, connection=None, create=False, **keys):
+        info_dict = keys.pop("info", {})
         if connection is None:
             connection = client.get_cache(db=1)
         db_name = '%s:%s' % (parent.db_name, name) if parent else name
@@ -275,9 +276,13 @@ class DataNode(object):
         info_hash_name = '%s_info' % db_name
         self._info = HashObjSetting(info_hash_name,
                                     connection=connection)
+        info_dict['node_name'] = db_name
+        self._info.update(info_dict)
+
         self.db_connection = connection
 
         if create:
+            self.__new_node = True
             self._data.name = name
             self._data.db_name = db_name
             self._data.node_type = node_type
@@ -286,6 +291,7 @@ class DataNode(object):
                 parent.add_children(self)
             self._ttl_setter = _TTL_setter(self.db_name)
         else:
+            self.__new_node = False
             self._ttl_setter = None
 
     @property
@@ -314,6 +320,10 @@ class DataNode(object):
             return parent
 
     @property
+    def new_node(self):
+        return self.__new_node     
+
+    @property
     def info(self):
         return self._info
 
@@ -338,9 +348,9 @@ class DataNode(object):
 
 
 class DataNodeContainer(DataNode):
-    def __init__(self, node_type, name, parent=None, connection=None, create=False):
+    def __init__(self, node_type, name, parent=None, connection=None, create=False, **keys):
         DataNode.__init__(self, node_type, name,
-                          parent=parent, connection=connection, create=create)
+                          parent=parent, connection=connection, create=create, **keys)
 
         children_queue_name = '%s_children_list' % self.db_name
         self._children = QueueSetting(

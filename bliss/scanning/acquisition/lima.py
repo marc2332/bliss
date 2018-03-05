@@ -50,7 +50,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
                                    trigger_type=trigger_type,
                                    prepare_once=prepare_once, start_once=start_once)
 
-        self._image_channel = AcquisitionChannel('image', None, (), reference=True, data_node_type='lima')
+        self._image_channel = AcquisitionChannel('image', None, (0,0), reference=True, data_node_type='lima')
         self.channels.append(self._image_channel)
 
         self.save_flag = save_flag

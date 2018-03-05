@@ -1,0 +1,5 @@
+- class: Session
+  name: flint
+  setup-file: ./test_flint.py
+  config-objects:
+    - simu1

@@ -92,7 +92,8 @@ class LimaImageChannelDataNode(DataNode):
             ref_status = self.ref_status
             for key in ('server_url', 'lima_acq_nb', 'buffer_max_number', 'last_image_acquired',
                  'last_image_ready', 'last_counter_ready', 'last_image_saved'):
-                setattr(self, key, ref_status[key])
+                if key in ref_status:
+                    setattr(self, key, ref_status[key])
 
         def _get_from_server_memory(self, proxy, image_nb):
             if not proxy:

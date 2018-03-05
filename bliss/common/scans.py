@@ -174,15 +174,9 @@ def default_chain(chain, scan_pars, counters):
     return timer
 
 def step_scan(chain,scan_info,name=None,save=True):
-    scandata = scan_module.ScanSaving()
-    config = scandata.get()
-    root_path = config.get('root_path')
-    writer = config.get('writer') if save else None
-    scan_info['save'] = save
-    scan_info['root_path'] = root_path
-    scan_info['session_name'] = scandata.session
-    scan_info['user_name'] = scandata.user_name
-    scan_data_watch = scan_module.StepScanDataWatch(scan_info)
+    scan_data_watch = scan_module.StepScanDataWatch()
+    config = scan_module.ScanSaving().get()
+    writer = config.get("writer") if save else None
     return scan_module.Scan(chain,
                             name=name,
                             parent=config['parent'],

@@ -35,15 +35,12 @@ class StepScanDataWatch(object):
     This produce event compatible with the ScanListener class (bliss.shell)
     """
 
-    def __init__(self, scan_info):
-        self._motors = scan_info['motors']
-        self._motors_name = [x.name for x in self._motors]
+    def __init__(self):
         self._last_point_display = -1
         self._channel_name_2_channel = dict()
-        self._scan_info = scan_info
         self._init_done = False
 
-    def __call__(self, data_events, nodes, info):
+    def __call__(self, data_events, nodes, scan_info):
         if self._init_done is False:
             for acq_device_or_channel, data_node in nodes.iteritems():
                 if is_zerod(data_node):
@@ -67,7 +64,7 @@ class StepScanDataWatch(object):
             values = dict([(ch_name, ch.get(point_nb))
                            for ch_name, ch in self._channel_name_2_channel.iteritems()])
             send(current_module, "scan_data",
-                 self._scan_info, values)
+                 scan_info, values)
         if min_nb_points is not None:
             self._last_point_display = min_nb_points
 
@@ -283,6 +280,12 @@ class Scan(object):
         self._scan_info['start_time'] = start_time
         self._scan_info['start_time_str'] = start_time_str
         self._scan_info['start_timestamp'] = start_timestamp
+        scan_config = ScanSaving()
+        self._scan_info['save'] = writer is not None
+        self._scan_info['root_path'] = scan_config.get()['root_path']
+        self._scan_info['session_name'] = scan_config.session
+        self._scan_info['user_name'] = scan_config.user_name
+
         self._data_watch_callback = data_watch_callback
         self._data_events = dict()
         self._acq_chain = chain

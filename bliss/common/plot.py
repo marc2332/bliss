@@ -168,6 +168,12 @@ class BasePlot(object):
     def deselect_data(self, *names):
         return self._flint.deselect_data(self._plot_id, names)
 
+    def clear_data(self):
+        return self._flint.clear_data(self._plot_id)
+
+    def get_data(self):
+        return self._flint.get_data(self._plot_id)
+
     # Plotting
 
     def plot(self, data, **kwargs):

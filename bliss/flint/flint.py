@@ -57,10 +57,12 @@ def safe_rpc_server(obj):
         try:
             server.bind(url)
             task = gevent.spawn(server.run)
-            yield task, url
+            try:
+                yield task, url
+            finally:
+                task.kill()
+                task.join()
         finally:
-            task.kill()
-            task.join()
             server.close()
 
 
@@ -138,6 +140,9 @@ class Flint:
 
     def remove_data(self, wid, field):
         del self.data_dict[wid][field]
+
+    def get_data(self, wid):
+        return self.data_dict[wid]
 
     def select_data(self, wid, method, names, kwargs):
         window = self.window_dict[wid]

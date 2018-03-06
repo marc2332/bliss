@@ -46,8 +46,10 @@ def beacon():
     cfg = static.get_config()
     os.environ["TANGO_HOST"] = "localhost:%d" % TANGO_PORT
     os.environ["BEACON_HOST"] = "localhost:%d" % BEACON_PORT
-    yield cfg
-    proc.terminate()
+    try:
+        yield cfg
+    finally:
+        proc.terminate()
 
 
 @pytest.fixture
@@ -84,8 +86,10 @@ def lima_simulator(beacon):
             else:
                 break
 
-    yield device_fqdn, dev_proxy
-    p.terminate()
+    try:
+        yield device_fqdn, dev_proxy
+    finally:
+        p.terminate()
 
 
 @pytest.fixture(scope="session")

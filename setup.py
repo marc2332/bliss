@@ -117,12 +117,15 @@ def main():
         "mendeleev",
         "pint",
         'mock ; python_version < "3.3"',
+        'futures',
+        'silx',
     ]
 
     tests_require = [
         'pytest',
         'pytest-mock',
         'pytest-cov',
+        'scipy',
     ]
 
     setup_requires = [
@@ -150,13 +153,14 @@ def main():
                         'bliss.shell.web': ['*.html', 'css/*.css', "js/*.js"]},
           cmdclass=cmd_class,
           scripts=["bin/beacon-server-list", 'bin/bliss_webserver',
-                   'bin/sps_data_watch', 'bin/flint'],
+                   'bin/sps_data_watch'],
           entry_points={
               'console_scripts': [
                   'bliss = bliss.shell.cli.main:main',
                   'bliss-emulator = bliss.controllers.emulator:main',
                   'beacon-server = bliss.config.conductor.server:main',
                   'bliss-ct2-server = bliss.controllers.ct2.server:main',
+                  'flint = bliss.flint.main',
                   'CT2 = bliss.tango.servers.ct2_ds:main',
                   'Bliss = bliss.tango.servers.bliss_ds:main',
                   'BlissAxisManager =  bliss.tango.servers.axis_ds:main',

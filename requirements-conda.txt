@@ -21,3 +21,5 @@ pygments
 sqlalchemy
 pandas
 mock
+futures
+silx

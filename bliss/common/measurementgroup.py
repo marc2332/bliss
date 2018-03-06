@@ -31,14 +31,18 @@ def get_all():
     Return a list of all measurement groups found in the global environment.
     Exclude one instance of ACTIVE_MG to avoid to return duplicated ACTIVE_MG.
     """
-    return [x for x in setup_globals.__dict__.values() if x != ACTIVE_MG and isinstance(x, MeasurementGroup)]
+    return [x
+            for x in setup_globals.__dict__.values()
+            if isinstance(x, MeasurementGroup) and x != ACTIVE_MG]
 
 
 def get_all_names():
     """
     Return a list of all measurement groups NAMES found in the global environment.
     """
-    return [x.name for x in setup_globals.__dict__.values() if x != ACTIVE_MG and isinstance(x, MeasurementGroup)]
+    return [x.name
+            for x in setup_globals.__dict__.values()
+            if isinstance(x, MeasurementGroup) and x != ACTIVE_MG]
 
 
 def get_active():
@@ -258,6 +262,3 @@ class MeasurementGroup(object):
                                                       self.disabled, fillvalue=''):
             s += str_format % (enable, disable)
         return s
-
-        
-

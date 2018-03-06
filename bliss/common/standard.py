@@ -6,12 +6,13 @@ Standard bliss macros (:func:`~bliss.common.standard.wa`, \
 """
 from bliss.common import scans
 from bliss.common.scans import *
+from bliss.common.plot import plot
 
 from bliss.common.task_utils import cleanup, error_cleanup
 
 __all__ = ['wa', 'wm', 'sta', 'mv', 'umv', 'mvr', 'umvr', 'move',
            'prdef', 'set_log_level', 'sync'] + scans.__all__ + \
-           ['cleanup', 'error_cleanup']
+           ['cleanup', 'error_cleanup', 'plot']
 
 import inspect
 import logging

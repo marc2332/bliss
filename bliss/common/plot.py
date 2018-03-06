@@ -157,7 +157,7 @@ __all__ = ['plot', 'plot_curve', 'plot_curve_list', 'plot_image',
 # Globals
 
 msgpack_numpy.patch()
-FLINT_PROCESS = None
+FLINT = { 'process': None, 'proxy': None }
 
 
 # Connection helpers
@@ -168,14 +168,15 @@ def get_beacon_config():
 
 
 def get_flint_process():
-    global FLINT_PROCESS
-    if FLINT_PROCESS is not None and FLINT_PROCESS.poll() is None:
-        return FLINT_PROCESS.pid
+    flint_process = FLINT['process']
+    if flint_process is not None and flint_process.poll() is None:
+        return flint_process.pid
     env = dict(os.environ)
     env['BEACON_HOST'] = get_beacon_config()
     args = [sys.executable, '-m', 'bliss.flint']
-    FLINT_PROCESS = subprocess.Popen(args, env=env, close_fds=True)
-    return FLINT_PROCESS.pid
+    FLINT['process'] = subprocess.Popen(args, env=env, close_fds=True)
+    FLINT['proxy'] = None
+    return FLINT['process'].pid
 
 
 def get_flint(pid=None):
@@ -189,8 +190,11 @@ def get_flint(pid=None):
     key = "flint:{}:{}".format(platform.node(), pid)
     url = redis.brpoplpush(key, key, timeout=3000)
     # Return flint proxy
-    proxy = zerorpc.Client(url)
-    proxy.set_session(session.get_current().name)
+    proxy = FLINT['proxy']
+    if proxy is None: 
+        proxy = zerorpc.Client(url)
+        FLINT['proxy'] = proxy
+        proxy.set_session(session.get_current().name)
     proxy._pid = pid
     return proxy
 

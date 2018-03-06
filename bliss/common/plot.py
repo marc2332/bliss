@@ -194,14 +194,11 @@ class BasePlot(object):
     # Instanciation
 
     @classmethod
-    def instanciate(cls, **kwargs):
-        data = kwargs.pop('data', None)
-        name = kwargs.pop('name', None)
-        existing_id = kwargs.pop('existing_id', None)
-        flint_pid = kwargs.pop('flint_pid', None)
+    def instanciate(cls, data=None, name=None, existing_id=None,
+                    flint_pid=None, **kwargs):
         plot = cls(name=name, existing_id=existing_id, flint_pid=flint_pid)
         if data is not None:
-            plot.plot(data, **kwargs)
+            plot.plot(data=data, **kwargs)
         return plot
 
 
@@ -346,8 +343,8 @@ plot_single_image = SingleImagePlot.instanciate
 plot_image_stack = ImageStackPlot.instanciate
 
 
-def default_plot(**kwargs):
-    data = kwargs.get('data', None)
+def default_plot(data=None, **kwargs):
+    kwargs['data'] = data
     # No data available
     if data is None:
         return plot_curve(**kwargs)
@@ -363,6 +360,9 @@ def default_plot(**kwargs):
         # Assume a single image
         if data.ndim == 2:
             return plot_image(**kwargs)
+        # Assume a colored image
+        if data.ndim == 3 and data.shape[2] in (3, 4):
+            return plot_image(**kwargs)
         # Assume an image stack
         if data.ndim == 3:
             return plot_image_stack(**kwargs)
@@ -372,7 +372,7 @@ def default_plot(**kwargs):
     # A list of struct
     if data.ndim == 1:
         # Assume multiple curves
-        if all(data[field].ndim == 0 for field in data.dtype.fields):
+        if all(data[field].ndim == 1 for field in data.dtype.fields):
             return plot_curve(**kwargs)
         # Assume multiple plots
         return tuple(

@@ -97,15 +97,6 @@ def device_edit(cfg, request):
     card_class = card.get_ct2_card_class(card_type)
 
     external_sync = {}
-    if 'ch-input' in form:
-        external_sync['input'] = {
-            'channel': int(form['ch-input']),
-            'polarity inverted': form.get('input-polarity')=='on',
-        }
-    if 'ch-output' in form:
-        external_sync['output'] = {
-            'channel': int(form['ch-output']),
-        }
 
     channels = []
     for addr in card_class.CHANNELS:
@@ -114,12 +105,22 @@ def device_edit(cfg, request):
         level = form.get(prefix + 'level', 'TTL')
         counter_name = form.get(prefix + 'counter-name')
         ohm = form.get(prefix + '50-ohm', 'off') == 'on'
-        if level != 'TTL':
-            channel['level'] = level
+        usage = int(form.get(prefix + 'usage', '0'))
+        channel['level'] = level
+        channel['50 ohm'] = ohm
         if counter_name:
             channel['counter name'] = counter_name
-        if ohm:
-            channel['50 ohm'] = True
+        if usage == 1:
+            inp = external_sync.setdefault('input', {})
+            inp['channel'] = addr
+            inp['polarity inverted'] = False
+        elif usage == 2:
+            inp = external_sync.setdefault('input', {})
+            inp['channel'] = addr
+            inp['polarity inverted'] = True
+        elif usage == 3:
+            out = external_sync.setdefault('output', {})
+            out['channel'] = addr
         if channel:
             channel['address'] = addr
             channels.append(channel)

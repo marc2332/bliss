@@ -77,18 +77,6 @@
       </div>
     </div>
 
-    <div class="form-group">
-      <label class="col-md-4 control-label" for="input-polarity"
-  	     data-toggle="tooltip" title="If an input channel is selected invert or not its polarity">
-	Trig./Gate Input polarity inverted
-      </label>
-      <div class="col-md-4">
-	<input id="input-polarity" name="input-polarity"
-  	       class="form-control input-md" type="checkbox"
- 	       {{ "checked" if config["external sync"]["input"]["polarity inverted"] }} />
-      </div>
-    </div>
-
     <div class="panel panel-default">
 
       <table id="ct2_channels_extra" class="table table-striped table-bordered"
@@ -98,15 +86,18 @@
 	  <tr>
 	    <th>#</th>
 	    <th>Counter name</th>
+	    <th>Usage</th>
 	    <th>Level</th>
 	    <th>50 &#8486;</th>
-	    <th>Trig./Gate Input</th>
-	    <th>Gate Output</th>
 	  </tr>
 	</thead>
 	<tbody>
+      {% set ch_trig_in_inv = config["external sync"]["input"].get("polarity inverted") %}
 	  {% for ch in config["channels"] %}
 	  {% set ch_id = ch["address"] %}
+	  {% set in_out = ch_id in klass.INPUT_CHANNELS and ch_id in klass.OUTPUT_CHANNELS %}
+      {% set ch_trig_in = ch_id == config["external sync"]["input"].get("channel") %}
+      {% set ch_trig_out = ch_id == config["external sync"]["output"].get("channel") %}
 	  <tr>
 	    <td>{{ ch_id }}</td>
 	    <td>
@@ -115,6 +106,19 @@
 	             class="form-control input-sm" type="text"
 	             value="{{ ch['counter name'] }}"
 		     style="border-radius: 0px;" />
+	    </td>
+	    <td>
+
+	      <select class="selectpicker" id="ch-{{ch_id}}-usage"
+		          name="ch-{{ch_id}}-usage">
+            <option value="0" selected>IN</option>
+            <option value="1" {{ "selected" if ch_trig_in and not ch_trig_in_inv }}>IN Trig/Gate</option>
+            <option value="2" {{ "selected" if ch_trig_in and ch_trig_in_inv }}>IN Trig/Gate Inv.</option>
+            {% if in_out %}
+		    <option value="3" {{ "selected" if ch_trig_out }}>OUT Gate</option>
+		    {% endif %}
+          </select>
+
 	    </td>
 	    <td>
 	      <select class="selectpicker" id="ch-{{ch_id}}-level"
@@ -131,34 +135,8 @@
 	             class="form-control input-sm" type="checkbox"
 	             {{ "checked" if ch["50 ohm"] == True }} />
 	    </td>
-	    <td>
-	      {% if ch_id in klass.INPUT_CHANNELS %}
-              {% set ch_input = ch_id == config["external sync"]["input"].get("channel") %}
-	      <input id="ch-{{ch_id}}-input" name="ch-input"
-	             class="form-control input-sm" type="radio"
-		     value="{{ch_id}}"
-	             {{ "checked" if ch_input }} />
-	      {% endif %}
-	    </td>
-	    <td>
-	      {% if ch_id in klass.OUTPUT_CHANNELS %}
-              {% set ch_output = ch_id == config["external sync"]["output"].get("channel") %}
-	      <input id="ch-{{ch_id}}-output" name="ch-output"
-	             class="form-control input-sm" type="radio"
-		     value="{{ch_id}}"
-	             {{ "checked" if ch_output }} />
-	      {% endif %}
-	    </td>
   	  </tr>
 	  {% endfor %}
-	  <tr>
-	    <td colspan="4"></td>
-	    <td align="center">
-	      <button type="button" class="btn btn-default"
-		      id="clear-input">Clear</button>
-	    <td align="center">
-	      <button type="button" class="btn btn-default"
-		      id="clear-output">Clear</button>
 	</tbody>
       </table>
   </fieldset>
@@ -182,26 +160,6 @@
         show_notification(data.message, data.type);
       }
     });
-  }
-
-  function update_fields() {
-    var any_in = false;
-    for(ch = 1; ch <= {{ klass.CHANNELS|length }}; ch++) {
-      var in_ch = $("#ch-" + ch + "-input").prop("checked");
-      var out_ch = $("#ch-" + ch + "-output").prop("checked");
-      var text_field = $("#ch-" + ch + "-counter-name");
-      any_in |= in_ch;		      
-      if (in_ch || out_ch) {
-        text_field.hide();
-      }
-      else {
-        text_field.show();
-      }
-    }
-    if (!any_in) {
-      $("#input-polarity").prop("checked", false);
-    }
-    $("#input-polarity").prop("disabled", !any_in);
   }
 
   $(document).ready(function() {
@@ -230,22 +188,22 @@
       return false;
     });
 
-    $("#clear-input").on("click", function() {
-      $("input[name*=input]").prop("checked", false);
-      update_fields();
-    });
-
-    $("#clear-output").on("click", function() {
-      $("input[name*=output]").prop("checked", false);
-      update_fields();
-    });
-
-    $("input[name*=input]").on("click", function() {
-      update_fields();
-    });
-
-    $("input[name*=output]").on("click", function() {
-      update_fields();
+    $("select[name*=usage]").on("change", function(event) {
+      var new_in_trig = event.target.value === "1" || event.target.value === "2"
+      var any_in_trig = false;
+      for(ch = 1; ch <= {{ klass.CHANNELS|length }}; ch++) {
+        var id = "ch-" + ch + "-usage";
+        var ch_widget = $("#" + id);
+        var ch_in_trig = ch_widget.val() === "1" || ch_widget.val() === "2"
+        any_in_trig |= ch_in_trig
+        if (event.target.id !== id && new_in_trig && ch_in_trig) {
+          ch_widget.selectpicker("val", "0");
+        }
+      }
+      if (!any_in_trig) {
+        $("#input-polarity").prop("checked", false);
+      }
+      $("#input-polarity").prop("disabled", !any_in_trig);
     });
 
     update_fields();

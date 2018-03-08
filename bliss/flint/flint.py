@@ -301,6 +301,8 @@ def main():
     log_widget.setReadOnly(True)
     log_dock.setWidget(log_widget)
     win.addDockWidget(qt.Qt.BottomDockWidgetArea, log_dock)
+    # resize window to 70% of available screen space
+    win.resize(qt.QDesktopWidget().availableGeometry(win).size() * 0.7)
     win.show()
 
     logger = logging.getLogger()

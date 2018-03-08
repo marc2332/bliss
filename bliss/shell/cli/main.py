@@ -27,6 +27,15 @@ from .repl import embed
 
 __all__ = ('main',)
 
+def get_sessions_list():
+    all_sessions = list()
+    config = static.get_config()
+    for name in config.names_list:
+        c = config.get_config(name)
+        if c.get('class') != 'Session': continue
+        if c.get_inherited('plugin') != 'session': continue
+        all_sessions.append(name)
+    return all_sessions
 
 def main():
     try:
@@ -39,18 +48,21 @@ def main():
         log_level = getattr(logging, arguments['--log-level'].upper())
         fmt = '%(levelname)s %(asctime)-15s %(name)s: %(message)s'
         logging.basicConfig(level=log_level, format=fmt)
+       
+        if session_name is not None: 
+            sessions_list = get_sessions_list()
 
-        if arguments['--show-sessions']:
-            config = static.get_config()
-            print 'Session name(s):'
-            for name in config.names_list:
-                c = config.get_config(name)
-                if c.get('class') != 'Session': continue
-                if c.get_inherited('plugin') != 'session': continue
-                session = config.get(name)
-                session.sessions_tree.show()
-            exit(0)
-
+            if arguments['--show-sessions']:
+                print 'Session name(s):'
+                config = static.get_config()
+                for name in sessions_list:
+                    session = config.get(name)
+                    session.sessions_tree.show()
+                exit(0)
+            else:
+                if session_name not in sessions_list:
+                    print "'%s` does not seem to be a valid session, exiting." % session_name
+                    exit(0)
         embed(session_name=session_name)
         
 

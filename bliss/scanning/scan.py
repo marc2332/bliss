@@ -224,6 +224,44 @@ class ScanSaving(Parameters):
         return klass(path)
 
 
+def _get_channels_dict(acq_object, channels_dict):
+    scalars = channels_dict.setdefault('scalars', [])
+    spectra = channels_dict.setdefault('spectra', [])
+    images = channels_dict.setdefault('images', [])
+
+    for acq_chan in acq_object.channels:
+        name = acq_object.name+":"+acq_chan.name
+        shape = acq_chan.shape
+        if len(shape) == 0 and not name in scalars:
+            scalars.append(name)
+        elif len(shape) == 1 and not name in spectra:
+            spectra.append(name)
+        elif len(shape) == 2 and not name in images:
+            images.append(name)
+
+    return channels_dict
+
+def _get_masters_and_channels(acq_chain):
+    # go through acq chain, group acq channels by master and data shape
+    tree = acq_chain._tree
+
+    chain_dict = dict()
+    for path in tree.paths_to_leaves():
+        npoints = 0
+        master = None
+        # path[0] is root
+        for acq_object in path[1:]:
+            # it is mandatory to find an acq. master first
+            if isinstance(acq_object, AcquisitionMaster):
+                if master is None or acq_object.npoints != npoints:
+                    master = acq_object.name
+                    npoints = acq_object.npoints
+                    channels = chain_dict.setdefault(master, { "master": {} })
+                    _get_channels_dict(acq_object, channels["master"])
+                    continue
+            _get_channels_dict(acq_object, channels)
+    return chain_dict
+
 class Scan(object):
     IDLE_STATE, PREPARE_STATE, START_STATE, STOP_STATE = range(4)
 
@@ -290,12 +328,18 @@ class Scan(object):
         self._data_events = dict()
         self._acq_chain = chain
 
+        for i, m in enumerate(scan_info.get("motors", [])):
+            self._scan_info['motors'][i] = m.name
+        self._scan_info['counters'] = list()
+        self._scan_info['other_counters'] = list()
+        self._scan_info['acquisition_chain'] = _get_masters_and_channels(self._acq_chain)
 
-        # go through acq chain, get acq channels to build labels list
-        self._scan_info["labels"] = []
         for acq_object in self._acq_chain.nodes_list:
             for acq_chan in acq_object.channels:
-                self._scan_info['labels'].append(acq_chan.name)
+                if len(acq_chan.shape) == 0:
+                    self._scan_info['counters'].append(acq_chan.name)
+                else:
+                    self._scan_info['other_counters'].append(acq_chan.name)
 
         self._state = self.IDLE_STATE
         self._node = _create_node(self.__name, "scan", parent=self.root_node, info=self._scan_info)

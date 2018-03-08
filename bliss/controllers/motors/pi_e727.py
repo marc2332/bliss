@@ -124,16 +124,16 @@ class PI_E727(Controller):
 
     """ MOVEMENTS """
     def prepare_move(self, motion):
-        self._target_pos = motion.target_pos
+        pass
 
     def start_one(self, motion):
-        elog.debug("start_one target_pos = %f" % self._target_pos)
+        elog.debug("start_one target_pos = %f" % motion.target_pos)
 
         # the controller latches the previous error
         self.clear_error()
 
         axis = motion.axis
-        _cmd = "MOV %s %g" % (axis.channel, self._target_pos)
+        _cmd = "MOV %s %g" % (axis.channel, motion.target_pos)
         self.send_no_ans(axis, _cmd)
 
         self.check_error(_cmd)

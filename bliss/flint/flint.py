@@ -37,7 +37,7 @@ except ImportError:
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
-    from silx.gui import plot
+    from silx.gui import plot as silx_plot
     from silx.gui import qt
 
 from .interaction import PointsSelector, ShapeSelector
@@ -48,7 +48,6 @@ msgpack_numpy.patch()
 pyqtRemoveInputHook()
 Thread = gevent.monkey.get_original('threading', 'Thread')
 Event = gevent.monkey.get_original('threading', 'Event')
-
 
 # Gevent functions
 
@@ -190,7 +189,7 @@ class Flint:
             name = 'Plot %d' % wid
         new_tab_widget = self.new_tab(name)
         self._submit(qt.QVBoxLayout, new_tab_widget)
-        cls = getattr(plot, cls_name)
+        cls = getattr(silx_plot, cls_name)
         window = self._submit(cls, new_tab_widget)
         self.window_dict[wid] = window
         self._submit(self._submit(new_tab_widget.layout).addWidget, window)

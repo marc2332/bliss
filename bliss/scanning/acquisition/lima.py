@@ -56,6 +56,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         self.save_flag = save_flag
         self._reading_task = None
         self._latency = latency_time
+        self._last_image_ready = -1
         
     def prepare_saving(self, scan_name, scan_file_dir):
         camera_name = self.device.camera_type
@@ -85,6 +86,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         self._image_channel.shape = (h, w)
 
         self._latency = self.device.latency_time
+        self._last_image_ready = -1
 
         if self._reading_task:
             self._reading_task.kill()
@@ -129,7 +131,10 @@ class LimaAcquisitionMaster(AcquisitionMaster):
 
     def reading(self):
         while self.device.acq_status.lower() == 'running':
-            self._image_channel.emit(self._get_lima_status())
+            status = self._get_lima_status()
+            if status['last_image_ready'] != self._last_image_ready:
+                self._image_channel.emit(status)
+                self._last_image_ready = status['last_image_ready']
             gevent.sleep(max(self.parameters['acq_expo_time'] / 10.0, 10e-3))
         self._image_channel.emit(self._get_lima_status())
         if self.device.acq_status.lower() == 'fault':

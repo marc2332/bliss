@@ -307,7 +307,7 @@ def main():
 
     logger = logging.getLogger()
     handler = QtLogHandler(log_widget)
-    handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
+    handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s: %(message)s"))
     logger.addHandler(handler)
     logger.setLevel(logging.INFO)
     

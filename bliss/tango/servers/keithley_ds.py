@@ -6,6 +6,8 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+from __future__ import absolute_import
+
 from tango import DevState
 from tango.server import Device
 from tango.server import attribute, command, device_property

@@ -8,6 +8,7 @@
 
 '''Bliss axis TANGO_ DS class (:class:`BlissAxisManager` and :class:`BlissAxis`)
 '''
+from __future__ import absolute_import
 
 import bliss.common.log as elog
 from bliss.common.axis import get_axis

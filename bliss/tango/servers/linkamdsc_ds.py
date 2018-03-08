@@ -11,6 +11,8 @@
 
 Class for controlling the Linkam T94 with Dsc stage.
 """
+from __future__ import absolute_import
+
 import numpy
 from functools import wraps
 

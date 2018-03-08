@@ -17,6 +17,7 @@ import logging
 import datetime
 
 from bliss.common.event import connect, send
+from bliss.common.plot import get_flint
 from bliss.common.utils import periodic_exec
 from bliss.config.conductor import client
 from bliss.config.settings import Parameters, _change_to_obj_marshalling
@@ -224,6 +225,30 @@ class ScanSaving(Parameters):
         return klass(path)
 
 
+class ScanDisplay(Parameters):
+    SLOTS = []
+
+    def __init__(self):
+        """
+        This class represents the display parameters for scans for a session.
+        """
+        keys = dict()
+        _change_to_obj_marshalling(keys)
+        Parameters.__init__(self, '%s:scan_display_params' % self.session,
+                            default_values={ 'auto': True },
+                            **keys)
+
+    def __dir__(self):
+        keys = Parameters.__dir__(self)
+        return keys + ['session', 'auto']
+
+    @property
+    def session(self):
+        """ This give the name of the default session or unnamed if no default session is defined """
+        session = _current_session()
+        return session.name if session is not None else 'unnamed'
+
+
 def _get_channels_dict(acq_object, channels_dict):
     scalars = channels_dict.setdefault('scalars', [])
     spectra = channels_dict.setdefault('spectra', [])
@@ -240,6 +265,7 @@ def _get_channels_dict(acq_object, channels_dict):
             images.append(name)
 
     return channels_dict
+
 
 def _get_masters_and_channels(acq_chain):
     # go through acq chain, group acq channels by master and data shape
@@ -261,6 +287,7 @@ def _get_masters_and_channels(acq_chain):
                     continue
             _get_channels_dict(acq_object, channels)
     return chain_dict
+
 
 class Scan(object):
     IDLE_STATE, PREPARE_STATE, START_STATE, STOP_STATE = range(4)
@@ -341,6 +368,10 @@ class Scan(object):
                 else:
                     self._scan_info['other_counters'].append(acq_chan.name)
 
+        scan_display_params = ScanDisplay()
+        if scan_display_params.auto:
+            get_flint()
+   
         self._state = self.IDLE_STATE
         self._node = _create_node(self.__name, "scan", parent=self.root_node, info=self._scan_info)
         

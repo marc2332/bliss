@@ -311,8 +311,9 @@ class Session(object):
         global CURRENT_SESSION
         CURRENT_SESSION = self
 
-        from bliss.scanning.scan import ScanSaving
+        from bliss.scanning.scan import ScanSaving, ScanDisplay
         env_dict['SCAN_SAVING'] = ScanSaving()
+        env_dict['SCAN_DISPLAY'] = ScanDisplay()
         from bliss.common.measurementgroup import ACTIVE_MG
         env_dict['ACTIVE_MG'] = ACTIVE_MG
 

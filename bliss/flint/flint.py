@@ -217,14 +217,17 @@ class Flint:
 
     # Data management
 
-    def add_data(self, wid, field, data):
+    def set_data(self, wid, field, data):
         self.data_dict[wid][field] = data
 
     def remove_data(self, wid, field):
         del self.data_dict[wid][field]
 
-    def get_data(self, wid):
-        return self.data_dict[wid]
+    def get_data(self, wid, field=None):
+        if field is None:
+            return self.data_dict[wid]
+        else:
+            return self.data_dict[wid].get(field, [])
 
     def select_data(self, wid, method, names, kwargs):
         window = self.window_dict[wid]

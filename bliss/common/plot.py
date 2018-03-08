@@ -242,16 +242,12 @@ class BasePlot(object):
         self._flint = get_flint(pid=flint_pid)
         # Create plot window
         if existing_id is None:
-            self._plot_id = self._flint.add_window(self.WIDGET)
+            self._plot_id = self._flint.add_window(self.WIDGET, name)
         else:
             self._plot_id = existing_id
         # Create qt interface
         interface = self._flint.get_interface(self._plot_id)
         self.qt = QtInterface(interface, self.submit)
-        # Set plot title
-        self._name = name or "Plot {}".format(self._plot_id)
-        if existing_id is None or name is not None:
-            self.qt.setWindowTitle(self._name)
 
     def __repr__(self):
         return '{}(plot_id={}, flint_pid={})'.format(

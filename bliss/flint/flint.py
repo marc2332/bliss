@@ -182,7 +182,7 @@ class Flint:
         return self._submit(method, *args, **kwargs)
 
     # Window management
-    def add_window(self, cls_name):
+    def add_window(self, cls_name, name=None):
         wid = next(self._id_generator)
         if not name:
             name = 'Plot %d' % wid

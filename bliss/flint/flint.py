@@ -8,6 +8,7 @@
 # Imports
 import os
 import sys
+import logging
 import platform
 import tempfile
 import warnings
@@ -22,6 +23,7 @@ import gevent.monkey
 from concurrent.futures import Future
 
 from bliss.data.scan import watch_session_scans
+from bliss.flint.executor import QtExecutor
 from bliss.flint.executor import concurrent_to_gevent
 from bliss.flint.executor import submit_to_qt_application
 from bliss.flint.executor import create_queue_from_qt_signal
@@ -273,6 +275,18 @@ class Flint:
             self._submit(selector.reset)
 
 
+class QtLogHandler(logging.Handler):
+
+    def __init__(self, log_widget):
+        logging.Handler.__init__(self)
+        
+        self.log_widget = log_widget
+        self.executor = QtExecutor()
+ 
+    def emit(self, record):
+        record = self.format(record)
+        self.executor.submit(self.log_widget.appendPlainText, record)
+
 # Main execution
 
 def main():
@@ -282,7 +296,22 @@ def main():
     win.setWindowTitle(title)
     tabs = qt.QTabWidget(win)
     win.setCentralWidget(tabs)
+    log_dock = qt.QDockWidget("Log output", win)
+    log_widget = qt.QPlainTextEdit(log_dock)
+    log_widget.setReadOnly(True)
+    log_dock.setWidget(log_widget)
+    win.addDockWidget(qt.Qt.BottomDockWidgetArea, log_dock)
     win.show()
+
+    logger = logging.getLogger()
+    handler = QtLogHandler(log_widget)
+    handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+    
+    def handle_exception(exc_type, exc_value, exc_traceback):
+        logger.critical("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
+    sys.excepthook = handle_exception
 
     stop = Future()
     flint = Flint(tabs)

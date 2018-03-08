@@ -93,47 +93,113 @@ class Flint:
     _id_generator = itertools.count()
     _submit = staticmethod(submit_to_qt_application)
 
-    def __init__(self, main_window, mdi_area):
-        self.mdi_area = mdi_area
-        self.main_window = main_window
+    def __init__(self, parent_tab):
+        self.parent_tab = parent_tab
         self.main_index = next(self._id_generator)
-        self.window_dict = {self.main_index: self.main_window}
+        self.window_dict = {self.main_index: parent_tab}
         self.selector_dict = collections.defaultdict(list)
         self.data_dict = collections.defaultdict(dict)
         self.scans_watch_task = None
+
+        self.live_scan_mdi_area = self.new_tab("Live scan", qt.QMdiArea)
+        self.live_scan_plots_dict = dict()
+       
+    def set_session(self, session_name):
+        self.scans_watch_task = watch_session_scans(session_name, self.new_scan, self.new_scan_child, self.new_scan_data, wait=False)
+
+    def new_scan(self, scan_info):
+        # show tab
+        self._submit(self.parent_tab.setCurrentIndex, 0)
+
+        # delete windows and free data
+        for _, plots in self.live_scan_plots_dict.iteritems():
+            for plot_type in ('0d', '1d', '2d'):
+                for plot in plots[plot_type]:
+                    self.window_dict.pop(plot.plot_id, None)
+                    self.data_dict.pop(plot.plot_id, None)
+                    self._submit(plot.close)
+        for win in self.live_scan_mdi_area.subWindowList():
+            self._submit(win.close)
+        self.live_scan_plots_dict = dict()
+ 
+        # create new windows
+        for master, channels in scan_info['acquisition_chain'].iteritems():
+            scalars = channels['scalars']
+            spectra = channels['spectra']
+            images = channels['images']
+
+            scalars_plot_win = self._submit(silx_plot.Plot1D)
+            scalars_plot_win.plot_id = master+"_0d"
+            self.window_dict[scalars_plot_win.plot_id] = (scalars_plot_win, None)
+            self.live_scan_plots_dict[master] = { '0d': [scalars_plot_win], '1d':[], '2d':[] }
+            self._submit(self.live_scan_mdi_area.addSubWindow, scalars_plot_win)
+            self._submit(scalars_plot_win.setWindowTitle, master+' -> scalar counters')
+            logging.info("%s", scalars)
+            if not scalars:
+                self._submit(scalars_plot_win.hide)
+            else:
+                self._submit(scalars_plot_win.show)
+
+            for spectrum in spectra:
+                #spectrum_win = self._submit(silx_plot.CurvesView)
+                spectrum_win = self._submit(silx_plot.Plot1D)
+                spectrum_win.plot_id = master+"_1d"
+                self.window_dict[spectrum_win.plot_id] = (spectrum_win, None)
+                self.live_scan_plots_dict[master]['1d'].append(spectrum_win)
+                self._submit(self.live_scan_mdi_area.addSubWindow, spectrum_win)
+                self._submit(spectrum_win.setWindowTitle, master+' -> '+spectrum+' spectrum')
+                self._submit(spectrum_win.show)
+            
+            for image in images:
+                image_win = self._submit(silx_plot.Plot2D)
+                image_win.plot_id = master+"_2d"
+                self.window_dict[image_win.plot_id] = (image_win, None)
+                self.live_scan_plots_dict[master]['2d'].append(image_win)
+                self._submit(self.live_scan_mdi_area.addSubWindow, image_win)
+                self._submit(image_win.setWindowTitle, master+' -> '+image+' image')
+                self._submit(image_win.show)
+
+        self._submit(self.live_scan_mdi_area.tileSubWindows)
+
+    def new_scan_child(self, scan_info, data_channel):
+        pass
+
+    def new_scan_data(self, data_type, master_name, data):
+        if data_type == '0d':
+            master_channels = data["master_channels"]
+            data = data["data"]
+
+            plot = self.live_scan_plots_dict[master_name]["0d"][0]
+
+    def new_tab(self, label, widget=qt.QWidget):
+        widget = self._submit(widget)
+        self._submit(self.parent_tab.addTab, widget, label)
+        return widget
 
     def run_method(self, key, method, args, kwargs):
         window = self.window_dict[key]
         method = getattr(window, method)
         return self._submit(method, *args, **kwargs)
 
-    def set_session(self, session_name):
-        print 'Listening to session', session_name
-        self.scans_watch_task = watch_session_scans(session_name, self.new_scan, self.new_data, self.scan_ended, wait=False)
-
-    def new_scan(self, *args):
-        self.main_window.setWindowTitle("scan started %r" % args)
-
-    def new_data(self, *args):
-        self.main_window.setWindowTitle("DATA %r" % args)
-
-    def scan_ended(self, *args):
-        self.main_window.setWindowTitle("scan done %r" % args)
-
     # Window management
     def add_window(self, cls_name):
         wid = next(self._id_generator)
+        if not name:
+            name = 'Plot %d' % wid
+        new_tab_widget = self.new_tab(name)
+        self._submit(qt.QVBoxLayout, new_tab_widget)
         cls = getattr(plot, cls_name)
-        window = self._submit(cls, self.mdi_area)
-        self._submit(self.mdi_area.addSubWindow, window)
-        self._submit(window.show)
+        window = self._submit(cls, new_tab_widget)
         self.window_dict[wid] = window
+        self._submit(self._submit(new_tab_widget.layout).addWidget, window)
+        self._submit(window.show)
         return wid
 
     def remove_window(self, wid):
         window = self.window_dict.pop(wid)
-        parent = self._submit(window.parent)
-        self._submit(parent.close)
+        index = self._submit(self.parent_tab.indexOf, self._submit(window.parent))
+        self._submit(self.parent_tab.removeTab, index)
+        self._submit(window.close)
 
     def get_interface(self, wid):
         window = self.window_dict[wid]
@@ -214,12 +280,12 @@ def main():
     win = qt.QMainWindow()
     title = 'Flint (PID={})'.format(os.getpid())
     win.setWindowTitle(title)
-    mdi_area = qt.QMdiArea(win)
-    win.setCentralWidget(mdi_area)
+    tabs = qt.QTabWidget(win)
+    win.setCentralWidget(tabs)
     win.show()
 
     stop = Future()
-    flint = Flint(win, mdi_area)
+    flint = Flint(tabs)
     thread = Thread(
         target=background_task,
         args=(flint, stop))

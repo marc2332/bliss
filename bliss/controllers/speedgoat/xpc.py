@@ -331,33 +331,47 @@ def get_signal_name(handle, idx):
     return ffi.string(name).decode()
 
 
-def get_signal(handle, idx):
-    width = xpc.get_signal_width(handle, idx)
-    result = dict(name=name, width=width, idx=idx)
-    label_size = _error(xpc.xPCGetSigLabelWidth(handle, name))
-    if label_size > 0:
-        label = ffi.new("char[{}]".format(label_size))
-        _error(xpc.xPCGetSignalLabel(handle, idx, label))
-        result["label"] = ffi.string(label)
+def get_signal_idx(handle, name):
+    return _error(xpc.xPCGetSignalIdx(handle, _to_bytes(name)))
+
+
+def get_signal_info(handle, idx):
+    full_name = get_signal_name(handle, idx)
+    if "/" in full_name:
+        block, name = full_name.rsplit("/", 1)
+    else:
+        block, name = "", full_name
+    result = dict(block=block, name=name, idx=idx, shape=(), dtype=u"double", size=1)
     return result
 
 
-def get_signals(handle):
-    return [get_signal(handle, i) for i in range(get_num_signals(handle))]
+def get_signal_infos(handle):
+    return [get_signal_info(handle, i) for i in range(get_num_signals(handle))]
 
 
-def get_signal_value(handle, idx):
+def get_signal_value_from_idx(handle, idx):
     return _error(xpc.xPCGetSignal(handle, idx))
 
 
-def get_signal_values(handle, signals=None):
-    if signals is None:
-        signals = tuple(range(get_num_signals(handle)))
-    n = len(signals)
+def get_signal_value_from_idxs(handle, idxs=None):
+    if idxs is None:
+        idxs = tuple(range(get_num_signals(handle)))
+    n = len(idxs)
     values = numpy.empty(n, order="F")
     buff = ffi.cast("double *", values.ctypes.data)
-    _error(xpc.xPCGetSignals(handle, n, signals, buff))
+    _error(xpc.xPCGetSignals(handle, n, idxs, buff))
     return values
+
+
+def get_signal_value_from_name(handle, block, name):
+    full_name = block + "/" + name if block else name
+    return get_signal_value_from_idx(handle, get_signal_idx(handle, full_name))
+
+
+def get_signal_value_from_names(handle, *block_names):
+    return [
+        get_signal_value_from_name(handle, block, name) for block, name in block_names
+    ]
 
 
 # Scopes

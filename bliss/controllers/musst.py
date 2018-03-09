@@ -17,6 +17,7 @@ from bliss.config.channels import Cache
 from bliss.config.conductor.client import remote_open
 from bliss.common.switch import Switch as BaseSwitch
 from bliss.common.utils import OrderedDict
+from bliss.common.measurement import SamplingCounter
 
 Serial = serial.Serial
 
@@ -141,6 +142,14 @@ class musst(object):
                     if len(split_config) > 1 and split_config[1].find('5') > -1:
                         self._mode = self.ADC5
 
+    # MUSST Counters
+    class counter(SamplingCounter):
+        def __init__(self, name, musst, channel):
+            self.controller = musst
+            self.channel    = channel
+            SamplingCounter.__init__(self, name, self.controller)
+
+
     ADDR    = _get_simple_property("ADDR","Set/query serial line address")
     BTRIG   = _get_simple_property("BTRIG","Set/query the level of the TRIG out B output signal")
     NAME    = _get_simple_property("NAME","Set/query module name")
@@ -259,6 +268,19 @@ class musst(object):
                                                                     switch_name=channel_name)
             else:
                 raise RuntimeError("musst: channel type can only be of type (cnt,encoder,ssi,adc5,adc10,switch)")
+        
+        #Configured counters
+        self._counters = dict()
+        cnt_list = config_tree.get('counters',list())
+        for cnt_config in cnt_list:
+            cnt_name    = cnt_config.get("name")
+            cnt_channel = cnt_config.get('channel')
+
+            if cnt_channel.upper() not in ("TIMER", "CH1", "CH2", "CH3", "CH4", "CH5", "CH6"):
+                raise RuntimeError("Musst Counter: counter \"%s\" channel name (%s) must be [CH1/CH2/CH3/CH4/CH5/CH6]"%(cnt_name, cnt_channel))
+            
+            cnt_obj  = self.counter(cnt_name, self, cnt_channel.upper())
+            setattr(self, cnt_name, cnt_obj)
 
     @protect_from_kill
     def putget(self,msg,ack = False):
@@ -515,7 +537,22 @@ class musst(object):
             raise RuntimeError("musst doesn't have channel (%s) in his config" % channel_name)
         return channel
 
-
+    """
+    Add read_all function to make Musst object a counter controller
+    """
+    def read_all(self, *counters):
+        if len(counters) > 0:
+            read_cmd = ""
+            for cnt in counters:
+                read_cmd = read_cmd + " " + cnt.channel
+            read_cmd = "?VAL " + read_cmd
+            val_str = self.putget(read_cmd)
+            if val_str == "ERROR":
+                raise RuntimeError("Musst (%s) Counter (%s): Error reading from Musst device" % (cnt.controller.name, cnt.name))
+            val_float = [float(x) for x in val_str.split(" ")]
+            
+            return val_float
+            
 #Musst switch
 
 class Switch(BaseSwitch):

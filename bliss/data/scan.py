@@ -146,6 +146,12 @@ def _watch_data(scan_node, scan_new_callback, scan_new_child_callback, scan_data
                                                                "data": scan_data })
                             raise StopIteration
 
+                    for i, channel_name in enumerate(channels["spectra"]):
+                        if data_channel.db_name.endswith(channel_name):
+                            scan_data_callback("1d", master, { "channel_index": i,
+                                                               "channel_name": channel_name,
+                                                               "data": data })
+                            raise StopIteration
                     for i, channel_name in enumerate(channels["images"]):
                         if data_channel.db_name.endswith(channel_name):
                             scan_data_callback("2d", master, { "channel_index": i,

@@ -50,6 +50,9 @@ class Speedgoat(object):
             return
         xpc.close_connection(self._handle)
 
+    def get_api_version(self):
+        return xpc.get_api_version()
+
 
 def main(argv=None):
     if argv is None:

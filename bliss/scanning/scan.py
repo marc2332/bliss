@@ -22,6 +22,7 @@ from bliss.config.settings import Parameters, _change_to_obj_marshalling
 from bliss.data.node import _get_or_create_node, _create_node, DataNodeContainer, is_zerod
 from bliss.common.session import get_current as _current_session
 from .chain import AcquisitionDevice, AcquisitionMaster
+from . import writer
 
 current_module = sys.modules[__name__]
 
@@ -72,7 +73,8 @@ class StepScanDataWatch(object):
 
 class ScanSaving(Parameters):
     SLOTS = []
-
+    WRITER_MODULE_PATH='bliss.scanning.writer'
+    
     def __init__(self):
         """
         This class hold the saving structure for a session.
@@ -95,16 +97,34 @@ class ScanSaving(Parameters):
 
         keys = dict()
         _change_to_obj_marshalling(keys)
+
         Parameters.__init__(self, '%s:scan_data' % self.session,
                             default_values={'base_path': '/tmp/scans',
                                             'user_name': getpass.getuser(),
                                             'template': '{session}/',
                                             'date_format': '%Y%m%d'},
                             **keys)
+        
+        cache_dict = self._proxy.get_all()
+        if '_writer_module' not in cache_dict:
+            #Check if hdf5 is available as a default
+            try:
+                self._get_writer_object('hdf5', os.getcwd())
+            except:
+                default_module_name = None
+            else:
+                default_module_name = 'hdf5'
 
+            self.add('_writer_module', default_module_name)
+        
     def __dir__(self):
         keys = Parameters.__dir__(self)
-        return keys + ['session', 'get', 'get_path', 'get_parent_node']
+        return keys + ['session', 'get', 'get_path', 'get_parent_node', 'writer']
+
+    def __repr__(self):
+        d = self._proxy.get_all()
+        d['writer'] = d.get('_writer_module')
+        return self._repr(d)
 
     @property
     def session(self):
@@ -115,6 +135,28 @@ class ScanSaving(Parameters):
     @property
     def date(self):
         return time.strftime(self.date_format)
+
+    @property
+    def writer(self):
+        """
+        Scan writer object.
+        """
+        return self._get_writer()
+
+    @writer.setter
+    def writer(self, value):
+        try:
+            if value is not None:
+                self._get_writer_object(value, os.getcwd())
+        except ImportError, exc:
+            raise ImportError('Writer module **%s** does not'
+                              ' exist or cannot be loaded (%s)'
+                              ' possible module are %s' % (value, exc, writer.__all__))
+        except AttributeError, exc:
+            raise AttributeError('Writer module **%s** does have'
+                                 ' class named Writer (%s)' % (value, exc))
+        else:
+            self._proxy['_writer_module'] = value
 
     def get(self):
         """
@@ -129,6 +171,7 @@ class ScanSaving(Parameters):
             cache_dict = self._proxy.get_all()
             cache_dict['session'] = self.session
             cache_dict['date'] = self.date
+            writer_module = cache_dict.get('_writer_module')
             template_keys = [key[1] for key in formatter.parse(template)]
 
             if 'session' in template_keys:
@@ -149,8 +192,11 @@ class ScanSaving(Parameters):
         except KeyError, keyname:
             raise RuntimeError("Missing %s attribute in ScanSaving" % keyname)
         else:
-            return {'root_path': os.path.join(cache_dict.get('base_path'), sub_path),
-                    'parent': parent}
+            path = os.path.join(cache_dict.get('base_path'), sub_path)
+            return {'root_path': path,
+                    'parent': parent,
+                    'writer': self._get_writer_object(writer_module=writer_module,
+                                                      path=path)}
 
     def get_path(self):
         """
@@ -165,6 +211,19 @@ class ScanSaving(Parameters):
         This method return the parent node which should be used to publish new data
         """
         return self.get()['parent']
+
+    def _get_writer(self, writer_module=None, path=None):
+        if writer_module is None or path is None:
+            return self.get()['writer']
+        return self._get_writer_object(writer_module, path)
+
+    def _get_writer_object(self, writer_module, path):
+        if writer_module is None:
+            return None
+        module_name = '%s.%s' % (self.WRITER_MODULE_PATH, writer_module)
+        writer_module = __import__(module_name, fromlist=[''])
+        klass = getattr(writer_module, 'Writer')
+        return klass(path)
 
 
 class Scan(object):

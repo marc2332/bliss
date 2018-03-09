@@ -130,29 +130,31 @@ def _watch_data(scan_node, scan_new_callback, scan_new_child_callback, scan_data
 
             for master, channels in scan_info["acquisition_chain"].iteritems():
                 master_channels = channels["master"]
-                master_scalar_channel_name = None
 
-                for channel_name in master_channels["scalars"]:
-                    scan_data.setdefault(channel_name, [])
-                    if data_channel.db_name.endswith(channel_name):
-                        scan_data[channel_name] = numpy.concatenate((scan_data[channel_name], data))
+                try:
+                    for channel_name in master_channels["scalars"]:
+                        scan_data.setdefault(channel_name, [])
+                        if data_channel.db_name.endswith(channel_name):
+                            scan_data[channel_name] = numpy.concatenate((scan_data[channel_name], data))
+                            raise StopIteration
 
-                for channel_name in channels["scalars"]:
-                    scan_data.setdefault(channel_name, [])
-                    if data_channel.db_name.endswith(channel_name):
-                        scan_data[channel_name] = numpy.concatenate((scan_data.get(channel_name, []), data))
-                        scan_data_callback("0d", master, { "master_channels": master_channels["scalars"],
-                                                           "data": scan_data })
-                        break
+                    for channel_name in channels["scalars"]:
+                        scan_data.setdefault(channel_name, [])
+                        if data_channel.db_name.endswith(channel_name):
+                            scan_data[channel_name] = numpy.concatenate((scan_data.get(channel_name, []), data))
+                            scan_data_callback("0d", master, { "master_channels": master_channels["scalars"],
+                                                               "data": scan_data })
+                            raise StopIteration
 
-            """if data_channel.name == 'image' and len(data)>0:
-                print data, len(data)
-                print iter(data).next()
-            scan_data.setdefault(data_channel.name, []).extend(data)
-            if len(scan_data) == ndata and all_equal(data_indexes.itervalues()):
-                scan_data_callback(scan_info, scan_data)
-                scan_data = dict()
-            """
+                    for i, channel_name in enumerate(channels["images"]):
+                        if data_channel.db_name.endswith(channel_name):
+                            scan_data_callback("2d", master, { "channel_index": i,
+                                                               "channel_name": channel_name,
+                                                               "data": data })
+                            raise StopIteration
+                except StopIteration:
+                    break
+
 @task
 def watch_session_scans(session_name, scan_new_callback, scan_new_child_callback, scan_data_callback):
     session_node = _get_or_create_node(session_name, node_type='session')

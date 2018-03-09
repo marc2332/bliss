@@ -14,6 +14,7 @@ YAML_ configuration example:
 
     plugin: emotion
     class: SHexapod
+    version: 2          # (1)
     tcp:
       url: id99hexa1
     axes:
@@ -36,6 +37,9 @@ YAML_ configuration example:
         role: rz
         unit: deg
 
+1. API version: valid values: 1 or 2 (optional. If no version is given, it
+   tries to discover the API version). Authors recommend to put the version
+   whenever possible.
 """
 
 import re

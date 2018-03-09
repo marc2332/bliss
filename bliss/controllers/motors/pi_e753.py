@@ -106,11 +106,11 @@ class PI_E753(Controller):
 
     """ MOVEMENTS """
     def prepare_move(self, motion):
-        self._target_pos = motion.target_pos
+        pass
 
     def start_one(self, motion):
-        elog.debug("start_one target_pos = %f" % self._target_pos)
-        self.send_no_ans(motion.axis, "MOV 1 %g" % self._target_pos)
+        elog.debug("start_one target_pos = %f" % motion.target_pos)
+        self.send_no_ans(motion.axis, "MOV 1 %g" % motion.target_pos)
 
     def stop(self, axis):
         # to check : copy of current position into target position ???

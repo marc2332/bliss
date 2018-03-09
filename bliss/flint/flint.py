@@ -161,6 +161,8 @@ class Flint:
                 self._submit(image_win.setWindowTitle, master+' -> '+image+' image')
                 self._submit(image_win.show)
 
+        self._submit(self.live_scan_mdi_area.tileSubWindows)
+
     def new_scan_child(self, scan_info, data_channel):
         pass
 

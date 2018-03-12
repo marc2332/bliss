@@ -24,7 +24,6 @@ import gevent
 from bliss import setup_globals
 from bliss.common.axis import estimate_duration
 from bliss.common.temperature import Input, Output, TempControllerCounter
-from bliss.controllers.lima import Lima
 from bliss.controllers.ct2.client import CT2
 from bliss.common.task_utils import *
 from bliss.common.motor_group import Group
@@ -35,10 +34,10 @@ from bliss.scanning import scan as scan_module
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 from bliss.scanning.acquisition.motor import VariableStepTriggerMaster
 from bliss.scanning.acquisition.motor import LinearStepTriggerMaster, MeshStepTriggerMaster
-from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
 from bliss.scanning.acquisition.mca import BaseMcaCounter, McaAcquisitionDevice
 from bliss.scanning.acquisition.pepu import PepuCounter, PepuAcquisitionDevice
 from bliss.common import session,measurementgroup
+from bliss.scanning.standard import default_master_configuration, default_chain_plugins
 from bliss.data.scan import get_data
 from bliss.common.utils import OrderedDict as ordereddict
 
@@ -48,6 +47,7 @@ _log = logging.getLogger('bliss.scans')
 class TimestampPlaceholder:
     def __init__(self):
       self.name = 'timestamp'
+
 
 def _get_counters(mg, missing_list):
     counters = list()
@@ -59,6 +59,7 @@ def _get_counters(mg, missing_list):
             else:
                 missing_list.append(cnt_name)
     return counters
+
 
 def _get_all_counters(counters):
     all_counters, missing_counters = [], []
@@ -84,83 +85,21 @@ def _get_all_counters(counters):
             zerod_counters.append(counter)
         else:
             other_counters.append(counter)
-    return zerod_counters,other_counters
+    return zerod_counters, other_counters
 
-def default_master_configuration(counter, scan_pars):
-    """
-    This function should create and configure
-    an acquisition device which could also
-    be a master for other devices.
 
-    @returns the acq_device + counters parameters
-    """
-    try:
-        device = counter.acquisition_controller
-    except AttributeError:
-        device = counter
-
-    npoints = scan_pars.get('npoints', 1)
-    acq_expo_time = scan_pars['count_time']
-    if isinstance(device, Lima):
-        multi_mode = 'INTERNAL_TRIGGER_MULTI' in device.available_triggers
-        save_flag = scan_pars.get('save',False)
-        acq_nb_frames = npoints if multi_mode else 1
-        acq_trigger_mode = scan_pars.get('acq_trigger_mode',
-                                         'INTERNAL_TRIGGER_MULTI' \
-                                         if multi_mode else 'INTERNAL_TRIGGER')
-        acq_device = LimaAcquisitionMaster(device,
-                                           acq_nb_frames = acq_nb_frames,
-                                           acq_expo_time = acq_expo_time,
-                                           acq_trigger_mode = acq_trigger_mode,
-                                           save_flag = save_flag,
-                                           prepare_once = multi_mode)
-        return acq_device, { "prepare_once": multi_mode, "start_once": multi_mode }
-    elif type(device).__name__ == 'CT2':
-        from bliss.scanning.acquisition.ct2 import CT2AcquisitionMaster
-        acq_device = CT2AcquisitionMaster(device, npoints=npoints,
-                                          acq_expo_time=acq_expo_time)
-        return acq_device, { "prepare_once": acq_device.prepare_once,
-                             "start_once": acq_device.start_once }
-    else:
-        raise TypeError("`%r' is not a supported acquisition controller for counter `%s'" % (device, counter.name))
-
-def activate_master_saving(acq_device,activate_flag):
+def activate_master_saving(acq_device, activate_flag):
     acq_device.save_flag = activate_flag
 
+
 def _counters_tree(counters, scan_pars):
-    count_time = scan_pars.get('count_time', 1)
-    npoints = scan_pars.get('npoints', 1)
-    master_integrating_counter = dict()
     tree = ordereddict()
+    master_integrating_counter = dict()
+    npoints = scan_pars.setdefault('npoints', 1)
+    count_time = scan_pars.setdefault('count_time', 1)
 
-    # MCA specific block
-
-    mca_counters = {}
-    for counter in counters:
-        if isinstance(counter, BaseMcaCounter):
-            mca_counters.setdefault(counter.controller, []).append(counter)
-    for counter_list in mca_counters.values():
-        counters -= set(counter_list)
-    for mca, counter_list in mca_counters.items():
-        acq_device = McaAcquisitionDevice(
-            mca, npoints=npoints, preset_time=count_time,
-            counters=counter_list)
-        tree.setdefault(None, []).append(acq_device)
-
-    # PEPU specific block
-
-    pepu_counters = {}
-    for counter in counters:
-        if isinstance(counter, PepuCounter):
-            pepu_counters.setdefault(counter.controller, []).append(counter)
-    for counter_list in pepu_counters.values():
-        counters -= set(counter_list)
-    for pepu, counter_list in pepu_counters.items():
-        acq_device = PepuAcquisitionDevice(
-            pepu, npoints=npoints, counters=counter_list)
-        tree.setdefault(None, []).append(acq_device)
-
-    # End specific block #
+    # Call the plugins
+    counters = default_chain_plugins(tree, counters, scan_pars)
 
     reader_counters = ordereddict()
     for cnt in counters:
@@ -199,7 +138,7 @@ def _counters_tree(counters, scan_pars):
                     acq_device.add_counter(cnt)
                 tree.setdefault(master_acq_device, list()).append(acq_device)
             else:
-                tree.setdefault(master_acq_device, list()).extend([IntegratingCounterAcquisitionDevice(cnt, **scan_pars) for cnt in counters])
+                tree.setdefault(master_acq_device, list()).append(IntegratingCounterAcquisitionDevice(cnt, **scan_pars))
         else:
             master_acq_device = master_integrating_counter.get(reader)
             if master_acq_device is None:
@@ -210,6 +149,7 @@ def _counters_tree(counters, scan_pars):
                 if scan_pars.get('save',False):
                     activate_master_saving(master_acq_device,True)
     return tree
+
 
 def default_chain(chain, scan_pars, counters):
     count_time = scan_pars.get('count_time', 1)
@@ -249,6 +189,7 @@ def step_scan(chain,scan_info,name=None,save=True):
                             scan_info=scan_info,
                             writer=writer,
                             data_watch_callback=scan_data_watch)
+
 
 def ascan(motor, start, stop, npoints, count_time, *counters, **kwargs):
     """
@@ -327,6 +268,7 @@ def ascan(motor, start, stop, npoints, count_time, *counters, **kwargs):
 
     if kwargs.get('return_scan',False):
         return scan
+
 
 def dscan(motor, start, stop, npoints, count_time, *counters, **kwargs):
     """

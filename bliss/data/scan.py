@@ -138,11 +138,13 @@ def _watch_data(scan_node, scan_new_callback, scan_new_child_callback, scan_data
                             scan_data[channel_name] = numpy.concatenate((scan_data[channel_name], data))
                             raise StopIteration
 
-                    for channel_name in channels["scalars"]:
+                    for i, channel_name in enumerate(channels["scalars"]):
                         scan_data.setdefault(channel_name, [])
                         if data_channel.db_name.endswith(channel_name):
                             scan_data[channel_name] = numpy.concatenate((scan_data.get(channel_name, []), data))
                             scan_data_callback("0d", master, { "master_channels": master_channels["scalars"],
+                                                               "channel_index": i,
+                                                               "channel_name": channel_name,
                                                                "data": scan_data })
                             raise StopIteration
 

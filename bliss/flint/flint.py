@@ -8,6 +8,7 @@
 # Imports
 import os
 import sys
+import numpy
 import logging
 import platform
 import tempfile
@@ -160,8 +161,6 @@ class Flint:
                 self._submit(image_win.setWindowTitle, master+' -> '+image+' image')
                 self._submit(image_win.show)
 
-        self._submit(self.live_scan_mdi_area.tileSubWindows)
-
     def new_scan_child(self, scan_info, data_channel):
         pass
 
@@ -172,6 +171,39 @@ class Flint:
 
             plot = self.live_scan_plots_dict[master_name]["0d"][0]
 
+            try:
+                x_channel_name = master_channels[0]
+            except IndexError:
+                x_channel_name = None
+            for channel_name, channel_data in data.iteritems():
+                self.set_data(plot.plot_id, channel_name, channel_data)
+                if channel_name not in master_channels:
+                    x = data[x_channel_name]
+                    y = channel_data
+                    dlen = min(len(x), len(y))
+                    if dlen > 0:
+                        self._submit(plot.addCurve, x[:dlen], y[:dlen], legend='%s -> %s' % (x_channel_name, channel_name))
+        elif data_type == '1d':
+            spectrum_data = data["data"][-1] # only keep last spectrum for now
+            channel_name = data["channel_name"]
+            plot = self.live_scan_plots_dict[master_name]["1d"][data["channel_index"]]
+            self.set_data(plot.plot_id, channel_name, spectrum_data)
+            if spectrum_data.ndim == 1:
+                length, = spectrum_data.shape
+                x = numpy.arange(length)
+                y = spectrum_data
+            else:
+                # assuming ndim == 2
+                x = spectrum_data[0]
+                y = spectrum_data[1]
+            self._submit(plot.addCurve, x, y, legend=channel_name)
+        elif data_type == '2d':
+            plot = self.live_scan_plots_dict[master_name]["2d"][data["channel_index"]]
+            channel_name = data["channel_name"]
+            image_data = data["data"][-1]
+            self.set_data(plot.plot_id, channel_name, image_data)
+            self._submit(plot.addImage, image_data, legend=channel_name)
+                    
     def new_tab(self, label, widget=qt.QWidget):
         widget = self._submit(widget)
         self._submit(self.parent_tab.addTab, widget, label)
@@ -313,7 +345,7 @@ def main():
     logger.addHandler(handler)
     logger.setLevel(logging.INFO)
     
-    def handle_exception(exc_type, exc_value, exc_traceback):
+    def handle_exception(exc_type, exc_value, exc_traceback, logger=logger):
         logger.critical("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
     sys.excepthook = handle_exception
 

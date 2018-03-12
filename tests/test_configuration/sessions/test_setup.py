@@ -65,8 +65,6 @@ class AutoScanGaussianCounter(SamplingCounter):
         # Connect scan events.
         #                  cb function          event_name   event_source_filter
         dispatcher.connect(self.__on_scan_new,  'scan_new',  scan)
-        dispatcher.connect(self.__on_scan_data, 'scan_data', scan)
-        dispatcher.connect(self.__on_scan_end,  'scan_end',  scan)
 
     def __on_scan_new(self, scan_info):
         # ! also called on a "ct"
@@ -76,27 +74,18 @@ class AutoScanGaussianCounter(SamplingCounter):
         self._cnt_time = scan_info['count_time']
         self._point_count = scan_info['npoints']
 
-        if self in scan_info['counters']:
-            if scan_info['type'] in ['ct', 'timescan']:
-                self._in_a_scan = False
-            elif scan_info['type'] in ['pointscan']:
-                self._in_a_scan = True
-                self._start = scan_info['start']
-                self._stop = scan_info['stop']
-            else:
-                self._in_a_scan = True
-                self._start = scan_info['start'][0]
-                self._stop = scan_info['stop'][0]
+        if scan_info['type'] in ['ct', 'timescan']:
+            self._in_a_scan = False
+        elif scan_info['type'] in ['pointscan']:
+            self._in_a_scan = True
+            self._start = scan_info['start']
+            self._stop = scan_info['stop']
+        else:
+            self._in_a_scan = True
+            self._start = scan_info['start'][0]
+            self._stop = scan_info['stop'][0]
 
-    def __on_scan_data(self, scan_info, values):
-        pass
-
-    def __on_scan_end(self, scan_info):
-        if self in scan_info['counters']:
-            # print "test_setup.py : AutoScanGaussianCounter : This is the end, beautiful scan.----------"
-            pass
-
-    # scipy is not in BLISS requierments ?
+    # scipy is not in BLISS requirements ?
     def gauss(self, x, start, end):
         mu    = (end + start ) / 2.0
         sigma = (end - start ) / 10.0

@@ -96,8 +96,10 @@ def write_decorator_dict(func):
                 raise TypeError('can only be dict')
 
             if values is not None:
+                new_dict = dict()
                 for k, v in values.iteritems():
-                    values[k] = self._write_type_conversion(v)
+                    new_dict[k] = self._write_type_conversion(v)
+                values = new_dict
         return func(self, values, **keys)
     return _write
 
@@ -465,8 +467,8 @@ class HashSetting(object):
     def get(self, key, default=None):
         v = self.raw_get(key)
         if v is None:
-            if self._write_type_conversion:
-                v = self._write_type_conversion(default)
+            if self._read_type_conversion:
+                v = self._read_type_conversion(default)
             else:
                 v = default
         return v

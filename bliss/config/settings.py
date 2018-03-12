@@ -767,14 +767,20 @@ class Parameters(object):
             self.add(key)
 
     def __dir__(self):
-        return self._proxy.keys() + ['add', 'remove', 'switch', 'configs']
+        keys = [x for x in self._proxy.keys() if not x.startswith('_')]
+        return keys + ['add', 'remove', 'switch', 'configs']
 
     def __repr__(self):
-        rep_str = "Parameters (%s)\n" % self.__current_config.get()
         d = dict(self._proxy.iteritems())
+        return self._repr(d)
+    
+    def _repr(self, d):
+        rep_str = "Parameters (%s)\n" % self.__current_config.get()
         max_len = max((len(x) for x in d.keys()))
         str_format = '  .%-' + '%ds' % max_len + ' = %r\n'
         for key, value in sorted(d.iteritems()):
+            if key.startswith('_'):
+                continue
             rep_str += str_format % (key, value)
         return rep_str
 

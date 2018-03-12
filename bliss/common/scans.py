@@ -39,10 +39,6 @@ from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
 from bliss.scanning.acquisition.mca import BaseMcaCounter, McaAcquisitionDevice
 from bliss.scanning.acquisition.pepu import PepuCounter, PepuAcquisitionDevice
 from bliss.common import session,measurementgroup
-try:
-    from bliss.scanning.writer import hdf5 as default_writer
-except ImportError:
-    default_writer = None
 from bliss.data.scan import get_data
 from bliss.common.utils import OrderedDict as ordereddict
 
@@ -237,12 +233,11 @@ def default_chain(chain, scan_pars, counters):
     chain.timer = timer
     return timer
 
-def step_scan(chain,scan_info,name=None,save=default_writer is not None):
+def step_scan(chain,scan_info,name=None,save=True):
     scandata = scan_module.ScanSaving()
     config = scandata.get()
     root_path = config.get('root_path')
-    save &= default_writer is not None
-    writer = default_writer.Writer(root_path) if save else None
+    writer = config.get('writer') if save else None
     scan_info['save'] = save
     scan_info['root_path'] = root_path
     scan_info['session_name'] = scandata.session

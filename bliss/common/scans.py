@@ -93,42 +93,13 @@ def activate_master_saving(acq_device, activate_flag):
 
 
 def _counters_tree(counters, scan_pars):
-    count_time = scan_pars.get('count_time', 1)
-    npoints = scan_pars.get('npoints', 1)
-    master_integrating_counter = dict()
     tree = ordereddict()
+    master_integrating_counter = dict()
+    npoints = scan_pars.setdefault('npoints', 1)
+    count_time = scan_pars.setdefault('count_time', 1)
 
     # Call the plugins
     counters = default_chain_plugins(tree, counters, scan_pars)
-
-    # MCA specific block
-
-    mca_counters = {}
-    for counter in counters:
-        if isinstance(counter, BaseMcaCounter):
-            mca_counters.setdefault(counter.controller, []).append(counter)
-    for counter_list in mca_counters.values():
-        counters -= set(counter_list)
-    for mca, counter_list in mca_counters.items():
-        acq_device = McaAcquisitionDevice(
-            mca, npoints=npoints, preset_time=count_time,
-            counters=counter_list)
-        tree.setdefault(None, []).append(acq_device)
-
-    # PEPU specific block
-
-    pepu_counters = {}
-    for counter in counters:
-        if isinstance(counter, PepuCounter):
-            pepu_counters.setdefault(counter.controller, []).append(counter)
-    for counter_list in pepu_counters.values():
-        counters -= set(counter_list)
-    for pepu, counter_list in pepu_counters.items():
-        acq_device = PepuAcquisitionDevice(
-            pepu, npoints=npoints, counters=counter_list)
-        tree.setdefault(None, []).append(acq_device)
-
-    # End specific block #
 
     reader_counters = ordereddict()
     for cnt in counters:

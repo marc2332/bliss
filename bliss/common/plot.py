@@ -13,7 +13,6 @@ import zerorpc
 import msgpack_numpy
 
 from bliss.config.channels import Channel
-from bliss.scanning import scan as scan_module
 from bliss.config.conductor.client import get_default_connection
 
 __all__ = ['plot', 'plot_curve', 'plot_curve_list', 'plot_image',

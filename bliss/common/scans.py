@@ -199,7 +199,7 @@ def _counters_tree(counters, scan_pars):
                     acq_device.add_counter(cnt)
                 tree.setdefault(master_acq_device, list()).append(acq_device)
             else:
-                tree.setdefault(master_acq_device, list()).extend([IntegratingCounterAcquisitionDevice(cnt, **scan_pars) for cnt in counters])
+                tree.setdefault(master_acq_device, list()).append(IntegratingCounterAcquisitionDevice(cnt, **scan_pars))
         else:
             master_acq_device = master_integrating_counter.get(reader)
             if master_acq_device is None:

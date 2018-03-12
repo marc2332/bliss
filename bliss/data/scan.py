@@ -168,12 +168,7 @@ def watch_session_scans(session_name, scan_new_callback, scan_new_child_callback
         data_iterator = DataNodeIterator(session_node)
 
         watch_data_task = None
-        last = True
-        for scan_node in data_iterator.walk_from_last(filter='scan'):
-            if last:
-                # skip the last one, we are interested in new ones only
-                last = False
-                continue
+        for scan_node in data_iterator.walk_from_last(filter='scan', include_last=False):
             if watch_data_task:
                 watch_data_task.kill()
 

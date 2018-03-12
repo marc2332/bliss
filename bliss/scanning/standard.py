@@ -5,19 +5,23 @@
 # Copyright (c) 2018 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-"""This module defines the tools and standards for integrating specific
+"""\
+Plugin interface for integrating specific counters in the default chain
+=======================================================================
+
+This module defines the tools and standards for integrating specific
 counters into the default chain.
 
 Counters have two ways to define a specific behavior:
 
-- `create_acquisition_master` method: called (if it exists) with the scan
-    parameters as arguments. It has to return an acquisition master.
+- the `create_acquisition_master` method: called (if it exists) with the scan
+  parameters as single argument. It returns an acquisition master.
 
-- `default_chain_plugin` static method: gathered for all counters
-    (if it exists) at default chain creation. Each distinct plugin
-    function is then called exactly once. It takes the current tree,
-    the counters set and the scan parameters as arguments. It returns
-    a possibly altered set of counters.
+- the `default_chain_plugin` static method: gathered for all counters
+  (if it exists) at default chain creation. Each distinct plugin
+  function is then called exactly once. It takes the current tree,
+  the counters set and the scan parameters as arguments. It returns
+  a possibly altered set of counters.
 
 Example::
 

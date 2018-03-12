@@ -11,9 +11,23 @@ import gevent
 from gevent import event
 from bliss.common.event import dispatcher
 from ..chain import AcquisitionDevice, AcquisitionChannel
-from bliss.common.measurement import GroupedReadMixin
+from bliss.common.measurement import GroupedReadMixin, Counter
 from bliss.common.utils import all_equal
 
+def _get_group_reader(counters_or_groupreadhandler):
+    try:
+        list_iter = iter(counters_or_groupreadhandler)
+    except TypeError:
+        return counters_or_groupreadhandler, list()
+    else:
+        first_counter = list_iter.next()
+        reader = Counter.GROUPED_READ_HANDLERS.get(first_counter)
+        for cnt in list_iter:
+            cnt_reader = Counter.GROUPED_READ_HANDLERS.get(cnt)
+            if cnt_reader != reader:
+                raise RuntimeError("Counters %s doesn't belong to the same group" %\
+                                   counters_or_groupreadhandler)
+        return reader, counters_or_groupreadhandler
 
 class BaseCounterAcquisitionDevice(AcquisitionDevice):
     def __init__(self, counter, count_time, **keys):
@@ -59,10 +73,13 @@ class BaseCounterAcquisitionDevice(AcquisitionDevice):
 class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
     SIMPLE_AVERAGE, TIME_AVERAGE, INTEGRATE = range(3)
 
-    def __init__(self, counter, count_time=None, mode=SIMPLE_AVERAGE, **keys):
+    def __init__(self, counters_or_groupreadhandler,
+                 count_time=None, mode=SIMPLE_AVERAGE, **keys):
         """
         Helper to manage acquisition of a sampling counter.
 
+        counters_or_groupreadhandler -- can be a list,tuple of SamplingCounter or 
+        a group_read_handler
         count_time -- the master integration time.
         mode -- three mode are available *SIMPLE_AVERAGE* (the default)
         which sum all the sampling values and divide by the number of read value.
@@ -74,14 +91,18 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
           * prepare_once --
           * start_once --
         """
+        reader, counters = _get_group_reader(counters_or_groupreadhandler)
         BaseCounterAcquisitionDevice.__init__(
-            self, counter, count_time, **keys)
+            self, reader, count_time, **keys)
 
         self._event = event.Event()
         self._stop_flag = False
         self._ready_event = event.Event()
         self._ready_flag = True
         self.__mode = mode
+
+        for cnt in counters:
+            self.add_counter(cnt)
 
     @property
     def mode(self):
@@ -173,9 +194,12 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
 
 
 class IntegratingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
-    def __init__(self, counter, count_time=None, **keys):
+    def __init__(self, counters_or_groupreadhandler, count_time=None, **keys):
+        reader, counters = _get_group_reader(counters_or_groupreadhandler)
         BaseCounterAcquisitionDevice.__init__(
-            self, counter, count_time, **keys)
+            self, reader, count_time, **keys)
+        for cnt in counters:
+            self.add_counter(cnt)
 
     def prepare(self):
         self.device.prepare(*self.grouped_read_counters)

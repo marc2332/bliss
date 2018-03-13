@@ -30,6 +30,7 @@ import logging
 from docopt import docopt, DocoptExit
 
 from bliss.config import static
+
 from .repl import embed
 
 __all__ = ('main',)

@@ -178,7 +178,7 @@ class Flint:
             except IndexError:
                 x_channel_name = None
             for channel_name, channel_data in data.iteritems():
-                self.set_data(plot.plot_id, channel_name, channel_data)
+                self.update_data(plot.plot_id, channel_name, channel_data)
                 if channel_name not in master_channels:
                     x = data[x_channel_name]
                     y = channel_data
@@ -189,7 +189,7 @@ class Flint:
             spectrum_data = data["data"][-1] # only keep last spectrum for now
             channel_name = data["channel_name"]
             plot = self.live_scan_plots_dict[master_name]["1d"][data["channel_index"]]
-            self.set_data(plot.plot_id, channel_name, spectrum_data)
+            self.update_data(plot.plot_id, channel_name, spectrum_data)
             if spectrum_data.ndim == 1:
                 length, = spectrum_data.shape
                 x = numpy.arange(length)
@@ -203,7 +203,7 @@ class Flint:
             plot = self.live_scan_plots_dict[master_name]["2d"][data["channel_index"]]
             channel_name = data["channel_name"]
             image_data = data["data"][-1]
-            self.set_data(plot.plot_id, channel_name, image_data)
+            self.update_data(plot.plot_id, channel_name, image_data)
             self._submit(plot.addImage, image_data, legend=channel_name)
                     
     def new_tab(self, label, widget=qt.QWidget):
@@ -250,7 +250,7 @@ class Flint:
 
     # Data management
 
-    def set_data(self, wid, field, data):
+    def update_data(self, wid, field, data):
         self.data_dict[wid][field] = data
 
     def remove_data(self, wid, field):

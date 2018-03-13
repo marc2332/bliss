@@ -281,7 +281,7 @@ class BasePlot(object):
             raise ValueError(
                 'Data dimension must be in {} (got {})'
                 .format(self.DATA_DIMENSIONS, data.ndim))
-        return self._flint.set_data(self._plot_id, field, data)
+        return self._flint.update_data(self._plot_id, field, data)
 
     def add_data(self, data, field='default'):
         # Get fields

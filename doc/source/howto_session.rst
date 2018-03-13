@@ -4,14 +4,74 @@ Bliss session how to
 ====================
 
 This chapter explains::
+ * how to deal with bliss command line tool and sessions
  * how to create a BLISS custom session (named *eh1* in this example).
  * how to create a setup file to configure your session.
+
+
+Commands
+--------
+
+Help
+~~~~
+Use ``-h`` flag to get help about bliss command line inteface::
+    
+    (bliss) pcsht:~/PROJECTS/bliss % bliss -h
+     
+    Usage: bliss [-l | --log-level=<log_level>] [-s <name> | --session=<name>]
+           bliss [-c | --create-session=<name>]
+           bliss [-v | --version]
+           bliss [-h | --help]
+           bliss --show-sessions
+           bliss --show-sessions-only
+    
+    Options:
+        -l, --log-level=<log_level>   Log level [default: WARN] (CRITICAL ERROR INFO DEBUG NOTSET)
+        -s, --session=<session_name>  Start with some session
+        -c, --create=<session_name>   Create a new session with the given name
+        -v, --version                 Show version and exit
+        -h, --help                    Show help screen and exit
+        --show-sessions               Display available sessions and tree of sub-sessions
+        --show-sessions-only          Display available sessions names only
+ 
+
+
+
+Sessions list
+~~~~~~~~~~~~~
+
+To get the list of available sessions ::
+     
+     (bliss) pcsht:~/PROJECTS/bliss % bliss --show-sessions
+     Available BLISS sessions are:
+     cyril
+     
+     eh1
+
+Other commands are also displaying the available sessions::
+     bliss --show-sessions-only
+     bliss -s
+
+Version
+~~~~~~~
+Use ``-v`` or ``--version`` flag to get the current version of your BLISS installation::
+
+    % bliss --version
+    BLISS version 0.07
+
+
+
 
 
 automatically
 -------------
 
-TODO : bliss add_session script
+With the command ``bliss --create`` or ``bliss -c`` you can create the skeleton of a new session::
+
+    bliss -c niouses
+
+TO BE DONE...
+
 
 manually
 --------

@@ -251,7 +251,13 @@ class MeasurementGroup(object):
     def __repr__(self):
         """ function used when printing a measurement group.
         """
-        s = 'MeasurementGroup:  %s (%s)\n\n' % (self.name, self.active_state_name)
+        s = "MeasurementGroup: %s (state='%s')\n" % (self.name, self.active_state_name)
+        s += "  - Existing states : "
+        for name in self.state_names:
+            s += "'%s'" % name + '; '
+        s = s.strip('; ')
+        s += '\n\n'
+
         enabled = list(self.enabled) + ['Enabled']
 
         max_len = max((len(x) for x in enabled))

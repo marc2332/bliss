@@ -139,7 +139,7 @@ def test_print(beacon):
     session.setup()
     measurementgroup.set_active_name("test_mg")
     default_mg = getattr(setup_globals, 'ACTIVE_MG')
-    repr_string = 'MeasurementGroup:  test_mg (default)\n\n  Enabled  Disabled\n  -------  -------\n  diode    \n'
+    repr_string = 'MeasurementGroup: test_mg (state=\'default\')\n  - Existing states : \'default\'\n\n  Enabled  Disabled\n  -------  -------\n  diode    \n'
     assert repr(default_mg) == repr_string
 
 

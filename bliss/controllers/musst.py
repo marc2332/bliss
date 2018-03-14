@@ -105,8 +105,11 @@ class musst(object):
         def channel_id(self):
             return self._channel_id
         
-        def run(self):
-            self._cnt_cmd("RUN")
+        def run(self, program_name=None):
+            if program_name is None:
+                self._cnt_cmd("RUN")
+            else:
+                self._cnt_cmd("RUN %s" % program_name)
 
         def stop(self):
             self._cnt_cmd("STOP")

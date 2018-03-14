@@ -15,6 +15,8 @@ import numpy
 class MusstAcquisitionDevice(AcquisitionDevice):
     def __init__(self, musst_dev,
                  program=None,
+                 program_start_name=None,
+                 program_abort_name=None,
                  store_list=None, vars=None,
                  program_template_replacement=None):
         """
@@ -29,6 +31,8 @@ class MusstAcquisitionDevice(AcquisitionDevice):
             self, musst_dev, musst_dev.name, trigger_type=AcquisitionDevice.HARDWARE)
         self.musst = musst_dev
         self.program = program
+        self.program_start_name = program_start_name
+        self.program_abort_name = program_abort_name
         if program_template_replacement is not None:
             self.program_template_replacement = program_template_replacement
         else:
@@ -42,7 +46,7 @@ class MusstAcquisitionDevice(AcquisitionDevice):
         self._iter_index = 0
         self._ready_flag = True
         self._ready_event = event.Event()
-
+        
     def __iter__(self):
         if isinstance(self.vars, (list, tuple)):
             vars_iter = iter(self.vars)
@@ -67,10 +71,15 @@ class MusstAcquisitionDevice(AcquisitionDevice):
         self._ready_flag = True
 
     def start(self):
-        self.musst.run()
+        self.musst.run(self.program_start_name)
 
     def stop(self):
-        self.musst.ABORT
+        if not self._ready_flag:
+            self.musst.ABORT
+            if self.program_abort_name:
+                self.musst.run(self.program_abort_name)
+                while self.musst.STATE == self.musst.RUN_STATE:
+                    gevent.idle()
 
     def wait_ready(self):
         while not self._ready_flag:

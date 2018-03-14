@@ -18,6 +18,7 @@ import contextlib
 import collections
 
 import gevent
+import gevent.event
 import zerorpc
 import msgpack_numpy
 import gevent.monkey
@@ -107,7 +108,9 @@ class Flint:
         self.live_scan_plots_dict = dict()
        
     def set_session(self, session_name):
-        self.scans_watch_task = watch_session_scans(session_name, self.new_scan, self.new_scan_child, self.new_scan_data, wait=False)
+        ready_event = gevent.event.Event()
+        self.scans_watch_task = watch_session_scans(session_name, self.new_scan, self.new_scan_child, self.new_scan_data, ready_event=ready_event, wait=False)
+        ready_event.wait()
 
     def new_scan(self, scan_info):
         # show tab

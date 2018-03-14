@@ -154,7 +154,7 @@ from collections import OrderedDict
 import zerorpc
 import msgpack_numpy
 
-from bliss.common import session
+from bliss.common import session as session_module
 from bliss.config.channels import Channel
 from bliss.config.conductor.client import get_default_connection
 
@@ -201,7 +201,9 @@ def get_flint(pid=None):
     if proxy is None: 
         proxy = zerorpc.Client(url)
         FLINT['proxy'] = proxy
-        proxy.set_session(session.get_current().name)
+        session = session_module.get_current()
+        if session is not None:
+            proxy.set_session(session.name)
     proxy._pid = pid
     return proxy
 

@@ -20,6 +20,7 @@ This module gathers most common functionality to bliss (from
    hook
    log
    measurement
+   plot
    scans
    standard
    task_utils
@@ -74,7 +75,7 @@ class Actuator:
     if self._is_in is not None:
       return self._is_in()
     else:
-      if self._is_out is not None:  
+      if self._is_out is not None:
         return not self._is_out()
       else:
         return self.__in
@@ -97,4 +98,3 @@ class Actuator:
       if not state or state == "INOUT":
           return "UNKNOWN"
       return state
-

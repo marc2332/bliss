@@ -1,4 +1,139 @@
-"""Interface with flint."""
+"""\
+Bliss plotting interface
+========================
+
+Bliss plotting is done through a silx-based application called **flint**.
+
+This Qt application is started automatically when a new plot is created.
+
+This interface supports several types of plot:
+
+- **curve plot**:
+
+  * plotting one or several 1D data as curves
+  * Optional x-axis data can be provided
+  * the plot is created using ``plot_curve``
+
+- **scatter plot**:
+
+  * plotting one or several scattered data
+  * each scatter is a group of three 1D data of same length
+  * the plot is created using ``plot_scatter``
+
+- **image plot**:
+
+  * plot one or several image on top of each other
+  * the image order can be controled using a depth parameter
+  * the plot is created using ``plot_image``
+
+- **image + histogram plot**:
+
+  * plot a single 2D image (greyscale or colormap)
+  * two histograms along the X and Y dimensions are displayed
+  * the plot is created using ``plot_image_with_histogram``
+
+- **curve list plot**:
+
+  * plot a single list of 1D data as curves
+  * a slider and an envelop view are provided
+  * the plot is created using ``plot_curve_list``
+  * this widget is not integrated yet!
+
+- **image stack plot**:
+
+  * plot a single stack of image
+  * a slider is provided to browse the images
+  * the plot is created using ``plot_image_stack``
+
+An extra helper called ``plot`` is provided to automatically infer
+a suitable type of plot from the data provided.
+
+Basic interface
+---------------
+
+All the above functions provide the same interface. They take the data
+as an argument and return a plot:
+
+    >>> from bliss.common.plot import *
+
+    >>> plot(mydata, name="My plot")
+    ImagePlot(plot_id=1, flint_pid=17450)
+
+Extra keyword arguments are forwarded to silx:
+
+    >>> p = plot(mydata, xlabel='A', ylabel='b')
+
+From then on, all the interaction with the corresponding plot window goes
+through the plot object. For instance, it provides a ``plot`` method
+to add and display extra data:
+
+    >>> p.plot(some_extra_data, yaxis='right')
+
+
+Advanced interface
+------------------
+
+For a finer control over the plotted data, the data management is
+separated from the plot management. In order to add more data to
+the plot, use the following interface:
+
+    >>> p.add_data(cos_data, field='cos')
+
+This data is now identified using its field, ``'cos'``. A dict or
+a structured numpy array can also be provided. In this case,
+the fields of the provided data structure are used as identifiers:
+
+    >>> p.add_data({'cos': cos_data, 'sin': sin_data})
+
+The plot selection is then done through the ``select_data`` method.
+For a curve plot, the expected arguments are the names of the data
+to use for X and Y:
+
+    >>> p.select_data('sin', 'cos')
+
+Again, the extra keyword arguments will be forwarded to silx:
+
+    >>> p.select_data('sin', 'cos', color='green', symbol='x')
+
+The curve can then be deselected:
+
+    >>> p.deselect_data('sin', 'cos')
+
+And the data can be cleared:
+
+    >>> p.clear_data()
+
+
+Plot interaction
+----------------
+
+In order to interact with a given plot, several methods are provided.
+
+The ``select_points`` method allows the user to select a given number of point
+on the corresponding plot using their mouse.
+
+    >>> a, b, c = p.select_points(3)
+    # Blocks until the user selects the 3 points
+    >>> a
+    (1.2, 3.4)
+
+The ``select_shape`` methods allows the user to select a given shape on the
+corresponding plot using their mouse. The available shapes are:
+
+- ``'rectangle'``: rectangle selection
+- ``'line'``: line selection
+- ``'hline'``: horizontal line selection
+- ``'vline'``: vertical line selection
+- ``'polygon'``: polygon selection
+
+The return values are shown in the following example:
+
+   >>> topleft, bottomright = p.select_shape('rectangle')
+   >>> start, stop = p.select_shape('line')
+   >>> left, right = p.select_shape('hline')
+   >>> bottom, top = p.select_shape('vline')
+   >>> points = p.select_shape('polygon')
+"""
 
 # Imports
 
@@ -17,7 +152,7 @@ from bliss.scanning import scan as scan_module
 from bliss.config.conductor.client import get_default_connection
 
 __all__ = ['plot', 'plot_curve', 'plot_curve_list', 'plot_image',
-           'plot_scatter', 'plot_single_image', 'plot_image_stack']
+           'plot_scatter', 'plot_image_with_histogram', 'plot_image_stack']
 
 # Globals
 
@@ -140,7 +275,7 @@ class BasePlot(object):
                 .format(self.DATA_DIMENSIONS, data.ndim))
         return self._flint.add_data(self._plot_id, field, data)
 
-    def add_data(self, data, default_field='default'):
+    def add_data(self, data, field='default'):
         # Get fields
         if isinstance(data, dict):
             fields = list(data)
@@ -148,7 +283,7 @@ class BasePlot(object):
             fields = numpy.array(data).dtype.fields
         # Single data
         if fields is None:
-            data_dict = OrderedDict([(default_field, data)])
+            data_dict = OrderedDict([(field, data)])
         # Multiple data
         else:
             data_dict = OrderedDict((field, data[field]) for field in fields)
@@ -303,7 +438,7 @@ class ImagePlot(BasePlot):
     DATA_INPUT_NUMBER = 1
 
 
-class SingleImagePlot(BasePlot):
+class HistogramImagePlot(BasePlot):
 
     # Name of the corresponding silx widget
     WIDGET = 'ImageView'
@@ -345,7 +480,7 @@ plot_curve = CurvePlot.instanciate
 plot_curve_list = CurveListPlot.instanciate
 plot_scatter = ScatterPlot.instanciate
 plot_image = ImagePlot.instanciate
-plot_single_image = SingleImagePlot.instanciate
+plot_image_with_histogram = HistogramImagePlot.instanciate
 plot_image_stack = ImageStackPlot.instanciate
 
 

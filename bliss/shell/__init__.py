@@ -139,7 +139,7 @@ class ScanListener:
             # name is in the form 'acq_master:channel_name'
             if channel_short_name == 'timestamp':
                 # timescan
-                self.col_labels.append('dt(s)')
+                self.col_labels.insert(1, 'dt(s)')
             else:
                 # we can suppose channel_name to be a motor name
                 try:
@@ -159,17 +159,16 @@ class ScanListener:
                         self.col_labels.append(motor_label)
 
         for channel_name in channels["scalars"]:
-            counter_label = channel_name.split(":")[-1]
-            if counter_label == 'timestamp':
-                counter_label = 'dt'
-                unit = 's'
+            counter_name = channel_name.split(":")[-1]
+            if counter_name == 'timestamp':
+                self.col_labels.insert(1,  "dt(s)")
+                continue
             else:
-                self.counters.append(counter_label)
-                #unit = _find_unit(counter)
-                unit = None
-            if unit:
-                counter_label += '({0})'.format(unit)
-            self.col_labels.append(counter_label)
+                self.counters.append(counter_name)
+                unit = _find_unit(config.get(counter_name))
+                if unit:
+                    counter_name += '({0})'.format(unit)
+                self.col_labels.append(counter_name)
 
         estimation = scan_info.get('estimation')
         if estimation:
@@ -204,9 +203,8 @@ class ScanListener:
         master, channels = next(scan_info['acquisition_chain'].iteritems())
 
         if 'timestamp' in values:
-            elapsed_time = values['timestamp'] - scan_info['start_timestamp']
+            elapsed_time = values.pop('timestamp') - scan_info['start_timestamp']
             values['dt'] = elapsed_time
-            del values['timestamp']
         
         motor_values = [values[motor.name] for motor in self.real_motors]
         counter_values = [values[counter_name] for counter_name in self.counters]

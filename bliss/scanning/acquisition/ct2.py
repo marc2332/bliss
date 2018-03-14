@@ -68,7 +68,8 @@ class CT2AcquisitionMaster(AcquisitionMaster):
         self.device.prepare_acq()
 
     def start(self):
-        if self.parent is None: # top master
+        if(self.parent is None or # top master
+           self.trigger_type == AcquisitionMaster.HARDWARE):
             self.trigger()
 
     def stop(self):

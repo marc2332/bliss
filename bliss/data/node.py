@@ -120,7 +120,7 @@ class DataNodeIterator(object):
         self.node = node
         self.last_child_id = dict() if last_child_id is None else last_child_id
 
-    def walk(self, filter=None, wait=True):
+    def walk(self, filter=None, wait=True, ready_event=None):
         """Iterate over child nodes that match the `filter` argument
 
            If wait is True (default), the function blocks until a new node appears
@@ -151,12 +151,15 @@ class DataNodeIterator(object):
                     if filter is None or n.type in filter:
                         yield n
         if wait:
+            if ready_event is not None:
+                ready_event.set()
+
             # yield from self.wait_for_event(pubsub)
             for event_type, value in self.wait_for_event(pubsub, filter):
                 if event_type is self.NEW_CHILD_EVENT:
                     yield value
 
-    def walk_from_last(self, filter=None, wait=True, include_last=True):
+    def walk_from_last(self, filter=None, wait=True, include_last=True, ready_event=None):
         """Walk from the last child node (see walk)
         """
         pubsub = self.children_event_register()
@@ -169,11 +172,14 @@ class DataNodeIterator(object):
                 yield last_node
 
         if wait:
+            if ready_event is not None:
+                ready_event.set()
+
             for event_type, node in self.wait_for_event(pubsub, filter=filter):
                 if event_type is self.NEW_CHILD_EVENT:
                     yield node
 
-    def walk_events(self, filter=None):
+    def walk_events(self, filter=None, ready_event=None):
         """Walk through child nodes, just like `walk` function, yielding node events
         (like NEW_CHILD_EVENT or NEW_DATA_IN_CHANNEL_EVENT) instead of node objects
         """
@@ -181,6 +187,9 @@ class DataNodeIterator(object):
 
         for node in self.walk(filter, wait=False):
             yield self.NEW_CHILD_EVENT, node
+
+        if ready_event is not None:
+            ready_event.set()
 
         for event_type, event_data in self.wait_for_event(pubsub, filter=filter):
             yield event_type, event_data

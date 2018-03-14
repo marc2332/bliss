@@ -164,14 +164,14 @@ def _watch_data(scan_node, scan_new_callback, scan_new_child_callback, scan_data
                     break
 
 @task
-def watch_session_scans(session_name, scan_new_callback, scan_new_child_callback, scan_data_callback):
+def watch_session_scans(session_name, scan_new_callback, scan_new_child_callback, scan_data_callback, ready_event=None):
     session_node = _get_or_create_node(session_name, node_type='session')
     if session_node is not None:
         data_iterator = DataNodeIterator(session_node)
 
         watch_data_task = None
         try:
-            for scan_node in data_iterator.walk_from_last(filter='scan', include_last=False):
+            for scan_node in data_iterator.walk_from_last(filter='scan', include_last=False, ready_event=ready_event):
                 if watch_data_task:
                     watch_data_task.kill()
 
@@ -182,6 +182,8 @@ def watch_session_scans(session_name, scan_new_callback, scan_new_child_callback
                         sys.excepthook(*sys.exc_info())
 
                 watch_data_task = gevent.spawn(safe_watch_data, scan_node, scan_new_callback, scan_new_child_callback, scan_data_callback)
+        except Exception:
+            sys.excepthook(*sys.exc_info())
         finally:
             if watch_data_task:
                 watch_data_task.kill()

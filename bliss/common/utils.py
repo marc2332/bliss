@@ -6,6 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import inspect
+import gevent
 import types
 import itertools
 import functools

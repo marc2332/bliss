@@ -108,6 +108,16 @@ class Flint:
         self.live_scan_mdi_area = self.new_tab("Live scan", qt.QMdiArea)
         self.live_scan_plots_dict = dict()
 
+        self.set_title(None)
+
+    def set_title(self, session_name):
+        window = self._submit(self.parent_tab.window)
+        if not session_name:
+            session = "no BLISS attached."
+        else:
+            session = "attached to BLISS '%s`" % session_name
+        self._submit(window.setWindowTitle, 'Flint (PID={}) - {}'.format(os.getpid(), session))
+
     def get_session(self):
         return self._session_name    
 
@@ -123,9 +133,7 @@ class Flint:
         ready_event.wait()
     
         self._session_name = session_name
-        get_main_window().set_session(session_name)
-
-        get_main_window().set_session(session_name)
+        self.set_title(session_name)
 
     def new_scan(self, scan_info):
         # show tab
@@ -343,27 +351,9 @@ class QtLogHandler(logging.Handler):
 
 # Main execution
 
-def get_main_window(window={}):
-    w = window.get('widget')
-    if w is None:
-        w = qt.QMainWindow()
-        window['widget'] = w
-
-        def set_session(session_name, main_window=w, executor=QtExecutor()):
-            if not session_name:
-                session = "no BLISS attached."
-            else:
-                session = "attached to BLISS '%s`" % session_name
-            executor.submit(w.setWindowTitle, 'Flint (PID={}) - {}'.format(os.getpid(), session))
-
-        set_session(None)
-        w.set_session = set_session
-
-    return w
-
 def main():
     qapp = qt.QApplication(sys.argv)
-    win = get_main_window()
+    win = qt.QMainWindow()
     tabs = qt.QTabWidget(win)
     win.setCentralWidget(tabs)
     log_dock = qt.QDockWidget("Log output", win)

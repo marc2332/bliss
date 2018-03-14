@@ -113,9 +113,9 @@ class Flint:
     def set_title(self, session_name):
         window = self._submit(self.parent_tab.window)
         if not session_name:
-            session = "no BLISS attached."
+            session = "no session attached."
         else:
-            session = "attached to BLISS '%s`" % session_name
+            session = "attached to '%s`" % session_name
         self._submit(window.setWindowTitle, 'Flint (PID={}) - {}'.format(os.getpid(), session))
 
     def get_session(self):

@@ -16,14 +16,14 @@ Usage: bliss [-l | --log-level=<log_level>] [-s <name> | --session=<name>]
 
 Options:
     -l, --log-level=<log_level>   Log level [default: WARN] (CRITICAL ERROR INFO DEBUG NOTSET)
-    -s, --session=<session_name>  Start with some session
-    -c, --create=<session_name>   Create a new session with the given name
+    -s, --session=<session_name>  Start with the specified session
     -v, --version                 Show version and exit
     -h, --help                    Show help screen and exit
     --show-sessions               Display available sessions and tree of sub-sessions
     --show-sessions-only          Display available sessions names only
  
 """
+#-c, --create=<session_name>   Create a new session with the given name
 
 import sys
 import logging
@@ -99,15 +99,15 @@ def main():
         exit(0)
 
     # Create session
-    if arguments['--create']:
-        session_name = arguments['--create'][0]
-        if session_name in sessions_list:
-            print ("Session '%s' cannot be created: it already exists." % session_name)
-            exit(0)
-        else:
-            print ("Creation of '%s' session : To be implemented :) " % session_name)
-            # exit or launch new session ?
-            exit(0)
+    #if arguments['--create']:
+    #    session_name = arguments['--create'][0]
+    #    if session_name in sessions_list:
+    #        print ("Session '%s' cannot be created: it already exists." % session_name)
+    #        exit(0)
+    #    else:
+    #        print ("Creation of '%s' session : To be implemented :) " % session_name)
+    #        # exit or launch new session ?
+    #        exit(0)
 
     # Start a specific session
     if arguments['--session']:

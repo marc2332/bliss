@@ -36,10 +36,6 @@ def _on_event(obj, event_dict, signal, device):
 
         last_point_index = dataset.last_point_index
 
-        if len(data.shape) == 1:
-            # this is to make h5py happy
-            data.shape = (-1, 1)
-
         data_len = data.shape[0]
         new_point_index = dataset.last_point_index + data_len
 

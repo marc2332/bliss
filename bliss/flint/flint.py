@@ -103,14 +103,27 @@ class Flint:
         self.selector_dict = collections.defaultdict(list)
         self.data_dict = collections.defaultdict(dict)
         self.scans_watch_task = None
+        self._session_name = None
 
         self.live_scan_mdi_area = self.new_tab("Live scan", qt.QMdiArea)
         self.live_scan_plots_dict = dict()
-       
+
+    def get_session(self):
+        return self._session_name    
+
     def set_session(self, session_name):
+        if session_name == self._session_name:
+            return
+
+        if self.scans_watch_task:
+            self.scans_watch_task.kill()
+
         ready_event = gevent.event.Event()
         self.scans_watch_task = watch_session_scans(session_name, self.new_scan, self.new_scan_child, self.new_scan_data, ready_event=ready_event, wait=False)
         ready_event.wait()
+    
+        self._session_name = session_name
+        get_main_window().set_session(session_name)
 
     def new_scan(self, scan_info):
         # show tab

@@ -246,7 +246,7 @@ class musst(object):
         self.__block_size = config_tree.get('block_size',8*1024)
         
         #Configured channels
-        self._channels = dict()
+        self._channels = OrderedDict()
         channels_list = config_tree.get('channels',list())
         for channel_config in channels_list:
             channel_number = channel_config.get('channel')
@@ -265,10 +265,11 @@ class musst(object):
                     raise RuntimeError("musst: channels (%s) switch object must have states_list method" % channel_number)
 
                 for channel_name in ext_switch.states_list():
-                    self._channels[channel_name] = self.get_channel(channel_number,
-                                                                    type=channel_type,
-                                                                    switch=ext_switch,
-                                                                    switch_name=channel_name)
+                    if channel_name not in self._channels:
+                        self._channels[channel_name] = self.get_channel(channel_number,
+                                                                        type=channel_type,
+                                                                        switch=ext_switch,
+                                                                        switch_name=channel_name)
             else:
                 raise RuntimeError("musst: channel type can only be of type (cnt,encoder,ssi,adc5,adc10,switch)")
         

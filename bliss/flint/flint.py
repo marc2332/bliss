@@ -245,32 +245,32 @@ class Flint:
     # Plot management
 
     def add_plot(self, cls_name, name=None):
-        wid = next(self._id_generator)
+        plot_id = next(self._id_generator)
         if not name:
-            name = 'Plot %d' % wid
+            name = 'Plot %d' % plot_id
         new_tab_widget = self.new_tab(name)
         self._submit(qt.QVBoxLayout, new_tab_widget)
         cls = getattr(silx_plot, cls_name)
         plot = self._submit(cls, new_tab_widget)
-        self.plot_dict[wid] = plot
+        self.plot_dict[plot_id] = plot
         self._submit(self._submit(new_tab_widget.layout).addWidget, plot)
         self._submit(plot.show)
-        return wid
+        return plot_id
 
-    def get_plot_name(self, wid):
-        parent = self._submit(self.plot_dict[wid].parent)
+    def get_plot_name(self, plot_id):
+        parent = self._submit(self.plot_dict[plot_id].parent)
         index = self._submit(self.parent_tab.indexOf, parent)
         label = self._submit(self.parent_tab.tabText, index)
         return label
 
-    def remove_plot(self, wid):
-        plot = self.plot_dict.pop(wid)
+    def remove_plot(self, plot_id):
+        plot = self.plot_dict.pop(plot_id)
         index = self._submit(self.parent_tab.indexOf, self._submit(plot.parent))
         self._submit(self.parent_tab.removeTab, index)
         self._submit(plot.close)
 
-    def get_interface(self, wid):
-        plot = self.plot_dict[wid]
+    def get_interface(self, plot_id):
+        plot = self.plot_dict[plot_id]
         names = self._submit(dir, plot)
 
         # Factorize the calls
@@ -283,47 +283,47 @@ class Flint:
 
     # Data management
 
-    def update_data(self, wid, field, data):
-        self.data_dict[wid][field] = data
+    def update_data(self, plot_id, field, data):
+        self.data_dict[plot_id][field] = data
 
-    def remove_data(self, wid, field):
-        del self.data_dict[wid][field]
+    def remove_data(self, plot_id, field):
+        del self.data_dict[plot_id][field]
 
-    def get_data(self, wid, field=None):
+    def get_data(self, plot_id, field=None):
         if field is None:
-            return self.data_dict[wid]
+            return self.data_dict[plot_id]
         else:
-            return self.data_dict[wid].get(field, [])
+            return self.data_dict[plot_id].get(field, [])
 
-    def select_data(self, wid, method, names, kwargs):
-        plot = self.plot_dict[wid]
+    def select_data(self, plot_id, method, names, kwargs):
+        plot = self.plot_dict[plot_id]
         # Hackish legend handling
         if 'legend' not in kwargs and method.startswith('add'):
             kwargs['legend'] = ' -> '.join(names)
         # Get the data to plot
-        args = tuple(self.data_dict[wid][name] for name in names)
+        args = tuple(self.data_dict[plot_id][name] for name in names)
         method = getattr(plot, method)
         # Plot
         self._submit(method, *args, **kwargs)
 
-    def deselect_data(self, wid, names):
-        plot = self.plot_dict[wid]
+    def deselect_data(self, plot_id, names):
+        plot = self.plot_dict[plot_id]
         legend = ' -> '.join(names)
         self._submit(plot.remove, legend)
 
-    def clear_data(self, wid):
-        del self.data_dict[wid]
-        plot = self.plot_dict[wid]
+    def clear_data(self, plot_id):
+        del self.data_dict[plot_id]
+        plot = self.plot_dict[plot_id]
         self._submit(plot.clear)
 
     # User interaction
 
-    def _selection(self, wid, cls, *args):
+    def _selection(self, plot_id, cls, *args):
         # Instanciate selector
-        plot = self.plot_dict[wid]
+        plot = self.plot_dict[plot_id]
         selector = self._submit(cls, plot)
         # Save it for future cleanup
-        self.selector_dict[wid].append(selector)
+        self.selector_dict[plot_id].append(selector)
         # Run the selection
         self._submit(selector.start, *args)
         queue = create_queue_from_qt_signal(selector.selectionFinished)
@@ -333,14 +333,14 @@ class Flint:
             disconnect_queue_from_qt_signal(queue)
         return positions
 
-    def select_points(self, wid, nb):
-        return self._selection(wid, PointsSelector, nb)
+    def select_points(self, plot_id, nb):
+        return self._selection(plot_id, PointsSelector, nb)
 
-    def select_shape(self, wid, shape):
-        return self._selection(wid, ShapeSelector, shape)
+    def select_shape(self, plot_id, shape):
+        return self._selection(plot_id, ShapeSelector, shape)
 
-    def clear_selections(self, wid):
-        for selector in self.selector_dict.pop(wid):
+    def clear_selections(self, plot_id):
+        for selector in self.selector_dict.pop(plot_id):
             self._submit(selector.reset)
 
 

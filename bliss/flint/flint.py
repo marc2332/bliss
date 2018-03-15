@@ -187,14 +187,14 @@ class Flint:
 
             scalars_plot_win = silx_plot.Plot1D()
             scalars_plot_win.plot_id = master+"_0d"
-            self.plot_dict[scalars_plot_win.plot_id] = (scalars_plot_win, None)
+            self.plot_dict[scalars_plot_win.plot_id] = scalars_plot_win
             self.live_scan_plots_dict[master] = {
                 '0d': [scalars_plot_win],
                 '1d': [],
                 '2d': []}
             self.live_scan_mdi_area.addSubWindow(scalars_plot_win)
             scalars_plot_win.setWindowTitle(master+' -> scalar counters')
-            logging.info("%s", scalars)
+ 
             if not scalars:
                 scalars_plot_win.hide()
             else:
@@ -204,7 +204,7 @@ class Flint:
                 # spectrum_win = silx_plot.CurvesView)
                 spectrum_win = silx_plot.Plot1D()
                 spectrum_win.plot_id = master+"_1d"
-                self.plot_dict[spectrum_win.plot_id] = (spectrum_win, None)
+                self.plot_dict[spectrum_win.plot_id] = spectrum_win
                 self.live_scan_plots_dict[master]['1d'].append(spectrum_win)
                 self.live_scan_mdi_area.addSubWindow(spectrum_win)
                 spectrum_win.setWindowTitle(master+' -> '+spectrum+' spectrum')
@@ -213,7 +213,7 @@ class Flint:
             for image in images:
                 image_win = silx_plot.Plot2D()
                 image_win.plot_id = master+"_2d"
-                self.plot_dict[image_win.plot_id] = (image_win, None)
+                self.plot_dict[image_win.plot_id] = image_win
                 self.live_scan_plots_dict[master]['2d'].append(image_win)
                 self.live_scan_mdi_area.addSubWindow(image_win)
                 image_win.setWindowTitle(master+' -> '+image+' image')
@@ -299,8 +299,11 @@ class Flint:
 
     def get_plot_name(self, plot_id):
         parent = self.plot_dict[plot_id].parent()
-        index = self.parent_tab.indexOf(parent)
-        label = self.parent_tab.tabText(index)
+        if isinstance(parent, qt.QMdiArea):
+            label = parent.windowTitle()
+        else:
+            index = self.parent_tab.indexOf(parent)
+            label = self.parent_tab.tabText(index)
         return label
 
     def remove_plot(self, plot_id):

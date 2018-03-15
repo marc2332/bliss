@@ -113,7 +113,7 @@ def qt_safe_class(cls=None, ignore=()):
     return decorator(cls)
 
 
-@qt_safe_class(ignore=('set_session'))
+@qt_safe_class(ignore=('set_session', 'new_scan_data'))
 class Flint:
     """Flint interface, meant to be exposed through an RPC server."""
 
@@ -225,9 +225,15 @@ class Flint:
         pass
 
     def new_scan_data(self, data_type, master_name, data):
+        last_data = data["data"]
+        if data_type in ('1d', '2d'):
+            last_data = last_data[-1]
+        
+        return self.safe_new_scan_data(data_type, master_name, data, last_data)
+
+    def safe_new_scan_data(self, data_type, master_name, data, last_data):
         if data_type == '0d':
             master_channels = data["master_channels"]
-            data = data["data"]
 
             plot = self.live_scan_plots_dict[master_name]["0d"][0]
 
@@ -235,10 +241,10 @@ class Flint:
                 x_channel_name = master_channels[0]
             except IndexError:
                 x_channel_name = None
-            for channel_name, channel_data in data.iteritems():
+            for channel_name, channel_data in last_data.iteritems():
                 self.update_data(plot.plot_id, channel_name, channel_data)
                 if channel_name not in master_channels:
-                    x = data[x_channel_name]
+                    x = last_data[x_channel_name]
                     y = channel_data
                     dlen = min(len(x), len(y))
                     if dlen > 0:
@@ -246,7 +252,7 @@ class Flint:
                             x[:dlen], y[:dlen],
                             legend='%s -> %s' % (x_channel_name, channel_name))
         elif data_type == '1d':
-            spectrum_data = data["data"][-1]  # only keep last spectrum for now
+            spectrum_data = last_data 
             channel_name = data["channel_name"]
             plot = self.live_scan_plots_dict[master_name]["1d"][data["channel_index"]]
             self.update_data(plot.plot_id, channel_name, spectrum_data)
@@ -262,7 +268,7 @@ class Flint:
         elif data_type == '2d':
             plot = self.live_scan_plots_dict[master_name]["2d"][data["channel_index"]]
             channel_name = data["channel_name"]
-            image_data = data["data"][-1]
+            image_data = last_data
             self.update_data(plot.plot_id, channel_name, image_data)
             plot.addImage(image_data, legend=channel_name)
 

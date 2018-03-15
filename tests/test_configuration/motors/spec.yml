@@ -1,0 +1,14 @@
+controller:
+- class: spec
+  spec: basil:spec
+  axes:
+  - name: spec_m0
+    mnemonic: m0
+    steps_per_unit: 1
+    velocity: 100
+    acceleration: 300
+  - name: spec_m1
+    mnemonic: m1
+    steps_per_unit: 1
+    velocity: 100
+    acceleration: 300

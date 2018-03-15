@@ -3,8 +3,8 @@
 # Import
 
 import sys
+import functools
 
-import six
 import gevent.event
 import gevent.queue
 
@@ -13,7 +13,7 @@ from concurrent.futures import Future
 
 # Global
 
-__all__ = ['submit_to_qt_application',
+__all__ = ['submit_to_qt_application', 'qt_safe',
            'connect_to_qt_signal', 'disconnect_from_qt_signal',
            'create_queue_from_qt_signal', 'disconnect_queue_from_qt_signal']
 
@@ -31,11 +31,15 @@ class QtExecutor(qt.QObject):
         # Makes sure the executor lives in the main thread
         app = qt.QApplication.instance()
         assert app is not None
-        mainThread = app.thread()
-        if self.thread() != mainThread:
-            self.moveToThread(mainThread)
+        self.main_thread = app.thread()
+        if self.thread() != self.main_thread:
+            self.moveToThread(self.main_thread)
         # Connect signals
         self._submit.connect(self._run)
+
+    @property
+    def safe(self):
+        return self.main_thread is self.main_thread.currentThread()
 
     def submit(self, fn, *args, **kwargs):
         future = Future()
@@ -87,6 +91,9 @@ def submit_to_qt_application(fn, *args, **kwargs):
     # Lazy loading
     if EXECUTOR is None:
         EXECUTOR = QtExecutor()
+    # Syncronous shortcut
+    if EXECUTOR.safe:
+        return fn(*args, **kwargs)
     future = EXECUTOR.submit(fn, *args, **kwargs)
     # Hack: add a timeout so gevent doesn't freak out
     return concurrent_to_gevent(future).get(timeout=float('inf'))
@@ -133,3 +140,11 @@ def disconnect_queue_from_qt_signal(queue):
     """
     disconnect_from_qt_signal(*queue._qt_args)
     queue.put(StopIteration)
+
+
+def qt_safe(func):
+    """Use a decorator to make a function qt safe"""
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        return submit_to_qt_application(func, *args, **kwargs)
+    return wrapper

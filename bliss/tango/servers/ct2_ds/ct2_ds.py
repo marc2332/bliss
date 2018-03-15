@@ -9,6 +9,7 @@
 
 CT2 (P201/C208) ESRF counter card TANGO device
 """
+from __future__ import absolute_import
 
 __all__ = ["CT2", "main"]
 

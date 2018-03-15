@@ -16,6 +16,7 @@ To configure it in Jive:
    Add property: 'session_name'. Value is the name of the session
                  (not mandatory. defaults to the server instance)
 """
+from __future__ import absolute_import
 
 import os
 import sys

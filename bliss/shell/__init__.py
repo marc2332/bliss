@@ -22,6 +22,7 @@ from blessings import Terminal
 from bliss import setup_globals
 from bliss.config import static
 from bliss.scanning import scan
+from bliss.common.axis import Axis
 from bliss.common.event import dispatcher
 from bliss.config.conductor.client import get_default_connection
 from bliss.shell.bliss_banners import print_rainbow_banner
@@ -117,52 +118,57 @@ class ScanListener:
         dispatcher.connect(self.__on_scan_end, 'scan_end', scan)
 
     def __on_scan_new(self, scan_info):
+        config = static.get_config()
         scan_info = dict(scan_info)
-        self.term = term = Terminal(scan_info.get('stream'))
+        self.term = Terminal(scan_info.get('stream'))
         scan_info = dict(scan_info)
-        try:
-            motors = scan_info['motors']
-        except KeyError:        # @todo  remove this
-            return              # silently ignoring for continuous scan
-        counters = scan_info['counters']
         nb_points = scan_info['npoints']
+
         if not scan_info['save']:
             scan_info['root_path'] = '<no saving>'
-        col_labels = ['#']
-        real_motors = []
-        for motor in motors:
-            motor_name = motor.name
-            # replace time_stamp with elapsed_time
-            if motor_name == 'timestamp':
-                motor_name = 'dt'
-                unit = 's'
-            else:
-                real_motors.append(motor)
-                if term.is_a_tty:
-                    dispatcher.connect(self.__on_motor_position_changed,
-                                       signal='position', sender=motor)
-                unit = motor.config.get('unit', default=None)
-            motor_label = motor_name
-            if unit:
-                motor_label += '({0})'.format(unit)
-            col_labels.append(motor_label)
 
-        for counter in counters:
-            counter_label = counter.name
-            unit = _find_unit(counter)
-            if unit:
-                counter_label += '({0})'.format(unit)
-            col_labels.append(counter_label)
-
-        self.col_labels = col_labels
-        self.real_motors = real_motors
+        self.col_labels = ['#']
+        self.real_motors = []
+        self.counters = []        
         self._point_nb = 0
 
-        if not scan_info['save']:
-            scan_info['root_path'] = '<no file>'
+        master, channels = next(scan_info['acquisition_chain'].iteritems())
 
-        if scan_info['type'] == 'ct':
-            return
+        for channel_name in channels["master"]["scalars"]:
+            channel_short_name = channel_name.split(":")[-1]
+            # name is in the form 'acq_master:channel_name'
+            if channel_short_name == 'timestamp':
+                # timescan
+                self.col_labels.insert(1, 'dt(s)')
+            else:
+                # we can suppose channel_name to be a motor name
+                try:
+                    motor = config.get(channel_short_name)
+                except Exception:
+                    continue
+                else:
+                    if isinstance(motor, Axis):
+                        self.real_motors.append(motor)
+                        if self.term.is_a_tty:
+                            dispatcher.connect(self.__on_motor_position_changed,
+                                               signal='position', sender=motor)
+                        unit = motor.config.get('unit', default=None)
+                        motor_label = motor.name
+                        if unit:
+                            motor_label += '({0})'.format(unit)
+                        self.col_labels.append(motor_label)
+
+        for channel_name in channels["scalars"]:
+            counter_name = channel_name.split(":")[-1]
+            if counter_name == 'timestamp':
+                self.col_labels.insert(1,  "dt(s)")
+                continue
+            else:
+                self.counters.append(counter_name)
+                unit = _find_unit(config.get(counter_name))
+                if unit:
+                    counter_name += '({0})'.format(unit)
+                self.col_labels.append(counter_name)
 
         estimation = scan_info.get('estimation')
         if estimation:
@@ -173,18 +179,18 @@ class ScanListener:
         else:
             estimation_str = ''
 
-        other_counters = scan_info.get('other_counters', list())
-        if other_counters:
+        other_channels=[channel_name.split(":")[-1] for channel_name in channels['spectra']+channels['images']]
+        if other_channels:
             not_shown_counters_str = 'Activated counters not shown: %s\n' % \
-                                     ', '.join((c.name for c in other_counters))
+                                     ', '.join(other_channels)
         else:
             not_shown_counters_str = ''
 
-        col_lens = map(lambda x: max(len(x), self.DEFAULT_WIDTH), col_labels)
+        col_lens = map(lambda x: max(len(x), self.DEFAULT_WIDTH), self.col_labels)
         h_templ = ["{{0:>{width}}}".format(width=col_len)
                    for col_len in col_lens]
         header = "  ".join([templ.format(label)
-                            for templ, label in zip(h_templ, col_labels)])
+                            for templ, label in zip(h_templ, self.col_labels)])
         header = self.HEADER.format(column_header=header,
                                     estimation_str=estimation_str,
                                     not_shown_counters_str=not_shown_counters_str,
@@ -194,10 +200,15 @@ class ScanListener:
         print_(header)
 
     def __on_scan_data(self, scan_info, values):
-        elapsed_time = values['timestamp'] - scan_info['start_time_stamp']
-        motors = scan_info['motors'][1:]  # take out timestamp placeholder
-        motor_values = [values[m.name] for m in motors]
-        counter_values = [values[c.name] for c in scan_info['counters']]
+        master, channels = next(scan_info['acquisition_chain'].iteritems())
+
+        if 'timestamp' in values:
+            elapsed_time = values.pop('timestamp') - scan_info['start_timestamp']
+            values['dt'] = elapsed_time
+        
+        motor_values = [values[motor.name] for motor in self.real_motors]
+        counter_values = [values[counter_name] for counter_name in self.counters]
+
         values = [elapsed_time] + motor_values + counter_values
         if scan_info['type'] == 'ct':
             # ct is actually a timescan(npoints=1).
@@ -234,7 +245,7 @@ class ScanListener:
                                   signal='position', sender=motor)
 
         end = datetime.datetime.fromtimestamp(time.time())
-        start = datetime.datetime.fromtimestamp(scan_info['start_time_stamp'])
+        start = datetime.datetime.fromtimestamp(scan_info['start_timestamp'])
         dt = end - start
         if scan_info.get('output_mode', 'tail') == 'monitor' and self.term.is_a_tty:
             print_()

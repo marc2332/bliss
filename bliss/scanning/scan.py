@@ -14,8 +14,10 @@ import sys
 from treelib import Tree
 import time
 import logging
+import datetime
 
 from bliss.common.event import connect, send
+from bliss.common.plot import get_flint
 from bliss.common.utils import periodic_exec
 from bliss.config.conductor import client
 from bliss.config.settings import Parameters, _change_to_obj_marshalling
@@ -34,15 +36,12 @@ class StepScanDataWatch(object):
     This produce event compatible with the ScanListener class (bliss.shell)
     """
 
-    def __init__(self, scan_info):
-        self._motors = scan_info['motors']
-        self._motors_name = [x.name for x in self._motors]
+    def __init__(self):
         self._last_point_display = -1
         self._channel_name_2_channel = dict()
-        self._scan_info = scan_info
         self._init_done = False
 
-    def __call__(self, data_events, nodes, info):
+    def __call__(self, data_events, nodes, scan_info):
         if self._init_done is False:
             for acq_device_or_channel, data_node in nodes.iteritems():
                 if is_zerod(data_node):
@@ -66,7 +65,7 @@ class StepScanDataWatch(object):
             values = dict([(ch_name, ch.get(point_nb))
                            for ch_name, ch in self._channel_name_2_channel.iteritems()])
             send(current_module, "scan_data",
-                 self._scan_info, values)
+                 scan_info, values)
         if min_nb_points is not None:
             self._last_point_display = min_nb_points
 
@@ -226,6 +225,70 @@ class ScanSaving(Parameters):
         return klass(path)
 
 
+class ScanDisplay(Parameters):
+    SLOTS = []
+
+    def __init__(self):
+        """
+        This class represents the display parameters for scans for a session.
+        """
+        keys = dict()
+        _change_to_obj_marshalling(keys)
+        Parameters.__init__(self, '%s:scan_display_params' % self.session,
+                            default_values={ 'auto': True },
+                            **keys)
+
+    def __dir__(self):
+        keys = Parameters.__dir__(self)
+        return keys + ['session', 'auto']
+
+    @property
+    def session(self):
+        """ This give the name of the default session or unnamed if no default session is defined """
+        session = _current_session()
+        return session.name if session is not None else 'unnamed'
+
+
+def _get_channels_dict(acq_object, channels_dict):
+    scalars = channels_dict.setdefault('scalars', [])
+    spectra = channels_dict.setdefault('spectra', [])
+    images = channels_dict.setdefault('images', [])
+
+    for acq_chan in acq_object.channels:
+        name = acq_object.name+":"+acq_chan.name
+        shape = acq_chan.shape
+        if len(shape) == 0 and not name in scalars:
+            scalars.append(name)
+        elif len(shape) == 1 and not name in spectra:
+            spectra.append(name)
+        elif len(shape) == 2 and not name in images:
+            images.append(name)
+
+    return channels_dict
+
+
+def _get_masters_and_channels(acq_chain):
+    # go through acq chain, group acq channels by master and data shape
+    tree = acq_chain._tree
+
+    chain_dict = dict()
+    for path in tree.paths_to_leaves():
+        npoints = 0
+        master = None
+        # path[0] is root
+        for acq_object in path[1:]:
+            # it is mandatory to find an acq. master first
+            if isinstance(acq_object, AcquisitionMaster):
+                if master is None or acq_object.npoints != npoints:
+                    master = acq_object.name
+                    npoints = acq_object.npoints
+                    channels = chain_dict.setdefault(master, { "master": {} })
+                    _get_channels_dict(acq_object, channels["master"])
+                    continue
+            _get_channels_dict(acq_object, channels)
+    return chain_dict
+
+
 class Scan(object):
     IDLE_STATE, PREPARE_STATE, START_STATE, STOP_STATE = range(4)
 
@@ -274,16 +337,32 @@ class Scan(object):
             run_number = client.get_cache(db=1).incrby(
                 "%s_last_run_number" % name, 1)
         self.__name = '%s_%d' % (name, run_number)
-        self._node = _create_node(self.__name, "scan", parent=self.root_node)
-        if scan_info is not None:
-            scan_info['scan_nb'] = run_number
-            scan_info['start_time'] = self._node._data.start_time
-            scan_info['start_time_str'] = self._node._data.start_time_str
-            scan_info['start_time_stamp'] = self._node._data.start_time_stamp
-            self._node._info.update(dict(scan_info))
+        self._scan_info = dict(scan_info) if scan_info is not None else dict()
+        self._scan_info['scan_nb'] = run_number
+        start_timestamp = time.time()
+        start_time = datetime.datetime.fromtimestamp(start_timestamp)
+        start_time_str = start_time.strftime("%a %b %d %H:%M:%S %Y")
+        self._scan_info['start_time'] = start_time
+        self._scan_info['start_time_str'] = start_time_str
+        self._scan_info['start_timestamp'] = start_timestamp
+        scan_config = ScanSaving()
+        self._scan_info['save'] = writer is not None
+        self._scan_info['root_path'] = scan_config.get()['root_path']
+        self._scan_info['session_name'] = scan_config.session
+        self._scan_info['user_name'] = scan_config.user_name
+
         self._data_watch_callback = data_watch_callback
         self._data_events = dict()
+        self._acq_chain = chain
+        self._scan_info['acquisition_chain'] = _get_masters_and_channels(self._acq_chain)
 
+        scan_display_params = ScanDisplay()
+        if scan_display_params.auto:
+            get_flint()
+   
+        self._state = self.IDLE_STATE
+        self._node = _create_node(self.__name, "scan", parent=self.root_node, info=self._scan_info)
+        
         if data_watch_callback is not None:
             if not callable(data_watch_callback):
                 raise TypeError("data_watch_callback needs to be callable")
@@ -301,11 +380,6 @@ class Scan(object):
             self._data_watch_callback_done = data_watch_callback_done
         else:
             self._data_watch_task = None
-
-        self._acq_chain = chain
-        self._scan_info = scan_info if scan_info is not None else dict()
-        self._scan_info['node_name'] = self._node.db_name
-        self._state = self.IDLE_STATE
 
     @property
     def name(self):
@@ -441,8 +515,9 @@ class Scan(object):
                 data_events = scan._data_events
                 scan._data_events = dict()
                 scan._data_watch_running = True
+                scan.scan_info['state'] = scan._state
                 scan._data_watch_callback(data_events, scan.nodes,
-                                          {'state': scan._state})
+                                          scan.scan_info)
                 scan._data_watch_running = False
             except ReferenceError:
                 break

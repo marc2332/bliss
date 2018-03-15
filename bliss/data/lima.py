@@ -26,7 +26,7 @@ except ImportError:
 
 
 class LimaImageChannelDataNode(DataNode):
-    class _GetView(object):
+    class LimaDataView(object):
         DataArrayMagic = struct.unpack('>I', 'DTAY')[0]
 
         def __init__(self, data, from_index, to_index):
@@ -68,19 +68,47 @@ class LimaImageChannelDataNode(DataNode):
             lima_acq = cnx.get(self.server_url)
             return int(lima_acq if lima_acq is not None else -1)
 
-        def __iter__(self):
-            self._update()
+        def _get_proxy(self):
             try:
                 proxy = DeviceProxy(self.server_url) if self.server_url else None
             except Exception:
                 proxy = None
-            for image_nb in range(self.from_index, self.last_index):
+            return proxy 
+
+        def get_image(self, image_nb, proxy=0):
+            self._update()
+
+            if proxy == 0:
+                # 0 is used to discriminate with None, which can be passed
+                proxy = self._get_proxy()
+
+            if not proxy:
+                data = None
+            else:
                 data = self._get_from_server_memory(proxy, image_nb)
-                if data is None:
-                    yield self._get_from_file(image_nb)
+
+            if data is None:
+                return self._get_from_file(image_nb)
+            else:
+                return data
+
+        def __getitem__(self, item_index):
+            if isinstance(item_index, tuple):
+                item_index = slice(*item_index)
+            if isinstance(item_index, slice):
+                proxy = self._get_proxy()
+                return tuple((self.get_image(self.from_index+image_nb, proxy=proxy) for image_nb in item_index))
+            else:
+                if item_index < 0:
+                    start = self.last_index
                 else:
-                    yield data
-                self._update()
+                    start = self.from_index
+                return self.get_image(start+item_index)
+
+        def __iter__(self):
+            proxy = self._get_proxy()
+            for image_nb in range(self.from_index, self.last_index):
+                yield self.get_image(image_nb, proxy=proxy)
 
         def __len__(self):
             self._update()
@@ -96,9 +124,6 @@ class LimaImageChannelDataNode(DataNode):
                     setattr(self, key, ref_status[key])
 
         def _get_from_server_memory(self, proxy, image_nb):
-            if not proxy:
-                return None
-
             if self.current_lima_acq == self.lima_acq_nb:  # current acquisition is this one
                 if self.last_image_ready < image_nb:      # image not yet available
                     raise RuntimeError('image is not available yet')
@@ -171,7 +196,7 @@ class LimaImageChannelDataNode(DataNode):
                     raise RuntimeError("Format net yet managed")
             else:
                 raise RuntimeError(
-                    "Can't retrieved image %d from file" % image_nb)
+                    "Cannot retrieve image %d from file" % image_nb)
 
         def _tango_unpack(self, msg):
             struct_format = '<IHHIIHHHHHHHHHHHHHHHHHHIII'
@@ -262,8 +287,8 @@ class LimaImageChannelDataNode(DataNode):
             if to_index is None => only one image which as index from_index
             if to_index < 0 => to the end of acquisition
         """
-        return self._GetView(self.data, from_index, 
-                             to_index if to_index is not None else from_index + 1)
+        return self.LimaDataView(self.data, from_index, 
+                                 to_index if to_index is not None else from_index + 1)
 
     def store(self, signal, event_dict):
         desc = event_dict['description']

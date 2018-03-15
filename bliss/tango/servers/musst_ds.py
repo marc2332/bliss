@@ -9,6 +9,7 @@
 
 Multipurpose Unit for Synchronisation, Sequencing and Triggering
 """
+from __future__ import absolute_import
 
 __all__ = ["Musst", "main"]
 

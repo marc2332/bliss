@@ -251,7 +251,7 @@ class BasePlot(object):
         self._flint = get_flint(pid=flint_pid)
         # Create plot window
         if existing_id is None:
-            self._plot_id = self._flint.add_window(self.WIDGET, name)
+            self._plot_id = self._flint.add_plot(self.WIDGET, name)
         else:
             self._plot_id = existing_id
         # Create qt interface
@@ -277,7 +277,7 @@ class BasePlot(object):
 
     @property
     def name(self):
-        return self._flint.get_window_name(self._plot_id)
+        return self._flint.get_plot_name(self._plot_id)
 
     # Data handling
 
@@ -333,7 +333,7 @@ class BasePlot(object):
     # Clean up
 
     def close(self):
-        self._flint.remove_window(self.plot_id)
+        self._flint.remove_plot(self.plot_id)
 
     # Interaction
 

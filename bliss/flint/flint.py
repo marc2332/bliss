@@ -99,7 +99,7 @@ class Flint:
     def __init__(self, parent_tab):
         self.parent_tab = parent_tab
         self.main_index = next(self._id_generator)
-        self.window_dict = {self.main_index: parent_tab}
+        self.plot_dict = {self.main_index: parent_tab}
         self.selector_dict = collections.defaultdict(list)
         self.data_dict = collections.defaultdict(dict)
         self.scans_watch_task = None
@@ -139,11 +139,11 @@ class Flint:
         # show tab
         self._submit(self.parent_tab.setCurrentIndex, 0)
 
-        # delete windows and free data
+        # delete plots and free data
         for _, plots in self.live_scan_plots_dict.iteritems():
             for plot_type in ('0d', '1d', '2d'):
                 for plot in plots[plot_type]:
-                    self.window_dict.pop(plot.plot_id, None)
+                    self.plot_dict.pop(plot.plot_id, None)
                     self.data_dict.pop(plot.plot_id, None)
                     self._submit(plot.close)
         for win in self.live_scan_mdi_area.subWindowList():
@@ -158,7 +158,7 @@ class Flint:
 
             scalars_plot_win = self._submit(silx_plot.Plot1D)
             scalars_plot_win.plot_id = master+"_0d"
-            self.window_dict[scalars_plot_win.plot_id] = (scalars_plot_win, None)
+            self.plot_dict[scalars_plot_win.plot_id] = (scalars_plot_win, None)
             self.live_scan_plots_dict[master] = { '0d': [scalars_plot_win], '1d':[], '2d':[] }
             self._submit(self.live_scan_mdi_area.addSubWindow, scalars_plot_win)
             self._submit(scalars_plot_win.setWindowTitle, master+' -> scalar counters')
@@ -172,7 +172,7 @@ class Flint:
                 #spectrum_win = self._submit(silx_plot.CurvesView)
                 spectrum_win = self._submit(silx_plot.Plot1D)
                 spectrum_win.plot_id = master+"_1d"
-                self.window_dict[spectrum_win.plot_id] = (spectrum_win, None)
+                self.plot_dict[spectrum_win.plot_id] = (spectrum_win, None)
                 self.live_scan_plots_dict[master]['1d'].append(spectrum_win)
                 self._submit(self.live_scan_mdi_area.addSubWindow, spectrum_win)
                 self._submit(spectrum_win.setWindowTitle, master+' -> '+spectrum+' spectrum')
@@ -181,7 +181,7 @@ class Flint:
             for image in images:
                 image_win = self._submit(silx_plot.Plot2D)
                 image_win.plot_id = master+"_2d"
-                self.window_dict[image_win.plot_id] = (image_win, None)
+                self.plot_dict[image_win.plot_id] = (image_win, None)
                 self.live_scan_plots_dict[master]['2d'].append(image_win)
                 self._submit(self.live_scan_mdi_area.addSubWindow, image_win)
                 self._submit(image_win.setWindowTitle, master+' -> '+image+' image')
@@ -238,46 +238,46 @@ class Flint:
         return widget
 
     def run_method(self, key, method, args, kwargs):
-        window = self.window_dict[key]
-        method = getattr(window, method)
+        plot = self.plot_dict[key]
+        method = getattr(plot, method)
         return self._submit(method, *args, **kwargs)
 
-    # Window management
+    # Plot management
 
-    def add_window(self, cls_name, name=None):
+    def add_plot(self, cls_name, name=None):
         wid = next(self._id_generator)
         if not name:
             name = 'Plot %d' % wid
         new_tab_widget = self.new_tab(name)
         self._submit(qt.QVBoxLayout, new_tab_widget)
         cls = getattr(silx_plot, cls_name)
-        window = self._submit(cls, new_tab_widget)
-        self.window_dict[wid] = window
-        self._submit(self._submit(new_tab_widget.layout).addWidget, window)
-        self._submit(window.show)
+        plot = self._submit(cls, new_tab_widget)
+        self.plot_dict[wid] = plot
+        self._submit(self._submit(new_tab_widget.layout).addWidget, plot)
+        self._submit(plot.show)
         return wid
 
-    def get_window_name(self, wid):
-        parent = self._submit(self.window_dict[wid].parent)
+    def get_plot_name(self, wid):
+        parent = self._submit(self.plot_dict[wid].parent)
         index = self._submit(self.parent_tab.indexOf, parent)
         label = self._submit(self.parent_tab.tabText, index)
         return label
 
-    def remove_window(self, wid):
-        window = self.window_dict.pop(wid)
-        index = self._submit(self.parent_tab.indexOf, self._submit(window.parent))
+    def remove_plot(self, wid):
+        plot = self.plot_dict.pop(wid)
+        index = self._submit(self.parent_tab.indexOf, self._submit(plot.parent))
         self._submit(self.parent_tab.removeTab, index)
-        self._submit(window.close)
+        self._submit(plot.close)
 
     def get_interface(self, wid):
-        window = self.window_dict[wid]
-        names = self._submit(dir, window)
+        plot = self.plot_dict[wid]
+        names = self._submit(dir, plot)
 
         # Factorize the calls
         def wrapper():
             return [name for name in names
                     if not name.startswith('_')
-                    if callable(getattr(window, name))]
+                    if callable(getattr(plot, name))]
 
         return self._submit(wrapper)
 
@@ -296,32 +296,32 @@ class Flint:
             return self.data_dict[wid].get(field, [])
 
     def select_data(self, wid, method, names, kwargs):
-        window = self.window_dict[wid]
+        plot = self.plot_dict[wid]
         # Hackish legend handling
         if 'legend' not in kwargs and method.startswith('add'):
             kwargs['legend'] = ' -> '.join(names)
         # Get the data to plot
         args = tuple(self.data_dict[wid][name] for name in names)
-        method = getattr(window, method)
+        method = getattr(plot, method)
         # Plot
         self._submit(method, *args, **kwargs)
 
     def deselect_data(self, wid, names):
-        window = self.window_dict[wid]
+        plot = self.plot_dict[wid]
         legend = ' -> '.join(names)
-        self._submit(window.remove, legend)
+        self._submit(plot.remove, legend)
 
     def clear_data(self, wid):
         del self.data_dict[wid]
-        window = self.window_dict[wid]
-        self._submit(window.clear)
+        plot = self.plot_dict[wid]
+        self._submit(plot.clear)
 
     # User interaction
 
     def _selection(self, wid, cls, *args):
         # Instanciate selector
-        window = self.window_dict[wid]
-        selector = self._submit(cls, window)
+        plot = self.plot_dict[wid]
+        selector = self._submit(cls, plot)
         # Save it for future cleanup
         self.selector_dict[wid].append(selector)
         # Run the selection

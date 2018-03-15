@@ -1,4 +1,11 @@
-"""\
+# -*- coding: utf-8 -*-
+#
+# This file is part of the bliss project
+#
+# Copyright (c) 2016 Beamline Control Unit, ESRF
+# Distributed under the GNU LGPLv3. See LICENSE for more info.
+
+"""
 Bliss plotting interface
 ========================
 
@@ -147,6 +154,7 @@ from collections import OrderedDict
 import zerorpc
 import msgpack_numpy
 
+from bliss.common import session as session_module
 from bliss.config.channels import Channel
 from bliss.config.conductor.client import get_default_connection
 
@@ -156,7 +164,7 @@ __all__ = ['plot', 'plot_curve', 'plot_curve_list', 'plot_image',
 # Globals
 
 msgpack_numpy.patch()
-FLINT_PROCESS = None
+FLINT = { 'process': None, 'proxy': None }
 
 
 # Connection helpers
@@ -167,14 +175,15 @@ def get_beacon_config():
 
 
 def get_flint_process():
-    global FLINT_PROCESS
-    if FLINT_PROCESS is not None and FLINT_PROCESS.poll() is None:
-        return FLINT_PROCESS.pid
+    flint_process = FLINT['process']
+    if flint_process is not None and flint_process.poll() is None:
+        return flint_process.pid
     env = dict(os.environ)
     env['BEACON_HOST'] = get_beacon_config()
     args = [sys.executable, '-m', 'bliss.flint']
-    FLINT_PROCESS = subprocess.Popen(args, env=env, close_fds=True)
-    return FLINT_PROCESS.pid
+    FLINT['process'] = subprocess.Popen(args, env=env, close_fds=True)
+    FLINT['proxy'] = None
+    return FLINT['process'].pid
 
 
 def get_flint(pid=None):
@@ -188,7 +197,13 @@ def get_flint(pid=None):
     key = "flint:{}:{}".format(platform.node(), pid)
     url = redis.brpoplpush(key, key, timeout=3000)
     # Return flint proxy
-    proxy = zerorpc.Client(url)
+    proxy = FLINT['proxy']
+    if proxy is None:
+        proxy = zerorpc.Client(url)
+        FLINT['proxy'] = proxy
+        session = session_module.get_current()
+        if session is not None:
+            proxy.set_session(session.name)
     proxy._pid = pid
     return proxy
 
@@ -236,20 +251,16 @@ class BasePlot(object):
         self._flint = get_flint(pid=flint_pid)
         # Create plot window
         if existing_id is None:
-            self._plot_id = self._flint.add_window(self.WIDGET)
+            self._plot_id = self._flint.add_plot(self.WIDGET, name)
         else:
             self._plot_id = existing_id
         # Create qt interface
         interface = self._flint.get_interface(self._plot_id)
         self.qt = QtInterface(interface, self.submit)
-        # Set plot title
-        self._name = name or "Plot {}".format(self._plot_id)
-        if existing_id is None or name is not None:
-            self.qt.setWindowTitle(self._name)
 
     def __repr__(self):
-        return '{}(plot_id={}, flint_pid={})'.format(
-            self.__class__.__name__, self.plot_id, self.flint_pid)
+        return '{}(plot_id={!r}, flint_pid={!r}, name={!r})'.format(
+            self.__class__.__name__, self.plot_id, self.flint_pid, self.name)
 
     def submit(self, method, *args, **kwargs):
         return self._flint.run_method(self.plot_id, method, args, kwargs)
@@ -264,6 +275,10 @@ class BasePlot(object):
     def plot_id(self):
         return self._plot_id
 
+    @property
+    def name(self):
+        return self._flint.get_plot_name(self._plot_id)
+
     # Data handling
 
     def add_single_data(self, field, data):
@@ -272,7 +287,7 @@ class BasePlot(object):
             raise ValueError(
                 'Data dimension must be in {} (got {})'
                 .format(self.DATA_DIMENSIONS, data.ndim))
-        return self._flint.add_data(self._plot_id, field, data)
+        return self._flint.update_data(self._plot_id, field, data)
 
     def add_data(self, data, field='default'):
         # Get fields
@@ -318,7 +333,7 @@ class BasePlot(object):
     # Clean up
 
     def close(self):
-        self._flint.remove_window(self.plot_id)
+        self._flint.remove_plot(self.plot_id)
 
     # Interaction
 
@@ -369,8 +384,11 @@ class CurvePlot(BasePlot):
         # Get x field
         x = kwargs.pop('x', None)
         x_field = x if isinstance(x, str) else 'x'
+        # Get provided x
+        if x_field in data_dict:
+            x = data_dict[x_field]
         # Get default x
-        if x is None and x_field not in data_dict:
+        elif x is None:
             key = next(iter(data_dict))
             length, = data_dict[key].shape
             x = numpy.arange(length)

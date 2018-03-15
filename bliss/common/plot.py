@@ -198,7 +198,7 @@ def get_flint(pid=None):
     url = redis.brpoplpush(key, key, timeout=3000)
     # Return flint proxy
     proxy = FLINT['proxy']
-    if proxy is None: 
+    if proxy is None:
         proxy = zerorpc.Client(url)
         FLINT['proxy'] = proxy
         session = session_module.get_current()
@@ -259,8 +259,8 @@ class BasePlot(object):
         self.qt = QtInterface(interface, self.submit)
 
     def __repr__(self):
-        return '{}(plot_id={}, flint_pid={})'.format(
-            self.__class__.__name__, self.plot_id, self.flint_pid)
+        return '{}(plot_id={!r}, flint_pid={!r}, name={!r})'.format(
+            self.__class__.__name__, self.plot_id, self.flint_pid, self.name)
 
     def submit(self, method, *args, **kwargs):
         return self._flint.run_method(self.plot_id, method, args, kwargs)
@@ -274,6 +274,10 @@ class BasePlot(object):
     @property
     def plot_id(self):
         return self._plot_id
+
+    @property
+    def name(self):
+        return self._flint.get_window_name(self._plot_id)
 
     # Data handling
 

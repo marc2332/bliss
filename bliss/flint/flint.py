@@ -119,7 +119,7 @@ class Flint:
         self._submit(window.setWindowTitle, 'Flint (PID={}) - {}'.format(os.getpid(), session))
 
     def get_session(self):
-        return self._session_name    
+        return self._session_name
 
     def set_session(self, session_name):
         if session_name == self._session_name:
@@ -131,7 +131,7 @@ class Flint:
         ready_event = gevent.event.Event()
         self.scans_watch_task = watch_session_scans(session_name, self.new_scan, self.new_scan_child, self.new_scan_data, ready_event=ready_event, wait=False)
         ready_event.wait()
-    
+
         self._session_name = session_name
         self.set_title(session_name)
 
@@ -149,7 +149,7 @@ class Flint:
         for win in self.live_scan_mdi_area.subWindowList():
             self._submit(win.close)
         self.live_scan_plots_dict = dict()
- 
+
         # create new windows
         for master, channels in scan_info['acquisition_chain'].iteritems():
             scalars = channels['scalars']
@@ -177,7 +177,7 @@ class Flint:
                 self._submit(self.live_scan_mdi_area.addSubWindow, spectrum_win)
                 self._submit(spectrum_win.setWindowTitle, master+' -> '+spectrum+' spectrum')
                 self._submit(spectrum_win.show)
-            
+
             for image in images:
                 image_win = self._submit(silx_plot.Plot2D)
                 image_win.plot_id = master+"_2d"
@@ -231,7 +231,7 @@ class Flint:
             image_data = data["data"][-1]
             self.update_data(plot.plot_id, channel_name, image_data)
             self._submit(plot.addImage, image_data, legend=channel_name)
-                    
+
     def new_tab(self, label, widget=qt.QWidget):
         widget = self._submit(widget)
         self._submit(self.parent_tab.addTab, widget, label)
@@ -243,6 +243,7 @@ class Flint:
         return self._submit(method, *args, **kwargs)
 
     # Window management
+
     def add_window(self, cls_name, name=None):
         wid = next(self._id_generator)
         if not name:
@@ -255,6 +256,12 @@ class Flint:
         self._submit(self._submit(new_tab_widget.layout).addWidget, window)
         self._submit(window.show)
         return wid
+
+    def get_window_name(self, wid):
+        parent = self._submit(self.window_dict[wid].parent)
+        index = self._submit(self.parent_tab.indexOf, parent)
+        label = self._submit(self.parent_tab.tabText, index)
+        return label
 
     def remove_window(self, wid):
         window = self.window_dict.pop(wid)
@@ -341,10 +348,10 @@ class QtLogHandler(logging.Handler):
 
     def __init__(self, log_widget):
         logging.Handler.__init__(self)
-        
+
         self.log_widget = log_widget
         self.executor = QtExecutor()
- 
+
     def emit(self, record):
         record = self.format(record)
         self.executor.submit(self.log_widget.appendPlainText, record)
@@ -370,7 +377,7 @@ def main():
     handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s: %(message)s"))
     logger.addHandler(handler)
     logger.setLevel(logging.INFO)
-    
+
     def handle_exception(exc_type, exc_value, exc_traceback, logger=logger):
         logger.critical("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
     sys.excepthook = handle_exception

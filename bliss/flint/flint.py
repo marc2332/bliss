@@ -8,7 +8,7 @@
 # Imports
 import os
 import sys
-import numpy
+import types
 import logging
 import platform
 import tempfile
@@ -17,6 +17,7 @@ import itertools
 import contextlib
 import collections
 
+import numpy
 import gevent
 import gevent.event
 import zerorpc
@@ -27,7 +28,7 @@ from concurrent.futures import Future
 from bliss.data.scan import watch_session_scans
 from bliss.flint.executor import QtExecutor
 from bliss.flint.executor import concurrent_to_gevent
-from bliss.flint.executor import submit_to_qt_application
+from bliss.flint.executor import qt_safe
 from bliss.flint.executor import create_queue_from_qt_signal
 from bliss.flint.executor import disconnect_queue_from_qt_signal
 from bliss.config.conductor.client import get_default_connection
@@ -50,6 +51,7 @@ msgpack_numpy.patch()
 pyqtRemoveInputHook()
 Thread = gevent.monkey.get_original('threading', 'Thread')
 Event = gevent.monkey.get_original('threading', 'Event')
+
 
 # Gevent functions
 
@@ -91,10 +93,34 @@ def background_task(flint, stop):
 
 # Flint interface
 
+def qt_safe_class(cls=None, ignore=()):
+    """Use a decorator to make a class qt safe.
+
+    All the methods (except those explicitely ignored) are patched
+    to run in the qt thread.
+    """
+    def decorator(cls):
+        for name in dir(cls):
+            if name in ignore:
+                continue
+            method = getattr(cls, name)
+            if not isinstance(method, types.MethodType):
+                continue
+            setattr(cls, name, qt_safe(method))
+        return cls
+    if cls is None:
+        return decorator
+    return decorator(cls)
+
+
+@qt_safe_class(ignore=('set_session'))
 class Flint:
+    """Flint interface, meant to be exposed through an RPC server."""
 
     _id_generator = itertools.count()
-    _submit = staticmethod(submit_to_qt_application)
+
+    # Legacy
+    _submit = staticmethod(lambda fn, *args, **kwargs: fn(*args, **kwargs))
 
     def __init__(self, parent_tab):
         self.parent_tab = parent_tab
@@ -108,15 +134,16 @@ class Flint:
         self.live_scan_mdi_area = self.new_tab("Live scan", qt.QMdiArea)
         self.live_scan_plots_dict = dict()
 
-        self.set_title(None)
+        self.set_title()
 
-    def set_title(self, session_name):
-        window = self._submit(self.parent_tab.window)
+    def set_title(self, session_name=None):
+        window = self.parent_tab.window()
         if not session_name:
             session = "no session attached."
         else:
             session = "attached to '%s`" % session_name
-        self._submit(window.setWindowTitle, 'Flint (PID={}) - {}'.format(os.getpid(), session))
+        title = 'Flint (PID={}) - {}'.format(os.getpid(), session)
+        window.setWindowTitle(title)
 
     def get_session(self):
         return self._session_name
@@ -129,7 +156,9 @@ class Flint:
             self.scans_watch_task.kill()
 
         ready_event = gevent.event.Event()
-        self.scans_watch_task = watch_session_scans(session_name, self.new_scan, self.new_scan_child, self.new_scan_data, ready_event=ready_event, wait=False)
+        self.scans_watch_task = watch_session_scans(
+            session_name, self.new_scan, self.new_scan_child, self.new_scan_data,
+            ready_event=ready_event, wait=False)
         ready_event.wait()
 
         self._session_name = session_name
@@ -137,7 +166,7 @@ class Flint:
 
     def new_scan(self, scan_info):
         # show tab
-        self._submit(self.parent_tab.setCurrentIndex, 0)
+        self.parent_tab.setCurrentIndex(0)
 
         # delete plots and free data
         for _, plots in self.live_scan_plots_dict.iteritems():
@@ -145,9 +174,9 @@ class Flint:
                 for plot in plots[plot_type]:
                     self.plot_dict.pop(plot.plot_id, None)
                     self.data_dict.pop(plot.plot_id, None)
-                    self._submit(plot.close)
+                    plot.close()
         for win in self.live_scan_mdi_area.subWindowList():
-            self._submit(win.close)
+            win.close()
         self.live_scan_plots_dict = dict()
 
         # create new windows
@@ -156,38 +185,41 @@ class Flint:
             spectra = channels['spectra']
             images = channels['images']
 
-            scalars_plot_win = self._submit(silx_plot.Plot1D)
+            scalars_plot_win = silx_plot.Plot1D()
             scalars_plot_win.plot_id = master+"_0d"
             self.plot_dict[scalars_plot_win.plot_id] = (scalars_plot_win, None)
-            self.live_scan_plots_dict[master] = { '0d': [scalars_plot_win], '1d':[], '2d':[] }
-            self._submit(self.live_scan_mdi_area.addSubWindow, scalars_plot_win)
-            self._submit(scalars_plot_win.setWindowTitle, master+' -> scalar counters')
+            self.live_scan_plots_dict[master] = {
+                '0d': [scalars_plot_win],
+                '1d': [],
+                '2d': []}
+            self.live_scan_mdi_area.addSubWindow(scalars_plot_win)
+            scalars_plot_win.setWindowTitle(master+' -> scalar counters')
             logging.info("%s", scalars)
             if not scalars:
-                self._submit(scalars_plot_win.hide)
+                scalars_plot_win.hide()
             else:
-                self._submit(scalars_plot_win.show)
+                scalars_plot_win.show()
 
             for spectrum in spectra:
-                #spectrum_win = self._submit(silx_plot.CurvesView)
-                spectrum_win = self._submit(silx_plot.Plot1D)
+                # spectrum_win = silx_plot.CurvesView)
+                spectrum_win = silx_plot.Plot1D()
                 spectrum_win.plot_id = master+"_1d"
                 self.plot_dict[spectrum_win.plot_id] = (spectrum_win, None)
                 self.live_scan_plots_dict[master]['1d'].append(spectrum_win)
-                self._submit(self.live_scan_mdi_area.addSubWindow, spectrum_win)
-                self._submit(spectrum_win.setWindowTitle, master+' -> '+spectrum+' spectrum')
-                self._submit(spectrum_win.show)
+                self.live_scan_mdi_area.addSubWindow(spectrum_win)
+                spectrum_win.setWindowTitle(master+' -> '+spectrum+' spectrum')
+                spectrum_win.show()
 
             for image in images:
-                image_win = self._submit(silx_plot.Plot2D)
+                image_win = silx_plot.Plot2D()
                 image_win.plot_id = master+"_2d"
                 self.plot_dict[image_win.plot_id] = (image_win, None)
                 self.live_scan_plots_dict[master]['2d'].append(image_win)
-                self._submit(self.live_scan_mdi_area.addSubWindow, image_win)
-                self._submit(image_win.setWindowTitle, master+' -> '+image+' image')
-                self._submit(image_win.show)
+                self.live_scan_mdi_area.addSubWindow(image_win)
+                image_win.setWindowTitle(master+' -> '+image+' image')
+                image_win.show()
 
-        self._submit(self.live_scan_mdi_area.tileSubWindows)
+        self.live_scan_mdi_area.tileSubWindows()
 
     def new_scan_child(self, scan_info, data_channel):
         pass
@@ -210,9 +242,11 @@ class Flint:
                     y = channel_data
                     dlen = min(len(x), len(y))
                     if dlen > 0:
-                        self._submit(plot.addCurve, x[:dlen], y[:dlen], legend='%s -> %s' % (x_channel_name, channel_name))
+                        plot.addCurve(
+                            x[:dlen], y[:dlen],
+                            legend='%s -> %s' % (x_channel_name, channel_name))
         elif data_type == '1d':
-            spectrum_data = data["data"][-1] # only keep last spectrum for now
+            spectrum_data = data["data"][-1]  # only keep last spectrum for now
             channel_name = data["channel_name"]
             plot = self.live_scan_plots_dict[master_name]["1d"][data["channel_index"]]
             self.update_data(plot.plot_id, channel_name, spectrum_data)
@@ -224,23 +258,23 @@ class Flint:
                 # assuming ndim == 2
                 x = spectrum_data[0]
                 y = spectrum_data[1]
-            self._submit(plot.addCurve, x, y, legend=channel_name)
+            plot.addCurve(x, y, legend=channel_name)
         elif data_type == '2d':
             plot = self.live_scan_plots_dict[master_name]["2d"][data["channel_index"]]
             channel_name = data["channel_name"]
             image_data = data["data"][-1]
             self.update_data(plot.plot_id, channel_name, image_data)
-            self._submit(plot.addImage, image_data, legend=channel_name)
+            plot.addImage(image_data, legend=channel_name)
 
     def new_tab(self, label, widget=qt.QWidget):
-        widget = self._submit(widget)
-        self._submit(self.parent_tab.addTab, widget, label)
+        widget = widget()
+        self.parent_tab.addTab(widget, label)
         return widget
 
     def run_method(self, key, method, args, kwargs):
         plot = self.plot_dict[key]
         method = getattr(plot, method)
-        return self._submit(method, *args, **kwargs)
+        return method(*args, **kwargs)
 
     # Plot management
 
@@ -249,37 +283,35 @@ class Flint:
         if not name:
             name = 'Plot %d' % plot_id
         new_tab_widget = self.new_tab(name)
-        self._submit(qt.QVBoxLayout, new_tab_widget)
+        qt.QVBoxLayout(new_tab_widget)
         cls = getattr(silx_plot, cls_name)
-        plot = self._submit(cls, new_tab_widget)
+        plot = cls(new_tab_widget)
         self.plot_dict[plot_id] = plot
-        self._submit(self._submit(new_tab_widget.layout).addWidget, plot)
-        self._submit(plot.show)
+        new_tab_widget.layout().addWidget(plot)
+        plot.show()
         return plot_id
 
     def get_plot_name(self, plot_id):
-        parent = self._submit(self.plot_dict[plot_id].parent)
-        index = self._submit(self.parent_tab.indexOf, parent)
-        label = self._submit(self.parent_tab.tabText, index)
+        parent = self.plot_dict[plot_id].parent()
+        index = self.parent_tab.indexOf(parent)
+        label = self.parent_tab.tabText(index)
         return label
 
     def remove_plot(self, plot_id):
         plot = self.plot_dict.pop(plot_id)
-        index = self._submit(self.parent_tab.indexOf, self._submit(plot.parent))
-        self._submit(self.parent_tab.removeTab, index)
-        self._submit(plot.close)
+        parent = plot.parent()
+        index = self.parent_tab.indexOf(parent)
+        self.parent_tab.removeTab(index)
+        plot.close()
 
     def get_interface(self, plot_id):
         plot = self.plot_dict[plot_id]
-        names = self._submit(dir, plot)
-
-        # Factorize the calls
-        def wrapper():
+        names = dir(plot)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
             return [name for name in names
                     if not name.startswith('_')
                     if callable(getattr(plot, name))]
-
-        return self._submit(wrapper)
 
     # Data management
 
@@ -304,28 +336,28 @@ class Flint:
         args = tuple(self.data_dict[plot_id][name] for name in names)
         method = getattr(plot, method)
         # Plot
-        self._submit(method, *args, **kwargs)
+        method(*args, **kwargs)
 
     def deselect_data(self, plot_id, names):
         plot = self.plot_dict[plot_id]
         legend = ' -> '.join(names)
-        self._submit(plot.remove, legend)
+        plot.remove(legend)
 
     def clear_data(self, plot_id):
         del self.data_dict[plot_id]
         plot = self.plot_dict[plot_id]
-        self._submit(plot.clear)
+        plot.clear()
 
     # User interaction
 
     def _selection(self, plot_id, cls, *args):
         # Instanciate selector
         plot = self.plot_dict[plot_id]
-        selector = self._submit(cls, plot)
+        selector = cls(plot)
         # Save it for future cleanup
         self.selector_dict[plot_id].append(selector)
         # Run the selection
-        self._submit(selector.start, *args)
+        selector.start(*args)
         queue = create_queue_from_qt_signal(selector.selectionFinished)
         try:
             positions, = queue.get()
@@ -341,7 +373,7 @@ class Flint:
 
     def clear_selections(self, plot_id):
         for selector in self.selector_dict.pop(plot_id):
-            self._submit(selector.reset)
+            selector.reset()
 
 
 class QtLogHandler(logging.Handler):
@@ -355,6 +387,7 @@ class QtLogHandler(logging.Handler):
     def emit(self, record):
         record = self.format(record)
         self.executor.submit(self.log_widget.appendPlainText, record)
+
 
 # Main execution
 
@@ -374,12 +407,15 @@ def main():
 
     logger = logging.getLogger()
     handler = QtLogHandler(log_widget)
-    handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s: %(message)s"))
+    handler.setFormatter(logging.Formatter(
+        "%(asctime)s - %(levelname)s: %(message)s"))
     logger.addHandler(handler)
     logger.setLevel(logging.INFO)
 
     def handle_exception(exc_type, exc_value, exc_traceback, logger=logger):
-        logger.critical("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
+        logger.critical(
+            "Uncaught exception",
+            exc_info=(exc_type, exc_value, exc_traceback))
     sys.excepthook = handle_exception
 
     stop = Future()

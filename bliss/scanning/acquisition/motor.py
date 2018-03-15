@@ -26,7 +26,9 @@ from ..chain import AcquisitionMaster, AcquisitionChannel
 
 class MotorMaster(AcquisitionMaster):
     def __init__(self, axis, start, end, time=0, undershoot=None,
-                 trigger_type=AcquisitionMaster.HARDWARE,
+                 undershoot_start_margin=0,
+                 undershoot_end_margin=0,
+                 trigger_type=AcquisitionMaster.SOFTWARE,
                  backnforth=False, **keys):
         AcquisitionMaster.__init__(self, axis, axis.name,
                                    trigger_type=trigger_type, **keys)
@@ -34,6 +36,8 @@ class MotorMaster(AcquisitionMaster):
         self.start_pos = start
         self.end_pos = end
         self._undershoot = undershoot
+        self._undershoot_start_margin = undershoot_start_margin
+        self._undershoot_end_margin = undershoot_end_margin
         self.velocity = abs(end - start) / \
             float(time) if time > 0 else axis.velocity()
         self.backnforth = backnforth
@@ -49,7 +53,11 @@ class MotorMaster(AcquisitionMaster):
         d = 1 if self.end_pos >= self.start_pos else -1
         d *= -1 if end else 1
         pos -= d * self.undershoot
-        return pos
+        if end:
+            margin = d * self._undershoot_end_margin
+        else:
+            margin = d * self._undershoot_start_margin
+        return pos - margin
 
     def prepare(self):
         start = self._calculate_undershoot(self.start_pos)

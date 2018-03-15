@@ -41,8 +41,8 @@ def flint(xvfb, beacon):
         flint_pid = plot.get_flint_process()
         yield flint_pid
     finally:
-        plot.FLINT_PROCESS.kill()
-        plot.FLINT_PROCESS.wait(timeout=1.)
+        plot.FLINT['process'].kill()
+        plot.FLINT['process'].wait(timeout=1.)
 
 
 @pytest.fixture
@@ -59,11 +59,11 @@ def flint_session(beacon, flint):
 def test_empty_plot(flint):
     p = plot.plot()
     assert 'flint_pid={}'.format(flint) in repr(p)
-    assert p.qt.windowTitle() == 'Plot {}'.format(p._plot_id)
+    assert p.name == 'Plot {}'.format(p._plot_id)
 
     p = plot.plot(name='Some name')
     assert 'flint_pid={}'.format(flint) in repr(p)
-    assert p.qt.windowTitle() == 'Some name'
+    assert p.name == 'Some name'
 
 
 def test_simple_plot(flint_session):

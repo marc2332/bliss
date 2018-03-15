@@ -115,6 +115,8 @@ def main():
             print "'%s' does not seem to be a valid session, exiting." % session_name
             print_sessions_list(sessions_list)
             exit(0)
+    else:
+        session_name = None    
 
     # If session_name is None, an empty session is started.
     embed(session_name=session_name)

@@ -76,6 +76,17 @@ def test_simple_plot(flint_session):
         'x': pytest.approx(range(len(sin)))}
 
 
+def test_plot_curve_with_x(flint_session):
+    sin = flint_session['sin_data']
+    cos = flint_session['cos_data']
+    p = plot.plot({'sin': sin, 'cos': cos}, x='sin')
+    assert 'CurvePlot' in repr(p)
+    data = p.get_data()
+    assert data == {
+        'sin': pytest.approx(sin),
+        'cos': pytest.approx(cos)}
+
+
 def test_image_plot(flint_session):
     grey_image = flint_session['grey_image']
     p = plot.plot(grey_image)

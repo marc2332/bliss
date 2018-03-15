@@ -384,8 +384,11 @@ class CurvePlot(BasePlot):
         # Get x field
         x = kwargs.pop('x', None)
         x_field = x if isinstance(x, str) else 'x'
+        # Get provided x
+        if x_field in data_dict:
+            x = data_dict[x_field]
         # Get default x
-        if x is None and x_field not in data_dict:
+        elif x is None:
             key = next(iter(data_dict))
             length, = data_dict[key].shape
             x = numpy.arange(length)

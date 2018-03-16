@@ -110,9 +110,9 @@ class SamplingCounter(Counter):
                 add_conversion_function(self, 'read', conversion_function)
 
         # is the counter stand-alone ? Or is it part of an object ?
-        if not static.get_config().get_config(name):
+        if controller and not static.get_config().get_config(name):
             # counter doesn't exist on its own
-            name = controller.name+'.'+name
+            name = controller.name + '.' + name
         Counter.__init__(self, name, grouped_read_handler, conversion_function)
 
     def read(self):
@@ -163,9 +163,9 @@ class IntegratingCounter(Counter):
                 add_conversion_function(self, 'get_values', conversion_function)
 
         # is the counter stand-alone ? Or is it part of an object ?
-        if not static.get_config().get_config(name):
+        if controller and not static.get_config().get_config(name):
             # counter doesn't exist on its own
-            name = controller.name+'.'+name
+            name = controller.name + '.' + name
         Counter.__init__(self, name, grouped_read_handler, conversion_function)
 
         self.__acquisition_controller_ref = weakref.ref(acquisition_controller)

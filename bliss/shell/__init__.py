@@ -16,6 +16,7 @@ import platform
 import functools
 
 import numpy
+import operator
 from six import print_
 from blessings import Terminal
 
@@ -90,6 +91,9 @@ def initialize(session_name):
 
 def _find_unit(obj):
     try:
+        if isinstance(obj, str):
+            # in the form obj.x.y
+            obj = operator.attrgetter(obj)(setup_globals)
         if hasattr(obj, 'unit'):
             return obj.unit
         if hasattr(obj, 'config'):
@@ -165,7 +169,7 @@ class ScanListener:
                 continue
             else:
                 self.counters.append(counter_name)
-                unit = _find_unit(config.get(counter_name))
+                unit = _find_unit(counter_name)
                 if unit:
                     counter_name += '({0})'.format(unit)
                 self.col_labels.append(counter_name)

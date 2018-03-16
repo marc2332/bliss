@@ -19,6 +19,7 @@ import numpy
 from six import print_
 from blessings import Terminal
 
+from bliss import release
 from bliss import setup_globals
 from bliss.config import static
 from bliss.scanning import scan
@@ -38,8 +39,7 @@ def initialize(session_name):
     t = Terminal()
 
     # Version
-    # TODO : define an elegant version numbering.
-    _version = "version 0.01"
+    _version = "version %s" % release.short_version
 
     # Hostname
     _hostname = platform.node()

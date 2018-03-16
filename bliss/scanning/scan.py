@@ -17,7 +17,7 @@ import logging
 import datetime
 
 from bliss.common.event import connect, send
-from bliss.common.plot import get_flint
+from bliss.common.plot import get_flint, CurvePlot, ImagePlot
 from bliss.common.utils import periodic_exec
 from bliss.config.conductor import client
 from bliss.config.settings import Parameters, _change_to_obj_marshalling
@@ -526,6 +526,43 @@ class Scan(object):
                 gevent.idle()
 
 
+    def get_plot(self, scan_item):
+        """Return plot object showing 'scan_item' from Flint live scan view
+
+        scan_item can be a motor, a counter, or anything within a measurement group
+        """
+        channel_name_match = lambda scan_item_name, channel_name: \
+            ':'+scan_item_name in channel_name or scan_item_name+':' in channel_name
+
+        for master, channels in self.scan_info['acquisition_chain'].iteritems():
+            scalars = channels['scalars']
+            spectra = channels['spectra']
+            images = channels['images']
+
+            if scan_item.name == master:
+                # return scalar plot(s) with this channel master
+                args = (master, '0d', None)
+            else:
+                for channel_name in scalars:
+                    if channel_name_match(scan_item.name, channel_name):
+                        args = (master, '0d', 0)
+                for i, channel_name in enumerate(spectra):
+                    if channel_name_match(scan_item.name, channel_name):
+                        args = (master, '1d', i)
+                for i, channel_name in enumerate(images):
+                    if channel_name_match(scan_item.name, channel_name):
+                        args = (master, '2d', i)
+
+        flint = get_flint()
+        plot_id = flint.get_live_scan_plot(*args)
+        if args[1] == '0d':
+            return CurvePlot(existing_id=plot_id)
+        elif args[1] == '1d':
+            return CurvePlot(existing_id=plot_id)
+        else:
+            return ImagePlot(existing_id=plot_id)
+
+
 class AcquisitionMasterEventReceiver(object):
     def __init__(self, master, slave, parent):
         self._master = master
@@ -649,3 +686,4 @@ class FileWriter(object):
 
     def close(self):
         self.closed = True
+

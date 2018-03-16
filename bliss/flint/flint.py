@@ -221,6 +221,9 @@ class Flint:
 
         self.live_scan_mdi_area.tileSubWindows()
 
+    def get_live_scan_plot(self, master, plot_type, index):
+        return self.live_scan_plots_dict[master][plot_type][index].plot_id
+
     def new_scan_child(self, scan_info, data_channel):
         pass
 

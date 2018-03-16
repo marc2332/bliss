@@ -52,6 +52,22 @@ pyqtRemoveInputHook()
 Thread = gevent.monkey.get_original('threading', 'Thread')
 Event = gevent.monkey.get_original('threading', 'Event')
 
+# Logging
+
+LOGGER = logging.getLogger()
+
+
+@contextlib.contextmanager
+def ignore_warnings(logger=LOGGER):
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        level = logger.level
+        try:
+            logger.level = logging.ERROR
+            yield
+        finally:
+            logger.level = level
+
 
 # Gevent functions
 
@@ -326,8 +342,7 @@ class Flint:
     def get_interface(self, plot_id):
         plot = self.plot_dict[plot_id]
         names = dir(plot)
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
+        with ignore_warnings():
             return [name for name in names
                     if not name.startswith('_')
                     if callable(getattr(plot, name))]
@@ -427,15 +442,14 @@ def main():
     win.resize(qt.QDesktopWidget().availableGeometry(win).size() * 0.7)
     win.show()
 
-    logger = logging.getLogger()
     handler = QtLogHandler(log_widget)
     handler.setFormatter(logging.Formatter(
         "%(asctime)s - %(levelname)s: %(message)s"))
-    logger.addHandler(handler)
-    logger.setLevel(logging.INFO)
+    LOGGER.addHandler(handler)
+    LOGGER.level = logging.INFO
 
-    def handle_exception(exc_type, exc_value, exc_traceback, logger=logger):
-        logger.critical(
+    def handle_exception(exc_type, exc_value, exc_traceback):
+        LOGGER.critical(
             "Uncaught exception",
             exc_info=(exc_type, exc_value, exc_traceback))
     sys.excepthook = handle_exception

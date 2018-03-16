@@ -29,13 +29,12 @@ import sys
 import logging
 from docopt import docopt, DocoptExit
 
+from bliss import release
 from bliss.config import static
 
 from .repl import embed
 
 __all__ = ('main',)
-
-VERSION = 0.07
 
 
 def get_sessions_list():
@@ -85,7 +84,7 @@ def main():
 
     # Print version
     if arguments['--version']:
-        print ("BLISS version %s" % VERSION)
+        print ("BLISS version %s" % release.short_version)
         sys.exit()
 
     # Display session names and trees

@@ -15,7 +15,7 @@ import numpy
 import weakref
 
 from bliss.common.utils import add_conversion_function
-
+from bliss.config import static
 
 class GroupedReadMixin(object):
     def __init__(self, controller):
@@ -109,6 +109,10 @@ class SamplingCounter(Counter):
             if callable(conversion_function):
                 add_conversion_function(self, 'read', conversion_function)
 
+        # is the counter stand-alone ? Or is it part of an object ?
+        if controller and not static.get_config().get_config(name):
+            # counter doesn't exist on its own
+            name = controller.name + '.' + name
         Counter.__init__(self, name, grouped_read_handler, conversion_function)
 
     def read(self):
@@ -158,6 +162,10 @@ class IntegratingCounter(Counter):
             if callable(conversion_function):
                 add_conversion_function(self, 'get_values', conversion_function)
 
+        # is the counter stand-alone ? Or is it part of an object ?
+        if controller and not static.get_config().get_config(name):
+            # counter doesn't exist on its own
+            name = controller.name + '.' + name
         Counter.__init__(self, name, grouped_read_handler, conversion_function)
 
         self.__acquisition_controller_ref = weakref.ref(acquisition_controller)

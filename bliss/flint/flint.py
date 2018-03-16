@@ -52,6 +52,22 @@ pyqtRemoveInputHook()
 Thread = gevent.monkey.get_original('threading', 'Thread')
 Event = gevent.monkey.get_original('threading', 'Event')
 
+# Logging
+
+LOGGER = logging.getLogger()
+
+
+@contextlib.contextmanager
+def ignore_warnings(logger=LOGGER):
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        level = logger.level
+        try:
+            logger.level = logging.ERROR
+            yield
+        finally:
+            logger.level = level
+
 
 # Gevent functions
 
@@ -93,27 +109,32 @@ def background_task(flint, stop):
 
 # Flint interface
 
-def qt_safe_class(cls=None, ignore=()):
+def qt_safe_class(cls):
     """Use a decorator to make a class qt safe.
 
     All the methods (except those explicitely ignored) are patched
     to run in the qt thread.
     """
-    def decorator(cls):
-        for name in dir(cls):
-            if name in ignore:
-                continue
-            method = getattr(cls, name)
-            if not isinstance(method, types.MethodType):
-                continue
-            setattr(cls, name, qt_safe(method))
-        return cls
-    if cls is None:
-        return decorator
-    return decorator(cls)
+    for name in dir(cls):
+        method = getattr(cls, name)
+        if not isinstance(method, types.MethodType):
+            continue
+        if getattr(method.im_func, '_qt_unsafe', False):
+            continue
+        setattr(cls, name, qt_safe(method))
+    return cls
 
 
-@qt_safe_class(ignore=('set_session', 'new_scan_data'))
+def qt_unsafe(func):
+    """Tag a method a unsafe for qt.
+
+    This method won't be patch by the qt_safe_class decorator.
+    """
+    func._qt_unsafe = True
+    return func
+
+
+@qt_safe_class
 class Flint:
     """Flint interface, meant to be exposed through an RPC server."""
 
@@ -148,6 +169,7 @@ class Flint:
     def get_session(self):
         return self._session_name
 
+    @qt_unsafe
     def set_session(self, session_name):
         if session_name == self._session_name:
             return
@@ -186,7 +208,7 @@ class Flint:
             images = channels['images']
 
             scalars_plot_win = silx_plot.Plot1D()
-            scalars_plot_win.plot_id = master+"_0d"
+            scalars_plot_win.plot_id = next(self._id_generator)
             self.plot_dict[scalars_plot_win.plot_id] = scalars_plot_win
             self.live_scan_plots_dict[master] = {
                 '0d': [scalars_plot_win],
@@ -194,7 +216,7 @@ class Flint:
                 '2d': []}
             self.live_scan_mdi_area.addSubWindow(scalars_plot_win)
             scalars_plot_win.setWindowTitle(master+' -> scalar counters')
- 
+
             if not scalars:
                 scalars_plot_win.hide()
             else:
@@ -203,7 +225,7 @@ class Flint:
             for spectrum in spectra:
                 # spectrum_win = silx_plot.CurvesView)
                 spectrum_win = silx_plot.Plot1D()
-                spectrum_win.plot_id = master+"_1d"
+                spectrum_win.plot_id = next(self._id_generator)
                 self.plot_dict[spectrum_win.plot_id] = spectrum_win
                 self.live_scan_plots_dict[master]['1d'].append(spectrum_win)
                 self.live_scan_mdi_area.addSubWindow(spectrum_win)
@@ -212,7 +234,7 @@ class Flint:
 
             for image in images:
                 image_win = silx_plot.Plot2D()
-                image_win.plot_id = master+"_2d"
+                image_win.plot_id = next(self._id_generator)
                 self.plot_dict[image_win.plot_id] = image_win
                 self.live_scan_plots_dict[master]['2d'].append(image_win)
                 self.live_scan_mdi_area.addSubWindow(image_win)
@@ -221,17 +243,21 @@ class Flint:
 
         self.live_scan_mdi_area.tileSubWindows()
 
+    def get_live_scan_plot(self, master, plot_type, index):
+        return self.live_scan_plots_dict[master][plot_type][index].plot_id
+
     def new_scan_child(self, scan_info, data_channel):
         pass
 
+    @qt_unsafe
     def new_scan_data(self, data_type, master_name, data):
         last_data = data["data"]
         if data_type in ('1d', '2d'):
             last_data = last_data[-1]
-        
-        return self.safe_new_scan_data(data_type, master_name, data, last_data)
 
-    def safe_new_scan_data(self, data_type, master_name, data, last_data):
+        return self._new_scan_data(data_type, master_name, data, last_data)
+
+    def _new_scan_data(self, data_type, master_name, data, last_data):
         if data_type == '0d':
             master_channels = data["master_channels"]
 
@@ -252,7 +278,7 @@ class Flint:
                             x[:dlen], y[:dlen],
                             legend='%s -> %s' % (x_channel_name, channel_name))
         elif data_type == '1d':
-            spectrum_data = last_data 
+            spectrum_data = last_data
             channel_name = data["channel_name"]
             plot = self.live_scan_plots_dict[master_name]["1d"][data["channel_index"]]
             self.update_data(plot.plot_id, channel_name, spectrum_data)
@@ -316,8 +342,7 @@ class Flint:
     def get_interface(self, plot_id):
         plot = self.plot_dict[plot_id]
         names = dir(plot)
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
+        with ignore_warnings():
             return [name for name in names
                     if not name.startswith('_')
                     if callable(getattr(plot, name))]
@@ -359,24 +384,27 @@ class Flint:
 
     # User interaction
 
+    @qt_unsafe
     def _selection(self, plot_id, cls, *args):
         # Instanciate selector
         plot = self.plot_dict[plot_id]
-        selector = cls(plot)
+        selector = qt_safe(cls)(plot)
         # Save it for future cleanup
         self.selector_dict[plot_id].append(selector)
         # Run the selection
-        selector.start(*args)
         queue = create_queue_from_qt_signal(selector.selectionFinished)
+        qt_safe(selector.start)(*args)
         try:
             positions, = queue.get()
         finally:
             disconnect_queue_from_qt_signal(queue)
         return positions
 
+    @qt_unsafe
     def select_points(self, plot_id, nb):
         return self._selection(plot_id, PointsSelector, nb)
 
+    @qt_unsafe
     def select_shape(self, plot_id, shape):
         return self._selection(plot_id, ShapeSelector, shape)
 
@@ -414,15 +442,14 @@ def main():
     win.resize(qt.QDesktopWidget().availableGeometry(win).size() * 0.7)
     win.show()
 
-    logger = logging.getLogger()
     handler = QtLogHandler(log_widget)
     handler.setFormatter(logging.Formatter(
         "%(asctime)s - %(levelname)s: %(message)s"))
-    logger.addHandler(handler)
-    logger.setLevel(logging.INFO)
+    LOGGER.addHandler(handler)
+    LOGGER.level = logging.INFO
 
-    def handle_exception(exc_type, exc_value, exc_traceback, logger=logger):
-        logger.critical(
+    def handle_exception(exc_type, exc_value, exc_traceback):
+        LOGGER.critical(
             "Uncaught exception",
             exc_info=(exc_type, exc_value, exc_traceback))
     sys.excepthook = handle_exception

@@ -138,7 +138,7 @@ def test_reference_with_lima(beacon, redis_data_conn, scan_tmpdir, lima_simulato
     session_node = get_node(session.name)
     db_names = set([n.db_name for n in DataNodeIterator(session_node).walk(wait=False)])
 
-    image_node_db_name = '%s:timer:Simulator:image' % timescan.node.db_name
+    image_node_db_name = '%s:timer:lima_simulator:image' % timescan.node.db_name
     assert  image_node_db_name in db_names
  
     live_ref_status = QueueObjSetting("%s_data" % image_node_db_name, connection=redis_data_conn)[0]

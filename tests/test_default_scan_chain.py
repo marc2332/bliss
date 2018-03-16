@@ -158,15 +158,15 @@ def test_default_chain_with_bpm_and_diode(beacon, lima_simulator):
     nodes = chain.nodes_list
     assert len(nodes) == 4
     assert isinstance(nodes[0], timer.__class__)
-    assert isinstance(nodes[1], LimaAcquisitionMaster)
-    assert isinstance(nodes[2], IntegratingCounterAcquisitionDevice)
-    assert isinstance(nodes[3], SamplingCounterAcquisitionDevice)
+    assert isinstance(nodes[1], SamplingCounterAcquisitionDevice)
+    assert isinstance(nodes[2], LimaAcquisitionMaster)
+    assert isinstance(nodes[3], IntegratingCounterAcquisitionDevice)
 
-    assert nodes[2].parent == nodes[1]
-    assert nodes[3].parent == timer
+    assert nodes[3].parent == nodes[2]
+    assert nodes[1].parent == timer
 
-    assert nodes[2].count_time == timer.count_time
-    assert nodes[3].count_time == nodes[2].count_time
+    assert nodes[1].count_time == timer.count_time
+    assert nodes[3].count_time == nodes[1].count_time
 
 
 def test_default_chain_with_bpm_and_image(beacon, lima_simulator):

@@ -186,7 +186,7 @@ class Flint:
             images = channels['images']
 
             scalars_plot_win = silx_plot.Plot1D()
-            scalars_plot_win.plot_id = master+"_0d"
+            scalars_plot_win.plot_id = next(self._id_generator)
             self.plot_dict[scalars_plot_win.plot_id] = scalars_plot_win
             self.live_scan_plots_dict[master] = {
                 '0d': [scalars_plot_win],
@@ -203,7 +203,7 @@ class Flint:
             for spectrum in spectra:
                 # spectrum_win = silx_plot.CurvesView)
                 spectrum_win = silx_plot.Plot1D()
-                spectrum_win.plot_id = master+"_1d"
+                spectrum_win.plot_id = next(self._id_generator)
                 self.plot_dict[spectrum_win.plot_id] = spectrum_win
                 self.live_scan_plots_dict[master]['1d'].append(spectrum_win)
                 self.live_scan_mdi_area.addSubWindow(spectrum_win)
@@ -212,7 +212,7 @@ class Flint:
 
             for image in images:
                 image_win = silx_plot.Plot2D()
-                image_win.plot_id = master+"_2d"
+                image_win.plot_id = next(self._id_generator)
                 self.plot_dict[image_win.plot_id] = image_win
                 self.live_scan_plots_dict[master]['2d'].append(image_win)
                 self.live_scan_mdi_area.addSubWindow(image_win)

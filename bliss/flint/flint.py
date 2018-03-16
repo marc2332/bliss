@@ -93,27 +93,32 @@ def background_task(flint, stop):
 
 # Flint interface
 
-def qt_safe_class(cls=None, ignore=()):
+def qt_safe_class(cls):
     """Use a decorator to make a class qt safe.
 
     All the methods (except those explicitely ignored) are patched
     to run in the qt thread.
     """
-    def decorator(cls):
-        for name in dir(cls):
-            if name in ignore:
-                continue
-            method = getattr(cls, name)
-            if not isinstance(method, types.MethodType):
-                continue
-            setattr(cls, name, qt_safe(method))
-        return cls
-    if cls is None:
-        return decorator
-    return decorator(cls)
+    for name in dir(cls):
+        method = getattr(cls, name)
+        if not isinstance(method, types.MethodType):
+            continue
+        if getattr(method.im_func, '_qt_unsafe', False):
+            continue
+        setattr(cls, name, qt_safe(method))
+    return cls
 
 
-@qt_safe_class(ignore=('set_session', 'new_scan_data'))
+def qt_unsafe(func):
+    """Tag a method a unsafe for qt.
+
+    This method won't be patch by the qt_safe_class decorator.
+    """
+    func._qt_unsafe = True
+    return func
+
+
+@qt_safe_class
 class Flint:
     """Flint interface, meant to be exposed through an RPC server."""
 
@@ -148,6 +153,7 @@ class Flint:
     def get_session(self):
         return self._session_name
 
+    @qt_unsafe
     def set_session(self, session_name):
         if session_name == self._session_name:
             return
@@ -194,7 +200,7 @@ class Flint:
                 '2d': []}
             self.live_scan_mdi_area.addSubWindow(scalars_plot_win)
             scalars_plot_win.setWindowTitle(master+' -> scalar counters')
- 
+
             if not scalars:
                 scalars_plot_win.hide()
             else:
@@ -227,14 +233,15 @@ class Flint:
     def new_scan_child(self, scan_info, data_channel):
         pass
 
+    @qt_unsafe
     def new_scan_data(self, data_type, master_name, data):
         last_data = data["data"]
         if data_type in ('1d', '2d'):
             last_data = last_data[-1]
-        
-        return self.safe_new_scan_data(data_type, master_name, data, last_data)
 
-    def safe_new_scan_data(self, data_type, master_name, data, last_data):
+        return self._new_scan_data(data_type, master_name, data, last_data)
+
+    def _new_scan_data(self, data_type, master_name, data, last_data):
         if data_type == '0d':
             master_channels = data["master_channels"]
 
@@ -255,7 +262,7 @@ class Flint:
                             x[:dlen], y[:dlen],
                             legend='%s -> %s' % (x_channel_name, channel_name))
         elif data_type == '1d':
-            spectrum_data = last_data 
+            spectrum_data = last_data
             channel_name = data["channel_name"]
             plot = self.live_scan_plots_dict[master_name]["1d"][data["channel_index"]]
             self.update_data(plot.plot_id, channel_name, spectrum_data)
@@ -362,24 +369,27 @@ class Flint:
 
     # User interaction
 
+    @qt_unsafe
     def _selection(self, plot_id, cls, *args):
         # Instanciate selector
         plot = self.plot_dict[plot_id]
-        selector = cls(plot)
+        selector = qt_safe(cls)(plot)
         # Save it for future cleanup
         self.selector_dict[plot_id].append(selector)
         # Run the selection
-        selector.start(*args)
         queue = create_queue_from_qt_signal(selector.selectionFinished)
+        qt_safe(selector.start)(*args)
         try:
             positions, = queue.get()
         finally:
             disconnect_queue_from_qt_signal(queue)
         return positions
 
+    @qt_unsafe
     def select_points(self, plot_id, nb):
         return self._selection(plot_id, PointsSelector, nb)
 
+    @qt_unsafe
     def select_shape(self, plot_id, shape):
         return self._selection(plot_id, ShapeSelector, shape)
 

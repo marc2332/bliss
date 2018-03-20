@@ -47,6 +47,14 @@ def ip4_default_route_broadcast_addresses():
 
     return filter(None, ip_list)
 
+def ip4_broadcast_discovery(udp):
+    ip_list = ['localhost']
+    for interface in netifaces.interfaces():
+        for link in netifaces.ifaddresses(interface).get(netifaces.AF_INET, []):
+            ip_list.append(link.get("broadcast"))
+    for addr in filter(None, ip_list):
+        udp.sendto('Hello',(addr,protocol.DEFAULT_UDP_SERVER_PORT))
+
 def check_connect(func):
     def f(self,*args,**keys):
         self.connect()

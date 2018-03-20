@@ -194,8 +194,10 @@ class Connection(object):
 			    localhost = socket.gethostname()
 			    if localhost == host:
 				break	
-                        elif self._host is not None and host != self._host:
-                            server_found.append((host,port))
+                        elif (self._host is not None and
+                              host != self._host and
+                              socket.gethostbyname(host) !=
+                              socket.gethostbyname(self._host)):
                             host,port = None,None
                             timeout = 1.
                         else:

@@ -5,6 +5,7 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+import time
 import weakref
 import os,sys
 import gevent
@@ -162,30 +163,33 @@ class Connection(object):
                 udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                 udp.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
                 if host is not None:
-                    try:
-                        udp.sendto('Hello',(host,protocol.DEFAULT_UDP_SERVER_PORT))
-                    except socket.gaierror:
-                        raise ConnectionException("Host `%s' is not found in DNS" % host) 
+                    address_list = [host]
                 else:
-                    #try to find the server on the same sub-net
-                    for addr in ip4_default_route_broadcast_addresses():
-                        udp.sendto('Hello',(addr,protocol.DEFAULT_UDP_SERVER_PORT))
+                    address_list = ip4_default_route_broadcast_addresses()
 
                 timeout = 3.
-                server_found = []
+                started_time = time.time()
+                #send discovery
+                for addr in address_list:
+                    try:
+                        udp.sendto('Hello',(addr,protocol.DEFAULT_UDP_SERVER_PORT))
+                    except socket.gaierror:
+                        raise ConnectionException("Host `%s' is not found in DNS" % addr)
+
                 while 1:
-                    rlist,_,_ = select.select([udp],[],[],timeout)
+                    rlist,_,_ = select.select([udp],[],[],0.2)
                     if not rlist:
-                        if port is None:
-                            if server_found:
-                                msg = "Could not find the conductor on host %s\n" % self._host
-                                msg += "But other conductor servers replied:\n"
-                                msg += '\n'.join(('%s on port %s' % (host,port) for host,port in server_found))
-                                raise ConnectionException(msg)
-                            else:
-                                raise ConnectionException("Could not find the conductor")
+                        current_time = time.time()
+                        if (current_time - started_time) < timeout:
+                            #resend the packet, it may be lost!
+                            for addr in address_list:
+                                udp.sendto('Hello',(addr,protocol.DEFAULT_UDP_SERVER_PORT))
+                            continue
+                        
+                        if self._host:
+                            raise ConnectionException("Conductor server on host `%s' does not reply" % self._host)
                         else:
-                            break
+                            raise ConnectionException("Could not find any conductor")
                     else:
                         msg,address = udp.recvfrom(8192)
                         host,port = msg.split('|') 

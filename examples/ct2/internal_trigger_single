@@ -50,7 +50,7 @@ config = get_config()
 device = config.get(args.card_name)
 
 with contextlib.closing(device):
-    device.acq_mode = AcqMode.ExtTrigSingle
+    device.acq_mode = AcqMode.IntTrigSingle
     device.acq_expo_time = args.expo_time
     device.acq_point_period = args.point_period
     device.acq_nb_points = args.nb_points

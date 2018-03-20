@@ -805,6 +805,7 @@ def _build_card_config(device_config):
     card_config = dict(device_config)
     card_config['class'] = card_type = card_config.pop('type', 'P201')
     card_class = card.get_ct2_card_class(card_type)
+    out_ch = int(card_config.get('external sync', {}).get('output', {}).get('channel', -1))
     for channel in card_config.get('channels', ()):
         address = int(channel['address'])
         level = channel.get('level', 'TTL')
@@ -815,7 +816,12 @@ def _build_card_config(device_config):
             input['50 ohm'] = ohm
         if address in card_class.OUTPUT_CHANNELS:
             output = channel.setdefault('output', {})
-            output['level'] = level
+            if address == out_ch:
+                output['level'] = level
+                input['level'] = 'DISABLE'
+            else:
+                output['level'] = 'DISABLE'
+
     return card_config
 
 

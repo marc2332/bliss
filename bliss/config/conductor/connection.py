@@ -34,29 +34,16 @@ try:
 except ImportError:
     posix_ipc = None
 
-def ip4_broadcast_addresses(host=None):
-    # go through main interface, and issue broadcast to find a beacon;
-    # localhost will be tried first.
-    # If host is specified, beacon is searched on this host only
-    if host is None:
-        ifaces = []
-        # get default route interface, if any
-        gws = netifaces.gateways()
-        try:
-            interface = gws['default'][netifaces.AF_INET][1]
-            ifaces.append(interface)
-        except Exception:
-            pass
-
-        ip_list = []
-        for interface in ifaces:
-            for link in netifaces.ifaddresses(interface).get(netifaces.AF_INET, []):
-                ip_list.append(link.get("broadcast"))
-
-        # try localhost first
-        ip_list.insert(0, 'localhost')
-    else:
-        ip_list = [host]
+def ip4_default_route_broadcast_addresses():
+    ip_list = ['localhost']
+    # get default route interface, if any
+    gws = netifaces.gateways()
+    try:
+        interface = gws['default'][netifaces.AF_INET][1]
+        for link in netifaces.ifaddresses(interface).get(netifaces.AF_INET, []):
+            ip_list.append(link.get("broadcast"))
+    except Exception:
+        pass
 
     return filter(None, ip_list)
 
@@ -163,12 +150,16 @@ class Connection(object):
         host = self._host
         port = self._port
         if self._fd is None:
-            #try to find the server on the same sub-net
             if host is None or port is None:
                 udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                 udp.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-                for addr in ip4_broadcast_addresses(host):
-                    udp.sendto('Hello',(addr,protocol.DEFAULT_UDP_SERVER_PORT))
+                if host is not None:
+                    udp.sendto('Hello',(host,protocol.DEFAULT_UDP_SERVER_PORT))
+                else:
+                    #try to find the server on the same sub-net
+                    for addr in ip4_default_route_broadcast_addresses():
+                        udp.sendto('Hello',(addr,protocol.DEFAULT_UDP_SERVER_PORT))
+
                 timeout = 3.
                 server_found = []
                 while 1:

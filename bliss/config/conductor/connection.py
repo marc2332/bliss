@@ -162,7 +162,10 @@ class Connection(object):
                 udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                 udp.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
                 if host is not None:
-                    udp.sendto('Hello',(host,protocol.DEFAULT_UDP_SERVER_PORT))
+                    try:
+                        udp.sendto('Hello',(host,protocol.DEFAULT_UDP_SERVER_PORT))
+                    except socket.gaierror:
+                        raise ConnectionException("Host `%s' is not found in DNS" % host) 
                 else:
                     #try to find the server on the same sub-net
                     for addr in ip4_default_route_broadcast_addresses():

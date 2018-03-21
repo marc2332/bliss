@@ -8,7 +8,7 @@
 import numpy
 from bliss.common.motor_config import StaticConfig
 from bliss.common.motor_settings import ControllerAxisSettings, floatOrNone
-from bliss.common.axis import Axis, AxisRef, Trajectory
+from bliss.common.axis import Axis, NoSettingsAxis, AxisRef, Trajectory
 from bliss.common.motor_group import Group, TrajectoryGroup
 from bliss.common import event
 from bliss.physics import trajectory
@@ -117,6 +117,12 @@ class Controller(object):
                 self.axes[axis.name] = referenced_axis
                 axis_list[i] = referenced_axis
 
+    def get_mandatory_config_parameters(self, axis):
+        if isinstance(axis, NoSettingsAxis):
+            return tuple()
+        else:
+            return ('velocity', 'acceleration')
+
     def initialize(self):
         pass
 
@@ -162,7 +168,7 @@ class Controller(object):
 
             mandatory_config_list = list()
 
-            for config_param in ['velocity', 'acceleration']:
+            for config_param in self.get_mandatory_config_parameters(axis):
                 # Try to see if controller supports setting the <config_param> by
                 # checking if it oveloads default set_<config_name> method
                 set_name = "set_%s" % config_param

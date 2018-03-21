@@ -53,18 +53,23 @@ class _Group(object):
             return AxisState("MOVING")
 
         grp_state = AxisState("READY")
-        for i, (name, state) in enumerate([(axis.name, axis.state()) for axis in self._axes.itervalues()]):
+        for i, (name, state) in enumerate([(axis.name, axis.state())
+                                           for axis in self._axes.itervalues()]):
             if state.MOVING:
                 new_state = "MOVING"+" "*i
-                grp_state.create_state(new_state, "%s: %s" % (name, grp_state._state_desc["MOVING"]))
+                grp_state.create_state(
+                    new_state, "%s: %s" %
+                    (name, grp_state._state_desc["MOVING"]))
                 grp_state.set("MOVING")
-                grp_state.set(new_state) 
+                grp_state.set(new_state)
             for axis_state in state._current_states:
                 if axis_state == "READY":
                     continue
                 new_state = axis_state+" "*i
-                grp_state.create_state(new_state, "%s: %s" % (name, state._state_desc[axis_state]))     
-                grp_state.set(new_state) 
+                grp_state.create_state(
+                    new_state, "%s: %s" %
+                    (name, state._state_desc[axis_state]))
+                grp_state.set(new_state)
 
         return grp_state
 
@@ -74,7 +79,7 @@ class _Group(object):
             if wait:
                 self.wait_move()
 
-    def _stop_one_controller_motions(self,controller,motions):
+    def _stop_one_controller_motions(self, controller, motions):
         try:
             controller.stop_all(*motions)
         except NotImplementedError:
@@ -87,22 +92,25 @@ class _Group(object):
                 motion.axis._move_loop()
                 motion.axis.sync_hard()
 
-    def _do_stop(self,wait=True):
+    def _do_stop(self, wait=True):
         all_motions = []
         if len(self._motions_dict) == 1:
             for controller, motions in self._motions_dict.iteritems():
                 all_motions.extend(motions)
-                self._stop_one_controller_motions(controller,motions)
+                self._stop_one_controller_motions(controller, motions)
         else:
             controller_tasks = list()
             for controller, motions in self._motions_dict.iteritems():
                 all_motions.extend(motions)
-                controller_tasks.append(gevent.spawn(self._stop_one_controller_motions,
-                                                    controller,motions))
+                controller_tasks.append(
+                    gevent.spawn(
+                        self._stop_one_controller_motions, controller,
+                        motions))
             gevent.joinall(controller_tasks, raise_error=True)
 
         if wait:
-            motions_wait = [gevent.spawn(motion.axis.wait_move) for motion in all_motions]
+            motions_wait = [gevent.spawn(motion.axis.wait_move)
+                            for motion in all_motions]
             gevent.joinall(motions_wait, raise_error=True)
 
     def position(self):
@@ -121,10 +129,11 @@ class _Group(object):
     def _handle_move(self, motions, polling_time):
         try:
             for motion in motions:
-                motion_task = motion.axis._start_move_task(motion.axis._do_move,
-                                                           motion, polling_time)
+                motion_task = motion.axis._start_move_task(
+                    motion.axis._do_move, motion, polling_time)
                 motion_task._motions = [motion_task]
-            motions_wait = [gevent.spawn(motion.axis.wait_move) for motion in motions]
+            motions_wait = [gevent.spawn(motion.axis.wait_move)
+                            for motion in motions]
             gevent.joinall(motions_wait, raise_error=True)
         except:
             self._do_stop()
@@ -142,7 +151,7 @@ class _Group(object):
                 m.axis._in_group_move = False
         self._motions_dict = dict()
 
-    def _start_one_controller_motions(self,controller,motions):
+    def _start_one_controller_motions(self, controller, motions):
         try:
             controller.start_all(*motions)
         except NotImplementedError:
@@ -154,16 +163,18 @@ class _Group(object):
         event.send(self, "move_done", False)
 
         with error_cleanup(self._do_stop):
-            if(len(motions_dict) == 1): # only one controller for the motion
+            if(len(motions_dict) == 1):  # only one controller for the motion
                 for controller, motions in motions_dict.iteritems():
                     all_motions.extend(motions)
-                    self._start_one_controller_motions(controller,motions)
+                    self._start_one_controller_motions(controller, motions)
             else:               # parallel start
                 controller_tasks = list()
                 for controller, motions in motions_dict.iteritems():
                     all_motions.extend(motions)
-                    controller_tasks.append(gevent.spawn(self._start_one_controller_motions,
-                                                         controller,motions))
+                    controller_tasks.append(
+                        gevent.spawn(
+                            self._start_one_controller_motions, controller,
+                            motions))
                 gevent.joinall(controller_tasks, raise_error=True)
         return all_motions
 
@@ -210,9 +221,10 @@ class _Group(object):
 
     def _handle_motions(self, all_motions, wait, polling_time):
         self.__move_done.clear()
-        self.__move_task = self._handle_move(all_motions, polling_time, wait=False)
+        self.__move_task = self._handle_move(
+            all_motions, polling_time, wait=False)
         self.__move_task._motions = all_motions
- 
+
         if wait:
             self.wait_move()
 
@@ -221,7 +233,7 @@ class _Group(object):
             move_task = self.__move_task
             with error_cleanup(self.stop):
                 self.__move_done.wait()
-            self.__move_task = None 
+            self.__move_task = None
             try:
                 move_task.get()
             except gevent.GreenletExit:
@@ -239,10 +251,12 @@ def TrajectoryGroup(*trajectories, **keys):
     traj.trajectories = trajectories
     return traj
 
+
 class _TrajectoryGroup(object):
     """
     Group for motor trajectory
     """
+
     def __init__(self, calc_axis=None):
         self.__trajectories = None
         self.__trajectories_dialunit = None
@@ -256,6 +270,7 @@ class _TrajectoryGroup(object):
         Get/Set trajectories for this movement
         """
         return self.__trajectories
+
     @trajectories.setter
     def trajectories(self, trajectories):
         self.__trajectories = trajectories
@@ -310,7 +325,7 @@ class _TrajectoryGroup(object):
                 user_velocity = trajectory.pvt['velocity']
                 pvt = numpy.copy(trajectory.pvt)
                 pvt['position'] = trajectory.axis.user2dial(user_pos) * \
-                                  trajectory.axis.steps_per_unit
+                    trajectory.axis.steps_per_unit
                 pvt['velocity'] *= trajectory.axis.steps_per_unit
                 trajectories.append(Trajectory(trajectory.axis, pvt))
             self.__trajectories_dialunit = trajectories
@@ -329,8 +344,8 @@ class _TrajectoryGroup(object):
             if not motion:
                 # already at final pos
                 continue
-            #no backlash to go to the first position
-            #otherwise it may break next trajectory motion (move_to_end)
+            # no backlash to go to the first position
+            # otherwise it may break next trajectory motion (move_to_end)
             motion.backlash = 0
             all_motions.append(motion)
 
@@ -386,6 +401,7 @@ class _TrajectoryGroup(object):
         for traj in self.__trajectories_dialunit:
             if traj.axis in self.__disabled_axes:
                 continue
-            tlist = controller_trajectories.setdefault(traj.axis.controller, [])
+            tlist = controller_trajectories.setdefault(
+                traj.axis.controller, [])
             tlist.append(traj)
         return controller_trajectories

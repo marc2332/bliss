@@ -119,13 +119,18 @@ class _Group(object):
 
     @task
     def _handle_move(self, motions, polling_time):
-        with error_cleanup(self._do_stop): 
+        try:
             for motion in motions:
                 motion_task = motion.axis._start_move_task(motion.axis._do_move,
                                                            motion, polling_time)
                 motion_task._motions = [motion_task]
             motions_wait = [gevent.spawn(motion.axis.wait_move) for motion in motions]
             gevent.joinall(motions_wait, raise_error=True)
+        except:
+            self._do_stop()
+            raise
+        finally:
+            self._set_move_done()
 
     def rmove(self, *args, **kwargs):
         kwargs["relative"] = True
@@ -162,7 +167,7 @@ class _Group(object):
                 gevent.joinall(controller_tasks, raise_error=True)
         return all_motions
 
-    def _set_move_done(self, move_task):
+    def _set_move_done(self):
         self._reset_motions_dict()
         self.__move_done.set()
         event.send(self, "move_done", True)
@@ -207,7 +212,6 @@ class _Group(object):
         self.__move_done.clear()
         self.__move_task = self._handle_move(all_motions, polling_time, wait=False)
         self.__move_task._motions = all_motions
-        self.__move_task.link(self._set_move_done)
  
         if wait:
             self.wait_move()

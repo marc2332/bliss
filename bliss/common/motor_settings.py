@@ -20,7 +20,7 @@ def setting_update_from_channel(value, setting_name=None, axis=None):
                 axis._set_moving_state(from_channel=True)
             else:
                 if axis.is_moving:
-                    axis._set_move_done(None)
+                    axis._set_move_done()
 
     event.send(axis, setting_name, value)
 

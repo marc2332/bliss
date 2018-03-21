@@ -824,25 +824,7 @@ class Axis(object):
             self.settings.set("state", AxisState("MOVING"))
         event.send(self, "move_done", False)
 
-    def _set_move_done(self, move_task):
-        self.__move_task = None
-
-        try:
-            state = move_task.get()
-        except:                 # don't want to raise something here
-            state = None
-
-        if move_task is None:
-            # move started from another BLISS session
-            pass
-        else:
-            if state is None:
-                state = self.state(read_hw=True)
-
-            self._update_settings(state)
-
-            self.__execute_post_move_hook(move_task._motions)
-
+    def _set_move_done(self):
         self.__move_done.set()
 
         try:
@@ -862,10 +844,28 @@ class Axis(object):
                                 %r" % (self.name, str(initial_state)))
 
     def _start_move_task(self, funct, *args, **kwargs):
-        kwargs = dict(kwargs)
         kwargs['wait'] = False
-        self.__move_task = funct(*args, **kwargs)
-        self.__move_task.link(self._set_move_done)
+        
+        @task
+        def move_task(funct, *args, **kwargs):
+            state = None
+            try:
+                state = funct(*args, **kwargs)
+            finally:
+                move_task = self.__move_task
+                self.__move_task = None
+        
+                if state is None:
+                    state = self.state(read_hw=True)
+
+                self._update_settings(state)
+
+                self.__execute_post_move_hook(move_task._motions)
+
+                self._set_move_done()
+            return state
+
+        self.__move_task = move_task(funct, *args, **kwargs)
         self._set_moving_state()
         return self.__move_task
 
@@ -937,7 +937,6 @@ class Axis(object):
             raise RuntimeError("'%s' didn't reach final position.(enc_dial=%g, curr_pos=%g)" %
                                (self.name, enc_dial, curr_pos))
 
-    @task
     def _do_move(self, motion, polling_time):
         with error_cleanup(self._cleanup_stop):
             return self._handle_move(motion, polling_time)
@@ -950,7 +949,6 @@ class Axis(object):
         elif callable(reset_position):
             reset_position(self)
 
-    @task
     def _do_jog_move(self, saved_velocity, velocity, direction, reset_position, polling_time):
         with cleanup(functools.partial(self._jog_cleanup, saved_velocity, reset_position)):
             with error_cleanup(functools.partial(self._cleanup_stop, jog=True)):
@@ -979,19 +977,16 @@ class Axis(object):
             # move has been started externally
             try:
                 self.__move_done_callback.wait()
-            except:
+            except BaseException:
                 self.stop()
                 raise
         else:
             move_task = self.__move_task
-            move_task.unlink(self._set_move_done)
             try:
                 move_task.get()
             except BaseException:
                 move_task.kill()
                 raise
-            finally:
-                self._set_move_done(move_task) 
 
     def _move_loop(self, polling_time=DEFAULT_POLLING_TIME, ctrl_state_funct='state'):
         state_funct = getattr(self.__controller, ctrl_state_funct)
@@ -1063,7 +1058,6 @@ class Axis(object):
         if wait:
             self.wait_move()
 
-    @task
     def _wait_home(self, switch):
         with cleanup(self.sync_hard):
             with error_cleanup(self._cleanup_stop):
@@ -1094,7 +1088,6 @@ class Axis(object):
         if wait:
             self.wait_move()
 
-    @task
     def _wait_limit_search(self, limit):
         with cleanup(self.sync_hard):
             with error_cleanup(self._cleanup_stop):

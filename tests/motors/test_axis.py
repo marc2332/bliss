@@ -404,7 +404,10 @@ def test_interrupted_waitmove(m0):
     waitmove = gevent.spawn(m0.wait_move)
     time.sleep(0.01)
     with pytest.raises(KeyboardInterrupt):
+        kill_pos = m0.position()
         waitmove.kill(KeyboardInterrupt)
+    time.sleep(0.1)
+    assert m0.position() == pytest.approx(kill_pos)
     assert m0.state().READY
 
 def test_hardware_limits(roby):

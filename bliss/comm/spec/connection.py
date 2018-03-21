@@ -67,6 +67,7 @@ def try_connect(fu):
         return fu(self, *args, **kwargs)
     return rfunc
 
+
 def connectionHandler(conn, socket_to_spec):
     receivedStrings = []
     message = None
@@ -275,7 +276,9 @@ class SpecConnection:
             event.send(self, 'connected')
 
     def specDisconnected(self):
-        """Emit the 'disconnected' signal when the remote Spec version is disconnected."""
+        """Emit the 'disconnected' signal when the remote Spec
+           version is disconnected.
+        """
         old_state = self.state
         self.state = DISCONNECTED
         if old_state == CONNECTED:

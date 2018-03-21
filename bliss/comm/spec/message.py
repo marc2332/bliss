@@ -298,8 +298,8 @@ class message2(SpecMessage):
             self.packedHeaderDataFormat, self.magic, self.vers, self.size,
             self.sn, self.sec, self.usec, self.cmd, self.type, self.rows,
             self.cols, datalen, str(self.name))
-        #print 'WRITE header', self.magic, 'vers=', self.vers, 'size=', self.size, 'cmd=', self.cmd, 'type=', self.type, 'datalen=', datalen, 'err=', self.err, 'name=', str(self.name)
-        #print 'WRITE data', data
+        # print 'WRITE header', self.magic, 'vers=', self.vers, 'size=', self.size, 'cmd=', self.cmd, 'type=', self.type, 'datalen=', datalen, 'err=', self.err, 'name=', str(self.name)
+        # print 'WRITE data', data
         return header + data
 
 
@@ -335,7 +335,7 @@ class message3(SpecMessage):
                 self.sec, self.usec, self.cmd, \
                 datatype, self.rows, self.cols, \
                 datalen, self.err, name = struct.unpack(self.packedHeaderDataFormat, rawstring)
-        #print 'READ header', self.magic, 'vers=', self.vers, 'size=', self.size, 'cmd=', self.cmd, 'type=', datatype, 'datalen=', datalen, 'err=', self.err, 'name=', str(self.name)
+        # print 'READ header', self.magic, 'vers=', self.vers, 'size=', self.size, 'cmd=', self.cmd, 'type=', datatype, 'datalen=', datalen, 'err=', self.err, 'name=', str(self.name)
         self.time = self.sec + float(self.usec) / 1E6
         self.name = name.replace(NULL, '')  # remove padding null bytes
 
@@ -357,8 +357,8 @@ class message3(SpecMessage):
             self.sn, self.sec, self.usec, self.cmd, self.type, self.rows,
             self.cols, datalen, self.err, str(self.name))
 
-        #print 'WRITE header', self.magic, 'vers=', self.vers, 'size=', self.size, 'cmd=', self.cmd, 'type=', self.type, 'datalen=', datalen, 'err=', self.err, 'name=', str(self.name)
-        #print 'WRITE data', data
+        # print 'WRITE header', self.magic, 'vers=', self.vers, 'size=', self.size, 'cmd=', self.cmd, 'type=', self.type, 'datalen=', datalen, 'err=', self.err, 'name=', str(self.name)
+        # print 'WRITE data', data
         return header + data
 
 
@@ -394,7 +394,7 @@ class message4(SpecMessage):
                 self.sec, self.usec, self.cmd, \
                 datatype, self.rows, self.cols, \
                 datalen, self.err, self.flags, name = struct.unpack(self.packedHeaderDataFormat, rawstring)
-        #print 'READ header', self.magic, 'vers=', self.vers, 'size=', self.size, 'cmd=', self.cmd, 'type=', datatype, 'datalen=', datalen, 'err=', self.err, 'flags=', self.flags, 'name=', str(self.name)
+        # print 'READ header', self.magic, 'vers=', self.vers, 'size=', self.size, 'cmd=', self.cmd, 'type=', datatype, 'datalen=', datalen, 'err=', self.err, 'flags=', self.flags, 'name=', str(self.name)
         self.time = self.sec + float(self.usec) / 1E6
         self.name = name.replace(NULL, '')  # remove padding null bytes
 
@@ -411,8 +411,8 @@ class message4(SpecMessage):
         data = self.sendingDataString(self.data, self.type)
         datalen = len(data)
 
-        #print 'WRITE header', self.magic, 'vers=', self.vers, 'size=', self.size, 'cmd=', self.cmd, 'type=', self.type, 'datalen=', datalen, 'err=', self.err, 'flags=', self.flags, 'name=', str(self.name)
-        #print 'WRITE data', data
+        # print 'WRITE header', self.magic, 'vers=', self.vers, 'size=', self.size, 'cmd=', self.cmd, 'type=', self.type, 'datalen=', datalen, 'err=', self.err, 'flags=', self.flags, 'name=', str(self.name)
+        # print 'WRITE data', data
         header = struct.pack(
             self.packedHeaderDataFormat, self.magic, self.vers, self.size,
             self.sn, self.sec, self.usec, self.cmd, self.type, self.rows,

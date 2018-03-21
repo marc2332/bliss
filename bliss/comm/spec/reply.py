@@ -21,7 +21,7 @@ class SpecReply:
         """Constructor."""
         self.data = None
         self.error = False
-        self.error_code = 0 #no error
+        self.error_code = 0  # no error
         self.id = getNextReplyId()
 
         self.callback = None
@@ -33,8 +33,7 @@ class SpecReply:
         self.error_code = error_code
 
         if callable(self.callback):
-          self.callback(self)
-
+            self.callback(self)
 
     def getValue(self):
         """Return the value of the reply object(data field)."""

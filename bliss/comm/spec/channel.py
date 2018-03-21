@@ -206,7 +206,7 @@ class SpecChannel:
         if not force_read and self.registered:
             if self.value is not None:
                 # we check 'value is not None' because the
-                #'registered' flag could be set, but before
+                # 'registered' flag could be set, but before
                 # the message with the channel value arrived
                 return self.value
 

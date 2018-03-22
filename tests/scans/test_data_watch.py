@@ -29,7 +29,6 @@ def test_simple_continuous_scan_with_session_watcher(beacon):
 
     def new_scan(scan_info, vars=vars):
       assert scan_info['session_name']==scan_saving.session
-      assert scan_info['root_path']==scan_saving.get_path()
       assert scan_info['user_name']==scan_saving.user_name
       vars["scan_acq_chain"] = scan_info['acquisition_chain']
       vars["new_scan_cb_called"] = True

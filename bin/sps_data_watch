@@ -23,7 +23,10 @@ from bliss.common.utils import OrderedDict
 try:
     import sps
 except ImportError:
-    from PyMca import sps
+    try:
+        from PyMca5.PyMcaIO import sps
+    except ImportError:         # last chance
+        from PyMca import sps
 
 from bliss.data.node import DataNodeIterator,_get_or_create_node,is_zerod
 

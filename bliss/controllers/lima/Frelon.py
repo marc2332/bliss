@@ -8,7 +8,7 @@
 
 class Camera(object):
 
-    def __init__(self, lima_device, name, proxy):
+    def __init__(self, name, lima_device, proxy):
         self.name = name
         self._proxy = proxy
         self._lima_device = lima_device

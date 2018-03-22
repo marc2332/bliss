@@ -294,7 +294,7 @@ class Scan(object):
 
     def __init__(self, chain, name=None,
                  parent=None, scan_info=None, writer=None,
-                 data_watch_callback=None):
+                 data_watch_callback=None, run_number=None, name_suffix=""):
         """
         This class publish data and trig the writer if any.
 
@@ -329,14 +329,16 @@ class Scan(object):
 
         name = name if name else "scan"
 
-        if parent:
-            key = self.root_node.db_name
-            run_number = client.get_cache(db=1).hincrby(
-                key, "%s_last_run_number" % name, 1)
-        else:
-            run_number = client.get_cache(db=1).incrby(
-                "%s_last_run_number" % name, 1)
-        self.__name = '%s_%d' % (name, run_number)
+        if run_number is None:
+            if parent:
+                key = self.root_node.db_name
+                run_number = client.get_cache(db=1).hincrby(
+                    key, "%s_last_run_number" % name, 1)
+            else:
+                run_number = client.get_cache(db=1).incrby(
+                    "%s_last_run_number" % name, 1)
+        self.__run_number = run_number
+        self.__name = '%s_%d%s' % (name, run_number, name_suffix)
         self._scan_info = dict(scan_info) if scan_info is not None else dict()
         self._scan_info['scan_nb'] = run_number
         start_timestamp = time.time()
@@ -346,8 +348,11 @@ class Scan(object):
         self._scan_info['start_time_str'] = start_time_str
         self._scan_info['start_timestamp'] = start_timestamp
         scan_config = ScanSaving()
-        self._scan_info['save'] = writer is not None
-        self._scan_info['root_path'] = scan_config.get()['root_path']
+        if writer is not None:
+            self._scan_info['save'] = True
+            self._scan_info['root_path'] = writer.root_path
+        else:
+            self._scan_info['save'] = False
         self._scan_info['session_name'] = scan_config.session
         self._scan_info['user_name'] = scan_config.user_name
 
@@ -408,6 +413,10 @@ class Scan(object):
     @property
     def scan_info(self):
         return self._scan_info
+
+    @property
+    def run_number(self):
+        return self.__run_number
 
     def __trigger_data_watch_callback(self, signal, sender, sync=False):
         if self._data_watch_callback is not None:
@@ -637,6 +646,10 @@ class FileWriter(object):
         self._device_event_receiver = device_event_receiver
         self._event_receivers = list()
         self.closed = True
+
+    @property
+    def root_path(self):
+        return self._root_path
 
     def create_path(self, scan_recorder):
         path_suffix = scan_recorder.node.name

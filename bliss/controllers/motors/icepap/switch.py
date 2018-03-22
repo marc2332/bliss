@@ -42,7 +42,10 @@ class Switch(BaseSwitch):
             include_rack = set()
             for axis in self.__controller._axes.values():
                 # be sure that axis is initialized
-                axis.position()
+                try:
+                    axis.position()
+                except KeyError:
+                    continue
                 try:
                     include_rack.add(axis.address // 10)
                 except (AttributeError, TypeError): # LinkedAxis and TrajectoryAxis

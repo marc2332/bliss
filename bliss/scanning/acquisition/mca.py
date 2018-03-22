@@ -302,30 +302,65 @@ class SpectrumMcaCounter(BaseMcaCounter):
         self.emit_data_point(spectrums[self.detector_channel])
 
 
-def mca_counters(mca):
-    """Provide a convenient access to the MCA counters.
+def counter_namespace(name, counters):
+    dct = {counter.name: counter for counter in counters}
+    cls = namedtuple(name, sorted(dct))
+    return cls(**dct)
 
-    - counters.spectrum[det]
-    - counters.statistics[stat][det]
-    - counters.realtime[det]
-    - counters.livetime[det]
-    - counters.triggers[det]
-    - counters.events[det]
-    - counters.icr[det]
-    - counters.ocr[det]
-    - counters.deadtime[det]
+
+def mca_counters(mca):
+    """Provide a flat access to all MCA counters.
+
+    - counters.spectrum_det<N>
+    - counters.realtime_det<N>
+    - counters.livetime_det<N>
+    - counters.triggers_det<N>
+    - counters.events_det<N>
+    - counters.icr_det<N>
+    - counters.ocr_det<N>
+    - counters.deadtime_det<N>
     """
     # Spectrum
-    spectrum = {
-        element: SpectrumMcaCounter(mca, element)
-        for element in mca.elements}
+    counters = [SpectrumMcaCounter(mca, element)
+                for element in mca.elements]
     # Stats
-    statistics = {
-        stat: {
-            element: StatisticsMcaCounter(mca, stat, element)
-            for element in mca.elements}
-        for stat in Stats._fields}
-    # Instance
-    fields = ('spectrum', 'statistics') + Stats._fields
-    cls = namedtuple('McaCounters', fields)
-    return cls(spectrum, statistics, **statistics)
+    counters += [StatisticsMcaCounter(mca, stat, element)
+                 for element in mca.elements
+                 for stat in Stats._fields]
+    # Instantiate
+    return counter_namespace('McaCounters', counters)
+
+
+def mca_counter_groups(mca):
+    """Provide a group access to MCA counters.
+
+    - groups.spectrum
+    - groups.realtime
+    - groups.livetime
+    - groups.triggers
+    - groups.events
+    - groups.icr
+    - groups.ocr
+    - groups.deadtime
+    - groups.det<N>
+    """
+    dct = {}
+    counters = mca_counters(mca)
+
+    # Prefix groups
+    prefixes = list(Stats._fields) + ['spectrum']
+    for prefix in prefixes:
+        dct[prefix] = counter_namespace(
+            counter for counter in counters
+            if counter.name.startswith(prefix))
+
+    # Suffix groups
+    suffixes = ['det{}'.format(e) for e in mca.elements]
+    for suffix in suffixes:
+        dct[suffix] = counter_namespace(
+            counter for counter in counters
+            if counter.name.startswith(prefix))
+
+    # Instantiate group namespace
+    cls = namedtuple('McaGroups', sorted(dct))
+    return cls(**dct)

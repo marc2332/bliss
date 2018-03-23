@@ -78,7 +78,9 @@ def get_active_name():
     """
     session = _current_session()
     session_name = session.name if session is not None else 'unnamed'
-    active_mg_name = settings.SimpleSetting('%s:active_measurementgroup' % session_name)
+    active_mg_name = settings.SimpleSetting(
+        '%s:active_measurementgroup' %
+        session_name)
     return active_mg_name.get()
 
 
@@ -114,7 +116,8 @@ class MeasurementGroup(object):
         self._available_counters = list(counters_list)
 
         # Current State
-        self._current_state = settings.SimpleSetting('%s' % name, default_value='default')
+        self._current_state = settings.SimpleSetting(
+            '%s' % name, default_value='default')
 
         # list of states ; at least one "default" state
         self._all_states = settings.QueueSetting("%s:MG_states" % name)
@@ -155,7 +158,7 @@ class MeasurementGroup(object):
         valid_counters = self.available
 
         for cc in counters:
-            if type(cc) != str:
+            if not isinstance(cc, str):
                 if cc.name in valid_counters:
                     counters_names.append(cc.name)
             else:
@@ -183,7 +186,7 @@ class MeasurementGroup(object):
 
         counters_names = list()
         for cc in counters:
-            if type(cc) != str:
+            if not isinstance(cc, str):
                 counters_names.append(cc.name)
             else:
                 counters_names.append(cc)
@@ -245,13 +248,15 @@ class MeasurementGroup(object):
 
         states_list_old = self._all_states.get()
 
-        states_list_new = [sn for sn in states_list_old if sn not in state_names]
+        states_list_new = [sn for sn in states_list_old
+                           if sn not in state_names]
         self._all_states.set(states_list_new)
 
     def __repr__(self):
         """ function used when printing a measurement group.
         """
-        s = "MeasurementGroup: %s (state='%s')\n" % (self.name, self.active_state_name)
+        s = "MeasurementGroup: %s (state='%s')\n" % (
+            self.name, self.active_state_name)
         s += "  - Existing states : "
         for name in self.state_names:
             s += "'%s'" % name + '; '
@@ -264,7 +269,7 @@ class MeasurementGroup(object):
         str_format = '  %-' + '%ds' % max_len + '  %s\n'
         s += str_format % ('Enabled', 'Disabled')
         s += str_format % ('-' * max_len, '-' * max_len)
-        for enable, disable in itertools.izip_longest(self.enabled,
-                                                      self.disabled, fillvalue=''):
+        for enable, disable in itertools.izip_longest(
+                self.enabled, self.disabled, fillvalue=''):
             s += str_format % (enable, disable)
         return s

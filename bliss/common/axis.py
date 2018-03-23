@@ -690,6 +690,7 @@ class Axis(object):
                 backlash_start, motion.backlash, polling_time)
         elif stopped:
             self._set_position(user_pos)
+            return state
         elif self.config.get("check_encoder", bool, False) and self.encoder:
             self._do_encoder_reading()
         else:

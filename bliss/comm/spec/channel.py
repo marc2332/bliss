@@ -1,9 +1,13 @@
+# -*- coding: utf-8 -*-
+# 
+# This file is part of the bliss project
+#
+# Copyright (c) 2016 Beamline Control Unit, ESRF
+# Distributed under the GNU LGPLv3. See LICENSE for more info.
+
 """SpecChannel module
 This module defines the SpecChannel class
 """
-
-__author__ = 'Matias Guijarro'
-__version__ = '1.0'
 
 from .wait import waitReply
 from .error import SpecClientTimeoutError

@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+# 
+# This file is part of the bliss project
+#
+# Copyright (c) 2016 Beamline Control Unit, ESRF
+# Distributed under the GNU LGPLv3. See LICENSE for more info.
+
 """SpecCommand module
 This module defines the classes Spec command
 objects
@@ -6,9 +13,6 @@ BaseSpecCommand
 SpecCommand
 SpecCommandA
 """
-
-__author__ = 'Matias Guijarro'
-__version__ = '1.0'
 
 import sys
 import types

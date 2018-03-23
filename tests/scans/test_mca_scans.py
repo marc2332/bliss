@@ -90,7 +90,7 @@ def test_mca_step_soft_scan(beacon):
     assert_data_consistency(scans.get_data(scan), realtime=0.1)
 
 
-def test_mca_default_chain_ascan(beacon):
+def test_mca_default_chain_with_counters(beacon):
     # Get controllers
     m0 = beacon.get('m0')
     mca = beacon.get('simu1')
@@ -98,5 +98,43 @@ def test_mca_default_chain_ascan(beacon):
     # Run scan
     scan = scans.ascan(
         m0, 0, 10, 3, 0.1, *mca.counters, return_scan=True, save=False)
+    # Checks
+    assert_data_consistency(scans.get_data(scan), realtime=0.1)
+
+
+def test_mca_default_chain_with_counter_namespace(beacon):
+    # Get controllers
+    m0 = beacon.get('m0')
+    mca = beacon.get('simu1')
+    # Counters
+    # Run scan
+    scan = scans.ascan(
+        m0, 0, 10, 3, 0.1, mca.counters, return_scan=True, save=False)
+    # Checks
+    assert_data_consistency(scans.get_data(scan), realtime=0.1)
+
+
+def test_mca_default_chain_with_counter_namespace_from_controller(beacon):
+    # Get controllers
+    m0 = beacon.get('m0')
+    mca = beacon.get('simu1')
+    # Counters
+    # Run scan
+    scan = scans.ascan(
+        m0, 0, 10, 3, 0.1, mca, return_scan=True, save=False)
+    # Checks
+    assert_data_consistency(scans.get_data(scan), realtime=0.1)
+
+
+def test_mca_default_chain_with_counter_groups(beacon):
+    # Get controllers
+    m0 = beacon.get('m0')
+    mca = beacon.get('simu1')
+    # Run scan
+    scan = scans.ascan(
+        m0, 0, 10, 3, 0.1,
+        mca.groups.realtime, mca.groups.events, mca.groups.spectrum,
+        mca.groups.det0,  # Overlap should be no problem
+        return_scan=True, save=False)
     # Checks
     assert_data_consistency(scans.get_data(scan), realtime=0.1)

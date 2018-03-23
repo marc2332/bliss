@@ -57,21 +57,58 @@ class TimestampPlaceholder:
         self.name = 'timestamp'
 
 
-def _get_counters_from_mg(mg, missing_list):
+def _get_object_from_name(name):
+    """Get a bliss object from a name.
+
+    Given name is a.b.c, it will look into:
+    - a.b.c
+    - a.b.counters.c
+    - a.counters.b.c
+    - a.b.groups.c
+    - a.groups.b.c
+    """
+    attrs = name.split('.')
+
+    # Exact access
+    try:
+        return operator.attrgetter(name)(setup_globals)
+    except AttributeError:
+        pass
+
+    # Look into counters and groups attributes
+    for extra in ('counters', 'groups'):
+        # Assume different naming convention
+        for index in (-1, 1):
+            try:
+                test = '.'.join(attrs[:index] + [extra] + attrs[index:])
+                return operator.attrgetter(test)(setup_globals)
+            except (IndexError, AttributeError):
+                pass
+
+    # Raise error
+    raise AttributeError(name)
+
+
+def _get_counters_from_measurement_group(mg):
     """Get the counters from a measurement group."""
-    counters = list()
+    counters, missing = [], []
     if mg is not None:
-        for cnt_name in mg.enabled:
-            cnt = operator.attrgetter(cnt_name)(setup_globals)
-            if cnt:
-                counters.append(cnt)
+        for name in mg.enabled:
+            try:
+                obj = _get_object_from_name(name)
+            except AttributeError:
+                missing.append(name)
             else:
-                missing_list.append(cnt_name)
+                # Prevent groups from pointing to other groups
+                counters += _get_counters_from_object(obj, recursive=False)
+    if missing:
+        raise AttributeError(*missing)
     return counters
 
 
-def _get_counters_from_arg(arg):
-    """Get the counters from a scan function positional counter argument.
+def _get_counters_from_object(arg, recursive=True):
+    """Get the counters from a bliss object (typically a scan function
+    positional counter argument).
 
     According to issue #251, `arg` can be:
     - a counter
@@ -79,7 +116,10 @@ def _get_counters_from_arg(arg):
     - a controller, in which case:
        - controller.groups.default namespace is used if it exists
        - controller.counters namepace otherwise
+    - a measurementgroup
     """
+    if isinstance(arg, measurementgroup.MeasurementGroup):
+        return _get_counters_from_measurement_group(arg)
     try:
         return arg.groups.default
     except AttributeError:
@@ -95,23 +135,26 @@ def _get_counters_from_arg(arg):
 
 
 def _get_all_counters(counters):
-    all_counters, missing_counters = [], []
-    if counters:
-        for cnt in counters:
-            if isinstance(cnt, measurementgroup.MeasurementGroup):
-                all_counters.extend(
-                    _get_counters_from_mg(cnt, missing_counters))
-            else:
-                all_counters.extend(_get_counters_from_arg(cnt))
-    else:
-        all_counters.extend(_get_counters_from_mg(
-            measurementgroup.get_active(),
-            missing_counters))
+    # No counter is provided
+    if not counters:
+        counters = [measurementgroup.get_active()]
 
-    if missing_counters:
-        raise ValueError("Missing counters, not in setup_globals: %s. "
-                         "Hint: disable inactive counters."
-                         % ", ".join(missing_counters))
+    # Initialize
+    all_counters, missing = [], []
+
+    # Process all counter arguments
+    for counter in counters:
+        try:
+            all_counters += _get_counters_from_object(counter)
+        except AttributeError as exc:
+            missing += exc.args
+
+    # Missing counters
+    if missing:
+        raise ValueError(
+            "Missing counters, not in setup_globals: {}.\n"
+            "Hint: disable inactive counters."
+            .format(', '.join(missing)))
 
     return all_counters
 

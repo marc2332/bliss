@@ -60,7 +60,7 @@ class TimestampPlaceholder:
 def _get_object_from_name(name):
     """Get a bliss object from a name.
 
-    Given name is a.b.c, it will look into:
+    Given name is a.b.c, it looks into:
     - a.b.c
     - a.b.counters.c
     - a.counters.b.c
@@ -92,15 +92,14 @@ def _get_object_from_name(name):
 def _get_counters_from_measurement_group(mg):
     """Get the counters from a measurement group."""
     counters, missing = [], []
-    if mg is not None:
-        for name in mg.enabled:
-            try:
-                obj = _get_object_from_name(name)
-            except AttributeError:
-                missing.append(name)
-            else:
-                # Prevent groups from pointing to other groups
-                counters += _get_counters_from_object(obj, recursive=False)
+    for name in mg.enabled:
+        try:
+            obj = _get_object_from_name(name)
+        except AttributeError:
+            missing.append(name)
+        else:
+            # Prevent groups from pointing to other groups
+            counters += _get_counters_from_object(obj, recursive=False)
     if missing:
         raise AttributeError(*missing)
     return counters
@@ -119,6 +118,9 @@ def _get_counters_from_object(arg, recursive=True):
     - a measurementgroup
     """
     if isinstance(arg, measurementgroup.MeasurementGroup):
+        if not recursive:
+            raise ValueError(
+                'Measurement groups cannot point to other groups')
         return _get_counters_from_measurement_group(arg)
     try:
         return arg.groups.default
@@ -135,9 +137,13 @@ def _get_counters_from_object(arg, recursive=True):
 
 
 def _get_all_counters(counters):
-    # No counter is provided
+    # Use active MG if no counter is provided
     if not counters:
-        counters = [measurementgroup.get_active()]
+        active = measurementgroup.get_active()
+        if active is None:
+            raise ValueError(
+                'No measurement group is currently active')
+        counters = [active]
 
     # Initialize
     all_counters, missing = [], []

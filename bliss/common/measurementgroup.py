@@ -152,7 +152,6 @@ class MeasurementGroup(object):
         return settings.QueueSetting(_key)
 
     def disable(self, *counters):
-        dc_list_new = self.disabled
 
         counters_names = list()
         valid_counters = self.available
@@ -182,14 +181,10 @@ class MeasurementGroup(object):
         return [cname for cname in self.available if cname not in self.disabled]
 
     def enable(self, *counters):
-        all = self._available_counters
 
-        counters_names = list()
-        for cc in counters:
-            if not isinstance(cc, str):
-                counters_names.append(cc.name)
-            else:
-                counters_names.append(cc)
+        counters_names = [
+            c if isinstance(c, str) else c.name
+            for c in counters]
 
         to_enable = set(counters_names)
         disabled = set(self.disabled)

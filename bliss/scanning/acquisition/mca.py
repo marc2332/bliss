@@ -351,15 +351,17 @@ def mca_counter_groups(mca):
     prefixes = list(Stats._fields) + ['spectrum']
     for prefix in prefixes:
         dct[prefix] = counter_namespace(
-            counter for counter in counters
-            if counter.name.startswith(prefix))
+            prefix.capitalize() + 'McaCounters',
+            [counter for counter in counters
+             if counter.name.startswith(prefix)])
 
     # Suffix groups
     suffixes = ['det{}'.format(e) for e in mca.elements]
     for suffix in suffixes:
         dct[suffix] = counter_namespace(
-            counter for counter in counters
-            if counter.name.startswith(prefix))
+            suffix.capitalize() + 'McaCounters',
+            [counter for counter in counters
+             if counter.name.startswith(prefix)])
 
     # Instantiate group namespace
     cls = namedtuple('McaGroups', sorted(dct))

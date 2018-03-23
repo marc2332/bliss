@@ -57,7 +57,8 @@ class TimestampPlaceholder:
         self.name = 'timestamp'
 
 
-def _get_counters(mg, missing_list):
+def _get_counters_from_mg(mg, missing_list):
+    """Get the counters from a measurement group."""
     counters = list()
     if mg is not None:
         for cnt_name in mg.enabled:
@@ -69,17 +70,43 @@ def _get_counters(mg, missing_list):
     return counters
 
 
+def _get_counters_from_arg(arg):
+    """Get the counters from a scan function positional counter argument.
+
+    According to issue #251, `arg` can be:
+    - a counter
+    - a counter namepace
+    - a controller, in which case:
+       - controller.groups.default namespace is used if it exists
+       - controller.counters namepace otherwise
+    """
+    try:
+        return arg.groups.default
+    except AttributeError:
+        pass
+    try:
+        return arg.counters
+    except AttributeError:
+        pass
+    try:
+        return list(arg)
+    except TypeError:
+        return [arg]
+
+
 def _get_all_counters(counters):
     all_counters, missing_counters = [], []
     if counters:
         for cnt in counters:
             if isinstance(cnt, measurementgroup.MeasurementGroup):
-                all_counters.extend(_get_counters(cnt, missing_counters))
+                all_counters.extend(
+                    _get_counters_from_mg(cnt, missing_counters))
             else:
-                all_counters.append(cnt)
+                all_counters.extend(_get_counters_from_arg(cnt))
     else:
-        all_counters.extend(_get_counters(measurementgroup.get_active(),
-                                          missing_counters))
+        all_counters.extend(_get_counters_from_mg(
+            measurementgroup.get_active(),
+            missing_counters))
 
     if missing_counters:
         raise ValueError("Missing counters, not in setup_globals: %s. "
@@ -173,7 +200,18 @@ def default_chain(chain, scan_pars, counters):
         raise ValueError(
             "No counters for scan. Hint: are all counters disabled ?")
 
-    counters = set(counters)  # eliminate duplicated counters, if any
+    # Eliminate duplicates using counter full names
+    def fullname(arg):
+        if hasattr(arg, 'controller'):
+            return '.'.join((arg.controller.name, arg.name))
+        return arg.name
+
+    counter_dct = {fullname(counter): counter for counter in counters}
+    counters = [counter for name, counter in sorted(counter_dct.items())]
+
+    # TODO: remove and adapt API
+    counters = set(counters)
+
     timer = SoftwareTimerMaster(
         count_time,
         npoints=npoints,

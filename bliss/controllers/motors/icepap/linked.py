@@ -5,20 +5,9 @@
 # Copyright (c) 2017 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from bliss.common.axis import Axis,DEFAULT_POLLING_TIME,lazy_init
+from bliss.common.axis import Axis,NoSettingsAxis,DEFAULT_POLLING_TIME,lazy_init
 from . import _ackcommand,_command
-import mock
 
-class SlaveAxis(Axis):
-    def __init__(self,*args,**kwags):
-        Axis.__init__(self,*args,**kwags)
-        self.settings.get = mock.MagicMock(return_value = None)
-        self.settings.set = mock.MagicMock(return_value = None)
-        
-    @property
-    def _hw_control(self):
-        return False
-    
 class LinkedAxis(Axis):
     def __init__(self, name, controller, config):
         Axis.__init__(self, name, controller, config)
@@ -51,7 +40,7 @@ class LinkedAxis(Axis):
                            'steps_per_unit' : self.steps_per_unit,
                            'acceleration' : self.acceleration,
                            'velocity' : self.velocity}
-            real_motor = SlaveAxis(mot_name,self.controller,config_dict)
+            real_motor = NoSettingsAxis(mot_name,self.controller,config_dict)
             real_motor.address = address
             real_motor.no_offset = True
             self.controller._Controller__initialized_axis[real_motor] = True

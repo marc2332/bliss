@@ -334,7 +334,7 @@ def create_objects_from_config_node(config, node):
         else:
             axis_class_name = axis_config.get("class")
             if axis_class_name is None:
-        	axis_class = Axis
+                axis_class = Axis
             else:
                 try:
                     axis_class = getattr(axis_module, axis_class_name)

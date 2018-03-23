@@ -44,6 +44,7 @@ import math
 import types
 import functools
 import numpy
+import mock
 import warnings
 warnings.simplefilter('once')
 
@@ -1492,3 +1493,14 @@ class ModuloAxis(Axis):
             return Axis.prepare_move(self, user_target_pos, *args, **kwargs)
         finally:
             self._in_prepare_move = False
+
+class NoSettingsAxis(Axis):
+    def __init__(self,*args,**kwags):
+        Axis.__init__(self,*args,**kwags)
+        self.settings.get = mock.MagicMock(return_value = None)
+        self.settings.set = mock.MagicMock(return_value = None)
+        
+    @property
+    def _hw_control(self):
+        return False
+

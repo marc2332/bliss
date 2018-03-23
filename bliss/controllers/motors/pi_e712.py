@@ -227,24 +227,28 @@ class PI_E712(Controller):
         Returns:
             - None
         """
-
+        self.start_all(motion)
+        
+    def start_all(self, *motions):
 ###
 ###  hummm a bit dangerous to mix voltage and microns for the same command isnt'it ?
 ###
-        if motion.axis.closed_loop:
-            # Command in position.
-            self.command("MOV %s %g" %
-                         (motion.axis.channel, motion.target_pos))
-            elog.debug("Command to piezo MOV %s %g"%
-                       (motion.axis.channel, motion.target_pos))
+        mov_cmd = list()
+        voltage_cmd = list()
+        for motion in motions:
+            l_cmd = mov_cmd if motion.axis.closed_loop else voltage_cmd
+            l_cmd.append((motion.axis.channel, motion.target_pos))
+            cmd = ''
+            if mov_cmd:
+                cmd += 'MOV ' + ' '.join(['%s %g' % (chan,pos)\
+                                          for chan,pos in mov_cmd])
+            if voltage_cmd:
+                if cmd: cmd += '\n'
+                cmd += 'SVA ' + ' '.join(['%s %g' % (chan,pos)\
+                                          for chan,pos in voltage_cmd])
+        self.command(cmd)
 
-        else:
-            # Command in voltage.
-            self.command("SVA %s %g" %
-                         (motion.axis.channel, motion.target_pos))
-            elog.debug("Command to piezo SVA %s %g"%
-                       (motion.axis.channel, motion.target_pos))
-
+        
     def stop(self, axis):
         """
         * HLT -> stop smoothly
@@ -266,7 +270,7 @@ class PI_E712(Controller):
         """
         Returns Identification information (\*IDN? command).
         """
-        return self.command("*IDN?\n")
+        return self.command("*IDN?")
 
 
     def command(self, cmd, nb_line=1):

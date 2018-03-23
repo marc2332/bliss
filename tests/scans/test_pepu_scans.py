@@ -97,12 +97,23 @@ def test_pepu_continuous_soft_scan(beacon, pepu):
     pepu.assert_data(data, 10)
 
 
-def test_pepu_default_chain_ascan(beacon, pepu):
+def test_pepu_default_chain_with_counters(beacon, pepu):
     # Get controllers
     m0 = beacon.get('m0')
     # Run scan
     scan = scans.ascan(
         m0, 0, 10, 10, 0.01, *pepu.counters, return_scan=True, save=False)
+    # Checks
+    data = scans.get_data(scan)
+    pepu.assert_data(data, 10)
+
+
+def test_pepu_default_chain_with_counter_namespace(beacon, pepu):
+    # Get controllers
+    m0 = beacon.get('m0')
+    # Run scan
+    scan = scans.ascan(
+        m0, 0, 10, 10, 0.01, pepu.counters, return_scan=True, save=False)
     # Checks
     data = scans.get_data(scan)
     pepu.assert_data(data, 10)

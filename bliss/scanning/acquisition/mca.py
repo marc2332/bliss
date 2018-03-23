@@ -302,6 +302,7 @@ class SpectrumMcaCounter(BaseMcaCounter):
         self.emit_data_point(spectrums[self.detector_channel])
 
 
+# TODO: This should go somewhere in bliss/common
 def counter_namespace(name, counters):
     dct = {counter.name: counter for counter in counters}
     cls = namedtuple(name, sorted(dct))

@@ -8,8 +8,10 @@ import numpy as np
 import gevent.queue
 
 from bliss.common import scans
+from bliss import setup_globals
 from bliss.scanning.scan import Scan
 from bliss.scanning.chain import AcquisitionChain
+from bliss.common.measurementgroup import MeasurementGroup
 
 from bliss.controllers.pepu import PEPU as PepuClass
 from bliss.controllers.pepu import ChannelIN, ChannelOUT, ChannelCALC, Signal
@@ -114,6 +116,21 @@ def test_pepu_default_chain_with_counter_namespace(beacon, pepu):
     # Run scan
     scan = scans.ascan(
         m0, 0, 10, 10, 0.01, pepu.counters, return_scan=True, save=False)
+    # Checks
+    data = scans.get_data(scan)
+    pepu.assert_data(data, 10)
+
+
+def test_pepu_default_chain_with_measurement_group(beacon, pepu):
+    # Get controllers
+    m0 = beacon.get('m0')
+    # Add pepu1 to globals
+    setup_globals.pepu1 = pepu
+    # Measurement group
+    mg = MeasurementGroup('mygroup', {'counters': ['pepu1']})
+    # Run scan
+    scan = scans.ascan(
+        m0, 0, 10, 10, 0.01, mg, return_scan=True, save=False)
     # Checks
     data = scans.get_data(scan)
     pepu.assert_data(data, 10)

@@ -3,12 +3,15 @@
 import numpy as np
 
 from bliss.common import scans
+from bliss import setup_globals
 from bliss.scanning.scan import Scan
 from bliss.scanning.chain import AcquisitionChain
-from bliss.scanning.acquisition.mca import McaAcquisitionDevice
-from bliss.scanning.acquisition.motor import SoftwarePositionTriggerMaster
-from bliss.scanning.acquisition.motor import LinearStepTriggerMaster
+from bliss.common.measurementgroup import MeasurementGroup
+
 from bliss.scanning.acquisition.motor import MotorMaster
+from bliss.scanning.acquisition.mca import McaAcquisitionDevice
+from bliss.scanning.acquisition.motor import LinearStepTriggerMaster
+from bliss.scanning.acquisition.motor import SoftwarePositionTriggerMaster
 
 
 def assert_data_consistency(scan_data, realtime):
@@ -135,6 +138,32 @@ def test_mca_default_chain_with_counter_groups(beacon):
         m0, 0, 10, 3, 0.1,
         mca.groups.realtime, mca.groups.events, mca.groups.spectrum,
         mca.groups.det0,  # Overlap should be no problem
+        return_scan=True, save=False)
+    # Checks
+    assert_data_consistency(scans.get_data(scan), realtime=0.1)
+
+
+def test_mca_default_chain_with_measurement_group(beacon):
+    # Get controllers
+    m0 = beacon.get('m0')
+    # Add simu1 to globals
+    setup_globals.simu1 = beacon.get('simu1')
+
+    # Measurement group
+    mg1 = MeasurementGroup('mygroup1', {'counters': ['simu1']})
+    # Run scan
+    scan = scans.ascan(
+        m0, 0, 10, 3, 0.1, mg1,
+        return_scan=True, save=False)
+    # Checks
+    assert_data_consistency(scans.get_data(scan), realtime=0.1)
+
+    # Measurement group
+    mg2 = MeasurementGroup('mygroup2', {'counters': [
+        'simu1.realtime', 'simu1.events', 'simu1.spectrum', 'simu1.det0']})
+    # Run scan
+    scan = scans.ascan(
+        m0, 0, 10, 3, 0.1, mg2,
         return_scan=True, save=False)
     # Checks
     assert_data_consistency(scans.get_data(scan), realtime=0.1)

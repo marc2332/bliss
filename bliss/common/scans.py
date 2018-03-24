@@ -58,35 +58,11 @@ class TimestampPlaceholder:
 
 
 def _get_object_from_name(name):
-    """Get a bliss object from a name.
-
-    Given name is a.b.c, it looks into:
-    - a.b.c
-    - a.b.counters.c
-    - a.counters.b.c
-    - a.b.groups.c
-    - a.groups.b.c
-    """
-    attrs = name.split('.')
-
-    # Exact access
+    """Get the bliss object corresponding to the given name."""
     try:
         return operator.attrgetter(name)(setup_globals)
     except AttributeError:
-        pass
-
-    # Look into counters and groups attributes
-    for extra in ('counters', 'groups'):
-        # Assume different naming convention
-        for index in (-1, 1):
-            try:
-                test = '.'.join(attrs[:index] + [extra] + attrs[index:])
-                return operator.attrgetter(test)(setup_globals)
-            except (IndexError, AttributeError):
-                pass
-
-    # Raise error
-    raise AttributeError(name)
+        raise AttributeError(name)
 
 
 def _get_counters_from_measurement_group(mg):

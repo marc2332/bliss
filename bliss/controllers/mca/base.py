@@ -157,7 +157,7 @@ class BaseMCA(object):
         return mca_counters(self)
 
     @property
-    def groups(self):
+    def counter_groups(self):
         from bliss.scanning.acquisition.mca import mca_counter_groups
         return mca_counter_groups(self)
 

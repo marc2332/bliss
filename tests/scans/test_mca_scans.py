@@ -136,8 +136,10 @@ def test_mca_default_chain_with_counter_groups(beacon):
     # Run scan
     scan = scans.ascan(
         m0, 0, 10, 3, 0.1,
-        mca.groups.realtime, mca.groups.events, mca.groups.spectrum,
-        mca.groups.det0,  # Overlap should be no problem
+        mca.counter_groups.realtime,
+        mca.counter_groups.events,
+        mca.counter_groups.spectrum,
+        mca.counter_groups.det0,  # Overlap should be no problem
         return_scan=True, save=False)
     # Checks
     assert_data_consistency(scans.get_data(scan), realtime=0.1)
@@ -160,7 +162,10 @@ def test_mca_default_chain_with_measurement_group(beacon):
 
     # Measurement group
     mg2 = MeasurementGroup('mygroup2', {'counters': [
-        'simu1.realtime', 'simu1.events', 'simu1.spectrum', 'simu1.det0']})
+        'simu1.counter_groups.realtime',
+        'simu1.counter_groups.events',
+        'simu1.counter_groups.spectrum',
+        'simu1.counter_groups.det0']})
     # Run scan
     scan = scans.ascan(
         m0, 0, 10, 3, 0.1, mg2,

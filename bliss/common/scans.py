@@ -99,7 +99,7 @@ def _get_counters_from_object(arg, recursive=True):
                 'Measurement groups cannot point to other groups')
         return _get_counters_from_measurement_group(arg)
     try:
-        return arg.groups.default
+        return arg.counter_groups.default
     except AttributeError:
         pass
     try:

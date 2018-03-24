@@ -3,12 +3,15 @@
 import numpy as np
 
 from bliss.common import scans
+from bliss import setup_globals
 from bliss.scanning.scan import Scan
 from bliss.scanning.chain import AcquisitionChain
-from bliss.scanning.acquisition.mca import McaAcquisitionDevice
-from bliss.scanning.acquisition.motor import SoftwarePositionTriggerMaster
-from bliss.scanning.acquisition.motor import LinearStepTriggerMaster
+from bliss.common.measurementgroup import MeasurementGroup
+
 from bliss.scanning.acquisition.motor import MotorMaster
+from bliss.scanning.acquisition.mca import McaAcquisitionDevice
+from bliss.scanning.acquisition.motor import LinearStepTriggerMaster
+from bliss.scanning.acquisition.motor import SoftwarePositionTriggerMaster
 
 
 def assert_data_consistency(scan_data, realtime):
@@ -26,9 +29,7 @@ def test_mca_continuous_soft_scan(beacon):
     simu = beacon.get("simu1")
     mca_device = McaAcquisitionDevice(simu, npoints=3, preset_time=0.1)
     # Add counters
-    mca_device.add_counters(simu.counters.spectrum.values())
-    mca_device.add_counters(simu.counters.realtime.values())
-    mca_device.add_counters(simu.counters.events.values())
+    mca_device.add_counters(simu.counters)
     # Create chain
     chain = AcquisitionChain()
     chain.add(SoftwarePositionTriggerMaster(m0, 0, 1, 3, time=1.0), mca_device)
@@ -46,9 +47,7 @@ def test_mca_continuous_gate_scan(beacon):
     mca_device = McaAcquisitionDevice(
         simu, block_size=2, npoints=5, trigger_mode=McaAcquisitionDevice.GATE)
     # Add counters
-    mca_device.add_counters(simu.counters.spectrum.values())
-    mca_device.add_counters(simu.counters.realtime.values())
-    mca_device.add_counters(simu.counters.events.values())
+    mca_device.add_counters(simu.counters)
     # Create chain
     chain = AcquisitionChain()
     chain.add(MotorMaster(m0, 0, 1, time=1.0), mca_device)
@@ -66,9 +65,7 @@ def test_mca_continuous_sync_scan(beacon):
     mca_device = McaAcquisitionDevice(
         simu, block_size=2, npoints=5, trigger_mode=McaAcquisitionDevice.SYNC)
     # Add counters
-    mca_device.add_counters(simu.counters.spectrum.values())
-    mca_device.add_counters(simu.counters.realtime.values())
-    mca_device.add_counters(simu.counters.events.values())
+    mca_device.add_counters(simu.counters)
     # Create chain
     chain = AcquisitionChain()
     chain.add(MotorMaster(m0, 0, 1, time=1.0), mca_device)
@@ -85,9 +82,7 @@ def test_mca_step_soft_scan(beacon):
     simu = beacon.get("simu1")
     mca_device = McaAcquisitionDevice(simu, npoints=3, preset_time=0.1)
     # Add counters
-    mca_device.add_counters(simu.counters.spectrum.values())
-    mca_device.add_counters(simu.counters.realtime.values())
-    mca_device.add_counters(simu.counters.events.values())
+    mca_device.add_counters(simu.counters)
     # Create chain
     chain = AcquisitionChain()
     chain.add(LinearStepTriggerMaster(3, m0, 0, 1), mca_device)
@@ -98,16 +93,82 @@ def test_mca_step_soft_scan(beacon):
     assert_data_consistency(scans.get_data(scan), realtime=0.1)
 
 
-def test_mca_default_chain_ascan(beacon):
+def test_mca_default_chain_with_counters(beacon):
     # Get controllers
     m0 = beacon.get('m0')
     mca = beacon.get('simu1')
     # Counters
-    counters = mca.counters.spectrum.values()
-    counters += mca.counters.realtime.values()
-    counters += mca.counters.events.values()
     # Run scan
     scan = scans.ascan(
-        m0, 0, 10, 3, 0.1, *counters, return_scan=True, save=False)
+        m0, 0, 10, 3, 0.1, *mca.counters, return_scan=True, save=False)
+    # Checks
+    assert_data_consistency(scans.get_data(scan), realtime=0.1)
+
+
+def test_mca_default_chain_with_counter_namespace(beacon):
+    # Get controllers
+    m0 = beacon.get('m0')
+    mca = beacon.get('simu1')
+    # Counters
+    # Run scan
+    scan = scans.ascan(
+        m0, 0, 10, 3, 0.1, mca.counters, return_scan=True, save=False)
+    # Checks
+    assert_data_consistency(scans.get_data(scan), realtime=0.1)
+
+
+def test_mca_default_chain_with_counter_namespace_from_controller(beacon):
+    # Get controllers
+    m0 = beacon.get('m0')
+    mca = beacon.get('simu1')
+    # Counters
+    # Run scan
+    scan = scans.ascan(
+        m0, 0, 10, 3, 0.1, mca, return_scan=True, save=False)
+    # Checks
+    assert_data_consistency(scans.get_data(scan), realtime=0.1)
+
+
+def test_mca_default_chain_with_counter_groups(beacon):
+    # Get controllers
+    m0 = beacon.get('m0')
+    mca = beacon.get('simu1')
+    # Run scan
+    scan = scans.ascan(
+        m0, 0, 10, 3, 0.1,
+        mca.counter_groups.realtime,
+        mca.counter_groups.events,
+        mca.counter_groups.spectrum,
+        mca.counter_groups.det0,  # Overlap should be no problem
+        return_scan=True, save=False)
+    # Checks
+    assert_data_consistency(scans.get_data(scan), realtime=0.1)
+
+
+def test_mca_default_chain_with_measurement_group(beacon):
+    # Get controllers
+    m0 = beacon.get('m0')
+    # Add simu1 to globals
+    setup_globals.simu1 = beacon.get('simu1')
+
+    # Measurement group
+    mg1 = MeasurementGroup('mygroup1', {'counters': ['simu1']})
+    # Run scan
+    scan = scans.ascan(
+        m0, 0, 10, 3, 0.1, mg1,
+        return_scan=True, save=False)
+    # Checks
+    assert_data_consistency(scans.get_data(scan), realtime=0.1)
+
+    # Measurement group
+    mg2 = MeasurementGroup('mygroup2', {'counters': [
+        'simu1.counter_groups.realtime',
+        'simu1.counter_groups.events',
+        'simu1.counter_groups.spectrum',
+        'simu1.counter_groups.det0']})
+    # Run scan
+    scan = scans.ascan(
+        m0, 0, 10, 3, 0.1, mg2,
+        return_scan=True, save=False)
     # Checks
     assert_data_consistency(scans.get_data(scan), realtime=0.1)

@@ -149,12 +149,17 @@ class BaseMCA(object):
     def poll_data(self):
         raise NotImplementedError
 
-    # Counters shortcut
+    # Standard counter access
 
     @property
     def counters(self):
         from bliss.scanning.acquisition.mca import mca_counters
         return mca_counters(self)
+
+    @property
+    def counter_groups(self):
+        from bliss.scanning.acquisition.mca import mca_counter_groups
+        return mca_counter_groups(self)
 
     # Extra logic
 

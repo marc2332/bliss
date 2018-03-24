@@ -95,6 +95,7 @@ from collections import namedtuple
 
 from ..chain import AcquisitionDevice, AcquisitionChannel
 from ...controllers.pepu import Trigger, Signal
+from .mca import counter_namespace
 
 
 class PepuAcquisitionDevice(AcquisitionDevice):
@@ -261,5 +262,4 @@ def pepu_counters(pepu):
     """Provide a convenient access to the PEPU counters."""
     channels = pepu.in_channels.values() + pepu.calc_channels.values()
     counters = map(PepuCounter, channels)
-    names = (channel.name for channel in channels)
-    return namedtuple('PepuCounters', names)(*counters)
+    return counter_namespace('PepuCounters', counters)

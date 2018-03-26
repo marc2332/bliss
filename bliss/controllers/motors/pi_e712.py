@@ -250,15 +250,40 @@ class PI_E712(Controller):
 
         
     def stop(self, axis):
+        self.stop_all()
+        
+    def stop_all(self, *motions):
         """
         * HLT -> stop smoothly
         * STP -> stop asap
         * 24    -> stop asap
-        """
-        elog.debug("Stopping Piezo by opening loop")
-        self._set_closed_loop(self, axis, False)
-        #self.send_no_ans(axis, "SVO %s" % axis.channel)
 
+        As the controller open the closed loop, to stop motions,
+        target position change a little bit for axes which are
+        already stopped. So we reset the target position for all
+        stopped axes to the previous value before the stop command.
+        """
+        channels = [str(x.channel) for x in self.axes.values()
+                    if hasattr(x,'channel')]
+        channels_str = ' '.join(channels)
+        cmd = '\n'.join(['%s %s' % (cmd,channels_str)
+                         for cmd in ('ONT?','MOV?')])
+        cmd += '\n%c\n' % 24      # Char to stop all movement
+        reply = self.sock.write_readlines(cmd,len(channels)*2)
+        channel_on_target = set()
+        for channel_target in reply[:len(channels)]:
+            channel, ont = channel_target.strip().split('=')
+            if int(ont):
+                channel_on_target.add(channel)
+        channels_position = list()
+        for chan_pos in reply[len(channels):]:
+            channel,position = chan_pos.strip().split('=')
+            if channel in channel_on_target:
+                channels_position.extend([channel,position])
+        if channels_position:
+            reset_target_cmd = 'MOV ' + ' '.join(channels_position)
+            self.command(reset_target_cmd)
+        
     """ RAW COMMANDS """
     def raw_write(self, axis, com):
         self.sock.write("%s\n" % com)

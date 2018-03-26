@@ -102,10 +102,9 @@ class Proxy(object):
         read,write = os.pipe()
         pid = os.fork()
         if pid == 0:      # child
-            os.close(read)
             os.dup2(write,sys.stdout.fileno())
             os.dup2(write,sys.stderr.fileno())
-            os.close(write)
+            os.closerange(3, write+1)
             os.execl(sys.executable,sys.executable,__file__,"--channel-name",self._url_channel.name,
                      "--port",str(port),"--host",host)
             sys.exit(0)

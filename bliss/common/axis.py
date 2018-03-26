@@ -46,7 +46,7 @@ import functools
 import numpy
 import mock
 import warnings
-warnings.simplefilter('once')
+warnings.simplefilter('once', DeprecationWarning)
 
 #: Default polling time
 DEFAULT_POLLING_TIME = 0.02

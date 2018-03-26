@@ -8,14 +8,18 @@
 import time
 import re
 import numpy
+import weakref
+import gevent
 
 from bliss.controllers.motor import Controller
 from bliss.common import log as elog
 from bliss.common.utils import object_method
 from bliss.common.utils import OrderedDict
 from bliss.common.utils import grouped
+from bliss.common.utils import add_property
 
 from bliss.common.axis import AxisState
+from bliss.config.channels import Cache
 
 import pi_gcs
 from bliss.comm.util import TCP
@@ -55,7 +59,6 @@ config example:
     servo_mode: 1
 """
 
-
 class PI_E712(Controller):
     #POSSIBLE DATA TRIGGER SOURCE
     WAVEFORM=0
@@ -68,6 +71,7 @@ class PI_E712(Controller):
 
         self.sock = None
         self.cname = "E712"
+        self.__axis_closed_loop = weakref.WeakKeyDictionary()
 
     def initialize(self):
         """
@@ -113,7 +117,12 @@ class PI_E712(Controller):
         self._gate_enabled = False
 
         # Updates cached value of closed loop status.
-        axis.closed_loop = self._get_closed_loop_status(axis)
+        closed_loop_cache = Cache(axis,"closed_loop")
+        self.__axis_closed_loop[axis] = closed_loop_cache
+        if closed_loop_cache.value is None:
+            closed_loop_cache.value = self._get_closed_loop_status(axis)
+
+        add_property(axis,'closed_loop',lambda x: self.__axis_closed_loop[x].value)
         self.check_power_cut()
 
         elog.debug("axis = %r" % axis.name)
@@ -144,7 +153,13 @@ class PI_E712(Controller):
 
         # supposed that we are on target on init
         axis._last_on_target = True
-        
+
+        #check servo mode (default true)
+        servo_mode = axis.config.get('servo_mode',lambda x: x,True)
+        if axis.closed_loop != servo_mode:
+            #spawn if to avoid recursion
+            gevent.spawn(self.activate_closed_loop, axis, servo_mode)
+
     def read_position(self, axis):
         """
         Returns position's setpoint or measured position.
@@ -489,7 +504,6 @@ class PI_E712(Controller):
         """
         Returns last valid position setpoint ('MOV?' command).
         """
-        axis.closed_loop = self._get_closed_loop_status(axis)
         if axis.closed_loop:
             _ans = self.command("MOV? %s" % axis.channel)
         else:
@@ -510,15 +524,13 @@ class PI_E712(Controller):
         """
         return float(self.command("VOL? %s" % axis.channel))
 
-    def _set_closed_loop(self, axis, onoff = True):
+    @object_method(types_info=("bool", "None"))
+    def activate_closed_loop(self, axis, onoff=True):
         """
-        Sets Closed loop status (Servo state) (SVO command)
+        Activate/Desactivate closed loop status (Servo state) (SVO command)
         """
-
-        axis.closed_loop = onoff
         self.command("SVO %s %d" % (axis.channel, onoff))
         elog.debug("Piezo Servo %r" % onoff)
-
 
         # Only when closing loop: waits to be ON-Target.
         if onoff:
@@ -529,7 +541,6 @@ class PI_E712(Controller):
             elog.info(u'axis {0:s} waiting to be ONTARGET'.format(axis.name))
             while (not _ont_state) and (time.time() - _t0) < cl_timeout:
                 time.sleep(0.01)
-                print ".",
                 _ont_state = self._get_on_target_status(axis)
             if not _ont_state:
                 elog.error('axis {0:s} NOT on-target'.format(axis.name))
@@ -539,7 +550,9 @@ class PI_E712(Controller):
                 elog.info('axis {0:s} ONT ok after {1:g} s'.format(axis.name, time.time() - _t0))
 
         # Updates bliss setting (internal cached) position.
-        axis._position()  # "POS?"
+        self.__axis_closed_loop[axis].value = onoff
+
+        axis._update_dial()
 
 
     def _get_closed_loop_status(self, axis):

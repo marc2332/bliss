@@ -542,9 +542,12 @@ class CalcController(Controller):
         """
         #check if real motor has trajectory capability
         real_axes = list()
+        real_involved = self.calc_to_real({self._axis_tag(caxis) : caxis.position()
+                                           for caxis in self.pseudos})
         for real in self.reals:
-            axis, raxes = self._check_trajectory(real)
-            real_axes.append((axis, raxes))
+            if self._axis_tag(real) in real_involved:
+                axis, raxes = self._check_trajectory(real)
+                real_axes.append((axis, raxes))
 
         trajectory_minimum_resolution = \
             calc_axis.config.get('trajectory_minimum_resolution', floatOrNone, None)
@@ -644,10 +647,13 @@ class CalcController(Controller):
         else:                   # check if axis is part of calccontroller
             ctrl = axis.controller
             if isinstance(ctrl, CalcController):
+                real_involved = ctrl.calc_to_real({ctrl._axis_tag(caxis) : caxis.position()
+                                                   for caxis in ctrl.pseudos})
                 real_axes = list()
                 for real in ctrl.reals:
-                    raxis, axes = self._check_trajectory(real)
-                    real_axes.append((raxis, axes))
+                    if ctrl._axis_tag(real) in real_involved:
+                        raxis, axes = self._check_trajectory(real)
+                        real_axes.append((raxis, axes))
                 return axis, real_axes
             else:
                 raise ValueError("Controller for axis %s does not support "

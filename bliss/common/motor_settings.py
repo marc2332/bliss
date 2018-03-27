@@ -22,7 +22,7 @@ def setting_update_from_channel(value, setting_name=None, axis=None):
                 if axis.is_moving:
                     axis._set_move_done()
 
-    event.send(axis, setting_name, value)
+        event.send(axis, setting_name, value)
 
 
 def get_from_config(axis, setting_name):
@@ -136,6 +136,7 @@ class ControllerAxisSettings:
             settings.HashSetting("axis.%s" % axis.name)[setting_name] = value
         axis._beacon_channels[setting_name].value = value
         event.send(axis, 'internal_'+setting_name, value)
+        event.send(axis, setting_name, value)
 
 class AxisSettings:
 

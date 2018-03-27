@@ -174,8 +174,6 @@ class Controller(object):
                 self.initialize_hardware()
                 self.__initialized_hw.value = True
             
-        axis.settings.load_from_config()
-
         self.initialize_axis(axis)
         self.__initialized_axis[axis] = True
 

@@ -120,14 +120,10 @@ class ControllerAxisSettings:
 
     def set(self, axis, setting_name, value):
         '''
-        * set setting (if updated)
+        * set setting
         * send event
         * write
         '''
-        old_value = get_axis_setting(axis, setting_name)
-        if value == old_value:
-            return
-
         convert_func = self.convert_funcs.get(setting_name)
         if convert_func is not None:
             value = convert_func(value)

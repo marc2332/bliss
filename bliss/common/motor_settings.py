@@ -11,6 +11,7 @@ from bliss.config import settings
 from bliss.config import channels
 import functools
 
+
 def setting_update_from_channel(value, setting_name=None, axis=None):
     #print 'setting update from channel', axis.name, setting_name, str(value)
 
@@ -77,6 +78,7 @@ def floatOrNone(x):
     if x is not None:
         return float(x)
 
+
 class ControllerAxisSettings:
 
     def __init__(self):
@@ -111,7 +113,11 @@ class ControllerAxisSettings:
             elog.debug("settings.py : '%s' is %r" % (setting_name, setting_value))
 
     def get(self, axis, setting_name):
-        value = get_axis_setting(axis, setting_name)
+        hash_setting = settings.HashSetting("axis.%s" % axis.name)
+        value = hash_setting.get(setting_name)
+        if value is None:
+            chan = axis._beacon_channels[setting_name]
+            value = chan.value
         if value is not None:
             convert_func = self.convert_funcs.get(setting_name)
             if convert_func is not None:
@@ -133,6 +139,7 @@ class ControllerAxisSettings:
         axis._beacon_channels[setting_name].value = value
         event.send(axis, 'internal_'+setting_name, value)
         event.send(axis, setting_name, value)
+
 
 class AxisSettings:
 

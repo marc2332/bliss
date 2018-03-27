@@ -367,6 +367,7 @@ def create_objects_from_config_node(config, node):
     controller = controller_class(controller_name, node, axes,
                                   encoders, shutters, switches)
     controller._update_refs(config)
+    controller._init_settings()
     controller.initialize()
 
     all_names = axes_names + encoders_names + switches_names + shutters_names

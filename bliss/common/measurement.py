@@ -17,6 +17,7 @@ import weakref
 from bliss.common.utils import add_conversion_function
 from bliss.config import static
 
+
 class GroupedReadMixin(object):
     def __init__(self, controller):
         self.__controller_ref = weakref.ref(controller)
@@ -47,7 +48,7 @@ class Counter(object):
     GROUPED_READ_HANDLERS = weakref.WeakKeyDictionary()
 
     def __init__(self, name,
-                 grouped_read_handler = None, conversion_function = None):
+                 grouped_read_handler=None, conversion_function=None):
         self.__name = name
 
         if grouped_read_handler:
@@ -93,18 +94,21 @@ class SamplingCounter(Counter):
     class ConvertValue(object):
         def __init__(self, grouped_read_handler):
             self.read = grouped_read_handler.read
+
         def __call__(self, *counters):
-            return [cnt.conversion_function(x) if cnt.conversion_function else x for x, cnt in \
+            return [cnt.conversion_function(x) if cnt.conversion_function else x for x, cnt in
                     zip(self.read(*counters), counters)]
 
     def __init__(self, name, controller,
-                 grouped_read_handler = None,conversion_function = None):
+                 grouped_read_handler=None, conversion_function=None):
         if grouped_read_handler is None and hasattr(controller, "read_all"):
-            grouped_read_handler = DefaultSamplingCounterGroupedReadHandler(controller)
+            grouped_read_handler = DefaultSamplingCounterGroupedReadHandler(
+                controller)
 
         if grouped_read_handler:
-            if not isinstance(grouped_read_handler.read,self.ConvertValue):
-                grouped_read_handler.read = self.ConvertValue(grouped_read_handler)
+            if not isinstance(grouped_read_handler.read, self.ConvertValue):
+                grouped_read_handler.read = self.ConvertValue(
+                    grouped_read_handler)
         else:
             if callable(conversion_function):
                 add_conversion_function(self, 'read', conversion_function)
@@ -127,14 +131,20 @@ class SamplingCounter(Counter):
             finally:
                 grouped_read_handler.stop(self)
 
-def DefaultSamplingCounterGroupedReadHandler(controller, handlers=weakref.WeakValueDictionary()):
-    class DefaultSamplingCounterGroupedReadHandler(SamplingCounter.GroupedReadHandler):
+
+def DefaultSamplingCounterGroupedReadHandler(
+        controller, handlers=weakref.WeakValueDictionary()):
+    class DefaultSamplingCounterGroupedReadHandler(
+            SamplingCounter.GroupedReadHandler):
         """
         Default read all handler for controller which have read_all method
         """
+
         def read(self, *counters):
             return self.controller.read_all(*counters)
-    return handlers.setdefault(controller, DefaultSamplingCounterGroupedReadHandler(controller))
+    return handlers.setdefault(
+        controller, DefaultSamplingCounterGroupedReadHandler(controller))
+
 
 class IntegratingCounter(Counter):
     class GroupedReadHandler(GroupedReadMixin):
@@ -146,21 +156,25 @@ class IntegratingCounter(Counter):
             raise NotImplementedError
 
     def __init__(self, name, controller, acquisition_controller,
-                 grouped_read_handler = None, conversion_function = None):
+                 grouped_read_handler=None, conversion_function=None):
         if grouped_read_handler is None and hasattr(controller, "get_values"):
-            grouped_read_handler = DefaultIntegratingCounterGroupedReadHandler(controller)
+            grouped_read_handler = DefaultIntegratingCounterGroupedReadHandler(
+                controller)
 
         if grouped_read_handler:
             class ConvertValues(object):
                 def __init__(self, grouped_read_handler):
                     self.get_values = grouped_read_handler.get_values
+
                 def __call__(self, from_index, *counters):
-                    return [cnt.conversion_function(x) if cnt.conversion_function else x for x, cnt in \
+                    return [cnt.conversion_function(x) if cnt.conversion_function else x for x, cnt in
                             zip(self.get_values(from_index, *counters), counters)]
-            grouped_read_handler.get_values = ConvertValues(grouped_read_handler)
+            grouped_read_handler.get_values = ConvertValues(
+                grouped_read_handler)
         else:
             if callable(conversion_function):
-                add_conversion_function(self, 'get_values', conversion_function)
+                add_conversion_function(
+                    self, 'get_values', conversion_function)
 
         # is the counter stand-alone ? Or is it part of an object ?
         if controller and not static.get_config().get_config(name):
@@ -185,12 +199,17 @@ class IntegratingCounter(Counter):
     def acquisition_controller(self):
         return self.__acquisition_controller_ref()
 
-def DefaultIntegratingCounterGroupedReadHandler(controller, handlers=weakref.WeakValueDictionary()):
-    class DefaultIntegratingCounterGroupedReadHandler(IntegratingCounter.GroupedReadHandler):
+
+def DefaultIntegratingCounterGroupedReadHandler(
+        controller, handlers=weakref.WeakValueDictionary()):
+    class DefaultIntegratingCounterGroupedReadHandler(
+            IntegratingCounter.GroupedReadHandler):
         """
         Default read all handler for controller which have get_values method
         """
+
         def get_values(self, from_index, *counters):
-            return [cnt.conversion_function(x) if cnt.conversion_function else x for x,cnt in \
-                    zip(self.controller.get_values(*counters),counters)]
-    return handlers.setdefault(controller, DefaultIntegratingCounterGroupedReadHandler(controller))
+            return [cnt.conversion_function(x) if cnt.conversion_function else x for x, cnt in
+                    zip(self.controller.get_values(*counters), counters)]
+    return handlers.setdefault(
+        controller, DefaultIntegratingCounterGroupedReadHandler(controller))

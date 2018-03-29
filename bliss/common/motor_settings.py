@@ -83,8 +83,13 @@ class AxisSettings:
 
     def __init__(self, axis):
         self.__axis = axis
+        self.__state = None
 
     def set(self, setting_name, value):
+        if setting_name == "state":
+            if self.__state == value:
+                return 
+            self.__state = value   
         return self.__axis.controller.axis_settings.set(
             self.__axis, setting_name, value)
 

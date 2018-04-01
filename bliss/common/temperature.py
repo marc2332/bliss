@@ -98,7 +98,6 @@ class Output(object):
             self.__deadband = None
         self.__setpoint_event.set()
         self.__config = config
-        self.__stopped = 0
         self.__ramping = 0
         self.__mode = 0
         # if defined as  self.deadband, attribute available from the instance
@@ -189,9 +188,7 @@ class Output(object):
             if hl is not None and new_setpoint > hl:
                 raise RuntimeError("Invalid setpoint `%f', above high limit (%f)" % (new_setpoint, hl))
 
-            self.__ramping = 1
             self.__setpoint_task = self._start_setpoint(new_setpoint,**kwargs)
-            self.__setpoint_task.link(self.__setpoint_done)
 
             if wait:
                 self.wait()
@@ -207,7 +204,7 @@ class Output(object):
         except KeyboardInterrupt:
             self.stop()
 
-    def _setpoint_state(self, deadband):
+    def _setpoint_state(self, deadband=None):
         """
         Return a string representing the setpoint state of an Output class type object.
         If a setpoint is set (by ramp or by direct setting) on an ouput, the status
@@ -225,11 +222,12 @@ class Output(object):
            object state string: READY/RUNNING from [READY/RUNNING/ALARM/FAULT]
 
         """
+        deadband = self.deadband if deadband is None else deadband
         log.debug("On output:_setpoint_state: %s" % (deadband))
-        if (deadband == None):
+        if deadband is None:
             return "READY"
         mysp = self.controller.get_setpoint(self)
-        if (mysp == None) :
+        if mysp is None:
             return "READY"
         if math.fabs(self.controller.read_output(self) - mysp) <= deadband:
             return "READY"
@@ -243,12 +241,7 @@ class Output(object):
         log.debug("On Output: stop")
         if self.__setpoint_task and not self.__setpoint_task.ready():
             self.__setpoint_task.kill()
-            #added lines
-            self.__setpoint_event.set()
-            self.__stopped = 1
-            ##
         self.controller.setpoint_stop(self)
-        self.__ramping = 0
 
     def abort(self):
         """ Aborts a setpoint task.
@@ -257,12 +250,7 @@ class Output(object):
         log.debug("On Output: abort")
         if self.__setpoint_task and not self.__setpoint_task.ready():
             self.__setpoint_task.kill()
-            #added lines
-            self.__setpoint_event.set()
-            self.__stopped = 1
-            ##
         self.controller.setpoint_abort(self)
-        self.__ramping = 0
 
     def rampstate(self):
         """
@@ -274,48 +262,42 @@ class Output(object):
         """
         if self.__ramping == 1:
             return "RUNNING"
-        else :
+        else:
             return "READY"
 
-    def __setpoint_done(self, task):
-        """ stop the setpoint tasks
-        """
-        log.debug("On Output:__setpoint_done")
-        try:
-            try:
-                task.get()
-            except Exception:
-                sys.excepthook(*sys.exc_info())
-        finally:
-            if self.__stopped == 0:
-               self.__setpoint_event.set()
-            self.__stopped = 0
-            self.__ramping = 0
-
-    @task
     def _do_setpoint(self, setpoint, **kwargs):
         """ Subtask launching the setpoint
             Polls until setpoint is reached
             Is a gevent coroutine
         """ 
         log.debug("On Output:_do_setpoint : mode = %s" % (self.__mode))
-        if self.__mode == 1:
-           self.controller.start_ramp(self, setpoint, **kwargs)
-        else :
-           self.controller.set(self, setpoint, **kwargs)
-
-        while self._setpoint_state(self.__deadband) == 'RUNNING':
-            gevent.sleep(self.__setpoint_event_poll)
+        try:
+            while self._setpoint_state() == 'RUNNING':
+                gevent.sleep(self.__setpoint_event_poll)
+        except Exception:
+            sys.excepthook(*sys.exc_info())
+        finally:
+            self.__setpoint_event.set()
+            self.__ramping = 0
 
     def _start_setpoint(self, setpoint, **kwargs):
         """ launches the coroutine doing the setpoint
         """
         log.debug("On Output:_start_setpoint")
-        self.__setpoint_event.clear()
-        # the "task" decorator automatically turns a function into a gevent coroutine,
-        # and adds a 'wait' keyword argument, whose value is True by default;
-        # setting wait to False returns the coroutine object
-        return self._do_setpoint(setpoint, wait=False, **kwargs)
+        sync_event = gevent.event.Event()
+        @task
+        def setpoint_task(setpoint):
+            sync_event.set()
+            if self.__mode == 1:
+                self.controller.start_ramp(self, setpoint, **kwargs)
+            else:
+                self.controller.set(self, setpoint, **kwargs)
+            self.__ramping = 1
+            self.__setpoint_event.clear()
+            self._do_setpoint(setpoint, wait=False)
+        sp_task = setpoint_task(setpoint, wait=False)
+        sync_event.wait()
+        return sp_task
 
     def state(self):
         """ returns the the state of a heater """

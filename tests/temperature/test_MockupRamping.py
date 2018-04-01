@@ -8,16 +8,12 @@
 import pytest
 import gevent
 
-SP = 10
-SP = 15
-SP = 20
-
 """
 Pytest list of tests
 """
 
 def test_output_ramp(temp_tout):
-    SP=13
+    SP=2
     val = temp_tout.read()
     print "Ramping from %s to %s" % (val,SP)
     temp_tout.ramp(SP)
@@ -27,7 +23,7 @@ def test_output_ramp(temp_tout):
     assert SP == pytest.approx(myval, 1e-02)
 
 def test_output_ramp_with_kwarg(temp_tout):
-    SP=12
+    SP=1
     KWRAMP=20
     KWSTEP=3
     KWDWELL=5
@@ -47,7 +43,7 @@ def test_output_ramp_with_kwarg(temp_tout):
     assert mydwell == KWDWELL
 
 def test_output_ramp_stop(temp_tout):
-    SP=15
+    SP=3
     val = temp_tout.read()
     print "Ramping (then stopping) from %s to %s" % (val,SP)
     temp_tout.ramp(SP)
@@ -57,7 +53,7 @@ def test_output_ramp_stop(temp_tout):
     print "Now at: %s" % myval  
 
 def test_output_ramp_abort(temp_tout):
-    SP=18
+    SP=4
     val = temp_tout.read()
     print "Ramping (then aborting) from %s to %s" % (val,SP)
     temp_tout.ramp(SP)
@@ -67,7 +63,7 @@ def test_output_ramp_abort(temp_tout):
     print "Now at: %s" % myval  
 
 def test_loop_output_ramp(temp_tloop):
-    SP=20
+    SP=5
     val = temp_tloop.output.read()
     print "Ramping from %s to %s" % (val,SP)
     temp_tloop.output.ramp(SP)
@@ -77,18 +73,18 @@ def test_loop_output_ramp(temp_tloop):
     assert SP == pytest.approx(myval, 1e-02)
 
 def test_loop_output_ramp_stop(temp_tloop):
-    SP=20
+    SP=6
     val = temp_tloop.output.read()
     print "Ramping (then stopping) from %s to %s" % (val,SP)
     temp_tloop.output.ramp(SP)
-    gevent.sleep(3)
+    gevent.sleep(0.1)
     print ("Stopping")
     temp_tloop.output.stop()
     myval = temp_tloop.output.read()
     print "Now at: %s" % myval  
 
 def test_loop_ramp(temp_tloop):
-    SP=15
+    SP=3
     val = temp_tloop.output.read()
     print "Ramping from %s to %s" % (val,SP)
     temp_tloop.ramp(SP)

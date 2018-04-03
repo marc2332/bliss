@@ -54,10 +54,10 @@ def test_scan_node(beacon, redis_data_conn, scan_tmpdir):
     s = Scan(chain, "test_scan", parent, { "metadata": 42 })
     assert s.name == "test_scan_1"
     assert s.root_node == parent
-    assert isinstance(s.node, ScanNode) 
+    assert isinstance(s.node, ScanNode)
     assert s.node.type == "scan"
     assert s.node.db_name == s.root_node.db_name+":"+s.name
- 
+
     scan_node_dict = redis_data_conn.hgetall(s.node.db_name)
     assert scan_node_dict.get('name') == "test_scan_1"
     assert scan_node_dict.get('db_name') == s.node.db_name
@@ -66,8 +66,8 @@ def test_scan_node(beacon, redis_data_conn, scan_tmpdir):
 
     scan_info_dict = redis_data_conn.hgetall(s.node.db_name+"_info")
     assert pickle.loads(scan_info_dict['metadata']) == 42
-    
-    with gevent.Timeout(5): 
+
+    with gevent.Timeout(5):
         s.run()
 
     m0_node_db_name = s.node.db_name+":roby"
@@ -98,7 +98,7 @@ def test_data_iterator_event(beacon, redis_data_conn, scan_tmpdir):
       for e, n in DataNodeIterator(get_node(scan_db_name)).walk_events():
         if n.type == 'channel':
           channels[n.name] = n.get(0, -1)
-  
+
     scan_saving = getattr(setup_globals, "SCAN_SAVING")
     scan_saving.base_path=str(scan_tmpdir)
     parent = scan_saving.get_parent_node()
@@ -115,7 +115,7 @@ def test_data_iterator_event(beacon, redis_data_conn, scan_tmpdir):
     iteration_greenlet = gevent.spawn(iterate_channel_events, s.node.db_name, channels_data)
 
     s.run()
-    
+
     time.sleep(0.1)
     iteration_greenlet.kill()
 
@@ -140,7 +140,7 @@ def test_reference_with_lima(beacon, redis_data_conn, scan_tmpdir, lima_simulato
 
     image_node_db_name = '%s:timer:lima_simulator:image' % timescan.node.db_name
     assert  image_node_db_name in db_names
- 
+
     live_ref_status = QueueObjSetting("%s_data" % image_node_db_name, connection=redis_data_conn)[0]
     assert live_ref_status['last_image_saved'] == 2 #npoints-1
 
@@ -154,7 +154,7 @@ def test_iterator_over_reference_with_lima(beacon, redis_data_conn, scan_tmpdir,
     lima_sim = getattr(setup_globals, "lima_simulator")
 
     scan_greenlet = gevent.spawn(scans.timescan, exp_time, lima_sim, npoints=npoints)
-    
+
     gevent.sleep(exp_time) #sleep time to let time for session creation
 
     session_node = get_node(session.name)
@@ -173,7 +173,7 @@ def test_iterator_over_reference_with_lima(beacon, redis_data_conn, scan_tmpdir,
     # make another scan -> this should make a new buffer on Lima server,
     # so images from previous view cannot be retrieved from server anymore
     scans.timescan(exp_time, lima_sim, npoints=1)
-   
+
     view_iterator2 = iter(view)
 
     # retrieve from file
@@ -183,9 +183,3 @@ def test_iterator_over_reference_with_lima(beacon, redis_data_conn, scan_tmpdir,
         assert pytest.raises(RuntimeError, view_iterator2.next)
     else:
         assert view_iterator2.next() == img0
-
-
-    
-
- 
-

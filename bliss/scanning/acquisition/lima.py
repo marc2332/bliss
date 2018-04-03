@@ -59,7 +59,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         self._reading_task = None
         self._latency = latency_time
         self._last_image_ready = -1
-        
+
     def prepare_saving(self, scan_name, scan_file_dir):
         camera_name = self.device.camera_type
         full_path = os.path.join(scan_file_dir, self.device.user_detector_name)
@@ -76,7 +76,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             self.parameters.setdefault('saving_mode', 'MANUAL')
 
     def prepare(self):
-        self._image_channel.description.update(self.parameters) 
+        self._image_channel.description.update(self.parameters)
 
         for param_name, param_value in self.parameters.iteritems():
             setattr(self.device, param_name, param_value)
@@ -109,7 +109,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
 
     def wait_ready(self):
         acq_trigger_mode = self.parameters.get('acq_trigger_mode','INTERNAL_TRIGGER')
-        
+
         if acq_trigger_mode == 'INTERNAL_TRIGGER_MULTI':
             while(self.device.acq_status.lower() == 'running' and
                   not self.device.ready_for_next_image):
@@ -119,7 +119,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
 
     def trigger(self):
         self.trigger_slaves()
-        
+
         self.device.startAcq()
 
         if self._reading_task is None:
@@ -152,7 +152,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         except:
             self._image_channel.emit({"acq_state": "fault"})
             raise
-        
+
     def wait_reading(self, block=True):
         try:
             return self._reading_task.get(block=block) if self._reading_task is not None else True

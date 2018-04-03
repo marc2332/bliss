@@ -78,7 +78,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         """
         Helper to manage acquisition of a sampling counter.
 
-        counters_or_groupreadhandler -- can be a list,tuple of SamplingCounter or 
+        counters_or_groupreadhandler -- can be a list,tuple of SamplingCounter or
         a group_read_handler
         count_time -- the master integration time.
         mode -- three mode are available *SIMPLE_AVERAGE* (the default)

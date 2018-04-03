@@ -156,7 +156,7 @@ class SamplingCounter(Counter):
             if callable(conversion_function):
                 add_conversion_function(self, 'read', conversion_function)
 
-        super(Counter, self).__init__(
+        super(SamplingCounter, self).__init__(
             name, grouped_read_handler, conversion_function, controller)
 
     def read(self):
@@ -216,7 +216,7 @@ class IntegratingCounter(Counter):
                 add_conversion_function(
                     self, 'get_values', conversion_function)
 
-        super(Counter, self).__init__(
+        super(IntegratingCounter, self).__init__(
             name, grouped_read_handler, conversion_function, controller)
 
         self._acquisition_controller_ref = weakref.ref(acquisition_controller)

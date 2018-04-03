@@ -11,7 +11,7 @@ import functools
 import numpy
 
 from bliss.config import settings
-from bliss.common.utils import grouped, OrderedDict
+from bliss.common.utils import OrderedDict
 from bliss.common.measurement import IntegratingCounter
 
 
@@ -84,31 +84,31 @@ class RoiStatCounter(IntegratingCounter):
         return (roi_id << 8) | stat
 
 
-class RoiCounter(object):
+class SingleRoiCounters(object):
 
     def __init__(self, name, **keys):
         self.name = name
-        self.Counter = functools.partial(RoiStatCounter, name, **keys)
+        self.factory = functools.partial(RoiStatCounter, name, **keys)
 
     @property
     def sum(self):
-        return self.Counter(RoiStat.Sum)
+        return self.factory(RoiStat.Sum)
 
     @property
     def avg(self):
-        return self.Counter(RoiStat.Avg)
+        return self.factory(RoiStat.Avg)
 
     @property
     def std(self):
-        return self.Counter(RoiStat.Std)
+        return self.factory(RoiStat.Std)
 
     @property
     def min(self):
-        return self.Counter(RoiStat.Min)
+        return self.factory(RoiStat.Min)
 
     @property
     def max(self):
-        return self.Counter(RoiStat.Max)
+        return self.factory(RoiStat.Max)
 
 
 class RoiCounterGroupReadHandler(IntegratingCounter.GroupedReadHandler):
@@ -219,9 +219,10 @@ class RoiCounters(object):
     def __getattr__(self, name):
         if self._save_rois.get(name) is None:
             raise AttributeError('Unknown ROI counter {0:!r}'.format(name))
-        return RoiCounter(name, controller=self,
-                          acquisition_controller=self._acquisition_proxy,
-                          grouped_read_handler=self._grouped_read_handler)
+        return SingleRoiCounters(
+            name, controller=self,
+            acquisition_controller=self._acquisition_proxy,
+            grouped_read_handler=self._grouped_read_handler)
 
     def __repr__(self):
         name = self.name.rsplit(':', 1)[-1]

@@ -8,9 +8,6 @@
 # run tests for this module from the bliss root directory with:
 # python -m unittest discover -s tests/acquisition -v
 
-import time
-
-import six
 import numpy
 import weakref
 
@@ -20,7 +17,7 @@ from bliss.config import static
 
 class GroupedReadMixin(object):
     def __init__(self, controller):
-        self.__controller_ref = weakref.ref(controller)
+        self._controller_ref = weakref.ref(controller)
 
     @property
     def name(self):
@@ -28,7 +25,7 @@ class GroupedReadMixin(object):
 
     @property
     def controller(self):
-        return self.__controller_ref()
+        return self._controller_ref()
 
     @property
     def id(self):
@@ -70,7 +67,7 @@ class Counter(object):
 
     @property
     def conversion_function(self):
-        return self.__conversion_function
+        return self._conversion_function
 
     def prepare(self):
         pass
@@ -96,8 +93,8 @@ class SamplingCounter(Counter):
             self.read = grouped_read_handler.read
 
         def __call__(self, *counters):
-            return [cnt.conversion_function(x) if cnt.conversion_function else x for x, cnt in
-                    zip(self.read(*counters), counters)]
+            return [cnt.conversion_function(x) if cnt.conversion_function else x
+                    for x, cnt in zip(self.read(*counters), counters)]
 
     def __init__(self, name, controller,
                  grouped_read_handler=None, conversion_function=None):
@@ -167,8 +164,8 @@ class IntegratingCounter(Counter):
                     self.get_values = grouped_read_handler.get_values
 
                 def __call__(self, from_index, *counters):
-                    return [cnt.conversion_function(x) if cnt.conversion_function else x for x, cnt in
-                            zip(self.get_values(from_index, *counters), counters)]
+                    return [cnt.conversion_function(x) if cnt.conversion_function else x
+                            for x, cnt in zip(self.get_values(from_index, *counters), counters)]
             grouped_read_handler.get_values = ConvertValues(
                 grouped_read_handler)
         else:
@@ -182,14 +179,14 @@ class IntegratingCounter(Counter):
             name = controller.name + '.' + name
         Counter.__init__(self, name, grouped_read_handler, conversion_function)
 
-        self.__acquisition_controller_ref = weakref.ref(acquisition_controller)
+        self._acquisition_controller_ref = weakref.ref(acquisition_controller)
 
     def get_values(self, from_index=0):
         """
         Overwrite in your class to provide a useful integrated counter class
 
-        this method is called after the prepare and start on the master handler.
-        this method can block until the data is ready or not and return empty data.
+        This method is called after the prepare and start on the master handler.
+        This method can block until the data is ready or not and return empty data.
         When data is ready should return the data from the acquisition
         point **from_index**
         """
@@ -197,7 +194,7 @@ class IntegratingCounter(Counter):
 
     @property
     def acquisition_controller(self):
-        return self.__acquisition_controller_ref()
+        return self._acquisition_controller_ref()
 
 
 def DefaultIntegratingCounterGroupedReadHandler(

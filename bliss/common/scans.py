@@ -22,31 +22,32 @@ __all__ = [
     'ct',
     'get_data']
 
-import time
+
 import logging
 import operator
-import functools
-import numpy
-import gevent
+import warnings
 
 from bliss import setup_globals
-from bliss.common.axis import estimate_duration
-from bliss.common.temperature import Input, Output, TempControllerCounter
-from bliss.controllers.ct2.client import CT2
+
+from bliss.data.scan import get_data
+
+from bliss.common.task_utils import *
+from bliss.common import measurementgroup
 from bliss.common.motor_group import Group
-from bliss.common.measurement import Counter, SamplingCounter, IntegratingCounter
-from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionDevice, IntegratingCounterAcquisitionDevice
-from bliss.scanning.chain import AcquisitionChain
+from bliss.common.axis import estimate_duration
+from bliss.common.utils import OrderedDict as ordereddict
+from bliss.common.measurement import BaseCounter, Counter
+from bliss.common.measurement import SamplingCounter, IntegratingCounter
+from bliss.common.temperature import Input, Output, TempControllerCounter
+
 from bliss.scanning import scan as scan_module
+from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 from bliss.scanning.acquisition.motor import VariableStepTriggerMaster
-from bliss.scanning.acquisition.motor import LinearStepTriggerMaster, MeshStepTriggerMaster
-from bliss.scanning.acquisition.mca import BaseMcaCounter, McaAcquisitionDevice
-from bliss.scanning.acquisition.pepu import PepuCounter, PepuAcquisitionDevice
-from bliss.common import session, measurementgroup
 from bliss.scanning.standard import default_master_configuration, default_chain_plugins
-from bliss.data.scan import get_data
-from bliss.common.utils import OrderedDict as ordereddict
+from bliss.scanning.acquisition.motor import LinearStepTriggerMaster, MeshStepTriggerMaster
+from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionDevice, IntegratingCounterAcquisitionDevice
+
 
 _log = logging.getLogger('bliss.scans')
 

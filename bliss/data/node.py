@@ -69,17 +69,20 @@ for importer, module_name, _ in pkgutil.iter_modules([os.path.dirname(__file__)]
     node_plugins[node_type] = module_name
 
 
-def _get_node_object(node_type, name, parent, connection, create=False, **keys):
+def _get_node_object(node_type, name, parent,
+                     connection, create=False, **keys):
     module_name = node_plugins.get(node_type)
     if module_name is None:
-        return DataNodeContainer(node_type, name, parent, connection=connection, create=create, **keys)
+        return DataNodeContainer(
+            node_type, name, parent, connection=connection, create=create, **keys)
     else:
         m = __import__(module_name, globals(), locals(), [''], -1)
         classes = inspect.getmembers(m, lambda x: inspect.isclass(x) and issubclass(x, DataNode) and
                                      x not in (DataNode, DataNodeContainer))
         # there should be only 1 class inheriting from DataNode in the plugin
         klass = classes[0][-1]
-        return klass(name, parent=parent, connection=connection, create=create, **keys)
+        return klass(name, parent=parent, connection=connection,
+                     create=create, **keys)
 
 
 def get_node(db_name, connection=None):
@@ -98,10 +101,12 @@ def get_node(db_name, connection=None):
 def _create_node(name, node_type=None, parent=None, connection=None, **keys):
     if connection is None:
         connection = client.get_cache(db=1)
-    return _get_node_object(node_type, name, parent, connection, create=True, **keys)
+    return _get_node_object(node_type, name, parent,
+                            connection, create=True, **keys)
 
 
-def _get_or_create_node(name, node_type=None, parent=None, connection=None, **keys):
+def _get_or_create_node(name, node_type=None,
+                        parent=None, connection=None, **keys):
     if connection is None:
         connection = client.get_cache(db=1)
     db_name = DataNode.exists(name, parent, connection)
@@ -159,7 +164,8 @@ class DataNodeIterator(object):
                 if event_type is self.NEW_CHILD_EVENT:
                     yield value
 
-    def walk_from_last(self, filter=None, wait=True, include_last=True, ready_event=None):
+    def walk_from_last(self, filter=None, wait=True,
+                       include_last=True, ready_event=None):
         """Walk from the last child node (see walk)
         """
         pubsub = self.children_event_register()
@@ -193,7 +199,8 @@ class DataNodeIterator(object):
         if ready_event is not None:
             ready_event.set()
 
-        for event_type, event_data in self.wait_for_event(pubsub, filter=filter):
+        for event_type, event_data in self.wait_for_event(
+                pubsub, filter=filter):
             yield event_type, event_data
 
     def children_event_register(self):
@@ -220,7 +227,8 @@ class DataNodeIterator(object):
                     parent_node = get_node(parent_db_name)
                     first_child = self.last_child_id.setdefault(
                         parent_db_name, 0)
-                    for i, child in enumerate(parent_node.children(first_child, -1)):
+                    for i, child in enumerate(
+                            parent_node.children(first_child, -1)):
                         self.last_child_id[parent_db_name] = first_child + i + 1
                         if filter is None or child.type in filter:
                             yield self.NEW_CHILD_EVENT, child
@@ -236,13 +244,14 @@ class DataNodeIterator(object):
             elif msg['data'] == 'lset':
                 channel = msg['channel']
                 new_channel_event = DataNodeIterator.\
-                NEW_DATA_IN_CHANNEL_REGEX.match(channel)
+                    NEW_DATA_IN_CHANNEL_REGEX.match(channel)
                 if new_channel_event:
                     channel_db_name = new_channel_event.group(1)
                     channel_node = get_node(channel_db_name)
                     if channel_node and \
                        (filter is None or channel_node.type in filter):
                         yield self.NEW_DATA_IN_CHANNEL_EVENT, channel_node
+
 
 class _TTL_setter(object):
     def __init__(self, db_name):
@@ -277,7 +286,8 @@ class DataNode(object):
             pipeline.expire(name, DataNode.default_time_to_live)
         pipeline.execute()
 
-    def __init__(self, node_type, name, parent=None, connection=None, create=False, **keys):
+    def __init__(self, node_type, name, parent=None,
+                 connection=None, create=False, **keys):
         info_dict = keys.pop("info", {})
         if connection is None:
             connection = client.get_cache(db=1)
@@ -332,7 +342,7 @@ class DataNode(object):
 
     @property
     def new_node(self):
-        return self.__new_node     
+        return self.__new_node
 
     @property
     def info(self):
@@ -359,7 +369,8 @@ class DataNode(object):
 
 
 class DataNodeContainer(DataNode):
-    def __init__(self, node_type, name, parent=None, connection=None, create=False, **keys):
+    def __init__(self, node_type, name, parent=None,
+                 connection=None, create=False, **keys):
         DataNode.__init__(self, node_type, name,
                           parent=parent, connection=connection, create=create, **keys)
 
@@ -390,4 +401,3 @@ class DataNodeContainer(DataNode):
     @property
     def last_child(self):
         return get_node(self._children.get(-1))
-

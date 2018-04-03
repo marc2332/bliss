@@ -53,6 +53,10 @@ def beacon():
 
 
 @pytest.fixture
+def beacon_host_port():
+    return "localhost", BEACON_PORT
+
+@pytest.fixture
 def redis_data_conn():
     cnx = get_default_connection()
     redis_conn = cnx.get_redis_connection(db=1)

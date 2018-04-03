@@ -10,6 +10,8 @@ import pytest
 import gevent
 import time
 from bliss.config import channels
+import gipc
+import signal
 
 def test_channel_not_initialized(beacon):
     c = channels.Channel("tagada")
@@ -49,22 +51,47 @@ def test_channel_unref2(beacon):
     channels.Channel("test_chan2", "test")
     assert c.value == 'test'
 
-"""
-    def testTimeout(self):
-        p, pipe, queue = test_ext_channel(3, "test2", "hello")
-        pipe.recv()
+def test_with_another_process(beacon, beacon_host_port):
+    def child_process(child_end, beacon_host_port):
+        from bliss.config.conductor import client
+        from bliss.config.conductor import connection
+        from bliss.config import channels
+        import sys
+
+        beacon_connection = connection.Connection(*beacon_host_port)
+        client._default_connection = beacon_connection
+        channels.BUS = dict()
+
+        assert child_end.get() == '!'
+        child_end.put('$')
+
+        chan = channels.Channel("test_chan")
+
+        if chan.value == 'helloworld':
+            chan.value = 'bla'
+            child_end.put('#')
+            if child_end.get() == '.':
+                sys.exit(2)
+
+    c = channels.Channel("test_chan", "helloworld")
+
+    with gipc.pipe(duplex=True) as (child_end, parent_end):
+        p = gipc.start_process(target=child_process, args=(child_end,
+                                                           beacon_host_port))
+        parent_end.put('!')
+        assert parent_end.get() == '$'
+        assert parent_end.get() == '#'
+        gevent.sleep(0.1) #time for value to be received
+        assert c.value == 'bla'
+        del c
+        gevent.sleep(0.1) #time for channel to be unsubscribed
         os.kill(p.pid, signal.SIGSTOP)
-        c = channels.Channel("test2")
-        self.assertEquals(c.timeout, 3)
-        c.timeout = .5
-
-        def get_value(c):
-            return c.value
-
-        t0 = time.time()
-        self.assertRaises(RuntimeError, get_value, c)
-        self.assertTrue(time.time()-t0 >= .5)
+        with pytest.raises(RuntimeError):
+            cc = channels.Channel("test_chan")
+            assert cc.value == 'bla'
         os.kill(p.pid, signal.SIGCONT)
-        self.assertEquals(c.value, "hello")
+        assert cc.value == 'bla'
+        parent_end.put('.')
         p.join()
-"""
+        assert p.exitcode == 2
+

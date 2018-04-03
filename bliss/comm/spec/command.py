@@ -21,7 +21,7 @@ import gevent
 from gevent.event import Event
 from .connection import SpecConnection
 from .reply import SpecReply
-import .wait
+from .wait import waitConnection
 from .error import SpecClientTimeoutError, SpecClientError, SpecClientNotConnectedError
 
 
@@ -203,7 +203,7 @@ class SpecCommandA(BaseSpecCommand):
                 id = self.connection.send_msg_cmd_with_return(command,
                                                               self.replyArrived)
             else:
-                if isinstance(command, str)
+                if isinstance(command, str):
                     id = self.connection.send_msg_cmd_with_return(command,
                                                                   self.replyArrived)
                 else:
@@ -260,7 +260,7 @@ class SpecCommand(SpecCommandA):
 
         if not self.connection.isSpecConnected():
             with gevent.Timeout(timeout, SpecClientTimeoutError):
-                wait.waitConnection(self.connection, timeout)
+                waitConnection(self.connection, timeout)
             self._connected()
 
     def abort(self):

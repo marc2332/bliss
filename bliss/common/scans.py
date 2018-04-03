@@ -224,13 +224,7 @@ def default_chain(chain, scan_pars, counters):
         raise ValueError(
             "No counters for scan. Hint: are all counters disabled ?")
 
-    # Eliminate duplicates using counter full names
-    def fullname(arg):
-        if hasattr(arg, 'controller'):
-            return '.'.join((arg.controller.name, arg.name))
-        return arg.name
-
-    counter_dct = {fullname(counter): counter for counter in counters}
+    counter_dct = {counter.fullname: counter for counter in counters}
     counters = [counter for name, counter in sorted(counter_dct.items())]
 
     # TODO: remove and adapt API

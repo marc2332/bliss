@@ -41,21 +41,65 @@ class GroupedReadMixin(object):
         pass
 
 
-class Counter(object):
-    GROUPED_READ_HANDLERS = weakref.WeakKeyDictionary()
+class BaseCounter(object):
+    """Define a standard counter interface."""
 
-    def __init__(self, name,
-                 grouped_read_handler=None, conversion_function=None):
-        self.__name = name
-
-        if grouped_read_handler:
-            Counter.GROUPED_READ_HANDLERS[self] = grouped_read_handler
-
-        self.__conversion_function = conversion_function
+    @property
+    def controller(self):
+        """A controller or None."""
+        return None
 
     @property
     def name(self):
-        return self.__name
+        """A unique name within the controller scope."""
+        raise NotImplementedError
+
+    @property
+    def dtype(self):
+        """The data type as used by numpy."""
+        raise NotImplementedError
+
+    @property
+    def shape(self):
+        """The data shape as used by numpy."""
+        raise NotImplementedError
+
+    # Added logic
+
+    @property
+    def fullname(self):
+        """A unique name within the session scope.
+
+        The standard implementation defines it as:
+        `<controller_name>.<counter_name>`.
+        """
+        if self.controller is None:
+            return self.name
+        return '.'.join((self.controller.name, self.name))
+
+
+class Counter(BaseCounter):
+    GROUPED_READ_HANDLERS = weakref.WeakKeyDictionary()
+
+    def __init__(self, name,
+                 grouped_read_handler=None,
+                 conversion_function=None,
+                 controller=None):
+        self._name = name
+        self._controller = controller
+        self._conversion_function = conversion_function
+        if grouped_read_handler:
+            Counter.GROUPED_READ_HANDLERS[self] = grouped_read_handler
+
+    # Standard interface
+
+    @property
+    def controller(self):
+        return self._controller
+
+    @property
+    def name(self):
+        return self._name
 
     @property
     def dtype(self):
@@ -64,6 +108,8 @@ class Counter(object):
     @property
     def shape(self):
         return ()
+
+    # Extra interface
 
     @property
     def conversion_function(self):
@@ -110,11 +156,8 @@ class SamplingCounter(Counter):
             if callable(conversion_function):
                 add_conversion_function(self, 'read', conversion_function)
 
-        # is the counter stand-alone ? Or is it part of an object ?
-        if controller and not static.get_config().get_config(name):
-            # counter doesn't exist on its own
-            name = controller.name + '.' + name
-        Counter.__init__(self, name, grouped_read_handler, conversion_function)
+        super(Counter, self).__init__(
+            name, grouped_read_handler, conversion_function, controller)
 
     def read(self):
         try:
@@ -173,11 +216,8 @@ class IntegratingCounter(Counter):
                 add_conversion_function(
                     self, 'get_values', conversion_function)
 
-        # is the counter stand-alone ? Or is it part of an object ?
-        if controller and not static.get_config().get_config(name):
-            # counter doesn't exist on its own
-            name = controller.name + '.' + name
-        Counter.__init__(self, name, grouped_read_handler, conversion_function)
+        super(Counter, self).__init__(
+            name, grouped_read_handler, conversion_function, controller)
 
         self._acquisition_controller_ref = weakref.ref(acquisition_controller)
 

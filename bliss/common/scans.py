@@ -225,7 +225,13 @@ def default_chain(chain, scan_pars, counters):
         raise ValueError(
             "No counters for scan. Hint: are all counters disabled ?")
 
-    counter_dct = {counter.fullname: counter for counter in counters}
+    def get_name(counter):
+        if not isinstance(counter, BaseCounter):
+            warnings.warn('{!r} is not a counter'.format(counter))
+            return counter.name
+        return counter.fullname
+
+    counter_dct = {get_name(counter): counter for counter in counters}
     counters = [counter for name, counter in sorted(counter_dct.items())]
 
     # TODO: remove and adapt API

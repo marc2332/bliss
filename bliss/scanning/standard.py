@@ -29,7 +29,7 @@ Example::
         # Do something
         return counters
 
-    class MyCounter(object):
+    class MyCounter(BaseCounter):
 
         default_chain_plugin = staticmethod(my_default_chain_plugin)
 

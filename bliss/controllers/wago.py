@@ -480,12 +480,7 @@ class _WagoController:
 
 class WagoCounter(SamplingCounter):
     def __init__(self, name, parent, index=None, **kwargs):
-
-        if index is None:
-            SamplingCounter.__init__(self, name, parent, **kwargs)
-        else:
-            SamplingCounter.__init__(self, parent.name+'.'+name,
-                                     parent, **kwargs)
+        SamplingCounter.__init__(self, name, parent, **kwargs)
         self.index = index
         self.parent = parent
         self.cntname = name

@@ -52,7 +52,7 @@ class CounterGroup(IntegratingCounter.GroupedReadHandler):
             elif channel == point_nb_counter:
                 i = -1
             counter_indexes[counter] = i
-        ctrl.acq_channels =  channels
+        ctrl.acq_channels = channels
         # counter_indexes dict<counter: index in data array>
         self.counter_indexes = counter_indexes
         # a hack here: since this prepare is called AFTER the
@@ -63,7 +63,7 @@ class CounterGroup(IntegratingCounter.GroupedReadHandler):
     def get_values(self, from_index, *counters):
         data = self.controller.get_data(from_index).T
         if not data.size:
-            return len(counters)*(numpy.array(()),)
+            return len(counters) * (numpy.array(()),)
         result = [counter.convert(data[self.counter_indexes[counter]])
                   for counter in counters]
         return result
@@ -81,6 +81,7 @@ class Counter(IntegratingCounter):
     def __repr__(self):
         return '{0}({1!r}, ch={2})'.format(type(self).__name__, self.name,
                                            self.channel)
+
 
 class CounterTimer(Counter):
 
@@ -129,6 +130,7 @@ def create_and_configure_device(config_or_name):
     device.acq_counter_group = CounterGroup(device)
 
     orig_configure = device.configure
+
     def configure(device_config):
         orig_configure(device_config)
         for counter_name in device.acq_counters:
@@ -164,4 +166,4 @@ def create_object_from_config_node(config, node):
     """
     name = node.get("name")
     device = create_and_configure_device(node)
-    return {name:device}, {name:device}
+    return {name: device}, {name: device}

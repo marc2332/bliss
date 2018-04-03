@@ -30,7 +30,7 @@ from bliss.common.measurement import IntegratingCounter
 CT2 = Client
 
 
-class CounterGroup(IntegratingCounter.GroupedReadHandler):
+class CT2CounterGroup(IntegratingCounter.GroupedReadHandler):
 
     def prepare(self, *counters):
         channels = []
@@ -69,11 +69,11 @@ class CounterGroup(IntegratingCounter.GroupedReadHandler):
         return result
 
 
-class Counter(IntegratingCounter):
+class CT2Counter(IntegratingCounter):
 
     def __init__(self, name, channel, **kwargs):
         self.channel = channel
-        super(Counter, self).__init__(name, **kwargs)
+        super(CT2Counter, self).__init__(name, **kwargs)
 
     def convert(self, data):
         return data
@@ -83,13 +83,13 @@ class Counter(IntegratingCounter):
                                            self.channel)
 
 
-class CounterTimer(Counter):
+class CT2CounterTimer(CT2Counter):
 
     def __init__(self, name, **kwargs):
         ctrl = kwargs['controller']
         self.timer_freq = ctrl.timer_freq
-        super(CounterTimer, self).__init__(name, ctrl.internal_timer_counter,
-                                           **kwargs)
+        super(CT2CounterTimer, self).__init__(
+            name, ctrl.internal_timer_counter, **kwargs)
 
     def convert(self, ticks):
         return ticks / self.timer_freq
@@ -114,7 +114,7 @@ def create_and_configure_device(config_or_name):
         a new instance of :class:`CT2` configured and ready to go
     """
 
-    if isinstance(config_or_name, (str, unicode)):
+    if isinstance(config_or_name, basestring):
         device_config = __get_device_config(config_or_name)
         name = config_or_name
     else:
@@ -127,7 +127,7 @@ def create_and_configure_device(config_or_name):
     device = CT2(device_config['address'], **kwargs)
     device.name = name
     device.acq_counters = {}
-    device.acq_counter_group = CounterGroup(device)
+    device.acq_counter_group = CT2CounterGroup(device)
 
     orig_configure = device.configure
 
@@ -140,18 +140,20 @@ def create_and_configure_device(config_or_name):
             ct_name = channel.get('counter name', None)
             if ct_name:
                 address = int(channel['address'])
-                ct = Counter(ct_name, address, controller=device,
-                             acquisition_controller=device,
-                             grouped_read_handler=device.acq_counter_group)
+                ct = CT2Counter(
+                    ct_name, address, controller=device,
+                    acquisition_controller=device,
+                    grouped_read_handler=device.acq_counter_group)
                 device.acq_counters[ct_name] = ct
                 setattr(device, ct_name, ct)
         timer = device_config.get('timer', None)
         if timer is not None:
             ct_name = timer.get('counter name', None)
             if ct_name:
-                ct = CounterTimer(ct_name, controller=device,
-                                  acquisition_controller=device,
-                                  grouped_read_handler=device.acq_counter_group)
+                ct = CT2CounterTimer(
+                    ct_name, controller=device,
+                    acquisition_controller=device,
+                    grouped_read_handler=device.acq_counter_group)
                 device.acq_counters[ct_name] = ct
                 setattr(device, ct_name, ct)
 

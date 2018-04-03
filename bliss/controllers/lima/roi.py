@@ -89,7 +89,7 @@ class RoiCounter(object):
     def __init__(self, name, **keys):
         self.name = name
         self.Counter = functools.partial(RoiStatCounter, name, **keys)
-    
+
     @property
     def sum(self):
         return self.Counter(RoiStat.Sum)
@@ -120,7 +120,7 @@ class RoiCounterGroupReadHandler(IntegratingCounter.GroupedReadHandler):
         roi_counter_size = len(RoiStat)
         raw_data = self.controller._proxy.readCounters(from_index)
         if not raw_data.size:
-            return len(counters)*(numpy.array(()),)
+            return len(counters) * (numpy.array(()),)
         raw_data.shape = (raw_data.size) / roi_counter_size, roi_counter_size
         result = OrderedDict([int(counter), []] for counter in counters)
 
@@ -185,19 +185,20 @@ class RoiCounters(object):
     @property
     def config_name(self):
         return self._current_config.get()
+
     @config_name.setter
-    def config_name(self,name):
+    def config_name(self, name):
         self._current_config.set(name)
-        self._save_rois = settings.HashObjSetting('%s:%s' % (self.name,name))
+        self._save_rois = settings.HashObjSetting('%s:%s' % (self.name, name))
 
     def upload_rois(self):
         roi_list = [roi for roi in self.get_rois() if roi.is_valid()]
         roi_id_list = self._proxy.addNames([x.name for x in roi_list])
         rois_values = list()
-        for roi_id,roi in zip(roi_id_list,roi_list):
+        for roi_id, roi in zip(roi_id_list, roi_list):
             rois_values.extend((roi_id,
-                                roi.x,roi.y,
-                                roi.width,roi.height))
+                                roi.x, roi.y,
+                                roi.width, roi.height))
             self._roi_ids[roi.name] = roi_id
         self._proxy.setRois(rois_values)
 
@@ -218,7 +219,7 @@ class RoiCounters(object):
     def __getattr__(self, name):
         if self._save_rois.get(name) is None:
             raise AttributeError('Unknown ROI counter {0:!r}'.format(name))
-        return RoiCounter(name, controller=self, 
+        return RoiCounter(name, controller=self,
                           acquisition_controller=self._acquisition_proxy,
                           grouped_read_handler=self._grouped_read_handler)
 

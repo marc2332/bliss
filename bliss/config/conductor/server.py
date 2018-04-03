@@ -346,7 +346,7 @@ def _send_config_db_files(client_id,message):
     sub_path = sub_path.replace('../','') # prevent going up
     look_path = sub_path and os.path.join(_options.db_path,sub_path) or _options.db_path
     try:
-        for root,dirs,files in os.walk(look_path):
+        for root,dirs,files in os.walk(look_path, followlinks=True):
             for filename in files:
                 basename, ext = os.path.splitext(filename)
                 if ext == '.yml':
@@ -373,7 +373,7 @@ def __get_directory_structure(base_dir):
     result = {}
     base_dir = base_dir.rstrip(os.sep)
     start = base_dir.rfind(os.sep) + 1
-    for path, dirs, files in os.walk(base_dir):
+    for path, dirs, files in os.walk(base_dir, followlinks=True):
         folders = path[start:].split(os.sep)
         subdir = dict.fromkeys(files)
         parent = reduce(dict.get, folders[:-1], result)

@@ -93,9 +93,10 @@ Here's an example of a continuous scan using a PePU::
 
 from collections import namedtuple
 
-from ..chain import AcquisitionDevice, AcquisitionChannel
-from ...controllers.pepu import Trigger, Signal
 from .mca import counter_namespace
+from ...common.measurement import BaseCounter
+from ...controllers.pepu import Trigger, Signal
+from ..chain import AcquisitionDevice, AcquisitionChannel
 
 
 class PepuAcquisitionDevice(AcquisitionDevice):
@@ -221,13 +222,15 @@ def pepu_default_chain_plugin(tree, counters, scan_pars):
     return counters
 
 
-class PepuCounter(object):
+class PepuCounter(BaseCounter):
 
     default_chain_plugin = staticmethod(pepu_default_chain_plugin)
 
     def __init__(self, channel):
         self.channel = channel
-        self.acquisition_controller = None
+        self.acquisition_device = None
+
+    # Standard interface
 
     @property
     def controller(self):
@@ -245,17 +248,19 @@ class PepuCounter(object):
     def shape(self):
         return ()
 
+    # Extra logic
+
     def register_device(self, device):
         assert device.pepu == self.channel.pepu
-        self.acquisition_controller = device
-        self.acquisition_controller.channels.append(
+        self.acquisition_device = device
+        self.acquisition_device.channels.append(
             AcquisitionChannel(self.name, self.dtype, self.shape))
 
     def feed_point(self, stream_data):
         self.emit_data_point(stream_data[self.name])
 
     def emit_data_point(self, data_point):
-        self.acquisition_controller.channels.update({self.name: data_point})
+        self.acquisition_device.channels.update({self.name: data_point})
 
 
 def pepu_counters(pepu):

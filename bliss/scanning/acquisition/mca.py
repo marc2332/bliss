@@ -10,6 +10,7 @@ from collections import defaultdict, namedtuple
 import numpy
 import gevent.event
 
+from ...common.measurement import BaseCounter
 from ..chain import AcquisitionDevice, AcquisitionChannel
 from ...controllers.mca import TriggerMode, PresetMode, Stats
 
@@ -218,16 +219,22 @@ def mca_default_chain_plugin(tree, counters, scan_pars):
 
 # Mca counters
 
-class BaseMcaCounter(object):
+class BaseMcaCounter(BaseCounter):
 
     default_chain_plugin = staticmethod(mca_default_chain_plugin)
 
     def __init__(self, mca, base_name, detector=None):
-        self.controller = mca
-        self.acquisition_controller = None
+        self.mca = mca
+        self.acquisition_device = None
         self.data_points = []
         self.detector_channel = detector
         self.base_name = base_name
+
+    # Standard counter interface
+
+    @property
+    def controller(self):
+        return self.mca
 
     @property
     def name(self):
@@ -243,23 +250,25 @@ class BaseMcaCounter(object):
     def shape(self):
         return ()
 
+    # Extra logic
+
     def register_device(self, device):
         # Current device
         self.data_points = []
-        self.acquisition_controller = device
+        self.acquisition_device = device
         # Consistency checks
-        assert self.controller is self.acquisition_controller.mca
+        assert self.controller is self.acquisition_device.mca
         if self.detector_channel is not None:
             assert self.detector_channel in self.controller.elements
         # Acquisition channel
-        self.acquisition_controller.channels.append(
+        self.acquisition_device.channels.append(
             AcquisitionChannel(self.name, self.dtype, self.shape))
 
     def feed_point(self, spectrums, stats):
         raise NotImplementedError
 
     def emit_data_point(self, data_point):
-        self.acquisition_controller.channels.update({self.name: data_point})
+        self.acquisition_device.channels.update({self.name: data_point})
         self.data_points.append(data_point)
 
 
@@ -294,9 +303,9 @@ class SpectrumMcaCounter(BaseMcaCounter):
 
     @property
     def shape(self):
-        if self.acquisition_controller is None:
+        if self.acquisition_device is None:
             return (self.controller.spectrum_size,)
-        return (self.acquisition_controller.spectrum_size,)
+        return (self.acquisition_device.spectrum_size,)
 
     def feed_point(self, spectrums, stats):
         self.emit_data_point(spectrums[self.detector_channel])

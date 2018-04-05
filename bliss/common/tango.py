@@ -1,5 +1,7 @@
 """Compatibility module for pytango."""
 
+from __future__ import absolute_import
+
 from enum import IntEnum
 
 __all__ = ['AttrQuality', 'EventType', 'DevState',

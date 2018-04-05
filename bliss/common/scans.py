@@ -32,14 +32,11 @@ from bliss import setup_globals
 
 from bliss.data.scan import get_data
 
-from bliss.common.task_utils import *
 from bliss.common import measurementgroup
 from bliss.common.motor_group import Group
 from bliss.common.axis import estimate_duration
 from bliss.common.utils import OrderedDict as ordereddict
-from bliss.common.measurement import BaseCounter, Counter
-from bliss.common.measurement import SamplingCounter, IntegratingCounter
-from bliss.common.temperature import Input, Output, TempControllerCounter
+from bliss.common.measurement import BaseCounter
 
 from bliss.scanning import scan as scan_module
 from bliss.scanning.chain import AcquisitionChain
@@ -321,6 +318,7 @@ def default_chain(chain, scan_pars, counter_args, default_chain_settings=None):
         for acq_device in acq_devices:
             chain.add(acq_master, acq_device)
 
+    default_set_preset_in_chain(chain)
     # Return timer
     chain.timer = timer
     return timer

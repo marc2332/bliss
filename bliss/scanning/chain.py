@@ -62,6 +62,52 @@ class DeviceIteratorWrapper(object):
     def device(self):
         return self.__current
 
+class Preset(object):
+    """
+    This class interface will be call by the scan object
+    at the beginning and at the end of a scan.
+
+    At typical usage of this class is to manage the opening/closing
+    by software or to control beam-line multiplexer(s)
+    """
+    class Iteration(object):
+        """
+        Same usage of the Preset object except that it will be called
+        before and at the end of each iteration of the scan.
+
+        This class should be yield if needed from the prepare method
+        of the Preset object.
+        """
+        def prepare(self):
+            """
+            called on the preparation phase of each scan iteration
+            """
+            pass
+        def start(self):
+            """
+            called on the starting phase of each scan iteration
+            """
+            pass
+        def stop(self):
+            """
+            called at the end of each scan iteration
+            """
+            pass
+    def prepare(self, chain):
+        """
+        called on the preparation phase of a scan.
+        """
+        pass
+    def start(self, chain):
+        """
+        called on the starting phase of a scan.
+        """
+        pass
+    def stop(self, chain):
+        """
+        called at the end of a scan.
+        """
+        pass
 
 class AcquisitionMaster(object):
     HARDWARE, SOFTWARE = range(2)
@@ -282,6 +328,8 @@ class AcquisitionChainIter(object):
         self.__sequence_index = -1
         self._parallel_prepare = parallel_prepare
         self.__acquisition_chain_ref = weakref.ref(acquisition_chain)
+        self._presets_iteration_list = list()
+        self._current_presets_iteration_list = list()
 
         # set all slaves into master
         for master in (x for x in acquisition_chain._tree.expand_tree() if isinstance(x, AcquisitionMaster)):
@@ -315,34 +363,64 @@ class AcquisitionChainIter(object):
         return self.__acquisition_chain_ref()
 
     def prepare(self, scan, scan_info):
-        preset_tasks = list()
         if self.__sequence_index == 0:
-            preset_tasks.extend([gevent.spawn(preset.prepare)
+            preset_tasks = list()
+
+            preset_tasks.extend([gevent.spawn(preset.prepare, self.acquisition_chain)
                                  for preset in self.acquisition_chain._presets_list])
+
             scan.prepare(scan_info, self.acquisition_chain._tree)
+
+            self._presets_iteration_list = list()
+
+            for task in preset_tasks:
+                iteration = task.get()
+                if iteration is not None:
+                    self._presets_iteration_list.append(iteration)
+
+
+        self._current_presets_iteration_list = list()
+        preset_tasks_iteration = list()
+        for iteration in list(self._presets_iteration_list):
+            try:
+                prepare_iteration = iteration.next()
+            except StopIteration:
+                self._presets_iteration_list.remove(iteration)
+            except:
+                import traceback
+                traceback.print_exc()
+                self._presets_iteration_list.remove(iteration)
+            else:
+                self._current_presets_iteration_list.append(prepare_iteration)
+                preset_tasks_iteration.append(gevent.spawn(prepare_iteration.prepare))
 
         self._execute(
             "_prepare", wait_between_levels=not self._parallel_prepare)
 
-        if self.__sequence_index == 0:
-            gevent.joinall(preset_tasks, raise_error=True)
+        gevent.joinall(preset_tasks_iteration, raise_error=True)
 
     def start(self):
+        preset_tasks = list()
         if self.__sequence_index == 0:
-            preset_tasks = [gevent.spawn(
-                preset.start) for preset in self.acquisition_chain._presets_list]
-            gevent.joinall(preset_tasks, raise_error=True)
+            preset_tasks = [gevent.spawn(preset.start, self.acquisition_chain)
+                            for preset in self.acquisition_chain._presets_list]
 
+        preset_tasks.extend([gevent.spawn(i.start)
+                             for i in self._current_presets_iteration_list])
+        gevent.joinall(preset_tasks, raise_error=True)
         self._execute("_start")
 
     def stop(self):
-        self._execute("stop", master_to_slave=True, wait_all_tasks=True)
+        try:
+            self._execute("stop", master_to_slave=True, wait_all_tasks=True)
+        finally:
+            preset_tasks = [gevent.spawn(preset.stop, self.acquisition_chain)
+                            for preset in self.acquisition_chain._presets_list]
+            preset_tasks.extend([gevent.spawn(i.stop)
+                                 for i in self._current_presets_iteration_list])
 
-        preset_tasks = [gevent.spawn(preset.stop)
-                        for preset in self.acquisition_chain._presets_list]
-
-        gevent.joinall(preset_tasks)  # wait to call all stop on preset
-        gevent.joinall(preset_tasks, raise_error=True)
+            gevent.joinall(preset_tasks)  # wait to call all stop on preset
+            gevent.joinall(preset_tasks, raise_error=True)
 
     def next(self):
         self.__sequence_index += 1
@@ -355,6 +433,10 @@ class AcquisitionChainIter(object):
                     if dev_iter is 'root':
                         continue
                     dev_iter.next()
+            preset_tasks = [gevent.spawn(i.stop)
+                            for i in self._current_presets_iteration_list]
+            gevent.joinall(preset_tasks)
+            gevent.joinall(preset_tasks, raise_error=True)
         except StopIteration:                # should we stop all devices?
             for acq_dev_iter in (x for x in self._tree.expand_tree() if x is not 'root' and
                                  isinstance(x.device, (AcquisitionDevice, AcquisitionMaster))):
@@ -432,6 +514,14 @@ class AcquisitionChain(object):
         slave.parent = master
 
     def add_preset(self, preset):
+        """
+        Add a preset for the scan.
+
+        Args:
+            preset should be inherited for class Preset
+        """
+        if not isinstance(preset, Preset):
+            raise ValueError("Expected inherited class of Preset")
         self._presets_list.append(preset)
 
     def set_stopper(self, device, stop_flag):

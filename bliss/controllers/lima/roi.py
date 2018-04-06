@@ -178,19 +178,22 @@ class RoiCounters(object):
 
     def __repr__(self):
         name = self.name.rsplit(':', 1)[-1]
+        lines = ['ROI Counters: {0} ({1})\n'.format(name, self.config_name)]
         rois = self.get_rois()
-        header = 'Name', 'ROI'
-        x = max((len(str(roi.x)) for roi in rois))
-        y = max((len(str(roi.y)) for roi in rois))
-        w = max((len(str(roi.width)) for roi in rois))
-        h = max((len(str(roi.height)) for roi in rois))
-        roi_template = '<{{0.x: >{0}}}, {{0.y: >{1}}}> ' \
-                       '<{{0.width: >{2}}} x {{0.height: >{3}}}>'.format(x, y, w, h)
-        name_len = max(max((len(roi.name) for roi in rois)), len(header[0]))
-        roi_len = x + y + w + h + 10 # 10 is surrounding characters (<,>,x and spaces)
-        template = '{{0: >{0}}}  {{1: >{1}}}'.format(name_len, roi_len)
-        lines = ['ROI Counters: {0} ({1})\n'.format(name, self.config_name),
-                 template.format(*header),
-                 template.format(name_len*'-', roi_len*'-')]
-        lines += [template.format(roi.name, roi_template.format((roi))) for roi in rois]
+        if rois:
+            header = 'Name', 'ROI (<X, Y> <W x H>)'
+            x = max((len(str(roi.x)) for roi in rois))
+            y = max((len(str(roi.y)) for roi in rois))
+            w = max((len(str(roi.width)) for roi in rois))
+            h = max((len(str(roi.height)) for roi in rois))
+            roi_template = '<{{0.x: >{0}}}, {{0.y: >{1}}}> ' \
+                           '<{{0.width: >{2}}} x {{0.height: >{3}}}>'.format(x, y, w, h)
+            name_len = max(max((len(roi.name) for roi in rois)), len(header[0]))
+            roi_len = x + y + w + h + 10 # 10 is surrounding characters (<,>,x and spaces)
+            template = '{{0: >{0}}}  {{1: >{1}}}'.format(name_len, roi_len)
+            lines += [template.format(*header),
+                      template.format(name_len*'-', roi_len*'-')]
+            lines += [template.format(roi.name, roi_template.format((roi))) for roi in rois]
+        else:
+            lines.append('*** no ROIs defined ***')
         return '\n'.join(lines)

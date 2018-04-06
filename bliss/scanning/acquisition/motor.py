@@ -425,3 +425,76 @@ class TrajectoryMaster(AcquisitionMaster):
 
     def stop(self):
         self.trajectory.stop()
+
+
+class SweepMotorMaster(AcquisitionMaster):
+    def __init__(self, axis, start, end, npoints=1, time=0, undershoot=None, 
+                 undershoot_start_margin=0, undershoot_stop_margin=0,
+                 trigger_type=AcquisitionMaster.SOFTWARE, **keys):
+        AcquisitionMaster.__init__(self, axis, axis.name,
+                                   trigger_type=trigger_type, **keys)
+        self.movable = axis
+
+        self._nb_points = npoints
+
+        self.sweep_move = float(end-start) / self._nb_points
+        self.start_pos = numpy.linspace(start, end, npoints+1)[:-1]
+
+        self.initial_speed = self.movable.velocity()
+        if time > 0:
+            self.sweep_speed = abs(self.sweep_move) / float(time)
+        else:
+            self.sweep_speed = self.initial_speed
+           
+        if undershoot is not None:
+             self._undershoot = undershoot
+        else:
+             acctime = float(self.sweep_speed) / axis.acceleration()
+             self._undershoot = self.sweep_speed * acctime / 2
+        self._undershoot_start_margin = undershoot_start_margin
+        self._undershoot_stop_margin = undershoot_stop_margin
+
+    def _get_real_start_pos(self, pos):
+        sign = 1 if self.sweep_move > 0 else -1
+        pos = pos - sign * self._undershoot - sign * self._undershoot_start_margin
+        return pos
+
+    def _get_real_stop_pos(self, pos):
+        sign = 1 if self.sweep_move > 0 else -1
+        pos = pos + self.sweep_move + sign * self._undershoot + sign * self._undershoot_stop_margin
+        return pos
+
+    @property
+    def npoints(self):
+        return self._nb_points
+
+    def __iter__(self):
+        iter_pos = iter(self.start_pos)
+        while True:
+            self.next_start_pos = iter_pos.next()
+            yield self
+
+    def prepare(self):
+        if self.sweep_speed > self.initial_speed:
+            self.movable.velocity(self.sweep_speed)
+        real_start = self._get_real_start_pos(self.next_start_pos)
+        self.movable.move(real_start)
+
+    def start(self):
+        if self.parent is None:
+            self.trigger()
+
+    def trigger(self):
+        self.movable.velocity(self.sweep_speed)
+        real_end = self._get_real_stop_pos(self.next_start_pos)
+        self.movable.move(real_end, wait=False)
+        self.trigger_slaves()
+
+    def wait_ready(self):
+        self.movable.wait_move()
+        self.movable.velocity(self.initial_speed)
+
+    def stop(self):
+        self.movable.stop()
+        self.movable.velocity(self.initial_speed)
+ 

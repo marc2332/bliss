@@ -129,10 +129,10 @@ class RoiCounters(object):
         self._grouped_read_handler = RoiCounterGroupReadHandler(self)
 
     def set_roi(self,name,roi_values):
-        if len(roi_values) == 4:
+        if isinstance(roi_values,Roi):
+            roi = roi_values
+        elif len(roi_values) == 4:
             roi = Roi(*roi_values)
-        elif isinstance(roi_values[0],Roi):
-            roi = roi_values[0]
         else:
             raise TypeError("Lima.RoiCounters: roi accepts roi (class)"
                             " or (x,y,width,height) values")

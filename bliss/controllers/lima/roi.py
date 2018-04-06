@@ -31,6 +31,18 @@ class Roi(object):
         return "<%s,%s> <%s x %s>" % (self.x, self.y,
                                       self.width, self.height)
 
+    @classmethod
+    def frompoints(cls, p0, p1, name=None):
+        return cls.fromcoords(p0[0], p0[1], p1[0], p1[1], name=name)
+
+    @classmethod
+    def fromcoords(cls, x0, y0, x1, y1, name=None):
+        xmin = min(x0, x1)
+        ymin = min(y0, y1)
+        xmax = max(x0, x1)
+        ymax = max(y0, y1)
+        return cls(xmin, ymin, xmax - xmin, ymax - ymin, name=name)
+
 
 class RoiStat(enum.IntEnum):
     Id = 0

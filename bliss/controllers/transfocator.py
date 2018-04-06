@@ -11,11 +11,11 @@ import os
 import time
 import types
 import math
-import itertools
 from bliss.common.utils import grouped
 from bliss.controllers.wago import WagoController
 from bliss.config import channels
 from bliss.common.event import dispatcher
+
 
 class TfWagoMapping:
     def __init__(self, nb_lens, nb_pinhole):
@@ -32,7 +32,7 @@ class TfWagoMapping:
         CONTROL_MODULE = "750-530,%s"
         STATUS = ["status"]*2
         CONTROL = ["ctrl"]
-        
+
         """
         There are three types - 0, 1 or 2 pinholes. All the control modules
         and status modules should be consecutive. There are always 2 status
@@ -54,16 +54,16 @@ class TfWagoMapping:
                 mapping += [CONTROL_MODULE % ",".join(CONTROL*ch + ["_"]*(8-ch))]
         else:
             mapping += [CONTROL_MODULE % ",".join(CONTROL*nb_chan + ["_"]*(8-nb_chan))]
-    
+
         ch = nb_chan%4
         if nb_chan > 4:
             for i in range(ch_stat):
                 mapping += [STATUS_MODULE % ",".join(STATUS*4)]
             if ch > 0:
-                mapping += [STATUS_MODULE % ",".join(STATUS*ch +["_"]*(8-ch*2))]
+                mapping += [STATUS_MODULE % ",".join(STATUS*ch + ["_"]*(8-ch*2))]
         else:
             if ch > 0:
-                mapping += [STATUS_MODULE % ",".join(STATUS*ch +["_"]*(8-ch*2))]
+                mapping += [STATUS_MODULE % ",".join(STATUS*ch + ["_"]*(8-ch*2))]
             else:
                 mapping += [STATUS_MODULE % ",".join(STATUS*nb_chan)]
         self.mapping = mapping
@@ -72,8 +72,10 @@ class TfWagoMapping:
 class Transfocator:
     def __init__(self, name, config):
         self.exec_timeout = int(config.get("timeout", 3))
-        # read_mode 0 means 'first transfocator in beam status is wired first in Wago',
-        # read_mode >0 means 'first transfocator in beam status is wired last in Wago'
+        # read_mode 0 means:
+        # 'first transfocator in beam status is wired first in Wago',
+        # read_mode >0 means:
+        # 'first transfocator in beam status is wired last in Wago'
         # the same goes for cmd_mode
         self.read_mode = int(config.get("read_mode", 0))
         self.cmd_mode = int(config.get("cmd_mode", 0))
@@ -81,35 +83,36 @@ class Transfocator:
         self.wago = None
         self.empty_jacks = []
         self.pinhole = []
-        self._state_chan = channels.Channel("transfocator:%s" % name, callback=self.__state_changed)
+        self._state_chan = channels.Channel("transfocator:%s" % name,
+                                            callback=self.__state_changed)
 
         if 'lenses' in config:
             self.nb_lens = int(config["lenses"])
             self.nb_pinhole = int(config["pinhole"])
-    
+
             if nb_pinhole == 2:
                 self.nb_pinhole = 2
-                #pinholes are always the first and the last channels
+                # pinholes are always the first and the last channels
                 self.pinhole = [0, self.nb_lens-1]
-            elif nb_pinhole == 1 :
+            elif nb_pinhole == 1:
                 self.nb_pinhole = 1
-                #the pinhole is always the first channel
+                # the pinhole is always the first channel
                 self.pinhole = [0]
             else:
-                #set to zero to avoid ambiguous inputs
+                # set to zero to avoid ambiguous inputs
                 self.nb_pinhole = 0
         else:
             layout = config['layout'].strip()
             lenses = []
             for i, c in enumerate(layout.split()):
-              if c == 'X':
-                self.empty_jacks.append(i)
-              elif c == 'P':
-                self.pinhole.append(i)
-              elif c == 'L':
-                lenses.append(i)
-              else:
-                raise ValueError("%s: layout: unknown element `%s'" % (name, c))
+                if c == 'X':
+                    self.empty_jacks.append(i)
+                elif c == 'P':
+                    self.pinhole.append(i)
+                elif c == 'L':
+                    lenses.append(i)
+                else:
+                    raise ValueError("%s: layout: unknown element `%s'" % (name, c))
 
             if len(self.pinhole) > 2:
                 raise ValueError("%s: layout can only have 2 pinholes maximum" % name)
@@ -121,12 +124,12 @@ class Transfocator:
         if self.wago is None:
             self.wago = WagoController(self.wago_ip)
             mapping = TfWagoMapping(self.nb_lens, self.nb_pinhole)
-            self.wago.set_mapping(str(mapping),ignore_missing=True)
+            self.wago.set_mapping(str(mapping), ignore_missing=True)
 
     def pos_read(self):
         self.connect()
 
-        state = list(grouped(itertools.chain(*self.wago.get("status")), 2))
+        state = list(grouped(self.wago.get("status")), 2)
         if self.read_mode != 0:
             state.reverse()
 
@@ -135,15 +138,15 @@ class Transfocator:
             if i in self.empty_jacks:
                 continue
             if s and not t:
-                bits += 1<<i #(1 << n-i)
+                bits += 1<<i  # (1 << n-i)
 
         return bits
-    
+
     def pos_write(self, value):
         self.connect()
 
         valarr = [False]*(self.nb_lens+self.nb_pinhole)
-            
+
         for i in range(self.nb_lens+self.nb_pinhole):
             if value & (1<<i) > 0:
                 valarr[i] = True
@@ -151,7 +154,7 @@ class Transfocator:
         if self.cmd_mode != 0:
             valarr.reverse()
 
-        valarr.insert(0,"ctrl")
+        valarr.insert(0, "ctrl")
         self.wago.set(valarr)
 
     def tfstatus_set(self, value):
@@ -172,12 +175,12 @@ class Transfocator:
 
         for i in range(self.nb_lens+self.nb_pinhole):
             if i in self.empty_jacks:
-              lbl = "X"
+                lbl = "X"
             else:
-              if i in self.pinhole:
-                lbl = "P"
-              else:
-                lbl = "L"
+                if i in self.pinhole:
+                    lbl = "P"
+                else:
+                    lbl = "L"
             mystr += lbl + str(i+1) + "  "
         stat.append(mystr)
 
@@ -203,8 +206,8 @@ class Transfocator:
                 continue
             else:
                 if lense:
-                    bits += (1 << i)     
-        self.tfstatus_set(bits)    
+                    bits += (1 << i)
+        self.tfstatus_set(bits)
 
     def set_in(self, lense_index):
         if lense_index in self.empty_jacks:
@@ -230,13 +233,13 @@ class Transfocator:
             self.set_out(lense_index)
         else:
             self.set_in(lense_index)
-        
+
     def set_all(self, set_in=True):
         cmd = [set_in]*(self.nb_lens+self.nb_pinhole)
         if set_in:
-          # remove the ones that are empty
-          for i in self.empty_jacks:
-            cmd[i] = False
+            # remove the ones that are empty
+            for i in self.empty_jacks:
+                cmd[i] = False
         return self.set(*cmd)
 
     def set_pin(self, set_in=True):
@@ -247,5 +250,4 @@ class Transfocator:
                 self.set_out(p)
 
     def __state_changed(self, st):
-       dispatcher.send('state', self, st)
-    
+        dispatcher.send('state', self, st)

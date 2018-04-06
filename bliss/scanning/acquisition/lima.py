@@ -8,6 +8,7 @@
 from ..chain import AcquisitionMaster, AcquisitionChannel
 from bliss.common.event import dispatcher
 from bliss.controllers import lima
+from bliss.common.tango import get_fqn
 import gevent
 import time
 import numpy
@@ -93,7 +94,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             self._reading_task.kill()
             self._reading_task = None
 
-        server_url = self.device.dev_name()
+        server_url = get_fqn(self.device)
         self._image_channel.emit({ "server_url": server_url })
 
     def start(self):

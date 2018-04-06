@@ -65,3 +65,18 @@ except ImportError:
         from PyTango.gevent import DeviceProxy, AttributeProxy
     except ImportError:
         pass
+
+
+def get_fqn(proxy):
+    """
+    Returns the fully qualified name of a DeviceProxy or an AttributeProxy in the format
+    `tango://<host>:<port>/<dev_name>[/<attr_name>]`
+    """
+    try:
+        name = proxy.dev_name()
+    except AttributeError:
+        name = get_fqn(proxy.get_device_proxy())
+        return '{}/{}'.format(name, proxy.name())
+    host = proxy.get_db_host()
+    port = proxy.get_db_port()
+    return 'tango://{}:{}/{}'.format(host, port, name)

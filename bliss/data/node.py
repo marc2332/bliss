@@ -202,7 +202,6 @@ class DataNodeIterator(object):
         pubsub.psubscribe("__keyspace@1__:%s*_children_list" %
                           self.node.db_name)
         pubsub.psubscribe("__keyspace@1__:%s*_data" % self.node.db_name)
-        pubsub.psubscribe("__keyspace@1__:%s*_ref" % self.node.db_name)
         return pubsub
 
     def wait_for_event(self, pubsub, filter=None):

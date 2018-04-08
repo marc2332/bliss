@@ -210,58 +210,6 @@ class LimaImageChannelDataNode(DataNode):
             data.shape = values[8], values[7]
             return data
 
-    class MergeB4Store(object):
-        """
-        This class merge lima ref event to redis database.
-
-        Actually the real update is done on idle state of gevent loop so,
-        we can have several update (update_status) before a real store (_do_store).
-        """
-
-        def __init__(self, cnt):
-            self._new_image_status_event = gevent.event.Event()
-            self._new_image_status = dict()
-            self._storage_task = gevent.spawn(self._do_store)
-            self._cnt = weakref.proxy(cnt, self.stop)
-            self._stop_flag = False
-
-        def _do_store(self):
-            while True:
-                succeed = self._new_image_status_event.wait(1)
-                if succeed:
-                    self._new_image_status_event.clear()
-                else:           # test if cnt is still alive
-                    try:
-                        self._cnt.data
-                        continue
-                    except ReferenceError:
-                        break
-
-                local_dict = self._new_image_status
-                self._new_image_status = dict()
-                if local_dict:
-                    ref_data = self._cnt.data[0]
-                    ref_data.update(local_dict)
-                    self._cnt.data[0] = ref_data
-                if self._stop_flag:
-                    break
-                gevent.idle()
-
-        def update_status(self, new_status):
-            """
-            Post the update of lima reference
-            """
-            self._new_image_status.update(new_status)
-            self._new_image_status_event.set()
-
-        def stop(self, ref = None):
-            """
-            This method should be called to stop the store task.
-            """
-            self._stop_flag = True
-            if self._storage_task is not None:
-                self._new_image_status_event.set()
-                self._storage_task.join()
 
     def __init__(self, name, **keys):
         shape = keys.pop('shape', None)
@@ -276,7 +224,12 @@ class LimaImageChannelDataNode(DataNode):
         cnx = self.db_connection
         self.data = QueueObjSetting('%s_data' % self.db_name,
                                     connection=cnx)
-        self._merge_store = self.MergeB4Store(self)
+        self._new_image_status_event = gevent.event.Event()
+        self._new_image_status = dict()
+        self._storage_task = gevent.spawn(self._do_store)
+        # sync with start of _do_store task
+        self._new_image_status_event.wait()
+        self._new_image_status_event.clear()
 
     def get(self, from_index, to_index=None):
         """
@@ -301,8 +254,24 @@ class LimaImageChannelDataNode(DataNode):
             self.data.append(ref_data)
             self.add_reference_data(desc)
         else:
-            self._merge_store.update_status(data)
-            
+            self._new_image_status.update(data)
+            self._new_image_status_event.set()
+        
+    def _do_store(self):
+        self._new_image_status_event.set()
+        while True:
+            self._new_image_status_event.wait()
+            self._new_image_status_event.clear()
+            local_dict = self._new_image_status
+            self._new_image_status = dict()
+            if local_dict:
+                ref_data = self.data[0]
+                ref_data.update(local_dict)
+                self.data[0] = ref_data
+                if local_dict["acq_state"] in ("fault", "ready"):
+                    break
+            gevent.idle()
+
     def add_reference_data(self, ref_data):
         """Save reference data in database
   

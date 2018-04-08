@@ -11,6 +11,7 @@ import math
 import numpy
 import gevent
 from bliss.common.tango import DeviceProxy
+from bliss.common.task_utils import task
 from bliss.data.node import DataNode
 from bliss.config.settings import HashSetting, QueueObjSetting
 
@@ -225,10 +226,7 @@ class LimaImageChannelDataNode(DataNode):
                                     connection=cnx)
         self._new_image_status_event = gevent.event.Event()
         self._new_image_status = dict()
-        self._storage_task = gevent.spawn(self._do_store)
-        # sync with start of _do_store task
-        self._new_image_status_event.wait()
-        self._new_image_status_event.clear()
+        self._storage_task = self._do_store(wait=False, wait_started=True)
 
     def get(self, from_index, to_index=None):
         """
@@ -256,9 +254,9 @@ class LimaImageChannelDataNode(DataNode):
         else:
             self._new_image_status.update(data)
             self._new_image_status_event.set()
-        
+    
+    @task
     def _do_store(self):
-        self._new_image_status_event.set()
         while True:
             self._new_image_status_event.wait()
             self._new_image_status_event.clear()

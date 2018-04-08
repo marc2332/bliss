@@ -109,15 +109,11 @@ def get_data(scan):
 
     return data
 
-def _watch_data(scan_node, scan_new_callback, scan_new_child_callback, scan_data_callback):
-    scan_info = None
+def _watch_data(scan_node, scan_info, scan_new_child_callback,
+                scan_data_callback):
     scan_data = dict()
     data_indexes = dict()
  
-    scan_info = scan_node.info.get_all()
-
-    scan_new_callback(scan_info)
-    
     scan_data_iterator = DataNodeIterator(scan_node)
     for event_type, data_channel in scan_data_iterator.walk_events():
         if event_type == scan_data_iterator.NEW_CHILD_EVENT:
@@ -161,30 +157,33 @@ def _watch_data(scan_node, scan_new_callback, scan_new_child_callback, scan_data
                 except StopIteration:
                     break
 
+def safe_watch_data(*args):
+    try:
+        _watch_data(*args)
+    except Exception:
+        sys.excepthook(*sys.exc_info())
+
 @task
 def watch_session_scans(session_name, scan_new_callback, scan_new_child_callback, scan_data_callback, ready_event=None):
     session_node = _get_or_create_node(session_name, node_type='session')
+
     if session_node is not None:
         data_iterator = DataNodeIterator(session_node)
 
         watch_data_task = None
+
         try:
-            for scan_node in data_iterator.walk_from_last(filter='scan', include_last=False, ready_event=ready_event):
+            for scan_node in data_iterator.walk_from_last(filter="scan", include_last=False, ready_event=ready_event):
                 if watch_data_task:
                     watch_data_task.kill()
 
-                def safe_watch_data(*args):
-                    try:
-                        _watch_data(*args)
-                    except Exception:
-                        sys.excepthook(*sys.exc_info())
+                scan_info = scan_node.info.get_all()
 
-                watch_data_task = gevent.spawn(safe_watch_data, scan_node, scan_new_callback, scan_new_child_callback, scan_data_callback)
+                scan_new_callback(scan_info)
+
+                watch_data_task = gevent.spawn(safe_watch_data, scan_node,
+                                               scan_info,
+                                               scan_new_child_callback,
+                                               scan_data_callback)
         except Exception:
             sys.excepthook(*sys.exc_info())
-        finally:
-            if watch_data_task:
-                watch_data_task.kill()
-
-            watch_data_task = gevent.spawn(_watch_data, scan_node, scan_new_callback, scan_new_child_callback, scan_data_callback)
-

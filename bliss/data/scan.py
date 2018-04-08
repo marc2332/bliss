@@ -115,8 +115,6 @@ def _watch_data(scan_node, scan_new_callback, scan_new_child_callback, scan_data
     data_indexes = dict()
  
     scan_info = scan_node.info.get_all()
-    if scan_info.get('type') == 'ct':
-        return
 
     scan_new_callback(scan_info)
     

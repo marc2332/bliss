@@ -48,28 +48,27 @@ class ChannelDataNode(DataNode):
             if dtype is not None:
                 self.info["dtype"] = dtype
 
-        cnx = self.db_connection
-        self._queue = QueueSetting("%s_data" % self.db_name, connection=cnx,
+        self._queue = QueueSetting("%s_data" % self.db_name,
+                                   connection=self.db_connection,
                                    read_type_conversion=functools.partial(data_from_bytes, shape=shape, dtype=dtype),
                                    write_type_conversion=data_to_bytes)
 
-    def store(self, signal, event_dict, cnx=None):
-        if signal == "new_data":
-            data = event_dict.get("data")
-            channel = event_dict.get("channel")
-            if len(channel.shape) == data.ndim:
-                self._queue.append(data, cnx=cnx)
-            else:
-                self._queue.extend(data, cnx=cnx)
-
-    def get(self, from_index, to_index=None, cnx=None):
-        if to_index is None:
-            return self._queue.get(from_index, from_index, cnx=cnx)
+    def store(self, event_dict):
+        data = event_dict.get("data")
+        shape = event_dict['description']['shape']
+        if len(shape) == data.ndim:
+            self._queue.append(data)
         else:
-            return self._queue.get(from_index, to_index, cnx=cnx)
+            self._queue.extend(data)
 
-    def __len__(self, cnx=None):
-        return self._queue.__len__(cnx=cnx)
+    def get(self, from_index, to_index=None):
+        if to_index is None:
+            return self._queue.get(from_index, from_index)
+        else:
+            return self._queue.get(from_index, to_index)
+
+    def __len__(self):
+        return len(self._queue)
 
     @property
     def shape(self):

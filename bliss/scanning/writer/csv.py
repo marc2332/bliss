@@ -11,7 +11,8 @@ class CsvMasterEventReceiver(AcquisitionMasterEventReceiver):
     def __init__(self, *args, **kwargs):
         AcquisitionMasterEventReceiver.__init__(self, *args, **kwargs)
     
-    def on_event(self, event_dict, signal, device):
+    def on_event(self, event_dict=None, signal=None, sender=None):
+        device = sender
         if signal == 'start':
             pass
 
@@ -20,7 +21,8 @@ class CsvDeviceEventReceiver(AcquisitionDeviceEventReceiver):
     def __init__(self,  *args, **kwargs):
         AcquisitionDeviceEventReceiver.__init__(self, *args, **kwargs)
 
-    def on_event(self, event_dict, signal, device):
+    def on_event(self, event_dict=None, signal=None, sender=None):
+        device = sender
         if signal == 'start':
             self.parent.add_channels(device.channels)
         elif signal == "new_data":

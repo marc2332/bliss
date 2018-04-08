@@ -187,7 +187,6 @@ class ScanSaving(Parameters):
             for path_item in os.path.normpath(sub_path).split(os.path.sep):
                 parent = _get_or_create_node(path_item, "container",
                                              parent=parent)
-
         except KeyError, keyname:
             raise RuntimeError("Missing %s attribute in ScanSaving" % keyname)
         else:
@@ -434,9 +433,7 @@ class Scan(object):
                 self._data_watch_callback_event.set()
 
     def _channel_event(self, event_dict, signal=None, sender=None):
-        node = self._nodes[sender]
-
-        node.store(signal, event_dict)
+        self._nodes[sender].store(event_dict)
 
         self.__trigger_data_watch_callback(signal, sender)
 
@@ -466,8 +463,11 @@ class Scan(object):
                     dev.name, parent=parent_node)
                 self._nodes[dev] = data_container_node
                 for channel in dev.channels:
-                    self._nodes[channel] = channel.data_node(
-                        data_container_node)
+                    self._nodes[channel] = _get_or_create_node(channel.name,
+                                                               channel.data_node_type,
+                                                               data_container_node,
+                                                               shape=channel.shape,
+                                                               dtype=channel.dtype)
                     connect(channel, 'new_data', self._channel_event)
                 for signal in ('start', 'end'):
                     connect(dev, signal, self._device_event)
@@ -578,9 +578,9 @@ class AcquisitionMasterEventReceiver(object):
         self._parent = parent
 
         for signal in ('start', 'end'):
-            connect(slave, signal, self)
+            connect(slave, signal, self.on_event)
             for channel in slave.channels:
-                connect(channel, 'new_data', self)
+                connect(channel, 'new_data', self.on_event)
     @property
     def parent(self):
         return self._parent
@@ -589,10 +589,7 @@ class AcquisitionMasterEventReceiver(object):
     def master(self):
         return self._master
 
-    def __call__(self, event_dict=None, signal=None, sender=None):
-        return self.on_event(event_dict, signal, sender)
-
-    def on_event(self, event_dict, signal, slave):
+    def on_event(self, event_dict=None, signal=None, sender=None):
         raise NotImplementedError
 
 
@@ -602,9 +599,9 @@ class AcquisitionDeviceEventReceiver(object):
         self._parent = parent
 
         for signal in ('start', 'end'):
-            connect(device, signal, self)
+            connect(device, signal, self.on_event)
             for channel in device.channels:
-                connect(channel, 'new_data', self)
+                connect(channel, 'new_data', self.on_event)
 
     @property
     def parent(self):
@@ -614,10 +611,7 @@ class AcquisitionDeviceEventReceiver(object):
     def device(self):
         return self._device
 
-    def __call__(self, event_dict=None, signal=None, sender=None):
-        return self.on_event(event_dict, signal, sender)
-
-    def on_event(self, event_dict, signal, device):
+    def on_event(self, event_dict=None, signal=None, sender=None):
         raise NotImplementedError
 
 

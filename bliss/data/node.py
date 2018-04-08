@@ -39,11 +39,11 @@ When a Lima channel is published:
 {db_name}_info -> HashObjSetting with some extra keys like reference: True
 {db_name}_data -> QueueObjSetting, list of reference data ; first item is the 'live' reference
 """
-import pkgutil
-import inspect
-import re
 import datetime
+import inspect
+import pkgutil
 import os
+import re
 
 from bliss.common.event import dispatcher
 from bliss.config.conductor import client

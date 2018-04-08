@@ -6,7 +6,6 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss.common.event import dispatcher
-from bliss.data.node import _get_or_create_node
 import numpy
 
 
@@ -58,6 +57,10 @@ class AcquisitionChannel(object):
         return self.__reference
 
     @property
+    def data_node_type(self):
+        return self.__data_node_type 
+
+    @property
     def dtype(self):
         return self.__dtype
 
@@ -82,14 +85,8 @@ class AcquisitionChannel(object):
         self.__description['shape'] = self.shape
         data_dct = {"name": self.name,
                     "description": self.__description,
-                    "data": data,
-                    "channel": self}
+                    "data": data }
         dispatcher.send("new_data", self, data_dct)
-
-    def data_node(self, parent_node):
-        return _get_or_create_node(
-            self.name, self.__data_node_type, parent_node,
-            shape=self.shape, dtype=self.dtype)
 
     def _check_and_reshape(self, data):
         ndim = len(self.shape)

@@ -243,7 +243,7 @@ class LimaImageChannelDataNode(DataNode):
         return self.LimaDataView(self.data, from_index, 
                                  to_index if to_index is not None else from_index + 1)
 
-    def store(self, signal, event_dict):
+    def store(self, event_dict):
         desc = event_dict['description']
         data = event_dict['data']
         try:

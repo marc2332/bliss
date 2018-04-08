@@ -6,7 +6,8 @@ from ..scan import FileWriter, \
     AcquisitionMasterEventReceiver, AcquisitionDeviceEventReceiver
 
 
-def _on_event(obj, event_dict, signal, device):
+def _on_event(obj, event_dict, signal, sender):
+    device = sender
     if signal == 'start':
         for channel in device.channels:
             maxshape = tuple([None] + list(channel.shape))
@@ -21,10 +22,8 @@ def _on_event(obj, event_dict, signal, device):
                                                                       maxshape=maxshape)
                 obj.dataset[channel.name].last_point_index = 0
     elif signal == 'new_data':
+        channel = device
         data = event_dict.get('data')
-        channel = event_dict.get('channel')
-        if channel is None:
-            return
 
         channel_name = channel.name
         dataset = obj.dataset.get(channel_name)
@@ -53,8 +52,8 @@ class Hdf5MasterEventReceiver(AcquisitionMasterEventReceiver):
 
         self.dataset = dict()
 
-    def on_event(self, event_dict, signal, device):
-        return _on_event(self, event_dict, signal, device)
+    def on_event(self, event_dict=None, signal=None, sender=None):
+        return _on_event(self, event_dict, signal, sender)
 
 
 class Hdf5DeviceEventReceiver(AcquisitionDeviceEventReceiver):
@@ -63,8 +62,8 @@ class Hdf5DeviceEventReceiver(AcquisitionDeviceEventReceiver):
 
         self.dataset = dict()
 
-    def on_event(self, event_dict, signal, device):
-        return _on_event(self, event_dict, signal, device)
+    def on_event(self, event_dict=None, signal=None, sender=None):
+        return _on_event(self, event_dict, signal, sender)
 
 
 class Writer(FileWriter):

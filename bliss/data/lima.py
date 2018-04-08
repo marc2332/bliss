@@ -245,12 +245,13 @@ class LimaImageChannelDataNode(DataNode):
     def store(self, event_dict):
         desc = event_dict['description']
         data = event_dict['data']
+
         try:
-            ref_data = self.data[0]
+            self.data[0]
         except IndexError:
-            ref_data = data
-            ref_data['lima_acq_nb'] = self.db_connection.incr(data['server_url'])
-            self.data.append(ref_data)
+            ref_status = data
+            ref_status['lima_acq_nb'] = self.db_connection.incr(data['server_url'])
+            self.data.append(ref_status)
             self.add_reference_data(desc)
         else:
             self._new_image_status.update(data)
@@ -263,12 +264,11 @@ class LimaImageChannelDataNode(DataNode):
             self._new_image_status_event.clear()
             local_dict = self._new_image_status
             self._new_image_status = dict()
-            if local_dict:
-                ref_data = self.data[0]
-                ref_data.update(local_dict)
-                self.data[0] = ref_data
-                if local_dict["acq_state"] in ("fault", "ready"):
-                    break
+            ref_status = self.data[0]
+            ref_status.update(local_dict)
+            self.data[0] = ref_status
+            if local_dict["acq_state"] in ("fault", "ready"):
+                break
             gevent.idle()
 
     def add_reference_data(self, ref_data):

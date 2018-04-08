@@ -8,7 +8,6 @@
 import os
 import struct
 import math
-import weakref
 import numpy
 import gevent
 from bliss.common.tango import DeviceProxy
@@ -132,7 +131,7 @@ class LimaImageChannelDataNode(DataNode):
                     try:
                         raw_msg = proxy.readImage(image_nb)
                     except Exception:
-                        # As it's asynchronous, image seams to be no
+                        # As it's asynchronous, image seems to be no
                         # more available so read it from file
                         return None
                     else:
@@ -203,7 +202,7 @@ class LimaImageChannelDataNode(DataNode):
             header_size = struct.calcsize(struct_format)
             values = struct.unpack(struct_format, msg[:header_size])
             if values[0] != self.DataArrayMagic:
-                raise RuntimeError('Not a lima data')
+                raise RuntimeError('No Lima data')
             header_offset = values[2]
             data = numpy.fromstring(
                 msg[header_offset:], dtype=self._image_mode.get(values[4]))

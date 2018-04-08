@@ -98,7 +98,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
 
     def start(self):
         if(self.trigger_type == AcquisitionMaster.SOFTWARE and
-           self.parent):    # top master trigger will be never called otherwise
+           self.parent):    # otherwise top master trigger would never be called
             return
 
         self.trigger()

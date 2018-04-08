@@ -187,6 +187,8 @@ class DataNodeIterator(object):
 
         for node in self.walk(filter, wait=False):
             yield self.NEW_CHILD_EVENT, node
+            if DataNode.exists("%s_data" % node.db_name):
+                yield self.NEW_DATA_IN_CHANNEL_EVENT, node
 
         if ready_event is not None:
             ready_event.set()

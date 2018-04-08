@@ -427,8 +427,8 @@ class Scan(object):
                 while self._data_watch_running and not self._data_watch_task.ready():
                     self._data_watch_callback_done.wait()
                     self._data_watch_callback_done.clear()
-                self._data_watch_callback(data_events, self._nodes,
-                                          {'state': self._state})
+                self._scan_info['state'] = self._state
+                self._data_watch_callback(data_events, self._nodes, self._scan_info)
             else:
                 self._data_watch_callback_event.set()
 

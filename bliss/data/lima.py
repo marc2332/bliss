@@ -114,8 +114,6 @@ class LimaImageChannelDataNode(DataNode):
             return self.last_index - self.from_index
 
         def _update(self):
-            """ update view status
-            """
             ref_status = self.ref_status
             for key in ('server_url', 'lima_acq_nb', 'buffer_max_number', 'last_image_acquired',
                  'last_image_ready', 'last_counter_ready', 'last_image_saved'):
@@ -139,8 +137,8 @@ class LimaImageChannelDataNode(DataNode):
 
         def _get_filenames(self, ref_data, *image_nbs):
             saving_mode = ref_data.get('saving_mode', 'MANUAL')
-            if saving_mode == 'MANUAL': # file are not saved
-                raise RuntimeError("Image were not saved")
+            if saving_mode == 'MANUAL': # files are not saved
+                raise RuntimeError("Images were not saved")
 
             overwrite_policy = ref_data.get('saving_overwrite',
                                               'ABORT').lower()
@@ -192,7 +190,7 @@ class LimaImageChannelDataNode(DataNode):
                             dataset = f[path_in_file]
                             return dataset[image_index]
                 else:
-                    raise RuntimeError("Format net yet managed")
+                    raise RuntimeError("Format not managed yet")
             else:
                 raise RuntimeError(
                     "Cannot retrieve image %d from file" % image_nb)
@@ -229,7 +227,7 @@ class LimaImageChannelDataNode(DataNode):
 
     def get(self, from_index, to_index=None):
         """
-        return a view on data references.
+        Return a view on data references.
 
         **from_index** from which image index you want to get
         **to_index** to which index you want images

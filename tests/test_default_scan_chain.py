@@ -11,7 +11,7 @@ from bliss.common.scans import default_chain
 from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
 from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionDevice, IntegratingCounterAcquisitionDevice
 from bliss.controllers.simulation_diode import CONTROLLER as diode23_controller
-
+from bliss.common.scans import set_default_chain_device_settings
 
 def test_default_chain_with_sampling_counter(beacon):
     """Want to build the following acquisition chain:
@@ -200,3 +200,100 @@ def test_default_chain_with_bpm_and_image(beacon, lima_simulator):
     assert nodes[2].parent == nodes[1]
 
     assert nodes[1].save_flag == True
+
+def test_default_chain_with_lima_defaults_parameters(beacon, lima_simulator):
+    """Want to build the following acquisition chain:
+
+    root
+      |
+      |-Timer
+        |
+        |-LimaAcquisitionMaster
+          |
+          |-intensity
+          |
+          |-diode
+    """
+    lima_sim = beacon.get("lima_simulator")
+    diode = beacon.get("diode2")
+    assert lima_sim.bpm.intensity
+    assert diode
+
+    scan_pars = {"npoints": 10,
+                 "count_time": 0.1}
+
+    chain = AcquisitionChain()
+    try:
+        set_default_chain_device_settings([{"device": diode, "master":
+                                            lima_sim }, { "device": lima_sim,
+                                                         "acquisition_settings":
+                                                         {'acq_trigger_mode':'EXTERNAL_GATE'}
+                                                         } ])
+        timer = default_chain(chain, scan_pars, [lima_sim.bpm.intensity, diode])
+
+        nodes = chain.nodes_list
+        assert len(nodes) == 4
+        assert isinstance(nodes[0], timer.__class__)
+        assert isinstance(nodes[1], LimaAcquisitionMaster)
+        assert isinstance(nodes[2], IntegratingCounterAcquisitionDevice)
+        assert isinstance(nodes[3], SamplingCounterAcquisitionDevice)
+
+        assert nodes[2].parent == nodes[1]
+        assert nodes[1].parent == timer
+
+        assert nodes[1].parameters.get('acq_trigger_mode') == 'EXTERNAL_GATE'
+    finally:
+        set_default_chain_device_settings([])
+
+def test_default_chain2(beacon, lima_simulator):
+    """Want to build the following acquisition chain:
+
+    root
+      |
+      |-Timer
+        |
+        |-FakeMaster
+           |
+           |-LimaAcquisitionMaster
+              |
+              |-intensity
+              |
+              |-diode
+    """
+    lima_sim = beacon.get("lima_simulator")
+    diode = beacon.get("diode2")
+    assert lima_sim.bpm.intensity
+    assert diode
+
+    scan_pars = {"npoints": 10,
+                 "count_time": 0.1}
+
+    class FakeMaster:
+        def __init__(self, name):
+            self.name = name
+
+        def create_master_device(self, scan_pars, **settings):
+            return FakeMaster(self.name)
+
+    fake_master = FakeMaster("fake")
+
+    chain = AcquisitionChain()
+    try:
+        set_default_chain_device_settings([{"device": diode, "master":
+                                            lima_sim }, { "device": lima_sim,
+                                                         "acquisition_settings":
+                                                         {'acq_trigger_mode':'EXTERNAL_GATE'},
+                                                         "master":
+                                                         fake_master}])
+        timer = default_chain(chain, scan_pars, [diode])
+
+        nodes = chain.nodes_list
+        assert len(nodes) == 4
+        assert isinstance(nodes[0], timer.__class__)
+        assert isinstance(nodes[1], FakeMaster)
+        assert isinstance(nodes[2], LimaAcquisitionMaster)
+        assert isinstance(nodes[3], SamplingCounterAcquisitionDevice)
+
+    finally:
+        set_default_chain_device_settings([])
+

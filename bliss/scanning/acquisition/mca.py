@@ -201,11 +201,12 @@ class BaseMcaCounter(BaseCounter):
 
     # Default chain integration
 
-    def create_acquisition_device(self, scan_pars):
+    def create_acquisition_device(self, scan_pars, **settings):
         npoints = scan_pars['npoints']
         count_time = scan_pars['count_time']
         return McaAcquisitionDevice(
-            self.controller, npoints=npoints, preset_time=count_time)
+            self.controller, npoints=npoints, preset_time=count_time,
+            **settings)
 
     def __init__(self, mca, base_name, detector=None):
         self.mca = mca

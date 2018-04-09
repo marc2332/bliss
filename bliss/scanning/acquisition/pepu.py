@@ -204,10 +204,10 @@ class PepuCounter(BaseCounter):
 
     # Default chain integration
 
-    def create_acquisition_device(self, scan_pars):
+    def create_acquisition_device(self, scan_pars, **settings):
         npoints = scan_pars['npoints']
         return PepuAcquisitionDevice(
-            self.controller, npoints=npoints)
+            self.controller, npoints=npoints, **settings)
 
     def __init__(self, channel):
         self.channel = channel

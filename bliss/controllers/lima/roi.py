@@ -190,7 +190,7 @@ class RoiCounters(object):
 
     def __repr__(self):
         name = self.name.rsplit(':', 1)[-1]
-        lines = ['ROI Counters: {0} ({1})\n'.format(name, self.config_name)]
+        lines = ['[{0}]\n'.format(self.config_name)]
         rois = self.get_rois()
         if rois:
             header = 'Name', 'ROI (<X, Y> <W x H>)'

@@ -5,10 +5,30 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 import importlib
-from bliss.common.tango import DeviceProxy
+from bliss.common.tango import DeviceProxy, DevFailed
 from bliss.config import settings
 from .bpm import Bpm
 from .roi import Roi, RoiCounters
+
+
+
+def _attr_str(value, dtype='str', enums=None, err_str='?'):
+    if value is None:
+        return err_str
+    elif dtype == 'str':
+        return str(value)
+    elif dtype == 'shape':
+        return '<{0[0]} x {0[1]} x {0[2]}>'.format(value)
+    elif dtype == 'roi':
+        return '<{0[0]}, {0[1]}> <{0[2]} x {0[3]}>'.format(value)
+    elif dtype == 'flip':
+        return '<{0[0]} x {0[1]}>'.format(value)
+    elif dtype == 'bin':
+        return '<{0[0]} x {0[1]}>'.format(value)
+    elif dtype == 'enum':
+        return ' '.join([i if i != value else '[{}]'.format(i)
+                         for i in sorted(enums)])
+    return err_str
 
 
 class Lima(object):
@@ -73,6 +93,30 @@ class Lima(object):
                     raise ValueError("Lima.image: rotation can only be 0,90,180 or 270")
                 self._proxy.image_rotation = rot_str
 
+        def __repr__(self):
+            attr_list = ('image_bin', 'image_roi', 'image_rotation',
+                         'image_type', 'image_flip',
+                         'image_width', 'image_height')
+            try:
+                data = {attr_value.name: attr_value.value
+                        for attr_value in self._proxy.read_attributes(attr_list)}
+            except DevFailed:
+                return 'Lima Image (Communication error with {!r})' \
+                    .format(self._proxy.dev_name())
+
+            shape = _attr_str((data['image_width'], data['image_height'],
+                               data['image_type']), 'shape')
+            roi = _attr_str(data['image_roi'], 'roi')
+            binning = _attr_str(data['image_bin'], 'bin')
+            rotation = _attr_str(data['image_rotation'], 'str')
+            flip = _attr_str(data['image_flip'], 'flip')
+            return 'Shape = {}\n' \
+                'ROI = {}\n' \
+                'Binning = {}\n' \
+                'Rotation = {}\n' \
+                'Flip = {}'.format(shape, roi, binning, rotation, flip)
+
+
     class Acquisition(object):
         ACQ_MODE_SINGLE,ACQ_MODE_CONCATENATION,ACQ_MODE_ACCUMULATION = range(3)
 
@@ -117,6 +161,21 @@ class Lima(object):
         @trigger_mode.setter
         def trigger_mode(self,value):
             pass
+
+        def __repr__(self):
+            attr_list = ('acq_mode', 'acq_trigger_mode',
+                         'acq_status', 'acq_expo_time', 'acq_nb_frames')
+            try:
+                data = [(attr_value.name[4:].replace('_', ' ').capitalize(),
+                         attr_value.value)
+                        for attr_value in self._proxy.read_attributes(attr_list)]
+            except DevFailed:
+                return 'Lima Acquisition (Communication error with {!r})' \
+                    .format(self._proxy.dev_name())
+
+            lines = ['{0} = {1}'.format(k, v) for k, v in data]
+            return '\n'.join(lines)
+
 
     def __init__(self,name,config_tree):
         """Lima controller.
@@ -208,3 +267,20 @@ class Lima(object):
             db_port = self._proxy.get_db_port()
             device_name = "//%s:%s/%s" % (db_host, db_port, device_name)
         return DeviceProxy(device_name)
+
+    def __repr__(self):
+        attr_list = ('user_detector_name', 'camera_model',
+                     'camera_type', 'lima_type')
+        try:
+            data = {attr.name: ('?' if attr.has_failed else attr.value)
+                    for attr in self._proxy.read_attributes(attr_list)}
+        except DevFailed:
+            return 'Lima {} (Communication error with {!r})' \
+                .format(self.name, self._proxy.dev_name())
+
+        return '{0[user_detector_name]} - ' \
+               '{0[camera_model]} ({0[camera_type]}) - Lima {0[lima_type]}\n\n' \
+               'Image:\n{1!r}\n\n' \
+               'Acquisition:\n{2!r}\n\n' \
+               'ROI Counters:\n{3!r}' \
+               .format(data, self.image, self.acquisition, self.roi_counters)

@@ -56,12 +56,12 @@ def AttributeProxy(*args, **kwargs):
 
 
 try:
-    from tango import AttrQuality, EventType, DevState
+    from tango import AttrQuality, EventType, DevState, DevFailed
     from tango.gevent import DeviceProxy, AttributeProxy
 except ImportError:
     # PyTango < 9 imports
     try:
-        from PyTango import AttrQuality, EventType, DevState
+        from PyTango import AttrQuality, EventType, DevState, DevFailed
         from PyTango.gevent import DeviceProxy, AttributeProxy
     except ImportError:
         pass

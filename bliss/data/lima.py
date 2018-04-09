@@ -31,7 +31,6 @@ class LimaImageChannelDataNode(DataNode):
 
         def __init__(self, data, from_index, to_index):
             self.data = data
-            self._update()
             self.from_index = from_index
             self.to_index = to_index
             self.last_image_acquired = -1

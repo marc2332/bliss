@@ -64,11 +64,12 @@ import wago
 import time
 from bliss.common.utils import wrap_methods
 
+
 class MattWagoMapping:
     def __init__(self, nb_filter, att_type, att_alternate, stat_m, ctrl_m):
         self.nb_filter = nb_filter
         self.att_type = att_type
-        self.att_alternate =  att_alternate
+        self.att_alternate = att_alternate
         self.mapping = []
         self.generate_mapping(att_type, att_alternate, stat_m, ctrl_m)
 
@@ -86,7 +87,7 @@ class MattWagoMapping:
             nstat = 1
             n_mod = nstat*2
 
-        if ctrl_m == "750-530" :
+        if ctrl_m == "750-530":
             nctrl = 2
 
         STATUS = ["attstatus"]*nstat
@@ -95,36 +96,33 @@ class MattWagoMapping:
         else:
             CONTROL = ["attctrl"]*nctrl
 
-        
-
-
         mapping = []
         nb_chan = self.nb_filter
         ch_ctrl = nb_chan/4
         ch_stat = ch_ctrl*n_mod
-        ch = nb_chan%4
+        ch = nb_chan % 4
 
         if nb_chan > 4:
-            if att_alternate == True:
+            if att_alternate is True:
                 for i in range(ch_ctrl):
                     mapping += [CONTROL_MODULE % ",".join(CONTROL*4)]
                     mapping += [STATUS_MODULE % ",".join(STATUS*4)]
                 if ch > 0:
-                    mapping += [CONTROL_MODULE % ",".join(CONTROL*(ch)+ ["_"]*(4*nctrl-ch*nctrl))]
-                    mapping += [STATUS_MODULE % ",".join(STATUS*ch +["_"]*(4*nstat-ch*nstat))]
+                    mapping += [CONTROL_MODULE % ",".join(CONTROL*(ch)+["_"]*(4*nctrl-ch*nctrl))]
+                    mapping += [STATUS_MODULE % ",".join(STATUS*ch+["_"]*(4*nstat-ch*nstat))]
             else:
                 for i in range(ch_ctrl):
                     mapping += [CONTROL_MODULE % ",".join(CONTROL*4)]
                 if ch > 0:
-                    mapping += [CONTROL_MODULE % ",".join(CONTROL*(ch)+ ["_"]*(4*nctrl-ch*nctrl))]
+                    mapping += [CONTROL_MODULE % ",".join(CONTROL*(ch)+["_"]*(4*nctrl-ch*nctrl))]
                 for i in range(ch_stat):
                     mapping += [STATUS_MODULE % ",".join(STATUS*4)]
                 if ch > 0:
-                    mapping += [STATUS_MODULE % ",".join(STATUS*ch +["_"]*(4*nstat-ch*nstat))]
+                    mapping += [STATUS_MODULE % ",".join(STATUS*ch+["_"]*(4*nstat-ch*nstat))]
         else:
-            mapping += [CONTROL_MODULE % ",".join(CONTROL*nb_chan + ["_"]*(4-nb_chan))]
+            mapping += [CONTROL_MODULE % ",".join(CONTROL*nb_chan+["_"]*(4-nb_chan))]
             if ch > 0:
-                mapping += [STATUS_MODULE % ",".join(STATUS*ch +["_"]*(4*nstat-ch*nstat))]
+                mapping += [STATUS_MODULE % ",".join(STATUS*ch+["_"]*(4*nstat-ch*nstat))]
             else:
                 mapping += [STATUS_MODULE % ",".join(STATUS*nb_chan)]
 
@@ -132,7 +130,8 @@ class MattWagoMapping:
 
 
 class MattControl:
-    def __init__(self, wago_ip, nb_filter, att_type=0, att_alternate=False, stat_m="750-436", ctrl_m="750-530"):
+    def __init__(self, wago_ip, nb_filter, att_type=0, att_alternate=False,
+                 stat_m="750-436", ctrl_m="750-530"):
         self.wago_ip = wago_ip
         self.nb_filter = nb_filter
         self.att_type = att_type
@@ -143,17 +142,17 @@ class MattControl:
 
     def connect(self):
         self.wago = wago.WagoController(self.wago_ip)
-        mapping = MattWagoMapping(self.nb_filter, self.att_type, self.att_alternate, self.stat_m, self.ctrl_m)
+        mapping = MattWagoMapping(self.nb_filter, self.att_type,
+                                  self.att_alternate, self.stat_m, self.ctrl_m)
         self.wago.connect()
-        self.wago.set_mapping(str(mapping),ignore_missing=True)
+        self.wago.set_mapping(str(mapping), ignore_missing=True)
 
     def exit(self):
         self.wago.close()
 
     def pos_read(self):
-        stat1 = self.wago.get("attstatus")
+        stat = self.wago.get("attstatus")
         ret = 0
-        stat = [num for elem in stat1 for num in elem]
         nstat = 2
 
         del stat[(self.nb_filter*nstat):]
@@ -167,7 +166,7 @@ class MattControl:
         else:
             ret = self.read_2posbit(stat)
         return ret
-    
+
     def read_1posbit(self, stat):
         ret = 0
         for i in range(self.nb_filter):
@@ -184,7 +183,7 @@ class MattControl:
                 pos = 0
             ret += pos
         return ret
-    
+
     def read_2posbit(self, stat):
         ret = 0
         nstat = 2
@@ -203,20 +202,20 @@ class MattControl:
         nstat = 2
         for i in range(self.nb_filter):
             gidx = i % 4
-            groupno = int (i / 4)
-            idx = groupno * 4 * nstat + 4  + gidx
+            groupno = int(i / 4)
+            idx = groupno * 4 * nstat + 4 + gidx
             ret += stat[idx] << i
         return ret
 
     def pos_write(self, value):
         valarr = []
-        valarr =  [False] * self.nb_filter #*2
-            
+        valarr = [False] * self.nb_filter
+
         for i in range(self.nb_filter):
             if value&(1<<i) > 0:
                 valarr[i] = True
 
-        valarr.insert(0,"attctrl")
+        valarr.insert(0, "attctrl")
         self.wago.set(valarr)
 
     def _status_read(self):
@@ -227,7 +226,7 @@ class MattControl:
             if value&(1<<i) > 0:
                 mystr += "%d " % i
         return mystr
-        
+
     def status_read(self):
         stat = []
         mystr = ""
@@ -245,7 +244,7 @@ class MattControl:
             lbl = "OUT"
             if value&(1<<i) > 0:
                 lbl = "IN "
-            if  value&(1<<i+self.nb_filter) > 0:
+            if value&(1<<i+self.nb_filter) > 0:
                 lbl = "***"
             mystr += lbl + lbl1
         stat.append(mystr)
@@ -259,13 +258,13 @@ class MattControl:
         if oldvalue == val:
             return oldvalue
 
-        #first insert the new filters, leave untouched the old ones
+        # first insert the new filters, leave untouched the old ones
         if (~val & oldvalue) and (val & ~oldvalue):
             self.pos_write(val | oldvalue)
             time.sleep(0.25)
 
-        #than redo to extract the old filters
-        self.pos_write(val)    
+        # than redo to extract the old filters
+        self.pos_write(val)
 
         check = self.pos_read()
         t0 = time.time()
@@ -274,19 +273,17 @@ class MattControl:
             check = self.pos_read()
             if time.time() - t0 > self.exec_timeout:
                 raise RuntimeError("Timeout waiting for filters to be %d" % val)
-        
+
     def filter_set(self, filt, put_in):
         value = self.pos_read()
         if value >= (1<<self.nb_filter):
             raise RuntimeError("Filters in unknown position, exiting")
-            
         ff = 1<<filt
-        
         if put_in is True:
             if (value & ff) == 0:
                 value += ff
         else:
-            if (value & ff) != 0 :
+            if (value & ff) != 0:
                 value &= ~ff
         self.pos_write(value)
 
@@ -298,7 +295,6 @@ class MattControl:
             if time.time() - t0 > self.exec_timeout:
                 raise RuntimeError("Timeout waiting for filter to be %s" % ("in" if put_in is True else "out"))
 
-            
     def mattin(self, filt):
         if filt >= self.nb_filter:
             raise RuntimeError("Wrong filter number %d" % filt)
@@ -309,15 +305,14 @@ class MattControl:
             raise RuntimeError("Wrong filter number %d" % filt)
         self.filter_set(filt, False)
 
-
     def mattsetall(self, flag):
         value = 0
-        if flag == True:
+        if flag is True:
             for i in range(self.nb_filter):
                 value += (1<<i)
         self.mattstatus_set(value)
 
-    def mattstatus_get(self) :
+    def mattstatus_get(self):
         value = []
         value.append(float(self.pos_read()))
         return value
@@ -338,22 +333,22 @@ class matt:
         wago_ip = config["controller_ip"]
         nb_filter = config["nb_filter"]
         try:
-          #attenuator type (0,1 or 2, default is 0)
-          att_type = config["att_type"]
+            # attenuator type (0,1 or 2, default is 0)
+            att_type = config["att_type"]
         except:
             att_type = 0
         try:
-            #wago card alternation (True or False, default False)
+            # wago card alternation (True or False, default False)
             wago_alternate = config["wago_alternate"]
         except:
             wago_alternate = False
         try:
-            #wago status module (default value "750-436")
+            # wago status module (default value "750-436")
             stat_m = config["status_module"]
         except:
             stat_m = "750-436"
         try:
-            #wago control module (default value "750-530")
+            # wago control module (default value "750-530")
             ctrl_m = config["control_module"]
         except:
             ctrl_m = "750-530"

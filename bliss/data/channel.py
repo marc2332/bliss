@@ -63,9 +63,11 @@ class ChannelDataNode(DataNode):
 
     def get(self, from_index, to_index=None):
         if to_index is None:
-            return self._queue.get(from_index, from_index)
+            return self._queue.get(from_index, from_index,
+                                   cnx=self.db_connection)
         else:
-            return self._queue.get(from_index, to_index)
+            return self._queue.get(from_index, to_index,
+                                  cnx=self.db_connection)
 
     def __len__(self):
         return len(self._queue)

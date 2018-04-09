@@ -69,11 +69,10 @@ class Scan(DataNodeContainer):
 
 def get_data(scan):
     """
-    Return a numpy structured arrays
+    Return a numpy structured array
 
-    tips: to get the list of channels (data.dtype.names)
-          to get datas of a channel data["channel_name"]
-
+    tips: to get the list of channels: data.dtype.names
+          to get data of a channel: data["channel_name"]
     """
     dtype = list()
     chanlist = list()
@@ -84,12 +83,17 @@ def get_data(scan):
         if node.type == 'channel':
             channel_name = node.name
             chan = node
-            # append channel name and get all data from channel;
-            # as it is in a Redis pipeline, get returns the
-            # conversion function only - data will be received
-            # after .execute()
-            chanlist.append((channel_name,
-                             chan.get(0, -1, cnx=pipeline)))
+            try:
+                saved_db_connection = chan.db_connection
+                chan.db_connection = pipeline
+                # append channel name and get all data from channel;
+                # as it is in a Redis pipeline, get returns the
+                # conversion function only - data will be received
+                # after .execute()
+                chanlist.append((channel_name,
+                                 chan.get(0, -1)))
+            finally:
+                chan.db_connection = saved_db_connection
 
     result = pipeline.execute()
 

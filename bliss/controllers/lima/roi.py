@@ -144,7 +144,7 @@ class RoiCounters(object):
         if isinstance(roi_values,Roi):
             roi = roi_values
         elif len(roi_values) == 4:
-            roi = Roi(*roi_values)
+            roi = Roi(*roi_values, name=name)
         else:
             raise TypeError("Lima.RoiCounters: roi accepts roi (class)"
                             " or (x,y,width,height) values")
@@ -153,8 +153,20 @@ class RoiCounters(object):
         self._proxy.setRois((roi_id,
                              roi.x,roi.y,
                              roi.width,roi.height,))
-        self._save_rois[name] = roi
-        self._roi_ids[name] = roi_id
+        self._set_roi_settings(roi_id, roi)
+
+    def _set_roi_settings(self, roi_id, roi):
+        self._save_rois[roi.name] = roi
+        self._roi_ids[roi.name] = roi_id
+
+    def _clear_rois_settings(self):
+        self._save_rois.clear()
+        self._roi_ids.clear()
+
+    def clear_rois(self):
+        self._clear_rois_settings()
+        self._proxy.clearAllRois()
+        self._proxy.Start()
 
     def get_rois(self):
         return self._save_rois.values()
@@ -180,6 +192,20 @@ class RoiCounters(object):
                                 roi.width,roi.height))
             self._roi_ids[roi.name] = roi_id
         self._proxy.setRois(rois_values)
+
+    def load_rois(self):
+        """
+        Load current ROI counters from Lima and store them in settings
+        """
+        self._clear_rois_settings()
+        roi_names = self._proxy.getNames()
+        rois = self._proxy.getRois(roi_names)
+        for i, name in enumerate(roi_names):
+            roi_id = rois[i*5]
+            idx = i*5 + 1
+            x, y, w, h = rois[idx:idx + 4]
+            roi = Roi(x, y, w, h, name=name)
+            self._set_roi_settings(roi_id, roi)
 
     def __getattr__(self, name):
         if self._save_rois.get(name) is None:

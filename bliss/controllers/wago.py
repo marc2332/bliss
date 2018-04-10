@@ -203,8 +203,8 @@ class _WagoController:
                                 except IndexError:
                                     if ignore_missing:
                                         pass
-                                else:
-                                    raise
+                                    else:
+                                        raise
                 self.mapping.append({"module": module_name,
                                      "channels": channels_map,
                                      "writing_info": {DIGI_OUT: digi_out_base,

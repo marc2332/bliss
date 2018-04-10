@@ -263,7 +263,7 @@ class Output(object):
         else:
             return "READY"
 
-    def _do_setpoint(self, setpoint, **kwargs):
+    def _do_setpoint(self, setpoint):
         """ Subtask launching the setpoint
             Polls until setpoint is reached
             Is a gevent coroutine
@@ -288,7 +288,7 @@ class Output(object):
             else:
                 self.controller.set(self, setpoint, **kwargs)
             self.__ramping = 1
-            self._do_setpoint(setpoint, wait=False)
+            self._do_setpoint(setpoint)
         sp_task = setpoint_task(setpoint, wait=False)
         sync_event.wait()
         return sp_task

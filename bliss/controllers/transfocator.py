@@ -257,11 +257,7 @@ class Transfocator:
         return self.set(*cmd)
 
     def set_pin(self, set_in=True):
-        for p in self.pinhole:
-            if set_in:
-                self.set_in(p)
-            else:
-                self.set_out(p)
+        self[self.pinhole] = set_in
 
     def __state_changed(self, st):
         dispatcher.send('state', self, st)

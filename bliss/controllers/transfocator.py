@@ -212,22 +212,10 @@ class Transfocator:
         self.tfstatus_set(bits)
 
     def set_in(self, lense_index):
-        if lense_index in self.empty_jacks:
-            return
-        current_bits = self.pos_read()
-        if current_bits & (1<<lense_index) > 0:
-            return
-        bits = current_bits + (1 << lense_index)
-        self.tfstatus_set(bits)
+        self[lense_index] = True
 
     def set_out(self, lense_index):
-        if lense_index in self.empty_jacks:
-            return
-        current_bits = self.pos_read()
-        if current_bits & (1<<lense_index) == 0:
-            return
-        bits = current_bits - (1 << lense_index)
-        self.tfstatus_set(bits)
+        self[lense_index] = False
 
     def toggle(self, lense_index):
         current_bits = self.pos_read()
@@ -243,6 +231,9 @@ class Transfocator:
                     bits |= (1 << idx)
                 else:
                     bits &= 0xFFFFFFFF ^ (1 << idx)
+        if self.pos_read() == bits:
+            # nothing to do
+            return
         self.tfstatus_set(bits)
 
     def set_all(self, set_in=True):

@@ -16,7 +16,7 @@ controller:
             name: heater
             channel: B 
             unit: deg
-            low_limit: 10
+            low_limit: -1
             high_limit: 200
             deadband: 0.1
             tango_server: temp1

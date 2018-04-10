@@ -149,11 +149,7 @@ def task(func):
 
         t = gevent.spawn(wrap_errors(func), *args, **kwargs)
         t._get = t.get
-        # since gevent 1.1.0: Killing a greenlet before it is actually started
-        # and switched to now prevents the greenlet from ever running, instead
-        # of raising an exception when it is later switched to.
-        # We force a context switch so the greenlet has a chance to start
-        gevent.sleep()
+
         try:
             setattr(t, "get", types.MethodType(special_get, t))
 

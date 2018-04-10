@@ -249,12 +249,7 @@ class Transfocator:
         self.tfstatus_set(bits)
 
     def set_all(self, set_in=True):
-        cmd = [set_in]*(self.nb_lens+self.nb_pinhole)
-        if set_in:
-            # remove the ones that are empty
-            for i in self.empty_jacks:
-                cmd[i] = False
-        return self.set(*cmd)
+        self[:] = set_in
 
     def set_pin(self, set_in=True):
         self[self.pinhole] = set_in

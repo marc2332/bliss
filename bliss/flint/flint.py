@@ -16,6 +16,7 @@ import warnings
 import itertools
 import contextlib
 import collections
+import signal
 
 import numpy
 import gevent
@@ -430,16 +431,49 @@ class QtLogHandler(logging.Handler):
 
 def main():
     qapp = qt.QApplication(sys.argv)
+    qapp.setApplicationName("flint")
+    qapp.setOrganizationName("ESRF")
+    qapp.setOrganizationDomain("esrf.eu")
+
     win = qt.QMainWindow()
-    tabs = qt.QTabWidget(win)
+    central_widget = qt.QWidget(win)
+    tabs = qt.QTabWidget(central_widget)
     win.setCentralWidget(tabs)
-    log_dock = qt.QDockWidget("Log output", win)
-    log_widget = qt.QPlainTextEdit(log_dock)
+    log_window = qt.QWidget()
+    log_widget = qt.QPlainTextEdit()
+    qt.QVBoxLayout(log_window)
+    log_window.layout().addWidget(log_widget)
+    log_window.setAttribute(qt.Qt.WA_QuitOnClose, False)
     log_widget.setReadOnly(True)
-    log_dock.setWidget(log_widget)
-    win.addDockWidget(qt.Qt.BottomDockWidgetArea, log_dock)
-    # resize window to 70% of available screen space
-    win.resize(qt.QDesktopWidget().availableGeometry(win).size() * 0.7)
+    log_window.setWindowTitle("Log messages")
+    exitAction = qt.QAction('&Exit', win)
+    exitAction.setShortcut('Ctrl+Q')
+    exitAction.setStatusTip('Exit flint')
+    exitAction.triggered.connect(qapp.quit)
+    showLogAction = qt.QAction('Show &log', win)
+    showLogAction.setShortcut('Ctrl+L')
+    showLogAction.setStatusTip('Show log window')
+    showLogAction.triggered.connect(log_window.show)
+    menubar = win.menuBar()
+    fileMenu = menubar.addMenu('&File')
+    fileMenu.addAction(exitAction)
+    windowMenu = menubar.addMenu('&Windows')
+    windowMenu.addAction(showLogAction)
+
+    settings = qt.QSettings()
+    def save_window_settings():
+        settings.setValue("size", win.size())
+        settings.setValue("pos", win.pos())
+        settings.sync()
+
+    qapp.aboutToQuit.connect(save_window_settings)
+    
+    # resize window to 70% of available screen space, if no settings
+    pos = qt.QDesktopWidget().availableGeometry(win).size() * 0.7
+    w = pos.width()
+    h = pos.height()
+    win.resize(settings.value("size", qt.QSize(w, h)))
+    win.move(settings.value("pos", qt.QPoint(3*w/14., 3*h/14.)))
     win.show()
 
     handler = QtLogHandler(log_widget)
@@ -454,6 +488,17 @@ def main():
             exc_info=(exc_type, exc_value, exc_traceback))
     sys.excepthook = handle_exception
 
+    # set up CTRL-C signal handler, that exits gracefully
+    def sigint_handler(*args):
+        qapp.quit()
+    signal.signal(signal.SIGINT, sigint_handler)
+    # enable periodic execution of Qt's loop,
+    # this is to react on SIGINT
+    # (from stackoverflow answer: https://stackoverflow.com/questions/4938723)
+    timer = qt.QTimer()
+    timer.start(500)
+    timer.timeout.connect(lambda: None)
+
     stop = Future()
     flint = Flint(tabs)
     thread = Thread(
@@ -461,7 +506,7 @@ def main():
         args=(flint, stop))
     thread.start()
     try:
-        qapp.exec_()
+        sys.exit(qapp.exec_())
     finally:
         stop.set_result(None)
         thread.join(1.)

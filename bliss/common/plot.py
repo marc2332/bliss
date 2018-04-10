@@ -147,6 +147,7 @@ The return values are shown in the following example:
 import os
 import sys
 import numpy
+import psutil
 import platform
 import subprocess
 from collections import OrderedDict
@@ -186,13 +187,33 @@ def get_flint_process():
     return FLINT['process'].pid
 
 
-def get_flint(pid=None):
-    # Make sure flint is running
-    if pid is None:
-        pid = get_flint_process()
+def get_flint(pid=None, start_new=False):
     # Get redis connection
     beacon = get_default_connection()
     redis = beacon.get_redis_connection()
+
+    if start_new:
+        FLINT['process'] = None
+        pid = get_flint_process()
+    else:
+        # Make sure flint is running
+        if pid is None:
+            # did we run our flint ?
+            if FLINT.get('process'):
+                pid = get_flint_process()
+            else:
+                # get existing flint, if any
+                for key in redis.scan_iter("flint:%s:*" % platform.node()):
+                    pid = int(key.split(":")[-1])
+                    if psutil.pid_exists(pid):
+                        FLINT.update({ "proxy":None, "process":None})
+                        break
+                    else:
+                        redis.delete(key)
+                else:
+                    # finally, no valid flint is available
+                    pid = get_flint_process()
+
     # Current URL
     key = "flint:{}:{}".format(platform.node(), pid)
     url = redis.brpoplpush(key, key, timeout=3000)

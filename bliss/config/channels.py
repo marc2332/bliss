@@ -13,13 +13,7 @@ import gevent
 import gevent.event
 import time
 from bliss.common.utils import grouped
-# use safe reference module from dispatcher
-# (either louie -the new project- or pydispatch)
-try:
-    from louie import saferef
-except ImportError:
-    from pydispatch import saferef
-    saferef.safe_ref = saferef.safeRef
+from bliss.common.event import saferef
 from bliss.common.utils import OrderedDict
 import weakref
 import sys

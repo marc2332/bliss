@@ -93,6 +93,7 @@ class Transfocator:
         self.name = name
         self.read_mode = int(config.get("read_mode", 0))
         self.cmd_mode = int(config.get("cmd_mode", 0))
+        self.safety = bool(config.get("safety", False))
         self.wago_ip = config["controller_ip"]
         self.wago = None
         self.empty_jacks = []
@@ -227,6 +228,9 @@ class Transfocator:
                     bits |= (1 << idx)
                 else:
                     bits &= 0xFFFFFFFF ^ (1 << idx)
+        if self.safety and bits and self.pinhole:
+            for pinhole in self.pinhole:
+                bits |= (1 << pinhole)
         if self.pos_read() == bits:
             # nothing to do
             return

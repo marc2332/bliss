@@ -94,3 +94,11 @@ class Writer(FileWriter):
             self.file = None
         self.scan_entry = None
         self.measurement = None
+
+    def get_scan_entries(self):
+        file_name = os.path.join(self.root_path, 'data.h5')
+        try:
+            with h5py.File(file_name, mode='r') as f:
+                return f.keys()
+        except IOError:         # file doesn't exist
+            return []

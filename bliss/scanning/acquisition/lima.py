@@ -131,31 +131,26 @@ class LimaAcquisitionMaster(AcquisitionMaster):
                                                       self.device.read_attributes(attr_names)) }
 
     def reading(self):
-        while True:
-            try:
-                acq_state = self.device.acq_status.lower()
-            except Exception:
-                acq_state = 'fault'
-            try:
-                status = self._get_lima_status()
-            except Exception:
-                status = dict()
-            status["acq_state"] = acq_state
-            if acq_state == 'running':
-                if status['last_image_ready'] != self._last_image_ready:
-                    self._image_channel.emit(status)
-                    self._last_image_ready = status['last_image_ready']
-                gevent.sleep(max(self.parameters['acq_expo_time'] / 10.0, 10e-3))
-            else:
-                break
-        
         try:
+            while True:
+                acq_state = self.device.acq_status.lower()
+                status = self._get_lima_status()
+                status["acq_state"] = acq_state
+                if acq_state == 'running':
+                    if status['last_image_ready'] != self._last_image_ready:
+                        self._image_channel.emit(status)
+                        self._last_image_ready = status['last_image_ready']
+                    gevent.sleep(max(self.parameters['acq_expo_time'] / 10.0, 10e-3))
+                else:
+                    break
             self._image_channel.emit(status)
             if acq_state == 'fault':
                 raise RuntimeError("Device %s (%s) is in Fault state" % (
                     self.device, self.device.user_detector_name))
-        finally:
             self._reading_task = None
+        except:
+            self._image_channel.emit({"acq_state": "fault"})
+            raise
         
     def wait_reading(self, block=True):
         try:

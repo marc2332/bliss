@@ -11,7 +11,8 @@ import os
 import time
 import types
 import math
-from bliss.common.utils import grouped
+import tabulate
+from bliss.common.utils import grouped, OrderedDict
 from bliss.controllers.wago import WagoController
 from bliss.config import channels
 from bliss.common.event import dispatcher
@@ -69,6 +70,18 @@ class TfWagoMapping:
         self.mapping = mapping
 
 
+def _display(status):
+    return '---' if status is None else ('IN' if status else 'OUT')
+
+
+def _encode(status):
+    if status in (1, 'in', 'IN', True):
+        return True
+    elif status in (0, 'out', 'OUT', False):
+        return False
+    raise ValueError('Invalid position {!r}'.format(status))
+
+
 class Transfocator:
     def __init__(self, name, config):
         self.exec_timeout = int(config.get("timeout", 3))
@@ -77,6 +90,7 @@ class Transfocator:
         # read_mode >0 means:
         # 'first transfocator in beam status is wired last in Wago'
         # the same goes for cmd_mode
+        self.name = name
         self.read_mode = int(config.get("read_mode", 0))
         self.cmd_mode = int(config.get("cmd_mode", 0))
         self.wago_ip = config["controller_ip"]
@@ -129,7 +143,7 @@ class Transfocator:
     def pos_read(self):
         self.connect()
 
-        state = list(grouped(self.wago.get("status")), 2)
+        state = list(grouped(self.wago.get("status"), 2))
         if self.read_mode != 0:
             state.reverse()
 
@@ -168,36 +182,24 @@ class Transfocator:
         finally:
             self._state_chan.value = self.status_read()
 
-    def status_read(self):
-        stat = []
-        mystr = ""
-        lbl = ""
-
-        for i in range(self.nb_lens+self.nb_pinhole):
-            if i in self.empty_jacks:
-                lbl = "X"
-            else:
-                if i in self.pinhole:
-                    lbl = "P"
-                else:
-                    lbl = "L"
-            mystr += lbl + str(i+1) + "  "
-        stat.append(mystr)
-
+    def status_dict(self):
+        positions = OrderedDict()
         value = self.pos_read()
-        mystr = ""
         for i in range(self.nb_lens+self.nb_pinhole):
             if i in self.empty_jacks:
-                lbl = "---"
+                lbl, position = "X{}", None
             else:
-                lbl = "OUT"
-                if value&(1<<i) > 0:
-                    lbl = "IN "
-                if value&(1<<i+self.nb_lens+self.nb_pinhole) > 0:
-                    lbl = "???"
-            mystr += lbl + " "
-        stat.append(mystr)
-        return stat
+                lbl = "P{}" if i in self.pinhole else "L{}"
+                position = value&(1<<i) > 0
+            positions[lbl.format(i)] = position
+        return positions
+
+    def status_read(self):
+        header, positions = zip(*self.status_dict().items())
+        header = ''.join(('{:<4}'.format(col) for col in header))
+        positions = (_display(col) for col in positions)
+        positions = ''.join(('{:<4}'.format(col) for col in positions))
+        return header, positions
 
     def set(self, *lenses):
         bits = 0
@@ -206,7 +208,7 @@ class Transfocator:
                 continue
             else:
                 if lense:
-                    bits += (1 << i)
+                    bits |= (1 << i)
         self.tfstatus_set(bits)
 
     def set_in(self, lense_index):
@@ -251,3 +253,20 @@ class Transfocator:
 
     def __state_changed(self, st):
         dispatcher.send('state', self, st)
+
+    def __repr__(self):
+        prefix = 'Transfocator ' + self.name
+        try:
+            header, positions = zip(*self.status_dict().items())
+            positions = [_display(col) for col in positions]
+            table = tabulate.tabulate((header, positions), tablefmt='plain')
+            return '{}:\n{}'.format(prefix, table)
+        except Exception as err:
+            return '{}: Error: {}'.format(prefix, err)
+
+    def __str__(self):
+        # Channel uses louie behind which calls this object str.
+        # str is overloaded to avoid calling repr which triggers a connection.
+        # We want to avoid creating a connection just because of a louie signal
+        return '<bliss.controllers.transfocator.Transfocator ' \
+            'instance at {:x}>'.format(id(self))

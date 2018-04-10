@@ -15,6 +15,7 @@ from treelib import Tree
 import time
 import logging
 import datetime
+import re
 
 from bliss.common.event import connect, send
 from bliss.common.plot import get_flint, CurvePlot, ImagePlot
@@ -329,13 +330,7 @@ class Scan(object):
         name = name if name else "scan"
 
         if run_number is None:
-            if parent:
-                key = self.root_node.db_name
-                run_number = client.get_cache(db=1).hincrby(
-                    key, "%s_last_run_number" % name, 1)
-            else:
-                run_number = client.get_cache(db=1).incrby(
-                    "%s_last_run_number" % name, 1)
+            run_number = self._next_run_number(name, parent)
         self.__run_number = run_number
         self.__name = '%s_%d%s' % (name, run_number, name_suffix)
         self._scan_info = dict(scan_info) if scan_info is not None else dict()
@@ -571,6 +566,36 @@ class Scan(object):
         else:
             return ImagePlot(existing_id=plot_id)
 
+    def _next_run_number(self, name, parent):
+        if parent:
+            key = self.root_node.db_name
+            cnx = client.get_cache(db=1)
+            pipeline = cnx.pipeline()
+            pipeline.exists('%s__children_list')
+            pipeline.hincrby(key, "%s_last_run_number" % name, 1)
+            exist, run_number = pipeline.execute()
+            # synchronize with writer
+            if not exist and self._writer is not None:
+                scan_names = dict()
+                match_re = re.compile('(.+)_(\d+)')
+                for scan_entry in self._writer.get_scan_entries():
+                    g = match_re.match(scan_entry)
+                    if g:
+                        scan_name = g.group(1)
+                        run_number = int(g.group(2))
+                        previous_run_number = \
+                        scan_names.setdefault(scan_name, run_number)
+                        if run_number > previous_run_number:
+                            scan_names[scan_name] = run_number
+                if scan_names:
+                    run_number = scan_names.get(name, 0) + 1
+                    scan_names[name] = run_number
+                    cnx.hmset(key, {"%s_last_run_number" % scan_name:run_number
+                                    for scan_name, run_number in scan_names.iteritems()})
+        else:
+            run_number = client.get_cache(db=1).incrby(
+                "%s_last_run_number" % name, 1)
+        return run_number
 
 class AcquisitionMasterEventReceiver(object):
     def __init__(self, master, slave, parent):
@@ -694,3 +719,8 @@ class FileWriter(object):
     def close(self):
         self.closed = True
 
+    def get_scan_entries(self):
+        """
+        Should return all scan entries from this path
+        """
+        return []

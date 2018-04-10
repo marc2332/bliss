@@ -202,14 +202,10 @@ class Transfocator:
         return header, positions
 
     def set(self, *lenses):
-        bits = 0
+        status = len(self)*[False]
         for i, lense in enumerate(lenses):
-            if lense is None or i in self.empty_jacks:
-                continue
-            else:
-                if lense:
-                    bits |= (1 << i)
-        self.tfstatus_set(bits)
+            status[i] = lense
+        self[:] = status
 
     def set_in(self, lense_index):
         self[lense_index] = True

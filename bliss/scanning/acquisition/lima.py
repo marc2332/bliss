@@ -98,7 +98,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
 
     def start(self):
         if(self.trigger_type == AcquisitionMaster.SOFTWARE and
-           self.parent):    # top master trigger will be never called otherwise
+           self.parent):    # otherwise top master trigger would never be called
             return
 
         self.trigger()
@@ -131,17 +131,26 @@ class LimaAcquisitionMaster(AcquisitionMaster):
                                                       self.device.read_attributes(attr_names)) }
 
     def reading(self):
-        while self.device.acq_status.lower() == 'running':
-            status = self._get_lima_status()
-            if status['last_image_ready'] != self._last_image_ready:
-                self._image_channel.emit(status)
-                self._last_image_ready = status['last_image_ready']
-            gevent.sleep(max(self.parameters['acq_expo_time'] / 10.0, 10e-3))
-        self._image_channel.emit(self._get_lima_status())
-        if self.device.acq_status.lower() == 'fault':
-            raise RuntimeError("Device %s (%s) is in Fault state" % (
-                self.device, self.device.user_detector_name))
-        self._reading_task = None
+        try:
+            while True:
+                acq_state = self.device.acq_status.lower()
+                status = self._get_lima_status()
+                status["acq_state"] = acq_state
+                if acq_state == 'running':
+                    if status['last_image_ready'] != self._last_image_ready:
+                        self._image_channel.emit(status)
+                        self._last_image_ready = status['last_image_ready']
+                    gevent.sleep(max(self.parameters['acq_expo_time'] / 10.0, 10e-3))
+                else:
+                    break
+            self._image_channel.emit(status)
+            if acq_state == 'fault':
+                raise RuntimeError("Device %s (%s) is in Fault state" % (
+                    self.device, self.device.user_detector_name))
+            self._reading_task = None
+        except:
+            self._image_channel.emit({"acq_state": "fault"})
+            raise
         
     def wait_reading(self, block=True):
         try:

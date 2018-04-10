@@ -40,7 +40,7 @@ class CalcAcquisitionDevice(AcquisitionDevice):
         channel_data = event_dict.get("data")
         if channel_data is None:
             return
-        channel = event_dict.get('channel')
+        channel = sender
         output_channels_data_dict = self.func(sender, {channel.name:channel_data})
 
         if output_channels_data_dict:

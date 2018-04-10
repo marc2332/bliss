@@ -39,11 +39,11 @@ When a Lima channel is published:
 {db_name}_info -> HashObjSetting with some extra keys like reference: True
 {db_name}_data -> QueueObjSetting, list of reference data ; first item is the 'live' reference
 """
-import pkgutil
-import inspect
-import re
 import datetime
+import inspect
+import pkgutil
 import os
+import re
 
 from bliss.common.event import dispatcher
 from bliss.config.conductor import client
@@ -82,7 +82,7 @@ def _get_node_object(node_type, name, parent, connection, create=False, **keys):
         return klass(name, parent=parent, connection=connection, create=create, **keys)
 
 
-def get_node(db_name, connection=None):
+def get_node(db_name, parent=None, connection=None):
     if connection is None:
         connection = client.get_cache(db=1)
     data = Struct(db_name, connection=connection)
@@ -92,7 +92,7 @@ def get_node(db_name, connection=None):
 
     node_type = data.node_type
 
-    return _get_node_object(node_type, db_name, None, connection)
+    return _get_node_object(node_type, db_name, parent, connection)
 
 
 def _create_node(name, node_type=None, parent=None, connection=None, **keys):
@@ -106,7 +106,7 @@ def _get_or_create_node(name, node_type=None, parent=None, connection=None, **ke
         connection = client.get_cache(db=1)
     db_name = DataNode.exists(name, parent, connection)
     if db_name:
-        return get_node(db_name, connection=connection)
+        return get_node(db_name, parent, connection=connection)
     else:
         return _create_node(name, node_type, parent, connection, **keys)
 
@@ -187,6 +187,8 @@ class DataNodeIterator(object):
 
         for node in self.walk(filter, wait=False):
             yield self.NEW_CHILD_EVENT, node
+            if DataNode.exists("%s_data" % node.db_name):
+                yield self.NEW_DATA_IN_CHANNEL_EVENT, node
 
         if ready_event is not None:
             ready_event.set()
@@ -200,7 +202,6 @@ class DataNodeIterator(object):
         pubsub.psubscribe("__keyspace@1__:%s*_children_list" %
                           self.node.db_name)
         pubsub.psubscribe("__keyspace@1__:%s*_data" % self.node.db_name)
-        pubsub.psubscribe("__keyspace@1__:%s*_ref" % self.node.db_name)
         return pubsub
 
     def wait_for_event(self, pubsub, filter=None):

@@ -8,10 +8,10 @@
 import os
 import struct
 import math
-import weakref
 import numpy
 import gevent
 from bliss.common.tango import DeviceProxy
+from bliss.common.task_utils import task
 from bliss.data.node import DataNode
 from bliss.config.settings import HashSetting, QueueObjSetting
 
@@ -31,7 +31,6 @@ class LimaImageChannelDataNode(DataNode):
 
         def __init__(self, data, from_index, to_index):
             self.data = data
-            self._update()
             self.from_index = from_index
             self.to_index = to_index
             self.last_image_acquired = -1
@@ -56,6 +55,7 @@ class LimaImageChannelDataNode(DataNode):
         def last_index(self):
             """ evaluate the last image index
             """
+            self._update()
             if self.to_index >= 0:
                 return self.to_index
             return self.last_image_acquired+1
@@ -111,12 +111,9 @@ class LimaImageChannelDataNode(DataNode):
                 yield self.get_image(image_nb, proxy=proxy)
 
         def __len__(self):
-            self._update()
             return self.last_index - self.from_index
 
         def _update(self):
-            """ update view status
-            """
             ref_status = self.ref_status
             for key in ('server_url', 'lima_acq_nb', 'buffer_max_number', 'last_image_acquired',
                  'last_image_ready', 'last_counter_ready', 'last_image_saved'):
@@ -132,7 +129,7 @@ class LimaImageChannelDataNode(DataNode):
                     try:
                         raw_msg = proxy.readImage(image_nb)
                     except Exception:
-                        # As it's asynchronous, image seams to be no
+                        # As it's asynchronous, image seems to be no
                         # more available so read it from file
                         return None
                     else:
@@ -140,8 +137,8 @@ class LimaImageChannelDataNode(DataNode):
 
         def _get_filenames(self, ref_data, *image_nbs):
             saving_mode = ref_data.get('saving_mode', 'MANUAL')
-            if saving_mode == 'MANUAL': # file are not saved
-                raise RuntimeError("Image were not saved")
+            if saving_mode == 'MANUAL': # files are not saved
+                raise RuntimeError("Images were not saved")
 
             overwrite_policy = ref_data.get('saving_overwrite',
                                               'ABORT').lower()
@@ -193,7 +190,7 @@ class LimaImageChannelDataNode(DataNode):
                             dataset = f[path_in_file]
                             return dataset[image_index]
                 else:
-                    raise RuntimeError("Format net yet managed")
+                    raise RuntimeError("Format not managed yet")
             else:
                 raise RuntimeError(
                     "Cannot retrieve image %d from file" % image_nb)
@@ -203,65 +200,13 @@ class LimaImageChannelDataNode(DataNode):
             header_size = struct.calcsize(struct_format)
             values = struct.unpack(struct_format, msg[:header_size])
             if values[0] != self.DataArrayMagic:
-                raise RuntimeError('Not a lima data')
+                raise RuntimeError('No Lima data')
             header_offset = values[2]
             data = numpy.fromstring(
                 msg[header_offset:], dtype=self._image_mode.get(values[4]))
             data.shape = values[8], values[7]
             return data
 
-    class MergeB4Store(object):
-        """
-        This class merge lima ref event to redis database.
-
-        Actually the real update is done on idle state of gevent loop so,
-        we can have several update (update_status) before a real store (_do_store).
-        """
-
-        def __init__(self, cnt):
-            self._new_image_status_event = gevent.event.Event()
-            self._new_image_status = dict()
-            self._storage_task = gevent.spawn(self._do_store)
-            self._cnt = weakref.proxy(cnt, self.stop)
-            self._stop_flag = False
-
-        def _do_store(self):
-            while True:
-                succeed = self._new_image_status_event.wait(1)
-                if succeed:
-                    self._new_image_status_event.clear()
-                else:           # test if cnt is still alive
-                    try:
-                        self._cnt.data
-                        continue
-                    except ReferenceError:
-                        break
-
-                local_dict = self._new_image_status
-                self._new_image_status = dict()
-                if local_dict:
-                    ref_data = self._cnt.data[0]
-                    ref_data.update(local_dict)
-                    self._cnt.data[0] = ref_data
-                if self._stop_flag:
-                    break
-                gevent.idle()
-
-        def update_status(self, new_status):
-            """
-            Post the update of lima reference
-            """
-            self._new_image_status.update(new_status)
-            self._new_image_status_event.set()
-
-        def stop(self, ref = None):
-            """
-            This method should be called to stop the store task.
-            """
-            self._stop_flag = True
-            if self._storage_task is not None:
-                self._new_image_status_event.set()
-                self._storage_task.join()
 
     def __init__(self, name, **keys):
         shape = keys.pop('shape', None)
@@ -276,11 +221,13 @@ class LimaImageChannelDataNode(DataNode):
         cnx = self.db_connection
         self.data = QueueObjSetting('%s_data' % self.db_name,
                                     connection=cnx)
-        self._merge_store = self.MergeB4Store(self)
+        self._new_image_status_event = gevent.event.Event()
+        self._new_image_status = dict()
+        self._storage_task = self._do_store(wait=False, wait_started=True)
 
     def get(self, from_index, to_index=None):
         """
-        return a view on data references.
+        Return a view on data references.
 
         **from_index** from which image index you want to get
         **to_index** to which index you want images
@@ -290,19 +237,35 @@ class LimaImageChannelDataNode(DataNode):
         return self.LimaDataView(self.data, from_index, 
                                  to_index if to_index is not None else from_index + 1)
 
-    def store(self, signal, event_dict):
+    def store(self, event_dict):
         desc = event_dict['description']
         data = event_dict['data']
+
         try:
-            ref_data = self.data[0]
+            self.data[0]
         except IndexError:
-            ref_data = data
-            ref_data['lima_acq_nb'] = self.db_connection.incr(data['server_url'])
-            self.data.append(ref_data)
+            ref_status = data
+            ref_status['lima_acq_nb'] = self.db_connection.incr(data['server_url'])
+            self.data.append(ref_status)
             self.add_reference_data(desc)
         else:
-            self._merge_store.update_status(data)
-            
+            self._new_image_status.update(data)
+            self._new_image_status_event.set()
+    
+    @task
+    def _do_store(self):
+        while True:
+            self._new_image_status_event.wait()
+            self._new_image_status_event.clear()
+            local_dict = self._new_image_status
+            self._new_image_status = dict()
+            ref_status = self.data[0]
+            ref_status.update(local_dict)
+            self.data[0] = ref_status
+            if local_dict["acq_state"] in ("fault", "ready"):
+                break
+            gevent.idle()
+
     def add_reference_data(self, ref_data):
         """Save reference data in database
   

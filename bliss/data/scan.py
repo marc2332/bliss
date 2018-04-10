@@ -69,11 +69,10 @@ class Scan(DataNodeContainer):
 
 def get_data(scan):
     """
-    Return a numpy structured arrays
+    Return a numpy structured array
 
-    tips: to get the list of channels (data.dtype.names)
-          to get datas of a channel data["channel_name"]
-
+    tips: to get the list of channels: data.dtype.names
+          to get data of a channel: data["channel_name"]
     """
     dtype = list()
     chanlist = list()
@@ -84,12 +83,17 @@ def get_data(scan):
         if node.type == 'channel':
             channel_name = node.name
             chan = node
-            # append channel name and get all data from channel;
-            # as it is in a Redis pipeline, get returns the
-            # conversion function only - data will be received
-            # after .execute()
-            chanlist.append((channel_name,
-                             chan.get(0, -1, cnx=pipeline)))
+            try:
+                saved_db_connection = chan.db_connection
+                chan.db_connection = pipeline
+                # append channel name and get all data from channel;
+                # as it is in a Redis pipeline, get returns the
+                # conversion function only - data will be received
+                # after .execute()
+                chanlist.append((channel_name,
+                                 chan.get(0, -1)))
+            finally:
+                chan.db_connection = saved_db_connection
 
     result = pipeline.execute()
 
@@ -109,17 +113,11 @@ def get_data(scan):
 
     return data
 
-def _watch_data(scan_node, scan_new_callback, scan_new_child_callback, scan_data_callback):
-    scan_info = None
+def _watch_data(scan_node, scan_info, scan_new_child_callback,
+                scan_data_callback):
     scan_data = dict()
     data_indexes = dict()
  
-    scan_info = scan_node.info.get_all()
-    if scan_info.get('type') == 'ct':
-        return
-
-    scan_new_callback(scan_info)
-    
     scan_data_iterator = DataNodeIterator(scan_node)
     for event_type, data_channel in scan_data_iterator.walk_events():
         if event_type == scan_data_iterator.NEW_CHILD_EVENT:
@@ -163,30 +161,33 @@ def _watch_data(scan_node, scan_new_callback, scan_new_child_callback, scan_data
                 except StopIteration:
                     break
 
+def safe_watch_data(*args):
+    try:
+        _watch_data(*args)
+    except Exception:
+        sys.excepthook(*sys.exc_info())
+
 @task
 def watch_session_scans(session_name, scan_new_callback, scan_new_child_callback, scan_data_callback, ready_event=None):
     session_node = _get_or_create_node(session_name, node_type='session')
+
     if session_node is not None:
         data_iterator = DataNodeIterator(session_node)
 
         watch_data_task = None
+
         try:
-            for scan_node in data_iterator.walk_from_last(filter='scan', include_last=False, ready_event=ready_event):
+            for scan_node in data_iterator.walk_from_last(filter="scan", include_last=False, ready_event=ready_event):
                 if watch_data_task:
                     watch_data_task.kill()
 
-                def safe_watch_data(*args):
-                    try:
-                        _watch_data(*args)
-                    except Exception:
-                        sys.excepthook(*sys.exc_info())
+                scan_info = scan_node.info.get_all()
 
-                watch_data_task = gevent.spawn(safe_watch_data, scan_node, scan_new_callback, scan_new_child_callback, scan_data_callback)
+                scan_new_callback(scan_info)
+
+                watch_data_task = gevent.spawn(safe_watch_data, scan_node,
+                                               scan_info,
+                                               scan_new_child_callback,
+                                               scan_data_callback)
         except Exception:
             sys.excepthook(*sys.exc_info())
-        finally:
-            if watch_data_task:
-                watch_data_task.kill()
-
-            watch_data_task = gevent.spawn(_watch_data, scan_node, scan_new_callback, scan_new_child_callback, scan_data_callback)
-

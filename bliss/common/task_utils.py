@@ -110,14 +110,17 @@ class TaskException:
 
 class wrap_errors(object):
 
-    def __init__(self, func):
+    def __init__(self, func, started_event):
         """Make a new function from `func', such that it catches all exceptions
         and return it as a TaskException object
         """
         self.func = func
+        self.started_event = started_event
 
     def __call__(self, *args, **kwargs):
         func = self.func
+        if self.started_event:
+            self.started_event.set()
         try:
             return func(*args, **kwargs)
         except:
@@ -143,12 +146,18 @@ def special_get(self, *args, **kwargs):
 
 
 def task(func):
+    @functools.wraps(func)
     def start_task(*args, **kwargs):
         wait = kwargs.pop("wait", True)
         timeout = kwargs.pop("timeout", None)
+        wait_started = kwargs.pop("wait_started", None)
 
-        t = gevent.spawn(wrap_errors(func), *args, **kwargs)
+        started_event = gevent.event.Event() if wait_started else None
+        t = gevent.spawn(wrap_errors(func, started_event), *args, **kwargs)
         t._get = t.get
+
+        if wait_started:
+            started_event.wait()
 
         try:
             setattr(t, "get", types.MethodType(special_get, t))
@@ -162,3 +171,4 @@ def task(func):
             raise
 
     return start_task
+

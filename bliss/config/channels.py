@@ -48,65 +48,48 @@ class _Bus(object):
         self._listen_task = None
         self._send_task = gevent.spawn(self._send)
     
-        self.channels = dict()
-        self.channel_value = dict()
-        self.channel_cbk = dict()
+        self.channels = weakref.WeakValueDictionary()
 
-    def subscribe(self, name, chan):
-        def on_die(killed_ref):
-            # the channel is removed from dict,
-            # and callbacks too but *not* values
-            # since another Channel may be created
-            # just after, in this case it is not
-            # unsubscribed and last received value is still ok
-            self.channels.pop(name, None)
-            self.channel_cbk.pop(name, None)
-            self.unsubscribe(name)
-
-        self.channels[name] = weakref.ref(chan, on_die)
-
-        self._pending_subscribe.append(name)
+    def subscribe(self, channel):
+        self.channels[channel.name] = channel
         self._send_event.set()
 
-    def unsubscribe(self,name):
-        self._pending_unsubscribe.append(name)
-        self._send_event.set()
+    def _set_channel_value(self, channel, value):
+        name = channel.name
+        channel._set_raw_value(value)
+        try:
+            self._in_recv.add(name)
+            self._fire_notification_callbacks(channel)
+        finally:
+            self._in_recv.remove(name)
 
-    def _set_channel_value(self, name, value):
-        self.channel_value[name] = value # synchronous set
-        channel_ref = self.channels.get(name)
-        if channel_ref:
-            channel = channel_ref()
-            if channel:
-                channel._value_event.set()
-                try:
-                    self._in_recv.add(name)
-                    self._fire_notification_callbacks(name, value.value)
-                finally:
-                    self._in_recv.remove(name)
-
-    def update_channel(self,name,value):
-        if isinstance(value,_ChannelValue):
-            prev_channel_value = self.channel_value.get(name)
-            if(prev_channel_value is None or 
-               prev_channel_value.timestamp < value.timestamp):
+    def update_channel(self, channel, value):
+        name = channel.name
+        if isinstance(value, _ChannelValue):
+            # update comes from the network
+            prev_channel_value = channel._get_raw_value()
+            if prev_channel_value is None or \
+               prev_channel_value.timestamp < value.timestamp:
                 channel_value = value
             else:
                 return          # already up-to-date
-            self._set_channel_value(name, channel_value)
+            self._set_channel_value(channel, channel_value)
         else:
-            channel_value = _ChannelValue(time.time(),value)
-
-        if name not in self._in_recv:
-            self._set_channel_value(name, channel_value)
-            self._pending_channel_value[name] = channel_value
-            self._send_event.set()
-        elif not isinstance(value,_ChannelValue):
-            raise RuntimeError("Channel %s: detected value changed in callback" % name)
+            # update comes from channel.value assignment
+            if name in self._in_recv:
+                raise RuntimeError("Channel %s: detected value changed in callback" % name)
+            else:
+                channel_value = _ChannelValue(time.time(),value)
+                self._set_channel_value(channel, channel_value)
+                # inform others about the new value
+                self._pending_channel_value[name] = channel_value
+                self._send_event.set()
     
-    def _fire_notification_callbacks(self,name,value):
+    def _fire_notification_callbacks(self,channel):
+        value = channel._get_raw_value().value
+        callbacks = channel._callbacks
         deleted_cb = set()
-        for cb_ref in self.channel_cbk.get(name,set()):
+        for cb_ref in callbacks:
             cb = cb_ref()
             if cb is not None:
                 try:
@@ -117,53 +100,47 @@ class _Bus(object):
                     sys.excepthook(*sys.exc_info())
             else:
                 deleted_cb.add(cb_ref)
-        self.channel_cbk.get('name',set()).difference_update(deleted_cb)
+        callbacks.difference_update(deleted_cb)
+
+    def init_channels(self, *channel_names):
+        result = self._redis.execute_command('pubsub','numsub',*channel_names)
+        no_listener_4_values = set((name for name,nb_listener in grouped(result,2) if int(nb_listener) == 0))
+        pipeline = self._redis.pipeline()
+        for channel_name in channel_names:
+            try:
+                channel = self.channels[channel_name]
+            except KeyError:
+                continue
+            else:
+                if channel._get_raw_value() is None:
+                    if channel_name in no_listener_4_values:
+                        channel_value = _ChannelValue(time.time(), channel.default_value)
+                        self._set_channel_value(channel, channel_value)
+                    else:
+                        pipeline.publish(channel_name, cPickle.dumps(ValueQuery(),protocol=-1))
+        pipeline.execute()
 
     def _send(self):
         while(1):
             self._send_event.wait()
             self._send_event.clear()
- 
-            #local transfer
-            pending_subscribe = \
-            dict(Counter(self._pending_subscribe)-Counter(self._pending_unsubscribe)).keys()
-            pending_unsubscribe = \
-            dict(Counter(self._pending_unsubscribe)-Counter(self._pending_subscribe)).keys()
-            pending_channel_value = self._pending_channel_value
-            pubsub = self._pubsub
 
-            self._pending_subscribe = list()
-            self._pending_unsubscribe = list()
+            pubsub = self._pubsub
+            current_channels = self.channels.keys()
+            pending_subscribe = set(current_channels)-set(pubsub.channels)
+            pending_unsubscribe = set(pubsub.channels)-set(current_channels)
+
+            pending_channel_value = self._pending_channel_value
             self._pending_channel_value = OrderedDict()
 
             if pending_unsubscribe:
                 pubsub.unsubscribe(pending_unsubscribe)
-                for channel_name in pending_unsubscribe:
-                    # now we are really unsubscribed, remove value
-                    self.channel_value.pop(channel_name, None)
 
             if pending_subscribe:
-                result = self._redis.execute_command('pubsub','numsub',*pending_subscribe)
-                no_listener_4_values = set((name for name,nb_listener in grouped(result,2) if int(nb_listener) == 0))
-                pipeline = self._redis.pipeline()
                 pubsub.subscribe(pending_subscribe)
-                for channel_name in pending_subscribe:
-                    no_listener_4_values
-                    channel_ref = self.channels.get(channel_name)
-                    if channel_ref:
-                        channel = channel_ref()
-                        if channel:
-                            if channel_name not in self.channel_value:
-                                if channel_name in no_listener_4_values:
-                                    self._set_channel_value(channel_name,
-                                                            _ChannelValue(time.time(),
-                                                                          channel.default_value))
-                                else:
-                                    pipeline.publish(channel_name, cPickle.dumps(ValueQuery(),protocol=-1))
-                            channel._subscribed_event.set()
-                pipeline.execute()
+                self.init_channels(*pending_subscribe)
 
-                if self._listen_task is None:
+                if self._listen_task is None or self._listen_task.ready():
                     self._listen_task = gevent.spawn(self._listen)
 
             if pending_channel_value:
@@ -184,15 +161,24 @@ class _Bus(object):
             if event_type == 'message':
                 value = cPickle.loads(event.get('data'))
                 channel_name = event.get('channel')
-                if isinstance(value,ValueQuery):
-                    channel_value = self.channel_value.get(channel_name)
-                    if channel_value is not None:
-                        self._pending_channel_value[channel_name] = channel_value
-                        self._send_event.set()
+                try:
+                    channel = self.channels[channel_name]
+                except KeyError:
+                    continue
                 else:
-                    self.update_channel(channel_name,value)
-
-        self._listen_task = None
+                    try:
+                        if isinstance(value,ValueQuery):
+                            channel_value = channel._get_raw_value()
+                            if channel_value is not None:
+                                self._pending_channel_value[channel_name] = channel_value
+                                self._send_event.set()
+                            else:
+                                # our channel has no value
+                                pass
+                        else:
+                            self.update_channel(channel, value)
+                    finally:
+                        del channel
 
 def Bus(redis):
     try:
@@ -208,13 +194,11 @@ class _Channel(object):
         self.__name = name
         self.__timeout = 3.
         self.__default_value = default_value
-        self._subscribed_event = gevent.event.Event()
+        self.__raw_value = None
+        self._callbacks = set()
         self._value_event = gevent.event.Event()
         
-        self.__bus.subscribe(name, self)
-
-        if not isinstance(value, NotInitialized):
-            self.__bus.update_channel(name, value)
+        bus.subscribe(self)
 
     @property
     def name(self):
@@ -226,20 +210,26 @@ class _Channel(object):
 
     @property 
     def value(self):
-        if self.__name not in self.__bus._pubsub.channels: # not subscribed yet
-            with gevent.Timeout(self.__timeout, RuntimeError("%s: timeout to subscribe to channel" % self.__name)):
-                self._subscribed_event.wait()
-        value = self.__bus.channel_value.get(self.__name)
+        value = self.__raw_value
         if value is None:
+            # ask value
+            self.__bus.init_channels(self.name)
             with gevent.Timeout(self.__timeout, RuntimeError("%s: timeout to receive channel value" % self.__name)):
                 self._value_event.wait()
                 self._value_event.clear()
-                value = self.__bus.channel_value.get(self.__name)
+                value = self.__raw_value
         return value.value
 
     @value.setter
     def value(self, new_value):
-        self.__bus.update_channel(self.__name,new_value)
+        self.__bus.update_channel(self, new_value)
+
+    def _set_raw_value(self, value):
+        self.__raw_value = value
+        self._value_event.set()
+
+    def _get_raw_value(self):
+        return self.__raw_value
 
     @property
     def timeout(self):
@@ -252,37 +242,35 @@ class _Channel(object):
     def register_callback(self, callback):
         if callable(callback):
             cb_ref = saferef.safe_ref(callback)
-            callback_refs = self.__bus.channel_cbk.setdefault(self.__name,set())
-            callback_refs.add(cb_ref)
+            self._callbacks.add(cb_ref)
+        else:
+            raise ValueError("Channel %s: %r is not callable", self.name, callback)
 
     def unregister_callback(self, callback):
         cb_ref = saferef.safe_ref(callback)
         try:
-            callback_refs = self.__bus.channel_cbk.setdefault(self.__name,set())
-            callback_refs.remove(cb_ref)
-        except:
-            return
+            self._callbacks.remove(cb_ref)
+        except KeyError:
+            pass
 
     def __repr__(self):
         self.value
-        return '%s->%s' % (self.__name, self.__bus.channel_value.get(self.__name))
+        return '%s->%s' % (self.__name, self.__raw_value)
 
 def Channel(name, value=NotInitialized(), callback=None,
             default_value=None, redis=None):
     if redis is None:
         redis = client.get_cache()
 
-
     bus = Bus(redis)
 
     try:
-        chan_ref = bus.channels[name]
-        chan = chan_ref()
+        chan = bus.channels[name]
     except KeyError:
         chan = _Channel(bus, name, default_value, value)
-    else:
-        if not isinstance(value, NotInitialized):
-            chan.value = value
+
+    if not isinstance(value, NotInitialized):
+        chan.value = value
    
     if callback is not None:
         chan.register_callback(callback)
@@ -320,4 +308,4 @@ def clear_cache(*devices) :
         for channel_name,default_value in cached_channels.iteritems():
             chan = Channel(channel_name)
             chan.value = default_value
-            
+

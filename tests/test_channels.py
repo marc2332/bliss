@@ -12,6 +12,7 @@ import time
 from bliss.config import channels
 import gipc
 import signal
+import gc
 
 def test_channel_not_initialized(beacon):
     c = channels.Channel("tagada")
@@ -39,6 +40,8 @@ def test_channel_cb(beacon):
     assert cb_dict['value'] == 'toto'
     c2.value = 'exception'
     assert cb_dict['exception']
+    with pytest.raises(ValueError):
+        c1.register_callback(None)
 
 def test_channel_unref(beacon):
     c = channels.Channel("test_chan", "test")
@@ -83,11 +86,16 @@ def test_with_another_process(beacon, beacon_host_port):
         assert parent_end.get() == '#'
         gevent.sleep(0.1) #time for value to be received
         assert c.value == 'bla'
+        assert len(gc.get_referrers(c)) == 1
         del c
-        gevent.sleep(0.1) #time for channel to be unsubscribed
+        # check channel is really not there anymore
+        redis = channels.client.get_cache()
+        bus = channels.BUS[redis]
+        assert 'test_chan' not in bus.channels
+        #
         os.kill(p.pid, signal.SIGSTOP)
+        cc = channels.Channel("test_chan")
         with pytest.raises(RuntimeError):
-            cc = channels.Channel("test_chan")
             assert cc.value == 'bla'
         os.kill(p.pid, signal.SIGCONT)
         assert cc.value == 'bla'

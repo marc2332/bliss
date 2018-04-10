@@ -236,6 +236,18 @@ class Transfocator:
         else:
             self.set_in(lense_index)
 
+    def set_n(self, *idx_values):
+        bits = self.pos_read()
+        for idx, value in zip(idx_values[::2], idx_values[1::2]):
+            if value is None or idx in self.empty_jacks:
+                continue
+            else:
+                if _encode(value):
+                    bits |= (1 << idx)
+                else:
+                    bits &= 0xFFFFFFFF ^ (1 << idx)
+        self.tfstatus_set(bits)
+
     def set_all(self, set_in=True):
         cmd = [set_in]*(self.nb_lens+self.nb_pinhole)
         if set_in:
@@ -253,6 +265,34 @@ class Transfocator:
 
     def __state_changed(self, st):
         dispatcher.send('state', self, st)
+
+    def __len__(self):
+        return self.nb_lens + self.nb_pinhole
+
+    def __getitem__(self, idx):
+        pos = self.status_dict().values()
+        if isinstance(idx, int):
+            return _display(pos[idx])
+        elif isinstance(idx, slice):
+            idx = range(*idx.indices(self.nb_lens+self.nb_pinhole))
+        return [_display(pos[i]) for i in idx]
+
+    def __setitem__(self, idx, value):
+        if isinstance(idx, int):
+            args = idx, value
+        else:
+            if isinstance(idx, slice):
+                idx = range(*idx.indices(self.nb_lens+self.nb_pinhole))
+            nb_idx = len(idx)
+            if not isinstance(value, (tuple, list)):
+                value = nb_idx*[value]
+            nb_value = len(value)
+            if nb_idx != nb_value:
+                raise ValueError('Mismatch between number of lenses ({}) ' \
+                                 'and number of values ({})' \
+                                 .format(nb_idx, nb_value))
+            args = [val for pair in zip(idx, value) for val in pair]
+        self.set_n(*args)
 
     def __repr__(self):
         prefix = 'Transfocator ' + self.name

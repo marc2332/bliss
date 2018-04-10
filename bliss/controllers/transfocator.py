@@ -231,10 +231,7 @@ class Transfocator:
 
     def toggle(self, lense_index):
         current_bits = self.pos_read()
-        if current_bits & (1<<lense_index) > 0:
-            self.set_out(lense_index)
-        else:
-            self.set_in(lense_index)
+        self[lense_index] = current_bits & (1<<lense_index) == 0
 
     def set_n(self, *idx_values):
         bits = self.pos_read()

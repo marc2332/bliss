@@ -107,7 +107,6 @@ def main():
         "zerorpc",
         "msgpack_numpy",
         "blessings",
-        "posix_ipc",
         "h5py",
         "gevent >= 1.2.2",
         "pygments",

@@ -20,6 +20,7 @@ import socket
 import signal
 import traceback
 import pkgutil
+import tempfile
 import gevent
 from gevent import select
 
@@ -27,36 +28,6 @@ from bliss.common import event
 from . import protocol
 from .. import redis as redis_conf
 
-
-# Conditional imports
-
-try:
-    import posix_ipc
-except ImportError:
-    posix_ipc = None
-else:
-    class _PosixQueue(posix_ipc.MessageQueue):
-        def __init__(self):
-            posix_ipc.MessageQueue.__init__(
-                self, None, mode=0o666, flags=posix_ipc.O_CREX)
-            self._wqueue = posix_ipc.MessageQueue(
-                None, mode=0o666, flags=posix_ipc.O_CREX)
-
-        def unlink(self):
-            posix_ipc.MessageQueue.unlink(self)
-            self._wqueue.unlink()
-
-        def close(self):
-            posix_ipc.MessageQueue.close(self)
-            self._wqueue.close()
-
-        def names(self):
-            return self._wqueue.name, self.name
-
-        def sendall(self, msg):
-            max_message_size = self.max_message_size
-            for i in xrange(0, len(msg), max_message_size):
-                self._wqueue.send(msg[i:i+max_message_size])
 
 # Globals
 
@@ -429,132 +400,98 @@ def _write_config_db_file(client_id,message):
     client_id.sendall(msg)
 
 def _send_posix_mq_connection(client_id,client_hostname):
-    ok_flag = False
+    #keep it for now for backward compatibility
+    client_id.sendall(protocol.message(protocol.POSIX_MQ_FAILED))
+
+def _send_uds_connection(client_id, client_hostname):
     try:
-        if(posix_ipc is not None and
-           not isinstance(client_id,posix_ipc.MessageQueue)):
-            if client_hostname == socket.gethostname(): # same host
-                #open a message queue
-                new_mq = _PosixQueue()
-                client_id._pmq = new_mq
-                mq_name = new_mq.names()
-                ok_flag = True
+        if client_hostname == socket.gethostname():
+            client_id.sendall(protocol.message(protocol.UDS_OK,uds_port_name))
+        else:
+            client_id.sendall(protocol.message(protocol.UDS_FAILED))
     except:
         sys.excepthook(*sys.exc_info())
-    finally:
-        if ok_flag:
-            client_id.sendall(protocol.message(protocol.POSIX_MQ_OK,'|'.join(mq_name)))
-            return new_mq
-        else:
-            client_id.sendall(protocol.message(protocol.POSIX_MQ_FAILED))
 
 def _send_unknow_message(client_id,message):
     client_id.sendall(protocol.message(protocol.UNKNOW_MESSAGE,message))
 
 def _client_rx(client,local_connection):
     tcp_data = ''
-    posix_queue_data = ''
-    posix_queue = None
-    r_listen = [client]
     try:
         stopFlag = False
         while not stopFlag:
-            r,_,_ = select.select(r_listen,[],[])
-            for fd in r:
-                if fd == client: # tcp
-                    try:
-                        raw_data = client.recv(16 * 1024)
-                    except:
-                        raw_data = None
+            try:
+                raw_data = client.recv(16 * 1024)
+            except:
+                break
 
-                    if raw_data:
-                        tcp_data = '%s%s' % (tcp_data,raw_data)
+            if raw_data:
+                tcp_data = '%s%s' % (tcp_data,raw_data)
+            else:
+                break
+
+            data = tcp_data
+            c_id = client
+
+            while data:
+                try:
+                    messageType,message,data = protocol.unpack_message(data)
+                    if messageType == protocol.LOCK:
+                        lock_objects = message.split('|')
+                        prio = int(lock_objects.pop(0))
+                        _lock(c_id,prio,lock_objects,message)
+                    elif messageType == protocol.UNLOCK:
+                        lock_objects = message.split('|')
+                        prio = int(lock_objects.pop(0))
+                        _unlock(c_id,prio,lock_objects)
+                    elif messageType == protocol.LOCK_STOLEN_OK_REPLY:
+                        client2sync = _waitstolen.get(message)
+                        if client2sync is not None:
+                            sync = client2sync.get(c_id)
+                            if sync is not None:
+                                sync.set()
+                    elif messageType == protocol.REDIS_QUERY:
+                        _send_redis_info(c_id,local_connection)
+                    elif messageType == protocol.POSIX_MQ_QUERY:
+                        _send_posix_mq_connection(c_id,message)
+                    elif messageType == protocol.CONFIG_GET_FILE:
+                        _send_config_file(c_id,message)
+                    elif messageType == protocol.CONFIG_GET_DB_BASE_PATH:
+                        _send_config_db_files(c_id,message)
+                    elif messageType == protocol.CONFIG_GET_DB_TREE:
+                        _send_config_db_tree(c_id,message)
+                    elif messageType == protocol.CONFIG_SET_DB_FILE:
+                        _write_config_db_file(c_id,message)
+                    elif messageType == protocol.CONFIG_REMOVE_FILE:
+                        _remove_config_file(c_id,message)
+                    elif messageType == protocol.CONFIG_MOVE_PATH:
+                        _move_config_path(c_id,message)
+                    elif messageType == protocol.CONFIG_GET_PYTHON_MODULE:
+                        _get_python_module(c_id,message)
+                    elif messageType == protocol.UDS_QUERY:
+                        _send_uds_connection(c_id,message)
                     else:
-                        stopFlag = True
-                        break
+                        _send_unknow_message(c_id,message)
+                except ValueError:
+                    sys.excepthook(*sys.exc_info())
+                    break
+                except protocol.IncompleteMessage:
+                    r,_,_ = select.select([client],[],[],.5)
+                    if not r: # if timeout, something wired, close the connection
+                       data = None
+                       stopFlag = True
+                    break
+                except:
+                    sys.excepthook(*sys.exc_info())
+                    _log.error('Error with client id %r, close it', client)
+                    raise
 
-                    data = tcp_data
-                    c_id = client
-                else:
-                    posix_queue_data = '%s%s' % (posix_queue_data,posix_queue.receive()[0])
-                    data = posix_queue_data
-                    c_id = posix_queue
-
-                while data:
-                    try:
-                        messageType,message,data = protocol.unpack_message(data)
-                        if messageType == protocol.LOCK:
-                            lock_objects = message.split('|')
-                            prio = int(lock_objects.pop(0))
-                            _lock(c_id,prio,lock_objects,message)
-                        elif messageType == protocol.UNLOCK:
-                            lock_objects = message.split('|')
-                            prio = int(lock_objects.pop(0))
-                            _unlock(c_id,prio,lock_objects)
-                        elif messageType == protocol.LOCK_STOLEN_OK_REPLY:
-                            client2sync = _waitstolen.get(message)
-                            if client2sync is not None:
-                                sync = client2sync.get(c_id)
-                                if sync is not None:
-                                    sync.set()
-                        elif messageType == protocol.REDIS_QUERY:
-                            _send_redis_info(c_id,local_connection)
-                        elif messageType == protocol.POSIX_MQ_QUERY:
-                            posix_queue = _send_posix_mq_connection(c_id,message)
-                            if posix_queue:
-                                r,_,_ = select.select([posix_queue.mqd],[],[],10.)
-                                posix_queue.unlink()
-                                if r:
-                                    raw_data = posix_queue.receive()[0]
-                                    messageType,message,raw_data = protocol.unpack_message(raw_data)
-                                    if messageType != protocol.POSIX_MQ_OPENED:
-                                        raise RuntimeError("Client didn't send open message")
-                                else:
-                                    raise RuntimeError("Client didn't send open message before timeout")
-                                r_listen.insert(0,posix_queue.mqd)
-                        elif messageType == protocol.CONFIG_GET_FILE:
-                            _send_config_file(c_id,message)
-                        elif messageType == protocol.CONFIG_GET_DB_BASE_PATH:
-                            _send_config_db_files(c_id,message)
-                        elif messageType == protocol.CONFIG_GET_DB_TREE:
-                            _send_config_db_tree(c_id,message)
-                        elif messageType == protocol.CONFIG_SET_DB_FILE:
-                            _write_config_db_file(c_id,message)
-                        elif messageType == protocol.CONFIG_REMOVE_FILE:
-                            _remove_config_file(c_id,message)
-                        elif messageType == protocol.CONFIG_MOVE_PATH:
-                            _move_config_path(c_id,message)
-                        elif messageType == protocol.CONFIG_GET_PYTHON_MODULE:
-                            _get_python_module(c_id,message)
-                        else:
-                            _send_unknow_message(c_id,message)
-                    except ValueError:
-                        sys.excepthook(*sys.exc_info())
-                        break
-                    except protocol.IncompleteMessage:
-                        r,_,_ = select.select(r_listen,[],[],.5)
-                        if not r: # if timeout, something wired, close the connection
-                           data = None
-                           stopFlag = True
-                        break
-                    except:
-                        sys.excepthook(*sys.exc_info())
-                        _log.error('Error with client id %r, close it', client)
-                        raise
-
-                if fd == client:
-                    tcp_data = data
-                else:
-                    posix_queue_data = data
+            tcp_data = data
     except:
         sys.excepthook(*sys.exc_info())
     finally:
         _clean(client)
         client.close()
-        if posix_queue:
-            posix_queue.close()
-            _clean(posix_queue)
-
 
 def sigterm_handler(_signo, _stack_frame):
     """On signal received, close the signal pipe to do a clean exit."""
@@ -605,8 +542,8 @@ def main(args=None):
         default=redis_conf.get_redis_config_path(),
         help="path to alternative redis configuration file")
     parser.add_argument(
-        "--posix_queue", dest="posix_queue", type=int, default=1,
-        help="enable/disable posix_queue connection")
+        "--posix_queue", dest="posix_queue", type=int, default=0,
+        help="Use to be posix_queue connection (not managed anymore)")
     parser.add_argument(
         "--port", dest="port", type=int,
         default=int(os.environ.get("BEACON_PORT", 0)),
@@ -649,11 +586,6 @@ def main(args=None):
     # Pimp my path
     _options.db_path = os.path.abspath(os.path.expanduser(_options.db_path))
 
-    # Posix queues
-    if not _options.posix_queue:
-        global posix_ipc
-        posix_ipc = None
-
     # Broadcast
     udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     udp.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -668,6 +600,20 @@ def main(args=None):
     _log.info("server sitting on port: %s", beacon_port)
     _log.info("configuration path: %s", _options.db_path)
     tcp.listen(512)        # limit to 512 clients
+
+    #UDS
+    global uds_port_name
+    uds_port_name = os.path.join(tempfile._get_default_tempdir(),
+                                 'beacon_%s.sock' % next(tempfile._get_candidate_names()))
+    uds = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    uds.bind(uds_port_name)
+    os.chmod(uds_port_name, 0777)
+    uds.listen(512)
+    _log.info("server sitting on uds socket: %s", uds_port_name)
+
+    #Check Posix queue are not activated
+    if _options.posix_queue:
+        _log.warning("Posix queue are not managed anymore")
 
     # Tango databaseds
     if _options.tango_port > 0:
@@ -713,7 +659,7 @@ def main(args=None):
 
     # Safe context
     try:
-        fd_list = [udp, tcp, rp, sig_read] + ([tango_rp] if tango_rp else [])
+        fd_list = [udp, tcp, uds, rp, sig_read] + ([tango_rp] if tango_rp else [])
         logger = {rp: _rlog, tango_rp: _tlog}
         udp_reply = '%s|%d' % (socket.gethostname(), beacon_port)
 
@@ -747,7 +693,10 @@ def main(args=None):
                     socket.SOL_IP, socket.IP_TOS, 0x10)
                 localhost = addr[0] == '127.0.0.1'
                 gevent.spawn(_client_rx, newSocket, localhost)
-
+            # UDS
+            elif s == uds:
+                newSocket, addr = uds.accept()
+                gevent.spawn(_client_rx, newSocket, True)
             # Signal interruption case
             elif s == sig_read:
                 _log.info('Received an interruption signal!')
@@ -786,6 +735,10 @@ def main(args=None):
 
     # Cleanup
     finally:
+        try:
+            os.unlink(uds_port_name)
+        except:
+            pass
         _log.info('Cleaning up the subprocesses')
         if redis_process:
             redis_process.terminate()

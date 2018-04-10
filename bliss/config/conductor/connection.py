@@ -17,43 +17,26 @@ import netifaces
 class StolenLockException(RuntimeError):
     '''This exception is raise in case of a stolen lock'''
 
-try:
-    import posix_ipc
-    class _PosixQueue(posix_ipc.MessageQueue):
-        def __init__(self,rx_name,wx_name):
-            posix_ipc.MessageQueue.__init__(self,rx_name)
-            self._wqueue = posix_ipc.MessageQueue(wx_name)
 
-        def close(self):
-            posix_ipc.MessageQueue.close(self)
-            self._wqueue.close()
-
-        def sendall(self,msg):
-            max_message_size = self.max_message_size
-            for i in range(0,len(msg),max_message_size):
-                self._wqueue.send(msg[i:i+max_message_size])
-except ImportError:
-    posix_ipc = None
-
-def ip4_default_route_broadcast_addresses():
+def ip4_broadcast_addresses(default_route_only=False):
     ip_list = ['localhost']
     # get default route interface, if any
     gws = netifaces.gateways()
     try:
-        interface = gws['default'][netifaces.AF_INET][1]
-        for link in netifaces.ifaddresses(interface).get(netifaces.AF_INET, []):
-            ip_list.append(link.get("broadcast"))
+        if default_route_only:
+            interfaces = [gws['default'][netifaces.AF_INET][1]]
+        else:
+            interfaces = netifaces.interfaces()
+        for interface in interfaces:
+            for link in netifaces.ifaddresses(interface).get(netifaces.AF_INET, []):
+                ip_list.append(link.get("broadcast"))
     except Exception:
         pass
 
     return filter(None, ip_list)
 
 def ip4_broadcast_discovery(udp):
-    ip_list = ['localhost']
-    for interface in netifaces.interfaces():
-        for link in netifaces.ifaddresses(interface).get(netifaces.AF_INET, []):
-            ip_list.append(link.get("broadcast"))
-    for addr in filter(None, ip_list):
+    for addr in ip4_broadcast_addresses():
         udp.sendto('Hello',(addr,protocol.DEFAULT_UDP_SERVER_PORT))
 
 def check_connect(func):
@@ -129,12 +112,18 @@ class Connection(object):
             beacon_host = os.environ.get("BEACON_HOST")
             if beacon_host is not None and ':' in beacon_host:
                 host, port = beacon_host.split(":")
-                port = int(port)
             else:
                 host = beacon_host
         if port is None:
-            env_port = os.environ.get("BEACON_PORT")
-            port = int(env_port) if env_port else env_port
+            port = os.environ.get("BEACON_PORT")
+
+        if port is not None:
+            try:
+                port = int(port)
+            except ValueError:
+                if not os.access(port, os.R_OK):
+                    raise RuntimeError("port can be a tcp port (int) or unix socket")
+
         self._host = host
         self._port = port
         self._pending_lock = {}
@@ -143,7 +132,6 @@ class Connection(object):
         self._message_queue = {}
         self._clean()
         self._fd = None
-        self._cnx = None
         self._raw_read_task = None
         self._greenlet_to_lockobjects = weakref.WeakKeyDictionary()
 
@@ -153,19 +141,27 @@ class Connection(object):
             self._fd = None
             self._raw_read_task.join()
             self._raw_read_task = None
-            self._cnx = None
 
     def connect(self):
         host = self._host
         port = self._port
+        try:
+            int(port)
+        except TypeError:       # port == None
+            uds = False
+        except ValueError:
+            uds = True
+        else:
+            uds = False
+            
         if self._fd is None:
-            if host is None or port is None:
+            if (host is None or port is None) and not uds:
                 udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                 udp.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
                 if host is not None:
                     address_list = [host]
                 else:
-                    address_list = ip4_default_route_broadcast_addresses()
+                    address_list = ip4_broadcast_addresses(True)
 
                 timeout = 3.
                 started_time = time.time()
@@ -208,16 +204,23 @@ class Connection(object):
                             break
                 self._host = host
                 self._port = port
-            self._fd = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-            self._fd.setsockopt(socket.IPPROTO_TCP,socket.TCP_NODELAY,1)
-            self._fd.setsockopt(socket.SOL_IP, socket.IP_TOS, 0x10)
-            self._fd.connect((host,port))
+            if uds:
+                self._fd = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                self._fd.connect(port)
+            else:
+                self._fd = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+                self._fd.setsockopt(socket.IPPROTO_TCP,socket.TCP_NODELAY,1)
+                self._fd.setsockopt(socket.SOL_IP, socket.IP_TOS, 0x10)
+                self._fd.connect((host,port))
+
             self._raw_read_task = gevent.spawn(self._raw_read)
-            self._cnx = self._fd
-            if posix_ipc:
+
+            if not uds:
                 self._g_event.clear()
-                self._fd.sendall(protocol.message(protocol.POSIX_MQ_QUERY,socket.gethostname()))
+                self._fd.sendall(protocol.message(protocol.UDS_QUERY,
+                                                  socket.gethostname()))
                 self._g_event.wait(1.)
+
             
     @check_connect
     def lock(self,devices_name,**params):
@@ -228,7 +231,7 @@ class Connection(object):
             with gevent.Timeout(timeout,
                                 RuntimeError("lock timeout (%s)" % str(devices_name))):
                 while 1:
-                    self._cnx.sendall(protocol.message(protocol.LOCK,wait_lock.msg()))
+                    self._fd.sendall(protocol.message(protocol.LOCK,wait_lock.msg()))
                     status = wait_lock.get()
                     if status == protocol.LOCK_OK_REPLY: break
         locked_objects = self._greenlet_to_lockobjects.setdefault(gevent.getcurrent(),dict())
@@ -243,7 +246,7 @@ class Connection(object):
         if len(devices_name) == 0: return
         msg = "%d|%s" % (priority,'|'.join(devices_name))
         with gevent.Timeout(timeout,RuntimeError("unlock timeout (%s)" % str(devices_name))):
-            self._cnx.sendall(protocol.message(protocol.UNLOCK,msg))
+            self._fd.sendall(protocol.message(protocol.UNLOCK,msg))
         locked_objects = self._greenlet_to_lockobjects.setdefault(gevent.getcurrent(),dict())
         max_lock = 0;
         for device in devices_name:
@@ -399,7 +402,6 @@ class Connection(object):
     def _raw_read(self):
         try:
             data = ''
-            mq_pipe = None
             while(1):
                 raw_data = self._fd.recv(16 * 1024)
                 if not raw_data: break
@@ -441,19 +443,27 @@ class Connection(object):
                         elif messageType == protocol.REDIS_QUERY_ANSWER:
                             self._redis_host,self._redis_port = message.split(':')
                             self._g_event.set()
-                        elif messageType == protocol.POSIX_MQ_OK:
-                            self._cnx = _PosixQueue(*message.split('|'))
-                            self._cnx.sendall(protocol.message(protocol.POSIX_MQ_OPENED))
-                            mq_pipe,wp = os.pipe()
-                            gevent.spawn(self._mq_read,self._cnx,wp)
-                            self._g_event.set()
-                        elif messageType == protocol.POSIX_MQ_FAILED:
+                        elif messageType == protocol.UDS_OK:
+                            try:
+                                fd = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                                fd.connect(message)
+                            except socket.error:
+                                sys.excepthook(*sys.exc_info())
+                            else:
+                                #replace tcp connection by UDS connection
+                                self._fd.close()
+                                self._fd = fd
+                                self._port = message
+                            finally:
+                                self._g_event.set()
+                        elif messageType == protocol.UDS_FAILED:
                             self._g_event.set()
                         elif messageType == protocol.UNKNOW_MESSAGE:
                             message_key,value = self._get_msg_key(message)
                             queue = self._message_queue.get(message_key)
                             error = RuntimeError("Beacon server don't know this command (%s)" % value)
                             if queue is not None: queue.put(error)
+                            self._g_event.set()
                     except:
                         sys.excepthook(*sys.exc_info())
         except socket.error:
@@ -464,33 +474,7 @@ class Connection(object):
             if self._fd:
                 self._fd.close()
                 self._fd = None
-            if mq_pipe is not None:
-                os.close(mq_pipe)
             self._clean()
-
-    def _mq_read(self,queue,pipe):
-        try:
-            data = ''
-            stopFlag = False
-            while not stopFlag:
-                r,_,_ = select.select([queue.mqd,pipe],[],[])
-                for f in r:
-                    if f == pipe:
-                        stopFlag = True
-                        break
-                    else:
-                        data = '%s%s' % (data,queue.receive()[0])
-                        while data:
-                            try:
-                                messageType,message,data = protocol.unpack_message(data)
-                                self._lock_mgt(queue,messageType,message)
-                            except protocol.IncompleteMessage:
-                                pass
-        except:
-            sys.excepthook(*sys.exc_info())
-        finally:
-            queue.close()
-            os.close(pipe)
 
     def _clean(self):
         self._redis_host = None

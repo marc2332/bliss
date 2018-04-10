@@ -88,7 +88,7 @@ class Transfocator:
 
         if 'lenses' in config:
             self.nb_lens = int(config["lenses"])
-            self.nb_pinhole = int(config["pinhole"])
+            nb_pinhole = int(config["pinhole"])
 
             if nb_pinhole == 2:
                 self.nb_pinhole = 2

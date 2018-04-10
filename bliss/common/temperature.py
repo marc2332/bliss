@@ -90,13 +90,11 @@ class Output(object):
         except:
             self.__limits = (None,None)
         self.__setpoint_task = None
-        self.__setpoint_event = gevent.event.Event()
         self.__setpoint_event_poll = 0.02
         try:
             self.__deadband = float(config["deadband"])
         except:
             self.__deadband = None
-        self.__setpoint_event.set()
         self.__config = config
         self.__ramping = 0
         self.__mode = 0
@@ -199,8 +197,8 @@ class Output(object):
         """ Waits on a setpoint task
         """
         log.debug("On Output:wait")
-	try:
-            self.__setpoint_event.wait()
+        try:
+            self.__setpoint_task.get()
         except KeyboardInterrupt:
             self.stop()
 
@@ -274,10 +272,7 @@ class Output(object):
         try:
             while self._setpoint_state() == 'RUNNING':
                 gevent.sleep(self.__setpoint_event_poll)
-        except Exception:
-            sys.excepthook(*sys.exc_info())
         finally:
-            self.__setpoint_event.set()
             self.__ramping = 0
 
     def _start_setpoint(self, setpoint, **kwargs):
@@ -293,7 +288,6 @@ class Output(object):
             else:
                 self.controller.set(self, setpoint, **kwargs)
             self.__ramping = 1
-            self.__setpoint_event.clear()
             self._do_setpoint(setpoint, wait=False)
         sp_task = setpoint_task(setpoint, wait=False)
         sync_event.wait()

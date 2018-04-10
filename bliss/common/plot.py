@@ -208,6 +208,8 @@ def get_flint(pid=None, start_new=False):
                     if psutil.pid_exists(pid):
                         FLINT.update({ "proxy":None, "process":None})
                         break
+                    else:
+                        redis.delete(key)
                 else:
                     # finally, no valid flint is available
                     pid = get_flint_process()

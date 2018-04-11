@@ -5,293 +5,454 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from .conductor import client
-from collections import namedtuple, Counter
-from functools import partial
+import sys
+import uuid
+import time
 import cPickle
+import weakref
+from collections import namedtuple
+
 import gevent
 import gevent.event
-import time
-from bliss.common.utils import grouped
+import gevent.queue
+
+from .conductor import client
 from bliss.common.event import saferef
-from bliss.common.utils import OrderedDict
-import weakref
-import sys
-import os
-
-BUS = dict()
 
 
-class ValueQuery(object):
-    def __init__(self):
+_NotInitialized = type('_NotInitialized', (), {})()
+_Query = namedtuple('_Query', 'id')
+_Reply = namedtuple('_Reply', 'id value')
+_Value = namedtuple("_Value", 'timestamp value')
+
+
+class CacheInterface(object):
+    """Base class defining a standard for advanced instanciation.
+
+    It provides three methods to override:
+    - `__new__`
+    - `__preinit__`
+    - `__init__`
+
+    The __new__ and __init__ methods are called once for every access,
+    i.e `cls(*args, **kwargs)`
+
+    The `__preinit__` method is called once for every instanciation.
+
+    It is up to `__new__` to decide whether the access should return an
+    existing or a new instance. New instances are created using the
+    `instanciate` method.
+
+    Although `__new__` and `__init__` will receive the access arguments,
+    `__preinit__` is free to use a different set of arguments. It is up
+    to `__new__` to pass meaningful arguments to `cls.instanciate`.
+    """
+
+    def __new__(cls, *args, **kwargs):
+        """Called once for every access, i.e: `cls(*args, **kwargs)`
+
+        It should either:
+        - return an existing instance
+        - create an instance using cls.instanciate and return it
+        """
+        return cls.instanciate(*args, **kwargs)
+
+    def __preinit__(self, *args, **kwargs):
+        """Called once for every instanciation, i.e:
+        cls.instanciate(*args, **kwargs)
+
+        It is optional and meant to initialize the internals of the instance.
+        """
         pass
 
+    def __init__(self, *args, **kwargs):
+        """Called once for every access, i.e: `cls(*args, **kwargs)`
 
-class NotInitialized(object):
-    def __repr__(self):
-        return "NotInitialized"
+        It is optional and meant to add extra logic to instance accesses.
+        """
+        pass
 
-    def __eq__(self, other):
-        if isinstance(other, NotInitialized):
-            return True
-        return False
+    @classmethod
+    def instanciate(cls, *args, **kwargs):
+        """Bypass the access logic and instanciate the class directly.
+
+        It is meant to be called within the `__new__` method.
+        """
+        self = object.__new__(cls)
+        self.__preinit__(*args, **kwargs)
+        return self
 
 
-_ChannelValue = namedtuple("_ChannelValue", ['timestamp', 'value'])
+class Bus(CacheInterface):
 
+    # Instances are cached
 
-class _Bus(object):
-    def __init__(self, redis):
+    _CACHE = {}
+
+    def __new__(cls, redis=None):
+        if redis is None:
+            redis = client.get_cache()
+        if redis not in cls._CACHE:
+            cls._CACHE[redis] = cls.instanciate(redis)
+        return cls._CACHE[redis]
+
+    # Initialize
+
+    def __preinit__(self, redis):
+        # Redis access
         self._redis = redis
         self._pubsub = redis.pubsub()
-        self._pending_subscribe = list()
-        self._pending_unsubscribe = list()
-        self._pending_channel_value = OrderedDict()
-        self._send_event = gevent.event.Event()
-        self._in_recv = set()
 
+        # Internal structures
+        self._reply_queues = {}
+        self._current_subs = set()
+        self._pending_updates = set()
+        self._channels = weakref.WeakValueDictionary()
+
+        # Tasks
         self._listen_task = None
         self._send_task = gevent.spawn(self._send)
+        self._send_event = gevent.event.Event()
 
-        self.channels = weakref.WeakValueDictionary()
+    # Cache management
 
-    def subscribe(self, channel):
-        self.channels[channel.name] = channel
+    def get_channel(self, name, *args, **kwargs):
+        channel = self._channels.get(name)
+        if channel is None:
+            self._channels[name] = channel = Channel.instanciate(
+                self, name, *args, **kwargs)
+            self._send_event.set()
+        return channel
+
+    # Update management
+
+    def schedule_update(self, channel):
+        self._pending_updates.add(channel)
         self._send_event.set()
 
-    def _set_channel_value(self, channel, value):
-        name = channel.name
-        channel._set_raw_value(value)
-        try:
-            self._in_recv.add(name)
-            self._fire_notification_callbacks(channel)
-        finally:
-            self._in_recv.remove(name)
+    # Querying
 
-    def update_channel(self, channel, value):
-        name = channel.name
-        if isinstance(value, _ChannelValue):
-            # update comes from the network
-            prev_channel_value = channel._get_raw_value()
-            if prev_channel_value is None or \
-               prev_channel_value.timestamp < value.timestamp:
-                channel_value = value
-            else:
-                return          # already up-to-date
-            self._set_channel_value(channel, channel_value)
-        else:
-            # update comes from channel.value assignment
-            if name in self._in_recv:
-                raise RuntimeError(
-                    "Channel %s: detected value changed in callback" % name)
-            else:
-                channel_value = _ChannelValue(time.time(), value)
-                self._set_channel_value(channel, channel_value)
-                # inform others about the new value
-                self._pending_channel_value[name] = channel_value
-                self._send_event.set()
+    def query(self, name):
+        # Initialize
+        reply_value = None
+        query_id = uuid.uuid1().hex
+        reply_queue = gevent.queue.Queue()
 
-    def _fire_notification_callbacks(self, channel):
-        value = channel._get_raw_value().value
-        callbacks = channel._callbacks
-        deleted_cb = set()
-        for cb_ref in callbacks:
-            cb = cb_ref()
-            if cb is not None:
-                try:
-                    cb(value)
-                except:
-                    # display exception, but do not stop
-                    # executing callbacks
-                    sys.excepthook(*sys.exc_info())
-            else:
-                deleted_cb.add(cb_ref)
-        callbacks.difference_update(deleted_cb)
+        # Register reply queue
+        self._reply_queues[query_id] = reply_queue
 
-    def init_channels(self, *channel_names):
-        result = self._redis.execute_command(
-            'pubsub', 'numsub', *channel_names)
-        no_listener_4_values = set(
-            (name for name, nb_listener in grouped(result, 2) if int(nb_listener) == 0))
-        pipeline = self._redis.pipeline()
-        for channel_name in channel_names:
-            try:
-                channel = self.channels[channel_name]
-            except KeyError:
-                continue
-            else:
-                if channel._get_raw_value() is None:
-                    if channel_name in no_listener_4_values:
-                        channel_value = _ChannelValue(
-                            time.time(), channel.default_value)
-                        self._set_channel_value(channel, channel_value)
-                    else:
-                        pipeline.publish(channel_name, cPickle.dumps(
-                            ValueQuery(), protocol=-1))
-        pipeline.execute()
+        # Send the query
+        expected_replies = self._publish(name, _Query(query_id))
+
+        # Loop over replies
+        while expected_replies:
+            reply = reply_queue.get()
+            expected_replies -= 1
+
+            # Break if a valid value is received
+            if reply.value is not None:
+                reply_value = reply.value
+                break
+
+        # Unregister queue
+        del self._reply_queues[query_id]
+
+        # Return value
+        return reply_value
+
+    # Publishing helper
+
+    def _publish(self, name, value, pipeline=None):
+        redis = self._redis if pipeline is None else pipeline
+        return redis.publish(name, cPickle.dumps(value, protocol=-1))
+
+    # Background tasks
 
     def _send(self):
-        while(1):
+        while True:
+            # Synchronize
             self._send_event.wait()
             self._send_event.clear()
 
+            # Initialize
             pubsub = self._pubsub
-            current_channels = self.channels.keys()
-            pending_subscribe = set(current_channels)-set(pubsub.channels)
-            pending_unsubscribe = set(pubsub.channels)-set(current_channels)
+            current_channels = dict(self._channels)
 
-            pending_channel_value = self._pending_channel_value
-            self._pending_channel_value = OrderedDict()
-
+            # Unsubscribe
+            pending_unsubscribe = self._current_subs - set(current_channels)
             if pending_unsubscribe:
                 pubsub.unsubscribe(pending_unsubscribe)
+                self._current_subs -= pending_unsubscribe
 
+            # Subscribe
+            pending_subscribe = set(current_channels) - self._current_subs
             if pending_subscribe:
                 pubsub.subscribe(pending_subscribe)
-                self.init_channels(*pending_subscribe)
+                self._current_subs |= pending_subscribe
 
-                if self._listen_task is None or self._listen_task.ready():
-                    self._listen_task = gevent.spawn(self._listen)
+            # Set subscribed events
+            for name in self._current_subs:
+                current_channels[name]._subscribed_event.set()
 
-            if pending_channel_value:
-                pipeline = self._redis.pipeline()
-                for name, channel_value in pending_channel_value.iteritems():
-                    try:
-                        pipeline.publish(name, cPickle.dumps(
-                            channel_value, protocol=-1))
-                    except cPickle.PicklingError:
-                        exctype, value, traceback = sys.exc_info()
-                        message = "Cannot pickle channel <%s> %r with values <%r>" % \
-                            (name, type(channel_value.value), channel_value.value)
-                        sys.excepthook(exctype, message, traceback)
-                pipeline.execute()
+            # Make sure listen task is running
+            if self._listen_task is None or self._listen_task.ready():
+                self._listen_task = gevent.spawn(self._listen)
+
+            # Create pipeline of pending updates
+            pipeline = self._redis.pipeline()
+            while self._pending_updates:
+                channel = self._pending_updates.pop()
+                self._publish(channel.name, channel._raw_value, pipeline)
+
+            # Run the pipeline
+            pipeline.execute()
+
+            # Delete channel references
+            del current_channels
 
     def _listen(self):
+        # Loop over events
         for event in self._pubsub.listen():
+
+            # Filter events
             event_type = event.get('type')
-            if event_type == 'message':
-                value = cPickle.loads(event.get('data'))
-                channel_name = event.get('channel')
-                try:
-                    channel = self.channels[channel_name]
-                except KeyError:
-                    continue
-                else:
-                    try:
-                        if isinstance(value, ValueQuery):
-                            channel_value = channel._get_raw_value()
-                            if channel_value is not None:
-                                self._pending_channel_value[channel_name] = channel_value
-                                self._send_event.set()
-                            else:
-                                # our channel has no value
-                                pass
-                        else:
-                            self.update_channel(channel, value)
-                    finally:
-                        del channel
+            if event_type != 'message':
+                continue
+
+            # Extract info
+            name = event.get('channel')
+            data = cPickle.loads(event.get('data'))
+            channel = self._channels.get(name)
+
+            # Run the corresponding handler
+            if isinstance(data, _Query):
+                self._on_query(name, channel, data)
+            if isinstance(data, _Reply):
+                self._on_reply(name, channel, data)
+            if isinstance(data, _Value):
+                self._on_value(name, channel, data)
+
+            # Delete channel reference
+            del channel
+
+    # Event handlers
+
+    def _on_query(self, name, channel, query):
+        # Reply even if the channel doesn't exist anymore
+        if channel is None:
+            value = None
+        # Get raw value
+        else:
+            value = channel._raw_value
+        # Reply with the corresponding query id
+        reply = _Reply(query.id, value)
+        self._publish(name, reply)
+
+    def _on_reply(self, name, channel, reply):
+        # Ignore replies if the id doesn't match any query id
+        if reply.id not in self._reply_queues:
+            return
+        # Put the reply in the corresponding queue
+        self._reply_queues[reply.id].put(reply)
+
+    def _on_value(self, name, channel, value):
+        # Ignore value if the channel doesn't exist anymore
+        if channel is None:
+            return
+        # Ignore values if the channel is not ready
+        if not channel.ready:
+            return
+        # Set the provided value
+        channel._set_raw_value(value)
 
 
-def Bus(redis):
-    try:
-        return BUS[redis]
-    except KeyError:
-        bus = _Bus(redis)
-        BUS[redis] = bus
-        return bus
+class Channel(CacheInterface):
 
+    # Rely on the bus to instanciate the channel
 
-class _Channel(object):
-    def __init__(self, bus, name, default_value, value):
-        self.__bus = bus
-        self.__name = name
-        self.__timeout = 3.
-        self.__default_value = default_value
-        self.__raw_value = None
-        self._callbacks = set()
+    def __new__(cls, name, *args, **kwargs):
+        redis = kwargs.pop('redis', None)
+        return Bus(redis).get_channel(name, *args, **kwargs)
+
+    # Initialize
+
+    def __preinit__(self, bus, name,
+                    value=_NotInitialized,
+                    callback=None,
+                    default_value=None,
+                    timeout=3):
+        # Configuration
+        self._bus = bus
+        self._name = name
+        self._timeout = timeout
+
+        # Internal values
+        self._raw_value = None
+        self._callback_refs = set()
+        self._firing_callbacks = False
+        self._default_value = default_value
+
+        # Task and events
+        self._query_task = None
         self._value_event = gevent.event.Event()
+        self._subscribed_event = gevent.event.Event()
 
-        bus.subscribe(self)
+        # Initial value
+        if value == _NotInitialized:
+            self._start_query()
+
+    def __init__(self, name,
+                 value=_NotInitialized,
+                 callback=None,
+                 default_value=None,
+                 timeout=3.,
+                 redis=None):
+        # Initial value
+        if value != _NotInitialized:
+            self._set_raw_value(value)
+
+        # Set callback
+        if callback is not None:
+            self.register_callback(callback)
+
+    # Read-only properties
 
     @property
     def name(self):
-        return self.__name
+        return self._name
 
     @property
     def default_value(self):
-        return self.__default_value
+        return self._default_value
 
     @property
-    def value(self):
-        value = self.__raw_value
-        if value is None:
-            # ask value
-            self.__bus.init_channels(self.name)
-            with gevent.Timeout(self.__timeout, RuntimeError("%s: timeout to receive channel value" % self.__name)):
-                self._value_event.wait()
-                self._value_event.clear()
-                value = self.__raw_value
-        return value.value
+    def ready(self):
+        return (self._value_event.is_set() and
+                self._subscribed_event.is_set())
 
-    @value.setter
-    def value(self, new_value):
-        self.__bus.update_channel(self, new_value)
-
-    def _set_raw_value(self, value):
-        self.__raw_value = value
-        self._value_event.set()
-
-    def _get_raw_value(self):
-        return self.__raw_value
+    # Timeout
 
     @property
     def timeout(self):
-        return self.__timeout
+        return self._timeout
 
     @timeout.setter
     def timeout(self, value):
-        self.__timeout = value
+        self._timeout = value
+
+    def wait_ready(self):
+        timeout_error = RuntimeError(
+            "Timeout: channel {} is not ready".format(self._name))
+        with gevent.Timeout(self._timeout, timeout_error):
+            self._subscribed_event.wait()
+            self._value_event.wait()
+
+    # Exposed value
+
+    @property
+    def value(self):
+        self.wait_ready()
+        return self._raw_value.value
+
+    @value.setter
+    def value(self, new_value):
+        if self._firing_callbacks:
+            raise RuntimeError(
+                "Channel {}: can't set value while running a callback"
+                .format(self.name))
+        self.wait_ready()
+        self._set_raw_value(new_value)
+        self._bus.schedule_update(self)
+
+    # Raw value
+
+    def _set_raw_value(self, value):
+        # Cast to _Value
+        if not isinstance(value, _Value):
+            value = _Value(time.time(), value)
+        # Discard older values
+        if self._raw_value is not None and \
+           self._raw_value.timestamp >= value.timestamp:
+            return
+        # Set value and notify everyone
+        self._raw_value = value
+        self._value_event.set()
+        self._fire_callbacks()
+
+    # Query handling
+
+    def _start_query(self):
+        # Prevent two queries to run simultaneously
+        if self._query_task is not None and not self._query_task.ready():
+            raise RuntimeError('A query task is already running')
+
+        def query_task():
+            # Wait subscription
+            self._subscribed_event.wait()
+
+            # Run the query
+            reply_value = self._bus.query(self.name)
+
+            # Use default value if necessary
+            if reply_value is None:
+                reply_value = self._default_value
+
+            # Set the value
+            self._set_raw_value(reply_value)
+
+            # Unregister task if everything went smoothly
+            self._query_task = None
+
+        # Spawn the query task
+        self._query_task = gevent.spawn(query_task)
+
+    # User callbacks
 
     def register_callback(self, callback):
-        if callable(callback):
-            cb_ref = saferef.safe_ref(callback)
-            self._callbacks.add(cb_ref)
-        else:
-            raise ValueError("Channel %s: %r is not callable",
-                             self.name, callback)
+        if not callable(callback):
+            raise ValueError(
+                "Channel {}: {!r} is not callable".format(self.name, callback))
+        cb_ref = saferef.safe_ref(callback)
+        self._callback_refs.add(cb_ref)
 
     def unregister_callback(self, callback):
         cb_ref = saferef.safe_ref(callback)
         try:
-            self._callbacks.remove(cb_ref)
+            self._callback_refs.remove(cb_ref)
         except KeyError:
             pass
 
+    def _fire_callbacks(self):
+        value = self._raw_value.value
+        callbacks = filter(None, [ref() for ref in self._callback_refs])
+
+        # Run callbacks
+        for cb in callbacks:
+            # Set the flag
+            try:
+                self._firing_callbacks = True
+                cb(value)
+            # Catch and display exception
+            except:
+                sys.excepthook(*sys.exc_info())
+            # Clean up the flag
+            finally:
+                self._firing_callbacks = False
+
+        # Clean up
+        self._callbacks = {
+            ref for ref in self._callback_refs if ref() is not None}
+
+    # Representation
+
     def __repr__(self):
-        self.value
-        return '%s->%s' % (self.__name, self.__raw_value)
+        value = self._raw_value
+        if value is None:
+            value = '<initializing>'
+        return '{}->{}'.format(self.name, value)
 
 
-def Channel(name, value=NotInitialized(), callback=None,
-            default_value=None, redis=None):
-    if redis is None:
-        redis = client.get_cache()
-
-    bus = Bus(redis)
-
-    try:
-        chan = bus.channels[name]
-    except KeyError:
-        chan = _Channel(bus, name, default_value, value)
-
-    if not isinstance(value, NotInitialized):
-        chan.value = value
-
-    if callback is not None:
-        chan.register_callback(callback)
-
-    return chan
-
+# Device cache
 
 DEVICE_CACHE = weakref.WeakKeyDictionary()
 

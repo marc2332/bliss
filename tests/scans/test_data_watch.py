@@ -77,9 +77,21 @@ def test_scan_saving(beacon):
     assert parent_node.name == 'toto'
     assert parent_node.db_name == '%s:%s' % (scan_saving.session, 'toto')
 
-    scan_saving = ScanSaving()
     scan_saving.template = "toto"
     parent_node = scan_saving.get()["parent"]
     assert parent_node.parent is not None
     assert parent_node.parent.name == scan_saving.session
+    assert parent_node.parent.db_name == scan_saving.session
+    assert parent_node.name == "toto"
+    assert parent_node.db_name == '%s:%s' % (scan_saving.session, 'toto')
+
+    scan_saving.template = "toto/{session}"
+    parent_node = scan_saving.get()["parent"]
+    assert parent_node.parent is not None
+    assert parent_node.parent.name == "toto"
+    assert parent_node.parent.db_name == '%s:%s' % (scan_saving.session, 'toto')
+    assert parent_node.name == scan_saving.session
+    assert parent_node.db_name == '%s:%s:%s' % (scan_saving.session, 'toto',
+                                                scan_saving.session)
+    
 

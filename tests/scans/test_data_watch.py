@@ -62,3 +62,24 @@ def test_simple_continuous_scan_with_session_watcher(beacon):
 
     assert pytest.approx(m1.position(), end_pos)
 
+
+def test_scan_saving(beacon):
+    session = beacon.get("test_session")
+    session.setup()
+
+    scan_saving = ScanSaving()
+
+    scan_saving.template = "{session}/toto"
+    parent_node = scan_saving.get()["parent"]
+    assert parent_node.parent is not None
+    assert parent_node.parent.name == scan_saving.session
+    assert parent_node.parent.db_name == scan_saving.session
+    assert parent_node.name == 'toto'
+    assert parent_node.db_name == '%s:%s' % (scan_saving.session, 'toto')
+
+    scan_saving = ScanSaving()
+    scan_saving.template = "toto"
+    parent_node = scan_saving.get()["parent"]
+    assert parent_node.parent is not None
+    assert parent_node.parent.name == scan_saving.session
+

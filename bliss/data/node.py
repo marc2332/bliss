@@ -92,7 +92,7 @@ def get_node(db_name, parent=None, connection=None):
 
     node_type = data.node_type
 
-    return _get_node_object(node_type, db_name, parent, connection)
+    return _get_node_object(node_type, name, parent, connection)
 
 
 def _create_node(name, node_type=None, parent=None, connection=None, **keys):

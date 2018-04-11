@@ -21,19 +21,24 @@ import os
 
 BUS = dict()
 
+
 class ValueQuery(object):
     def __init__(self):
         pass
 
+
 class NotInitialized(object):
     def __repr__(self):
         return "NotInitialized"
+
     def __eq__(self, other):
         if isinstance(other, NotInitialized):
             return True
         return False
 
-_ChannelValue = namedtuple("_ChannelValue",['timestamp','value'])
+
+_ChannelValue = namedtuple("_ChannelValue", ['timestamp', 'value'])
+
 
 class _Bus(object):
     def __init__(self, redis):
@@ -47,7 +52,7 @@ class _Bus(object):
 
         self._listen_task = None
         self._send_task = gevent.spawn(self._send)
-    
+
         self.channels = weakref.WeakValueDictionary()
 
     def subscribe(self, channel):
@@ -77,15 +82,16 @@ class _Bus(object):
         else:
             # update comes from channel.value assignment
             if name in self._in_recv:
-                raise RuntimeError("Channel %s: detected value changed in callback" % name)
+                raise RuntimeError(
+                    "Channel %s: detected value changed in callback" % name)
             else:
-                channel_value = _ChannelValue(time.time(),value)
+                channel_value = _ChannelValue(time.time(), value)
                 self._set_channel_value(channel, channel_value)
                 # inform others about the new value
                 self._pending_channel_value[name] = channel_value
                 self._send_event.set()
-    
-    def _fire_notification_callbacks(self,channel):
+
+    def _fire_notification_callbacks(self, channel):
         value = channel._get_raw_value().value
         callbacks = channel._callbacks
         deleted_cb = set()
@@ -103,8 +109,10 @@ class _Bus(object):
         callbacks.difference_update(deleted_cb)
 
     def init_channels(self, *channel_names):
-        result = self._redis.execute_command('pubsub','numsub',*channel_names)
-        no_listener_4_values = set((name for name,nb_listener in grouped(result,2) if int(nb_listener) == 0))
+        result = self._redis.execute_command(
+            'pubsub', 'numsub', *channel_names)
+        no_listener_4_values = set(
+            (name for name, nb_listener in grouped(result, 2) if int(nb_listener) == 0))
         pipeline = self._redis.pipeline()
         for channel_name in channel_names:
             try:
@@ -114,10 +122,12 @@ class _Bus(object):
             else:
                 if channel._get_raw_value() is None:
                     if channel_name in no_listener_4_values:
-                        channel_value = _ChannelValue(time.time(), channel.default_value)
+                        channel_value = _ChannelValue(
+                            time.time(), channel.default_value)
                         self._set_channel_value(channel, channel_value)
                     else:
-                        pipeline.publish(channel_name, cPickle.dumps(ValueQuery(),protocol=-1))
+                        pipeline.publish(channel_name, cPickle.dumps(
+                            ValueQuery(), protocol=-1))
         pipeline.execute()
 
     def _send(self):
@@ -145,14 +155,15 @@ class _Bus(object):
 
             if pending_channel_value:
                 pipeline = self._redis.pipeline()
-                for name,channel_value in pending_channel_value.iteritems():
+                for name, channel_value in pending_channel_value.iteritems():
                     try:
-                        pipeline.publish(name,cPickle.dumps(channel_value,protocol=-1))
+                        pipeline.publish(name, cPickle.dumps(
+                            channel_value, protocol=-1))
                     except cPickle.PicklingError:
-                        exctype,value,traceback = sys.exc_info()
+                        exctype, value, traceback = sys.exc_info()
                         message = "Cannot pickle channel <%s> %r with values <%r>" % \
-                        (name,type(channel_value.value),channel_value.value)
-                        sys.excepthook(exctype,message,traceback)
+                            (name, type(channel_value.value), channel_value.value)
+                        sys.excepthook(exctype, message, traceback)
                 pipeline.execute()
 
     def _listen(self):
@@ -167,7 +178,7 @@ class _Bus(object):
                     continue
                 else:
                     try:
-                        if isinstance(value,ValueQuery):
+                        if isinstance(value, ValueQuery):
                             channel_value = channel._get_raw_value()
                             if channel_value is not None:
                                 self._pending_channel_value[channel_name] = channel_value
@@ -180,6 +191,7 @@ class _Bus(object):
                     finally:
                         del channel
 
+
 def Bus(redis):
     try:
         return BUS[redis]
@@ -188,16 +200,17 @@ def Bus(redis):
         BUS[redis] = bus
         return bus
 
+
 class _Channel(object):
     def __init__(self, bus, name, default_value, value):
-        self.__bus = bus 
+        self.__bus = bus
         self.__name = name
         self.__timeout = 3.
         self.__default_value = default_value
         self.__raw_value = None
         self._callbacks = set()
         self._value_event = gevent.event.Event()
-        
+
         bus.subscribe(self)
 
     @property
@@ -208,7 +221,7 @@ class _Channel(object):
     def default_value(self):
         return self.__default_value
 
-    @property 
+    @property
     def value(self):
         value = self.__raw_value
         if value is None:
@@ -236,7 +249,7 @@ class _Channel(object):
         return self.__timeout
 
     @timeout.setter
-    def timeout(self,value):
+    def timeout(self, value):
         self.__timeout = value
 
     def register_callback(self, callback):
@@ -244,7 +257,8 @@ class _Channel(object):
             cb_ref = saferef.safe_ref(callback)
             self._callbacks.add(cb_ref)
         else:
-            raise ValueError("Channel %s: %r is not callable", self.name, callback)
+            raise ValueError("Channel %s: %r is not callable",
+                             self.name, callback)
 
     def unregister_callback(self, callback):
         cb_ref = saferef.safe_ref(callback)
@@ -256,6 +270,7 @@ class _Channel(object):
     def __repr__(self):
         self.value
         return '%s->%s' % (self.__name, self.__raw_value)
+
 
 def Channel(name, value=NotInitialized(), callback=None,
             default_value=None, redis=None):
@@ -271,15 +286,17 @@ def Channel(name, value=NotInitialized(), callback=None,
 
     if not isinstance(value, NotInitialized):
         chan.value = value
-   
+
     if callback is not None:
         chan.register_callback(callback)
 
     return chan
 
+
 DEVICE_CACHE = weakref.WeakKeyDictionary()
 
-def Cache(device,key,**keys):
+
+def Cache(device, key, **keys):
     """
     Create a cache value for a device. Device object must have a *name* in his attributes.
     This class should be used to optimized the device access.
@@ -288,15 +305,17 @@ def Cache(device,key,**keys):
     try:
         device_name = device.name
     except AttributeError:
-        raise RuntimeError("cache: can't create a cache value (%s), the device (%s) has no name" % (device,key))
-    
-    default_value = keys.get('default_value',None)
-    cached_channels = DEVICE_CACHE.setdefault(device,dict())
-    key_name = '%s:%s' % (device.name,key)
-    cached_channels[key_name] = default_value
-    return Channel(key_name,**keys)
+        raise RuntimeError(
+            "cache: can't create a cache value (%s), the device (%s) has no name" % (device, key))
 
-def clear_cache(*devices) :
+    default_value = keys.get('default_value', None)
+    cached_channels = DEVICE_CACHE.setdefault(device, dict())
+    key_name = '%s:%s' % (device.name, key)
+    cached_channels[key_name] = default_value
+    return Channel(key_name, **keys)
+
+
+def clear_cache(*devices):
     """
     Clear cache for the associated devices
     devices -- one or more devices or if no device all devices
@@ -304,8 +323,7 @@ def clear_cache(*devices) :
     if not devices:
         devices = DEVICE_CACHE.keys()
     for d in devices:
-        cached_channels = DEVICE_CACHE.get(d,dict())
-        for channel_name,default_value in cached_channels.iteritems():
+        cached_channels = DEVICE_CACHE.get(d, dict())
+        for channel_name, default_value in cached_channels.iteritems():
             chan = Channel(channel_name)
             chan.value = default_value
-

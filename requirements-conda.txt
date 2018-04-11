@@ -15,7 +15,6 @@ h5py
 msgpack-python
 pyzmq
 pytango
-posix_ipc
 h5py
 pygments
 sqlalchemy

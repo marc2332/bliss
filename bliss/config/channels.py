@@ -26,7 +26,7 @@ _Reply = namedtuple('_Reply', 'id value')
 _Value = namedtuple("_Value", 'timestamp value')
 
 
-class CacheInterface(object):
+class AdvancedInstantiationInterface(object):
     """Base class defining a standard for advanced instanciation.
 
     It provides three methods to override:
@@ -83,7 +83,7 @@ class CacheInterface(object):
         return self
 
 
-class Bus(CacheInterface):
+class Bus(AdvancedInstantiationInterface):
 
     # Instances are cached
 
@@ -267,7 +267,7 @@ class Bus(CacheInterface):
         channel._set_raw_value(value)
 
 
-class Channel(CacheInterface):
+class Channel(AdvancedInstantiationInterface):
 
     # Rely on the bus to instanciate the channel
 

@@ -25,7 +25,7 @@ def test_channel_set(beacon):
 def test_channel_cb(beacon):
     cb_dict = dict({"value":None, "exception":None})
     c1 = channels.Channel("super_mario")
-    
+
     def cb(value, saved_value=cb_dict, chan=c1):
         saved_value['value'] = value
         if value == 'exception':
@@ -60,16 +60,14 @@ def test_with_another_process(beacon, beacon_host_port):
         from bliss.config.conductor import connection
         from bliss.config import channels
         import sys
-
         beacon_connection = connection.Connection(*beacon_host_port)
         client._default_connection = beacon_connection
-        channels.BUS = dict()
+        channels.Bus._CACHE = dict()
 
         assert child_end.get() == '!'
         child_end.put('$')
 
         chan = channels.Channel("test_chan")
-
         if chan.value == 'helloworld':
             chan.value = 'bla'
             child_end.put('#')
@@ -90,11 +88,12 @@ def test_with_another_process(beacon, beacon_host_port):
         del c
         # check channel is really not there anymore
         redis = channels.client.get_cache()
-        bus = channels.BUS[redis]
-        assert 'test_chan' not in bus.channels
+        bus = channels.Bus._CACHE[redis]
+        assert 'test_chan' not in bus._channels
         #
         os.kill(p.pid, signal.SIGSTOP)
         cc = channels.Channel("test_chan")
+        cc.timeout = 0.1
         with pytest.raises(RuntimeError):
             assert cc.value == 'bla'
         os.kill(p.pid, signal.SIGCONT)
@@ -102,4 +101,3 @@ def test_with_another_process(beacon, beacon_host_port):
         parent_end.put('.')
         p.join()
         assert p.exitcode == 2
-

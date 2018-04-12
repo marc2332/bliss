@@ -458,7 +458,7 @@ class Channel(CacheInterface):
 DEVICE_CACHE = weakref.WeakKeyDictionary()
 
 
-def Cache(device, key, **keys):
+def Cache(device, key, **kwargs):
     """
     Create a cache value for a device. Device object must have a *name* in his attributes.
     This class should be used to optimized the device access.
@@ -470,11 +470,11 @@ def Cache(device, key, **keys):
         raise RuntimeError(
             "cache: can't create a cache value (%s), the device (%s) has no name" % (device, key))
 
-    default_value = keys.get('default_value', None)
+    default_value = kwargs.get('default_value', None)
     cached_channels = DEVICE_CACHE.setdefault(device, dict())
     key_name = '%s:%s' % (device.name, key)
     cached_channels[key_name] = default_value
-    return Channel(key_name, **keys)
+    return Channel(key_name, **kwargs)
 
 
 def clear_cache(*devices):

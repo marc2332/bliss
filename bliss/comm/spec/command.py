@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# 
+#
 # This file is part of the bliss project
 #
 # Copyright (c) 2016 Beamline Control Unit, ESRF
@@ -21,7 +21,7 @@ import gevent
 from gevent.event import Event
 from .connection import SpecConnection
 from .reply import SpecReply
-import .wait
+from . import wait
 from .error import SpecClientTimeoutError, SpecClientError, SpecClientNotConnectedError
 
 
@@ -203,7 +203,7 @@ class SpecCommandA(BaseSpecCommand):
                 id = self.connection.send_msg_cmd_with_return(command,
                                                               self.replyArrived)
             else:
-                if isinstance(command, str)
+                if isinstance(command, str):
                     id = self.connection.send_msg_cmd_with_return(command,
                                                                   self.replyArrived)
                 else:

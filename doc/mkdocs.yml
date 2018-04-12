@@ -1,0 +1,61 @@
+site_name: Bliss documentation
+repo_name: 'bliss/bliss'
+repo_url: 'https://gitlab.esrf.fr/bliss/bliss'
+pages:
+        - Getting started: getting_started.md
+        - Configuration:
+                - Motor controllers: config_motctrl.md
+                - 2D detectors (Lima): config_lima.md
+                - MCA: config_mca.md
+                - Temperature controllers: config_temperature.md
+                - P201: config_p201.md
+                - MUSST: config_musst.md
+                - Opiom: config_opiom.md
+                - PEPU: config_pepu.md
+                - Wagos: config_wago.md
+                - Transfocators: config_transfocator.md
+                - Attenuators: config_att.md
+                - BLISS control objects: config_objects.md
+                - Sessions: config_session.md
+        - BLISS shell: bliss_shell.md
+        - Scanning:
+                - Counters and measurement groups: scan_ctmg.md
+                - Default scans: scan_default.md
+                - Data saving: scan_saving.md
+                - BLISS scan engine: scan_engine.md
+                - Continuous scans: scan_continuous.md
+        - Online data display:
+                - Scans plotting: flint_scan_plotting.md
+                - Interaction with plots: flint_interaction.md
+        - Development guidelines: dev_guidelines.md
+theme:
+        name: material
+        language: en
+        palette:
+                primary: Teal
+                accent: Teal
+        font:
+                text: Roboto
+                code: 'Roboto Mono'
+markdown_extensions:
+        - admonition
+        - codehilite
+        - pymdownx.arithmatex
+        - pymdownx.betterem:
+            smart_enable: all
+        - pymdownx.caret
+        - pymdownx.critic
+        - pymdownx.details
+        - pymdownx.emoji:
+            emoji_generator: !!python/name:pymdownx.emoji.to_svg
+        - pymdownx.inlinehilite
+        - pymdownx.magiclink
+        - pymdownx.mark
+        - pymdownx.smartsymbols
+        - pymdownx.superfences
+        - pymdownx.tasklist:
+            custom_checkbox: true
+        - pymdownx.tilde
+extra_javascript:
+  - 'https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-MML-AM_CHTML'
+

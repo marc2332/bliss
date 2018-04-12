@@ -166,6 +166,11 @@ class Bus(CacheInterface):
         redis = self._redis if pipeline is None else pipeline
         return redis.publish(name, cPickle.dumps(value, protocol=-1))
 
+    def _send_updates(self, pipeline=None):
+        while self._pending_updates:
+            channel = self._pending_updates.pop()
+            self._publish(channel.name, channel._raw_value, pipeline)
+
     # Background tasks
 
     def _send(self):
@@ -198,13 +203,9 @@ class Bus(CacheInterface):
             if self._listen_task is None or self._listen_task.ready():
                 self._listen_task = gevent.spawn(self._listen)
 
-            # Create pipeline of pending updates
+            # Create and run the pipeline of pending updates
             pipeline = self._redis.pipeline()
-            while self._pending_updates:
-                channel = self._pending_updates.pop()
-                self._publish(channel.name, channel._raw_value, pipeline)
-
-            # Run the pipeline
+            self._send_updates(pipeline)
             pipeline.execute()
 
             # Delete channel references

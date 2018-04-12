@@ -32,7 +32,7 @@ def test_parent_node(beacon, scan_tmpdir):
     session.setup()
     scan_saving = getattr(setup_globals, "SCAN_SAVING")
     scan_saving.base_path=str(scan_tmpdir)
-    scan_saving.template="{session}/{date}/test"
+    scan_saving.template="{date}/test"
     parent_node = scan_saving.get_parent_node()
     assert parent_node.db_name == "test_session:%s:test" % scan_saving.date
     assert parent_node.type == "container"

@@ -18,13 +18,49 @@ from bliss.scanning.scan import Scan, ScanSaving
 from bliss.data.scan import get_data, watch_session_scans
 from bliss.scanning.chain import AcquisitionChain
 
-def test_simple_continuous_scan_with_session_watcher(beacon):
+@pytest.fixture
+def scan_saving():
+    ss = ScanSaving()
+    prev_template = ss.template
+    yield ss
+    ss.template = prev_template
+
+def test_scan_saving(beacon, scan_saving):
+    scan_saving.template = "{session}/toto"
+    parent_node = scan_saving.get()["parent"]
+    assert parent_node.name == 'toto'
+    assert parent_node.parent is not None
+    assert parent_node.parent.name == scan_saving.session
+    assert parent_node.parent.db_name == \
+        scan_saving.session+":"+scan_saving.session
+    assert parent_node.db_name == '%s:%s' % (parent_node.parent.db_name, 'toto')
+
+    scan_saving.template = "toto"
+    parent_node = scan_saving.get()["parent"]
+    assert parent_node.name == "toto"
+    assert parent_node.parent is not None
+    assert parent_node.parent.name == scan_saving.session
+    assert parent_node.parent.db_name == scan_saving.session
+    assert parent_node.db_name == '%s:%s' % (scan_saving.session, 'toto')
+
+    scan_saving.template = "toto/{session}"
+    parent_node = scan_saving.get()["parent"]
+    assert parent_node.name == scan_saving.session
+    assert parent_node.parent is not None
+    assert parent_node.parent.name == "toto"
+    assert parent_node.parent.db_name == \
+        scan_saving.session+":toto"
+    assert parent_node.db_name == '%s:%s' % (parent_node.parent.db_name,
+                                             scan_saving.session)
+
+def test_simple_continuous_scan_with_session_watcher(beacon, scan_saving):
     session = beacon.get("test_session")
     session.setup()
 
     m1 = getattr(setup_globals, "m1")
     counter = getattr(setup_globals, "diode")
-    scan_saving = ScanSaving()
+    scan_saving.template = "toto"
+    
     vars = { "new_scan_cb_called": False, "scan_acq_chain": None, "scan_children":[], "scan_data":[] }
 
     def new_scan(scan_info, vars=vars):
@@ -61,37 +97,3 @@ def test_simple_continuous_scan_with_session_watcher(beacon):
     assert numpy.allclose(vars["scan_data_m1"], master._positions, atol=1e-1)
 
     assert pytest.approx(m1.position(), end_pos)
-
-
-def test_scan_saving(beacon):
-    session = beacon.get("test_session")
-    session.setup()
-
-    scan_saving = ScanSaving()
-
-    scan_saving.template = "{session}/toto"
-    parent_node = scan_saving.get()["parent"]
-    assert parent_node.parent is not None
-    assert parent_node.parent.name == scan_saving.session
-    assert parent_node.parent.db_name == scan_saving.session
-    assert parent_node.name == 'toto'
-    assert parent_node.db_name == '%s:%s' % (scan_saving.session, 'toto')
-
-    scan_saving.template = "toto"
-    parent_node = scan_saving.get()["parent"]
-    assert parent_node.parent is not None
-    assert parent_node.parent.name == scan_saving.session
-    assert parent_node.parent.db_name == scan_saving.session
-    assert parent_node.name == "toto"
-    assert parent_node.db_name == '%s:%s' % (scan_saving.session, 'toto')
-
-    scan_saving.template = "toto/{session}"
-    parent_node = scan_saving.get()["parent"]
-    assert parent_node.parent is not None
-    assert parent_node.parent.name == "toto"
-    assert parent_node.parent.db_name == '%s:%s' % (scan_saving.session, 'toto')
-    assert parent_node.name == scan_saving.session
-    assert parent_node.db_name == '%s:%s:%s' % (scan_saving.session, 'toto',
-                                                scan_saving.session)
-    
-

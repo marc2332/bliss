@@ -55,7 +55,7 @@ class CacheInterface(object):
         - return an existing instance
         - create an instance using cls.instanciate and return it
         """
-        return cls.instanciate(*args, **kwargs)
+        return cls.instanciate(*args, **kwargs)  # pragma: no cover
 
     def __preinit__(self, *args, **kwargs):
         """Called once for every instanciation, i.e:
@@ -63,14 +63,14 @@ class CacheInterface(object):
 
         It is optional and meant to initialize the internals of the instance.
         """
-        pass
+        pass  # pragma: no cover
 
     def __init__(self, *args, **kwargs):
         """Called once for every access, i.e: `cls(*args, **kwargs)`
 
         It is optional and meant to add extra logic to instance accesses.
         """
-        pass
+        pass  # pragma: no cover
 
     @classmethod
     def instanciate(cls, *args, **kwargs):

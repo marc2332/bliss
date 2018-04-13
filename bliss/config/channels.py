@@ -20,7 +20,7 @@ from .conductor import client
 from bliss.common.event import saferef
 
 
-_NotInitialized = type('_NotInitialized', (), {})()
+_NotProvided = type('_NotProvided', (), {})()
 _Query = namedtuple('_Query', 'id')
 _Reply = namedtuple('_Reply', 'id value')
 _Value = namedtuple("_Value", 'timestamp value')
@@ -303,8 +303,8 @@ class Channel(AdvancedInstantiationInterface):
         self._subscribed_event = gevent.event.Event()
 
     def __init__(self, name,
-                 value=_NotInitialized,
-                 default_value=_NotInitialized,
+                 value=_NotProvided,
+                 default_value=_NotProvided,
                  callback=None,
                  timeout=None,
                  redis=None,
@@ -312,10 +312,10 @@ class Channel(AdvancedInstantiationInterface):
         if timeout is not None:
             self._timeout = timeout
 
-        if default_value != _NotInitialized:
+        if default_value != _NotProvided:
             self._default_value = default_value
 
-        if value != _NotInitialized:
+        if value != _NotProvided:
             self._set_raw_value(value)
 
         if callback is not None:

@@ -5,7 +5,8 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from bliss.common.task_utils import *
+from bliss.common.task import task
+from bliss.common.cleanup import cleanup
 from bliss.common.event import dispatcher
 from bliss.config import channels
 import time

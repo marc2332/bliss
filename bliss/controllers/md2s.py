@@ -15,7 +15,7 @@ yml configuration example:
 """
 
 import time
-from bliss.common.task_utils import *
+from bliss.common.task import task
 from bliss.common.utils import grouped
 from bliss.comm.Exporter import *
 import functools

@@ -33,11 +33,6 @@ controller:
             output: $heater         <- mandatory
 """
 
-from bliss.common.task_utils import *
-import gevent
-import gevent.event
-import math
-import functools
 from bliss.common import log
 from bliss.common.temperature import *
 from bliss.common.utils import set_custom_members

@@ -23,7 +23,7 @@ from .exceptions import CommunicationError, CommunicationTimeout
 from ..common.greenlet_utils import KillMask
 from .util import HexMsg
 
-from bliss.common.task_utils import error_cleanup
+from bliss.common.cleanup import error_cleanup
 
 class SocketTimeout(CommunicationTimeout):
     '''Socket timeout error'''

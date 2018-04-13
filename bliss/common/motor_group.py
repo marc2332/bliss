@@ -8,7 +8,8 @@
 import gevent
 import itertools
 import numpy
-from bliss.common.task_utils import *
+from bliss.common.task import task
+from bliss.common.cleanup import error_cleanup
 from bliss.common.axis import Axis, AxisState, DEFAULT_POLLING_TIME
 from bliss.common.axis import Trajectory
 from bliss.common import event

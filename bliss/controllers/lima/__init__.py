@@ -194,6 +194,9 @@ class Lima(object):
     def startAcq(self):
         self._proxy.startAcq()
 
+    def stopAcq(self):
+        self._proxy.stopAcq()
+        
     def _get_proxy(self,type_name):
         device_name = self._proxy.getPluginDeviceNameFromType(type_name)
         if not device_name:

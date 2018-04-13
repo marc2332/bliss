@@ -11,7 +11,7 @@ import math
 import numpy
 import gevent
 from bliss.common.tango import DeviceProxy
-from bliss.common.task_utils import task
+from bliss.common.task import task
 from bliss.data.node import DataNode
 from bliss.config.settings import HashSetting, QueueObjSetting
 

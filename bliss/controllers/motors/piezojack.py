@@ -17,7 +17,7 @@ from bliss.common import log as elog
 from bliss.common.log import bcolors
 
 from bliss.common.axis import AxisState
-from bliss.common.task_utils import *
+from bliss.common.task import task
 
 from bliss.common.utils import object_method
 

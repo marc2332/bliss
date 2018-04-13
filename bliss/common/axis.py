@@ -29,7 +29,8 @@ as calls to :meth:`~bliss.config.static.Config.get`. Example::
 """
 
 from bliss.common import log as elog
-from bliss.common.task_utils import *
+from bliss.common.task import task
+from bliss.common.cleanup import cleanup, error_cleanup
 from bliss.common.motor_config import StaticConfig
 from bliss.common.motor_settings import AxisSettings
 from bliss.common import event

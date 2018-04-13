@@ -5,7 +5,8 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from bliss.common.task_utils import cleanup, error_cleanup, task
+from bliss.common.cleanup import cleanup, error_cleanup
+from bliss.common.task import task
 from bliss.common.measurement import SamplingCounter
 from bliss.common.greenlet_utils import protect_from_kill
 from gevent.lock import Semaphore

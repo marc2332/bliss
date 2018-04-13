@@ -10,8 +10,7 @@ import datetime
 import numpy
 import pickle
 import gevent
-from bliss.common.utils import all_equal
-from bliss.common.task_utils import task
+from bliss.common.task import task
 from bliss.data.node import DataNodeIterator, _get_or_create_node, DataNodeContainer
 import logging
 import sys

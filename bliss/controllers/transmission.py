@@ -16,8 +16,7 @@ energy: $energy (or energy: 12.7)
 datafile: "/users/blissadm/local/beamline_control/configuration/misc/transmission.dat"
 """
 
-from bliss.common.task_utils import *
-from bliss.controllers import matt, _transmission_calc
+from bliss.controllers import _transmission_calc
 
 class Energy:
    def __init__(self, energy):

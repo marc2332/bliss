@@ -33,7 +33,6 @@ from bliss import setup_globals
 from bliss.common.axis import estimate_duration
 from bliss.common.temperature import Input, Output, TempControllerCounter
 from bliss.controllers.ct2.client import CT2
-from bliss.common.task_utils import *
 from bliss.common.motor_group import Group
 from bliss.common.measurement import Counter, SamplingCounter, IntegratingCounter
 from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionDevice, IntegratingCounterAcquisitionDevice

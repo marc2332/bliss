@@ -5,7 +5,6 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from bliss.common.task_utils import *
 from bliss.common.tango import DeviceProxy
 
 class tango_transfocator:

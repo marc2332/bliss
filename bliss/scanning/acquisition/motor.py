@@ -17,7 +17,7 @@ import bliss
 from bliss.common import axis
 from bliss.common import event
 from bliss.common.event import dispatcher
-from bliss.common.task_utils import error_cleanup
+from bliss.common.cleanup import error_cleanup
 from bliss.common.utils import grouped
 from bliss.common.motor_group import Group
 

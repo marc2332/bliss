@@ -9,7 +9,7 @@
 Classes implemented with temperature Controller
 """
 
-from bliss.common.task_utils import *
+from bliss.common.task import task
 import gevent
 import gevent.event
 import math

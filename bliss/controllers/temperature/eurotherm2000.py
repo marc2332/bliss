@@ -32,15 +32,12 @@ inputs:
 """
 import logging
 
-from bliss.common.task_utils import *   # import cleanup, error_cleanup
-
 from bliss.comm import modbus
-from bliss.comm.exceptions import CommunicationError, CommunicationTimeout
+from bliss.comm.exceptions import CommunicationError
 
 """ TempController import """
 from bliss.controllers.temp import Controller
 from bliss.common.temperature import Input, Output
-from bliss.common import log
 from bliss.common.utils import object_attribute_type_get
 from bliss.common.utils import object_attribute_type_set
 

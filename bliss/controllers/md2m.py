@@ -14,7 +14,8 @@ import logging
 from bliss.common.tango import DeviceProxy
 from bliss.common.scans import *
 from bliss.common.motor_group import Group
-from bliss.common.task_utils import *
+from bliss.common.task import task
+from bliss.common.cleanup import cleanup, error_cleanup
 from bliss.common.utils import grouped
 import copy
 

@@ -7,7 +7,6 @@
 
 from bliss.common import log as elog
 from bliss.common.motor_config import StaticConfig
-from bliss.common.task_utils import *
 from bliss.common import event
 import time
 import gevent

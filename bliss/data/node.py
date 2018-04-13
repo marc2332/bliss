@@ -82,7 +82,7 @@ def _get_node_object(node_type, name, parent, connection, create=False, **keys):
         return klass(name, parent=parent, connection=connection, create=create, **keys)
 
 
-def get_node(db_name, parent=None, connection=None):
+def get_node(db_name, connection=None):
     if connection is None:
         connection = client.get_cache(db=1)
     data = Struct(db_name, connection=connection)
@@ -92,7 +92,7 @@ def get_node(db_name, parent=None, connection=None):
 
     node_type = data.node_type
 
-    return _get_node_object(node_type, db_name, parent, connection)
+    return _get_node_object(node_type, db_name, None, connection)
 
 
 def _create_node(name, node_type=None, parent=None, connection=None, **keys):
@@ -106,7 +106,7 @@ def _get_or_create_node(name, node_type=None, parent=None, connection=None, **ke
         connection = client.get_cache(db=1)
     db_name = DataNode.exists(name, parent, connection)
     if db_name:
-        return get_node(db_name, parent, connection=connection)
+        return get_node(db_name, connection=connection)
     else:
         return _create_node(name, node_type, parent, connection, **keys)
 

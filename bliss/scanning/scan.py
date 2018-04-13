@@ -174,17 +174,13 @@ class ScanSaving(Parameters):
             writer_module = cache_dict.get('_writer_module')
             template_keys = [key[1] for key in formatter.parse(template)]
 
-            if 'session' in template_keys:
-                parent = None
-            else:
-                parent = _get_or_create_node(self.session, "container")
-
             for key in template_keys:
                 value = cache_dict.get(key)
                 if callable(value):
                     value = value(self)  # call the function
                     cache_dict[key] = value
             sub_path = template.format(**cache_dict)
+            parent = _get_or_create_node(self.session, "container")
             for path_item in os.path.normpath(sub_path).split(os.path.sep):
                 parent = _get_or_create_node(path_item, "container",
                                              parent=parent)

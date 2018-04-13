@@ -27,7 +27,7 @@ class DebugMotorMockupAcquisitionDevice(AcquisitionDevice):
         self.channels.append(AcquisitionChannel(name + '_time', float, ()))
 
     def set_time_ref(self, state):
-        if state == 'MOVING':
+        if 'MOVING' in state:
             self.time_ref = time.time()
 
     def prepare(self):

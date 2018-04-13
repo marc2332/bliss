@@ -6,14 +6,16 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import numpy
+import functools
 from bliss.common.motor_config import StaticConfig
-from bliss.common.motor_settings import ControllerAxisSettings, floatOrNone
+from bliss.common.motor_settings import ControllerAxisSettings, setting_update_from_channel, floatOrNone
 from bliss.common.axis import Axis, NoSettingsAxis, AxisRef, Trajectory
 from bliss.common.motor_group import Group, TrajectoryGroup
 from bliss.common import event
 from bliss.physics import trajectory
 from bliss.common.utils import set_custom_members, object_method
-from bliss.config.channels import Cache
+from bliss.config.channels import Cache, Channel
+from bliss.config import settings
 from gevent import lock
 
 # make the link between encoder and axis, if axis uses an encoder
@@ -116,6 +118,32 @@ class Controller(object):
                     raise TypeError("%s: invalid axis '%s`, not an Axis" % (self.name, axis.name))
                 self.axes[axis.name] = referenced_axis
                 axis_list[i] = referenced_axis
+    
+    def _init_settings(self):
+        for axis in self.axes.itervalues():
+            axis._beacon_channels = dict()
+            hash_setting = settings.HashSetting("axis.%s" % axis.name)
+            
+            for setting_name in axis.settings:
+                setting_value = hash_setting.get(setting_name)
+                if setting_value is None:
+                    # take setting value from config
+                    try:
+                        setting_value = axis.config.get(setting_name)
+                    except:
+                        pass
+                    else:
+                        # write setting to cache
+                        hash_setting[setting_name] = setting_value
+            
+                chan_name = "axis.%s.%s" % (axis.name, setting_name)
+                cb = functools.partial(setting_update_from_channel, setting_name=setting_name, axis=axis)
+                if setting_value is None:
+                    chan = Channel(chan_name, callback=cb)
+                else:
+                    chan = Channel(chan_name, default_value=setting_value, callback=cb)
+                chan._setting_update_cb = cb
+                axis._beacon_channels[setting_name] = chan
 
     def get_mandatory_config_parameters(self, axis):
         if isinstance(axis, NoSettingsAxis):
@@ -134,9 +162,6 @@ class Controller(object):
         """
         pass
 
-#    def __del__(self):
-#        self.finalize()
-
     def finalize(self):
         pass
 
@@ -149,8 +174,6 @@ class Controller(object):
                 self.initialize_hardware()
                 self.__initialized_hw.value = True
             
-        axis.settings.load_from_config()
-
         self.initialize_axis(axis)
         self.__initialized_axis[axis] = True
 

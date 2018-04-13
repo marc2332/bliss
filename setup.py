@@ -126,6 +126,7 @@ def main():
         'pytest-mock',
         'pytest-cov',
         'scipy',
+        'gipc'
     ]
 
     setup_requires = [

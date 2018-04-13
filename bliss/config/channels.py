@@ -116,13 +116,12 @@ class Bus(AdvancedInstantiationInterface):
 
     # Cache management
 
-    def get_channel(self, name, *args, **kwargs):
-        channel = self._channels.get(name)
-        if channel is None:
-            self._channels[name] = channel = Channel.instanciate(
-                self, name, *args, **kwargs)
-            self._send_event.set()
-        return channel
+    def get_channel(self, name):
+        return self._channels.get(name)
+
+    def set_channel(self, channel):
+        self._channels[channel.name] = channel
+        self._send_event.set()
 
     # Update management
 
@@ -272,49 +271,58 @@ class Channel(AdvancedInstantiationInterface):
     # Rely on the bus to instanciate the channel
 
     def __new__(cls, name, *args, **kwargs):
-        redis = kwargs.pop('redis', None)
-        return Bus(redis).get_channel(name, *args, **kwargs)
+        # Get the bus
+        bus = kwargs.get('bus')
+        if bus is None:
+            bus = Bus(kwargs.get('redis'))
+
+        # Get the channel
+        channel = bus.get_channel(name)
+        if channel is None:
+            channel = cls.instanciate(bus, name)
+            bus.set_channel(channel)
+        return channel
 
     # Initialize
 
-    def __preinit__(self, bus, name,
-                    value=_NotInitialized,
-                    callback=None,
-                    default_value=None,
-                    timeout=3):
+    def __preinit__(self, bus, name):
         # Configuration
         self._bus = bus
         self._name = name
-        self._timeout = timeout
+        self._timeout = None
 
         # Internal values
         self._raw_value = None
         self._callback_refs = set()
         self._firing_callbacks = False
-        self._default_value = default_value
+        self._default_value = None
 
         # Task and events
         self._query_task = None
         self._value_event = gevent.event.Event()
         self._subscribed_event = gevent.event.Event()
 
-        # Initial value
-        if value == _NotInitialized:
-            self._start_query()
-
     def __init__(self, name,
                  value=_NotInitialized,
+                 default_value=_NotInitialized,
                  callback=None,
-                 default_value=None,
-                 timeout=3.,
-                 redis=None):
-        # Initial value
+                 timeout=None,
+                 redis=None,
+                 bus=None):
+        if timeout is not None:
+            self._timeout = timeout
+
+        if default_value != _NotInitialized:
+            self._default_value = default_value
+
         if value != _NotInitialized:
             self._set_raw_value(value)
 
-        # Set callback
         if callback is not None:
             self.register_callback(callback)
+
+        if self._raw_value is None:
+            self._start_query()
 
     # Read-only properties
 
@@ -335,7 +343,7 @@ class Channel(AdvancedInstantiationInterface):
 
     @property
     def timeout(self):
-        return self._timeout
+        return self._timeout or 3.
 
     @timeout.setter
     def timeout(self, value):
@@ -344,7 +352,7 @@ class Channel(AdvancedInstantiationInterface):
     def wait_ready(self):
         timeout_error = RuntimeError(
             "Timeout: channel {} is not ready".format(self._name))
-        with gevent.Timeout(self._timeout, timeout_error):
+        with gevent.Timeout(self.timeout, timeout_error):
             self._subscribed_event.wait()
             self._value_event.wait()
 
@@ -385,7 +393,7 @@ class Channel(AdvancedInstantiationInterface):
     def _start_query(self):
         # Prevent two queries to run simultaneously
         if self._query_task is not None and not self._query_task.ready():
-            raise RuntimeError('A query task is already running')
+            return
 
         def query_task():
             # Wait subscription

@@ -98,3 +98,59 @@ class Actuator:
       if not state or state == "INOUT":
           return "UNKNOWN"
       return state
+
+#to be remove in next release
+from types import ModuleType
+class task_utils(ModuleType):
+    __all__ = ['cleanup', 'error_cleanup', 'task', 'special_get',
+               'TaskException', 'wrap_errors']
+    @staticmethod
+    def cleanup(*args, **kwargs):
+        import warnings
+        from . import cleanup
+        warnings.simplefilter('once')
+        warnings.warn('Use: module **bliss.common.cleanup** instead of task_utils module',
+                      DeprecationWarning)
+        return cleanup.cleanup(*args, **kwargs)
+    @staticmethod
+    def error_cleanup(*args, **kwargs):
+        kwargs.setdefault('error_cleanup', True)
+        return task_utils.cleanup(*args, **kwargs)
+
+    @staticmethod
+    def task(func):
+        import warnings
+        warnings.simplefilter('once')
+        warnings.warn('Use: module **bliss.common.task** instead of task_utils module',
+                      DeprecationWarning)
+        from . import task
+        return task.task(func)
+
+    @staticmethod
+    def special_get(self, *args, **kwargs):
+        import warnings
+        warnings.simplefilter('once')
+        from . import task
+        warnings.warn('Use: module **bliss.common.task** instead of task_utils module',
+                      DeprecationWarning)
+        return task.special_get(self, *args, **kwargs)
+
+    @staticmethod
+    def TaskException(*args, **kwargs):
+        import warnings
+        warnings.simplefilter('once')
+        from . import task
+        warnings.warn('Use: module **bliss.common.task** instead of task_utils module',
+                      DeprecationWarning)
+        return task.TaskException(*args, **kwargs)
+    @staticmethod
+    def wrap_errors(*args, **kwargs):
+        import warnings
+        warnings.simplefilter('once')
+        from . import task
+        warnings.warn('Use: module **bliss.common.task** instead of task_utils module',
+                      DeprecationWarning)
+        return task.wrap_errors(*args, **kwargs)
+import sys
+sys.modules[__name__ + '.task_utils'] = task_utils('task_utils')
+#ENDOF to be removed

@@ -18,6 +18,7 @@ from bliss.config import channels
 
 def test_channel_not_initialized(beacon):
     c = channels.Channel("tagada")
+    assert c.timeout == 3.
     assert c.value is None
 
 
@@ -89,10 +90,10 @@ def test_channel_repr(beacon):
 
 
 def test_channel_prevent_concurrent_queries(beacon):
-    c = channels.Channel('test_chan5')
-    with pytest.raises(RuntimeError) as info:
-        c._start_query()
-    assert 'already running' in str(info)
+    c1 = channels.Channel('test_chan5')
+    query_task = c1._query_task
+    c2 = channels.Channel('test_chan5')
+    assert query_task == c2._query_task
 
 
 def test_channel_garbage_collection(beacon):
@@ -156,7 +157,8 @@ def test_with_another_process(beacon, beacon_host_port):
         os.kill(p.pid, signal.SIGSTOP)
 
         # New channel
-        cc = channels.Channel("test_chan")
+        cc = channels.Channel("test_chan", timeout=0.5)
+        assert cc.timeout == 0.5
         cc.timeout = 0.1
         assert cc.timeout == 0.1
 
@@ -174,3 +176,61 @@ def test_with_another_process(beacon, beacon_host_port):
         parent_end.put('.')
         p.join()
         assert p.exitcode == 2
+
+
+def test_channels_advanced(beacon):
+    bus1 = channels.Bus()
+    bus2 = channels.Bus.instanciate(bus1._redis)
+
+    # Create channel 1
+    c1 = channels.Channel('test_chan7', bus=bus1)
+    assert c1.value is None
+
+    # Channel 1 is unreferenced but not unsubscribed
+    del c1
+    assert bus1.get_channel('test_chan7') is None
+    assert 'test_chan7' in bus1._current_subs
+
+    # Create channel 2 and makes sure it works correctly
+    c2 = channels.Channel('test_chan7', bus=bus2)
+    assert c2.value is None
+    c2.value = 2
+    assert c2.value == 2
+
+    # Wait and perform another update
+    gevent.sleep(0.1)
+    c2.value = 3
+    assert c2.value == 3
+
+    # Re-instanciate channel 1
+    c1 = channels.Channel('test_chan7', bus=bus1)
+    assert c1.value == 3
+
+
+def test_channels_cache(beacon):
+    # Make sure the cache is clear
+    channels.DEVICE_CACHE.clear()
+
+    # Create a device
+    dev = lambda: None
+    dev.name = 'device'
+
+    # Create a cached channel
+    dev.attr = channels.Cache(dev, 'attr')
+    assert dev.attr.name == 'device:attr'
+    dev.attr.value = 1
+    assert dev.attr.value == 1
+
+    # Clear the cache for all devices
+    assert len(channels.DEVICE_CACHE) == 1
+    channels.clear_cache()
+    assert dev.attr.value is None
+
+    # Cached channels are weakly referenced
+    del dev
+    assert len(channels.DEVICE_CACHE) == 0
+
+    # A device needs a name
+    with pytest.raises(TypeError) as info:
+        channels.Cache(1, 'attr')
+    assert 'the device 1 has no name' in str(info)

@@ -23,6 +23,14 @@ class Roi(object):
         self.height = height
         self.name = name
 
+    @property
+    def p0(self):
+        return (self.x, self.y)
+
+    @property
+    def p1(self):
+        return (self.x + self.width, self.y + self.height)
+
     def is_valid(self):
         return (self.x >= 0 and self.y >= 0 and
                 self.width >= 0 and self.height >= 0)
@@ -30,6 +38,18 @@ class Roi(object):
     def __repr__(self):
         return "<%s,%s> <%s x %s>" % (self.x, self.y,
                                       self.width, self.height)
+
+    @classmethod
+    def frompoints(cls, p0, p1, name=None):
+        return cls.fromcoords(p0[0], p0[1], p1[0], p1[1], name=name)
+
+    @classmethod
+    def fromcoords(cls, x0, y0, x1, y1, name=None):
+        xmin = min(x0, x1)
+        ymin = min(y0, y1)
+        xmax = max(x0, x1)
+        ymax = max(y0, y1)
+        return cls(xmin, ymin, xmax - xmin, ymax - ymin, name=name)
 
 
 class RoiStat(enum.IntEnum):
@@ -129,10 +149,10 @@ class RoiCounters(object):
         self._grouped_read_handler = RoiCounterGroupReadHandler(self)
 
     def set_roi(self,name,roi_values):
-        if len(roi_values) == 4:
-            roi = Roi(*roi_values)
-        elif isinstance(roi_values[0],Roi):
-            roi = roi_values[0]
+        if isinstance(roi_values,Roi):
+            roi = roi_values
+        elif len(roi_values) == 4:
+            roi = Roi(*roi_values, name=name)
         else:
             raise TypeError("Lima.RoiCounters: roi accepts roi (class)"
                             " or (x,y,width,height) values")
@@ -141,8 +161,20 @@ class RoiCounters(object):
         self._proxy.setRois((roi_id,
                              roi.x,roi.y,
                              roi.width,roi.height,))
-        self._save_rois[name] = roi
-        self._roi_ids[name] = roi_id
+        self._set_roi_settings(roi_id, roi)
+
+    def _set_roi_settings(self, roi_id, roi):
+        self._save_rois[roi.name] = roi
+        self._roi_ids[roi.name] = roi_id
+
+    def _clear_rois_settings(self):
+        self._save_rois.clear()
+        self._roi_ids.clear()
+
+    def clear_rois(self):
+        self._clear_rois_settings()
+        self._proxy.clearAllRois()
+        self._proxy.Start()
 
     def get_rois(self):
         return self._save_rois.values()
@@ -169,6 +201,20 @@ class RoiCounters(object):
             self._roi_ids[roi.name] = roi_id
         self._proxy.setRois(rois_values)
 
+    def load_rois(self):
+        """
+        Load current ROI counters from Lima and store them in settings
+        """
+        self._clear_rois_settings()
+        roi_names = self._proxy.getNames()
+        rois = self._proxy.getRois(roi_names)
+        for i, name in enumerate(roi_names):
+            roi_id = rois[i*5]
+            idx = i*5 + 1
+            x, y, w, h = rois[idx:idx + 4]
+            roi = Roi(x, y, w, h, name=name)
+            self._set_roi_settings(roi_id, roi)
+
     def __getattr__(self, name):
         if self._save_rois.get(name) is None:
             raise AttributeError('Unknown ROI counter {0:!r}'.format(name))
@@ -178,19 +224,22 @@ class RoiCounters(object):
 
     def __repr__(self):
         name = self.name.rsplit(':', 1)[-1]
+        lines = ['[{0}]\n'.format(self.config_name)]
         rois = self.get_rois()
-        header = 'Name', 'ROI'
-        x = max((len(str(roi.x)) for roi in rois))
-        y = max((len(str(roi.y)) for roi in rois))
-        w = max((len(str(roi.width)) for roi in rois))
-        h = max((len(str(roi.height)) for roi in rois))
-        roi_template = '<{{0.x: >{0}}}, {{0.y: >{1}}}> ' \
-                       '<{{0.width: >{2}}} x {{0.height: >{3}}}>'.format(x, y, w, h)
-        name_len = max(max((len(roi.name) for roi in rois)), len(header[0]))
-        roi_len = x + y + w + h + 10 # 10 is surrounding characters (<,>,x and spaces)
-        template = '{{0: >{0}}}  {{1: >{1}}}'.format(name_len, roi_len)
-        lines = ['ROI Counters: {0} ({1})\n'.format(name, self.config_name),
-                 template.format(*header),
-                 template.format(name_len*'-', roi_len*'-')]
-        lines += [template.format(roi.name, roi_template.format((roi))) for roi in rois]
+        if rois:
+            header = 'Name', 'ROI (<X, Y> <W x H>)'
+            x = max((len(str(roi.x)) for roi in rois))
+            y = max((len(str(roi.y)) for roi in rois))
+            w = max((len(str(roi.width)) for roi in rois))
+            h = max((len(str(roi.height)) for roi in rois))
+            roi_template = '<{{0.x: >{0}}}, {{0.y: >{1}}}> ' \
+                           '<{{0.width: >{2}}} x {{0.height: >{3}}}>'.format(x, y, w, h)
+            name_len = max(max((len(roi.name) for roi in rois)), len(header[0]))
+            roi_len = x + y + w + h + 10 # 10 is surrounding characters (<,>,x and spaces)
+            template = '{{0: >{0}}}  {{1: >{1}}}'.format(name_len, roi_len)
+            lines += [template.format(*header),
+                      template.format(name_len*'-', roi_len*'-')]
+            lines += [template.format(roi.name, roi_template.format((roi))) for roi in rois]
+        else:
+            lines.append('*** no ROIs defined ***')
         return '\n'.join(lines)

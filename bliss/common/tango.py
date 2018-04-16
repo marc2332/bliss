@@ -1,5 +1,7 @@
 """Compatibility module for pytango."""
 
+from __future__ import absolute_import
+
 from enum import IntEnum
 
 __all__ = ['AttrQuality', 'EventType', 'DevState',
@@ -54,12 +56,27 @@ def AttributeProxy(*args, **kwargs):
 
 
 try:
-    from tango import AttrQuality, EventType, DevState
+    from tango import AttrQuality, EventType, DevState, DevFailed
     from tango.gevent import DeviceProxy, AttributeProxy
 except ImportError:
     # PyTango < 9 imports
     try:
-        from PyTango import AttrQuality, EventType, DevState
+        from PyTango import AttrQuality, EventType, DevState, DevFailed
         from PyTango.gevent import DeviceProxy, AttributeProxy
     except ImportError:
         pass
+
+
+def get_fqn(proxy):
+    """
+    Returns the fully qualified name of a DeviceProxy or an AttributeProxy in the format
+    `tango://<host>:<port>/<dev_name>[/<attr_name>]`
+    """
+    try:
+        name = proxy.dev_name()
+    except AttributeError:
+        name = get_fqn(proxy.get_device_proxy())
+        return '{}/{}'.format(name, proxy.name())
+    host = proxy.get_db_host()
+    port = proxy.get_db_port()
+    return 'tango://{}:{}/{}'.format(host, port, name)

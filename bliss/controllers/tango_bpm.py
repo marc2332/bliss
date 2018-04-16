@@ -6,7 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss.common.utils import add_property
-from bliss.common.tango import DeviceProxy
+from bliss.common.tango import DeviceProxy, DevFailed
 from bliss.common.measurement import SamplingCounter
 from bliss.scanning.scan import ScanSaving
 from bliss.config.settings import SimpleSetting
@@ -216,3 +216,26 @@ class tango_bpm(object):
             self.__control.EnableAutoSaving([directory, prefix])
         else:
             self.__control.DisableAutoSaving()
+
+    def __repr__(self):
+        try:
+            msg = 'BPM {}\n' \
+                  'Expo time = {}\n' \
+                  'Acquiring = {}\n' \
+                  'Live = {}\n' \
+                  'Video live = {}' \
+                  .format(self.name, self.exposure_time, self.is_acquiring(),
+                          self.is_live(), self.is_video_live())
+            if self.__diode_actuator:
+                screen_status = 'IN' if self.is_in() else 'OUT'
+                msg += '\nScreen = ' + screen_status
+            if self.__led_actuator:
+                led_status = 'ON' if self.led.is_in() else 'OFF'
+                msg += '\nLed = ' + led_status
+            if self.__foil_actuator:
+                foil_status = 'IN' if self.__foil_actuator.is_in() else 'OUT'
+                msg += '\nFoil = ' + foil_status
+        except DevFailed:
+            msg = 'BPM {}: Communication error with {}' \
+                .format(self.name, self.__control.dev_name())
+        return msg

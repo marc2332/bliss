@@ -4,7 +4,7 @@
 
 import sys
 import functools
-
+import gevent
 import gevent.event
 import gevent.queue
 
@@ -63,9 +63,9 @@ class QtExecutor(qt.QObject):
 
 def concurrent_to_gevent(future):
     asyncresult = gevent.event.AsyncResult()
-    watcher = asyncresult.hub.loop.async()
+    watcher = gevent.get_hub().loop.async()
 
-    def callback(_):
+    def gevent_callback():
         try:
             result = future.result()
         except BaseException as exc:
@@ -74,10 +74,10 @@ def concurrent_to_gevent(future):
             asyncresult.set_exception(exc, info)
         else:
             asyncresult.set(result)
-        finally:
-            watcher.send()
 
-    future.add_done_callback(callback)
+    watcher.start(gevent_callback)
+    future.add_done_callback(lambda _: watcher.send())
+
     return asyncresult
 
 
@@ -95,8 +95,8 @@ def submit_to_qt_application(fn, *args, **kwargs):
     if EXECUTOR.safe:
         return fn(*args, **kwargs)
     future = EXECUTOR.submit(fn, *args, **kwargs)
-    # Hack: add a timeout so gevent doesn't freak out
-    return concurrent_to_gevent(future).get(timeout=float('inf'))
+
+    return concurrent_to_gevent(future).get()
 
 
 def connect_to_qt_signal(signal, callback):

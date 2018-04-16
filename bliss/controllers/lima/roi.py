@@ -23,6 +23,14 @@ class Roi(object):
         self.height = height
         self.name = name
 
+    @property
+    def p0(self):
+        return (self.x, self.y)
+
+    @property
+    def p1(self):
+        return (self.x + self.width, self.y + self.height)
+
     def is_valid(self):
         return (self.x >= 0 and self.y >= 0 and
                 self.width >= 0 and self.height >= 0)

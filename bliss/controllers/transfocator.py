@@ -5,6 +5,61 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+"""
+ESRF Transfocator
+
+Example YAML_ configuration:
+
+.. code-block:: yaml
+
+    plugin: bliss
+    class: Transfocator
+    name: t1
+    lenses: 8                    # (1)
+    pinhole: 1                   # (2)
+    safety: True                 # (3)
+    controller_ip: 192.168.1.1   # (4)
+
+1. number of lenses (mandatory)
+2. number of pinholes [0..2]. If 1, assumes pinhole is at beginning.
+   If 2, assumes pinholes are at beginning and end (mandatory)
+3. If safety is active forces a pinhole in if any lens is in
+   (optional, default: False)
+4. wago adress (mandatory)
+
+Usage::
+
+    >>> from bliss.config.static import get_config
+    >>> config = get_config()
+    >>> t1 = config.get('t1')
+
+    >>> # repr gives view of transfocator
+    >>> t1
+    P0  L1  L2   L3  L4  L5   L6  L7   L8
+    IN  IN  OUT  IN  IN  OUT  IN  OUT  OUT
+
+    >>> # acess items as list
+    >>> t1[1]
+    'IN'
+
+    # multiple values work as well
+    >>> t1[3, 5]
+    ['IN', 'OUT']
+
+    # so do slices
+    >>> t1[:]
+    ['IN', 'IN', 'OUT', 'IN', 'IN', 'OUT', 'IN', 'OUT', 'OUT']
+
+    # take individual lens out (may use 0, False, 'out' or 'OUT')
+    >>> t1[1] = 0
+
+    >>> # multiple lenses at same time
+    >>> t1[2, 5] = 'out', 'in'
+
+    >>> # shortcut to put multiple at same place
+    >>> t1[1:6] = 1       # put everything IN
+"""
+
 import sys
 import gevent
 import os

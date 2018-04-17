@@ -37,64 +37,17 @@ BLISS requires additional, non-Python dependencies:
 
 ### Using Conda
 
-The use of [Conda][3] is recommended to install all dependencies. BLISS distribution contains a `requirements-conda.txt` file to help with the
-installation. Creating a `bliss` Conda environment can be done like this:
+The use of [Conda][3] is recommended to install all dependencies. BLISS distribution contains a
+`requirements-conda.txt` file to help with the installation. Creating a `bliss` Conda environment
+can be done like this:
 
     $ cd bliss
     $ conda env create -n bliss -f ./requirements-conda.txt
 
-Not all packages are available on standard Conda repositories. Remaining packages can then be installed via `pip` to complete installation:
+Not all packages are available on standard Conda repositories. Remaining packages can then be
+installed via `pip` to complete installation:
 
     $ pip install .
-
-## BLISS library
-
-BLISS is primarily a Python library, thus BLISS can be embedded into any Python
-program.
-
-BLISS is built on top of [gevent][4], a coroutine-based asynchronous networking
-library. Under the hood, gevent works with a very fast control loop based on [libev][5] (or [libuv][6]). The loop has to be running in the host program. When BLISS is imported, gevent monkey-patching is applied automatically (except for the threading module). In most cases, this is
-transparent and does not require anything from the host Python program.
-
-!!! note
-    When using BLISS from a command line or from a graphical      
-    interface, gevent needs to be inserted into the events loop.
-
-For example a BLISS-friendly IPython console can be started like this:
-
-    $ python -c "import gevent.monkey; gevent.monkey.patch_all(thread=False); import IPython; IPython.start_ipython()"
-
-The line above launches Python, makes sure Python standard library is patched, without replacing system threads by gevent greenlets (which seems like a reasonable option), then starts the IPython interpreter.
-
-From now on it is possible to use BLISS as any Python library:
-
-```python
-    In [1]: from bliss.common.axis import Axis
-
-    In [2]: from bliss.controllers.motors import icepap
-
-    In [3]: iceid2322 = icepap.Icepap("iceid2322", {"host": "iceid2322"},
-                                      [("mbv4mot", Axis, { "address":1,"steps_per_unit":817,
-                                      "velocity": 0.3, "acceleration": 3
-                                      })], [], [], [])
-
-    In [4]: iceid2322.initialize()
-
-    In [5]: mbv4 = iceid2322.get_axis("mbv4mot")
-
-    In [6]: mbv4.position()
-    Out[6]: 0.07099143206854346
-
-    In [7]:
-```
-
-The example above creates an IcePAP motor controller instance, configured with a `mbv4mot` axis on IcePAP channel 1. Then, the controller is initialized and the axis object is retrieved to read the motor position.
-
-!!! note
-    This example is meant to demystify BLISS -- the only          
-    recommended way to use BLISS is to rely on BLISS Beacon for
-    configuration and to use the BLISS shell as the preferred
-    command line interface.
 
 ## Beacon configuration server
 
@@ -104,6 +57,8 @@ containing all the information needed to build BLISS objects, including user
 sessions, beamline devices, scans sequences, etc.
 Examples of BLISS YAML configuration files can be found in BLISS distribution
 in `tests/test_configuration/`.
+
+[Read more about Beacon and configuration](config.md)
 
 ### ESRF installation
 
@@ -157,14 +112,14 @@ The following tree shows an example of how YAML files can be organised within th
         ├── __init__.yml
         └── eh.yml
 
-
 !!! note
     YAML files are 'transparent', i.e. files and directories can be
     freely organised, and file names are in fact ignored by Beacon.
     The important information is the `name` of each individual object defined
     in the configuration.
 
-Each kind of object in the configuration is associated with a configuration plugin. The configuration plugin interprets configuration information. Depending on the plugin, different objects can be instantiated from the same configuration.
+Each kind of object in the configuration is associated with a configuration plugin. The configuration plugin interprets
+configuration information. Depending on the plugin, different objects can be instantiated from the same configuration.
 
 Beacon supports the following plugins:
 
@@ -178,7 +133,7 @@ It is possible to specify additional configuration information for the files of 
 
 When grouping similar configuration information in a directory, it is quite useful to specify the plugin in a `__init__.yml` file, for example for motors:
 
-#### ./motors/__init__.yml
+#### ./motors/\_\_init\_\_.yml
 
     plugin: emotion
 
@@ -220,14 +175,18 @@ configured, to know to which IcePAP master it corresponds.
 The `iceid2322` IcePAP controller is declared, and two motors `ts2f` and `ts2b` are configured.
 
 The different fields to be specified under `axes` depends on the controller.
-In the case of IcePAP, `address` is the only mandatory field for the controller.
+In the case of the IcePAP controller, `address` is one of the specific parameters.
 Other parameters are:
 
-* `steps_per_unit`: defaults to 1, number of steps per unit (can be negative)
-* `velocity`: **mandatory**, in $unit.s^{-1}$ (SI)
-* `acceleration`: **mandatory**, in $unit.s^{-2}$ (SI)
-* `backlash`: defaults to 0, in units
-* `tolerance`: defaults to 0 -- in case of motor in closed loop, tolerance for discrepancy check when moving a motor (in units)
+* `steps_per_unit`, optional (1), $steps.unit^{-1}$
+    - can be negative
+* `velocity`, **mandatory**, in $unit.s^{-1}$
+* `acceleration`, **mandatory**, in $unit.s^{-2}$
+* `backlash`, optional (0), in $unit$
+* `tolerance`: optional (0), in $unit$
+     - in case of motor in closed loop, tolerance for discrepancy check when moving a motor
+
+[Read more about motor controllers configuration](config_motctrl.md)
 
 ### Horizontal slits configuration
 
@@ -273,10 +232,16 @@ class: Lima
 tango_url: id15a/limaccds/pilatus2m
 ```
 
+[Read more about 2D detectors configuration](config_lima.md)
+
 ### Session configuration
 
-A session groups objects from configuration under a single name, associated with a setup file. The setup file is a Python script, that is executed after session objects are loaded.
-This can be used to add small users scripts to the global namespace. A session also defines a way to call user scripts, stored with the configuration files.
+A session groups objects from configuration under a single name, associated with a setup file. The setup file is a
+Python script, that is executed after session objects are loaded.
+This can be used to add small users scripts to the global namespace. A session also defines a way to call user
+scripts, stored with the configuration files.
+
+[Read more about Session configuration](config_session.md)
 
 #### Files organisation
     .
@@ -302,7 +267,8 @@ This can be used to add small users scripts to the global namespace. A session a
 `id232.yml` defines a session called `id23-2`, with a `id232_setup.py` setup file.
 
 By default, **all objects** defined in the configuration will be loaded in the session.
-It is possible to specify which objects must be included or not by using the `include-objects` keyword with the list of object names:
+It is possible to specify which objects must be included or not by using the `include-objects` keyword with the
+list of object names:
 
 ```yaml
     - class: Session
@@ -324,21 +290,120 @@ SCAN_SAVING.template = "{session}/{date}"
 print "Setting scanfile to", SCAN_SAVING.get_path()
 ```
 
-All objects from the session are available in the setup script. The globals defined in the setup script, and all session objects, are automatically added to the `bliss.setup_globals` namespace, to be used in user scripts.
+All objects from the session are available in the setup script. The globals defined in the setup script, and all session
+objects, are automatically added to the `bliss.setup_globals` namespace, to be used in user scripts.
 
 #### User scripts
+
+Python files defined under a session `script` directory can be loaded in the setup file
+using the `load_script('script_name')` function. In case of error, the function catches and
+display exceptions, but do not prevent the rest of the setup from executing. Each call to `load_script`
+reloads the Python script again.
+`load_script` is the equivalent of the `execfile` Python function, but for session scripts.
 
 !!! note
     User scripts in a session should be reserved for small functions and helpers.
     More complex code should be moved to a proper beamline project with revision
     control, tests and documentation.
 
-Python files defined under a session `script` directory can be loaded in the setup file
-using the `load_script('script_name')` function. In case of error, the function catches and
-display exceptions, but do not prevent the rest of the setup from executing. Calling `load_script` several times reloads the Python script.
-`load_script` is the equivalent of the `execfile` Python function, but for session scripts.
-
 ## BLISS shell
+
+BLISS comes with a command line interface based on [ptpython](8):
+
+    $ bliss -h
+
+    Usage: bliss [-l | --log-level=<log_level>] [-s <name> | --session=<name>]
+           bliss [-v | --version]
+           bliss [-h | --help]
+           bliss --show-sessions
+           bliss --show-sessions-only
+
+    Options:
+        -l, --log-level=<log_level>   Log level [default: WARN] (CRITICAL ERROR INFO DEBUG NOTSET)
+        -s, --session=<session_name>  Start with the specified session
+        -v, --version                 Show version and exit
+        -h, --help                    Show help screen and exit
+        --show-sessions               Display available sessions and tree of sub-sessions
+        --show-sessions-only          Display available sessions names only
+
+
+The `-s` command line argument loads the specified session at startup, i.e. configuration objects
+defined in the session are initialized, then the setup file is executed. Finally the prompt
+returns to user:
+
+    $ bliss -s eh1
+                           __         __   __
+                          |__) |   | /__` /__`
+                          |__) |__ | .__/ .__/
+
+
+    Welcome to BLISS version 0.01 running on pcsht (in bliss Conda environment)
+    Copyright (c) ESRF, 2015-2017
+    -
+    Connected to Beacon server on pcsht (port 3412)
+    eh1: Executing setup...
+    Initializing 'pzth`
+    Initializing 'simul_mca`
+    Initializing 'pzth_enc`
+    Done.
+
+    EH1 [1]:
+
+[Learn more about BLISS shell](bliss_shell,md)
+
+## BLISS library
+
+BLISS is primarily a Python library, thus BLISS can be embedded into any Python
+program.
+
+BLISS is built on top of [gevent][4], a coroutine-based asynchronous networking
+library. Under the hood, gevent works with a very fast control loop based on [libev][5] (or [libuv][6]).
+The loop has to be running in the host program. When BLISS is imported, gevent monkey-patching is
+applied automatically (except for the threading module). In most cases, this is
+transparent and does not require anything from the host Python program.
+
+!!! note
+    When using BLISS from a command line or from a graphical      
+    interface, gevent needs to be inserted into the events loop.
+
+For example a BLISS-friendly IPython console can be started like this:
+
+    $ python -c "import gevent.monkey; gevent.monkey.patch_all(thread=False); import IPython; IPython.start_ipython()"
+
+The line above launches Python, makes sure Python standard library is patched, without replacing system
+threads by gevent greenlets (which seems like a reasonable option), then starts the IPython interpreter.
+
+From now on it is possible to use BLISS as any Python library:
+
+```python
+    In [1]: from bliss.common.axis import Axis
+
+    In [2]: from bliss.controllers.motors import icepap
+
+    In [3]: iceid2322 = icepap.Icepap("iceid2322", {"host": "iceid2322"},
+                                      [("mbv4mot", Axis, { "address":1,"steps_per_unit":817,
+                                      "velocity": 0.3, "acceleration": 3
+                                      })], [], [], [])
+
+    In [4]: iceid2322.initialize()
+
+    In [5]: mbv4 = iceid2322.get_axis("mbv4mot")
+
+    In [6]: mbv4.position()
+    Out[6]: 0.07099143206854346
+
+    In [7]:
+```
+
+The example above creates an IcePAP motor controller instance, configured with a `mbv4mot` axis on
+IcePAP channel 1. Then, the controller is initialized and the axis object is retrieved to read the
+motor position.
+
+!!! note
+    This example is meant to demystify BLISS -- the only recommended way to use BLISS is to
+    rely on BLISS Beacon to get configuration and to use the BLISS shell as the preferred
+    command line interface.
+
 
 
 
@@ -349,3 +414,4 @@ display exceptions, but do not prevent the rest of the setup from executing. Cal
 [5]: http://software.schmorp.de/pkg/libev.html
 [6]: http://libuv.org/
 [7]: https://en.wikipedia.org/wiki/YAML
+[8]: https://github.com/jonathanslenders/ptpython

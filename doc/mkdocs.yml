@@ -4,10 +4,11 @@ repo_url: 'https://gitlab.esrf.fr/bliss/bliss'
 pages:
         - Getting started: getting_started.md
         - Configuration:
+                - Beacon and YAML files: config.md
                 - Motor controllers: config_motctrl.md
                 - 2D detectors (Lima): config_lima.md
                 - MCA: config_mca.md
-                - Temperature controllers: config_temperature.md
+                - Temperature controllers: config_tempctrl.md
                 - P201: config_p201.md
                 - MUSST: config_musst.md
                 - Opiom: config_opiom.md
@@ -22,12 +23,18 @@ pages:
                 - Counters and measurement groups: scan_ctmg.md
                 - Default scans: scan_default.md
                 - Data saving: scan_saving.md
-                - BLISS scan engine: scan_engine.md
+                - BLISS scan engine explained: scan_engine.md
                 - Continuous scans: scan_continuous.md
         - Online data display:
                 - Scans plotting: flint_scan_plotting.md
                 - Interaction with plots: flint_interaction.md
-        - Development guidelines: dev_guidelines.md
+        - Developers corner:
+                - Guidelines: dev_guidelines.md
+                - Writing a motor controller: dev_write_motctrl.md
+                - Writing a MCA controller: dev_write_mca.md
+                - Writing a temperature controller: dev_write_tempctrl.md
+                - Sampling and Integrating counters: dev_ct.md
+                - Acquisition objects: dev_acq.md
 theme:
         name: material
         language: en

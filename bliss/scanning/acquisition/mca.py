@@ -206,7 +206,8 @@ def mca_default_chain_plugin(tree, counters, scan_pars):
             mca_counters.setdefault(counter.controller, []).append(counter)
     # Remove mca counters from the counter set
     for counter_list in mca_counters.values():
-        counters -= set(counter_list)
+        for counter in counter_list:
+            counters.remove(counters)
     # Create acquistion devices
     for mca, counter_list in mca_counters.items():
         acq_device = McaAcquisitionDevice(

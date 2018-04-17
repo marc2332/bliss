@@ -83,6 +83,13 @@ class RoiStatCounter(IntegratingCounter):
     def roi_stat_id(roi_id, stat):
         return (roi_id << 8) | stat
 
+    # Override fullname property
+
+    @property
+    def fullname(self):
+        return '.'.join(
+            (self.acquisition_controller.name, self.controller.name, self.name))
+
 
 class SingleRoiCounters(object):
 
@@ -109,6 +116,9 @@ class SingleRoiCounters(object):
     @property
     def max(self):
         return self.factory(RoiStat.Max)
+
+    def __iter__(self):
+        return [self.sum, self.avg, self.std, self.min, self.max]
 
 
 class RoiCounterGroupReadHandler(IntegratingCounter.GroupedReadHandler):
@@ -140,7 +150,7 @@ class RoiCounters(object):
         self._proxy = proxy
         self._acquisition_proxy = acquisition_proxy
         self._proxy.Start()
-        self.name = '%s:RoiCounters' % name
+        self.name = 'roi_counters'
         self._current_config = settings.SimpleSetting(self.name,
                                                       default_value='default')
         settings_name = '%s:%s' % (self.name, self._current_config.get())

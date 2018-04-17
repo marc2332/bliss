@@ -5,11 +5,12 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 import importlib
-from bliss.common.tango import DeviceProxy, DevFailed
-from bliss.config import settings
+
 from .bpm import Bpm
 from .roi import Roi, RoiCounters
 
+from bliss.common.measurement import BaseCounter
+from bliss.common.tango import DeviceProxy, DevFailed
 
 
 def _attr_str(value, dtype='str', enums=None, err_str='?'):
@@ -35,11 +36,45 @@ class Lima(object):
     ROI_COUNTERS = 'roicounter'
     BPM = 'beamviewer'
 
-    class Image(object):
-        ROTATION_0,ROTATION_90,ROTATION_180,ROTATION_270 = range(4)
+    class ImageCounter(BaseCounter):
+        ROTATION_0 = 0
+        ROTATION_90 = 1
+        ROTATION_180 = 2
+        ROTATION_270 = 3
 
-        def __init__(self,proxy):
+        def __init__(self, controller, proxy):
             self._proxy = proxy
+            self._controller = controller
+
+        # Standard counter interface
+
+        @property
+        def name(self):
+            return 'image'
+
+        @property
+        def controller(self):
+            return self._controller
+
+        @property
+        def dtype(self):
+            # Because it is a reference
+            return None
+
+        @property
+        def shape(self):
+            # Because it is a reference
+            return (0, 0)
+
+        # Plugin interface
+
+        @property
+        def default_chain_plugin(self):
+            from bliss.scanning.acquisition.lima import lima_default_chain_plugin
+            return lima_default_chain_plugin
+
+        # Specific interface
+
         @property
         def proxy(self):
             return self._proxy
@@ -200,7 +235,7 @@ class Lima(object):
     @property
     def image(self):
         if self._image is None:
-            self._image = Lima.Image(self._proxy)
+            self._image = Lima.ImageCounter(self, self._proxy)
         return self._image
 
     @property
@@ -255,7 +290,7 @@ class Lima(object):
 
     def stopAcq(self):
         self._proxy.stopAcq()
-        
+
     def _get_proxy(self,type_name):
         device_name = self._proxy.getPluginDeviceNameFromType(type_name)
         if not device_name:
@@ -284,3 +319,63 @@ class Lima(object):
                'Acquisition:\n{2!r}\n\n' \
                'ROI Counters:\n{3!r}' \
                .format(data, self.image, self.acquisition, self.roi_counters)
+
+    # Expose counters
+
+    @property
+    def counters(self):
+        roi_counters = [
+            counter
+            for counters in self.roi_counters.get_rois()
+            for counter in counters]
+        all_counters = [self.image] + roi_counters + list(self.bpm.counters)
+        return counter_namespace(all_counters)
+
+    @property
+    def counter_groups(self):
+        dct = {}
+
+        # Image counter
+        dct['images'] = counter_namespace([self.image])
+
+        # BPM counters
+        dct['bpm'] = counter_namespace(self.bpm.counters)
+
+        # Specific ROI counters
+        for roi in self.roi_counters.get_rois():
+            dct['roi_counters.' + roi.name] = counter_namespace(roi)
+
+        # All ROI counters
+        dct['roi_counters'] = namespace(
+            counter
+            for counters in self.roi_counters.get_rois()
+            for counter in counters)
+
+        # Return namespace
+        return namespace(dct)
+
+
+# TODO: This should go somewhere in bliss/common
+
+def counter_namespace(counters):
+    return namespace({counter.name: counter for counter in counters})
+
+
+class namespace(object):
+    def __init__(self, dct):
+        self.__dict__.update(dct)
+
+    def __iter__(self):
+        return (value for name, value in sorted(self.__dict__.items()))
+
+    def __getattr__(self, arg):
+        if arg.startswith('__'):
+            raise AttributeError(arg)
+        if any(name.startswith(arg + '.') for name in dir(self)):
+            getter_cls = type('Getter', (object,), {
+                '__getattr__': lambda _, key: getattr(self, arg + '.' + key)})
+            return getter_cls()
+        raise AttributeError(arg)
+
+    def __setattr__(self, key, value):
+        raise TypeError('namespace is not mutable')

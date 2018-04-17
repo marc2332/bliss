@@ -6,11 +6,9 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from ..chain import AcquisitionMaster, AcquisitionChannel
-from bliss.common.event import dispatcher
 from bliss.controllers import lima
 from bliss.common.tango import get_fqn
 import gevent
-import time
 import numpy
 import os
 
@@ -29,6 +27,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
                  acc_time_mode="LIVE", acc_max_expo_time=1, latency_time=0,
                  save_flag=False,
                  prepare_once=False, start_once=False,
+                 counters=(),
                  **keys):
         """
         Acquisition device for lima camera.
@@ -52,8 +51,17 @@ class LimaAcquisitionMaster(AcquisitionMaster):
                                    trigger_type=trigger_type,
                                    prepare_once=prepare_once, start_once=start_once)
 
-        self._image_channel = AcquisitionChannel('image', None, (0,0), reference=True, data_node_type='lima')
-        self.channels.append(self._image_channel)
+        # Manage image counter
+        for counter in counters:
+            if counter.name == 'image':
+                self._image_channel = AcquisitionChannel(
+                    counter.name, counter.dtype, counter.shape,
+                    reference=True, data_node_type='lima')
+                self.channels.append(self._image_channel)
+                break
+        # No image counter found
+        else:
+            self._image_channel = None
 
         self.save_flag = save_flag
         self._reading_task = None

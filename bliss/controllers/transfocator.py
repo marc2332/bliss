@@ -5,13 +5,69 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+"""
+ESRF Transfocator
+
+Example YAML_ configuration:
+
+.. code-block:: yaml
+
+    plugin: bliss
+    class: Transfocator
+    name: t1
+    lenses: 8                    # (1)
+    pinhole: 1                   # (2)
+    safety: True                 # (3)
+    controller_ip: 192.168.1.1   # (4)
+
+1. number of lenses (mandatory)
+2. number of pinholes [0..2]. If 1, assumes pinhole is at beginning.
+   If 2, assumes pinholes are at beginning and end (mandatory)
+3. If safety is active forces a pinhole in if any lens is in
+   (optional, default: False)
+4. wago adress (mandatory)
+
+Usage::
+
+    >>> from bliss.config.static import get_config
+    >>> config = get_config()
+    >>> t1 = config.get('t1')
+
+    >>> # repr gives view of transfocator
+    >>> t1
+    P0  L1  L2   L3  L4  L5   L6  L7   L8
+    IN  IN  OUT  IN  IN  OUT  IN  OUT  OUT
+
+    >>> # acess items as list
+    >>> t1[1]
+    'IN'
+
+    # multiple values work as well
+    >>> t1[3, 5]
+    ['IN', 'OUT']
+
+    # so do slices
+    >>> t1[:]
+    ['IN', 'IN', 'OUT', 'IN', 'IN', 'OUT', 'IN', 'OUT', 'OUT']
+
+    # take individual lens out (may use 0, False, 'out' or 'OUT')
+    >>> t1[1] = 0
+
+    >>> # multiple lenses at same time
+    >>> t1[2, 5] = 'out', 'in'
+
+    >>> # shortcut to put multiple at same place
+    >>> t1[1:6] = 1       # put everything IN
+"""
+
 import sys
 import gevent
 import os
 import time
 import types
 import math
-from bliss.common.utils import grouped
+import tabulate
+from bliss.common.utils import grouped, OrderedDict
 from bliss.controllers.wago import WagoController
 from bliss.config import channels
 from bliss.common.event import dispatcher
@@ -69,6 +125,18 @@ class TfWagoMapping:
         self.mapping = mapping
 
 
+def _display(status):
+    return '---' if status is None else ('IN' if status else 'OUT')
+
+
+def _encode(status):
+    if status in (1, 'in', 'IN', True):
+        return True
+    elif status in (0, 'out', 'OUT', False):
+        return False
+    raise ValueError('Invalid position {!r}'.format(status))
+
+
 class Transfocator:
     def __init__(self, name, config):
         self.exec_timeout = int(config.get("timeout", 3))
@@ -77,8 +145,10 @@ class Transfocator:
         # read_mode >0 means:
         # 'first transfocator in beam status is wired last in Wago'
         # the same goes for cmd_mode
+        self.name = name
         self.read_mode = int(config.get("read_mode", 0))
         self.cmd_mode = int(config.get("cmd_mode", 0))
+        self.safety = bool(config.get("safety", False))
         self.wago_ip = config["controller_ip"]
         self.wago = None
         self.empty_jacks = []
@@ -88,7 +158,7 @@ class Transfocator:
 
         if 'lenses' in config:
             self.nb_lens = int(config["lenses"])
-            self.nb_pinhole = int(config["pinhole"])
+            nb_pinhole = int(config["pinhole"])
 
             if nb_pinhole == 2:
                 self.nb_pinhole = 2
@@ -129,7 +199,7 @@ class Transfocator:
     def pos_read(self):
         self.connect()
 
-        state = list(grouped(self.wago.get("status")), 2)
+        state = list(grouped(self.wago.get("status"), 2))
         if self.read_mode != 0:
             state.reverse()
 
@@ -168,86 +238,109 @@ class Transfocator:
         finally:
             self._state_chan.value = self.status_read()
 
-    def status_read(self):
-        stat = []
-        mystr = ""
-        lbl = ""
-
-        for i in range(self.nb_lens+self.nb_pinhole):
-            if i in self.empty_jacks:
-                lbl = "X"
-            else:
-                if i in self.pinhole:
-                    lbl = "P"
-                else:
-                    lbl = "L"
-            mystr += lbl + str(i+1) + "  "
-        stat.append(mystr)
-
+    def status_dict(self):
+        positions = OrderedDict()
         value = self.pos_read()
-        mystr = ""
         for i in range(self.nb_lens+self.nb_pinhole):
             if i in self.empty_jacks:
-                lbl = "---"
+                lbl, position = "X{}", None
             else:
-                lbl = "OUT"
-                if value&(1<<i) > 0:
-                    lbl = "IN "
-                if value&(1<<i+self.nb_lens+self.nb_pinhole) > 0:
-                    lbl = "???"
-            mystr += lbl + " "
-        stat.append(mystr)
-        return stat
+                lbl = "P{}" if i in self.pinhole else "L{}"
+                position = value&(1<<i) > 0
+            positions[lbl.format(i)] = position
+        return positions
+
+    def status_read(self):
+        header, positions = zip(*self.status_dict().items())
+        header = ''.join(('{:<4}'.format(col) for col in header))
+        positions = (_display(col) for col in positions)
+        positions = ''.join(('{:<4}'.format(col) for col in positions))
+        return header, positions
 
     def set(self, *lenses):
-        bits = 0
+        status = len(self)*[False]
         for i, lense in enumerate(lenses):
-            if lense is None or i in self.empty_jacks:
-                continue
-            else:
-                if lense:
-                    bits += (1 << i)
-        self.tfstatus_set(bits)
+            status[i] = lense
+        self[:] = status
 
     def set_in(self, lense_index):
-        if lense_index in self.empty_jacks:
-            return
-        current_bits = self.pos_read()
-        if current_bits & (1<<lense_index) > 0:
-            return
-        bits = current_bits + (1 << lense_index)
-        self.tfstatus_set(bits)
+        self[lense_index] = True
 
     def set_out(self, lense_index):
-        if lense_index in self.empty_jacks:
-            return
-        current_bits = self.pos_read()
-        if current_bits & (1<<lense_index) == 0:
-            return
-        bits = current_bits - (1 << lense_index)
-        self.tfstatus_set(bits)
+        self[lense_index] = False
 
     def toggle(self, lense_index):
         current_bits = self.pos_read()
-        if current_bits & (1<<lense_index) > 0:
-            self.set_out(lense_index)
-        else:
-            self.set_in(lense_index)
+        self[lense_index] = current_bits & (1<<lense_index) == 0
+
+    def set_n(self, *idx_values):
+        bits = self.pos_read()
+        for idx, value in zip(idx_values[::2], idx_values[1::2]):
+            if value is None or idx in self.empty_jacks:
+                continue
+            else:
+                if _encode(value):
+                    bits |= (1 << idx)
+                else:
+                    bits &= 0xFFFFFFFF ^ (1 << idx)
+        if self.safety and bits and self.pinhole:
+            for pinhole in self.pinhole:
+                bits |= (1 << pinhole)
+        if self.pos_read() == bits:
+            # nothing to do
+            return
+        self.tfstatus_set(bits)
 
     def set_all(self, set_in=True):
-        cmd = [set_in]*(self.nb_lens+self.nb_pinhole)
-        if set_in:
-            # remove the ones that are empty
-            for i in self.empty_jacks:
-                cmd[i] = False
-        return self.set(*cmd)
+        self[:] = set_in
 
     def set_pin(self, set_in=True):
-        for p in self.pinhole:
-            if set_in:
-                self.set_in(p)
-            else:
-                self.set_out(p)
+        self[self.pinhole] = set_in
 
     def __state_changed(self, st):
         dispatcher.send('state', self, st)
+
+    def __len__(self):
+        return self.nb_lens + self.nb_pinhole
+
+    def __getitem__(self, idx):
+        pos = self.status_dict().values()
+        if isinstance(idx, int):
+            return _display(pos[idx])
+        elif isinstance(idx, slice):
+            idx = range(*idx.indices(self.nb_lens+self.nb_pinhole))
+        return [_display(pos[i]) for i in idx]
+
+    def __setitem__(self, idx, value):
+        if isinstance(idx, int):
+            args = idx, value
+        else:
+            if isinstance(idx, slice):
+                idx = range(*idx.indices(self.nb_lens+self.nb_pinhole))
+            nb_idx = len(idx)
+            if not isinstance(value, (tuple, list)):
+                value = nb_idx*[value]
+            nb_value = len(value)
+            if nb_idx != nb_value:
+                raise ValueError('Mismatch between number of lenses ({}) ' \
+                                 'and number of values ({})' \
+                                 .format(nb_idx, nb_value))
+            args = [val for pair in zip(idx, value) for val in pair]
+        self.set_n(*args)
+
+    def __repr__(self):
+        prefix = 'Transfocator ' + self.name
+        try:
+            header, positions = zip(*self.status_dict().items())
+            positions = [_display(col) for col in positions]
+            table = tabulate.tabulate((header, positions), tablefmt='plain')
+            return '{}:\n{}'.format(prefix, table)
+        except Exception as err:
+            return '{}: Error: {}'.format(prefix, err)
+
+    def __str__(self):
+        # Channel uses louie behind which calls this object str.
+        # str is overloaded to avoid calling repr which triggers a connection.
+        # We want to avoid creating a connection just because of a louie signal
+        return '<bliss.controllers.transfocator.Transfocator ' \
+            'instance at {:x}>'.format(id(self))

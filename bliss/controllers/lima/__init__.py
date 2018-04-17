@@ -291,8 +291,8 @@ class Lima(object):
     @property
     def bpm(self):
         if self.__bpm is None:
-          bpm_proxy = self._get_proxy(self.BPM)
-          self.__bpm = Bpm(self.name, bpm_proxy, self)
+            bpm_proxy = self._get_proxy(self.BPM)
+            self.__bpm = Bpm(self.name, bpm_proxy, self)
         return self.__bpm
 
     @property
@@ -366,10 +366,14 @@ class Lima(object):
             dct['roi_counters.' + roi.name] = counter_namespace(roi)
 
         # All ROI counters
-        dct['roi_counters'] = namespace(
+        dct['roi_counters'] = counter_namespace(
             counter
             for counters in self.roi_counters.get_rois()
             for counter in counters)
+
+        # Default grouped
+        default_counters = list(dct['images']) + list(dct['roi_counters'])
+        dct['default'] = counter_namespace(default_counters)
 
         # Return namespace
         return namespace(dct)

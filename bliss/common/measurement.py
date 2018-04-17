@@ -11,8 +11,8 @@
 import numpy
 import weakref
 
-from bliss.common.utils import add_conversion_function
 from bliss.config import static
+from bliss.common.utils import add_conversion_function
 
 
 class GroupedReadMixin(object):
@@ -44,9 +44,16 @@ class GroupedReadMixin(object):
 class BaseCounter(object):
     """Define a standard counter interface."""
 
+    # Properties
+
     @property
     def controller(self):
         """A controller or None."""
+        return None
+
+    @property
+    def master_controller(self):
+        """A master controller or None."""
         return None
 
     @property
@@ -64,22 +71,36 @@ class BaseCounter(object):
         """The data shape as used by numpy."""
         raise NotImplementedError
 
-    # Added logic
+    # Methods
+
+    def create_acquisition_device(self, scan_pars):
+        """Instanciate the corresponding acquisition device."""
+        raise NotImplementedError
+
+    # Extra logic
 
     @property
     def fullname(self):
         """A unique name within the session scope.
 
         The standard implementation defines it as:
-        `<controller_name>.<counter_name>`.
+        `<master_controller_name>.<controller_name>.<counter_name>`.
         """
-        if self.controller is None:
-            return self.name
-        return '.'.join((self.controller.name, self.name))
+        args = []
+        # Master controller
+        if self.master_controller is not None:
+            args.append(self.master_controller.name)
+        # Controller
+        if self.controller is not None:
+            args.append(self.controller.name)
+        # Name
+        args.append(self.name)
+        return '.'.join(args)
 
 
 class Counter(BaseCounter):
     GROUPED_READ_HANDLERS = weakref.WeakKeyDictionary()
+    ACQUISITION_DEVICE_CLASS = NotImplemented
 
     def __init__(self, name,
                  grouped_read_handler=None,
@@ -109,6 +130,16 @@ class Counter(BaseCounter):
     def shape(self):
         return ()
 
+    # Default chain handling
+
+    @classmethod
+    def get_acquisition_device_class(cls):
+        raise NotImplementedError
+
+    def create_acquisition_device(self, scan_pars):
+        read_handler = self.GROUPED_READ_HANDLERS.get(self, self)
+        return self.get_acquisition_device_class()(read_handler, **scan_pars)
+
     # Extra interface
 
     @property
@@ -126,6 +157,12 @@ class Counter(BaseCounter):
 
 
 class SamplingCounter(Counter):
+
+    @classmethod
+    def get_acquisition_device_class(cls):
+        from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionDevice
+        return SamplingCounterAcquisitionDevice
+
     class GroupedReadHandler(GroupedReadMixin):
         def read(self, *counters):
             """
@@ -187,6 +224,16 @@ def DefaultSamplingCounterGroupedReadHandler(
 
 
 class IntegratingCounter(Counter):
+
+    @classmethod
+    def get_acquisition_device_class(cls):
+        from bliss.scanning.acquisition.counter import IntegratingCounterAcquisitionDevice
+        return IntegratingCounterAcquisitionDevice
+
+    @property
+    def master_controller(self):
+        return self._master_controller_ref()
+
     class GroupedReadHandler(GroupedReadMixin):
         def get_values(self, from_index, *counters):
             """
@@ -195,7 +242,7 @@ class IntegratingCounter(Counter):
             """
             raise NotImplementedError
 
-    def __init__(self, name, controller, acquisition_controller,
+    def __init__(self, name, controller, master_controller,
                  grouped_read_handler=None, conversion_function=None):
         if grouped_read_handler is None and hasattr(controller, "get_values"):
             grouped_read_handler = DefaultIntegratingCounterGroupedReadHandler(
@@ -219,7 +266,7 @@ class IntegratingCounter(Counter):
         super(IntegratingCounter, self).__init__(
             name, grouped_read_handler, conversion_function, controller)
 
-        self._acquisition_controller_ref = weakref.ref(acquisition_controller)
+        self._master_controller_ref = weakref.ref(master_controller)
 
     def get_values(self, from_index=0):
         """
@@ -231,10 +278,6 @@ class IntegratingCounter(Counter):
         point **from_index**
         """
         raise NotImplementedError
-
-    @property
-    def acquisition_controller(self):
-        return self._acquisition_controller_ref()
 
 
 def DefaultIntegratingCounterGroupedReadHandler(

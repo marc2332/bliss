@@ -177,8 +177,7 @@ def counter_tree(counters, scan_pars):
             acquisition_device = counter.create_acquisition_device(scan_pars)
             device_dict[device_controller] = acquisition_device
 
-        # Make sure the device is in the tree
-        if acquisition_device not in tree[acquisition_master]:
+            # Make sure the device is in the tree
             tree[acquisition_master].append(acquisition_device)
 
         # Add counter
@@ -186,9 +185,13 @@ def counter_tree(counters, scan_pars):
             device_dict[device_controller].add_counter(counter)
         elif master_controller:
             master_dict[master_controller].add_counter(counter)
+
+        # Special case: counters without controllers
         else:
             warnings.warn(
                 'Counter {!r} has no controller associated'.format(counter))
+            acquisition_device = counter.create_acquisition_device(scan_pars)
+            tree[None].append(acquisition_device)
 
     return tree
 
@@ -228,7 +231,7 @@ def default_chain(chain, scan_pars, counter_args):
         sleep_time=sleep_time)
 
     # Build counter tree
-    tree = counters_tree(counters, scan_pars)
+    tree = counter_tree(counters, scan_pars)
 
     # Build chain
     for acq_master, acq_devices in tree.iteritems():

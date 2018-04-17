@@ -36,6 +36,33 @@ class Lima(object):
     ROI_COUNTERS = 'roicounter'
     BPM = 'beamviewer'
 
+    # Standard interface
+
+    def create_master_device(self, scan_pars):
+        # Prevent cyclic imports
+        from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
+
+        # Extract information
+        npoints = scan_pars.get('npoints', 1)
+        acq_expo_time = scan_pars['count_time']
+        save_flag = scan_pars.get('save', False)
+        multi_mode = 'INTERNAL_TRIGGER_MULTI' in self.available_triggers
+        acq_nb_frames = npoints if multi_mode else 1
+        acq_trigger_mode = scan_pars.get(
+            'acq_trigger_mode',
+            'INTERNAL_TRIGGER_MULTI' if multi_mode else 'INTERNAL_TRIGGER')
+
+        # Instanciate master
+        return LimaAcquisitionMaster(
+            self,
+            acq_nb_frames=acq_nb_frames,
+            acq_expo_time=acq_expo_time,
+            acq_trigger_mode=acq_trigger_mode,
+            save_flag=save_flag,
+            prepare_once=multi_mode)
+
+    # Image counter class
+
     class ImageCounter(BaseCounter):
         ROTATION_0 = 0
         ROTATION_90 = 1
@@ -53,7 +80,7 @@ class Lima(object):
             return 'image'
 
         @property
-        def controller(self):
+        def master_controller(self):
             return self._controller
 
         @property
@@ -65,13 +92,6 @@ class Lima(object):
         def shape(self):
             # Because it is a reference
             return (0, 0)
-
-        # Plugin interface
-
-        @property
-        def default_chain_plugin(self):
-            from bliss.scanning.acquisition.lima import lima_default_chain_plugin
-            return lima_default_chain_plugin
 
         # Specific interface
 

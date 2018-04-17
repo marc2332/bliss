@@ -68,9 +68,9 @@ class RoiStatCounter(IntegratingCounter):
         self.stat = stat
         name = self.roi_name + '.' + stat.name.lower()
         self.controller = kwargs.pop('controller')
-        acquisition_controller = kwargs.pop('acquisition_controller')
+        master_controller = kwargs.pop('master_controller')
         IntegratingCounter.__init__(self, name, self.controller,
-                                    acquisition_controller, **kwargs)
+                                    master_controller, **kwargs)
 
     def __int__(self):
         # counter statistic ID = roi_id | statistic_id
@@ -82,13 +82,6 @@ class RoiStatCounter(IntegratingCounter):
     @staticmethod
     def roi_stat_id(roi_id, stat):
         return (roi_id << 8) | stat
-
-    # Override fullname property
-
-    @property
-    def fullname(self):
-        return '.'.join(
-            (self.acquisition_controller.name, self.controller.name, self.name))
 
 
 class SingleRoiCounters(object):
@@ -231,7 +224,7 @@ class RoiCounters(object):
             raise AttributeError('Unknown ROI counter {0:!r}'.format(name))
         return SingleRoiCounters(
             name, controller=self,
-            acquisition_controller=self._acquisition_proxy,
+            master_controller=self._acquisition_proxy,
             grouped_read_handler=self._grouped_read_handler)
 
     def __repr__(self):

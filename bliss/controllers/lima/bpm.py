@@ -34,14 +34,8 @@ class _GroupReadHandler(IntegratingCounter.GroupedReadHandler):
 
 
 class LimaBpmCounter(IntegratingCounter):
-    def __init__(self, name, controller, acquisition_controller,**keys):
-        IntegratingCounter.__init__(self, name, controller, acquisition_controller,
-                                    **keys)
-
-    @property
-    def fullname(self):
-        return '.'.join(
-            (self.acquisition_controller.name, self.controller.name, self.name))
+    """Lima BPM integrating counter."""
+    pass
 
 
 class Bpm(object):

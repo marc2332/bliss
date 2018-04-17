@@ -27,7 +27,6 @@ class LimaAcquisitionMaster(AcquisitionMaster):
                  acc_time_mode="LIVE", acc_max_expo_time=1, latency_time=0,
                  save_flag=False,
                  prepare_once=False, start_once=False,
-                 counters=(),
                  **keys):
         """
         Acquisition device for lima camera.
@@ -51,22 +50,19 @@ class LimaAcquisitionMaster(AcquisitionMaster):
                                    trigger_type=trigger_type,
                                    prepare_once=prepare_once, start_once=start_once)
 
-        # Manage image counter
-        for counter in counters:
-            if counter.name == 'image':
-                self._image_channel = AcquisitionChannel(
-                    counter.name, counter.dtype, counter.shape,
-                    reference=True, data_node_type='lima')
-                self.channels.append(self._image_channel)
-                break
-        # No image counter found
-        else:
-            self._image_channel = None
-
+        self._image_channel = None
         self.save_flag = save_flag
         self._reading_task = None
         self._latency = latency_time
         self._last_image_ready = -1
+
+    def add_counter(self, counter):
+        if counter.name != 'image':
+            raise ValueError("Lima master only supports the 'image' counter")
+        self._image_channel = AcquisitionChannel(
+            counter.name, counter.dtype, counter.shape,
+            reference=True, data_node_type='lima')
+        self.channels.append(self._image_channel)
 
     def prepare_saving(self, scan_name, scan_file_dir):
         camera_name = self.device.camera_type
@@ -84,7 +80,8 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             self.parameters.setdefault('saving_mode', 'MANUAL')
 
     def prepare(self):
-        self._image_channel.description.update(self.parameters)
+        if self._image_channel:
+            self._image_channel.description.update(self.parameters)
 
         for param_name, param_value in self.parameters.iteritems():
             setattr(self.device, param_name, param_value)
@@ -92,8 +89,9 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         self.device.prepareAcq()
 
         signed, depth, w, h = self.device.image_sizes
-        self._image_channel.dtype = LIMA_DTYPE[(signed, depth)]
-        self._image_channel.shape = (h, w)
+        if self._image_channel:
+            self._image_channel.dtype = LIMA_DTYPE[(signed, depth)]
+            self._image_channel.shape = (h, w)
 
         self._latency = self.device.latency_time
         self._last_image_ready = -1
@@ -102,8 +100,9 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             self._reading_task.kill()
             self._reading_task = None
 
-        server_url = get_fqn(self.device)
-        self._image_channel.emit({ "server_url": server_url })
+        if self._image_channel:
+            server_url = get_fqn(self.device)
+            self._image_channel.emit({"server_url": server_url})
 
     def start(self):
         if(self.trigger_type == AcquisitionMaster.SOFTWARE and
@@ -147,18 +146,21 @@ class LimaAcquisitionMaster(AcquisitionMaster):
                 status["acq_state"] = acq_state
                 if acq_state == 'running':
                     if status['last_image_ready'] != self._last_image_ready:
-                        self._image_channel.emit(status)
+                        if self._image_channel:
+                            self._image_channel.emit(status)
                         self._last_image_ready = status['last_image_ready']
                     gevent.sleep(max(self.parameters['acq_expo_time'] / 10.0, 10e-3))
                 else:
                     break
-            self._image_channel.emit(status)
+            if self._image_channel:
+                self._image_channel.emit(status)
             if acq_state == 'fault':
                 raise RuntimeError("Device %s (%s) is in Fault state" % (
                     self.device, self.device.user_detector_name))
             self._reading_task = None
         except:
-            self._image_channel.emit({"acq_state": "fault"})
+            if self._image_channel:
+                self._image_channel.emit({"acq_state": "fault"})
             raise
 
     def wait_reading(self, block=True):

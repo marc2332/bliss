@@ -203,28 +203,14 @@ class PepuAcquisitionDevice(AcquisitionDevice):
                 self.publish(data)
 
 
-def pepu_default_chain_plugin(tree, counters, scan_pars):
-    pepu_counters = {}
-    npoints = scan_pars['npoints']
-    # Group all counters by controller
-    for counter in counters:
-        if isinstance(counter, PepuCounter):
-            pepu_counters.setdefault(counter.controller, []).append(counter)
-    # Remove pepu counters from the counter set
-    for counter_list in pepu_counters.values():
-        counters -= set(counter_list)
-    # Create acquisition devices
-    for pepu, counter_list in pepu_counters.items():
-        acq_device = PepuAcquisitionDevice(
-            pepu, npoints=npoints, counters=counter_list)
-        tree.setdefault(None, []).append(acq_device)
-    # Return the altered set of counters
-    return counters
-
-
 class PepuCounter(BaseCounter):
 
-    default_chain_plugin = staticmethod(pepu_default_chain_plugin)
+    # Default chain integration
+
+    def create_acquisition_device(self, scan_pars):
+        npoints = scan_pars['npoints']
+        return PepuAcquisitionDevice(
+            self.controller, npoints=npoints)
 
     def __init__(self, channel):
         self.channel = channel

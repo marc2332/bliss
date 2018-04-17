@@ -194,35 +194,17 @@ class McaAcquisitionDevice(AcquisitionDevice):
             counter.feed_point(spectrums, stats)
 
 
-# Default chain plugin
-
-def mca_default_chain_plugin(tree, counters, scan_pars):
-    mca_counters = {}
-    npoints = scan_pars['npoints']
-    count_time = scan_pars['count_time']
-    # Group counters by controller
-    for counter in counters:
-        if isinstance(counter, BaseMcaCounter):
-            mca_counters.setdefault(counter.controller, []).append(counter)
-    # Remove mca counters from the counter set
-    for counter_list in mca_counters.values():
-        for counter in counter_list:
-            counters.remove(counters)
-    # Create acquistion devices
-    for mca, counter_list in mca_counters.items():
-        acq_device = McaAcquisitionDevice(
-            mca, npoints=npoints, preset_time=count_time,
-            counters=counter_list)
-        tree.setdefault(None, []).append(acq_device)
-    # Return altered counter set
-    return counters
-
-
 # Mca counters
 
 class BaseMcaCounter(BaseCounter):
 
-    default_chain_plugin = staticmethod(mca_default_chain_plugin)
+    # Default chain integration
+
+    def create_acquisition_device(self, scan_pars):
+        npoints = scan_pars['npoints']
+        count_time = scan_pars['count_time']
+        return McaAcquisitionDevice(
+            self.controller, npoints=npoints, preset_time=count_time)
 
     def __init__(self, mca, base_name, detector=None):
         self.mca = mca

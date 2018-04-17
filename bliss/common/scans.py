@@ -316,7 +316,7 @@ def ascan(motor, start, stop, npoints, count_time, *counter_args, **kwargs):
                       'estimation': estimation})
 
     chain = AcquisitionChain(parallel_prepare=True)
-    timer = default_chain(chain, scan_info, _get_all_counters(counters))
+    timer = default_chain(chain, scan_info, counter_args)
     top_master = LinearStepTriggerMaster(npoints, motor, start, stop)
     chain.add(top_master, timer)
 

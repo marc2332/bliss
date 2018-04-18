@@ -9,6 +9,7 @@ import time
 
 import pytest
 
+from bliss.common.axis import Motion
 from bliss.common.standard import Group
 from bliss.controllers.motors.mockup import MockupHook
 
@@ -50,6 +51,8 @@ def test_axis_move(hooked_m0):
     assert hook0.nb_pre_move == 1
     assert hook0.nb_post_move == 0
     assert hooked_m0.state().MOVING
+    assert len(hook0.last_pre_move_args) == 1
+    assert isinstance(hook0.last_pre_move_args[0], Motion)
 
     hooked_m0.wait_move()
     
@@ -59,6 +62,9 @@ def test_axis_move(hooked_m0):
     assert hooked_m0.state().READY
     assert hooked_m0.position() == 180
     assert hooked_m0._set_position() == 180
+    assert len(hook0.last_post_move_args) == 1
+    assert isinstance(hook0.last_post_move_args[0], Motion)
+
 
 def test_axis_homing(hooked_m0):
     hook0 = hooked_m0.motion_hooks[0]
@@ -193,6 +199,10 @@ def test_group_move(hooked_m0, hooked_m1):
     assert hook0.nb_post_move == 0
     assert hook1.nb_pre_move == 1
     assert hook1.nb_post_move == 0
+    assert len(hook0.last_pre_move_args) == 1
+    assert isinstance(hook0.last_pre_move_args[0], Motion)
+    assert len(hook1.last_pre_move_args) == 1
+    assert isinstance(hook1.last_pre_move_args[0], Motion)
     assert grp.state().MOVING
 
     grp.wait_move()
@@ -201,6 +211,10 @@ def test_group_move(hooked_m0, hooked_m1):
     assert hook0.nb_post_move == 2
     assert hook1.nb_pre_move == 1
     assert hook1.nb_post_move == 1
+    assert len(hook0.last_post_move_args) == 1
+    assert isinstance(hook0.last_post_move_args[0], Motion)
+    assert len(hook1.last_post_move_args) == 1
+    assert isinstance(hook1.last_post_move_args[0], Motion)
     assert hooked_m0.state().READY
     assert hooked_m1.state().READY
     assert grp.state().READY

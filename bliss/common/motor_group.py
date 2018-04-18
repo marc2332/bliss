@@ -132,7 +132,7 @@ class _Group(object):
             for motion in motions:
                 motion_task = motion.axis._start_move_task(
                     motion.axis._do_move, motion, polling_time)
-                motion_task._motions = [motion_task]
+                motion_task._motions = [motion]
             motions_wait = [gevent.spawn(motion.axis.wait_move)
                             for motion in motions]
             gevent.joinall(motions_wait, raise_error=True)

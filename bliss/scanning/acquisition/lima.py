@@ -66,7 +66,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
 
     @property
     def save_flag(self):
-        return self._save_flag and self._image_channel
+        return bool(self._save_flag and self._image_channel)
 
     def prepare_saving(self, scan_name, scan_file_dir):
         camera_name = self.device.camera_type
@@ -88,7 +88,6 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             self._image_channel.description.update(self.parameters)
 
         for param_name, param_value in self.parameters.iteritems():
-            print(param_name, param_value)
             setattr(self.device, param_name, param_value)
 
         self.device.prepareAcq()
@@ -130,13 +129,11 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         self.wait_reading(block=(acq_trigger_mode!='INTERNAL_TRIGGER_MULTI'))
 
     def trigger(self):
-        print('TRIGGERED!!')
         self.trigger_slaves()
 
         self.device.startAcq()
 
         if self._reading_task is None:
-            print('SPAWN')
             self._reading_task = gevent.spawn(self.reading)
 
     def _get_lima_status(self):
@@ -173,13 +170,9 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             raise
 
     def wait_reading(self, block=True):
+        if self._reading_task is None:
+            return True
         try:
-            if self._reading_task is None:
-                return True
-            print('Wait reading')
-            res = self._reading_task.get(block=block)
-            print('Done reading!!!')
-            return res
+            return self._reading_task.get(block=block)
         except gevent.Timeout:
-            print('timeout')
             return False

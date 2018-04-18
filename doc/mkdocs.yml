@@ -29,6 +29,7 @@ pages:
                 - Scans plotting: flint_scan_plotting.md
                 - Interaction with plots: flint_interaction.md
         - Developers corner:
+                - 'API documentation &#x1F5D7|api/index.html': api.md
                 - Guidelines: dev_guidelines.md
                 - Writing a motor controller: dev_write_motctrl.md
                 - Writing a MCA controller: dev_write_mca.md
@@ -69,4 +70,4 @@ markdown_extensions:
         - sane_lists
 extra_javascript:
   - 'https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-MML-AM_CHTML'
-
+  - redirect.js

@@ -5,7 +5,7 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from bliss.common.tango import DeviceProxy
+from bliss.common.tango import DeviceProxy, DevFailed
 import time
 
 class tango_shutter:
@@ -85,3 +85,16 @@ class tango_shutter:
       while stat is False or time.time() - tt < timeout:
          time.sleep(1)
          stat = self.__control.read_attribute(self._manual).value
+
+   def __repr__(self):
+      try:
+         return self.__control.status()
+      except DevFailed:
+         return 'Shutter {}: Communication error with {}' \
+            .format(self.name, self.__control.dev_name())
+
+   def __enter__(self):
+      self.open()
+
+   def __exit__(self, exc_type, exc_val, exc_tb):
+      self.close()

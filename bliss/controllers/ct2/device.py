@@ -89,6 +89,22 @@ class CT2(object):
     Helper for a locally installed CT2 card (P201/C208).
     """
 
+    # Default chain integration
+
+    def create_master_device(self, scan_pars):
+        # Break import cycles
+        from bliss.scanning.acquisition.ct2 import CT2AcquisitionMaster
+
+        # Extract scan parameters
+        npoints = scan_pars.get('npoints', 1)
+        acq_expo_time = scan_pars['count_time']
+
+        # Create master
+        return CT2AcquisitionMaster(
+            device, npoints=npoints, acq_expo_time=acq_expo_time)
+
+    # Class attributes
+
     internal_timer_counter = 11
     internal_point_nb_counter = 12
 

@@ -26,6 +26,8 @@ class tango_shutter:
 
    def open(self):
       state = self.get_state()
+      if state == 'STANDBY':
+         raise RuntimeError('Cannot open shutter in STANDBY state')
       if state == 'CLOSE':
          try:
             self.__control.command_inout("Open")

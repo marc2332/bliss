@@ -50,11 +50,11 @@ class LimaAcquisitionMaster(AcquisitionMaster):
                                    trigger_type=trigger_type,
                                    prepare_once=prepare_once, start_once=start_once)
 
-        self._image_channel = None
-        self.save_flag = save_flag
         self._reading_task = None
-        self._latency = latency_time
+        self._image_channel = None
         self._last_image_ready = -1
+        self._save_flag = save_flag
+        self._latency = latency_time
 
     def add_counter(self, counter):
         if counter.name != 'image':
@@ -63,6 +63,10 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             counter.name, counter.dtype, counter.shape,
             reference=True, data_node_type='lima')
         self.channels.append(self._image_channel)
+
+    @property
+    def save_flag(self):
+        return self._save_flag and self._image_channel
 
     def prepare_saving(self, scan_name, scan_file_dir):
         camera_name = self.device.camera_type
@@ -84,6 +88,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             self._image_channel.description.update(self.parameters)
 
         for param_name, param_value in self.parameters.iteritems():
+            print(param_name, param_value)
             setattr(self.device, param_name, param_value)
 
         self.device.prepareAcq()
@@ -125,18 +130,22 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         self.wait_reading(block=(acq_trigger_mode!='INTERNAL_TRIGGER_MULTI'))
 
     def trigger(self):
+        print('TRIGGERED!!')
         self.trigger_slaves()
 
         self.device.startAcq()
 
         if self._reading_task is None:
+            print('SPAWN')
             self._reading_task = gevent.spawn(self.reading)
 
     def _get_lima_status(self):
-        attr_names = ['buffer_max_number', 'last_image_acquired',
-                      'last_image_ready', 'last_counter_ready', 'last_image_saved']
-        return { name: att.value for name, att in zip(attr_names,
-                                                      self.device.read_attributes(attr_names)) }
+        attr_names = [
+            'buffer_max_number', 'last_image_acquired',
+            'last_image_ready', 'last_counter_ready', 'last_image_saved']
+        return {name: att.value
+                for name, att in zip(
+                    attr_names, self.device.read_attributes(attr_names))}
 
     def reading(self):
         try:
@@ -165,6 +174,12 @@ class LimaAcquisitionMaster(AcquisitionMaster):
 
     def wait_reading(self, block=True):
         try:
-            return self._reading_task.get(block=block) if self._reading_task is not None else True
+            if self._reading_task is None:
+                return True
+            print('Wait reading')
+            res = self._reading_task.get(block=block)
+            print('Done reading!!!')
+            return res
         except gevent.Timeout:
+            print('timeout')
             return False

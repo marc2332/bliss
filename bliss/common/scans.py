@@ -140,10 +140,6 @@ def get_all_counters(counter_args):
     return all_counters
 
 
-def activate_master_saving(acq_device, activate_flag):
-    acq_device.save_flag = activate_flag
-
-
 def counter_tree(counters, scan_pars):
     """Create the counter tree from a given counter list.
 

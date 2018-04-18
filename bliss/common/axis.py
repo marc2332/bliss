@@ -41,6 +41,7 @@ from bliss.common.hook import MotionHook
 from bliss.physics.trajectory import LinearTrajectory
 import gevent
 import re
+import sys
 import math
 import types
 import functools

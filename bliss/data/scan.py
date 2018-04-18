@@ -117,12 +117,6 @@ def _watch_data(scan_node, scan_info, scan_new_child_callback,
     scan_data = dict()
     data_indexes = dict()
 
-    scan_info = scan_node.info.get_all()
-    if scan_info.get('type') == 'ct':
-        return
-
-    scan_new_callback(scan_info)
-
     scan_data_iterator = DataNodeIterator(scan_node)
     for event_type, data_channel in scan_data_iterator.walk_events():
         if event_type == scan_data_iterator.NEW_CHILD_EVENT:

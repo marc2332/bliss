@@ -93,7 +93,7 @@ class Output(object):
         log.debug("On Output")
         self.__controller = controller
         self.__name = config["name"]
-        try: 
+        try:
             self.__limits = (config.get("low_limit"), config.get("high_limit"))
         except:
             self.__limits = (None,None)
@@ -135,7 +135,7 @@ class Output(object):
 
     @property
     def deadband(self):
-        """ returns the deadband acceptable for the heater temperature setting. 
+        """ returns the deadband acceptable for the heater temperature setting.
             After a ramp or a set, the setpoint is considered to be reached
             only if heater value is within the deadband.
             While the setpoint is not reached, a wait will block on it."""
@@ -161,7 +161,7 @@ class Output(object):
             - if no setpoint is provided, returns the present setpoint value
             - by default does not wait.
             - it is possible to provide kwargs arguments
-            
+
             The related controller methods to be filled are:
             - get_setpoint
             - setpoint_stop
@@ -177,7 +177,7 @@ class Output(object):
             - if no setpoint is provided, returns the present setpoint value
             - by default does not wait.
             - it is possible to provide kwargs arguments
-            
+
             The related controller methods to be filled are:
             - get_setpoint
             - setpoint_stop
@@ -280,7 +280,7 @@ class Output(object):
         """ Subtask launching the setpoint
             Polls until setpoint is reached
             Is a gevent coroutine
-        """ 
+        """
         log.debug("On Output:_do_setpoint : mode = %s" % (self.__mode))
         try:
             while self._setpoint_state() == 'RUNNING':
@@ -324,7 +324,7 @@ class Output(object):
 
     def ramprate(self, new_ramp=None):
         """
-        Setting/reading the setpoint ramp rate value 
+        Setting/reading the setpoint ramp rate value
 
         """
         log.debug("On Output:ramprate: %s " % (new_ramp))
@@ -468,6 +468,3 @@ class Loop(object):
            self.controller.set_kd(self,new_kd)
         else:
            return self.controller.read_kd(self)
-
-
-

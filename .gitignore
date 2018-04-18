@@ -8,6 +8,7 @@ build
 *.swp
 doc/build
 doc/source/bliss.*rst
+doc/site
 .coverage
 # for eclipse users
 .settings/

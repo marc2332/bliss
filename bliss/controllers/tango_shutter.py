@@ -11,11 +11,12 @@ import time
 class tango_shutter:
    def __init__(self, name, config):
       tango_uri = config.get("uri")
+      self.name = name
       self.__control = DeviceProxy(tango_uri)
       try:
-         self.manual = config.get("attr_mode")
+         self._manual = config.get("attr_mode")
       except:
-         self.manual = False
+         self._manual = False
 
    def get_status(self):
       print self.__control._status()
@@ -46,7 +47,7 @@ class tango_shutter:
          print self.__control._status()
 
    def automatic(self):
-      if self.manual:
+      if self._manual:
          state = self.get_state()
          if state == 'CLOSE' or state == 'OPEN':
             try:
@@ -58,7 +59,7 @@ class tango_shutter:
             print self.__control._status()
 
    def manual(self):
-      if self.manual:
+      if self._manual:
          state = self.get_state()
          if state == 'CLOSE' or state == 'RUNNING':
             try:
@@ -78,7 +79,7 @@ class tango_shutter:
 
    def _wait_mode(self, timeout=3):
       tt = time.time()
-      stat = self.__control.read_attribute(self.manual).value
+      stat = self.__control.read_attribute(self._manual).value
       while stat is False or time.time() - tt < timeout:
          time.sleep(1)
-         stat = self.__control.read_attribute(self.manual).value
+         stat = self.__control.read_attribute(self._manual).value

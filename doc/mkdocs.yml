@@ -2,6 +2,7 @@ site_name: Bliss documentation
 repo_name: 'bliss/bliss'
 repo_url: 'https://gitlab.esrf.fr/bliss/bliss'
 pages:
+        - Installation: index.md
         - Getting started: getting_started.md
         - Configuration:
                 - Beacon and YAML files: config.md

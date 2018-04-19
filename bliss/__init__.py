@@ -15,7 +15,6 @@ Here are the main bliss sub-systems:
 .. autosummary::
     :toctree:
 
-    acquisition
     comm
     common
     config

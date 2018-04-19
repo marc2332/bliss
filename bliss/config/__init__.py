@@ -13,7 +13,6 @@
 
     channels
     conductor
-    motors
     plugins
     redis
     settings

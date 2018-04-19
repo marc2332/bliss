@@ -16,6 +16,5 @@
     keithley428_ds
     multiplexer_ds
     musst_ds
-    nanodac_ds
     TgGevent
 '''

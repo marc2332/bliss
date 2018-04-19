@@ -13,7 +13,6 @@ This module gathers different communication interfaces
 .. autosummary::
    :toctree:
 
-   common
    embl
    gpib
    modbus

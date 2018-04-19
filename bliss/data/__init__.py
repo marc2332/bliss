@@ -12,5 +12,4 @@
 
     lima
     routines
-    zerod
 '''

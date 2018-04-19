@@ -344,11 +344,9 @@ class Lima(object):
 
     @property
     def counters(self):
-        roi_counters = [
-            counter
-            for counters in self.roi_counters.get_rois()
-            for counter in counters]
-        all_counters = [self.image] + roi_counters + list(self.bpm.counters)
+        all_counters = [self.image]
+        all_counters += list(self.roi_counters.counters)
+        all_counters += list(self.bpm.counters)
         return counter_namespace(all_counters)
 
     @property
@@ -362,14 +360,11 @@ class Lima(object):
         dct['bpm'] = counter_namespace(self.bpm.counters)
 
         # Specific ROI counters
-        for roi in self.roi_counters.get_rois():
-            dct['roi_counters.' + roi.name] = counter_namespace(roi)
+        for counters in self.roi_counters.iter_single_roi_counters():
+            dct['roi_counters.' + counters.name] = counter_namespace(counters)
 
         # All ROI counters
-        dct['roi_counters'] = counter_namespace(
-            counter
-            for counters in self.roi_counters.get_rois()
-            for counter in counters)
+        dct['roi_counters'] = counter_namespace(self.roi_counters.counters)
 
         # Default grouped
         default_counters = list(dct['images']) + list(dct['roi_counters'])

@@ -67,10 +67,10 @@ class RoiStatCounter(IntegratingCounter):
         self.roi_name = roi_name
         self.stat = stat
         name = self.roi_name + '.' + stat.name.lower()
-        self.controller = kwargs.pop('controller')
+        controller = kwargs.pop('controller')
         master_controller = kwargs.pop('master_controller')
-        IntegratingCounter.__init__(self, name, self.controller,
-                                    master_controller, **kwargs)
+        IntegratingCounter.__init__(
+            self, name, controller, master_controller, **kwargs)
 
     def __int__(self):
         # counter statistic ID = roi_id | statistic_id
@@ -111,7 +111,11 @@ class SingleRoiCounters(object):
         return self.factory(RoiStat.Max)
 
     def __iter__(self):
-        return [self.sum, self.avg, self.std, self.min, self.max]
+        yield self.sum
+        yield self.avg
+        yield self.std
+        yield self.min
+        yield self.max
 
 
 class RoiCounterGroupReadHandler(IntegratingCounter.GroupedReadHandler):
@@ -219,13 +223,31 @@ class RoiCounters(object):
             roi = Roi(x, y, w, h, name=name)
             self._set_roi_settings(roi_id, roi)
 
-    def __getattr__(self, name):
+    # Counter access
+
+    def get_single_roi_counters(self, name):
         if self._save_rois.get(name) is None:
             raise AttributeError('Unknown ROI counter {0:!r}'.format(name))
         return SingleRoiCounters(
             name, controller=self,
             master_controller=self._acquisition_proxy,
             grouped_read_handler=self._grouped_read_handler)
+
+    def iter_single_roi_counters(self):
+        for roi in self.get_rois():
+            yield self.get_single_roi_counters(roi.name)
+
+    @property
+    def counters(self):
+        return [
+            counter
+            for counters in self.iter_single_roi_counters()
+            for counter in counters]
+
+    def __getattr__(self, name):
+        return self.get_single_roi_counters(name)
+
+    # Representation
 
     def __repr__(self):
         name = self.name.rsplit(':', 1)[-1]

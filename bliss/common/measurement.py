@@ -10,10 +10,64 @@
 
 import numpy
 import weakref
+from collections import namedtuple
 
-from bliss.config import static
 from bliss.common.utils import add_conversion_function
 
+
+# Counter namespaces
+
+def flat_namespace(dct):
+    """A namespace allowing names with dots."""
+    mapping = dict(dct)
+
+    class getter(object):
+        def __init__(self, parent, prefix):
+            self.parent = parent
+            self.prefix = prefix
+
+        def __getattr__(self, key):
+            return getattr(self.parent, self.prefix + key)
+
+    class namespace(tuple):
+
+        __slots__ = ()
+        _fields = sorted(mapping)
+        __dict__ = property(lambda _: mapping)
+
+        def __getattr__(self, arg):
+            if arg in mapping:
+                return mapping[arg]
+            if arg.startswith('__'):
+                raise AttributeError(arg)
+            for field in self._fields:
+                if field.startswith(arg + '.'):
+                    return getter(self, arg + '.')
+            raise AttributeError(arg)
+
+        def __setattr__(self, arg, value):
+            raise AttributeError("can't set attribute")
+
+        def __repr__(self):
+            reprs = (
+                '{}={!r}'.format(field, mapping[field])
+                for field in self._fields)
+            return '{}({})'.format('namespace', ', '.join(reprs))
+
+    return namespace(mapping[field] for field in namespace._fields)
+
+
+def namespace(dct):
+    if any('.' in key for key in dct):
+        return flat_namespace(dct)
+    return namedtuple('namespace', sorted(dct))(**dct)
+
+
+def counter_namespace(counters):
+    return namespace({counter.name: counter for counter in counters})
+
+
+# Base counter class
 
 class GroupedReadMixin(object):
     def __init__(self, controller):

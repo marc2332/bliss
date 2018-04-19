@@ -10,15 +10,14 @@ Classes implemented with temperature Controller
 """
 
 import math
-from collections import namedtuple
 
 import gevent
 import gevent.event
 
 from bliss.common.task import task
 from bliss.common import log
-from bliss.common.measurement import SamplingCounter
 from bliss.common.utils import with_custom_members
+from bliss.common.measurement import SamplingCounter, counter_namespace
 
 
 class TempControllerCounter(SamplingCounter):
@@ -32,6 +31,7 @@ class TempControllerCounter(SamplingCounter):
     def read(self):
         data = self.parent.read()
         return data
+
 
 @with_custom_members
 class Input(object):
@@ -72,7 +72,7 @@ class Input(object):
     @property
     def counters(self):
         """Standard counter namespace."""
-        return namedtuple('InputCounters', self.counter.name)(self.counter)
+        return counter_namespace([self.counter])
 
     def read(self):
         """ returns the sensor value """
@@ -149,7 +149,7 @@ class Output(object):
     @property
     def counters(self):
         """Standard counter namespace."""
-        return namedtuple('OutputCounters', self.counter.name)(self.counter)
+        return counter_namespace([self.counter])
 
     def read(self):
         """ returns the heater value """

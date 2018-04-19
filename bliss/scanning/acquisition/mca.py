@@ -5,14 +5,14 @@
 # Copyright (c) 2017 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from collections import defaultdict, namedtuple
+from collections import defaultdict
 
 import numpy
 import gevent.event
 
-from ...common.measurement import BaseCounter
 from ..chain import AcquisitionDevice, AcquisitionChannel
 from ...controllers.mca import TriggerMode, PresetMode, Stats
+from ...common.measurement import BaseCounter, counter_namespace, namespace
 
 
 class StateMachine(object):
@@ -294,13 +294,6 @@ class SpectrumMcaCounter(BaseMcaCounter):
         self.emit_data_point(spectrums[self.detector_channel])
 
 
-# TODO: This should go somewhere in bliss/common
-def counter_namespace(name, counters):
-    dct = {counter.name: counter for counter in counters}
-    cls = namedtuple(name, sorted(dct))
-    return cls(**dct)
-
-
 def mca_counters(mca):
     """Provide a flat access to all MCA counters.
 
@@ -321,7 +314,7 @@ def mca_counters(mca):
                  for element in mca.elements
                  for stat in Stats._fields]
     # Instantiate
-    return counter_namespace('McaCounters', counters)
+    return counter_namespace(counters)
 
 
 def mca_counter_groups(mca):
@@ -344,7 +337,6 @@ def mca_counter_groups(mca):
     prefixes = list(Stats._fields) + ['spectrum']
     for prefix in prefixes:
         dct[prefix] = counter_namespace(
-            prefix.capitalize() + 'McaCounters',
             [counter for counter in counters
              if counter.name.startswith(prefix)])
 
@@ -352,10 +344,8 @@ def mca_counter_groups(mca):
     suffixes = ['det{}'.format(e) for e in mca.elements]
     for suffix in suffixes:
         dct[suffix] = counter_namespace(
-            suffix.capitalize() + 'McaCounters',
             [counter for counter in counters
              if counter.name.startswith(prefix)])
 
     # Instantiate group namespace
-    cls = namedtuple('McaGroups', sorted(dct))
-    return cls(**dct)
+    return namespace(dct)

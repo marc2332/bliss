@@ -9,8 +9,8 @@ import importlib
 from .bpm import Bpm
 from .roi import Roi, RoiCounters
 
-from bliss.common.measurement import BaseCounter
 from bliss.common.tango import DeviceProxy, DevFailed
+from bliss.common.measurement import BaseCounter, namespace, counter_namespace
 
 
 def _attr_str(value, dtype='str', enums=None, err_str='?'):
@@ -372,29 +372,3 @@ class Lima(object):
 
         # Return namespace
         return namespace(dct)
-
-
-# TODO: This should go somewhere in bliss/common
-
-def counter_namespace(counters):
-    return namespace({counter.name: counter for counter in counters})
-
-
-class namespace(object):
-    def __init__(self, dct):
-        self.__dict__.update(dct)
-
-    def __iter__(self):
-        return (value for name, value in sorted(self.__dict__.items()))
-
-    def __getattr__(self, arg):
-        if arg.startswith('__'):
-            raise AttributeError(arg)
-        if any(name.startswith(arg + '.') for name in dir(self)):
-            getter_cls = type('Getter', (object,), {
-                '__getattr__': lambda _, key: getattr(self, arg + '.' + key)})
-            return getter_cls()
-        raise AttributeError(arg)
-
-    def __setattr__(self, key, value):
-        raise TypeError('namespace is not mutable')

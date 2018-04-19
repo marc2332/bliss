@@ -91,12 +91,9 @@ Here's an example of a continuous scan using a PePU::
     print(data['CALC2'])
 """
 
-from collections import namedtuple
-
-from .mca import counter_namespace
-from ...common.measurement import BaseCounter
 from ...controllers.pepu import Trigger, Signal
 from ..chain import AcquisitionDevice, AcquisitionChannel
+from ...common.measurement import BaseCounter, counter_namespace
 
 
 class PepuAcquisitionDevice(AcquisitionDevice):
@@ -253,4 +250,4 @@ def pepu_counters(pepu):
     """Provide a convenient access to the PEPU counters."""
     channels = pepu.in_channels.values() + pepu.calc_channels.values()
     counters = map(PepuCounter, channels)
-    return counter_namespace('PepuCounters', counters)
+    return counter_namespace(counters)

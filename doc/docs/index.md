@@ -93,3 +93,10 @@ BLISS Beacon server is also able to provide a full TANGO database server service
     $ beacon_server --db_path=~/local/beamline_configuration --port=25000 --webapp_port=9030 --tango_port=20000
 
 [1]: https://gitlab.esrf.fr/bliss/ansible/blob/master/README.md
+[2]: https://gitlab.esrf.fr/bliss/bliss
+[3]: https://conda.io/docs/
+[4]: http://www.gevent.org
+[5]: http://software.schmorp.de/pkg/libev.html
+[6]: http://libuv.org/
+[7]: https://en.wikipedia.org/wiki/YAML
+

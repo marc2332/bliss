@@ -127,11 +127,23 @@ def test_data_iterator_event(beacon, redis_data_conn, scan_tmpdir):
       assert n.get(0, -1) == channels_data[n.name]
     assert isinstance(n, ChannelDataNode)
 
-def test_reference_with_lima(beacon, redis_data_conn, scan_tmpdir, lima_simulator):
+
+@pytest.mark.parametrize(
+  "with_roi", [False, True], ids=['without ROI', 'with ROI'])
+def test_reference_with_lima(beacon, redis_data_conn, scan_tmpdir,
+                             lima_simulator, with_roi):
     session = beacon.get("lima_test_session")
     session.setup()
-    setup_globals.SCAN_SAVING.base_path=str(scan_tmpdir)
+    setup_globals.SCAN_SAVING.base_path = str(scan_tmpdir)
     lima_sim = getattr(setup_globals, "lima_simulator")
+
+    # Roi handling
+    lima_sim.roi_counters.clear_rois()
+    if with_roi:
+        lima_sim.roi_counters.set_roi('myroi', [0, 0, 1, 1])
+    else:
+        pytest.xfail()
+
     timescan = scans.timescan(0.1, lima_sim, npoints=3, return_scan=True)
 
     redis_keys = set(redis_scan(session.name+"*", connection=redis_data_conn))
@@ -144,14 +156,26 @@ def test_reference_with_lima(beacon, redis_data_conn, scan_tmpdir, lima_simulato
     live_ref_status = QueueObjSetting("%s_data" % image_node_db_name, connection=redis_data_conn)[0]
     assert live_ref_status['last_image_saved'] == 2 #npoints-1
 
-def test_iterator_over_reference_with_lima(beacon, redis_data_conn, scan_tmpdir, lima_simulator):
+
+@pytest.mark.parametrize(
+  "with_roi", [False, True], ids=['without ROI', 'with ROI'])
+def test_iterator_over_reference_with_lima(beacon, redis_data_conn,
+                                           scan_tmpdir, lima_simulator,
+                                           with_roi):
     npoints = 5
     exp_time = 1
 
     session = beacon.get("lima_test_session")
     session.setup()
-    setup_globals.SCAN_SAVING.base_path=str(scan_tmpdir)
+    setup_globals.SCAN_SAVING.base_path = str(scan_tmpdir)
     lima_sim = getattr(setup_globals, "lima_simulator")
+
+    # Roi handling
+    lima_sim.roi_counters.clear_rois()
+    if with_roi:
+        lima_sim.roi_counters.set_roi('myroi', [0, 0, 1, 1])
+    else:
+        pytest.xfail()
 
     scan_greenlet = gevent.spawn(scans.timescan, exp_time, lima_sim, npoints=npoints)
 

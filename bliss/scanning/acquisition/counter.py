@@ -59,6 +59,9 @@ class BaseCounterAcquisitionDevice(AcquisitionDevice):
 
     def add_counter(self, counter):
         if not isinstance(self.device, GroupedReadMixin):
+            # Ignore if the counter is already the provided device
+            if self.device == counter:
+                return
             raise RuntimeError(
                 "Cannot add counter to single-read counter acquisition device")
 

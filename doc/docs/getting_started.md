@@ -686,11 +686,5 @@ Then, result is returned by the `.select_shape` method:
 [Read more about interactions with plots](flint_interaction.md)
 
 
-[2]: https://gitlab.esrf.fr/bliss/bliss
-[3]: https://conda.io/docs/
-[4]: http://www.gevent.org
-[5]: http://software.schmorp.de/pkg/libev.html
-[6]: http://libuv.org/
-[7]: https://en.wikipedia.org/wiki/YAML
 [8]: https://github.com/jonathanslenders/ptpython
 [9]: http://silx.org

@@ -8,7 +8,6 @@
 """
  
 Usage: bliss [-l | --log-level=<log_level>] [-s <name> | --session=<name>]
-       bliss [-c | --create-session=<name>]
        bliss [-v | --version]
        bliss [-h | --help]
        bliss --show-sessions

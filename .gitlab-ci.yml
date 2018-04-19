@@ -1,5 +1,6 @@
 stages:
   - tests
+  - build_user_doc
   - build_doc
   - deploy
 
@@ -29,13 +30,25 @@ build_doc:
       - build/
     expire_in: 7 days
 
+build_user_doc:
+  stage: build_user_doc
+  before_script:
+          - pip install -r requirements-doc.txt
+  script:
+          - cd doc && mkdocs build
+  artifacts:
+      paths:
+          - doc/site
+
 pages:
   stage: deploy
   dependencies:
+    - build_user_doc
     - build_doc
     - tests
   script:
-    - mv build/sphinx/html public
+    - mv doc/site/ public
+    - mv build/sphinx/html public/api
     - mv htmlcov public/
 
   artifacts:

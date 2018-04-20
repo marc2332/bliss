@@ -141,8 +141,6 @@ def test_reference_with_lima(beacon, redis_data_conn, scan_tmpdir,
     lima_sim.roi_counters.clear_rois()
     if with_roi:
         lima_sim.roi_counters.set_roi('myroi', [0, 0, 1, 1])
-    else:
-        pytest.xfail()
 
     timescan = scans.timescan(0.1, lima_sim, npoints=3, return_scan=True)
 
@@ -174,8 +172,6 @@ def test_iterator_over_reference_with_lima(beacon, redis_data_conn,
     lima_sim.roi_counters.clear_rois()
     if with_roi:
         lima_sim.roi_counters.set_roi('myroi', [0, 0, 1, 1])
-    else:
-        pytest.xfail()
 
     scan_greenlet = gevent.spawn(scans.timescan, exp_time, lima_sim, npoints=npoints)
 

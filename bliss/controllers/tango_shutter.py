@@ -68,7 +68,7 @@ class tango_shutter:
       else:
          self.get_status()
 
-   def automatic(self):
+   def set_automatic(self):
       if not self._frontend:
          raise NotImplementedError("Not a Front End shutter")
 
@@ -84,7 +84,7 @@ class tango_shutter:
          else:
             self.get_status()
 
-   def manual(self):
+   def set_manual(self):
       if not self._frontend:
          raise NotImplementedError("Not a Front End shutter")
 

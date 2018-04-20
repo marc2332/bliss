@@ -33,6 +33,7 @@ pages:
         - Developers corner:
                 - 'API documentation &#x1F5D7|https://bliss.gitlab-pages.esrf.fr/bliss/api/index.html': index.md
                 - Guidelines: dev_guidelines.md
+                - Communication API: dev_comm.md
                 - Writing a motor controller: dev_write_motctrl.md
                 - Writing a MCA controller: dev_write_mca.md
                 - Writing a temperature controller: dev_write_tempctrl.md

@@ -583,6 +583,42 @@ completes the path. It uses Python's string interpolation syntax to specify how 
 data. BLISS only supports the HDF5 file format for scan data, although more writers could
 be added to the project later.
 
+### Retrieving scan data
+
+The `get_data()` function takes a scan object and returns scan data in a `numpy` array. Scan data is retrieved from
+**redis**. Data references are not resolved, which means 2D data is not returned.
+
+Example:
+
+    TEST_SESSION [4]: myscan = ascan(roby, 0, 1, 10, 0.001, diode, simu1.counters.spectrum_det0, return_scan=True)
+    Total 10 points, 0:00:02.019930 (motion: 0:00:02.009930, count: 0:00:00.010000)
+    Activated counters not shown: spectrum_det0
+
+    Scan 3 Fri Apr 20 11:26:55 2018 /tmp/scans/test_session/ test_session user = matias
+    ascan roby 0 1 10 0.001
+
+           #         dt(s)          roby         diode
+           0      0.337308             0            83
+           1      0.759228        0.1111           -10
+           2       1.17105        0.2222            57
+           3       1.58996        0.3333            43
+           4       2.00024        0.4444           -44
+           5       2.41497        0.5556           -16
+           6       2.83309        0.6667           -74
+           7       3.23919        0.7778            18
+           8       3.65932        0.8889            74
+           9       4.07872             1           -43
+
+    Took 0:00:04.441955 (estimation was for 0:00:02.019930)
+
+    TEST_SESSION [5]: data = get_data(myscan)
+
+The numpy array is built with fields, it is easy to get data for a particular column using the counter name:
+
+    TEST_SESSION [8]: data['diode']
+             Out [8]: array([ 83., -10.,  57.,  43., -44., -16., -74.,  18.,  74., -43.])
+
+
 ## Online data display
 
 Online data display relies on **Flint**, a graphical application shipped with BLISS and

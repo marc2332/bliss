@@ -757,7 +757,7 @@ def ct(count_time, *counter_args, **kwargs):
         return_scan (bool): False by default
     """
     kwargs['type'] = 'ct'
-    kwargs['save'] = False
+    kwargs.setdefault('save', False)
     kwargs['npoints'] = 1
 
     kwargs.setdefault("name", "ct")

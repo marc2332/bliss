@@ -16,7 +16,7 @@ from bliss.scanning.scan import Scan
 from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning.acquisition.motor import SoftwarePositionTriggerMaster
 from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionDevice
-from bliss.data.node import DataNodeContainer
+from bliss.data.node import DataNodeContainer, _get_or_create_node
 from bliss.config.settings import scan as redis_scan
 from bliss.config.settings import QueueObjSetting
 from bliss.data.scan import Scan as ScanNode
@@ -173,26 +173,29 @@ def test_iterator_over_reference_with_lima(beacon, redis_data_conn,
     if with_roi:
         lima_sim.roi_counters.set_roi('myroi', [0, 0, 1, 1])
 
-    scan_greenlet = gevent.spawn(scans.timescan, exp_time, lima_sim, npoints=npoints)
-
-    gevent.sleep(exp_time) #sleep time to let time for session creation
-
-    session_node = get_node(session.name)
+    session_node = _get_or_create_node(session.name, node_type='session')
     iterator = DataNodeIterator(session_node)
 
-    with gevent.Timeout((npoints+1)*exp_time):
-        for event_type, node in iterator.walk_events(filter='lima'):
-            if event_type == DataNodeIterator.NEW_DATA_IN_CHANNEL_EVENT:
-                view = node.get(from_index=0, to_index=-1)
-                if len(view) == npoints:
-                    break
-
+    with gevent.Timeout(2*(npoints+1)*exp_time):
+        def watch_scan():
+            for scan_node in iterator.walk_from_last(filter="scan",
+                                                     include_last=False): 
+                scan_iterator = DataNodeIterator(scan_node)
+                for event_type, node in scan_iterator.walk_events(filter='lima'):
+                    if event_type == DataNodeIterator.NEW_DATA_IN_CHANNEL_EVENT:
+                        view = node.get(from_index=0, to_index=-1)
+                        if len(view) == npoints:
+                            return view
+        watch_task = gevent.spawn(watch_scan)
+        scans.timescan(exp_time, lima_sim, npoints=npoints)
+        view = watch_task.get()
+    
     view_iterator = iter(view)
     img0 = view_iterator.next()
 
     # make another scan -> this should make a new buffer on Lima server,
     # so images from previous view cannot be retrieved from server anymore
-    scans.timescan(exp_time, lima_sim, npoints=1)
+    scans.ct(exp_time, lima_sim)
 
     view_iterator2 = iter(view)
 

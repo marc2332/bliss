@@ -5,13 +5,14 @@
 # Copyright (c) 2017 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from collections import defaultdict, namedtuple
+from collections import defaultdict
 
 import numpy
 import gevent.event
 
 from ..chain import AcquisitionDevice, AcquisitionChannel
 from ...controllers.mca import TriggerMode, PresetMode, Stats
+from ...common.measurement import BaseCounter, counter_namespace, namespace
 
 
 class StateMachine(object):
@@ -193,41 +194,30 @@ class McaAcquisitionDevice(AcquisitionDevice):
             counter.feed_point(spectrums, stats)
 
 
-# Default chain plugin
-
-def mca_default_chain_plugin(tree, counters, scan_pars):
-    mca_counters = {}
-    npoints = scan_pars['npoints']
-    count_time = scan_pars['count_time']
-    # Group counters by controller
-    for counter in counters:
-        if isinstance(counter, BaseMcaCounter):
-            mca_counters.setdefault(counter.controller, []).append(counter)
-    # Remove mca counters from the counter set
-    for counter_list in mca_counters.values():
-        counters -= set(counter_list)
-    # Create acquistion devices
-    for mca, counter_list in mca_counters.items():
-        acq_device = McaAcquisitionDevice(
-            mca, npoints=npoints, preset_time=count_time,
-            counters=counter_list)
-        tree.setdefault(None, []).append(acq_device)
-    # Return altered counter set
-    return counters
-
-
 # Mca counters
 
-class BaseMcaCounter(object):
+class BaseMcaCounter(BaseCounter):
 
-    default_chain_plugin = staticmethod(mca_default_chain_plugin)
+    # Default chain integration
+
+    def create_acquisition_device(self, scan_pars):
+        npoints = scan_pars['npoints']
+        count_time = scan_pars['count_time']
+        return McaAcquisitionDevice(
+            self.controller, npoints=npoints, preset_time=count_time)
 
     def __init__(self, mca, base_name, detector=None):
-        self.controller = mca
-        self.acquisition_controller = None
+        self.mca = mca
+        self.acquisition_device = None
         self.data_points = []
         self.detector_channel = detector
         self.base_name = base_name
+
+    # Standard counter interface
+
+    @property
+    def controller(self):
+        return self.mca
 
     @property
     def name(self):
@@ -243,23 +233,25 @@ class BaseMcaCounter(object):
     def shape(self):
         return ()
 
+    # Extra logic
+
     def register_device(self, device):
         # Current device
         self.data_points = []
-        self.acquisition_controller = device
+        self.acquisition_device = device
         # Consistency checks
-        assert self.controller is self.acquisition_controller.mca
+        assert self.controller is self.acquisition_device.mca
         if self.detector_channel is not None:
             assert self.detector_channel in self.controller.elements
         # Acquisition channel
-        self.acquisition_controller.channels.append(
+        self.acquisition_device.channels.append(
             AcquisitionChannel(self.name, self.dtype, self.shape))
 
     def feed_point(self, spectrums, stats):
         raise NotImplementedError
 
     def emit_data_point(self, data_point):
-        self.acquisition_controller.channels.update({self.name: data_point})
+        self.acquisition_device.channels.update({self.name: data_point})
         self.data_points.append(data_point)
 
 
@@ -294,19 +286,12 @@ class SpectrumMcaCounter(BaseMcaCounter):
 
     @property
     def shape(self):
-        if self.acquisition_controller is None:
+        if self.acquisition_device is None:
             return (self.controller.spectrum_size,)
-        return (self.acquisition_controller.spectrum_size,)
+        return (self.acquisition_device.spectrum_size,)
 
     def feed_point(self, spectrums, stats):
         self.emit_data_point(spectrums[self.detector_channel])
-
-
-# TODO: This should go somewhere in bliss/common
-def counter_namespace(name, counters):
-    dct = {counter.name: counter for counter in counters}
-    cls = namedtuple(name, sorted(dct))
-    return cls(**dct)
 
 
 def mca_counters(mca):
@@ -329,7 +314,7 @@ def mca_counters(mca):
                  for element in mca.elements
                  for stat in Stats._fields]
     # Instantiate
-    return counter_namespace('McaCounters', counters)
+    return counter_namespace(counters)
 
 
 def mca_counter_groups(mca):
@@ -352,7 +337,6 @@ def mca_counter_groups(mca):
     prefixes = list(Stats._fields) + ['spectrum']
     for prefix in prefixes:
         dct[prefix] = counter_namespace(
-            prefix.capitalize() + 'McaCounters',
             [counter for counter in counters
              if counter.name.startswith(prefix)])
 
@@ -360,10 +344,8 @@ def mca_counter_groups(mca):
     suffixes = ['det{}'.format(e) for e in mca.elements]
     for suffix in suffixes:
         dct[suffix] = counter_namespace(
-            suffix.capitalize() + 'McaCounters',
             [counter for counter in counters
              if counter.name.startswith(prefix)])
 
     # Instantiate group namespace
-    cls = namedtuple('McaGroups', sorted(dct))
-    return cls(**dct)
+    return namespace(dct)

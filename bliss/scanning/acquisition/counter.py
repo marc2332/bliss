@@ -59,6 +59,9 @@ class BaseCounterAcquisitionDevice(AcquisitionDevice):
 
     def add_counter(self, counter):
         if not isinstance(self.device, GroupedReadMixin):
+            # Ignore if the counter is already the provided device
+            if self.device == counter:
+                return
             raise RuntimeError(
                 "Cannot add counter to single-read counter acquisition device")
 
@@ -78,7 +81,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         """
         Helper to manage acquisition of a sampling counter.
 
-        counters_or_groupreadhandler -- can be a list,tuple of SamplingCounter or 
+        counters_or_groupreadhandler -- can be a list,tuple of SamplingCounter or
         a group_read_handler
         count_time -- the master integration time.
         mode -- three mode are available *SIMPLE_AVERAGE* (the default)

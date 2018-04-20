@@ -5,11 +5,12 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 import importlib
-from bliss.common.tango import DeviceProxy, DevFailed
-from bliss.config import settings
+
 from .bpm import Bpm
 from .roi import Roi, RoiCounters
 
+from bliss.common.tango import DeviceProxy, DevFailed
+from bliss.common.measurement import BaseCounter, namespace, counter_namespace
 
 
 def _attr_str(value, dtype='str', enums=None, err_str='?'):
@@ -35,11 +36,65 @@ class Lima(object):
     ROI_COUNTERS = 'roicounter'
     BPM = 'beamviewer'
 
-    class Image(object):
-        ROTATION_0,ROTATION_90,ROTATION_180,ROTATION_270 = range(4)
+    # Standard interface
 
-        def __init__(self,proxy):
+    def create_master_device(self, scan_pars):
+        # Prevent cyclic imports
+        from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
+
+        # Extract information
+        npoints = scan_pars.get('npoints', 1)
+        acq_expo_time = scan_pars['count_time']
+        save_flag = scan_pars.get('save', False)
+        multi_mode = 'INTERNAL_TRIGGER_MULTI' in self.available_triggers
+        acq_nb_frames = npoints if multi_mode else 1
+        acq_trigger_mode = scan_pars.get(
+            'acq_trigger_mode',
+            'INTERNAL_TRIGGER_MULTI' if multi_mode else 'INTERNAL_TRIGGER')
+
+        # Instanciate master
+        return LimaAcquisitionMaster(
+            self,
+            acq_nb_frames=acq_nb_frames,
+            acq_expo_time=acq_expo_time,
+            acq_trigger_mode=acq_trigger_mode,
+            save_flag=save_flag,
+            prepare_once=multi_mode)
+
+    # Image counter class
+
+    class ImageCounter(BaseCounter):
+        ROTATION_0 = 0
+        ROTATION_90 = 1
+        ROTATION_180 = 2
+        ROTATION_270 = 3
+
+        def __init__(self, controller, proxy):
             self._proxy = proxy
+            self._controller = controller
+
+        # Standard counter interface
+
+        @property
+        def name(self):
+            return 'image'
+
+        @property
+        def master_controller(self):
+            return self._controller
+
+        @property
+        def dtype(self):
+            # Because it is a reference
+            return None
+
+        @property
+        def shape(self):
+            # Because it is a reference
+            return (0, 0)
+
+        # Specific interface
+
         @property
         def proxy(self):
             return self._proxy
@@ -200,7 +255,7 @@ class Lima(object):
     @property
     def image(self):
         if self._image is None:
-            self._image = Lima.Image(self._proxy)
+            self._image = Lima.ImageCounter(self, self._proxy)
         return self._image
 
     @property
@@ -236,8 +291,8 @@ class Lima(object):
     @property
     def bpm(self):
         if self.__bpm is None:
-          bpm_proxy = self._get_proxy(self.BPM)
-          self.__bpm = Bpm(self.name, bpm_proxy, self)
+            bpm_proxy = self._get_proxy(self.BPM)
+            self.__bpm = Bpm(self.name, bpm_proxy, self)
         return self.__bpm
 
     @property
@@ -255,7 +310,7 @@ class Lima(object):
 
     def stopAcq(self):
         self._proxy.stopAcq()
-        
+
     def _get_proxy(self,type_name):
         device_name = self._proxy.getPluginDeviceNameFromType(type_name)
         if not device_name:
@@ -284,3 +339,36 @@ class Lima(object):
                'Acquisition:\n{2!r}\n\n' \
                'ROI Counters:\n{3!r}' \
                .format(data, self.image, self.acquisition, self.roi_counters)
+
+    # Expose counters
+
+    @property
+    def counters(self):
+        all_counters = [self.image]
+        all_counters += list(self.roi_counters.counters)
+        all_counters += list(self.bpm.counters)
+        return counter_namespace(all_counters)
+
+    @property
+    def counter_groups(self):
+        dct = {}
+
+        # Image counter
+        dct['images'] = counter_namespace([self.image])
+
+        # BPM counters
+        dct['bpm'] = counter_namespace(self.bpm.counters)
+
+        # Specific ROI counters
+        for counters in self.roi_counters.iter_single_roi_counters():
+            dct['roi_counters.' + counters.name] = counter_namespace(counters)
+
+        # All ROI counters
+        dct['roi_counters'] = counter_namespace(self.roi_counters.counters)
+
+        # Default grouped
+        default_counters = list(dct['images']) + list(dct['roi_counters'])
+        dct['default'] = counter_namespace(default_counters)
+
+        # Return namespace
+        return namespace(dct)

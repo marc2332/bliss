@@ -6,11 +6,9 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from ..chain import AcquisitionMaster, AcquisitionChannel
-from bliss.common.event import dispatcher
 from bliss.controllers import lima
 from bliss.common.tango import get_fqn
 import gevent
-import time
 import numpy
 import os
 
@@ -52,14 +50,24 @@ class LimaAcquisitionMaster(AcquisitionMaster):
                                    trigger_type=trigger_type,
                                    prepare_once=prepare_once, start_once=start_once)
 
-        self._image_channel = AcquisitionChannel('image', None, (0,0), reference=True, data_node_type='lima')
+        self._reading_task = None
+        self._image_channel = None
+        self._last_image_ready = -1
+        self._save_flag = save_flag
+        self._latency = latency_time
+
+    def add_counter(self, counter):
+        if counter.name != 'image':
+            raise ValueError("Lima master only supports the 'image' counter")
+        self._image_channel = AcquisitionChannel(
+            counter.name, counter.dtype, counter.shape,
+            reference=True, data_node_type='lima')
         self.channels.append(self._image_channel)
 
-        self.save_flag = save_flag
-        self._reading_task = None
-        self._latency = latency_time
-        self._last_image_ready = -1
-        
+    @property
+    def save_flag(self):
+        return bool(self._save_flag and self._image_channel)
+
     def prepare_saving(self, scan_name, scan_file_dir):
         camera_name = self.device.camera_type
         full_path = os.path.join(scan_file_dir, self.device.user_detector_name)
@@ -76,7 +84,8 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             self.parameters.setdefault('saving_mode', 'MANUAL')
 
     def prepare(self):
-        self._image_channel.description.update(self.parameters) 
+        if self._image_channel:
+            self._image_channel.description.update(self.parameters)
 
         for param_name, param_value in self.parameters.iteritems():
             setattr(self.device, param_name, param_value)
@@ -84,8 +93,9 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         self.device.prepareAcq()
 
         signed, depth, w, h = self.device.image_sizes
-        self._image_channel.dtype = LIMA_DTYPE[(signed, depth)]
-        self._image_channel.shape = (h, w)
+        if self._image_channel:
+            self._image_channel.dtype = LIMA_DTYPE[(signed, depth)]
+            self._image_channel.shape = (h, w)
 
         self._latency = self.device.latency_time
         self._last_image_ready = -1
@@ -94,8 +104,9 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             self._reading_task.kill()
             self._reading_task = None
 
-        server_url = get_fqn(self.device)
-        self._image_channel.emit({ "server_url": server_url })
+        if self._image_channel:
+            server_url = get_fqn(self.device)
+            self._image_channel.emit({"server_url": server_url})
 
     def start(self):
         if(self.trigger_type == AcquisitionMaster.SOFTWARE and
@@ -109,7 +120,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
 
     def wait_ready(self):
         acq_trigger_mode = self.parameters.get('acq_trigger_mode','INTERNAL_TRIGGER')
-        
+
         if acq_trigger_mode == 'INTERNAL_TRIGGER_MULTI':
             while(self.device.acq_status.lower() == 'running' and
                   not self.device.ready_for_next_image):
@@ -119,17 +130,19 @@ class LimaAcquisitionMaster(AcquisitionMaster):
 
     def trigger(self):
         self.trigger_slaves()
-        
+
         self.device.startAcq()
 
         if self._reading_task is None:
             self._reading_task = gevent.spawn(self.reading)
 
     def _get_lima_status(self):
-        attr_names = ['buffer_max_number', 'last_image_acquired',
-                      'last_image_ready', 'last_counter_ready', 'last_image_saved']
-        return { name: att.value for name, att in zip(attr_names,
-                                                      self.device.read_attributes(attr_names)) }
+        attr_names = [
+            'buffer_max_number', 'last_image_acquired',
+            'last_image_ready', 'last_counter_ready', 'last_image_saved']
+        return {name: att.value
+                for name, att in zip(
+                    attr_names, self.device.read_attributes(attr_names))}
 
     def reading(self):
         try:
@@ -139,22 +152,27 @@ class LimaAcquisitionMaster(AcquisitionMaster):
                 status["acq_state"] = acq_state
                 if acq_state == 'running':
                     if status['last_image_ready'] != self._last_image_ready:
-                        self._image_channel.emit(status)
+                        if self._image_channel:
+                            self._image_channel.emit(status)
                         self._last_image_ready = status['last_image_ready']
                     gevent.sleep(max(self.parameters['acq_expo_time'] / 10.0, 10e-3))
                 else:
                     break
-            self._image_channel.emit(status)
+            if self._image_channel:
+                self._image_channel.emit(status)
             if acq_state == 'fault':
                 raise RuntimeError("Device %s (%s) is in Fault state" % (
                     self.device, self.device.user_detector_name))
             self._reading_task = None
         except:
-            self._image_channel.emit({"acq_state": "fault"})
+            if self._image_channel:
+                self._image_channel.emit({"acq_state": "fault"})
             raise
-        
+
     def wait_reading(self, block=True):
+        if self._reading_task is None:
+            return True
         try:
-            return self._reading_task.get(block=block) if self._reading_task is not None else True
+            return self._reading_task.get(block=block)
         except gevent.Timeout:
             return False

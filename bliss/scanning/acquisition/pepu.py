@@ -91,11 +91,9 @@ Here's an example of a continuous scan using a PePU::
     print(data['CALC2'])
 """
 
-from collections import namedtuple
-
-from ..chain import AcquisitionDevice, AcquisitionChannel
 from ...controllers.pepu import Trigger, Signal
-from .mca import counter_namespace
+from ..chain import AcquisitionDevice, AcquisitionChannel
+from ...common.measurement import BaseCounter, counter_namespace
 
 
 class PepuAcquisitionDevice(AcquisitionDevice):
@@ -202,32 +200,20 @@ class PepuAcquisitionDevice(AcquisitionDevice):
                 self.publish(data)
 
 
-def pepu_default_chain_plugin(tree, counters, scan_pars):
-    pepu_counters = {}
-    npoints = scan_pars['npoints']
-    # Group all counters by controller
-    for counter in counters:
-        if isinstance(counter, PepuCounter):
-            pepu_counters.setdefault(counter.controller, []).append(counter)
-    # Remove pepu counters from the counter set
-    for counter_list in pepu_counters.values():
-        counters -= set(counter_list)
-    # Create acquisition devices
-    for pepu, counter_list in pepu_counters.items():
-        acq_device = PepuAcquisitionDevice(
-            pepu, npoints=npoints, counters=counter_list)
-        tree.setdefault(None, []).append(acq_device)
-    # Return the altered set of counters
-    return counters
+class PepuCounter(BaseCounter):
 
+    # Default chain integration
 
-class PepuCounter(object):
-
-    default_chain_plugin = staticmethod(pepu_default_chain_plugin)
+    def create_acquisition_device(self, scan_pars):
+        npoints = scan_pars['npoints']
+        return PepuAcquisitionDevice(
+            self.controller, npoints=npoints)
 
     def __init__(self, channel):
         self.channel = channel
-        self.acquisition_controller = None
+        self.acquisition_device = None
+
+    # Standard interface
 
     @property
     def controller(self):
@@ -245,21 +231,23 @@ class PepuCounter(object):
     def shape(self):
         return ()
 
+    # Extra logic
+
     def register_device(self, device):
         assert device.pepu == self.channel.pepu
-        self.acquisition_controller = device
-        self.acquisition_controller.channels.append(
+        self.acquisition_device = device
+        self.acquisition_device.channels.append(
             AcquisitionChannel(self.name, self.dtype, self.shape))
 
     def feed_point(self, stream_data):
         self.emit_data_point(stream_data[self.name])
 
     def emit_data_point(self, data_point):
-        self.acquisition_controller.channels.update({self.name: data_point})
+        self.acquisition_device.channels.update({self.name: data_point})
 
 
 def pepu_counters(pepu):
     """Provide a convenient access to the PEPU counters."""
     channels = pepu.in_channels.values() + pepu.calc_channels.values()
     counters = map(PepuCounter, channels)
-    return counter_namespace('PepuCounters', counters)
+    return counter_namespace(counters)

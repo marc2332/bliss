@@ -23,12 +23,8 @@ and their common API and functionality can be determined
     keithley428
     keithley
     ls335
-    MD2M
-    MD2S
     motor
     motors
-    motor_group
-    motor_settings
     multiplexer
     musst
     opiom

@@ -46,7 +46,7 @@ class MusstAcquisitionDevice(AcquisitionDevice):
         self._iter_index = 0
         self._ready_flag = True
         self._ready_event = event.Event()
-        
+
     def __iter__(self):
         if isinstance(self.vars, (list, tuple)):
             vars_iter = iter(self.vars)

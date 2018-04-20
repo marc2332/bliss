@@ -89,6 +89,8 @@ class CT2(object):
     Helper for a locally installed CT2 card (P201/C208).
     """
 
+    # Class attributes
+
     internal_timer_counter = 11
     internal_point_nb_counter = 12
 

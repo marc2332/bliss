@@ -8,7 +8,6 @@ This module provides an acquisition interface for existing devices
    lima
    motor
    musst
-   p201
    pepu
 
 '''

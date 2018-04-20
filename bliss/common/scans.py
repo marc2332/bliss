@@ -22,31 +22,31 @@ __all__ = [
     'ct',
     'get_data']
 
-import time
+
 import logging
 import operator
-import functools
-import numpy
-import gevent
+import warnings
 
 from bliss import setup_globals
-from bliss.common.axis import estimate_duration
-from bliss.common.temperature import Input, Output, TempControllerCounter
-from bliss.controllers.ct2.client import CT2
+
+from bliss.data.scan import get_data
+
+from bliss.common.task_utils import *
+from bliss.common import measurementgroup
 from bliss.common.motor_group import Group
-from bliss.common.measurement import Counter, SamplingCounter, IntegratingCounter
-from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionDevice, IntegratingCounterAcquisitionDevice
-from bliss.scanning.chain import AcquisitionChain
+from bliss.common.axis import estimate_duration
+from bliss.common.utils import OrderedDict as ordereddict
+from bliss.common.measurement import BaseCounter, Counter
+from bliss.common.measurement import SamplingCounter, IntegratingCounter
+from bliss.common.temperature import Input, Output, TempControllerCounter
+
 from bliss.scanning import scan as scan_module
+from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 from bliss.scanning.acquisition.motor import VariableStepTriggerMaster
 from bliss.scanning.acquisition.motor import LinearStepTriggerMaster, MeshStepTriggerMaster
-from bliss.scanning.acquisition.mca import BaseMcaCounter, McaAcquisitionDevice
-from bliss.scanning.acquisition.pepu import PepuCounter, PepuAcquisitionDevice
-from bliss.common import session, measurementgroup
-from bliss.scanning.standard import default_master_configuration, default_chain_plugins
-from bliss.data.scan import get_data
-from bliss.common.utils import OrderedDict as ordereddict
+from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionDevice, IntegratingCounterAcquisitionDevice
+
 
 _log = logging.getLogger('bliss.scans')
 
@@ -111,22 +111,22 @@ def _get_counters_from_object(arg, recursive=True):
         return [arg]
 
 
-def _get_all_counters(counters):
+def get_all_counters(counter_args):
     # Use active MG if no counter is provided
-    if not counters:
+    if not counter_args:
         active = measurementgroup.get_active()
         if active is None:
             raise ValueError(
                 'No measurement group is currently active')
-        counters = [active]
+        counter_args = [active]
 
     # Initialize
     all_counters, missing = [], []
 
     # Process all counter arguments
-    for counter in counters:
+    for obj in counter_args:
         try:
-            all_counters += _get_counters_from_object(counter)
+            all_counters += _get_counters_from_object(obj)
         except AttributeError as exc:
             missing += exc.args
 
@@ -140,109 +140,97 @@ def _get_all_counters(counters):
     return all_counters
 
 
-def activate_master_saving(acq_device, activate_flag):
-    acq_device.save_flag = activate_flag
+def counter_tree(counters, scan_pars):
+    """Create the counter tree from a given counter list.
 
-
-def _counters_tree(counters, scan_pars):
+    It relies on four standard methods:
+    - counter.master_controller.create_master_device
+    - counter.create_acquisition_device
+    - acquisition_master.add_counter
+    - acquisition_device.add_counter
+    """
+    # Initialize structures
+    master_dict = {}
+    device_dict = {}
     tree = ordereddict()
-    master_integrating_counter = dict()
-    npoints = scan_pars.setdefault('npoints', 1)
-    count_time = scan_pars.setdefault('count_time', 1)
 
-    # Call the plugins
-    counters = default_chain_plugins(tree, counters, scan_pars)
+    # Loop over counters
+    for counter in counters:
 
-    reader_counters = ordereddict()
-    for cnt in counters:
-        # THIS SHOULD GO AWAY
-        if isinstance(cnt, (Input, Output)):
-            cnt = TempControllerCounter(cnt.name, cnt)
-        ###
-        grouped_read_handler = Counter.GROUPED_READ_HANDLERS.get(cnt)
-        if grouped_read_handler:
-            reader_counters.setdefault(
-                grouped_read_handler, list()).append(cnt)
+        # Create master
+        master_controller = counter.master_controller
+        if master_controller and master_controller not in master_dict:
+            master_dict[master_controller] = \
+                master_controller.create_master_device(scan_pars)
+
+        # Make sure the master is in the tree
+        acquisition_master = master_dict.get(master_controller)
+        tree.setdefault(acquisition_master, [])
+
+        # Create device
+        device_controller = counter.controller
+        if device_controller and device_controller not in device_dict:
+            acquisition_device = counter.create_acquisition_device(scan_pars)
+            device_dict[device_controller] = acquisition_device
+
+            # Make sure the device is in the tree
+            tree[acquisition_master].append(acquisition_device)
+
+        # Add counter
+        if device_controller:
+            device_dict[device_controller].add_counter(counter)
+        elif master_controller:
+            master_dict[master_controller].add_counter(counter)
+
+        # Special case: counters without controllers
         else:
-            reader_counters[cnt] = []
+            warnings.warn(
+                'Counter {!r} has no controller associated'.format(counter))
+            acquisition_device = counter.create_acquisition_device(scan_pars)
+            tree[None].append(acquisition_device)
 
-    for reader, counters in reader_counters.iteritems():
-        if isinstance(
-            reader,
-            (SamplingCounter.GroupedReadHandler,
-             SamplingCounter)):
-            acq_device = SamplingCounterAcquisitionDevice(reader, **scan_pars)
-            for cnt in counters:
-                acq_device.add_counter(cnt)
-            tree.setdefault(None, list()).append(acq_device)
-        elif isinstance(reader, (IntegratingCounter.GroupedReadHandler, IntegratingCounter)):
-            try:
-                # the first counter is used to determine master acq device
-                cnt = counters[0]
-            except IndexError:
-                cnt = reader
-            master_acq_device = master_integrating_counter.get(
-                cnt.acquisition_controller)
-            if master_acq_device is None:
-                tmp_scan_pars = scan_pars.copy()
-                # by default don't save data from master
-                # so pop **save** flag
-                tmp_scan_pars.pop('save', None)
-                master_acq_device, _ = default_master_configuration(
-                    cnt, tmp_scan_pars)
-                master_integrating_counter[cnt.acquisition_controller] = master_acq_device
-            if isinstance(reader, IntegratingCounter.GroupedReadHandler):
-                acq_device = IntegratingCounterAcquisitionDevice(
-                    reader, **scan_pars)
-                for cnt in counters:
-                    acq_device.add_counter(cnt)
-                tree.setdefault(master_acq_device, list()).append(acq_device)
-            else:
-                tree.setdefault(
-                    master_acq_device, list()).append(
-                    IntegratingCounterAcquisitionDevice(
-                        cnt, **scan_pars))
-        else:
-            master_acq_device = master_integrating_counter.get(reader)
-            if master_acq_device is None:
-                master_acq_device, _ = default_master_configuration(
-                    reader, scan_pars)
-                master_integrating_counter[reader] = master_acq_device
-                tree.setdefault(master_acq_device, list())
-            else:
-                if scan_pars.get('save', False):
-                    activate_master_saving(master_acq_device, True)
     return tree
 
 
-def default_chain(chain, scan_pars, counters):
+def default_chain(chain, scan_pars, counter_args):
+    # Scan parameters
     count_time = scan_pars.get('count_time', 1)
     sleep_time = scan_pars.get('sleep_time')
     npoints = scan_pars.get('npoints', 1)
 
+    # Issue warning for non BaseCounter instance (for the moment)
+    def get_name(counter):
+        if not isinstance(counter, BaseCounter):
+            warnings.warn('{!r} is not a counter'.format(counter))
+            return counter.name
+        return counter.fullname
+
+    # Remove duplicates
+    counter_dct = {
+        get_name(counter): counter
+        for counter in get_all_counters(counter_args)}
+
+    # Sort counters
+    counters = [
+        counter for name, counter in
+        sorted(counter_dct.items())]
+
+    # No counters
     if not counters:
         raise ValueError(
             "No counters for scan. Hint: are all counters disabled ?")
 
-    # Eliminate duplicates using counter full names
-    def fullname(arg):
-        if hasattr(arg, 'controller'):
-            return '.'.join((arg.controller.name, arg.name))
-        return arg.name
-
-    counter_dct = {fullname(counter): counter for counter in counters}
-    counters = [counter for name, counter in sorted(counter_dct.items())]
-
-    # TODO: remove and adapt API
-    counters = set(counters)
-
+    # Build default master
     timer = SoftwareTimerMaster(
         count_time,
         npoints=npoints,
         sleep_time=sleep_time)
 
-    for acq_master, acq_devices in _counters_tree(
-            counters, scan_pars).iteritems():
+    # Build counter tree
+    tree = counter_tree(counters, scan_pars)
+
+    # Build chain
+    for acq_master, acq_devices in tree.iteritems():
         if acq_master:
             chain.add(timer, acq_master)
         else:
@@ -250,6 +238,7 @@ def default_chain(chain, scan_pars, counters):
         for acq_device in acq_devices:
             chain.add(acq_master, acq_device)
 
+    # Return timer
     chain.timer = timer
     return timer
 
@@ -266,7 +255,7 @@ def step_scan(chain, scan_info, name=None, save=True):
                             data_watch_callback=scan_data_watch)
 
 
-def ascan(motor, start, stop, npoints, count_time, *counters, **kwargs):
+def ascan(motor, start, stop, npoints, count_time, *counter_args, **kwargs):
     """
     Absolute scan
 
@@ -284,9 +273,9 @@ def ascan(motor, start, stop, npoints, count_time, *counters, **kwargs):
         stop (float): motor end position
         npoints (int): the number of points
         count_time (float): count time (seconds)
-        counters (BaseCounter or
-                  MeasurementGroup): change for those counters or measurement group.
-                                     if counter is empty use the active measurement group.
+        counter_args (counter-providing objects):
+            each argument provides counters to be integrated in the scan.
+            if no counter arguments are provided, use the active measurement group.
 
     Keyword Args:
         name (str): scan name in data nodes tree and directories [default: 'scan']
@@ -323,7 +312,7 @@ def ascan(motor, start, stop, npoints, count_time, *counters, **kwargs):
                       'estimation': estimation})
 
     chain = AcquisitionChain(parallel_prepare=True)
-    timer = default_chain(chain, scan_info, _get_all_counters(counters))
+    timer = default_chain(chain, scan_info, counter_args)
     top_master = LinearStepTriggerMaster(npoints, motor, start, stop)
     chain.add(top_master, timer)
 
@@ -345,7 +334,7 @@ def ascan(motor, start, stop, npoints, count_time, *counters, **kwargs):
         return scan
 
 
-def dscan(motor, start, stop, npoints, count_time, *counters, **kwargs):
+def dscan(motor, start, stop, npoints, count_time, *counter_args, **kwargs):
     """
     Relative scan
 
@@ -366,9 +355,9 @@ def dscan(motor, start, stop, npoints, count_time, *counters, **kwargs):
         stop (float): motor relative end position
         npoints (int): the number of points
         count_time (float): count time (seconds)
-        counters (BaseCounter or
-                  MeasurementGroup): change for those counters or measurement group.
-                                     if counter is empty use the active measurement group.
+        counter_args (counter-providing objects):
+            each argument provides counters to be integrated in the scan.
+            if no counter arguments are provided, use the active measurement group.
 
     Keyword Args:
         name (str): scan name in data nodes tree and directories [default: 'scan']
@@ -382,7 +371,7 @@ def dscan(motor, start, stop, npoints, count_time, *counters, **kwargs):
     kwargs['type'] = 'dscan'
     oldpos = motor.position()
     scan = ascan(motor, oldpos + start, oldpos + stop, npoints, count_time,
-                 *counters, **kwargs)
+                 *counter_args, **kwargs)
     motor.move(oldpos)
     return scan
 
@@ -397,7 +386,7 @@ def mesh(
         stop2,
         npoints2,
         count_time,
-        *counters,
+        *counter_args,
         **kwargs):
     """
     Mesh scan
@@ -452,7 +441,7 @@ def mesh(
                       'estimation': estimation})
 
     chain = AcquisitionChain(parallel_prepare=True)
-    timer = default_chain(chain, scan_info, _get_all_counters(counters))
+    timer = default_chain(chain, scan_info, counter_args)
     top_master = MeshStepTriggerMaster(motor1, start1, stop1, npoints1,
                                        motor2, start2, stop2, npoints2)
     chain.add(top_master, timer)
@@ -484,7 +473,7 @@ def mesh(
 
 
 def a2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
-           *counters, **kwargs):
+           *counter_args, **kwargs):
     """
     Absolute 2 motor scan
 
@@ -506,9 +495,9 @@ def a2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
         stop2 (float): motor2 end position
         npoints (int): the number of points
         count_time (float): count time (seconds)
-        counters (BaseCounter or
-                  MeasurementGroup): change for those counters or measurement group.
-                                     if counter is empty use the active measurement group.
+        counter_args (counter-providing objects):
+            each argument provides counters to be integrated in the scan.
+            if no counter arguments are provided, use the active measurement group.
 
     Keyword Args:
         name (str): scan name in data nodes tree and directories [default: 'scan']
@@ -553,7 +542,7 @@ def a2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
                       'estimation': estimation})
 
     chain = AcquisitionChain(parallel_prepare=True)
-    timer = default_chain(chain, scan_info, _get_all_counters(counters))
+    timer = default_chain(chain, scan_info, counter_args)
     top_master = LinearStepTriggerMaster(npoints,
                                          motor1, start1, stop1,
                                          motor2, start2, stop2)
@@ -579,7 +568,7 @@ def a2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
 
 
 def d2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
-           *counters, **kwargs):
+           *counter_args, **kwargs):
     """
     Relative 2 motor scan
 
@@ -605,9 +594,9 @@ def d2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
         stop2 (float): motor2 relative end position
         npoints (int): the number of points
         count_time (float): count time (seconds)
-        counters (BaseCounter or
-                  MeasurementGroup): change for those counters or measurement group.
-                                     if counter is empty use the active measurement group.
+        counter_args (counter-providing objects):
+            each argument provides counters to be integrated in the scan.
+            if no counter arguments are provided, use the active measurement group.
 
     Keyword Args:
         name (str): scan name in data nodes tree and directories [default: 'scan']
@@ -634,7 +623,7 @@ def d2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
         oldpos2 + stop2,
         npoints,
         count_time,
-        *counters,
+        *counter_args,
         **kwargs)
 
     group = Group(motor1, motor2)
@@ -642,7 +631,7 @@ def d2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
     return scan
 
 
-def timescan(count_time, *counters, **kwargs):
+def timescan(count_time, *counter_args, **kwargs):
     """
     Time scan
 
@@ -651,9 +640,9 @@ def timescan(count_time, *counters, **kwargs):
 
     Args:
         count_time (float): count time (seconds)
-        counters (BaseCounter or
-                  MeasurementGroup): change for those counters or measurement group.
-                                     if counter is empty use the active measurement group.
+        counter_args (counter-providing objects):
+            each argument provides counters to be integrated in the scan.
+            if no counter arguments are provided, use the active measurement group.
 
     Keyword Args:
         name (str): scan name in data nodes tree and directories [default: 'scan']
@@ -695,7 +684,7 @@ def timescan(count_time, *counters, **kwargs):
     _log.info("Doing %s", scan_info['type'])
 
     chain = AcquisitionChain(parallel_prepare=True)
-    timer = default_chain(chain, scan_info, _get_all_counters(counters))
+    timer = default_chain(chain, scan_info, counter_args)
 
     scan = step_scan(
         chain,
@@ -712,7 +701,7 @@ def timescan(count_time, *counters, **kwargs):
         return scan
 
 
-def loopscan(npoints, count_time, *counters, **kwargs):
+def loopscan(npoints, count_time, *counter_args, **kwargs):
     """
     Similar to :ref:`timescan` but npoints is mandatory
 
@@ -722,9 +711,9 @@ def loopscan(npoints, count_time, *counters, **kwargs):
     Args:
         npoints (int): number of points
         count_time (float): count time (seconds)
-        counters (BaseCounter or
-                  MeasurementGroup): change for those counters or measurement group.
-                                     if counter is empty use the active measurement group.
+        counter_args (counter-providing objects):
+            each argument provides counters to be integrated in the scan.
+            if no counter arguments are provided, use the active measurement group.
 
     Keyword Args:
         name (str): scan name in data nodes tree and directories [default: 'scan']
@@ -740,10 +729,10 @@ def loopscan(npoints, count_time, *counters, **kwargs):
     """
     kwargs.setdefault('npoints', npoints)
     kwargs.setdefault('name', 'loopscan')
-    return timescan(count_time, *counters, **kwargs)
+    return timescan(count_time, *counter_args, **kwargs)
 
 
-def ct(count_time, *counters, **kwargs):
+def ct(count_time, *counter_args, **kwargs):
     """
     Count for a specified time
 
@@ -755,9 +744,9 @@ def ct(count_time, *counters, **kwargs):
 
     Args:
         count_time (float): count time (seconds)
-        counters (BaseCounter or
-                  MeasurementGroup): change for those counters or measurement group.
-                                     if counter is empty use the active measurement group.
+        counter_args (counter-providing objects):
+            each argument provides counters to be integrated in the scan.
+            if no counter arguments are provided, use the active measurement group.
 
     Keyword Args:
         name (str): scan name in data nodes tree and directories [default: 'scan']
@@ -768,15 +757,15 @@ def ct(count_time, *counters, **kwargs):
         return_scan (bool): False by default
     """
     kwargs['type'] = 'ct'
-    kwargs['save'] = False
+    kwargs.setdefault('save', False)
     kwargs['npoints'] = 1
 
     kwargs.setdefault("name", "ct")
 
-    return timescan(count_time, *counters, **kwargs)
+    return timescan(count_time, *counter_args, **kwargs)
 
 
-def pointscan(motor, positions, count_time, *counters, **kwargs):
+def pointscan(motor, positions, count_time, *counter_args, **kwargs):
     """
     Point scan
 
@@ -788,9 +777,9 @@ def pointscan(motor, positions, count_time, *counters, **kwargs):
         motor (Axis): motor to scan
         positions (list): a list of positions
         count_time (float): count time (seconds)
-        counters (BaseCounter or
-                  MeasurementGroup): change for those counters or measurement group.
-                                     if counter is empty use the active measurement group.
+        counter_args (counter-providing objects):
+            each argument provides counters to be integrated in the scan.
+            if no counter arguments are provided, use the active measurement group.
 
     Keyword Args:
         name (str): scan name in data nodes tree and directories [default: 'scan']
@@ -816,7 +805,7 @@ def pointscan(motor, positions, count_time, *counters, **kwargs):
          'count_time': count_time})
 
     chain = AcquisitionChain(parallel_prepare=True)
-    timer = default_chain(chain, scan_info, _get_all_counters(counters))
+    timer = default_chain(chain, scan_info, counter_args)
     top_master = VariableStepTriggerMaster(motor, positions)
     chain.add(top_master, timer)
 

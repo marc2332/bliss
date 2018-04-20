@@ -9,13 +9,15 @@
 Classes implemented with temperature Controller
 """
 
-from bliss.common.task import task
+import math
+
 import gevent
 import gevent.event
-import math
+
+from bliss.common.task import task
 from bliss.common import log
-from bliss.common.measurement import SamplingCounter
 from bliss.common.utils import with_custom_members
+from bliss.common.measurement import SamplingCounter, counter_namespace
 
 
 class TempControllerCounter(SamplingCounter):
@@ -29,6 +31,7 @@ class TempControllerCounter(SamplingCounter):
     def read(self):
         data = self.parent.read()
         return data
+
 
 @with_custom_members
 class Input(object):
@@ -66,6 +69,11 @@ class Input(object):
         """ returns the counter object """
         return TempControllerCounter(self.name, self)
 
+    @property
+    def counters(self):
+        """Standard counter namespace."""
+        return counter_namespace([self.counter])
+
     def read(self):
         """ returns the sensor value """
         log.debug("On Input:read")
@@ -85,7 +93,7 @@ class Output(object):
         log.debug("On Output")
         self.__controller = controller
         self.__name = config["name"]
-        try: 
+        try:
             self.__limits = (config.get("low_limit"), config.get("high_limit"))
         except:
             self.__limits = (None,None)
@@ -127,7 +135,7 @@ class Output(object):
 
     @property
     def deadband(self):
-        """ returns the deadband acceptable for the heater temperature setting. 
+        """ returns the deadband acceptable for the heater temperature setting.
             After a ramp or a set, the setpoint is considered to be reached
             only if heater value is within the deadband.
             While the setpoint is not reached, a wait will block on it."""
@@ -137,6 +145,11 @@ class Output(object):
     def counter(self):
         """ returns the counter object """
         return TempControllerCounter(self.name, self)
+
+    @property
+    def counters(self):
+        """Standard counter namespace."""
+        return counter_namespace([self.counter])
 
     def read(self):
         """ returns the heater value """
@@ -148,7 +161,7 @@ class Output(object):
             - if no setpoint is provided, returns the present setpoint value
             - by default does not wait.
             - it is possible to provide kwargs arguments
-            
+
             The related controller methods to be filled are:
             - get_setpoint
             - setpoint_stop
@@ -164,7 +177,7 @@ class Output(object):
             - if no setpoint is provided, returns the present setpoint value
             - by default does not wait.
             - it is possible to provide kwargs arguments
-            
+
             The related controller methods to be filled are:
             - get_setpoint
             - setpoint_stop
@@ -267,7 +280,7 @@ class Output(object):
         """ Subtask launching the setpoint
             Polls until setpoint is reached
             Is a gevent coroutine
-        """ 
+        """
         log.debug("On Output:_do_setpoint : mode = %s" % (self.__mode))
         try:
             while self._setpoint_state() == 'RUNNING':
@@ -311,7 +324,7 @@ class Output(object):
 
     def ramprate(self, new_ramp=None):
         """
-        Setting/reading the setpoint ramp rate value 
+        Setting/reading the setpoint ramp rate value
 
         """
         log.debug("On Output:ramprate: %s " % (new_ramp))
@@ -455,6 +468,3 @@ class Loop(object):
            self.controller.set_kd(self,new_kd)
         else:
            return self.controller.read_kd(self)
-
-
-

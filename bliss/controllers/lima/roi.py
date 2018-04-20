@@ -11,7 +11,7 @@ import functools
 import numpy
 
 from bliss.config import settings
-from bliss.common.utils import grouped, OrderedDict
+from bliss.common.utils import OrderedDict
 from bliss.common.measurement import IntegratingCounter
 
 
@@ -67,10 +67,10 @@ class RoiStatCounter(IntegratingCounter):
         self.roi_name = roi_name
         self.stat = stat
         name = self.roi_name + '.' + stat.name.lower()
-        self.controller = kwargs.pop('controller')
-        acquisition_controller = kwargs.pop('acquisition_controller')
-        IntegratingCounter.__init__(self, name, self.controller,
-                                    acquisition_controller, **kwargs)
+        controller = kwargs.pop('controller')
+        master_controller = kwargs.pop('master_controller')
+        IntegratingCounter.__init__(
+            self, name, controller, master_controller, **kwargs)
 
     def __int__(self):
         # counter statistic ID = roi_id | statistic_id
@@ -84,31 +84,38 @@ class RoiStatCounter(IntegratingCounter):
         return (roi_id << 8) | stat
 
 
-class RoiCounter(object):
+class SingleRoiCounters(object):
 
     def __init__(self, name, **keys):
         self.name = name
-        self.Counter = functools.partial(RoiStatCounter, name, **keys)
-    
+        self.factory = functools.partial(RoiStatCounter, name, **keys)
+
     @property
     def sum(self):
-        return self.Counter(RoiStat.Sum)
+        return self.factory(RoiStat.Sum)
 
     @property
     def avg(self):
-        return self.Counter(RoiStat.Avg)
+        return self.factory(RoiStat.Avg)
 
     @property
     def std(self):
-        return self.Counter(RoiStat.Std)
+        return self.factory(RoiStat.Std)
 
     @property
     def min(self):
-        return self.Counter(RoiStat.Min)
+        return self.factory(RoiStat.Min)
 
     @property
     def max(self):
-        return self.Counter(RoiStat.Max)
+        return self.factory(RoiStat.Max)
+
+    def __iter__(self):
+        yield self.sum
+        yield self.avg
+        yield self.std
+        yield self.min
+        yield self.max
 
 
 class RoiCounterGroupReadHandler(IntegratingCounter.GroupedReadHandler):
@@ -120,7 +127,7 @@ class RoiCounterGroupReadHandler(IntegratingCounter.GroupedReadHandler):
         roi_counter_size = len(RoiStat)
         raw_data = self.controller._proxy.readCounters(from_index)
         if not raw_data.size:
-            return len(counters)*(numpy.array(()),)
+            return len(counters) * (numpy.array(()),)
         raw_data.shape = (raw_data.size) / roi_counter_size, roi_counter_size
         result = OrderedDict([int(counter), []] for counter in counters)
 
@@ -139,8 +146,7 @@ class RoiCounters(object):
     def __init__(self, name, proxy, acquisition_proxy):
         self._proxy = proxy
         self._acquisition_proxy = acquisition_proxy
-        self._proxy.Start()
-        self.name = '%s:RoiCounters' % name
+        self.name = 'roi_counters'
         self._current_config = settings.SimpleSetting(self.name,
                                                       default_value='default')
         settings_name = '%s:%s' % (self.name, self._current_config.get())
@@ -158,6 +164,7 @@ class RoiCounters(object):
                             " or (x,y,width,height) values")
         roi.name = name
         roi_id = self._proxy.addNames((name,))[0]
+        self._proxy.Start()
         self._proxy.setRois((roi_id,
                              roi.x,roi.y,
                              roi.width,roi.height,))
@@ -174,7 +181,6 @@ class RoiCounters(object):
     def clear_rois(self):
         self._clear_rois_settings()
         self._proxy.clearAllRois()
-        self._proxy.Start()
 
     def get_rois(self):
         return self._save_rois.values()
@@ -185,21 +191,25 @@ class RoiCounters(object):
     @property
     def config_name(self):
         return self._current_config.get()
+
     @config_name.setter
-    def config_name(self,name):
+    def config_name(self, name):
         self._current_config.set(name)
-        self._save_rois = settings.HashObjSetting('%s:%s' % (self.name,name))
+        self._save_rois = settings.HashObjSetting('%s:%s' % (self.name, name))
 
     def upload_rois(self):
+        self._proxy.clearAllRois()
         roi_list = [roi for roi in self.get_rois() if roi.is_valid()]
         roi_id_list = self._proxy.addNames([x.name for x in roi_list])
         rois_values = list()
-        for roi_id,roi in zip(roi_id_list,roi_list):
+        for roi_id, roi in zip(roi_id_list, roi_list):
             rois_values.extend((roi_id,
-                                roi.x,roi.y,
-                                roi.width,roi.height))
+                                roi.x, roi.y,
+                                roi.width, roi.height))
             self._roi_ids[roi.name] = roi_id
-        self._proxy.setRois(rois_values)
+        if rois_values:
+            self._proxy.Start()
+            self._proxy.setRois(rois_values)
 
     def load_rois(self):
         """
@@ -215,12 +225,31 @@ class RoiCounters(object):
             roi = Roi(x, y, w, h, name=name)
             self._set_roi_settings(roi_id, roi)
 
-    def __getattr__(self, name):
+    # Counter access
+
+    def get_single_roi_counters(self, name):
         if self._save_rois.get(name) is None:
             raise AttributeError('Unknown ROI counter {0:!r}'.format(name))
-        return RoiCounter(name, controller=self, 
-                          acquisition_controller=self._acquisition_proxy,
-                          grouped_read_handler=self._grouped_read_handler)
+        return SingleRoiCounters(
+            name, controller=self,
+            master_controller=self._acquisition_proxy,
+            grouped_read_handler=self._grouped_read_handler)
+
+    def iter_single_roi_counters(self):
+        for roi in self.get_rois():
+            yield self.get_single_roi_counters(roi.name)
+
+    @property
+    def counters(self):
+        return [
+            counter
+            for counters in self.iter_single_roi_counters()
+            for counter in counters]
+
+    def __getattr__(self, name):
+        return self.get_single_roi_counters(name)
+
+    # Representation
 
     def __repr__(self):
         name = self.name.rsplit(':', 1)[-1]

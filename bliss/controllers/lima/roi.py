@@ -146,7 +146,6 @@ class RoiCounters(object):
     def __init__(self, name, proxy, acquisition_proxy):
         self._proxy = proxy
         self._acquisition_proxy = acquisition_proxy
-        self._proxy.Start()
         self.name = 'roi_counters'
         self._current_config = settings.SimpleSetting(self.name,
                                                       default_value='default')
@@ -165,6 +164,7 @@ class RoiCounters(object):
                             " or (x,y,width,height) values")
         roi.name = name
         roi_id = self._proxy.addNames((name,))[0]
+        self._proxy.Start()
         self._proxy.setRois((roi_id,
                              roi.x,roi.y,
                              roi.width,roi.height,))
@@ -181,7 +181,6 @@ class RoiCounters(object):
     def clear_rois(self):
         self._clear_rois_settings()
         self._proxy.clearAllRois()
-        self._proxy.Start()
 
     def get_rois(self):
         return self._save_rois.values()
@@ -199,6 +198,7 @@ class RoiCounters(object):
         self._save_rois = settings.HashObjSetting('%s:%s' % (self.name, name))
 
     def upload_rois(self):
+        self._proxy.clearAllRois()
         roi_list = [roi for roi in self.get_rois() if roi.is_valid()]
         roi_id_list = self._proxy.addNames([x.name for x in roi_list])
         rois_values = list()
@@ -207,7 +207,9 @@ class RoiCounters(object):
                                 roi.x, roi.y,
                                 roi.width, roi.height))
             self._roi_ids[roi.name] = roi_id
-        self._proxy.setRois(rois_values)
+        if rois_values:
+            self._proxy.Start()
+            self._proxy.setRois(rois_values)
 
     def load_rois(self):
         """

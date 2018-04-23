@@ -149,13 +149,13 @@ import sys
 import numpy
 import psutil
 import platform
-import subprocess
 from collections import OrderedDict
 
 import zerorpc
 import msgpack_numpy
 
 from bliss.common import session as session_module
+from bliss.common import subprocess
 from bliss.config.channels import Channel
 from bliss.config.conductor.client import get_default_connection
 
@@ -182,7 +182,7 @@ def get_flint_process():
     env = dict(os.environ)
     env['BEACON_HOST'] = get_beacon_config()
     args = [sys.executable, '-m', 'bliss.flint']
-    FLINT['process'] = subprocess.Popen(args, env=env, close_fds=True)
+    FLINT['process'] = subprocess.Popen(args, env=env, start_new_session=True)
     FLINT['proxy'] = None
     return FLINT['process'].pid
 

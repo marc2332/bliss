@@ -2,13 +2,12 @@
 
 import os
 import numpy
-import subprocess
 from distutils.spawn import find_executable
 
 import pytest
 
 from bliss.common import plot
-
+from bliss.common import subprocess
 
 @pytest.fixture(scope='session')
 def xvfb():
@@ -23,7 +22,7 @@ def xvfb():
         os.environ['DISPLAY'] = ':99'
         # Control xvbf process
         try:
-            p = subprocess.Popen([xvfb, ':99'], close_fds=True)
+            p = subprocess.Popen([xvfb, ':99'])
             yield p.pid
         # Teardown process
         finally:

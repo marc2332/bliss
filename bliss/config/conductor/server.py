@@ -15,7 +15,6 @@ import shutil
 import logging
 import argparse
 import weakref
-import subprocess
 import socket
 import signal
 import traceback
@@ -24,7 +23,7 @@ import tempfile
 import gevent
 from gevent import select
 
-from bliss.common import event
+from bliss.common import event, subprocess
 from . import protocol
 from .. import redis as redis_conf
 
@@ -640,7 +639,7 @@ def main(args=None):
         # Fire up process
         tango_process = subprocess.Popen(
             args, stdout=tango_wp, stderr=subprocess.STDOUT,
-            close_fds=True, env=env)
+            env=env)
     else:
         tango_rp = tango_process = None
 
@@ -655,7 +654,7 @@ def main(args=None):
                                       '--unixsocketperm', '777',
                                       '--port', '%d' % _options.redis_port],
                                      stdout=wp, stderr=subprocess.STDOUT,
-                                     close_fds=True, cwd=_options.db_path)
+                                     cwd=_options.db_path)
 
     # Safe context
     try:

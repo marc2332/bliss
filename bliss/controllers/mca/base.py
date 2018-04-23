@@ -182,26 +182,42 @@ class BaseMCA(object):
         # Start acquisition
         try:
             self.start_acquisition()
-            sent = current = 0
-            # Loop over polled commands
-            while not (sent == current == acquisition_number):
-                # Poll data
-                current, data, statistics = self.poll_data()
-                points = range(sent, sent + len(data))
-                sent += len(data)
-                # Check data integrity
-                if sorted(data) != sorted(statistics) != points:
-                    raise RuntimeError(
-                        'The polled data overlapped during the acquisition')
-                # Send the data
-                for n in points:
-                    yield data[n], statistics[n]
-                # Sleep
-                if not points:
-                    gevent.sleep(polling_time)
+            for point in self.hardware_poll_points(
+                    acquisition_number, polling_time):
+                yield point
         # Stop in any case
         finally:
             self.stop_acquisition()
+
+    def hardware_poll_points(self, acquisition_number, polling_time):
+        assert acquisition_number > 1
+        sent = current = 0
+        # Loop over polled commands
+        while True:
+            # Poll data
+            done = not self.is_acquiring()
+            current, data, statistics = self.poll_data()
+            points = range(sent, sent + len(data))
+            sent += len(data)
+            # Check data integrity
+            if sorted(data) != sorted(statistics) != points:
+                raise RuntimeError(
+                    'The polled data overlapped during the acquisition')
+            # Send the data
+            for n in points:
+                yield data[n], statistics[n]
+            # Finished
+            if sent == current == acquisition_number:
+                return
+            # Sleep
+            if not points and not done:
+                gevent.sleep(polling_time)
+            # Interrupted
+            if done:
+                raise RuntimeError(
+                    'The device is no longer acquiring '
+                    'but {} points are missing.'
+                    .format(acquisition_number - sent))
 
     def run_software_acquisition(self, acquisition_number,
                                  acquisition_time=1., polling_time=0.1):

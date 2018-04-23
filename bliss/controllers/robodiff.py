@@ -6,7 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from StaubCom import robot 
-from bliss.common.utils import grouped
+from bliss.common.utils import grouped, subprocess
 from bliss.common.task import task
 from bliss.common.cleanup import cleanup, error_cleanup
 from bliss.config import static as static_config
@@ -1564,9 +1564,7 @@ class Robodiff(object):
         self.SRX_prepare_acq(aperture)
         # create dir on lbsram
         subprocess.Popen("ssh %s@pilatus301 mkdir --parents %s" %(os.environ["USER"], dir_name),
-                                                                  shell=True, stdin=None,
-                                                                  stdout=None, stderr=None,
-                                                                  close_fds=True).wait
+                         shell=True, stdin=None, stdout=None, stderr=None).wait
         # create directory on Nice
         os.system("mkdir --parents %s" %(dir_name[7:]))
         if length_in_mm > abs(self.phiy.limits()[0] - self.phiy.limits()[1]) or height_in_mm > abs(self.phiy.limits()[0] - self.phiy.limits()[1]):
@@ -1576,9 +1574,7 @@ class Robodiff(object):
         for i in array_height:
             # create dir on lbsram
             subprocess.Popen("ssh %s@pilatus301 mkdir --parents %s" %(os.environ["USER"], dir_name+"/"+str(n_height)),
-                                                                      shell=True, stdin=None,
-                                                                      stdout=None, stderr=None,
-                                                                      close_fds=True).wait
+                             shell=True, stdin=None, stdout=None, stderr=None).wait
             # create directory on Nice
             os.system("mkdir --parents %s" %(dir_name[7:]+"/"+str(n_height)))
             n_line = 1
@@ -1593,7 +1589,7 @@ class Robodiff(object):
                   print "error: ", acq_status_chan.getValue()
                   time.sleep(0.02)
                   if time.time() - t0 > 0.5:
-                      subprocess.Popen("ssh opid30@pilatus301 df", shell=True, stdin=None,stdout=None, stderr=None,close_fds=True)
+                      subprocess.Popen("ssh opid30@pilatus301 df", shell=True, stdin=None,stdout=None, stderr=None)
                       return "Time error"
                 print self.pilatus.detector.getChannelObject("acq_status").getValue()
                 self.pilatus.set_detector_filenames(prefix, dir_name+"/"+str(n_height))
@@ -1617,17 +1613,13 @@ class Robodiff(object):
     def detector_test(self,dir_name="/lbsram/data/visitor/mx1583/id30a1/20150223/test2", img_name="SRX", nb_images=200, exp_time=0.010):
         # create dir on lbsram
         subprocess.Popen("ssh %s@pilatus301 mkdir --parents %s" %(os.environ["USER"], dir_name),
-                                                                  shell=True, stdin=None,
-                                                                  stdout=None, stderr=None,
-                                                                  close_fds=True).wait
+                         shell=True, stdin=None, stdout=None, stderr=None).wait
         # create directory on Nice
         os.system("mkdir --parents %s" %(dir_name[7:]))
         for i in range(1,125):
             # create dir on lbsram
             subprocess.Popen("ssh %s@pilatus301 mkdir --parents %s" %(os.environ["USER"], dir_name+"/"+str(i)),
-                                                                      shell=True, stdin=None,
-                                                                      stdout=None, stderr=None,
-                                                                      close_fds=True).wait
+                             shell=True, stdin=None, stdout=None, stderr=None).wait
             # create directory on Nice
             os.system("mkdir --parents %s" %(dir_name[7:]+"/"+str(i)))
 
@@ -1641,7 +1633,7 @@ class Robodiff(object):
                     time.sleep(0.05)
                     print prefix
                     if time.time() - t0 > 1.0:
-                        subprocess.Popen("df", shell=True, stdin=None,stdout=None, stderr=None,close_fds=True)
+                        subprocess.Popen("df", shell=True, stdin=None,stdout=None, stderr=None)
                         return "Time error"
                 self.pilatus.set_detector_filenames(prefix, dir_name+"/"+str(i))
                 self.pilatus.detector.getChannelObject("acq_trigger_mode").setValue("EXTERNAL_TRIGGER")

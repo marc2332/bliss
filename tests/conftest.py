@@ -7,7 +7,6 @@
 
 import os
 import time
-import subprocess
 import multiprocessing
 
 import redis
@@ -15,6 +14,7 @@ import pytest
 import gevent
 import sys
 
+from bliss.common import subprocess
 from bliss.config import static
 from bliss.config.conductor import client
 from bliss.config.conductor import connection
@@ -37,7 +37,7 @@ def beacon():
         '--db_path=' + BEACON_DB_PATH,
         '--posix_queue=0',
         '--tango_port=%d' % TANGO_PORT]
-    proc = subprocess.Popen(BEACON + args, close_fds=True)
+    proc = subprocess.Popen(BEACON + args)
     time.sleep(0.5)  # wait for beacon to be really started
     redis_db = redis.Redis(port=REDIS_PORT)
     redis_db.flushall()
@@ -77,7 +77,7 @@ def lima_simulator(beacon):
     device_name = "id00/limaccds/simulator1"
     device_fqdn = "tango://localhost:12345/%s" % device_name
 
-    p = subprocess.Popen(['LimaCCDs', 'simulator'], close_fds=True)
+    p = subprocess.Popen(['LimaCCDs', 'simulator'])
 
     with gevent.Timeout(3, RuntimeError("Lima simulator is not running")):
         while True:
@@ -104,7 +104,7 @@ def bliss_tango_server(beacon):
     device_fqdn = "tango://localhost:12345/%s" % device_name
 
     bliss_ds = [sys.executable, '-m', 'bliss.tango.servers.bliss_ds']
-    p = subprocess.Popen(bliss_ds+["test"], close_fds=True)
+    p = subprocess.Popen(bliss_ds+["test"])
 
     with gevent.Timeout(3, RuntimeError("Bliss tango server is not running")):
         while True:

@@ -26,6 +26,7 @@ class SimulatedMCA(BaseMCA):
         self._trigger_mode = TriggerMode.SOFTWARE
         self._current_data = None
         self._current_stats = None
+        self._realtime = float('inf')
 
     def initialize_hardware(self):
         gevent.sleep(self._init_time)
@@ -108,6 +109,8 @@ class SimulatedMCA(BaseMCA):
         self._current_data, self._current_stats = pixel
 
     def is_acquiring(self):
+        if self._trigger_mode != TriggerMode.SOFTWARE:
+            return self._running
         return self._running and self.delta < self._realtime
 
     @property

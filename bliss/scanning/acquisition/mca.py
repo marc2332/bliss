@@ -5,6 +5,7 @@
 # Copyright (c) 2017 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+from contextlib import closing
 from collections import defaultdict
 
 import numpy
@@ -136,19 +137,13 @@ class McaAcquisitionDevice(AcquisitionDevice):
     def start(self):
         """Start the acquisition."""
         if self.soft_trigger_mode:
-            self.acquisition_gen = self.device.software_controlled_run(
-                self.npoints, self.polling_time)
-        elif self.sync_trigger_mode:
-            self.acquisition_gen = self.device.hardware_controlled_run(
-                self.npoints + 1, self.polling_time)
-        elif self.gate_trigger_mode:
-            self.acquisition_gen = self.device.hardware_controlled_run(
-                self.npoints, self.polling_time)
+            return
+        self.device.start_acquisition()
 
     def stop(self):
         """Stop the acquistion."""
-        if self.acquisition_gen:
-            self.acquisition_gen.close()
+        if not self.soft_trigger_mode:
+            self.device.stop_acquisition()
         self.acquisition_state.goto(self.READY)
 
     def trigger(self):
@@ -169,25 +164,31 @@ class McaAcquisitionDevice(AcquisitionDevice):
     # Helpers
 
     def _hard_reading(self):
-        # Discard first acquisition in synchronized mode
-        if self.sync_trigger_mode:
-            next(self.acquisition_gen)
-        # Acquire data
-        for spectrums, stats in self.acquisition_gen:
-            # Publish
-            self._publish(spectrums, stats)
+        npoints = self.npoints + 1 if self.sync_trigger_mode else self.npoints
+        # Safe point generator
+        with closing(self.device.hardware_poll_points(
+                npoints, self.polling_time)) as generator:
+            # Discard first point in synchronized mode
+            if self.sync_trigger_mode:
+                next(generator)
+            # Acquire data
+            for spectrums, stats in generator:
+                self._publish(spectrums, stats)
 
     def _soft_reading(self):
-        # Acquire data
-        for i in range(self.npoints):
-            # Software sync
-            self.acquisition_state.wait(self.TRIGGERED)
-            # Get data
-            spectrums, stats = next(self.acquisition_gen)
-            # Publish
-            self._publish(spectrums, stats)
-            # Software sync
-            self.acquisition_state.goto(self.READY)
+        # Safe point generator
+        with closing(self.device.software_controlled_run(
+                self.npoints, self.polling_time)) as generator:
+            # Acquire data
+            for i in range(self.npoints):
+                # Software sync
+                self.acquisition_state.wait(self.TRIGGERED)
+                # Get data
+                spectrums, stats = next(generator)
+                # Publish
+                self._publish(spectrums, stats)
+                # Software sync
+                self.acquisition_state.goto(self.READY)
 
     def _publish(self, spectrums, stats):
         for counter in self.counters:

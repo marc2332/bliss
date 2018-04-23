@@ -118,7 +118,8 @@ def main():
         'mock ; python_version < "3.3"',
         'futures',
         'silx',
-        'psutil'
+        'psutil',
+        'subprocess32'
     ]
 
     tests_require = [

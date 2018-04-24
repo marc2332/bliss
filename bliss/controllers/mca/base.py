@@ -14,6 +14,7 @@ import collections
 
 import gevent
 
+from .roi import RoiConfig
 
 # Enums
 
@@ -49,6 +50,7 @@ class BaseMCA(object):
     def __init__(self, name, config):
         self._name = name
         self._config = config
+        self._rois = RoiConfig(self)
         self.initialize_attributes()
         self.initialize_hardware()
 
@@ -160,6 +162,12 @@ class BaseMCA(object):
     def counter_groups(self):
         from bliss.scanning.acquisition.mca import mca_counter_groups
         return mca_counter_groups(self)
+
+    # Roi handling
+
+    @property
+    def rois(self):
+        return self._rois
 
     # Extra logic
 

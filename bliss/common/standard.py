@@ -12,8 +12,10 @@ from bliss.common.cleanup import cleanup, error_cleanup
 
 __all__ = ['wa', 'wm', 'sta', 'mv', 'umv', 'mvr', 'umvr', 'move',
            'prdef', 'set_log_level', 'sync'] + scans.__all__ + \
-           ['cleanup', 'error_cleanup', 'plot']
+           ['cleanup', 'error_cleanup', 'plot', 'showcnt']
 
+import collections
+import itertools
 import inspect
 import logging
 import functools
@@ -22,7 +24,6 @@ import gevent
 from six import print_
 from gevent import sleep
 from tabulate import tabulate
-from bliss.common.utils import OrderedDict
 
 from pygments import highlight
 from pygments.lexers import PythonLexer
@@ -32,7 +33,9 @@ from bliss import setup_globals
 from bliss.common.axis import Axis
 from bliss.config.static import get_config
 from bliss.common.motor_group import Group
-
+from bliss.common.utils import OrderedDict
+from bliss.common.measurement import BaseCounter
+from bliss.shell.cli import repl
 
 _ERR = '!ERR'
 _MAX_COLS = 9
@@ -363,4 +366,42 @@ def set_log_level(level=logging.root.level):
                             case insensitive equivalent string (ex: 'Info')
     """
     logging.root.setLevel(_check_log_level(level))
-        
+
+def cntdict():
+    """
+    Return a dict of counters
+    """
+    counters_dict = dict()
+    shape = ['0D','1D','2D']
+
+    if repl.REPL is None:
+        env_dict = dict()
+    else:
+        env_dict = repl.REPL.get_globals()
+
+    for name, obj in itertools.chain(inspect.getmembers(setup_globals),
+                                     env_dict.iteritems() if env_dict is not
+                                     None else {}):
+        if isinstance(obj, BaseCounter):
+            counters_dict[obj.fullname] = (shape[len(obj.shape)], obj.controller.name if
+                                           obj.controller else "None")
+        elif hasattr(obj, "counters") and isinstance(obj.counters,
+                                                     collections.Iterable):
+            for cnt in obj.counters:
+                if isinstance(cnt, BaseCounter):
+                    tmp = cnt.fullname.split('.')
+                    controller_name = '.'.join(tmp[:-1])
+                    counters_dict[cnt.fullname] = (shape[len(cnt.shape)],
+                                                   controller_name)
+    return counters_dict
+
+def showcnt():
+    """
+    Display the list of all counters, sorted alphabetically
+    """
+    table_info = []
+    for counter_name, counter_info in sorted(cntdict().iteritems()):
+      table_info.append(itertools.chain([counter_name],counter_info))
+    print_()
+    print_(str(tabulate(table_info, headers=["Name", "Shape", "Controller"])))
+

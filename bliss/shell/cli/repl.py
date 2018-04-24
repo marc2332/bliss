@@ -27,6 +27,7 @@ from bliss.shell import initialize, ScanListener
 
 __all__ = ('BlissRepl', 'embed', 'cli', 'configure')
 
+REPL = None
 
 class BlissRepl(PythonRepl):
 
@@ -123,13 +124,12 @@ def cli(locals=None, session_name=None, vi_mode=False,
                                   (default: 0.25s). Use 0 or None to
                                   deactivate refresh.
     """
-    
     user_ns, session = initialize(session_name)
 
     locals = locals or user_ns
 
     def get_globals():
-        return dict(user_ns, REPL=repl)
+        return dict(user_ns) #, REPL=repl)
 
     def get_locals():
         return locals
@@ -158,6 +158,9 @@ def cli(locals=None, session_name=None, vi_mode=False,
                      prompt_label=prompt_label, title=session_title,
                      history_filename=history_filename,
                      startup_paths=startup_paths)
+
+    global REPL
+    REPL = repl
 
     # Run registered configurations
     for idx in sorted(CONFIGS):

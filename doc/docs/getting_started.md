@@ -256,7 +256,7 @@ applied automatically (except for the threading module). In most cases, this is
 transparent and does not require anything from the host Python program.
 
 !!! note
-    When using BLISS from a command line or from a graphical      
+    When using BLISS from a command line or from a graphical
     interface, gevent needs to be inserted into the events loop.
 
 For example a BLISS-friendly IPython console can be started like this:
@@ -346,6 +346,7 @@ returns to user:
 
 * `wa()` shows a table of all motors in the session, with positions.
 * `prdef(func)` displays the source code of a function (if source code is available)
+* `showcnt()` shows a table of all counters in the session.
 
 
 ## Basic scans

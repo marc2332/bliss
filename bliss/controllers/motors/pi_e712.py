@@ -402,7 +402,7 @@ class PI_E712(Controller):
                 sample_time = float(header['SAMPLE_TIME'])
                 dim = int(header['DIM'])
                 column_info = dict()
-                keep_axes = {x.channel : x for x in self.axes.values()}
+                keep_axes = {x.channel : x for x in self.axes.values() if hasattr(x,'channel')}
                 for name_id in range(8):
                     try:
                         desc = header['NAME%d' % name_id]

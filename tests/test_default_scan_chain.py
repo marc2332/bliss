@@ -224,7 +224,7 @@ def test_default_chain_with_lima_defaults_parameters(beacon, lima_simulator):
 
     chain = AcquisitionChain()
     try:
-        set_default_chain_device_settings([{"device": diode, "master":
+        set_default_chain_device_settings([{"device": diode.controller, "master":
                                             lima_sim }, { "device": lima_sim,
                                                          "acquisition_settings":
                                                          {'acq_trigger_mode':'EXTERNAL_GATE'}
@@ -239,6 +239,7 @@ def test_default_chain_with_lima_defaults_parameters(beacon, lima_simulator):
         assert isinstance(nodes[3], SamplingCounterAcquisitionDevice)
 
         assert nodes[2].parent == nodes[1]
+        assert nodes[3].parent == nodes[1]
         assert nodes[1].parent == timer
 
         assert nodes[1].parameters.get('acq_trigger_mode') == 'EXTERNAL_GATE'
@@ -255,8 +256,6 @@ def test_default_chain2(beacon, lima_simulator):
         |-FakeMaster
            |
            |-LimaAcquisitionMaster
-              |
-              |-intensity
               |
               |-diode
     """
@@ -279,12 +278,16 @@ def test_default_chain2(beacon, lima_simulator):
 
     chain = AcquisitionChain()
     try:
-        set_default_chain_device_settings([{"device": diode, "master":
-                                            lima_sim }, { "device": lima_sim,
-                                                         "acquisition_settings":
-                                                         {'acq_trigger_mode':'EXTERNAL_GATE'},
-                                                         "master":
-                                                         fake_master}])
+        set_default_chain_device_settings([
+            {
+                "device": diode.controller,
+                "master": lima_sim
+            },
+            {
+                "device": lima_sim,
+                "master": fake_master,
+                "acquisition_settings": {'acq_trigger_mode': 'EXTERNAL_GATE'},
+            }])
         timer = default_chain(chain, scan_pars, [diode])
 
         nodes = chain.nodes_list
@@ -294,6 +297,9 @@ def test_default_chain2(beacon, lima_simulator):
         assert isinstance(nodes[2], LimaAcquisitionMaster)
         assert isinstance(nodes[3], SamplingCounterAcquisitionDevice)
 
+        assert nodes[1].parent == timer
+        assert nodes[2].parent == nodes[1]
+        assert nodes[3].parent == nodes[2]
+
     finally:
         set_default_chain_device_settings([])
-

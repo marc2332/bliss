@@ -52,9 +52,11 @@ def add_conversion_function(obj, method_name, function):
 
 def add_property(inst, name, method):
     cls = type(inst)
+    module = cls.__module__
     if not hasattr(cls, '__perinstance'):
         cls = type(cls.__name__, (cls,), {})
         cls.__perinstance = True
+        cls.__module__ = module
         inst.__class__ = cls
     setattr(cls, name, property(method))
 

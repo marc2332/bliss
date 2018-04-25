@@ -224,7 +224,7 @@ def test_default_chain_with_lima_defaults_parameters(beacon, lima_simulator):
 
     chain = AcquisitionChain()
     try:
-        set_default_chain_device_settings([{"device": diode.controller, "master":
+        set_default_chain_device_settings([{"device": diode, "master":
                                             lima_sim }, { "device": lima_sim,
                                                          "acquisition_settings":
                                                          {'acq_trigger_mode':'EXTERNAL_GATE'}
@@ -280,7 +280,7 @@ def test_default_chain2(beacon, lima_simulator):
     try:
         set_default_chain_device_settings([
             {
-                "device": diode.controller,
+                "device": diode,
                 "master": lima_sim
             },
             {

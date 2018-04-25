@@ -230,6 +230,19 @@ def master_to_devices_mapping(root, counters, scan_pars,
     # Loop over counters
     for counter in counters:
 
+        # Master settings shortcuts
+        if counter in master_settings and counter.controller:
+            if counter.controller in master_settings:
+                raise ValueError('Conflict in master settings')
+            master_settings[counter.controller] = master_settings[counter]
+
+        # Acquisition settings shortcuts
+        if counter in acquisition_settings and counter.controller:
+            if counter.controller in acquisition_settings:
+                raise ValueError('Conflict in acquisition settings')
+            acquisition_settings[counter.controller] = \
+                acquisition_settings[counter]
+
         # Get acquisition master
         master_controller = counter.master_controller
         acquisition_master = add_master(master_controller)
@@ -248,8 +261,7 @@ def master_to_devices_mapping(root, counters, scan_pars,
         else:
             warnings.warn(
                 'Counter {!r} has no associated controller'.format(counter))
-            acquisition_device = counter.create_acquisition_device(scan_pars)
-            mapping_dict[root].append(acquisition_device)
+            add_device(counter, None)
 
     return mapping_dict
 

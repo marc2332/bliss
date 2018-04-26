@@ -20,12 +20,13 @@ __all__ = [
     'timescan',
     'loopscan',
     'ct',
-    'get_data']
-
+    'get_data',
+    'set_default_chain_device_settings']
 
 import logging
 import operator
 import warnings
+import collections
 
 from bliss import setup_globals
 
@@ -47,8 +48,9 @@ from bliss.scanning.acquisition.motor import VariableStepTriggerMaster
 from bliss.scanning.acquisition.motor import LinearStepTriggerMaster, MeshStepTriggerMaster
 from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionDevice, IntegratingCounterAcquisitionDevice
 
-
 _log = logging.getLogger('bliss.scans')
+
+_DEFAULT_CHAIN_DEVICE_SETTINGS = dict()
 
 
 class TimestampPlaceholder:
@@ -140,8 +142,41 @@ def get_all_counters(counter_args):
     return all_counters
 
 
-def counter_tree(counters, scan_pars):
-    """Create the counter tree from a given counter list.
+def set_default_chain_device_settings(settings_list):
+    """
+    Set the default acquisition parameters for devices in the default scan
+    chain
+
+    Args:
+        `settings_list` is a list of dictionaries. Each dictionary has:
+
+            * 'device' key, with the device object parameters corresponds to
+            * 'acquisition_settings' dictionary, that will be passed as keyword args
+              to the acquisition device
+            * 'master' key (optional), points to the master device
+
+        Example YAML:
+
+        -
+          device: $frelon
+          acquisition_settings:
+            acq_trigger_type: EXTERNAL
+            ...
+          master: $p201
+    """
+    default_settings = dict()
+    for device_settings in settings_list:
+        acq_settings = device_settings.get("acquisition_settings", {})
+        master = device_settings.get("master")
+        default_settings[device_settings['device']] = {"acquisition_settings": acq_settings, "master": master }
+
+    global _DEFAULT_CHAIN_DEVICE_SETTINGS
+    _DEFAULT_CHAIN_DEVICE_SETTINGS = default_settings
+
+
+def master_to_devices_mapping(root, counters, scan_pars,
+                              acquisition_settings, master_settings):
+    """Create the mapping between acquisition masters and acquisition devices
 
     It relies on four standard methods:
     - counter.master_controller.create_master_device
@@ -150,53 +185,104 @@ def counter_tree(counters, scan_pars):
     - acquisition_device.add_counter
     """
     # Initialize structures
-    master_dict = {}
-    device_dict = {}
-    tree = ordereddict()
+    device_dict = {None: None}
+    master_dict = {None: root}
+    mapping_dict = ordereddict({root: []})
+
+    # Recursive master handling
+    def add_master(master_controller):
+        # Existing master
+        if master_controller in master_dict:
+            return master_dict[master_controller]
+        # Create master
+        settings = acquisition_settings.get(master_controller, {})
+        master_dict[master_controller] = acquisition_master = \
+            master_controller.create_master_device(
+                scan_pars, **settings)
+        # Parent handling
+        parent_controller = master_settings.get(master_controller)
+        parent = add_master(parent_controller)
+        # Fill mapping dict
+        mapping_dict[acquisition_master] = []
+        mapping_dict[parent].append(acquisition_master)
+        # Return master
+        return acquisition_master
+
+    # Non-recursive device handling
+    def add_device(device_controller, master_controller):
+        # Existing device
+        if device_controller in device_dict:
+            return device_dict[device_controller]
+        # Create acquisition_device
+        settings = acquisition_settings.get(device_controller, {})
+        device_dict[device_controller] = acquisition_device = \
+            counter.create_acquisition_device(
+                scan_pars, **settings)
+        # Parent handling
+        if master_controller is None:
+            master_controller = master_settings.get(device_controller)
+        acquisition_master = add_master(master_controller)
+        # Fill mapping dict
+        mapping_dict[acquisition_master].append(acquisition_device)
+        # Return device
+        return acquisition_device
 
     # Loop over counters
     for counter in counters:
 
-        # Create master
+        # Master settings shortcuts
+        if counter in master_settings and counter.controller:
+            if counter.controller in master_settings:
+                raise ValueError('Conflict in master settings')
+            master_settings[counter.controller] = master_settings[counter]
+
+        # Acquisition settings shortcuts
+        if counter in acquisition_settings and counter.controller:
+            if counter.controller in acquisition_settings:
+                raise ValueError('Conflict in acquisition settings')
+            acquisition_settings[counter.controller] = \
+                acquisition_settings[counter]
+
+        # Get acquisition master
         master_controller = counter.master_controller
-        if master_controller and master_controller not in master_dict:
-            master_dict[master_controller] = \
-                master_controller.create_master_device(scan_pars)
+        acquisition_master = add_master(master_controller)
 
-        # Make sure the master is in the tree
-        acquisition_master = master_dict.get(master_controller)
-        tree.setdefault(acquisition_master, [])
-
-        # Create device
+        # Get acquisition device
         device_controller = counter.controller
-        if device_controller and device_controller not in device_dict:
-            acquisition_device = counter.create_acquisition_device(scan_pars)
-            device_dict[device_controller] = acquisition_device
-
-            # Make sure the device is in the tree
-            tree[acquisition_master].append(acquisition_device)
+        acquisition_device = add_device(device_controller, master_controller)
 
         # Add counter
         if device_controller:
-            device_dict[device_controller].add_counter(counter)
+            acquisition_device.add_counter(counter)
         elif master_controller:
-            master_dict[master_controller].add_counter(counter)
+            acquisition_master.add_counter(counter)
 
         # Special case: counters without controllers
         else:
             warnings.warn(
-                'Counter {!r} has no controller associated'.format(counter))
-            acquisition_device = counter.create_acquisition_device(scan_pars)
-            tree[None].append(acquisition_device)
+                'Counter {!r} has no associated controller'.format(counter))
+            add_device(counter, None)
 
-    return tree
+    return mapping_dict
 
 
-def default_chain(chain, scan_pars, counter_args):
+def default_chain(chain, scan_pars, counter_args, default_chain_settings=None):
     # Scan parameters
     count_time = scan_pars.get('count_time', 1)
     sleep_time = scan_pars.get('sleep_time')
     npoints = scan_pars.get('npoints', 1)
+
+    # Settings
+    if default_chain_settings is None:
+        default_chain_settings = _DEFAULT_CHAIN_DEVICE_SETTINGS
+    acquisition_settings = {
+        controller: settings['acquisition_settings']
+        for controller, settings in default_chain_settings.items()
+        if 'acquisition_settings' in settings}
+    master_settings = {
+        controller: settings['master']
+        for controller, settings in default_chain_settings.items()
+        if 'master' in settings}
 
     # Issue warning for non BaseCounter instance (for the moment)
     def get_name(counter):
@@ -227,14 +313,11 @@ def default_chain(chain, scan_pars, counter_args):
         sleep_time=sleep_time)
 
     # Build counter tree
-    tree = counter_tree(counters, scan_pars)
+    mapping = master_to_devices_mapping(
+        timer, counters, scan_pars, acquisition_settings, master_settings)
 
     # Build chain
-    for acq_master, acq_devices in tree.iteritems():
-        if acq_master:
-            chain.add(timer, acq_master)
-        else:
-            acq_master = timer
+    for acq_master, acq_devices in mapping.iteritems():
         for acq_device in acq_devices:
             chain.add(acq_master, acq_device)
 

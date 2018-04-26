@@ -38,9 +38,11 @@ class Lima(object):
 
     # Standard interface
 
-    def create_master_device(self, scan_pars):
+    def create_master_device(self, scan_pars, **settings):
         # Prevent cyclic imports
         from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
+
+        scan_pars.update(settings)
 
         # Extract information
         npoints = scan_pars.get('npoints', 1)

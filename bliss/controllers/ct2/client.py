@@ -129,7 +129,7 @@ def configure(device, device_config):
     device.counters = counter_namespace(counters)
 
 
-def create_master_device(controller, scan_pars):
+def create_master_device(controller, scan_pars, **settings):
     # Break import cycles
     from bliss.scanning.acquisition.ct2 import CT2AcquisitionMaster
 
@@ -139,7 +139,7 @@ def create_master_device(controller, scan_pars):
 
     # Create master
     return CT2AcquisitionMaster(
-        controller, npoints=npoints, acq_expo_time=acq_expo_time)
+        controller, npoints=npoints, acq_expo_time=acq_expo_time, **settings)
 
 
 def create_and_configure_device(config_or_name):

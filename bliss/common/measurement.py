@@ -127,7 +127,7 @@ class BaseCounter(object):
 
     # Methods
 
-    def create_acquisition_device(self, scan_pars):
+    def create_acquisition_device(self, scan_pars, **settings):
         """Instanciate the corresponding acquisition device."""
         raise NotImplementedError
 
@@ -190,8 +190,9 @@ class Counter(BaseCounter):
     def get_acquisition_device_class(cls):
         raise NotImplementedError
 
-    def create_acquisition_device(self, scan_pars):
+    def create_acquisition_device(self, scan_pars, **settings):
         read_handler = self.GROUPED_READ_HANDLERS.get(self, self)
+        scan_pars.update(settings)
         return self.get_acquisition_device_class()(read_handler, **scan_pars)
 
     # Extra interface

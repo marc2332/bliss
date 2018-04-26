@@ -177,29 +177,29 @@ def test_mca_default_chain_with_measurement_group(beacon):
 def test_mca_scans_with_rois(beacon):
     simu = beacon.get("simu1")
     simu.rois.clear()
-    # ROI between indexes 40 and 70
-    simu.rois.add_roi('my_roi', 50, 10, 20)
+    # ROI between indexes 400 and 700
+    simu.rois.add_roi('my_roi', 500, 100, 200)
     scan = scans.ct(
         0.1,
         simu.counters.my_roi_det0,
         simu.counters.spectrum_det0,
         return_scan=True, save=False)
     data = scans.get_data(scan)
-    assert data['my_roi_det0'][0] == sum(data['spectrum_det0'][0][40:70])
+    assert data['my_roi_det0'][0] == sum(data['spectrum_det0'][0][400:700])
 
 
 def test_mca_scans_with_roi_sums(beacon):
     simu = beacon.get("simu1")
     simu.rois.clear()
-    # ROI between indexes 40 and 70
-    simu.rois.add_roi('my_roi', 50, 10, 20)
+    # ROI between indexes 400 and 700
+    simu.rois.add_roi('my_roi', 500, 100, 200)
     scan = scans.ct(
         0.1,
         simu.counters.my_roi,
         simu.counter_groups.spectrum,
         return_scan=True, save=False)
     data = scans.get_data(scan)
-    roi_sum = sum(sum(data[name][0][40:70])
+    roi_sum = sum(sum(data[name][0][400:700])
                   for name in data.dtype.fields
                   if name.startswith('spectrum'))
     assert data['my_roi'][0] == roi_sum

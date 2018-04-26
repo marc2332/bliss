@@ -321,7 +321,7 @@ class RoiSumMcaCounter(RoiMcaCounter):
         super(RoiSumMcaCounter, self).__init__(mca, roi_name, None)
 
     def feed_point(self, spectrums, stats):
-        point = sum(map(self.compute_roi, spectrums.items()))
+        point = sum(map(self.compute_roi, spectrums.values()))
         self.emit_data_point(point)
 
 

@@ -50,6 +50,8 @@ class RoiConfig(object):
         return self._resolve(center, left, right)
 
     # Solving logic
-
     def _resolve(self, center, left, right):
-        return int(center-left), int(center - right)
+        """
+        Returns start stop indexes for the given (c,l,r) energies(indexes for now).
+        """
+        return int(center-left), int(center + right)

@@ -59,6 +59,12 @@ class McaAcquisitionDevice(AcquisitionDevice):
         assert prepare_once
 
         # Trigger type
+        if isinstance(trigger_mode, basestring):
+            trigger_mode = eval(trigger_mode, { 'TriggerMode': TriggerMode,
+                                               'SOFTWARE': McaAcquisitionDevice.SOFT,
+                                                'SYNC': McaAcquisitionDevice.SYNC,
+                                                'GATE': McaAcquisitionDevice.GATE })
+
         if trigger_mode == self.SOFT:
             trigger_type = McaAcquisitionDevice.SOFTWARE
         else:
@@ -204,6 +210,7 @@ class BaseMcaCounter(BaseCounter):
     def create_acquisition_device(self, scan_pars, **settings):
         npoints = scan_pars['npoints']
         count_time = scan_pars['count_time']
+
         return McaAcquisitionDevice(
             self.controller, npoints=npoints, preset_time=count_time,
             **settings)

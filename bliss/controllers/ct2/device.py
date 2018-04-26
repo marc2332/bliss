@@ -749,7 +749,7 @@ class CT2(object):
         return self.output_config['counter']
 
     @property
-    def counters(self):
+    def counter_values(self):
         return self._card.get_counters_values()
 
     @property

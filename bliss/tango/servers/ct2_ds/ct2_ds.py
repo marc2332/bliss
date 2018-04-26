@@ -161,7 +161,7 @@ class CT2(Device):
 
     @attribute(dtype=('uint32',), max_dim_x=12)
     def counters(self):
-        return self.device.counters
+        return self.device.counter_values
 
     @attribute(dtype=('uint32',), max_dim_x=12)
     def latches(self):

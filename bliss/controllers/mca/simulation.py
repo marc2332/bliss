@@ -172,7 +172,7 @@ class SimulatedMCA(BaseMCA):
             stats[i] = Stats(
                 realtime, livetime, triggers, events, icr, ocr, deadtime)
             size = self._spectrum_size
-            data[i] = numpy.zeros(size)
+            data[i] = numpy.zeros(size, dtype=int)
             for _ in range(events):
                 loc = numpy.random.normal(size//2, size//16)
                 e = int(numpy.random.normal(loc, size//16))

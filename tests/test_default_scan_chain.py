@@ -7,12 +7,12 @@
 
 import pytest
 from bliss.scanning.chain import AcquisitionChain
-from bliss.common.scans import default_chain
+from bliss.common.scans import DEFAULT_CHAIN
 from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
 from bliss.scanning.acquisition.mca import McaAcquisitionDevice
 from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionDevice, IntegratingCounterAcquisitionDevice
 from bliss.controllers.simulation_diode import CONTROLLER as diode23_controller
-from bliss.common.scans import set_default_chain_device_settings
+from bliss.common.scans import DEFAULT_CHAIN
 
 def test_default_chain_with_sampling_counter(beacon):
     """Want to build the following acquisition chain:
@@ -29,8 +29,8 @@ def test_default_chain_with_sampling_counter(beacon):
     scan_pars = {"npoints": 10,
                  "count_time": 0.1}
 
-    chain = AcquisitionChain(parallel_prepare=True)
-    timer = default_chain(chain, scan_pars, [diode])
+    chain = DEFAULT_CHAIN.get(scan_pars, [diode])
+    timer = chain.timer
 
     assert timer.count_time == 0.1
 
@@ -68,8 +68,8 @@ def test_default_chain_with_three_sampling_counters(beacon):
     scan_pars = {"npoints": 10,
                  "count_time": 0.1}
 
-    chain = AcquisitionChain(parallel_prepare=True)
-    timer = default_chain(chain, scan_pars, [diode2, diode, diode3])
+    chain = DEFAULT_CHAIN.get(scan_pars, [diode2, diode, diode3])
+    timer = chain.timer
 
     assert timer.count_time == 0.1
 
@@ -112,9 +112,9 @@ def test_default_chain_with_bpm(beacon, lima_simulator):
     scan_pars = {"npoints": 10,
                  "count_time": 0.1}
 
-    chain = AcquisitionChain(parallel_prepare=True)
-    timer = default_chain(
-        chain, scan_pars, [lima_sim.bpm.x, lima_sim.bpm.y, lima_sim.bpm.intensity])
+    chain = DEFAULT_CHAIN.get(scan_pars, [lima_sim.bpm.x, lima_sim.bpm.y,
+                                          lima_sim.bpm.intensity])
+    timer = chain.timer
 
     assert timer.count_time == 0.1
 
@@ -151,8 +151,8 @@ def test_default_chain_with_bpm_and_diode(beacon, lima_simulator):
     scan_pars = {"npoints": 10,
                  "count_time": 0.1}
 
-    chain = AcquisitionChain(parallel_prepare=True)
-    timer = default_chain(chain, scan_pars, [lima_sim.bpm.intensity, diode])
+    chain = DEFAULT_CHAIN.get(scan_pars, [lima_sim.bpm.intensity, diode])
+    timer = chain.timer
 
     assert timer.count_time == 0.1
 
@@ -189,8 +189,8 @@ def test_default_chain_with_bpm_and_image(beacon, lima_simulator):
                  "save": True,
                  }
 
-    chain = AcquisitionChain(parallel_prepare=True)
-    timer = default_chain(chain, scan_pars, [lima_sim.bpm.x, lima_sim])
+    chain = DEFAULT_CHAIN.get(scan_pars, [lima_sim.bpm.x, lima_sim])
+    timer = chain.timer 
 
     nodes = chain.nodes_list
     assert len(nodes) == 3
@@ -223,14 +223,14 @@ def test_default_chain_with_lima_defaults_parameters(beacon, lima_simulator):
     scan_pars = {"npoints": 10,
                  "count_time": 0.1}
 
-    chain = AcquisitionChain()
     try:
-        set_default_chain_device_settings([{"device": diode, "master":
-                                            lima_sim }, { "device": lima_sim,
-                                                         "acquisition_settings":
-                                                         {'acq_trigger_mode':'EXTERNAL_GATE'}
-                                                         } ])
-        timer = default_chain(chain, scan_pars, [lima_sim.bpm.intensity, diode])
+        DEFAULT_CHAIN.set_settings([{"device": diode, "master": lima_sim }, 
+                                    {"device": lima_sim, "acquisition_settings":
+                                        {'acq_trigger_mode':'EXTERNAL_GATE'}
+                                    } ])
+
+        chain = DEFAULT_CHAIN.get(scan_pars, [lima_sim.bpm.intensity, diode])
+        timer = chain.timer
 
         nodes = chain.nodes_list
         assert len(nodes) == 4
@@ -245,7 +245,7 @@ def test_default_chain_with_lima_defaults_parameters(beacon, lima_simulator):
 
         assert nodes[1].parameters.get('acq_trigger_mode') == 'EXTERNAL_GATE'
     finally:
-        set_default_chain_device_settings([])
+        DEFAULT_CHAIN.set_settings([])
 
 def test_default_chain_with_recursive_master(beacon, lima_simulator):
     """Want to build the following acquisition chain:
@@ -277,9 +277,8 @@ def test_default_chain_with_recursive_master(beacon, lima_simulator):
 
     fake_master = FakeMaster("fake")
 
-    chain = AcquisitionChain()
     try:
-        set_default_chain_device_settings([
+        DEFAULT_CHAIN.set_settings([
             {
                 "device": diode,
                 "master": lima_sim
@@ -289,7 +288,9 @@ def test_default_chain_with_recursive_master(beacon, lima_simulator):
                 "master": fake_master,
                 "acquisition_settings": {'acq_trigger_mode': 'EXTERNAL_GATE'},
             }])
-        timer = default_chain(chain, scan_pars, [diode])
+
+        chain = DEFAULT_CHAIN.get(scan_pars, [diode])
+        timer = chain.timer
 
         nodes = chain.nodes_list
         assert len(nodes) == 4
@@ -303,7 +304,7 @@ def test_default_chain_with_recursive_master(beacon, lima_simulator):
         assert nodes[3].parent == nodes[2]
 
     finally:
-        set_default_chain_device_settings([])
+        DEFAULT_CHAIN.set_settings([])
 
 def test_default_chain_with_mca_defaults_parameters(beacon, lima_simulator):
     """Want to build the following acquisition chain:
@@ -322,12 +323,12 @@ def test_default_chain_with_mca_defaults_parameters(beacon, lima_simulator):
     scan_pars = {"npoints": 10,
                  "count_time": 0.1}
 
-    chain = AcquisitionChain()
     try:
-        set_default_chain_device_settings([{"device": mca, "master": lima_sim,
-                                            "acquisition_settings":
-                                            {'trigger_mode': 'GATE' }} ])
-        timer = default_chain(chain, scan_pars, [mca.counters.spectrum_det0])
+        DEFAULT_CHAIN.set_settings([{"device": mca, "master": lima_sim,
+                                    "acquisition_settings": {'trigger_mode': 'GATE' }} ])
+
+        chain = DEFAULT_CHAIN.get(scan_pars, [mca.counters.spectrum_det0])
+        timer = chain.timer
 
         nodes = chain.nodes_list
         assert len(nodes) == 3
@@ -340,5 +341,5 @@ def test_default_chain_with_mca_defaults_parameters(beacon, lima_simulator):
 
         assert nodes[2].trigger_mode == McaAcquisitionDevice.GATE
     finally:
-        set_default_chain_device_settings([])
+        DEFAULT_CHAIN.set_settings([])
 

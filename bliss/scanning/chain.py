@@ -5,13 +5,14 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from treelib import Tree
+import time
 import gevent
+import weakref
+import collections
+from treelib import Tree
+
 from bliss.common.event import dispatcher
 from .channel import AcquisitionChannelList, AcquisitionChannel
-import time
-import weakref
-
 
 class DeviceIterator(object):
     def __init__(self, device, one_shot):
@@ -62,7 +63,7 @@ class DeviceIteratorWrapper(object):
     def device(self):
         return self.__current
 
-class Preset(object):
+class ChainPreset(object):
     """
     This class interface will be call by the scan object
     at the beginning and at the end of a scan.
@@ -70,42 +71,48 @@ class Preset(object):
     At typical usage of this class is to manage the opening/closing
     by software or to control beam-line multiplexer(s)
     """
-    class Iteration(object):
-        """
-        Same usage of the Preset object except that it will be called
-        before and at the end of each iteration of the scan.
+    def get_iterator(self, chain):
+        """Yield ChainIterationPreset instances, if needed"""
+        pass
 
-        This class should be yield if needed from the prepare method
-        of the Preset object.
-        """
-        def prepare(self):
-            """
-            called on the preparation phase of each scan iteration
-            """
-            pass
-        def start(self):
-            """
-            called on the starting phase of each scan iteration
-            """
-            pass
-        def stop(self):
-            """
-            called at the end of each scan iteration
-            """
-            pass
     def prepare(self, chain):
         """
-        called on the preparation phase of a scan.
+        Called on the preparation phase of a scan.
         """
         pass
+
     def start(self, chain):
         """
-        called on the starting phase of a scan.
+        Called on the starting phase of a scan.
         """
         pass
+
     def stop(self, chain):
         """
-        called at the end of a scan.
+        Called at the end of a scan.
+        """
+        pass
+
+class ChainIterationPreset(object):
+    """
+    Same usage of the Preset object except that it will be called
+    before and at the end of each iteration of the scan.
+    """
+    def prepare(self):
+        """
+        Called on the preparation phase of each scan iteration
+        """
+        pass
+
+    def start(self):
+        """
+        called on the starting phase of each scan iteration
+        """
+        pass
+        
+    def stop(self):
+        """
+        Called at the end of each scan iteration
         """
         pass
 
@@ -328,8 +335,8 @@ class AcquisitionChainIter(object):
         self.__sequence_index = -1
         self._parallel_prepare = parallel_prepare
         self.__acquisition_chain_ref = weakref.ref(acquisition_chain)
-        self._presets_iteration_list = list()
-        self._current_presets_iteration_list = list()
+        self._preset_iterators_list = list()
+        self._current_preset_iterators_list = list()
 
         # set all slaves into master
         for master in (x for x in acquisition_chain._tree.expand_tree() if isinstance(x, AcquisitionMaster)):
@@ -371,32 +378,34 @@ class AcquisitionChainIter(object):
 
             scan.prepare(scan_info, self.acquisition_chain._tree)
 
-            self._presets_iteration_list = list()
+            gevent.joinall(preset_tasks, raise_error=True)
 
-            for task in preset_tasks:
-                iteration = task.get()
-                if iteration is not None:
-                    self._presets_iteration_list.append(iteration)
+            self._preset_iterators_list = list()
 
+            for preset in self.acquisition_chain._presets_list:
+                iterator = preset.get_iterator(self.acquisition_chain)
+                if isinstance(iterator, collections.Iterable):
+                    self._preset_iterators_list.append(iterator)
 
-        self._current_presets_iteration_list = list()
-        preset_tasks_iteration = list()
-        for iteration in list(self._presets_iteration_list):
+        self._current_preset_iterators_list = list()
+        preset_iterators_tasks = list()
+        for iterator in list(self._preset_iterators_list):
             try:
-                prepare_iteration = iteration.next()
+                preset = iterator.next()
+                assert isinstance(preset, ChainIterationPreset)
             except StopIteration:
-                self._presets_iteration_list.remove(iteration)
+                self._preset_iterators_list.remove(iterator)
             except:
                 sys.excepthook(*sys.exc_info())
-                self._presets_iteration_list.remove(iteration)
+                self._preset_iterators_list.remove(iterator)
             else:
-                self._current_presets_iteration_list.append(prepare_iteration)
-                preset_tasks_iteration.append(gevent.spawn(prepare_iteration.prepare))
+                self._current_preset_iterators_list.append(preset)
+                preset_iterators_tasks.append(gevent.spawn(preset.prepare))
 
         self._execute(
             "_prepare", wait_between_levels=not self._parallel_prepare)
 
-        gevent.joinall(preset_tasks_iteration, raise_error=True)
+        gevent.joinall(preset_iterators_tasks, raise_error=True)
 
     def start(self):
         preset_tasks = list()
@@ -405,7 +414,7 @@ class AcquisitionChainIter(object):
                             for preset in self.acquisition_chain._presets_list]
 
         preset_tasks.extend([gevent.spawn(i.start)
-                             for i in self._current_presets_iteration_list])
+                             for i in self._current_preset_iterators_list])
         gevent.joinall(preset_tasks, raise_error=True)
         self._execute("_start")
 
@@ -416,7 +425,7 @@ class AcquisitionChainIter(object):
             preset_tasks = [gevent.spawn(preset.stop, self.acquisition_chain)
                             for preset in self.acquisition_chain._presets_list]
             preset_tasks.extend([gevent.spawn(i.stop)
-                                 for i in self._current_presets_iteration_list])
+                                 for i in self._current_preset_iterators_list])
 
             gevent.joinall(preset_tasks)  # wait to call all stop on preset
             gevent.joinall(preset_tasks, raise_error=True)
@@ -433,7 +442,7 @@ class AcquisitionChainIter(object):
                         continue
                     dev_iter.next()
             preset_tasks = [gevent.spawn(i.stop)
-                            for i in self._current_presets_iteration_list]
+                            for i in self._current_preset_iterators_list]
             gevent.joinall(preset_tasks)
             gevent.joinall(preset_tasks, raise_error=True)
         except StopIteration:                # should we stop all devices?
@@ -519,8 +528,8 @@ class AcquisitionChain(object):
         Args:
             preset should be inherited for class Preset
         """
-        if not isinstance(preset, Preset):
-            raise ValueError("Expected inherited class of Preset")
+        if not isinstance(preset, ChainPreset):
+            raise ValueError("Expected ChainPreset instance")
         self._presets_list.append(preset)
 
     def set_stopper(self, device, stop_flag):

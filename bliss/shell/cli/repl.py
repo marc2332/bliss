@@ -66,9 +66,11 @@ class BlissRepl(PythonRepl):
         self.current_task = gevent.spawn(self._execute_task, *args, **kwargs)
         try:
             return_value = self.current_task.get()
-            if(isinstance(return_value, tuple) and len(return_value) > 1 and \
-               isinstance(return_value[1], Exception)):
+            if(isinstance(return_value, tuple) and len(return_value) >= 3 and \
+               isinstance(return_value[1], (BaseException, Exception))):
                 raise return_value[0], return_value[1], return_value[2]
+        except gevent.Timeout:
+            self._handle_exception(*args)
         finally:
             self.current_task = None
 

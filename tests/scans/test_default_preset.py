@@ -7,7 +7,6 @@
 
 from bliss import setup_globals
 from bliss.scanning.chain import AcquisitionChain, Preset
-from bliss.scanning.standard import default_chain_add_preset
 from bliss.common import scans
 
 def test_simple_preset(beacon):
@@ -35,7 +34,7 @@ def test_simple_preset(beacon):
             self.stop_called += 1
 
     preset = SimplePreset()
-    default_chain_add_preset(preset)
+    scans.DEFAULT_CHAIN.add_preset(preset)
     counter_class = getattr(setup_globals, 'TestScanGaussianCounter')
     m1 = getattr(setup_globals, 'm1')
     counter = counter_class("gaussian", 10, cnt_time=0)
@@ -69,9 +68,8 @@ def test_iteration_preset(beacon):
             while True:
                 yield self.Iteration(self)
 
-
     preset = IterationPreset()
-    default_chain_add_preset(preset)
+    scans.DEFAULT_CHAIN.add_preset(preset)
     counter_class = getattr(setup_globals, 'TestScanGaussianCounter')
     m1 = getattr(setup_globals, 'm1')
     counter = counter_class("gaussian", 10, cnt_time=0)

@@ -24,7 +24,6 @@ from .channel import SpecChannel
 from .message import *
 from .message import message as spec_message
 from .reply import SpecReply
-import traceback
 import sys
 
 (DISCONNECTED, PORTSCANNING, WAITINGFORHELLO, CONNECTED) = (1, 2, 3, 4)

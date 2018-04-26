@@ -9,6 +9,7 @@ import pytest
 from bliss.scanning.chain import AcquisitionChain
 from bliss.common.scans import default_chain
 from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
+from bliss.scanning.acquisition.mca import McaAcquisitionDevice
 from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionDevice, IntegratingCounterAcquisitionDevice
 from bliss.controllers.simulation_diode import CONTROLLER as diode23_controller
 from bliss.common.scans import set_default_chain_device_settings
@@ -246,7 +247,7 @@ def test_default_chain_with_lima_defaults_parameters(beacon, lima_simulator):
     finally:
         set_default_chain_device_settings([])
 
-def test_default_chain2(beacon, lima_simulator):
+def test_default_chain_with_recursive_master(beacon, lima_simulator):
     """Want to build the following acquisition chain:
 
     root
@@ -303,3 +304,41 @@ def test_default_chain2(beacon, lima_simulator):
 
     finally:
         set_default_chain_device_settings([])
+
+def test_default_chain_with_mca_defaults_parameters(beacon, lima_simulator):
+    """Want to build the following acquisition chain:
+
+    root
+      |
+      |-Timer
+        |
+        |-LimaAcquisitionMaster
+          |
+          |-mca
+    """
+    lima_sim = beacon.get("lima_simulator")
+    mca = beacon.get("simu1")
+
+    scan_pars = {"npoints": 10,
+                 "count_time": 0.1}
+
+    chain = AcquisitionChain()
+    try:
+        set_default_chain_device_settings([{"device": mca, "master": lima_sim,
+                                            "acquisition_settings":
+                                            {'trigger_mode': 'GATE' }} ])
+        timer = default_chain(chain, scan_pars, [mca.counters.spectrum_det0])
+
+        nodes = chain.nodes_list
+        assert len(nodes) == 3
+        assert isinstance(nodes[0], timer.__class__)
+        assert isinstance(nodes[1], LimaAcquisitionMaster)
+        assert isinstance(nodes[2], McaAcquisitionDevice)
+
+        assert nodes[2].parent == nodes[1]
+        assert nodes[1].parent == timer
+
+        assert nodes[2].trigger_mode == McaAcquisitionDevice.GATE
+    finally:
+        set_default_chain_device_settings([])
+

@@ -387,8 +387,7 @@ class AcquisitionChainIter(object):
             except StopIteration:
                 self._presets_iteration_list.remove(iteration)
             except:
-                import traceback
-                traceback.print_exc()
+                sys.excepthook(*sys.exc_info())
                 self._presets_iteration_list.remove(iteration)
             else:
                 self._current_presets_iteration_list.append(prepare_iteration)

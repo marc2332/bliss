@@ -573,7 +573,7 @@ class Scan(object):
             # synchronize with writer
             if not exist and self._writer is not None:
                 scan_names = dict()
-                match_re = re.compile('(.+)_(\d+)')
+                match_re = re.compile('(.+?)_(\d+).*')
                 for scan_entry in self._writer.get_scan_entries():
                     g = match_re.match(scan_entry)
                     if g:

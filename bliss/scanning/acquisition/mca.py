@@ -303,6 +303,36 @@ class SpectrumMcaCounter(BaseMcaCounter):
         self.emit_data_point(spectrums[self.detector_channel])
 
 
+class RoiMcaCounter(BaseMcaCounter):
+
+    def __init__(self, mca, roi_name, detector):
+        self.roi_name = roi_name
+        super(RoiMcaCounter, self).__init__(
+            mca, roi_name, detector)
+
+    @property
+    def dtype(self):
+        return numpy.int
+
+    def compute_roi(self, spectrum):
+        start, stop = self.mca.rois.resolve(self.roi_name)
+        return sum(spectrum[start:stop])
+
+    def feed_point(self, spectrums, stats):
+        point = self.compute_roi(spectrums[self.detector_channel])
+        self.emit_data_point(point)
+
+
+class RoiSumMcaCounter(RoiMcaCounter):
+
+    def __init__(self, mca, roi_name):
+        super(RoiSumMcaCounter, self).__init__(mca, roi_name, None)
+
+    def feed_point(self, spectrums, stats):
+        point = sum(map(self.compute_roi, spectrums.values()))
+        self.emit_data_point(point)
+
+
 def mca_counters(mca):
     """Provide a flat access to all MCA counters.
 
@@ -322,6 +352,15 @@ def mca_counters(mca):
     counters += [StatisticsMcaCounter(mca, stat, element)
                  for element in mca.elements
                  for stat in Stats._fields]
+    # Rois
+    counters += [RoiMcaCounter(mca, roi, element)
+                 for element in mca.elements
+                 for roi in mca.rois.get_names()]
+
+    # Roi sums
+    counters += [RoiSumMcaCounter(mca, roi)
+                 for roi in mca.rois.get_names()]
+
     # Instantiate
     return counter_namespace(counters)
 
@@ -341,9 +380,10 @@ def mca_counter_groups(mca):
     """
     dct = {}
     counters = mca_counters(mca)
+    roi_names = list(mca.rois.get_names())
 
     # Prefix groups
-    prefixes = list(Stats._fields) + ['spectrum']
+    prefixes = list(Stats._fields) + ['spectrum'] + roi_names
     for prefix in prefixes:
         dct[prefix] = counter_namespace(
             [counter for counter in counters

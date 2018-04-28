@@ -126,7 +126,9 @@ class ScanListener:
         scan_info = dict(scan_info)
         self.term = Terminal(scan_info.get('stream'))
         scan_info = dict(scan_info)
-        nb_points = scan_info['npoints']
+        nb_points = scan_info.get('npoints')
+        if nb_points is None:
+            return
 
         if not scan_info['save']:
             scan_info['root_path'] = '<no saving>'

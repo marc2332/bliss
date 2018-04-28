@@ -82,7 +82,7 @@ from bliss.common.utils import StripIt
 # Patching
 
 msgpack_numpy.patch()
-
+logging.getLogger("gevent_zeromq").setLevel(logging.CRITICAL)
 
 SPECIAL_METHODS = set((
     'new', 'init', 'del', 'hash', 'class', 'dict', 'sizeof', 'weakref',

@@ -11,13 +11,14 @@
 from numbers import Number
 
 import zerorpc
+import logging
 import msgpack_numpy
 
 from .base import BaseMCA, Brand, DetectorType, PresetMode, Stats, TriggerMode
 
 # Patch msgpack
 msgpack_numpy.patch()
-
+logging.getLogger("gevent_zeromq").setLevel(logging.CRITICAL)
 
 # Mercury controller
 

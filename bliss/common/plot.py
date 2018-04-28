@@ -152,6 +152,7 @@ import platform
 from collections import OrderedDict
 
 import zerorpc
+import logging
 import msgpack_numpy
 
 from bliss.common import session as session_module
@@ -162,11 +163,13 @@ from bliss.config.conductor.client import get_default_connection
 __all__ = ['plot', 'plot_curve', 'plot_curve_list', 'plot_image',
            'plot_scatter', 'plot_image_with_histogram', 'plot_image_stack']
 
+# Patching
+msgpack_numpy.patch()
+logging.getLogger("gevent_zeromq").setLevel(logging.CRITICAL)
+
 # Globals
 
-msgpack_numpy.patch()
 FLINT = { 'process': None, 'proxy': None }
-
 
 # Connection helpers
 

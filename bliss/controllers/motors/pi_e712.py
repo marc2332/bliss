@@ -8,14 +8,18 @@
 import time
 import re
 import numpy
+import weakref
+import gevent
 
 from bliss.controllers.motor import Controller
 from bliss.common import log as elog
 from bliss.common.utils import object_method
 from bliss.common.utils import OrderedDict
 from bliss.common.utils import grouped
+from bliss.common.utils import add_property
 
 from bliss.common.axis import AxisState
+from bliss.config.channels import Cache
 
 import pi_gcs
 from bliss.comm.util import TCP
@@ -55,7 +59,6 @@ config example:
     servo_mode: 1
 """
 
-
 class PI_E712(Controller):
     #POSSIBLE DATA TRIGGER SOURCE
     WAVEFORM=0
@@ -68,6 +71,7 @@ class PI_E712(Controller):
 
         self.sock = None
         self.cname = "E712"
+        self.__axis_closed_loop = weakref.WeakKeyDictionary()
 
     def initialize(self):
         """
@@ -113,7 +117,12 @@ class PI_E712(Controller):
         self._gate_enabled = False
 
         # Updates cached value of closed loop status.
-        axis.closed_loop = self._get_closed_loop_status(axis)
+        closed_loop_cache = Cache(axis,"closed_loop")
+        self.__axis_closed_loop[axis] = closed_loop_cache
+        if closed_loop_cache.value is None:
+            closed_loop_cache.value = self._get_closed_loop_status(axis)
+
+        add_property(axis,'closed_loop',lambda x: self.__axis_closed_loop[x].value)
         self.check_power_cut()
 
         elog.debug("axis = %r" % axis.name)
@@ -144,7 +153,13 @@ class PI_E712(Controller):
 
         # supposed that we are on target on init
         axis._last_on_target = True
-        
+
+        #check servo mode (default true)
+        servo_mode = axis.config.get('servo_mode',lambda x: x,True)
+        if axis.closed_loop != servo_mode:
+            #spawn if to avoid recursion
+            gevent.spawn(self.activate_closed_loop, axis, servo_mode)
+
     def read_position(self, axis):
         """
         Returns position's setpoint or measured position.
@@ -212,34 +227,63 @@ class PI_E712(Controller):
         Returns:
             - None
         """
-
+        self.start_all(motion)
+        
+    def start_all(self, *motions):
 ###
 ###  hummm a bit dangerous to mix voltage and microns for the same command isnt'it ?
 ###
-        if motion.axis.closed_loop:
-            # Command in position.
-            self.command("MOV %s %g" %
-                         (motion.axis.channel, motion.target_pos))
-            elog.debug("Command to piezo MOV %s %g"%
-                       (motion.axis.channel, motion.target_pos))
+        mov_cmd = list()
+        voltage_cmd = list()
+        for motion in motions:
+            l_cmd = mov_cmd if motion.axis.closed_loop else voltage_cmd
+            l_cmd.append((motion.axis.channel, motion.target_pos))
+            cmd = ''
+            if mov_cmd:
+                cmd += 'MOV ' + ' '.join(['%s %g' % (chan,pos)\
+                                          for chan,pos in mov_cmd])
+            if voltage_cmd:
+                if cmd: cmd += '\n'
+                cmd += 'SVA ' + ' '.join(['%s %g' % (chan,pos)\
+                                          for chan,pos in voltage_cmd])
+        self.command(cmd)
 
-        else:
-            # Command in voltage.
-            self.command("SVA %s %g" %
-                         (motion.axis.channel, motion.target_pos))
-            elog.debug("Command to piezo SVA %s %g"%
-                       (motion.axis.channel, motion.target_pos))
-
+        
     def stop(self, axis):
+        self.stop_all()
+        
+    def stop_all(self, *motions):
         """
         * HLT -> stop smoothly
         * STP -> stop asap
         * 24    -> stop asap
-        """
-        elog.debug("Stopping Piezo by opening loop")
-        self._set_closed_loop(self, axis, False)
-        #self.send_no_ans(axis, "SVO %s" % axis.channel)
 
+        As the controller open the closed loop, to stop motions,
+        target position change a little bit for axes which are
+        already stopped. So we reset the target position for all
+        stopped axes to the previous value before the stop command.
+        """
+        channels = [str(x.channel) for x in self.axes.values()
+                    if hasattr(x,'channel')]
+        channels_str = ' '.join(channels)
+        cmd = '\n'.join(['%s %s' % (cmd,channels_str)
+                         for cmd in ('ONT?','MOV?')])
+        cmd += '\n%c\n' % 24      # Char to stop all movement
+        reply = self.sock.write_readlines(cmd,len(channels)*2)
+        channel_on_target = set()
+        for channel_target in reply[:len(channels)]:
+            channel, ont = channel_target.strip().split('=')
+            if int(ont):
+                channel_on_target.add(channel)
+        channels_position = list()
+        for chan_pos in reply[len(channels):]:
+            channel,position = chan_pos.strip().split('=')
+            if channel in channel_on_target:
+                channels_position.extend([channel,position])
+        if channels_position:
+            reset_target_cmd = 'MOV ' + ' '.join(channels_position)
+            self.command(reset_target_cmd)
+        
     """ RAW COMMANDS """
     def raw_write(self, axis, com):
         self.sock.write("%s\n" % com)
@@ -251,7 +295,7 @@ class PI_E712(Controller):
         """
         Returns Identification information (\*IDN? command).
         """
-        return self.command("*IDN?\n")
+        return self.command("*IDN?")
 
 
     def command(self, cmd, nb_line=1):
@@ -295,6 +339,12 @@ class PI_E712(Controller):
             return reply
         else:
             self.sock.write(cmd + '\n')
+
+    def get_data_len(self):
+        """
+        return how many point you can get from recorder
+        """
+        return int(self.command("DRL? 1"))
 
     def get_data(self, from_event_id=0, npoints=None, rec_table_id=None):
         """
@@ -352,7 +402,7 @@ class PI_E712(Controller):
                 sample_time = float(header['SAMPLE_TIME'])
                 dim = int(header['DIM'])
                 column_info = dict()
-                keep_axes = {x.channel : x for x in self.axes.values()}
+                keep_axes = {x.channel : x for x in self.axes.values() if hasattr(x,'channel')}
                 for name_id in range(8):
                     try:
                         desc = header['NAME%d' % name_id]
@@ -489,7 +539,6 @@ class PI_E712(Controller):
         """
         Returns last valid position setpoint ('MOV?' command).
         """
-        axis.closed_loop = self._get_closed_loop_status(axis)
         if axis.closed_loop:
             _ans = self.command("MOV? %s" % axis.channel)
         else:
@@ -510,15 +559,13 @@ class PI_E712(Controller):
         """
         return float(self.command("VOL? %s" % axis.channel))
 
-    def _set_closed_loop(self, axis, onoff = True):
+    @object_method(types_info=("bool", "None"))
+    def activate_closed_loop(self, axis, onoff=True):
         """
-        Sets Closed loop status (Servo state) (SVO command)
+        Activate/Desactivate closed loop status (Servo state) (SVO command)
         """
-
-        axis.closed_loop = onoff
         self.command("SVO %s %d" % (axis.channel, onoff))
         elog.debug("Piezo Servo %r" % onoff)
-
 
         # Only when closing loop: waits to be ON-Target.
         if onoff:
@@ -529,7 +576,6 @@ class PI_E712(Controller):
             elog.info(u'axis {0:s} waiting to be ONTARGET'.format(axis.name))
             while (not _ont_state) and (time.time() - _t0) < cl_timeout:
                 time.sleep(0.01)
-                print ".",
                 _ont_state = self._get_on_target_status(axis)
             if not _ont_state:
                 elog.error('axis {0:s} NOT on-target'.format(axis.name))
@@ -539,7 +585,9 @@ class PI_E712(Controller):
                 elog.info('axis {0:s} ONT ok after {1:g} s'.format(axis.name, time.time() - _t0))
 
         # Updates bliss setting (internal cached) position.
-        axis._position()  # "POS?"
+        self.__axis_closed_loop[axis].value = onoff
+
+        axis._update_dial()
 
 
     def _get_closed_loop_status(self, axis):

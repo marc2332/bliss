@@ -55,6 +55,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         self._last_image_ready = -1
         self._save_flag = save_flag
         self._latency = latency_time
+        self.server_url = None
 
     def add_counter(self, counter):
         if counter.name != 'image':
@@ -105,8 +106,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             self._reading_task = None
 
         if self._image_channel:
-            server_url = get_fqn(self.device)
-            self._image_channel.emit({"server_url": server_url})
+            self.server_url = get_fqn(self.device)
 
     def start(self):
         if(self.trigger_type == AcquisitionMaster.SOFTWARE and
@@ -140,9 +140,11 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         attr_names = [
             'buffer_max_number', 'last_image_acquired',
             'last_image_ready', 'last_counter_ready', 'last_image_saved']
-        return {name: att.value
+        status = {name: att.value
                 for name, att in zip(
                     attr_names, self.device.read_attributes(attr_names))}
+        status["server_url"] = self.server_url
+        return status
 
     def reading(self):
         try:

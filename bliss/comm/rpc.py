@@ -65,7 +65,7 @@ Client::
     assert car.position == 12
     car.move(10, relative=True)
     assert car.position == 22
-    
+
 """
 
 import inspect
@@ -73,16 +73,11 @@ import logging
 import weakref
 
 import louie
-import zerorpc
 import gevent.queue
-import msgpack_numpy
 
+from bliss.common import zerorpc
 from bliss.common.utils import StripIt
 
-# Patching
-
-msgpack_numpy.patch()
-logging.getLogger("gevent_zeromq").setLevel(logging.CRITICAL)
 
 SPECIAL_METHODS = set((
     'new', 'init', 'del', 'hash', 'class', 'dict', 'sizeof', 'weakref',
@@ -327,7 +322,7 @@ def Client(address, **kwargs):
                                     task.exception)
             else:
                 client._log.debug('stream task terminated')
-                
+
         def dispatch(proxy):
             while True:
                 for signal, value in client.zerorpc_stream__(timeout=None):

@@ -21,11 +21,10 @@ import signal
 import numpy
 import gevent
 import gevent.event
-import zerorpc
-import msgpack_numpy
 import gevent.monkey
 from concurrent.futures import Future
 
+from bliss.common import zerorpc
 from bliss.data.scan import watch_session_scans
 from bliss.flint.executor import QtExecutor
 from bliss.flint.executor import concurrent_to_gevent
@@ -48,7 +47,6 @@ from .interaction import PointsSelector, ShapeSelector
 
 # Globals
 
-msgpack_numpy.patch()
 pyqtRemoveInputHook()
 Thread = gevent.monkey.get_original('threading', 'Thread')
 Event = gevent.monkey.get_original('threading', 'Event')
@@ -467,7 +465,7 @@ def main():
         settings.sync()
 
     qapp.aboutToQuit.connect(save_window_settings)
-    
+
     # resize window to 70% of available screen space, if no settings
     pos = qt.QDesktopWidget().availableGeometry(win).size() * 0.7
     w = pos.width()

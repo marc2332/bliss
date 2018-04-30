@@ -44,6 +44,7 @@ with warnings.catch_warnings():
     from silx.gui import plot as silx_plot
     from silx.gui import qt
 
+from .plot1d import Plot1D, LivePlot1D
 from .interaction import PointsSelector, ShapeSelector
 
 # Globals
@@ -153,9 +154,19 @@ class Flint:
         self.scans_watch_task = None
         self._session_name = None
 
-        self.live_scan_mdi_area = self.new_tab("Live scan", qt.QMdiArea)
-        self.live_scan_plots_dict = dict()
+        def new_live_scan_plots():
+            logging.info("making new plot 1d live")
+            scalar_plot = LivePlot1D(data_dict=self.data_dict)
+            scalar_plot.plot_id = next(self._id_generator)
+            scalar_plot.hide()
+            return {"0d": [scalar_plot],
+                    "1d": [],
+                    "2d": []}
 
+        self.live_scan_plots_dict = \
+            collections.defaultdict(new_live_scan_plots)
+
+        self.live_scan_mdi_area = self.new_tab("Live scan", qt.QMdiArea)
         self.set_title()
 
     def set_title(self, session_name=None):
@@ -192,15 +203,23 @@ class Flint:
         self.parent_tab.setCurrentIndex(0)
 
         # delete plots and free data
-        for _, plots in self.live_scan_plots_dict.iteritems():
+        new_masters = list(scan_info['acquisition_chain'].keys())
+        for master, plots in list(self.live_scan_plots_dict.items()):
             for plot_type in ('0d', '1d', '2d'):
                 for plot in plots[plot_type]:
                     self.plot_dict.pop(plot.plot_id, None)
                     self.data_dict.pop(plot.plot_id, None)
                     plot.close()
+            if master not in new_masters:
+                del self.live_scan_plots_dict[master]
+            else:
+                # remove 1d, 2d plots -- keep 0d
+                plots['1d'][:] = []
+                plots['2d'][:] = []
+
+        logging.info("live scan plots dict = %r", self.live_scan_plots_dict)
         for win in self.live_scan_mdi_area.subWindowList():
             win.close()
-        self.live_scan_plots_dict = dict()
 
         # create new windows
         for master, channels in scan_info['acquisition_chain'].iteritems():
@@ -208,16 +227,13 @@ class Flint:
             spectra = channels['spectra']
             images = channels['images']
 
-            scalars_plot_win = silx_plot.Plot1D()
-            scalars_plot_win.plot_id = next(self._id_generator)
-            self.plot_dict[scalars_plot_win.plot_id] = scalars_plot_win
-            self.live_scan_plots_dict[master] = {
-                '0d': [scalars_plot_win],
-                '1d': [],
-                '2d': []}
-            self.live_scan_mdi_area.addSubWindow(scalars_plot_win)
+            scalars_plot_win = self.live_scan_plots_dict[master]['0d'][0]
+            scalars_plot_win.set_x_axes(channels['master']['scalars'])
+            scalars_plot_win.set_y_axes(scalars)
             scalars_plot_win.setWindowTitle(master+' -> scalar counters')
-
+            self.live_scan_mdi_area.addSubWindow(scalars_plot_win)
+            self.plot_dict[scalars_plot_win.plot_id] = scalars_plot_win
+      
             if not scalars:
                 scalars_plot_win.hide()
             else:
@@ -225,7 +241,7 @@ class Flint:
 
             for spectrum in spectra:
                 # spectrum_win = silx_plot.CurvesView)
-                spectrum_win = silx_plot.Plot1D()
+                spectrum_win = Plot1D()
                 spectrum_win.plot_id = next(self._id_generator)
                 self.plot_dict[spectrum_win.plot_id] = spectrum_win
                 self.live_scan_plots_dict[master]['1d'].append(spectrum_win)
@@ -270,14 +286,15 @@ class Flint:
                 x_channel_name = None
             for channel_name, channel_data in last_data.iteritems():
                 self.update_data(plot.plot_id, channel_name, channel_data)
+                self.update_data(plot.plot_id, x_channel_name,
+                                 last_data[x_channel_name])
                 if channel_name not in master_channels:
                     x = last_data[x_channel_name]
                     y = channel_data
                     dlen = min(len(x), len(y))
                     if dlen > 0:
-                        plot.addCurve(
-                            x[:dlen], y[:dlen],
-                            legend='%s -> %s' % (x_channel_name, channel_name))
+                        plot.enable(x_channel_name, channel_name, dlen)
+                        plot.update_plots()
         elif data_type == '1d':
             spectrum_data = last_data
             channel_name = data["channel_name"]

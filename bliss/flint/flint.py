@@ -270,7 +270,10 @@ class Flint:
     def new_scan_data(self, data_type, master_name, data):
         last_data = data["data"]
         if data_type in ('1d', '2d'):
-            last_data = last_data[-1]
+            try:
+                last_data = last_data[-1]
+            except IndexError:
+                return
 
         return self._new_scan_data(data_type, master_name, data, last_data)
 
@@ -286,7 +289,7 @@ class Flint:
                 x_channel_name = None
             for channel_name, channel_data in last_data.iteritems():
                 self.update_data(plot.plot_id, channel_name, channel_data)
-                self.update_data(plot.plot_id, x_channel_name,
+                self.update_data(plot.plot_id, x_channel_name, \
                                  last_data[x_channel_name])
                 if channel_name not in master_channels:
                     x = last_data[x_channel_name]

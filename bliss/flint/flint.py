@@ -223,9 +223,9 @@ class Flint:
 
         # create new windows
         for master, channels in scan_info['acquisition_chain'].iteritems():
-            scalars = channels['scalars']
-            spectra = channels['spectra']
-            images = channels['images']
+            scalars = channels.get('scalars', [])
+            spectra = channels.get('spectra', [])
+            images = channels.get('images', [])
 
             scalars_plot_win = self.live_scan_plots_dict[master]['0d'][0]
             scalars_plot_win.set_x_axes(channels['master']['scalars'])

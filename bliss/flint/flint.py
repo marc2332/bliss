@@ -287,11 +287,13 @@ class Flint:
                 x_channel_name = master_channels[0]
             except IndexError:
                 x_channel_name = None
-            for channel_name, channel_data in last_data.iteritems():
-                self.update_data(plot.plot_id, channel_name, channel_data)
+            else:
                 self.update_data(plot.plot_id, x_channel_name, \
                                  last_data[x_channel_name])
-                if channel_name not in master_channels:
+                
+            for channel_name, channel_data in last_data.iteritems():
+                self.update_data(plot.plot_id, channel_name, channel_data)
+                if x_channel_name and channel_name not in master_channels:
                     x = last_data[x_channel_name]
                     y = channel_data
                     dlen = min(len(x), len(y))

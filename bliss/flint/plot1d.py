@@ -59,8 +59,10 @@ class LivePlot1D(qt.QWidget):
 
     def _get_data(self, x_axis, y_axis):
         data_len = self._enabled_plots[(x_axis, y_axis)]
-        x_data = self._data_dict[self.plot_id][x_axis]
-        y_data = self._data_dict[self.plot_id][y_axis]
+        x_data = self._data_dict[self.plot_id].get(x_axis)
+        y_data = self._data_dict[self.plot_id].get(y_axis)
+        if x_data is None or y_data is None:
+            return None, None
         return x_data[:data_len], y_data[:data_len]
 
     def __getattr__(self, attr):
@@ -77,6 +79,8 @@ class LivePlot1D(qt.QWidget):
                 legend = '%s -> %s' % (x_axis, y_axis)
                 del self._enabled_plots[(x_axis, y_axis)]
                 self.silx_plot.removeCurve(legend)
+            else:
+                self._enabled_plots[axis_names] = 0
         self.x_axis.addItems(axis_names_list)
 
     def set_y_axes(self, axis_names_list):
@@ -87,6 +91,8 @@ class LivePlot1D(qt.QWidget):
                 legend = '%s -> %s' % (x_axis, y_axis)
                 del self._enabled_plots[(x_axis, y_axis)]
                 self.silx_plot.removeCurve(legend)
+            else:
+                self._enabled_plots[axis_names] = 0
         self.y_axis.addItems(axis_names_list)
 
     def _x_axis_selected(self, x_axis):
@@ -113,7 +119,7 @@ class LivePlot1D(qt.QWidget):
     def close(self):
         for plot in self._curves.keys():
             self._curves[plot] = 0
-            
+ 
     def update_plots(self):
         for axis_names, data_len in self._enabled_plots.iteritems():
             x_axis, y_axis = axis_names
@@ -123,7 +129,8 @@ class LivePlot1D(qt.QWidget):
                 # plot is displayed
                 if self._curves.get(plot, 0) < data_len:
                     # update plot
-                    self._curves[plot] = data_len
                     x_data, y_data = self._get_data(x_axis, y_axis)
-                    self.silx_plot.addCurve(x_data, y_data, legend=legend, copy=False)
+                    if x_data is not None:
+                        self._curves[plot] = data_len
+                        self.silx_plot.addCurve(x_data, y_data, legend=legend, copy=False)
 

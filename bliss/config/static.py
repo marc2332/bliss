@@ -442,9 +442,19 @@ class Config(object):
             fs_node, fs_key = self._get_or_create_path_node(base_path)
 
             if ordered_yaml:
-                d = ordered_yaml.load(file_content,ordered_yaml.RoundTripLoader)
+                try:
+                    d = ordered_yaml.load(file_content,ordered_yaml.RoundTripLoader)
+                except ordered_yaml.error.MarkedYAMLError, exp:
+                    if exp.problem_mark is not None:
+                        exp.problem_mark.name=path
+                    raise
             else:
-                d = yaml_load(file_content)
+                try:
+                    d = yaml_load(file_content)
+                except yaml.error.MarkedYAMLError, exp:
+                    if exp.problem_mark is not None:
+                        exp.problem_mark.name=path
+                    raise
 
             is_init_file = False
             if file_name.startswith('__init__'):

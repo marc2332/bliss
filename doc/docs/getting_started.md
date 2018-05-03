@@ -179,14 +179,14 @@ scripts, stored with the configuration files.
 `id232.yml` defines a session called `id23-2`, with a `id232_setup.py` setup file.
 
 By default, **all objects** defined in the configuration will be loaded in the session.
-It is possible to specify which objects must be included or not by using the `include-objects` keyword with the
+It is possible to specify which objects must be included or not by using the `config-objects` keyword with the
 list of object names:
 
 ```yaml
     - class: Session
       name: eh1
       setup-file: ./eh1_setup.py
-      include-objects: [pzth, simul_mca]
+      config-objects: [pzth, simul_mca]
 ```
 
 Conversely, `exclude-objects` can be used to avoid to load unused objects.

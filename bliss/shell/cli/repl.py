@@ -10,6 +10,7 @@ import os
 import sys
 import signal
 import weakref
+import warnings
 import functools
 
 import six
@@ -196,19 +197,27 @@ def embed(*args, **kwargs):
     """
 
     stop_signals = kwargs.pop('stop_signals', True)
-    cmd_line_i = cli(*args, **kwargs)
 
-    if stop_signals:
-        def stop_current_task(signum, frame, exception=gevent.GreenletExit):
-            repl = cmd_line_i.python_input
-            repl.stop_current_task(block=False, exception=exception)
-    
-        signal.signal(signal.SIGINT, 
-                      functools.partial(stop_current_task, 
-                                        exception=KeyboardInterrupt))
-        signal.signal(signal.SIGTERM, stop_current_task)
+    # Hide the warnings from the users
+    warnings.filterwarnings('ignore')
+    try:
+        cmd_line_i = cli(*args, **kwargs)
 
-    cmd_line_i.run()
+        if stop_signals:
+
+            def stop_current_task(signum, frame, exception=gevent.GreenletExit):
+                repl = cmd_line_i.python_input
+                repl.stop_current_task(block=False, exception=exception)
+
+            stop_with_keyboard_interrupt = functools.partial(
+                stop_current_task,
+                exception=KeyboardInterrupt)
+            signal.signal(signal.SIGINT, stop_with_keyboard_interrupt)
+            signal.signal(signal.SIGTERM, stop_current_task)
+
+        cmd_line_i.run()
+    finally:
+        warnings.filterwarnings('default')
 
 
 if __name__ == '__main__':

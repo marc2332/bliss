@@ -5,6 +5,7 @@
 # Copyright (c) 2017 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+import itertools
 from contextlib import closing
 from collections import defaultdict
 
@@ -60,11 +61,11 @@ class McaAcquisitionDevice(AcquisitionDevice):
 
         # Trigger type
         if isinstance(trigger_mode, basestring):
-            trigger_mode = eval(trigger_mode, { 'TriggerMode': TriggerMode,
-                                               'SOFTWARE': McaAcquisitionDevice.SOFT,
-                                                'SYNC': McaAcquisitionDevice.SYNC,
-                                                'GATE': McaAcquisitionDevice.GATE })
-
+            trigger_mode = eval(trigger_mode, {
+                'TriggerMode': TriggerMode,
+                'SOFTWARE': McaAcquisitionDevice.SOFT,
+                'SYNC': McaAcquisitionDevice.SYNC,
+                'GATE': McaAcquisitionDevice.GATE})
         if trigger_mode == self.SOFT:
             trigger_type = McaAcquisitionDevice.SOFTWARE
         else:
@@ -186,7 +187,11 @@ class McaAcquisitionDevice(AcquisitionDevice):
         with closing(self.device.software_controlled_run(
                 self.npoints, self.polling_time)) as generator:
             # Acquire data
-            for i in range(self.npoints):
+            indexes = (
+                itertools.count()
+                if self.npoints == 0
+                else range(self.npoints))
+            for i in indexes:
                 # Software sync
                 self.acquisition_state.wait(self.TRIGGERED)
                 # Get data

@@ -10,6 +10,7 @@ import os
 import sys
 import signal
 import weakref
+import warnings
 import functools
 
 import six
@@ -91,7 +92,7 @@ def configure(func):
 
         @configure
         def config(repl):
-        
+
             # Use the classic prompt. (Display '>>>' instead of 'In [1]'.)
             repl.prompt_style = 'classic' # 'classic', 'ipython' or 'bliss'
 
@@ -122,7 +123,7 @@ def cli(locals=None, session_name=None, vi_mode=False,
         session_name : session to initialize (default: None)
         vi_mode (bool): Use Vi instead of Emacs key bindings.
         eventloop: use a specific eventloop (default: PosixGeventLoop)
-        refresh_interval (float): cli refresh interval (seconds) 
+        refresh_interval (float): cli refresh interval (seconds)
                                   (default: 0.25s). Use 0 or None to
                                   deactivate refresh.
     """
@@ -156,7 +157,7 @@ def cli(locals=None, session_name=None, vi_mode=False,
 
     # Create REPL.
     repl = BlissRepl(get_globals, get_locals, session=session,
-                     scan_listener=scan_listener, vi_mode=vi_mode, 
+                     scan_listener=scan_listener, vi_mode=vi_mode,
                      prompt_label=prompt_label, title=session_title,
                      history_filename=history_filename,
                      startup_paths=startup_paths)
@@ -173,7 +174,7 @@ def cli(locals=None, session_name=None, vi_mode=False,
 
     return BlissCommandLineInterface(python_input=repl, eventloop=eventloop,
                                      refresh_interval=refresh_interval)
-    
+
 
 def embed(*args, **kwargs):
     """
@@ -188,7 +189,7 @@ def embed(*args, **kwargs):
         session_name : session to initialize (default: None)
         vi_mode (bool): Use Vi instead of Emacs key bindings.
         eventloop: use a specific eventloop (default: PosixGeventLoop)
-        refresh_interval (float): cli refresh interval (seconds) 
+        refresh_interval (float): cli refresh interval (seconds)
                                   (default: 0.25s). Use 0 or None to
                                   deactivate refresh.
         stop_signals (bool): if True (default), registers SIGINT and SIGTERM
@@ -196,19 +197,27 @@ def embed(*args, **kwargs):
     """
 
     stop_signals = kwargs.pop('stop_signals', True)
-    cmd_line_i = cli(*args, **kwargs)
 
-    if stop_signals:
-        def stop_current_task(signum, frame, exception=gevent.GreenletExit):
-            repl = cmd_line_i.python_input
-            repl.stop_current_task(block=False, exception=exception)
-    
-        signal.signal(signal.SIGINT, 
-                      functools.partial(stop_current_task, 
-                                        exception=KeyboardInterrupt))
-        signal.signal(signal.SIGTERM, stop_current_task)
+    # Hide the warnings from the users
+    warnings.filterwarnings('ignore')
+    try:
+        cmd_line_i = cli(*args, **kwargs)
 
-    cmd_line_i.run()
+        if stop_signals:
+
+            def stop_current_task(signum, frame, exception=gevent.GreenletExit):
+                repl = cmd_line_i.python_input
+                repl.stop_current_task(block=False, exception=exception)
+
+            stop_with_keyboard_interrupt = functools.partial(
+                stop_current_task,
+                exception=KeyboardInterrupt)
+            signal.signal(signal.SIGINT, stop_with_keyboard_interrupt)
+            signal.signal(signal.SIGTERM, stop_current_task)
+
+        cmd_line_i.run()
+    finally:
+        warnings.filterwarnings('default')
 
 
 if __name__ == '__main__':

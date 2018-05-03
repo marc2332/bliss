@@ -92,7 +92,7 @@ def configure(func):
 
         @configure
         def config(repl):
-        
+
             # Use the classic prompt. (Display '>>>' instead of 'In [1]'.)
             repl.prompt_style = 'classic' # 'classic', 'ipython' or 'bliss'
 
@@ -123,7 +123,7 @@ def cli(locals=None, session_name=None, vi_mode=False,
         session_name : session to initialize (default: None)
         vi_mode (bool): Use Vi instead of Emacs key bindings.
         eventloop: use a specific eventloop (default: PosixGeventLoop)
-        refresh_interval (float): cli refresh interval (seconds) 
+        refresh_interval (float): cli refresh interval (seconds)
                                   (default: 0.25s). Use 0 or None to
                                   deactivate refresh.
     """
@@ -157,7 +157,7 @@ def cli(locals=None, session_name=None, vi_mode=False,
 
     # Create REPL.
     repl = BlissRepl(get_globals, get_locals, session=session,
-                     scan_listener=scan_listener, vi_mode=vi_mode, 
+                     scan_listener=scan_listener, vi_mode=vi_mode,
                      prompt_label=prompt_label, title=session_title,
                      history_filename=history_filename,
                      startup_paths=startup_paths)
@@ -174,7 +174,7 @@ def cli(locals=None, session_name=None, vi_mode=False,
 
     return BlissCommandLineInterface(python_input=repl, eventloop=eventloop,
                                      refresh_interval=refresh_interval)
-    
+
 
 def embed(*args, **kwargs):
     """
@@ -189,7 +189,7 @@ def embed(*args, **kwargs):
         session_name : session to initialize (default: None)
         vi_mode (bool): Use Vi instead of Emacs key bindings.
         eventloop: use a specific eventloop (default: PosixGeventLoop)
-        refresh_interval (float): cli refresh interval (seconds) 
+        refresh_interval (float): cli refresh interval (seconds)
                                   (default: 0.25s). Use 0 or None to
                                   deactivate refresh.
         stop_signals (bool): if True (default), registers SIGINT and SIGTERM

@@ -127,6 +127,9 @@ def _watch_data(scan_node, scan_info, scan_new_child_callback,
 
             for master, channels in scan_info["acquisition_chain"].iteritems():
                 master_channels = channels["master"]
+                scalars = channels.get("scalars", [])
+                spectra = channels.get("spectra", [])
+                images = channels.get("images", [])
 
                 try:
                     for channel_name in master_channels["scalars"]:
@@ -135,7 +138,7 @@ def _watch_data(scan_node, scan_info, scan_new_child_callback,
                             scan_data[channel_name] = numpy.concatenate((scan_data[channel_name], data))
                             raise StopIteration
 
-                    for i, channel_name in enumerate(channels["scalars"]):
+                    for i, channel_name in enumerate(scalars):
                         scan_data.setdefault(channel_name, [])
                         if data_channel.db_name.endswith(channel_name):
                             scan_data[channel_name] = numpy.concatenate((scan_data.get(channel_name, []), data))
@@ -145,13 +148,13 @@ def _watch_data(scan_node, scan_info, scan_new_child_callback,
                                                                "data": scan_data })
                             raise StopIteration
 
-                    for i, channel_name in enumerate(channels["spectra"]):
+                    for i, channel_name in enumerate(spectra):
                         if data_channel.db_name.endswith(channel_name):
                             scan_data_callback("1d", master, { "channel_index": i,
                                                                "channel_name": channel_name,
                                                                "data": data })
                             raise StopIteration
-                    for i, channel_name in enumerate(channels["images"]):
+                    for i, channel_name in enumerate(images):
                         if data_channel.db_name.endswith(channel_name):
                             scan_data_callback("2d", master, { "channel_index": i,
                                                                "channel_name": channel_name,

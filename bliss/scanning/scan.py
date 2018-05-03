@@ -535,9 +535,9 @@ class Scan(object):
             ':'+scan_item_name in channel_name or scan_item_name+':' in channel_name
 
         for master, channels in self.scan_info['acquisition_chain'].iteritems():
-            scalars = channels['scalars']
-            spectra = channels['spectra']
-            images = channels['images']
+            scalars = channels.get('scalars', [])
+            spectra = channels.get('spectra', [])
+            images = channels.get('images', [])
 
             if scan_item.name == master:
                 # return scalar plot(s) with this channel master

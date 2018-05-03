@@ -221,9 +221,9 @@ class Flint:
 
         # create new windows
         for master, channels in scan_info['acquisition_chain'].iteritems():
-            scalars = channels['scalars']
-            spectra = channels['spectra']
-            images = channels['images']
+            scalars = channels.get('scalars', [])
+            spectra = channels.get('spectra', [])
+            images = channels.get('images', [])
 
             scalars_plot_win = self.live_scan_plots_dict[master]['0d'][0]
             scalars_plot_win.set_x_axes(channels['master']['scalars'])
@@ -285,11 +285,13 @@ class Flint:
                 x_channel_name = master_channels[0]
             except IndexError:
                 x_channel_name = None
-            for channel_name, channel_data in last_data.iteritems():
-                self.update_data(plot.plot_id, channel_name, channel_data)
+            else:
                 self.update_data(plot.plot_id, x_channel_name, \
                                  last_data[x_channel_name])
-                if channel_name not in master_channels:
+                
+            for channel_name, channel_data in last_data.iteritems():
+                self.update_data(plot.plot_id, channel_name, channel_data)
+                if x_channel_name and channel_name not in master_channels:
                     x = last_data[x_channel_name]
                     y = channel_data
                     dlen = min(len(x), len(y))

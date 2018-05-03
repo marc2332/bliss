@@ -10,6 +10,7 @@
 # Imports
 
 import enum
+import itertools
 import collections
 
 import gevent
@@ -173,7 +174,11 @@ class BaseMCA(object):
 
     def software_controlled_run(self, acquisition_number, polling_time):
         # Loop over acquisitions
-        for _ in range(acquisition_number):
+        indexes = (
+            itertools.count()
+            if acquisition_number == 0
+            else range(acquisition_number))
+        for _ in indexes:
             # Start and wait
             try:
                 self.start_acquisition()

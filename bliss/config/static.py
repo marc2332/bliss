@@ -491,6 +491,10 @@ class Config(object):
                 else:
                     fs_node[fs_key] = parents
                 # do not accept a list in case of __init__ file
+                if isinstance(d, list):
+                    raise ValueError("List are not allowed in *%s* file" %
+                                     path)
+                                     
                 self._parse(d,parents)
                 continue
             else:

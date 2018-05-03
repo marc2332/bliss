@@ -311,6 +311,12 @@ class Session(object):
         global CURRENT_SESSION
         CURRENT_SESSION = self
 
+        if self.name not in _SESSION_IMPORTERS:
+            sys.meta_path.append(_StringImporter(self.__scripts_module_path, self.name))
+            _SESSION_IMPORTERS.add(self.name)
+
+        env_dict['load_script'] = functools.partial(load_script, env_dict)
+
         from bliss.scanning.scan import ScanSaving, ScanDisplay
         env_dict['SCAN_SAVING'] = ScanSaving()
         env_dict['SCAN_DISPLAY'] = ScanDisplay()
@@ -327,12 +333,6 @@ class Session(object):
         self._setup(env_dict)
 
     def _setup(self, env_dict, load_script=load_script):
-        if self.name not in _SESSION_IMPORTERS:
-            sys.meta_path.append(_StringImporter(self.__scripts_module_path, self.name))
-            _SESSION_IMPORTERS.add(self.name)
-
-        env_dict['load_script'] = functools.partial(load_script, env_dict)
-
         if self.setup_file is None:
             return
 

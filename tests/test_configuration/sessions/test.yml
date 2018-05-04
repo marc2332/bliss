@@ -1,78 +1,73 @@
+- class: MeasurementGroup
+  name: MG2
+  counters:
+  - diode3
+- class: Session
+  name: test_session3
+  config-objects:
+  - test_session2
+- class: Session
+  name: test_session4
+  setup-file: ./test_setup4.py
+  include-sessions:
+  - test_session5
+  config-objects:
+  - m2
 - class: Session
   name: test_session
   setup-file: ./test_setup.py
   exclude-objects:
-   - m2
-   - lima_simulator
-   - opiom1
-   - xia1
-   - mercury1
-   - mercury2
-   - xmap1
-   - falconx1
-   - p201
-   - simu1
+  - m2
+  - lima_simulator
+  - opiom1
+  - xia1
+  - mercury1
+  - mercury2
+  - xmap1
+  - falconx1
+  - p201
+  - simu1
   synoptic:
     svg-file: ./test_synoptic.svg
     elements:
-       -
-          svg-id: wbv
-          top: m0
-          bottom:
-       -
-          svg-id: mono
-          top:
-          bottom:
-       -
-          svg-id: monocal
-          top:
-          bottom: light
-       -
-          svg-id: transfocators
-          top: m0
-          bottom:
-       -
-          svg-id: sslits
-          top: m1
-          bottom: m2
-       -
-          svg-id: mbv1
-          top:
-          bottom:
-       -
-          svg-id: safety_shutter
-          top:
-          bottom: safshut
-       -
-          svg-id: sslits2
-          top: m1
-          bottom:
-
+    - svg-id: wbv
+      top: m0
+      bottom:
+    - svg-id: mono
+      top:
+      bottom:
+    - svg-id: monocal
+      top:
+      bottom: light
+    - svg-id: transfocators
+      top: m0
+      bottom:
+    - svg-id: sslits
+      top: m1
+      bottom: m2
+    - svg-id: mbv1
+      top:
+      bottom:
+    - svg-id: safety_shutter
+      top:
+      bottom: safshut
+    - svg-id: sslits2
+      top: m1
+      bottom:
 - class: MeasurementGroup
   name: test_mg
-  counters: [diode]
-
-- class: MeasurementGroup
-  name: MG1
-  counters: [diode, diode2, diode3]
-
-- class: MeasurementGroup
-  name: MG2
-  counters: [diode3]
-
+  counters:
+  - diode
 - class: Session
   name: test_session2
   setup-file: ./test_setup2.py
-  config-objects: [m2]
-  include-sessions: [test_session]
-
-- class: Session
-  name: test_session3
-  config-objects: [test_session2]
-
-- class: Session
-  name: test_session4
-  setup-file: ./test_setup4.py
-  include-sessions: [test_session5]
-  config-objects: [m2]
-
+  config-objects:
+  - m2
+  include-sessions:
+  - test_session
+- class: MeasurementGroup
+  name: MG1
+  counters:
+  - diode
+  - diode2
+  - diode3

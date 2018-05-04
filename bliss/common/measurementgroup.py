@@ -109,6 +109,7 @@ class MeasurementGroup(object):
         default -- if True set as default measurement
         """
         self.__name = name
+        self.__config = config_tree
 
         counters_list = config_tree.get('counters')
         if counters_list is None:
@@ -152,7 +153,6 @@ class MeasurementGroup(object):
         return settings.QueueSetting(_key)
 
     def disable(self, *counters):
-
         counters_names = list()
         valid_counters = self.available
 
@@ -181,7 +181,6 @@ class MeasurementGroup(object):
         return [cname for cname in self.available if cname not in self.disabled]
 
     def enable(self, *counters):
-
         counters_names = [
             c if isinstance(c, str) else c.name
             for c in counters]
@@ -268,3 +267,39 @@ class MeasurementGroup(object):
                 self.enabled, self.disabled, fillvalue=''):
             s += str_format % (enable, disable)
         return s
+
+    def add(self, *cnt_or_names):
+        """
+        Add counter(s) in measurement group, and enable them
+        """
+        counters_names = [
+            c if isinstance(c, str) else c.name
+            for c in cnt_or_names]
+
+        to_enable = set(counters_names)
+        new_cnt = to_enable.difference(set(self.available))
+
+        self._available_counters.extend(new_cnt)
+        self.__config['counters'] = self._available_counters
+        
+        self.enable(*new_cnt)
+
+        self.__config.save()
+
+    def remove(self, *cnt_or_names):
+        """
+        Remove counters from measurement group
+        """
+        counters_names = [
+            c if isinstance(c, str) else c.name
+            for c in cnt_or_names]
+
+        for cnt in counters_names:
+            if cnt in self._available_counters:
+                self._available_counters.remove(cnt)
+
+        self.__config['counters'] = self._available_counters
+
+        self.__config.save()
+
+

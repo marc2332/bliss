@@ -20,7 +20,9 @@ pages:
                 - Attenuators: config_att.md
                 - BLISS control objects: config_objects.md
                 - Sessions: config_session.md
-        - BLISS shell: bliss_shell.md
+        - BLISS shell:
+                - bliss_shell.md
+                - shell_std_func.md
         - Scanning:
                 - Counters and measurement groups: scan_ctmg.md
                 - Default scans: scan_default.md

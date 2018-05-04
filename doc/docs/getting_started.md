@@ -340,13 +340,15 @@ returns to user:
 
         EH1 [1]:
 
-[Learn more about BLISS shell](bliss_shell,md)
+[Learn more about BLISS shell](bliss_shell.md)
 
-### Useful shell functions
+### Examples of standard shell functions
 
 * `wa()` shows a table of all motors in the session, with positions.
 * `prdef(func)` displays the source code of a function (if source code is available)
 * `showcnt()` shows a table of all counters in the session.
+
+[Learn more about standard shell functions](shell_std_func.md)
 
 
 ## Basic scans

@@ -4,7 +4,7 @@ This chapter explains:
 
 * how to deal with bliss command line tool and sessions
 * how to create a BLISS custom session (named **eh1** in this example)
-* how to create a setup file to configure your session.
+* how to create a setup file to configure a session.
 
 ## Commands
 
@@ -47,14 +47,14 @@ Other commands are also displaying the available sessions:
 
 ### Version
 
-Use `-v` or `--version` option to get the current version of your BLISS installation:
+Use `-v` or `--version` option to get the current version of a BLISS installation:
 
     % bliss --version
     BLISS version 0.2
 
 ## Automatic creation of a new session
 
-With the command `bliss --create` or `bliss -c` you can create the skeleton of a new session:
+Use `bliss --create` or `bliss -c` to create the skeleton of a new session:
 
     bliss -c eh1
     % bliss -c eh1
@@ -83,11 +83,11 @@ Just create a session setup YAML file (ex: `eh1.yml`):
         name: eh1
         setup-file: ./eh1_setup.py
 
-Create your python setup file (ex: `eh1_setup.py`):
+Create a python setup file (ex: `eh1_setup.py`):
 
      print "Welcome in eh1 BLISS session !!"
 
-Then you can start your session:
+Then a session can be started with `-s` option:
 
     % bliss -s eh1
                            __         __   __
@@ -108,7 +108,7 @@ Then you can start your session:
     
     EH1 [1]:
 
-**All objects** defined in your beacon beamline configuration directory (device or
+**All objects** defined in beacon configuration directory (device or
 sequence) will be loaded.
 
 
@@ -117,34 +117,37 @@ sequence) will be loaded.
 
 ### To selectively include objects
 
-Most of the time you don't want to have all objects declared in the
-beacon configuration loaded in your session. So you can explicitly
-indicate which objects must be included by using `exclude-objects`
-keyword followed by a list of objects:
+Most of the time all objects declared in the beacon configuration
+don't have to be loaded loaded in a session. So they can be explicitly
+included by using `include-objects` keyword followed by a list of
+objects:
 
     - class: Session
       name: eh1
       setup-file: ./eh1_setup.py
       include-objects: [pzth, simul_mca]
 
-The include-objects list can also be a classical YAML dash list.
+The *include-objects list* can also be a classical YAML dash list.
 
 
 ### To selectively exclude objects
 
-Conversely, you could also need to avoid to load unused objects 
-using `exclude-objects` keyword:
+Conversely, objects could also be unnecessary so they can be
+explicitly excluded by using `exclude-objects` keyword followed by a
+list of objects:
 
     - class: Session
       name: eh1
       setup-file: ./eh1_setup.py
       exclude-objects: [simul_mca, zzac]
 
-The exclude-objects list can also be a classical YAML dash list.
+The *exclude-objects list* can also be a classical YAML dash list.
 
 ### To define custom sequences
 
-Just add `.py` files containing your sequences in a `scripts/` sub-directory of your `sessions/` directory:
+Sequences contained in a `.py` files located in the
+`sessions/scripts/` directory can be loaded with `load_script()`
+command:
 
         % mkdir ~/local/beamline_configuration/sessions/scripts/
         % cd  ~/local/beamline_configuration/sessions/scripts/
@@ -155,7 +158,7 @@ Just add `.py` files containing your sequences in a `scripts/` sub-directory of 
           print "OK beamline is aligned :)"
         EOF
 
-Load script file from the setup of your session:
+To load a script file from the setup of a session:
 
         % cat ~/local/beamline_configuration/sessions/eh1_setup.py
         load_script("eh1_alignments")
@@ -172,8 +175,8 @@ Now, `eh1_align()` script is available in **eh1** session:
 
 ### To add info in the toolbar
 
-To customize the toolbar of your session, you must define some 
-special **Widgets** and insert them into the toolbar item list.
+To customize the toolbar of a session, special **Widgets** can be
+defined and inserted into the toolbar item list.
 
 These widgets can represent:
 
@@ -183,10 +186,10 @@ These widgets can represent:
  * The status or value of a special device (Insertion Device, Front-End, BEAMLINE)
  * Any result defined by a user-defined functions.
 
-To include some of these widgets, you must define, in your setup file,
-a **config function** decorated with the `@configure` decorator.
+A **config function** decorated with the `@configure` decorator, in
+the setup file, indicate such a special widget.
 
-You can also add a **generic widget** to be used with a custom function.
+A **generic widget** can also be used with a custom function.
 
 Example to add a simple label, the position of a motor and a function to display time:
 
@@ -205,7 +208,7 @@ Example to add a simple label, the position of a motor and a function to display
             repl.bliss_bar.items.append(AxisStatus('simot1'))
             repl.bliss_bar.items.append(DynamicWidget(what_time_is_it))
 
-This code will make your session to look like:
+This code will make a session to look like:
 
      (bliss) pcsht:~ % bliss -s eh1
                             __         __   __          
@@ -241,7 +244,7 @@ More widgets can be defined using the same model:
         repl.bliss_bar.items.append(IDStatus(attributes=(ugap,)))   # Insertion Device position
 
 
-You can switch for a more compact view (for compliant widgets like AxisStatus) with :
+To switch to a more compact view (for compliant widgets like AxisStatus), use:
 
         repl.bliss_bar_format = 'compact'
 

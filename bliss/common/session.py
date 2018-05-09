@@ -324,13 +324,14 @@ class Session(object):
             sys.meta_path.append(_StringImporter(self.__scripts_module_path, self.name))
             _SESSION_IMPORTERS.add(self.name)
 
-        env_dict['load_script'] = functools.partial(load_script, env_dict)
+        if not 'load_script' in env_dict:
+            env_dict['load_script'] = functools.partial(load_script, env_dict)
 
-        from bliss.scanning.scan import ScanSaving, ScanDisplay
-        env_dict['SCAN_SAVING'] = ScanSaving()
-        env_dict['SCAN_DISPLAY'] = ScanDisplay()
-        from bliss.common.measurementgroup import ACTIVE_MG
-        env_dict['ACTIVE_MG'] = ACTIVE_MG
+            from bliss.scanning.scan import ScanSaving, ScanDisplay
+            env_dict['SCAN_SAVING'] = ScanSaving()
+            env_dict['SCAN_DISPLAY'] = ScanDisplay()
+            from bliss.common.measurementgroup import ACTIVE_MG
+            env_dict['ACTIVE_MG'] = ACTIVE_MG
 
         sessions_tree = self.sessions_tree
         for child_session in reversed(list(sessions_tree.expand_tree(mode=Tree.WIDTH))[1:]):

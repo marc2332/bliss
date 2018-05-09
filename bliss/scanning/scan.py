@@ -124,6 +124,8 @@ class ScanSaving(Parameters):
     def __repr__(self):
         d = self._proxy.get_all()
         d['writer'] = d.get('_writer_module')
+        d['session'] = self.session
+        d['date'] = self.date
         return self._repr(d)
 
     @property

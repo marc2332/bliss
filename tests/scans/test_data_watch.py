@@ -43,6 +43,18 @@ def test_scan_saving(beacon, scan_saving):
     assert parent_node.parent.db_name == scan_saving.session
     assert parent_node.db_name == '%s:%s' % (scan_saving.session, 'toto')
 
+    assert repr(scan_saving) == """\
+Parameters (default)
+  .base_path      = '/tmp/scans'
+  .date           = '{}'
+  .date_format    = '%Y%m%d'
+  .session        = 'unnamed'
+  .template       = 'toto'
+  .user_name      = '{}'
+  .writer         = 'hdf5'
+""".format(scan_saving.date, scan_saving.user_name)
+
+
     scan_saving.template = "toto/{session}"
     parent_node = scan_saving.get()["parent"]
     assert parent_node.name == scan_saving.session

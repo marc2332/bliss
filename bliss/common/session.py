@@ -338,6 +338,7 @@ class Session(object):
             if child_session.name not in _SESSION_IMPORTERS:
                 sys.meta_path.append(_StringImporter(child_session._scripts_module_path, child_session.name))
             _SESSION_IMPORTERS.add(self.name)
+
             child_session._setup(env_dict)
 
         for obj_name, obj in env_dict.iteritems():
@@ -345,7 +346,7 @@ class Session(object):
 
         self._setup(env_dict)
 
-    def _setup(self, env_dict, load_script=load_script):
+    def _setup(self, env_dict):
         if self.setup_file is None:
             return
 

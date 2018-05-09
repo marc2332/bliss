@@ -304,7 +304,16 @@ class Session(object):
 
     def setup(self, env_dict=None, verbose=False):
         if env_dict is None:
-            env_dict = self._get_global_env_dict()
+            # does Python run in interactive mode?
+            import __main__ as main
+            if not hasattr(main, '__file__'):
+                # interactive interpreter
+                self.__env_dict = main.__dict__
+            else:
+                self.__env_dict = {}
+        else:
+            self.__env_dict = env_dict
+        env_dict = self.__env_dict
 
         self._load_config(env_dict, verbose)
 
@@ -372,19 +381,8 @@ class Session(object):
             setattr(setup_globals, item_name, o)
             del o
 
-    def _get_global_env_dict(self):
-        # does Python run in interactive mode?
-        import __main__ as main
-        if not hasattr(main, '__file__'):
-            # interactive interpreter
-            env_dict = main.__dict__
-        else:
-            env_dict = globals()
-        return env_dict
-
-    def resetup(self, env_dict=None, verbose=False):
-        if env_dict is None:
-            env_dict = self._get_global_env_dict()
+    def resetup(self, verbose=False):
+        env_dict = self.__env_dict
 
         for name in self.object_names:
             delattr(setup_globals, name)

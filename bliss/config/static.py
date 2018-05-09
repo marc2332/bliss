@@ -492,7 +492,7 @@ class Config(object):
                     fs_node[fs_key] = parents
                 # do not accept a list in case of __init__ file
                 if isinstance(d, list):
-                    raise ValueError("List are not allowed in *%s* file" %
+                    raise TypeError("List are not allowed in *%s* file" %
                                      path)
                                      
                 self._parse(d,parents)
@@ -654,7 +654,7 @@ class Config(object):
         """
         return set(self._usertag2node.get(tag_name, ()))
 
-    def get(self,name):
+    def get(self, name):
         """
         Returns an object instance from its configuration name
 
@@ -670,7 +670,7 @@ class Config(object):
             RuntimeError: if name is not found in configuration
         """
         if name is None:
-            raise RuntimeError("Can't get Object without a name == None")
+            raise TypeError("Cannot get object with None name")
 
         name = name.lstrip('$')
         instance_object = self._name2instance.get(name)

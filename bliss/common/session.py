@@ -335,6 +335,9 @@ class Session(object):
 
         sessions_tree = self.sessions_tree
         for child_session in reversed(list(sessions_tree.expand_tree(mode=Tree.WIDTH))[1:]):
+            if child_session.name not in _SESSION_IMPORTERS:
+                sys.meta_path.append(_StringImporter(child_session._scripts_module_path, child_session.name))
+            _SESSION_IMPORTERS.add(self.name)
             child_session._setup(env_dict)
 
         for obj_name, obj in env_dict.iteritems():

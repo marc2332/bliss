@@ -22,7 +22,7 @@ def test_resetup(beacon):
   assert "test_session" in env_dict
   env_dict["test_session"].sentinel = True
   assert getattr(getattr(setup_globals, "test_session"), "sentinel")
-  session.resetup(env_dict=env_dict)
+  session.resetup()
   assert "load_script" in env_dict
   test_session = getattr(setup_globals, "test_session")
   assert pytest.raises(AttributeError, getattr, test_session, "sentinel") 

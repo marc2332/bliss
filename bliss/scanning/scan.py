@@ -74,7 +74,7 @@ class StepScanDataWatch(object):
 class ScanSaving(Parameters):
     SLOTS = []
     WRITER_MODULE_PATH='bliss.scanning.writer'
-    
+
     def __init__(self):
         """
         This class hold the saving structure for a session.
@@ -104,7 +104,7 @@ class ScanSaving(Parameters):
                                             'template': '{session}/',
                                             'date_format': '%Y%m%d'},
                             **keys)
-        
+
         cache_dict = self._proxy.get_all()
         if '_writer_module' not in cache_dict:
             #Check if hdf5 is available as a default
@@ -116,7 +116,7 @@ class ScanSaving(Parameters):
                 default_module_name = 'hdf5'
 
             self.add('_writer_module', default_module_name)
-        
+
     def __dir__(self):
         keys = Parameters.__dir__(self)
         return keys + ['session', 'get', 'get_path', 'get_parent_node', 'writer']
@@ -124,6 +124,8 @@ class ScanSaving(Parameters):
     def __repr__(self):
         d = self._proxy.get_all()
         d['writer'] = d.get('_writer_module')
+        d['session'] = self.session
+        d['date'] = self.date
         return self._repr(d)
 
     @property
@@ -354,10 +356,10 @@ class Scan(object):
         scan_display_params = ScanDisplay()
         if scan_display_params.auto:
             get_flint()
-   
+
         self._state = self.IDLE_STATE
         self._node = _create_node(self.__name, "scan", parent=self.root_node, info=self._scan_info)
-        
+
         if data_watch_callback is not None:
             if not callable(data_watch_callback):
                 raise TypeError("data_watch_callback needs to be callable")

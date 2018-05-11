@@ -43,6 +43,18 @@ def test_scan_saving(beacon, scan_saving):
     assert parent_node.parent.db_name == scan_saving.session
     assert parent_node.db_name == '%s:%s' % (scan_saving.session, 'toto')
 
+    assert repr(scan_saving) == """\
+Parameters (default)
+  .base_path      = '/tmp/scans'
+  .date           = '{}'
+  .date_format    = '%Y%m%d'
+  .session        = '{}'
+  .template       = 'toto'
+  .user_name      = '{}'
+  .writer         = 'hdf5'
+""".format(scan_saving.date, scan_saving.session, scan_saving.user_name)
+
+
     scan_saving.template = "toto/{session}"
     parent_node = scan_saving.get()["parent"]
     assert parent_node.name == scan_saving.session
@@ -60,7 +72,7 @@ def test_simple_continuous_scan_with_session_watcher(beacon, scan_saving):
     m1 = getattr(setup_globals, "m1")
     counter = getattr(setup_globals, "diode")
     scan_saving.template = "toto"
-    
+
     vars = { "new_scan_cb_called": False, "scan_acq_chain": None, "scan_children":[], "scan_data":[] }
 
     def new_scan(scan_info, vars=vars):
@@ -78,7 +90,7 @@ def test_simple_continuous_scan_with_session_watcher(beacon, scan_saving):
       assert data["master_channels"] == ["m1:m1"]
       vars["scan_data_m1"] = data["data"][data["master_channels"][0]]
       vars["scan_data_diode"] = data["data"]["diode:diode"]
- 
+
     session_watcher = watch_session_scans(scan_saving.session, new_scan, scan_new_child, scan_data, wait=False)
 
     gevent.sleep(0.1) #wait a bit to have session watcher greenlet started

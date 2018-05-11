@@ -8,7 +8,7 @@ pages:
         - Configuration:
                 - Beacon and YAML files: config.md
                 - Motor controllers: config_motctrl.md
-                - Slits Config: config_slits.md
+                - Slits: config_slits.md
                 - 2D detectors (Lima): config_lima.md
                 - MCA: config_mca.md
                 - Temperature controllers: config_tempctrl.md

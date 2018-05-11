@@ -46,16 +46,14 @@ to be positive when *opening* slits
 
 ### Virtual axes
 
-Second part is the configuration of new **virtual axes**  based on *real* axes.
+Second part is the configuration of new **virtual axes**  based on **real axes**.
 
-* `$` character indicates a **reference** to an existing axis
 * The **role** of each blade is defined using the `tags` keyword
     - `real` means the axis is a real motor, declared elsewhere
     - `front`, `back`, `hgap`, `hoffset` are specifiers for each axis
 * The plugin is not specified in `secondary_slits.yml`, because a
   `__init__.yml` with `plugin: emotion` already exists in the directory
-* ??? `slit_type` is needed for class `slits`
-* ??? non-real axes are considered to be pseudo axes (calc. motor)
+* `slit_type`: can be ```horizontal``` or ```vertical```
 
         -
           controller:
@@ -81,7 +79,7 @@ Second part is the configuration of new **virtual axes**  based on *real* axes.
 ## Configuration
 
 In this paragraph, a typical session of test and initial configuration
-of slits is presented. A more accurate configuration will required
+of slits is presented. A more accurate configuration would require
 beam.
 
 * Initial situation : Slits are wide open, limit switches activated.

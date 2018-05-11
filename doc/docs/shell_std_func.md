@@ -17,7 +17,7 @@ to get access to standard shell functions.
 
 NB: `move()` can take `wait=False` argument to be non-bloquant.
 
-### umv
+### umv (updated move)
 ```umv([<motor>, <position>]+)```: same than ```move([<motor>, <position>]+)``` but shows continuously updated positions of motors.
 
         CYRIL [13]: umv(simot1, 1, spec_m3, 4)
@@ -25,7 +25,7 @@ NB: `move()` can take `wait=False` argument to be non-bloquant.
          simot1   spec_m3
            1.390     3.258
 
-### mvr
+### mvr (relative move)
 ```mvr([<motor>, <position>]+)```: moves motor(s) relatively to current positions:
 
         CYRIL [5]: wa()
@@ -45,13 +45,13 @@ NB: `move()` can take `wait=False` argument to be non-bloquant.
         --------  ---------
          4.00000    9.00000
          4.00000    9.00000
-### umvr
+### umvr (updated relative move)
 ```umvr([<motor>, <position_increment>]+)```: Same than ```mvr()```  but shows  continuously updated positions of motors.
 
         CC4 [4]: umvr(m1, 1)
         m1
         5.000
-### wa
+### wa (where all)
 ```wa()```: Shows user and dial positions of configured motors.
 
         CYRIL [2]: wa()
@@ -62,7 +62,7 @@ NB: `move()` can take `wait=False` argument to be non-bloquant.
         !ERR     1.10000    1.46150
         !ERR     1.10000    1.46150
 
-### wm
+### wm (where motor)
 ```wm([<mot_name>]+)```: Shows user and dial values of positions and limits for given motor(s).
 
         CYRIL [4]: wm(simot1)
@@ -88,7 +88,7 @@ NB: `move()` can take `wait=False` argument to be non-bloquant.
 
 ## counters
 
-### showcnt
+### showcnt (show counters)
 ```showcnt()```:
 
         CYRIL [1]: showcnt()
@@ -107,7 +107,7 @@ NB: `move()` can take `wait=False` argument to be non-bloquant.
         simul_mca.deadtime_det0  0D       simul_mca
         simul_mca.deadtime_det1  0D       simul_mca
 
-### sta    
+### sta (motors status)
 ```sta()```: Shows status of configured motors
 
         CYRIL [13]: sta()
@@ -119,7 +119,7 @@ NB: `move()` can take `wait=False` argument to be non-bloquant.
 
 ## introspection, doc, logging
 
-### prdef
+### prdef (print definition)
 ```prdef(<function>)```: Displays information about given function :
  definition file, docstring and source code.
 

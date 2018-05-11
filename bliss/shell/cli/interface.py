@@ -20,6 +20,7 @@ class BlissCommandLineInterface(PythonCommandLineInterface):
     def __init__(self, *args, **kwargs):
         self._refresh_interval = kwargs.pop('refresh_interval', None)
         self.python_input = kwargs['python_input']
+        self.python_input.show_signature = True
         super(BlissCommandLineInterface, self).__init__(*args, **kwargs)
         self._refresh_task = None
         if self._refresh_interval:

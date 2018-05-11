@@ -48,11 +48,11 @@ Parameters (default)
   .base_path      = '/tmp/scans'
   .date           = '{}'
   .date_format    = '%Y%m%d'
-  .session        = 'unnamed'
+  .session        = '{}'
   .template       = 'toto'
   .user_name      = '{}'
   .writer         = 'hdf5'
-""".format(scan_saving.date, scan_saving.user_name)
+""".format(scan_saving.date, scan_saving.session, scan_saving.user_name)
 
 
     scan_saving.template = "toto/{session}"

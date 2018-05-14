@@ -18,7 +18,7 @@ import gevent
 from ptpython.repl import PythonRepl
 
 from .prompt import BlissPrompt
-from .eventloop import PosixGeventEventLoop
+from .eventloop import PosixGeventEventLoop, INPUT_TIMEOUT
 from .interface import BlissCommandLineInterface
 from .layout import status_bar
 from .style import bliss_ui_style
@@ -109,7 +109,7 @@ def configure(func):
 
 
 def cli(locals=None, session_name=None, vi_mode=False,
-        startup_paths=None, eventloop=None, refresh_interval=.25):
+        startup_paths=None, eventloop=None, refresh_interval=INPUT_TIMEOUT*3):
     """
     Create a command line interface without running it::
 

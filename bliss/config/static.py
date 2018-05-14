@@ -333,9 +333,7 @@ class Node(NodeDict):
                 if values.filename != filename: continue
                 return_dict[key] = self._get_save_dict(values,filename)
             elif isinstance(values,list):
-                child_list = self._get_save_list(values,filename)
-                if child_list:
-                    return_dict[key] = child_list
+                return_dict[key] = self._get_save_list(values,filename)
             else:
                 return_dict[key] = values
         return return_dict

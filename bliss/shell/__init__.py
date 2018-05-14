@@ -62,7 +62,7 @@ def initialize(session_name):
     print_rainbow_banner()
     print_("")
     print_("Welcome to BLISS %s running on {t.blue}%s{t.normal} %s".format(t=t) % (_version, _hostname, _conda_env))
-    print_("Copyright (c) ESRF, 2015-2017")
+    print_("Copyright (c) ESRF, 2015-2018")
     print_("-")
     print_("Connected to Beacon server on {t.blue}%s{t.normal} (port %s)".format(t=t) % (_host, _port))
 

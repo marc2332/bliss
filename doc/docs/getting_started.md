@@ -301,24 +301,34 @@ motor position.
 
 BLISS comes with a command line interface based on [ptpython](8):
 
-        $ bliss -h
+    % bliss -h
+    Usage: bliss [-l | --log-level=<log_level>] [-s <name> | --session=<name>]
+           bliss [-v | --version]
+           bliss [-c <name> | --create=<name>]
+           bliss [-d <name> | --delete=<name>]
+           bliss [-h | --help]
+           bliss --show-sessions
+           bliss --show-sessions-only
+    
+    Options:
+        -l, --log-level=<log_level>   Log level [default: WARN] (CRITICAL ERROR INFO DEBUG NOTSET)
+        -s, --session=<session_name>  Start with the specified session
+        -v, --version                 Show version and exit
+        -c, --create=<session_name>   Create a new session with the given name
+        -d, --delete=<session_name>   Delete the given session
+        -h, --help                    Show help screen and exit
+        --show-sessions               Display available sessions and tree of sub-sessions
+        --show-sessions-only          Display available sessions names only
 
-        Usage: bliss [-l | --log-level=<log_level>] [-s <name> | --session=<name>]
-               bliss [-v | --version]
-               bliss [-h | --help]
-               bliss --show-sessions
-               bliss --show-sessions-only
+A specific session can be created using `-c` option:
 
-        Options:
-            -l, --log-level=<log_level>   Log level [default: WARN] (CRITICAL ERROR INFO DEBUG NOTSET)
-            -s, --session=<session_name>  Start with the specified session
-            -v, --version                 Show version and exit
-            -h, --help                    Show help screen and exit
-            --show-sessions               Display available sessions and tree of sub-sessions
-            --show-sessions-only          Display available sessions names only
+        % bliss -c eh1
+        creating 'eh1' session
+        Creating: /bliss/users/guilloud/local/beamline_configuration/sessions/eh1_setup.py
+        Creating: /bliss/users/guilloud/local/beamline_configuration/sessions/eh1.yml
+        Creating: /bliss/users/guilloud/local/beamline_configuration/sessions/scripts/eh1.py
 
-
-The `-s` command line argument loads the specified session at startup, i.e. configuration objects
+The `-s` command line option loads the specified session at startup, i.e. configuration objects
 defined in the session are initialized, then the setup file is executed. Finally the prompt
 returns to user:
 
@@ -329,7 +339,7 @@ returns to user:
 
 
         Welcome to BLISS version 0.01 running on pcsht (in bliss Conda environment)
-        Copyright (c) ESRF, 2015-2017
+        Copyright (c) ESRF, 2015-2018
         -
         Connected to Beacon server on pcsht (port 3412)
         eh1: Executing setup...

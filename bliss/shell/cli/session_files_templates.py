@@ -27,11 +27,6 @@ print(\"   * {{ dir }}/scripts/{{ name }}.py \")
 print(\"\")
 """)
 
-xxx_yml_template = Template("""
-- class: Session
-  name: {{ name }}
-  setup-file: ./{{ name }}_setup.py
-""")
 
 xxx_py_template = Template("""
 from bliss.shell.cli import configure

@@ -12,6 +12,7 @@ import struct
 import socket
 from bliss.common.measurement import SamplingCounter
 from bliss.common.utils import add_property
+from bliss.comm.tcp_proxy import Proxy
 from bliss.comm.modbus import ModbusTcp
 
 WAGO_CONTROLLERS = {}
@@ -145,7 +146,10 @@ def WagoController(host):
 
 class _WagoController:
     def __init__(self, host):
-        self.client = ModbusTcp(host)
+        self.__proxy = Proxy({"tcp": { "url": "socket://%s:%d" % (host, 502) }})
+        self.__proxy._check_connection()
+        host, port = self.__proxy._url_channel.value.split(":")
+        self.client = ModbusTcp(host, port=int(port))
         self.modules = []
         self.firmware = {"date": None, "version": None}
         self.coupler = False

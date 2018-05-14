@@ -142,7 +142,6 @@ def test_print(beacon):
     repr_string = 'MeasurementGroup: test_mg (state=\'default\')\n  - Existing states : \'default\'\n\n  Enabled  Disabled\n  -------  -------\n  diode    \n'
     assert repr(default_mg) == repr_string
 
-
 def test_exceptions(beacon):
     session = beacon.get("test_session")
     session.setup()
@@ -155,10 +154,26 @@ def test_exceptions(beacon):
     with pytest.raises(ValueError):
         default_mg.remove_states('default')
 
-def test_coverage(beacon):
+def test_add(beacon, capsys):
     session = beacon.get("test_session")
     session.setup()
+    measurementgroup.set_active_name("test_mg")
     default_mg = getattr(setup_globals, 'ACTIVE_MG')
-    default_mg.toto=5
+    default_mg.enable_all()
+    assert default_mg.enabled == ['diode']
+    try:
+        default_mg.add('diode2')
+        assert set(default_mg.enabled) == set(['diode', 'diode2'])
+        config_file = default_mg._MeasurementGroup__config
+        config_file.pprint()
+        captured = capsys.readouterr()
+        assert 'diode2' in captured.out
+        default_mg.remove('diode2')
+        assert default_mg.available == ['diode']
+        config_file.pprint()
+        captured = capsys.readouterr()
+        assert 'diode2' not in captured.out
+    finally:
+        default_mg.remove('diode2')
 
 

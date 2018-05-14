@@ -33,11 +33,10 @@ def session99():
 
 
 def test_print_sessions(beacon):
-
     bliss_shell = subprocess.Popen(['bliss', '--show-sessions-only'], stdout=subprocess.PIPE)
     bliss_cmd_output, _ = bliss_shell.communicate()
 
-    assert bliss_cmd_output == """test_session4
+    assert set(bliss_cmd_output.split('\n')) == set("""test_session4
 test_session2
 test_session5
 flint
@@ -45,7 +44,7 @@ test_session3
 lima_test_session
 test_session
 freddy
-"""
+""".split('\n'))
 
 
 def test_print_version(beacon):

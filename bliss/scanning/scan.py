@@ -18,7 +18,6 @@ import datetime
 import re
 
 from bliss import setup_globals
-from bliss.common.scans import get_data
 from bliss.common.event import connect, send
 from bliss.common.plot import get_flint, CurvePlot, ImagePlot
 from bliss.common.utils import periodic_exec
@@ -382,6 +381,13 @@ class Scan(object):
         else:
             self._data_watch_task = None
 
+    def __repr__(self):
+        if not self.path:
+            return 'Scan(name={}, run_number={})'.format(
+                self.name, self.run_number)
+        return 'Scan(name={}, run_number={}, path={})'.format(
+            self.name, self.run_number, self.path)
+
     @property
     def name(self):
         return self.__name
@@ -413,6 +419,10 @@ class Scan(object):
     @property
     def run_number(self):
         return self.__run_number
+
+    @property
+    def path(self):
+        return self.scan_info['root_path'] if self.scan_info['save'] else None
 
     def __trigger_data_watch_callback(self, signal, sender, sync=False):
         if self._data_watch_callback is not None:
@@ -539,6 +549,7 @@ class Scan(object):
         It is a 1D array corresponding to the scan points.
         Each point is a named structure corresponding to the counter names.
         """
+        from bliss.common.scans import get_data
         return get_data(self)
 
     def get_plot(self, scan_item):

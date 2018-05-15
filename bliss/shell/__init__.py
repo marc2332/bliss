@@ -135,7 +135,7 @@ class ScanListener:
 
         self.col_labels = ['#']
         self.real_motors = []
-        self.counters = []        
+        self.counters = []
         self._point_nb = 0
 
         master, channels = next(scan_info['acquisition_chain'].iteritems())
@@ -211,7 +211,7 @@ class ScanListener:
         if 'timestamp' in values:
             elapsed_time = values.pop('timestamp') - scan_info['start_timestamp']
             values['dt'] = elapsed_time
-        
+
         motor_values = [values[motor.name] for motor in self.real_motors]
         counter_values = [values[counter_name] for counter_name in self.counters]
 

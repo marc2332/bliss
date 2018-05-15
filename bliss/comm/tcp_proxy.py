@@ -45,6 +45,9 @@ class Proxy(object):
         self._url_channel.value = None
 
     def __getattr__(self,name):
+        if name.startswith("__"):
+            raise AttributeError, name
+
         was_connected = None
         if not name.startswith('_'):
             was_connected = self._check_connection()

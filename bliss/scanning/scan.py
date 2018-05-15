@@ -18,6 +18,7 @@ import datetime
 import re
 
 from bliss import setup_globals
+from bliss.common.scans import get_data
 from bliss.common.event import connect, send
 from bliss.common.plot import get_flint, CurvePlot, ImagePlot
 from bliss.common.utils import periodic_exec
@@ -532,6 +533,13 @@ class Scan(object):
                 event_done.set()
                 gevent.idle()
 
+    def get_data(self):
+        """Return a numpy array with the scan data.
+
+        It is a 1D array corresponding to the scan points.
+        Each point is a named structure corresponding to the counter names.
+        """
+        return get_data(self)
 
     def get_plot(self, scan_item):
         """Return plot object showing 'scan_item' from Flint live scan view

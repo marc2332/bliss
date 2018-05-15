@@ -114,7 +114,7 @@ def load_script(env_dict, script_module_name, session=None):
 
         s_code = get_config_file(filename)
         c_code = compile(s_code, filename, 'exec')
-    
+
         globals_dict = env_dict.copy()
         try:
             exec(c_code, globals_dict)
@@ -134,7 +134,7 @@ class Session(object):
     Bliss session.
 
     Sessions group objects with a setup.
-    
+
     YAML file example:
      - plugin: session          # could be defined in parents
        class: Session
@@ -156,7 +156,7 @@ class Session(object):
        # you can also include other session
        # with the 'include-sessions'
        include-sessions: [luigi]
-       
+
        # finally a setup file can be defined to be
        # executed for the session.
        # All objects or functions defined in the

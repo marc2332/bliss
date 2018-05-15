@@ -179,7 +179,7 @@ def test_iterator_over_reference_with_lima(beacon, redis_data_conn,
     with gevent.Timeout(2*(npoints+1)*exp_time):
         def watch_scan():
             for scan_node in iterator.walk_from_last(filter="scan",
-                                                     include_last=False): 
+                                                     include_last=False):
                 scan_iterator = DataNodeIterator(scan_node)
                 for event_type, node in scan_iterator.walk_events(filter='lima'):
                     if event_type == DataNodeIterator.NEW_DATA_IN_CHANNEL_EVENT:
@@ -189,7 +189,7 @@ def test_iterator_over_reference_with_lima(beacon, redis_data_conn,
         watch_task = gevent.spawn(watch_scan)
         scans.timescan(exp_time, lima_sim, npoints=npoints)
         view = watch_task.get()
-    
+
     view_iterator = iter(view)
     img0 = view_iterator.next()
 

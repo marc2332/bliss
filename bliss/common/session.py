@@ -327,7 +327,8 @@ class Session(object):
         if not 'load_script' in env_dict:
             env_dict['load_script'] = functools.partial(load_script, env_dict)
 
-            from bliss.scanning.scan import ScanSaving, ScanDisplay
+            from bliss.scanning.scan import ScanSaving, ScanDisplay, SCANS
+            env_dict['SCANS'] = SCANS
             env_dict['SCAN_SAVING'] = ScanSaving()
             env_dict['SCAN_DISPLAY'] = ScanDisplay()
             from bliss.common.measurementgroup import ACTIVE_MG

@@ -81,6 +81,7 @@ def test_scan_data_0d(beacon, redis_data_conn):
     counter = counter_class("gaussian", 10, cnt_time=0.1)
     s = scans.timescan(0.1, counter, npoints=10, return_scan = True, save=False)
 
+    assert s == setup_globals.SCANS[-1]
     redis_data = map(float, redis_data_conn.lrange(s.node.db_name+":timer:gaussian:gaussian_data", 0, -1))
 
     assert numpy.array_equal(redis_data, counter.data)

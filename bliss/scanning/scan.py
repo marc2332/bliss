@@ -17,6 +17,7 @@ import logging
 import datetime
 import re
 
+from bliss import setup_globals
 from bliss.common.event import connect, send
 from bliss.common.plot import get_flint, CurvePlot, ImagePlot
 from bliss.common.utils import periodic_exec
@@ -27,6 +28,8 @@ from bliss.common.session import get_current as _current_session
 from .chain import AcquisitionDevice, AcquisitionMaster
 from . import writer
 
+# Globals
+SCANS = []
 current_module = sys.modules[__name__]
 
 
@@ -507,6 +510,8 @@ class Scan(object):
             send(current_module, "scan_end", self.scan_info)
             if self._writer:
                 self._writer.close()
+            # Add scan to the globals
+            SCANS.append(self)
 
     @staticmethod
     def _data_watch(scan, event, event_done):

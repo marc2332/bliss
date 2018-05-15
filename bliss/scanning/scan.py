@@ -17,6 +17,7 @@ import logging
 import datetime
 import re
 
+from bliss import setup_globals
 from bliss.common.event import connect, send
 from bliss.common.plot import get_flint, CurvePlot, ImagePlot
 from bliss.common.utils import periodic_exec
@@ -27,6 +28,8 @@ from bliss.common.session import get_current as _current_session
 from .chain import AcquisitionDevice, AcquisitionMaster
 from . import writer
 
+# Globals
+SCANS = []
 current_module = sys.modules[__name__]
 
 
@@ -378,6 +381,13 @@ class Scan(object):
         else:
             self._data_watch_task = None
 
+    def __repr__(self):
+        if not self.path:
+            return 'Scan(name={}, run_number={})'.format(
+                self.name, self.run_number)
+        return 'Scan(name={}, run_number={}, path={})'.format(
+            self.name, self.run_number, self.path)
+
     @property
     def name(self):
         return self.__name
@@ -409,6 +419,10 @@ class Scan(object):
     @property
     def run_number(self):
         return self.__run_number
+
+    @property
+    def path(self):
+        return self.scan_info['root_path'] if self.scan_info['save'] else None
 
     def __trigger_data_watch_callback(self, signal, sender, sync=False):
         if self._data_watch_callback is not None:
@@ -507,6 +521,8 @@ class Scan(object):
             send(current_module, "scan_end", self.scan_info)
             if self._writer:
                 self._writer.close()
+            # Add scan to the globals
+            SCANS.append(self)
 
     @staticmethod
     def _data_watch(scan, event, event_done):
@@ -527,6 +543,14 @@ class Scan(object):
                 event_done.set()
                 gevent.idle()
 
+    def get_data(self):
+        """Return a numpy array with the scan data.
+
+        It is a 1D array corresponding to the scan points.
+        Each point is a named structure corresponding to the counter names.
+        """
+        from bliss.common.scans import get_data
+        return get_data(self)
 
     def get_plot(self, scan_item):
         """Return plot object showing 'scan_item' from Flint live scan view

@@ -37,7 +37,7 @@ def test_mca_continuous_soft_scan(beacon):
     scan = Scan(chain, 'mca_test', None)
     scan.run()
     # Checks
-    assert_data_consistency(scans.get_data(scan), realtime=0.1)
+    assert_data_consistency(scan.get_data(), realtime=0.1)
 
 
 def test_mca_continuous_gate_scan(beacon):
@@ -55,7 +55,7 @@ def test_mca_continuous_gate_scan(beacon):
     scan = Scan(chain, 'mca_test', None)
     scan.run()
     # Checks
-    assert_data_consistency(scans.get_data(scan), realtime=0.5)
+    assert_data_consistency(scan.get_data(), realtime=0.5)
 
 
 def test_mca_continuous_sync_scan(beacon):
@@ -73,7 +73,7 @@ def test_mca_continuous_sync_scan(beacon):
     scan = Scan(chain, 'mca_test', None)
     scan.run()
     # Checks
-    assert_data_consistency(scans.get_data(scan), realtime=0.4)
+    assert_data_consistency(scan.get_data(), realtime=0.4)
 
 
 def test_mca_step_soft_scan(beacon):
@@ -90,7 +90,7 @@ def test_mca_step_soft_scan(beacon):
     scan = Scan(chain, 'mca_test', None)
     scan.run()
     # Checks
-    assert_data_consistency(scans.get_data(scan), realtime=0.1)
+    assert_data_consistency(scan.get_data(), realtime=0.1)
 
 
 def test_mca_default_chain_with_counters(beacon):
@@ -102,7 +102,7 @@ def test_mca_default_chain_with_counters(beacon):
     scan = scans.ascan(
         m0, 0, 10, 3, 0.1, *mca.counters, return_scan=True, save=False)
     # Checks
-    assert_data_consistency(scans.get_data(scan), realtime=0.1)
+    assert_data_consistency(scan.get_data(), realtime=0.1)
 
 
 def test_mca_default_chain_with_counter_namespace(beacon):
@@ -114,7 +114,7 @@ def test_mca_default_chain_with_counter_namespace(beacon):
     scan = scans.ascan(
         m0, 0, 10, 3, 0.1, mca.counters, return_scan=True, save=False)
     # Checks
-    assert_data_consistency(scans.get_data(scan), realtime=0.1)
+    assert_data_consistency(scan.get_data(), realtime=0.1)
 
 
 def test_mca_default_chain_with_counter_namespace_from_controller(beacon):
@@ -126,7 +126,7 @@ def test_mca_default_chain_with_counter_namespace_from_controller(beacon):
     scan = scans.ascan(
         m0, 0, 10, 3, 0.1, mca, return_scan=True, save=False)
     # Checks
-    assert_data_consistency(scans.get_data(scan), realtime=0.1)
+    assert_data_consistency(scan.get_data(), realtime=0.1)
 
 
 def test_mca_default_chain_with_counter_groups(beacon):
@@ -142,7 +142,7 @@ def test_mca_default_chain_with_counter_groups(beacon):
         mca.counter_groups.det0,  # Overlap should be no problem
         return_scan=True, save=False)
     # Checks
-    assert_data_consistency(scans.get_data(scan), realtime=0.1)
+    assert_data_consistency(scan.get_data(), realtime=0.1)
 
 
 def test_mca_default_chain_with_measurement_group(beacon):
@@ -158,7 +158,7 @@ def test_mca_default_chain_with_measurement_group(beacon):
         m0, 0, 10, 3, 0.1, mg1,
         return_scan=True, save=False)
     # Checks
-    assert_data_consistency(scans.get_data(scan), realtime=0.1)
+    assert_data_consistency(scan.get_data(), realtime=0.1)
 
     # Measurement group
     mg2 = MeasurementGroup('mygroup2', {'counters': [
@@ -171,7 +171,7 @@ def test_mca_default_chain_with_measurement_group(beacon):
         m0, 0, 10, 3, 0.1, mg2,
         return_scan=True, save=False)
     # Checks
-    assert_data_consistency(scans.get_data(scan), realtime=0.1)
+    assert_data_consistency(scan.get_data(), realtime=0.1)
 
 
 def test_mca_scans_with_rois(beacon):
@@ -184,7 +184,7 @@ def test_mca_scans_with_rois(beacon):
         simu.counters.my_roi_det0,
         simu.counters.spectrum_det0,
         return_scan=True, save=False)
-    data = scans.get_data(scan)
+    data = scan.get_data()
     assert data['my_roi_det0'][0] == sum(data['spectrum_det0'][0][400:700])
 
 
@@ -198,7 +198,7 @@ def test_mca_scans_with_roi_sums(beacon):
         simu.counters.my_roi,
         simu.counter_groups.spectrum,
         return_scan=True, save=False)
-    data = scans.get_data(scan)
+    data = scan.get_data()
     roi_sum = sum(sum(data[name][0][400:700])
                   for name in data.dtype.fields
                   if name.startswith('spectrum'))

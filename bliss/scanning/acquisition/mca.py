@@ -76,8 +76,8 @@ class McaAcquisitionDevice(AcquisitionDevice):
             mca, mca.name,
             npoints=npoints,
             trigger_type=trigger_type,
-            prepare_once=True,
-            start_once=True)
+            prepare_once=prepare_once,
+            start_once=start_once)
 
         # Internals
         self.mca = mca
@@ -97,8 +97,7 @@ class McaAcquisitionDevice(AcquisitionDevice):
         self.spectrum_size = spectrum_size
 
         # Add counters
-        for counter in counters:
-            self.add_counter(counter)
+        self.add_counters(counters)
 
     # Counter management
 

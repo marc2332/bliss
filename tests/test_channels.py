@@ -233,7 +233,7 @@ def test_channels_cache(beacon):
         channels.Cache(1, 'attr')
     assert 'the device 1 has no name' in str(info)
 
-def test_2_channels_set(beacon, beacon_host_port):
+def test_2processes_set_channel_value_constructor(beacon, beacon_host_port):
     def child_process(child_end, beacon_host_port):
         import sys
         from bliss.config.conductor import client

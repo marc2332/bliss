@@ -505,17 +505,13 @@ def start_webserver(webapp_port, beacon_port, debug=True):
             "flask cannot be imported: web application won't be available")
         return
 
-    from gevent.wsgi import WSGIServer
-    from werkzeug.debug import DebuggedApplication
     from .web.config_app import web_app
 
     _wlog.info("Web application sitting on port: %s", webapp_port)
-    web_app.debug = debug
     web_app.beacon_port = beacon_port
-    application = DebuggedApplication(web_app, evalex=True)
-    http_server = WSGIServer(('', webapp_port), application)
-    http_server.family = socket.AF_INET
-    gevent.spawn(http_server.serve_forever)
+    # force not to use reloader because it would fork a subprocess
+    return gevent.spawn(web_app.run, host='0.0.0.0', port=webapp_port,
+                        use_debugger=debug, use_reloader=False)
 
 
 # Main execution

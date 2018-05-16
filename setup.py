@@ -108,7 +108,7 @@ def main():
         "msgpack_numpy",
         "blessings",
         "h5py",
-        "gevent >= 1.2.2",
+        "gevent == 1.2.2",
         "pygments",
         "numpy",
         'enum34 ; python_version < "3.4"',

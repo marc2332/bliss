@@ -18,6 +18,8 @@ from bliss.config.static import Config, get_config
 from bliss.common.tango import DeviceProxy
 from bliss.config.plugins.bliss import find_class
 
+import bliss.controllers.motors
+
 import gevent
 import hashlib
 import sys

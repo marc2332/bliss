@@ -20,13 +20,16 @@ described here, but the example can easily be extended to 2 pairs.
 First part of the file is the configuration of **real motors**, this
 is a classical [motor controller configuration](config_motctrl.md)
 
-Just note the negative sign to fix cabling choice: user convention is
+* Note the negative sign to fix cabling choice: user convention is
 to be positive when *opening* slits
+* NB: `name` field is mandatory for Beacon Web Config tool to
+recognize device as a motor.
 
         -
           controller:
             class: IcePAP
             host: iceid219
+            name: secondary_blades
             axes:
                 -
                     name: ssf
@@ -58,6 +61,7 @@ Second part is the configuration of new **virtual axes**  based on **real axes**
         -
           controller:
             class: slits
+            name: secondary_slits
             axes:
                 -
                     name: $ssf  <----------  The existing 'ssf' axis,

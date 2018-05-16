@@ -21,11 +21,9 @@ def test_channel_not_initialized(beacon):
     assert c.timeout == 3.
     assert c.value is None
 
-
 def test_channel_set(beacon):
     c = channels.Channel("super mario", "test")
     assert c.value == 'test'
-
 
 def test_channel_cb(beacon):
     cb_dict = dict({"value": None, "exception": None})
@@ -234,3 +232,38 @@ def test_channels_cache(beacon):
     with pytest.raises(TypeError) as info:
         channels.Cache(1, 'attr')
     assert 'the device 1 has no name' in str(info)
+
+def test_2_channels_set(beacon, beacon_host_port):
+    def child_process(child_end, beacon_host_port):
+        import sys
+        from bliss.config.conductor import client
+        from bliss.config.conductor import connection
+        from bliss.config import channels
+
+        beacon_connection = connection.Connection(*beacon_host_port)
+        client._default_connection = beacon_connection
+        channels.Bus._CACHE = dict()
+
+        assert child_end.get() == '!'
+
+        chan = channels.Channel("test_chan", value="test")
+        child_end.put('$')
+        if child_end.get() == '.':
+          sys.exit(0)
+
+    c = channels.Channel("test_chan")
+
+    with gipc.pipe(duplex=True) as (child_end, parent_end):
+        p = gipc.start_process(
+            target=child_process, args=(child_end, beacon_host_port))
+
+        # Synchronize
+        parent_end.put('!')
+        assert parent_end.get() == '$'
+        gevent.sleep(0.1)
+        try:
+            assert c.value == "test"
+        finally:
+            parent_end.put(".")
+            p.join()
+

@@ -317,6 +317,7 @@ class Channel(AdvancedInstantiationInterface):
 
         if value != _NotProvided:
             self._set_raw_value(value)
+            self._bus.schedule_update(self)
 
         if callback is not None:
             self.register_callback(callback)

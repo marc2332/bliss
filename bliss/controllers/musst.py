@@ -17,7 +17,7 @@ from bliss.config.channels import Cache
 from bliss.config.conductor.client import remote_open
 from bliss.common.switch import Switch as BaseSwitch
 from bliss.common.utils import OrderedDict
-from bliss.common.measurement import SamplingCounter
+from bliss.common.measurement import SamplingCounter, counter_namespace
 
 Serial = serial.Serial
 
@@ -41,6 +41,11 @@ def _clear_cmd():
         finally:
             self._musst__last_md5.value = None
     return property(exec_cmd, doc="Delete the current program")
+
+class MusstCounter(SamplingCounter):
+    def __init__(self, name, musst, channel):
+        SamplingCounter.__init__(self, name, musst)
+        self.channel = channel
 
 class musst(object):
     class channel(object):
@@ -144,14 +149,6 @@ class musst(object):
                 if self._mode == self.ADC10: # TEST if it's not a 5 volt ADC
                     if len(split_config) > 1 and split_config[1].find('5') > -1:
                         self._mode = self.ADC5
-
-    # MUSST Counters
-    class counter(SamplingCounter):
-        def __init__(self, name, musst, channel):
-            self.controller = musst
-            self.channel    = channel
-            SamplingCounter.__init__(self, name, self.controller)
-
 
     ADDR    = _get_simple_property("ADDR","Set/query serial line address")
     BTRIG   = _get_simple_property("BTRIG","Set/query the level of the TRIG out B output signal")
@@ -271,20 +268,24 @@ class musst(object):
                                                                         switch=ext_switch,
                                                                         switch_name=channel_name)
             else:
-                raise RuntimeError("musst: channel type can only be of type (cnt,encoder,ssi,adc5,adc10,switch)")
+                raise ValueError("musst: channel type can only be one of: (cnt,encoder,ssi,adc5,adc10,switch)")
         
         #Configured counters
-        self._counters = dict()
-        cnt_list = config_tree.get('counters',list())
-        for cnt_config in cnt_list:
+        cnt_list = list()
+        for cnt_config in config_tree.get('counters',list()):
             cnt_name    = cnt_config.get("name")
             cnt_channel = cnt_config.get('channel')
 
             if cnt_channel.upper() not in ("TIMER", "CH1", "CH2", "CH3", "CH4", "CH5", "CH6"):
-                raise RuntimeError("Musst Counter: counter \"%s\" channel name (%s) must be [CH1/CH2/CH3/CH4/CH5/CH6]"%(cnt_name, cnt_channel))
+                raise ValueError("Musst Counter: counter \"%s\" channel name (%s) must be [CH1/CH2/CH3/CH4/CH5/CH6]"%(cnt_name, cnt_channel))
             
-            cnt_obj  = self.counter(cnt_name, self, cnt_channel.upper())
-            setattr(self, cnt_name, cnt_obj)
+            cnt_obj = MusstCounter(cnt_name, self, cnt_channel.upper())
+            cnt_list.append(cnt_obj)
+        self.__counters = counter_namespace(cnt_list)
+
+    @property
+    def counters(self):
+        return self.__counters
 
     @protect_from_kill
     def putget(self,msg,ack = False):

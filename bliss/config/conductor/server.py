@@ -511,7 +511,7 @@ def start_webserver(webapp_port, beacon_port, debug=True):
     web_app.beacon_port = beacon_port
     # force not to use reloader because it would fork a subprocess
     return gevent.spawn(web_app.run, host='0.0.0.0', port=webapp_port,
-                        use_debugger=debug, use_reloader=False)
+                        use_debugger=debug, use_reloader=False, threaded=False)
 
 
 # Main execution

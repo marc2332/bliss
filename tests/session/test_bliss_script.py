@@ -22,9 +22,13 @@ def session99():
     session_file = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'test_configuration', 'sessions', 'session99.yml'))
     session_setup_file = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'test_configuration', 'sessions', 'session99_setup.py'))
     session_scripts_file = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'test_configuration', 'sessions', 'scripts', 'session99.py'))
-    yield (session_file, session_setup_file, session_scripts_file)
+    init_file = os.path.join(os.path.dirname(session_file), "__init__.yml")
+    os.rename(init_file, os.path.join(os.path.dirname(session_file), "__init__.sav"))
+
+    yield (session_file, session_setup_file, session_scripts_file, init_file)
 
     # Executed at end of tests of this module.
+    os.rename(os.path.join(os.path.dirname(session_file), "__init__.sav"), init_file)
     for filename in (session_file, session_setup_file, session_scripts_file):
         try:
             os.unlink(filename)
@@ -61,9 +65,11 @@ def test_invalid_arg(beacon):
 
 
 def test_create_session(beacon, session99):
-    session_file, session_setup_file, session_scripts_file = session99
+    session_file, session_setup_file, session_scripts_file, init_file = session99
     bliss_shell = subprocess.Popen(['bliss', '-c', 'session99'], stdout=subprocess.PIPE)
     bliss_shell.wait()
+    assert os.path.exists(init_file)
+    assert file(init_file).read() == 'plugin: session\n'
     assert os.path.exists(session_file)
     assert os.path.exists(session_setup_file)
     assert os.path.exists(session_scripts_file)
@@ -74,7 +80,7 @@ def test_create_session(beacon, session99):
 
 
 def test_delete_session(beacon, session99):
-    session_file, session_setup_file, session_scripts_file = session99
+    session_file, session_setup_file, session_scripts_file, init_file = session99
     bliss_shell = subprocess.Popen(['bliss', '-d', 'session99'], stdout=subprocess.PIPE)
     bliss_cmd_output = bliss_shell.communicate()
     assert not os.path.exists(session_file)

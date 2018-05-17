@@ -438,6 +438,8 @@ class Config(object):
                 continue
             base_path, file_name = os.path.split(path)
             fs_node, fs_key = self._get_or_create_path_node(base_path)
+            if isinstance(fs_node, list):
+                continue
 
             if ordered_yaml:
                 try:
@@ -507,8 +509,11 @@ class Config(object):
                     parents = Node(self,fs_node,path)
                     self._parse(d,parents)
                     self._create_index(parents)
-            
-            children = fs_node.get(fs_key)
+           
+            if isinstance(fs_node, list):
+                continue 
+            else:
+                children = fs_node.get(fs_key)
             
             if isinstance(children,list):
                 if isinstance(parents,list):

@@ -119,7 +119,8 @@ def main():
         'futures',
         'silx >= 0.7',
         'psutil',
-        'subprocess32'
+        'subprocess32',
+        'requests'
     ]
 
     tests_require = [

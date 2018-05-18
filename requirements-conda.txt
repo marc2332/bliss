@@ -24,3 +24,4 @@ futures
 silx
 psutil
 subprocess32
+requests

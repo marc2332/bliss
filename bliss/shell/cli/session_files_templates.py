@@ -13,7 +13,7 @@ from jinja2 import Template
 
 
 xxx_setup_py_template = Template("""
-from bliss import setup_globals
+from bliss.setup_globals import *
 
 load_script(\"{{ name }}.py\")
 
@@ -29,18 +29,4 @@ print(\"\")
 
 
 xxx_py_template = Template("""
-from bliss.shell.cli import configure
-from bliss.shell.cli.layout import AxisStatus, LabelWidget, DynamicWidget
-from bliss.shell.cli.esrf import Attribute, FEStatus, IDStatus, BEAMLINE
-
-import time
-
-def what_time_is_it():
-    return time.ctime()
-
-@configure
-def config(repl):
-    repl.bliss_bar.items.append(LabelWidget(\"BL=ID245c\"))
-    repl.bliss_bar.items.append(AxisStatus('simot1'))
-    repl.bliss_bar.items.append(DynamicWidget(what_time_is_it))
 """)

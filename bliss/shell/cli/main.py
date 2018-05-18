@@ -128,8 +128,9 @@ def create_session(session_name):
                              'config-objects': []})
     new_session_node.save()
 
-    # <session_name>_setup.py: setup file of the session.
     config = static.get_config()
+    config.set_config_db_file("sessions/__init__.yml", "plugin: session\n")
+    # <session_name>_setup.py: setup file of the session.
     skeleton = sft.xxx_setup_py_template.render(name=session_name)
     file_name = 'sessions/%s_setup.py' % session_name
     print("Creating %s" % file_name)

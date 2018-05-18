@@ -84,9 +84,10 @@ class Proxy(object):
     def _fork_server(self,host,port):
         with Lock(self):
             sync = event.Event()
-            result = dict()
             def port_cbk(proxy_url):
-                result['url'] = proxy_url
+                if not proxy_url:
+                    # filter default value
+                    return
                 sync.set()
             try:
                 self._url_channel.register_callback(port_cbk)
@@ -95,7 +96,7 @@ class Proxy(object):
                     self._real_server_fork(host,port)
                     gevent.sleep(0)
                     sync.wait()
-                    local_url = result.get('url')
+                    local_url = self._url_channel.value
                 return local_url
             finally:
                 self._url_channel.unregister_callback(port_cbk)

@@ -151,9 +151,16 @@ class Icepap(Controller):
     def set_velocity(self,axis,new_velocity):
         if isinstance(axis, TrajectoryAxis):
             return axis._set_velocity(new_velocity)
-        
-        _ackcommand(self._cnx,"VELOCITY %s %f" % 
-                    (axis.address,new_velocity))
+
+        current_acc = float(axis.acceleration())
+        future_acc_time = new_velocity/current_acc
+        try:
+            _command(self._cnx,"ACCTIME %s %f" % (axis.address,future_acc_time))
+            _ackcommand(self._cnx,"VELOCITY %s %f" % 
+                        (axis.address,new_velocity))
+        finally:
+            _command(self._cnx,"ACCTIME %s %f" % (axis.address,future_acc_time))
+            
         return self.read_velocity(axis)
 
     def read_acceleration(self,axis):

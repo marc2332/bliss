@@ -144,7 +144,6 @@ class MattControl:
         self.wago = wago.WagoController(self.wago_ip)
         mapping = MattWagoMapping(self.nb_filter, self.att_type,
                                   self.att_alternate, self.stat_m, self.ctrl_m)
-        self.wago.connect()
         self.wago.set_mapping(str(mapping), ignore_missing=True)
 
     def exit(self):

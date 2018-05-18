@@ -45,6 +45,9 @@ class Proxy(object):
         self._url_channel.value = None
 
     def __getattr__(self,name):
+        if name.startswith("__"):
+            raise AttributeError, name
+
         was_connected = None
         if not name.startswith('_'):
             was_connected = self._check_connection()
@@ -81,9 +84,10 @@ class Proxy(object):
     def _fork_server(self,host,port):
         with Lock(self):
             sync = event.Event()
-            result = dict()
             def port_cbk(proxy_url):
-                result['url'] = proxy_url
+                if not proxy_url:
+                    # filter default value
+                    return
                 sync.set()
             try:
                 self._url_channel.register_callback(port_cbk)
@@ -92,7 +96,7 @@ class Proxy(object):
                     self._real_server_fork(host,port)
                     gevent.sleep(0)
                     sync.wait()
-                    local_url = result.get('url')
+                    local_url = self._url_channel.value
                 return local_url
             finally:
                 self._url_channel.unregister_callback(port_cbk)
@@ -102,10 +106,9 @@ class Proxy(object):
         read,write = os.pipe()
         pid = os.fork()
         if pid == 0:      # child
-            os.close(read)
             os.dup2(write,sys.stdout.fileno())
             os.dup2(write,sys.stderr.fileno())
-            os.close(write)
+            os.closerange(3, write+1)
             os.execl(sys.executable,sys.executable,__file__,"--channel-name",self._url_channel.name,
                      "--port",str(port),"--host",host)
             sys.exit(0)

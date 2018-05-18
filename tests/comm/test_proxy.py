@@ -33,9 +33,8 @@ def echo(socket, address):
 
 @pytest.fixture(scope="module")
 def echo_server(request):
-    print 'in echo server fixture'
     port = request.param
-    server = StreamServer(("", port), echo)
+    server = StreamServer(("0.0.0.0", port), echo)
     server.start()
     yield server
 

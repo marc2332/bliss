@@ -10,7 +10,7 @@
 
 from warnings import warn
 
-from bliss.comm.util import get_comm
+from bliss.comm.util import get_comm, get_comm_type, TCP
 
 
 def get_pi_comm(config, ctype=None, **opts):
@@ -19,7 +19,7 @@ def get_pi_comm(config, ctype=None, **opts):
     See :func:`bliss.comm.util.get_comm` for more info.
     """
     config = config.config_dict
-    if 'tcp' in config:
+    if get_comm_type(config) == TCP:
         opts.setdefault('port', 50000)
     opts.setdefault('timeout', 1)
     try:

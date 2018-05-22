@@ -182,8 +182,9 @@ def get_comm(config, ctype=None, **opts):
     if proxy_config is None:
         return klass(**opts)
     else:
+        com_config = {comm_type: opts}
         from .tcp_proxy import Proxy
-        return Proxy(proxy_config)
+        return Proxy(com_config)
 
 
 class HexMsg:

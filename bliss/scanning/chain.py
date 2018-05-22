@@ -12,6 +12,8 @@ from treelib import Tree
 
 from bliss.common.event import dispatcher
 from .channel import AcquisitionChannelList, AcquisitionChannel
+from .channel import duplicate_channel
+
 
 class DeviceIterator(object):
     def __init__(self, device, one_shot):
@@ -231,6 +233,19 @@ class AcquisitionMaster(object):
         # wait until ready for next acquisition
         # (not considering slave devices)
         return True
+
+    def add_external_channel(self, device, name, rename=None, conversion=None):
+        """Add a channel from an external source."""
+        try:
+            source = next(
+                channel for channel in device.channels if channel.name == name)
+        except StopIteration:
+            raise ValueError(
+                'The device {} does not have a channel called {}'
+                .format(device, name))
+        new_channel = duplicate_channel(
+            source, name=rename, conversion=conversion)
+        self.channels.append(new_channel)
 
 
 class AcquisitionDevice(object):

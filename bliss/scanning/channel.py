@@ -117,3 +117,21 @@ class AcquisitionChannel(object):
         # Permissive reshaping
         data.shape = (-1, ) + self.shape
         return data
+
+
+def duplicate_channel(source, name=None, conversion=None):
+    name = source.name if name is None else name
+    dest = AcquisitionChannel(
+        name, source.dtype, source.shape, source.description,
+        source.reference, source.data_node_type)
+
+    def callback(data_dct, sender=None, signal=None):
+        data = data_dct['data']
+        if conversion is not None:
+            data = conversion(data)
+        dest.emit(data)
+
+    # Louie does not seem to like closure...
+    dest._callback = callback
+    dispatcher.connect(callback, "new_data", source)
+    return dest

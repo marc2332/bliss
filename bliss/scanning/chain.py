@@ -5,7 +5,6 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import time
 import gevent
 import weakref
 import collections
@@ -63,6 +62,7 @@ class DeviceIteratorWrapper(object):
     def device(self):
         return self.__current
 
+
 class ChainPreset(object):
     """
     This class interface will be call by the scan object
@@ -93,6 +93,7 @@ class ChainPreset(object):
         """
         pass
 
+
 class ChainIterationPreset(object):
     """
     Same usage of the Preset object except that it will be called
@@ -109,12 +110,13 @@ class ChainIterationPreset(object):
         called on the starting phase of each scan iteration
         """
         pass
-        
+
     def stop(self):
         """
         Called at the end of each scan iteration
         """
         pass
+
 
 class AcquisitionMaster(object):
     HARDWARE, SOFTWARE = range(2)

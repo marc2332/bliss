@@ -58,7 +58,7 @@ class AcquisitionChannel(object):
 
     @property
     def data_node_type(self):
-        return self.__data_node_type 
+        return self.__data_node_type
 
     @property
     def dtype(self):

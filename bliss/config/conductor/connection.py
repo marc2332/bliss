@@ -19,7 +19,7 @@ class StolenLockException(RuntimeError):
 
 
 def ip4_broadcast_addresses(default_route_only=False):
-    ip_list = ['localhost']
+    ip_list = []
     # get default route interface, if any
     gws = netifaces.gateways()
     try:

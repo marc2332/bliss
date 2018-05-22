@@ -5,7 +5,6 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import time
 import gevent
 import weakref
 import collections
@@ -13,6 +12,8 @@ from treelib import Tree
 
 from bliss.common.event import dispatcher
 from .channel import AcquisitionChannelList, AcquisitionChannel
+from .channel import duplicate_channel
+
 
 class DeviceIterator(object):
     def __init__(self, device, one_shot):
@@ -63,6 +64,7 @@ class DeviceIteratorWrapper(object):
     def device(self):
         return self.__current
 
+
 class ChainPreset(object):
     """
     This class interface will be call by the scan object
@@ -93,6 +95,7 @@ class ChainPreset(object):
         """
         pass
 
+
 class ChainIterationPreset(object):
     """
     Same usage of the Preset object except that it will be called
@@ -109,12 +112,13 @@ class ChainIterationPreset(object):
         called on the starting phase of each scan iteration
         """
         pass
-        
+
     def stop(self):
         """
         Called at the end of each scan iteration
         """
         pass
+
 
 class AcquisitionMaster(object):
     HARDWARE, SOFTWARE = range(2)
@@ -229,6 +233,19 @@ class AcquisitionMaster(object):
         # wait until ready for next acquisition
         # (not considering slave devices)
         return True
+
+    def add_external_channel(self, device, name, rename=None, conversion=None):
+        """Add a channel from an external source."""
+        try:
+            source = next(
+                channel for channel in device.channels if channel.name == name)
+        except StopIteration:
+            raise ValueError(
+                'The device {} does not have a channel called {}'
+                .format(device, name))
+        new_channel = duplicate_channel(
+            source, name=rename, conversion=conversion)
+        self.channels.append(new_channel)
 
 
 class AcquisitionDevice(object):

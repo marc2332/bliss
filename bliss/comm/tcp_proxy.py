@@ -33,7 +33,7 @@ class Proxy(object):
             else:
                 self._config = tcp_config.copy()
             self._mode = self.TCP
-            cnx = Tcp(tcp_config['url'])
+            cnx = Tcp(**tcp_config)
             self.name = '%s:%d' % (cnx._host,cnx._port)
         else:
             raise NotImplemented("Proxy: Not managed yet")
@@ -76,9 +76,7 @@ class Proxy(object):
                 cnx = Tcp(url,**local_cfg)
                 host,port = cnx._host,cnx._port
                 proxy_url = self._fork_server(host,port)
-                self._cnx = Tcp(url,**local_cfg)
-                host,port = proxy_url.split(':')
-                self._cnx.host,self._cnx._port = host,int(port)
+                self._cnx = Tcp(proxy_url,**local_cfg)
                 return False
 
     def _fork_server(self,host,port):

@@ -66,18 +66,18 @@ class LimaAttrGetterSetter(object):
     
 def LimaProperties(name, proxy, prefix=None, strip_prefix=False,
                    base_class=None, base_class_args=None):
-    attr_list = proxy.get_attribute_list()
     base_classes = [] if base_class is None else [base_class]
     base_classes.append(LimaAttrGetterSetter)
     klass = type(name, tuple(base_classes), {})
-    for attr in attr_list:
+    attr_cfg_list = proxy.attribute_list_query()
+    for attr_info in attr_cfg_list:
+        attr = attr_info.name
         if prefix is None or attr.startswith(prefix):
             attr_username = attr if not strip_prefix or prefix is None else \
                             re.sub(prefix, '', attr)
             if attr_username in dir(klass):
                 # do not overwrite existing property/member
                 continue
-            attr_info = proxy.get_attribute_config(attr)
             values_enum = None
             if attr_info.data_format == 0 and attr_info.data_type == 8:
                 # SCALAR, DevString

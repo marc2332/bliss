@@ -91,10 +91,9 @@ def LimaProperties(name, proxy, prefix=None, strip_prefix=False,
                 # SCALAR, DevString
                 possible_values = proxy.getAttrStringValueList(attr)
                 if possible_values:
-                    values_enum = enum.Enum(attr_username+"_enum", { v: v for v
-                                                                    in
-                                                                    possible_values},
-                                           type=str)
+                    values_enum = enum.Enum(attr_username+"_enum",
+                                            [(v,v) for v in possible_values],
+                                            type=str)
             r_attr_func = functools.partial(klass._r_attr_func, attr=attr,
                                             values_enum=values_enum)
             if attr_info.writable == 0:

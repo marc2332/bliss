@@ -14,6 +14,16 @@ from bliss.common.tango import DevFailed
 
 LimaProperty = type('LimaProperty', (property, ), {})
 
+def camel_to_snake(camelCasedStr):
+    """ 
+    This function converts to snake_case from camelCase
+    """
+    first_cap_re = re.compile(r'(.)([A-Z][a-z]+)')
+    all_cap_re = re.compile('([a-z0-9])([A-Z])')
+    sub1            = first_cap_re.sub(r'\1_\2', camelCasedStr)
+    snake_cased_str = all_cap_re.sub(r'\1_\2', sub1).lower()
+    return snake_cased_str.replace('__', '_')
+
 class LimaAttrGetterSetter(object):
     def __init__(self, proxy):
         self.__proxy = proxy
@@ -55,8 +65,6 @@ class LimaAttrGetterSetter(object):
                                         lambda x: isinstance(x, LimaProperty))
         display_list = []
         for pname, p in properties:
-            if pname.endswith("_enum"):
-                continue
             try:
                 display_list.append("%s = %s" % (pname, p.fget(self)))
             except DevFailed:
@@ -73,8 +81,8 @@ def LimaProperties(name, proxy, prefix=None, strip_prefix=False,
     for attr_info in attr_cfg_list:
         attr = attr_info.name
         if prefix is None or attr.startswith(prefix):
-            attr_username = attr if not strip_prefix or prefix is None else \
-                            re.sub(prefix, '', attr)
+            attr_username = camel_to_snake(attr if not strip_prefix or prefix is None else \
+                            re.sub(prefix, '', attr))
             if attr_username in dir(klass):
                 # do not overwrite existing property/member
                 continue

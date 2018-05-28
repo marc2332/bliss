@@ -18,7 +18,7 @@ from bliss.common.utils import OrderedDict
 from bliss.common.utils import grouped
 from bliss.common.utils import add_property
 
-from bliss.common.axis import AxisState
+from bliss.common.axis import AxisState, Motion
 from bliss.config.channels import Cache
 
 import pi_gcs
@@ -201,7 +201,10 @@ class PI_E712(Controller):
     """ STATE """
     def state(self, axis):
         elog.debug("axis.closed_loop for axis %s is %s" % (axis.name, axis.closed_loop))
-
+        #check if WAV motion is active
+        if self.sock.write_readline("#9\n") != '0':
+            return AxisState("MOVING")
+        
         if axis.closed_loop:
             if self._get_on_target_status(axis):
                 return AxisState("READY")
@@ -339,6 +342,10 @@ class PI_E712(Controller):
             return reply
         else:
             self.sock.write(cmd + '\n')
+            errno, error_message = self.get_error()
+            if errno:
+                errors = [self.name] + [errno, error_message]
+                raise RuntimeError("Device {0} error nb {1} => ({2})".format(*errors))
 
     def get_data_len(self):
         """
@@ -512,7 +519,59 @@ class PI_E712(Controller):
             errors = [self.name,error_id,error_msg]
             raise RuntimeError("Device {0} error nb {1} => ({2})".format(*errors))
 
-    
+    def has_trajectory(self):
+        return True
+
+    def prepare_trajectory(self, *trajectories):
+        if not trajectories:
+            raise ValueError("no trajectory provided")
+        servo_cycle = float(self.command("SPA? 1 0xe000200"))
+        number_of_points = int(self.command("SPA? 1 0x13000004"))
+        last_time = trajectories[0].pvt['time'][-1]
+        calc_servo_cycle = (last_time * len(trajectories)) / number_of_points
+        table_generator_rate = int(numpy.ceil(calc_servo_cycle/servo_cycle))
+        servo_cycle *= table_generator_rate
+        commmands = ["WTR 0 {} 1".format(table_generator_rate), "WGC 1 1"]
+        for traj in trajectories:
+            time = traj.pvt['time']
+            positions = traj.pvt['position']
+            axis = traj.axis
+            cmd_format = "WAV %d " % axis.channel
+            cmd_format += "{cont} LIN {seglength} {amp} "\
+                          "{offset} {seglength} {startpoint} 0"
+            commmands.append("WSL {channel} {channel}".format(channel=axis.channel))
+            commmands.append("WOS {channel} 0".format(channel=axis.channel))
+            cont = 'X'
+            for start_time, end_time,\
+                start_position, end_position in zip(time, time[1:],
+                                                    positions, positions[1:]):
+                start_time /= servo_cycle
+                end_time /= servo_cycle
+                seglength = int(end_time-start_time)
+                if seglength <= 0:
+                    continue
+                start_time = start_time if cont == 'X' else 0
+                cmd = cmd_format.format(cont=cont,seglength=seglength,
+                                        amp=end_position-start_position, offset=start_position,
+                                        startpoint=int(start_time))
+                commmands.append(cmd)
+                cont = '&'
+
+        for cmd in commmands:
+            self.command(cmd)
+
+    def move_to_trajectory(self, *trajectories):
+        motions = [Motion(t.axis, t.pvt['position'][0], 0) for t in trajectories]
+        self.start_all(*motions)
+
+    def start_trajectory(self, *trajectories):
+        axes_str = ' '.join(['%d 1' % t.axis.channel for t in trajectories])
+        self.command("WGO " + axes_str)
+
+    def stop_trajectory(self, *trajectories):
+        axes_str = ' '.join(['%d 0' % t.axis.channel for t in trajectories])
+        self.command("WGO " + axes_str)
+            
     def _parse_reply(self, reply, args):
         args_pos = reply.find('=')
         if reply[:args_pos] != args: # weird

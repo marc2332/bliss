@@ -41,7 +41,7 @@ def test_2_library_instances(bliss_tango_server, s1hg, s1f, s1b):
 
     gevent.sleep(0.1)
 
-    assert s1hg.state() == "MOVING"
+    assert "MOVING" in s1hg.state()
 
     s1hg.wait_move()
 

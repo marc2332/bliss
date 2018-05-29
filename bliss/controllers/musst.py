@@ -589,8 +589,8 @@ class Switch(BaseSwitch):
             cmd = state['set_cmd']
             self.__states[label] = cmd
 
-            t1 = {config['test_cmd_reply'] : label}
-            t = self.__state_test.setdefault(config['test_cmd'],result)
+            t1 = {state['test_cmd_reply'] : label}
+            t = self.__state_test.setdefault(state['test_cmd'], t1)
             if t1 != t:
                 t.update(t1)
 

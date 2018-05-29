@@ -1,72 +1,12 @@
-# Usage of BLISS sessions
+# BLISS sessions configuration
 
 This chapter explains:
 
-* how to deal with bliss command line tool and sessions
 * how to create a BLISS custom session (named **eh1** in this example)
-* how to create a setup file to configure a session.
-
-## Commands
-
-### Help
-Use `-h` flag to get help about bliss command line inteface:
-
-        % bliss -h
-        Usage: bliss [-l | --log-level=<log_level>] [-s <name> | --session=<name>]
-               bliss [-v | --version]
-               bliss [-c <name> | --create=<name>]
-               bliss [-d <name> | --delete=<name>]
-               bliss [-h | --help]
-               bliss --show-sessions
-               bliss --show-sessions-only
-        
-        Options:
-            -l, --log-level=<log_level>   Log level [default: WARN] (CRITICAL ERROR INFO DEBUG NOTSET)
-            -s, --session=<session_name>  Start with the specified session
-            -v, --version                 Show version and exit
-            -c, --create=<session_name>   Create a new session with the given name
-            -d, --delete=<session_name>   Delete the given session
-            -h, --help                    Show help screen and exit
-            --show-sessions               Display available sessions and tree of sub-sessions
-            --show-sessions-only          Display available sessions names only
-
-
-
-### Sessions list
-
-Use  `-s` or `--show-sessions` option to get the list of available sessions:
-
-     % bliss --show-sessions
-     Available BLISS sessions are:
-       cyril
-
-Other commands are also displaying the available sessions:
-
-     % bliss --show-sessions-only
-     % bliss -s
-
-### Version
-
-Use `-v` or `--version` option to get the current version of a BLISS installation:
-
-    % bliss --version
-    BLISS version 0.2
-
-## Automatic creation of a new session
-
-Use `bliss --create` or `bliss -c` to create the skeleton of a new session:
-
-    bliss -c eh1
-    % bliss -c eh1
-    creating 'eh1' session
-    Creating: /bliss/users/guilloud/local/beamline_configuration/sessions/eh1_setup.py
-    Creating: /bliss/users/guilloud/local/beamline_configuration/sessions/eh1.yml
-    Creating: /bliss/users/guilloud/local/beamline_configuration/sessions/scripts/eh1.py
-
+* how to configure a session
+* how to add widgets to BLISS shell
 
 ## Manual creation of a new session
-
-Reminder: Take very good care to spaces in YAML files !
 
 Session setup files are YAML files located in **beacon** configuration in a `sessions` sub-directory:
 
@@ -79,9 +19,12 @@ This directory must contain a `__init__.yml` file to indicate which plugin to us
 
 Just create a session setup YAML file (ex: `eh1.yml`):
 
-    -class: Session
+    class: Session
         name: eh1
         setup-file: ./eh1_setup.py
+
+!!! note
+    Take care with spaces in YAML files :)
 
 Create a python setup file (ex: `eh1_setup.py`):
 
@@ -108,10 +51,7 @@ Then a session can be started with `-s` option:
     
     EH1 [1]:
 
-**All objects** defined in beacon configuration directory (device or
-sequence) will be loaded.
-
-
+**All objects** defined in beacon configuration will be loaded.
 
 ## Session customization
 
@@ -172,8 +112,7 @@ Now, `eh1_align()` script is available in **eh1** session:
         OK beamline is aligned :)
 
 
-
-### To add info in the toolbar
+## bliss shell toolbar customization
 
 To customize the toolbar of a session, special **Widgets** can be
 defined and inserted into the toolbar item list.

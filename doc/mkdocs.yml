@@ -23,8 +23,8 @@ pages:
                 - BLISS control objects: config_objects.md
                 - Sessions: config_session.md
         - BLISS shell:
-                - bliss_shell.md
-                - shell_std_func.md
+                - Command line usage: shell_cmdline.md
+                - Standard functions: shell_std_func.md
         - Motion:
                 - Axis: motion_axis.md
                 - Encoder: motion_encoder.md

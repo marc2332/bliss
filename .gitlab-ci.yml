@@ -1,3 +1,5 @@
+image: docker-registry.esrf.fr/bcu/ci-conda
+
 stages:
   - tests
   - build_user_doc

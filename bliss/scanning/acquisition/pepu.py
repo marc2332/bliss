@@ -175,10 +175,13 @@ class PepuAcquisitionDevice(AcquisitionDevice):
         self.stream = self.pepu.create_stream(
             self.name, trigger=self.trig, frequency=self.frequency,
             nb_points=self.npoints, sources=sources, overwrite=True)
+        self.stream.start()
+        if self.trig.start == Signal.SOFT and self.trig.clock != Signal.SOFT:
+            self.pepu.software_trigger()
 
     def start(self):
         """Start the acquisition."""
-        self.stream.start()
+        pass
 
     def stop(self):
         """Stop the acquisition."""
@@ -186,7 +189,7 @@ class PepuAcquisitionDevice(AcquisitionDevice):
 
     def trigger(self):
         """Send a software trigger."""
-        if self.trig.start == Signal.SOFT:
+        if self.trig.clock == Signal.SOFT:
             self.pepu.software_trigger()
 
     def wait_ready(self):

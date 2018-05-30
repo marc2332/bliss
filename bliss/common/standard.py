@@ -12,7 +12,7 @@ from bliss.common.cleanup import cleanup, error_cleanup
 
 __all__ = ['wa', 'wm', 'sta', 'mv', 'umv', 'mvr', 'umvr', 'move',
            'prdef', 'set_log_level', 'sync'] + scans.__all__ + \
-           ['cleanup', 'error_cleanup', 'plot', 'showcnt']
+           ['cleanup', 'error_cleanup', 'plot', 'lscnt']
 
 import collections
 import itertools
@@ -395,7 +395,7 @@ def cntdict():
                                                    controller_name)
     return counters_dict
 
-def showcnt():
+def lscnt():
     """
     Display the list of all counters, sorted alphabetically
     """

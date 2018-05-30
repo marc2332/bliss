@@ -237,7 +237,7 @@ class ScanDisplay(Parameters):
         keys = dict()
         _change_to_obj_marshalling(keys)
         Parameters.__init__(self, '%s:scan_display_params' % self.session,
-                            default_values={ 'auto': True },
+                            default_values={ 'auto': False },
                             **keys)
 
     def __dir__(self):

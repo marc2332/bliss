@@ -24,7 +24,7 @@ Just create a session setup YAML file (ex: `eh1.yml`):
         setup-file: ./eh1_setup.py
 
 !!! note
-    Take care with spaces in YAML files :)
+    Remember to take care with spaces in YAML files ;-)
 
 Create a python setup file (ex: `eh1_setup.py`):
 
@@ -55,19 +55,20 @@ Then a session can be started with `-s` option:
 
 ## Session customization
 
-### To selectively include objects
+### To include objects
 
 Most of the time all objects declared in the beacon configuration
-don't have to be loaded loaded in a session. So they can be explicitly
-included by using `include-objects` keyword followed by a list of
+don't have to be loaded in a session. So they can be explicitly
+included by using `config-objects` keyword followed by a list of
 objects:
 
     - class: Session
       name: eh1
       setup-file: ./eh1_setup.py
-      include-objects: [pzth, simul_mca]
+      config-objects: [pzth, simul_mca]
 
-The *include-objects list* can also be a classical YAML dash list.
+!!! note
+    The *config-objects list* can also be a classical YAML dash list.
 
 
 ### To selectively exclude objects
@@ -81,7 +82,8 @@ list of objects:
       setup-file: ./eh1_setup.py
       exclude-objects: [simul_mca, zzac]
 
-The *exclude-objects list* can also be a classical YAML dash list.
+!!! note
+    The *exclude-objects list* can also be a classical YAML dash list.
 
 ### To define custom sequences
 

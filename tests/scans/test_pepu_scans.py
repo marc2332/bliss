@@ -77,7 +77,7 @@ def test_pepu_soft_scan(beacon, pepu):
     scan.run()
     gevent.sleep(0.)
     # Checks
-    data = scans.get_data(scan)
+    data = scan.get_data()
     pepu.assert_data(data, 10)
 
 
@@ -95,7 +95,7 @@ def test_pepu_continuous_soft_scan(beacon, pepu):
     scan.run()
     gevent.sleep(0.)
     # Checks
-    data = scans.get_data(scan)
+    data = scan.get_data()
     pepu.assert_data(data, 10)
 
 
@@ -106,7 +106,7 @@ def test_pepu_default_chain_with_counters(beacon, pepu):
     scan = scans.ascan(
         m0, 0, 10, 10, 0.01, *pepu.counters, return_scan=True, save=False)
     # Checks
-    data = scans.get_data(scan)
+    data = scan.get_data()
     pepu.assert_data(data, 10)
 
 
@@ -117,7 +117,7 @@ def test_pepu_default_chain_with_counter_namespace(beacon, pepu):
     scan = scans.ascan(
         m0, 0, 10, 10, 0.01, pepu.counters, return_scan=True, save=False)
     # Checks
-    data = scans.get_data(scan)
+    data = scan.get_data()
     pepu.assert_data(data, 10)
 
 
@@ -132,7 +132,7 @@ def test_pepu_default_chain_with_measurement_group(beacon, pepu):
     scan = scans.ascan(
         m0, 0, 10, 10, 0.01, mg, return_scan=True, save=False)
     # Checks
-    data = scans.get_data(scan)
+    data = scan.get_data()
     pepu.assert_data(data, 10)
 
 
@@ -149,5 +149,5 @@ def test_pepu_continuous_scan(beacon, pepu):
     scan = Scan(chain, 'test', None)
     scan.run()
     # Checks
-    data = scans.get_data(scan)
+    data = scan.get_data()
     pepu.assert_data(data, 10)

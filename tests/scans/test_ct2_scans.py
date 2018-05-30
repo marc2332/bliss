@@ -30,6 +30,6 @@ def ct2(mocker):
 
 def test_ct2_scan(beacon, ct2):
     s = scans.ct(0.1, ct2, return_scan=True)
-    data = scans.get_data(s)
+    data = s.get_data()
     assert data['c1'] == [1.1]
     assert data['c2'] == [2.2]

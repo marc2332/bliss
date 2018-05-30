@@ -120,6 +120,6 @@ def test_timescan(pepu):
     scan = scans.timescan(
         0.1, pepu.counters.CALC1, pepu.counters.CALC2,
         npoints=3, return_scan=True, save=False)
-    data = scans.get_data(scan)
+    data = scan.get_data()
     assert data['CALC1'].tolist() == [1.5] * 3
     assert data['CALC2'].tolist() == [-1.5] * 3

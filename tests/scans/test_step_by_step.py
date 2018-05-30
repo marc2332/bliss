@@ -22,7 +22,7 @@ def test_ascan(beacon):
     counter = counter_class("gaussian", 10, cnt_time=0)
     s = scans.ascan(m1, 0, 10, 10, 0, counter, return_scan=True, save=False)
     assert m1.position() == 10
-    scan_data = scans.get_data(s)
+    scan_data = s.get_data()
     assert numpy.array_equal(scan_data['gaussian'], counter.data)
 
 def test_ascan_gauss(beacon):
@@ -33,7 +33,7 @@ def test_ascan_gauss(beacon):
     counter = counter_class("gaussianCurve")
     s = scans.ascan(m1, 0, 10, 10, 0, counter, return_scan=True, save=False)
     assert m1.position() == 10
-    scan_data = scans.get_data(s)
+    scan_data = s.get_data()
     assert numpy.array_equal(scan_data['gaussianCurve'], counter.data)
 
 def test_dscan(beacon):
@@ -46,7 +46,7 @@ def test_dscan(beacon):
     start_pos = m1.position()
     s = scans.dscan(m1, -2, 2, 10, 0, counter, return_scan=True, save=False)
     assert m1.position() == start_pos
-    scan_data = scans.get_data(s)
+    scan_data = s.get_data()
     assert numpy.allclose(scan_data['m1'], numpy.linspace(start_pos-2, start_pos+2, 10), atol=5e-4)
     assert numpy.array_equal(scan_data['gaussian'], counter.data)
 
@@ -70,7 +70,7 @@ def test_dscan_move_done(beacon):
     start_pos = m1.position()
     s = scans.dscan(m1, -2, 2, 10, 0, counter, return_scan=True, save=False)
     assert m1.position() == start_pos
-    scan_data = scans.get_data(s)
+    scan_data = s.get_data()
     assert numpy.allclose(scan_data['m1'], numpy.linspace(start_pos-2, start_pos+2, 10), atol=5e-4)
     assert numpy.array_equal(scan_data['gaussian'], counter.data)
     assert positions[0] == 8.0
@@ -86,7 +86,7 @@ def test_timescan(beacon):
     counter_class = getattr(setup_globals, 'TestScanGaussianCounter')
     counter = counter_class("gaussian", 10, cnt_time=0.1)
     s = scans.timescan(0.1, counter, npoints=10, return_scan=True, save=False)
-    scan_data = scans.get_data(s)
+    scan_data = s.get_data()
     assert numpy.array_equal(scan_data['gaussian'], counter.data)
 
 
@@ -100,7 +100,7 @@ def test_pointscan(beacon):
     points = [0.0, 1.0, 3.0, 7.0, 8.0, 10.0, 12.0, 15.0, 20.0, 50.0]
     s = scans.pointscan(m0, points, 0, counter, return_scan=True, save=False)
     assert m0.position() == 50.0
-    scan_data = scans.get_data(s)
+    scan_data = s.get_data()
     assert numpy.array_equal(scan_data['m0'], points)
     assert numpy.array_equal(scan_data['gaussian'], counter.data)
 
@@ -149,5 +149,5 @@ def test_calc_counters(beacon):
 
     s = scan.Scan(c, name='calc_scan',)
     s.run()
-    scan_data = scans.get_data(s)
+    scan_data = s.get_data()
     assert numpy.array_equal(scan_data['gaussian']**2,scan_data['pow'])

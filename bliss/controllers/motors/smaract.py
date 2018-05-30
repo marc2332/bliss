@@ -5,16 +5,16 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-"""SmartAct motor controller
+"""SmarAct motor controller
 
 YAML_ configuration example:
 
 .. code-block:: yaml
 
     plugin: emotion
-    class: SmartAct
+    class: SmarAct
     tcp:
-      url: id99smartact1
+      url: id99smaract1
     power: Enabled                 # (1)
     axes:
       - name: rot1
@@ -139,7 +139,7 @@ class Direction(enum.IntEnum):
 NoHoldTime = 0
 InfiniteHoldTime = 60
 
-class SmartActError(Exception):
+class SmarActError(Exception):
 
     ERRORS = {
         1: 'Syntax Error',
@@ -182,7 +182,7 @@ class SmartActError(Exception):
             msg = 'Error {}: {}'.format(code, msg)
         else:
             msg = 'Error {} on channel {}: {}'.format(code, channel, msg)
-        super(SmartActError, self).__init__(msg)
+        super(SmarActError, self).__init__(msg)
 
 
 def parse_reply_item(reply):
@@ -199,7 +199,7 @@ def parse_reply(reply, cmd):
     if reply.startswith(':E'):
         channel, code = map(int, reply[2:].split(',', 1))
         if code:
-            raise SmartActError(code, channel)
+            raise SmarActError(code, channel)
         return 0
     else:
         # we are in a get command for sure
@@ -397,12 +397,12 @@ class Channel(object):
         self.command('CS')
 
 
-class SmartAct(Controller):
+class SmarAct(Controller):
 
     DEFAULT_PORT = 5000
 
     def __init__(self, name, config, axes, *args, **kwargs):
-        super(SmartAct, self).__init__(name, config, axes, *args, **kwargs)
+        super(SmarAct, self).__init__(name, config, axes, *args, **kwargs)
         self.comm = get_comm(self.config.config_dict, port=self.DEFAULT_PORT)
         for axis_name, axis, axis_config in axes:
             axis.channel = Channel(self, axis_config.get('channel', int))

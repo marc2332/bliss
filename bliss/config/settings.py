@@ -149,6 +149,10 @@ class SimpleSetting(object):
         self._write_type_conversion = write_type_conversion
         self._default_value = default_value
 
+    @property
+    def name(self):
+        return self._name
+ 
     @read_decorator
     def get(self):
         cnx = self._cnx()
@@ -229,6 +233,10 @@ class SimpleSettingProp(object):
         self._default_value = default_value
         self._use_object_name = use_object_name
 
+    @property
+    def name(self):
+        return self._name
+
     def __get__(self, obj, type=None):
         if self._use_object_name:
             name = obj.name + ':' + self._name
@@ -266,6 +274,10 @@ class QueueSetting(object):
         self._name = name
         self._read_type_conversion = read_type_conversion
         self._write_type_conversion = write_type_conversion
+
+    @property
+    def name(self):
+        return self._name
 
     @read_decorator
     def get(self, first=0, last=-1, cnx=None):
@@ -406,6 +418,10 @@ class QueueSettingProp(object):
         self._write_type_conversion = write_type_conversion
         self._use_object_name = use_object_name
 
+    @property
+    def name(self):
+        return self._name
+
     def __get__(self, obj, type=None):
         if self._use_object_name:
             name = obj.name + ':' + self._name
@@ -443,6 +459,10 @@ class HashSetting(object):
         self._read_type_conversion = read_type_conversion
         self._write_type_conversion = write_type_conversion
         self._default_values = default_values
+
+    @property
+    def name(self):
+        return self._name
 
     def __repr__(self):
         value = self.get_all()
@@ -606,6 +626,10 @@ class HashSettingProp(object):
         self._write_type_conversion = write_type_conversion
         self._default_values = default_values
         self._use_object_name = use_object_name
+
+    @property
+    def name(self):
+        return self._name
 
     def __get__(self, obj, type=None):
         if self._use_object_name:

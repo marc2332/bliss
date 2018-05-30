@@ -5,20 +5,15 @@ standard slits.
 
 The example is based on configuration of secondary slits of ID21.
 
-
-## YML Configuration file
-
-Configuration file is placed here :
-
-    /users/blissadm/local/beamline_configuration/CC4/motors/secondary_slits.yml
-
 To ease readability, the configuration of only one pair of blade is
 described here, but the example can easily be extended to 2 pairs.
 
 ### Real motors
 
-First part of the file is the configuration of **real motors**, this
-is a classical [motor controller configuration](config_motctrl.md)
+First part of the file is the configuration of **real motors**. In the
+case of the slits of ID21, the real motors are driven by Icepap.
+[Icepap configuration](config_icepap.md) gives full details of Icepap
+motors configuration.
 
 * Note the negative sign to fix cabling choice: user convention is
 to be positive when *opening* slits

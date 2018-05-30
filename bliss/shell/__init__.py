@@ -26,12 +26,13 @@ from bliss.config import static
 from bliss.scanning import scan
 from bliss.common.axis import Axis
 from bliss.common.event import dispatcher
+from bliss.common.session import DefaultSession
 from bliss.config.conductor.client import get_default_connection
 from bliss.shell.bliss_banners import print_rainbow_banner
 _log = logging.getLogger('bliss.shell')
 
 
-def initialize(session_name):
+def initialize(session_name=None):
     # Initialize user namespace with bliss.common.standard
     from bliss.common import standard
     user_ns = {name: getattr(standard, name) for name in standard.__all__}
@@ -72,18 +73,17 @@ def initialize(session_name):
     print_("Connected to Beacon server on {t.blue}%s{t.normal} (port %s)".format(t=t) % (_host, _port))
 
     """ Setup(s) """
-    if session_name is not None:
+    if session_name is None:
+        session = DefaultSession()
+    else:
         session = config.get(session_name)
-
         print "%s: Executing setup..." % session.name
 
-        try:
-            session.setup(env_dict=user_ns, verbose=True)
-        except Exception:
-            error_flag = True
-            sys.excepthook(*sys.exc_info())
-    else:
-        session = None
+    try:
+        session.setup(env_dict=user_ns, verbose=True)
+    except Exception:
+        error_flag = True
+        sys.excepthook(*sys.exc_info())
 
     if error_flag:
         print "Warning: error(s) happened during setup, setup may not be complete."

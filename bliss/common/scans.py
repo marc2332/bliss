@@ -221,7 +221,7 @@ def mesh(
     step_size2 = abs(stop2 - start2) / float(npoints2)
     i_motion_t2 = estimate_duration(motor2, start2)
     n_motion_t2 = max(estimate_duration(motor2, start2, start2 + step_size2),
-                      estimate_duration(motor1, end1, start1))
+                      estimate_duration(motor1, stop1, start1))
     total_motion_t2 = npoints2 * n_motion_t2
 
     imotion_t = max(i_motion_t1, i_motion_t2)
@@ -232,9 +232,12 @@ def mesh(
                   'total_count_time': total_count_t,
                   'total_time': total_motion_t + total_count_t}
 
-    scan_info.update({'npoints1': npoints1, 'npoints2': npoints2,
+    scan_info.update({'npoints1': npoints1,
+                      'npoints2': npoints2,
+                      'npoints': npoints1 * npoints2,
                       'total_acq_time': total_count_t,
-                      'start': [start1, start2], 'stop': [stop1, stop2],
+                      'start': [start1, start2],
+                      'stop': [stop1, stop2],
                       'count_time': count_time,
                       'estimation': estimation})
 

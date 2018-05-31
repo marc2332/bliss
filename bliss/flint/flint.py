@@ -43,7 +43,7 @@ with warnings.catch_warnings():
     from silx.gui import plot as silx_plot
     from silx.gui import qt
 
-from .plot1d import Plot1D, LivePlot1D
+from .plot1d import Plot1D, LivePlot1D, LiveScatterPlot
 from .interaction import PointsSelector, ShapeSelector
 
 # Globals
@@ -157,7 +157,10 @@ class Flint:
             scalar_plot = LivePlot1D(data_dict=self.data_dict)
             scalar_plot.plot_id = next(self._id_generator)
             scalar_plot.hide()
-            return {"0d": [scalar_plot],
+            scatter_plot = LiveScatterPlot(data_dict=self.data_dict)
+            scatter_plot.plot_id = next(self._id_generator)
+            scatter_plot.hide()
+            return {"0d": [scalar_plot, scatter_plot],
                     "1d": [],
                     "2d": []}
 
@@ -228,14 +231,27 @@ class Flint:
             scalars_plot_win = self.live_scan_plots_dict[master]['0d'][0]
             scalars_plot_win.set_x_axes(channels['master']['scalars'])
             scalars_plot_win.set_y_axes(scalars)
-            scalars_plot_win.setWindowTitle(master+' -> scalar counters')
+            scalars_plot_win.setWindowTitle(
+                '1D Plot: ' + master + ' -> scalar counters')
             self.live_scan_mdi_area.addSubWindow(scalars_plot_win)
             self.plot_dict[scalars_plot_win.plot_id] = scalars_plot_win
-      
-            if not scalars:
-                scalars_plot_win.hide()
-            else:
+            if scalars and len(channels['master']['scalars']) >= 1:
                 scalars_plot_win.show()
+            else:
+                scalars_plot_win.hide()
+
+            scatter_plot_win = self.live_scan_plots_dict[master]['0d'][1]
+            scatter_plot_win.set_x_axes(channels['master']['scalars'])
+            scatter_plot_win.set_y_axes(channels['master']['scalars'])
+            scatter_plot_win.set_z_axes(scalars)
+            scatter_plot_win.setWindowTitle(
+                'Scatter plot: ' + master + ' -> scalar counters')
+            self.live_scan_mdi_area.addSubWindow(scatter_plot_win)
+            self.plot_dict[scatter_plot_win.plot_id] = scatter_plot_win
+            if scalars and len(channels['master']['scalars']) >= 2:
+                scatter_plot_win.show()
+            else:
+                scatter_plot_win.hide()
 
             for spectrum in spectra:
                 # spectrum_win = silx_plot.CurvesView)
@@ -277,27 +293,11 @@ class Flint:
 
     def _new_scan_data(self, data_type, master_name, data, last_data):
         if data_type == '0d':
-            master_channels = data["master_channels"]
+            for plot in self.live_scan_plots_dict[master_name]['0d']:
+                for channel_name, channel_data in last_data.iteritems():
+                    self.update_data(plot.plot_id, channel_name, channel_data)
+                plot.update_all()
 
-            plot = self.live_scan_plots_dict[master_name]["0d"][0]
-
-            try:
-                x_channel_name = master_channels[0]
-            except IndexError:
-                x_channel_name = None
-            else:
-                self.update_data(plot.plot_id, x_channel_name, \
-                                 last_data[x_channel_name])
-                
-            for channel_name, channel_data in last_data.iteritems():
-                self.update_data(plot.plot_id, channel_name, channel_data)
-                if x_channel_name and channel_name not in master_channels:
-                    x = last_data[x_channel_name]
-                    y = channel_data
-                    dlen = min(len(x), len(y))
-                    if dlen > 0:
-                        plot.enable(x_channel_name, channel_name, dlen)
-                        plot.update_plots()
         elif data_type == '1d':
             spectrum_data = last_data
             channel_name = data["channel_name"]

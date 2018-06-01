@@ -37,6 +37,8 @@ class Lima(object):
             'acq_trigger_mode',
             'INTERNAL_TRIGGER_MULTI' if multi_mode else 'INTERNAL_TRIGGER')
 
+        prepare_once = settings.get('prepare_once', multi_mode)
+        start_once = settings.get('start_once', False)
         # Instanciate master
         return LimaAcquisitionMaster(
             self,
@@ -44,7 +46,8 @@ class Lima(object):
             acq_expo_time=acq_expo_time,
             acq_trigger_mode=acq_trigger_mode,
             save_flag=save_flag,
-            prepare_once=multi_mode)
+            prepare_once=prepare_once,
+            start_once=start_once)
 
     def __init__(self,name,config_tree):
         """Lima controller.

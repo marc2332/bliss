@@ -128,7 +128,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
                   not self.device.ready_for_next_image):
                 gevent.idle()
 
-        self.wait_reading(block=(acq_trigger_mode!='INTERNAL_TRIGGER_MULTI'))
+        self.wait_reading(block=(acq_trigger_mode=='INTERNAL_TRIGGER'))
 
     def trigger(self):
         self.trigger_slaves()

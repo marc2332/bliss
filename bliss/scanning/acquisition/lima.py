@@ -38,6 +38,8 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         del self.parameters['device']
         del self.parameters['save_flag']
         del self.parameters['keys']
+        del self.parameters['prepare_once']
+        del self.parameters['start_once']
         self.parameters.update(keys)
 
         trigger_type = AcquisitionMaster.SOFTWARE if 'INTERNAL' in acq_trigger_mode else AcquisitionMaster.HARDWARE

@@ -19,28 +19,16 @@ from bliss.common import event
 from bliss.common.event import dispatcher
 from bliss.common.cleanup import error_cleanup
 from bliss.common.utils import grouped
-from bliss.common.motor_group import Group
+from bliss.common.motor_group import Group, TrajectoryGroup
 
 from ..chain import AcquisitionMaster, AcquisitionChannel
 
 
-class MotorMaster(AcquisitionMaster):
-    def __init__(self, axis, start, end, time=0, undershoot=None,
-                 undershoot_start_margin=0,
-                 undershoot_end_margin=0,
-                 trigger_type=AcquisitionMaster.SOFTWARE,
-                 backnforth=False, **keys):
-        AcquisitionMaster.__init__(self, axis, axis.name,
-                                   trigger_type=trigger_type, **keys)
-        self.movable = axis
-        self.start_pos = start
-        self.end_pos = end
+class UndershootMixin(object):
+    def __init__(self, undershoot=None, start_margin=0, end_margin=0):
         self._undershoot = undershoot
-        self._undershoot_start_margin = undershoot_start_margin
-        self._undershoot_end_margin = undershoot_end_margin
-        self.velocity = abs(end - start) / \
-            float(time) if time > 0 else axis.velocity()
-        self.backnforth = backnforth
+        self._undershoot_start_margin = start_margin
+        self._undershoot_end_margin = end_margin
 
     @property
     def undershoot(self):
@@ -59,6 +47,24 @@ class MotorMaster(AcquisitionMaster):
             margin = d * self._undershoot_start_margin
         return pos - margin
 
+
+class MotorMaster(AcquisitionMaster, UndershootMixin):
+    def __init__(self, axis, start, end, time=0, undershoot=None,
+                 undershoot_start_margin=0,
+                 undershoot_end_margin=0,
+                 trigger_type=AcquisitionMaster.SOFTWARE,
+                 backnforth=False, **keys):
+        AcquisitionMaster.__init__(self, axis, axis.name,
+                                   trigger_type=trigger_type, **keys)
+        UndershootMixin.__init__(self, undershoot, undershoot_start_margin, undershoot_end_margin)
+
+        self.movable = axis
+        self.start_pos = start
+        self.end_pos = end
+        self.velocity = abs(self.end_pos - self.start_pos) / \
+            float(time) if time > 0 else self.movable.velocity()
+        self.backnforth = backnforth
+
     def prepare(self):
         start = self._calculate_undershoot(self.start_pos)
         self.movable.move(start)
@@ -71,7 +77,7 @@ class MotorMaster(AcquisitionMaster):
     def trigger(self):
         self.trigger_slaves()
         return self._start_move()
-    
+
     def _start_move(self):
         self.initial_velocity = self.movable.velocity()
         try:
@@ -396,7 +402,7 @@ class VariableStepTriggerMaster(AcquisitionMaster):
 
         self.wait_slaves()
 
-class TrajectoryMaster(AcquisitionMaster):
+class CalcAxisTrajectoryMaster(AcquisitionMaster):
     def __init__(self, axis, start, end, nb_points, time_per_point,
                  trigger_type=AcquisitionMaster.HARDWARE,
                  type="axis", **keys):
@@ -426,9 +432,131 @@ class TrajectoryMaster(AcquisitionMaster):
     def stop(self):
         self.trajectory.stop()
 
+class MeshTrajectoryMaster(AcquisitionMaster, UndershootMixin):
+    """
+    Generic motor master for continuous mesh acquisition on trajectory.
+
+    :param *args == mot1,start1,stop1,nb_point1,mot2,start2,stop2,nb_point2,...
+    :param undershoot use it if passed else calculated with current
+           acceleration (first motor only).
+    :param undershoot_start_margin added to the calculated undershoot
+           for the start (first motor only).
+    :param undershoot_end_margin added to the calculated undershoot
+           at the end (first motor only).
+    Example::
+
+        MeshTrajectoryMaster(0.1,mota,0,10,20,motb,-1,1,5)
+    """
+    def __init__(self, axis1, start1, stop1, nb_points1,
+                 axis2, start2, stop2, nb_points2, time_per_point,
+                 undershoot=None, undershoot_start_margin=0,
+                 undershoot_stop_margin=0, **kwargs):
+
+
+        name = 'mesh_' + axi1.name + '_' + axis2.name
+        AcquisitionMaster.__init__(self, None, name), **kwargs)
+        UndershootMixin.__init__(self, undershoot, undershoot_start_margin, undershoot_stop_margin)
+
+        # Required by undershoot mixin
+        self.movable = axis1
+        self.end_pos = stop1
+        self.start_pos = start1
+        line_duration = time_per_point * nb_points1
+        self.velocity = abs(stop1 - start1) / line_duration
+
+        # Main scan trajectory
+
+        sign = 1 if stop1 >= start1 else -1
+        p0, p1, p2, p3 = (
+            self._calculate_undershoot(start1, end=False),
+            start1 - sign * self._undershoot_start_margin,
+            stop1 + sign * self._undershoot_end_margin,
+            self._calculate_undershoot(stop1, end=True))
+
+        vs, a = self.velocity, self.movable.acceleration()
+        v0, v1, v2, v3 = 0, vs, vs, 0
+
+        at = float(vs) / a
+        full_line_duration = line_duration
+        full_line_duration += (self._undershhot_start_margin + self._undershoot_end_margin) / vs
+        t0, t1, t2, t3 = 0, at, at + full_line_duration, at + full_line_duration + at
+
+        # Main return trajectory
+
+        vr = self.movable.velocity()
+        rt = LinearTrajectory(p3, p0, vr, a, t3)
+        p4, p5, p6 = rt.pa, rt.pb, rt.pf
+        v4, v5, v6 = vr, vr, 0
+        t4, t5, t6 = rt.ta, rt.tb, rt.tf
+
+        # Main trajectory
+
+        ts = t0, t1, t2, t3, t4, t5, t6
+        ps = p0, p1, p2, p3, p4, p5, p6
+        vs = v0, v1, v2, v3, v4, v5, v6
+        main_trajectory = [(p-p0, v, t) for p, v, t in zip(ps, vs, ts)]
+
+        # Second trajectory
+
+        sv, sa = axis2.velocity(), axis2.acceleration(),
+        st = LinearTrajectory(start2, stop2, sv, sa, t2)
+        second_trajectory = [
+            (st.pi, 0, st.ti),
+            (st.pa, sv, st.pa),
+            (st.pb, sv, st.tb),
+            (st.pf, 0, st.tf)]
+        second_trajectory = [(p - st.pi, v, t) for p, v, t in second_trajectory]
+
+        # Synchronize trajectories
+        main_last_p, main_last_v, _ = main_trajectory[-1]
+        second_last_p, second_last_v, _ = second_trajectory[-1]
+        if main_last_t > second_last_t:
+            second_trajectory.append((main_last_p, 0, second_last_t))
+        elif main_last_t < second_last_t:
+            main_trajectory.append((second_last_p, 0, main_last_t))
+
+        # Cyclic trajectories
+        dtype = [('position', float), ('velocity', float), ('time', float)]
+        nb_cycles = nb_points2
+        cyclic_trajectories = [
+            axis.CyclicTrajectory(
+                axis1,
+                numpy.array(main_trajectory, dtype=dtype),
+                nb_cycles,
+                p0),
+            axis.CyclicTrajectory(
+                axis2,
+                numpy.array(second_trajectory, dtype=dtype),
+                nb_cycles,
+                start2)]
+
+        # Trajectory group
+        self.trajectory = TrajectoryGroup(cyclic_trajectories)
+
+    def prepare(self):
+        self.trajectory.prepare()
+        self.trajectory.move_to_start()
+
+        def start(self):
+        if self.trigger_type == AcquisitionMaster.SOFTWARE:
+            return
+        self.trigger()
+
+    def trigger(self):
+        if self.trigger_type == AcquisitionMaster.SOFTWARE:
+            self.trigger_slaves()
+
+        self.trajectory.move_to_end()
+
+    def wait_ready(self):
+        self.trajectory.wait_move()
+
+    def stop(self):
+        self.trajectory.stop()
+
 
 class SweepMotorMaster(AcquisitionMaster):
-    def __init__(self, axis, start, end, npoints=1, time=0, undershoot=None, 
+    def __init__(self, axis, start, end, npoints=1, time=0, undershoot=None,
                  undershoot_start_margin=0, undershoot_stop_margin=0,
                  trigger_type=AcquisitionMaster.SOFTWARE, **keys):
         AcquisitionMaster.__init__(self, axis, axis.name,
@@ -445,7 +573,7 @@ class SweepMotorMaster(AcquisitionMaster):
             self.sweep_speed = abs(self.sweep_move) / float(time)
         else:
             self.sweep_speed = self.initial_speed
-           
+
         if undershoot is not None:
              self._undershoot = undershoot
         else:
@@ -497,4 +625,3 @@ class SweepMotorMaster(AcquisitionMaster):
     def stop(self):
         self.movable.stop()
         self.movable.velocity(self.initial_speed)
- 

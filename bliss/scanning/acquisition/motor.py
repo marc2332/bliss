@@ -453,8 +453,8 @@ class MeshTrajectoryMaster(AcquisitionMaster, UndershootMixin):
                  undershoot_stop_margin=0, **kwargs):
 
 
-        name = 'mesh_' + axi1.name + '_' + axis2.name
-        AcquisitionMaster.__init__(self, None, name), **kwargs)
+        name = 'mesh_' + axis1.name + '_' + axis2.name
+        AcquisitionMaster.__init__(self, None, name, **kwargs)
         UndershootMixin.__init__(self, undershoot, undershoot_start_margin, undershoot_stop_margin)
 
         # Required by undershoot mixin
@@ -478,15 +478,15 @@ class MeshTrajectoryMaster(AcquisitionMaster, UndershootMixin):
 
         at = float(vs) / a
         full_line_duration = line_duration
-        full_line_duration += (self._undershhot_start_margin + self._undershoot_end_margin) / vs
+        full_line_duration += (self._undershoot_start_margin + self._undershoot_end_margin) / vs
         t0, t1, t2, t3 = 0, at, at + full_line_duration, at + full_line_duration + at
 
         # Main return trajectory
 
         vr = self.movable.velocity()
-        rt = LinearTrajectory(p3, p0, vr, a, t3)
+        rt = axis.LinearTrajectory(p3, p0, vr, a, t3)
         p4, p5, p6 = rt.pa, rt.pb, rt.pf
-        v4, v5, v6 = vr, vr, 0
+        v4, v5, v6 = rt.velocity, rt.velocity, 0
         t4, t5, t6 = rt.ta, rt.tb, rt.tf
 
         # Main trajectory
@@ -498,22 +498,24 @@ class MeshTrajectoryMaster(AcquisitionMaster, UndershootMixin):
 
         # Second trajectory
 
-        sv, sa = axis2.velocity(), axis2.acceleration(),
-        st = LinearTrajectory(start2, stop2, sv, sa, t2)
+        step = float(stop2 - start2) / nb_points2
+        sv, sa = axis2.velocity(), axis2.acceleration()
+        st = axis.LinearTrajectory(start2, start2 + step, sv, sa, t2)
         second_trajectory = [
+            (st.pi, 0, 0),
             (st.pi, 0, st.ti),
-            (st.pa, sv, st.pa),
-            (st.pb, sv, st.tb),
+            (st.pa, st.velocity, st.ta),
+            (st.pb, st.velocity, st.tb),
             (st.pf, 0, st.tf)]
         second_trajectory = [(p - st.pi, v, t) for p, v, t in second_trajectory]
 
         # Synchronize trajectories
-        main_last_p, main_last_v, _ = main_trajectory[-1]
-        second_last_p, second_last_v, _ = second_trajectory[-1]
+        main_last_p, _, main_last_t = main_trajectory[-1]
+        second_last_p, _, second_last_t = second_trajectory[-1]
         if main_last_t > second_last_t:
-            second_trajectory.append((main_last_p, 0, second_last_t))
+            second_trajectory.append((second_last_p, 0, main_last_t))
         elif main_last_t < second_last_t:
-            main_trajectory.append((second_last_p, 0, main_last_t))
+            main_trajectory.append((main_last_p, 0, second_last_t))
 
         # Cyclic trajectories
         dtype = [('position', float), ('velocity', float), ('time', float)]
@@ -531,13 +533,13 @@ class MeshTrajectoryMaster(AcquisitionMaster, UndershootMixin):
                 start2)]
 
         # Trajectory group
-        self.trajectory = TrajectoryGroup(cyclic_trajectories)
+        self.trajectory = TrajectoryGroup(*cyclic_trajectories)
 
     def prepare(self):
         self.trajectory.prepare()
         self.trajectory.move_to_start()
 
-        def start(self):
+    def start(self):
         if self.trigger_type == AcquisitionMaster.SOFTWARE:
             return
         self.trigger()

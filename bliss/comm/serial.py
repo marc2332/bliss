@@ -647,7 +647,7 @@ class Serial:
 
             str_list = []
             for ii in range(nb_lines):
-                str_list.append(self.readline(eol=eol, timeout=timeout))
+                str_list.append(self._readline(eol=eol, timeout=timeout))
 
             return str_list
             

@@ -18,7 +18,7 @@ from bliss.common.utils import OrderedDict
 from bliss.common.utils import grouped
 from bliss.common.utils import add_property
 
-from bliss.common.axis import AxisState, Motion
+from bliss.common.axis import AxisState, Motion, CyclicTrajectory
 from bliss.config.channels import Cache
 
 import pi_gcs
@@ -43,9 +43,6 @@ config example:
     velocity: 100
     acceleration: 1.
     steps_per_unit: 1
-    dc_dead_band: 10000000
-    dc_settle_time: 0.05
-    slop: 160000
     servo_mode: 1
 
   - name: px
@@ -53,9 +50,6 @@ config example:
     velocity: 100
     acceleration: 1.
     steps_per_unit: 1
-    dc_dead_band: 10000000
-    dc_settle_time: 0.05
-    slop: 80000
     servo_mode: 1
 """
 
@@ -527,20 +521,26 @@ class PI_E712(Controller):
             raise ValueError("no trajectory provided")
         servo_cycle = float(self.command("SPA? 1 0xe000200"))
         number_of_points = int(self.command("SPA? 1 0x13000004"))
-        last_time = trajectories[0].pvt['time'][-1]
+        is_cyclic_traj = isinstance(trajectories[0], CyclicTrajectory)
+        pvt = trajectories[0].pvt_pattern if is_cyclic_traj else trajectories[0].pvt
+        last_time = pvt['time'][-1]
         calc_servo_cycle = (last_time * len(trajectories)) / number_of_points
         table_generator_rate = int(numpy.ceil(calc_servo_cycle/servo_cycle))
         servo_cycle *= table_generator_rate
-        commmands = ["WTR 0 {} 1".format(table_generator_rate), "WGC 1 1"]
+        nb_traj_cycles = trajectories[0].nb_cycles if is_cyclic_traj else 1
+        commmands = ["WTR 0 {} 1".format(table_generator_rate),
+                     "WGC 1 {}".format(nb_traj_cycles)]
         for traj in trajectories:
-            time = traj.pvt['time']
-            positions = traj.pvt['position']
+            pvt = traj.pvt_pattern if is_cyclic_traj else traj.pvt
+            time = pvt['time']
+            positions = pvt['position']
             axis = traj.axis
             cmd_format = "WAV %d " % axis.channel
             cmd_format += "{cont} LIN {seglength} {amp} "\
                           "{offset} {seglength} {startpoint} 0"
             commmands.append("WSL {channel} {channel}".format(channel=axis.channel))
-            commmands.append("WOS {channel} 0".format(channel=axis.channel))
+            offset = traj.origin if is_cyclic_traj else 0
+            commmands.append("WOS {channel} {offset}".format(channel=axis.channel,offset=offset))
             cont = 'X'
             for start_time, end_time,\
                 start_position, end_position in zip(time, time[1:],
@@ -565,7 +565,9 @@ class PI_E712(Controller):
         self.start_all(*motions)
 
     def start_trajectory(self, *trajectories):
-        axes_str = ' '.join(['%d 1' % t.axis.channel for t in trajectories])
+        is_cyclic_traj = isinstance(trajectories[0], CyclicTrajectory)
+        mode = 0x101 if is_cyclic_traj else 0x1
+        axes_str = ' '.join(['%d %d' % (t.axis.channel, mode) for t in trajectories])
         self.command("WGO " + axes_str)
 
     def stop_trajectory(self, *trajectories):

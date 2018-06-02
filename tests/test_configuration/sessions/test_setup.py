@@ -9,7 +9,7 @@ from bliss.scanning import scan
 import math
 
 # deactivate automatic Flint startup
-scan.ScanDisplay().auto = False
+SCAN_DISPLAY.auto = False
 
 class TestScanGaussianCounter(SamplingCounter):
     def __init__(self, name, npts, center=0, stddev=1, cnt_time=0.1):

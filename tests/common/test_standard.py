@@ -1,7 +1,7 @@
 
 import pytest
 
-from bliss.common.standard import showcnt
+from bliss.common.standard import lscnt
 
 EXPECTED = """
 Name                 Shape    Controller
@@ -53,8 +53,8 @@ def setup_globals():
         setup_globals.__dict__.update(save)
 
 
-def test_showcnt(beacon, setup_globals, capsys):
+def test_lscnt(beacon, setup_globals, capsys):
     setup_globals.simu1 = beacon.get('simu1')
-    assert showcnt() is None
+    assert lscnt() is None
     captured = capsys.readouterr()
     assert captured.out == EXPECTED

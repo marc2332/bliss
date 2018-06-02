@@ -177,7 +177,7 @@ def test_iterator_over_reference_with_lima(beacon, redis_data_conn,
     session_node = _get_or_create_node(session.name, node_type='session')
     iterator = DataNodeIterator(session_node)
 
-    with gevent.Timeout(2*(npoints+1)*exp_time):
+    with gevent.Timeout(10 + 2 * (npoints+1) * exp_time):
         def watch_scan():
             for scan_node in iterator.walk_from_last(filter="scan",
                                                      include_last=False):

@@ -24,6 +24,7 @@ from bliss.common.utils import periodic_exec
 from bliss.config.conductor import client
 from bliss.config.settings import Parameters, _change_to_obj_marshalling
 from bliss.data.node import _get_or_create_node, _create_node, DataNodeContainer, is_zerod
+from bliss.data.scan import get_data
 from bliss.common.session import get_current as _current_session
 from .chain import AcquisitionDevice, AcquisitionMaster
 from . import writer
@@ -236,7 +237,7 @@ class ScanDisplay(Parameters):
         keys = dict()
         _change_to_obj_marshalling(keys)
         Parameters.__init__(self, '%s:scan_display_params' % self.session,
-                            default_values={ 'auto': True },
+                            default_values={ 'auto': False },
                             **keys)
 
     def __dir__(self):
@@ -549,7 +550,6 @@ class Scan(object):
         It is a 1D array corresponding to the scan points.
         Each point is a named structure corresponding to the counter names.
         """
-        from bliss.common.scans import get_data
         return get_data(self)
 
     def get_plot(self, scan_item):

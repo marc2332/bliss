@@ -55,6 +55,6 @@ def test_sweep_motor_master(beacon):
     with gevent.Timeout(10):
         s.run()
 
-    data = scans.get_data(s)
+    data = s.get_data()
     assert len(data["debug_pos"]) == 5
 

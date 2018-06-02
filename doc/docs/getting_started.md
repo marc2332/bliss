@@ -356,7 +356,7 @@ returns to user:
 
 * `wa()` shows a table of all motors in the session, with positions.
 * `prdef(func)` displays the source code of a function (if source code is available)
-* `showcnt()` shows a table of all counters in the session.
+* `lscnt()` shows a table of all counters in the session.
 
 [Learn more about standard shell functions](shell_std_func.md)
 

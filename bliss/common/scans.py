@@ -20,12 +20,9 @@ __all__ = [
     'timescan',
     'loopscan',
     'ct',
-    'get_data',
     'DEFAULT_CHAIN']
 
 import logging
-
-from bliss.data.scan import get_data
 
 from bliss.common.motor_group import Group
 from bliss.common.axis import estimate_duration

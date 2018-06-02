@@ -62,7 +62,7 @@ def test_software_position_trigger_master(beacon):
     with gevent.Timeout(5):
         s.run()
     # Check data
-    data = scans.get_data(s)
+    data = s.get_data()
     # Typical position error is +0.025 in position unit
     # That's because of redis + gevent delays (~2.5 ms)
     expected_triggers = [0.01, 0.03, 0.05, 0.07, 0.09]

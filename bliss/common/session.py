@@ -101,33 +101,33 @@ def load_script(env_dict, script_module_name, session=None):
     elif isinstance(session, (str, unicode)):
         session = static.get_config().get(session)
 
-    importer = _StringImporter(session._scripts_module_path, session.name, in_load_script=True)
-    try:
-        sys.meta_path.insert(0, importer)
-
-        module_name = '%s.%s.%s' % (_StringImporter.BASE_MODULE_NAMESPACE,
-                                    session.name,
-                                    os.path.splitext(script_module_name)[0])
-        filename = importer._modules.get(module_name)
-        if not filename:
-            raise RuntimeError("Cannot find module %s" % module_name)
-
-        s_code = get_config_file(filename)
-        c_code = compile(s_code, filename, 'exec')
-
-        globals_dict = env_dict.copy()
+    if session._scripts_module_path:
+        importer = _StringImporter(session._scripts_module_path, session.name, in_load_script=True)
         try:
-            exec(c_code, globals_dict)
-        except Exception:
-            sys.excepthook(*sys.exc_info())
-    finally:
-        sys.meta_path.remove(importer)
+            sys.meta_path.insert(0, importer)
+
+            module_name = '%s.%s.%s' % (_StringImporter.BASE_MODULE_NAMESPACE,
+                                        session.name,
+                                        os.path.splitext(script_module_name)[0])
+            filename = importer._modules.get(module_name)
+            if not filename:
+                raise RuntimeError("Cannot find module %s" % module_name)
+
+            s_code = get_config_file(filename)
+            c_code = compile(s_code, filename, 'exec')
+
+            globals_dict = env_dict.copy()
+            try:
+                exec(c_code, globals_dict)
+            except Exception:
+                sys.excepthook(*sys.exc_info())
+        finally:
+            sys.meta_path.remove(importer)
 
     for k in globals_dict.iterkeys():
         if k.startswith('_'):
             continue
         env_dict[k] = globals_dict[k]
-
 
 class Session(object):
     """
@@ -178,7 +178,11 @@ class Session(object):
         self.init(config_tree)
 
     def init(self, config_tree):
-        self.__scripts_module_path = os.path.normpath(os.path.join(os.path.dirname(config_tree.filename), "scripts"))
+        try:
+            self.__scripts_module_path = os.path.normpath(os.path.join(os.path.dirname(config_tree.filename), "scripts"))
+        except AttributeError:
+            # config_tree has no .filename
+            self.__scripts_module_path = None
 
         try:
             setup_file_path = config_tree["setup-file"]
@@ -320,7 +324,7 @@ class Session(object):
         global CURRENT_SESSION
         CURRENT_SESSION = self
 
-        if self.name not in _SESSION_IMPORTERS:
+        if self.__scripts_module_path and self.name not in _SESSION_IMPORTERS:
             sys.meta_path.append(_StringImporter(self.__scripts_module_path, self.name))
             _SESSION_IMPORTERS.add(self.name)
 
@@ -402,3 +406,15 @@ class Session(object):
         self.init(self.config.get_config(self.name))
 
         self.setup(env_dict, verbose)
+
+
+class DefaultSession(Session):
+    def __init__(self):
+        Session.__init__(self, "default", {"exclude-objects":
+                                           static.get_config().names_list})
+
+    def _load_config(self, env_dict, verbose=True):
+        return
+
+    def resetup(self, verbose=False):
+        return

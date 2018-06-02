@@ -88,10 +88,10 @@ NB: `move()` can take `wait=False` argument to be non-bloquant.
 
 ## counters
 
-### showcnt (show counters)
-```showcnt()```:
+### lscnt (show counters)
+```lscnt()```:
 
-        CYRIL [1]: showcnt()
+        CYRIL [1]: lscnt()
         
         Name                     Shape    Controller
         -----------------------  -------  ------------

@@ -10,9 +10,9 @@ import random
 import gevent
 
 from bliss.physics.trajectory import LinearTrajectory
-from bliss.controllers.motor import Controller
+from bliss.controllers.motor import Controller, ENCODER_AXIS
 from bliss.common import log as elog
-from bliss.common.axis import Axis, AxisState
+from bliss.common.axis import Axis, AxisState, get_axis
 from bliss.common import event
 
 from bliss.common.hook import MotionHook
@@ -21,10 +21,7 @@ from bliss.common.utils import object_attribute_get, object_attribute_set
 
 """
 mockup.py : a mockup controller for bliss.
-To be used as skeleton to write bliss plugin controller.
-"""
 
-"""
 config :
  'velocity' in unit/s
  'acceleration' in unit/s^2
@@ -84,7 +81,6 @@ class Mockup(Controller):
     Controller initialization actions.
     """
     def initialize(self):
-        # hardware initialization
         for axis_name, axis in self.axes.iteritems():
             axis.settings.set('init_count', 0)
 
@@ -92,7 +88,6 @@ class Mockup(Controller):
     Axes initialization actions.
     """
     def initialize_axis(self, axis):
-
         self._axis_moves[axis] = {
             "motion": None}
 
@@ -107,12 +102,10 @@ class Mockup(Controller):
         # this is to test axis are initialized only once
         axis.settings.set('init_count', axis.settings.get('init_count') + 1)
 
-        if axis.encoder:
-            self.__encoders.setdefault(axis.encoder, {})["axis"] = axis
-
     def initialize_encoder(self, encoder):
         self.__encoders.setdefault(encoder, {})["measured_noise"] = None
         self.__encoders[encoder]["steps"] = None
+        self.__encoders[encoder]["axis"] = ENCODER_AXIS[encoder.name]
 
     """
     Actions to perform at controller closing.
@@ -203,7 +196,8 @@ class Mockup(Controller):
         if self.__encoders[encoder]["steps"] is not None:
             enc_steps = self.__encoders[encoder]["steps"]
         else:
-            axis = self.__encoders[encoder]["axis"]
+            axis_name = self.__encoders[encoder]["axis"]
+            axis = get_axis(axis_name)
 
             _pos = self.read_position(axis) / float(axis.steps_per_unit)
 
@@ -321,9 +315,6 @@ class Mockup(Controller):
         self._axis_moves[axis]["t0"] = time.time()
         self._axis_moves[axis]["home_search_start_time"] = time.time()
 
-#    def home_set_hardware_position(self, axis, home_pos):
-#        raise NotImplementedError
-
     def home_state(self, axis):
         if(time.time() - self._axis_moves[axis]["home_search_start_time"]) > 1:
             self.set_hw_position(axis, 0)
@@ -424,7 +415,7 @@ class Mockup(Controller):
         By the way we add a ref to the coresponding axis.
         """
         self.__encoders[axis.encoder]["measured_noise"] = noise
-        self.__encoders[axis.encoder]["axis"] = axis
+        self.__encoders[axis.encoder]["axis"] = axis.name
 
     def set_error(self, error_mode):
         self.__error_mode = error_mode

@@ -39,7 +39,7 @@ class StandardClient:
         self.protocol=protocol
         self.error=None
         self.msg_received_event = gevent.event.Event()
-        self._lock = gevent.lock.Semaphore()
+        self._lock = gevent.lock.RLock()
         self.__msg_index__=-1
         self.__sock__=None
         self.__CONSTANT_LOCAL_PORT__=True
@@ -61,6 +61,10 @@ class StandardClient:
         self.__sock__ = None
         self.received_msg = None
 
+    @property
+    def lock(self):
+        return self._lock
+    
     def connect(self):
         if self.protocol==PROTOCOL.DATAGRAM:
             return

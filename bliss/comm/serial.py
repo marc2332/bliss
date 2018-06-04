@@ -563,7 +563,7 @@ class Serial:
         self._eol = eol
         self._timeout = timeout
         self._raw_handler = None
-        self._lock = lock.Semaphore()
+        self._lock = lock.RLock()
         self._logger = logging.getLogger(str(self))
 
     def __del__(self) :
@@ -572,6 +572,10 @@ class Serial:
     def __str__(self):
         return "{0}({1})".format(self.__class__.__name__,
                                  self._serial_kwargs['port'])
+
+    @property
+    def lock(self):
+        return self._lock
 
     def open(self) :
         if self._raw_handler is None:

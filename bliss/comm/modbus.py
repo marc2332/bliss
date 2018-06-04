@@ -81,12 +81,15 @@ class Modbus_RTU:
     def __init__(self,node,*args,**kwargs) :
         self._serial = serial.Serial(*args,**kwargs)
         self.node = node
-        self.lock = lock.Semaphore()
+        self._lock = lock.RLock()
 
     def __del__(self):
         self._serial.close()
 
-
+    @property
+    def lock(self):
+        return self._lock
+    
     def computeCRC(self,data):
         ''' Computes a crc16 on the passed in string. For modbus,
         this is only used on the binary serial protocols (in this
@@ -323,10 +326,14 @@ class ModbusTcp:
         self._connected = False
         self._raw_read_task = None
         self._transaction = {}
-        self._lock = lock.Semaphore()
+        self._lock = lock.RLock()
 
     def __del__(self):
         self.close()
+
+    @property
+    def lock(self):
+        return self._lock
 
     ##@brief read holding registers
     @try_connect_modbustcp

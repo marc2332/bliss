@@ -33,7 +33,7 @@ class LimaImageChannelDataNode(DataNode):
             self.data = data
             self.from_index = from_index
             self.to_index = to_index
-            self.last_image_acquired = -1
+            self.last_image_ready = -1
             self._image_mode = {
                 0: numpy.uint8,
                 1: numpy.uint16,
@@ -58,7 +58,7 @@ class LimaImageChannelDataNode(DataNode):
             self._update()
             if self.to_index >= 0:
                 return self.to_index
-            return self.last_image_acquired+1
+            return self.last_image_ready+1
 
         @property
         def current_lima_acq(self):
@@ -122,8 +122,10 @@ class LimaImageChannelDataNode(DataNode):
 
         def _get_from_server_memory(self, proxy, image_nb):
             if self.current_lima_acq == self.lima_acq_nb:  # current acquisition is this one
+                if self.last_image_ready < 0:
+                    raise RuntimeError('No image has been taken yet')
                 if self.last_image_ready < image_nb:      # image not yet available
-                    raise RuntimeError('image is not available yet')
+                    raise RuntimeError('Image is not available yet')
                 # should be in memory
                 if self.buffer_max_number > (self.last_image_ready - image_nb):
                     try:

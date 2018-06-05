@@ -304,12 +304,19 @@ class Gpib:
         
         self._eos = eos
         self._timeout = timeout
-        self._lock = lock.Semaphore()
+        self._lock = lock.RLock()
         self._raw_handler = None
         self._logger = logging.getLogger(str(self))
         self._debug = self._logger.debug
         self.gpib_type = self.ENET
         self._data = ""
+
+    def __enter__(self):
+        self._lock.acquire()
+        return self._lock
+
+    def __exit__(self, typ, value, tb):
+        self._lock.release()
 
     def open(self) :
         if self._raw_handler is None:

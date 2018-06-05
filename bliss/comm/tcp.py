@@ -74,7 +74,7 @@ class BaseSocket:
         self._data = ''
         self._event = event.Event()
         self._raw_read_task = None
-        self._lock = lock.Semaphore()
+        self._lock = lock.RLock()
         self._logger = logging.getLogger(str(self))
         self._debug = self._logger.debug
 
@@ -84,7 +84,14 @@ class BaseSocket:
     def __str__(self):
         return "{0}({1}:{2})".format(self.__class__.__name__,
                                      self._host, self._port)
-    
+
+    def __enter__(self):
+        self._lock.acquire()
+        return self._lock
+
+    def __exit__(self, typ, value, tb):
+        self._lock.release()
+
     def open(self):
         if not self._connected:
             self.connect()
@@ -372,13 +379,17 @@ class Command:
         self._event = event.Event()
         self._raw_read_task = None
         self._transaction_list = []
-        self._lock = lock.Semaphore()
+        self._lock = lock.RLock()
         self._logger = logging.getLogger(self.__class__.__name__)
         self._debug = self._logger.debug
 
     def __del__(self):
         self.close()
 
+    @property
+    def lock(self):
+        return self._lock
+    
     def open(self):
         if not self._connected:
             self.connect()

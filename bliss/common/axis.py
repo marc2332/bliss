@@ -424,13 +424,6 @@ class Axis(object):
         state = self.__controller.state(self)
         self.settings.set("state", state)
 
-    def reset(self):
-        """Resets the axis (calls finalize + initialize on its controller)"""
-        if self.is_moving:
-            raise RuntimeError("Can't reset while axis is moving")
-        self.__controller.finalize_axis(self)
-        self.__controller._initialize_axis(self)
-
     @lazy_init
     def _set_position(self, new_set_pos=None):
         if new_set_pos is None:

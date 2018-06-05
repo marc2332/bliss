@@ -573,9 +573,12 @@ class Serial:
         return "{0}({1})".format(self.__class__.__name__,
                                  self._serial_kwargs['port'])
 
-    @property
-    def lock(self):
+    def __enter__(self):
+        self._lock.acquire()
         return self._lock
+
+    def __exit__(self, typ, value, tb):
+        self._lock.release()
 
     def open(self) :
         if self._raw_handler is None:

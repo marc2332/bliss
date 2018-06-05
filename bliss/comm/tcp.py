@@ -84,10 +84,14 @@ class BaseSocket:
     def __str__(self):
         return "{0}({1}:{2})".format(self.__class__.__name__,
                                      self._host, self._port)
-    @property
-    def lock(self):
+
+    def __enter__(self):
+        self._lock.acquire()
         return self._lock
-    
+
+    def __exit__(self, typ, value, tb):
+        self._lock.release()
+
     def open(self):
         if not self._connected:
             self.connect()

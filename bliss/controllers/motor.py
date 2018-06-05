@@ -111,7 +111,7 @@ class Controller(object):
         return self._shutters[name]
     
     @property
-    def switchs(self):
+    def switches(self):
         return self._switches
 
     def get_switch(self, name):

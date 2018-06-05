@@ -311,10 +311,13 @@ class Gpib:
         self.gpib_type = self.ENET
         self._data = ""
 
-    @property
-    def lock(self):
+    def __enter__(self):
+        self._lock.acquire()
         return self._lock
-    
+
+    def __exit__(self, typ, value, tb):
+        self._lock.release()
+
     def open(self) :
         if self._raw_handler is None:
             self.gpib_type = self._check_type()

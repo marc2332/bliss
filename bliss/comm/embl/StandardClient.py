@@ -61,13 +61,10 @@ class StandardClient:
         self.__sock__ = None
         self.received_msg = None
 
-    def __enter__(self):
-        self._lock.acquire()
+    @property
+    def lock(self):
         return self._lock
-
-    def __exit__(self, typ, value, tb):
-        self._lock.release()
-
+    
     def connect(self):
         if self.protocol==PROTOCOL.DATAGRAM:
             return

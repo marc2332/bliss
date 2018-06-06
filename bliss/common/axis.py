@@ -298,7 +298,6 @@ class Axis(object):
             hook.add_axis(self)
             motion_hooks.append(hook)
         self.__motion_hooks = motion_hooks
-        self._in_group_move = False
         self._beacon_channels = dict()
         self._lock = gevent.lock.Semaphore()
         self.no_offset = False

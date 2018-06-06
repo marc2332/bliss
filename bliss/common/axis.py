@@ -372,7 +372,9 @@ class Axis(object):
         except KeyError:
             return None
         else:
-            return get_encoder(encoder_name)
+            enc = get_encoder(encoder_name)
+            enc.controller._initialize_encoder(enc)
+            return enc
 
     @property
     def motion_hooks(self):

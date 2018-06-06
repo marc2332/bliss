@@ -322,13 +322,7 @@ class _TrajectoryGroup(object):
         if self.__trajectories_dialunit is None:
             trajectories = list()
             for trajectory in self.__trajectories:
-                user_pos = trajectory.pvt['position']
-                user_velocity = trajectory.pvt['velocity']
-                pvt = numpy.copy(trajectory.pvt)
-                pvt['position'] = trajectory.axis.user2dial(user_pos) * \
-                    trajectory.axis.steps_per_unit
-                pvt['velocity'] *= trajectory.axis.steps_per_unit
-                trajectories.append(Trajectory(trajectory.axis, pvt))
+                trajectories.append(trajectory.convert_to_dial())
             self.__trajectories_dialunit = trajectories
         self._exec_func_on_controller('prepare_trajectory')
 

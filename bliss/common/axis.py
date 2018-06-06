@@ -144,6 +144,97 @@ class Trajectory(object):
     def pvt(self):
         return self.__pvt
 
+    def __len__(self):
+        return len(self.pvt)
+
+    def convert_to_dial(self):
+        """
+        Return a new trajectory with pvt position, velocity converted to dial units and steps per unit
+        """
+        user_pos = self.pvt['position']
+        user_velocity = self.pvt['velocity']
+        pvt = numpy.copy(self.pvt)
+        pvt['position'] = self.axis.user2dial(user_pos) * self.axis.steps_per_unit
+        pvt['velocity'] *= self.axis.steps_per_unit
+        return self.__class__(self.axis, pvt)
+
+class CyclicTrajectory(Trajectory):
+
+    def __init__(self, axis, pvt, nb_cycles=1, origin=0):
+        """
+        Args:
+            axis -- axis to which this motion corresponds to
+            pvt  -- numpy array with three fields ('position','velocity','time')
+                    point coordinates are in relative space
+        """
+        super(CyclicTrajectory, self).__init__(axis, pvt)
+        self.__nb_cycles = nb_cycles
+        self.__origin = origin
+
+    @property
+    def origin(self):
+        return self.__origin
+
+    @property
+    def nb_cycles(self):
+        return self.__nb_cycles
+
+    @property
+    def pvt_pattern(self):
+        return super(CyclicTrajectory, self).pvt
+
+    @property
+    def is_closed(self):
+        """True if the trajectory is closed (first point == last point)"""
+        pvt = self.pvt_pattern
+        return pvt['time'][0] == 0 and \
+            pvt['position'][0] == pvt['position'][len(self.pvt_pattern)-1]
+
+    @property
+    def pvt(self):
+        """Returns the full PVT table. Positions are absolute"""
+        pvt_pattern = self.pvt_pattern
+        if self.is_closed:
+            # take first point out because it is equal to the last
+            raw_pvt = pvt_pattern[1:]
+            cycle_size = raw_pvt.shape[0]
+            size = self.nb_cycles * cycle_size + 1
+            offset = 1
+        else:
+            raw_pvt = pvt_pattern
+            cycle_size = raw_pvt.shape[0]
+            size = self.nb_cycles * cycle_size
+            offset = 0
+        pvt = numpy.empty(size, dtype=raw_pvt.dtype)
+        last_time, last_position = 0, self.origin
+        for cycle in range(self.__nb_cycles):
+            start = cycle_size*cycle + offset
+            end = start + cycle_size
+            pvt[start:end] = raw_pvt
+            pvt['time'][start:end] += last_time
+            last_time = pvt['time'][end-1]
+            pvt['position'][start:end] += last_position
+            last_position = pvt['position'][end-1]
+
+        if self.is_closed:
+            pvt['time'][0] = pvt_pattern['time'][0]
+            pvt['position'][0] = pvt_pattern['position'][0] + self.origin
+
+        return pvt
+
+    def convert_to_dial(self):
+        """
+        Return a new trajectory with pvt position, velocity converted to dial units and steps per unit
+        """
+        user_pos = self.pvt_pattern['position']
+        user_velocity = self.pvt_pattern['velocity']
+        pvt = numpy.copy(self.pvt_pattern)
+        pvt['position'] = self.axis.user2dial(user_pos) * self.axis.steps_per_unit
+        pvt['velocity'] *= self.axis.steps_per_unit
+        origin = self.axis.user2dial(self.origin) * self.axis.steps_per_unit
+        return self.__class__(self.axis, pvt, self.nb_cycles, origin)
+
+
 
 def estimate_duration(axis, target_pos, initial_pos=None):
     """

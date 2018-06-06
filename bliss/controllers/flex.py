@@ -407,6 +407,9 @@ class flex(object):
         with BackgroundGreenlets(self.PSS_light, ()) as X:
             return X.execute(self.robot.executeTask, "defreezeGripper", timeout=200)
 
+    def isDefreezing(self):
+        return DEFREEZING
+
     @notwhenbusy
     def defreezeGripper(self):
         global DEFREEZING

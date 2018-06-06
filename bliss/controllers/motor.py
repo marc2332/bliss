@@ -77,7 +77,7 @@ class Controller(object):
                                             (switches,self._switches)):
             for obj_name, obj_class, obj_config in obj_config_list:
                 if obj_class is None:
-                    raise ValueError("You have to specify a **class** for object named: %s" % obj_name)
+                    raise ValueError("Missing **class** for '%s`" % obj_name)
                 object_dict[obj_name] = obj_class(obj_name, self, obj_config)
    
     def _init(self):

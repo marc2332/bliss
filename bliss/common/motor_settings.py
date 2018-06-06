@@ -45,10 +45,14 @@ class ControllerAxisSettings:
             "acceleration": float}
 
     def add(self, setting_name, convert_func=str):
-        self.setting_names.append(setting_name)
-        self.convert_funcs[setting_name] = convert_func
+        if setting_name not in self.setting_names:
+            self.setting_names.append(setting_name)
+            self.convert_funcs[setting_name] = convert_func
 
     def get(self, axis, setting_name):
+        if setting_name not in self.setting_names:
+            raise ValueError("No setting '%s` for axis '%s`" % (setting_name,
+                                                                axis.name))
         if setting_name not in ('state', 'position'):
             hash_setting = settings.HashSetting("axis.%s" % axis.name)
             value = hash_setting.get(setting_name)
@@ -69,12 +73,16 @@ class ControllerAxisSettings:
         * send event
         * write
         '''
+        if setting_name not in self.setting_names:
+            raise ValueError("No setting '%s` for axis '%s`" % (setting_name,
+                                                                axis.name))
         convert_func = self.convert_funcs.get(setting_name)
         if convert_func is not None:
             value = convert_func(value)
 
         if setting_name not in ('state', 'position'):
             settings.HashSetting("axis.%s" % axis.name)[setting_name] = value
+
         axis._beacon_channels[setting_name].value = value
         event.send(axis, 'internal_'+setting_name, value)
         event.send(axis, setting_name, value)

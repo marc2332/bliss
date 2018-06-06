@@ -38,6 +38,8 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         del self.parameters['device']
         del self.parameters['save_flag']
         del self.parameters['keys']
+        del self.parameters['prepare_once']
+        del self.parameters['start_once']
         self.parameters.update(keys)
 
         trigger_type = AcquisitionMaster.SOFTWARE if 'INTERNAL' in acq_trigger_mode else AcquisitionMaster.HARDWARE
@@ -126,7 +128,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
                   not self.device.ready_for_next_image):
                 gevent.idle()
 
-        self.wait_reading(block=(acq_trigger_mode!='INTERNAL_TRIGGER_MULTI'))
+        self.wait_reading(block=(acq_trigger_mode=='INTERNAL_TRIGGER'))
 
     def trigger(self):
         self.trigger_slaves()

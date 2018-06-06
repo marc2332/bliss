@@ -197,6 +197,7 @@ def mesh(
     Use `mesh(..., run=False)` to create a scan object and
     its acquisition chain without executing the actual scan.
 
+    :param backnforth if True do back and forth on the first motor
     """
     scan_info = {'type': kwargs.get('type', 'mesh'),
                  'save': kwargs.get('save', True),
@@ -238,8 +239,9 @@ def mesh(
                       'count_time': count_time,
                       'estimation': estimation})
 
+    backnforth = kwargs.pop('backnforth', False)
     chain = DEFAULT_CHAIN.get(scan_info, counter_args, top_master=MeshStepTriggerMaster(motor1, start1, stop1, npoints1,
-                                       motor2, start2, stop2, npoints2))
+                                       motor2, start2, stop2, npoints2,backnforth=backnforth))
 
     _log.info(
         "Scanning (%s, %s) from (%f, %f) to (%f, %f) in (%d, %d) points",

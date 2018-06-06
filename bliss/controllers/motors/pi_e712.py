@@ -201,19 +201,20 @@ class PI_E712(Controller):
     """ STATE """
     def state(self, axis):
         elog.debug("axis.closed_loop for axis %s is %s" % (axis.name, axis.closed_loop))
-        #check if WAV motion is active
-        if self.sock.write_readline("#9\n") != '0':
-            return AxisState("MOVING")
-        
-        if axis.closed_loop:
-            if self._get_on_target_status(axis):
-                return AxisState("READY")
-            else:
+        with self.sock.lock:
+            #check if WAV motion is active
+            if self.sock.write_readline("#9\n") != '0':
                 return AxisState("MOVING")
-        else:
-            elog.debug("CLOSED-LOOP is False")
-            # ok for open loop mode...
-            return AxisState("READY")
+
+            if axis.closed_loop:
+                if self._get_on_target_status(axis):
+                    return AxisState("READY")
+                else:
+                    return AxisState("MOVING")
+            else:
+                elog.debug("CLOSED-LOOP is False")
+                # ok for open loop mode...
+                return AxisState("READY")
 
     """ MOVEMENTS """
     def prepare_move(self, motion):
@@ -266,26 +267,27 @@ class PI_E712(Controller):
         already stopped. So we reset the target position for all
         stopped axes to the previous value before the stop command.
         """
-        channels = [str(x.channel) for x in self.axes.values()
-                    if hasattr(x,'channel')]
-        channels_str = ' '.join(channels)
-        cmd = '\n'.join(['%s %s' % (cmd,channels_str)
-                         for cmd in ('ONT?','MOV?')])
-        cmd += '\n%c\n' % 24      # Char to stop all movement
-        reply = self.sock.write_readlines(cmd,len(channels)*2)
-        channel_on_target = set()
-        for channel_target in reply[:len(channels)]:
-            channel, ont = channel_target.strip().split('=')
-            if int(ont):
-                channel_on_target.add(channel)
-        channels_position = list()
-        for chan_pos in reply[len(channels):]:
-            channel,position = chan_pos.strip().split('=')
-            if channel in channel_on_target:
-                channels_position.extend([channel,position])
-        if channels_position:
-            reset_target_cmd = 'MOV ' + ' '.join(channels_position)
-            self.command(reset_target_cmd)
+        with self.sock.lock:
+            channels = [str(x.channel) for x in self.axes.values()
+                        if hasattr(x,'channel')]
+            channels_str = ' '.join(channels)
+            cmd = '\n'.join(['%s %s' % (cmd,channels_str)
+                             for cmd in ('ONT?','MOV?')])
+            cmd += '\n%c\n' % 24      # Char to stop all movement
+            reply = self.sock.write_readlines(cmd,len(channels)*2)
+            channel_on_target = set()
+            for channel_target in reply[:len(channels)]:
+                channel, ont = channel_target.strip().split('=')
+                if int(ont):
+                    channel_on_target.add(channel)
+            channels_position = list()
+            for chan_pos in reply[len(channels):]:
+                channel,position = chan_pos.strip().split('=')
+                if channel in channel_on_target:
+                    channels_position.extend([channel,position])
+            if channels_position:
+                reset_target_cmd = 'MOV ' + ' '.join(channels_position)
+                self.command(reset_target_cmd)
         
     """ RAW COMMANDS """
     def raw_write(self, axis, com):
@@ -305,47 +307,48 @@ class PI_E712(Controller):
         """
         Method to send command to the controller
         """
-        cmd = cmd.strip()
-        need_reply = cmd.find('?') > -1
-        if need_reply:
-            if nb_line > 1:
-                reply = self.sock.write_readlines(cmd + '\n', nb_line)
-            else:
-                reply = self.sock.write_readline(cmd + '\n')
+        with self.sock.lock:
+            cmd = cmd.strip()
+            need_reply = cmd.find('?') > -1
+            if need_reply:
+                if nb_line > 1:
+                    reply = self.sock.write_readlines(cmd + '\n', nb_line)
+                else:
+                    reply = self.sock.write_readline(cmd + '\n')
 
-            if not reply:       # it's an error
-                errors = [self.name] + list(self.get_error())
-                raise RuntimeError("Device {0} error nb {1} => ({2})".format(*errors))
+                if not reply:       # it's an error
+                    errors = [self.name] + list(self.get_error())
+                    raise RuntimeError("Device {0} error nb {1} => ({2})".format(*errors))
 
-            if nb_line > 1:
-                parsed_reply = list()
-                commands = cmd.split('\n')
-                if len(commands) == nb_line: # one reply per command
-                    for cmd, rep in zip(commands, reply):
+                if nb_line > 1:
+                    parsed_reply = list()
+                    commands = cmd.split('\n')
+                    if len(commands) == nb_line: # one reply per command
+                        for cmd, rep in zip(commands, reply):
+                            space_pos = cmd.find(' ')
+                            if space_pos > -1:
+                                args = cmd[space_pos+1:]
+                                parsed_reply.append(self._parse_reply(rep, args))
+                            else:
+                                parsed_reply.append(rep)
+                    else:           # a command with several replies
                         space_pos = cmd.find(' ')
                         if space_pos > -1:
                             args = cmd[space_pos+1:]
-                            parsed_reply.append(self._parse_reply(rep, args))
-                        else:
-                            parsed_reply.append(rep)
-                else:           # a command with several replies
+                            for arg, rep in zip(args.split(), reply):
+                                parsed_reply.append(self._parse_reply(rep, arg))
+                    reply = parsed_reply
+                else:
                     space_pos = cmd.find(' ')
                     if space_pos > -1:
-                        args = cmd[space_pos+1:]
-                        for arg, rep in zip(args.split(), reply):
-                            parsed_reply.append(self._parse_reply(rep, arg))
-                reply = parsed_reply
+                        reply = self._parse_reply(reply, cmd[space_pos+1:])
+                return reply
             else:
-                space_pos = cmd.find(' ')
-                if space_pos > -1:
-                    reply = self._parse_reply(reply, cmd[space_pos+1:])
-            return reply
-        else:
-            self.sock.write(cmd + '\n')
-            errno, error_message = self.get_error()
-            if errno:
-                errors = [self.name] + [errno, error_message]
-                raise RuntimeError("Device {0} error nb {1} => ({2})".format(*errors))
+                self.sock.write(cmd + '\n')
+                errno, error_message = self.get_error()
+                if errno:
+                    errors = [self.name] + [errno, error_message]
+                    raise RuntimeError("Device {0} error nb {1} => ({2})".format(*errors))
 
     def get_data_len(self):
         """
@@ -390,7 +393,7 @@ class PI_E712(Controller):
                                        rec_tables)
 
         try:
-            with self.sock._lock:
+            with self.sock.lock:
                 self.sock._write(cmd)
                 #HEADER
                 header = dict()

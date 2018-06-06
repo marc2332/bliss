@@ -5,8 +5,6 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import weakref
-
 def find_class(cfg_node,base_path='bliss.controllers'):
     klass_name = cfg_node.get_inherited('class')
     if klass_name is None:
@@ -32,7 +30,7 @@ def find_class(cfg_node,base_path='bliss.controllers'):
 def _checkref(config,item_cfg_node,referenced_objects,name,value):
     if isinstance(value, str) and value.startswith("$"):
         # convert reference to item from config
-        obj = weakref.proxy(config.get(value))
+        obj = config.get(value)
         item_cfg_node[name]=obj
         referenced_objects[name]=obj
         return True
@@ -63,7 +61,7 @@ def _parse_list(config,value):
     object_list = list()
     for node in value:
         if isinstance(node,(str,unicode)) and node.startswith("$"):
-            object_list.append(weakref.proxy(config.get(node)))
+            object_list.append(config.get(node))
         elif isinstance(node,dict):
             subdict = dict()
             subref = dict()

@@ -292,15 +292,16 @@ class Axis(object):
         self.__move_done_callback.set()
         self.__move_task = None
         self.__stopped = False
-        self._in_group_move = False
-        self.no_offset = False
-        self._lock = gevent.lock.Semaphore()
         motion_hooks = []
         for hook_ref in config.get('motion_hooks', ()):
             hook = get_motion_hook(hook_ref)
             hook.add_axis(self)
             motion_hooks.append(hook)
         self.__motion_hooks = motion_hooks
+        self._in_group_move = False
+        self._beacon_channels = dict()
+        self._lock = gevent.lock.Semaphore()
+        self.no_offset = False
 
     @property
     def name(self):
@@ -331,15 +332,6 @@ class Axis(object):
         Tells if the axis is moving (:obj:`bool`)
         """
         return not self.__move_done.is_set()
-
-    @property
-    def _hw_control(self):
-        """Return whether axis is currently driving hardware"""
-        if self._in_group_move:
-            return True
-        if self.__move_task is not None:
-            return self.is_moving
-        return False
 
     @property
     def offset(self):
@@ -971,10 +963,17 @@ class Axis(object):
 
                 self.__execute_post_move_hook(move_task._motions)
 
+                for _, chan in self._beacon_channels.iteritems():
+                    chan.register_callback(chan._setting_update_cb)
+
                 self._set_move_done()
             return state
 
         self.__move_task = move_task(funct, *args, **kwargs)
+
+        for _, chan in self._beacon_channels.iteritems():
+            chan.unregister_callback(chan._setting_update_cb)
+        
         self._set_moving_state()
         return self.__move_task
 
@@ -1593,8 +1592,3 @@ class NoSettingsAxis(Axis):
         Axis.__init__(self,*args,**kwags)
         self.settings.get = mock.MagicMock(return_value = None)
         self.settings.set = mock.MagicMock(return_value = None)
-        
-    @property
-    def _hw_control(self):
-        return False
-

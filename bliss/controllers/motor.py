@@ -121,7 +121,7 @@ class Controller(object):
     
     def _init_settings(self):
         for axis in self.axes.itervalues():
-            axis._beacon_channels = dict()
+            axis._beacon_channels.clear()
             hash_setting = settings.HashSetting("axis.%s" % axis.name)
             
             for setting_name in axis.settings:

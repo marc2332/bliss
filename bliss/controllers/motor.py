@@ -163,6 +163,17 @@ class Controller(object):
                 chan._setting_update_cb = cb
                 axis._beacon_channels[setting_name] = chan
 
+    def _check_limits(self, axis, user_positions):
+        min_pos = user_positions.min()
+        max_pos = user_positions.max()
+        ll, hl = axis.limits()
+        if min_pos < ll:
+            # get motion object, this will raise ValueError exception
+            axis._get_motion(min_pos)
+        elif max_pos > hl:
+            # get motion object, this will raise ValueError exception
+            axis._get_motion(max_pos)
+
     def get_mandatory_config_parameters(self, axis):
         if isinstance(axis, NoSettingsAxis):
             return tuple()
@@ -444,6 +455,27 @@ class CalcController(Controller):
         for tagged_axis_name, setpos in new_setpos.iteritems():
             axis = self._tagged[tagged_axis_name][0]
             axis.settings.set("_set_position", axis.dial2user(setpos))
+
+    def _check_limits(self, axis, positions):
+        assert axis not in self.reals
+        assert axis in self.pseudos
+
+        pseudo_axis_tag = self._axis_tag(axis)
+
+        axis_positions = {}
+        new_positions = self._get_set_positions()
+        for i, p in enumerate(positions):
+            new_positions[pseudo_axis_tag] = p
+
+            real_positions = self.calc_to_real(new_positions)
+            
+            for real_axis_tag, user_pos in real_positions.iteritems():
+                real_axis = self._tagged[real_axis_tag][0]
+                axis_positions.setdefault(real_axis,
+                                          numpy.empty_like(positions))[i]=user_pos
+
+        for real_axis, axis_positions in axis_positions.iteritems():
+            real_axis.controller._check_limits(real_axis, axis_positions)
 
     def _do_calc_from_real(self):
         real_positions_by_axis = self._reals_group.position()

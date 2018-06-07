@@ -31,8 +31,8 @@ def test_traj_from_calc(s1hg, s1b, s1f, s1u, s1d):
     assert tg.calc_axis == s1hg
   
     s1hg.dial(-1)
-    assert s1f.offset == -.5
-    assert s1b.offset == -.5
+    assert pytest.approx(s1f.offset, -.5)
+    assert pytest.approx(s1b.offset, -.5)
   
     tg.prepare()
     assert tg._TrajectoryGroup__trajectories_dialunit

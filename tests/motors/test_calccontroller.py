@@ -133,16 +133,6 @@ def test_hw_limits_and_set_pos(s1f, s1b, s1hg):
         s1f.controller.set_hw_limits(s1f,None,None)
         s1b.controller.set_hw_limits(s1b,None,None)
 
-def test_hw_control(s1f, s1b, s1hg):
-    s1hg.move(2, wait=False)
-    assert s1hg._hw_control
-    assert s1b._hw_control
-    assert s1f._hw_control
-    s1hg.wait_move()
-    assert not s1hg._hw_control
-    assert not s1b._hw_control
-    assert not s1f._hw_control
-
 def test_real_move_and_set_pos(s1f, s1b, s1hg):
     s1hg.move(0.5)
     s1f.rmove(1)

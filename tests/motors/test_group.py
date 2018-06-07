@@ -118,14 +118,3 @@ def test_hardlimits_set_pos(robz, robz2):
     with pytest.raises(RuntimeError):
         grp.move({robz:3,robz2:1})
     assert robz._set_position() == robz.position()
-
-def test_hw_control(robz, robz2):
-    grp = Group(robz, robz2)
-    grp.move({ robz: 2, robz2: 2 }, wait=False)
-    assert robz._hw_control == True
-    assert robz2._hw_control == True
-    grp.wait_move()
-    assert robz._hw_control == False
-    assert robz2._hw_control == False
-
-

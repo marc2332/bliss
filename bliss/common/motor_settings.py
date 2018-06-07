@@ -12,16 +12,14 @@ from bliss.config import settings
 
 def setting_update_from_channel(value, setting_name=None, axis=None):
     #print 'setting update from channel', axis.name, setting_name, str(value)
+    if setting_name == 'state':
+        if 'MOVING' in str(value):
+            axis._set_moving_state(from_channel=True)
+        else:
+            if axis.is_moving:
+                axis._set_move_done()
 
-    if not axis._hw_control:
-        if setting_name == 'state':
-            if 'MOVING' in str(value):
-                axis._set_moving_state(from_channel=True)
-            else:
-                if axis.is_moving:
-                    axis._set_move_done()
-
-        event.send(axis, setting_name, value)
+    event.send(axis, setting_name, value)
 
 
 def floatOrNone(x):

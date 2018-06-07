@@ -147,9 +147,6 @@ class _Group(object):
         return self.move(*args, **kwargs)
 
     def _reset_motions_dict(self):
-        for _, motions in self._motions_dict.iteritems():
-            for m in motions:
-                m.axis._in_group_move = False
         self._motions_dict = dict()
 
     def _start_one_controller_motions(self, controller, motions):
@@ -209,8 +206,6 @@ class _Group(object):
         for axis, target_pos in axis_pos_dict.iteritems():
             motion = axis.prepare_move(target_pos, relative=relative)
             if motion is not None:
-                axis._in_group_move = True
-
                 # motion can be None if axis is not supposed to move,
                 # let's filter it
                 self._motions_dict.setdefault(

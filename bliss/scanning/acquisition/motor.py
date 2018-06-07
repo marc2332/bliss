@@ -540,13 +540,11 @@ class MeshTrajectoryMaster(AcquisitionMaster, UndershootMixin):
         self.trajectory.move_to_start()
 
     def start(self):
-        if self.trigger_type == AcquisitionMaster.SOFTWARE:
-            return
-        self.trigger()
+        if self.parent is None:
+            self.trigger()
 
     def trigger(self):
-        if self.trigger_type == AcquisitionMaster.SOFTWARE:
-            self.trigger_slaves()
+        self.trigger_slaves()
 
         self.trajectory.move_to_end()
 

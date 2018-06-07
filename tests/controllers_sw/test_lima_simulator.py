@@ -28,3 +28,12 @@ def test_lima_simulator(beacon, lima_simulator):
 
     assert simulator.camera.test == 'test'
 
+def test_lima_sim_bpm(beacon, lima_simulator):
+    simulator = beacon.get("lima_simulator")
+
+    assert pytest.raises(RuntimeError, "simulator.bpm")
+
+    assert 'bpm' not in simulator.counters._fields
+    assert 'bpm' not in simulator.counter_groups._fields
+
+    

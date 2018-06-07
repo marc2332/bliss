@@ -449,11 +449,12 @@ class MeshTrajectoryMaster(AcquisitionMaster, UndershootMixin):
     def __init__(self, axis1, start1, stop1, nb_points1,
                  axis2, start2, stop2, nb_points2, time_per_point,
                  undershoot=None, undershoot_start_margin=0,
-                 undershoot_stop_margin=0, **kwargs):
+                 undershoot_stop_margin=0,
+                 trigger_type=AcquisitionMaster.SOFTWARE, **kwargs):
 
 
         name = 'mesh_' + axis1.name + '_' + axis2.name
-        AcquisitionMaster.__init__(self, None, name, **kwargs)
+        AcquisitionMaster.__init__(self, None, name, trigger_type=trigger_type, **kwargs)
         UndershootMixin.__init__(self, undershoot, undershoot_start_margin, undershoot_stop_margin)
 
         # Required by undershoot mixin

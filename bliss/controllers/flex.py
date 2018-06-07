@@ -194,6 +194,7 @@ class flex(object):
         self.set_io("dioUnloadStReq", False)
         self.set_io("dioLoadStReq", False)
         self.robot.setVal3GlobalVariableBoolean("bEnable_PSS", False)
+        DEFREEZING = False
 
         logging.getLogger('flex').info("Robot aborted")
 

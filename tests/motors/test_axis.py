@@ -376,6 +376,7 @@ def test_limit_search(robz):
     assert robz.dial() == -11.5
 
 def test_set_position(m0):
+    assert m0.steps_per_unit == 1
     assert m0.position() == m0._set_position()
     m0.rmove(0.1)
     assert m0._set_position() == 0.1

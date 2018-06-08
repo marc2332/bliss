@@ -285,6 +285,19 @@ class Controller(object):
         """
         return False
 
+    def has_trajectory_event(self):
+        return False
+
+    def _prepare_trajectory(self, *trajectories):
+        for traj in trajectories:
+            if traj.events_positions and not self.has_trajectory_event():
+                raise NotImplementedError("Events are not supported"
+                                          " by controller for trajectories")
+        else:
+            self.prepare_trajectory(*trajectories)
+            if self.has_trajectory_event():
+                self.set_trajectory_events(*trajectories)
+
     def prepare_trajectory(self, *trajectories):
         pass
     
@@ -309,6 +322,13 @@ class Controller(object):
     def start_trajectory(self, *trajectories):
         """
         Should move to the last point of the trajectory
+        """
+        raise NotImplementedError
+
+    def set_trajectory_events(self, *trajectories):
+        """
+        Should set trigger event on trajectories.
+        Each trajectory define .events_positions or events_pattern_positions.
         """
         raise NotImplementedError
     

@@ -233,7 +233,7 @@ class TrajectoryGroup(object):
                 trajectories.append(trajectory.convert_to_dial())
             self.__trajectories_dialunit = trajectories
 
-        prepare = [gevent.spawn(controller.prepare_trajectory, *trajectories)
+        prepare = [gevent.spawn(controller._prepare_trajectory, *trajectories)
                    for controller, trajectories in self.trajectories_by_controller.iteritems()]
         try:
             gevent.joinall(prepare, raise_error=True)

@@ -7,6 +7,7 @@
 
 import pytest
 from bliss.common.axis import Axis
+from bliss.common.standard import ascan
 
 def test_tags(s1ho):
     controller = s1ho.controller
@@ -157,4 +158,12 @@ def test_calc_in_calc(roby, calc_mot1, calc_mot2):
     assert pytest.approx(calc_mot1.position(), 0.5)
     assert pytest.approx(calc_mot2.position(), 1)
     assert pytest.approx(roby.position(), 0.25)
+
+def test_ascan_limits(s1hg, s1f, s1b):
+    s1hg.position(0)
+    s1hg.dial(0)
+    s1f.limits(-1,1)
+    s1b.limits(-1,1)
+    assert pytest.raises(ValueError, "s1hg.move(2.1)")
+    assert pytest.raises(ValueError, "ascan(s1hg, -1, 2.1, 10, 0.1, run=False)")
 

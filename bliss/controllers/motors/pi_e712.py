@@ -528,7 +528,8 @@ class PI_E712(Controller):
         table_generator_rate = int(numpy.ceil(calc_servo_cycle/servo_cycle))
         servo_cycle *= table_generator_rate
         nb_traj_cycles = trajectories[0].nb_cycles if is_cyclic_traj else 1
-        commmands = ["WTR 0 {} 1".format(table_generator_rate),
+        commmands = ["TWC",     # clear trig settings
+                     "WTR 0 {} 1".format(table_generator_rate),
                      "WGC 1 {}".format(nb_traj_cycles)]
         for traj in trajectories:
             pvt = traj.pvt_pattern if is_cyclic_traj else traj.pvt
@@ -556,10 +557,23 @@ class PI_E712(Controller):
                                         startpoint=int(start_time))
                 commmands.append(cmd)
                 cont = '&'
+            #trajectories events
+            events = traj.events_pattern_positions if is_cyclic_traj else traj.events_positions
+            for evt in events:
+                commmands.append("TWS 1 {} 1", evt['time']/servo_cycle)
 
         for cmd in commmands:
             self.command(cmd)
 
+    def has_trajectory_event(self):
+        return True
+    
+    def set_trajectory_events(self, *trajectories):
+        # In prepare_trajectory we programmed the trigger positions
+        # (see TWC and TWS command)
+        # Just link external trigger with programmed TWS
+        self.command("CTO 1 3 4")
+                
     def move_to_trajectory(self, *trajectories):
         motions = [Motion(t.axis, t.pvt['position'][0], 0) for t in trajectories]
         self.start_all(*motions)
@@ -573,7 +587,7 @@ class PI_E712(Controller):
     def stop_trajectory(self, *trajectories):
         axes_str = ' '.join(['%d 0' % t.axis.channel for t in trajectories])
         self.command("WGO " + axes_str)
-            
+
     def _parse_reply(self, reply, args):
         args_pos = reply.find('=')
         if reply[:args_pos] != args: # weird

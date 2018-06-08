@@ -15,6 +15,54 @@ try:
 except ImportError:
     interpolate = None
 
+def find_pvt(pvt, position):
+    """
+    This function return all matching pvt (position velocity time)
+    which intersect the asked **position**
+    """
+    positions = pvt['position']
+    time = pvt['time']
+    velocities = pvt['velocity']
+    matched_pvt = list()
+    match_position = numpy.array([0, 0, position])
+    for start_time, end_time,\
+        start_position, end_position, \
+        start_velocity, end_velocity in zip(time, time[1:],
+                                            positions, positions[1:],
+                                            velocities, velocities[1:]):
+        # segment match
+        if((start_position <= end_position and start_position <= position < end_position) or
+           (start_position > end_position and end_position < position <= start_position)):
+            if position == start_position:
+                matched_pvt.append((start_position, start_velocity, start_time))
+            elif position == end_position:
+                matched_pvt.append((end_position, end_velocity, end_time))
+            else:
+                dt = end_time - start_time
+                dv = end_velocity - start_velocity
+                acceleration = dv/dt
+                # position = (acceleration/2)* t**2 + velocity*t + position_0
+                if acceleration >= 0.:
+                    a = acceleration/2. if end_position > start_position else -acceleration/2.
+                    position_equ = numpy.array([a, start_velocity, start_position])
+                    matched_times = numpy.roots(position_equ - match_position)
+                    t = abs(matched_times[abs(matched_times) <= (end_time-start_time)][0])
+                    p = numpy.polyval(position_equ, t)
+                    v = start_velocity + acceleration*t
+                    t += start_time
+                else:
+                    a = acceleration/2. if end_position > start_position else -acceleration/2.
+                    position_equ = numpy.array([a, start_velocity, end_position])
+                    matched_times = numpy.roots(position_equ - match_position)
+                    t = abs(matched_times[abs(matched_times) <= (end_time-start_time)][0])
+                    p = numpy.polyval(position_equ, t)
+                    t = (end_time - start_time) - t
+                    v = start_velocity + acceleration*t
+                    t += start_time
+                matched_pvt.append((p,v,t))
+    return numpy.array(matched_pvt, dtype = [('position', 'f8'), ('velocity', 'f8'),
+                                             ('time', 'f8')])
+
 class PointTrajectory(object):
     """
     class helper to build trajectories.

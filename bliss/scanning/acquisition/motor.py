@@ -258,6 +258,7 @@ class _StepTriggerMaster(AcquisitionMaster):
         for axis, start, stop, nb_point in grouped(args, 4):
             self._axes.append(axis)
             self._motor_pos.append(numpy.linspace(start, stop, nb_point))
+            axis.controller._check_limits(axis, self._motor_pos[-1])
 
         mot_group = Group(*self._axes)
         group_name = '/'.join((x.name for x in self._axes))

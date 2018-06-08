@@ -235,7 +235,6 @@ class CyclicTrajectory(Trajectory):
         return self.__class__(self.axis, pvt, self.nb_cycles, origin)
 
 
-
 def estimate_duration(axis, target_pos, initial_pos=None):
     """
     Estimate motion time based on current axis position
@@ -833,41 +832,27 @@ class Axis(object):
             except:
                 sys.excepthook(*sys.exc_info())
 
-    @lazy_init
-    def prepare_move(self, user_target_pos, relative=False):
-        """Prepare a motion. Internal usage only"""
-        elog.debug("user_target_pos=%g, relative=%r" %
-                   (user_target_pos, relative))
-        user_initial_dial_pos = self.dial()
-        hw_pos = self._hw_position()  # self._update_dial()
-        elog.debug("hw_position=%g user_initial_dial_pos=%g" %
-                   (hw_pos, user_initial_dial_pos))
-
-        if abs(user_initial_dial_pos - hw_pos) > self.tolerance:
-            raise RuntimeError(
-                "%s: discrepancy between dial (%f) and controller position (%f), aborting" % (
-                    self.name, user_initial_dial_pos, hw_pos))
-
-        if relative:
-            user_initial_pos = self._set_position()
-            user_target_pos += user_initial_pos
-        else:
-            user_initial_pos = self.dial2user(user_initial_dial_pos)
-
-        dial_initial_pos = self.user2dial(user_initial_pos)
+    def _get_motion(self, user_target_pos):
         dial_target_pos = self.user2dial(user_target_pos)
-        if abs(dial_target_pos - dial_initial_pos) < 1E-6:
+        delta = dial_target_pos - self.dial()
+        if abs(delta) < 1E-6:
             return
 
-        elog.debug("prepare_move : user_initial_pos=%g user_target_pos=%g" %
-                   (user_initial_pos, user_target_pos) +
-                   "  dial_target_pos=%g dial_intial_pos=%g relative=%s" %
-                   (dial_target_pos, dial_initial_pos, relative))
-
-        # all positions are converted to controller units
-        backlash = self.backlash / self.sign * self.steps_per_unit
-        delta = (dial_target_pos - dial_initial_pos) * self.steps_per_unit
+        # check software limits
         target_pos = dial_target_pos * self.steps_per_unit
+        delta *= self.steps_per_unit
+        backlash = self.backlash / self.sign * self.steps_per_unit
+        backlash_str = " (with %f backlash)" % self.backlash if backlash else ""
+        low_limit_msg = "%s: move to `%f'%s would go below low limit (%f)"
+        high_limit_msg = "%s: move to `%f'%s would go beyond high limit (%f)"
+        user_low_limit, user_high_limit = self.limits()
+        low_limit = self.user2dial(user_low_limit) * self.steps_per_unit
+        high_limit = self.user2dial(user_high_limit) * self.steps_per_unit
+
+        if high_limit < low_limit:
+            high_limit, low_limit = low_limit, high_limit
+            user_high_limit, user_low_limit = user_low_limit, user_high_limit
+            high_limit_msg, low_limit_msg = low_limit_msg, high_limit_msg
 
         if backlash:
             if cmp(delta, 0) != cmp(backlash, 0):
@@ -880,26 +865,35 @@ class Axis(object):
                 # don't do backlash correction
                 backlash = 0
 
-        # check software limits
-        user_low_limit, user_high_limit = self.limits()
-        low_limit = self.user2dial(user_low_limit) * self.steps_per_unit
-        high_limit = self.user2dial(user_high_limit) * self.steps_per_unit
-        if high_limit < low_limit:
-            high_limit, low_limit = low_limit, high_limit
-            user_high_limit, user_low_limit = user_low_limit, user_high_limit
-
-        backlash_str = " (with %f backlash)" % self.backlash if backlash else ""
         if target_pos < low_limit:
-            raise ValueError(
-                "%s: move to `%f'%s would go below low limit (%f)" %
-                (self.name, user_target_pos, backlash_str, user_low_limit))
+            raise ValueError(low_limit_msg % (self.name, user_target_pos, backlash_str, user_low_limit))
         if target_pos > high_limit:
-            raise ValueError(
-                "%s: move to `%f' %s would go beyond high limit (%f)" %
-                (self.name, user_target_pos, backlash_str, user_high_limit))
+            raise ValueError(high_limit_msg % (self.name, user_target_pos, backlash_str, user_high_limit))
 
         motion = Motion(self, target_pos, delta)
         motion.backlash = backlash
+
+        return motion
+
+    @lazy_init
+    def prepare_move(self, user_target_pos, relative=False):
+        """Prepare a motion. Internal usage only"""
+        elog.debug("prepare_move: user_target_pos=%g, relative=%r" %
+                   (user_target_pos, relative))
+        dial_initial_pos = self.dial()
+        hw_pos = self._hw_position()
+
+        if abs(dial_initial_pos - hw_pos) > self.tolerance:
+            raise RuntimeError(
+                "%s: discrepancy between dial (%f) and controller position (%f), aborting" % (
+                    self.name, dial_initial_pos, hw_pos))
+
+        if relative:
+            # start from last set position
+            user_initial_pos = self._set_position()
+            user_target_pos += user_initial_pos
+
+        motion = self._get_motion(user_target_pos)
 
         self.__execute_pre_move_hook(motion)
 

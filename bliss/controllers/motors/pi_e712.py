@@ -103,10 +103,6 @@ class PI_E712(Controller):
                   TypeError: check_power_cut() takes exactly 1 argument (2 given)
         """
         axis.channel = axis.config.get("channel", int)
-        try:
-            axis.paranoia_mode = axis.config.get("paranoia_mode")  # check error after each command
-        except KeyError :
-            axis.paranoia_mode = False
 
         self._gate_enabled = False
 

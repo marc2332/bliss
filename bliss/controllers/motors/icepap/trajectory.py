@@ -147,6 +147,8 @@ class TrajectoryAxis(Axis):
                                             polling_time, being_waited=wait)
         motion_task._motions = [motion]
 
+        self._set_moving_state()
+
         if wait:
             self.wait_move()
 

@@ -957,12 +957,11 @@ class Axis(object):
                 self._set_move_done()
             return state
 
-        self.__move_task = move_task(funct, *args, **kwargs)
-
         for _, chan in self._beacon_channels.iteritems():
             chan.unregister_callback(chan._setting_update_cb)
         
-        self._set_moving_state()
+        self.__move_task = move_task(funct, *args, **kwargs)
+
         return self.__move_task
 
     @lazy_init
@@ -996,6 +995,7 @@ class Axis(object):
             move_task = self._start_move_task(
                 self._do_move, motion, polling_time)
             move_task._motions = [motion]
+            self._set_moving_state()
 
         if wait:
             self.wait_move()
@@ -1035,6 +1035,7 @@ class Axis(object):
                 self._do_jog_move, saved_velocity, velocity, direction,
                 reset_position, polling_time)
             self.__move_task._motions = [motion]
+            self._set_moving_state()
 
     def _do_encoder_reading(self):
         enc_dial = self.encoder.read()
@@ -1168,6 +1169,8 @@ class Axis(object):
             # create motion object for hooks
             self.__move_task._motions = [motion]
 
+            self._set_moving_state()
+
         if wait:
             self.wait_move()
 
@@ -1198,6 +1201,7 @@ class Axis(object):
             self.__controller.limit_search(self, limit)
             self._start_move_task(self._wait_limit_search, limit)
             self.__move_task._motions = [motion]
+            self._set_moving_state()
 
         if wait:
             self.wait_move()

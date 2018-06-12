@@ -55,7 +55,7 @@ class PI_HEXA(Controller):
         Initialize the communication to the hexapod controller
         """
         comm_type = get_comm_type(self.config.config_dict)
-        comm_option = dict()
+        comm_option = {'timeout':30.}
         if comm_type == TCP:
             comm_option['ctype'] = TCP
             comm_option.setdefault('port', 50000)

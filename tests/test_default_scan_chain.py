@@ -91,7 +91,7 @@ def test_default_chain_with_three_sampling_counters(beacon):
     assert counter_names == set(['diode2', 'diode3'])
 
 
-def test_default_chain_with_bpm(beacon, lima_simulator):
+def test_default_chain_with_roi_counter(beacon, lima_simulator):
     """Want to build the following acquisition chain:
 
     root
@@ -100,37 +100,35 @@ def test_default_chain_with_bpm(beacon, lima_simulator):
         |
         |-LimaAcquisitionMaster
           |
-          |-X
-          |-Y
-          |-intensity
+          |-roi1
     """
     lima_sim = beacon.get("lima_simulator")
-    assert lima_sim.bpm.x
-    assert lima_sim.bpm.y
-    assert lima_sim.bpm.intensity
+    lima_sim.roi_counters.set_roi('roi1', (0,0,10,10))
+    assert lima_sim.counters.roi1
 
-    scan_pars = {"npoints": 10,
-                 "count_time": 0.1}
+    try:
+        scan_pars = {"npoints": 10,
+                     "count_time": 0.1}
 
-    chain = DEFAULT_CHAIN.get(scan_pars, [lima_sim.bpm.x, lima_sim.bpm.y,
-                                          lima_sim.bpm.intensity])
-    timer = chain.timer
+        chain = DEFAULT_CHAIN.get(scan_pars, [lima_sim.roi_counters.roi1])
+        timer = chain.timer
 
-    assert timer.count_time == 0.1
+        assert timer.count_time == 0.1
 
-    nodes = chain.nodes_list
-    assert len(nodes) == 3
-    assert isinstance(nodes[0], timer.__class__)
-    assert isinstance(nodes[1], LimaAcquisitionMaster)
-    assert isinstance(nodes[2], IntegratingCounterAcquisitionDevice)
+        nodes = chain.nodes_list
+        assert len(nodes) == 3
+        assert isinstance(nodes[0], timer.__class__)
+        assert isinstance(nodes[1], LimaAcquisitionMaster)
+        assert isinstance(nodes[2], IntegratingCounterAcquisitionDevice)
 
-    assert len(nodes[2].channels) == 3
-    assert nodes[2].count_time == timer.count_time
+        assert len(nodes[2].channels) == 5
+        assert nodes[2].count_time == timer.count_time
 
-    assert nodes[1].save_flag == False
+        assert nodes[1].save_flag == False
+    finally:
+        lima_sim.roi_counters.clear_rois()
 
-
-def test_default_chain_with_bpm_and_diode(beacon, lima_simulator):
+def test_default_chain_with_roicounter_and_diode(beacon, lima_simulator):
     """Want to build the following acquisition chain:
 
     root
@@ -139,38 +137,42 @@ def test_default_chain_with_bpm_and_diode(beacon, lima_simulator):
         |
         |-LimaAcquisitionMaster
           |
-          |-intensity
+          |- roi1
         |
         |-diode
     """
-    lima_sim = beacon.get("lima_simulator")
     diode = beacon.get("diode")
-    assert lima_sim.bpm.intensity
     assert diode
+    lima_sim = beacon.get("lima_simulator")
+    lima_sim.roi_counters.set_roi('roi1', (0,0,10,10))
+    assert lima_sim.counters.roi1
 
-    scan_pars = {"npoints": 10,
-                 "count_time": 0.1}
+    try:
+        scan_pars = {"npoints": 10,
+                     "count_time": 0.1}
 
-    chain = DEFAULT_CHAIN.get(scan_pars, [lima_sim.bpm.intensity, diode])
-    timer = chain.timer
+        chain = DEFAULT_CHAIN.get(scan_pars, [lima_sim.roi_counters.roi1, diode])
+        timer = chain.timer
 
-    assert timer.count_time == 0.1
+        assert timer.count_time == 0.1
 
-    nodes = chain.nodes_list
-    assert len(nodes) == 4
-    assert isinstance(nodes[0], timer.__class__)
-    assert isinstance(nodes[1], SamplingCounterAcquisitionDevice)
-    assert isinstance(nodes[2], LimaAcquisitionMaster)
-    assert isinstance(nodes[3], IntegratingCounterAcquisitionDevice)
+        nodes = chain.nodes_list
+        assert len(nodes) == 4
+        assert isinstance(nodes[0], timer.__class__)
+        assert isinstance(nodes[1], SamplingCounterAcquisitionDevice)
+        assert isinstance(nodes[2], LimaAcquisitionMaster)
+        assert isinstance(nodes[3], IntegratingCounterAcquisitionDevice)
 
-    assert nodes[3].parent == nodes[2]
-    assert nodes[1].parent == timer
+        assert nodes[3].parent == nodes[2]
+        assert nodes[1].parent == timer
 
-    assert nodes[1].count_time == timer.count_time
-    assert nodes[3].count_time == nodes[1].count_time
+        assert nodes[1].count_time == timer.count_time
+        assert nodes[3].count_time == nodes[1].count_time
+    finally:
+        lima_sim.roi_counters.clear_rois()
 
 
-def test_default_chain_with_bpm_and_image(beacon, lima_simulator):
+def test_default_chain_with_roicounter_and_image(beacon, lima_simulator):
     """Want to build the following acquisition chain:
 
     root
@@ -179,28 +181,34 @@ def test_default_chain_with_bpm_and_image(beacon, lima_simulator):
         |
         |-LimaAcquisitionMaster => saves image
           |
-          |-X
+          |-roi1
     """
-
     lima_sim = beacon.get("lima_simulator")
+    lima_sim.roi_counters.set_roi('roi1', (0,0,10,10))
+    assert lima_sim.counters.roi1
 
-    scan_pars = {"npoints": 10,
-                 "count_time": 0.1,
-                 "save": True,
-                 }
+    try:
+        scan_pars = {"npoints": 10,
+                     "count_time": 0.1,
+                     "save": True,
+                    }
 
-    chain = DEFAULT_CHAIN.get(scan_pars, [lima_sim.bpm.x, lima_sim])
-    timer = chain.timer 
+        chain = DEFAULT_CHAIN.get(scan_pars, [lima_sim.roi_counters.roi1,
+                                              lima_sim])
+        timer = chain.timer 
 
-    nodes = chain.nodes_list
-    assert len(nodes) == 3
-    assert isinstance(nodes[0], timer.__class__)
-    assert isinstance(nodes[1], LimaAcquisitionMaster)
-    assert isinstance(nodes[2], IntegratingCounterAcquisitionDevice)
-    assert nodes[1].parent == timer
-    assert nodes[2].parent == nodes[1]
+        nodes = chain.nodes_list
+        assert len(nodes) == 3
+        assert isinstance(nodes[0], timer.__class__)
+        assert isinstance(nodes[1], LimaAcquisitionMaster)
+        assert isinstance(nodes[2], IntegratingCounterAcquisitionDevice)
+        assert nodes[1].parent == timer
+        assert nodes[2].parent == nodes[1]
 
-    assert nodes[1].save_flag == True
+        assert nodes[1].save_flag == True
+    finally:
+        lima_sim.roi_counters.clear_rois()
+
 
 def test_default_chain_with_lima_defaults_parameters(beacon, lima_simulator):
     """Want to build the following acquisition chain:
@@ -211,14 +219,15 @@ def test_default_chain_with_lima_defaults_parameters(beacon, lima_simulator):
         |
         |-LimaAcquisitionMaster
           |
-          |-intensity
+          |-roi1.avg
           |
           |-diode
     """
-    lima_sim = beacon.get("lima_simulator")
     diode = beacon.get("diode2")
-    assert lima_sim.bpm.intensity
     assert diode
+    lima_sim = beacon.get("lima_simulator")
+    lima_sim.roi_counters.set_roi('roi1', (0,0,10,10))
+    assert lima_sim.counters.roi1
 
     scan_pars = {"npoints": 10,
                  "count_time": 0.1}
@@ -229,7 +238,7 @@ def test_default_chain_with_lima_defaults_parameters(beacon, lima_simulator):
                                         {'acq_trigger_mode':'EXTERNAL_GATE'}
                                     } ])
 
-        chain = DEFAULT_CHAIN.get(scan_pars, [lima_sim.bpm.intensity, diode])
+        chain = DEFAULT_CHAIN.get(scan_pars, [lima_sim.roi_counters.roi1.avg, diode])
         timer = chain.timer
 
         nodes = chain.nodes_list
@@ -245,6 +254,7 @@ def test_default_chain_with_lima_defaults_parameters(beacon, lima_simulator):
 
         assert nodes[1].parameters.get('acq_trigger_mode') == 'EXTERNAL_GATE'
     finally:
+        lima_sim.roi_counters.clear_rois()
         DEFAULT_CHAIN.set_settings([])
 
 def test_default_chain_with_recursive_master(beacon, lima_simulator):
@@ -262,7 +272,6 @@ def test_default_chain_with_recursive_master(beacon, lima_simulator):
     """
     lima_sim = beacon.get("lima_simulator")
     diode = beacon.get("diode2")
-    assert lima_sim.bpm.intensity
     assert diode
 
     scan_pars = {"npoints": 10,

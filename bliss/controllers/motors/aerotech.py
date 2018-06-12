@@ -5,15 +5,17 @@
 # Copyright (c) 2017 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import string
-import time
-from collections import namedtuple
-
 from bliss.comm.util import TCP,get_comm
 from bliss.comm.tcp import SocketTimeout
 from bliss.common.axis import AxisState
 from bliss.config.channels import Cache
 from bliss.controllers.motor import Controller
+
+import string
+import time
+import gevent
+from collections import namedtuple
+
 
 class AerotechStatus(object):
     def __init__(self, value, bitdef):
@@ -174,8 +176,11 @@ class Aerotech(Controller):
         self._debug("SEND "+cmd)
         send_cmd = cmd + self.CMD_TERM
         self._comm.write(send_cmd)
-        reply = self._comm.read(1)
+        reply = self._comm.read(size=1)
         self._debug("GET "+reply)
+        self._check_reply_code(reply, cmd)
+
+    def _check_reply_code(self, reply, cmd):
         if reply != self.RET_SUCCESS:
             if reply == self.RET_INVALID:
                 raise ValueError("Aero Invalid command [%s]"%cmd)
@@ -185,6 +190,7 @@ class Aerotech(Controller):
                 raise ValueError("Aero Timeout on command [%s]"%cmd)
             else:
                 raise ValueError("Aero Unknown command error")
+        return 1
 
     def raw_write_read(self, cmd):
         self.raw_write(cmd)
@@ -199,14 +205,16 @@ class Aerotech(Controller):
         self.raw_write("FAULTACK %s"%self._aero_name(axis))
  
     def read_status(self, axis):
-        fault = self.raw_write_read("AXISFAULT(%s)"%self._aero_name(axis))
-        if int(fault) > 0:
-            self.clear_error(axis)
-            fault = self.raw_write_read("AXISFAULT(%s)"%self._aero_name(axis))
-        axis_fault = AerotechStatus(int(fault), self.AXIS_FAULT_BITS)
-
         status= self.raw_write_read("AXISSTATUS(%s)"%self._aero_name(axis))
         axis_status = AerotechStatus(int(status), self.AXIS_STATUS_BITS)
+
+        fault = self.raw_write_read("AXISFAULT(%s)"%self._aero_name(axis))
+        axis_fault = AerotechStatus(int(fault), self.AXIS_FAULT_BITS)
+
+        if int(fault) > 0 and not axis_status.MoveActive:
+            self.clear_error(axis)
+            fault = self.raw_write_read("AXISFAULT(%s)"%self._aero_name(axis))
+            axis_fault = AerotechStatus(int(fault), self.AXIS_FAULT_BITS)
 
         return (axis_fault, axis_status)
 
@@ -324,6 +332,29 @@ class Aerotech(Controller):
         cmd = "ABORT " + string.join(axis_names, " ")
         self.raw_write(cmd)
 
+    def home_search(self, axis, switch):
+        cmd = "HOME %s"%self._aero_name(axis)
+        self._debug("SEND "+cmd)
+        send_cmd = cmd + self.CMD_TERM
+        self._comm.write(send_cmd)
+
+        homing= True
+        while homing:
+            try:
+                reply = self._comm.read(size=1, timeout=1.0)
+                self._debug("GET "+reply)
+            except:
+                reply = None
+
+            if reply is not None:
+                if self._check_reply_code(reply, cmd):
+                    homing = False
+            else:
+                gevent.sleep(0.25)
+            
+    def home_state(self, axis):
+        return AxisState("READY")
+        
     def initialize_encoder(self, encoder):
         if encoder.name not in self._aero_enc.keys():
             aero_name = encoder.config.get("aero_name", str, None)

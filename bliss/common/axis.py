@@ -858,8 +858,8 @@ class Axis(object):
             self._update_settings(state=initial_state)
 
         if not initial_state.READY:
-            raise RuntimeError("axis %s state is \
-                                %r" % (self.name, str(initial_state)))
+            raise RuntimeError("axis %s state is "
+                               "%r" % (self.name, str(initial_state)))
 
     def _start_move_task(self, funct, *args, **kwargs):
         kwargs['wait'] = False

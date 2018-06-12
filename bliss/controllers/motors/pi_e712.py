@@ -20,6 +20,7 @@ from bliss.common.utils import add_property
 
 from bliss.common.axis import AxisState, Motion, CyclicTrajectory
 from bliss.config.channels import Cache
+from bliss.common.switch import Switch as BaseSwitch
 
 import pi_gcs
 from bliss.comm.util import TCP
@@ -867,3 +868,73 @@ class bcolors:
     WHITE = CSI + '107m'
     ENDC = CSI + '0m'
 
+class Switch(BaseSwitch):
+    """
+    Switch for PI_E712 Analog and piezo amplifier Outputs
+    Basic configuration:
+        name: pi_switch0
+        output-channel: 5       # 5 (first analogue output) 1 (first piezo amplifier)
+        output-type: POSITION   # POSITION (default) or CONTROL_VOLTAGE
+        output-range: [-10,10]  # -10 Volts to 10 Volts is the default
+    """
+    def __init__(self, name, controller, config):
+        BaseSwitch.__init__(self, name, config)
+        self.__controller = weakref.proxy(controller)
+        self.__output_channel = None
+        self.__output_type = None
+        self.__output_range = None
+        self.__axes = weakref.WeakValueDictionary()
+        
+    def _init(self):
+        config = self.config
+        try:
+            self.__output_channel = config['output-channel']
+        except KeyError:
+            raise KeyError("output-channel is mandatory in switch '{}` "
+                           "in PI_E712 **{}**".format(self.name, self.__controller.name))
+        possible_type = {'POSITION':2, 'CONTROL_VOLTAGE':1}
+        output_type = config.get('output-type', 'POSITION').upper()
+        if output_type not in possible_type:
+            raise ValueError('output-type can only be: %s' % possible_type)
+        self.__output_type = possible_type.get(output_type)
+        self.__output_range = config.get('output-range', [-10, 10])
+        self.__axes = weakref.WeakValueDictionary({name.upper():axis
+        for name, axis in self.__controller._axes.items()})
+
+    def _set(self, state):
+        if state == "DISABLED":  # DON'T KNOW HOW TO DISABLE
+            return
+        axis = self.__axes.get(state)
+        if axis is None:
+            raise ValueError("State %s doesn't exist in the switch %s" % (state, self.name))
+        with self.__controller.sock.lock:
+            low_position = float(self.__controller.command("TMN? {}".format(axis.channel)))
+            high_position = float(self.__controller.command("TMX? {}".format(axis.channel)))
+            low_voltage, high_voltage = self.__output_range
+            position_scaling = round(((float(high_voltage) - low_voltage) /
+                                      (high_position - low_position)), 3)
+            position_offset = -((high_position + low_position) / 2.)
+            self.__controller.command("SPA {axis_channel} 0x7001005 {position_scaling}".\
+                                      format(axis_channel=axis.channel,
+                                             position_scaling=position_scaling))
+            self.__controller.command("SPA {axis_channel} 0x7001006 {position_offset}".\
+                                      format(axis_channel=axis.channel,
+                                             position_offset=position_offset))
+            #Link the output to the axis
+            self.__controller.command("SPA {output_chan} 0xA000003 {output_type}".\
+                                      format(output_chan=self.__output_channel,
+                                             output_type=self.__output_type))
+            self.__controller.command("SPA {output_chan} 0xA000004 {axis_channel}".\
+                                      format(output_chan=self.__output_channel,
+                                             axis_channel=axis.channel))
+
+    def _get(self):
+        axis_channel = int(self.__controller.command("SPA? {output_chan} 0xa000004".\
+                                                     format(output_chan=self.__output_channel)))
+        for name, axis in self.__axes.items():
+            if axis.channel == axis_channel:
+                return name
+        return "DISABLED"
+
+    def _states_list(self):
+        return self.__axes.keys() + ["DISABLED"]

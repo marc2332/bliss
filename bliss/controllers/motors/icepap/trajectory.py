@@ -280,7 +280,7 @@ class TrajectoryAxis(Axis):
                 rposition = positions.mean()
             #update real motors
             for axis in self.enabled_axes:
-                axis._read_dial_and_update()
+                axis._update_dial()
         return rposition
 
     def _state(self):

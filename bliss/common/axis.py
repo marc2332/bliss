@@ -30,7 +30,7 @@ as calls to :meth:`~bliss.config.static.Config.get`. Example::
 
 from bliss.common import log as elog
 from bliss.common.task import task
-from bliss.common.cleanup import cleanup, error_cleanup
+from bliss.common.cleanup import cleanup, error_cleanup, capture_exceptions
 from bliss.common.motor_config import StaticConfig
 from bliss.common.motor_settings import AxisSettings
 from bliss.common import event
@@ -951,25 +951,40 @@ class Axis(object):
 
         @task
         def move_task(funct, *args, **kwargs):
-            state = None
-            try:
-                state = funct(*args, **kwargs)
-            finally:
+            with capture_exceptions(raise_index=0) as capture:
+                # 'funct' is supposed to be a move loop
+                with capture():
+                    funct(*args, **kwargs)
+
+                # update final state, in case of exception
+                # state is set to FAULT
+                state = None
+                with capture():
+                    state = self.state(read_hw=True)
+
+                if state is None:
+                    state = AxisState("FAULT")
+                self._update_settings(state)
+                    
                 move_task = self.__move_task
                 self.__move_task = None
 
-                if state is None:
-                    state = self.state(read_hw=True)
+                # update position if motor has been stopped
+                with capture():
+                    if self.__stopped:
+                        self._update_dial()
+                        self._set_position(self.position())
 
-                self._update_settings(state)
-
-                self.__execute_post_move_hook(move_task._motions)
+                # capture exception in post move hook
+                with capture():
+                    self.__execute_post_move_hook(move_task._motions)
 
                 for _, chan in self._beacon_channels.iteritems():
                     chan.register_callback(chan._setting_update_cb)
 
                 self._set_move_done()
-            return state
+
+                return state
 
         for _, chan in self._beacon_channels.iteritems():
             chan.unregister_callback(chan._setting_update_cb)

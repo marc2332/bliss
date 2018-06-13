@@ -197,7 +197,7 @@ class PI_E712(Controller):
         elog.debug("axis.closed_loop for axis %s is %s" % (axis.name, axis.closed_loop))
         with self.sock.lock:
             #check if WAV motion is active
-            if self.sock.write_readline("#9\n") != '0':
+            if self.sock.write_readline(chr(9)) != '0':
                 return AxisState("MOVING")
 
             if axis.closed_loop:
@@ -267,8 +267,9 @@ class PI_E712(Controller):
             channels_str = ' '.join(channels)
             cmd = '\n'.join(['%s %s' % (cmd,channels_str)
                              for cmd in ('ONT?','MOV?')])
-            cmd += '\n%c\n' % 24      # Char to stop all movement
+            cmd += '\n%c' % 24      # Char to stop all movement
             reply = self.sock.write_readlines(cmd,len(channels)*2)
+            error = self.sock.write_readline('ERR?\n') # should be 10 -> Controller was stopped by command
             channel_on_target = set()
             for channel_target in reply[:len(channels)]:
                 channel, ont = channel_target.strip().split('=')
@@ -341,8 +342,8 @@ class PI_E712(Controller):
                 self.sock.write(cmd + '\n')
                 errno, error_message = self.get_error()
                 if errno:
-                    errors = [self.name] + [errno, error_message]
-                    raise RuntimeError("Device {0} error nb {1} => ({2})".format(*errors))
+                    errors = [self.name, cmd] + [errno, error_message]
+                    raise RuntimeError("Device {0} command {1} error nb {2} => ({3})".format(*errors))
 
     def get_data_len(self):
         """
@@ -511,10 +512,6 @@ class PI_E712(Controller):
         cmd = "CTO {0} 2 {1} {0} 3 3 {0} 5 {2} {0} 6 {3} {0} 7 1".\
         format(output,axis.channel,position_1,position_2)
         self.command(cmd)
-        error_id,error_msg = self.get_error()
-        if error_id:
-            errors = [self.name,error_id,error_msg]
-            raise RuntimeError("Device {0} error nb {1} => ({2})".format(*errors))
 
     def has_trajectory(self):
         return True

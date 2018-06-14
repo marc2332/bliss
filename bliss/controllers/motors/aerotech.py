@@ -10,11 +10,446 @@ from bliss.comm.tcp import SocketTimeout
 from bliss.common.axis import AxisState
 from bliss.config.channels import Cache
 from bliss.controllers.motor import Controller
+from bliss.common.utils import object_method
+
 
 import string
 import time
 import gevent
+import enum
 from collections import namedtuple
+
+@enum.unique
+class AerotechParameter(enum.IntEnum):
+	AxisType = 0
+	ReverseMotionDirection = 1
+	CountsPerUnit = 2
+	ServoRate = 3
+	ServoSetup = 4
+	GainKpos = 5
+	GainKi = 6
+	GainKp = 7
+	GainVff = 8
+	GainAff = 9
+	GainKv = 10
+	GainKpi = 11
+	ServoFilter0CoeffN0 = 12
+	ServoFilter0CoeffN1 = 13
+	ServoFilter0CoeffN2 = 14
+	ServoFilter0CoeffD1 = 15
+	ServoFilter0CoeffD2 = 16
+	ServoFilter1CoeffN0 = 17
+	ServoFilter1CoeffN1 = 18
+	ServoFilter1CoeffN2 = 19
+	ServoFilter1CoeffD1 = 20
+	ServoFilter1CoeffD2 = 21
+	AmplifierDeadtime = 22
+	RolloverCounts = 23
+	CurrentGainKi = 24
+	CurrentGainKp = 25
+	FaultMask = 26
+	FaultMaskDisable = 27
+	FaultMaskDecel = 28
+	EnableBrakeControl = 29
+	FaultMaskOutput = 30
+	ESTOPFaultInput = 31
+	PositionErrorThreshold = 32
+	AverageCurrentThreshold = 33
+	AverageCurrentTime = 34
+	VelocityCommandThreshold = 35
+	VelocityErrorThreshold = 36
+	SoftwareLimitLow = 37
+	SoftwareLimitHigh = 38
+	MaxCurrentClamp = 39
+	InPositionDistance = 40
+	MotorType = 41
+	CyclesPerRev = 42
+	CountsPerRev = 43
+	CommutationOffset = 44
+	AutoMsetTime = 45
+	AutoMsetCurrent = 46
+	PositionFeedbackType = 47
+	PositionFeedbackChannel = 48
+	VelocityFeedbackType = 49
+	VelocityFeedbackChannel = 50
+	EncoderMultiplicationFactor = 51
+	EncoderSineGain = 52
+	EncoderSineOffset = 53
+	EncoderCosineGain = 54
+	EncoderCosineOffset = 55
+	EncoderPhase = 56
+	GantryMasterAxis = 57
+	LimitDecelDistance = 59
+	LimitDebounceTime = 60
+	EndOfTravelLimitSetup = 61
+	BacklashDistance = 62
+	FaultOutputSetup = 63
+	FaultOutputState = 64
+	IOSetup = 65
+	BrakeOutput = 66
+	EncoderDivider = 67
+	ExternalFaultDigitalInput = 68
+	BrakeDisableDelay = 69
+	MaxJogDistance = 70
+	DefaultSpeed = 71
+	DefaultRampRate = 72
+	AbortDecelRate = 73
+	HomeType = 74
+	HomeSetup = 75
+	HomeSpeed = 76
+	HomeOffset = 77
+	HomeRampRate = 78
+	DefaultWaitMode = 79
+	DefaultSCurve = 80
+	DataCollectionPoints = 81
+	StepperResolution = 83
+	StepperRunningCurrent = 84
+	StepperHoldingCurrent = 85
+	StepperVerificationSpeed = 86
+	LimitDebounceDistance = 87
+	ServoFilter2CoeffN0 = 88
+	ServoFilter2CoeffN1 = 89
+	ServoFilter2CoeffN2 = 90
+	ServoFilter2CoeffD1 = 91
+	ServoFilter2CoeffD2 = 92
+	ServoFilter3CoeffN0 = 93
+	ServoFilter3CoeffN1 = 94
+	ServoFilter3CoeffN2 = 95
+	ServoFilter3CoeffD1 = 96
+	ServoFilter3CoeffD2 = 97
+	GearCamSource = 98
+	GearCamIndex = 99
+	GearCamScaleFactor = 100
+	GearCamAnalogDeadband = 105
+	PrintBufferSize = 106
+	SerialPort0XonCharacter = 109
+	SerialPort0XoffCharacter = 110
+	SerialPort0BaudRate = 111
+	SerialPort0Setup = 112
+	TaskExecutionSetup = 113
+	CodeSize = 114
+	DataSize = 115
+	StackSize = 116
+	AutoRunProgram = 118
+	MaxJogSpeed = 123
+	GlobalIntegers = 124
+	GlobalDoubles = 125
+	DecimalPlaces = 126
+	TaskErrorAbortAxes = 127
+	CalibrationFile1D = 128
+	UnitsName = 129
+	Socket2RemoteIPAddress = 130
+	Socket2Port = 131
+	Socket2Setup = 132
+	Socket2TransmissionSize = 133
+	Socket3RemoteIPAddress = 134
+	Socket3Port = 135
+	Socket3Setup = 136
+	Socket3TransmissionSize = 137
+	Socket2Timeout = 138
+	Socket3Timeout = 139
+	UserInteger0 = 141
+	UserInteger1 = 142
+	UserDouble0 = 143
+	UserDouble1 = 144
+	UserString0 = 145
+	UserString1 = 146
+	EnDatEncoderSetup = 147
+	EnDatEncoderResolution = 148
+	EnDatEncoderTurns = 149
+	CommandSetup = 150
+	SerialPort1XonCharacter = 152
+	SerialPort1XoffCharacter = 153
+	SerialPort1BaudRate = 154
+	SerialPort1Setup = 155
+	RequiredAxes = 156
+	JoystickInput1MinVoltage = 157
+	JoystickInput1MaxVoltage = 158
+	JoystickInput1Deadband = 159
+	JoystickInput0MinVoltage = 160
+	JoystickInput0MaxVoltage = 161
+	JoystickInput0Deadband = 162
+	JoystickLowSpeed = 163
+	JoystickHighSpeed = 164
+	JoystickSetup = 165
+	HomePositionSet = 166
+	TaskTerminationAxes = 167
+	TaskStopAbortAxes = 168
+	CalibrationFile2D = 169
+	FaultMaskDisableDelay = 170
+	DefaultCoordinatedSpeed = 171
+	DefaultCoordinatedRampRate = 172
+	DefaultDependentCoordinatedRampRate = 173
+	GpibTerminatingCharacter = 174
+	GpibPrimaryAddress = 175
+	GpibParallelResponse = 176
+	CommandTerminatingCharacter = 177
+	CommandSuccessCharacter = 178
+	CommandInvalidCharacter = 179
+	CommandFaultCharacter = 180
+	FaultAbortAxes = 182
+	HarmonicCancellation0Type = 185
+	HarmonicCancellation0Period = 186
+	HarmonicCancellation0Gain = 188
+	HarmonicCancellation0Phase = 189
+	HarmonicCancellation1Type = 190
+	HarmonicCancellation1Period = 191
+	HarmonicCancellation1Gain = 193
+	HarmonicCancellation1Phase = 194
+	HarmonicCancellation2Type = 195
+	HarmonicCancellation2Period = 196
+	HarmonicCancellation2Gain = 198
+	HarmonicCancellation2Phase = 199
+	CommandTimeout = 202
+	CommandTimeoutCharacter = 203
+	ResolverReferenceGain = 204
+	ResolverSetup = 205
+	ResolverReferencePhase = 206
+	SoftwareLimitSetup = 210
+	SSINet1Setup = 211
+	SSINet2Setup = 212
+	EmulatedQuadratureDivider = 213
+	HarmonicCancellation3Type = 214
+	HarmonicCancellation3Period = 215
+	HarmonicCancellation3Gain = 217
+	HarmonicCancellation3Phase = 218
+	HarmonicCancellation4Type = 219
+	HarmonicCancellation4Period = 220
+	HarmonicCancellation4Gain = 222
+	HarmonicCancellation4Phase = 223
+	EnhancedThroughputChannel = 224
+	EnhancedThroughputGain = 225
+	HarmonicCancellationSetup = 226
+	EnhancedThroughputCurrentClamp = 227
+	Analog0Filter0CoeffN0 = 228
+	Analog0Filter0CoeffN1 = 229
+	Analog0Filter0CoeffN2 = 230
+	Analog0Filter0CoeffD1 = 231
+	Analog0Filter0CoeffD2 = 232
+	Analog0Filter1CoeffN0 = 233
+	Analog0Filter1CoeffN1 = 234
+	Analog0Filter1CoeffN2 = 235
+	Analog0Filter1CoeffD1 = 236
+	Analog0Filter1CoeffD2 = 237
+	Analog1Filter0CoeffN0 = 238
+	Analog1Filter0CoeffN1 = 239
+	Analog1Filter0CoeffN2 = 240
+	Analog1Filter0CoeffD1 = 241
+	Analog1Filter0CoeffD2 = 242
+	Analog1Filter1CoeffN0 = 243
+	Analog1Filter1CoeffN1 = 244
+	Analog1Filter1CoeffN2 = 245
+	Analog1Filter1CoeffD1 = 246
+	Analog1Filter1CoeffD2 = 247
+	GlobalStrings = 248
+	DefaultCoordinatedRampMode = 249
+	DefaultCoordinatedRampTime = 250
+	DefaultCoordinatedRampDistance = 251
+	DefaultRampMode = 252
+	DefaultRampTime = 253
+	DefaultRampDistance = 254
+	ServoFilterSetup = 255
+	FeedbackSetup = 256
+	EncoderMultiplierSetup = 257
+	FaultSetup = 258
+	ThresholdScheduleSetup = 259
+	ThresholdRegion2High = 260
+	ThresholdRegion2Low = 261
+	ThresholdRegion3GainKpos = 262
+	ThresholdRegion3GainKp = 263
+	ThresholdRegion3GainKi = 264
+	ThresholdRegion3GainKpi = 265
+	ThresholdRegion4High = 266
+	ThresholdRegion4Low = 267
+	ThresholdRegion5GainKpos = 268
+	ThresholdRegion5GainKp = 269
+	ThresholdRegion5GainKi = 270
+	ThresholdRegion5GainKpi = 271
+	DynamicScheduleSetup = 272
+	DynamicGainKposScale = 273
+	DynamicGainKpScale = 274
+	DynamicGainKiScale = 275
+	ServoFilter4CoeffN0 = 276
+	ServoFilter4CoeffN1 = 277
+	ServoFilter4CoeffN2 = 278
+	ServoFilter4CoeffD1 = 279
+	ServoFilter4CoeffD2 = 280
+	ServoFilter5CoeffN0 = 281
+	ServoFilter5CoeffN1 = 282
+	ServoFilter5CoeffN2 = 283
+	ServoFilter5CoeffD1 = 284
+	ServoFilter5CoeffD2 = 285
+	ServoFilter6CoeffN0 = 286
+	ServoFilter6CoeffN1 = 287
+	ServoFilter6CoeffN2 = 288
+	ServoFilter6CoeffD1 = 289
+	ServoFilter6CoeffD2 = 290
+	ServoFilter7CoeffN0 = 291
+	ServoFilter7CoeffN1 = 292
+	ServoFilter7CoeffN2 = 293
+	ServoFilter7CoeffD1 = 294
+	ServoFilter7CoeffD2 = 295
+	LinearAmpMaxPower = 296
+	LinearAmpDeratingFactor = 297
+	LinearAmpBusVoltage = 298
+	MotorResistance = 299
+	MotorBackEMFConstant = 300
+	GantrySetup = 302
+	RolloverMode = 303
+	EmulatedQuadratureChannel = 305
+	ResolverCoarseChannel = 306
+	ResolverFeedbackRatio = 307
+	ResolverFeedbackOffset = 308
+	BrakeEnableDelay = 309
+	InPositionTime = 319
+	StaticFrictionCompensation = 324
+	ExternalFaultAnalogInput = 424
+	ExternalFaultThreshold = 425
+	DisplayAxes = 426
+	DefaultDependentCoordinatedSpeed = 427
+	AnalogFilterSetup = 482
+	DefaultRampType = 485
+	ModbusMasterSlaveIPAddress = 489
+	ModbusMasterSlavePort = 490
+	ModbusMasterSlaveID = 491
+	ModbusMasterInputWords = 492
+	ModbusMasterOutputWords = 493
+	ModbusMasterInputBits = 494
+	ModbusMasterOutputBits = 495
+	ModbusMasterSetup = 496
+	ModbusMasterVirtualInputs = 499
+	ModbusMasterVirtualOutputs = 500
+	ModbusMasterOutputWordsSections = 501
+	ModbusMasterOutputBitsSections = 502
+	ModbusMasterRWReadOffset = 503
+	ModbusMasterInputWordsOffset = 504
+	ModbusMasterOutputWordsOffset = 505
+	ModbusMasterInputBitsOffset = 506
+	ModbusMasterOutputBitsOffset = 507
+	ModbusMasterStatusWordsOffset = 508
+	ModbusMasterStatusBitsOffset = 509
+	ModbusMasterVirtualInputsOffset = 510
+	ModbusMasterVirtualOutputsOffset = 511
+	ModbusMasterRWWriteOffset = 512
+	ModbusMasterFunctions = 513
+	ModbusMasterSlaveType = 514
+	ModbusSlaveUnitID = 516
+	ModbusSlaveInputWords = 517
+	ModbusSlaveOutputWords = 518
+	ModbusSlaveInputBits = 519
+	ModbusSlaveOutputBits = 520
+	ModbusSlaveInputWordsOffset = 521
+	ModbusSlaveOutputWordsOffset = 522
+	ModbusSlaveInputBitsOffset = 523
+	ModbusSlaveOutputBitsOffset = 524
+	ModbusSlaveRWReadOffset = 525
+	ModbusSlaveRWWriteOffset = 526
+	CurrentOffsetA = 662
+	CurrentOffsetB = 663
+	FaultAckMoveOutOfLimit = 665
+	CommandShaperSetup = 666
+	CommandShaperTime00 = 667
+	CommandShaperTime01 = 668
+	CommandShaperTime02 = 669
+	CommandShaperTime03 = 670
+	CommandShaperTime04 = 671
+	CommandShaperTime05 = 672
+	CommandShaperTime06 = 673
+	CommandShaperTime07 = 674
+	CommandShaperTime08 = 675
+	CommandShaperTime09 = 676
+	CommandShaperTime10 = 677
+	CommandShaperTime11 = 678
+	CommandShaperTime12 = 679
+	CommandShaperTime13 = 680
+	CommandShaperTime14 = 681
+	CommandShaperTime15 = 682
+	CommandShaperCoeff00 = 683
+	CommandShaperCoeff01 = 684
+	CommandShaperCoeff02 = 685
+	CommandShaperCoeff03 = 686
+	CommandShaperCoeff04 = 687
+	CommandShaperCoeff05 = 688
+	CommandShaperCoeff06 = 689
+	CommandShaperCoeff07 = 690
+	CommandShaperCoeff08 = 691
+	CommandShaperCoeff09 = 692
+	CommandShaperCoeff10 = 693
+	CommandShaperCoeff11 = 694
+	CommandShaperCoeff12 = 695
+	CommandShaperCoeff13 = 696
+	CommandShaperCoeff14 = 697
+	CommandShaperCoeff15 = 698
+	CommandShaper0Type = 703
+	CommandShaper0Frequency = 704
+	CommandShaper0Damping = 705
+	CommandShaper1Type = 706
+	CommandShaper1Frequency = 707
+	CommandShaper1Damping = 708
+	ResoluteEncoderSetup = 715
+	ResoluteEncoderResolution = 716
+	ResoluteEncoderUserResolution = 717
+	AutofocusInput = 721
+	AutofocusTarget = 722
+	AutofocusDeadband = 723
+	AutofocusGainKi = 724
+	AutofocusGainKp = 725
+	AutofocusLimitLow = 726
+	AutofocusLimitHigh = 727
+	AutofocusSpeedClamp = 728
+	AutofocusHoldInput = 729
+	AutofocusSetup = 730
+	ExternalSyncFrequency = 731
+	GainPff = 762
+	AutofocusInitialRampTime = 763
+	SoftwareExternalFaultInput = 765
+	AutofocusGainKi2 = 769
+	EnDatEncoderIncrementalResolution = 770
+	MarkerSearchThreshold = 771
+	GainKd1 = 779
+	GainKp1 = 780
+	VelocityCommandThresholdBeforeHome = 781
+	InPosition2Distance = 789
+	InPosition2Time = 790
+	StepperRunningCurrentDelay = 791
+	ExternalVelocityAverageTime = 792
+	Class1InputIntegers = 794
+	Class1InputIntegersOffset = 795
+	Class1OutputIntegers = 796
+	Class1OutputIntegersOffset = 797
+	Class1InputDoubles = 798
+	Class1InputDoublesOffset = 799
+	Class1OutputDoubles = 800
+	Class1OutputDoublesOffset = 801
+	AbsoluteFeedbackOffset = 802
+	PiezoSetup = 803
+	CapSensorFilterLength = 804
+	EnhancedTrackingScale = 805
+	EnhancedTrackingBandwidth = 806
+	Analog0InputOffset = 807
+	Analog1InputOffset = 808
+	Analog2InputOffset = 809
+	Analog3InputOffset = 810
+	EnhancedTrackingSetup = 811
+	WebServerSetup = 812
+	WebServerPort = 813
+	EncoderMarkerAlignment = 814
+	EncoderRadiusThresholdLow = 815
+	EncoderRadiusThresholdHigh = 816
+	GainKsi1 = 817
+	GainKsi2 = 818
+	PiezoVoltsPerUnit = 819
+	PiezoVoltageClampLow = 820
+	PiezoVoltageClampHigh = 821
+	PiezoSlewRateClamp = 822
+	PiezoDefaultServoState = 823
+	FeedforwardAdvance = 824
+	CapSensorSetup = 826
+	CapSensorThresholdLow = 828
+	CapSensorThresholdHigh = 829
+	RequiredStageSerialNumber = 832
+	StepperDampingGain = 848
+	StepperDampingCutoffFrequency = 849
 
 
 class AerotechStatus(object):
@@ -48,6 +483,7 @@ class AerotechAxis(object):
         self.name = name
         self.axis = axis
         self.speed = speed
+
 
 class Aerotech(Controller):
     """
@@ -144,6 +580,7 @@ class Aerotech(Controller):
         self._aero_speed = {}
         self._aero_acc= {}
         self._aero_enc = {}
+        self._is_moving = {}
         self._aero_state = AxisState()
         self._aero_state.create_state("EXTDISABLE", "External disable signal")
         self._aero_state.create_state("EXTSTOP", "Emergency stop button pressed")
@@ -173,6 +610,7 @@ class Aerotech(Controller):
             print time.time(), ">>", mesg
 
     def raw_write(self, cmd):
+        self._comm.flush()
         self._debug("SEND "+cmd)
         send_cmd = cmd + self.CMD_TERM
         self._comm.write(send_cmd)
@@ -205,6 +643,7 @@ class Aerotech(Controller):
         self.raw_write("FAULTACK %s"%self._aero_name(axis))
  
     def read_status(self, axis):
+
         status= self.raw_write_read("AXISSTATUS(%s)"%self._aero_name(axis))
         axis_status = AerotechStatus(int(status), self.AXIS_STATUS_BITS)
 
@@ -247,6 +686,9 @@ class Aerotech(Controller):
             else:
                 state.set("OFF")
 
+        if not state.MOVING:
+            self._is_moving[axis.name]= False
+
         return state
            
     def get_id(self, axis):
@@ -277,6 +719,7 @@ class Aerotech(Controller):
 
         cmd = "MOVEABS %s %s"%(move_cmd, speed_cmd)
         self.raw_write(cmd)
+        self._is_moving[axis.name]= True
 
     def start_all(self, *motion_list):
         moves = []
@@ -297,8 +740,26 @@ class Aerotech(Controller):
         cmd = "MOVEABS %s %s"%(move_cmd, speed_cmd)
         self.raw_write(cmd)
 
+        for motion in motion_list:
+            self._is_moving[motion.axis.name]= True
+
+    def start_jog(self, axis, velocity, direction):
+        jog_vel = direction * velocity / abs(axis.steps_per_unit)
+        cmd = "FREERUN %s %f"%(self._aero_name(axis), jog_vel)
+        self.raw_write(cmd)
+        self._is_moving[axis.name]= True
+
+    def stop_jog(self, axis):
+        cmd = "FREERUN %s 0"%(self._aero_name(axis))
+        self.raw_write(cmd)
+
     def read_position(self, axis):
-        reply = self.raw_write_read("CMDPOS(%s)"%self._aero_name(axis))
+        is_moving = self._is_moving.get(axis.name, False)
+        if not is_moving:
+            reply = self.raw_write_read("CMDPOS(%s)"%self._aero_name(axis))
+        else:
+            reply = self.raw_write_read("PFBK(%s)"%self._aero_name(axis))
+
         pos = float(reply) * axis.steps_per_unit
         return pos
 
@@ -310,7 +771,6 @@ class Aerotech(Controller):
         return speed
 
     def read_acceleration(self, axis):
-        # reply = self.raw_write_read("GETMODE(7)")
         acc = self._aero_acc[axis.name] * abs(axis.steps_per_unit)
         return acc
 
@@ -333,6 +793,11 @@ class Aerotech(Controller):
         self.raw_write(cmd)
 
     def home_search(self, axis, switch):
+        # set home direction using HomeSetup Parameter
+        home_dir = (switch > 0) and 1 or 0
+        self.set_param(axis, "HomeSetup", home_dir)
+
+        # start homing and wait for reply
         cmd = "HOME %s"%self._aero_name(axis)
         self._debug("SEND "+cmd)
         send_cmd = cmd + self.CMD_TERM
@@ -368,4 +833,41 @@ class Aerotech(Controller):
     def read_encoder(self, encoder):
         reply = self.raw_write_read("PFBK(%s)"%self._aero_encoder_axis(encoder))
         return float(reply)
+
+    @object_method(types_info=("str", "str"))
+    def get_param(self, axis, name):
+        try:
+            param = AerotechParameter[name]
+        except KeyError:
+            raise ValueError("Unknown aerotech parameter [%s]"%name)
+        cmd = "GETPARM(%s,%d)"%(self._aero_name(axis), param.value)
+        return self.raw_write_read(cmd)
+
+    @object_method(types_info=(("str","float"), "None"))
+    def set_param(self, axis, name, value):
+        try:
+            param = AerotechParameter[name]
+        except KeyError:
+            raise ValueError("Unknown aerotech parameter [%s]"%name)
+        if int(value) == value:
+            cmd = "SETPARM %s, %d, %d"%(self._aero_name(axis), param.value, value)
+        else:
+            cmd = "SETPARM %s, %d, %f"%(self._aero_name(axis), param.value, value)
+        self.raw_write(cmd)
+
+    @object_method(types_info=("None","list"))
+    def get_param_list(self, axis):
+        names = [ par.name for idx,par in enumerate(AerotechParameter) ]
+        return names
+
+    @object_method(types_info=("str","str"))
+    def dump_param(self, axis, name_start=None):
+        partxt = "Aerotech axis %s parameters:\n"%self._aero_name(axis)
+        for idx, par in enumerate(AerotechParameter):
+            if name_start is None or par.name.startswith(name_start):
+                cmd = "GETPARM(%s,%d)"%(self._aero_name(axis), par.value)
+                value = self.raw_write_read(cmd)
+                partxt += "%30s [%d] = %s\n"%(par.name, par.value, value)
+                
+        return partxt
 

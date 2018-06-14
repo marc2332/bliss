@@ -117,7 +117,7 @@ class Lima(object):
     @property
     def bpm(self):
         if self.__bpm is None:
-            bpm_proxy = self._get_proxy(self.BPM)
+            bpm_proxy = self._get_proxy(Lima.BPM)
             self.__bpm = Bpm(self.name, bpm_proxy, self)
         return self.__bpm
 
@@ -127,7 +127,6 @@ class Lima(object):
         This will returns all availables triggers for the camera
         """
         return [v.name for v in self.acquisition.trigger_mode_enum]
-        #return self._proxy.getAttrStringValueList('acq_trigger_mode')
 
     def prepareAcq(self):
         self._proxy.prepareAcq()
@@ -141,7 +140,8 @@ class Lima(object):
     def _get_proxy(self,type_name):
         device_name = self._proxy.getPluginDeviceNameFromType(type_name)
         if not device_name:
-            return
+            raise RuntimeError("%s: '%s` proxy cannot be found" %
+                               (self.name, type_name))
         if not device_name.startswith("//"):
             # build 'fully qualified domain' name
             # '.get_fqdn()' doesn't work
@@ -173,7 +173,10 @@ class Lima(object):
     def counters(self):
         all_counters = [self.image]
         all_counters += list(self.roi_counters.counters)
-        all_counters += list(self.bpm.counters)
+        try:
+            all_counters += list(self.bpm.counters)
+        except RuntimeError:
+            pass
         return counter_namespace(all_counters)
 
     @property
@@ -184,7 +187,10 @@ class Lima(object):
         dct['images'] = counter_namespace([self.image])
 
         # BPM counters
-        dct['bpm'] = counter_namespace(self.bpm.counters)
+        try:
+            dct['bpm'] = counter_namespace(self.bpm.counters)
+        except RuntimeError:
+            pass
 
         # Specific ROI counters
         for counters in self.roi_counters.iter_single_roi_counters():

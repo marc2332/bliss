@@ -21,6 +21,8 @@ from collections import namedtuple
 
 @enum.unique
 class AerotechParameter(enum.IntEnum):
+        """ Aerotech Parameter definition
+        """
 	AxisType = 0
 	ReverseMotionDirection = 1
 	CountsPerUnit = 2
@@ -453,6 +455,10 @@ class AerotechParameter(enum.IntEnum):
 
 
 class AerotechStatus(object):
+    """ Utility class to decode aerotech 
+        axis fault and axis status
+        used by Aerotech controller class
+    """
     def __init__(self, value, bitdef):
         self._bitdef = bitdef
         self._valdict = dict([(name, False) for name,bitidx in self._bitdef])
@@ -475,14 +481,8 @@ class AerotechStatus(object):
     def __getattr__(self, name):
         value = self._valdict.get(name, None)
         if value is None:
-            raise ValueError("Unknown field : %s"%name)
+            raise ValueError("Unknown aerotech status field [%s]"%name)
         return value
-
-class AerotechAxis(object):
-    def __init__(self, name, axis, speed):
-        self.name = name
-        self.axis = axis
-        self.speed = speed
 
 
 class Aerotech(Controller):
@@ -497,10 +497,37 @@ class Aerotech(Controller):
         - name: rot
           aero_name: X
           steps_per_unit: 26222.2
-          velocity: 377600
-          acceleration: 755200
+          velocity: 200
+          acceleration: 100
+      encoder:
+        - name: rot_enc
+          aero_name: X
 
-    default port 8000 if not specified
+    standard functionnalilies:
+    - standard moves
+    - NO set dial position
+    - velocity / acceleration
+    - homing procedure
+    - jog mode
+    - encoder reading
+
+    aerotech specific functionnalities:
+    - set/get/dump aerotech parameters
+
+    additionnal states:
+    - HOMEDONE : when homing has been performed
+    - EXTDISABLE : external signal input does not allow motor movement
+    - EXTSTOP : external emergency stop signal has disabled motor
+    The external input/stop signals has to be configured on the controller
+    via aerotech software.
+
+    notes:
+    - axis configuration has to be done via aerotech software
+    - socket ascii communication has to be activated on controller via aerotech software
+    - default tcp port 8000 is used if not specified
+    - velocity and acceleration are mandatory and
+      always set on controller. The velocity and
+      acceleration are not read from controller.
     """
 
     CMD_TERM = '\n'
@@ -583,7 +610,7 @@ class Aerotech(Controller):
         self._is_moving = {}
         self._aero_state = AxisState()
         self._aero_state.create_state("EXTDISABLE", "External disable signal")
-        self._aero_state.create_state("EXTSTOP", "Emergency stop button pressed")
+        self._aero_state.create_state("EXTSTOP", "External stop signal")
         self._aero_state.create_state("HOMEDONE", "Homing done")
         self._debug_flag = False
 

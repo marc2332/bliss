@@ -35,12 +35,14 @@ from bliss.common.measurement import SoftCounter
 # counter from an object property
 pot_counter = SoftCounter(pot, 'potential')
 
-# counter form an object method
-vol_counter = SoftCounter(pot, 'get_voltage', name='voltage')
+# counter form an object method. The optional apply parameter
+# allows you to apply a transformation function to the value
+milivol_counter = SoftCounter(pot, 'get_voltage', name='voltage',
+                              apply=lambda v: v*1000)
 
 # now you can use the counters in any scan:
 
-loopscan(10, 0.1, pot_counter, vol_counter)
+loopscan(10, 0.1, pot_counter, milivol_counter)
 ```
 
 Functions can also be made counters. Here is how:

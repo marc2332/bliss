@@ -274,8 +274,14 @@ class SoftCounter(SamplingCounter):
     as value. It can be an object method, a property/descriptor or even a simple
     attribute of the given object.
 
-    If no name is given, the counter name is built from: `obj.name` + '.' + value
-    if the object as a `name` property. Otherwise it is just the value name.
+    If no name is given, the counter name is the string representation of the
+    value argument.
+    The counter full name is `controller.name` + '.' + counter_name. If no
+    controller is given, the obj.name is used instead of controller.name. If no
+    obj is given the counter full name is counter name.
+
+    You can pass an optional apply function if you need to transform original
+    value given by the object into something else.
 
     Here are some examples::
 
@@ -294,15 +300,18 @@ class SoftCounter(SamplingCounter):
                 return float(self.comm.write_readline('VOL?\n'))
 
         pot = Potentiostat('p1')
-        # counter from an object property
+
+        # counter from an object property (its name is 'potential'.
+        # Its full name is 'p1.potential')
         pot_counter = SoftCounter(pot, 'potential')
 
         # counter form an object method
-        vol_counter = SoftCounter(pot, 'get_voltage')
+        milivol_counter = SoftCounter(pot, 'get_voltage', name='voltage',
+                                      apply=lambda v: v*1000)
 
         # you can use the counters in any scan
         from bliss.common.standard import loopscan
-        loopscan(10, 0.1, pot_counter, vol_counter)
+        loopscan(10, 0.1, pot_counter, milivol_counter)
     """
 
     class Controller(object):

@@ -11,3 +11,9 @@
   name: diode3
   plugin: bliss
   class: simulation_diode
+-
+  name: integ_diode
+  plugin: bliss
+  class: simulation_diode
+  integration: True
+

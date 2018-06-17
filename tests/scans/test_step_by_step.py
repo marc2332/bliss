@@ -80,16 +80,6 @@ def test_dscan_move_done(beacon):
     event.disconnect(m1, 'move_done', target)
 
 
-def test_timescan(beacon):
-    session = beacon.get("test_session")
-    session.setup()
-    counter_class = getattr(setup_globals, 'TestScanGaussianCounter')
-    counter = counter_class("gaussian", 10, cnt_time=0.1)
-    s = scans.timescan(0.1, counter, npoints=10, return_scan=True, save=False)
-    scan_data = s.get_data()
-    assert numpy.array_equal(scan_data['gaussian'], counter.data)
-
-
 def test_pointscan(beacon):
     session = beacon.get("test_session")
     session.setup()

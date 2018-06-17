@@ -345,6 +345,6 @@ def DefaultIntegratingCounterGroupedReadHandler(
 
         def get_values(self, from_index, *counters):
             return [cnt.conversion_function(x) if cnt.conversion_function else x for x, cnt in
-                    zip(self.controller.get_values(*counters), counters)]
+                    zip(self.controller.get_values(from_index, *counters), counters)]
     return handlers.setdefault(
         controller, DefaultIntegratingCounterGroupedReadHandler(controller))

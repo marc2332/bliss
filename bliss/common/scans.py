@@ -30,6 +30,7 @@ from bliss.scanning.default import DefaultAcquisitionChain
 from bliss.scanning import scan as scan_module
 from bliss.scanning.acquisition.motor import VariableStepTriggerMaster
 from bliss.scanning.acquisition.motor import LinearStepTriggerMaster, MeshStepTriggerMaster
+from bliss.scanning.writer.null import Writer as NullWriter
 
 _log = logging.getLogger('bliss.scans')
 
@@ -44,7 +45,7 @@ class TimestampPlaceholder:
 def step_scan(chain, scan_info, name=None, save=True):
     scan_data_watch = scan_module.StepScanDataWatch()
     config = scan_module.ScanSaving().get()
-    writer = config.get("writer") if save else None
+    writer = config.get("writer") if save else NullWriter()
     return scan_module.Scan(chain,
                             name=name,
                             parent=config['parent'],

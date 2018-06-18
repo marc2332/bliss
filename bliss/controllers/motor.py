@@ -462,20 +462,18 @@ class CalcController(Controller):
 
         pseudo_axis_tag = self._axis_tag(axis)
 
-        axis_positions = {}
-        new_positions = self._get_set_positions()
-        for i, p in enumerate(positions):
-            new_positions[pseudo_axis_tag] = p
+        axis_positions = self._get_set_positions()
+        for ptag, ppos in axis_positions.iteritems():
+            if ptag == pseudo_axis_tag:
+                axis_positions[ptag] = positions
+            else:
+                axis_positions[ptag] = numpy.full_like(positions, ppos)
 
-            real_positions = self.calc_to_real(new_positions)
+        real_positions = self.calc_to_real(axis_positions)
             
-            for real_axis_tag, user_pos in real_positions.iteritems():
-                real_axis = self._tagged[real_axis_tag][0]
-                axis_positions.setdefault(real_axis,
-                                          numpy.empty_like(positions))[i]=user_pos
-
-        for real_axis, axis_positions in axis_positions.iteritems():
-            real_axis.controller._check_limits(real_axis, axis_positions)
+        for rtag, rpos in real_positions.iteritems():
+            real_axis = self._tagged[rtag][0]
+            real_axis.controller._check_limits(real_axis, rpos)
 
     def _do_calc_from_real(self):
         real_positions_by_axis = self._reals_group.position()

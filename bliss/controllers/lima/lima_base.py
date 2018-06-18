@@ -14,8 +14,28 @@ from .image import ImageCounter
 
 from bliss.common.tango import DeviceProxy, DevFailed
 from bliss.common.measurement import namespace, counter_namespace
+from bliss.config import settings
 
 class Lima(object):
+    """
+    Lima controller.
+    Basic configuration:
+        name: seb_test
+        class: Lima
+        tango_url: id00/limaccds/simulator1
+
+        directories_mapping:
+          default:              # Mapping name
+            # Source, Destination
+            [[/data/inhouse,"I:/"],
+             [/data/visitor,"Z:/"],
+             [/data/visitor/bla/much,"K:/"],
+             [/data/visitor/bla,"V:/"]
+            ]
+          local:
+            [[/data/inhouse,"L:/"],
+             [/data/visitor,"L:/"]]
+    """
     _ROI_COUNTERS = 'roicounter'
     _BPM = 'beamviewer'
 
@@ -64,6 +84,43 @@ class Lima(object):
         self._camera = None
         self._image = None
         self._acquisition = None
+        self._directories_mapping = config_tree.get('directories_mapping', dict())
+        self._directories_mapping_name = settings.SimpleSetting('%s:directories_mapping' % name)
+        mapping_name = self._directories_mapping_name.get()
+        if mapping_name not in self._directories_mapping:
+            self._directories_mapping_name.clear()
+
+    @property
+    def directories_mapping(self):
+        mapping_name = self._directories_mapping_name.get()
+        if mapping_name is not None:
+            mapping_list = self._directories_mapping[mapping_name]
+        else:
+            for mapping_name, directories_mapping in self._directories_mapping.items():
+                mapping_list = directories_mapping
+                break
+            else:
+                mapping_list = list()
+        return mapping_list
+
+    @property
+    def directories_mapping_names(self):
+        return self._directories_mapping.keys()
+
+    @property
+    def directories_mapping_name(self):
+        mapping_name = self._directories_mapping_name.get()
+        if mapping_name is not None:
+            return mapping_name
+        for mapping_name in self._directories_mapping.keys():
+            return mapping_name
+    @directories_mapping_name.setter
+    def directories_mapping_name(self, name):
+        if name in self._directories_mapping:
+            self._directories_mapping_name.set(name)
+        else:
+            raise ValueError("Doesn't have mapping_name (%s), possible mapping are (%r)" %
+                             (name, self._directories_mapping.keys()))
 
     @property
     def proxy(self):

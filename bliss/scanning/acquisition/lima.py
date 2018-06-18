@@ -46,7 +46,10 @@ class LimaAcquisitionMaster(AcquisitionMaster):
 
         device_name = device.name
         if isinstance(device, lima.Lima):
+            self.controllers = device
             device = device.proxy
+        else:
+            self.controllers = None
 
         AcquisitionMaster.__init__(self, device, device_name, acq_nb_frames, #device.user_detector_name, acq_nb_frames,
                                    trigger_type=trigger_type,
@@ -90,6 +93,8 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             self._image_channel.description.update(self.parameters)
 
         for param_name, param_value in self.parameters.iteritems():
+            if param_name == 'saving_directory':
+                param_value = self._directories_mapping(param_value)
             setattr(self.device, param_name, param_value)
 
         self.device.prepareAcq()
@@ -178,3 +183,10 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             return self._reading_task.get(block=block)
         except gevent.Timeout:
             return False
+
+    def _directories_mapping(self, param_value):
+        param_value = os.path.normpath(param_value)
+        for src, dst in sorted(self.controllers.directories_mapping, reverse=True):
+            if param_value.startswith(src):
+                return os.path.normpath(param_value.replace(src, dst))
+        return os.path.normpath(param_value)

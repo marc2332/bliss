@@ -14,7 +14,7 @@ def setting_update_from_channel(value, setting_name=None, axis=None):
     #print 'setting update from channel', axis.name, setting_name, str(value)
     if setting_name == 'state':
         if 'MOVING' in str(value):
-            axis._set_moving_state(from_channel=True)
+            axis._set_moving_state(from_channel=True, move_type=value.move_type)
         else:
             if axis.is_moving:
                 axis._set_move_done()
@@ -26,19 +26,27 @@ def floatOrNone(x):
     if x is not None:
         return float(x)
 
+def stateSetting(state):
+    from bliss.common import axis
+    try:
+        move_type = state.move_type
+    except Exception:
+        move_type = ''
+    s = axis.AxisState(state)
+    s.move_type = move_type
+    return s
 
 class ControllerAxisSettings:
 
     def __init__(self):
         self.setting_names = ["velocity", "position", "dial_position", "_set_position", "state",
                               "offset", "acceleration", "low_limit", "high_limit"]
-        from bliss.common import axis
         self.convert_funcs = {
             "velocity": float,
             "position": float,
             "dial_position": float,
             "_set_position": float,
-            "state": axis.AxisState,
+            "state": stateSetting,
             "offset": float,
             "low_limit": floatOrNone,
             "high_limit": floatOrNone,
@@ -79,7 +87,7 @@ class ControllerAxisSettings:
         convert_func = self.convert_funcs.get(setting_name)
         if convert_func is not None:
             value = convert_func(value)
-
+        
         if setting_name not in ('state', 'position'):
             settings.HashSetting("axis.%s" % axis.name)[setting_name] = value
 

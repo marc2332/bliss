@@ -285,6 +285,7 @@ class Axis(object):
         self.__controller = controller
         self.__config = StaticConfig(config)
         self.__settings = AxisSettings(self)
+        self.__jog_move = False
         self.__move_done = gevent.event.Event()
         self.__move_done_callback = gevent.event.Event()
         self.__move_done.set()
@@ -903,17 +904,21 @@ class Axis(object):
 
         return motion
 
-    def _set_moving_state(self, from_channel=False):
+    def _set_moving_state(self, from_channel=False, move_type=""):
         self.__stopped = False
         self.__move_done.clear()
         self.__move_done_callback.clear()
+        self.__jog_move = move_type=='jog'
         if from_channel:
             self.__move_task = None
         else:
-            self.settings.set("state", AxisState("MOVING"))
+            moving_state = AxisState("MOVING")
+            moving_state.move_type = move_type #pass move type to peers
+            self.settings.set("state", moving_state)
         event.send(self, "move_done", False)
 
     def _set_move_done(self):
+        self.__jog_move = False
         self.__move_done.set()
 
         try:
@@ -995,7 +1000,7 @@ class Axis(object):
             move_task = self._start_move_task(
                 self._do_move, motion, polling_time)
             move_task._motions = [motion]
-            self._set_moving_state()
+            self._set_moving_state(move_type=motion.type)
 
         if wait:
             self.wait_move()
@@ -1022,7 +1027,7 @@ class Axis(object):
             motion = Motion(self, None, None, "jog")
             self.__execute_pre_move_hook(motion)
 
-            with error_cleanup(functools.partial(self._cleanup_stop, jog=True),
+            with error_cleanup(self._cleanup_stop,
                                functools.partial(self._jog_cleanup, saved_velocity, reset_position)):
                 # change velocity, to have settings updated accordingly
                 self.velocity(abs(velocity))
@@ -1035,7 +1040,7 @@ class Axis(object):
                 self._do_jog_move, saved_velocity, velocity, direction,
                 reset_position, polling_time)
             self.__move_task._motions = [motion]
-            self._set_moving_state()
+            self._set_moving_state(move_type=motion.type)
 
     def _do_encoder_reading(self):
         enc_dial = self.encoder.read()
@@ -1061,7 +1066,7 @@ class Axis(object):
             self, saved_velocity, velocity, direction, reset_position,
             polling_time):
         with cleanup(functools.partial(self._jog_cleanup, saved_velocity, reset_position)):
-            with error_cleanup(functools.partial(self._cleanup_stop, jog=True)):
+            with error_cleanup(self._cleanup_stop):
                 self._jog_move(velocity, direction, polling_time)
 
     def rmove(self, user_delta_pos, wait=True,
@@ -1110,8 +1115,8 @@ class Axis(object):
                 return state
             gevent.sleep(polling_time)
 
-    def _cleanup_stop(self, jog=False):
-        if jog:
+    def _cleanup_stop(self):
+        if self.__jog_move:
             self.__controller.stop_jog(self)
         else:
             self.__controller.stop(self)
@@ -1119,7 +1124,10 @@ class Axis(object):
         self.sync_hard()
 
     def _do_stop(self):
-        self.__controller.stop(self)
+        if self.__jog_move:
+            self.__controller.stop_jog(self)
+        else:
+            self.__controller.stop(self)
         self._set_stopped()
 
     def _set_stopped(self):
@@ -1169,7 +1177,7 @@ class Axis(object):
             # create motion object for hooks
             self.__move_task._motions = [motion]
 
-            self._set_moving_state()
+            self._set_moving_state(move_type=motion.type)
 
         if wait:
             self.wait_move()
@@ -1201,7 +1209,7 @@ class Axis(object):
             self.__controller.limit_search(self, limit)
             self._start_move_task(self._wait_limit_search, limit)
             self.__move_task._motions = [motion]
-            self._set_moving_state()
+            self._set_moving_state(move_type=motion.type)
 
         if wait:
             self.wait_move()

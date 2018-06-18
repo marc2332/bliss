@@ -9,6 +9,7 @@
 # python -m unittest discover -s tests/acquisition -v
 
 import numpy
+import inspect
 import weakref
 from collections import namedtuple
 
@@ -262,6 +263,101 @@ class SamplingCounter(Counter):
                 return grouped_read_handler.read(self)[0]
             finally:
                 grouped_read_handler.stop(self)
+
+
+class SoftCounter(SamplingCounter):
+    """
+    Transforms any given python object into a sampling counter.
+    By default it assumes the object has a member called *value* which will be
+    used on a read.
+    You can overwrite this behaviour by passing the name of the object member
+    as value. It can be an object method, a property/descriptor or even a simple
+    attribute of the given object.
+
+    If no name is given, the counter name is the string representation of the
+    value argument.
+    The counter full name is `controller.name` + '.' + counter_name. If no
+    controller is given, the obj.name is used instead of controller.name. If no
+    obj is given the counter full name is counter name.
+
+    You can pass an optional apply function if you need to transform original
+    value given by the object into something else.
+
+    Here are some examples::
+
+        from bliss.common.measurement import SoftCounter
+
+        class Potentiostat:
+
+            def __init__(self, name):
+                self.name = name
+
+            @property
+            def potential(self):
+                return float(self.comm.write_readline('POT?\n'))
+
+            def get_voltage(self):
+                return float(self.comm.write_readline('VOL?\n'))
+
+        pot = Potentiostat('p1')
+
+        # counter from an object property (its name is 'potential'.
+        # Its full name is 'p1.potential')
+        pot_counter = SoftCounter(pot, 'potential')
+
+        # counter form an object method
+        milivol_counter = SoftCounter(pot, 'get_voltage', name='voltage',
+                                      apply=lambda v: v*1000)
+
+        # you can use the counters in any scan
+        from bliss.common.standard import loopscan
+        loopscan(10, 0.1, pot_counter, milivol_counter)
+    """
+
+    class Controller(object):
+        def __init__(self, name):
+            self.name = name
+
+    def __init__(self, obj=None, value='value', name=None,
+                 controller=None, apply=None):
+        if obj is None and inspect.ismethod(value):
+            obj = value.__self__
+        self.get_value, value_name = self.get_read_func(obj, value)
+        name = value_name if name is None else name
+        obj_has_name = hasattr(obj, 'name') and isinstance(obj.name, str)
+        if controller is None:
+            if obj_has_name:
+                ctrl_name = obj.name
+            elif obj is None:
+                ctrl_name = name
+            else:
+                ctrl_name = type(obj).__name__
+            controller = self.Controller(ctrl_name)
+        if apply is None:
+            apply = lambda x: x
+        self.apply = apply
+        super(SoftCounter, self).__init__(name, controller)
+
+    @staticmethod
+    def get_read_func(obj, value):
+        if callable(value):
+            value_name = value.__name__
+            value_func = value
+        else:
+            otype = type(obj)
+            value_name = value
+            val = getattr(otype, value_name, None)
+            if val is None or not callable(val):
+                def value_func():
+                    return getattr(obj, value_name)
+            else:
+                def value_func():
+                    return val(obj)
+            value_func.__name__ = value_name
+        return value_func, value_name
+
+    def read(self):
+        return self.apply(self.get_value())
 
 
 def DefaultSamplingCounterGroupedReadHandler(

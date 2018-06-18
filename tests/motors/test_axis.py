@@ -490,6 +490,7 @@ def test_jog(robz):
     assert hw_position == pytest.approx(300*elapsed_time+robz.acceleration()*0.5*robz.acctime()**2, 1e-2)
     assert robz.state().MOVING
     robz.stop()
+    assert robz.stop_jog_called
     assert robz.state().READY
     assert robz._set_position() == robz.position()
     robz.dial(0); robz.position(0)

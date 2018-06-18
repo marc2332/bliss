@@ -135,5 +135,7 @@ class LinkedAxis(Axis):
             
             self.__move_task._motions = [motion]
 
+            self._set_moving_state()
+
         if wait:
             self.wait_move()

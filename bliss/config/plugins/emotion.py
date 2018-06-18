@@ -368,10 +368,8 @@ def create_objects_from_config_node(config, node):
 
     controller = controller_class(controller_name, node, axes,
                                   encoders, shutters, switches)
-    controller._update_refs(config)
-    controller._init_settings()
-    controller.initialize()
-
+    controller._init()
+    
     all_names = axes_names + encoders_names + switches_names + shutters_names
     cache_dict = dict(zip(all_names, [controller]*len(all_names)))
     ctrl = cache_dict.pop(obj_name,None)

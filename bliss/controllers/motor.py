@@ -15,13 +15,22 @@ from bliss.common import event
 from bliss.physics import trajectory
 from bliss.common.utils import set_custom_members, object_method
 from bliss.config.channels import Cache, Channel
-from bliss.config import settings
+from bliss.config import static, settings
 from gevent import lock
 
 # make the link between encoder and axis, if axis uses an encoder
 # (only 1 encoder per axis of course)
 ENCODER_AXIS = dict()
 
+# apply settings or config parameters
+def get_setting_or_config_value(axis, name, converter=float):
+    value = axis.settings.get(name)
+    if value is None:
+        try:
+            value = axis.config.get(name, converter)
+        except:
+            return None
+    return value
 
 class Controller(object):
     '''
@@ -34,23 +43,18 @@ class Controller(object):
     def __init__(self, name, config, axes, encoders, shutters, switches):
         self.__name = name
         self.__config = StaticConfig(config)
-        self.__initialized_axis = dict()
         self.__initialized_hw = Cache(self, "initialized", default_value = False)
-        self.__lock = lock.Semaphore()
         self.__initialized_hw_axis = dict()
+        self.__initialized_encoder = dict()
+        self.__initialized_axis = dict()
+        self.__lock = lock.Semaphore()
         self._axes = dict()
         self._encoders = dict()
         self._shutters = dict()
         self._switches = dict()
-        self.__initialized_encoder = dict()
         self._tagged = dict()
 
         self.axis_settings = ControllerAxisSettings()
-
-        for encoder_name, encoder_class, encoder_config in encoders:
-            encoder = encoder_class(encoder_name, self, encoder_config)
-            self._encoders[encoder_name] = encoder
-            self.__initialized_encoder[encoder] = False
 
         for axis_name, axis_class, axis_config in axes:
             axis = axis_class(axis_name, self, axis_config)
@@ -65,19 +69,32 @@ class Controller(object):
             if not isinstance(axis, AxisRef):
                 set_custom_members(self, axis, axis.controller._initialize_axis)
 
-            ##
-            self.__initialized_axis[axis] = False
-            self.__initialized_hw_axis[axis] = Cache(axis, "initialized", default_value = False)
-            if axis_config.get("encoder"):
-                encoder_name = axis_config.get("encoder")
-                ENCODER_AXIS[encoder_name] = axis_name
+        for encoder_name, encoder_class, encoder_config in encoders:
+            encoder = encoder_class(encoder_name, self, encoder_config)
+            self._encoders[encoder_name] = encoder
 
         for obj_config_list,object_dict in ((shutters,self._shutters),
                                             (switches,self._switches)):
             for obj_name, obj_class, obj_config in obj_config_list:
                 if obj_class is None:
-                    raise ValueError("You have to specify a **class** for object named: %s" % obj_name)
+                    raise ValueError("Missing **class** for '%s`" % obj_name)
                 object_dict[obj_name] = obj_class(obj_name, self, obj_config)
+   
+    def _init(self):
+        controller_axes = [(axis_name, axis) for axis_name,axis in self.axes.iteritems() if not isinstance(axis, AxisRef)]
+        self._update_refs()
+        self._init_settings()
+        self.initialize()
+
+        for axis_name, axis in controller_axes:
+            axis_initialized = Cache(axis, "initialized", default_value = 0)
+            self.__initialized_hw_axis[axis] = axis_initialized
+            self.__initialized_axis[axis] = False
+            encoder = axis.config.get("encoder", str, "")
+            if encoder:
+                encoder_name = encoder.lstrip('$')
+                ENCODER_AXIS[encoder_name] = axis.name
+
     @property
     def axes(self):
         return self._axes
@@ -94,7 +111,7 @@ class Controller(object):
         return self._shutters[name]
     
     @property
-    def switchs(self):
+    def switches(self):
         return self._switches
 
     def get_switch(self, name):
@@ -108,7 +125,8 @@ class Controller(object):
     def config(self):
         return self.__config
 
-    def _update_refs(self, config):
+    def _update_refs(self):
+        config = static.get_config()
         for tag, axis_list in self._tagged.iteritems():
             for i, axis in enumerate(axis_list):
                 if not isinstance(axis, AxisRef):
@@ -118,7 +136,7 @@ class Controller(object):
                     raise TypeError("%s: invalid axis '%s`, not an Axis" % (self.name, axis.name))
                 self.axes[axis.name] = referenced_axis
                 axis_list[i] = referenced_axis
-    
+   
     def _init_settings(self):
         for axis in self.axes.itervalues():
             axis._beacon_channels.clear()
@@ -145,6 +163,17 @@ class Controller(object):
                 chan._setting_update_cb = cb
                 axis._beacon_channels[setting_name] = chan
 
+    def _check_limits(self, axis, user_positions):
+        min_pos = user_positions.min()
+        max_pos = user_positions.max()
+        ll, hl = axis.limits()
+        if min_pos < ll:
+            # get motion object, this will raise ValueError exception
+            axis._get_motion(min_pos)
+        elif max_pos > hl:
+            # get motion object, this will raise ValueError exception
+            axis._get_motion(max_pos)
+
     def get_mandatory_config_parameters(self, axis):
         if isinstance(axis, NoSettingsAxis):
             return tuple()
@@ -165,6 +194,11 @@ class Controller(object):
     def finalize(self):
         pass
 
+    def _initialize_encoder(self, encoder):
+        if not self.__initialized_encoder.get(encoder):
+            self.initialize_encoder(encoder)
+            self.__initialized_encoder[encoder] = True
+
     def _initialize_axis(self, axis, *args, **kwargs):
         if self.__initialized_axis[axis]:
             return
@@ -173,22 +207,16 @@ class Controller(object):
             if not self.__initialized_hw.value:
                 self.initialize_hardware()
                 self.__initialized_hw.value = True
-            
+
+        axis_initialized = self.__initialized_hw_axis[axis]
+        if not axis_initialized.value:
+            self.initialize_hardware_axis(axis)
+            axis_initialized.value = 1
+
         self.initialize_axis(axis)
         self.__initialized_axis[axis] = True
 
-        if not self.__initialized_hw_axis[axis].value:
-
-            # apply settings or config parameters
-            def get_setting_or_config_value(name, converter=float):
-                value = axis.settings.get(name)
-                if value is None:
-                    try:
-                        value = axis.config.get(name, converter)
-                    except:
-                        return None
-                return value
-
+        try:
             mandatory_config_list = list()
 
             for config_param in self.get_mandatory_config_parameters(axis):
@@ -201,18 +229,18 @@ class Controller(object):
                     mandatory_config_list.append(config_param)
 
             for setting_name in mandatory_config_list:
-                value = get_setting_or_config_value(setting_name)
+                value = get_setting_or_config_value(axis, setting_name)
                 if value is None:
                     raise RuntimeError("%s is missing in configuration for axis '%s`." % (setting_name, axis.name))
                 meth = getattr(axis, setting_name)
                 meth(value)
 
-            low_limit = get_setting_or_config_value("low_limit")
-            high_limit = get_setting_or_config_value("high_limit")
+            low_limit = get_setting_or_config_value(axis, "low_limit")
+            high_limit = get_setting_or_config_value(axis, "high_limit")
             axis.limits(low_limit, high_limit)
-
-            self.initialize_hardware_axis(axis)
-            self.__initialized_hw_axis[axis].value = True
+        except:
+            self.__initialized_axis[axis] = False
+            raise
 
     def get_axis(self, axis_name):
         axis = self._axes[axis_name]
@@ -225,7 +253,7 @@ class Controller(object):
     def initialize_hardware_axis(self, axis):
         """
         This method should contain all commands needed to initialize the hardware for this axis.
-        i.e: velocity, close loop configuration...
+        i.e: power, closed loop configuration...
     	This initialization will call only once (by the first client).
         """
         pass
@@ -240,18 +268,6 @@ class Controller(object):
 
     def get_class_name(self):
         return self.__class__.__name__
-
-    def _initialize_encoder(self, encoder):
-        if self.__initialized_encoder[encoder]:
-            return
-       
-        if ENCODER_AXIS.get(encoder.name):
-            axis_name = ENCODER_AXIS[encoder.name]
-            axis = self.get_axis(axis_name)
-            axis.controller._initialize_axis(axis)
- 
-        self.initialize_encoder(encoder)
-        self.__initialized_encoder[encoder] = True
 
     def initialize_encoder(self, encoder):
         raise NotImplementedError
@@ -394,7 +410,6 @@ class CalcController(Controller):
                 raise RuntimeError(
                     "Real axis '%s` doesn't exist" % real_axis.name)
             self.reals.append(real_axis)
-            real_axis.controller._initialize_axis(real_axis)
 
         self.pseudos = [axis for axis_name, axis in self.axes.iteritems()
                         if axis not in self.reals]
@@ -402,24 +417,19 @@ class CalcController(Controller):
         self._reals_group = Group(*self.reals)
         event.connect(self._reals_group, 'move_done', self._real_move_done)
 
-        calc = False
         for pseudo_axis in self.pseudos:
-	    self._Controller__initialized_hw_axis[pseudo_axis].value = True
-            self._initialize_axis(pseudo_axis)
-	    event.connect(pseudo_axis, 'sync_hard', self._pseudo_sync_hard)
-            if self.read_position(pseudo_axis) is None:
-                # the pseudo axis position has *never* been calculated
-                calc = True                        
+	        event.connect(pseudo_axis, 'sync_hard', self._pseudo_sync_hard)
 
         for real_axis in self.reals:
             event.connect(real_axis, 'internal_position', self._calc_from_real)
             event.connect(real_axis, 'internal__set_position', self._real_setpos_update)
 
-        if calc:
-	    self._calc_from_real()
-
     def initialize_axis(self, axis):
         pass
+
+    def initialize_hardware_axis(self, axis):
+        if self.read_position(axis) is None:
+            self._calc_from_real()
 
     def _pseudo_sync_hard(self):
         for real_axis in self.reals:
@@ -445,6 +455,25 @@ class CalcController(Controller):
         for tagged_axis_name, setpos in new_setpos.iteritems():
             axis = self._tagged[tagged_axis_name][0]
             axis.settings.set("_set_position", axis.dial2user(setpos))
+
+    def _check_limits(self, axis, positions):
+        assert axis not in self.reals
+        assert axis in self.pseudos
+
+        pseudo_axis_tag = self._axis_tag(axis)
+
+        axis_positions = self._get_set_positions()
+        for ptag, ppos in axis_positions.iteritems():
+            if ptag == pseudo_axis_tag:
+                axis_positions[ptag] = positions
+            else:
+                axis_positions[ptag] = numpy.full_like(positions, ppos)
+
+        real_positions = self.calc_to_real(axis_positions)
+            
+        for rtag, rpos in real_positions.iteritems():
+            real_axis = self._tagged[rtag][0]
+            real_axis.controller._check_limits(real_axis, rpos)
 
     def _do_calc_from_real(self):
         real_positions_by_axis = self._reals_group.position()

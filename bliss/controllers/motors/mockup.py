@@ -101,6 +101,7 @@ class Mockup(Controller):
 
         # this is to test axis are initialized only once
         axis.settings.set('init_count', axis.settings.get('init_count') + 1)
+        axis.stop_jog_called = False
 
     def initialize_encoder(self, encoder):
         self.__encoders.setdefault(encoder, {})["measured_noise"] = None
@@ -165,6 +166,7 @@ class Mockup(Controller):
         self._axis_moves[axis]['motion'] = axis_motion
 
     def start_jog(self, axis, velocity, direction):
+        axis.stop_jog_called = False
         t0 = time.time()
         pos = self.read_position(axis)
         self.set_velocity(axis, velocity)
@@ -292,6 +294,10 @@ class Mockup(Controller):
            return self._check_hw_limits(axis)
         else:
            return AxisState("MOVING")
+
+    def stop_jog(self, axis):
+        axis.stop_jog_called = True
+        return Controller.stop_jog(self, axis)
 
     """
     Must send a command to the controller to abort the motion of given axis.

@@ -7,6 +7,10 @@
 
 import pytest
 from bliss.config import settings
+import cPickle
+
+class DummyObject(object):
+    pass
 
 def test_simple_setting(beacon):
     session = beacon.get("test_session")
@@ -72,6 +76,26 @@ def test_hash_setting(beacon):
     assert myDict.items() == shs.items()
     assert myDict.values() == shs.values()
     assert shs.keys() == myDict.keys()
+
+def test_hash_setting_default_value(beacon):
+    shs = settings.HashSetting("myNewHkey")
+
+    test_object = DummyObject()
+
+    assert shs.get("a") is None
+    setting_object = shs.get("a", default=test_object)
+    assert test_object is setting_object
+
+def test_hash_setting_default_value_readwrite_conv(beacon):
+    shs = settings.HashSetting("myNewHkey",
+                               read_type_conversion=settings.pickle_loads,
+                              write_type_conversion=cPickle.dumps)
+
+    test_object = DummyObject()
+
+    assert shs.get("a") is None
+    setting_object = shs.get("a", default=test_object)
+    assert test_object is setting_object
 
 def test_queue_setting(beacon):
     session = beacon.get("test_session")

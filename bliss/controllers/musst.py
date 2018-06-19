@@ -110,6 +110,10 @@ class musst(object):
         def channel_id(self):
             return self._channel_id
         
+        @property
+        def switch(self):
+            return self._switch
+
         def run(self, program_name=None):
             if program_name is None:
                 self._cnt_cmd("RUN")

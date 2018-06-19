@@ -938,3 +938,15 @@ class Switch(BaseSwitch):
 
     def _states_list(self):
         return self.__axes.keys() + ["DISABLED"]
+
+    @property
+    def scaling_and_offset(self):
+        self.init()
+        with self.__controller.sock.lock:
+            axis_channel = int(self.__controller.command("SPA? {output_chan} 0xa000004".\
+                                                             format(output_chan=self.__output_channel)))
+            scaling = float(self.__controller.command("SPA? {axis_channel} 0x7001005".\
+                                                          format(axis_channel=axis_channel)))
+            offset = float(self.__controller.command("SPA? {axis_channel} 0x7001006".\
+                                                         format(axis_channel=axis_channel)))
+            return scaling,offset

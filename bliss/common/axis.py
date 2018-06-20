@@ -989,7 +989,7 @@ class Axis(object):
         dial_target_pos = self.user2dial(user_target_pos)
         delta = dial_target_pos - self.dial()
         if abs(delta) < 1E-6:
-            return
+            delta = 0.
 
         # check software limits
         target_pos = dial_target_pos * self.steps_per_unit
@@ -1008,7 +1008,7 @@ class Axis(object):
             high_limit_msg, low_limit_msg = low_limit_msg, high_limit_msg
 
         if backlash:
-            if cmp(delta, 0) != cmp(backlash, 0):
+            if abs(delta) > 1e-6 and cmp(delta, 0) != cmp(backlash, 0):
                 # move and backlash are not in the same direction;
                 # apply backlash correction, the move will happen
                 # in 2 steps
@@ -1029,7 +1029,7 @@ class Axis(object):
         return motion
 
     @lazy_init
-    def prepare_move(self, user_target_pos, relative=False):
+    def prepare_move(self, user_target_pos, relative=False, trajectory=False):
         """Prepare a motion. Internal usage only"""
         elog.debug("prepare_move: user_target_pos=%g, relative=%r" %
                    (user_target_pos, relative))
@@ -1047,10 +1047,14 @@ class Axis(object):
             user_target_pos += user_initial_pos
 
         motion = self._get_motion(user_target_pos)
+        if not trajectory:
+            if abs(motion.delta) < 1e-6:
+                motion = None
 
         self.__execute_pre_move_hook(motion)
-
-        self.__controller.prepare_move(motion)
+        
+        if not trajectory:
+            self.__controller.prepare_move(motion)
 
         self._set_position(user_target_pos)
 

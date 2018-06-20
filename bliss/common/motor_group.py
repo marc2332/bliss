@@ -289,7 +289,8 @@ class TrajectoryGroup(object):
         for trajectory in self.trajectories:
             pvt = trajectory.pvt
             final_pos = pvt['position'][-1]
-            motion = trajectory.axis.prepare_move(final_pos)
+            motion = trajectory.axis.prepare_move(final_pos,
+                                                  trajectory=True)
             if not motion:
                 continue
             motions_dict.setdefault(motion.axis.controller, []).append(motion)

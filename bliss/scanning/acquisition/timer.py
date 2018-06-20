@@ -47,9 +47,9 @@ class SoftwareTimerMaster(AcquisitionMaster):
             gevent.sleep(self.sleep_time)
 
         start_trigger = time.time()
+        self.trigger_slaves()
         self.channels[0].emit(start_trigger)
 
-        self.trigger_slaves()
         elapsed_trigger = time.time() - start_trigger
         gevent.sleep(self.count_time - elapsed_trigger)
 

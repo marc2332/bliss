@@ -147,9 +147,10 @@ class RoiCounters(object):
         self._proxy = proxy
         self._acquisition_proxy = acquisition_proxy
         self.name = 'roi_counters'
-        self._current_config = settings.SimpleSetting(self.name,
+        full_name = '%s:%s' % (name,self.name)
+        self._current_config = settings.SimpleSetting(full_name,
                                                       default_value='default')
-        settings_name = '%s:%s' % (self.name, self._current_config.get())
+        settings_name = '%s:%s' % (full_name, self._current_config.get())
         self._save_rois = settings.HashObjSetting(settings_name)
         self._roi_ids = {}
         self._grouped_read_handler = RoiCounterGroupReadHandler(self)

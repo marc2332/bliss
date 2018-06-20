@@ -188,6 +188,8 @@ class musst(object):
         gpib_eos -- end of line termination
         musst_prg_root -- default path for musst programs
         block_size -- default is 8k but can be lowered to 512 depend on gpib.
+        one_line_programing -- default is False we send several lines 
+                               to program the musst
         channels: -- list of configured channels
         in this dictionary we need to have:
         label: -- the name alias for the channels
@@ -241,6 +243,7 @@ class musst(object):
         self.__last_md5 = Cache(self,'last__md5')
         self.__prg_root = config_tree.get('musst_prg_root')
         self.__block_size = config_tree.get('block_size',8*1024)
+        self.__one_line_programing = config_tree.get('one_line_programing',"serial_url" in config_tree)
         
         #Configured channels
         self._channels = OrderedDict()
@@ -380,9 +383,13 @@ class musst(object):
             return
 
         self.putget("#CLEAR")
-        # split into lines for Prologix
-        for l in program_data.splitlines():
-            self._cnx.write("+%s%s" % (l, self._txterm))
+        if self.__one_line_programing:
+            # split into lines for Prologix
+            for l in program_data.splitlines():
+                self._cnx.write("+%s\r\n" % l)
+        else:
+            prg = "".join(["+%s\r\n" % l for l in program_data.splitlines()])
+            self._cnx.write(prg)
         if self.STATE != self.IDLE_STATE:
             err = self.putget("?LIST ERR")
             raise RuntimeError(err)

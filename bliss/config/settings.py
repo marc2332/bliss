@@ -21,8 +21,13 @@ class InvalidValue(Null):
         return '#ERR'
 
 
-def get_cache():
-    return client.get_cache(db=0)
+class DefaultValue(object):
+    def __init__(self, wrapped_value):
+        self.__value = wrapped_value
+
+    @property
+    def value(self):
+        return self.__value
 
 
 def boolify(s, **keys):
@@ -54,6 +59,10 @@ def pickle_loads(var):
         return InvalidValue()
 
 
+def get_cache():
+    return client.get_cache(db=0)
+
+
 def ttl_func(cnx, name, value=-1):
     if value is None:
         return cnx.persist(name)
@@ -77,7 +86,9 @@ def read_decorator(func):
                     tmp.update(value)
                     value = tmp
             else:
-                if value is not None:
+                if isinstance(value, DefaultValue):
+                    value = value.value
+                elif value is not None:
                     value = self._read_type_conversion(value)
         if value is None:
             if hasattr(self, '_default_value'):
@@ -487,10 +498,7 @@ class HashSetting(object):
     def get(self, key, default=None):
         v = self.raw_get(key)
         if v is None:
-            if self._read_type_conversion:
-                v = self._read_type_conversion(default)
-            else:
-                v = default
+            v = DefaultValue(default)
         return v
 
     def _raw_get_all(self):

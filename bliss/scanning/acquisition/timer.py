@@ -19,9 +19,11 @@ class SoftwareTimerMaster(AcquisitionMaster):
         self.count_time = count_time
         self.sleep_time = sleep_time
         self.channels.append(AcquisitionChannel('timestamp', numpy.double, ()))
+        self.channels.append(AcquisitionChannel('time_trigger', numpy.double, ()))
 
         self._nb_point = 0
-
+        self._started_time = None
+        
     def __iter__(self):
         npoints = self.npoints
         if npoints > 0:
@@ -48,7 +50,11 @@ class SoftwareTimerMaster(AcquisitionMaster):
 
         start_trigger = time.time()
         self.trigger_slaves()
+        if not self._nb_point:
+            self._started_time = start_trigger
+
         self.channels[0].emit(start_trigger)
+        self.channels[1].emit(start_trigger-self._started_time)
 
         elapsed_trigger = time.time() - start_trigger
         gevent.sleep(self.count_time - elapsed_trigger)

@@ -557,7 +557,7 @@ class PI_E712(Controller):
             #trajectories events
             events = traj.events_pattern_positions if is_cyclic_traj else traj.events_positions
             for evt in events:
-                commmands.append("TWS 1 {} 1", evt['time']/servo_cycle)
+                commmands.append("TWS 1 %d 1" % (round(evt['time']/servo_cycle)))
 
         for cmd in commmands:
             self.command(cmd)

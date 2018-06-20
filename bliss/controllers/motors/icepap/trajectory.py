@@ -240,6 +240,9 @@ class TrajectoryAxis(Axis):
             axes_str = ' '.join(('%s' % axis.address for axis in self.real_axes))
             _command(self.controller._cnx,"#PARVEL {} {}".format(velocity,
                                                                  axes_str))
+            self._acceleration_time = float(_command(self.controller._cnx,
+                                                     "?PARACCT {}".format(axes_str[0])))
+            
         self._velocity = velocity
         return velocity
     
@@ -282,7 +285,7 @@ class TrajectoryAxis(Axis):
                 rposition = positions.mean()
             #update real motors
             for axis in self.enabled_axes:
-                axis._read_dial_and_update()
+                axis._update_dial()
         return rposition
 
     def _state(self):

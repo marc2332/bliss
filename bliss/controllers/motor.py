@@ -290,9 +290,8 @@ class Controller(object):
 
     def _prepare_trajectory(self, *trajectories):
         for traj in trajectories:
-            if traj.events_positions and not self.has_trajectory_event():
-                raise NotImplementedError("Events are not supported"
-                                          " by controller for trajectories")
+            if traj.has_events() and not self.has_trajectory_event():
+                raise NotImplementedError("Controller does not support trajectories with events")
         else:
             self.prepare_trajectory(*trajectories)
             if self.has_trajectory_event():

@@ -303,8 +303,8 @@ class Trajectory(object):
         """
         self.__axis = axis
         self.__pvt = pvt
-        self.__events_positions = numpy.empty(0, dtype=[('position', 'f8'), ('velocity', 'f8'),
-                                                        ('time', 'f8')])
+        self._events_positions = numpy.empty(0, dtype=[('position', 'f8'), ('velocity', 'f8'),
+                                                       ('time', 'f8')])
         
     @property
     def axis(self):
@@ -316,10 +316,14 @@ class Trajectory(object):
 
     @property
     def events_positions(self):
-        return self.__events_positions
+        return self._events_positions
     @events_positions.setter
     def events_positions(self, events):
-        self.__events_positions = events
+        self._events_positions = events
+ 
+    def has_events(self):
+        return self._events_positions.size
+
     def __len__(self):
         return len(self.pvt)
 
@@ -327,16 +331,16 @@ class Trajectory(object):
         """
         Return a new trajectory with pvt position, velocity converted to dial units and steps per unit
         """
-        user_pos = self.pvt['position']
-        user_velocity = self.pvt['velocity']
-        pvt = numpy.copy(self.pvt)
+        user_pos = self.__pvt['position']
+        user_velocity = self.__pvt['velocity']
+        pvt = numpy.copy(self.__pvt)
         pvt['position'] = self.axis.user2dial(user_pos) * self.axis.steps_per_unit
         pvt['velocity'] *= self.axis.steps_per_unit
         new_obj = self.__class__(self.axis, pvt)
-        pattern_evts = numpy.copy(self.events_positions)
+        pattern_evts = numpy.copy(self._events_positions)
         pattern_evts['position'] *= self.axis.steps_per_unit
         pattern_evts['velocity'] *= self.axis.steps_per_unit
-        new_obj.events_positions = pattern_evts
+        new_obj._events_positions = pattern_evts
         return new_obj
 
 class CyclicTrajectory(Trajectory):
@@ -361,8 +365,8 @@ class CyclicTrajectory(Trajectory):
         return super(CyclicTrajectory, self).events_positions
     @events_pattern_positions.setter
     def events_pattern_positions(self, values):
-        super(CyclicTrajectory, self).events_positions = values
-        
+        self._events_positions = values
+
     @property
     def is_closed(self):
         """True if the trajectory is closed (first point == last point)"""
@@ -387,7 +391,7 @@ class CyclicTrajectory(Trajectory):
             offset = 0
         pvt = numpy.empty(size, dtype=raw_pvt.dtype)
         last_time, last_position = 0, self.origin
-        for cycle in range(self.__nb_cycles):
+        for cycle in range(self.nb_cycles):
             start = cycle_size*cycle + offset
             end = start + cycle_size
             pvt[start:end] = raw_pvt
@@ -408,12 +412,12 @@ class CyclicTrajectory(Trajectory):
         time_offset = 0.
         last_time = self.pvt_pattern['time'][-1]
         nb_pattern_evts = len(pattern_evts)
-        all_events = numpy.empty(self.nb_cycles * len(nb_pattern_evts),
+        all_events = numpy.empty(self.nb_cycles * len(pattern_evts),
                                  dtype=pattern_evts.dtype)
         for i in range(self.nb_cycles):
             sub_evts = all_events[i*nb_pattern_evts:
                                   i*nb_pattern_evts+nb_pattern_evts]
-            sub_evts = pattern_evts
+            sub_evts[:] = pattern_evts
             sub_evts['time'] += time_offset
             time_offset += last_time
         return all_events

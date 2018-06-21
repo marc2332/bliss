@@ -5,6 +5,7 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+import os
 import inspect
 import gevent
 import types
@@ -337,7 +338,6 @@ class periodic_exec(object):
                 del func
                 gevent.sleep(self.period)
 
-
 def get_objects_iter(*names_or_objs):
     from bliss.config.static import get_config
     cfg = get_config()
@@ -384,4 +384,11 @@ def get_axes_positions_iter(on_error=None):
 
     for task in tasks:
         yield task.get()
+
+def common_prefix(paths, sep=os.path.sep):
+    def allnamesequal(name):
+        return all(n==name[0] for n in name[1:])
+    bydirectorylevels = zip(*[p.split(sep) for p in paths])
+    return sep.join(x[0] for x in itertools.takewhile(allnamesequal,
+                                                      bydirectorylevels))
 

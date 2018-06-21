@@ -208,13 +208,13 @@ class Controller(object):
                 self.initialize_hardware()
                 self.__initialized_hw.value = True
 
+        self.initialize_axis(axis)
+        self.__initialized_axis[axis] = True
+
         axis_initialized = self.__initialized_hw_axis[axis]
         if not axis_initialized.value:
             self.initialize_hardware_axis(axis)
             axis_initialized.value = 1
-
-        self.initialize_axis(axis)
-        self.__initialized_axis[axis] = True
 
         try:
             mandatory_config_list = list()

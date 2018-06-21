@@ -364,7 +364,7 @@ class RoiCounters(object):
     def __repr__(self):
         name = self.name.rsplit(':', 1)[-1]
         lines = ['[{0}]\n'.format(self.config_name)]
-        rois = self.get_rois()
+        rois = [self[name] for name in sorted(self.keys())]
         if rois:
             header = 'Name', 'ROI (<X, Y> <W x H>)'
             x = max((len(str(roi.x)) for roi in rois))

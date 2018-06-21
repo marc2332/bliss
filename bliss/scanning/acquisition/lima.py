@@ -79,7 +79,8 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             self.parameters.setdefault('saving_mode', 'AUTO_FRAME')
             self.parameters.setdefault('saving_format', 'EDF')
             self.parameters.setdefault('saving_frame_per_file', 1)
-            self.parameters.setdefault('saving_directory', full_path)
+            self.parameters.setdefault('saving_directory',
+                                       self._lima_controller.get_mapped_path(full_path))
             self.parameters.setdefault(
                 'saving_prefix', '%s_%s' % (scan_name, camera_name))
             self.parameters.setdefault('saving_suffix', '.edf')
@@ -91,8 +92,6 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             self._image_channel.description.update(self.parameters)
 
         for param_name, param_value in self.parameters.iteritems():
-            if param_name == 'saving_directory':
-                param_value = self._directories_mapping(param_value)
             setattr(self.device, param_name, param_value)
 
         self.device.prepareAcq()
@@ -182,9 +181,3 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         except gevent.Timeout:
             return False
 
-    def _directories_mapping(self, param_value):
-        param_value = os.path.normpath(param_value)
-        for src, dst in sorted(self.controllers.directories_mapping, reverse=True):
-            if param_value.startswith(src):
-                return os.path.normpath(param_value.replace(src, dst))
-        return os.path.normpath(param_value)

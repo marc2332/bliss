@@ -6,12 +6,13 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import importlib
+import os
 
 from .properties import LimaProperties
 from .bpm import Bpm
 from .roi import Roi, RoiCounters
 from .image import ImageCounter
-
+from bliss.common.utils import common_prefix
 from bliss.common.tango import DeviceProxy, DevFailed
 from bliss.common.measurement import namespace, counter_namespace
 from bliss.config import settings
@@ -26,15 +27,13 @@ class Lima(object):
 
         directories_mapping:
           default:              # Mapping name
-            # Source, Destination
-            [[/data/inhouse,"I:/"],
-             [/data/visitor,"Z:/"],
-             [/data/visitor/bla/much,"K:/"],
-             [/data/visitor/bla,"V:/"]
-            ]
+            - path: /data/inhouse
+              replace-with: /hz
+            - path: /data/visitor
+              replace-with: Z:/
           local:
-            [[/data/inhouse,"L:/"],
-             [/data/visitor,"L:/"]]
+            - path: /data/inhouse
+              replace-with: L:/
     """
     _ROI_COUNTERS = 'roicounter'
     _BPM = 'beamviewer'
@@ -85,42 +84,55 @@ class Lima(object):
         self._image = None
         self._acquisition = None
         self._directories_mapping = config_tree.get('directories_mapping', dict())
-        self._directories_mapping_name = settings.SimpleSetting('%s:directories_mapping' % name)
-        mapping_name = self._directories_mapping_name.get()
-        if mapping_name not in self._directories_mapping:
-            self._directories_mapping_name.clear()
-
-    @property
-    def directories_mapping(self):
-        mapping_name = self._directories_mapping_name.get()
-        if mapping_name is not None:
-            mapping_list = self._directories_mapping[mapping_name]
-        else:
-            for mapping_name, directories_mapping in self._directories_mapping.items():
-                mapping_list = directories_mapping
-                break
-            else:
-                mapping_list = list()
-        return mapping_list
-
+        self._active_dir_mapping = settings.SimpleSetting('%s:directories_mapping' % name)
+    
     @property
     def directories_mapping_names(self):
         return self._directories_mapping.keys()
 
     @property
-    def directories_mapping_name(self):
-        mapping_name = self._directories_mapping_name.get()
-        if mapping_name is not None:
-            return mapping_name
-        for mapping_name in self._directories_mapping.keys():
-            return mapping_name
-    @directories_mapping_name.setter
-    def directories_mapping_name(self, name):
+    def current_directories_mapping(self):
+        mapping_name = self._active_dir_mapping.get()
+        if mapping_name and mapping_name not in self._directories_mapping:
+            self._active_dir_mapping.clear()
+            mapping_name = None
+
+        if mapping_name is None:
+            # first mapping is selected
+            try:
+                mapping_name = self.directories_mapping_names[0]
+            except IndexError:
+                # no mapping
+                pass
+
+        return mapping_name
+  
+    @property
+    def directories_mapping(self):
+        mapping_name = self.current_directories_mapping
+        return self._directories_mapping.get(mapping_name, [])
+
+    def select_directories_mapping(self, name):
         if name in self._directories_mapping:
-            self._directories_mapping_name.set(name)
+            self._active_dir_mapping.set(name)
         else:
-            raise ValueError("Doesn't have mapping_name (%s), possible mapping are (%r)" %
-                             (name, self._directories_mapping.keys()))
+            msg = "%s: dir. mapping '%s` does not exist. Should be one of: %s" \
+                        % (self.name, name, ",".join(self.directories_mapping_names))
+            raise ValueError(msg)
+
+    def get_mapped_path(self, path):
+        path = os.path.normpath(path)
+
+        for mapping in sorted(self.directories_mapping, reverse=True):
+            base_path = mapping['path']
+            replace_with = mapping['replace-with']
+            # os.path.commonprefix function is broken as it returns common
+            # characters, that may not form a valid directory path: hence
+            # the use of 'dirname'
+            if common_prefix([path, base_path]) == base_path:
+                return os.path.join(replace_with, os.path.relpath(path, base_path))
+
+        return path
 
     @property
     def proxy(self):

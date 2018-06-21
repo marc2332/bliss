@@ -33,6 +33,10 @@ class LimaAcquisitionMaster(AcquisitionMaster):
 
         All parameters are directly matched with the lima device server
         """
+        if not isinstance(device, lima.Lima):
+            raise TypeError("Device for LimaAcquisitionMaster must be an"
+                            " instance of a BLISS Lima controller")
+
         self.parameters = locals().copy()
         del self.parameters['self']
         del self.parameters['device']
@@ -44,17 +48,11 @@ class LimaAcquisitionMaster(AcquisitionMaster):
 
         trigger_type = AcquisitionMaster.SOFTWARE if 'INTERNAL' in acq_trigger_mode else AcquisitionMaster.HARDWARE
 
-        device_name = device.name
-        if isinstance(device, lima.Lima):
-            self.controllers = device
-            device = device.proxy
-        else:
-            self.controllers = None
-
-        AcquisitionMaster.__init__(self, device, device_name, acq_nb_frames, #device.user_detector_name, acq_nb_frames,
+        AcquisitionMaster.__init__(self, device.proxy, device.name, acq_nb_frames,
                                    trigger_type=trigger_type,
                                    prepare_once=prepare_once, start_once=start_once)
 
+        self._lima_controller = device
         self._reading_task = None
         self._image_channel = None
         self._last_image_ready = -1

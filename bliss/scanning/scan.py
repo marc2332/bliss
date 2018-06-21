@@ -20,7 +20,7 @@ import re
 from bliss import setup_globals
 from bliss.common.event import connect, send
 from bliss.common.plot import get_flint, CurvePlot, ImagePlot
-from bliss.common.utils import periodic_exec
+from bliss.common.utils import periodic_exec, get_axes_positions_iter
 from bliss.config.conductor import client
 from bliss.config.settings import Parameters, _change_to_obj_marshalling
 from bliss.data.node import _get_or_create_node, _create_node, DataNodeContainer, is_zerod
@@ -351,6 +351,12 @@ class Scan(object):
             self._scan_info['save'] = False
         self._scan_info['session_name'] = scan_config.session
         self._scan_info['user_name'] = scan_config.user_name
+        self._scan_info['positioners'] = {}
+        self._scan_info['positioners_dial'] = {}
+        for axis_name, axis_pos, axis_dial_pos in \
+            get_axes_positions_iter(on_error="ERR"):
+            self._scan_info['positioners'][axis_name] = axis_pos
+            self._scan_info['positioners_dial'][axis_name] = axis_dial_pos
 
         self._data_watch_callback = data_watch_callback
         self._data_events = dict()

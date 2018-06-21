@@ -337,3 +337,51 @@ class periodic_exec(object):
                 del func
                 gevent.sleep(self.period)
 
+
+def get_objects_iter(*names_or_objs):
+    from bliss.config.static import get_config
+    cfg = get_config()
+    for i in names_or_objs:
+        if isinstance(i, (str, unicode)):
+            i = cfg.get(i)
+        yield i
+
+
+def get_objects_type_iter(typ):
+    from bliss import setup_globals
+    for name in dir(setup_globals):
+        elem = getattr(setup_globals, name)
+        if isinstance(elem, typ):
+            yield elem
+
+
+def get_axes_iter():
+    from bliss.common.axis import Axis
+    return get_objects_type_iter(Axis)
+
+
+def get_axes_names_iter():
+    for axis in get_axes_iter():
+        yield axis.name
+
+
+def safe_get(obj, member, on_error=None, **kwargs):
+    try:
+        return getattr(obj, member)(**kwargs)
+    except Exception as e:
+        if on_error:
+            return on_error
+
+def get_axes_positions_iter(on_error=None):
+    def request(axis):
+        return axis.name, \
+               safe_get(axis, "position", on_error), \
+               safe_get(axis, "dial", on_error)
+
+    tasks = list()
+    for axis in get_axes_iter():
+        tasks.append(gevent.spawn(request, axis))
+
+    for task in tasks:
+        yield task.get()
+

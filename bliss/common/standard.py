@@ -30,10 +30,9 @@ from pygments.lexers import PythonLexer
 from pygments.formatters import TerminalFormatter
 
 from bliss import setup_globals
-from bliss.common.axis import Axis
-from bliss.config.static import get_config
 from bliss.common.motor_group import Group
-from bliss.common.utils import OrderedDict
+from bliss.common.utils import OrderedDict, get_objects_iter, \
+        get_objects_type_iter, get_axes_iter, get_axes_positions_iter, safe_get
 from bliss.common.measurement import BaseCounter
 from bliss.shell.cli import repl
 
@@ -44,36 +43,6 @@ _FLOAT_FORMAT = '.05f'
 
 
 _log = logging.getLogger('bliss.standard')
-
-
-def __get_objects_iter(*names_or_objs):
-    cfg = get_config()
-    for i in names_or_objs:
-        if isinstance(i, (str, unicode)):
-            i = cfg.get(i)
-        yield i
-
-
-def __get_objects_type_iter(typ):
-    for name in dir(setup_globals):
-        elem = getattr(setup_globals, name)
-        if isinstance(elem, typ):
-            yield elem
-
-
-__get_axes_iter = functools.partial(__get_objects_type_iter, Axis)
-
-
-def __get_axes_names_iter():
-    for axis in __get_axes_iter():
-        yield axis.name
-
-
-def __safe_get(obj, member, on_error=_ERR, **kwargs):
-    try:
-        return getattr(obj, member)(**kwargs)
-    except Exception as e:
-        return on_error
 
 
 def __tabulate(data, **kwargs):
@@ -98,32 +67,25 @@ def sync(*axes):
               all axes present in the session
     """
     if axes:
-        axes = __get_objects_iter(*axes)
+        axes = get_objects_iter(*axes)
     else:
-        axes = __get_axes_iter()
+        axes = get_axes_iter()
     for axis in axes:
         axis.sync_hard()
 
 
 def wa(**kwargs):
     """
-    Displays all position positions (Where All) in both user and dial units
+    Displays all positions (Where All) in both user and dial units
     """
     max_cols = kwargs.get('max_cols', _MAX_COLS)
     err = kwargs.get('err', _ERR)
-    get = functools.partial(__safe_get, on_error=err)
+    get = functools.partial(safe_get, on_error=err)
 
     print_("Current Positions (user, dial)")
     header, pos, dial = [], [], []
     tables = [(header, pos, dial)]
-    tasks = list()
-    def request(axis):
-        return axis.name,get(axis, "position"),get(axis, "dial")
-    for axis in __get_axes_iter():
-        tasks.append(gevent.spawn(request,axis))
-
-    for task in tasks:
-        axis_name,position,dial_position = task.get()
+    for axis_name, position, dial_position in get_axes_positions_iter(on_error=_ERR): 
         if len(header) == max_cols:
             header, pos, dial = [], [], []
             tables.append((header, pos, dial))
@@ -148,15 +110,15 @@ def wm(*axes, **kwargs):
         return
     max_cols = kwargs.get('max_cols', _MAX_COLS)
     err = kwargs.get('err', _ERR)
-    get = functools.partial(__safe_get, on_error=err)
+    get = functools.partial(safe_get, on_error=err)
 
     header = [""]
     User, high_user, user, low_user = ["User"], [" High"], [" Current"], [" Low"]
     Dial, high_dial, dial, low_dial = ["Dial"], [" High"], [" Current"], [" Low"]
     tables = [(header, User, high_user, user, low_user,
                Dial, high_dial, dial, low_dial)]
-    for axis in __get_objects_iter(*axes):
-        low, high = __safe_get(axis, "limits", on_error=(err, err))
+    for axis in get_objects_iter(*axes):
+        low, high = safe_get(axis, "limits", on_error=(err, err))
         if len(header) == max_cols:
             header = [None]
             User, high_user, user, low_user = ["User"], [" High"], [" Current"], [" Low"]
@@ -193,10 +155,10 @@ def sta(read_hw=False):
     """
     global __axes
     table = [("Axis", "Status")]
-    table += [(axis.name, __safe_get(axis, "state",
-                                     on_error="<status not available>",
-                                     read_hw=read_hw))
-              for axis in __get_axes_iter()]
+    table += [(axis.name, safe_get(axis, "state",
+                                   on_error="<status not available>",
+                                   read_hw=read_hw))
+              for axis in get_axes_iter()]
     print_(__tabulate(table))
 
 
@@ -297,7 +259,7 @@ def __umove(*args, **kwargs):
 def __move(*args, **kwargs):
     wait, relative = kwargs.get('wait', True), kwargs.get('relative', False)
     motor_pos = OrderedDict()
-    for m, p in zip(__get_objects_iter(*args[::2]), args[1::2]):
+    for m, p in zip(get_objects_iter(*args[::2]), args[1::2]):
         motor_pos[m] = p
     group = Group(*motor_pos.keys())
     group.move(motor_pos, wait=wait, relative=relative)

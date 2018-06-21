@@ -5,10 +5,12 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+import os
 import pytest
 from bliss.common.tango import DeviceProxy
 from bliss.common.measurement import BaseCounter
 from bliss.controllers.lima.roi import Roi
+from bliss import setup_globals
 
 def test_lima_simulator(beacon, lima_simulator):
     simulator = beacon.get("lima_simulator")
@@ -37,7 +39,6 @@ def test_lima_sim_bpm(beacon, lima_simulator):
 
     assert 'bpm' not in simulator.counters._fields
     assert 'bpm' not in simulator.counter_groups._fields
-
 
 def assert_lima_rois(lima_roi_counter, rois):
     roi_names = lima_roi_counter.getNames()
@@ -101,3 +102,49 @@ def test_rois(beacon, lima_simulator):
     rois.remove('r4')
     assert len(rois) == 1
     assert_lima_rois(roi_dev, dict(r1=r1))
+    
+def test_directories_mapping(beacon, lima_simulator):
+    simulator = beacon.get("lima_simulator")
+
+    assert simulator.directories_mapping_names == ['identity', 'fancy']
+    assert simulator.current_directories_mapping == 'identity'
+    assert simulator.get_mapped_path("/tmp/scans/bla") == "/tmp/scans/bla"
+    
+    try:
+        simulator.select_directories_mapping('fancy')
+        assert simulator.current_directories_mapping == 'fancy'
+        assert simulator.get_mapped_path("/tmp/scans/bla") == "/tmp/fancy/bla"
+
+        assert simulator.get_mapped_path("/data/inhouse") == "/data/inhouse"
+    finally:
+        simulator.select_directories_mapping('identity')
+
+    assert pytest.raises(ValueError, \
+                         "simulator.select_directories_mapping('invalid')")
+
+def test_lima_mapping_and_saving(beacon, lima_simulator):
+    session = beacon.get("test_session")
+    simulator = beacon.get("lima_simulator")
+    session.setup()
+    scan_saving = setup_globals.SCAN_SAVING
+
+    scan_saving.base_path="/tmp/scans"
+    saving_directory = None
+    try:
+        simulator.select_directories_mapping('fancy')
+        mapped_directory = simulator.get_mapped_path(scan_saving.get_path())
+        ct = setup_globals.ct(0.1, simulator, save=True, run=False)
+        mapped_directory = os.path.join(mapped_directory, ct.name)
+
+        try:
+            ct.run()
+        except Exception, e:
+            # this will fail because directory is not likely to exist
+            saving_directory = e.args[0].desc.split("Directory :")[-1].split()[0]
+
+    finally:
+        simulator.select_directories_mapping('identity')
+
+    # cannot use simulator.proxy.saving_directory because it is reset to ''
+    assert saving_directory == mapped_directory
+

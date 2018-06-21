@@ -103,7 +103,7 @@ def test_default_chain_with_roi_counter(beacon, lima_simulator):
           |-roi1
     """
     lima_sim = beacon.get("lima_simulator")
-    lima_sim.roi_counters.set_roi('roi1', (0,0,10,10))
+    lima_sim.roi_counters['roi1'] = 0,0,10,10
     assert lima_sim.counters.roi1
 
     try:
@@ -126,7 +126,7 @@ def test_default_chain_with_roi_counter(beacon, lima_simulator):
 
         assert nodes[1].save_flag == False
     finally:
-        lima_sim.roi_counters.clear_rois()
+        lima_sim.roi_counters.clear()
 
 def test_default_chain_with_roicounter_and_diode(beacon, lima_simulator):
     """Want to build the following acquisition chain:
@@ -144,7 +144,7 @@ def test_default_chain_with_roicounter_and_diode(beacon, lima_simulator):
     diode = beacon.get("diode")
     assert diode
     lima_sim = beacon.get("lima_simulator")
-    lima_sim.roi_counters.set_roi('roi1', (0,0,10,10))
+    lima_sim.roi_counters['roi1'] = (0,0,10,10)
     assert lima_sim.counters.roi1
 
     try:
@@ -169,7 +169,7 @@ def test_default_chain_with_roicounter_and_diode(beacon, lima_simulator):
         assert nodes[1].count_time == timer.count_time
         assert nodes[3].count_time == nodes[1].count_time
     finally:
-        lima_sim.roi_counters.clear_rois()
+        lima_sim.roi_counters.clear()
 
 
 def test_default_chain_with_roicounter_and_image(beacon, lima_simulator):
@@ -184,7 +184,7 @@ def test_default_chain_with_roicounter_and_image(beacon, lima_simulator):
           |-roi1
     """
     lima_sim = beacon.get("lima_simulator")
-    lima_sim.roi_counters.set_roi('roi1', (0,0,10,10))
+    lima_sim.roi_counters['roi1'] = (0,0,10,10)
     assert lima_sim.counters.roi1
 
     try:
@@ -207,7 +207,7 @@ def test_default_chain_with_roicounter_and_image(beacon, lima_simulator):
 
         assert nodes[1].save_flag == True
     finally:
-        lima_sim.roi_counters.clear_rois()
+        lima_sim.roi_counters.clear()
 
 
 def test_default_chain_with_lima_defaults_parameters(beacon, lima_simulator):
@@ -226,7 +226,7 @@ def test_default_chain_with_lima_defaults_parameters(beacon, lima_simulator):
     diode = beacon.get("diode2")
     assert diode
     lima_sim = beacon.get("lima_simulator")
-    lima_sim.roi_counters.set_roi('roi1', (0,0,10,10))
+    lima_sim.roi_counters['roi1'] = (0,0,10,10)
     assert lima_sim.counters.roi1
 
     scan_pars = {"npoints": 10,
@@ -254,7 +254,7 @@ def test_default_chain_with_lima_defaults_parameters(beacon, lima_simulator):
 
         assert nodes[1].parameters.get('acq_trigger_mode') == 'EXTERNAL_GATE'
     finally:
-        lima_sim.roi_counters.clear_rois()
+        lima_sim.roi_counters.clear()
         DEFAULT_CHAIN.set_settings([])
 
 def test_default_chain_with_recursive_master(beacon, lima_simulator):

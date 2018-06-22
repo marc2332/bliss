@@ -8,7 +8,7 @@
 import importlib
 import os
 
-from .properties import LimaProperties
+from .properties import LimaProperties, LimaProperty
 from .bpm import Bpm
 from .roi import Roi, RoiCounters
 from .image import ImageCounter
@@ -17,6 +17,22 @@ from bliss.common.tango import DeviceProxy, DevFailed
 from bliss.common.measurement import namespace, counter_namespace
 from bliss.config import settings
 
+class CameraBase(object):
+    def __init__(self, name, lima_device, proxy):
+        pass
+
+    @LimaProperty
+    def synchro_mode(self):
+        """
+        Camera synchronization capability
+        Acquisition can either check that the camera is ready for next image with
+        **ready_for_next_image** method or waiting to received the image data.
+
+        synchro_mode can be either "TRIGGER" => synchronization with **ready_for_next_image** or
+        "IMAGE" => synchronization with **last_image_ready**
+        """
+        return "TRIGGER"
+        
 class Lima(object):
     """
     Lima controller.
@@ -50,14 +66,20 @@ class Lima(object):
         npoints = scan_pars.get('npoints', 1)
         acq_expo_time = scan_pars['count_time']
         save_flag = scan_pars.get('save', False)
-        multi_mode = 'INTERNAL_TRIGGER_MULTI' in self.available_triggers
-        acq_nb_frames = npoints if multi_mode else 1
-        acq_trigger_mode = scan_pars.get(
-            'acq_trigger_mode',
-            'INTERNAL_TRIGGER_MULTI' if multi_mode else 'INTERNAL_TRIGGER')
+        if 'INTERNAL_TRIGGER_MULTI' in self.available_triggers:
+            default_trigger_mode = 'INTERNAL_TRIGGER_MULTI'
+        else:
+            default_trigger_mode = 'INTERNAL_TRIGGER'
+            
+        acq_trigger_mode = scan_pars.get('acq_trigger_mode', default_trigger_mode)
 
-        prepare_once = settings.get('prepare_once', multi_mode)
-        start_once = settings.get('start_once', False)
+        prepare_once = acq_trigger_mode in ('INTERNAL_TRIGGER_MULTI','EXTERNAL_GATE',
+                                            'EXTERNAL_TRIGGER_MULTI')
+        start_once = acq_trigger_mode not in ('INTERNAL_TRIGGER', 'INTERNAL_TRIGGER_MULTI')
+        data_synchronisation = scan_pars.get('data_synchronisation', False)
+        if data_synchronisation:
+            prepare_once = start_once = False
+        acq_nb_frames = npoints if prepare_once else 1
         # Instanciate master
         return LimaAcquisitionMaster(
             self,
@@ -170,7 +192,7 @@ class Lima(object):
             try:
                 camera_module = importlib.import_module('.%s' % camera_type,__package__)
             except ImportError:
-                camera_class = None
+                camera_class = CameraBase
             else:
                 camera_class = camera_module.Camera
             self._camera = LimaProperties('LimaCamera', proxy,

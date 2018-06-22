@@ -9,6 +9,7 @@ from ..chain import AcquisitionMaster, AcquisitionChannel
 from bliss.controllers import lima
 from bliss.common.tango import get_fqn
 import gevent
+from gevent import event
 import numpy
 import os
 
@@ -58,7 +59,21 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         self._last_image_ready = -1
         self._save_flag = save_flag
         self._latency = latency_time
+        self.__sequence_index = 0
+        self.__new_point_ready = 0
+        self.__point_synchro = event.Event()
 
+    def __iter__(self):
+        nbpoints = self.npoints
+        if nbpoints > 0:
+            while self._last_image_ready < nbpoints:
+                yield self
+                self.__sequence_index += 1
+        else:
+            while True:
+                yield self
+                self.__sequence_index += 1
+                
     def add_counter(self, counter):
         if counter.name != 'image':
             raise ValueError("Lima master only supports the 'image' counter")
@@ -88,6 +103,10 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             self.parameters.setdefault('saving_mode', 'MANUAL')
 
     def prepare(self):
+        if self.__sequence_index > 0 and self.prepare_once:
+            return
+        self.__new_point_ready = 0.
+        
         if self._image_channel:
             self._image_channel.description.update(self.parameters)
 
@@ -121,19 +140,32 @@ class LimaAcquisitionMaster(AcquisitionMaster):
 
     def stop(self):
         self.device.stopAcq()
+        self.__point_synchro.set()
 
     def wait_ready(self):
         acq_trigger_mode = self.parameters.get('acq_trigger_mode','INTERNAL_TRIGGER')
-
-        if acq_trigger_mode == 'INTERNAL_TRIGGER_MULTI':
-            while(self.device.acq_status.lower() == 'running' and
-                  not self.device.ready_for_next_image):
-                gevent.idle()
-
-        self.wait_reading(block=(acq_trigger_mode=='INTERNAL_TRIGGER'))
+        if self.prepare_once and \
+           acq_trigger_mode in ('INTERNAL_TRIGGER_MULTI', 'EXTERNAL_GATE', 'EXTERNAL_TRIGGER_MULTI'):
+            if self._lima_controller.camera.synchro_mode == "TRIGGER":
+                while(self.device.acq_status.lower() == 'running' and
+                      not self.device.ready_for_next_image):
+                    gevent.idle()
+            else:
+                if self.device.acq_status.lower() == 'running':
+                    while self.__new_point_ready == 0 and \
+                          self.device.acq_status.lower() == 'running':
+                        self.__point_synchro.clear()
+                        self.__point_synchro.wait()
+                    self.__new_point_ready -= 1
+        # Just read if there is an exception
+        # in the reading task
+        self.wait_reading(block=self.npoints == 1)
 
     def trigger(self):
         self.trigger_slaves()
+
+        if self.__sequence_index > 0 and self.start_once:
+            return
 
         self.device.startAcq()
 
@@ -150,6 +182,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
 
     def reading(self):
         try:
+            last_image_acquired = -1
             while True:
                 acq_state = self.device.acq_status.lower()
                 status = self._get_lima_status()
@@ -159,6 +192,11 @@ class LimaAcquisitionMaster(AcquisitionMaster):
                         if self._image_channel:
                             self._image_channel.emit(status)
                         self._last_image_ready = status['last_image_ready']
+                    if status['last_image_acquired'] != last_image_acquired:
+                        last_image_acquired = status['last_image_acquired']
+                        self.__new_point_ready += 1
+                        self.__point_synchro.set()
+                        
                     gevent.sleep(max(self.parameters['acq_expo_time'] / 10.0, 10e-3))
                 else:
                     break

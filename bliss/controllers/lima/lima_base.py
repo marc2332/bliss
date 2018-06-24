@@ -128,7 +128,7 @@ class Lima(object):
             replace_with = mapping['replace-with']
             # os.path.commonprefix function is broken as it returns common
             # characters, that may not form a valid directory path: hence
-            # the use of 'dirname'
+            # the use of a custom common_prefix function
             if common_prefix([path, base_path]) == base_path:
                 return os.path.join(replace_with, os.path.relpath(path, base_path))
 

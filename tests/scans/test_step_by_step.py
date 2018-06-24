@@ -141,3 +141,45 @@ def test_calc_counters(beacon):
     s.run()
     scan_data = s.get_data()
     assert numpy.array_equal(scan_data['gaussian']**2,scan_data['pow'])
+
+def test_amesh(beacon):
+    session = beacon.get("test_session")
+    session.setup()
+    counter_class = getattr(setup_globals, 'TestScanGaussianCounter')
+    roby = getattr(setup_globals, 'roby')
+    robz = getattr(setup_globals, 'robz')
+    counter = counter_class("gaussian", 15, cnt_time=0.01)
+    s = scans.amesh(roby, 0, 10, 5, robz, 0, 5, 3, 0.01, counter, return_scan=True, save=False)
+    assert roby.position() == 10
+    assert robz.position() == 5
+    scan_data = s.get_data()
+    assert len(scan_data["roby"]) == 15
+    assert len(scan_data["robz"]) == 15
+    assert scan_data["roby"][0] == 0
+    assert scan_data["roby"][4] == 10
+    assert scan_data["roby"][-1] == 10
+    assert scan_data["robz"][0] == 0
+    assert scan_data["robz"][-1] == 5
+    assert numpy.array_equal(scan_data['gaussian'], counter.data)
+
+def test_dmesh(beacon):
+    session = beacon.get("test_session")
+    session.setup()
+    counter_class = getattr(setup_globals, 'TestScanGaussianCounter')
+    roby = getattr(setup_globals, 'roby')
+    robz = getattr(setup_globals, 'robz')
+    counter = counter_class("gaussian", 15, cnt_time=0.01)
+    start_roby = roby.position()
+    start_robz = robz.position()
+    s = scans.dmesh(roby, -5, 5, 5, robz, -3, 3, 3, 0.01, counter, return_scan=True, save=False)
+    assert roby.position() == start_roby
+    assert robz.position() == start_robz
+    scan_data = s.get_data()
+    assert len(scan_data["roby"]) == 15
+    assert len(scan_data["robz"]) == 15
+    assert scan_data["roby"][0] == start_roby-5
+    assert scan_data["roby"][-1] == start_roby+5
+    assert scan_data["robz"][0] == start_robz-3
+    assert scan_data["robz"][-1] == start_robz+3
+    assert numpy.array_equal(scan_data['gaussian'], counter.data)
+

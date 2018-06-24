@@ -14,7 +14,7 @@ Most common scan procedures (:func:`~bliss.common.scans.ascan`, \
 __all__ = [
     'ascan',
     'a2scan',
-    'mesh',
+    'amesh',
     'dscan',
     'd2scan',
     'timescan',
@@ -25,6 +25,7 @@ __all__ = [
 import logging
 
 from bliss.common.motor_group import Group
+from bliss.common.cleanup import cleanup, axis as cleanup_axis
 from bliss.common.axis import estimate_duration
 from bliss.scanning.default import DefaultAcquisitionChain
 from bliss.scanning import scan as scan_module
@@ -165,14 +166,16 @@ def dscan(motor, start, stop, npoints, count_time, *counter_args, **kwargs):
         return_scan (bool): True by default
     """
     kwargs['type'] = 'dscan'
-    oldpos = motor.position()
-    scan = ascan(motor, oldpos + start, oldpos + stop, npoints, count_time,
-                 *counter_args, **kwargs)
-    motor.move(oldpos)
+    kwargs.setdefault('name', 'dscan')
+    start += motor.position()
+    stop += motor.position()
+    with cleanup(motor, restore_list=(cleanup_axis.POS,)):
+        scan = ascan(motor, start, stop, npoints, count_time,
+                     *counter_args, **kwargs)
     return scan
 
 
-def mesh(
+def amesh(
         motor1,
         start1,
         stop1,
@@ -187,7 +190,7 @@ def mesh(
     """
     Mesh scan
 
-    The mesh scan traces out a grid using motor1 and motor2. The first motor
+    The amesh scan traces out a grid using motor1 and motor2. The first motor
     scans from start1 to end1 using the specified number of intervals.  The
     second motor similarly scans from start2 to end2. Each point is counted for
     for time seconds (or monitor counts).
@@ -195,12 +198,12 @@ def mesh(
     The scan of motor1 is done at each point scanned by motor2.  That is, the
     first motor scan is nested within the second motor scan.
 
-    Use `mesh(..., run=False)` to create a scan object and
+    Use `amesh(..., run=False)` to create a scan object and
     its acquisition chain without executing the actual scan.
 
     :param backnforth if True do back and forth on the first motor
     """
-    scan_info = {'type': kwargs.get('type', 'mesh'),
+    scan_info = {'type': kwargs.get('type', 'amesh'),
                  'save': kwargs.get('save', True),
                  'title': kwargs.get('title'),
                  'sleep_time': kwargs.get('sleep_time')}
@@ -260,7 +263,7 @@ def mesh(
         scan_info,
         name=kwargs.setdefault(
             "name",
-            "mesh"),
+            "amesh"),
         save=scan_info['save'])
 
     if kwargs.get('run', True):
@@ -269,6 +272,29 @@ def mesh(
     if kwargs.get('return_scan', True):
         return scan
 
+def dmesh(
+        motor1,
+        start1,
+        stop1,
+        npoints1,
+        motor2,
+        start2,
+        stop2,
+        npoints2,
+        count_time,
+        *counter_args,
+        **kwargs):
+    """Relative amesh
+    """
+    kwargs['type'] = 'dmesh'
+    kwargs.setdefault("name", "dmesh")
+    start1 += motor1.position()
+    stop1 += motor1.position()
+    start2 += motor2.position()
+    stop2 += motor2.position()
+
+    with cleanup(motor1, motor2, restore_list=(cleanup_axis.POS, )):
+        return amesh(motor1, start1, stop1, npoints1, motor2, start2, stop2, npoints2, count_time, *counter_args, **kwargs)
 
 def a2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
            *counter_args, **kwargs):

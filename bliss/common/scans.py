@@ -14,7 +14,7 @@ Most common scan procedures (:func:`~bliss.common.scans.ascan`, \
 __all__ = [
     'ascan',
     'a2scan',
-    'mesh',
+    'amesh',
     'dscan',
     'd2scan',
     'timescan',
@@ -172,7 +172,7 @@ def dscan(motor, start, stop, npoints, count_time, *counter_args, **kwargs):
     return scan
 
 
-def mesh(
+def amesh(
         motor1,
         start1,
         stop1,
@@ -187,7 +187,7 @@ def mesh(
     """
     Mesh scan
 
-    The mesh scan traces out a grid using motor1 and motor2. The first motor
+    The amesh scan traces out a grid using motor1 and motor2. The first motor
     scans from start1 to end1 using the specified number of intervals.  The
     second motor similarly scans from start2 to end2. Each point is counted for
     for time seconds (or monitor counts).
@@ -195,12 +195,12 @@ def mesh(
     The scan of motor1 is done at each point scanned by motor2.  That is, the
     first motor scan is nested within the second motor scan.
 
-    Use `mesh(..., run=False)` to create a scan object and
+    Use `amesh(..., run=False)` to create a scan object and
     its acquisition chain without executing the actual scan.
 
     :param backnforth if True do back and forth on the first motor
     """
-    scan_info = {'type': kwargs.get('type', 'mesh'),
+    scan_info = {'type': kwargs.get('type', 'amesh'),
                  'save': kwargs.get('save', True),
                  'title': kwargs.get('title'),
                  'sleep_time': kwargs.get('sleep_time')}
@@ -260,7 +260,7 @@ def mesh(
         scan_info,
         name=kwargs.setdefault(
             "name",
-            "mesh"),
+            "amesh"),
         save=scan_info['save'])
 
     if kwargs.get('run', True):

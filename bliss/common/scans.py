@@ -25,6 +25,7 @@ __all__ = [
 import logging
 
 from bliss.common.motor_group import Group
+from bliss.common.cleanup import cleanup, axis as cleanup_axis
 from bliss.common.axis import estimate_duration
 from bliss.scanning.default import DefaultAcquisitionChain
 from bliss.scanning import scan as scan_module
@@ -269,6 +270,29 @@ def amesh(
     if kwargs.get('return_scan', True):
         return scan
 
+def dmesh(
+        motor1,
+        start1,
+        stop1,
+        npoints1,
+        motor2,
+        start2,
+        stop2,
+        npoints2,
+        count_time,
+        *counter_args,
+        **kwargs):
+    """Relative amesh
+    """
+    kwargs['type'] = 'dmesh'
+    kwargs.setdefault("name", "dmesh")
+    start1 += motor1.position()
+    stop1 += motor1.position()
+    start2 += motor2.position()
+    stop2 += motor2.position()
+
+    with cleanup(motor1, motor2, restore_list=(cleanup_axis.POS, )):
+        return amesh(motor1, start1, stop1, npoints1, motor2, start2, stop2, npoints2, count_time, *counter_args, **kwargs)
 
 def a2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
            *counter_args, **kwargs):

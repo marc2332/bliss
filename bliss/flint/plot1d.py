@@ -115,10 +115,6 @@ class LivePlot1D(qt.QWidget):
         x_data, y_data = self._get_data(x_axis, y_axis)
         self.silx_plot.addCurve(x_data, y_data, legend=legend, copy=False)
 
-    def close(self):
-        for plot in self._curves.keys():
-            self._curves[plot] = 0
-
     @property
     def x_axis_names(self):
         for i in range(len(self.x_axis)):
@@ -144,6 +140,9 @@ class LivePlot1D(qt.QWidget):
             plot = self.silx_plot.getCurve(legend)
             if plot is not None:
                 # plot is displayed
+                if self._curves.get(plot, 0) > data_len:
+                    # existing curve need to be removed
+                    self._curves[plot] = 0
                 if self._curves.get(plot, 0) < data_len:
                     # update plot
                     x_data, y_data = self._get_data(x_axis, y_axis)
@@ -276,10 +275,6 @@ class LiveScatterPlot(qt.QWidget):
         x_data, y_data, z_data = self._get_data(x_axis, y_axis, z_axis)
         self.add_scatter(x_data, y_data, z_data, legend=legend)
 
-    def close(self):
-        for plot in self._curves.keys():
-            self._curves[plot] = 0
-
     @property
     def x_axis_names(self):
         for i in range(len(self.x_axis)):
@@ -309,6 +304,9 @@ class LiveScatterPlot(qt.QWidget):
             plot = self.silx_plot.getScatter(legend)
             if plot is not None:
                 # plot is displayed
+                if self._curves.get(plot, 0) > data_len:
+                    # existing curve need to be removed
+                    self._curves[plot] = 0
                 if self._curves.get(plot, 0) < data_len:
                     # update plot
                     x_data, y_data, z_data = self._get_data(

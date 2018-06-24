@@ -139,9 +139,9 @@ def test_reference_with_lima(beacon, redis_data_conn, scan_tmpdir,
     lima_sim = getattr(setup_globals, "lima_simulator")
 
     # Roi handling
-    lima_sim.roi_counters.clear_rois()
+    lima_sim.roi_counters.clear()
     if with_roi:
-        lima_sim.roi_counters.set_roi('myroi', [0, 0, 1, 1])
+        lima_sim.roi_counters['myroi'] = [0, 0, 1, 1]
 
     timescan = scans.timescan(0.1, lima_sim, npoints=3, return_scan=True)
 
@@ -170,9 +170,9 @@ def test_iterator_over_reference_with_lima(beacon, redis_data_conn,
     lima_sim = getattr(setup_globals, "lima_simulator")
 
     # Roi handling
-    lima_sim.roi_counters.clear_rois()
+    lima_sim.roi_counters.clear()
     if with_roi:
-        lima_sim.roi_counters.set_roi('myroi', [0, 0, 1, 1])
+        lima_sim.roi_counters['myroi'] = [0, 0, 1, 1]
 
     session_node = _get_or_create_node(session.name, node_type='session')
     iterator = DataNodeIterator(session_node)

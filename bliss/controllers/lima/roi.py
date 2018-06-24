@@ -39,6 +39,9 @@ class Roi(object):
         return "<%s,%s> <%s x %s>" % (self.x, self.y,
                                       self.width, self.height)
 
+    def __eq__(self, other):
+        return self.p0 == other.p0 and self.p1 == other.p1 and self.name == other.name
+
     @classmethod
     def frompoints(cls, p0, p1, name=None):
         return cls.fromcoords(p0[0], p0[1], p1[0], p1[1], name=name)
@@ -142,6 +145,35 @@ class RoiCounterGroupReadHandler(IntegratingCounter.GroupedReadHandler):
 
 
 class RoiCounters(object):
+    """Lima ROI counters
+
+    Example usage:
+
+    # add/replace a roi
+    mpx.roi_counters['r1'] = Roi(10, 10, 100, 200)
+
+    # add/replace multiple rois
+    mpx.roi_counters['r2', 'r3'] = Roi(20, 20, 300, 400), Roi(20, 20, 300, 400)
+
+    # get roi info
+    r2 = mpx.roi_counters['r2']
+
+    # get multiple roi info
+    r2, r1 = mpx.roi_counters['r2', 'r1']
+
+    # remove roi
+    del mpx.roi_counters['r1']
+
+    # clear all rois
+    mpx.roi_counters.clear()
+
+    # list roi names:
+    mpx.roi_counters.keys()
+
+    # loop rois
+    for roi_name, roi in mpx.roi_counters.items():
+        pass
+    """
 
     def __init__(self, name, proxy, acquisition_proxy):
         self._proxy = proxy
@@ -155,7 +187,7 @@ class RoiCounters(object):
         self._roi_ids = {}
         self._grouped_read_handler = RoiCounterGroupReadHandler(self)
 
-    def set_roi(self,name,roi_values):
+    def _set_roi(self,name,roi_values):
         if isinstance(roi_values,Roi):
             roi = roi_values
         elif len(roi_values) == 4:
@@ -179,12 +211,24 @@ class RoiCounters(object):
         self._save_rois.clear()
         self._roi_ids.clear()
 
-    def clear_rois(self):
-        self._clear_rois_settings()
-        self._proxy.clearAllRois()
+    def _remove_rois(self, names):
+        for name in names:
+            del self._save_rois[name]
+            if name in self._roi_ids:
+                del self._roi_ids[name]
+        self._proxy.removeRois(names)
+
+    def set(self,name,roi_values):
+        """alias to: <lima obj>.roi_counters[name] = roi_values"""
+        self[name] = roi_values
 
     def get_rois(self):
-        return self._save_rois.values()
+        """alias to values()"""
+        return self.values()
+
+    def remove(self, name):
+        """alias to: del <lima obj>.roi_counters[name]"""
+        del self[name]
 
     def get_saved_config_names(self):
         return list(settings.scan(match='%s:*' % self.name))
@@ -226,6 +270,71 @@ class RoiCounters(object):
             roi = Roi(x, y, w, h, name=name)
             self._set_roi_settings(roi_id, roi)
 
+    # dict like API
+
+    def get(self, name, default=None):
+        return self._save_rois.get(name, default=default)
+
+    def __getitem__(self, names):
+        if isinstance(names, (str, unicode)):
+            return self._save_rois[names]
+        else:
+            return [self[name] for name in names]
+
+    def __setitem__(self, names, rois):
+        if isinstance(names, (str, unicode)):
+            self._set_roi(names, rois)
+        else:
+            for name, value in zip(names, rois):
+                self[name] = value
+
+    def __delitem__(self, names):
+        if isinstance(names, (str, unicode)):
+            names = (names,)
+        self._remove_rois(names)
+
+    def __contains__(self, name):
+        return self.has_key(name)
+
+    def __len__(self):
+        return len(self._save_rois)
+
+    def clear(self):
+        self._clear_rois_settings()
+        self._proxy.clearAllRois()
+
+    def keys(self):
+        return self._save_rois.keys()
+
+    def values(self):
+        return self._save_rois.values()
+
+    def items(self):
+        return self._save_rois.items()
+
+    def iterkeys(self):
+        return self._save_rois.iterkeys()
+
+    def itervalues(self):
+        return self._save_rois.itervalues()
+
+    def iteritems(self):
+        return self._save_rois.iteritems()
+
+    def has_key(self, name):
+        return name in self._save_rois
+
+    def update(self, rois):
+        for name, roi in rois.items():
+            self[name] = roi
+
+    def pop(self, name, *args):
+        if name in self._roi_ids:
+            del self._roi_ids[name]
+        result = self._save_rois.pop(name, *args)
+        self._proxy.removeRois([name])
+        return result
+
     # Counter access
 
     def get_single_roi_counters(self, name):
@@ -255,7 +364,7 @@ class RoiCounters(object):
     def __repr__(self):
         name = self.name.rsplit(':', 1)[-1]
         lines = ['[{0}]\n'.format(self.config_name)]
-        rois = self.get_rois()
+        rois = [self[name] for name in sorted(self.keys())]
         if rois:
             header = 'Name', 'ROI (<X, Y> <W x H>)'
             x = max((len(str(roi.x)) for roi in rois))

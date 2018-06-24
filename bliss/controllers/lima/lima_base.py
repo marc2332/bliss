@@ -16,8 +16,8 @@ from bliss.common.tango import DeviceProxy, DevFailed
 from bliss.common.measurement import namespace, counter_namespace
 
 class Lima(object):
-    ROI_COUNTERS = 'roicounter'
-    BPM = 'beamviewer'
+    _ROI_COUNTERS = 'roicounter'
+    _BPM = 'beamviewer'
 
     # Standard interface
 
@@ -88,7 +88,7 @@ class Lima(object):
     @property
     def roi_counters(self):
         if self.__roi_counters is None:
-            roi_counters_proxy = self._get_proxy(self.ROI_COUNTERS)
+            roi_counters_proxy = self._get_proxy(self._ROI_COUNTERS)
             self.__roi_counters = RoiCounters(self.name, roi_counters_proxy, self)
         return self.__roi_counters
 
@@ -117,7 +117,7 @@ class Lima(object):
     @property
     def bpm(self):
         if self.__bpm is None:
-            bpm_proxy = self._get_proxy(Lima.BPM)
+            bpm_proxy = self._get_proxy(Lima._BPM)
             self.__bpm = Bpm(self.name, bpm_proxy, self)
         return self.__bpm
 

@@ -166,10 +166,12 @@ def dscan(motor, start, stop, npoints, count_time, *counter_args, **kwargs):
         return_scan (bool): True by default
     """
     kwargs['type'] = 'dscan'
-    oldpos = motor.position()
-    scan = ascan(motor, oldpos + start, oldpos + stop, npoints, count_time,
-                 *counter_args, **kwargs)
-    motor.move(oldpos)
+    kwargs.setdefault('name', 'dscan')
+    start += motor.position()
+    stop += motor.position()
+    with cleanup(motor, restore_list=(cleanup_axis.POS,)):
+        scan = ascan(motor, start, stop, npoints, count_time,
+                     *counter_args, **kwargs)
     return scan
 
 

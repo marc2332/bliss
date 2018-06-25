@@ -148,7 +148,7 @@ class ScanListener:
         for channel_name in channels["master"]["scalars"]:
             channel_short_name = channel_name.split(":")[-1]
             # name is in the form 'acq_master:channel_name'
-            if channel_short_name == 'timestamp':
+            if channel_short_name == 'elapsed_time':
                 # timescan
                 self.col_labels.insert(1, 'dt(s)')
             else:
@@ -171,7 +171,7 @@ class ScanListener:
 
         for channel_name in channels["scalars"]:
             counter_name = channel_name.split(":")[-1]
-            if counter_name == 'timestamp':
+            if counter_name == 'elapsed_time':
                 self.col_labels.insert(1,  "dt(s)")
                 continue
             else:
@@ -213,14 +213,14 @@ class ScanListener:
     def __on_scan_data(self, scan_info, values):
         master, channels = next(scan_info['acquisition_chain'].iteritems())
 
-        if 'timestamp' in values:
-            elapsed_time = values.pop('timestamp') - scan_info['start_timestamp']
-            values['dt'] = elapsed_time
+        elapsed_time_col = []
+        if 'elapsed_time' in values:
+            elapsed_time_col.append(values.pop('elapsed_time'))
 
         motor_values = [values[motor.name] for motor in self.real_motors]
         counter_values = [values[counter_name] for counter_name in self.counters]
 
-        values = [elapsed_time] + motor_values + counter_values
+        values = elapsed_time_col + motor_values + counter_values
         if scan_info['type'] == 'ct':
             # ct is actually a timescan(npoints=1).
             norm_values = numpy.array(values) / scan_info['count_time']

@@ -108,6 +108,8 @@ class musst(object):
 
         @property
         def channel_id(self):
+            if self._switch is not None:
+                self._switch.set(self._switch_name)
             return self._channel_id
         
         @property

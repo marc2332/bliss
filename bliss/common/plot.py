@@ -269,7 +269,10 @@ class BasePlot(object):
     DATA_INPUT_NUMBER = NotImplemented
 
     def __init__(self, name=None, existing_id=None, flint_pid=None):
-        self._flint = get_flint(pid=flint_pid)
+        if flint_pid:
+            self._flint = attach_flint(flint_pid)
+        else:
+            self._flint = get_flint()
         # Create plot window
         if existing_id is None:
             self._plot_id = self._flint.add_plot(self.WIDGET, name)

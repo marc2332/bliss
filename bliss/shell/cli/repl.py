@@ -132,7 +132,7 @@ def cli(locals=None, session_name=None, vi_mode=False,
     locals = locals or user_ns
 
     def get_globals():
-        return dict(user_ns) #, REPL=repl)
+        return user_ns #, REPL=repl)
 
     def get_locals():
         return locals

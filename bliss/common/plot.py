@@ -182,18 +182,34 @@ def get_flint_process():
     FLINT['proxy'] = None
     return FLINT['process'].pid
 
-
-def get_flint(pid=None, start_new=False):
-    # Get redis connection
+def attach_flint(pid):
     beacon = get_default_connection()
     redis = beacon.get_redis_connection()
 
+    # Current URL
+    key = "flint:{}:{}".format(platform.node(), pid)
+    url = redis.brpoplpush(key, key, timeout=3000)
+    # Return flint proxy
+    proxy = zerorpc.Client(url)
+    session = session_module.get_current()
+    if session is not None:
+        proxy.set_session(session.name)
+    proxy._pid = pid
+    return proxy
+
+def get_flint(start_new=False):
+    beacon = get_default_connection()
+    redis = beacon.get_redis_connection()
+
+    # Get redis connection
     if start_new:
         FLINT['process'] = None
         pid = get_flint_process()
     else:
-        # Make sure flint is running
-        if pid is None:
+        proxy = FLINT.get('proxy')
+        if proxy is not None:
+            return proxy
+        else:
             # did we run our flint ?
             if FLINT.get('process'):
                 pid = get_flint_process()
@@ -209,21 +225,9 @@ def get_flint(pid=None, start_new=False):
                 else:
                     # finally, no valid flint is available
                     pid = get_flint_process()
-
-    # Current URL
-    key = "flint:{}:{}".format(platform.node(), pid)
-    url = redis.brpoplpush(key, key, timeout=3000)
-    # Return flint proxy
-    proxy = FLINT['proxy']
-    if proxy is None:
-        proxy = zerorpc.Client(url)
-        FLINT['proxy'] = proxy
-        session = session_module.get_current()
-        if session is not None:
-            proxy.set_session(session.name)
-    proxy._pid = pid
+    proxy = attach_flint(pid)
+    FLINT['proxy'] = proxy
     return proxy
-
 
 # Simple Qt interface
 

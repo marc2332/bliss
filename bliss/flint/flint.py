@@ -205,7 +205,7 @@ class Flint:
                     self.data_dict.pop(plot.plot_id, None)
 
         # create new windows
-        flags = qt.Qt.Window | qt.Qt.WindowMinimizeButtonHint | qt.Qt.WindowMaximizeButtonHint
+        flags = qt.Qt.Window | qt.Qt.WindowMinimizeButtonHint | qt.Qt.WindowMaximizeButtonHint | qt.Qt.WindowTitleHint
         window_titles = []
         for master, channels in scan_info['acquisition_chain'].iteritems():
             scalars = channels.get('scalars', [])

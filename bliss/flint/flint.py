@@ -205,6 +205,7 @@ class Flint:
                     self.data_dict.pop(plot.plot_id, None)
 
         # create new windows
+        flags = qt.Qt.Window | qt.Qt.WindowMinimizeButtonHint | qt.Qt.WindowMaximizeButtonHint
         window_titles = []
         for master, channels in scan_info['acquisition_chain'].iteritems():
             scalars = channels.get('scalars', [])
@@ -222,7 +223,8 @@ class Flint:
                 scalars_plot_win.setWindowTitle(window_title)
                 self.plot_dict[scalars_plot_win.plot_id] = scalars_plot_win
                 self.live_scan_plots_dict[master]['0d'].append(scalars_plot_win)
-                self.mdi_windows_dict[window_title] = self.live_scan_mdi_area.addSubWindow(scalars_plot_win)
+                self.mdi_windows_dict[window_title] = \
+                    self.live_scan_mdi_area.addSubWindow(scalars_plot_win, flags)
             if scalars and len(channels['master']['scalars']) >= 1:
                 scalars_plot_win.show()
             else:
@@ -240,7 +242,8 @@ class Flint:
                 scatter_plot_win.setWindowTitle(window_title)
                 self.plot_dict[scatter_plot_win.plot_id] = scatter_plot_win
                 self.live_scan_plots_dict[master]['0d'].append(scatter_plot_win)
-                self.mdi_windows_dict[window_title] = self.live_scan_mdi_area.addSubWindow(scatter_plot_win)
+                self.mdi_windows_dict[window_title] = \
+                    self.live_scan_mdi_area.addSubWindow(scatter_plot_win, flags)
             if scalars and len(channels['master']['scalars']) >= 2:
                 scatter_plot_win.show()
             else:
@@ -256,7 +259,8 @@ class Flint:
                     spectrum_win.plot_id = next(self._id_generator)
                     self.plot_dict[spectrum_win.plot_id] = spectrum_win
                     self.live_scan_plots_dict[master]['1d'].append(spectrum_win)
-                    self.mdi_windows_dict[window_title] = self.live_scan_mdi_area.addSubWindow(spectrum_win)
+                    self.mdi_windows_dict[window_title] = \
+                        self.live_scan_mdi_area.addSubWindow(spectrum_win, flags)
                 spectrum_win.show()
 
             for image in images:
@@ -269,7 +273,8 @@ class Flint:
                     image_win.plot_id = next(self._id_generator)
                     self.plot_dict[image_win.plot_id] = image_win
                     self.live_scan_plots_dict[master]['2d'].append(image_win)
-                    self.mdi_windows_dict[window_title] = self.live_scan_mdi_area.addSubWindow(image_win)
+                    self.mdi_windows_dict[window_title] = \
+                        self.live_scan_mdi_area.addSubWindow(image_win, flags)
                 image_win.show()
 
         # delete unused plots and windows
@@ -315,7 +320,6 @@ class Flint:
                 for channel_name, channel_data in last_data.iteritems():
                     self.update_data(plot.plot_id, channel_name, channel_data)
                 plot.update_all()
-
         elif data_type == '1d':
             spectrum_data = last_data
             channel_name = data["channel_name"]

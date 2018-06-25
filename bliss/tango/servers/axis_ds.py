@@ -494,7 +494,10 @@ class BlissAxis(Device):
     @Acceleration.write
     def Acceleration(self, new_acc):
         self.debug_stream("In write_Acceleration(%f)" % new_acc)
-        self.axis.acceleration(new_acc)
+        try:
+            self.axis.acceleration(new_acc)
+        except NotImplementedError:
+            pass
 
     @attribute(dtype=float, label='Acceleration time', unit='s',
                format='%10.6f', doc='the acceleration time of the motor (in seconds)')
@@ -519,7 +522,10 @@ class BlissAxis(Device):
     @Velocity.write
     def Velocity(self, new_velocity):
         self.debug_stream("In write_Velocity(%g)" % new_velocity)
-        self.axis.velocity(new_velocity)
+        try:
+            self.axis.velocity(new_velocity)
+        except NotImplementedError:
+            pass
 
     @attribute(dtype=float, label='Backlash', unit='uu', format='%5.3f',
                doc='Backlash to be applied to each motor movement')

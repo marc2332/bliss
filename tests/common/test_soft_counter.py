@@ -150,7 +150,7 @@ def test_soft_counter_scan():
     data = scan.get_data()
 
     # TODO: counter names should be full counter names after issue #395 is solved
-    counter_names = {'timestamp', 'value', 'temp_deg', 'voltage', 'get_pressure', 'temp_f'}
+    counter_names = {'elapsed_time', 'value', 'temp_deg', 'voltage', 'get_pressure', 'temp_f'}
     assert set(data.dtype.fields.keys()) == counter_names
 
     numpy.testing.assert_array_almost_equal(data['value'], 10*[45.67])

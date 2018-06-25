@@ -208,12 +208,13 @@ class TrajectoryGroup(object):
     @property
     def trajectories_by_controller(self):
         controller_trajectories = dict()
-        for traj in self.__trajectories_dialunit:
-            if traj.axis in self.__disabled_axes:
-                continue
-            tlist = controller_trajectories.setdefault(
-                traj.axis.controller, [])
-            tlist.append(traj)
+        if self.__trajectories_dialunit is not None:
+            for traj in self.__trajectories_dialunit:
+                if traj.axis in self.__disabled_axes:
+                    continue
+                tlist = controller_trajectories.setdefault(
+                    traj.axis.controller, [])
+                tlist.append(traj)
         return controller_trajectories
 
     @property

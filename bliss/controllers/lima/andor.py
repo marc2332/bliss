@@ -10,6 +10,6 @@ from .lima_base import CameraBase
 
 class Camera(CameraBase):
     @LimaProperty
-    def test(self):
-        return "test"
+    def synchro_mode(self):
+        return "IMAGE"
 

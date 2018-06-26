@@ -40,6 +40,7 @@ except ImportError:
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
+    from silx.gui.plot import Plot2D
     from silx.gui import plot as silx_plot
     from silx.gui import qt
 
@@ -147,20 +148,14 @@ class Flint:
         self.parent_tab = parent_tab
         self.main_index = next(self._id_generator)
         self.plot_dict = {self.main_index: parent_tab}
+        self.mdi_windows_dict = {}
         self.selector_dict = collections.defaultdict(list)
         self.data_dict = collections.defaultdict(dict)
         self.scans_watch_task = None
         self._session_name = None
 
         def new_live_scan_plots():
-            logging.info("making new plot 1d live")
-            scalar_plot = LivePlot1D(data_dict=self.data_dict)
-            scalar_plot.plot_id = next(self._id_generator)
-            scalar_plot.hide()
-            scatter_plot = LiveScatterPlot(data_dict=self.data_dict)
-            scatter_plot.plot_id = next(self._id_generator)
-            scatter_plot.hide()
-            return {"0d": [scalar_plot, scatter_plot],
+            return {"0d": [],
                     "1d": [],
                     "2d": []}
 
@@ -203,74 +198,102 @@ class Flint:
         # show tab
         self.parent_tab.setCurrentIndex(0)
 
-        # delete plots and free data
-        new_masters = list(scan_info['acquisition_chain'].keys())
+        # delete plots data
         for master, plots in list(self.live_scan_plots_dict.items()):
             for plot_type in ('0d', '1d', '2d'):
                 for plot in plots[plot_type]:
-                    self.plot_dict.pop(plot.plot_id, None)
                     self.data_dict.pop(plot.plot_id, None)
-                    plot.close()
-            if master not in new_masters:
-                del self.live_scan_plots_dict[master]
-            else:
-                # remove 1d, 2d plots -- keep 0d
-                plots['1d'][:] = []
-                plots['2d'][:] = []
-
-        logging.info("live scan plots dict = %r", self.live_scan_plots_dict)
-        for win in self.live_scan_mdi_area.subWindowList():
-            win.close()
 
         # create new windows
+        flags = qt.Qt.Window | qt.Qt.WindowMinimizeButtonHint | qt.Qt.WindowMaximizeButtonHint | qt.Qt.WindowTitleHint
+        window_titles = []
         for master, channels in scan_info['acquisition_chain'].iteritems():
             scalars = channels.get('scalars', [])
             spectra = channels.get('spectra', [])
             images = channels.get('images', [])
 
-            scalars_plot_win = self.live_scan_plots_dict[master]['0d'][0]
-            scalars_plot_win.set_x_axes(channels['master']['scalars'])
-            scalars_plot_win.set_y_axes(scalars)
-            scalars_plot_win.setWindowTitle(
-                '1D Plot: ' + master + ' -> scalar counters')
-            self.live_scan_mdi_area.addSubWindow(scalars_plot_win)
-            self.plot_dict[scalars_plot_win.plot_id] = scalars_plot_win
+            window_title = master + ' -> scalar counters (1D plot)'
+            window_titles.append(window_title)
+            scalars_plot_win = self.mdi_windows_dict.get(window_title)
+            if not scalars_plot_win:
+                scalars_plot_win = LivePlot1D(data_dict=self.data_dict)
+                scalars_plot_win.plot_id = next(self._id_generator)
+                scalars_plot_win.set_x_axes(channels['master']['scalars'])
+                scalars_plot_win.set_y_axes(scalars)
+                scalars_plot_win.setWindowTitle(window_title)
+                self.plot_dict[scalars_plot_win.plot_id] = scalars_plot_win
+                self.live_scan_plots_dict[master]['0d'].append(scalars_plot_win)
+                self.mdi_windows_dict[window_title] = \
+                    self.live_scan_mdi_area.addSubWindow(scalars_plot_win, flags)
             if scalars and len(channels['master']['scalars']) >= 1:
                 scalars_plot_win.show()
             else:
                 scalars_plot_win.hide()
 
-            scatter_plot_win = self.live_scan_plots_dict[master]['0d'][1]
-            scatter_plot_win.set_x_axes(channels['master']['scalars'])
-            scatter_plot_win.set_y_axes(channels['master']['scalars'])
-            scatter_plot_win.set_z_axes(scalars)
-            scatter_plot_win.setWindowTitle(
-                'Scatter plot: ' + master + ' -> scalar counters')
-            self.live_scan_mdi_area.addSubWindow(scatter_plot_win)
-            self.plot_dict[scatter_plot_win.plot_id] = scatter_plot_win
+            window_title = master + ' -> scalar counters (Scatter plot)'
+            window_titles.append(window_title)
+            scatter_plot_win = self.mdi_windows_dict.get(window_title)
+            if not scatter_plot_win:
+                scatter_plot_win = LiveScatterPlot(data_dict=self.data_dict)
+                scatter_plot_win.plot_id = next(self._id_generator)
+                scatter_plot_win.set_x_axes(channels['master']['scalars'])
+                scatter_plot_win.set_y_axes(channels['master']['scalars'])
+                scatter_plot_win.set_z_axes(scalars)
+                scatter_plot_win.setWindowTitle(window_title)
+                self.plot_dict[scatter_plot_win.plot_id] = scatter_plot_win
+                self.live_scan_plots_dict[master]['0d'].append(scatter_plot_win)
+                self.mdi_windows_dict[window_title] = \
+                    self.live_scan_mdi_area.addSubWindow(scatter_plot_win, flags)
             if scalars and len(channels['master']['scalars']) >= 2:
                 scatter_plot_win.show()
             else:
                 scatter_plot_win.hide()
 
             for spectrum in spectra:
-                # spectrum_win = silx_plot.CurvesView)
-                spectrum_win = Plot1D()
-                spectrum_win.plot_id = next(self._id_generator)
-                self.plot_dict[spectrum_win.plot_id] = spectrum_win
-                self.live_scan_plots_dict[master]['1d'].append(spectrum_win)
-                self.live_scan_mdi_area.addSubWindow(spectrum_win)
-                spectrum_win.setWindowTitle(master+' -> '+spectrum+' spectrum')
+                window_title = master+' -> '+spectrum+' spectrum'
+                window_titles.append(window_title)
+                spectrum_win = self.mdi_windows_dict.get(window_title)
+                if not spectrum_win:
+                    spectrum_win = Plot1D()
+                    spectrum_win.setWindowTitle(window_title)
+                    spectrum_win.plot_id = next(self._id_generator)
+                    self.plot_dict[spectrum_win.plot_id] = spectrum_win
+                    self.live_scan_plots_dict[master]['1d'].append(spectrum_win)
+                    self.mdi_windows_dict[window_title] = \
+                        self.live_scan_mdi_area.addSubWindow(spectrum_win, flags)
                 spectrum_win.show()
 
             for image in images:
-                image_win = silx_plot.Plot2D()
-                image_win.plot_id = next(self._id_generator)
-                self.plot_dict[image_win.plot_id] = image_win
-                self.live_scan_plots_dict[master]['2d'].append(image_win)
-                self.live_scan_mdi_area.addSubWindow(image_win)
-                image_win.setWindowTitle(master+' -> '+image+' image')
+                window_title = master+' -> '+image+' image'
+                window_titles.append(window_title)
+                image_win = self.mdi_windows_dict.get(window_title)
+                if not image_win:
+                    image_win = Plot2D()
+                    image_win.setWindowTitle(window_title)
+                    image_win.plot_id = next(self._id_generator)
+                    self.plot_dict[image_win.plot_id] = image_win
+                    self.live_scan_plots_dict[master]['2d'].append(image_win)
+                    self.mdi_windows_dict[window_title] = \
+                        self.live_scan_mdi_area.addSubWindow(image_win, flags)
                 image_win.show()
+
+        # delete unused plots and windows
+        for mdi_window in self.live_scan_mdi_area.subWindowList():
+            plot = mdi_window.widget()
+            window_title = plot.windowTitle()
+            if window_title in window_titles:
+                continue
+            else:
+                master = window_title.split()[0]
+                if isinstance(plot, Plot1D):
+                    self.live_scan_plots_dict[master]['1d'].remove(plot)
+                elif isinstance(plot, Plot2D):
+                    self.live_scan_plots_dict[master]['2d'].remove(plot)
+                else:
+                    self.live_scan_plots_dict[master]['0d'].remove(plot)
+                del self.plot_dict[plot.plot_id]
+                del self.mdi_windows_dict[window_title]
+                mdi_window.close()
 
         self.live_scan_mdi_area.tileSubWindows()
 
@@ -297,7 +320,6 @@ class Flint:
                 for channel_name, channel_data in last_data.iteritems():
                     self.update_data(plot.plot_id, channel_name, channel_data)
                 plot.update_all()
-
         elif data_type == '1d':
             spectrum_data = last_data
             channel_name = data["channel_name"]
@@ -317,7 +339,11 @@ class Flint:
             channel_name = data["channel_name"]
             image_data = last_data
             self.update_data(plot.plot_id, channel_name, image_data)
-            plot.addImage(image_data, legend=channel_name)
+            plot_image = plot.getImage(channel_name) #returns last plotted image
+            if plot_image is None:
+                plot.addImage(image_data, legend=channel_name, copy=False)
+            else:
+                plot_image.setData(image_data, copy=False)
 
     def new_tab(self, label, widget=qt.QWidget):
         widget = widget()

@@ -1,6 +1,7 @@
 """Testing Flint."""
 
 import os
+import signal
 import numpy
 from distutils.spawn import find_executable
 
@@ -37,11 +38,12 @@ def xvfb():
 @pytest.fixture(scope='session')
 def flint(xvfb, beacon):
     try:
-        flint_pid = plot.get_flint_process()
+        flint = plot.get_flint()
+        flint_pid = plot.FLINT['process']
         yield flint_pid
     finally:
-        plot.FLINT['process'].kill()
-        plot.FLINT['process'].wait(timeout=1.)
+        os.kill(flint_pid, signal.SIGTERM)
+        os.waitpid(flint_pid, 0)
 
 
 @pytest.fixture

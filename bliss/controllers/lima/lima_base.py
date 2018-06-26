@@ -77,6 +77,9 @@ class Lima(object):
         tango_url -- tango main device url (from class LimaCCDs)
         """
         self._proxy = DeviceProxy(config_tree.get("tango_url"))
+        tg_timeout = config_tree.get("tango_timeout")
+        if tg_timeout is not None:
+            self._proxy.set_timeout_millis(1000*tg_timeout)
         self.name = name
         self.__bpm = None
         self.__roi_counters = None

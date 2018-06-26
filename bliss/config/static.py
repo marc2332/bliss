@@ -735,7 +735,7 @@ class Config(object):
                 self._create_index(node)
                 r_list.append(node)
             elif isinstance(value,list):
-                child_list = self._parse_list(value)
+                child_list = self._parse_list(value,parent)
                 r_list.append(child_list)
             else:
                 r_list.append(value)

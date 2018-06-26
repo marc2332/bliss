@@ -318,6 +318,8 @@ def _send_config_db_files(client_id,message):
     try:
         for root,dirs,files in os.walk(look_path, followlinks=True):
             for filename in files:
+                if filename.startswith('.'):
+                    continue
                 basename, ext = os.path.splitext(filename)
                 if ext == '.yml':
                     full_path = os.path.join(root,filename)

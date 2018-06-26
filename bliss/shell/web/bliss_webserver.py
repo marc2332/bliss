@@ -241,7 +241,7 @@ def return_synoptic_svg(session_id):
     s = static_config.get_config().get(session_id)
     svg = SYNOPTIC.get(session_id, {}).get('svg-file')
     if svg:
-        return beacon.get_config_file(os.path.join(s._base_path, svg))
+        return beacon.get_config_file(s.synoptic_file)
     else:
         return ""
 

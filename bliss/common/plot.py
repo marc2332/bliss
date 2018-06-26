@@ -170,22 +170,32 @@ def get_beacon_config():
     beacon = get_default_connection()
     return '{}:{}'.format(beacon._host, beacon._port)
 
+def check_flint():
+    pid = FLINT.get('process')
+    if pid is not None and psutil.pid_exists(pid):
+        return pid
+    
+    beacon = get_default_connection()
+    redis = beacon.get_redis_connection()
 
-def get_flint_process():
-    flint_process = FLINT['process']
-    if flint_process is not None and flint_process.poll() is None:
-        return flint_process.pid
+    # get existing flint, if any
+    for key in redis.scan_iter("flint:%s:*" % platform.node()):
+        pid = int(key.split(":")[-1])
+        if psutil.pid_exists(pid):
+            return pid
+        else:
+            redis.delete(key)
+    
+def start_flint():
     env = dict(os.environ)
     env['BEACON_HOST'] = get_beacon_config()
     args = [sys.executable, '-m', 'bliss.flint']
-    FLINT['process'] = subprocess.Popen(args, env=env, start_new_session=True)
-    FLINT['proxy'] = None
-    return FLINT['process'].pid
+    return subprocess.Popen(args, env=env, start_new_session=True).pid
 
 def attach_flint(pid):
     beacon = get_default_connection()
     redis = beacon.get_redis_connection()
-
+    
     # Current URL
     key = "flint:{}:{}".format(platform.node(), pid)
     url = redis.brpoplpush(key, key, timeout=3000)
@@ -198,36 +208,26 @@ def attach_flint(pid):
     return proxy
 
 def get_flint(start_new=False):
-    beacon = get_default_connection()
-    redis = beacon.get_redis_connection()
-
+    old_pid = None
+    pid = None
+    
     # Get redis connection
     if start_new:
-        FLINT['process'] = None
-        pid = get_flint_process()
+        pid = start_flint()
     else:
-        proxy = FLINT.get('proxy')
-        if proxy is not None:
-            return proxy
+        # did we run our flint ?
+        pid = check_flint()
+        if pid is None:
+            pid = start_flint()
         else:
-            # did we run our flint ?
-            if FLINT.get('process'):
-                pid = get_flint_process()
-            else:
-                # get existing flint, if any
-                for key in redis.scan_iter("flint:%s:*" % platform.node()):
-                    pid = int(key.split(":")[-1])
-                    if psutil.pid_exists(pid):
-                        FLINT.update({ "proxy":None, "process":None})
-                        break
-                    else:
-                        redis.delete(key)
-                else:
-                    # finally, no valid flint is available
-                    pid = get_flint_process()
-    proxy = attach_flint(pid)
-    FLINT['proxy'] = proxy
-    return proxy
+            old_pid = FLINT.get('process', pid)
+            
+    if pid != old_pid:
+        proxy = attach_flint(pid)
+        FLINT.update({'proxy': proxy, 'process': pid })
+        return proxy
+    else:
+        return FLINT['proxy']
 
 # Simple Qt interface
 

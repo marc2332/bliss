@@ -861,6 +861,37 @@ class Aerotech(Controller):
         reply = self.raw_write_read("PFBK(%s)"%self._aero_encoder_axis(encoder))
         return float(reply)
 
+    def start_output_pulse(self, axis, start_pos, stop_pos, npoints):
+        name = self._aero_name(axis)
+        enc_units = self.get_param(axis, "CountsPerUnit")
+
+        start_enc = int(start_pos * enc_units + 0.5)
+        stop_enc = int(stop_pos * enc_units + 0.5)
+        step_pos = (stop_pos - start_pos) / npoints
+        step_enc = int(step_pos * enc_units + 0.5)
+
+        # --- reset previous control
+        self.raw_write("PSOCONTROL %s RESET"%name)
+
+        # --- define mask window
+        self.raw_write("PSOWINDOW %s 1 INPUT 1"%name)
+        self.raw_write("PSOWINDOW %s 1 RANGE %d, %d"%(name, start_enc, stop_enc))
+
+        # --- define pulse 10usec up
+        self.raw_write("PSOPULSE %s TIME 10,10"%name)
+
+        # --- define distance tracking
+        self.raw_write("PSOTRACK %s INPUT 1"%name)
+        self.raw_write("PSOTRACK %s RESET 0x40"%name)
+        self.raw_write("PSODISTANCE %s FIXED %d"%(name, step_enc))
+
+        # --- activate output mode
+        self.raw_write("PSOOUTPUT %s PULSE WINDOW MASK EDGE 2"%name)
+        self.raw_write("PSOCONTROL %s ARM"%name)
+
+    def stop_output_pulse(self, axis):
+        self.raw_write("PSOCONTROL %s OFF"%name)
+        
     @object_method(types_info=("str", "str"))
     def get_param(self, axis, name):
         try:

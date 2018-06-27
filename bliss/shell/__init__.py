@@ -127,10 +127,12 @@ class ScanListener:
         dispatcher.connect(self.__on_scan_end, 'scan_end', scan)
 
     def __on_scan_new(self, scan_info):
+        scan_type = scan_info.get('type')
+        if scan_type is None:
+            return
         config = static.get_config()
         scan_info = dict(scan_info)
         self.term = Terminal(scan_info.get('stream'))
-        scan_info = dict(scan_info)
         nb_points = scan_info.get('npoints')
         if nb_points is None:
             return
@@ -181,15 +183,6 @@ class ScanListener:
                     counter_name += '({0})'.format(unit)
                 self.col_labels.append(counter_name)
 
-        estimation = scan_info.get('estimation')
-        if estimation:
-            total = datetime.timedelta(seconds=estimation['total_time'])
-            motion = datetime.timedelta(seconds=estimation['total_motion_time'])
-            count = datetime.timedelta(seconds=estimation['total_count_time'])
-            estimation_str = ', {0} (motion: {1}, count: {2})'.format(total, motion, count)
-        else:
-            estimation_str = ''
-
         other_channels=[channel_name.split(":")[-1] for channel_name in channels['spectra']+channels['images']]
         if other_channels:
             not_shown_counters_str = 'Activated counters not shown: %s\n' % \
@@ -197,20 +190,36 @@ class ScanListener:
         else:
             not_shown_counters_str = ''
 
-        col_lens = map(lambda x: max(len(x), self.DEFAULT_WIDTH), self.col_labels)
-        h_templ = ["{{0:>{width}}}".format(width=col_len)
-                   for col_len in col_lens]
-        header = "  ".join([templ.format(label)
-                            for templ, label in zip(h_templ, self.col_labels)])
-        header = self.HEADER.format(column_header=header,
-                                    estimation_str=estimation_str,
-                                    not_shown_counters_str=not_shown_counters_str,
-                                    **scan_info)
-        self.col_templ = ["{{0: >{width}g}}".format(width=col_len)
-                          for col_len in col_lens]
+        if scan_type == 'ct':
+            header = not_shown_counters_str
+        else:
+            estimation = scan_info.get('estimation')
+            if estimation:
+                total = datetime.timedelta(seconds=estimation['total_time'])
+                motion = datetime.timedelta(seconds=estimation['total_motion_time'])
+                count = datetime.timedelta(seconds=estimation['total_count_time'])
+                estimation_str = ', {0} (motion: {1}, count: {2})'.format(total, motion, count)
+            else:
+                estimation_str = ''
+
+            col_lens = map(lambda x: max(len(x), self.DEFAULT_WIDTH), self.col_labels)
+            h_templ = ["{{0:>{width}}}".format(width=col_len)
+                       for col_len in col_lens]
+            header = "  ".join([templ.format(label)
+                                for templ, label in zip(h_templ, self.col_labels)])
+            header = self.HEADER.format(column_header=header,
+                                        estimation_str=estimation_str,
+                                        not_shown_counters_str=not_shown_counters_str,
+                                        **scan_info)
+            self.col_templ = ["{{0: >{width}g}}".format(width=col_len)
+                              for col_len in col_lens]
         print_(header)
 
     def __on_scan_data(self, scan_info, values):
+        scan_type = scan_info.get('type')
+        if scan_type is None:
+            return
+
         master, channels = next(scan_info['acquisition_chain'].iteritems())
 
         elapsed_time_col = []
@@ -221,7 +230,7 @@ class ScanListener:
         counter_values = [values[counter_name] for counter_name in self.counters]
 
         values = elapsed_time_col + motor_values + counter_values
-        if scan_info['type'] == 'ct':
+        if scan_type == 'ct':
             # ct is actually a timescan(npoints=1).
             norm_values = numpy.array(values) / scan_info['count_time']
             col_len = max(map(len, self.col_labels)) + 2
@@ -230,7 +239,7 @@ class ScanListener:
                                for label, v, nv in zip(self.col_labels[1:],
                                                        values, norm_values)])
             end_time_str = datetime.datetime.now().strftime("%a %b %d %H:%M:%S %Y")
-            msg = '\n{0}\n\n{1}'.format(end_time_str, lines)
+            msg = '{0}\n\n{1}'.format(end_time_str, lines)
             print_(msg)
         else:
             values.insert(0, self._point_nb)
@@ -243,12 +252,8 @@ class ScanListener:
                 print_(line)
 
     def __on_scan_end(self, scan_info):
-        try:
-            scan_type = scan_info['type']
-        except KeyError:        # @todo  remove this
-            return              # silently ignoring for continuous scan
-
-        if scan_type == 'ct':
+        scan_type = scan_info.get('type')
+        if scan_type is None or scan_type == 'ct':
             return
 
         for motor in self.real_motors:

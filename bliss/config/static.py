@@ -294,11 +294,11 @@ class Node(NodeDict):
             else:
                 node[key] = value
         return node
-    
+
     def to_dict(self):
         """
         full copy and transform all node to dict object.
-        
+
         the return object is a simple dictionary
         """
         newdict = dict()
@@ -337,7 +337,7 @@ class Node(NodeDict):
             else:
                 return_dict[key] = values
         return return_dict
-  
+
     def _get_save_list(self,l,filename):
         return_list = []
         for v in l:
@@ -494,27 +494,39 @@ class Config(object):
                 if isinstance(d, list):
                     raise TypeError("List are not allowed in *%s* file" %
                                      path)
-                                     
-                self._parse(d,parents)
+                try:
+                    self._parse(d, parents)
+                except TypeError:
+                    _msg = "Parsing error1 on %s in '%s'" % (self._connection, path)
+                    raise RuntimeError(_msg)
+
                 continue
             else:
                 if isinstance(d,list):
                     parents = []
                     for item in d:
                         local_parent = Node(self,fs_node,path)
-                        self._parse(item,local_parent)
+                        try:
+                            self._parse(item, local_parent)
+                        except TypeError:
+                            _msg = "Parsing error2 on %s in '%s'" % (self._connection, path)
+                            raise RuntimeError(_msg)
                         self._create_index(local_parent)
                         parents.append(local_parent)
                 else:
                     parents = Node(self,fs_node,path)
-                    self._parse(d,parents)
+                    try:
+                        self._parse(d, parents)
+                    except TypeError:
+                        _msg = "Parsing error3 on %s in '%s'" % (self._connection, path)
+                        raise RuntimeError(_msg)
                     self._create_index(parents)
-           
+
             if isinstance(fs_node, list):
-                continue 
+                continue
             else:
                 children = fs_node.get(fs_key)
-            
+
             if isinstance(children,list):
                 if isinstance(parents,list):
                     children.extend(parents)
@@ -540,7 +552,7 @@ class Config(object):
             else:
                 fs_node[fs_key] = parents
         while gc.collect():
-            pass        
+            pass
     @property
     def names_list(self):
         """
@@ -598,7 +610,7 @@ class Config(object):
         node = self._root_node
         sp_path = base_path.split(os.path.sep)
         if sp_path[-1].startswith('@'): sp_path.pop()
-            
+
         for i,p in enumerate(sp_path[:-1]):
             if p.startswith('@'):
                 rel_init_path = os.path.join(*sp_path[:i + 1])
@@ -692,7 +704,7 @@ class Config(object):
                     cache_func = getattr(m,'create_object_from_cache')
                     instance_object = cache_func(self, name, cache_object)
                     self._name2instance[name] = instance_object
-                
+
             if instance_object is None:
                 func = getattr(m,'create_objects_from_config_node')
                 name2itemsAndname2itemcache = func(self, config_node)

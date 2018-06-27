@@ -45,9 +45,11 @@ def check_connect(func):
         return func(self,*args,**keys)
     return f
 
+
 class ConnectionException(Exception):
   def __init__(self, *args, **kwargs):
     Exception.__init__(self, *args, **kwargs)
+
 
 class Connection(object):
     class WaitingLock(object):
@@ -153,7 +155,7 @@ class Connection(object):
             uds = True
         else:
             uds = False
-            
+
         if self._fd is None:
             if (host is None or port is None) and not uds:
                 udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -181,19 +183,23 @@ class Connection(object):
                             for addr in address_list:
                                 udp.sendto('Hello',(addr,protocol.DEFAULT_UDP_SERVER_PORT))
                             continue
-                        
                         if self._host:
-                            raise ConnectionException("Conductor server on host `%s' does not reply" % self._host)
+                            _msg = "Conductor server on host `%s' does not reply" % self._host
+                            _msg += " (check Beacon server)"
+                            raise RuntimeError(_msg)
                         else:
-                            raise ConnectionException("Could not find any conductor")
+                            _msg = "Could not find any conductor"
+                            _msg += " (check Beacon server and BEACON_HOST environment variable)"
+                            raise RuntimeError(_msg)
                     else:
                         msg,address = udp.recvfrom(8192)
-                        host,port = msg.split('|') 
+                        host,port = msg.split('|')
                         port = int(port)
-			if self._host == 'localhost':
-			    localhost = socket.gethostname()
-			    if localhost == host:
-				break	
+
+                        if self._host == 'localhost':
+                            localhost = socket.gethostname()
+                            if localhost == host:
+                                break
                         elif (self._host is not None and
                               host != self._host and
                               socket.gethostbyname(host) !=
@@ -204,6 +210,7 @@ class Connection(object):
                             break
                 self._host = host
                 self._port = port
+
             if uds:
                 self._fd = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
                 self._fd.connect(port)
@@ -211,7 +218,13 @@ class Connection(object):
                 self._fd = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
                 self._fd.setsockopt(socket.IPPROTO_TCP,socket.TCP_NODELAY,1)
                 self._fd.setsockopt(socket.SOL_IP, socket.IP_TOS, 0x10)
-                self._fd.connect((host,port))
+                try:
+                    self._fd.connect((host, port))
+                except:
+                    _msg = "Conductor server on host `%s:%s' does not reply" % (
+                        host, port)
+                    _msg += " (Check Beacon server)"
+                    raise RuntimeError(_msg)
 
             self._raw_read_task = gevent.spawn(self._raw_read)
 
@@ -221,7 +234,6 @@ class Connection(object):
                                                   socket.gethostname()))
                 self._g_event.wait(1.)
 
-            
     @check_connect
     def lock(self,devices_name,**params):
         priority = params.get('priority',50)

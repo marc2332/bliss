@@ -181,15 +181,6 @@ class ScanListener:
                     counter_name += '({0})'.format(unit)
                 self.col_labels.append(counter_name)
 
-        estimation = scan_info.get('estimation')
-        if estimation:
-            total = datetime.timedelta(seconds=estimation['total_time'])
-            motion = datetime.timedelta(seconds=estimation['total_motion_time'])
-            count = datetime.timedelta(seconds=estimation['total_count_time'])
-            estimation_str = ', {0} (motion: {1}, count: {2})'.format(total, motion, count)
-        else:
-            estimation_str = ''
-
         other_channels=[channel_name.split(":")[-1] for channel_name in channels['spectra']+channels['images']]
         if other_channels:
             not_shown_counters_str = 'Activated counters not shown: %s\n' % \
@@ -197,17 +188,29 @@ class ScanListener:
         else:
             not_shown_counters_str = ''
 
-        col_lens = map(lambda x: max(len(x), self.DEFAULT_WIDTH), self.col_labels)
-        h_templ = ["{{0:>{width}}}".format(width=col_len)
-                   for col_len in col_lens]
-        header = "  ".join([templ.format(label)
-                            for templ, label in zip(h_templ, self.col_labels)])
-        header = self.HEADER.format(column_header=header,
-                                    estimation_str=estimation_str,
-                                    not_shown_counters_str=not_shown_counters_str,
-                                    **scan_info)
-        self.col_templ = ["{{0: >{width}g}}".format(width=col_len)
-                          for col_len in col_lens]
+        if scan_info['type'] == 'ct':
+            header = not_shown_counters_str
+        else:
+            estimation = scan_info.get('estimation')
+            if estimation:
+                total = datetime.timedelta(seconds=estimation['total_time'])
+                motion = datetime.timedelta(seconds=estimation['total_motion_time'])
+                count = datetime.timedelta(seconds=estimation['total_count_time'])
+                estimation_str = ', {0} (motion: {1}, count: {2})'.format(total, motion, count)
+            else:
+                estimation_str = ''
+
+            col_lens = map(lambda x: max(len(x), self.DEFAULT_WIDTH), self.col_labels)
+            h_templ = ["{{0:>{width}}}".format(width=col_len)
+                       for col_len in col_lens]
+            header = "  ".join([templ.format(label)
+                                for templ, label in zip(h_templ, self.col_labels)])
+            header = self.HEADER.format(column_header=header,
+                                        estimation_str=estimation_str,
+                                        not_shown_counters_str=not_shown_counters_str,
+                                        **scan_info)
+            self.col_templ = ["{{0: >{width}g}}".format(width=col_len)
+                              for col_len in col_lens]
         print_(header)
 
     def __on_scan_data(self, scan_info, values):
@@ -230,7 +233,7 @@ class ScanListener:
                                for label, v, nv in zip(self.col_labels[1:],
                                                        values, norm_values)])
             end_time_str = datetime.datetime.now().strftime("%a %b %d %H:%M:%S %Y")
-            msg = '\n{0}\n\n{1}'.format(end_time_str, lines)
+            msg = '{0}\n\n{1}'.format(end_time_str, lines)
             print_(msg)
         else:
             values.insert(0, self._point_nb)

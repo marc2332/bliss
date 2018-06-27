@@ -35,7 +35,7 @@ class LivePlot1D(qt.QWidget):
         self.axes_selection = qt.QWidget(self)
         self.x_axis = qt.QComboBox(self.axes_selection)
         self.y_axis = qt.QComboBox(self.axes_selection)
-        self.add_plot = qt.QPushButton("Add plot", self.axes_selection)
+        self.add_plot = qt.QPushButton("Add curve", self.axes_selection)
         self.silx_plot = silx_plot.Plot1D(self)
 
         qt.QHBoxLayout(self.axes_selection)
@@ -113,7 +113,11 @@ class LivePlot1D(qt.QWidget):
         y_axis = self.y_axis.currentText()
         legend = '%s -> %s' % (x_axis, y_axis)
         x_data, y_data = self._get_data(x_axis, y_axis)
-        self.silx_plot.addCurve(x_data, y_data, legend=legend, copy=False)
+        curve = self.silx_plot.getCurve(legend)
+        if curve:
+            curve.setData(x_data, y_data, copy=False)
+        else:
+            self.silx_plot.addCurve(x_data, y_data, legend=legend, copy=False)
 
     @property
     def x_axis_names(self):

@@ -269,6 +269,9 @@ class Flint:
                 image_win = self.mdi_windows_dict.get(window_title)
                 if not image_win:
                     image_win = Plot2D()
+                    image_win.setKeepDataAspectRatio(True)
+                    image_win.getYAxis().setInverted(True)
+                    image_win.getIntensityHistogramAction().setVisible(True)
                     image_win.setWindowTitle(window_title)
                     image_win.plot_id = next(self._id_generator)
                     self.plot_dict[image_win.plot_id] = image_win

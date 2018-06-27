@@ -361,6 +361,9 @@ class BasePlot(object):
 
     # Interaction
 
+    def select_shapes(self, initial_selection=()):
+        return self._flint.select_shapes(self._plot_id, initial_selection, timeout=None)
+
     def select_points(self, nb):
         return self._flint.select_points(self._plot_id, nb)
 
@@ -566,3 +569,5 @@ def default_plot(data=None, **kwargs):
 
 # Alias
 plot = default_plot
+
+

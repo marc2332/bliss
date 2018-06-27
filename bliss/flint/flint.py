@@ -43,6 +43,9 @@ with warnings.catch_warnings():
     from silx.gui.plot import Plot2D
     from silx.gui import plot as silx_plot
     from silx.gui import qt
+    from silx.gui.plot.tools.roi import RegionOfInterestManager
+    from silx.gui.plot.tools.roi import RegionOfInterestTableWidget
+    from silx.gui.plot.items.roi import RectangleROI
 
 from .plot1d import Plot1D, LivePlot1D, LiveScatterPlot
 from .interaction import PointsSelector, ShapeSelector
@@ -133,6 +136,46 @@ def qt_unsafe(func):
     """
     func._qt_unsafe = True
     return func
+
+
+class ROISelectionWidget(qt.QMainWindow):
+
+    selectionFinished = qt.Signal(object)
+
+    def __init__(self, plot, parent=None):
+        qt.QMainWindow.__init__(self, parent)
+        # TODO: destroy on close
+        self.plot = plot
+        panel = qt.QWidget()
+        self.setCentralWidget(panel)
+
+        self.roi_manager = RegionOfInterestManager(plot)
+        self.roi_manager.setColor('pink')
+        self.roi_manager.sigRegionOfInterestAdded.connect(self.on_added)
+        self.table = RegionOfInterestTableWidget()
+        self.table.setRegionOfInterestManager(self.roi_manager)
+
+        self.toolbar = qt.QToolBar()
+        self.addToolBar(self.toolbar)
+        rectangle_action = self.roi_manager.getInteractionModeAction('rectangle')
+        self.toolbar.addAction(rectangle_action)
+        self.toolbar.addSeparator()
+        self.toolbar.addAction('Apply', self.on_apply)
+
+        layout = qt.QVBoxLayout(panel)
+        layout.addWidget(self.table)
+
+    def on_apply(self):
+        self.selectionFinished.emit(self.roi_manager.getRegionOfInterests())
+        self.roi_manager.clearRegionOfInterests()
+
+    def on_added(self, roi):
+        if not roi.getLabel():
+            nb_rois = len(self.roi_manager.getRegionOfInterests())
+            roi.setLabel('roi{}'.format(nb_rois))
+
+    def add_roi(self, roi):
+        self.roi_manager.addRegionOfInterest(roi)
 
 
 @qt_safe_class
@@ -455,6 +498,43 @@ class Flint:
         plot.clear()
 
     # User interaction
+
+    @qt_unsafe
+    def select_shapes(self, plot_id, initial_shapes=()):
+        plot = self.plot_dict[plot_id]
+        dock = self._create_roi_dock_widget(plot, initial_shapes)
+        roi_widget = dock.widget()
+        try:
+            queue = create_queue_from_qt_signal(roi_widget.selectionFinished)
+            try:
+                selections, = queue.get()
+            finally:
+                disconnect_queue_from_qt_signal(queue)
+            shapes = [dict(origin=select.getOrigin(),
+                           size=select.getSize(),
+                           label=select.getLabel(),
+                           kind=select._getKind())
+                      for select in selections]
+            return shapes
+        finally:
+            qt_safe(plot.removeDockWidget)(dock)
+
+    def _create_roi_dock_widget(self, plot, initial_shapes):
+        roi_widget = ROISelectionWidget(plot)
+        dock = qt.QDockWidget('ROI selection')
+        dock.setWidget(roi_widget)
+        plot.addTabbedDockWidget(dock)
+        for shape in initial_shapes:
+            kind = shape['kind']
+            if kind == 'Rectangle':
+                roi = RectangleROI()
+                roi.setGeometry(origin=shape['origin'], size=shape['size'])
+                roi.setLabel(shape['label'])
+                roi_widget.add_roi(roi)
+            else:
+                raise ValueError('Unknown shape of type {}'.format(kind))
+        dock.show()
+        return dock
 
     @qt_unsafe
     def _selection(self, plot_id, cls, *args):

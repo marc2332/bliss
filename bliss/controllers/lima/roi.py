@@ -339,7 +339,7 @@ class RoiCounters(object):
 
     def get_single_roi_counters(self, name):
         if self._save_rois.get(name) is None:
-            raise AttributeError('Unknown ROI counter {0:!r}'.format(name))
+            raise AttributeError('Unknown ROI counter {!r}'.format(name))
         return SingleRoiCounters(
             name, controller=self,
             master_controller=self._acquisition_proxy,

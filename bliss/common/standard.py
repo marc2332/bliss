@@ -14,7 +14,7 @@ from bliss.common.cleanup import cleanup, error_cleanup
 __all__ = ['wa', 'wm', 'sta', 'mv', 'umv', 'mvr', 'umvr', 'move',
            'prdef', 'set_log_level', 'sync'] + scans.__all__ + \
            ['cleanup', 'error_cleanup', 'plot', 'lscnt'] + \
-           ['SoftAxis', 'SoftCounter']
+           ['SoftAxis', 'SoftCounter', 'edit_roi_counters']
 
 import collections
 import itertools
@@ -369,3 +369,47 @@ def lscnt():
     print_()
     print_(str(tabulate(table_info, headers=["Name", "Shape", "Controller"])))
 
+
+def edit_roi_counters(detector, scan=None, acq_time=1):
+    """
+    Edit the given detector ROI counters.
+    When called without arguments, it will use the last point of the last
+    scan/ct as a reference. If no scan has been done yet it will do a `ct()`
+    with the given acq_time. Example::
+
+        BLISS [1]: ct(0.1, pilatus1)
+        BLISS [2]: edit_roi_counters(pilatus1)
+    """
+    roi_counters = detector.roi_counters
+    name = '{} [{}]'.format(detector.name, roi_counters.config_name)
+    if scan is None:
+        all_scans = getattr(setup_globals, 'SCANS', ())
+        if not all_scans:
+            all_scans = (ct(acq_time, detector, return_scan=True),)
+        scan = all_scans[-1]
+    plot = scan.get_plot(detector)
+
+    selections = []
+    for roi_name, roi in roi_counters.items():
+        selection = dict(kind='Rectangle', origin=(roi.x, roi.y),
+                         size=(roi.width, roi.height), label=roi_name)
+        selections.append(selection)
+    print('Waiting for ROI edition to finish on {}...'.format(name))
+    selections = plot.select_shapes(selections)
+    roi_labels, rois = [], []
+    ignored = 0
+    for selection in selections:
+        label = selection['label']
+        if not label:
+            ignored += 1
+            continue
+        x, y = map(int, map(round, selection['origin']))
+        w, h = map(int, map(round, selection['size']))
+        rois.append((x, y, w, h))
+        roi_labels.append(label)
+    if ignored:
+        print('{} ROI(s) ignored (no name)'.format(ignored))
+    roi_counters.clear()
+    roi_counters[roi_labels] = rois
+    print('Applied ROIS {} to {}'.format(', '.join(sorted(roi_labels)),
+                                         name))

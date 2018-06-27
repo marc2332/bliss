@@ -127,10 +127,12 @@ class ScanListener:
         dispatcher.connect(self.__on_scan_end, 'scan_end', scan)
 
     def __on_scan_new(self, scan_info):
+        scan_type = scan_info.get('type')
+        if scan_type is None:
+            return
         config = static.get_config()
         scan_info = dict(scan_info)
         self.term = Terminal(scan_info.get('stream'))
-        scan_info = dict(scan_info)
         nb_points = scan_info.get('npoints')
         if nb_points is None:
             return
@@ -188,7 +190,7 @@ class ScanListener:
         else:
             not_shown_counters_str = ''
 
-        if scan_info['type'] == 'ct':
+        if scan_type == 'ct':
             header = not_shown_counters_str
         else:
             estimation = scan_info.get('estimation')
@@ -214,6 +216,10 @@ class ScanListener:
         print_(header)
 
     def __on_scan_data(self, scan_info, values):
+        scan_type = scan_info.get('type')
+        if scan_type is None:
+            return
+
         master, channels = next(scan_info['acquisition_chain'].iteritems())
 
         elapsed_time_col = []
@@ -224,7 +230,7 @@ class ScanListener:
         counter_values = [values[counter_name] for counter_name in self.counters]
 
         values = elapsed_time_col + motor_values + counter_values
-        if scan_info['type'] == 'ct':
+        if scan_type == 'ct':
             # ct is actually a timescan(npoints=1).
             norm_values = numpy.array(values) / scan_info['count_time']
             col_len = max(map(len, self.col_labels)) + 2
@@ -246,12 +252,8 @@ class ScanListener:
                 print_(line)
 
     def __on_scan_end(self, scan_info):
-        try:
-            scan_type = scan_info['type']
-        except KeyError:        # @todo  remove this
-            return              # silently ignoring for continuous scan
-
-        if scan_type == 'ct':
+        scan_type = scan_info.get('type')
+        if scan_type is None or scan_type == 'ct':
             return
 
         for motor in self.real_motors:

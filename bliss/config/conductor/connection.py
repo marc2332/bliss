@@ -109,11 +109,9 @@ class Connection(object):
     def __init__(self,host=None,port=None):
         self._socket = None
         if host is None:
-            beacon_host = os.environ.get("BEACON_HOST")
-	else:
-            beacon_host = host
-        if beacon_host is not None and ':' in beacon_host:
-            host, port = beacon_host.split(":")
+            host = os.environ.get("BEACON_HOST")
+        if host is not None and ':' in host:
+            host, port = host.split(":")
         if port is None:
             port = os.environ.get("BEACON_PORT")
         if port is not None:

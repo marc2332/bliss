@@ -94,11 +94,15 @@ def initialize(session_name=None):
     return user_ns, session
 
 
+def _find_obj(name):
+    return operator.attrgetter(name)(setup_globals)
+
+
 def _find_unit(obj):
     try:
         if isinstance(obj, str):
             # in the form obj.x.y
-            obj = operator.attrgetter(obj)(setup_globals)
+            obj = _find_obj(obj)
         if hasattr(obj, 'unit'):
             return obj.unit
         if hasattr(obj, 'config'):
@@ -156,7 +160,7 @@ class ScanListener:
             else:
                 # we can suppose channel_name to be a motor name
                 try:
-                    motor = config.get(channel_short_name)
+                    motor = _find_obj(channel_short_name)
                 except Exception:
                     continue
                 else:

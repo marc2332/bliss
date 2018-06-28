@@ -185,7 +185,8 @@ class PepuAcquisitionDevice(AcquisitionDevice):
 
     def stop(self):
         """Stop the acquisition."""
-        self.stream.stop()
+        if self.stream is not None:
+            self.stream.stop()
 
     def trigger(self):
         """Send a software trigger."""
@@ -199,7 +200,7 @@ class PepuAcquisitionDevice(AcquisitionDevice):
     def reading(self):
         """Spawn by the chain."""
         for data in self.stream.idata(self.npoints):
-            if data:
+            if len(data):
                 self.publish(data)
 
 

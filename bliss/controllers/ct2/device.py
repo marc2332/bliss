@@ -193,6 +193,7 @@ class CT2(object):
         card_o = self._card
         int_trig_dead_time = self.__acq_mode in self.IntTrigDeadTimeModes
         timer_ct = self.internal_timer_counter
+        point_nb_ct = self.internal_point_nb_counter
         out_ct = self.output_counter
         acq_last_point = self.acq_nb_points - 1
 
@@ -200,7 +201,25 @@ class CT2(object):
         first_discarded = False
         async_latch_comp = 0
 
+        fifo_persistent_status = {}
+
+        def get_fifo_status():
+            fifo_status = self.get_FIFO_status()
+            for k in "overrun_error", "write_error", "read_error", "full":
+                if fifo_status[k]:
+                    fifo_persistent_status[k] = True
+            return fifo_status
+
         while self.__acq_status == AcqStatus.Running:
+            # if counters stopped and FIFO is empty select will block forever
+            counters_status = card_o.get_counters_status()
+            if not counters_status[point_nb_ct]["run"]:
+                max_events, nb_counters = card_o.calc_fifo_events(get_fifo_status())
+                if not max_events:
+                    self._send_error("data overrun")
+                    self.__acq_status = AcqStatus.Ready
+                    self._send_status(self.__acq_status)
+                    break
             read, write, error = select.select((card_o,), (), (card_o,))
             try:
                 if error:
@@ -216,23 +235,46 @@ class CT2(object):
                 if err:
                     self.__last_error = "ct2 error"
                     self._send_error(self.__last_error)
+                if fifo_half_full:
+                    self._log.warning("Fifo half full!")
 
                 timer_end = timer_ct in counters
                 acq_running = self.__acq_status == AcqStatus.Running
                 if int_trig_dead_time and timer_end and dma and acq_running:
-                    print "Warning! Overrun: counters=%s, dma=%s" % (counters, dma)
-                if dma:
-                    data, fifo_status = card_o.read_fifo()
+                    self._log.debug("overrun: counters=%s, dma=%s", counters, dma)
+                got_data = False
+
+                max_events, nb_counters = card_o.calc_fifo_events(get_fifo_status())
+                if max_events > 0:
+                    got_data = True
+                    data = []
+                    while True:
+                        single_data, fifo_status = card_o.read_fifo(get_fifo_status())
+                        if single_data is None:
+                            break
+                        data.append(single_data)
+                    if len(data) > 1:
+                        data = numpy.vstack(data)
+                    elif data:
+                        data = data[0]
+                    else:
+                        got_data = False
+
+                if got_data:
                     # software trigger readout is asynchronous with the int.
                     # clocks, so counter point_nb & latch are not properly
-                    # synchronised, correct the this effect
+                    # synchronised, correct this effect
+
+                    if len(data) + point_nb > acq_last_point:
+                        data = data[: acq_last_point - point_nb]
+                    sys.stdout.flush()
                     if self.__acq_mode == AcqMode.SoftTrigReadout:
                         data = numpy.array(data)
                         for i, point_data in enumerate(data, point_nb + 1):
                             async_latch_comp = point_data[-1] - i
                             if async_latch_comp not in [0, 1]:
-                                print (
-                                    "Warning! Async latch jump: %s" % async_latch_comp
+                                self._log.warning(
+                                    "warning! Async latch jump: %s", async_latch_comp
                                 )
                             point_data[-1] -= async_latch_comp
                     elif self.__in_ext_trig_readout():
@@ -244,9 +286,9 @@ class CT2(object):
                             data = numpy.array(data)
                             for point_data in data:
                                 point_data[-1] -= 1
-                if dma:
+                if got_data:
                     point_nb = data[-1][-1]
-                point_end = timer_end if int_trig_dead_time else dma
+                point_end = timer_end if int_trig_dead_time else (dma or got_data)
                 acq_end = point_end and (point_nb == acq_last_point)
                 last_restart = point_end and (point_nb == acq_last_point - 1)
                 if out_ct and last_restart and self.__has_int_trig():
@@ -257,7 +299,7 @@ class CT2(object):
                 if acq_end:
                     self.__acq_status = AcqStatus.Ready
 
-                if dma:
+                if got_data:
                     with self.__buffer_lock:
                         self.__buffer.extend(data)
                     self.__last_point_nb = point_nb
@@ -269,6 +311,9 @@ class CT2(object):
                 sys.excepthook(*sys.exc_info())
                 self.__last_error = "unexpected ct2 select error: {0}".format(e)
                 self._send_error(self.__last_error)
+
+        if fifo_persistent_status:
+            self._log.error("fifo_persistent_status=%s", fifo_persistent_status)
 
         card_o.disable_counters_software(card_o.COUNTERS)
         card_o.set_DMA_enable_trigger_latch(reset_fifo_error_flags=True)
@@ -459,7 +504,9 @@ class CT2(object):
         card_o.set_DMA_enable_trigger_latch((timer_ct,), all_channels)
 
         # dma transfer and error will also trigger DMA
-        card_o.set_interrupts(counters=irq_counters, dma=True, error=True)
+        card_o.set_interrupts(
+            counters=irq_counters, dma=True, error=True, fifo_half_full=True
+        )
 
         # enable the active counters
         card_o.enable_counters_software(channels)

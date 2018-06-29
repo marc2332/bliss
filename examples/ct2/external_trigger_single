@@ -22,7 +22,6 @@ from gevent.event import Event
 
 from bliss.common.event import dispatcher
 from bliss.config.static import get_config
-from bliss.controllers.ct2.client import CT2
 from bliss.controllers.ct2.device import AcqMode, AcqStatus, StatusSignal
 
 parser = argparse.ArgumentParser(description=__doc__)
@@ -56,7 +55,7 @@ with contextlib.closing(device):
     device.acq_point_period = args.point_period
     device.acq_nb_points = args.nb_points
     device.acq_channels = 3, 2
-    device.input_channel = 2
+    device.input_channel = 9
 
     finish_event = Event()
 

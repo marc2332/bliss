@@ -9,6 +9,7 @@ import pytest
 from bliss import setup_globals
 from bliss.common import scans
 from bliss.common.axis import Axis
+from bliss.common.utils import get_axes_positions_iter
 import numpy
 import h5py
 import time
@@ -18,16 +19,9 @@ import os
 def test_hdf5_metadata(beacon):
     session = beacon.get("test_session")
     session.setup()
+ 
+    all_motors = dict([(name, pos) for name, pos, _ in get_axes_positions_iter(on_error='ERR') if pos!='ERR'])
     
-    all_motors = {}
-    for obj_name in session.object_names:
-        obj = getattr(setup_globals, obj_name)
-        if isinstance(obj, Axis):
-            try:
-                all_motors[obj.name] = obj.position()  
-            except Exception:
-                continue
-
     roby = beacon.get("roby")
     diode = beacon.get("diode")
 

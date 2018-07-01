@@ -70,9 +70,44 @@ def test_scan_node(beacon, redis_data_conn, scan_tmpdir):
     with gevent.Timeout(5):
         s.run()
 
+    assert redis_data_conn.ttl(s.node.db_name) > 0
+
     m0_node_db_name = s.node.db_name+":roby"
-    assert redis_data_conn.lrange(s.node.db_name+"_children_list", 0, -1) == [m0_node_db_name]
-    assert redis_data_conn.lrange(m0_node_db_name+"_children_list", 0, -1) == [m0_node_db_name+":roby", m0_node_db_name+":diode"]
+    scan_children_node = [m0_node_db_name]
+    m0_children_node = [m0_node_db_name+":roby", m0_node_db_name+":diode"]
+    assert redis_data_conn.lrange(s.node.db_name+"_children_list", 0, -1) == scan_children_node
+    assert redis_data_conn.lrange(m0_node_db_name+"_children_list", 0, -1) == m0_children_node
+
+    for child_node_name in scan_children_node+m0_children_node:
+        assert redis_data_conn.ttl(child_node_name) > 0
+
+def test_interrupted_scan(beacon, redis_data_conn, scan_tmpdir):
+    session = beacon.get("test_session")
+    session.setup()
+    scan_saving = getattr(setup_globals, "SCAN_SAVING")
+    scan_saving.base_path=str(scan_tmpdir)
+    parent = scan_saving.get_parent_node()
+    m = getattr(setup_globals, "roby")
+    m.velocity(10)
+    diode = getattr(setup_globals, "diode")
+
+    chain = AcquisitionChain()
+    chain.add(SoftwarePositionTriggerMaster(m, 0, 1, 5), SamplingCounterAcquisitionDevice(diode, 0.01, npoints=5))
+
+    s = Scan(chain, "test_scan", parent)
+    scan_task = gevent.spawn(s.run)
+    gevent.sleep(0.5)
+    assert pytest.raises(KeyboardInterrupt, 'scan_task.kill(KeyboardInterrupt)')
+
+    assert redis_data_conn.ttl(s.node.db_name) > 0
+
+    m0_node_db_name = s.node.db_name+":roby"
+    scan_children_node = [m0_node_db_name]
+    m0_children_node = [m0_node_db_name+":roby", m0_node_db_name+":diode"]
+
+    for child_node_name in scan_children_node+m0_children_node:
+        assert redis_data_conn.ttl(child_node_name) > 0
+
 
 def test_scan_data_0d(beacon, redis_data_conn):
     session = beacon.get("test_session")

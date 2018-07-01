@@ -339,11 +339,10 @@ class periodic_exec(object):
                 gevent.sleep(self.period)
 
 def get_objects_iter(*names_or_objs):
-    from bliss.config.static import get_config
-    cfg = get_config()
+    from bliss import setup_globals
     for i in names_or_objs:
         if isinstance(i, (str, unicode)):
-            i = cfg.get(i)
+            i = getattr(setup_globals, i)
         yield i
 
 

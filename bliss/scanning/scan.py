@@ -451,13 +451,14 @@ class Scan(object):
 
         self.__trigger_data_watch_callback(signal, sender)
 
+    def set_ttl(self):
+        for node in self._nodes.itervalues():
+            node.set_ttl()
+        self._node.set_ttl()
+        self._node.end()
+
     def _device_event(self, event_dict=None, signal=None, sender=None):
         if signal == 'end':
-            for node in self._nodes.itervalues():
-                node.set_ttl()
-            self._node.set_ttl()
-            self._node.end()
-
             self.__trigger_data_watch_callback(signal, sender, sync=True)
 
     def prepare(self, scan_info, devices_tree):
@@ -524,6 +525,8 @@ class Scan(object):
                 with periodic_exec(0.1 if call_on_stop else 0, set_watch_event):
                     i.stop()
         finally:
+            self.set_ttl()
+
             self._state = self.IDLE_STATE
             send(current_module, "scan_end", self.scan_info)
             if self._writer:

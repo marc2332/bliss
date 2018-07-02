@@ -435,9 +435,17 @@ class AcquisitionChainIter(object):
         gevent.joinall(preset_tasks, raise_error=True)
         self._execute("_start")
 
+    def wait_all_devices(self):
+        for acq_dev_iter in (x for x in self._tree.expand_tree() if x is not 'root' and
+                             isinstance(x.device, (AcquisitionDevice, AcquisitionMaster))):
+            if hasattr(acq_dev_iter, 'wait_reading'):
+                acq_dev_iter.wait_reading()
+            dispatcher.send("end", acq_dev_iter.device)
+
     def stop(self):
         try:
             self._execute("stop", master_to_slave=True, wait_all_tasks=True)
+            self.wait_all_devices()
         finally:
             preset_tasks = [gevent.spawn(preset.stop, self.acquisition_chain)
                             for preset in self.acquisition_chain._presets_list]
@@ -463,11 +471,7 @@ class AcquisitionChainIter(object):
             gevent.joinall(preset_tasks)
             gevent.joinall(preset_tasks, raise_error=True)
         except StopIteration:                # should we stop all devices?
-            for acq_dev_iter in (x for x in self._tree.expand_tree() if x is not 'root' and
-                                 isinstance(x.device, (AcquisitionDevice, AcquisitionMaster))):
-                if hasattr(acq_dev_iter, 'wait_reading'):
-                    acq_dev_iter.wait_reading()
-                dispatcher.send("end", acq_dev_iter.device)
+            self.wait_all_devices()
             raise
         return self
 

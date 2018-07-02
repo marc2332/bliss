@@ -253,21 +253,6 @@ class DataNodeIterator(object):
                         yield self.NEW_DATA_IN_CHANNEL_EVENT, channel_node
 
 
-class _TTL_setter(object):
-    def __init__(self, db_name):
-        self._db_name = db_name
-        self._disable = False
-
-    def disable(self):
-        self._disable = True
-
-    def __del__(self):
-        if not self._disable:
-            node = get_node(self._db_name)
-            if node is not None:
-                node.set_ttl()
-
-
 class DataNode(object):
     default_time_to_live = 24 * 3600  # 1 day
 
@@ -277,14 +262,6 @@ class DataNode(object):
             connection = client.get_cache(db=1)
         db_name = '%s:%s' % (parent.db_name, name) if parent else name
         return db_name if connection.exists(db_name) else None
-
-    @staticmethod
-    def _set_ttl(db_names):
-        redis_conn = client.get_cache(db=1)
-        pipeline = redis_conn.pipeline()
-        for name in db_names:
-            pipeline.expire(name, DataNode.default_time_to_live)
-        pipeline.execute()
 
     def __init__(self, node_type, name, parent=None,
                  connection=None, create=False, **keys):
@@ -310,10 +287,8 @@ class DataNode(object):
             if parent:
                 self._data.parent = parent.db_name
                 parent.add_children(self)
-            self._ttl_setter = _TTL_setter(self.db_name)
         else:
             self.__new_node = False
-            self._ttl_setter = None
 
     @property
     def db_name(self):
@@ -353,9 +328,11 @@ class DataNode(object):
 
     def set_ttl(self):
         db_names = set(self._get_db_names())
-        self._set_ttl(db_names)
-        if self._ttl_setter is not None:
-            self._ttl_setter.disable()
+        redis_conn = client.get_cache(db=1)
+        pipeline = redis_conn.pipeline()
+        for name in db_names:
+            pipeline.expire(name, DataNode.default_time_to_live)
+        pipeline.execute()
 
     def _get_db_names(self):
         db_name = self.db_name

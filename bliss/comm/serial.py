@@ -534,7 +534,7 @@ class TangoSerial(_BaseSerial):
     _read = _raw_read
 
     def _write(self, msg):
-        self._device.DevSerWriteString(msg)
+        self._device.DevSerWriteChar(bytearray(msg))
 
     def flushInput(self):
         self._device.DevSerFlush(self.FLUSH_INPUT)

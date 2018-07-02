@@ -7,12 +7,14 @@ Standard bliss macros (:func:`~bliss.common.standard.wa`, \
 from bliss.common import scans
 from bliss.common.scans import *
 from bliss.common.plot import plot
-
+from bliss.common.axis import SoftAxis
+from bliss.common.measurement import SoftCounter
 from bliss.common.cleanup import cleanup, error_cleanup
 
 __all__ = ['wa', 'wm', 'sta', 'mv', 'umv', 'mvr', 'umvr', 'move',
            'prdef', 'set_log_level', 'sync'] + scans.__all__ + \
-           ['cleanup', 'error_cleanup', 'plot', 'lscnt']
+           ['cleanup', 'error_cleanup', 'plot', 'lscnt'] + \
+           ['SoftAxis', 'SoftCounter']
 
 import collections
 import itertools

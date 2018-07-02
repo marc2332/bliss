@@ -39,6 +39,7 @@ from bliss.config.static import get_config
 from bliss.common.encoder import Encoder
 from bliss.common.hook import MotionHook
 from bliss.physics.trajectory import LinearTrajectory
+from bliss import setup_globals
 import gevent
 import re
 import sys
@@ -1587,8 +1588,33 @@ class ModuloAxis(Axis):
         finally:
             self._in_prepare_move = False
 
+
 class NoSettingsAxis(Axis):
     def __init__(self,*args,**kwags):
         Axis.__init__(self,*args,**kwags)
         self.settings.get = mock.MagicMock(return_value = None)
         self.settings.set = mock.MagicMock(return_value = None)
+
+
+def SoftAxis(name, obj, position='position', move='position', stop=None,
+             low_limit=float('-inf'), high_limit=float('+inf')):
+    from bliss.controllers.motors.soft import SoftController
+    config = get_config()
+    if callable(position):
+        position = position.__name__
+    if callable(move):
+        move = move.__name__
+    if callable(stop):
+        stop = stop.__name__
+ 
+    controller = SoftController(name, obj, {'position': position,
+                                            'move': move,
+                                            'stop': stop,
+                                            'limits': (low_limit, high_limit),
+                                            'name': name})
+
+    controller._init()
+    axis = controller.get_axis(name)
+    config._name2instance[name] = axis
+    setattr(setup_globals, name, axis)
+    return axis

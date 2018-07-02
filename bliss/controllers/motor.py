@@ -47,7 +47,7 @@ class Controller(object):
         self.__initialized_hw_axis = dict()
         self.__initialized_encoder = dict()
         self.__initialized_axis = dict()
-        self.__lock = lock.Semaphore()
+        self.__lock = lock.RLock() #Semaphore()
         self._axes = dict()
         self._encoders = dict()
         self._shutters = dict()
@@ -200,21 +200,22 @@ class Controller(object):
             self.__initialized_encoder[encoder] = True
 
     def _initialize_axis(self, axis, *args, **kwargs):
-        if self.__initialized_axis[axis]:
-            return
-
         with self.__lock:
+            if self.__initialized_axis[axis]:
+                return
+
             if not self.__initialized_hw.value:
                 self.initialize_hardware()
                 self.__initialized_hw.value = True
 
-        self.initialize_axis(axis)
-        self.__initialized_axis[axis] = True
+            self.initialize_axis(axis)
 
-        axis_initialized = self.__initialized_hw_axis[axis]
-        if not axis_initialized.value:
-            self.initialize_hardware_axis(axis)
-            axis_initialized.value = 1
+            axis_initialized = self.__initialized_hw_axis[axis]
+            if not axis_initialized.value:
+                self.initialize_hardware_axis(axis)
+                axis_initialized.value = 1
+
+            self.__initialized_axis[axis] = True
 
         try:
             mandatory_config_list = list()

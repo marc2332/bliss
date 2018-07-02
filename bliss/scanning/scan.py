@@ -16,6 +16,9 @@ import time
 import logging
 import datetime
 import re
+import peakutils
+from scipy.interpolate import UnivariateSpline
+import numpy as np
 
 from bliss import setup_globals
 from bliss.common.event import connect, send
@@ -430,6 +433,74 @@ class Scan(object):
     @property
     def path(self):
         return self.scan_info['root_path'] if self.scan_info['save'] else None
+
+    def _get_x_y_data(self, counter, axis=None):
+        acq_chain = self._scan_info['acquisition_chain']
+        master_axes = []
+        for master in acq_chain.keys():
+            ma = master.split(':')[-1]
+            if ma in self._scan_info['positioners']:
+                master_axes.append(ma)
+
+        if len(master_axes) == 0:
+            raise RuntimeError("No axis detected in scan.")
+        if len(master_axes) > 1 and axis is None:
+            raise ValueError("Multiple axes detected, please provide axis for \
+                             calculation.")
+        if axis is None:
+            axis_name = master_axes[0]
+        else:
+            axis_name = axis.name
+            if axis_name not in master_axes:
+                raise ValueError("No master for axis '%s`." % axis_name)
+
+        scalars = acq_chain.get(axis_name, {}).get('scalars', [])
+        for scalar in scalars:
+            if scalar.endswith(counter.name):
+                scalar = scalar.split(':')[-1]
+                break
+        else:
+            raise ValueError("No scalar with name '%s`." % counter.name)
+
+        data = self.get_data()
+        x_data = data[axis_name]
+        y_data = data[scalar]
+
+        return x_data, y_data
+
+    def _peak_gaussian_fit(self, x, y, bkgd_substraction=False, thres=0.3,
+                           min_dist=1, width=10):
+        """Return gaussian fit params for the peak found in (x,y) data"""
+        if bkgd_substraction:
+            base = peakutils.baseline(y, 2)
+            y -= base
+
+        indexes = peakutils.indexes(y, thres=thres, min_dist=min_dist)
+
+        if len(indexes) > 1:
+            raise RuntimeError("Multiple peaks detected, use your own \
+                               calculation routine to detect peaks.")
+
+        slice_ = slice(indexes[0] - width, indexes[0] + width + 1)
+
+        amp, cen, sig = peakutils.gaussian_fit(x[slice_], y[slice_],
+                                               center_only=False)
+
+        return amp, cen, sig
+
+    def fwhm(self, counter, axis=None, bkgd_substraction=False):
+        x, y = self._get_x_y_data(counter, axis)
+        amp, cen, sig = self._peak_gaussian_fit(x, y, bkgd_substraction)
+        return 2.3548*sig
+
+    def peak(self, counter, axis=None, bkgd_substraction=False):
+        x, y = self._get_x_y_data(counter, axis)
+        amp, cen, sig = self._peak_gaussian_fit(x, y, bkgd_substraction)
+        return cen
+
+    def com(self, counter, axis=None):
+        x, y = self._get_x_y_data(counter, axis)
+        return peakutils.peak.centroid(x, y)
 
     def __trigger_data_watch_callback(self, signal, sender, sync=False):
         if self._data_watch_callback is not None:

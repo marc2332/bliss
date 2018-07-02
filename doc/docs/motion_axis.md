@@ -1,6 +1,5 @@
 
 
-
 ## Applying configuration changes
 
 To apply a change in YML configuration, use `apply_config` method of
@@ -26,7 +25,7 @@ class Maxipix(object):
 
     @property
     def energy_threshold(self):
-        return self._enery
+        return self._energy
 
     @energy_threshold.setter
     def energy_threshold(self, new_energy):

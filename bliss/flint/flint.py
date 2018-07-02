@@ -197,7 +197,8 @@ class Flint:
     def new_scan(self, scan_info):
         # show tab
         self.parent_tab.setCurrentIndex(0)
-
+        self.parent_tab.setTabText(0, "Live scan | %s - scan number %d" % (scan_info["title"], scan_info["scan_nb"])) 
+  
         # delete plots data
         for master, plots in list(self.live_scan_plots_dict.items()):
             for plot_type in ('0d', '1d', '2d'):

@@ -217,15 +217,17 @@ class Flint:
             scalars_plot_win = self.mdi_windows_dict.get(window_title)
             if not scalars_plot_win:
                 scalars_plot_win = LivePlot1D(data_dict=self.data_dict)
-                scalars_plot_win.plot_id = next(self._id_generator)
-                scalars_plot_win.set_x_axes(channels['master']['scalars'])
-                scalars_plot_win.set_y_axes(scalars)
                 scalars_plot_win.setWindowTitle(window_title)
+                scalars_plot_win.plot_id = next(self._id_generator)
                 self.plot_dict[scalars_plot_win.plot_id] = scalars_plot_win
                 self.live_scan_plots_dict[master]['0d'].append(scalars_plot_win)
                 self.mdi_windows_dict[window_title] = \
                     self.live_scan_mdi_area.addSubWindow(scalars_plot_win, flags)
+            else:
+                scalars_plot_win = scalars_plot_win.widget()
             if scalars and len(channels['master']['scalars']) >= 1:
+                scalars_plot_win.set_x_axes(channels['master']['scalars'])
+                scalars_plot_win.set_y_axes(scalars)
                 scalars_plot_win.show()
             else:
                 scalars_plot_win.hide()
@@ -235,16 +237,18 @@ class Flint:
             scatter_plot_win = self.mdi_windows_dict.get(window_title)
             if not scatter_plot_win:
                 scatter_plot_win = LiveScatterPlot(data_dict=self.data_dict)
-                scatter_plot_win.plot_id = next(self._id_generator)
-                scatter_plot_win.set_x_axes(channels['master']['scalars'])
-                scatter_plot_win.set_y_axes(channels['master']['scalars'])
-                scatter_plot_win.set_z_axes(scalars)
                 scatter_plot_win.setWindowTitle(window_title)
+                scatter_plot_win.plot_id = next(self._id_generator)
                 self.plot_dict[scatter_plot_win.plot_id] = scatter_plot_win
                 self.live_scan_plots_dict[master]['0d'].append(scatter_plot_win)
                 self.mdi_windows_dict[window_title] = \
                     self.live_scan_mdi_area.addSubWindow(scatter_plot_win, flags)
+            else:
+                scatter_plot_win = scatter_plot_win.widget()
             if scalars and len(channels['master']['scalars']) >= 2:
+                scatter_plot_win.set_x_axes(channels['master']['scalars'])
+                scatter_plot_win.set_y_axes(channels['master']['scalars'])
+                scatter_plot_win.set_z_axes(scalars)
                 scatter_plot_win.show()
             else:
                 scatter_plot_win.hide()

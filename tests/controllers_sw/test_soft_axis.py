@@ -10,9 +10,7 @@ import pytest
 import numpy
 
 from bliss import setup_globals
-from bliss.controllers.motors.soft import SoftAxis
-from bliss.common.standard import ascan
-from bliss.common.measurement import SoftCounter
+from bliss.common.standard import SoftAxis, SoftCounter, ascan
 
 
 class Object(object):
@@ -38,7 +36,7 @@ class Object(object):
         self._position = position
 
 
-def test_soft_axis_creation():
+def test_soft_axis_creation(beacon):
 
     o0 = Object()
     o0.position = 1.2345
@@ -82,7 +80,7 @@ def test_soft_axis_creation():
     assert o0.nb_move == 2
 
 
-def test_soft_axis_scan():
+def test_soft_axis_scan(beacon):
 
     o0 = Object()
     o0.position = 1.2345

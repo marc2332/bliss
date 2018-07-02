@@ -9,7 +9,6 @@ import inspect
 
 import numpy
 
-from bliss import setup_globals
 from bliss.common.axis import NoSettingsAxis, AxisState
 from bliss.config.static import get_config
 from bliss.controllers.motor import Controller
@@ -56,10 +55,16 @@ def get_stop_func(obj, stop):
     return stop_func
 
 
+class _Config(dict):
+
+    def to_dict(self):
+        return dict(self)
+
 
 class SoftController(Controller):
 
     def __init__(self, axis_name, obj, axis_config):
+        axis_config = _Config(axis_config)
         axes = ((axis_name, NoSettingsAxis, axis_config),)
         super(SoftController, self).__init__('__soft_controller__', {},
                                              axes, (), (), ())
@@ -85,27 +90,7 @@ class SoftController(Controller):
         return self._position()
 
 
-class _Config(dict):
-
-    def to_dict(self):
-        return dict(self)
 
 
-def SoftAxis(name, obj, position='position', move='position', stop=None,
-             low_limit=float('-inf'), high_limit=float('+inf')):
-    config = get_config()
-    if callable(position):
-        position = position.__name__
-    if callable(move):
-        move = move.__name__
-    if callable(stop):
-        stop = stop.__name__
-    axis_config = _Config(position=position, move=move, stop=stop,
-                          limits=(low_limit, high_limit), name=name)
-    controller = SoftController(name, obj, axis_config)
-    controller._init()
-    axis = controller.get_axis(name)
-    config._name2instance[name] = axis
-    setattr(setup_globals, name, axis)
-    return axis
+
 

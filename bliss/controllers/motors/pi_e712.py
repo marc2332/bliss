@@ -189,6 +189,15 @@ class PI_E712(Controller):
         elog.debug("velocity set : %g" % new_velocity)
         return self.read_velocity(axis)
 
+    def read_acceleration(self, axis):
+        if hasattr(axis, '_acceleration_value'):
+            return axis._acceleration_value
+        else:
+            return 1.
+
+    def set_acceleration(self, axis, acceleration):
+        axis._acceleration_value = acceleration
+
     """ STATE """
     def state(self, axis):
         elog.debug("axis.closed_loop for axis %s is %s" % (axis.name, axis.closed_loop))

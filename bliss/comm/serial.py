@@ -509,17 +509,27 @@ class TangoSerial(_BaseSerial):
         self._device = None
 
     def _readline(self, eol):
+        lg = len(eol)
+
         if eol != self._last_eol:
             _, eol_encode = self.PAR_MAP[self.SL_NEWLINE]
             self._device.DevSerSetNewline(eol_encode(self, eol))
             self._last_eol = eol
-        return self._device.DevSerReadLine() or ''
+
+        buff = ""
+        while True:
+            line = self._device.DevSerReadLine() or ''
+            if line == '':
+                return ''
+            buff += line
+            if buff[-lg:] == eol:
+                return buff[:-lg]
 
     def _raw_read(self, maxsize):
         if maxsize:
             return self._device.DevSerReadNChar(maxsize) or ''
         else:
-               return self._device.DevSerReadRaw() or ''
+            return self._device.DevSerReadRaw() or ''
 
     _read = _raw_read
 

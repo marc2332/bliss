@@ -1,5 +1,4 @@
 
-
 ## Applying configuration changes
 
 To apply a change in YML configuration, use `apply_config` method of
@@ -45,9 +44,7 @@ count *something*):
 
 ```python
 
-from bliss.common.standard import ascan
-from bliss.common.measurement import SoftCounter
-from bliss.controllers.motors.soft import SoftAxis
+from bliss.common.standard import ascan, SoftAxis, SoftCounter
 
 # counter from an object property
 mpx1_temp = SoftCounter(mpx1, 'temperature', name='mpx1_temp')
@@ -71,7 +68,7 @@ method names or reference to object methods. Here is an example:
 
 ```python
 
-from bliss.controllers.motors.soft import SoftAxis
+from bliss.common.standard import SoftAxis
 
 class Pilatus(object):
 

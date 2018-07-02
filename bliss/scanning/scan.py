@@ -17,8 +17,7 @@ import logging
 import datetime
 import re
 import peakutils
-from scipy.interpolate import UnivariateSpline
-import numpy as np
+import math
 
 from bliss import setup_globals
 from bliss.common.event import connect, send
@@ -491,7 +490,7 @@ class Scan(object):
     def fwhm(self, counter, axis=None, bkgd_substraction=False):
         x, y = self._get_x_y_data(counter, axis)
         amp, cen, sig = self._peak_gaussian_fit(x, y, bkgd_substraction)
-        return 2.3548*sig
+        return 2 * sig * (2 * math.log(2)) ** 0.5
 
     def peak(self, counter, axis=None, bkgd_substraction=False):
         x, y = self._get_x_y_data(counter, axis)

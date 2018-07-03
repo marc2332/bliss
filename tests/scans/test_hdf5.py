@@ -33,8 +33,8 @@ def test_hdf5_metadata(beacon):
     scan_file = os.path.join(s.path, "data.h5")
     with h5py.File(scan_file, "r") as f:
         dataset = f[s.name]
-        assert dataset.attrs["title"] == "ascan roby 0 10 10 0.01"
-        assert dataset.attrs["start_time"].startswith(iso_start_time)
+        assert dataset["title"].value == u"ascan roby 0 10 10 0.01"
+        assert dataset["start_time"].value.startswith(iso_start_time)
         assert dataset["measurement"]
         measurement = dataset["measurement"]
         for name, pos in measurement["instrument"]["positioners"].items():

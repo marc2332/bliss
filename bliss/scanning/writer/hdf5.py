@@ -85,11 +85,12 @@ class Writer(FileWriter):
         self.scan_entry = self.file.create_group(scan_recorder.name)
         self.scan_entry.attrs['NX_class'] = 'NXentry'
         scan_title = scan_recorder.scan_info.get("title", "untitled")
-        self.scan_entry.attrs['title'] = scan_title.encode('utf-8')
+        utf8_dt = h5py.special_dtype(vlen=unicode)
+        self.scan_entry['title'] = scan_title.encode('utf-8')
         timestamp = scan_recorder.scan_info.get("start_timestamp")
         local_time = datetime.datetime.fromtimestamp(timestamp).isoformat()
         utc_time = local_time+'%+03d:00' % (time.altzone / 3600)
-        self.scan_entry.attrs['start_time'] = utc_time.encode('utf-8')
+        self.scan_entry['start_time'] = utc_time.encode('utf-8')
         self.measurement = self.scan_entry.create_group('measurement')
         self.measurement.attrs['NX_class'] = 'NXcollection'
         instrument = self.measurement.create_group('instrument')

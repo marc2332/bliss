@@ -436,34 +436,31 @@ class Scan(object):
     def _get_x_y_data(self, counter, axis=None):
         acq_chain = self._scan_info['acquisition_chain']
         master_axes = []
-        for master in acq_chain.keys():
-            ma = master.split(':')[-1]
-            if ma in self._scan_info['positioners']:
-                master_axes.append(ma)
+        for top_level_master in acq_chain.keys():
+            for scalar_master in acq_chain[top_level_master]['master']['scalars']:
+                ma = scalar_master.split(':')[-1]
+                if ma in self._scan_info['positioners']:
+                    master_axes.append(ma)
 
         if len(master_axes) == 0:
-            raise RuntimeError("No axis detected in scan.")
-        if len(master_axes) > 1 and axis is None:
-            raise ValueError("Multiple axes detected, please provide axis for \
-                             calculation.")
-        if axis is None:
-            axis_name = master_axes[0]
+            if self._scan_info.get('type')=='timescan':
+                axis_name = 'elapsed_time'
+            else:
+                raise RuntimeError("No axis detected in scan.")
         else:
-            axis_name = axis.name
-            if axis_name not in master_axes:
-                raise ValueError("No master for axis '%s`." % axis_name)
-
-        scalars = acq_chain.get(axis_name, {}).get('scalars', [])
-        for scalar in scalars:
-            if scalar.endswith(counter.name):
-                scalar = scalar.split(':')[-1]
-                break
-        else:
-            raise ValueError("No scalar with name '%s`." % counter.name)
+            if len(master_axes) > 1 and axis is None:
+                raise ValueError("Multiple axes detected, please provide axis for \
+                                 calculation.")
+            if axis is None:
+                axis_name = master_axes[0]
+            else:
+                axis_name = axis.name
+                if axis_name not in master_axes:
+                    raise ValueError("No master for axis '%s`." % axis_name)
 
         data = self.get_data()
         x_data = data[axis_name]
-        y_data = data[scalar]
+        y_data = data[counter.name]
 
         return x_data, y_data
 

@@ -37,12 +37,6 @@ _log = logging.getLogger('bliss.scans')
 
 DEFAULT_CHAIN = DefaultAcquisitionChain()
 
-
-class TimestampPlaceholder:
-    def __init__(self):
-        self.name = 'timestamp'
-
-
 def step_scan(chain, scan_info, name=None, save=True):
     scan_data_watch = scan_module.StepScanDataWatch()
     config = scan_module.ScanSaving().get()

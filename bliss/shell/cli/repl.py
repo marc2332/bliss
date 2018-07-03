@@ -212,8 +212,19 @@ def embed(*args, **kwargs):
             stop_with_keyboard_interrupt = functools.partial(
                 stop_current_task,
                 exception=KeyboardInterrupt)
+
+            r,w = os.pipe()
+            def stop_current_task_and_exit(signum, frame):
+                stop_current_task(signum, frame)
+                os.close(w)
+                
             signal.signal(signal.SIGINT, stop_with_keyboard_interrupt)
-            signal.signal(signal.SIGTERM, stop_current_task)
+            signal.signal(signal.SIGTERM, stop_current_task_and_exit)
+
+            def watch_pipe(r):
+                gevent.select.select([r],[],[])
+                exit()
+            gevent.spawn(watch_pipe,r)
 
         cmd_line_i.run()
     finally:

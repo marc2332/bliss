@@ -12,10 +12,21 @@ import math
 SCAN_DISPLAY.auto = False
 
 class TestScanGaussianCounter(SamplingCounter):
-    def __init__(self, name, npts, center=0, stddev=1, cnt_time=0.1):
+    def __init__(self, name, npts, center=0, stddev=1, cnt_time=0.1, low=0,
+                 upp=100):
       SamplingCounter.__init__(self, name, None)
 
-      self.data = numpy.random.normal(center, stddev, npts)
+      def gauss(x, start, end, sigma=stddev, mu=center):
+          mu    = (end + start ) / 2.0
+          sigma = (end - start ) / 10.0
+          h_max = 1.0 / (sigma * math.sqrt(2.0 * 3.14))
+          _val = (1.0 / (sigma * math.sqrt(2.0 * 3.14)) ) * math.exp( -pow(((x-mu)/sigma), 2.0) / 2.0)
+          noise = random.random() * 0.02
+          _val = _val + noise * h_max
+          return _val
+
+      self.data = numpy.linspace(low, upp, num=npts).tolist()
+      self.data = [gauss(i, low, upp) for i in self.data]
       self.i = 0
       self.cnt_time = cnt_time
 

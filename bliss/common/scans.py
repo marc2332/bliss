@@ -16,6 +16,7 @@ __all__ = [
     'a2scan',
     'amesh',
     'dscan',
+    'lineup',
     'd2scan',
     'timescan',
     'loopscan',
@@ -168,6 +169,19 @@ def dscan(motor, start, stop, npoints, count_time, *counter_args, **kwargs):
                      *counter_args, **kwargs)
     return scan
 
+
+def lineup(motor, start, stop, npoints, count_time, *counter_args, **kwargs):
+    if len(counter_args) == 0:
+        raise ValueError("lineup: please specify a counter")
+    if len(counter_args) > 1:
+        raise ValueError("lineup: too many counters")
+
+    kwargs['type'] = 'lineup'
+    kwargs['name'] = kwargs.get('name', 'lineup')
+    kwargs['return_scan'] = True
+    scan = dscan(motor, start, stop, npoints, count_time, counter_args[0],
+                 **kwargs)
+    scan.goto_peak(counter_args[0])
 
 def amesh(
         motor1,

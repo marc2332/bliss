@@ -21,6 +21,7 @@ import math
 
 from bliss import setup_globals
 from bliss.common.event import connect, send
+from bliss.common.cleanup import error_cleanup, axis as cleanup_axis
 from bliss.common.plot import get_flint, CurvePlot, ImagePlot
 from bliss.common.utils import periodic_exec, get_axes_positions_iter
 from bliss.config.conductor import client
@@ -462,7 +463,7 @@ class Scan(object):
         x_data = data[axis_name]
         y_data = data[counter.name]
 
-        return x_data, y_data
+        return x_data, y_data, axis_name
 
     def _peak_gaussian_fit(self, x, y, bkgd_substraction=False, thres=0.3,
                            min_dist=1, width=10):
@@ -485,18 +486,38 @@ class Scan(object):
         return amp, cen, sig
 
     def fwhm(self, counter, axis=None, bkgd_substraction=False):
-        x, y = self._get_x_y_data(counter, axis)
+        x, y, _ = self._get_x_y_data(counter, axis)
         amp, cen, sig = self._peak_gaussian_fit(x, y, bkgd_substraction)
         return 2 * sig * (2 * math.log(2)) ** 0.5
 
-    def peak(self, counter, axis=None, bkgd_substraction=False):
-        x, y = self._get_x_y_data(counter, axis)
+    def peak(self, counter, axis=None, bkgd_substraction=False,
+             return_axis_name=False):
+        x, y, axis_name = self._get_x_y_data(counter, axis)
         amp, cen, sig = self._peak_gaussian_fit(x, y, bkgd_substraction)
-        return cen
+        if return_axis_name:
+            return cen, axis_name
+        else:
+            return cen
 
-    def com(self, counter, axis=None):
-        x, y = self._get_x_y_data(counter, axis)
-        return peakutils.peak.centroid(x, y)
+    def com(self, counter, axis=None, return_axis_name=False):
+        x, y, axis_name = self._get_x_y_data(counter, axis)
+        com = peakutils.peak.centroid(x, y)
+        if return_axis_name:
+            return com, axis_name
+        else:
+            return com
+
+    def goto_peak(self, counter):
+        pk, axis_name = self.peak(counter, return_axis_name=True)
+        axis = getattr(setup_globals, axis_name)
+        with error_cleanup(axis, restore_list=(cleanup_axis.POS,)):
+            axis.move(pk)
+
+    def goto_com(self, counter):
+        com, axis_name = self.com(counter, return_axis_name=True)
+        axis = getattr(setup_globals, axis_name)
+        with error_cleanup(axis, restore_list=(cleanup_axis.POS,)):
+            axis.move(com)
 
     def __trigger_data_watch_callback(self, signal, sender, sync=False):
         if self._data_watch_callback is not None:

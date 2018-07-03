@@ -189,14 +189,13 @@ class Icepap(Controller):
             status = axis._state()
         else:
             last_power_time = self._last_axis_power_time.get(axis,0)
-            if time.time() - last_power_time < 1.:
-                status_cmd = "?STATUS"
+            if time.time() - last_power_time < 1.0:
+                status = int(_command(self._cnx,
+                                      "%s:?STATUS" % axis.address),16)
             else:
                 self._last_axis_power_time.pop(axis,None)
-                status_cmd = "?FSTATUS"
-
-            status = int(_command(self._cnx,"%s %s" %
-                                  (status_cmd,axis.address)),16)
+                status = int(_command(self._cnx,
+                                      "?FSTATUS %s" % axis.address),16)
         status ^= 1<<23 #neg POWERON FLAG
         state = self._icestate.new()
         for mask,value in (((1<<9),"READY"),

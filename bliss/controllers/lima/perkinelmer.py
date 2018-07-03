@@ -10,7 +10,7 @@ from .lima_base import CameraBase
 
 class Camera(CameraBase):
     def __init__(self, lima_device,name,proxy):
-        CameraBase.__init__(self, lima_device,name,proxy):
+        CameraBase.__init__(self, lima_device,name,proxy)
         self.name = name
         self._proxy = proxy
 

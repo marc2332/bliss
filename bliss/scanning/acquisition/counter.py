@@ -146,7 +146,8 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
             self._ready_event.clear()
 
     def reading(self):
-        while self._nb_acq_points < self.npoints:
+        while not self._stop_flag and \
+              self._nb_acq_points < self.npoints:
             # trigger wait
             self._event.wait()
             self._event.clear()

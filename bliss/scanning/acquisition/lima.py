@@ -210,6 +210,8 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             if self._image_channel:
                 self._image_channel.emit({"acq_state": "fault"})
             raise
+        finally:
+            self.__point_synchro.set()
 
     def wait_reading(self, block=True):
         if self._reading_task is None:

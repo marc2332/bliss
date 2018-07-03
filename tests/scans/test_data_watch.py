@@ -72,6 +72,11 @@ def test_simple_continuous_scan_with_session_watcher(beacon, scan_saving):
     m1 = getattr(setup_globals, "m1")
     counter = getattr(setup_globals, "diode")
     scan_saving.template = "toto"
+    master = SoftwarePositionTriggerMaster(m1, 0, 1, 10, time=1)
+    end_pos = master._calculate_undershoot(1, end=True)
+    acq_dev = SamplingCounterAcquisitionDevice(counter, 0.01, npoints=10)
+    chain = AcquisitionChain()
+    chain.add(master, acq_dev)
 
     vars = { "new_scan_cb_called": False, "scan_acq_chain": None, "scan_children":[], "scan_data":[] }
 
@@ -86,8 +91,8 @@ def test_simple_continuous_scan_with_session_watcher(beacon, scan_saving):
 
     def scan_data(type, master_name, data, vars=vars):
       assert type=='0d'
-      assert master_name=='m1'
-      assert data["master_channels"] == ["m1:m1"]
+      assert master_name==master.name
+      assert data["master_channels"] == ["%s:m1" % master_name]
       vars["scan_data_m1"] = data["data"][data["master_channels"][0]]
       vars["scan_data_diode"] = data["data"]["diode:diode"]
 
@@ -95,17 +100,15 @@ def test_simple_continuous_scan_with_session_watcher(beacon, scan_saving):
 
     gevent.sleep(0.1) #wait a bit to have session watcher greenlet started
 
-    master = SoftwarePositionTriggerMaster(m1, 0, 1, 10, time=1)
-    end_pos = master._calculate_undershoot(1, end=True)
-    acq_dev = SamplingCounterAcquisitionDevice(counter, 0.01, npoints=10)
-
-    chain = AcquisitionChain()
-    chain.add(master, acq_dev)
     scan = Scan(chain, parent=scan_saving.get_parent_node())
     scan.run()
 
     assert vars["new_scan_cb_called"]
-    assert vars["scan_acq_chain"] == {'m1': {'scalars': ['diode:diode'], 'images': [], 'spectra': [], 'master': {'scalars': ['m1:m1'], 'images': [], 'spectra': []}}}
+    assert vars["scan_acq_chain"] == {master.name: {'scalars': ['diode:diode'],
+                                                    'images': [], 'spectra':
+                                                    [], 'master': {'scalars':
+                                                                   ['%s:m1' %
+                                                                    master.name], 'images': [], 'spectra': []}}}
     assert numpy.allclose(vars["scan_data_m1"], master._positions, atol=1e-1)
 
     assert pytest.approx(m1.position(), end_pos)

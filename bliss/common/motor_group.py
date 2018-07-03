@@ -15,10 +15,11 @@ from bliss.common.axis import Trajectory
 from bliss.common import event
 from bliss.common.utils import grouped
 
+GROUP_ID = itertools.count()
 
 def Group(*axes_list):
     axes = dict()
-    g = _Group(id(axes), {})
+    g = _Group("group_%d" % GROUP_ID.next(), {})
     for axis in axes_list:
         if not isinstance(axis, Axis):
             raise ValueError("invalid axis %r" % axis)

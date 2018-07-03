@@ -205,6 +205,12 @@ class Flint:
                 for plot in plots[plot_type]:
                     self.data_dict.pop(plot.plot_id, None)
 
+        old_window_titles = []
+        for mdi_window in self.live_scan_mdi_area.subWindowList():
+            plot = mdi_window.widget()
+            window_title = plot.windowTitle()
+            old_window_titles.append(window_title)
+
         # create new windows
         flags = qt.Qt.Window | qt.Qt.WindowMinimizeButtonHint | qt.Qt.WindowMaximizeButtonHint | qt.Qt.WindowTitleHint
         window_titles = []
@@ -213,7 +219,7 @@ class Flint:
             spectra = channels.get('spectra', [])
             images = channels.get('images', [])
 
-            window_title = master + ' -> scalar counters (1D plot)'
+            window_title = '1D: '+ master + ' -> counters'
             window_titles.append(window_title)
             scalars_plot_win = self.mdi_windows_dict.get(window_title)
             if not scalars_plot_win:
@@ -233,7 +239,7 @@ class Flint:
             else:
                 scalars_plot_win.hide()
 
-            window_title = master + ' -> scalar counters (Scatter plot)'
+            window_title = 'Scatter: '+master + ' -> counters'
             window_titles.append(window_title)
             scatter_plot_win = self.mdi_windows_dict.get(window_title)
             if not scatter_plot_win:
@@ -255,7 +261,7 @@ class Flint:
                 scatter_plot_win.hide()
 
             for spectrum in spectra:
-                window_title = master+' -> '+spectrum+' spectrum'
+                window_title = '1D: '+master+' -> '+spectrum
                 window_titles.append(window_title)
                 spectrum_win = self.mdi_windows_dict.get(window_title)
                 if not spectrum_win:
@@ -269,39 +275,50 @@ class Flint:
                 spectrum_win.show()
 
             for image in images:
-                window_title = master+' -> '+image+' image'
+                window_title = '2D: '+master + ' -> '+image
                 window_titles.append(window_title)
-                image_win = self.mdi_windows_dict.get(window_title)
+                image_win = self.mdi_windows_dict.get(image)
                 if not image_win:
                     image_win = Plot2D()
                     image_win.setKeepDataAspectRatio(True)
                     image_win.getYAxis().setInverted(True)
                     image_win.getIntensityHistogramAction().setVisible(True)
-                    image_win.setWindowTitle(window_title)
                     image_win.plot_id = next(self._id_generator)
                     self.plot_dict[image_win.plot_id] = image_win
                     self.live_scan_plots_dict[master]['2d'].append(image_win)
-                    self.mdi_windows_dict[window_title] = \
+                    self.mdi_windows_dict[image] = \
                         self.live_scan_mdi_area.addSubWindow(image_win, flags)
+                else:
+                    if image_win.widget() not in \
+                        self.live_scan_plots_dict[master]['2d']:
+                        self.live_scan_plots_dict[master]['2d'].append(image_win.widget())
+                image_win.setWindowTitle(window_title)
                 image_win.show()
 
         # delete unused plots and windows
-        for mdi_window in self.live_scan_mdi_area.subWindowList():
-            plot = mdi_window.widget()
-            window_title = plot.windowTitle()
-            if window_title in window_titles:
-                continue
-            else:
-                master = window_title.split()[0]
+        for window_title in old_window_titles:
+            if window_title not in window_titles:
+                # need to clean window
+                plot_type, master, _, data_source = window_title.split()
+
+                if plot_type.startswith('2D'):
+                    if any([title.endswith(data_source) for title in \
+                            window_titles]):
+                        continue
+
+                window = self.mdi_windows_dict[window_title]
+                plot = window.widget()
+                del self.plot_dict[plot.plot_id]
+
                 if isinstance(plot, Plot1D):
                     self.live_scan_plots_dict[master]['1d'].remove(plot)
                 elif isinstance(plot, Plot2D):
                     self.live_scan_plots_dict[master]['2d'].remove(plot)
                 else:
                     self.live_scan_plots_dict[master]['0d'].remove(plot)
-                del self.plot_dict[plot.plot_id]
+
                 del self.mdi_windows_dict[window_title]
-                mdi_window.close()
+                window.close()
 
         self.live_scan_mdi_area.tileSubWindows()
 

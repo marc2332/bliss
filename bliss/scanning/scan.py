@@ -298,7 +298,7 @@ class Scan(object):
     IDLE_STATE, PREPARE_STATE, START_STATE, STOP_STATE = range(4)
 
     def __init__(self, chain, name=None,
-                 parent=None, scan_info=None, writer=None,
+                 parent="<SCAN_SAVING>", scan_info=None, writer="<SCAN_SAVING>",
                  data_watch_callback=None, run_number=None, name_suffix=""):
         """
         This class publish data and trig the writer if any.
@@ -320,17 +320,29 @@ class Scan(object):
         scan transition state. The return of this method will activate/deactivate
         the calling of the callback during this stage.
         """
+        default_scan_config = None
+
         if parent is None:
             self.root_node = None
         else:
+            if parent == "<SCAN_SAVING>":
+                default_scan_config = ScanSaving().get()
+                parent = default_scan_config["parent"]
             if isinstance(parent, DataNodeContainer):
                 self.root_node = parent
             else:
                 raise ValueError(
                     "parent must be a DataNodeContainer object, or None")
 
-        self._nodes = dict()
-        self._writer = writer
+        if writer is None:
+            from bliss.scanning.writer.null import Writer as NullWriter
+            self._writer = NullWriter()
+        else:
+            if writer == "<SCAN_SAVING>":
+                if default_scan_config is None:
+                    default_scan_config = ScanSaving().get()
+                writer = default_scan_config["writer"]
+            self._writer = writer
 
         name = name if name else "scan"
 
@@ -338,6 +350,7 @@ class Scan(object):
             run_number = self._next_run_number(name, parent)
         self.__run_number = run_number
         self.__name = '%s_%d%s' % (name, run_number, name_suffix)
+        self._nodes = dict()
         self._scan_info = dict(scan_info) if scan_info is not None else dict()
         self._scan_info['scan_nb'] = run_number
         start_timestamp = time.time()

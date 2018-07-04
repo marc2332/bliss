@@ -1,4 +1,4 @@
-from ..scan import FileWriter, \
+from bliss.scanning.scan import FileWriter, \
     AcquisitionMasterEventReceiver, AcquisitionDeviceEventReceiver
 
 

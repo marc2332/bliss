@@ -93,13 +93,13 @@ def test_stopiter_with_top_master(beacon, lima_simulator):
     master = timer.SoftwareTimerMaster(0.1,npoints=2)
     lima_sim = beacon.get("lima_simulator")
     lima_master = LimaAcquisitionMaster(lima_sim,acq_nb_frames=1,
-                                        saving_directory="/tmp",
-                                        acq_expo_time=0.1,save_flag=False)
+                                        acq_expo_time=0.1)
     chain.add(master,lima_master)
 
     device = DummySlave(None, 'device', npoints=1)
     chain.add(lima_master,device)
-    
-    scan = Scan(chain, 'test', None)
+   
+    scan = Scan(chain, 'test')
     scan.run()
     assert device.nb_trigger == 2
+

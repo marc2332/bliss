@@ -16,9 +16,12 @@ import time
 import logging
 import datetime
 import re
+import peakutils
+import math
 
 from bliss import setup_globals
 from bliss.common.event import connect, send
+from bliss.common.cleanup import error_cleanup, axis as cleanup_axis
 from bliss.common.plot import get_flint, CurvePlot, ImagePlot
 from bliss.common.utils import periodic_exec, get_axes_positions_iter
 from bliss.config.conductor import client
@@ -430,6 +433,91 @@ class Scan(object):
     @property
     def path(self):
         return self.scan_info['root_path'] if self.scan_info['save'] else None
+
+    def _get_x_y_data(self, counter, axis=None):
+        acq_chain = self._scan_info['acquisition_chain']
+        master_axes = []
+        for top_level_master in acq_chain.keys():
+            for scalar_master in acq_chain[top_level_master]['master']['scalars']:
+                ma = scalar_master.split(':')[-1]
+                if ma in self._scan_info['positioners']:
+                    master_axes.append(ma)
+
+        if len(master_axes) == 0:
+            if self._scan_info.get('type')=='timescan':
+                axis_name = 'elapsed_time'
+            else:
+                raise RuntimeError("No axis detected in scan.")
+        else:
+            if len(master_axes) > 1 and axis is None:
+                raise ValueError("Multiple axes detected, please provide axis for \
+                                 calculation.")
+            if axis is None:
+                axis_name = master_axes[0]
+            else:
+                axis_name = axis.name
+                if axis_name not in master_axes:
+                    raise ValueError("No master for axis '%s`." % axis_name)
+
+        data = self.get_data()
+        x_data = data[axis_name]
+        y_data = data[counter.name]
+
+        return x_data, y_data, axis_name
+
+    def _peak_gaussian_fit(self, x, y, bkgd_substraction=False, thres=0.3,
+                           min_dist=1, width=10):
+        """Return gaussian fit params for the peak found in (x,y) data"""
+        if bkgd_substraction:
+            base = peakutils.baseline(y, 2)
+            y -= base
+
+        indexes = peakutils.indexes(y, thres=thres, min_dist=min_dist)
+
+        if len(indexes) > 1:
+            raise RuntimeError("Multiple peaks detected, use your own \
+                               calculation routine to detect peaks.")
+
+        slice_ = slice(indexes[0] - width, indexes[0] + width + 1)
+
+        amp, cen, sig = peakutils.gaussian_fit(x[slice_], y[slice_],
+                                               center_only=False)
+
+        return amp, cen, sig
+
+    def fwhm(self, counter, axis=None, bkgd_substraction=False):
+        x, y, _ = self._get_x_y_data(counter, axis)
+        amp, cen, sig = self._peak_gaussian_fit(x, y, bkgd_substraction)
+        return 2 * sig * (2 * math.log(2)) ** 0.5
+
+    def peak(self, counter, axis=None, bkgd_substraction=False,
+             return_axis_name=False):
+        x, y, axis_name = self._get_x_y_data(counter, axis)
+        amp, cen, sig = self._peak_gaussian_fit(x, y, bkgd_substraction)
+        if return_axis_name:
+            return cen, axis_name
+        else:
+            return cen
+
+    def com(self, counter, axis=None, return_axis_name=False):
+        x, y, axis_name = self._get_x_y_data(counter, axis)
+        com = peakutils.peak.centroid(x, y)
+        if return_axis_name:
+            return com, axis_name
+        else:
+            return com
+
+    def goto_peak(self, counter):
+        pk, axis_name = self.peak(counter, return_axis_name=True)
+        axis = getattr(setup_globals, axis_name)
+        with error_cleanup(axis, restore_list=(cleanup_axis.POS,)):
+            axis.move(pk)
+
+    def goto_com(self, counter):
+        com, axis_name = self.com(counter, return_axis_name=True)
+        axis = getattr(setup_globals, axis_name)
+        with error_cleanup(axis, restore_list=(cleanup_axis.POS,)):
+            axis.move(com)
 
     def __trigger_data_watch_callback(self, signal, sender, sync=False):
         if self._data_watch_callback is not None:

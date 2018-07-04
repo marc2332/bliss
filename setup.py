@@ -120,7 +120,8 @@ def main():
         'silx >= 0.7 ; platform_machine == "x86_64"',
         'psutil',
         'subprocess32',
-        'requests'
+        'requests',
+        'peakutils'
     ]
 
     tests_require = [

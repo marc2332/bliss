@@ -261,9 +261,8 @@ class _StepTriggerMaster(AcquisitionMaster):
             axis.controller._check_limits(axis, self._motor_pos[-1])
 
         mot_group = Group(*self._axes)
-        group_name = '/'.join((x.name for x in self._axes))
 
-        AcquisitionMaster.__init__(self, mot_group, group_name,
+        AcquisitionMaster.__init__(self, mot_group, mot_group.name, 
                                    trigger_type=trigger_type, **keys)
 
         self.channels.extend(
@@ -366,9 +365,8 @@ class VariableStepTriggerMaster(AcquisitionMaster):
             self._motor_pos.append(pos_list)
 
         mot_group = Group(*self._axes)
-        group_name = '/'.join((x.name for x in self._axes))
 
-        AcquisitionMaster.__init__(self, mot_group, group_name,
+        AcquisitionMaster.__init__(self, mot_group, mot_group.name,
                                    trigger_type=trigger_type, **keys)
 
         self.channels.extend(

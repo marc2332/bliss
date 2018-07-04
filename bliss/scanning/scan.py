@@ -4,7 +4,6 @@
 #
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
-import errno
 import getpass
 import gevent
 import os
@@ -13,7 +12,6 @@ import weakref
 import sys
 from treelib import Tree
 import time
-import logging
 import datetime
 import re
 import peakutils
@@ -30,6 +28,7 @@ from bliss.data.node import _get_or_create_node, _create_node, DataNodeContainer
 from bliss.data.scan import get_data
 from bliss.common.session import get_current as _current_session
 from .chain import AcquisitionDevice, AcquisitionMaster
+from bliss.scanning.writer.null import Writer as NullWriter
 from . import writer
 
 # Globals
@@ -336,7 +335,6 @@ class Scan(object):
                     "parent must be a DataNodeContainer object, or None")
 
         if writer is None:
-            from bliss.scanning.writer.null import Writer as NullWriter
             self._writer = NullWriter()
         else:
             if writer == "<SCAN_SAVING>":

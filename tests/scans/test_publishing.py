@@ -50,7 +50,7 @@ def test_scan_node(beacon, redis_data_conn, scan_tmpdir):
 
     s = Scan(chain, "test_scan", scan_info={ "metadata": 42 })
     assert s.name == "test_scan_1"
-    assert s.root_node == parent
+    assert s.root_node.db_name == parent.db_name
     assert isinstance(s.node, ScanNode)
     assert s.node.type == "scan"
     assert s.node.db_name == s.root_node.db_name+":"+s.name

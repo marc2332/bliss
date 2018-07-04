@@ -1,32 +1,21 @@
-from bliss.scanning.writer.file import FileWriter, \
-    AcquisitionMasterEventReceiver, AcquisitionDeviceEventReceiver
+# -*- coding: utf-8 -*-
+#
+# This file is part of the bliss project
+#
+# Copyright (c) 2016 Beamline Control Unit, ESRF
+# Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-
-def _on_event(obj, event_dict, signal, sender):
-    return
-
-class NullMasterEventReceiver(AcquisitionMasterEventReceiver):
-    def __init__(self, *args, **kwargs):
-        AcquisitionMasterEventReceiver.__init__(self, *args, **kwargs)
-
-    def on_event(self, event_dict=None, signal=None, sender=None):
-        return _on_event(self, event_dict, signal, sender)
-
-
-class NullDeviceEventReceiver(AcquisitionDeviceEventReceiver):
-    def __init__(self, *args, **kwargs):
-        AcquisitionDeviceEventReceiver.__init__(self, *args, **kwargs)
-
-    def on_event(self, event_dict=None, signal=None, sender=None):
-        return _on_event(self, event_dict, signal, sender)
-
+from bliss.scanning.writer.file import FileWriter
 
 class Writer(FileWriter):
     def __init__(self, *args, **keys):
         FileWriter.__init__(self, '',
-                            master_event_receiver=NullMasterEventReceiver,
-                            device_event_receiver=NullDeviceEventReceiver,
+                            master_event_receiver=None,
+                            device_event_receiver=None,
                             **keys)
+
+    def prepare(self, scan_recorder, scan_info, devices_tree):
+        return
 
     def create_path(self, scan_recorder):
         return scan_recorder.path

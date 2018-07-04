@@ -12,55 +12,21 @@ import os
 from bliss.scanning.chain import AcquisitionDevice, AcquisitionMaster
 from bliss.common.event import connect
 
-class AcquisitionMasterEventReceiver(object):
-    def __init__(self, master, slave, parent):
-        self._master = master
-        self._parent = parent
+class _EventReceiver(object):
+    def __init__(self, parent_entry, callback):
+        self.parent_entry = parent_entry
+        self.callback = callback
 
-        for signal in ('start', 'end'):
-            connect(slave, signal, self.on_event)
-            for channel in slave.channels:
-                connect(channel, 'new_data', self.on_event)
-    @property
-    def parent(self):
-        return self._parent
-
-    @property
-    def master(self):
-        return self._master
-
-    def on_event(self, event_dict=None, signal=None, sender=None):
-        raise NotImplementedError
-
-
-class AcquisitionDeviceEventReceiver(object):
-    def __init__(self, device, parent):
-        self._device = device
-        self._parent = parent
-
-        for signal in ('start', 'end'):
-            connect(device, signal, self.on_event)
-            for channel in device.channels:
-                connect(channel, 'new_data', self.on_event)
-
-    @property
-    def parent(self):
-        return self._parent
-
-    @property
-    def device(self):
-        return self._device
-
-    def on_event(self, event_dict=None, signal=None, sender=None):
-        raise NotImplementedError
-
+    def __call__(self, event_dict=None, signal=None, sender=None):
+        if callable(self.callback):
+            self.callback(self.parent_entry, event_dict, signal, sender)
 
 class FileWriter(object):
     def __init__(self, root_path,
                  windows_path_mapping=None,
                  detector_temporay_path=None,
-                 master_event_receiver=None,
-                 device_event_receiver=None,
+                 master_event_callback=None,
+                 device_event_callback=None,
                  **keys):
         """ A default way to organize file structure
 
@@ -73,11 +39,8 @@ class FileWriter(object):
         self._root_path = root_path
         self._windows_path_mapping = windows_path_mapping or dict()
         self._detector_temporay_path = detector_temporay_path or dict()
-        if None in (master_event_receiver, device_event_receiver):
-            raise ValueError(
-                "master_event_receiver and device_event_receiver keyword arguments have to be specified.")
-        self._master_event_receiver = master_event_receiver
-        self._device_event_receiver = device_event_receiver
+        self._master_event_callback = master_event_callback
+        self._device_event_callback = device_event_callback
         self._event_receivers = list()
         self.closed = True
 
@@ -103,6 +66,14 @@ class FileWriter(object):
     def new_master(self, master, scan_file_dir):
         raise NotImplementedError
 
+    def _prepare_callbacks(self, device, master_entry, callback):
+        ev_receiver = _EventReceiver(master_entry, callback)
+        for signal in ('start', 'end'):
+            connect(device, signal, ev_receiver)
+        for channel in device.channels:
+            connect(channel, 'new_data', ev_receiver)
+        self._event_receivers.append(ev_receiver)
+
     def prepare(self, scan_recorder, scan_info, devices_tree):
         if not self.closed:
             self.log.warn(
@@ -112,23 +83,23 @@ class FileWriter(object):
 
         self.new_file(scan_file_dir, scan_recorder)
 
-        self._event_receivers = list()
+        self._event_receivers = []
 
         for dev, node in scan_recorder.nodes.iteritems():
             if isinstance(dev, AcquisitionMaster):
                 master_entry = self.new_master(dev, scan_file_dir)
 
+                self._prepare_callbacks(dev, master_entry, self._master_event_callback)
+
                 dev.prepare_saving(scan_recorder.node.name, scan_file_dir)
 
                 for slave in dev.slaves:
-                    if isinstance(slave, AcquisitionDevice):
-                        self._event_receivers.append(
-                            self._device_event_receiver(slave, master_entry))
-                    elif isinstance(slave, AcquisitionMaster):
-                        self._event_receivers.append(
-                            self._master_event_receiver(slave, slave, master_entry))
-                self._event_receivers.append(
-                    self._device_event_receiver(dev, master_entry))
+                    if isinstance(slave, AcquisitionDevice) and \
+                        callable(self._device_event_callback):
+                        self._prepare_callbacks(slave, master_entry, self._device_event_callback)
+                    elif isinstance(slave, AcquisitionMaster) and \
+                        callable(self._master_event_callback):
+                        self._prepare_callbacks(slave, master_entry, self._master_event_callback)
         self._closed = False
 
     def close(self):

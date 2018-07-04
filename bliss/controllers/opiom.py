@@ -164,10 +164,12 @@ class Opiom:
 
             for frame_n,index in enumerate(range(0,len(sendarray),self.FSIZE)) :
                 with KillMask():
-                    self.raw_write("#*FRM %d\r" % frame_n)
+                    cmd = "#*FRM %d\r" % frame_n
+                    self.raw_write(cmd)
                     self.raw_bin_write(sendarray[index:index+self.FSIZE])
                     answer = self._cnx.readline('\r\n')
-                    if(answer != "OK") : break
+                    if(answer == "OK") : continue
+                    raise RuntimeError("Load program: [%s] returned [%s]" % (cmd.strip(), answer))
 
             #waiting end programming
             while 1:

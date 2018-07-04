@@ -118,6 +118,7 @@ class ScanSaving(Parameters):
             try:
                 self._get_writer_object('hdf5', os.getcwd())
             except:
+                sys.excepthook(*sys.exc_info())
                 default_module_name = None
             else:
                 default_module_name = 'hdf5'

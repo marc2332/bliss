@@ -398,7 +398,7 @@ def mca_counter_groups(mca):
     for suffix in suffixes:
         dct[suffix] = counter_namespace(
             [counter for counter in counters
-             if counter.name.startswith(prefix)])
+             if counter.name.endswith(suffix)])
 
     # Instantiate group namespace
     return namespace(dct)

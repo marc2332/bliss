@@ -31,8 +31,11 @@ class DeviceIterator(object):
         return self.__device_ref()
 
     def next(self):
-        if ((not self.device.prepare_once and not self.device.start_once) or
-                self._one_shot):
+        if not self._one_shot:
+            if not self.device.prepare_once and not self.device.start_once:
+                if hasattr(self.__device_ref(), 'wait_reading'):
+                    self.__device_ref().wait_reading()
+        else:
             raise StopIteration
 
         self.__sequence_index += 1
@@ -50,12 +53,22 @@ class DeviceIterator(object):
 
 
 class DeviceIteratorWrapper(object):
-    def __init__(self, iterator):
-        self.__iterator = iterator
+    def __init__(self, device, one_shot):
+        self.__device = weakref.proxy(device)
+        self.__iterator = iter(device)
+        self.__one_shot = one_shot
         self.next()
 
     def next(self):
-        self.__current = self.__iterator.next()
+        try:
+            self.__current = self.__iterator.next()
+        except StopIteration:
+            if self.__one_shot:
+                raise
+            if hasattr(self.__device, 'wait_reading'):
+                self.__device.wait_reading()
+            self.__iterator = iter(device)
+            self.__current = self.__iterator.next()
 
     def __getattr__(self, name):
         return getattr(self.__current, name)
@@ -369,15 +382,14 @@ class AcquisitionChainIter(object):
             if not isinstance(dev, (AcquisitionDevice, AcquisitionMaster)):
                 continue
             dev_node = acquisition_chain._tree.get_node(dev)
+            one_shot = self.acquisition_chain._device2one_shot_flag.get(dev, True)
             parent = device2iter.get(dev_node.bpointer, "root")
             try:
                 it = iter(dev)
             except TypeError:
-                one_shot = self.acquisition_chain._device2one_shot_flag.get(
-                    dev, True)
                 dev_iter = DeviceIterator(dev, one_shot)
             else:
-                dev_iter = DeviceIteratorWrapper(it)
+                dev_iter = DeviceIteratorWrapper(dev, one_shot)
             device2iter[dev] = dev_iter
             self._tree.create_node(
                 tag=dev.name, identifier=dev_iter, parent=parent)

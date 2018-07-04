@@ -50,7 +50,9 @@ class ChannelDataNode(DataNode):
 
         self._queue = QueueSetting("%s_data" % self.db_name,
                                    connection=self.db_connection,
-                                   read_type_conversion=functools.partial(data_from_bytes, shape=shape, dtype=dtype),
+                                   read_type_conversion=functools.partial(data_from_bytes,
+                                                                          shape=self.shape,
+                                                                          dtype=self.dtype),
                                    write_type_conversion=data_to_bytes)
 
     def store(self, event_dict):

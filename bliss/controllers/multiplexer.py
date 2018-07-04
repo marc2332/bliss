@@ -113,8 +113,11 @@ class Multiplexer:
         all_config = static.get_config()
         
         for board in config_tree['boards']:
-            board_name = board.get('name')
-            self._boards[board_name] = all_config.get(board_name)
+            if hasattr(board, 'name'):
+                self._boards[board.name] = board
+            else:
+                board_name = board.get('name')
+                self._boards[board_name] = all_config.get(board_name)
 
         for output_config in config_tree['outputs']:
             output = Output(self,output_config)

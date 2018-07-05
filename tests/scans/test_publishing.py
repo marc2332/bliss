@@ -20,7 +20,7 @@ from bliss.data.node import DataNodeContainer, _get_or_create_node
 from bliss.config.settings import scan as redis_scan
 from bliss.config.settings import QueueObjSetting
 from bliss.data.scan import Scan as ScanNode
-from bliss.data.node import get_node, DataNodeIterator
+from bliss.data.node import get_node, DataNodeIterator, DataNode
 from bliss.data.channel import ChannelDataNode
 try:
   import EdfFile
@@ -242,3 +242,18 @@ def test_iterator_over_reference_with_lima(beacon, redis_data_conn,
         assert pytest.raises(RuntimeError, view_iterator2.next)
     else:
         assert view_iterator2.next() == img0
+
+
+def test_ttl_on_data_node(beacon, redis_data_conn):
+  redis_data_conn.delete('testing')
+  node = DataNode('test', 'testing', create=True)
+  node.set_ttl()
+  assert redis_data_conn.ttl('testing') == DataNode.default_time_to_live
+  del node
+  assert redis_data_conn.ttl('testing') == DataNode.default_time_to_live
+
+  redis_data_conn.delete('testing')
+  node = DataNode('test', 'testing', create=True)
+  assert redis_data_conn.ttl('testing') == None
+  del node
+  assert redis_data_conn.ttl('testing') == DataNode.default_time_to_live

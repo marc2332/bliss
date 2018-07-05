@@ -90,7 +90,7 @@ class AcquisitionChannel(object):
 
     def _check_and_reshape(self, data):
         ndim = len(self.shape)
-        data = numpy.array(data)
+        data = numpy.array(data, dtype=self.dtype)
 
         # Empty data
         if data.size == 0:

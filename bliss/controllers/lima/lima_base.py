@@ -99,9 +99,9 @@ class Lima(object):
         tango_url -- tango main device url (from class LimaCCDs)
         """
         self._proxy = DeviceProxy(config_tree.get("tango_url"))
-        tg_timeout = config_tree.get("tango_timeout")
-        if tg_timeout is not None:
-            self._proxy.set_timeout_millis(1000*tg_timeout)
+        self.__tg_timeout = config_tree.get("tango_timeout")        
+        if self.__tg_timeout is not None:
+            self._proxy.set_timeout_millis(1000*self.__tg_timeout)
         self.name = name
         self.__bpm = None
         self.__roi_counters = None
@@ -242,7 +242,10 @@ class Lima(object):
             db_host = self._proxy.get_db_host()
             db_port = self._proxy.get_db_port()
             device_name = "//%s:%s/%s" % (db_host, db_port, device_name)
-        return DeviceProxy(device_name)
+        device_proxy = DeviceProxy(device_name)
+        if self.__tg_timeout is not None:
+            device_proxy.set_timeout_millis(1000*self.__tg_timeout)         
+        return device_proxy
 
     def __repr__(self):
         attr_list = ('user_detector_name', 'camera_model',

@@ -253,6 +253,21 @@ class DataNodeIterator(object):
                         yield self.NEW_DATA_IN_CHANNEL_EVENT, channel_node
 
 
+class _TTL_setter(object):
+    def __init__(self, db_name):
+        self._db_name = db_name
+        self._disable = False
+
+    def disable(self):
+        self._disable = True
+
+    def __del__(self):
+        if not self._disable:
+            node = get_node(self._db_name)
+            if node is not None:
+                node.set_ttl()
+
+
 class DataNode(object):
     default_time_to_live = 24 * 3600  # 1 day
 
@@ -287,8 +302,10 @@ class DataNode(object):
             if parent:
                 self._data.parent = parent.db_name
                 parent.add_children(self)
+            self._ttl_setter = _TTL_setter(self.db_name)
         else:
             self.__new_node = False
+            self._ttl_setter = None
 
     @property
     def db_name(self):
@@ -333,6 +350,8 @@ class DataNode(object):
         for name in db_names:
             pipeline.expire(name, DataNode.default_time_to_live)
         pipeline.execute()
+        if self._ttl_setter is not None:
+            self._ttl_setter.disable()
 
     def _get_db_names(self):
         db_name = self.db_name

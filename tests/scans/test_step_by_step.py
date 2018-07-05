@@ -137,7 +137,7 @@ def test_calc_counters(beacon):
     top_master = motor.LinearStepTriggerMaster(10,m1,0,1)
     c.add(top_master,t)
 
-    s = scan.Scan(c, name='calc_scan',)
+    s = scan.Scan(c, name='calc_scan', writer=None)
     s.run()
     scan_data = s.get_data()
     assert numpy.array_equal(scan_data['gaussian']**2,scan_data['pow'])

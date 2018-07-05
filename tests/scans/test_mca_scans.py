@@ -34,7 +34,7 @@ def test_mca_continuous_soft_scan(beacon):
     chain = AcquisitionChain()
     chain.add(SoftwarePositionTriggerMaster(m0, 0, 1, 3, time=1.0), mca_device)
     # Run scan
-    scan = Scan(chain, 'mca_test', None)
+    scan = Scan(chain, 'mca_test', writer=None)
     scan.run()
     # Checks
     assert_data_consistency(scan.get_data(), realtime=0.1)
@@ -52,7 +52,7 @@ def test_mca_continuous_gate_scan(beacon):
     chain = AcquisitionChain()
     chain.add(MotorMaster(m0, 0, 1, time=1.0), mca_device)
     # Run scan
-    scan = Scan(chain, 'mca_test', None)
+    scan = Scan(chain, 'mca_test', writer=None)
     scan.run()
     # Checks
     assert_data_consistency(scan.get_data(), realtime=0.5)
@@ -70,7 +70,7 @@ def test_mca_continuous_sync_scan(beacon):
     chain = AcquisitionChain()
     chain.add(MotorMaster(m0, 0, 1, time=1.0), mca_device)
     # Run scan
-    scan = Scan(chain, 'mca_test', None)
+    scan = Scan(chain, 'mca_test', writer=None)
     scan.run()
     # Checks
     assert_data_consistency(scan.get_data(), realtime=0.4)
@@ -87,7 +87,7 @@ def test_mca_step_soft_scan(beacon):
     chain = AcquisitionChain()
     chain.add(LinearStepTriggerMaster(3, m0, 0, 1), mca_device)
     # Run scan
-    scan = Scan(chain, 'mca_test', None)
+    scan = Scan(chain, 'mca_test', writer=None)
     scan.run()
     # Checks
     assert_data_consistency(scan.get_data(), realtime=0.1)

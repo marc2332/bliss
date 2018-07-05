@@ -100,7 +100,7 @@ def test_simple_continuous_scan_with_session_watcher(beacon, scan_saving):
 
     gevent.sleep(0.1) #wait a bit to have session watcher greenlet started
 
-    scan = Scan(chain, parent=scan_saving.get_parent_node())
+    scan = Scan(chain, parent=scan_saving.get_parent_node(), writer=None)
     scan.run()
 
     assert vars["new_scan_cb_called"]

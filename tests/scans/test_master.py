@@ -65,7 +65,7 @@ def test_dummy_scan_without_external_channel(beacon):
     device = DummyDevice(None, 'device', npoints=1)
     chain.add(master, device)
     # Run scan
-    scan = Scan(chain, 'test', None)
+    scan = Scan(chain, 'test', writer=None)
     scan.run()
     # Checks
     assert scan.get_data()['pi'] == [3.14]
@@ -81,7 +81,7 @@ def test_dummy_scan_with_external_channel(beacon):
     master.add_external_channel(device, 'pi', 'to', lambda x: 2*x)
     master.add_external_channel(device, 'pi', 'to_int', lambda x: 2*x,dtype=int)
     # Run scan
-    scan = Scan(chain, 'test', None)
+    scan = Scan(chain, 'test', writer=None)
     scan.run()
     # Checks
     assert scan.get_data()['pi'] == [3.14]

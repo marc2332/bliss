@@ -90,7 +90,7 @@ class AcquisitionChannel(object):
 
     def _check_and_reshape(self, data):
         ndim = len(self.shape)
-        data = numpy.array(data)
+        data = numpy.array(data, dtype=self.dtype)
 
         # Empty data
         if data.size == 0:
@@ -119,10 +119,11 @@ class AcquisitionChannel(object):
         return data
 
 
-def duplicate_channel(source, name=None, conversion=None):
+def duplicate_channel(source, name=None, conversion=None, dtype=None):
     name = source.name if name is None else name
+    dtype = source.dtype if dtype is None else dtype
     dest = AcquisitionChannel(
-        name, source.dtype, source.shape, source.description,
+        name, dtype, source.shape, source.description,
         source.reference, source.data_node_type)
 
     def callback(data_dct, sender=None, signal=None):

@@ -247,7 +247,8 @@ class AcquisitionMaster(object):
         # (not considering slave devices)
         return True
 
-    def add_external_channel(self, device, name, rename=None, conversion=None):
+    def add_external_channel(self, device, name, rename=None, conversion=None,
+                             dtype=None):
         """Add a channel from an external source."""
         try:
             source = next(
@@ -257,7 +258,7 @@ class AcquisitionMaster(object):
                 'The device {} does not have a channel called {}'
                 .format(device, name))
         new_channel = duplicate_channel(
-            source, name=rename, conversion=conversion)
+            source, name=rename, conversion=conversion, dtype=dtype)
         self.channels.append(new_channel)
 
 

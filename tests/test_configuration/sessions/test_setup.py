@@ -82,7 +82,10 @@ class AutoScanGaussianCounter(SamplingCounter):
 
         # pprint.pprint(scan_info)
 
-        self._cnt_time = scan_info['count_time']
+        self._cnt_time = scan_info.get('count_time')
+        if self._cnt_time is None:
+           self._in_a_scan = False
+           return
         self._point_count = scan_info['npoints']
 
         if scan_info['type'] in ['ct', 'timescan']:

@@ -151,13 +151,13 @@ class ROISelectionWidget(qt.QMainWindow):
 
         self.roi_manager = RegionOfInterestManager(plot)
         self.roi_manager.setColor('pink')
-        self.roi_manager.sigRegionOfInterestAdded.connect(self.on_added)
+        self.roi_manager.sigRoiAdded.connect(self.on_added)
         self.table = RegionOfInterestTableWidget()
         self.table.setRegionOfInterestManager(self.roi_manager)
 
         self.toolbar = qt.QToolBar()
         self.addToolBar(self.toolbar)
-        rectangle_action = self.roi_manager.getInteractionModeAction('rectangle')
+        rectangle_action = self.roi_manager.getInteractionModeAction(RectangleROI)
         self.toolbar.addAction(rectangle_action)
         self.toolbar.addSeparator()
         self.toolbar.addAction('Apply', self.on_apply)
@@ -166,16 +166,16 @@ class ROISelectionWidget(qt.QMainWindow):
         layout.addWidget(self.table)
 
     def on_apply(self):
-        self.selectionFinished.emit(self.roi_manager.getRegionOfInterests())
-        self.roi_manager.clearRegionOfInterests()
+        self.selectionFinished.emit(self.roi_manager.getRois())
+        self.roi_manager.clear()
 
     def on_added(self, roi):
         if not roi.getLabel():
-            nb_rois = len(self.roi_manager.getRegionOfInterests())
+            nb_rois = len(self.roi_manager.getRois())
             roi.setLabel('roi{}'.format(nb_rois))
 
     def add_roi(self, roi):
-        self.roi_manager.addRegionOfInterest(roi)
+        self.roi_manager.addRoi(roi)
 
 
 @qt_safe_class

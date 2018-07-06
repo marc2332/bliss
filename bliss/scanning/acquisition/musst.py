@@ -5,30 +5,28 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from ..chain import AcquisitionDevice, AcquisitionChannel
+from ..chain import AcquisitionMaster, AcquisitionDevice, AcquisitionChannel
 from bliss.common.event import dispatcher
 import gevent
 from gevent import event
 import numpy
 
-
-class MusstAcquisitionDevice(AcquisitionDevice):
+class MusstAcquisitionMaster(AcquisitionMaster):
     def __init__(self, musst_dev,
                  program=None,
                  program_start_name=None,
                  program_abort_name=None,
-                 store_list=None, vars=None,
+                 vars=None,
                  program_template_replacement=None):
         """
-        Acquisition device for the musst card.
+        Acquisition master for the musst card.
 
         program -- the program you need to load for your scan
         program_template_replacement -- substitution variable before sending it to the card
-        store_list -- a list of variable you store in musst memory during the scan
         vars -- all variable you want to set before the musst program starts
         """
-        AcquisitionDevice.__init__(
-            self, musst_dev, musst_dev.name, trigger_type=AcquisitionDevice.HARDWARE)
+        AcquisitionMaster.__init__(
+            self, musst_dev, musst_dev.name, trigger_type=AcquisitionMaster.HARDWARE)
         self.musst = musst_dev
         self.program = program
         self.program_start_name = program_start_name
@@ -38,16 +36,21 @@ class MusstAcquisitionDevice(AcquisitionDevice):
         else:
             self.program_template_replacement = dict()
         self.vars = vars if vars is not None else dict()
-        store_list = store_list if store_list is not None else list()
-        self.channels.extend(
-            (AcquisitionChannel(name, numpy.int32, ()) for name in store_list))
 
         self.next_vars = None
         self._iter_index = 0
-        self._ready_flag = True
-        self._ready_event = event.Event()
+        self._running_state = False
+        self._event = event.Event()
+        
+    @property
+    def running_state(self):
+        return self._running_state
+    @property
+    def name(self):
+        return self.device.name
 
     def __iter__(self):
+        self._iter_index = 0
         if isinstance(self.vars, (list, tuple)):
             vars_iter = iter(self.vars)
             while True:
@@ -56,7 +59,6 @@ class MusstAcquisitionDevice(AcquisitionDevice):
                 self._iter_index += 1
         else:
             self.next_vars = self.vars
-            self._iter_index = 0
             while True:
                 yield self
                 self._iter_index += 1
@@ -68,38 +70,133 @@ class MusstAcquisitionDevice(AcquisitionDevice):
 
         for var_name, value in self.next_vars.iteritems():
             self.musst.putget("VAR %s %s" % (var_name, value))
-        self._ready_flag = True
+        self._running_state = False
+        self._event.set()
 
     def start(self):
         self.musst.run(self.program_start_name)
+        self._running_state = True
+        self._event.set()
 
     def stop(self):
-        if not self._ready_flag:
+        if self.musst.STATE == self.musst.RUN_STATE:
             self.musst.ABORT
             if self.program_abort_name:
                 self.musst.run(self.program_abort_name)
-                while self.musst.STATE == self.musst.RUN_STATE:
-                    gevent.idle()
+                self.wait_ready()
 
     def wait_ready(self):
-        while not self._ready_flag:
-            self._ready_event.wait()
-            self._ready_event.clear()
+        while self.musst.STATE == self.musst.RUN_STATE:
+            gevent.idle()
+        self._running_state = False
+        self._event.set()
+
+
+def MusstAcquisitionDevice(musst_dev,
+                           program=None,
+                           program_start_name=None,
+                           program_abort_name=None,
+                           store_list=None, vars=None,
+                           program_template_replacement=None):
+    """
+    This will create either a simple MusstAcquisitionDevice or
+    MusstAcquisitionMaster + MusstAcquisitionDevice for compatibility reason.
+    This chose is made if you provide a **program**.
+    """
+    if program is None:
+        return _MusstAcquisitionDevice(musst_dev, store_list=store_list)
+    else:
+        master = MusstAcquisitionMaster(musst_dev, program=program,
+                                        program_start_name=program_start_name,
+                                        program_abort_name=program_abort_name,
+                                        vars=vars,
+                                        program_template_replacement=program_template_replacement)
+        return _MusstAcquisitionDevice(master, store_list=store_list)
+
+
+class _MusstAcquisitionDevice(AcquisitionDevice):
+    class Iterator(object):
+        def __init__(self, acq_device):
+            self.__device = acq_device
+            self.__current_iter = iter(acq_device.device)
+        def next(self):
+            self.__current_iter.next()
+            return self.__device
+
+    def __init__(self,  musst, store_list=None):
+        """
+        Acquisition device for the musst card.
+
+        store_list -- a list of variable you store in musst memory during the scan
+        """
+        AcquisitionDevice.__init__(
+            self, musst, musst.name, trigger_type=AcquisitionMaster.HARDWARE)
+        store_list = store_list if store_list is not None else list()
+        self.channels.extend(
+            (AcquisitionChannel(name, numpy.int32, ()) for name in store_list))
+        self.__stop_flag = False
+        if isinstance(musst, MusstAcquisitionMaster):
+            self._master = musst
+        else:
+            self._master = None
+        self.__musst_device = None
+    
+    def __iter__(self) :
+        if isinstance(self.device, MusstAcquisitionMaster):
+            return _MusstAcquisitionDevice.Iterator(self)
+        raise TypeError("'MusstAcquisitionDevice' is not iterable")
+
+    def prepare(self):
+        if isinstance(self.device, MusstAcquisitionMaster):
+            self.__musst_device = self._master.device
+            self._master.prepare()
+        else:
+            master = self.parent
+            if not isinstance(master, MusstAcquisitionMaster):
+                raise RuntimeError("MusstAcquisitionDevice must have a MusstAcquisitionMaster has"
+                                   " parent here it's (%r)" % master)
+            elif master.device != self.device:
+                raise RuntimeError("MusstAcquisitionMaster doesn't have the same musst device"
+                                   " master has (%s) and device (%s)" %
+                                   (master.device.name, self.device.name))
+            self.__musst_device = self.device
+            self._master = master
+
+    @property
+    def musst(self):
+        return self.__musst_device
+    
+    def start(self):
+        if isinstance(self.device, MusstAcquisitionMaster):
+            self._master.start()
+
+    def stop(self):
+        if isinstance(self.device, MusstAcquisitionMaster):
+            self._master.stop()
+        self.__stop_flag = True
+        self._master._event.set()
+            
+    def wait_ready(self):
+        if isinstance(self.device, MusstAcquisitionMaster):
+            self._master.wait_ready()
 
     def reading(self):
+        master = self._master
         last_read_event = 0
-        try:
-            while self.musst.STATE == self.musst.RUN_STATE:
-                new_read_event = self._send_data(last_read_event)
-                if new_read_event != last_read_event:
-                    last_read_event = new_read_event
-                    gevent.sleep(100e-6)   # be able to ABORT the musst card
-                else:
-                    gevent.sleep(10e-3)   # relax a little bit.
-            self._send_data(last_read_event)  # final send
-        finally:
-            self._ready_flag = True
-            self._ready_event.set()
+
+        #wait the master to start
+        while not self.__stop_flag and not master._running_state:
+            master._event.clear()
+            master._event.wait()
+        
+        while not self.__stop_flag and master._running_state:
+            new_read_event = self._send_data(last_read_event)
+            if new_read_event != last_read_event:
+                last_read_event = new_read_event
+                gevent.sleep(100e-6)   # be able to ABORT the musst card
+            else:
+                gevent.sleep(10e-3)   # relax a little bit.
+        self._send_data(last_read_event)  # final send
 
     def _send_data(self, last_read_event):
         data = self.musst.get_data(len(self.channels), last_read_event)

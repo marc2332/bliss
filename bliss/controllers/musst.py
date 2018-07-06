@@ -322,13 +322,16 @@ class musst(object):
         while self.STATE == self.RUN_STATE:
             gevent.idle() 
 
-    def run(self, entryPoint="", wait=False):
+    def run(self, entryPoint=None, wait=False):
         """ Execute program.
 
         entryPoint -- program name or a program label that
         indicates the point from where the execution should be carried out
         """
-        self.putget("#RUN %s" % entryPoint)
+        if entryPoint is None:
+            self.putget("#RUN")
+        else:
+            self.putget("#RUN %s" % entryPoint)
         if wait:
             self._wait()
 

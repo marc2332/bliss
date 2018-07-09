@@ -8,7 +8,7 @@
 
 ### YAML files tree
 
-The following tree shows an example of how YAML files can be organised within the BLISS Beacon `db_path` directory:
+The following tree shows an example of how YAML files can be organized within the BLISS Beacon `db_path` directory:
 
     .
     |── bv.yml
@@ -26,7 +26,7 @@ The following tree shows an example of how YAML files can be organised within th
 
 !!! note
     YAML files are 'transparent', i.e. files and directories can be
-    freely organised, and file names are in fact ignored by Beacon.
+    freely organized, and file names are in fact ignored by Beacon.
     The important information is the `name` of each individual object defined
     in the configuration.
 
@@ -98,7 +98,7 @@ Other parameters are:
 * `tolerance`: optional (0), in $unit$
      - in case of motor in closed loop, tolerance for discrepancy check when moving a motor
 
-[Read more about motor controllers configuration](config_motctrl.md)
+[Read more about IcePaP controllers configuration](config_icepap.md)
 
 ### Horizontal slits configuration
 
@@ -155,7 +155,7 @@ scripts, stored with the configuration files.
 
 [Read more about Session configuration](config_session.md)
 
-#### Files organisation
+#### Files organization
     .
     |── ...
     ├── sessions
@@ -350,7 +350,7 @@ returns to user:
 
         EH1 [1]:
 
-[Learn more about BLISS shell](bliss_shell.md)
+[Learn more about BLISS shell](shell_cmdline.md)
 
 ### Examples of standard shell functions
 

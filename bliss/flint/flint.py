@@ -192,6 +192,7 @@ class Flint:
         self.main_index = next(self._id_generator)
         self.plot_dict = {self.main_index: parent_tab}
         self.mdi_windows_dict = {}
+        self.data_event = collections.defaultdict(dict)
         self.selector_dict = collections.defaultdict(list)
         self.data_dict = collections.defaultdict(dict)
         self.scans_watch_task = None
@@ -365,6 +366,13 @@ class Flint:
 
         self.live_scan_mdi_area.tileSubWindows()
 
+    @qt_unsafe
+    def wait_data(self, master, plot_type, index):
+        ev = self.data_event[master].setdefault(plot_type, \
+             {}).setdefault(index, gevent.event.Event())
+        ev.wait(timeout=3)
+
+    @qt_unsafe
     def get_live_scan_plot(self, master, plot_type, index):
         return self.live_scan_plots_dict[master][plot_type][index].plot_id
 
@@ -379,6 +387,8 @@ class Flint:
                 last_data = last_data[-1]
             except IndexError:
                 return
+        else:
+            data['channel_index'] = 0
 
         return self._new_scan_data(data_type, master_name, data, last_data)
 
@@ -412,6 +422,10 @@ class Flint:
                 plot.addImage(image_data, legend=channel_name, copy=False)
             else:
                 plot_image.setData(image_data, copy=False)
+        data_event = self.data_event[master_name].setdefault(data_type, \
+                                                             {}).setdefault(data["channel_index"],
+                                                                            gevent.event.Event())
+        data_event.set()
 
     def new_tab(self, label, widget=qt.QWidget):
         widget = widget()

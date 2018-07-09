@@ -649,11 +649,17 @@ class Scan(object):
         """
         return get_data(self)
 
-    def get_plot(self, scan_item):
+    def get_plot(self, scan_item, wait=False):
         """Return plot object showing 'scan_item' from Flint live scan view
 
-        scan_item can be a motor, a counter, or anything within a measurement group
+        Argument:
+            scan_item: can be a motor, a counter, or anything within a measurement group
+
+        Keyword argument:
+            wait (defaults to False): wait for plot to be shown
         """
+        args = None
+
         channel_name_match = lambda scan_item_name, channel_name: \
             ':'+scan_item_name in channel_name or scan_item_name+':' in channel_name
 
@@ -664,9 +670,9 @@ class Scan(object):
 
             if scan_item.name == master:
                 # return scalar plot(s) with this channel master
-                args = (master, '0d', None)
+                args = (master, '0d', 0)
             else:
-                for channel_name in scalars:
+                for i, channel_name in enumerate(scalars):
                     if channel_name_match(scan_item.name, channel_name):
                         args = (master, '0d', 0)
                 for i, channel_name in enumerate(spectra):
@@ -675,8 +681,13 @@ class Scan(object):
                 for i, channel_name in enumerate(images):
                     if channel_name_match(scan_item.name, channel_name):
                         args = (master, '2d', i)
+       
+        if not args:
+            raise ValueError("Cannot find plot with '%s`" % scan_item.name)
 
         flint = get_flint()
+        if wait:
+            flint.wait_data(*args)
         plot_id = flint.get_live_scan_plot(*args)
         if args[1] == '0d':
             return CurvePlot(existing_id=plot_id)

@@ -117,7 +117,7 @@ def main():
         "pint",
         'mock ; python_version < "3.3"',
         'futures',
-        'silx >= 0.7 ; platform_machine == "x86_64"',
+        'silx >= 0.8 ; platform_machine == "x86_64"',
         'psutil',
         'subprocess32',
         'requests',

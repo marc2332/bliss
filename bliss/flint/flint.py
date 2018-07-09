@@ -43,6 +43,9 @@ with warnings.catch_warnings():
     from silx.gui.plot import Plot2D
     from silx.gui import plot as silx_plot
     from silx.gui import qt
+    from silx.gui.plot.tools.roi import RegionOfInterestManager
+    from silx.gui.plot.tools.roi import RegionOfInterestTableWidget
+    from silx.gui.plot.items.roi import RectangleROI
 
 from .plot1d import Plot1D, LivePlot1D, LiveScatterPlot
 from .interaction import PointsSelector, ShapeSelector
@@ -135,6 +138,46 @@ def qt_unsafe(func):
     return func
 
 
+class ROISelectionWidget(qt.QMainWindow):
+
+    selectionFinished = qt.Signal(object)
+
+    def __init__(self, plot, parent=None):
+        qt.QMainWindow.__init__(self, parent)
+        # TODO: destroy on close
+        self.plot = plot
+        panel = qt.QWidget()
+        self.setCentralWidget(panel)
+
+        self.roi_manager = RegionOfInterestManager(plot)
+        self.roi_manager.setColor('pink')
+        self.roi_manager.sigRoiAdded.connect(self.on_added)
+        self.table = RegionOfInterestTableWidget()
+        self.table.setRegionOfInterestManager(self.roi_manager)
+
+        self.toolbar = qt.QToolBar()
+        self.addToolBar(self.toolbar)
+        rectangle_action = self.roi_manager.getInteractionModeAction(RectangleROI)
+        self.toolbar.addAction(rectangle_action)
+        self.toolbar.addSeparator()
+        self.toolbar.addAction('Apply', self.on_apply)
+
+        layout = qt.QVBoxLayout(panel)
+        layout.addWidget(self.table)
+
+    def on_apply(self):
+        self.selectionFinished.emit(self.roi_manager.getRois())
+        self.roi_manager.clear()
+
+    def on_added(self, roi):
+        if not roi.getLabel():
+            nb_rois = len(self.roi_manager.getRois())
+            roi.setLabel('roi{}'.format(nb_rois))
+
+    def add_roi(self, roi):
+        self.roi_manager.addRoi(roi)
+
+
 @qt_safe_class
 class Flint:
     """Flint interface, meant to be exposed through an RPC server."""
@@ -149,6 +192,7 @@ class Flint:
         self.main_index = next(self._id_generator)
         self.plot_dict = {self.main_index: parent_tab}
         self.mdi_windows_dict = {}
+        self.data_event = collections.defaultdict(dict)
         self.selector_dict = collections.defaultdict(list)
         self.data_dict = collections.defaultdict(dict)
         self.scans_watch_task = None
@@ -219,46 +263,42 @@ class Flint:
             spectra = channels.get('spectra', [])
             images = channels.get('images', [])
 
-            window_title = '1D: '+ master + ' -> counters'
-            window_titles.append(window_title)
-            scalars_plot_win = self.mdi_windows_dict.get(window_title)
-            if not scalars_plot_win:
-                scalars_plot_win = LivePlot1D(data_dict=self.data_dict)
-                scalars_plot_win.setWindowTitle(window_title)
-                scalars_plot_win.plot_id = next(self._id_generator)
-                self.plot_dict[scalars_plot_win.plot_id] = scalars_plot_win
-                self.live_scan_plots_dict[master]['0d'].append(scalars_plot_win)
-                self.mdi_windows_dict[window_title] = \
-                    self.live_scan_mdi_area.addSubWindow(scalars_plot_win, flags)
-            else:
-                scalars_plot_win = scalars_plot_win.widget()
-            if scalars and len(channels['master']['scalars']) >= 1:
+            if scalars:
+                window_title = '1D: '+ master + ' -> counters'
+                window_titles.append(window_title)
+                scalars_plot_win = self.mdi_windows_dict.get(window_title)
+                if not scalars_plot_win:
+                    scalars_plot_win = LivePlot1D(data_dict=self.data_dict)
+                    scalars_plot_win.setWindowTitle(window_title)
+                    scalars_plot_win.plot_id = next(self._id_generator)
+                    self.plot_dict[scalars_plot_win.plot_id] = scalars_plot_win
+                    self.live_scan_plots_dict[master]['0d'].append(scalars_plot_win)
+                    self.mdi_windows_dict[window_title] = \
+                        self.live_scan_mdi_area.addSubWindow(scalars_plot_win, flags)
+                    scalars_plot_win.show()
+                else:
+                    scalars_plot_win = scalars_plot_win.widget()
                 scalars_plot_win.set_x_axes(channels['master']['scalars'])
                 scalars_plot_win.set_y_axes(scalars)
-                scalars_plot_win.show()
-            else:
-                scalars_plot_win.hide()
 
-            window_title = 'Scatter: '+master + ' -> counters'
-            window_titles.append(window_title)
-            scatter_plot_win = self.mdi_windows_dict.get(window_title)
-            if not scatter_plot_win:
-                scatter_plot_win = LiveScatterPlot(data_dict=self.data_dict)
-                scatter_plot_win.setWindowTitle(window_title)
-                scatter_plot_win.plot_id = next(self._id_generator)
-                self.plot_dict[scatter_plot_win.plot_id] = scatter_plot_win
-                self.live_scan_plots_dict[master]['0d'].append(scatter_plot_win)
-                self.mdi_windows_dict[window_title] = \
-                    self.live_scan_mdi_area.addSubWindow(scatter_plot_win, flags)
-            else:
-                scatter_plot_win = scatter_plot_win.widget()
-            if scalars and len(channels['master']['scalars']) >= 2:
-                scatter_plot_win.set_x_axes(channels['master']['scalars'])
-                scatter_plot_win.set_y_axes(channels['master']['scalars'])
-                scatter_plot_win.set_z_axes(scalars)
-                scatter_plot_win.show()
-            else:
-                scatter_plot_win.hide()
+                if len(channels['master']['scalars']) >= 2:
+                    window_title = 'Scatter: '+master + ' -> counters'
+                    window_titles.append(window_title)
+                    scatter_plot_win = self.mdi_windows_dict.get(window_title)
+                    if not scatter_plot_win:
+                        scatter_plot_win = LiveScatterPlot(data_dict=self.data_dict)
+                        scatter_plot_win.setWindowTitle(window_title)
+                        scatter_plot_win.plot_id = next(self._id_generator)
+                        self.plot_dict[scatter_plot_win.plot_id] = scatter_plot_win
+                        self.live_scan_plots_dict[master]['0d'].append(scatter_plot_win)
+                        self.mdi_windows_dict[window_title] = \
+                            self.live_scan_mdi_area.addSubWindow(scatter_plot_win, flags)
+                        scatter_plot_win.show()
+                    else:
+                        scatter_plot_win = scatter_plot_win.widget()
+                    scatter_plot_win.set_x_axes(channels['master']['scalars'])
+                    scatter_plot_win.set_y_axes(channels['master']['scalars'])
+                    scatter_plot_win.set_z_axes(scalars)
 
             for spectrum in spectra:
                 window_title = '1D: '+master+' -> '+spectrum
@@ -305,6 +345,8 @@ class Flint:
                     if any([title.endswith(data_source) for title in \
                             window_titles]):
                         continue
+                    else:
+                        window_title = data_source
 
                 window = self.mdi_windows_dict[window_title]
                 plot = window.widget()
@@ -322,6 +364,13 @@ class Flint:
 
         self.live_scan_mdi_area.tileSubWindows()
 
+    @qt_unsafe
+    def wait_data(self, master, plot_type, index):
+        ev = self.data_event[master].setdefault(plot_type, \
+             {}).setdefault(index, gevent.event.Event())
+        ev.wait(timeout=3)
+
+    @qt_unsafe
     def get_live_scan_plot(self, master, plot_type, index):
         return self.live_scan_plots_dict[master][plot_type][index].plot_id
 
@@ -336,6 +385,8 @@ class Flint:
                 last_data = last_data[-1]
             except IndexError:
                 return
+        else:
+            data['channel_index'] = 0
 
         return self._new_scan_data(data_type, master_name, data, last_data)
 
@@ -369,6 +420,10 @@ class Flint:
                 plot.addImage(image_data, legend=channel_name, copy=False)
             else:
                 plot_image.setData(image_data, copy=False)
+        data_event = self.data_event[master_name].setdefault(data_type, \
+                                                             {}).setdefault(data["channel_index"],
+                                                                            gevent.event.Event())
+        data_event.set()
 
     def new_tab(self, label, widget=qt.QWidget):
         widget = widget()
@@ -455,6 +510,43 @@ class Flint:
         plot.clear()
 
     # User interaction
+
+    @qt_unsafe
+    def select_shapes(self, plot_id, initial_shapes=()):
+        plot = self.plot_dict[plot_id]
+        dock = self._create_roi_dock_widget(plot, initial_shapes)
+        roi_widget = dock.widget()
+        try:
+            queue = create_queue_from_qt_signal(roi_widget.selectionFinished)
+            try:
+                selections, = queue.get()
+            finally:
+                disconnect_queue_from_qt_signal(queue)
+            shapes = [dict(origin=select.getOrigin(),
+                           size=select.getSize(),
+                           label=select.getLabel(),
+                           kind=select._getKind())
+                      for select in selections]
+            return shapes
+        finally:
+            qt_safe(plot.removeDockWidget)(dock)
+
+    def _create_roi_dock_widget(self, plot, initial_shapes):
+        roi_widget = ROISelectionWidget(plot)
+        dock = qt.QDockWidget('ROI selection')
+        dock.setWidget(roi_widget)
+        plot.addTabbedDockWidget(dock)
+        for shape in initial_shapes:
+            kind = shape['kind']
+            if kind == 'Rectangle':
+                roi = RectangleROI()
+                roi.setGeometry(origin=shape['origin'], size=shape['size'])
+                roi.setLabel(shape['label'])
+                roi_widget.add_roi(roi)
+            else:
+                raise ValueError('Unknown shape of type {}'.format(kind))
+        dock.show()
+        return dock
 
     @qt_unsafe
     def _selection(self, plot_id, cls, *args):

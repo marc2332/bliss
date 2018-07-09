@@ -370,24 +370,26 @@ def lscnt():
     print_(str(tabulate(table_info, headers=["Name", "Shape", "Controller"])))
 
 
-def edit_roi_counters(detector, scan=None, acq_time=1):
+def edit_roi_counters(detector, acq_time=None):
     """
     Edit the given detector ROI counters.
     When called without arguments, it will use the last point of the last
-    scan/ct as a reference. If no scan has been done yet it will do a `ct()`
-    with the given acq_time. Example::
+    scan/ct as a reference. If 'ct' is specified, it will do a 'ct()' with
+    the given count time.
 
         BLISS [1]: ct(0.1, pilatus1)
         BLISS [2]: edit_roi_counters(pilatus1)
     """
     roi_counters = detector.roi_counters
     name = '{} [{}]'.format(detector.name, roi_counters.config_name)
-    if scan is None:
-        all_scans = getattr(setup_globals, 'SCANS', ())
-        if not all_scans:
-            all_scans = (ct(acq_time, detector, return_scan=True),)
-        scan = all_scans[-1]
-    plot = scan.get_plot(detector)
+
+    if acq_time:
+        setup_globals.SCAN_DISPLAY.auto = True
+        scan = ct(acq_time, detector, return_scan=True)
+    else:
+        scan = setup_globals.SCANS[-1]
+ 
+    plot = scan.get_plot(detector, wait=True)
 
     selections = []
     for roi_name, roi in roi_counters.items():

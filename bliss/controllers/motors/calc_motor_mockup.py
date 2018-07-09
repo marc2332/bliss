@@ -43,7 +43,7 @@ class calc_motor_mockup(CalcController):
 
     """
     #Example to use s_param as property instead of settings.
-    #s_param is declared in the config file
+    #s_param is set in the YAML config file.
     @property
     def s_param(self):
         return self.__s_param

@@ -394,7 +394,7 @@ class _WagoController:
         elif len(ret) == 1:
             return ret[0]
         else:
-            return [num for elem in ret for num in elem]
+            return ret
 
     def _write_fs(self, value, low=0, high=10, base=32768):
         return int(((value - low) * base / float(high))) & 0xffff

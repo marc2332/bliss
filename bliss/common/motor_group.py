@@ -16,14 +16,22 @@ from bliss.common import event
 from bliss.common.utils import grouped
 
 GROUP_ID = itertools.count()
+GROUP_NAMES = {}
 
 def Group(*axes_list):
     axes = dict()
-    g = _Group("group_%d" % GROUP_ID.next(), {})
     for axis in axes_list:
         if not isinstance(axis, Axis):
             raise ValueError("invalid axis %r" % axis)
         axes[axis.name] = axis
+    # always use the same group name for groups of same axes,
+    # this is to make sure master name will stay the same
+    # when doing step-by-step scans for example -- this is
+    # useful for Flint to know if the 0D live scan plot window
+    # can be kept or not
+    key = "".join(sorted(axes))
+    gid = GROUP_NAMES.setdefault(key, GROUP_ID.next())
+    g = _Group("group_%d" % gid, {})
     g._axes.update(axes)
     return g
 

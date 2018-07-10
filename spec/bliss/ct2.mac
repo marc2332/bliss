@@ -51,6 +51,8 @@ def ct2_cmd(cnum, key, p1, p2) '{
             split(CT2_MAC_HDW[ctrl_dev]["acq_channels"], acq_chan_list)
             tango_put(ctrl_dev, "acq_channels", acq_chan_list)
             tango_put(ctrl_dev, "acq_nb_points", 1)
+            tango_put(ctrl_dev, "acq_mode", "IntTrigReadout")
+            tango_put(ctrl_dev, "acq_point_period", 0)
             tango_io(ctrl_dev, "prepare_acq")
             tango_io(ctrl_dev, "start_acq")
         }

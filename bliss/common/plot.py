@@ -170,7 +170,7 @@ def get_beacon_config():
     beacon = get_default_connection()
     return '{}:{}'.format(beacon._host, beacon._port)
 
-def check_flint():
+def check_flint(session_name):
     pid = FLINT.get('process')
     if pid is not None and psutil.pid_exists(pid):
         return pid
@@ -182,7 +182,9 @@ def check_flint():
     for key in redis.scan_iter("flint:%s:*" % platform.node()):
         pid = int(key.split(":")[-1])
         if psutil.pid_exists(pid):
-            return pid
+            value = redis.lindex(key, 0)
+            if value == session_name:
+                return pid
         else:
             redis.delete(key)
     
@@ -195,28 +197,35 @@ def start_flint():
 def attach_flint(pid):
     beacon = get_default_connection()
     redis = beacon.get_redis_connection()
-    
+    session = session_module.get_current()
+    if session is None:
+        raise RuntimeError("No current session, cannot attach flint")
+
     # Current URL
     key = "flint:{}:{}".format(platform.node(), pid)
-    url = redis.brpoplpush(key, key, timeout=3000)
+    value = redis.brpoplpush(key, key, timeout=3000)
+    url = value.split()[-1]
+
     # Return flint proxy
     proxy = zerorpc.Client(url)
-    session = session_module.get_current()
-    if session is not None:
-        proxy.set_session(session.name)
+    proxy.set_session(session.name)
     proxy._pid = pid
     return proxy
 
 def get_flint(start_new=False):
     old_pid = None
     pid = None
+
+    session = session_module.get_current()
+    if session is None:
+        raise RuntimeError("No current session, cannot get flint")
     
     # Get redis connection
     if start_new:
         pid = start_flint()
     else:
         # did we run our flint ?
-        pid = check_flint()
+        pid = check_flint(session.name)
         if pid is None:
             pid = start_flint()
         else:

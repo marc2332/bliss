@@ -100,7 +100,7 @@ def maintain_value(key, value):
     try:
         yield
     finally:
-        redis.lrem(key, value)
+        redis.delete(key)
 
 
 def background_task(flint, stop):

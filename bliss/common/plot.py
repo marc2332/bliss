@@ -182,11 +182,12 @@ def check_flint(session_name):
     for key in redis.scan_iter("flint:%s:*" % platform.node()):
         pid = int(key.split(":")[-1])
         if psutil.pid_exists(pid):
-            value = redis.lindex(key, 0)
+            value = redis.lindex(key, 0).split()[0]
             if value == session_name:
                 return pid
         else:
             redis.delete(key)
+    return None
     
 def start_flint():
     env = dict(os.environ)

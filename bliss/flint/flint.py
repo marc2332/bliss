@@ -100,7 +100,7 @@ def maintain_value(key, value):
     try:
         yield
     finally:
-        redis.lrem(key, value)
+        redis.delete(key)
 
 
 def background_task(flint, stop):
@@ -236,6 +236,15 @@ class Flint:
         ready_event.wait()
 
         self._session_name = session_name
+    
+        beacon = get_default_connection()
+        redis = beacon.get_redis_connection()
+        key = "flint:{}:{}".format(platform.node(), os.getpid())
+        current_value = redis.lindex(key, 0)
+        value = session_name+" "+current_value.split()[-1]
+        redis.lpush(key, value)
+        redis.rpop(key)
+
         self.set_title(session_name)
 
     def new_scan(self, scan_info):

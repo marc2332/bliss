@@ -13,15 +13,14 @@ import os
 sys.path.insert(
     0,
     os.path.abspath(
-        os.path.join(
-            os.path.dirname(__file__),
-            os.path.pardir, os.path.pardir)))
+        os.path.join(os.path.dirname(__file__), os.path.pardir, os.path.pardir)
+    ),
+)
 
 from bliss.common import log
 
 
 class wrapped_stdout:
-
     def __init__(self):
         self.output = cStringIO.StringIO()
         self.real_stdout = sys.stdout
@@ -35,7 +34,6 @@ class wrapped_stdout:
 
 
 class wrapped_stderr:
-
     def __init__(self):
         self.output = cStringIO.StringIO()
         self.real_stderr = sys.stderr
@@ -49,15 +47,17 @@ class wrapped_stderr:
 
 
 class TestLogging(unittest.TestCase):
-
     def test_debug(self):
         log.level(log.DEBUG)
         with wrapped_stdout() as stdout:
             log.debug("debugging test")
         output = stdout.getvalue()
         # Must suppress 13 firsts chars.
-        self.assertTrue(output.endswith(
-            "test_debug() (misc/test_logging.py, l.56): debugging test\n"))
+        self.assertTrue(
+            output.endswith(
+                "test_debug() (misc/test_logging.py, l.53): debugging test\n"
+            )
+        )
 
     def test_error(self):
         log.level(log.ERROR)
@@ -69,9 +69,7 @@ class TestLogging(unittest.TestCase):
         with wrapped_stdout() as stdout:
             log.info("test")
         output = stdout.getvalue()
-        self.assertEquals(
-            output,
-            "INFO: test\n")
+        self.assertEquals(output, "INFO: test\n")
 
     def test_level(self):
         self.assertEquals(log.level(log.INFO), log.INFO)
@@ -83,11 +81,14 @@ class TestLogging(unittest.TestCase):
             with wrapped_stderr() as stderr:
                 log.exception("excepted exception", raise_exception=False)
         output = stderr.getvalue()
-        self.assertTrue(output.endswith(
-            """tests/misc/test_logging.py", line 81, in test_exception
+        self.assertTrue(
+            output.endswith(
+                """tests/misc/test_logging.py", line 79, in test_exception
     raise RuntimeError("BLA")
 RuntimeError: BLA
-"""))
+"""
+            )
+        )
 
     def test_exception2(self):
         try:
@@ -98,5 +99,5 @@ RuntimeError: BLA
         self.assertTrue(False)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

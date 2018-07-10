@@ -294,7 +294,7 @@ class RoiCounters(object):
         self._remove_rois(names)
 
     def __contains__(self, name):
-        return self.has_key(name)
+        return name in self._save_rois
 
     def __len__(self):
         return len(self._save_rois)

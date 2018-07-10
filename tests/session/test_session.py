@@ -33,7 +33,7 @@ def test_current_session(session):
 def test_session_tree(beacon, capsys):
   session = beacon.get("test_session2")
   session.sessions_tree.show()
-  out1, err1 = capsys.readouterr() 
+  out1, err1 = capsys.readouterr()
   t = Tree()
   t.create_node("test_session2", "test_session2")
   t.create_node("test_session", "test_session", parent="test_session2")
@@ -77,7 +77,7 @@ def test_load_script(beacon, capsys):
   assert env_dict["load_script"] is not None
   load_script = env_dict["load_script"]
   load_script("script3", "test_session5")
-  assert env_dict.get("test_func") is not None 
+  assert env_dict.get("test_func") is not None
 
   from bliss.session.test_session5 import script3
   assert script3.test_func
@@ -99,7 +99,7 @@ def test_load_script_namespace(beacon):
   session.close()
 
 def test_prdef(beacon, capsys):
-  visible_func_code="\n\x1b[34;01mdef\x1b[39;49;00m \x1b[32;01mvisible_func\x1b[39;49;00m():\n  \x1b[34;01mpass\x1b[39;49;00m\n\n"
+  visible_func_code = u"\n\x1b[34;01mdef\x1b[39;49;00m \x1b[32;01mvisible_func\x1b[39;49;00m():\n    \x1b[34;01mpass\x1b[39;49;00m\n\n"
   env_dict = dict()
   session = beacon.get("test_session2")
   session.setup(env_dict)

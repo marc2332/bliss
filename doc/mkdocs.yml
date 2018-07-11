@@ -22,6 +22,7 @@ pages:
                 - Attenuators: config_att.md
                 - BLISS control objects: config_objects.md
                 - Sessions: config_session.md
+                - Simulation: config_simulation.md
         - BLISS shell:
                 - Command line usage: shell_cmdline.md
                 - Standard functions: shell_std_func.md

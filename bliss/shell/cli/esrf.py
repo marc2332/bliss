@@ -10,7 +10,7 @@
 from os import environ
 from datetime import timedelta
 from collections import namedtuple
-from bliss.common.tango import DeviceProxy, AttrQuality
+from bliss.common.tango import DeviceProxy, AttrQuality, DevState
 
 from prompt_toolkit.token import Token
 
@@ -29,6 +29,7 @@ for i, c in enumerate(BEAMLINE):
 
 FE_DEVICE = "orion:10000/fe/{0}/{1}".format(BEAMLINE_TYPE, BEAMLINE_NUMBER)
 ID_DEVICE = "orion:10000/id/id/{0}".format(BEAMLINE_NUMBER)
+SS_DEVICE = "id{0}/bsh/1".format(BEAMLINE_NUMBER)  # safety shutter
 
 Attribute = namedtuple("Attribute", "label attr_name unit display")
 
@@ -140,3 +141,24 @@ class IDStatus(DeviceStatus):
         return [(Token.Toolbar.Status.Name, self.title), Separator] + super(
             IDStatus, self
         ).__call__(cli)
+
+
+class SafetyShutterStatus(DeviceStatus):
+    def decode_state(value):
+        state = value.value
+        if state == DevState.OPEN:
+            return Token.Toolbar.Status.Open, "OPEN"
+        elif state == DevState.CLOSE:
+            return Token.Toolbar.Status.Close, "CLOSED"
+        elif state == DevState.FAULT:
+            return Token.Toolbar.Status.Error, "FAULT"
+        elif state == DevState.DISABLE:
+            return Token.Toolbar.Status.Warning, "DISABLED"
+        return QMAP[value.quality], str(state)
+
+    state = Attribute("SS: ", "State", "", decode_state)
+
+    attributes = (state,)
+
+    def __init__(self, device=SS_DEVICE, **kwargs):
+        super(SafetyShutterStatus, self).__init__(device, **kwargs)

@@ -35,8 +35,10 @@ from bliss.config.conductor.client import get_default_connection
 
 try:
     from PyQt4.QtCore import pyqtRemoveInputHook
+    from PyQt4 import QtGui
 except ImportError:
     from PyQt5.QtCore import pyqtRemoveInputHook
+    from PyQt5 import QtGui
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
@@ -197,7 +199,9 @@ class Flint:
         self.data_dict = collections.defaultdict(dict)
         self.scans_watch_task = None
         self._session_name = None
-
+        self._last_event = dict()
+        self._refresh_task = None
+        
         def new_live_scan_plots():
             return {"0d": [],
                     "1d": [],
@@ -388,16 +392,37 @@ class Flint:
 
     @qt_unsafe
     def new_scan_data(self, data_type, master_name, data):
-        last_data = data["data"]
         if data_type in ('1d', '2d'):
-            try:
-                last_data = last_data[-1]
-            except IndexError:
-                return
+            key = master_name,data['channel_name']
         else:
-            data['channel_index'] = 0
+            key = master_name,None
+            
+        self._last_event[key] = (data_type, data)
+        if self._refresh_task is None:
+            self._refresh_task = gevent.spawn(self._refresh)
 
-        return self._new_scan_data(data_type, master_name, data, last_data)
+    @qt_unsafe
+    def _refresh(self):
+        try:
+            while self._last_event:
+                local_event = self._last_event
+                self._last_event = dict()
+                for (master_name, _), (data_type, data) in local_event.items():
+                    last_data = data["data"]
+                    if data_type in ('1d', '2d'):
+                        try:
+                            last_data = last_data[-1]
+                        except IndexError:
+                            continue
+                        else:
+                           data['channel_index'] = 0 
+                    try:
+                        self._new_scan_data(data_type, master_name, data, last_data)
+                        gevent.idle()
+                    except:
+                        sys.excepthook(*sys.exc_info())
+        finally:
+            self._refresh_task = None
 
     def _new_scan_data(self, data_type, master_name, data, last_data):
         if data_type == '0d':
@@ -433,6 +458,7 @@ class Flint:
                                                              {}).setdefault(data["channel_index"],
                                                                             gevent.event.Event())
         data_event.set()
+        QtGui.QApplication.processEvents()
 
     def new_tab(self, label, widget=qt.QWidget):
         widget = widget()

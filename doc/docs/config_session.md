@@ -173,7 +173,7 @@ This code will make a session to look like:
      
      
      
-     simot1: 12.05 | salut | Wed Apr 25 17:08:21 CEST 2018
+     BL=ID245c | simot1: 12.05 | Wed Apr 25 17:08:21 CEST 2018
 
 
 More widgets can be defined using the same model:

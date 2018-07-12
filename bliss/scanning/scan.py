@@ -114,19 +114,6 @@ class ScanSaving(Parameters):
                                             '_writer_module': 'hdf5'},
                             **keys)
 
-        cache_dict = self._proxy.get_all()
-        if '_writer_module' not in cache_dict:
-            #Check if hdf5 is available as a default
-            try:
-                self._get_writer_object('hdf5', os.getcwd())
-            except:
-                sys.excepthook(*sys.exc_info())
-                default_module_name = None
-            else:
-                default_module_name = 'hdf5'
-
-            self.add('_writer_module', default_module_name)
-
     def __dir__(self):
         keys = Parameters.__dir__(self)
         return keys + ['session', 'get', 'get_path', 'get_parent_node', 'writer']
@@ -163,13 +150,13 @@ class ScanSaving(Parameters):
         """
         Scan writer object.
         """
-        return self._get_writer()
+        return self._proxy['_writer_module']
 
     @writer.setter
     def writer(self, value):
         try:
             if value is not None:
-                self._get_writer_object(value, os.getcwd())
+                self._get_writer_class(value)
         except ImportError, exc:
             raise ImportError('Writer module **%s** does not'
                               ' exist or cannot be loaded (%s)'
@@ -222,9 +209,7 @@ class ScanSaving(Parameters):
             return {'root_path': path,
                     'images_path': images_path,
                     'parent': parent,
-                    'writer': self._get_writer_object(writer_module=writer_module,
-                                                      path=path,
-                                                      images_path=images_path)}
+                    'writer': self._get_writer_object(path, images_path)}
 
     def get_path(self):
         """
@@ -240,17 +225,15 @@ class ScanSaving(Parameters):
         """
         return self.get()['parent']
 
-    def _get_writer(self, writer_module=None, path=None, images_path=None):
-        if None in (writer_module, path, images_path):
-            return self.get()['writer']
-        return self._get_writer_object(writer_module, path, images_path)
-
-    def _get_writer_object(self, writer_module, path, images_path):
-        if writer_module is None:
-            return None
+    def _get_writer_class(self, writer_module):
         module_name = '%s.%s' % (self.WRITER_MODULE_PATH, writer_module)
         writer_module = __import__(module_name, fromlist=[''])
-        klass = getattr(writer_module, 'Writer')
+        return getattr(writer_module, 'Writer')
+        
+    def _get_writer_object(self, path, images_path):
+        if self.writer is None:
+            return
+        klass = self._get_writer_class(self.writer)
         return klass(path, images_path)
 
 

@@ -190,6 +190,9 @@ class AcquisitionMaster(object):
         return self.__npoints
 
     def _prepare(self):
+        for channel in self.channels:
+            channel._device_name = self.name
+
         return self.prepare()
 
     def prepare(self):
@@ -314,6 +317,9 @@ class AcquisitionDevice(object):
         return self.__npoints
 
     def _prepare(self):
+        for channel in self.channels:
+            channel._device_name = self.name
+
         if not self._check_ready():
             raise RuntimeError(
                 "%s: Last reading task is not finished." % self.name)

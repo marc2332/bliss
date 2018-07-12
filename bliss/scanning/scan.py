@@ -108,7 +108,8 @@ class ScanSaving(Parameters):
                             default_values={'base_path': '/tmp/scans',
                                             'user_name': getpass.getuser(),
                                             'template': '{session}/',
-                                            'images_template': '{scan}',
+                                            'images_path_relative': True,
+                                            'images_path_template': '{session}/{scan}',
                                             'images_prefix': '{device}',
                                             'date_format': '%Y%m%d',
                                             '_writer_module': 'hdf5'},
@@ -123,7 +124,7 @@ class ScanSaving(Parameters):
         d['writer'] = d.get('_writer_module')
         d['session'] = self.session
         d['date'] = self.date
-        d['scan'] = '<images_template only> scan node name'
+        d['scan'] = '<images_path_template only> scan node name'
         d['device'] = '<images_prefix only> acquisition device name'
         return self._repr(d)
 
@@ -172,12 +173,15 @@ class ScanSaving(Parameters):
         This method will compute all configurations needed for a new acquisition.
         It will return a dictionary with:
             root_path -- compute root path with *base_path* and *template* attribute
-            images_path -- compute images path with *base_path* and *images_template* attribute
+            images_path -- compute images path with *base_path* and *images_path_template* attribute
+                If images_path_relative is set to True (default), the path
+                template is relative to the scan path, otherwise the
+                image_path_template has to be an absolute path.
             parent -- DataNodeContainer to be used as a parent for new acquisition
         """
         try:
             template = self.template
-            images_template = self.images_template
+            images_template = self.images_path_template
             formatter = string.Formatter()
             cache_dict = self._proxy.get_all()
             cache_dict['session'] = self.session
@@ -203,8 +207,11 @@ class ScanSaving(Parameters):
             raise RuntimeError("Missing %s attribute in ScanSaving" % keyname)
         else:
             path = os.path.join(cache_dict.get('base_path'), sub_path)
-            images_path = os.path.join(path, images_sub_path,
-                                       self.images_prefix)
+            if self.images_path_relative:
+                images_path = os.path.join(path, images_sub_path,
+                                           self.images_prefix)
+            else:
+                images_path = os.path.join(images_sub_path, self.images_prefix)
 
             return {'root_path': path,
                     'images_path': images_path,

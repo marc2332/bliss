@@ -78,8 +78,11 @@ class Writer(FileWriter):
                     self.last_point_index[channel] = 0
         elif signal == 'new_data':
             channel = sender
-            data = event_dict.get('data')
+            if channel.reference:
+                return
 
+            data = event_dict.get('data')
+            
             dataset = parent[channel.fullname]
             if not dataset.id.valid:
                 print('writer is closed. Spurious data point ignored')

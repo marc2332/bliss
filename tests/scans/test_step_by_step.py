@@ -6,6 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import pytest
+import os
 import time
 import numpy
 from bliss import setup_globals
@@ -183,3 +184,50 @@ def test_dmesh(beacon):
     assert scan_data["robz"][-1] == start_robz+3
     assert numpy.array_equal(scan_data['gaussian'], counter.data)
 
+def test_save_images(beacon, lima_simulator, scan_tmpdir):
+    session = beacon.get('test_session')
+    session.setup()
+
+    lima_sim = beacon.get("lima_simulator")
+    roby = getattr(setup_globals, 'roby')
+    scan_saving = getattr(setup_globals, 'SCAN_SAVING')
+    saved_base_path = scan_saving.base_path
+    try:
+        scan_saving.base_path = str(scan_tmpdir)
+        root_path = scan_saving.get()['root_path']
+
+        s = scans.ascan(roby, 0, 1, 2, 0.001, lima_sim, run=False)
+    
+        scan_path = os.path.join(root_path, 'data.h5')
+        images_path = os.path.join(root_path, s.name) 
+        image_filename = '%s_000%%d.edf' % (lima_sim.name)
+
+        s.run()
+
+        assert os.path.isfile(scan_path)
+        for i in range(2):
+            assert os.path.isfile(os.path.join(images_path, image_filename %
+                                               i))
+
+        os.unlink(scan_path)
+        os.unlink(os.path.join(images_path, image_filename % 0))
+
+        s = scans.ascan(roby, 1, 0, 2, 0.001, lima_sim, save_images=False,
+                        run=False)
+
+        s.run()
+
+        assert os.path.isfile(scan_path)
+        assert not os.path.isfile(os.path.join(images_path, image_filename % 0))
+
+        os.unlink(scan_path)
+
+        s = scans.ascan(roby, 0, 1, 2, 0.001, lima_sim, save=False,
+                        save_images=True, run=False)
+
+        s.run()
+
+        assert not os.path.isfile(scan_path)
+        assert not os.path.isfile(os.path.join(images_path, image_filename % 0))
+    finally:
+        scan_saving.base_path=saved_base_path

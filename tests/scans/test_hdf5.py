@@ -38,15 +38,15 @@ ascan_dump="""{ascan}
     NX_class: NXentry
 {ascan}/measurement
     NX_class: NXcollection
-{ascan}/measurement/{group_name}_master
-{ascan}/measurement/{group_name}_master/{group_name}:roby
-{ascan}/measurement/{group_name}_master/timer_master
+{ascan}/measurement/{group_name}
+{ascan}/measurement/{group_name}/{group_name}:roby
+{ascan}/measurement/{group_name}/timer
 {ascan}/measurement/instrument
     NX_class: NXinstrument
-{ascan}/measurement/timer_master
-{ascan}/measurement/timer_master/diode:diode
-{ascan}/measurement/timer_master/simu1:spectrum_det0
-{ascan}/measurement/timer_master/timer:elapsed_time
+{ascan}/measurement/timer
+{ascan}/measurement/timer/diode:diode
+{ascan}/measurement/timer/simu1:spectrum_det0
+{ascan}/measurement/timer/timer:elapsed_time
 {ascan}/start_time
 {ascan}/title
 """
@@ -81,6 +81,7 @@ def test_hdf5_metadata(beacon):
 def test_hdf5_file_items(beacon):
     session = beacon.get('test_session')
     session.setup()
+
 
     roby = beacon.get("roby")
     diode = beacon.get("diode")

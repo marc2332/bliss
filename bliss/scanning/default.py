@@ -225,7 +225,7 @@ class DefaultAcquisitionChain(object):
     def add_preset(self, preset):
         self._presets[id(preset)]=preset
 
-    def get(self, scan_pars, counter_args, top_master=None):
+    def get(self, scan_pars, counter_args, top_master=None, chain=None):
         # Scan parameters
         count_time = scan_pars.get('count_time', 1)
         sleep_time = scan_pars.get('sleep_time')
@@ -273,7 +273,8 @@ class DefaultAcquisitionChain(object):
         mapping = master_to_devices_mapping(
             timer, counters, scan_pars, acquisition_settings, master_settings)
 
-        chain = AcquisitionChain(parallel_prepare=True)
+        if chain is None:
+            chain = AcquisitionChain(parallel_prepare=True)
 
         # Build chain
         for acq_master, acq_devices in mapping.iteritems():

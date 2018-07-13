@@ -97,9 +97,6 @@ class FileWriter(object):
                     if isinstance(slave, AcquisitionDevice) and \
                         callable(self._device_event_callback):
                         self._prepare_callbacks(slave, master_entry, self._device_event_callback)
-                    elif isinstance(slave, AcquisitionMaster) and \
-                        callable(self._master_event_callback):
-                        self._prepare_callbacks(slave, master_entry, self._master_event_callback)
         self._closed = False
 
     def close(self):

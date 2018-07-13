@@ -98,6 +98,8 @@ class LimaImageChannelDataNode(DataNode):
             else:
                 if item_index < 0:
                     start = self.last_index
+                    if start == 0:
+                        raise IndexError('No image available')
                 else:
                     start = self.from_index
                 return self.get_image(start+item_index)

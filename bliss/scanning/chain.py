@@ -198,7 +198,7 @@ class AcquisitionMaster(object):
     def prepare(self):
         raise NotImplementedError
 
-    def prepare_image_saving(self, directory, prefix):
+    def prepare_image_saving(self, channel_name, directory, prefix):
         pass
     
     def start(self):

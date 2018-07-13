@@ -86,7 +86,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
     def save_flag(self):
         return bool(self._save_flag and self._image_channel)
 
-    def prepare_image_saving(self, directory, prefix):
+    def prepare_image_saving(self, channel_name, directory, prefix):
         if self.save_flag:
             self.parameters.setdefault('saving_mode', 'AUTO_FRAME')
             self.parameters.setdefault('saving_format', 'EDF')

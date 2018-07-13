@@ -393,7 +393,7 @@ class IntegratingCounter(Counter):
             """
             raise NotImplementedError
 
-    def __init__(self, name, controller, master_controller,
+    def __init__(self, name, controller, master_controller=None,
                  grouped_read_handler=None, conversion_function=None):
         if grouped_read_handler is None and hasattr(controller, "get_values"):
             grouped_read_handler = DefaultIntegratingCounterGroupedReadHandler(
@@ -417,7 +417,10 @@ class IntegratingCounter(Counter):
         super(IntegratingCounter, self).__init__(
             name, grouped_read_handler, conversion_function, controller)
 
-        self._master_controller_ref = weakref.ref(master_controller)
+        if master_controller is None:
+            self._master_controller_ref = lambda: None
+        else:
+            self._master_controller_ref = weakref.ref(master_controller)
 
     def get_values(self, from_index=0):
         """

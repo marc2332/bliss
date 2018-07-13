@@ -15,8 +15,8 @@ from bliss.scanning.writer.file import FileWriter
 
 
 class Writer(FileWriter):
-    def __init__(self, root_path, **keys):
-        FileWriter.__init__(self, root_path,
+    def __init__(self, root_path, images_root_path, **keys):
+        FileWriter.__init__(self, root_path, images_root_path,
                             master_event_callback=self._on_event,
                             device_event_callback=self._on_event,
                             **keys)
@@ -26,16 +26,15 @@ class Writer(FileWriter):
         self.measurement = None
         self.last_point_index = {}
 
-    def new_file(self, scan_file_dir, scan_recorder):
+    def new_file(self, scan_file_dir, scan_name, scan_info):
         self.close()
-        self.last_point_index = {}
-
-        self.file = h5py.File(os.path.join(scan_file_dir, '..', 'data.h5'))
-        self.scan_entry = self.file.create_group(scan_recorder.name)
+        self.file = h5py.File(os.path.join(scan_file_dir, 'data.h5'))
+        self.scan_entry = self.file.create_group(scan_name)
         self.scan_entry.attrs['NX_class'] = 'NXentry'
-        scan_title = scan_recorder.scan_info.get("title", "untitled")
+        scan_title = scan_info.get("title", "untitled")
+        utf8_dt = h5py.special_dtype(vlen=unicode)
         self.scan_entry['title'] = scan_title.encode('utf-8')
-        timestamp = scan_recorder.scan_info.get("start_timestamp")
+        timestamp = scan_info.get("start_timestamp")
         local_time = datetime.datetime.fromtimestamp(timestamp).isoformat()
         utc_time = local_time+'%+03d:00' % (time.altzone / 3600)
         self.scan_entry['start_time'] = utc_time.encode('utf-8')
@@ -47,19 +46,17 @@ class Writer(FileWriter):
         positioners.attrs['NX_class'] = 'NXcollection'
         positioners_dial = instrument.create_group('positioners_dial')
         positioners_dial.attrs['NX_class'] = 'NXcollection'
-        positioners_dict = \
-            scan_recorder.scan_info.get('positioners', {})
+        positioners_dict = scan_info.get('positioners', {})
         for pname, ppos in positioners_dict.iteritems():
             if isinstance(ppos, float):  
                 positioners.create_dataset(pname, dtype='float64', data=ppos)
-        positioners_dial_dict = \
-            scan_recorder.scan_info.get('positioners_dial', {})
+        positioners_dial_dict = scan_info.get('positioners_dial', {})
         for pname, ppos in positioners_dial_dict.iteritems():
             if isinstance(ppos, float):
                 positioners_dial.create_dataset(pname, dtype='float64', data=ppos)
 
-    def new_master(self, master, scan):
-        return self.measurement.create_group(master.name + '_master')
+    def new_master(self, master, scan_file_dir):
+        return self.measurement.create_group(master.name)
 
     def add_reference(self, master_entry, referenced_master_entry):
         ref_path = referenced_master_entry.name
@@ -105,7 +102,6 @@ class Writer(FileWriter):
             self.last_point_index[channel] += data_len
 
     def close(self):
-        super(Writer, self).close()
         if self.file is not None:
             self.file.close()
             self.file = None

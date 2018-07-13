@@ -108,7 +108,10 @@ class ScanSaving(Parameters):
                             default_values={'base_path': '/tmp/scans',
                                             'user_name': getpass.getuser(),
                                             'template': '{session}/',
-                                            'date_format': '%Y%m%d'},
+                                            'images_template': '{scan}',
+                                            'images_prefix': '{device}',
+                                            'date_format': '%Y%m%d',
+                                            '_writer_module': 'hdf5'},
                             **keys)
 
         cache_dict = self._proxy.get_all()
@@ -133,7 +136,17 @@ class ScanSaving(Parameters):
         d['writer'] = d.get('_writer_module')
         d['session'] = self.session
         d['date'] = self.date
+        d['scan'] = '<images_template only> scan node name'
+        d['device'] = '<images_prefix only> acquisition device name'
         return self._repr(d)
+
+    @property
+    def scan(self):
+        return '{scan}'
+
+    @property
+    def device(self):
+        return '{device}'
 
     @property
     def session(self):
@@ -172,14 +185,18 @@ class ScanSaving(Parameters):
         This method will compute all configurations needed for a new acquisition.
         It will return a dictionary with:
             root_path -- compute root path with *base_path* and *template* attribute
+            images_path -- compute images path with *base_path* and *images_template* attribute
             parent -- DataNodeContainer to be used as a parent for new acquisition
         """
         try:
             template = self.template
+            images_template = self.images_template
             formatter = string.Formatter()
             cache_dict = self._proxy.get_all()
             cache_dict['session'] = self.session
             cache_dict['date'] = self.date
+            cache_dict['scan'] = self.scan
+            cache_dict['device'] = self.device
             writer_module = cache_dict.get('_writer_module')
             template_keys = [key[1] for key in formatter.parse(template)]
 
@@ -189,6 +206,8 @@ class ScanSaving(Parameters):
                     value = value(self)  # call the function
                     cache_dict[key] = value
             sub_path = template.format(**cache_dict)
+            images_sub_path = images_template.format(**cache_dict)
+
             parent = _get_or_create_node(self.session, "container")
             for path_item in os.path.normpath(sub_path).split(os.path.sep):
                 parent = _get_or_create_node(path_item, "container",
@@ -197,10 +216,15 @@ class ScanSaving(Parameters):
             raise RuntimeError("Missing %s attribute in ScanSaving" % keyname)
         else:
             path = os.path.join(cache_dict.get('base_path'), sub_path)
+            images_path = os.path.join(path, images_sub_path,
+                                       self.images_prefix)
+
             return {'root_path': path,
+                    'images_path': images_path,
                     'parent': parent,
                     'writer': self._get_writer_object(writer_module=writer_module,
-                                                      path=path)}
+                                                      path=path,
+                                                      images_path=images_path)}
 
     def get_path(self):
         """
@@ -216,18 +240,18 @@ class ScanSaving(Parameters):
         """
         return self.get()['parent']
 
-    def _get_writer(self, writer_module=None, path=None):
-        if writer_module is None or path is None:
+    def _get_writer(self, writer_module=None, path=None, images_path=None):
+        if None in (writer_module, path, images_path):
             return self.get()['writer']
-        return self._get_writer_object(writer_module, path)
+        return self._get_writer_object(writer_module, path, images_path)
 
-    def _get_writer_object(self, writer_module, path):
+    def _get_writer_object(self, writer_module, path, images_path):
         if writer_module is None:
             return None
         module_name = '%s.%s' % (self.WRITER_MODULE_PATH, writer_module)
         writer_module = __import__(module_name, fromlist=[''])
         klass = getattr(writer_module, 'Writer')
-        return klass(path)
+        return klass(path, images_path)
 
 
 class ScanDisplay(Parameters):
@@ -588,7 +612,7 @@ class Scan(object):
                     connect(dev, signal, self._device_event)
 
         if self._writer:
-            self._writer.prepare(self, scan_info, devices_tree)
+            self._writer.prepare(self)
 
     def run(self):
         if hasattr(self._data_watch_callback, 'on_state'):

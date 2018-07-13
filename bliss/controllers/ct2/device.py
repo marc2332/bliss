@@ -26,6 +26,7 @@ import logging
 import time
 import numpy
 import gevent
+import math
 from gevent import select
 from louie import dispatcher
 
@@ -599,9 +600,9 @@ class CT2(object):
 
         timer_cmp, out_cmp = None, None
         if self.__has_int_exp():
-            timer_cmp = int(point_period)
+            timer_cmp = math.ceil(point_period)
             if self.output_counter:
-                out_cmp = int(expo_time)
+                out_cmp = math.ceil(expo_time)
 
         return timer_cmp, out_cmp
 

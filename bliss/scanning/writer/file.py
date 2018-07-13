@@ -66,12 +66,10 @@ class FileWriter(object):
         pass
 
     def prepare_saving(self, device, images_path):
-        for channel in device.channels:
-            if channel.reference and len(channel.shape) == 2:   
-                directory = os.path.dirname(images_path)
-                prefix = os.path.basename(images_path)
-                self.create_path(directory)
-                device.prepare_image_saving(channel.name, directory, prefix)
+        directory = os.path.dirname(images_path)
+        prefix = os.path.basename(images_path)
+        self.create_path(directory)
+        device.prepare_image_saving(directory, prefix)
 
     def _prepare_callbacks(self, device, master_entry, callback):
         ev_receiver = _EventReceiver(master_entry, callback)

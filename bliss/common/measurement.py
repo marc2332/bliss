@@ -393,6 +393,14 @@ class IntegratingCounter(Counter):
             """
             raise NotImplementedError
 
+    class ConvertValues(object):
+        def __init__(self, grouped_read_handler):
+            self.get_values = grouped_read_handler.get_values
+
+        def __call__(self, from_index, *counters):
+            return [cnt.conversion_function(x) if cnt.conversion_function else x
+                    for x, cnt in zip(self.get_values(from_index, *counters), counters)]
+
     def __init__(self, name, controller, master_controller=None,
                  grouped_read_handler=None, conversion_function=None):
         if grouped_read_handler is None and hasattr(controller, "get_values"):
@@ -400,15 +408,9 @@ class IntegratingCounter(Counter):
                 controller)
 
         if grouped_read_handler:
-            class ConvertValues(object):
-                def __init__(self, grouped_read_handler):
-                    self.get_values = grouped_read_handler.get_values
-
-                def __call__(self, from_index, *counters):
-                    return [cnt.conversion_function(x) if cnt.conversion_function else x
-                            for x, cnt in zip(self.get_values(from_index, *counters), counters)]
-            grouped_read_handler.get_values = ConvertValues(
-                grouped_read_handler)
+            if not isinstance(grouped_read_handler.get_values, self.ConvertValues):
+                grouped_read_handler.get_values = self.ConvertValues(
+                    grouped_read_handler)
         else:
             if callable(conversion_function):
                 add_conversion_function(

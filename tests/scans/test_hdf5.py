@@ -82,7 +82,6 @@ def test_hdf5_file_items(beacon):
     session = beacon.get('test_session')
     session.setup()
 
-
     roby = beacon.get("roby")
     diode = beacon.get("diode")
     simu1 = beacon.get("simu1")

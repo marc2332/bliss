@@ -124,8 +124,8 @@ class ScanSaving(Parameters):
         d['writer'] = d.get('_writer_module')
         d['session'] = self.session
         d['date'] = self.date
-        d['scan'] = '<images_path_template only> scan node name'
-        d['device'] = '<images_prefix only> acquisition device name'
+        d['scan'] = '<images_* only> scan node name'
+        d['device'] = '<images_* only> acquisition device name'
         return self._repr(d)
 
     @property

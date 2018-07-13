@@ -28,12 +28,14 @@ class FileWriter(object):
                  **keys):
         """ A default way to organize file structure
         """
-        self.log = logging.getLogger(type(self).__name__)
+        self._save_images = True
         self._root_path = root_path
         self._images_root_path = images_root_path
         self._master_event_callback = master_event_callback
         self._device_event_callback = device_event_callback
         self._event_receivers = list()
+
+        self.log = logging.getLogger(type(self).__name__)
 
     @property
     def root_path(self):
@@ -66,10 +68,16 @@ class FileWriter(object):
         pass
 
     def prepare_saving(self, device, images_path):
-        directory = os.path.dirname(images_path)
-        prefix = os.path.basename(images_path)
-        self.create_path(directory)
-        device.prepare_image_saving(directory, prefix)
+        any_image = any(
+            channel.reference and len(channel.shape) == 2
+            for channel in device.channels)
+        if any_image and self._save_images:
+            directory = os.path.dirname(images_path)
+            prefix = os.path.basename(images_path)
+            self.create_path(directory)
+            device.set_image_saving(directory, prefix)
+        else:
+            device.set_image_saving(None, None, force_no_saving=True)
 
     def _prepare_callbacks(self, device, master_entry, callback):
         ev_receiver = _EventReceiver(master_entry, callback)

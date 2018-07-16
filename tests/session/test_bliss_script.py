@@ -17,6 +17,9 @@ from bliss.shell.cli.main import print_sessions_and_trees
 from bliss.shell.cli.main import print_sessions_list
 
 
+BLISS = [sys.executable, '-m', 'bliss.shell.cli.main']
+
+
 @pytest.fixture(scope="module")
 def session99():
     session_file = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'test_configuration', 'sessions', 'session99.yml'))
@@ -37,7 +40,7 @@ def session99():
 
 
 def test_print_sessions(beacon):
-    bliss_shell = subprocess.Popen(['bliss', '--show-sessions-only'], stdout=subprocess.PIPE)
+    bliss_shell = subprocess.Popen(BLISS + ['--show-sessions-only'], stdout=subprocess.PIPE)
     bliss_cmd_output, _ = bliss_shell.communicate()
 
     assert set(bliss_cmd_output.split('\n')) == set("""test_session4
@@ -52,7 +55,7 @@ freddy
 
 
 def test_print_version(beacon):
-    bliss_shell = subprocess.Popen(['bliss', '--version'], stdout=subprocess.PIPE)
+    bliss_shell = subprocess.Popen(BLISS + ['--version'], stdout=subprocess.PIPE)
     out, _ = bliss_shell.communicate()
     assert out.strip().endswith(release.short_version)
 
@@ -66,7 +69,7 @@ def test_invalid_arg(beacon):
 
 def test_create_session(beacon, session99):
     session_file, session_setup_file, session_scripts_file, init_file = session99
-    bliss_shell = subprocess.Popen(['bliss', '-c', 'session99'], stdout=subprocess.PIPE)
+    bliss_shell = subprocess.Popen(BLISS + ['-c', 'session99'], stdout=subprocess.PIPE)
     bliss_shell.wait()
     assert os.path.exists(init_file)
     assert file(init_file).read() == 'plugin: session\n'
@@ -81,7 +84,7 @@ def test_create_session(beacon, session99):
 
 def test_delete_session(beacon, session99):
     session_file, session_setup_file, session_scripts_file, init_file = session99
-    bliss_shell = subprocess.Popen(['bliss', '-d', 'session99'], stdout=subprocess.PIPE)
+    bliss_shell = subprocess.Popen(BLISS + ['-d', 'session99'], stdout=subprocess.PIPE)
     bliss_cmd_output = bliss_shell.communicate()
     assert not os.path.exists(session_file)
     assert not os.path.exists(session_setup_file)

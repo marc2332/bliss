@@ -532,7 +532,7 @@ def timescan(count_time, *counter_args, **kwargs):
 
     _log.info("Doing %s", scan_info['type'])
 
-    chain = DEFAULT_CHAIN.get(scan_info, counter_args, save_images=save_images)
+    chain = DEFAULT_CHAIN.get(scan_info, counter_args)
 
     scan = step_scan(
         chain,
@@ -540,7 +540,8 @@ def timescan(count_time, *counter_args, **kwargs):
         name=kwargs.setdefault(
             "name",
             "timescan"),
-        save=scan_info['save'])
+        save=scan_info['save'],
+        save_images=save_images)
 
     if kwargs.get('run', True):
         scan.run()

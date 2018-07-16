@@ -47,7 +47,7 @@ class BaseCounterAcquisitionDevice(AcquisitionDevice):
 
         if not isinstance(counter, GroupedReadMixin):
             self.channels.append(AcquisitionChannel(
-                counter.name, numpy.double, ()))
+                counter.name, counter.dtype, counter.shape))
 
     @property
     def count_time(self):
